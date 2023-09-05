@@ -117,13 +117,13 @@ class Problem:
         self._m_nonlinear_ub = m_nonlinear_ub
         if isinstance(self._m_nonlinear_ub, float) and self._m_nonlinear_ub.is_integer():
             self._m_nonlinear_ub = int(self._m_nonlinear_ub)
-        if self._m_nonlinear_ub is not None and not isinstance(self._m_nonlinear_ub, int):
-            raise ValueError('The argument `m_nonlinear_ub` must be an integer.')
+        if self._m_nonlinear_ub is not None and not (isinstance(self._m_nonlinear_ub, int) and self._m_nonlinear_ub >= 0):
+            raise ValueError('The argument `m_nonlinear_ub` must be a nonnegative integer.')
         self._m_nonlinear_eq = m_nonlinear_eq
         if isinstance(self._m_nonlinear_eq, float) and self._m_nonlinear_eq.is_integer():
             self._m_nonlinear_eq = int(self._m_nonlinear_eq)
-        if self._m_nonlinear_eq is not None and not isinstance(self._m_nonlinear_eq, int):
-            raise ValueError('The argument `m_nonlinear_eq` must be an integer.')
+        if self._m_nonlinear_eq is not None and not (isinstance(self._m_nonlinear_eq, int) and self._m_nonlinear_eq >= 0):
+            raise ValueError('The argument `m_nonlinear_eq` must be a nonnegative integer.')
 
         # Check that the arguments are consistent.
         if self.xl.size != self.n:
@@ -561,6 +561,24 @@ def load_cutest(problem_name, options=None):
             c_val = cutest_problem.cons(x, index)
             c.append(c_val - 0.5 * (cutest_problem.cl[index] + cutest_problem.cu[index]))
         return np.array(c)
+
+    # Check the arguments.
+    if not isinstance(problem_name, str):
+        raise ValueError('The argument `problem_name` must be a string.')
+    if options is not None:
+        if not isinstance(options, dict):
+            raise ValueError('The argument `options` must be a dictionary.')
+        for key in options:
+            if key not in ['n_min', 'n_max', 'm_min', 'm_max']:
+                raise ValueError(f'Invalid option: {key}.')
+            if not isinstance(options[key], int):
+                raise ValueError(f'The option `{key}` must be an integer.')
+            if options[key] < 0:
+                raise ValueError(f'The option `{key}` must be nonnegative.')
+        if 'n_min' in options and 'n_max' in options and options['n_min'] > options['n_max']:
+            raise ValueError('The option `n_min` must be less than or equal to the option `n_max`.')
+        if 'm_min' in options and 'm_max' in options and options['m_min'] > options['m_max']:
+            raise ValueError('The option `m_min` must be less than or equal to the option `m_max`.')
 
     # Attempt to load the CUTEst problem.
     cutest_problem = None
