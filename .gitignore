@@ -154,6 +154,9 @@ dmypy.json
 ## Cython debug symbols
 cython_debug/
 
+## PyCUTEst
+pycutest_cache_holder/
+
 
 # MATLAB
 
