@@ -25,11 +25,16 @@ release = OptiProfiler.__version__
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
-extensions = []
+extensions = [
+    'numpydoc',
+    'sphinx_copybutton',
+]
 
 templates_path = ['_templates']
 
 exclude_patterns = []
+
+today_fmt = '%B %d, %Y'
 
 
 # -- Options for HTML output -------------------------------------------------
@@ -38,3 +43,8 @@ exclude_patterns = []
 html_theme = 'alabaster'
 
 html_static_path = ['_static']
+
+
+# -- Generate autodoc summaries ----------------------------------------------
+
+autosummary_generate = True
