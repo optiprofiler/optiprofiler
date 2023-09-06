@@ -33,6 +33,7 @@ release = OptiProfiler.__version__
 extensions = [
     'numpydoc',
     'sphinx_copybutton',
+    'sphinx_rtd_theme',
 ]
 
 templates_path = ['_templates']
