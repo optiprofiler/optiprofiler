@@ -237,7 +237,7 @@ class Problem:
         numpy.ndarray, shape (n,)
             Initial guess.
         """
-        return np.array(self._x0)
+        return self._x0
 
     @property
     def xl(self):
@@ -249,7 +249,7 @@ class Problem:
         numpy.ndarray, shape (n,)
             Lower bounds on the variables.
         """
-        return np.array(self._xl) if self._xl is not None else np.full(self.n, -np.inf)
+        return self._xl if self._xl is not None else np.full(self.n, -np.inf)
 
     @property
     def xu(self):
@@ -261,7 +261,7 @@ class Problem:
         numpy.ndarray, shape (n,)
             Upper bounds on the variables.
         """
-        return np.array(self._xu) if self._xu is not None else np.full(self.n, np.inf)
+        return self._xu if self._xu is not None else np.full(self.n, np.inf)
 
     @property
     def aub(self):
@@ -273,7 +273,7 @@ class Problem:
         numpy.ndarray, shape (m_linear_ub, n)
             Left-hand side matrix of the linear inequality constraints.
         """
-        return np.array(self._aub) if self._aub is not None else np.empty((0, self.n))
+        return self._aub if self._aub is not None else np.empty((0, self.n))
 
     @property
     def bub(self):
@@ -285,7 +285,7 @@ class Problem:
         numpy.ndarray, shape (m_linear_ub,)
             Right-hand side vector of the linear inequality constraints.
         """
-        return np.array(self._bub) if self._bub is not None else np.empty(0)
+        return self._bub if self._bub is not None else np.empty(0)
 
     @property
     def aeq(self):
@@ -297,7 +297,7 @@ class Problem:
         numpy.ndarray, shape (m_linear_eq, n)
             Left-hand side matrix of the linear equality constraints.
         """
-        return np.array(self._aeq) if self._aeq is not None else np.empty((0, self.n))
+        return self._aeq if self._aeq is not None else np.empty((0, self.n))
 
     @property
     def beq(self):
@@ -309,7 +309,7 @@ class Problem:
         numpy.ndarray, shape (m_linear_eq,)
             Right-hand side vector of the linear equality constraints.
         """
-        return np.array(self._beq) if self._beq is not None else np.empty(0)
+        return self._beq if self._beq is not None else np.empty(0)
 
     def fun(self, x):
         """
