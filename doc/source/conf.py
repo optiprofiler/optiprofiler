@@ -12,7 +12,12 @@ import OptiProfiler
 
 project = 'OptiProfiler'
 author = 'Cunxin Huang, Tom M. Ragonneau, and Zaikun Zhang'
-copyright = f'{datetime.now().year}, {author}'
+start_year = 2023
+year = datetime.now().year
+if year == start_year:
+    copyright = f'{year}, {author}'
+else:
+    copyright = f'{start_year}\u2013{year}, {author}'
 
 # Short version (including .devX, rcX, b1 suffixes if present).
 version = re.sub(r'(\d+\.\d+)\.\d+(.*)', r'\1\2', OptiProfiler.__version__)
@@ -40,7 +45,7 @@ today_fmt = '%B %d, %Y'
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-html_theme = 'alabaster'
+html_theme = 'sphinx_rtd_theme'
 
 html_static_path = ['_static']
 

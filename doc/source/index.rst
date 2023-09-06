@@ -5,6 +5,6 @@ OptiProfiler documentation
     :maxdepth: 1
     :hidden:
 
-    API reference <ref/index>
+    Python API reference <ref/index>
 
 Work in progress.

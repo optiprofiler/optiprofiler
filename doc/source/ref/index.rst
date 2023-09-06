@@ -1,5 +1,5 @@
-API documentation
-=================
+Python API documentation
+========================
 
 :Release: |release|
 :Date: |today|
