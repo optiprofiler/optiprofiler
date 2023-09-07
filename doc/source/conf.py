@@ -2,8 +2,11 @@
 #
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
+import inspect
 import re
+import sys
 from datetime import datetime
+from pathlib import Path
 
 import OptiProfiler
 
@@ -31,6 +34,7 @@ release = OptiProfiler.__version__
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = [
+    'sphinx.ext.linkcode',
     'numpydoc',
     'sphinx_copybutton',
     'sphinx_rtd_theme',
@@ -48,9 +52,70 @@ today_fmt = '%B %d, %Y'
 
 html_theme = 'sphinx_rtd_theme'
 
-html_static_path = ['_static']
+# html_static_path = ['_static']
+
+html_context = {
+    'github_user': 'OptiProfiler',
+    'github_repo': 'OptiProfiler',
+    'github_version': 'main',
+}
+
+html_title = f'{project} v{version} Manual'
+
+htmlhelp_basename = project
 
 
 # -- Generate autodoc summaries ----------------------------------------------
 
 autosummary_generate = True
+
+
+# -- Add external links to source code ----------------------------------------
+
+def linkcode_resolve(domain, info):
+    if domain != 'py':
+        return None
+
+    # Get the object indicated by the module name.
+    obj = sys.modules.get(info['module'])
+    if obj is None:
+        return None
+    for part in info['fullname'].split('.'):
+        try:
+            obj = getattr(obj, part)
+        except AttributeError:
+            return None
+
+    # Strip the decorators of the object.
+    try:
+        unwrap = inspect.unwrap
+    except AttributeError:
+        pass
+    else:
+        obj = unwrap(obj)
+
+    # Get the relative path to the source of the object.
+    try:
+        fn = Path(inspect.getsourcefile(obj)).resolve(True)
+    except TypeError:
+        return None
+    else:
+        fn = fn.relative_to(Path(OptiProfiler.__file__).resolve(True).parent)
+
+    # Ignore re-exports as their source files are not within the repository.
+    module = inspect.getmodule(obj)
+    if module is not None and not module.__name__.startswith('OptiProfiler'):
+        return None
+
+    # Get the line span of the object in the source file.
+    try:
+        source, lineno = inspect.getsourcelines(obj)
+        lines = f'#L{lineno}-L{lineno + len(source) - 1}'
+    except OSError:
+        lines = ''
+
+    repository = f'https://github.com/{html_context["github_user"]}/{html_context["github_repo"]}'
+    if 'dev' in release:
+        return f'{repository}/blob/{html_context["github_version"]}/python/OptiProfiler/{fn}{lines}'
+    else:
+        return f'{repository}/blob/v{release}/python/OptiProfiler/{fn}{lines}'
