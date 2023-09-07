@@ -1,3 +1,5 @@
+.. module:: OptiProfiler
+
 Python API documentation
 ========================
 
@@ -10,5 +12,3 @@ Python API documentation
     :toctree: generated/
 
     Problem
-    ProblemError
-    load_cutest
