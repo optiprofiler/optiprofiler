@@ -14,6 +14,6 @@ from .problems import Problem
 #
 # Dev branch marker is: 'X.Y.dev' or 'X.Y.devN' where N is an integer.
 # 'X.Y.dev0' is the canonical version of 'X.Y.dev'.
-__version__ = '1.0.0'
+__version__ = '1.0.dev0'
 
 __all__ = ['Problem']
