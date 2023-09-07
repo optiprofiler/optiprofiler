@@ -425,7 +425,7 @@ class ProblemError(Exception):
     pass
 
 
-def load_cutest(problem_name, options=None):
+def load_cutest(problem_name, **kwargs):
     """
     Load a CUTEst problem.
 
@@ -433,22 +433,22 @@ def load_cutest(problem_name, options=None):
     ----------
     problem_name : str
         Name of the CUTEst problem to load.
-    options : dict, optional
-        Dictionary of options. The following options are supported:
-
-            n_min : int, optional
-                Minimum number of variables.
-            n_max : int, optional
-                Maximum number of variables.
-            m_min : int, optional
-                Minimum number of linear and nonlinear constraints.
-            m_max : int, optional
-                Maximum number of linear and nonlinear constraints.
 
     Returns
     -------
     Problem
         Loaded problem.
+
+    Other Parameters
+    ----------------
+    n_min : int, optional
+        Minimum number of variables.
+    n_max : int, optional
+        Maximum number of variables.
+    m_min : int, optional
+        Minimum number of linear and nonlinear constraints.
+    m_max : int, optional
+        Maximum number of linear and nonlinear constraints.
 
     Raises
     ------
@@ -457,7 +457,7 @@ def load_cutest(problem_name, options=None):
     """
     import pycutest
 
-    def _dimensions(problem_name, options):
+    def _dimensions(problem_name, **kwargs):
         """
         Get the available dimensions for a CUTEst problem.
         """
@@ -477,14 +477,11 @@ def load_cutest(problem_name, options=None):
 
         # Keep only the dimensions that are within the specified range.
         dimensions = np.sort(dimensions)
-        if options is not None and 'n_min' in options:
-            dimensions = dimensions[dimensions >= options['n_min']]
-        if options is not None and 'n_max' in options:
-            dimensions = dimensions[dimensions <= options['n_max']]
-
+        dimensions = dimensions[dimensions >= kwargs.get('n_min', 1)]
+        dimensions = dimensions[dimensions <= kwargs.get('n_max', np.inf)]
         return dimensions
 
-    def _is_valid(cutest_problem, options):
+    def _is_valid(cutest_problem, **kwargs):
         """
         Check if a CUTEst problem is valid.
         """
@@ -492,14 +489,10 @@ def load_cutest(problem_name, options=None):
         is_valid = np.all(cutest_problem.vartype == 0)
 
         # Check that the dimensions are within the specified range.
-        if options is not None and 'n_min' in options:
-            is_valid = is_valid and cutest_problem.n >= options['n_min']
-        if options is not None and 'n_max' in options:
-            is_valid = is_valid and cutest_problem.n <= options['n_max']
-        if options is not None and 'm_min' in options:
-            is_valid = is_valid and cutest_problem.m >= options['m_min']
-        if options is not None and 'm_max' in options:
-            is_valid = is_valid and cutest_problem.m <= options['m_max']
+        is_valid = is_valid and cutest_problem.n >= kwargs.get('n_min', 1)
+        is_valid = is_valid and cutest_problem.n <= kwargs.get('n_max', np.inf)
+        is_valid = is_valid and cutest_problem.m >= kwargs.get('m_min', 0)
+        is_valid = is_valid and cutest_problem.m <= kwargs.get('m_max', np.inf)
 
         return is_valid
 
@@ -565,20 +558,19 @@ def load_cutest(problem_name, options=None):
     # Check the arguments.
     if not isinstance(problem_name, str):
         raise ValueError('The argument `problem_name` must be a string.')
-    if options is not None:
-        if not isinstance(options, dict):
-            raise ValueError('The argument `options` must be a dictionary.')
-        for key in options:
-            if key not in ['n_min', 'n_max', 'm_min', 'm_max']:
-                raise ValueError(f'Invalid option: {key}.')
-            if not isinstance(options[key], int):
-                raise ValueError(f'The option `{key}` must be an integer.')
-            if options[key] < 0:
-                raise ValueError(f'The option `{key}` must be nonnegative.')
-        if 'n_min' in options and 'n_max' in options and options['n_min'] > options['n_max']:
-            raise ValueError('The option `n_min` must be less than or equal to the option `n_max`.')
-        if 'm_min' in options and 'm_max' in options and options['m_min'] > options['m_max']:
-            raise ValueError('The option `m_min` must be less than or equal to the option `m_max`.')
+    for key in kwargs:
+        if key not in ['n_min', 'n_max', 'm_min', 'm_max']:
+            raise ValueError(f'Invalid argument: {key}.')
+        if not isinstance(kwargs[key], float) and kwargs[key].is_integer():
+            kwargs[key] = int(kwargs[key])
+        if not isinstance(kwargs[key], int):
+            raise ValueError(f'The argument `{key}` must be an integer.')
+        if kwargs[key] < 0:
+            raise ValueError(f'The argument `{key}` must be nonnegative.')
+        if 'n_min' in kwargs and 'n_max' in kwargs and kwargs['n_min'] > kwargs['n_max']:
+            raise ValueError('The argument `n_min` must be less than or equal to the argument `n_max`.')
+        if 'm_min' in kwargs and 'm_max' in kwargs and kwargs['m_min'] > kwargs['m_max']:
+            raise ValueError('The argument `m_min` must be less than or equal to the argument `m_max`.')
 
     # Attempt to load the CUTEst problem.
     cutest_problem = None
@@ -586,7 +578,7 @@ def load_cutest(problem_name, options=None):
     logger.info(f'Loading CUTEst problem {problem_name}.')
     try:
         if pycutest.problem_properties(problem_name)['n'] == 'variable':
-            dimensions = _dimensions(problem_name, options)
+            dimensions = _dimensions(problem_name, **kwargs)
             if dimensions.size > 0:
                 logger.info(f'Loading CUTEst problem {problem_name} with N={dimensions[-1]}.')
                 cutest_problem = pycutest.import_problem(problem_name, sifParams={'N': dimensions[-1]})
@@ -600,7 +592,7 @@ def load_cutest(problem_name, options=None):
     # If the problem is not successfully loaded or invalid, raise an exception.
     if cutest_problem is None:
         raise ProblemError(f'Failed to load CUTEst problem {problem_name}.')
-    elif cutest_problem is not None and not _is_valid(cutest_problem, options):
+    elif cutest_problem is not None and not _is_valid(cutest_problem, **kwargs):
         logger.warning(f'CUTEst problem {problem_name} successfully loaded but invalid; it is discarded.')
         raise ProblemError(f'CUTEst problem {problem_name} is invalid.')
 

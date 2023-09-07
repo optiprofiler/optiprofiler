@@ -1,4 +1,4 @@
-OptiProfiler: benchmarking optimization solvers using performance and data profiles
-===================================================================================
+OptiProfiler: benchmarking optimization solvers
+===============================================
 
 Work in progress.
