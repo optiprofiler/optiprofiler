@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "OptiProfiler"
-description = "Benchmarking optimization solvers using performance and data profiles"
+description = "Benchmarking optimization solvers"
 readme = "README.rst"
 requires-python = ">=3.8"
 license = {file = "LICENSE"}
@@ -19,13 +19,29 @@ maintainers = [
     {name = "Zaikun Zhang", email = "zaikun.zhang@polyu.edu.hk"},
 ]
 keywords = []
-classifiers = []
-dependencies = [
-    "numpy",
+classifiers = [
+    "Development Status :: 1 - Planning",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Testing",
 ]
+dependencies = ["numpy"]
 dynamic = ["version"]
 
 [project.optional-dependencies]
+cutest = ["pycutest>=1.5.0"]
 doc = [
     "numpydoc==1.5.0",
     "Sphinx==7.2.5",

@@ -1,4 +1,4 @@
-from .problems import Problem, ProblemError, load_cutest
+from .problems import Problem
 
 # PEP0440 compatible formatted version, see:
 # https://www.python.org/dev/peps/pep-0440/
@@ -16,4 +16,4 @@ from .problems import Problem, ProblemError, load_cutest
 # 'X.Y.dev0' is the canonical version of 'X.Y.dev'.
 __version__ = '1.0.0'
 
-__all__ = ['Problem', 'ProblemError', 'load_cutest']
+__all__ = ['Problem']
