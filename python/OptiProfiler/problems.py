@@ -307,7 +307,7 @@ class Problem:
 
         Returns
         -------
-        numpy.ndarray, shape (n,)
+        `numpy.ndarray`, shape (n,)
             Initial guess.
         """
         return self._x0
@@ -319,7 +319,7 @@ class Problem:
 
         Returns
         -------
-        numpy.ndarray, shape (n,)
+        `numpy.ndarray`, shape (n,)
             Lower bounds on the variables.
         """
         return self._xl if self._xl is not None else np.full(self.n, -np.inf)
@@ -331,7 +331,7 @@ class Problem:
 
         Returns
         -------
-        numpy.ndarray, shape (n,)
+        `numpy.ndarray`, shape (n,)
             Upper bounds on the variables.
         """
         return self._xu if self._xu is not None else np.full(self.n, np.inf)
@@ -343,7 +343,7 @@ class Problem:
 
         Returns
         -------
-        numpy.ndarray, shape (m_linear_ub, n)
+        `numpy.ndarray`, shape (m_linear_ub, n)
             Left-hand side matrix of the linear inequality constraints.
         """
         return self._aub if self._aub is not None else np.empty((0, self.n))
@@ -355,7 +355,7 @@ class Problem:
 
         Returns
         -------
-        numpy.ndarray, shape (m_linear_ub,)
+        `numpy.ndarray`, shape (m_linear_ub,)
             Right-hand side vector of the linear inequality constraints.
         """
         return self._bub if self._bub is not None else np.empty(0)
@@ -367,7 +367,7 @@ class Problem:
 
         Returns
         -------
-        numpy.ndarray, shape (m_linear_eq, n)
+        `numpy.ndarray`, shape (m_linear_eq, n)
             Left-hand side matrix of the linear equality constraints.
         """
         return self._aeq if self._aeq is not None else np.empty((0, self.n))
@@ -379,7 +379,7 @@ class Problem:
 
         Returns
         -------
-        numpy.ndarray, shape (m_linear_eq,)
+        `numpy.ndarray`, shape (m_linear_eq,)
             Right-hand side vector of the linear equality constraints.
         """
         return self._beq if self._beq is not None else np.empty(0)
@@ -425,7 +425,7 @@ class Problem:
 
         Returns
         -------
-        numpy.ndarray, shape (m_nonlinear_ub,)
+        `numpy.ndarray`, shape (m_nonlinear_ub,)
             Values of the nonlinear inequality constraints at `x`.
 
         Raises
@@ -463,7 +463,7 @@ class Problem:
 
         Returns
         -------
-        numpy.ndarray, shape (m_nonlinear_eq,)
+        `numpy.ndarray`, shape (m_nonlinear_eq,)
             Values of the nonlinear equality constraints at `x`.
 
         Raises
@@ -709,7 +709,7 @@ def _1d_array(x, message):
 
     Returns
     -------
-    numpy.ndarray
+    `numpy.ndarray`
         Preprocessed array.
 
     Raises
@@ -736,7 +736,7 @@ def _2d_array(x, message):
 
     Returns
     -------
-    numpy.ndarray
+    `numpy.ndarray`
         Preprocessed array.
 
     Raises

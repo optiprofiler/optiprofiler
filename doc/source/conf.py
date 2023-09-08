@@ -15,12 +15,11 @@ import OptiProfiler
 
 project = 'OptiProfiler'
 author = 'Cunxin Huang, Tom M. Ragonneau, and Zaikun Zhang'
-start_year = 2023
-year = datetime.now().year
-if year == start_year:
-    copyright = f'{year}, {author}'
+if datetime.now().year == 2023:
+    # TODO: Remove this if statement in 2024.
+    copyright = f'{datetime.now().year}, {author}'
 else:
-    copyright = f'{start_year}\u2013{year}, {author}'
+    copyright = f'{2023}\u2013{datetime.now().year}, {author}'
 
 # Short version (including .devX, rcX, b1 suffixes if present).
 version = re.sub(r'(\d+\.\d+)\.\d+(.*)', r'\1\2', OptiProfiler.__version__)
@@ -35,10 +34,12 @@ release = OptiProfiler.__version__
 
 extensions = [
     'sphinx.ext.doctest',
+    'sphinx.ext.intersphinx',
     'sphinx.ext.linkcode',
     'numpydoc',
     'sphinx_copybutton',
     'sphinx_rtd_theme',
+    'sphinxcontrib.bibtex',
 ]
 
 templates_path = ['_templates']
@@ -55,7 +56,7 @@ default_role = 'autolink'
 
 html_theme = 'sphinx_rtd_theme'
 
-# html_static_path = ['_static']
+html_static_path = ['_static']
 
 html_theme_options = {
     'navigation_depth': 2,
@@ -72,9 +73,47 @@ html_title = f'{project} v{version} Manual'
 htmlhelp_basename = project
 
 
+# -- Options for LaTeX output ------------------------------------------------
+
+latex_documents = [
+    ('index', 'optiprofiler.tex', 'OptiProfiler Manual', author, 'manual'),
+]
+
+latex_elements = {
+    'papersize': 'a4paper',
+    'preamble': r'''
+% Increase the default table of content depth.
+\setcounter{tocdepth}{1}
+'''
+}
+
+
 # -- Generate autodoc summaries ----------------------------------------------
 
 autosummary_generate = True
+
+
+# -- Link to other projects' documentation ------------------------------------
+
+intersphinx_mapping = {
+    'numpy': ('https://numpy.org/doc/stable/', None),
+}
+
+
+# -- BibTeX citations ---------------------------------------------------------
+
+bibtex_bibfiles = ['_static/optiprofiler.bib']
+
+bibtex_encoding = 'latin'
+
+bibtex_default_style = 'plain'
+
+bibtex_bibliography_header = '''.. only:: html or text
+
+    .. rubric:: References
+'''
+
+bibtex_footbibliography_header = bibtex_bibliography_header
 
 
 # -- Add external links to source code ----------------------------------------
