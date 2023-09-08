@@ -9,8 +9,81 @@ from .utils import get_logger
 
 
 class Problem:
-    """
-    Optimization problem.
+    r"""
+    Optimization problem to be used in the benchmarking.
+
+    Examples
+    --------
+    To illustrate the use of this class, consider the problem of minimizing the
+    Rosenbrock function
+
+    .. math::
+
+        f(x) = 100 (x_2 - x_1^2)^2 + (1 - x_1)^2.
+
+    To create an instance ``problem`` of the class `Problem` for this problem, run:
+
+    >>> from OptiProfiler import Problem
+    >>>
+    >>> def rosen(x):
+    ...     return 100 * (x[1] - x[0] ** 2) ** 2 + (1 - x[0]) ** 2
+    ...
+    >>> problem = Problem(rosen, [0, 0])
+
+    The second argument is the initial guess. The instance ``problem`` can now
+    be used to evaluate the objective function at any point, and access extra
+    information about the problem. For example, to evaluate the objective
+    function at the initial guess, run:
+
+    >>> problem.fun(problem.x0)
+    1.0
+
+    All the attributes and methods of the class `Problem` described below are
+    always well-defined. For example, since the problem ``problem`` is
+    unconstrained, the components of the lower and upper bounds on the variables
+    must be :math:`-\infty` and :math:`\infty`, respectively:
+
+    >>> problem.xl
+    array([-inf, -inf])
+    >>> problem.xu
+    array([inf, inf])
+
+    To optional arguments of the constructor of the class `Problem` can be used
+    to specify constraints. For example, to specify that the variables must be
+    nonnegative, run:
+
+    >>> problem = Problem(rosen, [0, 0], [0, 0])
+
+    The lower bounds on the variables are now zero:
+
+    >>> problem.xl
+    array([0., 0.])
+    >>> problem.xu
+    array([inf, inf])
+
+    The optional arguments ``aub``, ``bub``, ``aeq``, and ``beq`` can be used
+    to specify linear inequality and equality constraints, respectively.
+    The optional arguments ``cub`` and ``ceq`` can be used to specify nonlinear
+    inequality and equality constraints, respectively. For example, to specify
+    that the variables must satisfy the constraint :math:`x_1^2 + x_2^2 \leq 1`
+    and :math:`x_1^3 - x_2^2 \leq 1`, run:
+
+    >>> def cub(x):
+    ...     return [x[0] ** 2 + x[1] ** 2 - 1, x[0] ** 3 - x[1] ** 2 - 1]
+    ...
+    >>> problem = Problem(rosen, [0, 0], cub=cub, m_nonlinear_ub=2)
+
+    The instance ``problem`` can now be used to evaluate the nonlinear
+    inequality constraints at any point. For example, to evaluate the nonlinear
+    inequality constraints at the initial guess, run:
+
+    >>> problem.cub(problem.x0)
+    array([-1., -1.])
+
+    If you do not provide the number of nonlinear inequality constraints in
+    ``m_nonlinear_ub``, it will be inferred at the first call to
+    ``problem.cub``. Nonlinear equality constraints can be specified in a
+    similar way, using the optional arguments ``ceq`` and ``m_nonlinear_eq``.
     """
 
     def __init__(self, fun, x0, xl=None, xu=None, aub=None, bub=None, aeq=None, beq=None, cub=None, ceq=None, m_nonlinear_ub=None, m_nonlinear_eq=None):
@@ -266,7 +339,7 @@ class Problem:
     @property
     def aub(self):
         """
-        Left-hand side matrix of the linear inequality constraints.
+        Left-hand side matrix of the linear constraints ``aub @ x <= bub``.
 
         Returns
         -------
@@ -278,7 +351,7 @@ class Problem:
     @property
     def bub(self):
         """
-        Right-hand side vector of the linear inequality constraints.
+        Right-hand side vector of the linear constraints ``aub @ x <= bub``.
 
         Returns
         -------
@@ -290,7 +363,7 @@ class Problem:
     @property
     def aeq(self):
         """
-        Left-hand side matrix of the linear equality constraints.
+        Left-hand side matrix of the linear constraints ``aeq @ x == beq``.
 
         Returns
         -------
@@ -302,7 +375,7 @@ class Problem:
     @property
     def beq(self):
         """
-        Right-hand side vector of the linear equality constraints.
+        Right-hand side vector of the linear constraints ``aeq @ x == beq``.
 
         Returns
         -------
@@ -343,7 +416,7 @@ class Problem:
 
     def cub(self, x):
         """
-        Evaluate the nonlinear inequality constraints.
+        Evaluate the nonlinear constraints ``cub(x) <= 0``.
 
         Parameters
         ----------
@@ -381,7 +454,7 @@ class Problem:
 
     def ceq(self, x):
         """
-        Evaluate the nonlinear equality constraints.
+        Evaluate the nonlinear constraints ``ceq(x) == 0``.
 
         Parameters
         ----------
