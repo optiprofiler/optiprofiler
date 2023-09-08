@@ -1,7 +1,7 @@
 .. module:: OptiProfiler.problems
 
-Optimization problem
-====================
+Optimization problems
+=====================
 
 .. currentmodule:: OptiProfiler.problems
 
