@@ -1,4 +1,5 @@
 from .problems import Problem
+from .utils import show_versions
 
 # PEP0440 compatible formatted version, see:
 # https://www.python.org/dev/peps/pep-0440/
@@ -16,4 +17,4 @@ from .problems import Problem
 # 'X.Y.dev0' is the canonical version of 'X.Y.dev'.
 __version__ = '1.0.dev0'
 
-__all__ = ['Problem']
+__all__ = ['Problem', 'show_versions']

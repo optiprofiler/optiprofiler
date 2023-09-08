@@ -34,6 +34,7 @@ release = OptiProfiler.__version__
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = [
+    'sphinx.ext.doctest',
     'sphinx.ext.linkcode',
     'numpydoc',
     'sphinx_copybutton',
