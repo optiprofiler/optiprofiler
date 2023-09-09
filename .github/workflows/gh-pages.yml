@@ -10,10 +10,6 @@ permissions:
   pages: write
   id-token: write
 
-concurrency:
-  group: pages
-  cancel-in-progress: false
-
 jobs:
   build:
     name: Build documentation
@@ -38,7 +34,6 @@ jobs:
           # Build the documentation
           cd doc || exit
           make html
-          : > build/html/.nojekyll
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v2
