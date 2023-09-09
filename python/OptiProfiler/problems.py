@@ -212,6 +212,11 @@ class Problem:
         if self._ceq is None and self._m_nonlinear_eq is not None and self._m_nonlinear_eq > 0:
             raise ValueError('The argument `m_nonlinear_eq` must be None or zero if the argument `ceq` is None.')
 
+        # Initialize the function evaluation history.
+        self._n_fun_eval = 0
+        self._fun_hist = []
+        self._maxcv_hist = []
+
     @property
     def n(self):
         """
@@ -299,6 +304,42 @@ class Problem:
             else:
                 raise ValueError('The number of nonlinear equality constraints is unknown.')
         return self._m_nonlinear_eq
+
+    @property
+    def n_fun_eval(self):
+        """
+        Number of objective function evaluations.
+
+        Returns
+        -------
+        int
+            Number of objective function evaluations.
+        """
+        return self._n_fun_eval
+
+    @property
+    def fun_hist(self):
+        """
+        History of objective function evaluations.
+
+        Returns
+        -------
+        `numpy.ndarray`, shape (n_fun_eval,)
+            History of objective function evaluations.
+        """
+        return np.array(self._fun_hist)
+
+    @property
+    def maxcv_hist(self):
+        """
+        History of constraint violations.
+
+        Returns
+        -------
+        `numpy.ndarray`, shape (n_fun_eval,)
+            History of constraint violations.
+        """
+        return np.array(self._maxcv_hist)
 
     @property
     def x0(self):
@@ -412,6 +453,9 @@ class Problem:
             warnings.warn(f'Failed to evaluate the objective function: {err}', RuntimeWarning)
             f = np.nan
         f = float(f)
+        self._n_fun_eval += 1
+        self._fun_hist.append(f)
+        self._maxcv_hist.append(self._maxcv(x))
         return f
 
     def cub(self, x):
@@ -489,6 +533,28 @@ class Problem:
         if c.size != self.m_nonlinear_eq:
             raise ValueError(f'The return value of the argument `ceq` must have size {self.m_nonlinear_eq}.')
         return c
+
+    def _maxcv(self, x):
+        """
+        Evaluate the maximum constraint violation.
+
+        Parameters
+        ----------
+        x : `numpy.ndarray`, shape (n,)
+            Point at which to evaluate the maximum constraint violation.
+
+        Returns
+        -------
+        float
+            Maximum constraint violation.
+        """
+        cv = np.max(self.xl - x, initial=0.0)
+        cv = np.max(x - self.xu, initial=cv)
+        cv = np.max(self.aub @ x - self.bub, initial=cv)
+        cv = np.max(np.abs(self.aeq @ x - self.beq), initial=cv)
+        cv = np.max(self.cub(x), initial=cv)
+        cv = np.max(np.abs(self.ceq(x)), initial=cv)
+        return cv
 
 
 class ProblemError(Exception):
