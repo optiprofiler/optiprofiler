@@ -5,8 +5,11 @@ OptiProfiler documentation
     :maxdepth: 1
     :hidden:
 
+    User guide <user/index>
     Python API reference <ref/index>
+    MATLAB API reference <https://www.mathworks.com>
     Python developer guide <dev/index>
+    Issue tracker <https://github.com/OptiProfiler/OptiProfiler/issues>
 
 Work in progress.
 
