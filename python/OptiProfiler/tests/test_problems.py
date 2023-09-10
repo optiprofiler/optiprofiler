@@ -19,6 +19,10 @@ class TestProblem:
         return np.sum(np.sin(x))
 
     @staticmethod
+    def bad_fun(x):
+        raise RuntimeError
+
+    @staticmethod
     def assert_dimensions(problem, n, m_linear_ub, m_linear_eq, m_nonlinear_ub, m_nonlinear_eq):
         assert problem.n == n
         assert problem.m_linear_ub == m_linear_ub
@@ -217,3 +221,31 @@ class TestProblem:
             problem = Problem(self.rosen, np.zeros(1), ceq=lambda x: np.zeros(int(np.sum(x))))
             problem.ceq(np.zeros(1))
             problem.ceq(np.ones(1))
+
+    def test_catch(self):
+        # The value m_nonlinear_ub can be a float.
+        problem = Problem(self.rosen, np.zeros(1), cub=self.sum_cos, m_nonlinear_ub=1.0)
+        assert problem.m_nonlinear_ub == 1
+        assert problem.m_nonlinear_eq == 0
+
+        # The value m_nonlinear_eq can be a float.
+        problem = Problem(self.rosen, np.zeros(1), ceq=self.sum_sin, m_nonlinear_eq=1.0)
+        assert problem.m_nonlinear_ub == 0
+        assert problem.m_nonlinear_eq == 1
+
+        # The objective function can be ill-defined.
+        problem = Problem(self.bad_fun, np.zeros(1))
+        with pytest.warns(RuntimeWarning):
+            assert np.isnan(problem.fun(problem.x0))
+        assert np.all(np.isnan(problem.fun_hist))
+        np.testing.assert_array_equal(problem.maxcv_hist, [0.0])
+
+        # The nonlinear inequality constraint function can be ill-defined.
+        problem = Problem(self.rosen, np.zeros(1), cub=self.bad_fun, m_nonlinear_ub=1)
+        with pytest.warns(RuntimeWarning):
+            assert np.isnan(problem.cub(problem.x0))
+
+        # The nonlinear equality constraint function can be ill-defined.
+        problem = Problem(self.rosen, np.zeros(1), ceq=self.bad_fun, m_nonlinear_eq=1)
+        with pytest.warns(RuntimeWarning):
+            assert np.isnan(problem.ceq(problem.x0))
