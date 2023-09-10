@@ -1,0 +1,5 @@
+# Codecov configuration file
+
+ignore:
+  - '**/tests/*.py'
+  - 'python/OptiProfiler/utils.py'
