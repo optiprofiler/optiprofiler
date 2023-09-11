@@ -496,7 +496,7 @@ class Problem:
 
         Parameters
         ----------
-        x : `numpy.ndarray`, shape (n,)
+        x : array_like, shape (n,)
             Point at which to evaluate the maximum constraint violation.
 
         Returns
@@ -504,6 +504,9 @@ class Problem:
         float
             Maximum constraint violation.
         """
+        x = _1d_array(x, 'The argument `x` must be a one-dimensional array.')
+        if x.size != self.n:
+            raise ValueError(f'The argument `x` must have size {self.n}.')
         cv = np.max(self.xl - x, initial=0.0)
         cv = np.max(x - self.xu, initial=cv)
         cv = np.max(self.aub @ x - self.bub, initial=cv)
