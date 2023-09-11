@@ -44,29 +44,17 @@ class TestProblem:
 
         # Check the problem attributes.
         self.assert_dimensions(problem, n, 0, 0, 0, 0)
-        assert problem.n_fun_eval == 0
-        assert problem.fun_hist.shape == (0,)
-        assert problem.maxcv_hist.shape == (0,)
         np.testing.assert_array_equal(problem.x0, x0)
         np.testing.assert_array_equal(problem.xl, np.full(n, -np.inf))
         np.testing.assert_array_equal(problem.xu, np.full(n, np.inf))
 
         # Perform an objective function evaluation.
         assert problem.fun(problem.x0) == self.rosen(x0)
-        assert problem.n_fun_eval == 1
-        np.testing.assert_array_equal(problem.fun_hist, [self.rosen(x0)])
-        np.testing.assert_array_equal(problem.maxcv_hist, [0.0])
-
-        # Perform a second objective function evaluation.
-        assert problem.fun(problem.x0 + 1.0) == self.rosen(x0 + 1.0)
-        assert problem.n_fun_eval == 2
-        np.testing.assert_array_equal(problem.fun_hist, [self.rosen(x0), self.rosen(x0 + 1.0)])
-        np.testing.assert_array_equal(problem.maxcv_hist, [0.0, 0.0])
+        assert problem.maxcv(problem.x0) == 0.0
 
         # Evaluate the nonlinear constraints.
         assert problem.cub(problem.x0).shape == (0,)
         assert problem.ceq(problem.x0).shape == (0,)
-        assert problem.n_fun_eval == 2
 
     @pytest.mark.parametrize('n', [1, 10, 100])
     def test_bound_constrained_problem(self, n):
@@ -78,29 +66,17 @@ class TestProblem:
 
         # Check the problem attributes.
         self.assert_dimensions(problem, n, 0, 0, 0, 0)
-        assert problem.n_fun_eval == 0
-        assert problem.fun_hist.shape == (0,)
-        assert problem.maxcv_hist.shape == (0,)
         np.testing.assert_array_equal(problem.x0, x0)
         np.testing.assert_array_equal(problem.xl, xl)
         np.testing.assert_array_equal(problem.xu, xu)
 
         # Perform an objective function evaluation.
         assert problem.fun(problem.x0) == self.rosen(x0)
-        assert problem.n_fun_eval == 1
-        np.testing.assert_array_equal(problem.fun_hist, [self.rosen(x0)])
-        np.testing.assert_array_equal(problem.maxcv_hist, [0.0])
-
-        # Perform a second objective function evaluation.
-        assert problem.fun(problem.x0 + 3.0) == self.rosen(x0 + 3.0)
-        assert problem.n_fun_eval == 2
-        np.testing.assert_array_equal(problem.fun_hist, [self.rosen(x0), self.rosen(x0 + 3.0)])
-        np.testing.assert_array_almost_equal(problem.maxcv_hist, [0.0, 0.952])
+        assert problem.maxcv(problem.x0) == 0.0
 
         # Evaluate the nonlinear constraints.
         assert problem.cub(problem.x0).shape == (0,)
         assert problem.ceq(problem.x0).shape == (0,)
-        assert problem.n_fun_eval == 2
 
     @pytest.mark.parametrize('n', [1, 10, 100])
     def test_linearly_constrained_problem(self, n):
@@ -114,9 +90,6 @@ class TestProblem:
 
         # Check the problem attributes.
         self.assert_dimensions(problem, n, 1, 1, 0, 0)
-        assert problem.n_fun_eval == 0
-        assert problem.fun_hist.shape == (0,)
-        assert problem.maxcv_hist.shape == (0,)
         np.testing.assert_array_equal(problem.x0, x0)
         np.testing.assert_array_equal(problem.xl, np.full(n, -np.inf))
         np.testing.assert_array_equal(problem.xu, np.full(n, np.inf))
@@ -127,20 +100,11 @@ class TestProblem:
 
         # Perform an objective function evaluation.
         assert problem.fun(problem.x0) == self.rosen(x0)
-        assert problem.n_fun_eval == 1
-        np.testing.assert_array_equal(problem.fun_hist, [self.rosen(x0)])
-        np.testing.assert_array_almost_equal(problem.maxcv_hist, [1.0])
-
-        # Perform a second objective function evaluation.
-        assert problem.fun(problem.x0 + 1.0) == self.rosen(x0 + 1.0)
-        assert problem.n_fun_eval == 2
-        np.testing.assert_array_equal(problem.fun_hist, [self.rosen(x0), self.rosen(x0 + 1.0)])
-        np.testing.assert_array_almost_equal(problem.maxcv_hist, [1.0, abs(n * (n - 1) / 2 - 1.0)])
+        np.testing.assert_array_almost_equal(problem.maxcv(problem.x0), 1.0)
 
         # Evaluate the nonlinear constraints.
         assert problem.cub(problem.x0).shape == (0,)
         assert problem.ceq(problem.x0).shape == (0,)
-        assert problem.n_fun_eval == 2
 
     @pytest.mark.parametrize('n', [1, 10, 100])
     def test_nonlinearly_constrained_problem(self, n):
@@ -150,24 +114,13 @@ class TestProblem:
 
         # Check the problem attributes.
         self.assert_dimensions(problem, n, 0, 0, 1, 1)
-        assert problem.n_fun_eval == 0
-        assert problem.fun_hist.shape == (0,)
-        assert problem.maxcv_hist.shape == (0,)
         np.testing.assert_array_equal(problem.x0, x0)
         np.testing.assert_array_equal(problem.xl, np.full(n, -np.inf))
         np.testing.assert_array_equal(problem.xu, np.full(n, np.inf))
 
         # Perform an objective function evaluation.
         assert problem.fun(problem.x0) == self.rosen(x0)
-        assert problem.n_fun_eval == 1
-        np.testing.assert_array_equal(problem.fun_hist, [self.rosen(x0)])
-        np.testing.assert_array_almost_equal(problem.maxcv_hist, [n])
-
-        # Perform a second objective function evaluation.
-        assert problem.fun(problem.x0 + np.pi / 2) == self.rosen(x0 + np.pi / 2)
-        assert problem.n_fun_eval == 2
-        np.testing.assert_array_equal(problem.fun_hist, [self.rosen(x0), self.rosen(x0 + np.pi / 2)])
-        np.testing.assert_array_almost_equal(problem.maxcv_hist, [n, n])
+        np.testing.assert_array_almost_equal(problem.maxcv(problem.x0), n)
 
     def test_exceptions(self):
         with pytest.raises(ValueError):
@@ -237,8 +190,7 @@ class TestProblem:
         problem = Problem(self.bad_fun, np.zeros(1))
         with pytest.warns(RuntimeWarning):
             assert np.isnan(problem.fun(problem.x0))
-        assert np.all(np.isnan(problem.fun_hist))
-        np.testing.assert_array_equal(problem.maxcv_hist, [0.0])
+        assert problem.maxcv(problem.x0) == 0.0
 
         # The nonlinear inequality constraint function can be ill-defined.
         problem = Problem(self.rosen, np.zeros(1), cub=self.bad_fun, m_nonlinear_ub=1)
