@@ -616,8 +616,10 @@ def load_cutest(problem_name, **kwargs):
 
         # Keep only the dimensions that are within the specified range.
         dimensions = np.sort(dimensions)
-        dimensions = dimensions[dimensions >= kwargs.get('n_min', 1)]
-        dimensions = dimensions[dimensions <= kwargs.get('n_max', np.inf)]
+        if 'n_min' in kwargs:
+            dimensions = dimensions[dimensions >= kwargs['n_min']]
+        if 'n_max' in kwargs:
+            dimensions = dimensions[dimensions <= kwargs['n_max']]
         return dimensions
 
     def _is_valid(cutest_problem, **kwargs):
@@ -628,10 +630,14 @@ def load_cutest(problem_name, **kwargs):
         is_valid = np.all(cutest_problem.vartype == 0)
 
         # Check that the dimensions are within the specified range.
-        is_valid = is_valid and cutest_problem.n >= kwargs.get('n_min', 1)
-        is_valid = is_valid and cutest_problem.n <= kwargs.get('n_max', np.inf)
-        is_valid = is_valid and cutest_problem.m >= kwargs.get('m_min', 0)
-        is_valid = is_valid and cutest_problem.m <= kwargs.get('m_max', np.inf)
+        if 'n_min' in kwargs:
+            is_valid = is_valid and cutest_problem.n >= kwargs['n_min']
+        if 'n_max' in kwargs:
+            is_valid = is_valid and cutest_problem.n <= kwargs['n_max']
+        if 'm_min' in kwargs:
+            is_valid = is_valid and cutest_problem.m >= kwargs['m_min']
+        if 'm_max' in kwargs:
+            is_valid = is_valid and cutest_problem.m <= kwargs['m_max']
 
         return is_valid
 
@@ -760,6 +766,71 @@ def load_cutest(problem_name, **kwargs):
         }
     logger.info(f'CUTEst problem {cutest_problem.name} (n={cutest_problem.n}, m={cutest_problem.m}) successfully loaded.')
     return Problem(cutest_problem.obj, cutest_problem.x0, xl, xu, **constraints)
+
+
+def find_cutest_problem_names(constraints, **kwargs):
+    """
+    Find the names of all the CUTEst problems that satisfy given requirements.
+
+    Parameters
+    ----------
+    constraints : str
+        Type of constraints that the CUTEst problems must have. It should
+        contain one or more of the following substrings: ``'unconstrained'``,
+        ``'fixed'``, ``'bound'``, ``'adjacency'``, ``'linear'``,
+        ``'quadratic'``, ``'other'``.
+
+    Returns
+    -------
+    list of str
+        Names of all the CUTEst problems that satisfy the given requirements.
+
+    Other Parameters
+    ----------------
+    n_min : int, optional
+        Minimum number of variables.
+    n_max : int, optional
+        Maximum number of variables.
+    m_min : int, optional
+        Minimum number of linear and nonlinear constraints.
+    m_max : int, optional
+        Maximum number of linear and nonlinear constraints.
+
+    Examples
+    --------
+    To find all the unconstrained problems with at most 100 variables, use:
+
+    >>> problem_names = find_cutest_problem_names('unconstrained', n_max=100)
+    """
+    import pycutest
+
+    # Check the arguments.
+    if not isinstance(constraints, str):
+        raise ValueError('The argument `constraints` must be a string.')
+    for constraint in constraints.split():
+        if constraint not in ['unconstrained', 'fixed', 'bound', 'adjacency', 'linear', 'quadratic', 'other']:
+            raise ValueError(f'Invalid constraint: {constraint}.')
+    if 'n_min' in kwargs and isinstance(kwargs['n_min'], float) and kwargs['n_min'].is_integer():
+        kwargs['n_min'] = int(kwargs['n_min'])
+    if 'n_min' in kwargs and (not isinstance(kwargs['n_min'], int) or kwargs['n_min'] < 1):
+        raise ValueError('The argument `n_min` must be a positive integer.')
+    if 'n_max' in kwargs and isinstance(kwargs['n_max'], float) and kwargs['n_max'].is_integer():
+        kwargs['n_max'] = int(kwargs['n_max'])
+    if 'n_max' in kwargs and (not isinstance(kwargs['n_max'], int) or kwargs['n_max'] < kwargs.get('n_min', 1)):
+        raise ValueError('The argument `n_max` must be an integer greater than or equal to `n_min`.')
+    if 'm_min' in kwargs and isinstance(kwargs['m_min'], float) and kwargs['m_min'].is_integer():
+        kwargs['m_min'] = int(kwargs['m_min'])
+    if 'm_min' in kwargs and (not isinstance(kwargs['m_min'], int) or kwargs['m_min'] < 0):
+        raise ValueError('The argument `m_min` must be a nonnegative integer.')
+    if 'm_max' in kwargs and isinstance(kwargs['m_max'], float) and kwargs['m_max'].is_integer():
+        kwargs['m_max'] = int(kwargs['m_max'])
+    if 'm_max' in kwargs and (not isinstance(kwargs['m_max'], int) or kwargs['m_max'] < kwargs.get('m_min', 0)):
+        raise ValueError('The argument `m_max` must be an integer greater than or equal to `m_min`.')
+
+    # Find all the problems that satisfy the constraints.
+    excluded_problem_names = {}
+    problem_names = pycutest.find_problems(objective='constant linear quadratic sum of squares other', constraints=constraints, n=[kwargs.get('n_min', 1), kwargs.get('n_max', np.inf)], m=[kwargs.get('m_min', 0), kwargs.get('m_max', np.inf)], userM=False)
+    return sorted(set(problem_names).difference(excluded_problem_names))
 
 
 def _1d_array(x, message):

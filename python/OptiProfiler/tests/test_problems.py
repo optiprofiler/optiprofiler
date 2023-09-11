@@ -249,3 +249,10 @@ class TestProblem:
         problem = Problem(self.rosen, np.zeros(1), ceq=self.bad_fun, m_nonlinear_eq=1)
         with pytest.warns(RuntimeWarning):
             assert np.isnan(problem.ceq(problem.x0))
+
+
+@pytest.mark.extra
+class TestLoadCUTEst:
+
+    def test_unconstrained(self):
+        pass

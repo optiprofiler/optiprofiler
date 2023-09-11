@@ -12,3 +12,4 @@ Python API documentation
     :toctree: generated/
 
     Problem
+    find_cutest_problem_names
