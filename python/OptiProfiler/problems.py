@@ -800,6 +800,9 @@ def find_cutest_problem_names(constraints, **kwargs):
     --------
     To find all the unconstrained problems with at most 100 variables, use:
 
+
+    >>> from OptiProfiler import find_cutest_problem_names
+    >>>
     >>> problem_names = find_cutest_problem_names('unconstrained', n_max=100)
     """
     import pycutest
