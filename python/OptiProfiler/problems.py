@@ -516,6 +516,90 @@ class Problem:
         return cv
 
 
+class FeaturedProblem(Problem):
+    """
+    Optimization problem to be used in the benchmarking, with extra features.
+    """
+
+    def __init__(self, problem):
+        """
+        Initialize an optimization problem.
+
+        Parameters
+        ----------
+        problem : Problem
+            Problem to be used in the benchmarking.
+        """
+        # Copy the problem.
+        kwargs = {
+            'fun': problem.fun,
+            'x0': problem.x0,
+            'xl': problem.xl,
+            'xu': problem.xu,
+            'aub': problem.aub,
+            'bub': problem.bub,
+            'aeq': problem.aeq,
+            'beq': problem.beq,
+            'cub': problem.cub,
+            'ceq': problem.ceq,
+        }
+        try:
+            kwargs['m_nonlinear_ub'] = problem.m_nonlinear_ub
+        except ValueError:
+            pass
+        try:
+            kwargs['m_nonlinear_eq'] = problem.m_nonlinear_eq
+        except ValueError:
+            pass
+        super().__init__(**kwargs)
+
+        # Store the objective function values and maximum constraint violations.
+        self._fun_hist = []
+        self._maxcv_hist = []
+
+    @property
+    def n_eval(self):
+        """
+        Number of objective function evaluations.
+
+        Returns
+        -------
+        int
+            Number of objective function evaluations.
+        """
+        return len(self._fun_hist)
+
+    @property
+    def fun_hist(self):
+        """
+        History of objective function values.
+
+        Returns
+        -------
+        `numpy.ndarray`, shape (n_eval,)
+            History of objective function values.
+        """
+        return np.array(self._fun_hist, dtype=float)
+
+    @property
+    def maxcv_hist(self):
+        """
+        History of maximum constraint violations.
+
+        Returns
+        -------
+        `numpy.ndarray`, shape (n_eval,)
+            History of maximum constraint violations.
+        """
+        return np.array(self._maxcv_hist, dtype=float)
+
+    def fun(self, x):
+        f = super().fun(x)
+        self._fun_hist.append(f)
+        self._maxcv_hist.append(self.maxcv(x))
+        return f
+
+
 class ProblemError(Exception):
     """
     Exception raised when a problem cannot be loaded.
