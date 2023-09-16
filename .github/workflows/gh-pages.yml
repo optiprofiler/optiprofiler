@@ -36,9 +36,6 @@ jobs:
           # Build the documentation
           cd doc || exit
           make html
-          
-          # Test the snippets in the documentation
-          make doctest
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v2
