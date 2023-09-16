@@ -50,7 +50,7 @@ classdef Problem
     ValueError
         If an argument received an invalid value.
     %}
-    properties
+    properties (GetAccess = public, SetAccess = private)
 
         fun
         x0
@@ -77,43 +77,54 @@ classdef Problem
 
     methods
 
-        function obj = Problem(fun, x0, varargin)
-            
-            if nargin < 2
-                error("The arguments `fun` and `x0` are required.")
+        function obj = Problem(varargin)
+            if nargin < 1
+                error("At least one argument is required.")
+            end
+        
+            if isstruct(varargin{1})
+                % Handle the case when a struct is passed
+                s = varargin{1};
+        
+                % Check if the struct contains the required fields
+                if ~isfield(s, 'fun') || ~isfield(s, 'x0')
+                    error("The `fun` and `x0` fields are required.")
+                end
+        
+                % Iterate over the struct's fields and assign them to the object's properties
+                fields = fieldnames(s);
+                for i = 1:numel(fields)
+                    obj.(fields{i}) = s.(fields{i});
+                end
             else
-                obj.fun = fun;
-                obj.x0 = reshape(x0, [], 1);
+                error("Invalid input. A struct argument is expected.")
             end
-            if nargin > 2
-                obj.xl = varargin{1};
+
+            % Check that the arguments are consistent.
+
+            % Check that `xl` has the same size as `x0`.
+            if numel(obj.xl) ~= obj.n
+                error('The argument `xl` must have size %d.', obj.n);
             end
-            if nargin > 3
-                obj.xu = varargin{2};
+            % Check that `xu` has the same size as `x0`.
+            if numel(obj.xu) ~= obj.n
+                error('The argument `xu` must have size %d.', obj.n);
             end
-            if nargin > 4
-                obj.aub = varargin{3};
+            % Check that `aub` is a matrix with shape (m_linear_ub, n).
+            if ~isequal(size(obj.aub), [obj.m_linear_ub, obj.n])
+                error('The argument `aub` must have shape (%d, %d).', obj.m_linear_ub, obj.n);
             end
-            if nargin > 5
-                obj.bub = varargin{4};
+            % Check that `aeq` is a matrix with shape (m_linear_eq, n).
+            if ~isequal(size(obj.aeq), [obj.m_linear_eq, obj.n])
+                error('The argument `aeq` must have shape (%d, %d).', obj.m_linear_eq, obj.n);
             end
-            if nargin > 6
-                obj.aeq = varargin{5};
+            % Check that whether `m_nonlinear_ub` is empty or zero if `cub` is empty.
+            if isempty(obj.cub) && ~isempty(obj.m_nonlinear_ub) && obj.m_nonlinear_ub > 0
+                error('The argument `m_nonlinear_ub` must be empty or zero if the argument `cub` is empty.');
             end
-            if nargin > 7
-                obj.beq = varargin{6};
-            end
-            if nargin > 8
-                obj.cub = varargin{7};
-            end
-            if nargin > 9
-                obj.ceq = varargin{8};
-            end
-            if nargin > 10
-                obj.m_nonlinear_ub = varargin{9};
-            end
-            if nargin > 11
-                obj.m_nonlinear_eq = varargin{10};
+            % Check that whether `m_nonlinear_eq` is empty or zero if `ceq` is empty.
+            if isempty(obj.ceq) && ~isempty(obj.m_nonlinear_eq) && obj.m_nonlinear_eq > 0
+                error('The argument `m_nonlinear_eq` must be empty or zero if the argument `ceq` is empty.');
             end
         end
 
@@ -131,14 +142,19 @@ classdef Problem
 
         % Preprocess the objective function.
         function obj = set.fun(obj, fun)
+            % This function only accepts a new function handle.
             if ~isa(fun, "function_handle")
                 error("The argument `fun` must be a function handle.")
             end
+            % Check if `fun` can accept only one argument.
+            if nargin(fun) ~= 1
+                error('The function must accept exactly one argument.')
+            end
+            % Try to assign `fun` to the object's `fun` field.
             try
-                fun(obj.x0);
                 obj.fun = fun;
             catch
-                error("The argument `fun` must accept an array with shape (%d, 1) as input.", obj.n);
+                error("Error occurred while assigning 'fun' field. Please check the input.")
             end
         end
 
@@ -244,60 +260,90 @@ classdef Problem
         end
 
         % Preprocess the number of nonlinear constraints.
-        function obj = set._m_nonlinear_ub(obj, m_nonlinear_ub)
+        function obj = set.m_nonlinear_ub(obj, m_nonlinear_ub)
             if ~isempty(m_nonlinear_ub)
                 if ~(isnumeric(m_nonlinear_ub) && m_nonlinear_ub >= 0 && mod(m_nonlinear_ub, 1) == 0)
                     error('The argument `m_nonlinear_ub` must be a nonnegative integer.')
                 end
-                obj._m_nonlinear_ub = m_nonlinear_ub;
+                obj.m_nonlinear_ub = m_nonlinear_ub;
             else
-                obj._m_nonlinear_ub = [];
+                obj.m_nonlinear_ub = [];
             end
         end
 
-        function obj = set._m_nonlinear_eq(obj, m_nonlinear_eq)
+        function obj = set.m_nonlinear_eq(obj, m_nonlinear_eq)
             if ~isempty(m_nonlinear_eq)
                 if ~(isnumeric(m_nonlinear_eq) && m_nonlinear_eq >= 0 && mod(m_nonlinear_eq, 1) == 0)
                     error('The argument `m_nonlinear_eq` must be a nonnegative integer.')
                 end
-                obj._m_nonlinear_eq = m_nonlinear_eq;
+                obj.m_nonlinear_eq = m_nonlinear_eq;
             else
-                obj._m_nonlinear_eq = [];
+                obj.m_nonlinear_eq = [];
             end
         end
 
-        % Setter for dependent properties.
+        % Getter for dependent properties.
 
-        function value = set.n(obj)
+        function value = get.n(obj)
             value = numel(obj.x0);
         end
 
-        function value = set.m_linear_ub(obj)
+        function value = get.m_linear_ub(obj)
             value = numel(obj.bub);
         end
 
-        function value = set.m_linear_eq(obj)
+        function value = get.m_linear_eq(obj)
             value = numel(obj.beq);
         end
 
-        function value = set.m_nonlinear_ub(obj)
-            if isempty(obj.cub)
-                value = 0;
+        % Other getter functions.
+
+        function value = get.m_nonlinear_ub(obj)
+            if isempty(obj.m_nonlinear_ub)
+                if isempty(obj.cub)
+                    value = 0;
+                else
+                    error('The number of nonlinear inequality constraints is unknown.');
+                end
             else
-                error('The number of nonlinear inequality constraints is unknown.');
+                value = obj.m_nonlinear_ub;
             end
         end
 
-        function value = set.m_nonlinear_eq(obj)
-            if isempty(obj.ceq)
-                value = 0;
+        function value = get.m_nonlinear_eq(obj)
+            if isempty(obj.m_nonlinear_eq)
+                if isempty(obj.ceq)
+                    value = 0;
+                else
+                    error('The number of nonlinear equality constraints is unknown.');
+                end
             else
-                error('The number of nonlinear equality constraints is unknown.');
+                value = obj.m_nonlinear_eq;
             end
         end
 
 
         % Getter functions.
+
+        function value = get.fun(obj)
+            value = @(x) obj.checkFUN(x);
+        end
+
+        function f = checkFUN(obj, x)
+            try
+                % Try to evaluate the function at x.
+                f = obj.fun(x);
+                f = double(f);
+            catch ME
+                % If an error occurred, issue a warning and set f to NaN.
+                warning(ME.identifier, '%s', ME.message);
+                f = NaN;
+            end
+            if ~(isnumeric(f) || islogical(f))
+                % Check if the output is a float/int/boolean. If not, set f to NaN.
+                f = NaN;
+            end
+        end
 
         function value = get.xl(obj)
             if isempty(obj.xl)
