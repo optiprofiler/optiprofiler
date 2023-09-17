@@ -50,9 +50,15 @@ classdef Problem
     ValueError
         If an argument received an invalid value.
     %}
-    properties (GetAccess = public, SetAccess = private)
+
+    properties (Dependent)
 
         fun
+
+    end
+
+    properties (GetAccess = public, SetAccess = private)
+
         x0
         xl = []
         xu = []
@@ -60,8 +66,18 @@ classdef Problem
         bub = []
         aeq = []
         beq = []
-        cub = []
-        ceq = []
+
+    end
+
+    properties (Dependent)
+
+        cub
+        ceq
+
+    end
+
+    properties (GetAccess = public, SetAccess = private)
+
         m_nonlinear_ub = []
         m_nonlinear_eq = []
 
@@ -72,6 +88,14 @@ classdef Problem
         n
         m_linear_ub
         m_linear_eq
+
+    end
+
+    properties (Access = private)
+
+        fun_
+        cub_
+        ceq_
 
     end
 
@@ -90,10 +114,22 @@ classdef Problem
                 if ~isfield(s, 'fun') || ~isfield(s, 'x0')
                     error("The `fun` and `x0` fields are required.")
                 end
+                obj.fun_ = s.fun;
+
+                % Check if the struct contains `cub` and `ceq` fields
+                if isfield(s, 'cub')
+                    obj.cub_ = s.cub;
+                end
+                if isfield(s, 'ceq')
+                    obj.ceq_ = s.ceq;
+                end
         
                 % Iterate over the struct's fields and assign them to the object's properties
                 fields = fieldnames(s);
                 for i = 1:numel(fields)
+                    if strcmp(fields{i}, 'fun') || strcmp(fields{i}, 'cub') || strcmp(fields{i}, 'ceq')
+                        continue
+                    end
                     obj.(fields{i}) = s.(fields{i});
                 end
             else
@@ -141,20 +177,20 @@ classdef Problem
         end
 
         % Preprocess the objective function.
-        function obj = set.fun(obj, fun)
+        function obj = set.fun_(obj, fun)
             % This function only accepts a new function handle.
             if ~isa(fun, "function_handle")
                 error("The argument `fun` must be a function handle.")
             end
             % Check if `fun` can accept only one argument.
             if nargin(fun) ~= 1
-                error('The function must accept exactly one argument.')
+                error("The function must accept exactly one argument.")
             end
             % Try to assign `fun` to the object's `fun` field.
             try
-                obj.fun = fun;
+                obj.fun_ = fun;
             catch
-                error("Error occurred while assigning 'fun' field. Please check the input.")
+                error("Error occurred while assigning `fun` field. Please check the input.")
             end
         end
 
@@ -227,35 +263,33 @@ classdef Problem
         end
 
         % Preprocess the nonlinear constraints.
-        function obj = set.cub(obj, cub)
+        function obj = set.cub_(obj, cub)
             if ~isempty(cub)
                 if ~isa(cub, "function_handle")
                     error("The argument `cub` must be a function handle.")
                 end
                 try
-                    cub(obj.x0);
-                    obj.cub = cub;
+                    obj.cub_ = cub;
                 catch
-                    error("The argument `cub` must accept an array with shape (%d, 1) as input.", obj.n);
+                    error("Error occurred while assigning `cub` field. Please check the input.");
                 end
             else
-                obj.cub = [];
+                obj.cub_ = [];
             end
         end
 
-        function obj = set.ceq(obj, ceq)
+        function obj = set.ceq_(obj, ceq)
             if ~isempty(ceq)
                 if ~isa(ceq, "function_handle")
                     error("The argument `ceq` must be a function handle.")
                 end
                 try
-                    ceq(obj.x0);
-                    obj.ceq = ceq;
+                    obj.ceq_ = ceq;
                 catch
-                    error("The argument `ceq` must accept an array with shape (%d, 1) as input.", obj.n);
+                    error("Error occurred while assigning `ceq` field. Please check the input.");
                 end
             else
-                obj.ceq = [];
+                obj.ceq_ = [];
             end
         end
 
@@ -282,7 +316,7 @@ classdef Problem
             end
         end
 
-        % Getter for dependent properties.
+        % Getter functions for dependent properties.
 
         function value = get.n(obj)
             value = numel(obj.x0);
@@ -294,6 +328,18 @@ classdef Problem
 
         function value = get.m_linear_eq(obj)
             value = numel(obj.beq);
+        end
+
+        function value = get.fun(obj)
+            value = @(x) obj.FUN(x);
+        end
+
+        function value = get.cub(obj)
+            value = @(x) obj.CUB(x);
+        end
+    
+        function value = get.ceq(obj)
+            value = @(x) obj.CEQ(x);
         end
 
         % Other getter functions.
@@ -320,30 +366,7 @@ classdef Problem
             else
                 value = obj.m_nonlinear_eq;
             end
-        end
-
-
-        % Getter functions.
-
-        function value = get.fun(obj)
-            value = @(x) obj.checkFUN(x);
-        end
-
-        function f = checkFUN(obj, x)
-            try
-                % Try to evaluate the function at x.
-                f = obj.fun(x);
-                f = double(f);
-            catch ME
-                % If an error occurred, issue a warning and set f to NaN.
-                warning(ME.identifier, '%s', ME.message);
-                f = NaN;
-            end
-            if ~(isnumeric(f) || islogical(f))
-                % Check if the output is a float/int/boolean. If not, set f to NaN.
-                f = NaN;
-            end
-        end
+        end        
 
         function value = get.xl(obj)
             if isempty(obj.xl)
@@ -393,32 +416,154 @@ classdef Problem
             end
         end
 
-        function value = calc_fun(obj, x)
-            value = double(obj.fun(x));
+        % Other functions.
+
+        function cv = maxcv(obj, x)
+            % Evaluate the maximum constraint violation.
+            
+            % Initialize cv to 0
+            cv = 0;
+            
+            % Check lower bound constraint violation
+            cv = max(max(obj.xl - x), cv);
+            
+            % Check upper bound constraint violation
+            cv = max(max(x - obj.xu), cv);
+            
+            % Check linear inequality constraint violation
+            cv = max(max(obj.aub * x - obj.bub), cv);
+            
+            % Check linear equality constraint violation
+            cv = max(max(abs(obj.aeq * x - obj.beq)), cv);
+            
+            % Check nonlinear inequality constraint violation
+            cv = max(max(obj.cub(x)), cv);
+            
+            % Check nonlinear equality constraint violation
+            cv = max(max(abs(obj.ceq(x))), cv);
         end
-    
-        function value = calc_cub(obj, x)
-            if isempty(obj.cub)
-                value = NaN(0, 1);
-            else
-                value = double(obj.cub(x));
+    end
+
+    % Private methods.
+    methods (Access = private)
+
+        function f = FUN(obj, x)
+            % Check if x is a one-dimensional vector.
+            if ~isvector(x)
+                error("The input `x` must be a one-dimensional vector.")
             end
-            if isempty(obj.m_nonlinear_ub)
-                obj.m_nonlinear_ub = numel(value);
+
+            if numel(x) ~= obj.n
+                error("The input `x` must have size %d.", obj.n)
             end
-        end
-    
-        function value = calc_ceq(obj, x)
-            if isempty(obj.ceq)
-                value = NaN(0, 1);
-            else
-                value = double(obj.ceq(x));
+
+            FUN = obj.fun_;
+            try
+                % Try to evaluate the function at x.
+                f = FUN(x);
+            catch ME
+                % If an error occurred, issue a warning and set f to NaN.
+                warning(ME.identifier, '%s', ME.message);
+                f = NaN;
             end
-            if isempty(obj.m_nonlinear_eq)
-                obj.m_nonlinear_eq = numel(value);
+
+            try
+                f = double(f);
+            catch ME
+                % If an error occurred, issue a warning and set f to NaN.
+                warning(ME.identifier, '%s', ME.message);
+                f = NaN;
+            end
+
+            if ~(isnumeric(f) || islogical(f))
+                % Check if the output is a float/int/boolean. If not, set f to NaN.
+                f = NaN;
             end
         end
 
+        function f = CUB(obj, x)
+            if ~isvector(x)
+                error("The input `x` must be a one-dimensional vector.")
+            end
+
+            if numel(x) ~= obj.n
+                error("The input `x` must have size %d.", obj.n)
+            end
+
+            CUB = obj.cub_;
+            if isempty(CUB)
+                f = NaN(0, 1);
+            else
+                try
+                    f = CUB(x);
+                catch ME
+                    warning(ME.identifier, '%s', ME.message);
+                    f = NaN(obj.m_nonlinear_ub, 1);
+                end
+                if ~isvector(f)
+                    error("The output of the nonlinear inequality constraint must be a one-dimensional vector.")
+                end
+                try
+                    f_size = size(f);
+                    f = double(f);
+                catch ME
+                    warning(ME.identifier, '%s', ME.message);
+                    f = NaN(f_size);
+                end
+                if ~(isnumeric(f) || islogical(f))
+                    f = NaN(f_size);
+                end
+            end
+
+            if isempty(obj.m_nonlinear_ub)
+                obj.m_nonlinear_ub = numel(f);
+            end
+            if numel(f) ~= obj.m_nonlinear_ub
+                error("The output of the nonlinear inequality constraint must have size %d.", obj.m_nonlinear_ub)
+            end
+        end
+
+        function f = CEQ(obj, x)
+            if ~isvector(x)
+                error("The input `x` must be a one-dimensional vector.")
+            end
+
+            if numel(x) ~= obj.n
+                error("The input `x` must have size %d.", obj.n)
+            end
+
+            CEQ = obj.ceq_;
+            if isempty(CEQ)
+                f = NaN(0, 1);
+            else
+                try
+                    f = CEQ(x);
+                catch ME
+                    warning(ME.identifier, '%s', ME.message);
+                    f = NaN(obj.m_nonlinear_eq, 1);
+                end
+                if ~isvector(f)
+                    error("The output of the nonlinear equality constraint must be a one-dimensional vector.")
+                end
+                try
+                    f_size = size(f);
+                    f = double(f);
+                catch ME
+                    warning(ME.identifier, '%s', ME.message);
+                    f = NaN(f_size);
+                end
+                if ~(isnumeric(f) || islogical(f))
+                    f = NaN(f_size);
+                end
+            end
+
+            if isempty(obj.m_nonlinear_eq)
+                obj.m_nonlinear_eq = numel(f);
+            end
+            if numel(f) ~= obj.m_nonlinear_eq
+                error("The output of the nonlinear equality constraint must have size %d.", obj.m_nonlinear_eq)
+            end
+        end
     end
 
 end
