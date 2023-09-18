@@ -1,4 +1,4 @@
-classdef Problem < handle
+classdef Problem
     %{
     Optimization problem.
     %}
@@ -103,7 +103,7 @@ classdef Problem < handle
 
         function obj = Problem(varargin)
             if nargin < 1
-                error("At least one argument is required.")
+                error("MATLAB:Problem:MissingArguments", "At least one argument is required.")
             end
         
             if isstruct(varargin{1})
@@ -112,7 +112,7 @@ classdef Problem < handle
         
                 % Check if the struct contains the required fields
                 if ~isfield(s, 'fun') || ~isfield(s, 'x0')
-                    error("The `fun` and `x0` fields are required.")
+                    error("MATLAB:Problem:MissingFields", "The `fun` and `x0` fields are required.")
                 end
                 obj.fun_ = s.fun;
 
@@ -133,34 +133,34 @@ classdef Problem < handle
                     obj.(fields{i}) = s.(fields{i});
                 end
             else
-                error("Invalid input. A struct argument is expected.")
+                error("MATLAB:Problem:NotStruct", "Invalid input. A struct argument is expected.")
             end
 
             % Check that the arguments are consistent.
 
             % Check that `xl` has the same size as `x0`.
             if numel(obj.xl) ~= obj.n
-                error('The argument `xl` must have size %d.', obj.n);
+                error("MATLAB:Problem:xl_x0_NotConsistent", "The argument `xl` must have size %d.", obj.n);
             end
             % Check that `xu` has the same size as `x0`.
             if numel(obj.xu) ~= obj.n
-                error('The argument `xu` must have size %d.', obj.n);
+                error("MATLAB:Problem:xu_x0_NotConsistent", "The argument `xu` must have size %d.", obj.n);
             end
             % Check that `aub` is a matrix with shape (m_linear_ub, n).
             if ~isequal(size(obj.aub), [obj.m_linear_ub, obj.n])
-                error('The argument `aub` must have shape (%d, %d).', obj.m_linear_ub, obj.n);
+                error("MATLAB:Problem:aub_m_linear_ub_n_NotConsistent", "The argument `aub` must have shape (%d, %d).", obj.m_linear_ub, obj.n);
             end
             % Check that `aeq` is a matrix with shape (m_linear_eq, n).
             if ~isequal(size(obj.aeq), [obj.m_linear_eq, obj.n])
-                error('The argument `aeq` must have shape (%d, %d).', obj.m_linear_eq, obj.n);
+                error("MATLAB:Problem:aeq_m_linear_eq_n_NotConsistent", "The argument `aeq` must have shape (%d, %d).", obj.m_linear_eq, obj.n);
             end
             % Check that whether `m_nonlinear_ub` is empty or zero if `cub` is empty.
-            if isempty(obj.cub) && ~isempty(obj.m_nonlinear_ub) && obj.m_nonlinear_ub > 0
-                error('The argument `m_nonlinear_ub` must be empty or zero if the argument `cub` is empty.');
+            if isempty(obj.cub_) && ~isempty(obj.m_nonlinear_ub) && obj.m_nonlinear_ub > 0
+                error("MATLAB:Problem:m_nonlinear_ub_cub_NotConsistent", "The argument `m_nonlinear_ub` must be empty or zero if the argument `cub` is empty.");
             end
             % Check that whether `m_nonlinear_eq` is empty or zero if `ceq` is empty.
-            if isempty(obj.ceq) && ~isempty(obj.m_nonlinear_eq) && obj.m_nonlinear_eq > 0
-                error('The argument `m_nonlinear_eq` must be empty or zero if the argument `ceq` is empty.');
+            if isempty(obj.ceq_) && ~isempty(obj.m_nonlinear_eq) && obj.m_nonlinear_eq > 0
+                error("MATLAB:Problem:m_nonlinear_eq_ceq_NotConsistent", "The argument `m_nonlinear_eq` must be empty or zero if the argument `ceq` is empty.");
             end
         end
 
@@ -345,36 +345,26 @@ classdef Problem < handle
         % Other getter functions.
 
         function value = get.m_nonlinear_ub(obj)
-            try
-                if isempty(obj.m_nonlinear_ub)
-                    if isempty(obj.cub)
-                        value = 0;
-                    else
-                        error('The number of nonlinear inequality constraints is unknown.');
-                    end
+            if isempty(obj.m_nonlinear_ub)
+                if isempty(obj.cub_)
+                    value = 0;
                 else
-                    value = obj.m_nonlinear_ub;
+                    error('The number of nonlinear inequality constraints is unknown.');
                 end
-            catch ME
-                fprintf(1, 'Error: %s\n', ME.message);
-                value = [];
+            else
+                value = obj.m_nonlinear_ub;
             end
         end
 
         function value = get.m_nonlinear_eq(obj)
-            try
-                if isempty(obj.m_nonlinear_eq)
-                    if isempty(obj.ceq)
-                        value = 0;
-                    else
-                        error('The number of nonlinear equality constraints is unknown.');
-                    end
+            if isempty(obj.m_nonlinear_eq)
+                if isempty(obj.ceq_)
+                    value = 0;
                 else
-                    value = obj.m_nonlinear_eq;
+                    error('The number of nonlinear equality constraints is unknown.');
                 end
-            catch ME
-                fprintf(1, 'Error: %s\n', ME.message);
-                value = [];
+            else
+                value = obj.m_nonlinear_eq;
             end
         end        
 
@@ -428,30 +418,30 @@ classdef Problem < handle
 
         % Other functions.
 
-        function cv = maxcv(obj, x)
-            % Evaluate the maximum constraint violation.
+        % function cv = maxcv(obj, x)
+        %     % Evaluate the maximum constraint violation.
             
-            % Initialize cv to 0
-            cv = 0;
+        %     % Initialize cv to 0
+        %     cv = 0;
             
-            % Check lower bound constraint violation
-            cv = max(max(obj.xl - x), cv);
+        %     % Check lower bound constraint violation
+        %     cv = max(max(obj.xl - x), cv);
             
-            % Check upper bound constraint violation
-            cv = max(max(x - obj.xu), cv);
+        %     % Check upper bound constraint violation
+        %     cv = max(max(x - obj.xu), cv);
             
-            % Check linear inequality constraint violation
-            cv = max(max(obj.aub * x - obj.bub), cv);
+        %     % Check linear inequality constraint violation
+        %     cv = max(max(obj.aub * x - obj.bub), cv);
             
-            % Check linear equality constraint violation
-            cv = max(max(abs(obj.aeq * x - obj.beq)), cv);
+        %     % Check linear equality constraint violation
+        %     cv = max(max(abs(obj.aeq * x - obj.beq)), cv);
             
-            % Check nonlinear inequality constraint violation
-            cv = max(max(obj.cub(x)), cv);
+        %     % Check nonlinear inequality constraint violation
+        %     cv = max(max(obj.cub(x)), cv);
             
-            % Check nonlinear equality constraint violation
-            cv = max(max(abs(obj.ceq(x))), cv);
-        end
+        %     % Check nonlinear equality constraint violation
+        %     cv = max(max(abs(obj.ceq(x))), cv);
+        % end
     end
 
     % Private methods.
@@ -524,11 +514,10 @@ classdef Problem < handle
                     f = NaN(f_size);
                 end
             end
-            
-            if isempty(obj.m_nonlinear_ub) || isempty(CUB)
+
+            if isempty(obj.m_nonlinear_ub)
                 obj.m_nonlinear_ub = numel(f);
             end
-
             if numel(f) ~= obj.m_nonlinear_ub
                 error("The output of the nonlinear inequality constraint must have size %d.", obj.m_nonlinear_ub)
             end
@@ -571,7 +560,6 @@ classdef Problem < handle
             if isempty(obj.m_nonlinear_eq)
                 obj.m_nonlinear_eq = numel(f);
             end
-
             if numel(f) ~= obj.m_nonlinear_eq
                 error("The output of the nonlinear equality constraint must have size %d.", obj.m_nonlinear_eq)
             end
