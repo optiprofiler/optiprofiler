@@ -33,6 +33,6 @@ jobs:
         run: bash .github/actions/test-python/run.sh
 
       - name: Upload coverage reports
-        uses: test-python/test-python-action@v3
+        uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
