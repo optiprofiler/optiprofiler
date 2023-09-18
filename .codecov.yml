@@ -1,5 +1,6 @@
 # Codecov configuration file
 
 ignore:
+  - 'conftest.py'
   - '**/tests/*.py'
   - 'python/OptiProfiler/utils.py'

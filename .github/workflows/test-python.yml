@@ -1,6 +1,6 @@
 # Code coverage
 
-name: codecov
+name: test-python
 
 on:
   push:
@@ -30,7 +30,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Generate coverage reports
-        run: bash .github/actions/codecov/generate.sh
+        run: bash .github/actions/test-python/run.sh
 
       - name: Upload coverage reports
         uses: codecov/codecov-action@v4
