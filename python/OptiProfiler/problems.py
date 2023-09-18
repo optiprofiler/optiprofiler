@@ -5,6 +5,7 @@ from inspect import signature
 
 import numpy as np
 
+from .features import Feature
 from .utils import get_logger
 
 
@@ -135,82 +136,76 @@ class Problem:
             If an argument received an invalid value.
         """
         # Preprocess the initial guess.
-        self._x0 = _1d_array(x0, 'The argument `x0` must be a one-dimensional array.')
+        self._x0 = _1d_array(x0, 'The argument x0 must be a one-dimensional array.')
 
         # Preprocess the objective function.
         self._fun = fun
         if not callable(self._fun):
-            raise ValueError('The argument `fun` must be callable.')
-        try:
-            signature(self._fun).bind(self._x0)
-        except TypeError:
-            raise ValueError(f'The argument `fun` must accept an array with shape {(self.n,)} as input.')
+            raise ValueError('The argument fun must be callable.')
+        if len(signature(self._fun).parameters) != 1:
+            raise ValueError('The argument fun must take exactly one argument.')
 
         # Preprocess the bound constraints.
         self._xl = xl
         if self._xl is not None:
-            self._xl = _1d_array(self._xl, 'The argument `xl` must be a one-dimensional array.')
+            self._xl = _1d_array(self._xl, 'The argument xl must be a one-dimensional array.')
         self._xu = xu
         if self._xu is not None:
-            self._xu = _1d_array(self._xu, 'The argument `xu` must be a one-dimensional array.')
+            self._xu = _1d_array(self._xu, 'The argument xu must be a one-dimensional array.')
 
         # Preprocess the linear constraints.
         self._aub = aub
         if self._aub is not None:
-            self._aub = _2d_array(self._aub, 'The argument `aub` must be a two-dimensional array.')
+            self._aub = _2d_array(self._aub, 'The argument aub must be a two-dimensional array.')
         self._bub = bub
         if self._bub is not None:
-            self._bub = _1d_array(self._bub, 'The argument `bub` must be a one-dimensional array.')
+            self._bub = _1d_array(self._bub, 'The argument bub must be a one-dimensional array.')
         self._aeq = aeq
         if self._aeq is not None:
-            self._aeq = _2d_array(self._aeq, 'The argument `aeq` must be a two-dimensional array.')
+            self._aeq = _2d_array(self._aeq, 'The argument aeq must be a two-dimensional array.')
         self._beq = beq
         if self._beq is not None:
-            self._beq = _1d_array(self._beq, 'The argument `beq` must be a one-dimensional array.')
+            self._beq = _1d_array(self._beq, 'The argument beq must be a one-dimensional array.')
 
         # Preprocess the nonlinear constraints.
         self._cub = cub
         if self._cub is not None:
             if not callable(self._cub):
-                raise ValueError('The argument `cub` must be callable.')
-            try:
-                signature(self._cub).bind(self._x0)
-            except TypeError:
-                raise ValueError(f'The argument `cub` must accept an array with shape {(self.n,)} as input.')
+                raise ValueError('The argument cub must be callable.')
+            if len(signature(self._cub).parameters) != 1:
+                raise ValueError('The argument cub must take exactly one argument.')
         self._ceq = ceq
         if self._ceq is not None:
             if not callable(self._ceq):
-                raise ValueError('The argument `ceq` must be callable.')
-            try:
-                signature(self._ceq).bind(self._x0)
-            except TypeError:
-                raise ValueError(f'The argument `ceq` must accept an array with shape {(self.n,)} as input.')
+                raise ValueError('The argument ceq must be callable.')
+            if len(signature(self._ceq).parameters) != 1:
+                raise ValueError('The argument ceq must take exactly one argument.')
 
         # Preprocess the number of nonlinear constraints.
         self._m_nonlinear_ub = m_nonlinear_ub
         if isinstance(self._m_nonlinear_ub, float) and self._m_nonlinear_ub.is_integer():
             self._m_nonlinear_ub = int(self._m_nonlinear_ub)
         if self._m_nonlinear_ub is not None and not (isinstance(self._m_nonlinear_ub, int) and self._m_nonlinear_ub >= 0):
-            raise ValueError('The argument `m_nonlinear_ub` must be a nonnegative integer.')
+            raise ValueError('The argument m_nonlinear_ub must be a nonnegative integer.')
         self._m_nonlinear_eq = m_nonlinear_eq
         if isinstance(self._m_nonlinear_eq, float) and self._m_nonlinear_eq.is_integer():
             self._m_nonlinear_eq = int(self._m_nonlinear_eq)
         if self._m_nonlinear_eq is not None and not (isinstance(self._m_nonlinear_eq, int) and self._m_nonlinear_eq >= 0):
-            raise ValueError('The argument `m_nonlinear_eq` must be a nonnegative integer.')
+            raise ValueError('The argument m_nonlinear_eq must be a nonnegative integer.')
 
         # Check that the arguments are consistent.
         if self.xl.size != self.n:
-            raise ValueError(f'The argument `xl` must have size {self.n}.')
+            raise ValueError(f'The argument xl must have size {self.n}.')
         if self.xu.size != self.n:
-            raise ValueError(f'The argument `xu` must have size {self.n}.')
+            raise ValueError(f'The argument xu must have size {self.n}.')
         if self.aub.shape != (self.m_linear_ub, self.n):
-            raise ValueError(f'The argument `aub` must have shape {(self.m_linear_ub, self.n)}.')
+            raise ValueError(f'The argument aub must have shape {(self.m_linear_ub, self.n)}.')
         if self.aeq.shape != (self.m_linear_eq, self.n):
-            raise ValueError(f'The argument `aeq` must have shape {(self.m_linear_eq, self.n)}.')
+            raise ValueError(f'The argument aeq must have shape {(self.m_linear_eq, self.n)}.')
         if self._cub is None and self._m_nonlinear_ub is not None and self._m_nonlinear_ub > 0:
-            raise ValueError('The argument `m_nonlinear_ub` must be None or zero if the argument `cub` is None.')
+            raise ValueError('The argument m_nonlinear_ub must be None or zero if the argument cub is None.')
         if self._ceq is None and self._m_nonlinear_eq is not None and self._m_nonlinear_eq > 0:
-            raise ValueError('The argument `m_nonlinear_eq` must be None or zero if the argument `ceq` is None.')
+            raise ValueError('The argument m_nonlinear_eq must be None or zero if the argument ceq is None.')
 
     @property
     def n(self):
@@ -445,11 +440,11 @@ class Problem:
             except Exception as err:
                 warnings.warn(f'Failed to evaluate the nonlinear inequality constraint function: {err}', RuntimeWarning)
                 c = np.full(self.m_nonlinear_ub, np.nan)
-            c = _1d_array(c, 'The return value of the argument `cub` must be a one-dimensional array.')
+            c = _1d_array(c, 'The return value of the argument cub must be a one-dimensional array.')
         if self._m_nonlinear_ub is None:
             self._m_nonlinear_ub = c.size
         if c.size != self.m_nonlinear_ub:
-            raise ValueError(f'The return value of the argument `cub` must have size {self.m_nonlinear_ub}.')
+            raise ValueError(f'The return value of the argument cub must have size {self.m_nonlinear_ub}.')
         return c
 
     def ceq(self, x):
@@ -472,9 +467,9 @@ class Problem:
             If the argument `x` has an invalid shape or if the return value of
             the argument `ceq` has an invalid shape.
         """
-        x = _1d_array(x, 'The argument `x` must be a one-dimensional array.')
+        x = _1d_array(x, 'The argument x must be a one-dimensional array.')
         if x.size != self.n:
-            raise ValueError(f'The argument `x` must have size {self.n}.')
+            raise ValueError(f'The argument x must have size {self.n}.')
         if self._ceq is None:
             c = np.empty(0)
         else:
@@ -483,11 +478,11 @@ class Problem:
             except Exception as err:
                 warnings.warn(f'Failed to evaluate the nonlinear equality constraint function: {err}', RuntimeWarning)
                 c = np.full(self.m_nonlinear_eq, np.nan)
-            c = _1d_array(c, 'The return value of the argument `ceq` must be a one-dimensional array.')
+            c = _1d_array(c, 'The return value of the argument ceq must be a one-dimensional array.')
         if self._m_nonlinear_eq is None:
             self._m_nonlinear_eq = c.size
         if c.size != self.m_nonlinear_eq:
-            raise ValueError(f'The return value of the argument `ceq` must have size {self.m_nonlinear_eq}.')
+            raise ValueError(f'The return value of the argument ceq must have size {self.m_nonlinear_eq}.')
         return c
 
     def maxcv(self, x):
@@ -496,7 +491,7 @@ class Problem:
 
         Parameters
         ----------
-        x : `numpy.ndarray`, shape (n,)
+        x : array_like, shape (n,)
             Point at which to evaluate the maximum constraint violation.
 
         Returns
@@ -504,6 +499,9 @@ class Problem:
         float
             Maximum constraint violation.
         """
+        x = _1d_array(x, 'The argument x must be a one-dimensional array.')
+        if x.size != self.n:
+            raise ValueError(f'The argument x must have size {self.n}.')
         cv = np.max(self.xl - x, initial=0.0)
         cv = np.max(x - self.xu, initial=cv)
         cv = np.max(self.aub @ x - self.bub, initial=cv)
@@ -511,6 +509,121 @@ class Problem:
         cv = np.max(self.cub(x), initial=cv)
         cv = np.max(np.abs(self.ceq(x)), initial=cv)
         return cv
+
+
+class FeaturedProblem(Problem):
+    """
+    Optimization problem to be used in the benchmarking, with extra features.
+    """
+
+    def __init__(self, problem, feature):
+        """
+        Initialize an optimization problem.
+
+        Parameters
+        ----------
+        problem : Problem
+            Problem to be used in the benchmarking.
+        feature : Feature
+            Feature to be used in the benchmarking.
+        """
+        # Feature to be used in the benchmarking.
+        self._feature = feature
+
+        # Copy the problem.
+        problem_kwargs = {
+            'fun': problem.fun,
+            'x0': problem.x0,
+            'xl': problem.xl,
+            'xu': problem.xu,
+            'aub': problem.aub,
+            'bub': problem.bub,
+            'aeq': problem.aeq,
+            'beq': problem.beq,
+            'cub': problem.cub,
+            'ceq': problem.ceq,
+        }
+        try:
+            problem_kwargs['m_nonlinear_ub'] = problem.m_nonlinear_ub
+        except ValueError:
+            pass
+        try:
+            problem_kwargs['m_nonlinear_eq'] = problem.m_nonlinear_eq
+        except ValueError:
+            pass
+        super().__init__(**problem_kwargs)
+
+        # Store the objective function values and maximum constraint violations.
+        self._fun_hist = []
+        self._maxcv_hist = []
+
+    @property
+    def n_eval(self):
+        """
+        Number of objective function evaluations.
+
+        Returns
+        -------
+        int
+            Number of objective function evaluations.
+        """
+        return len(self._fun_hist)
+
+    @property
+    def fun_hist(self):
+        """
+        History of objective function values.
+
+        Returns
+        -------
+        `numpy.ndarray`, shape (n_eval,)
+            History of objective function values.
+        """
+        return np.array(self._fun_hist, dtype=float)
+
+    @property
+    def maxcv_hist(self):
+        """
+        History of maximum constraint violations.
+
+        Returns
+        -------
+        `numpy.ndarray`, shape (n_eval,)
+            History of maximum constraint violations.
+        """
+        return np.array(self._maxcv_hist, dtype=float)
+
+    def fun(self, x, seed=None):
+        """
+        Evaluate the objective function.
+
+        Parameters
+        ----------
+        x : array_like, shape (n,)
+            Point at which to evaluate the objective function.
+        seed : int, optional
+            Seed for the random number generator.
+
+        Returns
+        -------
+        float
+            Value of the objective function at `x`.
+
+        Raises
+        ------
+        ValueError
+            If the argument `x` has an invalid shape.
+        """
+        # Evaluate the objective function and store the results.
+        f = super().fun(x)
+        self._fun_hist.append(f)
+        self._maxcv_hist.append(self.maxcv(x))
+
+        # Modified the objective function value according to the feature and
+        # return the modified value. We should not store the modified value
+        # because the performance of an optimization solver should be measured
+        # using the original objective function.
+        return self._feature.modifier(x, f, seed)
 
 
 class ProblemError(Exception):
@@ -658,20 +771,20 @@ def load_cutest(problem_name, **kwargs):
 
     # Check the arguments.
     if not isinstance(problem_name, str):
-        raise ValueError('The argument `problem_name` must be a string.')
+        raise ValueError('The argument problem_name must be a string.')
     for key in kwargs:
         if key not in ['n_min', 'n_max', 'm_min', 'm_max']:
             raise ValueError(f'Invalid argument: {key}.')
         if not isinstance(kwargs[key], float) and kwargs[key].is_integer():
             kwargs[key] = int(kwargs[key])
         if not isinstance(kwargs[key], int):
-            raise ValueError(f'The argument `{key}` must be an integer.')
+            raise ValueError(f'The argument {key} must be an integer.')
         if kwargs[key] < 0:
-            raise ValueError(f'The argument `{key}` must be nonnegative.')
+            raise ValueError(f'The argument {key} must be nonnegative.')
         if 'n_min' in kwargs and 'n_max' in kwargs and kwargs['n_min'] > kwargs['n_max']:
-            raise ValueError('The argument `n_min` must be less than or equal to the argument `n_max`.')
+            raise ValueError('The argument n_min must be less than or equal to the argument n_max.')
         if 'm_min' in kwargs and 'm_max' in kwargs and kwargs['m_min'] > kwargs['m_max']:
-            raise ValueError('The argument `m_min` must be less than or equal to the argument `m_max`.')
+            raise ValueError('The argument m_min must be less than or equal to the argument m_max.')
 
     # Attempt to load the CUTEst problem.
     cutest_problem = None
@@ -765,26 +878,26 @@ def find_cutest_problem_names(constraints, **kwargs):
 
     # Check the arguments.
     if not isinstance(constraints, str):
-        raise ValueError('The argument `constraints` must be a string.')
+        raise ValueError('The argument constraints must be a string.')
     for constraint in constraints.split():
         if constraint not in ['unconstrained', 'fixed', 'bound', 'adjacency', 'linear', 'quadratic', 'other']:
             raise ValueError(f'Invalid constraint: {constraint}.')
     if 'n_min' in kwargs and isinstance(kwargs['n_min'], float) and kwargs['n_min'].is_integer():
         kwargs['n_min'] = int(kwargs['n_min'])
     if 'n_min' in kwargs and (not isinstance(kwargs['n_min'], int) or kwargs['n_min'] < 1):
-        raise ValueError('The argument `n_min` must be a positive integer.')
+        raise ValueError('The argument n_min must be a positive integer.')
     if 'n_max' in kwargs and isinstance(kwargs['n_max'], float) and kwargs['n_max'].is_integer():
         kwargs['n_max'] = int(kwargs['n_max'])
     if 'n_max' in kwargs and (not isinstance(kwargs['n_max'], int) or kwargs['n_max'] < kwargs.get('n_min', 1)):
-        raise ValueError('The argument `n_max` must be an integer greater than or equal to `n_min`.')
+        raise ValueError('The argument n_max must be an integer greater than or equal to n_min.')
     if 'm_min' in kwargs and isinstance(kwargs['m_min'], float) and kwargs['m_min'].is_integer():
         kwargs['m_min'] = int(kwargs['m_min'])
     if 'm_min' in kwargs and (not isinstance(kwargs['m_min'], int) or kwargs['m_min'] < 0):
-        raise ValueError('The argument `m_min` must be a nonnegative integer.')
+        raise ValueError('The argument m_min must be a nonnegative integer.')
     if 'm_max' in kwargs and isinstance(kwargs['m_max'], float) and kwargs['m_max'].is_integer():
         kwargs['m_max'] = int(kwargs['m_max'])
     if 'm_max' in kwargs and (not isinstance(kwargs['m_max'], int) or kwargs['m_max'] < kwargs.get('m_min', 0)):
-        raise ValueError('The argument `m_max` must be an integer greater than or equal to `m_min`.')
+        raise ValueError('The argument m_max must be an integer greater than or equal to m_min.')
 
     # Find all the problems that satisfy the constraints.
     excluded_problem_names = {}

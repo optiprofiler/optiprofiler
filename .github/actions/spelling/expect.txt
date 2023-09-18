@@ -21,6 +21,7 @@ conftest
 copybutton
 cov
 currentmodule
+dtype
 endblock
 endfor
 flatnonzero
@@ -31,6 +32,7 @@ idx
 infty
 intersphinx
 levelname
+linalg
 linkcode
 maxcv
 maxdepth
@@ -45,6 +47,7 @@ Optim
 optiprofiler
 papersize
 pycutest
+rng
 rosen
 rst
 rtd
