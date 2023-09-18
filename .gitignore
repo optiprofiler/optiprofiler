@@ -160,6 +160,7 @@ pycutest_cache_holder/
 
 
 # MATLAB
+test.m
 
 ## Windows default autuosave extension
 *.asv

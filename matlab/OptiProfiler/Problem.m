@@ -1,4 +1,4 @@
-classdef Problem
+classdef Problem < handle
     %{
     Optimization problem.
     %}
@@ -345,26 +345,36 @@ classdef Problem
         % Other getter functions.
 
         function value = get.m_nonlinear_ub(obj)
-            if isempty(obj.m_nonlinear_ub)
-                if isempty(obj.cub)
-                    value = 0;
+            try
+                if isempty(obj.m_nonlinear_ub)
+                    if isempty(obj.cub)
+                        value = 0;
+                    else
+                        error('The number of nonlinear inequality constraints is unknown.');
+                    end
                 else
-                    error('The number of nonlinear inequality constraints is unknown.');
+                    value = obj.m_nonlinear_ub;
                 end
-            else
-                value = obj.m_nonlinear_ub;
+            catch ME
+                fprintf(1, 'Error: %s\n', ME.message);
+                value = [];
             end
         end
 
         function value = get.m_nonlinear_eq(obj)
-            if isempty(obj.m_nonlinear_eq)
-                if isempty(obj.ceq)
-                    value = 0;
+            try
+                if isempty(obj.m_nonlinear_eq)
+                    if isempty(obj.ceq)
+                        value = 0;
+                    else
+                        error('The number of nonlinear equality constraints is unknown.');
+                    end
                 else
-                    error('The number of nonlinear equality constraints is unknown.');
+                    value = obj.m_nonlinear_eq;
                 end
-            else
-                value = obj.m_nonlinear_eq;
+            catch ME
+                fprintf(1, 'Error: %s\n', ME.message);
+                value = [];
             end
         end        
 
@@ -514,10 +524,11 @@ classdef Problem
                     f = NaN(f_size);
                 end
             end
-
-            if isempty(obj.m_nonlinear_ub)
+            
+            if isempty(obj.m_nonlinear_ub) || isempty(CUB)
                 obj.m_nonlinear_ub = numel(f);
             end
+
             if numel(f) ~= obj.m_nonlinear_ub
                 error("The output of the nonlinear inequality constraint must have size %d.", obj.m_nonlinear_ub)
             end
@@ -560,6 +571,7 @@ classdef Problem
             if isempty(obj.m_nonlinear_eq)
                 obj.m_nonlinear_eq = numel(f);
             end
+
             if numel(f) ~= obj.m_nonlinear_eq
                 error("The output of the nonlinear equality constraint must have size %d.", obj.m_nonlinear_eq)
             end
