@@ -52,7 +52,7 @@ class TestFeature:
         x = rng.standard_normal(n)
         f = self.rosen(x)
 
-        # Test the regularized feature.
+        # Test the noisy feature.
         feature = Feature('noisy')
         assert feature.name == 'noisy'
         assert 'distribution' in feature.options and feature.options['type'] == 'relative'
@@ -72,11 +72,12 @@ class TestFeature:
         x = rng.standard_normal(n)
         f = self.rosen(x)
 
-        # Test the regularized feature.
+        # Test the truncated feature.
         feature = Feature('truncated')
         assert feature.name == 'truncated'
         assert feature.options == {'significant_digits': 6}
         np.testing.assert_allclose(feature.modifier(x, f),  f, 1e-5, 1e-5)
+        np.testing.assert_allclose(feature.modifier(x, -f),  -f, 1e-5, 1e-5)
 
         # Add custom options.
         feature = Feature('truncated', significant_digits=4)
@@ -92,7 +93,7 @@ class TestFeature:
         x = rng.standard_normal(n)
         f = self.rosen(x)
 
-        # Test the regularized feature.
+        # Test the tough feature.
         feature = Feature('tough')
         assert feature.name == 'tough'
         assert feature.options == {'rate_error': 0.0, 'rate_nan': 0.05}
@@ -117,7 +118,7 @@ class TestFeature:
         x = rng.standard_normal(n)
         f = self.rosen(x)
 
-        # Test the regularized feature.
+        # Test the custom feature.
         feature = Feature('custom', modifier=lambda x, f, seed: f + 1.0)
         assert feature.name == 'custom'
         assert 'modifier' in feature.options
@@ -160,3 +161,9 @@ class TestFeature:
             Feature('truncated', significant_digits=2.5)
         with pytest.raises(TypeError):
             Feature('noisy', type='+')
+        with pytest.raises(TypeError):
+            Feature('custom')
+
+    def test_catch(self):
+        # The value significant_digits can be a float.
+        Feature('truncated', significant_digits=2.0)

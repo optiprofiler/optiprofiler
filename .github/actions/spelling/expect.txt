@@ -1,5 +1,6 @@
 addinivalue
 addoption
+allclose
 arange
 astype
 atleast
