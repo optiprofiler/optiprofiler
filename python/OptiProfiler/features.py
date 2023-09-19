@@ -70,9 +70,12 @@ class Feature:
                 if not callable(self._options[key]):
                     raise TypeError(f'Option {key} must be callable.')
                 if len(signature(self._options[key]).parameters) != 3:
-                    raise ValueError(f'Option {key} must take exactly three arguments.')
+                    raise TypeError(f'Option {key} must take exactly three arguments.')
             elif key == self._OptionKey.DISTRIBUTION:
-                raise NotImplementedError
+                if not callable(self._options[key]):
+                    raise TypeError(f'Option {key} must be callable.')
+                if len(signature(self._options[key]).parameters) != 1:
+                    raise TypeError(f'Option {key} must take exactly one argument.')
             elif key == self._OptionKey.ORDER:
                 if not isinstance(self._options[key], (int, float)):
                     raise TypeError(f'Option {key} must be a number.')
@@ -83,8 +86,8 @@ class Feature:
                 if not isinstance(self._options[key], (int, float)) or not (0.0 <= self._options[key] <= 1.0):
                     raise TypeError(f'Option {key} must be a number between 0 and 1.')
             elif key == self._OptionKey.SIGNIFICANT_DIGITS:
-                if isinstance(key, float) and key.is_integer():
-                    self._options[key] = int(key)
+                if isinstance(self._options[key], float) and self._options[key].is_integer():
+                    self._options[key] = int(self._options[key])
                 if not isinstance(self._options[key], int) or self._options[key] <= 0:
                     raise TypeError(f'Option {key} must be a positive integer.')
             elif key == self._OptionKey.TYPE:
@@ -172,7 +175,7 @@ class Feature:
         """
         if self._name == self._FeatureName.CUSTOM:
             if self._OptionKey.MODIFIER not in self._options:
-                raise ValueError(f'When using a custom feature, you must specify the {self._OptionKey.MODIFIER} option.')
+                raise TypeError(f'When using a custom feature, you must specify the {self._OptionKey.MODIFIER} option.')
         elif self._name == self._FeatureName.NOISY:
             self._options.setdefault(self._OptionKey.DISTRIBUTION.value, lambda rng: 1e-3 * rng.standard_normal())
             self._options.setdefault(self._OptionKey.TYPE.value, self._NoiseType.RELATIVE.value)
