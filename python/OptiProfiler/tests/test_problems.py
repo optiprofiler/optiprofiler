@@ -1,10 +1,11 @@
 import numpy as np
 import pytest
 
-from OptiProfiler import Problem
+from OptiProfiler.features import Feature
+from OptiProfiler.problems import FeaturedProblem, Problem
 
 
-class TestProblem:
+class BaseTestProblem:
 
     @staticmethod
     def rosen(x):
@@ -35,6 +36,9 @@ class TestProblem:
         assert problem.bub.shape == (m_linear_ub,)
         assert problem.aeq.shape == (m_linear_eq, n)
         assert problem.beq.shape == (m_linear_eq,)
+
+
+class TestProblem(BaseTestProblem):
 
     @pytest.mark.parametrize('n', [1, 10, 100])
     def test_unconstrained_problem(self, n):
@@ -153,10 +157,10 @@ class TestProblem:
             Problem(self.rosen, np.zeros(1), m_nonlinear_eq=1)
         with pytest.raises(ValueError):
             problem = Problem(self.rosen, np.zeros(1), cub=self.sum_cos)
-            problem.m_nonlinear_ub
+            problem.m_nonlinear_ub  # noqa
         with pytest.raises(ValueError):
             problem = Problem(self.rosen, np.zeros(1), ceq=self.sum_sin)
-            problem.m_nonlinear_eq
+            problem.m_nonlinear_eq  # noqa
         with pytest.raises(ValueError):
             problem = Problem(self.rosen, np.zeros(1))
             problem.fun(np.zeros(2))
@@ -174,6 +178,9 @@ class TestProblem:
             problem = Problem(self.rosen, np.zeros(1), ceq=lambda x: np.zeros(int(np.sum(x))))
             problem.ceq(np.zeros(1))
             problem.ceq(np.ones(1))
+        with pytest.raises(ValueError):
+            problem = Problem(self.rosen, np.zeros(1))
+            problem.maxcv(np.zeros(2))
 
     def test_catch(self):
         # The value m_nonlinear_ub can be a float.
@@ -201,6 +208,49 @@ class TestProblem:
         problem = Problem(self.rosen, np.zeros(1), ceq=self.bad_fun, m_nonlinear_eq=1)
         with pytest.warns(RuntimeWarning):
             assert np.isnan(problem.ceq(problem.x0))
+
+
+class TestFeaturedProblem(BaseTestProblem):
+
+    @pytest.mark.parametrize('n', [1, 10, 100])
+    def test_simple(self, n):
+        # Construct a simple problem.
+        x0 = np.zeros(n)
+        problem = Problem(self.rosen, x0)
+
+        # Construct a featured problem.
+        feature = Feature('plain')
+        featured_problem = FeaturedProblem(problem, feature)
+
+        # Check the featured problem attributes.
+        assert featured_problem.n_eval == 0
+        assert featured_problem.fun_hist.shape == (0,)
+        assert featured_problem.maxcv_hist.shape == (0,)
+
+        # Evaluate the objective function at x0.
+        f = featured_problem.fun(x0)
+        assert featured_problem.n_eval == 1
+        np.testing.assert_array_equal(featured_problem.fun_hist, [f])
+        np.testing.assert_array_equal(featured_problem.maxcv_hist, [0.0])
+
+        # Construct a featured problem with a different feature.
+        feature = Feature('custom', modifier=lambda x, f, seed: f + 1)
+        featured_problem = FeaturedProblem(problem, feature)
+
+        # Evaluate the objective function at x0.
+        f = featured_problem.fun(x0)
+        assert featured_problem.n_eval == 1
+        np.testing.assert_array_almost_equal(featured_problem.fun_hist, [f - 1])
+        np.testing.assert_array_equal(featured_problem.maxcv_hist, [0.0])
+
+    def test_catch(self):
+        # Construct a nonlinearly constrained problem.
+        x0 = np.zeros(2)
+        problem = Problem(self.rosen, x0, cub=self.sum_cos, ceq=self.sum_sin)
+
+        # Construct a featured problem.
+        feature = Feature('plain')
+        FeaturedProblem(problem, feature)
 
 
 @pytest.mark.extra

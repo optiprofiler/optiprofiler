@@ -531,7 +531,7 @@ class FeaturedProblem(Problem):
         self._feature = feature
 
         # Copy the problem.
-        problem_kwargs = {
+        kwargs = {
             'fun': problem.fun,
             'x0': problem.x0,
             'xl': problem.xl,
@@ -544,14 +544,14 @@ class FeaturedProblem(Problem):
             'ceq': problem.ceq,
         }
         try:
-            problem_kwargs['m_nonlinear_ub'] = problem.m_nonlinear_ub
+            kwargs['m_nonlinear_ub'] = problem.m_nonlinear_ub
         except ValueError:
             pass
         try:
-            problem_kwargs['m_nonlinear_eq'] = problem.m_nonlinear_eq
+            kwargs['m_nonlinear_eq'] = problem.m_nonlinear_eq
         except ValueError:
             pass
-        super().__init__(**problem_kwargs)
+        super().__init__(**kwargs)
 
         # Store the objective function values and maximum constraint violations.
         self._fun_hist = []
