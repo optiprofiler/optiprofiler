@@ -177,6 +177,55 @@ classdef TestProblem < matlab.unittest.TestCase
             testCase.verifyError(@() Problem(s), "MATLAB:Problem:m_nonlinear_eq_NotPositiveScalar");
         end
 
+
+        % Test the getters.
+
+        function testGetter_n(testCase)
+            % Test that obj.n returns the correct value.
+            s = struct('fun', @(x) x.' * x, 'x0', zeros(10, 1));
+            problemInstance = Problem(s);
+            testCase.verifyEqual(problemInstance.n, 10);
+        end
+
+        function testGetter_m_linear_ub(testCase)
+            % Test that obj.m_linear_ub returns the correct value.
+            s = struct('fun', @(x) x.' * x, 'x0', zeros(10, 1), 'aub', zeros(5, 10), 'bub', zeros(5, 1));
+            problemInstance = Problem(s);
+            testCase.verifyEqual(problemInstance.m_linear_ub, 5);
+        end
+
+        function testGetter_m_linear_eq(testCase)
+            % Test that obj.m_linear_eq returns the correct value.
+            s = struct('fun', @(x) x.' * x, 'x0', zeros(10, 1), 'aeq', zeros(5, 10), 'beq', zeros(5, 1));
+            problemInstance = Problem(s);
+            testCase.verifyEqual(problemInstance.m_linear_eq, 5);
+        end
+
+        function testGetter_fun(testCase)
+            % Test that obj.fun(x) returns the correct value.
+            fun = @(x) x.' * x;
+            s = struct('fun', fun, 'x0', [0 0]);
+            problemInstance = Problem(s);
+            testCase.verifyEqual(problemInstance.fun([1; 1]), fun([1; 1]));
+        end
+
+        function testGetter_cub(testCase)
+            % Test that obj.cub(x) returns the correct value.
+            cub = @(x) x.' * x;
+            s = struct('fun', @(x) x.' * x, 'x0', [0 0], 'cub', cub);
+            problemInstance = Problem(s);
+            testCase.verifyEqual(problemInstance.cub([1; 1]), cub([1; 1]));
+        end
+
+        function testGetter_ceq(testCase)
+            % Test that obj.ceq(x) returns the correct value.
+            ceq = @(x) x.' * x;
+            s = struct('fun', @(x) x.' * x, 'x0', [0 0], 'ceq', ceq);
+            problemInstance = Problem(s);
+            testCase.verifyEqual(problemInstance.ceq([1; 1]), ceq([1; 1]));
+        end
+        
+
     end
 end
 

@@ -1,4 +1,4 @@
-classdef Problem
+classdef Problem < handle
     %{
     Optimization problem.
     %}
@@ -339,26 +339,36 @@ classdef Problem
         % Other getter functions.
 
         function value = get.m_nonlinear_ub(obj)
-            if isempty(obj.m_nonlinear_ub)
-                if isempty(obj.cub_)
-                    value = 0;
+            try
+                if isempty(obj.m_nonlinear_ub)
+                    if isempty(obj.cub_)
+                        value = 0;
+                    else
+                        error("MATLAB:Problem:m_nonlinear_ub_Unknown", "The number of nonlinear inequality constraints is unknown.");
+                    end
                 else
-                    error('The number of nonlinear inequality constraints is unknown.');
+                    value = obj.m_nonlinear_ub;
                 end
-            else
-                value = obj.m_nonlinear_ub;
+            catch ME
+                warning("Error occurred while getting m_nonlinear_ub: %s", ME.message);
+                value = [];
             end
         end
 
         function value = get.m_nonlinear_eq(obj)
-            if isempty(obj.m_nonlinear_eq)
-                if isempty(obj.ceq_)
-                    value = 0;
+            try
+                if isempty(obj.m_nonlinear_eq)
+                    if isempty(obj.ceq_)
+                        value = 0;
+                    else
+                        error("MATLAB:Problem:m_nonlinear_eq_Unknown", "The number of nonlinear equality constraints is unknown.");
+                    end
                 else
-                    error('The number of nonlinear equality constraints is unknown.');
+                    value = obj.m_nonlinear_eq;
                 end
-            else
-                value = obj.m_nonlinear_eq;
+            catch ME
+                warning("Error occurred while getting m_nonlinear_eq: %s", ME.message);
+                value = [];
             end
         end        
 
