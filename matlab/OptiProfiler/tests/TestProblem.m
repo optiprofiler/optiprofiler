@@ -224,7 +224,176 @@ classdef TestProblem < matlab.unittest.TestCase
             problemInstance = Problem(s);
             testCase.verifyEqual(problemInstance.ceq([1; 1]), ceq([1; 1]));
         end
+
+        function testGetter_m_nonlinear_ub(testCase)
+            % Test that obj.m_nonlinear_ub returns the correct value.
+            s1 = struct('fun', @(x) x.' * x, 'x0', [0 0]);
+            problemInstance1 = Problem(s1);
+            testCase.verifyEqual(problemInstance1.m_nonlinear_ub, 0);
+            s2 = struct('fun', @(x) x.' * x, 'x0', [0 0], 'cub', @(x) x.' * x);
+            problemInstance2 = Problem(s2);
+            testCase.verifyEqual(problemInstance2.m_nonlinear_ub, []);
+            s3 = struct('fun', @(x) x.' * x, 'x0', [0 0], 'cub', @(x) x.' * x, 'm_nonlinear_ub', 1);
+            problemInstance3 = Problem(s3);
+            testCase.verifyEqual(problemInstance3.m_nonlinear_ub, 1);
+        end
         
+        function testGetter_m_nonlinear_eq(testCase)
+            % Test that obj.m_nonlinear_eq returns the correct value.
+            s1 = struct('fun', @(x) x.' * x, 'x0', [0 0]);
+            problemInstance1 = Problem(s1);
+            testCase.verifyEqual(problemInstance1.m_nonlinear_eq, 0);
+            s2 = struct('fun', @(x) x.' * x, 'x0', [0 0], 'ceq', @(x) x.' * x);
+            problemInstance2 = Problem(s2);
+            testCase.verifyEqual(problemInstance2.m_nonlinear_eq, []);
+            s3 = struct('fun', @(x) x.' * x, 'x0', [0 0], 'ceq', @(x) x.' * x, 'm_nonlinear_eq', 1);
+            problemInstance3 = Problem(s3);
+            testCase.verifyEqual(problemInstance3.m_nonlinear_eq, 1);
+        end
+
+        function testGetter_xl(testCase)
+            % Test that obj.xl returns the correct value.
+            s1 = struct('fun', @(x) x.' * x, 'x0', [0 0]);
+            problemInstance1 = Problem(s1);
+            testCase.verifyEqual(problemInstance1.xl, -inf(2, 1));
+            s2 = struct('fun', @(x) x.' * x, 'x0', [0 0], 'xl', [1 1]);
+            problemInstance2 = Problem(s2);
+            testCase.verifyEqual(problemInstance2.xl, [1; 1]);
+        end
+
+        function testGetter_xu(testCase)
+            % Test that obj.xu returns the correct value.
+            s1 = struct('fun', @(x) x.' * x, 'x0', [0 0]);
+            problemInstance1 = Problem(s1);
+            testCase.verifyEqual(problemInstance1.xu, inf(2, 1));
+            s2 = struct('fun', @(x) x.' * x, 'x0', [0 0], 'xu', [1 1]);
+            problemInstance2 = Problem(s2);
+            testCase.verifyEqual(problemInstance2.xu, [1; 1]);
+        end
+
+        function testGetter_aub(testCase)
+            % Test that obj.aub returns the correct value.
+            s1 = struct('fun', @(x) x.' * x, 'x0', [0 0]);
+            problemInstance1 = Problem(s1);
+            testCase.verifyEqual(problemInstance1.aub, NaN(0, 2));
+            s2 = struct('fun', @(x) x.' * x, 'x0', [0 0], 'aub', [1 1; 1 1], 'bub', [1; 1]);
+            problemInstance2 = Problem(s2);
+            testCase.verifyEqual(problemInstance2.aub, [1 1; 1 1]);
+        end
+
+        function testGetter_bub(testCase)
+            % Test that obj.bub returns the correct value.
+            s1 = struct('fun', @(x) x.' * x, 'x0', [0 0]);
+            problemInstance1 = Problem(s1);
+            testCase.verifyEqual(problemInstance1.bub, NaN(0, 1));
+            s2 = struct('fun', @(x) x.' * x, 'x0', [0 0], 'aub', [1 1; 1 1], 'bub', [1; 1]);
+            problemInstance2 = Problem(s2);
+            testCase.verifyEqual(problemInstance2.bub, [1; 1]);
+        end
+
+        function testGetter_aeq(testCase)
+            % Test that obj.aeq returns the correct value.
+            s1 = struct('fun', @(x) x.' * x, 'x0', [0 0]);
+            problemInstance1 = Problem(s1);
+            testCase.verifyEqual(problemInstance1.aeq, NaN(0, 2));
+            s2 = struct('fun', @(x) x.' * x, 'x0', [0 0], 'aeq', [1 1; 1 1], 'beq', [1; 1]);
+            problemInstance2 = Problem(s2);
+            testCase.verifyEqual(problemInstance2.aeq, [1 1; 1 1]);
+        end
+
+        function testGetter_beq(testCase)
+            % Test that obj.beq returns the correct value.
+            s1 = struct('fun', @(x) x.' * x, 'x0', [0 0]);
+            problemInstance1 = Problem(s1);
+            testCase.verifyEqual(problemInstance1.beq, NaN(0, 1));
+            s2 = struct('fun', @(x) x.' * x, 'x0', [0 0], 'aeq', [1 1; 1 1], 'beq', [1; 1]);
+            problemInstance2 = Problem(s2);
+            testCase.verifyEqual(problemInstance2.beq, [1; 1]);
+        end
+
+
+        % Test other functions.
+
+        function testMaxCV(testCase)
+            % Test that obj.maxCV(x) returns the correct value.
+            s1 = struct('fun', @(x) x.' * x, 'x0', [0 0]);
+            problemInstance1 = Problem(s1);
+            testCase.verifyEqual(problemInstance1.maxcv([10; 10]), 0);
+            s2 = struct('fun', @(x) x.' * x, 'x0', [0 0], 'xl', [10; 10]);
+            problemInstance2 = Problem(s2);
+            testCase.verifyEqual(problemInstance2.maxcv([0; 0]), 10);
+            s3 = struct('fun', @(x) x.' * x, 'x0', [0 0], 'xu', [-10; -10]);
+            problemInstance3 = Problem(s3);
+            testCase.verifyEqual(problemInstance3.maxcv([0; 0]), 10);
+            s4 = struct('fun', @(x) x.' * x, 'x0', [0 0], 'aub', [1 1; 1 1], 'bub', [-1; -1]);
+            problemInstance4 = Problem(s4);
+            testCase.verifyEqual(problemInstance4.maxcv([0; 0]), 1);
+            s5 = struct('fun', @(x) x.' * x, 'x0', [0 0], 'aeq', [1 1; 1 1], 'beq', [1; 1]);
+            problemInstance5 = Problem(s5);
+            testCase.verifyEqual(problemInstance5.maxcv([0; 0]), 1);
+            s6 = struct('fun', @(x) x.' * x, 'x0', [0 0], 'cub', @(x) x.' * x, 'm_nonlinear_ub', 1);
+            problemInstance6 = Problem(s6);
+            testCase.verifyEqual(problemInstance6.maxcv([1; 1]), 2);
+            s7 = struct('fun', @(x) x.' * x, 'x0', [0 0], 'ceq', @(x) x.' * x, 'm_nonlinear_eq', 1);
+            problemInstance7 = Problem(s7);
+            testCase.verifyEqual(problemInstance7.maxcv([1; 1]), 2);
+        end
+
+
+        % Test Private methods
+
+        function testPrivateFUN(testCase)
+            % Test that FUN works as expected.
+            s = struct('fun', @(x) x.' * x, 'x0', [0 0]);
+            problemInstance = Problem(s);
+            testCase.verifyError(@() problemInstance.fun(ones(2, 2, 3)), "MATLAB:Problem:InvalidInputForFUN");
+            testCase.verifyError(@() problemInstance.fun(ones(3, 1)), "MATLAB:Problem:WrongSizeInputForFUN");
+        end
+
+        function testPrivateCUB(testCase)
+            % Test that CUB works as expected.
+            s1 = struct('fun', @(x) x.' * x, 'x0', [0 0], 'cub', @(x) x.' * x, 'm_nonlinear_ub', 1);
+            problemInstance1 = Problem(s1);
+            testCase.verifyError(@() problemInstance1.cub(ones(2, 2, 3)), "MATLAB:Problem:InvalidInputForCUB");
+            testCase.verifyError(@() problemInstance1.cub(ones(3, 1)), "MATLAB:Problem:WrongSizeInputForCUB");
+            testCase.verifyError(@() problemInstance1.cub([0 0]), "MATLAB:Problem:InvalidOutputForCUB");
+
+            s2 = struct('fun', @(x) x.' * x, 'x0', [0 0]);
+            problemInstance2 = Problem(s2);
+            testCase.verifyEqual(problemInstance2.cub(ones(2, 1)), NaN(0, 1));
+
+            s3 = struct('fun', @(x) x.' * x, 'x0', [0 0], 'cub', @(x) x.' * x);
+            problemInstance3 = Problem(s3);
+            problemInstance3.cub([0; 0]);
+            testCase.verifyEqual(problemInstance3.m_nonlinear_ub, 1);
+
+            s4 = struct('fun', @(x) x.' * x, 'x0', [0 0], 'cub', @(x) x.' * x, 'm_nonlinear_ub', 2);
+            problemInstance4 = Problem(s4);
+            testCase.verifyError(@() problemInstance4.cub([0; 0]), "MATLAB:Problem:cubx_m_nonlinear_ub_NotConsistent");
+        end
+
+        function testPrivateCEQ(testCase)
+            % Test that CEQ works as expected.
+            s1 = struct('fun', @(x) x.' * x, 'x0', [0 0], 'ceq', @(x) x.' * x, 'm_nonlinear_eq', 1);
+            problemInstance1 = Problem(s1);
+            testCase.verifyError(@() problemInstance1.ceq(ones(2, 2, 3)), "MATLAB:Problem:InvalidInputForCEQ");
+            testCase.verifyError(@() problemInstance1.ceq(ones(3, 1)), "MATLAB:Problem:WrongSizeInputForCEQ");
+            testCase.verifyError(@() problemInstance1.ceq([0 0]), "MATLAB:Problem:InvalidOutputForCEQ");
+
+            s2 = struct('fun', @(x) x.' * x, 'x0', [0 0]);
+            problemInstance2 = Problem(s2);
+            testCase.verifyEqual(problemInstance2.ceq(ones(2, 1)), NaN(0, 1));
+
+            s3 = struct('fun', @(x) x.' * x, 'x0', [0 0], 'ceq', @(x) x.' * x);
+            problemInstance3 = Problem(s3);
+            problemInstance3.ceq([0; 0]);
+            testCase.verifyEqual(problemInstance3.m_nonlinear_eq, 1);
+
+            s4 = struct('fun', @(x) x.' * x, 'x0', [0 0], 'ceq', @(x) x.' * x, 'm_nonlinear_eq', 2);
+            problemInstance4 = Problem(s4);
+            testCase.verifyError(@() problemInstance4.ceq([0; 0]), "MATLAB:Problem:ceqx_m_nonlinear_eq_NotConsistent");
+        end
+
 
     end
 end

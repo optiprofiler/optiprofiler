@@ -422,43 +422,56 @@ classdef Problem < handle
 
         % Other functions.
 
-        % function cv = maxcv(obj, x)
-        %     % Evaluate the maximum constraint violation.
+        function cv = maxcv(obj, x)
+            % Evaluate the maximum constraint violation.
             
-        %     % Initialize cv to 0
-        %     cv = 0;
+            % Initialize cv to 0
+            cv = 0;
             
-        %     % Check lower bound constraint violation
-        %     cv = max(max(obj.xl - x), cv);
+            % Check lower bound constraint violation
+            if ~isempty(obj.xl)
+                cv = max(max(obj.xl - x), cv);
+            end
             
-        %     % Check upper bound constraint violation
-        %     cv = max(max(x - obj.xu), cv);
+            % Check upper bound constraint violation
+            if ~isempty(obj.xu)
+                cv = max(max(x - obj.xu), cv);
+            end
             
-        %     % Check linear inequality constraint violation
-        %     cv = max(max(obj.aub * x - obj.bub), cv);
+            % Check linear inequality constraint violation
+            if ~isempty(obj.aub)
+                cv = max(max(obj.aub * x - obj.bub), cv);
+            end
             
-        %     % Check linear equality constraint violation
-        %     cv = max(max(abs(obj.aeq * x - obj.beq)), cv);
+            % Check linear equality constraint violation
+            if ~isempty(obj.aeq)
+                cv = max(max(abs(obj.aeq * x - obj.beq)), cv);
+            end
             
-        %     % Check nonlinear inequality constraint violation
-        %     cv = max(max(obj.cub(x)), cv);
+            % Check nonlinear inequality constraint violation
+            if ~isempty(obj.cub_)
+                cv = max(max(obj.cub(x)), cv);
+            end
             
-        %     % Check nonlinear equality constraint violation
-        %     cv = max(max(abs(obj.ceq(x))), cv);
-        % end
+            % Check nonlinear equality constraint violation
+            if ~isempty(obj.ceq_)
+                cv = max(max(abs(obj.ceq(x))), cv);
+            end
+        end
     end
 
     % Private methods.
+
     methods (Access = private)
 
         function f = FUN(obj, x)
             % Check if x is a vector.
             if ~isvector(x)
-                error("The input `x` must be a vector.")
+                error("MATLAB:Problem:InvalidInputForFUN", "The input `x` must be a vector.")
             end
 
             if numel(x) ~= obj.n
-                error("The input `x` must have size %d.", obj.n)
+                error("MATLAB:Problem:WrongSizeInputForFUN", "The input `x` must have size %d.", obj.n)
             end
 
             FUN = obj.fun_;
@@ -487,11 +500,11 @@ classdef Problem < handle
 
         function f = CUB(obj, x)
             if ~isvector(x)
-                error("The input `x` must be a vector.")
+                error("MATLAB:Problem:InvalidInputForCUB", "The input `x` must be a vector.")
             end
 
             if numel(x) ~= obj.n
-                error("The input `x` must have size %d.", obj.n)
+                error("MATLAB:Problem:WrongSizeInputForCUB", "The input `x` must have size %d.", obj.n)
             end
 
             CUB = obj.cub_;
@@ -505,7 +518,7 @@ classdef Problem < handle
                     f = NaN(obj.m_nonlinear_ub, 1);
                 end
                 if ~isvector(f)
-                    error("The output of the nonlinear inequality constraint must be a vector.")
+                    error("MATLAB:Problem:InvalidOutputForCUB", "The output of the nonlinear inequality constraint must be a vector.")
                 end
                 try
                     f_size = size(f);
@@ -523,17 +536,17 @@ classdef Problem < handle
                 obj.m_nonlinear_ub = numel(f);
             end
             if numel(f) ~= obj.m_nonlinear_ub
-                error("The output of the nonlinear inequality constraint must have size %d.", obj.m_nonlinear_ub)
+                error("MATLAB:Problem:cubx_m_nonlinear_ub_NotConsistent", "The size of `cub(x)` is not consistent with `m_nonlinear_ub`=%d.", obj.m_nonlinear_ub)
             end
         end
 
         function f = CEQ(obj, x)
             if ~isvector(x)
-                error("The input `x` must be a vector.")
+                error("MATLAB:Problem:InvalidInputForCEQ", "The input `x` must be a vector.")
             end
 
             if numel(x) ~= obj.n
-                error("The input `x` must have size %d.", obj.n)
+                error("MATLAB:Problem:WrongSizeInputForCEQ", "The input `x` must have size %d.", obj.n)
             end
 
             CEQ = obj.ceq_;
@@ -547,7 +560,7 @@ classdef Problem < handle
                     f = NaN(obj.m_nonlinear_eq, 1);
                 end
                 if ~isvector(f)
-                    error("The output of the nonlinear equality constraint must be a vector.")
+                    error("MATLAB:Problem:InvalidOutputForCEQ", "The output of the nonlinear equality constraint must be a vector.")
                 end
                 try
                     f_size = size(f);
@@ -565,7 +578,7 @@ classdef Problem < handle
                 obj.m_nonlinear_eq = numel(f);
             end
             if numel(f) ~= obj.m_nonlinear_eq
-                error("The output of the nonlinear equality constraint must have size %d.", obj.m_nonlinear_eq)
+                error("MATLAB:Problem:ceqx_m_nonlinear_eq_NotConsistent", "The size of `ceq(x)` is not consistent with `m_nonlinear_eq`=%d.", obj.m_nonlinear_eq)
             end
         end
     end
