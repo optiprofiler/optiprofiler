@@ -162,6 +162,7 @@ pycutest_cache_holder/
 # MATLAB
 test.m
 coverageReport/
+runTestsAndGenerateCoverageReport.m
 
 ## Windows default autuosave extension
 *.asv
