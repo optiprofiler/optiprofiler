@@ -60,12 +60,12 @@ classdef Problem
     properties (GetAccess = public, SetAccess = private)
 
         x0
-        xl = []
-        xu = []
-        aub = []
-        bub = []
-        aeq = []
-        beq = []
+        xl
+        xu
+        aub
+        bub
+        aeq
+        beq
 
     end
 
@@ -78,8 +78,8 @@ classdef Problem
 
     properties (GetAccess = public, SetAccess = private)
 
-        m_nonlinear_ub = []
-        m_nonlinear_eq = []
+        m_nonlinear_ub
+        m_nonlinear_eq
 
     end
 
@@ -125,12 +125,16 @@ classdef Problem
                 end
         
                 % Iterate over the struct's fields and assign them to the object's properties
+                expected_fields = {'fun', 'x0', 'xl', 'xu', 'aub', 'bub', 'aeq', 'beq', 'cub', 'ceq', 'm_nonlinear_ub', 'm_nonlinear_eq'};
                 fields = fieldnames(s);
-                for i = 1:numel(fields)
-                    if strcmp(fields{i}, 'fun') || strcmp(fields{i}, 'cub') || strcmp(fields{i}, 'ceq')
+                for i = 1:numel(expected_fields)
+                    if strcmp(expected_fields{i}, 'fun') || strcmp(expected_fields{i}, 'cub') || strcmp(expected_fields{i}, 'ceq')
                         continue
+                    elseif ismember(expected_fields{i}, fields)
+                        obj.(expected_fields{i}) = s.(expected_fields{i});
+                    else
+                        obj.(expected_fields{i}) = [];
                     end
-                    obj.(fields{i}) = s.(fields{i});
                 end
             else
                 error("MATLAB:Problem:NotStruct", "Invalid input. A struct argument is expected.")
@@ -171,7 +175,7 @@ classdef Problem
         % Preprocess the initial guess.
         function obj = set.x0(obj, value)
             if ~isvector(value)
-                error("The argument `x0` must be a one-dimensional array.")
+                error("MATLAB:Problem:x0_NotVector", "The argument `x0` must be a vector.")
             end
             obj.x0 = reshape(value, [], 1);
         end
@@ -180,25 +184,21 @@ classdef Problem
         function obj = set.fun_(obj, fun)
             % This function only accepts a new function handle.
             if ~isa(fun, "function_handle")
-                error("The argument `fun` must be a function handle.")
+                error("MATLAB:Problem:fun_NotFunctionHandle", "The argument `fun` must be a function handle.")
             end
             % Check if `fun` can accept only one argument.
             if nargin(fun) ~= 1
-                error("The function must accept exactly one argument.")
+                error("MATLAB:Problem:fun_NotOneArguementFun", "The function must accept exactly one argument.")
             end
-            % Try to assign `fun` to the object's `fun` field.
-            try
-                obj.fun_ = fun;
-            catch
-                error("Error occurred while assigning `fun` field. Please check the input.")
-            end
+            
+            obj.fun_ = fun;
         end
 
         % Preprocess the bound constraints.
         function obj = set.xl(obj, xl)
             if ~isempty(xl)
                 if ~isvector(xl)
-                    error("The argument `xl` must be a one-dimensional array.")
+                    error("MATLAB:Problem:xl_NotVector", "The argument `xl` must be a vector.")
                 end
                 obj.xl = reshape(xl, [], 1);
             else
@@ -209,7 +209,7 @@ classdef Problem
         function obj = set.xu(obj, xu)
             if ~isempty(xu)
                 if ~isvector(xu)
-                    error("The argument `xu` must be a one-dimensional array.")
+                    error("MATLAB:Problem:xu_NotVector", "The argument `xu` must be a vector.")
                 end
                 obj.xu = reshape(xu, [], 1);
             else
@@ -221,7 +221,7 @@ classdef Problem
         function obj = set.aub(obj, aub)
             if ~isempty(aub)
                 if ~ismatrix(aub)
-                    error("The argument `aub` must be a two-dimensional array.")
+                    error("MATLAB:Problem:aub_NotMatrix", "The argument `aub` must be a matrix.")
                 end
                 obj.aub = aub;
             else
@@ -232,7 +232,7 @@ classdef Problem
         function obj = set.bub(obj, bub)
             if ~isempty(bub)
                 if ~isvector(bub)
-                    error("The argument `bub` must be a one-dimensional array.")
+                    error("MATLAB:Problem:bub_NotVector", "The argument `bub` must be a vector.")
                 end
                 obj.bub = reshape(bub, [], 1);
             else
@@ -243,7 +243,7 @@ classdef Problem
         function obj = set.aeq(obj, aeq)
             if ~isempty(aeq)
                 if ~ismatrix(aeq)
-                    error("The argument `aeq` must be a two-dimensional array.")
+                    error("MATLAB:Problem:aeq_NotMatrix", "The argument `aeq` must be a matrix.")
                 end
                 obj.aeq = aeq;
             else
@@ -254,7 +254,7 @@ classdef Problem
         function obj = set.beq(obj, beq)
             if ~isempty(beq)
                 if ~isvector(beq)
-                    error("The argument `beq` must be a one-dimensional array.")
+                    error("MATLAB:Problem:beq_NotVector", "The argument `beq` must be a vector.")
                 end
                 obj.beq = reshape(beq, [], 1);
             else
@@ -266,13 +266,10 @@ classdef Problem
         function obj = set.cub_(obj, cub)
             if ~isempty(cub)
                 if ~isa(cub, "function_handle")
-                    error("The argument `cub` must be a function handle.")
+                    error("MATLAB:Problem:cub_NotFunctionHandle", "The argument `cub` must be a function handle.")
                 end
-                try
-                    obj.cub_ = cub;
-                catch
-                    error("Error occurred while assigning `cub` field. Please check the input.");
-                end
+                
+                obj.cub_ = cub;
             else
                 obj.cub_ = [];
             end
@@ -281,13 +278,10 @@ classdef Problem
         function obj = set.ceq_(obj, ceq)
             if ~isempty(ceq)
                 if ~isa(ceq, "function_handle")
-                    error("The argument `ceq` must be a function handle.")
+                    error("MATLAB:Problem:ceq_NotFunctionHandle", "The argument `ceq` must be a function handle.")
                 end
-                try
-                    obj.ceq_ = ceq;
-                catch
-                    error("Error occurred while assigning `ceq` field. Please check the input.");
-                end
+                
+                obj.ceq_ = ceq;
             else
                 obj.ceq_ = [];
             end
@@ -297,7 +291,7 @@ classdef Problem
         function obj = set.m_nonlinear_ub(obj, m_nonlinear_ub)
             if ~isempty(m_nonlinear_ub)
                 if ~(isnumeric(m_nonlinear_ub) && m_nonlinear_ub >= 0 && mod(m_nonlinear_ub, 1) == 0)
-                    error('The argument `m_nonlinear_ub` must be a nonnegative integer.')
+                    error("MATLAB:Problem:m_nonlinear_ub_NotPositiveScalar", "The argument `m_nonlinear_ub` must be a nonnegative integer.")
                 end
                 obj.m_nonlinear_ub = m_nonlinear_ub;
             else
@@ -308,7 +302,7 @@ classdef Problem
         function obj = set.m_nonlinear_eq(obj, m_nonlinear_eq)
             if ~isempty(m_nonlinear_eq)
                 if ~(isnumeric(m_nonlinear_eq) && m_nonlinear_eq >= 0 && mod(m_nonlinear_eq, 1) == 0)
-                    error('The argument `m_nonlinear_eq` must be a nonnegative integer.')
+                    error("MATLAB:Problem:m_nonlinear_eq_NotPositiveScalar", "The argument `m_nonlinear_eq` must be a nonnegative integer.")
                 end
                 obj.m_nonlinear_eq = m_nonlinear_eq;
             else
@@ -448,9 +442,9 @@ classdef Problem
     methods (Access = private)
 
         function f = FUN(obj, x)
-            % Check if x is a one-dimensional vector.
+            % Check if x is a vector.
             if ~isvector(x)
-                error("The input `x` must be a one-dimensional vector.")
+                error("The input `x` must be a vector.")
             end
 
             if numel(x) ~= obj.n
@@ -483,7 +477,7 @@ classdef Problem
 
         function f = CUB(obj, x)
             if ~isvector(x)
-                error("The input `x` must be a one-dimensional vector.")
+                error("The input `x` must be a vector.")
             end
 
             if numel(x) ~= obj.n
@@ -501,7 +495,7 @@ classdef Problem
                     f = NaN(obj.m_nonlinear_ub, 1);
                 end
                 if ~isvector(f)
-                    error("The output of the nonlinear inequality constraint must be a one-dimensional vector.")
+                    error("The output of the nonlinear inequality constraint must be a vector.")
                 end
                 try
                     f_size = size(f);
@@ -525,7 +519,7 @@ classdef Problem
 
         function f = CEQ(obj, x)
             if ~isvector(x)
-                error("The input `x` must be a one-dimensional vector.")
+                error("The input `x` must be a vector.")
             end
 
             if numel(x) ~= obj.n
@@ -543,7 +537,7 @@ classdef Problem
                     f = NaN(obj.m_nonlinear_eq, 1);
                 end
                 if ~isvector(f)
-                    error("The output of the nonlinear equality constraint must be a one-dimensional vector.")
+                    error("The output of the nonlinear equality constraint must be a vector.")
                 end
                 try
                     f_size = size(f);
