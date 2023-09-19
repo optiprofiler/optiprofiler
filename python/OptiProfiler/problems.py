@@ -132,7 +132,7 @@ class Problem:
 
         Raises
         ------
-        ValueError
+        TypeError
             If an argument received an invalid value.
         """
         # Preprocess the initial guess.
@@ -141,9 +141,9 @@ class Problem:
         # Preprocess the objective function.
         self._fun = fun
         if not callable(self._fun):
-            raise ValueError('The argument fun must be callable.')
+            raise TypeError('The argument fun must be callable.')
         if len(signature(self._fun).parameters) != 1:
-            raise ValueError('The argument fun must take exactly one argument.')
+            raise TypeError('The argument fun must take exactly one argument.')
 
         # Preprocess the bound constraints.
         self._xl = xl
@@ -171,27 +171,27 @@ class Problem:
         self._cub = cub
         if self._cub is not None:
             if not callable(self._cub):
-                raise ValueError('The argument cub must be callable.')
+                raise TypeError('The argument cub must be callable.')
             if len(signature(self._cub).parameters) != 1:
-                raise ValueError('The argument cub must take exactly one argument.')
+                raise TypeError('The argument cub must take exactly one argument.')
         self._ceq = ceq
         if self._ceq is not None:
             if not callable(self._ceq):
-                raise ValueError('The argument ceq must be callable.')
+                raise TypeError('The argument ceq must be callable.')
             if len(signature(self._ceq).parameters) != 1:
-                raise ValueError('The argument ceq must take exactly one argument.')
+                raise TypeError('The argument ceq must take exactly one argument.')
 
         # Preprocess the number of nonlinear constraints.
         self._m_nonlinear_ub = m_nonlinear_ub
         if isinstance(self._m_nonlinear_ub, float) and self._m_nonlinear_ub.is_integer():
             self._m_nonlinear_ub = int(self._m_nonlinear_ub)
         if self._m_nonlinear_ub is not None and not (isinstance(self._m_nonlinear_ub, int) and self._m_nonlinear_ub >= 0):
-            raise ValueError('The argument m_nonlinear_ub must be a nonnegative integer.')
+            raise TypeError('The argument m_nonlinear_ub must be a nonnegative integer.')
         self._m_nonlinear_eq = m_nonlinear_eq
         if isinstance(self._m_nonlinear_eq, float) and self._m_nonlinear_eq.is_integer():
             self._m_nonlinear_eq = int(self._m_nonlinear_eq)
         if self._m_nonlinear_eq is not None and not (isinstance(self._m_nonlinear_eq, int) and self._m_nonlinear_eq >= 0):
-            raise ValueError('The argument m_nonlinear_eq must be a nonnegative integer.')
+            raise TypeError('The argument m_nonlinear_eq must be a nonnegative integer.')
 
         # Check that the arguments are consistent.
         if self.xl.size != self.n:
@@ -771,16 +771,14 @@ def load_cutest(problem_name, **kwargs):
 
     # Check the arguments.
     if not isinstance(problem_name, str):
-        raise ValueError('The argument problem_name must be a string.')
+        raise TypeError('The argument problem_name must be a string.')
     for key in kwargs:
         if key not in ['n_min', 'n_max', 'm_min', 'm_max']:
-            raise ValueError(f'Invalid argument: {key}.')
+            raise ValueError(f'Unknown argument: {key}.')
         if not isinstance(kwargs[key], float) and kwargs[key].is_integer():
             kwargs[key] = int(kwargs[key])
-        if not isinstance(kwargs[key], int):
-            raise ValueError(f'The argument {key} must be an integer.')
-        if kwargs[key] < 0:
-            raise ValueError(f'The argument {key} must be nonnegative.')
+        if not isinstance(kwargs[key], int) or kwargs[key] < 0:
+            raise TypeError(f'The argument {key} must be a nonnegative integer.')
         if 'n_min' in kwargs and 'n_max' in kwargs and kwargs['n_min'] > kwargs['n_max']:
             raise ValueError('The argument n_min must be less than or equal to the argument n_max.')
         if 'm_min' in kwargs and 'm_max' in kwargs and kwargs['m_min'] > kwargs['m_max']:
@@ -878,26 +876,26 @@ def find_cutest_problem_names(constraints, **kwargs):
 
     # Check the arguments.
     if not isinstance(constraints, str):
-        raise ValueError('The argument constraints must be a string.')
+        raise TypeError('The argument constraints must be a string.')
     for constraint in constraints.split():
         if constraint not in ['unconstrained', 'fixed', 'bound', 'adjacency', 'linear', 'quadratic', 'other']:
-            raise ValueError(f'Invalid constraint: {constraint}.')
+            raise ValueError(f'Unknown constraint: {constraint}.')
     if 'n_min' in kwargs and isinstance(kwargs['n_min'], float) and kwargs['n_min'].is_integer():
         kwargs['n_min'] = int(kwargs['n_min'])
     if 'n_min' in kwargs and (not isinstance(kwargs['n_min'], int) or kwargs['n_min'] < 1):
-        raise ValueError('The argument n_min must be a positive integer.')
+        raise TypeError('The argument n_min must be a positive integer.')
     if 'n_max' in kwargs and isinstance(kwargs['n_max'], float) and kwargs['n_max'].is_integer():
         kwargs['n_max'] = int(kwargs['n_max'])
     if 'n_max' in kwargs and (not isinstance(kwargs['n_max'], int) or kwargs['n_max'] < kwargs.get('n_min', 1)):
-        raise ValueError('The argument n_max must be an integer greater than or equal to n_min.')
+        raise TypeError('The argument n_max must be an integer greater than or equal to n_min.')
     if 'm_min' in kwargs and isinstance(kwargs['m_min'], float) and kwargs['m_min'].is_integer():
         kwargs['m_min'] = int(kwargs['m_min'])
     if 'm_min' in kwargs and (not isinstance(kwargs['m_min'], int) or kwargs['m_min'] < 0):
-        raise ValueError('The argument m_min must be a nonnegative integer.')
+        raise TypeError('The argument m_min must be a nonnegative integer.')
     if 'm_max' in kwargs and isinstance(kwargs['m_max'], float) and kwargs['m_max'].is_integer():
         kwargs['m_max'] = int(kwargs['m_max'])
     if 'm_max' in kwargs and (not isinstance(kwargs['m_max'], int) or kwargs['m_max'] < kwargs.get('m_min', 0)):
-        raise ValueError('The argument m_max must be an integer greater than or equal to m_min.')
+        raise TypeError('The argument m_max must be an integer greater than or equal to m_min.')
 
     # Find all the problems that satisfy the constraints.
     excluded_problem_names = {}

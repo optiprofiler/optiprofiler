@@ -9,7 +9,7 @@ class BaseTestProblem:
 
     @staticmethod
     def rosen(x):
-        return np.sum(100 * (x[1:] - x[:-1] ** 2) ** 2 + (1 - x[:-1]) ** 2)
+        return np.sum(1e2 * (x[1:] - x[:-1] ** 2) ** 2 + (1.0 - x[:-1]) ** 2)
 
     @staticmethod
     def sum_cos(x):
@@ -104,7 +104,7 @@ class TestProblem(BaseTestProblem):
 
         # Perform an objective function evaluation.
         assert problem.fun(problem.x0) == self.rosen(x0)
-        np.testing.assert_array_almost_equal(problem.maxcv(problem.x0), 1.0)
+        np.testing.assert_allclose(problem.maxcv(problem.x0), 1.0)
 
         # Evaluate the nonlinear constraints.
         assert problem.cub(problem.x0).shape == (0,)
@@ -124,24 +124,24 @@ class TestProblem(BaseTestProblem):
 
         # Perform an objective function evaluation.
         assert problem.fun(problem.x0) == self.rosen(x0)
-        np.testing.assert_array_almost_equal(problem.maxcv(problem.x0), n)
+        np.testing.assert_allclose(problem.maxcv(problem.x0), n)
 
     def test_exceptions(self):
-        with pytest.raises(ValueError):
+        with pytest.raises(TypeError):
             Problem('fun', np.zeros(1))
-        with pytest.raises(ValueError):
+        with pytest.raises(TypeError):
             Problem(lambda x, y: x + y, np.zeros(2))
-        with pytest.raises(ValueError):
+        with pytest.raises(TypeError):
             Problem(self.rosen, np.zeros(2), cub='cub')
-        with pytest.raises(ValueError):
+        with pytest.raises(TypeError):
             Problem(self.rosen, np.zeros(2), cub=lambda x, y: x + y)
-        with pytest.raises(ValueError):
+        with pytest.raises(TypeError):
             Problem(self.rosen, np.zeros(2), ceq='ceq')
-        with pytest.raises(ValueError):
+        with pytest.raises(TypeError):
             Problem(self.rosen, np.zeros(2), ceq=lambda x, y: x + y)
-        with pytest.raises(ValueError):
+        with pytest.raises(TypeError):
             Problem(self.rosen, np.zeros(1), cub=self.sum_cos, m_nonlinear_ub=1.5)
-        with pytest.raises(ValueError):
+        with pytest.raises(TypeError):
             Problem(self.rosen, np.zeros(1), ceq=self.sum_sin, m_nonlinear_eq=1.5)
         with pytest.raises(ValueError):
             Problem(self.rosen, np.zeros(1), np.zeros(2))
@@ -240,7 +240,7 @@ class TestFeaturedProblem(BaseTestProblem):
         # Evaluate the objective function at x0.
         f = featured_problem.fun(x0)
         assert featured_problem.n_eval == 1
-        np.testing.assert_array_almost_equal(featured_problem.fun_hist, [f - 1])
+        np.testing.assert_allclose(featured_problem.fun_hist, [f - 1])
         np.testing.assert_array_equal(featured_problem.maxcv_hist, [0.0])
 
     def test_catch(self):
