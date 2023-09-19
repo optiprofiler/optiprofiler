@@ -86,8 +86,8 @@ class Feature:
                 if not isinstance(self._options[key], (int, float)) or not (0.0 <= self._options[key] <= 1.0):
                     raise TypeError(f'Option {key} must be a number between 0 and 1.')
             elif key == self._OptionKey.SIGNIFICANT_DIGITS:
-                if isinstance(key, float) and key.is_integer():
-                    self._options[key] = int(key)
+                if isinstance(self._options[key], float) and self._options[key].is_integer():
+                    self._options[key] = int(self._options[key])
                 if not isinstance(self._options[key], int) or self._options[key] <= 0:
                     raise TypeError(f'Option {key} must be a positive integer.')
             elif key == self._OptionKey.TYPE:
