@@ -134,11 +134,7 @@ class TestFeature:
         with pytest.raises(TypeError):
             Feature('custom', modifier=1.0)
         with pytest.raises(TypeError):
-            Feature('custom', modifier=lambda x, f: f)
-        with pytest.raises(TypeError):
             Feature('noisy', distribution=1.0)
-        with pytest.raises(TypeError):
-            Feature('noisy', distribution=lambda rng, f: f)
         with pytest.raises(TypeError):
             Feature('regularized', order='1.0')
         with pytest.raises(TypeError):

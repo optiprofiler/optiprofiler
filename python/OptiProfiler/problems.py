@@ -1,7 +1,6 @@
 import re
 import subprocess
 import warnings
-from inspect import signature
 
 import numpy as np
 
@@ -142,8 +141,6 @@ class Problem:
         self._fun = fun
         if not callable(self._fun):
             raise TypeError('The argument fun must be callable.')
-        if len(signature(self._fun).parameters) != 1:
-            raise TypeError('The argument fun must take exactly one argument.')
 
         # Preprocess the bound constraints.
         self._xl = xl
@@ -172,14 +169,10 @@ class Problem:
         if self._cub is not None:
             if not callable(self._cub):
                 raise TypeError('The argument cub must be callable.')
-            if len(signature(self._cub).parameters) != 1:
-                raise TypeError('The argument cub must take exactly one argument.')
         self._ceq = ceq
         if self._ceq is not None:
             if not callable(self._ceq):
                 raise TypeError('The argument ceq must be callable.')
-            if len(signature(self._ceq).parameters) != 1:
-                raise TypeError('The argument ceq must take exactly one argument.')
 
         # Preprocess the number of nonlinear constraints.
         self._m_nonlinear_ub = m_nonlinear_ub
@@ -775,7 +768,7 @@ def load_cutest(problem_name, **kwargs):
     for key in kwargs:
         if key not in ['n_min', 'n_max', 'm_min', 'm_max']:
             raise ValueError(f'Unknown argument: {key}.')
-        if not isinstance(kwargs[key], float) and kwargs[key].is_integer():
+        if isinstance(kwargs[key], float) and kwargs[key].is_integer():
             kwargs[key] = int(kwargs[key])
         if not isinstance(kwargs[key], int) or kwargs[key] < 0:
             raise TypeError(f'The argument {key} must be a nonnegative integer.')
