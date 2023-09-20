@@ -201,30 +201,6 @@ classdef TestProblem < matlab.unittest.TestCase
             testCase.verifyEqual(problemInstance.m_linear_eq, 5);
         end
 
-        function testGetter_fun(testCase)
-            % Test that obj.fun(x) returns the correct value.
-            fun = @(x) x.' * x;
-            s = struct('fun', fun, 'x0', [0 0]);
-            problemInstance = Problem(s);
-            testCase.verifyEqual(problemInstance.fun([1; 1]), fun([1; 1]));
-        end
-
-        function testGetter_cub(testCase)
-            % Test that obj.cub(x) returns the correct value.
-            cub = @(x) x.' * x;
-            s = struct('fun', @(x) x.' * x, 'x0', [0 0], 'cub', cub);
-            problemInstance = Problem(s);
-            testCase.verifyEqual(problemInstance.cub([1; 1]), cub([1; 1]));
-        end
-
-        function testGetter_ceq(testCase)
-            % Test that obj.ceq(x) returns the correct value.
-            ceq = @(x) x.' * x;
-            s = struct('fun', @(x) x.' * x, 'x0', [0 0], 'ceq', ceq);
-            problemInstance = Problem(s);
-            testCase.verifyEqual(problemInstance.ceq([1; 1]), ceq([1; 1]));
-        end
-
         function testGetter_m_nonlinear_ub(testCase)
             % Test that obj.m_nonlinear_ub returns the correct value.
             s1 = struct('fun', @(x) x.' * x, 'x0', [0 0]);
@@ -339,19 +315,24 @@ classdef TestProblem < matlab.unittest.TestCase
             testCase.verifyEqual(problemInstance7.maxcv([1; 1]), 2);
         end
 
+        function testFUN(testCase)
+            % Test that obj.fun works as expected.
+            s1 = struct('fun', @(x) x.' * x, 'x0', [0 0]);
+            problemInstance1 = Problem(s1);
+            testCase.verifyError(@() problemInstance1.fun(ones(2, 2, 3)), "MATLAB:Problem:InvalidInputForFUN");
+            testCase.verifyError(@() problemInstance1.fun(ones(3, 1)), "MATLAB:Problem:WrongSizeInputForFUN");
 
-        % Test Private methods
+            s2 = struct('fun', @alwaysError, 'x0', [0 0]);
+            problemInstance2 = Problem(s2);
+            testCase.verifyWarning(@() problemInstance2.fun([0; 0]), "MyError:alwaysErrorFunction");
 
-        function testPrivateFUN(testCase)
-            % Test that FUN works as expected.
-            s = struct('fun', @(x) x.' * x, 'x0', [0 0]);
-            problemInstance = Problem(s);
-            testCase.verifyError(@() problemInstance.fun(ones(2, 2, 3)), "MATLAB:Problem:InvalidInputForFUN");
-            testCase.verifyError(@() problemInstance.fun(ones(3, 1)), "MATLAB:Problem:WrongSizeInputForFUN");
+            s3 = struct('fun', @alwaysCell, 'x0', [0 0]);
+            problemInstance3 = Problem(s3);
+            testCase.verifyWarning(@() problemInstance3.fun([0; 0]), "MATLAB:invalidConversion");
         end
 
-        function testPrivateCUB(testCase)
-            % Test that CUB works as expected.
+        function testCUB(testCase)
+            % Test that obj.cub works as expected.
             s1 = struct('fun', @(x) x.' * x, 'x0', [0 0], 'cub', @(x) x.' * x, 'm_nonlinear_ub', 1);
             problemInstance1 = Problem(s1);
             testCase.verifyError(@() problemInstance1.cub(ones(2, 2, 3)), "MATLAB:Problem:InvalidInputForCUB");
@@ -370,10 +351,18 @@ classdef TestProblem < matlab.unittest.TestCase
             s4 = struct('fun', @(x) x.' * x, 'x0', [0 0], 'cub', @(x) x.' * x, 'm_nonlinear_ub', 2);
             problemInstance4 = Problem(s4);
             testCase.verifyError(@() problemInstance4.cub([0; 0]), "MATLAB:Problem:cubx_m_nonlinear_ub_NotConsistent");
+
+            s5 = struct('fun', @(x) x.' * x, 'x0', [0 0], 'cub', @alwaysError, 'm_nonlinear_ub', 1);
+            problemInstance5 = Problem(s5);
+            testCase.verifyWarning(@() problemInstance5.cub([0; 0]), "MyError:alwaysErrorFunction");
+
+            s6 = struct('fun', @(x) x.' * x, 'x0', [0 0], 'cub', @alwaysCell, 'm_nonlinear_ub', 1);
+            problemInstance6 = Problem(s6);
+            testCase.verifyWarning(@() problemInstance6.cub([0; 0]), "MATLAB:invalidConversion");
         end
 
-        function testPrivateCEQ(testCase)
-            % Test that CEQ works as expected.
+        function testCEQ(testCase)
+            % Test that obj.ceq works as expected.
             s1 = struct('fun', @(x) x.' * x, 'x0', [0 0], 'ceq', @(x) x.' * x, 'm_nonlinear_eq', 1);
             problemInstance1 = Problem(s1);
             testCase.verifyError(@() problemInstance1.ceq(ones(2, 2, 3)), "MATLAB:Problem:InvalidInputForCEQ");
@@ -392,8 +381,15 @@ classdef TestProblem < matlab.unittest.TestCase
             s4 = struct('fun', @(x) x.' * x, 'x0', [0 0], 'ceq', @(x) x.' * x, 'm_nonlinear_eq', 2);
             problemInstance4 = Problem(s4);
             testCase.verifyError(@() problemInstance4.ceq([0; 0]), "MATLAB:Problem:ceqx_m_nonlinear_eq_NotConsistent");
-        end
 
+            s5 = struct('fun', @(x) x.' * x, 'x0', [0 0], 'ceq', @alwaysError, 'm_nonlinear_eq', 1);
+            problemInstance5 = Problem(s5);
+            testCase.verifyWarning(@() problemInstance5.ceq([0; 0]), "MyError:alwaysErrorFunction");
+
+            s6 = struct('fun', @(x) x.' * x, 'x0', [0 0], 'ceq', @alwaysCell, 'm_nonlinear_eq', 1);
+            problemInstance6 = Problem(s6);
+            testCase.verifyWarning(@() problemInstance6.ceq([0; 0]), "MATLAB:invalidConversion");
+        end
 
     end
 end

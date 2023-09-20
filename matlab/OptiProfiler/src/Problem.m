@@ -51,12 +51,6 @@ classdef Problem < handle
         If an argument received an invalid value.
     %}
 
-    properties (Dependent)
-
-        fun
-
-    end
-
     properties (GetAccess = public, SetAccess = private)
 
         x0
@@ -66,13 +60,6 @@ classdef Problem < handle
         bub
         aeq
         beq
-
-    end
-
-    properties (Dependent)
-
-        cub
-        ceq
 
     end
 
@@ -264,27 +251,19 @@ classdef Problem < handle
 
         % Preprocess the nonlinear constraints.
         function obj = set.cub_(obj, cub)
-            if ~isempty(cub)
-                if ~isa(cub, "function_handle")
-                    error("MATLAB:Problem:cub_NotFunctionHandle", "The argument `cub` must be a function handle.")
-                end
-                
-                obj.cub_ = cub;
-            else
-                obj.cub_ = [];
+            if ~isa(cub, "function_handle") && ~isempty(cub)
+                error("MATLAB:Problem:cub_NotFunctionHandle", "The argument `cub` must be a function handle.")
             end
+            
+            obj.cub_ = cub;
         end
 
         function obj = set.ceq_(obj, ceq)
-            if ~isempty(ceq)
-                if ~isa(ceq, "function_handle")
-                    error("MATLAB:Problem:ceq_NotFunctionHandle", "The argument `ceq` must be a function handle.")
-                end
-                
-                obj.ceq_ = ceq;
-            else
-                obj.ceq_ = [];
+            if ~isa(ceq, "function_handle") && ~isempty(ceq)
+                error("MATLAB:Problem:ceq_NotFunctionHandle", "The argument `ceq` must be a function handle.")
             end
+            
+            obj.ceq_ = ceq;
         end
 
         % Preprocess the number of nonlinear constraints.
@@ -322,18 +301,6 @@ classdef Problem < handle
 
         function value = get.m_linear_eq(obj)
             value = numel(obj.beq);
-        end
-
-        function value = get.fun(obj)
-            value = @(x) obj.FUN(x);
-        end
-
-        function value = get.cub(obj)
-            value = @(x) obj.CUB(x);
-        end
-    
-        function value = get.ceq(obj)
-            value = @(x) obj.CEQ(x);
         end
 
         % Other getter functions.
@@ -458,13 +425,8 @@ classdef Problem < handle
                 cv = max(max(abs(obj.ceq(x))), cv);
             end
         end
-    end
 
-    % Private methods.
-
-    methods (Access = private)
-
-        function f = FUN(obj, x)
+        function f = fun(obj, x)
             % Check if x is a vector.
             if ~isvector(x)
                 error("MATLAB:Problem:InvalidInputForFUN", "The input `x` must be a vector.")
@@ -474,10 +436,9 @@ classdef Problem < handle
                 error("MATLAB:Problem:WrongSizeInputForFUN", "The input `x` must have size %d.", obj.n)
             end
 
-            FUN = obj.fun_;
             try
                 % Try to evaluate the function at x.
-                f = FUN(x);
+                f = obj.fun_(x);
             catch ME
                 % If an error occurred, issue a warning and set f to NaN.
                 warning(ME.identifier, '%s', ME.message);
@@ -491,14 +452,9 @@ classdef Problem < handle
                 warning(ME.identifier, '%s', ME.message);
                 f = NaN;
             end
-
-            if ~(isnumeric(f) || islogical(f))
-                % Check if the output is a float/int/boolean. If not, set f to NaN.
-                f = NaN;
-            end
         end
 
-        function f = CUB(obj, x)
+        function f = cub(obj, x)
             if ~isvector(x)
                 error("MATLAB:Problem:InvalidInputForCUB", "The input `x` must be a vector.")
             end
@@ -507,12 +463,11 @@ classdef Problem < handle
                 error("MATLAB:Problem:WrongSizeInputForCUB", "The input `x` must have size %d.", obj.n)
             end
 
-            CUB = obj.cub_;
-            if isempty(CUB)
+            if isempty(obj.cub_)
                 f = NaN(0, 1);
             else
                 try
-                    f = CUB(x);
+                    f = obj.cub_(x);
                 catch ME
                     warning(ME.identifier, '%s', ME.message);
                     f = NaN(obj.m_nonlinear_ub, 1);
@@ -521,14 +476,10 @@ classdef Problem < handle
                     error("MATLAB:Problem:InvalidOutputForCUB", "The output of the nonlinear inequality constraint must be a vector.")
                 end
                 try
-                    f_size = size(f);
                     f = double(f);
                 catch ME
                     warning(ME.identifier, '%s', ME.message);
-                    f = NaN(f_size);
-                end
-                if ~(isnumeric(f) || islogical(f))
-                    f = NaN(f_size);
+                    f = NaN;
                 end
             end
 
@@ -540,7 +491,7 @@ classdef Problem < handle
             end
         end
 
-        function f = CEQ(obj, x)
+        function f = ceq(obj, x)
             if ~isvector(x)
                 error("MATLAB:Problem:InvalidInputForCEQ", "The input `x` must be a vector.")
             end
@@ -549,12 +500,11 @@ classdef Problem < handle
                 error("MATLAB:Problem:WrongSizeInputForCEQ", "The input `x` must have size %d.", obj.n)
             end
 
-            CEQ = obj.ceq_;
-            if isempty(CEQ)
+            if isempty(obj.ceq_)
                 f = NaN(0, 1);
             else
                 try
-                    f = CEQ(x);
+                    f = obj.ceq_(x);
                 catch ME
                     warning(ME.identifier, '%s', ME.message);
                     f = NaN(obj.m_nonlinear_eq, 1);
@@ -563,14 +513,10 @@ classdef Problem < handle
                     error("MATLAB:Problem:InvalidOutputForCEQ", "The output of the nonlinear equality constraint must be a vector.")
                 end
                 try
-                    f_size = size(f);
                     f = double(f);
                 catch ME
                     warning(ME.identifier, '%s', ME.message);
-                    f = NaN(f_size);
-                end
-                if ~(isnumeric(f) || islogical(f))
-                    f = NaN(f_size);
+                    f = NaN;
                 end
             end
 
