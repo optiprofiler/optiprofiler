@@ -8,5 +8,5 @@ brew tap optimizers/cutest
 brew install cutest --without-single
 brew install mastsif
 for f in "archdefs" "mastsif" "sifdecode" "cutest"; do
-  echo ". $(brew --prefix $f)/$f.bashrc" >> ~/.bashrc;
+  cat "$(brew --prefix $f)/$f.bashrc" >> "$GITHUB_ENV"
 done
