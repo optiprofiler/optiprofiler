@@ -4,7 +4,7 @@ set -e
 set -x
 
 
-if [[ "$OSTYPE" == "darwin"* ]]; then
+if [[ "$RUNNER_OS" == "Linux" ]]; then
   export PYCUTEST_CACHE=$GITHUB_WORKSPACE
   python -m pip install --progress-bar=off .[extra,tests]
   python -m pytest --cov=. --cov-report=xml --run-extra
