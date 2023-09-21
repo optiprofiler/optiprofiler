@@ -175,6 +175,38 @@ class TestProblem(BaseTestProblem):
         with pytest.raises(ValueError):
             problem = Problem(self.rosen, np.zeros(1))
             problem.maxcv(np.zeros(2))
+        with pytest.raises(ValueError):
+            Problem(self.rosen, np.zeros((2, 2)))
+        with pytest.raises(ValueError):
+            Problem(self.rosen, np.zeros(2), np.zeros((2, 2)))
+        with pytest.raises(ValueError):
+            Problem(self.rosen, np.zeros(2), xu=np.zeros((2, 2)))
+        with pytest.raises(ValueError):
+            Problem(self.rosen, np.zeros(2), aub=np.zeros((2, 2)), bub=np.zeros((2, 2)))
+        with pytest.raises(ValueError):
+            Problem(self.rosen, np.zeros(2), aeq=np.zeros((2, 2)), beq=np.zeros((2, 2)))
+        with pytest.raises(ValueError):
+            problem = Problem(self.rosen, np.zeros(2))
+            problem.fun(np.zeros((2, 2)))
+        with pytest.raises(ValueError):
+            problem = Problem(self.rosen, np.zeros(2))
+            problem.cub(np.zeros((2, 2)))
+        with pytest.raises(ValueError):
+            problem = Problem(self.rosen, np.zeros(2), cub=lambda _: np.zeros((2, 2)))
+            problem.cub(problem.x0)
+        with pytest.raises(ValueError):
+            problem = Problem(self.rosen, np.zeros(2))
+            problem.ceq(np.zeros((2, 2)))
+        with pytest.raises(ValueError):
+            problem = Problem(self.rosen, np.zeros(2), ceq=lambda _: np.zeros((2, 2)))
+            problem.ceq(problem.x0)
+        with pytest.raises(ValueError):
+            problem = Problem(self.rosen, np.zeros(2))
+            problem.maxcv(np.zeros((2, 2)))
+        with pytest.raises(ValueError):
+            Problem(self.rosen, np.zeros(2), aub=np.zeros((2, 2, 2)), bub=np.zeros(2))
+        with pytest.raises(ValueError):
+            Problem(self.rosen, np.zeros(2), aeq=np.zeros((2, 2, 2)), beq=np.zeros(2))
 
     def test_catch(self):
         # The value m_nonlinear_ub can be a float.
@@ -252,11 +284,14 @@ class TestLoadCUTEst:
 
     @pytest.mark.parametrize('constraint', ['unconstrained', 'fixed', 'bound', 'adjacency', 'linear', 'quadratic', 'other'])
     def test_simple(self, constraint):
-        problem_names = find_cutest_problem_names(constraint, n_min=1, n_max=10)
+        problem_names = find_cutest_problem_names(constraint, n_min=1, n_max=10, m_min=0, m_max=100)
         for i_problem in range(min(10, len(problem_names))):
             try:
-                problem = load_cutest(problem_names[i_problem], n_min=1, n_max=10)
+                problem = load_cutest(problem_names[i_problem], n_min=1, n_max=10, m_min=0, m_max=100)
                 assert isinstance(problem, Problem)
+                problem.fun(problem.x0)
+                problem.cub(problem.x0)
+                problem.ceq(problem.x0)
             except ProblemError:
                 pass
 
@@ -329,3 +364,6 @@ class TestFindCUTEstProblemNames:
             find_cutest_problem_names('unconstrained', m_max=1.5)
         with pytest.raises(TypeError):
             find_cutest_problem_names('unconstrained', m_min=3, m_max=2)
+
+    def test_catch(self):
+        find_cutest_problem_names('quadratic', n_min=1.0, n_max=10.0, m_min=1.0, m_max=100.0)
