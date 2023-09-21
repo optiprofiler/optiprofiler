@@ -37,6 +37,9 @@ elif [[ "$RUNNER_OS" == "macOS" ]]; then
   brew install cutest --without-single
   brew install mastsif
   for f in "archdefs" "sifdecode" "cutest" "mastsif"; do
-    cat "$(brew --prefix $f)/$f.bashrc"
+    while IFS= read -r line; do
+      echo $line
+      echo "++++++"
+    done <<< "$(cat "$(brew --prefix $f)/$f.bashrc")"
   done
 fi
