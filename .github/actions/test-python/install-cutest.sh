@@ -28,9 +28,9 @@ if [[ "$RUNNER_OS" == "Linux" ]]; then
   # Build and install CUTEst
   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/jfowkes/pycutest/master/.install_cutest.sh)"
 elif [[ "$RUNNER_OS" == "macOS" ]]; then
-  # Install gfortran and gcc
+  # Install gfortran
   sudo ln -fs /usr/local/bin/gfortran-12 /usr/local/bin/gfortran
-  sudo ln -fs /usr/local/bin/gcc-12 /usr/local/bin/gcc
+  sudo ln -fs /usr/local/Cellar/gcc@12/*/lib/gcc/12/*.dylib /usr/local/lib/
 
   # Install CUTEst
   brew tap optimizers/cutest
