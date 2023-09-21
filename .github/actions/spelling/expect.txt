@@ -2,6 +2,8 @@ addinivalue
 addoption
 allclose
 arange
+archdefs
+ARGLINA
 astype
 atleast
 aub
@@ -28,6 +30,9 @@ endfor
 flatnonzero
 footbibliography
 getoption
+gcc
+gfo
+gfortran
 htmlhelp
 idx
 infty
@@ -35,10 +40,13 @@ intersphinx
 levelname
 linalg
 linkcode
+lnx
+mastsif
 maxcv
 maxdepth
 mindepth
 modifyitems
+MYARCH
 ndarray
 ndim
 numpydoc
@@ -54,6 +62,7 @@ rst
 rtd
 setcounter
 setuptools
+sifdecode
 sifdecoder
 SOURCEDIR
 SPHINXBUILD
