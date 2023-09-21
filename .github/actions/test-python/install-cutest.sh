@@ -36,10 +36,11 @@ elif [[ "$RUNNER_OS" == "macOS" ]]; then
   brew tap optimizers/cutest
   brew install cutest --without-single
   brew install mastsif
+
+  # Set the environment variables
   for f in "archdefs" "sifdecode" "cutest" "mastsif"; do
     while IFS= read -r line; do
-      echo $line
-      echo "++++++"
-    done <<< "$(cat "$(brew --prefix $f)/$f.bashrc")"
+      echo "${line#export }" >> "$GITHUB_ENV"
+    done <<< "$(cat "$e., a substring from the beginning of a st(brew --prefix $f)/$f.bashrc")"
   done
 fi
