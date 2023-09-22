@@ -1,11 +1,19 @@
 import re
 import subprocess
 import warnings
+from enum import Enum
 
 import numpy as np
 
 from .features import Feature
 from .utils import get_logger
+
+
+class OptionKey(str, Enum):
+    N_MIN = 'n_min'
+    N_MAX = 'n_max'
+    M_MIN = 'm_min'
+    M_MAX = 'm_max'
 
 
 class Problem:
@@ -678,10 +686,10 @@ def load_cutest(problem_name, **kwargs):
 
         # Keep only the dimensions that are within the specified range.
         dimensions = np.sort(dimensions)
-        if 'n_min' in kwargs:
-            dimensions = dimensions[dimensions >= kwargs['n_min']]
-        if 'n_max' in kwargs:
-            dimensions = dimensions[dimensions <= kwargs['n_max']]
+        if OptionKey.N_MIN in kwargs:
+            dimensions = dimensions[dimensions >= kwargs[OptionKey.N_MIN]]
+        if OptionKey.N_MAX in kwargs:
+            dimensions = dimensions[dimensions <= kwargs[OptionKey.N_MAX]]
         return dimensions
 
     def _is_valid(cutest_problem, **kwargs):
@@ -692,14 +700,14 @@ def load_cutest(problem_name, **kwargs):
         is_valid = np.all(cutest_problem.vartype == 0)
 
         # Check that the dimensions are within the specified range.
-        if 'n_min' in kwargs:
-            is_valid = is_valid and cutest_problem.n >= kwargs['n_min']
-        if 'n_max' in kwargs:
-            is_valid = is_valid and cutest_problem.n <= kwargs['n_max']
-        if 'm_min' in kwargs:
-            is_valid = is_valid and cutest_problem.m >= kwargs['m_min']
-        if 'm_max' in kwargs:
-            is_valid = is_valid and cutest_problem.m <= kwargs['m_max']
+        if OptionKey.N_MIN in kwargs:
+            is_valid = is_valid and cutest_problem.n >= kwargs[OptionKey.N_MIN]
+        if OptionKey.N_MAX in kwargs:
+            is_valid = is_valid and cutest_problem.n <= kwargs[OptionKey.N_MAX]
+        if OptionKey.M_MIN in kwargs:
+            is_valid = is_valid and cutest_problem.m >= kwargs[OptionKey.M_MIN]
+        if OptionKey.M_MAX in kwargs:
+            is_valid = is_valid and cutest_problem.m <= kwargs[OptionKey.M_MAX]
 
         return is_valid
 
@@ -766,16 +774,16 @@ def load_cutest(problem_name, **kwargs):
     if not isinstance(problem_name, str):
         raise TypeError('The argument problem_name must be a string.')
     for key in kwargs:
-        if key not in ['n_min', 'n_max', 'm_min', 'm_max']:
+        if key not in OptionKey.__members__.values():
             raise ValueError(f'Unknown argument: {key}.')
         if isinstance(kwargs[key], float) and kwargs[key].is_integer():
             kwargs[key] = int(kwargs[key])
         if not isinstance(kwargs[key], int) or kwargs[key] < 0:
             raise TypeError(f'The argument {key} must be a nonnegative integer.')
-        if 'n_min' in kwargs and 'n_max' in kwargs and kwargs['n_min'] > kwargs['n_max']:
-            raise ValueError('The argument n_min must be less than or equal to the argument n_max.')
-        if 'm_min' in kwargs and 'm_max' in kwargs and kwargs['m_min'] > kwargs['m_max']:
-            raise ValueError('The argument m_min must be less than or equal to the argument m_max.')
+        if OptionKey.N_MIN in kwargs and OptionKey.N_MAX in kwargs and kwargs[OptionKey.N_MIN] > kwargs[OptionKey.N_MAX]:
+            raise ValueError(f'The argument {OptionKey.N_MIN.value} must be less than or equal to the argument {OptionKey.N_MAX.value}.')
+        if OptionKey.M_MIN in kwargs and OptionKey.M_MAX in kwargs and kwargs[OptionKey.M_MIN] > kwargs[OptionKey.M_MAX]:
+            raise ValueError(f'The argument {OptionKey.M_MIN.value} must be less than or equal to the argument {OptionKey.M_MAX.value}.')
 
     # Attempt to load the CUTEst problem.
     cutest_problem = None
@@ -873,26 +881,26 @@ def find_cutest_problem_names(constraints, **kwargs):
     for constraint in constraints.split():
         if constraint not in ['unconstrained', 'fixed', 'bound', 'adjacency', 'linear', 'quadratic', 'other']:
             raise ValueError(f'Unknown constraint: {constraint}.')
-    if 'n_min' in kwargs and isinstance(kwargs['n_min'], float) and kwargs['n_min'].is_integer():
-        kwargs['n_min'] = int(kwargs['n_min'])
-    if 'n_min' in kwargs and (not isinstance(kwargs['n_min'], int) or kwargs['n_min'] < 1):
-        raise TypeError('The argument n_min must be a positive integer.')
-    if 'n_max' in kwargs and isinstance(kwargs['n_max'], float) and kwargs['n_max'].is_integer():
-        kwargs['n_max'] = int(kwargs['n_max'])
-    if 'n_max' in kwargs and (not isinstance(kwargs['n_max'], int) or kwargs['n_max'] < kwargs.get('n_min', 1)):
-        raise TypeError('The argument n_max must be an integer greater than or equal to n_min.')
-    if 'm_min' in kwargs and isinstance(kwargs['m_min'], float) and kwargs['m_min'].is_integer():
-        kwargs['m_min'] = int(kwargs['m_min'])
-    if 'm_min' in kwargs and (not isinstance(kwargs['m_min'], int) or kwargs['m_min'] < 0):
-        raise TypeError('The argument m_min must be a nonnegative integer.')
-    if 'm_max' in kwargs and isinstance(kwargs['m_max'], float) and kwargs['m_max'].is_integer():
-        kwargs['m_max'] = int(kwargs['m_max'])
-    if 'm_max' in kwargs and (not isinstance(kwargs['m_max'], int) or kwargs['m_max'] < kwargs.get('m_min', 0)):
-        raise TypeError('The argument m_max must be an integer greater than or equal to m_min.')
+    if OptionKey.N_MIN in kwargs and isinstance(kwargs[OptionKey.N_MIN], float) and kwargs[OptionKey.N_MIN].is_integer():
+        kwargs[OptionKey.N_MIN.value] = int(kwargs[OptionKey.N_MIN])
+    if OptionKey.N_MIN in kwargs and (not isinstance(kwargs[OptionKey.N_MIN], int) or kwargs[OptionKey.N_MIN] < 1):
+        raise TypeError(f'The argument {OptionKey.N_MIN.value} must be a positive integer.')
+    if OptionKey.N_MAX in kwargs and isinstance(kwargs[OptionKey.N_MAX], float) and kwargs[OptionKey.N_MAX].is_integer():
+        kwargs[OptionKey.N_MAX.value] = int(kwargs[OptionKey.N_MAX])
+    if OptionKey.N_MAX in kwargs and (not isinstance(kwargs[OptionKey.N_MAX], int) or kwargs[OptionKey.N_MAX] < kwargs.get(OptionKey.N_MIN, 1)):
+        raise TypeError(f'The argument {OptionKey.N_MAX.value} must be an integer greater than or equal to {OptionKey.N_MIN.value}.')
+    if OptionKey.M_MIN in kwargs and isinstance(kwargs[OptionKey.M_MIN], float) and kwargs[OptionKey.M_MIN].is_integer():
+        kwargs[OptionKey.M_MIN.value] = int(kwargs[OptionKey.M_MIN])
+    if OptionKey.M_MIN in kwargs and (not isinstance(kwargs[OptionKey.M_MIN], int) or kwargs[OptionKey.M_MIN] < 0):
+        raise TypeError(f'The argument {OptionKey.M_MIN.value} must be a nonnegative integer.')
+    if OptionKey.M_MAX in kwargs and isinstance(kwargs[OptionKey.M_MAX], float) and kwargs[OptionKey.M_MAX].is_integer():
+        kwargs[OptionKey.M_MAX.value] = int(kwargs[OptionKey.M_MAX])
+    if OptionKey.M_MAX in kwargs and (not isinstance(kwargs[OptionKey.M_MAX], int) or kwargs[OptionKey.M_MAX] < kwargs.get(OptionKey.M_MIN, 0)):
+        raise TypeError(f'The argument {OptionKey.M_MAX.value} must be an integer greater than or equal to {OptionKey.M_MIN.value}.')
 
     # Find all the problems that satisfy the constraints.
     excluded_problem_names = {}
-    problem_names = pycutest.find_problems(objective='constant linear quadratic sum of squares other', constraints=constraints, n=[kwargs.get('n_min', 1), kwargs.get('n_max', np.inf)], m=[kwargs.get('m_min', 0), kwargs.get('m_max', np.inf)], userM=False)
+    problem_names = pycutest.find_problems(objective='constant linear quadratic sum of squares other', constraints=constraints, n=[kwargs.get(OptionKey.N_MIN, 1), kwargs.get(OptionKey.N_MAX, np.inf)], m=[kwargs.get(OptionKey.M_MIN, 0), kwargs.get(OptionKey.M_MAX, np.inf)], userM=False)
     return sorted(set(problem_names).difference(excluded_problem_names))
 
 

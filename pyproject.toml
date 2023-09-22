@@ -37,7 +37,11 @@ classifiers = [
     "Topic :: Software Development",
     "Topic :: Software Development :: Testing",
 ]
-dependencies = ["numpy"]
+dependencies = [
+    "joblib",
+    "matplotlib",
+    "numpy",
+]
 dynamic = ["version"]
 
 [project.optional-dependencies]
