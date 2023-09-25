@@ -1,5 +1,4 @@
 from enum import Enum
-from inspect import signature
 
 import numpy as np
 
@@ -69,13 +68,9 @@ class Feature:
             if key == self._OptionKey.MODIFIER:
                 if not callable(self._options[key]):
                     raise TypeError(f'Option {key} must be callable.')
-                if len(signature(self._options[key]).parameters) != 3:
-                    raise TypeError(f'Option {key} must take exactly three arguments.')
             elif key == self._OptionKey.DISTRIBUTION:
                 if not callable(self._options[key]):
                     raise TypeError(f'Option {key} must be callable.')
-                if len(signature(self._options[key]).parameters) != 1:
-                    raise TypeError(f'Option {key} must take exactly one argument.')
             elif key == self._OptionKey.ORDER:
                 if not isinstance(self._options[key], (int, float)):
                     raise TypeError(f'Option {key} must be a number.')
