@@ -1,6 +1,7 @@
 classdef NoiseType
     %NOISETYPE of the available noise types.
-
+    %
+    
     enumeration
         ABSOLUTE ('absolute')
         RELATIVE ('relative')
