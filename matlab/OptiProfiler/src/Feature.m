@@ -148,8 +148,9 @@ classdef Feature < handle
             float
                 Modified objective function value.
             %}
+
             if nargin < 4
-                seed = [];
+                seed = mod(floor(posixtime(datetime('now'))), 2^32);
             end
 
             % Convert x into a cell array
@@ -268,10 +269,12 @@ classdef Feature < handle
             %     Random number generator.
 
             % Create an initial RNG with the given seed
+            seed = mod(floor(seed), 2^32);
             rng = RandStream('mt19937ar', 'Seed', seed);
 
             % Generate a new seed based on the initial RNG and the additional arguments
-            newSeed = abs(sin(1e5 * randn(rng, 1)) + sum(sin(1e5 * varargin{:}))) * 1e9;
+            newSeed = abs(sin(1e5 * randn(rng, 1)) + sum(sin(1e5 * prod(cellfun(@(x) x, varargin))))) * 1e9;
+            newSeed = mod(floor(newSeed), 2^32);
 
             % Create a new RNG with the new seed
             rng = RandStream('mt19937ar', 'Seed', floor(newSeed));

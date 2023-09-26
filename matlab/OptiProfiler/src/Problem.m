@@ -158,7 +158,7 @@ classdef Problem < handle
         % Setter functions.
 
         % Preprocess the initial guess.
-        function obj = set.x0(obj, value)
+        function set.x0(obj, value)
             if ~isvector(value)
                 error("MATLAB:Problem:x0_NotVector", "The argument `x0` must be a vector.")
             end
@@ -166,7 +166,7 @@ classdef Problem < handle
         end
 
         % Preprocess the objective function.
-        function obj = set.fun_(obj, fun)
+        function set.fun_(obj, fun)
             % This function only accepts a new function handle.
             if ~isa(fun, "function_handle")
                 error("MATLAB:Problem:fun_NotFunctionHandle", "The argument `fun` must be a function handle.")
@@ -180,7 +180,7 @@ classdef Problem < handle
         end
 
         % Preprocess the bound constraints.
-        function obj = set.xl(obj, xl)
+        function set.xl(obj, xl)
             if ~isempty(xl)
                 if ~isvector(xl)
                     error("MATLAB:Problem:xl_NotVector", "The argument `xl` must be a vector.")
@@ -191,7 +191,7 @@ classdef Problem < handle
             end
         end
 
-        function obj = set.xu(obj, xu)
+        function set.xu(obj, xu)
             if ~isempty(xu)
                 if ~isvector(xu)
                     error("MATLAB:Problem:xu_NotVector", "The argument `xu` must be a vector.")
@@ -203,7 +203,7 @@ classdef Problem < handle
         end
 
         % Preprocess the linear constraints.
-        function obj = set.aub(obj, aub)
+        function set.aub(obj, aub)
             if ~isempty(aub)
                 if ~ismatrix(aub)
                     error("MATLAB:Problem:aub_NotMatrix", "The argument `aub` must be a matrix.")
@@ -214,7 +214,7 @@ classdef Problem < handle
             end
         end
 
-        function obj = set.bub(obj, bub)
+        function set.bub(obj, bub)
             if ~isempty(bub)
                 if ~isvector(bub)
                     error("MATLAB:Problem:bub_NotVector", "The argument `bub` must be a vector.")
@@ -225,7 +225,7 @@ classdef Problem < handle
             end
         end
 
-        function obj = set.aeq(obj, aeq)
+        function set.aeq(obj, aeq)
             if ~isempty(aeq)
                 if ~ismatrix(aeq)
                     error("MATLAB:Problem:aeq_NotMatrix", "The argument `aeq` must be a matrix.")
@@ -236,7 +236,7 @@ classdef Problem < handle
             end
         end
 
-        function obj = set.beq(obj, beq)
+        function set.beq(obj, beq)
             if ~isempty(beq)
                 if ~isvector(beq)
                     error("MATLAB:Problem:beq_NotVector", "The argument `beq` must be a vector.")
@@ -248,7 +248,7 @@ classdef Problem < handle
         end
 
         % Preprocess the nonlinear constraints.
-        function obj = set.cub_(obj, cub)
+        function set.cub_(obj, cub)
             if ~isa(cub, "function_handle") && ~isempty(cub)
                 error("MATLAB:Problem:cub_NotFunctionHandle", "The argument `cub` must be a function handle.")
             end
@@ -256,7 +256,7 @@ classdef Problem < handle
             obj.cub_ = cub;
         end
 
-        function obj = set.ceq_(obj, ceq)
+        function set.ceq_(obj, ceq)
             if ~isa(ceq, "function_handle") && ~isempty(ceq)
                 error("MATLAB:Problem:ceq_NotFunctionHandle", "The argument `ceq` must be a function handle.")
             end
@@ -265,7 +265,7 @@ classdef Problem < handle
         end
 
         % Preprocess the number of nonlinear constraints.
-        function obj = set.m_nonlinear_ub(obj, m_nonlinear_ub)
+        function set.m_nonlinear_ub(obj, m_nonlinear_ub)
             if ~isempty(m_nonlinear_ub)
                 if ~(isnumeric(m_nonlinear_ub) && m_nonlinear_ub >= 0 && mod(m_nonlinear_ub, 1) == 0)
                     error("MATLAB:Problem:m_nonlinear_ub_NotPositiveScalar", "The argument `m_nonlinear_ub` must be a nonnegative integer.")
@@ -276,7 +276,7 @@ classdef Problem < handle
             end
         end
 
-        function obj = set.m_nonlinear_eq(obj, m_nonlinear_eq)
+        function set.m_nonlinear_eq(obj, m_nonlinear_eq)
             if ~isempty(m_nonlinear_eq)
                 if ~(isnumeric(m_nonlinear_eq) && m_nonlinear_eq >= 0 && mod(m_nonlinear_eq, 1) == 0)
                     error("MATLAB:Problem:m_nonlinear_eq_NotPositiveScalar", "The argument `m_nonlinear_eq` must be a nonnegative integer.")
@@ -315,7 +315,7 @@ classdef Problem < handle
                     value = obj.m_nonlinear_ub;
                 end
             catch ME
-                warning("Error occurred while getting m_nonlinear_ub: %s", ME.message);
+                warning(ME.identifier, "Error occurred while getting m_nonlinear_ub: %s", ME.message);
                 value = [];
             end
         end
@@ -332,7 +332,7 @@ classdef Problem < handle
                     value = obj.m_nonlinear_eq;
                 end
             catch ME
-                warning("Error occurred while getting m_nonlinear_eq: %s", ME.message);
+                warning(ME.identifier, "Error occurred while getting m_nonlinear_eq: %s", ME.message);
                 value = [];
             end
         end        
