@@ -1,5 +1,5 @@
 classdef TestProblem < matlab.unittest.TestCase
-    methods(Test)
+    methods (Test)
 
         % Test the constructor.
 
