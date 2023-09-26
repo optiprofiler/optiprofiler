@@ -555,8 +555,8 @@ class FeaturedProblem(Problem):
         super().__init__(**kwargs)
 
         # Store the objective function values and maximum constraint violations.
-        self._fun_hist = []
-        self._maxcv_hist = []
+        self._fun_values = []
+        self._maxcv_values = []
 
     @property
     def n_eval(self):
@@ -568,10 +568,10 @@ class FeaturedProblem(Problem):
         int
             Number of objective function evaluations.
         """
-        return len(self._fun_hist)
+        return len(self._fun_values)
 
     @property
-    def fun_hist(self):
+    def fun_values(self):
         """
         History of objective function values.
 
@@ -580,10 +580,10 @@ class FeaturedProblem(Problem):
         `numpy.ndarray`, shape (n_eval,)
             History of objective function values.
         """
-        return np.array(self._fun_hist, dtype=float)
+        return np.array(self._fun_values, dtype=float)
 
     @property
-    def maxcv_hist(self):
+    def maxcv_values(self):
         """
         History of maximum constraint violations.
 
@@ -592,7 +592,7 @@ class FeaturedProblem(Problem):
         `numpy.ndarray`, shape (n_eval,)
             History of maximum constraint violations.
         """
-        return np.array(self._maxcv_hist, dtype=float)
+        return np.array(self._maxcv_values, dtype=float)
 
     def fun(self, x, seed=None):
         """
@@ -617,8 +617,8 @@ class FeaturedProblem(Problem):
         """
         # Evaluate the objective function and store the results.
         f = super().fun(x)
-        self._fun_hist.append(f)
-        self._maxcv_hist.append(self.maxcv(x))
+        self._fun_values.append(f)
+        self._maxcv_values.append(self.maxcv(x))
 
         # Modified the objective function value according to the feature and
         # return the modified value. We should not store the modified value
@@ -796,11 +796,11 @@ def load_cutest(problem_name, **kwargs):
                 logger.info(f'Loading CUTEst problem {problem_name} with N={dimensions[-1]}.')
                 cutest_problem = pycutest.import_problem(problem_name, sifParams={'N': dimensions[-1]})
             else:
-                logger.info(f'No valid dimensions found for CUTEst problem {problem_name}.')
+                logger.warning(f'No valid dimensions found for CUTEst problem {problem_name}.')
         else:
             cutest_problem = pycutest.import_problem(problem_name)
     except Exception as err:
-        logger.warning(f'Failed to load CUTEst problem {problem_name}: {err}')
+        logger.error(f'Failed to load CUTEst problem {problem_name}: {err}')
 
     # If the problem is not successfully loaded or invalid, raise an exception.
     if cutest_problem is None:
