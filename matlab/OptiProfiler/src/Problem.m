@@ -29,7 +29,7 @@ classdef Problem < handle
 
     end
 
-    properties (Access = private)
+    properties (Access = protected)
 
         fun_
         cub_
@@ -248,20 +248,19 @@ classdef Problem < handle
         end
 
         % Preprocess the nonlinear constraints.
-        function set.cub_(obj, cub)
-            if ~isa(cub, "function_handle") && ~isempty(cub)
+        function set.cub_(obj, cub_)
+            if ~isa(cub_, "function_handle") && ~isempty(cub_)
                 error("MATLAB:Problem:cub_NotFunctionHandle", "The argument `cub` must be a function handle.")
             end
-            
-            obj.cub_ = cub;
+            obj.cub_ = cub_;
         end
 
-        function set.ceq_(obj, ceq)
-            if ~isa(ceq, "function_handle") && ~isempty(ceq)
+        function set.ceq_(obj, ceq_)
+            if ~isa(ceq_, "function_handle") && ~isempty(ceq_)
                 error("MATLAB:Problem:ceq_NotFunctionHandle", "The argument `ceq` must be a function handle.")
             end
             
-            obj.ceq_ = ceq;
+            obj.ceq_ = ceq_;
         end
 
         % Preprocess the number of nonlinear constraints.

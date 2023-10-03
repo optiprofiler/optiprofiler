@@ -31,9 +31,9 @@ classdef FeaturedProblem < Problem
             %}
             
             % Copy the problem.
-            pb_struct = struct('fun', @(x) problem.fun(x), 'x0', problem.x0, 'xl', problem.xl, ...
+            pb_struct = struct('fun', problem.fun_, 'x0', problem.x0, 'xl', problem.xl, ...
                 'xu', problem.xu, 'aub', problem.aub, 'bub', problem.bub, 'aeq', problem.aeq, ...
-                'beq', problem.beq, 'cub', @(x) problem.cub(x), 'ceq', @(x) problem.ceq(x));
+                'beq', problem.beq, 'cub', problem.cub_, 'ceq', problem.ceq_);
             obj@Problem(pb_struct);
             try
                 obj.m_nonlinear_ub = problem.m_nonlinear_ub;
