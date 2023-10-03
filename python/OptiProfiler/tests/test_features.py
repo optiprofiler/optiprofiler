@@ -21,7 +21,7 @@ class TestFeature:
         # Test the plain feature.
         feature = Feature('plain')
         assert feature.name == 'plain'
-        assert feature.options == {}
+        assert feature.options == {'n_runs': 1}
         assert feature.modifier(x, f) == f
 
     @pytest.mark.parametrize('n', [1, 10, 100])
@@ -35,13 +35,13 @@ class TestFeature:
         # Test the regularized feature.
         feature = Feature('regularized')
         assert feature.name == 'regularized'
-        assert feature.options == {'parameter': 1.0, 'order': 2}
+        assert feature.options == {'n_runs': 1, 'parameter': 1.0, 'order': 2}
         np.testing.assert_allclose(feature.modifier(x, f),  f + np.linalg.norm(x))
 
         # Add custom options.
         feature = Feature('regularized', parameter=2.0, order=3)
         assert feature.name == 'regularized'
-        assert feature.options == {'parameter': 2.0, 'order': 3}
+        assert feature.options == {'n_runs': 1, 'parameter': 2.0, 'order': 3}
         np.testing.assert_allclose(feature.modifier(x, f),  f + 2.0 * np.linalg.norm(x, 3))
 
     @pytest.mark.parametrize('n', [1, 10, 100])
@@ -56,12 +56,14 @@ class TestFeature:
         feature = Feature('noisy')
         assert feature.name == 'noisy'
         assert 'distribution' in feature.options and feature.options['type'] == 'relative'
+        assert feature.options['n_runs'] == 10
         feature.modifier(x, f)
 
         # Add custom options.
-        feature = Feature('noisy', distribution=lambda rng: 1.0, type='absolute')
+        feature = Feature('noisy', distribution=lambda rng: 1.0, type='absolute', n_runs=5)
         assert feature.name == 'noisy'
         assert 'distribution' in feature.options and feature.options['type'] == 'absolute'
+        assert feature.options['n_runs'] == 5
         np.testing.assert_allclose(feature.modifier(x, f),  f + 1.0)
 
     @pytest.mark.parametrize('n', [1, 10, 100])
@@ -75,14 +77,14 @@ class TestFeature:
         # Test the truncated feature.
         feature = Feature('truncated')
         assert feature.name == 'truncated'
-        assert feature.options == {'significant_digits': 6}
+        assert feature.options == {'n_runs': 10, 'significant_digits': 6}
         np.testing.assert_allclose(feature.modifier(x, f),  f, 1e-5, 1e-5)
         np.testing.assert_allclose(feature.modifier(x, -f),  -f, 1e-5, 1e-5)
 
         # Add custom options.
         feature = Feature('truncated', significant_digits=4)
         assert feature.name == 'truncated'
-        assert feature.options == {'significant_digits': 4}
+        assert feature.options == {'n_runs': 10, 'significant_digits': 4}
         np.testing.assert_allclose(feature.modifier(x, f),  f, 1e-3, 1e-3)
 
     @pytest.mark.parametrize('n', [1, 10, 100])
@@ -96,14 +98,14 @@ class TestFeature:
         # Test the tough feature.
         feature = Feature('tough')
         assert feature.name == 'tough'
-        assert feature.options == {'rate_error': 0.0, 'rate_nan': 0.05}
+        assert feature.options == {'n_runs': 10, 'rate_error': 0.0, 'rate_nan': 0.05}
         f_tough = feature.modifier(x, f)
         assert f_tough == f or np.isnan(f_tough)
 
         # Add custom options.
         feature = Feature('tough', rate_error=0.5, rate_nan=0.5)
         assert feature.name == 'tough'
-        assert feature.options == {'rate_error': 0.5, 'rate_nan': 0.5}
+        assert feature.options == {'n_runs': 10, 'rate_error': 0.5, 'rate_nan': 0.5}
         try:
             f_tough = feature.modifier(x, f)
             assert f_tough == f or np.isnan(f_tough)
@@ -122,6 +124,7 @@ class TestFeature:
         feature = Feature('custom', modifier=lambda x, f, seed: f + 1.0)
         assert feature.name == 'custom'
         assert 'modifier' in feature.options
+        assert feature.options['n_runs'] == 1
         np.testing.assert_allclose(feature.modifier(x, f),  f + 1.0)
 
     def test_exceptions(self):

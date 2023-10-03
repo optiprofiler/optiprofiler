@@ -5,6 +5,8 @@ name: pages-build-deployment
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -20,8 +22,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Setup Python
         uses: actions/setup-python@v4
@@ -38,6 +38,7 @@ jobs:
           make html
 
       - name: Upload artifact
+        if: ${{ github.event_name != 'pull_request' }}
         uses: actions/upload-pages-artifact@v2
         with:
           path: doc/build/html
@@ -45,6 +46,7 @@ jobs:
   deploy:
     name: Deploy documentation
     runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'pull_request' }}
     needs: build
     environment:
       name: github-pages
