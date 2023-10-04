@@ -414,12 +414,18 @@ classdef Problem < handle
             
             % Check nonlinear inequality constraint violation
             if ~isempty(obj.cub_)
-                cv = max(max(obj.cub(x)), cv);
+                cub_val = obj.cub(x);
+                if ~isempty(cub_val)
+                    cv = max(max(cub_val), cv);
+                end
             end
             
             % Check nonlinear equality constraint violation
             if ~isempty(obj.ceq_)
-                cv = max(max(abs(obj.ceq(x))), cv);
+                ceq_val = obj.ceq(x);
+                if ~isempty(ceq_val)
+                    cv = max(max(abs(ceq_val)), cv);
+                end
             end
         end
 
