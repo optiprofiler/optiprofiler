@@ -1,5 +1,5 @@
-classdef OptionKey
-    %OPTIONKEY of the available options.
+classdef FeatureOptionKey
+    %FEATUREOPTIONKEY of the available options.
     %
     
     enumeration
@@ -17,7 +17,7 @@ classdef OptionKey
         value
     end
     methods
-        function obj = OptionKey(inputValue)
+        function obj = FeatureOptionKey(inputValue)
             obj.value = inputValue;
         end
     end

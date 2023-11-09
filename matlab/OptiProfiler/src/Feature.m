@@ -53,7 +53,7 @@ classdef Feature < handle
                 error("MATLAB:Feature:UnknownFeature", "Unknown feature: " + obj.name + ".")
             end
             optionKeys = fieldnames(obj.options);
-            validOptionKeys = {enumeration('OptionKey').value};
+            validOptionKeys = {enumeration('FeatureOptionKey').value};
             for i = 1:numel(optionKeys)
                 key = optionKeys{i};
                 if ~ismember(key, validOptionKeys)
@@ -61,18 +61,18 @@ classdef Feature < handle
                 end
 
                 % Check whether the option is valid for the feature.
-                known_options = {OptionKey.N_RUNS.value};
+                known_options = {FeatureOptionKey.N_RUNS.value};
                 switch obj.name
                     case FeatureName.CUSTOM.value
-                        known_options = [known_options, {OptionKey.MODIFIER.value}];
+                        known_options = [known_options, {FeatureOptionKey.MODIFIER.value}];
                     case FeatureName.NOISY.value
-                        known_options = [known_options, {OptionKey.DISTRIBUTION.value, OptionKey.TYPE.value}];
+                        known_options = [known_options, {FeatureOptionKey.DISTRIBUTION.value, FeatureOptionKey.TYPE.value}];
                     case FeatureName.REGULARIZED.value
-                        known_options = [known_options, {OptionKey.ORDER.value, OptionKey.PARAMETER.value}];
+                        known_options = [known_options, {FeatureOptionKey.ORDER.value, FeatureOptionKey.PARAMETER.value}];
                     case FeatureName.TOUGH.value
-                        known_options = [known_options, {OptionKey.RATE_ERROR.value, OptionKey.RATE_NAN.value}];
+                        known_options = [known_options, {FeatureOptionKey.RATE_ERROR.value, FeatureOptionKey.RATE_NAN.value}];
                     case FeatureName.TRUNCATED.value
-                        known_options = [known_options, {OptionKey.SIGNIFICANT_DIGITS.value}];
+                        known_options = [known_options, {FeatureOptionKey.SIGNIFICANT_DIGITS.value}];
                     case FeatureName.PLAIN.value
                         % Do nothing
                     otherwise
@@ -84,41 +84,41 @@ classdef Feature < handle
 
                 % Check whether the option type is valid.
                 switch key
-                    case OptionKey.N_RUNS.value
+                    case FeatureOptionKey.N_RUNS.value
                         if isfloat(obj.options.(key)) && (obj.options.(key) == round(obj.options.(key)))
                             obj.options.(key) = int32(obj.options.(key));
                         end
                         if ~isinteger(obj.options.(key)) || obj.options.(key) <= 0
                             error("MATLAB:Feature:n_runs_NotPositiveInteger", "Option " + key + " must be a positive integer.")
                         end
-                    case OptionKey.MODIFIER.value
+                    case FeatureOptionKey.MODIFIER.value
                         if ~isa(obj.options.(key), 'function_handle')
                             error("MATLAB:Feature:modifier_NotFunctionHandle", "Option " + key + " must be a function handle.")
                         end
-                    case OptionKey.DISTRIBUTION.value
+                    case FeatureOptionKey.DISTRIBUTION.value
                         if ~isa(obj.options.(key), 'function_handle')
                             error("MATLAB:Feature:distribution_NotFunctionHandle", "Option " + key + " must be a function handle.")
                         end
-                    case OptionKey.ORDER.value
+                    case FeatureOptionKey.ORDER.value
                         if ~isnumeric(obj.options.(key))
                             error("MATLAB:Feature:order_NotNumber", "Option " + key + " must be a number.")
                         end
-                    case OptionKey.PARAMETER.value
+                    case FeatureOptionKey.PARAMETER.value
                         if ~isnumeric(obj.options.(key)) || obj.options.(key) < 0.0
                             error("MATLAB:Feature:parameter_NotNonnegativeNumber", "Option " + key + " must be a nonnegative number.")
                         end
-                    case {OptionKey.RATE_ERROR.value, OptionKey.RATE_NAN.value}
+                    case {FeatureOptionKey.RATE_ERROR.value, FeatureOptionKey.RATE_NAN.value}
                         if ~isnumeric(obj.options.(key)) || obj.options.(key) < 0.0 || obj.options.(key) > 1.0
                             error(['MATLAB:Feature:' key '_NotBetween_0_1'], "Option " + key + " must be a number between 0 and 1.")
                         end
-                    case OptionKey.SIGNIFICANT_DIGITS.value
+                    case FeatureOptionKey.SIGNIFICANT_DIGITS.value
                         if isfloat(obj.options.(key)) && (obj.options.(key) == round(obj.options.(key)))
                             obj.options.(key) = int32(obj.options.(key));
                         end
                         if ~isinteger(obj.options.(key)) || obj.options.(key) <= 0
                             error("MATLAB:Feature:significant_digits_NotPositiveInteger", "Option " + key + " must be a positive integer.")
                         end
-                    case OptionKey.TYPE.value
+                    case FeatureOptionKey.TYPE.value
                         validNoiseTypes = {enumeration('NoiseType').value};
                         if ~(ischar(obj.options.(key)) || isstring(obj.options.(key))) || ~ismember(obj.options.(key), validNoiseTypes)
                             error("MATLAB:Feature:type_InvalidInput", "Option " + key + " must be either '" + NoiseType.ABSOLUTE.value + "' or '" + NoiseType.RELATIVE.value + "'.")
@@ -150,7 +150,7 @@ classdef Feature < handle
             %}
 
             if nargin < 4
-                seed = mod(floor(posixtime(datetime('now'))), 2^32);
+                seed = 'shuffle';
             end
 
             % Convert x into a cell array
@@ -160,35 +160,35 @@ classdef Feature < handle
                 case FeatureName.PLAIN.value
                     % Do nothing
                 case FeatureName.CUSTOM.value
-                    f = obj.options.(OptionKey.MODIFIER.value)(x, f, seed);
+                    f = obj.options.(FeatureOptionKey.MODIFIER.value)(x, f, seed);
                 case FeatureName.NOISY.value
-                    rng = obj.default_rng(seed, f, sum(double(obj.options.(OptionKey.TYPE.value))), xCell{:});
-                    if obj.options.(OptionKey.TYPE.value) == NoiseType.ABSOLUTE.value
-                        f = f + obj.options.(OptionKey.DISTRIBUTION.value)(rng);
+                    rand_stream = obj.default_rng(seed, f, sum(double(obj.options.(FeatureOptionKey.TYPE.value))), xCell{:});
+                    if obj.options.(FeatureOptionKey.TYPE.value) == NoiseType.ABSOLUTE.value
+                        f = f + obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream);
                     else
-                        f = f * (1.0 + obj.options.(OptionKey.DISTRIBUTION.value)(rng));
+                        f = f * (1.0 + obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream));
                     end
                 case FeatureName.REGULARIZED.value
-                    f = f + obj.options.(OptionKey.PARAMETER.value) * norm(x, obj.options.(OptionKey.ORDER.value));
+                    f = f + obj.options.(FeatureOptionKey.PARAMETER.value) * norm(x, obj.options.(FeatureOptionKey.ORDER.value));
                 case FeatureName.TOUGH.value
-                    rng = obj.default_rng(seed, f, obj.options.(OptionKey.RATE_ERROR.value), obj.options.(OptionKey.RATE_NAN.value), xCell{:});
-                    if rng.rand() < obj.options.(OptionKey.RATE_ERROR.value)
+                    rand_stream = obj.default_rng(seed, f, obj.options.(FeatureOptionKey.RATE_ERROR.value), obj.options.(FeatureOptionKey.RATE_NAN.value), xCell{:});
+                    if rand_stream.rand() < obj.options.(FeatureOptionKey.RATE_ERROR.value)
                         error("MATLAB:Feature:Tough", "Runtime error.")
-                    elseif rng.rand() < obj.options.(OptionKey.RATE_NAN.value)
+                    elseif rand_stream.rand() < obj.options.(FeatureOptionKey.RATE_NAN.value)
                         f = NaN;
                     end
                 case FeatureName.TRUNCATED.value
-                    rng = obj.default_rng(seed, f, obj.options.(OptionKey.SIGNIFICANT_DIGITS.value), xCell{:});
+                    rand_stream = obj.default_rng(seed, f, obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value), xCell{:});
                     if f == 0.0
-                        digits = obj.options.(OptionKey.SIGNIFICANT_DIGITS.value) - 1;
+                        digits = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - 1;
                     else
-                        digits = obj.options.(OptionKey.SIGNIFICANT_DIGITS.value) - int32(floor(log10(abs(f)))) - 1;
+                        digits = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - int32(floor(log10(abs(f)))) - 1;
                     end
                     digits = double(digits);
                     if f >= 0.0
-                        f = round(f * 10^digits) / 10^digits + rng.rand() * 10^(-digits);
+                        f = round(f * 10^digits) / 10^digits + rand_stream.rand() * 10^(-digits);
                     else
-                        f = round(f * 10^digits) / 10^digits - rng.rand() * 10^(-digits);
+                        f = round(f * 10^digits) / 10^digits - rand_stream.rand() * 10^(-digits);
                     end
                 otherwise
                     error("MATLAB:Feature:UnknownFeature", "Unknown feature: " + obj.name + ".")
@@ -199,52 +199,52 @@ classdef Feature < handle
             % Set default options.
             switch obj.name
                 case FeatureName.PLAIN.value
-                    if ~isfield(obj.options, OptionKey.N_RUNS.value)
-                        obj.options.(OptionKey.N_RUNS.value) = int32(1);
+                    if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
+                        obj.options.(FeatureOptionKey.N_RUNS.value) = int32(1);
                     end
                 case FeatureName.CUSTOM.value
-                    if ~isfield(obj.options, OptionKey.MODIFIER.value)
-                        error("MATLAB:Feature:MissingModifier", "When using a custom feature, you must specify the " + OptionKey.MODIFIER.value + " option.");
+                    if ~isfield(obj.options, FeatureOptionKey.MODIFIER.value)
+                        error("MATLAB:Feature:MissingModifier", "When using a custom feature, you must specify the " + FeatureOptionKey.MODIFIER.value + " option.");
                     end
                     if ~isfield(obj.options, 'n_runs')
-                        obj.options.(OptionKey.N_RUNS.value) = int32(1);
+                        obj.options.(FeatureOptionKey.N_RUNS.value) = int32(1);
                     end
                 case FeatureName.NOISY.value
-                    if ~isfield(obj.options, OptionKey.DISTRIBUTION.value)
-                        obj.options.(OptionKey.DISTRIBUTION.value) = @(rng) 1e-3 * rng.randn();
+                    if ~isfield(obj.options, FeatureOptionKey.DISTRIBUTION.value)
+                        obj.options.(FeatureOptionKey.DISTRIBUTION.value) = @(rand_stream) 1e-3 * rand_stream.randn();
                     end
-                    if ~isfield(obj.options, OptionKey.N_RUNS.value)
-                        obj.options.(OptionKey.N_RUNS.value) = int32(10);
+                    if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
+                        obj.options.(FeatureOptionKey.N_RUNS.value) = int32(10);
                     end
-                    if ~isfield(obj.options, OptionKey.TYPE.value)
-                        obj.options.(OptionKey.TYPE.value) = NoiseType.RELATIVE.value;
+                    if ~isfield(obj.options, FeatureOptionKey.TYPE.value)
+                        obj.options.(FeatureOptionKey.TYPE.value) = NoiseType.RELATIVE.value;
                     end
                 case FeatureName.REGULARIZED.value
-                    if ~isfield(obj.options, OptionKey.N_RUNS.value)
-                        obj.options.(OptionKey.N_RUNS.value) = int32(1);
+                    if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
+                        obj.options.(FeatureOptionKey.N_RUNS.value) = int32(1);
                     end
-                    if ~isfield(obj.options, OptionKey.ORDER.value)
-                        obj.options.(OptionKey.ORDER.value) = 2;
+                    if ~isfield(obj.options, FeatureOptionKey.ORDER.value)
+                        obj.options.(FeatureOptionKey.ORDER.value) = 2;
                     end
-                    if ~isfield(obj.options, OptionKey.PARAMETER.value)
-                        obj.options.(OptionKey.PARAMETER.value) = 1.0;
+                    if ~isfield(obj.options, FeatureOptionKey.PARAMETER.value)
+                        obj.options.(FeatureOptionKey.PARAMETER.value) = 1.0;
                     end
                 case FeatureName.TOUGH.value
-                    if ~isfield(obj.options, OptionKey.N_RUNS.value)
-                        obj.options.(OptionKey.N_RUNS.value) = int32(10);
+                    if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
+                        obj.options.(FeatureOptionKey.N_RUNS.value) = int32(10);
                     end
-                    if ~isfield(obj.options, OptionKey.RATE_ERROR.value)
-                        obj.options.(OptionKey.RATE_ERROR.value) = 0.0;
+                    if ~isfield(obj.options, FeatureOptionKey.RATE_ERROR.value)
+                        obj.options.(FeatureOptionKey.RATE_ERROR.value) = 0.0;
                     end
-                    if ~isfield(obj.options, OptionKey.RATE_NAN.value)
-                        obj.options.(OptionKey.RATE_NAN.value) = 0.05;
+                    if ~isfield(obj.options, FeatureOptionKey.RATE_NAN.value)
+                        obj.options.(FeatureOptionKey.RATE_NAN.value) = 0.05;
                     end
                 case FeatureName.TRUNCATED.value
-                    if ~isfield(obj.options, OptionKey.N_RUNS.value)
-                        obj.options.(OptionKey.N_RUNS.value) = int32(10);
+                    if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
+                        obj.options.(FeatureOptionKey.N_RUNS.value) = int32(10);
                     end
-                    if ~isfield(obj.options, OptionKey.SIGNIFICANT_DIGITS.value)
-                        obj.options.(OptionKey.SIGNIFICANT_DIGITS.value) = int32(6);
+                    if ~isfield(obj.options, FeatureOptionKey.SIGNIFICANT_DIGITS.value)
+                        obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) = int32(6);
                     end
                 otherwise
                     error("MATLAB:Feature:UnknownFeature", "Unknown feature: " + obj.name + ".")
@@ -254,34 +254,36 @@ classdef Feature < handle
     end
 
     methods (Static)
-        function rng = default_rng(seed, varargin)
+        function rand_stream = default_rng(seed, varargin)
             % Generate a random number generator.
             %
             % Parameters
             % ----------
-            % seed : double
+            % seed : double, but default one is 'shuffle'
             %     Seed used to generate an initial random number generator.
             % varargin : array of double
             %     Arguments used to generate the returned random number generator.
             %
             % Returns
             % -------
-            % rng : RandStream
+            % rand_stream : RandStream
             %     Random number generator.
 
-            % Create an initial RNG with the given seed
-            seed = mod(floor(seed), 2^32);
-            rng = RandStream('mt19937ar', 'Seed', seed);
+            % Create an initial rand_stream with the given seed
+            if ~isequal(seed, 'shuffle') && isnumeric(seed)
+                seed = mod(floor(seed), 2^32);
+            end
+            rand_stream = RandStream('mt19937ar', 'Seed', seed);
 
             % Convert all elements in varargin to double
             varargin = cellfun(@double, varargin, 'UniformOutput', false);
 
-            % Generate a new seed based on the initial RNG and the additional arguments
-            newSeed = abs(sin(1e5 * randn(rng, 1)) + sum(sin(1e5 * prod(cellfun(@(x) x, varargin))))) * 1e9;
+            % Generate a new seed based on the initial rand_stream and the additional arguments
+            newSeed = abs(sin(1e5 * randn(rand_stream, 1)) + sum(sin(1e5 * prod(cellfun(@(x) x, varargin))))) * 1e9;
             newSeed = mod(floor(newSeed), 2^32);
 
-            % Create a new RNG with the new seed
-            rng = RandStream('mt19937ar', 'Seed', floor(newSeed));
+            % Create a new rand_stream with the new seed
+            rand_stream = RandStream('mt19937ar', 'Seed', floor(newSeed));
         end
     end
 end
