@@ -37,6 +37,7 @@ jobs:
         run: bash .github/actions/test-python/run-tests.sh
 
       - name: Upload coverage reports
+        if: ${{ github.event_name != 'pull_request' }}
         uses: codecov/codecov-action@v3
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
