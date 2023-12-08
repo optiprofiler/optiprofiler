@@ -1,15 +1,15 @@
-import re
-import subprocess
 import warnings
 from enum import Enum
 
 import numpy as np
 
-from .features import Feature
 from .utils import get_logger
 
 
-class OptionKey(str, Enum):
+class ProblemOptionKey(str, Enum):
+    """
+    Available options for loading a CUTEst problem.
+    """
     N_MIN = 'n_min'
     N_MAX = 'n_max'
     M_MIN = 'm_min'
@@ -517,46 +517,35 @@ class FeaturedProblem(Problem):
     Optimization problem to be used in the benchmarking, with extra features.
     """
 
-    def __init__(self, problem, feature):
+    def __init__(self, _, feature):
         """
         Initialize an optimization problem.
 
         Parameters
         ----------
-        problem : Problem
-            Problem to be used in the benchmarking.
-        feature : Feature
+        feature : `OptiProfiler.features.Feature`
             Feature to be used in the benchmarking.
         """
         # Feature to be used in the benchmarking.
         self._feature = feature
 
-        # Copy the problem.
-        kwargs = {
-            'fun': problem.fun,
-            'x0': problem.x0,
-            'xl': problem.xl,
-            'xu': problem.xu,
-            'aub': problem.aub,
-            'bub': problem.bub,
-            'aeq': problem.aeq,
-            'beq': problem.beq,
-            'cub': problem.cub,
-            'ceq': problem.ceq,
-        }
-        try:
-            kwargs['m_nonlinear_ub'] = problem.m_nonlinear_ub
-        except ValueError:
-            pass
-        try:
-            kwargs['m_nonlinear_eq'] = problem.m_nonlinear_eq
-        except ValueError:
-            pass
-        super().__init__(**kwargs)
-
         # Store the objective function values and maximum constraint violations.
         self._fun_values = []
         self._maxcv_values = []
+
+    def __new__(cls, problem, _):
+        """
+        Initialize an optimization problem.
+
+        Parameters
+        ----------
+        problem : `OptiProfiler.problems.Problem`
+            Problem to be used in the benchmarking.
+        """
+        instance = super().__new__(cls)
+        for k, v in problem.__dict__.items():
+            instance.__dict__[k] = v
+        return instance
 
     @property
     def n_eval(self):
@@ -634,7 +623,7 @@ class ProblemError(Exception):
     pass
 
 
-def load_cutest(problem_name, **kwargs):
+def load_cutest(problem_name, **problem_options):
     """
     Load a CUTEst problem.
 
@@ -666,33 +655,7 @@ def load_cutest(problem_name, **kwargs):
     """
     import pycutest
 
-    def _dimensions(problem_name, **kwargs):
-        """
-        Get the available dimensions for a CUTEst problem.
-        """
-        # Get all the SIF parameters.
-        command = [pycutest.get_sifdecoder_path(), '-show', problem_name]
-        process = subprocess.Popen(command, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-        stdout = process.stdout.read()
-        process.wait()
-
-        # Extract all the dimensions that are available.
-        pattern = re.compile(r'^N=(?P<dim>\d+)')
-        dimensions = []
-        for line in stdout.split('\n'):
-            match = pattern.match(line)
-            if match:
-                dimensions.append(int(match.group('dim')))
-
-        # Keep only the dimensions that are within the specified range.
-        dimensions = np.sort(dimensions)
-        if OptionKey.N_MIN in kwargs:
-            dimensions = dimensions[dimensions >= kwargs[OptionKey.N_MIN]]
-        if OptionKey.N_MAX in kwargs:
-            dimensions = dimensions[dimensions <= kwargs[OptionKey.N_MAX]]
-        return dimensions
-
-    def _is_valid(cutest_problem, **kwargs):
+    def _is_valid(cutest_problem, **problem_options):
         """
         Check if a CUTEst problem is valid.
         """
@@ -700,14 +663,14 @@ def load_cutest(problem_name, **kwargs):
         is_valid = np.all(cutest_problem.vartype == 0)
 
         # Check that the dimensions are within the specified range.
-        if OptionKey.N_MIN in kwargs:
-            is_valid = is_valid and cutest_problem.n >= kwargs[OptionKey.N_MIN]
-        if OptionKey.N_MAX in kwargs:
-            is_valid = is_valid and cutest_problem.n <= kwargs[OptionKey.N_MAX]
-        if OptionKey.M_MIN in kwargs:
-            is_valid = is_valid and cutest_problem.m >= kwargs[OptionKey.M_MIN]
-        if OptionKey.M_MAX in kwargs:
-            is_valid = is_valid and cutest_problem.m <= kwargs[OptionKey.M_MAX]
+        if ProblemOptionKey.N_MIN in problem_options:
+            is_valid = is_valid and cutest_problem.n >= problem_options[ProblemOptionKey.N_MIN]
+        if ProblemOptionKey.N_MAX in problem_options:
+            is_valid = is_valid and cutest_problem.n <= problem_options[ProblemOptionKey.N_MAX]
+        if ProblemOptionKey.M_MIN in problem_options:
+            is_valid = is_valid and cutest_problem.m >= problem_options[ProblemOptionKey.M_MIN]
+        if ProblemOptionKey.M_MAX in problem_options:
+            is_valid = is_valid and cutest_problem.m <= problem_options[ProblemOptionKey.M_MAX]
 
         return is_valid
 
@@ -773,39 +736,31 @@ def load_cutest(problem_name, **kwargs):
     # Check the arguments.
     if not isinstance(problem_name, str):
         raise TypeError('The argument problem_name must be a string.')
-    for key in kwargs:
-        if key not in OptionKey.__members__.values():
+    for key in problem_options:
+        if key not in ProblemOptionKey.__members__.values():
             raise ValueError(f'Unknown argument: {key}.')
-        if isinstance(kwargs[key], float) and kwargs[key].is_integer():
-            kwargs[key] = int(kwargs[key])
-        if not isinstance(kwargs[key], int) or kwargs[key] < 0:
+        if isinstance(problem_options[key], float) and problem_options[key].is_integer():
+            problem_options[key] = int(problem_options[key])
+        if not isinstance(problem_options[key], int) or problem_options[key] < 0:
             raise TypeError(f'The argument {key} must be a nonnegative integer.')
-        if OptionKey.N_MIN in kwargs and OptionKey.N_MAX in kwargs and kwargs[OptionKey.N_MIN] > kwargs[OptionKey.N_MAX]:
-            raise ValueError(f'The argument {OptionKey.N_MIN.value} must be less than or equal to the argument {OptionKey.N_MAX.value}.')
-        if OptionKey.M_MIN in kwargs and OptionKey.M_MAX in kwargs and kwargs[OptionKey.M_MIN] > kwargs[OptionKey.M_MAX]:
-            raise ValueError(f'The argument {OptionKey.M_MIN.value} must be less than or equal to the argument {OptionKey.M_MAX.value}.')
+        if ProblemOptionKey.N_MIN in problem_options and ProblemOptionKey.N_MAX in problem_options and problem_options[ProblemOptionKey.N_MIN] > problem_options[ProblemOptionKey.N_MAX]:
+            raise ValueError(f'The argument {ProblemOptionKey.N_MIN.value} must be less than or equal to the argument {ProblemOptionKey.N_MAX.value}.')
+        if ProblemOptionKey.M_MIN in problem_options and ProblemOptionKey.M_MAX in problem_options and problem_options[ProblemOptionKey.M_MIN] > problem_options[ProblemOptionKey.M_MAX]:
+            raise ValueError(f'The argument {ProblemOptionKey.M_MIN.value} must be less than or equal to the argument {ProblemOptionKey.M_MAX.value}.')
 
     # Attempt to load the CUTEst problem.
     cutest_problem = None
     logger = get_logger(__name__)
     logger.info(f'Loading CUTEst problem {problem_name}.')
     try:
-        if pycutest.problem_properties(problem_name)['n'] == 'variable':
-            dimensions = _dimensions(problem_name, **kwargs)
-            if dimensions.size > 0:
-                logger.info(f'Loading CUTEst problem {problem_name} with N={dimensions[-1]}.')
-                cutest_problem = pycutest.import_problem(problem_name, sifParams={'N': dimensions[-1]})
-            else:
-                logger.warning(f'No valid dimensions found for CUTEst problem {problem_name}.')
-        else:
-            cutest_problem = pycutest.import_problem(problem_name)
+        cutest_problem = pycutest.import_problem(problem_name)
     except Exception as err:
         logger.error(f'Failed to load CUTEst problem {problem_name}: {err}')
 
     # If the problem is not successfully loaded or invalid, raise an exception.
     if cutest_problem is None:
         raise ProblemError(f'Failed to load CUTEst problem {problem_name}.')
-    elif cutest_problem is not None and not _is_valid(cutest_problem, **kwargs):
+    elif cutest_problem is not None and not _is_valid(cutest_problem, **problem_options):
         logger.warning(f'CUTEst problem {problem_name} successfully loaded but invalid; it is discarded.')
         raise ProblemError(f'CUTEst problem {problem_name} is invalid.')
 
@@ -836,7 +791,7 @@ def load_cutest(problem_name, **kwargs):
     return Problem(cutest_problem.obj, cutest_problem.x0, xl, xu, **constraints)
 
 
-def find_cutest_problem_names(constraints, **kwargs):
+def find_cutest_problem_names(constraints, **problem_options):
     """
     Find the names of all the CUTEst problems that satisfy given requirements.
 
@@ -881,26 +836,26 @@ def find_cutest_problem_names(constraints, **kwargs):
     for constraint in constraints.split():
         if constraint not in ['unconstrained', 'fixed', 'bound', 'adjacency', 'linear', 'quadratic', 'other']:
             raise ValueError(f'Unknown constraint: {constraint}.')
-    if OptionKey.N_MIN in kwargs and isinstance(kwargs[OptionKey.N_MIN], float) and kwargs[OptionKey.N_MIN].is_integer():
-        kwargs[OptionKey.N_MIN.value] = int(kwargs[OptionKey.N_MIN])
-    if OptionKey.N_MIN in kwargs and (not isinstance(kwargs[OptionKey.N_MIN], int) or kwargs[OptionKey.N_MIN] < 1):
-        raise TypeError(f'The argument {OptionKey.N_MIN.value} must be a positive integer.')
-    if OptionKey.N_MAX in kwargs and isinstance(kwargs[OptionKey.N_MAX], float) and kwargs[OptionKey.N_MAX].is_integer():
-        kwargs[OptionKey.N_MAX.value] = int(kwargs[OptionKey.N_MAX])
-    if OptionKey.N_MAX in kwargs and (not isinstance(kwargs[OptionKey.N_MAX], int) or kwargs[OptionKey.N_MAX] < kwargs.get(OptionKey.N_MIN, 1)):
-        raise TypeError(f'The argument {OptionKey.N_MAX.value} must be an integer greater than or equal to {OptionKey.N_MIN.value}.')
-    if OptionKey.M_MIN in kwargs and isinstance(kwargs[OptionKey.M_MIN], float) and kwargs[OptionKey.M_MIN].is_integer():
-        kwargs[OptionKey.M_MIN.value] = int(kwargs[OptionKey.M_MIN])
-    if OptionKey.M_MIN in kwargs and (not isinstance(kwargs[OptionKey.M_MIN], int) or kwargs[OptionKey.M_MIN] < 0):
-        raise TypeError(f'The argument {OptionKey.M_MIN.value} must be a nonnegative integer.')
-    if OptionKey.M_MAX in kwargs and isinstance(kwargs[OptionKey.M_MAX], float) and kwargs[OptionKey.M_MAX].is_integer():
-        kwargs[OptionKey.M_MAX.value] = int(kwargs[OptionKey.M_MAX])
-    if OptionKey.M_MAX in kwargs and (not isinstance(kwargs[OptionKey.M_MAX], int) or kwargs[OptionKey.M_MAX] < kwargs.get(OptionKey.M_MIN, 0)):
-        raise TypeError(f'The argument {OptionKey.M_MAX.value} must be an integer greater than or equal to {OptionKey.M_MIN.value}.')
+    if ProblemOptionKey.N_MIN in problem_options and isinstance(problem_options[ProblemOptionKey.N_MIN], float) and problem_options[ProblemOptionKey.N_MIN].is_integer():
+        problem_options[ProblemOptionKey.N_MIN.value] = int(problem_options[ProblemOptionKey.N_MIN])
+    if ProblemOptionKey.N_MIN in problem_options and (not isinstance(problem_options[ProblemOptionKey.N_MIN], int) or problem_options[ProblemOptionKey.N_MIN] < 1):
+        raise TypeError(f'The argument {ProblemOptionKey.N_MIN.value} must be a positive integer.')
+    if ProblemOptionKey.N_MAX in problem_options and isinstance(problem_options[ProblemOptionKey.N_MAX], float) and problem_options[ProblemOptionKey.N_MAX].is_integer():
+        problem_options[ProblemOptionKey.N_MAX.value] = int(problem_options[ProblemOptionKey.N_MAX])
+    if ProblemOptionKey.N_MAX in problem_options and (not isinstance(problem_options[ProblemOptionKey.N_MAX], int) or problem_options[ProblemOptionKey.N_MAX] < problem_options.get(ProblemOptionKey.N_MIN, 1)):
+        raise TypeError(f'The argument {ProblemOptionKey.N_MAX.value} must be an integer greater than or equal to {ProblemOptionKey.N_MIN.value}.')
+    if ProblemOptionKey.M_MIN in problem_options and isinstance(problem_options[ProblemOptionKey.M_MIN], float) and problem_options[ProblemOptionKey.M_MIN].is_integer():
+        problem_options[ProblemOptionKey.M_MIN.value] = int(problem_options[ProblemOptionKey.M_MIN])
+    if ProblemOptionKey.M_MIN in problem_options and (not isinstance(problem_options[ProblemOptionKey.M_MIN], int) or problem_options[ProblemOptionKey.M_MIN] < 0):
+        raise TypeError(f'The argument {ProblemOptionKey.M_MIN.value} must be a nonnegative integer.')
+    if ProblemOptionKey.M_MAX in problem_options and isinstance(problem_options[ProblemOptionKey.M_MAX], float) and problem_options[ProblemOptionKey.M_MAX].is_integer():
+        problem_options[ProblemOptionKey.M_MAX.value] = int(problem_options[ProblemOptionKey.M_MAX])
+    if ProblemOptionKey.M_MAX in problem_options and (not isinstance(problem_options[ProblemOptionKey.M_MAX], int) or problem_options[ProblemOptionKey.M_MAX] < problem_options.get(ProblemOptionKey.M_MIN, 0)):
+        raise TypeError(f'The argument {ProblemOptionKey.M_MAX.value} must be an integer greater than or equal to {ProblemOptionKey.M_MIN.value}.')
 
     # Find all the problems that satisfy the constraints.
     excluded_problem_names = {}
-    problem_names = pycutest.find_problems(objective='constant linear quadratic sum of squares other', constraints=constraints, n=[kwargs.get(OptionKey.N_MIN, 1), kwargs.get(OptionKey.N_MAX, np.inf)], m=[kwargs.get(OptionKey.M_MIN, 0), kwargs.get(OptionKey.M_MAX, np.inf)], userM=False)
+    problem_names = pycutest.find_problems(objective='constant linear quadratic sum of squares other', constraints=constraints, n=[problem_options.get(ProblemOptionKey.N_MIN, 1), problem_options.get(ProblemOptionKey.N_MAX, np.inf)], m=[problem_options.get(ProblemOptionKey.M_MIN, 0), problem_options.get(ProblemOptionKey.M_MAX, np.inf)], userM=False)
     return sorted(set(problem_names).difference(excluded_problem_names))
 
 

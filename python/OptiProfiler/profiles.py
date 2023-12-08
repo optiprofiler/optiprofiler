@@ -8,12 +8,12 @@ from joblib import Parallel, delayed
 from matplotlib import pyplot as plt
 from matplotlib.ticker import MaxNLocator
 
-from .features import Feature, FeatureName, OptionKey as FeatureOptionKey
-from .problems import FeaturedProblem, OptionKey as ProblemOptionKey, ProblemError, load_cutest
+from .features import Feature, FeatureName, FeatureOptionKey
+from .problems import FeaturedProblem, ProblemOptionKey, ProblemError, load_cutest
 from .utils import get_logger
 
 
-class OptionKey(str, Enum):
+class ProfileOptionKey(str, Enum):
     N_JOBS = 'n_jobs'
 
 
@@ -29,13 +29,13 @@ def create_profiles(solvers, labels, problem_names, feature_name, **kwargs):
             feature_options[key] = value
         elif key in ProblemOptionKey.__members__.values():
             problem_options[key] = value
-        elif key in OptionKey.__members__.values():
+        elif key in ProfileOptionKey.__members__.values():
             profile_options[key] = value
         else:
             raise ValueError(f'Unknown option: {key}.')
 
     # Set the default profile options.
-    profile_options.setdefault(OptionKey.N_JOBS.value, -1)
+    profile_options.setdefault(ProfileOptionKey.N_JOBS.value, -1)
 
     # Build the feature.
     feature = Feature(feature_name)
@@ -43,10 +43,10 @@ def create_profiles(solvers, labels, problem_names, feature_name, **kwargs):
 
     # Solve the problems.
     max_eval_factor = 500
-    fun_values, maxcv_values, problem_names, problem_dimensions = _solve_all(problem_names, problem_options, solvers, labels, feature, max_eval_factor, profile_options)
+    values, problem_names, problem_dimensions = _solve_all(problem_names, problem_options, solvers, labels, feature, max_eval_factor, profile_options)
 
     # Compute the merit values.
-    merit_values = _compute_merit_values(fun_values, maxcv_values)
+    merit_values = _compute_merit_values(values)
 
     # Extract the merit values at the initial points.
     merit_init = np.nanmin(merit_values[..., 0], 1)
@@ -56,8 +56,8 @@ def create_profiles(solvers, labels, problem_names, feature_name, **kwargs):
     if feature.name in [FeatureName.NOISY, FeatureName.TOUGH, FeatureName.TRUNCATED]:
         feature_plain = Feature('plain')
         logger.info(f'Starting the computation of the plain profiles.')
-        fun_values_plain, maxcv_values_plain, _, _ = _solve_all(problem_names, problem_options, solvers, labels, feature_plain, max_eval_factor, profile_options)
-        merit_values_plain = _compute_merit_values(fun_values_plain, maxcv_values_plain)
+        values_plain, _, _ = _solve_all(problem_names, problem_options, solvers, labels, feature_plain, max_eval_factor, profile_options)
+        merit_values_plain = _compute_merit_values(values_plain)
         merit_min_plain = np.nanmin(merit_values_plain, (1, 2, 3))
         merit_min = np.minimum(merit_min, merit_min_plain)
 
@@ -172,22 +172,21 @@ def create_profiles(solvers, labels, problem_names, feature_name, **kwargs):
 
 def _solve_all(problem_names, problem_options, solvers, labels, feature, max_eval_factor, profile_options):
     # Solve all problems.
-    results = Parallel(n_jobs=profile_options[OptionKey.N_JOBS])(_solve_one(problem_name, problem_options, solvers, labels, feature, max_eval_factor) for problem_name in problem_names)
-    _fun_values, _maxcv_values, problem_names, problem_dimensions = zip(*[result for result in results if result is not None])
+    results = Parallel(n_jobs=profile_options[ProfileOptionKey.N_JOBS])(_solve_one(problem_name, problem_options, solvers, labels, feature, max_eval_factor) for problem_name in problem_names)
+    raw_values, problem_names, problem_dimensions = zip(*[result for result in results if result is not None])
 
-    # Build
+    # Build the results.
+    n_problems = len(raw_values)
+    n_solvers = len(solvers)
     n_runs = feature.options[FeatureOptionKey.N_RUNS]
     max_eval = max_eval_factor * max(problem_dimensions)
-    fun_values = np.full((len(_fun_values), len(solvers), n_runs, max_eval), np.nan)
-    maxcv_values = np.full((len(_maxcv_values), len(solvers), n_runs, max_eval), np.nan)
-    for i_problem, (fun_value, maxcv_value) in enumerate(zip(_fun_values, _maxcv_values)):
-        n_eval = fun_value.shape[-1]
-        fun_values[i_problem, ..., :n_eval] = fun_value
-        maxcv_values[i_problem, ..., :n_eval] = maxcv_value
+    values = np.full((n_problems, n_solvers, n_runs, 2, max_eval), np.nan)
+    for i_problem, value in enumerate(raw_values):
+        n_eval = value.shape[-1]
+        values[i_problem, ..., :n_eval] = value
         if n_eval > 0:
-            fun_values[i_problem, ..., n_eval:] = fun_values[i_problem, ..., n_eval - 1, np.newaxis]
-            maxcv_values[i_problem, ..., n_eval:] = maxcv_values[i_problem, ..., n_eval - 1, np.newaxis]
-    return fun_values, maxcv_values, problem_names, problem_dimensions
+            values[i_problem, ..., n_eval:] = values[i_problem, ..., n_eval - 1, np.newaxis]
+    return values, problem_names, problem_dimensions
 
 
 @delayed
@@ -202,8 +201,7 @@ def _solve_one(problem_name, problem_options, solvers, labels, feature, max_eval
     n_solvers = len(solvers)
     n_runs = feature.options[FeatureOptionKey.N_RUNS]
     max_eval = max_eval_factor * problem.n
-    fun_values = np.full((n_solvers, n_runs, max_eval), np.nan)
-    maxcv_values = np.full((n_solvers, n_runs, max_eval), np.nan)
+    values = np.full((n_solvers, n_runs, 2, max_eval), np.nan)
     logger = get_logger(__name__)
     for i_solver in range(n_solvers):
         for i_run in range(n_runs):
@@ -214,19 +212,22 @@ def _solve_one(problem_name, problem_options, solvers, labels, feature, max_eval
                     warnings.filterwarnings('ignore')
                     solvers[i_solver](lambda x: featured_problem.fun(x, i_run), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, featured_problem.cub, featured_problem.ceq, max_eval)
             n_eval = min(featured_problem.n_eval, max_eval)
-            fun_values[i_solver, i_run, :n_eval] = featured_problem.fun_values[:n_eval]
-            maxcv_values[i_solver, i_run, :n_eval] = featured_problem.maxcv_values[:n_eval]
+            values[i_solver, i_run, 0, :n_eval] = featured_problem.fun_values[:n_eval]
+            values[i_solver, i_run, 1, :n_eval] = featured_problem.maxcv_values[:n_eval]
             if n_eval > 0:
-                fun_values[i_solver, i_run, n_eval:] = fun_values[i_solver, i_run, n_eval - 1]
-                maxcv_values[i_solver, i_run, n_eval:] = maxcv_values[i_solver, i_run, n_eval - 1]
-    return fun_values, maxcv_values, problem_name, problem.n
+                values[i_solver, i_run, 0, n_eval:] = values[i_solver, i_run, 0, n_eval - 1]
+                values[i_solver, i_run, 1, n_eval:] = values[i_solver, i_run, 1, n_eval - 1]
+    return values, problem_name, problem.n
 
 
-def _compute_merit_values(fun_values, maxcv_values):
+def _compute_merit_values(values):
+    n_problems, n_solvers, n_runs, _, max_eval = values.shape
+    fun_values = values[..., 0, :]
+    maxcv_values = values[..., 1, :]
     is_nearly_feasible = maxcv_values <= 1e-12
     is_very_infeasible = maxcv_values >= 1e-6
     is_undecided = ~is_nearly_feasible & ~is_very_infeasible
-    merit_values = np.empty(fun_values.shape)
+    merit_values = np.empty((n_problems, n_solvers, n_runs, max_eval))
     merit_values[is_nearly_feasible] = fun_values[is_nearly_feasible]
     merit_values[is_very_infeasible] = np.inf
     merit_values[is_undecided] = fun_values[is_undecided] + 1e8 * maxcv_values[is_undecided]

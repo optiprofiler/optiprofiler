@@ -18,7 +18,7 @@ def get_logger(name=None, level=logging.INFO):
 
     Returns
     -------
-    logging.Logger
+    `logging.Logger`
         Logger with the given name and level. If a logger with the given name
         already exists, it is returned instead of creating a new one.
     """
