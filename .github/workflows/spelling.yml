@@ -4,9 +4,7 @@ name: spelling
 
 on:
   push:
-    branches: [main]
   pull_request_target:
-    branches: [main]
     types: [opened, reopened, synchronize]
   issue_comment:
     types: [created]
@@ -14,15 +12,15 @@ on:
 jobs:
   spelling:
     name: Check spelling
-    if: "contains(github.event_name, 'pull_request') || github.event_name == 'push'"
-    runs-on: ubuntu-latest
-    outputs:
-      followup: ${{ steps.spelling.outputs.followup }}
+    if: ${{ contains(github.event_name, 'pull_request') || github.event_name == 'push' }}
     permissions:
       contents: read
       pull-requests: read
       actions: read
       security-events: write
+    outputs:
+      followup: ${{ steps.spelling.outputs.followup }}
+    runs-on: ubuntu-latest
     concurrency:
       group: spelling-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: true
@@ -32,14 +30,16 @@ jobs:
         id: spelling
         uses: check-spelling/check-spelling@main
         with:
-          suppress_push_for_open_pull_request: 1
+          suppress_push_for_open_pull_request: ${{ github.actor != 'dependabot[bot]' && 1 }}
           checkout: true
           check_file_names: 1
           spell_check_this: check-spelling/spell-check-this@prerelease
           post_comment: 0
           use_magic_file: 1
+          report-timing: 1
+          warnings: bad-regex,binary-file,deprecated-feature,large-file,limited-references,no-newline-at-eof,noisy-file,non-alpha-in-dictionary,token-is-substring,unexpected-line-ending,whitespace-in-dictionary,minified-file,unsupported-configuration,no-files-to-check
           experimental_apply_changes_via_bot: 1
-          use_sarif: 1
+          use_sarif: ${{ (!github.event.pull_request || (github.event.pull_request.head.repo.full_name == github.repository)) && 1 }}
           extra_dictionary_limit: 10
           extra_dictionaries:
             cspell:html/src/html.txt
@@ -49,7 +49,7 @@ jobs:
 
   comment-push:
     name: Report (Push)
-    if: (success() || failure()) && needs.spelling.outputs.followup && github.event_name == 'push'
+    if: ${{ (success() || failure()) && needs.spelling.outputs.followup && github.event_name == 'push' }}
     needs: spelling
     runs-on: ubuntu-latest
     permissions:
@@ -65,10 +65,11 @@ jobs:
 
   comment-pr:
     name: Report (PR)
-    if: (success() || failure()) && needs.spelling.outputs.followup && contains(github.event_name, 'pull_request')
+    if: ${{ (success() || failure()) && needs.spelling.outputs.followup && contains(github.event_name, 'pull_request') }}
     needs: spelling
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       pull-requests: write
 
     steps:
