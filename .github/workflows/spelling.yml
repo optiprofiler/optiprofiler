@@ -42,7 +42,7 @@ jobs:
           use_sarif: 1
           extra_dictionary_limit: 10
           extra_dictionaries:
-            cspell:html/html.txt
+            cspell:html/src/html.txt
             cspell:python/src/python/python.txt
             cspell:python/src/python/python-lib.txt
             cspell:software-terms/src/software-terms.txt
