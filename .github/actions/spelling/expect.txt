@@ -27,9 +27,7 @@ autoproperty
 autosummary
 beq
 bibfiles
-bibtex
 ceq
-codecov
 conftest
 copybutton
 cov

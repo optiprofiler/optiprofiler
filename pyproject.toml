@@ -49,8 +49,8 @@ doc = [
     "numpydoc==1.6.0",
     "Sphinx==7.2.6",
     "sphinx-copybutton==0.5.2",
-    "sphinx-rtd-theme==1.3.0",
-    "sphinxcontrib.bibtex==2.5.0",
+    "sphinx-rtd-theme==2.0.0",
+    "sphinxcontrib-bibtex==2.6.1",
 ]
 extra = ["pycutest>=1.5.0"]
 tests = [

@@ -1,5 +1,8 @@
+bibtex
+codecov
 codeql
 Cunxin
+github
 MATLAB
 ragonneau
 Rosenbrock
