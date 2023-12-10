@@ -17,7 +17,7 @@ class FeatureName(str, Enum):
 
 class FeatureOptionKey(str, Enum):
     """
-    Available feature's option keys.
+    Available feature's options.
     """
     DISTRIBUTION = 'distribution'
     MODIFIER = 'modifier'

@@ -7,7 +7,7 @@ from importlib.metadata import PackageNotFoundError, version
 
 def get_logger(name=None, level=logging.INFO):
     """
-    Get a logger with the given name and level.
+    Get a logger with given name and level.
 
     Parameters
     ----------
@@ -24,8 +24,8 @@ def get_logger(name=None, level=logging.INFO):
     """
     logger = logging.getLogger(name)
 
-    # Multiple calls to get_logger with the same name will return a reference
-    # to the same logger. We do not create handlers if some already exist.
+    # Multiple calls to get_logger with the same name must return references to
+    # the same logger. Hence, we do not create handlers if some already exist.
     if len(logger.handlers) == 0:
         logger.setLevel(level)
 
@@ -77,7 +77,7 @@ def _get_deps_info():
     dict
         Dependency information.
     """
-    deps = ['OptiProfiler', 'numpy', 'setuptools', 'pip']
+    deps = ['OptiProfiler', 'joblib', 'matplotlib', 'numpy', 'pycutest', 'setuptools', 'pip']
     deps_info = {}
     for module in deps:
         try:
