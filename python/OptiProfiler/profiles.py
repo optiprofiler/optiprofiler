@@ -1,4 +1,5 @@
 import os
+import shutil
 import warnings
 from contextlib import redirect_stderr, redirect_stdout, suppress
 from enum import Enum
@@ -60,9 +61,12 @@ def create_profiles(solvers, labels, problem_names, feature_name, **kwargs):
         merit_min = np.minimum(merit_min, merit_min_plain)
 
     # Set up matplotlib for plotting the profiles.
-    std_cycle = cycler(color=['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd'])
-    std_cycle += cycler(linestyle=[(0, ()), (0, (1, 1)), (0, (5, 2)), (0, (5, 2, 1, 2)), (0, (1, 3))])
-    plt.rc('axes', prop_cycle=std_cycle)
+    prop_cycle = cycler(color=['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'])
+    prop_cycle += cycler(linestyle=[(0, ()), (0, (1, 1.5)), (0, (3, 1.5)), (0, (5, 1.5, 1, 1.5)), (0, (5, 1.5, 1, 1.5, 1, 1.5)), (0, (1, 3)), (0, (3, 3)), (0, (5, 3, 1, 3)), (0, (5, 3, 1, 3, 1, 3)), (0, (1, 4.5))])
+    plt.rc('axes', prop_cycle=prop_cycle)
+    plt.rc('lines', linewidth=1.5)
+    plt.rc('font', family='serif', size=18)
+    plt.rc('text', usetex=True if shutil.which('latex') else False)
 
     # Create the performance and data profiles.
     n_problems, n_solvers, n_runs, max_eval = merit_values.shape
