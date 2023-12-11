@@ -517,23 +517,7 @@ class FeaturedProblem(Problem):
     Optimization problem to be used in the benchmarking, with extra features.
     """
 
-    def __init__(self, _, feature):
-        """
-        Initialize an optimization problem.
-
-        Parameters
-        ----------
-        feature : `OptiProfiler.features.Feature`
-            Feature to be used in the benchmarking.
-        """
-        # Feature to be used in the benchmarking.
-        self._feature = feature
-
-        # Store the objective function values and maximum constraint violations.
-        self._fun_values = []
-        self._maxcv_values = []
-
-    def __new__(cls, problem, _):
+    def __init__(self, problem, feature, seed=None):
         """
         Initialize an optimization problem.
 
@@ -541,7 +525,33 @@ class FeaturedProblem(Problem):
         ----------
         problem : `OptiProfiler.problems.Problem`
             Problem to be used in the benchmarking.
+        feature : `OptiProfiler.features.Feature`
+            Feature to be used in the benchmarking.
+        seed : int, optional
+            Seed for the random number generator.
         """
+        self._feature = feature
+        self._seed = seed
+
+        # Store the objective function values and maximum constraint violations.
+        self._fun_values = []
+        self._maxcv_values = []
+
+    def __new__(cls, problem, feature, seed):
+        """
+        Initialize an optimization problem.
+
+        Parameters
+        ----------
+        problem : `OptiProfiler.problems.Problem`
+            Problem to be used in the benchmarking.
+        feature : `OptiProfiler.features.Feature`
+            Feature to be used in the benchmarking.
+        seed : int, optional
+            Seed for the random number generator.
+        """
+        # Create a new instance of the class `FeaturedProblem` by copying the
+        # attributes of the problem passed to the __init__ method.
         instance = super().__new__(cls)
         for k, v in problem.__dict__.items():
             instance.__dict__[k] = v
@@ -558,6 +568,18 @@ class FeaturedProblem(Problem):
             Number of objective function evaluations.
         """
         return len(self._fun_values)
+
+    @property
+    def x0(self):
+        """
+        Initial guess.
+
+        Returns
+        -------
+        `numpy.ndarray`, shape (n,)
+            Initial guess.
+        """
+        return super().x0
 
     @property
     def fun_values(self):
@@ -583,7 +605,7 @@ class FeaturedProblem(Problem):
         """
         return np.array(self._maxcv_values, dtype=float)
 
-    def fun(self, x, seed=None):
+    def fun(self, x):
         """
         Evaluate the objective function.
 
@@ -591,8 +613,6 @@ class FeaturedProblem(Problem):
         ----------
         x : array_like, shape (n,)
             Point at which to evaluate the objective function.
-        seed : int, optional
-            Seed for the random number generator.
 
         Returns
         -------
@@ -613,7 +633,7 @@ class FeaturedProblem(Problem):
         # return the modified value. We should not store the modified value
         # because the performance of an optimization solver should be measured
         # using the original objective function.
-        return self._feature.modifier(x, f, seed)
+        return self._feature.modifier(x, f, self._seed)
 
 
 class ProblemError(Exception):

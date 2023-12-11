@@ -33,4 +33,4 @@ def cobyqa(fun, x0, xl, xu, aub, bub, aeq, beq, cub, ceq, max_eval):
 
 if __name__ == '__main__':
     problem_names = find_cutest_problem_names('unconstrained', n_max=5)
-    create_profiles([newuoa, cobyqa], ['NEWUOA', 'COBYQA'], problem_names, 'plain', n_max=5)
+    create_profiles([newuoa, cobyqa], ['NEWUOA', 'COBYQA'], problem_names, 'noisy', n_max=5)

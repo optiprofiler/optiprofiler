@@ -10,6 +10,7 @@ from joblib import Parallel, delayed
 from matplotlib import pyplot as plt
 from matplotlib.backends import backend_pdf
 from matplotlib.ticker import MaxNLocator
+from scipy import stats
 
 from .features import Feature, FeatureName, FeatureOptionKey
 from .problems import FeaturedProblem, ProblemOptionKey, ProblemError, load_cutest
@@ -109,7 +110,7 @@ def create_profiles(solvers, labels, problem_names, feature_name, **kwargs):
             pdf_data.savefig(fig, bbox_inches='tight')
             plt.close(fig)
 
-        # Plot the histories.
+        # # Plot the histories.
         # logger.info('Creating the histories.')
         # for i_problem in range(n_problems):
         #     fig, ax = plt.subplots(2, 1, sharex=True)
@@ -183,11 +184,11 @@ def _solve_one(problem_name, problem_options, solvers, labels, feature, max_eval
     for i_solver in range(n_solvers):
         for i_run in range(n_runs):
             logger.info(f'Solving {problem_name} with {labels[i_solver]} (run {i_run + 1}/{n_runs}).')
-            featured_problem = FeaturedProblem(problem, feature)
+            featured_problem = FeaturedProblem(problem, feature, i_run)
             with open(os.devnull, 'w') as devnull:
                 with suppress(Exception), warnings.catch_warnings(), redirect_stdout(devnull), redirect_stderr(devnull):
                     warnings.filterwarnings('ignore')
-                    solvers[i_solver](lambda x: featured_problem.fun(x, i_run), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, featured_problem.cub, featured_problem.ceq, max_eval)
+                    solvers[i_solver](lambda x: featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, featured_problem.cub, featured_problem.ceq, max_eval)
             n_eval[i_solver, i_run] = min(featured_problem.n_eval, max_eval)
             fun_values[i_solver, i_run, :n_eval[i_solver, i_run]] = featured_problem.fun_values[:n_eval[i_solver, i_run]]
             maxcv_values[i_solver, i_run, :n_eval[i_solver, i_run]] = featured_problem.maxcv_values[:n_eval[i_solver, i_run]]
@@ -229,28 +230,34 @@ def _x_profile(work, denominator):
 
 def _y_profile(sort_x, n_problems, n_runs):
     n_solvers = sort_x.shape[1]
-    y = np.zeros((n_problems * n_runs, n_solvers))
-    for i_run in range(n_runs):
-        for i_solver in range(n_solvers):
-            y_partial = np.full(n_problems * n_runs, np.nan)
-            y_partial[i_run * n_problems:(i_run + 1) * n_problems] = np.linspace(1 / n_problems, 1.0, n_problems)
-            y_partial = y_partial[sort_x[:, i_solver]]
+    y = np.full((n_problems * n_runs, n_solvers, n_runs), np.nan)
+    for i_solver in range(n_solvers):
+        for i_run in range(n_runs):
+            y[i_run * n_problems:(i_run + 1) * n_problems, i_solver, i_run] = np.linspace(1 / n_problems, 1.0, n_problems)
+            y[:, i_solver, i_run] = y[sort_x[:, i_solver], i_solver, i_run]
             for i_problem in range(n_problems * n_runs):
-                if np.isnan(y_partial[i_problem]):
-                    y_partial[i_problem] = y_partial[i_problem - 1] if i_problem > 0 else 0.0
-            y[:, i_solver] += y_partial
-    return y / n_runs
+                if np.isnan(y[i_problem, i_solver, i_run]):
+                    y[i_problem, i_solver, i_run] = y[i_problem - 1, i_solver, i_run] if i_problem > 0 else 0.0
+    return y
 
 
 def _draw_profile(x, y, ratio_max, labels, x_label, y_label):
     n_solvers = x.shape[1]
+    n_runs = y.shape[2]
+    y_mean = np.mean(y, 2)
+    y_std = np.std(y, 2)
     fig, ax = plt.subplots()
     for i_solver in range(n_solvers):
         x_stairs = np.repeat(x[:, i_solver], 2)[1:]
         x_stairs = np.r_[0.0, x_stairs[0], x_stairs, 2.0 * ratio_max]
-        y_stairs = np.repeat(y[:, i_solver], 2)[:-1]
+        y_stairs = np.repeat(y_mean[:, i_solver], 2)[:-1]
         y_stairs = np.r_[0.0, 0.0, y_stairs, y_stairs[-1]]
         ax.plot(x_stairs, y_stairs, label=labels[i_solver])
+        if n_runs > 1:
+            y_interval = 1.96 * y_std[:, i_solver] / np.sqrt(n_runs)
+            y_interval = np.repeat(y_interval, 2)[:-1]
+            y_interval = np.r_[0.0, 0.0, y_interval, y_interval[-1]]
+            ax.fill_between(x_stairs, y_stairs - y_interval, y_stairs + y_interval, alpha=0.2)
     ax.yaxis.set_ticks_position('both')
     ax.yaxis.set_major_locator(MaxNLocator(5, prune='lower'))
     ax.yaxis.set_minor_locator(MaxNLocator(10))

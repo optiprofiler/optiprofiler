@@ -78,6 +78,7 @@ optiprofiler
 papersize
 pdfo
 plt
+pyargs
 pycutest
 pyplot
 rng
@@ -101,6 +102,7 @@ uobyqa
 usetex
 usr
 vartype
+whl
 xscale
 xlabel
 xlim
