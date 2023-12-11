@@ -8,6 +8,7 @@ Optimization problems
 .. autosummary::
     :toctree: generated/
 
+    ProblemOptionKey
     Problem
     FeaturedProblem
     ProblemError

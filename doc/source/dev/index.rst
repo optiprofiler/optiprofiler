@@ -19,3 +19,10 @@ The `features` module implements classes to handle features.
     :maxdepth: 2
 
     features
+
+The `utils` module implements utilities.
+
+.. toctree::
+    :maxdepth: 2
+
+    utils

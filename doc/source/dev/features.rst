@@ -8,4 +8,7 @@ Problem features
 .. autosummary::
     :toctree: generated/
 
+    FeatureName
+    FeatureOptionKey
+    NoiseType
     Feature

@@ -101,6 +101,7 @@ uobyqa
 usetex
 usr
 vartype
+xscale
 xlabel
 xlim
 yaxis
