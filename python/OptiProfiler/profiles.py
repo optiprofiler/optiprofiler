@@ -67,7 +67,7 @@ def create_profiles(solvers, labels, problem_names, feature_name, **kwargs):
     with plt.rc_context({
         'axes.prop_cycle': prop_cycle,
         'font.family': 'serif',
-        'font.size': 18,
+        'font.size': 16,
         'text.usetex': True if shutil.which('latex') else False,
     }):
         # Create the performance and data profiles.
@@ -97,14 +97,15 @@ def create_profiles(solvers, labels, problem_names, feature_name, **kwargs):
 
             # Plot the performance profiles.
             logger.info(f'Creating performance profiles for tolerance {tolerance}.')
-            fig, ax = _draw_profile(x_perf, y_perf, perf_ratio_max, labels, 'Performance ratio', 'Performance profiles')
+            tolerance_label = fr'$\tau = 10^{{{int(np.log10(tolerance))}}}$'
+            fig, ax = _draw_profile(x_perf, y_perf, perf_ratio_max, labels, 'Performance ratio', f'Performance profiles ({tolerance_label})')
             ax.set_xscale('log', base=2)
             pdf_perf.savefig(fig, bbox_inches='tight')
             plt.close(fig)
 
             # Plot the data profiles.
             logger.info(f'Creating data profiles for tolerance {tolerance}.')
-            fig, ax = _draw_profile(x_data, y_data, data_ratio_max, labels, 'Number of simplex gradients', 'Data profiles')
+            fig, ax = _draw_profile(x_data, y_data, data_ratio_max, labels, 'Number of simplex gradients', f'Data profiles ({tolerance_label})')
             pdf_data.savefig(fig, bbox_inches='tight')
             plt.close(fig)
 
