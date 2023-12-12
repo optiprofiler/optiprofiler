@@ -5,7 +5,7 @@ function profileinprima(solvers, labels, problem_names, feature_name)
 
     % Set number of pools to be the same as the number of cores.
 
-    profile_options = struct(ProfileOptionKey.N_JOBS.value, 0);
+    profile_options = struct(ProfileOptionKey.N_JOBS.value, 1);
     % profile_options = struct(ProfileOptionKey.N_JOBS.value, feature('numcores'));
 
     % Build feature.
@@ -14,7 +14,7 @@ function profileinprima(solvers, labels, problem_names, feature_name)
 
     % Solve all the problems.
     max_eval_factor = 500;
-    [fun_values, maxcv_values, problem_names, problem_dimensions] = solveAll(problem_names, solvers, feature, max_eval_factor, profile_options);
+    [fun_values, maxcv_values, ~, ~, ~, problem_names, problem_dimensions] = solveAll(problem_names, solvers, feature, max_eval_factor, profile_options);
 
     % Compute the merit values.
     merit_values = computeMeritValues(fun_values, maxcv_values);
@@ -32,14 +32,14 @@ function profileinprima(solvers, labels, problem_names, feature_name)
         merit_min = min(merit_min, merit_min_plain, 'omitnan');
     end
 
-    options.tau = 1e-4;
+    options.tau = 1e-1;
     options.natural_stop = false;
     options.solvers = labels;
-    options.stamp = "stamp";
-    options.feature_and_time = "feature_and_time";
-    options.outdir = "~/Work/Research/Performance_profile/OptiProfiler/matlab/OptiProfiler/figure/";
+    % output = perfprof(merit_values, merit_min, options)
 
-    output = perfprof(merit_values, merit_min, options)
+
+
+    output = perfdata(solvers)
 
 end
 
