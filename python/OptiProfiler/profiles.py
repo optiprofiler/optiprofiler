@@ -10,7 +10,6 @@ from joblib import Parallel, delayed
 from matplotlib import pyplot as plt
 from matplotlib.backends import backend_pdf
 from matplotlib.ticker import MaxNLocator
-from scipy import stats
 
 from .features import Feature, FeatureName, FeatureOptionKey
 from .problems import FeaturedProblem, ProblemOptionKey, ProblemError, load_cutest
@@ -91,22 +90,31 @@ def create_profiles(solvers, labels, problem_names, feature_name, **kwargs):
                             work[i_problem, i_solver, i_run] = np.argmax(merit_values[i_problem, i_solver, i_run, :] <= threshold) + 1
 
             # Calculate the axes of the performance and data profiles.
-            x_perf, perf_ratio_max, sort_perf = _x_profile(work, lambda i_problem, i_run: np.nanmin(work[i_problem, :, i_run]))
-            x_data, data_ratio_max, sort_data = _x_profile(work, lambda i_problem, i_run: problem_dimensions[i_problem] + 1)
-            y_perf = _y_profile(sort_perf, n_problems, n_runs)
-            y_data = _y_profile(sort_data, n_problems, n_runs)
+            x_perf, y_perf, ratio_max_perf = _profile_axes(work, lambda i_problem, i_run: np.nanmin(work[i_problem, :, i_run]))
+            x_perf[np.isinf(x_perf)] = ratio_max_perf ** 2.0
+            x_perf = np.vstack([np.ones((1, n_solvers)), x_perf, np.full((1, n_solvers), ratio_max_perf ** 2.0)])
+            y_perf = np.vstack([np.zeros((1, n_solvers, n_runs)), y_perf, y_perf[-1, np.newaxis, :, :]])
+            x_data, y_data, ratio_max_data = _profile_axes(work, lambda i_problem, i_run: problem_dimensions[i_problem] + 1)
+            x_data[np.isinf(x_data)] = 2.0 * ratio_max_data
+            x_data = np.vstack([np.zeros((1, n_solvers)), x_data, np.full((1, n_solvers), 2.0 * ratio_max_data)])
+            y_data = np.vstack([np.zeros((1, n_solvers, n_runs)), y_data, y_data[-1, np.newaxis, :, :]])
 
             # Plot the performance profiles.
             logger.info(f'Creating performance profiles for tolerance {tolerance}.')
-            tolerance_label = fr'$\tau = 10^{{{int(np.log10(tolerance))}}}$'
-            fig, ax = _draw_profile(x_perf, y_perf, perf_ratio_max, labels, 'Performance ratio', f'Performance profiles ({tolerance_label})')
+            fig, ax = _draw_profile(x_perf, y_perf, labels)
             ax.set_xscale('log', base=2)
+            ax.set_xlim(1.0, ratio_max_perf ** 1.1)
+            ax.set_xlabel('Performance ratio')
+            ax.set_ylabel('Performance profiles')
             pdf_perf.savefig(fig, bbox_inches='tight')
             plt.close(fig)
 
             # Plot the data profiles.
             logger.info(f'Creating data profiles for tolerance {tolerance}.')
-            fig, ax = _draw_profile(x_data, y_data, data_ratio_max, labels, 'Number of simplex gradients', f'Data profiles ({tolerance_label})')
+            fig, ax = _draw_profile(x_data, y_data, labels)
+            ax.set_xlim(0.0, 1.1 * ratio_max_data)
+            ax.set_xlabel('Number of simplex gradients')
+            ax.set_ylabel('Data profiles')
             pdf_data.savefig(fig, bbox_inches='tight')
             plt.close(fig)
 
@@ -213,58 +221,46 @@ def _compute_merit_values(fun_values, maxcv_values):
         return fun_values + 1e8 * maxcv_values
 
 
-def _x_profile(work, denominator):
+def _profile_axes(work, denominator):
     n_problems, n_solvers, n_runs = work.shape
+
+    # Calculate the x-axis values.
     x = np.full((n_runs, n_problems, n_solvers), np.nan)
     for i_run in range(n_runs):
         for i_problem in range(n_problems):
             if not np.all(np.isnan(work[i_problem, :, i_run])):
                 x[i_run, i_problem, :] = work[i_problem, :, i_run] / denominator(i_problem, i_run)
     ratio_max = np.nanmax(x, initial=np.finfo(float).eps)
-    x[np.isnan(x)] = 2.0 * ratio_max
+    x[np.isnan(x)] = np.inf
     x = np.sort(x, 1)
     x = np.reshape(x, (n_problems * n_runs, n_solvers))
     sort_x = np.argsort(x, 0, 'stable')
-    return np.take_along_axis(x, sort_x, 0), ratio_max, sort_x
+    x = np.take_along_axis(x, sort_x, 0)
 
-
-def _y_profile(sort_x, n_problems, n_runs):
-    n_solvers = sort_x.shape[1]
+    # Calculate the y-axis values.
     y = np.full((n_problems * n_runs, n_solvers, n_runs), np.nan)
     for i_solver in range(n_solvers):
         for i_run in range(n_runs):
             y[i_run * n_problems:(i_run + 1) * n_problems, i_solver, i_run] = np.linspace(1 / n_problems, 1.0, n_problems)
-            y[:, i_solver, i_run] = y[sort_x[:, i_solver], i_solver, i_run]
+            y[:, i_solver, i_run] = np.take_along_axis(y[:, i_solver, i_run], sort_x[:, i_solver], 0)
             for i_problem in range(n_problems * n_runs):
                 if np.isnan(y[i_problem, i_solver, i_run]):
                     y[i_problem, i_solver, i_run] = y[i_problem - 1, i_solver, i_run] if i_problem > 0 else 0.0
-    return y
+    return x, y, ratio_max
 
 
-def _draw_profile(x, y, ratio_max, labels, x_label, y_label):
+def _draw_profile(x, y, labels):
     n_solvers = x.shape[1]
-    n_runs = y.shape[2]
     y_mean = np.mean(y, 2)
-    y_std = np.std(y, 2)
     fig, ax = plt.subplots()
     for i_solver in range(n_solvers):
         x_stairs = np.repeat(x[:, i_solver], 2)[1:]
-        x_stairs = np.r_[0.0, x_stairs[0], x_stairs, 2.0 * ratio_max]
         y_stairs = np.repeat(y_mean[:, i_solver], 2)[:-1]
-        y_stairs = np.r_[0.0, 0.0, y_stairs, y_stairs[-1]]
         ax.plot(x_stairs, y_stairs, label=labels[i_solver])
-        if n_runs > 1:
-            y_interval = 1.96 * y_std[:, i_solver] / np.sqrt(n_runs)
-            y_interval = np.repeat(y_interval, 2)[:-1]
-            y_interval = np.r_[0.0, 0.0, y_interval, y_interval[-1]]
-            ax.fill_between(x_stairs, y_stairs - y_interval, y_stairs + y_interval, alpha=0.2)
     ax.yaxis.set_ticks_position('both')
     ax.yaxis.set_major_locator(MaxNLocator(5, prune='lower'))
     ax.yaxis.set_minor_locator(MaxNLocator(10))
     ax.tick_params(which='both', direction='in')
-    ax.set_xlim(1.0, 1.1 * ratio_max)
     ax.set_ylim(0.0, 1.0)
-    ax.set_xlabel(x_label)
-    ax.set_ylabel(y_label)
     ax.legend(loc='lower right')
     return fig, ax
