@@ -75,7 +75,7 @@ def create_profiles(solvers, labels, problem_names, feature_name, **kwargs):
         tolerances = np.logspace(-1, -10, 10)
         pdf_perf = backend_pdf.PdfPages('performance_profiles.pdf')
         pdf_data = backend_pdf.PdfPages('data_profiles.pdf')
-        # pdf_hist = backend_pdf.PdfPages('histories.pdf')
+        pdf_hist = backend_pdf.PdfPages('histories.pdf')
         for i_profile, tolerance in enumerate(tolerances):
 
             work = np.full((n_problems, n_solvers, n_runs), np.nan)
@@ -118,27 +118,32 @@ def create_profiles(solvers, labels, problem_names, feature_name, **kwargs):
             pdf_data.savefig(fig, bbox_inches='tight')
             plt.close(fig)
 
-        # # Plot the histories.
-        # logger.info('Creating the histories.')
-        # for i_problem in range(n_problems):
-        #     fig, ax = plt.subplots(2, 1, sharex=True)
-        #     for i_solver in range(n_solvers):
-        #         ax[0].plot(fun_values[i_problem, i_solver, 0, :n_eval[i_problem, i_solver, 0]], label=labels[i_solver])
-        #         ax[1].plot(maxcv_values[i_problem, i_solver, 0, :n_eval[i_problem, i_solver, 0]])
-        #     ax[1].set_xlim(0, np.max(n_eval[i_problem, :, 0]) - 1)
-        #     ax[1].set_xlabel('Number of function evaluations')
-        #     ax[0].set_ylabel('Objective function value')
-        #     ax[1].set_ylabel('Maximum constraint violation')
-        #     ax[0].legend(loc='upper right')
-        #     ax[0].set_title(f'Histories for {problem_names[i_problem]}')
-        #     pdf_hist.savefig(fig, bbox_inches='tight')
-        #     plt.close(fig)
+        # Plot the histories.
+        logger.info('Creating the histories.')
+        for i_problem in range(n_problems):
+            fig, ax = plt.subplots(2, 1, sharex=True)
+            for i_solver in range(n_solvers):
+                solution_indices = np.where(merit_values[i_problem, i_solver, :n_eval[i_problem, i_solver, 0]] <= np.min(merit_values[i_problem, i_solver, :n_eval[i_problem, i_solver, 0]]))[0]
+                fun_min = np.nanmin(fun_values[i_problem, i_solver, solution_indices])
+                maxcv_min = np.nanmin(maxcv_values[i_problem, i_solver, solution_indices])
+                ax[0].plot(np.arange(1, n_eval[i_problem, i_solver, 0] + 1), fun_values[i_problem, i_solver, 0, :n_eval[i_problem, i_solver, 0]] - fun_min, label=labels[i_solver])
+                ax[1].plot(np.arange(1, n_eval[i_problem, i_solver, 0] + 1), maxcv_values[i_problem, i_solver, 0, :n_eval[i_problem, i_solver, 0]] - maxcv_min)
+                ax[0].set_yscale('symlog', linthresh=1e-12)
+                ax[1].set_yscale('symlog', linthresh=1e-12)
+            ax[1].set_xlim(1, np.max(n_eval[i_problem, :, 0]))
+            ax[1].set_xlabel('Number of function evaluations')
+            ax[0].set_ylabel('Objective function value')
+            ax[1].set_ylabel('Maximum constraint violation')
+            ax[0].legend(loc='upper right')
+            ax[0].set_title(f'Histories for {problem_names[i_problem]}')
+            pdf_hist.savefig(fig, bbox_inches='tight')
+            plt.close(fig)
 
         # Close the PDF files.
         logger.info('Saving the results.')
         pdf_perf.close()
         pdf_data.close()
-        # pdf_hist.close()
+        pdf_hist.close()
 
 
 def _solve_all(problem_names, problem_options, solvers, labels, feature, max_eval_factor, profile_options):

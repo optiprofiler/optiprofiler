@@ -537,7 +537,7 @@ class FeaturedProblem(Problem):
         self._fun_values = []
         self._maxcv_values = []
 
-    def __new__(cls, problem, feature, seed):
+    def __new__(cls, problem, feature, seed=None):
         """
         Initialize an optimization problem.
 

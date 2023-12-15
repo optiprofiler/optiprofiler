@@ -15,8 +15,6 @@ autodoc
 automethod
 autoproperty
 autosummary
-bcbd
-becf
 beq
 bibfiles
 bobyqa
@@ -50,7 +48,6 @@ levelname
 linalg
 lincoa
 linestyle
-linewidth
 linkcode
 linspace
 lnx
@@ -86,12 +83,10 @@ rosen
 rst
 rtd
 savefig
-semilogx
 setcounter
 setuptools
 sharex
 sifdecode
-sifdecoder
 SOURCEDIR
 SPHINXBUILD
 sphinxcontrib
