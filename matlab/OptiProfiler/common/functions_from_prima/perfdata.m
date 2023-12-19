@@ -108,7 +108,7 @@ vert=[0, 0.6, 0];
 colors  = {bleu, 'k', 'b', 'r', vert, bleu, 'k', 'b', 'r', vert};
 %lines   = {'-', '-.', '--', ':', '-', '-.', '--', ':', '-', '-.'};
 lines   = {'-', '-', '-', '-', '-', '-', '-', '-', '-', '-'};
-hfig = figure("visible", false, 'DefaultAxesPosition', [0, 0, 1, 1]);
+hfig = figure("visible", true);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 for iprec = 1 : 2*nprec
     subplot(2, nprec, iprec);

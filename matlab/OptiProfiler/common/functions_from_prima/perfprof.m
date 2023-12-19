@@ -180,7 +180,7 @@ end
 
 % Plot the performance profiles.
 clf;
-hfig=figure("visible", false);  % Plot the figure without displaying it.
+hfig=figure("visible", true);  % Plot the figure.
 for is = 1:ns
     plot(perf_prof{is}(1, :), perf_prof{is}(2, :), lines{is}, 'Color', colors{is},  'Linewidth', linewidth);
     hold on;
@@ -221,21 +221,21 @@ ylabel('$\pi_s(\alpha)$', 'fontsize', fontsize, 'interpreter', 'latex');
 set(gca,'FontSize',fontsize);
 
 
-% Save the figure as eps.
-if options.natural_stop
-    figname = strcat(options.stamp, '.', 'perf_', int2str(int32(-log10(tau))), '.', 'natural', '.', options.feature_and_time);
-else
-    figname = strcat(options.stamp, '.', 'perf_', int2str(int32(-log10(tau))), '.', 'backtrack', '.', options.feature_and_time);
-end
-epsname = fullfile(options.outdir, strcat(figname,'.eps'));
-saveas(hfig, epsname, 'epsc2');
-
-% % Try converting the eps to pdf.
-% try
-%     setenv('PATH', [getenv('PATH') ':/Library/TeX/texbin/:/opt/homebrew/bin/']);
-%     system(['epstopdf ',epsname]);
-% catch
-%     % Do nothing in case of failure.
+% % Save the figure as eps.
+% if options.natural_stop
+%     figname = strcat(options.stamp, '.', 'perf_', int2str(int32(-log10(tau))), '.', 'natural', '.', options.feature_and_time);
+% else
+%     figname = strcat(options.stamp, '.', 'perf_', int2str(int32(-log10(tau))), '.', 'backtrack', '.', options.feature_and_time);
 % end
-setenv('PATH', [getenv('PATH') ':/Library/TeX/texbin/:/opt/homebrew/bin/']);
-system('epstopdf '+epsname);
+% epsname = fullfile(options.outdir, strcat(figname,'.eps'));
+% saveas(hfig, epsname, 'epsc2');
+% 
+% % % Try converting the eps to pdf.
+% % try
+% %     setenv('PATH', [getenv('PATH') ':/Library/TeX/texbin/:/opt/homebrew/bin/']);
+% %     system(['epstopdf ',epsname]);
+% % catch
+% %     % Do nothing in case of failure.
+% % end
+% setenv('PATH', [getenv('PATH') ':/Library/TeX/texbin/:/opt/homebrew/bin/']);
+% system('epstopdf '+epsname);
