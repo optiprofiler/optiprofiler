@@ -163,6 +163,8 @@ pycutest_cache_holder/
 test.m
 coverageReport/
 runTestsAndGenerateCoverageReport.m
+figure/
+profileinprima.m
 
 ## Windows default autuosave extension
 *.asv
