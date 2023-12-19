@@ -1,12 +1,27 @@
-function createProfiles(solvers, labels, problem_names, feature_name)
+function createProfiles(solvers, labels, problem_names, feature_name, varargin)
     %CREATEPROFILES plots performance profiles and data profiles.
 
     % TODO: the current script version does not support options, only supports "simple" features.
 
-    % Set number of pools to be the same as the number of cores.
+    % Set default values for optional arguments.
+    myCluster = parcluster('local');
+    nb_cores = myCluster.NumWorkers;
+    profile_options = struct(ProfileOptionKey.N_JOBS.value, nb_cores);
 
-    profile_options = struct(ProfileOptionKey.N_JOBS.value, 1);
-    % profile_options = struct(ProfileOptionKey.N_JOBS.value, feature('numcores'));
+    if mod(length(varargin), 2) ~= 0
+        error('Options should be provided as name-value pairs.');
+    end
+    for i = 1:2:length(varargin)
+        key = varargin{i};
+        value = varargin{i + 1};
+
+        validProfileOptionKeys = {enumeration('ProfileOptionKey').value};
+        if ismember(key, validProfileOptionKeys)
+            profile_options.(key) = value;
+        else
+            error('Unknown option: %s', key);
+        end
+    end
 
     % Build feature.
     % TODO: now we first use "simple" default feature.
@@ -69,7 +84,6 @@ function createProfiles(solvers, labels, problem_names, feature_name)
         set(ax, 'TickLabelInterpreter', 'latex');
 
     end
-
 
 end
 
