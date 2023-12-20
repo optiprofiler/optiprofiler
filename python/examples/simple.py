@@ -1,4 +1,4 @@
-from OptiProfiler import find_cutest_problem_names, create_profiles
+from OptiProfiler import find_cutest, create_profiles
 
 
 def newuoa(fun, x0, xl, xu, aub, bub, aeq, beq, cub, ceq, max_eval):
@@ -12,5 +12,5 @@ def cobyqa(fun, x0, xl, xu, aub, bub, aeq, beq, cub, ceq, max_eval):
 
 
 if __name__ == '__main__':
-    problem_names = find_cutest_problem_names('unconstrained', n_max=5)[:10]
-    create_profiles([newuoa, cobyqa], ['NEWUOA', 'COBYQA'], problem_names, 'plain', n_max=5)
+    problem_names = find_cutest('unconstrained', n_max=5)[:30]
+    create_profiles([newuoa, cobyqa], ['NEWUOA', 'COBYQA'], problem_names, 'randomize_x0', n_max=5)
