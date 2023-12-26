@@ -1,4 +1,4 @@
-function [fun_values, maxcv_values, fun_inits, maxcv_inits, n_evals, problem_names, problem_dimensions] = solveAll(problem_names, solvers, feature, max_eval_factor, profile_options)
+function [fun_values, maxcv_values, fun_inits, maxcv_inits, n_evals, problem_names, problem_dimensions] = solveAll(problem_names, problem_options, solvers, labels, feature, max_eval_factor, profile_options)
     %SOLVEALL is defined to solve all problems in the given problem set.
 
     % Initialize output variables
@@ -17,14 +17,14 @@ function [fun_values, maxcv_values, fun_inits, maxcv_inits, n_evals, problem_nam
             % Do not use parallel computing.
             for i_problem = 1:n_problems
                 problem_name = problem_names{i_problem};
-                [tmp_fun_values, tmp_maxcv_values, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n] = solveOne(problem_name, solvers, feature, max_eval_factor);
+                [tmp_fun_values, tmp_maxcv_values, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n] = solveOne(problem_name, problem_options, solvers, labels, feature, max_eval_factor);
                 results{i_problem} = {tmp_fun_values, tmp_maxcv_values, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n};
             end
         otherwise
             parpool(profile_options.(ProfileOptionKey.N_JOBS.value));
             parfor i_problem = 1:n_problems
                 problem_name = problem_names{i_problem};
-                [tmp_fun_values, tmp_maxcv_values, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n] = solveOne(problem_name, solvers, feature, max_eval_factor);
+                [tmp_fun_values, tmp_maxcv_values, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n] = solveOne(problem_name, problem_options, solvers, labels, feature, max_eval_factor);
                 results{i_problem} = {tmp_fun_values, tmp_maxcv_values, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n};
             end
             delete(gcp);

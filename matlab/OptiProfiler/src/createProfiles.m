@@ -7,6 +7,8 @@ function createProfiles(solvers, labels, problem_names, feature_name, varargin)
     myCluster = parcluster('local');
     nb_cores = myCluster.NumWorkers;
     profile_options = struct(ProfileOptionKey.N_JOBS.value, nb_cores);
+    problem_options = struct();
+    feature_options = struct();
 
     if mod(length(varargin), 2) ~= 0
         error('Options should be provided as name-value pairs.');
@@ -15,11 +17,18 @@ function createProfiles(solvers, labels, problem_names, feature_name, varargin)
         key = varargin{i};
         value = varargin{i + 1};
 
+        validFeatureOptionKeys = {enumeration('FeatureOptionKey').value};
+        validProblemOptionKeys = {enumeration('ProblemOptionKey').value};
         validProfileOptionKeys = {enumeration('ProfileOptionKey').value};
-        if ismember(key, validProfileOptionKeys)
+
+        if ismember(key, validFeatureOptionKeys)
+            feature_options.(key) = value;
+        elseif ismember(key, validProblemOptionKeys)
+            problem_options.(key) = value;
+        elseif ismember(key, validProfileOptionKeys)
             profile_options.(key) = value;
         else
-            error('Unknown option: %s', key);
+            error("Unknown option: %s", key);
         end
     end
 
@@ -29,7 +38,7 @@ function createProfiles(solvers, labels, problem_names, feature_name, varargin)
 
     % Solve all the problems.
     max_eval_factor = 500;
-    [fun_values, maxcv_values, fun_inits, maxcv_inits, n_evals, problem_names, problem_dimensions] = solveAll(problem_names, solvers, feature, max_eval_factor, profile_options);
+    [fun_values, maxcv_values, fun_inits, maxcv_inits, n_evals, problem_names, problem_dimensions] = solveAll(problem_names, problem_options, solvers, labels, feature, max_eval_factor, profile_options);
 
     % Compute the merit values.
     merit_values = computeMeritValues(fun_values, maxcv_values);
@@ -39,7 +48,7 @@ function createProfiles(solvers, labels, problem_names, feature_name, varargin)
     merit_min = min(min(min(merit_values, [], 4, 'omitnan'), [], 3, 'omitnan'), [], 2, 'omitnan');
     if ismember(feature_name, {FeatureName.NOISY.value, FeatureName.TOUGH.value, FeatureName.TRUNCATED.value})
         feature_plain = Feature(FeatureName.PLAIN.value);
-        [fun_values_plain, maxcv_values_plain] = solveAll(problem_names, solvers, feature_plain, max_eval_factor, profile_options);
+        [fun_values_plain, maxcv_values_plain] = solveAll(problem_names, problem_options, solvers, labels, feature_plain, max_eval_factor, profile_options);
         merit_values_plain = computeMeritValues(fun_values_plain, maxcv_values_plain);
         merit_min_plain = min(min(min(merit_values_plain, [], 4, 'omitnan'), [], 3, 'omitnan'), [], 2, 'omitnan');
         merit_min = min(merit_min, merit_min_plain, 'omitnan');
