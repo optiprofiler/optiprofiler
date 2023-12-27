@@ -15,8 +15,6 @@ autodoc
 automethod
 autoproperty
 autosummary
-bcbd
-becf
 beq
 bibfiles
 bobyqa
@@ -50,7 +48,6 @@ levelname
 linalg
 lincoa
 linestyle
-linewidth
 linkcode
 linspace
 lnx
@@ -64,9 +61,11 @@ mindepth
 modifyitems
 MYARCH
 nanmax
+nanmean
 nanmin
 ndarray
 ndim
+neginf
 newaxis
 newuoa
 NLocator
@@ -78,6 +77,8 @@ optiprofiler
 papersize
 pdfo
 plt
+posinf
+pyargs
 pycutest
 pyplot
 rng
@@ -85,12 +86,11 @@ rosen
 rst
 rtd
 savefig
-semilogx
+scipy
 setcounter
 setuptools
 sharex
 sifdecode
-sifdecoder
 SOURCEDIR
 SPHINXBUILD
 sphinxcontrib
@@ -101,6 +101,7 @@ uobyqa
 usetex
 usr
 vartype
+whl
 xscale
 xlabel
 xlim

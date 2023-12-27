@@ -5,11 +5,12 @@ import numpy as np
 
 class FeatureName(str, Enum):
     """
-    Available features.
+    Features.
     """
     CUSTOM = 'custom'
     NOISY = 'noisy'
     PLAIN = 'plain'
+    RANDOMIZE_X0 = 'randomize_x0'
     REGULARIZED = 'regularized'
     TOUGH = 'tough'
     TRUNCATED = 'truncated'
@@ -17,7 +18,7 @@ class FeatureName(str, Enum):
 
 class FeatureOptionKey(str, Enum):
     """
-    Available feature's options.
+    Feature's options.
     """
     DISTRIBUTION = 'distribution'
     MODIFIER = 'modifier'
@@ -32,7 +33,7 @@ class FeatureOptionKey(str, Enum):
 
 class NoiseType(str, Enum):
     """
-    Available noise types.
+    Noise types.
     """
     ABSOLUTE = 'absolute'
     RELATIVE = 'relative'
@@ -55,7 +56,7 @@ class Feature:
         Other Parameters
         ----------------
         distribution : callable, optional
-            Distribution used in the noisy feature.
+            Distribution used in the noisy and randomize_x0 feature.
         modifier : callable, optional
             Modifier used in the custom feature.
         n_runs : int, optional
@@ -71,7 +72,7 @@ class Feature:
         significant_digits : int, optional
             Number of significant digits of the truncated feature.
         type : str, optional
-            Type of the noisy feature.
+            Type of the noisy and randomize_x0 feature.
         """
         self._name = feature_name.lower()
         self._options = {k.lower(): v for k, v in feature_options.items()}
@@ -90,6 +91,8 @@ class Feature:
                 known_options.extend([FeatureOptionKey.MODIFIER])
             elif self._name == FeatureName.NOISY:
                 known_options.extend([FeatureOptionKey.DISTRIBUTION, FeatureOptionKey.TYPE])
+            elif self._name == FeatureName.RANDOMIZE_X0:
+                known_options.extend([FeatureOptionKey.DISTRIBUTION])
             elif self._name == FeatureName.REGULARIZED:
                 known_options.extend([FeatureOptionKey.ORDER, FeatureOptionKey.PARAMETER])
             elif self._name == FeatureName.TOUGH:
@@ -156,7 +159,7 @@ class Feature:
         dict
             Options of the feature.
         """
-        return dict(self._options)
+        return self._options
 
     def modifier(self, x, f, seed=None):
         """
@@ -179,7 +182,7 @@ class Feature:
         if self._name == FeatureName.CUSTOM:
             f = self._options[FeatureOptionKey.MODIFIER](x, f, seed)
         elif self._name == FeatureName.NOISY:
-            rng = self._default_rng(seed, f, sum(ord(letter) for letter in self._options[FeatureOptionKey.TYPE]), *x)
+            rng = self.default_rng(seed, f, sum(ord(letter) for letter in self._options[FeatureOptionKey.TYPE]), *x)
             if self._options[FeatureOptionKey.TYPE] == NoiseType.ABSOLUTE:
                 f += self._options[FeatureOptionKey.DISTRIBUTION](rng)
             else:
@@ -187,13 +190,13 @@ class Feature:
         elif self._name == FeatureName.REGULARIZED:
             f += self._options[FeatureOptionKey.PARAMETER] * np.linalg.norm(x, self._options[FeatureOptionKey.ORDER])
         elif self._name == FeatureName.TOUGH:
-            rng = self._default_rng(seed, f, self._options[FeatureOptionKey.RATE_ERROR], self._options[FeatureOptionKey.RATE_NAN], *x)
+            rng = self.default_rng(seed, f, self._options[FeatureOptionKey.RATE_ERROR], self._options[FeatureOptionKey.RATE_NAN], *x)
             if rng.uniform() < self._options[FeatureOptionKey.RATE_ERROR]:
                 raise RuntimeError
             elif rng.uniform() < self._options[FeatureOptionKey.RATE_NAN]:
                 f = np.nan
         elif self._name == FeatureName.TRUNCATED:
-            rng = self._default_rng(seed, f, self._options[FeatureOptionKey.SIGNIFICANT_DIGITS], *x)
+            rng = self.default_rng(seed, f, self._options[FeatureOptionKey.SIGNIFICANT_DIGITS], *x)
             if f == 0.0:
                 digits = self._options[FeatureOptionKey.SIGNIFICANT_DIGITS] - 1
             else:
@@ -202,7 +205,7 @@ class Feature:
                 f = round(f, digits) + rng.uniform(0.0, 10.0 ** (-digits))
             else:
                 f = round(f, digits) - rng.uniform(0.0, 10.0 ** (-digits))
-        elif self._name != FeatureName.PLAIN:
+        elif self._name not in [FeatureName.PLAIN, FeatureName.RANDOMIZE_X0]:
             raise NotImplementedError(f'Unknown feature: {self._name}.')
         return f
 
@@ -220,6 +223,9 @@ class Feature:
             self._options.setdefault(FeatureOptionKey.DISTRIBUTION.value, lambda rng: 1e-3 * rng.standard_normal())
             self._options.setdefault(FeatureOptionKey.N_RUNS.value, 10)
             self._options.setdefault(FeatureOptionKey.TYPE.value, NoiseType.RELATIVE.value)
+        elif self._name == FeatureName.RANDOMIZE_X0:
+            self._options.setdefault(FeatureOptionKey.DISTRIBUTION.value, lambda rng, n: 1e-3 * rng.standard_normal(n))
+            self._options.setdefault(FeatureOptionKey.N_RUNS.value, 10)
         elif self._name == FeatureName.REGULARIZED:
             self._options.setdefault(FeatureOptionKey.N_RUNS.value, 1)
             self._options.setdefault(FeatureOptionKey.ORDER.value, 2)
@@ -235,7 +241,7 @@ class Feature:
             raise NotImplementedError(f'Unknown feature: {self._name}.')
 
     @staticmethod
-    def _default_rng(seed, *args):
+    def default_rng(seed, *args):
         """
         Generate a random number generator.
 

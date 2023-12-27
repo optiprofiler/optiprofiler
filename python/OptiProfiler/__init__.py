@@ -1,4 +1,4 @@
-from .problems import Problem, find_cutest_problem_names
+from .problems import Problem, find_cutest
 from .profiles import create_profiles
 from .utils import show_versions
 
@@ -18,4 +18,4 @@ from .utils import show_versions
 # 'X.Y.dev0' is the canonical version of 'X.Y.dev'.
 __version__ = '1.0.dev0'
 
-__all__ = ['Problem', 'create_profiles', 'find_cutest_problem_names', 'show_versions']
+__all__ = ['Problem', 'create_profiles', 'find_cutest', 'show_versions']

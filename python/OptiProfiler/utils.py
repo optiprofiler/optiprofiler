@@ -7,7 +7,7 @@ from importlib.metadata import PackageNotFoundError, version
 
 def get_logger(name=None, level=logging.INFO):
     """
-    Get a logger with given name and level.
+    Get a logger.
 
     Parameters
     ----------
@@ -19,13 +19,10 @@ def get_logger(name=None, level=logging.INFO):
     Returns
     -------
     `logging.Logger`
-        Logger with the given name and level. If a logger with the given name
-        already exists, it is returned instead of creating a new one.
+        Logger with the given name. If a logger with the given name already
+        exists, it is returned instead of creating a new one.
     """
     logger = logging.getLogger(name)
-
-    # Multiple calls to get_logger with the same name must return references to
-    # the same logger. Hence, we do not create handlers if some already exist.
     if len(logger.handlers) == 0:
         logger.setLevel(level)
 

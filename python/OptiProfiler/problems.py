@@ -1,14 +1,14 @@
-import warnings
 from enum import Enum
 
 import numpy as np
 
+from .features import FeatureName, FeatureOptionKey
 from .utils import get_logger
 
 
 class ProblemOptionKey(str, Enum):
     """
-    Available options for loading a CUTEst problem.
+    Options for loading a CUTEst problem.
     """
     N_MIN = 'n_min'
     N_MAX = 'n_max'
@@ -22,14 +22,13 @@ class Problem:
 
     Examples
     --------
-    To illustrate the use of this class, consider the problem of minimizing the
-    Rosenbrock function
+    Consider the problem of minimizing the Rosenbrock function
 
     .. math::
 
         f(x) = 100 (x_2 - x_1^2)^2 + (1 - x_1)^2.
 
-    To create an instance ``problem`` of the class `Problem` for this problem, run:
+    To create an instance of the class `Problem` for this problem, run:
 
     >>> from OptiProfiler import Problem
     >>>
@@ -38,7 +37,7 @@ class Problem:
     ...
     >>> problem = Problem(rosen, [0, 0])
 
-    The second argument is the initial guess. The instance ``problem`` can now
+    The second argument ``[0, 0]`` is the initial guess. This instance can now
     be used to evaluate the objective function at any point, and access extra
     information about the problem. For example, to evaluate the objective
     function at the initial guess, run:
@@ -56,7 +55,7 @@ class Problem:
     >>> problem.xu
     array([inf, inf])
 
-    To optional arguments of the constructor of the class `Problem` can be used
+    The optional arguments of the constructor of the class `Problem` can be used
     to specify constraints. For example, to specify that the variables must be
     nonnegative, run:
 
@@ -73,8 +72,8 @@ class Problem:
     to specify linear inequality and equality constraints, respectively.
     The optional arguments ``cub`` and ``ceq`` can be used to specify nonlinear
     inequality and equality constraints, respectively. For example, to specify
-    that the variables must satisfy the constraint :math:`x_1^2 + x_2^2 \leq 1`
-    and :math:`x_1^3 - x_2^2 \leq 1`, run:
+    that the variables must satisfy the constraint :math:`x_1^2 + x_2^2 \le 1`
+    and :math:`x_1^3 - x_2^2 \le 1`, run:
 
     >>> def cub(x):
     ...     return [x[0] ** 2 + x[1] ** 2 - 1, x[0] ** 3 - x[1] ** 2 - 1]
@@ -399,13 +398,14 @@ class Problem:
         ValueError
             If the argument `x` has an invalid shape.
         """
-        x = _1d_array(x, 'The argument `x` must be a one-dimensional array.')
+        x = _1d_array(x, 'The argument x must be a one-dimensional array.')
         if x.size != self.n:
-            raise ValueError(f'The argument `x` must have size {self.n}.')
+            raise ValueError(f'The argument x must have size {self.n}.')
         try:
             f = self._fun(x)
         except Exception as err:
-            warnings.warn(f'Failed to evaluate the objective function: {err}', RuntimeWarning)
+            logger = get_logger(__name__)
+            logger.warning(f'Failed to evaluate the objective function: {err}')
             f = np.nan
         f = float(f)
         return f
@@ -430,16 +430,17 @@ class Problem:
             If the argument `x` has an invalid shape or if the return value of
             the argument `cub` has an invalid shape.
         """
-        x = _1d_array(x, 'The argument `x` must be a one-dimensional array.')
+        x = _1d_array(x, 'The argument x must be a one-dimensional array.')
         if x.size != self.n:
-            raise ValueError(f'The argument `x` must have size {self.n}.')
+            raise ValueError(f'The argument x must have size {self.n}.')
         if self._cub is None:
             c = np.empty(0)
         else:
             try:
                 c = self._cub(x)
             except Exception as err:
-                warnings.warn(f'Failed to evaluate the nonlinear inequality constraint function: {err}', RuntimeWarning)
+                logger = get_logger(__name__)
+                logger.warning(f'Failed to evaluate the nonlinear inequality constraint function: {err}')
                 c = np.full(self.m_nonlinear_ub, np.nan)
             c = _1d_array(c, 'The return value of the argument cub must be a one-dimensional array.')
         if self._m_nonlinear_ub is None:
@@ -477,7 +478,8 @@ class Problem:
             try:
                 c = self._ceq(x)
             except Exception as err:
-                warnings.warn(f'Failed to evaluate the nonlinear equality constraint function: {err}', RuntimeWarning)
+                logger = get_logger(__name__)
+                logger.warning(f'Failed to evaluate the nonlinear equality constraint function: {err}')
                 c = np.full(self.m_nonlinear_eq, np.nan)
             c = _1d_array(c, 'The return value of the argument ceq must be a one-dimensional array.')
         if self._m_nonlinear_eq is None:
@@ -517,23 +519,7 @@ class FeaturedProblem(Problem):
     Optimization problem to be used in the benchmarking, with extra features.
     """
 
-    def __init__(self, _, feature):
-        """
-        Initialize an optimization problem.
-
-        Parameters
-        ----------
-        feature : `OptiProfiler.features.Feature`
-            Feature to be used in the benchmarking.
-        """
-        # Feature to be used in the benchmarking.
-        self._feature = feature
-
-        # Store the objective function values and maximum constraint violations.
-        self._fun_values = []
-        self._maxcv_values = []
-
-    def __new__(cls, problem, _):
+    def __init__(self, problem, feature, seed=None):
         """
         Initialize an optimization problem.
 
@@ -541,7 +527,33 @@ class FeaturedProblem(Problem):
         ----------
         problem : `OptiProfiler.problems.Problem`
             Problem to be used in the benchmarking.
+        feature : `OptiProfiler.features.Feature`
+            Feature to be used in the benchmarking.
+        seed : int, optional
+            Seed for the random number generator.
         """
+        self._feature = feature
+        self._seed = seed
+
+        # Store the objective function values and maximum constraint violations.
+        self._fun_values = []
+        self._maxcv_values = []
+
+    def __new__(cls, problem, feature, seed=None):
+        """
+        Initialize an optimization problem.
+
+        Parameters
+        ----------
+        problem : `OptiProfiler.problems.Problem`
+            Problem to be used in the benchmarking.
+        feature : `OptiProfiler.features.Feature`
+            Feature to be used in the benchmarking.
+        seed : int, optional
+            Seed for the random number generator.
+        """
+        # Create a new instance of the class `FeaturedProblem` by copying the
+        # attributes of the problem passed to the __init__ method.
         instance = super().__new__(cls)
         for k, v in problem.__dict__.items():
             instance.__dict__[k] = v
@@ -558,6 +570,22 @@ class FeaturedProblem(Problem):
             Number of objective function evaluations.
         """
         return len(self._fun_values)
+
+    @property
+    def x0(self):
+        """
+        Initial guess.
+
+        Returns
+        -------
+        `numpy.ndarray`, shape (n,)
+            Initial guess.
+        """
+        x0 = super().x0
+        if self._feature.name == FeatureName.RANDOMIZE_X0:
+            rng = self._feature.default_rng(self._seed, *x0)
+            x0 += self._feature.options[FeatureOptionKey.DISTRIBUTION](rng, x0.size)
+        return x0
 
     @property
     def fun_values(self):
@@ -583,7 +611,7 @@ class FeaturedProblem(Problem):
         """
         return np.array(self._maxcv_values, dtype=float)
 
-    def fun(self, x, seed=None):
+    def fun(self, x):
         """
         Evaluate the objective function.
 
@@ -591,8 +619,6 @@ class FeaturedProblem(Problem):
         ----------
         x : array_like, shape (n,)
             Point at which to evaluate the objective function.
-        seed : int, optional
-            Seed for the random number generator.
 
         Returns
         -------
@@ -613,7 +639,7 @@ class FeaturedProblem(Problem):
         # return the modified value. We should not store the modified value
         # because the performance of an optimization solver should be measured
         # using the original objective function.
-        return self._feature.modifier(x, f, seed)
+        return self._feature.modifier(x, f, self._seed)
 
 
 class ProblemError(Exception):
@@ -791,7 +817,7 @@ def load_cutest(problem_name, **problem_options):
     return Problem(cutest_problem.obj, cutest_problem.x0, xl, xu, **constraints)
 
 
-def find_cutest_problem_names(constraints, **problem_options):
+def find_cutest(constraints, **problem_options):
     """
     Find the names of all the CUTEst problems that satisfy given requirements.
 
@@ -799,9 +825,8 @@ def find_cutest_problem_names(constraints, **problem_options):
     ----------
     constraints : str
         Type of constraints that the CUTEst problems must have. It should
-        contain one or more of the following substrings: ``'unconstrained'``,
-        ``'fixed'``, ``'bound'``, ``'adjacency'``, ``'linear'``,
-        ``'quadratic'``, ``'other'``.
+        contain one or more of the following substrings: 'unconstrained',
+        'fixed', 'bound', 'adjacency', 'linear', 'quadratic', 'other'.
 
     Returns
     -------
@@ -824,9 +849,9 @@ def find_cutest_problem_names(constraints, **problem_options):
     To find all the unconstrained problems with at most 100 variables, use:
 
 
-    >>> from OptiProfiler import find_cutest_problem_names
+    >>> from OptiProfiler import find_cutest
     >>>
-    >>> problem_names = find_cutest_problem_names('unconstrained', n_max=100)
+    >>> problem_names = find_cutest('unconstrained', n_max=100)
     """
     import pycutest
 
@@ -854,9 +879,8 @@ def find_cutest_problem_names(constraints, **problem_options):
         raise TypeError(f'The argument {ProblemOptionKey.M_MAX.value} must be an integer greater than or equal to {ProblemOptionKey.M_MIN.value}.')
 
     # Find all the problems that satisfy the constraints.
-    excluded_problem_names = {}
     problem_names = pycutest.find_problems(objective='constant linear quadratic sum of squares other', constraints=constraints, n=[problem_options.get(ProblemOptionKey.N_MIN, 1), problem_options.get(ProblemOptionKey.N_MAX, np.inf)], m=[problem_options.get(ProblemOptionKey.M_MIN, 0), problem_options.get(ProblemOptionKey.M_MAX, np.inf)], userM=False)
-    return sorted(set(problem_names).difference(excluded_problem_names))
+    return sorted(set(problem_names))
 
 
 def _1d_array(x, message):
