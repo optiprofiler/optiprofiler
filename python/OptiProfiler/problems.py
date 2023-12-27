@@ -2,7 +2,7 @@ from enum import Enum
 
 import numpy as np
 
-from .features import FeatureName, FeatureOptionKey, NoiseType
+from .features import FeatureName, FeatureOptionKey
 from .utils import get_logger
 
 

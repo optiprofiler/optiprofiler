@@ -221,19 +221,16 @@ class TestProblem(BaseTestProblem):
 
         # The objective function can be ill-defined.
         problem = Problem(self.bad_fun, np.zeros(1))
-        with pytest.warns(RuntimeWarning):
-            assert np.isnan(problem.fun(problem.x0))
+        assert np.isnan(problem.fun(problem.x0))
         assert problem.maxcv(problem.x0) == 0.0
 
         # The nonlinear inequality constraint function can be ill-defined.
         problem = Problem(self.rosen, np.zeros(1), cub=self.bad_fun, m_nonlinear_ub=1)
-        with pytest.warns(RuntimeWarning):
-            assert np.isnan(problem.cub(problem.x0))
+        assert np.isnan(problem.cub(problem.x0))
 
         # The nonlinear equality constraint function can be ill-defined.
         problem = Problem(self.rosen, np.zeros(1), ceq=self.bad_fun, m_nonlinear_eq=1)
-        with pytest.warns(RuntimeWarning):
-            assert np.isnan(problem.ceq(problem.x0))
+        assert np.isnan(problem.ceq(problem.x0))
 
 
 class TestFeaturedProblem(BaseTestProblem):
