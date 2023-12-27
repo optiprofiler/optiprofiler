@@ -89,8 +89,10 @@ class Feature:
             known_options = [FeatureOptionKey.N_RUNS]
             if self._name == FeatureName.CUSTOM:
                 known_options.extend([FeatureOptionKey.MODIFIER])
-            elif self._name in [FeatureName.NOISY, FeatureName.RANDOMIZE_X0]:
+            elif self._name == FeatureName.NOISY:
                 known_options.extend([FeatureOptionKey.DISTRIBUTION, FeatureOptionKey.TYPE])
+            elif self._name == FeatureName.RANDOMIZE_X0:
+                known_options.extend([FeatureOptionKey.DISTRIBUTION])
             elif self._name == FeatureName.REGULARIZED:
                 known_options.extend([FeatureOptionKey.ORDER, FeatureOptionKey.PARAMETER])
             elif self._name == FeatureName.TOUGH:
@@ -217,13 +219,13 @@ class Feature:
             if FeatureOptionKey.MODIFIER not in self._options:
                 raise TypeError(f'When using a custom feature, you must specify the {FeatureOptionKey.MODIFIER} option.')
             self._options.setdefault(FeatureOptionKey.N_RUNS.value, 1)
-        elif self._name in [FeatureName.NOISY, FeatureName.RANDOMIZE_X0]:
-            if self._name == FeatureName.NOISY:
-                self._options.setdefault(FeatureOptionKey.DISTRIBUTION.value, lambda rng: 1e-3 * rng.standard_normal())
-            else:
-                self._options.setdefault(FeatureOptionKey.DISTRIBUTION.value, lambda rng, n: 1e-3 * rng.standard_normal(n))
+        elif self._name == FeatureName.NOISY:
+            self._options.setdefault(FeatureOptionKey.DISTRIBUTION.value, lambda rng: 1e-3 * rng.standard_normal())
             self._options.setdefault(FeatureOptionKey.N_RUNS.value, 10)
             self._options.setdefault(FeatureOptionKey.TYPE.value, NoiseType.RELATIVE.value)
+        elif self._name == FeatureName.RANDOMIZE_X0:
+            self._options.setdefault(FeatureOptionKey.DISTRIBUTION.value, lambda rng, n: 1e-3 * rng.standard_normal(n))
+            self._options.setdefault(FeatureOptionKey.N_RUNS.value, 10)
         elif self._name == FeatureName.REGULARIZED:
             self._options.setdefault(FeatureOptionKey.N_RUNS.value, 1)
             self._options.setdefault(FeatureOptionKey.ORDER.value, 2)

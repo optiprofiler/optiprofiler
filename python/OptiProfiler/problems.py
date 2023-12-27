@@ -582,12 +582,9 @@ class FeaturedProblem(Problem):
             Initial guess.
         """
         x0 = super().x0
-        if self._feature == FeatureName.RANDOMIZE_X0:
-            rng = self._feature.default_rng(self._seed, sum(ord(letter) for letter in self._feature.options[FeatureOptionKey.TYPE]), *x0)
-            if self._feature.options[FeatureOptionKey.TYPE] == NoiseType.ABSOLUTE:
-                x0 += self._feature.options[FeatureOptionKey.DISTRIBUTION](rng, x0.size)
-            else:
-                x0 *= 1.0 + self._feature.options[FeatureOptionKey.DISTRIBUTION](rng, x0.size)
+        if self._feature.name == FeatureName.RANDOMIZE_X0:
+            rng = self._feature.default_rng(self._seed, *x0)
+            x0 += self._feature.options[FeatureOptionKey.DISTRIBUTION](rng, x0.size)
         return x0
 
     @property
