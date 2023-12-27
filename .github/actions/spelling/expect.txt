@@ -61,9 +61,11 @@ mindepth
 modifyitems
 MYARCH
 nanmax
+nanmean
 nanmin
 ndarray
 ndim
+neginf
 newaxis
 newuoa
 NLocator
@@ -75,6 +77,7 @@ optiprofiler
 papersize
 pdfo
 plt
+posinf
 pyargs
 pycutest
 pyplot
@@ -83,6 +86,7 @@ rosen
 rst
 rtd
 savefig
+scipy
 setcounter
 setuptools
 sharex

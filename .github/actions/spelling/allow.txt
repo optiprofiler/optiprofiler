@@ -2,6 +2,7 @@ bibtex
 codecov
 codeql
 Cunxin
+doi
 github
 MATLAB
 ragonneau
