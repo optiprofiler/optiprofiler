@@ -165,6 +165,7 @@ coverageReport/
 runTestsAndGenerateCoverageReport.m
 figure/
 profileinprima.m
+cobertura.xml
 
 ## Windows default autuosave extension
 *.asv

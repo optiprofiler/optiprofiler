@@ -1,22 +1,34 @@
 function [fun_values, maxcv_values, fun_init, maxcv_init, n_eval, problem_name, problem_n] = solveOne(problem_name, problem_options, solvers, labels, feature, max_eval_factor)
     %SOLVEONE is defined to solve one test problem with a set of solvers.
     
+    fun_values = [];
+    maxcv_values = [];
+    fun_init = [];
+    maxcv_init = [];
+    n_eval = [];
+    problem_n = [];
+    load_success = false;
+
     % Try to load the test problem from CUTEst.
     try
         problem = loadCutest(problem_name, problem_options);
+        problem_n = problem.n;
+        load_success = true;
     catch
-        fun_values = [];
-        maxcv_values = [];
-        problem_n = [];
     end
 
     % Try to load the test problem.
     try
         problem = loadTestProblem(problem_name);
+        problem_n = problem.n;
+        load_success = true;
     catch
     end
 
-    problem_n = problem.n;
+    if ~load_success
+        return;
+    end
+    
 
     % Evaluate the functions at the initial point.
     fun_init = problem.fun(problem.x0);
