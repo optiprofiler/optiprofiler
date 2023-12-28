@@ -1,9 +1,18 @@
 name: test-matlab
-on: push
+
+on:
+  push:
+    branches: [matlab]
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      - name: Clone MatCUTEst
+        uses: actions/checkout@v4
+        with:
+          repository: matcutest/matcutest_compiled
+          path: matcutest
       - uses: actions/checkout@v2
       - uses: matlab-actions/setup-matlab@v0
       - uses: matlab-actions/run-tests@v0
