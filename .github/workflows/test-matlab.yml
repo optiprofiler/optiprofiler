@@ -5,9 +5,10 @@ on:
     branches: [matlab]
 
 jobs:
-  test:
-    name: Test default parameters of bds
-    runs-on: ${{matrix.os }}
+  run:
+    name: Generate coverage report for MATLAB ${{ matrix.matlab-version }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
     strategy:
       fail-fast: false
       matrix:
