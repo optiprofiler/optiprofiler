@@ -63,13 +63,11 @@ jobs:
             % Add MatCUTEst to the MATLAB path
             addpath("/home/runner/.local/matcutest");
 
+            % Navigate to the directory containing runTest.m
+            cd(fullfile(getenv('GITHUB_WORKSPACE'), 'matlab', 'OptiProfiler'));
+            
             % Now run the tests
-            results = runner('/path/to/your/tests');
-
-            % Optionally, generate a coverage report
-            % [coverageResults, result, coverageLabel] = runner('/path/to/your/tests', 'Producing', CoberturaCoverage=true);
-            % Save the coverage report to a file
-            % xmlwrite('coverage.xml', coverageResults);
+            runTests;
 
             % Exit MATLAB
             exit
