@@ -52,23 +52,35 @@ jobs:
             % Check the installation
             help matcutest, which('macup'), which('decup'), which('secup')
 
-      - name: Run MATLAB Tests
-        uses: matlab-actions/run-command@v1.2.2
-        with:
-          command: |
-            % Add MatCUTEst to the MATLAB path
-            addpath("/home/runner/.local/matcutest");
-            addpath("/home/runner/.local/matcutest/mtools/src");
-            help matcutest, which('macup'), which('decup'), which('secup')
+            % Add MatCUTEst paths to startup.m
+            path1 = '/home/runner/.local/matcutest';
+            path2 = '/home/runner/.local/matcutest/mtools/src';
+            startup_file = fullfile(userpath, 'startup.m');
+            system(['echo "addpath(''' path1 ''');" >> ' startup_file]);
+            system(['echo "addpath(''' path2 ''');" >> ' startup_file]);
 
-            % Navigate to the directory containing runTest.m
-            cd(fullfile(getenv('GITHUB_WORKSPACE'), 'matlab', 'OptiProfiler'));
+      # - name: Run MATLAB Tests
+      #   uses: matlab-actions/run-command@v1.2.2
+      #   with:
+      #     command: |
+      #       % Add MatCUTEst to the MATLAB path
+      #       addpath("/home/runner/.local/matcutest");
+      #       addpath("/home/runner/.local/matcutest/mtools/src");
+
+      #       % Navigate to the directory containing runTest.m
+      #       cd(fullfile(getenv('GITHUB_WORKSPACE'), 'matlab', 'OptiProfiler'));
             
-            % Now run the tests
-            runTests;
+      #       % Now run the tests
+      #       runTests;
 
-            % Exit MATLAB
-            exit
+      #       % Exit MATLAB
+      #       exit
+
+      - name: Run MATLAB Tests
+        uses: matlab-actions/run-tests@v1
+        with:
+          source-folder: matlab/OptiProfiler/src
+          code-coverage-cobertura: coverage.xml
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1
