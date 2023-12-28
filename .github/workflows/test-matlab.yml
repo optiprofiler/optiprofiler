@@ -49,10 +49,6 @@ jobs:
             % Install MatCUTEst
             cd(fullfile(root_dir, 'matcutest')); install(); cd(root_dir);
 
-            % Add MatCUTEst to the MATLAB path
-            addpath("/home/runner/.local/matcutest");
-            savepath;
-
             % Check the installation
             help matcutest, which('macup'), which('decup'), which('secup')
 
@@ -62,6 +58,7 @@ jobs:
           command: |
             % Add MatCUTEst to the MATLAB path
             addpath("/home/runner/.local/matcutest");
+            addpath("/home/runner/.local/matcutest/mtools/src");
             help matcutest, which('macup'), which('decup'), which('secup')
 
             % Navigate to the directory containing runTest.m
