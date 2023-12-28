@@ -57,10 +57,22 @@ jobs:
             help matcutest, which('macup'), which('decup'), which('secup')
 
       - name: Run MATLAB Tests
-        uses: matlab-actions/run-tests@v1
+        uses: matlab-actions/run-command@v1.2.2
         with:
-          source-folder: 'matlab/OptiProfiler/src'
-          code-coverage-cobertura: 'coverage.xml'
+          command: |
+            % Add MatCUTEst to the MATLAB path
+            addpath("/home/runner/.local/matcutest");
+
+            % Now run the tests
+            results = runner('/path/to/your/tests');
+
+            % Optionally, generate a coverage report
+            % [coverageResults, result, coverageLabel] = runner('/path/to/your/tests', 'Producing', CoberturaCoverage=true);
+            % Save the coverage report to a file
+            % xmlwrite('coverage.xml', coverageResults);
+
+            % Exit MATLAB
+            exit
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1
