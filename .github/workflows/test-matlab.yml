@@ -50,7 +50,7 @@ jobs:
             cd(fullfile(root_dir, 'matcutest')); install(); cd(root_dir);
 
             % Add MatCUTEst to the MATLAB path
-            addpath(fullfile(root_dir, 'matcutest'));
+            addpath("/home/runner/.local/matcutest");
             savepath;
 
             % Check the installation
