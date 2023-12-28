@@ -134,9 +134,9 @@ class TestFeature:
             Feature('regularized', unknown=1.0)
         with pytest.raises(ValueError):
             Feature('plain', parameter=1.0)
-        with pytest.raises(ValueError):
+        with pytest.raises(TypeError):
             Feature('noisy', n_runs=1.5)
-        with pytest.raises(ValueError):
+        with pytest.raises(TypeError):
             Feature('noisy', n_runs=-1)
         with pytest.raises(TypeError):
             Feature('custom', modifier=1.0)
