@@ -134,6 +134,10 @@ class TestFeature:
             Feature('regularized', unknown=1.0)
         with pytest.raises(ValueError):
             Feature('plain', parameter=1.0)
+        with pytest.raises(ValueError):
+            Feature('noisy', n_runs=1.5)
+        with pytest.raises(ValueError):
+            Feature('noisy', n_runs=-1)
         with pytest.raises(TypeError):
             Feature('custom', modifier=1.0)
         with pytest.raises(TypeError):
@@ -159,10 +163,15 @@ class TestFeature:
         with pytest.raises(TypeError):
             Feature('truncated', significant_digits=2.5)
         with pytest.raises(TypeError):
+            Feature('truncated', significant_digits=-1)
+        with pytest.raises(TypeError):
             Feature('noisy', type='+')
         with pytest.raises(TypeError):
             Feature('custom')
 
     def test_catch(self):
+        # The value n_runs can be a float.
+        Feature('noisy', n_runs=2.0)
+
         # The value significant_digits can be a float.
         Feature('truncated', significant_digits=2.0)
