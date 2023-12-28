@@ -2,7 +2,6 @@ classdef TestSolveAll < matlab.unittest.TestCase
     methods (Test)
         function testWithValidInput(testCase)
             % Define valid problem names, options, solvers, labels, feature, max_eval_factor, and profile_options
-            secup('AKIVA')
             problem_names = {'AKIVA', 'BEALE'};
             problem_options = struct('maxdim', 2);
             solvers = {@fminsearch_test};

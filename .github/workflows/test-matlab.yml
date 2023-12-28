@@ -49,6 +49,10 @@ jobs:
             % Install MatCUTEst
             cd(fullfile(root_dir, 'matcutest')); install(); cd(root_dir);
 
+            % Add MatCUTEst to the MATLAB path
+            addpath(fullfile(root_dir, 'matcutest'));
+            savepath;
+
             % Check the installation
             help matcutest, which('macup'), which('decup'), which('secup')
 

@@ -1,8 +1,6 @@
 classdef TestSolveOne < matlab.unittest.TestCase
     methods (Test)
         function testWithValidInput(testCase)
-
-            secup('AKIVA')
             % Define problem name, options, solvers, labels, feature, max_eval_factor
             problem_name = 'AKIVA';
             problem_options = struct('maxdim', 2);
