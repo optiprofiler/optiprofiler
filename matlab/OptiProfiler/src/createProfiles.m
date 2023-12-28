@@ -32,6 +32,19 @@ function createProfiles(solvers, labels, problem_names, feature_name, varargin)
         end
     end
 
+    % Judge whether profile_options.n_jobs is a integer between 1 and nb_cores.
+    if isfield(profile_options, ProfileOptionKey.N_JOBS.value)
+        if ~isnumeric(profile_options.(ProfileOptionKey.N_JOBS.value))
+            error("profile_options.n_jobs should be a integer.");
+        elseif profile_options.(ProfileOptionKey.N_JOBS.value) < 1
+            profile_options.(ProfileOptionKey.N_JOBS.value) = 1;
+        elseif profile_options.(ProfileOptionKey.N_JOBS.value) > nb_cores
+            profile_options.(ProfileOptionKey.N_JOBS.value) = nb_cores;
+        else
+            profile_options.(ProfileOptionKey.N_JOBS.value) = round(profile_options.(ProfileOptionKey.N_JOBS.value));
+        end
+    end
+
     % Build feature.
     % TODO: now we first use "simple" default feature.
     feature = Feature(feature_name);
