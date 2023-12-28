@@ -15,6 +15,17 @@ jobs:
           path: matcutest
       - uses: actions/checkout@v2
       - uses: matlab-actions/setup-matlab@v0
+      - name: Install MatCUTEst
+        uses: matlab-actions/run-command@v1.2.3
+        with:
+          command: |
+            root_dir = pwd();
+
+            % Install MatCUTEst
+            cd(fullfile(root_dir, 'matcutest')); install(); cd(root_dir);
+
+            % Check the installation
+            help matcutest, which('macup'), which('decup'), which('secup')
       - uses: matlab-actions/run-tests@v0
         with:
           source-folder: matlab/OptiProfiler/src
