@@ -45,17 +45,17 @@ classdef TestSolveAll < matlab.unittest.TestCase
             testCase.verifyGreaterThan(problem_dimensions, 0);
         end
 
-        function testFevalMoreThanMaxEval(testCase)
+        function testFevalFewerThanMaxEval(testCase)
             problem_names = {'AKIVA', 'BEALE'};
             problem_options = struct('maxdim', 2);
-            solvers = {@lessfevalsolver};
-            labels = {'lessfevalsolver'};
+            solvers = {@fewerfevalsolver};
+            labels = {'fewerfevalsolver'};
             feature = Feature('plain');
             max_eval_factor = 500;  % Set max_eval_factor to 0.1
             profile_options = struct('n_jobs', 1);
             
             % Define a solver function that will be called less than max_eval_factor times
-            function [x, fval] = lessfevalsolver(fun, x0, varargin)
+            function [x, fval] = fewerfevalsolver(fun, x0, varargin)
                 x = x0;
                 fval = fun(x);
             end
