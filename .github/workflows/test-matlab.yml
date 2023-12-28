@@ -62,6 +62,7 @@ jobs:
           command: |
             % Add MatCUTEst to the MATLAB path
             addpath("/home/runner/.local/matcutest");
+            help matcutest, which('macup'), which('decup'), which('secup')
 
             % Navigate to the directory containing runTest.m
             cd(fullfile(getenv('GITHUB_WORKSPACE'), 'matlab', 'OptiProfiler'));
