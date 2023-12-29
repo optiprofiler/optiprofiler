@@ -2,6 +2,7 @@ classdef TestFeatureName < matlab.unittest.TestCase
     methods (Test)
         
         function testEnumerationValues(testCase)
+
             % Test if the enumeration values are correctly assigned
             enumValues = enumeration('FeatureName');
             expectedValues = {'CUSTOM', 'NOISY', 'PLAIN', 'REGULARIZED', 'TOUGH', 'TRUNCATED'};
@@ -14,12 +15,12 @@ classdef TestFeatureName < matlab.unittest.TestCase
 
         function testConstructor(testCase)
             % Test if the constructor works as expected
-            testCase.verifyEqual(FeatureName('CUSTOM').value, 'custom');
-            testCase.verifyEqual(FeatureName('NOISY').value, 'noisy');
-            testCase.verifyEqual(FeatureName('PLAIN').value, 'plain');
-            testCase.verifyEqual(FeatureName('REGULARIZED').value, 'regularized');
-            testCase.verifyEqual(FeatureName('TOUGH').value, 'tough');
-            testCase.verifyEqual(FeatureName('TRUNCATED').value, 'truncated');
+            testCase.verifyEqual(FeatureName.CUSTOM.value, 'custom');
+            testCase.verifyEqual(FeatureName.NOISY.value, 'noisy');
+            testCase.verifyEqual(FeatureName.PLAIN.value, 'plain');
+            testCase.verifyEqual(FeatureName.REGULARIZED.value, 'regularized');
+            testCase.verifyEqual(FeatureName.TOUGH.value, 'tough');
+            testCase.verifyEqual(FeatureName.TRUNCATED.value, 'truncated');
         end
         
     end

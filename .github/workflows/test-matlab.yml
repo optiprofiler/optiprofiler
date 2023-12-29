@@ -59,6 +59,9 @@ jobs:
             system(['echo "addpath(''' path1 ''');" >> ' startup_file]);
             system(['echo "addpath(''' path2 ''');" >> ' startup_file]);
 
+            % Clear classes
+            clear classes
+
       - name: Run MATLAB Tests
         uses: matlab-actions/run-tests@v1
         with:

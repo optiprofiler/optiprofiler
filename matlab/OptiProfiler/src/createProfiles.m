@@ -98,11 +98,11 @@ function createProfiles(solvers, labels, problem_names, feature_name, varargin)
 
         % Plot the performance profiles.
         tolerance_label = ['$\tau = 10^{', int2str(log10(tolerance)), '}$'];
-        [fig, ax] = drawProfile(x_perf, y_perf, perf_ratio_max, labels, 'Performance ratio', ['Performance profiles (', tolerance_label, ')']);
+        [fig, ax] = drawProfile(x_perf, y_perf, 'perf', perf_ratio_max, labels, 'Performance ratio', ['Performance profiles (', tolerance_label, ')']);
         set(ax, 'TickLabelInterpreter', 'latex');
         
         % Plot the data profiles.
-        [fig, ax] = drawProfile(x_data, y_data, data_ratio_max, labels, 'Number of simplex gradient', ['Data profiles (', tolerance_label, ')']);
+        [fig, ax] = drawProfile(x_data, y_data, 'data', data_ratio_max, labels, 'Number of simplex gradient', ['Data profiles (', tolerance_label, ')']);
         set(ax, 'TickLabelInterpreter', 'latex');
 
     end
