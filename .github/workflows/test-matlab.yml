@@ -1,79 +1,16 @@
 name: test-matlab
-
-on:
-  push:
-    branches: [matlab]
-
+on: push
 jobs:
-  run:
-    name: Generate coverage report for MATLAB ${{ matrix.matlab-version }} on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest]
-        matlab: [latest]
-        with_optim_toolbox: [yes]
-
+  build:
+    runs-on: ubuntu-latest
     steps:
-
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Clone MatCUTEst
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v2
+      - uses: matlab-actions/setup-matlab@v0
+      - uses: matlab-actions/run-tests@v0
         with:
-          repository: matcutest/matcutest_compiled
-          path: matcutest
-
-      - name: Cache MATLAB  # N.B.: Clear the cache when the `latest` version of MATLAB changes in March and September
-        uses: actions/cache@v3.3.2
+          source-folder: matlab/OptiProfiler/src
+          code-coverage-cobertura: coverage.xml
+      - uses: codecov/codecov-action@v1
         with:
-          path: ${{ runner.tool_cache }}/MATLAB
-          key: ${{ matrix.os }}-${{ matrix.matlab }}
+          file: coverage.xml
 
-      - name: Set up MATLAB with optimization toolbox
-        if: ${{ matrix.with_optim_toolbox == 'yes' }}
-        uses: matlab-actions/setup-matlab@v1
-        with:
-          release: ${{ matrix.matlab }}
-          products: Optimization_Toolbox
-
-      - name: Install MatCUTEst and run tests
-        uses: matlab-actions/run-command@v1.2.2
-        with:
-          command: |
-            root_dir = pwd()
-
-            % Install MatCUTEst
-            cd(fullfile(root_dir, 'matcutest')); install(); cd(root_dir);
-
-            % Check the installation
-            help matcutest, which('macup'), which('decup'), which('secup')
-
-            % Add MatCUTEst paths to startup.m
-            path1 = '/home/runner/.local/matcutest';
-            path2 = '/home/runner/.local/matcutest/mtools/src';
-            startup_file = fullfile(userpath, 'startup.m');
-            system(['echo "addpath(''' path1 ''');" >> ' startup_file]);
-            system(['echo "addpath(''' path2 ''');" >> ' startup_file]);
-
-            % Clear classes
-            clear classes
-
-            % Run tests
-            cd matlab/OptiProfiler/
-            runTests
-            runTests
-
-      # - name: Run MATLAB Tests
-      #   uses: matlab-actions/run-tests@v1
-      #   with:
-      #     source-folder: matlab/OptiProfiler/src
-      #     code-coverage-cobertura: coverage.xml
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v1
-        with:
-          file: ./matlab/OptiProfiler/coverage.xml
