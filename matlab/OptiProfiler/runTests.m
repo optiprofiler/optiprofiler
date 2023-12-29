@@ -9,10 +9,10 @@ import matlab.unittest.plugins.codecoverage.CoberturaFormat
 addpath('src') 
 
 % Create a test suite 
-suite = matlab.unittest.TestSuite.fromFolder('.');
+suite = testsuite(pwd, 'IncludeSubfolders', true);
 
-% Create a test runner
-runner = matlab.unittest.TestRunner.withTextOutput;
+% Create a test runner that displays test run progress at the matlab.unittest.Verbosity.Detailed level
+runner = TestRunner.withTextOutput('OutputDetail',Verbosity.Detailed); 
 
 % Create a CodeCoveragePlugin instance and add it to the test runner
 sourceFolder = 'src';
