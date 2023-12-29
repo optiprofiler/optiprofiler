@@ -40,7 +40,7 @@ jobs:
           release: ${{ matrix.matlab }}
           products: Optimization_Toolbox
 
-      - name: Install MatCUTEst
+      - name: Install MatCUTEst and run tests
         uses: matlab-actions/run-command@v1.2.2
         with:
           command: |
@@ -62,11 +62,14 @@ jobs:
             % Clear classes
             clear classes
 
-      - name: Run MATLAB Tests
-        uses: matlab-actions/run-tests@v1
-        with:
-          source-folder: matlab/OptiProfiler/src
-          code-coverage-cobertura: coverage.xml
+            % Run tests
+            runTests
+
+      # - name: Run MATLAB Tests
+      #   uses: matlab-actions/run-tests@v1
+      #   with:
+      #     source-folder: matlab/OptiProfiler/src
+      #     code-coverage-cobertura: coverage.xml
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1
