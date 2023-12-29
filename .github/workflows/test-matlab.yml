@@ -63,6 +63,7 @@ jobs:
             clear classes
 
             % Run tests
+            cd matlab/OptiProfiler/
             runTests
 
       # - name: Run MATLAB Tests
