@@ -11,11 +11,11 @@ addpath('src')
 % Create a test suite 
 suite = testsuite(pwd, 'IncludeSubfolders', true);
 
-% Create a test runner that displays test run progress at the matlab.unittest.Verbosity.Detailed level
-runner = TestRunner.withTextOutput('OutputDetail',Verbosity.Detailed); 
+% Create a test runner
+runner = matlab.unittest.TestRunner.withTextOutput;
 
 % Create a CodeCoveragePlugin instance and add it to the test runner
-sourceFolder = 'src';
+sourceFolder = './src';
 reportFile = 'coverage.xml';
 reportFormat = CoberturaFormat(reportFile);
 p = CodeCoveragePlugin.forFolder(sourceFolder,'IncludingSubfolders', true,'Producing',reportFormat);

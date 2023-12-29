@@ -65,6 +65,7 @@ jobs:
             % Run tests
             cd matlab/OptiProfiler/
             runTests
+            runTests
 
       # - name: Run MATLAB Tests
       #   uses: matlab-actions/run-tests@v1
