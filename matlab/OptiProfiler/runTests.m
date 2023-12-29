@@ -9,13 +9,13 @@ import matlab.unittest.plugins.codecoverage.CoberturaFormat
 addpath('src') 
 
 % Create a test suite 
-runner = matlab.unittest.TestRunner.withTextOutput;
+suite = matlab.unittest.TestSuite.fromFolder('.');
 
 % Create a test runner
 runner = matlab.unittest.TestRunner.withTextOutput;
 
 % Create a CodeCoveragePlugin instance and add it to the test runner
-sourceFolder = './src';
+sourceFolder = 'src';
 reportFile = 'coverage.xml';
 reportFormat = CoberturaFormat(reportFile);
 p = CodeCoveragePlugin.forFolder(sourceFolder,'IncludingSubfolders', true,'Producing',reportFormat);
