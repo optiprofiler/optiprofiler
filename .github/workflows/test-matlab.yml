@@ -62,7 +62,7 @@ jobs:
       - name: Run MATLAB Tests
         uses: matlab-actions/run-tests@v1
         with:
-          source-folder: matlab/OptiProfiler
+          source-folder: matlab/OptiProfiler/src
           code-coverage-cobertura: coverage.xml
 
       - name: Upload coverage to Codecov

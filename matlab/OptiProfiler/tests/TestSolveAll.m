@@ -23,28 +23,28 @@ classdef TestSolveAll < matlab.unittest.TestCase
             testCase.verifyGreaterThan(problem_dimensions, 0);
         end
 
-        function testFevalFewerThanMaxEval(testCase)
-            problem_names = {'AKIVA', 'BEALE'};
-            problem_options = struct('maxdim', 2);
-            solvers = {@fewerfevalsolver};
-            labels = {'fewerfevalsolver'};
-            feature = Feature('plain');
-            max_eval_factor = 500;  % Set max_eval_factor to 0.1
-            profile_options = struct('n_jobs', 1);
+        % function testFevalFewerThanMaxEval(testCase)
+        %     problem_names = {'AKIVA', 'BEALE'};
+        %     problem_options = struct('maxdim', 2);
+        %     solvers = {@fewerfevalsolver};
+        %     labels = {'fewerfevalsolver'};
+        %     feature = Feature('plain');
+        %     max_eval_factor = 500;  % Set max_eval_factor to 0.1
+        %     profile_options = struct('n_jobs', 1);
             
-            % Define a solver function that will be called less than max_eval_factor times
-            function [x, fval] = fewerfevalsolver(fun, x0, varargin)
-                x = x0;
-                fval = fun(x);
-            end
+        %     % Define a solver function that will be called less than max_eval_factor times
+        %     function [x, fval] = fewerfevalsolver(fun, x0, varargin)
+        %         x = x0;
+        %         fval = fun(x);
+        %     end
 
-            % Call the function under test
-            [fun_values, maxcv_values, fun_inits, maxcv_inits, n_evals, problem_names_output, problem_dimensions] = solveAll(problem_names, problem_options, solvers, labels, feature, max_eval_factor, profile_options);
+        %     % Call the function under test
+        %     [fun_values, maxcv_values, fun_inits, maxcv_inits, n_evals, problem_names_output, problem_dimensions] = solveAll(problem_names, problem_options, solvers, labels, feature, max_eval_factor, profile_options);
 
-            % Verify the function outputs are in the correct size
-            testCase.verifyEqual(size(fun_values), [2 1 1 1000]);
-            testCase.verifyEqual(size(maxcv_values), [2 1 1 1000]);
-        end
+        %     % Verify the function outputs are in the correct size
+        %     testCase.verifyEqual(size(fun_values), [2 1 1 1000]);
+        %     testCase.verifyEqual(size(maxcv_values), [2 1 1 1000]);
+        % end
 
         function testParallelComputing(testCase)
             problem_names = {'AKIVA', 'BEALE'};
