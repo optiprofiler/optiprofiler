@@ -9,7 +9,7 @@ import matlab.unittest.plugins.codecoverage.CoberturaFormat
 addpath('src') 
 
 % Create a test suite 
-suite = testsuite(pwd, 'IncludeSubfolders', true);
+runner = matlab.unittest.TestRunner.withTextOutput;
 
 % Create a test runner
 runner = matlab.unittest.TestRunner.withTextOutput;
