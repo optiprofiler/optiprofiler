@@ -22,7 +22,7 @@ classdef Feature < handle
             Other Parameters
             ----------------
             distribution : callable, optional
-                Distribution used in the noisy feature.
+                Distribution used in the noisy and randomize_x0 features.
             modifier : callable, optional
                 Modifier used in the custom feature.
             order : int or float, optional
@@ -36,7 +36,7 @@ classdef Feature < handle
             significant_digits : int, optional
                 Number of significant digits of the truncated feature.
             type : str, optional
-                Type of the noisy feature.
+                Type of the noisy and randomize_x0 features.
             %}
             if isempty(varargin)
                 error("MATLAB:Feature:MissingArguments", "Feature name must be provided.")
@@ -67,6 +67,8 @@ classdef Feature < handle
                         known_options = [known_options, {FeatureOptionKey.MODIFIER.value}];
                     case FeatureName.NOISY.value
                         known_options = [known_options, {FeatureOptionKey.DISTRIBUTION.value, FeatureOptionKey.TYPE.value}];
+                    case FeatureName.RANDOMIZE_X0.value
+                        known_options = [known_options, {FeatureOptionKey.DISTRIBUTION.value}];
                     case FeatureName.REGULARIZED.value
                         known_options = [known_options, {FeatureOptionKey.ORDER.value, FeatureOptionKey.PARAMETER.value}];
                     case FeatureName.TOUGH.value
@@ -218,6 +220,13 @@ classdef Feature < handle
                     end
                     if ~isfield(obj.options, FeatureOptionKey.TYPE.value)
                         obj.options.(FeatureOptionKey.TYPE.value) = NoiseType.RELATIVE.value;
+                    end
+                case FeatureName.RANDOMIZE_X0.value
+                    if ~isfield(obj.options, FeatureOptionKey.DISTRIBUTION.value)
+                        obj.options.(FeatureOptionKey.DISTRIBUTION.value) = @(rand_stream, n) 1e-3 * rand_stream.randn(n, 1);
+                    end
+                    if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
+                        obj.options.(FeatureOptionKey.N_RUNS.value) = int32(10);
                     end
                 case FeatureName.REGULARIZED.value
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
