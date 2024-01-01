@@ -15,11 +15,7 @@ import OptiProfiler
 
 project = 'OptiProfiler'
 author = 'Cunxin Huang, Tom M. Ragonneau, and Zaikun Zhang'
-if datetime.now().year == 2023:
-    # TODO: Remove this if statement in 2024.
-    copyright = f'{datetime.now().year}, {author}'
-else:
-    copyright = f'{2023}\u2013{datetime.now().year}, {author}'
+copyright = f'{2023}\u2013{datetime.now().year}, {author}'
 
 # Short version (including .devX, rcX, b1 suffixes if present).
 version = re.sub(r'(\d+\.\d+)\.\d+(.*)', r'\1\2', OptiProfiler.__version__)
