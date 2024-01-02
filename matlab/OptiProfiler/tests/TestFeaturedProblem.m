@@ -51,6 +51,14 @@ classdef TestFeaturedProblem < matlab.unittest.TestCase
                 testCase.verifyEqual(featured_problem.n_eval, 1);
                 testCase.verifyEqual(featured_problem.fun_values, f - 1);
                 testCase.verifyEqual(featured_problem.maxcv_values, 0);
+
+                % % Construct a featured problem with randomized x0.
+                feature = Feature("randomize_x0", 'distribution', @(rand_stream, n) ones(n, 1));
+                featured_problem = FeaturedProblem(problem, feature);
+
+                % Verify that the x0 is changed.
+                testCase.verifyEqual(featured_problem.x0, problem.x0 + 1);
+
             end
         end
 

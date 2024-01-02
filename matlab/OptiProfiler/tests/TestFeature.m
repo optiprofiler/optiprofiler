@@ -59,6 +59,31 @@ classdef TestFeature < matlab.unittest.TestCase
             end
         end
 
+        function testRandomize_x0(testCase)
+            % Test that the randomize_x0 feature works correctly.
+            nValues = [1, 10, 100];
+            seedValues = [0, 1, 2];
+
+            for n = nValues
+                for seed = seedValues
+                    % Generate random data
+                    rng(seed);
+                    
+                    % Test the randomize_x0 feature
+                    feature = Feature("RANDOMIZE_X0");
+                    testCase.verifyEqual(feature.name, "randomize_x0");
+                    testCase.verifyTrue(isfield(feature.options, 'distribution'));
+                    testCase.verifyEqual(feature.options.n_runs, int32(10));
+                    
+                    % Add custom options
+                    feature = Feature("RANDOMIZE_X0", 'distribution', @(rng) 1.0, 'n_runs', 5);
+                    testCase.verifyEqual(feature.name, "randomize_x0");
+                    testCase.verifyTrue(isfield(feature.options, 'distribution'));
+                    testCase.verifyEqual(feature.options.n_runs, int32(5));
+                end
+            end
+        end
+
         function testNoisy(testCase)
             % Test that the noisy feature works correctly.
             nValues = [1, 10, 100];
@@ -202,6 +227,7 @@ classdef TestFeature < matlab.unittest.TestCase
             testCase.verifyError(@() Feature("TOUGH", 'rate_nan', -1.0), "MATLAB:Feature:rate_nan_NotBetween_0_1");
             testCase.verifyError(@() Feature("TOUGH", 'rate_nan', 2.0), "MATLAB:Feature:rate_nan_NotBetween_0_1");
             testCase.verifyError(@() Feature("TRUNCATED", 'significant_digits', 2.5), "MATLAB:Feature:significant_digits_NotPositiveInteger");
+            testCase.verifyError(@() Feature("NOISY", 'n_runs', 2.5), "MATLAB:Feature:n_runs_NotPositiveInteger");
             testCase.verifyError(@() Feature("NOISY", 'type', '+'), "MATLAB:Feature:type_InvalidInput");
             testCase.verifyError(@() Feature("CUSTOM"), "MATLAB:Feature:MissingModifier");
         end

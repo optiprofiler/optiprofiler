@@ -44,11 +44,11 @@ function [fun_values, maxcv_values, fun_init, maxcv_init, n_eval, problem_name, 
 
     for i_solver = 1:n_solvers
         for i_run = 1:n_runs
-            % clear featured_problem
-            featured_problem = FeaturedProblem(problem, feature);
+            % Construct featured_problem.
+            featured_problem = FeaturedProblem(problem, feature, i_run);
             warning('off', 'all');
             try
-                [~] = solvers{i_solver}(@(x) featured_problem.fun(x, i_run), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, @featured_problem.cub, @featured_problem.ceq, max_eval);
+                [~] = solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, @featured_problem.cub, @featured_problem.ceq, max_eval);
             catch
                 % Ignore all the errors.
             end
