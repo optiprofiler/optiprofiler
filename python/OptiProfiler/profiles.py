@@ -69,10 +69,10 @@ def create_profiles(solvers, labels, problem_names, feature_name, **kwargs):
     # Paths to the results.
     path_out = Path('out', feature.name).resolve()
     path_out.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now().astimezone().strftime('%Y-%m-%dT%H:%M:%S%z')
+    timestamp = datetime.now().astimezone().strftime('%Y-%m-%dT%H-%M-%S%z')
     path_pdf_perf = path_out / f'performance_profiles_{timestamp}.pdf'
     path_pdf_data = path_out / f'data_profiles_{timestamp}.pdf'
-    path_pdf_hist = path_out / f'histories_{timestamp}.pdf'
+    # path_pdf_hist = path_out / f'histories_{timestamp}.pdf'
 
     # Set up matplotlib for plotting the profiles.
     logger.info('Creating the results.')
