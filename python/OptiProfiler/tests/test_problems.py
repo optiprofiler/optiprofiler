@@ -275,6 +275,20 @@ class TestFeaturedProblem(BaseTestProblem):
         feature = Feature('plain')
         FeaturedProblem(problem, feature)
 
+    @pytest.mark.parametrize('n', [1, 10, 100])
+    def test_randomize_x0(self, n):
+        # Construct a simple problem.
+        x0 = np.zeros(n)
+        problem = Problem(self.rosen, x0)
+
+        # Construct a featured problem.
+        feature = Feature('randomize_x0', distribution=lambda rng, n: np.ones(n))
+        featured_problem = FeaturedProblem(problem, feature)
+
+        # Evaluate the objective function at x0.
+        f = featured_problem.fun(featured_problem.x0)
+        np.testing.assert_allclose(f, problem.fun(x0 + 1.0))
+
 
 @pytest.mark.extra
 class TestLoadCUTEst:

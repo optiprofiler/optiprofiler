@@ -4,6 +4,7 @@ import warnings
 from contextlib import redirect_stderr, redirect_stdout, suppress
 from datetime import datetime
 from enum import Enum
+from inspect import signature
 from pathlib import Path
 
 import numpy as np
@@ -132,30 +133,30 @@ def create_profiles(solvers, labels, problem_names, feature_name, **kwargs):
         pdf_perf.close()
         pdf_data.close()
 
-    # Plot the histories.
-    logger.info('Creating the histories.')
-    pdf_hist = backend_pdf.PdfPages(path_pdf_hist)
-    for i_problem in range(n_problems):
-        fig, ax = plt.subplots(2, 1, sharex=True)
-        for i_solver in range(n_solvers):
-            n_eval_max = np.max(n_eval[i_problem, i_solver, :])
-            x_hist = np.arange(1, n_eval_max + 1)
-            with warnings.catch_warnings():
-                warnings.filterwarnings('ignore')
-                fun_mean = np.nanmean(fun_values[i_problem, i_solver, :, :n_eval_max], 0)
-                maxcv_mean = np.nanmean(maxcv_values[i_problem, i_solver, :, :n_eval_max], 0)
-            ax[0].plot(x_hist, fun_mean, label=labels[i_solver])
-            ax[1].plot(x_hist, maxcv_mean)
-        ax[1].set_xlim(1)
-        ax[1].set_ylim(0.0)
-        ax[1].set_xlabel('Number of function evaluations')
-        ax[0].set_ylabel('Objective function value')
-        ax[1].set_ylabel('Maximum constraint violation')
-        ax[0].legend(loc='upper right')
-        ax[0].set_title(f'Histories for {problem_names[i_problem]}')
-        pdf_hist.savefig(fig, bbox_inches='tight')
-        plt.close(fig)
-    pdf_hist.close()
+    # # Plot the histories.
+    # logger.info('Creating the histories.')
+    # pdf_hist = backend_pdf.PdfPages(path_pdf_hist)
+    # for i_problem in range(n_problems):
+    #     fig, ax = plt.subplots(2, 1, sharex=True)
+    #     for i_solver in range(n_solvers):
+    #         n_eval_max = np.max(n_eval[i_problem, i_solver, :])
+    #         x_hist = np.arange(1, n_eval_max + 1)
+    #         with warnings.catch_warnings():
+    #             warnings.filterwarnings('ignore')
+    #             fun_mean = np.nanmean(fun_values[i_problem, i_solver, :, :n_eval_max], 0)
+    #             maxcv_mean = np.nanmean(maxcv_values[i_problem, i_solver, :, :n_eval_max], 0)
+    #         ax[0].plot(x_hist, fun_mean, label=labels[i_solver])
+    #         ax[1].plot(x_hist, maxcv_mean)
+    #     ax[1].set_xlim(1)
+    #     ax[1].set_ylim(0.0)
+    #     ax[1].set_xlabel('Number of function evaluations')
+    #     ax[0].set_ylabel('Objective function value')
+    #     ax[1].set_ylabel('Maximum constraint violation')
+    #     ax[0].legend(loc='upper right')
+    #     ax[0].set_title(f'Histories for {problem_names[i_problem]}')
+    #     pdf_hist.savefig(fig, bbox_inches='tight')
+    #     plt.close(fig)
+    # pdf_hist.close()
 
 
 def _solve_all(problem_names, problem_options, solvers, labels, feature, max_eval_factor, profile_options):
@@ -213,7 +214,17 @@ def _solve_one(problem_name, problem_options, solvers, labels, feature, max_eval
             with open(os.devnull, 'w') as devnull:
                 with suppress(Exception), warnings.catch_warnings(), redirect_stdout(devnull), redirect_stderr(devnull):
                     warnings.filterwarnings('ignore')
-                    solvers[i_solver](lambda x: featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, featured_problem.cub, featured_problem.ceq, max_eval)
+                    sig = signature(solvers[i_solver])
+                    if len(sig.parameters) == 3:
+                        solvers[i_solver](lambda x: featured_problem.fun(x), featured_problem.x0, max_eval)
+                    elif len(sig.parameters) == 5:
+                        solvers[i_solver](lambda x: featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, max_eval)
+                    elif len(sig.parameters) == 9:
+                        solvers[i_solver](lambda x: featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, max_eval)
+                    elif len(sig.parameters) == 11:
+                        solvers[i_solver](lambda x: featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, featured_problem.cub, featured_problem.ceq, max_eval)
+                    else:
+                        raise ValueError(f'Unknown signature: {sig}.')
             n_eval[i_solver, i_run] = min(featured_problem.n_eval, max_eval)
             fun_values[i_solver, i_run, :n_eval[i_solver, i_run]] = featured_problem.fun_values[:n_eval[i_solver, i_run]]
             maxcv_values[i_solver, i_run, :n_eval[i_solver, i_run]] = featured_problem.maxcv_values[:n_eval[i_solver, i_run]]
@@ -269,11 +280,16 @@ def _profile_axes(work, denominator):
 def _draw_profile(x, y, labels):
     n_solvers = x.shape[1]
     y_mean = np.mean(y, 2)
+    y_min = np.min(y, 2)
+    y_max = np.max(y, 2)
     fig, ax = plt.subplots()
     for i_solver in range(n_solvers):
         x_stairs = np.repeat(x[:, i_solver], 2)[1:]
-        y_stairs = np.repeat(y_mean[:, i_solver], 2)[:-1]
-        ax.plot(x_stairs, y_stairs, label=labels[i_solver])
+        y_mean_stairs = np.repeat(y_mean[:, i_solver], 2)[:-1]
+        y_min_stairs = np.repeat(y_min[:, i_solver], 2)[:-1]
+        y_max_stairs = np.repeat(y_max[:, i_solver], 2)[:-1]
+        ax.plot(x_stairs, y_mean_stairs, label=labels[i_solver])
+        ax.fill_between(x_stairs, y_min_stairs, y_max_stairs, alpha=0.2)
     ax.yaxis.set_ticks_position('both')
     ax.yaxis.set_major_locator(MaxNLocator(5, prune='lower'))
     ax.yaxis.set_minor_locator(MaxNLocator(10))
