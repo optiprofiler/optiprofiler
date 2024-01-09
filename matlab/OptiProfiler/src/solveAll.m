@@ -28,6 +28,7 @@ function [fun_values, maxcv_values, fun_inits, maxcv_inits, n_evals, problem_nam
                 results{i_problem} = {tmp_fun_values, tmp_maxcv_values, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n};
             end
             delete(gcp);
+            fprintf("Leaving the parallel section.\n");
     end
 
     

@@ -38,6 +38,7 @@ function problem = loadCutest(problem_name, problem_options)
     else
         % TODO: this part needs to be rewritten
         try
+            fprintf("Loading CUTEst problem " + problem_name + ".\n");
             cutest_problem = macup(problem_name);
         catch ME
             warning(ME.identifier, "Failed to load CUTEst problem " + problem_name + ".");
@@ -103,7 +104,7 @@ function problem = loadCutest(problem_name, problem_options)
             end
 
             if ~isempty(cutest_problem) && ~isValid(cutest_problem, problem_options)
-                error("CUTEst problem " + problem_name + " is invalid.");
+                error("CUTEst problem " + problem_name + " is successfully loaded but invalid; it is discarded.");
             end
 
         end

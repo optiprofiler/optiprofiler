@@ -44,6 +44,7 @@ function [fun_values, maxcv_values, fun_init, maxcv_init, n_eval, problem_name, 
 
     for i_solver = 1:n_solvers
         for i_run = 1:n_runs
+            fprintf("Solving %s with %s (run %d/%d).\n", problem_name, labels{i_solver}, i_run, n_runs);
             % Construct featured_problem.
             featured_problem = FeaturedProblem(problem, feature, i_run);
             warning('off', 'all');

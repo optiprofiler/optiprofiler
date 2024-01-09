@@ -48,6 +48,7 @@ function createProfiles(solvers, labels, problem_names, feature_name, varargin)
     % Build feature.
     % TODO: now we first use "simple" default feature.
     feature = Feature(feature_name);
+    fprintf("INFO: Starting the computation of the %s profiles.\n", feature.name);
 
     % Solve all the problems.
     max_eval_factor = 500;
@@ -61,12 +62,38 @@ function createProfiles(solvers, labels, problem_names, feature_name, varargin)
     merit_min = min(min(min(merit_values, [], 4, 'omitnan'), [], 3, 'omitnan'), [], 2, 'omitnan');
     if ismember(feature_name, {FeatureName.NOISY.value, FeatureName.TOUGH.value, FeatureName.TRUNCATED.value})
         feature_plain = Feature(FeatureName.PLAIN.value);
+        fprintf("INFO: Starting the computation of the plain profiles.\n");
         [fun_values_plain, maxcv_values_plain] = solveAll(problem_names, problem_options, solvers, labels, feature_plain, max_eval_factor, profile_options);
         merit_values_plain = computeMeritValues(fun_values_plain, maxcv_values_plain);
         merit_min_plain = min(min(min(merit_values_plain, [], 4, 'omitnan'), [], 3, 'omitnan'), [], 2, 'omitnan');
         merit_min = min(merit_min, merit_min_plain, 'omitnan');
     end
 
+    % Paths to the results.
+    full_path = mfilename('fullpath');
+    [folder_path, ~, ~] = fileparts(full_path);
+    root_path = fileparts(folder_path);
+    path_out = fullfile(root_path, 'out', feature.name);
+    path_perf_out = fullfile(path_out, 'figures', 'perf');
+    path_data_out = fullfile(path_out, 'figures', 'data');
+    if ~exist(path_out, 'dir')
+        mkdir(path_out);
+    end
+    if ~exist(path_perf_out, 'dir')
+        mkdir(path_perf_out);
+    end
+    if ~exist(path_data_out, 'dir')
+        mkdir(path_data_out);
+    end
+    timestamp = datestr(datetime('now', 'TimeZone', 'local', 'Format', 'yyyy-MM-dd''T''HH-mm-SSZ'), 'yyyy-mm-ddTHH-MM-SSZ');
+    name_pdf_merged_perf = ['performance_profiles_' timestamp '.pdf'];
+    name_pdf_merged_data = ['data_profiles_' timestamp '.pdf'];
+    
+
+
+
+    % Create the performance and data profiles.
+    fprintf("Creating the results.\n");
     [n_problems, n_solvers, n_runs, max_eval] = size(merit_values);
     tolerances = 10.^(-1:-1:-10);
     for i_profile = 1:10
@@ -96,17 +123,43 @@ function createProfiles(solvers, labels, problem_names, feature_name, varargin)
         y_perf = y_profile(sort_perf, n_problems, n_runs);
         y_data = y_profile(sort_data, n_problems, n_runs);
 
-        % Plot the performance profiles.
         tolerance_label = ['$\tau = 10^{', int2str(log10(tolerance)), '}$'];
-        [fig, ax] = drawProfile(x_perf, y_perf, 'perf', perf_ratio_max, labels, 'Performance ratio', ['Performance profiles (', tolerance_label, ')']);
-        set(ax, 'TickLabelInterpreter', 'latex');
+
+        % Plot the performance profiles.
+        fprintf("Creating performance profiles for tolerance %g.\n", tolerance);
+        [fig, ~] = drawProfile(x_perf, y_perf, 'perf', perf_ratio_max, labels, 'Performance ratio', ['Performance profiles (', tolerance_label, ')']);
+        eps_filename_perf = fullfile(path_perf_out, ['performance_profile_' int2str(i_profile) '.eps']);
+        print(fig, eps_filename_perf, '-depsc');
+        pdf_filename_perf = fullfile(path_perf_out, ['performance_profile_' int2str(i_profile) '.pdf']);
+        print(fig, pdf_filename_perf, '-dpdf');
+        merge_pdf_filename_perf = fullfile(path_perf_out, name_pdf_merged_perf);
+        if i_profile == 1
+            exportgraphics(fig, merge_pdf_filename_perf, 'ContentType', 'vector');
+        else
+            exportgraphics(fig, merge_pdf_filename_perf, 'ContentType', 'vector', 'Append', true);
+        end
+        close(fig);
         
         % Plot the data profiles.
-        [fig, ax] = drawProfile(x_data, y_data, 'data', data_ratio_max, labels, 'Number of simplex gradient', ['Data profiles (', tolerance_label, ')']);
-        set(ax, 'TickLabelInterpreter', 'latex');
+        fprintf("Creating data profiles for tolerance %g.\n", tolerance);
+        [fig, ~] = drawProfile(x_data, y_data, 'data', data_ratio_max, labels, 'Number of simplex gradient', ['Data profiles (', tolerance_label, ')']);
+        eps_filename_data = fullfile(path_data_out, ['data_profile_' int2str(i_profile) '.eps']);
+        print(fig, eps_filename_data, '-depsc');
+        pdf_filename_data = fullfile(path_data_out, ['data_profile_' int2str(i_profile) '.pdf']);
+        print(fig, pdf_filename_data, '-dpdf');
+        merge_pdf_filename_data = fullfile(path_data_out, name_pdf_merged_data);
+        if i_profile == 1
+            exportgraphics(fig, merge_pdf_filename_data, 'ContentType', 'vector');
+        else
+            exportgraphics(fig, merge_pdf_filename_data, 'ContentType', 'vector', 'Append', true);
+        end
+        close(fig);
 
     end
 
+    % Move the merged pdf files to the "path_out" folder.
+    movefile(merge_pdf_filename_perf, fullfile(path_out, name_pdf_merged_perf));
+    movefile(merge_pdf_filename_data, fullfile(path_out, name_pdf_merged_data));
 end
 
 

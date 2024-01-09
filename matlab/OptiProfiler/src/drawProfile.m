@@ -1,6 +1,6 @@
 function [fig, ax] = drawProfile(x, y, perf_or_data, ratio_max, labels, x_label, y_label)
     n_solvers = size(x, 2);
-    fig = figure;
+    fig = figure('visible', 'off');
     ax = axes;
     hold on;
 
@@ -14,7 +14,7 @@ function [fig, ax] = drawProfile(x, y, perf_or_data, ratio_max, labels, x_label,
             end
             
             set(ax, 'YTick', 0:0.1:1, 'YTickLabel', {'0', '', '0.2', '', '0.4', '', '0.6', '', '0.8', '', '1'}, ...
-                'XLim', [0.0, 1.1 * log2(ratio_max)], 'YLim', [0.0, 1.0]);
+                'XLim', [0.0, 1.1 * log2(ratio_max)], 'YLim', [0.0, 1.0], 'TickLabelInterpreter', 'latex');
         case 'data'
             for i_solver = 1:n_solvers
                 [x_stairs, y_stairs] = stairs(x(:, i_solver), y(:, i_solver));
@@ -24,7 +24,7 @@ function [fig, ax] = drawProfile(x, y, perf_or_data, ratio_max, labels, x_label,
             end
             
             set(ax, 'YTick', 0:0.1:1, 'YTickLabel', {'0', '', '0.2', '', '0.4', '', '0.6', '', '0.8', '', '1'}, ...
-                'XLim', [0.0, 1.1 * ratio_max], 'YLim', [0.0, 1.0]);
+                'XLim', [0.0, 1.1 * ratio_max], 'YLim', [0.0, 1.0], 'TickLabelInterpreter', 'latex');
         otherwise
             error("Unknown type of data to plot.");
     end
