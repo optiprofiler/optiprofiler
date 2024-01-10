@@ -94,6 +94,12 @@ function createProfiles(solvers, labels, problem_names, feature_name, varargin)
 
     % Create the performance and data profiles.
     fprintf("Creating the results.\n");
+    set(groot, 'DefaultLineLineWidth', 1);
+    set(groot, 'DefaultAxesFontSize', 12);
+    set(groot, 'DefaultAxesFontName', 'Arial');
+    set(groot, 'DefaultAxesColorOrder', [0, 0.4470, 0.7410; 0.8500, 0.3250, 0.0980; 0.9290, 0.6940, 0.1250; 0.4940, 0.1840, 0.5560]);
+    set(groot, 'DefaultAxesLineStyleOrder', {'-', '--', ':', '-.'});
+
     [n_problems, n_solvers, n_runs, max_eval] = size(merit_values);
     tolerances = 10.^(-1:-1:-10);
     for i_profile = 1:10
