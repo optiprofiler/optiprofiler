@@ -2,6 +2,8 @@ function [fig, ax] = drawProfile(x, y, perf_or_data, ratio_max, labels, x_label,
     n_solvers = size(x, 2);
     fig = figure('visible', 'off');
     ax = axes;
+    ax.LineStyleCyclingMethod = 'withcolor';
+
     hold on;
 
     switch perf_or_data
