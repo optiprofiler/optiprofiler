@@ -161,6 +161,8 @@ classdef Feature < handle
             switch obj.name
                 case FeatureName.PLAIN.value
                     % Do nothing
+                case FeatureName.RANDOMIZE_X0.value
+                    % Do nothing
                 case FeatureName.CUSTOM.value
                     f = obj.options.(FeatureOptionKey.MODIFIER.value)(x, f, seed);
                 case FeatureName.NOISY.value
