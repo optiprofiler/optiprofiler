@@ -12,5 +12,5 @@ Optimization problems
     Problem
     FeaturedProblem
     ProblemError
-    load_cutest
-    find_cutest
+    load_cutest_problem
+    find_cutest_problems

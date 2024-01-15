@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from OptiProfiler.features import Feature
-from OptiProfiler.problems import FeaturedProblem, Problem, ProblemError, load_cutest, find_cutest
+from OptiProfiler.problems import FeaturedProblem, Problem, ProblemError, load_cutest_problem, find_cutest_problems
 
 
 class BaseTestProblem:
@@ -295,10 +295,10 @@ class TestLoadCUTEst:
 
     @pytest.mark.parametrize('constraint', ['unconstrained', 'fixed', 'bound', 'adjacency', 'linear', 'quadratic', 'other'])
     def test_simple(self, constraint):
-        problem_names = find_cutest(constraint, n_min=1, n_max=10, m_min=0, m_max=100)
+        problem_names = find_cutest_problems(constraint, n_min=1, n_max=10, m_min=0, m_max=100)
         for i_problem in range(min(10, len(problem_names))):
             try:
-                problem = load_cutest(problem_names[i_problem], n_min=1, n_max=10, m_min=0, m_max=100)
+                problem = load_cutest_problem(problem_names[i_problem], n_min=1, n_max=10, m_min=0, m_max=100)
                 assert isinstance(problem, Problem)
                 problem.fun(problem.x0)
                 problem.cub(problem.x0)
@@ -308,19 +308,19 @@ class TestLoadCUTEst:
 
     def test_exceptions(self):
         with pytest.raises(TypeError):
-            load_cutest(1)
+            load_cutest_problem(1)
         with pytest.raises(ValueError):
-            load_cutest('ARGLINA', N=1)
+            load_cutest_problem('ARGLINA', N=1)
         with pytest.raises(TypeError):
-            load_cutest('ARGLINA', n_min=1.5)
+            load_cutest_problem('ARGLINA', n_min=1.5)
         with pytest.raises(ValueError):
-            load_cutest('ARGLINA', n_min=5, n_max=1)
+            load_cutest_problem('ARGLINA', n_min=5, n_max=1)
         with pytest.raises(ValueError):
-            load_cutest('ARGLINA', m_min=5, m_max=1)
+            load_cutest_problem('ARGLINA', m_min=5, m_max=1)
 
     def test_catch(self):
-        problem_names = find_cutest('unconstrained', n_min=1, n_max=10)
-        load_cutest(problem_names[0], n_min=1.0, n_max=10.0)
+        problem_names = find_cutest_problems('unconstrained', n_min=1, n_max=10)
+        load_cutest_problem(problem_names[0], n_min=1.0, n_max=10.0)
 
 
 @pytest.mark.extra
@@ -328,53 +328,53 @@ class TestFindCUTEstProblemNames:
 
     def test_simple(self):
         for constraint in ['unconstrained', 'fixed', 'bound', 'adjacency', 'linear', 'quadratic', 'other']:
-            problem_names = find_cutest(constraint)
+            problem_names = find_cutest_problems(constraint)
             assert isinstance(problem_names, list)
             for problem_name in problem_names:
                 assert isinstance(problem_name, str)
 
         # Check that constraint types can be combined.
-        unconstrained_problem_names = find_cutest('unconstrained')
-        bound_problem_names = find_cutest('bound')
-        both_problem_names = find_cutest('unconstrained bound')
+        unconstrained_problem_names = find_cutest_problems('unconstrained')
+        bound_problem_names = find_cutest_problems('bound')
+        both_problem_names = find_cutest_problems('unconstrained bound')
         assert set(both_problem_names) == set(unconstrained_problem_names + bound_problem_names)
 
     def test_parameters(self):
         # Check the n_min and n_max parameters.
-        problem_names_1_100 = find_cutest('unconstrained', n_min=1, n_max=100)
-        problem_names_10_50 = find_cutest('unconstrained', n_min=10, n_max=50)
+        problem_names_1_100 = find_cutest_problems('unconstrained', n_min=1, n_max=100)
+        problem_names_10_50 = find_cutest_problems('unconstrained', n_min=10, n_max=50)
         assert set(problem_names_10_50).issubset(set(problem_names_1_100))
 
         # Check the m_min and m_max parameters.
-        problem_names_1_100 = find_cutest('adjacency linear quadratic other', m_min=1, m_max=100)
-        problem_names_10_50 = find_cutest('adjacency linear quadratic other', m_min=10, m_max=50)
+        problem_names_1_100 = find_cutest_problems('adjacency linear quadratic other', m_min=1, m_max=100)
+        problem_names_10_50 = find_cutest_problems('adjacency linear quadratic other', m_min=10, m_max=50)
         assert set(problem_names_10_50).issubset(set(problem_names_1_100))
 
     def test_exceptions(self):
         with pytest.raises(TypeError):
-            find_cutest(1)
+            find_cutest_problems(1)
         with pytest.raises(ValueError):
-            find_cutest('cubic')
+            find_cutest_problems('cubic')
         with pytest.raises(TypeError):
-            find_cutest('unconstrained', n_min=0)
+            find_cutest_problems('unconstrained', n_min=0)
         with pytest.raises(TypeError):
-            find_cutest('unconstrained', n_min=1.5)
+            find_cutest_problems('unconstrained', n_min=1.5)
         with pytest.raises(TypeError):
-            find_cutest('unconstrained', n_max=0)
+            find_cutest_problems('unconstrained', n_max=0)
         with pytest.raises(TypeError):
-            find_cutest('unconstrained', n_max=1.5)
+            find_cutest_problems('unconstrained', n_max=1.5)
         with pytest.raises(TypeError):
-            find_cutest('unconstrained', n_min=3, n_max=2)
+            find_cutest_problems('unconstrained', n_min=3, n_max=2)
         with pytest.raises(TypeError):
-            find_cutest('unconstrained', m_min=-1)
+            find_cutest_problems('unconstrained', m_min=-1)
         with pytest.raises(TypeError):
-            find_cutest('unconstrained', m_min=1.5)
+            find_cutest_problems('unconstrained', m_min=1.5)
         with pytest.raises(TypeError):
-            find_cutest('unconstrained', m_max=-1)
+            find_cutest_problems('unconstrained', m_max=-1)
         with pytest.raises(TypeError):
-            find_cutest('unconstrained', m_max=1.5)
+            find_cutest_problems('unconstrained', m_max=1.5)
         with pytest.raises(TypeError):
-            find_cutest('unconstrained', m_min=3, m_max=2)
+            find_cutest_problems('unconstrained', m_min=3, m_max=2)
 
     def test_catch(self):
-        find_cutest('quadratic', n_min=1.0, n_max=10.0, m_min=1.0, m_max=100.0)
+        find_cutest_problems('quadratic', n_min=1.0, n_max=10.0, m_min=1.0, m_max=100.0)
