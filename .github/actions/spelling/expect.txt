@@ -31,6 +31,7 @@ currentmodule
 dtype
 endblock
 endfor
+endtrans
 eps
 finfo
 flatnonzero
@@ -39,6 +40,7 @@ gcc
 getoption
 gfo
 gfortran
+hasdoc
 horizontalalignment
 htmlhelp
 htmlzip
@@ -46,6 +48,7 @@ idx
 infty
 intersphinx
 joblib
+lastupdated
 levelname
 linalg
 lincoa
@@ -75,6 +78,7 @@ Opti
 Optim
 optiprofiler
 papersize
+pathto
 pdfo
 plt
 posinf
