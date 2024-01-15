@@ -28,7 +28,7 @@ class ProfileOptionKey(str, Enum):
     SUBFOLDER = 'subfolder'
 
 
-def create_profiles(solvers, labels, cutest_problem_names=(), extra_problems=(), feature_name='plain', **kwargs):
+def create_profiles(solvers, labels=(), cutest_problem_names=(), extra_problems=(), feature_name='plain', **kwargs):
     logger = get_logger(__name__)
 
     # Check the arguments.
@@ -36,6 +36,10 @@ def create_profiles(solvers, labels, cutest_problem_names=(), extra_problems=(),
     labels = list(labels)
     cutest_problem_names = list(cutest_problem_names)
     extra_problems = list(extra_problems)
+
+    # Set the default labels.
+    if len(labels) == 0:
+        labels = [solver.__name__ for solver in solvers]
 
     # Get the different options from the keyword arguments.
     feature_options = {}
@@ -177,7 +181,7 @@ def create_profiles(solvers, labels, cutest_problem_names=(), extra_problems=(),
 
 def _solve_all(cutest_problem_names, cutest_problem_options, extra_problems, solvers, labels, feature, max_eval_factor, profile_options):
     problem_names = cutest_problem_names + extra_problems
-    problem_options = [cutest_problem_options for _ in cutest_problem_names] + [{'name': f'EXTRA{i_problem}'} for i_problem in range(len(extra_problems))]
+    problem_options = [cutest_problem_options for _ in cutest_problem_names] + [{'name': f'EXTRA{i_problem + 1}'} for i_problem in range(len(extra_problems))]
 
     # Solve all problems.
     logger = get_logger(__name__)
