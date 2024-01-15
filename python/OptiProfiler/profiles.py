@@ -1,4 +1,5 @@
 import os
+import re
 import shutil
 import warnings
 from contextlib import redirect_stderr, redirect_stdout, suppress
@@ -15,7 +16,7 @@ from matplotlib.backends import backend_pdf
 from matplotlib.ticker import MaxNLocator
 
 from .features import Feature, FeatureName, FeatureOptionKey
-from .problems import FeaturedProblem, ProblemOptionKey, ProblemError, load_cutest
+from .problems import Problem, FeaturedProblem, CUTEstProblemOptionKey, ProblemError, load_cutest_problem
 from .utils import get_logger
 
 
@@ -24,20 +25,27 @@ class ProfileOptionKey(str, Enum):
     Profile's options.
     """
     N_JOBS = 'n_jobs'
+    SUBFOLDER = 'subfolder'
 
 
-def create_profiles(solvers, labels, problem_names, feature_name, **kwargs):
+def create_profiles(solvers, labels, cutest_problem_names=(), extra_problems=(), feature_name='plain', **kwargs):
     logger = get_logger(__name__)
+
+    # Check the arguments.
+    solvers = list(solvers)
+    labels = list(labels)
+    cutest_problem_names = list(cutest_problem_names)
+    extra_problems = list(extra_problems)
 
     # Get the different options from the keyword arguments.
     feature_options = {}
-    problem_options = {}
+    cutest_problem_options = {}
     profile_options = {}
     for key, value in kwargs.items():
         if key in FeatureOptionKey.__members__.values():
             feature_options[key] = value
-        elif key in ProblemOptionKey.__members__.values():
-            problem_options[key] = value
+        elif key in CUTEstProblemOptionKey.__members__.values():
+            cutest_problem_options[key] = value
         elif key in ProfileOptionKey.__members__.values():
             profile_options[key] = value
         else:
@@ -45,6 +53,7 @@ def create_profiles(solvers, labels, problem_names, feature_name, **kwargs):
 
     # Set the default profile options.
     profile_options.setdefault(ProfileOptionKey.N_JOBS.value, -1)
+    profile_options.setdefault(ProfileOptionKey.SUBFOLDER.value, '.')
 
     # Build the feature.
     feature = Feature(feature_name)
@@ -52,7 +61,7 @@ def create_profiles(solvers, labels, problem_names, feature_name, **kwargs):
 
     # Solve the problems.
     max_eval_factor = 500
-    fun_values, maxcv_values, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions = _solve_all(problem_names, problem_options, solvers, labels, feature, max_eval_factor, profile_options)
+    fun_values, maxcv_values, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions = _solve_all(cutest_problem_names, cutest_problem_options, extra_problems, solvers, labels, feature, max_eval_factor, profile_options)
     merit_values = _compute_merit_values(fun_values, maxcv_values)
     merit_init = _compute_merit_values(fun_init, maxcv_init)
 
@@ -61,21 +70,26 @@ def create_profiles(solvers, labels, problem_names, feature_name, **kwargs):
     if feature.name in [FeatureName.NOISY, FeatureName.TOUGH, FeatureName.TRUNCATED]:
         feature_plain = Feature('plain')
         logger.info(f'Starting the computation of the plain profiles.')
-        fun_values_plain, maxcv_values_plain, _, _, _, _, _ = _solve_all(problem_names, problem_options, solvers, labels, feature_plain, max_eval_factor, profile_options)
+        fun_values_plain, maxcv_values_plain, _, _, _, _, _ = _solve_all(cutest_problem_names, cutest_problem_options, extra_problems, solvers, labels, feature_plain, max_eval_factor, profile_options)
         merit_values_plain = _compute_merit_values(fun_values_plain, maxcv_values_plain)
         merit_min_plain = np.min(merit_values_plain, (1, 2, 3))
         merit_min = np.minimum(merit_min, merit_min_plain)
 
     # Paths to the results.
-    path_out = Path('out', feature.name).resolve()
+    path_out = Path('out', feature.name, profile_options[ProfileOptionKey.SUBFOLDER]).resolve()
     path_out.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now().astimezone().strftime('%Y-%m-%dT%H-%M-%S%z')
-    path_pdf_perf = path_out / f'performance_profiles_{timestamp}.pdf'
-    path_pdf_data = path_out / f'data_profiles_{timestamp}.pdf'
-    # path_pdf_hist = path_out / f'histories_{timestamp}.pdf'
+    timestamp = datetime.utcnow().astimezone().strftime('%Y-%m-%dT%H-%M-%SZ')
+    path_pdf_perf = path_out / f'perf_{timestamp}.pdf'
+    path_pdf_data = path_out / f'data_{timestamp}.pdf'
+    path_pdf_log_ratio = path_out / f'log-ratio_{timestamp}.pdf'
+    path_txt_problems = path_out / f'problems_{timestamp}.txt'
+
+    # Store the names of the problems.
+    with path_txt_problems.open('w') as f:
+        f.write(os.linesep.join(problem_names))
 
     # Set up matplotlib for plotting the profiles.
-    logger.info('Creating the results.')
+    logger.info('Creating results.')
     prop_cycle = cycler(color=['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'])
     prop_cycle += cycler(linestyle=[(0, ()), (0, (1, 1.5)), (0, (3, 1.5)), (0, (5, 1.5, 1, 1.5)), (0, (5, 1.5, 1, 1.5, 1, 1.5)), (0, (1, 3)), (0, (3, 3)), (0, (5, 3, 1, 3)), (0, (5, 3, 1, 3, 1, 3)), (0, (1, 4.5))])
     with plt.rc_context({
@@ -89,7 +103,11 @@ def create_profiles(solvers, labels, problem_names, feature_name, **kwargs):
         tolerances = np.logspace(-1, -10, 10)
         pdf_perf = backend_pdf.PdfPages(path_pdf_perf)
         pdf_data = backend_pdf.PdfPages(path_pdf_data)
+        pdf_log_ratio = backend_pdf.PdfPages(path_pdf_log_ratio, False)
         for i_profile, tolerance in enumerate(tolerances):
+            tolerance_str, tolerance_latex = _format_float_scientific_latex(tolerance)
+            logger.info(f'Creating profiles for tolerance {tolerance_str}.')
+            tolerance_label = f'($\\tau = {tolerance_latex}$)'
 
             work = np.full((n_problems, n_solvers, n_runs), np.nan)
             for i_problem in range(n_problems):
@@ -113,57 +131,58 @@ def create_profiles(solvers, labels, problem_names, feature_name, **kwargs):
             y_data = np.vstack([np.zeros((1, n_solvers, n_runs)), y_data, y_data[-1, np.newaxis, :, :]])
 
             # Plot the performance profiles.
-            logger.info(f'Creating performance profiles for tolerance {tolerance}.')
             fig, ax = _draw_profile(x_perf, y_perf, labels)
             ax.set_xscale('log', base=2)
             ax.set_xlim(1.0, ratio_max_perf ** 1.1)
             ax.set_xlabel('Performance ratio')
-            ax.set_ylabel('Performance profiles')
+            ax.set_ylabel(f'Performance profiles {tolerance_label}')
             pdf_perf.savefig(fig, bbox_inches='tight')
             plt.close(fig)
 
             # Plot the data profiles.
-            logger.info(f'Creating data profiles for tolerance {tolerance}.')
             fig, ax = _draw_profile(x_data, y_data, labels)
             ax.set_xlim(0.0, 1.1 * ratio_max_data)
             ax.set_xlabel('Number of simplex gradients')
-            ax.set_ylabel('Data profiles')
+            ax.set_ylabel(f'Data profiles {tolerance_label}')
             pdf_data.savefig(fig, bbox_inches='tight')
             plt.close(fig)
+
+            # Draw the log-ratio profiles.
+            if n_solvers == 2:
+                work_flat = np.reshape(np.swapaxes(work, 1, 2), (n_problems * n_runs, n_solvers))
+                log_ratio = np.full(n_problems * n_runs, np.nan)
+                log_ratio_finite = np.isfinite(work_flat[:, 0]) & np.isfinite(work_flat[:, 1])
+                log_ratio[log_ratio_finite] = np.log2(work_flat[log_ratio_finite, 0] / work_flat[log_ratio_finite, 1])
+                ratio_max = np.max(np.abs(log_ratio[log_ratio_finite]), initial=np.finfo(float).eps)
+                log_ratio[np.isnan(work_flat[:, 0]) & np.isfinite(work_flat[:, 1])] = 2.0 * ratio_max
+                log_ratio[np.isfinite(work_flat[:, 0]) & np.isnan(work_flat[:, 1])] = -2.0 * ratio_max
+                log_ratio[np.isnan(work_flat[:, 0]) & np.isnan(work_flat[:, 1])] = 0.0
+                log_ratio = np.sort(log_ratio)
+
+                fig, ax = plt.subplots()
+                ax.bar(np.arange(1, n_problems * n_runs + 1), log_ratio, 1)
+                ax.text((n_problems * n_runs + 1) / 2, -ratio_max, labels[0], horizontalalignment='center', verticalalignment='bottom')
+                ax.text((n_problems * n_runs + 1) / 2, ratio_max, labels[1], horizontalalignment='center', verticalalignment='top')
+                ax.set_xlim(0.5, n_problems * n_runs + 0.5)
+                ax.set_ylim(-1.1 * ratio_max, 1.1 * ratio_max)
+                ax.set_xlabel('Problem')
+                ax.set_ylabel(f'Log-ratio profile {tolerance_label}')
+                pdf_log_ratio.savefig(fig, bbox_inches='tight')
+                plt.close(fig)
         pdf_perf.close()
         pdf_data.close()
-
-    # # Plot the histories.
-    # logger.info('Creating the histories.')
-    # pdf_hist = backend_pdf.PdfPages(path_pdf_hist)
-    # for i_problem in range(n_problems):
-    #     fig, ax = plt.subplots(2, 1, sharex=True)
-    #     for i_solver in range(n_solvers):
-    #         n_eval_max = np.max(n_eval[i_problem, i_solver, :])
-    #         x_hist = np.arange(1, n_eval_max + 1)
-    #         with warnings.catch_warnings():
-    #             warnings.filterwarnings('ignore')
-    #             fun_mean = np.nanmean(fun_values[i_problem, i_solver, :, :n_eval_max], 0)
-    #             maxcv_mean = np.nanmean(maxcv_values[i_problem, i_solver, :, :n_eval_max], 0)
-    #         ax[0].plot(x_hist, fun_mean, label=labels[i_solver])
-    #         ax[1].plot(x_hist, maxcv_mean)
-    #     ax[1].set_xlim(1)
-    #     ax[1].set_ylim(0.0)
-    #     ax[1].set_xlabel('Number of function evaluations')
-    #     ax[0].set_ylabel('Objective function value')
-    #     ax[1].set_ylabel('Maximum constraint violation')
-    #     ax[0].legend(loc='upper right')
-    #     ax[0].set_title(f'Histories for {problem_names[i_problem]}')
-    #     pdf_hist.savefig(fig, bbox_inches='tight')
-    #     plt.close(fig)
-    # pdf_hist.close()
+        pdf_log_ratio.close()
+        logger.info(f'Results stored in {path_out}.')
 
 
-def _solve_all(problem_names, problem_options, solvers, labels, feature, max_eval_factor, profile_options):
+def _solve_all(cutest_problem_names, cutest_problem_options, extra_problems, solvers, labels, feature, max_eval_factor, profile_options):
+    problem_names = cutest_problem_names + extra_problems
+    problem_options = [cutest_problem_options for _ in cutest_problem_names] + [{'name': f'EXTRA{i_problem}'} for i_problem in range(len(extra_problems))]
+
     # Solve all problems.
     logger = get_logger(__name__)
     logger.info('Entering the parallel section.')
-    results = Parallel(n_jobs=profile_options[ProfileOptionKey.N_JOBS])(_solve_one(problem_name, problem_options, solvers, labels, feature, max_eval_factor) for problem_name in problem_names)
+    results = Parallel(n_jobs=profile_options[ProfileOptionKey.N_JOBS])(_solve_one(problem_name, problem_option, solvers, labels, feature, max_eval_factor) for problem_name, problem_option in zip(problem_names, problem_options))
     logger.info('Leaving the parallel section.')
     _fun_values, _maxcv_values, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions = zip(*[result for result in results if result is not None])
     fun_init = np.array(fun_init)
@@ -190,10 +209,14 @@ def _solve_all(problem_names, problem_options, solvers, labels, feature, max_eva
 @delayed
 def _solve_one(problem_name, problem_options, solvers, labels, feature, max_eval_factor):
     # Load the problem and return if it cannot be loaded.
-    try:
-        problem = load_cutest(problem_name, **problem_options)
-    except ProblemError:
-        return
+    if isinstance(problem_name, Problem):
+        problem = problem_name
+        problem_name = problem_options['name']
+    else:
+        try:
+            problem = load_cutest_problem(problem_name, **problem_options)
+        except ProblemError:
+            return
 
     # Evaluate the functions at the initial point.
     fun_init = problem.fun(problem.x0)
@@ -210,22 +233,22 @@ def _solve_one(problem_name, problem_options, solvers, labels, feature, max_eval
     for i_solver in range(n_solvers):
         for i_run in range(n_runs):
             logger.info(f'Solving {problem_name} with {labels[i_solver]} (run {i_run + 1}/{n_runs}).')
-            featured_problem = FeaturedProblem(problem, feature, i_run)
+            featured_problem = FeaturedProblem(problem, feature, max_eval, i_run)
+            sig = signature(solvers[i_solver])
+            if len(sig.parameters) not in [2, 4, 8, 10]:
+                raise ValueError(f'Unknown signature: {sig}.')
             with open(os.devnull, 'w') as devnull:
                 with suppress(Exception), warnings.catch_warnings(), redirect_stdout(devnull), redirect_stderr(devnull):
                     warnings.filterwarnings('ignore')
-                    sig = signature(solvers[i_solver])
-                    if len(sig.parameters) == 3:
-                        solvers[i_solver](lambda x: featured_problem.fun(x), featured_problem.x0, max_eval)
-                    elif len(sig.parameters) == 5:
-                        solvers[i_solver](lambda x: featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, max_eval)
-                    elif len(sig.parameters) == 9:
-                        solvers[i_solver](lambda x: featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, max_eval)
-                    elif len(sig.parameters) == 11:
-                        solvers[i_solver](lambda x: featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, featured_problem.cub, featured_problem.ceq, max_eval)
+                    if len(sig.parameters) == 2:
+                        solvers[i_solver](lambda x: featured_problem.fun(x), featured_problem.x0)
+                    elif len(sig.parameters) == 4:
+                        solvers[i_solver](lambda x: featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu)
+                    elif len(sig.parameters) == 8:
+                        solvers[i_solver](lambda x: featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq)
                     else:
-                        raise ValueError(f'Unknown signature: {sig}.')
-            n_eval[i_solver, i_run] = min(featured_problem.n_eval, max_eval)
+                        solvers[i_solver](lambda x: featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, featured_problem.cub, featured_problem.ceq)
+            n_eval[i_solver, i_run] = featured_problem.n_eval
             fun_values[i_solver, i_run, :n_eval[i_solver, i_run]] = featured_problem.fun_values[:n_eval[i_solver, i_run]]
             maxcv_values[i_solver, i_run, :n_eval[i_solver, i_run]] = featured_problem.maxcv_values[:n_eval[i_solver, i_run]]
             if n_eval[i_solver, i_run] > 0:
@@ -248,6 +271,16 @@ def _compute_merit_values(fun_values, maxcv_values):
         return np.inf
     else:
         return fun_values + 1e8 * maxcv_values
+
+
+def _format_float_scientific_latex(x):
+    raw = np.format_float_scientific(x, trim='-', exp_digits=0)
+    match = re.compile(r'^(?P<coefficient>[0-9]+(\.[0-9]+)?)e(?P<exponent>(-)?[0-9]+)$').match(raw)
+    if not match:
+        raise ValueError(f'Cannot format {x} as scientific notation.')
+    if match.group('coefficient') == '1':
+        return raw, f'10^{{{match.group("exponent")}}}'
+    return raw, f'{match.group("coefficient")} \\times 10^{{{match.group("exponent")}}}'
 
 
 def _profile_axes(work, denominator):

@@ -12,5 +12,5 @@ Python API documentation
     :toctree: generated/
 
     Problem
-    find_cutest
+    find_cutest_problems
     show_versions
