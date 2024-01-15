@@ -41,6 +41,7 @@ gfo
 gfortran
 horizontalalignment
 htmlhelp
+htmlzip
 idx
 infty
 intersphinx
