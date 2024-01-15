@@ -97,7 +97,7 @@ function createProfiles(solvers, labels, problem_names, feature_name, varargin)
     set(groot, 'DefaultLineLineWidth', 1);
     set(groot, 'DefaultAxesFontSize', 12);
     set(groot, 'DefaultAxesFontName', 'Arial');
-    set(groot, 'DefaultAxesColorOrder', [0, 0.4470, 0.7410; 0.8500, 0.3250, 0.0980; 0.9290, 0.6940, 0.1250; 0.4940, 0.1840, 0.5560]);
+    set(groot, 'DefaultAxesColorOrder', [0, 0.4470, 0.7410; 0.8500, 0.3250, 0.0980; 0.9290, 0.6940, 0.1250; 0.4940, 0.1840, 0.5560; 0.4660, 0.6740, 0.1880; 0.3010, 0.7450, 0.9330; 0.6350, 0.0780, 0.1840]);
     set(groot, 'DefaultAxesLineStyleOrder', {'-', '--', ':', '-.'});
 
     [n_problems, n_solvers, n_runs, max_eval] = size(merit_values);
@@ -148,7 +148,7 @@ function createProfiles(solvers, labels, problem_names, feature_name, varargin)
         
         % Plot the data profiles.
         fprintf("Creating data profiles for tolerance %g.\n", tolerance);
-        [fig, ~] = drawProfile(x_data, y_data, 'data', data_ratio_max, labels, 'Number of simplex gradient', ['Data profiles (', tolerance_label, ')']);
+        [fig, ~] = drawProfile(x_data, y_data, 'data', data_ratio_max, labels, 'Number of simplex gradients', ['Data profiles (', tolerance_label, ')']);
         eps_filename_data = fullfile(path_data_out, ['data_profile_' int2str(i_profile) '.eps']);
         print(fig, eps_filename_data, '-depsc');
         pdf_filename_data = fullfile(path_data_out, ['data_profile_' int2str(i_profile) '.pdf']);

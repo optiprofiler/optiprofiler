@@ -49,7 +49,7 @@ function [fun_values, maxcv_values, fun_init, maxcv_init, n_eval, problem_name, 
             featured_problem = FeaturedProblem(problem, feature, i_run);
             warning('off', 'all');
             try
-                [~] = solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, @featured_problem.cub, @featured_problem.ceq, max_eval);
+                [~] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, @featured_problem.cub, @featured_problem.ceq, max_eval)');
             catch
                 % Ignore all the errors.
             end
