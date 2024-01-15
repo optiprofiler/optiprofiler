@@ -102,9 +102,8 @@ def create_profiles(solvers, labels, cutest_problem_names=(), extra_problems=(),
         n_problems, n_solvers, n_runs, max_eval = merit_values.shape
         tolerances = np.logspace(-1, -10, 10)
         pdf_perf = backend_pdf.PdfPages(path_pdf_perf)
-        pdf_data = backend_pdf.PdfPages(path_pdf_data, False)
-        if n_solvers == 2:
-            pdf_log_ratio = backend_pdf.PdfPages(path_pdf_log_ratio)
+        pdf_data = backend_pdf.PdfPages(path_pdf_data)
+        pdf_log_ratio = backend_pdf.PdfPages(path_pdf_log_ratio, False)
         for i_profile, tolerance in enumerate(tolerances):
             tolerance_str, tolerance_latex = _format_float_scientific_latex(tolerance)
             logger.info(f'Creating profiles for tolerance {tolerance_str}.')

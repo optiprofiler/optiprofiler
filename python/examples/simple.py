@@ -15,19 +15,19 @@ def newuoa(fun, x0):
     pdfo(fun, x0, method='newuoa')
 
 
-def bobyqa(fun, x0, xl, xu):
+def bobyqa(fun, x0, lb, ub):
     from pdfo import pdfo
     from scipy.optimize import Bounds
 
-    bounds = Bounds(xl, xu)
+    bounds = Bounds(lb, ub)
     pdfo(fun, x0, method='bobyqa', bounds=bounds)
 
 
-def lincoa(fun, x0, xl, xu, aub, bub, aeq, beq):
+def lincoa(fun, x0, lb, ub, aub, bub, aeq, beq):
     from pdfo import pdfo
     from scipy.optimize import Bounds, LinearConstraint
 
-    bounds = Bounds(xl, xu)
+    bounds = Bounds(lb, ub)
     constraints = []
     if bub.size > 0:
         constraints.append(LinearConstraint(aub, -np.inf, bub))
@@ -36,11 +36,11 @@ def lincoa(fun, x0, xl, xu, aub, bub, aeq, beq):
     pdfo(fun, x0, method='lincoa', bounds=bounds, constraints=constraints)
 
 
-def cobyla(fun, x0, xl, xu, aub, bub, aeq, beq, cub, ceq):
+def cobyla(fun, x0, lb, ub, aub, bub, aeq, beq, cub, ceq):
     from pdfo import pdfo
     from scipy.optimize import Bounds, LinearConstraint, NonlinearConstraint
 
-    bounds = Bounds(xl, xu)
+    bounds = Bounds(lb, ub)
     constraints = []
     if bub.size > 0:
         constraints.append(LinearConstraint(aub, -np.inf, bub))
@@ -55,11 +55,11 @@ def cobyla(fun, x0, xl, xu, aub, bub, aeq, beq, cub, ceq):
     pdfo(fun, x0, method='cobyla', bounds=bounds, constraints=constraints)
 
 
-def cobyqa(fun, x0, xl, xu, aub, bub, aeq, beq, cub, ceq):
+def cobyqa(fun, x0, lb, ub, aub, bub, aeq, beq, cub, ceq):
     from cobyqa import minimize
     from scipy.optimize import Bounds, LinearConstraint, NonlinearConstraint
 
-    bounds = Bounds(xl, xu)
+    bounds = Bounds(lb, ub)
     constraints = []
     if bub.size > 0:
         constraints.append(LinearConstraint(aub, -np.inf, bub))

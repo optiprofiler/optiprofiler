@@ -243,7 +243,7 @@ class TestFeaturedProblem(BaseTestProblem):
 
         # Construct a featured problem.
         feature = Feature('plain')
-        featured_problem = FeaturedProblem(problem, feature)
+        featured_problem = FeaturedProblem(problem, feature, 500 * n)
 
         # Check the featured problem attributes.
         assert featured_problem.n_eval == 0
@@ -258,7 +258,7 @@ class TestFeaturedProblem(BaseTestProblem):
 
         # Construct a featured problem with a different feature.
         feature = Feature('custom', modifier=lambda x, f, seed: f + 1)
-        featured_problem = FeaturedProblem(problem, feature)
+        featured_problem = FeaturedProblem(problem, feature, 500 * n)
 
         # Evaluate the objective function at x0.
         f = featured_problem.fun(x0)
@@ -273,7 +273,7 @@ class TestFeaturedProblem(BaseTestProblem):
 
         # Construct a featured problem.
         feature = Feature('plain')
-        FeaturedProblem(problem, feature)
+        FeaturedProblem(problem, feature, 1000)
 
     @pytest.mark.parametrize('n', [1, 10, 100])
     def test_randomize_x0(self, n):
@@ -283,11 +283,25 @@ class TestFeaturedProblem(BaseTestProblem):
 
         # Construct a featured problem.
         feature = Feature('randomize_x0', distribution=lambda rng, n: np.ones(n))
-        featured_problem = FeaturedProblem(problem, feature)
+        featured_problem = FeaturedProblem(problem, feature, 500 * n)
 
         # Evaluate the objective function at x0.
         f = featured_problem.fun(featured_problem.x0)
         np.testing.assert_allclose(f, problem.fun(x0 + 1.0))
+
+    def test_max_eval(self):
+        # Construct a simple problem.
+        x0 = np.zeros(2)
+        problem = Problem(self.rosen, x0)
+
+        # Construct a featured problem.
+        feature = Feature('plain')
+        featured_problem = FeaturedProblem(problem, feature, 1)
+
+        # Evaluate the objective function at x0 twice.
+        featured_problem.fun(featured_problem.x0)
+        with pytest.raises(RuntimeError):
+            featured_problem.fun(featured_problem.x0)
 
 
 @pytest.mark.extra
