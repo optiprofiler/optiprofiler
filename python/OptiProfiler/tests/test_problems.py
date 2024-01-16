@@ -368,7 +368,7 @@ class TestFindCUTEstProblemNames:
         with pytest.raises(TypeError):
             find_cutest_problems(1)
         with pytest.raises(ValueError):
-            find_cutest_problems('c_ubic')
+            find_cutest_problems('cubic')
         with pytest.raises(TypeError):
             find_cutest_problems('unconstrained', n_min=0)
         with pytest.raises(TypeError):
