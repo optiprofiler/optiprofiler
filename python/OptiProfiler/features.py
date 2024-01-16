@@ -37,19 +37,30 @@ class Feature:
             Number of significant digits of the 'truncated' feature.
         type : str, optional
             Type of the 'noisy' feature.
-        """
-        self._name = feature_name.lower()
-        self._options = {k.lower(): v for k, v in feature_options.items()}
 
-        # Check whether the feature is valid.
+        Raises
+        ------
+        TypeError
+            If an argument received an invalid value.
+        ValueError
+            If the arguments are inconsistent.
+        """
+        # Preprocess the feature name.
+        self._name = feature_name
+        if not isinstance(self._name, str):
+            raise TypeError('The feature name must be a string.')
+        self._name = self._name.lower()
         if self._name not in FeatureName.__members__.values():
             raise ValueError(f'Unknown feature: {self._name}.')
+
+        # Preprocess the feature options.
+        self._options = {k.lower(): v for k, v in feature_options.items()}
         for key in self._options:
             # Check whether the option is known.
             if key not in FeatureOptionKey.__members__.values():
                 raise ValueError(f'Unknown option: {key}.')
 
-            # Check whether the option is valid for the feature.
+            # Check whether the options are valid for the feature.
             known_options = [FeatureOptionKey.N_RUNS]
             if self._name == FeatureName.CUSTOM:
                 known_options.extend([FeatureOptionKey.MODIFIER])
@@ -68,7 +79,7 @@ class Feature:
             if key not in known_options:
                 raise ValueError(f'Option {key} is not valid for feature {self._name}.')
 
-            # Check whether the option type is valid.
+            # Check whether the options are valid.
             if key == FeatureOptionKey.N_RUNS:
                 if isinstance(self._options[key], float) and self._options[key].is_integer():
                     self._options[key] = int(self._options[key])
@@ -143,6 +154,22 @@ class Feature:
         float
             Modified objective function value.
         """
+        # Preprocess the point at which the objective function is evaluated.
+        if not isinstance(x, np.ndarray):
+            raise TypeError('The argument x must be a numpy array.')
+
+        # Preprocess the objective function value.
+        if not isinstance(f, float):
+            raise TypeError('The argument f must be a float.')
+
+        # Preprocess the seed.
+        if seed is not None:
+            if isinstance(seed, float) and seed.is_integer():
+                seed = int(seed)
+            if not isinstance(seed, int) or seed < 0:
+                raise TypeError('The argument seed must be a nonnegative integer.')
+
+        # Modify the objective function value.
         if self._name == FeatureName.CUSTOM:
             f = self._options[FeatureOptionKey.MODIFIER](x, f, seed)
         elif self._name == FeatureName.NOISY:
@@ -221,5 +248,18 @@ class Feature:
         `numpy.random.Generator`
             Random number generator.
         """
+        # Preprocess the seed.
+        if seed is not None:
+            if isinstance(seed, float) and seed.is_integer():
+                seed = int(seed)
+            if not isinstance(seed, int) or seed < 0:
+                raise TypeError('The argument seed must be a nonnegative integer.')
+
+        # Preprocess the other arguments.
+        for arg in args:
+            if not isinstance(arg, (int, float)):
+                raise TypeError('The arguments must be numbers.')
+
+        # Generate the random number generator.
         rng = np.random.default_rng(seed)
         return np.random.default_rng(int(1e9 * abs(np.sin(1e5 * rng.standard_normal()) + sum(np.sin(1e5 * arg) for arg in args))))

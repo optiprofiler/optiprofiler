@@ -21,17 +21,40 @@ from .utils import get_logger
 
 
 def create_profiles(solvers, labels=(), cutest_problem_names=(), extra_problems=(), feature_name='plain', **kwargs):
-    logger = get_logger(__name__)
-
-    # Check the arguments.
+    # Preprocess the solvers.
+    if not hasattr(solvers, '__len__') or not all(callable(solver) for solver in solvers):
+        raise TypeError('The solvers must be a list of callables.')
+    if len(solvers) < 2:
+        raise ValueError('At least two solvers must be given.')
     solvers = list(solvers)
-    labels = list(labels)
-    cutest_problem_names = list(cutest_problem_names)
-    extra_problems = list(extra_problems)
 
-    # Set the default labels.
+    # Preprocess the labels.
+    if not hasattr(labels, '__len__') or not all(isinstance(label, str) for label in labels):
+        raise TypeError('The labels must be a list of strings.')
+    if len(labels) not in [0, len(solvers)]:
+        raise ValueError('The number of labels must equal the number of solvers.')
+    labels = list(labels)
     if len(labels) == 0:
         labels = [solver.__name__ for solver in solvers]
+
+    # Preprocess the CUTEst problem names.
+    if not hasattr(cutest_problem_names, '__len__') or not all(isinstance(problem_name, str) for problem_name in cutest_problem_names):
+        raise TypeError('The CUTEst problem names must be a list of strings.')
+    cutest_problem_names = list(cutest_problem_names)
+
+    # Preprocess the extra problems.
+    if not hasattr(extra_problems, '__len__') or not all(isinstance(problem, Problem) for problem in extra_problems):
+        raise TypeError('The extra problems must be a list of problems.')
+    extra_problems = list(extra_problems)
+
+    # Check that the number of problems is satisfactory.
+    if len(cutest_problem_names) + len(extra_problems) < 1:
+        raise ValueError('At least one problem must be given.')
+
+    # Build the feature.
+    logger = get_logger(__name__)
+    feature = Feature(feature_name)
+    logger.info(f'Starting the computation of the {feature.name} profiles.')
 
     # Get the different options from the keyword arguments.
     feature_options = {}
@@ -51,9 +74,13 @@ def create_profiles(solvers, labels=(), cutest_problem_names=(), extra_problems=
     profile_options.setdefault(ProfileOptionKey.N_JOBS.value, -1)
     profile_options.setdefault(ProfileOptionKey.BENCHMARK_ID.value, '.')
 
-    # Build the feature.
-    feature = Feature(feature_name)
-    logger.info(f'Starting the computation of the {feature.name} profiles.')
+    # Check whether the profile options are valid.
+    if isinstance(profile_options[ProfileOptionKey.N_JOBS], float) and profile_options[ProfileOptionKey.N_JOBS].is_integer():
+        profile_options[ProfileOptionKey.N_JOBS] = int(profile_options[ProfileOptionKey.N_JOBS])
+    if not isinstance(profile_options[ProfileOptionKey.N_JOBS], int):
+        raise TypeError(f'Option {ProfileOptionKey.N_JOBS} must be an integer.')
+    if not isinstance(profile_options[ProfileOptionKey.BENCHMARK_ID], str):
+        raise TypeError(f'Option {ProfileOptionKey.BENCHMARK_ID} must be a string.')
 
     # Solve the problems.
     max_eval_factor = 500
@@ -119,12 +146,18 @@ def create_profiles(solvers, labels=(), cutest_problem_names=(), extra_problems=
             # Calculate the axes of the performance and data profiles.
             x_perf, y_perf, ratio_max_perf = _profile_axes(work, lambda i_problem, i_run: np.nanmin(work[i_problem, :, i_run], initial=np.inf))
             x_perf[np.isinf(x_perf)] = ratio_max_perf ** 2.0
-            x_perf = np.vstack([np.ones((1, n_solvers)), x_perf, np.full((1, n_solvers), ratio_max_perf ** 2.0)])
-            y_perf = np.vstack([np.zeros((1, n_solvers, n_runs)), y_perf, y_perf[-1, np.newaxis, :, :]])
+            x_perf = np.vstack([np.ones((1, n_solvers)), x_perf])
+            y_perf = np.vstack([np.zeros((1, n_solvers, n_runs)), y_perf])
+            if n_problems > 0:
+                x_perf = np.vstack([x_perf, np.full((1, n_solvers), ratio_max_perf ** 2.0)])
+                y_perf = np.vstack([y_perf, y_perf[-1, np.newaxis, :, :]])
             x_data, y_data, ratio_max_data = _profile_axes(work, lambda i_problem, i_run: problem_dimensions[i_problem] + 1)
             x_data[np.isinf(x_data)] = 2.0 * ratio_max_data
-            x_data = np.vstack([np.zeros((1, n_solvers)), x_data, np.full((1, n_solvers), 2.0 * ratio_max_data)])
-            y_data = np.vstack([np.zeros((1, n_solvers, n_runs)), y_data, y_data[-1, np.newaxis, :, :]])
+            x_data = np.vstack([np.zeros((1, n_solvers)), x_data])
+            y_data = np.vstack([np.zeros((1, n_solvers, n_runs)), y_data])
+            if n_problems > 0:
+                x_data = np.vstack([x_data, np.full((1, n_solvers), 2.0 * ratio_max_data)])
+                y_data = np.vstack([y_data, y_data[-1, np.newaxis, :, :]])
 
             # Plot the performance profiles.
             fig, ax = _draw_profile(x_perf, y_perf, labels)
@@ -159,7 +192,9 @@ def create_profiles(solvers, labels=(), cutest_problem_names=(), extra_problems=
                 ax.bar(np.arange(1, n_problems * n_runs + 1), log_ratio)
                 ax.text((n_problems * n_runs + 1) / 2, -ratio_max, labels[0], horizontalalignment='center', verticalalignment='bottom')
                 ax.text((n_problems * n_runs + 1) / 2, ratio_max, labels[1], horizontalalignment='center', verticalalignment='top')
-                ax.set_xlim(0.5, n_problems * n_runs + 0.5)
+                with warnings.catch_warnings():
+                    warnings.filterwarnings('ignore', category=UserWarning)
+                    ax.set_xlim(0.5, n_problems * n_runs + 0.5)
                 ax.set_ylim(-1.1 * ratio_max, 1.1 * ratio_max)
                 ax.set_xlabel('Problem')
                 ax.set_ylabel(f'Log-ratio profile {tolerance_label}')
@@ -180,7 +215,17 @@ def _solve_all(cutest_problem_names, cutest_problem_options, extra_problems, sol
     logger.info('Entering the parallel section.')
     results = Parallel(n_jobs=profile_options[ProfileOptionKey.N_JOBS])(_solve_one(problem_name, problem_option, solvers, labels, feature, max_eval_factor) for problem_name, problem_option in zip(problem_names, problem_options))
     logger.info('Leaving the parallel section.')
-    _fun_values, _maxcv_values, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions = zip(*[result for result in results if result is not None])
+    if all(result is None for result in results):
+        logger.critical('All problems failed to load.')
+        _fun_values = []
+        _maxcv_values = []
+        fun_init = []
+        maxcv_init = []
+        n_eval = []
+        problem_names = []
+        problem_dimensions = []
+    else:
+        _fun_values, _maxcv_values, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions = zip(*[result for result in results if result is not None])
     fun_init = np.array(fun_init)
     maxcv_init = np.array(maxcv_init)
     n_eval = np.array(n_eval)
@@ -189,7 +234,7 @@ def _solve_all(cutest_problem_names, cutest_problem_options, extra_problems, sol
     n_problems = len(problem_names)
     n_solvers = len(solvers)
     n_runs = feature.options[FeatureOptionKey.N_RUNS]
-    max_eval = max_eval_factor * max(problem_dimensions)
+    max_eval = max_eval_factor * max(problem_dimensions) if len(problem_dimensions) > 0 else 1
     fun_values = np.full((n_problems, n_solvers, n_runs, max_eval), np.nan)
     maxcv_values = np.full((n_problems, n_solvers, n_runs, max_eval), np.nan)
     for i_problem, (fun_value, maxcv_value) in enumerate(zip(_fun_values, _maxcv_values)):
@@ -298,8 +343,9 @@ def _profile_axes(work, denominator):
     y = np.full((n_problems * n_runs, n_solvers, n_runs), np.nan)
     for i_solver in range(n_solvers):
         for i_run in range(n_runs):
-            y[i_run * n_problems:(i_run + 1) * n_problems, i_solver, i_run] = np.linspace(1 / n_problems, 1.0, n_problems)
-            y[:, i_solver, i_run] = np.take_along_axis(y[:, i_solver, i_run], sort_x[:, i_solver], 0)
+            if n_problems > 0:
+                y[i_run * n_problems:(i_run + 1) * n_problems, i_solver, i_run] = np.linspace(1 / n_problems, 1.0, n_problems)
+                y[:, i_solver, i_run] = np.take_along_axis(y[:, i_solver, i_run], sort_x[:, i_solver], 0)
             for i_problem in range(n_problems * n_runs):
                 if np.isnan(y[i_problem, i_solver, i_run]):
                     y[i_problem, i_solver, i_run] = y[i_problem - 1, i_solver, i_run] if i_problem > 0 else 0.0

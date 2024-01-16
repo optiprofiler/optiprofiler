@@ -1,5 +1,6 @@
 import numpy as np
 
+from .features import Feature
 from .settings import FeatureName, CUTEstProblemOptionKey, FeatureOptionKey, ProblemError
 from .utils import get_logger
 
@@ -131,13 +132,13 @@ class Problem:
         ValueError
             If the arguments are inconsistent.
         """
-        # Preprocess the initial guess.
-        self._x0 = _1d_array(x0, 'The argument x0 must be a one-dimensional array.')
-
         # Preprocess the objective function.
         self._fun = fun
         if not callable(self._fun):
             raise TypeError('The argument fun must be callable.')
+
+        # Preprocess the initial guess.
+        self._x0 = _1d_array(x0, 'The argument x0 must be a one-dimensional array.')
 
         # Preprocess the bound constraints.
         self._lb = lb
@@ -532,30 +533,41 @@ class FeaturedProblem(Problem):
             Maximum number of function evaluations.
         seed : int, optional
             Seed for the random number generator.
+
+        Raises
+        ------
+        TypeError
+            If an argument received an invalid value.
         """
+        # Preprocess the problem.
+        if not isinstance(problem, Problem):
+            raise TypeError('The argument problem must be an instance of the class Problem.')
+
+        # Preprocess the feature.
         self._feature = feature
+        if not isinstance(self._feature, Feature):
+            raise TypeError('The argument feature must be an instance of the class Feature.')
+
+        # Preprocess the maximum number of function evaluations.
+        self._max_eval = max_eval
+        if isinstance(self._max_eval, float) and self._max_eval.is_integer():
+            self._max_eval = int(self._max_eval)
+        if not isinstance(self._max_eval, int) or self._max_eval < 1:
+            raise TypeError('The argument max_eval must be a positive integer.')
+
+        # Preprocess the seed.
         self._seed = seed
+        if self._seed is not None:
+            if isinstance(self._seed, float) and self._seed.is_integer():
+                self._seed = int(self._seed)
+            if not isinstance(self._seed, int) or self._seed < 0:
+                raise TypeError('The argument seed must be a nonnegative integer.')
 
         # Store the objective function values and maximum constraint violations.
-        self._max_eval = max_eval
         self._fun_history = []
         self._maxcv_history = []
 
     def __new__(cls, problem, feature, max_eval, seed=None):
-        """
-        Initialize an optimization problem.
-
-        Parameters
-        ----------
-        problem : `OptiProfiler.problems.Problem`
-            Problem to be used in the benchmarking.
-        feature : `OptiProfiler.features.Feature`
-            Feature to be used in the benchmarking.
-        max_eval : int
-            Maximum number of function evaluations.
-        seed : int, optional
-            Seed for the random number generator.
-        """
         # Create a new instance of the class `FeaturedProblem` by copying the
         # attributes of the problem passed to the __init__ method.
         instance = super().__new__(cls)
@@ -678,6 +690,10 @@ def load_cutest_problem(problem_name, **problem_options):
 
     Raises
     ------
+    TypeError
+        If an argument received an invalid value.
+    ValueError
+        If the arguments are inconsistent.
     ProblemError
         If the problem cannot be loaded.
     """
@@ -761,9 +777,11 @@ def load_cutest_problem(problem_name, **problem_options):
             c.append(c_val - 0.5 * (cutest_problem.cl[index] + cutest_problem.cu[index]))
         return np.array(c)
 
-    # Check the arguments.
+    # Preprocess the problem name.
     if not isinstance(problem_name, str):
         raise TypeError('The argument problem_name must be a string.')
+
+    # Process the problem options.
     for key in problem_options:
         if key not in CUTEstProblemOptionKey.__members__.values():
             raise ValueError(f'Unknown argument: {key}.')
@@ -792,8 +810,7 @@ def load_cutest_problem(problem_name, **problem_options):
         logger.warning(f'CUTEst problem {problem_name} successfully loaded but invalid; it is discarded.')
         raise ProblemError(f'CUTEst problem {problem_name} is invalid.')
 
-    # The problem is successfully loaded and valid. Build the bound, linear, and
-    # nonlinear constraints from the CUTEst problem and return.
+    # The problem is successfully loaded and valid.
     lb = np.array(cutest_problem.bl)
     lb[lb <= -1e20] = -np.inf
     ub = np.array(cutest_problem.bu)
@@ -805,8 +822,6 @@ def load_cutest_problem(problem_name, **problem_options):
         }
         constraints['a_ub'], constraints['b_ub'] = _build_linear_ub(cutest_problem)
         constraints['a_eq'], constraints['b_eq'] = _build_linear_eq(cutest_problem)
-
-        # Count the number of nonlinear constraints.
         idx_ub = ~(cutest_problem.is_linear_cons | cutest_problem.is_eq_cons)
         constraints['num_nonlinear_ub'] = np.count_nonzero(cutest_problem.cl[idx_ub] > -1e20) + np.count_nonzero(cutest_problem.cu[idx_ub] < 1e20)
         constraints['num_nonlinear_eq'] = np.count_nonzero(~cutest_problem.is_linear_cons & cutest_problem.is_eq_cons)
@@ -850,6 +865,13 @@ def find_cutest_problems(constraints, **problem_options):
     m_max : int, optional
         Maximum number of linear and nonlinear constraints.
 
+    Raises
+    ------
+    TypeError
+        If an argument received an invalid value.
+    ValueError
+        If the arguments are inconsistent.
+
     Examples
     --------
     To find all the unconstrained problems with at most 100 variables, use:
@@ -861,12 +883,14 @@ def find_cutest_problems(constraints, **problem_options):
     """
     import pycutest
 
-    # Check the arguments.
+    # Preprocess the constraints.
     if not isinstance(constraints, str):
         raise TypeError('The argument constraints must be a string.')
     for constraint in constraints.split():
         if constraint not in ['unconstrained', 'fixed', 'bound', 'adjacency', 'linear', 'quadratic', 'other']:
             raise ValueError(f'Unknown constraint: {constraint}.')
+
+    # Preprocess the problem options.
     if CUTEstProblemOptionKey.N_MIN in problem_options and isinstance(problem_options[CUTEstProblemOptionKey.N_MIN], float) and problem_options[CUTEstProblemOptionKey.N_MIN].is_integer():
         problem_options[CUTEstProblemOptionKey.N_MIN.value] = int(problem_options[CUTEstProblemOptionKey.N_MIN])
     if CUTEstProblemOptionKey.N_MIN in problem_options and (not isinstance(problem_options[CUTEstProblemOptionKey.N_MIN], int) or problem_options[CUTEstProblemOptionKey.N_MIN] < 1):

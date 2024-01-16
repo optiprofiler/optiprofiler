@@ -8,17 +8,14 @@ argmax
 argsort
 astype
 atleast
-aub
 autoattribute
 autoclass
 autodoc
 automethod
 autoproperty
 autosummary
-beq
 bibfiles
 BUILDDIR
-ceq
 cls
 CODEOWNERS
 conftest
@@ -52,6 +49,7 @@ linspace
 lnx
 logspace
 mastsif
+mathrm
 maxcv
 maxdepth
 mindepth
