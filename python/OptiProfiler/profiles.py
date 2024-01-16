@@ -103,7 +103,7 @@ def create_profiles(solvers, labels=(), cutest_problem_names=(), extra_problems=
         for i_profile, tolerance in enumerate(tolerances):
             tolerance_str, tolerance_latex = _format_float_scientific_latex(tolerance)
             logger.info(f'Creating profiles for tolerance {tolerance_str}.')
-            tolerance_label = f'($\\tau = {tolerance_latex}$)'
+            tolerance_label = f'($\\mathrm{{tol}} = {tolerance_latex}$)'
 
             work = np.full((n_problems, n_solvers, n_runs), np.nan)
             for i_problem in range(n_problems):
@@ -156,7 +156,7 @@ def create_profiles(solvers, labels=(), cutest_problem_names=(), extra_problems=
                 log_ratio = np.sort(log_ratio)
 
                 fig, ax = plt.subplots()
-                ax.bar(np.arange(1, n_problems * n_runs + 1), log_ratio, 1)
+                ax.bar(np.arange(1, n_problems * n_runs + 1), log_ratio)
                 ax.text((n_problems * n_runs + 1) / 2, -ratio_max, labels[0], horizontalalignment='center', verticalalignment='bottom')
                 ax.text((n_problems * n_runs + 1) / 2, ratio_max, labels[1], horizontalalignment='center', verticalalignment='top')
                 ax.set_xlim(0.5, n_problems * n_runs + 0.5)
@@ -237,13 +237,13 @@ def _solve_one(problem_name, problem_options, solvers, labels, feature, max_eval
                 with suppress(Exception), warnings.catch_warnings(), redirect_stdout(devnull), redirect_stderr(devnull):
                     warnings.filterwarnings('ignore')
                     if len(sig.parameters) == 2:
-                        solvers[i_solver](lambda x: featured_problem.fun(x), featured_problem.x0)
+                        solvers[i_solver](featured_problem.fun, featured_problem.x0)
                     elif len(sig.parameters) == 4:
-                        solvers[i_solver](lambda x: featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu)
+                        solvers[i_solver](featured_problem.fun, featured_problem.x0, featured_problem.lb, featured_problem.ub)
                     elif len(sig.parameters) == 8:
-                        solvers[i_solver](lambda x: featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq)
+                        solvers[i_solver](featured_problem.fun, featured_problem.x0, featured_problem.lb, featured_problem.ub, featured_problem.a_ub, featured_problem.b_ub, featured_problem.a_eq, featured_problem.b_eq)
                     else:
-                        solvers[i_solver](lambda x: featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, featured_problem.cub, featured_problem.ceq)
+                        solvers[i_solver](featured_problem.fun, featured_problem.x0, featured_problem.lb, featured_problem.ub, featured_problem.a_ub, featured_problem.b_ub, featured_problem.a_eq, featured_problem.b_eq, featured_problem.c_ub, featured_problem.c_eq)
             n_eval[i_solver, i_run] = featured_problem.n_eval
             fun_values[i_solver, i_run, :n_eval[i_solver, i_run]] = featured_problem.fun_history[:n_eval[i_solver, i_run]]
             maxcv_values[i_solver, i_run, :n_eval[i_solver, i_run]] = featured_problem.maxcv_history[:n_eval[i_solver, i_run]]

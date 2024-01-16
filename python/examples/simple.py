@@ -23,58 +23,58 @@ def bobyqa(fun, x0, lb, ub):
     pdfo(fun, x0, method='bobyqa', bounds=bounds)
 
 
-def lincoa(fun, x0, lb, ub, aub, bub, aeq, beq):
+def lincoa(fun, x0, lb, ub, a_ub, b_ub, a_eq, b_eq):
     from pdfo import pdfo
     from scipy.optimize import Bounds, LinearConstraint
 
     bounds = Bounds(lb, ub)
     constraints = []
-    if bub.size > 0:
-        constraints.append(LinearConstraint(aub, -np.inf, bub))
-    if beq.size > 0:
-        constraints.append(LinearConstraint(aeq, beq, beq))
+    if b_ub.size > 0:
+        constraints.append(LinearConstraint(a_ub, -np.inf, b_ub))
+    if b_eq.size > 0:
+        constraints.append(LinearConstraint(a_eq, b_eq, b_eq))
     pdfo(fun, x0, method='lincoa', bounds=bounds, constraints=constraints)
 
 
-def cobyla(fun, x0, lb, ub, aub, bub, aeq, beq, cub, ceq):
+def cobyla(fun, x0, lb, ub, a_ub, b_ub, a_eq, b_eq, c_ub, c_eq):
     from pdfo import pdfo
     from scipy.optimize import Bounds, LinearConstraint, NonlinearConstraint
 
     bounds = Bounds(lb, ub)
     constraints = []
-    if bub.size > 0:
-        constraints.append(LinearConstraint(aub, -np.inf, bub))
-    if beq.size > 0:
-        constraints.append(LinearConstraint(aeq, beq, beq))
-    cub_x0 = cub(x0)
-    if cub_x0.size > 0:
-        constraints.append(NonlinearConstraint(cub, -np.inf, np.zeros_like(cub_x0)))
-    ceq_x0 = ceq(x0)
-    if ceq_x0.size > 0:
-        constraints.append(NonlinearConstraint(ceq, np.zeros_like(ceq_x0), np.zeros_like(ceq_x0)))
+    if b_ub.size > 0:
+        constraints.append(LinearConstraint(a_ub, -np.inf, b_ub))
+    if b_eq.size > 0:
+        constraints.append(LinearConstraint(a_eq, b_eq, b_eq))
+    c_ub_x0 = c_ub(x0)
+    if c_ub_x0.size > 0:
+        constraints.append(NonlinearConstraint(c_ub, -np.inf, np.zeros_like(c_ub_x0)))
+    c_eq_x0 = c_eq(x0)
+    if c_eq_x0.size > 0:
+        constraints.append(NonlinearConstraint(c_eq, np.zeros_like(c_eq_x0), np.zeros_like(c_eq_x0)))
     pdfo(fun, x0, method='cobyla', bounds=bounds, constraints=constraints)
 
 
-def cobyqa(fun, x0, lb, ub, aub, bub, aeq, beq, cub, ceq):
+def cobyqa(fun, x0, lb, ub, a_ub, b_ub, a_eq, b_eq, c_ub, c_eq):
     from cobyqa import minimize
     from scipy.optimize import Bounds, LinearConstraint, NonlinearConstraint
 
     bounds = Bounds(lb, ub)
     constraints = []
-    if bub.size > 0:
-        constraints.append(LinearConstraint(aub, -np.inf, bub))
-    if beq.size > 0:
-        constraints.append(LinearConstraint(aeq, beq, beq))
-    cub_x0 = cub(x0)
-    if cub_x0.size > 0:
-        constraints.append(NonlinearConstraint(cub, -np.inf, np.zeros_like(cub_x0)))
-    ceq_x0 = ceq(x0)
-    if ceq_x0.size > 0:
-        constraints.append(NonlinearConstraint(ceq, np.zeros_like(ceq_x0), np.zeros_like(ceq_x0)))
-
+    if b_ub.size > 0:
+        constraints.append(LinearConstraint(a_ub, -np.inf, b_ub))
+    if b_eq.size > 0:
+        constraints.append(LinearConstraint(a_eq, b_eq, b_eq))
+    c_ub_x0 = c_ub(x0)
+    if c_ub_x0.size > 0:
+        constraints.append(NonlinearConstraint(c_ub, -np.inf, np.zeros_like(c_ub_x0)))
+    c_eq_x0 = c_eq(x0)
+    if c_eq_x0.size > 0:
+        constraints.append(NonlinearConstraint(c_eq, np.zeros_like(c_eq_x0), np.zeros_like(c_eq_x0)))
     minimize(fun, x0, bounds=bounds, constraints=constraints)
 
 
 if __name__ == '__main__':
-    cutest_problem_names = find_cutest_problems('unconstrained', n_max=5)
-    create_profiles([newuoa, cobyqa], ['NEWUOA', 'COBYQA'], cutest_problem_names, n_max=5, subfolder='unconstrained')
+    cutest_problem_options = {'n_max': 2}
+    cutest_problem_names = find_cutest_problems('unconstrained', **cutest_problem_options)
+    create_profiles([newuoa, cobyqa], ['NEWUOA', 'COBYQA'], cutest_problem_names, benchmark_id='unconstrained', **cutest_problem_options)
