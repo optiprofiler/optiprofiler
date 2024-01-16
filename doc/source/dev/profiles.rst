@@ -8,5 +8,4 @@ Profiles
 .. autosummary::
     :toctree: generated/
 
-    ProfileOptionKey
     create_profiles

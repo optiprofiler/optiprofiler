@@ -1,19 +1,7 @@
-from enum import Enum
-
 import numpy as np
 
-from .features import FeatureName, FeatureOptionKey
+from .settings import FeatureName, CUTEstProblemOptionKey, FeatureOptionKey, ProblemError
 from .utils import get_logger
-
-
-class CUTEstProblemOptionKey(str, Enum):
-    """
-    Options for loading a CUTEst problem.
-    """
-    N_MIN = 'n_min'
-    N_MAX = 'n_max'
-    M_MIN = 'm_min'
-    M_MAX = 'm_max'
 
 
 class Problem:
@@ -663,13 +651,6 @@ class FeaturedProblem(Problem):
         return self._feature.modifier(x, f, self._seed)
 
 
-class ProblemError(Exception):
-    """
-    Exception raised when a problem cannot be loaded.
-    """
-    pass
-
-
 def load_cutest_problem(problem_name, **problem_options):
     """
     Load a CUTEst problem.
@@ -711,9 +692,9 @@ def load_cutest_problem(problem_name, **problem_options):
 
         # Check that the dimensions are within the specified range.
         if CUTEstProblemOptionKey.N_MIN in problem_options:
-            is_valid = is_valid and cutest_problem.dimension >= problem_options[CUTEstProblemOptionKey.N_MIN]
+            is_valid = is_valid and cutest_problem.n >= problem_options[CUTEstProblemOptionKey.N_MIN]
         if CUTEstProblemOptionKey.N_MAX in problem_options:
-            is_valid = is_valid and cutest_problem.dimension <= problem_options[CUTEstProblemOptionKey.N_MAX]
+            is_valid = is_valid and cutest_problem.n <= problem_options[CUTEstProblemOptionKey.N_MAX]
         if CUTEstProblemOptionKey.M_MIN in problem_options:
             is_valid = is_valid and cutest_problem.m >= problem_options[CUTEstProblemOptionKey.M_MIN]
         if CUTEstProblemOptionKey.M_MAX in problem_options:
@@ -731,14 +712,14 @@ def load_cutest_problem(problem_name, **problem_options):
         a_ub = []
         b_ub = []
         for i, index in enumerate(np.flatnonzero(idx_ub)):
-            c_val, g_val = cutest_problem.cons(np.zeros(cutest_problem.dimension), index, True)
+            c_val, g_val = cutest_problem.cons(np.zeros(cutest_problem.n), index, True)
             if idx_ub_cl[i]:
                 a_ub.append(-g_val)
                 b_ub.append(c_val - cutest_problem.cl[index])
             if idx_ub_cu[i]:
                 a_ub.append(g_val)
                 b_ub.append(cutest_problem.cu[index] - c_val)
-        return np.reshape(a_ub, (-1, cutest_problem.dimension)), np.array(b_ub)
+        return np.reshape(a_ub, (-1, cutest_problem.n)), np.array(b_ub)
 
     def _build_linear_eq(cutest_problem):
         """
@@ -748,10 +729,10 @@ def load_cutest_problem(problem_name, **problem_options):
         a_eq = []
         b_eq = []
         for index in np.flatnonzero(idx_eq):
-            c_val, g_val = cutest_problem.cons(np.zeros(cutest_problem.dimension), index, True)
+            c_val, g_val = cutest_problem.cons(np.zeros(cutest_problem.n), index, True)
             a_eq.append(g_val)
             b_eq.append(c_val - 0.5 * (cutest_problem.cl[index] + cutest_problem.cu[index]))
-        return np.reshape(a_eq, (-1, cutest_problem.dimension)), np.array(b_eq)
+        return np.reshape(a_eq, (-1, cutest_problem.n)), np.array(b_eq)
 
     def _c_ub(cutest_problem, x):
         """

@@ -1,42 +1,6 @@
-from enum import Enum
-
 import numpy as np
 
-
-class FeatureName(str, Enum):
-    """
-    Feature names.
-    """
-    CUSTOM = 'custom'
-    NOISY = 'noisy'
-    PLAIN = 'plain'
-    RANDOMIZE_X0 = 'randomize_x0'
-    REGULARIZED = 'regularized'
-    TOUGH = 'tough'
-    TRUNCATED = 'truncated'
-
-
-class FeatureOptionKey(str, Enum):
-    """
-    Feature's options.
-    """
-    DISTRIBUTION = 'distribution'
-    MODIFIER = 'modifier'
-    N_RUNS = 'n_runs'
-    ORDER = 'order'
-    PARAMETER = 'parameter'
-    RATE_ERROR = 'rate_error'
-    RATE_NAN = 'rate_nan'
-    SIGNIFICANT_DIGITS = 'significant_digits'
-    TYPE = 'type'
-
-
-class NoiseType(str, Enum):
-    """
-    Noise types.
-    """
-    ABSOLUTE = 'absolute'
-    RELATIVE = 'relative'
+from OptiProfiler.settings import FeatureName, FeatureOptionKey, NoiseType
 
 
 class Feature:

@@ -24,18 +24,18 @@ class BaseTestProblem:
         raise RuntimeError
 
     @staticmethod
-    def assert_dimensions(problem, n, m_linear_ub, m_linear_eq, m_nonlinear_ub, m_nonlinear_eq):
+    def assert_dimensions(problem, n, num_linear_ub, num_linear_eq, num_nonlinear_ub, num_nonlinear_eq):
         assert problem.dimension == n
-        assert problem.num_linear_ub == m_linear_ub
-        assert problem.num_linear_eq == m_linear_eq
-        assert problem.m_nonlinear_ub == m_nonlinear_ub
-        assert problem.m_nonlinear_eq == m_nonlinear_eq
-        assert problem.xl.shape == (n,)
-        assert problem.xu.shape == (n,)
-        assert problem.aub.shape == (m_linear_ub, n)
-        assert problem.bub.shape == (m_linear_ub,)
-        assert problem.aeq.shape == (m_linear_eq, n)
-        assert problem.beq.shape == (m_linear_eq,)
+        assert problem.num_linear_ub == num_linear_ub
+        assert problem.num_linear_eq == num_linear_eq
+        assert problem.num_nonlinear_ub == num_nonlinear_ub
+        assert problem.num_nonlinear_eq == num_nonlinear_eq
+        assert problem.lb.shape == (n,)
+        assert problem.ub.shape == (n,)
+        assert problem.a_ub.shape == (num_linear_ub, n)
+        assert problem.b_ub.shape == (num_linear_ub,)
+        assert problem.a_eq.shape == (num_linear_eq, n)
+        assert problem.b_eq.shape == (num_linear_eq,)
 
 
 class TestProblem(BaseTestProblem):
@@ -49,78 +49,78 @@ class TestProblem(BaseTestProblem):
         # Check the problem attributes.
         self.assert_dimensions(problem, n, 0, 0, 0, 0)
         np.testing.assert_array_equal(problem.x0, x0)
-        np.testing.assert_array_equal(problem.xl, np.full(n, -np.inf))
-        np.testing.assert_array_equal(problem.xu, np.full(n, np.inf))
+        np.testing.assert_array_equal(problem.lb, np.full(n, -np.inf))
+        np.testing.assert_array_equal(problem.ub, np.full(n, np.inf))
 
         # Perform an objective function evaluation.
         assert problem.fun(problem.x0) == self.rosen(x0)
         assert problem.maxcv(problem.x0) == 0.0
 
         # Evaluate the nonlinear constraints.
-        assert problem.cub(problem.x0).shape == (0,)
-        assert problem.ceq(problem.x0).shape == (0,)
+        assert problem.c_ub(problem.x0).shape == (0,)
+        assert problem.c_eq(problem.x0).shape == (0,)
 
     @pytest.mark.parametrize('n', [1, 10, 100])
     def test_bound_constrained_problem(self, n):
         # Construct a bound-constrained problem.
         x0 = np.zeros(n)
-        xl = np.full(n, -2.048)
-        xu = np.full(n, 2.048)
-        problem = Problem(self.rosen, x0, xl, xu)
+        lb = np.full(n, -2.048)
+        ub = np.full(n, 2.048)
+        problem = Problem(self.rosen, x0, lb, ub)
 
         # Check the problem attributes.
         self.assert_dimensions(problem, n, 0, 0, 0, 0)
         np.testing.assert_array_equal(problem.x0, x0)
-        np.testing.assert_array_equal(problem.xl, xl)
-        np.testing.assert_array_equal(problem.xu, xu)
+        np.testing.assert_array_equal(problem.lb, lb)
+        np.testing.assert_array_equal(problem.ub, ub)
 
         # Perform an objective function evaluation.
         assert problem.fun(problem.x0) == self.rosen(x0)
         assert problem.maxcv(problem.x0) == 0.0
 
         # Evaluate the nonlinear constraints.
-        assert problem.cub(problem.x0).shape == (0,)
-        assert problem.ceq(problem.x0).shape == (0,)
+        assert problem.c_ub(problem.x0).shape == (0,)
+        assert problem.c_eq(problem.x0).shape == (0,)
 
     @pytest.mark.parametrize('n', [1, 10, 100])
     def test_linearly_constrained_problem(self, n):
         # Construct a linearly constrained problem.
         x0 = np.zeros(n)
-        aub = np.ones((1, n))
-        bub = 1.0
-        aeq = np.arange(n)
-        beq = 1.0
-        problem = Problem(self.rosen, x0, aub=aub, bub=bub, aeq=aeq, beq=beq)
+        a_ub = np.ones((1, n))
+        b_ub = 1.0
+        a_eq = np.arange(n)
+        b_eq = 1.0
+        problem = Problem(self.rosen, x0, a_ub=a_ub, b_ub=b_ub, a_eq=a_eq, b_eq=b_eq)
 
         # Check the problem attributes.
         self.assert_dimensions(problem, n, 1, 1, 0, 0)
         np.testing.assert_array_equal(problem.x0, x0)
-        np.testing.assert_array_equal(problem.xl, np.full(n, -np.inf))
-        np.testing.assert_array_equal(problem.xu, np.full(n, np.inf))
-        np.testing.assert_array_equal(problem.aub, aub)
-        np.testing.assert_array_equal(problem.bub, bub)
-        np.testing.assert_array_equal(problem.aeq, aeq.reshape(1, n))
-        np.testing.assert_array_equal(problem.beq, beq)
+        np.testing.assert_array_equal(problem.lb, np.full(n, -np.inf))
+        np.testing.assert_array_equal(problem.ub, np.full(n, np.inf))
+        np.testing.assert_array_equal(problem.a_ub, a_ub)
+        np.testing.assert_array_equal(problem.b_ub, b_ub)
+        np.testing.assert_array_equal(problem.a_eq, a_eq.reshape(1, n))
+        np.testing.assert_array_equal(problem.b_eq, b_eq)
 
         # Perform an objective function evaluation.
         assert problem.fun(problem.x0) == self.rosen(x0)
         np.testing.assert_allclose(problem.maxcv(problem.x0), 1.0)
 
         # Evaluate the nonlinear constraints.
-        assert problem.cub(problem.x0).shape == (0,)
-        assert problem.ceq(problem.x0).shape == (0,)
+        assert problem.c_ub(problem.x0).shape == (0,)
+        assert problem.c_eq(problem.x0).shape == (0,)
 
     @pytest.mark.parametrize('n', [1, 10, 100])
     def test_nonlinearly_constrained_problem(self, n):
         # Construct a nonlinearly constrained problem.
         x0 = np.zeros(n)
-        problem = Problem(self.rosen, x0, cub=self.sum_cos, ceq=self.sum_sin, m_nonlinear_ub=1, m_nonlinear_eq=1)
+        problem = Problem(self.rosen, x0, c_ub=self.sum_cos, c_eq=self.sum_sin, num_nonlinear_ub=1, num_nonlinear_eq=1)
 
         # Check the problem attributes.
         self.assert_dimensions(problem, n, 0, 0, 1, 1)
         np.testing.assert_array_equal(problem.x0, x0)
-        np.testing.assert_array_equal(problem.xl, np.full(n, -np.inf))
-        np.testing.assert_array_equal(problem.xu, np.full(n, np.inf))
+        np.testing.assert_array_equal(problem.lb, np.full(n, -np.inf))
+        np.testing.assert_array_equal(problem.ub, np.full(n, np.inf))
 
         # Perform an objective function evaluation.
         assert problem.fun(problem.x0) == self.rosen(x0)
@@ -130,48 +130,48 @@ class TestProblem(BaseTestProblem):
         with pytest.raises(TypeError):
             Problem('fun', np.zeros(1))
         with pytest.raises(TypeError):
-            Problem(self.rosen, np.zeros(2), cub='cub')
+            Problem(self.rosen, np.zeros(2), c_ub='c_ub')
         with pytest.raises(TypeError):
-            Problem(self.rosen, np.zeros(2), ceq='ceq')
+            Problem(self.rosen, np.zeros(2), c_eq='c_eq')
         with pytest.raises(TypeError):
-            Problem(self.rosen, np.zeros(1), cub=self.sum_cos, m_nonlinear_ub=1.5)
+            Problem(self.rosen, np.zeros(1), c_ub=self.sum_cos, num_nonlinear_ub=1.5)
         with pytest.raises(TypeError):
-            Problem(self.rosen, np.zeros(1), ceq=self.sum_sin, m_nonlinear_eq=1.5)
+            Problem(self.rosen, np.zeros(1), c_eq=self.sum_sin, num_nonlinear_eq=1.5)
         with pytest.raises(ValueError):
             Problem(self.rosen, np.zeros(1), np.zeros(2))
         with pytest.raises(ValueError):
-            Problem(self.rosen, np.zeros(1), xu=np.zeros(2))
+            Problem(self.rosen, np.zeros(1), ub=np.zeros(2))
         with pytest.raises(ValueError):
-            Problem(self.rosen, np.zeros(1), aub=np.zeros((1, 2)))
+            Problem(self.rosen, np.zeros(1), a_ub=np.zeros((1, 2)))
         with pytest.raises(ValueError):
-            Problem(self.rosen, np.zeros(1), aeq=np.zeros((1, 2)))
+            Problem(self.rosen, np.zeros(1), a_eq=np.zeros((1, 2)))
         with pytest.raises(ValueError):
-            Problem(self.rosen, np.zeros(1), m_nonlinear_ub=1)
+            Problem(self.rosen, np.zeros(1), num_nonlinear_ub=1)
         with pytest.raises(ValueError):
-            Problem(self.rosen, np.zeros(1), m_nonlinear_eq=1)
+            Problem(self.rosen, np.zeros(1), num_nonlinear_eq=1)
         with pytest.raises(ValueError):
-            problem = Problem(self.rosen, np.zeros(1), cub=self.sum_cos)
-            problem.m_nonlinear_ub  # noqa
+            problem = Problem(self.rosen, np.zeros(1), c_ub=self.sum_cos)
+            problem.num_nonlinear_ub  # noqa
         with pytest.raises(ValueError):
-            problem = Problem(self.rosen, np.zeros(1), ceq=self.sum_sin)
-            problem.m_nonlinear_eq  # noqa
+            problem = Problem(self.rosen, np.zeros(1), c_eq=self.sum_sin)
+            problem.num_nonlinear_eq  # noqa
         with pytest.raises(ValueError):
             problem = Problem(self.rosen, np.zeros(1))
             problem.fun(np.zeros(2))
         with pytest.raises(ValueError):
-            problem = Problem(self.rosen, np.zeros(1), cub=self.sum_cos)
-            problem.cub(np.zeros(2))
+            problem = Problem(self.rosen, np.zeros(1), c_ub=self.sum_cos)
+            problem.c_ub(np.zeros(2))
         with pytest.raises(ValueError):
-            problem = Problem(self.rosen, np.zeros(1), cub=lambda x: np.zeros(int(np.sum(x))))
-            problem.cub(np.zeros(1))
-            problem.cub(np.ones(1))
+            problem = Problem(self.rosen, np.zeros(1), c_ub=lambda x: np.zeros(int(np.sum(x))))
+            problem.c_ub(np.zeros(1))
+            problem.c_ub(np.ones(1))
         with pytest.raises(ValueError):
-            problem = Problem(self.rosen, np.zeros(1), ceq=self.sum_sin)
-            problem.ceq(np.zeros(2))
+            problem = Problem(self.rosen, np.zeros(1), c_eq=self.sum_sin)
+            problem.c_eq(np.zeros(2))
         with pytest.raises(ValueError):
-            problem = Problem(self.rosen, np.zeros(1), ceq=lambda x: np.zeros(int(np.sum(x))))
-            problem.ceq(np.zeros(1))
-            problem.ceq(np.ones(1))
+            problem = Problem(self.rosen, np.zeros(1), c_eq=lambda x: np.zeros(int(np.sum(x))))
+            problem.c_eq(np.zeros(1))
+            problem.c_eq(np.ones(1))
         with pytest.raises(ValueError):
             problem = Problem(self.rosen, np.zeros(1))
             problem.maxcv(np.zeros(2))
@@ -180,44 +180,44 @@ class TestProblem(BaseTestProblem):
         with pytest.raises(ValueError):
             Problem(self.rosen, np.zeros(2), np.zeros((2, 2)))
         with pytest.raises(ValueError):
-            Problem(self.rosen, np.zeros(2), xu=np.zeros((2, 2)))
+            Problem(self.rosen, np.zeros(2), ub=np.zeros((2, 2)))
         with pytest.raises(ValueError):
-            Problem(self.rosen, np.zeros(2), aub=np.zeros((2, 2)), bub=np.zeros((2, 2)))
+            Problem(self.rosen, np.zeros(2), a_ub=np.zeros((2, 2)), b_ub=np.zeros((2, 2)))
         with pytest.raises(ValueError):
-            Problem(self.rosen, np.zeros(2), aeq=np.zeros((2, 2)), beq=np.zeros((2, 2)))
+            Problem(self.rosen, np.zeros(2), a_eq=np.zeros((2, 2)), b_eq=np.zeros((2, 2)))
         with pytest.raises(ValueError):
             problem = Problem(self.rosen, np.zeros(2))
             problem.fun(np.zeros((2, 2)))
         with pytest.raises(ValueError):
             problem = Problem(self.rosen, np.zeros(2))
-            problem.cub(np.zeros((2, 2)))
+            problem.c_ub(np.zeros((2, 2)))
         with pytest.raises(ValueError):
-            problem = Problem(self.rosen, np.zeros(2), cub=lambda _: np.zeros((2, 2)))
-            problem.cub(problem.x0)
+            problem = Problem(self.rosen, np.zeros(2), c_ub=lambda _: np.zeros((2, 2)))
+            problem.c_ub(problem.x0)
         with pytest.raises(ValueError):
             problem = Problem(self.rosen, np.zeros(2))
-            problem.ceq(np.zeros((2, 2)))
+            problem.c_eq(np.zeros((2, 2)))
         with pytest.raises(ValueError):
-            problem = Problem(self.rosen, np.zeros(2), ceq=lambda _: np.zeros((2, 2)))
-            problem.ceq(problem.x0)
+            problem = Problem(self.rosen, np.zeros(2), c_eq=lambda _: np.zeros((2, 2)))
+            problem.c_eq(problem.x0)
         with pytest.raises(ValueError):
             problem = Problem(self.rosen, np.zeros(2))
             problem.maxcv(np.zeros((2, 2)))
         with pytest.raises(ValueError):
-            Problem(self.rosen, np.zeros(2), aub=np.zeros((2, 2, 2)), bub=np.zeros(2))
+            Problem(self.rosen, np.zeros(2), a_ub=np.zeros((2, 2, 2)), b_ub=np.zeros(2))
         with pytest.raises(ValueError):
-            Problem(self.rosen, np.zeros(2), aeq=np.zeros((2, 2, 2)), beq=np.zeros(2))
+            Problem(self.rosen, np.zeros(2), a_eq=np.zeros((2, 2, 2)), b_eq=np.zeros(2))
 
     def test_catch(self):
-        # The value m_nonlinear_ub can be a float.
-        problem = Problem(self.rosen, np.zeros(1), cub=self.sum_cos, m_nonlinear_ub=1.0)
-        assert problem.m_nonlinear_ub == 1
-        assert problem.m_nonlinear_eq == 0
+        # The value num_nonlinear_ub can be a float.
+        problem = Problem(self.rosen, np.zeros(1), c_ub=self.sum_cos, num_nonlinear_ub=1.0)
+        assert problem.num_nonlinear_ub == 1
+        assert problem.num_nonlinear_eq == 0
 
-        # The value m_nonlinear_eq can be a float.
-        problem = Problem(self.rosen, np.zeros(1), ceq=self.sum_sin, m_nonlinear_eq=1.0)
-        assert problem.m_nonlinear_ub == 0
-        assert problem.m_nonlinear_eq == 1
+        # The value num_nonlinear_eq can be a float.
+        problem = Problem(self.rosen, np.zeros(1), c_eq=self.sum_sin, num_nonlinear_eq=1.0)
+        assert problem.num_nonlinear_ub == 0
+        assert problem.num_nonlinear_eq == 1
 
         # The objective function can be ill-defined.
         problem = Problem(self.bad_fun, np.zeros(1))
@@ -225,12 +225,12 @@ class TestProblem(BaseTestProblem):
         assert problem.maxcv(problem.x0) == 0.0
 
         # The nonlinear inequality constraint function can be ill-defined.
-        problem = Problem(self.rosen, np.zeros(1), cub=self.bad_fun, m_nonlinear_ub=1)
-        assert np.isnan(problem.cub(problem.x0))
+        problem = Problem(self.rosen, np.zeros(1), c_ub=self.bad_fun, num_nonlinear_ub=1)
+        assert np.isnan(problem.c_ub(problem.x0))
 
         # The nonlinear equality constraint function can be ill-defined.
-        problem = Problem(self.rosen, np.zeros(1), ceq=self.bad_fun, m_nonlinear_eq=1)
-        assert np.isnan(problem.ceq(problem.x0))
+        problem = Problem(self.rosen, np.zeros(1), c_eq=self.bad_fun, num_nonlinear_eq=1)
+        assert np.isnan(problem.c_eq(problem.x0))
 
 
 class TestFeaturedProblem(BaseTestProblem):
@@ -269,7 +269,7 @@ class TestFeaturedProblem(BaseTestProblem):
     def test_catch(self):
         # Construct a nonlinearly constrained problem.
         x0 = np.zeros(2)
-        problem = Problem(self.rosen, x0, cub=self.sum_cos, ceq=self.sum_sin)
+        problem = Problem(self.rosen, x0, c_ub=self.sum_cos, c_eq=self.sum_sin)
 
         # Construct a featured problem.
         feature = Feature('plain')
@@ -315,8 +315,8 @@ class TestLoadCUTEst:
                 problem = load_cutest_problem(problem_names[i_problem], n_min=1, n_max=10, m_min=0, m_max=100)
                 assert isinstance(problem, Problem)
                 problem.fun(problem.x0)
-                problem.cub(problem.x0)
-                problem.ceq(problem.x0)
+                problem.c_ub(problem.x0)
+                problem.c_eq(problem.x0)
             except ProblemError:
                 pass
 
@@ -368,7 +368,7 @@ class TestFindCUTEstProblemNames:
         with pytest.raises(TypeError):
             find_cutest_problems(1)
         with pytest.raises(ValueError):
-            find_cutest_problems('cubic')
+            find_cutest_problems('c_ubic')
         with pytest.raises(TypeError):
             find_cutest_problems('unconstrained', n_min=0)
         with pytest.raises(TypeError):

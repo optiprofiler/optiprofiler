@@ -4,7 +4,6 @@ import shutil
 import warnings
 from contextlib import redirect_stderr, redirect_stdout, suppress
 from datetime import datetime
-from enum import Enum
 from inspect import signature
 from pathlib import Path
 
@@ -15,17 +14,10 @@ from matplotlib import pyplot as plt
 from matplotlib.backends import backend_pdf
 from matplotlib.ticker import MaxNLocator
 
-from .features import FeatureName, FeatureOptionKey, Feature
-from .problems import CUTEstProblemOptionKey, Problem, FeaturedProblem, ProblemError, load_cutest_problem
+from .features import Feature
+from .problems import Problem, FeaturedProblem, load_cutest_problem
+from .settings import FeatureName, ProfileOptionKey, CUTEstProblemOptionKey, FeatureOptionKey, ProblemError
 from .utils import get_logger
-
-
-class ProfileOptionKey(str, Enum):
-    """
-    Profile's options.
-    """
-    N_JOBS = 'n_jobs'
-    SUBFOLDER = 'subfolder'
 
 
 def create_profiles(solvers, labels=(), cutest_problem_names=(), extra_problems=(), feature_name='plain', **kwargs):
@@ -57,7 +49,7 @@ def create_profiles(solvers, labels=(), cutest_problem_names=(), extra_problems=
 
     # Set the default profile options.
     profile_options.setdefault(ProfileOptionKey.N_JOBS.value, -1)
-    profile_options.setdefault(ProfileOptionKey.SUBFOLDER.value, '.')
+    profile_options.setdefault(ProfileOptionKey.BENCHMARK_ID.value, '.')
 
     # Build the feature.
     feature = Feature(feature_name)
@@ -80,7 +72,7 @@ def create_profiles(solvers, labels=(), cutest_problem_names=(), extra_problems=
         merit_min = np.minimum(merit_min, merit_min_plain)
 
     # Paths to the results.
-    path_out = Path('out', feature.name, profile_options[ProfileOptionKey.SUBFOLDER]).resolve()
+    path_out = Path('out', feature.name, profile_options[ProfileOptionKey.BENCHMARK_ID]).resolve()
     path_out.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.utcnow().astimezone().strftime('%Y-%m-%dT%H-%M-%SZ')
     path_pdf_perf = path_out / f'perf_{timestamp}.pdf'
