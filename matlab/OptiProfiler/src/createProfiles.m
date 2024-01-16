@@ -123,19 +123,19 @@ function createProfiles(solvers, labels, problem_names, feature_name, varargin)
 
         % Calculate the x-axes of the performance and data profiles.
         denominator_perf = @(i_problem, i_run) min(work(i_problem, :, i_run), [], 'omitnan');
-        [x_perf, perf_ratio_max, sort_perf] = x_profile(work, denominator_perf, 2^(1e-6));
+        [x_perf, y_perf, ratio_max_perf] = profileAxes(work, denominator_perf);
+        x_perf(isinf(x_perf)) = ratio_max_perf ^ 2;
         denominator_data = @(i_problem, i_run) problem_dimensions(i_problem) + 1;
-        [x_data, data_ratio_max, sort_data] = x_profile(work, denominator_data, 1e-6);
-        y_perf = y_profile(sort_perf, n_problems, n_runs);
-        y_data = y_profile(sort_data, n_problems, n_runs);
+        [x_data, y_data, ratio_max_data] = profileAxes(work, denominator_data);
+        x_data(isinf(x_data)) = 2 * ratio_max_data;
 
         tolerance_label = ['$\tau = 10^{', int2str(log10(tolerance)), '}$'];
 
         % Plot the performance profiles.
         fprintf("Creating performance profiles for tolerance %g.\n", tolerance);
-        [fig, ~] = drawProfile(x_perf, y_perf, 'perf', perf_ratio_max, labels, 'Performance ratio', ['Performance profiles (', tolerance_label, ')']);
-        eps_filename_perf = fullfile(path_perf_out, ['performance_profile_' int2str(i_profile) '.eps']);
-        print(fig, eps_filename_perf, '-depsc');
+        [fig, ~] = drawProfile(x_perf, y_perf, 'perf', ratio_max_perf, labels, 'Performance ratio', ['Performance profiles (', tolerance_label, ')']);
+        % eps_filename_perf = fullfile(path_perf_out, ['performance_profile_' int2str(i_profile) '.eps']);
+        % print(fig, eps_filename_perf, '-depsc');
         pdf_filename_perf = fullfile(path_perf_out, ['performance_profile_' int2str(i_profile) '.pdf']);
         print(fig, pdf_filename_perf, '-dpdf');
         merge_pdf_filename_perf = fullfile(path_perf_out, name_pdf_merged_perf);
@@ -148,7 +148,7 @@ function createProfiles(solvers, labels, problem_names, feature_name, varargin)
         
         % Plot the data profiles.
         fprintf("Creating data profiles for tolerance %g.\n", tolerance);
-        [fig, ~] = drawProfile(x_data, y_data, 'data', data_ratio_max, labels, 'Number of simplex gradients', ['Data profiles (', tolerance_label, ')']);
+        [fig, ~] = drawProfile(x_data, y_data, 'data', ratio_max_data, labels, 'Number of simplex gradients', ['Data profiles (', tolerance_label, ')']);
         eps_filename_data = fullfile(path_data_out, ['data_profile_' int2str(i_profile) '.eps']);
         print(fig, eps_filename_data, '-depsc');
         pdf_filename_data = fullfile(path_data_out, ['data_profile_' int2str(i_profile) '.pdf']);
