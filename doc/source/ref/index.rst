@@ -13,4 +13,5 @@ Python API documentation
 
     Problem
     find_cutest_problems
+    create_profiles
     show_versions

@@ -5,7 +5,7 @@ import numpy as np
 
 class FeatureName(str, Enum):
     """
-    Features.
+    Feature names.
     """
     CUSTOM = 'custom'
     NOISY = 'noisy'
@@ -56,23 +56,23 @@ class Feature:
         Other Parameters
         ----------------
         distribution : callable, optional
-            Distribution used in the noisy and randomize_x0 feature.
+            Distribution used in the 'noisy' and 'randomize_x0' feature.
         modifier : callable, optional
-            Modifier used in the custom feature.
+            Modifier used in the 'custom' feature.
         n_runs : int, optional
             Number of runs for all features.
         order : int or float, optional
-            Order of the regularized feature.
+            Order of the 'regularized' feature.
         parameter : int or float, optional
-            Regularization parameter of the regularized feature.
+            Regularization parameter of the 'regularized' feature.
         rate_error : int or float, optional
-            Rate of errors of the tough feature.
+            Rate of errors of the 'tough' feature.
         rate_nan : int or float, optional
-            Rate of NaNs of the tough feature.
+            Rate of NaNs of the 'tough' feature.
         significant_digits : int, optional
-            Number of significant digits of the truncated feature.
+            Number of significant digits of the 'truncated' feature.
         type : str, optional
-            Type of the noisy and randomize_x0 feature.
+            Type of the 'noisy' feature.
         """
         self._name = feature_name.lower()
         self._options = {k.lower(): v for k, v in feature_options.items()}
@@ -163,7 +163,7 @@ class Feature:
 
     def modifier(self, x, f, seed=None):
         """
-        Modify the objective function value.
+        Modify the objective function value according to the feature.
 
         Parameters
         ----------

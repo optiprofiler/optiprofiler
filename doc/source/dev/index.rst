@@ -6,6 +6,13 @@ Python developer guide
 
 .. currentmodule:: OptiProfiler
 
+The `profiles` module implements the classes and functions to benchmark optimization solvers.
+
+.. toctree::
+    :maxdepth: 2
+
+    profiles
+
 The `problems` module implements classes and functions to handle optimization problems.
 
 .. toctree::

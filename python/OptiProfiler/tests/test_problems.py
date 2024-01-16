@@ -25,9 +25,9 @@ class BaseTestProblem:
 
     @staticmethod
     def assert_dimensions(problem, n, m_linear_ub, m_linear_eq, m_nonlinear_ub, m_nonlinear_eq):
-        assert problem.n == n
-        assert problem.m_linear_ub == m_linear_ub
-        assert problem.m_linear_eq == m_linear_eq
+        assert problem.dimension == n
+        assert problem.num_linear_ub == m_linear_ub
+        assert problem.num_linear_eq == m_linear_eq
         assert problem.m_nonlinear_ub == m_nonlinear_ub
         assert problem.m_nonlinear_eq == m_nonlinear_eq
         assert problem.xl.shape == (n,)
@@ -247,14 +247,14 @@ class TestFeaturedProblem(BaseTestProblem):
 
         # Check the featured problem attributes.
         assert featured_problem.n_eval == 0
-        assert featured_problem.fun_values.shape == (0,)
-        assert featured_problem.maxcv_values.shape == (0,)
+        assert featured_problem.fun_history.shape == (0,)
+        assert featured_problem.maxcv_history.shape == (0,)
 
         # Evaluate the objective function at x0.
         f = featured_problem.fun(x0)
         assert featured_problem.n_eval == 1
-        np.testing.assert_array_equal(featured_problem.fun_values, [f])
-        np.testing.assert_array_equal(featured_problem.maxcv_values, [0.0])
+        np.testing.assert_array_equal(featured_problem.fun_history, [f])
+        np.testing.assert_array_equal(featured_problem.maxcv_history, [0.0])
 
         # Construct a featured problem with a different feature.
         feature = Feature('custom', modifier=lambda x, f, seed: f + 1)
@@ -263,8 +263,8 @@ class TestFeaturedProblem(BaseTestProblem):
         # Evaluate the objective function at x0.
         f = featured_problem.fun(x0)
         assert featured_problem.n_eval == 1
-        np.testing.assert_allclose(featured_problem.fun_values, [f - 1])
-        np.testing.assert_array_equal(featured_problem.maxcv_values, [0.0])
+        np.testing.assert_allclose(featured_problem.fun_history, [f - 1])
+        np.testing.assert_array_equal(featured_problem.maxcv_history, [0.0])
 
     def test_catch(self):
         # Construct a nonlinearly constrained problem.

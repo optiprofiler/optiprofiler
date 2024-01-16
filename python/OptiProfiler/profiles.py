@@ -15,8 +15,8 @@ from matplotlib import pyplot as plt
 from matplotlib.backends import backend_pdf
 from matplotlib.ticker import MaxNLocator
 
-from .features import Feature, FeatureName, FeatureOptionKey
-from .problems import Problem, FeaturedProblem, CUTEstProblemOptionKey, ProblemError, load_cutest_problem
+from .features import FeatureName, FeatureOptionKey, Feature
+from .problems import CUTEstProblemOptionKey, Problem, FeaturedProblem, ProblemError, load_cutest_problem
 from .utils import get_logger
 
 
@@ -229,7 +229,7 @@ def _solve_one(problem_name, problem_options, solvers, labels, feature, max_eval
     # Solve the problem with each solver.
     n_solvers = len(solvers)
     n_runs = feature.options[FeatureOptionKey.N_RUNS]
-    max_eval = max_eval_factor * problem.n
+    max_eval = max_eval_factor * problem.dimension
     n_eval = np.zeros((n_solvers, n_runs), dtype=int)
     fun_values = np.full((n_solvers, n_runs, max_eval), np.nan)
     maxcv_values = np.full((n_solvers, n_runs, max_eval), np.nan)
@@ -253,12 +253,12 @@ def _solve_one(problem_name, problem_options, solvers, labels, feature, max_eval
                     else:
                         solvers[i_solver](lambda x: featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, featured_problem.cub, featured_problem.ceq)
             n_eval[i_solver, i_run] = featured_problem.n_eval
-            fun_values[i_solver, i_run, :n_eval[i_solver, i_run]] = featured_problem.fun_values[:n_eval[i_solver, i_run]]
-            maxcv_values[i_solver, i_run, :n_eval[i_solver, i_run]] = featured_problem.maxcv_values[:n_eval[i_solver, i_run]]
+            fun_values[i_solver, i_run, :n_eval[i_solver, i_run]] = featured_problem.fun_history[:n_eval[i_solver, i_run]]
+            maxcv_values[i_solver, i_run, :n_eval[i_solver, i_run]] = featured_problem.maxcv_history[:n_eval[i_solver, i_run]]
             if n_eval[i_solver, i_run] > 0:
                 fun_values[i_solver, i_run, n_eval[i_solver, i_run]:] = fun_values[i_solver, i_run, n_eval[i_solver, i_run] - 1]
                 maxcv_values[i_solver, i_run, n_eval[i_solver, i_run]:] = maxcv_values[i_solver, i_run, n_eval[i_solver, i_run] - 1]
-    return fun_values, maxcv_values, fun_init, maxcv_init, n_eval, problem_name, problem.n
+    return fun_values, maxcv_values, fun_init, maxcv_init, n_eval, problem_name, problem.dimension
 
 
 def _compute_merit_values(fun_values, maxcv_values):

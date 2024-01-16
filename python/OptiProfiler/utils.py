@@ -12,15 +12,15 @@ def get_logger(name=None, level=logging.INFO):
     Parameters
     ----------
     name : str
-        Name of the logger.
+        Name of the logger. If ``None``, the root logger is returned.
     level : int
         Logging level.
 
     Returns
     -------
     `logging.Logger`
-        Logger with the given name. If a logger with the given name already
-        exists, it is returned instead of creating a new one.
+        Logger with the given name. If a logger with the given name has already
+        been created, it is returned instead of creating a new one.
     """
     logger = logging.getLogger(name)
     if len(logger.handlers) == 0:
@@ -35,7 +35,9 @@ def get_logger(name=None, level=logging.INFO):
 
 def show_versions():
     """
-    Provide useful information when reporting issues.
+    Display useful system and dependency information.
+
+    When reporting issues, please include this information.
     """
     print('System settings')
     print('---------------')
