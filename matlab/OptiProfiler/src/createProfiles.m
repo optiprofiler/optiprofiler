@@ -134,8 +134,8 @@ function createProfiles(solvers, labels, problem_names, feature_name, varargin)
         % Plot the performance profiles.
         fprintf("Creating performance profiles for tolerance %g.\n", tolerance);
         [fig, ~] = drawProfile(x_perf, y_perf, 'perf', ratio_max_perf, labels, 'Performance ratio', ['Performance profiles (', tolerance_label, ')']);
-        % eps_filename_perf = fullfile(path_perf_out, ['performance_profile_' int2str(i_profile) '.eps']);
-        % print(fig, eps_filename_perf, '-depsc');
+        eps_filename_perf = fullfile(path_perf_out, ['performance_profile_' int2str(i_profile) '.eps']);
+        print(fig, eps_filename_perf, '-depsc');
         pdf_filename_perf = fullfile(path_perf_out, ['performance_profile_' int2str(i_profile) '.pdf']);
         print(fig, pdf_filename_perf, '-dpdf');
         merge_pdf_filename_perf = fullfile(path_perf_out, name_pdf_merged_perf);

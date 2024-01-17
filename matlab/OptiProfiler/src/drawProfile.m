@@ -5,6 +5,7 @@ function [fig, ax] = drawProfile(x, y, perf_or_data, ratio_max, labels, x_label,
     y_max = squeeze(max(y, [], 3));
     fig = figure('visible', 'off');
     ax = axes;
+
     ax.LineStyleCyclingMethod = 'withcolor';
 
     hold on;
@@ -19,9 +20,12 @@ function [fig, ax] = drawProfile(x, y, perf_or_data, ratio_max, labels, x_label,
                 y_mean_stairs = [0.0; y_mean_stairs; y_mean_stairs(end)];
                 y_min_stairs = [0.0; y_min_stairs; y_min_stairs(end)];
                 y_max_stairs = [0.0; y_max_stairs; y_max_stairs(end)];
+
+                % Get the color MATLAB will use for the next plot command in the axes 'ax'.
+                nextColor = ax.ColorOrder(mod(ax.ColorOrderIndex-1, size(ax.ColorOrder, 1)) + 1, :);
                 plot(ax, x_stairs, y_mean_stairs, 'DisplayName', labels{i_solver});
                 fill(ax, [x_stairs; flipud(x_stairs)], [y_min_stairs; flipud(y_max_stairs)], ...
-                    'b', 'FaceAlpha', 0.2, 'EdgeAlpha', 0);
+                    nextColor, 'FaceAlpha', 0.2, 'EdgeAlpha', 0, 'HandleVisibility', 'off');
             end
             set(ax, 'YTick', 0:0.1:1, 'YTickLabel', {'0', '', '0.2', '', '0.4', '', '0.6', '', '0.8', '', '1'}, ...
                 'XLim', [0.0, 1.1 * log2(ratio_max)], 'YLim', [0.0, 1.0], 'TickLabelInterpreter', 'latex');
@@ -34,9 +38,12 @@ function [fig, ax] = drawProfile(x, y, perf_or_data, ratio_max, labels, x_label,
                 y_mean_stairs = [0.0; y_mean_stairs; y_mean_stairs(end)];
                 y_min_stairs = [0.0; y_min_stairs; y_min_stairs(end)];
                 y_max_stairs = [0.0; y_max_stairs; y_max_stairs(end)];
+
+                % Get the color MATLAB will use for the next plot command in the axes 'ax'.
+                nextColor = ax.ColorOrder(mod(ax.ColorOrderIndex-1, size(ax.ColorOrder, 1)) + 1, :);
                 plot(ax, x_stairs, y_mean_stairs, 'DisplayName', labels{i_solver});
                 fill(ax, [x_stairs; flipud(x_stairs)], [y_min_stairs; flipud(y_max_stairs)], ...
-                    'b', 'FaceAlpha', 0.2, 'EdgeAlpha', 0);
+                    nextColor, 'FaceAlpha', 0.2, 'EdgeAlpha', 0, 'HandleVisibility', 'off');
             end         
             set(ax, 'YTick', 0:0.1:1, 'YTickLabel', {'0', '', '0.2', '', '0.4', '', '0.6', '', '0.8', '', '1'}, ...
                 'XLim', [0.0, 1.1 * ratio_max], 'YLim', [0.0, 1.0], 'TickLabelInterpreter', 'latex');
