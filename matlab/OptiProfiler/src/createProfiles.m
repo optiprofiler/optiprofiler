@@ -133,7 +133,7 @@ function createProfiles(solvers, labels, problem_names, feature_name, varargin)
 
         % Plot the performance profiles.
         fprintf("Creating performance profiles for tolerance %g.\n", tolerance);
-        [fig, ~] = drawProfile(x_perf, y_perf, 'perf', ratio_max_perf, labels, 'Performance ratio', ['Performance profiles (', tolerance_label, ')']);
+        [fig, ~] = drawProfile(x_perf, y_perf, 'perf', ratio_max_perf, labels, tolerance_label);
         eps_filename_perf = fullfile(path_perf_out, ['performance_profile_' int2str(i_profile) '.eps']);
         print(fig, eps_filename_perf, '-depsc');
         pdf_filename_perf = fullfile(path_perf_out, ['performance_profile_' int2str(i_profile) '.pdf']);
@@ -148,7 +148,7 @@ function createProfiles(solvers, labels, problem_names, feature_name, varargin)
         
         % Plot the data profiles.
         fprintf("Creating data profiles for tolerance %g.\n", tolerance);
-        [fig, ~] = drawProfile(x_data, y_data, 'data', ratio_max_data, labels, 'Number of simplex gradients', ['Data profiles (', tolerance_label, ')']);
+        [fig, ~] = drawProfile(x_data, y_data, 'data', ratio_max_data, labels, tolerance_label);
         eps_filename_data = fullfile(path_data_out, ['data_profile_' int2str(i_profile) '.eps']);
         print(fig, eps_filename_data, '-depsc');
         pdf_filename_data = fullfile(path_data_out, ['data_profile_' int2str(i_profile) '.pdf']);
