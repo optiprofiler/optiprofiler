@@ -1,8 +1,7 @@
 import numpy as np
 
 from .features import Feature
-from .settings import FeatureName, CUTEstProblemOptionKey, FeatureOptionKey, ProblemError
-from .utils import get_logger
+from .utils import FeatureName, CUTEstProblemOptionKey, FeatureOptionKey, ProblemError, get_logger
 
 
 class Problem:
@@ -663,6 +662,116 @@ class FeaturedProblem(Problem):
         return self._feature.modifier(x, f, self._seed)
 
 
+def find_cutest_problems(constraints, **problem_options):
+    """
+    Find the names of all the CUTEst problems that satisfy given requirements.
+
+    .. caution::
+
+        To use this function, you must first install
+        `PyCUTEst <https://jfowkes.github.io/pycutest/>`_. Follow the
+        instructions carefully, as the CUTEst library must be installed in order
+        to use `PyCUTEst <https://jfowkes.github.io/pycutest/>`_.
+
+    Parameters
+    ----------
+    constraints : str
+        Type of constraints that the CUTEst problems must have. It should
+        contain one or more of the following substrings: 'unconstrained',
+        'fixed', 'bound', 'adjacency', 'linear', 'quadratic', 'other'.
+
+    Returns
+    -------
+    list of str or tuple
+        Names of all the CUTEst problems that satisfy the given requirements.
+        If the problem has variable dimension and/or number of constraints, a
+        tuple containing the name of the problem and a dictionary with the
+        relevant options is provided. It is not guaranteed that the problems can
+        be loaded successfully. Indeed, some of the problems may, for example,
+        have a variable dimension, with a default value that does not meet the
+        requirements. Moreover, some of the problems may fail to load due to
+        bugs in their implementations.
+
+    Other Parameters
+    ----------------
+    n_min : int, optional
+        Minimum number of variables.
+    n_max : int, optional
+        Maximum number of variables.
+    m_min : int, optional
+        Minimum number of linear and nonlinear constraints.
+    m_max : int, optional
+        Maximum number of linear and nonlinear constraints.
+
+    Raises
+    ------
+    TypeError
+        If an argument received an invalid value.
+    ValueError
+        If the arguments are inconsistent.
+
+    Examples
+    --------
+    To find all the unconstrained problems with at most 100 variables, use:
+
+
+    >>> from OptiProfiler import find_cutest_problems
+    >>>
+    >>> problem_names = find_cutest_problems('unconstrained', n_max=100)
+    """
+    import pycutest
+
+    # Preprocess the constraints.
+    if not isinstance(constraints, str):
+        raise TypeError('The argument constraints must be a string.')
+    for constraint in constraints.split():
+        if constraint not in ['unconstrained', 'fixed', 'bound', 'adjacency', 'linear', 'quadratic', 'other']:
+            raise ValueError(f'Unknown constraint: {constraint}.')
+
+    # Preprocess the problem options.
+    if CUTEstProblemOptionKey.N_MIN in problem_options and isinstance(problem_options[CUTEstProblemOptionKey.N_MIN], float) and problem_options[CUTEstProblemOptionKey.N_MIN].is_integer():
+        problem_options[CUTEstProblemOptionKey.N_MIN.value] = int(problem_options[CUTEstProblemOptionKey.N_MIN])
+    if CUTEstProblemOptionKey.N_MIN in problem_options and (not isinstance(problem_options[CUTEstProblemOptionKey.N_MIN], int) or problem_options[CUTEstProblemOptionKey.N_MIN] < 1):
+        raise TypeError(f'The argument {CUTEstProblemOptionKey.N_MIN.value} must be a positive integer.')
+    if CUTEstProblemOptionKey.N_MAX in problem_options and isinstance(problem_options[CUTEstProblemOptionKey.N_MAX], float) and problem_options[CUTEstProblemOptionKey.N_MAX].is_integer():
+        problem_options[CUTEstProblemOptionKey.N_MAX.value] = int(problem_options[CUTEstProblemOptionKey.N_MAX])
+    if CUTEstProblemOptionKey.N_MAX in problem_options and (not isinstance(problem_options[CUTEstProblemOptionKey.N_MAX], int) or problem_options[CUTEstProblemOptionKey.N_MAX] < problem_options.get(CUTEstProblemOptionKey.N_MIN, 1)):
+        raise TypeError(f'The argument {CUTEstProblemOptionKey.N_MAX.value} must be an integer greater than or equal to {CUTEstProblemOptionKey.N_MIN.value}.')
+    if CUTEstProblemOptionKey.M_MIN in problem_options and isinstance(problem_options[CUTEstProblemOptionKey.M_MIN], float) and problem_options[CUTEstProblemOptionKey.M_MIN].is_integer():
+        problem_options[CUTEstProblemOptionKey.M_MIN.value] = int(problem_options[CUTEstProblemOptionKey.M_MIN])
+    if CUTEstProblemOptionKey.M_MIN in problem_options and (not isinstance(problem_options[CUTEstProblemOptionKey.M_MIN], int) or problem_options[CUTEstProblemOptionKey.M_MIN] < 0):
+        raise TypeError(f'The argument {CUTEstProblemOptionKey.M_MIN.value} must be a nonnegative integer.')
+    if CUTEstProblemOptionKey.M_MAX in problem_options and isinstance(problem_options[CUTEstProblemOptionKey.M_MAX], float) and problem_options[CUTEstProblemOptionKey.M_MAX].is_integer():
+        problem_options[CUTEstProblemOptionKey.M_MAX.value] = int(problem_options[CUTEstProblemOptionKey.M_MAX])
+    if CUTEstProblemOptionKey.M_MAX in problem_options and (not isinstance(problem_options[CUTEstProblemOptionKey.M_MAX], int) or problem_options[CUTEstProblemOptionKey.M_MAX] < problem_options.get(CUTEstProblemOptionKey.M_MIN, 0)):
+        raise TypeError(f'The argument {CUTEstProblemOptionKey.M_MAX.value} must be an integer greater than or equal to {CUTEstProblemOptionKey.M_MIN.value}.')
+
+    # Find all the problems that satisfy the constraints.
+    problem_names = pycutest.find_problems(objective='constant linear quadratic sum of squares other', constraints=constraints, n=[problem_options.get(CUTEstProblemOptionKey.N_MIN, 1), problem_options.get(CUTEstProblemOptionKey.N_MAX, np.inf)], m=[problem_options.get(CUTEstProblemOptionKey.M_MIN, 0), problem_options.get(CUTEstProblemOptionKey.M_MAX, np.inf)])
+    problem_names = sorted(set(problem_names))
+
+    # Build the result.
+    result = []
+    for problem_name in problem_names:
+        properties = pycutest.problem_properties(problem_name)
+        options = {}
+        if properties['n'] == 'variable':
+            if CUTEstProblemOptionKey.N_MIN in problem_options:
+                options[CUTEstProblemOptionKey.N_MIN.value] = problem_options[CUTEstProblemOptionKey.N_MIN]
+            if CUTEstProblemOptionKey.N_MAX in problem_options:
+                options[CUTEstProblemOptionKey.N_MAX.value] = problem_options[CUTEstProblemOptionKey.N_MAX]
+        if properties['m'] == 'variable':
+            if CUTEstProblemOptionKey.M_MIN in problem_options:
+                options[CUTEstProblemOptionKey.M_MIN.value] = problem_options[CUTEstProblemOptionKey.M_MIN]
+            if CUTEstProblemOptionKey.M_MAX in problem_options:
+                options[CUTEstProblemOptionKey.M_MAX.value] = problem_options[CUTEstProblemOptionKey.M_MAX]
+        if len(options) == 0:
+            result.append(problem_name)
+        else:
+            result.append((problem_name, options))
+    return result
+
+
 def load_cutest_problem(problem_name, **problem_options):
     """
     Load a CUTEst problem.
@@ -832,85 +941,6 @@ def load_cutest_problem(problem_name, **problem_options):
         }
     logger.info(f'CUTEst problem {cutest_problem.name} (n={cutest_problem.n}, m={cutest_problem.m}) successfully loaded.')
     return Problem(cutest_problem.obj, cutest_problem.x0, lb, ub, **constraints)
-
-
-def find_cutest_problems(constraints, **problem_options):
-    """
-    Find the names of all the CUTEst problems that satisfy given requirements.
-
-    Parameters
-    ----------
-    constraints : str
-        Type of constraints that the CUTEst problems must have. It should
-        contain one or more of the following substrings: 'unconstrained',
-        'fixed', 'bound', 'adjacency', 'linear', 'quadratic', 'other'.
-
-    Returns
-    -------
-    list of str
-        Names of all the CUTEst problems that satisfy the given requirements. It
-        is not guaranteed that the problems can be loaded successfully. Indeed,
-        some of the problems may have a variable dimension, with a default value
-        that does not meet the requirements. Moreover, some of the problems may
-        fail to load due to bugs in their implementations.
-
-    Other Parameters
-    ----------------
-    n_min : int, optional
-        Minimum number of variables.
-    n_max : int, optional
-        Maximum number of variables.
-    m_min : int, optional
-        Minimum number of linear and nonlinear constraints.
-    m_max : int, optional
-        Maximum number of linear and nonlinear constraints.
-
-    Raises
-    ------
-    TypeError
-        If an argument received an invalid value.
-    ValueError
-        If the arguments are inconsistent.
-
-    Examples
-    --------
-    To find all the unconstrained problems with at most 100 variables, use:
-
-
-    >>> from OptiProfiler import find_cutest_problems
-    >>>
-    >>> problem_names = find_cutest_problems('unconstrained', n_max=100)
-    """
-    import pycutest
-
-    # Preprocess the constraints.
-    if not isinstance(constraints, str):
-        raise TypeError('The argument constraints must be a string.')
-    for constraint in constraints.split():
-        if constraint not in ['unconstrained', 'fixed', 'bound', 'adjacency', 'linear', 'quadratic', 'other']:
-            raise ValueError(f'Unknown constraint: {constraint}.')
-
-    # Preprocess the problem options.
-    if CUTEstProblemOptionKey.N_MIN in problem_options and isinstance(problem_options[CUTEstProblemOptionKey.N_MIN], float) and problem_options[CUTEstProblemOptionKey.N_MIN].is_integer():
-        problem_options[CUTEstProblemOptionKey.N_MIN.value] = int(problem_options[CUTEstProblemOptionKey.N_MIN])
-    if CUTEstProblemOptionKey.N_MIN in problem_options and (not isinstance(problem_options[CUTEstProblemOptionKey.N_MIN], int) or problem_options[CUTEstProblemOptionKey.N_MIN] < 1):
-        raise TypeError(f'The argument {CUTEstProblemOptionKey.N_MIN.value} must be a positive integer.')
-    if CUTEstProblemOptionKey.N_MAX in problem_options and isinstance(problem_options[CUTEstProblemOptionKey.N_MAX], float) and problem_options[CUTEstProblemOptionKey.N_MAX].is_integer():
-        problem_options[CUTEstProblemOptionKey.N_MAX.value] = int(problem_options[CUTEstProblemOptionKey.N_MAX])
-    if CUTEstProblemOptionKey.N_MAX in problem_options and (not isinstance(problem_options[CUTEstProblemOptionKey.N_MAX], int) or problem_options[CUTEstProblemOptionKey.N_MAX] < problem_options.get(CUTEstProblemOptionKey.N_MIN, 1)):
-        raise TypeError(f'The argument {CUTEstProblemOptionKey.N_MAX.value} must be an integer greater than or equal to {CUTEstProblemOptionKey.N_MIN.value}.')
-    if CUTEstProblemOptionKey.M_MIN in problem_options and isinstance(problem_options[CUTEstProblemOptionKey.M_MIN], float) and problem_options[CUTEstProblemOptionKey.M_MIN].is_integer():
-        problem_options[CUTEstProblemOptionKey.M_MIN.value] = int(problem_options[CUTEstProblemOptionKey.M_MIN])
-    if CUTEstProblemOptionKey.M_MIN in problem_options and (not isinstance(problem_options[CUTEstProblemOptionKey.M_MIN], int) or problem_options[CUTEstProblemOptionKey.M_MIN] < 0):
-        raise TypeError(f'The argument {CUTEstProblemOptionKey.M_MIN.value} must be a nonnegative integer.')
-    if CUTEstProblemOptionKey.M_MAX in problem_options and isinstance(problem_options[CUTEstProblemOptionKey.M_MAX], float) and problem_options[CUTEstProblemOptionKey.M_MAX].is_integer():
-        problem_options[CUTEstProblemOptionKey.M_MAX.value] = int(problem_options[CUTEstProblemOptionKey.M_MAX])
-    if CUTEstProblemOptionKey.M_MAX in problem_options and (not isinstance(problem_options[CUTEstProblemOptionKey.M_MAX], int) or problem_options[CUTEstProblemOptionKey.M_MAX] < problem_options.get(CUTEstProblemOptionKey.M_MIN, 0)):
-        raise TypeError(f'The argument {CUTEstProblemOptionKey.M_MAX.value} must be an integer greater than or equal to {CUTEstProblemOptionKey.M_MIN.value}.')
-
-    # Find all the problems that satisfy the constraints.
-    problem_names = pycutest.find_problems(objective='constant linear quadratic sum of squares other', constraints=constraints, n=[problem_options.get(CUTEstProblemOptionKey.N_MIN, 1), problem_options.get(CUTEstProblemOptionKey.N_MAX, np.inf)], m=[problem_options.get(CUTEstProblemOptionKey.M_MIN, 0), problem_options.get(CUTEstProblemOptionKey.M_MAX, np.inf)], userM=False)
-    return sorted(set(problem_names))
 
 
 def _1d_array(x, message):

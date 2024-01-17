@@ -2,7 +2,87 @@ import logging
 import os
 import platform
 import sys
+from enum import Enum
 from importlib.metadata import PackageNotFoundError, version
+
+
+class FeatureName(str, Enum):
+    """
+    Feature names.
+    """
+    CUSTOM = 'custom'
+    NOISY = 'noisy'
+    PLAIN = 'plain'
+    RANDOMIZE_X0 = 'randomize_x0'
+    REGULARIZED = 'regularized'
+    TOUGH = 'tough'
+    TRUNCATED = 'truncated'
+
+
+class ProfileOptionKey(str, Enum):
+    """
+    Profile's options.
+    """
+    N_JOBS = 'n_jobs'
+    BENCHMARK_ID = 'benchmark_id'
+
+
+class CUTEstProblemOptionKey(str, Enum):
+    """
+    Options for loading a CUTEst problem.
+    """
+    N_MIN = 'n_min'
+    N_MAX = 'n_max'
+    M_MIN = 'm_min'
+    M_MAX = 'm_max'
+
+
+class FeatureOptionKey(str, Enum):
+    """
+    Feature's options.
+    """
+    DISTRIBUTION = 'distribution'
+    MODIFIER = 'modifier'
+    N_RUNS = 'n_runs'
+    ORDER = 'order'
+    PARAMETER = 'parameter'
+    RATE_ERROR = 'rate_error'
+    RATE_NAN = 'rate_nan'
+    SIGNIFICANT_DIGITS = 'significant_digits'
+    TYPE = 'type'
+
+
+class NoiseType(str, Enum):
+    """
+    Noise types.
+    """
+    ABSOLUTE = 'absolute'
+    RELATIVE = 'relative'
+
+
+class ProblemError(Exception):
+    """
+    Exception raised when a problem cannot be loaded.
+    """
+    pass
+
+
+def show_versions():
+    """
+    Display useful system and dependency information.
+
+    When reporting issues, please include this information.
+    """
+    print('System settings')
+    print('---------------')
+    sys_info = _get_sys_info()
+    print('\n'.join(f'{k:>{max(map(len, sys_info.keys())) + 1}}: {v}' for k, v in sys_info.items()))
+
+    print()
+    print('Python dependencies')
+    print('-------------------')
+    deps_info = _get_deps_info()
+    print('\n'.join(f'{k:>{max(map(len, deps_info.keys())) + 1}}: {v}' for k, v in deps_info.items()))
 
 
 def get_logger(name=None, level=logging.INFO):
@@ -31,24 +111,6 @@ def get_logger(name=None, level=logging.INFO):
         handler.setFormatter(logging.Formatter('[%(levelname)-8s] %(message)s'))
         logger.addHandler(handler)
     return logger
-
-
-def show_versions():
-    """
-    Display useful system and dependency information.
-
-    When reporting issues, please include this information.
-    """
-    print('System settings')
-    print('---------------')
-    sys_info = _get_sys_info()
-    print('\n'.join(f'{k:>{max(map(len, sys_info.keys())) + 1}}: {v}' for k, v in sys_info.items()))
-
-    print()
-    print('Python dependencies')
-    print('-------------------')
-    deps_info = _get_deps_info()
-    print('\n'.join(f'{k:>{max(map(len, deps_info.keys())) + 1}}: {v}' for k, v in deps_info.items()))
 
 
 def _get_sys_info():

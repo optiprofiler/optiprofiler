@@ -75,6 +75,5 @@ def cobyqa(fun, x0, lb, ub, a_ub, b_ub, a_eq, b_eq, c_ub, c_eq):
 
 
 if __name__ == '__main__':
-    cutest_problem_options = {'n_max': 2}
-    cutest_problem_names = find_cutest_problems('unconstrained', **cutest_problem_options)[0]
-    create_profiles([newuoa, cobyqa], ['NEWUOA', 'COBYQA'], cutest_problem_names, benchmark_id='unconstrained', **cutest_problem_options)
+    cutest_problem_names = find_cutest_problems('unconstrained', n_max=2)
+    create_profiles([newuoa, cobyqa], ['NEWUOA', 'COBYQA'], cutest_problem_names, feature_name='plain', benchmark_id='unconstrained')

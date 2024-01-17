@@ -16,11 +16,123 @@ from matplotlib.ticker import MaxNLocator
 
 from .features import Feature
 from .problems import Problem, FeaturedProblem, load_cutest_problem
-from .settings import FeatureName, ProfileOptionKey, CUTEstProblemOptionKey, FeatureOptionKey, ProblemError
-from .utils import get_logger
+from .utils import FeatureName, ProfileOptionKey, FeatureOptionKey, ProblemError, get_logger
 
 
 def create_profiles(solvers, labels=(), cutest_problem_names=(), extra_problems=(), feature_name='plain', **kwargs):
+    """
+    Create the benchmark profiles.
+
+    The benchmark profiles include the performance and data profiles [1]_, [2]_,
+    [4]_, and the log-ratio profiles [3]_, [5]_. The log-ratio profiles are
+    available only when there are exactly two solvers.
+
+    .. caution::
+
+        To use CUTEst problems in your benchmark, you must first install
+        `PyCUTEst <https://jfowkes.github.io/pycutest/>`_. Follow the
+        instructions carefully, as the CUTEst library must be installed in order
+        to use `PyCUTEst <https://jfowkes.github.io/pycutest/>`_.
+
+    Parameters
+    ----------
+    solvers : list of callable
+        Solvers to benchmark. Each solver must be a callable, as follows. For
+        unconstrained problems, the signature of the callable must be
+
+            ``solver(fun, x0)``
+
+        where ``fun`` is the objective function and ``x0`` is the initial point.
+        The objective function returns a scalar and should be minimized. For
+        bound-constrained problems, the signature of the callable must be
+
+            ``solver(fun, x0, lb, ub)``
+
+        where ``lb`` and ``ub`` are the lower and upper bounds, respectively.
+        For linearly constrained problems, the signature of the callable must be
+
+            ``solver(fun, x0, lb, ub, a_ub, b_ub, a_eq, b_eq)``
+
+        where ``a_ub @ x <= b_ub`` and ``a_eq @ x == b_eq`` form the linear
+        inequality and equality constraints, respectively. For nonlinearly
+        constrained problems, the signature of the callable must be
+
+            ``solver(fun, x0, lb, ub, a_ub, b_ub, a_eq, b_eq, c_ub, c_eq)``
+
+        where ``c_ub(x) <= 0`` and ``c_eq(x) == 0`` form the nonlinear
+        inequality and equality constraints, respectively.
+
+        All vectors and matrices mentioned above are `numpy.ndarray`.
+    labels : list of str, optional
+        Labels of the solvers in the plots. By default, the labels are the
+        names of the callables in `solvers`.
+    cutest_problem_names : list of str or tuple, optional
+        Names of the CUTEst problems to use in the benchmark. Each of these
+        problems will be loaded from CUTEst with their default options. If a
+        problem cannot be loaded, it is ignored. If a CUTEst problem has
+        variable dimension and/or number of constraints, you can provide a tuple
+        instead of a string. The first element of the tuple must be the name of
+        the problem, and the second element must be a dictionary of options, as
+        described in the documentation of `load_cutest_problem`. This function
+        provides a list of available CUTEst problems.
+    extra_problems : list of `Problem`, optional
+        Extra problems to use in the benchmark. If you do not want to use CUTEst
+        problems, you can use this argument to provide your own problems.
+    feature_name : str, optional
+        Name of the feature to use in the benchmark. The available features are
+
+        - ``'plain'``: to do.
+        - ``'noisy'``: to do.
+        - ``'regularized'``: to do.
+        - ``'truncated'``: to do.
+        - ``'tough'``: to do.
+        - ``'randomize_x0'``: to do.
+        - ``'custom'``: to do.
+
+    Other Parameters
+    ----------------
+    To do.
+
+    Raises
+    ------
+    TypeError
+        If an argument received an invalid value.
+    ValueError
+        If the arguments are inconsistent.
+
+    See Also
+    --------
+    find_cutest_problems : Find names of CUTEst problems.
+    Problem : Representation of optimization problems.
+
+    Notes
+    -----
+    The current version of `OptiProfiler` only supports derivative-free
+    optimization solvers.
+
+    References
+    ----------
+    .. [1] E. D. Dolan and J. J. Moré. Benchmarking optimization software with
+           performance profiles. *Math. Program.*, 91(2):201–213, 2002.
+           `doi:10.1007/s101070100263 <https://doi.org/10.1007/s101070100263>`_.
+    .. [2] N. Gould and J. Scott. A note on performance profiles for
+           benchmarking software. *ACM Trans. Math. Software*, 43(2):15:1–5,
+           2016. `doi:10.1145/2950048 <https://doi.org/10.1145/2950048>`_.
+    .. [3] J. L. Morales. A numerical study of limited memory BFGS methods.
+           *Appl. Math. Lett.*, 15(4):481–487, 2002.
+           `doi:10.1016/S0893-9659(01)00162-8 <https://doi.org/10.1016/S0893-9659(01)00162-8>`_.
+    .. [4] J. J. Moré and S. M. Wild. Benchmarking derivative-free optimization
+           algorithms. *SIAM J. Optim.*, 20(1):172–191, 2009.
+           `doi:10.1137/080724083 <https://doi.org/10.1137/080724083>`_.
+    .. [5] H.-J. M. Shi, M. Q. Xuan, F. Oztoprak, and J. Nocedal. On the
+           numerical performance of finite-difference-based methods for
+           derivative-free optimization. *Optim. Methods Softw.*, 38(2):289–311,
+           2023. `doi:10.1080/10556788.2022.2121832 <https://doi.org/10.1080/10556788.2022.2121832>`_.
+
+    Examples
+    --------
+    To do.
+    """
     # Preprocess the solvers.
     if not hasattr(solvers, '__len__') or not all(callable(solver) for solver in solvers):
         raise TypeError('The solvers must be a list of callables.')
@@ -38,9 +150,11 @@ def create_profiles(solvers, labels=(), cutest_problem_names=(), extra_problems=
         labels = [solver.__name__ for solver in solvers]
 
     # Preprocess the CUTEst problem names.
-    if not hasattr(cutest_problem_names, '__len__') or not all(isinstance(problem_name, str) for problem_name in cutest_problem_names):
-        raise TypeError('The CUTEst problem names must be a list of strings.')
-    cutest_problem_names = list(cutest_problem_names)
+    # N.B.: Duplicate names are and MUST BE removed.
+    if not hasattr(cutest_problem_names, '__len__') or not all(isinstance(problem_name, str) or hasattr(problem_name, '__len__') and len(problem_name) == 2 and isinstance(problem_name[0], str) and isinstance(problem_name[1], dict) for problem_name in cutest_problem_names):
+        raise TypeError('The CUTEst problem names must be a list of strings or tuples.')
+    cutest_problem_options = [{} if isinstance(problem_name, str) else problem_name[1] for problem_name in cutest_problem_names]
+    cutest_problem_names = list(problem_name.upper() if isinstance(problem_name, str) else problem_name[0].upper() for problem_name in cutest_problem_names)
 
     # Preprocess the extra problems.
     if not hasattr(extra_problems, '__len__') or not all(isinstance(problem, Problem) for problem in extra_problems):
@@ -58,13 +172,10 @@ def create_profiles(solvers, labels=(), cutest_problem_names=(), extra_problems=
 
     # Get the different options from the keyword arguments.
     feature_options = {}
-    cutest_problem_options = {}
     profile_options = {}
     for key, value in kwargs.items():
         if key in FeatureOptionKey.__members__.values():
             feature_options[key] = value
-        elif key in CUTEstProblemOptionKey.__members__.values():
-            cutest_problem_options[key] = value
         elif key in ProfileOptionKey.__members__.values():
             profile_options[key] = value
         else:
@@ -207,8 +318,11 @@ def create_profiles(solvers, labels=(), cutest_problem_names=(), extra_problems=
 
 
 def _solve_all(cutest_problem_names, cutest_problem_options, extra_problems, solvers, labels, feature, max_eval_factor, profile_options):
+    """
+    Solve all problems in parallel.
+    """
     problem_names = cutest_problem_names + extra_problems
-    problem_options = [cutest_problem_options for _ in cutest_problem_names] + [{'name': f'EXTRA{i_problem + 1}'} for i_problem in range(len(extra_problems))]
+    problem_options = cutest_problem_options + [{'name': f'EXTRA{i_problem + 1}'} for i_problem in range(len(extra_problems))]
 
     # Solve all problems.
     logger = get_logger(__name__)
@@ -249,6 +363,19 @@ def _solve_all(cutest_problem_names, cutest_problem_options, extra_problems, sol
 
 @delayed
 def _solve_one(problem_name, problem_options, solvers, labels, feature, max_eval_factor):
+    """
+    Solve a given problem.
+
+    If problem_name is an instance of Problem, it is used directly. In this
+    case, the problem options but contain the name of the problem. Otherwise,
+    the problem is loaded from CUTEst.
+
+    Notes
+    -----
+    This function is delayed because it is called from within a parallel
+    section. To avoid conflicts issues, you must not call this function
+    concurrently with the same CUTEst problem name.
+    """
     # Load the problem and return if it cannot be loaded.
     if isinstance(problem_name, Problem):
         problem = problem_name
@@ -299,6 +426,9 @@ def _solve_one(problem_name, problem_options, solvers, labels, feature, max_eval
 
 
 def _compute_merit_values(fun_values, maxcv_values):
+    """
+    Compute the merit function values.
+    """
     if isinstance(fun_values, np.ndarray) and isinstance(maxcv_values, np.ndarray):
         is_infeasible = maxcv_values >= 1e-6
         is_almost_feasible = (1e-12 < maxcv_values) & (maxcv_values < 1e-6)
@@ -315,6 +445,9 @@ def _compute_merit_values(fun_values, maxcv_values):
 
 
 def _format_float_scientific_latex(x):
+    """
+    Format a floating-point number as scientific notation in LaTeX.
+    """
     raw = np.format_float_scientific(x, trim='-', exp_digits=0)
     match = re.compile(r'^(?P<coefficient>[0-9]+(\.[0-9]+)?)e(?P<exponent>(-)?[0-9]+)$').match(raw)
     if not match:
@@ -325,6 +458,9 @@ def _format_float_scientific_latex(x):
 
 
 def _profile_axes(work, denominator):
+    """
+    Calculate the axes of the performance and data profiles.
+    """
     n_problems, n_solvers, n_runs = work.shape
 
     # Calculate the x-axis values.
@@ -353,6 +489,9 @@ def _profile_axes(work, denominator):
 
 
 def _draw_profile(x, y, labels):
+    """
+    Draw performance and data profiles.
+    """
     n_solvers = x.shape[1]
     y_mean = np.mean(y, 2)
     y_min = np.min(y, 2)

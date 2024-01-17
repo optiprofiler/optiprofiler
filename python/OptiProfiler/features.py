@@ -1,6 +1,6 @@
 import numpy as np
 
-from OptiProfiler.settings import FeatureName, FeatureOptionKey, NoiseType
+from .utils import FeatureName, FeatureOptionKey, NoiseType
 
 
 class Feature:
@@ -240,7 +240,7 @@ class Feature:
         ----------
         seed : int
             Seed used to generate an initial random number generator.
-        args : tuple of int or float
+        *args : tuple of int or float
             Arguments used to generate the returned random number generator.
 
         Returns

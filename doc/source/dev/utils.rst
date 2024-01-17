@@ -8,5 +8,11 @@ Utilities
 .. autosummary::
     :toctree: generated/
 
-    get_logger
+    FeatureName
+    ProfileOptionKey
+    CUTEstProblemOptionKey
+    FeatureOptionKey
+    NoiseType
+    ProblemError
     show_versions
+    get_logger
