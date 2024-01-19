@@ -128,6 +128,8 @@ class TestFeature:
         np.testing.assert_allclose(feature.modifier(x, f),  f + 1.0)
 
     def test_exceptions(self):
+        with pytest.raises(TypeError):
+            Feature(1)
         with pytest.raises(ValueError):
             Feature('unknown')
         with pytest.raises(ValueError):
@@ -136,7 +138,7 @@ class TestFeature:
             Feature('plain', parameter=1.0)
         with pytest.raises(TypeError):
             Feature('noisy', n_runs=1.5)
-        with pytest.raises(TypeError):
+        with pytest.raises(ValueError):
             Feature('noisy', n_runs=-1)
         with pytest.raises(TypeError):
             Feature('custom', modifier=1.0)
@@ -146,28 +148,41 @@ class TestFeature:
             Feature('regularized', order='1.0')
         with pytest.raises(TypeError):
             Feature('regularized', parameter='1.0')
-        with pytest.raises(TypeError):
+        with pytest.raises(ValueError):
             Feature('regularized', parameter=-1.0)
         with pytest.raises(TypeError):
             Feature('tough', rate_error='1.0')
-        with pytest.raises(TypeError):
+        with pytest.raises(ValueError):
             Feature('tough', rate_error=-1.0)
-        with pytest.raises(TypeError):
+        with pytest.raises(ValueError):
             Feature('tough', rate_error=2.0)
         with pytest.raises(TypeError):
             Feature('tough', rate_nan='1.0')
-        with pytest.raises(TypeError):
+        with pytest.raises(ValueError):
             Feature('tough', rate_nan=-1.0)
-        with pytest.raises(TypeError):
+        with pytest.raises(ValueError):
             Feature('tough', rate_nan=2.0)
         with pytest.raises(TypeError):
             Feature('truncated', significant_digits=2.5)
-        with pytest.raises(TypeError):
+        with pytest.raises(ValueError):
             Feature('truncated', significant_digits=-1)
         with pytest.raises(TypeError):
             Feature('noisy', type='+')
-        with pytest.raises(TypeError):
+        with pytest.raises(ValueError):
             Feature('custom')
+        feature = Feature('custom', modifier=lambda x, f, seed: f + 1.0)
+        with pytest.raises(TypeError):
+            feature.modifier([0.0, 0.0], 1.0)
+        with pytest.raises(TypeError):
+            feature.modifier(np.zeros(2), 1)
+        with pytest.raises(TypeError):
+            feature.modifier(np.zeros(2), 1.0, 1.5)
+        with pytest.raises(TypeError):
+            feature.default_rng(1.5)
+        with pytest.raises(ValueError):
+            feature.default_rng(-1)
+        with pytest.raises(TypeError):
+            feature.default_rng(0, 'arg')
 
     def test_catch(self):
         # The value n_runs can be a float.
@@ -175,3 +190,9 @@ class TestFeature:
 
         # The value significant_digits can be a float.
         Feature('truncated', significant_digits=2.0)
+
+        # The seed can be a float.
+        feature = Feature('plain')
+        feature.modifier(np.zeros(2), 1.0, seed=1.0)
+        feature.default_rng(1.0)
+

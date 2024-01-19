@@ -184,13 +184,17 @@ class Problem:
         self._num_nonlinear_ub = num_nonlinear_ub
         if isinstance(self._num_nonlinear_ub, float) and self._num_nonlinear_ub.is_integer():
             self._num_nonlinear_ub = int(self._num_nonlinear_ub)
-        if self._num_nonlinear_ub is not None and not (isinstance(self._num_nonlinear_ub, int) and self._num_nonlinear_ub >= 0):
-            raise TypeError('The argument num_nonlinear_ub must be a nonnegative integer.')
+        if self._num_nonlinear_ub is not None and not isinstance(self._num_nonlinear_ub, int):
+            raise TypeError('The argument num_nonlinear_ub must be an integer.')
+        if self._num_nonlinear_ub is not None and self._num_nonlinear_ub < 0:
+            raise ValueError('The argument num_nonlinear_ub must be nonnegative.')
         self._num_nonlinear_eq = num_nonlinear_eq
         if isinstance(self._num_nonlinear_eq, float) and self._num_nonlinear_eq.is_integer():
             self._num_nonlinear_eq = int(self._num_nonlinear_eq)
-        if self._num_nonlinear_eq is not None and not (isinstance(self._num_nonlinear_eq, int) and self._num_nonlinear_eq >= 0):
-            raise TypeError('The argument num_nonlinear_eq must be a nonnegative integer.')
+        if self._num_nonlinear_eq is not None and not isinstance(self._num_nonlinear_eq, int):
+            raise TypeError('The argument num_nonlinear_eq must be an integer.')
+        if self._num_nonlinear_eq is not None and self._num_nonlinear_eq < 0:
+            raise ValueError('The argument num_nonlinear_eq must be nonnegative.')
 
         # Check that the arguments are consistent.
         if self.lb.size != self.dimension:
@@ -547,10 +551,6 @@ class FeaturedProblem(Problem):
         TypeError
             If an argument received an invalid value.
         """
-        # Preprocess the problem.
-        if not isinstance(problem, Problem):
-            raise TypeError('The argument problem must be an instance of the class Problem.')
-
         # Preprocess the feature.
         self._feature = feature
         if not isinstance(self._feature, Feature):
@@ -560,22 +560,30 @@ class FeaturedProblem(Problem):
         self._max_eval = max_eval
         if isinstance(self._max_eval, float) and self._max_eval.is_integer():
             self._max_eval = int(self._max_eval)
-        if not isinstance(self._max_eval, int) or self._max_eval < 1:
-            raise TypeError('The argument max_eval must be a positive integer.')
+        if not isinstance(self._max_eval, int):
+            raise TypeError('The argument max_eval must be an integer.')
+        if self._max_eval < 1:
+            raise ValueError('The argument max_eval must be positive.')
 
         # Preprocess the seed.
         self._seed = seed
         if self._seed is not None:
             if isinstance(self._seed, float) and self._seed.is_integer():
                 self._seed = int(self._seed)
-            if not isinstance(self._seed, int) or self._seed < 0:
-                raise TypeError('The argument seed must be a nonnegative integer.')
+            if not isinstance(self._seed, int):
+                raise TypeError('The argument seed must be an integer.')
+            if self._seed < 0:
+                raise ValueError('The argument seed must be nonnegative.')
 
         # Store the objective function values and maximum constraint violations.
         self._fun_history = []
         self._maxcv_history = []
 
     def __new__(cls, problem, feature, max_eval, seed=None):
+        # Preprocess the problem.
+        if not isinstance(problem, Problem):
+            raise TypeError('The argument problem must be an instance of the class Problem.')
+
         # Create a new instance of the class `FeaturedProblem` by copying the
         # attributes of the problem passed to the __init__ method.
         instance = super().__new__(cls)
@@ -679,20 +687,28 @@ def set_cutest_problem_options(**problem_options):
     for option_key, option_value in problem_options.items():
         if option_key == CUTEstProblemOptionKey.N_MIN and isinstance(option_value, float) and option_value.is_integer():
             option_value = int(option_value)
-        if option_key == CUTEstProblemOptionKey.N_MIN and (not isinstance(option_value, int) or option_value < 1):
-            raise TypeError(f'The argument {CUTEstProblemOptionKey.N_MIN.value} must be a positive integer.')
+        if option_key == CUTEstProblemOptionKey.N_MIN and not isinstance(option_value, int):
+            raise TypeError(f'The argument {CUTEstProblemOptionKey.N_MIN.value} must be an integer.')
+        if option_key == CUTEstProblemOptionKey.N_MIN and option_value < 1:
+            raise ValueError(f'The argument {CUTEstProblemOptionKey.N_MIN.value} must be positive.')
         if option_key == CUTEstProblemOptionKey.N_MAX and isinstance(option_value, float) and option_value.is_integer():
             option_value = int(option_value)
-        if option_key == CUTEstProblemOptionKey.N_MAX and (not isinstance(option_value, int) or option_value < problem_options.get(CUTEstProblemOptionKey.N_MIN, 1)):
-            raise TypeError(f'The argument {CUTEstProblemOptionKey.N_MAX.value} must be an integer greater than or equal to {CUTEstProblemOptionKey.N_MIN.value}.')
+        if option_key == CUTEstProblemOptionKey.N_MAX and not isinstance(option_value, int):
+            raise TypeError(f'The argument {CUTEstProblemOptionKey.N_MAX.value} must be an integer.')
+        if option_key == CUTEstProblemOptionKey.N_MAX and option_value < problem_options.get(CUTEstProblemOptionKey.N_MIN, 1):
+            raise ValueError(f'The argument {CUTEstProblemOptionKey.N_MAX.value} must be greater than or equal to {CUTEstProblemOptionKey.N_MIN.value}.')
         if option_key == CUTEstProblemOptionKey.M_MIN and isinstance(option_value, float) and option_value.is_integer():
             option_value = int(option_value)
-        if option_key == CUTEstProblemOptionKey.M_MIN and (not isinstance(option_value, int) or option_value < 0):
-            raise TypeError(f'The argument {CUTEstProblemOptionKey.M_MIN.value} must be a nonnegative integer.')
+        if option_key == CUTEstProblemOptionKey.M_MIN and not isinstance(option_value, int):
+            raise TypeError(f'The argument {CUTEstProblemOptionKey.M_MIN.value} must be an integer.')
+        if option_key == CUTEstProblemOptionKey.M_MIN and option_value < 0:
+            raise ValueError(f'The argument {CUTEstProblemOptionKey.M_MIN.value} must be nonnegative.')
         if option_key == CUTEstProblemOptionKey.M_MAX and isinstance(option_value, float) and option_value.is_integer():
             option_value = int(option_value)
-        if option_key == CUTEstProblemOptionKey.M_MAX and (not isinstance(option_value, int) or option_value < problem_options.get(CUTEstProblemOptionKey.M_MIN, 0)):
-            raise TypeError(f'The argument {CUTEstProblemOptionKey.M_MAX.value} must be an integer greater than or equal to {CUTEstProblemOptionKey.M_MIN.value}.')
+        if option_key == CUTEstProblemOptionKey.M_MAX and not isinstance(option_value, int):
+            raise TypeError(f'The argument {CUTEstProblemOptionKey.M_MAX.value} must be an integer.')
+        if option_key == CUTEstProblemOptionKey.M_MAX and option_value < problem_options.get(CUTEstProblemOptionKey.M_MIN, 0):
+            raise ValueError(f'The argument {CUTEstProblemOptionKey.M_MAX.value} must be greater than or equal to {CUTEstProblemOptionKey.M_MIN.value}.')
         if option_key in CUTEstProblemOptionKey.__members__.values():
             _cutest_problem_options[option_key] = option_value
         else:

@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from OptiProfiler.features import Feature
-from OptiProfiler.problems import FeaturedProblem, Problem, ProblemError, set_cutest_problem_options, find_cutest_problems, load_cutest_problem
+from OptiProfiler.problems import FeaturedProblem, Problem, ProblemError, get_cutest_problem_options, set_cutest_problem_options, find_cutest_problems, load_cutest_problem
 
 
 class BaseTestProblem:
@@ -266,6 +266,20 @@ class TestFeaturedProblem(BaseTestProblem):
         np.testing.assert_allclose(featured_problem.fun_history, [f - 1])
         np.testing.assert_array_equal(featured_problem.maxcv_history, [0.0])
 
+    def test_exceptions(self):
+        with pytest.raises(TypeError):
+            FeaturedProblem('problem', Feature('plain'), 1)
+        with pytest.raises(TypeError):
+            FeaturedProblem(Problem(self.rosen, np.zeros(1)), 'feature', 1)
+        with pytest.raises(TypeError):
+            FeaturedProblem(Problem(self.rosen, np.zeros(1)), Feature('plain'), 'max_eval')
+        with pytest.raises(ValueError):
+            FeaturedProblem(Problem(self.rosen, np.zeros(1)), Feature('plain'), 0)
+        with pytest.raises(TypeError):
+            FeaturedProblem(Problem(self.rosen, np.zeros(1)), Feature('plain'), 1, 1.5)
+        with pytest.raises(ValueError):
+            FeaturedProblem(Problem(self.rosen, np.zeros(1)), Feature('plain'), 1, -1)
+
     def test_catch(self):
         # Construct a nonlinearly constrained problem.
         x0 = np.zeros(2)
@@ -274,6 +288,12 @@ class TestFeaturedProblem(BaseTestProblem):
         # Construct a featured problem.
         feature = Feature('plain')
         FeaturedProblem(problem, feature, 1000)
+
+        # The maximum number of evaluations can be a float.
+        FeaturedProblem(problem, feature, 1000.0)
+
+        # The seed can be a float.
+        FeaturedProblem(problem, feature, 1000, 1.0)
 
     @pytest.mark.parametrize('n', [1, 10, 100])
     def test_randomize_x0(self, n):
@@ -305,30 +325,39 @@ class TestFeaturedProblem(BaseTestProblem):
 
 
 @pytest.mark.extra
-class TestLoadCUTEst:
+class TestSetCUTEstProblemOptions:
 
-    @pytest.mark.parametrize('constraint', ['unconstrained', 'fixed', 'bound', 'adjacency', 'linear', 'quadratic', 'other'])
-    def test_simple(self, constraint):
-        set_cutest_problem_options(n_min=1, n_max=10, m_min=0, m_max=100)
-        problem_names = find_cutest_problems(constraint)
-        for i_problem in range(min(10, len(problem_names))):
-            try:
-                problem = load_cutest_problem(problem_names[i_problem])
-                assert isinstance(problem, Problem)
-                problem.fun(problem.x0)
-                problem.c_ub(problem.x0)
-                problem.c_eq(problem.x0)
-            except ProblemError:
-                pass
+    def test_simple(self):
+        set_cutest_problem_options(n_min=1, n_max=100, m_min=0, m_max=100)
+        assert isinstance(get_cutest_problem_options(), dict)
+        assert get_cutest_problem_options()['n_min'] == 1
+        assert get_cutest_problem_options()['n_max'] == 100
+        assert get_cutest_problem_options()['m_min'] == 0
+        assert get_cutest_problem_options()['m_max'] == 100
 
     def test_exceptions(self):
         with pytest.raises(TypeError):
-            load_cutest_problem(1)
+            set_cutest_problem_options(n_min=1.5)
+        with pytest.raises(TypeError):
+            set_cutest_problem_options(n_max=1.5)
+        with pytest.raises(TypeError):
+            set_cutest_problem_options(m_min=1.5)
+        with pytest.raises(TypeError):
+            set_cutest_problem_options(m_max=1.5)
+        with pytest.raises(ValueError):
+            set_cutest_problem_options(n_min=0)
+        with pytest.raises(ValueError):
+            set_cutest_problem_options(n_max=0)
+        with pytest.raises(ValueError):
+            set_cutest_problem_options(m_min=-1)
+        with pytest.raises(ValueError):
+            set_cutest_problem_options(m_max=-1)
 
     def test_catch(self):
-        set_cutest_problem_options(n_min=1.0, n_max=10.0)
-        problem_names = find_cutest_problems('unconstrained')
-        load_cutest_problem(problem_names[0])
+        set_cutest_problem_options(n_min=1.0)
+        set_cutest_problem_options(n_max=1.0)
+        set_cutest_problem_options(m_min=1.0)
+        set_cutest_problem_options(m_max=1.0)
 
 
 @pytest.mark.extra
@@ -371,3 +400,30 @@ class TestFindCUTEstProblemNames:
     def test_catch(self):
         set_cutest_problem_options(n_min=1.0, n_max=10.0, m_min=1.0, m_max=100.0)
         find_cutest_problems('quadratic')
+
+
+@pytest.mark.extra
+class TestLoadCUTEst:
+
+    @pytest.mark.parametrize('constraint', ['unconstrained', 'fixed', 'bound', 'adjacency', 'linear', 'quadratic', 'other'])
+    def test_simple(self, constraint):
+        set_cutest_problem_options(n_min=1, n_max=10, m_min=0, m_max=100)
+        problem_names = find_cutest_problems(constraint)
+        for i_problem in range(min(10, len(problem_names))):
+            try:
+                problem = load_cutest_problem(problem_names[i_problem])
+                assert isinstance(problem, Problem)
+                problem.fun(problem.x0)
+                problem.c_ub(problem.x0)
+                problem.c_eq(problem.x0)
+            except ProblemError:
+                pass
+
+    def test_exceptions(self):
+        with pytest.raises(TypeError):
+            load_cutest_problem(1)
+
+    def test_catch(self):
+        set_cutest_problem_options(n_min=1.0, n_max=10.0)
+        problem_names = find_cutest_problems('unconstrained')
+        load_cutest_problem(problem_names[0])

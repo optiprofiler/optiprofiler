@@ -83,8 +83,10 @@ class Feature:
             if key == FeatureOptionKey.N_RUNS:
                 if isinstance(self._options[key], float) and self._options[key].is_integer():
                     self._options[key] = int(self._options[key])
-                if not isinstance(self._options[key], int) or self._options[key] <= 0:
-                    raise TypeError(f'Option {key} must be a positive integer.')
+                if not isinstance(self._options[key], int):
+                    raise TypeError(f'Option {key} must be an integer.')
+                if self._options[key] <= 0:
+                    raise ValueError(f'Option {key} must be integer.')
             elif key == FeatureOptionKey.MODIFIER:
                 if not callable(self._options[key]):
                     raise TypeError(f'Option {key} must be callable.')
@@ -95,16 +97,22 @@ class Feature:
                 if not isinstance(self._options[key], (int, float)):
                     raise TypeError(f'Option {key} must be a number.')
             elif key == FeatureOptionKey.PARAMETER:
-                if not isinstance(self._options[key], (int, float)) or self._options[key] < 0.0:
-                    raise TypeError(f'Option {key} must be a nonnegative number.')
+                if not isinstance(self._options[key], (int, float)):
+                    raise TypeError(f'Option {key} must be a number.')
+                if self._options[key] < 0.0:
+                    raise ValueError(f'Option {key} must be nonnegative.')
             elif key in [FeatureOptionKey.RATE_ERROR, FeatureOptionKey.RATE_NAN]:
-                if not isinstance(self._options[key], (int, float)) or not (0.0 <= self._options[key] <= 1.0):
-                    raise TypeError(f'Option {key} must be a number between 0 and 1.')
+                if not isinstance(self._options[key], (int, float)):
+                    raise TypeError(f'Option {key} must be a number.')
+                if not (0.0 <= self._options[key] <= 1.0):
+                    raise ValueError(f'Option {key} must be between 0 and 1.')
             elif key == FeatureOptionKey.SIGNIFICANT_DIGITS:
                 if isinstance(self._options[key], float) and self._options[key].is_integer():
                     self._options[key] = int(self._options[key])
-                if not isinstance(self._options[key], int) or self._options[key] <= 0:
-                    raise TypeError(f'Option {key} must be a positive integer.')
+                if not isinstance(self._options[key], int):
+                    raise TypeError(f'Option {key} must be an integer.')
+                if self._options[key] <= 0:
+                    raise ValueError(f'Option {key} must be positive.')
             elif key == FeatureOptionKey.TYPE:
                 if not isinstance(self._options[key], str) or self._options[key].lower() not in NoiseType.__members__.values():
                     raise TypeError(f'Option {key} must be either "{NoiseType.ABSOLUTE.value}" or "{NoiseType.RELATIVE.value}".')
@@ -166,8 +174,10 @@ class Feature:
         if seed is not None:
             if isinstance(seed, float) and seed.is_integer():
                 seed = int(seed)
-            if not isinstance(seed, int) or seed < 0:
-                raise TypeError('The argument seed must be a nonnegative integer.')
+            if not isinstance(seed, int):
+                raise TypeError('The argument seed must be an integer.')
+            if seed < 0:
+                raise ValueError('The argument seed must be nonnegative.')
 
         # Modify the objective function value.
         if self._name == FeatureName.CUSTOM:
@@ -208,7 +218,7 @@ class Feature:
             self._options.setdefault(FeatureOptionKey.N_RUNS.value, 1)
         elif self._name == FeatureName.CUSTOM:
             if FeatureOptionKey.MODIFIER not in self._options:
-                raise TypeError(f'When using a custom feature, you must specify the {FeatureOptionKey.MODIFIER} option.')
+                raise ValueError(f'When using a custom feature, you must specify the {FeatureOptionKey.MODIFIER} option.')
             self._options.setdefault(FeatureOptionKey.N_RUNS.value, 1)
         elif self._name == FeatureName.NOISY:
             self._options.setdefault(FeatureOptionKey.DISTRIBUTION.value, lambda rng: 1e-3 * rng.standard_normal())
@@ -252,8 +262,10 @@ class Feature:
         if seed is not None:
             if isinstance(seed, float) and seed.is_integer():
                 seed = int(seed)
-            if not isinstance(seed, int) or seed < 0:
-                raise TypeError('The argument seed must be a nonnegative integer.')
+            if not isinstance(seed, int):
+                raise TypeError('The argument seed must be an integer.')
+            if seed < 0:
+                raise ValueError('The argument seed must be nonnegative.')
 
         # Preprocess the other arguments.
         for arg in args:
