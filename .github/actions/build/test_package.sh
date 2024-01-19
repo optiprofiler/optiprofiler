@@ -7,8 +7,8 @@ for f in dist/*.tar.gz dist/*.whl; do
     python -m venv venv
     source venv/bin/activate
     python -m pip install --progress-bar=off "$f[tests]"
-    python -c "import OptiProfiler; OptiProfiler.show_versions()"
-    python -m pytest --pyargs OptiProfiler
+    python -c "import optiprofiler; optiprofiler.show_versions()"
+    python -m pytest --pyargs optiprofiler
     deactivate
     rm -r venv
 done
