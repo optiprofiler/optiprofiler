@@ -1,6 +1,6 @@
 import numpy as np
 
-from OptiProfiler import find_cutest_problems, create_profiles
+from OptiProfiler import set_cutest_problem_options, find_cutest_problems, create_profiles
 
 
 def uobyqa(fun, x0):
@@ -75,5 +75,6 @@ def cobyqa(fun, x0, lb, ub, a_ub, b_ub, a_eq, b_eq, c_ub, c_eq):
 
 
 if __name__ == '__main__':
-    cutest_problem_names = find_cutest_problems('unconstrained', n_max=2)
-    create_profiles([newuoa, cobyqa], ['NEWUOA', 'COBYQA'], cutest_problem_names, feature_name='plain', benchmark_id='unconstrained')
+    set_cutest_problem_options(n_max=2)
+    cutest_problem_names = find_cutest_problems('unconstrained')
+    create_profiles([newuoa, uobyqa], ['NEWUOA', 'UOBYQA'], cutest_problem_names, feature_name='plain', benchmark_id='unconstrained')

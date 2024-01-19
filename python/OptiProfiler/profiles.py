@@ -15,7 +15,7 @@ from matplotlib.backends import backend_pdf
 from matplotlib.ticker import MaxNLocator
 
 from .features import Feature
-from .problems import Problem, FeaturedProblem, load_cutest_problem
+from .problems import Problem, FeaturedProblem, get_cutest_problem_options, set_cutest_problem_options, load_cutest_problem
 from .utils import FeatureName, ProfileOptionKey, FeatureOptionKey, ProblemError, get_logger
 
 
@@ -66,15 +66,11 @@ def create_profiles(solvers, labels=(), cutest_problem_names=(), extra_problems=
     labels : list of str, optional
         Labels of the solvers in the plots. By default, the labels are the
         names of the callables in `solvers`.
-    cutest_problem_names : list of str or tuple, optional
+    cutest_problem_names : list of str, optional
         Names of the CUTEst problems to use in the benchmark. Each of these
-        problems will be loaded from CUTEst with their default options. If a
-        problem cannot be loaded, it is ignored. If a CUTEst problem has
-        variable dimension and/or number of constraints, you can provide a tuple
-        instead of a string. The first element of the tuple must be the name of
-        the problem, and the second element must be a dictionary of options, as
-        described in the documentation of `load_cutest_problem`. This function
-        provides a list of available CUTEst problems.
+        problems will be loaded from CUTEst with their default parameters. If a
+        problem cannot be loaded, it is ignored. You can use the function
+        `find_cutest_problems` to obtain a list of available CUTEst problems.
     extra_problems : list of `Problem`, optional
         Extra problems to use in the benchmark. If you do not want to use CUTEst
         problems, you can use this argument to provide your own problems.
@@ -151,10 +147,9 @@ def create_profiles(solvers, labels=(), cutest_problem_names=(), extra_problems=
 
     # Preprocess the CUTEst problem names.
     # N.B.: Duplicate names are and MUST BE removed.
-    if not hasattr(cutest_problem_names, '__len__') or not all(isinstance(problem_name, str) or hasattr(problem_name, '__len__') and len(problem_name) == 2 and isinstance(problem_name[0], str) and isinstance(problem_name[1], dict) for problem_name in cutest_problem_names):
-        raise TypeError('The CUTEst problem names must be a list of strings or tuples.')
-    cutest_problem_options = [{} if isinstance(problem_name, str) else problem_name[1] for problem_name in cutest_problem_names]
-    cutest_problem_names = list(problem_name.upper() if isinstance(problem_name, str) else problem_name[0].upper() for problem_name in cutest_problem_names)
+    if not hasattr(cutest_problem_names, '__len__') or not all(isinstance(problem_name, str) for problem_name in cutest_problem_names):
+        raise TypeError('The CUTEst problem names must be a list of strings.')
+    cutest_problem_names = list(set(problem_name.upper() for problem_name in cutest_problem_names))
 
     # Preprocess the extra problems.
     if not hasattr(extra_problems, '__len__') or not all(isinstance(problem, Problem) for problem in extra_problems):
@@ -195,7 +190,7 @@ def create_profiles(solvers, labels=(), cutest_problem_names=(), extra_problems=
 
     # Solve the problems.
     max_eval_factor = 500
-    fun_values, maxcv_values, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions = _solve_all(cutest_problem_names, cutest_problem_options, extra_problems, solvers, labels, feature, max_eval_factor, profile_options)
+    fun_values, maxcv_values, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions = _solve_all(cutest_problem_names, extra_problems, solvers, labels, feature, max_eval_factor, profile_options)
     merit_values = _compute_merit_values(fun_values, maxcv_values)
     merit_init = _compute_merit_values(fun_init, maxcv_init)
 
@@ -204,7 +199,7 @@ def create_profiles(solvers, labels=(), cutest_problem_names=(), extra_problems=
     if feature.name in [FeatureName.NOISY, FeatureName.TOUGH, FeatureName.TRUNCATED]:
         feature_plain = Feature('plain')
         logger.info(f'Starting the computation of the plain profiles.')
-        fun_values_plain, maxcv_values_plain, _, _, _, _, _ = _solve_all(cutest_problem_names, cutest_problem_options, extra_problems, solvers, labels, feature_plain, max_eval_factor, profile_options)
+        fun_values_plain, maxcv_values_plain, _, _, _, _, _ = _solve_all(cutest_problem_names, extra_problems, solvers, labels, feature_plain, max_eval_factor, profile_options)
         merit_values_plain = _compute_merit_values(fun_values_plain, maxcv_values_plain)
         merit_min_plain = np.min(merit_values_plain, (1, 2, 3))
         merit_min = np.minimum(merit_min, merit_min_plain)
@@ -317,17 +312,17 @@ def create_profiles(solvers, labels=(), cutest_problem_names=(), extra_problems=
         logger.info(f'Results stored in {path_out}.')
 
 
-def _solve_all(cutest_problem_names, cutest_problem_options, extra_problems, solvers, labels, feature, max_eval_factor, profile_options):
+def _solve_all(cutest_problem_names, extra_problems, solvers, labels, feature, max_eval_factor, profile_options):
     """
     Solve all problems in parallel.
     """
-    problem_names = cutest_problem_names + extra_problems
-    problem_options = cutest_problem_options + [{'name': f'EXTRA{i_problem + 1}'} for i_problem in range(len(extra_problems))]
+    problem_names = cutest_problem_names + [(f'EXTRA{i_problem}', extra_problem) for i_problem, extra_problem in enumerate(extra_problems)]
+    cutest_problem_options = get_cutest_problem_options()
 
     # Solve all problems.
     logger = get_logger(__name__)
     logger.info('Entering the parallel section.')
-    results = Parallel(n_jobs=profile_options[ProfileOptionKey.N_JOBS])(_solve_one(problem_name, problem_option, solvers, labels, feature, max_eval_factor) for problem_name, problem_option in zip(problem_names, problem_options))
+    results = Parallel(n_jobs=profile_options[ProfileOptionKey.N_JOBS])(_solve_one(problem_name, solvers, labels, feature, max_eval_factor, cutest_problem_options) for problem_name in problem_names)
     logger.info('Leaving the parallel section.')
     if all(result is None for result in results):
         logger.critical('All problems failed to load.')
@@ -362,7 +357,7 @@ def _solve_all(cutest_problem_names, cutest_problem_options, extra_problems, sol
 
 
 @delayed
-def _solve_one(problem_name, problem_options, solvers, labels, feature, max_eval_factor):
+def _solve_one(problem_name, solvers, labels, feature, max_eval_factor, cutest_problem_options):
     """
     Solve a given problem.
 
@@ -377,12 +372,13 @@ def _solve_one(problem_name, problem_options, solvers, labels, feature, max_eval
     concurrently with the same CUTEst problem name.
     """
     # Load the problem and return if it cannot be loaded.
-    if isinstance(problem_name, Problem):
-        problem = problem_name
-        problem_name = problem_options['name']
+    set_cutest_problem_options(**cutest_problem_options)
+    if isinstance(problem_name, tuple):
+        problem = problem_name[1]
+        problem_name = problem_name[0]
     else:
         try:
-            problem = load_cutest_problem(problem_name, **problem_options)
+            problem = load_cutest_problem(problem_name)
         except ProblemError:
             return
 
