@@ -1,4 +1,4 @@
-.. module:: OptiProfiler
+.. module:: optiprofiler
 
 Python API documentation
 ========================
@@ -6,7 +6,7 @@ Python API documentation
 :Release: |release|
 :Date: |today|
 
-.. currentmodule:: OptiProfiler
+.. currentmodule:: optiprofiler
 
 .. autosummary::
     :toctree: generated/

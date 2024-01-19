@@ -1,4 +1,6 @@
+import os
 import sys
+from contextlib import redirect_stdout, redirect_stderr
 
 import numpy as np
 
@@ -27,7 +29,7 @@ class Problem:
 
     To create an instance of the class `Problem` for this problem, run:
 
-    >>> from OptiProfiler import Problem
+    >>> from optiprofiler import Problem
     >>>
     >>> def rosen(x):
     ...     return 100 * (x[1] - x[0] ** 2) ** 2 + (1 - x[0]) ** 2
@@ -537,9 +539,9 @@ class FeaturedProblem(Problem):
 
         Parameters
         ----------
-        problem : `OptiProfiler.problems.Problem`
+        problem : `optiprofiler.problems.Problem`
             Problem to be used in the benchmarking.
-        feature : `OptiProfiler.features.Feature`
+        feature : `optiprofiler.features.Feature`
             Feature to be used in the benchmarking.
         max_eval : int
             Maximum number of function evaluations.
@@ -750,7 +752,7 @@ def find_cutest_problems(constraints):
     To find all the unconstrained problems with at most 100 variables, use:
 
 
-    >>> from OptiProfiler import set_cutest_problem_options, find_cutest_problems
+    >>> from optiprofiler import set_cutest_problem_options, find_cutest_problems
     >>>
     >>> set_cutest_problem_options(n_max=100)
     >>> problem_names = find_cutest_problems('unconstrained')
@@ -875,7 +877,9 @@ def load_cutest_problem(problem_name):
     logger = get_logger(__name__)
     logger.info(f'Loading CUTEst problem {problem_name}.')
     try:
-        cutest_problem = pycutest.import_problem(problem_name)
+        with open(os.devnull, 'w') as devnull:
+            with redirect_stdout(devnull), redirect_stderr(devnull):
+                cutest_problem = pycutest.import_problem(problem_name)
     except Exception as err:
         logger.error(f'Failed to load CUTEst problem {problem_name}: {err}')
 

@@ -3,7 +3,7 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "OptiProfiler"
+name = "optiprofiler"
 description = "Benchmarking optimization solvers"
 readme = "README.rst"
 requires-python = ">=3.8"
@@ -60,8 +60,8 @@ tests = [
 ]
 
 [tool.setuptools.dynamic]
-version = {attr = "OptiProfiler.__version__"}
+version = {attr = "optiprofiler.__version__"}
 
 [tool.setuptools.packages.find]
 where = ["python"]
-include = ["OptiProfiler*"]
+include = ["optiprofiler*"]

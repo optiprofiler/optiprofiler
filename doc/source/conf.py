@@ -8,7 +8,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-import OptiProfiler
+import optiprofiler
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
@@ -18,11 +18,11 @@ author = 'Cunxin Huang, Tom M. Ragonneau, and Zaikun Zhang'
 copyright = f'{2023}\u2013{datetime.now().year}, {author}'
 
 # Short version (including .devX, rcX, b1 suffixes if present).
-version = re.sub(r'(\d+\.\d+)\.\d+(.*)', r'\1\2', OptiProfiler.__version__)
+version = re.sub(r'(\d+\.\d+)\.\d+(.*)', r'\1\2', optiprofiler.__version__)
 version = re.sub(r'(\.dev\d+).*?$', r'\1', version)
 
 # Full version, including alpha/beta/rc tags.
-release = OptiProfiler.__version__
+release = optiprofiler.__version__
 
 
 # -- General configuration ---------------------------------------------------
@@ -59,8 +59,8 @@ html_theme_options = {
 }
 
 html_context = {
-    'github_user': 'OptiProfiler',
-    'github_repo': 'OptiProfiler',
+    'github_user': 'optiprofiler',
+    'github_repo': 'optiprofiler',
     'github_version': 'main',
 }
 
@@ -143,11 +143,11 @@ def linkcode_resolve(domain, info):
     except TypeError:
         return None
     else:
-        fn = fn.relative_to(Path(OptiProfiler.__file__).resolve(True).parent)
+        fn = fn.relative_to(Path(optiprofiler.__file__).resolve(True).parent)
 
     # Ignore re-exports as their source files are not within the repository.
     module = inspect.getmodule(obj)
-    if module is not None and not module.__name__.startswith('OptiProfiler'):
+    if module is not None and not module.__name__.startswith('optiprofiler'):
         return None
 
     # Get the line span of the object in the source file.
@@ -159,6 +159,6 @@ def linkcode_resolve(domain, info):
 
     repository = f'https://github.com/{html_context["github_user"]}/{html_context["github_repo"]}'
     if 'dev' in release:
-        return f'{repository}/blob/{html_context["github_version"]}/python/OptiProfiler/{fn}{lines}'
+        return f'{repository}/blob/{html_context["github_version"]}/python/optiprofiler/{fn}{lines}'
     else:
-        return f'{repository}/blob/v{release}/python/OptiProfiler/{fn}{lines}'
+        return f'{repository}/blob/v{release}/python/optiprofiler/{fn}{lines}'

@@ -1,9 +1,9 @@
-.. module:: OptiProfiler.profiles
+.. module:: optiprofiler.profiles
 
 Profiles
 ========
 
-.. currentmodule:: OptiProfiler.profiles
+.. currentmodule:: optiprofiler.profiles
 
 .. autosummary::
     :toctree: generated/

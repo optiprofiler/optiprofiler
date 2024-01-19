@@ -138,7 +138,7 @@ def _get_deps_info():
     dict
         Dependency information.
     """
-    deps = ['OptiProfiler', 'joblib', 'matplotlib', 'numpy', 'pycutest', 'setuptools', 'pip']
+    deps = ['optiprofiler', 'joblib', 'matplotlib', 'numpy', 'pycutest', 'setuptools', 'pip']
     deps_info = {}
     for module in deps:
         try:

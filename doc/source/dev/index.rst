@@ -4,7 +4,7 @@ Python developer guide
 :Release: |release|
 :Date: |today|
 
-.. currentmodule:: OptiProfiler
+.. currentmodule:: optiprofiler
 
 The `profiles` module implements the functions to benchmark optimization solvers.
 

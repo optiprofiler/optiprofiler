@@ -103,7 +103,7 @@ def create_profiles(solvers, labels=(), cutest_problem_names=(), extra_problems=
 
     Notes
     -----
-    The current version of `OptiProfiler` only supports derivative-free
+    The current version of `optiprofiler` only supports derivative-free
     optimization solvers.
 
     References
@@ -287,7 +287,7 @@ def create_profiles(solvers, labels=(), cutest_problem_names=(), extra_problems=
                 work_flat = np.reshape(np.swapaxes(work, 1, 2), (n_problems * n_runs, n_solvers))
                 log_ratio = np.full(n_problems * n_runs, np.nan)
                 log_ratio_finite = np.isfinite(work_flat[:, 0]) & np.isfinite(work_flat[:, 1])
-                log_ratio[log_ratio_finite] = np.log2(work_flat[log_ratio_finite, 0] / work_flat[log_ratio_finite, 1])
+                log_ratio[log_ratio_finite] = np.log2(work_flat[log_ratio_finite, 0]) - np.log2(work_flat[log_ratio_finite, 1])
                 ratio_max = np.max(np.abs(log_ratio[log_ratio_finite]), initial=np.finfo(float).eps)
                 log_ratio[np.isnan(work_flat[:, 0]) & np.isfinite(work_flat[:, 1])] = 2.0 * ratio_max
                 log_ratio[np.isfinite(work_flat[:, 0]) & np.isnan(work_flat[:, 1])] = -2.0 * ratio_max
@@ -295,7 +295,9 @@ def create_profiles(solvers, labels=(), cutest_problem_names=(), extra_problems=
                 log_ratio = np.sort(log_ratio)
 
                 fig, ax = plt.subplots()
-                ax.bar(np.arange(1, n_problems * n_runs + 1), log_ratio)
+                x = np.arange(1, n_problems * n_runs + 1)
+                ax.bar(x[log_ratio < 0], log_ratio[log_ratio < 0])
+                ax.bar(x[log_ratio > 0], log_ratio[log_ratio > 0])
                 ax.text((n_problems * n_runs + 1) / 2, -ratio_max, labels[0], horizontalalignment='center', verticalalignment='bottom')
                 ax.text((n_problems * n_runs + 1) / 2, ratio_max, labels[1], horizontalalignment='center', verticalalignment='top')
                 with warnings.catch_warnings():

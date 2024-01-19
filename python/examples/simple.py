@@ -1,6 +1,6 @@
 import numpy as np
 
-from OptiProfiler import set_cutest_problem_options, find_cutest_problems, create_profiles
+from optiprofiler import set_cutest_problem_options, find_cutest_problems, create_profiles
 
 
 def uobyqa(fun, x0):

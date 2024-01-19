@@ -1,9 +1,9 @@
-.. module:: OptiProfiler.problems
+.. module:: optiprofiler.problems
 
 Optimization problems
 =====================
 
-.. currentmodule:: OptiProfiler.problems
+.. currentmodule:: optiprofiler.problems
 
 .. autosummary::
     :toctree: generated/

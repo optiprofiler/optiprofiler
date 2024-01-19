@@ -1,8 +1,11 @@
+from contextlib import suppress
+
 import numpy as np
 import pytest
 
-from OptiProfiler.features import Feature
-from OptiProfiler.problems import FeaturedProblem, Problem, ProblemError, get_cutest_problem_options, set_cutest_problem_options, find_cutest_problems, load_cutest_problem
+from optiprofiler.features import Feature
+from optiprofiler.problems import Problem, FeaturedProblem, get_cutest_problem_options, set_cutest_problem_options, find_cutest_problems, load_cutest_problem
+from optiprofiler.utils import ProblemError
 
 
 class BaseTestProblem:
@@ -270,6 +273,34 @@ class TestFeaturedProblem(BaseTestProblem):
         np.testing.assert_allclose(featured_problem.fun_history, [f - 1])
         np.testing.assert_array_equal(featured_problem.maxcv_history, [0.0])
 
+    @pytest.mark.parametrize('n', [1, 10, 100])
+    def test_randomize_x0(self, n):
+        # Construct a simple problem.
+        x0 = np.zeros(n)
+        problem = Problem(self.rosen, x0)
+
+        # Construct a featured problem.
+        feature = Feature('randomize_x0', distribution=lambda rng, n: np.ones(n))
+        featured_problem = FeaturedProblem(problem, feature, 500 * n)
+
+        # Evaluate the objective function at x0.
+        f = featured_problem.fun(featured_problem.x0)
+        np.testing.assert_allclose(f, problem.fun(x0 + 1.0))
+
+    def test_max_eval(self):
+        # Construct a simple problem.
+        x0 = np.zeros(2)
+        problem = Problem(self.rosen, x0)
+
+        # Construct a featured problem.
+        feature = Feature('plain')
+        featured_problem = FeaturedProblem(problem, feature, 1)
+
+        # Evaluate the objective function at x0 twice.
+        featured_problem.fun(featured_problem.x0)
+        with pytest.raises(RuntimeError):
+            featured_problem.fun(featured_problem.x0)
+
     def test_exceptions(self):
         with pytest.raises(TypeError):
             FeaturedProblem('problem', Feature('plain'), 1)
@@ -298,34 +329,6 @@ class TestFeaturedProblem(BaseTestProblem):
 
         # The seed can be a float.
         FeaturedProblem(problem, feature, 1000, 1.0)
-
-    @pytest.mark.parametrize('n', [1, 10, 100])
-    def test_randomize_x0(self, n):
-        # Construct a simple problem.
-        x0 = np.zeros(n)
-        problem = Problem(self.rosen, x0)
-
-        # Construct a featured problem.
-        feature = Feature('randomize_x0', distribution=lambda rng, n: np.ones(n))
-        featured_problem = FeaturedProblem(problem, feature, 500 * n)
-
-        # Evaluate the objective function at x0.
-        f = featured_problem.fun(featured_problem.x0)
-        np.testing.assert_allclose(f, problem.fun(x0 + 1.0))
-
-    def test_max_eval(self):
-        # Construct a simple problem.
-        x0 = np.zeros(2)
-        problem = Problem(self.rosen, x0)
-
-        # Construct a featured problem.
-        feature = Feature('plain')
-        featured_problem = FeaturedProblem(problem, feature, 1)
-
-        # Evaluate the objective function at x0 twice.
-        featured_problem.fun(featured_problem.x0)
-        with pytest.raises(RuntimeError):
-            featured_problem.fun(featured_problem.x0)
 
 
 @pytest.mark.extra
@@ -416,14 +419,12 @@ class TestLoadCUTEst:
         set_cutest_problem_options(n_min=1, n_max=10, m_min=0, m_max=100)
         problem_names = find_cutest_problems(constraint)
         for i_problem in range(min(10, len(problem_names))):
-            try:
+            with suppress(ProblemError):
                 problem = load_cutest_problem(problem_names[i_problem])
                 assert isinstance(problem, Problem)
                 problem.fun(problem.x0)
                 problem.c_ub(problem.x0)
                 problem.c_eq(problem.x0)
-            except ProblemError:
-                pass
 
     def test_exceptions(self):
         with pytest.raises(TypeError):

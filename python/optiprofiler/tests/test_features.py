@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from OptiProfiler.features import Feature
+from optiprofiler.features import Feature
 
 
 class TestFeature:
@@ -197,4 +197,3 @@ class TestFeature:
         feature = Feature('plain')
         feature.modifier(np.zeros(2), 1.0, seed=1.0)
         feature.default_rng(1.0)
-

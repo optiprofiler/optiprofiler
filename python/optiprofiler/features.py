@@ -114,8 +114,10 @@ class Feature:
                 if self._options[key] <= 0:
                     raise ValueError(f'Option {key} must be positive.')
             elif key == FeatureOptionKey.TYPE:
-                if not isinstance(self._options[key], str) or self._options[key].lower() not in NoiseType.__members__.values():
-                    raise TypeError(f'Option {key} must be either "{NoiseType.ABSOLUTE.value}" or "{NoiseType.RELATIVE.value}".')
+                if not isinstance(self._options[key], str):
+                    raise TypeError(f'Option {key} must be a string.')
+                if self._options[key].lower() not in NoiseType.__members__.values():
+                    raise ValueError(f'Option {key} must be either "{NoiseType.ABSOLUTE.value}" or "{NoiseType.RELATIVE.value}".')
 
         # Set default options.
         self._set_default_options()
