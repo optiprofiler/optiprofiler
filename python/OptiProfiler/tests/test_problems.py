@@ -146,6 +146,10 @@ class TestProblem(BaseTestProblem):
         with pytest.raises(ValueError):
             Problem(self.rosen, np.zeros(1), a_eq=np.zeros((1, 2)))
         with pytest.raises(ValueError):
+            Problem(self.rosen, np.zeros(1), num_nonlinear_ub=-1)
+        with pytest.raises(ValueError):
+            Problem(self.rosen, np.zeros(1), num_nonlinear_eq=-1)
+        with pytest.raises(ValueError):
             Problem(self.rosen, np.zeros(1), num_nonlinear_ub=1)
         with pytest.raises(ValueError):
             Problem(self.rosen, np.zeros(1), num_nonlinear_eq=1)
@@ -352,6 +356,8 @@ class TestSetCUTEstProblemOptions:
             set_cutest_problem_options(m_min=-1)
         with pytest.raises(ValueError):
             set_cutest_problem_options(m_max=-1)
+        with pytest.raises(ValueError):
+            set_cutest_problem_options(unknown=0)
 
     def test_catch(self):
         set_cutest_problem_options(n_min=1.0)

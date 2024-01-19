@@ -177,6 +177,8 @@ class TestFeature:
             feature.modifier(np.zeros(2), 1)
         with pytest.raises(TypeError):
             feature.modifier(np.zeros(2), 1.0, 1.5)
+        with pytest.raises(ValueError):
+            feature.modifier(np.zeros(2), 1.0, -1)
         with pytest.raises(TypeError):
             feature.default_rng(1.5)
         with pytest.raises(ValueError):
