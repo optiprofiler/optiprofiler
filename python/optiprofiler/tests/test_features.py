@@ -166,6 +166,8 @@ class TestFeature:
             Feature('truncated', significant_digits=2.5)
         with pytest.raises(ValueError):
             Feature('truncated', significant_digits=-1)
+        with pytest.raises(TypeError):
+            Feature('noisy', type=1)
         with pytest.raises(ValueError):
             Feature('noisy', type='+')
         with pytest.raises(ValueError):

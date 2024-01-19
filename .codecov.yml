@@ -15,4 +15,4 @@ github_checks:
 ignore:
   - 'conftest.py'
   - '**/tests/*.py'
-  - 'python/OptiProfiler/utils.py'
+  - 'python/optiprofiler/utils.py'
