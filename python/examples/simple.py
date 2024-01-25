@@ -6,13 +6,15 @@ from optiprofiler import set_cutest_problem_options, find_cutest_problems, creat
 def uobyqa(fun, x0):
     from pdfo import pdfo
 
-    pdfo(fun, x0, method='uobyqa')
+    res = pdfo(fun, x0, method='uobyqa')
+    return res.x
 
 
 def newuoa(fun, x0):
     from pdfo import pdfo
 
-    pdfo(fun, x0, method='newuoa')
+    res = pdfo(fun, x0, method='newuoa')
+    return res.x
 
 
 def bobyqa(fun, x0, lb, ub):
@@ -20,7 +22,8 @@ def bobyqa(fun, x0, lb, ub):
     from scipy.optimize import Bounds
 
     bounds = Bounds(lb, ub)
-    pdfo(fun, x0, method='bobyqa', bounds=bounds)
+    res = pdfo(fun, x0, method='bobyqa', bounds=bounds)
+    return res.x
 
 
 def lincoa(fun, x0, lb, ub, a_ub, b_ub, a_eq, b_eq):
@@ -33,7 +36,8 @@ def lincoa(fun, x0, lb, ub, a_ub, b_ub, a_eq, b_eq):
         constraints.append(LinearConstraint(a_ub, -np.inf, b_ub))
     if b_eq.size > 0:
         constraints.append(LinearConstraint(a_eq, b_eq, b_eq))
-    pdfo(fun, x0, method='lincoa', bounds=bounds, constraints=constraints)
+    res = pdfo(fun, x0, method='lincoa', bounds=bounds, constraints=constraints)
+    return res.x
 
 
 def cobyla(fun, x0, lb, ub, a_ub, b_ub, a_eq, b_eq, c_ub, c_eq):
@@ -52,7 +56,8 @@ def cobyla(fun, x0, lb, ub, a_ub, b_ub, a_eq, b_eq, c_ub, c_eq):
     c_eq_x0 = c_eq(x0)
     if c_eq_x0.size > 0:
         constraints.append(NonlinearConstraint(c_eq, np.zeros_like(c_eq_x0), np.zeros_like(c_eq_x0)))
-    pdfo(fun, x0, method='cobyla', bounds=bounds, constraints=constraints)
+    res = pdfo(fun, x0, method='cobyla', bounds=bounds, constraints=constraints)
+    return res.x
 
 
 def cobyqa(fun, x0, lb, ub, a_ub, b_ub, a_eq, b_eq, c_ub, c_eq):
@@ -71,10 +76,11 @@ def cobyqa(fun, x0, lb, ub, a_ub, b_ub, a_eq, b_eq, c_ub, c_eq):
     c_eq_x0 = c_eq(x0)
     if c_eq_x0.size > 0:
         constraints.append(NonlinearConstraint(c_eq, np.zeros_like(c_eq_x0), np.zeros_like(c_eq_x0)))
-    minimize(fun, x0, bounds=bounds, constraints=constraints)
+    res = minimize(fun, x0, bounds=bounds, constraints=constraints)
+    return res.x
 
 
 if __name__ == '__main__':
     set_cutest_problem_options(n_max=2)
     cutest_problem_names = find_cutest_problems('unconstrained')
-    create_profiles([newuoa, uobyqa], ['NEWUOA', 'UOBYQA'], cutest_problem_names, feature_name='plain', benchmark_id='unconstrained')
+    create_profiles([newuoa, uobyqa], ['NEWUOA', 'UOBYQA'], cutest_problem_names, benchmark_id='unconstrained')

@@ -39,7 +39,6 @@ classifiers = [
     "Topic :: Software Development :: Testing",
 ]
 dependencies = [
-    "joblib",
     "matplotlib>=2.0.0",
     "numpy>=1.17.0",
 ]
