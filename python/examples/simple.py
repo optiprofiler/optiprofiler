@@ -81,6 +81,6 @@ def cobyqa(fun, x0, lb, ub, a_ub, b_ub, a_eq, b_eq, c_ub, c_eq):
 
 
 if __name__ == '__main__':
-    set_cutest_problem_options(n_max=2)
+    set_cutest_problem_options(n_max=5)
     cutest_problem_names = find_cutest_problems('unconstrained')
-    create_profiles([newuoa, uobyqa], ['NEWUOA', 'UOBYQA'], cutest_problem_names, benchmark_id='unconstrained')
+    create_profiles([cobyqa, cobyla], ['COBYQA', 'COBYLA'], cutest_problem_names, benchmark_id='nonlinear')

@@ -209,12 +209,9 @@ def create_profiles(solvers, labels=(), cutest_problem_names=(), extra_problems=
     path_out = Path('out', feature.name, profile_options[ProfileOptionKey.BENCHMARK_ID]).resolve()
     path_out.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.utcnow().astimezone().strftime('%Y-%m-%dT%H-%M-%SZ')
-    path_pdf_perf_history = path_out / f'perf_history_{timestamp}.pdf'
-    path_pdf_perf_output = path_out / f'perf_output_{timestamp}.pdf'
-    path_pdf_data_history = path_out / f'data_history_{timestamp}.pdf'
-    path_pdf_data_output = path_out / f'data_output_{timestamp}.pdf'
-    path_pdf_log_ratio_history = path_out / f'log-ratio_history_{timestamp}.pdf'
-    path_pdf_log_ratio_output = path_out / f'log-ratio_output_{timestamp}.pdf'
+    path_pdf_perf = path_out / f'perf_history_{timestamp}.pdf'
+    path_pdf_data = path_out / f'data_history_{timestamp}.pdf'
+    path_pdf_log_ratio = path_out / f'log-ratio_history_{timestamp}.pdf'
     path_txt_problems = path_out / f'problems_{timestamp}.txt'
 
     # Store the names of the problems.
@@ -234,94 +231,87 @@ def create_profiles(solvers, labels=(), cutest_problem_names=(), extra_problems=
         # Create the performance and data profiles.
         n_problems, n_solvers, n_runs, max_eval = merit_histories.shape
         tolerances = np.logspace(-1, -10, 10)
-        pdf_perf = [backend_pdf.PdfPages(path_pdf_perf_history), backend_pdf.PdfPages(path_pdf_perf_output)]
-        pdf_data = [backend_pdf.PdfPages(path_pdf_data_history), backend_pdf.PdfPages(path_pdf_data_output)]
-        pdf_log_ratio = [backend_pdf.PdfPages(path_pdf_log_ratio_history, False), backend_pdf.PdfPages(path_pdf_log_ratio_output, False)]
+        pdf_perf = backend_pdf.PdfPages(path_pdf_perf)
+        pdf_data = backend_pdf.PdfPages(path_pdf_data)
+        pdf_log_ratio = backend_pdf.PdfPages(path_pdf_log_ratio, False)
         for i_profile, tolerance in enumerate(tolerances):
             tolerance_str, tolerance_latex = _format_float_scientific_latex(tolerance)
             logger.info(f'Creating profiles for tolerance {tolerance_str}.')
             tolerance_label = f'($\\mathrm{{tol}} = {tolerance_latex}$)'
 
-            for i_history, use_history in enumerate([True, False]):
-                work = np.full((n_problems, n_solvers, n_runs), np.nan)
-                for i_problem in range(n_problems):
-                    for i_solver in range(n_solvers):
-                        for i_run in range(n_runs):
-                            if np.isfinite(merit_min[i_problem]):
-                                threshold = max(tolerance * merit_init[i_problem] + (1.0 - tolerance) * merit_min[i_problem], merit_min[i_problem])
-                            else:
-                                threshold = -np.inf
-                            if use_history and np.min(merit_histories[i_problem, i_solver, i_run, :]) <= threshold:
-                                work[i_problem, i_solver, i_run] = np.argmax(merit_histories[i_problem, i_solver, i_run, :] <= threshold) + 1
-                            elif not use_history and merit_returned[i_problem, i_solver, i_run] <= threshold:
-                                work[i_problem, i_solver, i_run] = n_eval[i_problem, i_solver, i_run]
+            work_history = np.full((n_problems, n_solvers, n_runs), np.nan)
+            work_returned = np.full((n_problems, n_solvers, n_runs), np.nan)
+            for i_problem in range(n_problems):
+                for i_solver in range(n_solvers):
+                    for i_run in range(n_runs):
+                        if np.isfinite(merit_min[i_problem]):
+                            threshold = max(tolerance * merit_init[i_problem] + (1.0 - tolerance) * merit_min[i_problem], merit_min[i_problem])
+                        else:
+                            threshold = -np.inf
+                        if np.min(merit_histories[i_problem, i_solver, i_run, :]) <= threshold:
+                            work_history[i_problem, i_solver, i_run] = np.argmax(merit_histories[i_problem, i_solver, i_run, :] <= threshold) + 1
+                        if merit_returned[i_problem, i_solver, i_run] <= threshold:
+                            work_returned[i_problem, i_solver, i_run] = n_eval[i_problem, i_solver, i_run]
 
-                # Calculate the axes of the performance and data profiles.
-                x_perf, y_perf, ratio_max_perf = _profile_axes(work, lambda i_problem, i_run: np.nanmin(work[i_problem, :, i_run], initial=np.inf))
-                x_perf[np.isinf(x_perf)] = ratio_max_perf ** 2.0
-                x_perf = np.vstack([np.ones((1, n_solvers)), x_perf])
-                y_perf = np.vstack([np.zeros((1, n_solvers, n_runs)), y_perf])
-                if n_problems > 0:
-                    x_perf = np.vstack([x_perf, np.full((1, n_solvers), ratio_max_perf ** 2.0)])
-                    y_perf = np.vstack([y_perf, y_perf[-1, np.newaxis, :, :]])
-                x_data, y_data, ratio_max_data = _profile_axes(work, lambda i_problem, i_run: problem_dimensions[i_problem] + 1)
-                x_data[np.isinf(x_data)] = 2.0 * ratio_max_data
-                x_data = np.vstack([np.zeros((1, n_solvers)), x_data])
-                y_data = np.vstack([np.zeros((1, n_solvers, n_runs)), y_data])
-                if n_problems > 0:
-                    x_data = np.vstack([x_data, np.full((1, n_solvers), 2.0 * ratio_max_data)])
-                    y_data = np.vstack([y_data, y_data[-1, np.newaxis, :, :]])
+            # Calculate the axes of the performance and data profiles.
+            x_perf_history, y_perf_history, ratio_max_perf_history, x_data_history, y_data_history, ratio_max_data_history = _profiles(work_history, problem_dimensions)
+            x_perf_returned, y_perf_returned, ratio_max_perf_returned, x_data_returned, y_data_returned, ratio_max_data_returned = _profiles(work_returned, problem_dimensions)
 
-                # Plot the performance profiles.
-                fig, ax = _draw_profile(x_perf, y_perf, labels)
-                ax.set_xscale('log', base=2)
-                ax.set_xlim(1.0, ratio_max_perf ** 1.1)
-                ax.set_xlabel('Performance ratio')
-                ax.set_ylabel(f'Performance profiles {tolerance_label}')
-                pdf_perf[i_history].savefig(fig, bbox_inches='tight')
-                plt.close(fig)
+            # Plot the performance profiles.
+            fig, ax_left, ax_right = _draw_profile(x_perf_history, y_perf_history, x_perf_returned, y_perf_returned, labels)
+            ax_left.set_xscale('log', base=2)
+            ax_right.set_xscale('log', base=2)
+            ax_left.set_xlim(1.0, ratio_max_perf_history ** 1.1)
+            ax_right.set_xlim(1.0, ratio_max_perf_returned ** 1.1)
+            ax_left.set_xlabel('Performance ratio')
+            ax_right.set_xlabel('Performance ratio')
+            ax_left.set_ylabel(f'Performance profiles {tolerance_label}')
+            ax_left.set_title('Based on history')
+            ax_right.set_title('Based on returned values')
+            pdf_perf.savefig(fig, bbox_inches='tight')
+            plt.close(fig)
 
-                # Plot the data profiles.
-                fig, ax = _draw_profile(x_data, y_data, labels)
-                ax.set_xlim(0.0, 1.1 * ratio_max_data)
-                ax.set_xlabel('Number of simplex gradients')
-                ax.set_ylabel(f'Data profiles {tolerance_label}')
-                pdf_data[i_history].savefig(fig, bbox_inches='tight')
-                plt.close(fig)
+            # Plot the data profiles.
+            fig, ax_left, ax_right = _draw_profile(x_data_history, y_data_history, x_data_returned, y_data_returned, labels)
+            ax_left.set_xlim(0.0, 1.1 * ratio_max_data_history)
+            ax_right.set_xlim(0.0, 1.1 * ratio_max_data_returned)
+            ax_left.set_xlabel('Number of simplex gradients')
+            ax_right.set_xlabel('Number of simplex gradients')
+            ax_left.set_ylabel(f'Data profiles {tolerance_label}')
+            ax_left.set_title('Based on history')
+            ax_right.set_title('Based on returned values')
+            pdf_data.savefig(fig, bbox_inches='tight')
+            plt.close(fig)
 
-                # Draw the log-ratio profiles.
-                if n_solvers == 2:
-                    work_flat = np.reshape(np.swapaxes(work, 1, 2), (n_problems * n_runs, n_solvers))
-                    log_ratio = np.full(n_problems * n_runs, np.nan)
-                    log_ratio_finite = np.isfinite(work_flat[:, 0]) & np.isfinite(work_flat[:, 1])
-                    log_ratio[log_ratio_finite] = np.log2(work_flat[log_ratio_finite, 0]) - np.log2(work_flat[log_ratio_finite, 1])
-                    ratio_max = np.max(np.abs(log_ratio[log_ratio_finite]), initial=np.finfo(float).eps)
-                    log_ratio[np.isnan(work_flat[:, 0]) & np.isfinite(work_flat[:, 1])] = 2.0 * ratio_max
-                    log_ratio[np.isfinite(work_flat[:, 0]) & np.isnan(work_flat[:, 1])] = -2.0 * ratio_max
-                    log_ratio[np.isnan(work_flat[:, 0]) & np.isnan(work_flat[:, 1])] = 0.0
-                    log_ratio = np.sort(log_ratio)
-
-                    fig, ax = plt.subplots()
-                    x = np.arange(1, n_problems * n_runs + 1)
-                    ax.bar(x[log_ratio < 0], log_ratio[log_ratio < 0])
-                    ax.bar(x[log_ratio > 0], log_ratio[log_ratio > 0])
-                    ax.text((n_problems * n_runs + 1) / 2, -ratio_max, labels[0], horizontalalignment='center', verticalalignment='bottom')
-                    ax.text((n_problems * n_runs + 1) / 2, ratio_max, labels[1], horizontalalignment='center', verticalalignment='top')
-                    with warnings.catch_warnings():
-                        warnings.filterwarnings('ignore', category=UserWarning)
-                        ax.set_xlim(0.5, n_problems * n_runs + 0.5)
-                    ax.set_ylim(-1.1 * ratio_max, 1.1 * ratio_max)
-                    ax.set_xlabel('Problem')
-                    ax.set_ylabel(f'Log-ratio profile {tolerance_label}')
-                    pdf_log_ratio[i_history].savefig(fig, bbox_inches='tight')
-                    plt.close(fig)
-
-        pdf_perf[0].close()
-        pdf_perf[1].close()
-        pdf_data[0].close()
-        pdf_data[1].close()
-        pdf_log_ratio[0].close()
-        pdf_log_ratio[1].close()
+            # Draw the log-ratio profiles.
+            # if n_solvers == 2:
+            #     work_flat = np.reshape(np.swapaxes(work, 1, 2), (n_problems * n_runs, n_solvers))
+            #     log_ratio = np.full(n_problems * n_runs, np.nan)
+            #     log_ratio_finite = np.isfinite(work_flat[:, 0]) & np.isfinite(work_flat[:, 1])
+            #     log_ratio[log_ratio_finite] = np.log2(work_flat[log_ratio_finite, 0]) - np.log2(work_flat[log_ratio_finite, 1])
+            #     ratio_max = np.max(np.abs(log_ratio[log_ratio_finite]), initial=np.finfo(float).eps)
+            #     log_ratio[np.isnan(work_flat[:, 0]) & np.isfinite(work_flat[:, 1])] = 2.0 * ratio_max
+            #     log_ratio[np.isfinite(work_flat[:, 0]) & np.isnan(work_flat[:, 1])] = -2.0 * ratio_max
+            #     log_ratio[np.isnan(work_flat[:, 0]) & np.isnan(work_flat[:, 1])] = 0.0
+            #     log_ratio = np.sort(log_ratio)
+            #
+            #     fig, ax = plt.subplots()
+            #     x = np.arange(1, n_problems * n_runs + 1)
+            #     ax.bar(x[log_ratio < 0], log_ratio[log_ratio < 0])
+            #     ax.bar(x[log_ratio > 0], log_ratio[log_ratio > 0])
+            #     ax.text((n_problems * n_runs + 1) / 2, -ratio_max, labels[0], horizontalalignment='center', verticalalignment='bottom')
+            #     ax.text((n_problems * n_runs + 1) / 2, ratio_max, labels[1], horizontalalignment='center', verticalalignment='top')
+            #     with warnings.catch_warnings():
+            #         warnings.filterwarnings('ignore', category=UserWarning)
+            #         ax.set_xlim(0.5, n_problems * n_runs + 0.5)
+            #     ax.set_ylim(-1.1 * ratio_max, 1.1 * ratio_max)
+            #     ax.set_xlabel('Problem')
+            #     ax.set_ylabel(f'Log-ratio profile {tolerance_label}')
+            #     pdf_log_ratio[i_history].savefig(fig, bbox_inches='tight')
+            #     plt.close(fig)
+        pdf_perf.close()
+        pdf_data.close()
+        pdf_log_ratio.close()
         logger.info(f'Results stored in {path_out}.')
 
 
@@ -469,6 +459,25 @@ def _format_float_scientific_latex(x):
     return raw, f'{match.group("coefficient")} \\times 10^{{{match.group("exponent")}}}'
 
 
+def _profiles(work, problem_dimensions):
+    n_problems, n_solvers, n_runs = work.shape
+    x_perf, y_perf, ratio_max_perf = _profile_axes(work, lambda i_problem, i_run: np.nanmin(work[i_problem, :, i_run], initial=np.inf))
+    x_perf[np.isinf(x_perf)] = ratio_max_perf ** 2.0
+    x_perf = np.vstack([np.ones((1, n_solvers)), x_perf])
+    y_perf = np.vstack([np.zeros((1, n_solvers, n_runs)), y_perf])
+    if n_problems > 0:
+        x_perf = np.vstack([x_perf, np.full((1, n_solvers), ratio_max_perf ** 2.0)])
+        y_perf = np.vstack([y_perf, y_perf[-1, np.newaxis, :, :]])
+    x_data, y_data, ratio_max_data = _profile_axes(work, lambda i_problem, i_run: problem_dimensions[i_problem] + 1)
+    x_data[np.isinf(x_data)] = 2.0 * ratio_max_data
+    x_data = np.vstack([np.zeros((1, n_solvers)), x_data])
+    y_data = np.vstack([np.zeros((1, n_solvers, n_runs)), y_data])
+    if n_problems > 0:
+        x_data = np.vstack([x_data, np.full((1, n_solvers), 2.0 * ratio_max_data)])
+        y_data = np.vstack([y_data, y_data[-1, np.newaxis, :, :]])
+    return x_perf, y_perf, ratio_max_perf, x_data, y_data, ratio_max_data
+
+
 def _profile_axes(work, denominator):
     """
     Calculate the axes of the performance and data profiles.
@@ -500,26 +509,38 @@ def _profile_axes(work, denominator):
     return x, y, ratio_max
 
 
-def _draw_profile(x, y, labels):
+def _draw_profile(x_history, y_history, x_returned, y_returned, labels):
     """
     Draw performance and data profiles.
     """
-    n_solvers = x.shape[1]
-    y_mean = np.mean(y, 2)
-    y_min = np.min(y, 2)
-    y_max = np.max(y, 2)
-    fig, ax = plt.subplots()
+    n_solvers = x_history.shape[1]
+    y_mean_history = np.mean(y_history, 2)
+    y_mean_returned = np.mean(y_returned, 2)
+    y_min_history = np.min(y_history, 2)
+    y_min_returned = np.min(y_returned, 2)
+    y_max_history = np.max(y_history, 2)
+    y_max_returned = np.max(y_returned, 2)
+    default_figsize = plt.rcParams['figure.figsize']
+    fig, (ax_left, ax_right) = plt.subplots(ncols=2, sharey=True, figsize=(2 * default_figsize[0], default_figsize[1]))
     for i_solver in range(n_solvers):
-        x_stairs = np.repeat(x[:, i_solver], 2)[1:]
-        y_mean_stairs = np.repeat(y_mean[:, i_solver], 2)[:-1]
-        y_min_stairs = np.repeat(y_min[:, i_solver], 2)[:-1]
-        y_max_stairs = np.repeat(y_max[:, i_solver], 2)[:-1]
-        ax.plot(x_stairs, y_mean_stairs, label=labels[i_solver])
-        ax.fill_between(x_stairs, y_min_stairs, y_max_stairs, alpha=0.2)
-    ax.yaxis.set_ticks_position('both')
-    ax.yaxis.set_major_locator(MaxNLocator(5, prune='lower'))
-    ax.yaxis.set_minor_locator(MaxNLocator(10))
-    ax.tick_params(which='both', direction='in')
-    ax.set_ylim(0.0, 1.0)
-    ax.legend(loc='lower right')
-    return fig, ax
+        x_history_stairs = np.repeat(x_history[:, i_solver], 2)[1:]
+        x_returned_stairs = np.repeat(x_returned[:, i_solver], 2)[1:]
+        y_mean_history_stairs = np.repeat(y_mean_history[:, i_solver], 2)[:-1]
+        y_mean_returned_stairs = np.repeat(y_mean_returned[:, i_solver], 2)[:-1]
+        y_min_history_stairs = np.repeat(y_min_history[:, i_solver], 2)[:-1]
+        y_min_returned_stairs = np.repeat(y_min_returned[:, i_solver], 2)[:-1]
+        y_max_history_stairs = np.repeat(y_max_history[:, i_solver], 2)[:-1]
+        y_max_returned_stairs = np.repeat(y_max_returned[:, i_solver], 2)[:-1]
+        ax_left.plot(x_history_stairs, y_mean_history_stairs, label=labels[i_solver])
+        ax_left.fill_between(x_history_stairs, y_min_history_stairs, y_max_history_stairs, alpha=0.2)
+        ax_right.plot(x_returned_stairs, y_mean_returned_stairs, label=labels[i_solver])
+        ax_right.fill_between(x_returned_stairs, y_min_returned_stairs, y_max_returned_stairs, alpha=0.2)
+    ax_left.yaxis.set_ticks_position('both')
+    ax_left.yaxis.set_major_locator(MaxNLocator(5, prune='lower'))
+    ax_left.yaxis.set_minor_locator(MaxNLocator(10))
+    ax_left.set_ylim(0.0, 1.0)
+    ax_left.tick_params(which='both', direction='in')
+    ax_right.tick_params(which='both', direction='in')
+    ax_left.legend(loc='lower right')
+    ax_right.legend(loc='lower right')
+    return fig, ax_left, ax_right
