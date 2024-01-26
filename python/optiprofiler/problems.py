@@ -5,13 +5,13 @@ from contextlib import redirect_stdout, redirect_stderr
 import numpy as np
 
 from .features import Feature
-from .utils import FeatureName, CUTEstProblemOptionKey, FeatureOptionKey, ProblemError, get_logger
+from .utils import FeatureName, CUTEstProblemOption, FeatureOption, ProblemError, get_logger
 
 _cutest_problem_options = {
-    CUTEstProblemOptionKey.N_MIN.value: 1,
-    CUTEstProblemOptionKey.N_MAX.value: sys.maxsize,
-    CUTEstProblemOptionKey.M_MIN.value: 0,
-    CUTEstProblemOptionKey.M_MAX.value: sys.maxsize,
+    CUTEstProblemOption.N_MIN.value: 1,
+    CUTEstProblemOption.N_MAX.value: sys.maxsize,
+    CUTEstProblemOption.M_MIN.value: 0,
+    CUTEstProblemOption.M_MAX.value: sys.maxsize,
 }
 
 
@@ -148,29 +148,29 @@ class Problem:
             raise TypeError('The argument fun must be callable.')
 
         # Preprocess the initial guess.
-        self._x0 = _1d_array(x0, 'The argument x0 must be a one-dimensional array.')
+        self._x0 = _process_1d_array(x0, 'The argument x0 must be a one-dimensional array.')
 
         # Preprocess the bound constraints.
         self._lb = lb
         if self._lb is not None:
-            self._lb = _1d_array(self._lb, 'The argument lb must be a one-dimensional array.')
+            self._lb = _process_1d_array(self._lb, 'The argument lb must be a one-dimensional array.')
         self._ub = ub
         if self._ub is not None:
-            self._ub = _1d_array(self._ub, 'The argument ub must be a one-dimensional array.')
+            self._ub = _process_1d_array(self._ub, 'The argument ub must be a one-dimensional array.')
 
         # Preprocess the linear constraints.
         self._a_ub = a_ub
         if self._a_ub is not None:
-            self._a_ub = _2d_array(self._a_ub, 'The argument a_ub must be a two-dimensional array.')
+            self._a_ub = _process_2d_array(self._a_ub, 'The argument a_ub must be a two-dimensional array.')
         self._b_ub = b_ub
         if self._b_ub is not None:
-            self._b_ub = _1d_array(self._b_ub, 'The argument b_ub must be a one-dimensional array.')
+            self._b_ub = _process_1d_array(self._b_ub, 'The argument b_ub must be a one-dimensional array.')
         self._a_eq = a_eq
         if self._a_eq is not None:
-            self._a_eq = _2d_array(self._a_eq, 'The argument a_eq must be a two-dimensional array.')
+            self._a_eq = _process_2d_array(self._a_eq, 'The argument a_eq must be a two-dimensional array.')
         self._b_eq = b_eq
         if self._b_eq is not None:
-            self._b_eq = _1d_array(self._b_eq, 'The argument b_eq must be a one-dimensional array.')
+            self._b_eq = _process_1d_array(self._b_eq, 'The argument b_eq must be a one-dimensional array.')
 
         # Preprocess the nonlinear constraints.
         self._c_ub = c_ub
@@ -407,7 +407,7 @@ class Problem:
         ValueError
             If the argument `x` has an invalid shape.
         """
-        x = _1d_array(x, 'The argument x must be a one-dimensional array.')
+        x = _process_1d_array(x, 'The argument x must be a one-dimensional array.')
         if x.size != self.dimension:
             raise ValueError(f'The argument x must have size {self.dimension}.')
         try:
@@ -439,7 +439,7 @@ class Problem:
             If the argument `x` has an invalid shape or if the return value of
             the argument `c_ub` has an invalid shape.
         """
-        x = _1d_array(x, 'The argument x must be a one-dimensional array.')
+        x = _process_1d_array(x, 'The argument x must be a one-dimensional array.')
         if x.size != self.dimension:
             raise ValueError(f'The argument x must have size {self.dimension}.')
         if self._c_ub is None:
@@ -451,7 +451,7 @@ class Problem:
                 logger = get_logger(__name__)
                 logger.warning(f'Failed to evaluate the nonlinear inequality constraint function: {err}')
                 c = np.full(self.num_nonlinear_ub, np.nan)
-            c = _1d_array(c, 'The return value of the argument c_ub must be a one-dimensional array.')
+            c = _process_1d_array(c, 'The return value of the argument c_ub must be a one-dimensional array.')
         if self._num_nonlinear_ub is None:
             self._num_nonlinear_ub = c.size
         if c.size != self.num_nonlinear_ub:
@@ -478,7 +478,7 @@ class Problem:
             If the argument `x` has an invalid shape or if the return value of
             the argument `c_eq` has an invalid shape.
         """
-        x = _1d_array(x, 'The argument x must be a one-dimensional array.')
+        x = _process_1d_array(x, 'The argument x must be a one-dimensional array.')
         if x.size != self.dimension:
             raise ValueError(f'The argument x must have size {self.dimension}.')
         if self._c_eq is None:
@@ -490,7 +490,7 @@ class Problem:
                 logger = get_logger(__name__)
                 logger.warning(f'Failed to evaluate the nonlinear equality constraint function: {err}')
                 c = np.full(self.num_nonlinear_eq, np.nan)
-            c = _1d_array(c, 'The return value of the argument c_eq must be a one-dimensional array.')
+            c = _process_1d_array(c, 'The return value of the argument c_eq must be a one-dimensional array.')
         if self._num_nonlinear_eq is None:
             self._num_nonlinear_eq = c.size
         if c.size != self.num_nonlinear_eq:
@@ -516,7 +516,7 @@ class Problem:
         ValueError
             If the argument `x` has an invalid shape.
         """
-        x = _1d_array(x, 'The argument x must be a one-dimensional array.')
+        x = _process_1d_array(x, 'The argument x must be a one-dimensional array.')
         if x.size != self.dimension:
             raise ValueError(f'The argument x must have size {self.dimension}.')
         cv = np.max(self.lb - x, initial=0.0)
@@ -618,7 +618,7 @@ class FeaturedProblem(Problem):
         x0 = super().x0
         if self._feature.name == FeatureName.RANDOMIZE_X0:
             rng = self._feature.default_rng(self._seed, *x0)
-            x0 += self._feature.options[FeatureOptionKey.DISTRIBUTION](rng, x0.size)
+            x0 += self._feature.options[FeatureOption.DISTRIBUTION](rng, x0.size)
         return x0
 
     @property
@@ -687,31 +687,31 @@ def get_cutest_problem_options():
 
 def set_cutest_problem_options(**problem_options):
     for option_key, option_value in problem_options.items():
-        if option_key == CUTEstProblemOptionKey.N_MIN and isinstance(option_value, float) and option_value.is_integer():
+        if option_key == CUTEstProblemOption.N_MIN and isinstance(option_value, float) and option_value.is_integer():
             option_value = int(option_value)
-        if option_key == CUTEstProblemOptionKey.N_MIN and not isinstance(option_value, int):
-            raise TypeError(f'The argument {CUTEstProblemOptionKey.N_MIN.value} must be an integer.')
-        if option_key == CUTEstProblemOptionKey.N_MIN and option_value < 1:
-            raise ValueError(f'The argument {CUTEstProblemOptionKey.N_MIN.value} must be positive.')
-        if option_key == CUTEstProblemOptionKey.N_MAX and isinstance(option_value, float) and option_value.is_integer():
+        if option_key == CUTEstProblemOption.N_MIN and not isinstance(option_value, int):
+            raise TypeError(f'The argument {CUTEstProblemOption.N_MIN.value} must be an integer.')
+        if option_key == CUTEstProblemOption.N_MIN and option_value < 1:
+            raise ValueError(f'The argument {CUTEstProblemOption.N_MIN.value} must be positive.')
+        if option_key == CUTEstProblemOption.N_MAX and isinstance(option_value, float) and option_value.is_integer():
             option_value = int(option_value)
-        if option_key == CUTEstProblemOptionKey.N_MAX and not isinstance(option_value, int):
-            raise TypeError(f'The argument {CUTEstProblemOptionKey.N_MAX.value} must be an integer.')
-        if option_key == CUTEstProblemOptionKey.N_MAX and option_value < problem_options.get(CUTEstProblemOptionKey.N_MIN, 1):
-            raise ValueError(f'The argument {CUTEstProblemOptionKey.N_MAX.value} must be greater than or equal to {CUTEstProblemOptionKey.N_MIN.value}.')
-        if option_key == CUTEstProblemOptionKey.M_MIN and isinstance(option_value, float) and option_value.is_integer():
+        if option_key == CUTEstProblemOption.N_MAX and not isinstance(option_value, int):
+            raise TypeError(f'The argument {CUTEstProblemOption.N_MAX.value} must be an integer.')
+        if option_key == CUTEstProblemOption.N_MAX and option_value < problem_options.get(CUTEstProblemOption.N_MIN, 1):
+            raise ValueError(f'The argument {CUTEstProblemOption.N_MAX.value} must be greater than or equal to {CUTEstProblemOption.N_MIN.value}.')
+        if option_key == CUTEstProblemOption.M_MIN and isinstance(option_value, float) and option_value.is_integer():
             option_value = int(option_value)
-        if option_key == CUTEstProblemOptionKey.M_MIN and not isinstance(option_value, int):
-            raise TypeError(f'The argument {CUTEstProblemOptionKey.M_MIN.value} must be an integer.')
-        if option_key == CUTEstProblemOptionKey.M_MIN and option_value < 0:
-            raise ValueError(f'The argument {CUTEstProblemOptionKey.M_MIN.value} must be nonnegative.')
-        if option_key == CUTEstProblemOptionKey.M_MAX and isinstance(option_value, float) and option_value.is_integer():
+        if option_key == CUTEstProblemOption.M_MIN and not isinstance(option_value, int):
+            raise TypeError(f'The argument {CUTEstProblemOption.M_MIN.value} must be an integer.')
+        if option_key == CUTEstProblemOption.M_MIN and option_value < 0:
+            raise ValueError(f'The argument {CUTEstProblemOption.M_MIN.value} must be nonnegative.')
+        if option_key == CUTEstProblemOption.M_MAX and isinstance(option_value, float) and option_value.is_integer():
             option_value = int(option_value)
-        if option_key == CUTEstProblemOptionKey.M_MAX and not isinstance(option_value, int):
-            raise TypeError(f'The argument {CUTEstProblemOptionKey.M_MAX.value} must be an integer.')
-        if option_key == CUTEstProblemOptionKey.M_MAX and option_value < problem_options.get(CUTEstProblemOptionKey.M_MIN, 0):
-            raise ValueError(f'The argument {CUTEstProblemOptionKey.M_MAX.value} must be greater than or equal to {CUTEstProblemOptionKey.M_MIN.value}.')
-        if option_key in CUTEstProblemOptionKey.__members__.values():
+        if option_key == CUTEstProblemOption.M_MAX and not isinstance(option_value, int):
+            raise TypeError(f'The argument {CUTEstProblemOption.M_MAX.value} must be an integer.')
+        if option_key == CUTEstProblemOption.M_MAX and option_value < problem_options.get(CUTEstProblemOption.M_MIN, 0):
+            raise ValueError(f'The argument {CUTEstProblemOption.M_MAX.value} must be greater than or equal to {CUTEstProblemOption.M_MIN.value}.')
+        if option_key in CUTEstProblemOption.__members__.values():
             _cutest_problem_options[option_key] = option_value
         else:
             raise ValueError(f'Unknown problem option: {option_key}.')
@@ -767,7 +767,7 @@ def find_cutest_problems(constraints):
             raise ValueError(f'Unknown constraint: {constraint}.')
 
     # Find all the problems that satisfy the constraints.
-    problem_names = pycutest.find_problems(objective='constant linear quadratic sum of squares other', constraints=constraints, n=[_cutest_problem_options[CUTEstProblemOptionKey.N_MIN], _cutest_problem_options[CUTEstProblemOptionKey.N_MAX]], userN=False, m=[_cutest_problem_options[CUTEstProblemOptionKey.M_MIN], _cutest_problem_options[CUTEstProblemOptionKey.M_MAX]], userM=False)
+    problem_names = pycutest.find_problems(objective='constant linear quadratic sum of squares other', constraints=constraints, n=[_cutest_problem_options[CUTEstProblemOption.N_MIN], _cutest_problem_options[CUTEstProblemOption.N_MAX]], userN=False, m=[_cutest_problem_options[CUTEstProblemOption.M_MIN], _cutest_problem_options[CUTEstProblemOption.M_MAX]], userM=False)
     return sorted(set(problem_names))
 
 
@@ -804,8 +804,8 @@ def load_cutest_problem(problem_name):
         is_valid = np.all(cutest_problem.vartype == 0)
 
         # Check that the dimensions are within the specified range.
-        is_valid = is_valid and _cutest_problem_options[CUTEstProblemOptionKey.N_MIN] <= cutest_problem.n <= _cutest_problem_options[CUTEstProblemOptionKey.N_MAX]
-        is_valid = is_valid and _cutest_problem_options[CUTEstProblemOptionKey.M_MIN] <= cutest_problem.m <= _cutest_problem_options[CUTEstProblemOptionKey.M_MAX]
+        is_valid = is_valid and _cutest_problem_options[CUTEstProblemOption.N_MIN] <= cutest_problem.n <= _cutest_problem_options[CUTEstProblemOption.N_MAX]
+        is_valid = is_valid and _cutest_problem_options[CUTEstProblemOption.M_MIN] <= cutest_problem.m <= _cutest_problem_options[CUTEstProblemOption.M_MAX]
 
         return is_valid
 
@@ -914,7 +914,7 @@ def load_cutest_problem(problem_name):
     return Problem(cutest_problem.obj, cutest_problem.x0, lb, ub, **constraints)
 
 
-def _1d_array(x, message):
+def _process_1d_array(x, message):
     """
     Preprocess a one-dimensional array.
 
@@ -941,7 +941,7 @@ def _1d_array(x, message):
     return x
 
 
-def _2d_array(x, message):
+def _process_2d_array(x, message):
     """
     Preprocess a two-dimensional array.
 

@@ -1,6 +1,6 @@
 import numpy as np
 
-from .utils import FeatureName, FeatureOptionKey, NoiseType
+from .utils import FeatureName, FeatureOption, NoiseType
 
 
 class Feature:
@@ -57,63 +57,63 @@ class Feature:
         self._options = {k.lower(): v for k, v in feature_options.items()}
         for key in self._options:
             # Check whether the option is known.
-            if key not in FeatureOptionKey.__members__.values():
+            if key not in FeatureOption.__members__.values():
                 raise ValueError(f'Unknown option: {key}.')
 
             # Check whether the options are valid for the feature.
-            known_options = [FeatureOptionKey.N_RUNS]
+            known_options = [FeatureOption.N_RUNS]
             if self._name == FeatureName.CUSTOM:
-                known_options.extend([FeatureOptionKey.MODIFIER])
+                known_options.extend([FeatureOption.MODIFIER])
             elif self._name == FeatureName.NOISY:
-                known_options.extend([FeatureOptionKey.DISTRIBUTION, FeatureOptionKey.TYPE])
+                known_options.extend([FeatureOption.DISTRIBUTION, FeatureOption.TYPE])
             elif self._name == FeatureName.RANDOMIZE_X0:
-                known_options.extend([FeatureOptionKey.DISTRIBUTION])
+                known_options.extend([FeatureOption.DISTRIBUTION])
             elif self._name == FeatureName.REGULARIZED:
-                known_options.extend([FeatureOptionKey.ORDER, FeatureOptionKey.PARAMETER])
+                known_options.extend([FeatureOption.ORDER, FeatureOption.PARAMETER])
             elif self._name == FeatureName.TOUGH:
-                known_options.extend([FeatureOptionKey.RATE_ERROR, FeatureOptionKey.RATE_NAN])
+                known_options.extend([FeatureOption.RATE_ERROR, FeatureOption.RATE_NAN])
             elif self._name == FeatureName.TRUNCATED:
-                known_options.extend([FeatureOptionKey.SIGNIFICANT_DIGITS])
+                known_options.extend([FeatureOption.SIGNIFICANT_DIGITS])
             elif self._name != FeatureName.PLAIN:
                 raise NotImplementedError(f'Unknown feature: {self._name}.')
             if key not in known_options:
                 raise ValueError(f'Option {key} is not valid for feature {self._name}.')
 
             # Check whether the options are valid.
-            if key == FeatureOptionKey.N_RUNS:
+            if key == FeatureOption.N_RUNS:
                 if isinstance(self._options[key], float) and self._options[key].is_integer():
                     self._options[key] = int(self._options[key])
                 if not isinstance(self._options[key], int):
                     raise TypeError(f'Option {key} must be an integer.')
                 if self._options[key] <= 0:
                     raise ValueError(f'Option {key} must be integer.')
-            elif key == FeatureOptionKey.MODIFIER:
+            elif key == FeatureOption.MODIFIER:
                 if not callable(self._options[key]):
                     raise TypeError(f'Option {key} must be callable.')
-            elif key == FeatureOptionKey.DISTRIBUTION:
+            elif key == FeatureOption.DISTRIBUTION:
                 if not callable(self._options[key]):
                     raise TypeError(f'Option {key} must be callable.')
-            elif key == FeatureOptionKey.ORDER:
+            elif key == FeatureOption.ORDER:
                 if not isinstance(self._options[key], (int, float)):
                     raise TypeError(f'Option {key} must be a number.')
-            elif key == FeatureOptionKey.PARAMETER:
+            elif key == FeatureOption.PARAMETER:
                 if not isinstance(self._options[key], (int, float)):
                     raise TypeError(f'Option {key} must be a number.')
                 if self._options[key] < 0.0:
                     raise ValueError(f'Option {key} must be nonnegative.')
-            elif key in [FeatureOptionKey.RATE_ERROR, FeatureOptionKey.RATE_NAN]:
+            elif key in [FeatureOption.RATE_ERROR, FeatureOption.RATE_NAN]:
                 if not isinstance(self._options[key], (int, float)):
                     raise TypeError(f'Option {key} must be a number.')
                 if not (0.0 <= self._options[key] <= 1.0):
                     raise ValueError(f'Option {key} must be between 0 and 1.')
-            elif key == FeatureOptionKey.SIGNIFICANT_DIGITS:
+            elif key == FeatureOption.SIGNIFICANT_DIGITS:
                 if isinstance(self._options[key], float) and self._options[key].is_integer():
                     self._options[key] = int(self._options[key])
                 if not isinstance(self._options[key], int):
                     raise TypeError(f'Option {key} must be an integer.')
                 if self._options[key] <= 0:
                     raise ValueError(f'Option {key} must be positive.')
-            elif key == FeatureOptionKey.TYPE:
+            elif key == FeatureOption.TYPE:
                 if not isinstance(self._options[key], str):
                     raise TypeError(f'Option {key} must be a string.')
                 if self._options[key].lower() not in NoiseType.__members__.values():
@@ -183,27 +183,27 @@ class Feature:
 
         # Modify the objective function value.
         if self._name == FeatureName.CUSTOM:
-            f = self._options[FeatureOptionKey.MODIFIER](x, f, seed)
+            f = self._options[FeatureOption.MODIFIER](x, f, seed)
         elif self._name == FeatureName.NOISY:
-            rng = self.default_rng(seed, f, sum(ord(letter) for letter in self._options[FeatureOptionKey.TYPE]), *x)
-            if self._options[FeatureOptionKey.TYPE] == NoiseType.ABSOLUTE:
-                f += self._options[FeatureOptionKey.DISTRIBUTION](rng)
+            rng = self.default_rng(seed, f, sum(ord(letter) for letter in self._options[FeatureOption.TYPE]), *x)
+            if self._options[FeatureOption.TYPE] == NoiseType.ABSOLUTE:
+                f += self._options[FeatureOption.DISTRIBUTION](rng)
             else:
-                f *= 1.0 + self._options[FeatureOptionKey.DISTRIBUTION](rng)
+                f *= 1.0 + self._options[FeatureOption.DISTRIBUTION](rng)
         elif self._name == FeatureName.REGULARIZED:
-            f += self._options[FeatureOptionKey.PARAMETER] * np.linalg.norm(x, self._options[FeatureOptionKey.ORDER])
+            f += self._options[FeatureOption.PARAMETER] * np.linalg.norm(x, self._options[FeatureOption.ORDER])
         elif self._name == FeatureName.TOUGH:
-            rng = self.default_rng(seed, f, self._options[FeatureOptionKey.RATE_ERROR], self._options[FeatureOptionKey.RATE_NAN], *x)
-            if rng.uniform() < self._options[FeatureOptionKey.RATE_ERROR]:
+            rng = self.default_rng(seed, f, self._options[FeatureOption.RATE_ERROR], self._options[FeatureOption.RATE_NAN], *x)
+            if rng.uniform() < self._options[FeatureOption.RATE_ERROR]:
                 raise RuntimeError
-            elif rng.uniform() < self._options[FeatureOptionKey.RATE_NAN]:
+            elif rng.uniform() < self._options[FeatureOption.RATE_NAN]:
                 f = np.nan
         elif self._name == FeatureName.TRUNCATED:
-            rng = self.default_rng(seed, f, self._options[FeatureOptionKey.SIGNIFICANT_DIGITS], *x)
+            rng = self.default_rng(seed, f, self._options[FeatureOption.SIGNIFICANT_DIGITS], *x)
             if f == 0.0:
-                digits = self._options[FeatureOptionKey.SIGNIFICANT_DIGITS] - 1
+                digits = self._options[FeatureOption.SIGNIFICANT_DIGITS] - 1
             else:
-                digits = self._options[FeatureOptionKey.SIGNIFICANT_DIGITS] - int(np.floor(np.log10(np.abs(f)))) - 1
+                digits = self._options[FeatureOption.SIGNIFICANT_DIGITS] - int(np.floor(np.log10(np.abs(f)))) - 1
             if f >= 0.0:
                 f = round(f, digits) + rng.uniform(0.0, 10.0 ** (-digits))
             else:
@@ -217,29 +217,29 @@ class Feature:
         Set default options.
         """
         if self._name == FeatureName.PLAIN:
-            self._options.setdefault(FeatureOptionKey.N_RUNS.value, 1)
+            self._options.setdefault(FeatureOption.N_RUNS.value, 1)
         elif self._name == FeatureName.CUSTOM:
-            if FeatureOptionKey.MODIFIER not in self._options:
-                raise ValueError(f'When using a custom feature, you must specify the {FeatureOptionKey.MODIFIER} option.')
-            self._options.setdefault(FeatureOptionKey.N_RUNS.value, 1)
+            if FeatureOption.MODIFIER not in self._options:
+                raise ValueError(f'When using a custom feature, you must specify the {FeatureOption.MODIFIER} option.')
+            self._options.setdefault(FeatureOption.N_RUNS.value, 1)
         elif self._name == FeatureName.NOISY:
-            self._options.setdefault(FeatureOptionKey.DISTRIBUTION.value, lambda rng: 1e-3 * rng.standard_normal())
-            self._options.setdefault(FeatureOptionKey.N_RUNS.value, 10)
-            self._options.setdefault(FeatureOptionKey.TYPE.value, NoiseType.RELATIVE.value)
+            self._options.setdefault(FeatureOption.DISTRIBUTION.value, lambda rng: 1e-3 * rng.standard_normal())
+            self._options.setdefault(FeatureOption.N_RUNS.value, 10)
+            self._options.setdefault(FeatureOption.TYPE.value, NoiseType.RELATIVE.value)
         elif self._name == FeatureName.RANDOMIZE_X0:
-            self._options.setdefault(FeatureOptionKey.DISTRIBUTION.value, lambda rng, n: 1e-3 * rng.standard_normal(n))
-            self._options.setdefault(FeatureOptionKey.N_RUNS.value, 10)
+            self._options.setdefault(FeatureOption.DISTRIBUTION.value, lambda rng, n: 1e-3 * rng.standard_normal(n))
+            self._options.setdefault(FeatureOption.N_RUNS.value, 10)
         elif self._name == FeatureName.REGULARIZED:
-            self._options.setdefault(FeatureOptionKey.N_RUNS.value, 1)
-            self._options.setdefault(FeatureOptionKey.ORDER.value, 2)
-            self._options.setdefault(FeatureOptionKey.PARAMETER.value, 1.0)
+            self._options.setdefault(FeatureOption.N_RUNS.value, 1)
+            self._options.setdefault(FeatureOption.ORDER.value, 2)
+            self._options.setdefault(FeatureOption.PARAMETER.value, 1.0)
         elif self._name == FeatureName.TOUGH:
-            self._options.setdefault(FeatureOptionKey.N_RUNS.value, 10)
-            self._options.setdefault(FeatureOptionKey.RATE_ERROR.value, 0.0)
-            self._options.setdefault(FeatureOptionKey.RATE_NAN.value, 0.05)
+            self._options.setdefault(FeatureOption.N_RUNS.value, 10)
+            self._options.setdefault(FeatureOption.RATE_ERROR.value, 0.0)
+            self._options.setdefault(FeatureOption.RATE_NAN.value, 0.05)
         elif self._name == FeatureName.TRUNCATED:
-            self._options.setdefault(FeatureOptionKey.N_RUNS.value, 10)
-            self._options.setdefault(FeatureOptionKey.SIGNIFICANT_DIGITS.value, 6)
+            self._options.setdefault(FeatureOption.N_RUNS.value, 10)
+            self._options.setdefault(FeatureOption.SIGNIFICANT_DIGITS.value, 6)
         else:
             raise NotImplementedError(f'Unknown feature: {self._name}.')
 

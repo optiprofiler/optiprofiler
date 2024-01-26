@@ -19,7 +19,7 @@ class FeatureName(str, Enum):
     TRUNCATED = 'truncated'
 
 
-class ProfileOptionKey(str, Enum):
+class ProfileOption(str, Enum):
     """
     Profile's options.
     """
@@ -27,7 +27,7 @@ class ProfileOptionKey(str, Enum):
     BENCHMARK_ID = 'benchmark_id'
 
 
-class CUTEstProblemOptionKey(str, Enum):
+class CUTEstProblemOption(str, Enum):
     """
     Options for loading a CUTEst problem.
     """
@@ -37,7 +37,7 @@ class CUTEstProblemOptionKey(str, Enum):
     M_MAX = 'm_max'
 
 
-class FeatureOptionKey(str, Enum):
+class FeatureOption(str, Enum):
     """
     Feature's options.
     """
