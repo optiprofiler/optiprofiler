@@ -209,9 +209,7 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
     timestamp = datetime.utcnow().astimezone().strftime('%Y-%m-%dT%H-%M-%SZ')
     path_out = Path('out', feature.name, profile_options[ProfileOption.BENCHMARK_ID], timestamp).resolve()
     path_pdf = path_out / 'pdf'
-    path_eps = path_out / 'eps'
     path_pdf.mkdir(parents=True, exist_ok=True)
-    path_eps.mkdir(exist_ok=True)
 
     # Store the names of the problems.
     path_txt = path_out / 'problems.txt'
@@ -260,19 +258,13 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
             # Draw the profiles.
             fig_summary, fig_perf_hist, fig_perf_out, fig_data_hist, fig_data_out, fig_log_ratio_hist, fig_log_ratio_out = _draw_profiles(work_hist, work_out, problem_dimensions, labels, tolerance_label)
             pdf_summary.savefig(fig_summary, bbox_inches='tight')
-            fig_perf_hist.savefig(path_eps / f'perf_hist_{tolerance_str}.eps', bbox_inches='tight')
             pdf_perf_hist.savefig(fig_perf_hist, bbox_inches='tight')
-            fig_perf_out.savefig(path_eps / f'perf_out_{tolerance_str}.eps', bbox_inches='tight')
             pdf_perf_out.savefig(fig_perf_out, bbox_inches='tight')
-            fig_data_hist.savefig(path_eps / f'data_hist_{tolerance_str}.eps', bbox_inches='tight')
             pdf_data_hist.savefig(fig_data_hist, bbox_inches='tight')
-            fig_data_out.savefig(path_eps / f'data_out_{tolerance_str}.eps', bbox_inches='tight')
             pdf_data_out.savefig(fig_data_out, bbox_inches='tight')
             if fig_log_ratio_hist is not None:
-                fig_log_ratio_hist.savefig(path_eps / f'log-ratio_hist_{tolerance_str}.eps', bbox_inches='tight')
                 pdf_log_ratio_hist.savefig(fig_log_ratio_hist, bbox_inches='tight')
             if fig_log_ratio_out is not None:
-                fig_log_ratio_out.savefig(path_eps / f'log-ratio_out_{tolerance_str}.eps', bbox_inches='tight')
                 pdf_log_ratio_out.savefig(fig_log_ratio_out, bbox_inches='tight')
 
             # Close the figures.
@@ -546,7 +538,7 @@ def _draw_performance_data_profiles(ax, x, y, labels):
     ax.yaxis.set_minor_locator(MaxNLocator(10))
     ax.set_ylim(0.0, 1.0)
     ax.tick_params(which='both', direction='in')
-    ax.legend(loc='lower right', framealpha=1.0)
+    ax.legend(loc='lower right')
 
 
 def _draw_log_ratio_profiles(ax, work, labels):
