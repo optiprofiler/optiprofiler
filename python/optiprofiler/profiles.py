@@ -12,7 +12,7 @@ import numpy as np
 from cycler import cycler
 from matplotlib import pyplot as plt
 from matplotlib.backends import backend_pdf
-from matplotlib.ticker import MaxNLocator, ScalarFormatter
+from matplotlib.ticker import MaxNLocator, FuncFormatter
 
 from .features import Feature
 from .problems import Problem, FeaturedProblem, get_cutest_problem_options, set_cutest_problem_options, load_cutest_problem
@@ -190,9 +190,9 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
 
     # Solve the problems.
     max_eval_factor = 500
-    fun_histories, maxcv_histories, fun_returned, maxcv_returned, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions = _solve_all_problems(cutest_problem_names, extra_problems, solvers, labels, feature, max_eval_factor, profile_options)
+    fun_histories, maxcv_histories, fun_output, maxcv_output, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions = _solve_all_problems(cutest_problem_names, extra_problems, solvers, labels, feature, max_eval_factor, profile_options)
     merit_histories = _compute_merit_values(fun_histories, maxcv_histories)
-    merit_returned = _compute_merit_values(fun_returned, maxcv_returned)
+    merit_output = _compute_merit_values(fun_output, maxcv_output)
     merit_init = _compute_merit_values(fun_init, maxcv_init)
 
     # Determine the least merit value for each problem.
@@ -211,9 +211,9 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
     path_out.mkdir(parents=True, exist_ok=True)
 
     # Store the names of the problems.
-    path_txt = path_out / 'problem_names.txt'
+    path_txt = path_out / 'problems.txt'
     with path_txt.open('w') as f:
-        f.write(os.linesep.join(problem_names))
+        f.write(os.linesep.join(sorted(problem_names)))
 
     # Set up matplotlib for plotting the profiles.
     logger.info('Creating results.')
@@ -235,7 +235,7 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
             tolerance_label = f'($\\mathrm{{tol}} = {tolerance_latex}$)'
 
             work_history = np.full((n_problems, n_solvers, n_runs), np.nan)
-            work_returned = np.full((n_problems, n_solvers, n_runs), np.nan)
+            work_output = np.full((n_problems, n_solvers, n_runs), np.nan)
             for i_problem in range(n_problems):
                 for i_solver in range(n_solvers):
                     for i_run in range(n_runs):
@@ -245,11 +245,11 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
                             threshold = -np.inf
                         if np.min(merit_histories[i_problem, i_solver, i_run, :]) <= threshold:
                             work_history[i_problem, i_solver, i_run] = np.argmax(merit_histories[i_problem, i_solver, i_run, :] <= threshold) + 1
-                        if merit_returned[i_problem, i_solver, i_run] <= threshold:
-                            work_returned[i_problem, i_solver, i_run] = n_eval[i_problem, i_solver, i_run]
+                        if merit_output[i_problem, i_solver, i_run] <= threshold:
+                            work_output[i_problem, i_solver, i_run] = n_eval[i_problem, i_solver, i_run]
 
             # Draw the profiles.
-            fig, axs = _draw_profiles(work_history, work_returned, problem_dimensions, labels)
+            fig, axs = _draw_profiles(work_history, work_output, problem_dimensions, labels, tolerance_label)
             pdf.savefig(fig, bbox_inches='tight')
             plt.close(fig)
 
@@ -274,15 +274,15 @@ def _solve_all_problems(cutest_problem_names, extra_problems, solvers, labels, f
     if all(result is None for result in results):
         logger.critical('All problems failed to load.')
         _fun_histories, _maxcv_histories = [], []
-        fun_returned, maxcv_returned = [], []
+        fun_output, maxcv_output = [], []
         fun_init, maxcv_init = [], []
         n_eval = []
         problem_names = []
         problem_dimensions = []
     else:
-        _fun_histories, _maxcv_histories, fun_returned, maxcv_returned, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions = zip(*[result for result in results if result is not None])
-    fun_returned = np.array(fun_returned)
-    maxcv_returned = np.array(maxcv_returned)
+        _fun_histories, _maxcv_histories, fun_output, maxcv_output, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions = zip(*[result for result in results if result is not None])
+    fun_output = np.array(fun_output)
+    maxcv_output = np.array(maxcv_output)
     fun_init = np.array(fun_init)
     maxcv_init = np.array(maxcv_init)
     n_eval = np.array(n_eval)
@@ -301,7 +301,7 @@ def _solve_all_problems(cutest_problem_names, extra_problems, solvers, labels, f
         if max_eval > 0:
             fun_histories[i_problem, ..., max_eval:] = fun_histories[i_problem, ..., max_eval - 1, np.newaxis]
             maxcv_histories[i_problem, ..., max_eval:] = maxcv_histories[i_problem, ..., max_eval - 1, np.newaxis]
-    return fun_histories, maxcv_histories, fun_returned, maxcv_returned, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions
+    return fun_histories, maxcv_histories, fun_output, maxcv_output, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions
 
 
 def _solve_one_problem(problem_name, solvers, labels, feature, max_eval_factor, cutest_problem_options):
@@ -337,9 +337,9 @@ def _solve_one_problem(problem_name, solvers, labels, feature, max_eval_factor, 
     max_eval = max_eval_factor * problem.dimension
     n_eval = np.zeros((n_solvers, n_runs), dtype=int)
     fun_histories = np.full((n_solvers, n_runs, max_eval), np.nan)
-    fun_returned = np.full((n_solvers, n_runs), np.nan)
+    fun_output = np.full((n_solvers, n_runs), np.nan)
     maxcv_histories = np.full((n_solvers, n_runs, max_eval), np.nan)
-    maxcv_returned = np.full((n_solvers, n_runs), np.nan)
+    maxcv_output = np.full((n_solvers, n_runs), np.nan)
     logger = get_logger(__name__)
     for i_solver in range(n_solvers):
         for i_run in range(n_runs):
@@ -359,15 +359,15 @@ def _solve_one_problem(problem_name, solvers, labels, feature, max_eval_factor, 
                         x = solvers[i_solver](featured_problem.fun, featured_problem.x0, featured_problem.lb, featured_problem.ub, featured_problem.a_ub, featured_problem.b_ub, featured_problem.a_eq, featured_problem.b_eq)
                     else:
                         x = solvers[i_solver](featured_problem.fun, featured_problem.x0, featured_problem.lb, featured_problem.ub, featured_problem.a_ub, featured_problem.b_ub, featured_problem.a_eq, featured_problem.b_eq, featured_problem.c_ub, featured_problem.c_eq)
-                    fun_returned[i_solver, i_run] = problem.fun(x)
-                    maxcv_returned[i_solver, i_run] = problem.maxcv(x)
+                    fun_output[i_solver, i_run] = problem.fun(x)
+                    maxcv_output[i_solver, i_run] = problem.maxcv(x)
             n_eval[i_solver, i_run] = featured_problem.n_eval
             fun_histories[i_solver, i_run, :n_eval[i_solver, i_run]] = featured_problem.fun_history[:n_eval[i_solver, i_run]]
             maxcv_histories[i_solver, i_run, :n_eval[i_solver, i_run]] = featured_problem.maxcv_history[:n_eval[i_solver, i_run]]
             if n_eval[i_solver, i_run] > 0:
                 fun_histories[i_solver, i_run, n_eval[i_solver, i_run]:] = fun_histories[i_solver, i_run, n_eval[i_solver, i_run] - 1]
                 maxcv_histories[i_solver, i_run, n_eval[i_solver, i_run]:] = maxcv_histories[i_solver, i_run, n_eval[i_solver, i_run] - 1]
-    return fun_histories, maxcv_histories, fun_returned, maxcv_returned, fun_init, maxcv_init, n_eval, problem_name, problem.dimension
+    return fun_histories, maxcv_histories, fun_output, maxcv_output, fun_init, maxcv_init, n_eval, problem_name, problem.dimension
 
 
 def _compute_merit_values(fun_values, maxcv_values):
@@ -402,7 +402,7 @@ def _format_float_scientific_latex(x):
     return raw, f'{match.group("coefficient")} \\times 10^{{{match.group("exponent")}}}'
 
 
-def _draw_profiles(work_history, work_returned, problem_dimensions, labels):
+def _draw_profiles(work_history, work_output, problem_dimensions, labels, tolerance_label):
     n_problems, n_solvers, n_runs = work_history.shape
 
     # Create the figure.
@@ -414,36 +414,39 @@ def _draw_profiles(work_history, work_returned, problem_dimensions, labels):
 
     # Draw the performance and data profiles.
     x_perf_history, y_perf_history, ratio_max_perf_history, x_data_history, y_data_history, ratio_max_data_history = _get_extended_performances_data_profile_axes(work_history, problem_dimensions)
-    x_perf_returned, y_perf_returned, ratio_max_perf_returned, x_data_returned, y_data_returned, ratio_max_data_returned = _get_extended_performances_data_profile_axes(work_returned, problem_dimensions)
+    x_perf_output, y_perf_output, ratio_max_perf_output, x_data_output, y_data_output, ratio_max_data_output = _get_extended_performances_data_profile_axes(work_output, problem_dimensions)
     _draw_performance_data_profiles(axs[0, 0], x_perf_history, y_perf_history, labels)
-    _draw_performance_data_profiles(axs[0, 1], x_perf_returned, y_perf_returned, labels)
+    _draw_performance_data_profiles(axs[0, 1], x_perf_output, y_perf_output, labels)
     _draw_performance_data_profiles(axs[1, 0], x_data_history, y_data_history, labels)
-    _draw_performance_data_profiles(axs[1, 1], x_data_returned, y_data_returned, labels)
+    _draw_performance_data_profiles(axs[1, 1], x_data_output, y_data_output, labels)
+    int_formatter = FuncFormatter(lambda x, _: f'{x:.0f}')
     axs[0, 0].set_xscale('log', base=2)
     axs[0, 1].set_xscale('log', base=2)
-    axs[0, 0].xaxis.set_major_formatter(ScalarFormatter())
-    axs[0, 1].xaxis.set_major_formatter(ScalarFormatter())
+    axs[0, 0].xaxis.set_major_formatter(int_formatter)
+    axs[0, 1].xaxis.set_major_formatter(int_formatter)
     axs[0, 0].set_xlim(1.0, ratio_max_perf_history ** 1.1)
-    axs[0, 1].set_xlim(1.0, ratio_max_perf_returned ** 1.1)
+    axs[0, 1].set_xlim(1.0, ratio_max_perf_output ** 1.1)
     axs[1, 0].set_xlim(0.0, 1.1 * ratio_max_data_history)
-    axs[1, 1].set_xlim(0.0, 1.1 * ratio_max_data_returned)
+    axs[1, 1].set_xlim(0.0, 1.1 * ratio_max_data_output)
     axs[0, 0].set_xlabel('Performance ratio')
     axs[0, 1].set_xlabel('Performance ratio')
     axs[1, 0].set_xlabel('Number of simplex gradients')
     axs[1, 1].set_xlabel('Number of simplex gradients')
-    axs[0, 0].set_ylabel('Performance profiles')
-    axs[0, 1].set_ylabel('Performance profiles')
-    axs[1, 0].set_ylabel('Data profiles')
-    axs[1, 1].set_ylabel('Data profiles')
+    axs[0, 0].set_ylabel(f'Performance profiles {tolerance_label}')
+    axs[0, 1].set_ylabel(f'Performance profiles {tolerance_label}')
+    axs[1, 0].set_ylabel(f'Data profiles {tolerance_label}')
+    axs[1, 1].set_ylabel(f'Data profiles {tolerance_label}')
+    axs[0, 0].set_title('History-based profiles')
+    axs[0, 1].set_title('Output-based profiles')
 
     # Draw the log-ratio profiles.
     if n_solvers <= 2:
         _draw_log_ratio_profiles(axs[2, 0], np.copy(work_history), labels)
-        _draw_log_ratio_profiles(axs[2, 1], np.copy(work_returned), labels)
+        _draw_log_ratio_profiles(axs[2, 1], np.copy(work_output), labels)
         axs[2, 0].set_xlabel('Problem')
         axs[2, 1].set_xlabel('Problem')
-        axs[2, 0].set_ylabel('Log-ratio profiles')
-        axs[2, 1].set_ylabel('Log-ratio profiles')
+        axs[2, 0].set_ylabel(f'Log-ratio profiles {tolerance_label}')
+        axs[2, 1].set_ylabel(f'Log-ratio profiles {tolerance_label}')
     return fig, axs
 
 

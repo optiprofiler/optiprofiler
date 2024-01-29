@@ -185,7 +185,7 @@ class Feature:
         if self._name == FeatureName.CUSTOM:
             f = self._options[FeatureOption.MODIFIER](x, f, seed)
         elif self._name == FeatureName.NOISY:
-            rng = self.default_rng(seed, f, sum(ord(letter) for letter in self._options[FeatureOption.TYPE]), *x)
+            rng = self.get_default_rng(seed, f, sum(ord(letter) for letter in self._options[FeatureOption.TYPE]), *x)
             if self._options[FeatureOption.TYPE] == NoiseType.ABSOLUTE:
                 f += self._options[FeatureOption.DISTRIBUTION](rng)
             else:
@@ -193,13 +193,13 @@ class Feature:
         elif self._name == FeatureName.REGULARIZED:
             f += self._options[FeatureOption.PARAMETER] * np.linalg.norm(x, self._options[FeatureOption.ORDER])
         elif self._name == FeatureName.TOUGH:
-            rng = self.default_rng(seed, f, self._options[FeatureOption.RATE_ERROR], self._options[FeatureOption.RATE_NAN], *x)
+            rng = self.get_default_rng(seed, f, self._options[FeatureOption.RATE_ERROR], self._options[FeatureOption.RATE_NAN], *x)
             if rng.uniform() < self._options[FeatureOption.RATE_ERROR]:
                 raise RuntimeError
             elif rng.uniform() < self._options[FeatureOption.RATE_NAN]:
                 f = np.nan
         elif self._name == FeatureName.TRUNCATED:
-            rng = self.default_rng(seed, f, self._options[FeatureOption.SIGNIFICANT_DIGITS], *x)
+            rng = self.get_default_rng(seed, f, self._options[FeatureOption.SIGNIFICANT_DIGITS], *x)
             if f == 0.0:
                 digits = self._options[FeatureOption.SIGNIFICANT_DIGITS] - 1
             else:
@@ -244,7 +244,7 @@ class Feature:
             raise NotImplementedError(f'Unknown feature: {self._name}.')
 
     @staticmethod
-    def default_rng(seed, *args):
+    def get_default_rng(seed, *args):
         """
         Generate a random number generator.
 

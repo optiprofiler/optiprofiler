@@ -9,9 +9,9 @@ Utilities
     :toctree: generated/
 
     FeatureName
-    ProfileOptionKey
-    CUTEstProblemOptionKey
-    FeatureOptionKey
+    ProfileOption
+    CUTEstProblemOption
+    FeatureOption
     NoiseType
     ProblemError
     show_versions

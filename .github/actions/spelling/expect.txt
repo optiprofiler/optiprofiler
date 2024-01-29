@@ -14,6 +14,7 @@ autodoc
 automethod
 autoproperty
 autosummary
+axs
 bibfiles
 BUILDDIR
 cls
@@ -27,6 +28,7 @@ endblock
 endfor
 endtrans
 eps
+figsize
 finfo
 flatnonzero
 footbibliography
@@ -94,6 +96,7 @@ usr
 vartype
 verticalalignment
 whl
+xaxis
 xlabel
 xlim
 xscale

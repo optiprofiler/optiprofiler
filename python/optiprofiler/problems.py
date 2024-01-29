@@ -617,7 +617,7 @@ class FeaturedProblem(Problem):
         """
         x0 = super().x0
         if self._feature.name == FeatureName.RANDOMIZE_X0:
-            rng = self._feature.default_rng(self._seed, *x0)
+            rng = self._feature.get_default_rng(self._seed, *x0)
             x0 += self._feature.options[FeatureOption.DISTRIBUTION](rng, x0.size)
         return x0
 

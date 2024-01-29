@@ -182,11 +182,11 @@ class TestFeature:
         with pytest.raises(ValueError):
             feature.modifier(np.zeros(2), 1.0, -1)
         with pytest.raises(TypeError):
-            feature.default_rng(1.5)
+            feature.get_default_rng(1.5)
         with pytest.raises(ValueError):
-            feature.default_rng(-1)
+            feature.get_default_rng(-1)
         with pytest.raises(TypeError):
-            feature.default_rng(0, 'arg')
+            feature.get_default_rng(0, 'arg')
 
     def test_catch(self):
         # The value n_runs can be a float.
@@ -198,4 +198,4 @@ class TestFeature:
         # The seed can be a float.
         feature = Feature('plain')
         feature.modifier(np.zeros(2), 1.0, seed=1.0)
-        feature.default_rng(1.0)
+        feature.get_default_rng(1.0)

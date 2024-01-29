@@ -8,4 +8,4 @@ Profiles
 .. autosummary::
     :toctree: generated/
 
-    create_profiles
+    run_benchmark
