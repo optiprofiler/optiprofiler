@@ -578,8 +578,8 @@ class FeaturedProblem(Problem):
                 raise ValueError('The argument seed must be nonnegative.')
 
         # Store the objective function values and maximum constraint violations.
-        self._fun_history = []
-        self._maxcv_history = []
+        self._fun_hist = []
+        self._maxcv_hist = []
 
     def __new__(cls, problem, feature, max_eval, seed=None):
         # Preprocess the problem.
@@ -603,7 +603,7 @@ class FeaturedProblem(Problem):
         int
             Number of objective function evaluations.
         """
-        return len(self._fun_history)
+        return len(self._fun_hist)
 
     @property
     def x0(self):
@@ -622,7 +622,7 @@ class FeaturedProblem(Problem):
         return x0
 
     @property
-    def fun_history(self):
+    def fun_hist(self):
         """
         History of objective function values.
 
@@ -631,10 +631,10 @@ class FeaturedProblem(Problem):
         `numpy.ndarray`, shape (n_eval,)
             History of objective function values.
         """
-        return np.array(self._fun_history, dtype=float)
+        return np.array(self._fun_hist, dtype=float)
 
     @property
-    def maxcv_history(self):
+    def maxcv_hist(self):
         """
         History of maximum constraint violations.
 
@@ -643,7 +643,7 @@ class FeaturedProblem(Problem):
         `numpy.ndarray`, shape (n_eval,)
             History of maximum constraint violations.
         """
-        return np.array(self._maxcv_history, dtype=float)
+        return np.array(self._maxcv_hist, dtype=float)
 
     def fun(self, x):
         """
@@ -671,8 +671,8 @@ class FeaturedProblem(Problem):
 
         # Evaluate the objective function and store the results.
         f = super().fun(x)
-        self._fun_history.append(f)
-        self._maxcv_history.append(self.maxcv(x))
+        self._fun_hist.append(f)
+        self._maxcv_hist.append(self.maxcv(x))
 
         # Modified the objective function value according to the feature and
         # return the modified value. We should not store the modified value

@@ -190,9 +190,9 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
 
     # Solve the problems.
     max_eval_factor = 500
-    fun_histories, maxcv_histories, fun_output, maxcv_output, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions = _solve_all_problems(cutest_problem_names, extra_problems, solvers, labels, feature, max_eval_factor, profile_options)
+    fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions = _solve_all_problems(cutest_problem_names, extra_problems, solvers, labels, feature, max_eval_factor, profile_options)
     merit_histories = _compute_merit_values(fun_histories, maxcv_histories)
-    merit_output = _compute_merit_values(fun_output, maxcv_output)
+    merit_out = _compute_merit_values(fun_out, maxcv_out)
     merit_init = _compute_merit_values(fun_init, maxcv_init)
 
     # Determine the least merit value for each problem.
@@ -208,7 +208,10 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
     # Paths to the results.
     timestamp = datetime.utcnow().astimezone().strftime('%Y-%m-%dT%H-%M-%SZ')
     path_out = Path('out', feature.name, profile_options[ProfileOption.BENCHMARK_ID], timestamp).resolve()
-    path_out.mkdir(parents=True, exist_ok=True)
+    path_pdf = path_out / 'pdf'
+    path_eps = path_out / 'eps'
+    path_pdf.mkdir(parents=True, exist_ok=True)
+    path_eps.mkdir(exist_ok=True)
 
     # Store the names of the problems.
     path_txt = path_out / 'problems.txt'
@@ -228,14 +231,20 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
         # Create the performance and data profiles.
         n_problems, n_solvers, n_runs, max_eval = merit_histories.shape
         tolerances = np.logspace(-1, -10, 10)
-        pdf = backend_pdf.PdfPages(path_out / 'summary.pdf')
-        for i_profile, tolerance in enumerate(tolerances):
+        pdf_summary = backend_pdf.PdfPages(path_out / 'summary.pdf')
+        pdf_perf_hist = backend_pdf.PdfPages(path_pdf / 'perf_hist.pdf')
+        pdf_perf_out = backend_pdf.PdfPages(path_pdf / 'perf_out.pdf')
+        pdf_data_hist = backend_pdf.PdfPages(path_pdf / 'data_hist.pdf')
+        pdf_data_out = backend_pdf.PdfPages(path_pdf / 'data_out.pdf')
+        pdf_log_ratio_hist = backend_pdf.PdfPages(path_pdf / 'log-ratio_hist.pdf', False)
+        pdf_log_ratio_out = backend_pdf.PdfPages(path_pdf / 'log-ratio_out.pdf', False)
+        for tolerance in tolerances:
             tolerance_str, tolerance_latex = _format_float_scientific_latex(tolerance)
             logger.info(f'Creating profiles for tolerance {tolerance_str}.')
             tolerance_label = f'($\\mathrm{{tol}} = {tolerance_latex}$)'
 
-            work_history = np.full((n_problems, n_solvers, n_runs), np.nan)
-            work_output = np.full((n_problems, n_solvers, n_runs), np.nan)
+            work_hist = np.full((n_problems, n_solvers, n_runs), np.nan)
+            work_out = np.full((n_problems, n_solvers, n_runs), np.nan)
             for i_problem in range(n_problems):
                 for i_solver in range(n_solvers):
                     for i_run in range(n_runs):
@@ -244,17 +253,47 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
                         else:
                             threshold = -np.inf
                         if np.min(merit_histories[i_problem, i_solver, i_run, :]) <= threshold:
-                            work_history[i_problem, i_solver, i_run] = np.argmax(merit_histories[i_problem, i_solver, i_run, :] <= threshold) + 1
-                        if merit_output[i_problem, i_solver, i_run] <= threshold:
-                            work_output[i_problem, i_solver, i_run] = n_eval[i_problem, i_solver, i_run]
+                            work_hist[i_problem, i_solver, i_run] = np.argmax(merit_histories[i_problem, i_solver, i_run, :] <= threshold) + 1
+                        if merit_out[i_problem, i_solver, i_run] <= threshold:
+                            work_out[i_problem, i_solver, i_run] = n_eval[i_problem, i_solver, i_run]
 
             # Draw the profiles.
-            fig, axs = _draw_profiles(work_history, work_output, problem_dimensions, labels, tolerance_label)
-            pdf.savefig(fig, bbox_inches='tight')
-            plt.close(fig)
+            fig_summary, fig_perf_hist, fig_perf_out, fig_data_hist, fig_data_out, fig_log_ratio_hist, fig_log_ratio_out = _draw_profiles(work_hist, work_out, problem_dimensions, labels, tolerance_label)
+            pdf_summary.savefig(fig_summary, bbox_inches='tight')
+            fig_perf_hist.savefig(path_eps / f'perf_hist_{tolerance_str}.eps', bbox_inches='tight')
+            pdf_perf_hist.savefig(fig_perf_hist, bbox_inches='tight')
+            fig_perf_out.savefig(path_eps / f'perf_out_{tolerance_str}.eps', bbox_inches='tight')
+            pdf_perf_out.savefig(fig_perf_out, bbox_inches='tight')
+            fig_data_hist.savefig(path_eps / f'data_hist_{tolerance_str}.eps', bbox_inches='tight')
+            pdf_data_hist.savefig(fig_data_hist, bbox_inches='tight')
+            fig_data_out.savefig(path_eps / f'data_out_{tolerance_str}.eps', bbox_inches='tight')
+            pdf_data_out.savefig(fig_data_out, bbox_inches='tight')
+            if fig_log_ratio_hist is not None:
+                fig_log_ratio_hist.savefig(path_eps / f'log-ratio_hist_{tolerance_str}.eps', bbox_inches='tight')
+                pdf_log_ratio_hist.savefig(fig_log_ratio_hist, bbox_inches='tight')
+            if fig_log_ratio_out is not None:
+                fig_log_ratio_out.savefig(path_eps / f'log-ratio_out_{tolerance_str}.eps', bbox_inches='tight')
+                pdf_log_ratio_out.savefig(fig_log_ratio_out, bbox_inches='tight')
 
-            # TODO: Save the profiles.
-        pdf.close()
+            # Close the figures.
+            plt.close(fig_summary)
+            plt.close(fig_perf_hist)
+            plt.close(fig_perf_out)
+            plt.close(fig_data_hist)
+            plt.close(fig_data_out)
+            if fig_log_ratio_hist is not None:
+                plt.close(fig_log_ratio_hist)
+            if fig_log_ratio_out is not None:
+                plt.close(fig_log_ratio_out)
+
+        # Close the PDF files.
+        pdf_summary.close()
+        pdf_perf_hist.close()
+        pdf_perf_out.close()
+        pdf_data_hist.close()
+        pdf_data_out.close()
+        pdf_log_ratio_hist.close()
+        pdf_log_ratio_out.close()
         logger.info(f'Results stored in {path_out}.')
 
 
@@ -274,15 +313,15 @@ def _solve_all_problems(cutest_problem_names, extra_problems, solvers, labels, f
     if all(result is None for result in results):
         logger.critical('All problems failed to load.')
         _fun_histories, _maxcv_histories = [], []
-        fun_output, maxcv_output = [], []
+        fun_out, maxcv_out = [], []
         fun_init, maxcv_init = [], []
         n_eval = []
         problem_names = []
         problem_dimensions = []
     else:
-        _fun_histories, _maxcv_histories, fun_output, maxcv_output, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions = zip(*[result for result in results if result is not None])
-    fun_output = np.array(fun_output)
-    maxcv_output = np.array(maxcv_output)
+        _fun_histories, _maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions = zip(*[result for result in results if result is not None])
+    fun_out = np.array(fun_out)
+    maxcv_out = np.array(maxcv_out)
     fun_init = np.array(fun_init)
     maxcv_init = np.array(maxcv_init)
     n_eval = np.array(n_eval)
@@ -294,14 +333,14 @@ def _solve_all_problems(cutest_problem_names, extra_problems, solvers, labels, f
     max_eval = max_eval_factor * max(problem_dimensions) if len(problem_dimensions) > 0 else 1
     fun_histories = np.full((n_problems, n_solvers, n_runs, max_eval), np.nan)
     maxcv_histories = np.full((n_problems, n_solvers, n_runs, max_eval), np.nan)
-    for i_problem, (fun_history, maxcv_history) in enumerate(zip(_fun_histories, _maxcv_histories)):
+    for i_problem, (fun_hist, maxcv_hist) in enumerate(zip(_fun_histories, _maxcv_histories)):
         max_eval = max_eval_factor * problem_dimensions[i_problem]
-        fun_histories[i_problem, ..., :max_eval] = fun_history
-        maxcv_histories[i_problem, ..., :max_eval] = maxcv_history
+        fun_histories[i_problem, ..., :max_eval] = fun_hist
+        maxcv_histories[i_problem, ..., :max_eval] = maxcv_hist
         if max_eval > 0:
             fun_histories[i_problem, ..., max_eval:] = fun_histories[i_problem, ..., max_eval - 1, np.newaxis]
             maxcv_histories[i_problem, ..., max_eval:] = maxcv_histories[i_problem, ..., max_eval - 1, np.newaxis]
-    return fun_histories, maxcv_histories, fun_output, maxcv_output, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions
+    return fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions
 
 
 def _solve_one_problem(problem_name, solvers, labels, feature, max_eval_factor, cutest_problem_options):
@@ -337,9 +376,9 @@ def _solve_one_problem(problem_name, solvers, labels, feature, max_eval_factor, 
     max_eval = max_eval_factor * problem.dimension
     n_eval = np.zeros((n_solvers, n_runs), dtype=int)
     fun_histories = np.full((n_solvers, n_runs, max_eval), np.nan)
-    fun_output = np.full((n_solvers, n_runs), np.nan)
+    fun_out = np.full((n_solvers, n_runs), np.nan)
     maxcv_histories = np.full((n_solvers, n_runs, max_eval), np.nan)
-    maxcv_output = np.full((n_solvers, n_runs), np.nan)
+    maxcv_out = np.full((n_solvers, n_runs), np.nan)
     logger = get_logger(__name__)
     for i_solver in range(n_solvers):
         for i_run in range(n_runs):
@@ -359,15 +398,15 @@ def _solve_one_problem(problem_name, solvers, labels, feature, max_eval_factor, 
                         x = solvers[i_solver](featured_problem.fun, featured_problem.x0, featured_problem.lb, featured_problem.ub, featured_problem.a_ub, featured_problem.b_ub, featured_problem.a_eq, featured_problem.b_eq)
                     else:
                         x = solvers[i_solver](featured_problem.fun, featured_problem.x0, featured_problem.lb, featured_problem.ub, featured_problem.a_ub, featured_problem.b_ub, featured_problem.a_eq, featured_problem.b_eq, featured_problem.c_ub, featured_problem.c_eq)
-                    fun_output[i_solver, i_run] = problem.fun(x)
-                    maxcv_output[i_solver, i_run] = problem.maxcv(x)
+                    fun_out[i_solver, i_run] = problem.fun(x)
+                    maxcv_out[i_solver, i_run] = problem.maxcv(x)
             n_eval[i_solver, i_run] = featured_problem.n_eval
-            fun_histories[i_solver, i_run, :n_eval[i_solver, i_run]] = featured_problem.fun_history[:n_eval[i_solver, i_run]]
-            maxcv_histories[i_solver, i_run, :n_eval[i_solver, i_run]] = featured_problem.maxcv_history[:n_eval[i_solver, i_run]]
+            fun_histories[i_solver, i_run, :n_eval[i_solver, i_run]] = featured_problem.fun_hist[:n_eval[i_solver, i_run]]
+            maxcv_histories[i_solver, i_run, :n_eval[i_solver, i_run]] = featured_problem.maxcv_hist[:n_eval[i_solver, i_run]]
             if n_eval[i_solver, i_run] > 0:
                 fun_histories[i_solver, i_run, n_eval[i_solver, i_run]:] = fun_histories[i_solver, i_run, n_eval[i_solver, i_run] - 1]
                 maxcv_histories[i_solver, i_run, n_eval[i_solver, i_run]:] = maxcv_histories[i_solver, i_run, n_eval[i_solver, i_run] - 1]
-    return fun_histories, maxcv_histories, fun_output, maxcv_output, fun_init, maxcv_init, n_eval, problem_name, problem.dimension
+    return fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_name, problem.dimension
 
 
 def _compute_merit_values(fun_values, maxcv_values):
@@ -402,56 +441,95 @@ def _format_float_scientific_latex(x):
     return raw, f'{match.group("coefficient")} \\times 10^{{{match.group("exponent")}}}'
 
 
-def _draw_profiles(work_history, work_output, problem_dimensions, labels, tolerance_label):
-    n_problems, n_solvers, n_runs = work_history.shape
+def _draw_profiles(work_hist, work_out, problem_dimensions, labels, tolerance_label):
+    n_solvers = work_hist.shape[1]
 
-    # Create the figure.
+    # Create the figure for the summary.
     default_width, default_height = plt.rcParams['figure.figsize']
     if n_solvers > 2:
-        fig, axs = plt.subplots(2, 2, figsize=(2 * default_width, 2 * default_height))
+        fig_summary, axs_summary = plt.subplots(2, 2, figsize=(2 * default_width, 2 * default_height))
     else:
-        fig, axs = plt.subplots(3, 2, figsize=(2 * default_width, 3 * default_height))
+        fig_summary, axs_summary = plt.subplots(3, 2, figsize=(2 * default_width, 3 * default_height))
+
+    # Create the individual figures.
+    fig_perf_hist, ax_perf_hist = plt.subplots()
+    fig_perf_out, ax_perf_out = plt.subplots()
+    fig_data_hist, ax_data_hist = plt.subplots()
+    fig_data_out, ax_data_out = plt.subplots()
+    if n_solvers > 2:
+        fig_log_ratio_hist, ax_log_ratio_hist = None, None
+        fig_log_ratio_out, ax_log_ratio_out = None, None
+    else:
+        fig_log_ratio_hist, ax_log_ratio_hist = plt.subplots()
+        fig_log_ratio_out, ax_log_ratio_out = plt.subplots()
 
     # Draw the performance and data profiles.
-    x_perf_history, y_perf_history, ratio_max_perf_history, x_data_history, y_data_history, ratio_max_data_history = _get_extended_performances_data_profile_axes(work_history, problem_dimensions)
-    x_perf_output, y_perf_output, ratio_max_perf_output, x_data_output, y_data_output, ratio_max_data_output = _get_extended_performances_data_profile_axes(work_output, problem_dimensions)
-    _draw_performance_data_profiles(axs[0, 0], x_perf_history, y_perf_history, labels)
-    _draw_performance_data_profiles(axs[0, 1], x_perf_output, y_perf_output, labels)
-    _draw_performance_data_profiles(axs[1, 0], x_data_history, y_data_history, labels)
-    _draw_performance_data_profiles(axs[1, 1], x_data_output, y_data_output, labels)
+    x_perf_hist, y_perf_hist, ratio_max_perf_hist, x_data_hist, y_data_hist, ratio_max_data_hist = _get_extended_performances_data_profile_axes(work_hist, problem_dimensions)
+    x_perf_out, y_perf_out, ratio_max_perf_out, x_data_out, y_data_out, ratio_max_data_out = _get_extended_performances_data_profile_axes(work_out, problem_dimensions)
+    _draw_performance_data_profiles(ax_perf_hist, x_perf_hist, y_perf_hist, labels)
+    _draw_performance_data_profiles(axs_summary[0, 0], x_perf_hist, y_perf_hist, labels)
+    _draw_performance_data_profiles(ax_perf_out, x_perf_out, y_perf_out, labels)
+    _draw_performance_data_profiles(axs_summary[0, 1], x_perf_out, y_perf_out, labels)
+    _draw_performance_data_profiles(ax_data_hist, x_data_hist, y_data_hist, labels)
+    _draw_performance_data_profiles(axs_summary[1, 0], x_data_hist, y_data_hist, labels)
+    _draw_performance_data_profiles(ax_data_out, x_data_out, y_data_out, labels)
+    _draw_performance_data_profiles(axs_summary[1, 1], x_data_out, y_data_out, labels)
     int_formatter = FuncFormatter(lambda x, _: f'{x:.0f}')
-    axs[0, 0].set_xscale('log', base=2)
-    axs[0, 1].set_xscale('log', base=2)
-    axs[0, 0].xaxis.set_major_formatter(int_formatter)
-    axs[0, 1].xaxis.set_major_formatter(int_formatter)
-    axs[0, 0].set_xlim(1.0, ratio_max_perf_history ** 1.1)
-    axs[0, 1].set_xlim(1.0, ratio_max_perf_output ** 1.1)
-    axs[1, 0].set_xlim(0.0, 1.1 * ratio_max_data_history)
-    axs[1, 1].set_xlim(0.0, 1.1 * ratio_max_data_output)
-    axs[0, 0].set_xlabel('Performance ratio')
-    axs[0, 1].set_xlabel('Performance ratio')
-    axs[1, 0].set_xlabel('Number of simplex gradients')
-    axs[1, 1].set_xlabel('Number of simplex gradients')
-    axs[0, 0].set_ylabel(f'Performance profiles {tolerance_label}')
-    axs[0, 1].set_ylabel(f'Performance profiles {tolerance_label}')
-    axs[1, 0].set_ylabel(f'Data profiles {tolerance_label}')
-    axs[1, 1].set_ylabel(f'Data profiles {tolerance_label}')
-    axs[0, 0].set_title('History-based profiles')
-    axs[0, 1].set_title('Output-based profiles')
+    ax_perf_hist.set_xscale('log', base=2)
+    axs_summary[0, 0].set_xscale('log', base=2)
+    ax_perf_out.set_xscale('log', base=2)
+    axs_summary[0, 1].set_xscale('log', base=2)
+    ax_perf_hist.xaxis.set_major_formatter(int_formatter)
+    axs_summary[0, 0].xaxis.set_major_formatter(int_formatter)
+    ax_perf_out.xaxis.set_major_formatter(int_formatter)
+    axs_summary[0, 1].xaxis.set_major_formatter(int_formatter)
+    ax_perf_hist.set_xlim(1.0, ratio_max_perf_hist ** 1.1)
+    axs_summary[0, 0].set_xlim(1.0, ratio_max_perf_hist ** 1.1)
+    ax_perf_out.set_xlim(1.0, ratio_max_perf_out ** 1.1)
+    axs_summary[0, 1].set_xlim(1.0, ratio_max_perf_out ** 1.1)
+    ax_data_hist.set_xlim(0.0, 1.1 * ratio_max_data_hist)
+    axs_summary[1, 0].set_xlim(0.0, 1.1 * ratio_max_data_hist)
+    ax_data_out.set_xlim(0.0, 1.1 * ratio_max_data_out)
+    axs_summary[1, 1].set_xlim(0.0, 1.1 * ratio_max_data_out)
+    ax_perf_hist.set_xlabel('Performance ratio')
+    axs_summary[0, 0].set_xlabel('Performance ratio')
+    ax_perf_out.set_xlabel('Performance ratio')
+    axs_summary[0, 1].set_xlabel('Performance ratio')
+    ax_data_hist.set_xlabel('Number of simplex gradients')
+    axs_summary[1, 0].set_xlabel('Number of simplex gradients')
+    ax_data_out.set_xlabel('Number of simplex gradients')
+    axs_summary[1, 1].set_xlabel('Number of simplex gradients')
+    ax_perf_hist.set_ylabel(f'Performance profiles {tolerance_label}')
+    axs_summary[0, 0].set_ylabel(f'Performance profiles {tolerance_label}')
+    ax_perf_out.set_ylabel(f'Performance profiles {tolerance_label}')
+    axs_summary[0, 1].set_ylabel(f'Performance profiles {tolerance_label}')
+    ax_data_hist.set_ylabel(f'Data profiles {tolerance_label}')
+    axs_summary[1, 0].set_ylabel(f'Data profiles {tolerance_label}')
+    ax_data_out.set_ylabel(f'Data profiles {tolerance_label}')
+    axs_summary[1, 1].set_ylabel(f'Data profiles {tolerance_label}')
+    axs_summary[0, 0].set_title('History-based profiles')
+    axs_summary[0, 1].set_title('Output-based profiles')
 
     # Draw the log-ratio profiles.
     if n_solvers <= 2:
-        _draw_log_ratio_profiles(axs[2, 0], np.copy(work_history), labels)
-        _draw_log_ratio_profiles(axs[2, 1], np.copy(work_output), labels)
-        axs[2, 0].set_xlabel('Problem')
-        axs[2, 1].set_xlabel('Problem')
-        axs[2, 0].set_ylabel(f'Log-ratio profiles {tolerance_label}')
-        axs[2, 1].set_ylabel(f'Log-ratio profiles {tolerance_label}')
-    return fig, axs
+        _draw_log_ratio_profiles(ax_log_ratio_hist, np.copy(work_hist), labels)
+        _draw_log_ratio_profiles(axs_summary[2, 0], np.copy(work_hist), labels)
+        _draw_log_ratio_profiles(ax_log_ratio_out, np.copy(work_out), labels)
+        _draw_log_ratio_profiles(axs_summary[2, 1], np.copy(work_out), labels)
+        ax_log_ratio_hist.set_xlabel('Problem')
+        axs_summary[2, 0].set_xlabel('Problem')
+        ax_log_ratio_out.set_xlabel('Problem')
+        axs_summary[2, 1].set_xlabel('Problem')
+        ax_log_ratio_hist.set_ylabel(f'Log-ratio profiles {tolerance_label}')
+        axs_summary[2, 0].set_ylabel(f'Log-ratio profiles {tolerance_label}')
+        ax_log_ratio_out.set_ylabel(f'Log-ratio profiles {tolerance_label}')
+        axs_summary[2, 1].set_ylabel(f'Log-ratio profiles {tolerance_label}')
+    return fig_summary, fig_perf_hist, fig_perf_out, fig_data_hist, fig_data_out, fig_log_ratio_hist, fig_log_ratio_out
 
 
 def _draw_performance_data_profiles(ax, x, y, labels):
     n_solvers = x.shape[1]
+    n_runs = y.shape[2]
     y_mean = np.mean(y, 2)
     y_min = np.min(y, 2)
     y_max = np.max(y, 2)
@@ -461,13 +539,14 @@ def _draw_performance_data_profiles(ax, x, y, labels):
         y_min_stairs = np.repeat(y_min[:, i_solver], 2)[:-1]
         y_max_stairs = np.repeat(y_max[:, i_solver], 2)[:-1]
         ax.plot(x_stairs, y_mean_stairs, label=labels[i_solver])
-        ax.fill_between(x_stairs, y_min_stairs, y_max_stairs, alpha=0.2)
+        if n_runs > 1:
+            ax.fill_between(x_stairs, y_min_stairs, y_max_stairs, alpha=0.2)
     ax.yaxis.set_ticks_position('both')
     ax.yaxis.set_major_locator(MaxNLocator(5, prune='lower'))
     ax.yaxis.set_minor_locator(MaxNLocator(10))
     ax.set_ylim(0.0, 1.0)
     ax.tick_params(which='both', direction='in')
-    ax.legend(loc='lower right')
+    ax.legend(loc='lower right', framealpha=1.0)
 
 
 def _draw_log_ratio_profiles(ax, work, labels):
