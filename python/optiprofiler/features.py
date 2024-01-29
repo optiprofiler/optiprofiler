@@ -215,7 +215,13 @@ class Feature:
     def _set_default_options(self):
         """
         Set default options.
+
+        Notes
+        -----
+        The default distribution are defined as static methods of the class and
+        not using lambda functions because the latter are not picklable.
         """
+
         if self._name == FeatureName.PLAIN:
             self._options.setdefault(FeatureOption.N_RUNS.value, 1)
         elif self._name == FeatureName.CUSTOM:
@@ -223,11 +229,11 @@ class Feature:
                 raise ValueError(f'When using a custom feature, you must specify the {FeatureOption.MODIFIER} option.')
             self._options.setdefault(FeatureOption.N_RUNS.value, 1)
         elif self._name == FeatureName.NOISY:
-            self._options.setdefault(FeatureOption.DISTRIBUTION.value, lambda rng: 1e-3 * rng.standard_normal())
+            self._options.setdefault(FeatureOption.DISTRIBUTION.value, self._default_distribution)
             self._options.setdefault(FeatureOption.N_RUNS.value, 10)
             self._options.setdefault(FeatureOption.TYPE.value, NoiseType.RELATIVE.value)
         elif self._name == FeatureName.RANDOMIZE_X0:
-            self._options.setdefault(FeatureOption.DISTRIBUTION.value, lambda rng, n: 1e-3 * rng.standard_normal(n))
+            self._options.setdefault(FeatureOption.DISTRIBUTION.value, self._default_distribution)
             self._options.setdefault(FeatureOption.N_RUNS.value, 10)
         elif self._name == FeatureName.REGULARIZED:
             self._options.setdefault(FeatureOption.N_RUNS.value, 1)
@@ -242,6 +248,10 @@ class Feature:
             self._options.setdefault(FeatureOption.SIGNIFICANT_DIGITS.value, 6)
         else:
             raise NotImplementedError(f'Unknown feature: {self._name}.')
+
+    @staticmethod
+    def _default_distribution(rng, n=None):
+        return 1e-3 * rng.standard_normal(n)
 
     @staticmethod
     def get_default_rng(seed, *args):
