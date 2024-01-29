@@ -32,6 +32,7 @@ figsize
 finfo
 flatnonzero
 footbibliography
+framealpha
 gcc
 getoption
 gfo

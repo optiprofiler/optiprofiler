@@ -254,14 +254,14 @@ class TestFeaturedProblem(BaseTestProblem):
 
         # Check the featured problem attributes.
         assert featured_problem.n_eval == 0
-        assert featured_problem.fun_history.shape == (0,)
-        assert featured_problem.maxcv_history.shape == (0,)
+        assert featured_problem.fun_hist.shape == (0,)
+        assert featured_problem.maxcv_hist.shape == (0,)
 
         # Evaluate the objective function at x0.
         f = featured_problem.fun(x0)
         assert featured_problem.n_eval == 1
-        np.testing.assert_array_equal(featured_problem.fun_history, [f])
-        np.testing.assert_array_equal(featured_problem.maxcv_history, [0.0])
+        np.testing.assert_array_equal(featured_problem.fun_hist, [f])
+        np.testing.assert_array_equal(featured_problem.maxcv_hist, [0.0])
 
         # Construct a featured problem with a different feature.
         feature = Feature('custom', modifier=lambda x, f, seed: f + 1)
@@ -270,8 +270,8 @@ class TestFeaturedProblem(BaseTestProblem):
         # Evaluate the objective function at x0.
         f = featured_problem.fun(x0)
         assert featured_problem.n_eval == 1
-        np.testing.assert_allclose(featured_problem.fun_history, [f - 1])
-        np.testing.assert_array_equal(featured_problem.maxcv_history, [0.0])
+        np.testing.assert_allclose(featured_problem.fun_hist, [f - 1])
+        np.testing.assert_array_equal(featured_problem.maxcv_hist, [0.0])
 
     @pytest.mark.parametrize('n', [1, 10, 100])
     def test_randomize_x0(self, n):

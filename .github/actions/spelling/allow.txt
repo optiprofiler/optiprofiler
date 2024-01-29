@@ -19,6 +19,7 @@ nocedal
 optiprofiler
 oztoprak
 pdfo
+picklable
 pycutest
 ragonneau
 rosenbrock
