@@ -47,7 +47,7 @@ function createProfiles(solvers, labels, problem_names, feature_name, varargin)
 
     % Build feature.
     % TODO: now we first use "simple" default feature.
-    feature = Feature(feature_name);
+    feature = Feature(feature_name, feature_options);
     fprintf("INFO: Starting the computation of the %s profiles.\n", feature.name);
 
     % Solve all the problems.
@@ -76,6 +76,7 @@ function createProfiles(solvers, labels, problem_names, feature_name, varargin)
     path_out = fullfile(root_path, 'out', feature.name);
     path_perf_out = fullfile(path_out, 'figures', 'perf');
     path_data_out = fullfile(path_out, 'figures', 'data');
+    path_log_out = fullfile(path_out, 'figures', 'log');
     if ~exist(path_out, 'dir')
         mkdir(path_out);
     end
@@ -88,6 +89,7 @@ function createProfiles(solvers, labels, problem_names, feature_name, varargin)
     timestamp = datestr(datetime('now', 'TimeZone', 'local', 'Format', 'yyyy-MM-dd''T''HH-mm-SSZ'), 'yyyy-mm-ddTHH-MM-SSZ');
     name_pdf_merged_perf = ['performance_profiles_' timestamp '.pdf'];
     name_pdf_merged_data = ['data_profiles_' timestamp '.pdf'];
+    name_pdf_merged_log = ['log_ratio_profiles_' timestamp '.pdf'];
     
 
 
@@ -161,11 +163,56 @@ function createProfiles(solvers, labels, problem_names, feature_name, varargin)
         end
         close(fig);
 
+        % Draw the log-ratio profiles.
+        if n_solvers == 2
+
+            if ~exist(path_log_out, 'dir')
+                mkdir(path_log_out);
+            end
+
+            work_flat = reshape(permute(work, [1, 3, 2]), n_problems * n_runs, n_solvers);
+            log_ratio = NaN(n_problems * n_runs, 1);
+            log_ratio_finite = isfinite(work_flat(:, 1)) & isfinite(work_flat(:, 2));
+            log_ratio(log_ratio_finite) = log2(work_flat(log_ratio_finite, 1)) - log2(work_flat(log_ratio_finite, 2));
+            ratio_max = max(max(abs(log_ratio(log_ratio_finite)), [], 'all'), eps);
+            log_ratio(isnan(work_flat(:, 1)) & isfinite(work_flat(:, 2))) = 2.0 * ratio_max;
+            log_ratio(isfinite(work_flat(:, 1)) & isnan(work_flat(:, 2))) = -2.0 * ratio_max;
+            log_ratio(isnan(work_flat(:, 1)) & isnan(work_flat(:, 2))) = 0.0;
+            log_ratio = sort(log_ratio);
+
+            fig = figure('Visible', 'off');
+            x = [1:(n_problems * n_runs)]';
+            bar(x(log_ratio < 0), log_ratio(log_ratio < 0));
+            hold on;
+            bar(x(log_ratio > 0), log_ratio(log_ratio > 0));
+            text((n_problems * n_runs + 1) / 2, -ratio_max, labels{1}, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom');
+            text((n_problems * n_runs + 1) / 2, ratio_max, labels{2}, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'top');
+            xticks([]);
+            xlim([0.5, n_problems * n_runs + 0.5]);
+            ylim([-1.1 * ratio_max, 1.1 * ratio_max]);
+            xlabel('Problem', 'Interpreter', 'latex');
+            ylabel(['Log-ratio profile ' tolerance_label], 'Interpreter', 'latex');
+            eps_filename_log = fullfile(path_log_out, ['log_ratio_profile_' int2str(i_profile) '.eps']);
+            print(fig, eps_filename_log, '-depsc');
+            pdf_filename_log = fullfile(path_log_out, ['log_ratio_profile_' int2str(i_profile) '.pdf']);
+            print(fig, pdf_filename_log, '-dpdf');
+            merge_pdf_filename_log = fullfile(path_log_out, name_pdf_merged_log);
+            if i_profile == 1
+                exportgraphics(fig, merge_pdf_filename_log, 'ContentType', 'vector');
+            else
+                exportgraphics(fig, merge_pdf_filename_log, 'ContentType', 'vector', 'Append', true);
+            end
+            close(fig);
+        end
     end
 
     % Move the merged pdf files to the "path_out" folder.
     movefile(merge_pdf_filename_perf, fullfile(path_out, name_pdf_merged_perf));
     movefile(merge_pdf_filename_data, fullfile(path_out, name_pdf_merged_data));
+    if n_solvers == 2
+        movefile(merge_pdf_filename_log, fullfile(path_out, name_pdf_merged_log));
+    end
+
 end
 
 

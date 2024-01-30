@@ -10,7 +10,7 @@ classdef Feature < handle
 
     methods
 
-        function obj = Feature(varargin)
+        function obj = Feature(feature_name, varargin)
             %{
             Initialize a feature.
 
@@ -38,13 +38,22 @@ classdef Feature < handle
             type : str, optional
                 Type of the noisy and randomize_x0 features.
             %}
-            if isempty(varargin)
-                error("MATLAB:Feature:MissingArguments", "Feature name must be provided.")
+
+            obj.name = lower(feature_name);
+            if ~ischar(obj.name) && ~isstring(obj.name)
+                error("MATLAB:Feature:FeaturenameNotString", "The feature name must be a string.")
             end
-            obj.name = lower(varargin{1});
-            obj.options = struct();
-            for i = 2:2:length(varargin)
-                obj.options.(lower(varargin{i})) = varargin{i+1};
+            if nargin > 1
+                if isstruct(varargin{1})
+                    obj.options = varargin{1};
+                elseif mod(length(varargin), 2) ~= 0
+                    error("MATLAB:Feature:InvalidNumberOfArguments", "The input of the feature options must be in pairs.")
+                else
+                    obj.options = struct();
+                    for i = 1:2:length(varargin)
+                        obj.options.(lower(varargin{i})) = varargin{i+1};
+                    end
+                end
             end
     
             % Check whether the feature is valid.

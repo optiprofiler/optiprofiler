@@ -24,7 +24,7 @@ function [fig, ax] = drawProfile(x, y, perf_or_data, ratio_max, labels, toleranc
             case 'perf'
                 x_stairs = log2([x_stairs(1); x_stairs; 2.0 * ratio_max]);
                 x_lim_max = 1.1 * log2(ratio_max);
-                x_label = 'Performance ratio';
+                x_label = '$\log_2 (\mathrm{Performance\ ratio})$';
                 y_label = ['Performance profiles (', tolerance_label, ')'];
             case 'data'
                 x_stairs = [x_stairs(1); x_stairs; 2.0 * ratio_max];

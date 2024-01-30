@@ -1,8 +1,7 @@
-function [fun_values, maxcv_values, fun_init, maxcv_init, n_eval, problem_name, problem_n] = solveOne(problem_name, problem_options, solvers, labels, feature, max_eval_factor)
+function [fun_histories, maxcv_histories, fun_init, maxcv_init, n_eval, problem_name, problem_n] = solveOne(problem_name, problem_options, solvers, labels, feature, max_eval_factor)
     %SOLVEONE is defined to solve one test problem with a set of solvers.
-    
-    fun_values = [];
-    maxcv_values = [];
+    fun_histories = [];
+    maxcv_histories = [];
     fun_init = [];
     maxcv_init = [];
     n_eval = [];
@@ -39,27 +38,31 @@ function [fun_values, maxcv_values, fun_init, maxcv_init, n_eval, problem_name, 
     n_runs = feature.options.(FeatureOptionKey.N_RUNS.value);
     max_eval = max_eval_factor * problem.n;
     n_eval = zeros(n_solvers, n_runs);
-    fun_values = NaN(n_solvers, n_runs, max_eval);
-    maxcv_values = NaN(n_solvers, n_runs, max_eval);
+    fun_histories = NaN(n_solvers, n_runs, max_eval);
+    fun_out = NaN(n_solvers, n_runs);
+    maxcv_histories = NaN(n_solvers, n_runs, max_eval);
+    maxcv_out = NaN(n_solvers, n_runs);
 
     for i_solver = 1:n_solvers
         for i_run = 1:n_runs
             fprintf("Solving %s with %s (run %d/%d).\n", problem_name, labels{i_solver}, i_run, n_runs);
             % Construct featured_problem.
-            featured_problem = FeaturedProblem(problem, feature, i_run);
+            featured_problem = FeaturedProblem(problem, feature, max_eval, i_run);
             warning('off', 'all');
             try
-                [~] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, @featured_problem.cub, @featured_problem.ceq, max_eval)');
+                [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, @featured_problem.cub, @featured_problem.ceq, max_eval)');
+                fun_out(i_solver, i_run) = problem.fun(x);
+                maxcv_out(i_solver, i_run) = problem.maxcv(x);
             catch
                 % Ignore all the errors.
             end
             warning('on', 'all');
             n_eval(i_solver, i_run) = min(featured_problem.n_eval, max_eval);
-            fun_values(i_solver, i_run, 1:n_eval(i_solver, i_run)) = featured_problem.fun_values(1:n_eval(i_solver, i_run));
-            maxcv_values(i_solver, i_run, 1:n_eval(i_solver, i_run)) = featured_problem.maxcv_values(1:n_eval(i_solver, i_run));
+            fun_histories(i_solver, i_run, 1:n_eval(i_solver, i_run)) = featured_problem.fun_hist(1:n_eval(i_solver, i_run));
+            maxcv_histories(i_solver, i_run, 1:n_eval(i_solver, i_run)) = featured_problem.maxcv_hist(1:n_eval(i_solver, i_run));
             if n_eval(i_solver, i_run) > 0
-                fun_values(i_solver, i_run, n_eval(i_solver, i_run)+1:end) = fun_values(i_solver, i_run, n_eval(i_solver, i_run));
-                maxcv_values(i_solver, i_run, n_eval(i_solver, i_run)+1:end) = maxcv_values(i_solver, i_run, n_eval(i_solver, i_run));
+                fun_histories(i_solver, i_run, n_eval(i_solver, i_run)+1:end) = fun_histories(i_solver, i_run, n_eval(i_solver, i_run));
+                maxcv_histories(i_solver, i_run, n_eval(i_solver, i_run)+1:end) = maxcv_histories(i_solver, i_run, n_eval(i_solver, i_run));
             end
         end
     end
