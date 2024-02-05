@@ -1,7 +1,9 @@
-function [fun_histories, maxcv_histories, fun_init, maxcv_init, n_eval, problem_name, problem_n] = solveOne(problem_name, problem_options, solvers, labels, feature, max_eval_factor)
+function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_name, problem_n] = solveOne(problem_name, solvers, labels, feature, max_eval_factor, problem_options)
     %SOLVEONE is defined to solve one test problem with a set of solvers.
     fun_histories = [];
     maxcv_histories = [];
+    fun_out = [];
+    maxcv_out = [];
     fun_init = [];
     maxcv_init = [];
     n_eval = [];
@@ -57,7 +59,7 @@ function [fun_histories, maxcv_histories, fun_init, maxcv_init, n_eval, problem_
                 % Ignore all the errors.
             end
             warning('on', 'all');
-            n_eval(i_solver, i_run) = min(featured_problem.n_eval, max_eval);
+            n_eval(i_solver, i_run) = featured_problem.n_eval;
             fun_histories(i_solver, i_run, 1:n_eval(i_solver, i_run)) = featured_problem.fun_hist(1:n_eval(i_solver, i_run));
             maxcv_histories(i_solver, i_run, 1:n_eval(i_solver, i_run)) = featured_problem.maxcv_hist(1:n_eval(i_solver, i_run));
             if n_eval(i_solver, i_run) > 0

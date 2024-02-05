@@ -43,13 +43,13 @@ classdef Feature < handle
             if ~ischar(obj.name) && ~isstring(obj.name)
                 error("MATLAB:Feature:FeaturenameNotString", "The feature name must be a string.")
             end
+            obj.options = struct();
             if nargin > 1
                 if isstruct(varargin{1})
                     obj.options = varargin{1};
                 elseif mod(length(varargin), 2) ~= 0
                     error("MATLAB:Feature:InvalidNumberOfArguments", "The input of the feature options must be in pairs.")
                 else
-                    obj.options = struct();
                     for i = 1:2:length(varargin)
                         obj.options.(lower(varargin{i})) = varargin{i+1};
                     end

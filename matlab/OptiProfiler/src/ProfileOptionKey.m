@@ -4,6 +4,7 @@ classdef ProfileOptionKey
     
     enumeration
         N_JOBS ('n_jobs')
+        BENCHMARK_ID ('benchmark_id')
     end
     properties
         value

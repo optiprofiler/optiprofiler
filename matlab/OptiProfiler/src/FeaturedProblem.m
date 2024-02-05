@@ -132,6 +132,10 @@ classdef FeaturedProblem < Problem
                 If the argument `x` has an invalid shape.
             %}
 
+            if obj.n_eval >= obj.max_eval
+                error("The maximum number of function evaluations has been reached.");
+            end
+
             % Evaluate the objective function and store the results.
             f_true = fun@Problem(obj, x);
             obj.fun_hist = [obj.fun_hist, f_true];

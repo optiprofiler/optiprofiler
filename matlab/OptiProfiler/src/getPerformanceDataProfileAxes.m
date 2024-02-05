@@ -1,4 +1,5 @@
-function [x, y, ratio_max] = profileAxes(work, denominator)
+function [x, y, ratio_max] = getPerformanceDataProfileAxes(work, denominator)
+    % Calculate the axes of the performance and data profiles.
 
     [n_problems, n_solvers, n_runs] = size(work);
 
