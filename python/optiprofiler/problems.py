@@ -663,11 +663,11 @@ class FeaturedProblem(Problem):
         ------
         ValueError
             If the argument `x` has an invalid shape.
-        RuntimeError
+        StopIteration
             If the maximum number of function evaluations has been reached.
         """
         if self.n_eval >= self._max_eval:
-            raise RuntimeError('The maximum number of function evaluations has been reached.')
+            raise StopIteration('The maximum number of function evaluations has been reached.')
 
         # Evaluate the objective function and store the results.
         f = super().fun(x)
