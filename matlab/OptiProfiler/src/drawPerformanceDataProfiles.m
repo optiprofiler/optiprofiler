@@ -1,10 +1,12 @@
 function drawPerformanceDataProfiles(ax, x, y, labels)
 
+    ax.LineStyleCyclingMethod = 'withcolor';
     n_solvers = size(x, 2);
-    n_runs = size(x, 3);
+    n_runs = size(y, 3);
     y_mean = squeeze(mean(y, 3));
     y_min = squeeze(min(y, [], 3));
     y_max = squeeze(max(y, [], 3));
+    hold(ax, 'on');
 
     for i_solver = 1:n_solvers
         [x_stairs, y_mean_stairs] = stairs(x(:, i_solver), y_mean(:, i_solver));
@@ -23,17 +25,17 @@ function drawPerformanceDataProfiles(ax, x, y, labels)
 
     set(ax, 'YLim', [0.0, 1.0]);
     set(ax, 'YTick', 0:0.2:1);
-    yyaxis(ax, 'left');
+    yyaxis(ax, 'right');
     set(ax, 'YMinorTick','on');
     set(get(ax, 'YAxis'), 'MinorTickValues', [0.1 0.3 0.5 0.7 0.9]);
-    yyaxis(ax, 'right');
+    yyaxis(ax, 'left');
     set(ax, 'YMinorTick','on');
     set(get(ax, 'YAxis'), 'MinorTickValues', [0.1 0.3 0.5 0.7 0.9]);
     linkprop([ax.XAxis; ax.YAxis],'color');
     linkprop([ax.YAxis(1), ax.YAxis(2)],{'Limits','TickValues'});
     box(ax,'on');
+    legend(ax, 'Location', 'southeast');
     
-    
-
+    hold(ax, 'off');
 
 end

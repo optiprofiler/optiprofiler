@@ -59,9 +59,9 @@ function runBenchmark(solvers, labels, problem_names, feature_name, varargin)
 
     % Solve all the problems.
     max_eval_factor = 500;
-    [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions] = solveAll(problem_names, problem_options, solvers, labels, feature, max_eval_factor, profile_options);
+    [fun_histories, maxcv_histories, fun_ret, maxcv_ret, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions] = solveAllProblems(problem_names, problem_options, solvers, labels, feature, max_eval_factor, profile_options);
     merit_histories = computeMeritValues(fun_histories, maxcv_histories);
-    merit_out = computeMeritValues(fun_out, maxcv_out);
+    merit_ret = computeMeritValues(fun_ret, maxcv_ret);
     merit_init = computeMeritValues(fun_init, maxcv_init);
 
     % Determine the least merit value for each problem.
@@ -83,13 +83,13 @@ function runBenchmark(solvers, labels, problem_names, feature_name, varargin)
     path_out = fullfile(root_path, 'out', feature.name, profile_options.(ProfileOptionKey.BENCHMARK_ID.value), timestamp);
     path_perf_out = fullfile(path_out, 'figures', 'perf');
     path_data_out = fullfile(path_out, 'figures', 'data');
-    path_log_out = fullfile(path_out, 'figures', 'log');
+    path_log_ratio_out = fullfile(path_out, 'figures', 'log-ratio');
     path_perf_hist_out = fullfile(path_perf_out, 'hist');
     path_data_hist_out = fullfile(path_data_out, 'hist');
-    path_log_hist_out = fullfile(path_log_out, 'hist');
+    path_log_ratio_hist_out = fullfile(path_log_ratio_out, 'hist');
     path_perf_ret_out = fullfile(path_perf_out, 'ret');
     path_data_ret_out = fullfile(path_data_out, 'ret');
-    path_log_ret_out = fullfile(path_log_out, 'ret');
+    path_log_ratio_ret_out = fullfile(path_log_ratio_out, 'ret');
     if ~exist(path_out, 'dir')
         mkdir(path_out);
     end
@@ -105,6 +105,7 @@ function runBenchmark(solvers, labels, problem_names, feature_name, varargin)
     if ~exist(path_data_ret_out, 'dir')
         mkdir(path_data_ret_out);
     end
+
 
 
     % Store the names of the problems.
@@ -125,21 +126,29 @@ function runBenchmark(solvers, labels, problem_names, feature_name, varargin)
     set(groot, 'DefaultAxesLineStyleOrder', {'-', '--', ':', '-.'});
 
     [n_problems, n_solvers, n_runs, max_eval] = size(merit_histories);
+    if n_solvers <= 2
+        if ~exist(path_log_ratio_hist_out, 'dir')
+            mkdir(path_log_ratio_hist_out);
+        end
+        if ~exist(path_log_ratio_ret_out, 'dir')
+            mkdir(path_log_ratio_ret_out);
+        end
+    end
     tolerances = 10.^(-1:-1:-10);
-    pdf_summary = 'summary.pdf';
-    pdf_perf_hist = 'perf_hist.pdf';
-    pdf_perf_ret = 'perf_ret.pdf';
-    pdf_data_hist = 'data_hist.pdf';
-    pdf_data_ret = 'data_ret.pdf';
-    pdf_log_hist = 'log-ratio_hist.pdf';
-    pdf_log_ret = 'log-ratio_ret.pdf';
+    pdf_summary = fullfile(path_out, 'summary.pdf');
+    pdf_perf_hist_summary = fullfile(path_perf_out, 'perf_hist.pdf');
+    pdf_perf_ret_summary = fullfile(path_perf_out, 'perf_ret.pdf');
+    pdf_data_hist_summary = fullfile(path_data_out, 'data_hist.pdf');
+    pdf_data_ret_summary = fullfile(path_data_out, 'data_ret.pdf');
+    pdf_log_ratio_hist_summary = fullfile(path_log_ratio_out, 'log-ratio_hist.pdf');
+    pdf_log_ratio_ret_summary = fullfile(path_log_ratio_out, 'log-ratio_ret.pdf');
     for i_profile = 1:10
         tolerance = tolerances(i_profile);
         fprintf("Creating profiles for tolerance %g.\n", tolerance);
         tolerance_label = ['$\tau = 10^{', int2str(log10(tolerance)), '}$'];
 
         work_hist = NaN(n_problems, n_solvers, n_runs);
-        work_out = NaN(n_problems, n_solvers, n_runs);
+        work_ret = NaN(n_problems, n_solvers, n_runs);
         for i_problem = 1:n_problems
             for i_solver = 1:n_solvers
                 for i_run = 1:n_runs
@@ -151,122 +160,93 @@ function runBenchmark(solvers, labels, problem_names, feature_name, varargin)
                     if min(merit_histories(i_problem, i_solver, i_run, :), [], 'omitnan') <= threshold
                         work_hist(i_problem, i_solver, i_run) = find(merit_histories(i_problem, i_solver, i_run, :) <= threshold, 1, 'first');
                     end
-                    if merit_out(i_problem, i_solver, i_run) <= threshold
-                        work_out(i_problem, i_solver, i_run) = n_eval(i_problem, i_solver, i_run);
+                    if merit_ret(i_problem, i_solver, i_run) <= threshold
+                        work_ret(i_problem, i_solver, i_run) = n_eval(i_problem, i_solver, i_run);
                     end
                 end
             end
         end
 
         % Draw the profiles.
-        
-
-
-
-
-
-
-
-
-
-
-        % Calculate the x-axes of the performance and data profiles.
-        [x_perf, y_perf, ratio_max_perf, x_data, y_data, ratio_max_data] = getExtendedPerformancesDataProfileAxes(work_hist, problem_dimensions);
-
-        
-
-        % Plot the performance profiles.
-        fprintf("Creating performance profiles for tolerance %g.\n", tolerance);
-        [fig, ~] = drawProfile(x_perf, y_perf, 'perf', ratio_max_perf, labels, tolerance_label);
-        eps_filename_perf = fullfile(path_perf_hist_out, ['performance_profile_' int2str(i_profile) '.eps']);
-        print(fig, eps_filename_perf, '-depsc');
-        pdf_filename_perf = fullfile(path_perf_hist_out, ['performance_profile_' int2str(i_profile) '.pdf']);
-        print(fig, pdf_filename_perf, '-dpdf');
-        merge_pdf_filename_perf = fullfile(path_perf_hist_out, pdf_perf_hist);
+        [fig_summary, fig_perf_hist, fig_perf_ret, fig_data_hist, fig_data_ret, fig_log_ratio_hist, fig_log_ratio_ret] = drawProfiles(work_hist, work_ret, problem_dimensions, labels, tolerance_label);
+        eps_perf_hist = fullfile(path_perf_hist_out, ['perf_hist_' int2str(i_profile) '.eps']);
+        print(fig_perf_hist, eps_perf_hist, '-depsc');
+        pdf_perf_hist = fullfile(path_perf_hist_out, ['perf_hist_' int2str(i_profile) '.pdf']);
+        print(fig_perf_hist, pdf_perf_hist, '-dpdf');
+        eps_perf_ret = fullfile(path_perf_ret_out, ['perf_ret_' int2str(i_profile) '.eps']);
+        print(fig_perf_ret, eps_perf_ret, '-depsc');
+        pdf_perf_ret = fullfile(path_perf_ret_out, ['perf_ret_' int2str(i_profile) '.pdf']);
+        print(fig_perf_ret, pdf_perf_ret, '-dpdf');
+        eps_data_hist = fullfile(path_data_hist_out, ['data_hist_' int2str(i_profile) '.eps']);
+        print(fig_data_hist, eps_data_hist, '-depsc');
+        pdf_data_hist = fullfile(path_data_hist_out, ['data_hist_' int2str(i_profile) '.pdf']);
+        print(fig_data_hist, pdf_data_hist, '-dpdf');
+        eps_data_ret = fullfile(path_data_ret_out, ['data_ret_' int2str(i_profile) '.eps']);
+        print(fig_data_ret, eps_data_ret, '-depsc');
+        pdf_data_ret = fullfile(path_data_ret_out, ['data_ret_' int2str(i_profile) '.pdf']);
+        print(fig_data_ret, pdf_data_ret, '-dpdf');
+        if ~isempty(fig_log_ratio_hist)
+            eps_log_ratio_hist = fullfile(path_log_ratio_hist_out, ['log-ratio_hist_' int2str(i_profile) '.eps']);
+            print(fig_log_ratio_hist, eps_log_ratio_hist, '-depsc');
+            pdf_log_ratio_hist = fullfile(path_log_ratio_hist_out, ['log-ratio_hist_' int2str(i_profile) '.pdf']);
+            print(fig_log_ratio_hist, pdf_log_ratio_hist, '-dpdf');
+        end
+        if ~isempty(fig_log_ratio_ret)
+            eps_log_ratio_ret = fullfile(path_log_ratio_ret_out, ['log-ratio_ret_' int2str(i_profile) '.eps']);
+            print(fig_log_ratio_ret, eps_log_ratio_ret, '-depsc');
+            pdf_log_ratio_ret = fullfile(path_log_ratio_ret_out, ['log-ratio_ret_' int2str(i_profile) '.pdf']);
+            print(fig_log_ratio_ret, pdf_log_ratio_ret, '-dpdf');
+        end
         if i_profile == 1
-            exportgraphics(fig, merge_pdf_filename_perf, 'ContentType', 'vector');
+            exportgraphics(fig_summary, pdf_summary, 'ContentType', 'vector');
+            exportgraphics(fig_perf_hist, pdf_perf_hist_summary, 'ContentType', 'vector');
+            exportgraphics(fig_perf_ret, pdf_perf_ret_summary, 'ContentType', 'vector');
+            exportgraphics(fig_data_hist, pdf_data_hist_summary, 'ContentType', 'vector');
+            exportgraphics(fig_data_ret, pdf_data_ret_summary, 'ContentType', 'vector');
+            if ~isempty(fig_log_ratio_hist)
+                exportgraphics(fig_log_ratio_hist, pdf_log_ratio_hist_summary, 'ContentType', 'vector');
+            end
+            if ~isempty(fig_log_ratio_ret)
+                exportgraphics(fig_log_ratio_ret, pdf_log_ratio_ret_summary, 'ContentType', 'vector');
+            end
         else
-            exportgraphics(fig, merge_pdf_filename_perf, 'ContentType', 'vector', 'Append', true);
-        end
-        close(fig);
-        
-        % Plot the data profiles.
-        fprintf("Creating data profiles for tolerance %g.\n", tolerance);
-        [fig, ~] = drawProfile(x_data, y_data, 'data', ratio_max_data, labels, tolerance_label);
-        eps_filename_data = fullfile(path_data_hist_out, ['data_profile_' int2str(i_profile) '.eps']);
-        print(fig, eps_filename_data, '-depsc');
-        pdf_filename_data = fullfile(path_data_hist_out, ['data_profile_' int2str(i_profile) '.pdf']);
-        print(fig, pdf_filename_data, '-dpdf');
-        merge_pdf_filename_data = fullfile(path_data_hist_out, pdf_data_hist);
-        if i_profile == 1
-            exportgraphics(fig, merge_pdf_filename_data, 'ContentType', 'vector');
-        else
-            exportgraphics(fig, merge_pdf_filename_data, 'ContentType', 'vector', 'Append', true);
-        end
-        close(fig);
-
-        % Draw the log-ratio profiles.
-        if n_solvers == 2
-
-            if ~exist(path_log_hist_out, 'dir')
-                mkdir(path_log_hist_out);
+            exportgraphics(fig_summary, pdf_summary, 'ContentType', 'vector', 'Append', true);
+            exportgraphics(fig_perf_hist, pdf_perf_hist_summary, 'ContentType', 'vector', 'Append', true);
+            exportgraphics(fig_perf_ret, pdf_perf_ret_summary, 'ContentType', 'vector', 'Append', true);
+            exportgraphics(fig_data_hist, pdf_data_hist_summary, 'ContentType', 'vector', 'Append', true);
+            exportgraphics(fig_data_ret, pdf_data_ret_summary, 'ContentType', 'vector', 'Append', true);
+            if ~isempty(fig_log_ratio_hist)
+                exportgraphics(fig_log_ratio_hist, pdf_log_ratio_hist_summary, 'ContentType', 'vector', 'Append', true);
             end
-            if ~exist(path_log_ret_out, 'dir')
-                mkdir(path_log_ret_out);
+            if ~isempty(fig_log_ratio_ret)
+                exportgraphics(fig_log_ratio_ret, pdf_log_ratio_ret_summary, 'ContentType', 'vector', 'Append', true);
             end
-
-            work_flat = reshape(permute(work_hist, [1, 3, 2]), n_problems * n_runs, n_solvers);
-            log_ratio = NaN(n_problems * n_runs, 1);
-            log_ratio_finite = isfinite(work_flat(:, 1)) & isfinite(work_flat(:, 2));
-            log_ratio(log_ratio_finite) = log2(work_flat(log_ratio_finite, 1)) - log2(work_flat(log_ratio_finite, 2));
-            ratio_max = max(max(abs(log_ratio(log_ratio_finite)), [], 'all'), eps);
-            log_ratio(isnan(work_flat(:, 1)) & isfinite(work_flat(:, 2))) = 2.0 * ratio_max;
-            log_ratio(isfinite(work_flat(:, 1)) & isnan(work_flat(:, 2))) = -2.0 * ratio_max;
-            log_ratio(isnan(work_flat(:, 1)) & isnan(work_flat(:, 2))) = 0.0;
-            log_ratio = sort(log_ratio);
-
-            fig = figure('Visible', 'off');
-            x = [1:(n_problems * n_runs)]';
-            bar(x(log_ratio < 0), log_ratio(log_ratio < 0));
-            hold on;
-            bar(x(log_ratio > 0), log_ratio(log_ratio > 0));
-            text((n_problems * n_runs + 1) / 2, -ratio_max, labels{1}, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom');
-            text((n_problems * n_runs + 1) / 2, ratio_max, labels{2}, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'top');
-            xticks([]);
-            xlim([0.5, n_problems * n_runs + 0.5]);
-            ylim([-1.1 * ratio_max, 1.1 * ratio_max]);
-            xlabel('Problem', 'Interpreter', 'latex');
-            ylabel(['Log-ratio profile ' tolerance_label], 'Interpreter', 'latex');
-            eps_filename_log = fullfile(path_log_hist_out, ['log_ratio_profile_' int2str(i_profile) '.eps']);
-            print(fig, eps_filename_log, '-depsc');
-            pdf_filename_log = fullfile(path_log_hist_out, ['log_ratio_profile_' int2str(i_profile) '.pdf']);
-            print(fig, pdf_filename_log, '-dpdf');
-            merge_pdf_filename_log = fullfile(path_log_hist_out, pdf_log_hist);
-            if i_profile == 1
-                exportgraphics(fig, merge_pdf_filename_log, 'ContentType', 'vector');
-            else
-                exportgraphics(fig, merge_pdf_filename_log, 'ContentType', 'vector', 'Append', true);
-            end
-            close(fig);
         end
-    end
 
-    % Move the merged pdf files to the "path_out" folder.
-    movefile(merge_pdf_filename_perf, fullfile(path_perf_out, pdf_perf_hist));
-    movefile(merge_pdf_filename_data, fullfile(path_data_out, pdf_data_hist));
-    if n_solvers == 2
-        movefile(merge_pdf_filename_log, fullfile(path_log_out, pdf_log_hist));
+        % Close the figures.
+        close(fig_summary);
+        close(fig_perf_hist);
+        close(fig_perf_ret);
+        close(fig_data_hist);
+        close(fig_data_ret);
+        if ~isempty(fig_log_ratio_hist)
+            close(fig_log_ratio_hist);
+        end
+        if ~isempty(fig_log_ratio_ret)
+            close(fig_log_ratio_ret);
+        end
+
     end
 
 end
 
 
-function merit_histories = computeMeritValues(fun_histories, maxcv_histories)
-    is_nearly_feasible = maxcv_histories <= 1e-12;
-    is_very_infeasible = maxcv_histories >= 1e-6;
+function merit_values = computeMeritValues(fun_values, maxcv_values)
+    is_nearly_feasible = maxcv_values <= 1e-12;
+    is_very_infeasible = maxcv_values >= 1e-6;
     is_undecided = ~is_nearly_feasible & ~is_very_infeasible;
-    merit_histories = NaN(size(fun_histories));
-    merit_histories(is_nearly_feasible) = fun_histories(is_nearly_feasible);
-    merit_histories(is_very_infeasible) = Inf;
-    merit_histories(is_undecided) = fun_histories(is_undecided) + 1e8 * maxcv_histories(is_undecided);
+    merit_values = NaN(size(fun_values));
+    merit_values(is_nearly_feasible) = fun_values(is_nearly_feasible);
+    merit_values(is_very_infeasible) = Inf;
+    merit_values(is_undecided) = fun_values(is_undecided) + 1e8 * maxcv_values(is_undecided);
 end

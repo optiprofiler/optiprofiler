@@ -1,4 +1,4 @@
-function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions] = solveAll(problem_names, problem_options, solvers, labels, feature, max_eval_factor, profile_options)
+function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions] = solveAllProblems(problem_names, problem_options, solvers, labels, feature, max_eval_factor, profile_options)
     %SOLVEALL is defined to solve all problems in the given problem set.
 
     % Solve all problems.
@@ -10,7 +10,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
             % Do not use parallel computing.
             for i_problem = 1:n_problems
                 problem_name = problem_names{i_problem};
-                [tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n] = solveOne(problem_name, solvers, labels, feature, max_eval_factor, problem_options);
+                [tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n] = solveOneProblem(problem_name, solvers, labels, feature, max_eval_factor, problem_options);
                 results{i_problem} = {tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n};
             end
         otherwise
