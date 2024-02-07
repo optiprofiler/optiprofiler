@@ -69,7 +69,7 @@ function runBenchmark(solvers, labels, problem_names, feature_name, varargin)
     if ismember(feature_name, {FeatureName.NOISY.value, FeatureName.TOUGH.value, FeatureName.TRUNCATED.value})
         feature_plain = Feature(FeatureName.PLAIN.value);
         fprintf("INFO: Starting the computation of the plain profiles.\n");
-        [fun_histories_plain, maxcv_histories_plain] = solveAll(problem_names, problem_options, solvers, labels, feature_plain, max_eval_factor, profile_options);
+        [fun_histories_plain, maxcv_histories_plain] = solveAllProblems(problem_names, problem_options, solvers, labels, feature_plain, max_eval_factor, profile_options);
         merit_histories_plain = computeMeritValues(fun_histories_plain, maxcv_histories_plain);
         merit_min_plain = min(min(min(merit_histories_plain, [], 4, 'omitnan'), [], 3, 'omitnan'), [], 2, 'omitnan');
         merit_min = min(merit_min, merit_min_plain, 'omitnan');

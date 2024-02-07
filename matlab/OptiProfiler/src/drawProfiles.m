@@ -8,7 +8,6 @@ function [fig_summary, fig_perf_hist, fig_perf_ret, fig_data_hist, fig_data_ret,
     if n_solvers > 2
         fig_summary = figure('Position', [defaultFigurePosition(1:2), 2 * default_width, 2 * default_height], 'visible', 'off');
         t_summary = tiledlayout(fig_summary, 2, 2, 'Padding', 'compact', 'TileSpacing', 'compact');
-        t_summary.OuterPosition(2) = t_summary.OuterPosition(2) - 0.05;
         for i = 1:4
             axs_summary(i) = nexttile(t_summary);
         end
