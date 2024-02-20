@@ -6,6 +6,9 @@ function drawLogRatioProfiles(ax, work, labels)
     log_ratio_finite = isfinite(work_flat(:, 1)) & isfinite(work_flat(:, 2));
     log_ratio(log_ratio_finite) = log2(work_flat(log_ratio_finite, 1)) - log2(work_flat(log_ratio_finite, 2));
     ratio_max = max(max(abs(log_ratio(log_ratio_finite)), [], 'all'), eps);
+    if isempty(ratio_max)
+        ratio_max = eps;
+    end
     log_ratio(isnan(work_flat(:, 1)) & isfinite(work_flat(:, 2))) = 1.1 * ratio_max;
     log_ratio(isfinite(work_flat(:, 1)) & isnan(work_flat(:, 2))) = -1.1 * ratio_max;
     log_ratio(isnan(work_flat(:, 1)) & isnan(work_flat(:, 2))) = 0.0;

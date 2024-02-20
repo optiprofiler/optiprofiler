@@ -1,4 +1,4 @@
-function [x, y, ratio_max] = getPerformanceDataProfileAxes(work, denominator)
+function [x, y, ratio_max] = getPerformanceDataProfileAxes(work, denominator, perf_or_data)
     % Calculate the axes of the performance and data profiles.
 
     [n_problems, n_solvers, n_runs] = size(work);
@@ -10,16 +10,31 @@ function [x, y, ratio_max] = getPerformanceDataProfileAxes(work, denominator)
             x(:, i_problem, i_run) = work(i_problem, :, i_run) / denominator(i_problem, i_run);
         end
     end
-    if all(isnan(x(:)))
-        ratio_max = eps;
-    else
-        ratio_max = max(x(:), [], 'omitnan');
+
+    switch perf_or_data
+        case 'perf'
+            % Set default ratio_max in the case where all the elements in x is either 1 or NaN.
+            if all(x(:) == 1 | isnan(x(:)))
+                ratio_max = 2 ^ eps;
+            else
+                ratio_max = max(x(:), [], 'omitnan');
+            end
+        case 'data'
+            % Set default ratio_max in the case where all the elements in x is either 0 or NaN.
+            if all(x(:) == 0 | isnan(x(:)))
+                ratio_max = eps;
+            else
+                ratio_max = max(x(:), [], 'omitnan');
+            end
+        otherwise
+            error("Unknown perf_or_data.");
     end
+    
     x(isnan(x)) = Inf;
     x = sort(x, 2);
     x = reshape(x, [n_solvers, n_problems * n_runs]);
     x = x';
-    [x, index_sort_x] = sort(x);
+    [x, index_sort_x] = sort(x, 1);
     % Find the index of the element in x(:, i_solver) that is the last element that is less than or equal to ratio_max.
     index_ratio_max = NaN(n_solvers, 1);
     for i_solver = 1:n_solvers

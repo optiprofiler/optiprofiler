@@ -3,7 +3,7 @@ function [x_perf, y_perf, ratio_max_perf, x_data, y_data, ratio_max_data] = getE
     [n_problems, n_solvers, n_runs] = size(work);
 
     denominator_perf = @(i_problem, i_run) min(work(i_problem, :, i_run), [], 'omitnan');
-    [x_perf, y_perf, ratio_max_perf] = getPerformanceDataProfileAxes(work, denominator_perf);
+    [x_perf, y_perf, ratio_max_perf] = getPerformanceDataProfileAxes(work, denominator_perf, 'perf');
     x_perf(isinf(x_perf)) = ratio_max_perf ^ 1.1;
     x_perf = [ones(1, n_solvers); x_perf];
     y_perf = [zeros(1, n_solvers, n_runs); y_perf];
@@ -16,7 +16,7 @@ function [x_perf, y_perf, ratio_max_perf, x_data, y_data, ratio_max_data] = getE
     ratio_max_perf = log2(ratio_max_perf);
 
     denominator_data = @(i_problem, i_run) problem_dimensions(i_problem) + 1;
-    [x_data, y_data, ratio_max_data] = getPerformanceDataProfileAxes(work, denominator_data);
+    [x_data, y_data, ratio_max_data] = getPerformanceDataProfileAxes(work, denominator_data, 'data');
     x_data(isinf(x_data)) = 1.1 * ratio_max_data;
     x_data = [zeros(1, n_solvers); x_data];
     y_data = [zeros(1, n_solvers, n_runs); y_data];
