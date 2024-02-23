@@ -2,7 +2,7 @@ import os
 import re
 import shutil
 import warnings
-from contextlib import redirect_stderr, redirect_stdout, suppress
+from contextlib import redirect_stderr, redirect_stdout
 from datetime import datetime
 from inspect import signature
 from multiprocessing import Pool
@@ -191,9 +191,9 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
     # Solve the problems.
     max_eval_factor = 500
     fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions = _solve_all_problems(cutest_problem_names, extra_problems, solvers, labels, feature, max_eval_factor, profile_options)
-    merit_histories = _compute_merit_values(fun_histories, maxcv_histories)
-    merit_out = _compute_merit_values(fun_out, maxcv_out)
-    merit_init = _compute_merit_values(fun_init, maxcv_init)
+    merit_histories = _compute_merit_values(fun_histories, maxcv_histories, maxcv_init)
+    merit_out = _compute_merit_values(fun_out, maxcv_out, maxcv_init)
+    merit_init = _compute_merit_values(fun_init, maxcv_init, maxcv_init)
 
     # Determine the least merit value for each problem.
     merit_min = np.min(merit_histories, (1, 2, 3))
@@ -201,7 +201,7 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
         feature_plain = Feature('plain')
         logger.info(f'Starting the computation of the plain profiles.')
         fun_histories_plain, maxcv_histories_plain, _, _, _, _, _, _, _ = _solve_all_problems(cutest_problem_names, extra_problems, solvers, labels, feature_plain, max_eval_factor, profile_options)
-        merit_histories_plain = _compute_merit_values(fun_histories_plain, maxcv_histories_plain)
+        merit_histories_plain = _compute_merit_values(fun_histories_plain, maxcv_histories_plain, maxcv_init)
         merit_min_plain = np.min(merit_histories_plain, (1, 2, 3))
         merit_min = np.minimum(merit_min, merit_min_plain)
 
@@ -380,18 +380,21 @@ def _solve_one_problem(problem_name, solvers, labels, feature, max_eval_factor, 
             if len(sig.parameters) not in [2, 4, 8, 10]:
                 raise ValueError(f'Unknown signature: {sig}.')
             with open(os.devnull, 'w') as devnull:
-                with suppress(Exception), warnings.catch_warnings(), redirect_stdout(devnull), redirect_stderr(devnull):
+                with warnings.catch_warnings(), redirect_stdout(devnull), redirect_stderr(devnull):
                     warnings.filterwarnings('ignore')
-                    if len(sig.parameters) == 2:
-                        x = solvers[i_solver](featured_problem.fun, featured_problem.x0)
-                    elif len(sig.parameters) == 4:
-                        x = solvers[i_solver](featured_problem.fun, featured_problem.x0, featured_problem.lb, featured_problem.ub)
-                    elif len(sig.parameters) == 8:
-                        x = solvers[i_solver](featured_problem.fun, featured_problem.x0, featured_problem.lb, featured_problem.ub, featured_problem.a_ub, featured_problem.b_ub, featured_problem.a_eq, featured_problem.b_eq)
-                    else:
-                        x = solvers[i_solver](featured_problem.fun, featured_problem.x0, featured_problem.lb, featured_problem.ub, featured_problem.a_ub, featured_problem.b_ub, featured_problem.a_eq, featured_problem.b_eq, featured_problem.c_ub, featured_problem.c_eq)
-                    fun_out[i_solver, i_run] = problem.fun(x)
-                    maxcv_out[i_solver, i_run] = problem.maxcv(x)
+                    try:
+                        if len(sig.parameters) == 2:
+                            x = solvers[i_solver](featured_problem.fun, featured_problem.x0)
+                        elif len(sig.parameters) == 4:
+                            x = solvers[i_solver](featured_problem.fun, featured_problem.x0, featured_problem.lb, featured_problem.ub)
+                        elif len(sig.parameters) == 8:
+                            x = solvers[i_solver](featured_problem.fun, featured_problem.x0, featured_problem.lb, featured_problem.ub, featured_problem.a_ub, featured_problem.b_ub, featured_problem.a_eq, featured_problem.b_eq)
+                        else:
+                            x = solvers[i_solver](featured_problem.fun, featured_problem.x0, featured_problem.lb, featured_problem.ub, featured_problem.a_ub, featured_problem.b_ub, featured_problem.a_eq, featured_problem.b_eq, featured_problem.c_ub, featured_problem.c_eq)
+                        fun_out[i_solver, i_run] = problem.fun(x)
+                        maxcv_out[i_solver, i_run] = problem.maxcv(x)
+                    except Exception as exc:
+                        logger.warning(f'An error occurred while solving {problem_name} with {labels[i_solver]}: {exc}.')
             n_eval[i_solver, i_run] = featured_problem.n_eval
             fun_histories[i_solver, i_run, :n_eval[i_solver, i_run]] = featured_problem.fun_hist[:n_eval[i_solver, i_run]]
             maxcv_histories[i_solver, i_run, :n_eval[i_solver, i_run]] = featured_problem.maxcv_hist[:n_eval[i_solver, i_run]]
@@ -401,23 +404,17 @@ def _solve_one_problem(problem_name, solvers, labels, feature, max_eval_factor, 
     return fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_name, problem.dimension
 
 
-def _compute_merit_values(fun_values, maxcv_values):
+def _compute_merit_values(fun_values, maxcv_values, maxcv_init):
     """
     Compute the merit function values.
     """
-    if isinstance(fun_values, np.ndarray) and isinstance(maxcv_values, np.ndarray):
-        is_infeasible = maxcv_values >= 1e-6
-        is_almost_feasible = (1e-12 < maxcv_values) & (maxcv_values < 1e-6)
-        merit_values = np.nan_to_num(fun_values, nan=np.inf, posinf=np.inf, neginf=-np.inf)
-        merit_values[is_infeasible] = np.inf
-        merit_values[is_almost_feasible] += 1e8 * maxcv_values[is_almost_feasible]
-        return merit_values
-    elif maxcv_values <= 1e-12:
-        return fun_values
-    elif maxcv_values >= 1e-6:
-        return np.inf
-    else:
-        return fun_values + 1e8 * maxcv_values
+    maxcv_init = maxcv_init[:, *[np.newaxis] * (fun_values.ndim - 1)]
+    is_infeasible = maxcv_values > np.maximum(1e-12, maxcv_init)
+    is_almost_feasible = (1e-12 < maxcv_values) & (maxcv_values <= maxcv_init)
+    merit_values = np.nan_to_num(fun_values, nan=np.inf, posinf=np.inf, neginf=-np.inf)
+    merit_values[is_infeasible] = np.inf
+    merit_values[is_almost_feasible] += 1e8 * maxcv_values[is_almost_feasible]
+    return merit_values
 
 
 def _format_float_scientific_latex(x):
