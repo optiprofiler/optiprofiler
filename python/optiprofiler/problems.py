@@ -5,8 +5,15 @@ from contextlib import redirect_stdout, redirect_stderr
 import numpy as np
 
 from .features import Feature
-from .utils import FeatureName, CUTEstProblemOption, FeatureOption, ProblemError, get_logger
+from .utils import (
+    FeatureName,
+    CUTEstProblemOption,
+    FeatureOption,
+    ProblemError,
+    get_logger,
+)
 
+# Options for the CUTEst problems.
 _cutest_problem_options = {
     CUTEstProblemOption.N_MIN.value: 1,
     CUTEstProblemOption.N_MAX.value: sys.maxsize,
@@ -46,17 +53,17 @@ class Problem:
 
     All the attributes and methods of the class `Problem` described below are
     always well-defined. For example, since the problem ``problem`` is
-    unconstrained, the components of the lower and upper bounds on the variables
-    must be :math:`-\infty` and :math:`\infty`, respectively:
+    unconstrained, the components of the lower and upper bounds on the
+    variables must be :math:`-\infty` and :math:`\infty`, respectively:
 
     >>> problem.lb
     array([-inf, -inf])
     >>> problem.ub
     array([inf, inf])
 
-    The optional arguments of the constructor of the class `Problem` can be used
-    to specify constraints. For example, to specify that the variables must be
-    nonnegative, run:
+    The optional arguments of the constructor of the class `Problem` can be
+    used to specify constraints. For example, to specify that the variables
+    must be nonnegative, run:
 
     >>> problem = Problem(rosen, [0, 0], [0, 0])
 
@@ -70,8 +77,8 @@ class Problem:
     The optional arguments ``a_ub``, ``b_ub``, ``a_eq``, and ``b_eq`` can be
     used to specify linear inequality and equality constraints, respectively.
     The optional arguments ``c_ub`` and ``c_eq`` can be used to specify
-    nonlinear inequality and equality constraints, respectively. For example, to
-    specify that the variables must satisfy the constraint
+    nonlinear inequality and equality constraints, respectively. For example,
+    to specify that the variables must satisfy the constraint
     :math:`x_1^2 + x_2^2 \le 1` and :math:`x_1^3 - x_2^2 \le 1`, run:
 
     >>> def c_ub(x):
@@ -87,12 +94,26 @@ class Problem:
     array([-1., -1.])
 
     If you do not provide the number of nonlinear inequality constraints in
-    ``num_nonlinear_ub``, it will be inferred at the first call to
-    ``problem.c_ub``. Nonlinear equality constraints can be specified in a
-    similar way, using the optional arguments ``c_eq`` and ``num_nonlinear_eq``.
+    ``num_nonlinear_ub``, it will be inferred at the first call to ``c_ub``.
+    Nonlinear equality constraints can be specified in a similar way, using the
+    optional arguments ``c_eq`` and ``num_nonlinear_eq``.
     """
 
-    def __init__(self, fun, x0, lb=None, ub=None, a_ub=None, b_ub=None, a_eq=None, b_eq=None, c_ub=None, num_nonlinear_ub=None, c_eq=None, num_nonlinear_eq=None):
+    def __init__(
+            self,
+            fun,
+            x0,
+            lb=None,
+            ub=None,
+            a_ub=None,
+            b_ub=None,
+            a_eq=None,
+            b_eq=None,
+            c_ub=None,
+            num_nonlinear_ub=None,
+            c_eq=None,
+            num_nonlinear_eq=None,
+    ):
         """
         Initialize an optimization problem.
 
@@ -148,29 +169,50 @@ class Problem:
             raise TypeError('The argument fun must be callable.')
 
         # Preprocess the initial guess.
-        self._x0 = _process_1d_array(x0, 'The argument x0 must be a one-dimensional array.')
+        self._x0 = _process_1d_array(
+            x0,
+            'The argument x0 must be a one-dimensional array.',
+        )
 
         # Preprocess the bound constraints.
         self._lb = lb
         if self._lb is not None:
-            self._lb = _process_1d_array(self._lb, 'The argument lb must be a one-dimensional array.')
+            self._lb = _process_1d_array(
+                self._lb,
+                'The argument lb must be a one-dimensional array.',
+            )
         self._ub = ub
         if self._ub is not None:
-            self._ub = _process_1d_array(self._ub, 'The argument ub must be a one-dimensional array.')
+            self._ub = _process_1d_array(
+                self._ub,
+                'The argument ub must be a one-dimensional array.',
+            )
 
         # Preprocess the linear constraints.
         self._a_ub = a_ub
         if self._a_ub is not None:
-            self._a_ub = _process_2d_array(self._a_ub, 'The argument a_ub must be a two-dimensional array.')
+            self._a_ub = _process_2d_array(
+                self._a_ub,
+                'The argument a_ub must be a two-dimensional array.',
+            )
         self._b_ub = b_ub
         if self._b_ub is not None:
-            self._b_ub = _process_1d_array(self._b_ub, 'The argument b_ub must be a one-dimensional array.')
+            self._b_ub = _process_1d_array(
+                self._b_ub,
+                'The argument b_ub must be a one-dimensional array.',
+            )
         self._a_eq = a_eq
         if self._a_eq is not None:
-            self._a_eq = _process_2d_array(self._a_eq, 'The argument a_eq must be a two-dimensional array.')
+            self._a_eq = _process_2d_array(
+                self._a_eq,
+                'The argument a_eq must be a two-dimensional array.',
+            )
         self._b_eq = b_eq
         if self._b_eq is not None:
-            self._b_eq = _process_1d_array(self._b_eq, 'The argument b_eq must be a one-dimensional array.')
+            self._b_eq = _process_1d_array(
+                self._b_eq,
+                'The argument b_eq must be a one-dimensional array.',
+            )
 
         # Preprocess the nonlinear constraints.
         self._c_ub = c_ub
@@ -288,8 +330,8 @@ class Problem:
         Raises
         ------
         ValueError
-            If the number of nonlinear equality constraints is unknown. This can
-            happen if the following three conditions are met: the argument
+            If the number of nonlinear equality constraints is unknown. This
+            can happen if the following three conditions are met: the argument
             `num_nonlinear_eq` was not specified when the problem was
             initialized, a nonlinear equality constraint function was specified
             when the problem was initialized, and the method `c_eq` has never
@@ -407,7 +449,10 @@ class Problem:
         ValueError
             If the argument `x` has an invalid shape.
         """
-        x = _process_1d_array(x, 'The argument x must be a one-dimensional array.')
+        x = _process_1d_array(
+            x,
+            'The argument x must be a one-dimensional array.',
+        )
         if x.size != self.dimension:
             raise ValueError(f'The argument x must have size {self.dimension}.')
         try:
@@ -439,7 +484,10 @@ class Problem:
             If the argument `x` has an invalid shape or if the return value of
             the argument `c_ub` has an invalid shape.
         """
-        x = _process_1d_array(x, 'The argument x must be a one-dimensional array.')
+        x = _process_1d_array(
+            x,
+            'The argument x must be a one-dimensional array.',
+        )
         if x.size != self.dimension:
             raise ValueError(f'The argument x must have size {self.dimension}.')
         if self._c_ub is None:
@@ -478,7 +526,10 @@ class Problem:
             If the argument `x` has an invalid shape or if the return value of
             the argument `c_eq` has an invalid shape.
         """
-        x = _process_1d_array(x, 'The argument x must be a one-dimensional array.')
+        x = _process_1d_array(
+            x,
+            'The argument x must be a one-dimensional array.',
+        )
         if x.size != self.dimension:
             raise ValueError(f'The argument x must have size {self.dimension}.')
         if self._c_eq is None:
@@ -516,7 +567,10 @@ class Problem:
         ValueError
             If the argument `x` has an invalid shape.
         """
-        x = _process_1d_array(x, 'The argument x must be a one-dimensional array.')
+        x = _process_1d_array(
+            x,
+            'The argument x must be a one-dimensional array.',
+        )
         if x.size != self.dimension:
             raise ValueError(f'The argument x must have size {self.dimension}.')
         cv = np.max(self.lb - x, initial=0.0)
@@ -618,7 +672,10 @@ class FeaturedProblem(Problem):
         x0 = super().x0
         if self._feature.name == FeatureName.RANDOMIZE_X0:
             rng = self._feature.get_default_rng(self._seed, *x0)
-            x0 += self._feature.options[FeatureOption.DISTRIBUTION](rng, x0.size)
+            x0 += self._feature.options[FeatureOption.DISTRIBUTION](
+                rng,
+                x0.size,
+            )
         return x0
 
     @property
@@ -725,8 +782,8 @@ def find_cutest_problems(constraints):
 
         To use this function, you must first install
         `PyCUTEst <https://jfowkes.github.io/pycutest/>`_. Follow the
-        instructions carefully, as the CUTEst library must be installed in order
-        to use `PyCUTEst <https://jfowkes.github.io/pycutest/>`_.
+        instructions carefully, as the CUTEst library must be installed in
+        order to use `PyCUTEst <https://jfowkes.github.io/pycutest/>`_.
 
     Parameters
     ----------
@@ -752,7 +809,10 @@ def find_cutest_problems(constraints):
     To find all the unconstrained problems with at most 100 variables, use:
 
 
-    >>> from optiprofiler import set_cutest_problem_options, find_cutest_problems
+    >>> from optiprofiler import (
+    ...     set_cutest_problem_options,
+    ...     find_cutest_problems,
+    ... )
     >>>
     >>> set_cutest_problem_options(n_max=100)
     >>> problem_names = find_cutest_problems('unconstrained')
@@ -763,11 +823,32 @@ def find_cutest_problems(constraints):
     if not isinstance(constraints, str):
         raise TypeError('The argument constraints must be a string.')
     for constraint in constraints.split():
-        if constraint not in ['unconstrained', 'fixed', 'bound', 'adjacency', 'linear', 'quadratic', 'other']:
+        if constraint not in [
+            'unconstrained',
+            'fixed',
+            'bound',
+            'adjacency',
+            'linear',
+            'quadratic',
+            'other',
+        ]:
             raise ValueError(f'Unknown constraint: {constraint}.')
 
     # Find all the problems that satisfy the constraints.
-    problem_names = pycutest.find_problems(objective='constant linear quadratic sum of squares other', constraints=constraints, n=[_cutest_problem_options[CUTEstProblemOption.N_MIN], _cutest_problem_options[CUTEstProblemOption.N_MAX]], userN=False, m=[_cutest_problem_options[CUTEstProblemOption.M_MIN], _cutest_problem_options[CUTEstProblemOption.M_MAX]], userM=False)
+    problem_names = pycutest.find_problems(
+        objective='constant linear quadratic sum of squares other',
+        constraints=constraints,
+        n=[
+            _cutest_problem_options[CUTEstProblemOption.N_MIN],
+            _cutest_problem_options[CUTEstProblemOption.N_MAX],
+        ],
+        userN=False,
+        m=[
+            _cutest_problem_options[CUTEstProblemOption.M_MIN],
+            _cutest_problem_options[CUTEstProblemOption.M_MAX],
+        ],
+        userM=False,
+    )
     return sorted(set(problem_names))
 
 
@@ -819,7 +900,11 @@ def load_cutest_problem(problem_name):
         a_ub = []
         b_ub = []
         for i, index in enumerate(np.flatnonzero(idx_ub)):
-            c_val, g_val = cutest_problem.cons(np.zeros(cutest_problem.n), index, True)
+            c_val, g_val = cutest_problem.cons(
+                np.zeros(cutest_problem.n),
+                index,
+                True,
+            )
             if idx_ub_cl[i]:
                 a_ub.append(-g_val)
                 b_ub.append(c_val - cutest_problem.cl[index])
@@ -836,7 +921,11 @@ def load_cutest_problem(problem_name):
         a_eq = []
         b_eq = []
         for index in np.flatnonzero(idx_eq):
-            c_val, g_val = cutest_problem.cons(np.zeros(cutest_problem.n), index, True)
+            c_val, g_val = cutest_problem.cons(
+                np.zeros(cutest_problem.n),
+                index,
+                True,
+            )
             a_eq.append(g_val)
             b_eq.append(c_val - 0.5 * (cutest_problem.cl[index] + cutest_problem.cu[index]))
         return np.reshape(a_eq, (-1, cutest_problem.n)), np.array(b_eq)

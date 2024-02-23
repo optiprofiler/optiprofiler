@@ -64,7 +64,6 @@ class ProblemError(Exception):
     """
     Exception raised when a problem cannot be loaded.
     """
-    pass
 
 
 def show_versions():
@@ -73,16 +72,24 @@ def show_versions():
 
     When reporting issues, please include this information.
     """
+    # Get system and dependency information.
+    sys_info = _get_sys_info()
+    deps_info = _get_deps_info()
+
+    # Display information.
     print('System settings')
     print('---------------')
-    sys_info = _get_sys_info()
-    print('\n'.join(f'{k:>{max(map(len, sys_info.keys())) + 1}}: {v}' for k, v in sys_info.items()))
-
+    print('\n'.join(
+        f'{k:>{max(map(len, sys_info.keys())) + 1}}: {v}'
+        for k, v in sys_info.items()
+    ))
     print()
     print('Python dependencies')
     print('-------------------')
-    deps_info = _get_deps_info()
-    print('\n'.join(f'{k:>{max(map(len, deps_info.keys())) + 1}}: {v}' for k, v in deps_info.items()))
+    print('\n'.join(
+        f'{k:>{max(map(len, deps_info.keys())) + 1}}: {v}'
+        for k, v in deps_info.items()
+    ))
 
 
 def get_logger(name=None, level=logging.INFO):
@@ -138,7 +145,15 @@ def _get_deps_info():
     dict
         Dependency information.
     """
-    deps = ['optiprofiler', 'joblib', 'matplotlib', 'numpy', 'pycutest', 'setuptools', 'pip']
+    deps = [
+        'optiprofiler',
+        'joblib',
+        'matplotlib',
+        'numpy',
+        'pycutest',
+        'setuptools',
+        'pip',
+    ]
     deps_info = {}
     for module in deps:
         try:
@@ -146,5 +161,3 @@ def _get_deps_info():
         except PackageNotFoundError:
             deps_info[module] = None
     return deps_info
-
-
