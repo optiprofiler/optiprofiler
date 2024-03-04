@@ -26,21 +26,21 @@ class TestFeature:
 
     @pytest.mark.parametrize('n', [1, 10, 100])
     @pytest.mark.parametrize('seed', [0, 1, 2])
-    def test_regularized(self, n, seed):
+    def test_regularize(self, n, seed):
         # Generate random data.
         rng = np.random.default_rng(seed)
         x = rng.standard_normal(n)
         f = self.rosen(x)
 
-        # Test the regularized feature.
-        feature = Feature('regularized')
-        assert feature.name == 'regularized'
+        # Test the regularize feature.
+        feature = Feature('regularize')
+        assert feature.name == 'regularize'
         assert feature.options == {'n_runs': 1, 'parameter': 1.0, 'order': 2}
         np.testing.assert_allclose(feature.modifier(x, f),  f + np.linalg.norm(x))
 
         # Add custom options.
-        feature = Feature('regularized', parameter=2.0, order=3)
-        assert feature.name == 'regularized'
+        feature = Feature('regularize', parameter=2.0, order=3)
+        assert feature.name == 'regularize'
         assert feature.options == {'n_runs': 1, 'parameter': 2.0, 'order': 3}
         np.testing.assert_allclose(feature.modifier(x, f),  f + 2.0 * np.linalg.norm(x, 3))
 
@@ -68,22 +68,22 @@ class TestFeature:
 
     @pytest.mark.parametrize('n', [1, 10, 100])
     @pytest.mark.parametrize('seed', [0, 1, 2])
-    def test_truncated(self, n, seed):
+    def test_truncate(self, n, seed):
         # Generate random data.
         rng = np.random.default_rng(seed)
         x = rng.standard_normal(n)
         f = self.rosen(x)
 
-        # Test the truncated feature.
-        feature = Feature('truncated')
-        assert feature.name == 'truncated'
+        # Test the truncate feature.
+        feature = Feature('truncate')
+        assert feature.name == 'truncate'
         assert feature.options == {'n_runs': 10, 'significant_digits': 6}
         np.testing.assert_allclose(feature.modifier(x, f),  f, 1e-5, 1e-5)
         np.testing.assert_allclose(feature.modifier(x, -f),  -f, 1e-5, 1e-5)
 
         # Add custom options.
-        feature = Feature('truncated', significant_digits=4)
-        assert feature.name == 'truncated'
+        feature = Feature('truncate', significant_digits=4)
+        assert feature.name == 'truncate'
         assert feature.options == {'n_runs': 10, 'significant_digits': 4}
         np.testing.assert_allclose(feature.modifier(x, f),  f, 1e-3, 1e-3)
 
@@ -98,14 +98,14 @@ class TestFeature:
         # Test the tough feature.
         feature = Feature('tough')
         assert feature.name == 'tough'
-        assert feature.options == {'n_runs': 10, 'rate_error': 0.0, 'rate_nan': 0.05}
+        assert feature.options == {'n_runs': 10, 'rate_nan': 0.05}
         f_tough = feature.modifier(x, f)
         assert f_tough == f or np.isnan(f_tough)
 
         # Add custom options.
-        feature = Feature('tough', rate_error=0.5, rate_nan=0.5)
+        feature = Feature('tough', rate_nan=0.5)
         assert feature.name == 'tough'
-        assert feature.options == {'n_runs': 10, 'rate_error': 0.5, 'rate_nan': 0.5}
+        assert feature.options == {'n_runs': 10, 'rate_nan': 0.5}
         try:
             f_tough = feature.modifier(x, f)
             assert f_tough == f or np.isnan(f_tough)
@@ -133,7 +133,7 @@ class TestFeature:
         with pytest.raises(ValueError):
             Feature('unknown')
         with pytest.raises(ValueError):
-            Feature('regularized', unknown=1.0)
+            Feature('regularize', unknown=1.0)
         with pytest.raises(ValueError):
             Feature('plain', parameter=1.0)
         with pytest.raises(TypeError):
@@ -145,17 +145,11 @@ class TestFeature:
         with pytest.raises(TypeError):
             Feature('noisy', distribution=1.0)
         with pytest.raises(TypeError):
-            Feature('regularized', order='1.0')
+            Feature('regularize', order='1.0')
         with pytest.raises(TypeError):
-            Feature('regularized', parameter='1.0')
+            Feature('regularize', parameter='1.0')
         with pytest.raises(ValueError):
-            Feature('regularized', parameter=-1.0)
-        with pytest.raises(TypeError):
-            Feature('tough', rate_error='1.0')
-        with pytest.raises(ValueError):
-            Feature('tough', rate_error=-1.0)
-        with pytest.raises(ValueError):
-            Feature('tough', rate_error=2.0)
+            Feature('regularize', parameter=-1.0)
         with pytest.raises(TypeError):
             Feature('tough', rate_nan='1.0')
         with pytest.raises(ValueError):
@@ -163,9 +157,9 @@ class TestFeature:
         with pytest.raises(ValueError):
             Feature('tough', rate_nan=2.0)
         with pytest.raises(TypeError):
-            Feature('truncated', significant_digits=2.5)
+            Feature('truncate', significant_digits=2.5)
         with pytest.raises(ValueError):
-            Feature('truncated', significant_digits=-1)
+            Feature('truncate', significant_digits=-1)
         with pytest.raises(TypeError):
             Feature('noisy', type=1)
         with pytest.raises(ValueError):
@@ -193,7 +187,7 @@ class TestFeature:
         Feature('noisy', n_runs=2.0)
 
         # The value significant_digits can be a float.
-        Feature('truncated', significant_digits=2.0)
+        Feature('truncate', significant_digits=2.0)
 
         # The seed can be a float.
         feature = Feature('plain')

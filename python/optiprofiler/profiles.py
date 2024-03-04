@@ -448,7 +448,12 @@ def _compute_merit_values(fun_values, maxcv_values, maxcv_init):
     """
     Compute the merit function values.
     """
-    maxcv_init = maxcv_init[:, *[np.newaxis] * (fun_values.ndim - 1)]
+    # Star expressions in indexes are only available in Python 3.11+.
+    # maxcv_init = maxcv_init[:, *[np.newaxis] * (fun_values.ndim - 1)]
+    if fun_values.ndim == 3:
+        maxcv_init = maxcv_init[:, np.newaxis, np.newaxis]
+    elif fun_values.ndim == 4:
+        maxcv_init = maxcv_init[:, np.newaxis, np.newaxis, np.newaxis]
     is_infeasible = maxcv_values > np.maximum(1e-12, maxcv_init)
     is_almost_feasible = (1e-12 < maxcv_values) & (maxcv_values <= maxcv_init)
     merit_values = np.nan_to_num(fun_values, nan=np.inf, posinf=np.inf, neginf=-np.inf)
