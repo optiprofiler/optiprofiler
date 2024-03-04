@@ -29,8 +29,6 @@ class Feature:
             Order of the 'regularized' feature.
         parameter : int or float, optional
             Regularization parameter of the 'regularized' feature.
-        rate_error : int or float, optional
-            Rate of errors of the 'tough' feature.
         rate_nan : int or float, optional
             Rate of NaNs of the 'tough' feature.
         significant_digits : int, optional
@@ -68,11 +66,11 @@ class Feature:
                 known_options.extend([FeatureOption.DISTRIBUTION, FeatureOption.TYPE])
             elif self._name == FeatureName.RANDOMIZE_X0:
                 known_options.extend([FeatureOption.DISTRIBUTION])
-            elif self._name == FeatureName.REGULARIZED:
+            elif self._name == FeatureName.REGULARIZE:
                 known_options.extend([FeatureOption.ORDER, FeatureOption.PARAMETER])
             elif self._name == FeatureName.TOUGH:
-                known_options.extend([FeatureOption.RATE_ERROR, FeatureOption.RATE_NAN])
-            elif self._name == FeatureName.TRUNCATED:
+                known_options.extend([FeatureOption.RATE_NAN])
+            elif self._name == FeatureName.TRUNCATE:
                 known_options.extend([FeatureOption.SIGNIFICANT_DIGITS])
             elif self._name != FeatureName.PLAIN:
                 raise NotImplementedError(f'Unknown feature: {self._name}.')
@@ -101,7 +99,7 @@ class Feature:
                     raise TypeError(f'Option {key} must be a number.')
                 if self._options[key] < 0.0:
                     raise ValueError(f'Option {key} must be nonnegative.')
-            elif key in [FeatureOption.RATE_ERROR, FeatureOption.RATE_NAN]:
+            elif key == FeatureOption.RATE_NAN:
                 if not isinstance(self._options[key], (int, float)):
                     raise TypeError(f'Option {key} must be a number.')
                 if not (0.0 <= self._options[key] <= 1.0):
@@ -190,15 +188,13 @@ class Feature:
                 f += self._options[FeatureOption.DISTRIBUTION](rng)
             else:
                 f *= 1.0 + self._options[FeatureOption.DISTRIBUTION](rng)
-        elif self._name == FeatureName.REGULARIZED:
+        elif self._name == FeatureName.REGULARIZE:
             f += self._options[FeatureOption.PARAMETER] * np.linalg.norm(x, self._options[FeatureOption.ORDER])
         elif self._name == FeatureName.TOUGH:
-            rng = self.get_default_rng(seed, f, self._options[FeatureOption.RATE_ERROR], self._options[FeatureOption.RATE_NAN], *x)
-            if rng.uniform() < self._options[FeatureOption.RATE_ERROR]:
-                raise RuntimeError
-            elif rng.uniform() < self._options[FeatureOption.RATE_NAN]:
+            rng = self.get_default_rng(seed, f, self._options[FeatureOption.RATE_NAN], *x)
+            if rng.uniform() < self._options[FeatureOption.RATE_NAN]:
                 f = np.nan
-        elif self._name == FeatureName.TRUNCATED:
+        elif self._name == FeatureName.TRUNCATE:
             rng = self.get_default_rng(seed, f, self._options[FeatureOption.SIGNIFICANT_DIGITS], *x)
             if f == 0.0:
                 digits = self._options[FeatureOption.SIGNIFICANT_DIGITS] - 1
@@ -235,15 +231,14 @@ class Feature:
         elif self._name == FeatureName.RANDOMIZE_X0:
             self._options.setdefault(FeatureOption.DISTRIBUTION.value, self._default_distribution)
             self._options.setdefault(FeatureOption.N_RUNS.value, 10)
-        elif self._name == FeatureName.REGULARIZED:
+        elif self._name == FeatureName.REGULARIZE:
             self._options.setdefault(FeatureOption.N_RUNS.value, 1)
             self._options.setdefault(FeatureOption.ORDER.value, 2)
             self._options.setdefault(FeatureOption.PARAMETER.value, 1.0)
         elif self._name == FeatureName.TOUGH:
             self._options.setdefault(FeatureOption.N_RUNS.value, 10)
-            self._options.setdefault(FeatureOption.RATE_ERROR.value, 0.0)
             self._options.setdefault(FeatureOption.RATE_NAN.value, 0.05)
-        elif self._name == FeatureName.TRUNCATED:
+        elif self._name == FeatureName.TRUNCATE:
             self._options.setdefault(FeatureOption.N_RUNS.value, 10)
             self._options.setdefault(FeatureOption.SIGNIFICANT_DIGITS.value, 6)
         else:

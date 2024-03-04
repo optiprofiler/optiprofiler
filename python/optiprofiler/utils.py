@@ -14,9 +14,10 @@ class FeatureName(str, Enum):
     NOISY = 'noisy'
     PLAIN = 'plain'
     RANDOMIZE_X0 = 'randomize_x0'
-    REGULARIZED = 'regularized'
+    REGULARIZE = 'regularize'
     TOUGH = 'tough'
-    TRUNCATED = 'truncated'
+    TRUNCATE = 'truncate'
+    UNRELAXABLE_CONSTRAINTS = 'unrelaxable_constraints'
 
 
 class ProfileOption(str, Enum):
@@ -25,6 +26,7 @@ class ProfileOption(str, Enum):
     """
     N_JOBS = 'n_jobs'
     BENCHMARK_ID = 'benchmark_id'
+    PROJECT_X0 = 'project_x0'
 
 
 class CUTEstProblemOption(str, Enum):
@@ -46,10 +48,12 @@ class FeatureOption(str, Enum):
     N_RUNS = 'n_runs'
     ORDER = 'order'
     PARAMETER = 'parameter'
-    RATE_ERROR = 'rate_error'
     RATE_NAN = 'rate_nan'
     SIGNIFICANT_DIGITS = 'significant_digits'
     TYPE = 'type'
+    UNRELAXABLE_BOUNDS = 'unrelaxable_bounds'
+    UNRELAXABLE_LINEAR_CONSTRAINTS = 'unrelaxable_linear_constraints'
+    UNRELAXABLE_NONLINEAR_CONSTRAINTS = 'unrelaxable_nonlinear_constraints'
 
 
 class NoiseType(str, Enum):

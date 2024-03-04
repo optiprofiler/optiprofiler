@@ -13,6 +13,7 @@ from cycler import cycler
 from matplotlib import pyplot as plt
 from matplotlib.backends import backend_pdf
 from matplotlib.ticker import MaxNLocator, FuncFormatter
+from pypdf import PdfReader, PdfWriter, Transformation
 
 from .features import Feature
 from .problems import Problem, FeaturedProblem, get_cutest_problem_options, set_cutest_problem_options, load_cutest_problem
@@ -23,16 +24,16 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
     """
     Create the benchmark profiles.
 
-    The benchmark profiles include the performance and data profiles [1]_, [2]_,
-    [4]_, and the log-ratio profiles [3]_, [5]_. The log-ratio profiles are
-    available only when there are exactly two solvers.
+    The benchmark profiles include the performance and data profiles [1]_,
+    [2]_, [4]_, and the log-ratio profiles [3]_, [5]_. The log-ratio profiles
+    are available only when there are exactly two solvers.
 
     .. caution::
 
         To use CUTEst problems in your benchmark, you must first install
         `PyCUTEst <https://jfowkes.github.io/pycutest/>`_. Follow the
-        instructions carefully, as the CUTEst library must be installed in order
-        to use `PyCUTEst <https://jfowkes.github.io/pycutest/>`_.
+        instructions carefully, as the CUTEst library must be installed in
+        order to use `PyCUTEst <https://jfowkes.github.io/pycutest/>`_.
 
     Parameters
     ----------
@@ -49,7 +50,8 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
             ``solver(fun, x0, lb, ub)``
 
         where ``lb`` and ``ub`` are the lower and upper bounds, respectively.
-        For linearly constrained problems, the signature of the callable must be
+        For linearly constrained problems, the signature of the callable must
+        be
 
             ``solver(fun, x0, lb, ub, a_ub, b_ub, a_eq, b_eq)``
 
@@ -72,8 +74,9 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
         problem cannot be loaded, it is ignored. You can use the function
         `find_cutest_problems` to obtain a list of available CUTEst problems.
     extra_problems : list of `Problem`, optional
-        Extra problems to use in the benchmark. If you do not want to use CUTEst
-        problems, you can use this argument to provide your own problems.
+        Extra problems to use in the benchmark. If you do not want to use
+        CUTEst problems, you can use this argument to provide your own
+        problems.
     feature_name : str, optional
         Name of the feature to use in the benchmark. The available features are
 
@@ -110,20 +113,23 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
     ----------
     .. [1] E. D. Dolan and J. J. Moré. Benchmarking optimization software with
            performance profiles. *Math. Program.*, 91(2):201–213, 2002.
-           `doi:10.1007/s101070100263 <https://doi.org/10.1007/s101070100263>`_.
+           `doi:10.1007/s101070100263
+           <https://doi.org/10.1007/s101070100263>`_.
     .. [2] N. Gould and J. Scott. A note on performance profiles for
            benchmarking software. *ACM Trans. Math. Software*, 43(2):15:1–5,
            2016. `doi:10.1145/2950048 <https://doi.org/10.1145/2950048>`_.
     .. [3] J. L. Morales. A numerical study of limited memory BFGS methods.
            *Appl. Math. Lett.*, 15(4):481–487, 2002.
-           `doi:10.1016/S0893-9659(01)00162-8 <https://doi.org/10.1016/S0893-9659(01)00162-8>`_.
+           `doi:10.1016/S0893-9659(01)00162-8
+           <https://doi.org/10.1016/S0893-9659(01)00162-8>`_.
     .. [4] J. J. Moré and S. M. Wild. Benchmarking derivative-free optimization
            algorithms. *SIAM J. Optim.*, 20(1):172–191, 2009.
            `doi:10.1137/080724083 <https://doi.org/10.1137/080724083>`_.
     .. [5] H.-J. M. Shi, M. Q. Xuan, F. Oztoprak, and J. Nocedal. On the
            numerical performance of finite-difference-based methods for
-           derivative-free optimization. *Optim. Methods Softw.*, 38(2):289–311,
-           2023. `doi:10.1080/10556788.2022.2121832 <https://doi.org/10.1080/10556788.2022.2121832>`_.
+           derivative-free optimization. *Optim. Methods Softw.*,
+           38(2):289–311, 2023. `doi:10.1080/10556788.2022.2121832
+           <https://doi.org/10.1080/10556788.2022.2121832>`_.
 
     Examples
     --------
@@ -197,7 +203,7 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
 
     # Determine the least merit value for each problem.
     merit_min = np.min(merit_histories, (1, 2, 3))
-    if feature.name in [FeatureName.NOISY, FeatureName.TOUGH, FeatureName.TRUNCATED]:
+    if feature.name in [FeatureName.NOISY, FeatureName.TOUGH, FeatureName.TRUNCATE]:
         feature_plain = Feature('plain')
         logger.info(f'Starting the computation of the plain profiles.')
         fun_histories_plain, maxcv_histories_plain, _, _, _, _, _, _, _ = _solve_all_problems(cutest_problem_names, extra_problems, solvers, labels, feature_plain, max_eval_factor, profile_options)
@@ -210,10 +216,16 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
     path_out = Path('out', feature.name, profile_options[ProfileOption.BENCHMARK_ID], timestamp).resolve()
     path_pdf = path_out / 'pdf'
     path_pdf.mkdir(parents=True, exist_ok=True)
+    path_problems = path_out / 'problems.txt'
+    path_perf_hist = path_pdf / 'perf_hist.pdf'
+    path_perf_out = path_pdf / 'perf_out.pdf'
+    path_data_hist = path_pdf / 'data_hist.pdf'
+    path_data_out = path_pdf / 'data_out.pdf'
+    path_log_ratio_hist = path_pdf / 'log-ratio_hist.pdf'
+    path_log_ratio_out = path_pdf / 'log-ratio_out.pdf'
 
     # Store the names of the problems.
-    path_txt = path_out / 'problems.txt'
-    with path_txt.open('w') as f:
+    with path_problems.open('w') as f:
         f.write(os.linesep.join(sorted(problem_names)))
 
     # Set up matplotlib for plotting the profiles.
@@ -229,13 +241,12 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
         # Create the performance and data profiles.
         n_problems, n_solvers, n_runs, max_eval = merit_histories.shape
         tolerances = np.logspace(-1, -10, 10)
-        pdf_summary = backend_pdf.PdfPages(path_out / 'summary.pdf')
-        pdf_perf_hist = backend_pdf.PdfPages(path_pdf / 'perf_hist.pdf')
-        pdf_perf_out = backend_pdf.PdfPages(path_pdf / 'perf_out.pdf')
-        pdf_data_hist = backend_pdf.PdfPages(path_pdf / 'data_hist.pdf')
-        pdf_data_out = backend_pdf.PdfPages(path_pdf / 'data_out.pdf')
-        pdf_log_ratio_hist = backend_pdf.PdfPages(path_pdf / 'log-ratio_hist.pdf', False)
-        pdf_log_ratio_out = backend_pdf.PdfPages(path_pdf / 'log-ratio_out.pdf', False)
+        pdf_perf_hist = backend_pdf.PdfPages(path_perf_hist)
+        pdf_perf_out = backend_pdf.PdfPages(path_perf_out)
+        pdf_data_hist = backend_pdf.PdfPages(path_data_hist)
+        pdf_data_out = backend_pdf.PdfPages(path_data_out)
+        pdf_log_ratio_hist = backend_pdf.PdfPages(path_log_ratio_hist, False)
+        pdf_log_ratio_out = backend_pdf.PdfPages(path_log_ratio_out, False)
         for tolerance in tolerances:
             tolerance_str, tolerance_latex = _format_float_scientific_latex(tolerance)
             logger.info(f'Creating profiles for tolerance {tolerance_str}.')
@@ -256,8 +267,7 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
                             work_out[i_problem, i_solver, i_run] = n_eval[i_problem, i_solver, i_run]
 
             # Draw the profiles.
-            fig_summary, fig_perf_hist, fig_perf_out, fig_data_hist, fig_data_out, fig_log_ratio_hist, fig_log_ratio_out = _draw_profiles(work_hist, work_out, problem_dimensions, labels, tolerance_label)
-            pdf_summary.savefig(fig_summary, bbox_inches='tight')
+            fig_perf_hist, fig_perf_out, fig_data_hist, fig_data_out, fig_log_ratio_hist, fig_log_ratio_out = _draw_profiles(work_hist, work_out, problem_dimensions, labels, tolerance_label)
             pdf_perf_hist.savefig(fig_perf_hist, bbox_inches='tight')
             pdf_perf_out.savefig(fig_perf_out, bbox_inches='tight')
             pdf_data_hist.savefig(fig_data_hist, bbox_inches='tight')
@@ -268,7 +278,6 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
                 pdf_log_ratio_out.savefig(fig_log_ratio_out, bbox_inches='tight')
 
             # Close the figures.
-            plt.close(fig_summary)
             plt.close(fig_perf_hist)
             plt.close(fig_perf_out)
             plt.close(fig_data_hist)
@@ -279,7 +288,6 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
                 plt.close(fig_log_ratio_out)
 
         # Close the PDF files.
-        pdf_summary.close()
         pdf_perf_hist.close()
         pdf_perf_out.close()
         pdf_data_hist.close()
@@ -287,6 +295,38 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
         pdf_log_ratio_hist.close()
         pdf_log_ratio_out.close()
         logger.info(f'Results stored in {path_out}.')
+
+    # Create the summary PDF.
+    path_profiles = [path_perf_hist, path_data_hist]
+    reader_profiles = [PdfReader(path_perf_hist), PdfReader(path_data_hist)]
+    if path_log_ratio_hist.is_file():
+        path_profiles.append(path_log_ratio_hist)
+        reader_profiles.append(PdfReader(path_log_ratio_hist))
+    path_profiles.extend([path_perf_out, path_data_out])
+    reader_profiles.extend([PdfReader(path_perf_out), PdfReader(path_data_out)])
+    if path_log_ratio_out.is_file():
+        path_profiles.append(path_log_ratio_out)
+        reader_profiles.append(PdfReader(path_log_ratio_out))
+    profile_number = len(path_profiles)
+    page_number = max(len(reader.pages) for reader in reader_profiles)
+    page_width = max(page.mediabox.width for reader in reader_profiles for page in reader.pages)
+    page_height = max(page.mediabox.height for reader in reader_profiles for page in reader.pages)
+    pdf_summary = PdfWriter()
+    pdf_summary.add_blank_page(
+        page_width * page_number,
+        page_height * profile_number,
+    )
+    for i_source, pdf_source in enumerate(reader_profiles):
+        for i_page, page in enumerate(pdf_source.pages):
+            pdf_summary.pages[0].merge_transformed_page(
+                page,
+                Transformation().translate(
+                    page_width * i_page,
+                    (profile_number - i_source - 1) * page_height,
+                ),
+            )
+    pdf_summary.write(path_out / 'summary.pdf')
+    pdf_summary.close()
 
 
 def _solve_all_problems(cutest_problem_names, extra_problems, solvers, labels, feature, max_eval_factor, profile_options):
@@ -433,13 +473,6 @@ def _format_float_scientific_latex(x):
 def _draw_profiles(work_hist, work_out, problem_dimensions, labels, tolerance_label):
     n_solvers = work_hist.shape[1]
 
-    # Create the figure for the summary.
-    default_width, default_height = plt.rcParams['figure.figsize']
-    if n_solvers > 2:
-        fig_summary, axs_summary = plt.subplots(2, 2, figsize=(2 * default_width, 2 * default_height))
-    else:
-        fig_summary, axs_summary = plt.subplots(3, 2, figsize=(2 * default_width, 3 * default_height))
-
     # Create the individual figures.
     fig_perf_hist, ax_perf_hist = plt.subplots()
     fig_perf_out, ax_perf_out = plt.subplots()
@@ -456,64 +489,38 @@ def _draw_profiles(work_hist, work_out, problem_dimensions, labels, tolerance_la
     x_perf_hist, y_perf_hist, ratio_max_perf_hist, x_data_hist, y_data_hist, ratio_max_data_hist = _get_extended_performances_data_profile_axes(work_hist, problem_dimensions)
     x_perf_out, y_perf_out, ratio_max_perf_out, x_data_out, y_data_out, ratio_max_data_out = _get_extended_performances_data_profile_axes(work_out, problem_dimensions)
     _draw_performance_data_profiles(ax_perf_hist, x_perf_hist, y_perf_hist, labels)
-    _draw_performance_data_profiles(axs_summary[0, 0], x_perf_hist, y_perf_hist, labels)
     _draw_performance_data_profiles(ax_perf_out, x_perf_out, y_perf_out, labels)
-    _draw_performance_data_profiles(axs_summary[0, 1], x_perf_out, y_perf_out, labels)
     _draw_performance_data_profiles(ax_data_hist, x_data_hist, y_data_hist, labels)
-    _draw_performance_data_profiles(axs_summary[1, 0], x_data_hist, y_data_hist, labels)
     _draw_performance_data_profiles(ax_data_out, x_data_out, y_data_out, labels)
-    _draw_performance_data_profiles(axs_summary[1, 1], x_data_out, y_data_out, labels)
-    int_formatter = FuncFormatter(lambda x, _: f'{x:.0f}')
     ax_perf_hist.set_xscale('log', base=2)
-    axs_summary[0, 0].set_xscale('log', base=2)
     ax_perf_out.set_xscale('log', base=2)
-    axs_summary[0, 1].set_xscale('log', base=2)
+    int_formatter = FuncFormatter(lambda x, _: f'{x:.0f}')
     ax_perf_hist.xaxis.set_major_formatter(int_formatter)
-    axs_summary[0, 0].xaxis.set_major_formatter(int_formatter)
     ax_perf_out.xaxis.set_major_formatter(int_formatter)
-    axs_summary[0, 1].xaxis.set_major_formatter(int_formatter)
-    ax_perf_hist.set_xlim(1.0, ratio_max_perf_hist ** 1.1)
-    axs_summary[0, 0].set_xlim(1.0, ratio_max_perf_hist ** 1.1)
-    ax_perf_out.set_xlim(1.0, ratio_max_perf_out ** 1.1)
-    axs_summary[0, 1].set_xlim(1.0, ratio_max_perf_out ** 1.1)
+    with warnings.catch_warnings():
+        warnings.filterwarnings('ignore', category=UserWarning)
+        ax_perf_hist.set_xlim(1.0, ratio_max_perf_hist ** 1.1)
+        ax_perf_out.set_xlim(1.0, ratio_max_perf_out ** 1.1)
     ax_data_hist.set_xlim(0.0, 1.1 * ratio_max_data_hist)
-    axs_summary[1, 0].set_xlim(0.0, 1.1 * ratio_max_data_hist)
     ax_data_out.set_xlim(0.0, 1.1 * ratio_max_data_out)
-    axs_summary[1, 1].set_xlim(0.0, 1.1 * ratio_max_data_out)
     ax_perf_hist.set_xlabel('Performance ratio')
-    axs_summary[0, 0].set_xlabel('Performance ratio')
     ax_perf_out.set_xlabel('Performance ratio')
-    axs_summary[0, 1].set_xlabel('Performance ratio')
     ax_data_hist.set_xlabel('Number of simplex gradients')
-    axs_summary[1, 0].set_xlabel('Number of simplex gradients')
     ax_data_out.set_xlabel('Number of simplex gradients')
-    axs_summary[1, 1].set_xlabel('Number of simplex gradients')
     ax_perf_hist.set_ylabel(f'Performance profiles {tolerance_label}')
-    axs_summary[0, 0].set_ylabel(f'Performance profiles {tolerance_label}')
     ax_perf_out.set_ylabel(f'Performance profiles {tolerance_label}')
-    axs_summary[0, 1].set_ylabel(f'Performance profiles {tolerance_label}')
     ax_data_hist.set_ylabel(f'Data profiles {tolerance_label}')
-    axs_summary[1, 0].set_ylabel(f'Data profiles {tolerance_label}')
     ax_data_out.set_ylabel(f'Data profiles {tolerance_label}')
-    axs_summary[1, 1].set_ylabel(f'Data profiles {tolerance_label}')
-    axs_summary[0, 0].set_title('History-based profiles')
-    axs_summary[0, 1].set_title('Output-based profiles')
 
     # Draw the log-ratio profiles.
     if n_solvers <= 2:
         _draw_log_ratio_profiles(ax_log_ratio_hist, np.copy(work_hist), labels)
-        _draw_log_ratio_profiles(axs_summary[2, 0], np.copy(work_hist), labels)
         _draw_log_ratio_profiles(ax_log_ratio_out, np.copy(work_out), labels)
-        _draw_log_ratio_profiles(axs_summary[2, 1], np.copy(work_out), labels)
         ax_log_ratio_hist.set_xlabel('Problem')
-        axs_summary[2, 0].set_xlabel('Problem')
         ax_log_ratio_out.set_xlabel('Problem')
-        axs_summary[2, 1].set_xlabel('Problem')
         ax_log_ratio_hist.set_ylabel(f'Log-ratio profiles {tolerance_label}')
-        axs_summary[2, 0].set_ylabel(f'Log-ratio profiles {tolerance_label}')
         ax_log_ratio_out.set_ylabel(f'Log-ratio profiles {tolerance_label}')
-        axs_summary[2, 1].set_ylabel(f'Log-ratio profiles {tolerance_label}')
-    return fig_summary, fig_perf_hist, fig_perf_out, fig_data_hist, fig_data_out, fig_log_ratio_hist, fig_log_ratio_out
+    return fig_perf_hist, fig_perf_out, fig_data_hist, fig_data_out, fig_log_ratio_hist, fig_log_ratio_out
 
 
 def _draw_performance_data_profiles(ax, x, y, labels):
