@@ -72,6 +72,8 @@ class Feature:
                 known_options.extend([FeatureOption.RATE_NAN])
             elif self._name == FeatureName.TRUNCATE:
                 known_options.extend([FeatureOption.SIGNIFICANT_DIGITS])
+            elif self._name == FeatureName.UNRELAXABLE_CONSTRAINTS:
+                known_options.extend([FeatureOption.UNRELAXABLE_BOUNDS, FeatureOption.UNRELAXABLE_LINEAR_CONSTRAINTS, FeatureOption.UNRELAXABLE_NONLINEAR_CONSTRAINTS])
             elif self._name != FeatureName.PLAIN:
                 raise NotImplementedError(f'Unknown feature: {self._name}.')
             if key not in known_options:
@@ -116,6 +118,9 @@ class Feature:
                     raise TypeError(f'Option {key} must be a string.')
                 if self._options[key].lower() not in NoiseType.__members__.values():
                     raise ValueError(f'Option {key} must be either "{NoiseType.ABSOLUTE.value}" or "{NoiseType.RELATIVE.value}".')
+            elif key in [FeatureOption.UNRELAXABLE_BOUNDS, FeatureOption.UNRELAXABLE_LINEAR_CONSTRAINTS, FeatureOption.UNRELAXABLE_NONLINEAR_CONSTRAINTS]:
+                if not isinstance(self._options[key], bool):
+                    raise TypeError(f'Option {key} must be a boolean.')
 
         # Set default options.
         self._set_default_options()
@@ -144,7 +149,7 @@ class Feature:
         """
         return self._options
 
-    def modifier(self, x, f, seed=None):
+    def modifier(self, x, f, maxcv_bounds=0.0, maxcv_linear=0.0, maxcv_nonlinear=0.0, seed=None):
         """
         Modify the objective function value according to the feature.
 
@@ -204,6 +209,13 @@ class Feature:
                 f = round(f, digits) + rng.uniform(0.0, 10.0 ** (-digits))
             else:
                 f = round(f, digits) - rng.uniform(0.0, 10.0 ** (-digits))
+        elif self._name == FeatureName.UNRELAXABLE_CONSTRAINTS:
+            if self._options[FeatureOption.UNRELAXABLE_BOUNDS] and maxcv_bounds > 0.0:
+                f = np.inf
+            elif self._options[FeatureOption.UNRELAXABLE_LINEAR_CONSTRAINTS] and maxcv_linear > 0.0:
+                f = np.inf
+            elif self._options[FeatureOption.UNRELAXABLE_NONLINEAR_CONSTRAINTS] and maxcv_nonlinear > 0.0:
+                f = np.inf
         elif self._name not in [FeatureName.PLAIN, FeatureName.RANDOMIZE_X0]:
             raise NotImplementedError(f'Unknown feature: {self._name}.')
         return f
@@ -241,6 +253,11 @@ class Feature:
         elif self._name == FeatureName.TRUNCATE:
             self._options.setdefault(FeatureOption.N_RUNS.value, 10)
             self._options.setdefault(FeatureOption.SIGNIFICANT_DIGITS.value, 6)
+        elif self._name == FeatureName.UNRELAXABLE_CONSTRAINTS:
+            self._options.setdefault(FeatureOption.N_RUNS.value, 1)
+            self._options.setdefault(FeatureOption.UNRELAXABLE_BOUNDS.value, True)
+            self._options.setdefault(FeatureOption.UNRELAXABLE_LINEAR_CONSTRAINTS.value, False)
+            self._options.setdefault(FeatureOption.UNRELAXABLE_NONLINEAR_CONSTRAINTS.value, False)
         else:
             raise NotImplementedError(f'Unknown feature: {self._name}.')
 

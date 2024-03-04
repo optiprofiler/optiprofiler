@@ -548,7 +548,7 @@ class Problem:
             raise ValueError(f'The return value of the argument c_eq must have size {self.num_nonlinear_eq}.')
         return c
 
-    def maxcv(self, x):
+    def maxcv(self, x, detailed=False):
         """
         Evaluate the maximum constraint violation.
 
@@ -556,11 +556,14 @@ class Problem:
         ----------
         x : array_like, shape (n,)
             Point at which to evaluate the maximum constraint violation.
+        detailed : bool, optional
+            Whether to return the maximum constraint violation for each
+            type of constraint (bound, linear, and nonlinear).
 
         Returns
         -------
-        float
-            Maximum constraint violation.
+        {float, (float, float, float)}
+            Maximum constraint violation(s).
 
         Raises
         ------
@@ -573,13 +576,16 @@ class Problem:
         )
         if x.size != self.dimension:
             raise ValueError(f'The argument x must have size {self.dimension}.')
-        cv = np.max(self.lb - x, initial=0.0)
-        cv = np.max(x - self.ub, initial=cv)
-        cv = np.max(self.a_ub @ x - self.b_ub, initial=cv)
-        cv = np.max(np.abs(self.a_eq @ x - self.b_eq), initial=cv)
-        cv = np.max(self.c_ub(x), initial=cv)
-        cv = np.max(np.abs(self.c_eq(x)), initial=cv)
-        return cv
+        cv_bounds = np.max(self.lb - x, initial=0.0)
+        cv_bounds = np.max(x - self.ub, initial=cv_bounds)
+        cv_linear = np.max(self.a_ub @ x - self.b_ub, initial=0.0)
+        cv_linear = np.max(np.abs(self.a_eq @ x - self.b_eq), initial=cv_linear)
+        cv_nonlinear = np.max(self.c_ub(x), initial=0.0)
+        cv_nonlinear = np.max(np.abs(self.c_eq(x)), initial=cv_nonlinear)
+        if detailed:
+            return cv_bounds, cv_linear, cv_nonlinear
+        else:
+            return max(cv_bounds, cv_linear, cv_nonlinear)
 
 
 class FeaturedProblem(Problem):
@@ -735,7 +741,7 @@ class FeaturedProblem(Problem):
         # return the modified value. We should not store the modified value
         # because the performance of an optimization solver should be measured
         # using the original objective function.
-        return self._feature.modifier(x, f, self._seed)
+        return self._feature.modifier(x, f, *self.maxcv(x, True), self._seed)
 
 
 def get_cutest_problem_options():
