@@ -175,6 +175,14 @@ class Feature:
         if not isinstance(f, float):
             raise TypeError('The argument f must be a float.')
 
+        # Preprocess the maximum constraint violations.
+        if not isinstance(maxcv_bounds, float):
+            raise TypeError('The argument maxcv_bounds must be a float.')
+        if not isinstance(maxcv_linear, float):
+            raise TypeError('The argument maxcv_linear must be a float.')
+        if not isinstance(maxcv_nonlinear, float):
+            raise TypeError('The argument maxcv_nonlinear must be a float.')
+
         # Preprocess the seed.
         if seed is not None:
             if isinstance(seed, float) and seed.is_integer():
