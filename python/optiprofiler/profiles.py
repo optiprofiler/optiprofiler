@@ -185,6 +185,7 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
     # Set the default profile options.
     profile_options.setdefault(ProfileOption.N_JOBS.value, None)
     profile_options.setdefault(ProfileOption.BENCHMARK_ID.value, '.')
+    profile_options.setdefault(ProfileOption.SUMMARY.value, True)
     profile_options.setdefault(ProfileOption.PROJECT_X0.value, False)
 
     # Check whether the profile options are valid.
@@ -297,37 +298,38 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
         pdf_log_ratio_out.close()
         logger.info(f'Results stored in {path_out}.')
 
-    # Create the summary PDF.
-    path_profiles = [path_perf_hist, path_data_hist]
-    reader_profiles = [PdfReader(path_perf_hist), PdfReader(path_data_hist)]
-    if path_log_ratio_hist.is_file():
-        path_profiles.append(path_log_ratio_hist)
-        reader_profiles.append(PdfReader(path_log_ratio_hist))
-    path_profiles.extend([path_perf_out, path_data_out])
-    reader_profiles.extend([PdfReader(path_perf_out), PdfReader(path_data_out)])
-    if path_log_ratio_out.is_file():
-        path_profiles.append(path_log_ratio_out)
-        reader_profiles.append(PdfReader(path_log_ratio_out))
-    profile_number = len(path_profiles)
-    page_number = max(len(reader.pages) for reader in reader_profiles)
-    page_width = max(page.mediabox.width for reader in reader_profiles for page in reader.pages)
-    page_height = max(page.mediabox.height for reader in reader_profiles for page in reader.pages)
-    pdf_summary = PdfWriter()
-    pdf_summary.add_blank_page(
-        page_width * page_number,
-        page_height * profile_number,
-    )
-    for i_source, pdf_source in enumerate(reader_profiles):
-        for i_page, page in enumerate(pdf_source.pages):
-            pdf_summary.pages[0].merge_transformed_page(
-                page,
-                Transformation().translate(
-                    page_width * i_page,
-                    (profile_number - i_source - 1) * page_height,
-                ),
-            )
-    pdf_summary.write(path_out / 'summary.pdf')
-    pdf_summary.close()
+    # Create the summary PDF if necessary.
+    if profile_options[ProfileOption.SUMMARIZE]:
+        path_profiles = [path_perf_hist, path_data_hist]
+        reader_profiles = [PdfReader(path_perf_hist), PdfReader(path_data_hist)]
+        if path_log_ratio_hist.is_file():
+            path_profiles.append(path_log_ratio_hist)
+            reader_profiles.append(PdfReader(path_log_ratio_hist))
+        path_profiles.extend([path_perf_out, path_data_out])
+        reader_profiles.extend([PdfReader(path_perf_out), PdfReader(path_data_out)])
+        if path_log_ratio_out.is_file():
+            path_profiles.append(path_log_ratio_out)
+            reader_profiles.append(PdfReader(path_log_ratio_out))
+        profile_number = len(path_profiles)
+        page_number = max(len(reader.pages) for reader in reader_profiles)
+        page_width = max(page.mediabox.width for reader in reader_profiles for page in reader.pages)
+        page_height = max(page.mediabox.height for reader in reader_profiles for page in reader.pages)
+        pdf_summary = PdfWriter()
+        pdf_summary.add_blank_page(
+            page_width * page_number,
+            page_height * profile_number,
+        )
+        for i_source, pdf_source in enumerate(reader_profiles):
+            for i_page, page in enumerate(pdf_source.pages):
+                pdf_summary.pages[0].merge_transformed_page(
+                    page,
+                    Transformation().translate(
+                        page_width * i_page,
+                        (profile_number - i_source - 1) * page_height,
+                    ),
+                )
+        pdf_summary.write(path_out / 'summary.pdf')
+        pdf_summary.close()
 
 
 def _solve_all_problems(cutest_problem_names, extra_problems, solvers, labels, feature, max_eval_factor, profile_options):

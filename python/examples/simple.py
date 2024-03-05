@@ -81,6 +81,8 @@ def cobyqa(fun, x0, lb, ub, a_ub, b_ub, a_eq, b_eq, c_ub, c_eq):
 
 
 if __name__ == '__main__':
-    set_cutest_problem_options(n_max=2)
-    cutest_problem_names = find_cutest_problems('unconstrained')[:15]
+    set_cutest_problem_options(
+        n_max=2,
+    )
+    cutest_problem_names = find_cutest_problems('unconstrained')
     run_benchmark([cobyqa, newuoa], ['COBYQA', 'NEWUOA'], cutest_problem_names)

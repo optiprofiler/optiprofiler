@@ -26,6 +26,7 @@ class ProfileOption(str, Enum):
     """
     N_JOBS = 'n_jobs'
     BENCHMARK_ID = 'benchmark_id'
+    SUMMARIZE = 'summarize'
     PROJECT_X0 = 'project_x0'
 
 
