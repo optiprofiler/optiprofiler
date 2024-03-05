@@ -37,6 +37,14 @@ class CUTEstProblemOption(str, Enum):
     N_MAX = 'n_max'
     M_MIN = 'm_min'
     M_MAX = 'm_max'
+    ALL_VARIABLES_CONTINUOUS = 'all_variables_continuous'
+    AT_LEAST_ONE_BOUND_CONSTRAINT = 'at_least_one_bound_constraint'
+    AT_LEAST_ONE_LINEAR_CONSTRAINT = 'at_least_one_linear_constraint'
+    AT_LEAST_ONE_LINEAR_INEQUALITY_CONSTRAINT = 'at_least_one_linear_inequality_constraint'
+    AT_LEAST_ONE_LINEAR_EQUALITY_CONSTRAINT = 'at_least_one_linear_equality_constraint'
+    AT_LEAST_ONE_NONLINEAR_CONSTRAINT = 'at_least_one_nonlinear_constraint'
+    AT_LEAST_ONE_NONLINEAR_INEQUALITY_CONSTRAINT = 'at_least_one_nonlinear_inequality_constraint'
+    AT_LEAST_ONE_NONLINEAR_EQUALITY_CONSTRAINT = 'at_least_one_nonlinear_equality_constraint'
 
 
 class FeatureOption(str, Enum):

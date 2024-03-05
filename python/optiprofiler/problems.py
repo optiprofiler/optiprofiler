@@ -21,6 +21,14 @@ _cutest_problem_options = {
     CUTEstProblemOption.N_MAX.value: sys.maxsize,
     CUTEstProblemOption.M_MIN.value: 0,
     CUTEstProblemOption.M_MAX.value: sys.maxsize,
+    CUTEstProblemOption.ALL_VARIABLES_CONTINUOUS.value: True,
+    CUTEstProblemOption.AT_LEAST_ONE_BOUND_CONSTRAINT.value: False,
+    CUTEstProblemOption.AT_LEAST_ONE_LINEAR_CONSTRAINT.value: False,
+    CUTEstProblemOption.AT_LEAST_ONE_LINEAR_INEQUALITY_CONSTRAINT.value: False,
+    CUTEstProblemOption.AT_LEAST_ONE_LINEAR_EQUALITY_CONSTRAINT.value: False,
+    CUTEstProblemOption.AT_LEAST_ONE_NONLINEAR_CONSTRAINT.value: False,
+    CUTEstProblemOption.AT_LEAST_ONE_NONLINEAR_INEQUALITY_CONSTRAINT.value: False,
+    CUTEstProblemOption.AT_LEAST_ONE_NONLINEAR_EQUALITY_CONSTRAINT.value: False,
 }
 
 
@@ -827,6 +835,17 @@ def set_cutest_problem_options(**problem_options):
             raise TypeError(f'The argument {CUTEstProblemOption.M_MAX.value} must be an integer.')
         if option_key == CUTEstProblemOption.M_MAX and option_value < problem_options.get(CUTEstProblemOption.M_MIN, 0):
             raise ValueError(f'The argument {CUTEstProblemOption.M_MAX.value} must be greater than or equal to {CUTEstProblemOption.M_MIN.value}.')
+        if option_key in [
+            CUTEstProblemOption.ALL_VARIABLES_CONTINUOUS,
+            CUTEstProblemOption.AT_LEAST_ONE_BOUND_CONSTRAINT,
+            CUTEstProblemOption.AT_LEAST_ONE_LINEAR_CONSTRAINT,
+            CUTEstProblemOption.AT_LEAST_ONE_LINEAR_INEQUALITY_CONSTRAINT,
+            CUTEstProblemOption.AT_LEAST_ONE_LINEAR_EQUALITY_CONSTRAINT,
+            CUTEstProblemOption.AT_LEAST_ONE_NONLINEAR_CONSTRAINT,
+            CUTEstProblemOption.AT_LEAST_ONE_NONLINEAR_INEQUALITY_CONSTRAINT,
+            CUTEstProblemOption.AT_LEAST_ONE_NONLINEAR_EQUALITY_CONSTRAINT,
+        ] and not isinstance(option_value, bool):
+            raise TypeError(f'The argument {option_key} must be a boolean.')
         if option_key in CUTEstProblemOption.__members__.values():
             _cutest_problem_options[option_key] = option_value
         else:
@@ -940,12 +959,31 @@ def load_cutest_problem(problem_name):
         """
         Check if a CUTEst problem is valid.
         """
-        # Check that all the variables are continuous.
-        is_valid = np.all(cutest_problem.vartype == 0)
+        # Check that all the variable types satisfy the specified requirements.
+        if _cutest_problem_options[CUTEstProblemOption.ALL_VARIABLES_CONTINUOUS]:
+            is_valid = np.all(cutest_problem.vartype == 0)
+        else:
+            is_valid = True
 
         # Check that the dimensions are within the specified range.
         is_valid = is_valid and _cutest_problem_options[CUTEstProblemOption.N_MIN] <= cutest_problem.n <= _cutest_problem_options[CUTEstProblemOption.N_MAX]
         is_valid = is_valid and _cutest_problem_options[CUTEstProblemOption.M_MIN] <= cutest_problem.m <= _cutest_problem_options[CUTEstProblemOption.M_MAX]
+
+        # Ensure that the problem constraints satisfy the specified requirements.
+        if is_valid and _cutest_problem_options[CUTEstProblemOption.AT_LEAST_ONE_BOUND_CONSTRAINT]:
+            is_valid = is_valid and (np.any(cutest_problem.bl > -1e20) or np.any(cutest_problem.bu < 1e20))
+        if is_valid and _cutest_problem_options[CUTEstProblemOption.AT_LEAST_ONE_LINEAR_CONSTRAINT]:
+            is_valid = is_valid and cutest_problem.m > 0 and np.any(cutest_problem.is_linear_cons)
+        if is_valid and _cutest_problem_options[CUTEstProblemOption.AT_LEAST_ONE_LINEAR_INEQUALITY_CONSTRAINT]:
+            is_valid = is_valid and cutest_problem.m > 0 and np.any(cutest_problem.is_linear_cons & ~cutest_problem.is_eq_cons)
+        if is_valid and _cutest_problem_options[CUTEstProblemOption.AT_LEAST_ONE_LINEAR_EQUALITY_CONSTRAINT]:
+            is_valid = is_valid and cutest_problem.m > 0 and np.any(cutest_problem.is_linear_cons & cutest_problem.is_eq_cons)
+        if is_valid and _cutest_problem_options[CUTEstProblemOption.AT_LEAST_ONE_NONLINEAR_CONSTRAINT]:
+            is_valid = is_valid and cutest_problem.m > 0 and np.any(~cutest_problem.is_linear_cons)
+        if is_valid and _cutest_problem_options[CUTEstProblemOption.AT_LEAST_ONE_NONLINEAR_INEQUALITY_CONSTRAINT]:
+            is_valid = is_valid and cutest_problem.m > 0 and np.any(~cutest_problem.is_linear_cons & ~cutest_problem.is_eq_cons)
+        if is_valid and _cutest_problem_options[CUTEstProblemOption.AT_LEAST_ONE_NONLINEAR_EQUALITY_CONSTRAINT]:
+            is_valid = is_valid and cutest_problem.m > 0 and np.any(~cutest_problem.is_linear_cons & cutest_problem.is_eq_cons)
 
         return is_valid
 
