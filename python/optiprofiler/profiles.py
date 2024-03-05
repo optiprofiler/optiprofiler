@@ -185,6 +185,7 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
     # Set the default profile options.
     profile_options.setdefault(ProfileOption.N_JOBS.value, None)
     profile_options.setdefault(ProfileOption.BENCHMARK_ID.value, '.')
+    profile_options.setdefault(ProfileOption.PROJECT_X0.value, False)
 
     # Check whether the profile options are valid.
     if isinstance(profile_options[ProfileOption.N_JOBS], float) and profile_options[ProfileOption.N_JOBS].is_integer():
@@ -340,7 +341,7 @@ def _solve_all_problems(cutest_problem_names, extra_problems, solvers, labels, f
     logger = get_logger(__name__)
     logger.info('Entering the parallel section.')
     with Pool(profile_options[ProfileOption.N_JOBS]) as p:
-        results = p.starmap(_solve_one_problem, [(problem_name, solvers, labels, feature, max_eval_factor, cutest_problem_options) for problem_name in problem_names])
+        results = p.starmap(_solve_one_problem, [(problem_name, solvers, labels, feature, max_eval_factor, cutest_problem_options, profile_options) for problem_name in problem_names])
     logger.info('Leaving the parallel section.')
     if all(result is None for result in results):
         logger.critical('All problems failed to load.')
@@ -375,7 +376,7 @@ def _solve_all_problems(cutest_problem_names, extra_problems, solvers, labels, f
     return fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions
 
 
-def _solve_one_problem(problem_name, solvers, labels, feature, max_eval_factor, cutest_problem_options):
+def _solve_one_problem(problem_name, solvers, labels, feature, max_eval_factor, cutest_problem_options, profile_options):
     """
     Solve a given problem.
 
@@ -397,6 +398,10 @@ def _solve_one_problem(problem_name, solvers, labels, feature, max_eval_factor, 
             problem = load_cutest_problem(problem_name)
         except ProblemError:
             return
+
+    # Project the initial point if necessary.
+    if profile_options[ProfileOption.PROJECT_X0]:
+        problem.project_x0()
 
     # Evaluate the functions at the initial point.
     fun_init = problem.fun(problem.x0)

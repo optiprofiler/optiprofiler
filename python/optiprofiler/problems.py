@@ -1,8 +1,10 @@
 import os
 import sys
+import warnings
 from contextlib import redirect_stdout, redirect_stderr
 
 import numpy as np
+from scipy.optimize import Bounds, LinearConstraint, NonlinearConstraint, minimize
 
 from .features import Feature
 from .utils import (
@@ -345,6 +347,28 @@ class Problem:
         return self._num_nonlinear_eq
 
     @property
+    def type(self):
+        """
+        Type of the problem.
+
+        Returns
+        -------
+        str
+            Type of the problem.
+        """
+        try:
+            if self.num_nonlinear_ub + self.num_nonlinear_eq > 0:
+                return "nonlinearly constrained"
+            elif self.num_linear_ub + self.num_linear_eq > 0:
+                return "linearly constrained"
+            elif np.any(self.lb > -np.inf) or np.any(self.ub < np.inf):
+                return "bound-constrained"
+            else:
+                return "unconstrained"
+        except ValueError:
+            return "nonlinearly constrained"
+
+    @property
     def x0(self):
         """
         Initial guess.
@@ -586,6 +610,35 @@ class Problem:
             return cv_bounds, cv_linear, cv_nonlinear
         else:
             return max(cv_bounds, cv_linear, cv_nonlinear)
+
+    def project_x0(self):
+        """
+        Project the initial guess onto the feasible region.
+        """
+        if self.type == "bound-constrained":
+            self._x0 = np.clip(self._x0, self.lb, self.ub)
+        elif self.type != "unconstrained":
+            bounds = Bounds(self.lb, self.ub)
+            constraints = []
+            if self.num_linear_ub > 0:
+                constraints.append(LinearConstraint(self.a_ub, -np.inf, self.b_ub))
+            if self.num_linear_eq > 0:
+                constraints.append(LinearConstraint(self.a_eq, self.b_eq, self.b_eq))
+            if self.num_nonlinear_ub > 0:
+                c_ub_x0 = self.c_ub(self.x0)
+                constraints.append(NonlinearConstraint(self.c_ub, -np.inf, np.zeros_like(c_ub_x0)))
+            if self.num_nonlinear_eq > 0:
+                c_eq_x0 = self.c_eq(self.x0)
+                constraints.append(NonlinearConstraint(self.c_eq, np.zeros_like(c_eq_x0), np.zeros_like(c_eq_x0)))
+
+            def dist_x0_sq(x):
+                g = x - self.x0
+                return 0.5 * (g @ g), g
+
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore')
+                res = minimize(dist_x0_sq, self.x0, jac=True, bounds=bounds, constraints=constraints)
+            self._x0 = res.x
 
 
 class FeaturedProblem(Problem):
