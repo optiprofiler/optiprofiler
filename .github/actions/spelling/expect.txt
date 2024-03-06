@@ -3,7 +3,6 @@ addoption
 allclose
 arange
 archdefs
-ARGLINA
 argmax
 argsort
 astype
@@ -14,7 +13,6 @@ autodoc
 automethod
 autoproperty
 autosummary
-axs
 bibfiles
 BUILDDIR
 cls
@@ -28,7 +26,6 @@ endblock
 endfor
 endtrans
 eps
-figsize
 finfo
 flatnonzero
 footbibliography
@@ -42,6 +39,7 @@ htmlzip
 idx
 infty
 intersphinx
+jac
 lastupdated
 levelname
 linalg
