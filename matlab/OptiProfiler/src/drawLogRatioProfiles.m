@@ -1,4 +1,5 @@
 function drawLogRatioProfiles(ax, work, labels)
+%DRAWLOGRATIOPROFILES draws log-ratio profiles.
 
     [n_problems, n_solvers, n_runs] = size(work);
     work_flat = reshape(permute(work, [1, 3, 2]), n_problems * n_runs, n_solvers);

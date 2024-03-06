@@ -1,5 +1,6 @@
 function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_name, problem_n] = solveOneProblem(problem_name, solvers, labels, feature, max_eval_factor, problem_options)
-    %SOLVEONE is defined to solve one test problem with a set of solvers.
+%SOLVEONEPROBLEM solves one problem with all the solvers in solvers list.
+
     fun_histories = [];
     maxcv_histories = [];
     fun_out = [];

@@ -1,6 +1,5 @@
 classdef ProblemOptionKey
-    %PROBLEMOPTIONKEY Problem options for CUTEst problems
-    %
+%PROBLEMOPTIONKEY emumerates options for selecting problems
 
     enumeration
         N_MIN ('mindim')

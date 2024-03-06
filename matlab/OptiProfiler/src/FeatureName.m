@@ -1,6 +1,5 @@
 classdef FeatureName
-    %ENUMERATION of the available features.
-    %
+%FEATURENAME enumerates all the possible feature names.
     
     enumeration
         CUSTOM ('custom')

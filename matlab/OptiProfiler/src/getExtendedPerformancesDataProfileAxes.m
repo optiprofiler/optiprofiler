@@ -1,4 +1,7 @@
 function [x_perf, y_perf, ratio_max_perf, x_data, y_data, ratio_max_data] = getExtendedPerformancesDataProfileAxes(work, problem_dimensions)
+%GETEXTENDEDPERFORMANCESDATAPROFILEAXES computes the axes for the extended performance
+%profiles and data profiles. The word "extended" specifically refers to that the data
+%at the startpoint and endpoint of the profiles are specially handled.
 
     [n_problems, n_solvers, n_runs] = size(work);
 

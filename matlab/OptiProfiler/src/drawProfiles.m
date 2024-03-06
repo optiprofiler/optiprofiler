@@ -1,4 +1,6 @@
 function [fig_summary, fig_perf_hist, fig_perf_ret, fig_data_hist, fig_data_ret, fig_log_ratio_hist, fig_log_ratio_ret] = drawProfiles(work_hist, work_ret, problem_dimensions, labels, tolerance_label)
+%DRAWPROFILES draws the performance, data, and log-ratio profiles with respect to the whole history of function values or the returned values from solvers, respectively.
+
     n_solvers = size(work_hist, 2);
 
     % Create the figure for the summary.

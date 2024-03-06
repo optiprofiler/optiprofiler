@@ -1,6 +1,5 @@
 classdef NoiseType
-    %NOISETYPE of the available noise types.
-    %
+%NOISETYPE emumerates the types of noise that can be added to the objective function.
     
     enumeration
         ABSOLUTE ('absolute')

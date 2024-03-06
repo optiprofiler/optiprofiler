@@ -1,4 +1,6 @@
 function problem = loadCutest(problem_name, problem_options)
+%LOADCUTEST loads a CUTEst problem.
+
     %{
     Load a CUTEst problem.
 

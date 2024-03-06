@@ -1,6 +1,5 @@
 classdef ProfileOptionKey
-    %PROFILEOPTIONKEY of the available options.
-    %
+%PROFILEOPTIONKEY enumerates options for creating profiles
     
     enumeration
         N_JOBS ('n_jobs')

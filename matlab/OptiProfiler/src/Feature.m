@@ -1,6 +1,6 @@
 classdef Feature < handle
-    %FEATURE used to modify the objective function.
-    %
+%FEATURE is a class that represents different kinds of modifications to the optimization problem.
+
     properties (GetAccess = public, SetAccess = private)
 
         name
@@ -25,12 +25,12 @@ classdef Feature < handle
                 Distribution used in the noisy and randomize_x0 features.
             modifier : callable, optional
                 Modifier used in the custom feature.
+            n_runs : int, optional
+                Number of runs of the feature.
             order : int or float, optional
                 Order of the regularized feature.
             parameter : int or float, optional
                 Regularization parameter of the regularized feature.
-            rate_error : int or float, optional
-                Rate of errors of the tough feature.
             rate_nan : int or float, optional
                 Rate of NaNs of the tough feature.
             significant_digits : int, optional
@@ -81,7 +81,7 @@ classdef Feature < handle
                     case FeatureName.REGULARIZED.value
                         known_options = [known_options, {FeatureOptionKey.ORDER.value, FeatureOptionKey.PARAMETER.value}];
                     case FeatureName.TOUGH.value
-                        known_options = [known_options, {FeatureOptionKey.RATE_ERROR.value, FeatureOptionKey.RATE_NAN.value}];
+                        known_options = [known_options, {FeatureOptionKey.RATE_NAN.value}];
                     case FeatureName.TRUNCATED.value
                         known_options = [known_options, {FeatureOptionKey.SIGNIFICANT_DIGITS.value}];
                     case FeatureName.PLAIN.value
@@ -118,7 +118,7 @@ classdef Feature < handle
                         if ~isnumeric(obj.options.(key)) || obj.options.(key) < 0.0
                             error("MATLAB:Feature:parameter_NotNonnegativeNumber", "Option " + key + " must be a nonnegative number.")
                         end
-                    case {FeatureOptionKey.RATE_ERROR.value, FeatureOptionKey.RATE_NAN.value}
+                    case FeatureOptionKey.RATE_NAN.value
                         if ~isnumeric(obj.options.(key)) || obj.options.(key) < 0.0 || obj.options.(key) > 1.0
                             error(['MATLAB:Feature:' key '_NotBetween_0_1'], "Option " + key + " must be a number between 0 and 1.")
                         end
@@ -184,10 +184,8 @@ classdef Feature < handle
                 case FeatureName.REGULARIZED.value
                     f = f + obj.options.(FeatureOptionKey.PARAMETER.value) * norm(x, obj.options.(FeatureOptionKey.ORDER.value));
                 case FeatureName.TOUGH.value
-                    rand_stream = obj.default_rng(seed, f, obj.options.(FeatureOptionKey.RATE_ERROR.value), obj.options.(FeatureOptionKey.RATE_NAN.value), xCell{:});
-                    if rand_stream.rand() < obj.options.(FeatureOptionKey.RATE_ERROR.value)
-                        error("MATLAB:Feature:Tough", "Runtime error.")
-                    elseif rand_stream.rand() < obj.options.(FeatureOptionKey.RATE_NAN.value)
+                    rand_stream = obj.default_rng(seed, f, obj.options.(FeatureOptionKey.RATE_NAN.value), xCell{:});
+                    if rand_stream.rand() < obj.options.(FeatureOptionKey.RATE_NAN.value)
                         f = NaN;
                     end
                 case FeatureName.TRUNCATED.value
@@ -252,9 +250,6 @@ classdef Feature < handle
                 case FeatureName.TOUGH.value
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
                         obj.options.(FeatureOptionKey.N_RUNS.value) = int32(10);
-                    end
-                    if ~isfield(obj.options, FeatureOptionKey.RATE_ERROR.value)
-                        obj.options.(FeatureOptionKey.RATE_ERROR.value) = 0.0;
                     end
                     if ~isfield(obj.options, FeatureOptionKey.RATE_NAN.value)
                         obj.options.(FeatureOptionKey.RATE_NAN.value) = 0.05;

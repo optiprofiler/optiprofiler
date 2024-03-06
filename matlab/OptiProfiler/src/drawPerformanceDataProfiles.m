@@ -1,4 +1,5 @@
 function drawPerformanceDataProfiles(ax, x, y, labels)
+%DRAWPERFORMANCEDATAPROFILES draws performance profiles and data profiles.
 
     ax.LineStyleCyclingMethod = 'withcolor';
     n_solvers = size(x, 2);

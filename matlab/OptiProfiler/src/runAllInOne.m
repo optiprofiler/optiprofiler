@@ -1,5 +1,5 @@
 function runAllInOne(solvers, labels, problem_names, varargin)
-    %RUNBENCHMARK plots performance profiles and data profiles.
+%RUNALLINONE creates a summary pdf including performance profiles and data profiles for each feature.
 
     % Preprocess the solvers.
     % TODO

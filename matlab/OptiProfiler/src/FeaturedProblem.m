@@ -1,6 +1,5 @@
 classdef FeaturedProblem < Problem
-    %FEATUREDPROBLEM is optimization problem to be used in the benchmarking with extra features.
-    %
+%FEATUREDPROBLEM modifies the original optimization problem by applying a feature.
 
     properties (GetAccess = public, SetAccess = private)
 

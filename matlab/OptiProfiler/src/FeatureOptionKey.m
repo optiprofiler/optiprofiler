@@ -1,6 +1,5 @@
 classdef FeatureOptionKey
-    %FEATUREOPTIONKEY of the available options.
-    %
+%FEATUREOPTIONKEY enumerates options for defining features.
     
     enumeration
         DISTRIBUTION ('distribution')
@@ -8,7 +7,6 @@ classdef FeatureOptionKey
         N_RUNS ('n_runs')
         ORDER ('order')
         PARAMETER ('parameter')
-        RATE_ERROR ('rate_error')
         RATE_NAN ('rate_nan')
         SIGNIFICANT_DIGITS ('significant_digits')
         TYPE ('type')

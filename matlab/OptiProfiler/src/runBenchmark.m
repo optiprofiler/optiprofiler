@@ -1,5 +1,31 @@
 function runBenchmark(solvers, labels, problem_names, feature_name, varargin)
-    %RUNBENCHMARK plots performance profiles and data profiles.
+%RUNBENCHMARK creates the benchmark profiles.
+%
+%   The benchmark profiles include the performance and data profiles [1]_,
+%   [2]_, [4]_, and the log-ratio profiles [3]_, [5]_. The log-ratio profiles
+%   are available only when there are exactly two solvers.
+%
+%   References:
+%   .. [1] E. D. Dolan and J. J. Moré. Benchmarking optimization software with
+%          performance profiles. *Math. Program.*, 91(2):201–213, 2002.
+%          `doi:10.1007/s101070100263
+%          <https://doi.org/10.1007/s101070100263>.
+%   .. [2] N. Gould and J. Scott. A note on performance profiles for
+%          benchmarking software. *ACM Trans. Math. Software*, 43(2):15:1–5,
+%          2016. `doi:10.1145/2950048 <https://doi.org/10.1145/2950048>.
+%   .. [3] J. L. Morales. A numerical study of limited memory BFGS methods.
+%          *Appl. Math. Lett.*, 15(4):481–487, 2002.
+%          `doi:10.1016/S0893-9659(01)00162-8
+%          <https://doi.org/10.1016/S0893-9659(01)00162-8>.
+%   .. [4] J. J. Moré and S. M. Wild. Benchmarking derivative-free optimization
+%          algorithms. *SIAM J. Optim.*, 20(1):172–191, 2009.
+%          `doi:10.1137/080724083 <https://doi.org/10.1137/080724083>.
+%   .. [5] H.-J. M. Shi, M. Q. Xuan, F. Oztoprak, and J. Nocedal. On the
+%          numerical performance of finite-difference-based methods for
+%          derivative-free optimization. *Optim. Methods Softw.*,
+%          38(2):289–311, 2023. `doi:10.1080/10556788.2022.2121832
+%          <https://doi.org/10.1080/10556788.2022.2121832>.
+
 
     % Preprocess the solvers.
     % TODO
@@ -105,7 +131,6 @@ function runBenchmark(solvers, labels, problem_names, feature_name, varargin)
     if ~exist(path_data_ret_out, 'dir')
         mkdir(path_data_ret_out);
     end
-
 
 
     % Store the names of the problems.

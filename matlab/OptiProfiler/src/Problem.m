@@ -1,6 +1,5 @@
 classdef Problem < handle
-    %PROBLEM used to define test problems for optimization solvers.
-    %
+%PROBLEM is a class that defines an optimization problem.
 
     properties (GetAccess = public, SetAccess = private)
 
