@@ -1,6 +1,7 @@
 import os
 import re
 import shutil
+import time
 import warnings
 from contextlib import redirect_stderr, redirect_stdout
 from datetime import datetime
@@ -180,12 +181,12 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
     # Build the feature.
     logger = get_logger(__name__)
     feature = Feature(feature_name, **feature_options)
-    logger.info(f'Starting the computation of the {feature.name} profiles.')
+    logger.info(f'Starting the computation of the "{feature.name}" profiles.')
 
     # Set the default profile options.
     profile_options.setdefault(ProfileOption.N_JOBS.value, None)
     profile_options.setdefault(ProfileOption.BENCHMARK_ID.value, '.')
-    profile_options.setdefault(ProfileOption.SUMMARY.value, True)
+    profile_options.setdefault(ProfileOption.SUMMARIZE.value, True)
     profile_options.setdefault(ProfileOption.PROJECT_X0.value, False)
 
     # Check whether the profile options are valid.
@@ -198,7 +199,7 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
 
     # Solve the problems.
     max_eval_factor = 500
-    fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions = _solve_all_problems(cutest_problem_names, extra_problems, solvers, labels, feature, max_eval_factor, profile_options)
+    fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, computation_times = _solve_all_problems(cutest_problem_names, extra_problems, solvers, labels, feature, max_eval_factor, profile_options)
     merit_histories = _compute_merit_values(fun_histories, maxcv_histories, maxcv_init)
     merit_out = _compute_merit_values(fun_out, maxcv_out, maxcv_init)
     merit_init = _compute_merit_values(fun_init, maxcv_init, maxcv_init)
@@ -207,8 +208,8 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
     merit_min = np.min(merit_histories, (1, 2, 3))
     if feature.name in [FeatureName.NOISY, FeatureName.TOUGH, FeatureName.TRUNCATE]:
         feature_plain = Feature('plain')
-        logger.info(f'Starting the computation of the plain profiles.')
-        fun_histories_plain, maxcv_histories_plain, _, _, _, _, _, _, _ = _solve_all_problems(cutest_problem_names, extra_problems, solvers, labels, feature_plain, max_eval_factor, profile_options)
+        logger.info(f'Starting the computation of the "plain" profiles.')
+        fun_histories_plain, maxcv_histories_plain, _, _, _, _, _, _, _, _ = _solve_all_problems(cutest_problem_names, extra_problems, solvers, labels, feature_plain, max_eval_factor, profile_options)
         merit_histories_plain = _compute_merit_values(fun_histories_plain, maxcv_histories_plain, maxcv_init)
         merit_min_plain = np.min(merit_histories_plain, (1, 2, 3))
         merit_min = np.minimum(merit_min, merit_min_plain)
@@ -228,10 +229,10 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
 
     # Store the names of the problems.
     with path_problems.open('w') as f:
-        f.write(os.linesep.join(sorted(problem_names)))
+        for problem_name, computation_time in sorted(zip(problem_names, computation_times)):
+            f.write(f'{problem_name}: {computation_time:.2f} seconds{os.linesep}')
 
     # Set up matplotlib for plotting the profiles.
-    logger.info('Creating results.')
     prop_cycle = cycler(color=['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'])
     prop_cycle += cycler(linestyle=[(0, ()), (0, (1, 1.5)), (0, (3, 1.5)), (0, (5, 1.5, 1, 1.5)), (0, (5, 1.5, 1, 1.5, 1, 1.5)), (0, (1, 3)), (0, (3, 3)), (0, (5, 3, 1, 3)), (0, (5, 3, 1, 3, 1, 3)), (0, (1, 4.5))])
     with plt.rc_context({
@@ -300,6 +301,7 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
 
     # Create the summary PDF if necessary.
     if profile_options[ProfileOption.SUMMARIZE]:
+        logger.info('Creating summary PDF.')
         path_profiles = [path_perf_hist, path_data_hist]
         reader_profiles = [PdfReader(path_perf_hist), PdfReader(path_data_hist)]
         if path_log_ratio_hist.is_file():
@@ -353,8 +355,9 @@ def _solve_all_problems(cutest_problem_names, extra_problems, solvers, labels, f
         n_eval = []
         problem_names = []
         problem_dimensions = []
+        computation_times = []
     else:
-        _fun_histories, _maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions = zip(*[result for result in results if result is not None])
+        _fun_histories, _maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, computation_times = zip(*[result for result in results if result is not None])
     fun_out = np.array(fun_out)
     maxcv_out = np.array(maxcv_out)
     fun_init = np.array(fun_init)
@@ -375,7 +378,7 @@ def _solve_all_problems(cutest_problem_names, extra_problems, solvers, labels, f
         if max_eval > 0:
             fun_histories[i_problem, ..., max_eval:] = fun_histories[i_problem, ..., max_eval - 1, np.newaxis]
             maxcv_histories[i_problem, ..., max_eval:] = maxcv_histories[i_problem, ..., max_eval - 1, np.newaxis]
-    return fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions
+    return fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, computation_times
 
 
 def _solve_one_problem(problem_name, solvers, labels, feature, max_eval_factor, cutest_problem_options, profile_options):
@@ -410,6 +413,7 @@ def _solve_one_problem(problem_name, solvers, labels, feature, max_eval_factor, 
     maxcv_init = problem.maxcv(problem.x0)
 
     # Solve the problem with each solver.
+    time_start = time.monotonic()
     n_solvers = len(solvers)
     n_runs = feature.options[FeatureOption.N_RUNS]
     max_eval = max_eval_factor * problem.dimension
@@ -422,6 +426,7 @@ def _solve_one_problem(problem_name, solvers, labels, feature, max_eval_factor, 
     for i_solver in range(n_solvers):
         for i_run in range(n_runs):
             logger.info(f'Solving {problem_name} with {labels[i_solver]} (run {i_run + 1}/{n_runs}).')
+            time_start_solver_run = time.monotonic()
             featured_problem = FeaturedProblem(problem, feature, max_eval, i_run)
             sig = signature(solvers[i_solver])
             if len(sig.parameters) not in [2, 4, 8, 10]:
@@ -440,6 +445,7 @@ def _solve_one_problem(problem_name, solvers, labels, feature, max_eval_factor, 
                             x = solvers[i_solver](featured_problem.fun, featured_problem.x0, featured_problem.lb, featured_problem.ub, featured_problem.a_ub, featured_problem.b_ub, featured_problem.a_eq, featured_problem.b_eq, featured_problem.c_ub, featured_problem.c_eq)
                         fun_out[i_solver, i_run] = problem.fun(x)
                         maxcv_out[i_solver, i_run] = problem.maxcv(x)
+                        logger.info(f'Results for {problem_name} with {labels[i_solver]} (run {i_run + 1}/{n_runs}): f = {fun_out[i_solver, i_run]:.4e}, maxcv = {maxcv_out[i_solver, i_run]:.4e} ({time.monotonic() - time_start_solver_run:.2f} seconds).')
                     except Exception as exc:
                         logger.warning(f'An error occurred while solving {problem_name} with {labels[i_solver]}: {exc}.')
             n_eval[i_solver, i_run] = featured_problem.n_eval
@@ -448,7 +454,7 @@ def _solve_one_problem(problem_name, solvers, labels, feature, max_eval_factor, 
             if n_eval[i_solver, i_run] > 0:
                 fun_histories[i_solver, i_run, n_eval[i_solver, i_run]:] = fun_histories[i_solver, i_run, n_eval[i_solver, i_run] - 1]
                 maxcv_histories[i_solver, i_run, n_eval[i_solver, i_run]:] = maxcv_histories[i_solver, i_run, n_eval[i_solver, i_run] - 1]
-    return fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_name, problem.dimension
+    return fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_name, problem.dimension, time.monotonic() - time_start
 
 
 def _compute_merit_values(fun_values, maxcv_values, maxcv_init):

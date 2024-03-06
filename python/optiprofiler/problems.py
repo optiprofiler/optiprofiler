@@ -1096,8 +1096,9 @@ def load_cutest_problem(problem_name):
             'num_nonlinear_ub': 0,
             'num_nonlinear_eq': 0,
         }
-    logger.info(f'CUTEst problem {cutest_problem.name} (n={cutest_problem.n}, m={cutest_problem.m}) successfully loaded.')
-    return Problem(cutest_problem.obj, cutest_problem.x0, lb, ub, **constraints)
+    problem = Problem(cutest_problem.obj, cutest_problem.x0, lb, ub, **constraints)
+    logger.info(f'{problem.type.capitalize()} CUTEst problem {cutest_problem.name} (n = {problem.dimension}) successfully loaded.')
+    return problem
 
 
 def _process_1d_array(x, message):
