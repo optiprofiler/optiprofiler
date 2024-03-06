@@ -54,6 +54,7 @@ mastsif
 mathrm
 maxcv
 maxdepth
+mediabox
 mindepth
 modifyitems
 MYARCH

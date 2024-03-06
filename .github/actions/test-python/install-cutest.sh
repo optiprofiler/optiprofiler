@@ -6,9 +6,9 @@ set -x
 if [[ "$RUNNER_OS" == "Linux" ]]; then
   # Download CUTEst and its dependencies
   mkdir "$GITHUB_WORKSPACE/cutest"
-  git clone --depth 1 --branch v2.1.29 https://github.com/ralna/ARCHDefs.git "$GITHUB_WORKSPACE/cutest/archdefs"
-  git clone --depth 1 --branch v2.0.9 https://github.com/ralna/SIFDecode.git "$GITHUB_WORKSPACE/cutest/sifdecode"
-  git clone --depth 1 --branch v2.0.26 https://github.com/ralna/CUTEst.git "$GITHUB_WORKSPACE/cutest/cutest"
+  git clone --depth 1 --branch v2.2.3 https://github.com/ralna/ARCHDefs.git "$GITHUB_WORKSPACE/cutest/archdefs"
+  git clone --depth 1 --branch v2.1.5 https://github.com/ralna/SIFDecode.git "$GITHUB_WORKSPACE/cutest/sifdecode"
+  git clone --depth 1 --branch v2.0.43 https://github.com/ralna/CUTEst.git "$GITHUB_WORKSPACE/cutest/cutest"
   git clone --depth 1 --branch v0.5 https://bitbucket.org/optrove/sif.git "$GITHUB_WORKSPACE/cutest/mastsif"
 
   # Set the environment variables

@@ -298,7 +298,7 @@ class TestFeaturedProblem(BaseTestProblem):
 
         # Evaluate the objective function at x0 twice.
         featured_problem.fun(featured_problem.x0)
-        with pytest.raises(RuntimeError):
+        with pytest.raises(StopIteration):
             featured_problem.fun(featured_problem.x0)
 
     def test_exceptions(self):

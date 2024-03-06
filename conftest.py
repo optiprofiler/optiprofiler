@@ -5,7 +5,12 @@ def pytest_addoption(parser):
     """
     Add the --run-extra option to the pytest command line.
     """
-    parser.addoption('--run-extra', action='store_true', default=False, help='run extra tests')
+    parser.addoption(
+        '--run-extra',
+        action='store_true',
+        default=False,
+        help='run extra tests',
+    )
 
 
 def pytest_configure(config):

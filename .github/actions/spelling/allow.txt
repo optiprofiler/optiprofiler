@@ -21,6 +21,7 @@ oztoprak
 pdfo
 picklable
 pycutest
+pypdf
 ragonneau
 rosenbrock
 sif

@@ -29,8 +29,6 @@ class Feature:
             Order of the 'regularized' feature.
         parameter : int or float, optional
             Regularization parameter of the 'regularized' feature.
-        rate_error : int or float, optional
-            Rate of errors of the 'tough' feature.
         rate_nan : int or float, optional
             Rate of NaNs of the 'tough' feature.
         significant_digits : int, optional
@@ -68,12 +66,14 @@ class Feature:
                 known_options.extend([FeatureOption.DISTRIBUTION, FeatureOption.TYPE])
             elif self._name == FeatureName.RANDOMIZE_X0:
                 known_options.extend([FeatureOption.DISTRIBUTION])
-            elif self._name == FeatureName.REGULARIZED:
+            elif self._name == FeatureName.REGULARIZE:
                 known_options.extend([FeatureOption.ORDER, FeatureOption.PARAMETER])
             elif self._name == FeatureName.TOUGH:
-                known_options.extend([FeatureOption.RATE_ERROR, FeatureOption.RATE_NAN])
-            elif self._name == FeatureName.TRUNCATED:
+                known_options.extend([FeatureOption.RATE_NAN])
+            elif self._name == FeatureName.TRUNCATE:
                 known_options.extend([FeatureOption.SIGNIFICANT_DIGITS])
+            elif self._name == FeatureName.UNRELAXABLE_CONSTRAINTS:
+                known_options.extend([FeatureOption.UNRELAXABLE_BOUNDS, FeatureOption.UNRELAXABLE_LINEAR_CONSTRAINTS, FeatureOption.UNRELAXABLE_NONLINEAR_CONSTRAINTS])
             elif self._name != FeatureName.PLAIN:
                 raise NotImplementedError(f'Unknown feature: {self._name}.')
             if key not in known_options:
@@ -101,7 +101,7 @@ class Feature:
                     raise TypeError(f'Option {key} must be a number.')
                 if self._options[key] < 0.0:
                     raise ValueError(f'Option {key} must be nonnegative.')
-            elif key in [FeatureOption.RATE_ERROR, FeatureOption.RATE_NAN]:
+            elif key == FeatureOption.RATE_NAN:
                 if not isinstance(self._options[key], (int, float)):
                     raise TypeError(f'Option {key} must be a number.')
                 if not (0.0 <= self._options[key] <= 1.0):
@@ -118,6 +118,9 @@ class Feature:
                     raise TypeError(f'Option {key} must be a string.')
                 if self._options[key].lower() not in NoiseType.__members__.values():
                     raise ValueError(f'Option {key} must be either "{NoiseType.ABSOLUTE.value}" or "{NoiseType.RELATIVE.value}".')
+            elif key in [FeatureOption.UNRELAXABLE_BOUNDS, FeatureOption.UNRELAXABLE_LINEAR_CONSTRAINTS, FeatureOption.UNRELAXABLE_NONLINEAR_CONSTRAINTS]:
+                if not isinstance(self._options[key], bool):
+                    raise TypeError(f'Option {key} must be a boolean.')
 
         # Set default options.
         self._set_default_options()
@@ -146,7 +149,7 @@ class Feature:
         """
         return self._options
 
-    def modifier(self, x, f, seed=None):
+    def modifier(self, x, f, maxcv_bounds=0.0, maxcv_linear=0.0, maxcv_nonlinear=0.0, seed=None):
         """
         Modify the objective function value according to the feature.
 
@@ -172,6 +175,14 @@ class Feature:
         if not isinstance(f, float):
             raise TypeError('The argument f must be a float.')
 
+        # Preprocess the maximum constraint violations.
+        if not isinstance(maxcv_bounds, float):
+            raise TypeError('The argument maxcv_bounds must be a float.')
+        if not isinstance(maxcv_linear, float):
+            raise TypeError('The argument maxcv_linear must be a float.')
+        if not isinstance(maxcv_nonlinear, float):
+            raise TypeError('The argument maxcv_nonlinear must be a float.')
+
         # Preprocess the seed.
         if seed is not None:
             if isinstance(seed, float) and seed.is_integer():
@@ -190,15 +201,13 @@ class Feature:
                 f += self._options[FeatureOption.DISTRIBUTION](rng)
             else:
                 f *= 1.0 + self._options[FeatureOption.DISTRIBUTION](rng)
-        elif self._name == FeatureName.REGULARIZED:
+        elif self._name == FeatureName.REGULARIZE:
             f += self._options[FeatureOption.PARAMETER] * np.linalg.norm(x, self._options[FeatureOption.ORDER])
         elif self._name == FeatureName.TOUGH:
-            rng = self.get_default_rng(seed, f, self._options[FeatureOption.RATE_ERROR], self._options[FeatureOption.RATE_NAN], *x)
-            if rng.uniform() < self._options[FeatureOption.RATE_ERROR]:
-                raise RuntimeError
-            elif rng.uniform() < self._options[FeatureOption.RATE_NAN]:
+            rng = self.get_default_rng(seed, f, self._options[FeatureOption.RATE_NAN], *x)
+            if rng.uniform() < self._options[FeatureOption.RATE_NAN]:
                 f = np.nan
-        elif self._name == FeatureName.TRUNCATED:
+        elif self._name == FeatureName.TRUNCATE:
             rng = self.get_default_rng(seed, f, self._options[FeatureOption.SIGNIFICANT_DIGITS], *x)
             if f == 0.0:
                 digits = self._options[FeatureOption.SIGNIFICANT_DIGITS] - 1
@@ -208,6 +217,13 @@ class Feature:
                 f = round(f, digits) + rng.uniform(0.0, 10.0 ** (-digits))
             else:
                 f = round(f, digits) - rng.uniform(0.0, 10.0 ** (-digits))
+        elif self._name == FeatureName.UNRELAXABLE_CONSTRAINTS:
+            if self._options[FeatureOption.UNRELAXABLE_BOUNDS] and maxcv_bounds > 0.0:
+                f = np.inf
+            elif self._options[FeatureOption.UNRELAXABLE_LINEAR_CONSTRAINTS] and maxcv_linear > 0.0:
+                f = np.inf
+            elif self._options[FeatureOption.UNRELAXABLE_NONLINEAR_CONSTRAINTS] and maxcv_nonlinear > 0.0:
+                f = np.inf
         elif self._name not in [FeatureName.PLAIN, FeatureName.RANDOMIZE_X0]:
             raise NotImplementedError(f'Unknown feature: {self._name}.')
         return f
@@ -235,17 +251,21 @@ class Feature:
         elif self._name == FeatureName.RANDOMIZE_X0:
             self._options.setdefault(FeatureOption.DISTRIBUTION.value, self._default_distribution)
             self._options.setdefault(FeatureOption.N_RUNS.value, 10)
-        elif self._name == FeatureName.REGULARIZED:
+        elif self._name == FeatureName.REGULARIZE:
             self._options.setdefault(FeatureOption.N_RUNS.value, 1)
             self._options.setdefault(FeatureOption.ORDER.value, 2)
             self._options.setdefault(FeatureOption.PARAMETER.value, 1.0)
         elif self._name == FeatureName.TOUGH:
             self._options.setdefault(FeatureOption.N_RUNS.value, 10)
-            self._options.setdefault(FeatureOption.RATE_ERROR.value, 0.0)
             self._options.setdefault(FeatureOption.RATE_NAN.value, 0.05)
-        elif self._name == FeatureName.TRUNCATED:
+        elif self._name == FeatureName.TRUNCATE:
             self._options.setdefault(FeatureOption.N_RUNS.value, 10)
             self._options.setdefault(FeatureOption.SIGNIFICANT_DIGITS.value, 6)
+        elif self._name == FeatureName.UNRELAXABLE_CONSTRAINTS:
+            self._options.setdefault(FeatureOption.N_RUNS.value, 1)
+            self._options.setdefault(FeatureOption.UNRELAXABLE_BOUNDS.value, True)
+            self._options.setdefault(FeatureOption.UNRELAXABLE_LINEAR_CONSTRAINTS.value, False)
+            self._options.setdefault(FeatureOption.UNRELAXABLE_NONLINEAR_CONSTRAINTS.value, False)
         else:
             raise NotImplementedError(f'Unknown feature: {self._name}.')
 
