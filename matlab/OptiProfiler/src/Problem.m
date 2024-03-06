@@ -385,47 +385,64 @@ classdef Problem < handle
 
         % Other functions.
 
-        function cv = maxcv(obj, x)
+        function varargout = maxcv(obj, x, detailed)
             % Evaluate the maximum constraint violation.
+
+            if nargin < 3
+                detailed = false;
+            end
+
+            % Check if x is a vector.
+            if ~isvector(x)
+                error("MATLAB:Problem:InvalidInputForMaxCV", "The input `x` must be a vector.")
+            end
+
+            % Check if x has the same size as the dimension of the problem.
+            if numel(x) ~= obj.n
+                error("MATLAB:Problem:WrongSizeInputForMaxCV", "The input `x` must have size %d.", obj.n)
+            end
             
-            % Initialize cv to 0
-            cv = 0;
-            
-            % Check lower bound constraint violation
             if ~isempty(obj.xl)
-                cv = max(max(obj.xl - x), cv);
+                cv_bounds = max(max(obj.xl - x), 0);
+            else
+                cv_bounds = 0;
             end
-            
-            % Check upper bound constraint violation
             if ~isempty(obj.xu)
-                cv = max(max(x - obj.xu), cv);
+                cv_bounds = max(max(x - obj.xu), cv_bounds);
             end
-            
-            % Check linear inequality constraint violation
             if ~isempty(obj.aub)
-                cv = max(max(obj.aub * x - obj.bub), cv);
+                cv_linear = max(max(obj.aub * x - obj.bub), 0);
+            else
+                cv_linear = 0;
             end
-            
-            % Check linear equality constraint violation
             if ~isempty(obj.aeq)
-                cv = max(max(abs(obj.aeq * x - obj.beq)), cv);
+                cv_linear = max(max(abs(obj.aeq * x - obj.beq)), cv_linear);
             end
-            
-            % Check nonlinear inequality constraint violation
             if ~isempty(obj.cub_)
                 cub_val = obj.cub(x);
                 if ~isempty(cub_val)
-                    cv = max(max(cub_val), cv);
+                    cv_nonlinear = max(max(cub_val), 0);
+                else
+                    cv_nonlinear = 0;
                 end
+            else
+                cv_nonlinear = 0;
             end
-            
-            % Check nonlinear equality constraint violation
             if ~isempty(obj.ceq_)
                 ceq_val = obj.ceq(x);
                 if ~isempty(ceq_val)
-                    cv = max(max(abs(ceq_val)), cv);
+                    cv_nonlinear = max(max(abs(ceq_val)), cv_nonlinear);
                 end
             end
+
+            if detailed
+                varargout{1} = cv_bounds;
+                varargout{2} = cv_linear;
+                varargout{3} = cv_nonlinear;
+            else
+                varargout{1} = max([cv_bounds; cv_linear; cv_nonlinear]);
+            end
+
         end
 
         function f = fun(obj, x)

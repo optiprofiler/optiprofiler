@@ -10,6 +10,9 @@ classdef FeatureOptionKey
         RATE_NAN ('rate_nan')
         SIGNIFICANT_DIGITS ('significant_digits')
         TYPE ('type')
+        UNRELAXABLE_BOUNDS ('unrelaxable_bounds')
+        UNRELAXABLE_LINEAR_CONSTRAINTS ('unrelaxable_linear_constraints')
+        UNRELAXABLE_NONLINEAR_CONSTRAINTS ('unrelaxable_nonlinear_constraints')
     end
     properties
         value

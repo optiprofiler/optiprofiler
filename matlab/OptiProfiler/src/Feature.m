@@ -84,6 +84,8 @@ classdef Feature < handle
                         known_options = [known_options, {FeatureOptionKey.RATE_NAN.value}];
                     case FeatureName.TRUNCATED.value
                         known_options = [known_options, {FeatureOptionKey.SIGNIFICANT_DIGITS.value}];
+                    case FeatureName.UNRELAXABLE_CONSTRAINTS.value
+                        known_options = [known_options, {FeatureOptionKey.UNRELAXABLE_BOUNDS.value, FeatureOptionKey.UNRELAXABLE_LINEAR_CONSTRAINTS.value, FeatureOptionKey.UNRELAXABLE_NONLINEAR_CONSTRAINTS.value}];
                     case FeatureName.PLAIN.value
                         % Do nothing
                     otherwise
@@ -120,7 +122,7 @@ classdef Feature < handle
                         end
                     case FeatureOptionKey.RATE_NAN.value
                         if ~isnumeric(obj.options.(key)) || obj.options.(key) < 0.0 || obj.options.(key) > 1.0
-                            error(['MATLAB:Feature:' key '_NotBetween_0_1'], "Option " + key + " must be a number between 0 and 1.")
+                            error("MATLAB:Feature:rate_nan_NotBetween_0_1", "Option " + key + " must be a number between 0 and 1.")
                         end
                     case FeatureOptionKey.SIGNIFICANT_DIGITS.value
                         if isfloat(obj.options.(key)) && (obj.options.(key) == round(obj.options.(key)))
@@ -134,6 +136,18 @@ classdef Feature < handle
                         if ~(ischar(obj.options.(key)) || isstring(obj.options.(key))) || ~ismember(obj.options.(key), validNoiseTypes)
                             error("MATLAB:Feature:type_InvalidInput", "Option " + key + " must be either '" + NoiseType.ABSOLUTE.value + "' or '" + NoiseType.RELATIVE.value + "'.")
                         end
+                    case FeatureOptionKey.UNRELAXABLE_BOUNDS.value
+                        if ~islogical(obj.options.(key))
+                            error("MATLAB:Feature:unrelaxable_bounds_NotLogical", "Option " + key + " must be a logical.")
+                        end
+                    case FeatureOptionKey.UNRELAXABLE_LINEAR_CONSTRAINTS.value
+                        if ~islogical(obj.options.(key))
+                            error("MATLAB:Feature:unrelaxable_linear_constraints_NotLogical", "Option " + key + " must be a logical.")
+                        end
+                    case FeatureOptionKey.UNRELAXABLE_NONLINEAR_CONSTRAINTS.value
+                        if ~islogical(obj.options.(key))
+                            error("MATLAB:Feature:unrelaxable_nonlinear_constraints_NotLogical", "Option " + key + " must be a logical.")
+                        end
                 end
             end
 
@@ -141,7 +155,7 @@ classdef Feature < handle
             obj = set_default_options(obj);
         end
 
-        function f = modifier(obj, x, f, seed)
+        function f = modifier(obj, x, f, seed, maxcv_bounds, maxcv_linear, maxcv_nonlinear)
             %{
             Modify the objective function value.
 
@@ -163,6 +177,16 @@ classdef Feature < handle
             if nargin < 4
                 seed = 'shuffle';
             end
+            if nargin < 5
+                maxcv_bounds = 0;
+            end
+            if nargin < 6
+                maxcv_linear = 0;
+            end
+            if nargin < 7
+                maxcv_nonlinear = 0;
+            end
+            
 
             % Convert x into a cell array
             xCell = num2cell(x);
@@ -200,6 +224,14 @@ classdef Feature < handle
                         f = round(f * 10^digits) / 10^digits + rand_stream.rand() * 10^(-digits);
                     else
                         f = round(f * 10^digits) / 10^digits - rand_stream.rand() * 10^(-digits);
+                    end
+                case FeatureName.UNRELAXABLE_CONSTRAINTS.value
+                    if obj.options.(FeatureOptionKey.UNRELAXABLE_BOUNDS.value) && maxcv_bounds > 0
+                        f = Inf;
+                    elseif obj.options.(FeatureOptionKey.UNRELAXABLE_LINEAR_CONSTRAINTS.value) && maxcv_linear > 0
+                        f = Inf;
+                    elseif obj.options.(FeatureOptionKey.UNRELAXABLE_NONLINEAR_CONSTRAINTS.value) && maxcv_nonlinear > 0
+                        f = Inf;
                     end
                 otherwise
                     error("MATLAB:Feature:UnknownFeature", "Unknown feature: " + obj.name + ".")
@@ -260,6 +292,19 @@ classdef Feature < handle
                     end
                     if ~isfield(obj.options, FeatureOptionKey.SIGNIFICANT_DIGITS.value)
                         obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) = int32(6);
+                    end
+                case FeatureName.UNRELAXABLE_CONSTRAINTS.value
+                    if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
+                        obj.options.(FeatureOptionKey.N_RUNS.value) = int32(1);
+                    end
+                    if ~isfield(obj.options, FeatureOptionKey.UNRELAXABLE_BOUNDS.value)
+                        obj.options.(FeatureOptionKey.UNRELAXABLE_BOUNDS.value) = false;
+                    end
+                    if ~isfield(obj.options, FeatureOptionKey.UNRELAXABLE_LINEAR_CONSTRAINTS.value)
+                        obj.options.(FeatureOptionKey.UNRELAXABLE_LINEAR_CONSTRAINTS.value) = false;
+                    end
+                    if ~isfield(obj.options, FeatureOptionKey.UNRELAXABLE_NONLINEAR_CONSTRAINTS.value)
+                        obj.options.(FeatureOptionKey.UNRELAXABLE_NONLINEAR_CONSTRAINTS.value) = false;
                     end
                 otherwise
                     error("MATLAB:Feature:UnknownFeature", "Unknown feature: " + obj.name + ".")

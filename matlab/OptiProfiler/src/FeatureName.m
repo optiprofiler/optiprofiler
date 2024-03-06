@@ -9,6 +9,7 @@ classdef FeatureName
         REGULARIZED ('regularized')
         TOUGH ('tough')
         TRUNCATED ('truncated')
+        UNRELAXABLE_CONSTRAINTS ('unrelaxable_constraints')
     end
     properties
         value
