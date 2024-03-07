@@ -1,4 +1,4 @@
-function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions] = solveAllProblems(problem_names, problem_options, solvers, labels, feature, max_eval_factor, profile_options)
+function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, computation_times] = solveAllProblems(problem_names, problem_options, solvers, labels, feature, max_eval_factor, profile_options)
 %SOLVEALLPROBLEMS solves all problems in the problem_names list using solvers in the solvers list and stores the computing results.
 
     % Solve all problems.
@@ -10,15 +10,15 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
             % Do not use parallel computing.
             for i_problem = 1:n_problems
                 problem_name = problem_names{i_problem};
-                [tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n] = solveOneProblem(problem_name, solvers, labels, feature, max_eval_factor, problem_options);
-                results{i_problem} = {tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n};
+                [tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n, tmp_computation_time] = solveOneProblem(problem_name, solvers, labels, feature, max_eval_factor, problem_options);
+                results{i_problem} = {tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n, tmp_computation_time};
             end
         otherwise
             parpool(profile_options.(ProfileOptionKey.N_JOBS.value));
             parfor i_problem = 1:n_problems
                 problem_name = problem_names{i_problem};
-                [tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n] = solveOneProblem(problem_name, solvers, labels, feature, max_eval_factor, problem_options);
-                results{i_problem} = {tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n};
+                [tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n, tmp_computation_time] = solveOneProblem(problem_name, solvers, labels, feature, max_eval_factor, problem_options);
+                results{i_problem} = {tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n, tmp_computation_time};
             end
             delete(gcp);
             fprintf("Leaving the parallel section.\n");
@@ -35,13 +35,16 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
         n_eval = [];
         problem_names = [];
         problem_dimensions = [];
+        computation_times = [];
     else
         % Process results.
         n_solvers = length(solvers);
         n_runs = feature.options.(FeatureOptionKey.N_RUNS.value);
         problem_dimensions = NaN(n_problems, 1);
+        computation_times = NaN(n_problems, 1);
         for i_problem = 1:n_problems
             problem_dimensions(i_problem) = results{i_problem}{9};
+            computation_times(i_problem) = results{i_problem}{10};
         end
         if length(problem_dimensions) > 0
             max_eval = max_eval_factor * max(problem_dimensions);

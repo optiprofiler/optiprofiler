@@ -85,7 +85,7 @@ function runBenchmark(solvers, labels, problem_names, feature_name, varargin)
 
     % Solve all the problems.
     max_eval_factor = 500;
-    [fun_histories, maxcv_histories, fun_ret, maxcv_ret, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions] = solveAllProblems(problem_names, problem_options, solvers, labels, feature, max_eval_factor, profile_options);
+    [fun_histories, maxcv_histories, fun_ret, maxcv_ret, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, computation_times] = solveAllProblems(problem_names, problem_options, solvers, labels, feature, max_eval_factor, profile_options);
     merit_histories = computeMeritValues(fun_histories, maxcv_histories);
     merit_ret = computeMeritValues(fun_ret, maxcv_ret);
     merit_init = computeMeritValues(fun_init, maxcv_init);
@@ -135,11 +135,15 @@ function runBenchmark(solvers, labels, problem_names, feature_name, varargin)
 
     % Store the names of the problems.
     path_txt = fullfile(path_out, 'problems.txt');
+    [sorted_problem_names, idx] = sort(problem_names);
+    sorted_computation_times = computation_times(idx);
     fid = fopen(path_txt, 'w');
     if fid == -1
         error("Cannot open the file %s.", path_txt);
     end
-    fprintf(fid, '%s\n', sort(string(problem_names)));
+    for i = 1:length(sorted_problem_names)
+        fprintf(fid, "%s: %.2f seconds\n", sorted_problem_names{i}, sorted_computation_times(i));
+    end
     fclose(fid);
 
     % Set the default values for plotting.
