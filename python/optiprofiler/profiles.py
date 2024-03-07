@@ -215,17 +215,18 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
         merit_min = np.minimum(merit_min, merit_min_plain)
 
     # Paths to the results.
-    timestamp = datetime.utcnow().astimezone().strftime('%Y-%m-%dT%H-%M-%SZ')
-    path_out = Path('out', feature.name, profile_options[ProfileOption.BENCHMARK_ID], timestamp).resolve()
-    path_pdf = path_out / 'pdf'
-    path_pdf.mkdir(parents=True, exist_ok=True)
-    path_problems = path_out / 'problems.txt'
-    path_perf_hist = path_pdf / 'perf_hist.pdf'
-    path_perf_out = path_pdf / 'perf_out.pdf'
-    path_data_hist = path_pdf / 'data_hist.pdf'
-    path_data_out = path_pdf / 'data_out.pdf'
-    path_log_ratio_hist = path_pdf / 'log-ratio_hist.pdf'
-    path_log_ratio_out = path_pdf / 'log-ratio_out.pdf'
+    timestamp = datetime.now().astimezone().strftime('%Y-%m-%dT%H-%M-%S%Z')
+    path_out = Path('out').resolve()
+    path_results = path_out / feature.name / profile_options[ProfileOption.BENCHMARK_ID] / timestamp
+    path_results.mkdir(parents=True, exist_ok=True)
+    path_problems = path_results / 'problems.txt'
+    path_perf_hist = path_results / 'perf_hist.pdf'
+    path_perf_out = path_results / 'perf_out.pdf'
+    path_data_hist = path_results / 'data_hist.pdf'
+    path_data_out = path_results / 'data_out.pdf'
+    path_log_ratio_hist = path_results / 'log-ratio_hist.pdf'
+    path_log_ratio_out = path_results / 'log-ratio_out.pdf'
+    path_summary = path_out / f'summary_{timestamp}.pdf'
 
     # Store the names of the problems.
     with path_problems.open('w') as f:
@@ -330,7 +331,7 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
                         (profile_number - i_source - 1) * page_height,
                     ),
                 )
-        pdf_summary.write(path_out / 'summary.pdf')
+        pdf_summary.write(path_summary)
         pdf_summary.close()
 
 
