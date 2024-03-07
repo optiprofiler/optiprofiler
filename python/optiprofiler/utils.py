@@ -14,7 +14,6 @@ class FeatureName(str, Enum):
     NOISY = 'noisy'
     PLAIN = 'plain'
     RANDOMIZE_X0 = 'randomize_x0'
-    REGULARIZE = 'regularize'
     TOUGH = 'tough'
     TRUNCATE = 'truncate'
     UNRELAXABLE_CONSTRAINTS = 'unrelaxable_constraints'
@@ -55,8 +54,6 @@ class FeatureOption(str, Enum):
     DISTRIBUTION = 'distribution'
     MODIFIER = 'modifier'
     N_RUNS = 'n_runs'
-    ORDER = 'order'
-    PARAMETER = 'parameter'
     RATE_NAN = 'rate_nan'
     SIGNIFICANT_DIGITS = 'significant_digits'
     TYPE = 'type'
@@ -105,7 +102,7 @@ def show_versions():
     ))
 
 
-def get_logger(name=None, level=logging.INFO):
+def get_logger(name, filename='out/my.log', level=logging.INFO):
     """
     Get a logger.
 
@@ -113,7 +110,9 @@ def get_logger(name=None, level=logging.INFO):
     ----------
     name : str
         Name of the logger. If ``None``, the root logger is returned.
-    level : int
+    filename: {str, `pathlib.Path`}, optional
+        Name of the file to which the log messages will be written.
+    level : int, optional
         Logging level.
 
     Returns
@@ -125,11 +124,12 @@ def get_logger(name=None, level=logging.INFO):
     logger = logging.getLogger(name)
     if len(logger.handlers) == 0:
         logger.setLevel(level)
+        formatter = logging.Formatter('[%(levelname)-8s] %(message)s')
 
-        # Attach a console handler (thread-safe).
-        handler = logging.StreamHandler()
-        handler.setFormatter(logging.Formatter('[%(levelname)-8s] %(message)s'))
-        logger.addHandler(handler)
+        # Attach a console handler.
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(formatter)
+        logger.addHandler(console_handler)
     return logger
 
 
@@ -160,10 +160,11 @@ def _get_deps_info():
     """
     deps = [
         'optiprofiler',
-        'joblib',
         'matplotlib',
         'numpy',
         'pycutest',
+        'pypdf',
+        'scipy',
         'setuptools',
         'pip',
     ]

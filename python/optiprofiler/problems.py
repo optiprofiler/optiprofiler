@@ -7,13 +7,7 @@ import numpy as np
 from scipy.optimize import Bounds, LinearConstraint, NonlinearConstraint, minimize
 
 from .features import Feature
-from .utils import (
-    FeatureName,
-    CUTEstProblemOption,
-    FeatureOption,
-    ProblemError,
-    get_logger,
-)
+from .utils import FeatureName, CUTEstProblemOption, FeatureOption, ProblemError, get_logger
 
 # Options for the CUTEst problems.
 _cutest_problem_options = {
@@ -94,7 +88,7 @@ class Problem:
     >>> def c_ub(x):
     ...     return [x[0] ** 2 + x[1] ** 2 - 1, x[0] ** 3 - x[1] ** 2 - 1]
     ...
-    >>> problem = Problem(rosen, [0, 0], c_ub=c_ub, num_nonlinear_ub=2)
+    >>> problem = Problem(rosen, [0, 0], c_ub=c_ub, m_nonlinear_ub=2)
 
     The instance ``problem`` can now be used to evaluate the nonlinear
     inequality constraints at any point. For example, to evaluate the nonlinear
@@ -104,26 +98,12 @@ class Problem:
     array([-1., -1.])
 
     If you do not provide the number of nonlinear inequality constraints in
-    ``num_nonlinear_ub``, it will be inferred at the first call to ``c_ub``.
+    ``m_nonlinear_ub``, it will be inferred at the first call to ``c_ub``.
     Nonlinear equality constraints can be specified in a similar way, using the
-    optional arguments ``c_eq`` and ``num_nonlinear_eq``.
+    optional arguments ``c_eq`` and ``m_nonlinear_eq``.
     """
 
-    def __init__(
-            self,
-            fun,
-            x0,
-            lb=None,
-            ub=None,
-            a_ub=None,
-            b_ub=None,
-            a_eq=None,
-            b_eq=None,
-            c_ub=None,
-            num_nonlinear_ub=None,
-            c_eq=None,
-            num_nonlinear_eq=None,
-    ):
+    def __init__(self, fun, x0, lb=None, ub=None, a_ub=None, b_ub=None, a_eq=None, b_eq=None, c_ub=None, m_nonlinear_ub=None, c_eq=None, m_nonlinear_eq=None):
         """
         Initialize an optimization problem.
 
@@ -141,29 +121,29 @@ class Problem:
             Lower bounds on the variables ``lb <= x``.
         ub : array_like, shape (n,), optional
             Upper bounds on the variables ``x <= ub``.
-        a_ub : array_like, shape (num_linear_ub, n), optional
+        a_ub : array_like, shape (m_linear_ub, n), optional
             Coefficient matrix of the linear constraints ``a_ub @ x <= b_ub``.
-        b_ub : array_like, shape (num_linear_ub,), optional
+        b_ub : array_like, shape (m_linear_ub,), optional
             Right-hand side of the linear constraints ``a_ub @ x <= b_ub``.
-        a_eq : array_like, shape (num_linear_eq, n), optional
+        a_eq : array_like, shape (m_linear_eq, n), optional
             Coefficient matrix of the linear constraints ``a_eq @ x == b_eq``.
-        b_eq : array_like, shape (num_linear_eq,), optional
+        b_eq : array_like, shape (m_linear_eq,), optional
             Right-hand side of the linear constraints ``a_eq @ x == b_eq``.
         c_ub : callable, optional
             Nonlinear inequality constraint ``c_ub(x) <= 0``.
 
-                ``c_ub(x) -> array_like, shape (num_nonlinear_ub,)``
+                ``c_ub(x) -> array_like, shape (m_nonlinear_ub,)``
 
             where ``x`` is an array with shape (n,).
         c_eq : callable, optional
             Nonlinear equality constraint ``c_eq(x) == 0``.
 
-                ``c_eq(x) -> array_like, shape (num_nonlinear_eq,)``
+                ``c_eq(x) -> array_like, shape (m_nonlinear_eq,)``
 
             where ``x`` is an array with shape (n,).
-        num_nonlinear_ub : int, optional
+        m_nonlinear_ub : int, optional
             Number of nonlinear inequality constraints.
-        num_nonlinear_eq : int, optional
+        m_nonlinear_eq : int, optional
             Number of nonlinear equality constraints.
 
         Raises
@@ -179,50 +159,29 @@ class Problem:
             raise TypeError('The argument fun must be callable.')
 
         # Preprocess the initial guess.
-        self._x0 = _process_1d_array(
-            x0,
-            'The argument x0 must be a one-dimensional array.',
-        )
+        self._x0 = _process_1d_array(x0, 'The argument x0 must be a one-dimensional array.')
 
         # Preprocess the bound constraints.
         self._lb = lb
         if self._lb is not None:
-            self._lb = _process_1d_array(
-                self._lb,
-                'The argument lb must be a one-dimensional array.',
-            )
+            self._lb = _process_1d_array(self._lb, 'The argument lb must be a one-dimensional array.')
         self._ub = ub
         if self._ub is not None:
-            self._ub = _process_1d_array(
-                self._ub,
-                'The argument ub must be a one-dimensional array.',
-            )
+            self._ub = _process_1d_array(self._ub, 'The argument ub must be a one-dimensional array.')
 
         # Preprocess the linear constraints.
         self._a_ub = a_ub
         if self._a_ub is not None:
-            self._a_ub = _process_2d_array(
-                self._a_ub,
-                'The argument a_ub must be a two-dimensional array.',
-            )
+            self._a_ub = _process_2d_array(self._a_ub, 'The argument a_ub must be a two-dimensional array.')
         self._b_ub = b_ub
         if self._b_ub is not None:
-            self._b_ub = _process_1d_array(
-                self._b_ub,
-                'The argument b_ub must be a one-dimensional array.',
-            )
+            self._b_ub = _process_1d_array(self._b_ub, 'The argument b_ub must be a one-dimensional array.')
         self._a_eq = a_eq
         if self._a_eq is not None:
-            self._a_eq = _process_2d_array(
-                self._a_eq,
-                'The argument a_eq must be a two-dimensional array.',
-            )
+            self._a_eq = _process_2d_array(self._a_eq, 'The argument a_eq must be a two-dimensional array.')
         self._b_eq = b_eq
         if self._b_eq is not None:
-            self._b_eq = _process_1d_array(
-                self._b_eq,
-                'The argument b_eq must be a one-dimensional array.',
-            )
+            self._b_eq = _process_1d_array(self._b_eq, 'The argument b_eq must be a one-dimensional array.')
 
         # Preprocess the nonlinear constraints.
         self._c_ub = c_ub
@@ -235,37 +194,37 @@ class Problem:
                 raise TypeError('The argument c_eq must be callable.')
 
         # Preprocess the number of nonlinear constraints.
-        self._num_nonlinear_ub = num_nonlinear_ub
-        if isinstance(self._num_nonlinear_ub, float) and self._num_nonlinear_ub.is_integer():
-            self._num_nonlinear_ub = int(self._num_nonlinear_ub)
-        if self._num_nonlinear_ub is not None and not isinstance(self._num_nonlinear_ub, int):
-            raise TypeError('The argument num_nonlinear_ub must be an integer.')
-        if self._num_nonlinear_ub is not None and self._num_nonlinear_ub < 0:
-            raise ValueError('The argument num_nonlinear_ub must be nonnegative.')
-        self._num_nonlinear_eq = num_nonlinear_eq
-        if isinstance(self._num_nonlinear_eq, float) and self._num_nonlinear_eq.is_integer():
-            self._num_nonlinear_eq = int(self._num_nonlinear_eq)
-        if self._num_nonlinear_eq is not None and not isinstance(self._num_nonlinear_eq, int):
-            raise TypeError('The argument num_nonlinear_eq must be an integer.')
-        if self._num_nonlinear_eq is not None and self._num_nonlinear_eq < 0:
-            raise ValueError('The argument num_nonlinear_eq must be nonnegative.')
+        self._m_nonlinear_ub = m_nonlinear_ub
+        if isinstance(self._m_nonlinear_ub, float) and self._m_nonlinear_ub.is_integer():
+            self._m_nonlinear_ub = int(self._m_nonlinear_ub)
+        if self._m_nonlinear_ub is not None and not isinstance(self._m_nonlinear_ub, int):
+            raise TypeError('The argument m_nonlinear_ub must be an integer.')
+        if self._m_nonlinear_ub is not None and self._m_nonlinear_ub < 0:
+            raise ValueError('The argument m_nonlinear_ub must be nonnegative.')
+        self._m_nonlinear_eq = m_nonlinear_eq
+        if isinstance(self._m_nonlinear_eq, float) and self._m_nonlinear_eq.is_integer():
+            self._m_nonlinear_eq = int(self._m_nonlinear_eq)
+        if self._m_nonlinear_eq is not None and not isinstance(self._m_nonlinear_eq, int):
+            raise TypeError('The argument m_nonlinear_eq must be an integer.')
+        if self._m_nonlinear_eq is not None and self._m_nonlinear_eq < 0:
+            raise ValueError('The argument m_nonlinear_eq must be nonnegative.')
 
         # Check that the arguments are consistent.
-        if self.lb.size != self.dimension:
-            raise ValueError(f'The argument lb must have size {self.dimension}.')
-        if self.ub.size != self.dimension:
-            raise ValueError(f'The argument ub must have size {self.dimension}.')
-        if self.a_ub.shape != (self.num_linear_ub, self.dimension):
-            raise ValueError(f'The argument a_ub must have shape {(self.num_linear_ub, self.dimension)}.')
-        if self.a_eq.shape != (self.num_linear_eq, self.dimension):
-            raise ValueError(f'The argument a_eq must have shape {(self.num_linear_eq, self.dimension)}.')
-        if self._c_ub is None and self._num_nonlinear_ub is not None and self._num_nonlinear_ub > 0:
-            raise ValueError('The argument num_nonlinear_ub must be None or zero if the argument c_ub is None.')
-        if self._c_eq is None and self._num_nonlinear_eq is not None and self._num_nonlinear_eq > 0:
-            raise ValueError('The argument num_nonlinear_eq must be None or zero if the argument c_eq is None.')
+        if self.lb.size != self.n:
+            raise ValueError(f'The argument lb must have size {self.n}.')
+        if self.ub.size != self.n:
+            raise ValueError(f'The argument ub must have size {self.n}.')
+        if self.a_ub.shape != (self.m_linear_ub, self.n):
+            raise ValueError(f'The argument a_ub must have shape {(self.m_linear_ub, self.n)}.')
+        if self.a_eq.shape != (self.m_linear_eq, self.n):
+            raise ValueError(f'The argument a_eq must have shape {(self.m_linear_eq, self.n)}.')
+        if self._c_ub is None and self._m_nonlinear_ub is not None and self._m_nonlinear_ub > 0:
+            raise ValueError('The argument m_nonlinear_ub must be None or zero if the argument c_ub is None.')
+        if self._c_eq is None and self._m_nonlinear_eq is not None and self._m_nonlinear_eq > 0:
+            raise ValueError('The argument m_nonlinear_eq must be None or zero if the argument c_eq is None.')
 
     @property
-    def dimension(self):
+    def n(self):
         """
         Dimension of the problem.
 
@@ -277,7 +236,7 @@ class Problem:
         return self.x0.size
 
     @property
-    def num_linear_ub(self):
+    def m_linear_ub(self):
         """
         Number of linear inequality constraints.
 
@@ -289,7 +248,7 @@ class Problem:
         return self.b_ub.size
 
     @property
-    def num_linear_eq(self):
+    def m_linear_eq(self):
         """
         Number of linear equality constraints.
 
@@ -301,7 +260,7 @@ class Problem:
         return self.b_eq.size
 
     @property
-    def num_nonlinear_ub(self):
+    def m_nonlinear_ub(self):
         """
         Number of nonlinear inequality constraints.
 
@@ -315,20 +274,20 @@ class Problem:
         ValueError
             If the number of nonlinear inequality constraints is unknown. This
             can happen if the following three conditions are met: the argument
-            `num_nonlinear_ub` was not specified when the problem was
+            `m_nonlinear_ub` was not specified when the problem was
             initialized, a nonlinear inequality constraint function was
             specified when the problem was initialized, and the method `c_ub`
             has never been called.
         """
-        if self._num_nonlinear_ub is None:
+        if self._m_nonlinear_ub is None:
             if self._c_ub is None:
-                self._num_nonlinear_ub = 0
+                self._m_nonlinear_ub = 0
             else:
                 raise ValueError('The number of nonlinear inequality constraints is unknown.')
-        return self._num_nonlinear_ub
+        return self._m_nonlinear_ub
 
     @property
-    def num_nonlinear_eq(self):
+    def m_nonlinear_eq(self):
         """
         Number of nonlinear equality constraints.
 
@@ -342,17 +301,17 @@ class Problem:
         ValueError
             If the number of nonlinear equality constraints is unknown. This
             can happen if the following three conditions are met: the argument
-            `num_nonlinear_eq` was not specified when the problem was
+            `m_nonlinear_eq` was not specified when the problem was
             initialized, a nonlinear equality constraint function was specified
             when the problem was initialized, and the method `c_eq` has never
             been called.
         """
-        if self._num_nonlinear_eq is None:
+        if self._m_nonlinear_eq is None:
             if self._c_eq is None:
-                self._num_nonlinear_eq = 0
+                self._m_nonlinear_eq = 0
             else:
                 raise ValueError('The number of nonlinear equality constraints is unknown.')
-        return self._num_nonlinear_eq
+        return self._m_nonlinear_eq
 
     @property
     def type(self):
@@ -365,16 +324,16 @@ class Problem:
             Type of the problem.
         """
         try:
-            if self.num_nonlinear_ub + self.num_nonlinear_eq > 0:
-                return "nonlinearly constrained"
-            elif self.num_linear_ub + self.num_linear_eq > 0:
-                return "linearly constrained"
+            if self.m_nonlinear_ub + self.m_nonlinear_eq > 0:
+                return 'nonlinearly constrained'
+            elif self.m_linear_ub + self.m_linear_eq > 0:
+                return 'linearly constrained'
             elif np.any(self.lb > -np.inf) or np.any(self.ub < np.inf):
-                return "bound-constrained"
+                return 'bound-constrained'
             else:
-                return "unconstrained"
+                return 'unconstrained'
         except ValueError:
-            return "nonlinearly constrained"
+            return 'nonlinearly constrained'
 
     @property
     def x0(self):
@@ -386,7 +345,7 @@ class Problem:
         `numpy.ndarray`, shape (n,)
             Initial guess.
         """
-        return self._x0
+        return np.copy(self._x0)
 
     @property
     def lb(self):
@@ -398,7 +357,7 @@ class Problem:
         `numpy.ndarray`, shape (n,)
             Lower bounds on the variables.
         """
-        return self._lb if self._lb is not None else np.full(self.dimension, -np.inf)
+        return np.copy(self._lb) if self._lb is not None else np.full(self.n, -np.inf)
 
     @property
     def ub(self):
@@ -410,7 +369,7 @@ class Problem:
         `numpy.ndarray`, shape (n,)
             Upper bounds on the variables.
         """
-        return self._ub if self._ub is not None else np.full(self.dimension, np.inf)
+        return np.copy(self._ub) if self._ub is not None else np.full(self.n, np.inf)
 
     @property
     def a_ub(self):
@@ -419,10 +378,10 @@ class Problem:
 
         Returns
         -------
-        `numpy.ndarray`, shape (num_linear_ub, n)
+        `numpy.ndarray`, shape (m_linear_ub, n)
             Coefficient matrix of the linear inequality constraints.
         """
-        return self._a_ub if self._a_ub is not None else np.empty((0, self.dimension))
+        return np.copy(self._a_ub) if self._a_ub is not None else np.empty((0, self.n))
 
     @property
     def b_ub(self):
@@ -431,10 +390,10 @@ class Problem:
 
         Returns
         -------
-        `numpy.ndarray`, shape (num_linear_ub,)
+        `numpy.ndarray`, shape (m_linear_ub,)
             Right-hand side of the linear inequality constraints.
         """
-        return self._b_ub if self._b_ub is not None else np.empty(0)
+        return np.copy(self._b_ub) if self._b_ub is not None else np.empty(0)
 
     @property
     def a_eq(self):
@@ -443,10 +402,10 @@ class Problem:
 
         Returns
         -------
-        `numpy.ndarray`, shape (num_linear_eq, n)
+        `numpy.ndarray`, shape (m_linear_eq, n)
             Coefficient matrix of the linear equality constraints.
         """
-        return self._a_eq if self._a_eq is not None else np.empty((0, self.dimension))
+        return np.copy(self._a_eq) if self._a_eq is not None else np.empty((0, self.n))
 
     @property
     def b_eq(self):
@@ -455,10 +414,10 @@ class Problem:
 
         Returns
         -------
-        `numpy.ndarray`, shape (num_linear_eq,)
+        `numpy.ndarray`, shape (m_linear_eq,)
             Right-hand side of the linear equality constraints.
         """
-        return self._b_eq if self._b_eq is not None else np.empty(0)
+        return np.copy(self._b_eq) if self._b_eq is not None else np.empty(0)
 
     def fun(self, x):
         """
@@ -481,20 +440,16 @@ class Problem:
         ValueError
             If the argument `x` has an invalid shape.
         """
-        x = _process_1d_array(
-            x,
-            'The argument x must be a one-dimensional array.',
-        )
-        if x.size != self.dimension:
-            raise ValueError(f'The argument x must have size {self.dimension}.')
+        x = _process_1d_array(x, 'The argument x must be a one-dimensional array.')
+        if x.size != self.n:
+            raise ValueError(f'The argument x must have size {self.n}.')
         try:
             f = self._fun(x)
         except Exception as err:
             logger = get_logger(__name__)
             logger.warning(f'Failed to evaluate the objective function: {err}')
             f = np.nan
-        f = float(f)
-        return f
+        return float(f)
 
     def c_ub(self, x):
         """
@@ -507,7 +462,7 @@ class Problem:
 
         Returns
         -------
-        `numpy.ndarray`, shape (num_nonlinear_ub,)
+        `numpy.ndarray`, shape (m_nonlinear_ub,)
             Values of the nonlinear inequality constraints at `x`.
 
         Raises
@@ -516,12 +471,9 @@ class Problem:
             If the argument `x` has an invalid shape or if the return value of
             the argument `c_ub` has an invalid shape.
         """
-        x = _process_1d_array(
-            x,
-            'The argument x must be a one-dimensional array.',
-        )
-        if x.size != self.dimension:
-            raise ValueError(f'The argument x must have size {self.dimension}.')
+        x = _process_1d_array(x, 'The argument x must be a one-dimensional array.')
+        if x.size != self.n:
+            raise ValueError(f'The argument x must have size {self.n}.')
         if self._c_ub is None:
             c = np.empty(0)
         else:
@@ -530,12 +482,12 @@ class Problem:
             except Exception as err:
                 logger = get_logger(__name__)
                 logger.warning(f'Failed to evaluate the nonlinear inequality constraint function: {err}')
-                c = np.full(self.num_nonlinear_ub, np.nan)
+                c = np.full(self.m_nonlinear_ub, np.nan)
             c = _process_1d_array(c, 'The return value of the argument c_ub must be a one-dimensional array.')
-        if self._num_nonlinear_ub is None:
-            self._num_nonlinear_ub = c.size
-        if c.size != self.num_nonlinear_ub:
-            raise ValueError(f'The return value of the argument c_ub must have size {self.num_nonlinear_ub}.')
+        if self._m_nonlinear_ub is None:
+            self._m_nonlinear_ub = c.size
+        if c.size != self.m_nonlinear_ub:
+            raise ValueError(f'The return value of the argument c_ub must have size {self.m_nonlinear_ub}.')
         return c
 
     def c_eq(self, x):
@@ -549,7 +501,7 @@ class Problem:
 
         Returns
         -------
-        `numpy.ndarray`, shape (num_nonlinear_eq,)
+        `numpy.ndarray`, shape (m_nonlinear_eq,)
             Values of the nonlinear equality constraints at `x`.
 
         Raises
@@ -558,12 +510,9 @@ class Problem:
             If the argument `x` has an invalid shape or if the return value of
             the argument `c_eq` has an invalid shape.
         """
-        x = _process_1d_array(
-            x,
-            'The argument x must be a one-dimensional array.',
-        )
-        if x.size != self.dimension:
-            raise ValueError(f'The argument x must have size {self.dimension}.')
+        x = _process_1d_array(x, 'The argument x must be a one-dimensional array.')
+        if x.size != self.n:
+            raise ValueError(f'The argument x must have size {self.n}.')
         if self._c_eq is None:
             c = np.empty(0)
         else:
@@ -572,12 +521,12 @@ class Problem:
             except Exception as err:
                 logger = get_logger(__name__)
                 logger.warning(f'Failed to evaluate the nonlinear equality constraint function: {err}')
-                c = np.full(self.num_nonlinear_eq, np.nan)
+                c = np.full(self.m_nonlinear_eq, np.nan)
             c = _process_1d_array(c, 'The return value of the argument c_eq must be a one-dimensional array.')
-        if self._num_nonlinear_eq is None:
-            self._num_nonlinear_eq = c.size
-        if c.size != self.num_nonlinear_eq:
-            raise ValueError(f'The return value of the argument c_eq must have size {self.num_nonlinear_eq}.')
+        if self._m_nonlinear_eq is None:
+            self._m_nonlinear_eq = c.size
+        if c.size != self.m_nonlinear_eq:
+            raise ValueError(f'The return value of the argument c_eq must have size {self.m_nonlinear_eq}.')
         return c
 
     def maxcv(self, x, detailed=False):
@@ -602,40 +551,38 @@ class Problem:
         ValueError
             If the argument `x` has an invalid shape.
         """
-        x = _process_1d_array(
-            x,
-            'The argument x must be a one-dimensional array.',
-        )
-        if x.size != self.dimension:
-            raise ValueError(f'The argument x must have size {self.dimension}.')
+        x = _process_1d_array(x, 'The argument x must be a one-dimensional array.')
+        if x.size != self.n:
+            raise ValueError(f'The argument x must have size {self.n}.')
         cv_bounds = np.max(self.lb - x, initial=0.0)
         cv_bounds = np.max(x - self.ub, initial=cv_bounds)
         cv_linear = np.max(self.a_ub @ x - self.b_ub, initial=0.0)
         cv_linear = np.max(np.abs(self.a_eq @ x - self.b_eq), initial=cv_linear)
         cv_nonlinear = np.max(self.c_ub(x), initial=0.0)
         cv_nonlinear = np.max(np.abs(self.c_eq(x)), initial=cv_nonlinear)
+        cv = max(cv_bounds, cv_linear, cv_nonlinear)
         if detailed:
-            return cv_bounds, cv_linear, cv_nonlinear
+            return cv, cv_bounds, cv_linear, cv_nonlinear
         else:
-            return max(cv_bounds, cv_linear, cv_nonlinear)
+            return cv
 
     def project_x0(self):
         """
         Project the initial guess onto the feasible region.
         """
-        if self.type == "bound-constrained":
+        if self.type == 'bound-constrained':
             self._x0 = np.clip(self._x0, self.lb, self.ub)
-        elif self.type != "unconstrained":
+        elif self.type != 'unconstrained':
             bounds = Bounds(self.lb, self.ub)
             constraints = []
-            if self.num_linear_ub > 0:
+            if self.m_linear_ub > 0:
                 constraints.append(LinearConstraint(self.a_ub, -np.inf, self.b_ub))
-            if self.num_linear_eq > 0:
+            if self.m_linear_eq > 0:
                 constraints.append(LinearConstraint(self.a_eq, self.b_eq, self.b_eq))
-            if self.num_nonlinear_ub > 0:
+            if self.m_nonlinear_ub > 0:
                 c_ub_x0 = self.c_ub(self.x0)
                 constraints.append(NonlinearConstraint(self.c_ub, -np.inf, np.zeros_like(c_ub_x0)))
-            if self.num_nonlinear_eq > 0:
+            if self.m_nonlinear_eq > 0:
                 c_eq_x0 = self.c_eq(self.x0)
                 constraints.append(NonlinearConstraint(self.c_eq, np.zeros_like(c_eq_x0), np.zeros_like(c_eq_x0)))
 
@@ -739,10 +686,7 @@ class FeaturedProblem(Problem):
         x0 = super().x0
         if self._feature.name == FeatureName.RANDOMIZE_X0:
             rng = self._feature.get_default_rng(self._seed, *x0)
-            x0 += self._feature.options[FeatureOption.DISTRIBUTION](
-                rng,
-                x0.size,
-            )
+            x0 += self._feature.options[FeatureOption.DISTRIBUTION](rng, x0.size)
         return x0
 
     @property
@@ -755,7 +699,7 @@ class FeaturedProblem(Problem):
         `numpy.ndarray`, shape (n_eval,)
             History of objective function values.
         """
-        return np.array(self._fun_hist, dtype=float)
+        return np.array(self._fun_hist)
 
     @property
     def maxcv_hist(self):
@@ -767,7 +711,7 @@ class FeaturedProblem(Problem):
         `numpy.ndarray`, shape (n_eval,)
             History of maximum constraint violations.
         """
-        return np.array(self._maxcv_hist, dtype=float)
+        return np.array(self._maxcv_hist)
 
     def fun(self, x):
         """
@@ -795,14 +739,15 @@ class FeaturedProblem(Problem):
 
         # Evaluate the objective function and store the results.
         f = super().fun(x)
+        maxcv, maxcv_bounds, maxcv_linear, maxcv_nonlinear = self.maxcv(x, True)
         self._fun_hist.append(f)
-        self._maxcv_hist.append(self.maxcv(x))
+        self._maxcv_hist.append(maxcv)
 
         # Modified the objective function value according to the feature and
         # return the modified value. We should not store the modified value
         # because the performance of an optimization solver should be measured
         # using the original objective function.
-        return self._feature.modifier(x, f, *self.maxcv(x, True), self._seed)
+        return self._feature.modifier(x, f, maxcv_bounds, maxcv_linear, maxcv_nonlinear, self._seed)
 
 
 def get_cutest_problem_options():
@@ -955,39 +900,37 @@ def load_cutest_problem(problem_name):
     """
     import pycutest
 
-    def _is_valid(cutest_problem):
+    def _is_valid():
         """
         Check if a CUTEst problem is valid.
         """
-        # Check that all the variable types satisfy the specified requirements.
-        if _cutest_problem_options[CUTEstProblemOption.ALL_VARIABLES_CONTINUOUS]:
-            is_valid = np.all(cutest_problem.vartype == 0)
-        else:
-            is_valid = True
-
         # Check that the dimensions are within the specified range.
-        is_valid = is_valid and _cutest_problem_options[CUTEstProblemOption.N_MIN] <= cutest_problem.n <= _cutest_problem_options[CUTEstProblemOption.N_MAX]
+        is_valid = _cutest_problem_options[CUTEstProblemOption.N_MIN] <= cutest_problem.n <= _cutest_problem_options[CUTEstProblemOption.N_MAX]
         is_valid = is_valid and _cutest_problem_options[CUTEstProblemOption.M_MIN] <= cutest_problem.m <= _cutest_problem_options[CUTEstProblemOption.M_MAX]
 
+        # Check that all the variable types satisfy the specified requirements.
+        if _cutest_problem_options[CUTEstProblemOption.ALL_VARIABLES_CONTINUOUS]:
+            is_valid = is_valid and np.all(cutest_problem.vartype == 0)
+
         # Ensure that the problem constraints satisfy the specified requirements.
-        if is_valid and _cutest_problem_options[CUTEstProblemOption.AT_LEAST_ONE_BOUND_CONSTRAINT]:
+        if _cutest_problem_options[CUTEstProblemOption.AT_LEAST_ONE_BOUND_CONSTRAINT]:
             is_valid = is_valid and (np.any(cutest_problem.bl > -1e20) or np.any(cutest_problem.bu < 1e20))
-        if is_valid and _cutest_problem_options[CUTEstProblemOption.AT_LEAST_ONE_LINEAR_CONSTRAINT]:
+        if _cutest_problem_options[CUTEstProblemOption.AT_LEAST_ONE_LINEAR_CONSTRAINT]:
             is_valid = is_valid and cutest_problem.m > 0 and np.any(cutest_problem.is_linear_cons)
-        if is_valid and _cutest_problem_options[CUTEstProblemOption.AT_LEAST_ONE_LINEAR_INEQUALITY_CONSTRAINT]:
+        if _cutest_problem_options[CUTEstProblemOption.AT_LEAST_ONE_LINEAR_INEQUALITY_CONSTRAINT]:
             is_valid = is_valid and cutest_problem.m > 0 and np.any(cutest_problem.is_linear_cons & ~cutest_problem.is_eq_cons)
-        if is_valid and _cutest_problem_options[CUTEstProblemOption.AT_LEAST_ONE_LINEAR_EQUALITY_CONSTRAINT]:
+        if _cutest_problem_options[CUTEstProblemOption.AT_LEAST_ONE_LINEAR_EQUALITY_CONSTRAINT]:
             is_valid = is_valid and cutest_problem.m > 0 and np.any(cutest_problem.is_linear_cons & cutest_problem.is_eq_cons)
-        if is_valid and _cutest_problem_options[CUTEstProblemOption.AT_LEAST_ONE_NONLINEAR_CONSTRAINT]:
+        if _cutest_problem_options[CUTEstProblemOption.AT_LEAST_ONE_NONLINEAR_CONSTRAINT]:
             is_valid = is_valid and cutest_problem.m > 0 and np.any(~cutest_problem.is_linear_cons)
-        if is_valid and _cutest_problem_options[CUTEstProblemOption.AT_LEAST_ONE_NONLINEAR_INEQUALITY_CONSTRAINT]:
+        if _cutest_problem_options[CUTEstProblemOption.AT_LEAST_ONE_NONLINEAR_INEQUALITY_CONSTRAINT]:
             is_valid = is_valid and cutest_problem.m > 0 and np.any(~cutest_problem.is_linear_cons & ~cutest_problem.is_eq_cons)
-        if is_valid and _cutest_problem_options[CUTEstProblemOption.AT_LEAST_ONE_NONLINEAR_EQUALITY_CONSTRAINT]:
+        if _cutest_problem_options[CUTEstProblemOption.AT_LEAST_ONE_NONLINEAR_EQUALITY_CONSTRAINT]:
             is_valid = is_valid and cutest_problem.m > 0 and np.any(~cutest_problem.is_linear_cons & cutest_problem.is_eq_cons)
 
         return is_valid
 
-    def _build_linear_ub(cutest_problem):
+    def _build_linear_ub():
         """
         Build the linear inequality constraints from a CUTEst problem.
         """
@@ -997,11 +940,7 @@ def load_cutest_problem(problem_name):
         a_ub = []
         b_ub = []
         for i, index in enumerate(np.flatnonzero(idx_ub)):
-            c_val, g_val = cutest_problem.cons(
-                np.zeros(cutest_problem.n),
-                index,
-                True,
-            )
+            c_val, g_val = cutest_problem.cons(np.zeros(cutest_problem.n), index, True)
             if idx_ub_cl[i]:
                 a_ub.append(-g_val)
                 b_ub.append(c_val - cutest_problem.cl[index])
@@ -1010,7 +949,7 @@ def load_cutest_problem(problem_name):
                 b_ub.append(cutest_problem.cu[index] - c_val)
         return np.reshape(a_ub, (-1, cutest_problem.n)), np.array(b_ub)
 
-    def _build_linear_eq(cutest_problem):
+    def _build_linear_eq():
         """
         Build the linear equality constraints from a CUTEst problem.
         """
@@ -1018,16 +957,12 @@ def load_cutest_problem(problem_name):
         a_eq = []
         b_eq = []
         for index in np.flatnonzero(idx_eq):
-            c_val, g_val = cutest_problem.cons(
-                np.zeros(cutest_problem.n),
-                index,
-                True,
-            )
+            c_val, g_val = cutest_problem.cons(np.zeros(cutest_problem.n), index, True)
             a_eq.append(g_val)
             b_eq.append(c_val - 0.5 * (cutest_problem.cl[index] + cutest_problem.cu[index]))
         return np.reshape(a_eq, (-1, cutest_problem.n)), np.array(b_eq)
 
-    def _c_ub(cutest_problem, x):
+    def _c_ub(x):
         """
         Evaluate the nonlinear inequality constraints of a CUTEst problem.
         """
@@ -1043,7 +978,7 @@ def load_cutest_problem(problem_name):
                 c.append(c_val - cutest_problem.cu[index])
         return np.array(c)
 
-    def _c_eq(cutest_problem, x):
+    def _c_eq(x):
         """
         Evaluate the nonlinear equality constraints of a CUTEst problem.
         """
@@ -1072,7 +1007,7 @@ def load_cutest_problem(problem_name):
     # If the problem is not successfully loaded or invalid, raise an exception.
     if cutest_problem is None:
         raise ProblemError(f'Failed to load CUTEst problem {problem_name}.')
-    elif cutest_problem is not None and not _is_valid(cutest_problem):
+    elif cutest_problem is not None and not _is_valid():
         logger.warning(f'CUTEst problem {problem_name} successfully loaded but invalid; it is discarded.')
         raise ProblemError(f'CUTEst problem {problem_name} is invalid.')
 
@@ -1082,22 +1017,16 @@ def load_cutest_problem(problem_name):
     ub = np.array(cutest_problem.bu)
     ub[ub >= 1e20] = np.inf
     if cutest_problem.m > 0:
-        constraints = {
-            'c_ub': lambda x: _c_ub(cutest_problem, x),
-            'c_eq': lambda x: _c_eq(cutest_problem, x),
-        }
-        constraints['a_ub'], constraints['b_ub'] = _build_linear_ub(cutest_problem)
-        constraints['a_eq'], constraints['b_eq'] = _build_linear_eq(cutest_problem)
-        idx_ub = ~(cutest_problem.is_linear_cons | cutest_problem.is_eq_cons)
-        constraints['num_nonlinear_ub'] = np.count_nonzero(cutest_problem.cl[idx_ub] > -1e20) + np.count_nonzero(cutest_problem.cu[idx_ub] < 1e20)
-        constraints['num_nonlinear_eq'] = np.count_nonzero(~cutest_problem.is_linear_cons & cutest_problem.is_eq_cons)
+        constraints = {'c_ub': _c_ub, 'c_eq': _c_eq}
+        constraints['a_ub'], constraints['b_ub'] = _build_linear_ub()
+        constraints['a_eq'], constraints['b_eq'] = _build_linear_eq()
+        idx_nonlinear_ub = ~(cutest_problem.is_linear_cons | cutest_problem.is_eq_cons)
+        constraints['m_nonlinear_ub'] = np.count_nonzero(cutest_problem.cl[idx_nonlinear_ub] > -1e20) + np.count_nonzero(cutest_problem.cu[idx_nonlinear_ub] < 1e20)
+        constraints['m_nonlinear_eq'] = np.count_nonzero(~cutest_problem.is_linear_cons & cutest_problem.is_eq_cons)
     else:
-        constraints = {
-            'num_nonlinear_ub': 0,
-            'num_nonlinear_eq': 0,
-        }
+        constraints = {'m_nonlinear_ub': 0, 'm_nonlinear_eq': 0}
     problem = Problem(cutest_problem.obj, cutest_problem.x0, lb, ub, **constraints)
-    logger.info(f'{problem.type.capitalize()} CUTEst problem {cutest_problem.name} (n = {problem.dimension}) successfully loaded.')
+    logger.info(f'{problem.type.capitalize()} CUTEst problem {cutest_problem.name} (n = {problem.n}) successfully loaded.')
     return problem
 
 

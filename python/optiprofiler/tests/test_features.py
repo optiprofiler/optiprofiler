@@ -26,26 +26,6 @@ class TestFeature:
 
     @pytest.mark.parametrize('n', [1, 10, 100])
     @pytest.mark.parametrize('seed', [0, 1, 2])
-    def test_regularize(self, n, seed):
-        # Generate random data.
-        rng = np.random.default_rng(seed)
-        x = rng.standard_normal(n)
-        f = self.rosen(x)
-
-        # Test the regularize feature.
-        feature = Feature('regularize')
-        assert feature.name == 'regularize'
-        assert feature.options == {'n_runs': 1, 'parameter': 1.0, 'order': 2}
-        np.testing.assert_allclose(feature.modifier(x, f),  f + np.linalg.norm(x))
-
-        # Add custom options.
-        feature = Feature('regularize', parameter=2.0, order=3)
-        assert feature.name == 'regularize'
-        assert feature.options == {'n_runs': 1, 'parameter': 2.0, 'order': 3}
-        np.testing.assert_allclose(feature.modifier(x, f),  f + 2.0 * np.linalg.norm(x, 3))
-
-    @pytest.mark.parametrize('n', [1, 10, 100])
-    @pytest.mark.parametrize('seed', [0, 1, 2])
     def test_noisy(self, n, seed):
         # Generate random data.
         rng = np.random.default_rng(seed)
@@ -133,8 +113,6 @@ class TestFeature:
         with pytest.raises(ValueError):
             Feature('unknown')
         with pytest.raises(ValueError):
-            Feature('regularize', unknown=1.0)
-        with pytest.raises(ValueError):
             Feature('plain', parameter=1.0)
         with pytest.raises(TypeError):
             Feature('noisy', n_runs=1.5)
@@ -144,12 +122,6 @@ class TestFeature:
             Feature('custom', modifier=1.0)
         with pytest.raises(TypeError):
             Feature('noisy', distribution=1.0)
-        with pytest.raises(TypeError):
-            Feature('regularize', order='1.0')
-        with pytest.raises(TypeError):
-            Feature('regularize', parameter='1.0')
-        with pytest.raises(ValueError):
-            Feature('regularize', parameter=-1.0)
         with pytest.raises(TypeError):
             Feature('tough', rate_nan='1.0')
         with pytest.raises(ValueError):

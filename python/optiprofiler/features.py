@@ -25,10 +25,6 @@ class Feature:
             Modifier used in the 'custom' feature.
         n_runs : int, optional
             Number of runs for all features.
-        order : int or float, optional
-            Order of the 'regularized' feature.
-        parameter : int or float, optional
-            Regularization parameter of the 'regularized' feature.
         rate_nan : int or float, optional
             Rate of NaNs of the 'tough' feature.
         significant_digits : int, optional
@@ -66,8 +62,6 @@ class Feature:
                 known_options.extend([FeatureOption.DISTRIBUTION, FeatureOption.TYPE])
             elif self._name == FeatureName.RANDOMIZE_X0:
                 known_options.extend([FeatureOption.DISTRIBUTION])
-            elif self._name == FeatureName.REGULARIZE:
-                known_options.extend([FeatureOption.ORDER, FeatureOption.PARAMETER])
             elif self._name == FeatureName.TOUGH:
                 known_options.extend([FeatureOption.RATE_NAN])
             elif self._name == FeatureName.TRUNCATE:
@@ -93,14 +87,6 @@ class Feature:
             elif key == FeatureOption.DISTRIBUTION:
                 if not callable(self._options[key]):
                     raise TypeError(f'Option {key} must be callable.')
-            elif key == FeatureOption.ORDER:
-                if not isinstance(self._options[key], (int, float)):
-                    raise TypeError(f'Option {key} must be a number.')
-            elif key == FeatureOption.PARAMETER:
-                if not isinstance(self._options[key], (int, float)):
-                    raise TypeError(f'Option {key} must be a number.')
-                if self._options[key] < 0.0:
-                    raise ValueError(f'Option {key} must be nonnegative.')
             elif key == FeatureOption.RATE_NAN:
                 if not isinstance(self._options[key], (int, float)):
                     raise TypeError(f'Option {key} must be a number.')
@@ -147,7 +133,19 @@ class Feature:
         dict
             Options of the feature.
         """
-        return self._options
+        return dict(self._options)
+
+    @property
+    def is_stochastic(self):
+        """
+        Whether the feature is stochastic.
+
+        Returns
+        -------
+        bool
+            Whether the feature is stochastic.
+        """
+        return self._name in [FeatureName.CUSTOM, FeatureName.NOISY, FeatureName.TOUGH, FeatureName.TRUNCATE]
 
     def modifier(self, x, f, maxcv_bounds=0.0, maxcv_linear=0.0, maxcv_nonlinear=0.0, seed=None):
         """
@@ -159,6 +157,12 @@ class Feature:
             Point at which the objective function is evaluated.
         f : float
             Objective function value at `x`.
+        maxcv_bounds : float, optional
+            Maximum constraint violation of the bound constraints at `x`.
+        maxcv_linear : float, optional
+            Maximum constraint violation of the linear constraints at `x`.
+        maxcv_nonlinear : float, optional
+            Maximum constraint violation of the nonlinear constraints at `x`.
         seed : int, optional
             Seed used to generate random numbers.
 
@@ -201,8 +205,6 @@ class Feature:
                 f += self._options[FeatureOption.DISTRIBUTION](rng)
             else:
                 f *= 1.0 + self._options[FeatureOption.DISTRIBUTION](rng)
-        elif self._name == FeatureName.REGULARIZE:
-            f += self._options[FeatureOption.PARAMETER] * np.linalg.norm(x, self._options[FeatureOption.ORDER])
         elif self._name == FeatureName.TOUGH:
             rng = self.get_default_rng(seed, f, self._options[FeatureOption.RATE_NAN], *x)
             if rng.uniform() < self._options[FeatureOption.RATE_NAN]:
@@ -251,10 +253,6 @@ class Feature:
         elif self._name == FeatureName.RANDOMIZE_X0:
             self._options.setdefault(FeatureOption.DISTRIBUTION.value, self._default_distribution)
             self._options.setdefault(FeatureOption.N_RUNS.value, 10)
-        elif self._name == FeatureName.REGULARIZE:
-            self._options.setdefault(FeatureOption.N_RUNS.value, 1)
-            self._options.setdefault(FeatureOption.ORDER.value, 2)
-            self._options.setdefault(FeatureOption.PARAMETER.value, 1.0)
         elif self._name == FeatureName.TOUGH:
             self._options.setdefault(FeatureOption.N_RUNS.value, 10)
             self._options.setdefault(FeatureOption.RATE_NAN.value, 0.05)

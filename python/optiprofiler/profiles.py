@@ -21,7 +21,7 @@ from .problems import Problem, FeaturedProblem, get_cutest_problem_options, set_
 from .utils import FeatureName, ProfileOption, FeatureOption, ProblemError, get_logger
 
 
-def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=(), feature_name='plain', **kwargs):
+def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=(), feature_name=FeatureName.PLAIN.value, **kwargs):
     """
     Create the benchmark profiles.
 
@@ -79,15 +79,7 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
         CUTEst problems, you can use this argument to provide your own
         problems.
     feature_name : str, optional
-        Name of the feature to use in the benchmark. The available features are
-
-        - ``'plain'``: to do.
-        - ``'noisy'``: to do.
-        - ``'regularized'``: to do.
-        - ``'truncated'``: to do.
-        - ``'tough'``: to do.
-        - ``'randomize_x0'``: to do.
-        - ``'custom'``: to do.
+        Name of the feature to use in the benchmark.
 
     Other Parameters
     ----------------
@@ -178,11 +170,6 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
         else:
             raise ValueError(f'Unknown option: {key}.')
 
-    # Build the feature.
-    logger = get_logger(__name__)
-    feature = Feature(feature_name, **feature_options)
-    logger.info(f'Starting the computation of the "{feature.name}" profiles.')
-
     # Set the default profile options.
     profile_options.setdefault(ProfileOption.N_JOBS.value, None)
     profile_options.setdefault(ProfileOption.BENCHMARK_ID.value, '.')
@@ -192,24 +179,34 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
     # Check whether the profile options are valid.
     if isinstance(profile_options[ProfileOption.N_JOBS], float) and profile_options[ProfileOption.N_JOBS].is_integer():
         profile_options[ProfileOption.N_JOBS] = int(profile_options[ProfileOption.N_JOBS])
-    if profile_options[ProfileOption.N_JOBS] is not None and not isinstance(profile_options[ProfileOption.N_JOBS], int):
+    if profile_options[ProfileOption.N_JOBS] is not None and not (isinstance(profile_options[ProfileOption.N_JOBS], int) and profile_options[ProfileOption.N_JOBS] > 0):
         raise TypeError(f'Option {ProfileOption.N_JOBS} must be a positive integer or None.')
     if not isinstance(profile_options[ProfileOption.BENCHMARK_ID], str):
         raise TypeError(f'Option {ProfileOption.BENCHMARK_ID} must be a string.')
+    if not isinstance(profile_options[ProfileOption.SUMMARIZE], bool):
+        raise TypeError(f'Option {ProfileOption.SUMMARIZE} must be a boolean.')
+    if not isinstance(profile_options[ProfileOption.PROJECT_X0], bool):
+        raise TypeError(f'Option {ProfileOption.PROJECT_X0} must be a boolean.')
+
+    # Build the feature.
+    logger = get_logger(__name__)
+    feature = Feature(feature_name, **feature_options)
+    logger.info(f'Starting the computations of the "{feature.name}" profiles.')
 
     # Solve the problems.
     max_eval_factor = 500
-    fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, computation_times = _solve_all_problems(cutest_problem_names, extra_problems, solvers, labels, feature, max_eval_factor, profile_options)
+    problem_names, fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_dimensions, time_processes = _solve_all_problems(cutest_problem_names, extra_problems, solvers, labels, feature, max_eval_factor, profile_options)
     merit_histories = _compute_merit_values(fun_histories, maxcv_histories, maxcv_init)
     merit_out = _compute_merit_values(fun_out, maxcv_out, maxcv_init)
     merit_init = _compute_merit_values(fun_init, maxcv_init, maxcv_init)
 
     # Determine the least merit value for each problem.
     merit_min = np.min(merit_histories, (1, 2, 3))
-    if feature.name in [FeatureName.NOISY, FeatureName.TOUGH, FeatureName.TRUNCATE]:
+    if feature.is_stochastic:
         feature_plain = Feature('plain')
-        logger.info(f'Starting the computation of the "plain" profiles.')
-        fun_histories_plain, maxcv_histories_plain, _, _, _, _, _, _, _, _ = _solve_all_problems(cutest_problem_names, extra_problems, solvers, labels, feature_plain, max_eval_factor, profile_options)
+        logger.info(f'Starting the computations of the "plain" profiles.')
+        _, fun_histories_plain, maxcv_histories_plain, _, _, _, _, _, _, time_processes_plain = _solve_all_problems(cutest_problem_names, extra_problems, solvers, labels, feature_plain, max_eval_factor, profile_options)
+        time_processes += time_processes_plain
         merit_histories_plain = _compute_merit_values(fun_histories_plain, maxcv_histories_plain, maxcv_init)
         merit_min_plain = np.min(merit_histories_plain, (1, 2, 3))
         merit_min = np.minimum(merit_min, merit_min_plain)
@@ -230,8 +227,7 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
 
     # Store the names of the problems.
     with path_problems.open('w') as f:
-        for problem_name, computation_time in sorted(zip(problem_names, computation_times)):
-            f.write(f'{problem_name}: {computation_time:.2f} seconds{os.linesep}')
+        f.write(os.linesep.join(f'{problem_name}: {time_process:.2f} seconds' for problem_name, time_process in sorted(zip(problem_names, time_processes))))
 
     # Set up matplotlib for plotting the profiles.
     prop_cycle = cycler(color=['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'])
@@ -318,10 +314,7 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
         page_width = max(page.mediabox.width for reader in reader_profiles for page in reader.pages)
         page_height = max(page.mediabox.height for reader in reader_profiles for page in reader.pages)
         pdf_summary = PdfWriter()
-        pdf_summary.add_blank_page(
-            page_width * page_number,
-            page_height * profile_number,
-        )
+        pdf_summary.add_blank_page(page_width * page_number, page_height * profile_number)
         for i_source, pdf_source in enumerate(reader_profiles):
             for i_page, page in enumerate(pdf_source.pages):
                 pdf_summary.pages[0].merge_transformed_page(
@@ -350,26 +343,28 @@ def _solve_all_problems(cutest_problem_names, extra_problems, solvers, labels, f
     logger.info('Leaving the parallel section.')
     if all(result is None for result in results):
         logger.critical('All problems failed to load.')
+        problem_names = []
         _fun_histories, _maxcv_histories = [], []
         fun_out, maxcv_out = [], []
         fun_init, maxcv_init = [], []
         n_eval = []
-        problem_names = []
         problem_dimensions = []
-        computation_times = []
+        time_processes = []
     else:
-        _fun_histories, _maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, computation_times = zip(*[result for result in results if result is not None])
+        problem_names, _fun_histories, _maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_dimensions, time_processes = zip(*[result for result in results if result is not None])
     fun_out = np.array(fun_out)
     maxcv_out = np.array(maxcv_out)
     fun_init = np.array(fun_init)
     maxcv_init = np.array(maxcv_init)
     n_eval = np.array(n_eval)
+    problem_dimensions = np.array(problem_dimensions)
+    time_processes = np.array(time_processes)
 
     # Build the results.
     n_problems = len(problem_names)
     n_solvers = len(solvers)
     n_runs = feature.options[FeatureOption.N_RUNS]
-    max_eval = max_eval_factor * max(problem_dimensions) if len(problem_dimensions) > 0 else 1
+    max_eval = max_eval_factor * np.max(problem_dimensions) if problem_dimensions.size > 0 else 1
     fun_histories = np.full((n_problems, n_solvers, n_runs, max_eval), np.nan)
     maxcv_histories = np.full((n_problems, n_solvers, n_runs, max_eval), np.nan)
     for i_problem, (fun_hist, maxcv_hist) in enumerate(zip(_fun_histories, _maxcv_histories)):
@@ -379,7 +374,7 @@ def _solve_all_problems(cutest_problem_names, extra_problems, solvers, labels, f
         if max_eval > 0:
             fun_histories[i_problem, ..., max_eval:] = fun_histories[i_problem, ..., max_eval - 1, np.newaxis]
             maxcv_histories[i_problem, ..., max_eval:] = maxcv_histories[i_problem, ..., max_eval - 1, np.newaxis]
-    return fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, computation_times
+    return problem_names, fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_dimensions, time_processes
 
 
 def _solve_one_problem(problem_name, solvers, labels, feature, max_eval_factor, cutest_problem_options, profile_options):
@@ -417,7 +412,7 @@ def _solve_one_problem(problem_name, solvers, labels, feature, max_eval_factor, 
     time_start = time.monotonic()
     n_solvers = len(solvers)
     n_runs = feature.options[FeatureOption.N_RUNS]
-    max_eval = max_eval_factor * problem.dimension
+    max_eval = max_eval_factor * problem.n
     n_eval = np.zeros((n_solvers, n_runs), dtype=int)
     fun_histories = np.full((n_solvers, n_runs, max_eval), np.nan)
     fun_out = np.full((n_solvers, n_runs), np.nan)
@@ -446,7 +441,11 @@ def _solve_one_problem(problem_name, solvers, labels, feature, max_eval_factor, 
                             x = solvers[i_solver](featured_problem.fun, featured_problem.x0, featured_problem.lb, featured_problem.ub, featured_problem.a_ub, featured_problem.b_ub, featured_problem.a_eq, featured_problem.b_eq, featured_problem.c_ub, featured_problem.c_eq)
                         fun_out[i_solver, i_run] = problem.fun(x)
                         maxcv_out[i_solver, i_run] = problem.maxcv(x)
-                        logger.info(f'Results for {problem_name} with {labels[i_solver]} (run {i_run + 1}/{n_runs}): f = {fun_out[i_solver, i_run]:.4e}, maxcv = {maxcv_out[i_solver, i_run]:.4e} ({time.monotonic() - time_start_solver_run:.2f} seconds).')
+                        if featured_problem.type == 'unconstrained':
+                            result = f'f = {fun_out[i_solver, i_run]:.4e}'
+                        else:
+                            result = f'f = {fun_out[i_solver, i_run]:.4e}, maxcv = {maxcv_out[i_solver, i_run]:.4e}'
+                        logger.info(f'Results for {problem_name} with {labels[i_solver]} (run {i_run + 1}/{n_runs}): {result} ({time.monotonic() - time_start_solver_run:.2f} seconds).')
                     except Exception as exc:
                         logger.warning(f'An error occurred while solving {problem_name} with {labels[i_solver]}: {exc}.')
             n_eval[i_solver, i_run] = featured_problem.n_eval
@@ -455,24 +454,20 @@ def _solve_one_problem(problem_name, solvers, labels, feature, max_eval_factor, 
             if n_eval[i_solver, i_run] > 0:
                 fun_histories[i_solver, i_run, n_eval[i_solver, i_run]:] = fun_histories[i_solver, i_run, n_eval[i_solver, i_run] - 1]
                 maxcv_histories[i_solver, i_run, n_eval[i_solver, i_run]:] = maxcv_histories[i_solver, i_run, n_eval[i_solver, i_run] - 1]
-    return fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_name, problem.dimension, time.monotonic() - time_start
+    return problem_name, fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem.n, time.monotonic() - time_start
 
 
 def _compute_merit_values(fun_values, maxcv_values, maxcv_init):
     """
     Compute the merit function values.
     """
-    # Star expressions in indexes are only available in Python 3.11+.
-    # maxcv_init = maxcv_init[:, *[np.newaxis] * (fun_values.ndim - 1)]
-    if fun_values.ndim == 3:
-        maxcv_init = maxcv_init[:, np.newaxis, np.newaxis]
-    elif fun_values.ndim == 4:
-        maxcv_init = maxcv_init[:, np.newaxis, np.newaxis, np.newaxis]
-    is_infeasible = maxcv_values > np.maximum(1e-12, maxcv_init)
-    is_almost_feasible = (1e-12 < maxcv_values) & (maxcv_values <= maxcv_init)
-    merit_values = np.nan_to_num(fun_values, nan=np.inf, posinf=np.inf, neginf=-np.inf)
-    merit_values[is_infeasible] = np.inf
-    merit_values[is_almost_feasible] += 1e8 * maxcv_values[is_almost_feasible]
+    maxcv_init = maxcv_init[(...,) + (np.newaxis,) * (fun_values.ndim - 1)]
+    infeasibility_thresholds = np.maximum(1e-5, maxcv_init)
+    is_infeasible = maxcv_values > infeasibility_thresholds
+    is_almost_feasible = (1e-10 < maxcv_values) & (maxcv_values <= infeasibility_thresholds)
+    merit_values = np.copy(fun_values)
+    merit_values[is_infeasible | np.isnan(merit_values)] = np.inf
+    merit_values[is_almost_feasible] += 1e5 * maxcv_values[is_almost_feasible]
     return merit_values
 
 
