@@ -33,6 +33,10 @@ jobs:
         if: ${{ runner.os == 'Linux' || runner.os == 'macOS' }}
         run: bash .github/actions/test-python/install-cutest.sh
 
+      - name: Setup tmate session
+        if: ${{ matrix.python-version == '3.12'}}
+        uses: mxschmitt/action-tmate@v3
+
       - name: Generate coverage reports
         run: bash .github/actions/test-python/run-tests.sh
 
