@@ -60,6 +60,13 @@ tests = [
     "pytest-cov",
 ]
 
+[project.urls]
+homepage = "https://www.optiprofiler.com"
+documentation = "https://www.optiprofiler.com"
+source = "https://github.com/optiprofiler/optiprofiler"
+download = "https://pypi.org/project/optiprofiler/#files"
+tracker = "https://github.com/optiprofiler/optiprofiler/issues"
+
 [tool.setuptools.dynamic]
 version = {attr = "optiprofiler.__version__"}
 

@@ -12,6 +12,7 @@ class FeatureName(str, Enum):
     """
     CUSTOM = 'custom'
     NOISY = 'noisy'
+    PERMUTATE = 'permutate'
     PLAIN = 'plain'
     RANDOMIZE_X0 = 'randomize_x0'
     TOUGH = 'tough'
@@ -25,7 +26,6 @@ class ProfileOption(str, Enum):
     """
     N_JOBS = 'n_jobs'
     BENCHMARK_ID = 'benchmark_id'
-    SUMMARIZE = 'summarize'
     PROJECT_X0 = 'project_x0'
 
 

@@ -68,7 +68,7 @@ class Feature:
                 known_options.extend([FeatureOption.SIGNIFICANT_DIGITS])
             elif self._name == FeatureName.UNRELAXABLE_CONSTRAINTS:
                 known_options.extend([FeatureOption.UNRELAXABLE_BOUNDS, FeatureOption.UNRELAXABLE_LINEAR_CONSTRAINTS, FeatureOption.UNRELAXABLE_NONLINEAR_CONSTRAINTS])
-            elif self._name != FeatureName.PLAIN:
+            elif self._name not in [FeatureName.PERMUTATE, FeatureName.PLAIN]:
                 raise NotImplementedError(f'Unknown feature: {self._name}.')
             if key not in known_options:
                 raise ValueError(f'Option {key} is not valid for feature {self._name}.')
@@ -145,7 +145,7 @@ class Feature:
         bool
             Whether the feature is stochastic.
         """
-        return self._name in [FeatureName.CUSTOM, FeatureName.NOISY, FeatureName.TOUGH, FeatureName.TRUNCATE]
+        return self._name in [FeatureName.CUSTOM, FeatureName.NOISY, FeatureName.PERMUTATE, FeatureName.TOUGH, FeatureName.TRUNCATE]
 
     def modifier(self, x, f, maxcv_bounds=0.0, maxcv_linear=0.0, maxcv_nonlinear=0.0, seed=None):
         """
@@ -226,7 +226,7 @@ class Feature:
                 f = np.inf
             elif self._options[FeatureOption.UNRELAXABLE_NONLINEAR_CONSTRAINTS] and maxcv_nonlinear > 0.0:
                 f = np.inf
-        elif self._name not in [FeatureName.PLAIN, FeatureName.RANDOMIZE_X0]:
+        elif self._name not in [FeatureName.PERMUTATE, FeatureName.PLAIN, FeatureName.RANDOMIZE_X0]:
             raise NotImplementedError(f'Unknown feature: {self._name}.')
         return f
 
@@ -252,6 +252,8 @@ class Feature:
             self._options.setdefault(FeatureOption.TYPE.value, NoiseType.RELATIVE.value)
         elif self._name == FeatureName.RANDOMIZE_X0:
             self._options.setdefault(FeatureOption.DISTRIBUTION.value, self._default_distribution)
+            self._options.setdefault(FeatureOption.N_RUNS.value, 10)
+        elif self._name == FeatureName.PERMUTATE:
             self._options.setdefault(FeatureOption.N_RUNS.value, 10)
         elif self._name == FeatureName.TOUGH:
             self._options.setdefault(FeatureOption.N_RUNS.value, 10)

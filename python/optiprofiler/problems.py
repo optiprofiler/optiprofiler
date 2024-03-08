@@ -645,6 +645,10 @@ class FeaturedProblem(Problem):
             if self._seed < 0:
                 raise ValueError('The argument seed must be nonnegative.')
 
+        # Generate a random permutation.
+        rng = self._feature.get_default_rng(self._seed)
+        self._permutation = rng.permutation(problem.n)
+
         # Store the objective function values and maximum constraint violations.
         self._fun_hist = []
         self._maxcv_hist = []
@@ -687,6 +691,8 @@ class FeaturedProblem(Problem):
         if self._feature.name == FeatureName.RANDOMIZE_X0:
             rng = self._feature.get_default_rng(self._seed, *x0)
             x0 += self._feature.options[FeatureOption.DISTRIBUTION](rng, x0.size)
+        elif self._feature.name == FeatureName.PERMUTATE:
+            x0 = x0[np.argsort(self._permutation)]
         return x0
 
     @property
@@ -736,6 +742,10 @@ class FeaturedProblem(Problem):
         """
         if self.n_eval >= self._max_eval:
             raise StopIteration('The maximum number of function evaluations has been reached.')
+
+        # Permutate the variables if necessary.
+        if self._feature.name == FeatureName.PERMUTATE:
+            x = x[self._permutation]
 
         # Evaluate the objective function and store the results.
         f = super().fun(x)
