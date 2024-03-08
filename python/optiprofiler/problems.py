@@ -592,7 +592,7 @@ class Problem:
 
             with warnings.catch_warnings():
                 warnings.simplefilter('ignore')
-                res = minimize(dist_x0_sq, self.x0, jac=True, bounds=bounds, constraints=constraints)
+                res = minimize(dist_x0_sq, self.x0, jac=True, hessp=lambda p: p, bounds=bounds, constraints=constraints)
             self._x0 = res.x
 
 
