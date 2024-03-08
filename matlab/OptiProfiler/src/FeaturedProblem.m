@@ -143,7 +143,7 @@ classdef FeaturedProblem < Problem
             % Modified the objective function value according to the feature and return the 
             % modified value. We should not store the modified value because the performance 
             % of an optimization solver should be measured using the original objective function.
-            cv_bounds, cv_linear, cv_nonlinear = obj.maxcv(x, true);
+            [cv_bounds, cv_linear, cv_nonlinear] = obj.maxcv(x, true);
             f = obj.feature.modifier(x, f_true, obj.seed, cv_bounds, cv_linear, cv_nonlinear);
         end
         
