@@ -102,7 +102,7 @@ def show_versions():
     ))
 
 
-def get_logger(name, filename='out/my.log', level=logging.INFO):
+def get_logger(name, level=logging.INFO):
     """
     Get a logger.
 
@@ -110,8 +110,6 @@ def get_logger(name, filename='out/my.log', level=logging.INFO):
     ----------
     name : str
         Name of the logger. If ``None``, the root logger is returned.
-    filename: {str, `pathlib.Path`}, optional
-        Name of the file to which the log messages will be written.
     level : int, optional
         Logging level.
 
@@ -127,7 +125,7 @@ def get_logger(name, filename='out/my.log', level=logging.INFO):
         formatter = logging.Formatter('[%(levelname)-8s] %(message)s')
 
         # Attach a console handler.
-        console_handler = logging.StreamHandler()
+        console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setFormatter(formatter)
         logger.addHandler(console_handler)
     return logger

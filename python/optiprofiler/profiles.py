@@ -294,11 +294,11 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
         pdf_data_out.close()
         pdf_log_ratio_hist.close()
         pdf_log_ratio_out.close()
-        logger.info(f'Results stored in {path_out}.')
+        logger.info(f'Detailed results stored in {path_feature}.')
 
     # Create the summary PDF if necessary.
     if profile_options[ProfileOption.SUMMARIZE]:
-        logger.info('Creating summary PDF.')
+        logger.info('Creating summary.')
         path_profiles = [path_perf_hist, path_data_hist]
         reader_profiles = [PdfReader(path_perf_hist), PdfReader(path_data_hist)]
         if path_log_ratio_hist.is_file():
@@ -326,6 +326,7 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
                 )
         pdf_summary.write(path_summary)
         pdf_summary.close()
+        logger.info(f'Summary stored in {path_summary}.')
 
 
 def _solve_all_problems(cutest_problem_names, extra_problems, solvers, labels, feature, max_eval_factor, profile_options):

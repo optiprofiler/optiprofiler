@@ -33,6 +33,7 @@ gcc
 getoption
 gfo
 hasdoc
+hessp
 horizontalalignment
 htmlhelp
 htmlzip
@@ -42,7 +43,6 @@ intersphinx
 jac
 lastupdated
 levelname
-linalg
 linestyle
 linkcode
 linspace
@@ -60,7 +60,6 @@ nanmax
 nanmin
 ndarray
 ndim
-neginf
 newaxis
 NLocator
 numpydoc
@@ -70,7 +69,6 @@ Optim
 papersize
 pathto
 plt
-posinf
 pyargs
 pyplot
 rng
