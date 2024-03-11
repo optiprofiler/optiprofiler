@@ -28,9 +28,23 @@ function runBenchmark(solvers, labels, problem_names, feature_name, varargin)
 
 
     % Preprocess the solvers.
-    % TODO
+    if ~iscell(solvers) || ~all(cellfun(@(s) isa(s, 'function_handle'), solvers))
+        error("The solvers must be a cell array of function handles.");
+    end
+    if numel(solvers) < 2
+        error("At least two solvers must be given.");
+    end
+
     % Preprocess the labels.
-    % TODO
+    if ~iscell(labels) || ~all(cellfun(@(l) ischar(l) || isstring(l), labels))
+        error("The labels must be a list of strings.");
+    end
+    if numel(labels) ~= 0 && numel(labels) ~= numel(solvers)
+        error("The number of labels must equal the number of solvers.");
+    end
+    if numel(labels) == 0
+        labels = cellfun(@func2str, solvers, 'UniformOutput', false);
+    end
 
     % Set default values for optional arguments.
     myCluster = parcluster('local');
