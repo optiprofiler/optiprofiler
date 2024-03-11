@@ -43,11 +43,13 @@ intersphinx
 jac
 lastupdated
 levelname
+linalg
 linestyle
 linkcode
 linspace
 lnx
 logspace
+lstsq
 mastsif
 mathrm
 maxcv
