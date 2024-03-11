@@ -7,7 +7,6 @@ set -x
 if [[ "$RUNNER_OS" == "Linux" || "$RUNNER_OS" == "macOS" ]]; then
   export PYCUTEST_CACHE=$GITHUB_WORKSPACE
   python -m pip install --progress-bar=off ".[extra,tests]"
-  python -m pip install --progress-bar=off setuptools  # required by PyCUTEst but missing for Python 3.12
   python -m pytest --cov=. --cov-report=xml --run-extra
 else
   python -m pip install --progress-bar=off ".[tests]"

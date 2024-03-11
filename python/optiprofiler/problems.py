@@ -4,6 +4,7 @@ import warnings
 from contextlib import redirect_stdout, redirect_stderr
 
 import numpy as np
+from scipy.linalg import lstsq
 from scipy.optimize import Bounds, LinearConstraint, NonlinearConstraint, minimize
 
 from .features import Feature
@@ -103,7 +104,7 @@ class Problem:
     optional arguments ``c_eq`` and ``m_nonlinear_eq``.
     """
 
-    def __init__(self, fun, x0, lb=None, ub=None, a_ub=None, b_ub=None, a_eq=None, b_eq=None, c_ub=None, m_nonlinear_ub=None, c_eq=None, m_nonlinear_eq=None):
+    def __init__(self, fun, x0, lb=None, ub=None, a_ub=None, b_ub=None, a_eq=None, b_eq=None, c_ub=None, c_eq=None, m_nonlinear_ub=None, m_nonlinear_eq=None):
         """
         Initialize an optimization problem.
 
@@ -572,6 +573,8 @@ class Problem:
         """
         if self.type == 'bound-constrained':
             self._x0 = np.clip(self._x0, self.lb, self.ub)
+        elif self.type == 'linearly constrained' and self.m_linear_ub == 0 and np.all(self.lb == -np.inf) and np.all(self.ub == np.inf):
+            self._x0 = lstsq(self.a_eq, self.b_eq - self.a_eq @ self.x0)[0]
         elif self.type != 'unconstrained':
             bounds = Bounds(self.lb, self.ub)
             constraints = []
@@ -647,7 +650,9 @@ class FeaturedProblem(Problem):
 
         # Generate a random permutation.
         rng = self._feature.get_default_rng(self._seed)
-        self._permutation = rng.permutation(problem.n)
+        self._permutation = None
+        if feature.name == FeatureName.PERMUTATE:
+            self._permutation = rng.permutation(problem.n)
 
         # Store the objective function values and maximum constraint violations.
         self._fun_hist = []
@@ -688,11 +693,11 @@ class FeaturedProblem(Problem):
             Initial guess.
         """
         x0 = super().x0
-        if self._feature.name == FeatureName.RANDOMIZE_X0:
+        if self._feature.name == FeatureName.PERMUTATE:
+            x0 = x0[np.argsort(self._permutation)]
+        elif self._feature.name == FeatureName.RANDOMIZE_X0:
             rng = self._feature.get_default_rng(self._seed, *x0)
             x0 += self._feature.options[FeatureOption.DISTRIBUTION](rng, x0.size)
-        elif self._feature.name == FeatureName.PERMUTATE:
-            x0 = x0[np.argsort(self._permutation)]
         return x0
 
     @property
@@ -869,7 +874,6 @@ def find_cutest_problems(constraints):
 
     # Find all the problems that satisfy the constraints.
     problem_names = pycutest.find_problems(
-        objective='constant linear quadratic sum of squares other',
         constraints=constraints,
         n=[
             _cutest_problem_options[CUTEstProblemOption.N_MIN],
