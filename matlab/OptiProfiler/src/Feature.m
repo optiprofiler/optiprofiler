@@ -27,10 +27,6 @@ classdef Feature < handle
                 Modifier used in the custom feature.
             n_runs : int, optional
                 Number of runs of the feature.
-            order : int or float, optional
-                Order of the regularized feature.
-            parameter : int or float, optional
-                Regularization parameter of the regularized feature.
             rate_nan : int or float, optional
                 Rate of NaNs of the tough feature.
             significant_digits : int, optional
@@ -78,14 +74,14 @@ classdef Feature < handle
                         known_options = [known_options, {FeatureOptionKey.DISTRIBUTION.value, FeatureOptionKey.TYPE.value}];
                     case FeatureName.RANDOMIZE_X0.value
                         known_options = [known_options, {FeatureOptionKey.DISTRIBUTION.value}];
-                    case FeatureName.REGULARIZED.value
-                        known_options = [known_options, {FeatureOptionKey.ORDER.value, FeatureOptionKey.PARAMETER.value}];
                     case FeatureName.TOUGH.value
                         known_options = [known_options, {FeatureOptionKey.RATE_NAN.value}];
                     case FeatureName.TRUNCATED.value
                         known_options = [known_options, {FeatureOptionKey.SIGNIFICANT_DIGITS.value}];
                     case FeatureName.UNRELAXABLE_CONSTRAINTS.value
                         known_options = [known_options, {FeatureOptionKey.UNRELAXABLE_BOUNDS.value, FeatureOptionKey.UNRELAXABLE_LINEAR_CONSTRAINTS.value, FeatureOptionKey.UNRELAXABLE_NONLINEAR_CONSTRAINTS.value}];
+                    case FeatureName.PERMUTATE.value
+                        % Do nothing
                     case FeatureName.PLAIN.value
                         % Do nothing
                     otherwise
@@ -111,14 +107,6 @@ classdef Feature < handle
                     case FeatureOptionKey.DISTRIBUTION.value
                         if ~isa(obj.options.(key), 'function_handle')
                             error("MATLAB:Feature:distribution_NotFunctionHandle", "Option " + key + " must be a function handle.")
-                        end
-                    case FeatureOptionKey.ORDER.value
-                        if ~isnumeric(obj.options.(key))
-                            error("MATLAB:Feature:order_NotNumber", "Option " + key + " must be a number.")
-                        end
-                    case FeatureOptionKey.PARAMETER.value
-                        if ~isnumeric(obj.options.(key)) || obj.options.(key) < 0.0
-                            error("MATLAB:Feature:parameter_NotNonnegativeNumber", "Option " + key + " must be a nonnegative number.")
                         end
                     case FeatureOptionKey.RATE_NAN.value
                         if ~isnumeric(obj.options.(key)) || obj.options.(key) < 0.0 || obj.options.(key) > 1.0
@@ -153,6 +141,11 @@ classdef Feature < handle
 
             % Set default options.
             obj = set_default_options(obj);
+        end
+
+        function is_stochastic = isStochastic(obj)
+            stochasticFeatures = {FeatureName.CUSTOM.value, FeatureName.NOISY.value, FeatureName.PERMUTATE.value, FeatureName.TOUGH.value, FeatureName.TRUNCATED.value};
+            is_stochastic = ismember(obj.name, stochasticFeatures);
         end
 
         function f = modifier(obj, x, f, seed, maxcv_bounds, maxcv_linear, maxcv_nonlinear)
@@ -192,21 +185,15 @@ classdef Feature < handle
             xCell = num2cell(x);
 
             switch obj.name
-                case FeatureName.PLAIN.value
-                    % Do nothing
-                case FeatureName.RANDOMIZE_X0.value
-                    % Do nothing
                 case FeatureName.CUSTOM.value
                     f = obj.options.(FeatureOptionKey.MODIFIER.value)(x, f, seed);
                 case FeatureName.NOISY.value
                     rand_stream = obj.default_rng(seed, f, sum(double(obj.options.(FeatureOptionKey.TYPE.value))), xCell{:});
                     if obj.options.(FeatureOptionKey.TYPE.value) == NoiseType.ABSOLUTE.value
-                        f = f + obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream);
+                        f = f + obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream, 1);
                     else
                         f = f * (1.0 + obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream));
                     end
-                case FeatureName.REGULARIZED.value
-                    f = f + obj.options.(FeatureOptionKey.PARAMETER.value) * norm(x, obj.options.(FeatureOptionKey.ORDER.value));
                 case FeatureName.TOUGH.value
                     rand_stream = obj.default_rng(seed, f, obj.options.(FeatureOptionKey.RATE_NAN.value), xCell{:});
                     if rand_stream.rand() < obj.options.(FeatureOptionKey.RATE_NAN.value)
@@ -233,6 +220,12 @@ classdef Feature < handle
                     elseif obj.options.(FeatureOptionKey.UNRELAXABLE_NONLINEAR_CONSTRAINTS.value) && maxcv_nonlinear > 0
                         f = Inf;
                     end
+                case FeatureName.PERMUTATE.value
+                    % Do nothing
+                case FeatureName.PLAIN.value
+                    % Do nothing
+                case FeatureName.RANDOMIZE_X0.value
+                    % Do nothing
                 otherwise
                     error("MATLAB:Feature:UnknownFeature", "Unknown feature: " + obj.name + ".")
             end
@@ -254,7 +247,7 @@ classdef Feature < handle
                     end
                 case FeatureName.NOISY.value
                     if ~isfield(obj.options, FeatureOptionKey.DISTRIBUTION.value)
-                        obj.options.(FeatureOptionKey.DISTRIBUTION.value) = @(rand_stream) 1e-3 * rand_stream.randn();
+                        obj.options.(FeatureOptionKey.DISTRIBUTION.value) = obj.default_distribution;
                     end
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
                         obj.options.(FeatureOptionKey.N_RUNS.value) = int32(10);
@@ -264,20 +257,14 @@ classdef Feature < handle
                     end
                 case FeatureName.RANDOMIZE_X0.value
                     if ~isfield(obj.options, FeatureOptionKey.DISTRIBUTION.value)
-                        obj.options.(FeatureOptionKey.DISTRIBUTION.value) = @(rand_stream, n) 1e-3 * rand_stream.randn(n, 1);
+                        obj.options.(FeatureOptionKey.DISTRIBUTION.value) = obj.default_distribution;
                     end
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
                         obj.options.(FeatureOptionKey.N_RUNS.value) = int32(10);
                     end
-                case FeatureName.REGULARIZED.value
+                case FeatureName.PERMUTATE.value
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
-                        obj.options.(FeatureOptionKey.N_RUNS.value) = int32(1);
-                    end
-                    if ~isfield(obj.options, FeatureOptionKey.ORDER.value)
-                        obj.options.(FeatureOptionKey.ORDER.value) = 2;
-                    end
-                    if ~isfield(obj.options, FeatureOptionKey.PARAMETER.value)
-                        obj.options.(FeatureOptionKey.PARAMETER.value) = 1.0;
+                        obj.options.(FeatureOptionKey.N_RUNS.value) = int32(10);
                     end
                 case FeatureName.TOUGH.value
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
@@ -314,6 +301,10 @@ classdef Feature < handle
     end
 
     methods (Static)
+        function value = default_distribution(randstream, n)
+            value = 1e-3 * randstream.randn(n, 1);
+        end
+
         function rand_stream = default_rng(seed, varargin)
             % Generate a random number generator.
             %

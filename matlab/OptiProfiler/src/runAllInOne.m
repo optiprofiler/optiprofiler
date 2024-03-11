@@ -50,13 +50,14 @@ function runAllInOne(solvers, labels, problem_names, varargin)
     end
 
     % Build features.
-    features = cell(6, 1);
+    features = cell(7, 1);
     features{1} = Feature('plain');
     features{2} = Feature('noisy');
     features{3} = Feature('randomize_x0');
-    features{4} = Feature('regularized');
-    features{5} = Feature('tough');
-    features{6} = Feature('truncated');
+    features{4} = Feature('tough');
+    features{5} = Feature('truncated');
+    features{6} = Feature('permutate');
+    features{7} = Feature('unrelaxable_constraints');
 
     % Paths to the results.
     timestamp = datestr(datetime('now', 'TimeZone', 'local', 'Format', 'yyyy-MM-dd''T''HH-mm-SSZ'), 'yyyy-mm-ddTHH-MM-SSZ');
@@ -93,7 +94,7 @@ function runAllInOne(solvers, labels, problem_names, varargin)
 
         % Determine the least merit value for each problem.
         merit_min = min(min(min(merit_histories, [], 4, 'omitnan'), [], 3, 'omitnan'), [], 2, 'omitnan');
-        if ismember(feature.name, {FeatureName.NOISY.value, FeatureName.TOUGH.value, FeatureName.TRUNCATED.value})
+        if feature.isStochastic
             feature_plain = Feature(FeatureName.PLAIN.value);
             fprintf("INFO: Starting the computation of the plain profiles.\n");
             [fun_histories_plain, maxcv_histories_plain] = solveAllProblems(problem_names, problem_options, solvers, labels, feature_plain, max_eval_factor, profile_options);

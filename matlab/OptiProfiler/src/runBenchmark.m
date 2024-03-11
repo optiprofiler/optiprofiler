@@ -85,18 +85,19 @@ function runBenchmark(solvers, labels, problem_names, feature_name, varargin)
 
     % Solve all the problems.
     max_eval_factor = 500;
-    [fun_histories, maxcv_histories, fun_ret, maxcv_ret, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, computation_times] = solveAllProblems(problem_names, problem_options, solvers, labels, feature, max_eval_factor, profile_options);
-    merit_histories = computeMeritValues(fun_histories, maxcv_histories);
-    merit_ret = computeMeritValues(fun_ret, maxcv_ret);
-    merit_init = computeMeritValues(fun_init, maxcv_init);
+    [fun_histories, maxcv_histories, fun_ret, maxcv_ret, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, time_processes] = solveAllProblems(problem_names, problem_options, solvers, labels, feature, max_eval_factor, profile_options);
+    merit_histories = computeMeritValues(fun_histories, maxcv_histories, maxcv_init);
+    merit_ret = computeMeritValues(fun_ret, maxcv_ret, maxcv_init);
+    merit_init = computeMeritValues(fun_init, maxcv_init, maxcv_init);
 
     % Determine the least merit value for each problem.
     merit_min = min(min(min(merit_histories, [], 4, 'omitnan'), [], 3, 'omitnan'), [], 2, 'omitnan');
-    if ismember(feature_name, {FeatureName.NOISY.value, FeatureName.TOUGH.value, FeatureName.TRUNCATED.value})
+    if feature.isStochastic
         feature_plain = Feature(FeatureName.PLAIN.value);
         fprintf("INFO: Starting the computation of the plain profiles.\n");
-        [fun_histories_plain, maxcv_histories_plain] = solveAllProblems(problem_names, problem_options, solvers, labels, feature_plain, max_eval_factor, profile_options);
-        merit_histories_plain = computeMeritValues(fun_histories_plain, maxcv_histories_plain);
+        [fun_histories_plain, maxcv_histories_plain, ~, ~, ~, ~, ~, ~, ~, time_processes_plain] = solveAllProblems(problem_names, problem_options, solvers, labels, feature_plain, max_eval_factor, profile_options);
+        time_processes = time_processes + time_processes_plain;
+        merit_histories_plain = computeMeritValues(fun_histories_plain, maxcv_histories_plain, maxcv_init);
         merit_min_plain = min(min(min(merit_histories_plain, [], 4, 'omitnan'), [], 3, 'omitnan'), [], 2, 'omitnan');
         merit_min = min(merit_min, merit_min_plain, 'omitnan');
     end
@@ -136,13 +137,13 @@ function runBenchmark(solvers, labels, problem_names, feature_name, varargin)
     % Store the names of the problems.
     path_txt = fullfile(path_out, 'problems.txt');
     [sorted_problem_names, idx] = sort(problem_names);
-    sorted_computation_times = computation_times(idx);
+    sorted_time_processes = time_processes(idx);
     fid = fopen(path_txt, 'w');
     if fid == -1
         error("Cannot open the file %s.", path_txt);
     end
     for i = 1:length(sorted_problem_names)
-        fprintf(fid, "%s: %.2f seconds\n", sorted_problem_names{i}, sorted_computation_times(i));
+        fprintf(fid, "%s: %.2f seconds\n", sorted_problem_names{i}, sorted_time_processes(i));
     end
     fclose(fid);
 
@@ -270,12 +271,13 @@ function runBenchmark(solvers, labels, problem_names, feature_name, varargin)
 end
 
 
-function merit_values = computeMeritValues(fun_values, maxcv_values)
-    is_nearly_feasible = maxcv_values <= 1e-12;
-    is_very_infeasible = maxcv_values >= 1e-6;
-    is_undecided = ~is_nearly_feasible & ~is_very_infeasible;
-    merit_values = NaN(size(fun_values));
-    merit_values(is_nearly_feasible) = fun_values(is_nearly_feasible);
-    merit_values(is_very_infeasible) = Inf;
-    merit_values(is_undecided) = fun_values(is_undecided) + 1e8 * maxcv_values(is_undecided);
+function merit_values = computeMeritValues(fun_values, maxcv_values, maxcv_init)
+    copied_dim = size(fun_values);
+    maxcv_init = repmat(maxcv_init, [1, copied_dim(2:end)]);
+    infeasibility_thresholds = max(1e-5, maxcv_init);
+    is_infeasible = maxcv_values > infeasibility_thresholds;
+    is_almost_feasible = (1e-10 < maxcv_values) & (maxcv_values <= infeasibility_thresholds);
+    merit_values = fun_values;
+    merit_values(is_infeasible | isnan(merit_values)) = Inf;
+    merit_values(is_almost_feasible) = merit_values(is_almost_feasible) + 1e5 * maxcv_values(is_almost_feasible);
 end

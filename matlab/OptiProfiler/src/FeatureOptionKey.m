@@ -5,8 +5,6 @@ classdef FeatureOptionKey
         DISTRIBUTION ('distribution')
         MODIFIER ('modifier')
         N_RUNS ('n_runs')
-        ORDER ('order')
-        PARAMETER ('parameter')
         RATE_NAN ('rate_nan')
         SIGNIFICANT_DIGITS ('significant_digits')
         TYPE ('type')

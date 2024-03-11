@@ -6,6 +6,7 @@ classdef FeaturedProblem < Problem
         feature
         max_eval
         seed
+        permutation
         fun_hist
         maxcv_hist
 
@@ -39,6 +40,30 @@ classdef FeaturedProblem < Problem
             if nargin < 4
                 seed = mod(floor(posixtime(datetime('now'))), 2^32);
             end
+
+            % Preprocess the feature.
+            if ~isa(feature, 'Feature')
+                error("The argument feature must be an instance of the class Feature.");
+            end
+
+            % Preprocess the maximum number of function evaluations.
+            if ~isreal(max_eval)
+                error("The argument feature max_eval must be a real number.");
+            end
+            if max_eval < 1 || max_eval ~= floor(max_eval)
+                error("The argument max_eval must be a positive integer.");
+            end
+
+            % Preprocess the seed.
+            if ~isreal(seed)
+                error("The argument feature seed must be a real number.");
+            end
+            if seed < 0 || seed ~= floor(seed)
+                error("The argument seed must be a nonnegative integer.");
+            end
+
+            rand_stream = feature.default_rng(seed);
+            permutation = rand_stream.randperm(problem.n);
             
             % Copy the problem.
             if ~isa(problem, 'Problem')
@@ -53,6 +78,9 @@ classdef FeaturedProblem < Problem
                 x0_Cell = num2cell(pb_struct.x0);
                 rand_stream = feature.default_rng(seed, x0_Cell{:});
                 pb_struct.x0 = pb_struct.x0 + feature.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream, length(pb_struct.x0));
+            elseif strcmp(feature.name, FeatureName.PERMUTATE.value)
+                [~, reverse_permutation] = sort(permutation);
+                pb_struct.x0 = pb_struct.x0(reverse_permutation);
             end
 
             % Initialize the FeaturedProblem object.
@@ -68,29 +96,10 @@ classdef FeaturedProblem < Problem
                 % pass
             end
 
-            % Preprocess the feature.
             obj.feature = feature;
-            if ~isa(obj.feature, 'Feature')
-                error("The argument feature must be an instance of the class Feature.");
-            end
-
-            % Preprocess the maximum number of function evaluations.
             obj.max_eval = max_eval;
-            if ~isreal(obj.max_eval)
-                error("The argument feature max_eval must be a real number.");
-            end
-            if obj.max_eval < 1 || obj.max_eval ~= floor(obj.max_eval)
-                error("The argument max_eval must be a positive integer.");
-            end
-
-            % Preprocess the seed.
             obj.seed = seed;
-            if ~isreal(obj.seed)
-                error("The argument feature seed must be a real number.");
-            end
-            if obj.seed < 0 || obj.seed ~= floor(obj.seed)
-                error("The argument seed must be a nonnegative integer.");
-            end
+            obj.permutation = permutation;
 
             % Store the objective function values and maximum constraint violations.
             obj.fun_hist = [];
@@ -133,6 +142,11 @@ classdef FeaturedProblem < Problem
 
             if obj.n_eval >= obj.max_eval
                 error("The maximum number of function evaluations has been reached.");
+            end
+
+            % Permutate the variables if necessary.
+            if obj.feature.name == FeatureName.PERMUTATE.value
+                x = x(obj.permutation);
             end
 
             % Evaluate the objective function and store the results.
