@@ -1,8 +1,9 @@
-function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, computation_times] = solveAllProblems(problem_names, problem_options, solvers, labels, feature, max_eval_factor, profile_options)
+function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, computation_times] = solveAllProblems(problem_names, problem_options, solvers, labels, feature, profile_options)
 %SOLVEALLPROBLEMS solves all problems in the problem_names list using solvers in the solvers list and stores the computing results.
 
     % Solve all problems.
     n_problems = length(problem_names);
+    max_eval_factor = profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value);
     results = cell(1, n_problems);
 
     switch profile_options.(ProfileOptionKey.N_JOBS.value)

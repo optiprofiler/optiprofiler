@@ -145,7 +145,7 @@ classdef FeaturedProblem < Problem
             end
 
             % Permutate the variables if necessary.
-            if obj.feature.name == FeatureName.PERMUTATE.value
+            if strcmp(obj.feature.name, FeatureName.PERMUTATE.value)
                 x = x(obj.permutation);
             end
 

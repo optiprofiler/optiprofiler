@@ -192,7 +192,7 @@ classdef Feature < handle
                     if obj.options.(FeatureOptionKey.TYPE.value) == NoiseType.ABSOLUTE.value
                         f = f + obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream, 1);
                     else
-                        f = f * (1.0 + obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream));
+                        f = f * (1.0 + obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream, 1));
                     end
                 case FeatureName.TOUGH.value
                     rand_stream = obj.default_rng(seed, f, obj.options.(FeatureOptionKey.RATE_NAN.value), xCell{:});
@@ -247,7 +247,7 @@ classdef Feature < handle
                     end
                 case FeatureName.NOISY.value
                     if ~isfield(obj.options, FeatureOptionKey.DISTRIBUTION.value)
-                        obj.options.(FeatureOptionKey.DISTRIBUTION.value) = obj.default_distribution;
+                        obj.options.(FeatureOptionKey.DISTRIBUTION.value) = @obj.default_distribution;
                     end
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
                         obj.options.(FeatureOptionKey.N_RUNS.value) = int32(10);
@@ -257,7 +257,7 @@ classdef Feature < handle
                     end
                 case FeatureName.RANDOMIZE_X0.value
                     if ~isfield(obj.options, FeatureOptionKey.DISTRIBUTION.value)
-                        obj.options.(FeatureOptionKey.DISTRIBUTION.value) = obj.default_distribution;
+                        obj.options.(FeatureOptionKey.DISTRIBUTION.value) = @obj.default_distribution;
                     end
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
                         obj.options.(FeatureOptionKey.N_RUNS.value) = int32(10);
@@ -302,6 +302,9 @@ classdef Feature < handle
 
     methods (Static)
         function value = default_distribution(randstream, n)
+            if nargin < 2
+                n = 1;
+            end
             value = 1e-3 * randstream.randn(n, 1);
         end
 
