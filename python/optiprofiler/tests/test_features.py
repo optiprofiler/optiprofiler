@@ -48,47 +48,47 @@ class TestFeature:
 
     @pytest.mark.parametrize('n', [1, 10, 100])
     @pytest.mark.parametrize('seed', [0, 1, 2])
-    def test_truncate(self, n, seed):
+    def test_truncated(self, n, seed):
         # Generate random data.
         rng = np.random.default_rng(seed)
         x = rng.standard_normal(n)
         f = self.rosen(x)
 
-        # Test the truncate feature.
-        feature = Feature('truncate')
-        assert feature.name == 'truncate'
+        # Test the truncated feature.
+        feature = Feature('truncated')
+        assert feature.name == 'truncated'
         assert feature.options == {'n_runs': 10, 'significant_digits': 6}
         np.testing.assert_allclose(feature.modifier(x, f),  f, 1e-5, 1e-5)
         np.testing.assert_allclose(feature.modifier(x, -f),  -f, 1e-5, 1e-5)
 
         # Add custom options.
-        feature = Feature('truncate', significant_digits=4)
-        assert feature.name == 'truncate'
+        feature = Feature('truncated', significant_digits=4)
+        assert feature.name == 'truncated'
         assert feature.options == {'n_runs': 10, 'significant_digits': 4}
         np.testing.assert_allclose(feature.modifier(x, f),  f, 1e-3, 1e-3)
 
     @pytest.mark.parametrize('n', [1, 10, 100])
     @pytest.mark.parametrize('seed', [0, 1, 2])
-    def test_tough(self, n, seed):
+    def test_random_nan(self, n, seed):
         # Generate random data.
         rng = np.random.default_rng(seed)
         x = rng.standard_normal(n)
         f = self.rosen(x)
 
-        # Test the tough feature.
-        feature = Feature('tough')
-        assert feature.name == 'tough'
+        # Test the random_nan feature.
+        feature = Feature('random_nan')
+        assert feature.name == 'random_nan'
         assert feature.options == {'n_runs': 10, 'rate_nan': 0.05}
-        f_tough = feature.modifier(x, f)
-        assert f_tough == f or np.isnan(f_tough)
+        f_random_nan = feature.modifier(x, f)
+        assert f_random_nan == f or np.isnan(f_random_nan)
 
         # Add custom options.
-        feature = Feature('tough', rate_nan=0.5)
-        assert feature.name == 'tough'
+        feature = Feature('random_nan', rate_nan=0.5)
+        assert feature.name == 'random_nan'
         assert feature.options == {'n_runs': 10, 'rate_nan': 0.5}
         try:
-            f_tough = feature.modifier(x, f)
-            assert f_tough == f or np.isnan(f_tough)
+            f_random_nan = feature.modifier(x, f)
+            assert f_random_nan == f or np.isnan(f_random_nan)
         except RuntimeError:
             pass
 
@@ -123,15 +123,15 @@ class TestFeature:
         with pytest.raises(TypeError):
             Feature('noisy', distribution=1.0)
         with pytest.raises(TypeError):
-            Feature('tough', rate_nan='1.0')
+            Feature('random_nan', rate_nan='1.0')
         with pytest.raises(ValueError):
-            Feature('tough', rate_nan=-1.0)
+            Feature('random_nan', rate_nan=-1.0)
         with pytest.raises(ValueError):
-            Feature('tough', rate_nan=2.0)
+            Feature('random_nan', rate_nan=2.0)
         with pytest.raises(TypeError):
-            Feature('truncate', significant_digits=2.5)
+            Feature('truncated', significant_digits=2.5)
         with pytest.raises(ValueError):
-            Feature('truncate', significant_digits=-1)
+            Feature('truncated', significant_digits=-1)
         with pytest.raises(TypeError):
             Feature('noisy', type=1)
         with pytest.raises(ValueError):
@@ -165,7 +165,7 @@ class TestFeature:
         Feature('noisy', n_runs=2.0)
 
         # The value significant_digits can be a float.
-        Feature('truncate', significant_digits=2.0)
+        Feature('truncated', significant_digits=2.0)
 
         # The seed can be a float.
         feature = Feature('plain')

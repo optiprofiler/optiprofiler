@@ -701,6 +701,66 @@ class FeaturedProblem(Problem):
         return x0
 
     @property
+    def lb(self):
+        """
+        Lower bounds on the variables.
+
+        Returns
+        -------
+        `numpy.ndarray`, shape (n,)
+            Lower bounds on the variables.
+        """
+        lb = super().lb
+        if self._feature.name == FeatureName.PERMUTED:
+            lb = lb[np.argsort(self._permutation)]
+        return lb
+
+    @property
+    def ub(self):
+        """
+        Upper bounds on the variables.
+
+        Returns
+        -------
+        `numpy.ndarray`, shape (n,)
+            Upper bounds on the variables.
+        """
+        ub = super().ub
+        if self._feature.name == FeatureName.PERMUTED:
+            ub = ub[np.argsort(self._permutation)]
+        return ub
+
+    @property
+    def a_ub(self):
+        """
+        Coefficient matrix of the linear constraints ``a_ub @ x <= b_ub``.
+
+        Returns
+        -------
+        `numpy.ndarray`, shape (m_linear_ub, n)
+            Coefficient matrix of the linear inequality constraints.
+        """
+        a_ub = super().a_ub
+        if self._feature.name == FeatureName.PERMUTED:
+            a_ub = a_ub[:, np.argsort(self._permutation)]
+        return a_ub
+
+    @property
+    def a_eq(self):
+        """
+        Coefficient matrix of the linear constraints ``a_eq @ x == b_eq``.
+
+        Returns
+        -------
+        `numpy.ndarray`, shape (m_linear_eq, n)
+            Coefficient matrix of the linear equality constraints.
+        """
+        a_eq = super().a_eq
+        if self._feature.name == FeatureName.PERMUTED:
+            a_eq = a_eq[:, np.argsort(self._permutation)]
+        return a_eq
+
+    @property
     def fun_hist(self):
         """
         History of objective function values.
@@ -764,6 +824,60 @@ class FeaturedProblem(Problem):
         # using the original objective function.
         return self._feature.modifier(x, f, maxcv_bounds, maxcv_linear, maxcv_nonlinear, self._seed)
 
+    def c_ub(self, x):
+        """
+        Evaluate the nonlinear constraints ``c_ub(x) <= 0``.
+
+        Parameters
+        ----------
+        x : array_like, shape (n,)
+            Point at which to evaluate the nonlinear inequality constraints.
+
+        Returns
+        -------
+        `numpy.ndarray`, shape (m_nonlinear_ub,)
+            Values of the nonlinear inequality constraints at `x`.
+
+        Raises
+        ------
+        ValueError
+            If the argument `x` has an invalid shape or if the return value of
+            the argument `c_ub` has an invalid shape.
+        """
+        # Permutate the variables if necessary.
+        if self._feature.name == FeatureName.PERMUTED:
+            x = x[self._permutation]
+
+        # Evaluate the nonlinear inequality constraints and return.
+        return super().c_ub(x)
+
+    def c_eq(self, x):
+        """
+        Evaluate the nonlinear constraints ``c_eq(x) == 0``.
+
+        Parameters
+        ----------
+        x : array_like, shape (n,)
+            Point at which to evaluate the nonlinear equality constraints.
+
+        Returns
+        -------
+        `numpy.ndarray`, shape (m_nonlinear_eq,)
+            Values of the nonlinear equality constraints at `x`.
+
+        Raises
+        ------
+        ValueError
+            If the argument `x` has an invalid shape or if the return value of
+            the argument `c_eq` has an invalid shape.
+        """
+        # Permutate the variables if necessary.
+        if self._feature.name == FeatureName.PERMUTED:
+            x = x[self._permutation]
+
+        # Evaluate the nonlinear inequality constraints and return.
+        return super().c_eq(x)
+
 
 def get_cutest_problem_options():
     return dict(_cutest_problem_options)
@@ -825,10 +939,10 @@ def find_cutest_problems(constraints):
 
     Parameters
     ----------
-    constraints : str
+    constraints : {str, list}
+        TODO: Improve the doc.
         Type of constraints that the CUTEst problems must have. It should
-        contain one or more of the following substrings: 'unconstrained',
-        'fixed', 'bound', 'adjacency', 'linear', 'quadratic', 'other'.
+        be either: 'unconstrained', 'bound', 'linear', and 'nonlinear'.
 
     Returns
     -------
@@ -858,23 +972,27 @@ def find_cutest_problems(constraints):
     import pycutest
 
     # Preprocess the constraints.
-    if not isinstance(constraints, str):
-        raise TypeError('The argument constraints must be a string.')
-    for constraint in constraints.split():
-        if constraint not in [
-            'unconstrained',
-            'fixed',
-            'bound',
-            'adjacency',
-            'linear',
-            'quadratic',
-            'other',
-        ]:
+    if isinstance(constraints, str):
+        constraints = [constraints]
+    constraints = list(constraints)
+    for constraint in constraints:
+        if not isinstance(constraint, str):
+            raise TypeError('The argument constraints must be either a string or a list of strings.')
+        if constraint not in ['unconstrained', 'bound', 'linear', 'nonlinear']:
             raise ValueError(f'Unknown constraint: {constraint}.')
 
     # Find all the problems that satisfy the constraints.
+    constraints_cutest = ''
+    if 'unconstrained' in constraints:
+        constraints_cutest += 'unconstrained fixed'
+    if 'bound' in constraints:
+        constraints_cutest += 'bound'
+    if 'linear' in constraints:
+        constraints_cutest += 'adjacency linear'
+    if 'nonlinear' in constraints:
+        constraints_cutest += 'quadratic other'
     problem_names = pycutest.find_problems(
-        constraints=constraints,
+        constraints=constraints_cutest,
         n=[
             _cutest_problem_options[CUTEstProblemOption.N_MIN],
             _cutest_problem_options[CUTEstProblemOption.N_MAX],

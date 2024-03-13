@@ -274,13 +274,13 @@ class TestFeaturedProblem(BaseTestProblem):
         np.testing.assert_array_equal(featured_problem.maxcv_hist, [0.0])
 
     @pytest.mark.parametrize('n', [1, 10, 100])
-    def test_randomize_x0(self, n):
+    def test_perturbed_x0(self, n):
         # Construct a simple problem.
         x0 = np.zeros(n)
         problem = Problem(self.rosen, x0)
 
         # Construct a featured problem.
-        feature = Feature('randomize_x0', distribution=lambda rng, n: np.ones(n))
+        feature = Feature('perturbed_x0', distribution=lambda rng, n: np.ones(n))
         featured_problem = FeaturedProblem(problem, feature, 500 * n)
 
         # Evaluate the objective function at x0.
