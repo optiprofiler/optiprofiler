@@ -373,7 +373,7 @@ class TestSetCUTEstProblemOptions:
 class TestFindCUTEstProblemNames:
 
     def test_simple(self):
-        for constraint in ['unconstrained', 'fixed', 'bound', 'adjacency', 'linear', 'quadratic', 'other']:
+        for constraint in ['unconstrained', 'bound', 'linear', 'nonlinear']:
             problem_names = find_cutest_problems(constraint)
             assert isinstance(problem_names, list)
             for problem_name in problem_names:
@@ -382,7 +382,7 @@ class TestFindCUTEstProblemNames:
         # Check that constraint types can be combined.
         unconstrained_problem_names = find_cutest_problems('unconstrained')
         bound_problem_names = find_cutest_problems('bound')
-        both_problem_names = find_cutest_problems('unconstrained bound')
+        both_problem_names = find_cutest_problems(['unconstrained', 'bound'])
         assert set(both_problem_names) == set(unconstrained_problem_names + bound_problem_names)
 
     def test_parameters(self):
@@ -395,9 +395,9 @@ class TestFindCUTEstProblemNames:
 
         # Check the m_min and m_max parameters.
         set_cutest_problem_options(m_min=1, m_max=100)
-        problem_names_1_100 = find_cutest_problems('adjacency linear quadratic other')
+        problem_names_1_100 = find_cutest_problems(['linear', 'nonlinear'])
         set_cutest_problem_options(m_min=10, m_max=50)
-        problem_names_10_50 = find_cutest_problems('adjacency linear quadratic other')
+        problem_names_10_50 = find_cutest_problems(['linear', 'nonlinear'])
         assert set(problem_names_10_50).issubset(set(problem_names_1_100))
 
     def test_exceptions(self):
@@ -408,13 +408,13 @@ class TestFindCUTEstProblemNames:
 
     def test_catch(self):
         set_cutest_problem_options(n_min=1.0, n_max=10.0, m_min=1.0, m_max=100.0)
-        find_cutest_problems('quadratic')
+        find_cutest_problems('nonlinear')
 
 
 @pytest.mark.extra
 class TestLoadCUTEst:
 
-    @pytest.mark.parametrize('constraint', ['unconstrained', 'fixed', 'bound', 'adjacency', 'linear', 'quadratic', 'other'])
+    @pytest.mark.parametrize('constraint', ['unconstrained', 'bound', 'linear', 'nonlinear'])
     def test_simple(self, constraint):
         set_cutest_problem_options(n_min=1, n_max=10, m_min=0, m_max=100)
         problem_names = find_cutest_problems(constraint)

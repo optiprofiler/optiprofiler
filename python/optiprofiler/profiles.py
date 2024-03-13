@@ -237,7 +237,7 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
     }):
         # Create the performance and data profiles.
         n_problems, n_solvers, n_runs, max_eval = merit_histories.shape
-        tolerances = np.logspace(-1, -10, 10)
+        tolerances = np.logspace(-1, -16, 16)
         pdf_perf_hist = backend_pdf.PdfPages(path_perf_hist)
         pdf_perf_out = backend_pdf.PdfPages(path_perf_out)
         pdf_data_hist = backend_pdf.PdfPages(path_data_hist)
