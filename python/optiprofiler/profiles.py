@@ -426,13 +426,15 @@ def _solve_one_problem(problem_name, solvers, labels, feature, max_eval_factor, 
             time_start_solver_run = time.monotonic()
             featured_problem = FeaturedProblem(problem, feature, max_eval, i_run)
             sig = signature(solvers[i_solver])
-            if len(sig.parameters) not in [2, 4, 8, 10]:
+            if len(sig.parameters) not in [1, 2, 4, 8, 10]:
                 raise ValueError(f'Unknown signature: {sig}.')
             with open(os.devnull, 'w') as devnull:
                 with warnings.catch_warnings(), redirect_stdout(devnull), redirect_stderr(devnull):
                     warnings.filterwarnings('ignore')
                     try:
-                        if len(sig.parameters) == 2:
+                        if len(sig.parameters) == 1:
+                            x = solvers[i_solver](featured_problem)
+                        elif len(sig.parameters) == 2:
                             x = solvers[i_solver](featured_problem.fun, featured_problem.x0)
                         elif len(sig.parameters) == 4:
                             x = solvers[i_solver](featured_problem.fun, featured_problem.x0, featured_problem.lb, featured_problem.ub)
