@@ -335,8 +335,12 @@ def _solve_all_problems(cutest_problem_names, extra_problems, solvers, labels, f
     # Solve all problems.
     logger = get_logger(__name__)
     logger.info('Entering the parallel section.')
-    with Pool(profile_options[ProfileOption.N_JOBS]) as p:
-        results = p.starmap(_solve_one_problem, [(problem_name, solvers, labels, feature, max_eval_factor, cutest_problem_options, profile_options) for problem_name in problem_names])
+    args = [(problem_name, solvers, labels, feature, max_eval_factor, cutest_problem_options, profile_options) for problem_name in problem_names]
+    if profile_options[ProfileOption.N_JOBS] == 1 or os.cpu_count() == 1:
+        results = map(lambda arg: _solve_one_problem(*arg), args)
+    else:
+        with Pool(profile_options[ProfileOption.N_JOBS]) as p:
+            results = p.starmap(_solve_one_problem, args)
     logger.info('Leaving the parallel section.')
     if all(result is None for result in results):
         logger.critical('All problems failed to load.')

@@ -651,7 +651,7 @@ class FeaturedProblem(Problem):
         # Generate a random permutation.
         rng = self._feature.get_default_rng(self._seed)
         self._permutation = None
-        if feature.name == FeatureName.PERMUTATE:
+        if feature.name == FeatureName.PERMUTED:
             self._permutation = rng.permutation(problem.n)
 
         # Store the objective function values and maximum constraint violations.
@@ -693,9 +693,9 @@ class FeaturedProblem(Problem):
             Initial guess.
         """
         x0 = super().x0
-        if self._feature.name == FeatureName.PERMUTATE:
+        if self._feature.name == FeatureName.PERMUTED:
             x0 = x0[np.argsort(self._permutation)]
-        elif self._feature.name == FeatureName.RANDOMIZE_X0:
+        elif self._feature.name == FeatureName.PERTURBED_X0:
             rng = self._feature.get_default_rng(self._seed, *x0)
             x0 += self._feature.options[FeatureOption.DISTRIBUTION](rng, x0.size)
         return x0
@@ -749,7 +749,7 @@ class FeaturedProblem(Problem):
             raise StopIteration('The maximum number of function evaluations has been reached.')
 
         # Permutate the variables if necessary.
-        if self._feature.name == FeatureName.PERMUTATE:
+        if self._feature.name == FeatureName.PERMUTED:
             x = x[self._permutation]
 
         # Evaluate the objective function and store the results.
@@ -973,7 +973,7 @@ def load_cutest_problem(problem_name):
         for index in np.flatnonzero(idx_eq):
             c_val, g_val = cutest_problem.cons(np.zeros(cutest_problem.n), index, True)
             a_eq.append(g_val)
-            b_eq.append(c_val - 0.5 * (cutest_problem.cl[index] + cutest_problem.cu[index]))
+            b_eq.append(0.5 * (cutest_problem.cl[index] + cutest_problem.cu[index]) - c_val)
         return np.reshape(a_eq, (-1, cutest_problem.n)), np.array(b_eq)
 
     def _c_ub(x):
@@ -1000,7 +1000,7 @@ def load_cutest_problem(problem_name):
         c = []
         for index in np.flatnonzero(idx_eq):
             c_val = cutest_problem.cons(x, index)
-            c.append(c_val - 0.5 * (cutest_problem.cl[index] + cutest_problem.cu[index]))
+            c.append(0.5 * (cutest_problem.cl[index] + cutest_problem.cu[index]) - c_val)
         return np.array(c)
 
     # Preprocess the problem name.

@@ -60,15 +60,15 @@ class Feature:
                 known_options.extend([FeatureOption.MODIFIER])
             elif self._name == FeatureName.NOISY:
                 known_options.extend([FeatureOption.DISTRIBUTION, FeatureOption.TYPE])
-            elif self._name == FeatureName.RANDOMIZE_X0:
+            elif self._name == FeatureName.PERTURBED_X0:
                 known_options.extend([FeatureOption.DISTRIBUTION])
-            elif self._name == FeatureName.TOUGH:
+            elif self._name == FeatureName.RANDOM_NAN:
                 known_options.extend([FeatureOption.RATE_NAN])
-            elif self._name == FeatureName.TRUNCATE:
+            elif self._name == FeatureName.TRUNCATED:
                 known_options.extend([FeatureOption.SIGNIFICANT_DIGITS])
             elif self._name == FeatureName.UNRELAXABLE_CONSTRAINTS:
                 known_options.extend([FeatureOption.UNRELAXABLE_BOUNDS, FeatureOption.UNRELAXABLE_LINEAR_CONSTRAINTS, FeatureOption.UNRELAXABLE_NONLINEAR_CONSTRAINTS])
-            elif self._name not in [FeatureName.PERMUTATE, FeatureName.PLAIN]:
+            elif self._name not in [FeatureName.PERMUTED, FeatureName.PLAIN]:
                 raise NotImplementedError(f'Unknown feature: {self._name}.')
             if key not in known_options:
                 raise ValueError(f'Option {key} is not valid for feature {self._name}.')
@@ -145,7 +145,7 @@ class Feature:
         bool
             Whether the feature is stochastic.
         """
-        return self._name in [FeatureName.CUSTOM, FeatureName.NOISY, FeatureName.PERMUTATE, FeatureName.TOUGH, FeatureName.TRUNCATE]
+        return self._name in [FeatureName.CUSTOM, FeatureName.NOISY, FeatureName.PERMUTED, FeatureName.RANDOM_NAN, FeatureName.TRUNCATED]
 
     def modifier(self, x, f, maxcv_bounds=0.0, maxcv_linear=0.0, maxcv_nonlinear=0.0, seed=None):
         """
@@ -205,11 +205,11 @@ class Feature:
                 f += self._options[FeatureOption.DISTRIBUTION](rng)
             else:
                 f *= 1.0 + self._options[FeatureOption.DISTRIBUTION](rng)
-        elif self._name == FeatureName.TOUGH:
+        elif self._name == FeatureName.RANDOM_NAN:
             rng = self.get_default_rng(seed, f, self._options[FeatureOption.RATE_NAN], *x)
             if rng.uniform() < self._options[FeatureOption.RATE_NAN]:
                 f = np.nan
-        elif self._name == FeatureName.TRUNCATE:
+        elif self._name == FeatureName.TRUNCATED:
             rng = self.get_default_rng(seed, f, self._options[FeatureOption.SIGNIFICANT_DIGITS], *x)
             if f == 0.0:
                 digits = self._options[FeatureOption.SIGNIFICANT_DIGITS] - 1
@@ -226,7 +226,7 @@ class Feature:
                 f = np.inf
             elif self._options[FeatureOption.UNRELAXABLE_NONLINEAR_CONSTRAINTS] and maxcv_nonlinear > 0.0:
                 f = np.inf
-        elif self._name not in [FeatureName.PERMUTATE, FeatureName.PLAIN, FeatureName.RANDOMIZE_X0]:
+        elif self._name not in [FeatureName.PERMUTED, FeatureName.PLAIN, FeatureName.PERTURBED_X0]:
             raise NotImplementedError(f'Unknown feature: {self._name}.')
         return f
 
@@ -250,15 +250,15 @@ class Feature:
             self._options.setdefault(FeatureOption.DISTRIBUTION.value, self._default_distribution)
             self._options.setdefault(FeatureOption.N_RUNS.value, 10)
             self._options.setdefault(FeatureOption.TYPE.value, NoiseType.RELATIVE.value)
-        elif self._name == FeatureName.RANDOMIZE_X0:
+        elif self._name == FeatureName.PERTURBED_X0:
             self._options.setdefault(FeatureOption.DISTRIBUTION.value, self._default_distribution)
             self._options.setdefault(FeatureOption.N_RUNS.value, 10)
-        elif self._name == FeatureName.PERMUTATE:
+        elif self._name == FeatureName.PERMUTED:
             self._options.setdefault(FeatureOption.N_RUNS.value, 10)
-        elif self._name == FeatureName.TOUGH:
+        elif self._name == FeatureName.RANDOM_NAN:
             self._options.setdefault(FeatureOption.N_RUNS.value, 10)
             self._options.setdefault(FeatureOption.RATE_NAN.value, 0.05)
-        elif self._name == FeatureName.TRUNCATE:
+        elif self._name == FeatureName.TRUNCATED:
             self._options.setdefault(FeatureOption.N_RUNS.value, 10)
             self._options.setdefault(FeatureOption.SIGNIFICANT_DIGITS.value, 6)
         elif self._name == FeatureName.UNRELAXABLE_CONSTRAINTS:
