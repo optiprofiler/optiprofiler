@@ -1,4 +1,4 @@
-function [x, fval] = uobyqa_test(fun, x0, xl, xu, aub, bub, aeq, beq, cub, ceq)
+function [x, fval] = uobyqa_test(fun, x0)
 
     problem = struct();
     problem.objective = fun;
