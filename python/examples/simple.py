@@ -36,7 +36,7 @@ def lincoa(fun, x0, lb, ub, a_ub, b_ub, a_eq, b_eq):
     """
     bounds = _build_bounds(lb, ub)
     constraints = _build_linear_constraints(a_ub, b_ub, a_eq, b_eq)
-    res = pdfo_minimize(fun, x0, method='lincoa', bounds=bounds, constraints=constraints)
+    res = pdfo_minimize(fun, x0, method='lincoa', bounds=bounds, constraints=constraints, options={'eliminate_lin_eq': False})
     return res.x
 
 
@@ -47,7 +47,7 @@ def cobyla(fun, x0, lb, ub, a_ub, b_ub, a_eq, b_eq, c_ub, c_eq):
     bounds = _build_bounds(lb, ub)
     constraints = _build_linear_constraints(a_ub, b_ub, a_eq, b_eq)
     constraints += _build_nonlinear_constraints(c_ub, c_eq, x0)
-    res = pdfo_minimize(fun, x0, method='cobyla', bounds=bounds, constraints=constraints)
+    res = pdfo_minimize(fun, x0, method='cobyla', bounds=bounds, constraints=constraints, options={'eliminate_lin_eq': False})
     return res.x
 
 
@@ -96,6 +96,6 @@ def _build_nonlinear_constraints(c_ub, c_eq, x0):
 
 
 if __name__ == '__main__':
-    set_cutest_problem_options(n_max=2)
-    cutest_problem_names = find_cutest_problems('unconstrained')
-    run_benchmark([cobyqa, newuoa], ['COBYQA', 'NEWUOA'], cutest_problem_names)
+    set_cutest_problem_options(n_max=10)
+    cutest_problem_names = find_cutest_problems('nonlinear')
+    run_benchmark([cobyqa, cobyla], ['COBYQA', 'COBYLA'], cutest_problem_names)

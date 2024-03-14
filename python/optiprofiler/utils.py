@@ -54,6 +54,7 @@ class FeatureOption(str, Enum):
     DISTRIBUTION = 'distribution'
     MODIFIER = 'modifier'
     N_RUNS = 'n_runs'
+    PERTURBED_TRAILING_ZEROS = 'perturbed_trailing_zeros'
     RATE_NAN = 'rate_nan'
     SIGNIFICANT_DIGITS = 'significant_digits'
     TYPE = 'type'

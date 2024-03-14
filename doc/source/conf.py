@@ -34,7 +34,6 @@ extensions = [
     'sphinx.ext.linkcode',
     'numpydoc',
     'sphinx_copybutton',
-    'sphinx_rtd_theme',
     'sphinxcontrib.bibtex',
 ]
 
@@ -50,21 +49,22 @@ default_role = 'autolink'
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-html_theme = 'sphinx_rtd_theme'
+html_theme = 'sphinx_book_theme'
 
 html_static_path = ['_static']
 
 html_theme_options = {
-    'navigation_depth': 2,
+    'repository_url': 'https://github.com/optiprofiler/optiprofiler',
+    'repository_branch': 'main',
+    'path_to_docs': 'doc/source',
+    'use_repository_button': True,
+    'use_source_button': True,
+    'use_issues_button': True,
+    'use_download_button': False,
+    'max_navbar_depth': 2,
 }
 
-html_context = {
-    'github_user': 'optiprofiler',
-    'github_repo': 'optiprofiler',
-    'github_version': 'main',
-}
-
-html_title = f'{project} v{version} Manual'
+html_title = f'{project} v{version}'
 
 htmlhelp_basename = project
 
@@ -157,8 +157,8 @@ def linkcode_resolve(domain, info):
     except OSError:
         lines = ''
 
-    repository = f'https://github.com/{html_context["github_user"]}/{html_context["github_repo"]}'
+    repository = 'https://github.com/optiprofiler/optiprofiler'
     if 'dev' in release:
-        return f'{repository}/blob/{html_context["github_version"]}/python/optiprofiler/{fn}{lines}'
+        return f'{repository}/blob/main/python/optiprofiler/{fn}{lines}'
     else:
         return f'{repository}/blob/v{release}/python/optiprofiler/{fn}{lines}'

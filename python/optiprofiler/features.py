@@ -65,7 +65,7 @@ class Feature:
             elif self._name == FeatureName.RANDOM_NAN:
                 known_options.extend([FeatureOption.RATE_NAN])
             elif self._name == FeatureName.TRUNCATED:
-                known_options.extend([FeatureOption.SIGNIFICANT_DIGITS])
+                known_options.extend([FeatureOption.PERTURBED_TRAILING_ZEROS, FeatureOption.SIGNIFICANT_DIGITS])
             elif self._name == FeatureName.UNRELAXABLE_CONSTRAINTS:
                 known_options.extend([FeatureOption.UNRELAXABLE_BOUNDS, FeatureOption.UNRELAXABLE_LINEAR_CONSTRAINTS, FeatureOption.UNRELAXABLE_NONLINEAR_CONSTRAINTS])
             elif self._name not in [FeatureName.PERMUTED, FeatureName.PLAIN]:
@@ -104,7 +104,7 @@ class Feature:
                     raise TypeError(f'Option {key} must be a string.')
                 if self._options[key].lower() not in NoiseType.__members__.values():
                     raise ValueError(f'Option {key} must be either "{NoiseType.ABSOLUTE.value}" or "{NoiseType.RELATIVE.value}".')
-            elif key in [FeatureOption.UNRELAXABLE_BOUNDS, FeatureOption.UNRELAXABLE_LINEAR_CONSTRAINTS, FeatureOption.UNRELAXABLE_NONLINEAR_CONSTRAINTS]:
+            elif key in [FeatureOption.PERTURBED_TRAILING_ZEROS, FeatureOption.UNRELAXABLE_BOUNDS, FeatureOption.UNRELAXABLE_LINEAR_CONSTRAINTS, FeatureOption.UNRELAXABLE_NONLINEAR_CONSTRAINTS]:
                 if not isinstance(self._options[key], bool):
                     raise TypeError(f'Option {key} must be a boolean.')
 
@@ -215,10 +215,12 @@ class Feature:
                 digits = self._options[FeatureOption.SIGNIFICANT_DIGITS] - 1
             else:
                 digits = self._options[FeatureOption.SIGNIFICANT_DIGITS] - int(np.floor(np.log10(np.abs(f)))) - 1
-            if f >= 0.0:
-                f = round(f, digits) + rng.uniform(0.0, 10.0 ** (-digits))
-            else:
-                f = round(f, digits) - rng.uniform(0.0, 10.0 ** (-digits))
+            f = round(f, digits)
+            if self._options[FeatureOption.PERTURBED_TRAILING_ZEROS]:
+                if f >= 0.0:
+                    f += rng.uniform(0.0, 10.0 ** (-digits))
+                else:
+                    f -= rng.uniform(0.0, 10.0 ** (-digits))
         elif self._name == FeatureName.UNRELAXABLE_CONSTRAINTS:
             if self._options[FeatureOption.UNRELAXABLE_BOUNDS] and maxcv_bounds > 0.0:
                 f = np.inf
@@ -259,7 +261,11 @@ class Feature:
             self._options.setdefault(FeatureOption.N_RUNS.value, 10)
             self._options.setdefault(FeatureOption.RATE_NAN.value, 0.05)
         elif self._name == FeatureName.TRUNCATED:
-            self._options.setdefault(FeatureOption.N_RUNS.value, 10)
+            self._options.setdefault(FeatureOption.PERTURBED_TRAILING_ZEROS.value, True)
+            if self._options[FeatureOption.PERTURBED_TRAILING_ZEROS]:
+                self._options.setdefault(FeatureOption.N_RUNS.value, 10)
+            else:
+                self._options.setdefault(FeatureOption.N_RUNS.value, 1)
             self._options.setdefault(FeatureOption.SIGNIFICANT_DIGITS.value, 6)
         elif self._name == FeatureName.UNRELAXABLE_CONSTRAINTS:
             self._options.setdefault(FeatureOption.N_RUNS.value, 1)

@@ -9,7 +9,6 @@ OptiProfiler documentation
     Python API reference <ref/index>
     MATLAB API reference <https://www.mathworks.com>
     Python developer guide <dev/index>
-    Issue tracker <https://github.com/OptiProfiler/OptiProfiler/issues>
 
 Work in progress.
 
