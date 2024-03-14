@@ -14,16 +14,19 @@ from .utils import FeatureName, CUTEstProblemOption, FeatureOption, ProblemError
 _cutest_problem_options = {
     CUTEstProblemOption.N_MIN.value: 1,
     CUTEstProblemOption.N_MAX.value: sys.maxsize,
-    CUTEstProblemOption.M_MIN.value: 0,
-    CUTEstProblemOption.M_MAX.value: sys.maxsize,
+    CUTEstProblemOption.M_LINEAR_MIN.value: 0,
+    CUTEstProblemOption.M_LINEAR_INEQUALITY_MIN.value: 0,
+    CUTEstProblemOption.M_LINEAR_EQUALITY_MIN.value: 0,
+    CUTEstProblemOption.M_LINEAR_MAX.value: sys.maxsize,
+    CUTEstProblemOption.M_LINEAR_INEQUALITY_MAX.value: sys.maxsize,
+    CUTEstProblemOption.M_LINEAR_EQUALITY_MAX.value: sys.maxsize,
+    CUTEstProblemOption.M_NONLINEAR_MIN.value: 0,
+    CUTEstProblemOption.M_NONLINEAR_INEQUALITY_MIN.value: 0,
+    CUTEstProblemOption.M_NONLINEAR_EQUALITY_MIN.value: 0,
+    CUTEstProblemOption.M_NONLINEAR_MAX.value: sys.maxsize,
+    CUTEstProblemOption.M_NONLINEAR_INEQUALITY_MAX.value: sys.maxsize,
+    CUTEstProblemOption.M_NONLINEAR_EQUALITY_MAX.value: sys.maxsize,
     CUTEstProblemOption.ALL_VARIABLES_CONTINUOUS.value: True,
-    CUTEstProblemOption.AT_LEAST_ONE_BOUND_CONSTRAINT.value: False,
-    CUTEstProblemOption.AT_LEAST_ONE_LINEAR_CONSTRAINT.value: False,
-    CUTEstProblemOption.AT_LEAST_ONE_LINEAR_INEQUALITY_CONSTRAINT.value: False,
-    CUTEstProblemOption.AT_LEAST_ONE_LINEAR_EQUALITY_CONSTRAINT.value: False,
-    CUTEstProblemOption.AT_LEAST_ONE_NONLINEAR_CONSTRAINT.value: False,
-    CUTEstProblemOption.AT_LEAST_ONE_NONLINEAR_INEQUALITY_CONSTRAINT.value: False,
-    CUTEstProblemOption.AT_LEAST_ONE_NONLINEAR_EQUALITY_CONSTRAINT.value: False,
 }
 
 
@@ -885,40 +888,73 @@ def get_cutest_problem_options():
 
 def set_cutest_problem_options(**problem_options):
     for option_key, option_value in problem_options.items():
-        if option_key == CUTEstProblemOption.N_MIN and isinstance(option_value, float) and option_value.is_integer():
-            option_value = int(option_value)
-        if option_key == CUTEstProblemOption.N_MIN and not isinstance(option_value, int):
-            raise TypeError(f'The argument {CUTEstProblemOption.N_MIN.value} must be an integer.')
-        if option_key == CUTEstProblemOption.N_MIN and option_value < 1:
-            raise ValueError(f'The argument {CUTEstProblemOption.N_MIN.value} must be positive.')
-        if option_key == CUTEstProblemOption.N_MAX and isinstance(option_value, float) and option_value.is_integer():
-            option_value = int(option_value)
-        if option_key == CUTEstProblemOption.N_MAX and not isinstance(option_value, int):
-            raise TypeError(f'The argument {CUTEstProblemOption.N_MAX.value} must be an integer.')
-        if option_key == CUTEstProblemOption.N_MAX and option_value < problem_options.get(CUTEstProblemOption.N_MIN, 1):
-            raise ValueError(f'The argument {CUTEstProblemOption.N_MAX.value} must be greater than or equal to {CUTEstProblemOption.N_MIN.value}.')
-        if option_key == CUTEstProblemOption.M_MIN and isinstance(option_value, float) and option_value.is_integer():
-            option_value = int(option_value)
-        if option_key == CUTEstProblemOption.M_MIN and not isinstance(option_value, int):
-            raise TypeError(f'The argument {CUTEstProblemOption.M_MIN.value} must be an integer.')
-        if option_key == CUTEstProblemOption.M_MIN and option_value < 0:
-            raise ValueError(f'The argument {CUTEstProblemOption.M_MIN.value} must be nonnegative.')
-        if option_key == CUTEstProblemOption.M_MAX and isinstance(option_value, float) and option_value.is_integer():
-            option_value = int(option_value)
-        if option_key == CUTEstProblemOption.M_MAX and not isinstance(option_value, int):
-            raise TypeError(f'The argument {CUTEstProblemOption.M_MAX.value} must be an integer.')
-        if option_key == CUTEstProblemOption.M_MAX and option_value < problem_options.get(CUTEstProblemOption.M_MIN, 0):
-            raise ValueError(f'The argument {CUTEstProblemOption.M_MAX.value} must be greater than or equal to {CUTEstProblemOption.M_MIN.value}.')
         if option_key in [
-            CUTEstProblemOption.ALL_VARIABLES_CONTINUOUS,
-            CUTEstProblemOption.AT_LEAST_ONE_BOUND_CONSTRAINT,
-            CUTEstProblemOption.AT_LEAST_ONE_LINEAR_CONSTRAINT,
-            CUTEstProblemOption.AT_LEAST_ONE_LINEAR_INEQUALITY_CONSTRAINT,
-            CUTEstProblemOption.AT_LEAST_ONE_LINEAR_EQUALITY_CONSTRAINT,
-            CUTEstProblemOption.AT_LEAST_ONE_NONLINEAR_CONSTRAINT,
-            CUTEstProblemOption.AT_LEAST_ONE_NONLINEAR_INEQUALITY_CONSTRAINT,
-            CUTEstProblemOption.AT_LEAST_ONE_NONLINEAR_EQUALITY_CONSTRAINT,
-        ] and not isinstance(option_value, bool):
+            CUTEstProblemOption.N_MIN,
+            CUTEstProblemOption.N_MAX,
+            CUTEstProblemOption.M_BOUND_MIN,
+            CUTEstProblemOption.M_BOUND_MAX,
+            CUTEstProblemOption.M_LINEAR_MIN,
+            CUTEstProblemOption.M_LINEAR_INEQUALITY_MIN,
+            CUTEstProblemOption.M_LINEAR_EQUALITY_MIN,
+            CUTEstProblemOption.M_LINEAR_MAX,
+            CUTEstProblemOption.M_LINEAR_INEQUALITY_MAX,
+            CUTEstProblemOption.M_LINEAR_EQUALITY_MAX,
+            CUTEstProblemOption.M_NONLINEAR_MIN,
+            CUTEstProblemOption.M_NONLINEAR_INEQUALITY_MIN,
+            CUTEstProblemOption.M_NONLINEAR_EQUALITY_MIN,
+            CUTEstProblemOption.M_NONLINEAR_MAX,
+            CUTEstProblemOption.M_NONLINEAR_INEQUALITY_MAX,
+            CUTEstProblemOption.M_NONLINEAR_EQUALITY_MAX,
+        ] and isinstance(option_value, float) and option_value.is_integer():
+            option_value = int(option_value)
+        if option_key in [
+            CUTEstProblemOption.N_MIN,
+            CUTEstProblemOption.N_MAX,
+            CUTEstProblemOption.M_BOUND_MIN,
+            CUTEstProblemOption.M_BOUND_MAX,
+            CUTEstProblemOption.M_LINEAR_MIN,
+            CUTEstProblemOption.M_LINEAR_INEQUALITY_MIN,
+            CUTEstProblemOption.M_LINEAR_EQUALITY_MIN,
+            CUTEstProblemOption.M_LINEAR_MAX,
+            CUTEstProblemOption.M_LINEAR_INEQUALITY_MAX,
+            CUTEstProblemOption.M_LINEAR_EQUALITY_MAX,
+            CUTEstProblemOption.M_NONLINEAR_MIN,
+            CUTEstProblemOption.M_NONLINEAR_INEQUALITY_MIN,
+            CUTEstProblemOption.M_NONLINEAR_EQUALITY_MIN,
+            CUTEstProblemOption.M_NONLINEAR_MAX,
+            CUTEstProblemOption.M_NONLINEAR_INEQUALITY_MAX,
+            CUTEstProblemOption.M_NONLINEAR_EQUALITY_MAX,
+        ] and not isinstance(option_value, int):
+            raise TypeError(f'The argument {option_key} must be an integer.')
+        if option_key == CUTEstProblemOption.N_MIN and option_value < 1:
+            raise ValueError(f'The argument {option_key} must be positive.')
+        if option_key == CUTEstProblemOption.N_MAX and option_value < problem_options.get(CUTEstProblemOption.N_MIN, 1):
+            raise ValueError(f'The argument {option_key} must be greater than or equal to {CUTEstProblemOption.N_MIN.value}.')
+        if option_key in [
+            CUTEstProblemOption.M_BOUND_MIN,
+            CUTEstProblemOption.M_LINEAR_MIN,
+            CUTEstProblemOption.M_LINEAR_INEQUALITY_MIN,
+            CUTEstProblemOption.M_LINEAR_EQUALITY_MIN,
+            CUTEstProblemOption.M_NONLINEAR_MIN,
+            CUTEstProblemOption.M_NONLINEAR_INEQUALITY_MIN,
+            CUTEstProblemOption.M_NONLINEAR_EQUALITY_MIN,
+        ] and option_value < 0:
+            raise ValueError(f'The argument {option_key} must be nonnegative.')
+        if option_key == CUTEstProblemOption.M_BOUND_MAX and option_value < problem_options.get(CUTEstProblemOption.M_BOUND_MIN, 0):
+            raise ValueError(f'The argument {option_key} must be greater than or equal to {CUTEstProblemOption.M_BOUND_MIN.value}.')
+        if option_key == CUTEstProblemOption.M_LINEAR_MAX and option_value < problem_options.get(CUTEstProblemOption.M_LINEAR_MIN, 0):
+            raise ValueError(f'The argument {option_key} must be greater than or equal to {CUTEstProblemOption.M_LINEAR_MIN.value}.')
+        if option_key == CUTEstProblemOption.M_LINEAR_INEQUALITY_MAX and option_value < problem_options.get(CUTEstProblemOption.M_LINEAR_INEQUALITY_MIN, 0):
+            raise ValueError(f'The argument {option_key} must be greater than or equal to {CUTEstProblemOption.M_LINEAR_INEQUALITY_MIN.value}.')
+        if option_key == CUTEstProblemOption.M_LINEAR_EQUALITY_MAX and option_value < problem_options.get(CUTEstProblemOption.M_LINEAR_EQUALITY_MIN, 0):
+            raise ValueError(f'The argument {option_key} must be greater than or equal to {CUTEstProblemOption.M_LINEAR_EQUALITY_MIN.value}.')
+        if option_key == CUTEstProblemOption.M_NONLINEAR_MAX and option_value < problem_options.get(CUTEstProblemOption.M_NONLINEAR_MIN, 0):
+            raise ValueError(f'The argument {option_key} must be greater than or equal to {CUTEstProblemOption.M_NONLINEAR_MIN.value}.')
+        if option_key == CUTEstProblemOption.M_NONLINEAR_INEQUALITY_MAX and option_value < problem_options.get(CUTEstProblemOption.M_NONLINEAR_INEQUALITY_MIN, 0):
+            raise ValueError(f'The argument {option_key} must be greater than or equal to {CUTEstProblemOption.M_NONLINEAR_INEQUALITY_MIN.value}.')
+        if option_key == CUTEstProblemOption.M_NONLINEAR_EQUALITY_MAX and option_value < problem_options.get(CUTEstProblemOption.M_NONLINEAR_EQUALITY_MIN, 0):
+            raise ValueError(f'The argument {option_key} must be greater than or equal to {CUTEstProblemOption.M_NONLINEAR_EQUALITY_MIN.value}.')
+        if option_key == CUTEstProblemOption.ALL_VARIABLES_CONTINUOUS and not isinstance(option_value, bool):
             raise TypeError(f'The argument {option_key} must be a boolean.')
         if option_key in CUTEstProblemOption.__members__.values():
             _cutest_problem_options[option_key] = option_value
@@ -999,8 +1035,8 @@ def find_cutest_problems(constraints):
         ],
         userN=False,
         m=[
-            _cutest_problem_options[CUTEstProblemOption.M_MIN],
-            _cutest_problem_options[CUTEstProblemOption.M_MAX],
+            _cutest_problem_options[CUTEstProblemOption.M_LINEAR_MIN] + _cutest_problem_options[CUTEstProblemOption.M_NONLINEAR_MIN],
+            _cutest_problem_options[CUTEstProblemOption.M_LINEAR_MAX] + _cutest_problem_options[CUTEstProblemOption.M_NONLINEAR_MAX],
         ],
         userM=False,
     )
@@ -1036,29 +1072,28 @@ def load_cutest_problem(problem_name):
         """
         Check if a CUTEst problem is valid.
         """
-        # Check that the dimensions are within the specified range.
+        # Check that the dimension is within the specified range.
         is_valid = _cutest_problem_options[CUTEstProblemOption.N_MIN] <= cutest_problem.n <= _cutest_problem_options[CUTEstProblemOption.N_MAX]
-        is_valid = is_valid and _cutest_problem_options[CUTEstProblemOption.M_MIN] <= cutest_problem.m <= _cutest_problem_options[CUTEstProblemOption.M_MAX]
 
         # Check that all the variable types satisfy the specified requirements.
         if _cutest_problem_options[CUTEstProblemOption.ALL_VARIABLES_CONTINUOUS]:
             is_valid = is_valid and np.all(cutest_problem.vartype == 0)
 
         # Ensure that the problem constraints satisfy the specified requirements.
-        if _cutest_problem_options[CUTEstProblemOption.AT_LEAST_ONE_BOUND_CONSTRAINT]:
-            is_valid = is_valid and (np.any(cutest_problem.bl > -1e20) or np.any(cutest_problem.bu < 1e20))
-        if _cutest_problem_options[CUTEstProblemOption.AT_LEAST_ONE_LINEAR_CONSTRAINT]:
-            is_valid = is_valid and cutest_problem.m > 0 and np.any(cutest_problem.is_linear_cons)
-        if _cutest_problem_options[CUTEstProblemOption.AT_LEAST_ONE_LINEAR_INEQUALITY_CONSTRAINT]:
-            is_valid = is_valid and cutest_problem.m > 0 and np.any(cutest_problem.is_linear_cons & ~cutest_problem.is_eq_cons)
-        if _cutest_problem_options[CUTEstProblemOption.AT_LEAST_ONE_LINEAR_EQUALITY_CONSTRAINT]:
-            is_valid = is_valid and cutest_problem.m > 0 and np.any(cutest_problem.is_linear_cons & cutest_problem.is_eq_cons)
-        if _cutest_problem_options[CUTEstProblemOption.AT_LEAST_ONE_NONLINEAR_CONSTRAINT]:
-            is_valid = is_valid and cutest_problem.m > 0 and np.any(~cutest_problem.is_linear_cons)
-        if _cutest_problem_options[CUTEstProblemOption.AT_LEAST_ONE_NONLINEAR_INEQUALITY_CONSTRAINT]:
-            is_valid = is_valid and cutest_problem.m > 0 and np.any(~cutest_problem.is_linear_cons & ~cutest_problem.is_eq_cons)
-        if _cutest_problem_options[CUTEstProblemOption.AT_LEAST_ONE_NONLINEAR_EQUALITY_CONSTRAINT]:
-            is_valid = is_valid and cutest_problem.m > 0 and np.any(~cutest_problem.is_linear_cons & cutest_problem.is_eq_cons)
+        m_bound = np.count_nonzero(cutest_problem.bl > -1e20) + np.count_nonzero(cutest_problem.bu < 1e20)
+        m_linear = np.count_nonzero(cutest_problem.is_linear_cons)
+        m_linear_inequality = 0 if m_linear == 0 else np.count_nonzero(cutest_problem.is_linear_cons & ~cutest_problem.is_eq_cons)
+        m_linear_equality = 0 if m_linear == 0 else np.count_nonzero(cutest_problem.is_linear_cons & cutest_problem.is_eq_cons)
+        m_nonlinear = cutest_problem.m - m_linear
+        m_nonlinear_inequality = 0 if m_nonlinear == 0 else np.count_nonzero(~cutest_problem.is_linear_cons & ~cutest_problem.is_eq_cons)
+        m_nonlinear_equality = 0 if m_nonlinear == 0 else np.count_nonzero(~cutest_problem.is_linear_cons & cutest_problem.is_eq_cons)
+        is_valid = is_valid and _cutest_problem_options[CUTEstProblemOption.M_BOUND_MIN] <= m_bound <= _cutest_problem_options[CUTEstProblemOption.M_BOUND_MAX]
+        is_valid = is_valid and _cutest_problem_options[CUTEstProblemOption.M_LINEAR_MIN] <= m_linear <= _cutest_problem_options[CUTEstProblemOption.M_LINEAR_MAX]
+        is_valid = is_valid and _cutest_problem_options[CUTEstProblemOption.M_LINEAR_INEQUALITY_MIN] <= m_linear_inequality <= _cutest_problem_options[CUTEstProblemOption.M_LINEAR_INEQUALITY_MAX]
+        is_valid = is_valid and _cutest_problem_options[CUTEstProblemOption.M_LINEAR_EQUALITY_MIN] <= m_linear_equality <= _cutest_problem_options[CUTEstProblemOption.M_LINEAR_EQUALITY_MAX]
+        is_valid = is_valid and _cutest_problem_options[CUTEstProblemOption.M_NONLINEAR_MIN] <= m_nonlinear <= _cutest_problem_options[CUTEstProblemOption.M_NONLINEAR_MAX]
+        is_valid = is_valid and _cutest_problem_options[CUTEstProblemOption.M_NONLINEAR_INEQUALITY_MIN] <= m_nonlinear_inequality <= _cutest_problem_options[CUTEstProblemOption.M_NONLINEAR_INEQUALITY_MAX]
+        is_valid = is_valid and _cutest_problem_options[CUTEstProblemOption.M_NONLINEAR_EQUALITY_MIN] <= m_nonlinear_equality <= _cutest_problem_options[CUTEstProblemOption.M_NONLINEAR_EQUALITY_MAX]
 
         return is_valid
 
