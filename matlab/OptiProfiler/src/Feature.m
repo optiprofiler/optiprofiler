@@ -22,17 +22,17 @@ classdef Feature < handle
             Other Parameters
             ----------------
             distribution : callable, optional
-                Distribution used in the noisy and randomize_x0 features.
+                Distribution used in the noisy and perturbed_x0 features.
             modifier : callable, optional
                 Modifier used in the custom feature.
             n_runs : int, optional
                 Number of runs of the feature.
             rate_nan : int or float, optional
-                Rate of NaNs of the tough feature.
+                Rate of NaNs of the random_nan feature.
             significant_digits : int, optional
                 Number of significant digits of the truncated feature.
             type : str, optional
-                Type of the noisy and randomize_x0 features.
+                Type of the noisy and perturbed_x0 features.
             %}
 
             obj.name = lower(feature_name);
@@ -72,15 +72,15 @@ classdef Feature < handle
                         known_options = [known_options, {FeatureOptionKey.MODIFIER.value}];
                     case FeatureName.NOISY.value
                         known_options = [known_options, {FeatureOptionKey.DISTRIBUTION.value, FeatureOptionKey.TYPE.value}];
-                    case FeatureName.RANDOMIZE_X0.value
+                    case FeatureName.PERTURBED_X0.value
                         known_options = [known_options, {FeatureOptionKey.DISTRIBUTION.value}];
-                    case FeatureName.TOUGH.value
+                    case FeatureName.RANDOM_NAN.value
                         known_options = [known_options, {FeatureOptionKey.RATE_NAN.value}];
                     case FeatureName.TRUNCATED.value
                         known_options = [known_options, {FeatureOptionKey.SIGNIFICANT_DIGITS.value}];
                     case FeatureName.UNRELAXABLE_CONSTRAINTS.value
                         known_options = [known_options, {FeatureOptionKey.UNRELAXABLE_BOUNDS.value, FeatureOptionKey.UNRELAXABLE_LINEAR_CONSTRAINTS.value, FeatureOptionKey.UNRELAXABLE_NONLINEAR_CONSTRAINTS.value}];
-                    case FeatureName.PERMUTATE.value
+                    case FeatureName.PERMUTED.value
                         % Do nothing
                     case FeatureName.PLAIN.value
                         % Do nothing
@@ -144,7 +144,7 @@ classdef Feature < handle
         end
 
         function is_stochastic = isStochastic(obj)
-            stochasticFeatures = {FeatureName.CUSTOM.value, FeatureName.NOISY.value, FeatureName.PERMUTATE.value, FeatureName.TOUGH.value, FeatureName.TRUNCATED.value};
+            stochasticFeatures = {FeatureName.CUSTOM.value, FeatureName.NOISY.value, FeatureName.PERMUTED.value, FeatureName.PERTURBED_X0.value, FeatureName.RANDOM_NAN.value, FeatureName.TRUNCATED.value};
             is_stochastic = ismember(obj.name, stochasticFeatures);
         end
 
@@ -194,7 +194,7 @@ classdef Feature < handle
                     else
                         f = f * (1.0 + obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream, 1));
                     end
-                case FeatureName.TOUGH.value
+                case FeatureName.RANDOM_NAN.value
                     rand_stream = obj.default_rng(seed, f, obj.options.(FeatureOptionKey.RATE_NAN.value), xCell{:});
                     if rand_stream.rand() < obj.options.(FeatureOptionKey.RATE_NAN.value)
                         f = NaN;
@@ -220,11 +220,11 @@ classdef Feature < handle
                     elseif obj.options.(FeatureOptionKey.UNRELAXABLE_NONLINEAR_CONSTRAINTS.value) && maxcv_nonlinear > 0
                         f = Inf;
                     end
-                case FeatureName.PERMUTATE.value
+                case FeatureName.PERMUTED.value
                     % Do nothing
                 case FeatureName.PLAIN.value
                     % Do nothing
-                case FeatureName.RANDOMIZE_X0.value
+                case FeatureName.PERTURBED_X0.value
                     % Do nothing
                 otherwise
                     error("MATLAB:Feature:UnknownFeature", "Unknown feature: " + obj.name + ".")
@@ -255,18 +255,18 @@ classdef Feature < handle
                     if ~isfield(obj.options, FeatureOptionKey.TYPE.value)
                         obj.options.(FeatureOptionKey.TYPE.value) = NoiseType.RELATIVE.value;
                     end
-                case FeatureName.RANDOMIZE_X0.value
+                case FeatureName.PERTURBED_X0.value
                     if ~isfield(obj.options, FeatureOptionKey.DISTRIBUTION.value)
                         obj.options.(FeatureOptionKey.DISTRIBUTION.value) = @obj.default_distribution;
                     end
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
                         obj.options.(FeatureOptionKey.N_RUNS.value) = int32(10);
                     end
-                case FeatureName.PERMUTATE.value
+                case FeatureName.PERMUTED.value
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
                         obj.options.(FeatureOptionKey.N_RUNS.value) = int32(10);
                     end
-                case FeatureName.TOUGH.value
+                case FeatureName.RANDOM_NAN.value
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
                         obj.options.(FeatureOptionKey.N_RUNS.value) = int32(10);
                     end

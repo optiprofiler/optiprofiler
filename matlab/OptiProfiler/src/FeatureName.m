@@ -4,10 +4,10 @@ classdef FeatureName
     enumeration
         CUSTOM ('custom')
         NOISY ('noisy')
-        PERMUTATE ('permutate')
+        PERMUTED ('permuted')
         PLAIN ('plain')
-        RANDOMIZE_X0 ('randomize_x0')
-        TOUGH ('tough')
+        PERTURBED_X0 ('perturbed_x0')
+        RANDOM_NAN ('random_nan')
         TRUNCATED ('truncated')
         UNRELAXABLE_CONSTRAINTS ('unrelaxable_constraints')
     end

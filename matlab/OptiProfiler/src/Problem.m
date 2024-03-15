@@ -435,12 +435,15 @@ classdef Problem < handle
                 end
             end
 
+            cv = max([cv_bounds; cv_linear; cv_nonlinear]);
+
             if detailed
-                varargout{1} = cv_bounds;
-                varargout{2} = cv_linear;
-                varargout{3} = cv_nonlinear;
+                varargout{1} = cv;
+                varargout{2} = cv_bounds;
+                varargout{3} = cv_linear;
+                varargout{4} = cv_nonlinear;
             else
-                varargout{1} = max([cv_bounds; cv_linear; cv_nonlinear]);
+                varargout{1} = cv;
             end
 
         end
