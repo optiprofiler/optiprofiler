@@ -201,13 +201,13 @@ classdef Feature < handle
                     end
                 case FeatureName.TRUNCATED.value
                     rand_stream = obj.default_rng(seed, f, obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value), xCell{:});
-                    if f == 0.0
+                    if f == 0
                         digits = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - 1;
                     else
                         digits = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - int32(floor(log10(abs(f)))) - 1;
                     end
                     digits = double(digits);
-                    if f >= 0.0
+                    if f >= 0
                         f = round(f * 10^digits) / 10^digits + rand_stream.rand() * 10^(-digits);
                     else
                         f = round(f * 10^digits) / 10^digits - rand_stream.rand() * 10^(-digits);

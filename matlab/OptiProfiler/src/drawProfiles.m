@@ -53,12 +53,20 @@ function [fig_perf_hist, fig_perf_ret, fig_data_hist, fig_data_ret, fig_log_rati
     set(cell_axs_summary{4}, 'XLim', [0.0, 1.1 * ratio_max_data_ret]);
 
     % Modify x-axis ticks labels of the performance profiles.
-    xtl_perf_hist = arrayfun(@(x) ['$', '2^{', num2str(x), '}$'], get(ax_perf_hist, 'XTick'), 'UniformOutput', false);
+    xtl_perf_hist = arrayfun(@(x) ['$' num2str(2 ^ x) '$'], get(ax_perf_hist, 'XTick'), 'UniformOutput', false);
     set(ax_perf_hist, 'XTickLabel', xtl_perf_hist, 'TickLabelInterpreter', 'latex');
     set(cell_axs_summary{1}, 'XTickLabel', xtl_perf_hist, 'TickLabelInterpreter', 'latex');
-    xtl_perf_ret = arrayfun(@(x) ['$', '2^{', num2str(x), '}$'], get(ax_perf_ret, 'XTick'), 'UniformOutput', false);
+    xtl_perf_ret = arrayfun(@(x) ['$' num2str(2 ^ x) '$'], get(ax_perf_ret, 'XTick'), 'UniformOutput', false);
     set(ax_perf_ret, 'XTickLabel', xtl_perf_ret, 'TickLabelInterpreter', 'latex');
     set(cell_axs_summary{2}, 'XTickLabel', xtl_perf_ret, 'TickLabelInterpreter', 'latex');
+
+    % Modify x-axis ticks labels of the data profiles.
+    xtl_data_hist = arrayfun(@(x) ['$', num2str(2 ^ x - 1), '$'], get(ax_data_hist, 'XTick'), 'UniformOutput', false);
+    set(ax_data_hist, 'XTickLabel', xtl_data_hist, 'TickLabelInterpreter', 'latex');
+    set(cell_axs_summary{3}, 'XTickLabel', xtl_data_hist, 'TickLabelInterpreter', 'latex');
+    xtl_data_ret = arrayfun(@(x) ['$', num2str(2 ^ x - 1), '$'], get(ax_data_ret, 'XTick'), 'UniformOutput', false);
+    set(ax_data_ret, 'XTickLabel', xtl_data_ret, 'TickLabelInterpreter', 'latex');
+    set(cell_axs_summary{4}, 'XTickLabel', xtl_data_ret, 'TickLabelInterpreter', 'latex');
 
     % Set x-axis labels.
     xlabel(ax_perf_hist, 'Performance ratio', 'Interpreter', 'latex');

@@ -24,8 +24,11 @@ function [x_perf, y_perf, ratio_max_perf, x_data, y_data, ratio_max_data] = getE
     x_data = [zeros(1, n_solvers); x_data];
     y_data = [zeros(1, n_solvers, n_runs); y_data];
     if n_problems > 1
-        x_data = [x_data; ones(1, n_solvers) * (1.1 * ratio_max_data)];
+        x_data = [x_data; ones(1, n_solvers) * ((1 + ratio_max_data) ^ 1.1 - 1)];
         y_data = [y_data; y_data(end, :, :)];
     end
+    % We output the log2(1 + x_data) and log2(1 + ratio_max_data). This is because the x-axis is in log2 scale in the data profile.
+    x_data = log2(1 + x_data);
+    ratio_max_data = log2(1 + ratio_max_data);
 
 end
