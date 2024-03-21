@@ -14,6 +14,8 @@ from .utils import FeatureName, CUTEstProblemOption, FeatureOption, ProblemError
 _cutest_problem_options = {
     CUTEstProblemOption.N_MIN.value: 1,
     CUTEstProblemOption.N_MAX.value: sys.maxsize,
+    CUTEstProblemOption.M_BOUND_MIN: 0,
+    CUTEstProblemOption.M_BOUND_MAX: sys.maxsize,
     CUTEstProblemOption.M_LINEAR_MIN.value: 0,
     CUTEstProblemOption.M_LINEAR_INEQUALITY_MIN.value: 0,
     CUTEstProblemOption.M_LINEAR_EQUALITY_MIN.value: 0,

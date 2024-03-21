@@ -57,14 +57,14 @@ class TestFeature:
         # Test the truncated feature.
         feature = Feature('truncated')
         assert feature.name == 'truncated'
-        assert feature.options == {'n_runs': 10, 'significant_digits': 6}
+        assert feature.options == {'n_runs': 10, 'perturbed_trailing_zeros': True, 'significant_digits': 6}
         np.testing.assert_allclose(feature.modifier(x, f),  f, 1e-5, 1e-5)
         np.testing.assert_allclose(feature.modifier(x, -f),  -f, 1e-5, 1e-5)
 
         # Add custom options.
         feature = Feature('truncated', significant_digits=4)
         assert feature.name == 'truncated'
-        assert feature.options == {'n_runs': 10, 'significant_digits': 4}
+        assert feature.options == {'n_runs': 10, 'perturbed_trailing_zeros': True, 'significant_digits': 4}
         np.testing.assert_allclose(feature.modifier(x, f),  f, 1e-3, 1e-3)
 
     @pytest.mark.parametrize('n', [1, 10, 100])

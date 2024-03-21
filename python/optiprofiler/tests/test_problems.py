@@ -335,38 +335,26 @@ class TestFeaturedProblem(BaseTestProblem):
 class TestSetCUTEstProblemOptions:
 
     def test_simple(self):
-        set_cutest_problem_options(n_min=1, n_max=100, m_min=0, m_max=100)
+        set_cutest_problem_options(n_min=1, n_max=100)
         assert isinstance(get_cutest_problem_options(), dict)
         assert get_cutest_problem_options()['n_min'] == 1
         assert get_cutest_problem_options()['n_max'] == 100
-        assert get_cutest_problem_options()['m_min'] == 0
-        assert get_cutest_problem_options()['m_max'] == 100
 
     def test_exceptions(self):
         with pytest.raises(TypeError):
             set_cutest_problem_options(n_min=1.5)
         with pytest.raises(TypeError):
             set_cutest_problem_options(n_max=1.5)
-        with pytest.raises(TypeError):
-            set_cutest_problem_options(m_min=1.5)
-        with pytest.raises(TypeError):
-            set_cutest_problem_options(m_max=1.5)
         with pytest.raises(ValueError):
             set_cutest_problem_options(n_min=0)
         with pytest.raises(ValueError):
             set_cutest_problem_options(n_max=0)
-        with pytest.raises(ValueError):
-            set_cutest_problem_options(m_min=-1)
-        with pytest.raises(ValueError):
-            set_cutest_problem_options(m_max=-1)
         with pytest.raises(ValueError):
             set_cutest_problem_options(unknown=0)
 
     def test_catch(self):
         set_cutest_problem_options(n_min=1.0)
         set_cutest_problem_options(n_max=1.0)
-        set_cutest_problem_options(m_min=1.0)
-        set_cutest_problem_options(m_max=1.0)
 
 
 @pytest.mark.extra
@@ -393,13 +381,6 @@ class TestFindCUTEstProblemNames:
         problem_names_10_50 = find_cutest_problems('unconstrained')
         assert set(problem_names_10_50).issubset(set(problem_names_1_100))
 
-        # Check the m_min and m_max parameters.
-        set_cutest_problem_options(m_min=1, m_max=100)
-        problem_names_1_100 = find_cutest_problems(['linear', 'nonlinear'])
-        set_cutest_problem_options(m_min=10, m_max=50)
-        problem_names_10_50 = find_cutest_problems(['linear', 'nonlinear'])
-        assert set(problem_names_10_50).issubset(set(problem_names_1_100))
-
     def test_exceptions(self):
         with pytest.raises(TypeError):
             find_cutest_problems(1)
@@ -407,7 +388,7 @@ class TestFindCUTEstProblemNames:
             find_cutest_problems('cubic')
 
     def test_catch(self):
-        set_cutest_problem_options(n_min=1.0, n_max=10.0, m_min=1.0, m_max=100.0)
+        set_cutest_problem_options(n_min=1.0, n_max=10.0)
         find_cutest_problems('nonlinear')
 
 
@@ -416,7 +397,7 @@ class TestLoadCUTEst:
 
     @pytest.mark.parametrize('constraint', ['unconstrained', 'bound', 'linear', 'nonlinear'])
     def test_simple(self, constraint):
-        set_cutest_problem_options(n_min=1, n_max=10, m_min=0, m_max=100)
+        set_cutest_problem_options(n_max=10, m_nonlinear_max=10)
         problem_names = find_cutest_problems(constraint)
         for i_problem in range(min(10, len(problem_names))):
             with suppress(ProblemError):
