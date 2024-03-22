@@ -39,9 +39,8 @@ classifiers = [
     "Topic :: Software Development :: Testing",
 ]
 dependencies = [
-    "matplotlib>=2.0.0",
+    "matplotlib>=3.4.0",
     "numpy>=1.17.0",
-    "pypdf>=3.4.0",
     "scipy>=1.10.0",
 ]
 dynamic = ["version"]

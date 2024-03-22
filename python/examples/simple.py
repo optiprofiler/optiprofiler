@@ -96,6 +96,6 @@ def _build_nonlinear_constraints(c_ub, c_eq, x0):
 
 
 if __name__ == '__main__':
-    set_cutest_problem_options(n_max=10, m_nonlinear_max=10)
-    cutest_problem_names = find_cutest_problems('nonlinear')
-    run_benchmark([cobyqa, cobyla], ['COBYQA', 'COBYLA'], cutest_problem_names)
+    set_cutest_problem_options(n_max=2)
+    cutest_problem_names = find_cutest_problems('unconstrained')
+    run_benchmark([cobyqa, newuoa], ['COBYQA', 'NEWUOA'], cutest_problem_names)

@@ -145,7 +145,7 @@ class Feature:
         bool
             Whether the feature is stochastic.
         """
-        return self._name in [FeatureName.CUSTOM, FeatureName.NOISY, FeatureName.PERMUTED, FeatureName.RANDOM_NAN, FeatureName.TRUNCATED]
+        return self._name in [FeatureName.CUSTOM, FeatureName.NOISY, FeatureName.PERMUTED, FeatureName.PERTURBED_X0, FeatureName.RANDOM_NAN, FeatureName.TRUNCATED]
 
     def modifier(self, x, f, maxcv_bounds=0.0, maxcv_linear=0.0, maxcv_nonlinear=0.0, seed=None):
         """

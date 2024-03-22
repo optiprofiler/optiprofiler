@@ -14,7 +14,6 @@ from cycler import cycler
 from matplotlib import pyplot as plt
 from matplotlib.backends import backend_pdf
 from matplotlib.ticker import MaxNLocator, FuncFormatter
-from pypdf import PdfReader, PdfWriter, Transformation
 
 from .features import Feature
 from .problems import Problem, FeaturedProblem, get_cutest_problem_options, set_cutest_problem_options, load_cutest_problem
@@ -226,6 +225,9 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
     with path_problems.open('w') as f:
         f.write(os.linesep.join(f'{problem_name}: {time_process:.2f} seconds' for problem_name, time_process in sorted(zip(problem_names, time_processes))))
 
+    # Retrieve the tolerances of the profiles.
+    tolerances = np.logspace(-1, -16, 16)
+
     # Set up matplotlib for plotting the profiles.
     prop_cycle = cycler(color=['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'])
     prop_cycle += cycler(linestyle=[(0, ()), (0, (1, 1.5)), (0, (3, 1.5)), (0, (5, 1.5, 1, 1.5)), (0, (5, 1.5, 1, 1.5, 1, 1.5)), (0, (1, 3)), (0, (3, 3)), (0, (5, 3, 1, 3)), (0, (5, 3, 1, 3, 1, 3)), (0, (1, 4.5))])
@@ -235,16 +237,22 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
         'font.size': 16,
         'text.usetex': True if shutil.which('latex') else False,
     }):
+        # Create the summary figure.
+        default_width, default_height = plt.rcParams['figure.figsize']
+        fig_summary = plt.figure(figsize=(len(tolerances) * default_width, 4 * default_height), layout='constrained')
+        subfig_summary = fig_summary.subfigures(2, 1)
+        ax_summary_hist = subfig_summary[0].subplots(2, len(tolerances), sharey=True)
+        ax_summary_out = subfig_summary[1].subplots(2, len(tolerances), sharey=True)
+
         # Create the performance and data profiles.
         n_problems, n_solvers, n_runs, max_eval = merit_histories.shape
-        tolerances = np.logspace(-1, -16, 16)
         pdf_perf_hist = backend_pdf.PdfPages(path_perf_hist)
         pdf_perf_out = backend_pdf.PdfPages(path_perf_out)
         pdf_data_hist = backend_pdf.PdfPages(path_data_hist)
         pdf_data_out = backend_pdf.PdfPages(path_data_out)
         pdf_log_ratio_hist = backend_pdf.PdfPages(path_log_ratio_hist, False)
         pdf_log_ratio_out = backend_pdf.PdfPages(path_log_ratio_out, False)
-        for tolerance in tolerances:
+        for i_tolerance, tolerance in enumerate(tolerances):
             tolerance_str, tolerance_latex = _format_float_scientific_latex(tolerance)
             logger.info(f'Creating profiles for tolerance {tolerance_str}.')
             tolerance_label = f'($\\mathrm{{tol}} = {tolerance_latex}$)'
@@ -264,7 +272,7 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
                             work_out[i_problem, i_solver, i_run] = n_eval[i_problem, i_solver, i_run]
 
             # Draw the profiles.
-            fig_perf_hist, fig_perf_out, fig_data_hist, fig_data_out, fig_log_ratio_hist, fig_log_ratio_out = _draw_profiles(work_hist, work_out, problem_dimensions, labels, tolerance_label)
+            fig_perf_hist, fig_perf_out, fig_data_hist, fig_data_out, fig_log_ratio_hist, fig_log_ratio_out = _draw_profiles(work_hist, work_out, problem_dimensions, labels, tolerance_label, i_tolerance, ax_summary_hist, ax_summary_out)
             pdf_perf_hist.savefig(fig_perf_hist, bbox_inches='tight')
             pdf_perf_out.savefig(fig_perf_out, bbox_inches='tight')
             pdf_data_hist.savefig(fig_data_hist, bbox_inches='tight')
@@ -293,36 +301,13 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
         pdf_log_ratio_out.close()
         logger.info(f'Detailed results stored in {path_feature}.')
 
-    # Create the summary PDF if necessary.
-    logger.info('Creating summary.')
-    path_profiles = [path_perf_hist, path_data_hist]
-    reader_profiles = [PdfReader(path_perf_hist), PdfReader(path_data_hist)]
-    if path_log_ratio_hist.is_file():
-        path_profiles.append(path_log_ratio_hist)
-        reader_profiles.append(PdfReader(path_log_ratio_hist))
-    path_profiles.extend([path_perf_out, path_data_out])
-    reader_profiles.extend([PdfReader(path_perf_out), PdfReader(path_data_out)])
-    if path_log_ratio_out.is_file():
-        path_profiles.append(path_log_ratio_out)
-        reader_profiles.append(PdfReader(path_log_ratio_out))
-    profile_number = len(path_profiles)
-    page_number = max(len(reader.pages) for reader in reader_profiles)
-    page_width = max(page.mediabox.width for reader in reader_profiles for page in reader.pages)
-    page_height = max(page.mediabox.height for reader in reader_profiles for page in reader.pages)
-    pdf_summary = PdfWriter()
-    pdf_summary.add_blank_page(page_width * page_number, page_height * profile_number)
-    for i_source, pdf_source in enumerate(reader_profiles):
-        for i_page, page in enumerate(pdf_source.pages):
-            pdf_summary.pages[0].merge_transformed_page(
-                page,
-                Transformation().translate(
-                    page_width * i_page,
-                    (profile_number - i_source - 1) * page_height,
-                ),
-            )
-    pdf_summary.write(path_summary)
-    pdf_summary.close()
-    logger.info(f'Summary stored in {path_summary}.')
+        # Create the summary PDF.
+        subfig_summary[0].supylabel('History-based profiles', fontsize='xx-large', horizontalalignment='right')
+        subfig_summary[1].supylabel('Output-based profiles', fontsize='xx-large', horizontalalignment='right')
+        pdf_summary = backend_pdf.PdfPages(path_summary)
+        pdf_summary.savefig(fig_summary, bbox_inches='tight')
+        pdf_summary.close()
+        logger.info(f'Summary stored in {path_summary}.')
 
 
 def _solve_all_problems(cutest_problem_names, extra_problems, solvers, labels, feature, max_eval_factor, profile_options):
@@ -442,6 +427,7 @@ def _solve_one_problem(problem_name, solvers, labels, feature, max_eval_factor, 
                             x = solvers[i_solver](featured_problem.fun, featured_problem.x0, featured_problem.lb, featured_problem.ub, featured_problem.a_ub, featured_problem.b_ub, featured_problem.a_eq, featured_problem.b_eq)
                         else:
                             x = solvers[i_solver](featured_problem.fun, featured_problem.x0, featured_problem.lb, featured_problem.ub, featured_problem.a_ub, featured_problem.b_ub, featured_problem.a_eq, featured_problem.b_eq, featured_problem.c_ub, featured_problem.c_eq)
+                        # FIXME: Permute the x in the 'permuted' feature.
                         fun_out[i_solver, i_run] = problem.fun(x)
                         maxcv_out[i_solver, i_run] = problem.maxcv(x)
                         if featured_problem.type == 'unconstrained':
@@ -487,7 +473,7 @@ def _format_float_scientific_latex(x):
     return raw, f'{match.group("coefficient")} \\times 10^{{{match.group("exponent")}}}'
 
 
-def _draw_profiles(work_hist, work_out, problem_dimensions, labels, tolerance_label):
+def _draw_profiles(work_hist, work_out, problem_dimensions, labels, tolerance_label, i_tolerance, ax_summary_hist, ax_summary_out):
     n_solvers = work_hist.shape[1]
 
     # Create the individual figures.
@@ -507,27 +493,50 @@ def _draw_profiles(work_hist, work_out, problem_dimensions, labels, tolerance_la
     x_perf_out, y_perf_out, ratio_max_perf_out, x_data_out, y_data_out, ratio_max_data_out = _get_extended_performances_data_profile_axes(work_out, problem_dimensions)
     _draw_performance_data_profiles(ax_perf_hist, x_perf_hist, y_perf_hist, labels)
     _draw_performance_data_profiles(ax_perf_out, x_perf_out, y_perf_out, labels)
+    if i_tolerance == 0:
+        _draw_performance_data_profiles(ax_summary_hist[0, i_tolerance], x_perf_hist, y_perf_hist, labels)
+    else:
+        _draw_performance_data_profiles(ax_summary_hist[0, i_tolerance], x_perf_hist, y_perf_hist)
+    _draw_performance_data_profiles(ax_summary_out[0, i_tolerance], x_perf_out, y_perf_out)
     _draw_performance_data_profiles(ax_data_hist, x_data_hist, y_data_hist, labels)
     _draw_performance_data_profiles(ax_data_out, x_data_out, y_data_out, labels)
+    _draw_performance_data_profiles(ax_summary_hist[1, i_tolerance], x_data_hist, y_data_hist)
+    _draw_performance_data_profiles(ax_summary_out[1, i_tolerance], x_data_out, y_data_out)
     ax_perf_hist.set_xscale('log', base=2)
     ax_perf_out.set_xscale('log', base=2)
+    ax_summary_hist[0, i_tolerance].set_xscale('log', base=2)
+    ax_summary_out[0, i_tolerance].set_xscale('log', base=2)
     int_formatter = FuncFormatter(lambda x, _: f'{x:.0f}')
     ax_perf_hist.xaxis.set_major_formatter(int_formatter)
     ax_perf_out.xaxis.set_major_formatter(int_formatter)
+    ax_summary_hist[0, i_tolerance].xaxis.set_major_formatter(int_formatter)
+    ax_summary_out[0, i_tolerance].xaxis.set_major_formatter(int_formatter)
     with warnings.catch_warnings():
         warnings.filterwarnings('ignore', category=UserWarning)
         ax_perf_hist.set_xlim(1.0, ratio_max_perf_hist ** 1.1)
         ax_perf_out.set_xlim(1.0, ratio_max_perf_out ** 1.1)
+        ax_summary_hist[0, i_tolerance].set_xlim(1.0, ratio_max_perf_hist ** 1.1)
+        ax_summary_out[0, i_tolerance].set_xlim(1.0, ratio_max_perf_out ** 1.1)
     ax_data_hist.set_xlim(0.0, 1.1 * ratio_max_data_hist)
     ax_data_out.set_xlim(0.0, 1.1 * ratio_max_data_out)
+    ax_summary_hist[1, i_tolerance].set_xlim(0.0, 1.1 * ratio_max_data_hist)
+    ax_summary_out[1, i_tolerance].set_xlim(0.0, 1.1 * ratio_max_data_out)
     ax_perf_hist.set_xlabel('Performance ratio')
     ax_perf_out.set_xlabel('Performance ratio')
+    ax_summary_hist[0, i_tolerance].set_xlabel('Performance ratio')
+    ax_summary_out[0, i_tolerance].set_xlabel('Performance ratio')
     ax_data_hist.set_xlabel('Number of simplex gradients')
     ax_data_out.set_xlabel('Number of simplex gradients')
+    ax_summary_hist[1, i_tolerance].set_xlabel('Number of simplex gradients')
+    ax_summary_out[1, i_tolerance].set_xlabel('Number of simplex gradients')
     ax_perf_hist.set_ylabel(f'Performance profiles {tolerance_label}')
     ax_perf_out.set_ylabel(f'Performance profiles {tolerance_label}')
+    ax_summary_hist[0, i_tolerance].set_ylabel(f'Performance profiles {tolerance_label}')
+    ax_summary_out[0, i_tolerance].set_ylabel(f'Performance profiles {tolerance_label}')
     ax_data_hist.set_ylabel(f'Data profiles {tolerance_label}')
     ax_data_out.set_ylabel(f'Data profiles {tolerance_label}')
+    ax_summary_hist[1, i_tolerance].set_ylabel(f'Data profiles {tolerance_label}')
+    ax_summary_out[1, i_tolerance].set_ylabel(f'Data profiles {tolerance_label}')
 
     # Draw the log-ratio profiles.
     if n_solvers <= 2:
@@ -540,7 +549,7 @@ def _draw_profiles(work_hist, work_out, problem_dimensions, labels, tolerance_la
     return fig_perf_hist, fig_perf_out, fig_data_hist, fig_data_out, fig_log_ratio_hist, fig_log_ratio_out
 
 
-def _draw_performance_data_profiles(ax, x, y, labels):
+def _draw_performance_data_profiles(ax, x, y, labels=None):
     n_solvers = x.shape[1]
     n_runs = y.shape[2]
     y_mean = np.mean(y, 2)
@@ -551,7 +560,10 @@ def _draw_performance_data_profiles(ax, x, y, labels):
         y_mean_stairs = np.repeat(y_mean[:, i_solver], 2)[:-1]
         y_min_stairs = np.repeat(y_min[:, i_solver], 2)[:-1]
         y_max_stairs = np.repeat(y_max[:, i_solver], 2)[:-1]
-        ax.plot(x_stairs, y_mean_stairs, label=labels[i_solver])
+        if labels is not None:
+            ax.plot(x_stairs, y_mean_stairs, label=labels[i_solver])
+        else:
+            ax.plot(x_stairs, y_mean_stairs)
         if n_runs > 1:
             ax.fill_between(x_stairs, y_min_stairs, y_max_stairs, alpha=0.2)
     ax.yaxis.set_ticks_position('both')
@@ -559,7 +571,8 @@ def _draw_performance_data_profiles(ax, x, y, labels):
     ax.yaxis.set_minor_locator(MaxNLocator(10))
     ax.set_ylim(0.0, 1.0)
     ax.tick_params(which='both', direction='in')
-    ax.legend(loc='lower right')
+    if labels is not None:
+        ax.legend(loc='lower right')
 
 
 def _draw_log_ratio_profiles(ax, work, labels):
