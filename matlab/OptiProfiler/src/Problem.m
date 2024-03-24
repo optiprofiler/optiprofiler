@@ -25,6 +25,7 @@ classdef Problem < handle
         n
         m_linear_ub
         m_linear_eq
+        type
 
     end
 
@@ -79,6 +80,8 @@ classdef Problem < handle
                 Number of nonlinear inequality constraints.
             m_nonlinear_eq : int, optional
                 Number of nonlinear equality constraints.
+            type : str, optional
+                Type of the optimization problem.
 
             Raises
             ------
@@ -297,6 +300,22 @@ classdef Problem < handle
 
         function value = get.m_linear_eq(obj)
             value = numel(obj.beq);
+        end
+
+        function value = get.type(obj)
+            try
+                if obj.m_nonlinear_ub + obj.m_nonlinear_eq > 0
+                    value = "nonlinearly constrained";
+                elseif obj.m_linear_ub + obj.m_linear_eq > 0
+                    value = "linearly constrained";
+                elseif any(obj.xl > -inf) || any(obj.xu < inf)
+                    value = "bound-constrained";
+                else
+                    value = "unconstrained";
+                end
+            catch ME
+                value = "nonlinearly constrained";
+            end
         end
 
         % Other getter functions.
