@@ -490,7 +490,15 @@ def _draw_profiles(work_hist, work_out, problem_dimensions, labels, tolerance_la
 
     # Draw the performance and data profiles.
     x_perf_hist, y_perf_hist, ratio_max_perf_hist, x_data_hist, y_data_hist, ratio_max_data_hist = _get_extended_performances_data_profile_axes(work_hist, problem_dimensions)
+    x_perf_hist = np.log2(x_perf_hist)
+    ratio_max_perf_hist = np.log2(ratio_max_perf_hist)
+    x_data_hist = np.log2(1.0 + x_data_hist)
+    ratio_max_data_hist = np.log2(1.0 + ratio_max_data_hist)
     x_perf_out, y_perf_out, ratio_max_perf_out, x_data_out, y_data_out, ratio_max_data_out = _get_extended_performances_data_profile_axes(work_out, problem_dimensions)
+    x_perf_out = np.log2(x_perf_out)
+    ratio_max_perf_out = np.log2(ratio_max_perf_out)
+    x_data_out = np.log2(1.0 + x_data_out)
+    ratio_max_data_out = np.log2(1.0 + ratio_max_data_out)
     _draw_performance_data_profiles(ax_perf_hist, x_perf_hist, y_perf_hist, labels)
     _draw_performance_data_profiles(ax_perf_out, x_perf_out, y_perf_out, labels)
     if i_tolerance == 0:
@@ -502,25 +510,26 @@ def _draw_profiles(work_hist, work_out, problem_dimensions, labels, tolerance_la
     _draw_performance_data_profiles(ax_data_out, x_data_out, y_data_out, labels)
     _draw_performance_data_profiles(ax_summary_hist[1, i_tolerance], x_data_hist, y_data_hist)
     _draw_performance_data_profiles(ax_summary_out[1, i_tolerance], x_data_out, y_data_out)
-    ax_perf_hist.set_xscale('log', base=2)
-    ax_perf_out.set_xscale('log', base=2)
-    ax_summary_hist[0, i_tolerance].set_xscale('log', base=2)
-    ax_summary_out[0, i_tolerance].set_xscale('log', base=2)
-    int_formatter = FuncFormatter(lambda x, _: f'{x:.0f}')
-    ax_perf_hist.xaxis.set_major_formatter(int_formatter)
-    ax_perf_out.xaxis.set_major_formatter(int_formatter)
-    ax_summary_hist[0, i_tolerance].xaxis.set_major_formatter(int_formatter)
-    ax_summary_out[0, i_tolerance].xaxis.set_major_formatter(int_formatter)
+    perf_formatter = FuncFormatter(_perf_formatter)
+    ax_perf_hist.xaxis.set_major_formatter(perf_formatter)
+    ax_perf_out.xaxis.set_major_formatter(perf_formatter)
+    ax_summary_hist[0, i_tolerance].xaxis.set_major_formatter(perf_formatter)
+    ax_summary_out[0, i_tolerance].xaxis.set_major_formatter(perf_formatter)
+    data_formatter = FuncFormatter(_data_formatter)
+    ax_data_hist.xaxis.set_major_formatter(data_formatter)
+    ax_data_out.xaxis.set_major_formatter(data_formatter)
+    ax_summary_hist[1, i_tolerance].xaxis.set_major_formatter(data_formatter)
+    ax_summary_out[1, i_tolerance].xaxis.set_major_formatter(data_formatter)
     with warnings.catch_warnings():
         warnings.filterwarnings('ignore', category=UserWarning)
-        ax_perf_hist.set_xlim(1.0, ratio_max_perf_hist ** 1.1)
-        ax_perf_out.set_xlim(1.0, ratio_max_perf_out ** 1.1)
-        ax_summary_hist[0, i_tolerance].set_xlim(1.0, ratio_max_perf_hist ** 1.1)
-        ax_summary_out[0, i_tolerance].set_xlim(1.0, ratio_max_perf_out ** 1.1)
-    ax_data_hist.set_xlim(0.0, 1.1 * ratio_max_data_hist)
-    ax_data_out.set_xlim(0.0, 1.1 * ratio_max_data_out)
-    ax_summary_hist[1, i_tolerance].set_xlim(0.0, 1.1 * ratio_max_data_hist)
-    ax_summary_out[1, i_tolerance].set_xlim(0.0, 1.1 * ratio_max_data_out)
+        ax_perf_hist.set_xlim(0.0, 1.05 * ratio_max_perf_hist)
+        ax_perf_out.set_xlim(0.0, 1.05 * ratio_max_perf_out)
+        ax_summary_hist[0, i_tolerance].set_xlim(0.0, 1.05 * ratio_max_perf_hist)
+        ax_summary_out[0, i_tolerance].set_xlim(0.0, 1.05 * ratio_max_perf_out)
+    ax_data_hist.set_xlim(0.0, 1.05 * ratio_max_data_hist)
+    ax_data_out.set_xlim(0.0, 1.05 * ratio_max_data_out)
+    ax_summary_hist[1, i_tolerance].set_xlim(0.0, 1.05 * ratio_max_data_hist)
+    ax_summary_out[1, i_tolerance].set_xlim(0.0, 1.05 * ratio_max_data_out)
     ax_perf_hist.set_xlabel('Performance ratio')
     ax_perf_out.set_xlabel('Performance ratio')
     ax_summary_hist[0, i_tolerance].set_xlabel('Performance ratio')
@@ -566,6 +575,8 @@ def _draw_performance_data_profiles(ax, x, y, labels=None):
             ax.plot(x_stairs, y_mean_stairs)
         if n_runs > 1:
             ax.fill_between(x_stairs, y_min_stairs, y_max_stairs, alpha=0.2)
+    ax.xaxis.set_major_locator(MaxNLocator(5, integer=True))
+    ax.xaxis.get_major_locator()
     ax.yaxis.set_ticks_position('both')
     ax.yaxis.set_major_locator(MaxNLocator(5, prune='lower'))
     ax.yaxis.set_minor_locator(MaxNLocator(10))
@@ -595,7 +606,7 @@ def _draw_log_ratio_profiles(ax, work, labels):
     with warnings.catch_warnings():
         warnings.filterwarnings('ignore', category=UserWarning)
         ax.set_xlim(0.5, n_problems * n_runs + 0.5)
-    ax.set_ylim(-1.1 * ratio_max, 1.1 * ratio_max)
+    ax.set_ylim(-1.05 * ratio_max, 1.05 * ratio_max)
     ax.tick_params(which='both', direction='in')
 
 
@@ -609,11 +620,11 @@ def _get_extended_performances_data_profile_axes(work, problem_dimensions):
         x_perf = np.vstack([x_perf, np.full((1, n_solvers), ratio_max_perf ** 2.0)])
         y_perf = np.vstack([y_perf, y_perf[-1, np.newaxis, :, :]])
     x_data, y_data, ratio_max_data = _get_performance_data_profile_axes(work, lambda i_problem, i_run: problem_dimensions[i_problem] + 1)
-    x_data[np.isinf(x_data)] = 2.0 * ratio_max_data
+    x_data[np.isinf(x_data)] = ratio_max_data ** 2.0 - 1.0
     x_data = np.vstack([np.zeros((1, n_solvers)), x_data])
     y_data = np.vstack([np.zeros((1, n_solvers, n_runs)), y_data])
     if n_problems > 0:
-        x_data = np.vstack([x_data, np.full((1, n_solvers), 2.0 * ratio_max_data)])
+        x_data = np.vstack([x_data, np.full((1, n_solvers), ratio_max_data ** 2.0 - 1.0)])
         y_data = np.vstack([y_data, y_data[-1, np.newaxis, :, :]])
     return x_perf, y_perf, ratio_max_perf, x_data, y_data, ratio_max_data
 
@@ -647,3 +658,17 @@ def _get_performance_data_profile_axes(work, denominator):
                 if np.isnan(y[i_problem, i_solver, i_run]):
                     y[i_problem, i_solver, i_run] = y[i_problem - 1, i_solver, i_run] if i_problem > 0 else 0.0
     return x, y, ratio_max
+
+
+def _perf_formatter(x, _):
+    if x.is_integer():
+        return str(int(2 ** x))
+    else:
+        return f'$2^{{{f"{x:.8f}".rstrip("0").rstrip(".")}}}$'
+
+
+def _data_formatter(x, _):
+    if x.is_integer():
+        return str(int(2 ** x - 1))
+    else:
+        return f'$2^{{{f"{x:.8f}".rstrip("0").rstrip(".")}}}-1$'
