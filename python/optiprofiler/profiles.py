@@ -127,6 +127,8 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
     --------
     To do.
     """
+    logger = get_logger(__name__)
+
     # Preprocess the solvers.
     if not hasattr(solvers, '__len__') or not all(callable(solver) for solver in solvers):
         raise TypeError('The solvers must be a list of callables.')
@@ -184,130 +186,180 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
     if not isinstance(profile_options[ProfileOption.PROJECT_X0], bool):
         raise TypeError(f'Option {ProfileOption.PROJECT_X0} must be a boolean.')
 
-    # Build the feature.
-    logger = get_logger(__name__)
-    feature = Feature(feature_name, **feature_options)
-    logger.info(f'Starting the computations of the "{feature.name}" profiles.')
+    # Build the features.
+    if isinstance(feature_name, str):
+        feature_name = [feature_name]
+    feature_name = [name.lower() for name in feature_name]
+    features = [Feature(name, **feature_options) for name in feature_name]
 
-    # Solve the problems.
-    max_eval_factor = 500
-    problem_names, fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_dimensions, time_processes = _solve_all_problems(cutest_problem_names, extra_problems, solvers, labels, feature, max_eval_factor, profile_options)
-    merit_histories = _compute_merit_values(fun_histories, maxcv_histories, maxcv_init)
-    merit_out = _compute_merit_values(fun_out, maxcv_out, maxcv_init)
-    merit_init = _compute_merit_values(fun_init, maxcv_init, maxcv_init)
-
-    # Determine the least merit value for each problem.
-    merit_min = np.min(merit_histories, (1, 2, 3))
-    if feature.is_stochastic:
-        feature_plain = Feature('plain')
-        logger.info(f'Starting the computations of the "plain" profiles.')
-        _, fun_histories_plain, maxcv_histories_plain, _, _, _, _, _, _, time_processes_plain = _solve_all_problems(cutest_problem_names, extra_problems, solvers, labels, feature_plain, max_eval_factor, profile_options)
-        time_processes += time_processes_plain
-        merit_histories_plain = _compute_merit_values(fun_histories_plain, maxcv_histories_plain, maxcv_init)
-        merit_min_plain = np.min(merit_histories_plain, (1, 2, 3))
-        merit_min = np.minimum(merit_min, merit_min_plain)
-
-    # Paths to the results.
+    # Path to the summary.
     timestamp = datetime.now().astimezone().strftime('%Y-%m-%dT%H-%M-%S%Z')
     path_out = Path('out', profile_options[ProfileOption.BENCHMARK_ID], timestamp).resolve()
-    path_feature = path_out / feature.name
-    path_feature.mkdir(parents=True, exist_ok=True)
-    path_perf_hist = path_feature / 'perf_hist.pdf'
-    path_perf_out = path_feature / 'perf_out.pdf'
-    path_data_hist = path_feature / 'data_hist.pdf'
-    path_data_out = path_feature / 'data_out.pdf'
-    path_log_ratio_hist = path_feature / 'log-ratio_hist.pdf'
-    path_log_ratio_out = path_feature / 'log-ratio_out.pdf'
-    path_problems = path_out / 'problems.txt'
     path_summary = path_out / 'summary.pdf'
-
-    # Store the names of the problems.
-    with path_problems.open('w') as f:
-        f.write(os.linesep.join(f'{problem_name}: {time_process:.2f} seconds' for problem_name, time_process in sorted(zip(problem_names, time_processes))))
 
     # Retrieve the tolerances of the profiles.
     tolerances = np.logspace(-1, -16, 16)
 
-    # Set up matplotlib for plotting the profiles.
-    prop_cycle = cycler(color=['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'])
-    prop_cycle += cycler(linestyle=[(0, ()), (0, (1, 1.5)), (0, (3, 1.5)), (0, (5, 1.5, 1, 1.5)), (0, (5, 1.5, 1, 1.5, 1, 1.5)), (0, (1, 3)), (0, (3, 3)), (0, (5, 3, 1, 3)), (0, (5, 3, 1, 3, 1, 3)), (0, (1, 4.5))])
-    with plt.rc_context({
+    # Customize the matplotlib style.
+    prop_cycle = cycler(color=[
+        '#1f77b4',
+        '#ff7f0e',
+        '#2ca02c',
+        '#d62728',
+        '#9467bd',
+        '#8c564b',
+        '#e377c2',
+        '#7f7f7f',
+        '#bcbd22',
+        '#17becf',
+    ])
+    prop_cycle += cycler(linestyle=[
+        (0, ()),
+        (0, (1, 1.5)),
+        (0, (3, 1.5)),
+        (0, (5, 1.5, 1, 1.5)),
+        (0, (5, 1.5, 1, 1.5, 1, 1.5)),
+        (0, (1, 3)),
+        (0, (3, 3)),
+        (0, (5, 3, 1, 3)),
+        (0, (5, 3, 1, 3, 1, 3)),
+        (0, (1, 4.5)),
+    ])
+    profile_context = {
         'axes.prop_cycle': prop_cycle,
         'font.family': 'serif',
         'font.size': 16,
         'text.usetex': True if shutil.which('latex') else False,
-    }):
-        # Create the summary figure.
-        default_width, default_height = plt.rcParams['figure.figsize']
-        fig_summary = plt.figure(figsize=(len(tolerances) * default_width, 4 * default_height), layout='constrained')
-        subfig_summary = fig_summary.subfigures(2, 1)
-        ax_summary_hist = subfig_summary[0].subplots(2, len(tolerances), sharey=True)
-        ax_summary_out = subfig_summary[1].subplots(2, len(tolerances), sharey=True)
+    }
 
-        # Create the performance and data profiles.
-        n_problems, n_solvers, n_runs, max_eval = merit_histories.shape
-        pdf_perf_hist = backend_pdf.PdfPages(path_perf_hist)
-        pdf_perf_out = backend_pdf.PdfPages(path_perf_out)
-        pdf_data_hist = backend_pdf.PdfPages(path_data_hist)
-        pdf_data_out = backend_pdf.PdfPages(path_data_out)
-        pdf_log_ratio_hist = backend_pdf.PdfPages(path_log_ratio_hist, False)
-        pdf_log_ratio_out = backend_pdf.PdfPages(path_log_ratio_out, False)
-        for i_tolerance, tolerance in enumerate(tolerances):
-            tolerance_str, tolerance_latex = _format_float_scientific_latex(tolerance)
-            logger.info(f'Creating profiles for tolerance {tolerance_str}.')
-            tolerance_label = f'($\\mathrm{{tol}} = {tolerance_latex}$)'
+    # Run the benchmarks.
+    pdf_summary = backend_pdf.PdfPages(path_summary)
+    problem_names = None
+    merit_init = None
+    merit_histories_plain = None
+    merit_out_plain = None
+    for feature in features:
+        # Solve the problems.
+        logger.info(f'Starting the computations of the "{feature.name}" profiles.')
+        max_eval_factor = 500
+        if feature.name == FeatureName.PLAIN and merit_histories_plain is not None:
+            merit_histories = np.copy(merit_histories_plain)
+            merit_out = np.copy(merit_out_plain)
+        else:
+            problem_names, fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_dimensions, time_processes = _solve_all_problems(cutest_problem_names, extra_problems, solvers, labels, feature, max_eval_factor, profile_options)
+            merit_histories = _compute_merit_values(fun_histories, maxcv_histories, maxcv_init)
+            merit_out = _compute_merit_values(fun_out, maxcv_out, maxcv_init)
+            merit_init = _compute_merit_values(fun_init, maxcv_init, maxcv_init)
+            if feature.name == FeatureName.PLAIN:
+                merit_histories_plain = np.copy(merit_histories)
+                merit_out_plain = np.copy(merit_out)
 
-            work_hist = np.full((n_problems, n_solvers, n_runs), np.nan)
-            work_out = np.full((n_problems, n_solvers, n_runs), np.nan)
-            for i_problem in range(n_problems):
-                for i_solver in range(n_solvers):
-                    for i_run in range(n_runs):
-                        if np.isfinite(merit_min[i_problem]):
-                            threshold = max(tolerance * merit_init[i_problem] + (1.0 - tolerance) * merit_min[i_problem], merit_min[i_problem])
-                        else:
-                            threshold = -np.inf
-                        if np.min(merit_histories[i_problem, i_solver, i_run, :]) <= threshold:
-                            work_hist[i_problem, i_solver, i_run] = np.argmax(merit_histories[i_problem, i_solver, i_run, :] <= threshold) + 1
-                        if merit_out[i_problem, i_solver, i_run] <= threshold:
-                            work_out[i_problem, i_solver, i_run] = n_eval[i_problem, i_solver, i_run]
+        # Determine the least merit value for each problem.
+        merit_min = np.min(merit_histories, (1, 2, 3))
+        if feature.is_stochastic:
+            if merit_histories_plain is None:
+                feature_plain = Feature('plain')
+                logger.info(f'Starting the computations of the "plain" profiles.')
+                problem_names, fun_histories_plain, maxcv_histories_plain, fun_out_plain, maxcv_out_plain, fun_init, maxcv_init, _, _, time_processes_plain = _solve_all_problems(cutest_problem_names, extra_problems, solvers, labels, feature_plain, max_eval_factor, profile_options)
+                merit_histories_plain = _compute_merit_values(fun_histories_plain, maxcv_histories_plain, maxcv_init)
+                merit_out_plain = _compute_merit_values(fun_out_plain, maxcv_out_plain, maxcv_init)
+                merit_init = _compute_merit_values(fun_init, maxcv_init, maxcv_init)
+            merit_min_plain = np.min(merit_histories_plain, (1, 2, 3))
+            merit_min = np.minimum(merit_min, merit_min_plain)
 
-            # Draw the profiles.
-            fig_perf_hist, fig_perf_out, fig_data_hist, fig_data_out, fig_log_ratio_hist, fig_log_ratio_out = _draw_profiles(work_hist, work_out, problem_dimensions, labels, tolerance_label, i_tolerance, ax_summary_hist, ax_summary_out)
-            pdf_perf_hist.savefig(fig_perf_hist, bbox_inches='tight')
-            pdf_perf_out.savefig(fig_perf_out, bbox_inches='tight')
-            pdf_data_hist.savefig(fig_data_hist, bbox_inches='tight')
-            pdf_data_out.savefig(fig_data_out, bbox_inches='tight')
-            if fig_log_ratio_hist is not None:
-                pdf_log_ratio_hist.savefig(fig_log_ratio_hist, bbox_inches='tight')
-            if fig_log_ratio_out is not None:
-                pdf_log_ratio_out.savefig(fig_log_ratio_out, bbox_inches='tight')
+        # Paths to the individual results.
+        path_feature = path_out / feature.name
+        path_feature.mkdir(parents=True, exist_ok=True)
+        path_problems = path_feature / 'problems.txt'
+        path_perf_hist = path_feature / 'perf_hist.pdf'
+        path_perf_out = path_feature / 'perf_out.pdf'
+        path_data_hist = path_feature / 'data_hist.pdf'
+        path_data_out = path_feature / 'data_out.pdf'
+        path_log_ratio_hist = path_feature / 'log-ratio_hist.pdf'
+        path_log_ratio_out = path_feature / 'log-ratio_out.pdf'
 
-            # Close the figures.
-            plt.close(fig_perf_hist)
-            plt.close(fig_perf_out)
-            plt.close(fig_data_hist)
-            plt.close(fig_data_out)
-            if fig_log_ratio_hist is not None:
-                plt.close(fig_log_ratio_hist)
-            if fig_log_ratio_out is not None:
-                plt.close(fig_log_ratio_out)
+        # Store the names of the problems.
+        with path_problems.open('w') as f:
+            f.write(os.linesep.join(problem_names))
 
-        # Close the PDF files.
-        pdf_perf_hist.close()
-        pdf_perf_out.close()
-        pdf_data_hist.close()
-        pdf_data_out.close()
-        pdf_log_ratio_hist.close()
-        pdf_log_ratio_out.close()
-        logger.info(f'Detailed results stored in {path_feature}.')
+        with plt.rc_context(profile_context):
+            # Create the summary figure.
+            fig_summary = plt.figure(figsize=(len(tolerances) * 6.4, 4 * 4.8), layout='constrained')
+            subfig_summary = fig_summary.subfigures(2, 1)
+            ax_summary_hist = subfig_summary[0].subplots(2, len(tolerances), sharey=True)
+            ax_summary_out = subfig_summary[1].subplots(2, len(tolerances), sharey=True)
 
-        # Create the summary PDF.
-        subfig_summary[0].supylabel('History-based profiles', fontsize='xx-large', horizontalalignment='right')
-        subfig_summary[1].supylabel('Output-based profiles', fontsize='xx-large', horizontalalignment='right')
-        pdf_summary = backend_pdf.PdfPages(path_summary)
-        pdf_summary.savefig(fig_summary, bbox_inches='tight')
-        pdf_summary.close()
-        logger.info(f'Summary stored in {path_summary}.')
+            # Create the performance and data profiles.
+            n_problems, n_solvers, n_runs, max_eval = merit_histories.shape
+            pdf_perf_hist = backend_pdf.PdfPages(path_perf_hist)
+            pdf_perf_out = backend_pdf.PdfPages(path_perf_out)
+            pdf_data_hist = backend_pdf.PdfPages(path_data_hist)
+            pdf_data_out = backend_pdf.PdfPages(path_data_out)
+            pdf_log_ratio_hist = backend_pdf.PdfPages(path_log_ratio_hist, False)
+            pdf_log_ratio_out = backend_pdf.PdfPages(path_log_ratio_out, False)
+            for i_tolerance, tolerance in enumerate(tolerances):
+                tolerance_str, tolerance_latex = _format_float_scientific_latex(tolerance)
+                logger.info(f'Creating profiles for tolerance {tolerance_str}.')
+                tolerance_label = f'($\\mathrm{{tol}} = {tolerance_latex}$)'
+
+                # Compute the number of function evaluations used by each
+                # solver on each problem at each run to achieve convergence.
+                work_hist = np.full((n_problems, n_solvers, n_runs), np.nan)
+                work_out = np.full((n_problems, n_solvers, n_runs), np.nan)
+                for i_problem in range(n_problems):
+                    for i_solver in range(n_solvers):
+                        for i_run in range(n_runs):
+                            if np.isfinite(merit_min[i_problem]):
+                                threshold = max(tolerance * merit_init[i_problem] + (1.0 - tolerance) * merit_min[i_problem], merit_min[i_problem])
+                            else:
+                                threshold = -np.inf
+                            if np.min(merit_histories[i_problem, i_solver, i_run, :]) <= threshold:
+                                work_hist[i_problem, i_solver, i_run] = np.argmax(merit_histories[i_problem, i_solver, i_run, :] <= threshold) + 1
+                            if merit_out[i_problem, i_solver, i_run] <= threshold:
+                                work_out[i_problem, i_solver, i_run] = n_eval[i_problem, i_solver, i_run]
+
+                # Draw and save the profiles.
+                fig_perf_hist, fig_perf_out, fig_data_hist, fig_data_out, fig_log_ratio_hist, fig_log_ratio_out = _draw_profiles(work_hist, work_out, problem_dimensions, labels, tolerance_label, i_tolerance, ax_summary_hist, ax_summary_out)
+                pdf_perf_hist.savefig(fig_perf_hist, bbox_inches='tight')
+                pdf_perf_out.savefig(fig_perf_out, bbox_inches='tight')
+                pdf_data_hist.savefig(fig_data_hist, bbox_inches='tight')
+                pdf_data_out.savefig(fig_data_out, bbox_inches='tight')
+                if fig_log_ratio_hist is not None:
+                    pdf_log_ratio_hist.savefig(fig_log_ratio_hist, bbox_inches='tight')
+                if fig_log_ratio_out is not None:
+                    pdf_log_ratio_out.savefig(fig_log_ratio_out, bbox_inches='tight')
+
+                # Close the individual figures.
+                plt.close(fig_perf_hist)
+                plt.close(fig_perf_out)
+                plt.close(fig_data_hist)
+                plt.close(fig_data_out)
+                if fig_log_ratio_hist is not None:
+                    plt.close(fig_log_ratio_hist)
+                if fig_log_ratio_out is not None:
+                    plt.close(fig_log_ratio_out)
+
+            # Close the individual PDF files.
+            pdf_perf_hist.close()
+            pdf_perf_out.close()
+            pdf_data_hist.close()
+            pdf_data_out.close()
+            pdf_log_ratio_hist.close()
+            pdf_log_ratio_out.close()
+            logger.info(f'Detailed results stored in {path_feature}.')
+
+            # Save the summary for the current feature.
+            subfig_summary[0].supylabel('History-based profiles', fontsize='xx-large', horizontalalignment='right')
+            subfig_summary[1].supylabel('Output-based profiles', fontsize='xx-large', horizontalalignment='right')
+            fig_summary.suptitle(f"Profiles with the ``{feature.name}'' feature", fontsize='xx-large', verticalalignment='bottom')
+            pdf_summary.savefig(fig_summary, bbox_inches='tight')
+
+            # Close the summary figure.
+            plt.close(fig_summary)
+
+    # Close the summary PDF file.
+    pdf_summary.close()
+    logger.info(f'Summary stored in {path_summary}.')
 
 
 def _solve_all_problems(cutest_problem_names, extra_problems, solvers, labels, feature, max_eval_factor, profile_options):

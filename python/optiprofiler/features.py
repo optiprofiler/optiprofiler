@@ -20,17 +20,17 @@ class Feature:
         Other Parameters
         ----------------
         distribution : callable, optional
-            Distribution used in the 'noisy' and 'randomize_x0' feature.
+            Distribution used by the 'noisy' and 'randomize_x0' feature.
         modifier : callable, optional
-            Modifier used in the 'custom' feature.
+            Custom modifier used by the 'custom' feature.
         n_runs : int, optional
             Number of runs for all features.
         rate_nan : int or float, optional
-            Rate of NaNs of the 'tough' feature.
+            Rate of NaNs used by the 'tough' feature.
         significant_digits : int, optional
-            Number of significant digits of the 'truncated' feature.
+            Number of significant digits used by the 'truncated' feature.
         type : str, optional
-            Type of the 'noisy' feature.
+            Type of the noise used by the 'noisy' feature.
 
         Raises
         ------

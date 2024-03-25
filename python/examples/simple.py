@@ -1,6 +1,6 @@
 import numpy as np
 from cobyqa import minimize as cobyqa_minimize
-from optiprofiler import set_cutest_problem_options, find_cutest_problems, run_benchmark
+from optiprofiler import find_cutest_problems, run_benchmark
 from pdfo import pdfo as pdfo_minimize
 from scipy.optimize import Bounds, LinearConstraint, NonlinearConstraint
 
@@ -96,6 +96,5 @@ def _build_nonlinear_constraints(c_ub, c_eq, x0):
 
 
 if __name__ == '__main__':
-    set_cutest_problem_options(n_max=2)
-    cutest_problem_names = find_cutest_problems('unconstrained')
-    run_benchmark([cobyqa, newuoa], ['COBYQA', 'NEWUOA'], cutest_problem_names)
+    cutest_problem_names = find_cutest_problems('unconstrained', n_max=2)
+    run_benchmark([cobyqa, newuoa], ['COBYQA', 'NEWUOA'], cutest_problem_names, feature_name=['plain', 'permuted'])

@@ -4,7 +4,7 @@ import warnings
 from contextlib import redirect_stdout, redirect_stderr
 
 import numpy as np
-from scipy.linalg import lstsq
+from scipy.linalg import lstsq, qr
 from scipy.optimize import Bounds, LinearConstraint, NonlinearConstraint, minimize
 
 from .features import Feature
@@ -964,7 +964,7 @@ def set_cutest_problem_options(**problem_options):
             raise ValueError(f'Unknown problem option: {option_key}.')
 
 
-def find_cutest_problems(constraints):
+def find_cutest_problems(constraints, excluded_problem_names=(), **problem_options):
     """
     Find the names of all the CUTEst problems that satisfy given requirements.
 
@@ -978,9 +978,9 @@ def find_cutest_problems(constraints):
     Parameters
     ----------
     constraints : {str, list}
-        TODO: Improve the doc.
         Type of constraints that the CUTEst problems must have. It should
-        be either: 'unconstrained', 'bound', 'linear', and 'nonlinear'.
+        be either: 'unconstrained', 'bound', 'linear', 'nonlinear', or a list
+        containing one or more of these strings.
 
     Returns
     -------
@@ -1019,6 +1019,17 @@ def find_cutest_problems(constraints):
         if constraint not in ['unconstrained', 'bound', 'linear', 'nonlinear']:
             raise ValueError(f'Unknown constraint: {constraint}.')
 
+    # Preprocess the excluded problem names.
+    if isinstance(excluded_problem_names, str):
+        excluded_problem_names = [excluded_problem_names]
+    excluded_problem_names = list(excluded_problem_names)
+    for excluded_problem_name in excluded_problem_names:
+        if not isinstance(excluded_problem_name, str):
+            raise TypeError('The argument excluded_problem_names must be a list of strings.')
+
+    # Set the CUTEst problem options.
+    set_cutest_problem_options(**problem_options)
+
     # Find all the problems that satisfy the constraints.
     constraints_cutest = ''
     if 'unconstrained' in constraints:
@@ -1042,7 +1053,7 @@ def find_cutest_problems(constraints):
         ],
         userM=False,
     )
-    return sorted(set(problem_names))
+    return sorted(set(problem_names).difference(excluded_problem_names))
 
 
 def load_cutest_problem(problem_name):

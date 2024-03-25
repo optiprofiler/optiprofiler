@@ -1,9 +1,4 @@
-from .problems import (
-    Problem,
-    get_cutest_problem_options,
-    set_cutest_problem_options,
-    find_cutest_problems,
-)
+from .problems import Problem, get_cutest_problem_options, set_cutest_problem_options, find_cutest_problems
 from .profiles import run_benchmark
 from .utils import show_versions
 
