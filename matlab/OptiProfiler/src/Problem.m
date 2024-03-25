@@ -305,16 +305,16 @@ classdef Problem < handle
         function value = get.type(obj)
             try
                 if obj.m_nonlinear_ub + obj.m_nonlinear_eq > 0
-                    value = "nonlinearly constrained";
+                    value = 'nonlinearly constrained';
                 elseif obj.m_linear_ub + obj.m_linear_eq > 0
-                    value = "linearly constrained";
+                    value = 'linearly constrained';
                 elseif any(obj.xl > -inf) || any(obj.xu < inf)
-                    value = "bound-constrained";
+                    value = 'bound-constrained';
                 else
-                    value = "unconstrained";
+                    value = 'unconstrained';
                 end
             catch ME
-                value = "nonlinearly constrained";
+                value = 'nonlinearly constrained';
             end
         end
 

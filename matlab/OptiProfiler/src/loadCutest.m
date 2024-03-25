@@ -113,6 +113,9 @@ function problem = loadCutest(problem_name, problem_options)
     end
 
     problem = Problem(problem_struct);
+    problem_type = problem.type;
+
+    fprintf([upper(problem_type(1)) lower(problem_type(2:end))] + " CUTEst problem " + problem_name + " (n = " + problem.n + ")" + " successfully loaded.\n");
 
 end
 

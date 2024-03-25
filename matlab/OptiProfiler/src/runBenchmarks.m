@@ -106,7 +106,6 @@ function runBenchmarks(solvers, labels, problem_names, feature_names, varargin)
     path_out = fullfile(root_path, 'out', profile_options.(ProfileOptionKey.BENCHMARK_ID.value), timestamp);
 
     % Set the default values for plotting.
-    fprintf("Creating results.\n");
     set(groot, 'DefaultLineLineWidth', 1);
     set(groot, 'DefaultAxesFontSize', 12);
     set(groot, 'DefaultAxesFontName', 'Arial');
@@ -125,7 +124,7 @@ function runBenchmarks(solvers, labels, problem_names, feature_names, varargin)
 
         % Build feature.
         feature = Feature(feature_name);
-        fprintf("INFO: Starting the computation of the %s profiles.\n", feature.name);
+        fprintf('INFO: Starting the computation of the "%s" profiles.\n', feature.name);
 
         % Solve all the problems.
         [fun_histories, maxcv_histories, fun_ret, maxcv_ret, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, time_processes] = solveAllProblems(problem_names, problem_options, solvers, labels, feature, profile_options);
@@ -137,7 +136,7 @@ function runBenchmarks(solvers, labels, problem_names, feature_names, varargin)
         merit_min = min(min(min(merit_histories, [], 4, 'omitnan'), [], 3, 'omitnan'), [], 2, 'omitnan');
         if feature.isStochastic
             feature_plain = Feature(FeatureName.PLAIN.value);
-            fprintf("INFO: Starting the computation of the plain profiles.\n");
+            fprintf('INFO: Starting the computation of the "plain" profiles.\n');
             [fun_histories_plain, maxcv_histories_plain, ~, ~, ~, ~, ~, ~, ~, time_processes_plain] = solveAllProblems(problem_names, problem_options, solvers, labels, feature_plain, profile_options);
             time_processes = time_processes + time_processes_plain;
             merit_histories_plain = computeMeritValues(fun_histories_plain, maxcv_histories_plain, maxcv_init);
@@ -329,12 +328,14 @@ function runBenchmarks(solvers, labels, problem_names, feature_names, varargin)
             exportgraphics(fig_summary_hist, pdf_summary_hist, 'ContentType', 'vector', 'Append', true);
             exportgraphics(fig_summary_ret, pdf_summary_ret, 'ContentType', 'vector', 'Append', true);
         end
+        fprintf('Detailed results stored in %s\n', path_feature);
 
     end
 
     % Close the figures.
     close(fig_summary_hist);
     close(fig_summary_ret);
+    fprintf('Summary stored in %s\n', path_out);
 
 end
 
