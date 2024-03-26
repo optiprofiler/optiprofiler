@@ -215,7 +215,8 @@ function runBenchmark(solvers, labels, problem_names, feature_names, varargin)
         end
         fig_summary = figure('Position', [defaultFigurePosition(1:2), profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * default_width, 2 * scale_height * default_height], 'visible', 'off');
         T_summary = tiledlayout(fig_summary, 2, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
-        title(T_summary, ['Profiles with the ``', feature.name, '" feature'], 'Interpreter', 'latex', 'FontSize', 24);
+        T_title = strrep(feature.name, '_', '\_');
+        title(T_summary, ['Profiles with the ``', T_title, '" feature'], 'Interpreter', 'latex', 'FontSize', 24);
         % Use gobjects to create arrays of handles and axes.
         t_summary = gobjects(2, 1);
         axs_summary = gobjects([2, 1, scale_height, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)]);

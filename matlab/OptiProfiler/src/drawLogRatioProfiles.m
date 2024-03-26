@@ -19,8 +19,8 @@ function drawLogRatioProfiles(ax, work, labels)
     bar(ax, x(log_ratio < 0), log_ratio(log_ratio < 0), 'LineStyle', 'None', 'LineWidth', 1.5);
     hold(ax, 'on');
     bar(ax, x(log_ratio > 0), log_ratio(log_ratio > 0), 'LineStyle', 'None', 'LineWidth', 1.5);
-    text(ax, (n_problems * n_runs + 1) / 2, -ratio_max, labels{1}, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom');
-    text(ax, (n_problems * n_runs + 1) / 2, ratio_max, labels{2}, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'top');
+    text(ax, (n_problems * n_runs + 1) / 2, -ratio_max, labels{1}, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom', 'FontSize', 24);
+    text(ax, (n_problems * n_runs + 1) / 2, ratio_max, labels{2}, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'top', 'FontSize', 24);
     xticks(ax, []);
     xlim(ax, [0.5, n_problems * n_runs + 0.5]);
     yyaxis(ax, 'right');
