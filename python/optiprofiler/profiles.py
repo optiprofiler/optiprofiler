@@ -284,7 +284,7 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
 
         with plt.rc_context(profile_context):
             # Create the summary figure.
-            fig_summary = plt.figure(figsize=(len(tolerances) * 6.4, 4 * 4.8), layout='constrained')
+            fig_summary = plt.figure(figsize=(len(tolerances) * 4.8, 4 * 4.8), layout='constrained')
             subfig_summary = fig_summary.subfigures(2, 1)
             ax_summary_hist = subfig_summary[0].subplots(2, len(tolerances), sharey=True)
             ax_summary_out = subfig_summary[1].subplots(2, len(tolerances), sharey=True)
@@ -628,7 +628,6 @@ def _draw_performance_data_profiles(ax, x, y, labels=None):
         if n_runs > 1:
             ax.fill_between(x_stairs, y_min_stairs, y_max_stairs, alpha=0.2)
     ax.xaxis.set_major_locator(MaxNLocator(5, integer=True))
-    ax.xaxis.get_major_locator()
     ax.yaxis.set_ticks_position('both')
     ax.yaxis.set_major_locator(MaxNLocator(5, prune='lower'))
     ax.yaxis.set_minor_locator(MaxNLocator(10))

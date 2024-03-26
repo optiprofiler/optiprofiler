@@ -17,16 +17,16 @@ _cutest_problem_options = {
     CUTEstProblemOption.M_BOUND_MIN: 0,
     CUTEstProblemOption.M_BOUND_MAX: sys.maxsize,
     CUTEstProblemOption.M_LINEAR_MIN.value: 0,
-    CUTEstProblemOption.M_LINEAR_INEQUALITY_MIN.value: 0,
-    CUTEstProblemOption.M_LINEAR_EQUALITY_MIN.value: 0,
     CUTEstProblemOption.M_LINEAR_MAX.value: sys.maxsize,
+    CUTEstProblemOption.M_LINEAR_INEQUALITY_MIN.value: 0,
     CUTEstProblemOption.M_LINEAR_INEQUALITY_MAX.value: sys.maxsize,
+    CUTEstProblemOption.M_LINEAR_EQUALITY_MIN.value: 0,
     CUTEstProblemOption.M_LINEAR_EQUALITY_MAX.value: sys.maxsize,
     CUTEstProblemOption.M_NONLINEAR_MIN.value: 0,
-    CUTEstProblemOption.M_NONLINEAR_INEQUALITY_MIN.value: 0,
-    CUTEstProblemOption.M_NONLINEAR_EQUALITY_MIN.value: 0,
     CUTEstProblemOption.M_NONLINEAR_MAX.value: sys.maxsize,
+    CUTEstProblemOption.M_NONLINEAR_INEQUALITY_MIN.value: 0,
     CUTEstProblemOption.M_NONLINEAR_INEQUALITY_MAX.value: sys.maxsize,
+    CUTEstProblemOption.M_NONLINEAR_EQUALITY_MIN.value: 0,
     CUTEstProblemOption.M_NONLINEAR_EQUALITY_MAX.value: sys.maxsize,
     CUTEstProblemOption.ALL_VARIABLES_CONTINUOUS.value: True,
 }
@@ -36,9 +36,18 @@ class Problem:
     r"""
     Optimization problem to be used in the benchmarking.
 
+    This class provides a uniform interface for providing general optimization
+    problems. It is used to supply custom problems to the `run_benchmark`
+    function, and the signature of solvers supplied to the `run_benchmark`
+    function can be
+
+        ``solver(problem) -> array_like, shape (n,)``
+
+    where `problem` is an instance of the class `Problem`.
+
     Examples
     --------
-    Consider the problem of minimizing the Rosenbrock function
+    Consider the unconstrained problem of minimizing the Rosenbrock function
 
     .. math::
 
@@ -535,7 +544,7 @@ class Problem:
             raise ValueError(f'The return value of the argument c_eq must have size {self.m_nonlinear_eq}.')
         return c
 
-    def maxcv(self, x, detailed=False):
+    def maxcv(self, x):
         """
         Evaluate the maximum constraint violation.
 
@@ -543,34 +552,18 @@ class Problem:
         ----------
         x : array_like, shape (n,)
             Point at which to evaluate the maximum constraint violation.
-        detailed : bool, optional
-            Whether to return the maximum constraint violation for each
-            type of constraint (bound, linear, and nonlinear).
 
         Returns
         -------
-        {float, (float, float, float)}
-            Maximum constraint violation(s).
+        float
+            Maximum constraint violation.
 
         Raises
         ------
         ValueError
             If the argument `x` has an invalid shape.
         """
-        x = _process_1d_array(x, 'The argument x must be a one-dimensional array.')
-        if x.size != self.n:
-            raise ValueError(f'The argument x must have size {self.n}.')
-        cv_bounds = np.max(self.lb - x, initial=0.0)
-        cv_bounds = np.max(x - self.ub, initial=cv_bounds)
-        cv_linear = np.max(self.a_ub @ x - self.b_ub, initial=0.0)
-        cv_linear = np.max(np.abs(self.a_eq @ x - self.b_eq), initial=cv_linear)
-        cv_nonlinear = np.max(self.c_ub(x), initial=0.0)
-        cv_nonlinear = np.max(np.abs(self.c_eq(x)), initial=cv_nonlinear)
-        cv = max(cv_bounds, cv_linear, cv_nonlinear)
-        if detailed:
-            return cv, cv_bounds, cv_linear, cv_nonlinear
-        else:
-            return cv
+        return self._maxcv(x)[0]
 
     def project_x0(self):
         """
@@ -602,6 +595,41 @@ class Problem:
                 warnings.simplefilter('ignore')
                 res = minimize(dist_x0_sq, self.x0, jac=True, hessp=lambda p: p, bounds=bounds, constraints=constraints)
             self._x0 = res.x
+
+    def _maxcv(self, x):
+        """
+        Evaluate the maximum constraint violations.
+
+        Parameters
+        ----------
+        x : array_like, shape (n,)
+            Point at which to evaluate the maximum constraint violation.
+
+        Returns
+        -------
+        float
+            Maximum constraint violation for the bound constraints.
+        float
+            Maximum constraint violation for the linear constraints.
+        float
+            Maximum constraint violation for the nonlinear constraints.
+
+        Raises
+        ------
+        ValueError
+            If the argument `x` has an invalid shape.
+        """
+        x = _process_1d_array(x, 'The argument x must be a one-dimensional array.')
+        if x.size != self.n:
+            raise ValueError(f'The argument x must have size {self.n}.')
+        cv_bounds = np.max(self.lb - x, initial=0.0)
+        cv_bounds = np.max(x - self.ub, initial=cv_bounds)
+        cv_linear = np.max(self.a_ub @ x - self.b_ub, initial=0.0)
+        cv_linear = np.max(np.abs(self.a_eq @ x - self.b_eq), initial=cv_linear)
+        cv_nonlinear = np.max(self.c_ub(x), initial=0.0)
+        cv_nonlinear = np.max(np.abs(self.c_eq(x)), initial=cv_nonlinear)
+        cv = max(cv_bounds, cv_linear, cv_nonlinear)
+        return cv, cv_bounds, cv_linear, cv_nonlinear
 
 
 class FeaturedProblem(Problem):
@@ -819,7 +847,7 @@ class FeaturedProblem(Problem):
 
         # Evaluate the objective function and store the results.
         f = super().fun(x)
-        maxcv, maxcv_bounds, maxcv_linear, maxcv_nonlinear = self.maxcv(x, True)
+        maxcv, maxcv_bounds, maxcv_linear, maxcv_nonlinear = self._maxcv(x)
         self._fun_hist.append(f)
         self._maxcv_hist.append(maxcv)
 
@@ -885,10 +913,72 @@ class FeaturedProblem(Problem):
 
 
 def get_cutest_problem_options():
+    """
+    Get the options used for loading CUTEst problems.
+
+    Returns
+    -------
+    dict
+        Options used for loading CUTEst problems.
+
+    See Also
+    --------
+    set_cutest_problem_options :
+        Set the options used for loading CUTEst problems.
+    find_cutest_problems :
+        Find the CUTEst problems that satisfy given requirements.
+    """
     return dict(_cutest_problem_options)
 
 
 def set_cutest_problem_options(**problem_options):
+    """
+    Set the options used for loading CUTEst problems.
+
+    Other Parameters
+    ----------------
+    n_min : int, optional
+        Minimum number of variables.
+    n_max : int, optional
+        Maximum number of variables.
+    m_bound_min : int, optional
+        Minimum number of bound constraints.
+    m_bound_max : int, optional
+        Maximum number of bound constraints.
+    m_linear_min : int, optional
+        Minimum number of linear constraints.
+    m_linear_max : int, optional
+        Maximum number of linear constraints.
+    m_linear_inequality_min : int, optional
+        Minimum number of linear inequality constraints.
+    m_linear_inequality_max : int, optional
+        Maximum number of linear inequality constraints.
+    m_linear_equality_min : int, optional
+        Minimum number of linear equality constraints.
+    m_linear_equality_max : int, optional
+        Maximum number of linear equality constraints.
+    m_nonlinear_min : int, optional
+        Minimum number of nonlinear constraints.
+    m_nonlinear_max : int, optional
+        Maximum number of nonlinear constraints.
+    m_nonlinear_inequality_min : int, optional
+        Minimum number of nonlinear inequality constraints.
+    m_nonlinear_inequality_max : int, optional
+        Maximum number of nonlinear inequality constraints.
+    m_nonlinear_equality_min : int, optional
+        Minimum number of nonlinear equality constraints.
+    m_nonlinear_equality_max : int, optional
+        Maximum number of nonlinear equality constraints.
+    all_variables_continuous : bool, optional
+        Whether all variables are continuous.
+
+    See Also
+    --------
+    get_cutest_problem_options :
+        Get the options used for loading CUTEst problems.
+    find_cutest_problems :
+        Find the CUTEst problems that satisfy given requirements.
+    """
     for option_key, option_value in problem_options.items():
         if option_key in [
             CUTEstProblemOption.N_MIN,
@@ -896,16 +986,16 @@ def set_cutest_problem_options(**problem_options):
             CUTEstProblemOption.M_BOUND_MIN,
             CUTEstProblemOption.M_BOUND_MAX,
             CUTEstProblemOption.M_LINEAR_MIN,
-            CUTEstProblemOption.M_LINEAR_INEQUALITY_MIN,
-            CUTEstProblemOption.M_LINEAR_EQUALITY_MIN,
             CUTEstProblemOption.M_LINEAR_MAX,
+            CUTEstProblemOption.M_LINEAR_INEQUALITY_MIN,
             CUTEstProblemOption.M_LINEAR_INEQUALITY_MAX,
+            CUTEstProblemOption.M_LINEAR_EQUALITY_MIN,
             CUTEstProblemOption.M_LINEAR_EQUALITY_MAX,
             CUTEstProblemOption.M_NONLINEAR_MIN,
-            CUTEstProblemOption.M_NONLINEAR_INEQUALITY_MIN,
-            CUTEstProblemOption.M_NONLINEAR_EQUALITY_MIN,
             CUTEstProblemOption.M_NONLINEAR_MAX,
+            CUTEstProblemOption.M_NONLINEAR_INEQUALITY_MIN,
             CUTEstProblemOption.M_NONLINEAR_INEQUALITY_MAX,
+            CUTEstProblemOption.M_NONLINEAR_EQUALITY_MIN,
             CUTEstProblemOption.M_NONLINEAR_EQUALITY_MAX,
         ] and isinstance(option_value, float) and option_value.is_integer():
             option_value = int(option_value)
@@ -915,16 +1005,16 @@ def set_cutest_problem_options(**problem_options):
             CUTEstProblemOption.M_BOUND_MIN,
             CUTEstProblemOption.M_BOUND_MAX,
             CUTEstProblemOption.M_LINEAR_MIN,
-            CUTEstProblemOption.M_LINEAR_INEQUALITY_MIN,
-            CUTEstProblemOption.M_LINEAR_EQUALITY_MIN,
             CUTEstProblemOption.M_LINEAR_MAX,
+            CUTEstProblemOption.M_LINEAR_INEQUALITY_MIN,
             CUTEstProblemOption.M_LINEAR_INEQUALITY_MAX,
+            CUTEstProblemOption.M_LINEAR_EQUALITY_MIN,
             CUTEstProblemOption.M_LINEAR_EQUALITY_MAX,
             CUTEstProblemOption.M_NONLINEAR_MIN,
-            CUTEstProblemOption.M_NONLINEAR_INEQUALITY_MIN,
-            CUTEstProblemOption.M_NONLINEAR_EQUALITY_MIN,
             CUTEstProblemOption.M_NONLINEAR_MAX,
+            CUTEstProblemOption.M_NONLINEAR_INEQUALITY_MIN,
             CUTEstProblemOption.M_NONLINEAR_INEQUALITY_MAX,
+            CUTEstProblemOption.M_NONLINEAR_EQUALITY_MIN,
             CUTEstProblemOption.M_NONLINEAR_EQUALITY_MAX,
         ] and not isinstance(option_value, int):
             raise TypeError(f'The argument {option_key} must be an integer.')
@@ -966,7 +1056,12 @@ def set_cutest_problem_options(**problem_options):
 
 def find_cutest_problems(constraints, excluded_problem_names=(), **problem_options):
     """
-    Find the names of all the CUTEst problems that satisfy given requirements.
+    Find the CUTEst problems that satisfy given requirements.
+
+    Note that some requirements cannot be checked without loading the problems.
+    Therefore, the returned list of problem names may contain problems that do
+    not satisfy the given requirements. These problems will be discarded when
+    they are loaded.
 
     .. caution::
 
@@ -977,15 +1072,54 @@ def find_cutest_problems(constraints, excluded_problem_names=(), **problem_optio
 
     Parameters
     ----------
-    constraints : {str, list}
+    constraints : {str, list of str}
         Type of constraints that the CUTEst problems must have. It should
-        be either: 'unconstrained', 'bound', 'linear', 'nonlinear', or a list
-        containing one or more of these strings.
+        be either: ``'unconstrained'``, ``'bound'``, ``'linear'``,
+        ``'nonlinear'``, or a list containing one or more of these strings.
+    excluded_problem_names: list of str, optional
+        Names of the CUTEst problems to exclude from the search.
 
     Returns
     -------
     list of str
         Names of all the CUTEst problems that satisfy the given requirements.
+
+    Other Parameters
+    ----------------
+    n_min : int, optional
+        Minimum number of variables.
+    n_max : int, optional
+        Maximum number of variables.
+    m_bound_min : int, optional
+        Minimum number of bound constraints.
+    m_bound_max : int, optional
+        Maximum number of bound constraints.
+    m_linear_min : int, optional
+        Minimum number of linear constraints.
+    m_linear_max : int, optional
+        Maximum number of linear constraints.
+    m_linear_inequality_min : int, optional
+        Minimum number of linear inequality constraints.
+    m_linear_inequality_max : int, optional
+        Maximum number of linear inequality constraints.
+    m_linear_equality_min : int, optional
+        Minimum number of linear equality constraints.
+    m_linear_equality_max : int, optional
+        Maximum number of linear equality constraints.
+    m_nonlinear_min : int, optional
+        Minimum number of nonlinear constraints.
+    m_nonlinear_max : int, optional
+        Maximum number of nonlinear constraints.
+    m_nonlinear_inequality_min : int, optional
+        Minimum number of nonlinear inequality constraints.
+    m_nonlinear_inequality_max : int, optional
+        Maximum number of nonlinear inequality constraints.
+    m_nonlinear_equality_min : int, optional
+        Minimum number of nonlinear equality constraints.
+    m_nonlinear_equality_max : int, optional
+        Maximum number of nonlinear equality constraints.
+    all_variables_continuous : bool, optional
+        Whether all variables are continuous.
 
     Raises
     ------
@@ -994,18 +1128,26 @@ def find_cutest_problems(constraints, excluded_problem_names=(), **problem_optio
     ValueError
         If the arguments are inconsistent.
 
+    See Also
+    --------
+    get_cutest_problem_options :
+        Get the options used for loading CUTEst problems.
+    set_cutest_problem_options :
+        Set the options used for loading CUTEst problems.
+
+    Notes
+    -----
+    The problem options supplied to this function are forwards to
+    `set_cutest_problem_options`. Therefore, these options will be set
+    globally and will be used when loading CUTEst problems.
+
     Examples
     --------
     To find all the unconstrained problems with at most 100 variables, use:
 
-
-    >>> from optiprofiler import (
-    ...     set_cutest_problem_options,
-    ...     find_cutest_problems,
-    ... )
+    >>> from optiprofiler import find_cutest_problems
     >>>
-    >>> set_cutest_problem_options(n_max=100)
-    >>> problem_names = find_cutest_problems('unconstrained')
+    >>> problem_names = find_cutest_problems('unconstrained', n_max=100)
     """
     import pycutest
 
