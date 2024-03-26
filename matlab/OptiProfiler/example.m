@@ -8,7 +8,7 @@ function example()
     solvers = {@fminsearch_test, @bds_test};
     labels = {"fminsearch", 'bds'};
 
-    runBenchmarks(solvers, labels, problem_names, 'plain', 'benchmark_id', 'test_all_features', 'max_tol_order', 10)
+    runBenchmark(solvers, labels, problem_names, 'plain', 'benchmark_id', 'test_all_features', 'max_tol_order', 10)
 
 end
 
