@@ -24,6 +24,7 @@ function drawLogRatioProfiles(ax, work, labels)
     xticks(ax, []);
     xlim(ax, [0.5, n_problems * n_runs + 0.5]);
     yyaxis(ax, 'right');
+    set(ax, "YTickLabel", []);
     yyaxis(ax, 'left');
     ylim(ax, [-1.1 * ratio_max, 1.1 * ratio_max]);
     linkprop([ax.XAxis; ax.YAxis],'color');

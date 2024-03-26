@@ -77,7 +77,7 @@ classdef Feature < handle
                     case FeatureName.RANDOM_NAN.value
                         known_options = [known_options, {FeatureOptionKey.RATE_NAN.value}];
                     case FeatureName.TRUNCATED.value
-                        known_options = [known_options, {FeatureOptionKey.SIGNIFICANT_DIGITS.value}];
+                        known_options = [known_options, {FeatureOptionKey.PERTURBED_TRAILING_ZEROS.value, FeatureOptionKey.SIGNIFICANT_DIGITS.value}];
                     case FeatureName.UNRELAXABLE_CONSTRAINTS.value
                         known_options = [known_options, {FeatureOptionKey.UNRELAXABLE_BOUNDS.value, FeatureOptionKey.UNRELAXABLE_LINEAR_CONSTRAINTS.value, FeatureOptionKey.UNRELAXABLE_NONLINEAR_CONSTRAINTS.value}];
                     case FeatureName.PERMUTED.value
@@ -123,6 +123,10 @@ classdef Feature < handle
                         validNoiseTypes = {enumeration('NoiseType').value};
                         if ~(ischar(obj.options.(key)) || isstring(obj.options.(key))) || ~ismember(obj.options.(key), validNoiseTypes)
                             error("MATLAB:Feature:type_InvalidInput", "Option " + key + " must be either '" + NoiseType.ABSOLUTE.value + "' or '" + NoiseType.RELATIVE.value + "'.")
+                        end
+                    case FeatureOptionKey.PERTURBED_TRAILING_ZEROS.value
+                        if ~islogical(obj.options.(key))
+                            error("MATLAB:Feature:perturbed_trailing_zeros_NotLogical", "Option " + key + " must be a logical.")
                         end
                     case FeatureOptionKey.UNRELAXABLE_BOUNDS.value
                         if ~islogical(obj.options.(key))
@@ -207,10 +211,13 @@ classdef Feature < handle
                         digits = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - int32(floor(log10(abs(f)))) - 1;
                     end
                     digits = double(digits);
-                    if f >= 0
-                        f = round(f * 10^digits) / 10^digits + rand_stream.rand() * 10^(-digits);
-                    else
-                        f = round(f * 10^digits) / 10^digits - rand_stream.rand() * 10^(-digits);
+                    f = fix(f * 10 ^ digits) / 10 ^ digits;
+                    if obj.options.(FeatureOptionKey.PERTURBED_TRAILING_ZEROS.value)
+                        if f >= 0
+                            f = f + rand_stream.rand() * 10 ^ (-digits);
+                        else
+                            f = f - rand_stream.rand() * 10 ^ (-digits);
+                        end
                     end
                 case FeatureName.UNRELAXABLE_CONSTRAINTS.value
                     if obj.options.(FeatureOptionKey.UNRELAXABLE_BOUNDS.value) && maxcv_bounds > 0
@@ -255,14 +262,14 @@ classdef Feature < handle
                     if ~isfield(obj.options, FeatureOptionKey.TYPE.value)
                         obj.options.(FeatureOptionKey.TYPE.value) = NoiseType.RELATIVE.value;
                     end
+                case FeatureName.PERMUTED.value
+                    if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
+                        obj.options.(FeatureOptionKey.N_RUNS.value) = int32(10);
+                    end
                 case FeatureName.PERTURBED_X0.value
                     if ~isfield(obj.options, FeatureOptionKey.DISTRIBUTION.value)
                         obj.options.(FeatureOptionKey.DISTRIBUTION.value) = @obj.default_distribution;
                     end
-                    if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
-                        obj.options.(FeatureOptionKey.N_RUNS.value) = int32(10);
-                    end
-                case FeatureName.PERMUTED.value
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
                         obj.options.(FeatureOptionKey.N_RUNS.value) = int32(10);
                     end
@@ -274,8 +281,15 @@ classdef Feature < handle
                         obj.options.(FeatureOptionKey.RATE_NAN.value) = 0.05;
                     end
                 case FeatureName.TRUNCATED.value
+                    if ~isfield(obj.options, FeatureOptionKey.PERTURBED_TRAILING_ZEROS.value)
+                        obj.options.(FeatureOptionKey.PERTURBED_TRAILING_ZEROS.value) = true;
+                    end
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
-                        obj.options.(FeatureOptionKey.N_RUNS.value) = int32(10);
+                        if obj.options.(FeatureOptionKey.PERTURBED_TRAILING_ZEROS.value)
+                            obj.options.(FeatureOptionKey.N_RUNS.value) = int32(10);
+                        else
+                            obj.options.(FeatureOptionKey.N_RUNS.value) = int32(1);
+                        end
                     end
                     if ~isfield(obj.options, FeatureOptionKey.SIGNIFICANT_DIGITS.value)
                         obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) = int32(6);

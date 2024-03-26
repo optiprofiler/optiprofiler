@@ -1,4 +1,4 @@
-function runBenchmarks(solvers, labels, problem_names, feature_names, varargin)
+function runBenchmark(solvers, labels, problem_names, feature_names, varargin)
 %RUNBENCHMARKS creates the benchmark profiles.
 %
 %   The benchmark profiles include the performance and data profiles [1]_,
@@ -196,8 +196,7 @@ function runBenchmarks(solvers, labels, problem_names, feature_names, varargin)
 
         max_tol_order = profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value);
         tolerances = 10.^(-1:-1:-max_tol_order);
-        pdf_summary_hist = fullfile(path_out, 'summary_hist.pdf');
-        pdf_summary_ret = fullfile(path_out, 'summary_ret.pdf');
+        pdf_summary = fullfile(path_out, 'summary.pdf');
         pdf_perf_hist_summary = fullfile(path_perf, 'perf_hist.pdf');
         pdf_perf_ret_summary = fullfile(path_perf, 'perf_ret.pdf');
         pdf_data_hist_summary = fullfile(path_data, 'data_hist.pdf');
@@ -214,14 +213,23 @@ function runBenchmarks(solvers, labels, problem_names, feature_names, varargin)
         else
             scale_height = 2;
         end
-        fig_summary_hist = figure('Position', [defaultFigurePosition(1:2), profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * default_width, scale_height * default_height], 'visible', 'off');
-        fig_summary_ret = figure('Position', [defaultFigurePosition(1:2), profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * default_width, scale_height * default_height], 'visible', 'off');
-        t_summary_hist = tiledlayout(fig_summary_hist, scale_height, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value), 'Padding', 'compact', 'TileSpacing', 'compact');
-        t_summary_ret = tiledlayout(fig_summary_ret, scale_height, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value), 'Padding', 'compact', 'TileSpacing', 'compact');
-        for i_axs = 1:scale_height * profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)
-            axs_summary_hist(i_axs) = nexttile(t_summary_hist);
-            axs_summary_ret(i_axs) = nexttile(t_summary_ret);
+        fig_summary = figure('Position', [defaultFigurePosition(1:2), profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * default_width, 2 * scale_height * default_height], 'visible', 'off');
+        T_summary = tiledlayout(fig_summary, 2, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
+        title(T_summary, ['Profiles with the ``', feature.name, '" feature'], 'Interpreter', 'latex', 'FontSize', 24);
+        % Use gobjects to create arrays of handles and axes.
+        t_summary = gobjects(2, 1);
+        axs_summary = gobjects([2, 1, scale_height, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)]);
+        i_axs = 0;
+        for i = 1:2
+            t_summary(i) = tiledlayout(T_summary, scale_height, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value), 'Padding', 'compact', 'TileSpacing', 'compact');
+            t_summary(i).Layout.Tile = i;
+            for j = 1:scale_height * profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)
+                i_axs = i_axs + 1;
+                axs_summary(i_axs) = nexttile(t_summary(i));
+            end
         end
+        ylabel(t_summary(1), "History-based profiles", 'Interpreter', 'latex', 'FontSize', 20);
+        ylabel(t_summary(2), "Output-based profiles", 'Interpreter', 'latex', 'FontSize', 20);
 
         for i_profile = 1:profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)
             tolerance = tolerances(i_profile);
@@ -250,9 +258,9 @@ function runBenchmarks(solvers, labels, problem_names, feature_names, varargin)
 
             % Draw the profiles.
             if n_solvers <= 2
-                cell_axs_summary = {axs_summary_hist(i_profile), axs_summary_ret(i_profile), axs_summary_hist(i_profile + max_tol_order), axs_summary_ret(i_profile + max_tol_order), axs_summary_hist(i_profile + 2 * max_tol_order), axs_summary_ret(i_profile + 2 * max_tol_order)};
+                cell_axs_summary = {axs_summary(i_profile), axs_summary(i_profile + 3 * max_tol_order), axs_summary(i_profile + max_tol_order), axs_summary(i_profile + 4 * max_tol_order), axs_summary(i_profile + 2 * max_tol_order), axs_summary(i_profile + 5 * max_tol_order)};
             else
-                cell_axs_summary = {axs_summary_hist(i_profile), axs_summary_ret(i_profile), axs_summary_hist(i_profile + max_tol_order), axs_summary_ret(i_profile + max_tol_order)};
+                cell_axs_summary = {axs_summary(i_profile), axs_summary(i_profile + 2 * max_tol_order), axs_summary(i_profile + max_tol_order), axs_summary(i_profile + 3 * max_tol_order)};
             end
             [fig_perf_hist, fig_perf_ret, fig_data_hist, fig_data_ret, fig_log_ratio_hist, fig_log_ratio_ret] = drawProfiles(work_hist, work_ret, problem_dimensions, labels, tolerance_label, cell_axs_summary);
             eps_perf_hist = fullfile(path_perf_hist, ['perf_hist_' int2str(i_profile) '.eps']);
@@ -322,19 +330,16 @@ function runBenchmarks(solvers, labels, problem_names, feature_names, varargin)
         end
 
         if i_feature == 1
-            exportgraphics(fig_summary_hist, pdf_summary_hist, 'ContentType', 'vector');
-            exportgraphics(fig_summary_ret, pdf_summary_ret, 'ContentType', 'vector');
+            exportgraphics(fig_summary, pdf_summary, 'ContentType', 'vector');
         else
-            exportgraphics(fig_summary_hist, pdf_summary_hist, 'ContentType', 'vector', 'Append', true);
-            exportgraphics(fig_summary_ret, pdf_summary_ret, 'ContentType', 'vector', 'Append', true);
+            exportgraphics(fig_summary, pdf_summary, 'ContentType', 'vector', 'Append', true);
         end
         fprintf('Detailed results stored in %s\n', path_feature);
 
     end
 
     % Close the figures.
-    close(fig_summary_hist);
-    close(fig_summary_ret);
+    close(fig_summary);
     fprintf('Summary stored in %s\n', path_out);
 
 end

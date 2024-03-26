@@ -29,6 +29,7 @@ function drawPerformanceDataProfiles(ax, x, y, labels)
     yyaxis(ax, 'right');
     set(ax, 'YMinorTick','on');
     set(get(ax, 'YAxis'), 'MinorTickValues', [0.1 0.3 0.5 0.7 0.9]);
+    set(ax, 'YTickLabel', []);
     yyaxis(ax, 'left');
     set(ax, 'YMinorTick','on');
     set(get(ax, 'YAxis'), 'MinorTickValues', [0.1 0.3 0.5 0.7 0.9]);
