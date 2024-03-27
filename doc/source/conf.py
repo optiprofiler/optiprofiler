@@ -58,7 +58,6 @@ html_theme_options = {
     'repository_branch': 'main',
     'path_to_docs': 'doc/source',
     'use_repository_button': True,
-    'use_source_button': True,
     'use_issues_button': True,
     'use_download_button': False,
     'max_navbar_depth': 2,

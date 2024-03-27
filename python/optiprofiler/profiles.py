@@ -16,17 +16,16 @@ from matplotlib.backends import backend_pdf
 from matplotlib.ticker import MaxNLocator, FuncFormatter
 
 from .features import Feature
-from .problems import Problem, FeaturedProblem, get_cutest_problem_options, set_cutest_problem_options, load_cutest_problem
+from .problems import FeaturedProblem, get_cutest_problem_options, set_cutest_problem_options, load_cutest_problem
 from .utils import FeatureName, ProfileOption, FeatureOption, ProblemError, get_logger
 
 
-def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=(), feature_name=FeatureName.PLAIN.value, **kwargs):
+def run_benchmark(solvers, labels=(), cutest_problem_names=(), custom_problem_loader=None, custom_problem_names=(), feature_name=FeatureName.PLAIN.value, **kwargs):
     """
-    Create the benchmark profiles.
+    Run the benchmark.
 
-    The benchmark profiles include the performance and data profiles [1]_,
-    [2]_, [4]_, and the log-ratio profiles [3]_, [5]_. The log-ratio profiles
-    are available only when there are exactly two solvers.
+    This function generates performance/data profiles [1]_, [2]_, [4]_ and
+    log-ratio profiles [3]_, [5]_ for the given solvers on the given problems.
 
     .. caution::
 
@@ -39,30 +38,35 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
     ----------
     solvers : list of callable
         Solvers to benchmark. Each solver must be a callable, as follows. For
-        unconstrained problems, the signature of the callable must be
+        unconstrained problems, the signature of the callable can be
 
-            ``solver(fun, x0)``
+            ``solver(fun, x0) -> numpy.ndarray, shape (n,)``
 
-        where ``fun`` is the objective function and ``x0`` is the initial point.
-        The objective function returns a scalar and should be minimized. For
-        bound-constrained problems, the signature of the callable must be
+        where ``fun`` is the objective function and ``x0`` is the initial
+        point. The solver must return the best point found. The objective
+        function returns a scalar and should be minimized. For
+        bound-constrained problems, the signature of the callable can be
 
-            ``solver(fun, x0, lb, ub)``
+            ``solver(fun, x0, lb, ub) -> numpy.ndarray, shape (n,)``
 
         where ``lb`` and ``ub`` are the lower and upper bounds, respectively.
-        For linearly constrained problems, the signature of the callable must
-        be
+        For linearly constrained problems, the signature of the callable can be
 
-            ``solver(fun, x0, lb, ub, a_ub, b_ub, a_eq, b_eq)``
+            ``solver(fun, x0, lb, ub, a_ub, b_ub, a_eq, b_eq) -> numpy.ndarray, shape (n,)``
 
         where ``a_ub @ x <= b_ub`` and ``a_eq @ x == b_eq`` form the linear
         inequality and equality constraints, respectively. For nonlinearly
-        constrained problems, the signature of the callable must be
+        constrained problems, the signature of the callable can be
 
-            ``solver(fun, x0, lb, ub, a_ub, b_ub, a_eq, b_eq, c_ub, c_eq)``
+            ``solver(fun, x0, lb, ub, a_ub, b_ub, a_eq, b_eq, c_ub, c_eq) -> numpy.ndarray, shape (n,)``
 
         where ``c_ub(x) <= 0`` and ``c_eq(x) == 0`` form the nonlinear
-        inequality and equality constraints, respectively.
+        inequality and equality constraints, respectively. In all cases, the
+        signature of the callable can also be
+
+            ``solver(problem) -> numpy.ndarray, shape (n,)``
+
+        where ``problem`` is an instance of `Problem`.
 
         All vectors and matrices mentioned above are `numpy.ndarray`.
     labels : list of str, optional
@@ -73,16 +77,69 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
         problems will be loaded from CUTEst with their default parameters. If a
         problem cannot be loaded, it is ignored. You can use the function
         `find_cutest_problems` to obtain a list of available CUTEst problems.
-    extra_problems : list of `Problem`, optional
-        Extra problems to use in the benchmark. If you do not want to use
-        CUTEst problems, you can use this argument to provide your own
-        problems.
+    custom_problem_loader : callable, optional
+        Callable to load custom problems. The signature of the callable must be
+
+            ``custom_problem_loader(problem_name) -> Problem``
+
+        where ``problem_name`` is the name of the problem to load.
+    custom_problem_names : list of str, optional
+        Names of the custom problems to use in the benchmark. Each of these
+        problems will be loaded using the custom problem loader.
     feature_name : str, optional
-        Name of the feature to use in the benchmark.
+        Name of the feature to use in the benchmark. Available features are
+
+            ``'plain'`` :
+                The problems are not modified.
+            ``'noisy'`` :
+                The objective function are perturbed with noise.
+            ``'permuted'`` :
+                The variables are randomly permuted.
+            ``'perturbed_x0'`` :
+                The initial point is randomly perturbed.
+            ``'random_nan'`` :
+                NaN values are randomly returned by the objective function.
+            ``'truncated'`` :
+                The objective function values are truncated.
+            ``'unrelaxable_constraints'`` :
+                The objective function values are infinite if constraints are not satisfied.
 
     Other Parameters
     ----------------
-    To do.
+    n_jobs : int, optional
+        Number of parallel workers to use.
+    benchmark_id : str, optional
+        Identifier of the benchmark to use in the output paths.
+    project_x0 : bool, optional
+        Whether to project the initial points of all the problems included in
+        the benchmark onto their feasible set.
+    distribution : callable, optional
+        Distribution of the noise to include in the objective function values
+        when ``feature_name='noisy'``.
+    n_runs : int, optional
+        Number of runs to perform for each solver on each problem.
+    perturbed_trailing_zeros : bool, optional
+        Whether to perturb the trailing zeros in the objective function values
+        when ``feature_name='truncated'``.
+    rate_nan : float, optional
+        Rate of NaN values to include in the objective function values when
+        ``feature_name='random_nan'``.
+    significant_digits : int, optional
+        Number of significant digits to keep in the objective function values
+        when ``feature_name='truncated'``.
+    type : str, optional
+        Type of the noise to include in the objective function values when
+        ``feature_name='noisy'``. Available types are ``'absolute'`` and
+        ``'relative'``.
+    unrelaxable_bounds : bool, optional
+        Whether to make the bounds unrelaxable when
+        ``feature_name='unrelaxable_constraints'``.
+    unrelaxable_linear_constraints : bool, optional
+        Whether to make the linear constraints unrelaxable when
+        ``feature_name='unrelaxable_constraints'``.
+    unrelaxable_nonlinear_constraints : bool, optional
+        Whether to make the nonlinear constraints unrelaxable when
+        ``feature_name='unrelaxable_constraints'``.
 
     Raises
     ------
@@ -151,13 +208,21 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
         raise TypeError('The CUTEst problem names must be a list of strings.')
     cutest_problem_names = list(set(problem_name.upper() for problem_name in cutest_problem_names))
 
-    # Preprocess the extra problems.
-    if not hasattr(extra_problems, '__len__') or not all(isinstance(problem, Problem) for problem in extra_problems):
-        raise TypeError('The extra problems must be a list of problems.')
-    extra_problems = list(extra_problems)
+    # Preprocess the custom problems.
+    if custom_problem_loader is not None and not callable(custom_problem_loader):
+        raise TypeError('The custom problem loader must be a callable.')
+    if custom_problem_loader is not None:
+        sig = signature(custom_problem_loader)
+        if len(sig.parameters) != 1:
+            raise ValueError('The custom problem loader must take exactly one argument.')
+    if not hasattr(custom_problem_names, '__len__') or not all(isinstance(problem, str) for problem in custom_problem_names):
+        raise TypeError('The custom problem names must be a list of strings.')
+    custom_problem_names = list(custom_problem_names)
+    if custom_problem_loader is None and len(custom_problem_names) > 0:
+        raise ValueError('A custom problem loader must be given to load custom problems.')
 
     # Check that the number of problems is satisfactory.
-    if len(cutest_problem_names) + len(extra_problems) < 1:
+    if len(cutest_problem_names) + len(custom_problem_names) < 1:
         raise ValueError('At least one problem must be given.')
 
     # Get the different options from the keyword arguments.
@@ -246,7 +311,7 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
             merit_histories = np.copy(merit_histories_plain)
             merit_out = np.copy(merit_out_plain)
         else:
-            problem_names, fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_dimensions, time_processes = _solve_all_problems(cutest_problem_names, extra_problems, solvers, labels, feature, max_eval_factor, profile_options)
+            problem_names, fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_dimensions, time_processes = _solve_all_problems(cutest_problem_names, custom_problem_loader, custom_problem_names, solvers, labels, feature, max_eval_factor, profile_options)
             merit_histories = _compute_merit_values(fun_histories, maxcv_histories, maxcv_init)
             merit_out = _compute_merit_values(fun_out, maxcv_out, maxcv_init)
             merit_init = _compute_merit_values(fun_init, maxcv_init, maxcv_init)
@@ -260,7 +325,7 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
             if merit_histories_plain is None:
                 feature_plain = Feature('plain')
                 logger.info(f'Starting the computations of the "plain" profiles.')
-                problem_names, fun_histories_plain, maxcv_histories_plain, fun_out_plain, maxcv_out_plain, fun_init, maxcv_init, _, _, time_processes_plain = _solve_all_problems(cutest_problem_names, extra_problems, solvers, labels, feature_plain, max_eval_factor, profile_options)
+                problem_names, fun_histories_plain, maxcv_histories_plain, fun_out_plain, maxcv_out_plain, fun_init, maxcv_init, _, _, time_processes_plain = _solve_all_problems(cutest_problem_names, custom_problem_loader, custom_problem_names, solvers, labels, feature_plain, max_eval_factor, profile_options)
                 merit_histories_plain = _compute_merit_values(fun_histories_plain, maxcv_histories_plain, maxcv_init)
                 merit_out_plain = _compute_merit_values(fun_out_plain, maxcv_out_plain, maxcv_init)
                 merit_init = _compute_merit_values(fun_init, maxcv_init, maxcv_init)
@@ -362,17 +427,17 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), extra_problems=()
     logger.info(f'Summary stored in {path_summary}.')
 
 
-def _solve_all_problems(cutest_problem_names, extra_problems, solvers, labels, feature, max_eval_factor, profile_options):
+def _solve_all_problems(cutest_problem_names, custom_problem_loader, custom_problem_names, solvers, labels, feature, max_eval_factor, profile_options):
     """
     Solve all problems in parallel.
     """
-    problem_names = cutest_problem_names + [(f'EXTRA{i_problem}', extra_problem) for i_problem, extra_problem in enumerate(extra_problems)]
+    problem_names = cutest_problem_names + [(f'EXTRA{i_problem}', custom_problem_name) for i_problem, custom_problem_name in enumerate(custom_problem_names)]
     cutest_problem_options = get_cutest_problem_options()
 
     # Solve all problems.
     logger = get_logger(__name__)
     logger.info('Entering the parallel section.')
-    args = [(problem_name, solvers, labels, feature, max_eval_factor, cutest_problem_options, profile_options) for problem_name in problem_names]
+    args = [(problem_name, solvers, labels, feature, max_eval_factor, custom_problem_loader, cutest_problem_options, profile_options) for problem_name in problem_names]
     if profile_options[ProfileOption.N_JOBS] == 1 or os.cpu_count() == 1:
         results = map(lambda arg: _solve_one_problem(*arg), args)
     else:
@@ -415,7 +480,7 @@ def _solve_all_problems(cutest_problem_names, extra_problems, solvers, labels, f
     return problem_names, fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_dimensions, time_processes
 
 
-def _solve_one_problem(problem_name, solvers, labels, feature, max_eval_factor, cutest_problem_options, profile_options):
+def _solve_one_problem(problem_name, solvers, labels, feature, max_eval_factor, custom_problem_loader, cutest_problem_options, profile_options):
     """
     Solve a given problem.
 
@@ -430,7 +495,7 @@ def _solve_one_problem(problem_name, solvers, labels, feature, max_eval_factor, 
     # Load the problem and return if it cannot be loaded.
     set_cutest_problem_options(**cutest_problem_options)
     if isinstance(problem_name, tuple):
-        problem = problem_name[1]
+        problem = custom_problem_loader(problem_name[1])
         problem_name = problem_name[0]
     else:
         try:
