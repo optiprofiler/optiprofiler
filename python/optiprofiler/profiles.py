@@ -113,33 +113,33 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), custom_problem_lo
     project_x0 : bool, optional
         Whether to project the initial points of all the problems included in
         the benchmark onto their feasible set.
-    distribution : callable, optional
-        Distribution of the noise to include in the objective function values
-        when ``feature_name='noisy'``.
     n_runs : int, optional
         Number of runs to perform for each solver on each problem.
+    distribution : callable, optional
+        Only used when ``feature_name='noisy'``. Distribution of the noise to
+        include in the objective function values.
     perturbed_trailing_zeros : bool, optional
-        Whether to perturb the trailing zeros in the objective function values
-        when ``feature_name='truncated'``.
+        Only used when ``feature_name='truncated'``. Whether to perturb the
+        trailing zeros in the objective function values.
     rate_nan : float, optional
-        Rate of NaN values to include in the objective function values when
-        ``feature_name='random_nan'``.
+        Only used when ``feature_name='random_nan'``. Rate of NaN values
+        occurring in the objective function values.
     significant_digits : int, optional
-        Number of significant digits to keep in the objective function values
-        when ``feature_name='truncated'``.
+        Only used when ``feature_name='truncated'``. Number of significant
+        digits to keep in the objective function values.
     type : str, optional
-        Type of the noise to include in the objective function values when
-        ``feature_name='noisy'``. Available types are ``'absolute'`` and
-        ``'relative'``.
+        Only used when ``feature_name='noisy'``. Type of the noise to include
+        in the objective function values. Available types are ``'absolute'``
+        and ``'relative'``.
     unrelaxable_bounds : bool, optional
-        Whether to make the bounds unrelaxable when
-        ``feature_name='unrelaxable_constraints'``.
+        Only used when ``feature_name='unrelaxable_constraints'``. Whether to
+        make the bounds unrelaxable.
     unrelaxable_linear_constraints : bool, optional
-        Whether to make the linear constraints unrelaxable when
-        ``feature_name='unrelaxable_constraints'``.
+        Only used when ``feature_name='unrelaxable_constraints'``. Whether to
+        make the linear constraints unrelaxable.
     unrelaxable_nonlinear_constraints : bool, optional
-        Whether to make the nonlinear constraints unrelaxable when
-        ``feature_name='unrelaxable_constraints'``.
+        Only used when ``feature_name='unrelaxable_constraints'``. Whether to
+        make the nonlinear constraints unrelaxable.
 
     Raises
     ------
