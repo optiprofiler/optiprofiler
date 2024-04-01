@@ -841,12 +841,8 @@ class FeaturedProblem(Problem):
         if self.n_eval >= self._max_eval:
             raise StopIteration('The maximum number of function evaluations has been reached.')
 
-        # Permutate the variables if necessary.
-        if self._feature.name == FeatureName.PERMUTED:
-            x = x[self._permutation]
-
         # Evaluate the objective function and store the results.
-        f = super().fun(x)
+        f = super().fun(self.raw_variables(x))
         maxcv, maxcv_bounds, maxcv_linear, maxcv_nonlinear = self._maxcv(x)
         self._fun_hist.append(f)
         self._maxcv_hist.append(maxcv)
@@ -877,12 +873,7 @@ class FeaturedProblem(Problem):
             If the argument `x` has an invalid shape or if the return value of
             the argument `c_ub` has an invalid shape.
         """
-        # Permutate the variables if necessary.
-        if self._feature.name == FeatureName.PERMUTED:
-            x = x[self._permutation]
-
-        # Evaluate the nonlinear inequality constraints and return.
-        return super().c_ub(x)
+        return super().c_ub(self.raw_variables(x))
 
     def c_eq(self, x):
         """
@@ -904,12 +895,16 @@ class FeaturedProblem(Problem):
             If the argument `x` has an invalid shape or if the return value of
             the argument `c_eq` has an invalid shape.
         """
-        # Permutate the variables if necessary.
-        if self._feature.name == FeatureName.PERMUTED:
-            x = x[self._permutation]
+        return super().c_eq(self.raw_variables(x))
 
-        # Evaluate the nonlinear inequality constraints and return.
-        return super().c_eq(x)
+    def raw_variables(self, x):
+        """
+        Get the raw variables.
+        """
+        if self._feature.name == FeatureName.PERMUTED:
+            return x[self._permutation]
+        else:
+            return x
 
 
 def get_cutest_problem_options():
