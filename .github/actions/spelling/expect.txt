@@ -26,8 +26,10 @@ endblock
 endfor
 endtrans
 eps
+figsize
 finfo
 flatnonzero
+fontsize
 footbibliography
 gcc
 getoption
@@ -81,12 +83,16 @@ savefig
 scipy
 setcounter
 setuptools
+sharey
 sifdecode
 Softw
 SOURCEDIR
 SPHINXBUILD
 sphinxcontrib
 SPHINXOPTS
+subfig
+suptitle
+supylabel
 swapaxes
 tocdepth
 toctree
