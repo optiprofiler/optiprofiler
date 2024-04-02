@@ -82,6 +82,8 @@ classdef Feature < handle
                         known_options = [known_options, {FeatureOptionKey.UNRELAXABLE_BOUNDS.value, FeatureOptionKey.UNRELAXABLE_LINEAR_CONSTRAINTS.value, FeatureOptionKey.UNRELAXABLE_NONLINEAR_CONSTRAINTS.value}];
                     case FeatureName.PERMUTED.value
                         % Do nothing
+                    case FeatureName.ROTATED.value
+                        % Do nothing
                     case FeatureName.PLAIN.value
                         % Do nothing
                     otherwise
@@ -148,7 +150,7 @@ classdef Feature < handle
         end
 
         function is_stochastic = isStochastic(obj)
-            stochasticFeatures = {FeatureName.CUSTOM.value, FeatureName.NOISY.value, FeatureName.PERMUTED.value, FeatureName.PERTURBED_X0.value, FeatureName.RANDOM_NAN.value, FeatureName.TRUNCATED.value};
+            stochasticFeatures = {FeatureName.CUSTOM.value, FeatureName.NOISY.value, FeatureName.PERMUTED.value, FeatureName.PERTURBED_X0.value, FeatureName.RANDOM_NAN.value, FeatureName.ROTATED.value, FeatureName.TRUNCATED.value};
             is_stochastic = ismember(obj.name, stochasticFeatures);
         end
 
@@ -233,6 +235,8 @@ classdef Feature < handle
                     % Do nothing
                 case FeatureName.PERTURBED_X0.value
                     % Do nothing
+                case FeatureName.ROTATED.value
+                    % Do nothing
                 otherwise
                     error("MATLAB:Feature:UnknownFeature", "Unknown feature: " + obj.name + ".")
             end
@@ -279,6 +283,10 @@ classdef Feature < handle
                     end
                     if ~isfield(obj.options, FeatureOptionKey.RATE_NAN.value)
                         obj.options.(FeatureOptionKey.RATE_NAN.value) = 0.05;
+                    end
+                case FeatureName.ROTATED.value
+                    if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
+                        obj.options.(FeatureOptionKey.N_RUNS.value) = int32(10);
                     end
                 case FeatureName.TRUNCATED.value
                     if ~isfield(obj.options, FeatureOptionKey.PERTURBED_TRAILING_ZEROS.value)

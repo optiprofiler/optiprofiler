@@ -7,6 +7,7 @@ classdef FeaturedProblem < Problem
         max_eval
         seed
         permutation
+        rotation
         fun_hist
         maxcv_hist
 
@@ -62,12 +63,18 @@ classdef FeaturedProblem < Problem
                 error("The argument seed must be a nonnegative integer.");
             end
 
-            % Generate a random permutation.
             rand_stream = feature.default_rng(seed);
+            % Generate a random permutation.
             permutation = [];
             if strcmp(feature.name, FeatureName.PERMUTED.value)
                 permutation = rand_stream.randperm(problem.n);
                 [~, reverse_permutation] = sort(permutation);
+            end
+            % Generate a random rotation.
+            rotation = [];
+            if strcmp(feature.name, FeatureName.ROTATED.value)
+                [Q, R] = qr(rand_stream.randn(problem.n));
+                rotation = Q * diag(sign(diag(R)));
             end
             
             % Copy the problem.
@@ -112,6 +119,7 @@ classdef FeaturedProblem < Problem
             obj.max_eval = max_eval;
             obj.seed = seed;
             obj.permutation = permutation;
+            obj.rotation = rotation;
 
             % Store the objective function values and maximum constraint violations.
             obj.fun_hist = [];
@@ -162,7 +170,11 @@ classdef FeaturedProblem < Problem
             end
 
             % Evaluate the objective function and store the results.
-            f_true = fun@Problem(obj, x);
+            if strcmp(obj.feature.name, FeatureName.ROTATED.value)
+                f_true = fun@Problem(obj, obj.rotation * x);
+            else
+                f_true = fun@Problem(obj, x);
+            end
             obj.fun_hist = [obj.fun_hist, f_true];
             [maxcv, maxcv_bounds, maxcv_linear, maxcv_nonlinear] = obj.maxcv(x, true);
             obj.maxcv_hist = [obj.maxcv_hist, maxcv];
