@@ -46,18 +46,26 @@ function runBenchmark(solvers, labels, problem_names, feature_names, varargin)
         labels = cellfun(@func2str, solvers, 'UniformOutput', false);
     end
 
-    % Set default values for optional arguments.
+    % Set default profile options.
     if exist('parcluster', 'file') == 2
         myCluster = parcluster('local');
         nb_cores = myCluster.NumWorkers;
     else
         nb_cores = 1;
     end
+    profile_options.(ProfileOptionKey.N_JOBS.value) = nb_cores;
+    profile_options.(ProfileOptionKey.BENCHMARK_ID.value) = '.';
+    profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) = 16;
+    profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value) = 500;
+    profile_options.(ProfileOptionKey.PROJECT_X0.value) = false;
+    profile_options.(ProfileOptionKey.SUMMARIZE_PERFORMANCE_PROFILES.value) = true;
+    profile_options.(ProfileOptionKey.SUMMARIZE_DATA_PROFILES.value) = true;
+    profile_options.(ProfileOptionKey.SUMMARIZE_LOG_RATIO_PROFILES.value) = false;
     
-    profile_options = struct(ProfileOptionKey.N_JOBS.value, nb_cores, ProfileOptionKey.BENCHMARK_ID.value, '.', ProfileOptionKey.MAX_TOL_ORDER.value, 16, ProfileOptionKey.MAX_EVAL_FACTOR.value, 500);
     problem_options = struct();
     feature_options = struct();
 
+    % Parse the options.
     if mod(length(varargin), 2) ~= 0
         error('Options should be provided as name-value pairs.');
     end
@@ -80,6 +88,8 @@ function runBenchmark(solvers, labels, problem_names, feature_names, varargin)
         end
     end
 
+    % Check whether the profile options are valid.
+
     % Judge whether profile_options.n_jobs is a integer between 1 and nb_cores.
     if isfield(profile_options, ProfileOptionKey.N_JOBS.value)
         if ~isnumeric(profile_options.(ProfileOptionKey.N_JOBS.value))
@@ -92,11 +102,36 @@ function runBenchmark(solvers, labels, problem_names, feature_names, varargin)
             profile_options.(ProfileOptionKey.N_JOBS.value) = round(profile_options.(ProfileOptionKey.N_JOBS.value));
         end
     end
-
     % Judge whether profile_options.benchmark_id is a string.
     if ~isstring(profile_options.(ProfileOptionKey.BENCHMARK_ID.value)) && ~ischar(profile_options.(ProfileOptionKey.BENCHMARK_ID.value))
         error("profile_options.benchmark_id should be a string.");
     end
+    % Judge whether profile_options.max_tol_order is a positive integer.
+    if (~isfloat(profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)) && ~isinteger(profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value))) || (floor(profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value))~=profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)) || (profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) <= 0)
+        error("profile_options.max_tol_order should be a positive integer.");
+    end
+    % Judge whether profile_options.max_eval_factor is a positive integer.
+    if (~isfloat(profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value)) && ~isinteger(profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value))) || (floor(profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value))~=profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value)) || (profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value) <= 0)
+        error("profile_options.max_eval_factor should be a positive integer.");
+    end
+    % Judge whether profile_options.project_x0 is a boolean.
+    if ~islogical(profile_options.(ProfileOptionKey.PROJECT_X0.value))
+        error("profile_options.project_x0 should be a boolean.");
+    end
+    % Judge whether profile_options.summarize_performance_profiles is a boolean.
+    if ~islogical(profile_options.(ProfileOptionKey.SUMMARIZE_PERFORMANCE_PROFILES.value))
+        error("profile_options.summarize_performance_profiles should be a boolean.");
+    end
+    % Judge whether profile_options.summarize_data_profiles is a boolean.
+    if ~islogical(profile_options.(ProfileOptionKey.SUMMARIZE_DATA_PROFILES.value))
+        error("profile_options.summarize_data_profiles should be a boolean.");
+    end
+    % Judge whether profile_options.summarize_log_ratio_profiles is a boolean.
+    if ~islogical(profile_options.(ProfileOptionKey.SUMMARIZE_LOG_RATIO_PROFILES.value))
+        error("profile_options.summarize_log_ratio_profiles should be a boolean.");
+    end
+    
+
 
     % Paths to the results.
     timestamp = datestr(datetime('now', 'TimeZone', 'local', 'Format', 'yyyy-MM-dd''T''HH-mm-SSZ'), 'yyyy-mm-ddTHH-MM-SSZ');

@@ -1,4 +1,4 @@
-function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_name, problem_n, computation_time] = solveOneProblem(problem_name, solvers, labels, feature, max_eval_factor, problem_options)
+function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_name, problem_n, computation_time] = solveOneProblem(problem_name, solvers, labels, feature, problem_options, profile_options)
 %SOLVEONEPROBLEM solves one problem with all the solvers in solvers list.
 
     fun_histories = [];
@@ -31,7 +31,11 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
     if ~load_success
         return;
     end
-    
+
+    % Project the initial point if necessary.
+    if profile_options.(ProfileOptionKey.PROJECT_X0.value)
+        problem.project_x0;
+    end
 
     % Evaluate the functions at the initial point.
     fun_init = problem.fun(problem.x0);
@@ -41,7 +45,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
     time_start = tic;
     n_solvers = length(solvers);
     n_runs = feature.options.(FeatureOptionKey.N_RUNS.value);
-    max_eval = max_eval_factor * problem.n;
+    max_eval = profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value) * problem.n;
     n_eval = zeros(n_solvers, n_runs);
     fun_histories = NaN(n_solvers, n_runs, max_eval);
     fun_out = NaN(n_solvers, n_runs);
