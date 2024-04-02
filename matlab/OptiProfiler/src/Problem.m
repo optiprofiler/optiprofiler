@@ -321,36 +321,26 @@ classdef Problem < handle
         % Other getter functions.
 
         function value = get.m_nonlinear_ub(obj)
-            try
-                if isempty(obj.m_nonlinear_ub)
-                    if isempty(obj.cub_)
-                        value = 0;
-                    else
-                        error("MATLAB:Problem:m_nonlinear_ub_Unknown", "The number of nonlinear inequality constraints is unknown.");
-                    end
+            if isempty(obj.m_nonlinear_ub)
+                if isempty(obj.cub_)
+                    value = 0;
                 else
-                    value = obj.m_nonlinear_ub;
+                    error("MATLAB:Problem:m_nonlinear_ub_Unknown", "The number of nonlinear inequality constraints is unknown.");
                 end
-            catch ME
-                warning(ME.identifier, "Error occurred while getting m_nonlinear_ub: %s", ME.message);
-                value = [];
+            else
+                value = obj.m_nonlinear_ub;
             end
         end
 
         function value = get.m_nonlinear_eq(obj)
-            try
-                if isempty(obj.m_nonlinear_eq)
-                    if isempty(obj.ceq_)
-                        value = 0;
-                    else
-                        error("MATLAB:Problem:m_nonlinear_eq_Unknown", "The number of nonlinear equality constraints is unknown.");
-                    end
+            if isempty(obj.m_nonlinear_eq)
+                if isempty(obj.ceq_)
+                    value = 0;
                 else
-                    value = obj.m_nonlinear_eq;
+                    error("MATLAB:Problem:m_nonlinear_eq_Unknown", "The number of nonlinear equality constraints is unknown.");
                 end
-            catch ME
-                warning(ME.identifier, "Error occurred while getting m_nonlinear_eq: %s", ME.message);
-                value = [];
+            else
+                value = obj.m_nonlinear_eq;
             end
         end        
 
@@ -566,6 +556,38 @@ classdef Problem < handle
             end
             if numel(f) ~= obj.m_nonlinear_eq
                 error("MATLAB:Problem:ceqx_m_nonlinear_eq_NotConsistent", "The size of `ceq(x)` is not consistent with `m_nonlinear_eq`=%d.", obj.m_nonlinear_eq)
+            end
+        end
+
+        function project_x0(obj)
+            % Project the initial guess onto the feasible region.
+            function val = dist_x0_sq(x)
+                val = norm(x - obj.x0)^2;
+            end
+            function [c, ceq] = nonlcon(x)
+                c = obj.cub(x);
+                ceq = obj.ceq(x);
+            end
+            if strcmp(obj.type, 'bound-constrained')
+                obj.x0 = min(max(obj.x0, obj.xl), obj.xu);
+            elseif strcmp(obj.type, 'linearly constrained') && obj.m_linear_ub == 0 && all(obj.xl == -Inf) && all(obj.xu == Inf)
+                try
+                    [~, res] = evalc('lsqr(obj.aeq, obj.beq - obj.aeq * obj.x0)');
+                    obj.x0 = obj.x0 + res;
+                catch
+                end
+            elseif strcmp(obj.type, 'linearly constrained') && exist('lsqlin') == 2
+                try
+                    [~, res] = evalc('lsqlin(eye(obj.n), obj.x0, obj.aub, obj.bub, obj.aeq, obj.beq, obj.xl, obj.xu, obj.x0)');
+                    obj.x0 = res;
+                catch
+                end
+            elseif ~strcmp(obj.type, 'unconstrained') && exist('fmincon') == 2
+                try
+                    [~, res] = evalc('fmincon(@(x) dist_x0_sq(x), obj.x0, obj.aub, obj.bub, obj.aeq, obj.beq, obj.xl, obj.xu, @(x) nonlcon(x))');
+                    obj.x0 = res;
+                catch
+                end
             end
         end
     end
