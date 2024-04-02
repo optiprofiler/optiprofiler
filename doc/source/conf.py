@@ -8,25 +8,21 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-import OptiProfiler
+import optiprofiler
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'OptiProfiler'
 author = 'Cunxin Huang, Tom M. Ragonneau, and Zaikun Zhang'
-if datetime.now().year == 2023:
-    # TODO: Remove this if statement in 2024.
-    copyright = f'{datetime.now().year}, {author}'
-else:
-    copyright = f'{2023}\u2013{datetime.now().year}, {author}'
+copyright = f'{2023}\u2013{datetime.now().year}, {author}'
 
 # Short version (including .devX, rcX, b1 suffixes if present).
-version = re.sub(r'(\d+\.\d+)\.\d+(.*)', r'\1\2', OptiProfiler.__version__)
+version = re.sub(r'(\d+\.\d+)\.\d+(.*)', r'\1\2', optiprofiler.__version__)
 version = re.sub(r'(\.dev\d+).*?$', r'\1', version)
 
 # Full version, including alpha/beta/rc tags.
-release = OptiProfiler.__version__
+release = optiprofiler.__version__
 
 
 # -- General configuration ---------------------------------------------------
@@ -38,7 +34,6 @@ extensions = [
     'sphinx.ext.linkcode',
     'numpydoc',
     'sphinx_copybutton',
-    'sphinx_rtd_theme',
     'sphinxcontrib.bibtex',
 ]
 
@@ -54,21 +49,22 @@ default_role = 'autolink'
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-html_theme = 'sphinx_rtd_theme'
+html_theme = 'sphinx_book_theme'
 
 html_static_path = ['_static']
 
 html_theme_options = {
-    'navigation_depth': 2,
+    'repository_url': 'https://github.com/optiprofiler/optiprofiler',
+    'repository_branch': 'main',
+    'path_to_docs': 'doc/source',
+    'use_repository_button': True,
+    'use_source_button': True,
+    'use_issues_button': True,
+    'use_download_button': False,
+    'max_navbar_depth': 2,
 }
 
-html_context = {
-    'github_user': 'OptiProfiler',
-    'github_repo': 'OptiProfiler',
-    'github_version': 'main',
-}
-
-html_title = f'{project} v{version} Manual'
+html_title = f'{project} v{version}'
 
 htmlhelp_basename = project
 
@@ -97,6 +93,7 @@ autosummary_generate = True
 
 intersphinx_mapping = {
     'numpy': ('https://numpy.org/doc/stable/', None),
+    'python': ('https://docs.python.org/3/', None),
 }
 
 
@@ -146,11 +143,11 @@ def linkcode_resolve(domain, info):
     except TypeError:
         return None
     else:
-        fn = fn.relative_to(Path(OptiProfiler.__file__).resolve(True).parent)
+        fn = fn.relative_to(Path(optiprofiler.__file__).resolve(True).parent)
 
     # Ignore re-exports as their source files are not within the repository.
     module = inspect.getmodule(obj)
-    if module is not None and not module.__name__.startswith('OptiProfiler'):
+    if module is not None and not module.__name__.startswith('optiprofiler'):
         return None
 
     # Get the line span of the object in the source file.
@@ -160,8 +157,8 @@ def linkcode_resolve(domain, info):
     except OSError:
         lines = ''
 
-    repository = f'https://github.com/{html_context["github_user"]}/{html_context["github_repo"]}'
+    repository = 'https://github.com/optiprofiler/optiprofiler'
     if 'dev' in release:
-        return f'{repository}/blob/{html_context["github_version"]}/python/OptiProfiler/{fn}{lines}'
+        return f'{repository}/blob/main/python/optiprofiler/{fn}{lines}'
     else:
-        return f'{repository}/blob/v{release}/python/OptiProfiler/{fn}{lines}'
+        return f'{repository}/blob/v{release}/python/optiprofiler/{fn}{lines}'

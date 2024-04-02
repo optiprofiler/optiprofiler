@@ -3,7 +3,7 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "OptiProfiler"
+name = "optiprofiler"
 description = "Benchmarking optimization solvers"
 readme = "README.rst"
 requires-python = ">=3.8"
@@ -32,15 +32,16 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering",
     "Topic :: Scientific/Engineering :: Mathematics",
     "Topic :: Software Development",
     "Topic :: Software Development :: Testing",
 ]
 dependencies = [
-    "joblib",
-    "matplotlib",
-    "numpy",
+    "matplotlib>=3.4.0",
+    "numpy>=1.17.0",
+    "scipy>=1.10.0",
 ]
 dynamic = ["version"]
 
@@ -49,18 +50,25 @@ doc = [
     "numpydoc==1.6.0",
     "Sphinx==7.2.6",
     "sphinx-copybutton==0.5.2",
-    "sphinx-rtd-theme==1.3.0",
-    "sphinxcontrib.bibtex==2.5.0",
+    "sphinx-book-theme==1.1.2",
+    "sphinxcontrib-bibtex==2.6.2",
 ]
-extra = ["pycutest>=1.5.0"]
+extra = ["pycutest>=1.6.1"]
 tests = [
     "pytest",
     "pytest-cov",
 ]
 
+[project.urls]
+homepage = "https://www.optiprofiler.com"
+documentation = "https://www.optiprofiler.com"
+source = "https://github.com/optiprofiler/optiprofiler"
+download = "https://pypi.org/project/optiprofiler/#files"
+tracker = "https://github.com/optiprofiler/optiprofiler/issues"
+
 [tool.setuptools.dynamic]
-version = {attr = "OptiProfiler.__version__"}
+version = {attr = "optiprofiler.__version__"}
 
 [tool.setuptools.packages.find]
 where = ["python"]
-include = ["OptiProfiler*"]
+include = ["optiprofiler*"]

@@ -4,7 +4,14 @@ Python developer guide
 :Release: |release|
 :Date: |today|
 
-.. currentmodule:: OptiProfiler
+.. currentmodule:: optiprofiler
+
+The `profiles` module implements the functions to benchmark optimization solvers.
+
+.. toctree::
+    :maxdepth: 2
+
+    profiles
 
 The `problems` module implements classes and functions to handle optimization problems.
 
@@ -19,3 +26,10 @@ The `features` module implements classes to handle features.
     :maxdepth: 2
 
     features
+
+The `utils` module implements utilities.
+
+.. toctree::
+    :maxdepth: 2
+
+    utils

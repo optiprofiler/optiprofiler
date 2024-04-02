@@ -1,15 +1,16 @@
-.. module:: OptiProfiler.problems
+.. module:: optiprofiler.problems
 
 Optimization problems
 =====================
 
-.. currentmodule:: OptiProfiler.problems
+.. currentmodule:: optiprofiler.problems
 
 .. autosummary::
     :toctree: generated/
 
     Problem
     FeaturedProblem
-    ProblemError
-    load_cutest
-    find_cutest_problem_names
+    get_cutest_problem_options
+    set_cutest_problem_options
+    load_cutest_problem
+    find_cutest_problems

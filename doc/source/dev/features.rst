@@ -1,9 +1,9 @@
-.. module:: OptiProfiler.features
+.. module:: optiprofiler.features
 
 Problem features
 ================
 
-.. currentmodule:: OptiProfiler.features
+.. currentmodule:: optiprofiler.features
 
 .. autosummary::
     :toctree: generated/

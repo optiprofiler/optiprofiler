@@ -1,5 +1,5 @@
-from .problems import Problem, find_cutest_problem_names
-from .profiles import create_profiles
+from .problems import Problem, get_cutest_problem_options, set_cutest_problem_options, find_cutest_problems
+from .profiles import run_benchmark
 from .utils import show_versions
 
 # PEP0440 compatible formatted version, see:
@@ -18,4 +18,11 @@ from .utils import show_versions
 # 'X.Y.dev0' is the canonical version of 'X.Y.dev'.
 __version__ = '1.0.dev0'
 
-__all__ = ['Problem', 'create_profiles', 'find_cutest_problem_names', 'show_versions']
+__all__ = [
+    'Problem',
+    'run_benchmark',
+    'get_cutest_problem_options',
+    'set_cutest_problem_options',
+    'find_cutest_problems',
+    'show_versions',
+]
