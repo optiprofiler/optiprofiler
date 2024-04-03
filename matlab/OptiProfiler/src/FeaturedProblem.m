@@ -7,7 +7,6 @@ classdef FeaturedProblem < Problem
         max_eval
         seed
         permutation
-        rotation
         fun_hist
         maxcv_hist
 
@@ -70,12 +69,6 @@ classdef FeaturedProblem < Problem
                 permutation = rand_stream.randperm(problem.n);
                 [~, reverse_permutation] = sort(permutation);
             end
-            % Generate a random rotation.
-            rotation = [];
-            if strcmp(feature.name, FeatureName.ROTATED.value)
-                [Q, R] = qr(rand_stream.randn(problem.n));
-                rotation = Q * diag(sign(diag(R)));
-            end
             
             % Copy the problem.
             if ~isa(problem, 'Problem')
@@ -119,7 +112,6 @@ classdef FeaturedProblem < Problem
             obj.max_eval = max_eval;
             obj.seed = seed;
             obj.permutation = permutation;
-            obj.rotation = rotation;
 
             % Store the objective function values and maximum constraint violations.
             obj.fun_hist = [];
@@ -170,11 +162,7 @@ classdef FeaturedProblem < Problem
             end
 
             % Evaluate the objective function and store the results.
-            if strcmp(obj.feature.name, FeatureName.ROTATED.value)
-                f_true = fun@Problem(obj, obj.rotation * x);
-            else
-                f_true = fun@Problem(obj, x);
-            end
+            f_true = fun@Problem(obj, x);
             obj.fun_hist = [obj.fun_hist, f_true];
             [maxcv, maxcv_bounds, maxcv_linear, maxcv_nonlinear] = obj.maxcv(x, true);
             obj.maxcv_hist = [obj.maxcv_hist, maxcv];

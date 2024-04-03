@@ -64,13 +64,13 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
             warning('off', 'all');
             try
                 if nargin(solvers{i_solver}) == 2
-                    [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0)');
+                    [~, x] = evalc('solvers{i_solver}(@featured_problem.fun, featured_problem.x0)');
                 elseif nargin(solvers{i_solver}) == 4
-                    [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu)');
+                    [~, x] = evalc('solvers{i_solver}(@featured_problem.fun, featured_problem.x0, featured_problem.xl, featured_problem.xu)');
                 elseif nargin(solvers{i_solver}) == 8
-                    [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq)');
+                    [~, x] = evalc('solvers{i_solver}(@featured_problem.fun, featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq)');
                 elseif nargin(solvers{i_solver}) == 10
-                    [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, @featured_problem.cub, @featured_problem.ceq)');
+                    [~, x] = evalc('solvers{i_solver}(@featured_problem.fun, featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, @featured_problem.cub, @featured_problem.ceq)');
                 end
                 if strcmp(feature.name, FeatureName.PERMUTED.value)
                     [~, reverse_permutation] = sort(featured_problem.permutation);

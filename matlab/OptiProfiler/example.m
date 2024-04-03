@@ -4,11 +4,11 @@ function example()
     addpath("src/")
     addpath(genpath("common/"))
 
-    problem_names = secup(struct('type', 'u', 'maxdim', 5));
+    problem_names = secup(struct('type', 'u', 'maxdim', 3));
     solvers = {@fminsearch_test, @bds_test};
     labels = {'fminsearch', 'bds'};
 
-    runBenchmark(solvers, labels, problem_names, 'all', 'max_tol_order', 10)
+    runBenchmark(solvers, labels, problem_names, 'plain', 'max_tol_order', 10)
 
 end
 

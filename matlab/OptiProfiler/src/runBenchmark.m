@@ -130,7 +130,10 @@ function runBenchmark(solvers, labels, problem_names, feature_names, varargin)
     if ~islogical(profile_options.(ProfileOptionKey.SUMMARIZE_LOG_RATIO_PROFILES.value))
         error("profile_options.summarize_log_ratio_profiles should be a boolean.");
     end
-    
+    if profile_options.(ProfileOptionKey.SUMMARIZE_LOG_RATIO_PROFILES.value) && numel(solvers) > 2
+        warning("The log-ratio profiles are available only when there are exactly two solvers.");
+        profile_options.(ProfileOptionKey.SUMMARIZE_LOG_RATIO_PROFILES.value) = false;
+    end
 
 
     % Paths to the results.
@@ -148,7 +151,7 @@ function runBenchmark(solvers, labels, problem_names, feature_names, varargin)
     set(groot, 'DefaultAxesLineStyleOrder', {'-', '--', ':', '-.'});
 
     if strcmp(feature_names, 'all')
-        feature_names = {'plain', 'noisy', 'perturbed_x0', 'permuted', 'random_nan', 'rotated', 'truncated', 'unrelaxable_constraints'};
+        feature_names = {'plain', 'noisy', 'perturbed_x0', 'permuted', 'random_nan', 'truncated', 'unrelaxable_constraints'};
     elseif isstring(feature_names) || ischar(feature_names)
         feature_names = {feature_names};
     end
@@ -240,26 +243,34 @@ function runBenchmark(solvers, labels, problem_names, feature_names, varargin)
         pdf_log_ratio_ret_summary = fullfile(path_log_ratio, 'log-ratio_ret.pdf');
 
         % Create the figure for the summary.
+        n_rows = 0;
+        is_perf = profile_options.(ProfileOptionKey.SUMMARIZE_PERFORMANCE_PROFILES.value);
+        is_data = profile_options.(ProfileOptionKey.SUMMARIZE_DATA_PROFILES.value);
+        is_log_ratio = profile_options.(ProfileOptionKey.SUMMARIZE_LOG_RATIO_PROFILES.value) && (n_solvers <= 2);
+        if is_perf
+            n_rows = n_rows + 1;
+        end
+        if is_data
+            n_rows = n_rows + 1;
+        end
+        if is_log_ratio
+            n_rows = n_rows + 1;
+        end
         defaultFigurePosition = get(0, 'DefaultFigurePosition');
         default_width = defaultFigurePosition(3);
         default_height = defaultFigurePosition(4);
-        if n_solvers <= 2
-            scale_height = 3;
-        else
-            scale_height = 2;
-        end
-        fig_summary = figure('Position', [defaultFigurePosition(1:2), profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * default_width, 2 * scale_height * default_height], 'visible', 'off');
+        fig_summary = figure('Position', [defaultFigurePosition(1:2), profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * default_width, 2 * n_rows * default_height], 'visible', 'off');
         T_summary = tiledlayout(fig_summary, 2, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
         T_title = strrep(feature.name, '_', '\_');
         title(T_summary, ['Profiles with the ``', T_title, '" feature'], 'Interpreter', 'latex', 'FontSize', 24);
         % Use gobjects to create arrays of handles and axes.
         t_summary = gobjects(2, 1);
-        axs_summary = gobjects([2, 1, scale_height, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)]);
+        axs_summary = gobjects([2, 1, n_rows, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)]);
         i_axs = 0;
         for i = 1:2
-            t_summary(i) = tiledlayout(T_summary, scale_height, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value), 'Padding', 'compact', 'TileSpacing', 'compact');
+            t_summary(i) = tiledlayout(T_summary, n_rows, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value), 'Padding', 'compact', 'TileSpacing', 'compact');
             t_summary(i).Layout.Tile = i;
-            for j = 1:scale_height * profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)
+            for j = 1:n_rows * profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)
                 i_axs = i_axs + 1;
                 axs_summary(i_axs) = nexttile(t_summary(i));
             end
@@ -293,12 +304,16 @@ function runBenchmark(solvers, labels, problem_names, feature_names, varargin)
             end
 
             % Draw the profiles.
-            if n_solvers <= 2
+
+            if is_perf && is_data && is_log_ratio
                 cell_axs_summary = {axs_summary(i_profile), axs_summary(i_profile + 3 * max_tol_order), axs_summary(i_profile + max_tol_order), axs_summary(i_profile + 4 * max_tol_order), axs_summary(i_profile + 2 * max_tol_order), axs_summary(i_profile + 5 * max_tol_order)};
-            else
+            elseif (is_perf && is_data) || (is_perf && is_log_ratio) || (is_data && is_log_ratio)
                 cell_axs_summary = {axs_summary(i_profile), axs_summary(i_profile + 2 * max_tol_order), axs_summary(i_profile + max_tol_order), axs_summary(i_profile + 3 * max_tol_order)};
+            elseif is_perf || is_data || is_log_ratio
+                cell_axs_summary = {axs_summary(i_profile), axs_summary(i_profile + max_tol_order)};
             end
-            [fig_perf_hist, fig_perf_ret, fig_data_hist, fig_data_ret, fig_log_ratio_hist, fig_log_ratio_ret] = drawProfiles(work_hist, work_ret, problem_dimensions, labels, tolerance_label, cell_axs_summary);
+
+            [fig_perf_hist, fig_perf_ret, fig_data_hist, fig_data_ret, fig_log_ratio_hist, fig_log_ratio_ret] = drawProfiles(work_hist, work_ret, problem_dimensions, labels, tolerance_label, cell_axs_summary, is_perf, is_data, is_log_ratio);
             eps_perf_hist = fullfile(path_perf_hist, ['perf_hist_' int2str(i_profile) '.eps']);
             print(fig_perf_hist, eps_perf_hist, '-depsc');
             pdf_perf_hist = fullfile(path_perf_hist, ['perf_hist_' int2str(i_profile) '.pdf']);
