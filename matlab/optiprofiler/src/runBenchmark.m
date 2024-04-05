@@ -110,9 +110,14 @@ function runBenchmark(solvers, labels, problem_names, feature_names, varargin)
     if ~isstring(profile_options.(ProfileOptionKey.BENCHMARK_ID.value)) && ~ischar(profile_options.(ProfileOptionKey.BENCHMARK_ID.value))
         error("profile_options.benchmark_id should be a string.");
     end
-    % Judge whether profile_options.savepath is a string and exists.
-    if ~(isstring(profile_options.(ProfileOptionKey.SAVEPATH.value)) || ischar(profile_options.(ProfileOptionKey.SAVEPATH.value))) || ~exist(profile_options.(ProfileOptionKey.SAVEPATH.value), 'dir')
-        error("profile_options.savepath should be a string and exists.");
+    % Judge whether profile_options.savepath is a string and exists. If not exists, create it.
+    if ~isstring(profile_options.(ProfileOptionKey.SAVEPATH.value)) && ~ischar(profile_options.(ProfileOptionKey.SAVEPATH.value))
+        error("profile_options.savepath should be a string.");
+    elseif ~exist(profile_options.(ProfileOptionKey.SAVEPATH.value), 'dir')
+        status = mkdir(profile_options.(ProfileOptionKey.SAVEPATH.value));
+        if ~status
+            error("profile_options.savepath does not exist and cannot be created.");
+        end
     end
     % Judge whether profile_options.max_tol_order is a positive integer.
     if (~isfloat(profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)) && ~isinteger(profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value))) || (floor(profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value))~=profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)) || (profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) <= 0)
