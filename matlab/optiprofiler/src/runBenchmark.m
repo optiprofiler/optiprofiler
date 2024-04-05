@@ -165,9 +165,9 @@ function runBenchmark(solvers, labels, problem_names, feature_names, varargin)
         fprintf('INFO: Starting the computation of the "%s" profiles.\n', feature.name);
 
         % Solve all the problems.
-        [fun_histories, maxcv_histories, fun_ret, maxcv_ret, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, time_processes] = solveAllProblems(problem_names, problem_options, solvers, labels, feature, profile_options);
+        [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, time_processes] = solveAllProblems(problem_names, problem_options, solvers, labels, feature, profile_options);
         merit_histories = computeMeritValues(fun_histories, maxcv_histories, maxcv_init);
-        merit_ret = computeMeritValues(fun_ret, maxcv_ret, maxcv_init);
+        merit_out = computeMeritValues(fun_out, maxcv_out, maxcv_init);
         merit_init = computeMeritValues(fun_init, maxcv_init, maxcv_init);
 
         % Determine the least merit value for each problem.
@@ -190,9 +190,9 @@ function runBenchmark(solvers, labels, problem_names, feature_names, varargin)
         path_perf_hist = fullfile(path_perf, 'hist');
         path_data_hist = fullfile(path_data, 'hist');
         path_log_ratio_hist = fullfile(path_log_ratio, 'hist');
-        path_perf_ret = fullfile(path_perf, 'ret');
-        path_data_ret = fullfile(path_data, 'ret');
-        path_log_ratio_ret = fullfile(path_log_ratio, 'ret');
+        path_perf_out = fullfile(path_perf, 'ret');
+        path_data_out = fullfile(path_data, 'ret');
+        path_log_ratio_out = fullfile(path_log_ratio, 'ret');
         if ~exist(path_out, 'dir')
             mkdir(path_out);
         end
@@ -202,11 +202,11 @@ function runBenchmark(solvers, labels, problem_names, feature_names, varargin)
         if ~exist(path_data_hist, 'dir')
             mkdir(path_data_hist);
         end
-        if ~exist(path_perf_ret, 'dir')
-            mkdir(path_perf_ret);
+        if ~exist(path_perf_out, 'dir')
+            mkdir(path_perf_out);
         end
-        if ~exist(path_data_ret, 'dir')
-            mkdir(path_data_ret);
+        if ~exist(path_data_out, 'dir')
+            mkdir(path_data_out);
         end
 
         % Store the names of the problems.
@@ -227,8 +227,8 @@ function runBenchmark(solvers, labels, problem_names, feature_names, varargin)
             if ~exist(path_log_ratio_hist, 'dir')
                 mkdir(path_log_ratio_hist);
             end
-            if ~exist(path_log_ratio_ret, 'dir')
-                mkdir(path_log_ratio_ret);
+            if ~exist(path_log_ratio_out, 'dir')
+                mkdir(path_log_ratio_out);
             end
         end
 
@@ -236,11 +236,11 @@ function runBenchmark(solvers, labels, problem_names, feature_names, varargin)
         tolerances = 10.^(-1:-1:-max_tol_order);
         pdf_summary = fullfile(path_out, 'summary.pdf');
         pdf_perf_hist_summary = fullfile(path_perf, 'perf_hist.pdf');
-        pdf_perf_ret_summary = fullfile(path_perf, 'perf_ret.pdf');
+        pdf_perf_out_summary = fullfile(path_perf, 'perf_out.pdf');
         pdf_data_hist_summary = fullfile(path_data, 'data_hist.pdf');
-        pdf_data_ret_summary = fullfile(path_data, 'data_ret.pdf');
+        pdf_data_out_summary = fullfile(path_data, 'data_out.pdf');
         pdf_log_ratio_hist_summary = fullfile(path_log_ratio, 'log-ratio_hist.pdf');
-        pdf_log_ratio_ret_summary = fullfile(path_log_ratio, 'log-ratio_ret.pdf');
+        pdf_log_ratio_out_summary = fullfile(path_log_ratio, 'log-ratio_out.pdf');
 
         % Create the figure for the summary.
         n_rows = 0;
@@ -284,7 +284,7 @@ function runBenchmark(solvers, labels, problem_names, feature_names, varargin)
             tolerance_label = ['$\tau = 10^{', int2str(log10(tolerance)), '}$'];
 
             work_hist = NaN(n_problems, n_solvers, n_runs);
-            work_ret = NaN(n_problems, n_solvers, n_runs);
+            work_out = NaN(n_problems, n_solvers, n_runs);
             for i_problem = 1:n_problems
                 for i_solver = 1:n_solvers
                     for i_run = 1:n_runs
@@ -296,8 +296,8 @@ function runBenchmark(solvers, labels, problem_names, feature_names, varargin)
                         if min(merit_histories(i_problem, i_solver, i_run, :), [], 'omitnan') <= threshold
                             work_hist(i_problem, i_solver, i_run) = find(merit_histories(i_problem, i_solver, i_run, :) <= threshold, 1, 'first');
                         end
-                        if merit_ret(i_problem, i_solver, i_run) <= threshold
-                            work_ret(i_problem, i_solver, i_run) = n_eval(i_problem, i_solver, i_run);
+                        if merit_out(i_problem, i_solver, i_run) <= threshold
+                            work_out(i_problem, i_solver, i_run) = n_eval(i_problem, i_solver, i_run);
                         end
                     end
                 end
@@ -313,23 +313,23 @@ function runBenchmark(solvers, labels, problem_names, feature_names, varargin)
                 cell_axs_summary = {axs_summary(i_profile), axs_summary(i_profile + max_tol_order)};
             end
 
-            [fig_perf_hist, fig_perf_ret, fig_data_hist, fig_data_ret, fig_log_ratio_hist, fig_log_ratio_ret] = drawProfiles(work_hist, work_ret, problem_dimensions, labels, tolerance_label, cell_axs_summary, is_perf, is_data, is_log_ratio);
+            [fig_perf_hist, fig_perf_out, fig_data_hist, fig_data_out, fig_log_ratio_hist, fig_log_ratio_out] = drawProfiles(work_hist, work_out, problem_dimensions, labels, tolerance_label, cell_axs_summary, is_perf, is_data, is_log_ratio);
             eps_perf_hist = fullfile(path_perf_hist, ['perf_hist_' int2str(i_profile) '.eps']);
             print(fig_perf_hist, eps_perf_hist, '-depsc');
             pdf_perf_hist = fullfile(path_perf_hist, ['perf_hist_' int2str(i_profile) '.pdf']);
             print(fig_perf_hist, pdf_perf_hist, '-dpdf');
-            eps_perf_ret = fullfile(path_perf_ret, ['perf_ret_' int2str(i_profile) '.eps']);
-            print(fig_perf_ret, eps_perf_ret, '-depsc');
-            pdf_perf_ret = fullfile(path_perf_ret, ['perf_ret_' int2str(i_profile) '.pdf']);
-            print(fig_perf_ret, pdf_perf_ret, '-dpdf');
+            eps_perf_out = fullfile(path_perf_out, ['perf_out_' int2str(i_profile) '.eps']);
+            print(fig_perf_out, eps_perf_out, '-depsc');
+            pdf_perf_out = fullfile(path_perf_out, ['perf_out_' int2str(i_profile) '.pdf']);
+            print(fig_perf_out, pdf_perf_out, '-dpdf');
             eps_data_hist = fullfile(path_data_hist, ['data_hist_' int2str(i_profile) '.eps']);
             print(fig_data_hist, eps_data_hist, '-depsc');
             pdf_data_hist = fullfile(path_data_hist, ['data_hist_' int2str(i_profile) '.pdf']);
             print(fig_data_hist, pdf_data_hist, '-dpdf');
-            eps_data_ret = fullfile(path_data_ret, ['data_ret_' int2str(i_profile) '.eps']);
-            print(fig_data_ret, eps_data_ret, '-depsc');
-            pdf_data_ret = fullfile(path_data_ret, ['data_ret_' int2str(i_profile) '.pdf']);
-            print(fig_data_ret, pdf_data_ret, '-dpdf');
+            eps_data_out = fullfile(path_data_out, ['data_out_' int2str(i_profile) '.eps']);
+            print(fig_data_out, eps_data_out, '-depsc');
+            pdf_data_out = fullfile(path_data_out, ['data_out_' int2str(i_profile) '.pdf']);
+            print(fig_data_out, pdf_data_out, '-dpdf');
             if n_solvers <= 2
                 eps_log_ratio_hist = fullfile(path_log_ratio_hist, ['log-ratio_hist_' int2str(i_profile) '.eps']);
                 print(fig_log_ratio_hist, eps_log_ratio_hist, '-depsc');
@@ -337,45 +337,45 @@ function runBenchmark(solvers, labels, problem_names, feature_names, varargin)
                 print(fig_log_ratio_hist, pdf_log_ratio_hist, '-dpdf');
             end
             if n_solvers <= 2
-                eps_log_ratio_ret = fullfile(path_log_ratio_ret, ['log-ratio_ret_' int2str(i_profile) '.eps']);
-                print(fig_log_ratio_ret, eps_log_ratio_ret, '-depsc');
-                pdf_log_ratio_ret = fullfile(path_log_ratio_ret, ['log-ratio_ret_' int2str(i_profile) '.pdf']);
-                print(fig_log_ratio_ret, pdf_log_ratio_ret, '-dpdf');
+                eps_log_ratio_out = fullfile(path_log_ratio_out, ['log-ratio_out_' int2str(i_profile) '.eps']);
+                print(fig_log_ratio_out, eps_log_ratio_out, '-depsc');
+                pdf_log_ratio_out = fullfile(path_log_ratio_out, ['log-ratio_out_' int2str(i_profile) '.pdf']);
+                print(fig_log_ratio_out, pdf_log_ratio_out, '-dpdf');
             end
             if i_profile == 1
                 exportgraphics(fig_perf_hist, pdf_perf_hist_summary, 'ContentType', 'vector');
-                exportgraphics(fig_perf_ret, pdf_perf_ret_summary, 'ContentType', 'vector');
+                exportgraphics(fig_perf_out, pdf_perf_out_summary, 'ContentType', 'vector');
                 exportgraphics(fig_data_hist, pdf_data_hist_summary, 'ContentType', 'vector');
-                exportgraphics(fig_data_ret, pdf_data_ret_summary, 'ContentType', 'vector');
+                exportgraphics(fig_data_out, pdf_data_out_summary, 'ContentType', 'vector');
                 if n_solvers <= 2
                     exportgraphics(fig_log_ratio_hist, pdf_log_ratio_hist_summary, 'ContentType', 'vector');
                 end
-                if ~isempty(fig_log_ratio_ret)
-                    exportgraphics(fig_log_ratio_ret, pdf_log_ratio_ret_summary, 'ContentType', 'vector');
+                if ~isempty(fig_log_ratio_out)
+                    exportgraphics(fig_log_ratio_out, pdf_log_ratio_out_summary, 'ContentType', 'vector');
                 end
             else
                 exportgraphics(fig_perf_hist, pdf_perf_hist_summary, 'ContentType', 'vector', 'Append', true);
-                exportgraphics(fig_perf_ret, pdf_perf_ret_summary, 'ContentType', 'vector', 'Append', true);
+                exportgraphics(fig_perf_out, pdf_perf_out_summary, 'ContentType', 'vector', 'Append', true);
                 exportgraphics(fig_data_hist, pdf_data_hist_summary, 'ContentType', 'vector', 'Append', true);
-                exportgraphics(fig_data_ret, pdf_data_ret_summary, 'ContentType', 'vector', 'Append', true);
+                exportgraphics(fig_data_out, pdf_data_out_summary, 'ContentType', 'vector', 'Append', true);
                 if n_solvers <= 2
                     exportgraphics(fig_log_ratio_hist, pdf_log_ratio_hist_summary, 'ContentType', 'vector', 'Append', true);
                 end
-                if ~isempty(fig_log_ratio_ret)
-                    exportgraphics(fig_log_ratio_ret, pdf_log_ratio_ret_summary, 'ContentType', 'vector', 'Append', true);
+                if ~isempty(fig_log_ratio_out)
+                    exportgraphics(fig_log_ratio_out, pdf_log_ratio_out_summary, 'ContentType', 'vector', 'Append', true);
                 end
             end
 
             % Close the figures.
             close(fig_perf_hist);
-            close(fig_perf_ret);
+            close(fig_perf_out);
             close(fig_data_hist);
-            close(fig_data_ret);
+            close(fig_data_out);
             if n_solvers <= 2
                 close(fig_log_ratio_hist);
             end
-            if ~isempty(fig_log_ratio_ret)
-                close(fig_log_ratio_ret);
+            if ~isempty(fig_log_ratio_out)
+                close(fig_log_ratio_out);
             end
 
         end
