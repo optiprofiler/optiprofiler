@@ -4,6 +4,7 @@ classdef ProfileOptionKey
     enumeration
         N_JOBS ('n_jobs')
         BENCHMARK_ID ('benchmark_id')
+        SAVEPATH ('savepath')
         MAX_TOL_ORDER ('max_tol_order')
         MAX_EVAL_FACTOR ('max_eval_factor')
         PROJECT_X0 ('project_x0')

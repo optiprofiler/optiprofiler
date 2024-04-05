@@ -47,6 +47,9 @@ function runBenchmark(solvers, labels, problem_names, feature_names, varargin)
     end
 
     % Set default profile options.
+    full_path = mfilename('fullpath');
+    [folder_path, ~, ~] = fileparts(full_path);
+    root_path = fileparts(folder_path);
     if exist('parcluster', 'file') == 2
         myCluster = parcluster('local');
         nb_cores = myCluster.NumWorkers;
@@ -55,6 +58,7 @@ function runBenchmark(solvers, labels, problem_names, feature_names, varargin)
     end
     profile_options.(ProfileOptionKey.N_JOBS.value) = nb_cores;
     profile_options.(ProfileOptionKey.BENCHMARK_ID.value) = '.';
+    profile_options.(ProfileOptionKey.SAVEPATH.value) = root_path;
     profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) = 16;
     profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value) = 500;
     profile_options.(ProfileOptionKey.PROJECT_X0.value) = false;
@@ -106,6 +110,10 @@ function runBenchmark(solvers, labels, problem_names, feature_names, varargin)
     if ~isstring(profile_options.(ProfileOptionKey.BENCHMARK_ID.value)) && ~ischar(profile_options.(ProfileOptionKey.BENCHMARK_ID.value))
         error("profile_options.benchmark_id should be a string.");
     end
+    % Judge whether profile_options.savepath is a string and exists.
+    if ~(isstring(profile_options.(ProfileOptionKey.SAVEPATH.value)) || ischar(profile_options.(ProfileOptionKey.SAVEPATH.value))) || ~exist(profile_options.(ProfileOptionKey.SAVEPATH.value), 'dir')
+        error("profile_options.savepath should be a string and exists.");
+    end
     % Judge whether profile_options.max_tol_order is a positive integer.
     if (~isfloat(profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)) && ~isinteger(profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value))) || (floor(profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value))~=profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)) || (profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) <= 0)
         error("profile_options.max_tol_order should be a positive integer.");
@@ -135,13 +143,9 @@ function runBenchmark(solvers, labels, problem_names, feature_names, varargin)
         profile_options.(ProfileOptionKey.SUMMARIZE_LOG_RATIO_PROFILES.value) = false;
     end
 
-
     % Paths to the results.
     timestamp = datestr(datetime('now', 'TimeZone', 'local', 'Format', 'yyyy-MM-dd''T''HH-mm-SSZ'), 'yyyy-mm-ddTHH-MM-SSZ');
-    full_path = mfilename('fullpath');
-    [folder_path, ~, ~] = fileparts(full_path);
-    root_path = fileparts(folder_path);
-    path_out = fullfile(root_path, 'out', profile_options.(ProfileOptionKey.BENCHMARK_ID.value), timestamp);
+    path_out = fullfile(profile_options.(ProfileOptionKey.SAVEPATH.value), 'out', profile_options.(ProfileOptionKey.BENCHMARK_ID.value), timestamp);
 
     % Set the default values for plotting.
     set(groot, 'DefaultLineLineWidth', 1);
