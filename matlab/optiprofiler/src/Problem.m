@@ -13,13 +13,6 @@ classdef Problem < handle
 
     end
 
-    properties (GetAccess = public, SetAccess = private)
-
-        m_nonlinear_ub
-        m_nonlinear_eq
-
-    end
-
     properties (Dependent)
 
         n
@@ -34,6 +27,8 @@ classdef Problem < handle
         fun_
         cub_
         ceq_
+        m_nonlinear_ub_
+        m_nonlinear_eq_
 
     end
 
@@ -110,12 +105,20 @@ classdef Problem < handle
                 if isfield(s, 'ceq')
                     obj.ceq_ = s.ceq;
                 end
+
+                % Check if the struct contains `m_nonlinear_ub` and `m_nonlinear_eq` fields
+                if isfield(s, 'm_nonlinear_ub')
+                    obj.m_nonlinear_ub_ = s.m_nonlinear_ub;
+                end
+                if isfield(s, 'm_nonlinear_eq')
+                    obj.m_nonlinear_eq_ = s.m_nonlinear_eq;
+                end
         
                 % Iterate over the struct's fields and assign them to the object's properties
                 expected_fields = {'fun', 'x0', 'xl', 'xu', 'aub', 'bub', 'aeq', 'beq', 'cub', 'ceq', 'm_nonlinear_ub', 'm_nonlinear_eq'};
                 fields = fieldnames(s);
                 for i = 1:numel(expected_fields)
-                    if strcmp(expected_fields{i}, 'fun') || strcmp(expected_fields{i}, 'cub') || strcmp(expected_fields{i}, 'ceq')
+                    if strcmp(expected_fields{i}, 'fun') || strcmp(expected_fields{i}, 'cub') || strcmp(expected_fields{i}, 'ceq') || strcmp(expected_fields{i}, 'm_nonlinear_ub') || strcmp(expected_fields{i}, 'm_nonlinear_eq')
                         continue
                     elseif ismember(expected_fields{i}, fields)
                         obj.(expected_fields{i}) = s.(expected_fields{i});
@@ -146,11 +149,11 @@ classdef Problem < handle
                 error("MATLAB:Problem:aeq_m_linear_eq_n_NotConsistent", "The argument `aeq` must have shape (%d, %d).", obj.m_linear_eq, obj.n);
             end
             % Check that whether `m_nonlinear_ub` is empty or zero if `cub` is empty.
-            if isempty(obj.cub_) && ~isempty(obj.m_nonlinear_ub) && obj.m_nonlinear_ub > 0
+            if isempty(obj.cub_) && ~isempty(obj.m_nonlinear_ub_) && obj.m_nonlinear_ub_ > 0
                 error("MATLAB:Problem:m_nonlinear_ub_cub_NotConsistent", "The argument `m_nonlinear_ub` must be empty or zero if the argument `cub` is empty.");
             end
             % Check that whether `m_nonlinear_eq` is empty or zero if `ceq` is empty.
-            if isempty(obj.ceq_) && ~isempty(obj.m_nonlinear_eq) && obj.m_nonlinear_eq > 0
+            if isempty(obj.ceq_) && ~isempty(obj.m_nonlinear_eq_) && obj.m_nonlinear_eq_ > 0
                 error("MATLAB:Problem:m_nonlinear_eq_ceq_NotConsistent", "The argument `m_nonlinear_eq` must be empty or zero if the argument `ceq` is empty.");
             end
         end
@@ -266,25 +269,25 @@ classdef Problem < handle
         end
 
         % Preprocess the number of nonlinear constraints.
-        function set.m_nonlinear_ub(obj, m_nonlinear_ub)
+        function set.m_nonlinear_ub_(obj, m_nonlinear_ub)
             if ~isempty(m_nonlinear_ub)
                 if ~(isnumeric(m_nonlinear_ub) && m_nonlinear_ub >= 0 && mod(m_nonlinear_ub, 1) == 0)
                     error("MATLAB:Problem:m_nonlinear_ub_NotPositiveScalar", "The argument `m_nonlinear_ub` must be a nonnegative integer.")
                 end
-                obj.m_nonlinear_ub = m_nonlinear_ub;
+                obj.m_nonlinear_ub_ = m_nonlinear_ub;
             else
-                obj.m_nonlinear_ub = [];
+                obj.m_nonlinear_ub_ = [];
             end
         end
 
-        function set.m_nonlinear_eq(obj, m_nonlinear_eq)
+        function set.m_nonlinear_eq_(obj, m_nonlinear_eq)
             if ~isempty(m_nonlinear_eq)
                 if ~(isnumeric(m_nonlinear_eq) && m_nonlinear_eq >= 0 && mod(m_nonlinear_eq, 1) == 0)
                     error("MATLAB:Problem:m_nonlinear_eq_NotPositiveScalar", "The argument `m_nonlinear_eq` must be a nonnegative integer.")
                 end
-                obj.m_nonlinear_eq = m_nonlinear_eq;
+                obj.m_nonlinear_eq_ = m_nonlinear_eq;
             else
-                obj.m_nonlinear_eq = [];
+                obj.m_nonlinear_eq_ = [];
             end
         end
 
@@ -318,31 +321,7 @@ classdef Problem < handle
             end
         end
 
-        % Other getter functions.
-
-        function value = get.m_nonlinear_ub(obj)
-            if isempty(obj.m_nonlinear_ub)
-                if isempty(obj.cub_)
-                    value = 0;
-                else
-                    error("MATLAB:Problem:m_nonlinear_ub_Unknown", "The number of nonlinear inequality constraints is unknown.");
-                end
-            else
-                value = obj.m_nonlinear_ub;
-            end
-        end
-
-        function value = get.m_nonlinear_eq(obj)
-            if isempty(obj.m_nonlinear_eq)
-                if isempty(obj.ceq_)
-                    value = 0;
-                else
-                    error("MATLAB:Problem:m_nonlinear_eq_Unknown", "The number of nonlinear equality constraints is unknown.");
-                end
-            else
-                value = obj.m_nonlinear_eq;
-            end
-        end        
+        % Other getter functions.      
 
         function value = get.xl(obj)
             if isempty(obj.xl)
@@ -514,8 +493,8 @@ classdef Problem < handle
                 end
             end
 
-            if isempty(obj.m_nonlinear_ub)
-                obj.m_nonlinear_ub = numel(f);
+            if isempty(obj.m_nonlinear_ub_)
+                obj.m_nonlinear_ub_ = numel(f);
             end
             if numel(f) ~= obj.m_nonlinear_ub
                 error("MATLAB:Problem:cubx_m_nonlinear_ub_NotConsistent", "The size of `cub(x)` is not consistent with `m_nonlinear_ub`=%d.", obj.m_nonlinear_ub)
@@ -551,11 +530,35 @@ classdef Problem < handle
                 end
             end
 
-            if isempty(obj.m_nonlinear_eq)
-                obj.m_nonlinear_eq = numel(f);
+            if isempty(obj.m_nonlinear_eq_)
+                obj.m_nonlinear_eq_ = numel(f);
             end
             if numel(f) ~= obj.m_nonlinear_eq
                 error("MATLAB:Problem:ceqx_m_nonlinear_eq_NotConsistent", "The size of `ceq(x)` is not consistent with `m_nonlinear_eq`=%d.", obj.m_nonlinear_eq)
+            end
+        end
+
+        function m = m_nonlinear_ub(obj)
+            if isempty(obj.m_nonlinear_ub_)
+                if isempty(obj.cub_)
+                    m = 0;
+                else
+                    error("MATLAB:Problem:m_nonlinear_ub_Unknown", "The number of nonlinear inequality constraints is unknown.");
+                end
+            else
+                m = obj.m_nonlinear_ub_;
+            end
+        end
+
+        function m = m_nonlinear_eq(obj)
+            if isempty(obj.m_nonlinear_eq_)
+                if isempty(obj.ceq_)
+                    m = 0;
+                else
+                    error("MATLAB:Problem:m_nonlinear_ub_Unknown", "The number of nonlinear equality constraints is unknown.");
+                end
+            else
+                m = obj.m_nonlinear_eq_;
             end
         end
 
