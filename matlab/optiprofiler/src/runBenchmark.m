@@ -160,7 +160,10 @@ function runBenchmark(solvers, labels, problem_names, feature_names, varargin)
     set(groot, 'DefaultAxesLineStyleOrder', {'-', '--', ':', '-.'});
 
     if strcmp(feature_names, 'all')
-        feature_names = {'plain', 'noisy', 'perturbed_x0', 'permuted', 'random_nan', 'truncated', 'unrelaxable_constraints'};
+        feature_names = enumeration('FeatureName');
+        feature_names = {feature_names.value};
+        custom_idx = strcmp(feature_names, FeatureName.CUSTOM.value);
+        feature_names(custom_idx) = [];
     elseif isstring(feature_names) || ischar(feature_names)
         feature_names = {feature_names};
     end

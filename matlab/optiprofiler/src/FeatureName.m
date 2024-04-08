@@ -8,7 +8,6 @@ classdef FeatureName
         PERTURBED_X0 ('perturbed_x0')
         PLAIN ('plain')
         RANDOM_NAN ('random_nan')
-        ROTATED ('rotated')
         TRUNCATED ('truncated')
         UNRELAXABLE_CONSTRAINTS ('unrelaxable_constraints')
     end
