@@ -572,7 +572,7 @@ class Problem:
         if self.type == 'bound-constrained':
             self._x0 = np.clip(self._x0, self.lb, self.ub)
         elif self.type == 'linearly constrained' and self.m_linear_ub == 0 and np.all(self.lb == -np.inf) and np.all(self.ub == np.inf):
-            self._x0 = lstsq(self.a_eq, self.b_eq - self.a_eq @ self.x0)[0]
+            self._x0 += lstsq(self.a_eq, self.b_eq - self.a_eq @ self.x0)[0]
         elif self.type != 'unconstrained':
             bounds = Bounds(self.lb, self.ub)
             constraints = []

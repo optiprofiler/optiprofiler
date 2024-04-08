@@ -96,5 +96,14 @@ def _build_nonlinear_constraints(c_ub, c_eq, x0):
 
 
 if __name__ == '__main__':
-    cutest_problem_names = find_cutest_problems('unconstrained', n_max=2)
-    run_benchmark([cobyqa, newuoa], ['COBYQA', 'NEWUOA'], cutest_problem_names, feature_name=['plain', 'permuted'])
+    cutest_problem_names = find_cutest_problems('unconstrained', n_max=10)
+    run_benchmark([cobyqa, newuoa, cobyla], ['COBYQA', 'NEWUOA', 'COBYLA'], cutest_problem_names, feature_name='all', benchmark_id='unconstrained-10')
+
+    cutest_problem_names = find_cutest_problems('bound', n_max=10)
+    run_benchmark([cobyqa, bobyqa, cobyla], ['COBYQA', 'BOBYQA', 'COBYLA'], cutest_problem_names, feature_name='all', benchmark_id='bound-10', project_x0=True)
+
+    cutest_problem_names = find_cutest_problems('linear', n_max=10, m_linear_max=100)
+    run_benchmark([cobyqa, lincoa, cobyla], ['COBYQA', 'LINCOA', 'COBYLA'], cutest_problem_names, feature_name='all', benchmark_id='linear-10', project_x0=True)
+
+    cutest_problem_names = find_cutest_problems('nonlinear', n_max=10, m_linear_max=100, m_nonlinear_max=100)
+    run_benchmark([cobyqa, cobyla], ['COBYQA', 'COBYLA'], cutest_problem_names, feature_name='all', benchmark_id='nonlinear-10')

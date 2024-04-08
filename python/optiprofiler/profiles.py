@@ -103,6 +103,8 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), custom_problem_lo
                 The objective function values are truncated.
             ``'unrelaxable_constraints'`` :
                 The objective function values are infinite if constraints are not satisfied.
+            ``'all'`` :
+                All the features are used.
 
     Other Parameters
     ----------------
@@ -268,7 +270,11 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), custom_problem_lo
 
     # Build the features.
     if isinstance(feature_name, str):
-        feature_name = [feature_name]
+        if feature_name.lower() == 'all':
+            feature_name = [name.value for name in FeatureName.__members__.values()]
+            feature_name.remove(FeatureName.CUSTOM.value)
+        else:
+            feature_name = [feature_name]
     feature_name = [name.lower() for name in feature_name]
     features = [Feature(name, **feature_options) for name in feature_name]
 

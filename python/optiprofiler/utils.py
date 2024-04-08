@@ -10,14 +10,14 @@ class FeatureName(str, Enum):
     """
     Feature names.
     """
-    CUSTOM = 'custom'
-    NOISY = 'noisy'
-    PERMUTED = 'permuted'
     PLAIN = 'plain'
     PERTURBED_X0 = 'perturbed_x0'
-    RANDOM_NAN = 'random_nan'
+    NOISY = 'noisy'
     TRUNCATED = 'truncated'
+    PERMUTED = 'permuted'
+    RANDOM_NAN = 'random_nan'
     UNRELAXABLE_CONSTRAINTS = 'unrelaxable_constraints'
+    CUSTOM = 'custom'
 
 
 class ProfileOption(str, Enum):
@@ -59,16 +59,16 @@ class FeatureOption(str, Enum):
     """
     Feature's options.
     """
-    DISTRIBUTION = 'distribution'
-    MODIFIER = 'modifier'
     N_RUNS = 'n_runs'
-    PERTURBED_TRAILING_ZEROS = 'perturbed_trailing_zeros'
-    RATE_NAN = 'rate_nan'
-    SIGNIFICANT_DIGITS = 'significant_digits'
+    DISTRIBUTION = 'distribution'
     TYPE = 'type'
+    SIGNIFICANT_DIGITS = 'significant_digits'
     UNRELAXABLE_BOUNDS = 'unrelaxable_bounds'
     UNRELAXABLE_LINEAR_CONSTRAINTS = 'unrelaxable_linear_constraints'
     UNRELAXABLE_NONLINEAR_CONSTRAINTS = 'unrelaxable_nonlinear_constraints'
+    PERTURBED_TRAILING_ZEROS = 'perturbed_trailing_zeros'
+    RATE_NAN = 'rate_nan'
+    MODIFIER = 'modifier'
 
 
 class NoiseType(str, Enum):
