@@ -9,6 +9,8 @@ classdef FeaturedProblem < Problem
         permutation
         fun_hist
         maxcv_hist
+        last_cub
+        last_ceq
 
     end
 
@@ -76,7 +78,8 @@ classdef FeaturedProblem < Problem
             end
             pb_struct = struct('fun', problem.fun_, 'x0', problem.x0, 'xl', problem.xl, ...
                 'xu', problem.xu, 'aub', problem.aub, 'bub', problem.bub, 'aeq', problem.aeq, ...
-                'beq', problem.beq, 'cub', problem.cub_, 'ceq', problem.ceq_);
+                'beq', problem.beq, 'cub', problem.cub_, 'ceq', problem.ceq_, 'm_nonlinear_ub', problem.m_nonlinear_ub, ...
+                'm_nonlinear_eq', problem.m_nonlinear_eq);
 
             % Randomize the initial point if feature is 'perturbed_x0', and permute the initial point if feature is 'permuted'.
             if strcmp(feature.name, FeatureName.PERTURBED_X0.value)
@@ -97,25 +100,29 @@ classdef FeaturedProblem < Problem
 
             % Initialize the FeaturedProblem object.
             obj@Problem(pb_struct);
-            try
-                obj.m_nonlinear_ub = problem.m_nonlinear_ub;
-            catch
-                % pass
-            end
-            try
-                obj.m_nonlinear_eq = problem.m_nonlinear_eq;
-            catch
-                % pass
-            end
+            % try
+            %     obj.m_nonlinear_ub = problem.m_nonlinear_ub;
+            % catch
+            %     % pass
+            % end
+            % try
+            %     obj.m_nonlinear_eq = problem.m_nonlinear_eq;
+            % catch
+            %     % pass
+            % end
 
             obj.feature = feature;
             obj.max_eval = max_eval;
             obj.seed = seed;
             obj.permutation = permutation;
 
-            % Store the objective function values and maximum constraint violations.
+            % Initialize the history of the objective function and the maximum constraint violation.
             obj.fun_hist = [];
             obj.maxcv_hist = [];
+
+            % Initialize the last evaluated nonlinear inequality and equality constraints.
+            obj.last_cub = [];
+            obj.last_ceq = [];
         end
 
         function value = get.n_eval(obj)
@@ -153,7 +160,9 @@ classdef FeaturedProblem < Problem
             %}
 
             if obj.n_eval >= obj.max_eval
-                error("The maximum number of function evaluations has been reached.");
+                % If the maximum number of function evaluations has been reached, return the value of the objective function at the last point.
+                f = obj.fun_hist(obj.max_eval);
+                return
             end
 
             % Permute the variables if necessary.
@@ -200,7 +209,14 @@ classdef FeaturedProblem < Problem
             end
 
             % Evaluate the nonlinear inequality constraints.
-            f = cub@Problem(obj, x);
+            if obj.n_eval >= obj.max_eval
+                % If the maximum number of function evaluations has been reached, return the value of the nonlinear inequality constraints at the last point.
+                f = obj.last_cub;
+                return
+            else
+                f = cub@Problem(obj, x);
+                obj.last_cub = f;
+            end
         end
 
         function f = ceq(obj, x)
@@ -230,7 +246,14 @@ classdef FeaturedProblem < Problem
             end
 
             % Evaluate the nonlinear equality constraints.
-            f = ceq@Problem(obj, x);
+            if obj.n_eval >= obj.max_eval
+                % If the maximum number of function evaluations has been reached, return the value of the nonlinear equality constraints at the last point.
+                f = obj.last_ceq;
+                return
+            else
+                f = ceq@Problem(obj, x);
+                obj.last_ceq = f;
+            end
         end
         
     end

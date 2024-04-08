@@ -138,7 +138,7 @@ function paths_saved = add_save_path(path_strings, path_string_stamp)
         if ~paths_saved(i_path) && numel(userpath) > 0
             user_startup = fullfile(userpath, 'startup.m');
             add_path_string = sprintf('addpath(''%s'');', path_string);
-            full_add_path_string = sprintf('%s  %s %s', add_path_string, '%', path_string_stamp);
+            full_add_path_string = sprintf('%s\t%s %s', add_path_string, '%', path_string_stamp);
         
             % First, check whether full_add_path_string already exists in user_startup or not.
             if exist(user_startup, 'file')

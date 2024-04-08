@@ -2,14 +2,14 @@ classdef FeatureName
 %FEATURENAME enumerates all the possible feature names.
     
     enumeration
-        CUSTOM ('custom')
-        NOISY ('noisy')
-        PERMUTED ('permuted')
-        PERTURBED_X0 ('perturbed_x0')
         PLAIN ('plain')
-        RANDOM_NAN ('random_nan')
+        PERTURBED_X0 ('perturbed_x0')
+        NOISY ('noisy')
         TRUNCATED ('truncated')
+        PERMUTED ('permuted')
+        RANDOM_NAN ('random_nan')
         UNRELAXABLE_CONSTRAINTS ('unrelaxable_constraints')
+        CUSTOM ('custom')
     end
     properties
         value
