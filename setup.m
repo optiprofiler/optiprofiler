@@ -43,7 +43,6 @@ function setup(varargin)
     setup_dir = fileparts(mfilename('fullpath')); % The directory containing this setup script
     matd = fullfile(setup_dir, 'matlab'); % Matlab directory
     optprofiler_dir = fullfile(matd, 'optiprofiler'); % Directory containing the package
-    examples_dir = fullfile(matd, 'examples'); % Directory containing some examples
     src_dir = fullfile(optprofiler_dir, 'src'); % Directory containing the source code of the package
     tests_dir = fullfile(optprofiler_dir, 'tests'); % Directory containing some tests
     
@@ -75,16 +74,13 @@ function setup(varargin)
     % Install the package if requested.
     if strcmp(action, 'install')
 
-        paths_saved = add_save_path({src_dir, tests_dir, examples_dir}, package_name);
+        paths_saved = add_save_path({src_dir, tests_dir}, package_name);
 
         if paths_saved(1)
             fprintf('\nThe package is ready to use.\n');
             fprintf('\nYou may now try ''help runBenchmark'' for information on the usage of the package.\n');
             if paths_saved(2)
                 fprintf("\nYou may also run ''testOptiProfiler'' to test the package on a few examples.\n");
-            end
-            if paths_saved(3)
-                fprintf("\nYou may also run ''exampleOptiProfiler'' to try a simple example.\n");
             end
         else
             add_path_string = sprintf('addpath(''%s'');', src_dir);
@@ -260,7 +256,6 @@ function uninstall_optiprofiler(path_string_stamp)
     mfiledir = fileparts(mfilename('fullpath'));  % The directory where this .m file resides
     matd = fullfile(mfiledir, 'matlab'); % Matlab directory
     optprofiler_dir = fullfile(matd, 'optiprofiler'); % Directory containing the package
-    examples_dir = fullfile(matd, 'examples'); % Directory containing some examples
     src_dir = fullfile(optprofiler_dir, 'src'); % Directory containing the source code of the package
     tests_dir = fullfile(optprofiler_dir, 'tests'); % Directory containing some tests
 
@@ -268,12 +263,12 @@ function uninstall_optiprofiler(path_string_stamp)
     orig_warning_state = warning;
     warning('off', 'MATLAB:rmpath:DirNotFound'); % Maybe the paths were not added. We do not want to see this warning.
     warning('off', 'MATLAB:SavePath:PathNotSaved'); % Maybe we do not have the permission to save path.
-    rmpath(examples_dir, src_dir, tests_dir);
+    rmpath(src_dir, tests_dir);
     savepath;
     warning(orig_warning_state); % Restore the behavior of displaying warnings
     
     % Removing the line possibly added to the user startup script
-    to_be_removed = {examples_dir, src_dir, tests_dir};
+    to_be_removed = {src_dir, tests_dir};
     user_startup = fullfile(userpath,'startup.m');
     if exist(user_startup, 'file')
         for i_path = 1:length(to_be_removed)
