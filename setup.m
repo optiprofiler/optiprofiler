@@ -77,8 +77,8 @@ function setup(varargin)
         paths_saved = add_save_path({src_dir, tests_dir}, package_name);
 
         if paths_saved(1)
-            fprintf('\nThe package is ready to use.\n');
-            fprintf('\nYou may now try ''help runBenchmark'' for information on the usage of the package.\n');
+            fprintf("\nThe package is ready to use.\n");
+            fprintf("\nYou may now try ''help runBenchmark'' for information on the usage of the package.\n");
             if paths_saved(2)
                 fprintf("\nYou may also run ''testOptiProfiler'' to test the package on a few examples.\n");
             end
