@@ -47,9 +47,6 @@ function runBenchmark(solvers, labels, problem_names, feature_names, varargin)
     end
 
     % Set default profile options.
-    full_path = mfilename('fullpath');
-    [folder_path, ~, ~] = fileparts(full_path);
-    root_path = fileparts(folder_path);
     if exist('parcluster', 'file') == 2
         myCluster = parcluster('local');
         nb_cores = myCluster.NumWorkers;
