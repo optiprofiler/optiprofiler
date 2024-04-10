@@ -58,7 +58,7 @@ function runBenchmark(solvers, labels, problem_names, feature_names, varargin)
     end
     profile_options.(ProfileOptionKey.N_JOBS.value) = nb_cores;
     profile_options.(ProfileOptionKey.BENCHMARK_ID.value) = '.';
-    profile_options.(ProfileOptionKey.SAVEPATH.value) = root_path;
+    profile_options.(ProfileOptionKey.SAVEPATH.value) = pwd;
     profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) = 16;
     profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value) = 500;
     profile_options.(ProfileOptionKey.PROJECT_X0.value) = false;
