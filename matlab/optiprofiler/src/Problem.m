@@ -173,7 +173,7 @@ classdef Problem < handle
         % Preprocess the objective function.
         function set.fun_(obj, fun)
             % This function only accepts a new function handle.
-            if ~isa(fun, "function_handle")
+            if ~isa(fun, 'function_handle')
                 error("MATLAB:Problem:fun_NotFunctionHandle", "The argument `fun` must be a function handle.")
             end
             % Check if `fun` can accept only one argument.
@@ -254,14 +254,14 @@ classdef Problem < handle
 
         % Preprocess the nonlinear constraints.
         function set.cub_(obj, cub_)
-            if ~isa(cub_, "function_handle") && ~isempty(cub_)
+            if ~isa(cub_, 'function_handle') && ~isempty(cub_)
                 error("MATLAB:Problem:cub_NotFunctionHandle", "The argument `cub` must be a function handle.")
             end
             obj.cub_ = cub_;
         end
 
         function set.ceq_(obj, ceq_)
-            if ~isa(ceq_, "function_handle") && ~isempty(ceq_)
+            if ~isa(ceq_, 'function_handle') && ~isempty(ceq_)
                 error("MATLAB:Problem:ceq_NotFunctionHandle", "The argument `ceq` must be a function handle.")
             end
             

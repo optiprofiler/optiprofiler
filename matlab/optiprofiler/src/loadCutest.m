@@ -85,7 +85,7 @@ function problem = loadCutest(problem_name, problem_options)
 
         if nargin == 2 && ~isempty(problem_options)
             optionKeys = fieldnames(problem_options);
-            validKeys = {enumeration('ProblemOptionKey').value};
+            validKeys = cellfun(@(x) x.value, num2cell(enumeration('ProblemOptionKey')), 'UniformOutput', false);
             for i = 1:numel(optionKeys)
                 key = optionKeys{i};
                 value = problem_options.(key);

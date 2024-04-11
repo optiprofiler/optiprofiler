@@ -53,12 +53,13 @@ classdef Feature < handle
             end
     
             % Check whether the feature is valid.
-            validFeatureNames = {enumeration('FeatureName').value};
+            % validFeatureNames = {enumeration('FeatureName').value};  % Only for MATLAB R2021b and later
+            validFeatureNames = cellfun(@(x) x.value, num2cell(enumeration('FeatureName')), 'UniformOutput', false);
             if ~ismember(obj.name, validFeatureNames)
                 error("MATLAB:Feature:UnknownFeature", "Unknown feature: " + obj.name + ".")
             end
             optionKeys = fieldnames(obj.options);
-            validOptionKeys = {enumeration('FeatureOptionKey').value};
+            validOptionKeys = cellfun(@(x) x.value, num2cell(enumeration('FeatureOptionKey')), 'UniformOutput', false);
             for i = 1:numel(optionKeys)
                 key = optionKeys{i};
                 if ~ismember(key, validOptionKeys)
@@ -120,7 +121,7 @@ classdef Feature < handle
                             error("MATLAB:Feature:significant_digits_NotPositiveInteger", "Option " + key + " must be a positive integer.")
                         end
                     case FeatureOptionKey.TYPE.value
-                        validNoiseTypes = {enumeration('NoiseType').value};
+                        validNoiseTypes = cellfun(@(x) x.value, num2cell(enumeration('NoiseType')), 'UniformOutput', false);
                         if ~(ischar(obj.options.(key)) || isstring(obj.options.(key))) || ~ismember(obj.options.(key), validNoiseTypes)
                             error("MATLAB:Feature:type_InvalidInput", "Option " + key + " must be either '" + NoiseType.ABSOLUTE.value + "' or '" + NoiseType.RELATIVE.value + "'.")
                         end

@@ -74,9 +74,10 @@ function runBenchmark(solvers, labels, problem_names, feature_names, varargin)
         key = varargin{i};
         value = varargin{i + 1};
 
-        validFeatureOptionKeys = {enumeration('FeatureOptionKey').value};
-        validProblemOptionKeys = {enumeration('ProblemOptionKey').value};
-        validProfileOptionKeys = {enumeration('ProfileOptionKey').value};
+        % validFeatureOptionKeys = {enumeration('FeatureOptionKey').value};  % Only for MATLAB R2021b or later.
+        validFeatureOptionKeys = cellfun(@(x) x.value, num2cell(enumeration('FeatureOptionKey')), 'UniformOutput', false);
+        validProblemOptionKeys = cellfun(@(x) x.value, num2cell(enumeration('ProblemOptionKey')), 'UniformOutput', false);
+        validProfileOptionKeys = cellfun(@(x) x.value, num2cell(enumeration('ProfileOptionKey')), 'UniformOutput', false);
 
         if ismember(key, validFeatureOptionKeys)
             feature_options.(key) = value;
@@ -155,7 +156,7 @@ function runBenchmark(solvers, labels, problem_names, feature_names, varargin)
     set(groot, 'DefaultAxesFontName', 'Arial');
 
     if strcmp(feature_names, 'all')
-        feature_names = enumeration('FeatureName');
+        feature_names = cellfun(@(x) x.value, num2cell(enumeration('FeatureName')), 'UniformOutput', false);
         feature_names = {feature_names.value};
         custom_idx = strcmp(feature_names, FeatureName.CUSTOM.value);
         feature_names(custom_idx) = [];
