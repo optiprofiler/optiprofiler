@@ -211,7 +211,8 @@ classdef Feature < handle
                         digits = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - int32(floor(log10(abs(f)))) - 1;
                     end
                     digits = double(digits);
-                    f = fix(f * 10 ^ digits) / 10 ^ digits;
+                    % Round f to the desired number of significant digits. (We can also use 'fix(x)' to round towards zero.)
+                    f = round(f, digits);
                     if obj.options.(FeatureOptionKey.PERTURBED_TRAILING_ZEROS.value)
                         if f >= 0
                             f = f + rand_stream.rand() * 10 ^ (-digits);
