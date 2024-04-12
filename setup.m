@@ -34,8 +34,8 @@ function setup(varargin)
     package_name = 'optiprofiler';
     
     % Check the version of MATLAB.
-    if verLessThan("matlab", "9.3") || isMATLABReleaseOlderThan("R2017b")   % MATLAB R2017b = MATLAB 9.3
-        fprintf('\nSorry, this package does not support MATLAB R2017a or earlier releases.\n\n');
+    if verLessThan('matlab', '9.11')   % MATLAB R2021b = MATLAB 9.11
+        fprintf('\nSorry, this package does not support MATLAB R2021a or earlier releases.\n\n');
         return
     end
     
@@ -77,10 +77,10 @@ function setup(varargin)
         paths_saved = add_save_path({src_dir, tests_dir}, package_name);
 
         if paths_saved(1)
-            fprintf("\nThe package is ready to use.\n");
-            fprintf("\nYou may now try ''help runBenchmark'' for information on the usage of the package.\n");
+            fprintf('\nThe package is ready to use.\n');
+            fprintf('\nYou may now try ''help runBenchmark'' for information on the usage of the package.\n');
             if paths_saved(2)
-                fprintf("\nYou may also run ''testOptiProfiler'' to test the package on a few examples.\n");
+                fprintf('\nYou may also run ''testOptiProfiler'' to test the package on a few examples.\n');
             end
         else
             add_path_string = sprintf('addpath(''%s'');', src_dir);
@@ -107,7 +107,7 @@ end
 
 function paths_saved = add_save_path(path_strings, path_string_stamp)
     %ADD_SAVE_PATH adds the paths indicated by PATH_STRINGS to the MATLAB path and then tries saving the paths.
-    % PATH_STRING_STAMP is a stamp used when writing PATH_STRINGS to the user"s startup.m file, which is
+    % PATH_STRING_STAMP is a stamp used when writing PATH_STRINGS to the user's startup.m file, which is
     % needed only if `savepath` fails.
     
     paths_saved = false(length(path_strings), 1);

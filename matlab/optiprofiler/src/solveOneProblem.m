@@ -62,36 +62,28 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
             if ~ismember(nargin(solvers{i_solver}), [2, 4, 8, 10])
                 error("Solver %s has unknown signature.", labels{i_solver});
             end
-
-
-            x = solvers{i_solver}(@featured_problem.fun, featured_problem.x0);
-
-
-
-
-
-            % warning('off', 'all');
-            % try
-            %     if nargin(solvers{i_solver}) == 2
-            %         [~, x] = evalc('solvers{i_solver}(@featured_problem.fun, featured_problem.x0)');
-            %     elseif nargin(solvers{i_solver}) == 4
-            %         [~, x] = evalc('solvers{i_solver}(@featured_problem.fun, featured_problem.x0, featured_problem.xl, featured_problem.xu)');
-            %     elseif nargin(solvers{i_solver}) == 8
-            %         [~, x] = evalc('solvers{i_solver}(@featured_problem.fun, featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq)');
-            %     elseif nargin(solvers{i_solver}) == 10
-            %         [~, x] = evalc('solvers{i_solver}(@featured_problem.fun, featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, @featured_problem.cub, @featured_problem.ceq)');
-            %     end
-            %     if strcmp(feature.name, FeatureName.PERMUTED.value)
-            %         [~, reverse_permutation] = sort(featured_problem.permutation);
-            %         x = x(reverse_permutation);
-            %     end
-            %     fun_out(i_solver, i_run) = problem.fun(x);
-            %     maxcv_out(i_solver, i_run) = problem.maxcv(x);
-            %     fprintf("Results for %s with %s (run %d/%d): f = %.4e, maxcv = %.4e (%.2f seconds).\n", problem_name, labels{i_solver}, i_run, n_runs, fun_out(i_solver, i_run), maxcv_out(i_solver, i_run), toc(time_start_solver_run));
-            % catch Exception
-            %     fprintf("An error occurred while solving %s with %s: %s\n", problem_name, labels{i_solver}, Exception.message);
-            % end
-            % warning('on', 'all');
+            warning('off', 'all');
+            try
+                if nargin(solvers{i_solver}) == 2
+                    [~, x] = evalc('solvers{i_solver}(@featured_problem.fun, featured_problem.x0)');
+                elseif nargin(solvers{i_solver}) == 4
+                    [~, x] = evalc('solvers{i_solver}(@featured_problem.fun, featured_problem.x0, featured_problem.xl, featured_problem.xu)');
+                elseif nargin(solvers{i_solver}) == 8
+                    [~, x] = evalc('solvers{i_solver}(@featured_problem.fun, featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq)');
+                elseif nargin(solvers{i_solver}) == 10
+                    [~, x] = evalc('solvers{i_solver}(@featured_problem.fun, featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, @featured_problem.cub, @featured_problem.ceq)');
+                end
+                if strcmp(feature.name, FeatureName.PERMUTED.value)
+                    [~, reverse_permutation] = sort(featured_problem.permutation);
+                    x = x(reverse_permutation);
+                end
+                fun_out(i_solver, i_run) = problem.fun(x);
+                maxcv_out(i_solver, i_run) = problem.maxcv(x);
+                fprintf("Results for %s with %s (run %d/%d): f = %.4e, maxcv = %.4e (%.2f seconds).\n", problem_name, labels{i_solver}, i_run, n_runs, fun_out(i_solver, i_run), maxcv_out(i_solver, i_run), toc(time_start_solver_run));
+            catch Exception
+                fprintf("An error occurred while solving %s with %s: %s\n", problem_name, labels{i_solver}, Exception.message);
+            end
+            warning('on', 'all');
             n_eval(i_solver, i_run) = featured_problem.n_eval;
             fun_histories(i_solver, i_run, 1:n_eval(i_solver, i_run)) = featured_problem.fun_hist(1:n_eval(i_solver, i_run));
             maxcv_histories(i_solver, i_run, 1:n_eval(i_solver, i_run)) = featured_problem.maxcv_hist(1:n_eval(i_solver, i_run));
