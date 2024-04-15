@@ -192,7 +192,6 @@ function runBenchmark(solvers, labels, cutest_problem_names, custom_problem_load
 
     if strcmp(feature_names, 'all')
         feature_names = cellfun(@(x) x.value, num2cell(enumeration('FeatureName')), 'UniformOutput', false);
-        feature_names = {feature_names.value};
         custom_idx = strcmp(feature_names, FeatureName.CUSTOM.value);
         feature_names(custom_idx) = [];
     elseif isstring(feature_names) || ischar(feature_names)
