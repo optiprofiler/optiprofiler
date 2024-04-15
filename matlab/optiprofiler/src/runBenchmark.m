@@ -1,4 +1,4 @@
-function runBenchmark(solvers, labels, problem_names, feature_names, varargin)
+function runBenchmark(solvers, labels, cutest_problem_names, custom_problem_loader, custom_problem_names, feature_names, varargin)
 %RUNBENCHMARKS creates the benchmark profiles.
 %
 %   The benchmark profiles include the performance and data profiles [1]_,
@@ -46,6 +46,46 @@ function runBenchmark(solvers, labels, problem_names, feature_names, varargin)
         labels = cellfun(@func2str, solvers, 'UniformOutput', false);
     end
 
+    % Preprocess the CUTEst problem names.
+    % N.B.: Duplicate names are and MUST BE removed.
+    if ~isempty(cutest_problem_names)
+        if ~iscell(cutest_problem_names) || ~all(cellfun(@ischar, cutest_problem_names) | cellfun(@isstring, cutest_problem_names))
+            error("The CUTEst problem names must be a cell array of chars or strings.");
+        end
+        cutest_problem_names = cellfun(@char, cutest_problem_names, 'UniformOutput', false);  % Convert to cell array of chars.
+        cutest_problem_names = unique(cellfun(@upper, cutest_problem_names, 'UniformOutput', false));  % Convert to upper case and remove duplicates.
+    end
+
+    % Preprocess the custom problems.
+    if ~isempty(custom_problem_loader) && ~isa(custom_problem_loader, 'function_handle')
+        error("The custom problem loader must be a function handle.");
+    end
+    if ~isempty(custom_problem_loader)
+        if isempty(custom_problem_names)
+            error("The custom problem names must be provided.");
+        else
+            try
+                [~] = evalc('custom_problem_loader(custom_problem_names{1})');
+            catch
+                error("The custom problem loader must be able to accept one signature 'custom_problem_names'. The first problem could not be loaded.");
+            end
+        end
+    elseif ~isempty(custom_problem_names)
+        error("A custom problem loader must be given to load custom problems.");
+    end
+    if ~isempty(custom_problem_names)
+        if ~iscell(custom_problem_names) || ~all(cellfun(@ischar, custom_problem_names) | cellfun(@isstring, custom_problem_names))
+            error("The custom problem names must be a cell array of chars or strings.");
+        end
+        custom_problem_names = cellfun(@char, custom_problem_names, 'UniformOutput', false);  % Convert to cell array of chars.
+    end
+
+    % Check that the number of problems is satisfactory.
+    if isempty(cutest_problem_names) && isempty(custom_problem_names)
+        error("At least one problem must be given.");
+    end
+
+
     % Set default profile options.
     if exist('parcluster', 'file') == 2
         myCluster = parcluster('local');
@@ -63,7 +103,6 @@ function runBenchmark(solvers, labels, problem_names, feature_names, varargin)
     profile_options.(ProfileOptionKey.SUMMARIZE_DATA_PROFILES.value) = true;
     profile_options.(ProfileOptionKey.SUMMARIZE_LOG_RATIO_PROFILES.value) = false;
     
-    problem_options = struct();
     feature_options = struct();
 
     % Parse the options.
@@ -76,13 +115,10 @@ function runBenchmark(solvers, labels, problem_names, feature_names, varargin)
 
         % validFeatureOptionKeys = {enumeration('FeatureOptionKey').value};  % Only for MATLAB R2021b or later.
         validFeatureOptionKeys = cellfun(@(x) x.value, num2cell(enumeration('FeatureOptionKey')), 'UniformOutput', false);
-        validProblemOptionKeys = cellfun(@(x) x.value, num2cell(enumeration('ProblemOptionKey')), 'UniformOutput', false);
         validProfileOptionKeys = cellfun(@(x) x.value, num2cell(enumeration('ProfileOptionKey')), 'UniformOutput', false);
 
         if ismember(key, validFeatureOptionKeys)
             feature_options.(key) = value;
-        elseif ismember(key, validProblemOptionKeys)
-            problem_options.(key) = value;
         elseif ismember(key, validProfileOptionKeys)
             profile_options.(key) = value;
         else
@@ -90,8 +126,7 @@ function runBenchmark(solvers, labels, problem_names, feature_names, varargin)
         end
     end
 
-    % Check whether the profile options are valid.
-
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%% Check whether the profile options are valid. %%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Judge whether profile_options.n_jobs is a integer between 1 and nb_cores.
     if isfield(profile_options, ProfileOptionKey.N_JOBS.value)
         if ~isnumeric(profile_options.(ProfileOptionKey.N_JOBS.value))
@@ -169,11 +204,11 @@ function runBenchmark(solvers, labels, problem_names, feature_names, varargin)
         %TODO: deal with deature_options
 
         % Build feature.
-        feature = Feature(feature_name);
+        feature = Feature(feature_name, feature_options);
         fprintf('INFO: Starting the computation of the "%s" profiles.\n', feature.name);
 
         % Solve all the problems.
-        [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, time_processes] = solveAllProblems(problem_names, problem_options, solvers, labels, feature, profile_options);
+        [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, time_processes] = solveAllProblems(cutest_problem_names, custom_problem_loader, custom_problem_names, solvers, labels, feature, profile_options);
         merit_histories = computeMeritValues(fun_histories, maxcv_histories, maxcv_init);
         merit_out = computeMeritValues(fun_out, maxcv_out, maxcv_init);
         merit_init = computeMeritValues(fun_init, maxcv_init, maxcv_init);
@@ -183,7 +218,7 @@ function runBenchmark(solvers, labels, problem_names, feature_names, varargin)
         if feature.isStochastic
             feature_plain = Feature(FeatureName.PLAIN.value);
             fprintf('INFO: Starting the computation of the "plain" profiles.\n');
-            [fun_histories_plain, maxcv_histories_plain, ~, ~, ~, ~, ~, ~, ~, time_processes_plain] = solveAllProblems(problem_names, problem_options, solvers, labels, feature_plain, profile_options);
+            [fun_histories_plain, maxcv_histories_plain, ~, ~, ~, ~, ~, ~, ~, time_processes_plain] = solveAllProblems(cutest_problem_names, custom_problem_loader, custom_problem_names, solvers, labels, feature_plain, profile_options);
             time_processes = time_processes + time_processes_plain;
             merit_histories_plain = computeMeritValues(fun_histories_plain, maxcv_histories_plain, maxcv_init);
             merit_min_plain = min(min(min(merit_histories_plain, [], 4, 'omitnan'), [], 3, 'omitnan'), [], 2, 'omitnan');

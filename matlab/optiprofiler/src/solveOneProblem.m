@@ -1,4 +1,4 @@
-function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_name, problem_n, computation_time] = solveOneProblem(problem_name, solvers, labels, feature, problem_options, profile_options)
+function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_name, problem_n, computation_time] = solveOneProblem(problem_name, solvers, labels, feature, custom_problem_loader, profile_options)
 %SOLVEONEPROBLEM solves one problem with all the solvers in solvers list.
 
     fun_histories = [];
@@ -10,28 +10,20 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
     n_eval = [];
     problem_n = [];
     computation_time = [];
-    load_success = false;
 
-    % Try to load the test problem from CUTEst.
-    try
-        problem = loadCutest(problem_name, problem_options);
-        problem_n = problem.n;
-        load_success = true;
-    catch
+    if length(problem_name) == 2
+        problem = custom_problem_loader(problem_name{2});
+        problem_name = sprintf('%s (%s)', problem_name{1}, problem_name{2});
+    else
+        try
+            problem = loadCutest(problem_name);
+            load_success = true;
+        catch
+            return;
+        end
     end
 
-    % Try to load the test problem.
-    try
-        problem = loadTestProblem(problem_name);
-        problem_n = problem.n;
-        load_success = true;
-    catch
-    end
-
-    if ~load_success
-        1
-        return;
-    end
+    problem_n = problem.n;
 
     % Project the initial point if necessary.
     if profile_options.(ProfileOptionKey.PROJECT_X0.value)

@@ -1,13 +1,17 @@
 function example()
 
     clc;
-    addpath(genpath('../optiprofiler/common'))
+    % folderPath = '/Users/huangcunxin/Bureau/OPM/problems';
+    folderPath = '~/Library/matlab_alg/opm/problems';  % The path to OPM dir.
+    excludeList = {'opm_eval_cpsf'};
+    custom_problem_names = getMFileNames(folderPath, excludeList);
+    % custom_problem_names = {'arwhead', 'arglinb', 'bard'};
 
-    problem_names = secup(struct('type', 'u', 'maxdim', 3));
-    solvers = {@fminsearch_test, @fminunc_test, @fmincon_test};
-    labels = {'fminsearch', 'fminunc', 'fmincon'};
+    cutest_problem_names = secup(struct('type', 'u', 'maxdim', 3));
+    solvers = {@fminsearch_test, @bds_test};
+    labels = {'fminsearch', 'bds',};
 
-    runBenchmark(solvers, labels, problem_names, 'plain', 'max_tol_order', 10, 'summarize_log_ratio_profiles', true, 'benchmark_id', 'test', 'n_jobs', 1)
+    runBenchmark(solvers, labels, cutest_problem_names, @OPM_loader, custom_problem_names, 'plain', 'n_runs', 1, 'max_tol_order', 10, 'summarize_log_ratio_profiles', true, 'benchmark_id', 'test_custom_problems')
 
 end
 
