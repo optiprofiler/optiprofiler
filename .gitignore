@@ -161,7 +161,7 @@ pycutest_cache_holder/
 
 
 # MATLAB
-test.m
+test_local.m
 coverageReport/
 runTestsAndGenerateCoverageReport.m
 figure/
