@@ -200,7 +200,7 @@ function runBenchmark(solvers, labels, cutest_problem_names, custom_problem_load
     for i_feature = 1:length(feature_names)
         feature_name = feature_names{i_feature};
 
-        %TODO: deal with deature_options
+        %TODO: deal with feature_options
 
         % Build feature.
         feature = Feature(feature_name, feature_options);
