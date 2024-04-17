@@ -229,12 +229,12 @@ function runBenchmark(solvers, labels, cutest_problem_names, custom_problem_load
         path_perf = fullfile(path_feature, 'figures', 'perf');
         path_data = fullfile(path_feature, 'figures', 'data');
         path_log_ratio = fullfile(path_feature, 'figures', 'log-ratio');
-        path_perf_hist = fullfile(path_perf, 'hist');
-        path_data_hist = fullfile(path_data, 'hist');
-        path_log_ratio_hist = fullfile(path_log_ratio, 'hist');
-        path_perf_out = fullfile(path_perf, 'ret');
-        path_data_out = fullfile(path_data, 'ret');
-        path_log_ratio_out = fullfile(path_log_ratio, 'ret');
+        path_perf_hist = fullfile(path_perf, 'history-based');
+        path_data_hist = fullfile(path_data, 'history-based');
+        path_log_ratio_hist = fullfile(path_log_ratio, 'history-based');
+        path_perf_out = fullfile(path_perf, 'output-based');
+        path_data_out = fullfile(path_data, 'output-based');
+        path_log_ratio_out = fullfile(path_log_ratio, 'output-based');
         if ~exist(path_out, 'dir')
             mkdir(path_out);
         end
@@ -322,8 +322,9 @@ function runBenchmark(solvers, labels, cutest_problem_names, custom_problem_load
 
         for i_profile = 1:profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)
             tolerance = tolerances(i_profile);
-            fprintf("Creating profiles for tolerance %g.\n", tolerance);
-            tolerance_label = ['$\tau = 10^{', int2str(log10(tolerance)), '}$'];
+            [tolerance_str, tolerance_latex] = formatFloatScientificLatex(tolerance);
+            fprintf("Creating profiles for tolerance %s.\n", tolerance_str);
+            tolerance_label = ['$\mathrm{tol} = ' tolerance_latex '$'];
 
             work_hist = NaN(n_problems, n_solvers, n_runs);
             work_out = NaN(n_problems, n_solvers, n_runs);
