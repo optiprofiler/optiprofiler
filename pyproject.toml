@@ -48,7 +48,7 @@ dynamic = ["version"]
 [project.optional-dependencies]
 doc = [
     "numpydoc==1.7.0",
-    "Sphinx==7.2.6",
+    "Sphinx==7.3.5",
     "sphinx-copybutton==0.5.2",
     "sphinx-book-theme==1.1.2",
     "sphinxcontrib-bibtex==2.6.2",
