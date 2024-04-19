@@ -44,15 +44,15 @@ function [fig_perf_hist, fig_perf_out, fig_data_hist, fig_data_out, fig_log_rati
     set(ax_data_hist, 'XLim', [0.0, 1.1 * ratio_max_data_hist]);
     set(ax_data_out, 'XLim', [0.0, 1.1 * ratio_max_data_out]);
     % Modify x-axis ticks labels of the performance profiles.
-    xtl_perf_hist = arrayfun(@(x) ['$' num2str(2 ^ x) '$'], get(ax_perf_hist, 'XTick'), 'UniformOutput', false);
-    set(ax_perf_hist, 'XTickLabel', xtl_perf_hist, 'TickLabelInterpreter', 'latex');
-    xtl_perf_out = arrayfun(@(x) ['$' num2str(2 ^ x) '$'], get(ax_perf_out, 'XTick'), 'UniformOutput', false);
-    set(ax_perf_out, 'XTickLabel', xtl_perf_out, 'TickLabelInterpreter', 'latex');
+    [ticks_perf_hist, tickLabels_perf_hist] = perfTicks(1.1 * ratio_max_perf_hist);
+    set(ax_perf_hist, 'XTick', ticks_perf_hist, 'XTickLabel', tickLabels_perf_hist, 'TickLabelInterpreter', 'latex');
+    [ticks_perf_out, tickLabels_perf_out] = perfTicks(1.1 * ratio_max_perf_out);
+    set(ax_perf_out, 'XTick', ticks_perf_out, 'XTickLabel', tickLabels_perf_out, 'TickLabelInterpreter', 'latex');
     % Modify x-axis ticks labels of the data profiles.
-    xtl_data_hist = arrayfun(@(x) ['$', num2str(2 ^ x - 1), '$'], get(ax_data_hist, 'XTick'), 'UniformOutput', false);
-    set(ax_data_hist, 'XTickLabel', xtl_data_hist, 'TickLabelInterpreter', 'latex');
-    xtl_data_out = arrayfun(@(x) ['$', num2str(2 ^ x - 1), '$'], get(ax_data_out, 'XTick'), 'UniformOutput', false);
-    set(ax_data_out, 'XTickLabel', xtl_data_out, 'TickLabelInterpreter', 'latex');
+    [ticks_data_hist, tickLabels_data_hist] = dataTicks(1.1 * ratio_max_data_hist);
+    set(ax_data_hist, 'XTick', ticks_data_hist, 'XTickLabel', tickLabels_data_hist, 'TickLabelInterpreter', 'latex');
+    [ticks_data_out, tickLabels_data_out] = dataTicks(1.1 * ratio_max_data_out);
+    set(ax_data_out, 'XTick', ticks_data_out, 'XTickLabel', tickLabels_data_out, 'TickLabelInterpreter', 'latex');
     % Set x-axis labels.
     xlabel(ax_perf_hist, 'Performance ratio', 'Interpreter', 'latex');
     xlabel(ax_perf_out, 'Performance ratio', 'Interpreter', 'latex');
@@ -92,11 +92,11 @@ function [fig_perf_hist, fig_perf_out, fig_data_hist, fig_data_out, fig_log_rati
         set(cell_axs_summary{3}, 'XLim', [0.0, 1.1 * ratio_max_data_hist]);
         set(cell_axs_summary{4}, 'XLim', [0.0, 1.1 * ratio_max_data_out]);
         % Modify x-axis ticks labels of the performance profiles.
-        set(cell_axs_summary{1}, 'XTickLabel', xtl_perf_hist, 'TickLabelInterpreter', 'latex');
-        set(cell_axs_summary{2}, 'XTickLabel', xtl_perf_out, 'TickLabelInterpreter', 'latex');
+        set(cell_axs_summary{1}, 'XTick', ticks_perf_hist, 'XTickLabel', tickLabels_perf_hist, 'TickLabelInterpreter', 'latex');
+        set(cell_axs_summary{2}, 'XTick', ticks_perf_out, 'XTickLabel', tickLabels_perf_out, 'TickLabelInterpreter', 'latex');
         % Modify x-axis ticks labels of the data profiles.
-        set(cell_axs_summary{3}, 'XTickLabel', xtl_data_hist, 'TickLabelInterpreter', 'latex');
-        set(cell_axs_summary{4}, 'XTickLabel', xtl_data_out, 'TickLabelInterpreter', 'latex');
+        set(cell_axs_summary{3}, 'XTick', ticks_data_hist, 'XTickLabel', tickLabels_data_hist, 'TickLabelInterpreter', 'latex');
+        set(cell_axs_summary{4}, 'XTick', ticks_data_out, 'XTickLabel', tickLabels_data_out, 'TickLabelInterpreter', 'latex');
         % Set x-axis labels.
         xlabel(cell_axs_summary{1}, 'Performance ratio', 'Interpreter', 'latex');
         xlabel(cell_axs_summary{2}, 'Performance ratio', 'Interpreter', 'latex');
@@ -130,11 +130,11 @@ function [fig_perf_hist, fig_perf_out, fig_data_hist, fig_data_out, fig_log_rati
         set(cell_axs_summary{3}, 'XLim', [0.0, 1.1 * ratio_max_data_hist]);
         set(cell_axs_summary{4}, 'XLim', [0.0, 1.1 * ratio_max_data_out]);
         % Modify x-axis ticks labels of the performance profiles.
-        set(cell_axs_summary{1}, 'XTickLabel', xtl_perf_hist, 'TickLabelInterpreter', 'latex');
-        set(cell_axs_summary{2}, 'XTickLabel', xtl_perf_out, 'TickLabelInterpreter', 'latex');
+        set(cell_axs_summary{1}, 'XTick', ticks_perf_hist, 'XTickLabel', tickLabels_perf_hist, 'TickLabelInterpreter', 'latex');
+        set(cell_axs_summary{2}, 'XTick', ticks_perf_out, 'XTickLabel', tickLabels_perf_out, 'TickLabelInterpreter', 'latex');
         % Modify x-axis ticks labels of the data profiles.
-        set(cell_axs_summary{3}, 'XTickLabel', xtl_data_hist, 'TickLabelInterpreter', 'latex');
-        set(cell_axs_summary{4}, 'XTickLabel', xtl_data_out, 'TickLabelInterpreter', 'latex');
+        set(cell_axs_summary{3}, 'XTick', ticks_data_hist, 'XTickLabel', tickLabels_data_hist, 'TickLabelInterpreter', 'latex');
+        set(cell_axs_summary{4}, 'XTick', ticks_data_out, 'XTickLabel', tickLabels_data_out, 'TickLabelInterpreter', 'latex');
         % Set x-axis labels.
         xlabel(cell_axs_summary{1}, 'Performance ratio', 'Interpreter', 'latex');
         xlabel(cell_axs_summary{2}, 'Performance ratio', 'Interpreter', 'latex');
@@ -153,8 +153,8 @@ function [fig_perf_hist, fig_perf_out, fig_data_hist, fig_data_out, fig_log_rati
         set(cell_axs_summary{1}, 'XLim', [0.0, 1.1 * ratio_max_perf_hist]);
         set(cell_axs_summary{2}, 'XLim', [0.0, 1.1 * ratio_max_perf_out]);
         % Modify x-axis ticks labels of the performance profiles.
-        set(cell_axs_summary{1}, 'XTickLabel', xtl_perf_hist, 'TickLabelInterpreter', 'latex');
-        set(cell_axs_summary{2}, 'XTickLabel', xtl_perf_out, 'TickLabelInterpreter', 'latex');
+        set(cell_axs_summary{1}, 'XTick', ticks_perf_hist, 'XTickLabel', tickLabels_perf_hist, 'TickLabelInterpreter', 'latex');
+        set(cell_axs_summary{2}, 'XTick', ticks_perf_out, 'XTickLabel', tickLabels_perf_out, 'TickLabelInterpreter', 'latex');
         % Set x-axis labels.
         xlabel(cell_axs_summary{1}, 'Performance ratio', 'Interpreter', 'latex');
         xlabel(cell_axs_summary{2}, 'Performance ratio', 'Interpreter', 'latex');
@@ -180,8 +180,8 @@ function [fig_perf_hist, fig_perf_out, fig_data_hist, fig_data_out, fig_log_rati
         set(cell_axs_summary{1}, 'XLim', [0.0, 1.1 * ratio_max_data_hist]);
         set(cell_axs_summary{2}, 'XLim', [0.0, 1.1 * ratio_max_data_out]);
         % Modify x-axis ticks labels of the data profiles.
-        set(cell_axs_summary{1}, 'XTickLabel', xtl_data_hist, 'TickLabelInterpreter', 'latex');
-        set(cell_axs_summary{2}, 'XTickLabel', xtl_data_out, 'TickLabelInterpreter', 'latex');
+        set(cell_axs_summary{1}, 'XTick', ticks_data_hist, 'XTickLabel', tickLabels_data_hist, 'TickLabelInterpreter', 'latex');
+        set(cell_axs_summary{2}, 'XTick', ticks_data_out, 'XTickLabel', tickLabels_data_out, 'TickLabelInterpreter', 'latex');
         % Set x-axis labels.
         xlabel(cell_axs_summary{1}, 'Number of simplex gradients', 'Interpreter', 'latex');
         xlabel(cell_axs_summary{2}, 'Number of simplex gradients', 'Interpreter', 'latex');
@@ -207,8 +207,8 @@ function [fig_perf_hist, fig_perf_out, fig_data_hist, fig_data_out, fig_log_rati
         set(cell_axs_summary{1}, 'XLim', [0.0, 1.1 * ratio_max_perf_hist]);
         set(cell_axs_summary{2}, 'XLim', [0.0, 1.1 * ratio_max_perf_out]);
         % Modify x-axis ticks labels of the performance profiles.
-        set(cell_axs_summary{1}, 'XTickLabel', xtl_perf_hist, 'TickLabelInterpreter', 'latex');
-        set(cell_axs_summary{2}, 'XTickLabel', xtl_perf_out, 'TickLabelInterpreter', 'latex');
+        set(cell_axs_summary{1}, 'XTick', ticks_perf_hist, 'XTickLabel', tickLabels_perf_hist, 'TickLabelInterpreter', 'latex');
+        set(cell_axs_summary{2}, 'XTick', ticks_perf_out, 'XTickLabel', tickLabels_perf_out, 'TickLabelInterpreter', 'latex');
         % Set x-axis labels.
         xlabel(cell_axs_summary{1}, 'Performance ratio', 'Interpreter', 'latex');
         xlabel(cell_axs_summary{2}, 'Performance ratio', 'Interpreter', 'latex');
@@ -223,8 +223,8 @@ function [fig_perf_hist, fig_perf_out, fig_data_hist, fig_data_out, fig_log_rati
         set(cell_axs_summary{1}, 'XLim', [0.0, 1.1 * ratio_max_data_hist]);
         set(cell_axs_summary{2}, 'XLim', [0.0, 1.1 * ratio_max_data_out]);
         % Modify x-axis ticks labels of the data profiles.
-        set(cell_axs_summary{1}, 'XTickLabel', xtl_data_hist, 'TickLabelInterpreter', 'latex');
-        set(cell_axs_summary{2}, 'XTickLabel', xtl_data_out, 'TickLabelInterpreter', 'latex');
+        set(cell_axs_summary{1}, 'XTick', ticks_data_hist, 'XTickLabel', tickLabels_data_hist, 'TickLabelInterpreter', 'latex');
+        set(cell_axs_summary{2}, 'XTick', ticks_data_out, 'XTickLabel', tickLabels_data_out, 'TickLabelInterpreter', 'latex');
         % Set x-axis labels.
         xlabel(cell_axs_summary{1}, 'Number of simplex gradients', 'Interpreter', 'latex');
         xlabel(cell_axs_summary{2}, 'Number of simplex gradients', 'Interpreter', 'latex');

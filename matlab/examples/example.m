@@ -26,7 +26,7 @@ function example()
     solvers = {@fminsearch_test, @bds_test};
     labels = {'fminsearch', 'bds',};
 
-    runBenchmark(solvers, labels, cutest_problem_names, @OPM_loader, custom_problem_names, 'all', 'max_tol_order', 10, 'summarize_log_ratio_profiles', true, 'benchmark_id', 'test_for_slides')
+    runBenchmark(solvers, labels, cutest_problem_names, @OPM_loader, custom_problem_names, 'all', 'max_tol_order', 10, 'summarize_log_ratio_profiles', true, 'benchmark_id', 'test')
 
 end
 
