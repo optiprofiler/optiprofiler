@@ -83,6 +83,8 @@ classdef Feature < handle
                         known_options = [known_options, {FeatureOptionKey.UNRELAXABLE_BOUNDS.value, FeatureOptionKey.UNRELAXABLE_LINEAR_CONSTRAINTS.value, FeatureOptionKey.UNRELAXABLE_NONLINEAR_CONSTRAINTS.value}];
                     case FeatureName.PERMUTED.value
                         % Do nothing
+                    case FeatureName.ROTATED.value
+                        % Do nothing
                     case FeatureName.PLAIN.value
                         % Do nothing
                     otherwise
@@ -149,7 +151,7 @@ classdef Feature < handle
         end
 
         function is_stochastic = isStochastic(obj)
-            stochasticFeatures = {FeatureName.CUSTOM.value, FeatureName.NOISY.value, FeatureName.PERMUTED.value, FeatureName.PERTURBED_X0.value, FeatureName.RANDOM_NAN.value, FeatureName.TRUNCATED.value};
+            stochasticFeatures = {FeatureName.CUSTOM.value, FeatureName.NOISY.value, FeatureName.PERMUTED.value, FeatureName.ROTATED.value, FeatureName.PERTURBED_X0.value, FeatureName.RANDOM_NAN.value, FeatureName.TRUNCATED.value};
             is_stochastic = ismember(obj.name, stochasticFeatures);
         end
 
@@ -231,6 +233,8 @@ classdef Feature < handle
                     end
                 case FeatureName.PERMUTED.value
                     % Do nothing
+                case FeatureName.ROTATED.value
+                    % Do nothing
                 case FeatureName.PLAIN.value
                     % Do nothing
                 case FeatureName.PERTURBED_X0.value
@@ -265,6 +269,10 @@ classdef Feature < handle
                         obj.options.(FeatureOptionKey.TYPE.value) = NoiseType.RELATIVE.value;
                     end
                 case FeatureName.PERMUTED.value
+                    if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
+                        obj.options.(FeatureOptionKey.N_RUNS.value) = int32(10);
+                    end
+                case FeatureName.ROTATED.value
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
                         obj.options.(FeatureOptionKey.N_RUNS.value) = int32(10);
                     end

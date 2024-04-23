@@ -17,7 +17,6 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
     else
         try
             problem = loadCutest(problem_name);
-            load_success = true;
         catch
             return;
         end

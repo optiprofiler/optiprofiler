@@ -7,6 +7,7 @@ classdef FeatureName
         NOISY ('noisy')
         TRUNCATED ('truncated')
         PERMUTED ('permuted')
+        ROTATED ('rotated')
         RANDOM_NAN ('random_nan')
         UNRELAXABLE_CONSTRAINTS ('unrelaxable_constraints')
         CUSTOM ('custom')
