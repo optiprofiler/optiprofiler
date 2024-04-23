@@ -103,21 +103,21 @@ classdef FeaturedProblem < Problem
             if strcmp(feature.name, FeatureName.PERMUTED.value)
                 pb_struct.xl = pb_struct.xl(reverse_permutation);
                 pb_struct.xu = pb_struct.xu(reverse_permutation);
-                if ~empty(pb_struct.aub)
+                if ~isempty(pb_struct.aub)
                     pb_struct.aub = pb_struct.aub(:, reverse_permutation);
                 end
-                if ~empty(pb_struct.aeq)
+                if ~isempty(pb_struct.aeq)
                     pb_struct.aeq = pb_struct.aeq(:, reverse_permutation);
                 end
             elseif strcmp(feature.name, FeatureName.ROTATED.value)
-                if ~empty(pb_struct.aub)
+                if ~isempty(pb_struct.aub)
                     pb_struct.aub = [rotation; -rotation; pb_struct.aub * rotation];
                     pb_struct.bub = [pb_struct.xu; -pb_struct.xl; pb_struct.bub];
                 else
                     pb_struct.aub = [rotation; -rotation];
                     pb_struct.bub = [pb_struct.xu; -pb_struct.xl];
                 end
-                if ~empty(pb_struct.aeq)
+                if ~isempty(pb_struct.aeq)
                     pb_struct.aeq = pb_struct.aeq * rotation;
                 end
                 pb_struct.xl = -Inf * ones(problem.n, 1);
