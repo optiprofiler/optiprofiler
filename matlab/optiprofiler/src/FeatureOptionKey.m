@@ -4,7 +4,8 @@ classdef FeatureOptionKey
     enumeration
         N_RUNS ('n_runs')
         DISTRIBUTION ('distribution')
-        TYPE ('type')
+        NOISE_LEVEL ('noise_level')
+        NOISE_TYPE ('noise_type')
         SIGNIFICANT_DIGITS ('significant_digits')
         UNRELAXABLE_BOUNDS ('unrelaxable_bounds')
         UNRELAXABLE_LINEAR_CONSTRAINTS ('unrelaxable_linear_constraints')

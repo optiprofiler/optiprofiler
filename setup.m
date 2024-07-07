@@ -44,6 +44,8 @@ function setup(varargin)
     matd = fullfile(setup_dir, 'matlab'); % Matlab directory
     optprofiler_dir = fullfile(matd, 'optiprofiler'); % Directory containing the package
     src_dir = fullfile(optprofiler_dir, 'src'); % Directory containing the source code of the package
+    probinfo_dir = fullfile(optprofiler_dir, 'probinfo_s2mpj'); % Directory containing the problem information of the test set S2MPJ
+    s2mpj_dir = fullfile(probinfo_dir, 'matlab_problems'); % Directory containing the test set S2MPJ
     tests_dir = fullfile(optprofiler_dir, 'tests'); % Directory containing some tests
     
     % We need write access to `setup_dir` (and its subdirectories). Return if we do not have it.
@@ -74,7 +76,7 @@ function setup(varargin)
     % Install the package if requested.
     if strcmp(action, 'install')
 
-        paths_saved = add_save_path({src_dir, tests_dir}, package_name);
+        paths_saved = add_save_path({src_dir, probinfo_dir, s2mpj_dir, tests_dir}, package_name);
 
         if paths_saved(1)
             fprintf('\nThe package is ready to use.\n');
@@ -83,11 +85,15 @@ function setup(varargin)
                 fprintf('\nYou may also run ''testOptiProfiler'' to test the package on a few examples.\n');
             end
         else
-            add_path_string = sprintf('addpath(''%s'');', src_dir);
+            add_path_string_1 = sprintf('addpath(''%s'');', src_dir);
+            add_path_string_2 = sprintf('addpath(''%s'');', probinfo_dir);
+            add_path_string_3 = sprintf('addpath(''%s'');', s2mpj_dir);
             fprintf('\n***** To use the package in other MATLAB sessions, do ONE of the following. *****\n');
             fprintf('\n- Append the following line to your startup script');
             fprintf('\n  (see https://www.mathworks.com/help/matlab/ref/startup.html for information):\n');
-            fprintf('\n    %s\n', add_path_string);
+            fprintf('\n    %s\n', add_path_string_1);
+            fprintf('\n    %s\n', add_path_string_2);
+            fprintf('\n    %s\n', add_path_string_3);
             fprintf('\n- OR come to the current directory and run ''setup path'' when you need the package.\n');
         end
 

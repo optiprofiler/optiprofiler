@@ -1,0 +1,382 @@
+function varargout = BRYBND(action,varargin)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% 
+% 
+%    Problem : BRYBND
+%    *********
+%    Broyden banded system of nonlinear equations, considered in the
+%    least square sense.
+% 
+%    Source: problem 31 in
+%    J.J. More', B.S. Garbow and K.E. Hillstrom,
+%    "Testing Unconstrained Optimization Software",
+%    ACM Transactions on Mathematical Software, vol. 7(1), pp. 17-41, 1981.
+% 
+%    See also Buckley#73 (p. 41) and Toint#18
+% 
+%    SDIF input: Ph. Toint, Dec 1989.
+% 
+%    classification = 'SUR2-AN-V-0'
+% 
+%    N is the number of equations and variables (variable).
+% 
+% IE N                   10             $-PARAMETER     original value
+% IE N                   50             $-PARAMETER
+% IE N                   100            $-PARAMETER
+% IE N                   500            $-PARAMETER
+% IE N                   1000           $-PARAMETER
+% 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+persistent pbm;
+
+name = 'BRYBND';
+
+switch(action)
+
+    case 'setup'
+
+    pb.name      = 'BRYBND';
+    pb.sifpbname = 'BRYBND';
+    pbm.name     = 'BRYBND';
+        %%%%%%%%%%%%%%%%%%%%  PREAMBLE %%%%%%%%%%%%%%%%%%%%
+        v_  = configureDictionary('string','double');
+        ix_ = configureDictionary('string','double');
+        ig_ = configureDictionary('string','double');
+        if(nargin<2)
+            v_('N') = 5000;  %  SIF file default value
+        else
+            v_('N') = varargin{1};
+        end
+        if(nargin<3)
+            v_('KAPPA1') = 2.0;  %  SIF file default value
+        else
+            v_('KAPPA1') = varargin{2};
+        end
+        if(nargin<4)
+            v_('KAPPA2') = 5.0;  %  SIF file default value
+        else
+            v_('KAPPA2') = varargin{3};
+        end
+        if(nargin<5)
+            v_('KAPPA3') = 1.0;  %  SIF file default value
+        else
+            v_('KAPPA3') = varargin{4};
+        end
+        if(nargin<6)
+            v_('LB') = 5;  %  SIF file default value
+        else
+            v_('LB') = varargin{5};
+        end
+        if(nargin<7)
+            v_('UB') = 1;  %  SIF file default value
+        else
+            v_('UB') = varargin{6};
+        end
+        v_('1') = 1;
+        v_('MLB') = -1*v_('LB');
+        v_('MUB') = -1*v_('UB');
+        v_('LB+1') = 1+v_('LB');
+        v_('N-UB') = v_('N')+v_('MUB');
+        v_('N-UB-1') = -1+v_('N-UB');
+        v_('-KAPPA3') = -1.0*v_('KAPPA3');
+        %%%%%%%%%%%%%%%%%%%%  VARIABLES %%%%%%%%%%%%%%%%%%%%
+        pb.xnames = {};
+        for I=v_('1'):v_('N')
+            [iv,ix_] = s2xlib('ii',['X',int2str(I)],ix_);
+            pb.xnames{iv} = ['X',int2str(I)];
+        end
+        %%%%%%%%%%%%%%%%%%%  DATA GROUPS %%%%%%%%%%%%%%%%%%%
+        pbm.A = sparse(0,0);
+        for I=v_('1'):v_('LB')
+            v_('I-1') = -1+I;
+            v_('I+1') = 1+I;
+            v_('I+UB') = I+v_('UB');
+            for J=v_('1'):v_('I-1')
+                [ig,ig_] = s2xlib('ii',['G',int2str(I)],ig_);
+                gtype{ig} = '<>';
+                iv = ix_(['X',int2str(J)]);
+                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
+                    pbm.A(ig,iv) = v_('-KAPPA3')+pbm.A(ig,iv);
+                else
+                    pbm.A(ig,iv) = v_('-KAPPA3');
+                end
+            end
+            [ig,ig_] = s2xlib('ii',['G',int2str(I)],ig_);
+            gtype{ig} = '<>';
+            iv = ix_(['X',int2str(I)]);
+            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
+                pbm.A(ig,iv) = v_('KAPPA1')+pbm.A(ig,iv);
+            else
+                pbm.A(ig,iv) = v_('KAPPA1');
+            end
+            for J=v_('I+1'):v_('I+UB')
+                [ig,ig_] = s2xlib('ii',['G',int2str(I)],ig_);
+                gtype{ig} = '<>';
+                iv = ix_(['X',int2str(J)]);
+                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
+                    pbm.A(ig,iv) = v_('-KAPPA3')+pbm.A(ig,iv);
+                else
+                    pbm.A(ig,iv) = v_('-KAPPA3');
+                end
+            end
+        end
+        for I=v_('LB+1'):v_('N-UB-1')
+            v_('I-LB') = I+v_('MLB');
+            v_('I-1') = -1+I;
+            v_('I+1') = 1+I;
+            v_('I+UB') = I+v_('UB');
+            for J=v_('I-LB'):v_('I-1')
+                [ig,ig_] = s2xlib('ii',['G',int2str(I)],ig_);
+                gtype{ig} = '<>';
+                iv = ix_(['X',int2str(J)]);
+                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
+                    pbm.A(ig,iv) = v_('-KAPPA3')+pbm.A(ig,iv);
+                else
+                    pbm.A(ig,iv) = v_('-KAPPA3');
+                end
+            end
+            [ig,ig_] = s2xlib('ii',['G',int2str(I)],ig_);
+            gtype{ig} = '<>';
+            iv = ix_(['X',int2str(I)]);
+            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
+                pbm.A(ig,iv) = v_('KAPPA1')+pbm.A(ig,iv);
+            else
+                pbm.A(ig,iv) = v_('KAPPA1');
+            end
+            for J=v_('I+1'):v_('I+UB')
+                [ig,ig_] = s2xlib('ii',['G',int2str(I)],ig_);
+                gtype{ig} = '<>';
+                iv = ix_(['X',int2str(J)]);
+                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
+                    pbm.A(ig,iv) = v_('-KAPPA3')+pbm.A(ig,iv);
+                else
+                    pbm.A(ig,iv) = v_('-KAPPA3');
+                end
+            end
+        end
+        for I=v_('N-UB'):v_('N')
+            v_('I-LB') = I+v_('MLB');
+            v_('I-1') = -1+I;
+            v_('I+1') = 1+I;
+            for J=v_('I-LB'):v_('I-1')
+                [ig,ig_] = s2xlib('ii',['G',int2str(I)],ig_);
+                gtype{ig} = '<>';
+                iv = ix_(['X',int2str(J)]);
+                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
+                    pbm.A(ig,iv) = v_('-KAPPA3')+pbm.A(ig,iv);
+                else
+                    pbm.A(ig,iv) = v_('-KAPPA3');
+                end
+            end
+            [ig,ig_] = s2xlib('ii',['G',int2str(I)],ig_);
+            gtype{ig} = '<>';
+            iv = ix_(['X',int2str(I)]);
+            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
+                pbm.A(ig,iv) = v_('KAPPA1')+pbm.A(ig,iv);
+            else
+                pbm.A(ig,iv) = v_('KAPPA1');
+            end
+            for J=v_('I+1'):v_('N')
+                [ig,ig_] = s2xlib('ii',['G',int2str(I)],ig_);
+                gtype{ig} = '<>';
+                iv = ix_(['X',int2str(J)]);
+                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
+                    pbm.A(ig,iv) = v_('-KAPPA3')+pbm.A(ig,iv);
+                else
+                    pbm.A(ig,iv) = v_('-KAPPA3');
+                end
+            end
+        end
+        %%%%%%%%%%%%%%% GLOBAL DIMENSIONS %%%%%%%%%%%%%%%%%
+        pb.n   = numEntries(ix_);
+        ngrp   = numEntries(ig_);
+        pbm.objgrps = [1:ngrp];
+        pb.m        = 0;
+        %%%%%%%%%%%%%%%%%%%%  BOUNDS %%%%%%%%%%%%%%%%%%%%%
+        pb.xlower = -Inf*ones(pb.n,1);
+        pb.xupper = +Inf*ones(pb.n,1);
+        %%%%%%%%%%%%%%%%%%% START POINT %%%%%%%%%%%%%%%%%%
+        pb.x0 = 1.0*ones(pb.n,1);
+        %%%%%%%%%%%%%%%%%%%%% ELFTYPE %%%%%%%%%%%%%%%%%%%%%
+        iet_ = configureDictionary('string','double');
+        [it,iet_] = s2xlib( 'ii', 'SQ',iet_);
+        elftv{it}{1} = 'V';
+        [it,iet_] = s2xlib( 'ii', 'CB',iet_);
+        elftv{it}{1} = 'V';
+        %%%%%%%%%%%%%%%%%%% ELEMENT USES %%%%%%%%%%%%%%%%%%
+        ie_ = configureDictionary('string','double');
+        pbm.elftype = {};
+        ielftype    = [];
+        pbm.elvar   = {};
+        for I=v_('1'):v_('N')
+            ename = ['E',int2str(I)];
+            [ie,ie_,newelt] = s2xlib('ii',ename,ie_);
+            pbm.elftype{ie} = 'SQ';
+            ielftype(ie) = iet_('SQ');
+            vname = ['X',int2str(I)];
+            [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],1.0);
+            posev = find(strcmp('V',elftv{ielftype(ie)}));
+            pbm.elvar{ie}(posev) = iv;
+            ename = ['Q',int2str(I)];
+            [ie,ie_,newelt] = s2xlib('ii',ename,ie_);
+            pbm.elftype{ie} = 'CB';
+            ielftype(ie) = iet_('CB');
+            vname = ['X',int2str(I)];
+            [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],1.0);
+            posev = find(strcmp('V',elftv{ielftype(ie)}));
+            pbm.elvar{ie}(posev) = iv;
+        end
+        %%%%%%%%%%%%%%%%%%%%%% GRFTYPE %%%%%%%%%%%%%%%%%%%%
+        igt_ = configureDictionary('string','double');
+        [it,igt_] = s2xlib('ii','L2',igt_);
+        %%%%%%%%%%%%%%%%%%%% GROUP USES %%%%%%%%%%%%%%%%%%%
+        [pbm.grelt{1:ngrp}] = deal(repmat([],1,ngrp));
+        nlc = [];
+        for ig = 1:ngrp
+            pbm.grftype{ig} = 'L2';
+        end
+        for I=v_('1'):v_('LB')
+            v_('I-1') = -1+I;
+            v_('I+1') = 1+I;
+            v_('I+UB') = I+v_('UB');
+            for J=v_('1'):v_('I-1')
+                ig = ig_(['G',int2str(I)]);
+                posel = length(pbm.grelt{ig})+1;
+                pbm.grelt{ig}(posel) = ie_(['E',int2str(J)]);
+                pbm.grelw{ig}(posel) = v_('-KAPPA3');
+            end
+            ig = ig_(['G',int2str(I)]);
+            posel = length(pbm.grelt{ig})+1;
+            pbm.grelt{ig}(posel) = ie_(['Q',int2str(I)]);
+            pbm.grelw{ig}(posel) = v_('KAPPA2');
+            for J=v_('I+1'):v_('I+UB')
+                ig = ig_(['G',int2str(I)]);
+                posel = length(pbm.grelt{ig})+1;
+                pbm.grelt{ig}(posel) = ie_(['E',int2str(J)]);
+                pbm.grelw{ig}(posel) = v_('-KAPPA3');
+            end
+        end
+        for I=v_('LB+1'):v_('N-UB-1')
+            v_('I-LB') = I+v_('MLB');
+            v_('I-1') = -1+I;
+            v_('I+1') = 1+I;
+            v_('I+UB') = I+v_('UB');
+            for J=v_('I-LB'):v_('I-1')
+                ig = ig_(['G',int2str(I)]);
+                posel = length(pbm.grelt{ig})+1;
+                pbm.grelt{ig}(posel) = ie_(['Q',int2str(J)]);
+                pbm.grelw{ig}(posel) = v_('-KAPPA3');
+            end
+            ig = ig_(['G',int2str(I)]);
+            posel = length(pbm.grelt{ig})+1;
+            pbm.grelt{ig}(posel) = ie_(['E',int2str(I)]);
+            pbm.grelw{ig}(posel) = v_('KAPPA2');
+            for J=v_('I+1'):v_('I+UB')
+                ig = ig_(['G',int2str(I)]);
+                posel = length(pbm.grelt{ig})+1;
+                pbm.grelt{ig}(posel) = ie_(['E',int2str(J)]);
+                pbm.grelw{ig}(posel) = v_('-KAPPA3');
+            end
+        end
+        for I=v_('N-UB'):v_('N')
+            v_('I-LB') = I+v_('MLB');
+            v_('I-1') = -1+I;
+            v_('I+1') = 1+I;
+            for J=v_('I-LB'):v_('I-1')
+                ig = ig_(['G',int2str(I)]);
+                posel = length(pbm.grelt{ig})+1;
+                pbm.grelt{ig}(posel) = ie_(['E',int2str(J)]);
+                pbm.grelw{ig}(posel) = v_('-KAPPA3');
+            end
+            ig = ig_(['G',int2str(I)]);
+            posel = length(pbm.grelt{ig})+1;
+            pbm.grelt{ig}(posel) = ie_(['Q',int2str(I)]);
+            pbm.grelw{ig}(posel) = v_('KAPPA2');
+            for J=v_('I+1'):v_('N')
+                ig = ig_(['G',int2str(I)]);
+                posel = length(pbm.grelt{ig})+1;
+                pbm.grelt{ig}(posel) = ie_(['E',int2str(J)]);
+                pbm.grelw{ig}(posel) = v_('-KAPPA3');
+            end
+        end
+        %%%%%%%%%%%%%%%%%%% OBJECT BOUNDS %%%%%%%%%%%%%%%%%
+        %%%%%%%%% DEFAULT FOR MISSING SECTION(S) %%%%%%%%%%
+        pbm.gconst = zeros(ngrp,1);
+        %%%%%% RETURN VALUES FROM THE SETUP ACTIONS %%%%%%%
+        pb.pbclass = 'SUR2-AN-V-0';
+        varargout{1} = pb;
+        varargout{2} = pbm;
+
+    %%%%%%%%%%%%%%%% NONLINEAR ELEMENTS %%%%%%%%%%%%%%%
+
+    case 'SQ'
+
+        EV_  = varargin{1};
+        iel_ = varargin{2};
+        varargout{1} = EV_(1)*EV_(1);
+        if(nargout>1)
+            g_(1,1) = EV_(1)+EV_(1);
+            varargout{2} = g_;
+            if(nargout>2)
+                H_(1,1) = 2.0;
+                varargout{3} = H_;
+            end
+        end
+
+    case 'CB'
+
+        EV_  = varargin{1};
+        iel_ = varargin{2};
+        varargout{1} = EV_(1)*EV_(1)*EV_(1);
+        if(nargout>1)
+            g_(1,1) = 3.0*EV_(1)*EV_(1);
+            varargout{2} = g_;
+            if(nargout>2)
+                H_(1,1) = 6.0*EV_(1);
+                varargout{3} = H_;
+            end
+        end
+
+    %%%%%%%%%%%%%%%%%% NONLINEAR GROUPS  %%%%%%%%%%%%%%%
+
+    case 'L2'
+
+        GVAR_ = varargin{1};
+        igr_  = varargin{2};
+        varargout{1} = GVAR_*GVAR_;
+        if(nargout>1)
+            g_ = GVAR_+GVAR_;
+            varargout{2} = g_;
+            if(nargout>2)
+                H_ = 2.0;
+                varargout{3} = H_;
+            end
+        end
+
+    %%%%%%%%%%%%%%%% THE MAIN ACTIONS %%%%%%%%%%%%%%%
+
+    case {'fx','fgx','fgHx','cx','cJx','cJHx','cIx','cIJx','cIJHx','cIJxv','fHxv',...
+          'cJxv','Lxy','Lgxy','LgHxy','LIxy','LIgxy','LIgHxy','LHxyv','LIHxyv'}
+
+        if(isfield(pbm,'name')&&strcmp(pbm.name,name))
+            pbm.has_globs = [0,0];
+            [varargout{1:max(1,nargout)}] = s2xlib(action,pbm,varargin{:});
+        else
+            disp(['ERROR: please run ',name,' with action = setup'])
+        [varargout{1:nargout}] = deal(repmat(NaN,1:nargout));
+            end
+
+    otherwise
+        disp([' ERROR: unknown action ',action,' requested from ',name,'.m'])
+    end
+
+return
+
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+

@@ -1,0 +1,514 @@
+function varargout = AIRCRFTB(action,varargin)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% 
+% 
+%    Problem : AIRCRFTB
+%    *********
+% 
+%    The aircraft stability problem by Rheinboldt, as a function
+%    of the elevator, aileron and rudder deflection controls.
+% 
+%    Source: problem 9 in
+%    J.J. More',"A collection of nonlinear model problems"
+%    Proceedings of the AMS-SIAM Summer Seminar on the Computational
+%    Solution of Nonlinear Systems of Equations, Colorado, 1988.
+%    Argonne National Laboratory MCS-P60-0289, 1989.
+% 
+%    SIF input: Ph. Toint, Dec 1989.
+% 
+%    classification = 'SXR2-RN-8-0'
+% 
+%    Values for the controls
+%    1) Elevator
+% 
+% 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+persistent pbm;
+
+name = 'AIRCRFTB';
+
+switch(action)
+
+    case {'setup','setup_redprec'}
+
+        if(isfield(pbm,'ndigs'))
+            rmfield(pbm,'ndigs');
+        end
+        if(strcmp(action,'setup_redprec'))
+            pbm.ndigs = max(1,min(15,varargin{end}));
+            nargs     = nargin-2;
+        else
+            nargs = nargin-1;
+        end
+        pb.name   = name;
+        pbm.name  = name;
+        %%%%%%%%%%%%%%%%%%%%  PREAMBLE %%%%%%%%%%%%%%%%%%%%
+        v_  = configureDictionary('string','double');
+        ix_ = configureDictionary('string','double');
+        ig_ = configureDictionary('string','double');
+        v_('ELVVAL') = -0.05;
+        v_('AILVAL') = 0.1;
+        v_('RUDVAL') = 0.0;
+        %%%%%%%%%%%%%%%%%%%%  VARIABLES %%%%%%%%%%%%%%%%%%%%
+        pb.xnames = {};
+        [iv,ix_] = s2mpjlib('ii','ROLLRATE',ix_);
+        pb.xnames{iv} = 'ROLLRATE';
+        [iv,ix_] = s2mpjlib('ii','PITCHRAT',ix_);
+        pb.xnames{iv} = 'PITCHRAT';
+        [iv,ix_] = s2mpjlib('ii','YAWRATE',ix_);
+        pb.xnames{iv} = 'YAWRATE';
+        [iv,ix_] = s2mpjlib('ii','ATTCKANG',ix_);
+        pb.xnames{iv} = 'ATTCKANG';
+        [iv,ix_] = s2mpjlib('ii','SSLIPANG',ix_);
+        pb.xnames{iv} = 'SSLIPANG';
+        [iv,ix_] = s2mpjlib('ii','ELEVATOR',ix_);
+        pb.xnames{iv} = 'ELEVATOR';
+        [iv,ix_] = s2mpjlib('ii','AILERON',ix_);
+        pb.xnames{iv} = 'AILERON';
+        [iv,ix_] = s2mpjlib('ii','RUDDERDF',ix_);
+        pb.xnames{iv} = 'RUDDERDF';
+        %%%%%%%%%%%%%%%%%%%  DATA GROUPS %%%%%%%%%%%%%%%%%%%
+        pbm.A = sparse(0,0);
+        [ig,ig_] = s2mpjlib('ii','G1',ig_);
+        gtype{ig} = '<>';
+        iv = ix_('ROLLRATE');
+        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
+            pbm.A(ig,iv) = -3.933+pbm.A(ig,iv);
+        else
+            pbm.A(ig,iv) = -3.933;
+        end
+        iv = ix_('PITCHRAT');
+        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
+            pbm.A(ig,iv) = 0.107+pbm.A(ig,iv);
+        else
+            pbm.A(ig,iv) = 0.107;
+        end
+        iv = ix_('YAWRATE');
+        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
+            pbm.A(ig,iv) = 0.126+pbm.A(ig,iv);
+        else
+            pbm.A(ig,iv) = 0.126;
+        end
+        iv = ix_('SSLIPANG');
+        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
+            pbm.A(ig,iv) = -9.99+pbm.A(ig,iv);
+        else
+            pbm.A(ig,iv) = -9.99;
+        end
+        iv = ix_('AILERON');
+        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
+            pbm.A(ig,iv) = -45.83+pbm.A(ig,iv);
+        else
+            pbm.A(ig,iv) = -45.83;
+        end
+        iv = ix_('RUDDERDF');
+        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
+            pbm.A(ig,iv) = -7.64+pbm.A(ig,iv);
+        else
+            pbm.A(ig,iv) = -7.64;
+        end
+        [ig,ig_] = s2mpjlib('ii','G2',ig_);
+        gtype{ig} = '<>';
+        iv = ix_('PITCHRAT');
+        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
+            pbm.A(ig,iv) = -0.987+pbm.A(ig,iv);
+        else
+            pbm.A(ig,iv) = -0.987;
+        end
+        iv = ix_('ATTCKANG');
+        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
+            pbm.A(ig,iv) = -22.95+pbm.A(ig,iv);
+        else
+            pbm.A(ig,iv) = -22.95;
+        end
+        iv = ix_('ELEVATOR');
+        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
+            pbm.A(ig,iv) = -28.37+pbm.A(ig,iv);
+        else
+            pbm.A(ig,iv) = -28.37;
+        end
+        [ig,ig_] = s2mpjlib('ii','G3',ig_);
+        gtype{ig} = '<>';
+        iv = ix_('ROLLRATE');
+        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
+            pbm.A(ig,iv) = 0.002+pbm.A(ig,iv);
+        else
+            pbm.A(ig,iv) = 0.002;
+        end
+        iv = ix_('YAWRATE');
+        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
+            pbm.A(ig,iv) = -0.235+pbm.A(ig,iv);
+        else
+            pbm.A(ig,iv) = -0.235;
+        end
+        iv = ix_('SSLIPANG');
+        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
+            pbm.A(ig,iv) = 5.67+pbm.A(ig,iv);
+        else
+            pbm.A(ig,iv) = 5.67;
+        end
+        iv = ix_('AILERON');
+        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
+            pbm.A(ig,iv) = -0.921+pbm.A(ig,iv);
+        else
+            pbm.A(ig,iv) = -0.921;
+        end
+        iv = ix_('RUDDERDF');
+        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
+            pbm.A(ig,iv) = -6.51+pbm.A(ig,iv);
+        else
+            pbm.A(ig,iv) = -6.51;
+        end
+        [ig,ig_] = s2mpjlib('ii','G4',ig_);
+        gtype{ig} = '<>';
+        iv = ix_('PITCHRAT');
+        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
+            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
+        else
+            pbm.A(ig,iv) = 1.0;
+        end
+        iv = ix_('ATTCKANG');
+        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
+            pbm.A(ig,iv) = -1.0+pbm.A(ig,iv);
+        else
+            pbm.A(ig,iv) = -1.0;
+        end
+        iv = ix_('ELEVATOR');
+        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
+            pbm.A(ig,iv) = -1.168+pbm.A(ig,iv);
+        else
+            pbm.A(ig,iv) = -1.168;
+        end
+        [ig,ig_] = s2mpjlib('ii','G5',ig_);
+        gtype{ig} = '<>';
+        iv = ix_('YAWRATE');
+        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
+            pbm.A(ig,iv) = -1.0+pbm.A(ig,iv);
+        else
+            pbm.A(ig,iv) = -1.0;
+        end
+        iv = ix_('SSLIPANG');
+        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
+            pbm.A(ig,iv) = -0.196+pbm.A(ig,iv);
+        else
+            pbm.A(ig,iv) = -0.196;
+        end
+        iv = ix_('AILERON');
+        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
+            pbm.A(ig,iv) = -0.0071+pbm.A(ig,iv);
+        else
+            pbm.A(ig,iv) = -0.0071;
+        end
+        %%%%%%%%%%%%%%% GLOBAL DIMENSIONS %%%%%%%%%%%%%%%%%
+        pb.n   = numEntries(ix_);
+        ngrp   = numEntries(ig_);
+        pbm.objgrps = [1:ngrp];
+        pb.m        = 0;
+        %%%%%%%%%%%%%%%%%%%%  BOUNDS %%%%%%%%%%%%%%%%%%%%%
+        pb.xlower = -Inf*ones(pb.n,1);
+        pb.xupper = +Inf*ones(pb.n,1);
+        pb.xlower = zeros(pb.n,1);
+        pb.xlower(ix_('ELEVATOR'),1) = v_('ELVVAL');
+        pb.xupper(ix_('ELEVATOR'),1) = v_('ELVVAL');
+        pb.xlower(ix_('AILERON'),1) = v_('AILVAL');
+        pb.xupper(ix_('AILERON'),1) = v_('AILVAL');
+        pb.xlower(ix_('RUDDERDF'),1) = v_('RUDVAL');
+        pb.xupper(ix_('RUDDERDF'),1) = v_('RUDVAL');
+        %%%%%%%%%%%%%%%%%%% START POINT %%%%%%%%%%%%%%%%%%
+        pb.x0 = 0.0*ones(pb.n,1);
+        pb.x0(ix_('ELEVATOR'),1) = v_('ELVVAL');
+        pb.x0(ix_('AILERON'),1) = v_('AILVAL');
+        pb.x0(ix_('RUDDERDF'),1) = v_('RUDVAL');
+        %%%%%%%%%%%%%%%%%%%%% ELFTYPE %%%%%%%%%%%%%%%%%%%%%
+        iet_ = configureDictionary('string','double');
+        [it,iet_] = s2mpjlib( 'ii', 'en2PR',iet_);
+        elftv{it}{1} = 'X';
+        elftv{it}{2} = 'Y';
+        %%%%%%%%%%%%%%%%%%% ELEMENT USES %%%%%%%%%%%%%%%%%%
+        ie_ = configureDictionary('string','double');
+        pbm.elftype = {};
+        ielftype    = [];
+        pbm.elvar   = {};
+        ename = 'E1A';
+        [ie,ie_,newelt] = s2mpjlib('ii',ename,ie_);
+        if(newelt)
+            pbm.elftype{ie} = 'en2PR';
+            ielftype(ie) = iet_('en2PR');
+        end
+        vname = 'PITCHRAT';
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],0.0);
+        posev = find(strcmp('X',elftv{ielftype(ie)}));
+        pbm.elvar{ie}(posev) = iv;
+        vname = 'YAWRATE';
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],0.0);
+        posev = find(strcmp('Y',elftv{ielftype(ie)}));
+        pbm.elvar{ie}(posev) = iv;
+        ename = 'E1B';
+        [ie,ie_,newelt] = s2mpjlib('ii',ename,ie_);
+        if(newelt)
+            pbm.elftype{ie} = 'en2PR';
+            ielftype(ie) = iet_('en2PR');
+        end
+        vname = 'YAWRATE';
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],0.0);
+        posev = find(strcmp('X',elftv{ielftype(ie)}));
+        pbm.elvar{ie}(posev) = iv;
+        vname = 'ATTCKANG';
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],0.0);
+        posev = find(strcmp('Y',elftv{ielftype(ie)}));
+        pbm.elvar{ie}(posev) = iv;
+        ename = 'E1C';
+        [ie,ie_,newelt] = s2mpjlib('ii',ename,ie_);
+        if(newelt)
+            pbm.elftype{ie} = 'en2PR';
+            ielftype(ie) = iet_('en2PR');
+        end
+        vname = 'ATTCKANG';
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],0.0);
+        posev = find(strcmp('X',elftv{ielftype(ie)}));
+        pbm.elvar{ie}(posev) = iv;
+        vname = 'SSLIPANG';
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],0.0);
+        posev = find(strcmp('Y',elftv{ielftype(ie)}));
+        pbm.elvar{ie}(posev) = iv;
+        ename = 'E1D';
+        [ie,ie_,newelt] = s2mpjlib('ii',ename,ie_);
+        if(newelt)
+            pbm.elftype{ie} = 'en2PR';
+            ielftype(ie) = iet_('en2PR');
+        end
+        vname = 'PITCHRAT';
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],0.0);
+        posev = find(strcmp('X',elftv{ielftype(ie)}));
+        pbm.elvar{ie}(posev) = iv;
+        vname = 'ATTCKANG';
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],0.0);
+        posev = find(strcmp('Y',elftv{ielftype(ie)}));
+        pbm.elvar{ie}(posev) = iv;
+        ename = 'E2A';
+        [ie,ie_,newelt] = s2mpjlib('ii',ename,ie_);
+        if(newelt)
+            pbm.elftype{ie} = 'en2PR';
+            ielftype(ie) = iet_('en2PR');
+        end
+        vname = 'ROLLRATE';
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],0.0);
+        posev = find(strcmp('X',elftv{ielftype(ie)}));
+        pbm.elvar{ie}(posev) = iv;
+        vname = 'YAWRATE';
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],0.0);
+        posev = find(strcmp('Y',elftv{ielftype(ie)}));
+        pbm.elvar{ie}(posev) = iv;
+        ename = 'E2B';
+        [ie,ie_,newelt] = s2mpjlib('ii',ename,ie_);
+        if(newelt)
+            pbm.elftype{ie} = 'en2PR';
+            ielftype(ie) = iet_('en2PR');
+        end
+        vname = 'ROLLRATE';
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],0.0);
+        posev = find(strcmp('X',elftv{ielftype(ie)}));
+        pbm.elvar{ie}(posev) = iv;
+        vname = 'SSLIPANG';
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],0.0);
+        posev = find(strcmp('Y',elftv{ielftype(ie)}));
+        pbm.elvar{ie}(posev) = iv;
+        ename = 'E3A';
+        [ie,ie_,newelt] = s2mpjlib('ii',ename,ie_);
+        if(newelt)
+            pbm.elftype{ie} = 'en2PR';
+            ielftype(ie) = iet_('en2PR');
+        end
+        vname = 'ROLLRATE';
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],0.0);
+        posev = find(strcmp('X',elftv{ielftype(ie)}));
+        pbm.elvar{ie}(posev) = iv;
+        vname = 'PITCHRAT';
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],0.0);
+        posev = find(strcmp('Y',elftv{ielftype(ie)}));
+        pbm.elvar{ie}(posev) = iv;
+        ename = 'E3B';
+        [ie,ie_,newelt] = s2mpjlib('ii',ename,ie_);
+        if(newelt)
+            pbm.elftype{ie} = 'en2PR';
+            ielftype(ie) = iet_('en2PR');
+        end
+        vname = 'ROLLRATE';
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],0.0);
+        posev = find(strcmp('X',elftv{ielftype(ie)}));
+        pbm.elvar{ie}(posev) = iv;
+        vname = 'ATTCKANG';
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],0.0);
+        posev = find(strcmp('Y',elftv{ielftype(ie)}));
+        pbm.elvar{ie}(posev) = iv;
+        ename = 'E3C';
+        [ie,ie_,newelt] = s2mpjlib('ii',ename,ie_);
+        if(newelt)
+            pbm.elftype{ie} = 'en2PR';
+            ielftype(ie) = iet_('en2PR');
+        end
+        vname = 'PITCHRAT';
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],0.0);
+        posev = find(strcmp('X',elftv{ielftype(ie)}));
+        pbm.elvar{ie}(posev) = iv;
+        vname = 'ATTCKANG';
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],0.0);
+        posev = find(strcmp('Y',elftv{ielftype(ie)}));
+        pbm.elvar{ie}(posev) = iv;
+        ename = 'E4';
+        [ie,ie_,newelt] = s2mpjlib('ii',ename,ie_);
+        if(newelt)
+            pbm.elftype{ie} = 'en2PR';
+            ielftype(ie) = iet_('en2PR');
+        end
+        vname = 'ROLLRATE';
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],0.0);
+        posev = find(strcmp('X',elftv{ielftype(ie)}));
+        pbm.elvar{ie}(posev) = iv;
+        vname = 'SSLIPANG';
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],0.0);
+        posev = find(strcmp('Y',elftv{ielftype(ie)}));
+        pbm.elvar{ie}(posev) = iv;
+        ename = 'E5';
+        [ie,ie_,newelt] = s2mpjlib('ii',ename,ie_);
+        if(newelt)
+            pbm.elftype{ie} = 'en2PR';
+            ielftype(ie) = iet_('en2PR');
+        end
+        vname = 'ROLLRATE';
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],0.0);
+        posev = find(strcmp('X',elftv{ielftype(ie)}));
+        pbm.elvar{ie}(posev) = iv;
+        vname = 'ATTCKANG';
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],0.0);
+        posev = find(strcmp('Y',elftv{ielftype(ie)}));
+        pbm.elvar{ie}(posev) = iv;
+        %%%%%%%%%%%%%%%%%%%%%% GRFTYPE %%%%%%%%%%%%%%%%%%%%
+        igt_ = configureDictionary('string','double');
+        [it,igt_] = s2mpjlib('ii','gL2',igt_);
+        %%%%%%%%%%%%%%%%%%%% GROUP USES %%%%%%%%%%%%%%%%%%%
+        [pbm.grelt{1:ngrp}] = deal(repmat([],1,ngrp));
+        nlc = [];
+        for ig = 1:ngrp
+            pbm.grftype{ig} = 'gL2';
+        end
+        ig = ig_('G1');
+        posel = length(pbm.grelt{ig})+1;
+        pbm.grelt{ig}(posel) = ie_('E1A');
+        pbm.grelw{ig}(posel) = -0.727;
+        posel = posel+1;
+        pbm.grelt{ig}(posel) = ie_('E1B');
+        pbm.grelw{ig}(posel) = 8.39;
+        posel = length(pbm.grelt{ig})+1;
+        pbm.grelt{ig}(posel) = ie_('E1C');
+        pbm.grelw{ig}(posel) = -684.4;
+        posel = posel+1;
+        pbm.grelt{ig}(posel) = ie_('E1D');
+        pbm.grelw{ig}(posel) = 63.5;
+        ig = ig_('G2');
+        posel = length(pbm.grelt{ig})+1;
+        pbm.grelt{ig}(posel) = ie_('E2A');
+        pbm.grelw{ig}(posel) = 0.949;
+        posel = posel+1;
+        pbm.grelt{ig}(posel) = ie_('E2B');
+        pbm.grelw{ig}(posel) = 0.173;
+        ig = ig_('G3');
+        posel = length(pbm.grelt{ig})+1;
+        pbm.grelt{ig}(posel) = ie_('E3A');
+        pbm.grelw{ig}(posel) = -0.716;
+        posel = posel+1;
+        pbm.grelt{ig}(posel) = ie_('E3B');
+        pbm.grelw{ig}(posel) = -1.578;
+        posel = length(pbm.grelt{ig})+1;
+        pbm.grelt{ig}(posel) = ie_('E3C');
+        pbm.grelw{ig}(posel) = 1.132;
+        ig = ig_('G4');
+        posel = length(pbm.grelt{ig})+1;
+        pbm.grelt{ig}(posel) = ie_('E4');
+        pbm.grelw{ig}(posel) = -1.0;
+        ig = ig_('G5');
+        posel = length(pbm.grelt{ig})+1;
+        pbm.grelt{ig}(posel) = ie_('E5');
+        pbm.grelw{ig}(posel) = 1.;
+        %%%%%%%%%%%%%%%%%%% OBJECT BOUNDS %%%%%%%%%%%%%%%%%
+        pb.objlower = 0.0;
+%    Solution
+% LO SOLTN               6.4099D-02
+        %%%%%%%%% DEFAULT FOR MISSING SECTION(S) %%%%%%%%%%
+        %%%%%% RETURN VALUES FROM THE SETUP ACTION %%%%%%%%
+        pb.pbclass = 'SXR2-RN-8-0';
+        %%%%%%%%%%% REDUCED-PRECISION CONVERSION %%%%%%%%%%%
+        if(strcmp(action,'setup_redprec'))
+            varargout{1} = s2mpjlib('convert',pb,  pbm.ndigs);
+            varargout{2} = s2mpjlib('convert',pbm, pbm.ndigs);
+        else
+            varargout{1} = pb;
+            varargout{2} = pbm;
+        end
+% **********************
+%  SET UP THE FUNCTION *
+%  AND RANGE ROUTINES  *
+% **********************
+
+    %%%%%%%%%%%%%%%% NONLINEAR ELEMENTS %%%%%%%%%%%%%%%
+
+    case 'en2PR'
+
+        EV_  = varargin{1};
+        iel_ = varargin{2};
+        varargout{1} = EV_(1)*EV_(2);
+        if(nargout>1)
+            g_(1,1) = EV_(2);
+            g_(2,1) = EV_(1);
+            varargout{2} = g_;
+            if(nargout>2)
+                H_ = sparse(2,2);
+                H_(1,2) = 1.0;
+                H_(2,1) = H_(1,2);
+                varargout{3} = H_;
+            end
+        end
+
+    %%%%%%%%%%%%%%%%%% NONLINEAR GROUPS  %%%%%%%%%%%%%%%
+
+    case 'gL2'
+
+        GVAR_ = varargin{1};
+        igr_  = varargin{2};
+        varargout{1} = GVAR_*GVAR_;
+        if(nargout>1)
+            g_ = GVAR_+GVAR_;
+            varargout{2} = g_;
+            if(nargout>2)
+                H_ = 2.0;
+                varargout{3} = H_;
+            end
+        end
+
+    %%%%%%%%%%%%%%%% THE MAIN ACTIONS %%%%%%%%%%%%%%%
+
+    case {'fx','fgx','fgHx','cx','cJx','cJHx','cIx','cIJx','cIJHx','cIJxv','fHxv',...
+          'cJxv','Lxy','Lgxy','LgHxy','LIxy','LIgxy','LIgHxy','LHxyv','LIHxyv'}
+
+        if(isfield(pbm,'name')&&strcmp(pbm.name,name))
+            pbm.has_globs = [0,0];
+            [varargout{1:max(1,nargout)}] = s2mpjlib(action,pbm,varargin{:});
+        else
+            disp(['ERROR: please run ',name,' with action = setup'])
+            [varargout{1:nargout}] = deal(repmat(NaN,1:nargout));
+        end
+
+    otherwise
+        disp([' ERROR: unknown action ',action,' requested from ',name,'.m'])
+    end
+
+return
+
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+

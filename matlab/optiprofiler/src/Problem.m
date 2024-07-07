@@ -389,6 +389,19 @@ classdef Problem < handle
             if numel(x) ~= obj.n
                 error("MATLAB:Problem:WrongSizeInputForMaxCV", "The input `x` must have size %d.", obj.n)
             end
+
+            if strcmp(obj.type, 'unconstrained')
+                cv = 0;
+                if detailed
+                    varargout{1} = cv;
+                    varargout{2} = 0;
+                    varargout{3} = 0;
+                    varargout{4} = 0;
+                else
+                    varargout{1} = cv;
+                end
+                return
+            end
             
             if ~isempty(obj.xl)
                 cv_bounds = max(max(obj.xl - x), 0);
@@ -398,6 +411,19 @@ classdef Problem < handle
             if ~isempty(obj.xu)
                 cv_bounds = max(max(x - obj.xu), cv_bounds);
             end
+            if strcmp(obj.type, 'bound-constrained')
+                cv = max(cv_bounds);
+                if detailed
+                    varargout{1} = cv;
+                    varargout{2} = cv_bounds;
+                    varargout{3} = 0;
+                    varargout{4} = 0;
+                else
+                    varargout{1} = cv;
+                end
+                return
+            end
+
             if ~isempty(obj.aub)
                 cv_linear = max(max(obj.aub * x - obj.bub), 0);
             else
@@ -406,6 +432,19 @@ classdef Problem < handle
             if ~isempty(obj.aeq)
                 cv_linear = max(max(abs(obj.aeq * x - obj.beq)), cv_linear);
             end
+            if strcmp(obj.type, 'linearly constrained')
+                cv = max([cv_bounds; cv_linear]);
+                if detailed
+                    varargout{1} = cv;
+                    varargout{2} = cv_bounds;
+                    varargout{3} = cv_linear;
+                    varargout{4} = 0;
+                else
+                    varargout{1} = cv;
+                end
+                return
+            end
+
             if ~isempty(obj.cub_)
                 cub_val = obj.cub(x);
                 if ~isempty(cub_val)

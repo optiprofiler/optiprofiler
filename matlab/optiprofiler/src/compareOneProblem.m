@@ -7,7 +7,7 @@ function compareOneProblem(solvers, labels, problem_name, custom_problem_loader,
     % Build the profile options.
     profile_options = struct();
     profile_options.(ProfileOptionKey.PROJECT_X0.value) = false;
-    profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value) = 500;
+    profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value) = 100;
 
     if ~isempty(custom_problem_loader)
         problem_name = {'CUSTOM_PROBLEM', problem_name};
@@ -19,10 +19,13 @@ function compareOneProblem(solvers, labels, problem_name, custom_problem_loader,
     % Display the results.
     for i_solver = 1:length(solvers)
         flattened_array = reshape(fun_histories(i_solver, 1, 1:n_eval(i_solver, 1)), [], 1);
-        semilogy(flattened_array, 'DisplayName', labels{i_solver});
+        flattened_array = cummin(flattened_array);
+        semilogy(flattened_array, 'DisplayName', labels{i_solver}, 'LineWidth', 1.5);
         hold on;
     end
-
+    
+    ylabel('Function values');
+    xlabel('Number of funciton evaluations');
     legend('show');
 
 end
