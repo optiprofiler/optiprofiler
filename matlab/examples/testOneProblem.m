@@ -3,11 +3,10 @@ function testOneProblem()
     clc;
     solvers = {@bds_test, @fminsearch_test};
     labels = {'bds', 'fminsearch'};
-    problem_name = 'arwhead';
-    custom_problem_loader = @OPM_loader;
+    problem_name = 'ZANGWIL2';
     feature_name = 'plain';
     feature_options = struct();
-    compareOneProblem(solvers, labels, problem_name, custom_problem_loader, feature_name, feature_options)
+    compareOneProblem(solvers, labels, problem_name, {}, feature_name, feature_options)
 
 end
 

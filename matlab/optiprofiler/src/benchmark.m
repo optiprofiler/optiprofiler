@@ -77,6 +77,9 @@ function benchmark(solvers, varargin)
                 options = rmfield(options, 'custom_problem_names');
             elseif isfield(options, 'custom_problem_loader') || isfield(options, 'custom_problem_names')
                 error("custom_problem_loader and custom_problem_names must be provided at the same time.");
+            else
+                custom_problem_loader = {};
+                custom_problem_names = {};
             end
         else
             error("The second argument must be a cell array of feature names or a struct of options.");
@@ -405,14 +408,18 @@ function benchmark(solvers, varargin)
 
         % Store the names of the problems.
         path_txt = fullfile(path_feature, 'problems.txt');
-        [sorted_problem_names, idx] = sort(problem_names);
+        [~, idx] = sort(lower(problem_names));
+        sorted_problem_names = problem_names(idx);
         sorted_time_processes = time_processes(idx);
         fid = fopen(path_txt, 'w');
         if fid == -1
             error("Cannot open the file %s.", path_txt);
         end
         for i = 1:length(sorted_problem_names)
-            fprintf(fid, "%s: %.2f seconds\n", sorted_problem_names{i}, sorted_time_processes(i));
+            count = fprintf(fid, "%s: %.2f seconds\n", sorted_problem_names{i}, sorted_time_processes(i));
+            if count < 0
+                error('Failed to record data for %s.', sorted_problem_names{i});
+            end
         end
         fclose(fid);
 
