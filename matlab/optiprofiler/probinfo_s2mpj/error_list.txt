@@ -4,3 +4,4 @@ in line 870, python.m
 BIGBANK is not in the list (is it because this function is not callable at this moment?)
 ROSSIMP3_mp is not callable
 SPECANNE has no objective function?
+Problems in S2MPJ use a MATLAB function called 'configureDictionary', which is only introduced in MATLAB2023b.
