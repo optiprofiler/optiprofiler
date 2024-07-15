@@ -263,18 +263,20 @@ function uninstall_optiprofiler(path_string_stamp)
     matd = fullfile(mfiledir, 'matlab'); % Matlab directory
     optprofiler_dir = fullfile(matd, 'optiprofiler'); % Directory containing the package
     src_dir = fullfile(optprofiler_dir, 'src'); % Directory containing the source code of the package
+    probinfo_dir = fullfile(optprofiler_dir, 'probinfo_s2mpj'); % Directory containing the problem information of the test set S2MPJ
+    s2mpj_dir = fullfile(probinfo_dir, 'matlab_problems'); % Directory containing the test set S2MPJ
     tests_dir = fullfile(optprofiler_dir, 'tests'); % Directory containing some tests
 
     % Try removing the paths possibly added by OptiProfiler
     orig_warning_state = warning;
     warning('off', 'MATLAB:rmpath:DirNotFound'); % Maybe the paths were not added. We do not want to see this warning.
     warning('off', 'MATLAB:SavePath:PathNotSaved'); % Maybe we do not have the permission to save path.
-    rmpath(src_dir, tests_dir);
+    rmpath(src_dir, probinfo_dir, s2mpj_dir, tests_dir);
     savepath;
     warning(orig_warning_state); % Restore the behavior of displaying warnings
     
     % Removing the line possibly added to the user startup script
-    to_be_removed = {src_dir, tests_dir};
+    to_be_removed = {src_dir, probinfo_dir, s2mpj_dir, tests_dir};
     user_startup = fullfile(userpath,'startup.m');
     if exist(user_startup, 'file')
         for i_path = 1:length(to_be_removed)

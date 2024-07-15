@@ -21,13 +21,15 @@ function example()
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Example 3 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    % solvers = {@bds_test, @fminsearch_test};
-    % options = struct();
-    % options.feature_names = 'noisy';
-    % options.max_tol_order = 10;
-    % options.summarize_log_ratio_profiles = true;
-    % options.labels = {'bds', 'simplex'};
-    % benchmark(solvers, options)
+    solvers = {@bds_test, @fminsearch_test};
+    options = struct();
+    options.feature_names = 'noisy';
+    options.max_tol_order = 10;
+    options.problem_type = 'u';
+    options.maxdim = 5;
+    options.summarize_log_ratio_profiles = true;
+    options.labels = {'bds', 'simplex'};
+    benchmark(solvers, options)
 
 end
 
