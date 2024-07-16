@@ -507,6 +507,8 @@ function benchmark(solvers, varargin)
 
             % Draw the profiles.
 
+            warning('off');
+
             if is_perf && is_data && is_log_ratio
                 cell_axs_summary = {axs_summary(i_profile), axs_summary(i_profile + 3 * max_tol_order), axs_summary(i_profile + max_tol_order), axs_summary(i_profile + 4 * max_tol_order), axs_summary(i_profile + 2 * max_tol_order), axs_summary(i_profile + 5 * max_tol_order)};
             elseif (is_perf && is_data) || (is_perf && is_log_ratio) || (is_data && is_log_ratio)
@@ -580,7 +582,11 @@ function benchmark(solvers, varargin)
                 close(fig_log_ratio_out);
             end
 
+            warning('on');
+
         end
+
+        warning('off');
 
         if i_feature == 1
             exportgraphics(fig_summary, pdf_summary, 'ContentType', 'vector');
@@ -588,6 +594,8 @@ function benchmark(solvers, varargin)
             exportgraphics(fig_summary, pdf_summary, 'ContentType', 'vector', 'Append', true);
         end
         fprintf('Detailed results stored in %s\n', path_feature);
+
+        warning('on');
 
     end
 
