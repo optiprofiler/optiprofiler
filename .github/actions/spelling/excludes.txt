@@ -7,6 +7,7 @@
 (?:^|/)pyproject.toml
 (?:^|/)requirements(?:-dev|-doc|-test|)\.txt$
 (?:^|/)vendor/
+(?:^|/)matlab_problems/
 ignore$
 \.a$
 \.ai$
