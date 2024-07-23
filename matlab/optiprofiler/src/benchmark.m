@@ -140,6 +140,8 @@ function benchmark(solvers, varargin)
     end
     profile_options.(ProfileOptionKey.N_JOBS.value) = nb_cores;
     profile_options.(ProfileOptionKey.BENCHMARK_ID.value) = '.';
+    profile_options.(ProfileOptionKey.RANGE_TYPE.value) = 'minmax';
+    profile_options.(ProfileOptionKey.STD_FACTOR.value) = 1;
     profile_options.(ProfileOptionKey.SAVEPATH.value) = pwd;
     profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) = 16;
     profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value) = 500;
@@ -250,9 +252,18 @@ function benchmark(solvers, varargin)
             profile_options.(ProfileOptionKey.N_JOBS.value) = round(profile_options.(ProfileOptionKey.N_JOBS.value));
         end
     end
-    % Judge whether profile_options.benchmark_id is a string.
-    if ~isstring(profile_options.(ProfileOptionKey.BENCHMARK_ID.value)) && ~ischar(profile_options.(ProfileOptionKey.BENCHMARK_ID.value))
-        error("profile_options.benchmark_id should be a string.");
+    % Judge whether profile_options.benchmark_id is a string and satisfies the file name requirements (but it can be '.').
+    is_valid_foldername = @(x) ischar(x) && ~isempty(x) && all(ismember(x, ['a':'z', 'A':'Z', '0':'9', '_', '-']));
+    if ~isstring(profile_options.(ProfileOptionKey.BENCHMARK_ID.value)) && ~ischar(profile_options.(ProfileOptionKey.BENCHMARK_ID.value)) || ~is_valid_foldername(profile_options.(ProfileOptionKey.BENCHMARK_ID.value)) && ~strcmp(profile_options.(ProfileOptionKey.BENCHMARK_ID.value), '.')
+        error("profile_options.benchmark_id should be a string satisfying the file name requirements.");
+    end
+    % Judge whether profile_options.range_type is among 'minmax' and 'meanstd'.
+    if ~ismember(profile_options.(ProfileOptionKey.RANGE_TYPE.value), {'minmax', 'meanstd'})
+        error("profile_options.range_type should be either 'minmax' or 'meanstd'.");
+    end
+    % Judge whether profile_options.std_factor is a positive float.
+    if ~isfloat(profile_options.(ProfileOptionKey.STD_FACTOR.value)) || profile_options.(ProfileOptionKey.STD_FACTOR.value) <= 0
+        error("profile_options.std_factor should be a positive float.");
     end
     % Judge whether profile_options.savepath is a string and exists. If not exists, create it.
     if ~isstring(profile_options.(ProfileOptionKey.SAVEPATH.value)) && ~ischar(profile_options.(ProfileOptionKey.SAVEPATH.value))
@@ -338,7 +349,83 @@ function benchmark(solvers, varargin)
 
     % Paths to the results.
     timestamp = datestr(datetime('now', 'TimeZone', 'local', 'Format', 'yyyy-MM-dd''T''HH-mm-SSZ'), 'yyyy-mm-ddTHH-MM-SSZ');
-    path_out = fullfile(profile_options.(ProfileOptionKey.SAVEPATH.value), 'out', profile_options.(ProfileOptionKey.BENCHMARK_ID.value), timestamp);
+    path_out = fullfile(profile_options.(ProfileOptionKey.SAVEPATH.value), 'out', profile_options.(ProfileOptionKey.BENCHMARK_ID.value));
+    if ~exist(path_out, 'dir')
+        mkdir(path_out);
+    end
+
+    % If the path does not exist or it is an empty directory, create it and store the timestamp, otherwise, append the timestamp.
+    contents = dir(path_out);
+    is_empty = isempty(contents) || (length(contents) == 2 && all(cellfun(@(x) ismember(x, {'.', '..'}), {contents.name})));
+
+    if is_empty
+        % Try to save the timestamp for later reference.
+        try
+            fid = fopen(fullfile(path_out, 'timestamp.txt'), 'w');
+            fprintf(fid, timestamp);
+            fclose(fid);
+        catch
+            fprintf("WARNING: The timestamp could not be saved.\n");
+        end
+    else
+        % Check whether all the subdirectories are named by timestamps or 'time-unknown', 'time-unknown-2', 'time-unknown-3', ...
+        timestamp_pattern = '^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}Z$';
+        unknown_pattern = '^time-unknown(-\d+)?$';
+        fullpattern = ['(' timestamp_pattern ')|(' unknown_pattern ')'];
+        filtered_contents = contents(~startsWith({contents.name}, '.'));
+        is_all_timestamps = all(arrayfun(@(x) x.isdir && ~isempty(regexp(x.name, fullpattern, 'once')), filtered_contents));
+        if ~is_all_timestamps
+            % Initialize the name of the directory by 'time-unknown'. If there are multiple directories named by 'time-unknown' or 'time-unknown-2', 'time-unknown-3', ..., use the next number.
+            unknown_dirs = filtered_contents(contains({filtered_contents.name}, 'time-unknown'));
+            if isempty(unknown_dirs)
+                old_timestamp = 'time-unknown';
+            else
+                last_unknown_dir = unknown_dirs(end);
+                last_unknown_dir_name = last_unknown_dir.name;
+                if strcmp(last_unknown_dir_name, 'time-unknown')
+                    old_timestamp = 'time-unknown-2';
+                else
+                    num_str = regexp(last_unknown_dir_name, '\d+$', 'match');
+                    if isempty(num_str)
+                        old_timestamp = 'time-unknown-2';
+                    else
+                        last_unknown_number = str2double(num_str{1});
+                        old_timestamp = ['time-unknown-' num2str(last_unknown_number + 1)];
+                    end
+                end
+            end
+            % Try to find 'timestamp.txt' and read the timestamp.
+            for i = 1:length(filtered_contents)
+                if strcmp(filtered_contents(i).name, 'timestamp.txt')
+                    try
+                        fid = fopen(fullfile(path_out, 'timestamp.txt'), 'r');
+                        old_timestamp_new = fscanf(fid, '%s');
+                        fclose(fid);
+                    catch
+                    end
+                    break;
+                end
+            end
+            try
+                mkdir(fullfile(path_out, old_timestamp_new));
+                old_timestamp = old_timestamp_new;
+            catch
+                mkdir(fullfile(path_out, old_timestamp));
+            end
+            % Move all the filtered contents that does not match the fullpattern to the new directory.
+            for i_item = 1:length(filtered_contents)
+                item = filtered_contents(i_item);
+                if isempty(regexp(item.name, fullpattern, 'once'))
+                    movefile(fullfile(path_out, item.name), fullfile(path_out, old_timestamp, item.name));
+                end
+            end
+        end
+        path_out = fullfile(path_out, timestamp);
+    end
+    
+    if ~exist(path_out, 'dir')
+        mkdir(path_out);
+    end
 
     % Set the default values for plotting.
     set(groot, 'DefaultLineLineWidth', 1);
@@ -390,9 +477,6 @@ function benchmark(solvers, varargin)
         path_perf_out = fullfile(path_perf, 'output-based');
         path_data_out = fullfile(path_data, 'output-based');
         path_log_ratio_out = fullfile(path_log_ratio, 'output-based');
-        if ~exist(path_out, 'dir')
-            mkdir(path_out);
-        end
         if ~exist(path_perf_hist, 'dir')
             mkdir(path_perf_hist);
         end
@@ -517,7 +601,7 @@ function benchmark(solvers, varargin)
                 cell_axs_summary = {axs_summary(i_profile), axs_summary(i_profile + max_tol_order)};
             end
 
-            [fig_perf_hist, fig_perf_out, fig_data_hist, fig_data_out, fig_log_ratio_hist, fig_log_ratio_out] = drawProfiles(work_hist, work_out, problem_dimensions, labels, tolerance_label, cell_axs_summary, is_perf, is_data, is_log_ratio);
+            [fig_perf_hist, fig_perf_out, fig_data_hist, fig_data_out, fig_log_ratio_hist, fig_log_ratio_out] = drawProfiles(work_hist, work_out, problem_dimensions, labels, tolerance_label, cell_axs_summary, is_perf, is_data, is_log_ratio, profile_options);
             eps_perf_hist = fullfile(path_perf_hist, ['perf_hist_' int2str(i_profile) '.eps']);
             print(fig_perf_hist, eps_perf_hist, '-depsc');
             pdf_perf_hist = fullfile(path_perf_hist, ['perf_hist_' int2str(i_profile) '.pdf']);

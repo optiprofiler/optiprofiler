@@ -1,4 +1,4 @@
-function [fig_perf_hist, fig_perf_out, fig_data_hist, fig_data_out, fig_log_ratio_hist, fig_log_ratio_out] = drawProfiles(work_hist, work_out, problem_dimensions, labels, tolerance_label, cell_axs_summary, is_perf, is_data, is_log_ratio)
+function [fig_perf_hist, fig_perf_out, fig_data_hist, fig_data_out, fig_log_ratio_hist, fig_log_ratio_out] = drawProfiles(work_hist, work_out, problem_dimensions, labels, tolerance_label, cell_axs_summary, is_perf, is_data, is_log_ratio, profile_options)
 %DRAWPROFILES draws the performance, data, and log-ratio profiles with respect to the whole history of function values or the returned values from solvers, respectively.
 
     n_solvers = size(work_hist, 2);
@@ -34,10 +34,10 @@ function [fig_perf_hist, fig_perf_out, fig_data_hist, fig_data_out, fig_log_rati
     % Draw the performance and data profiles.
     [x_perf_hist, y_perf_hist, ratio_max_perf_hist, x_data_hist, y_data_hist, ratio_max_data_hist] = getExtendedPerformancesDataProfileAxes(work_hist, problem_dimensions);
     [x_perf_out, y_perf_out, ratio_max_perf_out, x_data_out, y_data_out, ratio_max_data_out] = getExtendedPerformancesDataProfileAxes(work_out, problem_dimensions);
-    drawPerformanceDataProfiles(ax_perf_hist, x_perf_hist, y_perf_hist, labels);
-    drawPerformanceDataProfiles(ax_perf_out, x_perf_out, y_perf_out, labels);
-    drawPerformanceDataProfiles(ax_data_hist, x_data_hist, y_data_hist, labels);
-    drawPerformanceDataProfiles(ax_data_out, x_data_out, y_data_out, labels);
+    drawPerformanceDataProfiles(ax_perf_hist, x_perf_hist, y_perf_hist, labels, profile_options);
+    drawPerformanceDataProfiles(ax_perf_out, x_perf_out, y_perf_out, labels, profile_options);
+    drawPerformanceDataProfiles(ax_data_hist, x_data_hist, y_data_hist, labels, profile_options);
+    drawPerformanceDataProfiles(ax_data_out, x_data_out, y_data_out, labels, profile_options);
     % Set x-axis limits.
     set(ax_perf_hist, 'XLim', [0.0, 1.1 * ratio_max_perf_hist]);
     set(ax_perf_out, 'XLim', [0.0, 1.1 * ratio_max_perf_out]);
@@ -82,10 +82,10 @@ function [fig_perf_hist, fig_perf_out, fig_data_hist, fig_data_out, fig_log_rati
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     if is_perf && is_data && is_log_ratio
         % Draw the performance and data profiles.
-        drawPerformanceDataProfiles(cell_axs_summary{1}, x_perf_hist, y_perf_hist, labels);
-        drawPerformanceDataProfiles(cell_axs_summary{2}, x_perf_out, y_perf_out, labels);
-        drawPerformanceDataProfiles(cell_axs_summary{3}, x_data_hist, y_data_hist, labels);
-        drawPerformanceDataProfiles(cell_axs_summary{4}, x_data_out, y_data_out, labels);
+        drawPerformanceDataProfiles(cell_axs_summary{1}, x_perf_hist, y_perf_hist, labels, profile_options);
+        drawPerformanceDataProfiles(cell_axs_summary{2}, x_perf_out, y_perf_out, labels, profile_options);
+        drawPerformanceDataProfiles(cell_axs_summary{3}, x_data_hist, y_data_hist, labels, profile_options);
+        drawPerformanceDataProfiles(cell_axs_summary{4}, x_data_out, y_data_out, labels, profile_options);
         % Set x-axis limits.
         set(cell_axs_summary{1}, 'XLim', [0.0, 1.1 * ratio_max_perf_hist]);
         set(cell_axs_summary{2}, 'XLim', [0.0, 1.1 * ratio_max_perf_out]);
@@ -120,10 +120,10 @@ function [fig_perf_hist, fig_perf_out, fig_data_hist, fig_data_out, fig_log_rati
         ylabel(cell_axs_summary{6}, ['Log-ratio profile (', tolerance_label, ')'], 'Interpreter', 'latex');
     elseif is_perf && is_data
         % Draw the performance and data profiles.
-        drawPerformanceDataProfiles(cell_axs_summary{1}, x_perf_hist, y_perf_hist, labels);
-        drawPerformanceDataProfiles(cell_axs_summary{2}, x_perf_out, y_perf_out, labels);
-        drawPerformanceDataProfiles(cell_axs_summary{3}, x_data_hist, y_data_hist, labels);
-        drawPerformanceDataProfiles(cell_axs_summary{4}, x_data_out, y_data_out, labels);
+        drawPerformanceDataProfiles(cell_axs_summary{1}, x_perf_hist, y_perf_hist, labels, profile_options);
+        drawPerformanceDataProfiles(cell_axs_summary{2}, x_perf_out, y_perf_out, labels, profile_options);
+        drawPerformanceDataProfiles(cell_axs_summary{3}, x_data_hist, y_data_hist, labels, profile_options);
+        drawPerformanceDataProfiles(cell_axs_summary{4}, x_data_out, y_data_out, labels, profile_options);
         % Set x-axis limits.
         set(cell_axs_summary{1}, 'XLim', [0.0, 1.1 * ratio_max_perf_hist]);
         set(cell_axs_summary{2}, 'XLim', [0.0, 1.1 * ratio_max_perf_out]);
@@ -147,8 +147,8 @@ function [fig_perf_hist, fig_perf_out, fig_data_hist, fig_data_out, fig_log_rati
         ylabel(cell_axs_summary{4}, ['Data profiles (', tolerance_label, ')'], 'Interpreter', 'latex');
     elseif is_perf && is_log_ratio
         % Draw the performance profiles.
-        drawPerformanceDataProfiles(cell_axs_summary{1}, x_perf_hist, y_perf_hist, labels);
-        drawPerformanceDataProfiles(cell_axs_summary{2}, x_perf_out, y_perf_out, labels);
+        drawPerformanceDataProfiles(cell_axs_summary{1}, x_perf_hist, y_perf_hist, labels, profile_options);
+        drawPerformanceDataProfiles(cell_axs_summary{2}, x_perf_out, y_perf_out, labels, profile_options);
         % Set x-axis limits.
         set(cell_axs_summary{1}, 'XLim', [0.0, 1.1 * ratio_max_perf_hist]);
         set(cell_axs_summary{2}, 'XLim', [0.0, 1.1 * ratio_max_perf_out]);
@@ -174,8 +174,8 @@ function [fig_perf_hist, fig_perf_out, fig_data_hist, fig_data_out, fig_log_rati
         ylabel(cell_axs_summary{4}, ['Log-ratio profile (', tolerance_label, ')'], 'Interpreter', 'latex');
     elseif is_data && is_log_ratio
         % Draw the data profiles.
-        drawPerformanceDataProfiles(cell_axs_summary{1}, x_data_hist, y_data_hist, labels);
-        drawPerformanceDataProfiles(cell_axs_summary{2}, x_data_out, y_data_out, labels);
+        drawPerformanceDataProfiles(cell_axs_summary{1}, x_data_hist, y_data_hist, labels, profile_options);
+        drawPerformanceDataProfiles(cell_axs_summary{2}, x_data_out, y_data_out, labels, profile_options);
         % Set x-axis limits.
         set(cell_axs_summary{1}, 'XLim', [0.0, 1.1 * ratio_max_data_hist]);
         set(cell_axs_summary{2}, 'XLim', [0.0, 1.1 * ratio_max_data_out]);
@@ -201,8 +201,8 @@ function [fig_perf_hist, fig_perf_out, fig_data_hist, fig_data_out, fig_log_rati
         ylabel(cell_axs_summary{4}, ['Log-ratio profile (', tolerance_label, ')'], 'Interpreter', 'latex');
     elseif is_perf
         % Draw the performance profiles.
-        drawPerformanceDataProfiles(cell_axs_summary{1}, x_perf_hist, y_perf_hist, labels);
-        drawPerformanceDataProfiles(cell_axs_summary{2}, x_perf_out, y_perf_out, labels);
+        drawPerformanceDataProfiles(cell_axs_summary{1}, x_perf_hist, y_perf_hist, labels, profile_options);
+        drawPerformanceDataProfiles(cell_axs_summary{2}, x_perf_out, y_perf_out, labels, profile_options);
         % Set x-axis limits.
         set(cell_axs_summary{1}, 'XLim', [0.0, 1.1 * ratio_max_perf_hist]);
         set(cell_axs_summary{2}, 'XLim', [0.0, 1.1 * ratio_max_perf_out]);
@@ -217,8 +217,8 @@ function [fig_perf_hist, fig_perf_out, fig_data_hist, fig_data_out, fig_log_rati
         ylabel(cell_axs_summary{2}, ['Performance profiles (', tolerance_label, ')'], 'Interpreter', 'latex');
     elseif is_data
         % Draw the data profiles.
-        drawPerformanceDataProfiles(cell_axs_summary{1}, x_data_hist, y_data_hist, labels);
-        drawPerformanceDataProfiles(cell_axs_summary{2}, x_data_out, y_data_out, labels);
+        drawPerformanceDataProfiles(cell_axs_summary{1}, x_data_hist, y_data_hist, labels, profile_options);
+        drawPerformanceDataProfiles(cell_axs_summary{2}, x_data_out, y_data_out, labels, profile_options);
         % Set x-axis limits.
         set(cell_axs_summary{1}, 'XLim', [0.0, 1.1 * ratio_max_data_hist]);
         set(cell_axs_summary{2}, 'XLim', [0.0, 1.1 * ratio_max_data_out]);
