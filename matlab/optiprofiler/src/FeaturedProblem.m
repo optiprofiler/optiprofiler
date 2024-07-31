@@ -8,6 +8,7 @@ classdef FeaturedProblem < Problem
         seed
         permutation
         rotation
+        scaler
         fun_hist
         maxcv_hist
         last_cub
@@ -74,9 +75,20 @@ classdef FeaturedProblem < Problem
             end
             % Generate a random rotation.
             rotation = [];
-            if strcmp(feature.name, FeatureName.ROTATED.value)
+            if strcmp(feature.name, FeatureName.ROTATED.value) || strcmp(feature.name, FeatureName.BADLY_SCALED.value)
                 [Q, R] = qr(rand_stream.randn(problem.n));
                 rotation = Q * diag(sign(diag(R)));
+            end
+            % Generate a random scaling matrix.
+            scaler = [];
+            if strcmp(feature.name, FeatureName.BADLY_SCALED.value)
+                if strcmp(feature.options.(FeatureOptionKey.CONDITION_NUMBER.value), 'dimension_dependent')
+                    condition_number = min(1e8, 2^(problem.n));
+                else
+                    condition_number = feature.options.(FeatureOptionKey.CONDITION_NUMBER.value);
+                end
+                power = log2(sqrt(condition_number)) / 2;
+                scaler = (2 .^ (linspace(-power, power, problem.n)))';
             end
             
             % Copy the problem.
@@ -97,6 +109,8 @@ classdef FeaturedProblem < Problem
                 pb_struct.x0 = pb_struct.x0(reverse_permutation);
             elseif strcmp(feature.name, FeatureName.ROTATED.value)
                 pb_struct.x0 = rotation' * pb_struct.x0;
+            elseif strcmp(feature.name, FeatureName.BADLY_SCALED.value)
+                pb_struct.x0 = (1 ./ scaler) .* (rotation' * pb_struct.x0);
             end
 
             % Permute xl, xu, aub, aeq if feature is 'permuted'.
@@ -122,6 +136,19 @@ classdef FeaturedProblem < Problem
                 end
                 pb_struct.xl = -Inf * ones(problem.n, 1);
                 pb_struct.xu = Inf * ones(problem.n, 1);
+            elseif strcmp(feature.name, FeatureName.BADLY_SCALED.value)
+                if ~isempty(pb_struct.aub)
+                    pb_struct.aub = [rotation * diag(scaler); -rotation * diag(scaler); pb_struct.aub * rotation * diag(scaler)];
+                    pb_struct.bub = [pb_struct.xu; -pb_struct.xl; pb_struct.bub];
+                else
+                    pb_struct.aub = [rotation * diag(scaler); -rotation * diag(scaler)];
+                    pb_struct.bub = [pb_struct.xu; -pb_struct.xl];
+                end
+                if ~isempty(pb_struct.aeq)
+                    pb_struct.aeq = pb_struct.aeq * rotation * diag(scaler);
+                end
+                pb_struct.xl = -Inf * ones(problem.n, 1);
+                pb_struct.xu = Inf * ones(problem.n, 1);
             end
 
             % Initialize the FeaturedProblem object.
@@ -142,6 +169,7 @@ classdef FeaturedProblem < Problem
             obj.seed = seed;
             obj.permutation = permutation;
             obj.rotation = rotation;
+            obj.scaler = scaler;
 
             % Initialize the history of the objective function and the maximum constraint violation.
             obj.fun_hist = [];
@@ -200,6 +228,8 @@ classdef FeaturedProblem < Problem
             % Evaluate the objective function and store the results.
             if strcmp(obj.feature.name, FeatureName.ROTATED.value)
                 f_true = fun@Problem(obj, obj.rotation * x);
+            elseif strcmp(obj.feature.name, FeatureName.BADLY_SCALED.value)
+                f_true = fun@Problem(obj, obj.rotation * (obj.scaler .* x));
             else
                 f_true = fun@Problem(obj, x);
             end
@@ -244,11 +274,14 @@ classdef FeaturedProblem < Problem
                 % If the maximum number of function evaluations has been reached, return the value of the nonlinear inequality constraints at the last point.
                 f = obj.last_cub;
                 return
-            elseif strcmp(obj.feature.name, FeatureName.ROTATED.value)
-                f = cub@Problem(obj, obj.rotation * x);
-                obj.last_cub = f;
             else
-                f = cub@Problem(obj, x);
+                if strcmp(obj.feature.name, FeatureName.ROTATED.value)
+                    f = cub@Problem(obj, obj.rotation * x);
+                elseif strcmp(obj.feature.name, FeatureName.BADLY_SCALED.value)
+                    f = cub@Problem(obj, obj.rotation * (obj.scaler .* x));
+                else
+                    f = cub@Problem(obj, x);
+                end
                 obj.last_cub = f;
             end
         end
@@ -284,11 +317,14 @@ classdef FeaturedProblem < Problem
                 % If the maximum number of function evaluations has been reached, return the value of the nonlinear equality constraints at the last point.
                 f = obj.last_ceq;
                 return
-            elseif strcmp(obj.feature.name, FeatureName.ROTATED.value)
-                f = ceq@Problem(obj, obj.rotation * x);
-                obj.last_ceq = f;
             else
-                f = ceq@Problem(obj, x);
+                if strcmp(obj.feature.name, FeatureName.ROTATED.value)
+                    f = ceq@Problem(obj, obj.rotation * x);
+                elseif strcmp(obj.feature.name, FeatureName.BADLY_SCALED.value)
+                    f = ceq@Problem(obj, obj.rotation * (obj.scaler .* x));
+                else
+                    f = ceq@Problem(obj, x);
+                end
                 obj.last_ceq = f;
             end
         end

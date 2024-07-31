@@ -8,6 +8,7 @@ classdef FeatureName
         TRUNCATED ('truncated')
         PERMUTED ('permuted')
         ROTATED ('rotated')
+        BADLY_SCALED ('badly_scaled')
         RANDOM_NAN ('random_nan')
         UNRELAXABLE_CONSTRAINTS ('unrelaxable_constraints')
         CUSTOM ('custom')

@@ -140,8 +140,8 @@ classdef Problem < handle
             if numel(obj.xu) ~= obj.n
                 error("MATLAB:Problem:xu_x0_NotConsistent", "The argument `xu` must have size %d.", obj.n);
             end
-            % Check that `aub` is a matrix with shape (m_linear_ub, n).
-            if ~isequal(size(obj.aub), [obj.m_linear_ub, obj.n])
+            % Check that `aub` is a matrix with shape (numel(obj.bub), n).
+            if ~isequal(size(obj.aub), [numel(obj.bub), obj.n])
                 error("MATLAB:Problem:aub_m_linear_ub_n_NotConsistent", "The argument `aub` must have shape (%d, %d).", obj.m_linear_ub, obj.n);
             end
             % Check that `aeq` is a matrix with shape (m_linear_eq, n).
@@ -298,7 +298,7 @@ classdef Problem < handle
         end
 
         function value = get.m_linear_ub(obj)
-            value = numel(obj.bub);
+            value = sum(~isinf(obj.bub));
         end
 
         function value = get.m_linear_eq(obj)

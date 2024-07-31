@@ -146,6 +146,7 @@ function benchmark(solvers, varargin)
     profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) = 16;
     profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value) = 500;
     profile_options.(ProfileOptionKey.PROJECT_X0.value) = false;
+    profile_options.(ProfileOptionKey.RUN_PLAIN.value) = true;
     profile_options.(ProfileOptionKey.SUMMARIZE_PERFORMANCE_PROFILES.value) = true;
     profile_options.(ProfileOptionKey.SUMMARIZE_DATA_PROFILES.value) = true;
     profile_options.(ProfileOptionKey.SUMMARIZE_LOG_RATIO_PROFILES.value) = false;
@@ -285,6 +286,10 @@ function benchmark(solvers, varargin)
     % Judge whether profile_options.project_x0 is a boolean.
     if ~islogical(profile_options.(ProfileOptionKey.PROJECT_X0.value))
         error("profile_options.project_x0 should be a boolean.");
+    end
+    % Judge whether profile_options.run_plain is a boolean.
+    if ~islogical(profile_options.(ProfileOptionKey.RUN_PLAIN.value))
+        error("profile_options.run_plain should be a boolean.");
     end
     % Judge whether profile_options.summarize_performance_profiles is a boolean.
     if ~islogical(profile_options.(ProfileOptionKey.SUMMARIZE_PERFORMANCE_PROFILES.value))
@@ -456,7 +461,7 @@ function benchmark(solvers, varargin)
 
         % Determine the least merit value for each problem.
         merit_min = min(min(min(merit_histories, [], 4, 'omitnan'), [], 3, 'omitnan'), [], 2, 'omitnan');
-        if feature.isStochastic
+        if feature.isStochastic && profile_options.(ProfileOptionKey.RUN_PLAIN.value)
             feature_plain = Feature(FeatureName.PLAIN.value);
             fprintf('INFO: Starting the computation of the "plain" profiles.\n');
             [fun_histories_plain, maxcv_histories_plain, ~, ~, ~, ~, ~, ~, ~, time_processes_plain] = solveAllProblems(cutest_problem_names, custom_problem_loader, custom_problem_names, solvers, labels, feature_plain, profile_options);
@@ -528,6 +533,7 @@ function benchmark(solvers, varargin)
         pdf_log_ratio_out_summary = fullfile(path_log_ratio, 'log-ratio_out.pdf');
 
         % Create the figure for the summary.
+        warning('off');
         n_rows = 0;
         is_perf = profile_options.(ProfileOptionKey.SUMMARIZE_PERFORMANCE_PROFILES.value);
         is_data = profile_options.(ProfileOptionKey.SUMMARIZE_DATA_PROFILES.value);
@@ -590,8 +596,6 @@ function benchmark(solvers, varargin)
             end
 
             % Draw the profiles.
-
-            warning('off');
 
             if is_perf && is_data && is_log_ratio
                 cell_axs_summary = {axs_summary(i_profile), axs_summary(i_profile + 3 * max_tol_order), axs_summary(i_profile + max_tol_order), axs_summary(i_profile + 4 * max_tol_order), axs_summary(i_profile + 2 * max_tol_order), axs_summary(i_profile + 5 * max_tol_order)};
@@ -666,11 +670,7 @@ function benchmark(solvers, varargin)
                 close(fig_log_ratio_out);
             end
 
-            warning('on');
-
         end
-
-        warning('off');
 
         if i_feature == 1
             exportgraphics(fig_summary, pdf_summary, 'ContentType', 'vector');
