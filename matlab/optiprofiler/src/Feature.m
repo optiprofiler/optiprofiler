@@ -81,11 +81,9 @@ classdef Feature < handle
                         known_options = [known_options, {FeatureOptionKey.PERTURBED_TRAILING_ZEROS.value, FeatureOptionKey.SIGNIFICANT_DIGITS.value}];
                     case FeatureName.UNRELAXABLE_CONSTRAINTS.value
                         known_options = [known_options, {FeatureOptionKey.UNRELAXABLE_BOUNDS.value, FeatureOptionKey.UNRELAXABLE_LINEAR_CONSTRAINTS.value, FeatureOptionKey.UNRELAXABLE_NONLINEAR_CONSTRAINTS.value}];
-                    case FeatureName.BADLY_SCALED.value
-                        known_options = [known_options, {FeatureOptionKey.CONDITION_NUMBER.value}];
+                    case FeatureName.AFFINE_TRANSFORMED.value
+                        known_options = [known_options, {FeatureOptionKey.ROTATED.value, FeatureOptionKey.CONDITION_NUMBER.value}];
                     case FeatureName.PERMUTED.value
-                        % Do nothing
-                    case FeatureName.ROTATED.value
                         % Do nothing
                     case FeatureName.PLAIN.value
                         % Do nothing
@@ -137,6 +135,14 @@ classdef Feature < handle
                         if ~islogical(obj.options.(key))
                             error("MATLAB:Feature:perturbed_trailing_zeros_NotLogical", "Option " + key + " must be a logical.")
                         end
+                    case FeatureOptionKey.ROTATED.value
+                        if ~islogical(obj.options.(key))
+                            error("MATLAB:Feature:rotated_NotLogical", "Option " + key + " must be a logical.")
+                        end
+                    case FeatureOptionKey.CONDITION_NUMBER.value
+                        if ~strcmp(obj.options.(key), 'dimension_dependent') && ~(isnumeric(obj.options.(key)) && obj.options.(key) >= 1)
+                            error("MATLAB:Feature:condition_number_InvalidInput", "Option " + key + " must be either 'dimension_dependent' or a positive number greater than or equal to 1.")
+                        end
                     case FeatureOptionKey.UNRELAXABLE_BOUNDS.value
                         if ~islogical(obj.options.(key))
                             error("MATLAB:Feature:unrelaxable_bounds_NotLogical", "Option " + key + " must be a logical.")
@@ -157,7 +163,7 @@ classdef Feature < handle
         end
 
         function is_stochastic = isStochastic(obj)
-            stochasticFeatures = {FeatureName.CUSTOM.value, FeatureName.NOISY.value, FeatureName.PERMUTED.value, FeatureName.ROTATED.value, FeatureName.BADLY_SCALED.value, FeatureName.PERTURBED_X0.value, FeatureName.RANDOM_NAN.value, FeatureName.TRUNCATED.value};
+            stochasticFeatures = {FeatureName.CUSTOM.value, FeatureName.NOISY.value, FeatureName.PERMUTED.value, FeatureName.AFFINE_TRANSFORMED.value, FeatureName.PERTURBED_X0.value, FeatureName.RANDOM_NAN.value, FeatureName.TRUNCATED.value};
             is_stochastic = ismember(obj.name, stochasticFeatures);
         end
 
@@ -239,9 +245,7 @@ classdef Feature < handle
                     end
                 case FeatureName.PERMUTED.value
                     % Do nothing
-                case FeatureName.ROTATED.value
-                    % Do nothing
-                case FeatureName.BADLY_SCALED.value
+                case FeatureName.AFFINE_TRANSFORMED.value
                     % Do nothing
                 case FeatureName.PLAIN.value
                     % Do nothing
@@ -283,16 +287,15 @@ classdef Feature < handle
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
                         obj.options.(FeatureOptionKey.N_RUNS.value) = int32(10);
                     end
-                case FeatureName.ROTATED.value
+                case FeatureName.AFFINE_TRANSFORMED.value
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
                         obj.options.(FeatureOptionKey.N_RUNS.value) = int32(10);
                     end
-                case FeatureName.BADLY_SCALED.value
-                    if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
-                        obj.options.(FeatureOptionKey.N_RUNS.value) = int32(10);
+                    if ~isfield(obj.options, FeatureOptionKey.ROTATED.value)
+                        obj.options.(FeatureOptionKey.ROTATED.value) = true;
                     end
                     if ~isfield(obj.options, FeatureOptionKey.CONDITION_NUMBER.value)
-                        obj.options.(FeatureOptionKey.CONDITION_NUMBER.value) = 'dimension_dependent';
+                        obj.options.(FeatureOptionKey.CONDITION_NUMBER.value) = 1;
                     end
                 case FeatureName.PERTURBED_X0.value
                     if ~isfield(obj.options, FeatureOptionKey.DISTRIBUTION.value)

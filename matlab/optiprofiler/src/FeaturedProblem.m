@@ -69,26 +69,32 @@ classdef FeaturedProblem < Problem
             rand_stream = feature.default_rng(seed);
             % Generate a random permutation.
             permutation = [];
-            if strcmp(feature.name, FeatureName.PERMUTED.value)
+            if strcmp(feature.name, FeatureName.PERMUTED.value) && problem.n > 1
                 permutation = rand_stream.randperm(problem.n);
                 [~, reverse_permutation] = sort(permutation);
             end
             % Generate a random rotation.
             rotation = [];
-            if strcmp(feature.name, FeatureName.ROTATED.value) || strcmp(feature.name, FeatureName.BADLY_SCALED.value)
-                [Q, R] = qr(rand_stream.randn(problem.n));
-                rotation = Q * diag(sign(diag(R)));
+            if strcmp(feature.name, FeatureName.AFFINE_TRANSFORMED.value)
+                if feature.options.(FeatureOptionKey.ROTATED.value)
+                    [Q, R] = qr(rand_stream.randn(problem.n));
+                    rotation = Q * diag(sign(diag(R)));
+                else
+                    rotation = eye(problem.n);
+                end
             end
             % Generate a random scaling matrix.
             scaler = [];
-            if strcmp(feature.name, FeatureName.BADLY_SCALED.value)
+            if strcmp(feature.name, FeatureName.AFFINE_TRANSFORMED.value)
                 if strcmp(feature.options.(FeatureOptionKey.CONDITION_NUMBER.value), 'dimension_dependent')
                     condition_number = min(1e8, 2^(problem.n));
                 else
                     condition_number = feature.options.(FeatureOptionKey.CONDITION_NUMBER.value);
                 end
-                power = log2(sqrt(condition_number)) / 2;
-                scaler = (2 .^ (linspace(-power, power, problem.n)))';
+                power = log2(condition_number) / 2;
+                scaler = -power + 2 * power * rand_stream.rand(problem.n - 2, 1);
+                scaler = 2 .^ [-power; scaler; power];
+                scaler = scaler(rand_stream.randperm(problem.n));
             end
             
             % Copy the problem.
@@ -107,9 +113,7 @@ classdef FeaturedProblem < Problem
                 pb_struct.x0 = pb_struct.x0 + feature.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream, length(pb_struct.x0));
             elseif strcmp(feature.name, FeatureName.PERMUTED.value)
                 pb_struct.x0 = pb_struct.x0(reverse_permutation);
-            elseif strcmp(feature.name, FeatureName.ROTATED.value)
-                pb_struct.x0 = rotation' * pb_struct.x0;
-            elseif strcmp(feature.name, FeatureName.BADLY_SCALED.value)
+            elseif strcmp(feature.name, FeatureName.AFFINE_TRANSFORMED.value)
                 pb_struct.x0 = (1 ./ scaler) .* (rotation' * pb_struct.x0);
             end
 
@@ -123,20 +127,7 @@ classdef FeaturedProblem < Problem
                 if ~isempty(pb_struct.aeq)
                     pb_struct.aeq = pb_struct.aeq(:, reverse_permutation);
                 end
-            elseif strcmp(feature.name, FeatureName.ROTATED.value)
-                if ~isempty(pb_struct.aub)
-                    pb_struct.aub = [rotation; -rotation; pb_struct.aub * rotation];
-                    pb_struct.bub = [pb_struct.xu; -pb_struct.xl; pb_struct.bub];
-                else
-                    pb_struct.aub = [rotation; -rotation];
-                    pb_struct.bub = [pb_struct.xu; -pb_struct.xl];
-                end
-                if ~isempty(pb_struct.aeq)
-                    pb_struct.aeq = pb_struct.aeq * rotation;
-                end
-                pb_struct.xl = -Inf * ones(problem.n, 1);
-                pb_struct.xu = Inf * ones(problem.n, 1);
-            elseif strcmp(feature.name, FeatureName.BADLY_SCALED.value)
+            elseif strcmp(feature.name, FeatureName.AFFINE_TRANSFORMED.value)
                 if ~isempty(pb_struct.aub)
                     pb_struct.aub = [rotation * diag(scaler); -rotation * diag(scaler); pb_struct.aub * rotation * diag(scaler)];
                     pb_struct.bub = [pb_struct.xu; -pb_struct.xl; pb_struct.bub];
@@ -226,9 +217,7 @@ classdef FeaturedProblem < Problem
             end
 
             % Evaluate the objective function and store the results.
-            if strcmp(obj.feature.name, FeatureName.ROTATED.value)
-                f_true = fun@Problem(obj, obj.rotation * x);
-            elseif strcmp(obj.feature.name, FeatureName.BADLY_SCALED.value)
+            if strcmp(obj.feature.name, FeatureName.AFFINE_TRANSFORMED.value)
                 f_true = fun@Problem(obj, obj.rotation * (obj.scaler .* x));
             else
                 f_true = fun@Problem(obj, x);
@@ -275,9 +264,7 @@ classdef FeaturedProblem < Problem
                 f = obj.last_cub;
                 return
             else
-                if strcmp(obj.feature.name, FeatureName.ROTATED.value)
-                    f = cub@Problem(obj, obj.rotation * x);
-                elseif strcmp(obj.feature.name, FeatureName.BADLY_SCALED.value)
+                if strcmp(obj.feature.name, FeatureName.AFFINE_TRANSFORMED.value)
                     f = cub@Problem(obj, obj.rotation * (obj.scaler .* x));
                 else
                     f = cub@Problem(obj, x);
@@ -318,9 +305,7 @@ classdef FeaturedProblem < Problem
                 f = obj.last_ceq;
                 return
             else
-                if strcmp(obj.feature.name, FeatureName.ROTATED.value)
-                    f = ceq@Problem(obj, obj.rotation * x);
-                elseif strcmp(obj.feature.name, FeatureName.BADLY_SCALED.value)
+                if strcmp(obj.feature.name, FeatureName.AFFINE_TRANSFORMED.value)
                     f = ceq@Problem(obj, obj.rotation * (obj.scaler .* x));
                 else
                     f = ceq@Problem(obj, x);

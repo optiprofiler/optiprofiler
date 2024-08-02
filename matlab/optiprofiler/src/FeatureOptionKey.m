@@ -7,6 +7,7 @@ classdef FeatureOptionKey
         NOISE_LEVEL ('noise_level')
         NOISE_TYPE ('noise_type')
         SIGNIFICANT_DIGITS ('significant_digits')
+        ROTATED ('rotated')
         CONDITION_NUMBER ('condition_number')
         UNRELAXABLE_BOUNDS ('unrelaxable_bounds')
         UNRELAXABLE_LINEAR_CONSTRAINTS ('unrelaxable_linear_constraints')
