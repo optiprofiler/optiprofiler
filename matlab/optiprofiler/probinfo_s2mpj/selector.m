@@ -13,7 +13,7 @@ function problem_names = selector(options)
         options.mincon = 0;
     end
     if ~isfield(options, 'maxcon')
-        if ismember('b', options.problem_type) || ismember('l', options.problem_type) || ismember('n', options.problem_type)
+        if ismember('l', options.problem_type) || ismember('n', options.problem_type)
             options.maxcon = 10;
         else
             options.maxcon = 0;
@@ -29,13 +29,12 @@ function problem_names = selector(options)
     for i_problem = 2:size(problem_data, 1)
         problem_type = problem_data{i_problem, 2};
         dim = problem_data{i_problem, 3};
-        m = problem_data{i_problem, 4};
+        m_con = problem_data{i_problem, 7};
 
         % Check problem_type and dimension criteria
         selection_mask(i_problem - 1) = (ismember(problem_type, options.problem_type) && ...
             dim >= options.mindim && dim <= options.maxdim && ...
-            m >= options.mincon && m <= options.maxcon);
-
+            m_con >= options.mincon && m_con <= options.maxcon);
     end
 
     % Extract names based on the selection mask
