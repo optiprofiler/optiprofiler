@@ -5,6 +5,13 @@ classdef TestFeature < matlab.unittest.TestCase
             f = sum(100*(x(2:end) - x(1:end-1).^2).^2 + (1 - x(1:end-1)).^2);
         end
 
+        function value = custom_distribution(randstream, n)
+            if nargin < 2
+                n = 1;
+            end
+            value = randstream.rand(n, 1);
+        end
+
     end
 
     methods (Test)
@@ -12,16 +19,14 @@ classdef TestFeature < matlab.unittest.TestCase
         function testStruct(testCase)
             % Test the case where the second input is a struct.
 
-            % Generate random data
-            rng(1);
-            x = randn(10, 1);
+            % Test the plain feature with a struct as the second input
+            ft = Feature('plain', struct('n_runs', 3));
+            randstream = ft.default_rng(1);
+            x = randstream.randn(10, 1);
             f = TestFeature.rosen(x);
-
-            % Test the plain feature
-            feature = Feature("PLAIN", struct('n_runs', 3));
-            testCase.verifyEqual(feature.name, "plain");
-            testCase.verifyEqual(feature.options, struct('n_runs', int32(3)));
-            testCase.verifyEqual(feature.modifier(x, f), f);
+            testCase.verifyEqual(ft.name, 'plain');
+            testCase.verifyEqual(ft.options, struct('n_runs', int32(3)));
+            testCase.verifyEqual(ft.modifier(x, f), f);
         end
 
         function testPlain(testCase)
@@ -31,16 +36,20 @@ classdef TestFeature < matlab.unittest.TestCase
 
             for n = nValues
                 for seed = seedValues
-                    % Generate random data
-                    rng(seed);
-                    x = randn(n, 1);
-                    f = TestFeature.rosen(x);
-                    
-                    % Test the plain feature
-                    feature = Feature("PLAIN");
-                    testCase.verifyEqual(feature.name, "plain");
-                    testCase.verifyEqual(feature.options, struct('n_runs', int32(1)));
-                    testCase.verifyEqual(feature.modifier(x, f), f);
+                    % Test the default plain feature
+                    ft = Feature('plain');
+                    randstream = ft.default_rng(seed);
+                    x = randstream.randn(n, 1);
+                    f = @(x) TestFeature.rosen(x);
+                    testCase.verifyEqual(ft.name, 'plain');
+                    expectedOptions = struct('n_runs', int32(1));
+                    testCase.verifyEqual(ft.options, expectedOptions);
+                    g = ft.modifier(x, f);
+                    testCase.verifyEqual(g(x), f(x));
+
+                    % Add custom options
+                    ft = Feature('plain', 'n_runs', 5);
+                    testCase.verifyEqual(ft.options.n_runs, int32(5));
                 end
             end
         end
@@ -51,21 +60,31 @@ classdef TestFeature < matlab.unittest.TestCase
             seedValues = [0, 1, 2];
 
             for n = nValues
-                for seed = seedValues
-                    % Generate random data
-                    rng(seed);
+                for seed = seedValues               
+                    % Test the default perturbed_x0 feature
+                    ft = Feature('perturbed_x0');
+                    randstream = ft.default_rng(seed);
+                    x = randstream.randn(n, 1);
+                    f = @(x) TestFeature.rosen(x);
+                    testCase.verifyEqual(ft.name, 'perturbed_x0');
+                    testCase.verifyEqual(ft.options.n_runs, int32(10));
+                    testCase.verifyEqual(ft.options.noise_level, 1e-3);
                     
-                    % Test the perturbed_x0 feature
-                    feature = Feature("PERTURBED_X0");
-                    testCase.verifyEqual(feature.name, "perturbed_x0");
-                    testCase.verifyTrue(isfield(feature.options, 'distribution'));
-                    testCase.verifyEqual(feature.options.n_runs, int32(10));
-                    
+                    p = Problem(struct('fun', @(x) f(x), 'x0', x));
+                    ftp = FeaturedProblem(p, ft, 500, seed);
+                    if n == 1
+                        testCase.verifyEqual(ftp.x0, p.x0 + 1e-3 * ft.default_distribution(ft.default_rng(seed)));
+                    else
+                        testCase.verifyEqual(ftp.x0, p.x0 + 1e-3 * ft.default_distribution(ft.default_rng(seed), n));
+                    end
+                    testCase.verifyEqual(ftp.fun(ones(n, 1)), p.fun(ones(n, 1)));
+
                     % Add custom options
-                    feature = Feature("PERTURBED_X0", 'distribution', @(rng) 1.0, 'n_runs', 5);
-                    testCase.verifyEqual(feature.name, "perturbed_x0");
-                    testCase.verifyTrue(isfield(feature.options, 'distribution'));
-                    testCase.verifyEqual(feature.options.n_runs, int32(5));
+                    ft = Feature('perturbed_x0', 'n_runs', 5, 'noise_level', 1e-2, 'distribution', @(x, y) TestFeature.custom_distribution(x, y));
+                    testCase.verifyEqual(ft.options.n_runs, int32(5));
+                    testCase.verifyEqual(ft.options.noise_level, 1e-2);
+                    ftp = FeaturedProblem(p, ft, 500, seed);
+                    testCase.verifyEqual(ftp.x0, p.x0 + 1e-2 * TestFeature.custom_distribution(ft.default_rng(seed), n));
                 end
             end
         end
@@ -77,24 +96,27 @@ classdef TestFeature < matlab.unittest.TestCase
         
             for n = nValues
                 for seed = seedValues
-                    % Generate random data
-                    rng(seed);
-                    x = randn(n, 1);
-                    f = TestFeature.rosen(x);
-                    
-                    % Test the noisy feature
-                    feature = Feature("NOISY");
-                    testCase.verifyEqual(feature.name, "noisy");
-                    testCase.verifyTrue(isfield(feature.options, 'distribution') && strcmp(feature.options.type, 'relative'));
-                    testCase.verifyEqual(feature.options.n_runs, int32(10));
-                    feature.modifier(x, f);
-                    
+                    % Test the default noisy feature
+                    ft = Feature('noisy');
+                    randstream = ft.default_rng(seed);
+                    x = randstream.randn(n, 1);
+                    f = @(x) TestFeature.rosen(x);
+                    testCase.verifyEqual(ft.name, 'noisy');
+                    testCase.verifyEqual(ft.options.n_runs, int32(10));
+                    testCase.verifyEqual(ft.options.noise_level, 1e-3);
+                    testCase.verifyEqual(ft.options.noise_type, 'relative');
+
+                    p = Problem(struct('fun', @(x) f(x), 'x0', x));
+                    ftp = FeaturedProblem(p, ft, 500, seed);
+                    ftp.fun(x);
+
                     % Add custom options
-                    feature = Feature("NOISY", 'distribution', @(rng) 1.0, 'type', 'absolute', 'n_runs', 5);
-                    testCase.verifyEqual(feature.name, "noisy");
-                    testCase.verifyTrue(isfield(feature.options, 'distribution') && strcmp(feature.options.type, 'absolute'));
-                    testCase.verifyEqual(feature.options.n_runs, int32(5));
-                    testCase.verifyEqual(feature.modifier(x, f), f + 1.0, 'AbsTol', 1e-9);
+                    ft = Feature('noisy', 'n_runs', 5, 'noise_level', 1e-2, 'noise_type', 'absolute', 'distribution', @(x, y) TestFeature.custom_distribution(x, y));
+                    testCase.verifyEqual(ft.options.n_runs, int32(5));
+                    testCase.verifyEqual(ft.options.noise_level, 1e-2);
+                    testCase.verifyEqual(ft.options.noise_type, 'absolute');
+                    ftp = FeaturedProblem(p, ft, 500, seed);
+                    ftp.fun(x);
                 end
             end
         end
@@ -106,54 +128,34 @@ classdef TestFeature < matlab.unittest.TestCase
         
             for n = nValues
                 for seed = seedValues
-                    % Generate random data
-                    rng(seed);
-                    x = randn(n, 1);
-                    f = TestFeature.rosen(x);
-                    
-                    % Test the truncated feature
-                    feature = Feature("TRUNCATED");
-                    testCase.verifyEqual(feature.name, "truncated");
-                    expectedOptions = struct('n_runs', int32(10), 'significant_digits', int32(6));
-                    testCase.verifyEqual(feature.options, expectedOptions);
-                    testCase.verifyTrue(all(abs(feature.modifier(x, f) - f) <= (1e-5 + 1e-5 * abs(f))));
-                    testCase.verifyTrue(all(abs(feature.modifier(x, -f) + f) <= (1e-5 + 1e-5 * abs(-f))));
+                    % Test the default truncated feature
+                    ft = Feature('truncated');
+                    randstream = ft.default_rng(seed);
+                    x = randstream.randn(n, 1);
+                    f = @(x) TestFeature.rosen(x);
+                    testCase.verifyEqual(ft.name, 'truncated');
+                    g = @(x) -f(x);
+                    testCase.verifyEqual(ft.options.n_runs, int32(10));
+                    testCase.verifyEqual(ft.options.significant_digits, int32(6));
+                    testCase.verifyEqual(ft.options.perturbed_trailing_zeros, true);
+
+                    p1 = Problem(struct('fun', @(x) f(x), 'x0', x));
+                    p2 = Problem(struct('fun', @(x) g(x), 'x0', x));
+                    ftp1 = FeaturedProblem(p1, ft, 500, seed);
+                    ftp1.fun(x);
+                    ftp2 = FeaturedProblem(p2, ft, 500, seed);
+                    ftp2.fun(x);
                     
                     % Add custom options
-                    feature = Feature("TRUNCATED", 'significant_digits', int32(4));
-                    testCase.verifyEqual(feature.name, "truncated");
-                    expectedOptions = struct('n_runs', int32(10), 'significant_digits', int32(4));
-                    testCase.verifyEqual(feature.options, expectedOptions);
-                    testCase.verifyTrue(all(abs(feature.modifier(x, f) - f) <= (1e-3 + 1e-3 * abs(f))));
+                    ft = Feature('truncated', 'n_runs', 5, 'significant_digits', 2, 'perturbed_trailing_zeros', false);
+                    testCase.verifyEqual(ft.options.n_runs, int32(5));
+                    testCase.verifyEqual(ft.options.significant_digits, int32(2));
+                    testCase.verifyEqual(ft.options.perturbed_trailing_zeros, false);
+                    ftp = FeaturedProblem(p1, ft, 500, seed);
+                    ftp.fun(x);
 
-                    feature = Feature("TRUNCATED", 'significant_digits', int32(2), 'perturbed_trailing_zeros', false);
-                    testCase.verifyEqual(feature.name, "truncated");
-                    expectedOptions = struct('n_runs', int32(1), 'significant_digits', int32(2), 'perturbed_trailing_zeros', false);
-                    testCase.verifyEqual(feature.options, expectedOptions);
-                end
-            end
-
-            % Test that the truncated feature works correctly with float significant digits.
-            Feature("TRUNCATED", 'significant_digits', 2.0)
-        end
-
-        function testRotated(testCase)
-            % Test that the rotated feature works correctly.
-            nValues = [1, 10, 100];
-            seedValues = [0, 1, 2];
-        
-            for n = nValues
-                for seed = seedValues
-                    % Generate random data
-                    rng(seed);
-                    x = randn(n, 1);
-                    f = TestFeature.rosen(x);
-                    
-                    % Test the rotated feature
-                    feature = Feature("ROTATED");
-                    testCase.verifyEqual(feature.name, "rotated");
-                    expectedOptions = struct('n_runs', int32(10));
-                    testCase.verifyEqual(feature.options, expectedOptions);
+                    ft = Feature('truncated', 'significant_digits', 2, 'perturbed_trailing_zeros', false);
+                    testCase.verifyEqual(ft.options.n_runs, int32(1));
                 end
             end
         end
@@ -165,16 +167,55 @@ classdef TestFeature < matlab.unittest.TestCase
         
             for n = nValues
                 for seed = seedValues
-                    % Generate random data
-                    rng(seed);
-                    x = randn(n, 1);
-                    f = TestFeature.rosen(x);
+                    % Test the default permuted feature
+                    ft = Feature('permuted');
+                    randstream = ft.default_rng(seed);
+                    x = randstream.randn(n, 1);
+                    f = @(x) TestFeature.rosen(x);
+                    testCase.verifyEqual(ft.name, 'permuted');
+                    testCase.verifyEqual(ft.options.n_runs, int32(10));
                     
-                    % Test the permuted feature
-                    feature = Feature("PERMUTED");
-                    testCase.verifyEqual(feature.name, "permuted");
-                    expectedOptions = struct('n_runs', int32(10));
-                    testCase.verifyEqual(feature.options, expectedOptions);
+                    p = Problem(struct('fun', @(x) f(x), 'x0', x));
+                    ftp = FeaturedProblem(p, ft, 500, seed);
+                    testCase.verifyEqual(ftp.fun(ftp.x0), p.fun(p.x0));
+
+                    % Add custom options
+                    ft = Feature('permuted', 'n_runs', 5);
+                    testCase.verifyEqual(ft.options.n_runs, int32(5));
+                    ftp = FeaturedProblem(p, ft, 500, seed);
+                    testCase.verifyEqual(ftp.fun(ftp.x0), p.fun(p.x0));
+                end
+            end
+        end
+
+        function testAffine_transformed(testCase)
+            % Test that the affine_transformed feature works correctly.
+            nValues = [1, 10, 100];
+            seedValues = [0, 1, 2];
+        
+            for n = nValues
+                for seed = seedValues
+                    % Test the default affine_transformed feature
+                    ft = Feature('affine_transformed');
+                    randstream = ft.default_rng(seed);
+                    x = randstream.randn(n, 1);
+                    f = @(x) TestFeature.rosen(x);
+                    testCase.verifyEqual(ft.name, 'affine_transformed');
+                    testCase.verifyEqual(ft.options.n_runs, int32(10));
+                    testCase.verifyEqual(ft.options.rotated, true);
+                    testCase.verifyEqual(ft.options.condition_number, 1);
+                    
+                    p = Problem(struct('fun', @(x) f(x), 'x0', x));
+                    ftp = FeaturedProblem(p, ft, 500, seed);
+                    ftp.fun(x);
+                    
+                    % Add custom options
+                    ft = Feature('affine_transformed', 'n_runs', 5, 'rotated', false, 'condition_number', 10);
+                    testCase.verifyEqual(ft.options.n_runs, int32(5));
+                    testCase.verifyEqual(ft.options.rotated, false);
+                    testCase.verifyEqual(ft.options.condition_number, 10);
+                    ftp = FeaturedProblem(p, ft, 500, seed);
+                    ftp.fun(x);
                 end
             end
         end
@@ -186,25 +227,25 @@ classdef TestFeature < matlab.unittest.TestCase
         
             for n = nValues
                 for seed = seedValues
-                    % Generate random data
-                    rng(seed);
-                    x = randn(n, 1);
-                    f = TestFeature.rosen(x);
+                    % Test the default random_nan feature
+                    ft = Feature('random_nan');
+                    randstream = ft.default_rng(seed);
+                    x = randstream.randn(n, 1);
+                    f = @(x) TestFeature.rosen(x);
+                    testCase.verifyEqual(ft.name, 'random_nan');
+                    testCase.verifyEqual(ft.options.n_runs, int32(10));
+                    testCase.verifyEqual(ft.options.rate_nan, 0.05);
                     
-                    % Test the random_nan feature
-                    feature = Feature("RANDOM_NAN");
-                    testCase.verifyEqual(feature.name, "random_nan");
-                    expectedOptions = struct('n_runs', int32(10), 'rate_nan', 0.999);
-                    testCase.verifyEqual(feature.options, expectedOptions);
-
-                    f_tough = feature.modifier(x, f);
-                    testCase.verifyTrue(isequal(f_tough, f) || isnan(f_tough));
-
+                    p = Problem(struct('fun', @(x) f(x), 'x0', x));
+                    ftp = FeaturedProblem(p, ft, 500, seed);
+                    ftp.fun(x);
+                    
                     % Add custom options
-                    feature = Feature("RANDOM_NAN", 'rate_nan', 0.1);
-                    testCase.verifyEqual(feature.name, "random_nan");
-                    expectedOptions = struct('n_runs', int32(10), 'rate_nan', 0.1);
-                    testCase.verifyEqual(feature.options, expectedOptions);
+                    ft = Feature('random_nan', 'n_runs', 5, 'rate_nan', 0.2);
+                    testCase.verifyEqual(ft.options.n_runs, int32(5));
+                    testCase.verifyEqual(ft.options.rate_nan, 0.2);
+                    ftp = FeaturedProblem(p, ft, 500, seed);
+                    ftp.fun(x);
                 end
             end
         end
@@ -216,32 +257,38 @@ classdef TestFeature < matlab.unittest.TestCase
 
             for n = nValues
                 for seed = seedValues
-                    % Generate random data
-                    rng(seed);
-                    x = randn(n, 1);
-                    f = TestFeature.rosen(x);
+                    % Test the default unrelaxable_constraints feature
+                    ft = Feature('unrelaxable_constraints');
+                    randstream = ft.default_rng(seed);
+                    x = randstream.randn(n, 1);
+                    f = @(x) TestFeature.rosen(x);
+                    testCase.verifyEqual(ft.name, 'unrelaxable_constraints');
+                    testCase.verifyEqual(ft.options.n_runs, int32(1));
+                    testCase.verifyEqual(ft.options.unrelaxable_bounds, false);
+                    testCase.verifyEqual(ft.options.unrelaxable_linear_constraints, false);
+                    testCase.verifyEqual(ft.options.unrelaxable_nonlinear_constraints, false);
                     
-                    % Test the unrelaxable_constraints feature
-                    feature = Feature("UNRELAXABLE_CONSTRAINTS");
-                    testCase.verifyEqual(feature.name, "unrelaxable_constraints");
-                    expectedOptions = struct('n_runs', int32(1), 'unrelaxable_bounds', false, 'unrelaxable_linear_constraints', false, 'unrelaxable_nonlinear_constraints', false);
-                    testCase.verifyEqual(feature.options, expectedOptions);
-
-                    feature = Feature("UNRELAXABLE_CONSTRAINTS", 'unrelaxable_bounds', true, 'unrelaxable_linear_constraints', true, 'unrelaxable_nonlinear_constraints', true);
-                    testCase.verifyEqual(feature.name, "unrelaxable_constraints");
-                    expectedOptions = struct('n_runs', int32(1), 'unrelaxable_bounds', true, 'unrelaxable_linear_constraints', true, 'unrelaxable_nonlinear_constraints', true);
-                    testCase.verifyEqual(feature.options, expectedOptions);
-
-                    f_unrelaxable_bounds = feature.modifier(x, f, seed, 1);
-                    testCase.verifyTrue(isinf(f_unrelaxable_bounds));
-                    f_unrelaxable_linear_constraints = feature.modifier(x, f, seed, 0, 1);
-                    testCase.verifyTrue(isinf(f_unrelaxable_linear_constraints));
-                    f_unrelaxable_nonlinear_constraints = feature.modifier(x, f, seed, 0, 0, 1);
-                    testCase.verifyTrue(isinf(f_unrelaxable_nonlinear_constraints));
+                    p = Problem(struct('fun', @(x) f(x), 'x0', x));
+                    ftp = FeaturedProblem(p, ft, 500, seed);
+                    ftp.fun(x);
+                    
+                    % Add custom options
+                    ft = Feature('unrelaxable_constraints', 'n_runs', 5, 'unrelaxable_bounds', true, 'unrelaxable_linear_constraints', true, 'unrelaxable_nonlinear_constraints', true);
+                    testCase.verifyEqual(ft.options.n_runs, int32(5));
+                    testCase.verifyEqual(ft.options.unrelaxable_bounds, true);
+                    testCase.verifyEqual(ft.options.unrelaxable_linear_constraints, true);
+                    testCase.verifyEqual(ft.options.unrelaxable_nonlinear_constraints, true);
+                    p1 = Problem(struct('fun', @(x) f(x), 'x0', x, 'xl', x + 1));
+                    p2 = Problem(struct('fun', @(x) f(x), 'x0', x, 'aub', eye(n), 'bub', x - 2));
+                    p3 = Problem(struct('fun', @(x) f(x), 'x0', x, 'cub', @(x) f(x) - 1e8));
+                    ftp1 = FeaturedProblem(p1, ft, 500, seed);
+                    ftp1.fun(x);
+                    ftp2 = FeaturedProblem(p2, ft, 500, seed);
+                    ftp2.fun(x);
+                    ftp3 = FeaturedProblem(p3, ft, 500, seed);
+                    ftp3.fun(x);
                 end
             end
-
-
         end
 
         function testCustom(testCase)
@@ -251,18 +298,17 @@ classdef TestFeature < matlab.unittest.TestCase
         
             for n = nValues
                 for seed = seedValues
-                    % Generate random data
-                    rng(seed);
-                    x = randn(n, 1);
-                    f = TestFeature.rosen(x);
-                    
                     % Test the custom feature
-                    feature = Feature("custom", 'modifier', @(x, f, seed) f + 1.0);
-                    testCase.verifyEqual(feature.name, "custom");
-                    testCase.verifyTrue(isfield(feature.options, 'modifier'));
-                    testCase.verifyTrue(isfield(feature.options, 'n_runs'));
-                    testCase.verifyEqual(feature.options.n_runs, int32(1));
-                    testCase.verifyEqual(feature.modifier(x, f), f + 1.0);
+                    ft = Feature('custom', 'n_runs', 5, 'modifier', @(x, f, seed) f + 1.0);
+                    randstream = ft.default_rng(seed);
+                    x = randstream.randn(n, 1);
+                    f = @(x) TestFeature.rosen(x);
+                    testCase.verifyEqual(ft.name, 'custom');
+                    testCase.verifyEqual(ft.options.n_runs, int32(5));
+
+                    p = Problem(struct('fun', @(x) f(x), 'x0', x));
+                    ftp = FeaturedProblem(p, ft, 500, seed);
+                    testCase.verifyEqual(ftp.fun(x), f(x) + 1.0);
                 end
             end
         end
@@ -270,9 +316,9 @@ classdef TestFeature < matlab.unittest.TestCase
         function testIsStochastic(testCase)
             % Test that the function IsStochastic works correctly.
 
-            feature_plain = Feature("PLAIN");
+            feature_plain = Feature('plain');
             testCase.verifyFalse(feature_plain.isStochastic());
-            feature_perturbed_x0 = Feature("PERTURBED_X0");
+            feature_perturbed_x0 = Feature('noisy');
             testCase.verifyTrue(feature_perturbed_x0.isStochastic());
         end
 
@@ -280,22 +326,26 @@ classdef TestFeature < matlab.unittest.TestCase
             % Test that the exceptions are thrown correctly.
 
             testCase.verifyError(@() Feature(1), "MATLAB:Feature:FeaturenameNotString");
-            testCase.verifyError(@() Feature("CUSTOM", 'n_runs', 1, 'distribution'), "MATLAB:Feature:InvalidNumberOfArguments");
-            testCase.verifyError(@() Feature(""), "MATLAB:Feature:MissingArguments");
-            testCase.verifyError(@() Feature("unknown"), "MATLAB:Feature:UnknownFeature");
-            testCase.verifyError(@() Feature("PLAIN", 'parameter', 1.0), "MATLAB:Feature:InvalidOptionForFeature");
-            testCase.verifyError(@() Feature("CUSTOM", 'modifier', 1.0), "MATLAB:Feature:modifier_NotFunctionHandle");
-            testCase.verifyError(@() Feature("NOISY", 'distribution', 1.0), "MATLAB:Feature:distribution_NotFunctionHandle");
-            testCase.verifyError(@() Feature("RANDOM_NAN", 'rate_nan', '1.0'), "MATLAB:Feature:rate_nan_NotBetween_0_1");
-            testCase.verifyError(@() Feature("RANDOM_NAN", 'rate_nan', -1.0), "MATLAB:Feature:rate_nan_NotBetween_0_1");
-            testCase.verifyError(@() Feature("RANDOM_NAN", 'rate_nan', 2.0), "MATLAB:Feature:rate_nan_NotBetween_0_1");
-            testCase.verifyError(@() Feature("TRUNCATED", 'significant_digits', 2.5), "MATLAB:Feature:significant_digits_NotPositiveInteger");
-            testCase.verifyError(@() Feature("TRUNCATED", 'perturbed_trailing_zeros', 1), "MATLAB:Feature:perturbed_trailing_zeros_NotLogical");
-            testCase.verifyError(@() Feature("NOISY", 'n_runs', 2.5), "MATLAB:Feature:n_runs_NotPositiveInteger");
-            testCase.verifyError(@() Feature("NOISY", 'type', '+'), "MATLAB:Feature:type_InvalidInput");
-            testCase.verifyError(@() Feature("UNRELAXABLE_CONSTRAINTS", 'unrelaxable_bounds', 1), "MATLAB:Feature:unrelaxable_bounds_NotLogical");
-            testCase.verifyError(@() Feature("UNRELAXABLE_CONSTRAINTS", 'unrelaxable_linear_constraints', 1), "MATLAB:Feature:unrelaxable_linear_constraints_NotLogical");
-            testCase.verifyError(@() Feature("UNRELAXABLE_CONSTRAINTS", 'unrelaxable_nonlinear_constraints', 1), "MATLAB:Feature:unrelaxable_nonlinear_constraints_NotLogical");
+            testCase.verifyError(@() Feature('custom', 'n_runs', 1, 'distribution'), "MATLAB:Feature:InvalidNumberOfArguments");
+            testCase.verifyError(@() Feature(''), "MATLAB:Feature:UnknownFeature");
+            testCase.verifyError(@() Feature('unknown'), "MATLAB:Feature:UnknownFeature");
+            testCase.verifyError(@() Feature('plain', 'unknown_option', 1.0), "MATLAB:Feature:UnknownOption");
+            testCase.verifyError(@() Feature('plain', 'noise_level', 1.0), "MATLAB:Feature:InvalidOptionForFeature");
+            testCase.verifyError(@() Feature('custom', 'modifier', 1.0), "MATLAB:Feature:modifier_NotFunctionHandle");
+            testCase.verifyError(@() Feature('noisy', 'distribution', 1.0), "MATLAB:Feature:distribution_NotFunctionHandle");
+            testCase.verifyError(@() Feature('random_nan', 'rate_nan', '1.0'), "MATLAB:Feature:rate_nan_NotBetween_0_1");
+            testCase.verifyError(@() Feature('random_nan', 'rate_nan', -1.0), "MATLAB:Feature:rate_nan_NotBetween_0_1");
+            testCase.verifyError(@() Feature('random_nan', 'rate_nan', 2.0), "MATLAB:Feature:rate_nan_NotBetween_0_1");
+            testCase.verifyError(@() Feature('truncated', 'significant_digits', 2.5), "MATLAB:Feature:significant_digits_NotPositiveInteger");
+            testCase.verifyError(@() Feature('perturbed_x0', 'noise_level', -1), "MATLAB:Feature:noise_level_NotPositive");
+            testCase.verifyError(@() Feature('truncated', 'perturbed_trailing_zeros', 1), "MATLAB:Feature:perturbed_trailing_zeros_NotLogical");
+            testCase.verifyError(@() Feature('affine_transformed', 'rotated', 2), "MATLAB:Feature:rotated_NotLogical");
+            testCase.verifyError(@() Feature('affine_transformed', 'condition_number', -1), "MATLAB:Feature:condition_number_InvalidInput");
+            testCase.verifyError(@() Feature('noisy', 'n_runs', 2.5), "MATLAB:Feature:n_runs_NotPositiveInteger");
+            testCase.verifyError(@() Feature('noisy', 'noise_type', '+'), "MATLAB:Feature:noise_type_InvalidInput");
+            testCase.verifyError(@() Feature('unrelaxable_constraints', 'unrelaxable_bounds', 1), "MATLAB:Feature:unrelaxable_bounds_NotLogical");
+            testCase.verifyError(@() Feature('unrelaxable_constraints', 'unrelaxable_linear_constraints', 1), "MATLAB:Feature:unrelaxable_linear_constraints_NotLogical");
+            testCase.verifyError(@() Feature('unrelaxable_constraints', 'unrelaxable_nonlinear_constraints', 1), "MATLAB:Feature:unrelaxable_nonlinear_constraints_NotLogical");
             testCase.verifyError(@() Feature("CUSTOM"), "MATLAB:Feature:MissingModifier");
         end
 

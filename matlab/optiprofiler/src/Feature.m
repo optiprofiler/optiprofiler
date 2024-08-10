@@ -35,10 +35,12 @@ classdef Feature < handle
                 Type of the noisy and perturbed_x0 features.
             %}
 
-            obj.name = lower(feature_name);
-            if ~ischar(obj.name) && ~isstring(obj.name)
+            if ~ischar(feature_name) && ~isstring(feature_name)
                 error("MATLAB:Feature:FeaturenameNotString", "The feature name must be a string.")
             end
+            % Convert the feature name to lowercase characters.
+            obj.name = char(lower(feature_name));
+
             obj.options = struct();
             if nargin > 1
                 if isstruct(varargin{1})
@@ -74,7 +76,7 @@ classdef Feature < handle
                     case FeatureName.NOISY.value
                         known_options = [known_options, {FeatureOptionKey.DISTRIBUTION.value, FeatureOptionKey.NOISE_LEVEL.value, FeatureOptionKey.NOISE_TYPE.value}];
                     case FeatureName.PERTURBED_X0.value
-                        known_options = [known_options, {FeatureOptionKey.DISTRIBUTION.value}];
+                        known_options = [known_options, {FeatureOptionKey.DISTRIBUTION.value, FeatureOptionKey.NOISE_LEVEL.value}];
                     case FeatureName.RANDOM_NAN.value
                         known_options = [known_options, {FeatureOptionKey.RATE_NAN.value}];
                     case FeatureName.TRUNCATED.value
@@ -300,6 +302,9 @@ classdef Feature < handle
                 case FeatureName.PERTURBED_X0.value
                     if ~isfield(obj.options, FeatureOptionKey.DISTRIBUTION.value)
                         obj.options.(FeatureOptionKey.DISTRIBUTION.value) = @obj.default_distribution;
+                    end
+                    if ~isfield(obj.options, FeatureOptionKey.NOISE_LEVEL.value)
+                        obj.options.(FeatureOptionKey.NOISE_LEVEL.value) = 1e-3;
                     end
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
                         obj.options.(FeatureOptionKey.N_RUNS.value) = int32(10);

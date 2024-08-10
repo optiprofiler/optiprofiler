@@ -69,7 +69,7 @@ classdef FeaturedProblem < Problem
             rand_stream = feature.default_rng(seed);
             % Generate a random permutation.
             permutation = [];
-            if strcmp(feature.name, FeatureName.PERMUTED.value) && problem.n > 1
+            if strcmp(feature.name, FeatureName.PERMUTED.value)
                 permutation = rand_stream.randperm(problem.n);
                 [~, reverse_permutation] = sort(permutation);
             end
@@ -108,9 +108,7 @@ classdef FeaturedProblem < Problem
 
             % Randomize the initial point if feature is 'perturbed_x0', and permute the initial point if feature is 'permuted'.
             if strcmp(feature.name, FeatureName.PERTURBED_X0.value)
-                x0_Cell = num2cell(pb_struct.x0);
-                rand_stream = feature.default_rng(seed, x0_Cell{:});
-                pb_struct.x0 = pb_struct.x0 + feature.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream, length(pb_struct.x0));
+                pb_struct.x0 = pb_struct.x0 + feature.options.(FeatureOptionKey.NOISE_LEVEL.value) * feature.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream, length(pb_struct.x0));
             elseif strcmp(feature.name, FeatureName.PERMUTED.value)
                 pb_struct.x0 = pb_struct.x0(reverse_permutation);
             elseif strcmp(feature.name, FeatureName.AFFINE_TRANSFORMED.value)
