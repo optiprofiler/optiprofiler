@@ -69,18 +69,19 @@ classdef TestFeature < matlab.unittest.TestCase
                     testCase.verifyEqual(ft.name, 'perturbed_x0');
                     testCase.verifyEqual(ft.options.n_runs, int32(10));
                     testCase.verifyEqual(ft.options.noise_level, 1e-3);
+                    testCase.verifyEqual(ft.options.noise_type, 'relative');
                     
                     p = Problem(struct('fun', @(x) f(x), 'x0', x));
                     ftp = FeaturedProblem(p, ft, 500, seed);
-                    if n == 1
-                        testCase.verifyEqual(ftp.x0, p.x0 + 1e-3 * ft.default_distribution(ft.default_rng(seed)));
+                    if n == 1  % To cover one line in the code
+                        testCase.verifyEqual(ftp.x0, max(1e-8, abs(p.x0)) .* sign(p.x0) .* (1 + 1e-3 .* ft.default_distribution(ft.default_rng(seed))));
                     else
-                        testCase.verifyEqual(ftp.x0, p.x0 + 1e-3 * ft.default_distribution(ft.default_rng(seed), n));
+                        testCase.verifyEqual(ftp.x0, max(1e-8, abs(p.x0)) .* sign(p.x0) .* (1 + 1e-3 .* ft.default_distribution(ft.default_rng(seed), n)));
                     end
                     testCase.verifyEqual(ftp.fun(ones(n, 1)), p.fun(ones(n, 1)));
 
                     % Add custom options
-                    ft = Feature('perturbed_x0', 'n_runs', 5, 'noise_level', 1e-2, 'distribution', @(x, y) TestFeature.custom_distribution(x, y));
+                    ft = Feature('perturbed_x0', 'n_runs', 5, 'noise_level', 1e-2, 'noise_type', 'absolute', 'distribution', @(x, y) TestFeature.custom_distribution(x, y));
                     testCase.verifyEqual(ft.options.n_runs, int32(5));
                     testCase.verifyEqual(ft.options.noise_level, 1e-2);
                     ftp = FeaturedProblem(p, ft, 500, seed);
