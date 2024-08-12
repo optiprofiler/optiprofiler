@@ -280,7 +280,7 @@ classdef TestFeature < matlab.unittest.TestCase
                     testCase.verifyEqual(ft.options.unrelaxable_nonlinear_constraints, true);
                     p1 = Problem(struct('fun', @(x) f(x), 'x0', x, 'xl', x + 1));
                     p2 = Problem(struct('fun', @(x) f(x), 'x0', x, 'aub', eye(n), 'bub', x - 2));
-                    p3 = Problem(struct('fun', @(x) f(x), 'x0', x, 'cub', @(x) f(x) - 1e8));
+                    p3 = Problem(struct('fun', @(x) f(x), 'x0', x, 'cub', @(x) f(x) + 1e8));
                     ftp1 = FeaturedProblem(p1, ft, 500, seed);
                     ftp1.fun(x);
                     ftp2 = FeaturedProblem(p2, ft, 500, seed);

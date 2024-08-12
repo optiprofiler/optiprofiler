@@ -3,17 +3,18 @@ classdef TestNoiseType < matlab.unittest.TestCase
         
         function testEnumerationValues(testCase)
             % Test if the enumeration values are correctly assigned
+            
             enumValues = enumeration('NoiseType');
-            expectedValues = {'ABSOLUTE', 'RELATIVE'};
-
-            diff1 = setdiff(enumValues, expectedValues);
-            diff2 = setdiff(expectedValues, enumValues);
-            testCase.verifyEmpty(diff1, "The enumeration values are not correctly assigned");
-            testCase.verifyEmpty(diff2, "The enumeration values are not correctly assigned");
+            enumValues = cellstr(arrayfun(@char, enumValues, 'UniformOutput', false));
+            expectedValues = {'ABSOLUTE'; 'RELATIVE'};
+            testCase.verifyEqual(enumValues, expectedValues);
         end
 
         function testConstructor(testCase)
             % Test if the constructor works as expected
+            
+            clear obj;
+            clear NoiseType;
             testCase.verifyEqual(NoiseType.ABSOLUTE.value, 'absolute');
             testCase.verifyEqual(NoiseType.RELATIVE.value, 'relative');
         end

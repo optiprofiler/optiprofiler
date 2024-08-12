@@ -76,7 +76,7 @@ classdef Feature < handle
                     case FeatureName.NOISY.value
                         known_options = [known_options, {FeatureOptionKey.DISTRIBUTION.value, FeatureOptionKey.NOISE_LEVEL.value, FeatureOptionKey.NOISE_TYPE.value}];
                     case FeatureName.PERTURBED_X0.value
-                        known_options = [known_options, {FeatureOptionKey.DISTRIBUTION.value, FeatureOptionKey.NOISE_LEVEL.value}];
+                        known_options = [known_options, {FeatureOptionKey.DISTRIBUTION.value, FeatureOptionKey.NOISE_LEVEL.value, FeatureOptionKey.NOISE_TYPE.value}];
                     case FeatureName.RANDOM_NAN.value
                         known_options = [known_options, {FeatureOptionKey.RATE_NAN.value}];
                     case FeatureName.TRUNCATED.value
@@ -305,6 +305,9 @@ classdef Feature < handle
                     end
                     if ~isfield(obj.options, FeatureOptionKey.NOISE_LEVEL.value)
                         obj.options.(FeatureOptionKey.NOISE_LEVEL.value) = 1e-3;
+                    end
+                    if ~isfield(obj.options, FeatureOptionKey.NOISE_TYPE.value)
+                        obj.options.(FeatureOptionKey.NOISE_TYPE.value) = NoiseType.RELATIVE.value;
                     end
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
                         obj.options.(FeatureOptionKey.N_RUNS.value) = int32(10);

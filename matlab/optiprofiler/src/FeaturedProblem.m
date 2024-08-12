@@ -108,7 +108,11 @@ classdef FeaturedProblem < Problem
 
             % Randomize the initial point if feature is 'perturbed_x0', and permute the initial point if feature is 'permuted'.
             if strcmp(feature.name, FeatureName.PERTURBED_X0.value)
-                pb_struct.x0 = pb_struct.x0 + feature.options.(FeatureOptionKey.NOISE_LEVEL.value) * feature.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream, length(pb_struct.x0));
+                if obj.options.(FeatureOptionKey.NOISE_TYPE.value) == NoiseType.ABSOLUTE.value
+                    pb_struct.x0 = pb_struct.x0 + feature.options.(FeatureOptionKey.NOISE_LEVEL.value) * feature.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream, length(pb_struct.x0));
+                else
+                    pb_struct.x0 = max(1e-8, abs(pb_struct.x0)) .* sign(pb_struct.x0) .* (1 + feature.options.(FeatureOptionKey.NOISE_LEVEL.value) * feature.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream, length(pb_struct.x0)));
+                end
             elseif strcmp(feature.name, FeatureName.PERMUTED.value)
                 pb_struct.x0 = pb_struct.x0(reverse_permutation);
             elseif strcmp(feature.name, FeatureName.AFFINE_TRANSFORMED.value)
