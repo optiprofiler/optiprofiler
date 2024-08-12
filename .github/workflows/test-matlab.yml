@@ -41,12 +41,11 @@ jobs:
             % Run setup.m script
             setup
 
-
             % Run tests
-            cd matlab/OptiProfiler/
+            cd matlab/optiprofiler/
             runTests
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1
         with:
-          file: ./matlab/OptiProfiler/coverage.xml
+          file: ./matlab/optiprofiler/coverage.xml

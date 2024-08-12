@@ -80,7 +80,7 @@ function setup(varargin)
 
         if paths_saved(1)
             fprintf('\nThe package is ready to use.\n');
-            fprintf('\nYou may now try ''help runBenchmark'' for information on the usage of the package.\n');
+            fprintf('\nYou may now try ''help benchmark'' for information on the usage of the package.\n');
             if paths_saved(2)
                 fprintf('\nYou may also run ''testOptiProfiler'' to test the package on a few examples.\n');
             end
