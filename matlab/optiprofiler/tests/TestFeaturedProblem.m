@@ -17,60 +17,69 @@ classdef TestFeaturedProblem < matlab.unittest.TestCase
 
     methods (Test)
         
-        function testSimple(testCase)
-            nValues = [1, 10, 100];
+        function testPlainProblem(testCase)
+            % Test whether the featured problem (feature plain) works correctly.
 
-            for n = nValues
-                % Construct a simple problem.
-                x0 = zeros(n, 1);
-                pb_struct = struct('fun', @TestFeaturedProblem.rosen, 'x0', x0);
-                problem = Problem(pb_struct);
-
-                % Construct a featured problem.
-                feature = Feature("PLAIN");
-                featured_problem = FeaturedProblem(problem, feature, 10);
-                
-
-                % Check that the initialization of featured_problem is correct.
-                testCase.verifyEqual(featured_problem.n_eval, 0);
-                testCase.verifyEqual(size(featured_problem.fun_hist), [0 0]);
-                testCase.verifyEqual(size(featured_problem.maxcv_hist), [0 0]);
-
-                % Evaluate the objective function at x0.
-                f = featured_problem.fun(x0);
-                testCase.verifyEqual(featured_problem.n_eval, 1);
-                testCase.verifyEqual(featured_problem.fun_hist, f);
-                testCase.verifyEqual(featured_problem.maxcv_hist, 0);
-
-                % Construct a featured problem with a different feature.
-                feature = Feature("custom", 'modifier', @(x, f, seed) f + 1.0);
-                featured_problem = FeaturedProblem(problem, feature, 10);
-
-                % Evaluate the objective function at x0.
-                f = featured_problem.fun(x0);
-                testCase.verifyEqual(featured_problem.n_eval, 1);
-                testCase.verifyEqual(featured_problem.fun_hist, f - 1);
-                testCase.verifyEqual(featured_problem.maxcv_hist, 0);
-
-                % % Construct a featured problem with randomized x0.
-                feature = Feature("randomize_x0", 'distribution', @(rand_stream, n) ones(n, 1));
-                featured_problem = FeaturedProblem(problem, feature, 10);
-
-                % Verify that the x0 is changed.
-                testCase.verifyEqual(featured_problem.x0, problem.x0 + 1);
-
-            end
+            p = Problem(struct('fun', @TestFeaturedProblem.rosen, 'x0', ones(10, 1)));
+            ft = Feature('plain');
+            ftp = FeaturedProblem(p, ft, 500);
+            testCase.verifyEqual(ftp.fun(ones(10, 1)), p.fun(ones(10, 1)));
         end
 
-        function testCatch(testCase)
-            % Construct a nonlinearly constrained problem.
-            x0 = zeros(2,1);
-            pb_struct = struct('fun', @TestFeaturedProblem.rosen, 'x0', x0, 'cub', @TestFeaturedProblem.sum_cos, 'ceq', @TestFeaturedProblem.sum_sin);
-            problem = Problem(pb_struct);
+        function testPermutedProblem(testCase)
+            % Test whether the featured problem (feature permuted) works correctly.
 
-            % Construct a featured problem.
-            feature = Feature("PLAIN");
-            featured_problem = FeaturedProblem(problem, feature, 10);
+            p = Problem(struct('fun', @TestFeaturedProblem.rosen, 'x0', 0.5 * linspace(1, 10, 10)', 'xl', linspace(-10, -1, 10)', 'xu', linspace(1, 10, 10)', 'aub', diag(linspace(1, 10, 10)), 'bub', linspace(1, 10, 10), 'aeq', diag(linspace(1, 10, 10)), 'beq', linspace(1, 10, 10), 'cub', @TestFeaturedProblem.sum_cos, 'ceq', @TestFeaturedProblem.sum_sin));
+            ft = Feature('permuted');
+            ftp = FeaturedProblem(p, ft, 500, 1);
+            testCase.verifyEqual(ftp.fun(ftp.x0), p.fun(p.x0));
+            [~, reverse_permutation] = sort(ftp.permutation);
+            testCase.verifyEqual(ftp.x0, p.x0(reverse_permutation));
+            testCase.verifyEqual(ftp.xl, p.xl(reverse_permutation));
+            testCase.verifyEqual(ftp.xu, p.xu(reverse_permutation));
+            testCase.verifyEqual(ftp.aub, p.aub(:, reverse_permutation));
+            testCase.verifyEqual(ftp.bub, p.bub);
+            testCase.verifyEqual(ftp.aeq, p.aeq(:, reverse_permutation));
+            testCase.verifyEqual(ftp.beq, p.beq);
+            testCase.verifyEqual(ftp.fun(ftp.x0), p.fun(p.x0));
+            testCase.verifyEqual(ftp.cub(ftp.x0), p.cub(p.x0));
+            testCase.verifyEqual(ftp.ceq(ftp.x0), p.ceq(p.x0));
+        end
+
+        function testAffine_transformedProblem(testCase)
+            % Test whether the featured problem (feature affine_transformed) works correctly.
+
+            p = Problem(struct('fun', @TestFeaturedProblem.rosen, 'x0', ones(10, 1), 'xl', -ones(10, 1), 'xu', ones(10, 1), 'aub', diag(ones(10, 1)), 'bub', ones(10, 1), 'aeq', diag(ones(10, 1)), 'beq', ones(10, 1), 'cub', @TestFeaturedProblem.sum_cos, 'ceq', @TestFeaturedProblem.sum_sin));
+            ft = Feature('affine_transformed', 'condition_number', 'dimension_dependent');
+            ftp = FeaturedProblem(p, ft, 500, 1);
+            scaler = ftp.scaler;
+            rotation = ftp.rotation;
+            testCase.verifyEqual(ftp.x0, (1 ./ scaler) .* (rotation' * p.x0));
+            testCase.verifyEqual(ftp.cub(ones(10, 1)), p.cub(rotation * (scaler .* ones(10, 1))));
+            testCase.verifyEqual(ftp.ceq(ones(10, 1)), p.ceq(rotation * (scaler .* ones(10, 1))));
+        end
+
+        function testReach_maxfun(testCase)
+            % Test whether the featured problem (feature plain) works correctly.
+
+            p = Problem(struct('fun', @TestFeaturedProblem.rosen, 'x0', ones(10, 1), 'xl', -ones(10, 1), 'xu', ones(10, 1), 'aub', diag(ones(10, 1)), 'bub', ones(10, 1), 'aeq', diag(ones(10, 1)), 'beq', ones(10, 1), 'cub', @TestFeaturedProblem.sum_cos, 'ceq', @TestFeaturedProblem.sum_sin));
+            ft = Feature('plain');
+            ftp = FeaturedProblem(p, ft, 1);
+            ftp.fun(ones(10, 1));
+            testCase.verifyEqual(ftp.fun(randn(10, 1)), ftp.fun(randn(10, 1)));
+            testCase.verifyEqual(ftp.cub(ones(10, 1)), ftp.cub(ones(10, 1)));
+            testCase.verifyEqual(ftp.ceq(ones(10, 1)), ftp.ceq(ones(10, 1)));
+        end
+
+        function testError(testCase)
+            % Test whether all the errors are thrown correctly.
+
+            p = Problem(struct('fun', @TestFeaturedProblem.rosen, 'x0', ones(10, 1)));
+            ft = Feature('plain');
+            testCase.verifyError(@() FeaturedProblem(p, p, 500), "MATLAB:FeaturedProblem:NotFeatureClass");
+            testCase.verifyError(@() FeaturedProblem(p, ft, 0), "MATLAB:FeaturedProblem:max_evalNotPositiveInteger");
+            testCase.verifyError(@() FeaturedProblem(p, ft, 500, -1), "MATLAB:FeaturedProblem:seedNotNonnegativeInteger");
+            testCase.verifyError(@() FeaturedProblem(ft, ft, 500, 1), "MATLAB:FeaturedProblem:NotProblemClass");
         end
 
     end

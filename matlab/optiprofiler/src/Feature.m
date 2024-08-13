@@ -102,7 +102,7 @@ classdef Feature < handle
                         if isfloat(obj.options.(key)) && (obj.options.(key) == round(obj.options.(key)))
                             obj.options.(key) = int32(obj.options.(key));
                         end
-                        if ~isinteger(obj.options.(key)) || obj.options.(key) <= 0
+                        if ~isintegerscalar(obj.options.(key)) || obj.options.(key) <= 0
                             error("MATLAB:Feature:n_runs_NotPositiveInteger", "Option " + key + " must be a positive integer.")
                         end
                     case FeatureOptionKey.MODIFIER.value
@@ -114,19 +114,19 @@ classdef Feature < handle
                             error("MATLAB:Feature:distribution_NotFunctionHandle", "Option " + key + " must be a function handle.")
                         end
                     case FeatureOptionKey.RATE_NAN.value
-                        if ~isnumeric(obj.options.(key)) || obj.options.(key) < 0.0 || obj.options.(key) > 1.0
-                            error("MATLAB:Feature:rate_nan_NotBetween_0_1", "Option " + key + " must be a number between 0 and 1.")
+                        if ~isrealscalar(obj.options.(key)) || obj.options.(key) < 0.0 || obj.options.(key) > 1.0
+                            error("MATLAB:Feature:rate_nan_NotBetween_0_1", "Option " + key + " must be a real number between 0 and 1.")
                         end
                     case FeatureOptionKey.SIGNIFICANT_DIGITS.value
                         if isfloat(obj.options.(key)) && (obj.options.(key) == round(obj.options.(key)))
                             obj.options.(key) = int32(obj.options.(key));
                         end
-                        if ~isinteger(obj.options.(key)) || obj.options.(key) <= 0
+                        if ~isintegerscalar(obj.options.(key)) || obj.options.(key) <= 0
                             error("MATLAB:Feature:significant_digits_NotPositiveInteger", "Option " + key + " must be a positive integer.")
                         end
                     case FeatureOptionKey.NOISE_LEVEL.value
-                        if ~isnumeric(obj.options.(key)) || obj.options.(key) < 0.0
-                            error("MATLAB:Feature:noise_level_NotPositive", "Option " + key + " must be a positive number.")
+                        if ~isrealscalar(obj.options.(key)) || obj.options.(key) <= 0.0
+                            error("MATLAB:Feature:noise_level_NotPositive", "Option " + key + " must be a positive real number.")
                         end
                     case FeatureOptionKey.NOISE_TYPE.value
                         validNoiseTypes = cellfun(@(x) x.value, num2cell(enumeration('NoiseType')), 'UniformOutput', false);
@@ -142,8 +142,8 @@ classdef Feature < handle
                             error("MATLAB:Feature:rotated_NotLogical", "Option " + key + " must be a logical.")
                         end
                     case FeatureOptionKey.CONDITION_NUMBER.value
-                        if ~strcmp(obj.options.(key), 'dimension_dependent') && ~(isnumeric(obj.options.(key)) && obj.options.(key) >= 1)
-                            error("MATLAB:Feature:condition_number_InvalidInput", "Option " + key + " must be either 'dimension_dependent' or a positive number greater than or equal to 1.")
+                        if ~strcmp(obj.options.(key), 'dimension_dependent') && ~(isrealscalar(obj.options.(key)) && obj.options.(key) >= 1)
+                            error("MATLAB:Feature:condition_number_InvalidInput", "Option " + key + " must be either 'dimension_dependent' or a positive real number greater than or equal to 1.")
                         end
                     case FeatureOptionKey.UNRELAXABLE_BOUNDS.value
                         if ~islogical(obj.options.(key))
@@ -377,7 +377,7 @@ classdef Feature < handle
             %     Random number generator.
 
             % Create an initial rand_stream with the given seed
-            if ~isequal(seed, 'shuffle') && isnumeric(seed)
+            if ~isequal(seed, 'shuffle') && isrealscalar(seed) && seed >= 0
                 seed = mod(floor(seed), 2^32);
             end
             rand_stream = RandStream('mt19937ar', 'Seed', seed);

@@ -47,23 +47,17 @@ classdef FeaturedProblem < Problem
 
             % Preprocess the feature.
             if ~isa(feature, 'Feature')
-                error("The argument feature must be an instance of the class Feature.");
+                error("MATLAB:FeaturedProblem:NotFeatureClass", "The argument feature must be an instance of the class Feature.");
             end
 
             % Preprocess the maximum number of function evaluations.
-            if ~isreal(max_eval)
-                error("The argument feature max_eval must be a real number.");
-            end
-            if max_eval < 1 || max_eval ~= floor(max_eval)
-                error("The argument max_eval must be a positive integer.");
+            if ~(isintegerscalar(max_eval) && max_eval > 0)
+                error("MATLAB:FeaturedProblem:max_evalNotPositiveInteger", "The argument max_eval must be a positive integer.");
             end
 
             % Preprocess the seed.
-            if ~isreal(seed)
-                error("The argument feature seed must be a real number.");
-            end
-            if seed < 0 || seed ~= floor(seed)
-                error("The argument seed must be a nonnegative integer.");
+            if ~(isintegerscalar(seed) && seed >= 0 && seed < 2^32)
+                error("MATLAB:FeaturedProblem:seedNotNonnegativeInteger", "The argument seed must be a nonnegative integer seed less than 2^32");
             end
 
             rand_stream = feature.default_rng(seed);
@@ -99,7 +93,7 @@ classdef FeaturedProblem < Problem
             
             % Copy the problem.
             if ~isa(problem, 'Problem')
-                error("The argument problem must be an instance of the class Problem.");
+                error("MATLAB:FeaturedProblem:NotProblemClass", "The argument problem must be an instance of the class Problem.");
             end
             pb_struct = struct('fun', problem.fun_, 'x0', problem.x0, 'xl', problem.xl, ...
                 'xu', problem.xu, 'aub', problem.aub, 'bub', problem.bub, 'aeq', problem.aeq, ...
@@ -146,16 +140,6 @@ classdef FeaturedProblem < Problem
 
             % Initialize the FeaturedProblem object.
             obj@Problem(pb_struct);
-            % try
-            %     obj.m_nonlinear_ub = problem.m_nonlinear_ub;
-            % catch
-            %     % pass
-            % end
-            % try
-            %     obj.m_nonlinear_eq = problem.m_nonlinear_eq;
-            % catch
-            %     % pass
-            % end
 
             obj.feature = feature;
             obj.max_eval = max_eval;
