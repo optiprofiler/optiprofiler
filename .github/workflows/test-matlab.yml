@@ -32,7 +32,7 @@ jobs:
         uses: matlab-actions/setup-matlab@v1
         with:
           release: ${{ matrix.matlab }}
-          products: Optimization_Toolbox
+          products: [Optimization_Toolbox, Parallel_Computing_Toolbox]
 
       - name: Setup OptiProfiler and run tests
         uses: matlab-actions/run-command@v1.2.2
@@ -40,9 +40,6 @@ jobs:
           command: |
             % Add paths
             addpath(genpath(pwd))
-            
-            % Display contents of the current directory
-            ls
 
             % Run tests
             cd matlab/optiprofiler/
