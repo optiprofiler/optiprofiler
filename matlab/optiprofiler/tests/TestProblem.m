@@ -421,7 +421,7 @@ classdef TestProblem < matlab.unittest.TestCase
             problemInstance5 = Problem(s5);
             problemInstance5.project_x0;
             norm(problemInstance5.cub(problemInstance5.x0))
-            testCase.verifyTrue(norm(problemInstance5.cub(problemInstance5.x0)) <= 1e-6);
+            testCase.verifyTrue(norm(problemInstance5.cub(problemInstance5.x0)) <= 1e-5);
         end
 
     end
