@@ -35,8 +35,8 @@ classdef Feature < handle
                 Type of the noisy and perturbed_x0 features.
             %}
 
-            if ~ischar(feature_name) && ~isstring(feature_name)
-                error("MATLAB:Feature:FeaturenameNotString", "The feature name must be a string.")
+            if ~ischarstr(feature_name)
+                error("MATLAB:Feature:FeaturenameNotString", "The feature name must be a char or a string.")
             end
             % Convert the feature name to lowercase characters.
             obj.name = char(lower(feature_name));
@@ -99,9 +99,6 @@ classdef Feature < handle
                 % Check whether the option type is valid.
                 switch key
                     case FeatureOptionKey.N_RUNS.value
-                        if isfloat(obj.options.(key)) && (obj.options.(key) == round(obj.options.(key)))
-                            obj.options.(key) = int32(obj.options.(key));
-                        end
                         if ~isintegerscalar(obj.options.(key)) || obj.options.(key) <= 0
                             error("MATLAB:Feature:n_runs_NotPositiveInteger", "Option " + key + " must be a positive integer.")
                         end
@@ -118,9 +115,6 @@ classdef Feature < handle
                             error("MATLAB:Feature:rate_nan_NotBetween_0_1", "Option " + key + " must be a real number between 0 and 1.")
                         end
                     case FeatureOptionKey.SIGNIFICANT_DIGITS.value
-                        if isfloat(obj.options.(key)) && (obj.options.(key) == round(obj.options.(key)))
-                            obj.options.(key) = int32(obj.options.(key));
-                        end
                         if ~isintegerscalar(obj.options.(key)) || obj.options.(key) <= 0
                             error("MATLAB:Feature:significant_digits_NotPositiveInteger", "Option " + key + " must be a positive integer.")
                         end
@@ -130,15 +124,15 @@ classdef Feature < handle
                         end
                     case FeatureOptionKey.NOISE_TYPE.value
                         validNoiseTypes = cellfun(@(x) x.value, num2cell(enumeration('NoiseType')), 'UniformOutput', false);
-                        if ~(ischar(obj.options.(key)) || isstring(obj.options.(key))) || ~ismember(obj.options.(key), validNoiseTypes)
+                        if ~ischarstr(obj.options.(key)) || ~ismember(obj.options.(key), validNoiseTypes)
                             error("MATLAB:Feature:noise_type_InvalidInput", "Option " + key + " must be either '" + NoiseType.ABSOLUTE.value + "' or '" + NoiseType.RELATIVE.value + "'.")
                         end
                     case FeatureOptionKey.PERTURBED_TRAILING_ZEROS.value
-                        if ~islogical(obj.options.(key))
+                        if ~islogicalscalar(obj.options.(key))
                             error("MATLAB:Feature:perturbed_trailing_zeros_NotLogical", "Option " + key + " must be a logical.")
                         end
                     case FeatureOptionKey.ROTATED.value
-                        if ~islogical(obj.options.(key))
+                        if ~islogicalscalar(obj.options.(key))
                             error("MATLAB:Feature:rotated_NotLogical", "Option " + key + " must be a logical.")
                         end
                     case FeatureOptionKey.CONDITION_NUMBER.value
@@ -146,15 +140,15 @@ classdef Feature < handle
                             error("MATLAB:Feature:condition_number_InvalidInput", "Option " + key + " must be either 'dimension_dependent' or a positive real number greater than or equal to 1.")
                         end
                     case FeatureOptionKey.UNRELAXABLE_BOUNDS.value
-                        if ~islogical(obj.options.(key))
+                        if ~islogicalscalar(obj.options.(key))
                             error("MATLAB:Feature:unrelaxable_bounds_NotLogical", "Option " + key + " must be a logical.")
                         end
                     case FeatureOptionKey.UNRELAXABLE_LINEAR_CONSTRAINTS.value
-                        if ~islogical(obj.options.(key))
+                        if ~islogicalscalar(obj.options.(key))
                             error("MATLAB:Feature:unrelaxable_linear_constraints_NotLogical", "Option " + key + " must be a logical.")
                         end
                     case FeatureOptionKey.UNRELAXABLE_NONLINEAR_CONSTRAINTS.value
-                        if ~islogical(obj.options.(key))
+                        if ~islogicalscalar(obj.options.(key))
                             error("MATLAB:Feature:unrelaxable_nonlinear_constraints_NotLogical", "Option " + key + " must be a logical.")
                         end
                 end
@@ -225,7 +219,7 @@ classdef Feature < handle
                     if f == 0
                         digits = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - 1;
                     else
-                        digits = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - int32(floor(log10(abs(f)))) - 1;
+                        digits = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - floor(log10(abs(f))) - 1;
                     end
                     digits = double(digits);
                     % Round f to the desired number of significant digits. (We can also use 'fix(x)' to round towards zero.)
@@ -263,21 +257,21 @@ classdef Feature < handle
             switch obj.name
                 case FeatureName.PLAIN.value
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
-                        obj.options.(FeatureOptionKey.N_RUNS.value) = int32(1);
+                        obj.options.(FeatureOptionKey.N_RUNS.value) = 1;
                     end
                 case FeatureName.CUSTOM.value
                     if ~isfield(obj.options, FeatureOptionKey.MODIFIER.value)
                         error("MATLAB:Feature:MissingModifier", "When using a custom feature, you must specify the " + FeatureOptionKey.MODIFIER.value + " option.");
                     end
                     if ~isfield(obj.options, 'n_runs')
-                        obj.options.(FeatureOptionKey.N_RUNS.value) = int32(1);
+                        obj.options.(FeatureOptionKey.N_RUNS.value) = 1;
                     end
                 case FeatureName.NOISY.value
                     if ~isfield(obj.options, FeatureOptionKey.DISTRIBUTION.value)
                         obj.options.(FeatureOptionKey.DISTRIBUTION.value) = @obj.default_distribution;
                     end
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
-                        obj.options.(FeatureOptionKey.N_RUNS.value) = int32(10);
+                        obj.options.(FeatureOptionKey.N_RUNS.value) = 10;
                     end
                     if ~isfield(obj.options, FeatureOptionKey.NOISE_LEVEL.value)
                         obj.options.(FeatureOptionKey.NOISE_LEVEL.value) = 1e-3;
@@ -287,11 +281,11 @@ classdef Feature < handle
                     end
                 case FeatureName.PERMUTED.value
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
-                        obj.options.(FeatureOptionKey.N_RUNS.value) = int32(10);
+                        obj.options.(FeatureOptionKey.N_RUNS.value) = 10;
                     end
                 case FeatureName.AFFINE_TRANSFORMED.value
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
-                        obj.options.(FeatureOptionKey.N_RUNS.value) = int32(10);
+                        obj.options.(FeatureOptionKey.N_RUNS.value) = 10;
                     end
                     if ~isfield(obj.options, FeatureOptionKey.ROTATED.value)
                         obj.options.(FeatureOptionKey.ROTATED.value) = true;
@@ -310,11 +304,11 @@ classdef Feature < handle
                         obj.options.(FeatureOptionKey.NOISE_TYPE.value) = NoiseType.RELATIVE.value;
                     end
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
-                        obj.options.(FeatureOptionKey.N_RUNS.value) = int32(10);
+                        obj.options.(FeatureOptionKey.N_RUNS.value) = 10;
                     end
                 case FeatureName.RANDOM_NAN.value
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
-                        obj.options.(FeatureOptionKey.N_RUNS.value) = int32(10);
+                        obj.options.(FeatureOptionKey.N_RUNS.value) = 10;
                     end
                     if ~isfield(obj.options, FeatureOptionKey.RATE_NAN.value)
                         obj.options.(FeatureOptionKey.RATE_NAN.value) = 0.05;
@@ -325,17 +319,17 @@ classdef Feature < handle
                     end
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
                         if obj.options.(FeatureOptionKey.PERTURBED_TRAILING_ZEROS.value)
-                            obj.options.(FeatureOptionKey.N_RUNS.value) = int32(10);
+                            obj.options.(FeatureOptionKey.N_RUNS.value) = 10;
                         else
-                            obj.options.(FeatureOptionKey.N_RUNS.value) = int32(1);
+                            obj.options.(FeatureOptionKey.N_RUNS.value) = 1;
                         end
                     end
                     if ~isfield(obj.options, FeatureOptionKey.SIGNIFICANT_DIGITS.value)
-                        obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) = int32(6);
+                        obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) = 6;
                     end
                 case FeatureName.UNRELAXABLE_CONSTRAINTS.value
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
-                        obj.options.(FeatureOptionKey.N_RUNS.value) = int32(1);
+                        obj.options.(FeatureOptionKey.N_RUNS.value) = 1;
                     end
                     if ~isfield(obj.options, FeatureOptionKey.UNRELAXABLE_BOUNDS.value)
                         obj.options.(FeatureOptionKey.UNRELAXABLE_BOUNDS.value) = false;

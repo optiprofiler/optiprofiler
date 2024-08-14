@@ -271,7 +271,7 @@ classdef Problem < handle
         % Preprocess the number of nonlinear constraints.
         function set.m_nonlinear_ub_(obj, m_nonlinear_ub)
             if ~isempty(m_nonlinear_ub)
-                if ~(isnumeric(m_nonlinear_ub) && m_nonlinear_ub >= 0 && mod(m_nonlinear_ub, 1) == 0)
+                if ~isintegerscalar(m_nonlinear_ub) || m_nonlinear_ub < 0
                     error("MATLAB:Problem:m_nonlinear_ub_NotPositiveScalar", "The argument `m_nonlinear_ub` must be a nonnegative integer.")
                 end
                 obj.m_nonlinear_ub_ = m_nonlinear_ub;
@@ -282,7 +282,7 @@ classdef Problem < handle
 
         function set.m_nonlinear_eq_(obj, m_nonlinear_eq)
             if ~isempty(m_nonlinear_eq)
-                if ~(isnumeric(m_nonlinear_eq) && m_nonlinear_eq >= 0 && mod(m_nonlinear_eq, 1) == 0)
+                if ~isintegerscalar(m_nonlinear_eq) || m_nonlinear_eq < 0
                     error("MATLAB:Problem:m_nonlinear_eq_NotPositiveScalar", "The argument `m_nonlinear_eq` must be a nonnegative integer.")
                 end
                 obj.m_nonlinear_eq_ = m_nonlinear_eq;
@@ -321,7 +321,7 @@ classdef Problem < handle
             end
         end
 
-        % Other getter functions.      
+        % Other getter functions.
 
         function value = get.xl(obj)
             if isempty(obj.xl)
@@ -403,12 +403,12 @@ classdef Problem < handle
                 return
             end
             
-            if ~isempty(obj.xl)
+            if any(isfinite(obj.xl))
                 cv_bounds = max(max(obj.xl - x), 0);
             else
                 cv_bounds = 0;
             end
-            if ~isempty(obj.xu)
+            if any(isfinite(obj.xu))
                 cv_bounds = max(max(x - obj.xu), cv_bounds);
             end
             if strcmp(obj.type, 'bound-constrained')
@@ -594,7 +594,7 @@ classdef Problem < handle
                 if isempty(obj.ceq_)
                     m = 0;
                 else
-                    error("MATLAB:Problem:m_nonlinear_ub_Unknown", "The number of nonlinear equality constraints is unknown.");
+                    error("MATLAB:Problem:m_nonlinear_eq_Unknown", "The number of nonlinear equality constraints is unknown.");
                 end
             else
                 m = obj.m_nonlinear_eq_;
@@ -610,7 +610,9 @@ classdef Problem < handle
                 c = obj.cub(x);
                 ceq = obj.ceq(x);
             end
-            if strcmp(obj.type, 'bound-constrained')
+            if strcmp(obj.type, 'unconstrained')
+                return
+            elseif strcmp(obj.type, 'bound-constrained')
                 obj.x0 = min(max(obj.x0, obj.xl), obj.xu);
             elseif strcmp(obj.type, 'linearly constrained') && obj.m_linear_ub == 0 && all(obj.xl == -Inf) && all(obj.xu == Inf)
                 try

@@ -63,3 +63,4 @@ ignore$
 ^\.github/actions/spelling/
 ^\Q.github/workflows/spelling.yml\E$
 /tests/__init__.py$
+/matlab/optiprofiler/probinfo_s2mpj/

@@ -208,7 +208,7 @@ classdef TestProblem < matlab.unittest.TestCase
             testCase.verifyEqual(problemInstance1.m_nonlinear_ub, 0);
             s2 = struct('fun', @(x) x.' * x, 'x0', [0 0], 'cub', @(x) x.' * x);
             problemInstance2 = Problem(s2);
-            testCase.verifyEqual(problemInstance2.m_nonlinear_ub, []);
+            testCase.verifyError(@() problemInstance2.m_nonlinear_ub, "MATLAB:Problem:m_nonlinear_ub_Unknown");
             s3 = struct('fun', @(x) x.' * x, 'x0', [0 0], 'cub', @(x) x.' * x, 'm_nonlinear_ub', 1);
             problemInstance3 = Problem(s3);
             testCase.verifyEqual(problemInstance3.m_nonlinear_ub, 1);
@@ -221,7 +221,7 @@ classdef TestProblem < matlab.unittest.TestCase
             testCase.verifyEqual(problemInstance1.m_nonlinear_eq, 0);
             s2 = struct('fun', @(x) x.' * x, 'x0', [0 0], 'ceq', @(x) x.' * x);
             problemInstance2 = Problem(s2);
-            testCase.verifyEqual(problemInstance2.m_nonlinear_eq, []);
+            testCase.verifyError(@() problemInstance2.m_nonlinear_eq, "MATLAB:Problem:m_nonlinear_eq_Unknown");
             s3 = struct('fun', @(x) x.' * x, 'x0', [0 0], 'ceq', @(x) x.' * x, 'm_nonlinear_eq', 1);
             problemInstance3 = Problem(s3);
             testCase.verifyEqual(problemInstance3.m_nonlinear_eq, 1);
@@ -294,6 +294,9 @@ classdef TestProblem < matlab.unittest.TestCase
             % Test that obj.maxCV(x) returns the correct value.
             s1 = struct('fun', @(x) x.' * x, 'x0', [0 0]);
             problemInstance1 = Problem(s1);
+            testCase.verifyError(@() problemInstance1.maxcv(ones(2, 2, 3)), "MATLAB:Problem:InvalidInputForMaxCV");
+            testCase.verifyError(@() problemInstance1.maxcv(ones(3, 1)), "MATLAB:Problem:WrongSizeInputForMaxCV");
+            testCase.verifyEqual(problemInstance1.maxcv([0; 0]), 0);
             testCase.verifyEqual(problemInstance1.maxcv([10; 10]), 0);
             s2 = struct('fun', @(x) x.' * x, 'x0', [0 0], 'xl', [10; 10]);
             problemInstance2 = Problem(s2);
@@ -389,6 +392,35 @@ classdef TestProblem < matlab.unittest.TestCase
             s6 = struct('fun', @(x) x.' * x, 'x0', [0 0], 'ceq', @alwaysCell, 'm_nonlinear_eq', 1);
             problemInstance6 = Problem(s6);
             testCase.verifyWarning(@() problemInstance6.ceq([0; 0]), "MATLAB:invalidConversion");
+        end
+
+        function testProject_x0(testCase)
+            % Test that obj.project_x0 works as expected.
+
+            s1 = struct('fun', @(x) x.' * x, 'x0', [0 0]);
+            problemInstance1 = Problem(s1);
+            problemInstance1.project_x0;
+            testCase.verifyEqual(problemInstance1.x0, [0; 0]);
+
+            s2 = struct('fun', @(x) x.' * x, 'x0', [0 0], 'xl', [1; -1], 'xu', [1; -1]);
+            problemInstance2 = Problem(s2);
+            problemInstance2.project_x0;
+            testCase.verifyEqual(problemInstance2.x0, [1; -1]);
+
+            s3 = struct('fun', @(x) x.' * x, 'x0', [0 0], 'aeq', [1 1; 1 1], 'beq', [1; 1]);
+            problemInstance3 = Problem(s3);
+            problemInstance3.project_x0;
+            testCase.verifyTrue(norm(problemInstance3.x0 - [0.5; 0.5]) < 1e-6);
+
+            s4 = struct('fun', @(x) x.' * x, 'x0', [0 0], 'aub', [-1 -1; -1 -1], 'bub', [-1; -1]);
+            problemInstance4 = Problem(s4);
+            problemInstance4.project_x0;
+            testCase.verifyTrue(norm(problemInstance4.x0 - [0.5; 0.5]) < 1e-6);
+
+            s5 = struct('fun', @(x) x.' * x, 'x0', [10 10], 'cub', @(x) x.' * x - 1, 'm_nonlinear_ub', 1);
+            problemInstance5 = Problem(s5);
+            problemInstance5.project_x0;
+            testCase.verifyTrue(norm(problemInstance5.cub(problemInstance5.x0)) <= 1e-6);
         end
 
     end

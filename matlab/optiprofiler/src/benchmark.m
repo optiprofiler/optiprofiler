@@ -43,7 +43,7 @@ function benchmark(solvers, varargin)
         custom_problem_names = {};
         options = struct();
     elseif nargin == 2
-        if ischar(varargin{1}) || isstring(varargin{1})
+        if ischarstr(varargin{1})
             feature_names = varargin{1};
             labels = cellfun(@func2str, solvers, 'UniformOutput', false);
             cutest_problem_names = {};
@@ -97,7 +97,7 @@ function benchmark(solvers, varargin)
     end
 
     % Preprocess the labels.
-    if ~iscell(labels) || ~all(cellfun(@(l) ischar(l) || isstring(l), labels))
+    if ~iscell(labels) || ~all(cellfun(@(l) ischarstr(l), labels))
         error("The labels must be a list of strings.");
     end
     if numel(labels) ~= 0 && numel(labels) ~= numel(solvers)
@@ -125,7 +125,7 @@ function benchmark(solvers, varargin)
         error("A custom problem loader must be given to load custom problems.");
     end
     if ~isempty(custom_problem_names)
-        if ~iscell(custom_problem_names) || ~all(cellfun(@ischar, custom_problem_names) | cellfun(@isstring, custom_problem_names))
+        if ~iscell(custom_problem_names) || ~all(cellfun(@ischarstr, custom_problem_names))
             error("The custom problem names must be a cell array of chars or strings.");
         end
         custom_problem_names = cellfun(@char, custom_problem_names, 'UniformOutput', false);  % Convert to cell array of chars.
@@ -185,8 +185,8 @@ function benchmark(solvers, varargin)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%% Check whether the cutest options are valid. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Judge whether cutest_options.problem_type is among all possible problem types.
     if isfield(cutest_options, CutestOptionKey.PROBLEM_TYPE.value)
-        if ~isstring(cutest_options.(CutestOptionKey.PROBLEM_TYPE.value)) && ~ischar(cutest_options.(CutestOptionKey.PROBLEM_TYPE.value))
-            error("cutest_options.problem_type should be a string.");
+        if ~ischarstr(cutest_options.(CutestOptionKey.PROBLEM_TYPE.value))
+            error("cutest_options.problem_type should be a char or a string.");
         else
             % Convert to lower case CHAR.
             cutest_options.(CutestOptionKey.PROBLEM_TYPE.value) = lower(char(cutest_options.(CutestOptionKey.PROBLEM_TYPE.value)));
@@ -198,13 +198,13 @@ function benchmark(solvers, varargin)
     end
     % Judge whether cutest_options.mindim is a integer greater or equal to 1.
     if isfield(cutest_options, CutestOptionKey.MINDIM.value)
-        if ~isnumeric(cutest_options.(CutestOptionKey.MINDIM.value)) || cutest_options.(CutestOptionKey.MINDIM.value) < 1
+        if ~isintegerscalar(cutest_options.(CutestOptionKey.MINDIM.value)) || cutest_options.(CutestOptionKey.MINDIM.value) < 1
             error("cutest_options.mindim should be a integer greater or equal to 1.");
         end
     end
     % Judge whether cutest_options.maxdim is a integer greater or equal to 1, or equal to Inf.
     if isfield(cutest_options, CutestOptionKey.MAXDIM.value)
-        if ~isnumeric(cutest_options.(CutestOptionKey.MAXDIM.value)) || (cutest_options.(CutestOptionKey.MAXDIM.value) < 1 && cutest_options.(CutestOptionKey.MAXDIM.value) ~= Inf)
+        if ~isintegerscalar(cutest_options.(CutestOptionKey.MAXDIM.value)) || (cutest_options.(CutestOptionKey.MAXDIM.value) < 1 && cutest_options.(CutestOptionKey.MAXDIM.value) ~= Inf)
             error("cutest_options.maxdim should be a integer greater or equal to 1, or equal to Inf.");
         end
     end
@@ -216,13 +216,13 @@ function benchmark(solvers, varargin)
     end
     % Judge whether cutest_options.mincon is a integer greater or equal to 0.
     if isfield(cutest_options, CutestOptionKey.MINCON.value)
-        if ~isnumeric(cutest_options.(CutestOptionKey.MINCON.value)) || cutest_options.(CutestOptionKey.MINCON.value) < 0
+        if ~isintegerscalar(cutest_options.(CutestOptionKey.MINCON.value)) || cutest_options.(CutestOptionKey.MINCON.value) < 0
             error("cutest_options.mincon should be a integer greater or equal to 0.");
         end
     end
     % Judge whether cutest_options.maxcon is a integer greater or equal to 0, or equal to Inf.
     if isfield(cutest_options, CutestOptionKey.MAXCON.value)
-        if ~isnumeric(cutest_options.(CutestOptionKey.MAXCON.value)) || (cutest_options.(CutestOptionKey.MAXCON.value) < 0 && cutest_options.(CutestOptionKey.MAXCON.value) ~= Inf)
+        if ~isintegerscalar(cutest_options.(CutestOptionKey.MAXCON.value)) || (cutest_options.(CutestOptionKey.MAXCON.value) < 0 && cutest_options.(CutestOptionKey.MAXCON.value) ~= Inf)
             error("cutest_options.maxcon should be a integer greater or equal to 0, or equal to Inf.");
         end
     end
@@ -234,7 +234,7 @@ function benchmark(solvers, varargin)
     end
     % Judge whether cutest_options.excludelist is a cell array of strings or chars.
     if isfield(cutest_options, CutestOptionKey.EXCLUDELIST.value)
-        if ~iscell(cutest_options.(CutestOptionKey.EXCLUDELIST.value)) || ~all(cellfun(@ischar, cutest_options.(CutestOptionKey.EXCLUDELIST.value)) | cellfun(@isstring, cutest_options.(CutestOptionKey.EXCLUDELIST.value)))
+        if ~iscell(cutest_options.(CutestOptionKey.EXCLUDELIST.value)) || ~all(cellfun(@ischarstr, cutest_options.(CutestOptionKey.EXCLUDELIST.value)))
             error("cutest_options.excludelist should be a cell array of strings or chars.");
         end
         cutest_options.(CutestOptionKey.EXCLUDELIST.value) = cellfun(@char, cutest_options.(CutestOptionKey.EXCLUDELIST.value), 'UniformOutput', false);  % Convert to cell array of chars.
@@ -243,7 +243,7 @@ function benchmark(solvers, varargin)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%% Check whether the profile options are valid. %%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Judge whether profile_options.n_jobs is a integer between 1 and nb_cores.
     if isfield(profile_options, ProfileOptionKey.N_JOBS.value)
-        if ~isnumeric(profile_options.(ProfileOptionKey.N_JOBS.value))
+        if ~isintegerscalar(profile_options.(ProfileOptionKey.N_JOBS.value))
             error("profile_options.n_jobs should be a integer.");
         elseif profile_options.(ProfileOptionKey.N_JOBS.value) < 1
             profile_options.(ProfileOptionKey.N_JOBS.value) = 1;
@@ -253,22 +253,22 @@ function benchmark(solvers, varargin)
             profile_options.(ProfileOptionKey.N_JOBS.value) = round(profile_options.(ProfileOptionKey.N_JOBS.value));
         end
     end
-    % Judge whether profile_options.benchmark_id is a string and satisfies the file name requirements (but it can be '.').
-    is_valid_foldername = @(x) ischar(x) && ~isempty(x) && all(ismember(x, ['a':'z', 'A':'Z', '0':'9', '_', '-']));
-    if ~isstring(profile_options.(ProfileOptionKey.BENCHMARK_ID.value)) && ~ischar(profile_options.(ProfileOptionKey.BENCHMARK_ID.value)) || ~is_valid_foldername(profile_options.(ProfileOptionKey.BENCHMARK_ID.value)) && ~strcmp(profile_options.(ProfileOptionKey.BENCHMARK_ID.value), '.')
-        error("profile_options.benchmark_id should be a string satisfying the file name requirements.");
+    % Judge whether profile_options.benchmark_id is a char or a string and satisfies the file name requirements (but it can be '.').
+    is_valid_foldername = @(x) ischarstr(x) && ~isempty(x) && all(ismember(char(x), ['a':'z', 'A':'Z', '0':'9', '_', '-']));
+    if ~ischarstr(profile_options.(ProfileOptionKey.BENCHMARK_ID.value)) || ~is_valid_foldername(profile_options.(ProfileOptionKey.BENCHMARK_ID.value)) && ~strcmp(profile_options.(ProfileOptionKey.BENCHMARK_ID.value), '.')
+        error("profile_options.benchmark_id should be a char or a string satisfying the file name requirements.");
     end
     % Judge whether profile_options.range_type is among 'minmax' and 'meanstd'.
     if ~ismember(profile_options.(ProfileOptionKey.RANGE_TYPE.value), {'minmax', 'meanstd'})
-        error("profile_options.range_type should be either 'minmax' or 'meanstd'.");
+        error("range_type should be either 'minmax' or 'meanstd'.");
     end
-    % Judge whether profile_options.std_factor is a positive float.
-    if ~isfloat(profile_options.(ProfileOptionKey.STD_FACTOR.value)) || profile_options.(ProfileOptionKey.STD_FACTOR.value) <= 0
-        error("profile_options.std_factor should be a positive float.");
+    % Judge whether profile_options.std_factor is a positive real number.
+    if ~isrealscalar(profile_options.(ProfileOptionKey.STD_FACTOR.value)) || profile_options.(ProfileOptionKey.STD_FACTOR.value) <= 0
+        error("std_factor should be a positive real number.");
     end
     % Judge whether profile_options.savepath is a string and exists. If not exists, create it.
-    if ~isstring(profile_options.(ProfileOptionKey.SAVEPATH.value)) && ~ischar(profile_options.(ProfileOptionKey.SAVEPATH.value))
-        error("profile_options.savepath should be a string.");
+    if ~ischarstr(profile_options.(ProfileOptionKey.SAVEPATH.value))
+        error("savepath should be a char or a string.");
     elseif ~exist(profile_options.(ProfileOptionKey.SAVEPATH.value), 'dir')
         status = mkdir(profile_options.(ProfileOptionKey.SAVEPATH.value));
         if ~status
@@ -276,32 +276,32 @@ function benchmark(solvers, varargin)
         end
     end
     % Judge whether profile_options.max_tol_order is a positive integer.
-    if (~isfloat(profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)) && ~isinteger(profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value))) || (floor(profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value))~=profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)) || (profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) <= 0)
-        error("profile_options.max_tol_order should be a positive integer.");
+    if ~isintegerscalar(profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)) || profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) <= 0
+        error("max_tol_order should be a positive integer.");
     end
     % Judge whether profile_options.max_eval_factor is a positive integer.
-    if (~isfloat(profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value)) && ~isinteger(profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value))) || (floor(profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value))~=profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value)) || (profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value) <= 0)
-        error("profile_options.max_eval_factor should be a positive integer.");
+    if ~isintegerscalar(profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value)) || profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value) <= 0
+        error("max_eval_factor should be a positive integer.");
     end
     % Judge whether profile_options.project_x0 is a boolean.
-    if ~islogical(profile_options.(ProfileOptionKey.PROJECT_X0.value))
-        error("profile_options.project_x0 should be a boolean.");
+    if ~islogicalscalar(profile_options.(ProfileOptionKey.PROJECT_X0.value))
+        error("project_x0 should be a boolean.");
     end
     % Judge whether profile_options.run_plain is a boolean.
-    if ~islogical(profile_options.(ProfileOptionKey.RUN_PLAIN.value))
-        error("profile_options.run_plain should be a boolean.");
+    if ~islogicalscalar(profile_options.(ProfileOptionKey.RUN_PLAIN.value))
+        error("run_plain should be a boolean.");
     end
     % Judge whether profile_options.summarize_performance_profiles is a boolean.
-    if ~islogical(profile_options.(ProfileOptionKey.SUMMARIZE_PERFORMANCE_PROFILES.value))
-        error("profile_options.summarize_performance_profiles should be a boolean.");
+    if ~islogicalscalar(profile_options.(ProfileOptionKey.SUMMARIZE_PERFORMANCE_PROFILES.value))
+        error("summarize_performance_profiles should be a boolean.");
     end
     % Judge whether profile_options.summarize_data_profiles is a boolean.
-    if ~islogical(profile_options.(ProfileOptionKey.SUMMARIZE_DATA_PROFILES.value))
-        error("profile_options.summarize_data_profiles should be a boolean.");
+    if ~islogicalscalar(profile_options.(ProfileOptionKey.SUMMARIZE_DATA_PROFILES.value))
+        error("summarize_data_profiles should be a boolean.");
     end
     % Judge whether profile_options.summarize_log_ratio_profiles is a boolean.
-    if ~islogical(profile_options.(ProfileOptionKey.SUMMARIZE_LOG_RATIO_PROFILES.value))
-        error("profile_options.summarize_log_ratio_profiles should be a boolean.");
+    if ~islogicalscalar(profile_options.(ProfileOptionKey.SUMMARIZE_LOG_RATIO_PROFILES.value))
+        error("summarize_log_ratio_profiles should be a boolean.");
     end
     if profile_options.(ProfileOptionKey.SUMMARIZE_LOG_RATIO_PROFILES.value) && numel(solvers) > 2
         warning("The log-ratio profiles are available only when there are exactly two solvers.");
@@ -318,7 +318,7 @@ function benchmark(solvers, varargin)
 
     % Preprocess the CUTEst problem names given by the user.
     if ~isempty(cutest_problem_names)
-        if ~iscell(cutest_problem_names) || ~all(cellfun(@ischar, cutest_problem_names) | cellfun(@isstring, cutest_problem_names))
+        if ~iscell(cutest_problem_names) || ~all(cellfun(@ischarstr, cutest_problem_names))
             error("The CUTEst problem names must be a cell array of chars or strings.");
         end
         % Convert to a cell row vector of upper case chars.
@@ -441,7 +441,7 @@ function benchmark(solvers, varargin)
         feature_names = cellfun(@(x) x.value, num2cell(enumeration('FeatureName')), 'UniformOutput', false);
         custom_idx = strcmp(feature_names, FeatureName.CUSTOM.value);
         feature_names(custom_idx) = [];
-    elseif isstring(feature_names) || ischar(feature_names)
+    elseif ischarstr(feature_names)
         feature_names = {feature_names};
     end
     for i_feature = 1:length(feature_names)
