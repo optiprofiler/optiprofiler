@@ -1,80 +1,78 @@
 classdef TestSolveAll < matlab.unittest.TestCase
     methods (Test)
         function testWithValidInput(testCase)
-            % Define valid problem names, options, solvers, labels, feature, max_eval_factor, and profile_options
-            problem_names = {'AKIVA', 'BEALE'};
-            problem_options = struct('maxdim', 2);
-            solvers = {@fminsearch_test};
-            labels = {'fminsearch'};
-            feature = Feature('plain');
-            max_eval_factor = 500;
-            profile_options = struct('n_jobs', 1);
+            % Test whether the function returns the correct outputs when given valid input.
 
-            % Call the function under test
-            [fun_values, maxcv_values, fun_inits, maxcv_inits, n_evals, problem_names_output, problem_dimensions] = solveAll(problem_names, problem_options, solvers, labels, feature, max_eval_factor, profile_options);
-
-            % Verify the function outputs
-            testCase.verifyNotEmpty(fun_values);
-            testCase.verifyNotEmpty(maxcv_values);
-            testCase.verifyNotEmpty(fun_inits);
-            testCase.verifyNotEmpty(maxcv_inits);
-            testCase.verifyNotEmpty(n_evals);
-            testCase.verifyEqual(problem_names, problem_names_output);
-            testCase.verifyGreaterThan(problem_dimensions, 0);
-        end
-
-        % function testFevalFewerThanMaxEval(testCase)
-        %     problem_names = {'AKIVA', 'BEALE'};
-        %     problem_options = struct('maxdim', 2);
-        %     solvers = {@fewerfevalsolver};
-        %     labels = {'fewerfevalsolver'};
-        %     feature = Feature('plain');
-        %     max_eval_factor = 500;  % Set max_eval_factor to 0.1
-        %     profile_options = struct('n_jobs', 1);
-            
-        %     % Define a solver function that will be called less than max_eval_factor times
-        %     function [x, fval] = fewerfevalsolver(fun, x0, varargin)
-        %         x = x0;
-        %         fval = fun(x);
-        %     end
-
-        %     % Call the function under test
-        %     [fun_values, maxcv_values, fun_inits, maxcv_inits, n_evals, problem_names_output, problem_dimensions] = solveAll(problem_names, problem_options, solvers, labels, feature, max_eval_factor, profile_options);
-
-        %     % Verify the function outputs are in the correct size
-        %     testCase.verifyEqual(size(fun_values), [2 1 1 1000]);
-        %     testCase.verifyEqual(size(maxcv_values), [2 1 1 1000]);
-        % end
-
-        function testParallelComputing(testCase)
-            problem_names = {'AKIVA', 'BEALE'};
-            problem_options = struct('maxdim', 2);
+            cutest_problem_names = {'ALLINITU', 'BARD'};
+            custom_problem_loader = [];
+            custom_problem_names = [];
             solvers = {@fminsearch_test, @fminunc_test};
             labels = {'fminsearch', 'fminunc'};
             feature = Feature('plain');
-            max_eval_factor = 500;
-            profile_options = struct('n_jobs', 2);  % Parallel computing option set to 2 jobs
+            profile_options.max_eval_factor = 500;
+            profile_options.n_jobs = 1;
+            profile_options.project_x0 = false;
+            [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, computation_times] = solveAllProblems(cutest_problem_names, custom_problem_loader, custom_problem_names, solvers, labels, feature, profile_options);
+            testCase.verifyNotEmpty(fun_histories);
+            testCase.verifyNotEmpty(maxcv_histories);
+            testCase.verifyNotEmpty(fun_out);
+            testCase.verifyNotEmpty(maxcv_out);
+            testCase.verifyNotEmpty(fun_init);
+            testCase.verifyNotEmpty(maxcv_init);
+            testCase.verifyNotEmpty(n_eval);
+            testCase.verifyNotEmpty(problem_names);
+            testCase.verifyNotEmpty(problem_dimensions);
+            testCase.verifyNotEmpty(computation_times);
 
-            % Call the function under test
-            [fun_values, maxcv_values, fun_inits, maxcv_inits, n_evals, problem_names_output, problem_dimensions] = solveAll(problem_names, problem_options, solvers, labels, feature, max_eval_factor, profile_options);
-
-            % Verify the function outputs
-            testCase.verifyNotEmpty(fun_values);
-            testCase.verifyNotEmpty(maxcv_values);
-            testCase.verifyNotEmpty(fun_inits);
-            testCase.verifyNotEmpty(maxcv_inits);
-            testCase.verifyNotEmpty(n_evals);
-            testCase.verifyEqual(problem_names, problem_names_output);
-            testCase.verifyGreaterThan(problem_dimensions, 0);
+            profile_options.n_jobs = 2;
+            [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, computation_times] = solveAllProblems(cutest_problem_names, custom_problem_loader, custom_problem_names, solvers, labels, feature, profile_options);
+            testCase.verifyNotEmpty(fun_histories);
+            testCase.verifyNotEmpty(maxcv_histories);
+            testCase.verifyNotEmpty(fun_out);
+            testCase.verifyNotEmpty(maxcv_out);
+            testCase.verifyNotEmpty(fun_init);
+            testCase.verifyNotEmpty(maxcv_init);
+            testCase.verifyNotEmpty(n_eval);
+            testCase.verifyNotEmpty(problem_names);
+            testCase.verifyNotEmpty(problem_dimensions);
+            testCase.verifyNotEmpty(computation_times);
         end
 
+        function testAllProblemFailedToLoad(testCase)
+            % Test whether the function returns empty outputs when all problems failed to load.
+
+            cutest_problem_names = {'A', 'B'};
+            custom_problem_loader = [];
+            custom_problem_names = [];
+            solvers = {@fminsearch_test, @fminunc_test};
+            labels = {'fminsearch', 'fminunc'};
+            feature = Feature('plain');
+            profile_options.max_eval_factor = 500;
+            profile_options.n_jobs = 1;
+            profile_options.project_x0 = false;
+            [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, computation_times] = solveAllProblems(cutest_problem_names, custom_problem_loader, custom_problem_names, solvers, labels, feature, profile_options);
+            testCase.verifyEmpty(fun_histories);
+            testCase.verifyEmpty(maxcv_histories);
+            testCase.verifyEmpty(fun_out);
+            testCase.verifyEmpty(maxcv_out);
+            testCase.verifyEmpty(fun_init);
+            testCase.verifyEmpty(maxcv_init);
+            testCase.verifyEmpty(n_eval);
+            testCase.verifyEmpty(problem_names);
+            testCase.verifyEmpty(problem_dimensions);
+            testCase.verifyEmpty(computation_times);
+        end
     end
 end
 
-function [x, fval] = fminsearch_test(fun, x0, xl, xu, aub, bub, aeq, beq, cub, ceq, max_eval)
+function x = fminsearch_test(fun, x0)
 
-    n = length(x0);
-    options = optimset('MaxFunEvals', max_eval);
-    [x, fval] = fminsearch(fun, x0, options);
+    x = fminsearch(fun, x0);
+
+end
+
+function x = fminunc_test(fun, x0)
+
+    x = fminunc(fun, x0);
 
 end

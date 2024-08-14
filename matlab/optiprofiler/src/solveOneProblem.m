@@ -51,7 +51,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
             % Construct featured_problem.
             featured_problem = FeaturedProblem(problem, feature, max_eval, i_run);
             if ~ismember(nargin(solvers{i_solver}), [2, 4, 8, 10])
-                error("Solver %s has unknown signature.", labels{i_solver});
+                error("MATLAB:solveOneProblem:InvalidSolverSignature", "Solver %s has unknown signature.", labels{i_solver});
             end
             warning('off', 'all');
             try
