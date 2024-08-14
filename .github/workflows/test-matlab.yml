@@ -36,18 +36,12 @@ jobs:
             Optimization_Toolbox
             Parallel_Computing_Toolbox
 
-
       - name: Setup OptiProfiler and run tests
-        uses: matlab-actions/run-command@v1.2.2
+        uses: matlab-actions/run-tests@latest
         with:
           use-parallel: true
-          command: |
-            % Add paths
-            addpath(genpath(pwd))
-
-            % Run tests
-            cd matlab/optiprofiler/
-            runTests
+          test-results-report: "test-results/results.xml"
+          code-coverage-cobertura: "coverage.xml"
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1
