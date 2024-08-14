@@ -38,11 +38,8 @@ jobs:
         uses: matlab-actions/run-command@v1.2.2
         with:
           command: |
-            % Display current folder
-            disp(pwd);
-            
-            % Run setup.m script
-            setup
+            % Add paths
+            addpath(genpath(pwd))
             
             % Display contents of the current directory
             ls
