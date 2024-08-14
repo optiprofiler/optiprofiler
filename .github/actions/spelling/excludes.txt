@@ -8,6 +8,7 @@
 (?:^|/)requirements(?:-dev|-doc|-test|)\.txt$
 (?:^|/)vendor/
 (?:^|/)matlab_problems/
+(?:^|/)matlab/optiprofiler/probinfo_s2mpj/
 ignore$
 \.a$
 \.ai$
@@ -63,4 +64,3 @@ ignore$
 ^\.github/actions/spelling/
 ^\Q.github/workflows/spelling.yml\E$
 /tests/__init__.py$
-/matlab/optiprofiler/probinfo_s2mpj/
