@@ -420,7 +420,6 @@ classdef TestProblem < matlab.unittest.TestCase
             s5 = struct('fun', @(x) x.' * x, 'x0', [10 10], 'cub', @(x) x.' * x - 1, 'm_nonlinear_ub', 1);
             problemInstance5 = Problem(s5);
             problemInstance5.project_x0;
-            norm(problemInstance5.cub(problemInstance5.x0))
             testCase.verifyTrue(norm(problemInstance5.cub(problemInstance5.x0)) <= 1e-5);
         end
 

@@ -9,6 +9,7 @@
 (?:^|/)vendor/
 (?:^|/)matlab_problems/
 (?:^|/)matlab/optiprofiler/probinfo_s2mpj/
+(?:^|/)\.github/
 ignore$
 \.a$
 \.ai$
