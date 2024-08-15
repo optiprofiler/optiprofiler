@@ -122,7 +122,7 @@ function benchmark(solvers, varargin)
             end
         end
     elseif ~isempty(custom_problem_names)
-        error("MATLAB:benchmark:customloaerCanNotBeEmptyWhenHavingcustomnames", "A custom problem loader must be given to load custom problems.");
+        error("MATLAB:benchmark:customloaderCanNotBeEmptyWhenHavingcustomnames", "A custom problem loader must be given to load custom problems.");
     end
     if ~isempty(custom_problem_names)
         if ~ischarstr(custom_problem_names) || ~(iscell(custom_problem_names) && all(cellfun(@ischarstr, custom_problem_names)))

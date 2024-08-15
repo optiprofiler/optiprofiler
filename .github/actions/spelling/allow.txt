@@ -169,3 +169,15 @@ ZANGWIL
 zhang
 genpath
 xticks
+Acceptcustomnames
+Andsolvers
+customloader
+customnames
+Havingcustomloader
+Havingcustomnames
+Havingfeature
+Notcharstr
+Notubln
+Ofcharstr
+Thanmincon
+Thanmindim

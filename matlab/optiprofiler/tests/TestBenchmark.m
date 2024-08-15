@@ -10,15 +10,37 @@ classdef TestBenchmark < matlab.unittest.TestCase
             benchmark(solvers, {'plain', 'noisy'});
             
             options.feature_names = 'noisy';
-            options.n_jobs = 2;
+            options.n_jobs = 0;
             options.run_plain = false;
             options.n_runs = 5;
             options.max_tol_order = 3;
             options.problem_type = 'u';
-            options.maxdim = 2;
+            options.maxdim = 3;
             options.benchmark_id = 'unit-test';
             options.summarize_log_ratio_profiles = true;
             options.labels = {'fminsearch', 'fminunc'};
+            benchmark(solvers, options);
+
+            options.feature_names = 'plain';
+            options.labels = {};
+            options.custom_problem_names = {"A"};
+            options.custom_problem_loader = @custom_loader;
+            options.excludelist = {"SISSER2"};
+            options.n_jobs = 1000;
+            options.summarize_data_profiles = false;
+            options.summarize_performance_profiles = false;
+            options.cutest_problem_names = {'S308'};
+            options.benchmark_id = 'test-special-case';
+            savepath = fullfile(pwd, 'out', 'test-special-case');
+            mkdir(savepath);
+            % Create a txt file named 'a.txt' in the savepath.
+            fid = fopen(fullfile(savepath, 'a.txt'), 'w');
+            fclose(fid);
+            mkdir(fullfile(savepath, 'time-unknown'));
+            benchmark(solvers, options);
+            mkdir(fullfile(savepath, 'time-unknown-abc'));
+            benchmark(solvers, options);
+            mkdir(fullfile(savepath, 'time-unknown-100'));
             benchmark(solvers, options);
         end
 
@@ -50,7 +72,7 @@ classdef TestBenchmark < matlab.unittest.TestCase
 
             options.custom_problem_names = {'A', 'B'};
             options.custom_problem_loader = 1;
-            options.labels = {'fminsearch', 'fminunc'};
+            options = rmfield(options, 'labels');
             testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:customloaderNotFunctionHandle")
 
             options.custom_problem_names = {};
@@ -61,7 +83,7 @@ classdef TestBenchmark < matlab.unittest.TestCase
             testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:customloaderNotAcceptcustomnames")
 
             options.custom_problem_loader = {};
-            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:customloaerCanNotBeEmptyWhenHavingcustomnames")
+            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:customloaderCanNotBeEmptyWhenHavingcustomnames")
 
             options.custom_problem_loader = @(x) [1; 1];
             testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:customnamesNotcharstrOrCellOfcharstr")
@@ -177,5 +199,11 @@ end
 function x = fminunc_test(fun, x0)
 
     x = fminunc(fun, x0);
+
+end
+
+function p = custom_loader(problem_name)
+
+    p = Problem(struct('fun', @(x) x' * x, 'x0', [1; 1]));
 
 end
