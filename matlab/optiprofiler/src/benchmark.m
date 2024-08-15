@@ -34,7 +34,7 @@ function benchmark(solvers, varargin)
 
 
     if nargin == 0
-        error("solvers must be provided.");
+        error("MATLAB:benchmark:solverMustBeProvided", "solvers must be provided.");
     elseif nargin == 1
         feature_names = 'plain';
         labels = cellfun(@func2str, solvers, 'UniformOutput', false);
@@ -43,7 +43,7 @@ function benchmark(solvers, varargin)
         custom_problem_names = {};
         options = struct();
     elseif nargin == 2
-        if ischarstr(varargin{1})
+        if ischarstr(varargin{1}) || (iscell(varargin{1}) && all(cellfun(@ischarstr, varargin{1})))
             feature_names = varargin{1};
             labels = cellfun(@func2str, solvers, 'UniformOutput', false);
             cutest_problem_names = {};
@@ -76,32 +76,32 @@ function benchmark(solvers, varargin)
                 options = rmfield(options, 'custom_problem_loader');
                 options = rmfield(options, 'custom_problem_names');
             elseif isfield(options, 'custom_problem_loader') || isfield(options, 'custom_problem_names')
-                error("custom_problem_loader and custom_problem_names must be provided at the same time.");
+                error("MATLAB:benchmark:LoaderAndNamesNotSameTime", "custom_problem_loader and custom_problem_names must be provided at the same time.");
             else
                 custom_problem_loader = {};
                 custom_problem_names = {};
             end
         else
-            error("The second argument must be a cell array of feature names or a struct of options.");
+            error("MATLAB:benchmark:SecondArgumentWrongType", "The second argument must be a cell array of feature names or a struct of options.");
         end
     else
-        error("Invalid number of arguments. The function must be called with one, two, or three arguments.");
+        error("MATLAB:benchmark:TooMuchInput", "Invalid number of arguments. The function must be called with one, two, or three arguments.");
     end
 
     % Preprocess the solvers.
     if ~iscell(solvers) || ~all(cellfun(@(s) isa(s, 'function_handle'), solvers))
-        error("The solvers must be a cell array of function handles.");
+        error("MATLAB:benchmark:solversWrongType", "The solvers must be a cell array of function handles.");
     end
     if numel(solvers) < 2
-        error("At least two solvers must be given.");
+        error("MATLAB:benchmark:solversAtLeastTwo", "At least two solvers must be given.");
     end
 
     % Preprocess the labels.
     if ~iscell(labels) || ~all(cellfun(@(l) ischarstr(l), labels))
-        error("The labels must be a list of strings.");
+        error("MATLAB:benchmark:labelsNotCellOfcharstr", "The labels must be a cell of chars or strings.");
     end
     if numel(labels) ~= 0 && numel(labels) ~= numel(solvers)
-        error("The number of labels must equal the number of solvers.");
+        error("MATLAB:benchmark:labelsAndsolversLengthNotSame", "The number of labels must equal the number of solvers.");
     end
     if numel(labels) == 0
         labels = cellfun(@func2str, solvers, 'UniformOutput', false);
@@ -109,24 +109,27 @@ function benchmark(solvers, varargin)
 
     % Preprocess the custom problems.
     if ~isempty(custom_problem_loader) && ~isa(custom_problem_loader, 'function_handle')
-        error("The custom problem loader must be a function handle.");
+        error("MATLAB:benchmark:customloaderNotFunctionHandle", "The custom problem loader must be a function handle.");
     end
     if ~isempty(custom_problem_loader)
         if isempty(custom_problem_names)
-            error("The custom problem names must be provided.");
+            error("MATLAB:benchmark:customnamesCanNotBeEmptyWhenHavingcustomloader", "The custom problem names must be provided.");
         else
             try
                 [~] = evalc('custom_problem_loader(custom_problem_names{1})');
             catch
-                error("The custom problem loader must be able to accept one signature 'custom_problem_names'. The first problem could not be loaded.");
+                error("MATLAB:benchmark:customloaderNotAcceptcustomnames", "The custom problem loader must be able to accept one signature 'custom_problem_names'. The first problem could not be loaded.");
             end
         end
     elseif ~isempty(custom_problem_names)
-        error("A custom problem loader must be given to load custom problems.");
+        error("MATLAB:benchmark:customloaerCanNotBeEmptyWhenHavingcustomnames", "A custom problem loader must be given to load custom problems.");
     end
     if ~isempty(custom_problem_names)
-        if ~iscell(custom_problem_names) || ~all(cellfun(@ischarstr, custom_problem_names))
-            error("The custom problem names must be a cell array of chars or strings.");
+        if ~ischarstr(custom_problem_names) || ~(iscell(custom_problem_names) && all(cellfun(@ischarstr, custom_problem_names)))
+            error("MATLAB:benchmark:customnamesNotcharstrOrCellOfcharstr", "The custom problem names must be a cell array of chars or strings.");
+        end
+        if ischarstr(custom_problem_names)
+            custom_problem_names = {custom_problem_names};
         end
         custom_problem_names = cellfun(@char, custom_problem_names, 'UniformOutput', false);  % Convert to cell array of chars.
     end
@@ -143,7 +146,7 @@ function benchmark(solvers, varargin)
     profile_options.(ProfileOptionKey.RANGE_TYPE.value) = 'minmax';
     profile_options.(ProfileOptionKey.STD_FACTOR.value) = 1;
     profile_options.(ProfileOptionKey.SAVEPATH.value) = pwd;
-    profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) = 16;
+    profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) = 10;
     profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value) = 500;
     profile_options.(ProfileOptionKey.PROJECT_X0.value) = false;
     profile_options.(ProfileOptionKey.RUN_PLAIN.value) = true;
@@ -176,7 +179,7 @@ function benchmark(solvers, varargin)
         elseif ismember(key, validProfileOptionKeys)
             profile_options.(key) = value;
         else
-            error("Unknown option: %s", key);
+            error("MATLAB:benchmark:UnknownOptions", "Unknown option: %s", key);
         end
     end
 
@@ -186,56 +189,56 @@ function benchmark(solvers, varargin)
     % Judge whether cutest_options.problem_type is among all possible problem types.
     if isfield(cutest_options, CutestOptionKey.PROBLEM_TYPE.value)
         if ~ischarstr(cutest_options.(CutestOptionKey.PROBLEM_TYPE.value))
-            error("cutest_options.problem_type should be a char or a string.");
+            error("MATLAB:benchmark:problem_typeNotcharstr", "cutest_options.problem_type should be a char or a string.");
         else
             % Convert to lower case CHAR.
             cutest_options.(CutestOptionKey.PROBLEM_TYPE.value) = lower(char(cutest_options.(CutestOptionKey.PROBLEM_TYPE.value)));
             % Check whether the problem type belongs to four types ('u', 'b', 'l', 'n') and their combinations.
             if ~all(ismember(cutest_options.(CutestOptionKey.PROBLEM_TYPE.value), 'ubln'))
-                error("cutest_options.problem_type should be a string containing only 'u', 'b', 'l', 'n'.");
+                error("MATLAB:benchmark:problem_typeNotubln", "cutest_options.problem_type should be a string containing only 'u', 'b', 'l', 'n'.");
             end
         end
     end
     % Judge whether cutest_options.mindim is a integer greater or equal to 1.
     if isfield(cutest_options, CutestOptionKey.MINDIM.value)
         if ~isintegerscalar(cutest_options.(CutestOptionKey.MINDIM.value)) || cutest_options.(CutestOptionKey.MINDIM.value) < 1
-            error("cutest_options.mindim should be a integer greater or equal to 1.");
+            error("MATLAB:benchmark:mindimNotValid", "cutest_options.mindim should be a integer greater or equal to 1.");
         end
     end
     % Judge whether cutest_options.maxdim is a integer greater or equal to 1, or equal to Inf.
     if isfield(cutest_options, CutestOptionKey.MAXDIM.value)
         if ~isintegerscalar(cutest_options.(CutestOptionKey.MAXDIM.value)) || (cutest_options.(CutestOptionKey.MAXDIM.value) < 1 && cutest_options.(CutestOptionKey.MAXDIM.value) ~= Inf)
-            error("cutest_options.maxdim should be a integer greater or equal to 1, or equal to Inf.");
+            error("MATLAB:benchmark:maxdimNotValid", "cutest_options.maxdim should be a integer greater or equal to 1, or equal to Inf.");
         end
     end
     % Judge whether cutest_options.mindim is smaller or equal to cutest_options.maxdim.
     if isfield(cutest_options, CutestOptionKey.MINDIM.value) && isfield(cutest_options, CutestOptionKey.MAXDIM.value)
         if cutest_options.(CutestOptionKey.MINDIM.value) > cutest_options.(CutestOptionKey.MAXDIM.value)
-            error("cutest_options.mindim should be smaller or equal to cutest_options.maxdim.");
+            error("MATLAB:benchmark:maxdimSmallerThanmindim", "cutest_options.mindim should be smaller or equal to cutest_options.maxdim.");
         end
     end
     % Judge whether cutest_options.mincon is a integer greater or equal to 0.
     if isfield(cutest_options, CutestOptionKey.MINCON.value)
         if ~isintegerscalar(cutest_options.(CutestOptionKey.MINCON.value)) || cutest_options.(CutestOptionKey.MINCON.value) < 0
-            error("cutest_options.mincon should be a integer greater or equal to 0.");
+            error("MATLAB:benchmark:minconNotValid", "cutest_options.mincon should be a integer greater or equal to 0.");
         end
     end
     % Judge whether cutest_options.maxcon is a integer greater or equal to 0, or equal to Inf.
     if isfield(cutest_options, CutestOptionKey.MAXCON.value)
         if ~isintegerscalar(cutest_options.(CutestOptionKey.MAXCON.value)) || (cutest_options.(CutestOptionKey.MAXCON.value) < 0 && cutest_options.(CutestOptionKey.MAXCON.value) ~= Inf)
-            error("cutest_options.maxcon should be a integer greater or equal to 0, or equal to Inf.");
+            error("MATLAB:benchmark:maxconNotValid", "cutest_options.maxcon should be a integer greater or equal to 0, or equal to Inf.");
         end
     end
     % Judge whether cutest_options.mincon is smaller or equal to cutest_options.maxcon.
     if isfield(cutest_options, CutestOptionKey.MINCON.value) && isfield(cutest_options, CutestOptionKey.MAXCON.value)
         if cutest_options.(CutestOptionKey.MINCON.value) > cutest_options.(CutestOptionKey.MAXCON.value)
-            error("cutest_options.mincon should be smaller or equal to cutest_options.maxcon.");
+            error("MATLAB:benchmark:maxconSmallerThanmincon", "cutest_options.mincon should be smaller or equal to cutest_options.maxcon.");
         end
     end
     % Judge whether cutest_options.excludelist is a cell array of strings or chars.
     if isfield(cutest_options, CutestOptionKey.EXCLUDELIST.value)
         if ~iscell(cutest_options.(CutestOptionKey.EXCLUDELIST.value)) || ~all(cellfun(@ischarstr, cutest_options.(CutestOptionKey.EXCLUDELIST.value)))
-            error("cutest_options.excludelist should be a cell array of strings or chars.");
+            error("MATLAB:benchmark:excludelistNotCellOfcharstr", "cutest_options.excludelist should be a cell array of strings or chars.");
         end
         cutest_options.(CutestOptionKey.EXCLUDELIST.value) = cellfun(@char, cutest_options.(CutestOptionKey.EXCLUDELIST.value), 'UniformOutput', false);  % Convert to cell array of chars.
     end
@@ -244,7 +247,7 @@ function benchmark(solvers, varargin)
     % Judge whether profile_options.n_jobs is a integer between 1 and nb_cores.
     if isfield(profile_options, ProfileOptionKey.N_JOBS.value)
         if ~isintegerscalar(profile_options.(ProfileOptionKey.N_JOBS.value))
-            error("profile_options.n_jobs should be a integer.");
+            error("MATLAB:benchmark:n_jobsNotValid", "profile_options.n_jobs should be a integer.");
         elseif profile_options.(ProfileOptionKey.N_JOBS.value) < 1
             profile_options.(ProfileOptionKey.N_JOBS.value) = 1;
         elseif profile_options.(ProfileOptionKey.N_JOBS.value) > nb_cores
@@ -256,55 +259,55 @@ function benchmark(solvers, varargin)
     % Judge whether profile_options.benchmark_id is a char or a string and satisfies the file name requirements (but it can be '.').
     is_valid_foldername = @(x) ischarstr(x) && ~isempty(x) && all(ismember(char(x), ['a':'z', 'A':'Z', '0':'9', '_', '-']));
     if ~ischarstr(profile_options.(ProfileOptionKey.BENCHMARK_ID.value)) || ~is_valid_foldername(profile_options.(ProfileOptionKey.BENCHMARK_ID.value)) && ~strcmp(profile_options.(ProfileOptionKey.BENCHMARK_ID.value), '.')
-        error("profile_options.benchmark_id should be a char or a string satisfying the file name requirements.");
+        error("MATLAB:benchmark:benchmark_idNotValid", "profile_options.benchmark_id should be a char or a string satisfying the file name requirements.");
     end
     % Judge whether profile_options.range_type is among 'minmax' and 'meanstd'.
-    if ~ismember(profile_options.(ProfileOptionKey.RANGE_TYPE.value), {'minmax', 'meanstd'})
-        error("range_type should be either 'minmax' or 'meanstd'.");
+    if ~ischarstr(ProfileOptionKey.RANGE_TYPE.value) || ~ismember(char(profile_options.(ProfileOptionKey.RANGE_TYPE.value)), {'minmax', 'meanstd'})
+        error("MATLAB:benchmark:range_typeNotValid", "range_type should be either 'minmax' or 'meanstd'.");
     end
     % Judge whether profile_options.std_factor is a positive real number.
     if ~isrealscalar(profile_options.(ProfileOptionKey.STD_FACTOR.value)) || profile_options.(ProfileOptionKey.STD_FACTOR.value) <= 0
-        error("std_factor should be a positive real number.");
+        error("MATLAB:benchmark:std_factorNotValid", "std_factor should be a positive real number.");
     end
     % Judge whether profile_options.savepath is a string and exists. If not exists, create it.
     if ~ischarstr(profile_options.(ProfileOptionKey.SAVEPATH.value))
-        error("savepath should be a char or a string.");
+        error("MATLAB:benchmark:savepathNotValid", "savepath should be a char or a string.");
     elseif ~exist(profile_options.(ProfileOptionKey.SAVEPATH.value), 'dir')
         status = mkdir(profile_options.(ProfileOptionKey.SAVEPATH.value));
         if ~status
-            error("profile_options.savepath does not exist and cannot be created.");
+            error("MATLAB:benchmark:savepathNotExist", "profile_options.savepath does not exist and cannot be created.");
         end
     end
     % Judge whether profile_options.max_tol_order is a positive integer.
     if ~isintegerscalar(profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)) || profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) <= 0
-        error("max_tol_order should be a positive integer.");
+        error("MATLAB:benchmark:max_tol_orderNotValid", "max_tol_order should be a positive integer.");
     end
     % Judge whether profile_options.max_eval_factor is a positive integer.
     if ~isintegerscalar(profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value)) || profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value) <= 0
-        error("max_eval_factor should be a positive integer.");
+        error("MATLAB:benchmark:max_eval_factorNotValid", "max_eval_factor should be a positive integer.");
     end
     % Judge whether profile_options.project_x0 is a boolean.
     if ~islogicalscalar(profile_options.(ProfileOptionKey.PROJECT_X0.value))
-        error("project_x0 should be a boolean.");
+        error("MATLAB:benchmark:project_x0NotValid", "project_x0 should be a boolean.");
     end
     % Judge whether profile_options.run_plain is a boolean.
     if ~islogicalscalar(profile_options.(ProfileOptionKey.RUN_PLAIN.value))
-        error("run_plain should be a boolean.");
+        error("MATLAB:benchmark:run_plainNotValid", "run_plain should be a boolean.");
     end
     % Judge whether profile_options.summarize_performance_profiles is a boolean.
     if ~islogicalscalar(profile_options.(ProfileOptionKey.SUMMARIZE_PERFORMANCE_PROFILES.value))
-        error("summarize_performance_profiles should be a boolean.");
+        error("MATLAB:benchmark:summarize_performance_profilesNotValid", "summarize_performance_profiles should be a boolean.");
     end
     % Judge whether profile_options.summarize_data_profiles is a boolean.
     if ~islogicalscalar(profile_options.(ProfileOptionKey.SUMMARIZE_DATA_PROFILES.value))
-        error("summarize_data_profiles should be a boolean.");
+        error("MATLAB:benchmark:summarize_data_profilesNotValid", "summarize_data_profiles should be a boolean.");
     end
     % Judge whether profile_options.summarize_log_ratio_profiles is a boolean.
     if ~islogicalscalar(profile_options.(ProfileOptionKey.SUMMARIZE_LOG_RATIO_PROFILES.value))
-        error("summarize_log_ratio_profiles should be a boolean.");
+        error("MATLAB:benchmark:summarize_log_ratio_profilesNotValid", "summarize_log_ratio_profiles should be a boolean.");
     end
     if profile_options.(ProfileOptionKey.SUMMARIZE_LOG_RATIO_PROFILES.value) && numel(solvers) > 2
-        warning("The log-ratio profiles are available only when there are exactly two solvers.");
+        warning("MATLAB:benchmark:summarize_log_ratio_profilesOnlyWhenTwoSolvers", "The log-ratio profiles are available only when there are exactly two solvers.");
         profile_options.(ProfileOptionKey.SUMMARIZE_LOG_RATIO_PROFILES.value) = false;
     end
 
@@ -319,7 +322,7 @@ function benchmark(solvers, varargin)
     % Preprocess the CUTEst problem names given by the user.
     if ~isempty(cutest_problem_names)
         if ~iscell(cutest_problem_names) || ~all(cellfun(@ischarstr, cutest_problem_names))
-            error("The CUTEst problem names must be a cell array of chars or strings.");
+            error("MATLAB:benchmark:cutest_problem_namesNotValid", "The CUTEst problem names must be a cell array of chars or strings.");
         end
         % Convert to a cell row vector of upper case chars.
         cutest_problem_names = cellfun(@char, cutest_problem_names, 'UniformOutput', false);
@@ -344,7 +347,7 @@ function benchmark(solvers, varargin)
 
     % Check whether the total number of problems is zero.
     if isempty(cutest_problem_names) && isempty(custom_problem_names)
-        error("At least one problem must be given.");
+        error("MATLAB:benchmark:AtLeastOneProblem", "At least one problem must be given.");
     end
 
 
@@ -444,6 +447,11 @@ function benchmark(solvers, varargin)
     elseif ischarstr(feature_names)
         feature_names = {feature_names};
     end
+
+    if length(feature_names) > 1 && numel(fieldnames(feature_options)) > 0
+        error("MATLAB:benchmark:OnlyOneFeatureWhenHavingfeature_options", "Only one feature can be specified when feature options are given.");
+    end
+
     for i_feature = 1:length(feature_names)
         feature_name = feature_names{i_feature};
 
@@ -502,12 +510,12 @@ function benchmark(solvers, varargin)
         sorted_time_processes = time_processes(idx);
         fid = fopen(path_txt, 'w');
         if fid == -1
-            error("Cannot open the file %s.", path_txt);
+            error("MATLAB:benchmark:FileCannotOpen", "Cannot open the file %s.", path_txt);
         end
         for i = 1:length(sorted_problem_names)
             count = fprintf(fid, "%s: %.2f seconds\n", sorted_problem_names{i}, sorted_time_processes(i));
             if count < 0
-                error('Failed to record data for %s.', sorted_problem_names{i});
+                error("MATLAB:benchmark:FailToEditFile", "Failed to record data for %s.", sorted_problem_names{i});
             end
         end
         fclose(fid);

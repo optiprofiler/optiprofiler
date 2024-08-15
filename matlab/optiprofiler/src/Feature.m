@@ -371,7 +371,13 @@ classdef Feature < handle
             %     Random number generator.
 
             % Create an initial rand_stream with the given seed
-            if ~isequal(seed, 'shuffle') && isrealscalar(seed) && seed >= 0
+            if ~strcmp(seed, 'shuffle')
+                if isnan(seed)
+                    seed = 0;
+                end
+                if ~isrealscalar(seed)
+                    error("MATLAB:Feature:SeedNotEvenReal", "The input for seed should at least be a real number.")
+                end
                 seed = mod(floor(seed), 2^32);
             end
             rand_stream = RandStream('mt19937ar', 'Seed', seed);
@@ -384,6 +390,9 @@ classdef Feature < handle
             newSeed = mod(floor(newSeed), 2^32);
 
             % Create a new rand_stream with the new seed
+            if isnan(newSeed)
+                newSeed = 0;
+            end
             rand_stream = RandStream('mt19937ar', 'Seed', floor(newSeed));
         end
     end

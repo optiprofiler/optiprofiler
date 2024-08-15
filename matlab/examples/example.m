@@ -22,7 +22,7 @@ function example()
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     solvers = {@bds_test, @fminsearch_test};
-    options.feature_names = 'affine_transformed';
+    options.feature_names = 'all';
     options.rotated = true;
     options.condition_number = 'dimension_dependent';
     options.run_plain = false;

@@ -32,7 +32,7 @@ classdef TestFeature < matlab.unittest.TestCase
         function testPlain(testCase)
             % Test that the plain feature works correctly.
             nValues = [1, 10, 100];
-            seedValues = [0, 1, 2];
+            seedValues = [0, 1, 2, nan];
 
             for n = nValues
                 for seed = seedValues
@@ -274,11 +274,11 @@ classdef TestFeature < matlab.unittest.TestCase
                     ftp.fun(x);
                     
                     % Add custom options
-                    ft = Feature('unrelaxable_constraints', 'n_runs', 5, 'unrelaxable_bounds', true, 'unrelaxable_linear_constraints', true, 'unrelaxable_nonlinear_constraints', true);
+                    ft = Feature('unrelaxable_constraints', 'n_runs', 5, 'unrelaxable_bounds', true, 'unrelaxable_linear_constraints', true, 'unrelaxable_nonlinear_constraints', 1);
                     testCase.verifyEqual(ft.options.n_runs, 5);
                     testCase.verifyEqual(ft.options.unrelaxable_bounds, true);
                     testCase.verifyEqual(ft.options.unrelaxable_linear_constraints, true);
-                    testCase.verifyEqual(ft.options.unrelaxable_nonlinear_constraints, true);
+                    testCase.verifyEqual(ft.options.unrelaxable_nonlinear_constraints, 1);
                     p1 = Problem(struct('fun', @(x) f(x), 'x0', x, 'xl', x + 1));
                     p2 = Problem(struct('fun', @(x) f(x), 'x0', x, 'aub', eye(n), 'bub', x - 2));
                     p3 = Problem(struct('fun', @(x) f(x), 'x0', x, 'cub', @(x) f(x) + 1e8));
