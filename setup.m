@@ -42,11 +42,11 @@ function setup(varargin)
     % The full paths to several directories needed for the setup.
     setup_dir = fileparts(mfilename('fullpath')); % The directory containing this setup script
     matd = fullfile(setup_dir, 'matlab'); % Matlab directory
-    optprofiler_dir = fullfile(matd, 'optiprofiler'); % Directory containing the package
-    src_dir = fullfile(optprofiler_dir, 'src'); % Directory containing the source code of the package
-    probinfo_dir = fullfile(optprofiler_dir, 'probinfo_s2mpj'); % Directory containing the problem information of the test set S2MPJ
+    optiprofiler_dir = fullfile(matd, 'optiprofiler'); % Directory containing the package
+    src_dir = fullfile(optiprofiler_dir, 'src'); % Directory containing the source code of the package
+    probinfo_dir = fullfile(optiprofiler_dir, 'probinfo_s2mpj'); % Directory containing the problem information of the test set S2MPJ
     s2mpj_dir = fullfile(probinfo_dir, 'matlab_problems'); % Directory containing the test set S2MPJ
-    tests_dir = fullfile(optprofiler_dir, 'tests'); % Directory containing some tests
+    tests_dir = fullfile(optiprofiler_dir, 'tests'); % Directory containing some tests
     
     % We need write access to `setup_dir` (and its subdirectories). Return if we do not have it.
     % N.B.: This checking is NOT perfect because of the following --- but it is better than nothing.
@@ -261,11 +261,11 @@ function uninstall_optiprofiler(path_string_stamp)
     % The full path of several directories.   
     mfiledir = fileparts(mfilename('fullpath'));  % The directory where this .m file resides
     matd = fullfile(mfiledir, 'matlab'); % Matlab directory
-    optprofiler_dir = fullfile(matd, 'optiprofiler'); % Directory containing the package
-    src_dir = fullfile(optprofiler_dir, 'src'); % Directory containing the source code of the package
-    probinfo_dir = fullfile(optprofiler_dir, 'probinfo_s2mpj'); % Directory containing the problem information of the test set S2MPJ
+    optiprofiler_dir = fullfile(matd, 'optiprofiler'); % Directory containing the package
+    src_dir = fullfile(optiprofiler_dir, 'src'); % Directory containing the source code of the package
+    probinfo_dir = fullfile(optiprofiler_dir, 'probinfo_s2mpj'); % Directory containing the problem information of the test set S2MPJ
     s2mpj_dir = fullfile(probinfo_dir, 'matlab_problems'); % Directory containing the test set S2MPJ
-    tests_dir = fullfile(optprofiler_dir, 'tests'); % Directory containing some tests
+    tests_dir = fullfile(optiprofiler_dir, 'tests'); % Directory containing some tests
 
     % Try removing the paths possibly added by OptiProfiler
     orig_warning_state = warning;
