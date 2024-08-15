@@ -167,3 +167,5 @@ YTick
 yyaxis
 ZANGWIL
 zhang
+genpath
+xticks

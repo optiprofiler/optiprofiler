@@ -35,7 +35,7 @@ jobs:
           products: Optimization_Toolbox Parallel_Computing_Toolbox
 
       - name: Setup OptiProfiler and run tests
-        uses: matlab-actions/run-command@v1.2.2
+        uses: matlab-actions/run-command@v2.1.1
         with:
           command: |
             % Run tests
