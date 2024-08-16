@@ -1,49 +1,49 @@
 classdef TestBenchmark < matlab.unittest.TestCase
     methods (Test)
         
-        % function testWithValidInput(testCase)
-        %     % Test whether the function works well with valid input.
+        function testWithValidInput(testCase)
+            % Test whether the function works well with valid input.
 
-        %     solvers = {@fminsearch_test, @fminunc_test};
-        %     benchmark(solvers);
+            solvers = {@fminsearch_test, @fminunc_test};
+            benchmark(solvers);
 
-        %     benchmark(solvers, {'plain', 'noisy'});
+            benchmark(solvers, {'plain', 'noisy'});
             
-        %     options.feature_names = 'noisy';
-        %     options.n_jobs = 0;
-        %     options.run_plain = false;
-        %     options.n_runs = 5;
-        %     options.max_tol_order = 3;
-        %     options.max_eval_factor = 10;
-        %     options.problem_type = 'u';
-        %     options.maxdim = 3;
-        %     options.benchmark_id = 'unit-test';
-        %     options.summarize_log_ratio_profiles = true;
-        %     options.labels = {'fminsearch', 'fminunc'};
-        %     benchmark(solvers, options);
+            options.feature_names = 'noisy';
+            options.n_jobs = 0;
+            options.run_plain = false;
+            options.n_runs = 5;
+            options.max_tol_order = 3;
+            options.max_eval_factor = 10;
+            options.problem_type = 'u';
+            options.maxdim = 3;
+            options.benchmark_id = 'unit-test';
+            options.summarize_log_ratio_profiles = true;
+            options.labels = {'fminsearch', 'fminunc'};
+            benchmark(solvers, options);
 
-        %     options.feature_names = 'plain';
-        %     options.labels = {};
-        %     options.custom_problem_names = {"A"};
-        %     options.custom_problem_loader = @custom_loader;
-        %     options.excludelist = {"SISSER2"};
-        %     options.n_jobs = 1000;
-        %     options.summarize_data_profiles = false;
-        %     options.summarize_performance_profiles = false;
-        %     options.cutest_problem_names = {'S308'};
-        %     options.benchmark_id = 'test-special-case';
-        %     savepath = fullfile(pwd, 'out', 'test-special-case');
-        %     mkdir(savepath);
-        %     % Create a txt file named 'a.txt' in the savepath.
-        %     fid = fopen(fullfile(savepath, 'a.txt'), 'w');
-        %     fclose(fid);
-        %     mkdir(fullfile(savepath, 'time-unknown'));
-        %     benchmark(solvers, options);
-        %     mkdir(fullfile(savepath, 'time-unknown-abc'));
-        %     benchmark(solvers, options);
-        %     mkdir(fullfile(savepath, 'time-unknown-100'));
-        %     benchmark(solvers, options);
-        % end
+            options.feature_names = 'plain';
+            options.labels = {};
+            options.custom_problem_names = {"A"};
+            options.custom_problem_loader = @custom_loader;
+            options.excludelist = {"SISSER2"};
+            options.n_jobs = 1000;
+            options.summarize_data_profiles = false;
+            options.summarize_performance_profiles = false;
+            options.cutest_problem_names = {'S308'};
+            options.benchmark_id = 'test-special-case';
+            savepath = fullfile(pwd, 'out', 'test-special-case');
+            mkdir(savepath);
+            % Create a txt file named 'a.txt' in the savepath.
+            fid = fopen(fullfile(savepath, 'a.txt'), 'w');
+            fclose(fid);
+            mkdir(fullfile(savepath, 'time-unknown'));
+            benchmark(solvers, options);
+            mkdir(fullfile(savepath, 'time-unknown-abc'));
+            benchmark(solvers, options);
+            mkdir(fullfile(savepath, 'time-unknown-100'));
+            benchmark(solvers, options);
+        end
 
         function testErrors(testCase)
             % Test whether the function throws errors as expected.
