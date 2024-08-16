@@ -125,7 +125,7 @@ function benchmark(solvers, varargin)
         error("MATLAB:benchmark:customloaderCanNotBeEmptyWhenHavingcustomnames", "A custom problem loader must be given to load custom problems.");
     end
     if ~isempty(custom_problem_names)
-        if ~ischarstr(custom_problem_names) || ~(iscell(custom_problem_names) && all(cellfun(@ischarstr, custom_problem_names)))
+        if ~ischarstr(custom_problem_names) && ~(iscell(custom_problem_names) && all(cellfun(@ischarstr, custom_problem_names)))
             error("MATLAB:benchmark:customnamesNotcharstrOrCellOfcharstr", "The custom problem names must be a cell array of chars or strings.");
         end
         if ischarstr(custom_problem_names)
@@ -321,8 +321,11 @@ function benchmark(solvers, varargin)
 
     % Preprocess the CUTEst problem names given by the user.
     if ~isempty(cutest_problem_names)
-        if ~iscell(cutest_problem_names) || ~all(cellfun(@ischarstr, cutest_problem_names))
-            error("MATLAB:benchmark:cutest_problem_namesNotValid", "The CUTEst problem names must be a cell array of chars or strings.");
+        if ~ischarstr(cutest_problem_names) && ~(iscell(cutest_problem_names) && all(cellfun(@ischarstr, cutest_problem_names)))
+            error("MATLAB:benchmark:cutest_problem_namesNotValid", "The CUTEst problem names must be a charstr or a cell array of charstr.");
+        end
+        if ischarstr(cutest_problem_names)
+            cutest_problem_names = {cutest_problem_names};
         end
         % Convert to a cell row vector of upper case chars.
         cutest_problem_names = cellfun(@char, cutest_problem_names, 'UniformOutput', false);
