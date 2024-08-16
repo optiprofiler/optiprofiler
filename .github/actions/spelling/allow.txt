@@ -181,3 +181,4 @@ Ofcharstr
 Thanmincon
 Thanmindim
 SISSER
+charstr

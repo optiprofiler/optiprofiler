@@ -116,9 +116,12 @@ function benchmark(solvers, varargin)
             error("MATLAB:benchmark:customnamesCanNotBeEmptyWhenHavingcustomloader", "The custom problem names must be provided.");
         else
             try
-                [~] = evalc('custom_problem_loader(custom_problem_names{1})');
+                [~, p] = evalc('custom_problem_loader(custom_problem_names{1})');
             catch
-                error("MATLAB:benchmark:customloaderNotAcceptcustomnames", "The custom problem loader must be able to accept one signature 'custom_problem_names'. The first problem could not be loaded.");
+                p = [];
+            end
+            if isempty(p) || ~isa(p, 'Problem')
+                error("MATLAB:benchmark:customloaderNotAcceptcustomnames", "The custom problem loader must be able to accept one signature 'custom_problem_names'. The first problem %s could not be loaded, or custom problem loader did not return a Problem object.", custom_problem_names{1});
             end
         end
     elseif ~isempty(custom_problem_names)
