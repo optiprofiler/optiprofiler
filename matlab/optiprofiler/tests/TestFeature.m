@@ -296,6 +296,10 @@ classdef TestFeature < matlab.unittest.TestCase
             % Test that the custom feature works correctly.
             nValues = [1, 10, 100];
             seedValues = [0, 1, 2];
+
+            % Test the simplest custom feature
+            ft = Feature('custom', 'modifier', @(x, f) f + 1.0);
+            testCase.verifyEqual(ft.options.n_runs, 1);
         
             for n = nValues
                 for seed = seedValues
@@ -348,6 +352,8 @@ classdef TestFeature < matlab.unittest.TestCase
             testCase.verifyError(@() Feature('unrelaxable_constraints', 'unrelaxable_linear_constraints', -1), "MATLAB:Feature:unrelaxable_linear_constraints_NotLogical");
             testCase.verifyError(@() Feature('unrelaxable_constraints', 'unrelaxable_nonlinear_constraints', -1), "MATLAB:Feature:unrelaxable_nonlinear_constraints_NotLogical");
             testCase.verifyError(@() Feature("CUSTOM"), "MATLAB:Feature:MissingModifier");
+            ft = Feature('noisy');
+            testCase.verifyError(@() ft.default_rng(1 + 1j), "MATLAB:Feature:SeedNotEvenReal");
         end
 
     end

@@ -26,7 +26,7 @@ function [x, y, ratio_max] = getPerformanceDataProfileAxes(work, denominator, pe
                 ratio_max = max(x(:), [], 'omitnan');
             end
         otherwise
-            error("Unknown perf_or_data.");
+            error("MATLAB:getPerformanceDataProfileAxes:UnknownNameForgetPerformanceDataProfileAxes", "Unknown perf_or_data.");
     end
     
     x(isnan(x)) = Inf;

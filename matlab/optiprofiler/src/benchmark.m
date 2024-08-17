@@ -320,7 +320,11 @@ function benchmark(solvers, varargin)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     % Select the problems based on cutest_options.
-    cutest_problem_names_options = selector(cutest_options);
+    if isempty(cutest_options) && (~isempty(custom_problem_loader) || ~isempty(custom_problem_names))
+        cutest_problem_names_options = {};
+    else
+        cutest_problem_names_options = selector(cutest_options);
+    end
 
     % Preprocess the CUTEst problem names given by the user.
     if ~isempty(cutest_problem_names)
@@ -338,9 +342,11 @@ function benchmark(solvers, varargin)
 
     % Merge the problem names selected by cutest_options and given by the user.
     % N.B.: Duplicate names are and MUST BE removed.
-    if isempty(cutest_problem_names)
+    if isempty(cutest_problem_names) && isempty(custom_problem_names)
         cutest_problem_names = cutest_problem_names_options;
-    elseif ~isempty(fieldnames(cutest_options))
+    elseif isempty(cutest_problem_names) && ~isempty(custom_problem_names)
+        cutest_problem_names = custom_problem_names;
+    elseif numel(fieldnames(cutest_options)) == 0
         cutest_problem_names = unique(cutest_problem_names);
     else
         cutest_problem_names = unique([cutest_problem_names, cutest_problem_names_options]);

@@ -263,7 +263,7 @@ classdef Feature < handle
                     if ~isfield(obj.options, FeatureOptionKey.MODIFIER.value)
                         error("MATLAB:Feature:MissingModifier", "When using a custom feature, you must specify the " + FeatureOptionKey.MODIFIER.value + " option.");
                     end
-                    if ~isfield(obj.options, 'n_runs')
+                    if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
                         obj.options.(FeatureOptionKey.N_RUNS.value) = 1;
                     end
                 case FeatureName.NOISY.value

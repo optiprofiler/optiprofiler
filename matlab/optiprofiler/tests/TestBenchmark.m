@@ -12,11 +12,9 @@ classdef TestBenchmark < matlab.unittest.TestCase
             options.feature_names = 'noisy';
             options.n_jobs = 0;
             options.run_plain = false;
-            options.n_runs = 5;
+            options.n_runs = 2;
             options.max_tol_order = 3;
             options.max_eval_factor = 10;
-            options.problem_type = 'u';
-            options.maxdim = 3;
             options.benchmark_id = 'unit-test';
             options.summarize_log_ratio_profiles = true;
             options.labels = {'fminsearch', 'fminunc'};
@@ -24,7 +22,7 @@ classdef TestBenchmark < matlab.unittest.TestCase
 
             options.feature_names = 'plain';
             options.labels = {};
-            options.custom_problem_names = {"A"};
+            options.custom_problem_names = "A";
             options.custom_problem_loader = @custom_loader;
             options.excludelist = {"SISSER2"};
             options.n_jobs = 1000;
