@@ -71,10 +71,10 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
                 end
 
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                % It is very important to transform the solution back to the original space in the case of permuted and affine_transformed features!!!
+                % It is very important to transform the solution back to the original space in the case of permuted and linearly_transformed features!!!
                 if strcmp(feature.name, FeatureName.PERMUTED.value)
                     x = x(featured_problem.permutation);
-                elseif strcmp(feature.name, FeatureName.AFFINE_TRANSFORMED.value)
+                elseif strcmp(feature.name, FeatureName.LINEARLY_TRANSFORMED.value)
                     x = featured_problem.rotation * (featured_problem.scaler .* x);
                 end
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

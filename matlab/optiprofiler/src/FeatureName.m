@@ -7,7 +7,7 @@ classdef FeatureName
         NOISY ('noisy')
         TRUNCATED ('truncated')
         PERMUTED ('permuted')
-        AFFINE_TRANSFORMED ('affine_transformed')
+        LINEARLY_TRANSFORMED ('linearly_transformed')
         RANDOM_NAN ('random_nan')
         UNRELAXABLE_CONSTRAINTS ('unrelaxable_constraints')
         CUSTOM ('custom')

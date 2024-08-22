@@ -22,7 +22,7 @@ function example()
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     solvers = {@bds_test, @fminsearch_test};
-    options.feature_names = 'all';
+    options.feature_names = {'plain', 'perturbed_x0', 'noisy', 'truncated', 'permuted', };
     % options.noise_level = 1e-1;
     options.n_jobs = 1;
     options.cutest_problem_names = 'SISSER';
@@ -35,6 +35,8 @@ function example()
     % options.maxdim = 5;
     % options.benchmark_id = 'test-path';
     % options.summarize_log_ratio_profiles = true;
+    options.summarize_maxcvhist = false;
+    options.summarize_merithist = false;
     options.labels = {'bds', 'simplex'};
     benchmark(solvers, options)
 

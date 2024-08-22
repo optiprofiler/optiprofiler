@@ -83,7 +83,7 @@ classdef Feature < handle
                         known_options = [known_options, {FeatureOptionKey.PERTURBED_TRAILING_ZEROS.value, FeatureOptionKey.SIGNIFICANT_DIGITS.value}];
                     case FeatureName.UNRELAXABLE_CONSTRAINTS.value
                         known_options = [known_options, {FeatureOptionKey.UNRELAXABLE_BOUNDS.value, FeatureOptionKey.UNRELAXABLE_LINEAR_CONSTRAINTS.value, FeatureOptionKey.UNRELAXABLE_NONLINEAR_CONSTRAINTS.value}];
-                    case FeatureName.AFFINE_TRANSFORMED.value
+                    case FeatureName.LINEARLY_TRANSFORMED.value
                         known_options = [known_options, {FeatureOptionKey.ROTATED.value, FeatureOptionKey.CONDITION_NUMBER.value}];
                     case FeatureName.PERMUTED.value
                         % Do nothing
@@ -159,7 +159,7 @@ classdef Feature < handle
         end
 
         function is_stochastic = isStochastic(obj)
-            stochasticFeatures = {FeatureName.CUSTOM.value, FeatureName.NOISY.value, FeatureName.PERMUTED.value, FeatureName.AFFINE_TRANSFORMED.value, FeatureName.PERTURBED_X0.value, FeatureName.RANDOM_NAN.value, FeatureName.TRUNCATED.value};
+            stochasticFeatures = {FeatureName.CUSTOM.value, FeatureName.NOISY.value, FeatureName.PERMUTED.value, FeatureName.LINEARLY_TRANSFORMED.value, FeatureName.PERTURBED_X0.value, FeatureName.RANDOM_NAN.value, FeatureName.TRUNCATED.value};
             is_stochastic = ismember(obj.name, stochasticFeatures);
         end
 
@@ -241,7 +241,7 @@ classdef Feature < handle
                     end
                 case FeatureName.PERMUTED.value
                     % Do nothing
-                case FeatureName.AFFINE_TRANSFORMED.value
+                case FeatureName.LINEARLY_TRANSFORMED.value
                     % Do nothing
                 case FeatureName.PLAIN.value
                     % Do nothing
@@ -283,7 +283,7 @@ classdef Feature < handle
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
                         obj.options.(FeatureOptionKey.N_RUNS.value) = 10;
                     end
-                case FeatureName.AFFINE_TRANSFORMED.value
+                case FeatureName.LINEARLY_TRANSFORMED.value
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
                         obj.options.(FeatureOptionKey.N_RUNS.value) = 10;
                     end
