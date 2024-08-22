@@ -14,6 +14,11 @@ classdef ProfileOptionKey
         SUMMARIZE_PERFORMANCE_PROFILES ('summarize_performance_profiles')
         SUMMARIZE_DATA_PROFILES ('summarize_data_profiles')
         SUMMARIZE_LOG_RATIO_PROFILES ('summarize_log_ratio_profiles')
+        SUMMARIZE_OUTPUT_BASED_PROFILES ('summarize_output_based_profiles')
+        SUMMARIZE_FUNHIST ('summarize_funhist')
+        SUMMARIZE_MAXCVHIST ('summarize_maxcvhist')
+        SUMMARIZE_MERITHIST ('summarize_merithist')
+        SUMMARIZE_CUMMINHIST ('summarize_cumminhist')
     end
     properties
         value
