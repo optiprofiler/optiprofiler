@@ -359,9 +359,8 @@ function benchmark(solvers, varargin)
         if ischarstr(cutest_problem_names)
             cutest_problem_names = {cutest_problem_names};
         end
-        % Convert to a cell row vector of upper case chars.
+        % Convert to a cell row vector of chars.
         cutest_problem_names = cellfun(@char, cutest_problem_names, 'UniformOutput', false);
-        cutest_problem_names = cellfun(@upper, cutest_problem_names, 'UniformOutput', false);
         cutest_problem_names = cutest_problem_names(:)';
     end
 
@@ -520,7 +519,6 @@ function benchmark(solvers, varargin)
             fun_histories = reshape(fun_histories, size(fun_histories, 2), size(fun_histories, 3), size(fun_histories, 4));
             maxcv_histories = reshape(maxcv_histories, size(maxcv_histories, 2), size(maxcv_histories, 3), size(maxcv_histories, 4));
             merit_histories = reshape(merit_histories, size(merit_histories, 2), size(merit_histories, 3), size(merit_histories, 4));
-            n_eval = reshape(n_eval, size(n_eval, 2), size(n_eval, 3));
 
             % Create the figure for the summary.
             warning('off');
@@ -549,7 +547,8 @@ function benchmark(solvers, varargin)
             fig_summary = figure('Position', [defaultFigurePosition(1:2), n_cols * default_width, multiplier * default_height], 'visible', 'off');
             T_summary = tiledlayout(fig_summary, multiplier, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
             T_title = strrep(feature.name, '_', '\_');
-            title(T_summary, ['Profiles with the ``', T_title, '" feature'], 'Interpreter', 'latex', 'FontSize', 24);
+            P_title = strrep(problem_names{1}, '_', '\_');
+            title(T_summary, ['Profiles of solving ``', P_title, '" with the ``', T_title, '" feature'], 'Interpreter', 'latex', 'FontSize', 18);
             % Use gobjects to create arrays of handles and axes.
             t_summary = gobjects(multiplier, 1);
             axs_summary = gobjects([multiplier, 1, 1, n_cols]);
