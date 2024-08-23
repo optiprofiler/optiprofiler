@@ -22,8 +22,8 @@ function example()
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     solvers = {@bds_test, @fminsearch_test};
-    options.feature_names = 'plain';
-    % options.feature_names = {'plain', 'perturbed_x0', 'noisy', 'truncated', 'permuted', 'linearly_transformed', 'random_nan'};
+    % options.feature_names = 'plain';
+    options.feature_names = {'plain', 'perturbed_x0', 'noisy', 'truncated', 'permuted', 'linearly_transformed', 'random_nan'};
     % options.noise_level = 1e-1;
     options.n_jobs = 1;
     options.cutest_problem_names = 'TOINTGOR';

@@ -24,7 +24,7 @@ classdef TestSolveOne < matlab.unittest.TestCase
 
             problem_name = {'EXTRA', 'A'};
             custom_problem_loader = @custom_loader;
-            feature = Feature('affine_transformed', 'n_runs', 1);
+            feature = Feature('linearly_transformed', 'n_runs', 1);
             [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_name, problem_n, computation_time] = solveOneProblem(problem_name, solvers, labels, feature, custom_problem_loader, profile_options);
             testCase.verifyNotEmpty(fun_histories);
             testCase.verifyNotEmpty(maxcv_histories);

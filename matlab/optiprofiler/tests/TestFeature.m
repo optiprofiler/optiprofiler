@@ -189,19 +189,19 @@ classdef TestFeature < matlab.unittest.TestCase
             end
         end
 
-        function testAffine_transformed(testCase)
-            % Test that the affine_transformed feature works correctly.
+        function testLinealy_transformed(testCase)
+            % Test that the linearly_transformed feature works correctly.
             nValues = [1, 10, 100];
             seedValues = [0, 1, 2];
         
             for n = nValues
                 for seed = seedValues
-                    % Test the default affine_transformed feature
-                    ft = Feature('affine_transformed');
+                    % Test the default linearly_transformed feature
+                    ft = Feature('linearly_transformed');
                     randstream = ft.default_rng(seed);
                     x = randstream.randn(n, 1);
                     f = @(x) TestFeature.rosen(x);
-                    testCase.verifyEqual(ft.name, 'affine_transformed');
+                    testCase.verifyEqual(ft.name, 'linearly_transformed');
                     testCase.verifyEqual(ft.options.n_runs, 10);
                     testCase.verifyEqual(ft.options.rotated, true);
                     testCase.verifyEqual(ft.options.condition_number, 1);
@@ -211,7 +211,7 @@ classdef TestFeature < matlab.unittest.TestCase
                     ftp.fun(x);
                     
                     % Add custom options
-                    ft = Feature('affine_transformed', 'n_runs', 5, 'rotated', false, 'condition_number', 10);
+                    ft = Feature('linearly_transformed', 'n_runs', 5, 'rotated', false, 'condition_number', 10);
                     testCase.verifyEqual(ft.options.n_runs, 5);
                     testCase.verifyEqual(ft.options.rotated, false);
                     testCase.verifyEqual(ft.options.condition_number, 10);
@@ -344,8 +344,8 @@ classdef TestFeature < matlab.unittest.TestCase
             testCase.verifyError(@() Feature('truncated', 'significant_digits', 2.5), "MATLAB:Feature:significant_digits_NotPositiveInteger");
             testCase.verifyError(@() Feature('perturbed_x0', 'noise_level', -1), "MATLAB:Feature:noise_level_NotPositive");
             testCase.verifyError(@() Feature('truncated', 'perturbed_trailing_zeros', -1), "MATLAB:Feature:perturbed_trailing_zeros_NotLogical");
-            testCase.verifyError(@() Feature('affine_transformed', 'rotated', 2), "MATLAB:Feature:rotated_NotLogical");
-            testCase.verifyError(@() Feature('affine_transformed', 'condition_number', -1), "MATLAB:Feature:condition_number_InvalidInput");
+            testCase.verifyError(@() Feature('linearly_transformed', 'rotated', 2), "MATLAB:Feature:rotated_NotLogical");
+            testCase.verifyError(@() Feature('linearly_transformed', 'condition_number', -1), "MATLAB:Feature:condition_number_InvalidInput");
             testCase.verifyError(@() Feature('noisy', 'n_runs', 2.5), "MATLAB:Feature:n_runs_NotPositiveInteger");
             testCase.verifyError(@() Feature('noisy', 'noise_type', '+'), "MATLAB:Feature:noise_type_InvalidInput");
             testCase.verifyError(@() Feature('unrelaxable_constraints', 'unrelaxable_bounds', -1), "MATLAB:Feature:unrelaxable_bounds_NotLogical");
