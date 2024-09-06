@@ -105,7 +105,8 @@ classdef FeaturedProblem < Problem
                 if feature.options.(FeatureOptionKey.NOISE_TYPE.value) == NoiseType.ABSOLUTE.value
                     pb_struct.x0 = pb_struct.x0 + feature.options.(FeatureOptionKey.NOISE_LEVEL.value) * feature.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream, length(pb_struct.x0));
                 else
-                    pb_struct.x0 = max(1e-8, abs(pb_struct.x0)) .* sign(pb_struct.x0) .* (1 + feature.options.(FeatureOptionKey.NOISE_LEVEL.value) * feature.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream, length(pb_struct.x0)));
+                    % Use max(1, norm(x0)) to avoid no perturbation when x0 is zero.
+                    pb_struct.x0 = pb_struct.x0 + feature.options.(FeatureOptionKey.NOISE_LEVEL.value) * max(1, norm(pb_struct.x0)) * feature.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream, length(pb_struct.x0));
                 end
             elseif strcmp(feature.name, FeatureName.PERMUTED.value)
                 pb_struct.x0 = pb_struct.x0(reverse_permutation);

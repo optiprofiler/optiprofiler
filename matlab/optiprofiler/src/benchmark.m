@@ -138,29 +138,7 @@ function benchmark(solvers, varargin)
     end
 
     % Set default profile options.
-    if exist('parcluster', 'file') == 2
-        myCluster = parcluster('local');
-        nb_cores = myCluster.NumWorkers;
-    else
-        nb_cores = 1;
-    end
-    profile_options.(ProfileOptionKey.N_JOBS.value) = nb_cores;
-    profile_options.(ProfileOptionKey.BENCHMARK_ID.value) = '.';
-    profile_options.(ProfileOptionKey.RANGE_TYPE.value) = 'minmax';
-    profile_options.(ProfileOptionKey.STD_FACTOR.value) = 1;
-    profile_options.(ProfileOptionKey.SAVEPATH.value) = pwd;
-    profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) = 10;
-    profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value) = 500;
-    profile_options.(ProfileOptionKey.PROJECT_X0.value) = false;
-    profile_options.(ProfileOptionKey.RUN_PLAIN.value) = true;
-    profile_options.(ProfileOptionKey.SUMMARIZE_PERFORMANCE_PROFILES.value) = true;
-    profile_options.(ProfileOptionKey.SUMMARIZE_DATA_PROFILES.value) = true;
-    profile_options.(ProfileOptionKey.SUMMARIZE_LOG_RATIO_PROFILES.value) = false;
-    profile_options.(ProfileOptionKey.SUMMARIZE_OUTPUT_BASED_PROFILES.value) = true;
-    profile_options.(ProfileOptionKey.SUMMARIZE_FUNHIST.value) = true;
-    profile_options.(ProfileOptionKey.SUMMARIZE_MAXCVHIST.value) = true;
-    profile_options.(ProfileOptionKey.SUMMARIZE_MERITHIST.value) = true;
-    profile_options.(ProfileOptionKey.SUMMARIZE_CUMMINHIST.value) = true;
+    profile_options = getDefaultProfileOptions();
     
     % Initialize the options for feature and cutest.
     feature_options = struct();
@@ -191,285 +169,26 @@ function benchmark(solvers, varargin)
         end
     end
 
-    % The validity of the feature options will be checked in the Feature constructor, so we do not need to check it here.
+    % The validity of the feature options has been checked in the Feature constructor, so we do not need to check it here.
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%% Check whether the cutest options are valid. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % Judge whether cutest_options.problem_type is among all possible problem types.
-    if isfield(cutest_options, CutestOptionKey.PROBLEM_TYPE.value)
-        if ~ischarstr(cutest_options.(CutestOptionKey.PROBLEM_TYPE.value))
-            error("MATLAB:benchmark:problem_typeNotcharstr", "cutest_options.problem_type should be a char or a string.");
-        else
-            % Convert to lower case CHAR.
-            cutest_options.(CutestOptionKey.PROBLEM_TYPE.value) = lower(char(cutest_options.(CutestOptionKey.PROBLEM_TYPE.value)));
-            % Check whether the problem type belongs to four types ('u', 'b', 'l', 'n') and their combinations.
-            if ~all(ismember(cutest_options.(CutestOptionKey.PROBLEM_TYPE.value), 'ubln'))
-                error("MATLAB:benchmark:problem_typeNotubln", "cutest_options.problem_type should be a string containing only 'u', 'b', 'l', 'n'.");
-            end
-        end
-    end
-    % Judge whether cutest_options.mindim is a integer greater or equal to 1.
-    if isfield(cutest_options, CutestOptionKey.MINDIM.value)
-        if ~isintegerscalar(cutest_options.(CutestOptionKey.MINDIM.value)) || cutest_options.(CutestOptionKey.MINDIM.value) < 1
-            error("MATLAB:benchmark:mindimNotValid", "cutest_options.mindim should be a integer greater or equal to 1.");
-        end
-    end
-    % Judge whether cutest_options.maxdim is a integer greater or equal to 1, or equal to Inf.
-    if isfield(cutest_options, CutestOptionKey.MAXDIM.value)
-        if ~isintegerscalar(cutest_options.(CutestOptionKey.MAXDIM.value)) || (cutest_options.(CutestOptionKey.MAXDIM.value) < 1 && cutest_options.(CutestOptionKey.MAXDIM.value) ~= Inf)
-            error("MATLAB:benchmark:maxdimNotValid", "cutest_options.maxdim should be a integer greater or equal to 1, or equal to Inf.");
-        end
-    end
-    % Judge whether cutest_options.mindim is smaller or equal to cutest_options.maxdim.
-    if isfield(cutest_options, CutestOptionKey.MINDIM.value) && isfield(cutest_options, CutestOptionKey.MAXDIM.value)
-        if cutest_options.(CutestOptionKey.MINDIM.value) > cutest_options.(CutestOptionKey.MAXDIM.value)
-            error("MATLAB:benchmark:maxdimSmallerThanmindim", "cutest_options.mindim should be smaller or equal to cutest_options.maxdim.");
-        end
-    end
-    % Judge whether cutest_options.mincon is a integer greater or equal to 0.
-    if isfield(cutest_options, CutestOptionKey.MINCON.value)
-        if ~isintegerscalar(cutest_options.(CutestOptionKey.MINCON.value)) || cutest_options.(CutestOptionKey.MINCON.value) < 0
-            error("MATLAB:benchmark:minconNotValid", "cutest_options.mincon should be a integer greater or equal to 0.");
-        end
-    end
-    % Judge whether cutest_options.maxcon is a integer greater or equal to 0, or equal to Inf.
-    if isfield(cutest_options, CutestOptionKey.MAXCON.value)
-        if ~isintegerscalar(cutest_options.(CutestOptionKey.MAXCON.value)) || (cutest_options.(CutestOptionKey.MAXCON.value) < 0 && cutest_options.(CutestOptionKey.MAXCON.value) ~= Inf)
-            error("MATLAB:benchmark:maxconNotValid", "cutest_options.maxcon should be a integer greater or equal to 0, or equal to Inf.");
-        end
-    end
-    % Judge whether cutest_options.mincon is smaller or equal to cutest_options.maxcon.
-    if isfield(cutest_options, CutestOptionKey.MINCON.value) && isfield(cutest_options, CutestOptionKey.MAXCON.value)
-        if cutest_options.(CutestOptionKey.MINCON.value) > cutest_options.(CutestOptionKey.MAXCON.value)
-            error("MATLAB:benchmark:maxconSmallerThanmincon", "cutest_options.mincon should be smaller or equal to cutest_options.maxcon.");
-        end
-    end
-    % Judge whether cutest_options.excludelist is a cell array of strings or chars.
-    if isfield(cutest_options, CutestOptionKey.EXCLUDELIST.value)
-        if ~iscell(cutest_options.(CutestOptionKey.EXCLUDELIST.value)) || ~all(cellfun(@ischarstr, cutest_options.(CutestOptionKey.EXCLUDELIST.value)))
-            error("MATLAB:benchmark:excludelistNotCellOfcharstr", "cutest_options.excludelist should be a cell array of strings or chars.");
-        end
-        cutest_options.(CutestOptionKey.EXCLUDELIST.value) = cellfun(@char, cutest_options.(CutestOptionKey.EXCLUDELIST.value), 'UniformOutput', false);  % Convert to cell array of chars.
-    end
+    checkValidityCutestOptions(cutest_options);
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%% Check whether the profile options are valid. %%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % Judge whether profile_options.n_jobs is a integer between 1 and nb_cores.
-    if isfield(profile_options, ProfileOptionKey.N_JOBS.value)
-        if ~isintegerscalar(profile_options.(ProfileOptionKey.N_JOBS.value))
-            error("MATLAB:benchmark:n_jobsNotValid", "profile_options.n_jobs should be a integer.");
-        elseif profile_options.(ProfileOptionKey.N_JOBS.value) < 1
-            profile_options.(ProfileOptionKey.N_JOBS.value) = 1;
-        elseif profile_options.(ProfileOptionKey.N_JOBS.value) > nb_cores
-            profile_options.(ProfileOptionKey.N_JOBS.value) = nb_cores;
-        else
-            profile_options.(ProfileOptionKey.N_JOBS.value) = round(profile_options.(ProfileOptionKey.N_JOBS.value));
-        end
-    end
-    % Judge whether profile_options.benchmark_id is a char or a string and satisfies the file name requirements (but it can be '.').
-    is_valid_foldername = @(x) ischarstr(x) && ~isempty(x) && all(ismember(char(x), ['a':'z', 'A':'Z', '0':'9', '_', '-']));
-    if ~ischarstr(profile_options.(ProfileOptionKey.BENCHMARK_ID.value)) || ~is_valid_foldername(profile_options.(ProfileOptionKey.BENCHMARK_ID.value)) && ~strcmp(profile_options.(ProfileOptionKey.BENCHMARK_ID.value), '.')
-        error("MATLAB:benchmark:benchmark_idNotValid", "profile_options.benchmark_id should be a char or a string satisfying the file name requirements.");
-    end
-    % Judge whether profile_options.range_type is among 'minmax' and 'meanstd'.
-    if ~ischarstr(ProfileOptionKey.RANGE_TYPE.value) || ~ismember(char(profile_options.(ProfileOptionKey.RANGE_TYPE.value)), {'minmax', 'meanstd'})
-        error("MATLAB:benchmark:range_typeNotValid", "range_type should be either 'minmax' or 'meanstd'.");
-    end
-    % Judge whether profile_options.std_factor is a positive real number.
-    if ~isrealscalar(profile_options.(ProfileOptionKey.STD_FACTOR.value)) || profile_options.(ProfileOptionKey.STD_FACTOR.value) <= 0
-        error("MATLAB:benchmark:std_factorNotValid", "std_factor should be a positive real number.");
-    end
-    % Judge whether profile_options.savepath is a string and exists. If not exists, create it.
-    if ~ischarstr(profile_options.(ProfileOptionKey.SAVEPATH.value))
-        error("MATLAB:benchmark:savepathNotValid", "savepath should be a char or a string.");
-    elseif ~exist(profile_options.(ProfileOptionKey.SAVEPATH.value), 'dir')
-        status = mkdir(profile_options.(ProfileOptionKey.SAVEPATH.value));
-        if ~status
-            error("MATLAB:benchmark:savepathNotExist", "profile_options.savepath does not exist and cannot be created.");
-        end
-    end
-    % Judge whether profile_options.max_tol_order is a positive integer.
-    if ~isintegerscalar(profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)) || profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) <= 0
-        error("MATLAB:benchmark:max_tol_orderNotValid", "max_tol_order should be a positive integer.");
-    end
-    % Judge whether profile_options.max_eval_factor is a positive integer.
-    if ~isintegerscalar(profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value)) || profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value) <= 0
-        error("MATLAB:benchmark:max_eval_factorNotValid", "max_eval_factor should be a positive integer.");
-    end
-    % Judge whether profile_options.project_x0 is a boolean.
-    if ~islogicalscalar(profile_options.(ProfileOptionKey.PROJECT_X0.value))
-        error("MATLAB:benchmark:project_x0NotValid", "project_x0 should be a boolean.");
-    end
-    % Judge whether profile_options.run_plain is a boolean.
-    if ~islogicalscalar(profile_options.(ProfileOptionKey.RUN_PLAIN.value))
-        error("MATLAB:benchmark:run_plainNotValid", "run_plain should be a boolean.");
-    end
-    % Judge whether profile_options.summarize_performance_profiles is a boolean.
-    if ~islogicalscalar(profile_options.(ProfileOptionKey.SUMMARIZE_PERFORMANCE_PROFILES.value))
-        error("MATLAB:benchmark:summarize_performance_profilesNotValid", "summarize_performance_profiles should be a boolean.");
-    end
-    % Judge whether profile_options.summarize_data_profiles is a boolean.
-    if ~islogicalscalar(profile_options.(ProfileOptionKey.SUMMARIZE_DATA_PROFILES.value))
-        error("MATLAB:benchmark:summarize_data_profilesNotValid", "summarize_data_profiles should be a boolean.");
-    end
-    % Judge whether profile_options.summarize_log_ratio_profiles is a boolean.
-    if ~islogicalscalar(profile_options.(ProfileOptionKey.SUMMARIZE_LOG_RATIO_PROFILES.value))
-        error("MATLAB:benchmark:summarize_log_ratio_profilesNotValid", "summarize_log_ratio_profiles should be a boolean.");
-    end
-    if profile_options.(ProfileOptionKey.SUMMARIZE_LOG_RATIO_PROFILES.value) && numel(solvers) > 2
-        warning("MATLAB:benchmark:summarize_log_ratio_profilesOnlyWhenTwoSolvers", "The log-ratio profiles are available only when there are exactly two solvers.");
-        profile_options.(ProfileOptionKey.SUMMARIZE_LOG_RATIO_PROFILES.value) = false;
-    end
-    % Judge whether profile_options.summarize_output_based_profiles is a boolean.
-    if ~islogicalscalar(profile_options.(ProfileOptionKey.SUMMARIZE_OUTPUT_BASED_PROFILES.value))
-        error("MATLAB:benchmark:summarize_output_based_profilesNotValid", "summarize_output_based_profiles should be a boolean.");
-    end
-    % Judge whether profile_options.summarize_funhist is a boolean.
-    if ~islogicalscalar(profile_options.(ProfileOptionKey.SUMMARIZE_FUNHIST.value))
-        error("MATLAB:benchmark:summarize_funhistNotValid", "summarize_funhist should be a boolean.");
-    end
-    % Judge whether profile_options.summarize_maxcvhist is a boolean.
-    if ~islogicalscalar(profile_options.(ProfileOptionKey.SUMMARIZE_MAXCVHIST.value))
-        error("MATLAB:benchmark:summarize_maxcvhistNotValid", "summarize_maxcvhist should be a boolean.");
-    end
-    % Judge whether profile_options.summarize_merithist is a boolean.
-    if ~islogicalscalar(profile_options.(ProfileOptionKey.SUMMARIZE_MERITHIST.value))
-        error("MATLAB:benchmark:summarize_merithistNotValid", "summarize_merithist should be a boolean.");
-    end
-    % Judge whether profile_options.summarize_cumminhist is a boolean.
-    if ~islogicalscalar(profile_options.(ProfileOptionKey.SUMMARIZE_CUMMINHIST.value))
-        error("MATLAB:benchmark:summarize_cumminhistNotValid", "summarize_cumminhist should be a boolean.");
-    end
-
+    checkValidityProfileOptions(profile_options);
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Use cutest_options to select problems. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    % Select the problems based on cutest_options.
-    if isempty(cutest_options) && (~isempty(custom_problem_loader) || ~isempty(custom_problem_names))
-        cutest_problem_names_options = {};
-    else
-        cutest_problem_names_options = selector(cutest_options);
-    end
-
-    % Preprocess the CUTEst problem names given by the user.
-    if ~isempty(cutest_problem_names)
-        if ~ischarstr(cutest_problem_names) && ~(iscell(cutest_problem_names) && all(cellfun(@ischarstr, cutest_problem_names)))
-            error("MATLAB:benchmark:cutest_problem_namesNotValid", "The CUTEst problem names must be a charstr or a cell array of charstr.");
-        end
-        if ischarstr(cutest_problem_names)
-            cutest_problem_names = {cutest_problem_names};
-        end
-        % Convert to a cell row vector of chars.
-        cutest_problem_names = cellfun(@char, cutest_problem_names, 'UniformOutput', false);
-        cutest_problem_names = cutest_problem_names(:)';
-    end
-
-    % Merge the problem names selected by cutest_options and given by the user.
-    % N.B.: Duplicate names are and MUST BE removed.
-    if isempty(cutest_problem_names) && isempty(custom_problem_names)
-        cutest_problem_names = cutest_problem_names_options;
-    elseif isempty(cutest_problem_names) && ~isempty(custom_problem_names)
-        cutest_problem_names = custom_problem_names;
-    elseif numel(fieldnames(cutest_options)) == 0
-        cutest_problem_names = unique(cutest_problem_names);
-    else
-        cutest_problem_names = unique([cutest_problem_names, cutest_problem_names_options]);
-    end
-
-    % Exclude the problems specified by cutest_options.excludelist.
-    if isfield(cutest_options, CutestOptionKey.EXCLUDELIST.value) && ~isempty(cutest_options.(CutestOptionKey.EXCLUDELIST.value))
-        cutest_problem_names = setdiff(cutest_problem_names, cutest_options.(CutestOptionKey.EXCLUDELIST.value));
-    end
-
-    % Check whether the total number of problems is zero.
-    if isempty(cutest_problem_names) && isempty(custom_problem_names)
-        error("MATLAB:benchmark:AtLeastOneProblem", "At least one problem must be given.");
-    end
-
+    cutest_problem_names = loadCutestNames(cutest_options, cutest_problem_names, custom_problem_loader, custom_problem_names);
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Set the default values for plotting. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    % Paths to the results.
-    timestamp = datestr(datetime('now', 'TimeZone', 'local', 'Format', 'yyyy-MM-dd''T''HH-mm-SSZ'), 'yyyy-mm-ddTHH-MM-SSZ');
-    path_out = fullfile(profile_options.(ProfileOptionKey.SAVEPATH.value), 'out', profile_options.(ProfileOptionKey.BENCHMARK_ID.value));
-    if ~exist(path_out, 'dir')
-        mkdir(path_out);
-    end
-
-    % If the path does not exist or it is an empty directory, create it and store the timestamp, otherwise, append the timestamp.
-    contents = dir(path_out);
-    is_empty = isempty(contents) || (length(contents) == 2 && all(cellfun(@(x) ismember(x, {'.', '..'}), {contents.name})));
-
-    if is_empty
-        % Try to save the timestamp for later reference.
-        try
-            fid = fopen(fullfile(path_out, 'timestamp.txt'), 'w');
-            fprintf(fid, timestamp);
-            fclose(fid);
-        catch
-            fprintf("WARNING: The timestamp could not be saved.\n");
-        end
-    else
-        % Check whether all the subdirectories are named by timestamps or 'time-unknown', 'time-unknown-2', 'time-unknown-3', ...
-        timestamp_pattern = '^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}Z$';
-        unknown_pattern = '^time-unknown(-\d+)?$';
-        fullpattern = ['(' timestamp_pattern ')|(' unknown_pattern ')'];
-        filtered_contents = contents(~startsWith({contents.name}, '.'));
-        is_all_timestamps = all(arrayfun(@(x) x.isdir && ~isempty(regexp(x.name, fullpattern, 'once')), filtered_contents));
-        if ~is_all_timestamps
-            % Initialize the name of the directory by 'time-unknown'. If there are multiple directories named by 'time-unknown' or 'time-unknown-2', 'time-unknown-3', ..., use the next number.
-            unknown_dirs = filtered_contents(contains({filtered_contents.name}, 'time-unknown'));
-            if isempty(unknown_dirs)
-                old_timestamp = 'time-unknown';
-            else
-                last_unknown_dir = unknown_dirs(end);
-                last_unknown_dir_name = last_unknown_dir.name;
-                if strcmp(last_unknown_dir_name, 'time-unknown')
-                    old_timestamp = 'time-unknown-2';
-                else
-                    num_str = regexp(last_unknown_dir_name, '\d+$', 'match');
-                    if isempty(num_str)
-                        old_timestamp = 'time-unknown-2';
-                    else
-                        last_unknown_number = str2double(num_str{1});
-                        old_timestamp = ['time-unknown-' num2str(last_unknown_number + 1)];
-                    end
-                end
-            end
-            % Try to find 'timestamp.txt' and read the timestamp.
-            for i = 1:length(filtered_contents)
-                if strcmp(filtered_contents(i).name, 'timestamp.txt')
-                    try
-                        fid = fopen(fullfile(path_out, 'timestamp.txt'), 'r');
-                        old_timestamp_new = fscanf(fid, '%s');
-                        fclose(fid);
-                    catch
-                    end
-                    break;
-                end
-            end
-            try
-                mkdir(fullfile(path_out, old_timestamp_new));
-                old_timestamp = old_timestamp_new;
-            catch
-                mkdir(fullfile(path_out, old_timestamp));
-            end
-            % Move all the filtered contents that does not match the fullpattern to the new directory.
-            for i_item = 1:length(filtered_contents)
-                item = filtered_contents(i_item);
-                if isempty(regexp(item.name, fullpattern, 'once'))
-                    movefile(fullfile(path_out, item.name), fullfile(path_out, old_timestamp, item.name));
-                end
-            end
-        end
-        path_out = fullfile(path_out, timestamp);
-    end
-    
-    if ~exist(path_out, 'dir')
-        mkdir(path_out);
-    end
+    % Create the directory to store the results.
+    path_out = setSavingPath(profile_options);
 
     % Set the default values for plotting.
     set(groot, 'DefaultLineLineWidth', 1);
@@ -548,7 +267,7 @@ function benchmark(solvers, varargin)
             T_summary = tiledlayout(fig_summary, multiplier, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
             T_title = strrep(feature.name, '_', '\_');
             P_title = strrep(problem_names{1}, '_', '\_');
-            title(T_summary, ['Profiles of solving ``', P_title, '" with the ``', T_title, '" feature'], 'Interpreter', 'latex', 'FontSize', 18);
+            title(T_summary, ['Solving ``', P_title, '" with the ``', T_title, '" feature'], 'Interpreter', 'latex', 'FontSize', 14);
             % Use gobjects to create arrays of handles and axes.
             t_summary = gobjects(multiplier, 1);
             axs_summary = gobjects([multiplier, 1, 1, n_cols]);
@@ -561,9 +280,9 @@ function benchmark(solvers, varargin)
                     axs_summary(i_axs) = nexttile(t_summary(i));
                 end
             end
-            ylabel(t_summary(1), "History profiles", 'Interpreter', 'latex', 'FontSize', 20);
+            ylabel(t_summary(1), "History profiles", 'Interpreter', 'latex', 'FontSize', 14);
             if is_cum
-                ylabel(t_summary(2), "Cummin history profiles", 'Interpreter', 'latex', 'FontSize', 20);
+                ylabel(t_summary(2), "Cummin history profiles", 'Interpreter', 'latex', 'FontSize', 14);
             end
 
             cell_axs_summary_cum = {};

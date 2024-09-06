@@ -21,23 +21,28 @@ function example()
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Example 3 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    solvers = {@bds_test, @fminsearch_test};
+    % solvers = {@bds_test, @fminsearch_test};
     % options.feature_names = 'plain';
-    options.feature_names = {'plain', 'perturbed_x0', 'noisy', 'truncated', 'permuted', 'linearly_transformed', 'random_nan'};
-    % options.noise_level = 1e-1;
-    options.n_jobs = 1;
+    % options.cutest_problem_names = 'TOINTGOR';
+    % options.summarize_maxcvhist = true;
+    % options.summarize_merithist = true;
+    % options.labels = {'bds', 'simplex'};
+    % benchmark(solvers, options)
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Example 4 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    solvers = {@bds_test, @fminsearch_test};
+    options.feature_names = 'noisy';
+    options.noise_level = 1e-1;
     options.cutest_problem_names = 'TOINTGOR';
-    % options.rotated = true;
-    % options.condition_number = 'dimension_dependent';
     options.run_plain = false;
-    % options.n_runs = 5;
-    % options.max_tol_order = 4;
-    % options.problem_type = 'u';
-    % options.maxdim = 5;
-    % options.benchmark_id = 'test-path';
-    % options.summarize_log_ratio_profiles = true;
-    options.summarize_maxcvhist = false;
-    options.summarize_merithist = false;
+    options.problem_type = 'u';
+    options.maxdim = 5;
+    options.summarize_log_ratio_profiles = true;
+    options.summarize_maxcvhist = true;
+    options.summarize_merithist = true;
     options.labels = {'bds', 'simplex'};
     benchmark(solvers, options)
 

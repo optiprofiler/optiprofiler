@@ -6,7 +6,7 @@ classdef TestFeatureName < matlab.unittest.TestCase
             
             enumValues = enumeration('FeatureName');
             enumValues = cellstr(arrayfun(@char, enumValues, 'UniformOutput', false));
-            expectedValues = {'PLAIN'; 'PERTURBED_X0'; 'NOISY'; 'TRUNCATED'; 'PERMUTED'; 'AFFINE_TRANSFORMED'; 'RANDOM_NAN'; 'UNRELAXABLE_CONSTRAINTS'; 'CUSTOM'};
+            expectedValues = {'PLAIN'; 'PERTURBED_X0'; 'NOISY'; 'TRUNCATED'; 'PERMUTED'; 'LINEARLY_TRANSFORMED'; 'RANDOM_NAN'; 'UNRELAXABLE_CONSTRAINTS'; 'CUSTOM'};
             testCase.verifyEqual(enumValues, expectedValues);
         end
 
@@ -20,7 +20,7 @@ classdef TestFeatureName < matlab.unittest.TestCase
             testCase.verifyEqual(FeatureName.NOISY.value, 'noisy');
             testCase.verifyEqual(FeatureName.TRUNCATED.value, 'truncated');
             testCase.verifyEqual(FeatureName.PERMUTED.value, 'permuted');
-            testCase.verifyEqual(FeatureName.AFFINE_TRANSFORMED.value, 'affine_transformed');
+            testCase.verifyEqual(FeatureName.LINEARLY_TRANSFORMED.value, 'linearly_transformed');
             testCase.verifyEqual(FeatureName.RANDOM_NAN.value, 'random_nan');
             testCase.verifyEqual(FeatureName.UNRELAXABLE_CONSTRAINTS.value, 'unrelaxable_constraints');
             testCase.verifyEqual(FeatureName.CUSTOM.value, 'custom');

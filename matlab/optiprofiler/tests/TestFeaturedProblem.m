@@ -46,11 +46,11 @@ classdef TestFeaturedProblem < matlab.unittest.TestCase
             testCase.verifyEqual(ftp.ceq(ftp.x0), p.ceq(p.x0));
         end
 
-        function testAffine_transformedProblem(testCase)
-            % Test whether the featured problem (feature affine_transformed) works correctly.
+        function testLinearly_transformedProblem(testCase)
+            % Test whether the featured problem (feature linearly_transformed) works correctly.
 
             p = Problem(struct('fun', @TestFeaturedProblem.rosen, 'x0', ones(10, 1), 'xl', -ones(10, 1), 'xu', ones(10, 1), 'aub', diag(ones(10, 1)), 'bub', ones(10, 1), 'aeq', diag(ones(10, 1)), 'beq', ones(10, 1), 'cub', @TestFeaturedProblem.sum_cos, 'ceq', @TestFeaturedProblem.sum_sin));
-            ft = Feature('affine_transformed', 'condition_number', 'dimension_dependent');
+            ft = Feature('linearly_transformed', 'condition_number', 'dimension_dependent');
             ftp = FeaturedProblem(p, ft, 500, 1);
             scaler = ftp.scaler;
             rotation = ftp.rotation;
