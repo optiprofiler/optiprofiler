@@ -13,6 +13,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
 
     if length(problem_name) == 2
         problem = custom_problem_loader(problem_name{2});
+
         % Verify whether problem is a Problem object.
         if ~isa(problem, 'Problem')
             fprintf("Custom problem %s cannot be loaded by custom_problem_loader.\n", problem_name{1});

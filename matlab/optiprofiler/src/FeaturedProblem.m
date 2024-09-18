@@ -7,7 +7,7 @@ classdef FeaturedProblem < Problem
         max_eval
         seed
         permutation
-        rotation
+        transform
         scaler
         fun_hist
         maxcv_hist
@@ -45,9 +45,12 @@ classdef FeaturedProblem < Problem
                 seed = mod(floor(posixtime(datetime('now'))), 2^32);
             end
 
-            % Preprocess the feature.
+            % Preprocess the problem and the feature.
+            if ~isa(problem, 'Problem')
+                error("MATLAB:FeaturedProblem:NotProblemClass", "The first argument of FeaturedProblem must be an instance of the class Problem.");
+            end
             if ~isa(feature, 'Feature')
-                error("MATLAB:FeaturedProblem:NotFeatureClass", "The argument feature must be an instance of the class Feature.");
+                error("MATLAB:FeaturedProblem:NotFeatureClass", "The second argument of FeaturedProblem must be an instance of the class Feature.");
             end
 
             % Preprocess the maximum number of function evaluations.
@@ -67,24 +70,23 @@ classdef FeaturedProblem < Problem
                 permutation = rand_stream.randperm(problem.n);
                 [~, reverse_permutation] = sort(permutation);
             end
-            % Generate a random rotation.
-            rotation = [];
+            % Generate a transformation matrix by the given options.
+            transform = [];
             if strcmp(feature.name, FeatureName.LINEARLY_TRANSFORMED.value)
                 if feature.options.(FeatureOptionKey.ROTATED.value)
-                    [Q, R] = qr(rand_stream.randn(problem.n));
-                    rotation = Q * diag(sign(diag(R)));
+                    [transform, inverse] = feature.options.(FeatureOptionKey.INVERTIBLE_TRANSFORMATION.value)(rand_stream, problem.n);
+                    if norm(transform * inverse - eye(problem.n)) > 1e-6 * problem.n
+                        error("MATLAB:FeaturedProblem:InvalidTransformation", "The transformation matrix and its inverse must be inverses of each other.");
+                    end
                 else
-                    rotation = eye(problem.n);
+                    transform = eye(problem.n);
+                    inverse = eye(problem.n);
                 end
             end
             % Generate a random scaling matrix.
             scaler = [];
             if strcmp(feature.name, FeatureName.LINEARLY_TRANSFORMED.value)
-                if strcmp(feature.options.(FeatureOptionKey.CONDITION_NUMBER.value), 'dimension_dependent')
-                    condition_number = min(1e8, 2^(problem.n));
-                else
-                    condition_number = feature.options.(FeatureOptionKey.CONDITION_NUMBER.value);
-                end
+                condition_number = feature.options.(FeatureOptionKey.CONDITION_NUMBER.value)(problem.n);
                 power = log2(condition_number) / 2;
                 scaler = -power + 2 * power * rand_stream.rand(problem.n - 2, 1);
                 scaler = 2 .^ [-power; scaler; power];
@@ -111,7 +113,7 @@ classdef FeaturedProblem < Problem
             elseif strcmp(feature.name, FeatureName.PERMUTED.value)
                 pb_struct.x0 = pb_struct.x0(reverse_permutation);
             elseif strcmp(feature.name, FeatureName.LINEARLY_TRANSFORMED.value)
-                pb_struct.x0 = (1 ./ scaler) .* (rotation' * pb_struct.x0);
+                pb_struct.x0 = (1 ./ scaler) .* (inverse * pb_struct.x0);
             end
 
             % Permute xl, xu, aub, aeq if feature is 'permuted'.
@@ -126,14 +128,14 @@ classdef FeaturedProblem < Problem
                 end
             elseif strcmp(feature.name, FeatureName.LINEARLY_TRANSFORMED.value)
                 if ~isempty(pb_struct.aub)
-                    pb_struct.aub = [rotation * diag(scaler); -rotation * diag(scaler); pb_struct.aub * rotation * diag(scaler)];
+                    pb_struct.aub = [transform * diag(scaler); -transform * diag(scaler); pb_struct.aub * transform * diag(scaler)];
                     pb_struct.bub = [pb_struct.xu; -pb_struct.xl; pb_struct.bub];
                 else
-                    pb_struct.aub = [rotation * diag(scaler); -rotation * diag(scaler)];
+                    pb_struct.aub = [transform * diag(scaler); -transform * diag(scaler)];
                     pb_struct.bub = [pb_struct.xu; -pb_struct.xl];
                 end
                 if ~isempty(pb_struct.aeq)
-                    pb_struct.aeq = pb_struct.aeq * rotation * diag(scaler);
+                    pb_struct.aeq = pb_struct.aeq * transform * diag(scaler);
                 end
                 pb_struct.xl = -Inf * ones(problem.n, 1);
                 pb_struct.xu = Inf * ones(problem.n, 1);
@@ -146,7 +148,7 @@ classdef FeaturedProblem < Problem
             obj.max_eval = max_eval;
             obj.seed = seed;
             obj.permutation = permutation;
-            obj.rotation = rotation;
+            obj.transform = transform;
             obj.scaler = scaler;
 
             % Initialize the history of the objective function and the maximum constraint violation.
@@ -205,7 +207,7 @@ classdef FeaturedProblem < Problem
 
             % Evaluate the objective function and store the results.
             if strcmp(obj.feature.name, FeatureName.LINEARLY_TRANSFORMED.value)
-                f_true = fun@Problem(obj, obj.rotation * (obj.scaler .* x));
+                f_true = fun@Problem(obj, obj.transform * (obj.scaler .* x));
             else
                 f_true = fun@Problem(obj, x);
             end
@@ -252,7 +254,7 @@ classdef FeaturedProblem < Problem
                 return
             else
                 if strcmp(obj.feature.name, FeatureName.LINEARLY_TRANSFORMED.value)
-                    f = cub@Problem(obj, obj.rotation * (obj.scaler .* x));
+                    f = cub@Problem(obj, obj.transform * (obj.scaler .* x));
                 else
                     f = cub@Problem(obj, x);
                 end
@@ -293,7 +295,7 @@ classdef FeaturedProblem < Problem
                 return
             else
                 if strcmp(obj.feature.name, FeatureName.LINEARLY_TRANSFORMED.value)
-                    f = ceq@Problem(obj, obj.rotation * (obj.scaler .* x));
+                    f = ceq@Problem(obj, obj.transform * (obj.scaler .* x));
                 else
                     f = ceq@Problem(obj, x);
                 end

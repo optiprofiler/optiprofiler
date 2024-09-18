@@ -1,9 +1,143 @@
 function benchmark(solvers, varargin)
-%BENCHMARKS creates the benchmark profiles.
+%BENCHMARK Create multiple profiles for benchmarking optimization solvers on a
+%   set of problems with different features.
 %
-%   The benchmark profiles include the performance and data profiles [1]_,
-%   [2]_, [4]_, and the log-ratio profiles [3]_, [5]_. The log-ratio profiles
-%   are available only when there are exactly two solvers.
+%   BENCHMARK(SOLVERS) creates performance profiles and data profiles for the
+%   given SOLVERS with default unconstrained problem set and feature plain.
+%
+%   BENCHMARK(SOLVERS, FEATURE_NAMES) creates performance profiles and data
+%   profiles for the given SOLVERS with default unconstrained problem set and
+%   specified features FEATURE_NAMES.
+%
+%   BENCHMARK(SOLVERS, FEATURE_NAMES, PROBLEM) creates history plots for the
+%   given SOLVERS with the specified one PROBLEM and features FEATURE_NAMES.
+%
+%   BENCHMARK(SOLVERS, OPTIONS) creates performance profiles and data profiles
+%   for the given SOLVERS with options specified in the struct OPTIONS.
+%   OPTIONS can contain the following fields:
+%       1. options for profiles and plots:
+%       - n_jobs: the number of parallel jobs to run the test. Default is 1.
+%       - benchmark_id: the identifier of the test. It is used to create the
+%         specific directory to store the results. Default is '.' .
+%       - range_type: the type of the uncertainty interval. For stochastic
+%         features, we run several times of the experiments and get average
+%         curves and uncertainty intervals. Default is 'minmax', meaning that we
+%         takes the pointwise minimum and maximum of the curves.
+%       - std_factor: the factor multiplied to the standard deviation to get the
+%         uncertainty interval in the case where range_type is 'std', meaning
+%         that we take the pointwise mean plus/minus the standard deviation of
+%         the curves. Default is 1.
+%       - savepath: the path to store the results. Default is the current
+%         directory where the function is called.
+%       - max_tol_order: the maximum order of the tolerance. In any profile (in
+%         our case, performance profiles, data profiles, and log-ratio profiles),
+%         we need to set a group of 'tolerances' to define the 'convergence' of
+%         the solvers. (Details can be found in the references.) We will set the
+%         tolerances as 10^(-1:-1:-max_tol_order). Default is 10.
+%       - max_eval_factor: the factor multiplied to each problem's dimension to
+%         get the maximum number of evaluations for each problem. Default is 500.
+%       - project_x0: whether to project the initial point to the feasible set.
+%         Default is false.
+%       - run_plain: whether to run the plain feature when the feature is
+%         stochastic (e.g., the feature is 'noisy' and you set the 'run_plain'
+%         to true, then we will additionally run the 'plain' feature and use the
+%         results to define the 'convergence' of the solvers). Default is true.
+%       - summarize_performance_profiles: whether to add all the performance
+%         profiles to the summary PDF. Default is true.
+%       - summarize_data_profiles: whether to add all the data profiles to the
+%         summary PDF. Default is true.
+%       - summarize_log_ratio_profiles: whether to add all the log-ratio profiles
+%         to the summary PDF. Default is false.
+%       - summarize_output_based_profiles: whether to add all the output-based
+%         profiles of the selected profiles to the summary PDF. Default is true.
+%       - summarize_funhist: whether to add the history plots of the objective
+%         function values to the summary PDF. Default is true. (Note: it is only
+%         available when there is only one problem.)
+%       - summarize_maxcvhist: whether to add the history plots of the maximum
+%         constraint violation to the summary PDF. Default is true. (Note: it is
+%         only available when there is only one problem.)
+%       - summarize_merithist: whether to add the history plots of the merit
+%         values to the summary PDF. Default is true. (Note: it is only available
+%         when there is only one problem.)
+%       - summarize_cumminhist: whether to add all the cumulative minimum of the 
+%         selected history plots to the summary PDF. Default is true. (Note: it
+%         is only available when there is only one problem.)
+%       2. options for features:
+%       - n_runs: the number of runs of the experiments under the given feature.
+%         Default is 10 for stochastic features and 1 for deterministic features.
+%       - distribution: the distribution of random vectors in stochastic
+%         features. It should be a function handle,
+%               (random stream, dimension) -> random vector)
+%         accepting a random stream and the dimension of a problem, and returning
+%         a vector with the same dimension. Default is the standard multivariate
+%         normal distribution.
+%       - noise_level: the magnitude of the noise in stochastic features. Default
+%         is 10^-3.
+%       - noise_type: the type of the noise in stochastic features. It should be
+%         either 'absolute' or 'relative'. Default is 'relative'.
+%       - significant_digits: the number of significant digits in the 'truncated'
+%         feature. Default is 6.
+%       - perturbed_trailing_zeros: whether we will set the trailing zeros of the
+%         objective function value to be perturbed (randomly generated) in the
+%         'perturbed_x0' feature. Default is true.
+%       - rotated: whether to use a random or given rotation matrix to rotate the
+%         coordinates of a problem in the 'linearly_transformed' feature. Default
+%         is true.
+%       - invertible_transformation: the invertible transformation in the
+%         'linearly_transformed' feature. It should be a function handle,
+%               (random stream, dimension) -> (invertible matrix, inverse matrix)
+%         accepting a random stream and the dimension of a problem, and returning
+%         an invertible matrix and its inverse. Default is generating a random
+%         orthogonal matrix following the uniform distribution on SO(dimension),
+%         and the inverse is the transpose of the matrix.
+%       - condition_number: the condition number of a scaling matrix, which will
+%         be composed with the objective function in the 'linearly_transformed'
+%         feature. It should be a function handle,
+%               dimension -> condition_number
+%         accepting the dimension of a problem and returning a scalar. Default is
+%         @(n) 1, meaning that the scaling matrix is the identity matrix.
+%       - unrelaxable_bounds: whether the bound constraints are unrelaxable or
+%         not in the 'unrelaxable_constraints' feature. Default is false.
+%       - unrelaxable_linear_constraints: whether the linear constraints are
+%         unrelaxable or not in the 'unrelaxable_constraints' feature. Default is
+%         false.
+%       - unrelaxable_nonlinear_constraints: whether the nonlinear constraints
+%         are unrelaxable or not in the 'unrelaxable_constraints' feature.
+%         Default is false.
+%       - rate_nan: the probability that the evaluation of the objective function
+%         will return NaN in the 'random_nan' feature. Default is 0.05.
+%       - modifier: the modifier function to modify the objective function value
+%         in the 'custom' feature. It should be a function handle,
+%               (current point, current objective function value, seed) ->
+%               modified objective function value
+%         accepting the current point, the current objective function value, and
+%         a random seed, and returning the modified objective function value. No
+%         default setting.
+%       3. options for CUTEst:
+%       Note that the CUTEst we used is the MATLAB codes from a GitHub repository
+%       called 'S2MPJ', created by Professor Serge Gratton and Professor Philippe
+%       L. Toint. More details can be found in the following website.
+%           https://github.com/GrattonToint/S2MPJ
+%       - problem_type: the type of the problems to be selected. It should be a
+%         string containing the combination of 'u' (unconstrained), 'b' (bound
+%         constrained), 'l' (linearly constrained), and 'n' (nonlinearly
+%         constrained). Default is 'u'.
+%       - mindim: the minimum dimension of the problems to be selected. Default
+%         is 1.
+%       - maxdim: the maximum dimension of the problems to be selected. Default
+%         is 5.
+%       - mincon: the minimum number of constraints of the problems to be
+%         selected. Default is 0.
+%       - maxcon: the maximum number of constraints of the problems to be
+%         selected. Default is 10 for linearly or nonlinearly constrained
+%         problems, and 0 for the others.
+%       - excludelist: the list of problems to be excluded. Default is not to
+%         exclude any problem.
+%
+%   For more information of performance and data profiles, see [1]_, [2]_, [4]_. 
+%   For that of log-ratio profiles, see [3]_, [5]_.
+%   Pay attention that log-ratio profiles are available only when there are
+%   exactly two solvers.
 %
 %   References:
 %   .. [1] E. D. Dolan and J. J. Moré. Benchmarking optimization software with
@@ -26,16 +160,24 @@ function benchmark(solvers, varargin)
 %          38(2):289–311, 2023. `doi:10.1080/10556788.2022.2121832
 %          <https://doi.org/10.1080/10556788.2022.2121832>.
 %
-%
-%          benchmark(solvers)
-%          benchmark(solvers, feature_names)
-%          benchmark(solvers, options)
-%          
+%   **************************************************************************
+%   Authors:    Cunxin HUANG (cun-xin.huang@connect.polyu.hk)
+%               Tom M. RAGONNEAU (t.ragonneau@gmail.com)
+%               and Zaikun ZHANG (zaikun.zhang@polyu.edu.hk)
+%               Department of Applied Mathematics,
+%               The Hong Kong Polytechnic University
+%   **************************************************************************
 
 
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Process the input arguments. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    
     if nargin == 0
         error("MATLAB:benchmark:solverMustBeProvided", "solvers must be provided.");
     elseif nargin == 1
+        % When input only contains one argument, we assume the user chooses benchmark(solvers) and test plain feature.
         feature_names = 'plain';
         labels = cellfun(@func2str, solvers, 'UniformOutput', false);
         cutest_problem_names = {};
@@ -44,6 +186,7 @@ function benchmark(solvers, varargin)
         options = struct();
     elseif nargin == 2
         if ischarstr(varargin{1}) || (iscell(varargin{1}) && all(cellfun(@ischarstr, varargin{1})))
+            % When input contains two arguments and the second argument is a char or cell of char, we assume the user chooses benchmark(solvers, feature_names).
             feature_names = varargin{1};
             labels = cellfun(@func2str, solvers, 'UniformOutput', false);
             cutest_problem_names = {};
@@ -51,6 +194,7 @@ function benchmark(solvers, varargin)
             custom_problem_names = {};
             options = struct();
         elseif isstruct(varargin{1})
+            % When input contains two arguments and the second argument is a struct, we assume the user chooses benchmark(solvers, options).
             options = varargin{1};
             if isfield(options, 'feature_names')
                 feature_names = options.feature_names;
@@ -84,6 +228,17 @@ function benchmark(solvers, varargin)
         else
             error("MATLAB:benchmark:SecondArgumentWrongType", "The second argument must be a cell array of feature names or a struct of options.");
         end
+    elseif nargin == 3
+        % When input contains three arguments, we assume the user chooses benchmark(solvers, feature_names, problem).
+        if ~isa(varargin{2}, 'Problem')
+            error("MATLAB:benchmark:ThirdArgumentNotProblem", "The third argument must be a Problem object.");
+        end
+        feature_names = varargin{1};
+        labels = cellfun(@func2str, solvers, 'UniformOutput', false);
+        cutest_problem_names = {};
+        custom_problem_loader = @(x) varargin{2};
+        custom_problem_names = {'custom'};
+        options = struct('n_jobs', 1);
     else
         error("MATLAB:benchmark:TooMuchInput", "Invalid number of arguments. The function must be called with one, two, or three arguments.");
     end
@@ -95,6 +250,27 @@ function benchmark(solvers, varargin)
     if numel(solvers) < 2
         error("MATLAB:benchmark:solversAtLeastTwo", "At least two solvers must be given.");
     end
+
+    % Preprocess the feature_names.
+    if ~ischarstr(feature_names) && ~(iscell(feature_names) && all(cellfun(@ischarstr, feature_names)))
+        % feature_names must be a char or string, or a cell array of chars or strings.
+        error("MATLAB:benchmark:feature_namesNotcharstrOrCellOfcharstr", "The feature names must be a cell array of chars or strings.");
+    end
+    if ischarstr(feature_names)
+        % Convert the char or string to a cell array of chars.
+        feature_names = {char(feature_names)};
+    end
+    if strcmp(feature_names, 'all')
+        % If 'all' is given, add all the feature names except 'custom'.
+        feature_names = cellfun(@(x) x.value, num2cell(enumeration('FeatureName')), 'UniformOutput', false);
+        custom_idx = strcmp(feature_names, FeatureName.CUSTOM.value);
+        feature_names(custom_idx) = [];
+    end
+    if ~all(cellfun(@(x) ismember(x, {enumeration('FeatureName').value}), feature_names))
+        error("MATLAB:benchmark:feature_namesNotValid", "The feature names must be valid.");
+    end
+    % Remove the duplicates.
+    feature_names = unique(feature_names);
 
     % Preprocess the labels.
     if ~iscell(labels) || ~all(cellfun(@(l) ischarstr(l), labels))
@@ -153,7 +329,8 @@ function benchmark(solvers, varargin)
         key = fieldNames{i_field};
         value = options.(key);
 
-        % validFeatureOptionKeys = {enumeration('FeatureOptionKey').value};  % Only for MATLAB R2021b or later.
+        % We can also use: validFeatureOptionKeys = {enumeration('FeatureOptionKey').value};  
+        % However, it only works for MATLAB R2021b or later.
         validFeatureOptionKeys = cellfun(@(x) x.value, num2cell(enumeration('FeatureOptionKey')), 'UniformOutput', false);
         validCutestOptionKeys = cellfun(@(x) x.value, num2cell(enumeration('CutestOptionKey')), 'UniformOutput', false);
         validProfileOptionKeys = cellfun(@(x) x.value, num2cell(enumeration('ProfileOptionKey')), 'UniformOutput', false);
@@ -169,13 +346,13 @@ function benchmark(solvers, varargin)
         end
     end
 
-    % The validity of the feature options has been checked in the Feature constructor, so we do not need to check it here.
+    % Note: the validity of the feature options has been checked in the Feature constructor, so we do not need to check it here.
 
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%% Check whether the cutest options are valid. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % Check whether the cutest options are valid.
     checkValidityCutestOptions(cutest_options);
 
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%% Check whether the profile options are valid. %%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    checkValidityProfileOptions(profile_options);
+    % Check whether the profile options are valid.
+    checkValidityProfileOptions(profile_options, solvers);
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Use cutest_options to select problems. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -195,14 +372,11 @@ function benchmark(solvers, varargin)
     set(groot, 'DefaultAxesFontSize', 12);
     set(groot, 'DefaultAxesFontName', 'Arial');
 
-    if strcmp(feature_names, 'all')
-        feature_names = cellfun(@(x) x.value, num2cell(enumeration('FeatureName')), 'UniformOutput', false);
-        custom_idx = strcmp(feature_names, FeatureName.CUSTOM.value);
-        feature_names(custom_idx) = [];
-    elseif ischarstr(feature_names)
-        feature_names = {feature_names};
-    end
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Start the computation of the profiles. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+    % Note: if user gives more than one feature, we only allow to benchmark under all the default feature options. (We do not want to mix the feature options.)
     if length(feature_names) > 1 && numel(fieldnames(feature_options)) > 0
         error("MATLAB:benchmark:OnlyOneFeatureWhenHavingfeature_options", "Only one feature can be specified when feature options are given.");
     end
@@ -214,7 +388,7 @@ function benchmark(solvers, varargin)
         feature = Feature(feature_name, feature_options);
         fprintf('INFO: Starting the computation of the "%s" profiles.\n', feature.name);
 
-        % Paths to the results of the feature.
+        % Paths to store the results.
         path_feature = fullfile(path_out, feature.name);
         if ~exist(path_feature, 'dir')
             mkdir(path_feature);
@@ -232,7 +406,7 @@ function benchmark(solvers, varargin)
             continue;
         end
 
-        % If there is only one problem, draw profiles of fun_histories, maxcv_histories, and merit_histories.
+        % If there is only one problem given, draw profiles of fun_histories, maxcv_histories, and merit_histories.
         if length(cutest_problem_names) + length(custom_problem_names) == 1
             % Sqeeze the dimension of the 'problem' axis.
             fun_histories = reshape(fun_histories, size(fun_histories, 2), size(fun_histories, 3), size(fun_histories, 4));

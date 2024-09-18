@@ -1,4 +1,4 @@
-function checkValidityProfileOptions(profile_options)
+function checkValidityProfileOptions(profile_options, solvers)
 %CHECKVALIDITYPROFILEOPTIONS Check the validity of the options in profile_options
 
     if exist('parcluster', 'file') == 2

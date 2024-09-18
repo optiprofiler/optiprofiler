@@ -84,7 +84,7 @@ classdef Feature < handle
                     case FeatureName.UNRELAXABLE_CONSTRAINTS.value
                         known_options = [known_options, {FeatureOptionKey.UNRELAXABLE_BOUNDS.value, FeatureOptionKey.UNRELAXABLE_LINEAR_CONSTRAINTS.value, FeatureOptionKey.UNRELAXABLE_NONLINEAR_CONSTRAINTS.value}];
                     case FeatureName.LINEARLY_TRANSFORMED.value
-                        known_options = [known_options, {FeatureOptionKey.ROTATED.value, FeatureOptionKey.CONDITION_NUMBER.value}];
+                        known_options = [known_options, {FeatureOptionKey.ROTATED.value, FeatureOptionKey.INVERTIBLE_TRANSFORMATION.value, FeatureOptionKey.CONDITION_NUMBER.value}];
                     case FeatureName.PERMUTED.value
                         % Do nothing
                     case FeatureName.PLAIN.value
@@ -135,9 +135,13 @@ classdef Feature < handle
                         if ~islogicalscalar(obj.options.(key))
                             error("MATLAB:Feature:rotated_NotLogical", "Option " + key + " must be a logical.")
                         end
+                    case FeatureOptionKey.INVERTIBLE_TRANSFORMATION.value
+                        if ~isa(obj.options.(key), 'function_handle')
+                            error("MATLAB:Feature:invertible_transformation_NotFunctionHandle", "Option " + key + " must be a function handle.")
+                        end
                     case FeatureOptionKey.CONDITION_NUMBER.value
-                        if ~strcmp(obj.options.(key), 'dimension_dependent') && ~(isrealscalar(obj.options.(key)) && obj.options.(key) >= 1)
-                            error("MATLAB:Feature:condition_number_InvalidInput", "Option " + key + " must be either 'dimension_dependent' or a positive real number greater than or equal to 1.")
+                        if ~isa(obj.options.(key), 'function_handle')
+                            error("MATLAB:Feature:condition_number_InvalidInput", "Option " + key + " must be a function handle.")
                         end
                     case FeatureOptionKey.UNRELAXABLE_BOUNDS.value
                         if ~islogicalscalar(obj.options.(key))
@@ -290,8 +294,11 @@ classdef Feature < handle
                     if ~isfield(obj.options, FeatureOptionKey.ROTATED.value)
                         obj.options.(FeatureOptionKey.ROTATED.value) = true;
                     end
+                    if ~isfield(obj.options, FeatureOptionKey.INVERTIBLE_TRANSFORMATION.value)
+                        obj.options.(FeatureOptionKey.INVERTIBLE_TRANSFORMATION.value) = @obj.default_invertible_transformation;
+                    end
                     if ~isfield(obj.options, FeatureOptionKey.CONDITION_NUMBER.value)
-                        obj.options.(FeatureOptionKey.CONDITION_NUMBER.value) = 1;
+                        obj.options.(FeatureOptionKey.CONDITION_NUMBER.value) = @(n) 1;
                     end
                 case FeatureName.PERTURBED_X0.value
                     if ~isfield(obj.options, FeatureOptionKey.DISTRIBUTION.value)
@@ -348,11 +355,26 @@ classdef Feature < handle
     end
 
     methods (Static)
-        function value = default_distribution(randstream, n)
+        function value = default_distribution(rand_stream, n)
             if nargin < 2
                 n = 1;
             end
-            value = randstream.randn(n, 1);
+            value = rand_stream.randn(n, 1);
+        end
+
+        function [transform, inverse] = default_invertible_transformation(rand_stream, n)
+            % Define the default invertible transformation for the 'linearly_transformed' feature.
+
+            % We generate a random orthogonal matrix Q following the uniform distribution on SO(n).
+            % The method refers to a note written by the late Professor Nicholas Higham, see:
+            % https://nhigham.com/2020/04/22/what-is-a-random-orthogonal-matrix/
+            % and an answer from MathStackExchange, see:
+            % https://math.stackexchange.com/a/4891933/1088047
+
+            [Q, R] = qr(rand_stream.randn(n));
+            Q(:, diag(R) < 0) = -Q(:, diag(R) < 0);
+            transform = Q;
+            inverse = Q';
         end
 
         function rand_stream = default_rng(seed, varargin)

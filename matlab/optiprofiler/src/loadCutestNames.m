@@ -26,7 +26,7 @@ function cutest_problem_names = loadCutestNames(cutest_options, cutest_problem_n
     if isempty(cutest_problem_names) && isempty(custom_problem_names)
         cutest_problem_names = cutest_problem_names_options;
     elseif isempty(cutest_problem_names) && ~isempty(custom_problem_names)
-        cutest_problem_names = custom_problem_names;
+        % Do nothing.
     elseif numel(fieldnames(cutest_options)) == 0
         cutest_problem_names = unique(cutest_problem_names);
     else

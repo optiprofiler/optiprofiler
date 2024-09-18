@@ -22,27 +22,21 @@ function example()
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     % solvers = {@bds_test, @fminsearch_test};
-    % options.feature_names = 'plain';
-    % options.cutest_problem_names = 'TOINTGOR';
-    % options.summarize_maxcvhist = true;
-    % options.summarize_merithist = true;
-    % options.labels = {'bds', 'simplex'};
-    % benchmark(solvers, options)
+    % feature_names = {'plain', 'noisy'};
+    % problem = loader('TOINTGOR');
+    % benchmark(solvers, feature_names, problem)
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Example 4 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     solvers = {@bds_test, @fminsearch_test};
-    options.feature_names = 'noisy';
-    options.noise_level = 1e-1;
-    options.cutest_problem_names = 'TOINTGOR';
+    options.feature_names = {'plain', 'noisy'};
+    options.n_jobs = 1;
     options.run_plain = false;
     options.problem_type = 'u';
     options.maxdim = 5;
     options.summarize_log_ratio_profiles = true;
-    options.summarize_maxcvhist = true;
-    options.summarize_merithist = true;
     options.labels = {'bds', 'simplex'};
     benchmark(solvers, options)
 
