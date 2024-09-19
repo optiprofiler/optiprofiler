@@ -170,14 +170,15 @@ function benchmark(solvers, varargin)
 
 
 
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Process the input arguments. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Preprocess the input arguments. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
     if nargin == 0
         error("MATLAB:benchmark:solverMustBeProvided", "solvers must be provided.");
     elseif nargin == 1
-        % When input only contains one argument, we assume the user chooses benchmark(solvers) and test plain feature.
+        % When input only contains one argument, we assume the user chooses benchmark(solvers) and
+        % test plain feature.
         feature_names = 'plain';
         labels = cellfun(@func2str, solvers, 'UniformOutput', false);
         cutest_problem_names = {};
@@ -186,7 +187,8 @@ function benchmark(solvers, varargin)
         options = struct();
     elseif nargin == 2
         if ischarstr(varargin{1}) || (iscell(varargin{1}) && all(cellfun(@ischarstr, varargin{1})))
-            % When input contains two arguments and the second argument is a char or cell of char, we assume the user chooses benchmark(solvers, feature_names).
+            % When input contains two arguments and the second argument is a char or cell of char,
+            % we assume the user chooses benchmark(solvers, feature_names).
             feature_names = varargin{1};
             labels = cellfun(@func2str, solvers, 'UniformOutput', false);
             cutest_problem_names = {};
@@ -194,7 +196,8 @@ function benchmark(solvers, varargin)
             custom_problem_names = {};
             options = struct();
         elseif isstruct(varargin{1})
-            % When input contains two arguments and the second argument is a struct, we assume the user chooses benchmark(solvers, options).
+            % When input contains two arguments and the second argument is a struct, we assume the
+            % user chooses benchmark(solvers, options).
             options = varargin{1};
             if isfield(options, 'feature_names')
                 feature_names = options.feature_names;
@@ -220,16 +223,19 @@ function benchmark(solvers, varargin)
                 options = rmfield(options, 'custom_problem_loader');
                 options = rmfield(options, 'custom_problem_names');
             elseif isfield(options, 'custom_problem_loader') || isfield(options, 'custom_problem_names')
-                error("MATLAB:benchmark:LoaderAndNamesNotSameTime", "custom_problem_loader and custom_problem_names must be provided at the same time.");
+                error("MATLAB:benchmark:LoaderAndNamesNotSameTime", ...
+                "custom_problem_loader and custom_problem_names must be provided at the same time.");
             else
                 custom_problem_loader = {};
                 custom_problem_names = {};
             end
         else
-            error("MATLAB:benchmark:SecondArgumentWrongType", "The second argument must be a cell array of feature names or a struct of options.");
+            error("MATLAB:benchmark:SecondArgumentWrongType", ...
+            "The second argument must be a cell array of feature names or a struct of options.");
         end
     elseif nargin == 3
-        % When input contains three arguments, we assume the user chooses benchmark(solvers, feature_names, problem).
+        % When input contains three arguments, we assume the user chooses
+        % benchmark(solvers, feature_names, problem).
         if ~isa(varargin{2}, 'Problem')
             error("MATLAB:benchmark:ThirdArgumentNotProblem", "The third argument must be a Problem object.");
         end
@@ -240,7 +246,8 @@ function benchmark(solvers, varargin)
         custom_problem_names = {'custom'};
         options = struct('n_jobs', 1);
     else
-        error("MATLAB:benchmark:TooMuchInput", "Invalid number of arguments. The function must be called with one, two, or three arguments.");
+        error("MATLAB:benchmark:TooMuchInput", ...
+        "Invalid number of arguments. The function must be called with one, two, or three arguments.");
     end
 
     % Preprocess the solvers.
@@ -254,7 +261,8 @@ function benchmark(solvers, varargin)
     % Preprocess the feature_names.
     if ~ischarstr(feature_names) && ~(iscell(feature_names) && all(cellfun(@ischarstr, feature_names)))
         % feature_names must be a char or string, or a cell array of chars or strings.
-        error("MATLAB:benchmark:feature_namesNotcharstrOrCellOfcharstr", "The feature names must be a cell array of chars or strings.");
+        error("MATLAB:benchmark:feature_namesNotcharstrOrCellOfcharstr", ...
+        "The feature names must be a cell array of chars or strings.");
     end
     if ischarstr(feature_names)
         % Convert the char or string to a cell array of chars.
@@ -277,7 +285,8 @@ function benchmark(solvers, varargin)
         error("MATLAB:benchmark:labelsNotCellOfcharstr", "The labels must be a cell of chars or strings.");
     end
     if numel(labels) ~= 0 && numel(labels) ~= numel(solvers)
-        error("MATLAB:benchmark:labelsAndsolversLengthNotSame", "The number of labels must equal the number of solvers.");
+        error("MATLAB:benchmark:labelsAndsolversLengthNotSame", ...
+        "The number of labels must equal the number of solvers.");
     end
     if numel(labels) == 0
         labels = cellfun(@func2str, solvers, 'UniformOutput', false);
@@ -289,7 +298,8 @@ function benchmark(solvers, varargin)
     end
     if ~isempty(custom_problem_loader)
         if isempty(custom_problem_names)
-            error("MATLAB:benchmark:customnamesCanNotBeEmptyWhenHavingcustomloader", "The custom problem names must be provided.");
+            error("MATLAB:benchmark:customnamesCanNotBeEmptyWhenHavingcustomloader", ...
+            "The custom problem names must be provided.");
         else
             try
                 [~, p] = evalc('custom_problem_loader(custom_problem_names{1})');
@@ -297,20 +307,27 @@ function benchmark(solvers, varargin)
                 p = [];
             end
             if isempty(p) || ~isa(p, 'Problem')
-                error("MATLAB:benchmark:customloaderNotAcceptcustomnames", "The custom problem loader must be able to accept one signature 'custom_problem_names'. The first problem %s could not be loaded, or custom problem loader did not return a Problem object.", custom_problem_names{1});
+                error("MATLAB:benchmark:customloaderNotAcceptcustomnames", ...
+                ["The custom problem loader must be able to accept one signature 'custom_problem_names'. " ...
+                "The first problem %s could not be loaded, or custom problem loader did not return a Problem object."], ...
+                custom_problem_names{1});
             end
         end
     elseif ~isempty(custom_problem_names)
-        error("MATLAB:benchmark:customloaderCanNotBeEmptyWhenHavingcustomnames", "A custom problem loader must be given to load custom problems.");
+        error("MATLAB:benchmark:customloaderCanNotBeEmptyWhenHavingcustomnames", ...
+        "A custom problem loader must be given to load custom problems.");
     end
     if ~isempty(custom_problem_names)
-        if ~ischarstr(custom_problem_names) && ~(iscell(custom_problem_names) && all(cellfun(@ischarstr, custom_problem_names)))
-            error("MATLAB:benchmark:customnamesNotcharstrOrCellOfcharstr", "The custom problem names must be a cell array of chars or strings.");
+        if ~ischarstr(custom_problem_names) && ~(iscell(custom_problem_names) && ...
+            all(cellfun(@ischarstr, custom_problem_names)))
+            error("MATLAB:benchmark:customnamesNotcharstrOrCellOfcharstr", ...
+            "The custom problem names must be a cell array of chars or strings.");
         end
         if ischarstr(custom_problem_names)
             custom_problem_names = {custom_problem_names};
         end
-        custom_problem_names = cellfun(@char, custom_problem_names, 'UniformOutput', false);  % Convert to cell array of chars.
+        % Convert to cell array of chars.
+        custom_problem_names = cellfun(@char, custom_problem_names, 'UniformOutput', false);
     end
 
     % Set default profile options.
@@ -320,9 +337,9 @@ function benchmark(solvers, varargin)
     feature_options = struct();
     cutest_options = struct();
 
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %%%%%%%%%%%%%%%%%%%%%%%% Parse options for feature, cutest, and profile. %%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%% Parse options for feature, cutest, and profile. %%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     fieldNames = fieldnames(options);
     for i_field = 1:numel(fieldNames)
@@ -346,7 +363,8 @@ function benchmark(solvers, varargin)
         end
     end
 
-    % Note: the validity of the feature options has been checked in the Feature constructor, so we do not need to check it here.
+    % Note: the validity of the feature options has been checked in the Feature constructor, so we
+    % do not need to check it here.
 
     % Check whether the cutest options are valid.
     checkValidityCutestOptions(cutest_options);
@@ -354,15 +372,16 @@ function benchmark(solvers, varargin)
     % Check whether the profile options are valid.
     checkValidityProfileOptions(profile_options, solvers);
 
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Use cutest_options to select problems. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%% Use cutest_options to select problems. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    cutest_problem_names = loadCutestNames(cutest_options, cutest_problem_names, custom_problem_loader, custom_problem_names);
+    cutest_problem_names = loadCutestNames(cutest_options, cutest_problem_names, custom_problem_loader, ...
+    custom_problem_names);
 
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Set the default values for plotting. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%% Set the default values for plotting. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     % Create the directory to store the results.
     path_out = setSavingPath(profile_options);
@@ -372,13 +391,15 @@ function benchmark(solvers, varargin)
     set(groot, 'DefaultAxesFontSize', 12);
     set(groot, 'DefaultAxesFontName', 'Arial');
 
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Start the computation of the profiles. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%% Start the computation of the profiles. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    % Note: if user gives more than one feature, we only allow to benchmark under all the default feature options. (We do not want to mix the feature options.)
+    % Note: if user gives more than one feature, we only allow to benchmark under all the default ...
+    % feature options. (We do not want to mix the feature options.)
     if length(feature_names) > 1 && numel(fieldnames(feature_options)) > 0
-        error("MATLAB:benchmark:OnlyOneFeatureWhenHavingfeature_options", "Only one feature can be specified when feature options are given.");
+        error("MATLAB:benchmark:OnlyOneFeatureWhenHavingfeature_options", ...
+        "Only one feature can be specified when feature options are given.");
     end
 
     for i_feature = 1:length(feature_names)
@@ -395,23 +416,30 @@ function benchmark(solvers, varargin)
         end
 
         % Solve all the problems.
-        [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, time_processes] = solveAllProblems(cutest_problem_names, custom_problem_loader, custom_problem_names, solvers, labels, feature, profile_options);
+        [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, ...
+        problem_names, problem_dimensions, time_processes] = solveAllProblems(cutest_problem_names, ...
+        custom_problem_loader, custom_problem_names, solvers, labels, feature, profile_options);
         merit_histories = computeMeritValues(fun_histories, maxcv_histories, maxcv_init);
         merit_out = computeMeritValues(fun_out, maxcv_out, maxcv_init);
         merit_init = computeMeritValues(fun_init, maxcv_init, maxcv_init);
 
-        % If there are no problems solved, skip the rest of the code, print a message, and continue with the next feature.
+        % If there are no problems solved, skip the rest of the code, print a message, and ...
+        % continue with the next feature.
         if isempty(problem_names)
             fprintf('INFO: No problems were solved for the "%s" feature.\n', feature.name);
             continue;
         end
 
-        % If there is only one problem given, draw profiles of fun_histories, maxcv_histories, and merit_histories.
+        % If there is only one problem given, draw profiles of fun_histories, maxcv_histories, ...
+        % and merit_histories.
         if length(cutest_problem_names) + length(custom_problem_names) == 1
             % Sqeeze the dimension of the 'problem' axis.
-            fun_histories = reshape(fun_histories, size(fun_histories, 2), size(fun_histories, 3), size(fun_histories, 4));
-            maxcv_histories = reshape(maxcv_histories, size(maxcv_histories, 2), size(maxcv_histories, 3), size(maxcv_histories, 4));
-            merit_histories = reshape(merit_histories, size(merit_histories, 2), size(merit_histories, 3), size(merit_histories, 4));
+            fun_histories = reshape(fun_histories, size(fun_histories, 2), size(fun_histories, 3), ...
+            size(fun_histories, 4));
+            maxcv_histories = reshape(maxcv_histories, size(maxcv_histories, 2), size(maxcv_histories, 3), ...
+            size(maxcv_histories, 4));
+            merit_histories = reshape(merit_histories, size(merit_histories, 2), size(merit_histories, 3), ...
+            size(merit_histories, 4));
 
             % Create the figure for the summary.
             warning('off');
@@ -437,11 +465,13 @@ function benchmark(solvers, varargin)
             defaultFigurePosition = get(0, 'DefaultFigurePosition');
             default_width = defaultFigurePosition(3);
             default_height = defaultFigurePosition(4);
-            fig_summary = figure('Position', [defaultFigurePosition(1:2), n_cols * default_width, multiplier * default_height], 'visible', 'off');
+            fig_summary = figure('Position', [defaultFigurePosition(1:2), n_cols * default_width, ...
+            multiplier * default_height], 'visible', 'off');
             T_summary = tiledlayout(fig_summary, multiplier, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
             T_title = strrep(feature.name, '_', '\_');
             P_title = strrep(problem_names{1}, '_', '\_');
-            title(T_summary, ['Solving ``', P_title, '" with the ``', T_title, '" feature'], 'Interpreter', 'latex', 'FontSize', 14);
+            title(T_summary, ['Solving ``', P_title, '" with the ``', T_title, '" feature'], 'Interpreter', 'latex', ...
+            'FontSize', 14);
             % Use gobjects to create arrays of handles and axes.
             t_summary = gobjects(multiplier, 1);
             axs_summary = gobjects([multiplier, 1, 1, n_cols]);
@@ -479,8 +509,11 @@ function benchmark(solvers, varargin)
 
             pdf_summary = fullfile(path_out, 'summary.pdf');
 
-            [fig_fun, fig_maxcv, fig_merit] = drawHist(fun_histories, maxcv_histories, merit_histories, fun_init, maxcv_init, merit_init, labels, cell_axs_summary, true, is_fun, is_maxcv, is_merit, false, profile_options);
-            [fig_cummin_fun, fig_cummin_maxcv, fig_cummin_merit] = drawHist(fun_histories, maxcv_histories, merit_histories, fun_init, maxcv_init, merit_init, labels, cell_axs_summary_cum, is_cum, is_fun, is_maxcv, is_merit, true, profile_options);
+            [fig_fun, fig_maxcv, fig_merit] = drawHist(fun_histories, maxcv_histories, merit_histories, fun_init, ...
+            maxcv_init, merit_init, labels, cell_axs_summary, true, is_fun, is_maxcv, is_merit, false, profile_options);
+            [fig_cummin_fun, fig_cummin_maxcv, fig_cummin_merit] = drawHist(fun_histories, maxcv_histories, ...
+            merit_histories, fun_init, maxcv_init, merit_init, labels, cell_axs_summary_cum, is_cum, is_fun, is_maxcv, ...
+            is_merit, true, profile_options);
 
             eps_fun = fullfile(path_feature, 'fun_hist.eps');
             print(fig_fun, eps_fun, '-depsc');
@@ -531,7 +564,9 @@ function benchmark(solvers, varargin)
         if feature.isStochastic && profile_options.(ProfileOptionKey.RUN_PLAIN.value)
             feature_plain = Feature(FeatureName.PLAIN.value);
             fprintf('INFO: Starting the computation of the "plain" profiles.\n');
-            [fun_histories_plain, maxcv_histories_plain, ~, ~, ~, ~, ~, ~, ~, time_processes_plain] = solveAllProblems(cutest_problem_names, custom_problem_loader, custom_problem_names, solvers, labels, feature_plain, profile_options);
+            [fun_histories_plain, maxcv_histories_plain, ~, ~, ~, ~, ~, ~, ~, time_processes_plain] = ...
+            solveAllProblems(cutest_problem_names, custom_problem_loader, custom_problem_names, solvers, labels, ...
+            feature_plain, profile_options);
             time_processes = time_processes + time_processes_plain;
             merit_histories_plain = computeMeritValues(fun_histories_plain, maxcv_histories_plain, maxcv_init);
             merit_min_plain = min(min(min(merit_histories_plain, [], 4, 'omitnan'), [], 3, 'omitnan'), [], 2, 'omitnan');
@@ -622,7 +657,9 @@ function benchmark(solvers, varargin)
         defaultFigurePosition = get(0, 'DefaultFigurePosition');
         default_width = defaultFigurePosition(3);
         default_height = defaultFigurePosition(4);
-        fig_summary = figure('Position', [defaultFigurePosition(1:2), profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * default_width, multiplier * n_rows * default_height], 'visible', 'off');
+        fig_summary = figure('Position', [defaultFigurePosition(1:2), ...
+        profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * default_width, multiplier * n_rows * default_height], ...
+        'visible', 'off');
         T_summary = tiledlayout(fig_summary, multiplier, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
         T_title = strrep(feature.name, '_', '\_');
         title(T_summary, ['Profiles with the ``', T_title, '" feature'], 'Interpreter', 'latex', 'FontSize', 24);
@@ -631,7 +668,8 @@ function benchmark(solvers, varargin)
         axs_summary = gobjects([multiplier, 1, n_rows, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)]);
         i_axs = 0;
         for i = 1:multiplier
-            t_summary(i) = tiledlayout(T_summary, n_rows, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value), 'Padding', 'compact', 'TileSpacing', 'compact');
+            t_summary(i) = tiledlayout(T_summary, n_rows, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value), ...
+            'Padding', 'compact', 'TileSpacing', 'compact');
             t_summary(i).Layout.Tile = i;
             for j = 1:n_rows * profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)
                 i_axs = i_axs + 1;
@@ -655,12 +693,14 @@ function benchmark(solvers, varargin)
                 for i_solver = 1:n_solvers
                     for i_run = 1:n_runs
                         if isfinite(merit_min(i_problem))
-                            threshold = max(tolerance * merit_init(i_problem) + (1 - tolerance) * merit_min(i_problem), merit_min(i_problem));
+                            threshold = max(tolerance * merit_init(i_problem) + (1 - tolerance) * merit_min(i_problem), ...
+                            merit_min(i_problem));
                         else
                             threshold = -Inf;
                         end
                         if min(merit_histories(i_problem, i_solver, i_run, :), [], 'omitnan') <= threshold
-                            work_hist(i_problem, i_solver, i_run) = find(merit_histories(i_problem, i_solver, i_run, :) <= threshold, 1, 'first');
+                            work_hist(i_problem, i_solver, i_run) = find(merit_histories(i_problem, i_solver, i_run, :) ...
+                            <= threshold, 1, 'first');
                         end
                         if merit_out(i_problem, i_solver, i_run) <= threshold
                             work_out(i_problem, i_solver, i_run) = n_eval(i_problem, i_solver, i_run);
@@ -672,14 +712,17 @@ function benchmark(solvers, varargin)
             % Draw the profiles.
             cell_axs_summary_out = {};
             if is_perf && is_data && is_log_ratio
-                cell_axs_summary_hist = {axs_summary(i_profile), axs_summary(i_profile + max_tol_order), axs_summary(i_profile + 2 * max_tol_order)};
+                cell_axs_summary_hist = {axs_summary(i_profile), axs_summary(i_profile + max_tol_order), ...
+                axs_summary(i_profile + 2 * max_tol_order)};
                 if is_output_based
-                    cell_axs_summary_out = {axs_summary(i_profile + 3 * max_tol_order), axs_summary(i_profile + 4 * max_tol_order), axs_summary(i_profile + 5 * max_tol_order)};
+                    cell_axs_summary_out = {axs_summary(i_profile + 3 * max_tol_order), ...
+                    axs_summary(i_profile + 4 * max_tol_order), axs_summary(i_profile + 5 * max_tol_order)};
                 end
             elseif (is_perf && is_data) || (is_perf && is_log_ratio) || (is_data && is_log_ratio)
                 cell_axs_summary_hist = {axs_summary(i_profile), axs_summary(i_profile + max_tol_order)};
                 if is_output_based
-                    cell_axs_summary_out = {axs_summary(i_profile + 2 * max_tol_order), axs_summary(i_profile + 3 * max_tol_order)};
+                    cell_axs_summary_out = {axs_summary(i_profile + 2 * max_tol_order), ...
+                    axs_summary(i_profile + 3 * max_tol_order)};
                 end
             elseif is_perf || is_data || is_log_ratio
                 cell_axs_summary_hist = {axs_summary(i_profile)};
@@ -688,8 +731,10 @@ function benchmark(solvers, varargin)
                 end
             end
 
-            [fig_perf_hist, fig_data_hist, fig_log_ratio_hist] = drawProfiles(work_hist, problem_dimensions, labels, tolerance_label, cell_axs_summary_hist, true, is_perf, is_data, is_log_ratio, profile_options);
-            [fig_perf_out, fig_data_out, fig_log_ratio_out] = drawProfiles(work_out, problem_dimensions, labels, tolerance_label, cell_axs_summary_out, is_output_based, is_perf, is_data, is_log_ratio, profile_options);
+            [fig_perf_hist, fig_data_hist, fig_log_ratio_hist] = drawProfiles(work_hist, problem_dimensions, labels, ...
+            tolerance_label, cell_axs_summary_hist, true, is_perf, is_data, is_log_ratio, profile_options);
+            [fig_perf_out, fig_data_out, fig_log_ratio_out] = drawProfiles(work_out, problem_dimensions, labels, ...
+            tolerance_label, cell_axs_summary_out, is_output_based, is_perf, is_data, is_log_ratio, profile_options);
             eps_perf_hist = fullfile(path_perf_hist, ['perf_hist_' int2str(i_profile) '.eps']);
             print(fig_perf_hist, eps_perf_hist, '-depsc');
             pdf_perf_hist = fullfile(path_perf_hist, ['perf_hist_' int2str(i_profile) '.pdf']);
