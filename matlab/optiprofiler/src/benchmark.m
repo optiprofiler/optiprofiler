@@ -270,7 +270,7 @@ function benchmark(solvers, varargin)
         error("MATLAB:benchmark:feature_namesNotValid", "The feature names must be valid.");
     end
     % Remove the duplicates.
-    feature_names = unique(feature_names);
+    feature_names = unique(feature_names, 'stable');
 
     % Preprocess the labels.
     if ~iscell(labels) || ~all(cellfun(@(l) ischarstr(l), labels))
