@@ -7,8 +7,8 @@ function example()
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Example 1 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    % solvers = {@bds_test, @fminsearch_test};
-    % benchmark(solvers)
+    solvers = {@bds_test, @fminsearch_test};
+    benchmark(solvers)
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Example 2 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -22,23 +22,23 @@ function example()
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     % solvers = {@bds_test, @fminsearch_test};
-    % feature_names = {'plain', 'noisy'};
+    % feature_name = 'noisy';
     % problem = loader('TOINTGOR');
-    % benchmark(solvers, feature_names, problem)
+    % benchmark(solvers, feature_name, problem)
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Example 4 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    solvers = {@bds_test, @fminsearch_test};
-    options.feature_names = {'plain', 'noisy'};
-    options.n_jobs = 1;
-    options.run_plain = false;
-    options.problem_type = 'u';
-    options.maxdim = 5;
-    options.summarize_log_ratio_profiles = true;
-    options.labels = {'bds', 'simplex'};
-    benchmark(solvers, options)
+    % solvers = {@bds_test, @fminsearch_test};
+    % options.feature_name = 'plain';
+    % options.benchmark_id = 'test';
+    % options.run_plain = false;
+    % options.problem_type = 'u';
+    % options.maxdim = 3;
+    % options.summarize_log_ratio_profiles = true;
+    % options.labels = {'bds', 'simplex'};
+    % benchmark(solvers, options)
 
 end
 
