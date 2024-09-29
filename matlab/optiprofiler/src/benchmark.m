@@ -529,10 +529,10 @@ function benchmark(solvers, varargin)
         close(fig_cummin_maxcv);
         close(fig_cummin_merit);
 
-        if i_feature == 1
-            exportgraphics(fig_summary, pdf_summary, 'ContentType', 'vector');
-        else
+        if ~isempty(pdf_summary)
             exportgraphics(fig_summary, pdf_summary, 'ContentType', 'vector', 'Append', true);
+        else
+            exportgraphics(fig_summary, pdf_summary, 'ContentType', 'vector');
         end
         fprintf('Detailed results stored in %s\n', path_feature);
 
