@@ -180,7 +180,7 @@ function benchmark(solvers, varargin)
         % When input only contains one argument, we assume the user chooses benchmark(solvers) and
         % test plain feature.
         feature_name = 'plain';
-        labels = cellfun(@func2str, solvers, 'UniformOutput', false);
+        labels = cellfun(@(s) strrep(func2str(s), '_', '\_'), solvers, 'UniformOutput', false);
         cutest_problem_names = {};
         custom_problem_loader = {};
         custom_problem_names = {};
@@ -190,7 +190,7 @@ function benchmark(solvers, varargin)
             % When input contains two arguments and the second argument is a char or cell of char,
             % we assume the user chooses benchmark(solvers, feature_name).
             feature_name = varargin{1};
-            labels = cellfun(@func2str, solvers, 'UniformOutput', false);
+            labels = cellfun(@(s) strrep(func2str(s), '_', '\_'), solvers, 'UniformOutput', false);
             cutest_problem_names = {};
             custom_problem_loader = {};
             custom_problem_names = {};
@@ -209,7 +209,7 @@ function benchmark(solvers, varargin)
                 labels = options.labels;
                 options = rmfield(options, 'labels');
             else
-                labels = cellfun(@func2str, solvers, 'UniformOutput', false);
+                labels = cellfun(@(s) strrep(func2str(s), '_', '\_'), solvers, 'UniformOutput', false);
             end
             if isfield(options, 'cutest_problem_names')
                 cutest_problem_names = options.cutest_problem_names;
@@ -240,7 +240,7 @@ function benchmark(solvers, varargin)
             error("MATLAB:benchmark:ThirdArgumentNotProblem", "The third argument must be a Problem object.");
         end
         feature_name = varargin{1};
-        labels = cellfun(@func2str, solvers, 'UniformOutput', false);
+        labels = cellfun(@(s) strrep(func2str(s), '_', '\_'), solvers, 'UniformOutput', false);
         cutest_problem_names = {};
         custom_problem_loader = @(x) varargin{2};
         custom_problem_names = {'custom'};
@@ -279,7 +279,7 @@ function benchmark(solvers, varargin)
         "The number of labels must equal the number of solvers.");
     end
     if numel(labels) == 0
-        labels = cellfun(@func2str, solvers, 'UniformOutput', false);
+        labels = cellfun(@(s) strrep(func2str(s), '_', '\_'), solvers, 'UniformOutput', false);
     end
 
     % Preprocess the custom problems.
