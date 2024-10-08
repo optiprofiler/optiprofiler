@@ -1,4 +1,4 @@
-function value_histories_processed = processHistYaxes(value_histories, value_init, construct_cum)
+function value_histories_processed = processHistYaxes(value_histories, value_init, is_cum)
 %PROCESSHISTYAXES Process the value_histories of the y-axis data.
 
     n_solvers = size(value_histories, 1);
@@ -8,7 +8,7 @@ function value_histories_processed = processHistYaxes(value_histories, value_ini
     value_histories(mask_hist_nan_inf) = value_init;
     value_max = max(value_histories(:));
     value_min = min(value_histories(:));
-    if construct_cum
+    if is_cum
         value_histories_processed = cummin(value_histories, 3);
     else
         value_histories_processed = value_histories;

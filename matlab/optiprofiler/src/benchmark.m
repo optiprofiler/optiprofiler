@@ -50,18 +50,6 @@ function benchmark(solvers, varargin)
 %         to the summary PDF. Default is false.
 %       - summarize_output_based_profiles: whether to add all the output-based
 %         profiles of the selected profiles to the summary PDF. Default is true.
-%       - summarize_funhist: whether to add the history plots of the objective
-%         function values to the summary PDF. Default is true. (Note: it is only
-%         available when there is only one problem.)
-%       - summarize_maxcvhist: whether to add the history plots of the maximum
-%         constraint violation to the summary PDF. Default is true. (Note: it is
-%         only available when there is only one problem.)
-%       - summarize_merithist: whether to add the history plots of the merit
-%         values to the summary PDF. Default is true. (Note: it is only available
-%         when there is only one problem.)
-%       - summarize_cumminhist: whether to add all the cumulative minimum of the 
-%         selected history plots to the summary PDF. Default is true. (Note: it
-%         is only available when there is only one problem.)
 %       2. options for features:
 %       - n_runs: the number of runs of the experiments under the given feature.
 %         Default is 10 for stochastic features and 1 for deterministic features.
@@ -168,8 +156,6 @@ function benchmark(solvers, varargin)
 %               The Hong Kong Polytechnic University
 %   **************************************************************************
 
-
-
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Preprocess the input arguments. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -180,7 +166,7 @@ function benchmark(solvers, varargin)
         % When input only contains one argument, we assume the user chooses benchmark(solvers) and
         % test plain feature.
         feature_name = 'plain';
-        labels = cellfun(@(s) strrep(func2str(s), '_', '\_'), solvers, 'UniformOutput', false);
+        labels = cellfun(@(s) func2str(s), solvers, 'UniformOutput', false);
         cutest_problem_names = {};
         custom_problem_loader = {};
         custom_problem_names = {};
@@ -190,7 +176,7 @@ function benchmark(solvers, varargin)
             % When input contains two arguments and the second argument is a char or cell of char,
             % we assume the user chooses benchmark(solvers, feature_name).
             feature_name = varargin{1};
-            labels = cellfun(@(s) strrep(func2str(s), '_', '\_'), solvers, 'UniformOutput', false);
+            labels = cellfun(@(s) func2str(s), solvers, 'UniformOutput', false);
             cutest_problem_names = {};
             custom_problem_loader = {};
             custom_problem_names = {};
@@ -209,7 +195,7 @@ function benchmark(solvers, varargin)
                 labels = options.labels;
                 options = rmfield(options, 'labels');
             else
-                labels = cellfun(@(s) strrep(func2str(s), '_', '\_'), solvers, 'UniformOutput', false);
+                labels = cellfun(@(s) func2str(s), solvers, 'UniformOutput', false);
             end
             if isfield(options, 'cutest_problem_names')
                 cutest_problem_names = options.cutest_problem_names;
@@ -240,10 +226,10 @@ function benchmark(solvers, varargin)
             error("MATLAB:benchmark:ThirdArgumentNotProblem", "The third argument must be a Problem object.");
         end
         feature_name = varargin{1};
-        labels = cellfun(@(s) strrep(func2str(s), '_', '\_'), solvers, 'UniformOutput', false);
+        labels = cellfun(@(s) func2str(s), solvers, 'UniformOutput', false);
         cutest_problem_names = {};
         custom_problem_loader = @(x) varargin{2};
-        custom_problem_names = {'custom'};
+        custom_problem_names = {varargin{2}.name};
         options = struct('n_jobs', 1);
     else
         error("MATLAB:benchmark:TooMuchInput", ...
@@ -279,7 +265,7 @@ function benchmark(solvers, varargin)
         "The number of labels must equal the number of solvers.");
     end
     if numel(labels) == 0
-        labels = cellfun(@(s) strrep(func2str(s), '_', '\_'), solvers, 'UniformOutput', false);
+        labels = cellfun(@(s) func2str(s), solvers, 'UniformOutput', false);
     end
 
     % Preprocess the custom problems.
@@ -397,11 +383,15 @@ function benchmark(solvers, varargin)
         rmdir(path_feature, 's');
         mkdir(path_feature);
     end
+    path_hist_plots = fullfile(path_feature, 'history_plots');
+    if ~exist(path_hist_plots, 'dir')
+        mkdir(path_hist_plots);
+    end
 
     % Solve all the problems.
     [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, ...
     problem_names, problem_dimensions, time_processes] = solveAllProblems(cutest_problem_names, ...
-    custom_problem_loader, custom_problem_names, solvers, labels, feature, profile_options);
+    custom_problem_loader, custom_problem_names, solvers, labels, feature, profile_options, true, path_hist_plots);
     merit_histories = computeMeritValues(fun_histories, maxcv_histories, maxcv_init);
     merit_out = computeMeritValues(fun_out, maxcv_out, maxcv_init);
     merit_init = computeMeritValues(fun_init, maxcv_init, maxcv_init);
@@ -412,133 +402,14 @@ function benchmark(solvers, varargin)
         return;
     end
 
-    % If there is only one problem given, draw profiles of fun_histories, maxcv_histories, ...
-    % and merit_histories.
-    if length(cutest_problem_names) + length(custom_problem_names) == 1
-        % Sqeeze the dimension of the 'problem' axis.
-        fun_histories = reshape(fun_histories, size(fun_histories, 2), size(fun_histories, 3), ...
-        size(fun_histories, 4));
-        maxcv_histories = reshape(maxcv_histories, size(maxcv_histories, 2), size(maxcv_histories, 3), ...
-        size(maxcv_histories, 4));
-        merit_histories = reshape(merit_histories, size(merit_histories, 2), size(merit_histories, 3), ...
-        size(merit_histories, 4));
-
-        % Create the figure for the summary.
-        warning('off');
-        n_cols = 0;
-        is_fun = profile_options.(ProfileOptionKey.SUMMARIZE_FUNHIST.value);
-        is_maxcv = profile_options.(ProfileOptionKey.SUMMARIZE_MAXCVHIST.value);
-        is_merit = profile_options.(ProfileOptionKey.SUMMARIZE_MERITHIST.value);
-        is_cum = profile_options.(ProfileOptionKey.SUMMARIZE_CUMMINHIST.value);
-        if is_fun
-            n_cols = n_cols + 1;
-        end
-        if is_maxcv
-            n_cols = n_cols + 1;
-        end
-        if is_merit
-            n_cols = n_cols + 1;
-        end
-        if is_cum
-            multiplier = 2;
-        else
-            multiplier = 1;
-        end
-        defaultFigurePosition = get(0, 'DefaultFigurePosition');
-        default_width = defaultFigurePosition(3);
-        default_height = defaultFigurePosition(4);
-        fig_summary = figure('Position', [defaultFigurePosition(1:2), n_cols * default_width, ...
-        multiplier * default_height], 'visible', 'off');
-        T_summary = tiledlayout(fig_summary, multiplier, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
-        T_title = strrep(feature.name, '_', '\_');
-        P_title = strrep(problem_names{1}, '_', '\_');
-        title(T_summary, ['Solving ``', P_title, '" with the ``', T_title, '" feature'], 'Interpreter', 'latex', ...
-        'FontSize', 14);
-        % Use gobjects to create arrays of handles and axes.
-        t_summary = gobjects(multiplier, 1);
-        axs_summary = gobjects([multiplier, 1, 1, n_cols]);
-        i_axs = 0;
-        for i = 1:multiplier
-            t_summary(i) = tiledlayout(T_summary, 1, n_cols, 'Padding', 'compact', 'TileSpacing', 'compact');
-            t_summary(i).Layout.Tile = i;
-            for j = 1:n_cols
-                i_axs = i_axs + 1;
-                axs_summary(i_axs) = nexttile(t_summary(i));
-            end
-        end
-        ylabel(t_summary(1), "History profiles", 'Interpreter', 'latex', 'FontSize', 14);
-        if is_cum
-            ylabel(t_summary(2), "Cummin history profiles", 'Interpreter', 'latex', 'FontSize', 14);
-        end
-
-        cell_axs_summary_cum = {};
-        if is_fun && is_maxcv && is_merit
-            cell_axs_summary = {axs_summary(1), axs_summary(2), axs_summary(3)};
-            if is_cum
-                cell_axs_summary_cum = {axs_summary(4), axs_summary(5), axs_summary(6)};
-            end
-        elseif (is_fun && is_maxcv) || (is_fun && is_merit) || (is_maxcv && is_merit)
-            cell_axs_summary = {axs_summary(1), axs_summary(2)};
-            if is_cum
-                cell_axs_summary_cum = {axs_summary(3), axs_summary(4)};
-            end
-        elseif is_fun || is_maxcv || is_merit
-            cell_axs_summary = {axs_summary(1)};
-            if is_cum
-                cell_axs_summary_cum = {axs_summary(2)};
-            end
-        end
-
-        pdf_summary = fullfile(path_out, 'summary.pdf');
-
-        [fig_fun, fig_maxcv, fig_merit] = drawHist(fun_histories, maxcv_histories, merit_histories, fun_init, ...
-        maxcv_init, merit_init, labels, cell_axs_summary, true, is_fun, is_maxcv, is_merit, false, profile_options);
-        [fig_cummin_fun, fig_cummin_maxcv, fig_cummin_merit] = drawHist(fun_histories, maxcv_histories, ...
-        merit_histories, fun_init, maxcv_init, merit_init, labels, cell_axs_summary_cum, is_cum, is_fun, is_maxcv, ...
-        is_merit, true, profile_options);
-
-        eps_fun = fullfile(path_feature, 'fun_hist.eps');
-        print(fig_fun, eps_fun, '-depsc');
-        pdf_fun = fullfile(path_feature, 'fun_hist.pdf');
-        print(fig_fun, pdf_fun, '-dpdf');
-        eps_maxcv = fullfile(path_feature, 'maxcv_hist.eps');
-        print(fig_maxcv, eps_maxcv, '-depsc');
-        pdf_maxcv = fullfile(path_feature, 'maxcv_hist.pdf');
-        print(fig_maxcv, pdf_maxcv, '-dpdf');
-        eps_merit = fullfile(path_feature, 'merit_hist.eps');
-        print(fig_merit, eps_merit, '-depsc');
-        pdf_merit = fullfile(path_feature, 'merit_hist.pdf');
-        print(fig_merit, pdf_merit, '-dpdf');
-        eps_fun_cum = fullfile(path_feature, 'cummin_fun_hist.eps');
-        print(fig_cummin_fun, eps_fun_cum, '-depsc');
-        pdf_fun_cum = fullfile(path_feature, 'cummin_fun_hist.pdf');
-        print(fig_cummin_fun, pdf_fun_cum, '-dpdf');
-        eps_maxcv_cum = fullfile(path_feature, 'cummin_maxcv_hist.eps');
-        print(fig_cummin_maxcv, eps_maxcv_cum, '-depsc');
-        pdf_maxcv_cum = fullfile(path_feature, 'cummin_maxcv_hist.pdf');
-        print(fig_cummin_maxcv, pdf_maxcv_cum, '-dpdf');
-        eps_merit_cum = fullfile(path_feature, 'cummin_merit_hist.eps');
-        print(fig_cummin_merit, eps_merit_cum, '-depsc');
-        pdf_merit_cum = fullfile(path_feature, 'cummin_merit_hist.pdf');
-        print(fig_cummin_merit, pdf_merit_cum, '-dpdf');
-
-        close(fig_fun);
-        close(fig_maxcv);
-        close(fig_merit);
-        close(fig_cummin_fun);
-        close(fig_cummin_maxcv);
-        close(fig_cummin_merit);
-
-        if ~isempty(pdf_summary)
-            exportgraphics(fig_summary, pdf_summary, 'ContentType', 'vector', 'Append', true);
-        else
-            exportgraphics(fig_summary, pdf_summary, 'ContentType', 'vector');
-        end
-        fprintf('Detailed results stored in %s\n', path_feature);
-
-        warning('on');
+    % If there is only one problem, we will not compute the performance profiles, data profiles, and
+    % log-ratio profiles.
+    if numel(problem_names) == 1
+        % We move the history plots to the feature directory.
+        movefile(fullfile(path_hist_plots, '*'), path_feature);
+        rmdir(path_hist_plots, 's');
+        fprintf('INFO: Detailed results stored in %s\n', path_feature);
         return;
-
     end
 
     % Determine the least merit value for each problem.
@@ -548,7 +419,7 @@ function benchmark(solvers, varargin)
         fprintf('INFO: Starting the computation of the "plain" profiles.\n');
         [fun_histories_plain, maxcv_histories_plain, ~, ~, ~, ~, ~, ~, ~, time_processes_plain] = ...
         solveAllProblems(cutest_problem_names, custom_problem_loader, custom_problem_names, solvers, labels, ...
-        feature_plain, profile_options);
+        feature_plain, profile_options, false, {});
         time_processes = time_processes + time_processes_plain;
         merit_histories_plain = computeMeritValues(fun_histories_plain, maxcv_histories_plain, maxcv_init);
         merit_min_plain = min(min(min(merit_histories_plain, [], 4, 'omitnan'), [], 3, 'omitnan'), [], 2, 'omitnan');
@@ -556,12 +427,12 @@ function benchmark(solvers, varargin)
     end
 
     % Create the directories for the performance profiles, data profiles, and log-ratio profiles.
-    path_perf_hist = fullfile(path_feature, 'figures', 'perf_history-based');
-    path_data_hist = fullfile(path_feature, 'figures', 'data_history-based');
-    path_log_ratio_hist = fullfile(path_feature, 'figures', 'log-ratio_history-based');
-    path_perf_out = fullfile(path_feature, 'figures', 'perf_output-based');
-    path_data_out = fullfile(path_feature, 'figures', 'data_output-based');
-    path_log_ratio_out = fullfile(path_feature, 'figures', 'log-ratio_output-based');
+    path_perf_hist = fullfile(path_feature, 'detailed_profiles', 'perf_history-based');
+    path_data_hist = fullfile(path_feature, 'detailed_profiles', 'data_history-based');
+    path_log_ratio_hist = fullfile(path_feature, 'detailed_profiles', 'log-ratio_history-based');
+    path_perf_out = fullfile(path_feature, 'detailed_profiles', 'perf_output-based');
+    path_data_out = fullfile(path_feature, 'detailed_profiles', 'data_output-based');
+    path_log_ratio_out = fullfile(path_feature, 'detailed_profiles', 'log-ratio_output-based');
     
     if ~exist(path_perf_hist, 'dir')
         mkdir(path_perf_hist);
@@ -711,9 +582,10 @@ function benchmark(solvers, varargin)
             end
         end
 
-        [fig_perf_hist, fig_data_hist, fig_log_ratio_hist] = drawProfiles(work_hist, problem_dimensions, labels, ...
-        tolerance_label, cell_axs_summary_hist, true, is_perf, is_data, is_log_ratio, profile_options);
-        [fig_perf_out, fig_data_out, fig_log_ratio_out] = drawProfiles(work_out, problem_dimensions, labels, ...
+        processed_labels = cellfun(@(s) strrep(s, '_', '\_'), labels, 'UniformOutput', false);
+        [fig_perf_hist, fig_data_hist, fig_log_ratio_hist] = drawProfiles(work_hist, problem_dimensions, ...
+        processed_labels, tolerance_label, cell_axs_summary_hist, true, is_perf, is_data, is_log_ratio, profile_options);
+        [fig_perf_out, fig_data_out, fig_log_ratio_out] = drawProfiles(work_out, problem_dimensions, processed_labels, ...
         tolerance_label, cell_axs_summary_out, is_output_based, is_perf, is_data, is_log_ratio, profile_options);
         eps_perf_hist = fullfile(path_perf_hist, ['perf_hist_' int2str(i_profile) '.eps']);
         print(fig_perf_hist, eps_perf_hist, '-depsc');
@@ -788,22 +660,11 @@ function benchmark(solvers, varargin)
         exportgraphics(fig_summary, pdf_summary, 'ContentType', 'vector');
     end
 
-    fprintf('Detailed results stored in %s\n', path_feature);
+    fprintf('INFO: Detailed results stored in %s\n', path_feature);
     warning('on');
 
     % Close the figures.
     close(fig_summary);
-    fprintf('Summary stored in %s\n', path_out);
+    fprintf('INFO: Summary stored in %s\n', path_out);
 
-end
-
-function merit_values = computeMeritValues(fun_values, maxcv_values, maxcv_init)
-    copied_dim = size(fun_values);
-    maxcv_init = repmat(maxcv_init, [1, copied_dim(2:end)]);
-    infeasibility_thresholds = max(1e-5, maxcv_init);
-    is_infeasible = maxcv_values > infeasibility_thresholds;
-    is_almost_feasible = (1e-10 < maxcv_values) & (maxcv_values <= infeasibility_thresholds);
-    merit_values = fun_values;
-    merit_values(is_infeasible | isnan(merit_values)) = Inf;
-    merit_values(is_almost_feasible) = merit_values(is_almost_feasible) + 1e5 * maxcv_values(is_almost_feasible);
 end

@@ -60,6 +60,6 @@ function problem = loader(problem_name)
         xl = -Inf(size(x0));
     end
     
-    problem = Problem(struct('fun', fun, 'x0', x0, 'xl', xl, 'xu', xu, 'aeq', aeq, 'beq', beq, 'aub', aub, 'bub', bub, 'cub', cub, 'ceq', ceq, 'm_nonlinear_ub', m_nonlinear_ub, 'm_nonlinear_eq', m_nonlinear_eq));
+    problem = Problem(struct('name', problem_name, 'fun', fun, 'x0', x0, 'xl', xl, 'xu', xu, 'aeq', aeq, 'beq', beq, 'aub', aub, 'bub', bub, 'cub', cub, 'ceq', ceq, 'm_nonlinear_ub', m_nonlinear_ub, 'm_nonlinear_eq', m_nonlinear_eq));
     
 end

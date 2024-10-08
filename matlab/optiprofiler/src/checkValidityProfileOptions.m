@@ -78,21 +78,5 @@ function checkValidityProfileOptions(profile_options, solvers)
     if ~islogicalscalar(profile_options.(ProfileOptionKey.SUMMARIZE_OUTPUT_BASED_PROFILES.value))
         error("MATLAB:benchmark:summarize_output_based_profilesNotValid", "summarize_output_based_profiles should be a boolean.");
     end
-    % Judge whether profile_options.summarize_funhist is a boolean.
-    if ~islogicalscalar(profile_options.(ProfileOptionKey.SUMMARIZE_FUNHIST.value))
-        error("MATLAB:benchmark:summarize_funhistNotValid", "summarize_funhist should be a boolean.");
-    end
-    % Judge whether profile_options.summarize_maxcvhist is a boolean.
-    if ~islogicalscalar(profile_options.(ProfileOptionKey.SUMMARIZE_MAXCVHIST.value))
-        error("MATLAB:benchmark:summarize_maxcvhistNotValid", "summarize_maxcvhist should be a boolean.");
-    end
-    % Judge whether profile_options.summarize_merithist is a boolean.
-    if ~islogicalscalar(profile_options.(ProfileOptionKey.SUMMARIZE_MERITHIST.value))
-        error("MATLAB:benchmark:summarize_merithistNotValid", "summarize_merithist should be a boolean.");
-    end
-    % Judge whether profile_options.summarize_cumminhist is a boolean.
-    if ~islogicalscalar(profile_options.(ProfileOptionKey.SUMMARIZE_CUMMINHIST.value))
-        error("MATLAB:benchmark:summarize_cumminhistNotValid", "summarize_cumminhist should be a boolean.");
-    end
 
 end

@@ -1,4 +1,4 @@
-function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, computation_times] = solveAllProblems(cutest_problem_names, custom_problem_loader, custom_problem_names, solvers, labels, feature, profile_options)
+function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, computation_times] = solveAllProblems(cutest_problem_names, custom_problem_loader, custom_problem_names, solvers, labels, feature, profile_options, is_plot, path_hist_plots)
 %SOLVEALLPROBLEMS solves all problems in the problem_names list using solvers in the solvers list and stores the computing results.
 
 
@@ -17,14 +17,14 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
             % Do not use parallel computing.
             for i_problem = 1:n_problems
                 problem_name = problem_names{i_problem};
-                [tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n, tmp_computation_time] = solveOneProblem(problem_name, solvers, labels, feature, custom_problem_loader, profile_options);
+                [tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n, tmp_computation_time] = solveOneProblem(problem_name, solvers, labels, feature, custom_problem_loader, profile_options, is_plot, path_hist_plots);
                 results{i_problem} = {tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n, tmp_computation_time};
             end
         otherwise
             parpool(profile_options.(ProfileOptionKey.N_JOBS.value));
             parfor i_problem = 1:n_problems
                 problem_name = problem_names{i_problem};
-                [tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n, tmp_computation_time] = solveOneProblem(problem_name, solvers, labels, feature, custom_problem_loader, profile_options);
+                [tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n, tmp_computation_time] = solveOneProblem(problem_name, solvers, labels, feature, custom_problem_loader, profile_options, is_plot, path_hist_plots);
                 results{i_problem} = {tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n, tmp_computation_time};
             end
             delete(gcp);

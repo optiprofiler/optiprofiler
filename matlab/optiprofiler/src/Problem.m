@@ -3,13 +3,14 @@ classdef Problem < handle
 
     properties (GetAccess = public, SetAccess = private)
 
+        name = 'Unnamed Problem'
         x0
-        xl
-        xu
-        aub
-        bub
-        aeq
-        beq
+        xl = []
+        xu = []
+        aub = []
+        bub = []
+        aeq = []
+        beq = []
 
     end
 
@@ -39,6 +40,8 @@ classdef Problem < handle
 
             Parameters
             ----------
+            name : str, optional
+                Name of the optimization problem.
             fun : callable
                 Objective function to be minimized.
 
@@ -115,15 +118,13 @@ classdef Problem < handle
                 end
         
                 % Iterate over the struct's fields and assign them to the object's properties
-                expected_fields = {'fun', 'x0', 'xl', 'xu', 'aub', 'bub', 'aeq', 'beq', 'cub', 'ceq', 'm_nonlinear_ub', 'm_nonlinear_eq'};
+                expected_fields = {'name', 'fun', 'x0', 'xl', 'xu', 'aub', 'bub', 'aeq', 'beq', 'cub', 'ceq', 'm_nonlinear_ub', 'm_nonlinear_eq'};
                 fields = fieldnames(s);
                 for i = 1:numel(expected_fields)
                     if strcmp(expected_fields{i}, 'fun') || strcmp(expected_fields{i}, 'cub') || strcmp(expected_fields{i}, 'ceq') || strcmp(expected_fields{i}, 'm_nonlinear_ub') || strcmp(expected_fields{i}, 'm_nonlinear_eq')
                         continue
                     elseif ismember(expected_fields{i}, fields)
                         obj.(expected_fields{i}) = s.(expected_fields{i});
-                    else
-                        obj.(expected_fields{i}) = [];
                     end
                 end
             else
