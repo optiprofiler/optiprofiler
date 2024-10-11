@@ -229,8 +229,9 @@ classdef Feature < handle
                         digits = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - floor(log10(abs(f))) - 1;
                     end
                     digits = double(digits);
-                    % Round f to the desired number of significant digits. (We can also use 'fix(x)' to round towards zero.)
                     f = round(f, digits);
+                    % Round f to the desired number of significant digits. (We can also use 'fix(x)' to round towards zero.)
+                    % We can shorten the above code by using 'round(f, digits, "significant")' directly, but we want to keep the same format as the Python code. The code before 'round(f, digits)' cannot be removed since the deault choice of 'round' in MATLAB will consider digits in relation to the decimal point.
                     if obj.options.(FeatureOptionKey.PERTURBED_TRAILING_ZEROS.value)
                         if f >= 0
                             f = f + rand_stream.rand() * 10 ^ (-digits);
