@@ -4,6 +4,7 @@ classdef NoiseType
     enumeration
         ABSOLUTE ('absolute')
         RELATIVE ('relative')
+        MIXED ('mixed')
     end
     properties
         value

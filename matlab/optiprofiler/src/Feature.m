@@ -76,7 +76,7 @@ classdef Feature < handle
                     case FeatureName.NOISY.value
                         known_options = [known_options, {FeatureOptionKey.DISTRIBUTION.value, FeatureOptionKey.NOISE_LEVEL.value, FeatureOptionKey.NOISE_TYPE.value}];
                     case FeatureName.PERTURBED_X0.value
-                        known_options = [known_options, {FeatureOptionKey.DISTRIBUTION.value, FeatureOptionKey.NOISE_LEVEL.value, FeatureOptionKey.NOISE_TYPE.value}];
+                        known_options = [known_options, {FeatureOptionKey.DISTRIBUTION.value, FeatureOptionKey.NOISE_LEVEL.value}];
                     case FeatureName.RANDOM_NAN.value
                         known_options = [known_options, {FeatureOptionKey.RATE_NAN.value}];
                     case FeatureName.TRUNCATED.value
@@ -125,7 +125,7 @@ classdef Feature < handle
                     case FeatureOptionKey.NOISE_TYPE.value
                         validNoiseTypes = cellfun(@(x) x.value, num2cell(enumeration('NoiseType')), 'UniformOutput', false);
                         if ~ischarstr(obj.options.(key)) || ~ismember(obj.options.(key), validNoiseTypes)
-                            error("MATLAB:Feature:noise_type_InvalidInput", "Option " + key + " must be either '" + NoiseType.ABSOLUTE.value + "' or '" + NoiseType.RELATIVE.value + "'.")
+                            error("MATLAB:Feature:noise_type_InvalidInput", "Option " + key + " must be '" + NoiseType.ABSOLUTE.value + "' or '" + NoiseType.RELATIVE.value + "' or '" + NoiseType.MIXED.value + "'.")
                         end
                     case FeatureOptionKey.PERTURBED_TRAILING_ZEROS.value
                         if ~islogicalscalar(obj.options.(key))
@@ -210,8 +210,11 @@ classdef Feature < handle
                     rand_stream = obj.default_rng(seed, f, obj.options.(FeatureOptionKey.NOISE_LEVEL.value), sum(double(obj.options.(FeatureOptionKey.NOISE_TYPE.value))), xCell{:});
                     if obj.options.(FeatureOptionKey.NOISE_TYPE.value) == NoiseType.ABSOLUTE.value
                         f = f + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream, 1);
-                    else
+                    elseif obj.options.(FeatureOptionKey.NOISE_TYPE.value) == NoiseType.RELATIVE.value
                         f = f * (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream, 1));
+                    else
+                        % We need the distribution of the noise to be symmetric with respect to 0.
+                        f = f + max(1, abs(f)) * obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream, 1);
                     end
                 case FeatureName.RANDOM_NAN.value
                     rand_stream = obj.default_rng(seed, f, obj.options.(FeatureOptionKey.RATE_NAN.value), xCell{:});
@@ -281,7 +284,7 @@ classdef Feature < handle
                         obj.options.(FeatureOptionKey.NOISE_LEVEL.value) = 1e-3;
                     end
                     if ~isfield(obj.options, FeatureOptionKey.NOISE_TYPE.value)
-                        obj.options.(FeatureOptionKey.NOISE_TYPE.value) = NoiseType.RELATIVE.value;
+                        obj.options.(FeatureOptionKey.NOISE_TYPE.value) = NoiseType.MIXED.value;
                     end
                 case FeatureName.PERMUTED.value
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
@@ -306,9 +309,6 @@ classdef Feature < handle
                     end
                     if ~isfield(obj.options, FeatureOptionKey.NOISE_LEVEL.value)
                         obj.options.(FeatureOptionKey.NOISE_LEVEL.value) = 1e-3;
-                    end
-                    if ~isfield(obj.options, FeatureOptionKey.NOISE_TYPE.value)
-                        obj.options.(FeatureOptionKey.NOISE_TYPE.value) = NoiseType.RELATIVE.value;
                     end
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
                         obj.options.(FeatureOptionKey.N_RUNS.value) = 10;
