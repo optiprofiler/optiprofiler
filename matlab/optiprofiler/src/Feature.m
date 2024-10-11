@@ -208,9 +208,9 @@ classdef Feature < handle
                     f = obj.options.(FeatureOptionKey.MODIFIER.value)(x, f, seed);
                 case FeatureName.NOISY.value
                     rand_stream = obj.default_rng(seed, f, obj.options.(FeatureOptionKey.NOISE_LEVEL.value), sum(double(obj.options.(FeatureOptionKey.NOISE_TYPE.value))), xCell{:});
-                    if obj.options.(FeatureOptionKey.NOISE_TYPE.value) == NoiseType.ABSOLUTE.value
+                    if strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), NoiseType.ABSOLUTE.value)
                         f = f + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream, 1);
-                    elseif obj.options.(FeatureOptionKey.NOISE_TYPE.value) == NoiseType.RELATIVE.value
+                    elseif strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), NoiseType.RELATIVE.value)
                         f = f * (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream, 1));
                     else
                         % We need the distribution of the noise to be symmetric with respect to 0.
