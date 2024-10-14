@@ -373,7 +373,9 @@ function benchmark(solvers, varargin)
 
     % Build feature.
     feature = Feature(feature_name, feature_options);
-    fprintf('INFO: Starting the computation of the "%s" profiles.\n', feature.name);
+    if ~profile_options.(ProfileOptionKey.SILENT.value)
+        fprintf('INFO: Starting the computation of the "%s" profiles.\n', feature.name);
+    end
         
     % Create the directory to store the results. If it already exists, overwrite it.
     path_feature = fullfile(path_out, feature.name);
@@ -398,7 +400,9 @@ function benchmark(solvers, varargin)
 
     % If there are no problems solved, skip the rest of the code, print a message, and return.
     if isempty(problem_names)
-        fprintf('INFO: No problems were solved for the "%s" feature.\n', feature.name);
+        if ~profile_options.(ProfileOptionKey.SILENT.value)
+            fprintf('INFO: No problems were solved for the "%s" feature.\n', feature.name);
+        end
         return;
     end
 
@@ -408,7 +412,9 @@ function benchmark(solvers, varargin)
         % We move the history plots to the feature directory.
         movefile(fullfile(path_hist_plots, '*'), path_feature);
         rmdir(path_hist_plots, 's');
-        fprintf('INFO: Detailed results stored in %s\n', path_feature);
+        if ~profile_options.(ProfileOptionKey.SILENT.value)
+            fprintf('INFO: Detailed results stored in %s\n', path_feature);
+        end
         return;
     end
 
@@ -416,7 +422,9 @@ function benchmark(solvers, varargin)
     merit_min = min(min(min(merit_histories, [], 4, 'omitnan'), [], 3, 'omitnan'), [], 2, 'omitnan');
     if feature.isStochastic && profile_options.(ProfileOptionKey.RUN_PLAIN.value)
         feature_plain = Feature(FeatureName.PLAIN.value);
-        fprintf('INFO: Starting the computation of the "plain" profiles.\n');
+        if ~profile_options.(ProfileOptionKey.SILENT.value)
+            fprintf('INFO: Starting the computation of the "plain" profiles.\n');
+        end
         [fun_histories_plain, maxcv_histories_plain, ~, ~, ~, ~, ~, ~, ~, time_processes_plain] = ...
         solveAllProblems(cutest_problem_names, custom_problem_loader, custom_problem_names, solvers, labels, ...
         feature_plain, profile_options, false, {});
@@ -535,7 +543,9 @@ function benchmark(solvers, varargin)
     for i_profile = 1:profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)
         tolerance = tolerances(i_profile);
         [tolerance_str, tolerance_latex] = formatFloatScientificLatex(tolerance);
-        fprintf("Creating profiles for tolerance %s.\n", tolerance_str);
+        if ~profile_options.(ProfileOptionKey.SILENT.value)
+            fprintf("Creating profiles for tolerance %s.\n", tolerance_str);
+        end
         tolerance_label = ['$\mathrm{tol} = ' tolerance_latex '$'];
 
         work_hist = NaN(n_problems, n_solvers, n_runs);
@@ -660,11 +670,15 @@ function benchmark(solvers, varargin)
         exportgraphics(fig_summary, pdf_summary, 'ContentType', 'vector');
     end
 
-    fprintf('INFO: Detailed results stored in %s\n', path_feature);
+    if ~profile_options.(ProfileOptionKey.SILENT.value)
+        fprintf('INFO: Detailed results stored in %s\n', path_feature);
+    end
     warning('on');
 
     % Close the figures.
     close(fig_summary);
-    fprintf('INFO: Summary stored in %s\n', path_out);
+    if ~profile_options.(ProfileOptionKey.SILENT.value)
+        fprintf('INFO: Summary stored in %s\n', path_out);
+    end
 
 end

@@ -7,8 +7,8 @@ function example()
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Example 1 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    solvers = {@fminsearch_test, @fminunc_test};
-    benchmark(solvers)
+    % solvers = {@fminsearch_test, @fminunc_test};
+    % benchmark(solvers)
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Example 2 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -23,24 +23,23 @@ function example()
 
     % solvers = {@fminsearch_test, @fminunc_test};
     % feature_name = 'plain';
-    % problem = loader('TOINTGOR');
+    % problem = loader('SCURLY10');
     % benchmark(solvers, feature_name, problem)
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Example 4 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    % solvers = {@fminsearch_test, @fminunc_test};
-    % options.feature_name = 'noisy';
-    % options.benchmark_id = 'test';
-    % options.cutest_problem_names = {'BARD', 'BOX3'};
-    % options.n_jobs = 1;
-    % options.run_plain = false;
-    % options.problem_type = 'u';
-    % options.maxdim = 3;
-    % options.summarize_log_ratio_profiles = true;
-    % options.labels = {'bds', 'simplex'};
-    % benchmark(solvers, options)
+    solvers = {@fminsearch_test, @fminunc_test};
+    options.feature_name = 'plain';
+    options.benchmark_id = 'test';
+    options.silent = true;
+    options.keep_pool = true;
+    options.problem_type = 'u';
+    options.maxdim = 1;
+    options.summarize_log_ratio_profiles = true;
+    options.labels = {'simplex', 'bfgs-fd'};
+    benchmark(solvers, options)
 
 end
 

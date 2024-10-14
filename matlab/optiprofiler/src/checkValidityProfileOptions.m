@@ -20,6 +20,10 @@ function checkValidityProfileOptions(profile_options, solvers)
             profile_options.(ProfileOptionKey.N_JOBS.value) = round(profile_options.(ProfileOptionKey.N_JOBS.value));
         end
     end
+    % Judge whether profile_options.keep_pool is a boolean.
+    if ~islogicalscalar(profile_options.(ProfileOptionKey.KEEP_POOL.value))
+        error("MATLAB:benchmark:keep_poolNotValid", "keep_pool should be a boolean.");
+    end
     % Judge whether profile_options.benchmark_id is a char or a string and satisfies the file name requirements (but it can be '.').
     is_valid_foldername = @(x) ischarstr(x) && ~isempty(x) && all(ismember(char(x), ['a':'z', 'A':'Z', '0':'9', '_', '-']));
     if ~ischarstr(profile_options.(ProfileOptionKey.BENCHMARK_ID.value)) || ~is_valid_foldername(profile_options.(ProfileOptionKey.BENCHMARK_ID.value)) && ~strcmp(profile_options.(ProfileOptionKey.BENCHMARK_ID.value), '.')
@@ -77,6 +81,10 @@ function checkValidityProfileOptions(profile_options, solvers)
     % Judge whether profile_options.summarize_output_based_profiles is a boolean.
     if ~islogicalscalar(profile_options.(ProfileOptionKey.SUMMARIZE_OUTPUT_BASED_PROFILES.value))
         error("MATLAB:benchmark:summarize_output_based_profilesNotValid", "summarize_output_based_profiles should be a boolean.");
+    end
+    % Judge whether profile_options.silent is a boolean.
+    if ~islogicalscalar(profile_options.(ProfileOptionKey.SILENT.value))
+        error("MATLAB:benchmark:silentNotValid", "silent should be a boolean.");
     end
 
 end

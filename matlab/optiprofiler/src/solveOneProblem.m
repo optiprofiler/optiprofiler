@@ -16,7 +16,9 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
 
         % Verify whether problem is a Problem object.
         if ~isa(problem, 'Problem')
-            fprintf("Custom problem %s cannot be loaded by custom_problem_loader.\n", problem_name{1});
+            if ~profile_options.(ProfileOptionKey.SILENT.value)
+                fprintf("Custom problem %s cannot be loaded by custom_problem_loader.\n", problem_name{1});
+            end
             return;
         end
         problem_name = sprintf('%s %s', problem_name{1}, problem_name{2});
@@ -52,7 +54,9 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
 
     for i_solver = 1:n_solvers
         for i_run = 1:n_runs
-            fprintf("Solving %s with %s (run %d/%d).\n", problem_name, labels{i_solver}, i_run, n_runs);
+            if ~profile_options.(ProfileOptionKey.SILENT.value)
+                fprintf("Solving %s with %s (run %d/%d).\n", problem_name, labels{i_solver}, i_run, n_runs);
+            end
             time_start_solver_run = tic;
             % Construct featured_problem.
             featured_problem = FeaturedProblem(problem, feature, max_eval, i_run);
@@ -81,7 +85,9 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
                 % Use problem.fun and problem.maxcv to evaluate the solution since it is possible that featured_problem.fun and featured_problem.maxcv are modified.
                 fun_out(i_solver, i_run) = problem.fun(x);
                 maxcv_out(i_solver, i_run) = problem.maxcv(x);
-                fprintf("Results for %s with %s (run %d/%d): f = %.4e, maxcv = %.4e (%.2f seconds).\n", problem_name, labels{i_solver}, i_run, n_runs, fun_out(i_solver, i_run), maxcv_out(i_solver, i_run), toc(time_start_solver_run));
+                if ~profile_options.(ProfileOptionKey.SILENT.value)
+                    fprintf("Results for %s with %s (run %d/%d): f = %.4e, maxcv = %.4e (%.2f seconds).\n", problem_name, labels{i_solver}, i_run, n_runs, fun_out(i_solver, i_run), maxcv_out(i_solver, i_run), toc(time_start_solver_run));
+                end
             catch Exception
                 fprintf("An error occurred while solving %s with %s: %s\n", problem_name, labels{i_solver}, Exception.message);
             end

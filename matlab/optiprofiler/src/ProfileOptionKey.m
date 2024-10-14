@@ -3,6 +3,7 @@ classdef ProfileOptionKey
     
     enumeration
         N_JOBS ('n_jobs')
+        KEEP_POOL ('keep_pool')
         BENCHMARK_ID ('benchmark_id')
         RANGE_TYPE ('range_type')
         STD_FACTOR ('std_factor')
@@ -15,6 +16,7 @@ classdef ProfileOptionKey
         SUMMARIZE_DATA_PROFILES ('summarize_data_profiles')
         SUMMARIZE_LOG_RATIO_PROFILES ('summarize_log_ratio_profiles')
         SUMMARIZE_OUTPUT_BASED_PROFILES ('summarize_output_based_profiles')
+        SILENT ('silent')
     end
     properties
         value

@@ -7,6 +7,7 @@ function profile_options = getDefaultProfileOptions()
         nb_cores = 1;
     end
     profile_options.(ProfileOptionKey.N_JOBS.value) = nb_cores;
+    profile_options.(ProfileOptionKey.KEEP_POOL.value) = true;
     profile_options.(ProfileOptionKey.BENCHMARK_ID.value) = '.';
     profile_options.(ProfileOptionKey.RANGE_TYPE.value) = 'meanstd';
     profile_options.(ProfileOptionKey.STD_FACTOR.value) = 1;
@@ -19,4 +20,5 @@ function profile_options = getDefaultProfileOptions()
     profile_options.(ProfileOptionKey.SUMMARIZE_DATA_PROFILES.value) = true;
     profile_options.(ProfileOptionKey.SUMMARIZE_LOG_RATIO_PROFILES.value) = false;
     profile_options.(ProfileOptionKey.SUMMARIZE_OUTPUT_BASED_PROFILES.value) = true;
+    profile_options.(ProfileOptionKey.SILENT.value) = false;
 end
