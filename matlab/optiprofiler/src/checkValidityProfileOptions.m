@@ -1,4 +1,4 @@
-function checkValidityProfileOptions(profile_options, solvers)
+function profile_options = checkValidityProfileOptions(profile_options, solvers)
 %CHECKVALIDITYPROFILEOPTIONS Check the validity of the options in profile_options
 
     if exist('parcluster', 'file') == 2
@@ -75,7 +75,7 @@ function checkValidityProfileOptions(profile_options, solvers)
         error("MATLAB:benchmark:summarize_log_ratio_profilesNotValid", "summarize_log_ratio_profiles should be a boolean.");
     end
     if profile_options.(ProfileOptionKey.SUMMARIZE_LOG_RATIO_PROFILES.value) && numel(solvers) > 2
-        warning("MATLAB:benchmark:summarize_log_ratio_profilesOnlyWhenTwoSolvers", "The log-ratio profiles are available only when there are exactly two solvers.");
+        warning("MATLAB:benchmark:summarize_log_ratio_profilesOnlyWhenTwoSolvers", "The log-ratio profiles are available only when there are exactly two solvers. We will not generate the log-ratio profiles.");
         profile_options.(ProfileOptionKey.SUMMARIZE_LOG_RATIO_PROFILES.value) = false;
     end
     % Judge whether profile_options.summarize_output_based_profiles is a boolean.
@@ -85,6 +85,14 @@ function checkValidityProfileOptions(profile_options, solvers)
     % Judge whether profile_options.silent is a boolean.
     if ~islogicalscalar(profile_options.(ProfileOptionKey.SILENT.value))
         error("MATLAB:benchmark:silentNotValid", "silent should be a boolean.");
+    end
+    % Judge whether profile_options.solver_verbose is among 0, 1, and 2. If silent is true, solver_verbose should be 0 or 1 (only print errors). If it is 2, print a message saying that solver_verbose will be set to 1.
+    if ~isintegerscalar(profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value)) || ~ismember(profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value), [0, 1, 2])
+        error("MATLAB:benchmark:solver_verboseNotValid", "solver_verbose should be either 0, 1, or 2.");
+    end
+    if profile_options.(ProfileOptionKey.SILENT.value) && profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) == 2
+        warning("MATLAB:benchmark:solver_verboseSetToZero", "solver_verbose will be set to 1 because silent is true.");
+        profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) = 1;
     end
 
 end

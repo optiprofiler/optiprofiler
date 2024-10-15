@@ -17,6 +17,7 @@ classdef ProfileOptionKey
         SUMMARIZE_LOG_RATIO_PROFILES ('summarize_log_ratio_profiles')
         SUMMARIZE_OUTPUT_BASED_PROFILES ('summarize_output_based_profiles')
         SILENT ('silent')
+        SOLVER_VERBOSE ('solver_verbose')
     end
     properties
         value

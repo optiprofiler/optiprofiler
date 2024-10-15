@@ -16,9 +16,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
 
         % Verify whether problem is a Problem object.
         if ~isa(problem, 'Problem')
-            if ~profile_options.(ProfileOptionKey.SILENT.value)
-                fprintf("Custom problem %s cannot be loaded by custom_problem_loader.\n", problem_name{1});
-            end
+            fprintf("Custom problem %s cannot be loaded by custom_problem_loader.\n", problem_name{1});
             return;
         end
         problem_name = sprintf('%s %s', problem_name{1}, problem_name{2});
@@ -64,13 +62,29 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
             try
                 switch problem.type
                     case 'unconstrained'
-                        [~, x] = evalc('solvers{i_solver}(@featured_problem.fun, featured_problem.x0)');
+                        if profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) == 2
+                            x = solvers{i_solver}(@featured_problem.fun, featured_problem.x0);
+                        else
+                            [~, x] = evalc('solvers{i_solver}(@featured_problem.fun, featured_problem.x0)');
+                        end
                     case 'bound-constrained'
-                        [~, x] = evalc('solvers{i_solver}(@featured_problem.fun, featured_problem.x0, featured_problem.xl, featured_problem.xu)');
+                        if profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) == 2
+                            x = solvers{i_solver}(@featured_problem.fun, featured_problem.x0, featured_problem.xl, featured_problem.xu);
+                        else
+                            [~, x] = evalc('solvers{i_solver}(@featured_problem.fun, featured_problem.x0, featured_problem.xl, featured_problem.xu)');
+                        end
                     case 'linearly constrained'
-                        [~, x] = evalc('solvers{i_solver}(@featured_problem.fun, featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq)');
+                        if profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) == 2
+                            x = solvers{i_solver}(@featured_problem.fun, featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq);
+                        else
+                            [~, x] = evalc('solvers{i_solver}(@featured_problem.fun, featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq)');
+                        end
                     case 'nonlinearly constrained'
-                        [~, x] = evalc('solvers{i_solver}(@featured_problem.fun, featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, @featured_problem.cub, @featured_problem.ceq)');
+                        if profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) == 2
+                            x = solvers{i_solver}(@featured_problem.fun, featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, @featured_problem.cub, @featured_problem.ceq);
+                        else
+                            [~, x] = evalc('solvers{i_solver}(@featured_problem.fun, featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, @featured_problem.cub, @featured_problem.ceq)');
+                        end
                 end
 
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -89,7 +103,9 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
                     fprintf("Results for %s with %s (run %d/%d): f = %.4e, maxcv = %.4e (%.2f seconds).\n", problem_name, labels{i_solver}, i_run, n_runs, fun_out(i_solver, i_run), maxcv_out(i_solver, i_run), toc(time_start_solver_run));
                 end
             catch Exception
-                fprintf("An error occurred while solving %s with %s: %s\n", problem_name, labels{i_solver}, Exception.message);
+                if profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) ~= 0
+                    fprintf("An error occurred while solving %s with %s (run %d/%d): %s\n", problem_name, labels{i_solver}, i_run, n_runs, Exception.message);
+                end
             end
             warning('on', 'all');
             n_eval(i_solver, i_run) = featured_problem.n_eval;

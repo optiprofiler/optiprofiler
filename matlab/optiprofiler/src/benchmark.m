@@ -346,8 +346,8 @@ function benchmark(solvers, varargin)
     checkValidityCutestOptions(cutest_options);
 
     % Check whether the profile options are valid.
-    checkValidityProfileOptions(profile_options, solvers);
-
+    profile_options = checkValidityProfileOptions(profile_options, solvers);
+    
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%% Use cutest_options to select problems. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -21,4 +21,5 @@ function profile_options = getDefaultProfileOptions()
     profile_options.(ProfileOptionKey.SUMMARIZE_LOG_RATIO_PROFILES.value) = false;
     profile_options.(ProfileOptionKey.SUMMARIZE_OUTPUT_BASED_PROFILES.value) = true;
     profile_options.(ProfileOptionKey.SILENT.value) = false;
+    profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) = 1;
 end

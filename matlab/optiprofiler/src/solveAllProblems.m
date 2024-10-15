@@ -66,9 +66,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
     results = results(not_empty_index);
 
     if all(arrayfun(@(x) all(cellfun(@isempty, results{x}([1:7, 9:10]))), 1:length(results))) % Check if all problems failed to load.
-        if ~profile_options.(ProfileOptionKey.SILENT.value)
-            fprintf("All problems failed to load.\n");
-        end
+        fprintf("All problems failed to load.\n");
         fun_histories = [];
         maxcv_histories = [];
         fun_out = [];
