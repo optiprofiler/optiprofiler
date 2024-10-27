@@ -1,23 +1,19 @@
 function problem_names = selector(options)
     % Set default values for options
     if ~isfield(options, 'problem_type')
-        options.problem_type = 'u';
+        options.problem_type = 'ubln';
     end
     if ~isfield(options, 'mindim')
         options.mindim = 1;
     end
     if ~isfield(options, 'maxdim')
-        options.maxdim = 5;
+        options.maxdim = Inf;
     end
     if ~isfield(options, 'mincon')
         options.mincon = 0;
     end
     if ~isfield(options, 'maxcon')
-        if ismember('l', options.problem_type) || ismember('n', options.problem_type)
-            options.maxcon = 10;
-        else
-            options.maxcon = 0;
-        end
+        options.maxcon = Inf;
     end
 
     % Load the data from a .mat file

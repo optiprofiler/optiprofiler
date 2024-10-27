@@ -3,12 +3,10 @@ classdef FeaturedProblem < Problem
 
     properties (GetAccess = public, SetAccess = private)
 
+        problem
         feature
         max_eval
         seed
-        permutation
-        transform
-        scaler
         fun_hist
         maxcv_hist
         last_cub
@@ -26,24 +24,19 @@ classdef FeaturedProblem < Problem
 
         function obj = FeaturedProblem(problem, feature, max_eval, seed)
             %{
-            Initialize an optimization problem.
+            Initialize an optimization problem with a specific feature.
 
             Parameters
             ----------
-            problem : `optiprofiler.problems.Problem`
-                Problem to be used in the benchmarking.
-            feature : `optiprofiler.features.Feature`
-                Feature to be used in the benchmarking.
+            problem : Problem
+                The original optimization problem.
+            feature : Feature
+                The feature to apply to the optimization problem.
             max_eval : int
-                Maximum number of function evaluations.
-            seed : int, optional
-                Seed for the random number generator.
+                The maximum number of function evaluations.
+            seed : int
+                The seed for the random number generator.
             %}
-
-            % Set the default value of the seed.
-            if nargin < 4
-                seed = mod(floor(posixtime(datetime('now'))), 2^32);
-            end
 
             % Preprocess the problem and the feature.
             if ~isa(problem, 'Problem')
@@ -63,89 +56,30 @@ classdef FeaturedProblem < Problem
                 error("MATLAB:FeaturedProblem:seedNotNonnegativeInteger", "The argument seed must be a nonnegative integer seed less than 2^32");
             end
 
-            rand_stream = feature.default_rng(seed);
-            % Generate a random permutation.
-            permutation = [];
-            if strcmp(feature.name, FeatureName.PERMUTED.value)
-                permutation = rand_stream.randperm(problem.n);
-                [~, reverse_permutation] = sort(permutation);
-            end
-            % Generate a transformation matrix by the given options.
-            transform = [];
-            if strcmp(feature.name, FeatureName.LINEARLY_TRANSFORMED.value)
-                if feature.options.(FeatureOptionKey.ROTATED.value)
-                    [transform, inverse] = feature.options.(FeatureOptionKey.INVERTIBLE_TRANSFORMATION.value)(rand_stream, problem.n);
-                    if norm(transform * inverse - eye(problem.n)) > 1e-6 * problem.n
-                        error("MATLAB:FeaturedProblem:InvalidTransformation", "The transformation matrix and its inverse must be inverses of each other.");
-                    end
-                else
-                    transform = eye(problem.n);
-                    inverse = eye(problem.n);
-                end
-            end
-            % Generate a random scaling matrix.
-            scaler = [];
-            if strcmp(feature.name, FeatureName.LINEARLY_TRANSFORMED.value)
-                condition_number = feature.options.(FeatureOptionKey.CONDITION_NUMBER.value)(problem.n);
-                power = log2(condition_number) / 2;
-                scaler = -power + 2 * power * rand_stream.rand(problem.n - 2, 1);
-                scaler = 2 .^ [-power; scaler; power];
-                scaler = scaler(rand_stream.randperm(problem.n));
-            end
+            pb_struct = struct();
+            % Modify the initial point.
+            pb_struct.x0 = feature.modifier_x0(seed, problem);
+            % Modify the bounds.
+            [pb_struct.xl, pb_struct.xu] = feature.modifier_bounds(seed, problem);
+            % Modify the linear inequality constraints.
+            [pb_struct.aub, pb_struct.bub] = feature.modifier_linear_ub(seed, problem);
+            % Modify the linear equality constraints.
+            [pb_struct.aeq, pb_struct.beq] = feature.modifier_linear_eq(seed, problem);
+            % First inherit some properties from the original problem.
+            pb_struct.fun = problem.fun_;
+            pb_struct.cub = problem.cub_;
+            pb_struct.ceq = problem.ceq_;
+            pb_struct.m_nonlinear_ub = problem.m_nonlinear_ub_;
+            pb_struct.m_nonlinear_eq = problem.m_nonlinear_eq_;
+
             
-            % Copy the problem.
-            if ~isa(problem, 'Problem')
-                error("MATLAB:FeaturedProblem:NotProblemClass", "The argument problem must be an instance of the class Problem.");
-            end
-            pb_struct = struct('fun', problem.fun_, 'x0', problem.x0, 'xl', problem.xl, ...
-                'xu', problem.xu, 'aub', problem.aub, 'bub', problem.bub, 'aeq', problem.aeq, ...
-                'beq', problem.beq, 'cub', problem.cub_, 'ceq', problem.ceq_, 'm_nonlinear_ub', problem.m_nonlinear_ub_, ...
-                'm_nonlinear_eq', problem.m_nonlinear_eq_);
-
-            % Randomize the initial point if feature is 'perturbed_x0', and permute the initial point if feature is 'permuted'.
-            if strcmp(feature.name, FeatureName.PERTURBED_X0.value)
-                % Use max(1, norm(x0)) to avoid no perturbation when x0 is zero.
-                pb_struct.x0 = pb_struct.x0 + feature.options.(FeatureOptionKey.NOISE_LEVEL.value) * max(1, norm(pb_struct.x0)) * feature.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream, length(pb_struct.x0));
-            elseif strcmp(feature.name, FeatureName.PERMUTED.value)
-                pb_struct.x0 = pb_struct.x0(reverse_permutation);
-            elseif strcmp(feature.name, FeatureName.LINEARLY_TRANSFORMED.value)
-                pb_struct.x0 = (1 ./ scaler) .* (inverse * pb_struct.x0);
-            end
-
-            % Permute xl, xu, aub, aeq if feature is 'permuted'.
-            if strcmp(feature.name, FeatureName.PERMUTED.value)
-                pb_struct.xl = pb_struct.xl(reverse_permutation);
-                pb_struct.xu = pb_struct.xu(reverse_permutation);
-                if ~isempty(pb_struct.aub)
-                    pb_struct.aub = pb_struct.aub(:, reverse_permutation);
-                end
-                if ~isempty(pb_struct.aeq)
-                    pb_struct.aeq = pb_struct.aeq(:, reverse_permutation);
-                end
-            elseif strcmp(feature.name, FeatureName.LINEARLY_TRANSFORMED.value)
-                if ~isempty(pb_struct.aub)
-                    pb_struct.aub = [transform * diag(scaler); -transform * diag(scaler); pb_struct.aub * transform * diag(scaler)];
-                    pb_struct.bub = [pb_struct.xu; -pb_struct.xl; pb_struct.bub];
-                else
-                    pb_struct.aub = [transform * diag(scaler); -transform * diag(scaler)];
-                    pb_struct.bub = [pb_struct.xu; -pb_struct.xl];
-                end
-                if ~isempty(pb_struct.aeq)
-                    pb_struct.aeq = pb_struct.aeq * transform * diag(scaler);
-                end
-                pb_struct.xl = -Inf * ones(problem.n, 1);
-                pb_struct.xu = Inf * ones(problem.n, 1);
-            end
 
             % Initialize the FeaturedProblem object.
             obj@Problem(pb_struct);
-
+            obj.problem = problem;
             obj.feature = feature;
             obj.max_eval = max_eval;
             obj.seed = seed;
-            obj.permutation = permutation;
-            obj.transform = transform;
-            obj.scaler = scaler;
 
             % Initialize the history of the objective function and the maximum constraint violation.
             obj.fun_hist = [];
@@ -176,18 +110,13 @@ classdef FeaturedProblem < Problem
 
             Parameters
             ----------
-            x : array_like, shape (n,)
-                Point at which to evaluate the objective function.
+            x : double, size (n,)
+                Decision variables.
 
             Returns
             -------
-            float
-                Value of the objective function at `x`.
-
-            Raises
-            ------
-            ValueError
-                If the argument `x` has an invalid shape.
+            f : double
+                Modified objective function value.
             %}
 
             if obj.n_eval >= obj.max_eval
@@ -196,107 +125,79 @@ classdef FeaturedProblem < Problem
                 return
             end
 
-            % Permute the variables if necessary.
-            if strcmp(obj.feature.name, FeatureName.PERMUTED.value)
-                x = x(obj.permutation);
-            end
+            % Generate the affine transformation.
+            [A, b] = obj.feature.modifier_affine(obj.seed, obj.problem);
 
             % Evaluate the objective function and store the results.
-            if strcmp(obj.feature.name, FeatureName.LINEARLY_TRANSFORMED.value)
-                f_true = fun@Problem(obj, obj.transform * (obj.scaler .* x));
-            else
-                f_true = fun@Problem(obj, x);
-            end
+            f_true = fun@Problem(obj, A * x + b);
             obj.fun_hist = [obj.fun_hist, f_true];
-            [maxcv, maxcv_bounds, maxcv_linear, maxcv_nonlinear] = obj.maxcv(x, true);
+            maxcv = obj.maxcv(x);
             obj.maxcv_hist = [obj.maxcv_hist, maxcv];
 
             % Modified the objective function value according to the feature and return the 
             % modified value. We should not store the modified value because the performance 
             % of an optimization solver should be measured using the original objective function.
-            f = obj.feature.modifier(x, f_true, obj.seed, maxcv_bounds, maxcv_linear, maxcv_nonlinear);
+            f = obj.feature.modifier_fun(x, f_true, obj.seed, obj.problem);
         end
 
-        function f = cub(obj, x)
+        function cub_ = cub(obj, x)
             %{
-            Evaluate the nonlinear constraints ``cub(x) <= 0``.
+            Evaluate the nonlinear inequality constraints.
 
             Parameters
             ----------
-            x : array_like, shape (n,)
-                Point at which to evaluate the nonlinear inequality constraints.
+            x : double, size (n,)
+                Decision variables.
 
             Returns
             -------
-            `vector`, shape (m_nonlinear_ub,)
-                Values of the nonlinear inequality constraints at `x`.
-
-            Raises
-            ------
-            ValueError
-                If the argument `x` has an invalid shape or if the return value of
-                the argument `cub` has an invalid shape.
+            cub_ : double, size (m_nonlinear_ub,)
+                Modified nonlinear inequality constraints.    
             %}
 
-            % Permute the variables if necessary.
-            if strcmp(obj.feature.name, FeatureName.PERMUTED.value)
-                x = x(obj.permutation);
-            end
-
-            % Evaluate the nonlinear inequality constraints.
             if obj.n_eval >= obj.max_eval
                 % If the maximum number of function evaluations has been reached, return the value of the nonlinear inequality constraints at the last point.
-                f = obj.last_cub;
+                cub_ = obj.last_cub;
                 return
-            else
-                if strcmp(obj.feature.name, FeatureName.LINEARLY_TRANSFORMED.value)
-                    f = cub@Problem(obj, obj.transform * (obj.scaler .* x));
-                else
-                    f = cub@Problem(obj, x);
-                end
-                obj.last_cub = f;
             end
+
+            % Generate the affine transformation.
+            [A, b] = obj.feature.modifier_affine(obj.seed, obj.problem);
+
+            % Evaluate the nonlinear inequality constraints and store the results.
+            cub_true = cub@Problem(obj, A * x + b);
+            cub_ = obj.feature.modifier_cub(x, cub_true, obj.seed, obj.problem);
+            obj.last_cub = cub_;
         end
 
-        function f = ceq(obj, x)
+        function ceq_ = ceq(obj, x)
             %{
-            Evaluate the nonlinear constraints ``ceq(x) = 0``.
+            Evaluate the nonlinear equality constraints.
 
             Parameters
             ----------
-            x : array_like, shape (n,)
-                Point at which to evaluate the nonlinear equality constraints.
+            x : double, size (n,)
+                Decision variables.
 
             Returns
             -------
-            `vector`, shape (m_nonlinear_eq,)
-                Values of the nonlinear equality constraints at `x`.
-
-            Raises
-            ------
-            ValueError
-                If the argument `x` has an invalid shape or if the return value of
-                the argument `ceq` has an invalid shape.
+            ceq_ : double, size (m_nonlinear_eq,)
+                Modified nonlinear equality constraints.
             %}
 
-            % Permute the variables if necessary.
-            if strcmp(obj.feature.name, FeatureName.PERMUTED.value)
-                x = x(obj.permutation);
-            end
-
-            % Evaluate the nonlinear equality constraints.
             if obj.n_eval >= obj.max_eval
                 % If the maximum number of function evaluations has been reached, return the value of the nonlinear equality constraints at the last point.
-                f = obj.last_ceq;
+                ceq_ = obj.last_ceq;
                 return
-            else
-                if strcmp(obj.feature.name, FeatureName.LINEARLY_TRANSFORMED.value)
-                    f = ceq@Problem(obj, obj.transform * (obj.scaler .* x));
-                else
-                    f = ceq@Problem(obj, x);
-                end
-                obj.last_ceq = f;
             end
+
+            % Generate the affine transformation.
+            [A, b] = obj.feature.modifier_affine(obj.seed, obj.problem);
+
+            % Evaluate the nonlinear equality constraints and store the results.
+            ceq_true = ceq@Problem(obj, A * x + b);
+            ceq_ = obj.feature.modifier_ceq(x, ceq_true, obj.seed, obj.problem);
+            obj.last_ceq = ceq_;
         end
         
     end

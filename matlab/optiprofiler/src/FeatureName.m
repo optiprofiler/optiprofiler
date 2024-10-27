@@ -10,6 +10,7 @@ classdef FeatureName
         LINEARLY_TRANSFORMED ('linearly_transformed')
         RANDOM_NAN ('random_nan')
         UNRELAXABLE_CONSTRAINTS ('unrelaxable_constraints')
+        NONQUANTIFIABLE_CONSTRAINTS ('nonquantifiable_constraints')
         CUSTOM ('custom')
     end
     properties

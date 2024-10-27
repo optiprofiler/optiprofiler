@@ -21,90 +21,100 @@ function benchmark(solvers, varargin)
 %         specific directory to store the results. Default is '.' .
 %       - range_type: the type of the uncertainty interval. For stochastic
 %         features, we run several times of the experiments and get average
-%         curves and uncertainty intervals. Default is 'minmax', meaning that we
-%         takes the pointwise minimum and maximum of the curves.
-%       - std_factor: the factor multiplied to the standard deviation to get the
-%         uncertainty interval in the case where range_type is 'std', meaning
-%         that we take the pointwise mean plus/minus the standard deviation of
-%         the curves. Default is 1.
+%         curves and uncertainty intervals. Default is 'minmax', meaning that
+%         we takes the pointwise minimum and maximum of the curves.
+%       - std_factor: the factor multiplied to the standard deviation to get
+%         the uncertainty interval in the case where range_type is 'std',
+%         meaning that we take the pointwise mean plus/minus the standard
+%         deviation of the curves. Default is 1.
 %       - savepath: the path to store the results. Default is the current
 %         directory where the function is called.
-%       - max_tol_order: the maximum order of the tolerance. In any profile (in
-%         our case, performance profiles, data profiles, and log-ratio profiles),
-%         we need to set a group of 'tolerances' to define the 'convergence' of
-%         the solvers. (Details can be found in the references.) We will set the
-%         tolerances as 10^(-1:-1:-max_tol_order). Default is 10.
+%       - max_tol_order: the maximum order of the tolerance. In any profile
+%         (performance profiles, data profiles, and log-ratio profiles), we
+%         need to set a group of 'tolerances' to define the 'convergence' of
+%         the solvers. (Details can be found in the references.) We will set
+%         the tolerances as 10^(-1:-1:-max_tol_order). Default is 10.
 %       - max_eval_factor: the factor multiplied to each problem's dimension to
-%         get the maximum number of evaluations for each problem. Default is 500.
+%         get the maximum number of evaluations for each problem. Default is
+%         500.
 %       - project_x0: whether to project the initial point to the feasible set.
 %         Default is false.
 %       - run_plain: whether to run the plain feature when the feature is
 %         stochastic (e.g., the feature is 'noisy' and you set the 'run_plain'
-%         to true, then we will additionally run the 'plain' feature and use the
-%         results to define the 'convergence' of the solvers). Default is true.
+%         to true, then we will additionally run the 'plain' feature and use
+%         the results to define the 'convergence' of the solvers). Default is
+%         true.
 %       - summarize_performance_profiles: whether to add all the performance
 %         profiles to the summary PDF. Default is true.
 %       - summarize_data_profiles: whether to add all the data profiles to the
 %         summary PDF. Default is true.
-%       - summarize_log_ratio_profiles: whether to add all the log-ratio profiles
-%         to the summary PDF. Default is false.
+%       - summarize_log_ratio_profiles: whether to add all the log-ratio
+%         profiles to the summary PDF. Default is false.
 %       - summarize_output_based_profiles: whether to add all the output-based
-%         profiles of the selected profiles to the summary PDF. Default is true.
+%         profiles of the selected profiles to the summary PDF. Default is
+%         true.
 %       2. options for features:
-%       - n_runs: the number of runs of the experiments under the given feature.
-%         Default is 10 for stochastic features and 1 for deterministic features.
+%       - n_runs: the number of runs of the experiments under the given
+%         feature. Default is 10 for stochastic features and 1 for
+%         deterministic features.
 %       - distribution: the distribution of random vectors in stochastic
 %         features. It should be a function handle,
 %               (random stream, dimension) -> random vector)
-%         accepting a random stream and the dimension of a problem, and returning
-%         a vector with the same dimension. Default is the standard multivariate
+%         accepting a random stream and the dimension of a problem, and
+%         returning a vector with the same dimension. Default is the standard
+%         multivariate
 %         normal distribution.
-%       - noise_level: the magnitude of the noise in stochastic features. Default
-%         is 10^-3.
-%       - noise_type: the type of the noise in stochastic features. It should be
-%         either 'absolute' or 'relative'. Default is 'relative'.
-%       - significant_digits: the number of significant digits in the 'truncated'
-%         feature. Default is 6.
-%       - perturbed_trailing_zeros: whether we will set the trailing zeros of the
-%         objective function value to be perturbed (randomly generated) in the
-%         'perturbed_x0' feature. Default is true.
-%       - rotated: whether to use a random or given rotation matrix to rotate the
-%         coordinates of a problem in the 'linearly_transformed' feature. Default
-%         is true.
+%       - noise_level: the magnitude of the noise in stochastic features.
+%         Default is 10^-3.
+%       - noise_type: the type of the noise in stochastic features. It should
+%         be either 'absolute' or 'relative'. Default is 'relative'.
+%       - significant_digits: the number of significant digits in the
+%         'truncated' feature. Default is 6.
+%       - perturbed_trailing_zeros: whether we will set the trailing zeros of
+%         the objective function value to be perturbed (randomly generated) in
+%         the 'perturbed_x0' feature. Default is true.
+%       - rotated: whether to use a random or given rotation matrix to rotate
+%         the coordinates of a problem in the 'linearly_transformed' feature.
+%         Default is true.
 %       - invertible_transformation: the invertible transformation in the
 %         'linearly_transformed' feature. It should be a function handle,
-%               (random stream, dimension) -> (invertible matrix, inverse matrix)
-%         accepting a random stream and the dimension of a problem, and returning
-%         an invertible matrix and its inverse. Default is generating a random
-%         orthogonal matrix following the uniform distribution on SO(dimension),
-%         and the inverse is the transpose of the matrix.
-%       - condition_number: the condition number of a scaling matrix, which will
-%         be composed with the objective function in the 'linearly_transformed'
-%         feature. It should be a function handle,
+%               (random stream, dimension) ->
+%               (invertible matrix, inverse matrix)
+%         accepting a random stream and the dimension of a problem, and
+%         returning an invertible matrix and its inverse. Default is generating
+%         a random orthogonal matrix following the uniform distribution on
+%         'O(n)' where n is the dimension of the problem, and the inverse is
+%         the transpose of the matrix. For the explanation of 'O(n)', see
+%         https://en.wikipedia.org/wiki/Orthogonal_group.
+%       - condition_number: the condition number of a scaling matrix, which
+%         will be composed with the objective function in the
+%         'linearly_transformed' feature. It should be a function handle,
 %               dimension -> condition_number
-%         accepting the dimension of a problem and returning a scalar. Default is
-%         @(n) 1, meaning that the scaling matrix is the identity matrix.
+%         accepting the dimension of a problem and returning a scalar. Default
+%         is @(n) 1, meaning that the scaling matrix is the identity matrix.
 %       - unrelaxable_bounds: whether the bound constraints are unrelaxable or
 %         not in the 'unrelaxable_constraints' feature. Default is false.
 %       - unrelaxable_linear_constraints: whether the linear constraints are
-%         unrelaxable or not in the 'unrelaxable_constraints' feature. Default is
-%         false.
+%         unrelaxable or not in the 'unrelaxable_constraints' feature. Default
+%         is false.
 %       - unrelaxable_nonlinear_constraints: whether the nonlinear constraints
 %         are unrelaxable or not in the 'unrelaxable_constraints' feature.
 %         Default is false.
-%       - rate_nan: the probability that the evaluation of the objective function
-%         will return NaN in the 'random_nan' feature. Default is 0.05.
-%       - modifier: the modifier function to modify the objective function value
-%         in the 'custom' feature. It should be a function handle,
+%       - rate_nan: the probability that the evaluation of the objective
+%         function will return NaN in the 'random_nan' feature. Default is
+%         0.05.
+%       - modifier: the modifier function to modify the objective function
+%         value in the 'custom' feature. It should be a function handle,
 %               (current point, current objective function value, seed) ->
 %               modified objective function value
-%         accepting the current point, the current objective function value, and
-%         a random seed, and returning the modified objective function value. No
-%         default setting.
+%         accepting the current point, the current objective function value,
+%         and a random seed, and returning the modified objective function
+%         value. No default setting.
 %       3. options for CUTEst:
-%       Note that the CUTEst we used is the MATLAB codes from a GitHub repository
-%       called 'S2MPJ', created by Professor Serge Gratton and Professor Philippe
-%       L. Toint. More details can be found in the following website.
+%       Note that the CUTEst we used is the MATLAB codes from a GitHub
+%       repository called 'S2MPJ', created by Professor Serge Gratton and
+%       Professor Philippe L. Toint. More details can be found in the following
+%       website.
 %           https://github.com/GrattonToint/S2MPJ
 %       - problem_type: the type of the problems to be selected. It should be a
 %         string containing the combination of 'u' (unconstrained), 'b' (bound
@@ -122,8 +132,8 @@ function benchmark(solvers, varargin)
 %       - excludelist: the list of problems to be excluded. Default is not to
 %         exclude any problem.
 %
-%   For more information of performance and data profiles, see [1]_, [2]_, [4]_. 
-%   For that of log-ratio profiles, see [3]_, [5]_.
+%   For more information of performance and data profiles, see [1]_, [2]_,
+%   [4]_. For that of log-ratio profiles, see [3]_, [5]_.
 %   Pay attention that log-ratio profiles are available only when there are
 %   exactly two solvers.
 %
@@ -306,12 +316,10 @@ function benchmark(solvers, varargin)
         custom_problem_names = cellfun(@char, custom_problem_names, 'UniformOutput', false);
     end
 
-    % Set default profile options.
+    % Set default options.
     profile_options = getDefaultProfileOptions();
-    
-    % Initialize the options for feature and cutest.
     feature_options = struct();
-    cutest_options = struct();
+    cutest_options = getDefaultCutestOptions();
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%% Parse options for feature, cutest, and profile. %%%%%%%%%%%%%%%%%%%%%%%%%

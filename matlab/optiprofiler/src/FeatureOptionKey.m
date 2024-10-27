@@ -9,13 +9,19 @@ classdef FeatureOptionKey
         SIGNIFICANT_DIGITS ('significant_digits')
         PERTURBED_TRAILING_ZEROS ('perturbed_trailing_zeros')
         ROTATED ('rotated')
-        INVERTIBLE_TRANSFORMATION ('invertible_transformation')
-        CONDITION_NUMBER ('condition_number')
+        CONDITION_FACTOR ('condition_factor')
+        RATE_NAN ('rate_nan')
         UNRELAXABLE_BOUNDS ('unrelaxable_bounds')
         UNRELAXABLE_LINEAR_CONSTRAINTS ('unrelaxable_linear_constraints')
         UNRELAXABLE_NONLINEAR_CONSTRAINTS ('unrelaxable_nonlinear_constraints')
-        RATE_NAN ('rate_nan')
-        MODIFIER ('modifier')
+        MOD_X0 ('mod_x0')
+        MOD_AFFINE ('mod_affine')
+        MOD_BOUNDS ('mod_bounds')
+        MOD_LINEAR_UB ('mod_lub')
+        MOD_LINEAR_EQ ('mod_leq')
+        MOD_FUN ('mod_fun')
+        MOD_CUB ('mod_cub')
+        MOD_CEQ ('mod_ceq')
     end
     properties
         value

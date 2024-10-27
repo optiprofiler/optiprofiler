@@ -36,55 +36,55 @@ classdef Problem < handle
     methods
 
         %{
-            Initialize an optimization problem.
+        Initialize an optimization problem.
 
-            Parameters
-            ----------
-            name : str, optional
-                Name of the optimization problem.
-            fun : callable
-                Objective function to be minimized.
+        Parameters
+        ----------
+        name : str, optional
+            Name of the optimization problem.
+        fun : callable
+            Objective function to be minimized.
 
-                    ``fun(x) -> float``
+                ``fun(x) -> float``
 
-                where ``x`` is an array with shape (n,).
-            x0 : array_like, shape (n,)
-                Initial guess.
-            xl : array_like, shape (n,), optional
-                Lower bounds on the variables ``xl <= x``.
-            xu : array_like, shape (n,), optional
-                Upper bounds on the variables ``x <= xu``.
-            aub : array_like, shape (m_linear_ub, n), optional
-                Left-hand side matrix of the linear constraints ``aub @ x <= bub``.
-            bub : array_like, shape (m_linear_ub,), optional
-                Right-hand side vector of the linear constraints ``aub @ x <= bub``.
-            aeq : array_like, shape (m_linear_eq, n), optional
-                Left-hand side matrix of the linear constraints ``aeq @ x == beq``.
-            beq : array_like, shape (m_linear_eq,), optional
-                Right-hand side vector of the linear constraints ``aeq @ x == beq``.
-            cub : callable, optional
-                Nonlinear inequality constraint ``cub(x) <= 0``.
+            where ``x`` is an array with shape (n,).
+        x0 : array_like, shape (n,)
+            Initial guess.
+        xl : array_like, shape (n,), optional
+            Lower bounds on the variables ``xl <= x``.
+        xu : array_like, shape (n,), optional
+            Upper bounds on the variables ``x <= xu``.
+        aub : array_like, shape (m_linear_ub, n), optional
+            Left-hand side matrix of the linear constraints ``aub @ x <= bub``.
+        bub : array_like, shape (m_linear_ub,), optional
+            Right-hand side vector of the linear constraints ``aub @ x <= bub``.
+        aeq : array_like, shape (m_linear_eq, n), optional
+            Left-hand side matrix of the linear constraints ``aeq @ x == beq``.
+        beq : array_like, shape (m_linear_eq,), optional
+            Right-hand side vector of the linear constraints ``aeq @ x == beq``.
+        cub : callable, optional
+            Nonlinear inequality constraint ``cub(x) <= 0``.
 
-                    ``cub(x) -> array_like, shape (m_nonlinear_ub,)``
+                ``cub(x) -> array_like, shape (m_nonlinear_ub,)``
 
-                where ``x`` is an array with shape (n,).
-            ceq : callable, optional
-                Nonlinear equality constraint ``ceq(x) == 0``.
+            where ``x`` is an array with shape (n,).
+        ceq : callable, optional
+            Nonlinear equality constraint ``ceq(x) == 0``.
 
-                    ``ceq(x) -> array_like, shape (m_nonlinear_eq,)``
+                ``ceq(x) -> array_like, shape (m_nonlinear_eq,)``
 
-                where ``x`` is an array with shape (n,).
-            m_nonlinear_ub : int, optional
-                Number of nonlinear inequality constraints.
-            m_nonlinear_eq : int, optional
-                Number of nonlinear equality constraints.
-            type : str, optional
-                Type of the optimization problem.
+            where ``x`` is an array with shape (n,).
+        m_nonlinear_ub : int, optional
+            Number of nonlinear inequality constraints.
+        m_nonlinear_eq : int, optional
+            Number of nonlinear equality constraints.
+        type : str, optional
+            Type of the optimization problem.
 
-            Raises
-            ------
-            ValueError
-                If an argument received an invalid value.
+        Raises
+        ------
+        ValueError
+            If an argument received an invalid value.
         %}
         function obj = Problem(varargin)
             if nargin < 1
