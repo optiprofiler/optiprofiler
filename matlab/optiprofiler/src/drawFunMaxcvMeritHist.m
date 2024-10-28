@@ -4,6 +4,19 @@ function drawFunMaxcvMeritHist(ax, y, labels, ismaxcv, profile_options, problem_
     set(ax, 'DefaultAxesColorOrder', [0, 0.4470, 0.7410; 0.8500, 0.3250, 0.0980; 0.9290, 0.6940, 0.1250; 0.4940, 0.1840, 0.5560; 0.4660, 0.6740, 0.1880; 0.3010, 0.7450, 0.9330; 0.6350, 0.0780, 0.1840]);
     set(ax, 'DefaultAxesLineStyleOrder', {'-', '--', ':', '-.'});
 
+    % Find out the smallest and largest value of y.
+    % y_max = max(y(:));
+    y_min = min(y(:));
+
+    % Decide the shift of the y-axis to make the shifted y-axis be positive.
+    y_shift = 0;
+    if y_min <= 1e-6
+        y_shift = 1e-6 - y_min;
+    end
+    
+    % Shift the y-axis.
+    y = y + y_shift;
+
     n_solvers = size(y, 1);
     n_runs = size(y, 2);
     y_mean = squeeze(mean(y, 2));
@@ -29,6 +42,7 @@ function drawFunMaxcvMeritHist(ax, y, labels, ismaxcv, profile_options, problem_
     for i_solver = 1:n_solvers
         nextColor = ax.ColorOrder(mod(ax.ColorOrderIndex-1, size(ax.ColorOrder, 1)) + 1, :);
 
+        % When the function values are all zero, use linear scale.
         if ~any(y_mean(i_solver, :))
             plot(ax, x, y_mean(i_solver, :), 'DisplayName', labels{i_solver});
         else
@@ -40,6 +54,16 @@ function drawFunMaxcvMeritHist(ax, y, labels, ismaxcv, profile_options, problem_
             nextColor, 'FaceAlpha', 0.2, 'EdgeAlpha', 0, 'HandleVisibility', 'off');
         end
     end
+
+    % Shift the YTick.
+    yticks = get(ax, 'YTick');
+    yticks = yticks - y_shift;
+    set(ax, 'YTick', yticks);
+    for i = 1:length(yticks)
+        [~, formatted] = formatFloatScientificLatex(yticks(i), 1);
+        ytick_labels{i} = formatted;
+    end
+    set(ax, 'YTickLabel', ytick_labels);
 
     box(ax, 'on');
     legend(ax, 'Location', 'northeast');

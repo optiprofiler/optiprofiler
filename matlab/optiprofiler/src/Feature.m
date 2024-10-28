@@ -41,7 +41,7 @@ classdef Feature < handle
 %       legal OPTIONS. We will introduce the OPTIONS of each FEATURE later in
 %       Details part.
 %
-%FEATURE methods: we give 12 freedom to define a FEATURE by following methods.
+%FEATURE methods: we give 8 freedom to define a FEATURE by following methods.
 %   1. modifier_x0:
 %       a function handle to modify the initial point.
 %   2. modifier_affine:

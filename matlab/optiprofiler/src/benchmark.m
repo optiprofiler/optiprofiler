@@ -76,22 +76,11 @@ function benchmark(solvers, varargin)
 %       - rotated: whether to use a random or given rotation matrix to rotate
 %         the coordinates of a problem in the 'linearly_transformed' feature.
 %         Default is true.
-%       - invertible_transformation: the invertible transformation in the
-%         'linearly_transformed' feature. It should be a function handle,
-%               (random stream, dimension) ->
-%               (invertible matrix, inverse matrix)
-%         accepting a random stream and the dimension of a problem, and
-%         returning an invertible matrix and its inverse. Default is generating
-%         a random orthogonal matrix following the uniform distribution on
-%         'O(n)' where n is the dimension of the problem, and the inverse is
-%         the transpose of the matrix. For the explanation of 'O(n)', see
-%         https://en.wikipedia.org/wiki/Orthogonal_group.
-%       - condition_number: the condition number of a scaling matrix, which
-%         will be composed with the objective function in the
-%         'linearly_transformed' feature. It should be a function handle,
-%               dimension -> condition_number
-%         accepting the dimension of a problem and returning a scalar. Default
-%         is @(n) 1, meaning that the scaling matrix is the identity matrix.
+%       - condition_factor: the scaling factor of the condition number of the
+%         linear transformation in the 'linearly_transformed' feature. More
+%         specifically, the condition number of the linear transformation will
+%         2 ^ (condition_factor * n / 2), where n is the dimension of the
+%         problem. Default is 0.
 %       - unrelaxable_bounds: whether the bound constraints are unrelaxable or
 %         not in the 'unrelaxable_constraints' feature. Default is false.
 %       - unrelaxable_linear_constraints: whether the linear constraints are
@@ -550,7 +539,7 @@ function benchmark(solvers, varargin)
 
     for i_profile = 1:profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)
         tolerance = tolerances(i_profile);
-        [tolerance_str, tolerance_latex] = formatFloatScientificLatex(tolerance);
+        [tolerance_str, tolerance_latex] = formatFloatScientificLatex(tolerance, 1);
         if ~profile_options.(ProfileOptionKey.SILENT.value)
             fprintf("Creating profiles for tolerance %s.\n", tolerance_str);
         end
