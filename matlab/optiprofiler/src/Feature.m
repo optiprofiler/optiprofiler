@@ -313,7 +313,7 @@ classdef Feature < handle
                     % If the user does not specify a custom modifier for the initial point but specifies
                     % a custom affine transformation, we need to apply the inverse of the affine
                     % transformation to the initial point.
-                    if isfiled(obj.options, FeatureOptionKey.MOD_AFFINE.value)
+                    if isfield(obj.options, FeatureOptionKey.MOD_AFFINE.value)
                         [~, b, inv] = obj.modifier_affine(seed, problem);
                         x0 = inv * (problem.x0 - b);
                     else

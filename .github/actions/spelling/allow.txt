@@ -208,3 +208,7 @@ Yaxes
 regexprep
 nocreate
 SCURLY
+aplly
+isdiag
+nonquantifiable
+ytick
