@@ -54,6 +54,7 @@ function benchmark(solvers, varargin)
 %         profiles of the selected profiles to the summary PDF. Default is
 %         true.
 %       2. options for features:
+%       - feature_name: the name of the feature. Default is 'plain'.
 %       - n_runs: the number of runs of the experiments under the given
 %         feature. Default is 10 for stochastic features and 1 for
 %         deterministic features.
