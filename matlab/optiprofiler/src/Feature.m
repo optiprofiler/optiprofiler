@@ -697,7 +697,7 @@ classdef Feature < handle
             switch obj.name
                 case FeatureName.CUSTOM.value
                     if isfield(obj.options, FeatureOptionKey.MOD_FUN.value)
-                        rand_stream_custom = obj.default_rng(seed);
+                        rand_stream_custom = obj.default_rng(seed, f, xCell{:});
                         f = obj.options.(FeatureOptionKey.MOD_FUN.value)(x, f, rand_stream_custom, problem);
                         return;
                     end
@@ -781,7 +781,7 @@ classdef Feature < handle
             switch obj.name
                 case FeatureName.CUSTOM.value
                     if isfield(obj.options, FeatureOptionKey.MOD_CUB.value)
-                        rand_stream_custom = obj.default_rng(seed);
+                        rand_stream_custom = obj.default_rng(seed, cub_, xCell{:});
                         cub_ = obj.options.(FeatureOptionKey.MOD_CUB.value)(x, cub_, rand_stream_custom, problem);
                         return;
                     end
@@ -858,7 +858,7 @@ classdef Feature < handle
             switch obj.name
                 case FeatureName.CUSTOM.value
                     if isfield(obj.options, FeatureOptionKey.MOD_CEQ.value)
-                        rand_stream_custom = obj.default_rng(seed);
+                        rand_stream_custom = obj.default_rng(seed, ceq_, xCell{:});
                         ceq_ = obj.options.(FeatureOptionKey.MOD_CEQ.value)(x, ceq_, rand_stream_custom, problem);
                         return;
                     end
