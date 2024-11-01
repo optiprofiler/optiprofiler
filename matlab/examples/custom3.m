@@ -1,5 +1,6 @@
-function custom2()
-    % Define a custom feature that combines "noisy" and "linearly_transformed".
+function custom3()
+    % Define a custom feature that combines "perturbed_x0", "noisy", and
+    % "linearly_transformed".
     
     solvers = {@fminsearch_test, @fminunc_test};
     options.feature_name = 'custom';
@@ -19,6 +20,7 @@ function x0 = mod_x0(rand_stream, problem)
     [Q, R] = qr(rand_stream.randn(problem.n));
     Q(:, diag(R) < 0) = -Q(:, diag(R) < 0);
     x0 = Q * problem.x0;
+    x0 = x0 + 1e-3 * max(1, norm(x0)) * rand_stream.randn(problem.n, 1);
 end
 
 function f = mod_fun(x, f, rand_stream, problem)

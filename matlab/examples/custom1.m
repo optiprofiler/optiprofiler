@@ -1,5 +1,6 @@
 function custom1()
-    % Define a custom feature that combines "perturbed_x0" and "linearly_transformed".
+    % Define a custom feature that combines "perturbed_x0" and
+    % "linearly_transformed".
     
     solvers = {@fminsearch_test, @fminunc_test};
     options.feature_name = 'custom';
