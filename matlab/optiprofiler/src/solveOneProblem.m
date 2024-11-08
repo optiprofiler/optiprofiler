@@ -60,7 +60,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
             featured_problem = FeaturedProblem(problem, feature, max_eval, i_run);
             warning('off', 'all');
             try
-                switch problem.type
+                switch problem.p_type
                     case 'unconstrained'
                         if profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) == 2
                             x = solvers{i_solver}(@featured_problem.fun, featured_problem.x0);
@@ -88,12 +88,9 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
                 end
 
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                % It is very important to transform the solution back to the original space in the case of permuted and linearly_transformed features!!!
-                if strcmp(feature.name, FeatureName.PERMUTED.value)
-                    x = x(featured_problem.permutation);
-                elseif strcmp(feature.name, FeatureName.LINEARLY_TRANSFORMED.value)
-                    x = featured_problem.rotation * (featured_problem.scaler .* x);
-                end
+                % It is very important to transform the solution back to the one related to the original problem. (Note that the problem we solve has the objective function f(A @ x + b). Thus, if x is the output solution, then A @ x + b is the solution of the original problem.)
+                [A, b] = featured_problem.feature.modifier_affine(featured_problem.seed, featured_problem.problem);
+                x = A * x + b;
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 
                 % Use problem.fun and problem.maxcv to evaluate the solution since it is possible that featured_problem.fun and featured_problem.maxcv are modified.

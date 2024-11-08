@@ -4,6 +4,7 @@ classdef Problem < handle
     properties (GetAccess = public, SetAccess = private)
 
         name = 'Unnamed Problem'
+        x_type = 'real'
         x0
         xl = []
         xu = []
@@ -19,7 +20,7 @@ classdef Problem < handle
         n
         m_linear_ub
         m_linear_eq
-        type
+        p_type
 
     end
 
@@ -48,6 +49,8 @@ classdef Problem < handle
                 ``fun(x) -> float``
 
             where ``x`` is an array with shape (n,).
+        x_type : str, optional
+            Type of the variables.
         x0 : array_like, shape (n,)
             Initial guess.
         xl : array_like, shape (n,), optional
@@ -78,7 +81,7 @@ classdef Problem < handle
             Number of nonlinear inequality constraints.
         m_nonlinear_eq : int, optional
             Number of nonlinear equality constraints.
-        type : str, optional
+        p_type : str, optional
             Type of the optimization problem.
 
         Raises
@@ -118,7 +121,7 @@ classdef Problem < handle
                 end
         
                 % Iterate over the struct's fields and assign them to the object's properties
-                expected_fields = {'name', 'fun', 'x0', 'xl', 'xu', 'aub', 'bub', 'aeq', 'beq', 'cub', 'ceq', 'm_nonlinear_ub', 'm_nonlinear_eq'};
+                expected_fields = {'name', 'fun', 'x_type', 'x0', 'xl', 'xu', 'aub', 'bub', 'aeq', 'beq', 'cub', 'ceq', 'm_nonlinear_ub', 'm_nonlinear_eq'};
                 fields = fieldnames(s);
                 for i = 1:numel(expected_fields)
                     if strcmp(expected_fields{i}, 'fun') || strcmp(expected_fields{i}, 'cub') || strcmp(expected_fields{i}, 'ceq') || strcmp(expected_fields{i}, 'm_nonlinear_ub') || strcmp(expected_fields{i}, 'm_nonlinear_eq')
@@ -131,7 +134,17 @@ classdef Problem < handle
                 error("MATLAB:Problem:NotStruct", "Invalid input. A struct argument is expected.")
             end
 
-            % Check that the arguments are consistent.
+            % Check that the arguments are legal and consistent.
+
+            % Check that `x_type` belongs to {'real', 'integer', 'binary'}.
+            if ~ismember(obj.x_type, {'real', 'integer', 'binary'})
+                error("MATLAB:Problem:x_type_NotValid", "The argument `x_type` must be one of {'real', 'integer', 'binary'}.")
+            end
+
+            % Check that `x0` is a real vector.
+            if ~isvector(obj.x0) || ~isreal(obj.x0)
+                error("MATLAB:Problem:x0_NotRealVector", "The argument `x0` must be a real vector.")
+            end
 
             % Check that `xl` has the same size as `x0`.
             if numel(obj.xl) ~= obj.n
@@ -160,8 +173,15 @@ classdef Problem < handle
         end
 
 
-
         % Setter functions.
+
+        % Preprocess the type of the variables.
+        function set.x_type(obj, value)
+            if ~ismember(value, {'real', 'integer', 'binary'})
+                error("MATLAB:Problem:x_type_NotValid", "The argument `x_type` must be one of {'real', 'integer', 'binary'}.")
+            end
+            obj.x_type = value;
+        end
 
         % Preprocess the initial guess.
         function set.x0(obj, value)
@@ -306,7 +326,7 @@ classdef Problem < handle
             value = numel(obj.beq);
         end
 
-        function value = get.type(obj)
+        function value = get.p_type(obj)
             try
                 if obj.m_nonlinear_ub + obj.m_nonlinear_eq > 0
                     value = 'nonlinearly constrained';
@@ -391,7 +411,7 @@ classdef Problem < handle
                 error("MATLAB:Problem:WrongSizeInputForMaxCV", "The input `x` must have size %d.", obj.n)
             end
 
-            if strcmp(obj.type, 'unconstrained')
+            if strcmp(obj.p_type, 'unconstrained')
                 cv = 0;
                 if detailed
                     varargout{1} = cv;
@@ -412,7 +432,7 @@ classdef Problem < handle
             if any(isfinite(obj.xu))
                 cv_bounds = max(max(x - obj.xu), cv_bounds);
             end
-            if strcmp(obj.type, 'bound-constrained')
+            if strcmp(obj.p_type, 'bound-constrained')
                 cv = max(cv_bounds);
                 if detailed
                     varargout{1} = cv;
@@ -433,7 +453,7 @@ classdef Problem < handle
             if ~isempty(obj.aeq)
                 cv_linear = max(max(abs(obj.aeq * x - obj.beq)), cv_linear);
             end
-            if strcmp(obj.type, 'linearly constrained')
+            if strcmp(obj.p_type, 'linearly constrained')
                 cv = max([cv_bounds; cv_linear]);
                 if detailed
                     varargout{1} = cv;
@@ -611,23 +631,23 @@ classdef Problem < handle
                 c = obj.cub(x);
                 ceq = obj.ceq(x);
             end
-            if strcmp(obj.type, 'unconstrained')
+            if strcmp(obj.p_type, 'unconstrained')
                 return
-            elseif strcmp(obj.type, 'bound-constrained')
+            elseif strcmp(obj.p_type, 'bound-constrained')
                 obj.x0 = min(max(obj.x0, obj.xl), obj.xu);
-            elseif strcmp(obj.type, 'linearly constrained') && obj.m_linear_ub == 0 && all(obj.xl == -Inf) && all(obj.xu == Inf)
+            elseif strcmp(obj.p_type, 'linearly constrained') && obj.m_linear_ub == 0 && all(obj.xl == -Inf) && all(obj.xu == Inf)
                 try
                     [~, res] = evalc('lsqr(obj.aeq, obj.beq - obj.aeq * obj.x0)');
                     obj.x0 = obj.x0 + res;
                 catch
                 end
-            elseif strcmp(obj.type, 'linearly constrained') && exist('lsqlin') == 2
+            elseif strcmp(obj.p_type, 'linearly constrained') && exist('lsqlin') == 2
                 try
                     [~, res] = evalc('lsqlin(eye(obj.n), obj.x0, obj.aub, obj.bub, obj.aeq, obj.beq, obj.xl, obj.xu, obj.x0)');
                     obj.x0 = res;
                 catch
                 end
-            elseif ~strcmp(obj.type, 'unconstrained') && exist('fmincon') == 2
+            elseif ~strcmp(obj.p_type, 'unconstrained') && exist('fmincon') == 2
                 try
                     [~, res] = evalc('fmincon(@(x) dist_x0_sq(x), obj.x0, obj.aub, obj.bub, obj.aeq, obj.beq, obj.xl, obj.xu, @(x) nonlcon(x))');
                     obj.x0 = res;
