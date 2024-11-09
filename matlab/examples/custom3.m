@@ -1,4 +1,7 @@
 function custom3()
+
+    clc
+    
     % Define a custom feature that combines "perturbed_x0", "noisy", and
     % "linearly_transformed".
     

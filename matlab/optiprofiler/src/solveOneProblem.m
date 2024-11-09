@@ -130,7 +130,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
 
         % Create the figure for the summary.
         warning('off');
-        if strcmp(problem.type, 'unconstrained')
+        if strcmp(problem.p_type, 'unconstrained')
             n_cols = 1;
         else
             n_cols = 3;
@@ -160,7 +160,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
         ylabel(t_summary(1), "History profiles", 'Interpreter', 'latex', 'FontSize', 14);
         ylabel(t_summary(2), "Cummin history profiles", 'Interpreter', 'latex', 'FontSize', 14);
 
-        if strcmp(problem.type, 'unconstrained')
+        if strcmp(problem.p_type, 'unconstrained')
             cell_axs_summary = {axs_summary(1)};
             cell_axs_summary_cum = {axs_summary(2)};
         else
@@ -172,8 +172,8 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
         pdf_summary = fullfile(path_hist_plots, hist_file_name);
         processed_labels = cellfun(@(s) strrep(s, '_', '\_'), labels, 'UniformOutput', false);
 
-        drawHist(fun_histories, maxcv_histories, merit_histories, fun_init, maxcv_init, merit_init, processed_labels, cell_axs_summary, false, profile_options, problem.type, problem_n);
-        drawHist(fun_histories, maxcv_histories, merit_histories, fun_init, maxcv_init, merit_init, processed_labels, cell_axs_summary_cum, true, profile_options, problem.type, problem_n);
+        drawHist(fun_histories, maxcv_histories, merit_histories, fun_init, maxcv_init, merit_init, processed_labels, cell_axs_summary, false, profile_options, problem.p_type, problem_n);
+        drawHist(fun_histories, maxcv_histories, merit_histories, fun_init, maxcv_init, merit_init, processed_labels, cell_axs_summary_cum, true, profile_options, problem.p_type, problem_n);
 
         exportgraphics(fig_summary, pdf_summary, 'ContentType', 'vector');
         warning('on');

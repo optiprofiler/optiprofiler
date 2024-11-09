@@ -1,4 +1,7 @@
 function custom2()
+
+    clc
+    
     % Define a custom feature that combines "noisy" and "linearly_transformed".
     
     solvers = {@fminsearch_test, @fminunc_test};
