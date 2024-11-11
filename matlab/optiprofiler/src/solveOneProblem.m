@@ -57,7 +57,8 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
             end
             time_start_solver_run = tic;
             % Construct featured_problem.
-            featured_problem = FeaturedProblem(problem, feature, max_eval, i_run);
+            real_seed = mod(23333 * profile_options.(ProfileOptionKey.SEED.value) + 211 * i_run, 2^32);
+            featured_problem = FeaturedProblem(problem, feature, max_eval, real_seed);
             warning('off', 'all');
             try
                 switch problem.p_type
@@ -96,8 +97,12 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
                 % Use problem.fun and problem.maxcv to evaluate the solution since it is possible that featured_problem.fun and featured_problem.maxcv are modified.
                 fun_out(i_solver, i_run) = problem.fun(x);
                 maxcv_out(i_solver, i_run) = problem.maxcv(x);
+                % Calculate the minimum function value and the minimum constraint violation, omitting the NaN values.
+                fun_min = min(featured_problem.fun_hist, [], 'omitnan');
+                maxcv_min = min(featured_problem.maxcv_hist, [], 'omitnan');
                 if ~profile_options.(ProfileOptionKey.SILENT.value)
-                    fprintf("Results for %s with %s (run %d/%d): f = %.4e, maxcv = %.4e (%.2f seconds).\n", problem_name, labels{i_solver}, i_run, n_runs, fun_out(i_solver, i_run), maxcv_out(i_solver, i_run), toc(time_start_solver_run));
+                    fprintf("Output results for %s with %s (run %d/%d): f = %.4e, maxcv = %.4e (%.2f seconds).\n", problem_name, labels{i_solver}, i_run, n_runs, fun_out(i_solver, i_run), maxcv_out(i_solver, i_run), toc(time_start_solver_run));
+                    fprintf("Best results for %s with %s (run %d/%d): f = %.4e, maxcv = %.4e.\n", problem_name, labels{i_solver}, i_run, n_runs, fun_min, maxcv_min);
                 end
             catch Exception
                 if profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) ~= 0

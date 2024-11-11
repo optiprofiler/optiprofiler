@@ -8,6 +8,7 @@ function profile_options = getDefaultProfileOptions()
     end
     profile_options.(ProfileOptionKey.N_JOBS.value) = nb_cores;
     profile_options.(ProfileOptionKey.KEEP_POOL.value) = true;
+    profile_options.(ProfileOptionKey.SEED.value) = 1;
     profile_options.(ProfileOptionKey.BENCHMARK_ID.value) = '.';
     profile_options.(ProfileOptionKey.RANGE_TYPE.value) = 'meanstd';
     profile_options.(ProfileOptionKey.STD_FACTOR.value) = 1;

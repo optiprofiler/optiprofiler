@@ -9,9 +9,6 @@ function benchmark(solvers, varargin)
 %   profiles for the given SOLVERS with default unconstrained problem set and
 %   the specified feature FEATURE_NAME.
 %
-%   BENCHMARK(SOLVERS, FEATURE_NAME, PROBLEM) creates history plots for the
-%   given SOLVERS with the specified one PROBLEM and the feature FEATURE_NAME.
-%
 %   BENCHMARK(SOLVERS, OPTIONS) creates performance profiles and data profiles
 %   for the given SOLVERS with options specified in the struct OPTIONS.
 %   OPTIONS can contain the following fields:
@@ -106,6 +103,9 @@ function benchmark(solvers, varargin)
 %       Professor Philippe L. Toint. More details can be found in the following
 %       website.
 %           https://github.com/GrattonToint/S2MPJ
+%       - problem: a instance of the class Problem. If it is provided, we will
+%         only solve this problem and generate the history plots for it.
+%         Default is not to provide any problem.
 %       - problem_type: the type of the problems to be selected. It should be a
 %         string containing the combination of 'u' (unconstrained), 'b' (bound
 %         constrained), 'l' (linearly constrained), and 'n' (nonlinearly
@@ -197,40 +197,40 @@ function benchmark(solvers, varargin)
             else
                 labels = cellfun(@(s) func2str(s), solvers, 'UniformOutput', false);
             end
-            if isfield(options, 'cutest_problem_names')
-                cutest_problem_names = options.cutest_problem_names;
-                options = rmfield(options, 'cutest_problem_names');
-            else
+
+            if isfield(options, 'problem') && ~isempty(options.problem)
+                if ~isa(options.problem, 'Problem')
+                    error("MATLAB:benchmark:ThirdArgumentNotProblem", "The options field 'problem' must be a Problem object.");
+                end
                 cutest_problem_names = {};
-            end
-            if isfield(options, 'custom_problem_loader') && isfield(options, 'custom_problem_names')
-                custom_problem_loader = options.custom_problem_loader;
-                custom_problem_names = options.custom_problem_names;
-                options = rmfield(options, 'custom_problem_loader');
-                options = rmfield(options, 'custom_problem_names');
-            elseif isfield(options, 'custom_problem_loader') || isfield(options, 'custom_problem_names')
-                error("MATLAB:benchmark:LoaderAndNamesNotSameTime", ...
-                "custom_problem_loader and custom_problem_names must be provided at the same time.");
+                custom_problem_loader = @(x) options.problem;
+                custom_problem_names = {options.problem.name};
+                options = rmfield(options, 'problem');
+                options.n_jobs = 1;
             else
-                custom_problem_loader = {};
-                custom_problem_names = {};
+                if isfield(options, 'cutest_problem_names')
+                    cutest_problem_names = options.cutest_problem_names;
+                    options = rmfield(options, 'cutest_problem_names');
+                else
+                    cutest_problem_names = {};
+                end
+                if isfield(options, 'custom_problem_loader') && isfield(options, 'custom_problem_names')
+                    custom_problem_loader = options.custom_problem_loader;
+                    custom_problem_names = options.custom_problem_names;
+                    options = rmfield(options, 'custom_problem_loader');
+                    options = rmfield(options, 'custom_problem_names');
+                elseif isfield(options, 'custom_problem_loader') || isfield(options, 'custom_problem_names')
+                    error("MATLAB:benchmark:LoaderAndNamesNotSameTime", ...
+                    "custom_problem_loader and custom_problem_names must be provided at the same time.");
+                else
+                    custom_problem_loader = {};
+                    custom_problem_names = {};
+                end
             end
         else
             error("MATLAB:benchmark:SecondArgumentWrongType", ...
             "The second argument must be a feature name or a struct of options.");
         end
-    elseif nargin == 3
-        % When input contains three arguments, we assume the user chooses
-        % benchmark(solvers, feature_name, problem).
-        if ~isa(varargin{2}, 'Problem')
-            error("MATLAB:benchmark:ThirdArgumentNotProblem", "The third argument must be a Problem object.");
-        end
-        feature_name = varargin{1};
-        labels = cellfun(@(s) func2str(s), solvers, 'UniformOutput', false);
-        cutest_problem_names = {};
-        custom_problem_loader = @(x) varargin{2};
-        custom_problem_names = {varargin{2}.name};
-        options = struct('n_jobs', 1);
     else
         error("MATLAB:benchmark:TooMuchInput", ...
         "Invalid number of arguments. The function must be called with one, two, or three arguments.");

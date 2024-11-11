@@ -22,7 +22,12 @@ function value_histories_processed = processHistYaxes(value_histories, value_ini
     else
         for i_solver = 1:n_solvers
             for i_run = 1:n_runs
-                lastd(i_solver, i_run) = find(mask_diff(i_solver, i_run, :), 1, 'last');
+                lastd_tmp = find(mask_diff(i_solver, i_run, :), 1, 'last');
+                if isempty(lastd_tmp)
+                    lastd(i_solver, i_run) = 2;
+                else
+                    lastd(i_solver, i_run) = lastd_tmp;
+                end
             end
         end
         max_lastd = max(lastd(:));

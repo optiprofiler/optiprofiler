@@ -24,6 +24,10 @@ function profile_options = checkValidityProfileOptions(profile_options, solvers)
     if ~islogicalscalar(profile_options.(ProfileOptionKey.KEEP_POOL.value))
         error("MATLAB:benchmark:keep_poolNotValid", "keep_pool should be a boolean.");
     end
+    % Judge whether profile_options.seed is a positive integer.
+    if ~isintegerscalar(profile_options.(ProfileOptionKey.SEED.value)) || profile_options.(ProfileOptionKey.SEED.value) <= 0
+        error("MATLAB:benchmark:seedNotValid", "seed should be a positive integer.");
+    end
     % Judge whether profile_options.benchmark_id is a char or a string and satisfies the file name requirements (but it can be '.').
     is_valid_foldername = @(x) ischarstr(x) && ~isempty(x) && all(ismember(char(x), ['a':'z', 'A':'Z', '0':'9', '_', '-']));
     if ~ischarstr(profile_options.(ProfileOptionKey.BENCHMARK_ID.value)) || ~is_valid_foldername(profile_options.(ProfileOptionKey.BENCHMARK_ID.value)) && ~strcmp(profile_options.(ProfileOptionKey.BENCHMARK_ID.value), '.')

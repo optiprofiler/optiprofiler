@@ -4,6 +4,7 @@ classdef ProfileOptionKey
     enumeration
         N_JOBS ('n_jobs')
         KEEP_POOL ('keep_pool')
+        SEED ('seed')
         BENCHMARK_ID ('benchmark_id')
         RANGE_TYPE ('range_type')
         STD_FACTOR ('std_factor')

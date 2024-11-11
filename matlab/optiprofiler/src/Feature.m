@@ -321,8 +321,9 @@ classdef Feature < handle
                     end
                 case FeatureName.PERTURBED_X0.value
                     % Use max(1, norm(x0)) to avoid no perturbation when x0 is zero.
-                    rand_stream_perturbed_x0 = obj.default_rng(seed, problem.x0);
-                    x0 = problem.x0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * max(1, norm(problem.x0)) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_perturbed_x0, problem.n);
+                    xCell = num2cell(problem.x0);
+                    rand_stream_perturbed_x0 = obj.default_rng(seed, xCell{:});
+                    x0 = problem.x0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * max(1, norm(problem.x0)) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_perturbed_x0, problem.n) / norm(obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_perturbed_x0, problem.n));
                 case FeatureName.PERMUTED.value
                     % Note that we need to apply the reverse permutation to the initial point so that
                     % the new problem is mathematically equivalent to the original one.
