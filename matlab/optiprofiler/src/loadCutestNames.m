@@ -5,7 +5,7 @@ function cutest_problem_names = loadCutestNames(cutest_options, cutest_problem_n
     if isempty(cutest_options) || ~isempty(cutest_problem_names) || (~isempty(custom_problem_loader) || ~isempty(custom_problem_names))
         cutest_problem_names_options = {};
     else
-        cutest_problem_names_options = selector(cutest_options);
+        cutest_problem_names_options = s_select(cutest_options);
     end
 
     % Preprocess the CUTEst problem names given by the user.

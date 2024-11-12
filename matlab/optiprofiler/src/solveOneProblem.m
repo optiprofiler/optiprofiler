@@ -22,7 +22,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
         problem_name = sprintf('%s %s', problem_name{1}, problem_name{2});
     else
         try
-            problem = loader(problem_name);
+            problem = s_load(problem_name);
         catch
             return;
         end

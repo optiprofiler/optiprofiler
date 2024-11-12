@@ -20,29 +20,29 @@ function basic()
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Example 3 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    solvers = {@fminsearch_test, @fminunc_test};
-    options.labels = {'simplex', 'bfgs-fd'};
-    options.feature_name = 'noisy';
-    options.n_runs = 5;
-    options.problem = loader('SCURLY10');
-    options.seed = 2;
-    benchmark(solvers, options)
+    % solvers = {@fminsearch_test, @fminunc_test};
+    % options.labels = {'simplex', 'bfgs-fd'};
+    % options.feature_name = 'noisy';
+    % options.n_runs = 5;
+    % options.problem = loader('SCURLY10');
+    % options.seed = 2;
+    % benchmark(solvers, options)
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Example 4 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    % solvers = {@fminsearch_test, @fminunc_test};
-    % options.feature_name = 'plain';
-    % options.benchmark_id = 'test';
-    % options.silent = false;
-    % options.keep_pool = true;
-    % options.solver_verbose = 1;
-    % options.problem_type = 'u';
-    % options.maxdim = 2;
-    % options.summarize_log_ratio_profiles = true;
-    % options.labels = {'simplex', 'bfgs-fd'};
-    % benchmark(solvers, options)
+    solvers = {@fminsearch_test, @fminunc_test};
+    options.feature_name = 'plain';
+    options.benchmark_id = 'test';
+    options.silent = false;
+    options.keep_pool = true;
+    options.solver_verbose = 1;
+    options.problem_type = 'u';
+    options.maxdim = 2;
+    options.summarize_log_ratio_profiles = true;
+    options.labels = {'simplex', 'bfgs-fd'};
+    benchmark(solvers, options)
 
 end
 
