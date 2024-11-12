@@ -33,13 +33,13 @@ function basic()
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     solvers = {@fminsearch_test, @fminunc_test};
-    options.feature_name = 'noisy';
+    options.feature_name = 'plain';
     options.benchmark_id = 'test';
     options.silent = false;
     options.keep_pool = true;
     options.solver_verbose = 1;
     options.problem_type = 'u';
-    options.maxdim = 5;
+    options.maxdim = 2;
     options.summarize_log_ratio_profiles = true;
     options.labels = {'simplex', 'bfgs-fd'};
     benchmark(solvers, options)

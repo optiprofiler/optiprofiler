@@ -668,6 +668,16 @@ function benchmark(solvers, varargin)
         exportgraphics(fig_summary, pdf_summary, 'ContentType', 'vector');
     end
 
+    % Merge all the pdf files in path_hist_plots to a single pdf file.
+    if ~profile_options.(ProfileOptionKey.SILENT.value)
+        fprintf('INFO: Merging all the history plots to a single PDF file.\n');
+    end
+    try
+        mergePdfs(path_hist_plots, 'history_plots_summary.pdf', path_feature);
+    catch
+        warning('Failed to merge the history plots to a single PDF file.');
+    end
+
     if ~profile_options.(ProfileOptionKey.SILENT.value)
         fprintf('INFO: Detailed results stored in %s\n', path_feature);
     end
@@ -679,4 +689,22 @@ function benchmark(solvers, varargin)
         fprintf('INFO: Summary stored in %s\n', path_out);
     end
 
+end
+
+% Following code is modified from the code provided by Benjamin Großmann (2024). Merge PDF-Documents
+% (https://www.mathworks.com/matlabcentral/fileexchange/89127-merge-pdf-documents), MATLAB Central
+% File Exchange. Retrieved November 12, 2024.
+function mergePdfs(file_path, output_file_name, output_path)
+
+    fileNames = dir(fullfile(file_path, '*.pdf'));
+    fileNames = {fileNames.name};
+    fileNames = cellfun(@(f) fullfile(file_path, f), fileNames, 'UniformOutput', false);
+
+    memSet = org.apache.pdfbox.io.MemoryUsageSetting.setupMainMemoryOnly();
+    merger = org.apache.pdfbox.multipdf.PDFMergerUtility;
+    
+    cellfun(@(f) merger.addSource(f), fileNames)
+    
+    merger.setDestinationFileName(fullfile(output_path, output_file_name));
+    merger.mergeDocuments(memSet)
 end
