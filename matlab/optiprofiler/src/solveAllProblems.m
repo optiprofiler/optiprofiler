@@ -20,13 +20,17 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
     end
 
     % Decide whether to delete the pool.
-    pool = gcp('nocreate');
-    if ~isempty(pool) && (profile_options.n_jobs == 1 || profile_options.n_jobs ~= pool.NumWorkers)
-        if ~profile_options.(ProfileOptionKey.SILENT.value)
-            delete(pool);
-        else
-            evalc("delete(pool)");
+    try
+        pool = gcp('nocreate');
+        if ~isempty(pool) && (profile_options.n_jobs == 1 || profile_options.n_jobs ~= pool.NumWorkers)
+            if ~profile_options.(ProfileOptionKey.SILENT.value)
+                delete(pool);
+            else
+                evalc("delete(pool)");
+            end
         end
+    catch
+        pool = [];
     end
 
     switch profile_options.(ProfileOptionKey.N_JOBS.value)
@@ -45,7 +49,12 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
                 results{i_problem} = {tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n, tmp_computation_time};
             end
         otherwise
-            pool = gcp('nocreate');
+            try
+                pool = gcp('nocreate');
+            catch
+                % If the user does not have the Parallel Computing Toolbox, the gcp function will not be available. We will print a error message and exit.
+                error("The Parallel Computing Toolbox is not available. Please set the n_jobs option to 1.");
+            end
             if isempty(pool)
                 if ~profile_options.(ProfileOptionKey.SILENT.value)
                     parpool(profile_options.(ProfileOptionKey.N_JOBS.value));
