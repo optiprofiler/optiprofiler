@@ -215,3 +215,7 @@ ytick
 yticks
 fhist
 HIMMELBH
+mann
+multipdf
+pdfbox
+Pdfs
