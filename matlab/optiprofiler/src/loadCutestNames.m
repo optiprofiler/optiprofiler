@@ -1,6 +1,12 @@
 function cutest_problem_names = loadCutestNames(cutest_options, cutest_problem_names, custom_problem_loader, custom_problem_names)
 %LOADCUTEST Load the CUTEst problems according to the options in cutest_options
 
+    % Convert the custom_problem_names to cell row vectors of chars.
+    if ~isempty(custom_problem_names)
+        custom_problem_names = cellfun(@char, custom_problem_names, 'UniformOutput', false);
+    end
+
+
     % Select the problems based on cutest_options.
     if isempty(cutest_options) || ~isempty(cutest_problem_names) || (~isempty(custom_problem_loader) || ~isempty(custom_problem_names))
         cutest_problem_names_options = {};
@@ -35,6 +41,8 @@ function cutest_problem_names = loadCutestNames(cutest_options, cutest_problem_n
 
     % Exclude the problems specified by cutest_options.excludelist.
     if isfield(cutest_options, CutestOptionKey.EXCLUDELIST.value) && ~isempty(cutest_options.(CutestOptionKey.EXCLUDELIST.value))
+        % Convert to a cell row vector of chars.
+        cutest_options.(CutestOptionKey.EXCLUDELIST.value) = cellfun(@char, cutest_options.(CutestOptionKey.EXCLUDELIST.value), 'UniformOutput', false);
         cutest_problem_names = setdiff(cutest_problem_names, cutest_options.(CutestOptionKey.EXCLUDELIST.value));
     end
 

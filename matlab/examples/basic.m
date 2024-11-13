@@ -40,6 +40,7 @@ function basic()
     options.solver_verbose = 1;
     options.problem_type = 'u';
     options.maxdim = 2;
+    options.excludelist = {"MUONSINELS"};
     options.summarize_log_ratio_profiles = true;
     options.labels = {'simplex', 'bfgs-fd'};
     benchmark(solvers, options)
