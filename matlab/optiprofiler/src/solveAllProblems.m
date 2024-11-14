@@ -1,4 +1,4 @@
-function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, computation_times] = solveAllProblems(cutest_problem_names, custom_problem_loader, custom_problem_names, solvers, labels, feature, profile_options, is_plot, path_hist_plots)
+function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, computation_times, problem_unsolved] = solveAllProblems(cutest_problem_names, custom_problem_loader, custom_problem_names, solvers, labels, feature, profile_options, is_plot, path_hist_plots)
 %SOLVEALLPROBLEMS solves all problems in the problem_names list using solvers in the solvers list and stores the computing results.
 
 
@@ -77,8 +77,9 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
             end
     end
 
-    % Delete the empty results.
-    not_empty_index = cellfun(@(c) any(~cellfun(@isempty, c)), results);
+    % Select and delete the empty results. Get a list of unsolved problems.
+    not_empty_index = cellfun(@(c) all(cellfun(@(x) ~isempty(x), c)), results);
+    problem_unsolved = problem_names(~not_empty_index);
     results = results(not_empty_index);
 
     if all(arrayfun(@(x) all(cellfun(@isempty, results{x}([1:7, 9:10]))), 1:length(results))) % Check if all problems failed to load.

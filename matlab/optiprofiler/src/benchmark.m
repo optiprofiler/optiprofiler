@@ -390,7 +390,7 @@ function benchmark(solvers, varargin)
 
     % Solve all the problems.
     [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, ...
-    problem_names, problem_dimensions, time_processes] = solveAllProblems(cutest_problem_names, ...
+    problem_names, problem_dimensions, time_processes, problem_unsolved] = solveAllProblems(cutest_problem_names, ...
     custom_problem_loader, custom_problem_names, solvers, labels, feature, profile_options, true, path_hist_plots);
     merit_histories = computeMeritValues(fun_histories, maxcv_histories, maxcv_init);
     merit_out = computeMeritValues(fun_out, maxcv_out, maxcv_init);
@@ -468,6 +468,12 @@ function benchmark(solvers, varargin)
             error("MATLAB:benchmark:FailToEditFile", "Failed to record data for %s.", sorted_problem_names{i});
         end
     end
+    for i = 1:length(problem_unsolved)
+        count = fprintf(fid, "%s: unsolved\n", problem_unsolved{i});
+        if count < 0
+            error("MATLAB:benchmark:FailToEditFile", "Failed to record data for %s.", problem_unsolved{i});
+        end
+    end
     fclose(fid);
 
     [n_problems, n_solvers, n_runs, ~] = size(merit_histories);
@@ -515,8 +521,7 @@ function benchmark(solvers, varargin)
     default_width = defaultFigurePosition(3);
     default_height = defaultFigurePosition(4);
     fig_summary = figure('Position', [defaultFigurePosition(1:2), ...
-    profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * default_width, multiplier * n_rows * default_height], ...
-    'visible', 'off');
+    profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * default_width, multiplier * n_rows * default_height], 'visible', 'off');
     T_summary = tiledlayout(fig_summary, multiplier, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
     T_title = strrep(feature.name, '_', '\_');
     title(T_summary, ['Profiles with the ``', T_title, '" feature'], 'Interpreter', 'latex', 'FontSize', 24);

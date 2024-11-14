@@ -10,9 +10,11 @@ function varargout = SIM2BQP(action,varargin)
 % 
 %    SIF input: Nick Gould, March 1992
 % 
-%    classification = 'QBR2-AN-2-0'
+%    classification = 'C-CQBR2-AN-2-0'
 % 
 % 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   Translated to Matlab by S2MPJ version 9 XI 2024
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 persistent pbm;
@@ -21,24 +23,32 @@ name = 'SIM2BQP';
 
 switch(action)
 
-    case 'setup'
+    case {'setup','setup_redprec'}
 
-    pb.name      = 'SIM2BQP';
-    pb.sifpbname = 'SIM2BQP';
-    pbm.name     = 'SIM2BQP';
+        if(strcmp(action,'setup_redprec'))
+            if(isfield(pbm,'ndigs'))
+                rmfield(pbm,'ndigs');
+            end
+            pbm.ndigs = max(1,min(15,varargin{end}));
+            nargs     = nargin-2;
+        else
+            nargs = nargin-1;
+        end
+        pb.name   = name;
+        pbm.name  = name;
         %%%%%%%%%%%%%%%%%%%%  PREAMBLE %%%%%%%%%%%%%%%%%%%%
-        v_  = configureDictionary('string','double');
-        ix_ = configureDictionary('string','double');
-        ig_ = configureDictionary('string','double');
+        v_  = containers.Map('KeyType','char', 'ValueType', 'double');
+        ix_ = containers.Map('KeyType','char', 'ValueType', 'double');
+        ig_ = containers.Map('KeyType','char', 'ValueType', 'double');
         %%%%%%%%%%%%%%%%%%%%  VARIABLES %%%%%%%%%%%%%%%%%%%%
         pb.xnames = {};
-        [iv,ix_] = s2xlib('ii','X1',ix_);
+        [iv,ix_] = s2mpjlib('ii','X1',ix_);
         pb.xnames{iv} = 'X1';
-        [iv,ix_] = s2xlib('ii','X2',ix_);
+        [iv,ix_] = s2mpjlib('ii','X2',ix_);
         pb.xnames{iv} = 'X2';
         %%%%%%%%%%%%%%%%%%%  DATA GROUPS %%%%%%%%%%%%%%%%%%%
         pbm.A = sparse(0,0);
-        [ig,ig_] = s2xlib('ii','G1',ig_);
+        [ig,ig_] = s2mpjlib('ii','G1',ig_);
         gtype{ig} = '<>';
         iv = ix_('X2');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -46,7 +56,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 1.0;
         end
-        [ig,ig_] = s2xlib('ii','G2',ig_);
+        [ig,ig_] = s2mpjlib('ii','G2',ig_);
         gtype{ig} = '<>';
         iv = ix_('X1');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -60,7 +70,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 1.0;
         end
-        [ig,ig_] = s2xlib('ii','G3',ig_);
+        [ig,ig_] = s2mpjlib('ii','G3',ig_);
         gtype{ig} = '<>';
         iv = ix_('X1');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -75,13 +85,13 @@ switch(action)
             pbm.A(ig,iv) = 1.0;
         end
         %%%%%%%%%%%%%%% GLOBAL DIMENSIONS %%%%%%%%%%%%%%%%%
-        pb.n   = numEntries(ix_);
-        ngrp   = numEntries(ig_);
+        pb.n   = ix_.Count;
+        ngrp   = ig_.Count;
         pbm.objgrps = [1:ngrp];
         pb.m        = 0;
         %%%%%%%%%%%%%%%%%%%%  BOUNDS %%%%%%%%%%%%%%%%%%%%%
-        pb.xlower = 10.0*ones(pb.n,1);
-        pb.xupper = 10.0*ones(pb.n,1);
+        pb.xlower = 0.0*ones(pb.n,1);
+        pb.xupper = 0.0*ones(pb.n,1);
         pb.xlower(ix_('X2'),1) = 0.0;
         pb.xupper(ix_('X2')) = 0.5;
         %%%%%%%%%%%%%%%%%%%% START POINT %%%%%%%%%%%%%%%%%%
@@ -89,27 +99,41 @@ switch(action)
         pb.x0(ix_('X1'),1) = 10.0;
         pb.x0(ix_('X2'),1) = 1.0;
         %%%%%%%%%%%%%%%%%%%%%% GRFTYPE %%%%%%%%%%%%%%%%%%%%
-        igt_ = configureDictionary('string','double');
-        [it,igt_] = s2xlib('ii','L2',igt_);
+        igt_ = containers.Map('KeyType','char','ValueType','double');
+        [it,igt_] = s2mpjlib('ii','gL2',igt_);
         %%%%%%%%%%%%%%%%%%%% GROUP USES %%%%%%%%%%%%%%%%%%%
-        [pbm.grelt{1:ngrp}] = deal(repmat([],1,ngrp));
+        [pbm.grelt{1:ngrp}] = deal([]);
         nlc = [];
         ig = ig_('G2');
-        pbm.grftype{ig} = 'L2';
+        pbm.grftype{ig} = 'gL2';
         ig = ig_('G3');
-        pbm.grftype{ig} = 'L2';
+        pbm.grftype{ig} = 'gL2';
         %%%%%%%%%%%%%%%%%%% OBJECT BOUNDS %%%%%%%%%%%%%%%%%
         pb.objlower = 0.0;
+%    Solution
+% LO SOLTN               0.0
         %%%%%%%%% DEFAULT FOR MISSING SECTION(S) %%%%%%%%%%
-        pbm.gconst = zeros(ngrp,1);
-        %%%%%% RETURN VALUES FROM THE SETUP ACTIONS %%%%%%%
-        pb.pbclass = 'QBR2-AN-2-0';
-        varargout{1} = pb;
-        varargout{2} = pbm;
+        %%%%%% RETURN VALUES FROM THE SETUP ACTION %%%%%%%%
+        pb.pbclass = 'C-CQBR2-AN-2-0';
+        pbm.objderlvl = 2;
+        pb.objderlvl = pbm.objderlvl;
+        %%%%%%%%%%% REDUCED-PRECISION CONVERSION %%%%%%%%%%%
+        if(strcmp(action,'setup_redprec'))
+            varargout{1} = s2mpjlib('convert',pb, pbm.ndigs);
+            varargout{2} = s2mpjlib('convert',pbm,pbm.ndigs);
+        else
+            varargout{1} = pb;
+            varargout{2} = pbm;
+        end
+
+% ********************
+%  SET UP THE GROUPS *
+%  ROUTINE           *
+% ********************
 
     %%%%%%%%%%%%%%%%%% NONLINEAR GROUPS  %%%%%%%%%%%%%%%
 
-    case 'L2'
+    case 'gL2'
 
         GVAR_ = varargin{1};
         igr_  = varargin{2};
@@ -126,18 +150,19 @@ switch(action)
     %%%%%%%%%%%%%%%% THE MAIN ACTIONS %%%%%%%%%%%%%%%
 
     case {'fx','fgx','fgHx','cx','cJx','cJHx','cIx','cIJx','cIJHx','cIJxv','fHxv',...
-          'cJxv','Lxy','Lgxy','LgHxy','LIxy','LIgxy','LIgHxy','LHxyv','LIHxyv'}
+          'cJxv','cJtxv','cIJtxv','Lxy','Lgxy','LgHxy','LIxy','LIgxy','LIgHxy',...
+          'LHxyv','LIHxyv'}
 
         if(isfield(pbm,'name')&&strcmp(pbm.name,name))
             pbm.has_globs = [0,0];
-            [varargout{1:max(1,nargout)}] = s2xlib(action,pbm,varargin{:});
+            [varargout{1:max(1,nargout)}] = s2mpjlib(action,pbm,varargin{:});
         else
             disp(['ERROR: please run ',name,' with action = setup'])
-        [varargout{1:nargout}] = deal(repmat(NaN,1:nargout));
-            end
+            [varargout{1:nargout}] = deal(NaN);
+        end
 
     otherwise
-        disp([' ERROR: unknown action ',action,' requested from ',name,'.m'])
+        disp([' ERROR: action ',action,' unavailable for problem ',name,'.m'])
     end
 
 return

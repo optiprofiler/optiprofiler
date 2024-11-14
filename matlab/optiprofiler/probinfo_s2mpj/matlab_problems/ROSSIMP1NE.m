@@ -3,7 +3,7 @@ function varargout = ROSSIMP1NE(action,varargin)
 %    Problem : ROSSIMP1NE
 %    The ever famous 2 variables Rosenbrock "banana valley" problem
 %    This version considers the problem as a system of nonlinear equations.
-%    classification = 'NOR2-AN-2-0'
+%    classification = 'C-CNOR2-AN-2-0'
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 persistent pbm;
 name = 'ROSSIMP1NE';

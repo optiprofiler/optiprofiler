@@ -103,13 +103,13 @@ function varargout = ACOPR14(action,varargin)
 % 
 %    SIF input: Nick Gould, August 2011
 % 
-%    classification = 'C-QOR2-AN-38-82'
+%    classification = 'C-CQOR2-AN-38-82'
 % 
 %    number of nodes
 % 
 % 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%   Translated to Matlab by S2MPJ version 6 X 2024
+%   Translated to Matlab by S2MPJ version 9 XI 2024
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 persistent pbm;
@@ -14003,7 +14003,7 @@ switch(action)
         pb.cupper(1:pb.nge) = grange(gegrps);
         %%%%%% RETURN VALUES FROM THE SETUP ACTION %%%%%%%%
         [~,pb.lincons]  = ismember(setdiff(pbm.congrps,nlc),pbm.congrps);
-        pb.pbclass = 'C-QOR2-AN-38-82';
+        pb.pbclass = 'C-CQOR2-AN-38-82';
         pbm.objderlvl = 2;
         pb.objderlvl = pbm.objderlvl;
         pbm.conderlvl = [2];

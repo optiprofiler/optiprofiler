@@ -19,7 +19,7 @@ function varargout = TAX13322(action,varargin)
 %    "If ever there was an example that exhibited the stupidity of SIF,
 %     this is it. NIMG"
 % 
-%    classification = 'C-OOR2-MN-72-1261'
+%    classification = 'C-COOR2-MN-72-1261'
 % 
 %    parameters
 % 
@@ -27,7 +27,7 @@ function varargout = TAX13322(action,varargin)
 % IE NA                  1              $-PARAMETER
 % 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%   Translated to Matlab by S2MPJ version 6 X 2024
+%   Translated to Matlab by S2MPJ version 9 XI 2024
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 persistent pbm;
@@ -231,7 +231,6 @@ switch(action)
         %%%%%%%%%%%%%%%%%%%%  BOUNDS %%%%%%%%%%%%%%%%%%%%%
         pb.xlower = -Inf*ones(pb.n,1);
         pb.xupper = +Inf*ones(pb.n,1);
-        pb.xlower = zeros(pb.n,1);
         for I=v_('1'):v_('NA')
             for P=v_('1'):v_('NBD')
                 for Q=v_('1'):v_('NCE')
@@ -13362,7 +13361,7 @@ switch(action)
         pb.cupper(1:pb.nge) = +Inf*ones(pb.nge,1);
         %%%%%% RETURN VALUES FROM THE SETUP ACTION %%%%%%%%
         [~,pb.lincons]  = ismember(setdiff(pbm.congrps,nlc),pbm.congrps);
-        pb.pbclass = 'C-OOR2-MN-72-1261';
+        pb.pbclass = 'C-COOR2-MN-72-1261';
         pbm.objderlvl = 2;
         pb.objderlvl = pbm.objderlvl;
         pbm.conderlvl = [2];

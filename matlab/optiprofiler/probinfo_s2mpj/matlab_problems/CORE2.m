@@ -24,9 +24,11 @@ function varargout = CORE2(action,varargin)
 % 
 %    SDIF input: E. Loute and D. De Wolf, September 1992.
 % 
-%    classification = 'LQI2-RN-157-134'
+%    classification = 'C-CLQI2-RN-157-134'
 % 
 % 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   Translated to Matlab by S2MPJ version 9 XI 2024
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 persistent pbm;
@@ -35,425 +37,433 @@ name = 'CORE2';
 
 switch(action)
 
-    case 'setup'
+    case {'setup','setup_redprec'}
 
-    pb.name      = 'CORE2';
-    pb.sifpbname = 'CORE2';
-    pbm.name     = 'CORE2';
+        if(strcmp(action,'setup_redprec'))
+            if(isfield(pbm,'ndigs'))
+                rmfield(pbm,'ndigs');
+            end
+            pbm.ndigs = max(1,min(15,varargin{end}));
+            nargs     = nargin-2;
+        else
+            nargs = nargin-1;
+        end
+        pb.name   = name;
+        pbm.name  = name;
         %%%%%%%%%%%%%%%%%%%%  PREAMBLE %%%%%%%%%%%%%%%%%%%%
-        v_  = configureDictionary('string','double');
-        ix_ = configureDictionary('string','double');
-        ig_ = configureDictionary('string','double');
+        v_  = containers.Map('KeyType','char', 'ValueType', 'double');
+        ix_ = containers.Map('KeyType','char', 'ValueType', 'double');
+        ig_ = containers.Map('KeyType','char', 'ValueType', 'double');
         %%%%%%%%%%%%%%%%%%%  DATA GROUPS %%%%%%%%%%%%%%%%%%%
         pbm.A = sparse(0,0);
-        [ig,ig_] = s2xlib('ii','COST',ig_);
+        [ig,ig_] = s2mpjlib('ii','COST',ig_);
         gtype{ig} = '<>';
-        [ig,ig_] = s2xlib('ii','NODE0001',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0001',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0001';
-        [ig,ig_] = s2xlib('ii','NODE0002',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0002',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0002';
-        [ig,ig_] = s2xlib('ii','NODE0003',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0003',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0003';
-        [ig,ig_] = s2xlib('ii','NODE0004',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0004',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0004';
-        [ig,ig_] = s2xlib('ii','NODE0005',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0005',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0005';
-        [ig,ig_] = s2xlib('ii','NODE0006',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0006',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0006';
-        [ig,ig_] = s2xlib('ii','NODE0007',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0007',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0007';
-        [ig,ig_] = s2xlib('ii','NODE0008',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0008',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0008';
-        [ig,ig_] = s2xlib('ii','NODE0009',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0009',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0009';
-        [ig,ig_] = s2xlib('ii','NODE0010',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0010',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0010';
-        [ig,ig_] = s2xlib('ii','NODE0011',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0011',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0011';
-        [ig,ig_] = s2xlib('ii','NODE0012',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0012',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0012';
-        [ig,ig_] = s2xlib('ii','NODE0013',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0013',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0013';
-        [ig,ig_] = s2xlib('ii','NODE0014',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0014',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0014';
-        [ig,ig_] = s2xlib('ii','NODE0015',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0015',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0015';
-        [ig,ig_] = s2xlib('ii','NODE0016',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0016',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0016';
-        [ig,ig_] = s2xlib('ii','NODE0017',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0017',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0017';
-        [ig,ig_] = s2xlib('ii','NODE0018',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0018',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0018';
-        [ig,ig_] = s2xlib('ii','NODE0019',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0019',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0019';
-        [ig,ig_] = s2xlib('ii','NODE0020',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0020',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0020';
-        [ig,ig_] = s2xlib('ii','NODE0021',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0021',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0021';
-        [ig,ig_] = s2xlib('ii','NODE0022',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0022',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0022';
-        [ig,ig_] = s2xlib('ii','NODE0023',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0023',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0023';
-        [ig,ig_] = s2xlib('ii','NODE0024',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0024',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0024';
-        [ig,ig_] = s2xlib('ii','NODE0025',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0025',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0025';
-        [ig,ig_] = s2xlib('ii','NODE0026',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0026',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0026';
-        [ig,ig_] = s2xlib('ii','NODE0027',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0027',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0027';
-        [ig,ig_] = s2xlib('ii','NODE0028',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0028',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0028';
-        [ig,ig_] = s2xlib('ii','NODE0029',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0029',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0029';
-        [ig,ig_] = s2xlib('ii','NODE0030',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0030',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0030';
-        [ig,ig_] = s2xlib('ii','NODE0031',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0031',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0031';
-        [ig,ig_] = s2xlib('ii','NODE0032',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0032',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0032';
-        [ig,ig_] = s2xlib('ii','NODE0033',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0033',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0033';
-        [ig,ig_] = s2xlib('ii','NODE0034',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0034',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0034';
-        [ig,ig_] = s2xlib('ii','NODE0035',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0035',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0035';
-        [ig,ig_] = s2xlib('ii','NODE0036',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0036',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0036';
-        [ig,ig_] = s2xlib('ii','NODE0037',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0037',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0037';
-        [ig,ig_] = s2xlib('ii','NODE0038',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0038',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0038';
-        [ig,ig_] = s2xlib('ii','NODE0039',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0039',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0039';
-        [ig,ig_] = s2xlib('ii','NODE0040',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0040',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0040';
-        [ig,ig_] = s2xlib('ii','NODE0041',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0041',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0041';
-        [ig,ig_] = s2xlib('ii','NODE0042',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0042',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0042';
-        [ig,ig_] = s2xlib('ii','NODE0043',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0043',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0043';
-        [ig,ig_] = s2xlib('ii','NODE0044',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0044',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0044';
-        [ig,ig_] = s2xlib('ii','NODE0045',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0045',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0045';
-        [ig,ig_] = s2xlib('ii','NODE0046',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0046',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0046';
-        [ig,ig_] = s2xlib('ii','NODE0047',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0047',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0047';
-        [ig,ig_] = s2xlib('ii','NODE0048',ig_);
+        [ig,ig_] = s2mpjlib('ii','NODE0048',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'NODE0048';
-        [ig,ig_] = s2xlib('ii','ARC00001',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00001',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00001';
-        [ig,ig_] = s2xlib('ii','ARC00002',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00002',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00002';
-        [ig,ig_] = s2xlib('ii','ARC00003',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00003',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00003';
-        [ig,ig_] = s2xlib('ii','ARC00004',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00004',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00004';
-        [ig,ig_] = s2xlib('ii','ARC00005',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00005',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00005';
-        [ig,ig_] = s2xlib('ii','ARC00006',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00006',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00006';
-        [ig,ig_] = s2xlib('ii','ARC00007',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00007',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00007';
-        [ig,ig_] = s2xlib('ii','ARC00008',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00008',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00008';
-        [ig,ig_] = s2xlib('ii','ARC00009',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00009',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00009';
-        [ig,ig_] = s2xlib('ii','ARC00010',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00010',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00010';
-        [ig,ig_] = s2xlib('ii','ARC00011',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00011',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00011';
-        [ig,ig_] = s2xlib('ii','ARC00012',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00012',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00012';
-        [ig,ig_] = s2xlib('ii','ARC00013',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00013',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00013';
-        [ig,ig_] = s2xlib('ii','ARC00014',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00014',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00014';
-        [ig,ig_] = s2xlib('ii','ARC00015',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00015',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00015';
-        [ig,ig_] = s2xlib('ii','ARC00016',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00016',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00016';
-        [ig,ig_] = s2xlib('ii','ARC00017',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00017',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00017';
-        [ig,ig_] = s2xlib('ii','ARC00018',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00018',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00018';
-        [ig,ig_] = s2xlib('ii','ARC00019',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00019',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00019';
-        [ig,ig_] = s2xlib('ii','ARC00020',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00020',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00020';
-        [ig,ig_] = s2xlib('ii','ARC00021',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00021',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00021';
-        [ig,ig_] = s2xlib('ii','ARC00022',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00022',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00022';
-        [ig,ig_] = s2xlib('ii','ARC00023',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00023',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00023';
-        [ig,ig_] = s2xlib('ii','ARC00024',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00024',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00024';
-        [ig,ig_] = s2xlib('ii','ARC00025',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00025',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00025';
-        [ig,ig_] = s2xlib('ii','ARC00026',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00026',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00026';
-        [ig,ig_] = s2xlib('ii','ARC00027',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00027',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00027';
-        [ig,ig_] = s2xlib('ii','ARC00028',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00028',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00028';
-        [ig,ig_] = s2xlib('ii','ARC00029',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00029',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00029';
-        [ig,ig_] = s2xlib('ii','ARC00030',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00030',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00030';
-        [ig,ig_] = s2xlib('ii','ARC00031',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00031',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00031';
-        [ig,ig_] = s2xlib('ii','ARC00032',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00032',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00032';
-        [ig,ig_] = s2xlib('ii','ARC00033',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00033',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00033';
-        [ig,ig_] = s2xlib('ii','ARC00034',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00034',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00034';
-        [ig,ig_] = s2xlib('ii','ARC00035',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00035',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00035';
-        [ig,ig_] = s2xlib('ii','ARC00036',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00036',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00036';
-        [ig,ig_] = s2xlib('ii','ARC00037',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00037',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00037';
-        [ig,ig_] = s2xlib('ii','ARC00038',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00038',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00038';
-        [ig,ig_] = s2xlib('ii','ARC00039',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00039',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00039';
-        [ig,ig_] = s2xlib('ii','ARC00040',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00040',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00040';
-        [ig,ig_] = s2xlib('ii','ARC00041',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00041',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00041';
-        [ig,ig_] = s2xlib('ii','ARC00042',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00042',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00042';
-        [ig,ig_] = s2xlib('ii','ARC00043',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00043',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00043';
-        [ig,ig_] = s2xlib('ii','ARC00044',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00044',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00044';
-        [ig,ig_] = s2xlib('ii','ARC00045',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00045',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00045';
-        [ig,ig_] = s2xlib('ii','ARC00046',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00046',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00046';
-        [ig,ig_] = s2xlib('ii','ARC00047',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00047',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00047';
-        [ig,ig_] = s2xlib('ii','ARC00048',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00048',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00048';
-        [ig,ig_] = s2xlib('ii','ARC00049',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00049',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00049';
-        [ig,ig_] = s2xlib('ii','ARC00050',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00050',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00050';
-        [ig,ig_] = s2xlib('ii','ARC00051',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00051',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00051';
-        [ig,ig_] = s2xlib('ii','ARC00052',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00052',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00052';
-        [ig,ig_] = s2xlib('ii','ARC00053',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00053',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00053';
-        [ig,ig_] = s2xlib('ii','ARC00054',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00054',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00054';
-        [ig,ig_] = s2xlib('ii','ARC00055',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00055',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00055';
-        [ig,ig_] = s2xlib('ii','ARC00056',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00056',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00056';
-        [ig,ig_] = s2xlib('ii','ARC00057',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00057',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00057';
-        [ig,ig_] = s2xlib('ii','ARC00058',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00058',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00058';
-        [ig,ig_] = s2xlib('ii','ARC00059',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00059',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00059';
-        [ig,ig_] = s2xlib('ii','ARC00060',ig_);
+        [ig,ig_] = s2mpjlib('ii','ARC00060',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'ARC00060';
-        [ig,ig_] = s2xlib('ii','REGIO001',ig_);
+        [ig,ig_] = s2mpjlib('ii','REGIO001',ig_);
         gtype{ig}  = '<=';
         cnames{ig} = 'REGIO001';
-        [ig,ig_] = s2xlib('ii','REGIO002',ig_);
+        [ig,ig_] = s2mpjlib('ii','REGIO002',ig_);
         gtype{ig}  = '<=';
         cnames{ig} = 'REGIO002';
-        [ig,ig_] = s2xlib('ii','REGIO003',ig_);
+        [ig,ig_] = s2mpjlib('ii','REGIO003',ig_);
         gtype{ig}  = '<=';
         cnames{ig} = 'REGIO003';
-        [ig,ig_] = s2xlib('ii','REGIO004',ig_);
+        [ig,ig_] = s2mpjlib('ii','REGIO004',ig_);
         gtype{ig}  = '<=';
         cnames{ig} = 'REGIO004';
-        [ig,ig_] = s2xlib('ii','REGIO005',ig_);
+        [ig,ig_] = s2mpjlib('ii','REGIO005',ig_);
         gtype{ig}  = '<=';
         cnames{ig} = 'REGIO005';
-        [ig,ig_] = s2xlib('ii','REGIO006',ig_);
+        [ig,ig_] = s2mpjlib('ii','REGIO006',ig_);
         gtype{ig}  = '<=';
         cnames{ig} = 'REGIO006';
-        [ig,ig_] = s2xlib('ii','REGIO007',ig_);
+        [ig,ig_] = s2mpjlib('ii','REGIO007',ig_);
         gtype{ig}  = '<=';
         cnames{ig} = 'REGIO007';
-        [ig,ig_] = s2xlib('ii','REGIO008',ig_);
+        [ig,ig_] = s2mpjlib('ii','REGIO008',ig_);
         gtype{ig}  = '<=';
         cnames{ig} = 'REGIO008';
-        [ig,ig_] = s2xlib('ii','REGIO009',ig_);
+        [ig,ig_] = s2mpjlib('ii','REGIO009',ig_);
         gtype{ig}  = '<=';
         cnames{ig} = 'REGIO009';
-        [ig,ig_] = s2xlib('ii','REGIO010',ig_);
+        [ig,ig_] = s2mpjlib('ii','REGIO010',ig_);
         gtype{ig}  = '<=';
         cnames{ig} = 'REGIO010';
-        [ig,ig_] = s2xlib('ii','REGIO011',ig_);
+        [ig,ig_] = s2mpjlib('ii','REGIO011',ig_);
         gtype{ig}  = '<=';
         cnames{ig} = 'REGIO011';
-        [ig,ig_] = s2xlib('ii','REGIO012',ig_);
+        [ig,ig_] = s2mpjlib('ii','REGIO012',ig_);
         gtype{ig}  = '<=';
         cnames{ig} = 'REGIO012';
-        [ig,ig_] = s2xlib('ii','REGIO013',ig_);
+        [ig,ig_] = s2mpjlib('ii','REGIO013',ig_);
         gtype{ig}  = '<=';
         cnames{ig} = 'REGIO013';
-        [ig,ig_] = s2xlib('ii','REGIO014',ig_);
+        [ig,ig_] = s2mpjlib('ii','REGIO014',ig_);
         gtype{ig}  = '<=';
         cnames{ig} = 'REGIO014';
-        [ig,ig_] = s2xlib('ii','REGIO015',ig_);
+        [ig,ig_] = s2mpjlib('ii','REGIO015',ig_);
         gtype{ig}  = '<=';
         cnames{ig} = 'REGIO015';
-        [ig,ig_] = s2xlib('ii','REGIO016',ig_);
+        [ig,ig_] = s2mpjlib('ii','REGIO016',ig_);
         gtype{ig}  = '<=';
         cnames{ig} = 'REGIO016';
-        [ig,ig_] = s2xlib('ii','REGIO017',ig_);
+        [ig,ig_] = s2mpjlib('ii','REGIO017',ig_);
         gtype{ig}  = '<=';
         cnames{ig} = 'REGIO017';
-        [ig,ig_] = s2xlib('ii','REGIO018',ig_);
+        [ig,ig_] = s2mpjlib('ii','REGIO018',ig_);
         gtype{ig}  = '<=';
         cnames{ig} = 'REGIO018';
-        [ig,ig_] = s2xlib('ii','REGIO019',ig_);
+        [ig,ig_] = s2mpjlib('ii','REGIO019',ig_);
         gtype{ig}  = '<=';
         cnames{ig} = 'REGIO019';
-        [ig,ig_] = s2xlib('ii','REGIO020',ig_);
+        [ig,ig_] = s2mpjlib('ii','REGIO020',ig_);
         gtype{ig}  = '<=';
         cnames{ig} = 'REGIO020';
-        [ig,ig_] = s2xlib('ii','REGIO021',ig_);
+        [ig,ig_] = s2mpjlib('ii','REGIO021',ig_);
         gtype{ig}  = '<=';
         cnames{ig} = 'REGIO021';
-        [ig,ig_] = s2xlib('ii','PROD0001',ig_);
+        [ig,ig_] = s2mpjlib('ii','PROD0001',ig_);
         gtype{ig}  = '<=';
         cnames{ig} = 'PROD0001';
-        [ig,ig_] = s2xlib('ii','PROD0002',ig_);
+        [ig,ig_] = s2mpjlib('ii','PROD0002',ig_);
         gtype{ig}  = '<=';
         cnames{ig} = 'PROD0002';
-        [ig,ig_] = s2xlib('ii','PROD0003',ig_);
+        [ig,ig_] = s2mpjlib('ii','PROD0003',ig_);
         gtype{ig}  = '<=';
         cnames{ig} = 'PROD0003';
-        [ig,ig_] = s2xlib('ii','PROD0004',ig_);
+        [ig,ig_] = s2mpjlib('ii','PROD0004',ig_);
         gtype{ig}  = '<=';
         cnames{ig} = 'PROD0004';
-        [ig,ig_] = s2xlib('ii','PROD0005',ig_);
+        [ig,ig_] = s2mpjlib('ii','PROD0005',ig_);
         gtype{ig}  = '<=';
         cnames{ig} = 'PROD0005';
         %%%%%%%%%%%%%%%%%%%%  VARIABLES %%%%%%%%%%%%%%%%%%%%
         pb.xnames = {};
-        ngrp   = numEntries(ig_);
-        [iv,ix_] = s2xlib('ii','FLOW0001',ix_);
+        ngrp   = ig_.Count;
+        [iv,ix_] = s2mpjlib('ii','FLOW0001',ix_);
         pb.xnames{iv} = 'FLOW0001';
         ig = ig_('NODE0001');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -467,7 +477,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0002',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0002',ix_);
         pb.xnames{iv} = 'FLOW0002';
         ig = ig_('NODE0003');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -481,7 +491,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0003',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0003',ix_);
         pb.xnames{iv} = 'FLOW0003';
         ig = ig_('NODE0005');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -495,7 +505,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0004',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0004',ix_);
         pb.xnames{iv} = 'FLOW0004';
         ig = ig_('NODE0006');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -509,7 +519,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0005',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0005',ix_);
         pb.xnames{iv} = 'FLOW0005';
         ig = ig_('NODE0008');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -523,7 +533,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0006',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0006',ix_);
         pb.xnames{iv} = 'FLOW0006';
         ig = ig_('NODE0009');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -537,7 +547,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0007',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0007',ix_);
         pb.xnames{iv} = 'FLOW0007';
         ig = ig_('NODE0010');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -551,7 +561,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0008',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0008',ix_);
         pb.xnames{iv} = 'FLOW0008';
         ig = ig_('NODE0012');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -565,7 +575,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0009',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0009',ix_);
         pb.xnames{iv} = 'FLOW0009';
         ig = ig_('NODE0008');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -579,7 +589,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0010',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0010',ix_);
         pb.xnames{iv} = 'FLOW0010';
         ig = ig_('NODE0013');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -593,7 +603,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0011',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0011',ix_);
         pb.xnames{iv} = 'FLOW0011';
         ig = ig_('NODE0012');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -607,7 +617,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0012',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0012',ix_);
         pb.xnames{iv} = 'FLOW0012';
         ig = ig_('NODE0014');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -621,7 +631,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0013',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0013',ix_);
         pb.xnames{iv} = 'FLOW0013';
         ig = ig_('NODE0016');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -635,7 +645,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0014',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0014',ix_);
         pb.xnames{iv} = 'FLOW0014';
         ig = ig_('NODE0017');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -649,7 +659,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0015',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0015',ix_);
         pb.xnames{iv} = 'FLOW0015';
         ig = ig_('NODE0018');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -663,7 +673,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0016',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0016',ix_);
         pb.xnames{iv} = 'FLOW0016';
         ig = ig_('NODE0015');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -677,7 +687,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0017',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0017',ix_);
         pb.xnames{iv} = 'FLOW0017';
         ig = ig_('NODE0019');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -691,7 +701,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0018',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0018',ix_);
         pb.xnames{iv} = 'FLOW0018';
         ig = ig_('NODE0020');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -705,7 +715,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0019',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0019',ix_);
         pb.xnames{iv} = 'FLOW0019';
         ig = ig_('NODE0021');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -719,7 +729,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0020',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0020',ix_);
         pb.xnames{iv} = 'FLOW0020';
         ig = ig_('NODE0023');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -733,7 +743,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0021',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0021',ix_);
         pb.xnames{iv} = 'FLOW0021';
         ig = ig_('NODE0024');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -747,7 +757,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0022',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0022',ix_);
         pb.xnames{iv} = 'FLOW0022';
         ig = ig_('NODE0025');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -761,7 +771,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0023',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0023',ix_);
         pb.xnames{iv} = 'FLOW0023';
         ig = ig_('NODE0026');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -775,7 +785,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0024',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0024',ix_);
         pb.xnames{iv} = 'FLOW0024';
         ig = ig_('NODE0028');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -789,7 +799,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0025',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0025',ix_);
         pb.xnames{iv} = 'FLOW0025';
         ig = ig_('NODE0029');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -803,7 +813,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0026',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0026',ix_);
         pb.xnames{iv} = 'FLOW0026';
         ig = ig_('NODE0028');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -817,7 +827,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0027',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0027',ix_);
         pb.xnames{iv} = 'FLOW0027';
         ig = ig_('NODE0019');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -831,7 +841,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0028',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0028',ix_);
         pb.xnames{iv} = 'FLOW0028';
         ig = ig_('NODE0031');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -845,7 +855,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0029',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0029',ix_);
         pb.xnames{iv} = 'FLOW0029';
         ig = ig_('NODE0032');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -859,7 +869,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0030',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0030',ix_);
         pb.xnames{iv} = 'FLOW0030';
         ig = ig_('NODE0033');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -873,7 +883,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0031',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0031',ix_);
         pb.xnames{iv} = 'FLOW0031';
         ig = ig_('NODE0030');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -887,7 +897,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0032',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0032',ix_);
         pb.xnames{iv} = 'FLOW0032';
         ig = ig_('NODE0034');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -901,7 +911,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0033',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0033',ix_);
         pb.xnames{iv} = 'FLOW0033';
         ig = ig_('NODE0035');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -915,7 +925,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0034',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0034',ix_);
         pb.xnames{iv} = 'FLOW0034';
         ig = ig_('NODE0027');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -929,7 +939,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0035',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0035',ix_);
         pb.xnames{iv} = 'FLOW0035';
         ig = ig_('NODE0036');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -943,7 +953,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0036',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0036',ix_);
         pb.xnames{iv} = 'FLOW0036';
         ig = ig_('NODE0007');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -957,7 +967,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0037',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0037',ix_);
         pb.xnames{iv} = 'FLOW0037';
         ig = ig_('NODE0037');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -971,7 +981,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0038',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0038',ix_);
         pb.xnames{iv} = 'FLOW0038';
         ig = ig_('NODE0038');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -985,7 +995,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0039',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0039',ix_);
         pb.xnames{iv} = 'FLOW0039';
         ig = ig_('NODE0028');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -999,7 +1009,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0040',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0040',ix_);
         pb.xnames{iv} = 'FLOW0040';
         ig = ig_('NODE0019');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1013,7 +1023,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0041',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0041',ix_);
         pb.xnames{iv} = 'FLOW0041';
         ig = ig_('NODE0031');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1027,7 +1037,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0042',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0042',ix_);
         pb.xnames{iv} = 'FLOW0042';
         ig = ig_('NODE0032');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1041,7 +1051,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0043',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0043',ix_);
         pb.xnames{iv} = 'FLOW0043';
         ig = ig_('NODE0033');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1055,7 +1065,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0044',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0044',ix_);
         pb.xnames{iv} = 'FLOW0044';
         ig = ig_('NODE0030');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1069,7 +1079,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0045',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0045',ix_);
         pb.xnames{iv} = 'FLOW0045';
         ig = ig_('NODE0034');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1083,7 +1093,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0046',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0046',ix_);
         pb.xnames{iv} = 'FLOW0046';
         ig = ig_('NODE0035');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1097,7 +1107,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0047',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0047',ix_);
         pb.xnames{iv} = 'FLOW0047';
         ig = ig_('NODE0036');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1111,7 +1121,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0048',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0048',ix_);
         pb.xnames{iv} = 'FLOW0048';
         ig = ig_('NODE0007');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1125,7 +1135,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0049',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0049',ix_);
         pb.xnames{iv} = 'FLOW0049';
         ig = ig_('NODE0037');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1139,7 +1149,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0050',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0050',ix_);
         pb.xnames{iv} = 'FLOW0050';
         ig = ig_('NODE0039');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1153,7 +1163,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0051',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0051',ix_);
         pb.xnames{iv} = 'FLOW0051';
         ig = ig_('NODE0041');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1167,7 +1177,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0052',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0052',ix_);
         pb.xnames{iv} = 'FLOW0052';
         ig = ig_('NODE0040');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1181,7 +1191,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0053',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0053',ix_);
         pb.xnames{iv} = 'FLOW0053';
         ig = ig_('NODE0029');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1195,7 +1205,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0054',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0054',ix_);
         pb.xnames{iv} = 'FLOW0054';
         ig = ig_('NODE0042');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1209,7 +1219,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0055',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0055',ix_);
         pb.xnames{iv} = 'FLOW0055';
         ig = ig_('NODE0003');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1223,7 +1233,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0056',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0056',ix_);
         pb.xnames{iv} = 'FLOW0056';
         ig = ig_('NODE0043');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1237,7 +1247,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0057',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0057',ix_);
         pb.xnames{iv} = 'FLOW0057';
         ig = ig_('NODE0044');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1251,7 +1261,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0058',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0058',ix_);
         pb.xnames{iv} = 'FLOW0058';
         ig = ig_('NODE0045');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1265,7 +1275,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0059',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0059',ix_);
         pb.xnames{iv} = 'FLOW0059';
         ig = ig_('NODE0044');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1279,7 +1289,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','FLOW0060',ix_);
+        [iv,ix_] = s2mpjlib('ii','FLOW0060',ix_);
         pb.xnames{iv} = 'FLOW0060';
         ig = ig_('NODE0047');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1293,7 +1303,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','DEM00001',ix_);
+        [iv,ix_] = s2mpjlib('ii','DEM00001',ix_);
         pb.xnames{iv} = 'DEM00001';
         ig = ig_('NODE0044');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1307,7 +1317,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','DEM00002',ix_);
+        [iv,ix_] = s2mpjlib('ii','DEM00002',ix_);
         pb.xnames{iv} = 'DEM00002';
         ig = ig_('NODE0038');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1321,7 +1331,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','DEM00003',ix_);
+        [iv,ix_] = s2mpjlib('ii','DEM00003',ix_);
         pb.xnames{iv} = 'DEM00003';
         ig = ig_('NODE0045');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1335,7 +1345,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','DEM00004',ix_);
+        [iv,ix_] = s2mpjlib('ii','DEM00004',ix_);
         pb.xnames{iv} = 'DEM00004';
         ig = ig_('NODE0046');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1349,7 +1359,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','DEM00005',ix_);
+        [iv,ix_] = s2mpjlib('ii','DEM00005',ix_);
         pb.xnames{iv} = 'DEM00005';
         ig = ig_('NODE0004');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1363,7 +1373,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','DEM00006',ix_);
+        [iv,ix_] = s2mpjlib('ii','DEM00006',ix_);
         pb.xnames{iv} = 'DEM00006';
         ig = ig_('NODE0005');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1377,7 +1387,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','DEM00007',ix_);
+        [iv,ix_] = s2mpjlib('ii','DEM00007',ix_);
         pb.xnames{iv} = 'DEM00007';
         ig = ig_('NODE0002');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1391,7 +1401,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','DEM00008',ix_);
+        [iv,ix_] = s2mpjlib('ii','DEM00008',ix_);
         pb.xnames{iv} = 'DEM00008';
         ig = ig_('NODE0006');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1405,7 +1415,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','DEM00009',ix_);
+        [iv,ix_] = s2mpjlib('ii','DEM00009',ix_);
         pb.xnames{iv} = 'DEM00009';
         ig = ig_('NODE0011');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1419,7 +1429,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','DEM00010',ix_);
+        [iv,ix_] = s2mpjlib('ii','DEM00010',ix_);
         pb.xnames{iv} = 'DEM00010';
         ig = ig_('NODE0016');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1433,7 +1443,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','DEM00011',ix_);
+        [iv,ix_] = s2mpjlib('ii','DEM00011',ix_);
         pb.xnames{iv} = 'DEM00011';
         ig = ig_('NODE0036');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1447,7 +1457,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','DEM00012',ix_);
+        [iv,ix_] = s2mpjlib('ii','DEM00012',ix_);
         pb.xnames{iv} = 'DEM00012';
         ig = ig_('NODE0042');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1461,7 +1471,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','DEM00013',ix_);
+        [iv,ix_] = s2mpjlib('ii','DEM00013',ix_);
         pb.xnames{iv} = 'DEM00013';
         ig = ig_('NODE0047');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1475,7 +1485,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','DEM00014',ix_);
+        [iv,ix_] = s2mpjlib('ii','DEM00014',ix_);
         pb.xnames{iv} = 'DEM00014';
         ig = ig_('NODE0039');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1489,7 +1499,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','DEM00015',ix_);
+        [iv,ix_] = s2mpjlib('ii','DEM00015',ix_);
         pb.xnames{iv} = 'DEM00015';
         ig = ig_('NODE0040');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1503,7 +1513,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','DEM00016',ix_);
+        [iv,ix_] = s2mpjlib('ii','DEM00016',ix_);
         pb.xnames{iv} = 'DEM00016';
         ig = ig_('NODE0048');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1517,7 +1527,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','DEM00017',ix_);
+        [iv,ix_] = s2mpjlib('ii','DEM00017',ix_);
         pb.xnames{iv} = 'DEM00017';
         ig = ig_('NODE0041');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1531,7 +1541,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','DEM00018',ix_);
+        [iv,ix_] = s2mpjlib('ii','DEM00018',ix_);
         pb.xnames{iv} = 'DEM00018';
         ig = ig_('NODE0030');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1545,7 +1555,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','DEM00019',ix_);
+        [iv,ix_] = s2mpjlib('ii','DEM00019',ix_);
         pb.xnames{iv} = 'DEM00019';
         ig = ig_('NODE0028');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1559,7 +1569,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','DEM00020',ix_);
+        [iv,ix_] = s2mpjlib('ii','DEM00020',ix_);
         pb.xnames{iv} = 'DEM00020';
         ig = ig_('NODE0043');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1573,7 +1583,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','DEM00021',ix_);
+        [iv,ix_] = s2mpjlib('ii','DEM00021',ix_);
         pb.xnames{iv} = 'DEM00021';
         ig = ig_('NODE0008');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1587,7 +1597,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','DEM00022',ix_);
+        [iv,ix_] = s2mpjlib('ii','DEM00022',ix_);
         pb.xnames{iv} = 'DEM00022';
         ig = ig_('NODE0009');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1601,7 +1611,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','DEM00023',ix_);
+        [iv,ix_] = s2mpjlib('ii','DEM00023',ix_);
         pb.xnames{iv} = 'DEM00023';
         ig = ig_('NODE0013');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1615,7 +1625,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','DEM00024',ix_);
+        [iv,ix_] = s2mpjlib('ii','DEM00024',ix_);
         pb.xnames{iv} = 'DEM00024';
         ig = ig_('NODE0014');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1629,7 +1639,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','DEM00025',ix_);
+        [iv,ix_] = s2mpjlib('ii','DEM00025',ix_);
         pb.xnames{iv} = 'DEM00025';
         ig = ig_('NODE0017');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1643,7 +1653,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','DEM00026',ix_);
+        [iv,ix_] = s2mpjlib('ii','DEM00026',ix_);
         pb.xnames{iv} = 'DEM00026';
         ig = ig_('NODE0018');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1657,7 +1667,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','DEM00027',ix_);
+        [iv,ix_] = s2mpjlib('ii','DEM00027',ix_);
         pb.xnames{iv} = 'DEM00027';
         ig = ig_('NODE0020');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1671,7 +1681,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','DEM00028',ix_);
+        [iv,ix_] = s2mpjlib('ii','DEM00028',ix_);
         pb.xnames{iv} = 'DEM00028';
         ig = ig_('NODE0021');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1685,7 +1695,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','DEM00029',ix_);
+        [iv,ix_] = s2mpjlib('ii','DEM00029',ix_);
         pb.xnames{iv} = 'DEM00029';
         ig = ig_('NODE0031');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1699,7 +1709,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','DEM00030',ix_);
+        [iv,ix_] = s2mpjlib('ii','DEM00030',ix_);
         pb.xnames{iv} = 'DEM00030';
         ig = ig_('NODE0022');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1713,7 +1723,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','DEM00031',ix_);
+        [iv,ix_] = s2mpjlib('ii','DEM00031',ix_);
         pb.xnames{iv} = 'DEM00031';
         ig = ig_('NODE0022');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1727,7 +1737,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','DEM00032',ix_);
+        [iv,ix_] = s2mpjlib('ii','DEM00032',ix_);
         pb.xnames{iv} = 'DEM00032';
         ig = ig_('NODE0033');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1741,7 +1751,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','DEM00033',ix_);
+        [iv,ix_] = s2mpjlib('ii','DEM00033',ix_);
         pb.xnames{iv} = 'DEM00033';
         ig = ig_('NODE0025');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1755,7 +1765,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','DEM00034',ix_);
+        [iv,ix_] = s2mpjlib('ii','DEM00034',ix_);
         pb.xnames{iv} = 'DEM00034';
         ig = ig_('NODE0026');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1769,7 +1779,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','DEM00035',ix_);
+        [iv,ix_] = s2mpjlib('ii','DEM00035',ix_);
         pb.xnames{iv} = 'DEM00035';
         ig = ig_('NODE0035');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1783,7 +1793,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','DEM00036',ix_);
+        [iv,ix_] = s2mpjlib('ii','DEM00036',ix_);
         pb.xnames{iv} = 'DEM00036';
         ig = ig_('NODE0023');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1797,7 +1807,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','DEM00037',ix_);
+        [iv,ix_] = s2mpjlib('ii','DEM00037',ix_);
         pb.xnames{iv} = 'DEM00037';
         ig = ig_('NODE0023');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1811,7 +1821,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','SUPP0001',ix_);
+        [iv,ix_] = s2mpjlib('ii','SUPP0001',ix_);
         pb.xnames{iv} = 'SUPP0001';
         ig = ig_('PROD0001');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1825,7 +1835,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','SUPP0002',ix_);
+        [iv,ix_] = s2mpjlib('ii','SUPP0002',ix_);
         pb.xnames{iv} = 'SUPP0002';
         ig = ig_('PROD0002');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1839,7 +1849,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','SUPP0003',ix_);
+        [iv,ix_] = s2mpjlib('ii','SUPP0003',ix_);
         pb.xnames{iv} = 'SUPP0003';
         ig = ig_('PROD0003');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1853,7 +1863,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','SUPP0004',ix_);
+        [iv,ix_] = s2mpjlib('ii','SUPP0004',ix_);
         pb.xnames{iv} = 'SUPP0004';
         ig = ig_('PROD0004');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1867,7 +1877,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','SUPP0005',ix_);
+        [iv,ix_] = s2mpjlib('ii','SUPP0005',ix_);
         pb.xnames{iv} = 'SUPP0005';
         ig = ig_('PROD0004');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1881,7 +1891,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','SUPP0006',ix_);
+        [iv,ix_] = s2mpjlib('ii','SUPP0006',ix_);
         pb.xnames{iv} = 'SUPP0006';
         ig = ig_('PROD0004');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1895,7 +1905,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','SUPP0007',ix_);
+        [iv,ix_] = s2mpjlib('ii','SUPP0007',ix_);
         pb.xnames{iv} = 'SUPP0007';
         ig = ig_('PROD0005');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1909,7 +1919,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','PROD0001',ix_);
+        [iv,ix_] = s2mpjlib('ii','PROD0001',ix_);
         pb.xnames{iv} = 'PROD0001';
         ig = ig_('COST');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1923,7 +1933,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','PROD0002',ix_);
+        [iv,ix_] = s2mpjlib('ii','PROD0002',ix_);
         pb.xnames{iv} = 'PROD0002';
         ig = ig_('COST');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1937,7 +1947,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','PROD0003',ix_);
+        [iv,ix_] = s2mpjlib('ii','PROD0003',ix_);
         pb.xnames{iv} = 'PROD0003';
         ig = ig_('COST');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1951,7 +1961,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','PROD0004',ix_);
+        [iv,ix_] = s2mpjlib('ii','PROD0004',ix_);
         pb.xnames{iv} = 'PROD0004';
         ig = ig_('COST');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1965,7 +1975,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','PROD0005',ix_);
+        [iv,ix_] = s2mpjlib('ii','PROD0005',ix_);
         pb.xnames{iv} = 'PROD0005';
         ig = ig_('COST');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1979,7 +1989,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.00000E+00;
         end
-        [iv,ix_] = s2xlib('ii','PI000001',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000001',ix_);
         pb.xnames{iv} = 'PI000001';
         ig = ig_('ARC00001');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1987,7 +1997,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -6.97133E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000001',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000001',ix_);
         pb.xnames{iv} = 'PI000001';
         ig = ig_('ARC00016');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -1995,7 +2005,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 1.81479E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000001',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000001',ix_);
         pb.xnames{iv} = 'PI000001';
         ig = ig_('ARC00056');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2003,7 +2013,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 2.85181E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000002',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000002',ix_);
         pb.xnames{iv} = 'PI000002';
         ig = ig_('ARC00001');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2011,7 +2021,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 6.97133E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000003',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000003',ix_);
         pb.xnames{iv} = 'PI000003';
         ig = ig_('ARC00002');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2019,7 +2029,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -2.65927E-03;
         end
-        [iv,ix_] = s2xlib('ii','PI000003',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000003',ix_);
         pb.xnames{iv} = 'PI000003';
         ig = ig_('ARC00055');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2027,7 +2037,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -3.99253E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000004',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000004',ix_);
         pb.xnames{iv} = 'PI000004';
         ig = ig_('ARC00002');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2035,7 +2045,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 2.65927E-03;
         end
-        [iv,ix_] = s2xlib('ii','PI000005',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000005',ix_);
         pb.xnames{iv} = 'PI000005';
         ig = ig_('ARC00003');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2043,7 +2053,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.72371E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000006',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000006',ix_);
         pb.xnames{iv} = 'PI000006';
         ig = ig_('ARC00003');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2051,7 +2061,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 1.72371E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000006',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000006',ix_);
         pb.xnames{iv} = 'PI000006';
         ig = ig_('ARC00004');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2059,7 +2069,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -2.58556E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000007',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000007',ix_);
         pb.xnames{iv} = 'PI000007';
         ig = ig_('ARC00004');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2067,7 +2077,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 2.58556E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000007',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000007',ix_);
         pb.xnames{iv} = 'PI000007';
         ig = ig_('ARC00035');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2075,7 +2085,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 9.98133E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000007',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000007',ix_);
         pb.xnames{iv} = 'PI000007';
         ig = ig_('ARC00036');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2083,7 +2093,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -4.99067E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000007',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000007',ix_);
         pb.xnames{iv} = 'PI000007';
         ig = ig_('ARC00047');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2091,7 +2101,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 2.09022E+00;
         end
-        [iv,ix_] = s2xlib('ii','PI000007',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000007',ix_);
         pb.xnames{iv} = 'PI000007';
         ig = ig_('ARC00048');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2099,7 +2109,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -6.96739E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000008',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000008',ix_);
         pb.xnames{iv} = 'PI000008';
         ig = ig_('ARC00005');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2107,7 +2117,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.90020E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000008',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000008',ix_);
         pb.xnames{iv} = 'PI000008';
         ig = ig_('ARC00009');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2115,7 +2125,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -6.11442E-03;
         end
-        [iv,ix_] = s2xlib('ii','PI000009',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000009',ix_);
         pb.xnames{iv} = 'PI000009';
         ig = ig_('ARC00005');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2123,7 +2133,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 1.90020E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000009',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000009',ix_);
         pb.xnames{iv} = 'PI000009';
         ig = ig_('ARC00006');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2131,7 +2141,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -4.18044E+00;
         end
-        [iv,ix_] = s2xlib('ii','PI000010',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000010',ix_);
         pb.xnames{iv} = 'PI000010';
         ig = ig_('ARC00006');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2139,7 +2149,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 4.18044E+00;
         end
-        [iv,ix_] = s2xlib('ii','PI000010',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000010',ix_);
         pb.xnames{iv} = 'PI000010';
         ig = ig_('ARC00007');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2147,7 +2157,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -3.21572E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000010',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000010',ix_);
         pb.xnames{iv} = 'PI000010';
         ig = ig_('ARC00008');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2155,7 +2165,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 4.32263E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000011',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000011',ix_);
         pb.xnames{iv} = 'PI000011';
         ig = ig_('ARC00007');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2163,7 +2173,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 3.21572E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000012',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000012',ix_);
         pb.xnames{iv} = 'PI000012';
         ig = ig_('ARC00008');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2171,7 +2181,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -4.32263E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000012',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000012',ix_);
         pb.xnames{iv} = 'PI000012';
         ig = ig_('ARC00010');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2179,7 +2189,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 1.16174E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000012',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000012',ix_);
         pb.xnames{iv} = 'PI000012';
         ig = ig_('ARC00011');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2187,7 +2197,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -2.59358E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000013',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000013',ix_);
         pb.xnames{iv} = 'PI000013';
         ig = ig_('ARC00009');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2195,7 +2205,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 6.11442E-03;
         end
-        [iv,ix_] = s2xlib('ii','PI000013',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000013',ix_);
         pb.xnames{iv} = 'PI000013';
         ig = ig_('ARC00010');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2203,7 +2213,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.16174E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000014',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000014',ix_);
         pb.xnames{iv} = 'PI000014';
         ig = ig_('ARC00011');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2211,7 +2221,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 2.59358E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000014',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000014',ix_);
         pb.xnames{iv} = 'PI000014';
         ig = ig_('ARC00012');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2219,7 +2229,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -2.59358E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000015',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000015',ix_);
         pb.xnames{iv} = 'PI000015';
         ig = ig_('ARC00012');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2227,7 +2237,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 2.59358E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000015',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000015',ix_);
         pb.xnames{iv} = 'PI000015';
         ig = ig_('ARC00015');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2235,7 +2245,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 2.85181E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000015',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000015',ix_);
         pb.xnames{iv} = 'PI000015';
         ig = ig_('ARC00016');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2243,7 +2253,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.81479E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000016',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000016',ix_);
         pb.xnames{iv} = 'PI000016';
         ig = ig_('ARC00013');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2251,7 +2261,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -2.85181E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000016',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000016',ix_);
         pb.xnames{iv} = 'PI000016';
         ig = ig_('ARC00036');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2259,7 +2269,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 4.99067E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000016',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000016',ix_);
         pb.xnames{iv} = 'PI000016';
         ig = ig_('ARC00048');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2267,7 +2277,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 6.96739E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000016',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000016',ix_);
         pb.xnames{iv} = 'PI000016';
         ig = ig_('ARC00054');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2275,7 +2285,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 1.36747E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000017',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000017',ix_);
         pb.xnames{iv} = 'PI000017';
         ig = ig_('ARC00013');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2283,7 +2293,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 2.85181E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000017',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000017',ix_);
         pb.xnames{iv} = 'PI000017';
         ig = ig_('ARC00014');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2291,7 +2301,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -3.99253E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000018',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000018',ix_);
         pb.xnames{iv} = 'PI000018';
         ig = ig_('ARC00014');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2299,7 +2309,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 3.99253E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000018',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000018',ix_);
         pb.xnames{iv} = 'PI000018';
         ig = ig_('ARC00015');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2307,7 +2317,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -2.85181E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000019',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000019',ix_);
         pb.xnames{iv} = 'PI000019';
         ig = ig_('ARC00017');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2315,7 +2325,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -8.64525E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000019',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000019',ix_);
         pb.xnames{iv} = 'PI000019';
         ig = ig_('ARC00027');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2323,7 +2333,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -3.32711E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000019',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000019',ix_);
         pb.xnames{iv} = 'PI000019';
         ig = ig_('ARC00040');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2331,7 +2341,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.93623E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000020',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000020',ix_);
         pb.xnames{iv} = 'PI000020';
         ig = ig_('ARC00017');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2339,7 +2349,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 8.64525E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000020',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000020',ix_);
         pb.xnames{iv} = 'PI000020';
         ig = ig_('ARC00018');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2347,7 +2357,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -7.41022E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000021',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000021',ix_);
         pb.xnames{iv} = 'PI000021';
         ig = ig_('ARC00018');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2355,7 +2365,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 7.41022E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000021',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000021',ix_);
         pb.xnames{iv} = 'PI000021';
         ig = ig_('ARC00019');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2363,7 +2373,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.90020E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000022',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000022',ix_);
         pb.xnames{iv} = 'PI000022';
         ig = ig_('ARC00019');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2371,7 +2381,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 1.90020E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000023',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000023',ix_);
         pb.xnames{iv} = 'PI000023';
         ig = ig_('ARC00020');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2379,7 +2389,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -2.35780E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000024',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000024',ix_);
         pb.xnames{iv} = 'PI000024';
         ig = ig_('ARC00020');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2387,7 +2397,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 2.35780E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000024',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000024',ix_);
         pb.xnames{iv} = 'PI000024';
         ig = ig_('ARC00021');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2395,7 +2405,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -4.18044E+00;
         end
-        [iv,ix_] = s2xlib('ii','PI000024',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000024',ix_);
         pb.xnames{iv} = 'PI000024';
         ig = ig_('ARC00033');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2403,7 +2413,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 6.07700E-03;
         end
-        [iv,ix_] = s2xlib('ii','PI000024',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000024',ix_);
         pb.xnames{iv} = 'PI000024';
         ig = ig_('ARC00046');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2411,7 +2421,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 6.07700E-03;
         end
-        [iv,ix_] = s2xlib('ii','PI000025',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000025',ix_);
         pb.xnames{iv} = 'PI000025';
         ig = ig_('ARC00021');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2419,7 +2429,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 4.18044E+00;
         end
-        [iv,ix_] = s2xlib('ii','PI000025',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000025',ix_);
         pb.xnames{iv} = 'PI000025';
         ig = ig_('ARC00022');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2427,7 +2437,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -5.22555E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000026',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000026',ix_);
         pb.xnames{iv} = 'PI000026';
         ig = ig_('ARC00022');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2435,7 +2445,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 5.22555E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000026',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000026',ix_);
         pb.xnames{iv} = 'PI000026';
         ig = ig_('ARC00023');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2443,7 +2453,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.39348E+00;
         end
-        [iv,ix_] = s2xlib('ii','PI000027',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000027',ix_);
         pb.xnames{iv} = 'PI000027';
         ig = ig_('ARC00023');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2451,7 +2461,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 1.39348E+00;
         end
-        [iv,ix_] = s2xlib('ii','PI000027',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000027',ix_);
         pb.xnames{iv} = 'PI000027';
         ig = ig_('ARC00024');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2459,7 +2469,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 6.96739E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000027',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000027',ix_);
         pb.xnames{iv} = 'PI000027';
         ig = ig_('ARC00034');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2467,7 +2477,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -4.10240E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000028',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000028',ix_);
         pb.xnames{iv} = 'PI000028';
         ig = ig_('ARC00024');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2475,7 +2485,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -6.96739E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000028',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000028',ix_);
         pb.xnames{iv} = 'PI000028';
         ig = ig_('ARC00025');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2483,7 +2493,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 4.18044E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000028',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000028',ix_);
         pb.xnames{iv} = 'PI000028';
         ig = ig_('ARC00026');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2491,7 +2501,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -6.33373E-04;
         end
-        [iv,ix_] = s2xlib('ii','PI000028',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000028',ix_);
         pb.xnames{iv} = 'PI000028';
         ig = ig_('ARC00039');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2499,7 +2509,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.99627E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000029',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000029',ix_);
         pb.xnames{iv} = 'PI000029';
         ig = ig_('ARC00025');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2507,7 +2517,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -4.18044E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000029',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000029',ix_);
         pb.xnames{iv} = 'PI000029';
         ig = ig_('ARC00052');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2515,7 +2525,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 3.21572E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000029',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000029',ix_);
         pb.xnames{iv} = 'PI000029';
         ig = ig_('ARC00053');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2523,7 +2533,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.64096E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000030',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000030',ix_);
         pb.xnames{iv} = 'PI000030';
         ig = ig_('ARC00026');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2531,7 +2541,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 6.33373E-04;
         end
-        [iv,ix_] = s2xlib('ii','PI000030',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000030',ix_);
         pb.xnames{iv} = 'PI000030';
         ig = ig_('ARC00030');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2539,7 +2549,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 3.32711E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000030',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000030',ix_);
         pb.xnames{iv} = 'PI000030';
         ig = ig_('ARC00031');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2547,7 +2557,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -9.54957E-03;
         end
-        [iv,ix_] = s2xlib('ii','PI000030',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000030',ix_);
         pb.xnames{iv} = 'PI000030';
         ig = ig_('ARC00039');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2555,7 +2565,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 1.99627E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000030',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000030',ix_);
         pb.xnames{iv} = 'PI000030';
         ig = ig_('ARC00043');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2563,7 +2573,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 1.93623E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000030',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000030',ix_);
         pb.xnames{iv} = 'PI000030';
         ig = ig_('ARC00044');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2571,7 +2581,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -9.54957E-03;
         end
-        [iv,ix_] = s2xlib('ii','PI000031',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000031',ix_);
         pb.xnames{iv} = 'PI000031';
         ig = ig_('ARC00027');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2579,7 +2589,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 3.32711E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000031',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000031',ix_);
         pb.xnames{iv} = 'PI000031';
         ig = ig_('ARC00028');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2587,7 +2597,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -9.98133E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000031',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000031',ix_);
         pb.xnames{iv} = 'PI000031';
         ig = ig_('ARC00040');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2595,7 +2605,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 1.93623E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000031',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000031',ix_);
         pb.xnames{iv} = 'PI000031';
         ig = ig_('ARC00041');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2603,7 +2613,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -5.80870E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000032',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000032',ix_);
         pb.xnames{iv} = 'PI000032';
         ig = ig_('ARC00028');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2611,7 +2621,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 9.98133E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000032',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000032',ix_);
         pb.xnames{iv} = 'PI000032';
         ig = ig_('ARC00029');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2619,7 +2629,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -3.32711E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000032',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000032',ix_);
         pb.xnames{iv} = 'PI000032';
         ig = ig_('ARC00041');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2627,7 +2637,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 5.80870E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000032',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000032',ix_);
         pb.xnames{iv} = 'PI000032';
         ig = ig_('ARC00042');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2635,7 +2645,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.93623E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000033',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000033',ix_);
         pb.xnames{iv} = 'PI000033';
         ig = ig_('ARC00029');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2643,7 +2653,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 3.32711E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000033',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000033',ix_);
         pb.xnames{iv} = 'PI000033';
         ig = ig_('ARC00030');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2651,7 +2661,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -3.32711E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000033',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000033',ix_);
         pb.xnames{iv} = 'PI000033';
         ig = ig_('ARC00042');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2659,7 +2669,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 1.93623E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000033',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000033',ix_);
         pb.xnames{iv} = 'PI000033';
         ig = ig_('ARC00043');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2667,7 +2677,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.93623E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000034',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000034',ix_);
         pb.xnames{iv} = 'PI000034';
         ig = ig_('ARC00031');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2675,7 +2685,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 9.54957E-03;
         end
-        [iv,ix_] = s2xlib('ii','PI000034',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000034',ix_);
         pb.xnames{iv} = 'PI000034';
         ig = ig_('ARC00032');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2683,7 +2693,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -6.68470E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000034',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000034',ix_);
         pb.xnames{iv} = 'PI000034';
         ig = ig_('ARC00034');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2691,7 +2701,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 4.10240E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000034',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000034',ix_);
         pb.xnames{iv} = 'PI000034';
         ig = ig_('ARC00044');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2699,7 +2709,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 9.54957E-03;
         end
-        [iv,ix_] = s2xlib('ii','PI000034',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000034',ix_);
         pb.xnames{iv} = 'PI000034';
         ig = ig_('ARC00045');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2707,7 +2717,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -6.68470E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000035',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000035',ix_);
         pb.xnames{iv} = 'PI000035';
         ig = ig_('ARC00032');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2715,7 +2725,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 6.68470E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000035',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000035',ix_);
         pb.xnames{iv} = 'PI000035';
         ig = ig_('ARC00033');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2723,7 +2733,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -6.07700E-03;
         end
-        [iv,ix_] = s2xlib('ii','PI000035',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000035',ix_);
         pb.xnames{iv} = 'PI000035';
         ig = ig_('ARC00045');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2731,7 +2741,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 6.68470E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000035',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000035',ix_);
         pb.xnames{iv} = 'PI000035';
         ig = ig_('ARC00046');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2739,7 +2749,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -6.07700E-03;
         end
-        [iv,ix_] = s2xlib('ii','PI000036',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000036',ix_);
         pb.xnames{iv} = 'PI000036';
         ig = ig_('ARC00035');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2747,7 +2757,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -9.98133E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000036',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000036',ix_);
         pb.xnames{iv} = 'PI000036';
         ig = ig_('ARC00038');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2755,7 +2765,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 6.96739E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000036',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000036',ix_);
         pb.xnames{iv} = 'PI000036';
         ig = ig_('ARC00047');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2763,7 +2773,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -2.09022E+00;
         end
-        [iv,ix_] = s2xlib('ii','PI000037',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000037',ix_);
         pb.xnames{iv} = 'PI000037';
         ig = ig_('ARC00037');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2771,7 +2781,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -3.48370E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000037',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000037',ix_);
         pb.xnames{iv} = 'PI000037';
         ig = ig_('ARC00049');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2779,7 +2789,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.43027E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000038',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000038',ix_);
         pb.xnames{iv} = 'PI000038';
         ig = ig_('ARC00037');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2787,7 +2797,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 3.48370E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000038',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000038',ix_);
         pb.xnames{iv} = 'PI000038';
         ig = ig_('ARC00038');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2795,7 +2805,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -6.96739E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000039',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000039',ix_);
         pb.xnames{iv} = 'PI000039';
         ig = ig_('ARC00049');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2803,7 +2813,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 1.43027E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000039',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000039',ix_);
         pb.xnames{iv} = 'PI000039';
         ig = ig_('ARC00050');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2811,7 +2821,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.09654E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000040',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000040',ix_);
         pb.xnames{iv} = 'PI000040';
         ig = ig_('ARC00050');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2819,7 +2829,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 1.09654E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000040',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000040',ix_);
         pb.xnames{iv} = 'PI000040';
         ig = ig_('ARC00051');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2827,7 +2837,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 5.22555E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000040',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000040',ix_);
         pb.xnames{iv} = 'PI000040';
         ig = ig_('ARC00052');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2835,7 +2845,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -3.21572E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000041',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000041',ix_);
         pb.xnames{iv} = 'PI000041';
         ig = ig_('ARC00051');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2843,7 +2853,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -5.22555E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000042',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000042',ix_);
         pb.xnames{iv} = 'PI000042';
         ig = ig_('ARC00053');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2851,7 +2861,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 1.64096E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000042',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000042',ix_);
         pb.xnames{iv} = 'PI000042';
         ig = ig_('ARC00054');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2859,7 +2869,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.36747E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000043',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000043',ix_);
         pb.xnames{iv} = 'PI000043';
         ig = ig_('ARC00055');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2867,7 +2877,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 3.99253E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000043',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000043',ix_);
         pb.xnames{iv} = 'PI000043';
         ig = ig_('ARC00056');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2875,7 +2885,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -2.85181E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000044',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000044',ix_);
         pb.xnames{iv} = 'PI000044';
         ig = ig_('ARC00057');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2883,7 +2893,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.82329E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000044',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000044',ix_);
         pb.xnames{iv} = 'PI000044';
         ig = ig_('ARC00059');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2891,7 +2901,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -3.32711E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000045',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000045',ix_);
         pb.xnames{iv} = 'PI000045';
         ig = ig_('ARC00057');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2899,7 +2909,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 1.82329E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000045',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000045',ix_);
         pb.xnames{iv} = 'PI000045';
         ig = ig_('ARC00058');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2907,7 +2917,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -1.82329E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000046',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000046',ix_);
         pb.xnames{iv} = 'PI000046';
         ig = ig_('ARC00058');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2915,7 +2925,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 1.82329E-01;
         end
-        [iv,ix_] = s2xlib('ii','PI000047',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000047',ix_);
         pb.xnames{iv} = 'PI000047';
         ig = ig_('ARC00059');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2923,7 +2933,7 @@ switch(action)
         else
             pbm.A(ig,iv) = 3.32711E-02;
         end
-        [iv,ix_] = s2xlib('ii','PI000047',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000047',ix_);
         pb.xnames{iv} = 'PI000047';
         ig = ig_('ARC00060');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2931,7 +2941,7 @@ switch(action)
         else
             pbm.A(ig,iv) = -9.98133E-03;
         end
-        [iv,ix_] = s2xlib('ii','PI000048',ix_);
+        [iv,ix_] = s2mpjlib('ii','PI000048',ix_);
         pb.xnames{iv} = 'PI000048';
         ig = ig_('ARC00060');
         if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
@@ -2940,7 +2950,7 @@ switch(action)
             pbm.A(ig,iv) = 9.98133E-03;
         end
         %%%%%%%%%%%%%%% GLOBAL DIMENSIONS %%%%%%%%%%%%%%%%%
-        pb.n   = numEntries(ix_);
+        pb.n   = ix_.Count;
         legrps = find(strcmp(gtype,'<='));
         eqgrps = find(strcmp(gtype,'=='));
         gegrps = find(strcmp(gtype,'>='));
@@ -2948,7 +2958,7 @@ switch(action)
         pb.neq = length(eqgrps);
         pb.nge = length(gegrps);
         pb.m   = pb.nle+pb.neq+pb.nge;
-        pbm.congrps = find(ismember(gtype,{'<=','==','>='}));
+        pbm.congrps = [ legrps, eqgrps, gegrps ];
         [pb.cnames{1:pb.m}] = deal(cnames{pbm.congrps});
         pb.nob = ngrp-pb.m;
         pbm.objgrps = find(strcmp(gtype,'<>'));
@@ -2976,7 +2986,7 @@ switch(action)
         pbm.gconst(ig_('REGIO020')) = -1.10000E+00;
         pbm.gconst(ig_('REGIO021')) = -5.00000E+00;
         %%%%%%%%%%%%%%%%%%%%%  BOUNDS %%%%%%%%%%%%%%%%%%%%%
-        pb.xlower = -Inf*ones(pb.n,1);
+        pb.xlower = zeros(pb.n,1);
         pb.xupper = Inf*ones(pb.n,1);
         pb.xlower(ix_('FLOW0001'),1) = -3.61167E+02;
         pb.xupper(ix_('FLOW0001')) = 3.61167E+02;
@@ -3275,812 +3285,823 @@ switch(action)
         pb.x0(ix_('FLOW0059'),1) = 2.20000E+00;
         pb.x0(ix_('FLOW0060'),1) = 0.00000E+00;
         %%%%%%%%%%%%%%%%%%%%% ELFTYPE %%%%%%%%%%%%%%%%%%%%%
-        iet_ = configureDictionary('string','double');
-        [it,iet_] = s2xlib( 'ii', 'SQR',iet_);
+        iet_ = containers.Map('KeyType', 'char', 'ValueType','double');
+        [it,iet_] = s2mpjlib( 'ii', 'eSQR',iet_);
         elftv{it}{1} = 'X';
         %%%%%%%%%%%%%%%%%%% ELEMENT USES %%%%%%%%%%%%%%%%%%
-        ie_ = configureDictionary('string','double');
+        ie_ = containers.Map('KeyType','char','ValueType','double');
         pbm.elftype = {};
         ielftype    = [];
         pbm.elvar   = {};
         ename = 'F00001SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0001';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00002SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0002';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00003SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0003';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00004SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0004';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00005SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0005';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00006SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0006';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00007SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0007';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00008SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0008';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00009SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0009';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00010SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0010';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00011SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0011';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00012SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0012';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00013SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0013';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00014SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0014';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00015SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0015';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00016SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0016';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00017SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0017';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00018SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0018';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00019SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0019';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00020SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0020';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00021SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0021';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00022SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0022';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00023SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0023';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00024SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0024';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00025SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0025';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00026SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0026';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00027SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0027';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00028SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0028';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00029SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0029';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00030SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0030';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00031SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0031';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00032SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0032';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00033SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0033';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00034SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0034';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00035SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0035';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00036SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0036';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00037SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0037';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00038SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0038';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00039SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0039';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00040SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0040';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00041SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0041';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00042SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0042';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00043SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0043';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00044SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0044';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00045SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0045';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00046SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0046';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00047SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0047';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00048SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0048';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00049SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0049';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00050SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0050';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00051SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0051';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00052SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0052';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00053SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0053';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00054SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0054';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00055SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0055';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00056SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0056';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00057SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0057';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00058SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0058';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00059SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0059';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         ename = 'F00060SQ';
-        [ie,ie_] = s2xlib('ii',ename,ie_);
-        pbm.elftype{ie} = 'SQR';
-        ielftype(ie) = iet_('SQR');
+        [ie,ie_] = s2mpjlib('ii',ename,ie_);
+        pbm.elftype{ie} = 'eSQR';
+        ielftype(ie) = iet_('eSQR');
         vname = 'FLOW0060';
-        [iv,ix_,pb] = s2xlib('nlx',vname,ix_,pb,1,[],[],[]);
+        [iv,ix_,pb] = s2mpjlib('nlx',vname,ix_,pb,1,[],[],[]);
         posev = find(strcmp('X',elftv{ielftype(ie)}));
         pbm.elvar{ie}(posev) = iv;
         %%%%%%%%%%%%%%%%%%%% GROUP USES %%%%%%%%%%%%%%%%%%%
-        [pbm.grelt{1:ngrp}] = deal(repmat([],1,ngrp));
+        [pbm.grelt{1:ngrp}] = deal([]);
         nlc = [];
         ig = ig_('ARC00001');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00001SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00002');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00002SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00003');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00003SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00004');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00004SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00005');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00005SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00006');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00006SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00007');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00007SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00008');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00008SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00009');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00009SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00010');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00010SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00011');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00011SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00012');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00012SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00013');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00013SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00014');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00014SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00015');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00015SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00016');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00016SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00017');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00017SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00018');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00018SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00019');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00019SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00020');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00020SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00021');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00021SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00022');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00022SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00023');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00023SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00024');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00024SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00025');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00025SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00026');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00026SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00027');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00027SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00028');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00028SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00029');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00029SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00030');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00030SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00031');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00031SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00032');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00032SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00033');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00033SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00034');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00034SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00035');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00035SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00036');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00036SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00037');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00037SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00038');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00038SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00039');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00039SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00040');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00040SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00041');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00041SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00042');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00042SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00043');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00043SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00044');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00044SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00045');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00045SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00046');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00046SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00047');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00047SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00048');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00048SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00049');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00049SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00050');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00050SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00051');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00051SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00052');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00052SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00053');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00053SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00054');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00054SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00055');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00055SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00056');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00056SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00057');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00057SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00058');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00058SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00059');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00059SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         ig = ig_('ARC00060');
         posel = length(pbm.grelt{ig})+1;
         pbm.grelt{ig}(posel) = ie_('F00060SQ');
         nlc = union(nlc,ig);
-        pbm.grelw{ig}(posel) = 1;
+        pbm.grelw{ig}(posel) = 1.;
         %%%%%%%%% DEFAULT FOR MISSING SECTION(S) %%%%%%%%%%
         %%%%%%%%%%%%%% FORM clower AND cupper %%%%%%%%%%%%%
         pb.clower(1:pb.nle) = -Inf*ones(pb.nle,1);
         pb.cupper(1:pb.nle) = zeros(pb.nle,1);
         pb.clower(pb.nle+1:pb.nle+pb.neq) = zeros(pb.neq,1);
         pb.cupper(pb.nle+1:pb.nle+pb.neq) = zeros(pb.neq,1);
-        %%%%%% RETURN VALUES FROM THE SETUP ACTIONS %%%%%%%
-        [~,lincons]  = ismember(setdiff(pbm.congrps,nlc),pbm.congrps);
-        pb.pbclass = 'LQI2-RN-157-134';
-        varargout{1} = pb;
-        varargout{2} = pbm;
+        %%%%%% RETURN VALUES FROM THE SETUP ACTION %%%%%%%%
+        [~,pb.lincons]  = ismember(setdiff(pbm.congrps,nlc),pbm.congrps);
+        pb.pbclass = 'C-CLQI2-RN-157-134';
+        pbm.objderlvl = 2;
+        pb.objderlvl = pbm.objderlvl;
+        pbm.conderlvl = [2];
+        pb.conderlvl  = pbm.conderlvl;
+        %%%%%%%%%%% REDUCED-PRECISION CONVERSION %%%%%%%%%%%
+        if(strcmp(action,'setup_redprec'))
+            varargout{1} = s2mpjlib('convert',pb, pbm.ndigs);
+            varargout{2} = s2mpjlib('convert',pbm,pbm.ndigs);
+        else
+            varargout{1} = pb;
+            varargout{2} = pbm;
+        end
+
 
     %%%%%%%%%%%%%%%% NONLINEAR ELEMENTS %%%%%%%%%%%%%%%
 
-    case 'SQR'
+    case 'eSQR'
 
         EV_  = varargin{1};
         iel_ = varargin{2};
@@ -4110,18 +4131,19 @@ switch(action)
     %%%%%%%%%%%%%%%% THE MAIN ACTIONS %%%%%%%%%%%%%%%
 
     case {'fx','fgx','fgHx','cx','cJx','cJHx','cIx','cIJx','cIJHx','cIJxv','fHxv',...
-          'cJxv','Lxy','Lgxy','LgHxy','LIxy','LIgxy','LIgHxy','LHxyv','LIHxyv'}
+          'cJxv','cJtxv','cIJtxv','Lxy','Lgxy','LgHxy','LIxy','LIgxy','LIgHxy',...
+          'LHxyv','LIHxyv'}
 
         if(isfield(pbm,'name')&&strcmp(pbm.name,name))
             pbm.has_globs = [0,0];
-            [varargout{1:max(1,nargout)}] = s2xlib(action,pbm,varargin{:});
+            [varargout{1:max(1,nargout)}] = s2mpjlib(action,pbm,varargin{:});
         else
             disp(['ERROR: please run ',name,' with action = setup'])
-        [varargout{1:nargout}] = deal(repmat(NaN,1:nargout));
-            end
+            [varargout{1:nargout}] = deal(NaN);
+        end
 
     otherwise
-        disp([' ERROR: unknown action ',action,' requested from ',name,'.m'])
+        disp([' ERROR: action ',action,' unavailable for problem ',name,'.m'])
     end
 
 return

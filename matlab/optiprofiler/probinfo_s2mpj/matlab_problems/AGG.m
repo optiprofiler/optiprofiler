@@ -13,11 +13,11 @@ function varargout = AGG(action,varargin)
 % 
 %    SIF input: (already in MPS format)
 % 
-%    classification = 'C-LLR2-AN-163-488'
+%    classification = 'C-CLLR2-AN-163-488'
 % 
 % 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%   Translated to Matlab by S2MPJ version 6 X 2024
+%   Translated to Matlab by S2MPJ version 9 XI 2024
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 persistent pbm;
@@ -19894,7 +19894,7 @@ switch(action)
         pb.cupper(1:pb.nge) = +Inf*ones(pb.nge,1);
         %%%%%% RETURN VALUES FROM THE SETUP ACTION %%%%%%%%
         pb.lincons   = [1:length(pbm.congrps)];
-        pb.pbclass = 'C-LLR2-AN-163-488';
+        pb.pbclass = 'C-CLLR2-AN-163-488';
         pb.x0          = zeros(pb.n,1);
         pbm.objderlvl = 2;
         pb.objderlvl = pbm.objderlvl;

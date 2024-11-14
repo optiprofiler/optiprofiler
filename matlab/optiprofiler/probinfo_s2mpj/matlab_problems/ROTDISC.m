@@ -30,11 +30,11 @@ function varargout = ROTDISC(action,varargin)
 %    SIF input : E. Loute and Ph. L. Toint, April 1993
 %               minor correction by Ph. Shott, Jan 1995.
 % 
-%    classification = 'C-LQR2-RN-905-1081'
+%    classification = 'C-CLQR2-RN-905-1081'
 % 
 % 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%   Translated to Matlab by S2MPJ version 6 X 2024
+%   Translated to Matlab by S2MPJ version 9 XI 2024
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 persistent pbm;
@@ -380,7 +380,6 @@ switch(action)
         %%%%%%%%%%%%%%%%%%%%  BOUNDS %%%%%%%%%%%%%%%%%%%%%
         pb.xlower = -Inf*ones(pb.n,1);
         pb.xupper = +Inf*ones(pb.n,1);
-        pb.xlower = zeros(pb.n,1);
         pb.xlower(ix_(['sigr',int2str(round(v_('0')))]),1) = v_('sigmari');
         pb.xupper(ix_(['sigr',int2str(round(v_('0')))]),1) = v_('sigmari');
         pb.xupper(ix_(['sigt',int2str(round(v_('0')))])) = v_('sigmati');
@@ -5024,7 +5023,7 @@ switch(action)
         pb.cupper(pb.nle+1:pb.nle+pb.neq) = zeros(pb.neq,1);
         %%%%%% RETURN VALUES FROM THE SETUP ACTION %%%%%%%%
         [~,pb.lincons]  = ismember(setdiff(pbm.congrps,nlc),pbm.congrps);
-        pb.pbclass = 'C-LQR2-RN-905-1081';
+        pb.pbclass = 'C-CLQR2-RN-905-1081';
         pbm.objderlvl = 2;
         pb.objderlvl = pbm.objderlvl;
         pbm.conderlvl = [2];

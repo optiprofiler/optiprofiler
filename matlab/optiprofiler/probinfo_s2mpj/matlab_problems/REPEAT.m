@@ -13,11 +13,13 @@ function varargout = REPEAT(action,varargin)
 % 
 %    SIF input: Nick Gould, December 2020.
 % 
-%    classification = 'NLR2-AN-V-V'
+%    classification = 'C-CNLR2-AN-V-V'
 % 
 %    N is the number of variables
 % 
 % 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   Translated to Matlab by S2MPJ version 9 XI 2024
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 persistent pbm;
@@ -26,20 +28,33 @@ name = 'REPEAT';
 
 switch(action)
 
-    case 'setup'
+    case {'setup','setup_redprec'}
 
-    pb.name      = 'REPEAT';
-    pb.sifpbname = 'REPEAT';
-    pbm.name     = 'REPEAT';
+        if(strcmp(action,'setup_redprec'))
+            if(isfield(pbm,'ndigs'))
+                rmfield(pbm,'ndigs');
+            end
+            pbm.ndigs = max(1,min(15,varargin{end}));
+            nargs     = nargin-2;
+        else
+            nargs = nargin-1;
+        end
+        pb.name   = name;
+        pbm.name  = name;
         %%%%%%%%%%%%%%%%%%%%  PREAMBLE %%%%%%%%%%%%%%%%%%%%
-        v_  = configureDictionary('string','double');
-        ix_ = configureDictionary('string','double');
-        ig_ = configureDictionary('string','double');
-        if(nargin<2)
-            v_('N') = 10;  %  SIF file default value
+        v_  = containers.Map('KeyType','char', 'ValueType', 'double');
+        ix_ = containers.Map('KeyType','char', 'ValueType', 'double');
+        ig_ = containers.Map('KeyType','char', 'ValueType', 'double');
+        if(nargs<1)
+            v_('N') = 100;  %  SIF file default value
         else
             v_('N') = varargin{1};
         end
+%       Alternative values for the SIF file parameters:
+% IE N                   10             $-PARAMETER
+% IE N                   10000          $-PARAMETER
+% IE N                   100000         $-PARAMETER     original value
+% IE N                   1000000        $-PARAMETER
         v_('N-1') = -1+v_('N');
         v_('1') = 1;
         v_('2') = 2;
@@ -49,14 +64,14 @@ switch(action)
         %%%%%%%%%%%%%%%%%%%%  VARIABLES %%%%%%%%%%%%%%%%%%%%
         pb.xnames = {};
         for I=v_('1'):v_('N')
-            [iv,ix_] = s2xlib('ii',['X',int2str(I)],ix_);
+            [iv,ix_] = s2mpjlib('ii',['X',int2str(I)],ix_);
             pb.xnames{iv} = ['X',int2str(I)];
         end
         %%%%%%%%%%%%%%%%%%%  DATA GROUPS %%%%%%%%%%%%%%%%%%%
         pbm.A = sparse(0,0);
         for I=v_('1'):v_('N-1')
             v_('I+1') = 1+I;
-            [ig,ig_] = s2xlib('ii',['C',int2str(I)],ig_);
+            [ig,ig_] = s2mpjlib('ii',['C',int2str(I)],ig_);
             gtype{ig}  = '==';
             cnames{ig} = ['C',int2str(I)];
             iv = ix_(['X',int2str(I)]);
@@ -72,7 +87,7 @@ switch(action)
                 pbm.A(ig,iv) = 1.0;
             end
         end
-        [ig,ig_] = s2xlib('ii',['C',int2str(round(v_('N')))],ig_);
+        [ig,ig_] = s2mpjlib('ii',['C',int2str(round(v_('N')))],ig_);
         gtype{ig}  = '==';
         cnames{ig} = ['C',int2str(round(v_('N')))];
         iv = ix_(['X',int2str(round(v_('N')))]);
@@ -83,7 +98,7 @@ switch(action)
         end
         for I=v_('1'):v_('N-1')
             v_('I+1') = 1+I;
-            [ig,ig_] = s2xlib('ii',['R',int2str(I)],ig_);
+            [ig,ig_] = s2mpjlib('ii',['R',int2str(I)],ig_);
             gtype{ig}  = '==';
             cnames{ig} = ['R',int2str(I)];
             iv = ix_(['X',int2str(I)]);
@@ -99,7 +114,7 @@ switch(action)
                 pbm.A(ig,iv) = 1.0;
             end
         end
-        [ig,ig_] = s2xlib('ii',['R',int2str(round(v_('N')))],ig_);
+        [ig,ig_] = s2mpjlib('ii',['R',int2str(round(v_('N')))],ig_);
         gtype{ig}  = '==';
         cnames{ig} = ['R',int2str(round(v_('N')))];
         iv = ix_(['X',int2str(round(v_('N')))]);
@@ -110,7 +125,7 @@ switch(action)
         end
         for I=v_('1'):v_('N/100'):v_('N')
             v_('RI') = I;
-            [ig,ig_] = s2xlib('ii','E',ig_);
+            [ig,ig_] = s2mpjlib('ii','E',ig_);
             gtype{ig}  = '==';
             cnames{ig} = 'E';
             iv = ix_(['X',int2str(I)]);
@@ -121,8 +136,8 @@ switch(action)
             end
         end
         %%%%%%%%%%%%%%% GLOBAL DIMENSIONS %%%%%%%%%%%%%%%%%
-        pb.n   = numEntries(ix_);
-        ngrp   = numEntries(ig_);
+        pb.n   = ix_.Count;
+        ngrp   = ig_.Count;
         legrps = find(strcmp(gtype,'<='));
         eqgrps = find(strcmp(gtype,'=='));
         gegrps = find(strcmp(gtype,'>='));
@@ -130,7 +145,7 @@ switch(action)
         pb.neq = length(eqgrps);
         pb.nge = length(gegrps);
         pb.m   = pb.nle+pb.neq+pb.nge;
-        pbm.congrps = find(ismember(gtype,{'<=','==','>='}));
+        pbm.congrps = [ legrps, eqgrps, gegrps ];
         [pb.cnames{1:pb.m}] = deal(cnames{pbm.congrps});
         pb.nob = ngrp-pb.m;
         pbm.objgrps = find(strcmp(gtype,'<>'));
@@ -161,25 +176,37 @@ switch(action)
         pb.cupper(pb.nle+1:pb.nle+pb.neq) = zeros(pb.neq,1);
         %%%%%% RETURN VALUES FROM THE SETUP ACTION %%%%%%%%
         pb.lincons   = [1:length(pbm.congrps)];
-        pb.pbclass = 'NLR2-AN-V-V';
-        varargout{1} = pb;
-        varargout{2} = pbm;
+        pb.pbclass = 'C-CNLR2-AN-V-V';
+        pbm.objderlvl = 2;
+        pb.objderlvl = pbm.objderlvl;
+        pbm.conderlvl = [2];
+        pb.conderlvl  = pbm.conderlvl;
+        %%%%%%%%%%% REDUCED-PRECISION CONVERSION %%%%%%%%%%%
+        if(strcmp(action,'setup_redprec'))
+            varargout{1} = s2mpjlib('convert',pb, pbm.ndigs);
+            varargout{2} = s2mpjlib('convert',pbm,pbm.ndigs);
+        else
+            varargout{1} = pb;
+            varargout{2} = pbm;
+        end
+
 
     %%%%%%%%%%%%%%%% THE MAIN ACTIONS %%%%%%%%%%%%%%%
 
     case {'fx','fgx','fgHx','cx','cJx','cJHx','cIx','cIJx','cIJHx','cIJxv','fHxv',...
-          'cJxv','Lxy','Lgxy','LgHxy','LIxy','LIgxy','LIgHxy','LHxyv','LIHxyv'}
+          'cJxv','cJtxv','cIJtxv','Lxy','Lgxy','LgHxy','LIxy','LIgxy','LIgHxy',...
+          'LHxyv','LIHxyv'}
 
         if(isfield(pbm,'name')&&strcmp(pbm.name,name))
             pbm.has_globs = [0,0];
-            [varargout{1:max(1,nargout)}] = s2xlib(action,pbm,varargin{:});
+            [varargout{1:max(1,nargout)}] = s2mpjlib(action,pbm,varargin{:});
         else
             disp(['ERROR: please run ',name,' with action = setup'])
-        [varargout{1:nargout}] = deal(repmat(NaN,1:nargout));
-            end
+            [varargout{1:nargout}] = deal(NaN);
+        end
 
     otherwise
-        disp([' ERROR: unknown action ',action,' requested from ',name,'.m'])
+        disp([' ERROR: action ',action,' unavailable for problem ',name,'.m'])
     end
 
 return

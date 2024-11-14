@@ -5,7 +5,7 @@ function varargout = ROSSIMP2(action,varargin)
 %    This version is constructed from ROSSIMP1.m, reducing from 2 nonlinear
 %    groups and 1 nonlinear element to 1 trivial group and 2 nonlinear elements.
 %    S2MPJ input: Ph. Toint, June 2024
-%    classification = 'SUR2-AN-2-0'
+%    classification = 'C-CSUR2-AN-2-0'
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 persistent pbm;
 name = 'ROSSIMP2';

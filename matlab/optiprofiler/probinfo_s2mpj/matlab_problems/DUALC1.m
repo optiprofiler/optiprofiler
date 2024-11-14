@@ -12,11 +12,11 @@ function varargout = DUALC1(action,varargin)
 % 
 %    SIF input: Irv Lustig and Nick Gould, June 1996.
 % 
-%    classification = 'C-QLR2-MN-9-215'
+%    classification = 'C-CQLR2-MN-9-215'
 % 
 % 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%   Translated to Matlab by S2MPJ version 6 X 2024
+%   Translated to Matlab by S2MPJ version 9 XI 2024
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 persistent pbm;
@@ -14553,7 +14553,7 @@ switch(action)
         pb.cupper(1:pb.nge) = +Inf*ones(pb.nge,1);
         %%%%%% RETURN VALUES FROM THE SETUP ACTION %%%%%%%%
         [~,pb.lincons]  = ismember(setdiff(pbm.congrps,nlc),pbm.congrps);
-        pb.pbclass = 'C-QLR2-MN-9-215';
+        pb.pbclass = 'C-CQLR2-MN-9-215';
         pb.x0          = zeros(pb.n,1);
         pbm.objderlvl = 2;
         pb.objderlvl = pbm.objderlvl;

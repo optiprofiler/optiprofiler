@@ -18,13 +18,13 @@ function varargout = TRO3X3(action,varargin)
 % 
 %    SIF input: Nick Gould, Nov 2009.
 % 
-%    classification = 'C-LOR2-RN-30-13'
+%    classification = 'C-CLOR2-RN-30-13'
 % 
 %    number of bars
 % 
 % 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%   Translated to Matlab by S2MPJ version 6 X 2024
+%   Translated to Matlab by S2MPJ version 9 XI 2024
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 persistent pbm;
@@ -2479,7 +2479,7 @@ switch(action)
         pb.cupper(pb.nle+1:pb.nle+pb.neq) = zeros(pb.neq,1);
         %%%%%% RETURN VALUES FROM THE SETUP ACTION %%%%%%%%
         [~,pb.lincons]  = ismember(setdiff(pbm.congrps,nlc),pbm.congrps);
-        pb.pbclass = 'C-LOR2-RN-30-13';
+        pb.pbclass = 'C-CLOR2-RN-30-13';
         pbm.objderlvl = 2;
         pb.objderlvl = pbm.objderlvl;
         pbm.conderlvl = [2];

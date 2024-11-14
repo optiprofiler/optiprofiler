@@ -13,13 +13,13 @@ function varargout = BAmL1SPLS(action,varargin)
 % 
 %    SIF input: Nick Gould, Nov 2016
 % 
-%    classification = 'C-SUR2-MN-57-0'
+%    classification = 'C-CSUR2-MN-57-0'
 % 
 %    Number of data values
 % 
 % 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%   Translated to Matlab by S2MPJ version 6 X 2024
+%   Translated to Matlab by S2MPJ version 9 XI 2024
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 persistent pbm;
@@ -966,7 +966,6 @@ switch(action)
         %%%%%%%%%%%%%%%%%%%%  BOUNDS %%%%%%%%%%%%%%%%%%%%%
         pb.xlower = -Inf*ones(pb.n,1);
         pb.xupper = +Inf*ones(pb.n,1);
-        pb.xlower = zeros(pb.n,1);
         %%%%%%%%%%%%%%%%%%%%% ELFTYPE %%%%%%%%%%%%%%%%%%%%%
         iet_ = containers.Map('KeyType', 'char', 'ValueType','double');
         [it,iet_] = s2mpjlib( 'ii', 'eSQR',iet_);
@@ -15990,7 +15989,7 @@ switch(action)
 % LO SOLTN
         %%%%%%%%% DEFAULT FOR MISSING SECTION(S) %%%%%%%%%%
         %%%%%% RETURN VALUES FROM THE SETUP ACTION %%%%%%%%
-        pb.pbclass = 'C-SUR2-MN-57-0';
+        pb.pbclass = 'C-CSUR2-MN-57-0';
         pb.x0          = zeros(pb.n,1);
         pbm.objderlvl = 2;
         pb.objderlvl = pbm.objderlvl;

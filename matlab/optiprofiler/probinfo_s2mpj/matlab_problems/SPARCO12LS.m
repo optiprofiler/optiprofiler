@@ -31,12 +31,17 @@ persistent pbm;
 name = 'SPARCO12LS';
 switch(action)
 case 'setup'
-    sparcodir = varargin{end};
-    if ( exist( sparcodir ) )
-       addpath( sparcodir );
-       addpath( [ sparcodir, '/spotbox' ] );
-    else
-       disp([ 'ERROR: SPARCO master directory ',sparcodir,' does not exist.'])
+    nosparco  = 1;
+    if(nargin>1)
+       sparcodir = varargin{end};
+       if ( exist( sparcodir ) )
+          addpath( sparcodir );
+          addpath( [ sparcodir, '/spotbox' ] );
+          nosparco = 0;
+       end
+    end
+    if(nosparco)
+       disp([ 'ERROR: SPARCO master directory not found.'])
        varargout{1} = NaN;
        if ( nargout > 1 )
           varargout{2} = NaN;

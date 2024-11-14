@@ -3,7 +3,7 @@ function varargout = ROSSIMP3(action,varargin)
 %    Problem : ROSSIMP3
 %    The ever famous 2 variables Rosenbrock "banana valley" problem
 %    This version uses  1 trivial group and 2 nonlinear elements.
-%    classification = 'SUR2-AN-2-0'
+%    classification = 'C-CSUR2-AN-2-0'
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 persistent pbm;
 name = 'ROSSIMP3';

@@ -20,7 +20,7 @@ function varargout = SPARCO3(action,varargin)
 %    "Algorithm 890: Sparco: A Testing Framework for Sparse Reconstruction",
 %    ACM Transactions on Mathematical Software, vol. 35(19); pp. 1--16, 2009.
 %
-%    S2MPJ input: Ph. Toint 4 X 2024.
+%    S2MPJ input: Ph. Toint 11 XI 2024.
 %
 %    classification = 'S-CNLR1-AN-2048-1024'
 % 
@@ -30,12 +30,17 @@ persistent pbm;
 name = 'SPARCO3';
 switch(action)
 case 'setup'
-    sparcodir = varargin{end};
-    if ( exist( sparcodir ) )
-       addpath( sparcodir );
-       addpath( [ sparcodir, '/spotbox' ] );
-    else
-       disp([ 'ERROR: SPARCO master directory ',sparcodir,' does not exist.'])
+    nosparco = 1;
+    if(nargin>1)
+       sparcodir = varargin{end};
+       if(exist(sparcodir))
+          addpath(sparcodir);
+          addpath( [ sparcodir, '/spotbox' ] );
+          nosparco = 0;
+       end
+    end
+    if (nosparco)
+       disp([ 'ERROR: SPARCO master directory not found.'])
        varargout{1} = NaN;
        return
     end
