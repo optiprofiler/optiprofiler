@@ -468,14 +468,17 @@ function benchmark(solvers, varargin)
             error("MATLAB:benchmark:FailToEditFile", "Failed to record data for %s.", sorted_problem_names{i});
         end
     end
-    count = fprintf(fid, "\n");
-    count = fprintf(fid, "Unsolved problems:\n");
-    for i = 1:length(problem_unsolved)
-        count = fprintf(fid, "%s\n", problem_unsolved{i});
-        if count < 0
-            error("MATLAB:benchmark:FailToEditFile", "Failed to record data for %s.", problem_unsolved{i});
+    if ~isempty(problem_unsolved)
+        fprintf(fid, "\n");
+        fprintf(fid, "Unsolved problems:\n");
+        for i = 1:length(problem_unsolved)
+            count = fprintf(fid, "%s\n", problem_unsolved{i});
+            if count < 0
+                error("MATLAB:benchmark:FailToEditFile", "Failed to record data for %s.", problem_unsolved{i});
+            end
         end
     end
+    
     fclose(fid);
 
     [n_problems, n_solvers, n_runs, ~] = size(merit_histories);
