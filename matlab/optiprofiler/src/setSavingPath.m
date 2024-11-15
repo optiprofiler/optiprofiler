@@ -8,9 +8,8 @@ function path_out = setSavingPath(profile_options)
         timestamp = datestr(datetime('now', 'TimeZone', 'local', 'Format', 'yyyy-MM-dd''T''HH-mm-SSZ'), 'yyyy-mm-ddTHH-MM-SSZ');
         path_out = fullfile(path_out, timestamp);
     end
-    % Create the directory. If it already exists, overwrite it.
-    if exist(path_out, 'dir')
-        rmdir(path_out, 's');
+    % Create the directory if it does not exist.
+    if ~exist(path_out, 'dir')
+        mkdir(path_out);
     end
-    mkdir(path_out);
 end
