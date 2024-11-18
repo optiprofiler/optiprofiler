@@ -53,7 +53,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
     for i_solver = 1:n_solvers
         for i_run = 1:n_runs
             if ~profile_options.(ProfileOptionKey.SILENT.value)
-                fprintf("Solving %s with %s (run %d/%d).\n", problem_name, labels{i_solver}, i_run, n_runs);
+                fprintf("Solving %-12s with %-12s (run %2d/%2d).\n\n", problem_name, labels{i_solver}, i_run, n_runs);
             end
             time_start_solver_run = tic;
             % Construct featured_problem.
@@ -100,9 +100,16 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
                 % Calculate the minimum function value and the minimum constraint violation, omitting the NaN values.
                 fun_min = min(featured_problem.fun_hist, [], 'omitnan');
                 maxcv_min = min(featured_problem.maxcv_hist, [], 'omitnan');
-                if ~profile_options.(ProfileOptionKey.SILENT.value)
-                    fprintf("Output results for %s with %s (run %d/%d): f = %.4e, maxcv = %.4e (%.2f seconds).\n", problem_name, labels{i_solver}, i_run, n_runs, fun_out(i_solver, i_run), maxcv_out(i_solver, i_run), toc(time_start_solver_run));
-                    fprintf("Best results for %s with %s (run %d/%d): f = %.4e, maxcv = %.4e.\n", problem_name, labels{i_solver}, i_run, n_runs, fun_min, maxcv_min);
+                if ~profile_options.(ProfileOptionKey.SILENT.value) && (profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) == 2)
+                    fprintf("\nFinish solving     %-12s with %-12s (run %2d/%2d) (in %.2f seconds).\n", problem_name, labels{i_solver}, i_run, n_runs, toc(time_start_solver_run));
+                    switch problem.p_type
+                        case 'unconstrained'
+                            fprintf("Output results for %-12s with %-12s (run %2d/%2d): f = %10.4e.\n", problem_name, labels{i_solver}, i_run, n_runs, fun_out(i_solver, i_run));
+                            fprintf("Best   results for %-12s with %-12s (run %2d/%2d): f = %10.4e.\n", problem_name, labels{i_solver}, i_run, n_runs, fun_min);
+                        otherwise
+                            fprintf("Output results for %-12s with %-12s (run %2d/%2d): f = %10.4e, maxcv = %10.4e.\n", problem_name, labels{i_solver}, i_run, n_runs, fun_out(i_solver, i_run), maxcv_out(i_solver, i_run));
+                            fprintf("Best   results for %-12s with %-12s (run %2d/%2d): f = %10.4e, maxcv = %10.4e.\n", problem_name, labels{i_solver}, i_run, n_runs, fun_min, maxcv_min);
+                    end
                 end
             catch Exception
                 if profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) ~= 0

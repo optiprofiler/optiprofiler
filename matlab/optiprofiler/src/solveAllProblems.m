@@ -13,9 +13,9 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
     results = cell(1, n_problems);
     if ~profile_options.(ProfileOptionKey.SILENT.value)
         if n_problems > 1
-            fprintf("There are %d problems to solve.\n", n_problems);
+            fprintf("INFO: There are %d problems to solve.\n\n", n_problems);
         else
-            fprintf("There is %d problem to solve.\n", n_problems);
+            fprintf("INFO: There is only %d problem to solve.\n\n", n_problems);
         end
     end
 
