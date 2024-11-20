@@ -90,7 +90,10 @@ classdef Feature < handle
 %   9. nonquantifiable_constraints:
 %       replace values of nonlinear constraints with either 0 (if the
 %       constraint is satisfied) or 1 (if the constraint is violated).
-%   10. custom:
+%   10. quantized:
+%       quantize the objective function value and nonlinear constraints with a
+%       given mesh size.
+%   11. custom:
 %       a user-defined FEATURE. Users can define their own FEATURE by
 %       specifying any modifier listed in the above.
 
@@ -177,6 +180,8 @@ classdef Feature < handle
                         known_options = [known_options, {FeatureOptionKey.UNRELAXABLE_BOUNDS.value, FeatureOptionKey.UNRELAXABLE_LINEAR_CONSTRAINTS.value, FeatureOptionKey.UNRELAXABLE_NONLINEAR_CONSTRAINTS.value}];
                     case FeatureName.LINEARLY_TRANSFORMED.value
                         known_options = [known_options, {FeatureOptionKey.ROTATED.value, FeatureOptionKey.CONDITION_FACTOR.value}];
+                    case FeatureName.QUANTIZED.value
+                        known_options = [known_options, {FeatureOptionKey.MESH_SIZE.value, FeatureOptionKey.IS_TRUTH.value}];
                     case FeatureName.PERMUTED.value
                         % Do nothing
                     case FeatureName.NONQUANTIFIABLE_CONSTRAINTS.value
@@ -240,6 +245,14 @@ classdef Feature < handle
                     case FeatureOptionKey.UNRELAXABLE_NONLINEAR_CONSTRAINTS.value
                         if ~islogicalscalar(obj.options.(key))
                             error("MATLAB:Feature:unrelaxable_nonlinear_constraints_NotLogical", "Option " + key + " must be a logical.")
+                        end
+                    case FeatureOptionKey.MESH_SIZE.value
+                        if ~isrealscalar(obj.options.(key)) || obj.options.(key) <= 0.0
+                            error("MATLAB:Feature:mesh_size_NotPositive", "Option " + key + " must be a positive real number.")
+                        end
+                    case FeatureOptionKey.IS_TRUTH.value
+                        if ~islogicalscalar(obj.options.(key))
+                            error("MATLAB:Feature:is_truth_NotLogical", "Option " + key + " must be a logical.")
                         end
                     case FeatureOptionKey.MOD_X0.value
                         if ~isa(obj.options.(key), 'function_handle')
@@ -670,7 +683,7 @@ classdef Feature < handle
             end
         end
 
-        function f = modifier_fun(obj, x, f, seed, problem)
+        function f = modifier_fun(obj, x, seed, problem)
             %{
             Modify the objective function value.
 
@@ -678,8 +691,6 @@ classdef Feature < handle
             ----------
             x : double, size (n,)
                 Decision variables.
-            f : double
-                Objective function value.
             seed : int
                 Seed used to generate random numbers.
             problem : Problem
@@ -698,11 +709,12 @@ classdef Feature < handle
             switch obj.name
                 case FeatureName.CUSTOM.value
                     if isfield(obj.options, FeatureOptionKey.MOD_FUN.value)
-                        rand_stream_custom = obj.default_rng(seed, f, xCell{:});
-                        f = obj.options.(FeatureOptionKey.MOD_FUN.value)(x, f, rand_stream_custom, problem);
+                        rand_stream_custom = obj.default_rng(seed, xCell{:});
+                        f = obj.options.(FeatureOptionKey.MOD_FUN.value)(x, rand_stream_custom, problem);
                         return;
                     end
                 case FeatureName.NOISY.value
+                    f = problem.fun(x);
                     rand_stream_noisy = obj.default_rng(seed, f, obj.options.(FeatureOptionKey.NOISE_LEVEL.value), sum(double(obj.options.(FeatureOptionKey.NOISE_TYPE.value))), xCell{:});
                     if strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), NoiseType.ABSOLUTE.value)
                         f = f + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1);
@@ -713,11 +725,13 @@ classdef Feature < handle
                         f = f + max(1, abs(f)) * obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1);
                     end
                 case FeatureName.RANDOM_NAN.value
+                    f = problem.fun(x);
                     rand_stream_random_nan = obj.default_rng(seed, f, obj.options.(FeatureOptionKey.RATE_NAN.value), xCell{:});
                     if rand_stream_random_nan.rand() < obj.options.(FeatureOptionKey.RATE_NAN.value)
                         f = NaN;
                     end
                 case FeatureName.TRUNCATED.value
+                    f = problem.fun(x);
                     rand_stream_truncated = obj.default_rng(seed, f, obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value), xCell{:});
                     if f == 0
                         digits = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - 1;
@@ -739,6 +753,7 @@ classdef Feature < handle
                         end
                     end
                 case FeatureName.UNRELAXABLE_CONSTRAINTS.value
+                    f = problem.fun(x);
                     [~, maxcv_bounds, maxcv_linear, maxcv_nonlinear] = problem.maxcv(x);
                     if obj.options.(FeatureOptionKey.UNRELAXABLE_BOUNDS.value) && maxcv_bounds > 0
                         f = Inf;
@@ -747,12 +762,16 @@ classdef Feature < handle
                     elseif obj.options.(FeatureOptionKey.UNRELAXABLE_NONLINEAR_CONSTRAINTS.value) && maxcv_nonlinear > 0
                         f = Inf;
                     end
+                case FeatureName.QUANTIZED.value
+                    mesh_size = obj.options.(FeatureOptionKey.MESH_SIZE.value);
+                    x = mesh_size * floor(x / mesh_size + 0.5);
+                    f = problem.fun(x);
                 otherwise
                     % Do nothing
             end
         end
 
-        function cub_ = modifier_cub(obj, x, cub_, seed, problem)
+        function cub_ = modifier_cub(obj, x, seed, problem)
             %{
             Modify the values of the nonlinear inequality constraints.
 
@@ -760,9 +779,6 @@ classdef Feature < handle
             ----------
             x : double, size (n,)
                 Decision variables.
-            cub_ : double, size (m_nonlinear_ub,)
-                Values of the upper bounds of the nonlinear inequality
-                constraints.
             seed : int
                 Seed used to generate random numbers.
             problem : Problem
@@ -779,36 +795,39 @@ classdef Feature < handle
             % random streams so that randomness of each point is independent.
             xCell = num2cell(x);
 
+            cub_ = problem.cub(x);
+            cubCell = num2cell(cub_);
+
             switch obj.name
                 case FeatureName.CUSTOM.value
                     if isfield(obj.options, FeatureOptionKey.MOD_CUB.value)
-                        rand_stream_custom = obj.default_rng(seed, cub_, xCell{:});
-                        cub_ = obj.options.(FeatureOptionKey.MOD_CUB.value)(x, cub_, rand_stream_custom, problem);
+                        rand_stream_custom = obj.default_rng(seed, xCell{:});
+                        cub_ = obj.options.(FeatureOptionKey.MOD_CUB.value)(x, rand_stream_custom, problem);
                         return;
                     end
                 case FeatureName.NOISY.value
                     % Similar to the case in the modifier_fun method.
-                    rand_stream_noisy = obj.default_rng(seed, cub_, obj.options.(FeatureOptionKey.NOISE_LEVEL.value), sum(double(obj.options.(FeatureOptionKey.NOISE_TYPE.value))), xCell{:});
+                    rand_stream_noisy = obj.default_rng(seed, cubCell{:}, obj.options.(FeatureOptionKey.NOISE_LEVEL.value), sum(double(obj.options.(FeatureOptionKey.NOISE_TYPE.value))), xCell{:});
                     if strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), NoiseType.ABSOLUTE.value)
                         cub_ = cub_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1);
                     elseif strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), NoiseType.RELATIVE.value)
                         cub_ = cub_ * (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1));
                     else
-                        cub_ = cub_ + max(1, abs(f)) * obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1);
+                        cub_ = cub_ + max(1, abs(cub_)) * obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1);
                     end
                 case FeatureName.RANDOM_NAN.value
                     % Similar to the case in the modifier_fun method.
-                    rand_stream_random_nan = obj.default_rng(seed, cub_, obj.options.(FeatureOptionKey.RATE_NAN.value), xCell{:});
+                    rand_stream_random_nan = obj.default_rng(seed, cubCell{:}, obj.options.(FeatureOptionKey.RATE_NAN.value), xCell{:});
                     if rand_stream_random_nan.rand() < obj.options.(FeatureOptionKey.RATE_NAN.value)
                         cub_ = NaN;
                     end
                 case FeatureName.TRUNCATED.value
                     % Similar to the case in the modifier_fun method.
-                    rand_stream_truncated = obj.default_rng(seed, cub_, obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value), xCell{:});
+                    rand_stream_truncated = obj.default_rng(seed, cubCell{:}, obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value), xCell{:});
                     if cub_ == 0
                         digits = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - 1;
                     else
-                        digits = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - floor(log10(abs(f))) - 1;
+                        digits = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - floor(log10(abs(cub_))) - 1;
                     end
                     digits = double(digits);
                     cub_ = round(cub_, digits);
@@ -824,12 +843,17 @@ classdef Feature < handle
                     cub_(cub_ <= 0) = 0;
                     % Set the rest to 1.
                     cub_(~(cub_ <= 0)) = 1;
+                case FeatureName.QUANTIZED.value
+                    % Similar to the case in the modifier_fun method.
+                    mesh_size = obj.options.(FeatureOptionKey.MESH_SIZE.value);
+                    x = mesh_size * floor(x / mesh_size + 0.5);
+                    cub_ = problem.cub(x);
                 otherwise
                     % Do nothing
             end
         end
 
-        function ceq_ = modifier_ceq(obj, x, ceq_, seed, problem)
+        function ceq_ = modifier_ceq(obj, x, seed, problem)
             %{
             Modify the values of the nonlinear equality constraints.
 
@@ -837,9 +861,6 @@ classdef Feature < handle
             ----------
             x : double, size (n,)
                 Decision variables.
-            ceq_ : double, size (m_nonlinear_eq,)
-                Values of the upper bounds of the nonlinear equality
-                constraints.
             seed : int
                 Seed used to generate random numbers.
             problem : Problem
@@ -856,36 +877,39 @@ classdef Feature < handle
             % random streams so that randomness of each point is independent.
             xCell = num2cell(x);
 
+            ceq_ = problem.ceq(x);
+            ceqCell = num2cell(ceq_);
+
             switch obj.name
                 case FeatureName.CUSTOM.value
                     if isfield(obj.options, FeatureOptionKey.MOD_CEQ.value)
-                        rand_stream_custom = obj.default_rng(seed, ceq_, xCell{:});
-                        ceq_ = obj.options.(FeatureOptionKey.MOD_CEQ.value)(x, ceq_, rand_stream_custom, problem);
+                        rand_stream_custom = obj.default_rng(seed, xCell{:});
+                        ceq_ = obj.options.(FeatureOptionKey.MOD_CEQ.value)(x, rand_stream_custom, problem);
                         return;
                     end
                 case FeatureName.NOISY.value
                     % Similar to the case in the modifier_fun method.
-                    rand_stream_noisy = obj.default_rng(seed, ceq_, obj.options.(FeatureOptionKey.NOISE_LEVEL.value), sum(double(obj.options.(FeatureOptionKey.NOISE_TYPE.value))), xCell{:});
+                    rand_stream_noisy = obj.default_rng(seed, ceqCell{:}, obj.options.(FeatureOptionKey.NOISE_LEVEL.value), sum(double(obj.options.(FeatureOptionKey.NOISE_TYPE.value))), xCell{:});
                     if strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), NoiseType.ABSOLUTE.value)
                         ceq_ = ceq_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1);
                     elseif strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), NoiseType.RELATIVE.value)
                         ceq_ = ceq_ * (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1));
                     else
-                        ceq_ = ceq_ + max(1, abs(f)) * obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1);
+                        ceq_ = ceq_ + max(1, abs(ceq_)) * obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1);
                     end
                 case FeatureName.RANDOM_NAN.value
                     % Similar to the case in the modifier_fun method.
-                    rand_stream_random_nan = obj.default_rng(seed, ceq_, obj.options.(FeatureOptionKey.RATE_NAN.value), xCell{:});
+                    rand_stream_random_nan = obj.default_rng(seed, ceqCell{:}, obj.options.(FeatureOptionKey.RATE_NAN.value), xCell{:});
                     if rand_stream_random_nan.rand() < obj.options.(FeatureOptionKey.RATE_NAN.value)
                         ceq_ = NaN;
                     end
                 case FeatureName.TRUNCATED.value
                     % Similar to the case in the modifier_fun method.
-                    rand_stream_truncated = obj.default_rng(seed, ceq_, obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value), xCell{:});
+                    rand_stream_truncated = obj.default_rng(seed, ceqCell{:}, obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value), xCell{:});
                     if ceq_ == 0
                         digits = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - 1;
                     else
-                        digits = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - floor(log10(abs(f))) - 1;
+                        digits = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - floor(log10(abs(ceq_))) - 1;
                     end
                     digits = double(digits);
                     ceq_ = round(ceq_, digits);
@@ -901,6 +925,11 @@ classdef Feature < handle
                     ceq_(abs(ceq_) <= 1e-6) = 0;
                     % Set the rest to 1.
                     ceq_(~(abs(ceq_) <= 1e-6)) = 1;
+                case FeatureName.QUANTIZED.value
+                    % Similar to the case in the modifier_fun method.
+                    mesh_size = obj.options.(FeatureOptionKey.MESH_SIZE.value);
+                    x = mesh_size * floor(x / mesh_size + 0.5);
+                    ceq_ = problem.ceq(x);
                 otherwise
                     % Do nothing
             end
@@ -991,6 +1020,16 @@ classdef Feature < handle
                 case FeatureName.NONQUANTIFIABLE_CONSTRAINTS.value
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
                         obj.options.(FeatureOptionKey.N_RUNS.value) = 1;
+                    end
+                case FeatureName.QUANTIZED.value
+                    if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
+                        obj.options.(FeatureOptionKey.N_RUNS.value) = 1;
+                    end
+                    if ~isfield(obj.options, FeatureOptionKey.MESH_SIZE.value)
+                        obj.options.(FeatureOptionKey.MESH_SIZE.value) = 1e-3;
+                    end
+                    if ~isfield(obj.options, FeatureOptionKey.IS_TRUTH.value)
+                        obj.options.(FeatureOptionKey.IS_TRUTH.value) = true;
                     end
                 otherwise
                     error("MATLAB:Feature:UnknownFeature", "Unknown feature: " + obj.name + ".")

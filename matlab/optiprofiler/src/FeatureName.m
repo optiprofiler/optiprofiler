@@ -11,6 +11,7 @@ classdef FeatureName
         RANDOM_NAN ('random_nan')
         UNRELAXABLE_CONSTRAINTS ('unrelaxable_constraints')
         NONQUANTIFIABLE_CONSTRAINTS ('nonquantifiable_constraints')
+        QUANTIZED ('quantized')
         CUSTOM ('custom')
     end
     properties

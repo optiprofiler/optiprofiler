@@ -180,7 +180,7 @@ function problem = s_load(problem_name, varargin)
 
     getidx = @(y, idx) y(idx);
     ceq = @(x) getidx(getcx(problem_name, x), idx_ceq);
-    cub = @(x) [getidx(getcx(problem_name, x), idx_cle), -getidx(getcx(problem_name, x), idx_cge)];
+    cub = @(x) [getidx(getcx(problem_name, x), idx_cle); -getidx(getcx(problem_name, x), idx_cge)];
 
     % % Debug S2MPJ: some unconstrained problems are added bound constraints (x>=0) by mistake
     
@@ -204,6 +204,11 @@ function cx = getcx(problem_name, x)
     funcHandle = str2func(problem_name);
     try
         cx = funcHandle('cx', x);
+        cx = full(cx);
+        % Check if cx is a row vector, if yes, transpose it to a column vector.
+        if size(cx, 1) == 1
+            cx = cx';
+        end
     catch
         cx = NaN(0, 1);
     end

@@ -542,7 +542,7 @@ classdef Problem < handle
                     warning(ME.identifier, '%s', ME.message);
                     f = NaN(obj.m_nonlinear_ub, 1);
                 end
-                if ~isvector(f) || ~isempty(f)
+                if ~isvector(f) && ~isempty(f)
                     error("MATLAB:Problem:InvalidOutputForCUB", "The output of the nonlinear inequality constraint must be a vector.")
                 end
                 try
