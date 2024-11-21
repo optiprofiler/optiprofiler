@@ -58,7 +58,7 @@ function y_shift = drawFunMaxcvMeritHist(ax, y, labels, ismaxcv, profile_options
     box(ax, 'on');
     legend(ax, 'Location', 'northeast');
     hold(ax, 'off');
-    set(ax, 'XLim', [1, max(x)]);
+    set(ax, 'XLim', [min(x), max(x)]);
     xlabel(ax, 'Number of simplex gradients', 'Interpreter', 'latex');
 
 end
