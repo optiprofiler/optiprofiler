@@ -706,6 +706,8 @@ classdef Feature < handle
             % random streams so that randomness of each point is independent.
             xCell = num2cell(x);
 
+            f = problem.fun(x);
+
             switch obj.name
                 case FeatureName.CUSTOM.value
                     if isfield(obj.options, FeatureOptionKey.MOD_FUN.value)
@@ -714,7 +716,6 @@ classdef Feature < handle
                         return;
                     end
                 case FeatureName.NOISY.value
-                    f = problem.fun(x);
                     rand_stream_noisy = obj.default_rng(seed, f, obj.options.(FeatureOptionKey.NOISE_LEVEL.value), sum(double(obj.options.(FeatureOptionKey.NOISE_TYPE.value))), xCell{:});
                     if strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), NoiseType.ABSOLUTE.value)
                         f = f + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1);
@@ -725,13 +726,11 @@ classdef Feature < handle
                         f = f + max(1, abs(f)) * obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1);
                     end
                 case FeatureName.RANDOM_NAN.value
-                    f = problem.fun(x);
                     rand_stream_random_nan = obj.default_rng(seed, f, obj.options.(FeatureOptionKey.RATE_NAN.value), xCell{:});
                     if rand_stream_random_nan.rand() < obj.options.(FeatureOptionKey.RATE_NAN.value)
                         f = NaN;
                     end
                 case FeatureName.TRUNCATED.value
-                    f = problem.fun(x);
                     rand_stream_truncated = obj.default_rng(seed, f, obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value), xCell{:});
                     if f == 0
                         digits = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - 1;
@@ -753,7 +752,6 @@ classdef Feature < handle
                         end
                     end
                 case FeatureName.UNRELAXABLE_CONSTRAINTS.value
-                    f = problem.fun(x);
                     [~, maxcv_bounds, maxcv_linear, maxcv_nonlinear] = problem.maxcv(x);
                     if obj.options.(FeatureOptionKey.UNRELAXABLE_BOUNDS.value) && maxcv_bounds > 0
                         f = Inf;

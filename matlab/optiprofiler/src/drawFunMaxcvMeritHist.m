@@ -5,13 +5,13 @@ function y_shift = drawFunMaxcvMeritHist(ax, y, labels, ismaxcv, profile_options
     set(ax, 'DefaultAxesLineStyleOrder', {'-', '--', ':', '-.'});
 
     % Find out the smallest and largest value of y.
-    % y_max = max(y(:));
+    y_max = max(y(:));
     y_min = min(y(:));
 
     % Decide the shift of the y-axis to make the shifted y-axis be positive.
     y_shift = 0;
-    if y_min <= 1e-6
-        y_shift = 1e-6 - y_min;
+    if y_min <= 1e-6 * (y_max - y_min)
+        y_shift = 1e-6 * (y_max - y_min) - y_min;
     end
     
     % Shift the y-axis.
@@ -54,16 +54,6 @@ function y_shift = drawFunMaxcvMeritHist(ax, y, labels, ismaxcv, profile_options
             nextColor, 'FaceAlpha', 0.2, 'EdgeAlpha', 0, 'HandleVisibility', 'off');
         end
     end
-
-    % % Shift the YTick.
-    % yticks = get(ax, 'YTick');
-    % yticks = yticks - y_shift;
-    % set(ax, 'YTick', yticks);
-    % for i = 1:length(yticks)
-    %     [~, formatted] = formatFloatScientificLatex(yticks(i), 1);
-    %     ytick_labels{i} = formatted;
-    % end
-    % set(ax, 'YTickLabel', ytick_labels);
 
     box(ax, 'on');
     legend(ax, 'Location', 'northeast');
