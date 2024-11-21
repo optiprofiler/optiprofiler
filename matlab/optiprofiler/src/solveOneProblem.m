@@ -194,5 +194,4 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
         fprintf("An error occurred while plotting the history plots of the problem %s: %s\n", problem_name, Exception.message);
     end
 
-
 end

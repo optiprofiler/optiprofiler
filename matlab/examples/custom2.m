@@ -24,8 +24,9 @@ function x0 = mod_x0(rand_stream, problem)
     x0 = Q * problem.x0;
 end
 
-function f = mod_fun(x, f, rand_stream, problem)
+function f = mod_fun(x, rand_stream, problem)
 
+    f = problem.fun(x);
     f = f + max(1, abs(f)) * 1e-3 * rand_stream.randn(1);
 end
 

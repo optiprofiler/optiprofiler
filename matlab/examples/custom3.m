@@ -7,7 +7,8 @@ function custom3()
     
     solvers = {@fminsearch_test, @fminunc_test};
     options.feature_name = 'custom';
-    options.n_runs = 10;
+    options.problem = s_load('NONDIA');
+    options.n_runs = 1;
     % We need mod_x0 to make sure that the linearly transformed problem is mathematically equivalent
     % to the original problem.
     options.mod_x0 = @mod_x0;
@@ -26,8 +27,9 @@ function x0 = mod_x0(rand_stream, problem)
     x0 = x0 + 1e-3 * max(1, norm(x0)) * rand_stream.randn(problem.n, 1) / norm(rand_stream.randn(problem.n, 1));
 end
 
-function f = mod_fun(x, f, rand_stream, problem)
+function f = mod_fun(x, rand_stream, problem)
 
+    f = problem.fun(x);
     f = f + max(1, abs(f)) * 1e-3 * rand_stream.randn(1);
 end
 
