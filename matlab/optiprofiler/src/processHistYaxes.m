@@ -1,4 +1,4 @@
-function value_histories_processed = processHistYaxes(value_histories, value_init, is_cum)
+function value_histories_processed = processHistYaxes(value_histories, value_init)
 %PROCESSHISTYAXES Process the value_histories of the y-axis data.
 
     n_solvers = size(value_histories, 1);
@@ -8,12 +8,8 @@ function value_histories_processed = processHistYaxes(value_histories, value_ini
     value_histories(mask_hist_nan_inf) = value_init;
     value_max = max(value_histories(:));
     value_min = min(value_histories(:));
-    if is_cum
-        value_histories_processed = cummin(value_histories, 3);
-    else
-        value_histories_processed = value_histories;
-        value_histories_processed(mask_hist_nan_inf) = value_min + 1.5 * (value_max - value_min);
-    end
+    value_histories_processed = value_histories;
+    value_histories_processed(mask_hist_nan_inf) = value_min + 1.5 * (value_max - value_min);
 
     % Find the last evaluation where the value decreases.
     mask_diff = diff(value_histories, 1, 3) < 0;
