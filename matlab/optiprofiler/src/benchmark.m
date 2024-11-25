@@ -20,10 +20,6 @@ function benchmark(solvers, varargin)
 %         features, we run several times of the experiments and get average
 %         curves and uncertainty intervals. Default is 'minmax', meaning that
 %         we takes the pointwise minimum and maximum of the curves.
-%       - std_factor: the factor multiplied to the standard deviation to get
-%         the uncertainty interval in the case where range_type is 'std',
-%         meaning that we take the pointwise mean plus/minus the standard
-%         deviation of the curves. Default is 1.
 %       - savepath: the path to store the results. Default is the current
 %         directory where the function is called.
 %       - max_tol_order: the maximum order of the tolerance. In any profile
@@ -411,7 +407,7 @@ function benchmark(solvers, varargin)
         movefile(fullfile(path_hist_plots, '*'), path_feature);
         rmdir(path_hist_plots, 's');
         if ~profile_options.(ProfileOptionKey.SILENT.value)
-            fprintf('INFO: Detailed results stored in %s\n', path_feature);
+            fprintf('\nINFO: Detailed results stored in %s\n', path_feature);
         end
         return;
     end
@@ -421,7 +417,7 @@ function benchmark(solvers, varargin)
     if feature.isStochastic && profile_options.(ProfileOptionKey.RUN_PLAIN.value)
         feature_plain = Feature(FeatureName.PLAIN.value);
         if ~profile_options.(ProfileOptionKey.SILENT.value)
-            fprintf('INFO: Starting the computation of the "plain" profiles.\n');
+            fprintf('\nINFO: Starting the computation of the "plain" profiles.\n');
         end
         [fun_histories_plain, maxcv_histories_plain, ~, ~, ~, ~, ~, ~, ~, time_processes_plain] = ...
         solveAllProblems(cutest_problem_names, custom_problem_loader, custom_problem_names, solvers, labels, ...
@@ -680,7 +676,7 @@ function benchmark(solvers, varargin)
 
     % Merge all the pdf files in path_hist_plots to a single pdf file.
     if ~profile_options.(ProfileOptionKey.SILENT.value)
-        fprintf('INFO: Merging all the history plots to a single PDF file.\n');
+        fprintf('\nINFO: Merging all the history plots to a single PDF file.\n');
     end
     try
         mergePdfs(path_hist_plots, 'history_plots_summary.pdf', path_feature);
@@ -689,14 +685,14 @@ function benchmark(solvers, varargin)
     end
 
     if ~profile_options.(ProfileOptionKey.SILENT.value)
-        fprintf('INFO: Detailed results stored in %s\n', path_feature);
+        fprintf('\nINFO: Detailed results stored in %s\n', path_feature);
     end
     warning('on');
 
     % Close the figures.
     close(fig_summary);
     if ~profile_options.(ProfileOptionKey.SILENT.value)
-        fprintf('INFO: Summary stored in %s\n', path_out);
+        fprintf('\nINFO: Summary stored in %s\n', path_out);
     end
 
 end

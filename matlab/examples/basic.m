@@ -6,8 +6,8 @@ function basic()
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Example 1 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    % solvers = {@fminsearch_test, @fminunc_test};
-    % benchmark(solvers)
+    solvers = {@fminsearch_test, @fminunc_test};
+    benchmark(solvers)
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Example 2 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -48,18 +48,14 @@ end
 
 function x = fminsearch_test(fun, x0)
 
-    x = fminsearch(fun, x0);
+    options.MaxFunEvals = 3000;
+    x = fminsearch(fun, x0, options);
     
 end
 
 function x = fminunc_test(fun, x0)
 
-    x = fminunc(fun, x0);
+    options.MaxFunEvals = 3000;
+    x = fminunc(fun, x0, options);
 
-end
-
-function x = ds(fun, x0)
-
-    option.Algorithm = 'ds';
-    x = bds(fun, x0, option);
 end

@@ -37,10 +37,6 @@ function profile_options = checkValidityProfileOptions(profile_options, solvers)
     if ~ischarstr(ProfileOptionKey.RANGE_TYPE.value) || ~ismember(char(profile_options.(ProfileOptionKey.RANGE_TYPE.value)), {'minmax', 'meanstd'})
         error("MATLAB:benchmark:range_typeNotValid", "range_type should be either 'minmax' or 'meanstd'.");
     end
-    % Judge whether profile_options.std_factor is a positive real number.
-    if ~isrealscalar(profile_options.(ProfileOptionKey.STD_FACTOR.value)) || profile_options.(ProfileOptionKey.STD_FACTOR.value) <= 0
-        error("MATLAB:benchmark:std_factorNotValid", "std_factor should be a positive real number.");
-    end
     % Judge whether profile_options.savepath is a string and exists. If not exists, create it.
     if ~ischarstr(profile_options.(ProfileOptionKey.SAVEPATH.value))
         error("MATLAB:benchmark:savepathNotValid", "savepath should be a char or a string.");

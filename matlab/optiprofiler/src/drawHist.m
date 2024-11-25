@@ -1,16 +1,20 @@
-function drawHist(fun_histories, maxcv_histories, merit_histories, fun_init, maxcv_init, merit_init, labels, cell_axs_summary, is_cum, problem_type, problem_n, n_eval)
+function drawHist(fun_histories, maxcv_histories, merit_histories, fun_init, maxcv_init, merit_init, labels, cell_axs_summary, is_cum, problem_type, problem_n, n_eval, profile_options)
 %DRAWHIST draws the history plots of the function values, the maximum constraint violation, and the merit function values.
 
     fun_histories = processHistYaxes(fun_histories, fun_init);
+    maxcv_histories = processHistYaxes(maxcv_histories, maxcv_init);
+    merit_histories = processHistYaxes(merit_histories, merit_init);
+
+    % Define the threshold ratio and safeguard for the y-axis.
+    ratio = 1e-9;
+    safeguard = 1e-12;
+    upper_bound = 1e12;
     
     % Define the shift of the y-axis. Shift the y-axis if there is value that is too close to zero.
-    y_shift_fun = 0;
-    if min(fun_histories(:)) <= 1e-9 * (max(fun_histories(:)) - min(fun_histories(:)))
-        y_shift_fun = max(1e-9 * (max(fun_histories(:)) - min(fun_histories(:))) - min(fun_histories(:)), 1e-12);
-    end
+    y_shift_fun = computeYShift(fun_histories, ratio, safeguard, upper_bound, profile_options);
 
     % First, draw the histories of function values.
-    drawFunMaxcvMeritHist(cell_axs_summary{1}, fun_histories, labels, is_cum, problem_n, y_shift_fun, n_eval);
+    drawFunMaxcvMeritHist(cell_axs_summary{1}, fun_histories, labels, is_cum, problem_n, y_shift_fun, n_eval, profile_options);
     [~, formatted_fun_shift] = formatFloatScientificLatex(y_shift_fun, 3);
 
     if is_cum
@@ -33,24 +37,13 @@ function drawHist(fun_histories, maxcv_histories, merit_histories, fun_init, max
     end
 
     % Do the same for the maximum constraint violations and the merit function values.
-    maxcv_histories = processHistYaxes(maxcv_histories, maxcv_init);
-    merit_histories = processHistYaxes(merit_histories, merit_init);
-    y_shift_maxcv = 0;
-    y_shift_merit = 0;
-    if min(maxcv_histories(:)) <= 1e-9 * (max(maxcv_histories(:)) - min(maxcv_histories(:))) && any(diff(maxcv_histories(:)))
-        % Note that if all maxcv_histories are the same (actually we care the case where it is all 0),
-        % we do not need to shift the y-axis.
-        y_shift_maxcv = max(1e-9 * (max(maxcv_histories(:)) - min(maxcv_histories(:))) - min(maxcv_histories(:)), 1e-12);
-    end
-    if min(merit_histories(:)) <= 1e-9 * (max(merit_histories(:)) - min(merit_histories(:)))
-        y_shift_merit = max(1e-9 * (max(merit_histories(:)) - min(merit_histories(:))) - min(merit_histories(:)), 1e-12);
-    end
+    y_shift_maxcv = computeYShift(maxcv_histories, ratio, safeguard, upper_bound, profile_options);
+    y_shift_merit = computeYShift(merit_histories, ratio, safeguard, upper_bound, profile_options);
 
     % Second, draw the histories of maximum constraint violations and merit function values.
-
-    drawFunMaxcvMeritHist(cell_axs_summary{2}, maxcv_histories, labels, is_cum, problem_n, y_shift_maxcv, n_eval);
+    drawFunMaxcvMeritHist(cell_axs_summary{2}, maxcv_histories, labels, is_cum, problem_n, y_shift_maxcv, n_eval, profile_options);
     [~, formatted_maxcv_shift] = formatFloatScientificLatex(y_shift_maxcv, 3);
-    drawFunMaxcvMeritHist(cell_axs_summary{3}, merit_histories, labels, is_cum, problem_n, y_shift_merit, n_eval);
+    drawFunMaxcvMeritHist(cell_axs_summary{3}, merit_histories, labels, is_cum, problem_n, y_shift_merit, n_eval, profile_options);
     [~, formatted_merit_shift] = formatFloatScientificLatex(y_shift_merit, 3);
     if is_cum
         if y_shift_maxcv > 0
@@ -76,5 +69,24 @@ function drawHist(fun_histories, maxcv_histories, merit_histories, fun_init, max
         end
     end
 
+end
+
+function y_shift = computeYShift(history, ratio, safeguard, upper_bound, profile_options)
+
+    y_shift = 0;
+    if strcmp(profile_options.(ProfileOptionKey.RANGE_TYPE.value), 'meanstd')
+        y_mean = squeeze(mean(history, 2));
+        y_std = squeeze(std(history, 0, 2));
+        y_lower = y_mean - y_std;
+        y_upper = y_mean + y_std;
+        y_max = max(y_upper(:));
+        y_min = min(y_lower(:));
+    else
+        y_max = max(history(:));
+        y_min = min(history(:));
+    end
     
+    if y_min <= ratio * (y_max - y_min) && any(diff(history(:)))
+        y_shift = min(max(ratio * (y_max - y_min) - y_min, safeguard), upper_bound);
+    end
 end

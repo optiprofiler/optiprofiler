@@ -9,6 +9,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
 
     % Solve all problems.
     n_problems = length(problem_names);
+    len_problem_names = max(cellfun(@length, problem_names));
     max_eval_factor = profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value);
     results = cell(1, n_problems);
     if ~profile_options.(ProfileOptionKey.SILENT.value)
@@ -22,7 +23,8 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
     % Decide whether to delete the pool.
     try
         pool = gcp('nocreate');
-        if ~isempty(pool) && (profile_options.n_jobs == 1 || profile_options.n_jobs ~= pool.NumWorkers)
+        % We will delete the pool only when keep_pool is false and the number of workers is not equal to n_jobs.
+        if ~isempty(pool) && (profile_options.n_jobs == 1 || profile_options.n_jobs ~= pool.NumWorkers) && ~profile_options.(ProfileOptionKey.KEEP_POOL.value)
             if ~profile_options.(ProfileOptionKey.SILENT.value)
                 delete(pool);
             else
@@ -37,7 +39,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
         case 1
             % Do not use parallel computing.
             if ~isempty(pool)
-                if ~profile_options.(ProfileOptionKey.SILENT.value)
+                if ~profile_options.(ProfileOptionKey.SILENT.value) && ~profile_options.(ProfileOptionKey.KEEP_POOL.value)
                     delete(pool);
                 else
                     evalc("delete(pool)");
@@ -45,7 +47,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
             end
             for i_problem = 1:n_problems
                 problem_name = problem_names{i_problem};
-                [tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n, tmp_computation_time] = solveOneProblem(problem_name, solvers, labels, feature, custom_problem_loader, profile_options, is_plot, path_hist_plots);
+                [tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n, tmp_computation_time] = solveOneProblem(problem_name, solvers, labels, feature, len_problem_names, custom_problem_loader, profile_options, is_plot, path_hist_plots);
                 results{i_problem} = {tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n, tmp_computation_time};
             end
         otherwise
@@ -64,7 +66,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
             end
             parfor i_problem = 1:n_problems
                 problem_name = problem_names{i_problem};
-                [tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n, tmp_computation_time] = solveOneProblem(problem_name, solvers, labels, feature, custom_problem_loader, profile_options, is_plot, path_hist_plots);
+                [tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n, tmp_computation_time] = solveOneProblem(problem_name, solvers, labels, feature, len_problem_names, custom_problem_loader, profile_options, is_plot, path_hist_plots);
                 results{i_problem} = {tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n, tmp_computation_time};
             end
             if ~profile_options.(ProfileOptionKey.KEEP_POOL.value)

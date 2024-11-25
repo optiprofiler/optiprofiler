@@ -14,8 +14,8 @@ function drawPerformanceDataProfiles(ax, x, y, labels, profile_options)
             y_upper = squeeze(max(y, [], 3));
         case 'meanstd'
             y_std = squeeze(std(y, [], 3));
-            y_lower = max(y_mean - profile_options.(ProfileOptionKey.STD_FACTOR.value) * y_std, 0);
-            y_upper = min(y_mean + profile_options.(ProfileOptionKey.STD_FACTOR.value) * y_std, 1);
+            y_lower = max(y_mean - y_std, 0);
+            y_upper = min(y_mean + y_std, 1);
         otherwise
             error("Unknown range type.");
     end

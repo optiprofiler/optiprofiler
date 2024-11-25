@@ -334,8 +334,7 @@ classdef Feature < handle
                     end
                 case FeatureName.PERTURBED_X0.value
                     % Use max(1, norm(x0)) to avoid no perturbation when x0 is zero.
-                    xCell = num2cell(problem.x0);
-                    rand_stream_perturbed_x0 = obj.default_rng(seed, xCell{:});
+                    rand_stream_perturbed_x0 = obj.default_rng(seed);
                     x0 = problem.x0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * max(1, norm(problem.x0)) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_perturbed_x0, problem.n) / norm(obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_perturbed_x0, problem.n));
                 case FeatureName.PERMUTED.value
                     % Note that we need to apply the reverse permutation to the initial point so that
@@ -711,12 +710,12 @@ classdef Feature < handle
             switch obj.name
                 case FeatureName.CUSTOM.value
                     if isfield(obj.options, FeatureOptionKey.MOD_FUN.value)
-                        rand_stream_custom = obj.default_rng(seed, xCell{:});
+                        rand_stream_custom = obj.default_rng(seed, f, xCell{:});
                         f = obj.options.(FeatureOptionKey.MOD_FUN.value)(x, rand_stream_custom, problem);
                         return;
                     end
                 case FeatureName.NOISY.value
-                    rand_stream_noisy = obj.default_rng(seed, f, obj.options.(FeatureOptionKey.NOISE_LEVEL.value), sum(double(obj.options.(FeatureOptionKey.NOISE_TYPE.value))), xCell{:});
+                    rand_stream_noisy = obj.default_rng(seed, f, xCell{:});
                     if strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), NoiseType.ABSOLUTE.value)
                         f = f + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1);
                     elseif strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), NoiseType.RELATIVE.value)
@@ -726,12 +725,12 @@ classdef Feature < handle
                         f = f + max(1, abs(f)) * obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1);
                     end
                 case FeatureName.RANDOM_NAN.value
-                    rand_stream_random_nan = obj.default_rng(seed, f, obj.options.(FeatureOptionKey.RATE_NAN.value), xCell{:});
+                    rand_stream_random_nan = obj.default_rng(seed, f, xCell{:});
                     if rand_stream_random_nan.rand() < obj.options.(FeatureOptionKey.RATE_NAN.value)
                         f = NaN;
                     end
                 case FeatureName.TRUNCATED.value
-                    rand_stream_truncated = obj.default_rng(seed, f, obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value), xCell{:});
+                    rand_stream_truncated = obj.default_rng(seed, f, xCell{:});
                     if f == 0
                         digits = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - 1;
                     else
@@ -799,13 +798,13 @@ classdef Feature < handle
             switch obj.name
                 case FeatureName.CUSTOM.value
                     if isfield(obj.options, FeatureOptionKey.MOD_CUB.value)
-                        rand_stream_custom = obj.default_rng(seed, xCell{:});
+                        rand_stream_custom = obj.default_rng(seed, cubCell{:}, xCell{:});
                         cub_ = obj.options.(FeatureOptionKey.MOD_CUB.value)(x, rand_stream_custom, problem);
                         return;
                     end
                 case FeatureName.NOISY.value
                     % Similar to the case in the modifier_fun method.
-                    rand_stream_noisy = obj.default_rng(seed, cubCell{:}, obj.options.(FeatureOptionKey.NOISE_LEVEL.value), sum(double(obj.options.(FeatureOptionKey.NOISE_TYPE.value))), xCell{:});
+                    rand_stream_noisy = obj.default_rng(seed, cubCell{:}, xCell{:});
                     if strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), NoiseType.ABSOLUTE.value)
                         cub_ = cub_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1);
                     elseif strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), NoiseType.RELATIVE.value)
@@ -815,13 +814,13 @@ classdef Feature < handle
                     end
                 case FeatureName.RANDOM_NAN.value
                     % Similar to the case in the modifier_fun method.
-                    rand_stream_random_nan = obj.default_rng(seed, cubCell{:}, obj.options.(FeatureOptionKey.RATE_NAN.value), xCell{:});
+                    rand_stream_random_nan = obj.default_rng(seed, cubCell{:}, xCell{:});
                     if rand_stream_random_nan.rand() < obj.options.(FeatureOptionKey.RATE_NAN.value)
                         cub_ = NaN;
                     end
                 case FeatureName.TRUNCATED.value
                     % Similar to the case in the modifier_fun method.
-                    rand_stream_truncated = obj.default_rng(seed, cubCell{:}, obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value), xCell{:});
+                    rand_stream_truncated = obj.default_rng(seed, cubCell{:}, xCell{:});
                     if cub_ == 0
                         digits = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - 1;
                     else
@@ -881,13 +880,13 @@ classdef Feature < handle
             switch obj.name
                 case FeatureName.CUSTOM.value
                     if isfield(obj.options, FeatureOptionKey.MOD_CEQ.value)
-                        rand_stream_custom = obj.default_rng(seed, xCell{:});
+                        rand_stream_custom = obj.default_rng(seed, ceqCell{:}, xCell{:});
                         ceq_ = obj.options.(FeatureOptionKey.MOD_CEQ.value)(x, rand_stream_custom, problem);
                         return;
                     end
                 case FeatureName.NOISY.value
                     % Similar to the case in the modifier_fun method.
-                    rand_stream_noisy = obj.default_rng(seed, ceqCell{:}, obj.options.(FeatureOptionKey.NOISE_LEVEL.value), sum(double(obj.options.(FeatureOptionKey.NOISE_TYPE.value))), xCell{:});
+                    rand_stream_noisy = obj.default_rng(seed, ceqCell{:}, xCell{:});
                     if strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), NoiseType.ABSOLUTE.value)
                         ceq_ = ceq_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1);
                     elseif strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), NoiseType.RELATIVE.value)
@@ -897,13 +896,13 @@ classdef Feature < handle
                     end
                 case FeatureName.RANDOM_NAN.value
                     % Similar to the case in the modifier_fun method.
-                    rand_stream_random_nan = obj.default_rng(seed, ceqCell{:}, obj.options.(FeatureOptionKey.RATE_NAN.value), xCell{:});
+                    rand_stream_random_nan = obj.default_rng(seed, ceqCell{:}, xCell{:});
                     if rand_stream_random_nan.rand() < obj.options.(FeatureOptionKey.RATE_NAN.value)
                         ceq_ = NaN;
                     end
                 case FeatureName.TRUNCATED.value
                     % Similar to the case in the modifier_fun method.
-                    rand_stream_truncated = obj.default_rng(seed, ceqCell{:}, obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value), xCell{:});
+                    rand_stream_truncated = obj.default_rng(seed, ceqCell{:}, xCell{:});
                     if ceq_ == 0
                         digits = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - 1;
                     else
