@@ -21,29 +21,28 @@ function basic()
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     % solvers = {@fminsearch_test, @fminunc_test};
-    % options.labels = {'simplex', 'bfgs-fd'};
-    % options.feature_name = 'plain';
+    % options.feature_name = 'noisy';
     % options.n_runs = 5;
-    % options.problem = s_load('HIMMELBH');
-    % options.seed = 2;
+    % options.problem = s_load('LIARWHD');
+    % options.seed = 1;
     % benchmark(solvers, options)
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Example 4 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    solvers = {@fminsearch_test, @fminunc_test};
-    options.feature_name = 'plain';
-    options.benchmark_id = 'test';
-    options.silent = false;
-    options.keep_pool = true;
-    options.solver_verbose = 1;
-    options.problem_type = 'u';
-    options.maxdim = 2;
-    options.excludelist = {"MUONSINELS"};
-    options.summarize_log_ratio_profiles = true;
-    options.labels = {'simplex', 'bfgs-fd'};
-    benchmark(solvers, options)
+    % solvers = {@fminsearch_test, @fminunc_test};
+    % options.feature_name = 'noisy';
+    % options.n_runs = 5;
+    % options.benchmark_id = 'test';
+    % options.silent = false;
+    % options.keep_pool = true;
+    % options.solver_verbose = 1;
+    % options.problem_type = 'u';
+    % options.maxdim = 5;
+    % options.excludelist = {"MUONSINELS"};
+    % options.labels = {'simplex', 'bfgs-fd'};
+    % benchmark(solvers, options)
 
 end
 
@@ -57,4 +56,10 @@ function x = fminunc_test(fun, x0)
 
     x = fminunc(fun, x0);
 
+end
+
+function x = ds(fun, x0)
+
+    option.Algorithm = 'ds';
+    x = bds(fun, x0, option);
 end
