@@ -46,9 +46,9 @@ function profile_options = checkValidityProfileOptions(profile_options, solvers)
             error("MATLAB:benchmark:savepathNotExist", "profile_options.savepath does not exist and cannot be created.");
         end
     end
-    % Judge whether profile_options.max_tol_order is a positive integer.
-    if ~isintegerscalar(profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)) || profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) <= 0
-        error("MATLAB:benchmark:max_tol_orderNotValid", "max_tol_order should be a positive integer.");
+    % Judge whether profile_options.max_tol_order is a positive integer smaller than or equal to 15.
+    if ~isintegerscalar(profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)) || profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) <= 0 || profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) > 15
+        error("MATLAB:benchmark:max_tol_orderNotValid", "max_tol_order should be a positive integer smaller than or equal to 15.");
     end
     % Judge whether profile_options.max_eval_factor is a positive integer.
     if ~isintegerscalar(profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value)) || profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value) <= 0

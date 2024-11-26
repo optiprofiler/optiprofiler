@@ -6,7 +6,6 @@ function cutest_problem_names = loadCutestNames(cutest_options, cutest_problem_n
         custom_problem_names = cellfun(@char, custom_problem_names, 'UniformOutput', false);
     end
 
-
     % Select the problems based on cutest_options.
     if isempty(cutest_options) || ~isempty(cutest_problem_names) || (~isempty(custom_problem_loader) || ~isempty(custom_problem_names))
         cutest_problem_names_options = {};
@@ -38,6 +37,9 @@ function cutest_problem_names = loadCutestNames(cutest_options, cutest_problem_n
     else
         cutest_problem_names = unique([cutest_problem_names, cutest_problem_names_options]);
     end
+
+    % Add some problems to excludelist. These problems have bugs!
+    cutest_options.(CutestOptionKey.EXCLUDELIST.value) = [cutest_options.(CutestOptionKey.EXCLUDELIST.value), {'DANWOODLS', 'MISRA1CLS'}];
 
     % Exclude the problems specified by cutest_options.excludelist.
     if isfield(cutest_options, CutestOptionKey.EXCLUDELIST.value) && ~isempty(cutest_options.(CutestOptionKey.EXCLUDELIST.value))

@@ -337,7 +337,7 @@ function benchmark(solvers, varargin)
     % do not need to check it here.
 
     % Check whether the cutest options are valid.
-    checkValidityCutestOptions(cutest_options);
+    cutest_options = checkValidityCutestOptions(cutest_options);
 
     % Check whether the profile options are valid.
     profile_options = checkValidityProfileOptions(profile_options, solvers);
@@ -474,8 +474,22 @@ function benchmark(solvers, varargin)
             end
         end
     end
-    
     fclose(fid);
+
+    % Merge all the pdf files in path_hist_plots to a single pdf file.
+    if ~profile_options.(ProfileOptionKey.SILENT.value)
+        fprintf('\nINFO: Merging all the history plots to a single PDF file.\n');
+    end
+    try
+        mergePdfs(path_hist_plots, 'history_plots_summary.pdf', path_feature);
+    catch
+        warning('Failed to merge the history plots to a single PDF file.');
+    end
+
+    if ~profile_options.(ProfileOptionKey.SILENT.value)
+        fprintf('\nINFO: Detailed results stored in %s\n', path_feature);
+    end
+    warning('on');
 
     [n_problems, n_solvers, n_runs, ~] = size(merit_histories);
     if n_solvers <= 2
@@ -489,7 +503,6 @@ function benchmark(solvers, varargin)
 
     max_tol_order = profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value);
     tolerances = 10.^(-1:-1:-max_tol_order);
-    pdf_summary = fullfile(path_out, 'summary.pdf');
     pdf_perf_hist_summary = fullfile(path_feature, 'perf_hist.pdf');
     pdf_perf_out_summary = fullfile(path_feature, 'perf_out.pdf');
     pdf_data_hist_summary = fullfile(path_feature, 'data_hist.pdf');
@@ -667,27 +680,52 @@ function benchmark(solvers, varargin)
 
     end
 
-    % if pdf_summary is not empty, export the summary figure to the pdf_summary.
-    if ~isempty(pdf_summary)
-        exportgraphics(fig_summary, pdf_summary, 'ContentType', 'vector', 'Append', true);
+    % Store the summary pdf. We will name it with the following rule:
+    %   - If there is no summary pdf under path_out, we will name it as 'summary_featurename.pdf',
+    %     where featurename is the name of the feature we are currently processing.
+    %   - If there is already a summary pdf under path_out which should be in the form of
+    %     'summary_featurename1_featurename2_..._featurenameN.pdf', we will check whether
+    %     'featurename' is already in the name. If it is, we will replace the corresponding page
+    %     with the new summary. If it is not, we will add 'featurename' to the name and append the
+    %     new summary to the end.
+
+    % List all summary PDF files in the output path.
+    summary_files = dir(fullfile(path_out, 'summary_*.pdf'));
+    if ~isempty(summary_files)
+        for i_file = 1:length(summary_files)
+            % Extract the features from the filename.
+            [~, name, ~] = fileparts(summary_files(i_file).name);
+            existing_features = strsplit(name, '_');
+            existing_features = existing_features(2:end); % Remove 'summary' part.
+            pdf_summary = fullfile(path_out, summary_files(i_file).name);
+            if ismember(feature_name, existing_features)
+                % Locate the page number of the feature in the summary PDF, that is the index of
+                % feature_name in existing_features.
+                page_number = find(ismember(existing_features, feature_name), 1, 'first');
+                % Delete the page from the summary PDF.
+                deletePdfPages(path_out, summary_files(i_file).name, page_number);
+                % Modify the order of the existing features, moving the feature_name to the end.
+                existing_features = [existing_features(1:page_number-1), existing_features(page_number+1:end), feature_name];
+                % Append the new summary to the end of the summary PDF.
+                exportgraphics(fig_summary, pdf_summary, 'ContentType', 'vector', 'Append', true);
+                % Rename the summary PDF if necessary.
+                new_name = ['summary_' strjoin(existing_features, '_') '.pdf'];
+                if ~strcmp(summary_files(i_file).name, new_name)
+                    movefile(pdf_summary, fullfile(path_out, new_name));
+                end
+            else
+                existing_features = [existing_features, feature_name];
+                % Append the new summary to the end of the summary PDF.
+                exportgraphics(fig_summary, pdf_summary, 'ContentType', 'vector', 'Append', true);
+                % Rename the summary PDF.
+                movefile(pdf_summary, fullfile(path_out, ['summary_' strjoin(existing_features, '_') '.pdf']));
+            end
+            break;
+        end
     else
-        exportgraphics(fig_summary, pdf_summary, 'ContentType', 'vector');
+        % If there is no summary PDF in the output path, we will create a new one.
+        exportgraphics(fig_summary, fullfile(path_out, ['summary_' feature_name '.pdf']), 'ContentType', 'vector');
     end
-
-    % Merge all the pdf files in path_hist_plots to a single pdf file.
-    if ~profile_options.(ProfileOptionKey.SILENT.value)
-        fprintf('\nINFO: Merging all the history plots to a single PDF file.\n');
-    end
-    try
-        mergePdfs(path_hist_plots, 'history_plots_summary.pdf', path_feature);
-    catch
-        warning('Failed to merge the history plots to a single PDF file.');
-    end
-
-    if ~profile_options.(ProfileOptionKey.SILENT.value)
-        fprintf('\nINFO: Detailed results stored in %s\n', path_feature);
-    end
-    warning('on');
 
     % Close the figures.
     close(fig_summary);
@@ -695,6 +733,22 @@ function benchmark(solvers, varargin)
         fprintf('\nINFO: Summary stored in %s\n', path_out);
     end
 
+end
+
+function deletePdfPages(file_path, file_name, page_numbers)
+    % Sort the page numbers in ascending order.
+    page_numbers = sort(page_numbers, 'ascend');
+    pdf = fullfile(file_path, file_name);
+    Pd=org.apache.pdfbox.pdmodel.PDDocument;
+    PdFile = java.io.File(pdf);
+    document = Pd.load(PdFile);
+    for i = 1:length(page_numbers)
+        document.removePage(page_numbers(i) - 1);
+        page_numbers = page_numbers - 1;
+        document.save(PdFile);
+    end
+    document.close();
+    Pd.close();
 end
 
 % Following code is modified from the code provided by Benjamin Großmann (2024). Merge PDF-Documents

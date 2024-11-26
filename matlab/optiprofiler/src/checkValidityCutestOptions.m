@@ -1,4 +1,4 @@
-function checkValidityCutestOptions(cutest_options)
+function cutest_options = checkValidityCutestOptions(cutest_options)
 %CHECKVALIDITYCUTESTOPTIONS Check the validity of the options in cuteset_options
 
     % Judge whether cutest_options.problem_type is among all possible problem types.
@@ -52,10 +52,18 @@ function checkValidityCutestOptions(cutest_options)
     end
     % Judge whether cutest_options.excludelist is a cell array of strings or chars.
     if isfield(cutest_options, CutestOptionKey.EXCLUDELIST.value)
+        if ischarstr(cutest_options.(CutestOptionKey.EXCLUDELIST.value))
+            cutest_options.(CutestOptionKey.EXCLUDELIST.value) = {cutest_options.(CutestOptionKey.EXCLUDELIST.value)};
+        end
         if ~iscell(cutest_options.(CutestOptionKey.EXCLUDELIST.value)) || ~all(cellfun(@ischarstr, cutest_options.(CutestOptionKey.EXCLUDELIST.value)))
             error("MATLAB:benchmark:excludelistNotCellOfcharstr", "cutest_options.excludelist should be a cell array of strings or chars.");
         end
-        cutest_options.(CutestOptionKey.EXCLUDELIST.value) = cellfun(@char, cutest_options.(CutestOptionKey.EXCLUDELIST.value), 'UniformOutput', false);  % Convert to cell array of chars.
+        % Convert to cell array of chars.
+        cutest_options.(CutestOptionKey.EXCLUDELIST.value) = cellfun(@char, cutest_options.(CutestOptionKey.EXCLUDELIST.value), 'UniformOutput', false);
+        % Convert to a row vector if not.
+        if size(cutest_options.(CutestOptionKey.EXCLUDELIST.value), 1) > 1
+            cutest_options.(CutestOptionKey.EXCLUDELIST.value) = cutest_options.(CutestOptionKey.EXCLUDELIST.value)';
+        end
     end
 
 end
