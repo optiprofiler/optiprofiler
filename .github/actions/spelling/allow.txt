@@ -230,3 +230,5 @@ strjoin
 strsplit
 YScale
 YShift
+ROSENBR
+ROSSIMP

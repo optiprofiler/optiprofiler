@@ -156,13 +156,18 @@ function benchmark(solvers, varargin)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Preprocess the input arguments. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
+    % Initialize options_store to store the options for later reproduction.
+    options_store = struct();
+
     if nargin == 0
         error("MATLAB:benchmark:solverMustBeProvided", "solvers must be provided.");
     elseif nargin == 1
         % When input only contains one argument, we assume the user chooses benchmark(solvers) and
         % test plain feature.
         feature_name = 'plain';
+        options_store.feature_name = feature_name;
         labels = cellfun(@(s) func2str(s), solvers, 'UniformOutput', false);
+        options_store.labels = labels;
         cutest_problem_names = {};
         custom_problem_loader = {};
         custom_problem_names = {};
@@ -172,7 +177,9 @@ function benchmark(solvers, varargin)
             % When input contains two arguments and the second argument is a char or cell of char,
             % we assume the user chooses benchmark(solvers, feature_name).
             feature_name = varargin{1};
+            options_store.feature_name = feature_name;
             labels = cellfun(@(s) func2str(s), solvers, 'UniformOutput', false);
+            options_store.labels = labels;
             cutest_problem_names = {};
             custom_problem_loader = {};
             custom_problem_names = {};
@@ -187,12 +194,15 @@ function benchmark(solvers, varargin)
             else
                 feature_name = 'plain';
             end
+            options_store.feature_name = feature_name;
+
             if isfield(options, 'labels')
                 labels = options.labels;
                 options = rmfield(options, 'labels');
             else
                 labels = cellfun(@(s) func2str(s), solvers, 'UniformOutput', false);
             end
+            options_store.labels = labels;
 
             if isfield(options, 'problem') && ~isempty(options.problem)
                 if ~isa(options.problem, 'Problem')
@@ -201,11 +211,13 @@ function benchmark(solvers, varargin)
                 cutest_problem_names = {};
                 custom_problem_loader = @(x) options.problem;
                 custom_problem_names = {options.problem.name};
+                options_store.problem = options.problem;
                 options = rmfield(options, 'problem');
                 options.n_jobs = 1;
             else
                 if isfield(options, 'cutest_problem_names')
                     cutest_problem_names = options.cutest_problem_names;
+                    options_store.cutest_problem_names = cutest_problem_names;
                     options = rmfield(options, 'cutest_problem_names');
                 else
                     cutest_problem_names = {};
@@ -213,6 +225,8 @@ function benchmark(solvers, varargin)
                 if isfield(options, 'custom_problem_loader') && isfield(options, 'custom_problem_names')
                     custom_problem_loader = options.custom_problem_loader;
                     custom_problem_names = options.custom_problem_names;
+                    options_store.custom_problem_loader = custom_problem_loader;
+                    options_store.custom_problem_names = custom_problem_names;
                     options = rmfield(options, 'custom_problem_loader');
                     options = rmfield(options, 'custom_problem_names');
                 elseif isfield(options, 'custom_problem_loader') || isfield(options, 'custom_problem_names')
@@ -342,6 +356,23 @@ function benchmark(solvers, varargin)
 
     % Check whether the profile options are valid.
     profile_options = checkValidityProfileOptions(profile_options, solvers);
+
+    % Store the options for later reproduction.
+    feature_option_keys = fieldnames(feature_options);
+    for i_field = 1:numel(feature_option_keys)
+        key = feature_option_keys{i_field};
+        options_store.(key) = feature_options.(key);
+    end
+    cutest_option_keys = fieldnames(cutest_options);
+    for i_field = 1:numel(cutest_option_keys)
+        key = cutest_option_keys{i_field};
+        options_store.(key) = cutest_options.(key);
+    end
+    profile_option_keys = fieldnames(profile_options);
+    for i_field = 1:numel(profile_option_keys)
+        key = profile_option_keys{i_field};
+        options_store.(key) = profile_options.(key);
+    end
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%% Use cutest_options to select problems. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -384,6 +415,16 @@ function benchmark(solvers, varargin)
     if ~exist(path_hist_plots, 'dir')
         mkdir(path_hist_plots);
     end
+
+    % Create the directory to store options and other information.
+    path_log = fullfile(path_feature, 'test_log');
+    if ~exist(path_log, 'dir')
+        mkdir(path_log);
+    else
+        rmdir(path_log, 's');
+        mkdir(path_log);
+    end
+    save(fullfile(path_log, 'options_store.mat'), 'options_store');
 
     % Solve all the problems.
     [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, ...
@@ -511,6 +552,7 @@ function benchmark(solvers, varargin)
     pdf_log_ratio_out_summary = fullfile(path_feature, 'log-ratio_out.pdf');
 
     % Create profiles.
+    warning('off');
     n_rows = 0;
     is_perf = profile_options.(ProfileOptionKey.SUMMARIZE_PERFORMANCE_PROFILES.value);
     is_data = profile_options.(ProfileOptionKey.SUMMARIZE_DATA_PROFILES.value);
@@ -611,6 +653,7 @@ function benchmark(solvers, varargin)
         processed_labels = cellfun(@(s) strrep(s, '_', '\_'), labels, 'UniformOutput', false);
         [fig_perf_hist, fig_data_hist, fig_log_ratio_hist] = drawProfiles(work_hist, problem_dimensions, processed_labels, tolerance_label, cell_axs_summary_hist, true, is_perf, is_data, is_log_ratio, profile_options);
         [fig_perf_out, fig_data_out, fig_log_ratio_out] = drawProfiles(work_out, problem_dimensions, processed_labels, tolerance_label, cell_axs_summary_out, is_output_based, is_perf, is_data, is_log_ratio, profile_options);
+
         eps_perf_hist = fullfile(path_perf_hist, ['perf_hist_' int2str(i_profile) '.eps']);
         print(fig_perf_hist, eps_perf_hist, '-depsc');
         pdf_perf_hist = fullfile(path_perf_hist, ['perf_hist_' int2str(i_profile) '.pdf']);
@@ -739,6 +782,8 @@ function benchmark(solvers, varargin)
         % If there is no summary PDF in the output path, we will create a new one.
         exportgraphics(fig_summary, fullfile(path_out, ['summary_' feature_name '.pdf']), 'ContentType', 'vector');
     end
+
+    warning('on');
 
     % Close the figures.
     close(fig_summary);
