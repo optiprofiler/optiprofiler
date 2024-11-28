@@ -427,9 +427,7 @@ function benchmark(solvers, varargin)
     save(fullfile(path_log, 'options_store.mat'), 'options_store');
 
     % Solve all the problems.
-    [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, ...
-    problem_names, problem_dimensions, time_processes, problem_unsolved] = solveAllProblems(cutest_problem_names, ...
-    custom_problem_loader, custom_problem_names, solvers, labels, feature, profile_options, true, path_hist_plots);
+    [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, time_processes, problem_unsolved] = solveAllProblems(cutest_problem_names, custom_problem_loader, custom_problem_names, solvers, labels, feature, profile_options, true, path_hist_plots);
     merit_histories = computeMeritValues(fun_histories, maxcv_histories, maxcv_init);
     merit_out = computeMeritValues(fun_out, maxcv_out, maxcv_init);
     merit_init = computeMeritValues(fun_init, maxcv_init, maxcv_init);
@@ -461,13 +459,18 @@ function benchmark(solvers, varargin)
         if ~profile_options.(ProfileOptionKey.SILENT.value)
             fprintf('\nINFO: Starting the computation of the "plain" profiles.\n');
         end
-        [fun_histories_plain, maxcv_histories_plain, ~, ~, ~, ~, ~, ~, ~, time_processes_plain] = ...
-        solveAllProblems(cutest_problem_names, custom_problem_loader, custom_problem_names, solvers, labels, ...
-        feature_plain, profile_options, false, {});
-        time_processes = time_processes + time_processes_plain;
+        [fun_histories_plain, maxcv_histories_plain, ~, ~, ~, ~, ~, problem_names_plain, ~, time_processes_plain] = solveAllProblems(cutest_problem_names, custom_problem_loader, custom_problem_names, solvers, labels, feature_plain, profile_options, false, {});
         merit_histories_plain = computeMeritValues(fun_histories_plain, maxcv_histories_plain, maxcv_init);
         merit_min_plain = min(min(min(merit_histories_plain, [], 4, 'omitnan'), [], 3, 'omitnan'), [], 2, 'omitnan');
-        merit_min = min(merit_min, merit_min_plain, 'omitnan');
+        for i_problem = 1:numel(problem_names)
+            % Check whether the problem is solved under the plain feature.
+            if ismember(problem_names{i_problem}, problem_names_plain)
+                % Find the index of the problem in the plain feature.
+                idx = find(strcmp(problem_names{i_problem}, problem_names_plain), 1);
+                merit_min(i_problem) = min(merit_min(i_problem), merit_min_plain(idx), 'omitnan');
+                time_processes(i_problem) = time_processes(i_problem) + time_processes_plain(idx);
+            end
+        end
     end
 
     % Create the directories for the performance profiles, data profiles, and log-ratio profiles.

@@ -79,7 +79,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
             end
     end
 
-    % Select and delete the empty results. Get a list of unsolved problems.
+    % Select and delete the empty results. Get a list of unsolved problems (all solvers failed to solve the problem).
     not_empty_index = cellfun(@(c) all(cellfun(@(x) ~isempty(x), c)), results);
     problem_unsolved = problem_names(~not_empty_index);
     results = results(not_empty_index);
