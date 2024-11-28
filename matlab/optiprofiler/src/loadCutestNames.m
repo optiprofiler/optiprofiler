@@ -38,8 +38,10 @@ function cutest_problem_names = loadCutestNames(cutest_options, cutest_problem_n
         cutest_problem_names = unique([cutest_problem_names, cutest_problem_names_options]);
     end
 
-    % Add some problems to excludelist. These problems have bugs!
-    cutest_options.(CutestOptionKey.EXCLUDELIST.value) = [cutest_options.(CutestOptionKey.EXCLUDELIST.value), {'DANWOODLS', 'MISRA1CLS'}];
+    % Add some problems to excludelist. These problems have bugs or are not suitable for benchmarking.
+    % 'DANWOODLS' and 'MISRA1CLS' have bugs at this moment (bugs in SIF files where bound constraints are not defined).
+    % 'ROSSIMP1', 'ROSSIMP2', and 'ROSSIMP3' are duplicated with 'ROSENBR'.
+    cutest_options.(CutestOptionKey.EXCLUDELIST.value) = [cutest_options.(CutestOptionKey.EXCLUDELIST.value), {'DANWOODLS', 'MISRA1CLS', 'ROSSIMP1', 'ROSSIMP2', 'ROSSIMP3'}];
 
     % Exclude the problems specified by cutest_options.excludelist.
     if isfield(cutest_options, CutestOptionKey.EXCLUDELIST.value) && ~isempty(cutest_options.(CutestOptionKey.EXCLUDELIST.value))

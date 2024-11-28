@@ -248,7 +248,8 @@ function benchmark(solvers, varargin)
     end
     % Convert the char or string to a char of lower case.
     feature_name = char(lower(feature_name));
-    if ~ismember(feature_name, {enumeration('FeatureName').value})
+    valid_feature_names = cellfun(@(x) x.value, num2cell(enumeration('FeatureName')), 'UniformOutput', false);
+    if ~ismember(feature_name, valid_feature_names)
         error("MATLAB:benchmark:feature_nameNotValid", "The feature name must be valid.");
     end
 
@@ -487,9 +488,8 @@ function benchmark(solvers, varargin)
     end
 
     if ~profile_options.(ProfileOptionKey.SILENT.value)
-        fprintf('\nINFO: Detailed results stored in %s\n', path_feature);
+        fprintf('\nINFO: Detailed results stored in %s\n\n', path_feature);
     end
-    warning('on');
 
     [n_problems, n_solvers, n_runs, ~] = size(merit_histories);
     if n_solvers <= 2
@@ -510,8 +510,7 @@ function benchmark(solvers, varargin)
     pdf_log_ratio_hist_summary = fullfile(path_feature, 'log-ratio_hist.pdf');
     pdf_log_ratio_out_summary = fullfile(path_feature, 'log-ratio_out.pdf');
 
-    % Create the figure for the summary.
-    warning('off');
+    % Create profiles.
     n_rows = 0;
     is_perf = profile_options.(ProfileOptionKey.SUMMARIZE_PERFORMANCE_PROFILES.value);
     is_data = profile_options.(ProfileOptionKey.SUMMARIZE_DATA_PROFILES.value);
@@ -610,10 +609,8 @@ function benchmark(solvers, varargin)
         end
 
         processed_labels = cellfun(@(s) strrep(s, '_', '\_'), labels, 'UniformOutput', false);
-        [fig_perf_hist, fig_data_hist, fig_log_ratio_hist] = drawProfiles(work_hist, problem_dimensions, ...
-        processed_labels, tolerance_label, cell_axs_summary_hist, true, is_perf, is_data, is_log_ratio, profile_options);
-        [fig_perf_out, fig_data_out, fig_log_ratio_out] = drawProfiles(work_out, problem_dimensions, processed_labels, ...
-        tolerance_label, cell_axs_summary_out, is_output_based, is_perf, is_data, is_log_ratio, profile_options);
+        [fig_perf_hist, fig_data_hist, fig_log_ratio_hist] = drawProfiles(work_hist, problem_dimensions, processed_labels, tolerance_label, cell_axs_summary_hist, true, is_perf, is_data, is_log_ratio, profile_options);
+        [fig_perf_out, fig_data_out, fig_log_ratio_out] = drawProfiles(work_out, problem_dimensions, processed_labels, tolerance_label, cell_axs_summary_out, is_output_based, is_perf, is_data, is_log_ratio, profile_options);
         eps_perf_hist = fullfile(path_perf_hist, ['perf_hist_' int2str(i_profile) '.eps']);
         print(fig_perf_hist, eps_perf_hist, '-depsc');
         pdf_perf_hist = fullfile(path_perf_hist, ['perf_hist_' int2str(i_profile) '.pdf']);
@@ -695,8 +692,24 @@ function benchmark(solvers, varargin)
         for i_file = 1:length(summary_files)
             % Extract the features from the filename.
             [~, name, ~] = fileparts(summary_files(i_file).name);
-            existing_features = strsplit(name, '_');
-            existing_features = existing_features(2:end); % Remove 'summary' part.
+            valid_feature_names = {enumeration('FeatureName').value};
+            matchedPatterns = {};
+            matchPositions = [];
+            for i_pattern = 1:length(valid_feature_names)
+                pattern = valid_feature_names{i_pattern};
+                tokens = regexp(name, pattern, 'match', 'once');
+                pos = regexp(name, pattern, 'start', 'once');
+                if ~isempty(tokens) && ~isempty(pos)
+                    matchedPatterns{end+1} = tokens;
+                    matchPositions(end+1) = pos;
+                end
+            end
+            if ~isempty(matchPositions)
+                [~, idx] = sort(matchPositions);
+                existing_features = matchedPatterns(idx);
+            else
+                existing_features = {};
+            end
             pdf_summary = fullfile(path_out, summary_files(i_file).name);
             if ismember(feature_name, existing_features)
                 % Locate the page number of the feature in the summary PDF, that is the index of
