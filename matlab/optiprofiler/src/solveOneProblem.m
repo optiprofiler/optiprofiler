@@ -161,10 +161,12 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
         fig_summary = figure('Position', [defaultFigurePosition(1:2), n_cols * default_width, 2 * default_height], ...
         'visible', 'off');
         T_summary = tiledlayout(fig_summary, 2, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
-        T_title = strrep(feature.name, '_', '\_');
+        F_title = strrep(feature.name, '_', '\_');
         P_title = strrep(problem_name, '_', '\_');
-        title(T_summary, ['Solving ``', P_title, '" with ``', T_title, '" feature'], 'Interpreter', 'latex', ...
-        'FontSize', 14);
+        T_title = ['Solving ``', P_title, '" with ``', F_title, '" feature'];
+        title_fontsize = min(12, floor(1.2 * default_width / length(T_title)));
+        title(T_summary, ['Solving ``', P_title, '" with ``', F_title, '" feature'], 'Interpreter', 'latex', ...
+        'FontSize', title_fontsize);
         % Use gobjects to create arrays of handles and axes.
         t_summary = gobjects(2, 1);
         axs_summary = gobjects([2, 1, 1, n_cols]);
@@ -199,7 +201,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
         warning('on');
         close(fig_summary);
     catch Exception
-        fprintf("An error occurred while plotting the history plots of the problem %s: %s\n", problem_name, Exception.message);
+        fprintf("INFO: An error occurred while plotting the history plots of the problem %s: %s\n", problem_name, Exception.message);
     end
 
 end

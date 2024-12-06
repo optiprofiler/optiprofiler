@@ -75,6 +75,9 @@ function benchmark(solvers, varargin)
 %         specifically, the condition number of the linear transformation will
 %         2 ^ (condition_factor * n / 2), where n is the dimension of the
 %         problem. Default is 0.
+%       - rate_nan: the probability that the evaluation of the objective
+%         function will return NaN in the 'random_nan' feature. Default is
+%         0.05.
 %       - unrelaxable_bounds: whether the bound constraints are unrelaxable or
 %         not in the 'unrelaxable_constraints' feature. Default is false.
 %       - unrelaxable_linear_constraints: whether the linear constraints are
@@ -83,16 +86,64 @@ function benchmark(solvers, varargin)
 %       - unrelaxable_nonlinear_constraints: whether the nonlinear constraints
 %         are unrelaxable or not in the 'unrelaxable_constraints' feature.
 %         Default is false.
-%       - rate_nan: the probability that the evaluation of the objective
-%         function will return NaN in the 'random_nan' feature. Default is
-%         0.05.
-%       - modifier: the modifier function to modify the objective function
-%         value in the 'custom' feature. It should be a function handle,
-%               (current point, current objective function value, seed) ->
-%               modified objective function value
-%         accepting the current point, the current objective function value,
-%         and a random seed, and returning the modified objective function
-%         value. No default setting.
+%       - mesh_size: the size of the mesh in the 'quantized' feature. Default
+%         is 10^-3.
+%       - is_truth: whether the feature is the ground truth or not. Default is
+%         true.
+%       - mod_x0: the modifier function to modify the inital guess in the 
+%         'custom' feature. It should be a function handle as follows:
+%               (random_stream, problem) -> modified_x0,
+%         where problem is an instance of the class Problem, and modified_x0 is
+%         the modified initial guess. No default.
+%       - mod_affine: the modifier function to generate the affine
+%         transformation applied to the variables in the 'custom' feature. It
+%         should be a function handle as follows:
+%               (random_stream, problem) -> (A, b, inv),
+%         where problem is an instance of the class Problem, A is the matrix of
+%         the affine transformation, b is the vector of the affine
+%         transformation, and inv is the inverse of the matrix A. No default.
+%       - mod_bounds: the modifier function to modify the bound constraints in
+%         the 'custom' feature. It should be a function handle as follows:
+%               (random_stream, problem) -> (modidied_xl, modified_xu),
+%         where problem is an instance of the class Problem, modified_xl is the
+%         modified lower bound, and modified_xu is the modified upper bound. No
+%         default.
+%       - mod_linear_ub: the modifier function to modify the linear inequality
+%         constraints in the 'custom' feature. It should be a function handle
+%         as follows:
+%               (random_stream, problem) -> (modified_aub, modified_bub),
+%         where problem is an instance of the class Problem, modified_aub is
+%         the modified matrix of the linear inequality constraints, and
+%         modified_bub is the modified vector of the linear inequality
+%         constraints. No default.
+%       - mod_linear_eq: the modifier function to modify the linear equality
+%         constraints in the 'custom' feature. It should be a function handle
+%         as follows:
+%               (random_stream, problem) -> (modified_aeq, modified_beq),
+%         where problem is an instance of the class Problem, modified_aeq is
+%         the modified matrix of the linear equality constraints, and
+%         modified_beq is the modified vector of the linear equality
+%         constraints. No default.
+%       - mod_fun: the modifier function to modify the objective function in
+%         the 'custom' feature. It should be a function handle as follows:
+%               (x, random_stream, problem) -> modified_fun,
+%         where x is the evaluation point, problem is an instance of the class
+%         Problem, and modified_fun is the modified objective function value.
+%         No default.
+%       - mod_cub: the modifier function to modify the nonlinear inequality
+%         constraints in the 'custom' feature. It should be a function handle
+%         as follows:
+%               (x, random_stream, problem) -> modified_cub,
+%         where x is the evaluation point, problem is an instance of the class
+%         Problem, and modified_cub is the modified vector of the nonlinear
+%         inequality constraints. No default.
+%       - mod_ceq: the modifier function to modify the nonlinear equality
+%         constraints in the 'custom' feature. It should be a function handle
+%         as follows:
+%               (x, random_stream, problem) -> modified_ceq,
+%         where x is the evaluation point, problem is an instance of the class
+%         Problem, and modified_ceq is the modified vector of the nonlinear
+%         equality constraints. No default.
 %       3. options for CUTEst:
 %       Note that the CUTEst we used is the MATLAB codes from a GitHub
 %       repository called 'S2MPJ', created by Professor Serge Gratton and
@@ -515,7 +566,7 @@ function benchmark(solvers, varargin)
         for i = 1:length(problem_unsolved)
             count = fprintf(fid, "%s\n", problem_unsolved{i});
             if count < 0
-                error("MATLAB:benchmark:FailToEditFile", "Failed to record data for %s.", problem_unsolved{i});
+                fprintf("INFO: Failed to record data for %s.", problem_unsolved{i});
             end
         end
     end
@@ -528,7 +579,7 @@ function benchmark(solvers, varargin)
     try
         mergePdfs(path_hist_plots, 'history_plots_summary.pdf', path_feature);
     catch
-        warning('Failed to merge the history plots to a single PDF file.');
+        warning('INFO: Failed to merge the history plots to a single PDF file.');
     end
 
     if ~profile_options.(ProfileOptionKey.SILENT.value)
@@ -605,7 +656,7 @@ function benchmark(solvers, varargin)
         tolerance = tolerances(i_profile);
         [tolerance_str, tolerance_latex] = formatFloatScientificLatex(tolerance, 1);
         if ~profile_options.(ProfileOptionKey.SILENT.value)
-            fprintf("Creating profiles for tolerance %s.\n", tolerance_str);
+            fprintf("INFO: Creating profiles for tolerance %s.\n", tolerance_str);
         end
         tolerance_label = ['$\mathrm{tol} = ' tolerance_latex '$'];
 

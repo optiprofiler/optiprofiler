@@ -72,7 +72,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
             if ~profile_options.(ProfileOptionKey.KEEP_POOL.value)
                 if ~profile_options.(ProfileOptionKey.SILENT.value)
                     delete(gcp);
-                    fprintf("Leaving the parallel section.\n");
+                    fprintf("INFO: Leaving the parallel section.\n");
                 else
                     evalc("delete(gcp)");
                 end
@@ -85,7 +85,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
     results = results(not_empty_index);
 
     if all(arrayfun(@(x) all(cellfun(@isempty, results{x}([1:7, 9:10]))), 1:length(results))) % Check if all problems failed to load.
-        fprintf("All problems failed to load.\n");
+        fprintf("INFO: All problems failed to load.\n");
         fun_histories = [];
         maxcv_histories = [];
         fun_out = [];
