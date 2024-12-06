@@ -104,7 +104,7 @@ function benchmark(solvers, varargin)
 %         transformation, and inv is the inverse of the matrix A. No default.
 %       - mod_bounds: the modifier function to modify the bound constraints in
 %         the 'custom' feature. It should be a function handle as follows:
-%               (random_stream, problem) -> (modidied_xl, modified_xu),
+%               (random_stream, problem) -> (modified_xl, modified_xu),
 %         where problem is an instance of the class Problem, modified_xl is the
 %         modified lower bound, and modified_xu is the modified upper bound. No
 %         default.
