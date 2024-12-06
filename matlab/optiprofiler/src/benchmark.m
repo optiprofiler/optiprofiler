@@ -448,14 +448,8 @@ function benchmark(solvers, varargin)
     %%%%%%%%%%%%%%%%%%%%%%%%% Start the computation of the profiles. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    % Build feature.
-    feature = Feature(feature_name, feature_options);
-    if ~profile_options.(ProfileOptionKey.SILENT.value)
-        fprintf('INFO: Starting the computation of the "%s" profiles.\n', feature.name);
-    end
-        
     % Create the directory to store the results. If it already exists, overwrite it.
-    path_feature = fullfile(path_out, feature.name);
+    path_feature = fullfile(path_out, feature_name);
     if ~exist(path_feature, 'dir')
         mkdir(path_feature);
     else
@@ -467,7 +461,7 @@ function benchmark(solvers, varargin)
         mkdir(path_hist_plots);
     end
 
-    % Create the directory to store options and other information.
+    % Create the directory to store options and log files.
     path_log = fullfile(path_feature, 'test_log');
     if ~exist(path_log, 'dir')
         mkdir(path_log);
@@ -476,6 +470,14 @@ function benchmark(solvers, varargin)
         mkdir(path_log);
     end
     save(fullfile(path_log, 'options_store.mat'), 'options_store');
+    log_file = fullfile(path_log, 'log.txt');
+    diary(log_file);
+
+    % Build feature.
+    feature = Feature(feature_name, feature_options);
+    if ~profile_options.(ProfileOptionKey.SILENT.value)
+        fprintf('INFO: Starting the computation of the "%s" profiles.\n', feature.name);
+    end
 
     % Solve all the problems.
     [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, time_processes, problem_unsolved] = solveAllProblems(cutest_problem_names, custom_problem_loader, custom_problem_names, solvers, labels, feature, profile_options, true, path_hist_plots);
@@ -488,6 +490,7 @@ function benchmark(solvers, varargin)
         if ~profile_options.(ProfileOptionKey.SILENT.value)
             fprintf('INFO: No problems were solved for the "%s" feature.\n', feature.name);
         end
+        diary off;
         return;
     end
 
@@ -500,6 +503,7 @@ function benchmark(solvers, varargin)
         if ~profile_options.(ProfileOptionKey.SILENT.value)
             fprintf('\nINFO: Detailed results stored in %s\n', path_feature);
         end
+        diary off;
         return;
     end
 
@@ -844,6 +848,8 @@ function benchmark(solvers, varargin)
     if ~profile_options.(ProfileOptionKey.SILENT.value)
         fprintf('\nINFO: Summary stored in %s\n', path_out);
     end
+
+    diary off;
 
 end
 

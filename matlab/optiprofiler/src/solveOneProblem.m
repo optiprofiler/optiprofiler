@@ -103,7 +103,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
                 % Calculate the minimum function value and the minimum constraint violation, omitting the NaN values.
                 fun_min = min(featured_problem.fun_hist, [], 'omitnan');
                 maxcv_min = min(featured_problem.maxcv_hist, [], 'omitnan');
-                if ~profile_options.(ProfileOptionKey.SILENT.value) && (profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) == 2)
+                if ~profile_options.(ProfileOptionKey.SILENT.value)
                     format_info_end = sprintf("INFO: Finish solving     %%-%ds with %%-%ds (run %%2d/%%2d) (in %%.2f seconds).\\n", len_problem_names, len_solver_labels);
                     fprintf(format_info_end, problem_name, labels{i_solver}, i_run, n_runs, toc(time_start_solver_run));
                     switch problem.p_type
