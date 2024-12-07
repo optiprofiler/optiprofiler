@@ -1,9 +1,14 @@
 classdef Problem < handle
 %PROBLEM is a class that defines an optimization problem.
 
-    properties (GetAccess = public, SetAccess = private)
+    properties (GetAccess = public, SetAccess = public)
 
         name = 'Unnamed Problem'
+
+    end
+
+    properties (GetAccess = public, SetAccess = private)
+
         x_type = 'real'
         x0
         xl = []

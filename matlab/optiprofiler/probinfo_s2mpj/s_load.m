@@ -77,7 +77,6 @@ function problem = s_load(problem_name, varargin)
 %   of dimension-changeable problems to "problem_name_n" and then call 's_load'
 %   without varargin.
 
-
     % Check if 'problem_name' has the pattern '_n'.
     [is_problem_changeable, problem_name, dim] = isproblem_changeable(problem_name);
 
@@ -105,6 +104,16 @@ function problem = s_load(problem_name, varargin)
         end
         return;
     end
+
+    % Check whether there exists 'problem_name.m' in the directory './matlab_problems'.
+    current_path = fileparts(mfilename('fullpath'));
+    problem_path = fullfile(current_path, 'matlab_problems', [problem_name, '.m']);
+    if ~exist(problem_path, 'file')
+        error('Problem %s not found in the directory %s.', problem_name, problem_path);
+    end
+
+    % Specify which 'problem_name.m' to load.
+    addpath(fullfile(current_path, 'matlab_problems'));
 
     % Convert the problem name to a function handle for later use.
     funcHandle = str2func(problem_name);
