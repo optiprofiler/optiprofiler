@@ -1,4 +1,4 @@
-function drawHist(fun_histories, maxcv_histories, merit_histories, fun_init, maxcv_init, merit_init, labels, cell_axs_summary, is_cum, problem_type, problem_n, n_eval, profile_options)
+function drawHist(fun_histories, maxcv_histories, merit_histories, fun_init, maxcv_init, merit_init, labels, cell_axs_summary, is_cum, p_type, problem_n, n_eval, profile_options, default_height)
 %DRAWHIST draws the history plots of the function values, the maximum constraint violation, and the merit function values.
 
     fun_histories = processHistYaxes(fun_histories, fun_init);
@@ -17,22 +17,27 @@ function drawHist(fun_histories, maxcv_histories, merit_histories, fun_init, max
     drawFunMaxcvMeritHist(cell_axs_summary{1}, fun_histories, labels, is_cum, problem_n, y_shift_fun, n_eval, profile_options);
     [~, formatted_fun_shift] = formatFloatScientificLatex(y_shift_fun, 3);
 
+    maxlength_fun = length(['Cummin of function values shifted above by $', formatted_fun_shift, '$']);
+    label_fontsize_fun = min(12, 1.5 * default_height / maxlength_fun);
+
     if is_cum
         if y_shift_fun > 0
-            ylabel(cell_axs_summary{1}, ['Cummin of function values shifted above by $', formatted_fun_shift, '$'], 'Interpreter', 'latex');
+            y_label = ['Cummin of function values shifted above by $', formatted_fun_shift, '$'];
+            ylabel(cell_axs_summary{1}, y_label, 'Interpreter', 'latex', 'FontSize', label_fontsize_fun);
         else
-            ylabel(cell_axs_summary{1}, 'Cummin of function values', 'Interpreter', 'latex');
+            ylabel(cell_axs_summary{1}, 'Cummin of function values', 'Interpreter', 'latex', 'FontSize', label_fontsize_fun);
         end
     else
         if y_shift_fun > 0
-            ylabel(cell_axs_summary{1}, ['Function values shifted above by $', formatted_fun_shift, '$'], 'Interpreter', 'latex');
+            y_label = ['Function values shifted above by $', formatted_fun_shift, '$'];
+            ylabel(cell_axs_summary{1}, y_label, 'Interpreter', 'latex', 'FontSize', label_fontsize_fun);
         else
-            ylabel(cell_axs_summary{1}, 'Function values', 'Interpreter', 'latex');
+            ylabel(cell_axs_summary{1}, 'Function values', 'Interpreter', 'latex', 'FontSize', label_fontsize_fun);
         end
     end
 
     % If the problem is unconstrained, do not draw the histories of maximum constraint violations and merit function values.
-    if strcmp(problem_type, 'unconstrained')
+    if strcmp(p_type, 'unconstrained')
         return;
     end
 
@@ -45,27 +50,36 @@ function drawHist(fun_histories, maxcv_histories, merit_histories, fun_init, max
     [~, formatted_maxcv_shift] = formatFloatScientificLatex(y_shift_maxcv, 3);
     drawFunMaxcvMeritHist(cell_axs_summary{3}, merit_histories, labels, is_cum, problem_n, y_shift_merit, n_eval, profile_options);
     [~, formatted_merit_shift] = formatFloatScientificLatex(y_shift_merit, 3);
+
+    maxlength_maxcv = length(['Cummin of maximum constraint violations shifted above by $', formatted_maxcv_shift, '$']);
+    label_fontsize_maxcv = min(12, 1.5 * default_height / maxlength_maxcv);
+    maxlength_merit = length(['Cummin of merit function values shifted above by $', formatted_merit_shift, '$']);
+    label_fontsize_merit = min(label_fontsize, min(12, 1.5 * default_height / maxlength_merit));
     if is_cum
         if y_shift_maxcv > 0
-            ylabel(cell_axs_summary{2}, 'Cummin of maximum constraint violations shifted above by $' + formatted_maxcv_shift + '$', 'Interpreter', 'latex');
+            y_label = ['Cummin of maximum constraint violations shifted above by $', formatted_maxcv_shift, '$'];
+            ylabel(cell_axs_summary{2}, y_label, 'Interpreter', 'latex', 'FontSize', label_fontsize_maxcv);
         else
-            ylabel(cell_axs_summary{2}, 'Cummin of maximum constraint violations', 'Interpreter', 'latex');
+            ylabel(cell_axs_summary{2}, 'Cummin of maximum constraint violations', 'Interpreter', 'latex', 'FontSize', label_fontsize_maxcv);
         end
         if y_shift_merit > 0
-            ylabel(cell_axs_summary{3}, 'Cummin of merit function values shifted above by $' + formatted_merit_shift + '$', 'Interpreter', 'latex');
+            y_label = ['Cummin of merit function values shifted above by $', formatted_merit_shift, '$'];
+            ylabel(cell_axs_summary{3}, y_label, 'Interpreter', 'latex', 'FontSize', label_fontsize_merit);
         else
-            ylabel(cell_axs_summary{3}, 'Cummin of merit function values', 'Interpreter', 'latex');
+            ylabel(cell_axs_summary{3}, 'Cummin of merit function values', 'Interpreter', 'latex', 'FontSize', label_fontsize_merit);
         end
     else
         if y_shift_maxcv > 0
-            ylabel(cell_axs_summary{2}, 'Maximum constraint violations shifted above by $' + formatted_maxcv_shift + '$', 'Interpreter', 'latex');
+            y_label = ['Maximum constraint violations shifted above by $', formatted_maxcv_shift, '$'];
+            ylabel(cell_axs_summary{2}, y_label, 'Interpreter', 'latex', 'FontSize', label_fontsize_maxcv);
         else
-            ylabel(cell_axs_summary{2}, 'Maximum constraint violations', 'Interpreter', 'latex');
+            ylabel(cell_axs_summary{2}, 'Maximum constraint violations', 'Interpreter', 'latex', 'FontSize', label_fontsize_maxcv);
         end
         if y_shift_merit > 0
-            ylabel(cell_axs_summary{3}, 'Merit function values shifted above by $' + formatted_merit_shift + '$', 'Interpreter', 'latex');
+            y_label = ['Merit function values shifted above by $', formatted_merit_shift, '$'];
+            ylabel(cell_axs_summary{3}, y_label, 'Interpreter', 'latex', 'FontSize', label_fontsize_merit);
         else
-            ylabel(cell_axs_summary{3}, 'Merit function values', 'Interpreter', 'latex');
+            ylabel(cell_axs_summary{3}, 'Merit function values', 'Interpreter', 'latex', 'FontSize', label_fontsize_merit);
         end
     end
 

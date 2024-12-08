@@ -164,7 +164,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
         F_title = strrep(feature.name, '_', '\_');
         P_title = strrep(problem_name, '_', '\_');
         T_title = ['Solving ``', P_title, '" with ``', F_title, '" feature'];
-        title_fontsize = min(12, floor(1.2 * default_width / length(T_title)));
+        title_fontsize = min(12, 1.2 * default_width / length(T_title));
         title(T_summary, ['Solving ``', P_title, '" with ``', F_title, '" feature'], 'Interpreter', 'latex', ...
         'FontSize', title_fontsize);
         % Use gobjects to create arrays of handles and axes.
@@ -194,8 +194,8 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
         pdf_summary = fullfile(path_hist_plots, hist_file_name);
         processed_labels = cellfun(@(s) strrep(s, '_', '\_'), labels, 'UniformOutput', false);
 
-        drawHist(fun_histories, maxcv_histories, merit_histories, fun_init, maxcv_init, merit_init, processed_labels, cell_axs_summary, false, problem.p_type, problem_n, n_eval, profile_options);
-        drawHist(fun_histories, maxcv_histories, merit_histories, fun_init, maxcv_init, merit_init, processed_labels, cell_axs_summary_cum, true, problem.p_type, problem_n, n_eval, profile_options);
+        drawHist(fun_histories, maxcv_histories, merit_histories, fun_init, maxcv_init, merit_init, processed_labels, cell_axs_summary, false, problem.p_type, problem_n, n_eval, profile_options, default_height);
+        drawHist(fun_histories, maxcv_histories, merit_histories, fun_init, maxcv_init, merit_init, processed_labels, cell_axs_summary_cum, true, problem.p_type, problem_n, n_eval, profile_options, default_height);
 
         exportgraphics(fig_summary, pdf_summary, 'ContentType', 'vector');
         warning('on');

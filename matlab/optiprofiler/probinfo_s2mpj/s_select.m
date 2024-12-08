@@ -6,8 +6,8 @@ function [problem_names, argins] = s_select(options)
     argins = {};
 
     % Set default values for options
-    if ~isfield(options, 'problem_type')
-        options.problem_type = 'ubln';
+    if ~isfield(options, 'p_type')
+        options.p_type = 'ubln';
     end
     if ~isfield(options, 'mindim')
         options.mindim = 1;
@@ -27,13 +27,13 @@ function [problem_names, argins] = s_select(options)
 
     for i_problem = 2:size(probinfo, 1)
         problem_name = probinfo{i_problem, 1};
-        problem_type = probinfo{i_problem, 2};
+        p_type = probinfo{i_problem, 2};
         dim = probinfo{i_problem, 4};
         m_con = probinfo{i_problem, 8};
         argin = probinfo{i_problem, 17};
         dims = probinfo{i_problem, 18};
 
-        if ~ismember(problem_type, options.problem_type)
+        if ~ismember(p_type, options.p_type)
             continue;
         end
         if m_con < options.mincon || m_con > options.maxcon

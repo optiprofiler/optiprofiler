@@ -231,8 +231,8 @@ classdef Feature < handle
                             error("MATLAB:Feature:rotated_NotLogical", "Option " + key + " must be a logical.")
                         end
                     case FeatureOptionKey.CONDITION_FACTOR.value
-                        if ~isa(obj.options.(key), 'function_handle')
-                            error("MATLAB:Feature:condition_factor_InvalidInput", "Option " + key + " must be a function handle.")
+                        if ~(isrealscalar(obj.options.(key)) && obj.options.(key) >= 0)
+                            error("MATLAB:Feature:condition_factor_InvalidInput", "Option " + key + " must be a nonnegative real number.")
                         end
                     case FeatureOptionKey.UNRELAXABLE_BOUNDS.value
                         if ~islogicalscalar(obj.options.(key))

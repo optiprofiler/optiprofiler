@@ -153,7 +153,7 @@ function benchmark(solvers, varargin)
 %       - problem: a instance of the class Problem. If it is provided, we will
 %         only solve this problem and generate the history plots for it.
 %         Default is not to provide any problem.
-%       - problem_type: the type of the problems to be selected. It should be a
+%       - p_type: the type of the problems to be selected. It should be a
 %         string containing the combination of 'u' (unconstrained), 'b' (bound
 %         constrained), 'l' (linearly constrained), and 'n' (nonlinearly
 %         constrained). Default is 'u'.
@@ -170,9 +170,8 @@ function benchmark(solvers, varargin)
 %         exclude any problem.
 %
 %   For more information of performance and data profiles, see [1]_, [2]_,
-%   [4]_. For that of log-ratio profiles, see [3]_, [5]_.
-%   Pay attention that log-ratio profiles are available only when there are
-%   exactly two solvers.
+%   [4]_. For that of log-ratio profiles, see [3]_, [5]_. Pay attention that 
+%   log-ratio profiles are available only when there are exactly two solvers.
 %
 %   References:
 %   .. [1] E. D. Dolan and J. J. Moré. Benchmarking optimization software with
@@ -198,7 +197,7 @@ function benchmark(solvers, varargin)
 %   **************************************************************************
 %   Authors:    Cunxin HUANG (cun-xin.huang@connect.polyu.hk)
 %               Tom M. RAGONNEAU (t.ragonneau@gmail.com)
-%               and Zaikun ZHANG (zaikun.zhang@polyu.edu.hk)
+%               Zaikun ZHANG (zaikun.zhang@polyu.edu.hk)
 %               Department of Applied Mathematics,
 %               The Hong Kong Polytechnic University
 %   **************************************************************************
@@ -211,14 +210,12 @@ function benchmark(solvers, varargin)
     options_store = struct();
 
     if nargin == 0
-        error("MATLAB:benchmark:solverMustBeProvided", "solvers must be provided.");
+        error("MATLAB:benchmark:solverMustBeProvided", "A cell of function handles (callable solvers) must be provided as the first argument.");
     elseif nargin == 1
         % When input only contains one argument, we assume the user chooses benchmark(solvers) and
         % test plain feature.
         feature_name = 'plain';
         options_store.feature_name = feature_name;
-        labels = cellfun(@(s) func2str(s), solvers, 'UniformOutput', false);
-        options_store.labels = labels;
         cutest_problem_names = {};
         custom_problem_loader = {};
         custom_problem_names = {};
@@ -229,8 +226,6 @@ function benchmark(solvers, varargin)
             % we assume the user chooses benchmark(solvers, feature_name).
             feature_name = varargin{1};
             options_store.feature_name = feature_name;
-            labels = cellfun(@(s) func2str(s), solvers, 'UniformOutput', false);
-            options_store.labels = labels;
             cutest_problem_names = {};
             custom_problem_loader = {};
             custom_problem_names = {};
@@ -250,14 +245,12 @@ function benchmark(solvers, varargin)
             if isfield(options, 'labels')
                 labels = options.labels;
                 options = rmfield(options, 'labels');
-            else
-                labels = cellfun(@(s) func2str(s), solvers, 'UniformOutput', false);
+                options_store.labels = labels;
             end
-            options_store.labels = labels;
 
             if isfield(options, 'problem') && ~isempty(options.problem)
                 if ~isa(options.problem, 'Problem')
-                    error("MATLAB:benchmark:ThirdArgumentNotProblem", "The options field 'problem' must be a Problem object.");
+                    error("MATLAB:benchmark:problemNotProblem", "The field 'problem' of options must be a Problem object.");
                 end
                 cutest_problem_names = {};
                 custom_problem_loader = @(x) options.problem;
@@ -274,6 +267,9 @@ function benchmark(solvers, varargin)
                     cutest_problem_names = {};
                 end
                 if isfield(options, 'custom_problem_loader') && isfield(options, 'custom_problem_names')
+                    if isempty(options.custom_problem_names)
+                        error("MATLAB:benchmark:customnamesEmpty", "The custom problem names must not be empty if provided.");
+                    end
                     custom_problem_loader = options.custom_problem_loader;
                     custom_problem_names = options.custom_problem_names;
                     options_store.custom_problem_loader = custom_problem_loader;
@@ -294,37 +290,38 @@ function benchmark(solvers, varargin)
         end
     else
         error("MATLAB:benchmark:TooMuchInput", ...
-        "Invalid number of arguments. The function must be called with one, two, or three arguments.");
+        "Invalid number of arguments. 'benchmark' function at most takes two arguments.");
     end
 
     % Preprocess the solvers.
     if ~iscell(solvers) || ~all(cellfun(@(s) isa(s, 'function_handle'), solvers))
-        error("MATLAB:benchmark:solversWrongType", "The solvers must be a cell array of function handles.");
+        error("MATLAB:benchmark:solversWrongType", "The first argument must be a cell array of function handles.");
     end
     if numel(solvers) < 2
-        error("MATLAB:benchmark:solversAtLeastTwo", "At least two solvers must be given.");
+        error("MATLAB:benchmark:solversAtLeastTwo", "The first argument must be a cell array of at least two function handles since we need to compare at least two solvers.");
     end
 
     % Preprocess the feature_name.
     if ~ischarstr(feature_name)
         % feature_name must be a char or string.
-        error("MATLAB:benchmark:feature_nameNotcharstr", ...
-        "feature_name must be a char or string.");
+        error("MATLAB:benchmark:feature_nameNotcharstr", "The field 'feature_name' of options must be a char or string.");
     end
     % Convert the char or string to a char of lower case.
     feature_name = char(lower(feature_name));
     valid_feature_names = cellfun(@(x) x.value, num2cell(enumeration('FeatureName')), 'UniformOutput', false);
     if ~ismember(feature_name, valid_feature_names)
-        error("MATLAB:benchmark:feature_nameNotValid", "The feature name must be valid.");
+        error("MATLAB:benchmark:feature_nameNotValid", "The field 'feature_name' of options must be one of the valid feature names: %s.", strjoin(valid_feature_names, ', '));
     end
 
-    % Preprocess the labels.
+    % Preprocess the labels. If it is not provided, we use solvers' names as labels.
+    if ~exist('labels', 'var')
+        labels = cellfun(@(s) func2str(s), solvers, 'UniformOutput', false);
+    end
     if ~iscell(labels) || ~all(cellfun(@(l) ischarstr(l), labels))
-        error("MATLAB:benchmark:labelsNotCellOfcharstr", "The labels must be a cell of chars or strings.");
+        error("MATLAB:benchmark:labelsNotCellOfcharstr", "The field 'labels' of options must be a cell of chars or strings.");
     end
     if numel(labels) ~= 0 && numel(labels) ~= numel(solvers)
-        error("MATLAB:benchmark:labelsAndsolversLengthNotSame", ...
-        "The number of labels must equal the number of solvers.");
+        error("MATLAB:benchmark:labelsAndsolversLengthNotSame", "The number of the field 'labels' of options must equal the number of solvers.");
     end
     if numel(labels) == 0
         labels = cellfun(@(s) func2str(s), solvers, 'UniformOutput', false);
@@ -332,40 +329,25 @@ function benchmark(solvers, varargin)
 
     % Preprocess the custom problems.
     if ~isempty(custom_problem_loader) && ~isa(custom_problem_loader, 'function_handle')
-        error("MATLAB:benchmark:customloaderNotFunctionHandle", "The custom problem loader must be a function handle.");
-    end
-    if ~isempty(custom_problem_loader)
-        if isempty(custom_problem_names)
-            error("MATLAB:benchmark:customnamesCanNotBeEmptyWhenHavingcustomloader", ...
-            "The custom problem names must be provided.");
-        else
-            try
-                [~, p] = evalc('custom_problem_loader(custom_problem_names{1})');
-            catch
-                p = [];
-            end
-            if isempty(p) || ~isa(p, 'Problem')
-                error("MATLAB:benchmark:customloaderNotAcceptcustomnames", ...
-                ["The custom problem loader must be able to accept one signature 'custom_problem_names'. " ...
-                "The first problem %s could not be loaded, or custom problem loader did not return a Problem object."], ...
-                custom_problem_names{1});
-            end
-        end
-    elseif ~isempty(custom_problem_names)
-        error("MATLAB:benchmark:customloaderCanNotBeEmptyWhenHavingcustomnames", ...
-        "A custom problem loader must be given to load custom problems.");
+        error("MATLAB:benchmark:customloaderNotFunctionHandle", "The field 'custom_problem_loader' of options must be a function handle.");
     end
     if ~isempty(custom_problem_names)
-        if ~ischarstr(custom_problem_names) && ~(iscell(custom_problem_names) && ...
-            all(cellfun(@ischarstr, custom_problem_names)))
-            error("MATLAB:benchmark:customnamesNotcharstrOrCellOfcharstr", ...
-            "The custom problem names must be a cell array of chars or strings.");
+        if ~ischarstr(custom_problem_names) && ~(iscell(custom_problem_names) && all(cellfun(@ischarstr, custom_problem_names)))
+            error("MATLAB:benchmark:customnamesNotcharstrOrCellOfcharstr", "The custom problem names must be a cell array of chars or strings.");
         end
         if ischarstr(custom_problem_names)
             custom_problem_names = {custom_problem_names};
         end
-        % Convert to cell array of chars.
-        custom_problem_names = cellfun(@char, custom_problem_names, 'UniformOutput', false);
+    end
+    if ~isempty(custom_problem_loader) && ~isempty(custom_problem_names)
+        try
+            [~, p] = evalc('custom_problem_loader(custom_problem_names{1})');
+        catch
+            p = [];
+        end
+        if isempty(p) || ~isa(p, 'Problem')
+            error("MATLAB:benchmark:customloaderNotAcceptcustomnames", "The custom_problem_loader failed to load the first custom problem %s.", custom_problem_names{1});
+        end
     end
 
     % Set default options.
