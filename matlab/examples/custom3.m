@@ -5,10 +5,9 @@ function custom3()
     % Define a custom feature that combines "perturbed_x0", "noisy", and
     % "linearly_transformed".
     
-    solvers = {@fminsearch_test, @fminunc_test};
+    solvers = {@fminsearch_test1, @fminsearch_test2};
     options.feature_name = 'custom';
-    options.problem = s_load('NONDIA');
-    options.n_runs = 1;
+    options.n_runs = 5;
     % We need mod_x0 to make sure that the linearly transformed problem is mathematically equivalent
     % to the original problem.
     options.mod_x0 = @mod_x0;
@@ -42,14 +41,14 @@ function [A, b, inv] = mod_affine(rand_stream, problem)
     inv = Q;
 end
 
-function x = fminsearch_test(fun, x0)
+function x = fminsearch_test1(fun, x0)
 
-    x = fminsearch(fun, x0);
-    
+    options = optimset('MaxFunEvals', 200);
+    x = fminsearch(fun, x0, options);
 end
 
-function x = fminunc_test(fun, x0)
+function x = fminsearch_test2(fun, x0)
 
-    x = fminunc(fun, x0);
-
+    options = optimset('MaxFunEvals', 500);
+    x = fminsearch(fun, x0, options);
 end
