@@ -2,45 +2,62 @@ classdef TestBenchmark < matlab.unittest.TestCase
     methods (Test)
         
         function testWithValidInput(testCase)
-            % Test whether the function works well with valid input.
 
-            solvers = {@fminsearch_test, @fminunc_test};
-            benchmark(solvers);
-
-            benchmark(solvers, {'plain', 'noisy'});
-            
-            options.feature_names = 'noisy';
-            options.n_jobs = 0;
-            options.run_plain = false;
-            options.n_runs = 2;
-            options.max_tol_order = 3;
-            options.max_eval_factor = 10;
+            solvers = {@fminsearch_test1, @fminsearch_test2};
             options.benchmark_id = 'unit-test';
-            options.summarize_log_ratio_profiles = true;
-            options.labels = {'fminsearch', 'fminunc'};
+
+            % Test the case where problem set only contains one problem.
+            options.problem = s_load('ROSENBR');
             benchmark(solvers, options);
 
-            options.feature_names = 'plain';
-            options.labels = {};
-            options.custom_problem_names = "A";
-            options.custom_problem_loader = @custom_loader;
-            options.excludelist = {"SISSER2"};
-            options.n_jobs = 1000;
-            options.summarize_data_profiles = false;
-            options.summarize_performance_profiles = false;
-            options.cutest_problem_names = {'S308'};
-            options.benchmark_id = 'test-special-case';
-            savepath = fullfile(pwd, 'out', 'test-special-case');
-            mkdir(savepath);
-            % Create a txt file named 'a.txt' in the savepath.
-            fid = fopen(fullfile(savepath, 'a.txt'), 'w');
-            fclose(fid);
-            mkdir(fullfile(savepath, 'time-unknown'));
+            % Test plain feature.
+            options.maxdim = 2;
+            options.max_tol_order = 2;
+            options = rmfield(options, 'problem');
+            options.feature_name = 'plain';
             benchmark(solvers, options);
-            mkdir(fullfile(savepath, 'time-unknown-abc'));
+
+            % Test perturbed_x0 feature.
+            options.feature_name = 'perturbed_x0';
+            options.n_runs = 2;
+            options.run_plain = true;
+            options.feature_name = 'perturbed_x0';
             benchmark(solvers, options);
-            mkdir(fullfile(savepath, 'time-unknown-100'));
+
+            % Test noisy feature.
+            options.feature_name = 'noisy';
+            options.noise_level = 1e-4;
+            options.run_plain = false;
             benchmark(solvers, options);
+            options = rmfield(options, 'noise_level');
+
+            % Test truncated feature.
+            options.feature_name = 'truncated';
+            options.significant_digits = 4;
+            options.perturbed_trailing_zeros = false;
+            benchmark(solvers, options);
+            options = rmfield(options, 'significant_digits');
+            options = rmfield(options, 'perturbed_trailing_zeros');
+
+            % Test permuted feature.
+            options.feature_name = 'permuted';
+            benchmark(solvers, options);
+
+            % Test linearly_transformed feature.
+            options.feature_name = 'linearly_transformed';
+            options.rotated = true;
+            options.condition_factor = 1;
+            benchmark(solvers, options);
+            options = rmfield(options, 'rotated');
+            options = rmfield(options, 'condition_factor');
+
+            % Test random_nan feature.
+            options.feature_name = 'random_nan';
+            options.rate_nan = 0.1;
+            benchmark(solvers, options);
+
+            rmdir('out', 's');
+
         end
 
         function testErrors(testCase)
@@ -48,162 +65,70 @@ classdef TestBenchmark < matlab.unittest.TestCase
 
             testCase.verifyError(@() benchmark(), "MATLAB:benchmark:solverMustBeProvided")
 
-            solvers = {@fminsearch_test, @fminunc_test};
-            options.custom_problem_names = {'A', 'B'};
-            options.labels = {'fminsearch', 'fminunc'};
+            solvers = {@fminsearch_test1, @fminsearch_test2};
+            options.problem = 'ROSENBR';
+            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:problemNotProblem")
+            options = rmfield(options, 'problem');
+
+            options.custom_problem_loader = 1;
+            options.custom_problem_names = {};
+            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:customnamesEmpty")
+            options = rmfield(options, 'custom_problem_loader');
+
+            options.custom_problem_names = 'example';
             testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:LoaderAndNamesNotSameTime")
+            options = rmfield(options, 'custom_problem_names');
 
             testCase.verifyError(@() benchmark(solvers, {1}), "MATLAB:benchmark:SecondArgumentWrongType")
 
             testCase.verifyError(@() benchmark(solvers, 'plain', options, 1), "MATLAB:benchmark:TooMuchInput")
 
-            options = rmfield(options, 'custom_problem_names');
-            options.feature_names = 'plain';
             testCase.verifyError(@() benchmark({1, 2}, options), "MATLAB:benchmark:solversWrongType")
 
             testCase.verifyError(@() benchmark({@fminsearch_test}), "MATLAB:benchmark:solversAtLeastTwo")
 
-            options.labels = {1};
+            options.feature_name = 1;
+            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:feature_nameNotcharstr")
+            options = rmfield(options, 'feature_name');
+
+            options.feature_name = 'a';
+            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:feature_nameNotValid")
+            options = rmfield(options, 'feature_name');
+
+            options.labels = {1, 2};
             testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:labelsNotCellOfcharstr")
 
-            options.labels = {'fminsearch'};
+            options.labels = {'a', 'b', 'c'};
             testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:labelsAndsolversLengthNotSame")
+            options = rmfield(options, 'labels');
 
             options.custom_problem_names = {'A', 'B'};
             options.custom_problem_loader = 1;
-            options = rmfield(options, 'labels');
             testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:customloaderNotFunctionHandle")
 
-            options.custom_problem_names = {};
-            options.custom_problem_loader = @(x) [1; 1] * [1; 1];
-            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:customnamesCanNotBeEmptyWhenHavingcustomloader")
+            options.custom_problem_loader = @(x) x;
+            options.custom_problem_names = 1;
+            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:customnamesNotcharstrOrCellOfcharstr")
 
             options.custom_problem_names = {'A', 'B'};
             testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:customloaderNotAcceptcustomnames")
-
-            options.custom_problem_loader = {};
-            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:customloaderCanNotBeEmptyWhenHavingcustomnames")
-
-            options.custom_problem_names = {1};
-            options.custom_problem_loader = @custom_loader;
-            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:customnamesNotcharstrOrCellOfcharstr")
-
             options = rmfield(options, 'custom_problem_names');
             options = rmfield(options, 'custom_problem_loader');
-            options.a = {};
+
+            options.a = {'a'};
             testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:UnknownOptions")
-            options = rmfield(options, 'a');
 
-            options.problem_type = 1;
-            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:problem_typeNotcharstr")
-
-            options.problem_type = 'd';
-            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:problem_typeNotubln")
-            options.problem_type = 'u';
-
-            options.mindim = 'a';
-            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:mindimNotValid")
-            options.mindim = 2;
-
-            options.maxdim = 'a';
-            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:maxdimNotValid")
-
-            options.maxdim = 1;
-            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:maxdimSmallerThanmindim")
-            options.maxdim = 2;
-
-            options.mincon = 'a';
-            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:minconNotValid")
-            options.mincon = 2;
-
-            options.maxcon = 'a';
-            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:maxconNotValid")
-
-            options.maxcon = 1;
-            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:maxconSmallerThanmincon")
-            options.maxcon = 2;
-
-            options.excludelist = 1;
-            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:excludelistNotCellOfcharstr")
-            options = rmfield(options, 'excludelist');
-
-            options.n_jobs = 1.1;
-            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:n_jobsNotValid")
-            options.n_jobs = 1;
-
-            options.benchmark_id = 1;
-            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:benchmark_idNotValid")
-            options.benchmark_id = 'unit-test';
-
-            options.range_type = 1;
-            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:range_typeNotValid")
-            options.range_type = 'meanstd';
-
-            options.std_factor = 'a';
-            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:std_factorNotValid")
-            options.std_factor = 1;
-
-            options.savepath = 1;
-            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:savepathNotValid")
-            options = rmfield(options, 'savepath');
-
-            options.max_tol_order = 'a';
-            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:max_tol_orderNotValid")
-            options.max_tol_order = 1;
-
-            options.max_eval_factor = 'a';
-            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:max_eval_factorNotValid")
-            options.max_eval_factor = 1;
-
-            options.project_x0 = 2;
-            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:project_x0NotValid")
-            options.project_x0 = true;
-
-            options.run_plain = 2;
-            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:run_plainNotValid")
-            options.run_plain = true;
-
-            options.summarize_performance_profiles = 2;
-            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:summarize_performance_profilesNotValid")
-            options.summarize_performance_profiles = true;
-
-            options.summarize_data_profiles = 2;
-            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:summarize_data_profilesNotValid")
-            options.summarize_data_profiles = true;
-
-            options.summarize_log_ratio_profiles = 2;
-            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:summarize_log_ratio_profilesNotValid")
-            options.summarize_log_ratio_profiles = false;
-
-            options.cutest_problem_names = 1;
-            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:cutest_problem_namesNotValid")
-
-            options.cutest_problem_names = {};
-            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:AtLeastOneProblem")
-            options.cutest_problem_names = {'A', 'B'};
-
-            options.feature_names = 'all';
-            options.n_runs = 2;
-            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:OnlyOneFeatureWhenHavingfeature_options")
-            options.feature_names = 'plain';
         end
     end
 end
 
-function x = fminsearch_test(fun, x0)
+function x = fminsearch_test1(fun, x0)
 
     x = fminsearch(fun, x0);
-
 end
 
-function x = fminunc_test(fun, x0)
+function x = fminsearch_test2(fun, x0)
 
-    x = fminunc(fun, x0);
-
-end
-
-function p = custom_loader(problem_name)
-
-    p = Problem(struct('fun', @(x) x' * x, 'x0', [1; 1]));
-
+    options = optimset('MaxFunEvals', 200);
+    x = fminunc(fun, x0, options);
 end

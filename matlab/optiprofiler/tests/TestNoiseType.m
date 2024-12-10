@@ -6,7 +6,7 @@ classdef TestNoiseType < matlab.unittest.TestCase
             
             enumValues = enumeration('NoiseType');
             enumValues = cellstr(arrayfun(@char, enumValues, 'UniformOutput', false));
-            expectedValues = {'ABSOLUTE'; 'RELATIVE'};
+            expectedValues = {'ABSOLUTE'; 'RELATIVE'; 'MIXED'};
             testCase.verifyEqual(enumValues, expectedValues);
         end
 
@@ -17,6 +17,7 @@ classdef TestNoiseType < matlab.unittest.TestCase
             clear NoiseType;
             testCase.verifyEqual(NoiseType.ABSOLUTE.value, 'absolute');
             testCase.verifyEqual(NoiseType.RELATIVE.value, 'relative');
+            testCase.verifyEqual(NoiseType.MIXED.value, 'mixed');
         end
         
     end

@@ -1,31 +1,33 @@
 function setup(varargin)
-    %SETUP sets the package up for MATLAB.
-    %
-    %   This file is based on https://github.com/libprima/prima/blob/main/setup.m, which is written by Zaikun Zhang.
-    %
-    %   This script can be called in the following ways.
-    %
-    %   setup  % Add the paths needed to use the package
-    %   setup uninstall  % Uninstall the package
-    %
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %
-    %   REMARKS:
-    %
-    %   To run this script, you need to have write access to the directory that
-    %   contains this script and its subdirectories.
-    %
-    %   ***********************************************************************
-    %   Authors:    Cunxin HUANG (cun-xin.huang@connect.polyu.hk)
-    %               Tom M. RAGONNEAU (tom.ragonneau@connect.polyu.hk)
-    %               Zaikun ZHANG (zaikun.zhang@polyu.edu.hk)
-    %               Department of Applied Mathematics,
-    %               The Hong Kong Polytechnic University.
-    %   ***********************************************************************
-    
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % Attribute: public (can be called directly by users)
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%SETUP sets the package up for MATLAB.
+%
+%   This file is based on
+%       https://github.com/libprima/prima/blob/main/setup.m
+%   which is written by Zaikun Zhang.
+%
+%   This script can be called in the following ways.
+%
+%   setup  % Add the paths needed to use the package
+%   setup uninstall  % Uninstall the package
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%   REMARKS:
+%
+%   To run this script, you need to have write access to the directory that
+%   contains this script and its subdirectories.
+%
+%   ***********************************************************************
+%   Authors:    Cunxin HUANG (cun-xin.huang@connect.polyu.hk)
+%               Tom M. RAGONNEAU (tom.ragonneau@connect.polyu.hk)
+%               Zaikun ZHANG (zaikun.zhang@polyu.edu.hk)
+%               Department of Applied Mathematics,
+%               The Hong Kong Polytechnic University.
+%   ***********************************************************************
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Attribute: public (can be called directly by users)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
     % setup starts
     
@@ -88,13 +90,13 @@ function setup(varargin)
             add_path_string_1 = sprintf('addpath(''%s'');', src_dir);
             add_path_string_2 = sprintf('addpath(''%s'');', probinfo_dir);
             add_path_string_3 = sprintf('addpath(''%s'');', s2mpj_dir);
-            fprintf('\n***** To use the package in other MATLAB sessions, do ONE of the following. *****\n');
-            fprintf('\n- Append the following line to your startup script');
-            fprintf('\n  (see https://www.mathworks.com/help/matlab/ref/startup.html for information):\n');
+            add_path_string_4 = sprintf('addpath(''%s'');', tests_dir);
+            fprintf('\nTo use the package in other MATLAB sessions, append the following line to your startup script\n');
+            fprintf('(see https://www.mathworks.com/help/matlab/ref/startup.html for information):\n');
             fprintf('\n    %s\n', add_path_string_1);
-            fprintf('\n    %s\n', add_path_string_2);
-            fprintf('\n    %s\n', add_path_string_3);
-            fprintf('\n- OR come to the current directory and run ''setup path'' when you need the package.\n');
+            fprintf('    %s\n', add_path_string_2);
+            fprintf('    %s\n', add_path_string_3);
+            fprintf('    %s\n', add_path_string_4);
         end
 
         fprintf('\n');
