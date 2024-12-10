@@ -1,5 +1,16 @@
 classdef Problem < handle
 %PROBLEM is a class that defines an optimization problem.
+%
+%   PROBLEM is a class that defines an optimization problem with the following
+%   structure:
+%
+%       min fun(x)
+%       s.t. xl <= x <= xu
+%            aub @ x <= bub
+%            aeq @ x = beq
+%            cub(x) <= 0
+%            ceq(x) = 0
+%       with initial point x0.
 
     properties (GetAccess = public, SetAccess = public)
 
@@ -41,62 +52,63 @@ classdef Problem < handle
 
     methods
 
-        %{
-        Initialize an optimization problem.
-
-        Parameters
-        ----------
-        name : str, optional
-            Name of the optimization problem.
-        fun : callable
-            Objective function to be minimized.
-
-                ``fun(x) -> float``
-
-            where ``x`` is an array with shape (n,).
-        x_type : str, optional
-            Type of the variables.
-        x0 : array_like, shape (n,)
-            Initial guess.
-        xl : array_like, shape (n,), optional
-            Lower bounds on the variables ``xl <= x``.
-        xu : array_like, shape (n,), optional
-            Upper bounds on the variables ``x <= xu``.
-        aub : array_like, shape (m_linear_ub, n), optional
-            Left-hand side matrix of the linear constraints ``aub @ x <= bub``.
-        bub : array_like, shape (m_linear_ub,), optional
-            Right-hand side vector of the linear constraints ``aub @ x <= bub``.
-        aeq : array_like, shape (m_linear_eq, n), optional
-            Left-hand side matrix of the linear constraints ``aeq @ x == beq``.
-        beq : array_like, shape (m_linear_eq,), optional
-            Right-hand side vector of the linear constraints ``aeq @ x == beq``.
-        cub : callable, optional
-            Nonlinear inequality constraint ``cub(x) <= 0``.
-
-                ``cub(x) -> array_like, shape (m_nonlinear_ub,)``
-
-            where ``x`` is an array with shape (n,).
-        ceq : callable, optional
-            Nonlinear equality constraint ``ceq(x) == 0``.
-
-                ``ceq(x) -> array_like, shape (m_nonlinear_eq,)``
-
-            where ``x`` is an array with shape (n,).
-        m_nonlinear_ub : int, optional
-            Number of nonlinear inequality constraints.
-        m_nonlinear_eq : int, optional
-            Number of nonlinear equality constraints.
-        p_type : str, optional
-            Type of the optimization problem.
-
-        Raises
-        ------
-        ValueError
-            If an argument received an invalid value.
-        %}
         function obj = Problem(varargin)
+            %{
+            Initialize a PROBLEM.
+
+            Parameters
+            ----------
+            name : str, optional
+                Name of the optimization problem.
+            fun : callable
+                Objective function to be minimized.
+
+                    ``fun(x) -> float``
+
+                where ``x`` is an array with shape (n,).
+            x_type : str, optional
+                Type of the variables.
+            x0 : array_like, shape (n,)
+                Initial guess.
+            xl : array_like, shape (n,), optional
+                Lower bounds on the variables ``xl <= x``.
+            xu : array_like, shape (n,), optional
+                Upper bounds on the variables ``x <= xu``.
+            aub : array_like, shape (m_linear_ub, n), optional
+                Left-hand side matrix of the linear constraints ``aub @ x <= bub``.
+            bub : array_like, shape (m_linear_ub,), optional
+                Right-hand side vector of the linear constraints ``aub @ x <= bub``.
+            aeq : array_like, shape (m_linear_eq, n), optional
+                Left-hand side matrix of the linear constraints ``aeq @ x == beq``.
+            beq : array_like, shape (m_linear_eq,), optional
+                Right-hand side vector of the linear constraints ``aeq @ x == beq``.
+            cub : callable, optional
+                Nonlinear inequality constraint ``cub(x) <= 0``.
+
+                    ``cub(x) -> array_like, shape (m_nonlinear_ub,)``
+
+                where ``x`` is an array with shape (n,).
+            ceq : callable, optional
+                Nonlinear equality constraint ``ceq(x) == 0``.
+
+                    ``ceq(x) -> array_like, shape (m_nonlinear_eq,)``
+
+                where ``x`` is an array with shape (n,).
+            m_nonlinear_ub : int, optional
+                Number of nonlinear inequality constraints.
+            m_nonlinear_eq : int, optional
+                Number of nonlinear equality constraints.
+            p_type : str, optional
+                Type of the optimization problem.
+
+            Returns
+            -------
+            obj : Problem
+                a PROBLEM object.
+            %}
+
             if nargin < 1
-                error("MATLAB:Problem:MissingArguments", "At least one argument is required.")
+                error("MATLAB:Problem:MissingArguments", "At least one argument is provided for `Problem`.")
             end
         
             if isstruct(varargin{1})
@@ -105,7 +117,7 @@ classdef Problem < handle
         
                 % Check if the struct contains the required fields
                 if ~isfield(s, 'fun') || ~isfield(s, 'x0')
-                    error("MATLAB:Problem:MissingFields", "The `fun` and `x0` fields are required.")
+                    error("MATLAB:Problem:MissingFields", "The fields `fun` and `x0` for `Problem` are required.")
                 end
                 obj.fun_ = s.fun;
 
@@ -136,44 +148,52 @@ classdef Problem < handle
                     end
                 end
             else
-                error("MATLAB:Problem:NotStruct", "Invalid input. A struct argument is expected.")
+                error("MATLAB:Problem:NotStruct", "Invalid input for `Problem`. A struct argument is expected.")
             end
 
             % Check that the arguments are legal and consistent.
 
             % Check that `x_type` belongs to {'real', 'integer', 'binary'}.
             if ~ismember(obj.x_type, {'real', 'integer', 'binary'})
-                error("MATLAB:Problem:x_type_NotValid", "The argument `x_type` must be one of {'real', 'integer', 'binary'}.")
+                error("MATLAB:Problem:x_type_NotValid", "The argument `x_type` for `Problem` must be one of {'real', 'integer', 'binary'}.")
             end
 
             % Check that `x0` is a real vector.
-            if ~isvector(obj.x0) || ~isreal(obj.x0)
-                error("MATLAB:Problem:x0_NotRealVector", "The argument `x0` must be a real vector.")
+            if ~isrealvector(obj.x0)
+                error("MATLAB:Problem:x0_NotRealVector", "The argument `x0` for `Problem` must be a real vector.")
             end
 
-            % Check that `xl` has the same size as `x0`.
-            if numel(obj.xl) ~= obj.n
-                error("MATLAB:Problem:xl_x0_NotConsistent", "The argument `xl` must have size %d.", obj.n);
+            % Check that `xl` is a real vector having the same size as `x0`.
+            if ~isrealvector(obj.xl) || numel(obj.xl) ~= obj.n
+                error("MATLAB:Problem:xl_x0_NotConsistent", "The argument `xl` for `Problem` must be a real vector having size %d.", obj.n);
             end
-            % Check that `xu` has the same size as `x0`.
-            if numel(obj.xu) ~= obj.n
-                error("MATLAB:Problem:xu_x0_NotConsistent", "The argument `xu` must have size %d.", obj.n);
+            % Check that `xu` a real vector having the same size as `x0`.
+            if ~isrealvector(obj.xu) || numel(obj.xu) ~= obj.n
+                error("MATLAB:Problem:xu_x0_NotConsistent", "The argument `xu` for `Problem` must have size %d.", obj.n);
             end
-            % Check that `aub` is a matrix with shape (numel(obj.bub), n).
-            if ~isequal(size(obj.aub), [numel(obj.bub), obj.n])
-                error("MATLAB:Problem:aub_m_linear_ub_n_NotConsistent", "The argument `aub` must have shape (%d, %d).", obj.m_linear_ub, obj.n);
+            % Check that `bub` is a real vector.
+            if ~isrealvector(obj.bub)
+                error("MATLAB:Problem:bub_NotRealVector", "The argument `bub` for `Problem` must be a real vector.")
             end
-            % Check that `aeq` is a matrix with shape (m_linear_eq, n).
-            if ~isequal(size(obj.aeq), [obj.m_linear_eq, obj.n])
-                error("MATLAB:Problem:aeq_m_linear_eq_n_NotConsistent", "The argument `aeq` must have shape (%d, %d).", obj.m_linear_eq, obj.n);
+            % Check that `aub` is a real matrix with shape (numel(obj.bub), n).
+            if ~isrealmatrix(obj.aub) || ~isequal(size(obj.aub), [numel(obj.bub), obj.n])
+                error("MATLAB:Problem:aub_m_linear_ub_n_NotConsistent", "The argument `aub` for `Problem` must be a real matrix having shape (%d, %d).", obj.m_linear_ub, obj.n);
             end
-            % Check that whether `m_nonlinear_ub` is empty or zero if `cub` is empty.
+            % Check that `beq` is a real vector.
+            if ~isrealvector(obj.beq)
+                error("MATLAB:Problem:beq_NotRealVector", "The argument `beq` for `Problem` must be a real vector.")
+            end
+            % Check that `aeq` is a real matrix with shape (numel(obj.beq), n).
+            if ~isrealmatrix(obj.aeq) || ~isequal(size(obj.aeq), [obj.m_linear_eq, obj.n])
+                error("MATLAB:Problem:aeq_m_linear_eq_n_NotConsistent", "The argument `aeq` for `Problem` must have shape (%d, %d).", obj.m_linear_eq, obj.n);
+            end
+            % Check whether `m_nonlinear_ub` is empty or zero if `cub` is empty.
             if isempty(obj.cub_) && ~isempty(obj.m_nonlinear_ub_) && obj.m_nonlinear_ub_ > 0
-                error("MATLAB:Problem:m_nonlinear_ub_cub_NotConsistent", "The argument `m_nonlinear_ub` must be empty or zero if the argument `cub` is empty.");
+                error("MATLAB:Problem:m_nonlinear_ub_cub_NotConsistent", "The argument `m_nonlinear_ub` for `Problem` must be empty or zero if the argument `cub` is empty.");
             end
-            % Check that whether `m_nonlinear_eq` is empty or zero if `ceq` is empty.
+            % Check whether `m_nonlinear_eq` is empty or zero if `ceq` is empty.
             if isempty(obj.ceq_) && ~isempty(obj.m_nonlinear_eq_) && obj.m_nonlinear_eq_ > 0
-                error("MATLAB:Problem:m_nonlinear_eq_ceq_NotConsistent", "The argument `m_nonlinear_eq` must be empty or zero if the argument `ceq` is empty.");
+                error("MATLAB:Problem:m_nonlinear_eq_ceq_NotConsistent", "The argument `m_nonlinear_eq` for `Problem` must be empty or zero if the argument `ceq` is empty.");
             end
         end
 
@@ -183,7 +203,7 @@ classdef Problem < handle
         % Preprocess the type of the variables.
         function set.x_type(obj, value)
             if ~ismember(value, {'real', 'integer', 'binary'})
-                error("MATLAB:Problem:x_type_NotValid", "The argument `x_type` must be one of {'real', 'integer', 'binary'}.")
+                error("MATLAB:Problem:x_type_NotValid", "The argument `x_type` for `Problem` must be one of {'real', 'integer', 'binary'}.")
             end
             obj.x_type = value;
         end
@@ -191,7 +211,7 @@ classdef Problem < handle
         % Preprocess the initial guess.
         function set.x0(obj, value)
             if ~isvector(value)
-                error("MATLAB:Problem:x0_NotVector", "The argument `x0` must be a vector.")
+                error("MATLAB:Problem:x0_NotVector", "The argument `x0` for `Problem` must be a vector.")
             end
             obj.x0 = reshape(value, [], 1);
         end
@@ -200,11 +220,11 @@ classdef Problem < handle
         function set.fun_(obj, fun)
             % This function only accepts a new function handle.
             if ~isa(fun, 'function_handle')
-                error("MATLAB:Problem:fun_NotFunctionHandle", "The argument `fun` must be a function handle.")
+                error("MATLAB:Problem:fun_NotFunctionHandle", "The argument `fun` for `Problem` must be a function handle.")
             end
             % Check if `fun` can accept only one argument.
             if nargin(fun) ~= 1
-                error("MATLAB:Problem:fun_NotOneArguementFun", "The function must accept exactly one argument.")
+                error("MATLAB:Problem:fun_NotOneArguementFun", "The argument `fun` for `Problem` must accept exactly one argument.")
             end
             
             obj.fun_ = fun;
@@ -214,7 +234,7 @@ classdef Problem < handle
         function set.xl(obj, xl)
             if ~isempty(xl)
                 if ~isvector(xl)
-                    error("MATLAB:Problem:xl_NotVector", "The argument `xl` must be a vector.")
+                    error("MATLAB:Problem:xl_NotVector", "The argument `xl` for `Problem` must be a vector.")
                 end
                 obj.xl = reshape(xl, [], 1);
             else
@@ -225,7 +245,7 @@ classdef Problem < handle
         function set.xu(obj, xu)
             if ~isempty(xu)
                 if ~isvector(xu)
-                    error("MATLAB:Problem:xu_NotVector", "The argument `xu` must be a vector.")
+                    error("MATLAB:Problem:xu_NotVector", "The argument `xu` for `Problem` must be a vector.")
                 end
                 obj.xu = reshape(xu, [], 1);
             else
@@ -237,7 +257,7 @@ classdef Problem < handle
         function set.aub(obj, aub)
             if ~isempty(aub)
                 if ~ismatrix(aub)
-                    error("MATLAB:Problem:aub_NotMatrix", "The argument `aub` must be a matrix.")
+                    error("MATLAB:Problem:aub_NotMatrix", "The argument `aub` for `Problem` must be a matrix.")
                 end
                 obj.aub = aub;
             else
@@ -248,7 +268,7 @@ classdef Problem < handle
         function set.bub(obj, bub)
             if ~isempty(bub)
                 if ~isvector(bub)
-                    error("MATLAB:Problem:bub_NotVector", "The argument `bub` must be a vector.")
+                    error("MATLAB:Problem:bub_NotVector", "The argument `bub` for `Problem` must be a vector.")
                 end
                 obj.bub = reshape(bub, [], 1);
             else
@@ -259,7 +279,7 @@ classdef Problem < handle
         function set.aeq(obj, aeq)
             if ~isempty(aeq)
                 if ~ismatrix(aeq)
-                    error("MATLAB:Problem:aeq_NotMatrix", "The argument `aeq` must be a matrix.")
+                    error("MATLAB:Problem:aeq_NotMatrix", "The argument `aeq` for `Problem` must be a matrix.")
                 end
                 obj.aeq = aeq;
             else
@@ -270,7 +290,7 @@ classdef Problem < handle
         function set.beq(obj, beq)
             if ~isempty(beq)
                 if ~isvector(beq)
-                    error("MATLAB:Problem:beq_NotVector", "The argument `beq` must be a vector.")
+                    error("MATLAB:Problem:beq_NotVector", "The argument `beq` for `Problem` must be a vector.")
                 end
                 obj.beq = reshape(beq, [], 1);
             else
@@ -281,14 +301,14 @@ classdef Problem < handle
         % Preprocess the nonlinear constraints.
         function set.cub_(obj, cub_)
             if ~isa(cub_, 'function_handle') && ~isempty(cub_)
-                error("MATLAB:Problem:cub_NotFunctionHandle", "The argument `cub` must be a function handle.")
+                error("MATLAB:Problem:cub_NotFunctionHandle", "The argument `cub` for `Problem` must be a function handle.")
             end
             obj.cub_ = cub_;
         end
 
         function set.ceq_(obj, ceq_)
             if ~isa(ceq_, 'function_handle') && ~isempty(ceq_)
-                error("MATLAB:Problem:ceq_NotFunctionHandle", "The argument `ceq` must be a function handle.")
+                error("MATLAB:Problem:ceq_NotFunctionHandle", "The argument `ceq` for `Problem` must be a function handle.")
             end
             
             obj.ceq_ = ceq_;
@@ -298,7 +318,7 @@ classdef Problem < handle
         function set.m_nonlinear_ub_(obj, m_nonlinear_ub)
             if ~isempty(m_nonlinear_ub)
                 if ~isintegerscalar(m_nonlinear_ub) || m_nonlinear_ub < 0
-                    error("MATLAB:Problem:m_nonlinear_ub_NotPositiveScalar", "The argument `m_nonlinear_ub` must be a nonnegative integer.")
+                    error("MATLAB:Problem:m_nonlinear_ub_NotPositiveScalar", "The argument `m_nonlinear_ub` for `Problem` must be a nonnegative integer.")
                 end
                 obj.m_nonlinear_ub_ = m_nonlinear_ub;
             else
@@ -309,7 +329,7 @@ classdef Problem < handle
         function set.m_nonlinear_eq_(obj, m_nonlinear_eq)
             if ~isempty(m_nonlinear_eq)
                 if ~isintegerscalar(m_nonlinear_eq) || m_nonlinear_eq < 0
-                    error("MATLAB:Problem:m_nonlinear_eq_NotPositiveScalar", "The argument `m_nonlinear_eq` must be a nonnegative integer.")
+                    error("MATLAB:Problem:m_nonlinear_eq_NotPositiveScalar", "The argument `m_nonlinear_eq` for `Problem` must be a nonnegative integer.")
                 end
                 obj.m_nonlinear_eq_ = m_nonlinear_eq;
             else
@@ -407,13 +427,13 @@ classdef Problem < handle
             end
 
             % Check if x is a vector.
-            if ~isvector(x)
-                error("MATLAB:Problem:InvalidInputForMaxCV", "The input `x` must be a vector.")
+            if ~isrealvector(x)
+                error("MATLAB:Problem:InvalidInputForMaxCV", "The input `x` for method `maxcv` in `Problem` must be a real vector.")
             end
 
             % Check if x has the same size as the dimension of the problem.
             if numel(x) ~= obj.n
-                error("MATLAB:Problem:WrongSizeInputForMaxCV", "The input `x` must have size %d.", obj.n)
+                error("MATLAB:Problem:WrongSizeInputForMaxCV", "The input `x` for method `maxcv` in `Problem` must have size %d.", obj.n)
             end
 
             if strcmp(obj.p_type, 'unconstrained')
@@ -503,12 +523,12 @@ classdef Problem < handle
 
         function f = fun(obj, x)
             % Check if x is a vector.
-            if ~isvector(x)
-                error("MATLAB:Problem:InvalidInputForFUN", "The input `x` must be a vector.")
+            if ~isrealvector(x)
+                error("MATLAB:Problem:InvalidInputForFUN", "The input `x` for method `fun` in `Problem` must be a vector.")
             end
 
             if numel(x) ~= obj.n
-                error("MATLAB:Problem:WrongSizeInputForFUN", "The input `x` must have size %d.", obj.n)
+                error("MATLAB:Problem:WrongSizeInputForFUN", "The input `x` for method `fun` in `Problem` must have size %d.", obj.n)
             end
 
             try
@@ -530,12 +550,12 @@ classdef Problem < handle
         end
 
         function f = cub(obj, x)
-            if ~isvector(x)
-                error("MATLAB:Problem:InvalidInputForCUB", "The input `x` must be a vector.")
+            if ~isrealvector(x)
+                error("MATLAB:Problem:InvalidInputForCUB", "The input `x` for method `cub` in `Problem` must be a vector.")
             end
 
             if numel(x) ~= obj.n
-                error("MATLAB:Problem:WrongSizeInputForCUB", "The input `x` must have size %d.", obj.n)
+                error("MATLAB:Problem:WrongSizeInputForCUB", "The input `x` for method `cub` in `Problem` must have size %d.", obj.n)
             end
 
             if isempty(obj.cub_)
@@ -547,8 +567,8 @@ classdef Problem < handle
                     warning(ME.identifier, '%s', ME.message);
                     f = NaN(obj.m_nonlinear_ub, 1);
                 end
-                if ~isvector(f) && ~isempty(f)
-                    error("MATLAB:Problem:InvalidOutputForCUB", "The output of the nonlinear inequality constraint must be a vector.")
+                if ~isrealvector(f) && ~isempty(f)
+                    error("MATLAB:Problem:InvalidOutputForCUB", "The output of method `cub` in `Problem` must be a real vector.")
                 end
                 try
                     f = double(f);
@@ -567,12 +587,12 @@ classdef Problem < handle
         end
 
         function f = ceq(obj, x)
-            if ~isvector(x)
-                error("MATLAB:Problem:InvalidInputForCEQ", "The input `x` must be a vector.")
+            if ~isrealvector(x)
+                error("MATLAB:Problem:InvalidInputForCEQ", "The input `x` for method `ceq` in `Problem` must be a real vector.")
             end
 
             if numel(x) ~= obj.n
-                error("MATLAB:Problem:WrongSizeInputForCEQ", "The input `x` must have size %d.", obj.n)
+                error("MATLAB:Problem:WrongSizeInputForCEQ", "The input `x` for method `ceq` in `Problem` must have size %d.", obj.n)
             end
 
             if isempty(obj.ceq_)
@@ -584,8 +604,8 @@ classdef Problem < handle
                     warning(ME.identifier, '%s', ME.message);
                     f = NaN(obj.m_nonlinear_eq, 1);
                 end
-                if ~isvector(f) && ~isempty(f)
-                    error("MATLAB:Problem:InvalidOutputForCEQ", "The output of the nonlinear equality constraint must be a vector.")
+                if ~isrealvector(f) && ~isempty(f)
+                    error("MATLAB:Problem:InvalidOutputForCEQ", "The output of method `ceq` in `Problem` must be a vector.")
                 end
                 try
                     f = double(f);
@@ -608,7 +628,7 @@ classdef Problem < handle
                 if isempty(obj.cub_)
                     m = 0;
                 else
-                    error("MATLAB:Problem:m_nonlinear_ub_Unknown", "The number of nonlinear inequality constraints is unknown.");
+                    error("MATLAB:Problem:m_nonlinear_ub_Unknown", "The number of nonlinear inequality constraints for `Problem` is unknown.");
                 end
             else
                 m = obj.m_nonlinear_ub_;
@@ -620,7 +640,7 @@ classdef Problem < handle
                 if isempty(obj.ceq_)
                     m = 0;
                 else
-                    error("MATLAB:Problem:m_nonlinear_eq_Unknown", "The number of nonlinear equality constraints is unknown.");
+                    error("MATLAB:Problem:m_nonlinear_eq_Unknown", "The number of nonlinear equality constraints for `Problem` is unknown.");
                 end
             else
                 m = obj.m_nonlinear_eq_;

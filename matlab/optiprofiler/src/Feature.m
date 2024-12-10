@@ -8,21 +8,24 @@ classdef Feature < handle
 %   FEATURE is a mapping from an optimization problem to a new one.
 %
 %   Suppose we have an optimization problem
-%    min f(x)
-%    s.t. xl <= x <= xu
-%         aub @ x <= bub
-%         aeq @ x = beq
-%         cub(x) <= 0
-%         ceq(x) = 0
-%   with initial point x0.
+%
+%       min fun(x)
+%       s.t. xl <= x <= xu
+%            aub @ x <= bub
+%            aeq @ x = beq
+%            cub(x) <= 0
+%            ceq(x) = 0
+%       with initial point x0.
+%
 %   Then, FEATURE maps the optimization problem to the following one.
-%    min f_mod(A @ x + b)
-%    s.t. xl_mod <= A @ x + b <= xu_mod
-%         aub_mod @ (A @ x + b) <= bub_mod
-%         aeq_mod @ (A @ x + b) = beq_mod
-%         cub_mod(A @ x + b) <= 0
-%         ceq_mod(A @ x + b) = 0
-%   with initial point x0_mod.
+%
+%       min fun_mod(A @ x + b)
+%       s.t. xl_mod <= A @ x + b <= xu_mod
+%            aub_mod @ (A @ x + b) <= bub_mod
+%            aeq_mod @ (A @ x + b) = beq_mod
+%            cub_mod(A @ x + b) <= 0
+%            ceq_mod(A @ x + b) = 0
+%       with initial point x0_mod.
 %
 %Usage:
 %   FT = FEATURE(NAME) creates a FEATURE with the name NAME.
@@ -130,7 +133,7 @@ classdef Feature < handle
             %}
 
             if ~ischarstr(name)
-                error("MATLAB:Feature:FeaturenameNotString", "The feature name must be a char or a string.")
+                error("MATLAB:Feature:FeaturenameNotString", "The first input argument for `Feature` must be a char or string.")
             end
             % Convert the feature name to lowercase characters.
             obj.name = char(lower(name));
@@ -140,7 +143,7 @@ classdef Feature < handle
                 if isstruct(varargin{1})
                     obj.options = varargin{1};
                 elseif mod(length(varargin), 2) ~= 0
-                    error("MATLAB:Feature:InvalidNumberOfArguments", "The input of the feature options must be in pairs.")
+                    error("MATLAB:Feature:InvalidNumberOfArguments", "The number of input arguments for `Feature` must be odd if the second argument is not a struct.")
                 else
                     for i = 1:2:length(varargin)
                         obj.options.(lower(varargin{i})) = varargin{i+1};
@@ -153,14 +156,14 @@ classdef Feature < handle
             % Only for MATLAB R2021b and later.
             validFeatureNames = cellfun(@(x) x.value, num2cell(enumeration('FeatureName')), 'UniformOutput', false);
             if ~ismember(obj.name, validFeatureNames)
-                error("MATLAB:Feature:UnknownFeature", "Unknown feature: " + obj.name + ".")
+                error("MATLAB:Feature:UnknownFeature", "Unknown `Feature`: " + obj.name + ".")
             end
             optionKeys = fieldnames(obj.options);
             validOptionKeys = cellfun(@(x) x.value, num2cell(enumeration('FeatureOptionKey')), 'UniformOutput', false);
             for i = 1:numel(optionKeys)
                 key = optionKeys{i};
                 if ~ismember(key, validOptionKeys)
-                    error("MATLAB:Feature:UnknownOption", "Unknown option: " + key + ".")
+                    error("MATLAB:Feature:UnknownOption", "Unknown option for `Feature`: " + key + ".")
                 end
 
                 % Check whether the option is valid for the feature.
@@ -189,102 +192,102 @@ classdef Feature < handle
                     case FeatureName.PLAIN.value
                         % Do nothing
                     otherwise
-                        error("MATLAB:Feature:UnknownFeature", "Unknown feature: " + obj.name + ".")
+                        error("MATLAB:Feature:UnknownFeature", "Unknown `Feature`: " + obj.name + ".")
                 end
                 if ~ismember(key, known_options)
-                    error("MATLAB:Feature:InvalidOptionForFeature", "Option " + key + " is not valid for feature " + obj.name + ".")
+                    error("MATLAB:Feature:InvalidOptionForFeature", "Option `" + key + "` is not valid for `Feature` '" + obj.name + "'.")
                 end
 
                 % Check whether the option type is valid.
                 switch key
                     case FeatureOptionKey.N_RUNS.value
                         if ~isintegerscalar(obj.options.(key)) || obj.options.(key) <= 0
-                            error("MATLAB:Feature:n_runs_NotPositiveInteger", "Option " + key + " must be a positive integer.")
+                            error("MATLAB:Feature:n_runs_NotPositiveInteger", "Option `" + key + "` must be a positive integer.")
                         end
                     case FeatureOptionKey.DISTRIBUTION.value
                         if ~isa(obj.options.(key), 'function_handle')
-                            error("MATLAB:Feature:distribution_NotFunctionHandle", "Option " + key + " must be a function handle.")
+                            error("MATLAB:Feature:distribution_NotFunctionHandle", "Option `" + key + "` must be a function handle.")
                         end
                     case FeatureOptionKey.RATE_NAN.value
                         if ~isrealscalar(obj.options.(key)) || obj.options.(key) < 0.0 || obj.options.(key) > 1.0
-                            error("MATLAB:Feature:rate_nan_NotBetween_0_1", "Option " + key + " must be a real number between 0 and 1.")
+                            error("MATLAB:Feature:rate_nan_NotBetween_0_1", "Option `" + key + "` must be a real number between 0 and 1.")
                         end
                     case FeatureOptionKey.SIGNIFICANT_DIGITS.value
                         if ~isintegerscalar(obj.options.(key)) || obj.options.(key) <= 0
-                            error("MATLAB:Feature:significant_digits_NotPositiveInteger", "Option " + key + " must be a positive integer.")
+                            error("MATLAB:Feature:significant_digits_NotPositiveInteger", "Option `" + key + "` must be a positive integer.")
                         end
                     case FeatureOptionKey.NOISE_LEVEL.value
                         if ~isrealscalar(obj.options.(key)) || obj.options.(key) <= 0.0
-                            error("MATLAB:Feature:noise_level_NotPositive", "Option " + key + " must be a positive real number.")
+                            error("MATLAB:Feature:noise_level_NotPositive", "Option `" + key + "` must be a positive real number.")
                         end
                     case FeatureOptionKey.NOISE_TYPE.value
                         validNoiseTypes = cellfun(@(x) x.value, num2cell(enumeration('NoiseType')), 'UniformOutput', false);
                         if ~ischarstr(obj.options.(key)) || ~ismember(obj.options.(key), validNoiseTypes)
-                            error("MATLAB:Feature:noise_type_InvalidInput", "Option " + key + " must be '" + NoiseType.ABSOLUTE.value + "' or '" + NoiseType.RELATIVE.value + "' or '" + NoiseType.MIXED.value + "'.")
+                            error("MATLAB:Feature:noise_type_InvalidInput", "Option `" + key + "` must be '" + NoiseType.ABSOLUTE.value + "' or '" + NoiseType.RELATIVE.value + "' or '" + NoiseType.MIXED.value + "'.")
                         end
                     case FeatureOptionKey.PERTURBED_TRAILING_ZEROS.value
                         if ~islogicalscalar(obj.options.(key))
-                            error("MATLAB:Feature:perturbed_trailing_zeros_NotLogical", "Option " + key + " must be a logical.")
+                            error("MATLAB:Feature:perturbed_trailing_zeros_NotLogical", "Option `" + key + "` must be a logical value.")
                         end
                     case FeatureOptionKey.ROTATED.value
                         if ~islogicalscalar(obj.options.(key))
-                            error("MATLAB:Feature:rotated_NotLogical", "Option " + key + " must be a logical.")
+                            error("MATLAB:Feature:rotated_NotLogical", "Option `" + key + "` must be a logical value.")
                         end
                     case FeatureOptionKey.CONDITION_FACTOR.value
                         if ~(isrealscalar(obj.options.(key)) && obj.options.(key) >= 0)
-                            error("MATLAB:Feature:condition_factor_InvalidInput", "Option " + key + " must be a nonnegative real number.")
+                            error("MATLAB:Feature:condition_factor_InvalidInput", "Option `" + key + "` must be a nonnegative real number.")
                         end
                     case FeatureOptionKey.UNRELAXABLE_BOUNDS.value
                         if ~islogicalscalar(obj.options.(key))
-                            error("MATLAB:Feature:unrelaxable_bounds_NotLogical", "Option " + key + " must be a logical.")
+                            error("MATLAB:Feature:unrelaxable_bounds_NotLogical", "Option `" + key + "` must be a logical value.")
                         end
                     case FeatureOptionKey.UNRELAXABLE_LINEAR_CONSTRAINTS.value
                         if ~islogicalscalar(obj.options.(key))
-                            error("MATLAB:Feature:unrelaxable_linear_constraints_NotLogical", "Option " + key + " must be a logical.")
+                            error("MATLAB:Feature:unrelaxable_linear_constraints_NotLogical", "Option `" + key + "` must be a logical value.")
                         end
                     case FeatureOptionKey.UNRELAXABLE_NONLINEAR_CONSTRAINTS.value
                         if ~islogicalscalar(obj.options.(key))
-                            error("MATLAB:Feature:unrelaxable_nonlinear_constraints_NotLogical", "Option " + key + " must be a logical.")
+                            error("MATLAB:Feature:unrelaxable_nonlinear_constraints_NotLogical", "Option `" + key + "` must be a logical value.")
                         end
                     case FeatureOptionKey.MESH_SIZE.value
                         if ~isrealscalar(obj.options.(key)) || obj.options.(key) <= 0.0
-                            error("MATLAB:Feature:mesh_size_NotPositive", "Option " + key + " must be a positive real number.")
+                            error("MATLAB:Feature:mesh_size_NotPositive", "Option `" + key + "` must be a positive real number.")
                         end
                     case FeatureOptionKey.IS_TRUTH.value
                         if ~islogicalscalar(obj.options.(key))
-                            error("MATLAB:Feature:is_truth_NotLogical", "Option " + key + " must be a logical.")
+                            error("MATLAB:Feature:is_truth_NotLogical", "Option `" + key + "` must be a logical value.")
                         end
                     case FeatureOptionKey.MOD_X0.value
                         if ~isa(obj.options.(key), 'function_handle')
-                            error("MATLAB:Feature:mod_x0_NotFunctionHandle", "Option " + key + " must be a function handle.")
+                            error("MATLAB:Feature:mod_x0_NotFunctionHandle", "Option `" + key + "` must be a function handle.")
                         end
                     case FeatureOptionKey.MOD_BOUNDS.value
                         if ~isa(obj.options.(key), 'function_handle')
-                            error("MATLAB:Feature:mod_bounds_NotFunctionHandle", "Option " + key + " must be a function handle.")
+                            error("MATLAB:Feature:mod_bounds_NotFunctionHandle", "Option `" + key + "` must be a function handle.")
                         end
                     case FeatureOptionKey.MOD_LINEAR_UB.value
                         if ~isa(obj.options.(key), 'function_handle')
-                            error("MATLAB:Feature:mod_linear_ub_NotFunctionHandle", "Option " + key + " must be a function handle.")
+                            error("MATLAB:Feature:mod_linear_ub_NotFunctionHandle", "Option `" + key + "` must be a function handle.")
                         end
                     case FeatureOptionKey.MOD_LINEAR_EQ.value
                         if ~isa(obj.options.(key), 'function_handle')
-                            error("MATLAB:Feature:mod_linear_eq_NotFunctionHandle", "Option " + key + " must be a function handle.")
+                            error("MATLAB:Feature:mod_linear_eq_NotFunctionHandle", "Option `" + key + "` must be a function handle.")
                         end
                     case FeatureOptionKey.MOD_AFFINE.value
                         if ~isa(obj.options.(key), 'function_handle')
-                            error("MATLAB:Feature:mod_affine_NotFunctionHandle", "Option " + key + " must be a function handle.")
+                            error("MATLAB:Feature:mod_affine_NotFunctionHandle", "Option `" + key + "` must be a function handle.")
                         end
                     case FeatureOptionKey.MOD_FUN.value
                         if ~isa(obj.options.(key), 'function_handle')
-                            error("MATLAB:Feature:mod_fun_NotFunctionHandle", "Option " + key + " must be a function handle.")
+                            error("MATLAB:Feature:mod_fun_NotFunctionHandle", "Option `" + key + "` must be a function handle.")
                         end
                     case FeatureOptionKey.MOD_CUB.value
                         if ~isa(obj.options.(key), 'function_handle')
-                            error("MATLAB:Feature:mod_cub_NotFunctionHandle", "Option " + key + " must be a function handle.")
+                            error("MATLAB:Feature:mod_cub_NotFunctionHandle", "Option `" + key + "` must be a function handle.")
                         end
                     case FeatureOptionKey.MOD_CEQ.value
                         if ~isa(obj.options.(key), 'function_handle')
-                            error("MATLAB:Feature:mod_ceq_NotFunctionHandle", "Option " + key + " must be a function handle.")
+                            error("MATLAB:Feature:mod_ceq_NotFunctionHandle", "Option `" + key + "` must be a function handle.")
                         end
                 end
             end
@@ -369,7 +372,7 @@ classdef Feature < handle
                     end
                     % Check whether A * inv is an identity matrix.
                     if norm(A * inv - eye(problem.n)) > 1e-8 * problem.n
-                        error("MATLAB:Feature:AffineTransformationNotInvertible", "The affine transformation A * inv is not an identity matrix.")
+                        error("MATLAB:Feature:AffineTransformationNotInvertible", "The multiplication of the affine transformation matrix and its inverse is not an identity matrix.")
                     end
                 case FeatureName.PERMUTED.value
                     % Generate a random permutation matrix.
@@ -1029,7 +1032,7 @@ classdef Feature < handle
                         obj.options.(FeatureOptionKey.IS_TRUTH.value) = true;
                     end
                 otherwise
-                    error("MATLAB:Feature:UnknownFeature", "Unknown feature: " + obj.name + ".")
+                    error("MATLAB:Feature:UnknownFeature", "Unknown `Feature`: " + obj.name + ".")
             end
         end
 
@@ -1064,7 +1067,7 @@ classdef Feature < handle
                     seed = 0;
                 end
                 if ~isrealscalar(seed)
-                    error("MATLAB:Feature:SeedNotEvenReal", "The input for seed should at least be a real number.")
+                    error("MATLAB:Feature:SeedNotEvenReal", "The input `seed` for method `default_rng` in `Feature` should be a real number.")
                 end
                 seed = mod(floor(seed), 2^32);
             end
