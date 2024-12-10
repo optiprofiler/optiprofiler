@@ -232,3 +232,13 @@ YScale
 YShift
 ROSENBR
 ROSSIMP
+errortest
+isrc
+isrealcolumn
+isrealmatrix
+isrealrow
+isrealvector
+isrm
+isrr
+isrv
+optimset
