@@ -242,3 +242,4 @@ isrm
 isrr
 isrv
 optimset
+sqp

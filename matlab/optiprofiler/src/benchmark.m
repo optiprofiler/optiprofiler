@@ -257,7 +257,6 @@ function benchmark(solvers, varargin)
                 custom_problem_names = {options.problem.name};
                 options_store.problem = options.problem;
                 options = rmfield(options, 'problem');
-                options.n_jobs = 1;
             else
                 if isfield(options, 'cutest_problem_names')
                     cutest_problem_names = options.cutest_problem_names;
@@ -451,9 +450,24 @@ function benchmark(solvers, varargin)
         rmdir(path_log, 's');
         mkdir(path_log);
     end
-    save(fullfile(path_log, 'options_store.mat'), 'options_store');
+    try
+        save(fullfile(path_log, 'options_store.mat'), 'options_store');
+    catch
+        fprintf("INFO: Failed to save the `options` of the current experiment.\n");
+    end
     log_file = fullfile(path_log, 'log.txt');
     diary(log_file);
+
+    % We try to copy the script or function that calls the benchmark function to the log directory.
+    try
+        calling_script = dbstack(1, '-completenames');
+        if ~isempty(calling_script)
+            copyfile(calling_script.file, path_log);
+            fprintf("INFO: The script or function that calls `benchmark` function is copied to: %s.\n\n", path_log);
+        end
+    catch
+        fprintf("INFO: Failed to copy the script or function that calls `benchmark` function to the log directory.\n\n");
+    end
 
     % Build feature.
     feature = Feature(feature_name, feature_options);
