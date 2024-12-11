@@ -47,8 +47,8 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
             end
             for i_problem = 1:n_problems
                 problem_name = problem_names{i_problem};
-                [tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n, tmp_computation_time] = solveOneProblem(problem_name, solvers, labels, feature, len_problem_names, custom_problem_loader, profile_options, is_plot, path_hist_plots);
-                results{i_problem} = {tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n, tmp_computation_time};
+                [tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n, tmp_computation_time, tmp_solvers_success] = solveOneProblem(problem_name, solvers, labels, feature, len_problem_names, custom_problem_loader, profile_options, is_plot, path_hist_plots);
+                results{i_problem} = {tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n, tmp_computation_time, tmp_solvers_success};
             end
         otherwise
             try
@@ -66,8 +66,8 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
             end
             parfor i_problem = 1:n_problems
                 problem_name = problem_names{i_problem};
-                [tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n, tmp_computation_time] = solveOneProblem(problem_name, solvers, labels, feature, len_problem_names, custom_problem_loader, profile_options, is_plot, path_hist_plots);
-                results{i_problem} = {tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n, tmp_computation_time};
+                [tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n, tmp_computation_time, tmp_solvers_success] = solveOneProblem(problem_name, solvers, labels, feature, len_problem_names, custom_problem_loader, profile_options, is_plot, path_hist_plots);
+                results{i_problem} = {tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n, tmp_computation_time, tmp_solvers_success};
             end
             if ~profile_options.(ProfileOptionKey.KEEP_POOL.value)
                 if ~profile_options.(ProfileOptionKey.SILENT.value)
@@ -79,10 +79,14 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
             end
     end
 
-    % Select and delete the empty results. Get a list of unsolved problems (all solvers failed to solve the problem).
-    not_empty_index = cellfun(@(c) all(cellfun(@(x) ~isempty(x), c)), results);
-    problem_unsolved = problem_names(~not_empty_index);
-    results = results(not_empty_index);
+    % Use tmp_solvers_success to check if the solvers are successful.
+    problem_solvers_success = true(n_problems, 1);
+    for i_problem = 1:n_problems
+        problem_solvers_success(i_problem) = results{i_problem}{11};
+    end
+    problem_unsolved = problem_names(~problem_solvers_success);
+    % Remove the unsolved problems from the results.
+    results = results(problem_solvers_success);
 
     if all(arrayfun(@(x) all(cellfun(@isempty, results{x}([1:7, 9:10]))), 1:length(results))) % Check if all problems failed to load.
         fprintf("INFO: All problems failed to load.\n");
@@ -96,32 +100,44 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
         problem_names = [];
         problem_dimensions = [];
         computation_times = [];
+    elseif length(problem_unsolved) == n_problems % Check if all problems failed to solve.
+        fprintf("INFO: All problems failed to solve.\n");
+        fun_histories = [];
+        maxcv_histories = [];
+        fun_out = [];
+        maxcv_out = [];
+        fun_init = [];
+        maxcv_init = [];
+        n_eval = [];
+        problem_names = [];
+        problem_dimensions = [];
+        computation_times = [];
     else
         % Process results.
-        n_problems = length(results);
+        n_problems_solved = length(results);
         n_solvers = length(solvers);
         n_runs = feature.options.(FeatureOptionKey.N_RUNS.value);
-        problem_dimensions = NaN(n_problems, 1);
-        computation_times = NaN(n_problems, 1);
-        for i_problem = 1:n_problems
+        problem_dimensions = NaN(n_problems_solved, 1);
+        computation_times = NaN(n_problems_solved, 1);
+        for i_problem = 1:n_problems_solved
             problem_dimensions(i_problem) = results{i_problem}{9};
             computation_times(i_problem) = results{i_problem}{10};
         end
-        if length(problem_dimensions) > 0
+        if n_problems_solved > 0
             max_eval = max_eval_factor * max(problem_dimensions);
         else
             max_eval = 1;
         end
-        fun_histories = NaN(n_problems, n_solvers, n_runs, max_eval);
-        maxcv_histories = NaN(n_problems, n_solvers, n_runs, max_eval);
-        fun_out = NaN(n_problems, n_solvers, n_runs);
-        maxcv_out = NaN(n_problems, n_solvers, n_runs);
-        fun_init = NaN(n_problems, 1);
-        maxcv_init = NaN(n_problems, 1);
-        n_eval = NaN(n_problems, n_solvers, n_runs);
+        fun_histories = NaN(n_problems_solved, n_solvers, n_runs, max_eval);
+        maxcv_histories = NaN(n_problems_solved, n_solvers, n_runs, max_eval);
+        fun_out = NaN(n_problems_solved, n_solvers, n_runs);
+        maxcv_out = NaN(n_problems_solved, n_solvers, n_runs);
+        fun_init = NaN(n_problems_solved, 1);
+        maxcv_init = NaN(n_problems_solved, 1);
+        n_eval = NaN(n_problems_solved, n_solvers, n_runs);
         problem_names = [];
 
-        for i_problem = 1:n_problems
+        for i_problem = 1:n_problems_solved
             max_eval = max_eval_factor * problem_dimensions(i_problem);
             result = results{i_problem};
             fun_hist = result{1};

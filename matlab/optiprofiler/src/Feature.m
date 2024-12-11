@@ -754,7 +754,7 @@ classdef Feature < handle
                         end
                     end
                 case FeatureName.UNRELAXABLE_CONSTRAINTS.value
-                    [~, maxcv_bounds, maxcv_linear, maxcv_nonlinear] = problem.maxcv(x);
+                    [~, maxcv_bounds, maxcv_linear, maxcv_nonlinear] = problem.maxcv(x, true);
                     if obj.options.(FeatureOptionKey.UNRELAXABLE_BOUNDS.value) && maxcv_bounds > 0
                         f = Inf;
                     elseif obj.options.(FeatureOptionKey.UNRELAXABLE_LINEAR_CONSTRAINTS.value) && maxcv_linear > 0
@@ -992,7 +992,7 @@ classdef Feature < handle
                     end
                 case FeatureName.TRUNCATED.value
                     if ~isfield(obj.options, FeatureOptionKey.PERTURBED_TRAILING_ZEROS.value)
-                        obj.options.(FeatureOptionKey.PERTURBED_TRAILING_ZEROS.value) = true;
+                        obj.options.(FeatureOptionKey.PERTURBED_TRAILING_ZEROS.value) = false;
                     end
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
                         if obj.options.(FeatureOptionKey.PERTURBED_TRAILING_ZEROS.value)

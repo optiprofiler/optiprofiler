@@ -205,14 +205,18 @@ end
 function fx = getfun(problem_name, x)
     
     funcHandle = str2func(problem_name);
-    fx = funcHandle('fx', x);
+    try
+        evalc("fx = funcHandle('fx', x)");
+    catch
+        fx = 0;
+    end
 end
 
 function cx = getcx(problem_name, x)
     
     funcHandle = str2func(problem_name);
     try
-        cx = funcHandle('cx', x);
+        evalc("cx = funcHandle('cx', x)");
         cx = full(cx);
         % Check if cx is a row vector, if yes, transpose it to a column vector.
         if size(cx, 1) == 1

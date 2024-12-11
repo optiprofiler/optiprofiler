@@ -120,9 +120,9 @@ classdef TestFeature < matlab.unittest.TestCase
 
             ft = Feature('truncated');
             testCase.verifyEqual(ft.name, 'truncated');
-            testCase.verifyEqual(ft.options.n_runs, 10);
+            testCase.verifyEqual(ft.options.n_runs, 1);
             testCase.verifyEqual(ft.options.significant_digits, 6);
-            testCase.verifyEqual(ft.options.perturbed_trailing_zeros, true);
+            testCase.verifyEqual(ft.options.perturbed_trailing_zeros, false);
 
             options.n_runs = 5;
             options.significant_digits = 2;

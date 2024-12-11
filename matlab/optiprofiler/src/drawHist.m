@@ -54,7 +54,7 @@ function drawHist(fun_histories, maxcv_histories, merit_histories, fun_init, max
     maxlength_maxcv = length(['Cummin of maximum constraint violations shifted above by $', formatted_maxcv_shift, '$']);
     label_fontsize_maxcv = min(12, 1.5 * default_height / maxlength_maxcv);
     maxlength_merit = length(['Cummin of merit function values shifted above by $', formatted_merit_shift, '$']);
-    label_fontsize_merit = min(label_fontsize, min(12, 1.5 * default_height / maxlength_merit));
+    label_fontsize_merit = min(12, 1.5 * default_height / maxlength_merit);
     if is_cum
         if y_shift_maxcv > 0
             y_label = ['Cummin of maximum constraint violations shifted above by $', formatted_maxcv_shift, '$'];

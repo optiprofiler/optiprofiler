@@ -1,4 +1,4 @@
-function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_name, problem_n, computation_time] = solveOneProblem(problem_name, solvers, labels, feature, len_problem_names, custom_problem_loader, profile_options, is_plot, path_hist_plots)
+function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_name, problem_n, computation_time, solvers_success] = solveOneProblem(problem_name, solvers, labels, feature, len_problem_names, custom_problem_loader, profile_options, is_plot, path_hist_plots)
 %SOLVEONEPROBLEM solves one problem with all the solvers in solvers list.
 
     fun_histories = [];
@@ -10,6 +10,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
     n_eval = [];
     problem_n = [];
     computation_time = [];
+    solvers_success = false;
 
     if length(problem_name) == 2
         problem = custom_problem_loader(problem_name{2});
@@ -119,6 +120,8 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
                             fprintf(format_info_best, problem_name, labels{i_solver}, i_run, n_runs, fun_min, maxcv_min);
                     end
                 end
+                % If one solver succeeds once, then we say this problem is solved.
+                solvers_success = true;
             catch Exception
                 if profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) ~= 0
                     fprintf("INFO: An error occurred while solving %s with %s (run %d/%d): %s\n", problem_name, labels{i_solver}, i_run, n_runs, Exception.message);
@@ -140,7 +143,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
     %%%%%%%%%%%%%%%%%%%%%%%%%%%% History plots of the computation %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    if ~is_plot
+    if ~is_plot || ~solvers_success
         return;
     end
 

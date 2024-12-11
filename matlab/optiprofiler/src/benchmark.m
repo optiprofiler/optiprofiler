@@ -66,7 +66,7 @@ function benchmark(solvers, varargin)
 %         'truncated' feature. Default is 6.
 %       - perturbed_trailing_zeros: whether we will set the trailing zeros of
 %         the objective function value to be random in the 'perturbed_x0'
-%         feature. Default is true.
+%         feature. Default is false.
 %       - rotated: whether to use a random or given rotation matrix to rotate
 %         the coordinates of a problem in the 'linearly_transformed' feature.
 %         Default is true.
@@ -480,10 +480,13 @@ function benchmark(solvers, varargin)
     % log-ratio profiles.
     if numel(problem_names) == 1
         % We move the history plots to the feature directory.
-        movefile(fullfile(path_hist_plots, '*'), path_feature);
-        rmdir(path_hist_plots, 's');
-        if ~profile_options.(ProfileOptionKey.SILENT.value)
-            fprintf('\nINFO: Detailed results stored in %s\n', path_feature);
+        try
+            movefile(fullfile(path_hist_plots, '*'), path_feature);
+            rmdir(path_hist_plots, 's');
+            if ~profile_options.(ProfileOptionKey.SILENT.value)
+                fprintf('\nINFO: Detailed results stored in %s\n', path_feature);
+            end
+        catch
         end
         diary off;
         return;

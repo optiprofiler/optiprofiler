@@ -37,15 +37,22 @@ function drawFunMaxcvMeritHist(ax, y, labels, is_cum, problem_n, y_shift, n_eval
         y_upper = cummin(y_upper, 2);
     end
 
+    xl_lim = 1 / (problem_n + 1);
+    xr_lim = 1 / (problem_n + 1);
     for i_solver = 1:n_solvers
         % Truncate the histories according to the function evaluations of each solver.
         length = max(n_eval(i_solver,:));
         length = min(length, size(y(i_solver,:,:), 3));
         nextColor = ax.ColorOrder(mod(ax.ColorOrderIndex-1, size(ax.ColorOrder, 1)) + 1, :);
         x = (1:length) / (problem_n + 1);
-        plot(ax, x, y_mean(i_solver, 1:length), 'DisplayName', labels{i_solver});
+        xr_lim = max(xr_lim, x(end));
+        if length == 1
+            plot(ax, x, y_mean(i_solver, 1:length), 'o', 'DisplayName', labels{i_solver});
+        else
+            plot(ax, x, y_mean(i_solver, 1:length), 'DisplayName', labels{i_solver});
+        end
         hold(ax, 'on');
-        if n_runs > 1
+        if n_runs > 1 && length > 1
             fill(ax, [x, fliplr(x)], [y_lower(i_solver, 1:length), fliplr(y_upper(i_solver, 1:length))], nextColor, 'FaceAlpha', 0.2, 'EdgeAlpha', 0, 'HandleVisibility', 'off');
         end
     end
@@ -58,7 +65,7 @@ function drawFunMaxcvMeritHist(ax, y, labels, is_cum, problem_n, y_shift, n_eval
     box(ax, 'on');
     legend(ax, 'Location', 'northeast');
     hold(ax, 'off');
-    set(ax, 'XLim', [min(x), max(x)]);
+    set(ax, 'XLim', [xl_lim, xr_lim]);
     xlabel(ax, 'Number of simplex gradients', 'Interpreter', 'latex');
 
 end
