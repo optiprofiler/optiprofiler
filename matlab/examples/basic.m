@@ -39,7 +39,7 @@ function basic()
     % options.p_type = 'u';
     % options.maxdim = 3;
     % options.excludelist = {"MUONSINELS"};
-    % options.labels = {'simplex_1', 'simplex_2'};
+    % options.solver_names = {'simplex_1', 'simplex_2'};
     % benchmark(solvers, options)
 end
 

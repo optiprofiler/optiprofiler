@@ -1,4 +1,4 @@
-function drawHist(fun_histories, maxcv_histories, merit_histories, fun_init, maxcv_init, merit_init, labels, cell_axs_summary, is_cum, p_type, problem_n, n_eval, profile_options, default_height)
+function drawHist(fun_histories, maxcv_histories, merit_histories, fun_init, maxcv_init, merit_init, solver_names, cell_axs_summary, is_cum, p_type, problem_n, n_eval, profile_options, default_height)
 %DRAWHIST draws the history plots of the function values, the maximum constraint violation, and the merit function values.
 
     fun_histories = processHistYaxes(fun_histories, fun_init);
@@ -14,7 +14,7 @@ function drawHist(fun_histories, maxcv_histories, merit_histories, fun_init, max
     y_shift_fun = computeYShift(fun_histories, ratio, safeguard, upper_bound, profile_options);
 
     % First, draw the histories of function values.
-    drawFunMaxcvMeritHist(cell_axs_summary{1}, fun_histories, labels, is_cum, problem_n, y_shift_fun, n_eval, profile_options);
+    drawFunMaxcvMeritHist(cell_axs_summary{1}, fun_histories, solver_names, is_cum, problem_n, y_shift_fun, n_eval, profile_options);
     [~, formatted_fun_shift] = formatFloatScientificLatex(y_shift_fun, 3);
 
     maxlength_fun = length(['Cummin of function values shifted above by $', formatted_fun_shift, '$']);
@@ -46,9 +46,9 @@ function drawHist(fun_histories, maxcv_histories, merit_histories, fun_init, max
     y_shift_merit = computeYShift(merit_histories, ratio, safeguard, upper_bound, profile_options);
 
     % Second, draw the histories of maximum constraint violations and merit function values.
-    drawFunMaxcvMeritHist(cell_axs_summary{2}, maxcv_histories, labels, is_cum, problem_n, y_shift_maxcv, n_eval, profile_options);
+    drawFunMaxcvMeritHist(cell_axs_summary{2}, maxcv_histories, solver_names, is_cum, problem_n, y_shift_maxcv, n_eval, profile_options);
     [~, formatted_maxcv_shift] = formatFloatScientificLatex(y_shift_maxcv, 3);
-    drawFunMaxcvMeritHist(cell_axs_summary{3}, merit_histories, labels, is_cum, problem_n, y_shift_merit, n_eval, profile_options);
+    drawFunMaxcvMeritHist(cell_axs_summary{3}, merit_histories, solver_names, is_cum, problem_n, y_shift_merit, n_eval, profile_options);
     [~, formatted_merit_shift] = formatFloatScientificLatex(y_shift_merit, 3);
 
     maxlength_maxcv = length(['Cummin of maximum constraint violations shifted above by $', formatted_maxcv_shift, '$']);

@@ -168,6 +168,20 @@ function benchmark(solvers, varargin)
 %         problems, and 0 for the others.
 %       - excludelist: the list of problems to be excluded. Default is not to
 %         exclude any problem.
+%       4. other options:
+%       - solver_names: the names of the solvers. Default is the function names
+%         of the solvers.
+%       - cutest_problem_names: the names of the problems in the CUTEst library
+%         to be selected. Default is not to select any problem from the CUTEst
+%         library by name but by the options above.
+%       - custom_problem_loader: the function handle to load the custom
+%         problems. It should be a function handle as follows:
+%               (problem_name) -> problem,
+%         where problem_name is the name of the problem, and problem is an
+%         instance of the class Problem. Default is not to load any custom
+%         problem.
+%       - custom_problem_names: the names of the custom problems to be
+%         selected. Default is not to select any custom problem.
 %
 %   For more information of performance and data profiles, see [1]_, [2]_,
 %   [4]_. For that of log-ratio profiles, see [3]_, [5]_. Pay attention that 
@@ -242,10 +256,10 @@ function benchmark(solvers, varargin)
             end
             options_store.feature_name = feature_name;
 
-            if isfield(options, 'labels')
-                labels = options.labels;
-                options = rmfield(options, 'labels');
-                options_store.labels = labels;
+            if isfield(options, 'solver_names')
+                solver_names = options.solver_names;
+                options = rmfield(options, 'solver_names');
+                options_store.solver_names = solver_names;
             end
 
             if isfield(options, 'problem') && ~isempty(options.problem)
@@ -312,18 +326,18 @@ function benchmark(solvers, varargin)
         error("MATLAB:benchmark:feature_nameNotValid", "The field `feature_name` of `options` for `benchmark` must be one of the valid feature names: %s.", strjoin(valid_feature_names, ', '));
     end
 
-    % Preprocess the labels. If it is not provided, we use solvers' names as labels.
-    if ~exist('labels', 'var')
-        labels = cellfun(@(s) func2str(s), solvers, 'UniformOutput', false);
+    % Preprocess the solver_names. If it is not provided, we use solvers' names as solver_names.
+    if ~exist('solver_names', 'var')
+        solver_names = cellfun(@(s) func2str(s), solvers, 'UniformOutput', false);
     end
-    if ~iscell(labels) || ~all(cellfun(@(l) ischarstr(l), labels))
-        error("MATLAB:benchmark:labelsNotCellOfcharstr", "The field `labels` of `options` for `benchmark` must be a cell of chars or strings.");
+    if ~iscell(solver_names) || ~all(cellfun(@(l) ischarstr(l), solver_names))
+        error("MATLAB:benchmark:solver_namesNotCellOfcharstr", "The field `solver_names` of `options` for `benchmark` must be a cell of chars or strings.");
     end
-    if numel(labels) ~= 0 && numel(labels) ~= numel(solvers)
-        error("MATLAB:benchmark:labelsAndsolversLengthNotSame", "The number of the field `labels` of `options` for `benchmark` must equal the number of solvers.");
+    if numel(solver_names) ~= 0 && numel(solver_names) ~= numel(solvers)
+        error("MATLAB:benchmark:solver_namesAndsolversLengthNotSame", "The number of the field `solver_names` of `options` for `benchmark` must equal the number of solvers.");
     end
-    if numel(labels) == 0
-        labels = cellfun(@(s) func2str(s), solvers, 'UniformOutput', false);
+    if numel(solver_names) == 0
+        solver_names = cellfun(@(s) func2str(s), solvers, 'UniformOutput', false);
     end
 
     % Preprocess the custom problems.
@@ -476,7 +490,7 @@ function benchmark(solvers, varargin)
     end
 
     % Solve all the problems.
-    [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, time_processes, problem_unsolved] = solveAllProblems(cutest_problem_names, custom_problem_loader, custom_problem_names, solvers, labels, feature, profile_options, true, path_hist_plots);
+    [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, time_processes, problem_unsolved] = solveAllProblems(cutest_problem_names, custom_problem_loader, custom_problem_names, solvers, solver_names, feature, profile_options, true, path_hist_plots);
     merit_histories = computeMeritValues(fun_histories, maxcv_histories, maxcv_init);
     merit_out = computeMeritValues(fun_out, maxcv_out, maxcv_init);
     merit_init = computeMeritValues(fun_init, maxcv_init, maxcv_init);
@@ -513,7 +527,7 @@ function benchmark(solvers, varargin)
         if ~profile_options.(ProfileOptionKey.SILENT.value)
             fprintf('\nINFO: Starting the computation of the profiles under "plain" feature.\n');
         end
-        [fun_histories_plain, maxcv_histories_plain, ~, ~, ~, ~, ~, problem_names_plain, ~, time_processes_plain] = solveAllProblems(cutest_problem_names, custom_problem_loader, custom_problem_names, solvers, labels, feature_plain, profile_options, false, {});
+        [fun_histories_plain, maxcv_histories_plain, ~, ~, ~, ~, ~, problem_names_plain, ~, time_processes_plain] = solveAllProblems(cutest_problem_names, custom_problem_loader, custom_problem_names, solvers, solver_names, feature_plain, profile_options, false, {});
         merit_histories_plain = computeMeritValues(fun_histories_plain, maxcv_histories_plain, maxcv_init);
         merit_min_plain = min(min(min(merit_histories_plain, [], 4, 'omitnan'), [], 3, 'omitnan'), [], 2, 'omitnan');
         for i_problem = 1:numel(problem_names)
@@ -707,9 +721,9 @@ function benchmark(solvers, varargin)
             end
         end
 
-        processed_labels = cellfun(@(s) strrep(s, '_', '\_'), labels, 'UniformOutput', false);
-        [fig_perf_hist, fig_data_hist, fig_log_ratio_hist] = drawProfiles(work_hist, problem_dimensions, processed_labels, tolerance_label, cell_axs_summary_hist, true, is_perf, is_data, is_log_ratio, profile_options);
-        [fig_perf_out, fig_data_out, fig_log_ratio_out] = drawProfiles(work_out, problem_dimensions, processed_labels, tolerance_label, cell_axs_summary_out, is_output_based, is_perf, is_data, is_log_ratio, profile_options);
+        processed_solver_names = cellfun(@(s) strrep(s, '_', '\_'), solver_names, 'UniformOutput', false);
+        [fig_perf_hist, fig_data_hist, fig_log_ratio_hist] = drawProfiles(work_hist, problem_dimensions, processed_solver_names, tolerance_label, cell_axs_summary_hist, true, is_perf, is_data, is_log_ratio, profile_options);
+        [fig_perf_out, fig_data_out, fig_log_ratio_out] = drawProfiles(work_out, problem_dimensions, processed_solver_names, tolerance_label, cell_axs_summary_out, is_output_based, is_perf, is_data, is_log_ratio, profile_options);
 
         eps_perf_hist = fullfile(path_perf_hist, ['perf_hist_' int2str(i_profile) '.eps']);
         print(fig_perf_hist, eps_perf_hist, '-depsc');

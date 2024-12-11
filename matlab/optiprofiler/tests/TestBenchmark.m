@@ -5,7 +5,7 @@ classdef TestBenchmark < matlab.unittest.TestCase
 
             solvers = {@fmincon_test1, @fmincon_test2};
             options.benchmark_id = 'unit-test';
-            options.labels = {'sqp', 'interior-point'};
+            options.solver_names = {'sqp', 'interior-point'};
             options.max_tol_order = 2;
             options.n_runs = 2;
             options.p_type = 'ubln';
@@ -122,12 +122,12 @@ classdef TestBenchmark < matlab.unittest.TestCase
             testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:feature_nameNotValid")
             options = rmfield(options, 'feature_name');
 
-            options.labels = {1, 2};
-            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:labelsNotCellOfcharstr")
+            options.solver_names = {1, 2};
+            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:solver_namesNotCellOfcharstr")
 
-            options.labels = {'a', 'b', 'c'};
-            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:labelsAndsolversLengthNotSame")
-            options = rmfield(options, 'labels');
+            options.solver_names = {'a', 'b', 'c'};
+            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:solver_namesAndsolversLengthNotSame")
+            options = rmfield(options, 'solver_names');
 
             options.custom_problem_names = {'A', 'B'};
             options.custom_problem_loader = 1;

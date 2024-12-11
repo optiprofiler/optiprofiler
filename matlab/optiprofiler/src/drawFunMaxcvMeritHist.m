@@ -1,4 +1,4 @@
-function drawFunMaxcvMeritHist(ax, y, labels, is_cum, problem_n, y_shift, n_eval, profile_options)
+function drawFunMaxcvMeritHist(ax, y, solver_names, is_cum, problem_n, y_shift, n_eval, profile_options)
 %DRAWFUNMAXCVMERITHIST draws figures of histories of function values, maximum constraint violation, or merit function values.
 
     set(ax, 'DefaultAxesColorOrder', [0, 0.4470, 0.7410; 0.8500, 0.3250, 0.0980; 0.9290, 0.6940, 0.1250; 0.4940, 0.1840, 0.5560; 0.4660, 0.6740, 0.1880; 0.3010, 0.7450, 0.9330; 0.6350, 0.0780, 0.1840]);
@@ -47,9 +47,9 @@ function drawFunMaxcvMeritHist(ax, y, labels, is_cum, problem_n, y_shift, n_eval
         x = (1:length) / (problem_n + 1);
         xr_lim = max(xr_lim, x(end));
         if length == 1
-            plot(ax, x, y_mean(i_solver, 1:length), 'o', 'DisplayName', labels{i_solver});
+            plot(ax, x, y_mean(i_solver, 1:length), 'o', 'DisplayName', solver_names{i_solver});
         else
-            plot(ax, x, y_mean(i_solver, 1:length), 'DisplayName', labels{i_solver});
+            plot(ax, x, y_mean(i_solver, 1:length), 'DisplayName', solver_names{i_solver});
         end
         hold(ax, 'on');
         if n_runs > 1 && length > 1

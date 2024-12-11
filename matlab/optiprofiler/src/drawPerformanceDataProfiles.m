@@ -1,4 +1,4 @@
-function drawPerformanceDataProfiles(ax, x, y, labels, profile_options)
+function drawPerformanceDataProfiles(ax, x, y, solver_names, profile_options)
 %DRAWPERFORMANCEDATAPROFILES draws performance profiles and data profiles.
 
     set(ax, 'DefaultAxesColorOrder', [0, 0.4470, 0.7410; 0.8500, 0.3250, 0.0980; 0.9290, 0.6940, 0.1250; 0.4940, 0.1840, 0.5560; 0.4660, 0.6740, 0.1880; 0.3010, 0.7450, 0.9330; 0.6350, 0.0780, 0.1840]);
@@ -30,7 +30,7 @@ function drawPerformanceDataProfiles(ax, x, y, labels, profile_options)
         % Get the color MATLAB will use for the next plot command in the axes 'ax'.
         nextColor = ax.ColorOrder(mod(ax.ColorOrderIndex-1, size(ax.ColorOrder, 1)) + 1, :);
 
-        plot(ax, x_stairs, y_mean_stairs, 'DisplayName', labels{i_solver});
+        plot(ax, x_stairs, y_mean_stairs, 'DisplayName', solver_names{i_solver});
         if n_runs > 1
             fill(ax, [x_stairs; flipud(x_stairs)], [y_lower_stairs; flipud(y_upper_stairs)], ...
             nextColor, 'FaceAlpha', 0.2, 'EdgeAlpha', 0, 'HandleVisibility', 'off');

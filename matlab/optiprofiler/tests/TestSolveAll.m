@@ -7,7 +7,7 @@ classdef TestSolveAll < matlab.unittest.TestCase
             custom_problem_loader = [];
             custom_problem_names = [];
             solvers = {@fminsearch_test1, @fminsearch_test2};
-            labels = {'fminsearch', 'fminunc'};
+            solver_names = {'fminsearch', 'fminunc'};
             feature = Feature('plain');
             profile_options.max_eval_factor = 500;
             profile_options.n_jobs = 1;
@@ -16,7 +16,7 @@ classdef TestSolveAll < matlab.unittest.TestCase
             profile_options.silent = false;
             profile_options.seed = 1;
             profile_options.solver_verbose = 1;
-            [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, computation_times] = solveAllProblems(cutest_problem_names, custom_problem_loader, custom_problem_names, solvers, labels, feature, profile_options, false, '.');
+            [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, computation_times] = solveAllProblems(cutest_problem_names, custom_problem_loader, custom_problem_names, solvers, solver_names, feature, profile_options, false, '.');
             testCase.verifyNotEmpty(fun_histories);
             testCase.verifyNotEmpty(maxcv_histories);
             testCase.verifyNotEmpty(fun_out);
