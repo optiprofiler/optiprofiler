@@ -830,11 +830,29 @@ classdef Feature < handle
                     % Similar to the case in the modifier_fun method.
                     rand_stream_noisy = obj.default_rng(seed, cubCell{:}, xCell{:});
                     if strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), NoiseType.ABSOLUTE.value)
-                        cub_ = cub_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1);
+                        if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'normal')
+                            cub_ = cub_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn();
+                        elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
+                            cub_ = cub_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * (2 * rand_stream_noisy.rand() - 1);
+                        else
+                            cub_ = cub_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1);
+                        end
                     elseif strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), NoiseType.RELATIVE.value)
-                        cub_ = cub_ * (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1));
+                        if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'normal')
+                            cub_ = cub_ * (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn());
+                        elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
+                            cub_ = cub_ * (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * (2 * rand_stream_noisy.rand() - 1));
+                        else
+                            cub_ = cub_ * (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1));
+                        end
                     else
-                        cub_ = cub_ + max(1, abs(cub_)) * obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1);
+                        if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'normal')
+                            cub_ = cub_ + max(1, abs(cub_)) * obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn();
+                        elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
+                            cub_ = cub_ + max(1, abs(cub_)) * obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * (2 * rand_stream_noisy.rand() - 1);
+                        else
+                            cub_ = cub_ + max(1, abs(cub_)) * obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1);
+                        end
                     end
                 case FeatureName.RANDOM_NAN.value
                     % Similar to the case in the modifier_fun method.
@@ -912,11 +930,29 @@ classdef Feature < handle
                     % Similar to the case in the modifier_fun method.
                     rand_stream_noisy = obj.default_rng(seed, ceqCell{:}, xCell{:});
                     if strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), NoiseType.ABSOLUTE.value)
-                        ceq_ = ceq_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1);
+                        if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'normal')
+                            ceq_ = ceq_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn();
+                        elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
+                            ceq_ = ceq_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * (2 * rand_stream_noisy.rand() - 1);
+                        else
+                            ceq_ = ceq_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1);
+                        end
                     elseif strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), NoiseType.RELATIVE.value)
-                        ceq_ = ceq_ * (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1));
+                        if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'normal')
+                            ceq_ = ceq_ * (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn());
+                        elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
+                            ceq_ = ceq_ * (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * (2 * rand_stream_noisy.rand() - 1));
+                        else
+                            ceq_ = ceq_ * (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1));
+                        end
                     else
-                        ceq_ = ceq_ + max(1, abs(ceq_)) * obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1);
+                        if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'normal')
+                            ceq_ = ceq_ + max(1, abs(ceq_)) * obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn();
+                        elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
+                            ceq_ = ceq_ + max(1, abs(ceq_)) * obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * (2 * rand_stream_noisy.rand() - 1);
+                        else
+                            ceq_ = ceq_ + max(1, abs(ceq_)) * obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1);
+                        end
                     end
                 case FeatureName.RANDOM_NAN.value
                     % Similar to the case in the modifier_fun method.

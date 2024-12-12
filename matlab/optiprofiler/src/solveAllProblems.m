@@ -23,7 +23,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
     try
         pool = gcp('nocreate');
         % We will delete the pool only when keep_pool is false and the number of workers is not equal to n_jobs.
-        if ~isempty(pool) && (profile_options.n_jobs == 1 || profile_options.n_jobs ~= pool.NumWorkers) && ~profile_options.(ProfileOptionKey.KEEP_POOL.value)
+        if (~isempty(pool) && (profile_options.n_jobs == 1 || profile_options.n_jobs ~= pool.NumWorkers)) && ~profile_options.(ProfileOptionKey.KEEP_POOL.value)
             if ~profile_options.(ProfileOptionKey.SILENT.value)
                 delete(pool);
             else
@@ -37,7 +37,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
     switch profile_options.(ProfileOptionKey.N_JOBS.value)
         case 1
             % Do not use parallel computing.
-            if ~isempty(pool)
+            if ~isempty(pool) && ~profile_options.(ProfileOptionKey.KEEP_POOL.value)
                 if ~profile_options.(ProfileOptionKey.SILENT.value) && ~profile_options.(ProfileOptionKey.KEEP_POOL.value)
                     delete(pool);
                 else
