@@ -14,6 +14,7 @@ function custom3()
     % We only modify mod_fun since we are dealing with unconstrained problems.
     options.mod_fun = @mod_fun;
     options.mod_affine = @mod_affine;
+    options.feature_stamp = 'perturbed_x0_noisy_linearly_transformed';
 
     benchmark(solvers, options)
 end

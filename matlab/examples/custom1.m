@@ -10,6 +10,7 @@ function custom1()
     options.n_runs = 5;
     options.mod_x0 = @mod_x0;
     options.mod_affine = @mod_affine;
+    options.feature_stamp = 'perturbed_x0_linearly_transformed';
 
     benchmark(solvers, options)
 end
