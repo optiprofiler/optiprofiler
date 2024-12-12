@@ -137,9 +137,9 @@ classdef FeaturedProblem < Problem
             % Evaluate the objective function and store the results.
             f_true = obj.problem.fun(A * x + b);
 
-            % If the Feature is ``quantized'' and the option ``is_truth'' is set to true, we should
+            % If the Feature is ``quantized'' and the option ``ground_truth'' is set to true, we should
             % set f_true to f.
-            if strcmp(obj.feature.name, FeatureName.QUANTIZED.value) && obj.feature.options.(FeatureOptionKey.IS_TRUTH.value)
+            if strcmp(obj.feature.name, FeatureName.QUANTIZED.value) && obj.feature.options.(FeatureOptionKey.GROUND_TRUTH.value)
                 f_true = f;
             end
             obj.fun_hist = [obj.fun_hist, f_true];
@@ -226,9 +226,9 @@ classdef FeaturedProblem < Problem
 
             cv = obj.problem.maxcv(A * x + b);
 
-            % If the Feature is ``quantized'' and the option ``is_truth'' is set to true, we should
+            % If the Feature is ``quantized'' and the option ``ground_truth'' is set to true, we should
             % use the modified constraint violation.
-            if strcmp(obj.feature.name, FeatureName.QUANTIZED.value) && obj.feature.options.(FeatureOptionKey.IS_TRUTH.value)
+            if strcmp(obj.feature.name, FeatureName.QUANTIZED.value) && obj.feature.options.(FeatureOptionKey.GROUND_TRUTH.value)
                 cv = maxcv@Problem(obj, x);
             end
 

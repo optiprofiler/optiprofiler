@@ -51,9 +51,9 @@ classdef TestBenchmark < matlab.unittest.TestCase
 
             % Test random_nan feature.
             options.feature_name = 'random_nan';
-            options.rate_nan = 0.1;
+            options.nan_rate = 0.1;
             benchmark(solvers, options);
-            options = rmfield(options, 'rate_nan');
+            options = rmfield(options, 'nan_rate');
 
             % Test unrelaxable_constraints feature.
             options.feature_name = 'unrelaxable_constraints';
@@ -72,10 +72,10 @@ classdef TestBenchmark < matlab.unittest.TestCase
             % Test quantized feature.
             options.feature_name = 'quantized';
             options.mesh_size = 0.01;
-            options.is_truth = false;
+            options.ground_truth = false;
             benchmark(solvers, options);
             options = rmfield(options, 'mesh_size');
-            options = rmfield(options, 'is_truth');
+            options = rmfield(options, 'ground_truth');
 
             % Test custom feature.
             options.feature_name = 'custom';

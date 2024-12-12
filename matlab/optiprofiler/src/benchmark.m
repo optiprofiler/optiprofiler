@@ -75,7 +75,7 @@ function benchmark(solvers, varargin)
 %         specifically, the condition number of the linear transformation will
 %         2 ^ (condition_factor * n / 2), where n is the dimension of the
 %         problem. Default is 0.
-%       - rate_nan: the probability that the evaluation of the objective
+%       - nan_rate: the probability that the evaluation of the objective
 %         function will return NaN in the 'random_nan' feature. Default is
 %         0.05.
 %       - unrelaxable_bounds: whether the bound constraints are unrelaxable or
@@ -88,7 +88,7 @@ function benchmark(solvers, varargin)
 %         Default is false.
 %       - mesh_size: the size of the mesh in the 'quantized' feature. Default
 %         is 10^-3.
-%       - is_truth: whether the feature is the ground truth or not. Default is
+%       - ground_truth: whether the feature is the ground truth or not. Default is
 %         true.
 %       - mod_x0: the modifier function to modify the inital guess in the 
 %         'custom' feature. It should be a function handle as follows:
@@ -171,6 +171,9 @@ function benchmark(solvers, varargin)
 %       4. other options:
 %       - solver_names: the names of the solvers. Default is the function names
 %         of the solvers.
+%       - feature_stamp: the stamp of the feature with the given options. It is
+%         used to create the specific directory to store the results. Default
+%         is different for different features.
 %       - cutest_problem_names: the names of the problems in the CUTEst library
 %         to be selected. Default is not to select any problem from the CUTEst
 %         library by name but by the options above.
@@ -260,6 +263,12 @@ function benchmark(solvers, varargin)
                 solver_names = options.solver_names;
                 options = rmfield(options, 'solver_names');
                 options_store.solver_names = solver_names;
+            end
+
+            if isfield(options, 'feature_stamp')
+                feature_stamp = options.feature_stamp;
+                options = rmfield(options, 'feature_stamp');
+                options_store.feature_stamp = feature_stamp;
             end
 
             if isfield(options, 'problem') && ~isempty(options.problem)
@@ -443,8 +452,25 @@ function benchmark(solvers, varargin)
     %%%%%%%%%%%%%%%%%%%%%%%%% Start the computation of the profiles. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+    % Build feature.
+    feature = Feature(feature_name, feature_options);
+
+    % Preprocess the feature_stamp. If it is not provided, we use default feature_stamps for
+    % different features.
+    if ~exist('feature_stamp', 'var') || isempty(feature_stamp)
+        feature_stamp = setDefaultFeatureStamp(feature);
+    end
+    if ~ischarstr(feature_stamp)
+        error("MATLAB:benchmark:feature_stampNotcharstr", "The field `feature_stamp` of `options` for `benchmark` must be a char or string.");
+    end
+    is_valid_foldername = @(x) ischarstr(x) && ~isempty(x) && all(ismember(char(x), ['a':'z', 'A':'Z', '0':'9', '_', '-', '.']));
+    if ~is_valid_foldername(feature_stamp)
+        error("MATLAB:benchmark:feature_stampNotValid", "The field 'feature_stamp' of options should be a char or a string satisfying the strict file name requirements (only containing letters, numbers, underscores, hyphens, and dots).");
+    end
+    profile_options.feature_stamp = feature_stamp;
+
     % Create the directory to store the results. If it already exists, overwrite it.
-    path_feature = fullfile(path_out, feature_name);
+    path_feature = fullfile(path_out, feature_stamp);
     if ~exist(path_feature, 'dir')
         mkdir(path_feature);
     else
@@ -483,13 +509,10 @@ function benchmark(solvers, varargin)
         fprintf("INFO: Failed to copy the script or function that calls `benchmark` function to the log directory.\n\n");
     end
 
-    % Build feature.
-    feature = Feature(feature_name, feature_options);
+    % Solve all the problems.
     if ~profile_options.(ProfileOptionKey.SILENT.value)
         fprintf('INFO: Starting the computation of the "%s" profiles.\n', feature.name);
     end
-
-    % Solve all the problems.
     [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, time_processes, problem_unsolved] = solveAllProblems(cutest_problem_names, custom_problem_loader, custom_problem_names, solvers, solver_names, feature, profile_options, true, path_hist_plots);
     merit_histories = computeMeritValues(fun_histories, maxcv_histories, maxcv_init);
     merit_out = computeMeritValues(fun_out, maxcv_out, maxcv_init);
@@ -649,7 +672,7 @@ function benchmark(solvers, varargin)
     fig_summary = figure('Position', [defaultFigurePosition(1:2), ...
     profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * default_width, multiplier * n_rows * default_height], 'visible', 'off');
     T_summary = tiledlayout(fig_summary, multiplier, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
-    T_title = strrep(feature.name, '_', '\_');
+    T_title = strrep(feature_stamp, '_', '\_');
     title(T_summary, ['Profiles with the ``', T_title, '" feature'], 'Interpreter', 'latex', 'FontSize', 24);
     % Use gobjects to create arrays of handles and axes.
     t_summary = gobjects(multiplier, 1);
@@ -791,67 +814,20 @@ function benchmark(solvers, varargin)
 
     end
 
-    % Store the summary pdf. We will name it with the following rule:
-    %   - If there is no summary pdf under path_out, we will name it as 'summary_featurename.pdf',
-    %     where featurename is the name of the feature we are currently processing.
-    %   - If there is already a summary pdf under path_out which should be in the form of
-    %     'summary_featurename1_featurename2_..._featurenameN.pdf', we will check whether
-    %     'featurename' is already in the name. If it is, we will replace the corresponding page
-    %     with the new summary. If it is not, we will add 'featurename' to the name and append the
-    %     new summary to the end.
-
-    % List all summary PDF files in the output path.
-    summary_files = dir(fullfile(path_out, 'summary_*.pdf'));
-    if ~isempty(summary_files)
-        for i_file = 1:length(summary_files)
-            % Extract the features from the filename.
-            [~, name, ~] = fileparts(summary_files(i_file).name);
-            valid_feature_names = {enumeration('FeatureName').value};
-            matchedPatterns = {};
-            matchPositions = [];
-            for i_pattern = 1:length(valid_feature_names)
-                pattern = valid_feature_names{i_pattern};
-                tokens = regexp(name, pattern, 'match', 'once');
-                pos = regexp(name, pattern, 'start', 'once');
-                if ~isempty(tokens) && ~isempty(pos)
-                    matchedPatterns{end+1} = tokens;
-                    matchPositions(end+1) = pos;
-                end
-            end
-            if ~isempty(matchPositions)
-                [~, idx] = sort(matchPositions);
-                existing_features = matchedPatterns(idx);
-            else
-                existing_features = {};
-            end
-            pdf_summary = fullfile(path_out, summary_files(i_file).name);
-            if ismember(feature_name, existing_features)
-                % Locate the page number of the feature in the summary PDF, that is the index of
-                % feature_name in existing_features.
-                page_number = find(ismember(existing_features, feature_name), 1, 'first');
-                % Delete the page from the summary PDF.
-                deletePdfPages(path_out, summary_files(i_file).name, page_number);
-                % Modify the order of the existing features, moving the feature_name to the end.
-                existing_features = [existing_features(1:page_number-1), existing_features(page_number+1:end), feature_name];
-                % Append the new summary to the end of the summary PDF.
-                exportgraphics(fig_summary, pdf_summary, 'ContentType', 'vector', 'Append', true);
-                % Rename the summary PDF if necessary.
-                new_name = ['summary_' strjoin(existing_features, '_') '.pdf'];
-                if ~strcmp(summary_files(i_file).name, new_name)
-                    movefile(pdf_summary, fullfile(path_out, new_name));
-                end
-            else
-                existing_features = [existing_features, feature_name];
-                % Append the new summary to the end of the summary PDF.
-                exportgraphics(fig_summary, pdf_summary, 'ContentType', 'vector', 'Append', true);
-                % Rename the summary PDF.
-                movefile(pdf_summary, fullfile(path_out, ['summary_' strjoin(existing_features, '_') '.pdf']));
-            end
-            break;
-        end
-    else
-        % If there is no summary PDF in the output path, we will create a new one.
-        exportgraphics(fig_summary, fullfile(path_out, ['summary_' feature_name '.pdf']), 'ContentType', 'vector');
+    % Store the summary pdf. We will name the summary pdf as "summary_feature_name.pdf" and store it under path_feature.
+    % We will also put a "summary.pdf" in the path_out directory, which will be a merged pdf of all the "summary_feature_name.pdf" under path_out following the order of the feature_stamp.
+    exportgraphics(fig_summary, fullfile(path_feature, ['summary_' feature_name '.pdf']), 'ContentType', 'vector');
+    % List all summary PDF files in the output path and its subdirectories.
+    summary_files = dir(fullfile(path_out, '**', 'summary_*.pdf'));
+    % Sort the summary PDF files by their folder names.
+    [~, idx] = sort({summary_files.folder});
+    summary_files = summary_files(idx);
+    % Merge all the summary PDF files to a single PDF file.
+    delete(fullfile(path_out, 'summary.pdf'));
+    for i_file = 1:numel(summary_files)
+        copyfile(fullfile(summary_files(i_file).folder, summary_files(i_file).name), path_out);
+        mergePdfs(path_out, 'summary.pdf', path_out);
+        delete(fullfile(path_out, summary_files(i_file).name));
     end
 
     warning('on');
@@ -864,22 +840,6 @@ function benchmark(solvers, varargin)
 
     diary off;
 
-end
-
-function deletePdfPages(file_path, file_name, page_numbers)
-    % Sort the page numbers in ascending order.
-    page_numbers = sort(page_numbers, 'ascend');
-    pdf = fullfile(file_path, file_name);
-    Pd=org.apache.pdfbox.pdmodel.PDDocument;
-    PdFile = java.io.File(pdf);
-    document = Pd.load(PdFile);
-    for i = 1:length(page_numbers)
-        document.removePage(page_numbers(i) - 1);
-        page_numbers = page_numbers - 1;
-        document.save(PdFile);
-    end
-    document.close();
-    Pd.close();
 end
 
 % Following code is modified from the code provided by Benjamin Großmann (2024). Merge PDF-Documents
@@ -898,4 +858,58 @@ function mergePdfs(file_path, output_file_name, output_path)
     
     merger.setDestinationFileName(fullfile(output_path, output_file_name));
     merger.mergeDocuments(memSet)
+end
+
+function feature_stamp = setDefaultFeatureStamp(feature)
+    % Generate a feature stamp to represent the feature with its options.
+
+    switch feature.name
+        case FeatureName.PERTURBED_X0.value
+            % feature_name + noise_level
+            feature_stamp = sprintf('%s_%g', feature.name, feature.options.(FeatureOptionKey.NOISE_LEVEL.value));
+        case FeatureName.NOISY.value
+            % feature_name + noise_level + noise_type + (distribution if it is normal or uniform)
+            feature_stamp = sprintf('%s_%g_%s', feature.name, feature.options.(FeatureOptionKey.NOISE_LEVEL.value), feature.options.(FeatureOptionKey.NOISE_TYPE.value));
+            if ischarstr(feature.options.(FeatureOptionKey.DISTRIBUTION.value)) && ismember(feature.options.(FeatureOptionKey.DISTRIBUTION.value), {'normal', 'uniform'})
+                feature_stamp = sprintf('%s_%s', feature_stamp, feature.options.(FeatureOptionKey.DISTRIBUTION.value));
+            end
+        case FeatureName.TRUNCATED.value
+            % feature_name + significant_digits + (perturbed_trailing_zeros if it is true)
+            feature_stamp = sprintf('%s_%d', feature.name, feature.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value));
+            if feature.options.(FeatureOptionKey.PERTURBED_TRAILING_ZEROS.value)
+                feature_stamp = sprintf('%s_perturbed_trailing_zeros', feature_stamp);
+            end
+        case FeatureName.LINEARLY_TRANSFORMED.value
+            % feature_name + (rotated if it is true) + (condition_factor if it is not 0)
+            feature_stamp = feature.name;
+            if feature.options.(FeatureOptionKey.ROTATED.value)
+                feature_stamp = sprintf('%s_rotated', feature_stamp);
+            end
+            if feature.options.(FeatureOptionKey.CONDITION_FACTOR.value) ~= 0
+                feature_stamp = sprintf('%s_%g', feature_stamp, feature.options.(FeatureOptionKey.CONDITION_FACTOR.value));
+            end
+        case FeatureName.RANDOM_NAN.value
+            % feature_name + nan_rate
+            feature_stamp = sprintf('%s_%g', feature.name, feature.options.(FeatureOptionKey.NAN_RATE.value));
+        case FeatureName.UNRELAXABLE_CONSTRAINTS.value
+            % feature_name + (bounds if it is true) + (linear if it is true) + (nonlinear if it is true)
+            feature_stamp = feature.name;
+            if feature.options.(FeatureOptionKey.UNRELAXABLE_BOUNDS.value)
+                feature_stamp = sprintf('%s_bounds', feature_stamp);
+            end
+            if feature.options.(FeatureOptionKey.UNRELAXABLE_LINEAR_CONSTRAINTS.value)
+                feature_stamp = sprintf('%s_linear', feature_stamp);
+            end
+            if feature.options.(FeatureOptionKey.UNRELAXABLE_NONLINEAR_CONSTRAINTS.value)
+                feature_stamp = sprintf('%s_nonlinear', feature_stamp);
+            end
+        case FeatureName.QUANTIZED.value
+            % feature_name + mesh_size + (ground_truth if is_true it is true)
+            feature_stamp = sprintf('%s_%g', feature.name, feature.options.(FeatureOptionKey.MESH_SIZE.value));
+            if feature.options.(FeatureOptionKey.GROUND_TRUTH.value)
+                feature_stamp = sprintf('%s_ground_truth', feature_stamp);
+            end
+        otherwise
+            feature_stamp = feature.name;
+    end
 end

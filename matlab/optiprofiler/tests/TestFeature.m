@@ -172,14 +172,14 @@ classdef TestFeature < matlab.unittest.TestCase
             ft = Feature('random_nan');
             testCase.verifyEqual(ft.name, 'random_nan');
             testCase.verifyEqual(ft.options.n_runs, 10);
-            testCase.verifyEqual(ft.options.rate_nan, 0.05);
+            testCase.verifyEqual(ft.options.nan_rate, 0.05);
 
             options.n_runs = 5;
-            options.rate_nan = 0.1;
+            options.nan_rate = 0.1;
             ft = Feature('random_nan', options);
             testCase.verifyEqual(ft.name, 'random_nan');
             testCase.verifyEqual(ft.options.n_runs, 5);
-            testCase.verifyEqual(ft.options.rate_nan, 0.1);
+            testCase.verifyEqual(ft.options.nan_rate, 0.1);
         end
 
         function testUnrelaxable_constraints(testCase)
@@ -224,16 +224,16 @@ classdef TestFeature < matlab.unittest.TestCase
             testCase.verifyEqual(ft.name, 'quantized');
             testCase.verifyEqual(ft.options.n_runs, 1);
             testCase.verifyEqual(ft.options.mesh_size, 1e-3);
-            testCase.verifyEqual(ft.options.is_truth, true);
+            testCase.verifyEqual(ft.options.ground_truth, true);
             
             options.n_runs = 5;
             options.mesh_size = 1e-2;
-            options.is_truth = false;
+            options.ground_truth = false;
             ft = Feature('quantized', options);
             testCase.verifyEqual(ft.name, 'quantized');
             testCase.verifyEqual(ft.options.n_runs, 5);
             testCase.verifyEqual(ft.options.mesh_size, 1e-2);
-            testCase.verifyEqual(ft.options.is_truth, false);
+            testCase.verifyEqual(ft.options.ground_truth, false);
         end
 
         function testCustom(testCase)
@@ -280,9 +280,9 @@ classdef TestFeature < matlab.unittest.TestCase
 
             testCase.verifyError(@() Feature('plain', struct('n_runs', 1.1)), "MATLAB:Feature:n_runs_NotPositiveInteger")
 
-            testCase.verifyError(@() Feature('noisy', struct('distribution', 'normal')), "MATLAB:Feature:distribution_NotFunctionHandle")
+            testCase.verifyError(@() Feature('noisy', struct('distribution', 1)), "MATLAB:Feature:distribution_NotFunctionHandle")
 
-            testCase.verifyError(@() Feature('random_nan', struct('rate_nan', 1.1)), "MATLAB:Feature:rate_nan_NotBetween_0_1")
+            testCase.verifyError(@() Feature('random_nan', struct('nan_rate', 1.1)), "MATLAB:Feature:nan_rate_NotBetween_0_1")
 
             testCase.verifyError(@() Feature('truncated', struct('significant_digits', 0)), "MATLAB:Feature:significant_digits_NotPositiveInteger")
 
@@ -304,7 +304,7 @@ classdef TestFeature < matlab.unittest.TestCase
 
             testCase.verifyError(@() Feature('quantized', struct('mesh_size', 'unknown')), "MATLAB:Feature:mesh_size_NotPositive")
 
-            testCase.verifyError(@() Feature('quantized', struct('is_truth', 'unknown')), "MATLAB:Feature:is_truth_NotLogical")
+            testCase.verifyError(@() Feature('quantized', struct('ground_truth', 'unknown')), "MATLAB:Feature:ground_truth_NotLogical")
 
             testCase.verifyError(@() Feature('custom', struct('mod_x0', 'unknown')), "MATLAB:Feature:mod_x0_NotFunctionHandle")
 

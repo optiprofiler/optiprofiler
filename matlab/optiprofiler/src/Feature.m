@@ -176,7 +176,7 @@ classdef Feature < handle
                     case FeatureName.PERTURBED_X0.value
                         known_options = [known_options, {FeatureOptionKey.DISTRIBUTION.value, FeatureOptionKey.NOISE_LEVEL.value}];
                     case FeatureName.RANDOM_NAN.value
-                        known_options = [known_options, {FeatureOptionKey.RATE_NAN.value}];
+                        known_options = [known_options, {FeatureOptionKey.NAN_RATE.value}];
                     case FeatureName.TRUNCATED.value
                         known_options = [known_options, {FeatureOptionKey.PERTURBED_TRAILING_ZEROS.value, FeatureOptionKey.SIGNIFICANT_DIGITS.value}];
                     case FeatureName.UNRELAXABLE_CONSTRAINTS.value
@@ -184,7 +184,7 @@ classdef Feature < handle
                     case FeatureName.LINEARLY_TRANSFORMED.value
                         known_options = [known_options, {FeatureOptionKey.ROTATED.value, FeatureOptionKey.CONDITION_FACTOR.value}];
                     case FeatureName.QUANTIZED.value
-                        known_options = [known_options, {FeatureOptionKey.MESH_SIZE.value, FeatureOptionKey.IS_TRUTH.value}];
+                        known_options = [known_options, {FeatureOptionKey.MESH_SIZE.value, FeatureOptionKey.GROUND_TRUTH.value}];
                     case FeatureName.PERMUTED.value
                         % Do nothing
                     case FeatureName.NONQUANTIFIABLE_CONSTRAINTS.value
@@ -205,12 +205,15 @@ classdef Feature < handle
                             error("MATLAB:Feature:n_runs_NotPositiveInteger", "Option `" + key + "` must be a positive integer.")
                         end
                     case FeatureOptionKey.DISTRIBUTION.value
-                        if ~isa(obj.options.(key), 'function_handle')
-                            error("MATLAB:Feature:distribution_NotFunctionHandle", "Option `" + key + "` must be a function handle.")
+                        if ~isa(obj.options.(key), 'function_handle') && ~(ischarstr(obj.options.(key)) && ismember(char(obj.options.(key)), {'normal', 'uniform'}))
+                            error("MATLAB:Feature:distribution_NotFunctionHandle", "Option `" + key + "` must be a function handle, or a string (or char) 'normal' or 'uniform'.")
                         end
-                    case FeatureOptionKey.RATE_NAN.value
+                        if ischarstr(obj.options.(key))
+                            obj.options.(key) = char(obj.options.(key));
+                        end
+                    case FeatureOptionKey.NAN_RATE.value
                         if ~isrealscalar(obj.options.(key)) || obj.options.(key) < 0.0 || obj.options.(key) > 1.0
-                            error("MATLAB:Feature:rate_nan_NotBetween_0_1", "Option `" + key + "` must be a real number between 0 and 1.")
+                            error("MATLAB:Feature:nan_rate_NotBetween_0_1", "Option `" + key + "` must be a real number between 0 and 1.")
                         end
                     case FeatureOptionKey.SIGNIFICANT_DIGITS.value
                         if ~isintegerscalar(obj.options.(key)) || obj.options.(key) <= 0
@@ -253,9 +256,9 @@ classdef Feature < handle
                         if ~isrealscalar(obj.options.(key)) || obj.options.(key) <= 0.0
                             error("MATLAB:Feature:mesh_size_NotPositive", "Option `" + key + "` must be a positive real number.")
                         end
-                    case FeatureOptionKey.IS_TRUTH.value
+                    case FeatureOptionKey.GROUND_TRUTH.value
                         if ~islogicalscalar(obj.options.(key))
-                            error("MATLAB:Feature:is_truth_NotLogical", "Option `" + key + "` must be a logical value.")
+                            error("MATLAB:Feature:ground_truth_NotLogical", "Option `" + key + "` must be a logical value.")
                         end
                     case FeatureOptionKey.MOD_X0.value
                         if ~isa(obj.options.(key), 'function_handle')
@@ -720,16 +723,34 @@ classdef Feature < handle
                 case FeatureName.NOISY.value
                     rand_stream_noisy = obj.default_rng(seed, f, xCell{:});
                     if strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), NoiseType.ABSOLUTE.value)
-                        f = f + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1);
+                        if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'normal')
+                            f = f + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn();
+                        elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
+                            f = f + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * (2 * rand_stream_noisy.rand() - 1);
+                        else
+                            f = f + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1);
+                        end
                     elseif strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), NoiseType.RELATIVE.value)
-                        f = f * (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1));
+                        if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'normal')
+                            f = f * (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn());
+                        elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
+                            f = f * (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * (2 * rand_stream_noisy.rand() - 1));
+                        else
+                            f = f * (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1));
+                        end
                     else
                         % We need the distribution of the noise to be symmetric with respect to 0.
-                        f = f + max(1, abs(f)) * obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1);
+                        if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'normal')
+                            f = f + max(1, abs(f)) * obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn();
+                        elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
+                            f = f + max(1, abs(f)) * obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * (2 * rand_stream_noisy.rand() - 1);
+                        else
+                            f = f + max(1, abs(f)) * obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1);
+                        end
                     end
                 case FeatureName.RANDOM_NAN.value
                     rand_stream_random_nan = obj.default_rng(seed, f, xCell{:});
-                    if rand_stream_random_nan.rand() < obj.options.(FeatureOptionKey.RATE_NAN.value)
+                    if rand_stream_random_nan.rand() < obj.options.(FeatureOptionKey.NAN_RATE.value)
                         f = NaN;
                     end
                 case FeatureName.TRUNCATED.value
@@ -818,7 +839,7 @@ classdef Feature < handle
                 case FeatureName.RANDOM_NAN.value
                     % Similar to the case in the modifier_fun method.
                     rand_stream_random_nan = obj.default_rng(seed, cubCell{:}, xCell{:});
-                    if rand_stream_random_nan.rand() < obj.options.(FeatureOptionKey.RATE_NAN.value)
+                    if rand_stream_random_nan.rand() < obj.options.(FeatureOptionKey.NAN_RATE.value)
                         cub_ = NaN;
                     end
                 case FeatureName.TRUNCATED.value
@@ -900,7 +921,7 @@ classdef Feature < handle
                 case FeatureName.RANDOM_NAN.value
                     % Similar to the case in the modifier_fun method.
                     rand_stream_random_nan = obj.default_rng(seed, ceqCell{:}, xCell{:});
-                    if rand_stream_random_nan.rand() < obj.options.(FeatureOptionKey.RATE_NAN.value)
+                    if rand_stream_random_nan.rand() < obj.options.(FeatureOptionKey.NAN_RATE.value)
                         ceq_ = NaN;
                     end
                 case FeatureName.TRUNCATED.value
@@ -948,7 +969,7 @@ classdef Feature < handle
                     end
                 case FeatureName.NOISY.value
                     if ~isfield(obj.options, FeatureOptionKey.DISTRIBUTION.value)
-                        obj.options.(FeatureOptionKey.DISTRIBUTION.value) = @obj.default_distribution;
+                        obj.options.(FeatureOptionKey.DISTRIBUTION.value) = 'normal';
                     end
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
                         obj.options.(FeatureOptionKey.N_RUNS.value) = 10;
@@ -987,8 +1008,8 @@ classdef Feature < handle
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
                         obj.options.(FeatureOptionKey.N_RUNS.value) = 10;
                     end
-                    if ~isfield(obj.options, FeatureOptionKey.RATE_NAN.value)
-                        obj.options.(FeatureOptionKey.RATE_NAN.value) = 0.05;
+                    if ~isfield(obj.options, FeatureOptionKey.NAN_RATE.value)
+                        obj.options.(FeatureOptionKey.NAN_RATE.value) = 0.05;
                     end
                 case FeatureName.TRUNCATED.value
                     if ~isfield(obj.options, FeatureOptionKey.PERTURBED_TRAILING_ZEROS.value)
@@ -1028,8 +1049,8 @@ classdef Feature < handle
                     if ~isfield(obj.options, FeatureOptionKey.MESH_SIZE.value)
                         obj.options.(FeatureOptionKey.MESH_SIZE.value) = 1e-3;
                     end
-                    if ~isfield(obj.options, FeatureOptionKey.IS_TRUTH.value)
-                        obj.options.(FeatureOptionKey.IS_TRUTH.value) = true;
+                    if ~isfield(obj.options, FeatureOptionKey.GROUND_TRUTH.value)
+                        obj.options.(FeatureOptionKey.GROUND_TRUTH.value) = true;
                     end
                 otherwise
                     error("MATLAB:Feature:UnknownFeature", "Unknown `Feature`: " + obj.name + ".")

@@ -36,7 +36,7 @@ function profile_options = checkValidityProfileOptions(profile_options, solvers)
     if isfield(profile_options, ProfileOptionKey.BENCHMARK_ID.value)
         is_valid_foldername = @(x) ischarstr(x) && ~isempty(x) && all(ismember(char(x), ['a':'z', 'A':'Z', '0':'9', '_', '-', '.']));
         if ~ischarstr(profile_options.(ProfileOptionKey.BENCHMARK_ID.value)) || ~is_valid_foldername(profile_options.(ProfileOptionKey.BENCHMARK_ID.value))
-            error("MATLAB:checkValidityProfileOptions:benchmark_idNotValid", "The field 'benchmark_id' of options should be a char or a string satisfying the strict file name requirements (only containing letters, numbers, '_', and '-').");
+            error("MATLAB:checkValidityProfileOptions:benchmark_idNotValid", "The field 'benchmark_id' of options should be a char or a string satisfying the strict file name requirements (only containing letters, numbers, underscores, hyphens, and dots).");
         end
     end
     % Judge whether profile_options.range_type is among 'minmax' and 'meanstd'.
