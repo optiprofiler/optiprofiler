@@ -669,11 +669,13 @@ function benchmark(solvers, varargin)
     defaultFigurePosition = get(0, 'DefaultFigurePosition');
     default_width = defaultFigurePosition(3);
     default_height = defaultFigurePosition(4);
-    fig_summary = figure('Position', [defaultFigurePosition(1:2), ...
-    profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * default_width, multiplier * n_rows * default_height], 'visible', 'off');
+    fig_summary = figure('Position', [defaultFigurePosition(1:2), profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * default_width, multiplier * n_rows * default_height], 'visible', 'off');
     T_summary = tiledlayout(fig_summary, multiplier, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
-    T_title = strrep(feature_stamp, '_', '\_');
-    title(T_summary, ['Profiles with the ``', T_title, '" feature'], 'Interpreter', 'latex', 'FontSize', 24);
+    T_feature_stamp = strrep(feature_stamp, '_', '\_');
+    T_title = ['Profiles with the ``', T_feature_stamp, '" feature'];
+    summary_width = profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * default_width;
+    summary_fontsize = 1.5 * summary_width / length(T_title);
+    title(T_summary, T_title, 'Interpreter', 'latex', 'FontSize', summary_fontsize);
     % Use gobjects to create arrays of handles and axes.
     t_summary = gobjects(multiplier, 1);
     axs_summary = gobjects([multiplier, 1, n_rows, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)]);
