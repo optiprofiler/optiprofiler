@@ -171,6 +171,8 @@ function benchmark(solvers, varargin)
 %       4. other options:
 %       - solver_names: the names of the solvers. Default is the function names
 %         of the solvers.
+%       - solver_isrand: whether the solvers are randomized or not. Default is
+%         a vector of false.
 %       - feature_stamp: the stamp of the feature with the given options. It is
 %         used to create the specific directory to store the results. Default
 %         is different for different features.
