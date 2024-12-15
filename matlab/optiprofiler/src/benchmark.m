@@ -547,7 +547,7 @@ function benchmark(solvers, varargin)
 
     % Determine the least merit value for each problem.
     merit_min = min(min(min(merit_histories, [], 4, 'omitnan'), [], 3, 'omitnan'), [], 2, 'omitnan');
-    if feature.isStochastic && profile_options.(ProfileOptionKey.RUN_PLAIN.value)
+    if feature.run_plain && profile_options.(ProfileOptionKey.RUN_PLAIN.value)
         feature_plain = Feature(FeatureName.PLAIN.value);
         if ~profile_options.(ProfileOptionKey.SILENT.value)
             fprintf('\nINFO: Starting the computation of the profiles under "plain" feature.\n');

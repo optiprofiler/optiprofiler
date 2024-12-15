@@ -299,9 +299,28 @@ classdef Feature < handle
             obj = set_default_options(obj);
         end
 
-        function is_stochastic = isStochastic(obj)
-            stochasticFeatures = {FeatureName.CUSTOM.value, FeatureName.NOISY.value, FeatureName.PERMUTED.value, FeatureName.LINEARLY_TRANSFORMED.value, FeatureName.PERTURBED_X0.value, FeatureName.RANDOM_NAN.value, FeatureName.TRUNCATED.value};
-            is_stochastic = ismember(obj.name, stochasticFeatures);
+        function run_plain = run_plain(obj)
+            %{
+            Determine whether an extra experiment with the "plain" feature
+            should be run to define the merit_min.
+            
+            Returns
+
+            -------
+            run_plain : bool
+            %}
+            switch obj.name
+                case FeatureName.PLAIN.value
+                    run_plain = false;
+                case FeatureName.QUANTIZED.value
+                    if obj.options.(FeatureOptionKey.GROUND_TRUTH.value)
+                        run_plain = false;
+                    else
+                        run_plain = true;
+                    end
+                otherwise
+                    run_plain = true;
+            end
         end
 
         function x0 = modifier_x0(obj, seed, problem)
