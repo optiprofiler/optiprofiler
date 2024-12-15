@@ -2,7 +2,7 @@ function benchmark(solvers, varargin)
 %BENCHMARK Create multiple profiles for benchmarking optimization solvers on a
 %   set of problems with different features.
 %
-%   Signitures:
+%   Signatures:
 %
 %   BENCHMARK(SOLVERS) creates performance profiles and data profiles for the
 %   given SOLVERS with default unconstrained problem set and feature plain.
@@ -31,7 +31,7 @@ function benchmark(solvers, varargin)
 %         (performance profiles, data profiles, and log-ratio profiles), we
 %         need to set a group of 'tolerances' to define the 'convergence' of
 %         the solvers. (Details can be found in the references.) We will set
-%         the tolerances as 10^(-1:-1:-max_tol_order). Default is 10.
+%         the tolerances as `10^(-1:-1:-max_tol_order)`. Default is 10.
 %       - max_eval_factor: the factor multiplied to each problem's dimension to
 %         get the maximum number of evaluations for each problem. Default is
 %         500.
@@ -65,12 +65,12 @@ function benchmark(solvers, varargin)
 %       - noise_level: the magnitude of the noise in stochastic features.
 %         Default is 10^-3.
 %       - noise_type: the type of the noise in stochastic features. It should
-%         be either 'absolute' or 'relative'. Default is 'relative'.
+%         be either 'absolute', 'relative', or 'mixed'. Default is 'mixed'.
 %       - significant_digits: the number of significant digits in the
 %         'truncated' feature. Default is 6.
-%       - perturbed_trailing_zeros: whether we will set the trailing zeros of
-%         the objective function value to be random in the 'perturbed_x0'
-%         feature. Default is false.
+%       - perturbed_trailing_zeros: whether we will randomize the trailing
+%         zeros of the objective function value in the 'perturbed_x0' feature.
+%         Default is false.
 %       - rotated: whether to use a random or given rotation matrix to rotate
 %         the coordinates of a problem in the 'linearly_transformed' feature.
 %         Default is true.
@@ -92,62 +92,62 @@ function benchmark(solvers, varargin)
 %         Default is false.
 %       - mesh_size: the size of the mesh in the 'quantized' feature. Default
 %         is 10^-3.
-%       - ground_truth: whether the feature is the ground truth or not. Default is
-%         true.
+%       - ground_truth: whether the feature is the ground truth or not. Default
+%         is true.
 %       - mod_x0: the modifier function to modify the inital guess in the 
 %         'custom' feature. It should be a function handle as follows:
 %               (random_stream, problem) -> modified_x0,
-%         where `problem` is an instance of the class Problem, and modified_x0 is
-%         the modified initial guess. No default.
+%         where `problem` is an instance of the class Problem, and
+%         `modified_x0` is the modified initial guess. No default.
 %       - mod_affine: the modifier function to generate the affine
 %         transformation applied to the variables in the 'custom' feature. It
 %         should be a function handle as follows:
 %               (random_stream, problem) -> (A, b, inv),
-%         where `problem` is an instance of the class Problem, A is the matrix of
-%         the affine transformation, b is the vector of the affine
-%         transformation, and inv is the inverse of the matrix A. No default.
+%         where `problem` is an instance of the class Problem, `A` is the
+%         matrix of the affine transformation, `b` is the vector of the affine
+%         transformation, and `inv` is the inverse of matrix `A`. No default.
 %       - mod_bounds: the modifier function to modify the bound constraints in
 %         the 'custom' feature. It should be a function handle as follows:
 %               (random_stream, problem) -> (modified_xl, modified_xu),
-%         where `problem` is an instance of the class Problem, modified_xl is the
-%         modified lower bound, and modified_xu is the modified upper bound. No
-%         default.
+%         where `problem` is an instance of the class Problem, `modified_xl` is
+%         the modified lower bound, and `modified_xu` is the modified upper
+%         bound. No default.
 %       - mod_linear_ub: the modifier function to modify the linear inequality
 %         constraints in the 'custom' feature. It should be a function handle
 %         as follows:
 %               (random_stream, problem) -> (modified_aub, modified_bub),
-%         where `problem` is an instance of the class Problem, modified_aub is
-%         the modified matrix of the linear inequality constraints, and
-%         modified_bub is the modified vector of the linear inequality
+%         where `problem` is an instance of the class Problem, `modified_aub`
+%         is the modified matrix of the linear inequality constraints, and
+%         `modified_bub` is the modified vector of the linear inequality
 %         constraints. No default.
 %       - mod_linear_eq: the modifier function to modify the linear equality
 %         constraints in the 'custom' feature. It should be a function handle
 %         as follows:
 %               (random_stream, problem) -> (modified_aeq, modified_beq),
-%         where `problem` is an instance of the class Problem, modified_aeq is
-%         the modified matrix of the linear equality constraints, and
-%         modified_beq is the modified vector of the linear equality
+%         where `problem` is an instance of the class Problem, `modified_aeq`
+%         is the modified matrix of the linear equality constraints, and
+%         `modified_beq` is the modified vector of the linear equality
 %         constraints. No default.
 %       - mod_fun: the modifier function to modify the objective function in
 %         the 'custom' feature. It should be a function handle as follows:
 %               (x, random_stream, problem) -> modified_fun,
-%         where `x` is the evaluation point, problem is an instance of the class
-%         Problem, and modified_fun is the modified objective function value.
-%         No default.
+%         where `x` is the evaluation point, `problem` is an instance of the
+%         class Problem, and `modified_fun` is the modified objective function
+%         value. No default.
 %       - mod_cub: the modifier function to modify the nonlinear inequality
 %         constraints in the 'custom' feature. It should be a function handle
 %         as follows:
 %               (x, random_stream, problem) -> modified_cub,
-%         where x is the evaluation point, problem is an instance of the class
-%         Problem, and modified_cub is the modified vector of the nonlinear
-%         inequality constraints. No default.
+%         where x is the evaluation point, `problem` is an instance of the
+%         class Problem, and `modified_cub` is the modified vector of the
+%         nonlinear inequality constraints. No default.
 %       - mod_ceq: the modifier function to modify the nonlinear equality
 %         constraints in the 'custom' feature. It should be a function handle
 %         as follows:
 %               (x, random_stream, problem) -> modified_ceq,
-%         where x is the evaluation point, problem is an instance of the class
-%         Problem, and modified_ceq is the modified vector of the nonlinear
-%         equality constraints. No default.
+%         where x is the evaluation point, `problem` is an instance of the
+%         class Problem, and `modified_ceq` is the modified vector of the
+%         nonlinear equality constraints. No default.
 %       3. options for CUTEst:
 %       Note that the CUTEst we used is the MATLAB codes from a GitHub
 %       repository called 'S2MPJ', created by Professor Serge Gratton and
@@ -186,7 +186,7 @@ function benchmark(solvers, varargin)
 %       - custom_problem_loader: the function handle to load the custom
 %         problems. It should be a function handle as follows:
 %               (problem_name) -> problem,
-%         where problem_name is the name of the problem, and problem is an
+%         where `problem_name` is the name of the problem, and `problem` is an
 %         instance of the class Problem. Default is not to load any custom
 %         problem.
 %       - custom_problem_names: the names of the custom problems to be
@@ -194,19 +194,33 @@ function benchmark(solvers, varargin)
 %
 %   Cautions:
 %
-%   1. Each solver in SOLVERS should accept the following signature:
-%       - if you want to solve an unconstrained problem,
+%   1. Each 'deterministic' solver in SOLVERS should accept the following 
+%      signature:
+%       - for an unconstrained problem,
 %           x = solver(fun, x0),
-%         where fun is a function handle of the objective function accepting a
-%         column vector and returning a real number, and x0 is the initial
+%         where `fun` is a function handle of the objective function accepting
+%         a column vector and returning a real number, and `x0` is the initial
 %         guess which is a column vector;
-%       - if you want to solve a bound-constrained problem,
+%       - for a bound-constrained problem,
 %           x = solver(fun, x0, xl, xu),
-%         where xl and xu are the lower and upper bounds of the variables which
-%         are column vectors (they can contain Inf or -Inf);
-%       - if you want to solve a linearly constrained problem,
+%         where `xl` and `xu` are the lower and upper bounds of the variables
+%         which are column vectors (they can contain Inf or -Inf);
+%       - for a linearly constrained problem,
 %           x = solver(fun, x0, xl, xu, aub, bub, aeq, beq);
-%         where aub and 
+%         where `aub` and `aeq` are the matrices of the linear inequality and
+%         equality constraints, and `bub` and `beq` are the vectors of the
+%         linear inequality and equality constraints;
+%       - for a nonlinearly constrained problem,
+%           x = solver(fun, x0, xl, xu, aub, bub, aeq, beq, cub, ceq),
+%         where `cub` and `ceq` are the functions of the nonlinear inequality
+%         and equality constraints accepting a column vector and returning a
+%         column vector.
+%   2. Each 'randomized' solver in SOLVERS should accept the following
+%      signature:
+%           x = solver(..., seed),
+%       all the same as the 'deterministic' solvers, but with an additional
+%       argument `seed` which is a positive integer to control the randomness.
+%          
 %
 %   For more information of performance and data profiles, see [1]_, [2]_,
 %   [4]_. For that of log-ratio profiles, see [3]_, [5]_. Pay attention that 
@@ -220,6 +234,8 @@ function benchmark(solvers, varargin)
 %   .. [2] N. Gould and J. Scott. A note on performance profiles for
 %          benchmarking software. *ACM Trans. Math. Software*, 43(2):15:1–5,
 %          2016. `doi:10.1145/2950048 <https://doi.org/10.1145/2950048>.
+%   .. [3] S. Gratton and Ph. L. Toint. S2MPJ and CUTEst optimization problems
+%          for Matlab, Python and Julia. arXiv:2407.07812, 2024.
 %   .. [3] J. L. Morales. A numerical study of limited memory BFGS methods.
 %          *Appl. Math. Lett.*, 15(4):481–487, 2002.
 %          `doi:10.1016/S0893-9659(01)00162-8
