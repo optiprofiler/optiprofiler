@@ -205,8 +205,13 @@ classdef Feature < handle
                             error("MATLAB:Feature:n_runs_NotPositiveInteger", "Option `" + key + "` must be a positive integer.")
                         end
                     case FeatureOptionKey.DISTRIBUTION.value
-                        if ~isa(obj.options.(key), 'function_handle') && ~(ischarstr(obj.options.(key)) && ismember(char(obj.options.(key)), {'normal', 'uniform'}))
-                            error("MATLAB:Feature:distribution_NotFunctionHandle", "Option `" + key + "` must be a function handle, or a string (or char) 'normal' or 'uniform'.")
+                        if ~isa(obj.options.(key), 'function_handle') && ~ischarstr(obj.options.(key))
+                            error("MATLAB:Feature:distribution_NotFunctionHandle", "Option `" + key + "` must be the char (or string), or a function handle.")
+                        end
+                        if strcmp(obj.name, FeatureName.NOISY.value) && ~ismember(char(obj.options.(key)), {'gaussian', 'uniform'})
+                            error("MATLAB:Feature:distribution_NotFunctionHandle_noisy", "Option `" + key + "` for 'noisy' feature must be the char (or string) 'gaussian' or 'uniform', or a function handle.")
+                        elseif strcmp(obj.name, FeatureName.PERTURBED_X0.value) && ~ismember(char(obj.options.(key)), {'gaussian', 'spherical'})
+                            error("MATLAB:Feature:distribution_NotFunctionHandle_perturbed_x0", "Option `" + key + "` for 'perturbed_x0' feature must be the char (or string) 'gaussian' or 'spherical', or a function handle.")
                         end
                         if ischarstr(obj.options.(key))
                             obj.options.(key) = char(obj.options.(key));
@@ -360,7 +365,14 @@ classdef Feature < handle
                 case FeatureName.PERTURBED_X0.value
                     % Use max(1, norm(x0)) to avoid no perturbation when x0 is zero.
                     rand_stream_perturbed_x0 = obj.default_rng(seed);
-                    x0 = problem.x0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * max(1, norm(problem.x0)) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_perturbed_x0, problem.n) / norm(obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_perturbed_x0, problem.n));
+                    if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
+                        x0 = problem.x0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * max(1, norm(problem.x0)) * rand_stream_perturbed_x0.randn(problem.n, 1);
+                    elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'spherical')
+                        perturbation = rand_stream_perturbed_x0.randn(problem.n, 1);
+                        x0 = problem.x0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * max(1, norm(problem.x0)) * perturbation / norm(perturbation);
+                    else
+                        x0 = problem.x0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * max(1, norm(problem.x0)) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_perturbed_x0, problem.n);
+                    end
                 case FeatureName.PERMUTED.value
                     % Note that we need to apply the reverse permutation to the initial point so that
                     % the new problem is mathematically equivalent to the original one.
@@ -742,7 +754,7 @@ classdef Feature < handle
                 case FeatureName.NOISY.value
                     rand_stream_noisy = obj.default_rng(seed, f, xCell{:});
                     if strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), NoiseType.ABSOLUTE.value)
-                        if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'normal')
+                        if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
                             f = f + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn();
                         elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
                             f = f + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * (2 * rand_stream_noisy.rand() - 1);
@@ -750,7 +762,7 @@ classdef Feature < handle
                             f = f + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1);
                         end
                     elseif strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), NoiseType.RELATIVE.value)
-                        if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'normal')
+                        if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
                             f = f * (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn());
                         elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
                             f = f * (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * (2 * rand_stream_noisy.rand() - 1));
@@ -759,7 +771,7 @@ classdef Feature < handle
                         end
                     else
                         % We need the distribution of the noise to be symmetric with respect to 0.
-                        if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'normal')
+                        if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
                             f = f + max(1, abs(f)) * obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn();
                         elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
                             f = f + max(1, abs(f)) * obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * (2 * rand_stream_noisy.rand() - 1);
@@ -849,7 +861,7 @@ classdef Feature < handle
                     % Similar to the case in the modifier_fun method.
                     rand_stream_noisy = obj.default_rng(seed, cubCell{:}, xCell{:});
                     if strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), NoiseType.ABSOLUTE.value)
-                        if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'normal')
+                        if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
                             cub_ = cub_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn();
                         elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
                             cub_ = cub_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * (2 * rand_stream_noisy.rand() - 1);
@@ -857,7 +869,7 @@ classdef Feature < handle
                             cub_ = cub_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1);
                         end
                     elseif strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), NoiseType.RELATIVE.value)
-                        if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'normal')
+                        if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
                             cub_ = cub_ * (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn());
                         elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
                             cub_ = cub_ * (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * (2 * rand_stream_noisy.rand() - 1));
@@ -865,7 +877,7 @@ classdef Feature < handle
                             cub_ = cub_ * (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1));
                         end
                     else
-                        if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'normal')
+                        if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
                             cub_ = cub_ + max(1, abs(cub_)) * obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn();
                         elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
                             cub_ = cub_ + max(1, abs(cub_)) * obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * (2 * rand_stream_noisy.rand() - 1);
@@ -949,7 +961,7 @@ classdef Feature < handle
                     % Similar to the case in the modifier_fun method.
                     rand_stream_noisy = obj.default_rng(seed, ceqCell{:}, xCell{:});
                     if strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), NoiseType.ABSOLUTE.value)
-                        if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'normal')
+                        if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
                             ceq_ = ceq_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn();
                         elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
                             ceq_ = ceq_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * (2 * rand_stream_noisy.rand() - 1);
@@ -957,7 +969,7 @@ classdef Feature < handle
                             ceq_ = ceq_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1);
                         end
                     elseif strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), NoiseType.RELATIVE.value)
-                        if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'normal')
+                        if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
                             ceq_ = ceq_ * (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn());
                         elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
                             ceq_ = ceq_ * (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * (2 * rand_stream_noisy.rand() - 1));
@@ -965,7 +977,7 @@ classdef Feature < handle
                             ceq_ = ceq_ * (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1));
                         end
                     else
-                        if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'normal')
+                        if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
                             ceq_ = ceq_ + max(1, abs(ceq_)) * obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn();
                         elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
                             ceq_ = ceq_ + max(1, abs(ceq_)) * obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * (2 * rand_stream_noisy.rand() - 1);
@@ -1024,7 +1036,7 @@ classdef Feature < handle
                     end
                 case FeatureName.NOISY.value
                     if ~isfield(obj.options, FeatureOptionKey.DISTRIBUTION.value)
-                        obj.options.(FeatureOptionKey.DISTRIBUTION.value) = 'normal';
+                        obj.options.(FeatureOptionKey.DISTRIBUTION.value) = 'gaussian';
                     end
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
                         obj.options.(FeatureOptionKey.N_RUNS.value) = 10;
@@ -1051,7 +1063,7 @@ classdef Feature < handle
                     end
                 case FeatureName.PERTURBED_X0.value
                     if ~isfield(obj.options, FeatureOptionKey.DISTRIBUTION.value)
-                        obj.options.(FeatureOptionKey.DISTRIBUTION.value) = @obj.default_distribution;
+                        obj.options.(FeatureOptionKey.DISTRIBUTION.value) = 'spherical';
                     end
                     if ~isfield(obj.options, FeatureOptionKey.NOISE_LEVEL.value)
                         obj.options.(FeatureOptionKey.NOISE_LEVEL.value) = 1e-3;

@@ -282,6 +282,10 @@ classdef TestFeature < matlab.unittest.TestCase
 
             testCase.verifyError(@() Feature('noisy', struct('distribution', 1)), "MATLAB:Feature:distribution_NotFunctionHandle")
 
+            testCase.verifyError(@() Feature('noisy', struct('distribution', 'normal')), "MATLAB:Feature:distribution_NotFunctionHandle_noisy")
+
+            testCase.verifyError(@() Feature('perturbed_x0', struct('distribution', 'normal')), "MATLAB:Feature:distribution_NotFunctionHandle_perturbed_x0")
+
             testCase.verifyError(@() Feature('random_nan', struct('nan_rate', 1.1)), "MATLAB:Feature:nan_rate_NotBetween_0_1")
 
             testCase.verifyError(@() Feature('truncated', struct('significant_digits', 0)), "MATLAB:Feature:significant_digits_NotPositiveInteger")

@@ -2,8 +2,13 @@ function benchmark(solvers, varargin)
 %BENCHMARK Create multiple profiles for benchmarking optimization solvers on a
 %   set of problems with different features.
 %
+%   Signitures:
+%
 %   BENCHMARK(SOLVERS) creates performance profiles and data profiles for the
 %   given SOLVERS with default unconstrained problem set and feature plain.
+%   SOLVERS is a cell array of function handles whom we require to accept
+%   specified inputs and return specified outputs. Details can be found in the
+%   'Cautions' part.
 %
 %   BENCHMARK(SOLVERS, FEATURE_NAME) creates performance profiles and data
 %   profiles for the given SOLVERS with default unconstrained problem set and
@@ -32,11 +37,8 @@ function benchmark(solvers, varargin)
 %         500.
 %       - project_x0: whether to project the initial point to the feasible set.
 %         Default is false.
-%       - run_plain: whether to run the plain feature when the feature is
-%         stochastic (e.g., the feature is 'noisy' and you set the 'run_plain'
-%         to true, then we will additionally run the 'plain' feature and use
-%         the results to define the 'convergence' of the solvers). Default is
-%         true.
+%       - run_plain: whether to run an extra experiment with the 'plain'
+%         feature. Default is false.
 %       - summarize_performance_profiles: whether to add all the performance
 %         profiles to the summary PDF. Default is true.
 %       - summarize_data_profiles: whether to add all the data profiles to the
@@ -51,13 +53,15 @@ function benchmark(solvers, varargin)
 %       - n_runs: the number of runs of the experiments under the given
 %         feature. Default is 10 for stochastic features and 1 for
 %         deterministic features.
-%       - distribution: the distribution of random vectors in stochastic
-%         features. It should be a function handle,
-%               (random stream, dimension) -> random vector
-%         accepting a random stream and the dimension of a problem, and
-%         returning a vector with the same dimension. Default is the standard
-%         multivariate
-%         normal distribution.
+%       - distribution: the distribution of perturbation in 'perturbed_x0'
+%         feature or noise in 'noisy' feature. It should be either a string
+%         (or char), or a function handle
+%               (random stream, dimension) -> random vector,
+%         accepting a random stream and the dimension of a problem and
+%         returning a random vector with the given dimension. In 'perturbed_x0'
+%         case, the char should be either 'spherical' or 'gaussian' (default is
+%         'spherical'). In 'noisy' case, the char should be either 'gaussian'
+%         or 'uniform' (default is 'gaussian').
 %       - noise_level: the magnitude of the noise in stochastic features.
 %         Default is 10^-3.
 %       - noise_type: the type of the noise in stochastic features. It should
@@ -73,7 +77,7 @@ function benchmark(solvers, varargin)
 %       - condition_factor: the scaling factor of the condition number of the
 %         linear transformation in the 'linearly_transformed' feature. More
 %         specifically, the condition number of the linear transformation will
-%         2 ^ (condition_factor * n / 2), where n is the dimension of the
+%         2 ^ (condition_factor * n / 2), where `n` is the dimension of the
 %         problem. Default is 0.
 %       - nan_rate: the probability that the evaluation of the objective
 %         function will return NaN in the 'random_nan' feature. Default is
@@ -93,26 +97,26 @@ function benchmark(solvers, varargin)
 %       - mod_x0: the modifier function to modify the inital guess in the 
 %         'custom' feature. It should be a function handle as follows:
 %               (random_stream, problem) -> modified_x0,
-%         where problem is an instance of the class Problem, and modified_x0 is
+%         where `problem` is an instance of the class Problem, and modified_x0 is
 %         the modified initial guess. No default.
 %       - mod_affine: the modifier function to generate the affine
 %         transformation applied to the variables in the 'custom' feature. It
 %         should be a function handle as follows:
 %               (random_stream, problem) -> (A, b, inv),
-%         where problem is an instance of the class Problem, A is the matrix of
+%         where `problem` is an instance of the class Problem, A is the matrix of
 %         the affine transformation, b is the vector of the affine
 %         transformation, and inv is the inverse of the matrix A. No default.
 %       - mod_bounds: the modifier function to modify the bound constraints in
 %         the 'custom' feature. It should be a function handle as follows:
 %               (random_stream, problem) -> (modified_xl, modified_xu),
-%         where problem is an instance of the class Problem, modified_xl is the
+%         where `problem` is an instance of the class Problem, modified_xl is the
 %         modified lower bound, and modified_xu is the modified upper bound. No
 %         default.
 %       - mod_linear_ub: the modifier function to modify the linear inequality
 %         constraints in the 'custom' feature. It should be a function handle
 %         as follows:
 %               (random_stream, problem) -> (modified_aub, modified_bub),
-%         where problem is an instance of the class Problem, modified_aub is
+%         where `problem` is an instance of the class Problem, modified_aub is
 %         the modified matrix of the linear inequality constraints, and
 %         modified_bub is the modified vector of the linear inequality
 %         constraints. No default.
@@ -120,14 +124,14 @@ function benchmark(solvers, varargin)
 %         constraints in the 'custom' feature. It should be a function handle
 %         as follows:
 %               (random_stream, problem) -> (modified_aeq, modified_beq),
-%         where problem is an instance of the class Problem, modified_aeq is
+%         where `problem` is an instance of the class Problem, modified_aeq is
 %         the modified matrix of the linear equality constraints, and
 %         modified_beq is the modified vector of the linear equality
 %         constraints. No default.
 %       - mod_fun: the modifier function to modify the objective function in
 %         the 'custom' feature. It should be a function handle as follows:
 %               (x, random_stream, problem) -> modified_fun,
-%         where x is the evaluation point, problem is an instance of the class
+%         where `x` is the evaluation point, problem is an instance of the class
 %         Problem, and modified_fun is the modified objective function value.
 %         No default.
 %       - mod_cub: the modifier function to modify the nonlinear inequality
@@ -187,6 +191,22 @@ function benchmark(solvers, varargin)
 %         problem.
 %       - custom_problem_names: the names of the custom problems to be
 %         selected. Default is not to select any custom problem.
+%
+%   Cautions:
+%
+%   1. Each solver in SOLVERS should accept the following signature:
+%       - if you want to solve an unconstrained problem,
+%           x = solver(fun, x0),
+%         where fun is a function handle of the objective function accepting a
+%         column vector and returning a real number, and x0 is the initial
+%         guess which is a column vector;
+%       - if you want to solve a bound-constrained problem,
+%           x = solver(fun, x0, xl, xu),
+%         where xl and xu are the lower and upper bounds of the variables which
+%         are column vectors (they can contain Inf or -Inf);
+%       - if you want to solve a linearly constrained problem,
+%           x = solver(fun, x0, xl, xu, aub, bub, aeq, beq);
+%         where aub and 
 %
 %   For more information of performance and data profiles, see [1]_, [2]_,
 %   [4]_. For that of log-ratio profiles, see [3]_, [5]_. Pay attention that 
@@ -869,12 +889,15 @@ function feature_stamp = setDefaultFeatureStamp(feature)
 
     switch feature.name
         case FeatureName.PERTURBED_X0.value
-            % feature_name + noise_level
+            % feature_name + noise_level + (distribution if it is gaussian or spherical)
             feature_stamp = sprintf('%s_%g', feature.name, feature.options.(FeatureOptionKey.NOISE_LEVEL.value));
+            if ischarstr(feature.options.(FeatureOptionKey.DISTRIBUTION.value)) && ismember(feature.options.(FeatureOptionKey.DISTRIBUTION.value), {'gaussian', 'spherical'})
+                feature_stamp = sprintf('%s_%s', feature_stamp, feature.options.(FeatureOptionKey.DISTRIBUTION.value));
+            end
         case FeatureName.NOISY.value
-            % feature_name + noise_level + noise_type + (distribution if it is normal or uniform)
+            % feature_name + noise_level + noise_type + (distribution if it is gaussian or uniform)
             feature_stamp = sprintf('%s_%g_%s', feature.name, feature.options.(FeatureOptionKey.NOISE_LEVEL.value), feature.options.(FeatureOptionKey.NOISE_TYPE.value));
-            if ischarstr(feature.options.(FeatureOptionKey.DISTRIBUTION.value)) && ismember(feature.options.(FeatureOptionKey.DISTRIBUTION.value), {'normal', 'uniform'})
+            if ischarstr(feature.options.(FeatureOptionKey.DISTRIBUTION.value)) && ismember(feature.options.(FeatureOptionKey.DISTRIBUTION.value), {'gaussian', 'uniform'})
                 feature_stamp = sprintf('%s_%s', feature_stamp, feature.options.(FeatureOptionKey.DISTRIBUTION.value));
             end
         case FeatureName.TRUNCATED.value
