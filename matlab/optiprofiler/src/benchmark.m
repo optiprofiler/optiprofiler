@@ -175,8 +175,10 @@ function benchmark(solvers, varargin)
 %       4. other options:
 %       - solver_names: the names of the solvers. Default is the function names
 %         of the solvers.
-%       - solver_isrand: whether the solvers are randomized or not. Default is
-%         a vector of false.
+%       - solver_isrand: whether the solvers are randomized or not. By default,
+%         it is a vector of boolean values. We will check nargin of the solvers
+%         to determine whether they are randomized (odd nargin) or not
+%         (even nargin).
 %       - feature_stamp: the stamp of the feature with the given options. It is
 %         used to create the specific directory to store the results. Default
 %         is different for different features.
@@ -303,6 +305,12 @@ function benchmark(solvers, varargin)
                 options_store.solver_names = solver_names;
             end
 
+            if isfield(options, 'solver_isrand')
+                solver_isrand = options.solver_isrand;
+                options = rmfield(options, 'solver_isrand');
+                options_store.solver_isrand = solver_isrand;
+            end
+
             if isfield(options, 'feature_stamp')
                 feature_stamp = options.feature_stamp;
                 options = rmfield(options, 'feature_stamp');
@@ -385,6 +393,15 @@ function benchmark(solvers, varargin)
     end
     if numel(solver_names) == 0
         solver_names = cellfun(@(s) func2str(s), solvers, 'UniformOutput', false);
+    end
+
+    % Preprocess the solver_isrand. If it is not provided, we check the nargin of the solvers to
+    % determine whether they are randomized or not.
+    if ~exist('solver_isrand', 'var')
+        solver_isrand = cellfun(@(s) mod(nargin(s), 2) == 1, solvers);
+    end
+    if ~islogical(solver_isrand) || numel(solver_isrand) ~= numel(solvers)
+        error("MATLAB:benchmark:solver_israndNotLogical", "The field `solver_isrand` of `options` for `benchmark` must be a logical array of the same length as the number of solvers.");
     end
 
     % Preprocess the custom problems.
@@ -551,7 +568,7 @@ function benchmark(solvers, varargin)
     if ~profile_options.(ProfileOptionKey.SILENT.value)
         fprintf('INFO: Starting the computation of the "%s" profiles.\n', feature.name);
     end
-    [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, time_processes, problem_unsolved] = solveAllProblems(cutest_problem_names, custom_problem_loader, custom_problem_names, solvers, solver_names, feature, profile_options, true, path_hist_plots);
+    [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, time_processes, problem_unsolved] = solveAllProblems(cutest_problem_names, custom_problem_loader, custom_problem_names, solvers, solver_names, solver_isrand, feature, profile_options, true, path_hist_plots);
     merit_histories = computeMeritValues(fun_histories, maxcv_histories, maxcv_init);
     merit_out = computeMeritValues(fun_out, maxcv_out, maxcv_init);
     merit_init = computeMeritValues(fun_init, maxcv_init, maxcv_init);
@@ -588,7 +605,7 @@ function benchmark(solvers, varargin)
         if ~profile_options.(ProfileOptionKey.SILENT.value)
             fprintf('\nINFO: Starting the computation of the profiles under "plain" feature.\n');
         end
-        [fun_histories_plain, maxcv_histories_plain, ~, ~, ~, ~, ~, problem_names_plain, ~, time_processes_plain] = solveAllProblems(cutest_problem_names, custom_problem_loader, custom_problem_names, solvers, solver_names, feature_plain, profile_options, false, {});
+        [fun_histories_plain, maxcv_histories_plain, ~, ~, ~, ~, ~, problem_names_plain, ~, time_processes_plain] = solveAllProblems(cutest_problem_names, custom_problem_loader, custom_problem_names, solvers, solver_names, solver_isrand, feature_plain, profile_options, false, {});
         merit_histories_plain = computeMeritValues(fun_histories_plain, maxcv_histories_plain, maxcv_init);
         merit_min_plain = min(min(min(merit_histories_plain, [], 4, 'omitnan'), [], 3, 'omitnan'), [], 2, 'omitnan');
         for i_problem = 1:numel(problem_names)

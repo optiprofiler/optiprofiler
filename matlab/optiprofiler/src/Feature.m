@@ -328,6 +328,44 @@ classdef Feature < handle
             end
         end
 
+        function is_stochastic = is_stochastic(obj)
+            %{
+            Determine whether the feature is stochastic.
+
+            Returns
+            -------
+            is_stochastic : bool
+            %}
+            switch obj.name
+                case FeatureName.PERTURBED_X0.value
+                    is_stochastic = true;
+                case FeatureName.NOISY.value
+                    is_stochastic = true;
+                case FeatureName.TRUNCATED.value
+                    if obj.options.(FeatureOptionKey.PERTURBED_TRAILING_ZEROS.value)
+                        is_stochastic = true;
+                    else
+                        is_stochastic = false;
+                    end
+                case FeatureName.PERMUTED.value
+                    is_stochastic = true;
+                case FeatureName.LINEARLY_TRANSFORMED.value
+                    if obj.options.(FeatureOptionKey.ROTATED.value)
+                        is_stochastic = true;
+                    else
+                        is_stochastic = false;
+                    end
+                case FeatureName.RANDOM_NAN.value
+                    is_stochastic = true;
+                case FeatureName.QUANTIZED.value
+                    is_stochastic = true;
+                case FeatureName.CUSTOM.value
+                    is_stochastic = true;
+                otherwise
+                    is_stochastic = false;
+            end
+        end
+
         function x0 = modifier_x0(obj, seed, problem)
             %{
             Modify the initial point.

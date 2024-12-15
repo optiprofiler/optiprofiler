@@ -1,4 +1,4 @@
-function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_name, problem_n, computation_time, solvers_success] = solveOneProblem(problem_name, solvers, solver_names, feature, len_problem_names, custom_problem_loader, profile_options, is_plot, path_hist_plots)
+function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_name, problem_n, computation_time, solvers_success] = solveOneProblem(problem_name, solvers, solver_names, solver_isrand, feature, len_problem_names, custom_problem_loader, profile_options, is_plot, path_hist_plots)
 %SOLVEONEPROBLEM solves one problem with all the solvers in solvers list.
 
     fun_histories = [];
@@ -51,13 +51,22 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
     maxcv_histories = NaN(n_solvers, n_runs, max_eval);
     maxcv_out = NaN(n_solvers, n_runs);
 
+    % The number of real runs for each solver, which is determined by feature and solver_isrand.
+    real_n_runs = n_runs * ones(n_solvers, 1);
+    for i_solver = 1:n_solvers
+        % If the solver is deterministic and the feature is deterministic, then the number of runs is 1.
+        if ~feature.is_stochastic && ~solver_isrand(i_solver)
+            real_n_runs(i_solver) = 1;
+        end
+    end
+
     len_solver_names = max(cellfun(@length, solver_names));
 
     for i_solver = 1:n_solvers
-        for i_run = 1:n_runs
+        for i_run = 1:real_n_runs(i_solver)
             if ~profile_options.(ProfileOptionKey.SILENT.value)
                 format_info_start = sprintf("INFO: Solving %%-%ds with %%-%ds (run %%2d/%%2d).\\n\\n", len_problem_names, len_solver_names);
-                fprintf(format_info_start, problem_name, solver_names{i_solver}, i_run, n_runs);
+                fprintf(format_info_start, problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver));
             end
             time_start_solver_run = tic;
             % Construct featured_problem.
@@ -68,27 +77,59 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
                 switch problem.p_type
                     case 'unconstrained'
                         if profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) == 2
-                            x = solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0);
+                            if solver_isrand(i_solver)
+                                x = solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, real_seed);
+                            else
+                                x = solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0);
+                            end
                         else
-                            [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0)');
+                            if solver_isrand(i_solver)
+                                [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, real_seed)');
+                            else
+                                [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0)');
+                            end
                         end
                     case 'bound-constrained'
                         if profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) == 2
-                            x = solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu);
+                            if solver_isrand(i_solver)
+                                x = solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, real_seed);
+                            else
+                                x = solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu);
+                            end
                         else
-                            [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu)');
+                            if solver_isrand(i_solver)
+                                [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, real_seed)');
+                            else
+                                [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu)');
+                            end
                         end
                     case 'linearly constrained'
                         if profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) == 2
-                            x = solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq);
+                            if solver_isrand(i_solver)
+                                x = solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, real_seed);
+                            else
+                                x = solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq);
+                            end
                         else
-                            [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq)');
+                            if solver_isrand(i_solver)
+                                [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, real_seed)');
+                            else
+                                [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq)');
+                            end
                         end
                     case 'nonlinearly constrained'
                         if profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) == 2
-                            x = solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, @(x) featured_problem.cub(x), @(x) featured_problem.ceq(x));
+                            if solver_isrand(i_solver)
+                                x = solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, @(x) featured_problem.cub(x), @(x) featured_problem.ceq(x), real_seed);
+                            else
+                                x = solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, @(x) featured_problem.cub(x), @(x) featured_problem.ceq(x));
+                            end
                         else
-                            [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, @(x) featured_problem.cub(x), @(x) featured_problem.ceq(x))');
+                            if solver_isrand(i_solver)
+                                [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, @(x) featured_problem.cub(x), @(x) featured_problem.ceq(x), real_seed)');
+                            else
+                                [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, @(x) featured_problem.cub(x), @(x) featured_problem.ceq(x))');
+                            end
                         end
                 end
 
@@ -106,25 +147,25 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
                 maxcv_min = min(featured_problem.maxcv_hist, [], 'omitnan');
                 if ~profile_options.(ProfileOptionKey.SILENT.value)
                     format_info_end = sprintf("INFO: Finish solving     %%-%ds with %%-%ds (run %%2d/%%2d) (in %%.2f seconds).\\n", len_problem_names, len_solver_names);
-                    fprintf(format_info_end, problem_name, solver_names{i_solver}, i_run, n_runs, toc(time_start_solver_run));
+                    fprintf(format_info_end, problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), toc(time_start_solver_run));
                     switch problem.p_type
                         case 'unconstrained'
                             format_info_output = sprintf("INFO: Output results for %%-%ds with %%-%ds (run %%2d/%%2d): f = %%10.4e.\\n", len_problem_names, len_solver_names);
-                            fprintf(format_info_output, problem_name, solver_names{i_solver}, i_run, n_runs, fun_out(i_solver, i_run));
+                            fprintf(format_info_output, problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), fun_out(i_solver, i_run));
                             format_info_best = sprintf("INFO: Best   results for %%-%ds with %%-%ds (run %%2d/%%2d): f = %%10.4e.\\n", len_problem_names, len_solver_names);
-                            fprintf(format_info_best, problem_name, solver_names{i_solver}, i_run, n_runs, fun_min);
+                            fprintf(format_info_best, problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), fun_min);
                         otherwise
                             format_info_output = sprintf("INFO: Output results for %%-%ds with %%-%ds (run %%2d/%%2d): f = %%10.4e, maxcv = %%10.4e.\\n", len_problem_names, len_solver_names);
-                            fprintf(format_info_output, problem_name, solver_names{i_solver}, i_run, n_runs, fun_out(i_solver, i_run), maxcv_out(i_solver, i_run));
+                            fprintf(format_info_output, problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), fun_out(i_solver, i_run), maxcv_out(i_solver, i_run));
                             format_info_best = sprintf("INFO: Best   results for %%-%ds with %%-%ds (run %%2d/%%2d): f = %%10.4e, maxcv = %%10.4e.\\n", len_problem_names, len_solver_names);
-                            fprintf(format_info_best, problem_name, solver_names{i_solver}, i_run, n_runs, fun_min, maxcv_min);
+                            fprintf(format_info_best, problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), fun_min, maxcv_min);
                     end
                 end
                 % If one solver succeeds once, then we say this problem is solved.
                 solvers_success = true;
             catch Exception
                 if profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) ~= 0
-                    fprintf("INFO: An error occurred while solving %s with %s (run %d/%d): %s\n", problem_name, solver_names{i_solver}, i_run, n_runs, Exception.message);
+                    fprintf("INFO: An error occurred while solving %s with %s (run %d/%d): %s\n", problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), Exception.message);
                 end
             end
             warning('on', 'all');
@@ -135,6 +176,14 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
                 fun_histories(i_solver, i_run, n_eval(i_solver, i_run)+1:end) = fun_histories(i_solver, i_run, n_eval(i_solver, i_run));
                 maxcv_histories(i_solver, i_run, n_eval(i_solver, i_run)+1:end) = maxcv_histories(i_solver, i_run, n_eval(i_solver, i_run));
             end
+        end
+        % If real_n_runs(i_solver) == 1 ~= n_runs, then we need to copy the results to the other runs.
+        if real_n_runs(i_solver) == 1 && n_runs > 1
+            n_eval(i_solver, 2:n_runs) = n_eval(i_solver, 1);
+            fun_histories(i_solver, 2:n_runs, :) = fun_histories(i_solver, 1, :);
+            maxcv_histories(i_solver, 2:n_runs, :) = maxcv_histories(i_solver, 1, :);
+            fun_out(i_solver, 2:n_runs) = fun_out(i_solver, 1);
+            maxcv_out(i_solver, 2:n_runs) = maxcv_out(i_solver, 1);
         end
     end
     computation_time = toc(time_start);
