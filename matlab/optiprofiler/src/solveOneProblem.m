@@ -179,11 +179,13 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
         end
         % If real_n_runs(i_solver) == 1 ~= n_runs, then we need to copy the results to the other runs.
         if real_n_runs(i_solver) == 1 && n_runs > 1
-            n_eval(i_solver, 2:n_runs) = n_eval(i_solver, 1);
-            fun_histories(i_solver, 2:n_runs, :) = fun_histories(i_solver, 1, :);
-            maxcv_histories(i_solver, 2:n_runs, :) = maxcv_histories(i_solver, 1, :);
-            fun_out(i_solver, 2:n_runs) = fun_out(i_solver, 1);
-            maxcv_out(i_solver, 2:n_runs) = maxcv_out(i_solver, 1);
+            for j = 2:n_runs
+                n_eval(i_solver, j) = n_eval(i_solver, 1);
+                fun_histories(i_solver, j, :) = fun_histories(i_solver, 1, :);
+                maxcv_histories(i_solver, j, :) = maxcv_histories(i_solver, 1, :);
+                fun_out(i_solver, j) = fun_out(i_solver, 1);
+                maxcv_out(i_solver, j) = maxcv_out(i_solver, 1);
+            end
         end
     end
     computation_time = toc(time_start);
@@ -254,5 +256,4 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
     catch Exception
         fprintf("INFO: An error occurred while plotting the history plots of the problem %s: %s\n", problem_name, Exception.message);
     end
-
 end
