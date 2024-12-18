@@ -75,6 +75,89 @@ classdef TestFeaturedProblem < matlab.unittest.TestCase
             testCase.verifyEqual(fp.last_ceq, []);
             testCase.verifyEqual(fp.n_eval, 0);
 
+            ft = Feature('perturbed_x0');
+            fp = FeaturedProblem(p, ft, 500, 1);
+            fp.x0;
+
+            options_noisy = struct('noise_type', 'absolute', 'distribution', 'gaussian');
+            ft = Feature('noisy', options_noisy);
+            fp = FeaturedProblem(p, ft, 500, 1);
+            fp.fun(fp.x0);
+            fp.cub(fp.x0);
+            fp.ceq(fp.x0);
+            options_noisy = struct('noise_type', 'absolute', 'distribution', 'uniform');
+            ft = Feature('noisy', options_noisy);
+            fp = FeaturedProblem(p, ft, 500, 1);
+            fp.fun(fp.x0);
+            fp.cub(fp.x0);
+            fp.ceq(fp.x0);
+            options_noisy = struct('noise_type', 'relative', 'distribution', 'gaussian');
+            ft = Feature('noisy', options_noisy);
+            fp = FeaturedProblem(p, ft, 500, 1);
+            fp.fun(fp.x0);
+            fp.cub(fp.x0);
+            fp.ceq(fp.x0);
+            options_noisy = struct('noise_type', 'relative', 'distribution', 'uniform');
+            ft = Feature('noisy', options_noisy);
+            fp = FeaturedProblem(p, ft, 500, 1);
+            fp.fun(fp.x0);
+            fp.cub(fp.x0);
+            fp.ceq(fp.x0);
+            options_noisy = struct('noise_type', 'mixed', 'distribution', 'gaussian');
+            ft = Feature('noisy', options_noisy);
+            fp = FeaturedProblem(p, ft, 500, 1);
+            fp.fun(fp.x0);
+            fp.cub(fp.x0);
+            fp.ceq(fp.x0);
+            options_noisy = struct('noise_type', 'mixed', 'distribution', 'uniform');
+            ft = Feature('noisy', options_noisy);
+            fp = FeaturedProblem(p, ft, 500, 1);
+            fp.fun(fp.x0);
+            fp.cub(fp.x0);
+            fp.ceq(fp.x0);
+
+            ft = Feature('truncated');
+            fp = FeaturedProblem(p, ft, 500, 1);
+            fp.fun(fp.x0);
+            fp.cub(fp.x0);
+            fp.ceq(fp.x0);
+
+            ft = Feature('permuted');
+            fp = FeaturedProblem(p, ft, 500, 1);
+            fp.fun(fp.x0);
+            fp.cub(fp.x0);
+            fp.ceq(fp.x0);
+
+            ft = Feature('linearly_transformed');
+            fp = FeaturedProblem(p, ft, 500, 1);
+            fp.fun(fp.x0);
+            fp.cub(fp.x0);
+            fp.ceq(fp.x0);
+
+            ft = Feature('random_nan');
+            fp = FeaturedProblem(p, ft, 500, 1);
+            fp.fun(fp.x0);
+            fp.cub(fp.x0);
+            fp.ceq(fp.x0);
+
+            ft = Feature('unrelaxable_constraints');
+            fp = FeaturedProblem(p, ft, 500, 1);
+            fp.fun(fp.x0);
+            fp.cub(fp.x0);
+            fp.ceq(fp.x0);
+
+            ft = Feature('nonquantifiable_constraints');
+            fp = FeaturedProblem(p, ft, 500, 1);
+            fp.fun(fp.x0);
+            fp.cub(fp.x0);
+            fp.ceq(fp.x0);
+
+            ft = Feature('quantized');
+            fp = FeaturedProblem(p, ft, 500, 1);
+            fp.fun(fp.x0);
+            fp.cub(fp.x0);
+            fp.ceq(fp.x0);
+
             p = s_load('ALLINITA');
             options.mod_x0 = @TestFeaturedProblem.custom_mod_x0;
             options.mod_affine = @TestFeaturedProblem.custom_mod_affine;

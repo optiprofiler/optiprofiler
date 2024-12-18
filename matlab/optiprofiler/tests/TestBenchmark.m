@@ -29,6 +29,7 @@ classdef TestBenchmark < matlab.unittest.TestCase
             options.distribution = 'uniform';
             benchmark(solvers, options);
             options = rmfield(options, 'noise_level');
+            options = rmfield(options, 'distribution');
 
             % Test truncated feature.
             options.summarize_log_ratio_profiles = true;
