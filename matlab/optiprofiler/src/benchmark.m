@@ -345,17 +345,17 @@ function benchmark(solvers, varargin)
     % Build feature.
     feature = Feature(feature_name, feature_options);
 
+    % Set default values for the unspecified options.
+    other_options = getDefaultOtherOptions(solvers, other_options);
+    cutest_options = getDefaultCutestOptions(cutest_options, other_options);
+    profile_options = getDefaultProfileOptions(feature, profile_options);
+
     % Check the validity of the options.
     % Note: the validity of the feature options has been checked in the Feature constructor, so we
     % do not need to check it here.
     cutest_options = checkValidityCutestOptions(cutest_options);
     profile_options = checkValidityProfileOptions(solvers, profile_options);
     other_options = checkValidityOtherOptions(solvers, other_options);
-
-    % Set default values for the unspecified options.
-    other_options = getDefaultOtherOptions(solvers, other_options);
-    cutest_options = getDefaultCutestOptions(cutest_options, other_options);
-    profile_options = getDefaultProfileOptions(feature, profile_options);
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%% Use cutest_options to select problems. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

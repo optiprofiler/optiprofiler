@@ -26,10 +26,12 @@ classdef TestBenchmark < matlab.unittest.TestCase
             % Test noisy feature.
             options.feature_name = 'noisy';
             options.noise_level = 1e-4;
+            options.distribution = 'uniform';
             benchmark(solvers, options);
             options = rmfield(options, 'noise_level');
 
             % Test truncated feature.
+            options.summarize_log_ratio_profiles = true;
             options.feature_name = 'truncated';
             options.significant_digits = 4;
             options.perturbed_trailing_zeros = true;
@@ -38,10 +40,13 @@ classdef TestBenchmark < matlab.unittest.TestCase
             options = rmfield(options, 'perturbed_trailing_zeros');
 
             % Test permuted feature.
+            options.summarize_performance_profiles = false;
             options.feature_name = 'permuted';
             benchmark(solvers, options);
 
             % Test linearly_transformed feature.
+            options.summarize_data_profiles = false;
+            options.summarize_performance_profiles = true;
             options.feature_name = 'linearly_transformed';
             options.rotated = true;
             options.condition_factor = 1;
@@ -50,12 +55,14 @@ classdef TestBenchmark < matlab.unittest.TestCase
             options = rmfield(options, 'condition_factor');
 
             % Test random_nan feature.
+            options.summarize_performance_profiles = false;
             options.feature_name = 'random_nan';
             options.nan_rate = 0.1;
             benchmark(solvers, options);
             options = rmfield(options, 'nan_rate');
 
             % Test unrelaxable_constraints feature.
+            options.summarize_log_ratio_profiles = false;
             options.feature_name = 'unrelaxable_constraints';
             options.unrelaxable_bounds = true;
             options.unrelaxable_linear_constraints = true;
@@ -66,10 +73,14 @@ classdef TestBenchmark < matlab.unittest.TestCase
             options = rmfield(options, 'unrelaxable_nonlinear_constraints');
 
             % Test nonquantifiable_constraints feature.
+            options.summarize_data_profiles = true;
+            options.summarize_performance_profiles = false;
             options.feature_name = 'nonquantifiable_constraints';
             benchmark(solvers, options);
 
             % Test quantized feature.
+            options.summarize_log_ratio_profiles = true;
+            options.summarize_data_profiles = false;
             options.feature_name = 'quantized';
             options.mesh_size = 0.01;
             options.ground_truth = false;

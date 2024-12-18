@@ -40,7 +40,7 @@ function other_options = checkValidityOtherOptions(solvers, other_options)
         end
     end
     % Judge whether other_options.custom_problem_loader is a function handle.
-    if isfield(other_options, OtherOptionKey.CUSTOM_PROBLEM_LOADER.value)
+    if isfield(other_options, OtherOptionKey.CUSTOM_PROBLEM_LOADER.value) && ~isempty(other_options.(OtherOptionKey.CUSTOM_PROBLEM_LOADER.value))
         if ~isa(other_options.(OtherOptionKey.CUSTOM_PROBLEM_LOADER.value), 'function_handle')
             error("MATLAB:checkValidityOtherOptions:customloaderNotFunctionHandle", "The field `custom_problem_loader` of `options` for `benchmark` must be a function handle.");
         end
@@ -55,7 +55,7 @@ function other_options = checkValidityOtherOptions(solvers, other_options)
         end
     end
     % Judge whether the custom_problem_loader can load the first custom problem.
-    if isfield(other_options, OtherOptionKey.CUSTOM_PROBLEM_LOADER.value) && isfield(other_options, OtherOptionKey.CUSTOM_PROBLEM_NAMES.value)
+    if isfield(other_options, OtherOptionKey.CUSTOM_PROBLEM_LOADER.value) && ~isempty(other_options.(OtherOptionKey.CUSTOM_PROBLEM_LOADER.value)) && isfield(other_options, OtherOptionKey.CUSTOM_PROBLEM_NAMES.value) && ~isempty(other_options.(OtherOptionKey.CUSTOM_PROBLEM_NAMES.value))
         custom_problem_loader = other_options.(OtherOptionKey.CUSTOM_PROBLEM_LOADER.value);
         custom_problem_names = other_options.(OtherOptionKey.CUSTOM_PROBLEM_NAMES.value);
         try

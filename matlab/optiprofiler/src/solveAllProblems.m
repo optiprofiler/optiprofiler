@@ -37,48 +37,50 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
         pool = [];
     end
 
-    switch profile_options.(ProfileOptionKey.N_JOBS.value)
-        case 1
-            % Do not use parallel computing.
-            if ~isempty(pool) && ~profile_options.(ProfileOptionKey.KEEP_POOL.value)
-                if ~profile_options.(ProfileOptionKey.SILENT.value) && ~profile_options.(ProfileOptionKey.KEEP_POOL.value)
-                    delete(pool);
-                else
-                    evalc("delete(pool)");
-                end
+    % Note: in the case where `options` has the field `problem`, we set `custom_problem_loader` to `@(x) options.problem`.
+    % If `problem` comes from `s_load`, then there will be a trouble if we use parallel computing (S2MPJ issue).
+    % It will be fine if `problem` is created in the workspace.
+    if (profile_options.(ProfileOptionKey.N_JOBS.value) == 1) || n_problems ==1
+        % Do not use parallel computing.
+        if ~isempty(pool) && ~profile_options.(ProfileOptionKey.KEEP_POOL.value)
+            if ~profile_options.(ProfileOptionKey.SILENT.value) && ~profile_options.(ProfileOptionKey.KEEP_POOL.value)
+                delete(pool);
+            else
+                evalc("delete(pool)");
             end
-            for i_problem = 1:n_problems
-                problem_name = problem_names{i_problem};
-                [tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n, tmp_computation_time, tmp_solvers_success] = solveOneProblem(problem_name, solvers, feature, len_problem_names, profile_options, other_options, is_plot, path_hist_plots);
-                results{i_problem} = {tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n, tmp_computation_time, tmp_solvers_success};
+        end
+        for i_problem = 1:n_problems
+            problem_name = problem_names{i_problem};
+            [tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n, tmp_computation_time, tmp_solvers_success] = solveOneProblem(problem_name, solvers, feature, len_problem_names, profile_options, other_options, is_plot, path_hist_plots);
+            results{i_problem} = {tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n, tmp_computation_time, tmp_solvers_success};
+        end
+    else
+        try
+            pool = gcp('nocreate');
+        catch
+            % If the user does not have the Parallel Computing Toolbox, the gcp function will not be available. We will print a error message and exit.
+            error("The Parallel Computing Toolbox is not available. Please set the n_jobs option to 1.");
+        end
+        if isempty(pool)
+            if ~profile_options.(ProfileOptionKey.SILENT.value)
+                parpool(profile_options.(ProfileOptionKey.N_JOBS.value));
+            else
+                evalc("parpool(profile_options.(ProfileOptionKey.N_JOBS.value))");
             end
-        otherwise
-            try
-                pool = gcp('nocreate');
-            catch
-                % If the user does not have the Parallel Computing Toolbox, the gcp function will not be available. We will print a error message and exit.
-                error("The Parallel Computing Toolbox is not available. Please set the n_jobs option to 1.");
+        end
+        parfor i_problem = 1:n_problems
+            problem_name = problem_names{i_problem};
+            [tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n, tmp_computation_time, tmp_solvers_success] = solveOneProblem(problem_name, solvers, feature, len_problem_names, profile_options, other_options, is_plot, path_hist_plots);
+            results{i_problem} = {tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n, tmp_computation_time, tmp_solvers_success};
+        end
+        if ~profile_options.(ProfileOptionKey.KEEP_POOL.value)
+            if ~profile_options.(ProfileOptionKey.SILENT.value)
+                delete(gcp);
+                fprintf("INFO: Leaving the parallel section.\n");
+            else
+                evalc("delete(gcp)");
             end
-            if isempty(pool)
-                if ~profile_options.(ProfileOptionKey.SILENT.value)
-                    parpool(profile_options.(ProfileOptionKey.N_JOBS.value));
-                else
-                    evalc("parpool(profile_options.(ProfileOptionKey.N_JOBS.value))");
-                end
-            end
-            parfor i_problem = 1:n_problems
-                problem_name = problem_names{i_problem};
-                [tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n, tmp_computation_time, tmp_solvers_success] = solveOneProblem(problem_name, solvers, feature, len_problem_names, profile_options, other_options, is_plot, path_hist_plots);
-                results{i_problem} = {tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n, tmp_computation_time, tmp_solvers_success};
-            end
-            if ~profile_options.(ProfileOptionKey.KEEP_POOL.value)
-                if ~profile_options.(ProfileOptionKey.SILENT.value)
-                    delete(gcp);
-                    fprintf("INFO: Leaving the parallel section.\n");
-                else
-                    evalc("delete(gcp)");
-                end
-            end
+        end
     end
 
     % Use tmp_solvers_success to check if the solvers are successful.
@@ -90,19 +92,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
     % Remove the unsolved problems from the results.
     results = results(problem_solvers_success);
 
-    if all(arrayfun(@(x) all(cellfun(@isempty, results{x}([1:7, 9:10]))), 1:length(results))) % Check if all problems failed to load.
-        fprintf("INFO: All problems failed to load.\n");
-        fun_histories = [];
-        maxcv_histories = [];
-        fun_out = [];
-        maxcv_out = [];
-        fun_init = [];
-        maxcv_init = [];
-        n_eval = [];
-        problem_names = [];
-        problem_dimensions = [];
-        computation_times = [];
-    elseif length(problem_unsolved) == n_problems % Check if all problems failed to solve.
+    if length(problem_unsolved) == n_problems % Check if all problems failed to solve.
         fprintf("INFO: All problems failed to solve.\n");
         fun_histories = [];
         maxcv_histories = [];
