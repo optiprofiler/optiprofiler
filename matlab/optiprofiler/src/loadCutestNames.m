@@ -1,29 +1,14 @@
-function cutest_problem_names = loadCutestNames(cutest_options, cutest_problem_names, custom_problem_loader, custom_problem_names)
+function cutest_problem_names = loadCutestNames(cutest_options, other_options)
 %LOADCUTEST Load the CUTEst problems according to the options in cutest_options
 
-    % Convert the custom_problem_names to cell row vectors of chars.
-    if ~isempty(custom_problem_names)
-        custom_problem_names = cellfun(@char, custom_problem_names, 'UniformOutput', false);
-    end
-
+    cutest_problem_names = other_options.(OtherOptionKey.CUTEST_PROBLEM_NAMES.value);
+    custom_problem_names = other_options.(OtherOptionKey.CUSTOM_PROBLEM_NAMES.value);
+    
     % Select the problems based on cutest_options.
-    if isempty(cutest_options) || ~isempty(cutest_problem_names) || (~isempty(custom_problem_loader) || ~isempty(custom_problem_names))
+    if numel(fieldnames(cutest_options)) == 0
         cutest_problem_names_options = {};
     else
         cutest_problem_names_options = s_select(cutest_options);
-    end
-
-    % Preprocess the CUTEst problem names given by the user.
-    if ~isempty(cutest_problem_names)
-        if ~ischarstr(cutest_problem_names) && ~(iscell(cutest_problem_names) && all(cellfun(@ischarstr, cutest_problem_names)))
-            error("MATLAB:benchmark:cutest_problem_namesNotValid", "The CUTEst problem names must be a charstr or a cell array of charstr.");
-        end
-        if ischarstr(cutest_problem_names)
-            cutest_problem_names = {cutest_problem_names};
-        end
-        % Convert to a cell row vector of chars.
-        cutest_problem_names = cellfun(@char, cutest_problem_names, 'UniformOutput', false);
-        cutest_problem_names = cutest_problem_names(:)';
     end
 
     % Merge the problem names selected by cutest_options and given by the user.

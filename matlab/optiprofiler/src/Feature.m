@@ -102,7 +102,7 @@ classdef Feature < handle
 
 
 
-    properties (GetAccess = public, SetAccess = private)
+    properties (GetAccess = public, SetAccess = public)
 
         name
         options
@@ -1077,7 +1077,7 @@ classdef Feature < handle
                         obj.options.(FeatureOptionKey.DISTRIBUTION.value) = 'gaussian';
                     end
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
-                        obj.options.(FeatureOptionKey.N_RUNS.value) = 10;
+                        obj.options.(FeatureOptionKey.N_RUNS.value) = 5;
                     end
                     if ~isfield(obj.options, FeatureOptionKey.NOISE_LEVEL.value)
                         obj.options.(FeatureOptionKey.NOISE_LEVEL.value) = 1e-3;
@@ -1087,11 +1087,11 @@ classdef Feature < handle
                     end
                 case FeatureName.PERMUTED.value
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
-                        obj.options.(FeatureOptionKey.N_RUNS.value) = 10;
+                        obj.options.(FeatureOptionKey.N_RUNS.value) = 5;
                     end
                 case FeatureName.LINEARLY_TRANSFORMED.value
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
-                        obj.options.(FeatureOptionKey.N_RUNS.value) = 10;
+                        obj.options.(FeatureOptionKey.N_RUNS.value) = 5;
                     end
                     if ~isfield(obj.options, FeatureOptionKey.ROTATED.value)
                         obj.options.(FeatureOptionKey.ROTATED.value) = true;
@@ -1107,11 +1107,11 @@ classdef Feature < handle
                         obj.options.(FeatureOptionKey.NOISE_LEVEL.value) = 1e-3;
                     end
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
-                        obj.options.(FeatureOptionKey.N_RUNS.value) = 10;
+                        obj.options.(FeatureOptionKey.N_RUNS.value) = 5;
                     end
                 case FeatureName.RANDOM_NAN.value
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
-                        obj.options.(FeatureOptionKey.N_RUNS.value) = 10;
+                        obj.options.(FeatureOptionKey.N_RUNS.value) = 5;
                     end
                     if ~isfield(obj.options, FeatureOptionKey.NAN_RATE.value)
                         obj.options.(FeatureOptionKey.NAN_RATE.value) = 0.05;
@@ -1122,7 +1122,7 @@ classdef Feature < handle
                     end
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
                         if obj.options.(FeatureOptionKey.PERTURBED_TRAILING_ZEROS.value)
-                            obj.options.(FeatureOptionKey.N_RUNS.value) = 10;
+                            obj.options.(FeatureOptionKey.N_RUNS.value) = 5;
                         else
                             obj.options.(FeatureOptionKey.N_RUNS.value) = 1;
                         end

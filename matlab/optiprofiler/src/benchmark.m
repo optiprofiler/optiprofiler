@@ -21,6 +21,9 @@ function benchmark(solvers, varargin)
 %       - n_jobs: the number of parallel jobs to run the test. Default is 1.
 %       - benchmark_id: the identifier of the test. It is used to create the
 %         specific directory to store the results. Default is '.' .
+%       - feature_stamp: the stamp of the feature with the given options. It is
+%         used to create the specific directory to store the results. Default
+%         is different for different features.
 %       - range_type: the type of the uncertainty interval. For stochastic
 %         features, we run several times of the experiments and get average
 %         curves and uncertainty intervals. Default is 'minmax', meaning that
@@ -154,9 +157,6 @@ function benchmark(solvers, varargin)
 %       Professor Philippe L. Toint. More details can be found in the following
 %       website.
 %           https://github.com/GrattonToint/S2MPJ
-%       - problem: a instance of the class Problem. If it is provided, we will
-%         only solve this problem and generate the history plots for it.
-%         Default is not to provide any problem.
 %       - p_type: the type of the problems to be selected. It should be a
 %         string containing the combination of 'u' (unconstrained), 'b' (bound
 %         constrained), 'l' (linearly constrained), and 'n' (nonlinearly
@@ -164,7 +164,7 @@ function benchmark(solvers, varargin)
 %       - mindim: the minimum dimension of the problems to be selected. Default
 %         is 1.
 %       - maxdim: the maximum dimension of the problems to be selected. Default
-%         is 5.
+%         is 2.
 %       - mincon: the minimum number of constraints of the problems to be
 %         selected. Default is 0.
 %       - maxcon: the maximum number of constraints of the problems to be
@@ -175,13 +175,12 @@ function benchmark(solvers, varargin)
 %       4. other options:
 %       - solver_names: the names of the solvers. Default is the function names
 %         of the solvers.
-%       - solver_isrand: whether the solvers are randomized or not. By default,
-%         it is a vector of boolean values. We will check nargin of the solvers
-%         to determine whether they are randomized (odd nargin) or not
-%         (even nargin).
-%       - feature_stamp: the stamp of the feature with the given options. It is
-%         used to create the specific directory to store the results. Default
-%         is different for different features.
+%       - solver_isrand: whether the solvers are randomized or not. Default is
+%         a logical array of the same length as the number of solvers, where
+%         the value is true if the solver is randomized, and false otherwise.
+%       - problem: a instance of the class Problem. If it is provided, we will
+%         only solve this problem and generate the history plots for it.
+%         Default is not to provide any problem.
 %       - cutest_problem_names: the names of the problems in the CUTEst library
 %         to be selected. Default is not to select any problem from the CUTEst
 %         library by name but by the options above.
@@ -196,8 +195,7 @@ function benchmark(solvers, varargin)
 %
 %   Cautions:
 %
-%   1. Each 'deterministic' solver in SOLVERS should accept the following 
-%      signature:
+%   1. Each solver in SOLVERS should accept the following signature(s):
 %       - for an unconstrained problem,
 %           x = solver(fun, x0),
 %         where `fun` is a function handle of the objective function accepting
@@ -217,11 +215,6 @@ function benchmark(solvers, varargin)
 %         where `cub` and `ceq` are the functions of the nonlinear inequality
 %         and equality constraints accepting a column vector and returning a
 %         column vector.
-%   2. Each 'randomized' solver in SOLVERS should accept the following
-%      signature:
-%           x = solver(..., seed),
-%       all the same as the 'deterministic' solvers, but with an additional
-%       argument `seed` which is a positive integer to control the randomness.
 %          
 %
 %   For more information of performance and data profiles, see [1]_, [2]_,
@@ -238,14 +231,14 @@ function benchmark(solvers, varargin)
 %          2016. `doi:10.1145/2950048 <https://doi.org/10.1145/2950048>.
 %   .. [3] S. Gratton and Ph. L. Toint. S2MPJ and CUTEst optimization problems
 %          for Matlab, Python and Julia. arXiv:2407.07812, 2024.
-%   .. [3] J. L. Morales. A numerical study of limited memory BFGS methods.
+%   .. [4] J. L. Morales. A numerical study of limited memory BFGS methods.
 %          *Appl. Math. Lett.*, 15(4):481–487, 2002.
 %          `doi:10.1016/S0893-9659(01)00162-8
 %          <https://doi.org/10.1016/S0893-9659(01)00162-8>.
-%   .. [4] J. J. Moré and S. M. Wild. Benchmarking derivative-free optimization
+%   .. [5] J. J. Moré and S. M. Wild. Benchmarking derivative-free optimization
 %          algorithms. *SIAM J. Optim.*, 20(1):172–191, 2009.
 %          `doi:10.1137/080724083 <https://doi.org/10.1137/080724083>.
-%   .. [5] H.-J. M. Shi, M. Q. Xuan, F. Oztoprak, and J. Nocedal. On the
+%   .. [6] H.-J. M. Shi, M. Q. Xuan, F. Oztoprak, and J. Nocedal. On the
 %          numerical performance of finite-difference-based methods for
 %          derivative-free optimization. *Optim. Methods Softw.*,
 %          38(2):289–311, 2023. `doi:10.1080/10556788.2022.2121832
@@ -262,9 +255,6 @@ function benchmark(solvers, varargin)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Preprocess the input arguments. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    
-    % Initialize options_store to store the options for later reproduction.
-    options_store = struct();
 
     if nargin == 0
         error("MATLAB:benchmark:solverMustBeProvided", "A cell of function handles (callable solvers) must be provided as the first argument.");
@@ -272,85 +262,23 @@ function benchmark(solvers, varargin)
         % When input only contains one argument, we assume the user chooses benchmark(solvers) and
         % test plain feature.
         feature_name = 'plain';
-        options_store.feature_name = feature_name;
-        cutest_problem_names = {};
-        custom_problem_loader = {};
-        custom_problem_names = {};
         options = struct();
     elseif nargin == 2
         if ischarstr(varargin{1}) || (iscell(varargin{1}) && all(cellfun(@ischarstr, varargin{1})))
             % When input contains two arguments and the second argument is a char or cell of char,
             % we assume the user chooses benchmark(solvers, feature_name).
             feature_name = varargin{1};
-            options_store.feature_name = feature_name;
-            cutest_problem_names = {};
-            custom_problem_loader = {};
-            custom_problem_names = {};
             options = struct();
         elseif isstruct(varargin{1})
             % When input contains two arguments and the second argument is a struct, we assume the
             % user chooses benchmark(solvers, options).
             options = varargin{1};
+            options_store = options;
             if isfield(options, 'feature_name')
                 feature_name = options.feature_name;
                 options = rmfield(options, 'feature_name');
             else
                 feature_name = 'plain';
-            end
-            options_store.feature_name = feature_name;
-
-            if isfield(options, 'solver_names')
-                solver_names = options.solver_names;
-                options = rmfield(options, 'solver_names');
-                options_store.solver_names = solver_names;
-            end
-
-            if isfield(options, 'solver_isrand')
-                solver_isrand = options.solver_isrand;
-                options = rmfield(options, 'solver_isrand');
-                options_store.solver_isrand = solver_isrand;
-            end
-
-            if isfield(options, 'feature_stamp')
-                feature_stamp = options.feature_stamp;
-                options = rmfield(options, 'feature_stamp');
-                options_store.feature_stamp = feature_stamp;
-            end
-
-            if isfield(options, 'problem') && ~isempty(options.problem)
-                if ~isa(options.problem, 'Problem')
-                    error("MATLAB:benchmark:problemNotProblem", "The field `problem` of `options` for `benchmark` must be a Problem object.");
-                end
-                cutest_problem_names = {};
-                custom_problem_loader = @(x) options.problem;
-                custom_problem_names = {options.problem.name};
-                options_store.problem = options.problem;
-                options = rmfield(options, 'problem');
-            else
-                if isfield(options, 'cutest_problem_names')
-                    cutest_problem_names = options.cutest_problem_names;
-                    options_store.cutest_problem_names = cutest_problem_names;
-                    options = rmfield(options, 'cutest_problem_names');
-                else
-                    cutest_problem_names = {};
-                end
-                if isfield(options, 'custom_problem_loader') && isfield(options, 'custom_problem_names')
-                    if isempty(options.custom_problem_names)
-                        error("MATLAB:benchmark:customnamesEmpty", "`custom_problem_names` cannot be empty if provided.");
-                    end
-                    custom_problem_loader = options.custom_problem_loader;
-                    custom_problem_names = options.custom_problem_names;
-                    options_store.custom_problem_loader = custom_problem_loader;
-                    options_store.custom_problem_names = custom_problem_names;
-                    options = rmfield(options, 'custom_problem_loader');
-                    options = rmfield(options, 'custom_problem_names');
-                elseif isfield(options, 'custom_problem_loader') || isfield(options, 'custom_problem_names')
-                    error("MATLAB:benchmark:LoaderAndNamesNotSameTime", ...
-                    "`custom_problem_loader` and `custom_problem_names` must be provided at the same time.");
-                else
-                    custom_problem_loader = {};
-                    custom_problem_names = {};
-                end
             end
         else
             error("MATLAB:benchmark:SecondArgumentWrongType", ...
@@ -374,67 +302,20 @@ function benchmark(solvers, varargin)
         % feature_name must be a char or string.
         error("MATLAB:benchmark:feature_nameNotcharstr", "The field `feature_name` of `options` for `benchmark` must be a char or string.");
     end
-    % Convert the char or string to a char of lower case.
     feature_name = char(lower(feature_name));
     valid_feature_names = cellfun(@(x) x.value, num2cell(enumeration('FeatureName')), 'UniformOutput', false);
     if ~ismember(feature_name, valid_feature_names)
         error("MATLAB:benchmark:feature_nameNotValid", "The field `feature_name` of `options` for `benchmark` must be one of the valid feature names: %s.", strjoin(valid_feature_names, ', '));
     end
 
-    % Preprocess the solver_names. If it is not provided, we use solvers' names as solver_names.
-    if ~exist('solver_names', 'var')
-        solver_names = cellfun(@(s) func2str(s), solvers, 'UniformOutput', false);
-    end
-    if ~iscell(solver_names) || ~all(cellfun(@(l) ischarstr(l), solver_names))
-        error("MATLAB:benchmark:solver_namesNotCellOfcharstr", "The field `solver_names` of `options` for `benchmark` must be a cell of chars or strings.");
-    end
-    if numel(solver_names) ~= 0 && numel(solver_names) ~= numel(solvers)
-        error("MATLAB:benchmark:solver_namesAndsolversLengthNotSame", "The number of the field `solver_names` of `options` for `benchmark` must equal the number of solvers.");
-    end
-    if numel(solver_names) == 0
-        solver_names = cellfun(@(s) func2str(s), solvers, 'UniformOutput', false);
-    end
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%% Parse options for feature, cutest, profile and others %%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    % Preprocess the solver_isrand. If it is not provided, we check the nargin of the solvers to
-    % determine whether they are randomized or not.
-    if ~exist('solver_isrand', 'var')
-        solver_isrand = cellfun(@(s) mod(nargin(s), 2) == 1, solvers);
-    end
-    if ~islogical(solver_isrand) || numel(solver_isrand) ~= numel(solvers)
-        error("MATLAB:benchmark:solver_israndNotLogical", "The field `solver_isrand` of `options` for `benchmark` must be a logical array of the same length as the number of solvers.");
-    end
-
-    % Preprocess the custom problems.
-    if ~isempty(custom_problem_loader) && ~isa(custom_problem_loader, 'function_handle')
-        error("MATLAB:benchmark:customloaderNotFunctionHandle", "The field `custom_problem_loader` of `options` for `benchmark` must be a function handle.");
-    end
-    if ~isempty(custom_problem_names)
-        if ~ischarstr(custom_problem_names) && ~(iscell(custom_problem_names) && all(cellfun(@ischarstr, custom_problem_names)))
-            error("MATLAB:benchmark:customnamesNotcharstrOrCellOfcharstr", "The field `custom_problem_names` of `options` for `benchmark` must be a cell array of chars or strings.");
-        end
-        if ischarstr(custom_problem_names)
-            custom_problem_names = {custom_problem_names};
-        end
-    end
-    if ~isempty(custom_problem_loader) && ~isempty(custom_problem_names)
-        try
-            [~, p] = evalc('custom_problem_loader(custom_problem_names{1})');
-        catch
-            p = [];
-        end
-        if isempty(p) || ~isa(p, 'Problem')
-            error("MATLAB:benchmark:customloaderNotAcceptcustomnames", "The `custom_problem_loader` failed to load the first custom problem %s.", custom_problem_names{1});
-        end
-    end
-
-    % Set default options.
-    profile_options = getDefaultProfileOptions();
     feature_options = struct();
-    cutest_options = getDefaultCutestOptions();
-
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %%%%%%%%%%%%%%%%%%%%% Parse options for feature, cutest, and profile. %%%%%%%%%%%%%%%%%%%%%%%%%
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    cutest_options = struct();
+    profile_options = struct();
+    other_options = struct();
 
     fieldNames = fieldnames(options);
     for i_field = 1:numel(fieldNames)
@@ -446,6 +327,7 @@ function benchmark(solvers, varargin)
         validFeatureOptionKeys = cellfun(@(x) x.value, num2cell(enumeration('FeatureOptionKey')), 'UniformOutput', false);
         validCutestOptionKeys = cellfun(@(x) x.value, num2cell(enumeration('CutestOptionKey')), 'UniformOutput', false);
         validProfileOptionKeys = cellfun(@(x) x.value, num2cell(enumeration('ProfileOptionKey')), 'UniformOutput', false);
+        validOtherOptionKeys = cellfun(@(x) x.value, num2cell(enumeration('OtherOptionKey')), 'UniformOutput', false);
 
         if ismember(key, validFeatureOptionKeys)
             feature_options.(key) = value;
@@ -453,43 +335,33 @@ function benchmark(solvers, varargin)
             cutest_options.(key) = value;
         elseif ismember(key, validProfileOptionKeys)
             profile_options.(key) = value;
+        elseif ismember(key, validOtherOptionKeys)
+            other_options.(key) = value;
         else
             error("MATLAB:benchmark:UnknownOptions", "Unknown `option` for `benchmark`: %s", key);
         end
     end
 
+    % Build feature.
+    feature = Feature(feature_name, feature_options);
+
+    % Check the validity of the options.
     % Note: the validity of the feature options has been checked in the Feature constructor, so we
     % do not need to check it here.
-
-    % Check whether the cutest options are valid.
     cutest_options = checkValidityCutestOptions(cutest_options);
+    profile_options = checkValidityProfileOptions(solvers, profile_options);
+    other_options = checkValidityOtherOptions(solvers, other_options);
 
-    % Check whether the profile options are valid.
-    profile_options = checkValidityProfileOptions(profile_options, solvers);
-
-    % Store the options for later reproduction.
-    feature_option_keys = fieldnames(feature_options);
-    for i_field = 1:numel(feature_option_keys)
-        key = feature_option_keys{i_field};
-        options_store.(key) = feature_options.(key);
-    end
-    cutest_option_keys = fieldnames(cutest_options);
-    for i_field = 1:numel(cutest_option_keys)
-        key = cutest_option_keys{i_field};
-        options_store.(key) = cutest_options.(key);
-    end
-    profile_option_keys = fieldnames(profile_options);
-    for i_field = 1:numel(profile_option_keys)
-        key = profile_option_keys{i_field};
-        options_store.(key) = profile_options.(key);
-    end
+    % Set default values for the unspecified options.
+    other_options = getDefaultOtherOptions(solvers, other_options);
+    cutest_options = getDefaultCutestOptions(cutest_options, other_options);
+    profile_options = getDefaultProfileOptions(feature, profile_options);
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%% Use cutest_options to select problems. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    cutest_problem_names = loadCutestNames(cutest_options, cutest_problem_names, custom_problem_loader, ...
-    custom_problem_names);
+    other_options.(OtherOptionKey.CUTEST_PROBLEM_NAMES.value) = loadCutestNames(cutest_options, other_options);
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%% Set the default values for plotting. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -507,25 +379,8 @@ function benchmark(solvers, varargin)
     %%%%%%%%%%%%%%%%%%%%%%%%% Start the computation of the profiles. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    % Build feature.
-    feature = Feature(feature_name, feature_options);
-
-    % Preprocess the feature_stamp. If it is not provided, we use default feature_stamps for
-    % different features.
-    if ~exist('feature_stamp', 'var') || isempty(feature_stamp)
-        feature_stamp = setDefaultFeatureStamp(feature);
-    end
-    if ~ischarstr(feature_stamp)
-        error("MATLAB:benchmark:feature_stampNotcharstr", "The field `feature_stamp` of `options` for `benchmark` must be a char or string.");
-    end
-    is_valid_foldername = @(x) ischarstr(x) && ~isempty(x) && all(ismember(char(x), ['a':'z', 'A':'Z', '0':'9', '_', '-', '.']));
-    if ~is_valid_foldername(feature_stamp)
-        error("MATLAB:benchmark:feature_stampNotValid", "The field 'feature_stamp' of options should be a char or a string satisfying the strict file name requirements (only containing letters, numbers, underscores, hyphens, and dots).");
-    end
-    profile_options.feature_stamp = feature_stamp;
-
     % Create the directory to store the results. If it already exists, overwrite it.
-    path_feature = fullfile(path_out, feature_stamp);
+    path_feature = fullfile(path_out, profile_options.(ProfileOptionKey.FEATURE_STAMP.value));
     if ~exist(path_feature, 'dir')
         mkdir(path_feature);
     else
@@ -546,12 +401,23 @@ function benchmark(solvers, varargin)
         mkdir(path_log);
     end
     try
-        save(fullfile(path_log, 'options_store.mat'), 'options_store');
+        if exist('options_store', 'var')
+            save(fullfile(path_log, 'options_store.mat'), 'options_store');
+        end
     catch
         fprintf("INFO: Failed to save the `options` of the current experiment.\n");
     end
     log_file = fullfile(path_log, 'log.txt');
     diary(log_file);
+
+    % If `n_runs` is not specified, the feature is deterministic, and at least one solver is
+    % randomized, then we set `n_runs` to 5.
+    if ~isfield(feature_options, FeatureOptionKey.N_RUNS.value) && ~feature.is_stochastic && any(other_options.(OtherOptionKey.SOLVER_ISRAND.value))
+        if ~profile_options.(ProfileOptionKey.SILENT.value)
+            fprintf("INFO: We set `n_runs` to 5 since the feature is deterministic and at least one solver is randomized and `n_runs` is not specified.\n\n");
+        end
+        feature.options.(FeatureOptionKey.N_RUNS.value) = 5;
+    end
 
     % We try to copy the script or function that calls the benchmark function to the log directory.
     try
@@ -568,7 +434,7 @@ function benchmark(solvers, varargin)
     if ~profile_options.(ProfileOptionKey.SILENT.value)
         fprintf('INFO: Starting the computation of the "%s" profiles.\n', feature.name);
     end
-    [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, time_processes, problem_unsolved] = solveAllProblems(cutest_problem_names, custom_problem_loader, custom_problem_names, solvers, solver_names, solver_isrand, feature, profile_options, true, path_hist_plots);
+    [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, time_processes, problem_unsolved] = solveAllProblems(solvers, feature, profile_options, other_options, true, path_hist_plots);
     merit_histories = computeMeritValues(fun_histories, maxcv_histories, maxcv_init);
     merit_out = computeMeritValues(fun_out, maxcv_out, maxcv_init);
     merit_init = computeMeritValues(fun_init, maxcv_init, maxcv_init);
@@ -605,7 +471,7 @@ function benchmark(solvers, varargin)
         if ~profile_options.(ProfileOptionKey.SILENT.value)
             fprintf('\nINFO: Starting the computation of the profiles under "plain" feature.\n');
         end
-        [fun_histories_plain, maxcv_histories_plain, ~, ~, ~, ~, ~, problem_names_plain, ~, time_processes_plain] = solveAllProblems(cutest_problem_names, custom_problem_loader, custom_problem_names, solvers, solver_names, solver_isrand, feature_plain, profile_options, false, {});
+        [fun_histories_plain, maxcv_histories_plain, ~, ~, ~, ~, ~, problem_names_plain, ~, time_processes_plain] = solveAllProblems(solvers, feature_plain, profile_options, other_options, false, {});
         merit_histories_plain = computeMeritValues(fun_histories_plain, maxcv_histories_plain, maxcv_init);
         merit_min_plain = min(min(min(merit_histories_plain, [], 4, 'omitnan'), [], 3, 'omitnan'), [], 2, 'omitnan');
         for i_problem = 1:numel(problem_names)
@@ -726,10 +592,10 @@ function benchmark(solvers, varargin)
     default_height = defaultFigurePosition(4);
     fig_summary = figure('Position', [defaultFigurePosition(1:2), profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * default_width, multiplier * n_rows * default_height], 'visible', 'off');
     T_summary = tiledlayout(fig_summary, multiplier, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
-    T_feature_stamp = strrep(feature_stamp, '_', '\_');
+    T_feature_stamp = strrep(profile_options.(ProfileOptionKey.FEATURE_STAMP.value), '_', '\_');
     T_title = ['Profiles with the ``', T_feature_stamp, '" feature'];
     summary_width = profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * default_width;
-    summary_fontsize = 1.5 * summary_width / length(T_title);
+    summary_fontsize = min(1.5 * summary_width / length(T_title), 24);
     title(T_summary, T_title, 'Interpreter', 'latex', 'FontSize', summary_fontsize);
     % Use gobjects to create arrays of handles and axes.
     t_summary = gobjects(multiplier, 1);
@@ -801,7 +667,7 @@ function benchmark(solvers, varargin)
             end
         end
 
-        processed_solver_names = cellfun(@(s) strrep(s, '_', '\_'), solver_names, 'UniformOutput', false);
+        processed_solver_names = cellfun(@(s) strrep(s, '_', '\_'), other_options.(OtherOptionKey.SOLVER_NAMES.value), 'UniformOutput', false);
         [fig_perf_hist, fig_data_hist, fig_log_ratio_hist] = drawProfiles(work_hist, problem_dimensions, processed_solver_names, tolerance_label, cell_axs_summary_hist, true, is_perf, is_data, is_log_ratio, profile_options);
         [fig_perf_out, fig_data_out, fig_log_ratio_out] = drawProfiles(work_out, problem_dimensions, processed_solver_names, tolerance_label, cell_axs_summary_out, is_output_based, is_perf, is_data, is_log_ratio, profile_options);
 
@@ -896,7 +762,6 @@ function benchmark(solvers, varargin)
     end
 
     diary off;
-
 end
 
 % Following code is modified from the code provided by Benjamin Großmann (2024). Merge PDF-Documents
@@ -915,61 +780,4 @@ function mergePdfs(file_path, output_file_name, output_path)
     
     merger.setDestinationFileName(fullfile(output_path, output_file_name));
     merger.mergeDocuments(memSet)
-end
-
-function feature_stamp = setDefaultFeatureStamp(feature)
-    % Generate a feature stamp to represent the feature with its options.
-
-    switch feature.name
-        case FeatureName.PERTURBED_X0.value
-            % feature_name + noise_level + (distribution if it is gaussian or spherical)
-            feature_stamp = sprintf('%s_%g', feature.name, feature.options.(FeatureOptionKey.NOISE_LEVEL.value));
-            if ischarstr(feature.options.(FeatureOptionKey.DISTRIBUTION.value)) && ismember(feature.options.(FeatureOptionKey.DISTRIBUTION.value), {'gaussian', 'spherical'})
-                feature_stamp = sprintf('%s_%s', feature_stamp, feature.options.(FeatureOptionKey.DISTRIBUTION.value));
-            end
-        case FeatureName.NOISY.value
-            % feature_name + noise_level + noise_type + (distribution if it is gaussian or uniform)
-            feature_stamp = sprintf('%s_%g_%s', feature.name, feature.options.(FeatureOptionKey.NOISE_LEVEL.value), feature.options.(FeatureOptionKey.NOISE_TYPE.value));
-            if ischarstr(feature.options.(FeatureOptionKey.DISTRIBUTION.value)) && ismember(feature.options.(FeatureOptionKey.DISTRIBUTION.value), {'gaussian', 'uniform'})
-                feature_stamp = sprintf('%s_%s', feature_stamp, feature.options.(FeatureOptionKey.DISTRIBUTION.value));
-            end
-        case FeatureName.TRUNCATED.value
-            % feature_name + significant_digits + (perturbed_trailing_zeros if it is true)
-            feature_stamp = sprintf('%s_%d', feature.name, feature.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value));
-            if feature.options.(FeatureOptionKey.PERTURBED_TRAILING_ZEROS.value)
-                feature_stamp = sprintf('%s_perturbed_trailing_zeros', feature_stamp);
-            end
-        case FeatureName.LINEARLY_TRANSFORMED.value
-            % feature_name + (rotated if it is true) + (condition_factor if it is not 0)
-            feature_stamp = feature.name;
-            if feature.options.(FeatureOptionKey.ROTATED.value)
-                feature_stamp = sprintf('%s_rotated', feature_stamp);
-            end
-            if feature.options.(FeatureOptionKey.CONDITION_FACTOR.value) ~= 0
-                feature_stamp = sprintf('%s_%g', feature_stamp, feature.options.(FeatureOptionKey.CONDITION_FACTOR.value));
-            end
-        case FeatureName.RANDOM_NAN.value
-            % feature_name + nan_rate
-            feature_stamp = sprintf('%s_%g', feature.name, feature.options.(FeatureOptionKey.NAN_RATE.value));
-        case FeatureName.UNRELAXABLE_CONSTRAINTS.value
-            % feature_name + (bounds if it is true) + (linear if it is true) + (nonlinear if it is true)
-            feature_stamp = feature.name;
-            if feature.options.(FeatureOptionKey.UNRELAXABLE_BOUNDS.value)
-                feature_stamp = sprintf('%s_bounds', feature_stamp);
-            end
-            if feature.options.(FeatureOptionKey.UNRELAXABLE_LINEAR_CONSTRAINTS.value)
-                feature_stamp = sprintf('%s_linear', feature_stamp);
-            end
-            if feature.options.(FeatureOptionKey.UNRELAXABLE_NONLINEAR_CONSTRAINTS.value)
-                feature_stamp = sprintf('%s_nonlinear', feature_stamp);
-            end
-        case FeatureName.QUANTIZED.value
-            % feature_name + mesh_size + (ground_truth if is_true it is true)
-            feature_stamp = sprintf('%s_%g', feature.name, feature.options.(FeatureOptionKey.MESH_SIZE.value));
-            if feature.options.(FeatureOptionKey.GROUND_TRUTH.value)
-                feature_stamp = sprintf('%s_ground_truth', feature_stamp);
-            end
-        otherwise
-            feature_stamp = feature.name;
-    end
 end

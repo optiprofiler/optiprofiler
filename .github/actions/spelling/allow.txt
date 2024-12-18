@@ -248,3 +248,4 @@ evals
 ALLINITA
 isrand
 gaussian
+islogical

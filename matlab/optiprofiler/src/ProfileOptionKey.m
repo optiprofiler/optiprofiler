@@ -6,6 +6,7 @@ classdef ProfileOptionKey
         KEEP_POOL ('keep_pool')
         SEED ('seed')
         BENCHMARK_ID ('benchmark_id')
+        FEATURE_STAMP ('feature_stamp')
         RANGE_TYPE ('range_type')
         SAVEPATH ('savepath')
         MAX_TOL_ORDER ('max_tol_order')

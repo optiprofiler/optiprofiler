@@ -4,18 +4,19 @@ classdef TestSolveOne < matlab.unittest.TestCase
             % Test whether the function returns the correct outputs when given valid input.
 
             problem_name = 'ALLINITU';
-            len_problem_names = length('ALLINITU');
             solvers = {@fminsearch_test1, @fminsearch_test2};
-            solver_names = {'fminsearch', 'fminunc'};
             feature = Feature('permuted', 'n_runs', 1);
-            custom_problem_loader = [];
+            len_problem_names = length('ALLINITU');
+            other_options.solver_names = {'fminsearch', 'fminunc'};
+            other_options.solver_isrand = [false, false];
+            other_options.custom_problem_loader = [];
             profile_options.project_x0 = true;
             profile_options.max_eval_factor = 500;
             profile_options.keep_pool = false;
             profile_options.silent = false;
             profile_options.seed = 1;
             profile_options.solver_verbose = 1;
-            [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_name, problem_n, computation_time] = solveOneProblem(problem_name, solvers, solver_names, feature, len_problem_names, custom_problem_loader, profile_options, false, '.');
+            [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_name, problem_n, computation_time] = solveOneProblem(problem_name, solvers, feature, len_problem_names, profile_options, other_options, false, '.');
             testCase.verifyNotEmpty(fun_histories);
             testCase.verifyNotEmpty(maxcv_histories);
             testCase.verifyNotEmpty(fun_out);

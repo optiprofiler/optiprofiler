@@ -6,7 +6,7 @@ classdef TestProfileOptionKey < matlab.unittest.TestCase
             
             enumValues = enumeration('ProfileOptionKey');
             enumValues = cellstr(arrayfun(@char, enumValues, 'UniformOutput', false));
-            expectedValues = {'N_JOBS'; 'KEEP_POOL'; 'SEED'; 'BENCHMARK_ID'; 'RANGE_TYPE'; 'SAVEPATH'; 'MAX_TOL_ORDER'; 'MAX_EVAL_FACTOR'; 'PROJECT_X0'; 'RUN_PLAIN'; 'SUMMARIZE_PERFORMANCE_PROFILES'; 'SUMMARIZE_DATA_PROFILES'; 'SUMMARIZE_LOG_RATIO_PROFILES'; 'SUMMARIZE_OUTPUT_BASED_PROFILES'; 'SILENT'; 'SOLVER_VERBOSE'};
+            expectedValues = {'N_JOBS'; 'KEEP_POOL'; 'SEED'; 'BENCHMARK_ID'; 'FEATURE_STAMP'; 'RANGE_TYPE'; 'SAVEPATH'; 'MAX_TOL_ORDER'; 'MAX_EVAL_FACTOR'; 'PROJECT_X0'; 'RUN_PLAIN'; 'SUMMARIZE_PERFORMANCE_PROFILES'; 'SUMMARIZE_DATA_PROFILES'; 'SUMMARIZE_LOG_RATIO_PROFILES'; 'SUMMARIZE_OUTPUT_BASED_PROFILES'; 'SILENT'; 'SOLVER_VERBOSE'};
             testCase.verifyEqual(enumValues, expectedValues);
         end
 

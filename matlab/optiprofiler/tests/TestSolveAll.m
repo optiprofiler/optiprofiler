@@ -3,11 +3,12 @@ classdef TestSolveAll < matlab.unittest.TestCase
         function testWithValidInput(testCase)
             % Test whether the function returns the correct outputs when given valid input.
 
-            cutest_problem_names = {'ALLINITU', 'BARD'};
-            custom_problem_loader = [];
-            custom_problem_names = [];
             solvers = {@fminsearch_test1, @fminsearch_test2};
-            solver_names = {'fminsearch', 'fminunc'};
+            other_options.cutest_problem_names = {'ALLINITU', 'BARD'};
+            other_options.custom_problem_loader = [];
+            other_options.custom_problem_names = [];
+            other_options.solver_names = {'fminsearch1', 'fminsearch2'};
+            other_options.solver_isrand = [false, false];
             feature = Feature('plain');
             profile_options.max_eval_factor = 500;
             profile_options.n_jobs = 1;
@@ -16,7 +17,7 @@ classdef TestSolveAll < matlab.unittest.TestCase
             profile_options.silent = false;
             profile_options.seed = 1;
             profile_options.solver_verbose = 1;
-            [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, computation_times] = solveAllProblems(cutest_problem_names, custom_problem_loader, custom_problem_names, solvers, solver_names, feature, profile_options, false, '.');
+            [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, computation_times] = solveAllProblems(solvers, feature, profile_options, other_options, false, '.');
             testCase.verifyNotEmpty(fun_histories);
             testCase.verifyNotEmpty(maxcv_histories);
             testCase.verifyNotEmpty(fun_out);

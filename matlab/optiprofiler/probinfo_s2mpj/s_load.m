@@ -77,6 +77,10 @@ function problem = s_load(problem_name, varargin)
 %   of dimension-changeable problems to "problem_name_n" and then call 's_load'
 %   without varargin.
 
+    % Convert 'problem_name' to a char in upper case (problems in S2MPJ are
+    % named in upper case).
+    problem_name = upper(char(problem_name));
+
     % Check if 'problem_name' has the pattern '_n'.
     [is_problem_changeable, problem_name, dim] = isproblem_changeable(problem_name);
 

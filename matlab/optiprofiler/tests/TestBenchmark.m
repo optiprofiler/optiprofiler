@@ -89,22 +89,10 @@ classdef TestBenchmark < matlab.unittest.TestCase
 
         function testErrors(testCase)
             % Test whether the function throws errors as expected.
+            solvers = {@fmincon_test1, @fmincon_test2};
+            options = struct();
 
             testCase.verifyError(@() benchmark(), "MATLAB:benchmark:solverMustBeProvided")
-
-            solvers = {@fminsearch_test1, @fminsearch_test2};
-            options.problem = 'ROSENBR';
-            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:problemNotProblem")
-            options = rmfield(options, 'problem');
-
-            options.custom_problem_loader = 1;
-            options.custom_problem_names = {};
-            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:customnamesEmpty")
-            options = rmfield(options, 'custom_problem_loader');
-
-            options.custom_problem_names = 'example';
-            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:LoaderAndNamesNotSameTime")
-            options = rmfield(options, 'custom_problem_names');
 
             testCase.verifyError(@() benchmark(solvers, {1}), "MATLAB:benchmark:SecondArgumentWrongType")
 
@@ -121,26 +109,6 @@ classdef TestBenchmark < matlab.unittest.TestCase
             options.feature_name = 'a';
             testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:feature_nameNotValid")
             options = rmfield(options, 'feature_name');
-
-            options.solver_names = {1, 2};
-            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:solver_namesNotCellOfcharstr")
-
-            options.solver_names = {'a', 'b', 'c'};
-            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:solver_namesAndsolversLengthNotSame")
-            options = rmfield(options, 'solver_names');
-
-            options.custom_problem_names = {'A', 'B'};
-            options.custom_problem_loader = 1;
-            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:customloaderNotFunctionHandle")
-
-            options.custom_problem_loader = @(x) x;
-            options.custom_problem_names = 1;
-            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:customnamesNotcharstrOrCellOfcharstr")
-
-            options.custom_problem_names = {'A', 'B'};
-            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:customloaderNotAcceptcustomnames")
-            options = rmfield(options, 'custom_problem_names');
-            options = rmfield(options, 'custom_problem_loader');
 
             options.a = {'a'};
             testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:UnknownOptions")

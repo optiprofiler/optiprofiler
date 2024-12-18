@@ -85,7 +85,7 @@ classdef TestFeature < matlab.unittest.TestCase
 
             ft = Feature('perturbed_x0');
             testCase.verifyEqual(ft.name, 'perturbed_x0');
-            testCase.verifyEqual(ft.options.n_runs, 10);
+            testCase.verifyEqual(ft.options.n_runs, 5);
             testCase.verifyEqual(ft.options.noise_level, 1e-3);
 
             options.n_runs = 5;
@@ -101,7 +101,7 @@ classdef TestFeature < matlab.unittest.TestCase
         
             ft = Feature('noisy');
             testCase.verifyEqual(ft.name, 'noisy');
-            testCase.verifyEqual(ft.options.n_runs, 10);
+            testCase.verifyEqual(ft.options.n_runs, 5);
             testCase.verifyEqual(ft.options.noise_type, 'mixed');
             testCase.verifyEqual(ft.options.noise_level, 1e-3);
 
@@ -139,7 +139,7 @@ classdef TestFeature < matlab.unittest.TestCase
 
             ft = Feature('permuted');
             testCase.verifyEqual(ft.name, 'permuted');
-            testCase.verifyEqual(ft.options.n_runs, 10);
+            testCase.verifyEqual(ft.options.n_runs, 5);
             
             options.n_runs = 5;
             ft = Feature('permuted', options);
@@ -152,7 +152,7 @@ classdef TestFeature < matlab.unittest.TestCase
 
             ft = Feature('linearly_transformed');
             testCase.verifyEqual(ft.name, 'linearly_transformed');
-            testCase.verifyEqual(ft.options.n_runs, 10);
+            testCase.verifyEqual(ft.options.n_runs, 5);
             testCase.verifyEqual(ft.options.rotated, true);
             testCase.verifyEqual(ft.options.condition_factor, 0);
 
@@ -171,7 +171,7 @@ classdef TestFeature < matlab.unittest.TestCase
             
             ft = Feature('random_nan');
             testCase.verifyEqual(ft.name, 'random_nan');
-            testCase.verifyEqual(ft.options.n_runs, 10);
+            testCase.verifyEqual(ft.options.n_runs, 5);
             testCase.verifyEqual(ft.options.nan_rate, 0.05);
 
             options.n_runs = 5;

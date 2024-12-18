@@ -1,5 +1,8 @@
-function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, computation_times, problem_unsolved] = solveAllProblems(cutest_problem_names, custom_problem_loader, custom_problem_names, solvers, solver_names, solver_isrand, feature, profile_options, is_plot, path_hist_plots)
+function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, computation_times, problem_unsolved] = solveAllProblems(solvers, feature, profile_options, other_options, is_plot, path_hist_plots)
 %SOLVEALLPROBLEMS solves all problems in the problem_names list using solvers in the solvers list and stores the computing results.
+
+    cutest_problem_names = other_options.(OtherOptionKey.CUTEST_PROBLEM_NAMES.value);
+    custom_problem_names = other_options.(OtherOptionKey.CUSTOM_PROBLEM_NAMES.value);
 
     extra_problem_names = arrayfun(@(i) {sprintf('EXTRA%d', i), custom_problem_names{i}}, 1:length(custom_problem_names), 'UniformOutput', false);
     extra_problem_names = reshape(extra_problem_names, 1, []);
@@ -46,7 +49,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
             end
             for i_problem = 1:n_problems
                 problem_name = problem_names{i_problem};
-                [tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n, tmp_computation_time, tmp_solvers_success] = solveOneProblem(problem_name, solvers, solver_names, solver_isrand, feature, len_problem_names, custom_problem_loader, profile_options, is_plot, path_hist_plots);
+                [tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n, tmp_computation_time, tmp_solvers_success] = solveOneProblem(problem_name, solvers, feature, len_problem_names, profile_options, other_options, is_plot, path_hist_plots);
                 results{i_problem} = {tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n, tmp_computation_time, tmp_solvers_success};
             end
         otherwise
@@ -65,7 +68,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
             end
             parfor i_problem = 1:n_problems
                 problem_name = problem_names{i_problem};
-                [tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n, tmp_computation_time, tmp_solvers_success] = solveOneProblem(problem_name, solvers, solver_names, solver_isrand, feature, len_problem_names, custom_problem_loader, profile_options, is_plot, path_hist_plots);
+                [tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n, tmp_computation_time, tmp_solvers_success] = solveOneProblem(problem_name, solvers, feature, len_problem_names, profile_options, other_options, is_plot, path_hist_plots);
                 results{i_problem} = {tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n, tmp_computation_time, tmp_solvers_success};
             end
             if ~profile_options.(ProfileOptionKey.KEEP_POOL.value)

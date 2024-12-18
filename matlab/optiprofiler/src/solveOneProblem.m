@@ -1,6 +1,9 @@
-function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_name, problem_n, computation_time, solvers_success] = solveOneProblem(problem_name, solvers, solver_names, solver_isrand, feature, len_problem_names, custom_problem_loader, profile_options, is_plot, path_hist_plots)
+function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_name, problem_n, computation_time, solvers_success] = solveOneProblem(problem_name, solvers, feature, len_problem_names, profile_options, other_options, is_plot, path_hist_plots)
 %SOLVEONEPROBLEM solves one problem with all the solvers in solvers list.
 
+    solver_names = other_options.(OtherOptionKey.SOLVER_NAMES.value);
+    solver_isrand = other_options.(OtherOptionKey.SOLVER_ISRAND.value);
+    custom_problem_loader = other_options.(OtherOptionKey.CUSTOM_PROBLEM_LOADER.value);
     fun_histories = [];
     maxcv_histories = [];
     fun_out = [];
@@ -77,59 +80,27 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
                 switch problem.p_type
                     case 'unconstrained'
                         if profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) == 2
-                            if solver_isrand(i_solver)
-                                x = solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, real_seed);
-                            else
-                                x = solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0);
-                            end
+                            x = solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0);
                         else
-                            if solver_isrand(i_solver)
-                                [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, real_seed)');
-                            else
-                                [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0)');
-                            end
+                            [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0)');
                         end
                     case 'bound-constrained'
                         if profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) == 2
-                            if solver_isrand(i_solver)
-                                x = solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, real_seed);
-                            else
-                                x = solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu);
-                            end
+                            x = solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu);
                         else
-                            if solver_isrand(i_solver)
-                                [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, real_seed)');
-                            else
-                                [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu)');
-                            end
+                            [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu)');
                         end
                     case 'linearly constrained'
                         if profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) == 2
-                            if solver_isrand(i_solver)
-                                x = solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, real_seed);
-                            else
-                                x = solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq);
-                            end
+                            x = solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq);
                         else
-                            if solver_isrand(i_solver)
-                                [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, real_seed)');
-                            else
-                                [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq)');
-                            end
+                            [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq)');
                         end
                     case 'nonlinearly constrained'
                         if profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) == 2
-                            if solver_isrand(i_solver)
-                                x = solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, @(x) featured_problem.cub(x), @(x) featured_problem.ceq(x), real_seed);
-                            else
-                                x = solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, @(x) featured_problem.cub(x), @(x) featured_problem.ceq(x));
-                            end
+                            x = solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, @(x) featured_problem.cub(x), @(x) featured_problem.ceq(x));
                         else
-                            if solver_isrand(i_solver)
-                                [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, @(x) featured_problem.cub(x), @(x) featured_problem.ceq(x), real_seed)');
-                            else
-                                [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, @(x) featured_problem.cub(x), @(x) featured_problem.ceq(x))');
-                            end
+                            [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, @(x) featured_problem.cub(x), @(x) featured_problem.ceq(x))');
                         end
                 end
 
