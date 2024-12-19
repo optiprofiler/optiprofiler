@@ -39,6 +39,8 @@ function drawFunMaxcvMeritHist(ax, y, solver_names, is_cum, problem_n, y_shift, 
 
     xl_lim = 1 / (problem_n + 1);
     xr_lim = 1 / (problem_n + 1);
+
+    hold(ax, 'on');
     for i_solver = 1:n_solvers
         % Truncate the histories according to the function evaluations of each solver.
         length = max(max(n_eval(i_solver,:)), 1);
@@ -51,7 +53,6 @@ function drawFunMaxcvMeritHist(ax, y, solver_names, is_cum, problem_n, y_shift, 
         else
             plot(ax, x, y_mean(i_solver, 1:length), 'DisplayName', solver_names{i_solver});
         end
-        hold(ax, 'on');
         if n_runs > 1 && length > 1
             fill(ax, [x, fliplr(x)], [y_lower(i_solver, 1:length), fliplr(y_upper(i_solver, 1:length))], nextColor, 'FaceAlpha', 0.2, 'EdgeAlpha', 0, 'HandleVisibility', 'off');
         end
