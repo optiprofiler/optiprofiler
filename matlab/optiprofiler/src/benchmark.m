@@ -590,29 +590,31 @@ function benchmark(solvers, varargin)
     defaultFigurePosition = get(0, 'DefaultFigurePosition');
     default_width = defaultFigurePosition(3);
     default_height = defaultFigurePosition(4);
-    fig_summary = figure('Position', [defaultFigurePosition(1:2), profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * default_width, multiplier * n_rows * default_height], 'visible', 'off');
-    T_summary = tiledlayout(fig_summary, multiplier, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
-    T_feature_stamp = strrep(profile_options.(ProfileOptionKey.FEATURE_STAMP.value), '_', '\_');
-    T_title = ['Profiles with the ``', T_feature_stamp, '" feature'];
-    summary_width = profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * default_width;
-    summary_fontsize = min(1.5 * summary_width / length(T_title), 24);
-    title(T_summary, T_title, 'Interpreter', 'latex', 'FontSize', summary_fontsize);
-    % Use gobjects to create arrays of handles and axes.
-    t_summary = gobjects(multiplier, 1);
-    axs_summary = gobjects([multiplier, 1, n_rows, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)]);
-    i_axs = 0;
-    for i = 1:multiplier
-        t_summary(i) = tiledlayout(T_summary, n_rows, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value), ...
-        'Padding', 'compact', 'TileSpacing', 'compact');
-        t_summary(i).Layout.Tile = i;
-        for j = 1:n_rows * profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)
-            i_axs = i_axs + 1;
-            axs_summary(i_axs) = nexttile(t_summary(i));
+    if n_rows > 0
+        fig_summary = figure('Position', [defaultFigurePosition(1:2), profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * default_width, multiplier * n_rows * default_height], 'visible', 'off');
+        T_summary = tiledlayout(fig_summary, multiplier, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
+        T_feature_stamp = strrep(profile_options.(ProfileOptionKey.FEATURE_STAMP.value), '_', '\_');
+        T_title = ['Profiles with the ``', T_feature_stamp, '" feature'];
+        summary_width = profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * default_width;
+        summary_fontsize = min(1.5 * summary_width / length(T_title), 24);
+        title(T_summary, T_title, 'Interpreter', 'latex', 'FontSize', summary_fontsize);
+        % Use gobjects to create arrays of handles and axes.
+        t_summary = gobjects(multiplier, 1);
+        axs_summary = gobjects([multiplier, 1, n_rows, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)]);
+        i_axs = 0;
+        for i = 1:multiplier
+            t_summary(i) = tiledlayout(T_summary, n_rows, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value), ...
+            'Padding', 'compact', 'TileSpacing', 'compact');
+            t_summary(i).Layout.Tile = i;
+            for j = 1:n_rows * profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)
+                i_axs = i_axs + 1;
+                axs_summary(i_axs) = nexttile(t_summary(i));
+            end
         end
-    end
-    ylabel(t_summary(1), "History-based profiles", 'Interpreter', 'latex', 'FontSize', 20);
-    if is_output_based
-        ylabel(t_summary(2), "Output-based profiles", 'Interpreter', 'latex', 'FontSize', 20);
+        ylabel(t_summary(1), "History-based profiles", 'Interpreter', 'latex', 'FontSize', 20);
+        if is_output_based
+            ylabel(t_summary(2), "Output-based profiles", 'Interpreter', 'latex', 'FontSize', 20);
+        end
     end
 
     for i_profile = 1:profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)
@@ -665,6 +667,9 @@ function benchmark(solvers, varargin)
             if is_output_based
                 cell_axs_summary_out = {axs_summary(i_profile + max_tol_order)};
             end
+        else
+            cell_axs_summary_hist = {};
+            cell_axs_summary_out = {};
         end
 
         processed_solver_names = cellfun(@(s) strrep(s, '_', '\_'), other_options.(OtherOptionKey.SOLVER_NAMES.value), 'UniformOutput', false);
@@ -739,7 +744,9 @@ function benchmark(solvers, varargin)
 
     % Store the summary pdf. We will name the summary pdf as "summary_feature_name.pdf" and store it under path_feature.
     % We will also put a "summary.pdf" in the path_out directory, which will be a merged pdf of all the "summary_feature_name.pdf" under path_out following the order of the feature_stamp.
-    exportgraphics(fig_summary, fullfile(path_feature, ['summary_' feature_name '.pdf']), 'ContentType', 'vector');
+    if n_rows > 0
+        exportgraphics(fig_summary, fullfile(path_feature, ['summary_' feature_name '.pdf']), 'ContentType', 'vector');
+    end
     % List all summary PDF files in the output path and its subdirectories.
     summary_files = dir(fullfile(path_out, '**', 'summary_*.pdf'));
     % Sort the summary PDF files by their folder names.
@@ -756,9 +763,15 @@ function benchmark(solvers, varargin)
     warning('on');
 
     % Close the figures.
-    close(fig_summary);
+    if n_rows > 0
+        close(fig_summary);
+        if ~profile_options.(ProfileOptionKey.SILENT.value)
+            fprintf('\nINFO: Summary stored in %s\n', path_out);
+        end
+    end
+
     if ~profile_options.(ProfileOptionKey.SILENT.value)
-        fprintf('\nINFO: Summary stored in %s\n', path_out);
+        fprintf('INFO: Finished the computation of the "%s" profiles.\n', feature.name);
     end
 
     diary off;
