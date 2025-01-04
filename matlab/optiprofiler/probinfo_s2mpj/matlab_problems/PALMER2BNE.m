@@ -25,7 +25,7 @@ function varargout = PALMER2BNE(action,varargin)
 % 
 % 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%   Translated to Matlab by S2MPJ version 9 XI 2024
+%   Translated to Matlab by S2MPJ version 25 XI 2024
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 persistent pbm;
@@ -36,10 +36,10 @@ switch(action)
 
     case {'setup','setup_redprec'}
 
-        if(isfield(pbm,'ndigs'))
-            rmfield(pbm,'ndigs');
-        end
         if(strcmp(action,'setup_redprec'))
+            if(isfield(pbm,'ndigs'))
+                rmfield(pbm,'ndigs');
+            end
             pbm.ndigs = max(1,min(15,varargin{end}));
             nargs     = nargin-2;
         else
@@ -101,6 +101,9 @@ switch(action)
         v_('Y23') = 72.676767;
         %%%%%%%%%%%%%%%%%%%%  VARIABLES %%%%%%%%%%%%%%%%%%%%
         pb.xnames = {};
+        irA  = [];
+        icA  = [];
+        valA = [];
         [iv,ix_] = s2mpjlib('ii','A2',ix_);
         pb.xnames{iv} = 'A2';
         [iv,ix_] = s2mpjlib('ii','A4',ix_);
@@ -110,25 +113,18 @@ switch(action)
         [iv,ix_] = s2mpjlib('ii','C',ix_);
         pb.xnames{iv} = 'C';
         %%%%%%%%%%%%%%%%%%%  DATA GROUPS %%%%%%%%%%%%%%%%%%%
-        pbm.A = sparse(0,0);
         for I=v_('1'):v_('M')
             v_('XSQR') = v_(['X',int2str(I)])*v_(['X',int2str(I)]);
             v_('XQUART') = v_('XSQR')*v_('XSQR');
             [ig,ig_] = s2mpjlib('ii',['O',int2str(I)],ig_);
             gtype{ig}  = '==';
             cnames{ig} = ['O',int2str(I)];
-            iv = ix_('A2');
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = v_('XSQR')+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = v_('XSQR');
-            end
-            iv = ix_('A4');
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = v_('XQUART')+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = v_('XQUART');
-            end
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_('A2');
+            valA(end+1) = v_('XSQR');
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_('A4');
+            valA(end+1) = v_('XQUART');
         end
         %%%%%%%%%%%%%%% GLOBAL DIMENSIONS %%%%%%%%%%%%%%%%%
         pb.n   = ix_.Count;
@@ -204,6 +200,8 @@ switch(action)
 % LO PALMER2B               0.0
 %    Solution
 % LO SOLTN                0.62326690
+        %%%%%%%%% BUILD THE SPARSE MATRICES %%%%%%%%%%%%%%%
+        pbm.A = sparse(irA,icA,valA,ngrp,pb.n);
         %%%%%%%%% DEFAULT FOR MISSING SECTION(S) %%%%%%%%%%
         %%%%%%%%%%%%%% FORM clower AND cupper %%%%%%%%%%%%%
         pb.clower(pb.nle+1:pb.nle+pb.neq) = zeros(pb.neq,1);

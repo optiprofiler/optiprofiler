@@ -21,7 +21,7 @@ function varargout = LEWISPOL(action,varargin)
 % 
 % 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%   Translated to Matlab by S2MPJ version 9 XI 2024
+%   Translated to Matlab by S2MPJ version 25 XI 2024
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 persistent pbm;
@@ -32,10 +32,10 @@ switch(action)
 
     case {'setup','setup_redprec'}
 
-        if(isfield(pbm,'ndigs'))
-            rmfield(pbm,'ndigs');
-        end
         if(strcmp(action,'setup_redprec'))
+            if(isfield(pbm,'ndigs'))
+                rmfield(pbm,'ndigs');
+            end
             pbm.ndigs = max(1,min(15,varargin{end}));
             nargs     = nargin-2;
         else
@@ -58,12 +58,14 @@ switch(action)
         v_('N+1') = 1+v_('N');
         %%%%%%%%%%%%%%%%%%%%  VARIABLES %%%%%%%%%%%%%%%%%%%%
         pb.xnames = {};
+        irA  = [];
+        icA  = [];
+        valA = [];
         for J=v_('0'):v_('N-1')
             [iv,ix_] = s2mpjlib('ii',['A',int2str(J)],ix_);
             pb.xnames{iv} = ['A',int2str(J)];
         end
         %%%%%%%%%%%%%%%%%%%  DATA GROUPS %%%%%%%%%%%%%%%%%%%
-        pbm.A = sparse(0,0);
         [ig,ig_] = s2mpjlib('ii','OBJ',ig_);
         gtype{ig} = '<>';
         for J=v_('0'):v_('N-1')
@@ -71,13 +73,9 @@ switch(action)
             [ig,ig_] = s2mpjlib('ii','D0',ig_);
             gtype{ig}  = '==';
             cnames{ig} = 'D0';
-            iv = ix_(['A',int2str(J)]);
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) =...
-                      v_(['C',int2str(round(v_('0'))),',',int2str(J)])+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = v_(['C',int2str(round(v_('0'))),',',int2str(J)]);
-            end
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_(['A',int2str(J)]);
+            valA(end+1) = v_(['C',int2str(round(v_('0'))),',',int2str(J)]);
         end
         for I=v_('1'):v_('DEG-1')
             v_('I-1') = -1+I;
@@ -88,24 +86,18 @@ switch(action)
                 [ig,ig_] = s2mpjlib('ii',['D',int2str(I)],ig_);
                 gtype{ig}  = '==';
                 cnames{ig} = ['D',int2str(I)];
-                iv = ix_(['A',int2str(J)]);
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = v_(['C',int2str(I),',',int2str(J)])+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = v_(['C',int2str(I),',',int2str(J)]);
-                end
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_(['A',int2str(J)]);
+                valA(end+1) = v_(['C',int2str(I),',',int2str(J)]);
             end
         end
         for J=v_('0'):v_('N-1')
             [ig,ig_] = s2mpjlib('ii',['INT',int2str(J)],ig_);
             gtype{ig}  = '==';
             cnames{ig} = ['INT',int2str(J)];
-            iv = ix_(['A',int2str(J)]);
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = -1.0+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = -1.0;
-            end
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_(['A',int2str(J)]);
+            valA(end+1) = -1.0;
             pbm.gscale(ig,1) = v_('PEN');
         end
         %%%%%%%%%%%%%%% GLOBAL DIMENSIONS %%%%%%%%%%%%%%%%%
@@ -218,6 +210,8 @@ switch(action)
         pb.objlower = 0.0;
 %    Solution
 % LO SOLTN               0.0
+        %%%%%%%%% BUILD THE SPARSE MATRICES %%%%%%%%%%%%%%%
+        pbm.A = sparse(irA,icA,valA,ngrp,pb.n);
         %%%%%%%%% DEFAULT FOR MISSING SECTION(S) %%%%%%%%%%
         %%%%%%%%%%%%%% FORM clower AND cupper %%%%%%%%%%%%%
         pb.clower(pb.nle+1:pb.nle+pb.neq) = zeros(pb.neq,1);

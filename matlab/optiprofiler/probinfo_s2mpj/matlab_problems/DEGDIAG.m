@@ -24,7 +24,7 @@ function varargout = DEGDIAG(action,varargin)
 % IE N                   100000         $-PARAMETER
 % 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%   Translated to Matlab by S2MPJ version 9 XI 2024
+%   Translated to Matlab by S2MPJ version 25 XI 2024
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 persistent pbm;
@@ -35,10 +35,10 @@ switch(action)
 
     case {'setup','setup_redprec'}
 
-        if(isfield(pbm,'ndigs'))
-            rmfield(pbm,'ndigs');
-        end
         if(strcmp(action,'setup_redprec'))
+            if(isfield(pbm,'ndigs'))
+                rmfield(pbm,'ndigs');
+            end
             pbm.ndigs = max(1,min(15,varargin{end}));
             nargs     = nargin-2;
         else
@@ -58,12 +58,14 @@ switch(action)
         v_('0') = 0;
         %%%%%%%%%%%%%%%%%%%%  VARIABLES %%%%%%%%%%%%%%%%%%%%
         pb.xnames = {};
+        irA  = [];
+        icA  = [];
+        valA = [];
         for I=v_('0'):v_('N')
             [iv,ix_] = s2mpjlib('ii',['X',int2str(I)],ix_);
             pb.xnames{iv} = ['X',int2str(I)];
         end
         %%%%%%%%%%%%%%%%%%%  DATA GROUPS %%%%%%%%%%%%%%%%%%%
-        pbm.A = sparse(0,0);
         %%%%%%%%%%%%%%% GLOBAL DIMENSIONS %%%%%%%%%%%%%%%%%
         pb.n   = ix_.Count;
         ngrp   = ig_.Count;
@@ -82,15 +84,18 @@ switch(action)
         %%%%%%%%%%%%%%%%%%% START POINT %%%%%%%%%%%%%%%%%%
         pb.x0 = 2.0*ones(pb.n,1);
         %%%%%%%%%%%%%%%%%%%%% QUADRATIC %%%%%%%%%%%%%%%%%%%
-        pbm.H = sparse( pb.n, pb.n );
+        irH  = [];
+        icH  = [];
+        valH = [];
         for I=v_('0'):v_('N')
-            ix1 = ix_(['X',int2str(I)]);
-            ix2 = ix_(['X',int2str(I)]);
-            pbm.H(ix1,ix2) = 1.0+pbm.H(ix1,ix2);
-            pbm.H(ix2,ix1) = pbm.H(ix1,ix2);
+            irH(end+1)  =  ix_(['X',int2str(I)]);
+            icH(end+1)  =  ix_(['X',int2str(I)]);
+            valH(end+1) =  1.0;
         end
         %%%%%%%%%%%%%%%%%%% OBJECT BOUNDS %%%%%%%%%%%%%%%%%
 %    Solution
+        %%%%%%%%% BUILD THE SPARSE MATRICES %%%%%%%%%%%%%%%
+        pbm.H = sparse(irH,icH,valH,pb.n,pb.n);
         %%%%%%%%% DEFAULT FOR MISSING SECTION(S) %%%%%%%%%%
         %%%%%% RETURN VALUES FROM THE SETUP ACTION %%%%%%%%
         pb.pbclass = 'C-CQBR2-AN-V-0';

@@ -33,7 +33,7 @@ function varargout = QR3DLS(action,varargin)
 % IE M                   20             $-PARAMETER  n = 610
 % 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%   Translated to Matlab by S2MPJ version 9 XI 2024
+%   Translated to Matlab by S2MPJ version 25 XI 2024
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 persistent pbm;
@@ -44,10 +44,10 @@ switch(action)
 
     case {'setup','setup_redprec'}
 
-        if(isfield(pbm,'ndigs'))
-            rmfield(pbm,'ndigs');
-        end
         if(strcmp(action,'setup_redprec'))
+            if(isfield(pbm,'ndigs'))
+                rmfield(pbm,'ndigs');
+            end
             pbm.ndigs = max(1,min(15,varargin{end}));
             nargs     = nargin-2;
         else
@@ -93,6 +93,9 @@ switch(action)
         v_(['A',int2str(round(v_('M'))),',',int2str(round(v_('M')))]) = v_('2M');
         %%%%%%%%%%%%%%%%%%%%  VARIABLES %%%%%%%%%%%%%%%%%%%%
         pb.xnames = {};
+        irA  = [];
+        icA  = [];
+        valA = [];
         for I=v_('1'):v_('M')
             for J=v_('1'):v_('M')
                 [iv,ix_] = s2mpjlib('ii',['Q',int2str(I),',',int2str(J)],ix_);
@@ -106,7 +109,6 @@ switch(action)
             end
         end
         %%%%%%%%%%%%%%%%%%%  DATA GROUPS %%%%%%%%%%%%%%%%%%%
-        pbm.A = sparse(0,0);
         for I=v_('1'):v_('M')
             for J=I:v_('M')
                 [ig,ig_] = s2mpjlib('ii',['O',int2str(I),',',int2str(J)],ig_);

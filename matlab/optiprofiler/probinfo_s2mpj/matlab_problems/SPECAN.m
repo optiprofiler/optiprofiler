@@ -22,7 +22,7 @@ function varargout = SPECAN(action,varargin)
 % IE K                   3              $-PARAMETER
 % 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%   Translated to Matlab by S2MPJ version 9 XI 2024
+%   Translated to Matlab by S2MPJ version 25 XI 2024
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 persistent pbm;
@@ -33,10 +33,10 @@ switch(action)
 
     case {'setup','setup_redprec'}
 
-        if(isfield(pbm,'ndigs'))
-            rmfield(pbm,'ndigs');
-        end
         if(strcmp(action,'setup_redprec'))
+            if(isfield(pbm,'ndigs'))
+                rmfield(pbm,'ndigs');
+            end
             pbm.ndigs = max(1,min(15,varargin{end}));
             nargs     = nargin-2;
         else
@@ -63,6 +63,9 @@ switch(action)
         v_('ONE') = 1.0;
         %%%%%%%%%%%%%%%%%%%%  VARIABLES %%%%%%%%%%%%%%%%%%%%
         pb.xnames = {};
+        irA  = [];
+        icA  = [];
+        valA = [];
         for p=v_('1'):v_('K')
             for j=v_('1'):v_('N')
                 [iv,ix_] = s2mpjlib('ii',['X',int2str(p),',',int2str(j)],ix_);
@@ -70,7 +73,6 @@ switch(action)
             end
         end
         %%%%%%%%%%%%%%%%%%%  DATA GROUPS %%%%%%%%%%%%%%%%%%%
-        pbm.A = sparse(0,0);
         for p=v_('1'):v_('K')
             for I=v_('1'):v_('M')
                 [ig,ig_] = s2mpjlib('ii',['OBJ',int2str(p),',',int2str(I)],ig_);

@@ -31,7 +31,7 @@ function varargout = HIMMELBK(action,varargin)
 % 
 % 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%   Translated to Matlab by S2MPJ version 9 XI 2024
+%   Translated to Matlab by S2MPJ version 25 XI 2024
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 persistent pbm;
@@ -42,10 +42,10 @@ switch(action)
 
     case {'setup','setup_redprec'}
 
-        if(isfield(pbm,'ndigs'))
-            rmfield(pbm,'ndigs');
-        end
         if(strcmp(action,'setup_redprec'))
+            if(isfield(pbm,'ndigs'))
+                rmfield(pbm,'ndigs');
+            end
             pbm.ndigs = max(1,min(15,varargin{end}));
             nargs     = nargin-2;
         else
@@ -112,158 +112,88 @@ switch(action)
         v_('24') = 24;
         %%%%%%%%%%%%%%%%%%%%  VARIABLES %%%%%%%%%%%%%%%%%%%%
         pb.xnames = {};
+        irA  = [];
+        icA  = [];
+        valA = [];
         for K=v_('1'):v_('24')
             [iv,ix_] = s2mpjlib('ii',['X',int2str(K)],ix_);
             pb.xnames{iv} = ['X',int2str(K)];
         end
         %%%%%%%%%%%%%%%%%%%  DATA GROUPS %%%%%%%%%%%%%%%%%%%
-        pbm.A = sparse(0,0);
         [ig,ig_] = s2mpjlib('ii','OBJ',ig_);
         gtype{ig} = '<>';
-        iv = ix_('X1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.0693+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.0693;
-        end
-        iv = ix_('X2');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.0577+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.0577;
-        end
-        iv = ix_('X3');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.05+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.05;
-        end
-        iv = ix_('X4');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.2+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.2;
-        end
-        iv = ix_('X5');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.26+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.26;
-        end
-        iv = ix_('X6');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.55+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.55;
-        end
-        iv = ix_('X7');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.06+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.06;
-        end
-        iv = ix_('X8');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.1+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.1;
-        end
-        iv = ix_('X9');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.12+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.12;
-        end
-        iv = ix_('X10');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.18+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.18;
-        end
-        iv = ix_('X11');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.1+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.1;
-        end
-        iv = ix_('X12');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.09+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.09;
-        end
-        iv = ix_('X13');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.0693+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.0693;
-        end
-        iv = ix_('X14');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.0577+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.0577;
-        end
-        iv = ix_('X15');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.05+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.05;
-        end
-        iv = ix_('X16');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.2+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.2;
-        end
-        iv = ix_('X17');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.26+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.26;
-        end
-        iv = ix_('X18');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.55+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.55;
-        end
-        iv = ix_('X19');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.06+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.06;
-        end
-        iv = ix_('X20');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.1+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.1;
-        end
-        iv = ix_('X21');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.12+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.12;
-        end
-        iv = ix_('X22');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.18+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.18;
-        end
-        iv = ix_('X23');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.1+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.1;
-        end
-        iv = ix_('X24');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.09+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.09;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('X1');
+        valA(end+1) = 0.0693;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('X2');
+        valA(end+1) = 0.0577;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('X3');
+        valA(end+1) = 0.05;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('X4');
+        valA(end+1) = 0.2;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('X5');
+        valA(end+1) = 0.26;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('X6');
+        valA(end+1) = 0.55;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('X7');
+        valA(end+1) = 0.06;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('X8');
+        valA(end+1) = 0.1;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('X9');
+        valA(end+1) = 0.12;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('X10');
+        valA(end+1) = 0.18;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('X11');
+        valA(end+1) = 0.1;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('X12');
+        valA(end+1) = 0.09;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('X13');
+        valA(end+1) = 0.0693;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('X14');
+        valA(end+1) = 0.0577;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('X15');
+        valA(end+1) = 0.05;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('X16');
+        valA(end+1) = 0.2;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('X17');
+        valA(end+1) = 0.26;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('X18');
+        valA(end+1) = 0.55;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('X19');
+        valA(end+1) = 0.06;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('X20');
+        valA(end+1) = 0.1;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('X21');
+        valA(end+1) = 0.12;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('X22');
+        valA(end+1) = 0.18;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('X23');
+        valA(end+1) = 0.1;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('X24');
+        valA(end+1) = 0.09;
         for I=v_('1'):v_('12')
             [ig,ig_] = s2mpjlib('ii',['CA',int2str(I)],ig_);
             gtype{ig}  = '==';
@@ -273,12 +203,9 @@ switch(action)
             [ig,ig_] = s2mpjlib('ii','CA13',ig_);
             gtype{ig}  = '==';
             cnames{ig} = 'CA13';
-            iv = ix_(['X',int2str(I)]);
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = 1.0;
-            end
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_(['X',int2str(I)]);
+            valA(end+1) = 1.0;
         end
         for I=v_('1'):v_('12')
             v_('I+12') = 12+I;
@@ -286,19 +213,13 @@ switch(action)
             [ig,ig_] = s2mpjlib('ii','CA14',ig_);
             gtype{ig}  = '==';
             cnames{ig} = 'CA14';
-            iv = ix_(['X',int2str(I)]);
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = v_('1/DI')+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = v_('1/DI');
-            end
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_(['X',int2str(I)]);
+            valA(end+1) = v_('1/DI');
             v_('F/BI+12') = v_('F')/v_(['B',int2str(round(v_('I+12')))]);
-            iv = ix_(['X',int2str(round(v_('I+12')))]);
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = v_('F/BI+12')+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = v_('F/BI+12');
-            end
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_(['X',int2str(round(v_('I+12')))]);
+            valA(end+1) = v_('F/BI+12');
         end
         %%%%%%%%%%%%%%% GLOBAL DIMENSIONS %%%%%%%%%%%%%%%%%
         pb.n   = ix_.Count;
@@ -389,6 +310,8 @@ switch(action)
         %%%%%%%%%%%%%%%%%%% OBJECT BOUNDS %%%%%%%%%%%%%%%%%
 %    Solution
 % LO SOLTN                0.0893344
+        %%%%%%%%% BUILD THE SPARSE MATRICES %%%%%%%%%%%%%%%
+        pbm.A = sparse(irA,icA,valA,ngrp,pb.n);
         %%%%%%%%% DEFAULT FOR MISSING SECTION(S) %%%%%%%%%%
         pb.xlower = zeros(pb.n,1);
         pb.xupper = +Inf*ones(pb.n,1);

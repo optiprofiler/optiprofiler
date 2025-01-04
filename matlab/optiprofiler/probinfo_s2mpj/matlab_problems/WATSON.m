@@ -24,7 +24,7 @@ function varargout = WATSON(action,varargin)
 %    classification = 'C-CSUR2-AN-V-0'
 % 
 %    The number of variables can be varied, but should be smaller than
-%    31
+%    31 and larger than 12.
 % 
 %    Number of variables
 % 
@@ -32,7 +32,7 @@ function varargout = WATSON(action,varargin)
 % IE N                   12             $-PARAMETER
 % 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%   Translated to Matlab by S2MPJ version 9 XI 2024
+%   Translated to Matlab by S2MPJ version 25 XI 2024
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 persistent pbm;
@@ -43,10 +43,10 @@ switch(action)
 
     case {'setup','setup_redprec'}
 
-        if(isfield(pbm,'ndigs'))
-            rmfield(pbm,'ndigs');
-        end
         if(strcmp(action,'setup_redprec'))
+            if(isfield(pbm,'ndigs'))
+                rmfield(pbm,'ndigs');
+            end
             pbm.ndigs = max(1,min(15,varargin{end}));
             nargs     = nargin-2;
         else
@@ -73,12 +73,14 @@ switch(action)
         v_('1/29') = 1.0/v_('29');
         %%%%%%%%%%%%%%%%%%%%  VARIABLES %%%%%%%%%%%%%%%%%%%%
         pb.xnames = {};
+        irA  = [];
+        icA  = [];
+        valA = [];
         for I=v_('1'):v_('N')
             [iv,ix_] = s2mpjlib('ii',['X',int2str(I)],ix_);
             pb.xnames{iv} = ['X',int2str(I)];
         end
         %%%%%%%%%%%%%%%%%%%  DATA GROUPS %%%%%%%%%%%%%%%%%%%
-        pbm.A = sparse(0,0);
         for I=v_('1'):v_('29')
             v_('RI') = I;
             v_('TI') = v_('RI')*v_('1/29');
@@ -92,30 +94,21 @@ switch(action)
                 v_('C') = v_('C0')*v_('RJ-1');
                 [ig,ig_] = s2mpjlib('ii',['G',int2str(I)],ig_);
                 gtype{ig} = '<>';
-                iv = ix_(['X',int2str(J)]);
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = v_('C')+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = v_('C');
-                end
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_(['X',int2str(J)]);
+                valA(end+1) = v_('C');
             end
         end
         [ig,ig_] = s2mpjlib('ii',['G',int2str(round(v_('30')))],ig_);
         gtype{ig} = '<>';
-        iv = ix_(['X',int2str(round(v_('1')))]);
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_(['X',int2str(round(v_('1')))]);
+        valA(end+1) = 1.0;
         [ig,ig_] = s2mpjlib('ii',['G',int2str(round(v_('M')))],ig_);
         gtype{ig} = '<>';
-        iv = ix_(['X',int2str(round(v_('2')))]);
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_(['X',int2str(round(v_('2')))]);
+        valA(end+1) = 1.0;
         %%%%%%%%%%%%%%% GLOBAL DIMENSIONS %%%%%%%%%%%%%%%%%
         pb.n   = ix_.Count;
         ngrp   = ig_.Count;
@@ -286,6 +279,8 @@ switch(action)
 %    Solution
 % LO SOLTN(12)           2.27559922D-9
 % LO SOLTN(31)           1.53795068D-9
+        %%%%%%%%% BUILD THE SPARSE MATRICES %%%%%%%%%%%%%%%
+        pbm.A = sparse(irA,icA,valA,ngrp,pb.n);
         %%%%%%%%% DEFAULT FOR MISSING SECTION(S) %%%%%%%%%%
         %%%%%% RETURN VALUES FROM THE SETUP ACTION %%%%%%%%
         pb.pbclass = 'C-CSUR2-AN-V-0';

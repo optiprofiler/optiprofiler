@@ -23,7 +23,7 @@ function varargout = EXPFITB(action,varargin)
 % 
 % 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%   Translated to Matlab by S2MPJ version 9 XI 2024
+%   Translated to Matlab by S2MPJ version 25 XI 2024
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 persistent pbm;
@@ -34,10 +34,10 @@ switch(action)
 
     case {'setup','setup_redprec'}
 
-        if(isfield(pbm,'ndigs'))
-            rmfield(pbm,'ndigs');
-        end
         if(strcmp(action,'setup_redprec'))
+            if(isfield(pbm,'ndigs'))
+                rmfield(pbm,'ndigs');
+            end
             pbm.ndigs = max(1,min(15,varargin{end}));
             nargs     = nargin-2;
         else
@@ -63,6 +63,9 @@ switch(action)
         end
         %%%%%%%%%%%%%%%%%%%%  VARIABLES %%%%%%%%%%%%%%%%%%%%
         pb.xnames = {};
+        irA  = [];
+        icA  = [];
+        valA = [];
         [iv,ix_] = s2mpjlib('ii','P0',ix_);
         pb.xnames{iv} = 'P0';
         [iv,ix_] = s2mpjlib('ii','P1',ix_);
@@ -74,7 +77,6 @@ switch(action)
         [iv,ix_] = s2mpjlib('ii','Q2',ix_);
         pb.xnames{iv} = 'Q2';
         %%%%%%%%%%%%%%%%%%%  DATA GROUPS %%%%%%%%%%%%%%%%%%%
-        pbm.A = sparse(0,0);
         [ig,ig_] = s2mpjlib('ii','OBJ',ig_);
         gtype{ig} = '<>';
         for I=v_('1'):v_('R')
@@ -88,51 +90,30 @@ switch(action)
             [ig,ig_] = s2mpjlib('ii',['C',int2str(I)],ig_);
             gtype{ig}  = '>=';
             cnames{ig} = ['C',int2str(I)];
-            iv = ix_('P0');
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = 1.0;
-            end
-            iv = ix_('P1');
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = v_(['T',int2str(I)])+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = v_(['T',int2str(I)]);
-            end
-            iv = ix_('P2');
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = v_('2T')+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = v_('2T');
-            end
-            iv = ix_('Q1');
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = v_('-QC1')+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = v_('-QC1');
-            end
-            iv = ix_('Q2');
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = v_('-QC2')+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = v_('-QC2');
-            end
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_('P0');
+            valA(end+1) = 1.0;
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_('P1');
+            valA(end+1) = v_(['T',int2str(I)]);
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_('P2');
+            valA(end+1) = v_('2T');
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_('Q1');
+            valA(end+1) = v_('-QC1');
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_('Q2');
+            valA(end+1) = v_('-QC2');
             [ig,ig_] = s2mpjlib('ii',['B',int2str(I)],ig_);
             gtype{ig}  = '>=';
             cnames{ig} = ['B',int2str(I)];
-            iv = ix_('Q1');
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = v_('TM5')+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = v_('TM5');
-            end
-            iv = ix_('Q2');
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = v_('TM5SQ')+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = v_('TM5SQ');
-            end
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_('Q1');
+            valA(end+1) = v_('TM5');
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_('Q2');
+            valA(end+1) = v_('TM5SQ');
         end
         %%%%%%%%%%%%%%% GLOBAL DIMENSIONS %%%%%%%%%%%%%%%%%
         pb.n   = ix_.Count;
@@ -241,6 +222,8 @@ switch(action)
         %%%%%%%%%%%%%%%%%%% OBJECT BOUNDS %%%%%%%%%%%%%%%%%
         pb.objlower = 0.0;
 %    Solution
+        %%%%%%%%% BUILD THE SPARSE MATRICES %%%%%%%%%%%%%%%
+        pbm.A = sparse(irA,icA,valA,ngrp,pb.n);
         %%%%%%%%% DEFAULT FOR MISSING SECTION(S) %%%%%%%%%%
         %%%%%%%%%%%%%% FORM clower AND cupper %%%%%%%%%%%%%
         pb.clower(pb.nle+pb.neq+1:pb.m) = zeros(pb.nge,1);

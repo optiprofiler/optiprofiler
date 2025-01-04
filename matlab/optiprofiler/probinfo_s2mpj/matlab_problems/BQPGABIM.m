@@ -15,7 +15,7 @@ function varargout = BQPGABIM(action,varargin)
 % 
 % 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%   Translated to Matlab by S2MPJ version 9 XI 2024
+%   Translated to Matlab by S2MPJ version 25 XI 2024
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 persistent pbm;
@@ -26,10 +26,10 @@ switch(action)
 
     case {'setup','setup_redprec'}
 
-        if(isfield(pbm,'ndigs'))
-            rmfield(pbm,'ndigs');
-        end
         if(strcmp(action,'setup_redprec'))
+            if(isfield(pbm,'ndigs'))
+                rmfield(pbm,'ndigs');
+            end
             pbm.ndigs = max(1,min(15,varargin{end}));
             nargs     = nargin-2;
         else
@@ -42,7 +42,9 @@ switch(action)
         ix_ = containers.Map('KeyType','char', 'ValueType', 'double');
         ig_ = containers.Map('KeyType','char', 'ValueType', 'double');
         %%%%%%%%%%%%%%%%%%%  DATA GROUPS %%%%%%%%%%%%%%%%%%%
-        pbm.A = sparse(0,0);
+        irA  = [];
+        icA  = [];
+        valA = [];
         [ig,ig_] = s2mpjlib('ii','LINGROUP',ig_);
         gtype{ig} = '<>';
         %%%%%%%%%%%%%%%%%%%%  VARIABLES %%%%%%%%%%%%%%%%%%%%
@@ -50,404 +52,254 @@ switch(action)
         ngrp   = ig_.Count;
         [iv,ix_] = s2mpjlib('ii','1',ix_);
         pb.xnames{iv} = '1';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 5.6987e-02+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 5.6987e-02;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = 5.6987e-02;
         [iv,ix_] = s2mpjlib('ii','2',ix_);
         pb.xnames{iv} = '2';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -6.1847e-03+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -6.1847e-03;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = -6.1847e-03;
         [iv,ix_] = s2mpjlib('ii','3',ix_);
         pb.xnames{iv} = '3';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 5.2516e-03+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 5.2516e-03;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = 5.2516e-03;
         [iv,ix_] = s2mpjlib('ii','4',ix_);
         pb.xnames{iv} = '4';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.1729e-02+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.1729e-02;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = 1.1729e-02;
         [iv,ix_] = s2mpjlib('ii','5',ix_);
         pb.xnames{iv} = '5';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 4.9596e-03+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 4.9596e-03;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = 4.9596e-03;
         [iv,ix_] = s2mpjlib('ii','6',ix_);
         pb.xnames{iv} = '6';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -4.9271e-03+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -4.9271e-03;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = -4.9271e-03;
         [iv,ix_] = s2mpjlib('ii','7',ix_);
         pb.xnames{iv} = '7';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.2185e-02+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.2185e-02;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = 1.2185e-02;
         [iv,ix_] = s2mpjlib('ii','8',ix_);
         pb.xnames{iv} = '8';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.3238e-02+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.3238e-02;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = 1.3238e-02;
         [iv,ix_] = s2mpjlib('ii','9',ix_);
         pb.xnames{iv} = '9';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -1.5134e-02+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -1.5134e-02;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = -1.5134e-02;
         [iv,ix_] = s2mpjlib('ii','10',ix_);
         pb.xnames{iv} = '10';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -1.2247e-02+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -1.2247e-02;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = -1.2247e-02;
         [iv,ix_] = s2mpjlib('ii','11',ix_);
         pb.xnames{iv} = '11';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 2.3741e-02+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 2.3741e-02;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = 2.3741e-02;
         [iv,ix_] = s2mpjlib('ii','12',ix_);
         pb.xnames{iv} = '12';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -9.7666e-02+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -9.7666e-02;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = -9.7666e-02;
         [iv,ix_] = s2mpjlib('ii','13',ix_);
         pb.xnames{iv} = '13';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 9.8702e-02+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 9.8702e-02;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = 9.8702e-02;
         [iv,ix_] = s2mpjlib('ii','14',ix_);
         pb.xnames{iv} = '14';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 7.8901e-04+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 7.8901e-04;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = 7.8901e-04;
         [iv,ix_] = s2mpjlib('ii','15',ix_);
         pb.xnames{iv} = '15';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 5.1663e-04+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 5.1663e-04;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = 5.1663e-04;
         [iv,ix_] = s2mpjlib('ii','16',ix_);
         pb.xnames{iv} = '16';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -1.7477e-04+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -1.7477e-04;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = -1.7477e-04;
         [iv,ix_] = s2mpjlib('ii','17',ix_);
         pb.xnames{iv} = '17';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.1795e-03+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.1795e-03;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = 1.1795e-03;
         [iv,ix_] = s2mpjlib('ii','18',ix_);
         pb.xnames{iv} = '18';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -1.7351e-02+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -1.7351e-02;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = -1.7351e-02;
         [iv,ix_] = s2mpjlib('ii','19',ix_);
         pb.xnames{iv} = '19';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.3439e-03+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.3439e-03;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = 1.3439e-03;
         [iv,ix_] = s2mpjlib('ii','20',ix_);
         pb.xnames{iv} = '20';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -5.6977e-02+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -5.6977e-02;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = -5.6977e-02;
         [iv,ix_] = s2mpjlib('ii','21',ix_);
         pb.xnames{iv} = '21';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0040e-02+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0040e-02;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = 1.0040e-02;
         [iv,ix_] = s2mpjlib('ii','22',ix_);
         pb.xnames{iv} = '22';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -8.3380e-02+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -8.3380e-02;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = -8.3380e-02;
         [iv,ix_] = s2mpjlib('ii','23',ix_);
         pb.xnames{iv} = '23';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -3.7526e-03+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -3.7526e-03;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = -3.7526e-03;
         [iv,ix_] = s2mpjlib('ii','24',ix_);
         pb.xnames{iv} = '24';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -9.4555e-04+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -9.4555e-04;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = -9.4555e-04;
         [iv,ix_] = s2mpjlib('ii','25',ix_);
         pb.xnames{iv} = '25';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -4.9258e-03+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -4.9258e-03;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = -4.9258e-03;
         [iv,ix_] = s2mpjlib('ii','26',ix_);
         pb.xnames{iv} = '26';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -1.3959e-03+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -1.3959e-03;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = -1.3959e-03;
         [iv,ix_] = s2mpjlib('ii','27',ix_);
         pb.xnames{iv} = '27';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -4.3749e-03+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -4.3749e-03;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = -4.3749e-03;
         [iv,ix_] = s2mpjlib('ii','28',ix_);
         pb.xnames{iv} = '28';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -4.3677e-03+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -4.3677e-03;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = -4.3677e-03;
         [iv,ix_] = s2mpjlib('ii','29',ix_);
         pb.xnames{iv} = '29';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -2.7985e-02+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -2.7985e-02;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = -2.7985e-02;
         [iv,ix_] = s2mpjlib('ii','30',ix_);
         pb.xnames{iv} = '30';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.8839e-03+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.8839e-03;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = 1.8839e-03;
         [iv,ix_] = s2mpjlib('ii','31',ix_);
         pb.xnames{iv} = '31';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -1.2340e-03+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -1.2340e-03;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = -1.2340e-03;
         [iv,ix_] = s2mpjlib('ii','32',ix_);
         pb.xnames{iv} = '32';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -6.8139e-04+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -6.8139e-04;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = -6.8139e-04;
         [iv,ix_] = s2mpjlib('ii','33',ix_);
         pb.xnames{iv} = '33';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -3.5838e-02+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -3.5838e-02;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = -3.5838e-02;
         [iv,ix_] = s2mpjlib('ii','34',ix_);
         pb.xnames{iv} = '34';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -3.4857e-02+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -3.4857e-02;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = -3.4857e-02;
         [iv,ix_] = s2mpjlib('ii','35',ix_);
         pb.xnames{iv} = '35';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 2.8724e-03+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 2.8724e-03;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = 2.8724e-03;
         [iv,ix_] = s2mpjlib('ii','36',ix_);
         pb.xnames{iv} = '36';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.6625e-02+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.6625e-02;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = 1.6625e-02;
         [iv,ix_] = s2mpjlib('ii','37',ix_);
         pb.xnames{iv} = '37';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.3571e-02+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.3571e-02;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = 1.3571e-02;
         [iv,ix_] = s2mpjlib('ii','38',ix_);
         pb.xnames{iv} = '38';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -7.2447e-03+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -7.2447e-03;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = -7.2447e-03;
         [iv,ix_] = s2mpjlib('ii','39',ix_);
         pb.xnames{iv} = '39';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -4.6034e-04+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -4.6034e-04;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = -4.6034e-04;
         [iv,ix_] = s2mpjlib('ii','40',ix_);
         pb.xnames{iv} = '40';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -1.6225e-02+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -1.6225e-02;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = -1.6225e-02;
         [iv,ix_] = s2mpjlib('ii','41',ix_);
         pb.xnames{iv} = '41';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 2.2034e-05+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 2.2034e-05;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = 2.2034e-05;
         [iv,ix_] = s2mpjlib('ii','42',ix_);
         pb.xnames{iv} = '42';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 5.8844e-02+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 5.8844e-02;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = 5.8844e-02;
         [iv,ix_] = s2mpjlib('ii','43',ix_);
         pb.xnames{iv} = '43';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 3.0725e-03+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 3.0725e-03;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = 3.0725e-03;
         [iv,ix_] = s2mpjlib('ii','44',ix_);
         pb.xnames{iv} = '44';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 2.8227e-03+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 2.8227e-03;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = 2.8227e-03;
         [iv,ix_] = s2mpjlib('ii','45',ix_);
         pb.xnames{iv} = '45';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -2.0681e-02+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -2.0681e-02;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = -2.0681e-02;
         [iv,ix_] = s2mpjlib('ii','46',ix_);
         pb.xnames{iv} = '46';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -5.4952e-03+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -5.4952e-03;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = -5.4952e-03;
         [iv,ix_] = s2mpjlib('ii','47',ix_);
         pb.xnames{iv} = '47';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 6.2552e-04+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 6.2552e-04;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = 6.2552e-04;
         [iv,ix_] = s2mpjlib('ii','48',ix_);
         pb.xnames{iv} = '48';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 3.3782e-02+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 3.3782e-02;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = 3.3782e-02;
         [iv,ix_] = s2mpjlib('ii','49',ix_);
         pb.xnames{iv} = '49';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -4.8584e-03+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -4.8584e-03;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = -4.8584e-03;
         [iv,ix_] = s2mpjlib('ii','50',ix_);
         pb.xnames{iv} = '50';
-        ig = ig_('LINGROUP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -1.4371e-03+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -1.4371e-03;
-        end
+        icA(end+1) = iv;
+        irA(end+1) = ig_('LINGROUP');
+        valA(end+1) = -1.4371e-03;
         %%%%%%%%%%%%%%% GLOBAL DIMENSIONS %%%%%%%%%%%%%%%%%
         pb.n   = ix_.Count;
         pbm.objgrps = [1:ngrp];
@@ -3180,6 +3032,8 @@ switch(action)
         pbm.grelw{ig}(posel) = 1.0000e+02;
         %%%%%%%%%%%%%%%%%%% OBJECT BOUNDS %%%%%%%%%%%%%%%%%
 % LO BQPGABIM             -3.790343D-5
+        %%%%%%%%% BUILD THE SPARSE MATRICES %%%%%%%%%%%%%%%
+        pbm.A = sparse(irA,icA,valA,ngrp,pb.n);
         %%%%%%%%% DEFAULT FOR MISSING SECTION(S) %%%%%%%%%%
         %%%%%% RETURN VALUES FROM THE SETUP ACTION %%%%%%%%
         pb.pbclass = 'C-CQBR2-AN-50-0';

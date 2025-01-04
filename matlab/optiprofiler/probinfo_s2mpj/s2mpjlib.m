@@ -946,7 +946,7 @@ end
 
 %  Check for the presence and size of a linear term.
 
-if ( ~isempty( pbm.A ) )
+if ( isfield( pbm, 'A') && ~isempty( pbm.A ) )
    [ sA1, sA2 ] = size( pbm.A );
    has_A = 1;
 else

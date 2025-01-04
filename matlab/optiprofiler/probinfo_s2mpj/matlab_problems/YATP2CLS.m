@@ -35,7 +35,7 @@ function varargout = YATP2CLS(action,varargin)
 % IE N                   350            $-PARAMETER n = 123200
 % 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%   Translated to Matlab by S2MPJ version 9 XI 2024
+%   Translated to Matlab by S2MPJ version 25 XI 2024
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 persistent pbm;
@@ -46,10 +46,10 @@ switch(action)
 
     case {'setup','setup_redprec'}
 
-        if(isfield(pbm,'ndigs'))
-            rmfield(pbm,'ndigs');
-        end
         if(strcmp(action,'setup_redprec'))
+            if(isfield(pbm,'ndigs'))
+                rmfield(pbm,'ndigs');
+            end
             pbm.ndigs = max(1,min(15,varargin{end}));
             nargs     = nargin-2;
         else
@@ -70,6 +70,9 @@ switch(action)
         v_('1') = 1;
         %%%%%%%%%%%%%%%%%%%%  VARIABLES %%%%%%%%%%%%%%%%%%%%
         pb.xnames = {};
+        irA  = [];
+        icA  = [];
+        valA = [];
         for I=v_('1'):v_('N')
             for J=v_('1'):v_('N')
                 [iv,ix_] = s2mpjlib('ii',['X',int2str(I),',',int2str(J)],ix_);
@@ -83,45 +86,29 @@ switch(action)
             pb.xnames{iv} = ['Z',int2str(I)];
         end
         %%%%%%%%%%%%%%%%%%%  DATA GROUPS %%%%%%%%%%%%%%%%%%%
-        pbm.A = sparse(0,0);
         for I=v_('1'):v_('N')
             for J=v_('1'):v_('N')
                 [ig,ig_] = s2mpjlib('ii',['E',int2str(I),',',int2str(J)],ig_);
                 gtype{ig} = '<>';
-                iv = ix_(['X',int2str(I),',',int2str(J)]);
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = 1.0;
-                end
-                iv = ix_(['Y',int2str(I)]);
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = -1.0+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = -1.0;
-                end
-                iv = ix_(['Z',int2str(J)]);
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = -1.0+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = -1.0;
-                end
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_(['X',int2str(I),',',int2str(J)]);
+                valA(end+1) = 1.0;
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_(['Y',int2str(I)]);
+                valA(end+1) = -1.0;
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_(['Z',int2str(J)]);
+                valA(end+1) = -1.0;
                 [ig,ig_] = s2mpjlib('ii',['ER',int2str(I)],ig_);
                 gtype{ig} = '<>';
-                iv = ix_(['X',int2str(I),',',int2str(J)]);
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = 1.0;
-                end
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_(['X',int2str(I),',',int2str(J)]);
+                valA(end+1) = 1.0;
                 [ig,ig_] = s2mpjlib('ii',['EC',int2str(I)],ig_);
                 gtype{ig} = '<>';
-                iv = ix_(['X',int2str(I),',',int2str(J)]);
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = 1.0;
-                end
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_(['X',int2str(I),',',int2str(J)]);
+                valA(end+1) = 1.0;
             end
         end
         %%%%%%%%%%%%%%% GLOBAL DIMENSIONS %%%%%%%%%%%%%%%%%
@@ -218,6 +205,8 @@ switch(action)
                 pbm.grelw{ig}(posel) = 1.;
             end
         end
+        %%%%%%%%% BUILD THE SPARSE MATRICES %%%%%%%%%%%%%%%
+        pbm.A = sparse(irA,icA,valA,ngrp,pb.n);
         %%%%%%%%% DEFAULT FOR MISSING SECTION(S) %%%%%%%%%%
         %%%%%% RETURN VALUES FROM THE SETUP ACTION %%%%%%%%
         pb.pbclass = 'C-CSUR2-AN-V-V';

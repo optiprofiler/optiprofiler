@@ -33,7 +33,7 @@ function varargout = HADAMARD(action,varargin)
 % IE N                   20             $-PARAMETER
 % 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%   Translated to Matlab by S2MPJ version 9 XI 2024
+%   Translated to Matlab by S2MPJ version 25 XI 2024
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 persistent pbm;
@@ -44,10 +44,10 @@ switch(action)
 
     case {'setup','setup_redprec'}
 
-        if(isfield(pbm,'ndigs'))
-            rmfield(pbm,'ndigs');
-        end
         if(strcmp(action,'setup_redprec'))
+            if(isfield(pbm,'ndigs'))
+                rmfield(pbm,'ndigs');
+            end
             pbm.ndigs = max(1,min(15,varargin{end}));
             nargs     = nargin-2;
         else
@@ -69,6 +69,9 @@ switch(action)
         v_('RN') = v_('N');
         %%%%%%%%%%%%%%%%%%%%  VARIABLES %%%%%%%%%%%%%%%%%%%%
         pb.xnames = {};
+        irA  = [];
+        icA  = [];
+        valA = [];
         [iv,ix_] = s2mpjlib('ii','MAXABSQ',ix_);
         pb.xnames{iv} = 'MAXABSQ';
         for J=v_('1'):v_('N')
@@ -78,15 +81,11 @@ switch(action)
             end
         end
         %%%%%%%%%%%%%%%%%%%  DATA GROUPS %%%%%%%%%%%%%%%%%%%
-        pbm.A = sparse(0,0);
         [ig,ig_] = s2mpjlib('ii','OBJECTIVE',ig_);
         gtype{ig} = '<>';
-        iv = ix_('MAXABSQ');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('MAXABSQ');
+        valA(end+1) = 1.0;
         for J=v_('1'):v_('N')
             for I=v_('1'):J
                 [ig,ig_] = s2mpjlib('ii',['O',int2str(I),',',int2str(J)],ig_);
@@ -99,33 +98,21 @@ switch(action)
                 [ig,ig_] = s2mpjlib('ii',['L',int2str(I),',',int2str(J)],ig_);
                 gtype{ig}  = '>=';
                 cnames{ig} = ['L',int2str(I),',',int2str(J)];
-                iv = ix_('MAXABSQ');
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = 1.0;
-                end
-                iv = ix_(['Q',int2str(I),',',int2str(J)]);
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = 1.0;
-                end
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_('MAXABSQ');
+                valA(end+1) = 1.0;
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_(['Q',int2str(I),',',int2str(J)]);
+                valA(end+1) = 1.0;
                 [ig,ig_] = s2mpjlib('ii',['U',int2str(I),',',int2str(J)],ig_);
                 gtype{ig}  = '>=';
                 cnames{ig} = ['U',int2str(I),',',int2str(J)];
-                iv = ix_('MAXABSQ');
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = 1.0;
-                end
-                iv = ix_(['Q',int2str(I),',',int2str(J)]);
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = -1.0+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = -1.0;
-                end
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_('MAXABSQ');
+                valA(end+1) = 1.0;
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_(['Q',int2str(I),',',int2str(J)]);
+                valA(end+1) = -1.0;
             end
         end
         %%%%%%%%%%%%%%% GLOBAL DIMENSIONS %%%%%%%%%%%%%%%%%
@@ -202,6 +189,8 @@ switch(action)
                 end
             end
         end
+        %%%%%%%%% BUILD THE SPARSE MATRICES %%%%%%%%%%%%%%%
+        pbm.A = sparse(irA,icA,valA,ngrp,pb.n);
         %%%%%%%%% DEFAULT FOR MISSING SECTION(S) %%%%%%%%%%
         %%%%%%%%%%%%%% FORM clower AND cupper %%%%%%%%%%%%%
         pb.clower(pb.nle+1:pb.nle+pb.neq) = zeros(pb.neq,1);

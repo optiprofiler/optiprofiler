@@ -52,7 +52,7 @@ function varargout = LMINSURF(action,varargin)
 % IE P                   75             $-PARAMETER n = 5625
 % 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%   Translated to Matlab by S2MPJ version 9 XI 2024
+%   Translated to Matlab by S2MPJ version 25 XI 2024
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 persistent pbm;
@@ -63,10 +63,10 @@ switch(action)
 
     case {'setup','setup_redprec'}
 
-        if(isfield(pbm,'ndigs'))
-            rmfield(pbm,'ndigs');
-        end
         if(strcmp(action,'setup_redprec'))
+            if(isfield(pbm,'ndigs'))
+                rmfield(pbm,'ndigs');
+            end
             pbm.ndigs = max(1,min(15,varargin{end}));
             nargs     = nargin-2;
         else
@@ -105,6 +105,9 @@ switch(action)
         v_('H10') = v_('H00')+v_('SLOPEI');
         %%%%%%%%%%%%%%%%%%%%  VARIABLES %%%%%%%%%%%%%%%%%%%%
         pb.xnames = {};
+        irA  = [];
+        icA  = [];
+        valA = [];
         for J=v_('1'):v_('P')
             for I=v_('1'):v_('P')
                 [iv,ix_] = s2mpjlib('ii',['X',int2str(I),',',int2str(J)],ix_);
@@ -112,7 +115,6 @@ switch(action)
             end
         end
         %%%%%%%%%%%%%%%%%%%  DATA GROUPS %%%%%%%%%%%%%%%%%%%
-        pbm.A = sparse(0,0);
         for I=v_('1'):v_('P-1')
             for J=v_('1'):v_('P-1')
                 [ig,ig_] = s2mpjlib('ii',['S',int2str(I),',',int2str(J)],ig_);

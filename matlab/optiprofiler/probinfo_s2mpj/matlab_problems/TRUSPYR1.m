@@ -27,7 +27,7 @@ function varargout = TRUSPYR1(action,varargin)
 % 
 % 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%   Translated to Matlab by S2MPJ version 9 XI 2024
+%   Translated to Matlab by S2MPJ version 25 XI 2024
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 persistent pbm;
@@ -38,10 +38,10 @@ switch(action)
 
     case {'setup','setup_redprec'}
 
-        if(isfield(pbm,'ndigs'))
-            rmfield(pbm,'ndigs');
-        end
         if(strcmp(action,'setup_redprec'))
+            if(isfield(pbm,'ndigs'))
+                rmfield(pbm,'ndigs');
+            end
             pbm.ndigs = max(1,min(15,varargin{end}));
             nargs     = nargin-2;
         else
@@ -117,6 +117,9 @@ switch(action)
         end
         %%%%%%%%%%%%%%%%%%%%  VARIABLES %%%%%%%%%%%%%%%%%%%%
         pb.xnames = {};
+        irA  = [];
+        icA  = [];
+        valA = [];
         for J=v_('1'):v_('NBAR')
             [iv,ix_] = s2mpjlib('ii',['XAREA',int2str(J)],ix_);
             pb.xnames{iv} = ['XAREA',int2str(J)];
@@ -126,16 +129,12 @@ switch(action)
             pb.xnames{iv} = ['DISPL',int2str(I)];
         end
         %%%%%%%%%%%%%%%%%%%  DATA GROUPS %%%%%%%%%%%%%%%%%%%
-        pbm.A = sparse(0,0);
         for J=v_('1'):v_('NBAR')
             [ig,ig_] = s2mpjlib('ii','WEIGHT',ig_);
             gtype{ig} = '<>';
-            iv = ix_(['XAREA',int2str(J)]);
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = v_(['W',int2str(J)])+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = v_(['W',int2str(J)]);
-            end
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_(['XAREA',int2str(J)]);
+            valA(end+1) = v_(['W',int2str(J)]);
         end
         for K=v_('1'):v_('NDIM')
             [ig,ig_] = s2mpjlib('ii',['EQUIL',int2str(K)],ig_);
@@ -146,12 +145,9 @@ switch(action)
             [ig,ig_] = s2mpjlib('ii','STREN',ig_);
             gtype{ig}  = '<=';
             cnames{ig} = 'STREN';
-            iv = ix_(['DISPL',int2str(I)]);
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = v_(['Q',int2str(I)])+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = v_(['Q',int2str(I)]);
-            end
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_(['DISPL',int2str(I)]);
+            valA(end+1) = v_(['Q',int2str(I)]);
         end
         %%%%%%%%%%%%%%% GLOBAL DIMENSIONS %%%%%%%%%%%%%%%%%
         pb.n   = ix_.Count;
@@ -226,6 +222,8 @@ switch(action)
         %%%%%%%%%%%%%%%%%%% OBJECT BOUNDS %%%%%%%%%%%%%%%%%
 %    Objective function value corresponding to the global minimizer above
         pb.objlower = 1.2287408808;
+        %%%%%%%%% BUILD THE SPARSE MATRICES %%%%%%%%%%%%%%%
+        pbm.A = sparse(irA,icA,valA,ngrp,pb.n);
         %%%%%%%%% DEFAULT FOR MISSING SECTION(S) %%%%%%%%%%
         %%%%%%%%%%%%%% FORM clower AND cupper %%%%%%%%%%%%%
         pb.clower(1:pb.nle) = -Inf*ones(pb.nle,1);

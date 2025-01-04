@@ -32,9 +32,9 @@ function problem = s_load(problem_name, varargin)
 %   We will use all the above information and functions to create a instance of
 %   the Problem class containing the following fields.
 %       name: name of the problem, same as problem_name. If there are varargin,
-%             then it means that the problem is dimension-changeable. Thus, in
-%             this case, the name will be 'problem_name_n', where n is the
-%             dimension of the problem.
+%             then it means that the problem is parameterized. Thus, in this
+%             case, the name will be 'problem_name_n_m', where n is the
+%             dimension of the problem and m is the number of constraints.
 %       fun: function handle to evaluate the objective function, which should
 %            be a function handle calling the 'fx' action.
 %       x_type: type of variables, same as pb.xtype.
@@ -72,28 +72,28 @@ function problem = s_load(problem_name, varargin)
 %   role of default problem set loader.
 %
 %   In 's_getInfo.m', 's_load' may receive varargin to load the problem when
-%   the problem is dimension-changeable. However, in 'solveOneProblem.m', this
-%   will not happen since the selector 's_select' will first convert the names
-%   of dimension-changeable problems to "problem_name_n" and then call 's_load'
-%   without varargin.
+%   the problem is parameterized. However, in 'solveOneProblem.m', this will
+%   not happen since the selector 's_select' will first convert the names of 
+%   parameterized problems to "problem_name_n" and then call 's_load' without
+%   varargin.
 
-    % Convert 'problem_name' to a char in upper case (problems in S2MPJ are
-    % named in upper case).
+    % Convert 'problem_name' to a char.
     problem_name = char(problem_name);
 
-    % Check if 'problem_name' has the pattern '_n'.
-    [is_problem_changeable, problem_name, dim] = isproblem_changeable(problem_name);
+    % Check if 'problem_name' has the pattern '_n_m'.
+    [is_problem_parameterized, problem_name, dim, m_con] = isproblem_parameterized(problem_name);
 
-    if is_problem_changeable
+    if is_problem_parameterized
         load('probinfo.mat', 'probinfo');
         idx_pb = find(strcmp(probinfo(:, 1), problem_name), 1, 'first');
         if isempty(idx_pb)
             error('Problem %s not found in probinfo.mat.', problem_name);
         end
         % Find the corresponding argins for the specific dimension.
-        dims = probinfo{idx_pb, 18};
-        argins = probinfo{idx_pb, 17};
-        idx_dim = find(dims == dim, 1, 'first');
+        dims = probinfo{idx_pb, 19};
+        m_cons = probinfo{idx_pb, 20};
+        argins = probinfo{idx_pb, 18};
+        idx_dim = find(dims == dim & m_cons == m_con, 1, 'first');
         if iscell(argins)
             argin = {argins{1:end-1}, argins{end}(idx_dim)};
         else
@@ -109,21 +109,22 @@ function problem = s_load(problem_name, varargin)
         return;
     end
 
-    % Check whether there exists 'problem_name.m' in the directory './matlab_problems'.
-    current_path = fileparts(mfilename('fullpath'));
-    problem_path = fullfile(current_path, 'matlab_problems', [problem_name, '.m']);
-    if ~exist(problem_path, 'file')
-        error('Problem %s not found in the directory %s.', problem_name, problem_path);
-    end
+    % % Check whether there exists 'problem_name.m' in some folder called 'matlab_problems'.
+    % current_path = fileparts(mfilename('fullpath'));
+    % problem_path = fullfile(current_path, 'matlab_problems', [problem_name, '.m']);
+    % if ~exist(problem_path, 'file')
+    %     error('Problem %s not found in the directory %s.', problem_name, problem_path);
+    % end
 
-    % Specify which 'problem_name.m' to load.
-    addpath(fullfile(current_path, 'matlab_problems'));
+    % % Specify which 'problem_name.m' to load.
+    % addpath(fullfile(current_path, 'matlab_problems'));
 
     % Convert the problem name to a function handle for later use.
     funcHandle = str2func(problem_name);
 
     % Get the structure of the problem information.
     pb = funcHandle('setup', varargin{:});
+    % problem_name = pb.name;
 
     if nargin < 2
         name = problem_name;
@@ -231,18 +232,25 @@ function cx = getcx(problem_name, x)
     end
 end
 
-function [result, problem_name, dim] = isproblem_changeable(problem_name)
-    % Check if 'problem_name' has the pattern '_n'. If it has, find the
-    % position of the pattern and return the dimension 'n'.
+function [result, problem_name, dim, m_con] = isproblem_parameterized(problem_name)
+    % Check if 'problem_name' has the pattern '_n_m'. If it has, find the
+    % position of the pattern and return the dimension 'n' and the number of
+    % constraints 'm'.
 
-    pattern = '_([1-9]\d*)$';
-    [match, idx] = regexp(problem_name, pattern, 'match', 'once');
-    result = ~isempty(match);
-
-    if result
-        problem_name = problem_name(1:idx-1);
-        dim = str2double(match(2:end));
-    else
-        dim = [];
+    % Find the position of the pattern '_n_m'.
+    [match, idx] = regexp(problem_name, '_\d+_\d+', 'match', 'start');
+    if isempty(match)
+        result = false;
+        problem_name = problem_name;
+        dim = 0;
+        m_con = 0;
+        return;
     end
+
+    % Find the dimension 'n' and the number of constraints 'm'.
+    problem_name = problem_name(1:idx-1);
+    results = sscanf(match{1}, '_%d_%d');
+    dim = results(1);
+    m_con = results(2);
+    result = true;
 end

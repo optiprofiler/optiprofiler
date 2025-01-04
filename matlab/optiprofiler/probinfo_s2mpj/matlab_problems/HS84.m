@@ -21,7 +21,7 @@ function varargout = HS84(action,varargin)
 % 
 % 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%   Translated to Matlab by S2MPJ version 9 XI 2024
+%   Translated to Matlab by S2MPJ version 25 XI 2024
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 persistent pbm;
@@ -32,10 +32,10 @@ switch(action)
 
     case {'setup','setup_redprec'}
 
-        if(isfield(pbm,'ndigs'))
-            rmfield(pbm,'ndigs');
-        end
         if(strcmp(action,'setup_redprec'))
+            if(isfield(pbm,'ndigs'))
+                rmfield(pbm,'ndigs');
+            end
             pbm.ndigs = max(1,min(15,varargin{end}));
             nargs     = nargin-2;
         else
@@ -96,47 +96,37 @@ switch(action)
         v_(['A',int2str(round(v_('21')))]) = 30988.146;
         %%%%%%%%%%%%%%%%%%%%  VARIABLES %%%%%%%%%%%%%%%%%%%%
         pb.xnames = {};
+        irA  = [];
+        icA  = [];
+        valA = [];
         for I=v_('1'):v_('5')
             [iv,ix_] = s2mpjlib('ii',['X',int2str(I)],ix_);
             pb.xnames{iv} = ['X',int2str(I)];
         end
         %%%%%%%%%%%%%%%%%%%  DATA GROUPS %%%%%%%%%%%%%%%%%%%
-        pbm.A = sparse(0,0);
         [ig,ig_] = s2mpjlib('ii','OBJ',ig_);
         gtype{ig} = '<>';
-        iv = ix_(['X',int2str(round(v_('1')))]);
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_(['MA',int2str(round(v_('2')))])+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_(['MA',int2str(round(v_('2')))]);
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_(['X',int2str(round(v_('1')))]);
+        valA(end+1) = v_(['MA',int2str(round(v_('2')))]);
         [ig,ig_] = s2mpjlib('ii','CON1',ig_);
         gtype{ig}  = '>=';
         cnames{ig} = 'CON1';
-        iv = ix_(['X',int2str(round(v_('1')))]);
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_(['A',int2str(round(v_('7')))])+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_(['A',int2str(round(v_('7')))]);
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_(['X',int2str(round(v_('1')))]);
+        valA(end+1) = v_(['A',int2str(round(v_('7')))]);
         [ig,ig_] = s2mpjlib('ii','CON2',ig_);
         gtype{ig}  = '>=';
         cnames{ig} = 'CON2';
-        iv = ix_(['X',int2str(round(v_('1')))]);
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_(['A',int2str(round(v_('12')))])+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_(['A',int2str(round(v_('12')))]);
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_(['X',int2str(round(v_('1')))]);
+        valA(end+1) = v_(['A',int2str(round(v_('12')))]);
         [ig,ig_] = s2mpjlib('ii','CON3',ig_);
         gtype{ig}  = '>=';
         cnames{ig} = 'CON3';
-        iv = ix_(['X',int2str(round(v_('1')))]);
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_(['A',int2str(round(v_('17')))])+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_(['A',int2str(round(v_('17')))]);
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_(['X',int2str(round(v_('1')))]);
+        valA(end+1) = v_(['A',int2str(round(v_('17')))]);
         %%%%%%%%%%%%%%% GLOBAL DIMENSIONS %%%%%%%%%%%%%%%%%
         pb.n   = ix_.Count;
         ngrp   = ig_.Count;
@@ -276,6 +266,8 @@ switch(action)
         pbm.grelt{ig}(posel) = ie_(['E',int2str(round(v_('4')))]);
         nlc = union(nlc,ig);
         pbm.grelw{ig}(posel) = v_(['A',int2str(round(v_('21')))]);
+        %%%%%%%%% BUILD THE SPARSE MATRICES %%%%%%%%%%%%%%%
+        pbm.A = sparse(irA,icA,valA,ngrp,pb.n);
         %%%%%%%%% DEFAULT FOR MISSING SECTION(S) %%%%%%%%%%
         %%%%%%%%%%%%%% FORM clower AND cupper %%%%%%%%%%%%%
         pb.clower(pb.nle+pb.neq+1:pb.m) = zeros(pb.nge,1);

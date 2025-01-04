@@ -16,7 +16,7 @@ function varargout = MINSURF(action,varargin)
 %    Discretization parameter
 % 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%   Translated to Matlab by S2MPJ version 9 XI 2024
+%   Translated to Matlab by S2MPJ version 25 XI 2024
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 persistent pbm;
@@ -27,10 +27,10 @@ switch(action)
 
     case {'setup','setup_redprec'}
 
-        if(isfield(pbm,'ndigs'))
-            rmfield(pbm,'ndigs');
-        end
         if(strcmp(action,'setup_redprec'))
+            if(isfield(pbm,'ndigs'))
+                rmfield(pbm,'ndigs');
+            end
             pbm.ndigs = max(1,min(15,varargin{end}));
             nargs     = nargin-2;
         else
@@ -49,6 +49,9 @@ switch(action)
         v_('RPSQ') = v_('RP')*v_('RP');
         %%%%%%%%%%%%%%%%%%%%  VARIABLES %%%%%%%%%%%%%%%%%%%%
         pb.xnames = {};
+        irA  = [];
+        icA  = [];
+        valA = [];
         for i=v_('1'):v_('P+1')
             for j=v_('1'):v_('P+1')
                 [iv,ix_] = s2mpjlib('ii',['X',int2str(i),',',int2str(j)],ix_);
@@ -56,7 +59,6 @@ switch(action)
             end
         end
         %%%%%%%%%%%%%%%%%%%  DATA GROUPS %%%%%%%%%%%%%%%%%%%
-        pbm.A = sparse(0,0);
         for i=v_('1'):v_('P')
             for j=v_('1'):v_('P')
                 [ig,ig_] = s2mpjlib('ii',['S',int2str(i),',',int2str(j)],ig_);

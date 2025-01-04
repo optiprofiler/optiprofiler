@@ -18,7 +18,7 @@ function varargout = SSEBNLN(action,varargin)
 % 
 % 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%   Translated to Matlab by S2MPJ version 9 XI 2024
+%   Translated to Matlab by S2MPJ version 25 XI 2024
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 persistent pbm;
@@ -29,10 +29,10 @@ switch(action)
 
     case {'setup','setup_redprec'}
 
-        if(isfield(pbm,'ndigs'))
-            rmfield(pbm,'ndigs');
-        end
         if(strcmp(action,'setup_redprec'))
+            if(isfield(pbm,'ndigs'))
+                rmfield(pbm,'ndigs');
+            end
             pbm.ndigs = max(1,min(15,varargin{end}));
             nargs     = nargin-2;
         else
@@ -227,6 +227,9 @@ switch(action)
         v_('D7,24') = 511.0;
         %%%%%%%%%%%%%%%%%%%%  VARIABLES %%%%%%%%%%%%%%%%%%%%
         pb.xnames = {};
+        irA  = [];
+        icA  = [];
+        valA = [];
         [iv,ix_] =...
               s2mpjlib('ii',['V',int2str(round(v_('0'))),',',int2str(round(v_('HOURS')))],ix_);
         pb.xnames{iv} =...
@@ -256,47 +259,28 @@ switch(action)
             end
         end
         %%%%%%%%%%%%%%%%%%%  DATA GROUPS %%%%%%%%%%%%%%%%%%%
-        pbm.A = sparse(0,0);
         for ID=v_('1'):v_('DAYS')
             for IH=v_('1'):v_('HOURS')
                 [ig,ig_] = s2mpjlib('ii','OBJ',ig_);
                 gtype{ig} = '<>';
-                iv = ix_(['P1',int2str(ID),',',int2str(IH)]);
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = 1000.0+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = 1000.0;
-                end
-                iv = ix_(['P2',int2str(ID),',',int2str(IH)]);
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = 1500.0+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = 1500.0;
-                end
-                iv = ix_(['QH',int2str(ID),',',int2str(IH)]);
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = 1200.0+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = 1200.0;
-                end
-                iv = ix_(['S',int2str(ID),',',int2str(IH)]);
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = 1200.0+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = 1200.0;
-                end
-                iv = ix_(['QG',int2str(ID),',',int2str(IH)]);
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = 1200.0+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = 1200.0;
-                end
-                iv = ix_(['QP',int2str(ID),',',int2str(IH)]);
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = -1200.0+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = -1200.0;
-                end
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_(['P1',int2str(ID),',',int2str(IH)]);
+                valA(end+1) = 1000.0;
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_(['P2',int2str(ID),',',int2str(IH)]);
+                valA(end+1) = 1500.0;
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_(['QH',int2str(ID),',',int2str(IH)]);
+                valA(end+1) = 1200.0;
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_(['S',int2str(ID),',',int2str(IH)]);
+                valA(end+1) = 1200.0;
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_(['QG',int2str(ID),',',int2str(IH)]);
+                valA(end+1) = 1200.0;
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_(['QP',int2str(ID),',',int2str(IH)]);
+                valA(end+1) = -1200.0;
             end
         end
         for ID=v_('1'):v_('DAYS')
@@ -304,33 +288,22 @@ switch(action)
             [ig,ig_] = s2mpjlib('ii',['H',int2str(ID),',',int2str(round(v_('1')))],ig_);
             gtype{ig}  = '==';
             cnames{ig} = ['H',int2str(ID),',',int2str(round(v_('1')))];
-            iv = ix_(['V',int2str(ID),',',int2str(round(v_('1')))]);
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = 1.0;
-            end
-            iv = ix_(['V',int2str(round(v_('P'))),',',int2str(round(v_('HOURS')))]);
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = -1.0+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = -1.0;
-            end
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_(['V',int2str(ID),',',int2str(round(v_('1')))]);
+            valA(end+1) = 1.0;
+            irA(end+1)  = ig;
+            icA(end+1)  =...
+                  ix_(['V',int2str(round(v_('P'))),',',int2str(round(v_('HOURS')))]);
+            valA(end+1) = -1.0;
             [ig,ig_] = s2mpjlib('ii',['H',int2str(ID),',',int2str(round(v_('1')))],ig_);
             gtype{ig}  = '==';
             cnames{ig} = ['H',int2str(ID),',',int2str(round(v_('1')))];
-            iv = ix_(['S',int2str(ID),',',int2str(round(v_('1')))]);
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = 1.0;
-            end
-            iv = ix_(['QH',int2str(ID),',',int2str(round(v_('1')))]);
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = 1.0;
-            end
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_(['S',int2str(ID),',',int2str(round(v_('1')))]);
+            valA(end+1) = 1.0;
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_(['QH',int2str(ID),',',int2str(round(v_('1')))]);
+            valA(end+1) = 1.0;
         end
         for ID=v_('1'):v_('DAYS')
             for IH=v_('2'):v_('HOURS')
@@ -338,30 +311,18 @@ switch(action)
                 [ig,ig_] = s2mpjlib('ii',['H',int2str(ID),',',int2str(IH)],ig_);
                 gtype{ig}  = '==';
                 cnames{ig} = ['H',int2str(ID),',',int2str(IH)];
-                iv = ix_(['V',int2str(ID),',',int2str(IH)]);
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = 1.0;
-                end
-                iv = ix_(['V',int2str(ID),',',int2str(round(v_('IH-1')))]);
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = -1.0+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = -1.0;
-                end
-                iv = ix_(['S',int2str(ID),',',int2str(IH)]);
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = 1.0;
-                end
-                iv = ix_(['QH',int2str(ID),',',int2str(IH)]);
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = 1.0;
-                end
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_(['V',int2str(ID),',',int2str(IH)]);
+                valA(end+1) = 1.0;
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_(['V',int2str(ID),',',int2str(round(v_('IH-1')))]);
+                valA(end+1) = -1.0;
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_(['S',int2str(ID),',',int2str(IH)]);
+                valA(end+1) = 1.0;
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_(['QH',int2str(ID),',',int2str(IH)]);
+                valA(end+1) = 1.0;
             end
         end
         for ID=v_('1'):v_('DAYS')
@@ -369,33 +330,22 @@ switch(action)
             [ig,ig_] = s2mpjlib('ii',['R',int2str(ID),',',int2str(round(v_('1')))],ig_);
             gtype{ig}  = '==';
             cnames{ig} = ['R',int2str(ID),',',int2str(round(v_('1')))];
-            iv = ix_(['R',int2str(ID),',',int2str(round(v_('1')))]);
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = 1.0;
-            end
-            iv = ix_(['R',int2str(round(v_('P'))),',',int2str(round(v_('HOURS')))]);
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = -1.0+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = -1.0;
-            end
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_(['R',int2str(ID),',',int2str(round(v_('1')))]);
+            valA(end+1) = 1.0;
+            irA(end+1)  = ig;
+            icA(end+1)  =...
+                  ix_(['R',int2str(round(v_('P'))),',',int2str(round(v_('HOURS')))]);
+            valA(end+1) = -1.0;
             [ig,ig_] = s2mpjlib('ii',['R',int2str(ID),',',int2str(round(v_('1')))],ig_);
             gtype{ig}  = '==';
             cnames{ig} = ['R',int2str(ID),',',int2str(round(v_('1')))];
-            iv = ix_(['QG',int2str(ID),',',int2str(round(v_('1')))]);
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = 1.0;
-            end
-            iv = ix_(['QP',int2str(ID),',',int2str(round(v_('1')))]);
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = -1.0+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = -1.0;
-            end
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_(['QG',int2str(ID),',',int2str(round(v_('1')))]);
+            valA(end+1) = 1.0;
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_(['QP',int2str(ID),',',int2str(round(v_('1')))]);
+            valA(end+1) = -1.0;
         end
         for ID=v_('1'):v_('DAYS')
             for IH=v_('2'):v_('HOURS')
@@ -403,30 +353,18 @@ switch(action)
                 [ig,ig_] = s2mpjlib('ii',['R',int2str(ID),',',int2str(IH)],ig_);
                 gtype{ig}  = '==';
                 cnames{ig} = ['R',int2str(ID),',',int2str(IH)];
-                iv = ix_(['R',int2str(ID),',',int2str(IH)]);
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = 1.0;
-                end
-                iv = ix_(['R',int2str(ID),',',int2str(round(v_('IH-1')))]);
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = -1.0+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = -1.0;
-                end
-                iv = ix_(['QG',int2str(ID),',',int2str(IH)]);
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = 1.0;
-                end
-                iv = ix_(['QP',int2str(ID),',',int2str(IH)]);
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = -1.0+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = -1.0;
-                end
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_(['R',int2str(ID),',',int2str(IH)]);
+                valA(end+1) = 1.0;
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_(['R',int2str(ID),',',int2str(round(v_('IH-1')))]);
+                valA(end+1) = -1.0;
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_(['QG',int2str(ID),',',int2str(IH)]);
+                valA(end+1) = 1.0;
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_(['QP',int2str(ID),',',int2str(IH)]);
+                valA(end+1) = -1.0;
             end
         end
         for ID=v_('1'):v_('DAYS')
@@ -434,36 +372,21 @@ switch(action)
                 [ig,ig_] = s2mpjlib('ii',['D',int2str(ID),',',int2str(IH)],ig_);
                 gtype{ig}  = '>=';
                 cnames{ig} = ['D',int2str(ID),',',int2str(IH)];
-                iv = ix_(['P1',int2str(ID),',',int2str(IH)]);
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = 1.0;
-                end
-                iv = ix_(['P2',int2str(ID),',',int2str(IH)]);
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = 1.0;
-                end
-                iv = ix_(['QH',int2str(ID),',',int2str(IH)]);
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = 1.0;
-                end
-                iv = ix_(['QG',int2str(ID),',',int2str(IH)]);
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = 1.0;
-                end
-                iv = ix_(['QP',int2str(ID),',',int2str(IH)]);
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = -1.33+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = -1.33;
-                end
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_(['P1',int2str(ID),',',int2str(IH)]);
+                valA(end+1) = 1.0;
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_(['P2',int2str(ID),',',int2str(IH)]);
+                valA(end+1) = 1.0;
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_(['QH',int2str(ID),',',int2str(IH)]);
+                valA(end+1) = 1.0;
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_(['QG',int2str(ID),',',int2str(IH)]);
+                valA(end+1) = 1.0;
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_(['QP',int2str(ID),',',int2str(IH)]);
+                valA(end+1) = -1.33;
             end
         end
         for D=v_('1'):v_('DAYS')
@@ -622,6 +545,8 @@ switch(action)
         %%%%%%%%%%%%%%%%%%% OBJECT BOUNDS %%%%%%%%%%%%%%%%%
 %    Solution
 % LO SOLTN               1.617060D+07
+        %%%%%%%%% BUILD THE SPARSE MATRICES %%%%%%%%%%%%%%%
+        pbm.A = sparse(irA,icA,valA,ngrp,pb.n);
         %%%%%%%%% DEFAULT FOR MISSING SECTION(S) %%%%%%%%%%
         %%%%%%%%%%%%%% FORM clower AND cupper %%%%%%%%%%%%%
         pb.clower(pb.nle+1:pb.nle+pb.neq) = zeros(pb.neq,1);

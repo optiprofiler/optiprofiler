@@ -21,7 +21,7 @@ function varargout = PFIT4LS(action,varargin)
 % 
 % 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%   Translated to Matlab by S2MPJ version 9 XI 2024
+%   Translated to Matlab by S2MPJ version 25 XI 2024
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 persistent pbm;
@@ -52,6 +52,9 @@ switch(action)
         v_('CH') = -239.6707818;
         %%%%%%%%%%%%%%%%%%%%  VARIABLES %%%%%%%%%%%%%%%%%%%%
         pb.xnames = {};
+        irA  = [];
+        icA  = [];
+        valA = [];
         [iv,ix_] = s2mpjlib('ii','A',ix_);
         pb.xnames{iv} = 'A';
         [iv,ix_] = s2mpjlib('ii','R',ix_);
@@ -59,7 +62,6 @@ switch(action)
         [iv,ix_] = s2mpjlib('ii','H',ix_);
         pb.xnames{iv} = 'H';
         %%%%%%%%%%%%%%%%%%%  DATA GROUPS %%%%%%%%%%%%%%%%%%%
-        pbm.A = sparse(0,0);
         [ig,ig_] = s2mpjlib('ii','EF',ig_);
         gtype{ig} = '<>';
         [ig,ig_] = s2mpjlib('ii','EG',ig_);

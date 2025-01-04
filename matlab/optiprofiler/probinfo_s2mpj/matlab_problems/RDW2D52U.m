@@ -26,7 +26,7 @@ function varargout = RDW2D52U(action,varargin)
 %    SIF input: Nick Gould, May 2009
 %               correction by S. Gratton & Ph. Toint, May 2024
 % 
-%    classification = 'C-CQOR2-AN-V-V'
+%    classification = 'C-CQLR2-AN-V-V'
 % 
 %    Number of nodes in each direction (a power of 2)
 % 
@@ -41,7 +41,7 @@ function varargout = RDW2D52U(action,varargin)
 % IE N                   256           $-PARAMETER
 % 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%   Translated to Matlab by S2MPJ version 9 XI 2024
+%   Translated to Matlab by S2MPJ version 25 XI 2024
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 persistent pbm;
@@ -52,10 +52,10 @@ switch(action)
 
     case {'setup','setup_redprec'}
 
-        if(isfield(pbm,'ndigs'))
-            rmfield(pbm,'ndigs');
-        end
         if(strcmp(action,'setup_redprec'))
+            if(isfield(pbm,'ndigs'))
+                rmfield(pbm,'ndigs');
+            end
             pbm.ndigs = max(1,min(15,varargin{end}));
             nargs     = nargin-2;
         else
@@ -121,6 +121,9 @@ switch(action)
         end
         %%%%%%%%%%%%%%%%%%%%  VARIABLES %%%%%%%%%%%%%%%%%%%%
         pb.xnames = {};
+        irA  = [];
+        icA  = [];
+        valA = [];
         for I=v_('0'):v_('N')
             for J=v_('0'):v_('N')
                 [iv,ix_] = s2mpjlib('ii',['F',int2str(I),',',int2str(J)],ix_);
@@ -134,7 +137,6 @@ switch(action)
             end
         end
         %%%%%%%%%%%%%%%%%%%  DATA GROUPS %%%%%%%%%%%%%%%%%%%
-        pbm.A = sparse(0,0);
         [ig,ig_] = s2mpjlib('ii','OBJ',ig_);
         gtype{ig} = '<>';
         for I=v_('1'):v_('N-1')
@@ -712,7 +714,7 @@ switch(action)
         pb.cupper(pb.nle+1:pb.nle+pb.neq) = zeros(pb.neq,1);
         %%%%%% RETURN VALUES FROM THE SETUP ACTION %%%%%%%%
         [~,pb.lincons]  = ismember(setdiff(pbm.congrps,nlc),pbm.congrps);
-        pb.pbclass = 'C-CQOR2-AN-V-V';
+        pb.pbclass = 'C-CQLR2-AN-V-V';
         pb.x0          = zeros(pb.n,1);
         pbm.objderlvl = 2;
         pb.objderlvl = pbm.objderlvl;

@@ -27,7 +27,7 @@ function varargout = PALMER5ANE(action,varargin)
 % 
 % 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%   Translated to Matlab by S2MPJ version 9 XI 2024
+%   Translated to Matlab by S2MPJ version 25 XI 2024
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 persistent pbm;
@@ -38,10 +38,10 @@ switch(action)
 
     case {'setup','setup_redprec'}
 
-        if(isfield(pbm,'ndigs'))
-            rmfield(pbm,'ndigs');
-        end
         if(strcmp(action,'setup_redprec'))
+            if(isfield(pbm,'ndigs'))
+                rmfield(pbm,'ndigs');
+            end
             pbm.ndigs = max(1,min(15,varargin{end}));
             nargs     = nargin-2;
         else
@@ -87,6 +87,9 @@ switch(action)
         v_('Y23') = 77.719674;
         %%%%%%%%%%%%%%%%%%%%  VARIABLES %%%%%%%%%%%%%%%%%%%%
         pb.xnames = {};
+        irA  = [];
+        icA  = [];
+        valA = [];
         [iv,ix_] = s2mpjlib('ii','A0',ix_);
         pb.xnames{iv} = 'A0';
         [iv,ix_] = s2mpjlib('ii','A2',ix_);
@@ -104,7 +107,6 @@ switch(action)
         [iv,ix_] = s2mpjlib('ii','C',ix_);
         pb.xnames{iv} = 'C';
         %%%%%%%%%%%%%%%%%%%  DATA GROUPS %%%%%%%%%%%%%%%%%%%
-        pbm.A = sparse(0,0);
         for I=v_('12'):v_('M')
             v_('T0') = 1.0e+0;
             v_('Y') = 2.0e+0*v_(['X',int2str(I)]);
@@ -123,42 +125,24 @@ switch(action)
             [ig,ig_] = s2mpjlib('ii',['O',int2str(I)],ig_);
             gtype{ig}  = '==';
             cnames{ig} = ['O',int2str(I)];
-            iv = ix_('A0');
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = v_('T0')+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = v_('T0');
-            end
-            iv = ix_('A2');
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = v_('T2')+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = v_('T2');
-            end
-            iv = ix_('A4');
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = v_('T4')+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = v_('T4');
-            end
-            iv = ix_('A6');
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = v_('T6')+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = v_('T6');
-            end
-            iv = ix_('A8');
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = v_('T8')+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = v_('T8');
-            end
-            iv = ix_('A10');
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = v_('T10')+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = v_('T10');
-            end
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_('A0');
+            valA(end+1) = v_('T0');
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_('A2');
+            valA(end+1) = v_('T2');
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_('A4');
+            valA(end+1) = v_('T4');
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_('A6');
+            valA(end+1) = v_('T6');
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_('A8');
+            valA(end+1) = v_('T8');
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_('A10');
+            valA(end+1) = v_('T10');
         end
         %%%%%%%%%%%%%%% GLOBAL DIMENSIONS %%%%%%%%%%%%%%%%%
         pb.n   = ix_.Count;
@@ -241,6 +225,8 @@ switch(action)
 % LO PALMER5A               0.0
 %    Solution
 % LO SOLTN               4.0606141D-02
+        %%%%%%%%% BUILD THE SPARSE MATRICES %%%%%%%%%%%%%%%
+        pbm.A = sparse(irA,icA,valA,ngrp,pb.n);
         %%%%%%%%% DEFAULT FOR MISSING SECTION(S) %%%%%%%%%%
         %%%%%%%%%%%%%% FORM clower AND cupper %%%%%%%%%%%%%
         pb.clower(pb.nle+1:pb.nle+pb.neq) = zeros(pb.neq,1);

@@ -34,7 +34,7 @@ function varargout = ROTDISC(action,varargin)
 % 
 % 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%   Translated to Matlab by S2MPJ version 9 XI 2024
+%   Translated to Matlab by S2MPJ version 25 XI 2024
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 persistent pbm;
@@ -45,10 +45,10 @@ switch(action)
 
     case {'setup','setup_redprec'}
 
-        if(isfield(pbm,'ndigs'))
-            rmfield(pbm,'ndigs');
-        end
         if(strcmp(action,'setup_redprec'))
+            if(isfield(pbm,'ndigs'))
+                rmfield(pbm,'ndigs');
+            end
             pbm.ndigs = max(1,min(15,varargin{end}));
             nargs     = nargin-2;
         else
@@ -111,6 +111,9 @@ switch(action)
         v_('aux3') = v_('aux2')*v_('dr');
         %%%%%%%%%%%%%%%%%%%%  VARIABLES %%%%%%%%%%%%%%%%%%%%
         pb.xnames = {};
+        irA  = [];
+        icA  = [];
+        valA = [];
         for k=v_('0'):v_('K')
             [iv,ix_] = s2mpjlib('ii',['w',int2str(k)],ix_);
             pb.xnames{iv} = ['w',int2str(k)];
@@ -124,7 +127,6 @@ switch(action)
             pb.xnames{iv} = ['y',int2str(k)];
         end
         %%%%%%%%%%%%%%%%%%%  DATA GROUPS %%%%%%%%%%%%%%%%%%%
-        pbm.A = sparse(0,0);
         v_('rk') = v_('ri');
         v_('-dr/2') = -1.0*v_('dr/2');
         v_('rk2') = v_('rk')*v_('rk');
@@ -138,18 +140,12 @@ switch(action)
             gtype{ig}  = '==';
             cnames{ig} = ['SR',int2str(k)];
             pbm.gscale(ig,1) = v_('ech1');
-            iv = ix_(['w',int2str(k)]);
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = v_('coef1')+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = v_('coef1');
-            end
-            iv = ix_(['w',int2str(round(v_('k+1')))]);
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = v_('coef2')+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = v_('coef2');
-            end
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_(['w',int2str(k)]);
+            valA(end+1) = v_('coef1');
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_(['w',int2str(round(v_('k+1')))]);
+            valA(end+1) = v_('coef2');
             v_('tmp1') = v_('(1+3nu)/2')*v_('rk');
             v_('tmp2') = v_('(1+nu)/2')*v_('rk+1');
             v_('tmp3') = v_('tmp1')-v_('tmp2');
@@ -157,84 +153,54 @@ switch(action)
             [ig,ig_] = s2mpjlib('ii',['ST',int2str(k)],ig_);
             gtype{ig}  = '==';
             cnames{ig} = ['ST',int2str(k)];
-            iv = ix_(['sigr',int2str(k)]);
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = v_('coef3')+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = v_('coef3');
-            end
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_(['sigr',int2str(k)]);
+            valA(end+1) = v_('coef3');
             v_('tmp4') = v_('(3+nu)/2')*v_('rk');
             v_('tmp5') = v_('(1+nu)/2')*v_('rk+1');
             v_('tmp6') = v_('tmp5')-v_('tmp4');
             v_('coef4') = v_('tmp6')/v_('rk');
-            iv = ix_(['sigt',int2str(k)]);
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = v_('coef4')+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = v_('coef4');
-            end
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_(['sigt',int2str(k)]);
+            valA(end+1) = v_('coef4');
             v_('tmp7') = v_('(1+3nu)/2')*v_('rk+1');
             v_('tmp8') = v_('(1+nu)/2')*v_('rk');
             v_('tmp9') = v_('tmp8')-v_('tmp7');
             v_('coef5') = v_('tmp9')/v_('rk+1');
-            iv = ix_(['sigr',int2str(round(v_('k+1')))]);
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = v_('coef5')+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = v_('coef5');
-            end
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_(['sigr',int2str(round(v_('k+1')))]);
+            valA(end+1) = v_('coef5');
             v_('tmp10') = v_('(3+nu)/2')*v_('rk+1');
             v_('tmp11') = v_('(1+nu)/2')*v_('rk');
             v_('tmp12') = v_('tmp10')-v_('tmp11');
             v_('coef6') = v_('tmp12')/v_('rk+1');
-            iv = ix_(['sigt',int2str(round(v_('k+1')))]);
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = v_('coef6')+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = v_('coef6');
-            end
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_(['sigt',int2str(round(v_('k+1')))]);
+            valA(end+1) = v_('coef6');
             [ig,ig_] = s2mpjlib('ii',['STAy',int2str(k)],ig_);
             gtype{ig}  = '==';
             cnames{ig} = ['STAy',int2str(k)];
-            iv = ix_(['y',int2str(round(v_('k+1')))]);
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = 1.0;
-            end
-            iv = ix_(['y',int2str(k)]);
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = -1.0+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = -1.0;
-            end
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_(['y',int2str(round(v_('k+1')))]);
+            valA(end+1) = 1.0;
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_(['y',int2str(k)]);
+            valA(end+1) = -1.0;
             [ig,ig_] = s2mpjlib('ii',['STAx',int2str(k)],ig_);
             gtype{ig}  = '==';
             cnames{ig} = ['STAx',int2str(k)];
-            iv = ix_(['x',int2str(round(v_('k+1')))]);
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = 1.0;
-            end
-            iv = ix_(['x',int2str(k)]);
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = -1.0+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = -1.0;
-            end
-            iv = ix_(['w',int2str(round(v_('k+1')))]);
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = v_('-dr/2')+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = v_('-dr/2');
-            end
-            iv = ix_(['w',int2str(k)]);
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = v_('-dr/2')+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = v_('-dr/2');
-            end
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_(['x',int2str(round(v_('k+1')))]);
+            valA(end+1) = 1.0;
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_(['x',int2str(k)]);
+            valA(end+1) = -1.0;
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_(['w',int2str(round(v_('k+1')))]);
+            valA(end+1) = v_('-dr/2');
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_(['w',int2str(k)]);
+            valA(end+1) = v_('-dr/2');
             v_('rk') = v_('rk+1');
             v_('rk2') = v_('rk+1sq');
         end
@@ -248,12 +214,9 @@ switch(action)
         v_('-coef1') = -1.0*v_('coef1');
         [ig,ig_] = s2mpjlib('ii','WEIGHT',ig_);
         gtype{ig} = '<>';
-        iv = ix_(['w',int2str(round(v_('0')))]);
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('-coef1')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('-coef1');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_(['w',int2str(round(v_('0')))]);
+        valA(end+1) = v_('-coef1');
         for k=v_('1'):v_('K-1')
             v_('k-1') = -1+k;
             v_('rk+1') = v_('rk')+v_('dr');
@@ -265,12 +228,9 @@ switch(action)
             [ig,ig_] = s2mpjlib('ii','WEIGHT',ig_);
             gtype{ig}  = '==';
             cnames{ig} = 'WEIGHT';
-            iv = ix_(['w',int2str(k)]);
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = v_('-coef1')+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = v_('-coef1');
-            end
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_(['w',int2str(k)]);
+            valA(end+1) = v_('-coef1');
             v_('rk-1sq') = v_('rk2');
             v_('rk') = v_('rk+1');
             v_('rk2') = v_('rk+1sq');
@@ -281,61 +241,40 @@ switch(action)
         v_('-coef1') = -1.0*v_('coef1');
         [ig,ig_] = s2mpjlib('ii','WEIGHT',ig_);
         gtype{ig} = '<>';
-        iv = ix_(['w',int2str(round(v_('K')))]);
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('-coef1')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('-coef1');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_(['w',int2str(round(v_('K')))]);
+        valA(end+1) = v_('-coef1');
         for k=v_('0'):v_('K-1')
             v_('k+1') = 1+k;
             [ig,ig_] = s2mpjlib('ii',['SLOP',int2str(k)],ig_);
             gtype{ig}  = '<=';
             cnames{ig} = ['SLOP',int2str(k)];
-            iv = ix_(['w',int2str(round(v_('k+1')))]);
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = 1.0;
-            end
-            iv = ix_(['w',int2str(k)]);
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = -1.0+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = -1.0;
-            end
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_(['w',int2str(round(v_('k+1')))]);
+            valA(end+1) = 1.0;
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_(['w',int2str(k)]);
+            valA(end+1) = -1.0;
             [ig,ig_] = s2mpjlib('ii',['SLOM',int2str(k)],ig_);
             gtype{ig}  = '<=';
             cnames{ig} = ['SLOM',int2str(k)];
-            iv = ix_(['w',int2str(round(v_('k+1')))]);
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = -1.0+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = -1.0;
-            end
-            iv = ix_(['w',int2str(k)]);
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = 1.0;
-            end
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_(['w',int2str(round(v_('k+1')))]);
+            valA(end+1) = -1.0;
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_(['w',int2str(k)]);
+            valA(end+1) = 1.0;
         end
         v_('-sigmatA') = -1.0*v_('sigmatA');
         [ig,ig_] = s2mpjlib('ii','AVsigt',ig_);
         gtype{ig}  = '<=';
         cnames{ig} = 'AVsigt';
-        iv = ix_(['y',int2str(round(v_('K')))]);
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
-        iv = ix_(['x',int2str(round(v_('K')))]);
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('-sigmatA')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('-sigmatA');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_(['y',int2str(round(v_('K')))]);
+        valA(end+1) = 1.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_(['x',int2str(round(v_('K')))]);
+        valA(end+1) = v_('-sigmatA');
         %%%%%%%%%%%%%%% GLOBAL DIMENSIONS %%%%%%%%%%%%%%%%%
         pb.n   = ix_.Count;
         ngrp   = ig_.Count;
@@ -5015,6 +4954,8 @@ switch(action)
         %%%%%%%%%%%%%%%%%%% OBJECT BOUNDS %%%%%%%%%%%%%%%%%
         pb.objlower = 5.0;
 % LO SOLUTION            7.872067544
+        %%%%%%%%% BUILD THE SPARSE MATRICES %%%%%%%%%%%%%%%
+        pbm.A = sparse(irA,icA,valA,ngrp,pb.n);
         %%%%%%%%% DEFAULT FOR MISSING SECTION(S) %%%%%%%%%%
         %%%%%%%%%%%%%% FORM clower AND cupper %%%%%%%%%%%%%
         pb.clower(1:pb.nle) = -Inf*ones(pb.nle,1);

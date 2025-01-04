@@ -30,7 +30,7 @@ function varargout = BROYDNBDLS(action,varargin)
 % IE N                   5000           $-PARAMETER
 % 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%   Translated to Matlab by S2MPJ version 9 XI 2024
+%   Translated to Matlab by S2MPJ version 25 XI 2024
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 persistent pbm;
@@ -41,10 +41,10 @@ switch(action)
 
     case {'setup','setup_redprec'}
 
-        if(isfield(pbm,'ndigs'))
-            rmfield(pbm,'ndigs');
-        end
         if(strcmp(action,'setup_redprec'))
+            if(isfield(pbm,'ndigs'))
+                rmfield(pbm,'ndigs');
+            end
             pbm.ndigs = max(1,min(15,varargin{end}));
             nargs     = nargin-2;
         else
@@ -96,12 +96,14 @@ switch(action)
         v_('-KAPPA3') = -1.0*v_('KAPPA3');
         %%%%%%%%%%%%%%%%%%%%  VARIABLES %%%%%%%%%%%%%%%%%%%%
         pb.xnames = {};
+        irA  = [];
+        icA  = [];
+        valA = [];
         for I=v_('1'):v_('N')
             [iv,ix_] = s2mpjlib('ii',['X',int2str(I)],ix_);
             pb.xnames{iv} = ['X',int2str(I)];
         end
         %%%%%%%%%%%%%%%%%%%  DATA GROUPS %%%%%%%%%%%%%%%%%%%
-        pbm.A = sparse(0,0);
         for I=v_('1'):v_('LB')
             v_('I-1') = -1+I;
             v_('I+1') = 1+I;
@@ -109,30 +111,21 @@ switch(action)
             for J=v_('1'):v_('I-1')
                 [ig,ig_] = s2mpjlib('ii',['G',int2str(I)],ig_);
                 gtype{ig} = '<>';
-                iv = ix_(['X',int2str(J)]);
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = v_('-KAPPA3')+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = v_('-KAPPA3');
-                end
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_(['X',int2str(J)]);
+                valA(end+1) = v_('-KAPPA3');
             end
             [ig,ig_] = s2mpjlib('ii',['G',int2str(I)],ig_);
             gtype{ig} = '<>';
-            iv = ix_(['X',int2str(I)]);
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = v_('KAPPA1')+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = v_('KAPPA1');
-            end
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_(['X',int2str(I)]);
+            valA(end+1) = v_('KAPPA1');
             for J=v_('I+1'):v_('I+UB')
                 [ig,ig_] = s2mpjlib('ii',['G',int2str(I)],ig_);
                 gtype{ig} = '<>';
-                iv = ix_(['X',int2str(J)]);
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = v_('-KAPPA3')+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = v_('-KAPPA3');
-                end
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_(['X',int2str(J)]);
+                valA(end+1) = v_('-KAPPA3');
             end
         end
         for I=v_('LB+1'):v_('N-UB-1')
@@ -143,30 +136,21 @@ switch(action)
             for J=v_('I-LB'):v_('I-1')
                 [ig,ig_] = s2mpjlib('ii',['G',int2str(I)],ig_);
                 gtype{ig} = '<>';
-                iv = ix_(['X',int2str(J)]);
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = v_('-KAPPA3')+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = v_('-KAPPA3');
-                end
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_(['X',int2str(J)]);
+                valA(end+1) = v_('-KAPPA3');
             end
             [ig,ig_] = s2mpjlib('ii',['G',int2str(I)],ig_);
             gtype{ig} = '<>';
-            iv = ix_(['X',int2str(I)]);
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = v_('KAPPA1')+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = v_('KAPPA1');
-            end
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_(['X',int2str(I)]);
+            valA(end+1) = v_('KAPPA1');
             for J=v_('I+1'):v_('I+UB')
                 [ig,ig_] = s2mpjlib('ii',['G',int2str(I)],ig_);
                 gtype{ig} = '<>';
-                iv = ix_(['X',int2str(J)]);
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = v_('-KAPPA3')+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = v_('-KAPPA3');
-                end
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_(['X',int2str(J)]);
+                valA(end+1) = v_('-KAPPA3');
             end
         end
         for I=v_('N-UB'):v_('N')
@@ -176,30 +160,21 @@ switch(action)
             for J=v_('I-LB'):v_('I-1')
                 [ig,ig_] = s2mpjlib('ii',['G',int2str(I)],ig_);
                 gtype{ig} = '<>';
-                iv = ix_(['X',int2str(J)]);
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = v_('-KAPPA3')+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = v_('-KAPPA3');
-                end
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_(['X',int2str(J)]);
+                valA(end+1) = v_('-KAPPA3');
             end
             [ig,ig_] = s2mpjlib('ii',['G',int2str(I)],ig_);
             gtype{ig} = '<>';
-            iv = ix_(['X',int2str(I)]);
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = v_('KAPPA1')+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = v_('KAPPA1');
-            end
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_(['X',int2str(I)]);
+            valA(end+1) = v_('KAPPA1');
             for J=v_('I+1'):v_('N')
                 [ig,ig_] = s2mpjlib('ii',['G',int2str(I)],ig_);
                 gtype{ig} = '<>';
-                iv = ix_(['X',int2str(J)]);
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = v_('-KAPPA3')+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = v_('-KAPPA3');
-                end
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_(['X',int2str(J)]);
+                valA(end+1) = v_('-KAPPA3');
             end
         end
         %%%%%%%%%%%%%%% GLOBAL DIMENSIONS %%%%%%%%%%%%%%%%%
@@ -317,6 +292,8 @@ switch(action)
         %%%%%%%%%%%%%%%%%%% OBJECT BOUNDS %%%%%%%%%%%%%%%%%
 %    Solution
 % LO SOLTN               0.0
+        %%%%%%%%% BUILD THE SPARSE MATRICES %%%%%%%%%%%%%%%
+        pbm.A = sparse(irA,icA,valA,ngrp,pb.n);
         %%%%%%%%% DEFAULT FOR MISSING SECTION(S) %%%%%%%%%%
         %%%%%% RETURN VALUES FROM THE SETUP ACTION %%%%%%%%
         pb.pbclass = 'C-CSUR2-AN-V-0';

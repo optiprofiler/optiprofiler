@@ -23,7 +23,7 @@ function varargout = PALMER3(action,varargin)
 % 
 % 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%   Translated to Matlab by S2MPJ version 9 XI 2024
+%   Translated to Matlab by S2MPJ version 25 XI 2024
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 persistent pbm;
@@ -34,10 +34,10 @@ switch(action)
 
     case {'setup','setup_redprec'}
 
-        if(isfield(pbm,'ndigs'))
-            rmfield(pbm,'ndigs');
-        end
         if(strcmp(action,'setup_redprec'))
+            if(isfield(pbm,'ndigs'))
+                rmfield(pbm,'ndigs');
+            end
             pbm.ndigs = max(1,min(15,varargin{end}));
             nargs     = nargin-2;
         else
@@ -99,6 +99,9 @@ switch(action)
         v_('Y23') = 64.87939;
         %%%%%%%%%%%%%%%%%%%%  VARIABLES %%%%%%%%%%%%%%%%%%%%
         pb.xnames = {};
+        irA  = [];
+        icA  = [];
+        valA = [];
         [iv,ix_] = s2mpjlib('ii','A',ix_);
         pb.xnames{iv} = 'A';
         [iv,ix_] = s2mpjlib('ii','B',ix_);
@@ -108,17 +111,13 @@ switch(action)
         [iv,ix_] = s2mpjlib('ii','D',ix_);
         pb.xnames{iv} = 'D';
         %%%%%%%%%%%%%%%%%%%  DATA GROUPS %%%%%%%%%%%%%%%%%%%
-        pbm.A = sparse(0,0);
         for I=v_('1'):v_('M')
             v_('XSQR') = v_(['X',int2str(I)])*v_(['X',int2str(I)]);
             [ig,ig_] = s2mpjlib('ii',['O',int2str(I)],ig_);
             gtype{ig} = '<>';
-            iv = ix_('A');
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = v_('XSQR')+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = v_('XSQR');
-            end
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_('A');
+            valA(end+1) = v_('XSQR');
         end
         %%%%%%%%%%%%%%% GLOBAL DIMENSIONS %%%%%%%%%%%%%%%%%
         pb.n   = ix_.Count;
@@ -192,6 +191,8 @@ switch(action)
         pb.objlower = 0.0;
 %    Solution
 %    SOLTN               2265.95822
+        %%%%%%%%% BUILD THE SPARSE MATRICES %%%%%%%%%%%%%%%
+        pbm.A = sparse(irA,icA,valA,ngrp,pb.n);
         %%%%%%%%% DEFAULT FOR MISSING SECTION(S) %%%%%%%%%%
         %%%%%% RETURN VALUES FROM THE SETUP ACTION %%%%%%%%
         pb.pbclass = 'C-CSBR2-RN-4-0';

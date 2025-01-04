@@ -41,7 +41,7 @@ function varargout = LIPPERT1(action,varargin)
 % IE NX                  100            $-PARAMETER
 % 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%   Translated to Matlab by S2MPJ version 9 XI 2024
+%   Translated to Matlab by S2MPJ version 25 XI 2024
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 persistent pbm;
@@ -52,10 +52,10 @@ switch(action)
 
     case {'setup','setup_redprec'}
 
-        if(isfield(pbm,'ndigs'))
-            rmfield(pbm,'ndigs');
-        end
         if(strcmp(action,'setup_redprec'))
+            if(isfield(pbm,'ndigs'))
+                rmfield(pbm,'ndigs');
+            end
             pbm.ndigs = max(1,min(15,varargin{end}));
             nargs     = nargin-2;
         else
@@ -100,6 +100,9 @@ switch(action)
         v_('-DY') = v_('-ONE')/v_('RY');
         %%%%%%%%%%%%%%%%%%%%  VARIABLES %%%%%%%%%%%%%%%%%%%%
         pb.xnames = {};
+        irA  = [];
+        icA  = [];
+        valA = [];
         [iv,ix_] = s2mpjlib('ii','T',ix_);
         pb.xnames{iv} = 'T';
         for I=v_('0'):v_('NX')
@@ -115,15 +118,11 @@ switch(action)
             end
         end
         %%%%%%%%%%%%%%%%%%%  DATA GROUPS %%%%%%%%%%%%%%%%%%%
-        pbm.A = sparse(0,0);
         [ig,ig_] = s2mpjlib('ii','OBJ',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -1.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T');
+        valA(end+1) = -1.0;
         for I=v_('1'):v_('NX')
             v_('I-1') = -1+I;
             for J=v_('1'):v_('NY')
@@ -132,36 +131,21 @@ switch(action)
                 gtype{ig}  = '==';
                 cnames{ig} = ['O',int2str(I),',',int2str(J)];
                 pbm.gscale(ig,1) = v_('DX');
-                iv = ix_(['U',int2str(I),',',int2str(J)]);
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = v_('DX')+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = v_('DX');
-                end
-                iv = ix_(['U',int2str(round(v_('I-1'))),',',int2str(J)]);
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = v_('-DX')+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = v_('-DX');
-                end
-                iv = ix_(['V',int2str(I),',',int2str(J)]);
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = v_('DY')+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = v_('DY');
-                end
-                iv = ix_(['V',int2str(I),',',int2str(round(v_('J-1')))]);
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = v_('-DY')+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = v_('-DY');
-                end
-                iv = ix_('T');
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = v_('-S')+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = v_('-S');
-                end
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_(['U',int2str(I),',',int2str(J)]);
+                valA(end+1) = v_('DX');
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_(['U',int2str(round(v_('I-1'))),',',int2str(J)]);
+                valA(end+1) = v_('-DX');
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_(['V',int2str(I),',',int2str(J)]);
+                valA(end+1) = v_('DY');
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_(['V',int2str(I),',',int2str(round(v_('J-1')))]);
+                valA(end+1) = v_('-DY');
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_('T');
+                valA(end+1) = v_('-S');
             end
         end
         for I=v_('1'):v_('NX')
@@ -296,6 +280,8 @@ switch(action)
         %%%%%%%%%%%%%%%%%%% OBJECT BOUNDS %%%%%%%%%%%%%%%%%
 %    Solution
 % LO SOLTN               -3.77245385
+        %%%%%%%%% BUILD THE SPARSE MATRICES %%%%%%%%%%%%%%%
+        pbm.A = sparse(irA,icA,valA,ngrp,pb.n);
         %%%%%%%%% DEFAULT FOR MISSING SECTION(S) %%%%%%%%%%
         %%%%%%%%%%%%%% FORM clower AND cupper %%%%%%%%%%%%%
         pb.clower(1:pb.nle) = -Inf*ones(pb.nle,1);

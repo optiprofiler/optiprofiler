@@ -48,7 +48,7 @@ function varargout = OBSTCLAE(action,varargin)
 % IE PX                  100            $-PARAMETER n = 10000
 % 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%   Translated to Matlab by S2MPJ version 9 XI 2024
+%   Translated to Matlab by S2MPJ version 25 XI 2024
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 persistent pbm;
@@ -59,10 +59,10 @@ switch(action)
 
     case {'setup','setup_redprec'}
 
-        if(isfield(pbm,'ndigs'))
-            rmfield(pbm,'ndigs');
-        end
         if(strcmp(action,'setup_redprec'))
+            if(isfield(pbm,'ndigs'))
+                rmfield(pbm,'ndigs');
+            end
             pbm.ndigs = max(1,min(15,varargin{end}));
             nargs     = nargin-2;
         else
@@ -111,6 +111,9 @@ switch(action)
         v_('2') = 2;
         %%%%%%%%%%%%%%%%%%%%  VARIABLES %%%%%%%%%%%%%%%%%%%%
         pb.xnames = {};
+        irA  = [];
+        icA  = [];
+        valA = [];
         for J=v_('1'):v_('PX')
             for I=v_('1'):v_('PY')
                 [iv,ix_] = s2mpjlib('ii',['X',int2str(I),',',int2str(J)],ix_);
@@ -118,17 +121,13 @@ switch(action)
             end
         end
         %%%%%%%%%%%%%%%%%%%  DATA GROUPS %%%%%%%%%%%%%%%%%%%
-        pbm.A = sparse(0,0);
         for I=v_('2'):v_('PY-1')
             for J=v_('2'):v_('PX-1')
                 [ig,ig_] = s2mpjlib('ii',['G',int2str(I),',',int2str(J)],ig_);
                 gtype{ig} = '<>';
-                iv = ix_(['X',int2str(I),',',int2str(J)]);
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = v_('LINC')+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = v_('LINC');
-                end
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_(['X',int2str(I),',',int2str(J)]);
+                valA(end+1) = v_('LINC');
             end
         end
         %%%%%%%%%%%%%%% GLOBAL DIMENSIONS %%%%%%%%%%%%%%%%%
@@ -272,6 +271,8 @@ switch(action)
 % LO SOLTN(75)           ???
 % LO SOLTN(100)          ???
 % LO SOLTN(125)          ???
+        %%%%%%%%% BUILD THE SPARSE MATRICES %%%%%%%%%%%%%%%
+        pbm.A = sparse(irA,icA,valA,ngrp,pb.n);
         %%%%%%%%% DEFAULT FOR MISSING SECTION(S) %%%%%%%%%%
         %%%%%% RETURN VALUES FROM THE SETUP ACTION %%%%%%%%
         pb.pbclass = 'C-CQBR2-AY-V-0';

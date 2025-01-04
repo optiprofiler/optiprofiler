@@ -25,7 +25,7 @@ function varargout = n3PK(action,varargin)
 % 
 % 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%   Translated to Matlab by S2MPJ version 9 XI 2024
+%   Translated to Matlab by S2MPJ version 25 XI 2024
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 persistent pbm;
@@ -36,10 +36,10 @@ switch(action)
 
     case {'setup','setup_redprec'}
 
-        if(isfield(pbm,'ndigs'))
-            rmfield(pbm,'ndigs');
-        end
         if(strcmp(action,'setup_redprec'))
+            if(isfield(pbm,'ndigs'))
+                rmfield(pbm,'ndigs');
+            end
             pbm.ndigs = max(1,min(15,varargin{end}));
             nargs     = nargin-2;
         else
@@ -92,6 +92,9 @@ switch(action)
         end
         %%%%%%%%%%%%%%%%%%%%  VARIABLES %%%%%%%%%%%%%%%%%%%%
         pb.xnames = {};
+        irA  = [];
+        icA  = [];
+        valA = [];
         [iv,ix_] = s2mpjlib('ii','A1,0',ix_);
         pb.xnames{iv} = 'A1,0';
         [iv,ix_] = s2mpjlib('ii','A2,0',ix_);
@@ -135,232 +138,141 @@ switch(action)
             end
         end
         %%%%%%%%%%%%%%%%%%%  DATA GROUPS %%%%%%%%%%%%%%%%%%%
-        pbm.A = sparse(0,0);
         [ig,ig_] = s2mpjlib('ii','G0,3',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T0,3');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.010000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.010000;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T0,3');
+        valA(end+1) = 0.010000;
         [ig,ig_] = s2mpjlib('ii','G1,3',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T1,3');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.007143+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.007143;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T1,3');
+        valA(end+1) = 0.007143;
         [ig,ig_] = s2mpjlib('ii','G2,3',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T2,3');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.008333+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.008333;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T2,3');
+        valA(end+1) = 0.008333;
         [ig,ig_] = s2mpjlib('ii','G4,3',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T4,3');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.050000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.050000;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T4,3');
+        valA(end+1) = 0.050000;
         [ig,ig_] = s2mpjlib('ii','G5,3',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T5,3');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.050000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.050000;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T5,3');
+        valA(end+1) = 0.050000;
         [ig,ig_] = s2mpjlib('ii','G0,4',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T0,4');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.005000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.005000;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T0,4');
+        valA(end+1) = 0.005000;
         [ig,ig_] = s2mpjlib('ii','G1,4',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T1,4');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.005556+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.005556;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T1,4');
+        valA(end+1) = 0.005556;
         [ig,ig_] = s2mpjlib('ii','G2,4',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T2,4');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.050000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.050000;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T2,4');
+        valA(end+1) = 0.050000;
         [ig,ig_] = s2mpjlib('ii','G3,4',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T3,4');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.001667+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.001667;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T3,4');
+        valA(end+1) = 0.001667;
         [ig,ig_] = s2mpjlib('ii','G5,4',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T5,4');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.025000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.025000;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T5,4');
+        valA(end+1) = 0.025000;
         [ig,ig_] = s2mpjlib('ii','G0,5',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T0,5');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.020000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.020000;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T0,5');
+        valA(end+1) = 0.020000;
         [ig,ig_] = s2mpjlib('ii','G1,5',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T1,5');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.033333+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.033333;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T1,5');
+        valA(end+1) = 0.033333;
         [ig,ig_] = s2mpjlib('ii','G2,5',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T2,5');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.014286+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.014286;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T2,5');
+        valA(end+1) = 0.014286;
         [ig,ig_] = s2mpjlib('ii','G3,5',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T3,5');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.006667+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.006667;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T3,5');
+        valA(end+1) = 0.006667;
         [ig,ig_] = s2mpjlib('ii','G4,5',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T4,5');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.050000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.050000;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T4,5');
+        valA(end+1) = 0.050000;
         v_('TMP') = 5.000000*v_('FT0');
         v_('TMP1') = 1.0/v_('TMP');
         [ig,ig_] = s2mpjlib('ii','H0',ig_);
         gtype{ig} = '<>';
         pbm.gscale(ig,1) = v_('WFT0');
-        iv = ix_('A1,0');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP1')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP1');
-        end
-        iv = ix_('A2,0');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP1')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP1');
-        end
-        iv = ix_('A3,0');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP1')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP1');
-        end
-        iv = ix_('A4,0');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP1')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP1');
-        end
-        iv = ix_('A5,0');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP1')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP1');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A1,0');
+        valA(end+1) = v_('TMP1');
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A2,0');
+        valA(end+1) = v_('TMP1');
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A3,0');
+        valA(end+1) = v_('TMP1');
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A4,0');
+        valA(end+1) = v_('TMP1');
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A5,0');
+        valA(end+1) = v_('TMP1');
         v_('TMP') = 5.000000*v_('FT1');
         v_('TMP1') = 1.0/v_('TMP');
         [ig,ig_] = s2mpjlib('ii','H1',ig_);
         gtype{ig} = '<>';
         pbm.gscale(ig,1) = v_('WFT1');
-        iv = ix_('A0,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP1')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP1');
-        end
-        iv = ix_('A2,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP1')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP1');
-        end
-        iv = ix_('A3,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP1')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP1');
-        end
-        iv = ix_('A4,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP1')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP1');
-        end
-        iv = ix_('A5,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP1')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP1');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A0,1');
+        valA(end+1) = v_('TMP1');
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A2,1');
+        valA(end+1) = v_('TMP1');
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A3,1');
+        valA(end+1) = v_('TMP1');
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A4,1');
+        valA(end+1) = v_('TMP1');
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A5,1');
+        valA(end+1) = v_('TMP1');
         v_('TMP') = 5.000000*v_('FT2');
         v_('TMP1') = 1.0/v_('TMP');
         [ig,ig_] = s2mpjlib('ii','H2',ig_);
         gtype{ig} = '<>';
         pbm.gscale(ig,1) = v_('WFT2');
-        iv = ix_('A0,2');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP1')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP1');
-        end
-        iv = ix_('A1,2');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP1')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP1');
-        end
-        iv = ix_('A3,2');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP1')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP1');
-        end
-        iv = ix_('A4,2');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP1')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP1');
-        end
-        iv = ix_('A5,2');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP1')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP1');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A0,2');
+        valA(end+1) = v_('TMP1');
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A1,2');
+        valA(end+1) = v_('TMP1');
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A3,2');
+        valA(end+1) = v_('TMP1');
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A4,2');
+        valA(end+1) = v_('TMP1');
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A5,2');
+        valA(end+1) = v_('TMP1');
         for I=v_('0'):v_('COUNT-1')
             [ig,ig_] = s2mpjlib('ii',['K',int2str(I)],ig_);
             gtype{ig} = '<>';
@@ -370,1123 +282,700 @@ switch(action)
         v_('TMP') = 1.000000*v_('TMP1');
         [ig,ig_] = s2mpjlib('ii','K7',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A1,0');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A1,0');
+        valA(end+1) = v_('TMP');
         v_('TMP1') = 200.000000/v_('COU4');
         v_('TMP') = 1.000000*v_('TMP1');
         [ig,ig_] = s2mpjlib('ii','K4',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A1,0');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A1,0');
+        valA(end+1) = v_('TMP');
         v_('TMP1') = 200.000000/v_('COU2');
         v_('TMP') = 1.000000*v_('TMP1');
         [ig,ig_] = s2mpjlib('ii','K2',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A1,0');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A1,0');
+        valA(end+1) = v_('TMP');
         v_('TMP1') = 480.000000/v_('COU8');
         v_('TMP') = 1.000000*v_('TMP1');
         [ig,ig_] = s2mpjlib('ii','K8',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A2,0');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A2,0');
+        valA(end+1) = v_('TMP');
         v_('TMP1') = 480.000000/v_('COU7');
         v_('TMP') = 1.000000*v_('TMP1');
         [ig,ig_] = s2mpjlib('ii','K7',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A2,0');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A2,0');
+        valA(end+1) = v_('TMP');
         v_('TMP1') = 480.000000/v_('COU6');
         v_('TMP') = 1.000000*v_('TMP1');
         [ig,ig_] = s2mpjlib('ii','K6',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A2,0');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A2,0');
+        valA(end+1) = v_('TMP');
         v_('TMP1') = 480.000000/v_('COU2');
         v_('TMP') = 1.000000*v_('TMP1');
         [ig,ig_] = s2mpjlib('ii','K2',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A2,0');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A2,0');
+        valA(end+1) = v_('TMP');
         v_('TMP1') = 120.000000/v_('COU2');
         v_('TMP') = 1.000000*v_('TMP1');
-        iv = ix_('A3,0');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A3,0');
+        valA(end+1) = v_('TMP');
         v_('TMP1') = 360.000000/v_('COU7');
         v_('TMP') = 1.000000*v_('TMP1');
         [ig,ig_] = s2mpjlib('ii','K7',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A4,0');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A4,0');
+        valA(end+1) = v_('TMP');
         v_('TMP1') = 360.000000/v_('COU2');
         v_('TMP') = 1.000000*v_('TMP1');
         [ig,ig_] = s2mpjlib('ii','K2',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A4,0');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A4,0');
+        valA(end+1) = v_('TMP');
         v_('TMP1') = 560.000000/v_('COU8');
         v_('TMP') = 1.000000*v_('TMP1');
         [ig,ig_] = s2mpjlib('ii','K8',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A5,0');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A5,0');
+        valA(end+1) = v_('TMP');
         v_('TMP1') = 560.000000/v_('COU7');
         v_('TMP') = 1.000000*v_('TMP1');
         [ig,ig_] = s2mpjlib('ii','K7',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A5,0');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A5,0');
+        valA(end+1) = v_('TMP');
         v_('TMP1') = 560.000000/v_('COU2');
         v_('TMP') = 1.000000*v_('TMP1');
         [ig,ig_] = s2mpjlib('ii','K2',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A5,0');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A5,0');
+        valA(end+1) = v_('TMP');
         v_('TMP1') = 240.000000/v_('COU0');
         v_('TMP') = 1.000000*v_('TMP1');
         [ig,ig_] = s2mpjlib('ii','K0',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A0,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A0,1');
+        valA(end+1) = v_('TMP');
         v_('TMP1') = 400.000000/v_('COU8');
         v_('TMP') = 1.000000*v_('TMP1');
         [ig,ig_] = s2mpjlib('ii','K8',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A2,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A2,1');
+        valA(end+1) = v_('TMP');
         v_('TMP1') = 400.000000/v_('COU7');
         v_('TMP') = 1.000000*v_('TMP1');
         [ig,ig_] = s2mpjlib('ii','K7',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A2,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A2,1');
+        valA(end+1) = v_('TMP');
         v_('TMP1') = 400.000000/v_('COU6');
         v_('TMP') = 1.000000*v_('TMP1');
         [ig,ig_] = s2mpjlib('ii','K6',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A2,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A2,1');
+        valA(end+1) = v_('TMP');
         v_('TMP1') = 400.000000/v_('COU2');
         v_('TMP') = 1.000000*v_('TMP1');
         [ig,ig_] = s2mpjlib('ii','K2',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A2,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A2,1');
+        valA(end+1) = v_('TMP');
         v_('TMP1') = 400.000000/v_('COU0');
         v_('TMP') = 1.000000*v_('TMP1');
         [ig,ig_] = s2mpjlib('ii','K0',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A2,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A2,1');
+        valA(end+1) = v_('TMP');
         v_('TMP1') = 420.000000/v_('COU2');
         v_('TMP') = 1.000000*v_('TMP1');
         [ig,ig_] = s2mpjlib('ii','K2',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A3,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A3,1');
+        valA(end+1) = v_('TMP');
         v_('TMP1') = 420.000000/v_('COU0');
         v_('TMP') = 1.000000*v_('TMP1');
         [ig,ig_] = s2mpjlib('ii','K0',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A3,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A3,1');
+        valA(end+1) = v_('TMP');
         v_('TMP1') = 180.000000/v_('COU7');
         v_('TMP') = 1.000000*v_('TMP1');
         [ig,ig_] = s2mpjlib('ii','K7',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A4,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A4,1');
+        valA(end+1) = v_('TMP');
         v_('TMP1') = 180.000000/v_('COU2');
         v_('TMP') = 1.000000*v_('TMP1');
         [ig,ig_] = s2mpjlib('ii','K2',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A4,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A4,1');
+        valA(end+1) = v_('TMP');
         v_('TMP1') = 180.000000/v_('COU0');
         v_('TMP') = 1.000000*v_('TMP1');
         [ig,ig_] = s2mpjlib('ii','K0',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A4,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A4,1');
+        valA(end+1) = v_('TMP');
         v_('TMP1') = 320.000000/v_('COU8');
         v_('TMP') = 1.000000*v_('TMP1');
         [ig,ig_] = s2mpjlib('ii','K8',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A5,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A5,1');
+        valA(end+1) = v_('TMP');
         v_('TMP1') = 320.000000/v_('COU7');
         v_('TMP') = 1.000000*v_('TMP1');
         [ig,ig_] = s2mpjlib('ii','K7',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A5,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A5,1');
+        valA(end+1) = v_('TMP');
         v_('TMP1') = 320.000000/v_('COU2');
         v_('TMP') = 1.000000*v_('TMP1');
         [ig,ig_] = s2mpjlib('ii','K2',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A5,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A5,1');
+        valA(end+1) = v_('TMP');
         v_('TMP1') = 320.000000/v_('COU0');
         v_('TMP') = 1.000000*v_('TMP1');
         [ig,ig_] = s2mpjlib('ii','K0',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A5,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A5,1');
+        valA(end+1) = v_('TMP');
         v_('TMP1') = 20.000000/v_('COU1');
         v_('TMP') = 1.000000*v_('TMP1');
         [ig,ig_] = s2mpjlib('ii','K1',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A0,2');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A0,2');
+        valA(end+1) = v_('TMP');
         v_('TMP1') = 20.000000/v_('COU0');
         v_('TMP') = 1.000000*v_('TMP1');
         [ig,ig_] = s2mpjlib('ii','K0',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A0,2');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A0,2');
+        valA(end+1) = v_('TMP');
         v_('TMP1') = 60.000000/v_('COU1');
         v_('TMP') = 1.000000*v_('TMP1');
         [ig,ig_] = s2mpjlib('ii','K1',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A1,2');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A1,2');
+        valA(end+1) = v_('TMP');
         v_('TMP1') = 40.000000/v_('COU2');
         v_('TMP') = 1.000000*v_('TMP1');
         [ig,ig_] = s2mpjlib('ii','K2',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A3,2');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A3,2');
+        valA(end+1) = v_('TMP');
         v_('TMP1') = 40.000000/v_('COU1');
         v_('TMP') = 1.000000*v_('TMP1');
         [ig,ig_] = s2mpjlib('ii','K1',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A3,2');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A3,2');
+        valA(end+1) = v_('TMP');
         v_('TMP1') = 40.000000/v_('COU0');
         v_('TMP') = 1.000000*v_('TMP1');
         [ig,ig_] = s2mpjlib('ii','K0',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A3,2');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A3,2');
+        valA(end+1) = v_('TMP');
         v_('TMP1') = 120.000000/v_('COU5');
         v_('TMP') = 1.000000*v_('TMP1');
         [ig,ig_] = s2mpjlib('ii','K5',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A4,2');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A4,2');
+        valA(end+1) = v_('TMP');
         v_('TMP1') = 20.000000/v_('COU8');
         v_('TMP') = 1.000000*v_('TMP1');
         [ig,ig_] = s2mpjlib('ii','K8',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A5,2');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A5,2');
+        valA(end+1) = v_('TMP');
         v_('TMP1') = 20.000000/v_('COU5');
         v_('TMP') = 1.000000*v_('TMP1');
         [ig,ig_] = s2mpjlib('ii','K5',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A5,2');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A5,2');
+        valA(end+1) = v_('TMP');
         v_('TMP') = 1.000000/v_('COU7');
         [ig,ig_] = s2mpjlib('ii','K7',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T0,3');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T0,3');
+        valA(end+1) = v_('TMP');
         v_('TMP') = 1.000000/v_('COU3');
         [ig,ig_] = s2mpjlib('ii','K3',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T0,3');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T0,3');
+        valA(end+1) = v_('TMP');
         v_('TMP') = 1.000000/v_('COU7');
         [ig,ig_] = s2mpjlib('ii','K7',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T1,3');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T1,3');
+        valA(end+1) = v_('TMP');
         v_('TMP') = 1.000000/v_('COU4');
         [ig,ig_] = s2mpjlib('ii','K4',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T1,3');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T1,3');
+        valA(end+1) = v_('TMP');
         v_('TMP') = 1.000000/v_('COU8');
         [ig,ig_] = s2mpjlib('ii','K8',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T2,3');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T2,3');
+        valA(end+1) = v_('TMP');
         v_('TMP') = 1.000000/v_('COU7');
         [ig,ig_] = s2mpjlib('ii','K7',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T2,3');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T2,3');
+        valA(end+1) = v_('TMP');
         v_('TMP') = 1.000000/v_('COU6');
         [ig,ig_] = s2mpjlib('ii','K6',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T2,3');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T2,3');
+        valA(end+1) = v_('TMP');
         v_('TMP') = 1.000000/v_('COU7');
         [ig,ig_] = s2mpjlib('ii','K7',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T4,3');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T4,3');
+        valA(end+1) = v_('TMP');
         v_('TMP') = 1.000000/v_('COU8');
         [ig,ig_] = s2mpjlib('ii','K8',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T5,3');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T5,3');
+        valA(end+1) = v_('TMP');
         v_('TMP') = 1.000000/v_('COU7');
         [ig,ig_] = s2mpjlib('ii','K7',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T5,3');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T5,3');
+        valA(end+1) = v_('TMP');
         v_('TMP') = 1.000000/v_('COU3');
         [ig,ig_] = s2mpjlib('ii','K3',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T0,4');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T0,4');
+        valA(end+1) = v_('TMP');
         v_('TMP') = 1.000000/v_('COU4');
         [ig,ig_] = s2mpjlib('ii','K4',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T1,4');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T1,4');
+        valA(end+1) = v_('TMP');
         v_('TMP') = 1.000000/v_('COU8');
         [ig,ig_] = s2mpjlib('ii','K8',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T2,4');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T2,4');
+        valA(end+1) = v_('TMP');
         v_('TMP') = 1.000000/v_('COU6');
         [ig,ig_] = s2mpjlib('ii','K6',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T2,4');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T2,4');
+        valA(end+1) = v_('TMP');
         v_('TMP') = 1.000000/v_('COU3');
         [ig,ig_] = s2mpjlib('ii','K3',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T3,4');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T3,4');
+        valA(end+1) = v_('TMP');
         v_('TMP') = 1.000000/v_('COU2');
         [ig,ig_] = s2mpjlib('ii','K2',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T3,4');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T3,4');
+        valA(end+1) = v_('TMP');
         v_('TMP') = 1.000000/v_('COU8');
         [ig,ig_] = s2mpjlib('ii','K8',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T5,4');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T5,4');
+        valA(end+1) = v_('TMP');
         v_('TMP') = 1.000000/v_('COU6');
         [ig,ig_] = s2mpjlib('ii','K6',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T0,5');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T0,5');
+        valA(end+1) = v_('TMP');
         v_('TMP') = 1.000000/v_('COU1');
         [ig,ig_] = s2mpjlib('ii','K1',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T0,5');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T0,5');
+        valA(end+1) = v_('TMP');
         v_('TMP') = 1.000000/v_('COU0');
         [ig,ig_] = s2mpjlib('ii','K0',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T0,5');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T0,5');
+        valA(end+1) = v_('TMP');
         v_('TMP') = 1.000000/v_('COU6');
         [ig,ig_] = s2mpjlib('ii','K6',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T1,5');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T1,5');
+        valA(end+1) = v_('TMP');
         v_('TMP') = 1.000000/v_('COU1');
         [ig,ig_] = s2mpjlib('ii','K1',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T1,5');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T1,5');
+        valA(end+1) = v_('TMP');
         v_('TMP') = 1.000000/v_('COU6');
         [ig,ig_] = s2mpjlib('ii','K6',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T2,5');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T2,5');
+        valA(end+1) = v_('TMP');
         v_('TMP') = 1.000000/v_('COU6');
-        iv = ix_('T3,5');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T3,5');
+        valA(end+1) = v_('TMP');
         v_('TMP') = 1.000000/v_('COU2');
         [ig,ig_] = s2mpjlib('ii','K2',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T3,5');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T3,5');
+        valA(end+1) = v_('TMP');
         v_('TMP') = 1.000000/v_('COU1');
         [ig,ig_] = s2mpjlib('ii','K1',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T3,5');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T3,5');
+        valA(end+1) = v_('TMP');
         v_('TMP') = 1.000000/v_('COU0');
         [ig,ig_] = s2mpjlib('ii','K0',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T3,5');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T3,5');
+        valA(end+1) = v_('TMP');
         v_('TMP') = 1.000000/v_('COU6');
         [ig,ig_] = s2mpjlib('ii','K6',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T4,5');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T4,5');
+        valA(end+1) = v_('TMP');
         v_('TMP') = 1.000000/v_('COU5');
         [ig,ig_] = s2mpjlib('ii','K5',ig_);
         gtype{ig} = '<>';
-        iv = ix_('T4,5');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('TMP')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('TMP');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('T4,5');
+        valA(end+1) = v_('TMP');
         [ig,ig_] = s2mpjlib('ii','L1,0',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A1,0');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -0.800000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -0.800000;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A1,0');
+        valA(end+1) = -0.800000;
         pbm.gscale(ig,1) = 0.500000;
-        iv = ix_('A2,0');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A3,0');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A4,0');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A5,0');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A2,0');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A3,0');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A4,0');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A5,0');
+        valA(end+1) = 0.200000;
         [ig,ig_] = s2mpjlib('ii','L2,0',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A1,0');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A2,0');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -0.800000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -0.800000;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A1,0');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A2,0');
+        valA(end+1) = -0.800000;
         pbm.gscale(ig,1) = 0.500000;
-        iv = ix_('A3,0');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A4,0');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A5,0');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A3,0');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A4,0');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A5,0');
+        valA(end+1) = 0.200000;
         [ig,ig_] = s2mpjlib('ii','L3,0',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A1,0');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A2,0');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A3,0');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -0.800000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -0.800000;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A1,0');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A2,0');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A3,0');
+        valA(end+1) = -0.800000;
         pbm.gscale(ig,1) = 0.500000;
-        iv = ix_('A4,0');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A5,0');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A4,0');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A5,0');
+        valA(end+1) = 0.200000;
         [ig,ig_] = s2mpjlib('ii','L4,0',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A1,0');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A2,0');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A3,0');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A4,0');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -0.800000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -0.800000;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A1,0');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A2,0');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A3,0');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A4,0');
+        valA(end+1) = -0.800000;
         pbm.gscale(ig,1) = 0.500000;
-        iv = ix_('A5,0');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A5,0');
+        valA(end+1) = 0.200000;
         [ig,ig_] = s2mpjlib('ii','L5,0',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A1,0');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A2,0');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A3,0');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A4,0');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A5,0');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -0.800000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -0.800000;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A1,0');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A2,0');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A3,0');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A4,0');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A5,0');
+        valA(end+1) = -0.800000;
         pbm.gscale(ig,1) = 0.500000;
         [ig,ig_] = s2mpjlib('ii','L0,1',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A0,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -0.800000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -0.800000;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A0,1');
+        valA(end+1) = -0.800000;
         pbm.gscale(ig,1) = 0.500000;
-        iv = ix_('A2,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A3,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A4,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A5,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A2,1');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A3,1');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A4,1');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A5,1');
+        valA(end+1) = 0.200000;
         [ig,ig_] = s2mpjlib('ii','L2,1',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A0,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A2,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -0.800000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -0.800000;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A0,1');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A2,1');
+        valA(end+1) = -0.800000;
         pbm.gscale(ig,1) = 0.500000;
-        iv = ix_('A3,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A4,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A5,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A3,1');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A4,1');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A5,1');
+        valA(end+1) = 0.200000;
         [ig,ig_] = s2mpjlib('ii','L3,1',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A0,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A2,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A3,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -0.800000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -0.800000;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A0,1');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A2,1');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A3,1');
+        valA(end+1) = -0.800000;
         pbm.gscale(ig,1) = 0.500000;
-        iv = ix_('A4,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A5,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A4,1');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A5,1');
+        valA(end+1) = 0.200000;
         [ig,ig_] = s2mpjlib('ii','L4,1',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A0,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A2,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A3,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A4,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -0.800000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -0.800000;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A0,1');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A2,1');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A3,1');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A4,1');
+        valA(end+1) = -0.800000;
         pbm.gscale(ig,1) = 0.500000;
-        iv = ix_('A5,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A5,1');
+        valA(end+1) = 0.200000;
         [ig,ig_] = s2mpjlib('ii','L5,1',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A0,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A2,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A3,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A4,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A5,1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -0.800000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -0.800000;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A0,1');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A2,1');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A3,1');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A4,1');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A5,1');
+        valA(end+1) = -0.800000;
         pbm.gscale(ig,1) = 0.500000;
         [ig,ig_] = s2mpjlib('ii','L0,2',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A0,2');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -0.800000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -0.800000;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A0,2');
+        valA(end+1) = -0.800000;
         pbm.gscale(ig,1) = 0.500000;
-        iv = ix_('A1,2');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A3,2');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A4,2');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A5,2');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A1,2');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A3,2');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A4,2');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A5,2');
+        valA(end+1) = 0.200000;
         [ig,ig_] = s2mpjlib('ii','L1,2',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A0,2');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A1,2');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -0.800000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -0.800000;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A0,2');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A1,2');
+        valA(end+1) = -0.800000;
         pbm.gscale(ig,1) = 0.500000;
-        iv = ix_('A3,2');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A4,2');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A5,2');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A3,2');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A4,2');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A5,2');
+        valA(end+1) = 0.200000;
         [ig,ig_] = s2mpjlib('ii','L3,2',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A0,2');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A1,2');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A3,2');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -0.800000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -0.800000;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A0,2');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A1,2');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A3,2');
+        valA(end+1) = -0.800000;
         pbm.gscale(ig,1) = 0.500000;
-        iv = ix_('A4,2');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A5,2');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A4,2');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A5,2');
+        valA(end+1) = 0.200000;
         [ig,ig_] = s2mpjlib('ii','L4,2',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A0,2');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A1,2');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A3,2');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A4,2');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -0.800000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -0.800000;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A0,2');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A1,2');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A3,2');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A4,2');
+        valA(end+1) = -0.800000;
         pbm.gscale(ig,1) = 0.500000;
-        iv = ix_('A5,2');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A5,2');
+        valA(end+1) = 0.200000;
         [ig,ig_] = s2mpjlib('ii','L5,2',ig_);
         gtype{ig} = '<>';
-        iv = ix_('A0,2');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A1,2');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A3,2');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A4,2');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.200000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.200000;
-        end
-        iv = ix_('A5,2');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -0.800000+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -0.800000;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A0,2');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A1,2');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A3,2');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A4,2');
+        valA(end+1) = 0.200000;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('A5,2');
+        valA(end+1) = -0.800000;
         pbm.gscale(ig,1) = 0.500000;
         %%%%%%%%%%%%%%% GLOBAL DIMENSIONS %%%%%%%%%%%%%%%%%
         pb.n   = ix_.Count;
@@ -1549,6 +1038,8 @@ switch(action)
         %%%%%%%%%%%%%%%%%%%% GROUP USES %%%%%%%%%%%%%%%%%%%
         [pbm.grelt{1:ngrp}] = deal([]);
         nlc = [];
+        %%%%%%%%% BUILD THE SPARSE MATRICES %%%%%%%%%%%%%%%
+        pbm.A = sparse(irA,icA,valA,ngrp,pb.n);
         %%%%%%%%% DEFAULT FOR MISSING SECTION(S) %%%%%%%%%%
         pb.xlower = zeros(pb.n,1);
         pb.xupper = +Inf*ones(pb.n,1);

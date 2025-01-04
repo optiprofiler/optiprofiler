@@ -16,7 +16,7 @@ function varargout = AVION2(action,varargin)
 % 
 % 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%   Translated to Matlab by S2MPJ version 9 XI 2024
+%   Translated to Matlab by S2MPJ version 25 XI 2024
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 persistent pbm;
@@ -27,10 +27,10 @@ switch(action)
 
     case {'setup','setup_redprec'}
 
-        if(isfield(pbm,'ndigs'))
-            rmfield(pbm,'ndigs');
-        end
         if(strcmp(action,'setup_redprec'))
+            if(isfield(pbm,'ndigs'))
+                rmfield(pbm,'ndigs');
+            end
             pbm.ndigs = max(1,min(15,varargin{end}));
             nargs     = nargin-2;
         else
@@ -48,6 +48,9 @@ switch(action)
         v_('1/24000') = 1.0/v_('24000');
         %%%%%%%%%%%%%%%%%%%%  VARIABLES %%%%%%%%%%%%%%%%%%%%
         pb.xnames = {};
+        irA  = [];
+        icA  = [];
+        valA = [];
         [iv,ix_] = s2mpjlib('ii','SR',ix_);
         pb.xnames{iv} = 'SR';
         [iv,ix_] = s2mpjlib('ii','LR',ix_);
@@ -147,482 +150,283 @@ switch(action)
         [iv,ix_] = s2mpjlib('ii','NG',ix_);
         pb.xnames{iv} = 'NG';
         %%%%%%%%%%%%%%%%%%%  DATA GROUPS %%%%%%%%%%%%%%%%%%%
-        pbm.A = sparse(0,0);
         [ig,ig_] = s2mpjlib('ii','E1',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'E1';
-        iv = ix_('SD');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
-        iv = ix_('SR');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -0.13+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -0.13;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('SD');
+        valA(end+1) = 1.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('SR');
+        valA(end+1) = -0.13;
         [ig,ig_] = s2mpjlib('ii','E2',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'E2';
-        iv = ix_('SX');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
-        iv = ix_('SR');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -0.7+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -0.7;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('SX');
+        valA(end+1) = 1.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('SR');
+        valA(end+1) = -0.7;
         [ig,ig_] = s2mpjlib('ii','E3',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'E3';
-        iv = ix_('LX');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
-        iv = ix_('LR');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -1.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('LX');
+        valA(end+1) = 1.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('LR');
+        valA(end+1) = -1.0;
         [ig,ig_] = s2mpjlib('ii','E4',ig_);
         gtype{ig} = '<>';
-        iv = ix_('SK');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('SK');
+        valA(end+1) = 1.0;
         [ig,ig_] = s2mpjlib('ii','E5',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'E5';
-        iv = ix_('SF');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
-        iv = ix_('ST');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -1.0;
-        end
-        iv = ix_('SD');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -2.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -2.0;
-        end
-        iv = ix_('SX');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -2.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -2.0;
-        end
-        iv = ix_('SK');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -2.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -2.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('SF');
+        valA(end+1) = 1.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('ST');
+        valA(end+1) = -1.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('SD');
+        valA(end+1) = -2.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('SX');
+        valA(end+1) = -2.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('SK');
+        valA(end+1) = -2.0;
         [ig,ig_] = s2mpjlib('ii','E6',ig_);
         gtype{ig} = '<>';
-        iv = ix_('CA');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('CA');
+        valA(end+1) = 1.0;
         [ig,ig_] = s2mpjlib('ii','E7',ig_);
         gtype{ig} = '<>';
-        iv = ix_('AM');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -2.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -2.0;
-        end
-        iv = ix_('SO');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
-        iv = ix_('SS');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('AM');
+        valA(end+1) = -2.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('SO');
+        valA(end+1) = 1.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('SS');
+        valA(end+1) = 1.0;
         [ig,ig_] = s2mpjlib('ii','E8',ig_);
         gtype{ig} = '<>';
-        iv = ix_('AM');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('AM');
+        valA(end+1) = 1.0;
         [ig,ig_] = s2mpjlib('ii','E9',ig_);
         gtype{ig} = '<>';
-        iv = ix_('IMPDER');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
-        iv = ix_('SD');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -27.5+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -27.5;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('IMPDER');
+        valA(end+1) = 1.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('SD');
+        valA(end+1) = -27.5;
         [ig,ig_] = s2mpjlib('ii','E10',ig_);
         gtype{ig} = '<>';
-        iv = ix_('IMPK');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
-        iv = ix_('SK');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -70.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -70.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('IMPK');
+        valA(end+1) = 1.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('SK');
+        valA(end+1) = -70.0;
         [ig,ig_] = s2mpjlib('ii','E11',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'E11';
-        iv = ix_('IMPFUS');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
-        iv = ix_('SF');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -20.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -20.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('IMPFUS');
+        valA(end+1) = 1.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('SF');
+        valA(end+1) = -20.0;
         [ig,ig_] = s2mpjlib('ii','E12',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'E12';
-        iv = ix_('MD');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
-        iv = ix_('MV');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -2.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -2.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('MD');
+        valA(end+1) = 1.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('MV');
+        valA(end+1) = -2.0;
         [ig,ig_] = s2mpjlib('ii','E13',ig_);
         gtype{ig} = '<>';
-        iv = ix_('QI');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('QI');
+        valA(end+1) = 1.0;
         [ig,ig_] = s2mpjlib('ii','E14',ig_);
         gtype{ig} = '<>';
-        iv = ix_('PT');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1000.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1000.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('PT');
+        valA(end+1) = 1000.0;
         [ig,ig_] = s2mpjlib('ii','E15',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'E15';
-        iv = ix_('QF');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
-        iv = ix_('QI');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -1.0;
-        end
-        iv = ix_('QV');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -1.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('QF');
+        valA(end+1) = 1.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('QI');
+        valA(end+1) = -1.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('QV');
+        valA(end+1) = -1.0;
         [ig,ig_] = s2mpjlib('ii','E16',ig_);
         gtype{ig} = '<>';
-        iv = ix_('VN');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
-        iv = ix_('VS');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
-        iv = ix_('QF');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = v_('1/790')+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = v_('1/790');
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('VN');
+        valA(end+1) = 1.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('VS');
+        valA(end+1) = 1.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('QF');
+        valA(end+1) = v_('1/790');
         [ig,ig_] = s2mpjlib('ii','E17',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'E17';
-        iv = ix_('IMPTRAIN');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
-        iv = ix_('MV');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -0.137+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -0.137;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('IMPTRAIN');
+        valA(end+1) = 1.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('MV');
+        valA(end+1) = -0.137;
         [ig,ig_] = s2mpjlib('ii','E18',ig_);
         gtype{ig} = '<>';
-        iv = ix_('IMPMOT');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('IMPMOT');
+        valA(end+1) = 1.0;
         [ig,ig_] = s2mpjlib('ii','E19',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'E19';
-        iv = ix_('IMPNMOT');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
-        iv = ix_('NM');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -35.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -35.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('IMPNMOT');
+        valA(end+1) = 1.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('NM');
+        valA(end+1) = -35.0;
         [ig,ig_] = s2mpjlib('ii','E20',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'E20';
-        iv = ix_('IMPPET');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
-        iv = ix_('QI');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -0.043+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -0.043;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('IMPPET');
+        valA(end+1) = 1.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('QI');
+        valA(end+1) = -0.043;
         [ig,ig_] = s2mpjlib('ii','E21',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'E21';
-        iv = ix_('IMPPIL');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
-        iv = ix_('NP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -200.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -200.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('IMPPIL');
+        valA(end+1) = 1.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('NP');
+        valA(end+1) = -200.0;
         [ig,ig_] = s2mpjlib('ii','E22',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'E22';
-        iv = ix_('IMPCAN');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
-        iv = ix_('NG');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -120.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -120.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('IMPCAN');
+        valA(end+1) = 1.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('NG');
+        valA(end+1) = -120.0;
         [ig,ig_] = s2mpjlib('ii','E23',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'E23';
-        iv = ix_('IMPSNA');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
-        iv = ix_('NS');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -300.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -300.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('IMPSNA');
+        valA(end+1) = 1.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('NS');
+        valA(end+1) = -300.0;
         [ig,ig_] = s2mpjlib('ii','E24',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'E24';
-        iv = ix_('MC');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
-        iv = ix_('MV');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -1.0;
-        end
-        iv = ix_('NP');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 95.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 95.0;
-        end
-        iv = ix_('NG');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 70.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 70.0;
-        end
-        iv = ix_('NM');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 660.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 660.0;
-        end
-        iv = ix_('QI');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.5+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.5;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('MC');
+        valA(end+1) = 1.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('MV');
+        valA(end+1) = -1.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('NP');
+        valA(end+1) = 95.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('NG');
+        valA(end+1) = 70.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('NM');
+        valA(end+1) = 660.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('QI');
+        valA(end+1) = 0.5;
         [ig,ig_] = s2mpjlib('ii','E25',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'E25';
-        iv = ix_('MZ');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
-        iv = ix_('IMPTRAIN');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -1.0;
-        end
-        iv = ix_('IMPNMOT');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
-        iv = ix_('IMPPET');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
-        iv = ix_('IMPPIL');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
-        iv = ix_('IMPCAN');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
-        iv = ix_('IMPSNA');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('MZ');
+        valA(end+1) = 1.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('IMPTRAIN');
+        valA(end+1) = -1.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('IMPNMOT');
+        valA(end+1) = 1.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('IMPPET');
+        valA(end+1) = 1.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('IMPPIL');
+        valA(end+1) = 1.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('IMPCAN');
+        valA(end+1) = 1.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('IMPSNA');
+        valA(end+1) = 1.0;
         [ig,ig_] = s2mpjlib('ii','E26',ig_);
         gtype{ig} = '<>';
-        iv = ix_('ST');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('ST');
+        valA(end+1) = 1.0;
         [ig,ig_] = s2mpjlib('ii','E27',ig_);
         gtype{ig} = '<>';
-        iv = ix_('SR');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('SR');
+        valA(end+1) = 1.0;
         [ig,ig_] = s2mpjlib('ii','E28',ig_);
         gtype{ig} = '<>';
-        iv = ix_('QV');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('QV');
+        valA(end+1) = 1.0;
         [ig,ig_] = s2mpjlib('ii','E29',ig_);
         gtype{ig} = '<>';
-        iv = ix_('SO');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('SO');
+        valA(end+1) = 1.0;
         [ig,ig_] = s2mpjlib('ii','E30',ig_);
         gtype{ig} = '<>';
-        iv = ix_('SS');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('SS');
+        valA(end+1) = 1.0;
         [ig,ig_] = s2mpjlib('ii','E31',ig_);
         gtype{ig} = '<>';
-        iv = ix_('CB');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('CB');
+        valA(end+1) = 1.0;
         [ig,ig_] = s2mpjlib('ii','E32',ig_);
         gtype{ig} = '<>';
-        iv = ix_('IMPVOIL');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('IMPVOIL');
+        valA(end+1) = 1.0;
         %%%%%%%%%%%%%%% GLOBAL DIMENSIONS %%%%%%%%%%%%%%%%%
         pb.n   = ix_.Count;
         ngrp   = ig_.Count;
@@ -1212,6 +1016,8 @@ switch(action)
         %%%%%%%%%%%%%%%%%%% OBJECT BOUNDS %%%%%%%%%%%%%%%%%
 %    Solution
 % LO SOLTN               9.46801297093018D+07
+        %%%%%%%%% BUILD THE SPARSE MATRICES %%%%%%%%%%%%%%%
+        pbm.A = sparse(irA,icA,valA,ngrp,pb.n);
         %%%%%%%%% DEFAULT FOR MISSING SECTION(S) %%%%%%%%%%
         %%%%%%%%%%%%%% FORM clower AND cupper %%%%%%%%%%%%%
         pb.clower(pb.nle+1:pb.nle+pb.neq) = zeros(pb.neq,1);

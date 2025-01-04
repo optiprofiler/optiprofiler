@@ -24,7 +24,7 @@ function varargout = AIRCRFTA(action,varargin)
 % 
 % 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%   Translated to Matlab by S2MPJ version 9 XI 2024
+%   Translated to Matlab by S2MPJ version 25 XI 2024
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 persistent pbm;
@@ -35,10 +35,10 @@ switch(action)
 
     case {'setup','setup_redprec'}
 
-        if(isfield(pbm,'ndigs'))
-            rmfield(pbm,'ndigs');
-        end
         if(strcmp(action,'setup_redprec'))
+            if(isfield(pbm,'ndigs'))
+                rmfield(pbm,'ndigs');
+            end
             pbm.ndigs = max(1,min(15,varargin{end}));
             nargs     = nargin-2;
         else
@@ -55,6 +55,9 @@ switch(action)
         v_('RUDVAL') = 0.0;
         %%%%%%%%%%%%%%%%%%%%  VARIABLES %%%%%%%%%%%%%%%%%%%%
         pb.xnames = {};
+        irA  = [];
+        icA  = [];
+        valA = [];
         [iv,ix_] = s2mpjlib('ii','ROLLRATE',ix_);
         pb.xnames{iv} = 'ROLLRATE';
         [iv,ix_] = s2mpjlib('ii','PITCHRAT',ix_);
@@ -72,142 +75,81 @@ switch(action)
         [iv,ix_] = s2mpjlib('ii','RUDDERDF',ix_);
         pb.xnames{iv} = 'RUDDERDF';
         %%%%%%%%%%%%%%%%%%%  DATA GROUPS %%%%%%%%%%%%%%%%%%%
-        pbm.A = sparse(0,0);
         [ig,ig_] = s2mpjlib('ii','G1',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'G1';
-        iv = ix_('ROLLRATE');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -3.933+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -3.933;
-        end
-        iv = ix_('PITCHRAT');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.107+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.107;
-        end
-        iv = ix_('YAWRATE');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.126+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.126;
-        end
-        iv = ix_('SSLIPANG');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -9.99+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -9.99;
-        end
-        iv = ix_('AILERON');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -45.83+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -45.83;
-        end
-        iv = ix_('RUDDERDF');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -7.64+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -7.64;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('ROLLRATE');
+        valA(end+1) = -3.933;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('PITCHRAT');
+        valA(end+1) = 0.107;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('YAWRATE');
+        valA(end+1) = 0.126;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('SSLIPANG');
+        valA(end+1) = -9.99;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('AILERON');
+        valA(end+1) = -45.83;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('RUDDERDF');
+        valA(end+1) = -7.64;
         [ig,ig_] = s2mpjlib('ii','G2',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'G2';
-        iv = ix_('PITCHRAT');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -0.987+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -0.987;
-        end
-        iv = ix_('ATTCKANG');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -22.95+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -22.95;
-        end
-        iv = ix_('ELEVATOR');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -28.37+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -28.37;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('PITCHRAT');
+        valA(end+1) = -0.987;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('ATTCKANG');
+        valA(end+1) = -22.95;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('ELEVATOR');
+        valA(end+1) = -28.37;
         [ig,ig_] = s2mpjlib('ii','G3',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'G3';
-        iv = ix_('ROLLRATE');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 0.002+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 0.002;
-        end
-        iv = ix_('YAWRATE');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -0.235+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -0.235;
-        end
-        iv = ix_('SSLIPANG');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 5.67+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 5.67;
-        end
-        iv = ix_('AILERON');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -0.921+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -0.921;
-        end
-        iv = ix_('RUDDERDF');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -6.51+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -6.51;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('ROLLRATE');
+        valA(end+1) = 0.002;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('YAWRATE');
+        valA(end+1) = -0.235;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('SSLIPANG');
+        valA(end+1) = 5.67;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('AILERON');
+        valA(end+1) = -0.921;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('RUDDERDF');
+        valA(end+1) = -6.51;
         [ig,ig_] = s2mpjlib('ii','G4',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'G4';
-        iv = ix_('PITCHRAT');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
-        iv = ix_('ATTCKANG');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -1.0;
-        end
-        iv = ix_('ELEVATOR');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -1.168+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -1.168;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('PITCHRAT');
+        valA(end+1) = 1.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('ATTCKANG');
+        valA(end+1) = -1.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('ELEVATOR');
+        valA(end+1) = -1.168;
         [ig,ig_] = s2mpjlib('ii','G5',ig_);
         gtype{ig}  = '==';
         cnames{ig} = 'G5';
-        iv = ix_('YAWRATE');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -1.0;
-        end
-        iv = ix_('SSLIPANG');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -0.196+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -0.196;
-        end
-        iv = ix_('AILERON');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -0.0071+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -0.0071;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('YAWRATE');
+        valA(end+1) = -1.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('SSLIPANG');
+        valA(end+1) = -0.196;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('AILERON');
+        valA(end+1) = -0.0071;
         %%%%%%%%%%%%%%% GLOBAL DIMENSIONS %%%%%%%%%%%%%%%%%
         pb.n   = ix_.Count;
         ngrp   = ig_.Count;
@@ -418,6 +360,8 @@ switch(action)
         pbm.grelt{ig}(posel) = ie_('E3B');
         nlc = union(nlc,ig);
         pbm.grelw{ig}(posel) = 1.;
+        %%%%%%%%% BUILD THE SPARSE MATRICES %%%%%%%%%%%%%%%
+        pbm.A = sparse(irA,icA,valA,ngrp,pb.n);
         %%%%%%%%% DEFAULT FOR MISSING SECTION(S) %%%%%%%%%%
         %%%%%%%%%%%%%% FORM clower AND cupper %%%%%%%%%%%%%
         pb.clower(pb.nle+1:pb.nle+pb.neq) = zeros(pb.neq,1);

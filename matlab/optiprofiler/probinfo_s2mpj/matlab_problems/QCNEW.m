@@ -18,7 +18,7 @@ function varargout = QCNEW(action,varargin)
 % 
 % 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%   Translated to Matlab by S2MPJ version 9 XI 2024
+%   Translated to Matlab by S2MPJ version 25 XI 2024
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 persistent pbm;
@@ -29,10 +29,10 @@ switch(action)
 
     case {'setup','setup_redprec'}
 
-        if(isfield(pbm,'ndigs'))
-            rmfield(pbm,'ndigs');
-        end
         if(strcmp(action,'setup_redprec'))
+            if(isfield(pbm,'ndigs'))
+                rmfield(pbm,'ndigs');
+            end
             pbm.ndigs = max(1,min(15,varargin{end}));
             nargs     = nargin-2;
         else
@@ -193,6 +193,9 @@ switch(action)
         v_('SUBBB') = v_('SUBBB')/v_('TWO');
         %%%%%%%%%%%%%%%%%%%%  VARIABLES %%%%%%%%%%%%%%%%%%%%
         pb.xnames = {};
+        irA  = [];
+        icA  = [];
+        valA = [];
         [iv,ix_] = s2mpjlib('ii','F1',ix_);
         pb.xnames{iv} = 'F1';
         [iv,ix_] = s2mpjlib('ii','F2',ix_);
@@ -212,226 +215,138 @@ switch(action)
         [iv,ix_] = s2mpjlib('ii','PBUBB',ix_);
         pb.xnames{iv} = 'PBUBB';
         %%%%%%%%%%%%%%%%%%%  DATA GROUPS %%%%%%%%%%%%%%%%%%%
-        pbm.A = sparse(0,0);
         [ig,ig_] = s2mpjlib('ii',['OBJ',int2str(round(v_('1')))],ig_);
         gtype{ig} = '<>';
-        iv = ix_('F1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -1.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('F1');
+        valA(end+1) = -1.0;
         [ig,ig_] = s2mpjlib('ii',['OBJ',int2str(round(v_('2')))],ig_);
         gtype{ig} = '<>';
-        iv = ix_('F1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('F1');
+        valA(end+1) = 1.0;
         [ig,ig_] = s2mpjlib('ii',['OBJ',int2str(round(v_('3')))],ig_);
         gtype{ig} = '<>';
-        iv = ix_('F2');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -1.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('F2');
+        valA(end+1) = -1.0;
         [ig,ig_] = s2mpjlib('ii',['OBJ',int2str(round(v_('4')))],ig_);
         gtype{ig} = '<>';
-        iv = ix_('F2');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('F2');
+        valA(end+1) = 1.0;
         [ig,ig_] = s2mpjlib('ii',['OBJ',int2str(round(v_('5')))],ig_);
         gtype{ig} = '<>';
-        iv = ix_('PBUBG');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('PBUBG');
+        valA(end+1) = 1.0;
         [ig,ig_] = s2mpjlib('ii',['OBJ',int2str(round(v_('6')))],ig_);
         gtype{ig} = '<>';
-        iv = ix_('PUBGB');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('PUBGB');
+        valA(end+1) = 1.0;
         [ig,ig_] = s2mpjlib('ii',['OBJ',int2str(round(v_('7')))],ig_);
         gtype{ig} = '<>';
-        iv = ix_('F1');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
-        iv = ix_('F2');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('F1');
+        valA(end+1) = 1.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('F2');
+        valA(end+1) = 1.0;
         [ig,ig_] = s2mpjlib('ii',['OBJ',int2str(round(v_('8')))],ig_);
         gtype{ig} = '<>';
-        iv = ix_('PGBGB');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('PGBGB');
+        valA(end+1) = 1.0;
         [ig,ig_] = s2mpjlib('ii',['OBJ',int2str(round(v_('9')))],ig_);
         gtype{ig} = '<>';
-        iv = ix_('PBGBG');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('PBGBG');
+        valA(end+1) = 1.0;
         [ig,ig_] = s2mpjlib('ii',['OBJ',int2str(round(v_('10')))],ig_);
         gtype{ig} = '<>';
-        iv = ix_('PBBBB');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('PBBBB');
+        valA(end+1) = 1.0;
         [ig,ig_] = s2mpjlib('ii',['OBJ',int2str(round(v_('11')))],ig_);
         gtype{ig} = '<>';
-        iv = ix_('PGBGB');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -1.0;
-        end
-        iv = ix_('PUBGB');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -1.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('PGBGB');
+        valA(end+1) = -1.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('PUBGB');
+        valA(end+1) = -1.0;
         [ig,ig_] = s2mpjlib('ii',['OBJ',int2str(round(v_('12')))],ig_);
         gtype{ig} = '<>';
-        iv = ix_('PBGBG');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -1.0;
-        end
-        iv = ix_('PBUBG');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -1.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('PBGBG');
+        valA(end+1) = -1.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('PBUBG');
+        valA(end+1) = -1.0;
         [ig,ig_] = s2mpjlib('ii',['OBJ',int2str(round(v_('13')))],ig_);
         gtype{ig} = '<>';
-        iv = ix_('PBBBB');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -1.0;
-        end
-        iv = ix_('PUBBB');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -1.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('PBBBB');
+        valA(end+1) = -1.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('PUBBB');
+        valA(end+1) = -1.0;
         [ig,ig_] = s2mpjlib('ii',['OBJ',int2str(round(v_('13')))],ig_);
         gtype{ig} = '<>';
-        iv = ix_('PBUBB');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = -1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = -1.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('PBUBB');
+        valA(end+1) = -1.0;
         [ig,ig_] = s2mpjlib('ii',['OBJ',int2str(round(v_('14')))],ig_);
         gtype{ig} = '<>';
-        iv = ix_('PBUBG');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('PBUBG');
+        valA(end+1) = 1.0;
         [ig,ig_] = s2mpjlib('ii',['OBJ',int2str(round(v_('15')))],ig_);
         gtype{ig} = '<>';
-        iv = ix_('PBUBB');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('PBUBB');
+        valA(end+1) = 1.0;
         [ig,ig_] = s2mpjlib('ii',['OBJ',int2str(round(v_('16')))],ig_);
         gtype{ig} = '<>';
-        iv = ix_('PUBGB');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('PUBGB');
+        valA(end+1) = 1.0;
         [ig,ig_] = s2mpjlib('ii',['OBJ',int2str(round(v_('17')))],ig_);
         gtype{ig} = '<>';
-        iv = ix_('PUBBB');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('PUBBB');
+        valA(end+1) = 1.0;
         [ig,ig_] = s2mpjlib('ii','CON0',ig_);
         gtype{ig}  = '<=';
         cnames{ig} = 'CON0';
-        iv = ix_('PBGBG');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
-        iv = ix_('PBUBG');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('PBGBG');
+        valA(end+1) = 1.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('PBUBG');
+        valA(end+1) = 1.0;
         [ig,ig_] = s2mpjlib('ii','CON1',ig_);
         gtype{ig}  = '<=';
         cnames{ig} = 'CON1';
-        iv = ix_('PGBGB');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
-        iv = ix_('PUBGB');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('PGBGB');
+        valA(end+1) = 1.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('PUBGB');
+        valA(end+1) = 1.0;
         [ig,ig_] = s2mpjlib('ii','CON2',ig_);
         gtype{ig}  = '<=';
         cnames{ig} = 'CON2';
-        iv = ix_('PBBBB');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
-        iv = ix_('PUBBB');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
-        iv = ix_('PBUBB');
-        if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-            pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-        else
-            pbm.A(ig,iv) = 1.0;
-        end
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('PBBBB');
+        valA(end+1) = 1.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('PUBBB');
+        valA(end+1) = 1.0;
+        irA(end+1)  = ig;
+        icA(end+1)  = ix_('PBUBB');
+        valA(end+1) = 1.0;
         %%%%%%%%%%%%%%% GLOBAL DIMENSIONS %%%%%%%%%%%%%%%%%
         pb.n   = ix_.Count;
         ngrp   = ig_.Count;
@@ -814,6 +729,8 @@ switch(action)
         %%%%%%%%%%%%%%%%%%% OBJECT BOUNDS %%%%%%%%%%%%%%%%%
 %    Solution
 % LO SOLTN               1138.416240
+        %%%%%%%%% BUILD THE SPARSE MATRICES %%%%%%%%%%%%%%%
+        pbm.A = sparse(irA,icA,valA,ngrp,pb.n);
         %%%%%%%%% DEFAULT FOR MISSING SECTION(S) %%%%%%%%%%
         %%%%%%%%%%%%%% FORM clower AND cupper %%%%%%%%%%%%%
         pb.clower(1:pb.nle) = -Inf*ones(pb.nle,1);

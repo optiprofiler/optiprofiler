@@ -18,7 +18,7 @@ function varargout = FERRISDC(action,varargin)
 % IE n                   200            $-PARAMETER
 % 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%   Translated to Matlab by S2MPJ version 9 XI 2024
+%   Translated to Matlab by S2MPJ version 25 XI 2024
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 persistent pbm;
@@ -29,10 +29,10 @@ switch(action)
 
     case {'setup','setup_redprec'}
 
-        if(isfield(pbm,'ndigs'))
-            rmfield(pbm,'ndigs');
-        end
         if(strcmp(action,'setup_redprec'))
+            if(isfield(pbm,'ndigs'))
+                rmfield(pbm,'ndigs');
+            end
             pbm.ndigs = max(1,min(15,varargin{end}));
             nargs     = nargin-2;
         else
@@ -323,6 +323,9 @@ switch(action)
         end
         %%%%%%%%%%%%%%%%%%%%  VARIABLES %%%%%%%%%%%%%%%%%%%%
         pb.xnames = {};
+        irA  = [];
+        icA  = [];
+        valA = [];
         for i=v_('1'):v_('k')
             for j=v_('1'):v_('n')
                 [iv,ix_] = s2mpjlib('ii',['A',int2str(i),',',int2str(j)],ix_);
@@ -334,17 +337,13 @@ switch(action)
             pb.xnames{iv} = ['W',int2str(i)];
         end
         %%%%%%%%%%%%%%%%%%%  DATA GROUPS %%%%%%%%%%%%%%%%%%%
-        pbm.A = sparse(0,0);
         for j=v_('1'):v_('n')
             for i=v_('1'):v_('k')
                 [ig,ig_] = s2mpjlib('ii','OBJ',ig_);
                 gtype{ig} = '<>';
-                iv = ix_(['A',int2str(i),',',int2str(j)]);
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = v_(['Y',int2str(i),',',int2str(j)])+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = v_(['Y',int2str(i),',',int2str(j)]);
-                end
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_(['A',int2str(i),',',int2str(j)]);
+                valA(end+1) = v_(['Y',int2str(i),',',int2str(j)]);
             end
         end
         for i=v_('1'):v_('k')
@@ -352,40 +351,28 @@ switch(action)
                 [ig,ig_] = s2mpjlib('ii',['C',int2str(i)],ig_);
                 gtype{ig}  = '==';
                 cnames{ig} = ['C',int2str(i)];
-                iv = ix_(['A',int2str(i),',',int2str(j)]);
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = 1.0;
-                end
-                iv = ix_(['W',int2str(j)]);
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = v_('-1/k')+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = v_('-1/k');
-                end
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_(['A',int2str(i),',',int2str(j)]);
+                valA(end+1) = 1.0;
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_(['W',int2str(j)]);
+                valA(end+1) = v_('-1/k');
             end
         end
         for j=v_('1'):v_('n')
             [ig,ig_] = s2mpjlib('ii',['A',int2str(j)],ig_);
             gtype{ig}  = '==';
             cnames{ig} = ['A',int2str(j)];
-            iv = ix_(['W',int2str(j)]);
-            if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                pbm.A(ig,iv) = -1.0+pbm.A(ig,iv);
-            else
-                pbm.A(ig,iv) = -1.0;
-            end
+            irA(end+1)  = ig;
+            icA(end+1)  = ix_(['W',int2str(j)]);
+            valA(end+1) = -1.0;
             for i=v_('1'):v_('k')
                 [ig,ig_] = s2mpjlib('ii',['A',int2str(j)],ig_);
                 gtype{ig}  = '==';
                 cnames{ig} = ['A',int2str(j)];
-                iv = ix_(['A',int2str(i),',',int2str(j)]);
-                if(size(pbm.A,1)>=ig&&size(pbm.A,2)>=iv)
-                    pbm.A(ig,iv) = 1.0+pbm.A(ig,iv);
-                else
-                    pbm.A(ig,iv) = 1.0;
-                end
+                irA(end+1)  = ig;
+                icA(end+1)  = ix_(['A',int2str(i),',',int2str(j)]);
+                valA(end+1) = 1.0;
             end
         end
         %%%%%%%%%%%%%%% GLOBAL DIMENSIONS %%%%%%%%%%%%%%%%%
@@ -428,30 +415,39 @@ switch(action)
             end
         end
         %%%%%%%%%%%%%%%%%%%%% QUADRATIC %%%%%%%%%%%%%%%%%%%
-        pbm.H = sparse( pb.n, pb.n );
+        irH  = [];
+        icH  = [];
+        valH = [];
         for i=v_('1'):v_('k')
             for l=v_('1'):v_('n')
                 for j=v_('1'):l
-                    ix1 = ix_(['A',int2str(i),',',int2str(j)]);
-                    ix2 = ix_(['A',int2str(i),',',int2str(l)]);
-                    pbm.H(ix1,ix2) = v_(['K',int2str(j),',',int2str(l)])+pbm.H(ix1,ix2);
-                    pbm.H(ix2,ix1) = pbm.H(ix1,ix2);
+                    irH(end+1)  =  ix_(['A',int2str(i),',',int2str(j)]);
+                    icH(end+1)  =  ix_(['A',int2str(i),',',int2str(l)]);
+                    valH(end+1) =  v_(['K',int2str(j),',',int2str(l)]);
+                    irH(end+1)  =  ix_(['A',int2str(i),',',int2str(l)]);
+                    icH(end+1)  =  ix_(['A',int2str(i),',',int2str(j)]);
+                    valH(end+1) =  v_(['K',int2str(j),',',int2str(l)]);
                 end
             end
         end
         for l=v_('1'):v_('n')
             for j=v_('1'):l
                 v_('coef') = v_('-1/k')*v_(['K',int2str(j),',',int2str(l)]);
-                ix1 = ix_(['W',int2str(j)]);
-                ix2 = ix_(['W',int2str(l)]);
-                pbm.H(ix1,ix2) = v_('coef')+pbm.H(ix1,ix2);
-                pbm.H(ix2,ix1) = pbm.H(ix1,ix2);
+                irH(end+1)  =  ix_(['W',int2str(j)]);
+                icH(end+1)  =  ix_(['W',int2str(l)]);
+                valH(end+1) =  v_('coef');
+                irH(end+1)  =  ix_(['W',int2str(l)]);
+                icH(end+1)  =  ix_(['W',int2str(j)]);
+                valH(end+1) =  v_('coef');
             end
         end
         %%%%%%%%%%%%%%%%%%% OBJECT BOUNDS %%%%%%%%%%%%%%%%%
 %    Solution
 % XL SOLUTION            -1.131846D+2   $ nlambda = 1.5625
 % XL SOLUTION            -8.032841E-5   $ nlambda = 1.4901E-06
+        %%%%%%%%% BUILD THE SPARSE MATRICES %%%%%%%%%%%%%%%
+        pbm.A = sparse(irA,icA,valA,ngrp,pb.n);
+        pbm.H = sparse(irH,icH,valH,pb.n,pb.n);
         %%%%%%%%% DEFAULT FOR MISSING SECTION(S) %%%%%%%%%%
         %%%%%%%%%%%%%% FORM clower AND cupper %%%%%%%%%%%%%
         pb.clower(pb.nle+1:pb.nle+pb.neq) = zeros(pb.neq,1);
