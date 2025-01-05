@@ -262,7 +262,7 @@ function uninstall_optiprofiler(path_string_stamp)
     
     % The full path of several directories.   
     mfiledir = fileparts(mfilename('fullpath'));  % The directory where this .m file resides
-    matd = fullfile(mfiledir, 'matlab'); % Matlab directory
+    matd = fullfile(mfiledir, 'matlab'); % OptiProfiler/matlab directory
     optiprofiler_dir = fullfile(matd, 'optiprofiler'); % Directory containing the package
     src_dir = fullfile(optiprofiler_dir, 'src'); % Directory containing the source code of the package
     probinfo_dir = fullfile(optiprofiler_dir, 'probinfo_s2mpj'); % Directory containing the problem information of the test set S2MPJ
