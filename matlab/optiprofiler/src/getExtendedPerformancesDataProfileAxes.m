@@ -1,4 +1,4 @@
-function [x_perf, y_perf, ratio_max_perf, x_data, y_data, ratio_max_data] = getExtendedPerformancesDataProfileAxes(work, problem_dimensions)
+function [x_perf, y_perf, ratio_max_perf, x_data, y_data, ratio_max_data, profiles] = getExtendedPerformancesDataProfileAxes(work, problem_dimensions, profiles)
 %GETEXTENDEDPERFORMANCESDATAPROFILEAXES computes the axes for the extended performance
 %profiles and data profiles. The word "extended" specifically refers to that the data
 %at the startpoint and endpoint of the profiles are specially handled.
@@ -30,4 +30,15 @@ function [x_perf, y_perf, ratio_max_perf, x_data, y_data, ratio_max_data] = getE
     x_data = log2(1 + x_data);
     ratio_max_data = log2(1 + ratio_max_data);
 
+    % Store the curves in the `profiles` struct.
+    for i_solver = 1:n_solvers
+        for i_run = 1:n_runs
+            profiles.perf{i_solver, i_run} = [x_perf(:, i_solver)'; y_perf(:, i_solver, i_run)'];
+            profiles.data{i_solver, i_run} = [x_data(:, i_solver)'; y_data(:, i_solver, i_run)'];
+        end
+        y_mean_perf = squeeze(mean(y_perf(:, i_solver, :), 3));
+        y_mean_data = squeeze(mean(y_data(:, i_solver, :), 3));
+        profiles.perf{i_solver, n_runs + 1} = [x_perf(:, i_solver)'; y_mean_perf'];
+        profiles.data{i_solver, n_runs + 1} = [x_data(:, i_solver)'; y_mean_data'];
+    end
 end

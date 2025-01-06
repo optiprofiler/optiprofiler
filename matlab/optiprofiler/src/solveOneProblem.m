@@ -68,7 +68,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
     for i_solver = 1:n_solvers
         for i_run = 1:real_n_runs(i_solver)
             if ~profile_options.(ProfileOptionKey.SILENT.value)
-                format_info_start = sprintf("INFO: Start  solving %%-%ds with %%-%ds (run %%2d/%%2d).\\n\\n", len_problem_names, len_solver_names);
+                format_info_start = sprintf("INFO: Start  solving     %%-%ds with %%-%ds (run %%2d/%%2d).\\n\\n", len_problem_names, len_solver_names);
                 fprintf(format_info_start, problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver));
             end
             time_start_solver_run = tic;

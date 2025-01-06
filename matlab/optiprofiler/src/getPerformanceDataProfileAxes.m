@@ -86,5 +86,4 @@ function [x, y, ratio_max] = getPerformanceDataProfileAxes(work, denominator, pe
             end
         end
     end
-    
 end

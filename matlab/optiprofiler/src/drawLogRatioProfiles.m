@@ -1,4 +1,4 @@
-function drawLogRatioProfiles(ax, work, solver_names)
+function profiles = drawLogRatioProfiles(ax, work, solver_names, profiles)
 %DRAWLOGRATIOPROFILES draws log-ratio profiles.
 
     [n_problems, n_solvers, n_runs] = size(work);
@@ -16,6 +16,12 @@ function drawLogRatioProfiles(ax, work, solver_names)
     log_ratio = sort(log_ratio);
 
     x = (1:(n_problems * n_runs))';
+
+    % Store the curves in the `profiles` struct.
+    profiles.log_ratio{1} = [x(log_ratio < 0)'; log_ratio(log_ratio < 0)'];
+    profiles.log_ratio{2} = [x(log_ratio > 0)'; log_ratio(log_ratio > 0)'];
+
+    % Draw the log-ratio profiles.
     bar(ax, x(log_ratio < 0), log_ratio(log_ratio < 0), 'LineStyle', 'None', 'LineWidth', 1.5);
     hold(ax, 'on');
     bar(ax, x(log_ratio > 0), log_ratio(log_ratio > 0), 'LineStyle', 'None', 'LineWidth', 1.5);

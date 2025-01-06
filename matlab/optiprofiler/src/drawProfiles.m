@@ -1,4 +1,4 @@
-function [fig_perf, fig_data, fig_log_ratio] = drawProfiles(work, problem_dimensions, solver_names, tolerance_label, cell_axs_summary, is_summary, is_perf, is_data, is_log_ratio, profile_options)
+function [fig_perf, fig_data, fig_log_ratio, profiles] = drawProfiles(work, problem_dimensions, solver_names, tolerance_label, cell_axs_summary, is_summary, is_perf, is_data, is_log_ratio, profile_options, profiles)
 %DRAWPROFILES draws the performance, data, and log-ratio profiles.
 
     n_solvers = size(work, 2);
@@ -21,7 +21,7 @@ function [fig_perf, fig_data, fig_log_ratio] = drawProfiles(work, problem_dimens
         ax_log_ratio = nexttile(t_log_ratio);
     end
     % Draw the performance and data profiles.
-    [x_perf, y_perf, ratio_max_perf, x_data, y_data, ratio_max_data] = getExtendedPerformancesDataProfileAxes(work, problem_dimensions);
+    [x_perf, y_perf, ratio_max_perf, x_data, y_data, ratio_max_data, profiles] = getExtendedPerformancesDataProfileAxes(work, problem_dimensions, profiles);
     drawPerformanceDataProfiles(ax_perf, x_perf, y_perf, solver_names, profile_options);
     drawPerformanceDataProfiles(ax_data, x_data, y_data, solver_names, profile_options);
     % Set x-axis limits.
@@ -40,9 +40,9 @@ function [fig_perf, fig_data, fig_log_ratio] = drawProfiles(work, problem_dimens
     ylabel(ax_perf, ['Performance profiles (', tolerance_label, ')'], 'Interpreter', 'latex');
     ylabel(ax_data, ['Data profiles (', tolerance_label, ')'], 'Interpreter', 'latex');
     % Draw the log-ratio profiles.
-    if n_solvers <= 2
+    if n_solvers == 2
         copy_work1 = work;
-        drawLogRatioProfiles(ax_log_ratio, copy_work1, solver_names);
+        profiles = drawLogRatioProfiles(ax_log_ratio, copy_work1, solver_names, profiles);
         % Set x-axis labels.
         xlabel(ax_log_ratio, 'Problem', 'Interpreter', 'latex');
         % Set y-axis labels.

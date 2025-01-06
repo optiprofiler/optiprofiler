@@ -617,7 +617,19 @@ function benchmark(solvers, varargin)
         end
     end
 
+    % Store the curves of the performance profiles, data profiles, and log-ratio profiles.
+    profiles = cell(1, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value));
+
     for i_profile = 1:profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)
+        profiles{i_profile} = struct();
+        profiles{i_profile}.hist = struct();
+        profiles{i_profile}.hist.perf = cell(n_solvers, n_runs + 1);
+        profiles{i_profile}.hist.data = cell(n_solvers, n_runs + 1);
+        if n_solvers == 2
+            profiles{i_profile}.hist.log_ratio = cell(1, 2);
+        end
+        profiles{i_profile}.out = profiles{i_profile}.hist;
+
         tolerance = tolerances(i_profile);
         [tolerance_str, tolerance_latex] = formatFloatScientificLatex(tolerance, 1);
         if ~profile_options.(ProfileOptionKey.SILENT.value)
@@ -673,8 +685,8 @@ function benchmark(solvers, varargin)
         end
 
         processed_solver_names = cellfun(@(s) strrep(s, '_', '\_'), other_options.(OtherOptionKey.SOLVER_NAMES.value), 'UniformOutput', false);
-        [fig_perf_hist, fig_data_hist, fig_log_ratio_hist] = drawProfiles(work_hist, problem_dimensions, processed_solver_names, tolerance_label, cell_axs_summary_hist, true, is_perf, is_data, is_log_ratio, profile_options);
-        [fig_perf_out, fig_data_out, fig_log_ratio_out] = drawProfiles(work_out, problem_dimensions, processed_solver_names, tolerance_label, cell_axs_summary_out, is_output_based, is_perf, is_data, is_log_ratio, profile_options);
+        [fig_perf_hist, fig_data_hist, fig_log_ratio_hist, profiles{i_profile}.hist] = drawProfiles(work_hist, problem_dimensions, processed_solver_names, tolerance_label, cell_axs_summary_hist, true, is_perf, is_data, is_log_ratio, profile_options, profiles{i_profile}.hist);
+        [fig_perf_out, fig_data_out, fig_log_ratio_out, profiles{i_profile}.out] = drawProfiles(work_out, problem_dimensions, processed_solver_names, tolerance_label, cell_axs_summary_out, is_output_based, is_perf, is_data, is_log_ratio, profile_options, profiles{i_profile}.out);
 
         eps_perf_hist = fullfile(path_perf_hist, ['perf_hist_' int2str(i_profile) '.eps']);
         print(fig_perf_hist, eps_perf_hist, '-depsc');
@@ -741,6 +753,9 @@ function benchmark(solvers, varargin)
         end
 
     end
+
+    % Store `profiles` in a mat file in the path_log directory.
+    save(fullfile(path_log, 'profiles.mat'), 'profiles');
 
     % Store the summary pdf. We will name the summary pdf as "summary_feature_name.pdf" and store it under path_feature.
     % We will also put a "summary.pdf" in the path_out directory, which will be a merged pdf of all the "summary_feature_name.pdf" under path_out following the order of the feature_stamp.
