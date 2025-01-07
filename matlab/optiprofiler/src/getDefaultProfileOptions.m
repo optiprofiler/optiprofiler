@@ -40,6 +40,9 @@ function profile_options = getDefaultProfileOptions(feature, profile_options)
     if ~isfield(profile_options, ProfileOptionKey.RUN_PLAIN.value)
         profile_options.(ProfileOptionKey.RUN_PLAIN.value) = false;
     end
+    if ~isfield(profile_options, ProfileOptionKey.DRAW_PLOTS.value)
+        profile_options.(ProfileOptionKey.DRAW_PLOTS.value) = true;
+    end
     if ~isfield(profile_options, ProfileOptionKey.SUMMARIZE_PERFORMANCE_PROFILES.value)
         profile_options.(ProfileOptionKey.SUMMARIZE_PERFORMANCE_PROFILES.value) = true;
     end
@@ -57,6 +60,12 @@ function profile_options = getDefaultProfileOptions(feature, profile_options)
     end
     if ~isfield(profile_options, ProfileOptionKey.SOLVER_VERBOSE.value)
         profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) = 1;
+    end
+    if ~isfield(profile_options, ProfileOptionKey.SEMILOGX.value)
+        profile_options.(ProfileOptionKey.SEMILOGX.value) = true;
+    end
+    if ~isfield(profile_options, ProfileOptionKey.SCORING_FUN.value)
+        profile_options.(ProfileOptionKey.SCORING_FUN.value) = @(x) mean(x(:, :, 1, 1), 2) ./ max(max(mean(x(:, :, 1, 1), 2)), eps);
     end
 end
 

@@ -90,6 +90,12 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
             error("MATLAB:checkValidityProfileOptions:run_plainNotValid", "The field 'run_plain' of options should be a boolean.");
         end
     end
+    % Judge whether profile_options.draw_plots is a boolean.
+    if isfield(profile_options, ProfileOptionKey.DRAW_PLOTS.value)
+        if ~islogicalscalar(profile_options.(ProfileOptionKey.DRAW_PLOTS.value))
+            error("MATLAB:checkValidityProfileOptions:draw_plotsNotValid", "The field 'draw_plots' of options should be a boolean.");
+        end
+    end
     % Judge whether profile_options.summarize_performance_profiles is a boolean.
     if isfield(profile_options, ProfileOptionKey.SUMMARIZE_PERFORMANCE_PROFILES.value)
         if ~islogicalscalar(profile_options.(ProfileOptionKey.SUMMARIZE_PERFORMANCE_PROFILES.value))
@@ -134,5 +140,16 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
             profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) = 1;
         end
     end
-
+    % Judge whether profile_options.semilogx is a boolean.
+    if isfield(profile_options, ProfileOptionKey.SEMILOGX.value)
+        if ~islogicalscalar(profile_options.(ProfileOptionKey.SEMILOGX.value))
+            error("MATLAB:checkValidityProfileOptions:semilogxNotValid", "The field 'semilogx' of options should be a boolean.");
+        end
+    end
+    % Judge whether profile_options.scoring_fun is a function handle.
+    if isfield(profile_options, ProfileOptionKey.SCORING_FUN.value)
+        if ~isa(profile_options.(ProfileOptionKey.SCORING_FUN.value), 'function_handle')
+            error("MATLAB:checkValidityProfileOptions:scoring_funNotValid", "The field 'scoring_fun' of options should be a function handle.");
+        end
+    end
 end

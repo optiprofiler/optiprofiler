@@ -54,6 +54,10 @@ classdef TestCheckValidityProfileOptions < matlab.unittest.TestCase
             testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:run_plainNotValid");
             options = rmfield(options, 'run_plain');
 
+            options.draw_plots = 2;
+            testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:draw_plotsNotValid");
+            options = rmfield(options, 'draw_plots');
+
             options.summarize_performance_profiles = 2;
             testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:summarize_performance_profilesNotValid");
             options = rmfield(options, 'summarize_performance_profiles');
@@ -76,6 +80,15 @@ classdef TestCheckValidityProfileOptions < matlab.unittest.TestCase
 
             options.solver_verbose = 3;
             testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:solver_verboseNotValid");
+            options = rmfield(options, 'solver_verbose');
+
+            options.semilogx = 2;
+            testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:semilogxNotValid");
+            options = rmfield(options, 'semilogx');
+
+            options.scoring_fun = 1;
+            testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:scoring_funNotValid");
+            options = rmfield(options, 'scoring_fun');
         end
 
     end

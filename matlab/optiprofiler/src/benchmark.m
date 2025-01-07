@@ -1,22 +1,32 @@
-function benchmark(solvers, varargin)
+function [solver_scores, profiles] = benchmark(solvers, varargin)
 %BENCHMARK Create multiple profiles for benchmarking optimization solvers on a
 %   set of problems with different features.
 %
 %   Signatures:
 %
-%   BENCHMARK(SOLVERS) creates performance profiles and data profiles for the
-%   given SOLVERS with default unconstrained problem set and feature plain.
-%   SOLVERS is a cell array of function handles whom we require to accept
-%   specified inputs and return specified outputs. Details can be found in the
-%   'Cautions' part.
+%   SOLVER_SCORES = BENCHMARK(SOLVERS) creates performance profiles, data
+%   profiles, and log-ratio profiles (later say profiles) for the given SOLVERS
+%   on the default unconstrained problem set, returning SOLVER_SCORES based on
+%   the profiles. SOLVERS is a cell array of function handles. We require
+%   SOLVERS to accept specified inputs and return specified outputs. Details
+%   can be found in the following 'Cautions' part.
 %
-%   BENCHMARK(SOLVERS, FEATURE_NAME) creates performance profiles and data
-%   profiles for the given SOLVERS with default unconstrained problem set and
-%   the specified feature FEATURE_NAME.
+%   SOLVER_SCORES = BENCHMARK(SOLVERS, FEATURE_NAME) creates profiles and data
+%   profiles for the given SOLVERS on the default unconstrained problem set
+%   with the specified feature FEATURE_NAME.
 %
-%   BENCHMARK(SOLVERS, OPTIONS) creates performance profiles and data profiles
-%   for the given SOLVERS with options specified in the struct OPTIONS.
-%   OPTIONS can contain the following fields:
+%   SOLVER_SCORES = BENCHMARK(SOLVERS, OPTIONS) creates profiles for the given
+%   SOLVERS with options specified in the struct OPTIONS. See 'Options' part
+%   for more details.
+%
+%   [SOLVER_SCORES, PROFILES] = BENCHMARK(...) returns all the profiles in the
+%   cell array PROFILES.
+%
+%   Options:
+%
+%   Options should be specified in a struct. The following are the available
+%   fields of the struct:
+%
 %       1. options for profiles and plots:
 %       - n_jobs: the number of parallel jobs to run the test. Default is 1.
 %       - benchmark_id: the identifier of the test. It is used to create the
@@ -42,6 +52,8 @@ function benchmark(solvers, varargin)
 %         Default is false.
 %       - run_plain: whether to run an extra experiment with the 'plain'
 %         feature. Default is false.
+%       - draw_plots: whether to draw history plots and profiles. Default is
+%         true.
 %       - summarize_performance_profiles: whether to add all the performance
 %         profiles to the summary PDF. Default is true.
 %       - summarize_data_profiles: whether to add all the data profiles to the
@@ -51,6 +63,20 @@ function benchmark(solvers, varargin)
 %       - summarize_output_based_profiles: whether to add all the output-based
 %         profiles of the selected profiles to the summary PDF. Default is
 %         true.
+%       - semilogx: whether to use the semilogx scale during calculating the
+%         integral of the performance profiles and data profiles. Default is
+%         true.
+%       - scoring_fun: the scoring function to calculate the scores of the
+%         solvers. It should be a function handle as follows:
+%               scores -> solver_scores,
+%         where `scores` is a 4D tensor of scores. The first dimension is the
+%         index of the solver, the second is the index of tolerance starting
+%         from 1, the third represents history-based or output-based profiles,
+%         and the fourth represents performance profiles, data profiles, or
+%         log-ratio profiles. The default scoring function takes the average of
+%         the history-based performance profiles along the tolerance axis and
+%         then normalizes the average by the maximum value of the average.
+%
 %       2. options for features:
 %       - feature_name: the name of the feature. Default is 'plain'.
 %       - n_runs: the number of runs of the experiments under the given
@@ -151,6 +177,7 @@ function benchmark(solvers, varargin)
 %         where x is the evaluation point, `problem` is an instance of the
 %         class Problem, and `modified_ceq` is the modified vector of the
 %         nonlinear equality constraints. No default.
+%
 %       3. options for CUTEst:
 %       Note that the CUTEst we used is the MATLAB codes from a GitHub
 %       repository called 'S2MPJ', created by Professor Serge Gratton and
@@ -172,6 +199,7 @@ function benchmark(solvers, varargin)
 %         problems, and 0 for the others.
 %       - excludelist: the list of problems to be excluded. Default is not to
 %         exclude any problem.
+%
 %       4. other options:
 %       - solver_names: the names of the solvers. Default is the function names
 %         of the solvers.
@@ -215,11 +243,11 @@ function benchmark(solvers, varargin)
 %         where `cub` and `ceq` are the functions of the nonlinear inequality
 %         and equality constraints accepting a column vector and returning a
 %         column vector.
-%          
+%   2. The log-ratio profiles are available only when there are exactly two 
+%      solvers.
 %
 %   For more information of performance and data profiles, see [1]_, [2]_,
-%   [4]_. For that of log-ratio profiles, see [3]_, [5]_. Pay attention that 
-%   log-ratio profiles are available only when there are exactly two solvers.
+%   [4]_. For that of log-ratio profiles, see [3]_, [5]_.
 %
 %   References:
 %   .. [1] E. D. Dolan and J. J. Moré. Benchmarking optimization software with
@@ -376,7 +404,7 @@ function benchmark(solvers, varargin)
     set(groot, 'DefaultAxesFontName', 'Arial');
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %%%%%%%%%%%%%%%%%%%%%%%%% Start the computation of the profiles. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%% Create the directory to store the results. %%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     % Create the directory to store the results. If it already exists, overwrite it.
@@ -387,9 +415,13 @@ function benchmark(solvers, varargin)
         rmdir(path_feature, 's');
         mkdir(path_feature);
     end
-    path_hist_plots = fullfile(path_feature, 'history_plots');
-    if ~exist(path_hist_plots, 'dir')
-        mkdir(path_hist_plots);
+    if ~profile_options.(ProfileOptionKey.DRAW_PLOTS.value)
+        path_hist_plots = '';
+    else
+        path_hist_plots = fullfile(path_feature, 'history_plots');
+        if ~exist(path_hist_plots, 'dir')
+            mkdir(path_hist_plots);
+        end
     end
 
     % Create the directory to store options and log files.
@@ -430,7 +462,48 @@ function benchmark(solvers, varargin)
         fprintf("INFO: Failed to copy the script or function that calls `benchmark` function to the log directory.\n\n");
     end
 
-    % Solve all the problems.
+    if profile_options.(ProfileOptionKey.DRAW_PLOTS.value)
+        % Create the directories for the performance profiles, data profiles, and log-ratio profiles.
+        path_perf_hist = fullfile(path_feature, 'detailed_profiles', 'perf_history-based');
+        path_data_hist = fullfile(path_feature, 'detailed_profiles', 'data_history-based');
+        path_log_ratio_hist = fullfile(path_feature, 'detailed_profiles', 'log-ratio_history-based');
+        path_perf_out = fullfile(path_feature, 'detailed_profiles', 'perf_output-based');
+        path_data_out = fullfile(path_feature, 'detailed_profiles', 'data_output-based');
+        path_log_ratio_out = fullfile(path_feature, 'detailed_profiles', 'log-ratio_output-based');
+        
+        if ~exist(path_perf_hist, 'dir')
+            mkdir(path_perf_hist);
+        end
+        if ~exist(path_data_hist, 'dir')
+            mkdir(path_data_hist);
+        end
+        if ~exist(path_perf_out, 'dir')
+            mkdir(path_perf_out);
+        end
+        if ~exist(path_data_out, 'dir')
+            mkdir(path_data_out);
+        end
+        if length(solvers) == 2
+            if ~exist(path_log_ratio_hist, 'dir')
+                mkdir(path_log_ratio_hist);
+            end
+            if ~exist(path_log_ratio_out, 'dir')
+                mkdir(path_log_ratio_out);
+            end
+        end
+
+        pdf_perf_hist_summary = fullfile(path_feature, 'perf_hist.pdf');
+        pdf_perf_out_summary = fullfile(path_feature, 'perf_out.pdf');
+        pdf_data_hist_summary = fullfile(path_feature, 'data_hist.pdf');
+        pdf_data_out_summary = fullfile(path_feature, 'data_out.pdf');
+        pdf_log_ratio_hist_summary = fullfile(path_feature, 'log-ratio_hist.pdf');
+        pdf_log_ratio_out_summary = fullfile(path_feature, 'log-ratio_out.pdf');
+    end
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Solve all the problems. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
     if ~profile_options.(ProfileOptionKey.SILENT.value)
         fprintf('INFO: Starting the computation of the "%s" profiles.\n', feature.name);
     end
@@ -451,14 +524,16 @@ function benchmark(solvers, varargin)
     % If there is only one problem, we will not compute the performance profiles, data profiles, and
     % log-ratio profiles.
     if numel(problem_names) == 1
-        % We move the history plots to the feature directory.
-        try
-            movefile(fullfile(path_hist_plots, '*'), path_feature);
-            rmdir(path_hist_plots, 's');
-            if ~profile_options.(ProfileOptionKey.SILENT.value)
-                fprintf('\nINFO: Detailed results stored in %s\n', path_feature);
+        if profile_options.(ProfileOptionKey.DRAW_PLOTS.value)
+            % We move the history plots to the feature directory.
+            try
+                movefile(fullfile(path_hist_plots, '*'), path_feature);
+                rmdir(path_hist_plots, 's');
+                if ~profile_options.(ProfileOptionKey.SILENT.value)
+                    fprintf('\nINFO: Detailed results stored in %s\n', path_feature);
+                end
+            catch
             end
-        catch
         end
         diary off;
         return;
@@ -483,27 +558,6 @@ function benchmark(solvers, varargin)
                 time_processes(i_problem) = time_processes(i_problem) + time_processes_plain(idx);
             end
         end
-    end
-
-    % Create the directories for the performance profiles, data profiles, and log-ratio profiles.
-    path_perf_hist = fullfile(path_feature, 'detailed_profiles', 'perf_history-based');
-    path_data_hist = fullfile(path_feature, 'detailed_profiles', 'data_history-based');
-    path_log_ratio_hist = fullfile(path_feature, 'detailed_profiles', 'log-ratio_history-based');
-    path_perf_out = fullfile(path_feature, 'detailed_profiles', 'perf_output-based');
-    path_data_out = fullfile(path_feature, 'detailed_profiles', 'data_output-based');
-    path_log_ratio_out = fullfile(path_feature, 'detailed_profiles', 'log-ratio_output-based');
-    
-    if ~exist(path_perf_hist, 'dir')
-        mkdir(path_perf_hist);
-    end
-    if ~exist(path_data_hist, 'dir')
-        mkdir(path_data_hist);
-    end
-    if ~exist(path_perf_out, 'dir')
-        mkdir(path_perf_out);
-    end
-    if ~exist(path_data_out, 'dir')
-        mkdir(path_data_out);
     end
 
     % Store the names of the problems.
@@ -533,40 +587,30 @@ function benchmark(solvers, varargin)
     end
     fclose(fid);
 
-    % Merge all the pdf files in path_hist_plots to a single pdf file.
-    if ~profile_options.(ProfileOptionKey.SILENT.value)
-        fprintf('\nINFO: Merging all the history plots to a single PDF file.\n');
-    end
-    try
-        mergePdfs(path_hist_plots, 'history_plots_summary.pdf', path_feature);
-    catch
-        warning('INFO: Failed to merge the history plots to a single PDF file.');
+    if profile_options.(ProfileOptionKey.DRAW_PLOTS.value)
+        % Merge all the pdf files in path_hist_plots to a single pdf file.
+        if ~profile_options.(ProfileOptionKey.SILENT.value)
+            fprintf('\nINFO: Merging all the history plots to a single PDF file.\n');
+        end
+        try
+            mergePdfs(path_hist_plots, 'history_plots_summary.pdf', path_feature);
+        catch
+            warning('INFO: Failed to merge the history plots to a single PDF file.');
+        end
+
+        if ~profile_options.(ProfileOptionKey.SILENT.value)
+            fprintf('\nINFO: Detailed results stored in %s\n\n', path_feature);
+        end
     end
 
-    if ~profile_options.(ProfileOptionKey.SILENT.value)
-        fprintf('\nINFO: Detailed results stored in %s\n\n', path_feature);
-    end
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%% Start the computation of all profiles. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     [n_problems, n_solvers, n_runs, ~] = size(merit_histories);
-    if n_solvers <= 2
-        if ~exist(path_log_ratio_hist, 'dir')
-            mkdir(path_log_ratio_hist);
-        end
-        if ~exist(path_log_ratio_out, 'dir')
-            mkdir(path_log_ratio_out);
-        end
-    end
-
     max_tol_order = profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value);
     tolerances = 10.^(-1:-1:-max_tol_order);
-    pdf_perf_hist_summary = fullfile(path_feature, 'perf_hist.pdf');
-    pdf_perf_out_summary = fullfile(path_feature, 'perf_out.pdf');
-    pdf_data_hist_summary = fullfile(path_feature, 'data_hist.pdf');
-    pdf_data_out_summary = fullfile(path_feature, 'data_out.pdf');
-    pdf_log_ratio_hist_summary = fullfile(path_feature, 'log-ratio_hist.pdf');
-    pdf_log_ratio_out_summary = fullfile(path_feature, 'log-ratio_out.pdf');
 
-    % Create profiles.
     warning('off');
     n_rows = 0;
     is_perf = profile_options.(ProfileOptionKey.SUMMARIZE_PERFORMANCE_PROFILES.value);
@@ -620,17 +664,17 @@ function benchmark(solvers, varargin)
     % Store the curves of the performance profiles, data profiles, and log-ratio profiles.
     profiles = cell(1, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value));
 
-    for i_profile = 1:profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)
-        profiles{i_profile} = struct();
-        profiles{i_profile}.hist = struct();
-        profiles{i_profile}.hist.perf = cell(n_solvers, n_runs + 1);
-        profiles{i_profile}.hist.data = cell(n_solvers, n_runs + 1);
+    for i_tol = 1:profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)
+        profiles{i_tol} = struct();
+        profiles{i_tol}.hist = struct();
+        profiles{i_tol}.hist.perf = cell(n_solvers, n_runs + 1);
+        profiles{i_tol}.hist.data = cell(n_solvers, n_runs + 1);
         if n_solvers == 2
-            profiles{i_profile}.hist.log_ratio = cell(1, 2);
+            profiles{i_tol}.hist.log_ratio = cell(1, 2);
         end
-        profiles{i_profile}.out = profiles{i_profile}.hist;
+        profiles{i_tol}.out = profiles{i_tol}.hist;
 
-        tolerance = tolerances(i_profile);
+        tolerance = tolerances(i_tol);
         [tolerance_str, tolerance_latex] = formatFloatScientificLatex(tolerance, 1);
         if ~profile_options.(ProfileOptionKey.SILENT.value)
             fprintf("INFO: Creating profiles for tolerance %s.\n", tolerance_str);
@@ -662,22 +706,22 @@ function benchmark(solvers, varargin)
         % Draw the profiles.
         cell_axs_summary_out = {};
         if is_perf && is_data && is_log_ratio
-            cell_axs_summary_hist = {axs_summary(i_profile), axs_summary(i_profile + max_tol_order), ...
-            axs_summary(i_profile + 2 * max_tol_order)};
+            cell_axs_summary_hist = {axs_summary(i_tol), axs_summary(i_tol + max_tol_order), ...
+            axs_summary(i_tol + 2 * max_tol_order)};
             if is_output_based
-                cell_axs_summary_out = {axs_summary(i_profile + 3 * max_tol_order), ...
-                axs_summary(i_profile + 4 * max_tol_order), axs_summary(i_profile + 5 * max_tol_order)};
+                cell_axs_summary_out = {axs_summary(i_tol + 3 * max_tol_order), ...
+                axs_summary(i_tol + 4 * max_tol_order), axs_summary(i_tol + 5 * max_tol_order)};
             end
         elseif (is_perf && is_data) || (is_perf && is_log_ratio) || (is_data && is_log_ratio)
-            cell_axs_summary_hist = {axs_summary(i_profile), axs_summary(i_profile + max_tol_order)};
+            cell_axs_summary_hist = {axs_summary(i_tol), axs_summary(i_tol + max_tol_order)};
             if is_output_based
-                cell_axs_summary_out = {axs_summary(i_profile + 2 * max_tol_order), ...
-                axs_summary(i_profile + 3 * max_tol_order)};
+                cell_axs_summary_out = {axs_summary(i_tol + 2 * max_tol_order), ...
+                axs_summary(i_tol + 3 * max_tol_order)};
             end
         elseif is_perf || is_data || is_log_ratio
-            cell_axs_summary_hist = {axs_summary(i_profile)};
+            cell_axs_summary_hist = {axs_summary(i_tol)};
             if is_output_based
-                cell_axs_summary_out = {axs_summary(i_profile + max_tol_order)};
+                cell_axs_summary_out = {axs_summary(i_tol + max_tol_order)};
             end
         else
             cell_axs_summary_hist = {};
@@ -685,58 +729,60 @@ function benchmark(solvers, varargin)
         end
 
         processed_solver_names = cellfun(@(s) strrep(s, '_', '\_'), other_options.(OtherOptionKey.SOLVER_NAMES.value), 'UniformOutput', false);
-        [fig_perf_hist, fig_data_hist, fig_log_ratio_hist, profiles{i_profile}.hist] = drawProfiles(work_hist, problem_dimensions, processed_solver_names, tolerance_label, cell_axs_summary_hist, true, is_perf, is_data, is_log_ratio, profile_options, profiles{i_profile}.hist);
-        [fig_perf_out, fig_data_out, fig_log_ratio_out, profiles{i_profile}.out] = drawProfiles(work_out, problem_dimensions, processed_solver_names, tolerance_label, cell_axs_summary_out, is_output_based, is_perf, is_data, is_log_ratio, profile_options, profiles{i_profile}.out);
+        [fig_perf_hist, fig_data_hist, fig_log_ratio_hist, profiles{i_tol}.hist] = drawProfiles(work_hist, problem_dimensions, processed_solver_names, tolerance_label, cell_axs_summary_hist, true, is_perf, is_data, is_log_ratio, profile_options, profiles{i_tol}.hist);
+        [fig_perf_out, fig_data_out, fig_log_ratio_out, profiles{i_tol}.out] = drawProfiles(work_out, problem_dimensions, processed_solver_names, tolerance_label, cell_axs_summary_out, is_output_based, is_perf, is_data, is_log_ratio, profile_options, profiles{i_tol}.out);
 
-        eps_perf_hist = fullfile(path_perf_hist, ['perf_hist_' int2str(i_profile) '.eps']);
-        print(fig_perf_hist, eps_perf_hist, '-depsc');
-        pdf_perf_hist = fullfile(path_perf_hist, ['perf_hist_' int2str(i_profile) '.pdf']);
-        print(fig_perf_hist, pdf_perf_hist, '-dpdf');
-        eps_perf_out = fullfile(path_perf_out, ['perf_out_' int2str(i_profile) '.eps']);
-        print(fig_perf_out, eps_perf_out, '-depsc');
-        pdf_perf_out = fullfile(path_perf_out, ['perf_out_' int2str(i_profile) '.pdf']);
-        print(fig_perf_out, pdf_perf_out, '-dpdf');
-        eps_data_hist = fullfile(path_data_hist, ['data_hist_' int2str(i_profile) '.eps']);
-        print(fig_data_hist, eps_data_hist, '-depsc');
-        pdf_data_hist = fullfile(path_data_hist, ['data_hist_' int2str(i_profile) '.pdf']);
-        print(fig_data_hist, pdf_data_hist, '-dpdf');
-        eps_data_out = fullfile(path_data_out, ['data_out_' int2str(i_profile) '.eps']);
-        print(fig_data_out, eps_data_out, '-depsc');
-        pdf_data_out = fullfile(path_data_out, ['data_out_' int2str(i_profile) '.pdf']);
-        print(fig_data_out, pdf_data_out, '-dpdf');
-        if n_solvers <= 2
-            eps_log_ratio_hist = fullfile(path_log_ratio_hist, ['log-ratio_hist_' int2str(i_profile) '.eps']);
-            print(fig_log_ratio_hist, eps_log_ratio_hist, '-depsc');
-            pdf_log_ratio_hist = fullfile(path_log_ratio_hist, ['log-ratio_hist_' int2str(i_profile) '.pdf']);
-            print(fig_log_ratio_hist, pdf_log_ratio_hist, '-dpdf');
-        end
-        if n_solvers <= 2
-            eps_log_ratio_out = fullfile(path_log_ratio_out, ['log-ratio_out_' int2str(i_profile) '.eps']);
-            print(fig_log_ratio_out, eps_log_ratio_out, '-depsc');
-            pdf_log_ratio_out = fullfile(path_log_ratio_out, ['log-ratio_out_' int2str(i_profile) '.pdf']);
-            print(fig_log_ratio_out, pdf_log_ratio_out, '-dpdf');
-        end
-        if i_profile == 1
-            exportgraphics(fig_perf_hist, pdf_perf_hist_summary, 'ContentType', 'vector');
-            exportgraphics(fig_perf_out, pdf_perf_out_summary, 'ContentType', 'vector');
-            exportgraphics(fig_data_hist, pdf_data_hist_summary, 'ContentType', 'vector');
-            exportgraphics(fig_data_out, pdf_data_out_summary, 'ContentType', 'vector');
+        if profile_options.(ProfileOptionKey.DRAW_PLOTS.value)
+            eps_perf_hist = fullfile(path_perf_hist, ['perf_hist_' int2str(i_tol) '.eps']);
+            print(fig_perf_hist, eps_perf_hist, '-depsc');
+            pdf_perf_hist = fullfile(path_perf_hist, ['perf_hist_' int2str(i_tol) '.pdf']);
+            print(fig_perf_hist, pdf_perf_hist, '-dpdf');
+            eps_perf_out = fullfile(path_perf_out, ['perf_out_' int2str(i_tol) '.eps']);
+            print(fig_perf_out, eps_perf_out, '-depsc');
+            pdf_perf_out = fullfile(path_perf_out, ['perf_out_' int2str(i_tol) '.pdf']);
+            print(fig_perf_out, pdf_perf_out, '-dpdf');
+            eps_data_hist = fullfile(path_data_hist, ['data_hist_' int2str(i_tol) '.eps']);
+            print(fig_data_hist, eps_data_hist, '-depsc');
+            pdf_data_hist = fullfile(path_data_hist, ['data_hist_' int2str(i_tol) '.pdf']);
+            print(fig_data_hist, pdf_data_hist, '-dpdf');
+            eps_data_out = fullfile(path_data_out, ['data_out_' int2str(i_tol) '.eps']);
+            print(fig_data_out, eps_data_out, '-depsc');
+            pdf_data_out = fullfile(path_data_out, ['data_out_' int2str(i_tol) '.pdf']);
+            print(fig_data_out, pdf_data_out, '-dpdf');
             if n_solvers <= 2
-                exportgraphics(fig_log_ratio_hist, pdf_log_ratio_hist_summary, 'ContentType', 'vector');
+                eps_log_ratio_hist = fullfile(path_log_ratio_hist, ['log-ratio_hist_' int2str(i_tol) '.eps']);
+                print(fig_log_ratio_hist, eps_log_ratio_hist, '-depsc');
+                pdf_log_ratio_hist = fullfile(path_log_ratio_hist, ['log-ratio_hist_' int2str(i_tol) '.pdf']);
+                print(fig_log_ratio_hist, pdf_log_ratio_hist, '-dpdf');
             end
-            if ~isempty(fig_log_ratio_out)
-                exportgraphics(fig_log_ratio_out, pdf_log_ratio_out_summary, 'ContentType', 'vector');
-            end
-        else
-            exportgraphics(fig_perf_hist, pdf_perf_hist_summary, 'ContentType', 'vector', 'Append', true);
-            exportgraphics(fig_perf_out, pdf_perf_out_summary, 'ContentType', 'vector', 'Append', true);
-            exportgraphics(fig_data_hist, pdf_data_hist_summary, 'ContentType', 'vector', 'Append', true);
-            exportgraphics(fig_data_out, pdf_data_out_summary, 'ContentType', 'vector', 'Append', true);
             if n_solvers <= 2
-                exportgraphics(fig_log_ratio_hist, pdf_log_ratio_hist_summary, 'ContentType', 'vector', 'Append', true);
+                eps_log_ratio_out = fullfile(path_log_ratio_out, ['log-ratio_out_' int2str(i_tol) '.eps']);
+                print(fig_log_ratio_out, eps_log_ratio_out, '-depsc');
+                pdf_log_ratio_out = fullfile(path_log_ratio_out, ['log-ratio_out_' int2str(i_tol) '.pdf']);
+                print(fig_log_ratio_out, pdf_log_ratio_out, '-dpdf');
             end
-            if ~isempty(fig_log_ratio_out)
-                exportgraphics(fig_log_ratio_out, pdf_log_ratio_out_summary, 'ContentType', 'vector', 'Append', true);
+            if i_tol == 1
+                exportgraphics(fig_perf_hist, pdf_perf_hist_summary, 'ContentType', 'vector');
+                exportgraphics(fig_perf_out, pdf_perf_out_summary, 'ContentType', 'vector');
+                exportgraphics(fig_data_hist, pdf_data_hist_summary, 'ContentType', 'vector');
+                exportgraphics(fig_data_out, pdf_data_out_summary, 'ContentType', 'vector');
+                if n_solvers <= 2
+                    exportgraphics(fig_log_ratio_hist, pdf_log_ratio_hist_summary, 'ContentType', 'vector');
+                end
+                if ~isempty(fig_log_ratio_out)
+                    exportgraphics(fig_log_ratio_out, pdf_log_ratio_out_summary, 'ContentType', 'vector');
+                end
+            else
+                exportgraphics(fig_perf_hist, pdf_perf_hist_summary, 'ContentType', 'vector', 'Append', true);
+                exportgraphics(fig_perf_out, pdf_perf_out_summary, 'ContentType', 'vector', 'Append', true);
+                exportgraphics(fig_data_hist, pdf_data_hist_summary, 'ContentType', 'vector', 'Append', true);
+                exportgraphics(fig_data_out, pdf_data_out_summary, 'ContentType', 'vector', 'Append', true);
+                if n_solvers <= 2
+                    exportgraphics(fig_log_ratio_hist, pdf_log_ratio_hist_summary, 'ContentType', 'vector', 'Append', true);
+                end
+                if ~isempty(fig_log_ratio_out)
+                    exportgraphics(fig_log_ratio_out, pdf_log_ratio_out_summary, 'ContentType', 'vector', 'Append', true);
+                end
             end
         end
 
@@ -745,34 +791,40 @@ function benchmark(solvers, varargin)
         close(fig_perf_out);
         close(fig_data_hist);
         close(fig_data_out);
-        if n_solvers <= 2
+        if n_solvers == 2
             close(fig_log_ratio_hist);
         end
         if ~isempty(fig_log_ratio_out)
             close(fig_log_ratio_out);
         end
-
     end
 
     % Store `profiles` in a mat file in the path_log directory.
     save(fullfile(path_log, 'profiles.mat'), 'profiles');
 
-    % Store the summary pdf. We will name the summary pdf as "summary_feature_name.pdf" and store it under path_feature.
-    % We will also put a "summary.pdf" in the path_out directory, which will be a merged pdf of all the "summary_feature_name.pdf" under path_out following the order of the feature_stamp.
-    if n_rows > 0
-        exportgraphics(fig_summary, fullfile(path_feature, ['summary_' feature_name '.pdf']), 'ContentType', 'vector');
-    end
-    % List all summary PDF files in the output path and its subdirectories.
-    summary_files = dir(fullfile(path_out, '**', 'summary_*.pdf'));
-    % Sort the summary PDF files by their folder names.
-    [~, idx] = sort({summary_files.folder});
-    summary_files = summary_files(idx);
-    % Merge all the summary PDF files to a single PDF file.
-    delete(fullfile(path_out, 'summary.pdf'));
-    for i_file = 1:numel(summary_files)
-        copyfile(fullfile(summary_files(i_file).folder, summary_files(i_file).name), path_out);
-        mergePdfs(path_out, 'summary.pdf', path_out);
-        delete(fullfile(path_out, summary_files(i_file).name));
+    % Compute the `solver_scores`.
+    scores = computeScores(profiles, profile_options.(ProfileOptionKey.SEMILOGX.value));
+    scoring_fun = profile_options.(ProfileOptionKey.SCORING_FUN.value);
+    solver_scores = scoring_fun(scores);
+
+    if profile_options.(ProfileOptionKey.DRAW_PLOTS.value)
+        % Store the summary pdf. We will name the summary pdf as "summary_feature_name.pdf" and store it under path_feature.
+        % We will also put a "summary.pdf" in the path_out directory, which will be a merged pdf of all the "summary_feature_name.pdf" under path_out following the order of the feature_stamp.
+        if n_rows > 0
+            exportgraphics(fig_summary, fullfile(path_feature, ['summary_' feature_name '.pdf']), 'ContentType', 'vector');
+        end
+        % List all summary PDF files in the output path and its subdirectories.
+        summary_files = dir(fullfile(path_out, '**', 'summary_*.pdf'));
+        % Sort the summary PDF files by their folder names.
+        [~, idx] = sort({summary_files.folder});
+        summary_files = summary_files(idx);
+        % Merge all the summary PDF files to a single PDF file.
+        delete(fullfile(path_out, 'summary.pdf'));
+        for i_file = 1:numel(summary_files)
+            copyfile(fullfile(summary_files(i_file).folder, summary_files(i_file).name), path_out);
+            mergePdfs(path_out, 'summary.pdf', path_out);
+            delete(fullfile(path_out, summary_files(i_file).name));
+        end
     end
 
     warning('on');
@@ -780,13 +832,13 @@ function benchmark(solvers, varargin)
     % Close the figures.
     if n_rows > 0
         close(fig_summary);
-        if ~profile_options.(ProfileOptionKey.SILENT.value)
+        if ~profile_options.(ProfileOptionKey.SILENT.value) && profile_options.(ProfileOptionKey.DRAW_PLOTS.value)
             fprintf('\nINFO: Summary stored in %s\n', path_out);
         end
     end
 
     if ~profile_options.(ProfileOptionKey.SILENT.value)
-        fprintf('INFO: Finished the computation of the "%s" profiles.\n', feature.name);
+        fprintf('INFO: Finished the computation of the profiles under "%s" feature.\n', feature.name);
     end
 
     diary off;
@@ -808,4 +860,63 @@ function mergePdfs(file_path, output_file_name, output_path)
     
     merger.setDestinationFileName(fullfile(output_path, output_file_name));
     merger.mergeDocuments(memSet)
+end
+
+function integral = integrate(curve, profile_type, semilogx)
+    % Compute the integral of the curve from different types of profiles.
+    
+    integral = 0;
+    switch profile_type
+        case 'perf'
+            if semilogx
+                curve(1, :) = log2(curve(1, :));
+            end
+            % The curve is a right-continuous step function.
+            integral = integral + sum(diff(curve(1, :)) .* curve(2, 1:end-1));
+        case 'data'
+            if semilogx
+                curve(1, :) = log2(1 + curve(1, :));
+            end
+            % The curve is a right-continuous step function.
+            integral = integral + sum(diff(curve(1, :)) .* curve(2, 1:end-1));
+        case 'log_ratio'
+            integral = integral + sum(abs(curve(2, :)));
+    end
+end
+
+function scores = computeScores(profiles, semilogx)
+    % Compute the scores of the solvers based on the profiles.
+
+    n_tols = size(profiles, 2);
+    n_solvers = size(profiles{1}.hist.perf, 1);
+    
+    if n_solvers == 2
+        scores = ones(n_solvers, n_tols, 2, 3);
+    else
+        scores = ones(n_solvers, n_tols, 2, 2);
+    end
+
+    for i_tol = 1:n_tols
+        for i_solver = 1:n_solvers
+            curve_hist_perf = profiles{i_tol}.hist.perf{i_solver, end};
+            curve_hist_data = profiles{i_tol}.hist.data{i_solver, end};
+            curve_out_perf = profiles{i_tol}.out.perf{i_solver, end};
+            curve_out_data = profiles{i_tol}.out.data{i_solver, end};
+            scores(i_solver, i_tol, 1, 1) = integrate(curve_hist_perf, 'perf', semilogx);
+            scores(i_solver, i_tol, 1, 2) = integrate(curve_hist_data, 'data', semilogx);
+            scores(i_solver, i_tol, 2, 1) = integrate(curve_out_perf, 'perf', semilogx);
+            scores(i_solver, i_tol, 2, 2) = integrate(curve_out_data, 'data', semilogx);
+            if n_solvers == 2
+                curve_hist_log_ratio = profiles{i_tol}.hist.log_ratio{i_solver};
+                curve_out_log_ratio = profiles{i_tol}.out.log_ratio{i_solver};
+                scores(i_solver, i_tol, 1, 3) = integrate(curve_hist_log_ratio, 'log_ratio', semilogx);
+                scores(i_solver, i_tol, 2, 3) = integrate(curve_out_log_ratio, 'log_ratio', semilogx);
+            end
+        end
+    end
+
+    % Normalize the scores by dividing the maximum scores with the same tolerance and types.
+    max_scores = max(scores, [], 1);
+    max_scores(max_scores == 0) = 1;
+    scores = scores ./ max_scores;
 end

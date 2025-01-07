@@ -22,6 +22,16 @@ function [fig_perf, fig_data, fig_log_ratio, profiles] = drawProfiles(work, prob
     end
     % Draw the performance and data profiles.
     [x_perf, y_perf, ratio_max_perf, x_data, y_data, ratio_max_data, profiles] = getExtendedPerformancesDataProfileAxes(work, problem_dimensions, profiles);
+    % Draw the log-ratio profiles.
+    if n_solvers == 2
+        copy_work1 = work;
+        profiles = drawLogRatioProfiles(ax_log_ratio, copy_work1, solver_names, profile_options, profiles);
+    end
+
+    if ~profile_options.(ProfileOptionKey.DRAW_PLOTS.value)
+        return;
+    end
+
     drawPerformanceDataProfiles(ax_perf, x_perf, y_perf, solver_names, profile_options);
     drawPerformanceDataProfiles(ax_data, x_data, y_data, solver_names, profile_options);
     % Set x-axis limits.
@@ -39,10 +49,7 @@ function [fig_perf, fig_data, fig_log_ratio, profiles] = drawProfiles(work, prob
     % Set y-axis labels.
     ylabel(ax_perf, ['Performance profiles (', tolerance_label, ')'], 'Interpreter', 'latex');
     ylabel(ax_data, ['Data profiles (', tolerance_label, ')'], 'Interpreter', 'latex');
-    % Draw the log-ratio profiles.
     if n_solvers == 2
-        copy_work1 = work;
-        profiles = drawLogRatioProfiles(ax_log_ratio, copy_work1, solver_names, profiles);
         % Set x-axis labels.
         xlabel(ax_log_ratio, 'Problem', 'Interpreter', 'latex');
         % Set y-axis labels.
@@ -163,5 +170,44 @@ function [fig_perf, fig_data, fig_log_ratio, profiles] = drawProfiles(work, prob
             ylabel(cell_axs_summary{1}, ['Log-ratio profile (', tolerance_label, ')'], 'Interpreter', 'latex');
         end
     end
+end
 
+function [ticks, tickLabels] = perfTicks(ratio_cut_perf)
+    % Set the x-axis ticks and tick labels for the performance profiles.
+
+    if ratio_cut_perf >= 5
+        max_power = floor(ratio_cut_perf);
+        ticks = linspace(0, max_power, 6);
+        ticks(2:end-1) = round(ticks(2:end-1));
+        ticks = unique(ticks, 'stable');
+    elseif ratio_cut_perf >= 1
+        max_power = floor(ratio_cut_perf);
+        ticks = (0:1:max_power);
+    elseif ratio_cut_perf >= 1e-3
+        ticks = [0 ratio_cut_perf];
+    else
+        ticks = [0];
+    end
+
+    tickLabels = arrayfun(@(x) num2str(2 ^ x), ticks, 'UniformOutput', false);
+end
+
+function [ticks, tickLabels] = dataTicks(ratio_cut_data)
+    % Set the x-axis ticks and tick labels for the data profiles.
+
+    if ratio_cut_data >= 5
+        max_power = floor(ratio_cut_data);
+        ticks = linspace(0, max_power, 6);
+        ticks(2:end-1) = round(ticks(2:end-1));
+        ticks = unique(ticks, 'stable');
+    elseif ratio_cut_data >= 1
+        max_power = floor(ratio_cut_data);
+        ticks = (0:1:max_power);
+    elseif ratio_cut_data >= 1e-1
+        ticks = [0 ratio_cut_data];
+    else
+        ticks = [0];
+    end
+
+    tickLabels = arrayfun(@(x) num2str(2 ^ x - 1), ticks, 'UniformOutput', false);
 end
