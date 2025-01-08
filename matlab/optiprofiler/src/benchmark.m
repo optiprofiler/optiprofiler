@@ -1,4 +1,4 @@
-function [solver_scores, profiles] = benchmark(solvers, varargin)
+function [solver_scores, profile_scores, profiles] = benchmark(solvers, varargin)
 %BENCHMARK Create multiple profiles for benchmarking optimization solvers on a
 %   set of problems with different features.
 %
@@ -19,8 +19,12 @@ function [solver_scores, profiles] = benchmark(solvers, varargin)
 %   SOLVERS with options specified in the struct OPTIONS. See 'Options' part
 %   for more details.
 %
-%   [SOLVER_SCORES, PROFILES] = BENCHMARK(...) returns all the profiles in the
-%   cell array PROFILES.
+%   [SOLVER_SCORES, PROFILE_SCORES] = BENCHMARK(...) returns a 4D tensor
+%   PROFILE_SCORES containing scores for all profiles. See `scoring_fun` in
+%   'Options' part for more details.
+%
+%   [SOLVER_SCORES, PROFILE_SCORES, PROFILES] = BENCHMARK(...) returns a cell
+%   array PROFILES containing all the profiles.
 %
 %   Options:
 %
@@ -68,14 +72,15 @@ function [solver_scores, profiles] = benchmark(solvers, varargin)
 %         true.
 %       - scoring_fun: the scoring function to calculate the scores of the
 %         solvers. It should be a function handle as follows:
-%               scores -> solver_scores,
-%         where `scores` is a 4D tensor of scores. The first dimension is the
-%         index of the solver, the second is the index of tolerance starting
-%         from 1, the third represents history-based or output-based profiles,
-%         and the fourth represents performance profiles, data profiles, or
-%         log-ratio profiles. The default scoring function takes the average of
-%         the history-based performance profiles along the tolerance axis and
-%         then normalizes the average by the maximum value of the average.
+%               profile_scores -> solver_scores,
+%         where `profile_scores` is a 4D tensor containing scores for all
+%         profiles. The first dimension is the index of the solver, the second
+%         is the index of tolerance starting from 1, the third represents
+%         history-based or output-based profiles, and the fourth represents
+%         performance profiles, data profiles, or log-ratio profiles. The
+%         default scoring function takes the average of the history-based
+%         performance profiles along the tolerance axis and then normalizes the
+%         average by the maximum value of the average.
 %
 %       2. options for features:
 %       - feature_name: the name of the feature. Default is 'plain'.
@@ -803,13 +808,14 @@ function [solver_scores, profiles] = benchmark(solvers, varargin)
     save(fullfile(path_log, 'profiles.mat'), 'profiles');
 
     % Compute the `solver_scores`.
-    scores = computeScores(profiles, profile_options.(ProfileOptionKey.SEMILOGX.value));
+    profile_scores = computeScores(profiles, profile_options.(ProfileOptionKey.SEMILOGX.value));
     scoring_fun = profile_options.(ProfileOptionKey.SCORING_FUN.value);
-    solver_scores = scoring_fun(scores);
+    solver_scores = scoring_fun(profile_scores);
 
     if profile_options.(ProfileOptionKey.DRAW_PLOTS.value)
-        % Store the summary pdf. We will name the summary pdf as "summary_feature_name.pdf" and store it under path_feature.
-        % We will also put a "summary.pdf" in the path_out directory, which will be a merged pdf of all the "summary_feature_name.pdf" under path_out following the order of the feature_stamp.
+        % Store the summary pdf. We will name the summary pdf as "summary_feature_name.pdf" and store it under
+        % path_feature. We will also put a "summary.pdf" in the path_out directory, which will be a merged pdf of all
+        % the "summary_feature_name.pdf" under path_out following the order of the feature_stamp.
         if n_rows > 0
             exportgraphics(fig_summary, fullfile(path_feature, ['summary_' feature_name '.pdf']), 'ContentType', 'vector');
         end
@@ -884,16 +890,16 @@ function integral = integrate(curve, profile_type, semilogx)
     end
 end
 
-function scores = computeScores(profiles, semilogx)
-    % Compute the scores of the solvers based on the profiles.
+function profile_scores = computeScores(profiles, semilogx)
+    % Compute the scores of the solvers for all the profiles.
 
     n_tols = size(profiles, 2);
     n_solvers = size(profiles{1}.hist.perf, 1);
     
     if n_solvers == 2
-        scores = ones(n_solvers, n_tols, 2, 3);
+        profile_scores = ones(n_solvers, n_tols, 2, 3);
     else
-        scores = ones(n_solvers, n_tols, 2, 2);
+        profile_scores = ones(n_solvers, n_tols, 2, 2);
     end
 
     for i_tol = 1:n_tols
@@ -902,21 +908,21 @@ function scores = computeScores(profiles, semilogx)
             curve_hist_data = profiles{i_tol}.hist.data{i_solver, end};
             curve_out_perf = profiles{i_tol}.out.perf{i_solver, end};
             curve_out_data = profiles{i_tol}.out.data{i_solver, end};
-            scores(i_solver, i_tol, 1, 1) = integrate(curve_hist_perf, 'perf', semilogx);
-            scores(i_solver, i_tol, 1, 2) = integrate(curve_hist_data, 'data', semilogx);
-            scores(i_solver, i_tol, 2, 1) = integrate(curve_out_perf, 'perf', semilogx);
-            scores(i_solver, i_tol, 2, 2) = integrate(curve_out_data, 'data', semilogx);
+            profile_scores(i_solver, i_tol, 1, 1) = integrate(curve_hist_perf, 'perf', semilogx);
+            profile_scores(i_solver, i_tol, 1, 2) = integrate(curve_hist_data, 'data', semilogx);
+            profile_scores(i_solver, i_tol, 2, 1) = integrate(curve_out_perf, 'perf', semilogx);
+            profile_scores(i_solver, i_tol, 2, 2) = integrate(curve_out_data, 'data', semilogx);
             if n_solvers == 2
                 curve_hist_log_ratio = profiles{i_tol}.hist.log_ratio{i_solver};
                 curve_out_log_ratio = profiles{i_tol}.out.log_ratio{i_solver};
-                scores(i_solver, i_tol, 1, 3) = integrate(curve_hist_log_ratio, 'log_ratio', semilogx);
-                scores(i_solver, i_tol, 2, 3) = integrate(curve_out_log_ratio, 'log_ratio', semilogx);
+                profile_scores(i_solver, i_tol, 1, 3) = integrate(curve_hist_log_ratio, 'log_ratio', semilogx);
+                profile_scores(i_solver, i_tol, 2, 3) = integrate(curve_out_log_ratio, 'log_ratio', semilogx);
             end
         end
     end
 
-    % Normalize the scores by dividing the maximum scores with the same tolerance and types.
-    max_scores = max(scores, [], 1);
+    % Normalize the profile_scores by dividing the maximum profile_scores with the same tolerance and types.
+    max_scores = max(profile_scores, [], 1);
     max_scores(max_scores == 0) = 1;
-    scores = scores ./ max_scores;
+    profile_scores = profile_scores ./ max_scores;
 end
