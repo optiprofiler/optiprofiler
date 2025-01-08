@@ -412,9 +412,12 @@ classdef Feature < handle
                         x0 = problem.x0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * max(1, norm(problem.x0)) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_perturbed_x0, problem.n);
                     end
                 case FeatureName.PERMUTED.value
-                    % Apply the inverse of the affine transformation to the initial point.
-                    [~, ~, inv] = obj.modifier_affine(seed, problem);
-                    x0 = inv * problem.x0;
+                    % Note that we need to apply the reverse permutation to the initial point so that
+                    % the new problem is mathematically equivalent to the original one.
+                    rand_stream_permuted = obj.default_rng(seed);
+                    permutation = rand_stream_permuted.randperm(problem.n);
+                    [~, reverse_permutation] = sort(permutation);
+                    x0 = problem.x0(reverse_permutation);
                 case FeatureName.LINEARLY_TRANSFORMED.value
                     % Apply the inverse of the affine transformation to the initial point.
                     [~, ~, inv] = obj.modifier_affine(seed, problem);
@@ -447,9 +450,8 @@ classdef Feature < handle
                     % Generate a random permutation matrix.
                     rand_stream_permuted = obj.default_rng(seed);
                     permutation = rand_stream_permuted.randperm(problem.n);
-                    [~, reverse_permutation] = sort(permutation);
                     A = eye(problem.n);
-                    A = A(reverse_permutation, :);
+                    A = A(permutation, :);
                     inv = A';
                     b = zeros(problem.n, 1);
                 case FeatureName.LINEARLY_TRANSFORMED.value
