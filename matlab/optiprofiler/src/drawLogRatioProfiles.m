@@ -1,38 +1,16 @@
-function profiles = drawLogRatioProfiles(ax, work, solver_names, profile_options, profiles)
+function drawLogRatioProfiles(ax, x, y, ratio_max, solver_names)
 %DRAWLOGRATIOPROFILES draws log-ratio profiles.
 
-    [n_problems, n_solvers, n_runs] = size(work);
-    work_flat = reshape(permute(work, [1, 3, 2]), n_problems * n_runs, n_solvers);
-    log_ratio = NaN(n_problems * n_runs, 1);
-    log_ratio_finite = isfinite(work_flat(:, 1)) & isfinite(work_flat(:, 2));
-    log_ratio(log_ratio_finite) = log2(work_flat(log_ratio_finite, 1)) - log2(work_flat(log_ratio_finite, 2));
-    ratio_max = max(max(abs(log_ratio(log_ratio_finite)), [], 'all'), eps);
-    if isempty(ratio_max)
-        ratio_max = eps;
-    end
-    log_ratio(isnan(work_flat(:, 1)) & isfinite(work_flat(:, 2))) = 1.1 * ratio_max;
-    log_ratio(isfinite(work_flat(:, 1)) & isnan(work_flat(:, 2))) = -1.1 * ratio_max;
-    log_ratio(isnan(work_flat(:, 1)) & isnan(work_flat(:, 2))) = 0.0;
-    log_ratio = sort(log_ratio);
-
-    x = (1:(n_problems * n_runs))';
-
-    % Store the curves in the `profiles` struct.
-    profiles.log_ratio{1} = [x(log_ratio < 0)'; log_ratio(log_ratio < 0)'];
-    profiles.log_ratio{2} = [x(log_ratio > 0)'; log_ratio(log_ratio > 0)'];
-
-    if ~profile_options.(ProfileOptionKey.DRAW_PLOTS.value)
-        return;
-    end
+    length_x = length(x);
 
     % Draw the log-ratio profiles.
-    bar(ax, x(log_ratio < 0), log_ratio(log_ratio < 0), 'LineStyle', 'None', 'LineWidth', 1.5);
+    bar(ax, x(y < 0), y(y < 0), 'LineStyle', 'None', 'LineWidth', 1.5);
     hold(ax, 'on');
-    bar(ax, x(log_ratio > 0), log_ratio(log_ratio > 0), 'LineStyle', 'None', 'LineWidth', 1.5);
-    text(ax, (n_problems * n_runs + 1) / 2, -ratio_max, solver_names{1}, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom', 'FontSize', 24);
-    text(ax, (n_problems * n_runs + 1) / 2, ratio_max, solver_names{2}, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'top', 'FontSize', 24);
+    bar(ax, x(y > 0), y(y > 0), 'LineStyle', 'None', 'LineWidth', 1.5);
+    text(ax, (length_x + 1) / 2, -ratio_max, solver_names{1}, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom', 'FontSize', 24);
+    text(ax, (length_x + 1) / 2, ratio_max, solver_names{2}, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'top', 'FontSize', 24);
     xticks(ax, []);
-    xlim(ax, [0.5, n_problems * n_runs + 0.5]);
+    xlim(ax, [0.5, length_x + 0.5]);
     yyaxis(ax, 'right');
     set(ax, 'YTickLabel', []);
     yyaxis(ax, 'left');
@@ -41,5 +19,4 @@ function profiles = drawLogRatioProfiles(ax, work, solver_names, profile_options
     linkprop([ax.YAxis(1), ax.YAxis(2)],{'Limits','TickValues'});
     box(ax,'on');
     hold(ax, 'off');
-
 end

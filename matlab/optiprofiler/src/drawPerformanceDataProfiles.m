@@ -50,7 +50,5 @@ function drawPerformanceDataProfiles(ax, x, y, solver_names, profile_options)
     linkprop([ax.YAxis(1), ax.YAxis(2)],{'Limits','TickValues'});
     box(ax,'on');
     legend(ax, 'Location', 'southeast');
-    
     hold(ax, 'off');
-
 end

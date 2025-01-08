@@ -20,12 +20,10 @@ function [fig_perf, fig_data, fig_log_ratio, profiles] = drawProfiles(work, prob
         t_log_ratio = tiledlayout(fig_log_ratio, 1, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
         ax_log_ratio = nexttile(t_log_ratio);
     end
-    % Draw the performance and data profiles.
+
     [x_perf, y_perf, ratio_max_perf, x_data, y_data, ratio_max_data, profiles] = getExtendedPerformancesDataProfileAxes(work, problem_dimensions, profiles);
-    % Draw the log-ratio profiles.
     if n_solvers == 2
-        copy_work1 = work;
-        profiles = drawLogRatioProfiles(ax_log_ratio, copy_work1, solver_names, profile_options, profiles);
+        [x_log_ratio, y_log_ratio, ratio_max_log_ratio, profiles] = getLogRatioProfileAxes(work, profiles);
     end
 
     if ~profile_options.(ProfileOptionKey.DRAW_PLOTS.value)
@@ -34,6 +32,9 @@ function [fig_perf, fig_data, fig_log_ratio, profiles] = drawProfiles(work, prob
 
     drawPerformanceDataProfiles(ax_perf, x_perf, y_perf, solver_names, profile_options);
     drawPerformanceDataProfiles(ax_data, x_data, y_data, solver_names, profile_options);
+    if n_solvers == 2
+        drawLogRatioProfiles(ax_log_ratio, x_log_ratio, y_log_ratio, ratio_max_log_ratio, solver_names);
+    end
     % Set x-axis limits.
     set(ax_perf, 'XLim', [0.0, 1.1 * ratio_max_perf]);
     set(ax_data, 'XLim', [0.0, 1.1 * ratio_max_data]);
@@ -79,8 +80,7 @@ function [fig_perf, fig_data, fig_log_ratio, profiles] = drawProfiles(work, prob
             ylabel(cell_axs_summary{1}, ['Performance profiles (', tolerance_label, ')'], 'Interpreter', 'latex');
             ylabel(cell_axs_summary{2}, ['Data profiles (', tolerance_label, ')'], 'Interpreter', 'latex');
             % Draw the log-ratio profiles.
-            copy_work2 = work;
-            drawLogRatioProfiles(cell_axs_summary{3}, copy_work2, solver_names);
+            drawLogRatioProfiles(cell_axs_summary{3}, x_log_ratio, y_log_ratio, ratio_max_log_ratio, solver_names);
             % Set x-axis labels.
             xlabel(cell_axs_summary{3}, 'Problem', 'Interpreter', 'latex');
             % Set y-axis labels.
@@ -114,8 +114,7 @@ function [fig_perf, fig_data, fig_log_ratio, profiles] = drawProfiles(work, prob
             % Set y-axis labels.
             ylabel(cell_axs_summary{1}, ['Performance profiles (', tolerance_label, ')'], 'Interpreter', 'latex');
             % Draw the log-ratio profiles.
-            copy_work2 = work;
-            drawLogRatioProfiles(cell_axs_summary{2}, copy_work2, solver_names);
+            drawLogRatioProfiles(cell_axs_summary{2}, x_log_ratio, y_log_ratio, ratio_max_log_ratio, solver_names);
             % Set x-axis labels.
             xlabel(cell_axs_summary{2}, 'Problem', 'Interpreter', 'latex');
             % Set y-axis labels.
@@ -132,8 +131,7 @@ function [fig_perf, fig_data, fig_log_ratio, profiles] = drawProfiles(work, prob
             % Set y-axis labels.
             ylabel(cell_axs_summary{1}, ['Data profiles (', tolerance_label, ')'], 'Interpreter', 'latex');
             % Draw the log-ratio profiles.
-            copy_work2 = work;
-            drawLogRatioProfiles(cell_axs_summary{2}, copy_work2, solver_names);
+            drawLogRatioProfiles(cell_axs_summary{2}, x_log_ratio, y_log_ratio, ratio_max_log_ratio, solver_names);
             % Set x-axis labels.
             xlabel(cell_axs_summary{2}, 'Problem', 'Interpreter', 'latex');
             % Set y-axis labels.
@@ -162,8 +160,7 @@ function [fig_perf, fig_data, fig_log_ratio, profiles] = drawProfiles(work, prob
             ylabel(cell_axs_summary{1}, ['Data profiles (', tolerance_label, ')'], 'Interpreter', 'latex');
         elseif is_log_ratio
             % Draw the log-ratio profiles.
-            copy_work2 = work;
-            drawLogRatioProfiles(cell_axs_summary{1}, copy_work2, solver_names);
+            drawLogRatioProfiles(cell_axs_summary{1}, x_log_ratio, y_log_ratio, ratio_max_log_ratio, solver_names);
             % Set x-axis labels.
             xlabel(cell_axs_summary{1}, 'Problem', 'Interpreter', 'latex');
             % Set y-axis labels.

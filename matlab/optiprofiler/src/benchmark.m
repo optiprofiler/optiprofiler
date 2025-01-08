@@ -669,6 +669,10 @@ function [solver_scores, profile_scores, profiles] = benchmark(solvers, varargin
     % Store the curves of the performance profiles, data profiles, and log-ratio profiles.
     profiles = cell(1, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value));
 
+    if ~profile_options.(ProfileOptionKey.SILENT.value)
+        fprintf('\n');
+    end
+
     for i_tol = 1:profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)
         profiles{i_tol} = struct();
         profiles{i_tol}.hist = struct();
@@ -681,6 +685,7 @@ function [solver_scores, profile_scores, profiles] = benchmark(solvers, varargin
 
         tolerance = tolerances(i_tol);
         [tolerance_str, tolerance_latex] = formatFloatScientificLatex(tolerance, 1);
+
         if ~profile_options.(ProfileOptionKey.SILENT.value)
             fprintf("INFO: Creating profiles for tolerance %s.\n", tolerance_str);
         end
@@ -811,6 +816,18 @@ function [solver_scores, profile_scores, profiles] = benchmark(solvers, varargin
     profile_scores = computeScores(profiles, profile_options.(ProfileOptionKey.SEMILOGX.value));
     scoring_fun = profile_options.(ProfileOptionKey.SCORING_FUN.value);
     solver_scores = scoring_fun(profile_scores);
+    save(fullfile(path_log, 'profile_scores.mat'), 'profile_scores');
+
+    if ~profile_options.(ProfileOptionKey.SILENT.value)
+        % Print the scores of the solvers.
+        fprintf('\n');
+        fprintf('INFO: Scores of the solvers:\n');
+        max_solver_name_length = max(cellfun(@length, processed_solver_names));
+        for i_solver = 1:n_solvers
+            format_info_str = sprintf('INFO: %%-%ds:    %%.4f\n', max_solver_name_length);
+            fprintf(format_info_str, processed_solver_names{i_solver}, solver_scores(i_solver));
+        end
+    end
 
     if profile_options.(ProfileOptionKey.DRAW_PLOTS.value)
         % Store the summary pdf. We will name the summary pdf as "summary_feature_name.pdf" and store it under
@@ -839,12 +856,12 @@ function [solver_scores, profile_scores, profiles] = benchmark(solvers, varargin
     if n_rows > 0
         close(fig_summary);
         if ~profile_options.(ProfileOptionKey.SILENT.value) && profile_options.(ProfileOptionKey.DRAW_PLOTS.value)
-            fprintf('\nINFO: Summary stored in %s\n', path_out);
+            fprintf('\nINFO: Summary stored in %s', path_out);
         end
     end
 
     if ~profile_options.(ProfileOptionKey.SILENT.value)
-        fprintf('INFO: Finished the computation of the profiles under "%s" feature.\n', feature.name);
+        fprintf('\nINFO: Finished the computation of the profiles under "%s" feature.\n', feature.name);
     end
 
     diary off;
