@@ -829,7 +829,6 @@ classdef Feature < handle
                     else
                         digits = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - floor(log10(abs(f))) - 1;
                     end
-                    digits = double(digits);
                     f = round(f, digits);
                     % Round f to the desired number of significant digits. (We can also use 'fix(x)'
                     % to round towards zero.) We can shorten the above code by using 'round(f, digits, "significant")'
@@ -886,6 +885,10 @@ classdef Feature < handle
             xCell = num2cell(x);
 
             cub_ = problem.cub(x);
+            % If cub_ is empty, return directly!
+            if isempty(cub_)
+                return;
+            end
             cubCell = num2cell(cub_);
 
             switch obj.name
@@ -900,51 +903,45 @@ classdef Feature < handle
                     rand_stream_noisy = obj.default_rng(seed, cubCell{:}, xCell{:});
                     if strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), NoiseType.ABSOLUTE.value)
                         if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
-                            cub_ = cub_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn();
+                            cub_ = cub_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn(size(cub_));
                         elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
-                            cub_ = cub_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * (2 * rand_stream_noisy.rand() - 1);
+                            cub_ = cub_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * (2 * rand_stream_noisy.rand(size(cub_)) - 1);
                         else
-                            cub_ = cub_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1);
+                            cub_ = cub_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, size(cub_));
                         end
                     elseif strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), NoiseType.RELATIVE.value)
                         if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
-                            cub_ = cub_ * (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn());
+                            cub_ = cub_ .* (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn(size(cub_)));
                         elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
-                            cub_ = cub_ * (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * (2 * rand_stream_noisy.rand() - 1));
+                            cub_ = cub_ .* (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * (2 * rand_stream_noisy.rand(size(cub_)) - 1));
                         else
-                            cub_ = cub_ * (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1));
+                            cub_ = cub_ .* (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, size(cub_)));
                         end
                     else
                         if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
-                            cub_ = cub_ + max(1, abs(cub_)) * obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn();
+                            cub_ = cub_ + max(1, abs(cub_)) .* (obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn(size(cub_)));
                         elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
-                            cub_ = cub_ + max(1, abs(cub_)) * obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * (2 * rand_stream_noisy.rand() - 1);
+                            cub_ = cub_ + max(1, abs(cub_)) .* (obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * (2 * rand_stream_noisy.rand(size(cub_)) - 1));
                         else
-                            cub_ = cub_ + max(1, abs(cub_)) * obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1);
+                            cub_ = cub_ + max(1, abs(cub_)) .* (obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, size(cub_)));
                         end
                     end
                 case FeatureName.RANDOM_NAN.value
                     % Similar to the case in the modifier_fun method.
                     rand_stream_random_nan = obj.default_rng(seed, cubCell{:}, xCell{:});
-                    if rand_stream_random_nan.rand() < obj.options.(FeatureOptionKey.NAN_RATE.value)
-                        cub_ = NaN;
-                    end
+                    cub_(rand_stream_random_nan.rand(size(cub_)) < obj.options.(FeatureOptionKey.NAN_RATE.value)) = NaN;
                 case FeatureName.TRUNCATED.value
                     % Similar to the case in the modifier_fun method.
                     rand_stream_truncated = obj.default_rng(seed, cubCell{:}, xCell{:});
-                    if cub_ == 0
-                        digits = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - 1;
-                    else
-                        digits = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - floor(log10(abs(cub_))) - 1;
+                    digits = zeros(size(cub_));
+                    digits(cub_ == 0) = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - 1;
+                    digits(cub_ ~= 0) = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - floor(log10(abs(cub_(cub_ ~= 0)))) - 1;
+                    for i_cub = 1:numel(cub_)
+                        cub_(i_cub) = round(cub_(i_cub), digits(i_cub));
                     end
-                    digits = double(digits);
-                    cub_ = round(cub_, digits);
                     if obj.options.(FeatureOptionKey.PERTURBED_TRAILING_ZEROS.value)
-                        if cub_ >= 0
-                            cub_ = cub_ + rand_stream_truncated.rand() * 10 ^ (-digits);
-                        else
-                            cub_ = cub_ - rand_stream_truncated.rand() * 10 ^ (-digits);
-                        end
+                        cub_(cub_ >= 0) = cub_(cub_ >= 0) + rand_stream_truncated.rand(size(cub_(cub_ >= 0))) .* (10 .^ (-digits(cub_ >= 0)));
+                        cub_(cub_ < 0) = cub_(cub_ < 0) - rand_stream_truncated.rand(size(cub_(cub_ < 0))) .* (10 .^ (-digits(cub_ < 0)));
                     end
                 case FeatureName.NONQUANTIFIABLE_CONSTRAINTS.value
                     % Set the elements whose value are less than or equal to 0 to 0.
@@ -986,6 +983,10 @@ classdef Feature < handle
             xCell = num2cell(x);
 
             ceq_ = problem.ceq(x);
+            % If ceq_ is empty, return directly!
+            if isempty(ceq_)
+                return;
+            end
             ceqCell = num2cell(ceq_);
 
             switch obj.name
@@ -1000,51 +1001,45 @@ classdef Feature < handle
                     rand_stream_noisy = obj.default_rng(seed, ceqCell{:}, xCell{:});
                     if strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), NoiseType.ABSOLUTE.value)
                         if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
-                            ceq_ = ceq_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn();
+                            ceq_ = ceq_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn(size(ceq_));
                         elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
-                            ceq_ = ceq_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * (2 * rand_stream_noisy.rand() - 1);
+                            ceq_ = ceq_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * (2 * rand_stream_noisy.rand(size(ceq_)) - 1);
                         else
-                            ceq_ = ceq_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1);
+                            ceq_ = ceq_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, size(ceq_));
                         end
                     elseif strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), NoiseType.RELATIVE.value)
                         if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
-                            ceq_ = ceq_ * (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn());
+                            ceq_ = ceq_ .* (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn(size(ceq_)));
                         elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
-                            ceq_ = ceq_ * (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * (2 * rand_stream_noisy.rand() - 1));
+                            ceq_ = ceq_ .* (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * (2 * rand_stream_noisy.rand(size(ceq_)) - 1));
                         else
-                            ceq_ = ceq_ * (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1));
+                            ceq_ = ceq_ .* (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, size(ceq_)));
                         end
                     else
                         if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
-                            ceq_ = ceq_ + max(1, abs(ceq_)) * obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn();
+                            ceq_ = ceq_ + max(1, abs(ceq_)) .* (obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn(size(ceq_)));
                         elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
-                            ceq_ = ceq_ + max(1, abs(ceq_)) * obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * (2 * rand_stream_noisy.rand() - 1);
+                            ceq_ = ceq_ + max(1, abs(ceq_)) .* (obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * (2 * rand_stream_noisy.rand(size(ceq_)) - 1));
                         else
-                            ceq_ = ceq_ + max(1, abs(ceq_)) * obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1);
+                            ceq_ = ceq_ + max(1, abs(ceq_)) .* (obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, size(ceq_)));
                         end
                     end
                 case FeatureName.RANDOM_NAN.value
                     % Similar to the case in the modifier_fun method.
                     rand_stream_random_nan = obj.default_rng(seed, ceqCell{:}, xCell{:});
-                    if rand_stream_random_nan.rand() < obj.options.(FeatureOptionKey.NAN_RATE.value)
-                        ceq_ = NaN;
-                    end
+                    ceq_(rand_stream_random_nan.rand(size(ceq_)) < obj.options.(FeatureOptionKey.NAN_RATE.value)) = NaN;
                 case FeatureName.TRUNCATED.value
                     % Similar to the case in the modifier_fun method.
                     rand_stream_truncated = obj.default_rng(seed, ceqCell{:}, xCell{:});
-                    if ceq_ == 0
-                        digits = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - 1;
-                    else
-                        digits = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - floor(log10(abs(ceq_))) - 1;
+                    digits = zeros(size(ceq_));
+                    digits(ceq_ == 0) = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - 1;
+                    digits(ceq_ ~= 0) = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - floor(log10(abs(ceq_(ceq_ ~= 0)))) - 1;
+                    for i_ceq = 1:numel(ceq_)
+                        ceq_(i_ceq) = round(ceq_(i_ceq), digits(i_ceq));
                     end
-                    digits = double(digits);
-                    ceq_ = round(ceq_, digits);
                     if obj.options.(FeatureOptionKey.PERTURBED_TRAILING_ZEROS.value)
-                        if ceq_ >= 0
-                            ceq_ = ceq_ + rand_stream_truncated.rand() * 10 ^ (-digits);
-                        else
-                            ceq_ = ceq_ - rand_stream_truncated.rand() * 10 ^ (-digits);
-                        end
+                        ceq_(ceq_ >= 0) = ceq_(ceq_ >= 0) + rand_stream_truncated.rand(size(ceq_(ceq_ >= 0))) .* (10 .^ (-digits(ceq_ >= 0)));
+                        ceq_(ceq_ < 0) = ceq_(ceq_ < 0) - rand_stream_truncated.rand(size(ceq_(ceq_ < 0))) .* (10 .^ (-digits(ceq_ < 0)));
                     end
                 case FeatureName.NONQUANTIFIABLE_CONSTRAINTS.value
                     % Set the elements whose absolute value are less than or equal to 10^(-6) to 0.
