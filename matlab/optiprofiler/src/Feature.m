@@ -823,6 +823,12 @@ classdef Feature < handle
                         f = NaN;
                     end
                 case FeatureName.TRUNCATED.value
+                    if isnan(f) || isinf(f)
+                        % If f is NaN or Inf, we do not need to truncate it.
+                        % Note that if f is NaN or Inf, digits will be set to NaN or Inf respectively, which will lead
+                        % to an error when calling 'round(f, digits)'.
+                        return;
+                    end
                     rand_stream_truncated = obj.default_rng(seed, f, xCell{:});
                     if f == 0
                         digits = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - 1;
@@ -936,8 +942,11 @@ classdef Feature < handle
                     digits = zeros(size(cub_));
                     digits(cub_ == 0) = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - 1;
                     digits(cub_ ~= 0) = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - floor(log10(abs(cub_(cub_ ~= 0)))) - 1;
+                    % Note that `floor(log10(abs(NaN))) = NaN` and `floor(log10(abs(Inf))) = Inf` in MATLAB.
                     for i_cub = 1:numel(cub_)
-                        cub_(i_cub) = round(cub_(i_cub), digits(i_cub));
+                        if ~isnan(cub_(i_cub)) && ~isinf(cub_(i_cub))
+                            cub_(i_cub) = round(cub_(i_cub), digits(i_cub));
+                        end
                     end
                     if obj.options.(FeatureOptionKey.PERTURBED_TRAILING_ZEROS.value)
                         cub_(cub_ >= 0) = cub_(cub_ >= 0) + rand_stream_truncated.rand(size(cub_(cub_ >= 0))) .* (10 .^ (-digits(cub_ >= 0)));
@@ -1034,8 +1043,11 @@ classdef Feature < handle
                     digits = zeros(size(ceq_));
                     digits(ceq_ == 0) = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - 1;
                     digits(ceq_ ~= 0) = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - floor(log10(abs(ceq_(ceq_ ~= 0)))) - 1;
+                    % Note that `floor(log10(abs(NaN))) = NaN` and `floor(log10(abs(Inf))) = Inf` in MATLAB.
                     for i_ceq = 1:numel(ceq_)
-                        ceq_(i_ceq) = round(ceq_(i_ceq), digits(i_ceq));
+                        if ~isnan(ceq_(i_ceq)) && ~isinf(ceq_(i_ceq))
+                            ceq_(i_ceq) = round(ceq_(i_ceq), digits(i_ceq));
+                        end
                     end
                     if obj.options.(FeatureOptionKey.PERTURBED_TRAILING_ZEROS.value)
                         ceq_(ceq_ >= 0) = ceq_(ceq_ >= 0) + rand_stream_truncated.rand(size(ceq_(ceq_ >= 0))) .* (10 .^ (-digits(ceq_ >= 0)));
