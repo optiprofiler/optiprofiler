@@ -64,7 +64,11 @@ function [problem_names, argins] = s_select(options)
         % the changeable dimension and number of constraints.
         if ~isempty(dims) && any(dims >= options.mindim & dims <= options.maxdim) && any(m_cons >= options.mincon & m_cons <= options.maxcon)
             idx = find(dims >= options.mindim & dims <= options.maxdim, 1, 'first');
-            problem_names{end + 1} = [problem_name, '_', num2str(dims(idx)), '_', num2str(m_cons(idx))];
+            if m_cons(idx) == 0
+                problem_names{end + 1} = [problem_name, '_', num2str(dims(idx))];
+            else
+                problem_names{end + 1} = [problem_name, '_', num2str(dims(idx)), '_', num2str(m_cons(idx))];
+            end
             if iscell(argin)
                 argins{end + 1} = {argin{1:end-1}, argin{end}(idx)};
             else

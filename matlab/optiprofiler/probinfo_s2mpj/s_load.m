@@ -34,7 +34,8 @@ function problem = s_load(problem_name, varargin)
 %       name: name of the problem, same as problem_name. If there are varargin,
 %             then it means that the problem is parameterized. Thus, in this
 %             case, the name will be 'problem_name_n_m', where n is the
-%             dimension of the problem and m is the number of constraints.
+%             dimension of the problem and m is the number of constraints. When
+%             m =0, the name will be 'problem_name_n'.
 %       fun: function handle to evaluate the objective function, which should
 %            be a function handle calling the 'fx' action.
 %       x_type: type of variables, same as pb.xtype.
@@ -80,7 +81,7 @@ function problem = s_load(problem_name, varargin)
     % Convert 'problem_name' to a char.
     problem_name = char(problem_name);
 
-    % Check if 'problem_name' has the pattern '_n_m'.
+    % Check if 'problem_name' has the pattern '_n_m' or '_n_0'.
     [is_problem_parameterized, problem_name, dim, m_con] = isproblem_parameterized(problem_name);
 
     if is_problem_parameterized
@@ -195,13 +196,6 @@ function problem = s_load(problem_name, varargin)
     getidx = @(y, idx) y(idx);
     ceq = @(x) getidx(getcx(problem_name, x), idx_ceq);
     cub = @(x) [getidx(getcx(problem_name, x), idx_cle); -getidx(getcx(problem_name, x), idx_cge)];
-
-    % % Debug S2MPJ: some unconstrained problems are added bound constraints (x>=0) by mistake
-    
-    % % Check if pb.m == 0 & xl = zeros(size(x0)) and xu = Inf(size(x0))
-    % if pb.m == 0 && all(xl == 0) && all(xu == Inf)
-    %     xl = -Inf(size(x0));
-    % end
     
     problem = Problem(struct('name', name, 'fun', fun, 'x_type', x_type, 'x0', x0, 'xl', xl, 'xu', xu, 'aeq', aeq, 'beq', beq, 'aub', aub, 'bub', bub, 'ceq', ceq, 'cub', cub, 'm_nonlinear_eq', m_nonlinear_eq, 'm_nonlinear_ub', m_nonlinear_ub));
     
@@ -233,17 +227,25 @@ function cx = getcx(problem_name, x)
 end
 
 function [result, problem_name, dim, m_con] = isproblem_parameterized(problem_name)
-    % Check if 'problem_name' has the pattern '_n_m'. If it has, find the
-    % position of the pattern and return the dimension 'n' and the number of
-    % constraints 'm'.
+    % Check if 'problem_name' has the pattern '_n_m' or 'n'. If it has, find
+    % the position of the pattern and return the dimension 'n' and the number
+    % of constraints 'm'.
 
-    % Find the position of the pattern '_n_m'.
+    % Find the position of the pattern '_n_m' or '_n'.
     [match, idx] = regexp(problem_name, '_\d+_\d+', 'match', 'start');
     if isempty(match)
-        result = false;
-        problem_name = problem_name;
-        dim = 0;
-        m_con = 0;
+        [match, idx] = regexp(problem_name, '_\d+', 'match', 'start');
+        if isempty(match)
+            result = false;
+            dim = 0;
+            m_con = 0;
+        else
+            problem_name = problem_name(1:idx-1);
+            results = sscanf(match{1}, '_%d');
+            dim = results(1);
+            m_con = 0;
+            result = true;
+        end
         return;
     end
 
