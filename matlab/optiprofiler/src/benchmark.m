@@ -389,6 +389,15 @@ function [solver_scores, profile_scores, profiles] = benchmark(solvers, varargin
     cutest_options = checkValidityCutestOptions(cutest_options);
     profile_options = checkValidityProfileOptions(solvers, profile_options);
     other_options = checkValidityOtherOptions(solvers, other_options);
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Initialize output variables. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    n_solvers = numel(solvers);
+    solver_scores = zeros(n_solvers, 1);
+    profile_scores = [];
+    profiles = [];
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%% Use cutest_options to select problems. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -467,7 +476,7 @@ function [solver_scores, profile_scores, profiles] = benchmark(solvers, varargin
         fprintf("INFO: Failed to copy the script or function that calls `benchmark` function to the log directory.\n\n");
     end
 
-    if profile_options.(ProfileOptionKey.DRAW_PLOTS.value)
+    if profile_options.(ProfileOptionKey.DRAW_PLOTS.value) && ~isfield(other_options, OtherOptionKey.PROBLEM.value)
         % Create the directories for the performance profiles, data profiles, and log-ratio profiles.
         path_perf_hist = fullfile(path_feature, 'detailed_profiles', 'perf_history-based');
         path_data_hist = fullfile(path_feature, 'detailed_profiles', 'data_history-based');
@@ -526,9 +535,9 @@ function [solver_scores, profile_scores, profiles] = benchmark(solvers, varargin
         return;
     end
 
-    % If there is only one problem, we will not compute the performance profiles, data profiles, and
-    % log-ratio profiles.
-    if numel(problem_names) == 1
+    % If a specific problem is provided to `other_options`, we only solve this problem and generate
+    % the history plots for it.
+    if isfield(other_options, OtherOptionKey.PROBLEM.value)
         if profile_options.(ProfileOptionKey.DRAW_PLOTS.value)
             % We move the history plots to the feature directory.
             try
@@ -540,6 +549,16 @@ function [solver_scores, profile_scores, profiles] = benchmark(solvers, varargin
             catch
             end
         end
+
+        % Compute `solver_scores` based on the `merit_histories` and `merit_init`.
+        % We first find the least merit value for each problem. Then we set the score of the solver
+        % having the least merit value to 1, and the score of the solver having the largest merit
+        % value to 0. The scores of the other solvers are exponentially interpolated between 0 and 1.
+        solver_merit_mins = squeeze(min(min(merit_histories, [], 4, 'omitnan'), [], 3, 'omitnan'));
+        solver_merit_min = min(solver_merit_mins, [], 2, 'omitnan');
+        solver_merit_max = max(solver_merit_mins, [], 2, 'omitnan');
+        solver_scores = (exp(solver_merit_max - solver_merit_mins) - 1) ./ (exp(solver_merit_max - solver_merit_min) - 1);
+
         diary off;
         return;
     end
@@ -932,6 +951,12 @@ function profile_scores = computeScores(profiles, semilogx)
             if n_solvers == 2
                 curve_hist_log_ratio = profiles{i_tol}.hist.log_ratio{i_solver};
                 curve_out_log_ratio = profiles{i_tol}.out.log_ratio{i_solver};
+                if isempty(curve_hist_log_ratio)
+                    curve_hist_log_ratio = [0; 0];
+                end
+                if isempty(curve_out_log_ratio)
+                    curve_out_log_ratio = [0; 0];
+                end
                 profile_scores(i_solver, i_tol, 1, 3) = integrate(curve_hist_log_ratio, 'log_ratio', semilogx);
                 profile_scores(i_solver, i_tol, 2, 3) = integrate(curve_out_log_ratio, 'log_ratio', semilogx);
             end
