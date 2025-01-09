@@ -555,9 +555,12 @@ function [solver_scores, profile_scores, profiles] = benchmark(solvers, varargin
         % having the least merit value to 1, and the score of the solver having the largest merit
         % value to 0. The scores of the other solvers are exponentially interpolated between 0 and 1.
         solver_merit_mins = squeeze(min(min(merit_histories, [], 4, 'omitnan'), [], 3, 'omitnan'));
-        solver_merit_min = min(solver_merit_mins, [], 2, 'omitnan');
-        solver_merit_max = max(solver_merit_mins, [], 2, 'omitnan');
-        solver_scores = (exp(solver_merit_max - solver_merit_mins) - 1) ./ (exp(solver_merit_max - solver_merit_min) - 1);
+        solver_merit_mins_min = min(solver_merit_mins, [], 2, 'omitnan');
+        solver_merit_mins_max = max(solver_merit_mins, [], 2, 'omitnan');
+        solver_merit_mins_max = 1;
+        solver_merit_mins_min = 0;
+        solver_merit_mins = [1; 0.1; 0.001; 0.0001; 0];
+        solver_scores = (10 .^ (solver_merit_mins_max - solver_merit_mins) - 1) ./ (10 ^ (solver_merit_mins_max - solver_merit_mins_min) - 1);
 
         diary off;
         return;
