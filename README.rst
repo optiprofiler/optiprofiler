@@ -8,6 +8,22 @@ OptiProfiler: benchmarking optimization solvers
     :target: https://www.optiprofiler.com
 
 .. image:: https://img.shields.io/codecov/c/github/optiprofiler/optiprofiler?style=for-the-badge&logo=codecov
-   :target: https://app.codecov.io/github/optiprofiler/optiprofiler/
+   :target: https://app.codecov.io/github/optiprofiler/optiprofiler/tree/matlab
 
-Work in progress.
+## MATLAB version is available.
+
+To install the MATLAB version, please do the following:
+
+1. Download and decompress the source code from this repository, or clone the repository using the following command:
+
+```bash
+git clone -b matlab git@github.com:optiprofiler/optiprofiler.git
+```
+
+2. In MATLAB, navigate to the folder where the source code is located, and you will see a file named `setup.m`. Run the following command in the MATLAB command window:
+
+```matlab
+setup
+```
+
+## Python version is under development.

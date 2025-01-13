@@ -557,8 +557,6 @@ function [solver_scores, profile_scores, profiles] = benchmark(solvers, varargin
         solver_merit_mins = squeeze(min(min(merit_histories, [], 4, 'omitnan'), [], 3, 'omitnan'));
         solver_merit_mins_min = min(solver_merit_mins, [], 2, 'omitnan');
         solver_merit_mins_max = max(solver_merit_mins, [], 2, 'omitnan');
-        solver_merit_mins_max = 1;
-        solver_merit_mins_min = 0;
         solver_merit_mins = [1; 0.1; 0.001; 0.0001; 0];
         solver_scores = (10 .^ (solver_merit_mins_max - solver_merit_mins) - 1) ./ (10 ^ (solver_merit_mins_max - solver_merit_mins_min) - 1);
 
@@ -588,31 +586,35 @@ function [solver_scores, profile_scores, profiles] = benchmark(solvers, varargin
     end
 
     % Store the names of the problems.
-    path_txt = fullfile(path_feature, 'problems.txt');
+    path_txt = fullfile(path_log, 'problems.txt');
     [~, idx] = sort(lower(problem_names));
     sorted_problem_names = problem_names(idx);
     sorted_time_processes = time_processes(idx);
-    fid = fopen(path_txt, 'w');
-    if fid == -1
-        error("MATLAB:benchmark:FileCannotOpen", "Cannot open the file %s.", path_txt);
-    end
-    for i = 1:length(sorted_problem_names)
-        count = fprintf(fid, "%s: %.2f seconds\n", sorted_problem_names{i}, sorted_time_processes(i));
-        if count < 0
-            error("MATLAB:benchmark:FailToEditFile", "Failed to record data for %s.", sorted_problem_names{i});
-        end
-    end
-    if ~isempty(problem_unsolved)
-        fprintf(fid, "\n");
-        fprintf(fid, "Unsolved problems:\n");
-        for i = 1:length(problem_unsolved)
-            count = fprintf(fid, "%s\n", problem_unsolved{i});
+    max_name_length = max(cellfun(@length, sorted_problem_names));
+    sorted_time_processes = num2cell(sorted_time_processes);
+    max_time_length = max(cellfun(@(x) length(sprintf('%.2f', x)), sorted_time_processes));
+    try
+        fid = fopen(path_txt, 'w');
+        for i = 1:length(sorted_problem_names)
+            count = fprintf(fid, "%-*s      %*s\n", max_name_length, sorted_problem_names{i}, max_time_length, sprintf('%.2f seconds', sorted_time_processes{i}));
             if count < 0
-                fprintf("INFO: Failed to record data for %s.", problem_unsolved{i});
+                fprintf("INFO: Failed to record data for %s.", sorted_problem_names{i});
             end
         end
+        if ~isempty(problem_unsolved)
+            fprintf(fid, "\n");
+            fprintf(fid, "Unsolved problems:\n");
+            for i = 1:length(problem_unsolved)
+                count = fprintf(fid, "%s\n", problem_unsolved{i});
+                if count < 0
+                    fprintf("INFO: Failed to record data for %s.", problem_unsolved{i});
+                end
+            end
+        end
+        fclose(fid);
+    catch
+        fprintf("INFO: Error occurred when writing the problem names to %s.\n", path_txt);
     end
-    fclose(fid);
 
     if profile_options.(ProfileOptionKey.DRAW_PLOTS.value)
         % Merge all the pdf files in path_hist_plots to a single pdf file.
