@@ -8,7 +8,7 @@ OptiProfiler: benchmarking optimization solvers
     :target: https://www.optprof.com
 
 .. image:: https://img.shields.io/codecov/c/github/optiprofiler/optiprofiler?style=for-the-badge&logo=codecov
-   :target: https://app.codecov.io/github/optiprofiler/optiprofiler/tree/matlab
+   :target: https://app.codecov.io/github/optiprofiler/optiprofiler/tree/matlab/matlab
 
 MATLAB version is available.
 ----------------------------
