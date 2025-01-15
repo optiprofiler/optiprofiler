@@ -766,32 +766,32 @@ function [solver_scores, profile_scores, profiles] = benchmark(solvers, varargin
 
         if profile_options.(ProfileOptionKey.DRAW_PLOTS.value)
             eps_perf_hist = fullfile(path_perf_hist, ['perf_hist_' int2str(i_tol) '.eps']);
-            print(fig_perf_hist, eps_perf_hist, '-depsc');
+            print(fig_perf_hist, eps_perf_hist, '-image', '-depsc');
             pdf_perf_hist = fullfile(path_perf_hist, ['perf_hist_' int2str(i_tol) '.pdf']);
-            print(fig_perf_hist, pdf_perf_hist, '-dpdf');
+            print(fig_perf_hist, pdf_perf_hist, '-vector', '-dpdf');
             eps_perf_out = fullfile(path_perf_out, ['perf_out_' int2str(i_tol) '.eps']);
-            print(fig_perf_out, eps_perf_out, '-depsc');
+            print(fig_perf_out, eps_perf_out, '-image', '-depsc');
             pdf_perf_out = fullfile(path_perf_out, ['perf_out_' int2str(i_tol) '.pdf']);
-            print(fig_perf_out, pdf_perf_out, '-dpdf');
+            print(fig_perf_out, pdf_perf_out, '-vector', '-dpdf');
             eps_data_hist = fullfile(path_data_hist, ['data_hist_' int2str(i_tol) '.eps']);
-            print(fig_data_hist, eps_data_hist, '-depsc');
+            print(fig_data_hist, eps_data_hist, '-image', '-depsc');
             pdf_data_hist = fullfile(path_data_hist, ['data_hist_' int2str(i_tol) '.pdf']);
-            print(fig_data_hist, pdf_data_hist, '-dpdf');
+            print(fig_data_hist, pdf_data_hist, '-vector', '-dpdf');
             eps_data_out = fullfile(path_data_out, ['data_out_' int2str(i_tol) '.eps']);
-            print(fig_data_out, eps_data_out, '-depsc');
+            print(fig_data_out, eps_data_out, '-image', '-depsc');
             pdf_data_out = fullfile(path_data_out, ['data_out_' int2str(i_tol) '.pdf']);
-            print(fig_data_out, pdf_data_out, '-dpdf');
+            print(fig_data_out, pdf_data_out, '-vector', '-dpdf');
             if n_solvers <= 2
                 eps_log_ratio_hist = fullfile(path_log_ratio_hist, ['log-ratio_hist_' int2str(i_tol) '.eps']);
-                print(fig_log_ratio_hist, eps_log_ratio_hist, '-depsc');
+                print(fig_log_ratio_hist, eps_log_ratio_hist, '-image', '-depsc');
                 pdf_log_ratio_hist = fullfile(path_log_ratio_hist, ['log-ratio_hist_' int2str(i_tol) '.pdf']);
-                print(fig_log_ratio_hist, pdf_log_ratio_hist, '-dpdf');
+                print(fig_log_ratio_hist, pdf_log_ratio_hist, '-vector', '-dpdf');
             end
             if n_solvers <= 2
                 eps_log_ratio_out = fullfile(path_log_ratio_out, ['log-ratio_out_' int2str(i_tol) '.eps']);
-                print(fig_log_ratio_out, eps_log_ratio_out, '-depsc');
+                print(fig_log_ratio_out, eps_log_ratio_out, '-image', '-depsc');
                 pdf_log_ratio_out = fullfile(path_log_ratio_out, ['log-ratio_out_' int2str(i_tol) '.pdf']);
-                print(fig_log_ratio_out, pdf_log_ratio_out, '-dpdf');
+                print(fig_log_ratio_out, pdf_log_ratio_out, '-vector', '-dpdf');
             end
             if i_tol == 1
                 exportgraphics(fig_perf_hist, pdf_perf_hist_summary, 'ContentType', 'vector');
