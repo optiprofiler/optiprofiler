@@ -48,3 +48,9 @@ jobs:
           file: ./matlab/optiprofiler/coverage.xml
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: unit_test_out
+          path: ./matlab/optiprofiler/tests/out/**

@@ -95,8 +95,6 @@ classdef TestBenchmark < matlab.unittest.TestCase
             options.mod_fun = @mod_fun;
             options.mod_affine = @mod_affine;
             benchmark(solvers, options);
-
-            rmdir('out', 's');
         end
 
         function testErrors(testCase)
