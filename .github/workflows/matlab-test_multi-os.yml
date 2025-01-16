@@ -49,7 +49,7 @@ jobs:
             test_u_plain
 
       - name: Upload all artifacts
-        uses: actions/upload-artifact@v3.1.2
+        uses: actions/upload-artifact@v4
         with:
           name: out_${{ matrix.os }}_${{ matrix.matlab }}
           path: ./out/**
