@@ -56,9 +56,9 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
             if ~profile_options.(ProfileOptionKey.SILENT.value)
                 % Print the number of workers.
                 fprintf("INFO: The parallel section is starting with %d workers.\n", profile_options.(ProfileOptionKey.N_JOBS.value));
-                parpool(int32(profile_options.(ProfileOptionKey.N_JOBS.value)));
+                parpool('Processes', profile_options.(ProfileOptionKey.N_JOBS.value));
             else
-                evalc("parpool(int32(profile_options.(ProfileOptionKey.N_JOBS.value)))");
+                evalc("parpool('Processes', profile_options.(ProfileOptionKey.N_JOBS.value))");
             end
         end
         parfor i_problem = 1:n_problems
