@@ -53,12 +53,31 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
             error("The Parallel Computing Toolbox is not available. Please set the n_jobs option to 1.");
         end
         if isempty(pool)
+
+            numJobs = profile_options.(ProfileOptionKey.N_JOBS.value);
+            disp(['Number of workers: ', num2str(numJobs)]);
+            disp(['numJobs class: ', class(numJobs)]);
+
+            if ~isnumeric(numJobs) || ~isscalar(numJobs) || numJobs < 1
+                error('Bug: %d', numJobs);
+            end
+
+            currentPool = gcp('nocreate');
+            if isempty(currentPool)
+                disp('No parallel pool running. Starting a new one.');
+                parpool(numJobs);
+                disp('Parallel pool started.');
+            else
+                disp(['Already has a pool containing ', num2str(currentPool.NumWorkers), ' workers.']);
+            end
+
+
             if ~profile_options.(ProfileOptionKey.SILENT.value)
                 % Print the number of workers.
                 fprintf("INFO: The parallel section is starting with %d workers.\n", profile_options.(ProfileOptionKey.N_JOBS.value));
-                parpool('Processes', profile_options.(ProfileOptionKey.N_JOBS.value));
+                parpool(profile_options.(ProfileOptionKey.N_JOBS.value));
             else
-                evalc("parpool('Processes', profile_options.(ProfileOptionKey.N_JOBS.value))");
+                evalc("parpool(profile_options.(ProfileOptionKey.N_JOBS.value))");
             end
         end
         parfor i_problem = 1:n_problems
