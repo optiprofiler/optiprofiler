@@ -61,11 +61,6 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
                 end
             catch
                 fprintf("INFO: Failed to create a parallel pool with the specified number of workers. Using the default number of workers.\n");
-                if ~profile_options.(ProfileOptionKey.SILENT.value)
-                    parpool();
-                else
-                    evalc("parpool()");
-                end
             end
         end
         parfor i_problem = 1:n_problems
