@@ -45,11 +45,26 @@ jobs:
             % Add './matlab/optiprofiler/tests/action_tests' to the path
             addpath(fullfile(root_dir, 'matlab/optiprofiler/tests/action_tests'))
 
-            % Test `fminsearch` and `fminunc` on unconstrained problems under "plain" feature
-            test_u_plain
+            % Generate the benchmark_id with operating system and MATLAB version
+            os = computer('arch');
+            matlab_version = version('-release');
+            benchmark_id = ['os_', os, '_matlab_', matlab_version];
+
+            % Run the action tests
+            test_plain(benchmark_id)
+            test_perturbed_x0(benchmark_id)
+            test_noisy(benchmark_id)
+            test_truncated(benchmark_id)
+            test_permuted(benchmark_id)
+            test_linearly_transformed(benchmark_id)
+            test_random_nan(benchmark_id)
+            test_unrelaxable_constraints(benchmark_id)
+            test_nonquantifiable_constraints(benchmark_id)
+            test_quantized(benchmark_id)
+            test_custom(benchmark_id)
 
       - name: Upload all artifacts
         uses: actions/upload-artifact@v4
         with:
           name: out_${{ matrix.os }}_${{ matrix.matlab }}
-          path: ./out/**
+          path: ./out
