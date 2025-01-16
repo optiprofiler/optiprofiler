@@ -5,8 +5,10 @@ on:
     branches: [matlab]
 
 jobs:
-  run:
-    name: Test OptiProfiler (MATLAB version) on ${{ matrix.os }}
+
+  test:
+
+    name: MATLAB ${{ matrix.matlab }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -48,14 +50,14 @@ jobs:
 
             % Add './matlab/optiprofiler/tests/action_tests' to the path
             addpath(fullfile(root_dir, 'matlab/optiprofiler/tests/action_tests'))
-            
+
             % Test `fminsearch` and `fminunc` on unconstrained problems under "plain" feature
             test_u_plain
 
-      - name: Upload artifacts
+      - name: Upload all artifacts
         uses: actions/upload-artifact@v3.1.2
         with:
-          name: test_out
+          name: out_${{ matrix.os }}_${{ matrix.matlab }}
           path: ./out/**
 
             

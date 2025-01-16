@@ -34,21 +34,12 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
             end
         end
     catch
-        pool = [];
     end
 
     % Note: in the case where `options` has the field `problem`, we set `custom_problem_loader` to `@(x) options.problem`.
     % If `problem` comes from `s_load`, then there will be a trouble if we use parallel computing (S2MPJ issue).
     % It will be fine if `problem` is created in the workspace.
     if (profile_options.(ProfileOptionKey.N_JOBS.value) == 1) || n_problems ==1
-        % Do not use parallel computing.
-        if ~isempty(pool) && ~profile_options.(ProfileOptionKey.KEEP_POOL.value)
-            if ~profile_options.(ProfileOptionKey.SILENT.value) && ~profile_options.(ProfileOptionKey.KEEP_POOL.value)
-                delete(pool);
-            else
-                evalc("delete(pool)");
-            end
-        end
         for i_problem = 1:n_problems
             problem_name = problem_names{i_problem};
             [tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_n, tmp_computation_time, tmp_solvers_success] = solveOneProblem(problem_name, solvers, feature, len_problem_names, profile_options, other_options, is_plot, path_hist_plots);
@@ -63,9 +54,9 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
         end
         if isempty(pool)
             if ~profile_options.(ProfileOptionKey.SILENT.value)
-                parpool(profile_options.(ProfileOptionKey.N_JOBS.value));
+                parpool(int32(profile_options.(ProfileOptionKey.N_JOBS.value)));
             else
-                evalc("parpool(profile_options.(ProfileOptionKey.N_JOBS.value))");
+                evalc("parpool(int32(profile_options.(ProfileOptionKey.N_JOBS.value)))");
             end
         end
         parfor i_problem = 1:n_problems
