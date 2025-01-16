@@ -1,0 +1,56 @@
+name: MATLAB test multi-OS
+
+on:
+  push:
+    branches: [matlab]
+
+jobs:
+  run:
+    name: Test OptiProfiler (MATLAB version) on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+        matlab: [latest, R2021b, R2022a]
+        with_optim_toolbox: [yes]
+
+    steps:
+
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Cache MATLAB  # N.B.: Clear the cache when the `latest` version of MATLAB changes in March and September
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.tool_cache }}/MATLAB
+          key: ${{ matrix.os }}-${{ matrix.matlab }}
+
+      - name: Set up MATLAB with optimization toolbox
+        if: ${{ matrix.with_optim_toolbox == 'yes' }}
+        uses: matlab-actions/setup-matlab@v2
+        with:
+          release: ${{ matrix.matlab }}
+          products: Optimization_Toolbox Parallel_Computing_Toolbox
+
+      - name: Setup OptiProfiler and run tests
+        uses: matlab-actions/run-command@v2.1.1
+        with:
+          command: |
+            % Setup OptiProfiler
+            setup
+
+            % Test installation
+            testOptiProfiler
+
+            % Test `fminsearch` and `fminunc` on unconstrained problems under "plain" feature
+            test_u_plain
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3.1.2
+        with:
+          name: test_out
+          path: ./out/**
+
+            
