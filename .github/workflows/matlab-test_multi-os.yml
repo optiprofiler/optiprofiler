@@ -29,8 +29,7 @@ jobs:
           path: ${{ runner.tool_cache }}/MATLAB
           key: ${{ matrix.os }}-${{ matrix.matlab }}
 
-      - name: Set up MATLAB with optimization toolbox
-        if: ${{ matrix.with_optim_toolbox == 'yes' }}
+      - name: Set up MATLAB with optimization toolbox and parallel computing toolbox
         uses: matlab-actions/setup-matlab@v2
         with:
           release: ${{ matrix.matlab }}
@@ -59,5 +58,3 @@ jobs:
         with:
           name: out_${{ matrix.os }}_${{ matrix.matlab }}
           path: ./out/**
-
-            

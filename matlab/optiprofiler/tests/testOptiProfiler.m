@@ -2,6 +2,8 @@ function testOptiProfiler()
 %TESTOPTIPROFILER Do some tests to check if OptiProfiler is installed correctly.
 
     success = true;
+    warning('off', 'all');
+
     fprintf("\nRunning tests for OptiProfiler...\n\n");
 
     % Test if problem from S2MPJ is callable.
@@ -40,6 +42,8 @@ function testOptiProfiler()
         fprintf("OptiProfiler passed all tests.\n\n");
         fprintf("You may now try 'help benchmark' for information on the usage of the package.\n\n");
     end
+
+    warning('on', 'all');
 end
 
 function x = fminsearch_test1(fun, x0)
