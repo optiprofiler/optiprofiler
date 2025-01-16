@@ -38,12 +38,17 @@ jobs:
         uses: matlab-actions/run-command@v2.1.1
         with:
           command: |
+            root_dir = pwd()
+
             % Setup OptiProfiler
             setup
 
             % Test installation
             testOptiProfiler
 
+            % Add './matlab/optiprofiler/tests/action_tests' to the path
+            addpath(fullfile(root_dir, 'matlab/optiprofiler/tests/action_tests'))
+            
             % Test `fminsearch` and `fminunc` on unconstrained problems under "plain" feature
             test_u_plain
 
