@@ -16,7 +16,6 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
         matlab: [latest, R2021b, R2022a]
-        with_optim_toolbox: [yes]
 
     steps:
 
