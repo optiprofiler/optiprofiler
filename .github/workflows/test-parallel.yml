@@ -1,4 +1,4 @@
-name: MATLAB test multi-OS
+name: test parallel computing toolbox
 
 on:
   push:
