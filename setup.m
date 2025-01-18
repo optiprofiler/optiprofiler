@@ -36,8 +36,8 @@ function setup(varargin)
     package_name = 'optiprofiler';
     
     % Check the version of MATLAB.
-    if verLessThan('matlab', '9.11')   % MATLAB R2021b = MATLAB 9.11
-        fprintf('\nSorry, this package does not support MATLAB R2021a or earlier releases.\n\n');
+    if verLessThan('matlab', '9.7')   % MATLAB R2019b = MATLAB 9.7
+        fprintf('\nSorry, this package does not support MATLAB R2019a or earlier releases.\n\n');
         return
     end
     
