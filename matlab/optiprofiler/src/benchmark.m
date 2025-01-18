@@ -843,7 +843,7 @@ function [solver_scores, profile_scores, problem_scores, profiles] = benchmark(s
     save(fullfile(path_log, 'profiles.mat'), 'profiles');
 
     % Compute the `solver_scores`.
-    profile_scores = computeScores(profiles, profile_options.(ProfileOptionKey.SEMILOGX.value));
+    profile_scores = computeScores(curves, profile_options.(ProfileOptionKey.SEMILOGX.value));
     scoring_fun = profile_options.(ProfileOptionKey.SCORING_FUN.value);
     solver_scores = scoring_fun(profile_scores);
     save(fullfile(path_log, 'profile_scores.mat'), 'profile_scores');
