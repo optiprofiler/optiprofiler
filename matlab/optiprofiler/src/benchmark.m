@@ -1,4 +1,4 @@
-function [solver_scores, profile_scores, profiles] = benchmark(solvers, varargin)
+function [solver_scores, profile_scores, problem_scores, profiles] = benchmark(solvers, varargin)
 %BENCHMARK Create multiple profiles for benchmarking optimization solvers on a
 %   set of problems with different features.
 %
@@ -23,8 +23,12 @@ function [solver_scores, profile_scores, profiles] = benchmark(solvers, varargin
 %   PROFILE_SCORES containing scores for all profiles. See `scoring_fun` in
 %   'Options' part for more details.
 %
-%   [SOLVER_SCORES, PROFILE_SCORES, PROFILES] = BENCHMARK(...) returns a cell
-%   array PROFILES containing all the profiles.
+%   [SOLVER_SCORES, PROFILE_SCORES, PROBLEM_SCORES] = BENCHMARK(...) returns a
+%   3D tensor PROBLEM_SCORES containing scores of the solvers on all problems.
+%
+%   [SOLVER_SCORES, PROFILE_SCORES, PROBLEM_SCORES, PROFILES] = BENCHMARK(...)
+%   returns a cell array PROFILES containing all the figure objects of the
+%   profiles.
 %
 %   Options:
 %
@@ -397,6 +401,7 @@ function [solver_scores, profile_scores, profiles] = benchmark(solvers, varargin
     n_solvers = numel(solvers);
     solver_scores = zeros(n_solvers, 1);
     profile_scores = [];
+    problem_scores = [];
     profiles = [];
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -689,21 +694,25 @@ function [solver_scores, profile_scores, profiles] = benchmark(solvers, varargin
     end
 
     % Store the curves of the performance profiles, data profiles, and log-ratio profiles.
-    profiles = cell(1, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value));
+    profiles_perf = cell(2, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value));
+    profiles_data = cell(2, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value));
+    profiles_log_ratio = cell(2, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value));
+
+    curves = cell(1, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value));
 
     if ~profile_options.(ProfileOptionKey.SILENT.value)
         fprintf('\n');
     end
 
     for i_tol = 1:profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)
-        profiles{i_tol} = struct();
-        profiles{i_tol}.hist = struct();
-        profiles{i_tol}.hist.perf = cell(n_solvers, n_runs + 1);
-        profiles{i_tol}.hist.data = cell(n_solvers, n_runs + 1);
+        curves{i_tol} = struct();
+        curves{i_tol}.hist = struct();
+        curves{i_tol}.hist.perf = cell(n_solvers, n_runs + 1);
+        curves{i_tol}.hist.data = cell(n_solvers, n_runs + 1);
         if n_solvers == 2
-            profiles{i_tol}.hist.log_ratio = cell(1, 2);
+            curves{i_tol}.hist.log_ratio = cell(1, 2);
         end
-        profiles{i_tol}.out = profiles{i_tol}.hist;
+        curves{i_tol}.out = curves{i_tol}.hist;
 
         tolerance = tolerances(i_tol);
         [tolerance_str, tolerance_latex] = formatFloatScientificLatex(tolerance, 1);
@@ -761,8 +770,15 @@ function [solver_scores, profile_scores, profiles] = benchmark(solvers, varargin
         end
 
         processed_solver_names = cellfun(@(s) strrep(s, '_', '\_'), other_options.(OtherOptionKey.SOLVER_NAMES.value), 'UniformOutput', false);
-        [fig_perf_hist, fig_data_hist, fig_log_ratio_hist, profiles{i_tol}.hist] = drawProfiles(work_hist, problem_dimensions, processed_solver_names, tolerance_label, cell_axs_summary_hist, true, is_perf, is_data, is_log_ratio, profile_options, profiles{i_tol}.hist);
-        [fig_perf_out, fig_data_out, fig_log_ratio_out, profiles{i_tol}.out] = drawProfiles(work_out, problem_dimensions, processed_solver_names, tolerance_label, cell_axs_summary_out, is_output_based, is_perf, is_data, is_log_ratio, profile_options, profiles{i_tol}.out);
+        [fig_perf_hist, fig_data_hist, fig_log_ratio_hist, curves{i_tol}.hist] = drawProfiles(work_hist, problem_dimensions, processed_solver_names, tolerance_label, cell_axs_summary_hist, true, is_perf, is_data, is_log_ratio, profile_options, curves{i_tol}.hist);
+        [fig_perf_out, fig_data_out, fig_log_ratio_out, curves{i_tol}.out] = drawProfiles(work_out, problem_dimensions, processed_solver_names, tolerance_label, cell_axs_summary_out, is_output_based, is_perf, is_data, is_log_ratio, profile_options, curves{i_tol}.out);
+
+        profiles_perf{1, i_tol} = fig_perf_hist;
+        profiles_perf{2, i_tol} = fig_perf_out;
+        profiles_data{1, i_tol} = fig_data_hist;
+        profiles_data{2, i_tol} = fig_data_out;
+        profiles_log_ratio{1, i_tol} = fig_log_ratio_hist;
+        profiles_log_ratio{2, i_tol} = fig_log_ratio_out;
 
         if profile_options.(ProfileOptionKey.DRAW_PLOTS.value)
             pdf_perf_hist = fullfile(path_perf_hist, ['perf_hist_', int2str(i_tol), '.pdf']);
@@ -816,6 +832,12 @@ function [solver_scores, profile_scores, profiles] = benchmark(solvers, varargin
             close(fig_log_ratio_out);
         end
     end
+
+    profiles = cell(1, 4);
+    profiles{1} = profiles_perf;
+    profiles{2} = profiles_data;
+    profiles{3} = profiles_log_ratio;
+    profiles{4} = fig_summary;
 
     % Store `profiles` in a mat file in the path_log directory.
     save(fullfile(path_log, 'profiles.mat'), 'profiles');
@@ -915,11 +937,11 @@ function integral = integrate(curve, profile_type, semilogx)
     end
 end
 
-function profile_scores = computeScores(profiles, semilogx)
+function profile_scores = computeScores(curves, semilogx)
     % Compute the scores of the solvers for all the profiles.
 
-    n_tols = size(profiles, 2);
-    n_solvers = size(profiles{1}.hist.perf, 1);
+    n_tols = size(curves, 2);
+    n_solvers = size(curves{1}.hist.perf, 1);
     
     if n_solvers == 2
         profile_scores = ones(n_solvers, n_tols, 2, 3);
@@ -929,17 +951,17 @@ function profile_scores = computeScores(profiles, semilogx)
 
     for i_tol = 1:n_tols
         for i_solver = 1:n_solvers
-            curve_hist_perf = profiles{i_tol}.hist.perf{i_solver, end};
-            curve_hist_data = profiles{i_tol}.hist.data{i_solver, end};
-            curve_out_perf = profiles{i_tol}.out.perf{i_solver, end};
-            curve_out_data = profiles{i_tol}.out.data{i_solver, end};
+            curve_hist_perf = curves{i_tol}.hist.perf{i_solver, end};
+            curve_hist_data = curves{i_tol}.hist.data{i_solver, end};
+            curve_out_perf = curves{i_tol}.out.perf{i_solver, end};
+            curve_out_data = curves{i_tol}.out.data{i_solver, end};
             profile_scores(i_solver, i_tol, 1, 1) = integrate(curve_hist_perf, 'perf', semilogx);
             profile_scores(i_solver, i_tol, 1, 2) = integrate(curve_hist_data, 'data', semilogx);
             profile_scores(i_solver, i_tol, 2, 1) = integrate(curve_out_perf, 'perf', semilogx);
             profile_scores(i_solver, i_tol, 2, 2) = integrate(curve_out_data, 'data', semilogx);
             if n_solvers == 2
-                curve_hist_log_ratio = profiles{i_tol}.hist.log_ratio{i_solver};
-                curve_out_log_ratio = profiles{i_tol}.out.log_ratio{i_solver};
+                curve_hist_log_ratio = curves{i_tol}.hist.log_ratio{i_solver};
+                curve_out_log_ratio = curves{i_tol}.out.log_ratio{i_solver};
                 if isempty(curve_hist_log_ratio)
                     curve_hist_log_ratio = [0; 0];
                 end

@@ -1,4 +1,4 @@
-function [fig_perf, fig_data, fig_log_ratio, profiles] = drawProfiles(work, problem_dimensions, solver_names, tolerance_label, cell_axs_summary, is_summary, is_perf, is_data, is_log_ratio, profile_options, profiles)
+function [fig_perf, fig_data, fig_log_ratio, curves] = drawProfiles(work, problem_dimensions, solver_names, tolerance_label, cell_axs_summary, is_summary, is_perf, is_data, is_log_ratio, profile_options, curves)
 %DRAWPROFILES draws the performance, data, and log-ratio profiles.
 
     n_solvers = size(work, 2);
@@ -21,9 +21,9 @@ function [fig_perf, fig_data, fig_log_ratio, profiles] = drawProfiles(work, prob
         ax_log_ratio = nexttile(t_log_ratio);
     end
 
-    [x_perf, y_perf, ratio_max_perf, x_data, y_data, ratio_max_data, profiles] = getExtendedPerformancesDataProfileAxes(work, problem_dimensions, profiles);
+    [x_perf, y_perf, ratio_max_perf, x_data, y_data, ratio_max_data, curves] = getExtendedPerformancesDataProfileAxes(work, problem_dimensions, curves);
     if n_solvers == 2
-        [x_log_ratio, y_log_ratio, ratio_max_log_ratio, profiles] = getLogRatioProfileAxes(work, profiles);
+        [x_log_ratio, y_log_ratio, ratio_max_log_ratio, curves] = getLogRatioProfileAxes(work, curves);
     end
 
     if ~profile_options.(ProfileOptionKey.DRAW_PLOTS.value)

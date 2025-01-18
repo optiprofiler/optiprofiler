@@ -1,4 +1,4 @@
-function [x_log_ratio, y_log_ratio, ratio_max, profiles] = getLogRatioProfileAxes(work, profiles)
+function [x_log_ratio, y_log_ratio, ratio_max, curves] = getLogRatioProfileAxes(work, curves)
 %GETLOGRATIOPROFILEAXES computes the axes for the log-ratio profiles.
 
     [n_problems, n_solvers, n_runs] = size(work);
@@ -18,6 +18,6 @@ function [x_log_ratio, y_log_ratio, ratio_max, profiles] = getLogRatioProfileAxe
     x_log_ratio = (1:(n_problems * n_runs))';
 
     % Store the curves in the `profiles` struct.
-    profiles.log_ratio{1} = [x_log_ratio(y_log_ratio < 0)'; y_log_ratio(y_log_ratio < 0)'];
-    profiles.log_ratio{2} = [x_log_ratio(y_log_ratio > 0)'; y_log_ratio(y_log_ratio > 0)'];
+    curves.log_ratio{1} = [x_log_ratio(y_log_ratio < 0)'; y_log_ratio(y_log_ratio < 0)'];
+    curves.log_ratio{2} = [x_log_ratio(y_log_ratio > 0)'; y_log_ratio(y_log_ratio > 0)'];
 end
