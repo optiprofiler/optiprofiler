@@ -73,14 +73,6 @@ function [fig_perf, fig_data, fig_log_ratio, profiles] = drawProfiles(work, prob
             set(cell_axs_summary{1}, 'XTick', ticks_perf, 'XTickLabel', tickLabels_perf, 'TickLabelInterpreter', 'latex');
             % Modify x-axis ticks labels of the data profiles.
             set(cell_axs_summary{2}, 'XTick', ticks_data, 'XTickLabel', tickLabels_data, 'TickLabelInterpreter', 'latex');
-
-
-            fprintf("\n\nfontsize of the x-axis labels: %d\n\n", get(cell_axs_summary{1}, 'FontSize'));
-            fprintf("\n\nfontsize of the x-axis labels: %d\n\n", get(cell_axs_summary{2}, 'FontSize'));
-
-
-
-            
             % Set x-axis labels.
             xlabel(cell_axs_summary{1}, 'Performance ratio', 'Interpreter', 'latex');
             xlabel(cell_axs_summary{2}, 'Number of simplex gradients', 'Interpreter', 'latex');

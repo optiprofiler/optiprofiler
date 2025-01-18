@@ -661,12 +661,6 @@ function [solver_scores, profile_scores, profiles] = benchmark(solvers, varargin
     defaultFigurePosition = get(0, 'DefaultFigurePosition');
     default_width = defaultFigurePosition(3);
     default_height = defaultFigurePosition(4);
-    
-
-
-
-    fprintf("\n\nThe default width is %d, and the default height is %d.\n\n", default_width, default_height);
-
 
     if n_rows > 0
         fig_summary = figure('Position', [defaultFigurePosition(1:2), profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * default_width, multiplier * n_rows * default_height], 'visible', 'off');
@@ -675,11 +669,6 @@ function [solver_scores, profile_scores, profiles] = benchmark(solvers, varargin
         T_title = ['Profiles with the ``', T_feature_stamp, '" feature'];
         summary_width = profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * default_width;
         summary_fontsize = min(1.5 * summary_width / length(T_title), 30);
-
-
-        fprintf("\n\nThe summary width is %d, and the summary fontsize is %d.\n\n", summary_width, summary_fontsize);
-
-
         title(T_summary, T_title, 'Interpreter', 'latex', 'FontSize', summary_fontsize);
         % Use gobjects to create arrays of handles and axes.
         t_summary = gobjects(multiplier, 1);
