@@ -837,7 +837,11 @@ function [solver_scores, profile_scores, problem_scores, profiles] = benchmark(s
     profiles{1} = profiles_perf;
     profiles{2} = profiles_data;
     profiles{3} = profiles_log_ratio;
-    profiles{4} = fig_summary;
+    if n_rows > 0
+        profiles{4} = fig_summary;
+    else
+        profiles{4} = [];
+    end
 
     % Store `profiles` in a mat file in the path_log directory.
     save(fullfile(path_log, 'profiles.mat'), 'profiles');
