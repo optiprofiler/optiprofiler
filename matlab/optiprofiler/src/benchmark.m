@@ -838,10 +838,15 @@ function [solver_scores, profile_scores, problem_scores, profiles] = benchmark(s
     profiles{2} = profiles_data;
     profiles{3} = profiles_log_ratio;
     if n_rows > 0
-        % Adjust the size (position) of the summary figure again since Windows will enforce the size of the figure.
-        fig_summary.Position(1:2) = defaultFigurePosition(1:2);
-        fig_summary.Position(3) = profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * default_width;
-        fig_summary.Position(4) = multiplier * n_rows * default_height;
+        % Check the operating system. If it is Windows, we will adjust the position and papersize of the summary figure!
+        if ispc
+            fig_summary.Position(1:2) = defaultFigurePosition(1:2);
+            fig_summary.Position(3) = profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * default_width;
+            fig_summary.Position(4) = multiplier * n_rows * default_height;
+            fig_summary.Units = 'centimeters';
+            fig_summary.PaperUnits = 'centimeters';
+            fig_summary.PaperSize = fig_summary.Position(3:4);
+        end
         profiles{4} = fig_summary;
     else
         profiles{4} = [];
@@ -872,7 +877,11 @@ function [solver_scores, profile_scores, problem_scores, profiles] = benchmark(s
         % path_feature. We will also put a "summary.pdf" in the path_out directory, which will be a merged pdf of all
         % the "summary_feature_name.pdf" under path_out following the order of the feature_stamp.
         if n_rows > 0
-            exportgraphics(fig_summary, fullfile(path_feature, ['summary_' feature_name '.pdf']), 'ContentType', 'vector');
+            if ispc
+                print(fig_summary, fullfile(path_feature, ['summary_' feature_name '.pdf']), '-dpdf', '-vector');
+            else
+                exportgraphics(fig_summary, fullfile(path_feature, ['summary_', feature_name, '.pdf']), 'ContentType', 'vector');
+            end
         end
         % List all summary PDF files in the output path and its subdirectories.
         summary_files = dir(fullfile(path_out, '**', 'summary_*.pdf'));
