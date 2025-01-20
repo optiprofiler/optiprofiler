@@ -673,7 +673,8 @@ function [solver_scores, profile_scores, problem_scores, profiles] = benchmark(s
         T_feature_stamp = strrep(profile_options.(ProfileOptionKey.FEATURE_STAMP.value), '_', '\_');
         T_title = ['Profiles with the ``', T_feature_stamp, '" feature'];
         summary_width = profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * default_width;
-        summary_fontsize = min(1.5 * summary_width / length(T_title), 30);
+        summary_height = multiplier * n_rows * default_height;
+        summary_fontsize = min(summary_width / 75 * 2, summary_width / profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * 3 / 75 * 2);
         title(T_summary, T_title, 'Interpreter', 'latex', 'FontSize', summary_fontsize);
         % Use gobjects to create arrays of handles and axes.
         t_summary = gobjects(multiplier, 1);
@@ -687,9 +688,9 @@ function [solver_scores, profile_scores, problem_scores, profiles] = benchmark(s
                 axs_summary(i_axs) = nexttile(t_summary(i));
             end
         end
-        ylabel(t_summary(1), "History-based profiles", 'Interpreter', 'latex', 'FontSize', 20);
+        ylabel(t_summary(1), "History-based profiles", 'Interpreter', 'latex', 'FontSize', min(summary_height / 60 * 2, summary_height / n_rows * 2 / 60 * 2));
         if is_output_based
-            ylabel(t_summary(2), "Output-based profiles", 'Interpreter', 'latex', 'FontSize', 20);
+            ylabel(t_summary(2), "Output-based profiles", 'Interpreter', 'latex', 'FontSize', min(summary_height / 60 * 2, summary_height / n_rows * 2 / 60 * 2));
         end
     end
 
@@ -845,9 +846,9 @@ function [solver_scores, profile_scores, problem_scores, profiles] = benchmark(s
             fig_summary.PaperUnits = 'centimeters';
             fig_summary.PaperSize = fig_summary.Position(3:4);
             fig_summary.PaperPosition = [0, 0, fig_summary.Position(3:4)];
-            fig_summary.Children.Title.FontSize = min(12, 8 * profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value));
-            fig_summary.Children.Children(1).YLabel.FontSize = 12;
-            fig_summary.Children.Children(2).YLabel.FontSize = 12;
+            fig_summary.Children.Title.FontSize = min(fig_summary.Position(3) / 75 * 30, fig_summary.Position(3) / profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * 3 / 75 * 30);
+            fig_summary.Children.Children(1).YLabel.FontSize = min(fig_summary.Position(4) / 30 * 9, fig_summary.Position(4) / n_rows * 2 / 30 * 9);
+            fig_summary.Children.Children(2).YLabel.FontSize = min(fig_summary.Position(4) / 30 * 9, fig_summary.Position(4) / n_rows * 2 / 30 * 9);
         end
         profiles{4} = fig_summary;
     else
