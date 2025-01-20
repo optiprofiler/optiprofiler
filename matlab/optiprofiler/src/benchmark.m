@@ -838,6 +838,10 @@ function [solver_scores, profile_scores, problem_scores, profiles] = benchmark(s
     profiles{2} = profiles_data;
     profiles{3} = profiles_log_ratio;
     if n_rows > 0
+        % Adjust the size (position) of the summary figure again since Windows will enforce the size of the figure.
+        fig_summary.Position(1:2) = defaultFigurePosition(1:2);
+        fig_summary.Position(3) = profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * default_width;
+        fig_summary.Position(4) = multiplier * n_rows * default_height;
         profiles{4} = fig_summary;
     else
         profiles{4} = [];
