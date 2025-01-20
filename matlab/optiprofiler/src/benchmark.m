@@ -838,13 +838,14 @@ function [solver_scores, profile_scores, problem_scores, profiles] = benchmark(s
     profiles{2} = profiles_data;
     profiles{3} = profiles_log_ratio;
     if n_rows > 0
-        % Check the operating system. If it is Windows, we will adjust the position and papersize of the summary figure!
+        % Check the operating system. If it is Windows, we will adjust the position, papersize, paperposition of the summary figure!
         if ispc
             position = [defaultFigurePosition(1:2), profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * default_width, multiplier * n_rows * default_height];
             fig_summary.Position = position;
             fig_summary.Units = 'centimeters';
             fig_summary.PaperUnits = 'centimeters';
             fig_summary.PaperSize = fig_summary.Position(3:4);
+            fig_summary.PaperPosition = [0, 0, fig_summary.Position(3:4)];
         end
         profiles{4} = fig_summary;
     else
