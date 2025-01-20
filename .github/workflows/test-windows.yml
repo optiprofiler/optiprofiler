@@ -26,7 +26,6 @@ jobs:
         uses: matlab-actions/setup-matlab@v2
         with:
           release: ${{ matrix.matlab }}
-          cache: true
           products: Optimization_Toolbox Parallel_Computing_Toolbox
 
       - name: Setup OptiProfiler and run tests
