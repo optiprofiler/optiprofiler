@@ -846,6 +846,9 @@ function [solver_scores, profile_scores, problem_scores, profiles] = benchmark(s
             fig_summary.PaperUnits = 'centimeters';
             fig_summary.PaperSize = fig_summary.Position(3:4);
             fig_summary.PaperPosition = [0, 0, fig_summary.Position(3:4)];
+            fig_summary.Children.Title.FontSize = min(12, 8 * profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value));
+            fig_summary.Children.Children(1).YLabel.FontSize = 12;
+            fig_summary.Children.Children(2).YLabel.FontSize = 12;
         end
         profiles{4} = fig_summary;
     else
