@@ -70,8 +70,11 @@ function [solver_scores, profile_scores, problem_scores, curves] = benchmark(sol
 %       - summarize_output_based_profiles: whether to add all the output-based
 %         profiles of the selected profiles to the summary PDF. Default is
 %         true.
-%       - colorspace: the colorspace of the profiles. It should be either 'rgb'
-%         or 'gray'. Default is 'rgb'.
+%       - silent: whether to show the information of the progress. Default is
+%         false.
+%       - solver_verbose: the level of the verbosity of the solvers. `0` means
+%         no verbosity, `1` means some verbosity, and `2` means full verbosity.
+%         Default is 1.
 %       - semilogx: whether to use the semilogx scale during plotting profiles
 %         (performance profiles and data profiles). Default is true.
 %       - scoring_fun: the scoring function to calculate the scores of the
