@@ -846,9 +846,9 @@ function [solver_scores, profile_scores, problem_scores, profiles] = benchmark(s
             fig_summary.PaperUnits = 'centimeters';
             fig_summary.PaperSize = fig_summary.Position(3:4);
             fig_summary.PaperPosition = [0, 0, fig_summary.Position(3:4)];
-            fig_summary.Children.Title.FontSize = min(fig_summary.Position(3) / 75 * 30, fig_summary.Position(3) / profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * 3 / 75 * 30);
-            fig_summary.Children.Children(1).YLabel.FontSize = min(fig_summary.Position(4) / 30 * 9, fig_summary.Position(4) / n_rows * 2 / 30 * 9);
-            fig_summary.Children.Children(2).YLabel.FontSize = min(fig_summary.Position(4) / 30 * 9, fig_summary.Position(4) / n_rows * 2 / 30 * 9);
+            fig_summary.Children.Title.FontSize = min(fig_summary.Position(3) / 75 * 10, fig_summary.Position(3) / profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * 3 / 75 * 10);
+            fig_summary.Children.Children(1).YLabel.FontSize = min(fig_summary.Position(4) / 30 * 4.5, fig_summary.Position(4) / n_rows * 2 / 30 * 4.5);
+            fig_summary.Children.Children(2).YLabel.FontSize = min(fig_summary.Position(4) / 30 * 4.5, fig_summary.Position(4) / n_rows * 2 / 30 * 4.5);
         end
         profiles{4} = fig_summary;
     else
