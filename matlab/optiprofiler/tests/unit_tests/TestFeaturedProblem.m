@@ -2,7 +2,7 @@ classdef TestFeaturedProblem < matlab.unittest.TestCase
     methods (Static)
 
         function f = rosen(x)
-            f = sum(100*(x(2:end) - x(1:end-1).^2).^2 + (1 - x(1:end-1)).^2);
+            f = sum((1:length(x)-1)' .* (x(2:end) - x(1:end-1).^2).^2 + (1 - x(1:end-1)).^2);
         end
 
         function f = sum_cos(x)
@@ -62,7 +62,7 @@ classdef TestFeaturedProblem < matlab.unittest.TestCase
         function testNormalCase(testCase)
             % Test the normal case.
 
-            p = Problem(struct('fun', @TestFeaturedProblem.rosen, 'x0', ones(10, 1), 'xl', -ones(10, 1), 'xu', ones(10, 1), 'aub', diag(ones(10, 1)), 'bub', ones(10, 1), 'aeq', diag(ones(10, 1)), 'beq', ones(10, 1), 'cub', @TestFeaturedProblem.sum_cos, 'ceq', @TestFeaturedProblem.sum_sin));
+            p = Problem(struct('fun', @TestFeaturedProblem.rosen, 'x0', (1:10)', 'xl', -(1:10)', 'xu', (1:10)', 'aub', diag((1:10)'), 'bub', (1:10)'.^2, 'aeq', diag((1:10)'), 'beq', (1:10)'.^2, 'cub', @TestFeaturedProblem.sum_cos, 'ceq', @TestFeaturedProblem.sum_sin));
             ft = Feature('plain');
             fp = FeaturedProblem(p, ft, 500, 1);
             testCase.verifyEqual(fp.problem, p);
@@ -124,15 +124,20 @@ classdef TestFeaturedProblem < matlab.unittest.TestCase
 
             ft = Feature('permuted');
             fp = FeaturedProblem(p, ft, 500, 1);
-            fp.fun(fp.x0);
-            fp.cub(fp.x0);
-            fp.ceq(fp.x0);
+            testCase.verifyEqual(fp.fun(fp.x0), p.fun(p.x0));
+            testCase.verifyEqual(fp.cub(fp.x0), p.cub(p.x0));
+            testCase.verifyEqual(fp.ceq(fp.x0), p.ceq(p.x0));
+            testCase.verifyEqual(fp.aub * fp.x0, fp.bub);
+            testCase.verifyEqual(fp.aeq * fp.x0, fp.beq);
+            testCase.verifyEqual(fp.xu, fp.x0);
 
             ft = Feature('linearly_transformed');
             fp = FeaturedProblem(p, ft, 500, 1);
-            fp.fun(fp.x0);
-            fp.cub(fp.x0);
-            fp.ceq(fp.x0);
+            testCase.verifyEqual(abs(fp.fun(fp.x0) - p.fun(p.x0)) <= 1e-8, true);
+            testCase.verifyEqual(abs(fp.cub(fp.x0) - p.cub(p.x0)) <= 1e-8, true);
+            testCase.verifyEqual(abs(fp.ceq(fp.x0) - p.ceq(p.x0)) <= 1e-8, true);
+            testCase.verifyEqual(norm(fp.aub(end-9:end,:) * fp.x0 - fp.bub(end-9:end)) <= 1e-8, true);
+            testCase.verifyEqual(norm(fp.aeq * fp.x0 - fp.beq) <= 1e-8, true);
 
             ft = Feature('random_nan');
             fp = FeaturedProblem(p, ft, 500, 1);

@@ -1,4 +1,4 @@
-function [x, y, ratio_max] = getPerformanceDataProfileAxes(work, denominator, perf_or_data)
+function [x, y, ratio_max] = getPerformanceDataProfileAxes(work, denominator)
 %GETPERFORMANCEDATAPROFILEAXES computes the axes for the performance profiles and data profiles.
     [n_problems, n_solvers, n_runs] = size(work);
 
@@ -10,23 +10,11 @@ function [x, y, ratio_max] = getPerformanceDataProfileAxes(work, denominator, pe
         end
     end
 
-    switch perf_or_data
-        case 'perf'
-            % Set default ratio_max in the case where all the elements in x is either 1 or NaN.
-            if all(x(:) == 1 | isnan(x(:)))
-                ratio_max = eps;
-            else
-                ratio_max = max(log2(x(:)), [], 'omitnan');
-            end
-        case 'data'
-            % Set default ratio_max in the case where all the elements in x is either 0 or NaN.
-            if all(x(:) == 0 | isnan(x(:)))
-                ratio_max = eps;
-            else
-                ratio_max = max(x(:), [], 'omitnan');
-            end
-        otherwise
-            error("MATLAB:getPerformanceDataProfileAxes:UnknownNameForgetPerformanceDataProfileAxes", "Unknown perf_or_data.");
+    % Set default ratio_max in the case where all the elements in x is either 1 or NaN.
+    if all(x(:) == 1 | isnan(x(:)))
+        ratio_max = eps;
+    else
+        ratio_max = max(x(:), [], 'omitnan');
     end
     
     x(isnan(x)) = Inf;
@@ -37,15 +25,8 @@ function [x, y, ratio_max] = getPerformanceDataProfileAxes(work, denominator, pe
     % Find the index of the element in x(:, i_solver) that is the last element that is less than or equal to ratio_max.
     index_ratio_max = NaN(n_solvers, 1);
     for i_solver = 1:n_solvers
-        switch perf_or_data
-            case 'perf'
-                if ~isempty(find(log2(x(:, i_solver)) <= ratio_max, 1, 'last'))
-                    index_ratio_max(i_solver) = find(log2(x(:, i_solver)) <= ratio_max, 1, 'last');
-                end
-            case 'data'
-                if ~isempty(find(x(:, i_solver) <= ratio_max, 1, 'last'))
-                    index_ratio_max(i_solver) = find(x(:, i_solver) <= ratio_max, 1, 'last');
-                end
+        if ~isempty(find(x(:, i_solver) <= ratio_max, 1, 'last'))
+            index_ratio_max(i_solver) = find(x(:, i_solver) <= ratio_max, 1, 'last');
         end
     end
 
