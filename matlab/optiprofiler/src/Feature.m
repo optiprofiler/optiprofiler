@@ -94,8 +94,8 @@ classdef Feature < handle
 %       replace values of nonlinear constraints with either 0 (if the
 %       constraint is satisfied) or 1 (if the constraint is violated).
 %   10. quantized:
-%       quantize the objective function value and nonlinear constraints with a
-%       given mesh size.
+%       quantize the objective function value and nonlinear constraints with
+%       an absolute or relative mesh size.
 %   11. custom:
 %       a user-defined FEATURE. Users can define their own FEATURE by
 %       specifying any modifier listed in the above.
@@ -184,7 +184,7 @@ classdef Feature < handle
                     case FeatureName.LINEARLY_TRANSFORMED.value
                         known_options = [known_options, {FeatureOptionKey.ROTATED.value, FeatureOptionKey.CONDITION_FACTOR.value}];
                     case FeatureName.QUANTIZED.value
-                        known_options = [known_options, {FeatureOptionKey.MESH_SIZE.value, FeatureOptionKey.GROUND_TRUTH.value}];
+                        known_options = [known_options, {FeatureOptionKey.MESH_SIZE.value, FeatureOptionKey.MESH_TYPE.value, FeatureOptionKey.GROUND_TRUTH.value}];
                     case FeatureName.PERMUTED.value
                         % Do nothing
                     case FeatureName.NONQUANTIFIABLE_CONSTRAINTS.value
@@ -229,10 +229,10 @@ classdef Feature < handle
                             error("MATLAB:Feature:noise_level_NotPositive", "Option `" + key + "` must be a positive real number.")
                         end
                     case FeatureOptionKey.NOISE_TYPE.value
-                        validNoiseTypes = cellfun(@(x) x.value, num2cell(enumeration('NoiseType')), 'UniformOutput', false);
-                        if ~ischarstr(obj.options.(key)) || ~ismember(obj.options.(key), validNoiseTypes)
-                            error("MATLAB:Feature:noise_type_InvalidInput", "Option `" + key + "` must be '" + NoiseType.ABSOLUTE.value + "' or '" + NoiseType.RELATIVE.value + "' or '" + NoiseType.MIXED.value + "'.")
+                        if ~ischarstr(obj.options.(key)) || ~ismember(obj.options.(key), {'absolute', 'relative', 'mixed'})
+                            error("MATLAB:Feature:noise_type_InvalidInput", "Option `" + key + "` must be 'absolute', 'relative', or 'mixed'.")
                         end
+                        obj.options.(key) = char(obj.options.(key));
                     case FeatureOptionKey.PERTURBED_TRAILING_ZEROS.value
                         if ~islogicalscalar(obj.options.(key))
                             error("MATLAB:Feature:perturbed_trailing_zeros_NotLogical", "Option `" + key + "` must be a logical value.")
@@ -261,6 +261,11 @@ classdef Feature < handle
                         if ~isrealscalar(obj.options.(key)) || obj.options.(key) <= 0.0
                             error("MATLAB:Feature:mesh_size_NotPositive", "Option `" + key + "` must be a positive real number.")
                         end
+                    case FeatureOptionKey.MESH_TYPE.value
+                        if ~ischarstr(obj.options.(key)) || ~ismember(obj.options.(key), {'absolute', 'relative'})
+                            error("MATLAB:Feature:mesh_type_InvalidInput", "Option `" + key + "` must be 'absolute' or 'relative'.")
+                        end
+                        obj.options.(key) = char(obj.options.(key));
                     case FeatureOptionKey.GROUND_TRUTH.value
                         if ~islogicalscalar(obj.options.(key))
                             error("MATLAB:Feature:ground_truth_NotLogical", "Option `" + key + "` must be a logical value.")
@@ -790,7 +795,7 @@ classdef Feature < handle
                     end
                 case FeatureName.NOISY.value
                     rand_stream_noisy = obj.default_rng(seed, f, xCell{:});
-                    if strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), NoiseType.ABSOLUTE.value)
+                    if strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), 'absolute')
                         if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
                             f = f + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn();
                         elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
@@ -798,7 +803,7 @@ classdef Feature < handle
                         else
                             f = f + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1);
                         end
-                    elseif strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), NoiseType.RELATIVE.value)
+                    elseif strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), 'relative')
                         if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
                             f = f * (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn());
                         elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
@@ -858,7 +863,10 @@ classdef Feature < handle
                     end
                 case FeatureName.QUANTIZED.value
                     mesh_size = obj.options.(FeatureOptionKey.MESH_SIZE.value);
-                    x = mesh_size * floor(x / mesh_size + 0.5);
+                    if strcmp(obj.options.(FeatureOptionKey.MESH_TYPE.value), 'relative')
+                        mesh_size = mesh_size .* max(1, abs(x));
+                    end
+                    x = mesh_size .* round(x ./ mesh_size);  % round(x) rounds x to the closest integer.
                     f = problem.fun(x);
                 otherwise
                     % Do nothing
@@ -906,7 +914,7 @@ classdef Feature < handle
                 case FeatureName.NOISY.value
                     % Similar to the case in the modifier_fun method.
                     rand_stream_noisy = obj.default_rng(seed, cubCell{:}, xCell{:});
-                    if strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), NoiseType.ABSOLUTE.value)
+                    if strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), 'absolute')
                         if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
                             cub_ = cub_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn(size(cub_));
                         elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
@@ -914,7 +922,7 @@ classdef Feature < handle
                         else
                             cub_ = cub_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, size(cub_));
                         end
-                    elseif strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), NoiseType.RELATIVE.value)
+                    elseif strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), 'relative')
                         if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
                             cub_ = cub_ .* (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn(size(cub_)));
                         elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
@@ -1007,7 +1015,7 @@ classdef Feature < handle
                 case FeatureName.NOISY.value
                     % Similar to the case in the modifier_fun method.
                     rand_stream_noisy = obj.default_rng(seed, ceqCell{:}, xCell{:});
-                    if strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), NoiseType.ABSOLUTE.value)
+                    if strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), 'absolute')
                         if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
                             ceq_ = ceq_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn(size(ceq_));
                         elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
@@ -1015,7 +1023,7 @@ classdef Feature < handle
                         else
                             ceq_ = ceq_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, size(ceq_));
                         end
-                    elseif strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), NoiseType.RELATIVE.value)
+                    elseif strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), 'relative')
                         if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
                             ceq_ = ceq_ .* (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn(size(ceq_)));
                         elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
@@ -1089,7 +1097,7 @@ classdef Feature < handle
                         obj.options.(FeatureOptionKey.NOISE_LEVEL.value) = 1e-3;
                     end
                     if ~isfield(obj.options, FeatureOptionKey.NOISE_TYPE.value)
-                        obj.options.(FeatureOptionKey.NOISE_TYPE.value) = NoiseType.MIXED.value;
+                        obj.options.(FeatureOptionKey.NOISE_TYPE.value) = 'mixed';
                     end
                 case FeatureName.PERMUTED.value
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
@@ -1159,6 +1167,9 @@ classdef Feature < handle
                     end
                     if ~isfield(obj.options, FeatureOptionKey.MESH_SIZE.value)
                         obj.options.(FeatureOptionKey.MESH_SIZE.value) = 1e-3;
+                    end
+                    if ~isfield(obj.options, FeatureOptionKey.MESH_TYPE.value)
+                        obj.options.(FeatureOptionKey.MESH_TYPE.value) = 'absolute';
                     end
                     if ~isfield(obj.options, FeatureOptionKey.GROUND_TRUTH.value)
                         obj.options.(FeatureOptionKey.GROUND_TRUTH.value) = true;

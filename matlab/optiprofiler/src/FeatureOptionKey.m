@@ -15,6 +15,7 @@ classdef FeatureOptionKey
         UNRELAXABLE_LINEAR_CONSTRAINTS ('unrelaxable_linear_constraints')
         UNRELAXABLE_NONLINEAR_CONSTRAINTS ('unrelaxable_nonlinear_constraints')
         MESH_SIZE ('mesh_size')
+        MESH_TYPE ('mesh_type')
         GROUND_TRUTH ('ground_truth')
         MOD_X0 ('mod_x0')
         MOD_AFFINE ('mod_affine')
