@@ -1,6 +1,6 @@
 # Check spelling
 
-name: spelling
+name: Check spelling
 
 on:
   push:

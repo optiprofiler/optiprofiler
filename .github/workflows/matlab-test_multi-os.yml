@@ -1,0 +1,69 @@
+name: MATLAB test multi-OS
+
+on:
+  push:
+    branches: [matlab]
+
+jobs:
+
+  test:
+
+    name: MATLAB ${{ matrix.matlab }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+        matlab: [R2021b, R2022a, R2022b, R2023a, R2023b, latest]
+
+    steps:
+
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up MATLAB with optimization toolbox and parallel computing toolbox
+        uses: matlab-actions/setup-matlab@v2
+        with:
+          release: ${{ matrix.matlab }}
+          cache: true
+          products: Optimization_Toolbox Parallel_Computing_Toolbox
+
+      - name: Setup OptiProfiler and run tests
+        uses: matlab-actions/run-command@v2.1.1
+        with:
+          command: |
+            root_dir = pwd()
+
+            % Setup OptiProfiler
+            setup
+
+            % Test installation
+            testOptiProfiler
+
+            % Add './matlab/optiprofiler/tests/action_tests' to the path
+            addpath(fullfile(root_dir, 'matlab/optiprofiler/tests/action_tests'))
+
+            % Generate the benchmark_id with operating system and MATLAB version
+            os = computer('arch');
+            matlab_version = version('-release');
+            benchmark_id = ['os_', os, '_matlab_', matlab_version];
+
+            % Run the action tests
+            test_plain(benchmark_id)
+            test_perturbed_x0(benchmark_id)
+            test_noisy(benchmark_id)
+            test_truncated(benchmark_id)
+            test_permuted(benchmark_id)
+            test_linearly_transformed(benchmark_id)
+            test_random_nan(benchmark_id)
+            test_unrelaxable_constraints(benchmark_id)
+            test_nonquantifiable_constraints(benchmark_id)
+            test_quantized(benchmark_id)
+            test_custom(benchmark_id)
+
+      - name: Upload all artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: out_${{ matrix.os }}_${{ matrix.matlab }}
+          path: ./out

@@ -161,6 +161,11 @@ pycutest_cache_holder/
 
 
 # MATLAB
+test_local.m
+coverageReport/
+runTestsAndGenerateCoverageReport.m
+figure/
+profileinprima.m
 
 ## Windows default autuosave extension
 *.asv

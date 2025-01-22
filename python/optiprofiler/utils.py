@@ -27,6 +27,9 @@ class ProfileOption(str, Enum):
     N_JOBS = 'n_jobs'
     BENCHMARK_ID = 'benchmark_id'
     PROJECT_X0 = 'project_x0'
+    SUMMARIZE_PERFORMANCE_PROFILES = 'summarize_performance_profiles'
+    SUMMARIZE_DATA_PROFILES = 'summarize_data_profiles'
+    SUMMARIZE_LOG_RATIO_PROFILES = 'summarize_log_ratio_profiles'
 
 
 class CUTEstProblemOption(str, Enum):
