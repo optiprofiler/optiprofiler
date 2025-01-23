@@ -4,9 +4,6 @@ import matlab.unittest.TestRunner
 import matlab.unittest.Verbosity
 import matlab.unittest.plugins.CodeCoveragePlugin
 import matlab.unittest.plugins.codecoverage.CoberturaFormat
- 
-% Add paths
-addpath(genpath(pwd));
 
 % Create a test suite 
 suite = testsuite(pwd, 'IncludeSubfolders', true);
@@ -25,6 +22,3 @@ runner.addPlugin(p)
 results = runner.run(suite);  
 nfailed = nnz([results.Failed]);
 assert(nfailed == 0,[num2str(nfailed) ' test(s) failed.'])
-
-% Remove paths
-rmpath(genpath(pwd));

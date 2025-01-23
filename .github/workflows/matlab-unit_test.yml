@@ -40,6 +40,8 @@ jobs:
         uses: matlab-actions/run-command@v2.1.1
         with:
           command: |
+            % Setup OptiProfiler
+            setup
             % Run tests
             cd matlab/optiprofiler/
             runTests
