@@ -19,8 +19,10 @@ jobs:
 
     steps:
 
-      - name: Check out repository
+      - name: Check out repository with submodules
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Set up MATLAB with optimization toolbox and parallel computing toolbox
         uses: matlab-actions/setup-matlab@v2

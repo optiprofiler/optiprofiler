@@ -18,8 +18,10 @@ jobs:
 
     steps:
 
-      - name: Check out repository
+      - name: Check out repository with submodules
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Cache MATLAB  # N.B.: Clear the cache when the `latest` version of MATLAB changes in March and September
         uses: actions/cache@v4

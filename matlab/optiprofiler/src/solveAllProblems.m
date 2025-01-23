@@ -17,8 +17,11 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
     if ~profile_options.(ProfileOptionKey.SILENT.value)
         if n_problems > 1
             fprintf("INFO: There are %d problems to solve.\n\n", n_problems);
+            if ~isempty(cutest_problem_names)
+                fprintf("INFO: There are %d problems from S2MPJ. See the website for more information: https://github.com/GrattonToint/S2MPJ", length(cutest_problem_names));
+            end
         else
-            fprintf("INFO: There is only %d problem to solve.\n\n", n_problems);
+            fprintf("INFO: There is %d problem to solve.\n\n", n_problems);
         end
     end
 
