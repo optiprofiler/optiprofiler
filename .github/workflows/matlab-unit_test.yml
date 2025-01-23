@@ -2,7 +2,7 @@ name: MATLAB unit test
 
 on:
   push:
-    branches: [matlab]
+    branches: [main, matlab]
 
 jobs:
   run:
@@ -18,9 +18,10 @@ jobs:
 
     steps:
 
-      - name: Check out repository with submodules
+      - name: Check out repository (branch matlab) with submodules
         uses: actions/checkout@v4
         with:
+          ref: matlab
           submodules: recursive
 
       - name: Cache MATLAB  # N.B.: Clear the cache when the `latest` version of MATLAB changes in March and September
