@@ -43,6 +43,7 @@ jobs:
           command: |
             % Setup OptiProfiler
             setup
+            
             % Run tests
             cd matlab/optiprofiler/
             runTests
