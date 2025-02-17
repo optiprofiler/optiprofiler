@@ -674,12 +674,14 @@ function [solver_scores, profile_scores, problem_scores, curves] = benchmark(sol
     default_height = defaultFigurePosition(4);
 
     if n_rows > 0
-        fig_summary = figure('Position', [defaultFigurePosition(1:2), profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * default_width, multiplier * n_rows * default_height], 'visible', 'off');
-        T_summary = tiledlayout(fig_summary, multiplier, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
+        fig_summary = figure('Position', [defaultFigurePosition(1:3), multiplier * n_rows * default_height / profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)], 'visible', 'off');
+        T_summary = tiledlayout(fig_summary, multiplier, 1, 'Padding', 'tight', 'TileSpacing', 'tight');
         T_feature_stamp = strrep(profile_options.(ProfileOptionKey.FEATURE_STAMP.value), '_', '\_');
         T_title = ['Profiles with the ``', T_feature_stamp, '" feature'];
-        summary_width = profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * default_width;
-        summary_height = multiplier * n_rows * default_height;
+        summary_width = default_width;
+        summary_height = multiplier * n_rows * default_height / profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value);
+        single_width = summary_width / profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value);
+        single_height = summary_height / n_rows / multiplier;
         summary_fontsize = min(summary_width / 75 * 2, summary_width / profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * 3 / 75 * 2);
         title(T_summary, T_title, 'Interpreter', 'latex', 'FontSize', summary_fontsize);
         % Use gobjects to create arrays of handles and axes.
@@ -687,7 +689,7 @@ function [solver_scores, profile_scores, problem_scores, curves] = benchmark(sol
         axs_summary = gobjects([multiplier, 1, n_rows, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)]);
         i_axs = 0;
         for i = 1:multiplier
-            t_summary(i) = tiledlayout(T_summary, n_rows, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value), 'Padding', 'compact', 'TileSpacing', 'compact');
+            t_summary(i) = tiledlayout(T_summary, n_rows, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value), 'Padding', 'tight', 'TileSpacing', 'tight');
             t_summary(i).Layout.Tile = i;
             for j = 1:n_rows * profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)
                 i_axs = i_axs + 1;
@@ -842,7 +844,8 @@ function [solver_scores, profile_scores, problem_scores, curves] = benchmark(sol
     end
 
     if n_rows > 0 && ispc
-        % Check the operating system. If it is Windows, we will adjust the position, papersize, paperposition of the summary figure!
+        % Check the operating system. If it is Windows, we will adjust the position, papersize, paperposition of the summary figure! (MATLAB in Windows will adjust the figure size
+        % automatically when it is too large.)
         fig_summary.Position = [defaultFigurePosition(1:2), profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * default_width, multiplier * n_rows * default_height];
         fig_summary.Units = 'centimeters';
         fig_summary.PaperUnits = 'centimeters';

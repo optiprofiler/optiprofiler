@@ -2,7 +2,7 @@ OptiProfiler: benchmarking optimization solvers
 ===============================================
 
 .. image:: https://img.shields.io/readthedocs/optiprofiler/latest?logo=readthedocs&style=for-the-badge
-    :target: https://www.optprof.com
+    :target: http://www.optprof.com
 
 .. image:: https://img.shields.io/codecov/c/github/optiprofiler/optiprofiler?style=for-the-badge&logo=codecov
    :target: https://app.codecov.io/github/optiprofiler/optiprofiler/tree/main

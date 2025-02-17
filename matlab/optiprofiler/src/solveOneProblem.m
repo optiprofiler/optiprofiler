@@ -184,7 +184,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
         default_width = defaultFigurePosition(3);
         default_height = defaultFigurePosition(4);
         fig_summary = figure('Position', [defaultFigurePosition(1:2), n_cols * default_width, 2 * default_height], 'visible', 'off');
-        T_summary = tiledlayout(fig_summary, 2, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
+        T_summary = tiledlayout(fig_summary, 2, 1, 'Padding', 'tight', 'TileSpacing', 'tight');
         F_title = strrep(profile_options.feature_stamp, '_', '\_');
         P_title = strrep(problem_name, '_', '\_');
         T_title = ['Solving ``', P_title, '" with ``', F_title, '" feature'];
@@ -195,7 +195,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
         axs_summary = gobjects([2, 1, 1, n_cols]);
         i_axs = 0;
         for i = 1:2
-            t_summary(i) = tiledlayout(T_summary, 1, n_cols, 'Padding', 'compact', 'TileSpacing', 'compact');
+            t_summary(i) = tiledlayout(T_summary, 1, n_cols, 'Padding', 'tight', 'TileSpacing', 'tight');
             t_summary(i).Layout.Tile = i;
             for j = 1:n_cols
                 i_axs = i_axs + 1;

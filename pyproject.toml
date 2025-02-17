@@ -61,7 +61,7 @@ tests = [
 
 [project.urls]
 homepage = "https://www.optprof.com"
-documentation = "https://www.optprof.com"
+documentation = "http://www.optprof.com"
 source = "https://github.com/optiprofiler/optiprofiler"
 download = "https://pypi.org/project/optiprofiler/#files"
 tracker = "https://github.com/optiprofiler/optiprofiler/issues"
