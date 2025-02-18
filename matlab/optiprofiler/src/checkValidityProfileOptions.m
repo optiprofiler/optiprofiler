@@ -66,10 +66,10 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
             end
         end
     end
-    % Judge whether profile_options.max_tol_order is a positive integer smaller than or equal to 15.
+    % Judge whether profile_options.max_tol_order is a positive integer smaller than or equal to 16.
     if isfield(profile_options, ProfileOptionKey.MAX_TOL_ORDER.value)
-        if ~isintegerscalar(profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)) || profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) <= 0 || profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) > 15
-            error("MATLAB:checkValidityProfileOptions:max_tol_orderNotValid", "The field 'max_tol_order' of options should be a positive integer smaller than or equal to 15.");
+        if ~isintegerscalar(profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)) || profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) <= 0 || profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) > 16
+            error("MATLAB:checkValidityProfileOptions:max_tol_orderNotValid", "The field 'max_tol_order' of options should be a positive integer smaller than or equal to 16.");
         end
     end
     % Judge whether profile_options.max_eval_factor is a positive integer.
