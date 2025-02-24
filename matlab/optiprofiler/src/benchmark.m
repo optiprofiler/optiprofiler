@@ -454,19 +454,70 @@ function [solver_scores, profile_scores, problem_scores, curves] = benchmark(sol
         rmdir(path_log, 's');
         mkdir(path_log);
     end
+
+    % Create a README.txt file to explain the content of the folder `path_log`.
+    path_readme_log = fullfile(path_log, 'README.txt');
+    try
+        fid = fopen(path_readme_log, 'w');
+        fprintf(fid, "This folder contains following files and directories.\n\n");
+        fclose(fid);
+    catch
+        fprintf("INFO: Failed to create the README.txt file for folder '%s'.\n", path_log);
+    end
+
     if profile_options.(ProfileOptionKey.DRAW_PLOTS.value) && ~isfield(other_options, OtherOptionKey.PROBLEM.value)
         path_figs = fullfile(path_log, 'figs');
         mkdir(path_figs);
+        try
+            fid = fopen(path_readme_log, 'a');
+            fprintf(fid, "'figs': folder, containing all the FIG files of the profiles.\n");
+            fclose(fid);
+        catch
+        end
     end
     try
         if exist('options_store', 'var')
             save(fullfile(path_log, 'options_store.mat'), 'options_store');
+            try
+                fid = fopen(path_readme_log, 'a');
+                fprintf(fid, "'options_store.mat': file, storing the options of the current experiment.\n");
+                fclose(fid);
+            catch
+            end
         end
     catch
         fprintf("INFO: Failed to save the `options` of the current experiment.\n");
     end
     log_file = fullfile(path_log, 'log.txt');
     diary(log_file);
+    try
+        fid = fopen(path_readme_log, 'a');
+        fprintf(fid, "'log.txt': file, the log file of the current experiment, recording print information from MATLAB command window.\n");
+        fclose(fid);
+    catch
+    end
+
+    % Create a README.txt file to explain the content of the folder `path_feature`.
+    path_readme_feature = fullfile(path_feature, 'README.txt');
+    try
+        summary_pdf_name = ['summary_', feature_name, '.pdf'];
+        fid = fopen(path_readme_feature, 'w');
+        fprintf(fid, "This folder contains following files and directories.\n\n");
+        fprintf(fid, "'data_hist.pdf': file, the summary PDF of history-based data profiles for all tolerances.\n");
+        fprintf(fid, "'data_out.pdf': file, the summary PDF of output-based data profiles for all tolerances.\n");
+        fprintf(fid, "'detailed_profiles': folder, containing all the high-quality single profiles.\n");
+        fprintf(fid, "'history_plots': folder, containing all the history plots for each problem.\n");
+        fprintf(fid, "'history_plots_summary.pdf': file, the summary PDF of history plots for all problems.\n");
+        fprintf(fid, "'log-ratio_hist.pdf': file, the summary PDF of history-based log-ratio profiles for all tolerances.\n");
+        fprintf(fid, "'log-ratio_out.pdf': file, the summary PDF of output-based log-ratio profiles for all tolerances.\n");
+        fprintf(fid, "'perf_hist.pdf': file, the summary PDF of history-based performance profiles for all tolerances.\n");
+        fprintf(fid, "'perf_out.pdf': file, the summary PDF of output-based performance profiles for all tolerances.\n");
+        fprintf(fid, "'%s': file, the summary PDF of all the profiles for the feature '%s'.\n", summary_pdf_name, feature_name);
+        fprintf(fid, "'test_log': folder, containing log files and other useful experimental data.\n");
+        fclose(fid);
+    catch
+        fprintf("INFO: Failed to create the README.txt file for folder '%s'.\n", path_feature);
+    end
 
     % If `n_runs` is not specified, the feature is deterministic, and at least one solver is
     % randomized, then we set `n_runs` to 5.
@@ -483,6 +534,12 @@ function [solver_scores, profile_scores, problem_scores, curves] = benchmark(sol
         if ~isempty(calling_script)
             copyfile(calling_script.file, path_log);
             fprintf("INFO: The script or function that calls `benchmark` function is copied to: %s.\n\n", path_log);
+            try
+                fid = fopen(path_readme_log, 'a');
+                fprintf(fid, "'%s': file, the script or function that calls `benchmark` function.\n", calling_script.file);
+                fclose(fid);
+            catch
+            end
         end
     catch
         fprintf("INFO: Failed to copy the script or function that calls `benchmark` function to the log directory.\n\n");
@@ -552,6 +609,12 @@ function [solver_scores, profile_scores, problem_scores, curves] = benchmark(sol
     solver_merit_mins = squeeze(min(min(merit_histories, [], 4, 'omitnan'), [], 3, 'omitnan'));
     problem_scores = (merit_init - solver_merit_mins) ./ max(merit_init - merit_min, eps);
     save(fullfile(path_log, 'problem_scores.mat'), 'problem_scores');
+    try
+        fid = fopen(path_readme_log, 'a');
+        fprintf(fid, "'problem_scores.mat': file, storing the scores of solvers for each problem.\n");
+        fclose(fid);
+    catch
+    end
 
     % If a specific problem is provided to `other_options`, we only solve this problem and generate
     % the history plots for it.
@@ -621,6 +684,12 @@ function [solver_scores, profile_scores, problem_scores, curves] = benchmark(sol
             end
         end
         fclose(fid);
+        try
+            fid = fopen(path_readme_log, 'a');
+            fprintf(fid, "'problems.txt': file, storing the names of the problems and the time spent on solving them.\n");
+            fclose(fid);
+        catch
+        end
     catch
         fprintf("INFO: Error occurred when writing the problem names to %s.\n", path_txt);
     end
@@ -854,12 +923,24 @@ function [solver_scores, profile_scores, problem_scores, curves] = benchmark(sol
 
     % Save `curves` to path_log.
     save(fullfile(path_log, 'curves.mat'), 'curves');
+    try
+        fid = fopen(path_readme_log, 'a');
+        fprintf(fid, "'curves.mat': file, storing the curves of the profiles.\n");
+        fclose(fid);
+    catch
+    end
 
     % Compute the `solver_scores`.
     profile_scores = computeScores(curves);
     scoring_fun = profile_options.(ProfileOptionKey.SCORING_FUN.value);
     solver_scores = scoring_fun(profile_scores);
     save(fullfile(path_log, 'profile_scores.mat'), 'profile_scores');
+    try
+        fid = fopen(path_readme_log, 'a');
+        fprintf(fid, "'profile_scores.mat': file, storing the scores of solvers on each profile.\n");
+        fclose(fid);
+    catch
+    end
 
     if ~profile_options.(ProfileOptionKey.SILENT.value)
         % Print the scores of the solvers.
