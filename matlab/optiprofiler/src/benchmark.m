@@ -674,14 +674,12 @@ function [solver_scores, profile_scores, problem_scores, curves] = benchmark(sol
     default_height = defaultFigurePosition(4);
 
     if n_rows > 0
-        fig_summary = figure('Position', [defaultFigurePosition(1:3), multiplier * n_rows * default_height / profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)], 'visible', 'off');
+        fig_summary = figure('Position', [defaultFigurePosition(1:2), profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * default_width, multiplier * n_rows * default_height], 'visible', 'off');
         T_summary = tiledlayout(fig_summary, multiplier, 1, 'Padding', 'tight', 'TileSpacing', 'tight');
         T_feature_stamp = strrep(profile_options.(ProfileOptionKey.FEATURE_STAMP.value), '_', '\_');
         T_title = ['Profiles with the ``', T_feature_stamp, '" feature'];
-        summary_width = default_width;
-        summary_height = multiplier * n_rows * default_height / profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value);
-        single_width = summary_width / profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value);
-        single_height = summary_height / n_rows / multiplier;
+        summary_width = profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * default_width;
+        summary_height = multiplier * n_rows * default_height;
         summary_fontsize = min(summary_width / 75 * 2, summary_width / profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * 3 / 75 * 2);
         title(T_summary, T_title, 'Interpreter', 'latex', 'FontSize', summary_fontsize);
         % Use gobjects to create arrays of handles and axes.
@@ -733,14 +731,12 @@ function [solver_scores, profile_scores, problem_scores, curves] = benchmark(sol
             for i_solver = 1:n_solvers
                 for i_run = 1:n_runs
                     if isfinite(merit_min(i_problem))
-                        threshold = max(tolerance * merit_init(i_problem) + (1 - tolerance) * merit_min(i_problem), ...
-                        merit_min(i_problem));
+                        threshold = max(tolerance * merit_init(i_problem) + (1 - tolerance) * merit_min(i_problem), merit_min(i_problem));
                     else
                         threshold = -Inf;
                     end
                     if min(merit_histories(i_problem, i_solver, i_run, :), [], 'omitnan') <= threshold
-                        work_hist(i_problem, i_solver, i_run) = find(merit_histories(i_problem, i_solver, i_run, :) ...
-                        <= threshold, 1, 'first');
+                        work_hist(i_problem, i_solver, i_run) = find(merit_histories(i_problem, i_solver, i_run, :) <= threshold, 1, 'first');
                     end
                     if merit_out(i_problem, i_solver, i_run) <= threshold
                         work_out(i_problem, i_solver, i_run) = n_eval(i_problem, i_solver, i_run);
