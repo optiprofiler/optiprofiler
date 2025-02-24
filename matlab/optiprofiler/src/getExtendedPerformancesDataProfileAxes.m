@@ -8,10 +8,10 @@ function [x_perf, y_perf, ratio_max_perf, x_data, y_data, ratio_max_data, curves
     denominator_perf = @(i_problem, i_run) min(work(i_problem, :, i_run), [], 'omitnan');
     [x_perf, y_perf, ratio_max_perf] = getPerformanceDataProfileAxes(work, denominator_perf);
     if profile_options.(ProfileOptionKey.SEMILOGX.value)
-        % We output the log2(x_perf) and log2(ratio_max_perf). This is because the x-axis is in log2 scale in the performance profile.
+        % We output the log2(x_perf) and log2(ratio_max_perf). This is because we want the x-axis is in log2 scale in the performance profile.
         x_perf(isfinite(x_perf)) = log2(x_perf(isfinite(x_perf)));
-        if ratio_max_perf > eps && log2(ratio_max_perf) > 1
-            ratio_max_perf = log2(ratio_max_perf);
+        if ratio_max_perf > eps
+            ratio_max_perf = max(log2(ratio_max_perf), eps);
         end
     end
     x_perf(isinf(x_perf)) = 1.1 * ratio_max_perf;
@@ -29,10 +29,10 @@ function [x_perf, y_perf, ratio_max_perf, x_data, y_data, ratio_max_data, curves
     denominator_data = @(i_problem, i_run) problem_dimensions(i_problem) + 1;
     [x_data, y_data, ratio_max_data] = getPerformanceDataProfileAxes(work, denominator_data);
     if profile_options.(ProfileOptionKey.SEMILOGX.value)
-        % We output the log2(1 + x_data) and log2(1 + ratio_max_data). This is because the x-axis is in log2 scale in the data profile.
+        % We output the log2(1 + x_data) and log2(1 + ratio_max_data). This is because we want the x-axis is in log2 scale in the data profile.
         x_data(isfinite(x_data)) = log2(1 + x_data(isfinite(x_data)));
         if ratio_max_data > eps
-            ratio_max_data = log2(1 + ratio_max_data);
+            ratio_max_data = max(log2(1 + ratio_max_data), eps);
         end
     end
     x_data(isinf(x_data)) = 1.1 * ratio_max_data;

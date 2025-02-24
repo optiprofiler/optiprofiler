@@ -10,8 +10,8 @@ function [x, y, ratio_max] = getPerformanceDataProfileAxes(work, denominator)
         end
     end
 
-    % Set default ratio_max in the case where all the elements in x is either 1 or NaN.
-    if all(x(:) == 1 | isnan(x(:)))
+    % Set default ratio_max.
+    if all(isnan(x(:)))
         ratio_max = eps;
     else
         ratio_max = max(x(:), [], 'omitnan');
