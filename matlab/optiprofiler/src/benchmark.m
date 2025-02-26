@@ -259,7 +259,8 @@ function [solver_scores, profile_scores, problem_scores, curves] = benchmark(sol
 %      solvers.
 %
 %   For more information of performance and data profiles, see [1]_, [2]_,
-%   [4]_. For that of log-ratio profiles, see [3]_, [5]_.
+%   [5]_. For that of log-ratio profiles, see [4]_, [6]_. For that of S2MPJ,
+%   see [3]_.
 %
 %   References:
 %   .. [1] E. D. Dolan and J. J. Moré. Benchmarking optimization software with
