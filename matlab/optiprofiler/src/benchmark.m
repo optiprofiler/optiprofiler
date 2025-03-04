@@ -35,6 +35,7 @@ function [solver_scores, profile_scores, problem_scores, curves] = benchmark(sol
 %   fields of the struct:
 %
 %       1. options for profiles and plots:
+%
 %       - n_jobs: the number of parallel jobs to run the test. Default is 1.
 %       - benchmark_id: the identifier of the test. It is used to create the
 %         specific directory to store the results. Default is '.' .
@@ -90,6 +91,7 @@ function [solver_scores, profile_scores, problem_scores, curves] = benchmark(sol
 %         average by the maximum value of the average.
 %
 %       2. options for features:
+%
 %       - feature_name: the name of the feature. Default is 'plain'.
 %       - n_runs: the number of runs of the experiments under the given
 %         feature. Default is 10 for stochastic features and 1 for
@@ -191,6 +193,7 @@ function [solver_scores, profile_scores, problem_scores, curves] = benchmark(sol
 %         nonlinear equality constraints. No default.
 %
 %       3. options for CUTEst:
+%
 %       Note that the CUTEst we used is the MATLAB codes from a GitHub
 %       repository called 'S2MPJ', created by Professor Serge Gratton and
 %       Professor Philippe L. Toint. More details can be found in the following
@@ -213,6 +216,7 @@ function [solver_scores, profile_scores, problem_scores, curves] = benchmark(sol
 %         exclude any problem.
 %
 %       4. other options:
+%
 %       - solver_names: the names of the solvers. Default is the function names
 %         of the solvers.
 %       - solver_isrand: whether the solvers are randomized or not. Default is
@@ -236,6 +240,7 @@ function [solver_scores, profile_scores, problem_scores, curves] = benchmark(sol
 %   Cautions:
 %
 %   1. Each solver in SOLVERS should accept the following signature(s):
+%
 %       - for an unconstrained problem,
 %           x = solver(fun, x0),
 %         where `fun` is a function handle of the objective function accepting
@@ -255,6 +260,7 @@ function [solver_scores, profile_scores, problem_scores, curves] = benchmark(sol
 %         where `cub` and `ceq` are the functions of the nonlinear inequality
 %         and equality constraints accepting a column vector and returning a
 %         column vector.
+%
 %   2. The log-ratio profiles are available only when there are exactly two 
 %      solvers.
 %

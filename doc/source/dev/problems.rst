@@ -1,4 +1,4 @@
-.. module:: optiprofiler.problems
+.. py:module:: optiprofiler.problems
 
 Optimization problems
 =====================

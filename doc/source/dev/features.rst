@@ -1,4 +1,4 @@
-.. module:: optiprofiler.features
+.. py:module:: optiprofiler.features
 
 Problem features
 ================

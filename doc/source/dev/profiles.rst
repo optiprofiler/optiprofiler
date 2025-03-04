@@ -1,4 +1,4 @@
-.. module:: optiprofiler.profiles
+.. py:module:: optiprofiler.profiles
 
 Profiles
 ========

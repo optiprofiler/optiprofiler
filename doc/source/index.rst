@@ -7,7 +7,7 @@ OptiProfiler documentation
 
     User guide <user/index>
     Python API reference <ref/index>
-    MATLAB API reference <https://www.mathworks.com>
+    MATLAB API reference <matlab/index>
     Python developer guide <dev/index>
 
 Work in progress.

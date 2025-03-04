@@ -1,4 +1,4 @@
-function [isrr, len] = isrealrow(x) % isrealrow([]) = true
+function [isrr, len] = isrealrow(x)
 %ISREALROW checks whether x is a real row. If yes, it returns len = length(x); otherwise, len = NaN.
 % N.B.: isrealrow([]) = true.
 %

@@ -1,4 +1,4 @@
-.. module:: optiprofiler.utils
+.. py:module:: optiprofiler.utils
 
 Utilities
 =========

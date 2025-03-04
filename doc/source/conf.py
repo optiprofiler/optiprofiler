@@ -9,6 +9,9 @@ from datetime import datetime
 from pathlib import Path
 
 import optiprofiler
+import os
+import sys
+sys.path.insert(0, os.path.abspath('../../python'))
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
@@ -35,7 +38,17 @@ extensions = [
     'numpydoc',
     'sphinx_copybutton',
     'sphinxcontrib.bibtex',
+    'sphinxcontrib.matlab',
 ]
+
+# primary_domain = 'mat'
+
+# MATLAB domain configuration.
+matlab_src_dir = os.path.dirname(os.path.abspath('../../matlab/optiprofiler/src'))
+matlab_keep_package_prefix = False
+
+# Disable parallel reading
+parallel_read_safe = False
 
 templates_path = ['_templates']
 
