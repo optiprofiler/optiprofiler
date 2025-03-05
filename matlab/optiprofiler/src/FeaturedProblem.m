@@ -229,6 +229,8 @@ classdef FeaturedProblem < Problem
             % If the Feature is ``quantized'' and the option ``ground_truth'' is set to true, we should
             % use the modified constraint violation.
             if strcmp(obj.feature.name, FeatureName.QUANTIZED.value) && obj.feature.options.(FeatureOptionKey.GROUND_TRUTH.value)
+                % `maxcv@Problem` is a method of the class `Problem`. By using this, maxcv will use obj.cub_ and
+                % obj.ceq_ instead of obj.problem.cub_ and obj.problem.ceq_.
                 cv = maxcv@Problem(obj, x);
             end
 

@@ -425,7 +425,7 @@ function [solver_scores, profile_scores, problem_scores, curves] = benchmark(sol
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     % Create the directory to store the results.
-    path_out = setSavingPath(profile_options);
+    [path_out, time_stamp] = setSavingPath(profile_options);
 
     % Set the default values for plotting.
     set(groot, 'DefaultLineLineWidth', 1);
@@ -470,6 +470,22 @@ function [solver_scores, profile_scores, problem_scores, curves] = benchmark(sol
         fclose(fid);
     catch
         fprintf("INFO: Failed to create the README.txt file for folder '%s'.\n", path_log);
+    end
+
+    % Create a txt file named by time_stamp to record the time_stamp.
+    path_time_stamp = fullfile(path_log, ['time_stamp_', time_stamp, '.txt']);
+    try
+        fid = fopen(path_time_stamp, 'w');
+        fprintf(fid, time_stamp);
+        fclose(fid);
+        try
+            fid = fopen(path_readme_log, 'a');
+            fprintf(fid, "'time_stamp_%s.txt': file, recording the time stamp of the current experiment.\n", time_stamp);
+            fclose(fid);
+        catch
+        end
+    catch
+        fprintf("INFO: Failed to create the time_stamp file for folder '%s'.\n", path_log);
     end
 
     if profile_options.(ProfileOptionKey.DRAW_PLOTS.value) && ~isfield(other_options, OtherOptionKey.PROBLEM.value)
@@ -601,6 +617,24 @@ function [solver_scores, profile_scores, problem_scores, curves] = benchmark(sol
     merit_histories = computeMeritValues(fun_histories, maxcv_histories, maxcv_init);
     merit_out = computeMeritValues(fun_out, maxcv_out, maxcv_init);
     merit_init = computeMeritValues(fun_init, maxcv_init, maxcv_init);
+
+    % Save `merit_histories`, `merit_out`, `merit_init`, `n_eval`, and `problem_dimensions` to the
+    % log directory.
+    save(fullfile(path_log, 'merit_histories.mat'), 'merit_histories');
+    save(fullfile(path_log, 'merit_out.mat'), 'merit_out');
+    save(fullfile(path_log, 'merit_init.mat'), 'merit_init');
+    save(fullfile(path_log, 'n_eval.mat'), 'n_eval');
+    save(fullfile(path_log, 'problem_dimensions.mat'), 'problem_dimensions');
+    try
+        fid = fopen(path_readme_log, 'a');
+        fprintf(fid, "'merit_histories.mat': file, storing the merit values of the solvers for each problem.\n");
+        fprintf(fid, "'merit_out.mat': file, storing the merit values of the solvers for the output-based profiles.\n");
+        fprintf(fid, "'merit_init.mat': file, storing the merit values of the solvers for the initial guess.\n");
+        fprintf(fid, "'n_eval.mat': file, storing the number of evaluations of the solvers for each problem.\n");
+        fprintf(fid, "'problem_dimensions.mat': file, storing the dimensions of the problems.\n");
+        fclose(fid);
+    catch
+    end
 
     % If there are no problems solved, skip the rest of the code, print a message, and return.
     if isempty(problem_names)
