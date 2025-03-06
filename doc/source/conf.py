@@ -45,7 +45,7 @@ extensions = [
 
 # MATLAB domain configuration.
 matlab_src_dir = os.path.dirname(os.path.abspath('../../matlab/optiprofiler/src'))
-matlab_keep_package_prefix = False
+matlab_short_links = True
 
 # Disable parallel reading
 parallel_read_safe = False
