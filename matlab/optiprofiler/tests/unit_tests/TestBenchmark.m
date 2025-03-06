@@ -95,6 +95,10 @@ classdef TestBenchmark < matlab.unittest.TestCase
             options.mod_fun = @mod_fun;
             options.mod_affine = @mod_affine;
             benchmark(solvers, options);
+
+            % Test `load` option.
+            options.load = 'latest';
+            benchmark(solvers, options);
         end
 
         function testErrors(testCase)

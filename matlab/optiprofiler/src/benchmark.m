@@ -1,4 +1,4 @@
-function [solver_scores, profile_scores, problem_scores, curves] = benchmark(solvers, varargin)
+function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
 %BENCHMARK Create multiple profiles for benchmarking optimization solvers on a
 %   set of problems with different features.
 %
@@ -23,11 +23,8 @@ function [solver_scores, profile_scores, problem_scores, curves] = benchmark(sol
 %   PROFILE_SCORES containing scores for all profiles. See `scoring_fun` in
 %   'Options' part for more details.
 %
-%   [SOLVER_SCORES, PROFILE_SCORES, PROBLEM_SCORES] = BENCHMARK(...) returns a
-%   matrix PROBLEM_SCORES containing scores of the solvers on all problems.
-%
-%   [SOLVER_SCORES, PROFILE_SCORES, PROBLEM_SCORES, CURVES] = BENCHMARK(...)
-%   returns a cell array CURVES containing the curves of all the profiles.
+%   [SOLVER_SCORES, PROFILE_SCORES, CURVES] = BENCHMARK(...) returns a cell
+%   array CURVES containing the curves of all the profiles.
 %
 %   Options:
 %
@@ -89,6 +86,9 @@ function [solver_scores, profile_scores, problem_scores, curves] = benchmark(sol
 %         default scoring function takes the average of the history-based
 %         performance profiles along the tolerance axis and then normalizes the
 %         average by the maximum value of the average.
+%       - load: whether to load the existing results. It can be either 'latest'
+%         or a string representing the time stamp of the results. Default is
+%         ''.
 %
 %       2. options for features:
 %
@@ -411,7 +411,6 @@ function [solver_scores, profile_scores, problem_scores, curves] = benchmark(sol
     n_solvers = numel(solvers);
     solver_scores = zeros(n_solvers, 1);
     profile_scores = [];
-    problem_scores = [];
     curves = [];
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -425,7 +424,7 @@ function [solver_scores, profile_scores, problem_scores, curves] = benchmark(sol
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     % Create the directory to store the results.
-    [path_out, time_stamp] = setSavingPath(profile_options);
+    [path_out, path_benchmark, time_stamp] = setSavingPath(profile_options);
 
     % Set the default values for plotting.
     set(groot, 'DefaultLineLineWidth', 1);
@@ -437,14 +436,16 @@ function [solver_scores, profile_scores, problem_scores, curves] = benchmark(sol
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     % Create the directory to store the results. If it already exists, overwrite it.
-    path_feature = fullfile(path_out, profile_options.(ProfileOptionKey.FEATURE_STAMP.value));
+    path_feature = fullfile(path_benchmark, profile_options.(ProfileOptionKey.FEATURE_STAMP.value));
     if ~exist(path_feature, 'dir')
         mkdir(path_feature);
     else
         rmdir(path_feature, 's');
         mkdir(path_feature);
     end
-    if ~profile_options.(ProfileOptionKey.DRAW_PLOTS.value)
+    if ~profile_options.(ProfileOptionKey.DRAW_PLOTS.value) || ~isempty(profile_options.(ProfileOptionKey.LOAD.value))
+        % If 'load' is not empty, we will directly load the results and do not need to compute
+        % again. In this case, we do not need to create the directory to store the hist plots.
         path_hist_plots = '';
     else
         path_hist_plots = fullfile(path_feature, 'history_plots');
@@ -523,19 +524,12 @@ function [solver_scores, profile_scores, problem_scores, curves] = benchmark(sol
     % Create a README.txt file to explain the content of the folder `path_feature`.
     path_readme_feature = fullfile(path_feature, 'README.txt');
     try
-        summary_pdf_name = ['summary_', feature_name, '.pdf'];
         fid = fopen(path_readme_feature, 'w');
         fprintf(fid, "This folder contains following files and directories.\n\n");
-        fprintf(fid, "'data_hist.pdf': file, the summary PDF of history-based data profiles for all tolerances.\n");
-        fprintf(fid, "'data_out.pdf': file, the summary PDF of output-based data profiles for all tolerances.\n");
-        fprintf(fid, "'detailed_profiles': folder, containing all the high-quality single profiles.\n");
-        fprintf(fid, "'history_plots': folder, containing all the history plots for each problem.\n");
-        fprintf(fid, "'history_plots_summary.pdf': file, the summary PDF of history plots for all problems.\n");
-        fprintf(fid, "'log-ratio_hist.pdf': file, the summary PDF of history-based log-ratio profiles for all tolerances.\n");
-        fprintf(fid, "'log-ratio_out.pdf': file, the summary PDF of output-based log-ratio profiles for all tolerances.\n");
-        fprintf(fid, "'perf_hist.pdf': file, the summary PDF of history-based performance profiles for all tolerances.\n");
-        fprintf(fid, "'perf_out.pdf': file, the summary PDF of output-based performance profiles for all tolerances.\n");
-        fprintf(fid, "'%s': file, the summary PDF of all the profiles for the feature '%s'.\n", summary_pdf_name, feature_name);
+        if ~isempty(path_hist_plots)
+            fprintf(fid, "'history_plots': folder, containing all the history plots for each problem.\n");
+            fprintf(fid, "'history_plots_summary.pdf': file, the summary PDF of history plots for all problems.\n");
+        end
         fprintf(fid, "'test_log': folder, containing log files and other useful experimental data.\n");
         fclose(fid);
     catch
@@ -598,6 +592,13 @@ function [solver_scores, profile_scores, problem_scores, curves] = benchmark(sol
             end
         end
 
+        try
+            fid = fopen(path_readme_feature, 'a');
+            fprintf(fid, "'detailed_profiles': folder, containing all the high-quality single profiles.\n");
+            fclose(fid);
+        catch
+        end
+
         pdf_perf_hist_summary = fullfile(path_feature, 'perf_hist.pdf');
         pdf_perf_out_summary = fullfile(path_feature, 'perf_out.pdf');
         pdf_data_hist_summary = fullfile(path_feature, 'data_hist.pdf');
@@ -610,91 +611,149 @@ function [solver_scores, profile_scores, problem_scores, curves] = benchmark(sol
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Solve all the problems. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    if ~profile_options.(ProfileOptionKey.SILENT.value)
-        fprintf('INFO: Starting the computation of the "%s" profiles.\n', feature.name);
-    end
-    [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, time_processes, problem_unsolved] = solveAllProblems(solvers, feature, profile_options, other_options, true, path_hist_plots);
-    merit_histories = computeMeritValues(fun_histories, maxcv_histories, maxcv_init);
-    merit_out = computeMeritValues(fun_out, maxcv_out, maxcv_init);
-    merit_init = computeMeritValues(fun_init, maxcv_init, maxcv_init);
-
-    % Save `merit_histories`, `merit_out`, `merit_init`, `n_eval`, and `problem_dimensions` to the
-    % log directory.
-    save(fullfile(path_log, 'merit_histories.mat'), 'merit_histories');
-    save(fullfile(path_log, 'merit_out.mat'), 'merit_out');
-    save(fullfile(path_log, 'merit_init.mat'), 'merit_init');
-    save(fullfile(path_log, 'n_eval.mat'), 'n_eval');
-    save(fullfile(path_log, 'problem_dimensions.mat'), 'problem_dimensions');
-    try
-        fid = fopen(path_readme_log, 'a');
-        fprintf(fid, "'merit_histories.mat': file, storing the merit values of the solvers for each problem.\n");
-        fprintf(fid, "'merit_out.mat': file, storing the merit values of the solvers for the output-based profiles.\n");
-        fprintf(fid, "'merit_init.mat': file, storing the merit values of the solvers for the initial guess.\n");
-        fprintf(fid, "'n_eval.mat': file, storing the number of evaluations of the solvers for each problem.\n");
-        fprintf(fid, "'problem_dimensions.mat': file, storing the dimensions of the problems.\n");
-        fclose(fid);
-    catch
-    end
-
-    % If there are no problems solved, skip the rest of the code, print a message, and return.
-    if isempty(problem_names)
+    if isempty(profile_options.(ProfileOptionKey.LOAD.value))
+        % If 'load' is not specified, we solve all the problems.
         if ~profile_options.(ProfileOptionKey.SILENT.value)
-            fprintf('INFO: No problems were solved for the "%s" feature.\n', feature.name);
+            fprintf('INFO: Starting the computation of the "%s" profiles.\n', feature.name);
         end
-        diary off;
-        return;
-    end
+        [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, time_processes, problem_unsolved] = solveAllProblems(solvers, feature, profile_options, other_options, true, path_hist_plots);
+        merit_histories = computeMeritValues(fun_histories, maxcv_histories, maxcv_init);
+        merit_out = computeMeritValues(fun_out, maxcv_out, maxcv_init);
+        merit_init = computeMeritValues(fun_init, maxcv_init, maxcv_init);
+        merit_min = min(min(min(merit_histories, [], 4, 'omitnan'), [], 3, 'omitnan'), [], 2, 'omitnan');
 
-    % Compute `problem_scores` based on the `merit_histories` and `merit_init`.
-    merit_min = min(min(min(merit_histories, [], 4, 'omitnan'), [], 3, 'omitnan'), [], 2, 'omitnan');
-    solver_merit_mins = squeeze(min(min(merit_histories, [], 4, 'omitnan'), [], 3, 'omitnan'));
-    problem_scores = (merit_init - solver_merit_mins) ./ max(merit_init - merit_min, eps);
-    save(fullfile(path_log, 'problem_scores.mat'), 'problem_scores');
-    try
-        fid = fopen(path_readme_log, 'a');
-        fprintf(fid, "'problem_scores.mat': file, storing the scores of solvers for each problem.\n");
-        fclose(fid);
-    catch
-    end
+        % If there are no problems solved, skip the rest of the code, print a message, and return.
+        if isempty(problem_names)
+            if ~profile_options.(ProfileOptionKey.SILENT.value)
+                fprintf('INFO: No problems were solved for the "%s" feature.\n', feature.name);
+            end
+            diary off;
+            return;
+        end
 
-    % If a specific problem is provided to `other_options`, we only solve this problem and generate
-    % the history plots for it.
-    if isfield(other_options, OtherOptionKey.PROBLEM.value)
-        if profile_options.(ProfileOptionKey.DRAW_PLOTS.value)
-            % We move the history plots to the feature directory.
-            try
-                movefile(fullfile(path_hist_plots, '*'), path_feature);
-                rmdir(path_hist_plots, 's');
-                if ~profile_options.(ProfileOptionKey.SILENT.value)
-                    fprintf('\nINFO: Detailed results stored in %s\n', path_feature);
+        % If a specific problem is provided to `other_options`, we only solve this problem and generate
+        % the history plots for it.
+        if isfield(other_options, OtherOptionKey.PROBLEM.value)
+            if profile_options.(ProfileOptionKey.DRAW_PLOTS.value)
+                % We move the history plots to the feature directory.
+                try
+                    movefile(fullfile(path_hist_plots, '*'), path_feature);
+                    rmdir(path_hist_plots, 's');
+                    if ~profile_options.(ProfileOptionKey.SILENT.value)
+                        fprintf('\nINFO: Detailed results stored in %s\n', path_feature);
+                    end
+                catch
                 end
+            end
+
+            % Since we will not compute the profiles, we set `solver_scores` to be the relative
+            % decrease in the objective function value.
+            solver_merit_mins = squeeze(min(min(merit_histories, [], 4, 'omitnan'), [], 3, 'omitnan'));
+            solver_scores = (merit_init - solver_merit_mins) ./ max(merit_init - merit_min, eps);
+            solver_scores = solver_scores';
+            diary off;
+            return;
+        end
+
+        % Determine the least merit value for each problem.
+        if feature.run_plain && profile_options.(ProfileOptionKey.RUN_PLAIN.value)
+            feature_plain = Feature(FeatureName.PLAIN.value);
+            if ~profile_options.(ProfileOptionKey.SILENT.value)
+                fprintf('\nINFO: Starting the computation of the profiles under "plain" feature.\n');
+            end
+            [fun_histories_plain, maxcv_histories_plain, ~, ~, ~, ~, ~, problem_names_plain, ~, time_processes_plain] = solveAllProblems(solvers, feature_plain, profile_options, other_options, false, {});
+            merit_histories_plain = computeMeritValues(fun_histories_plain, maxcv_histories_plain, maxcv_init);
+            merit_min_plain = min(min(min(merit_histories_plain, [], 4, 'omitnan'), [], 3, 'omitnan'), [], 2, 'omitnan');
+            for i_problem = 1:numel(problem_names)
+                % Check whether the problem is solved under the plain feature.
+                if ismember(problem_names{i_problem}, problem_names_plain)
+                    % Find the index of the problem in the plain feature.
+                    idx = find(strcmp(problem_names{i_problem}, problem_names_plain), 1);
+                    merit_min(i_problem) = min(merit_min(i_problem), merit_min_plain(idx), 'omitnan');
+                    time_processes(i_problem) = time_processes(i_problem) + time_processes_plain(idx);
+                end
+            end
+        end
+
+        if profile_options.(ProfileOptionKey.DRAW_PLOTS.value)
+            % Merge all the pdf files in path_hist_plots to a single pdf file.
+            if ~profile_options.(ProfileOptionKey.SILENT.value)
+                fprintf('\nINFO: Merging all the history plots to a single PDF file.\n');
+            end
+            try
+                mergePdfs(path_hist_plots, 'history_plots_summary.pdf', path_feature);
+            catch
+                warning('INFO: Failed to merge the history plots to a single PDF file.');
+            end
+
+            if ~profile_options.(ProfileOptionKey.SILENT.value)
+                fprintf('\nINFO: Detailed results stored in %s\n\n', path_feature);
+            end
+        end
+
+        % Save useful data to a structure and then to a mat file for future loading.
+        data = struct();
+        data.n_eval = n_eval;
+        data.problem_names = problem_names;
+        data.problem_dimensions = problem_dimensions;
+        data.time_processes = time_processes;
+        data.problem_unsolved = problem_unsolved;
+        data.merit_histories = merit_histories;
+        data.merit_out = merit_out;
+        data.merit_init = merit_init;
+        data.merit_min = merit_min;
+        save(fullfile(path_log, 'data.mat'), '-struct', 'data');
+        try
+            fid = fopen(path_readme_log, 'a');
+            fprintf(fid, "'data.mat': file, storing the data of the current experiment for future loading.\n");
+            fclose(fid);
+        catch
+        end
+    elseif strcmp(profile_options.(ProfileOptionKey.LOAD.value), 'latest')
+        % Try to find all the txt files named by time_stamp in the path_out directory and find the
+        % latest one.
+        time_stamp_files = dir(fullfile(path_out, '**', 'time_stamp_*.txt'));
+        if isempty(time_stamp_files) || numel(time_stamp_files) == 1
+            % Note that the current experiment already generates a time stamp.
+            error("MATLAB:benchmark:NoTimeStamps", "Fail to load data since no time_stamp files are found in the directory '%s'.", path_out);
+        end
+        time_stamps = arrayfun(@(f) datetime(f.name(12:end-4), 'InputFormat', 'yyyyMMdd_HHmmss'), time_stamp_files);
+        % Find the second latest time_stamp file, since the latest one is the current experiment.
+        [~, latest_idx] = max(time_stamps);
+        time_stamps(latest_idx) = [];
+        [~, latest_idx] = max(time_stamps);
+        latest_time_stamp_file = time_stamp_files(latest_idx);
+        path_latest_time_stamp = latest_time_stamp_file.folder;
+        try
+            copyfile(fullfile(path_latest_time_stamp, 'data.mat'), path_log);
+            try
+                fid = fopen(path_readme_log, 'a');
+                fprintf(fid, "'data.mat': file, storing the data of the current experiment for future loading.\n");
+                fclose(fid);
             catch
             end
+            load(fullfile(path_log, 'data.mat'), 'n_eval', 'problem_names', 'problem_dimensions', 'time_processes', 'problem_unsolved', 'merit_histories', 'merit_out', 'merit_init', 'merit_min');
+        catch
+            error("MATLAB:benchmark:NoDataMatFile", "Fail to load the 'data.mat' file from the directory '%s'. Try to set `load` to a empty char or a specific time stamp.", path_log);
         end
-
-        % Since we will not compute the profiles, we set `solver_scores` to `problem_scores`.
-        solver_scores = problem_scores';
-        diary off;
-        return;
-    end
-
-    % Determine the least merit value for each problem.
-    if feature.run_plain && profile_options.(ProfileOptionKey.RUN_PLAIN.value)
-        feature_plain = Feature(FeatureName.PLAIN.value);
-        if ~profile_options.(ProfileOptionKey.SILENT.value)
-            fprintf('\nINFO: Starting the computation of the profiles under "plain" feature.\n');
+    else
+        pattern = ['time_stamp_', profile_options.(ProfileOptionKey.LOAD.value), '.txt'];
+        time_stamp_file = dir(fullfile(path_out, '**', pattern));
+        if isempty(time_stamp_file)
+            error("MATLAB:benchmark:NoTimeStamps", "Fail to load data since no time_stamp named '%s' is found in the directory '%s'.", profile_options.(ProfileOptionKey.LOAD.value), path_out);
         end
-        [fun_histories_plain, maxcv_histories_plain, ~, ~, ~, ~, ~, problem_names_plain, ~, time_processes_plain] = solveAllProblems(solvers, feature_plain, profile_options, other_options, false, {});
-        merit_histories_plain = computeMeritValues(fun_histories_plain, maxcv_histories_plain, maxcv_init);
-        merit_min_plain = min(min(min(merit_histories_plain, [], 4, 'omitnan'), [], 3, 'omitnan'), [], 2, 'omitnan');
-        for i_problem = 1:numel(problem_names)
-            % Check whether the problem is solved under the plain feature.
-            if ismember(problem_names{i_problem}, problem_names_plain)
-                % Find the index of the problem in the plain feature.
-                idx = find(strcmp(problem_names{i_problem}, problem_names_plain), 1);
-                merit_min(i_problem) = min(merit_min(i_problem), merit_min_plain(idx), 'omitnan');
-                time_processes(i_problem) = time_processes(i_problem) + time_processes_plain(idx);
+        path_time_stamp = time_stamp_file.folder;
+        try
+            copyfile(fullfile(path_time_stamp, 'data.mat'), path_log);
+            try
+                fid = fopen(path_readme_log, 'a');
+                fprintf(fid, "'data.mat': file, storing the data of the current experiment for future loading.\n");
+                fclose(fid);
+            catch
             end
+            load(fullfile(path_log, 'data.mat'), 'n_eval', 'problem_names', 'problem_dimensions', 'time_processes', 'problem_unsolved', 'merit_histories', 'merit_out', 'merit_init', 'merit_min');
+        catch
+            error("MATLAB:benchmark:NoDataMatFile", "Fail to load the 'data.mat' file from the directory '%s'. Try to set `load` to a empty char or another time stamp.", path_time_stamp);
         end
     end
 
@@ -733,22 +792,6 @@ function [solver_scores, profile_scores, problem_scores, curves] = benchmark(sol
         end
     catch
         fprintf("INFO: Error occurred when writing the problem names to %s.\n", path_txt);
-    end
-
-    if profile_options.(ProfileOptionKey.DRAW_PLOTS.value)
-        % Merge all the pdf files in path_hist_plots to a single pdf file.
-        if ~profile_options.(ProfileOptionKey.SILENT.value)
-            fprintf('\nINFO: Merging all the history plots to a single PDF file.\n');
-        end
-        try
-            mergePdfs(path_hist_plots, 'history_plots_summary.pdf', path_feature);
-        catch
-            warning('INFO: Failed to merge the history plots to a single PDF file.');
-        end
-
-        if ~profile_options.(ProfileOptionKey.SILENT.value)
-            fprintf('\nINFO: Detailed results stored in %s\n\n', path_feature);
-        end
     end
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -927,12 +970,26 @@ function [solver_scores, profile_scores, problem_scores, curves] = benchmark(sol
                 exportgraphics(fig_perf_out, pdf_perf_out_summary, 'ContentType', 'vector', 'Append', true);
                 exportgraphics(fig_data_hist, pdf_data_hist_summary, 'ContentType', 'vector', 'Append', true);
                 exportgraphics(fig_data_out, pdf_data_out_summary, 'ContentType', 'vector', 'Append', true);
-                if n_solvers <= 2
+                if n_solvers == 2
                     exportgraphics(fig_log_ratio_hist, pdf_log_ratio_hist_summary, 'ContentType', 'vector', 'Append', true);
                 end
                 if ~isempty(fig_log_ratio_out)
                     exportgraphics(fig_log_ratio_out, pdf_log_ratio_out_summary, 'ContentType', 'vector', 'Append', true);
                 end
+            end
+
+            try
+                fid = fopen(path_readme_feature, 'a');
+                fprintf(fid, "'data_hist.pdf': file, the summary PDF of history-based data profiles for all tolerances.\n");
+                fprintf(fid, "'data_out.pdf': file, the summary PDF of output-based data profiles for all tolerances.\n");
+                fprintf(fid, "'perf_hist.pdf': file, the summary PDF of history-based performance profiles for all tolerances.\n");
+                fprintf(fid, "'perf_out.pdf': file, the summary PDF of output-based performance profiles for all tolerances.\n");
+                if n_solvers == 2
+                    fprintf(fid, "'log-ratio_hist.pdf': file, the summary PDF of history-based log-ratio profiles for all tolerances.\n");
+                    fprintf(fid, "'log-ratio_out.pdf': file, the summary PDF of output-based log-ratio profiles for all tolerances.\n");
+                end
+                fclose(fid);
+            catch
             end
         end
 
@@ -996,27 +1053,36 @@ function [solver_scores, profile_scores, problem_scores, curves] = benchmark(sol
 
     if profile_options.(ProfileOptionKey.DRAW_PLOTS.value)
         % Store the summary pdf. We will name the summary pdf as "summary_feature_name.pdf" and store it under
-        % path_feature. We will also put a "summary.pdf" in the path_out directory, which will be a merged pdf of all
-        % the "summary_feature_name.pdf" under path_out following the order of the feature_stamp.
+        % path_feature. We will also put a "summary.pdf" in the path_benchmark directory, which will be a merged pdf of
+        % all the "summary_feature_name.pdf" under path_benchmark following the order of the feature_stamp.
+        summary_pdf_name = ['summary_', feature_name, '.pdf'];
         if n_rows > 0
             if ispc
-                print(fig_summary, fullfile(path_feature, ['summary_' feature_name '.pdf']), '-dpdf', '-vector');
+                print(fig_summary, fullfile(path_feature, summary_pdf_name), '-dpdf', '-vector');
             else
-                exportgraphics(fig_summary, fullfile(path_feature, ['summary_', feature_name, '.pdf']), 'ContentType', 'vector');
+                exportgraphics(fig_summary, fullfile(path_feature, summary_pdf_name), 'ContentType', 'vector');
             end
             savefig(fig_summary, fullfile(path_figs, ['summary_', feature_name, '.fig']));
         end
+
+        try
+            fid = fopen(path_readme_feature, 'a');
+            fprintf(fid, "'%s': file, the summary PDF of all the profiles for the feature '%s'.\n", summary_pdf_name, feature_name);
+            fclose(fid);
+        catch
+        end
+
         % List all summary PDF files in the output path and its subdirectories.
-        summary_files = dir(fullfile(path_out, '**', 'summary_*.pdf'));
+        summary_files = dir(fullfile(path_benchmark, '**', 'summary_*.pdf'));
         % Sort the summary PDF files by their folder names.
         [~, idx] = sort({summary_files.folder});
         summary_files = summary_files(idx);
         % Merge all the summary PDF files to a single PDF file.
-        delete(fullfile(path_out, 'summary.pdf'));
+        delete(fullfile(path_benchmark, 'summary.pdf'));
         for i_file = 1:numel(summary_files)
-            copyfile(fullfile(summary_files(i_file).folder, summary_files(i_file).name), path_out);
-            mergePdfs(path_out, 'summary.pdf', path_out);
-            delete(fullfile(path_out, summary_files(i_file).name));
+            copyfile(fullfile(summary_files(i_file).folder, summary_files(i_file).name), path_benchmark);
+            mergePdfs(path_benchmark, 'summary.pdf', path_benchmark);
+            delete(fullfile(path_benchmark, summary_files(i_file).name));
         end
     end
 
@@ -1026,7 +1092,7 @@ function [solver_scores, profile_scores, problem_scores, curves] = benchmark(sol
     if n_rows > 0
         close(fig_summary);
         if ~profile_options.(ProfileOptionKey.SILENT.value) && profile_options.(ProfileOptionKey.DRAW_PLOTS.value)
-            fprintf('\nINFO: Summary stored in %s', path_out);
+            fprintf('\nINFO: Summary stored in %s', path_benchmark);
         end
     end
 

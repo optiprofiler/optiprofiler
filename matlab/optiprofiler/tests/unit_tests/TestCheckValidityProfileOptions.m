@@ -89,6 +89,10 @@ classdef TestCheckValidityProfileOptions < matlab.unittest.TestCase
             options.scoring_fun = 1;
             testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:scoring_funNotValid");
             options = rmfield(options, 'scoring_fun');
+
+            options.load = 1;
+            testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:loadNotValid");
+            options = rmfield(options, 'load');
         end
 
     end

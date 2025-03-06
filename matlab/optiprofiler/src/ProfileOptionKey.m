@@ -22,6 +22,7 @@ classdef ProfileOptionKey
         SOLVER_VERBOSE ('solver_verbose')
         SEMILOGX ('semilogx')
         SCORING_FUN ('scoring_fun')
+        LOAD ('load')
     end
     properties
         value

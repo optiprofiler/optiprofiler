@@ -152,4 +152,11 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
             error("MATLAB:checkValidityProfileOptions:scoring_funNotValid", "The field 'scoring_fun' of options should be a function handle.");
         end
     end
+    % Judge whether profile_options.load is a char or a string.
+    if isfield(profile_options, ProfileOptionKey.LOAD.value)
+        if ~ischarstr(profile_options.(ProfileOptionKey.LOAD.value))
+            error("MATLAB:checkValidityProfileOptions:loadNotValid", "The field 'load' of options should be a char or a string.");
+        end
+        profile_options.(ProfileOptionKey.LOAD.value) = char(profile_options.(ProfileOptionKey.LOAD.value));
+    end
 end

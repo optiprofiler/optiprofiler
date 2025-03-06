@@ -67,6 +67,9 @@ function profile_options = getDefaultProfileOptions(feature, profile_options)
     if ~isfield(profile_options, ProfileOptionKey.SCORING_FUN.value)
         profile_options.(ProfileOptionKey.SCORING_FUN.value) = @(x) mean(x(:, :, 1, 1), 2) ./ max(max(mean(x(:, :, 1, 1), 2)), eps);
     end
+    if ~isfield(profile_options, ProfileOptionKey.LOAD.value)
+        profile_options.(ProfileOptionKey.LOAD.value) = '';
+    end
 end
 
 function feature_stamp = getDefaultFeatureStamp(feature)

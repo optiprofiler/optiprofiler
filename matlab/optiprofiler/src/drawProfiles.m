@@ -7,17 +7,17 @@ function [fig_perf, fig_data, fig_log_ratio, curves] = drawProfiles(work, proble
     % Create the individual figures.
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     fig_perf = figure('visible', 'off');
-    t_perf = tiledlayout(fig_perf, 1, 1, 'Padding', 'tight', 'TileSpacing', 'tight');
+    t_perf = tiledlayout(fig_perf, 1, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
     ax_perf = nexttile(t_perf);
     fig_data = figure('visible', 'off');
-    t_data = tiledlayout(fig_data, 1, 1, 'Padding', 'tight', 'TileSpacing', 'tight');
+    t_data = tiledlayout(fig_data, 1, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
     ax_data = nexttile(t_data);
     if n_solvers > 2
         fig_log_ratio = [];
         ax_log_ratio = [];
     else
         fig_log_ratio = figure('visible', 'off');
-        t_log_ratio = tiledlayout(fig_log_ratio, 1, 1, 'Padding', 'tight', 'TileSpacing', 'tight');
+        t_log_ratio = tiledlayout(fig_log_ratio, 1, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
         ax_log_ratio = nexttile(t_log_ratio);
     end
 
