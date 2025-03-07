@@ -35,7 +35,7 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
 %
 %       - n_jobs: the number of parallel jobs to run the test. Default is 1.
 %       - benchmark_id: the identifier of the test. It is used to create the
-%         specific directory to store the results. Default is '.' .
+%         specific directory to store the results. Default is 'out' .
 %       - feature_stamp: the stamp of the feature with the given options. It is
 %         used to create the specific directory to store the results. Default
 %         is different for different features.
@@ -423,9 +423,6 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
     %%%%%%%%%%%%%%%%%%%%%%%%% Set the default values for plotting. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    % Create the directory to store the results.
-    [path_out, path_benchmark, time_stamp] = setSavingPath(profile_options);
-
     % Set the default values for plotting.
     set(groot, 'DefaultLineLineWidth', 1);
     set(groot, 'DefaultAxesFontSize', 12);
@@ -435,8 +432,11 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
     %%%%%%%%%%%%%%%%%%%%%%%%% Create the directory to store the results. %%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    % Create the directory to store the results. If it already exists, overwrite it.
-    path_feature = fullfile(path_benchmark, profile_options.(ProfileOptionKey.FEATURE_STAMP.value));
+    % Create the directory to store the results.
+    path_out = fullfile(profile_options.(ProfileOptionKey.SAVEPATH.value), profile_options.(ProfileOptionKey.BENCHMARK_ID.value));
+    time = datetime('now', 'Format', 'yyyyMMdd_HHmmss');
+    time_stamp = char(time);
+    path_feature = fullfile(path_out, [profile_options.(ProfileOptionKey.FEATURE_STAMP.value), '_', time_stamp]);
     if ~exist(path_feature, 'dir')
         mkdir(path_feature);
     else
@@ -715,13 +715,12 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
         time_stamp_files = dir(fullfile(path_out, '**', 'time_stamp_*.txt'));
         if isempty(time_stamp_files) || numel(time_stamp_files) == 1
             % Note that the current experiment already generates a time stamp.
-            error("MATLAB:benchmark:NoTimeStamps", "Fail to load data since no time_stamp files are found in the directory '%s'.", path_out);
+            error("MATLAB:benchmark:NoTimeStamps", "Failed to load data since no time_stamp files are found in the directory '%s'.", path_out);
         end
         time_stamps = arrayfun(@(f) datetime(f.name(12:end-4), 'InputFormat', 'yyyyMMdd_HHmmss'), time_stamp_files);
         % Find the second latest time_stamp file, since the latest one is the current experiment.
-        [~, latest_idx] = max(time_stamps);
-        time_stamps(latest_idx) = [];
-        [~, latest_idx] = max(time_stamps);
+        [~, indexes] = sort(time_stamps, 'descend');
+        latest_idx = indexes(2);
         latest_time_stamp_file = time_stamp_files(latest_idx);
         path_latest_time_stamp = latest_time_stamp_file.folder;
         try
@@ -734,13 +733,13 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
             end
             load(fullfile(path_log, 'data.mat'), 'n_eval', 'problem_names', 'problem_dimensions', 'time_processes', 'problem_unsolved', 'merit_histories', 'merit_out', 'merit_init', 'merit_min');
         catch
-            error("MATLAB:benchmark:NoDataMatFile", "Fail to load the 'data.mat' file from the directory '%s'. Try to set `load` to a empty char or a specific time stamp.", path_log);
+            error("MATLAB:benchmark:NoDataMatFile", "Failed to load the 'data.mat' file from the directory '%s'. Try to set `load` to a empty char or a specific time stamp.", path_log);
         end
     else
         pattern = ['time_stamp_', profile_options.(ProfileOptionKey.LOAD.value), '.txt'];
         time_stamp_file = dir(fullfile(path_out, '**', pattern));
         if isempty(time_stamp_file)
-            error("MATLAB:benchmark:NoTimeStamps", "Fail to load data since no time_stamp named '%s' is found in the directory '%s'.", profile_options.(ProfileOptionKey.LOAD.value), path_out);
+            error("MATLAB:benchmark:NoTimeStamps", "Failed to load data since no time_stamp named '%s' is found in the directory '%s'.", profile_options.(ProfileOptionKey.LOAD.value), path_out);
         end
         path_time_stamp = time_stamp_file.folder;
         try
@@ -753,7 +752,7 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
             end
             load(fullfile(path_log, 'data.mat'), 'n_eval', 'problem_names', 'problem_dimensions', 'time_processes', 'problem_unsolved', 'merit_histories', 'merit_out', 'merit_init', 'merit_min');
         catch
-            error("MATLAB:benchmark:NoDataMatFile", "Fail to load the 'data.mat' file from the directory '%s'. Try to set `load` to a empty char or another time stamp.", path_time_stamp);
+            error("MATLAB:benchmark:NoDataMatFile", "Failed to load the 'data.mat' file from the directory '%s'. Try to set `load` to a empty char or another time stamp.", path_time_stamp);
         end
     end
 
@@ -1053,8 +1052,8 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
 
     if profile_options.(ProfileOptionKey.DRAW_PLOTS.value)
         % Store the summary pdf. We will name the summary pdf as "summary_feature_name.pdf" and store it under
-        % path_feature. We will also put a "summary.pdf" in the path_benchmark directory, which will be a merged pdf of
-        % all the "summary_feature_name.pdf" under path_benchmark following the order of the feature_stamp.
+        % path_feature. We will also put a "summary.pdf" in the path_out directory, which will be a merged pdf of
+        % all the "summary_feature_name.pdf" under path_out following the order of the feature_stamp.
         summary_pdf_name = ['summary_', feature_name, '.pdf'];
         if n_rows > 0
             if ispc
@@ -1073,16 +1072,16 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
         end
 
         % List all summary PDF files in the output path and its subdirectories.
-        summary_files = dir(fullfile(path_benchmark, '**', 'summary_*.pdf'));
+        summary_files = dir(fullfile(path_out, '**', 'summary_*.pdf'));
         % Sort the summary PDF files by their folder names.
         [~, idx] = sort({summary_files.folder});
         summary_files = summary_files(idx);
         % Merge all the summary PDF files to a single PDF file.
-        delete(fullfile(path_benchmark, 'summary.pdf'));
+        delete(fullfile(path_out, 'summary.pdf'));
         for i_file = 1:numel(summary_files)
-            copyfile(fullfile(summary_files(i_file).folder, summary_files(i_file).name), path_benchmark);
-            mergePdfs(path_benchmark, 'summary.pdf', path_benchmark);
-            delete(fullfile(path_benchmark, summary_files(i_file).name));
+            copyfile(fullfile(summary_files(i_file).folder, summary_files(i_file).name), path_out);
+            mergePdfs(path_out, 'summary.pdf', path_out);
+            delete(fullfile(path_out, summary_files(i_file).name));
         end
     end
 
@@ -1092,7 +1091,7 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
     if n_rows > 0
         close(fig_summary);
         if ~profile_options.(ProfileOptionKey.SILENT.value) && profile_options.(ProfileOptionKey.DRAW_PLOTS.value)
-            fprintf('\nINFO: Summary stored in %s', path_benchmark);
+            fprintf('\nINFO: Summary stored in %s', path_out);
         end
     end
 

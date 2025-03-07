@@ -17,7 +17,7 @@ function profile_options = getDefaultProfileOptions(feature, profile_options)
         profile_options.(ProfileOptionKey.SEED.value) = 1;
     end
     if ~isfield(profile_options, ProfileOptionKey.BENCHMARK_ID.value)
-        profile_options.(ProfileOptionKey.BENCHMARK_ID.value) = '.';
+        profile_options.(ProfileOptionKey.BENCHMARK_ID.value) = 'out';
     end
     if ~isfield(profile_options, ProfileOptionKey.FEATURE_STAMP.value)
         profile_options.(ProfileOptionKey.FEATURE_STAMP.value) = getDefaultFeatureStamp(feature);
