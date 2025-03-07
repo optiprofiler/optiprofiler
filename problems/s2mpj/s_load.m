@@ -136,6 +136,12 @@ function problem = s_load(problem_name, varargin)
     % Get the objective function.
     fun = @(x) getfun(problem_name, x);
 
+    % Get the gradient of the objective function.
+    grad = @(x) getgrad(problem_name, x);
+
+    % Get the Hessian of the objective function.
+    hess = @(x) gethess(problem_name, x);
+
     % Get the initial guess, lower bound, and upper bound.
     if isfield(pb, 'xtype')
         switch pb.xtype
@@ -197,7 +203,7 @@ function problem = s_load(problem_name, varargin)
     ceq = @(x) getidx(getcx(problem_name, x), idx_ceq);
     cub = @(x) [getidx(getcx(problem_name, x), idx_cle); -getidx(getcx(problem_name, x), idx_cge)];
     
-    problem = Problem(struct('name', name, 'fun', fun, 'x_type', x_type, 'x0', x0, 'xl', xl, 'xu', xu, 'aeq', aeq, 'beq', beq, 'aub', aub, 'bub', bub, 'ceq', ceq, 'cub', cub, 'm_nonlinear_eq', m_nonlinear_eq, 'm_nonlinear_ub', m_nonlinear_ub));
+    problem = Problem(struct('name', name, 'fun', fun, 'grad', grad, 'hess', hess, 'x_type', x_type, 'x0', x0, 'xl', xl, 'xu', xu, 'aeq', aeq, 'beq', beq, 'aub', aub, 'bub', bub, 'ceq', ceq, 'cub', cub, 'm_nonlinear_eq', m_nonlinear_eq, 'm_nonlinear_ub', m_nonlinear_ub));
     
 end
 
@@ -207,7 +213,32 @@ function fx = getfun(problem_name, x)
     try
         evalc("fx = funcHandle('fx', x)");
     catch
+        % If the function evaluation fails, return NaN.
+        % Note that some problems are feasibility problems, which do not have an objective function.
+        % For these problems, we return 0.
         fx = 0;
+    end
+end
+
+function gx = getgrad(problem_name, x)
+    
+    funcHandle = str2func(problem_name);
+    try
+        evalc("[~, gx] = funcHandle('fgx', x)");
+        gx = full(gx);
+    catch
+        gx = NaN(0, 1);
+    end
+end
+
+function Hx = gethess(problem_name, x)
+    
+    funcHandle = str2func(problem_name);
+    try
+        evalc("[~, ~, Hx] = funcHandle('fgHx', x)");
+        Hx = full(Hx);
+    catch
+        Hx = NaN(0, 1);
     end
 end
 

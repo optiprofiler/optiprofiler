@@ -43,6 +43,8 @@ classdef Problem < handle
     properties (Access = protected)
 
         fun_
+        grad_
+        hess_
         cub_
         ceq_
         m_nonlinear_ub_
@@ -64,6 +66,18 @@ classdef Problem < handle
                 Objective function to be minimized.
 
                     ``fun(x) -> float``
+
+                where ``x`` is an array with shape (n,).
+            grad : callable, optional
+                Gradient of the objective function.
+
+                    ``grad(x) -> array_like, shape (n,)``
+                
+                where ``x`` is an array with shape (n,).
+            hess : callable, optional
+                Hessian of the objective function.
+
+                    ``hess(x) -> array_like, shape (n, n)``
 
                 where ``x`` is an array with shape (n,).
             x_type : str, optional
@@ -121,6 +135,14 @@ classdef Problem < handle
                 end
                 obj.fun_ = s.fun;
 
+                % Check if the struct contains `grad` and `hess` fields
+                if isfield(s, 'grad')
+                    obj.grad_ = s.grad;
+                end
+                if isfield(s, 'hess')
+                    obj.hess_ = s.hess;
+                end
+
                 % Check if the struct contains `cub` and `ceq` fields
                 if isfield(s, 'cub')
                     obj.cub_ = s.cub;
@@ -138,10 +160,10 @@ classdef Problem < handle
                 end
         
                 % Iterate over the struct's fields and assign them to the object's properties
-                expected_fields = {'name', 'fun', 'x_type', 'x0', 'xl', 'xu', 'aub', 'bub', 'aeq', 'beq', 'cub', 'ceq', 'm_nonlinear_ub', 'm_nonlinear_eq'};
+                expected_fields = {'name', 'fun', 'grad', 'hess', 'x_type', 'x0', 'xl', 'xu', 'aub', 'bub', 'aeq', 'beq', 'cub', 'ceq', 'm_nonlinear_ub', 'm_nonlinear_eq'};
                 fields = fieldnames(s);
                 for i = 1:numel(expected_fields)
-                    if strcmp(expected_fields{i}, 'fun') || strcmp(expected_fields{i}, 'cub') || strcmp(expected_fields{i}, 'ceq') || strcmp(expected_fields{i}, 'm_nonlinear_ub') || strcmp(expected_fields{i}, 'm_nonlinear_eq')
+                    if strcmp(expected_fields{i}, 'fun') || strcmp(expected_fields{i}, 'grad') || strcmp(expected_fields{i}, 'hess') || strcmp(expected_fields{i}, 'cub') || strcmp(expected_fields{i}, 'ceq') || strcmp(expected_fields{i}, 'm_nonlinear_ub') || strcmp(expected_fields{i}, 'm_nonlinear_eq')
                         continue
                     elseif ismember(expected_fields{i}, fields)
                         obj.(expected_fields{i}) = s.(expected_fields{i});
@@ -296,6 +318,21 @@ classdef Problem < handle
             else
                 obj.beq = [];
             end
+        end
+
+        % Preprocess the gradient and the Hessian of the objective function.
+        function set.grad_(obj, grad_)
+            if ~isa(grad_, 'function_handle') && ~isempty(grad_)
+                error("MATLAB:Problem:grad_NotFunctionHandle", "The argument `grad` for `Problem` must be a function handle.")
+            end
+            obj.grad_ = grad_;
+        end
+
+        function set.hess_(obj, hess_)
+            if ~isa(hess_, 'function_handle') && ~isempty(hess_)
+                error("MATLAB:Problem:hess_NotFunctionHandle", "The argument `hess` for `Problem` must be a function handle.")
+            end
+            obj.hess_ = hess_;
         end
 
         % Preprocess the nonlinear constraints.
@@ -546,6 +583,74 @@ classdef Problem < handle
                 % If an error occurred, issue a warning and set f to NaN.
                 warning(ME.identifier, '%s', ME.message);
                 f = NaN;
+            end
+        end
+
+        function g = grad(obj, x)
+            % Check if x is a vector.
+            if ~isrealvector(x)
+                error("MATLAB:Problem:InvalidInputForGRAD", "The input `x` for method `grad` in `Problem` must be a vector.")
+            end
+
+            if numel(x) ~= obj.n
+                error("MATLAB:Problem:WrongSizeInputForGRAD", "The input `x` for method `grad` in `Problem` must have size %d.", obj.n)
+            end
+
+            if isempty(obj.grad_)
+                g = NaN(0, 1);
+            else
+                try
+                    % Try to evaluate the gradient at x.
+                    g = obj.grad_(x);
+                catch ME
+                    % If an error occurred, issue a warning and set g to NaN.
+                    warning(ME.identifier, '%s', ME.message);
+                    g = NaN(obj.n, 1);
+                end
+                if ~(isrealvector(g) && numel(g) == obj.n) && ~isempty(g)
+                    error("MATLAB:Problem:InvalidOutputForGRAD", "The output of method `grad` in `Problem` must be a real vector having size %d.", obj.n)
+                end
+                try
+                    g = double(g);
+                catch ME
+                    % If an error occurred, issue a warning and set g to NaN.
+                    warning(ME.identifier, '%s', ME.message);
+                    g = NaN(obj.n, 1);
+                end
+            end
+        end
+
+        function h = hess(obj, x)
+            % Check if x is a vector.
+            if ~isrealvector(x)
+                error("MATLAB:Problem:InvalidInputForHESS", "The input `x` for method `hess` in `Problem` must be a vector.")
+            end
+
+            if numel(x) ~= obj.n
+                error("MATLAB:Problem:WrongSizeInputForHESS", "The input `x` for method `hess` in `Problem` must have size %d.", obj.n)
+            end
+
+            if isempty(obj.hess_)
+                h = NaN(0, 1);
+            else
+                try
+                    % Try to evaluate the Hessian at x.
+                    h = obj.hess_(x);
+                catch ME
+                    % If an error occurred, issue a warning and set h to NaN.
+                    warning(ME.identifier, '%s', ME.message);
+                    h = NaN(obj.n, obj.n);
+                end
+                if ~(isrealmatrix(h) && isequal(size(h), [obj.n, obj.n])) && ~isempty(h)
+                    error("MATLAB:Problem:InvalidOutputForHESS", "The output of method `hess` in `Problem` must be a real matrix having shape (%d, %d).", obj.n, obj.n)
+                end
+                try
+                    h = double(h);
+                catch ME
+                    % If an error occurred, issue a warning and set h to NaN.
+                    warning(ME.identifier, '%s', ME.message);
+                    h = NaN(obj.n, obj.n);
+                end
             end
         end
 
