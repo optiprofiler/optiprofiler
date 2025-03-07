@@ -277,3 +277,5 @@ xlower
 xtype
 xupper
 autofunction
+HHmmss
+MMdd

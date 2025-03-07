@@ -8,9 +8,9 @@ classdef FeaturedProblem < Problem
         max_eval
         seed
         fun_hist
+        cub_hist
+        ceq_hist
         maxcv_hist
-        last_cub
-        last_ceq
 
     end
 
@@ -81,13 +81,15 @@ classdef FeaturedProblem < Problem
             obj.max_eval = max_eval;
             obj.seed = seed;
 
-            % Initialize the history of the objective function and the maximum constraint violation.
+            % Initialize the history of the objective function, nonlinear inequality and equality constraints, and
+            % the maximum constraint violation.
+            % Note: maxcv_hist records the maximum constraint violation only at the points where the objective function
+            % is evaluated.
             obj.fun_hist = [];
+            obj.cub_hist = [];
+            obj.ceq_hist = [];
             obj.maxcv_hist = [];
 
-            % Initialize the last evaluated nonlinear inequality and equality constraints.
-            obj.last_cub = [];
-            obj.last_ceq = [];
         end
 
         function value = get.n_eval(obj)
@@ -98,6 +100,14 @@ classdef FeaturedProblem < Problem
 
         function value = get.fun_hist(obj)
             value = obj.fun_hist;
+        end
+
+        function value = get.cub_hist(obj)
+            value = obj.cub_hist;
+        end
+
+        function value = get.ceq_hist(obj)
+            value = obj.ceq_hist;
         end
 
         function value = get.maxcv_hist(obj)
@@ -161,10 +171,10 @@ classdef FeaturedProblem < Problem
                 Modified nonlinear inequality constraints.    
             %}
 
-            if obj.n_eval >= obj.max_eval
+            if length(obj.cub_hist) >= obj.max_eval
                 % If the maximum number of function evaluations has been reached, return the value
                 % of the nonlinear inequality constraints at the last point.
-                cub_ = obj.last_cub;
+                cub_ = obj.cub_hist(obj.max_eval);
                 return
             end
 
@@ -173,7 +183,16 @@ classdef FeaturedProblem < Problem
 
             % Evaluate the nonlinear inequality constraints and store the results.
             cub_ = obj.feature.modifier_cub(A * x + b, obj.seed, obj.problem);
-            obj.last_cub = cub_;
+            
+            % Evaluate the nonlinear inequality constraints and store the results.
+            cub_true = obj.problem.cub(A * x + b);
+
+            % If the Feature is ``quantized'' and the option ``ground_truth'' is set to true, we should
+            % use the modified constraint violation.
+            if strcmp(obj.feature.name, FeatureName.QUANTIZED.value) && obj.feature.options.(FeatureOptionKey.GROUND_TRUTH.value)
+                cub_true = cub_;
+            end
+            obj.cub_hist = [obj.cub_hist, cub_true];
         end
 
         function ceq_ = ceq(obj, x)
@@ -191,10 +210,10 @@ classdef FeaturedProblem < Problem
                 Modified nonlinear equality constraints.
             %}
 
-            if obj.n_eval >= obj.max_eval
+            if length(obj.ceq_hist) >= obj.max_eval
                 % If the maximum number of function evaluations has been reached, return the value
                 % of the nonlinear equality constraints at the last point.
-                ceq_ = obj.last_ceq;
+                ceq_ = obj.ceq_hist(obj.max_eval);
                 return
             end
 
@@ -203,7 +222,16 @@ classdef FeaturedProblem < Problem
 
             % Evaluate the nonlinear equality constraints and store the results.
             ceq_ = obj.feature.modifier_ceq(A * x + b, obj.seed, obj.problem);
-            obj.last_ceq = ceq_;
+
+            % Evaluate the nonlinear equality constraints and store the results.
+            ceq_true = obj.problem.ceq(A * x + b);
+
+            % If the Feature is ``quantized'' and the option ``ground_truth'' is set to true, we should
+            % use the modified constraint violation.
+            if strcmp(obj.feature.name, FeatureName.QUANTIZED.value) && obj.feature.options.(FeatureOptionKey.GROUND_TRUTH.value)
+                ceq_true = ceq_;
+            end
+            obj.ceq_hist = [obj.ceq_hist, ceq_true];
         end
 
         function cv = maxcv(obj, x)
