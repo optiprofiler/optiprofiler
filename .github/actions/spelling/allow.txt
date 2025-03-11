@@ -279,3 +279,16 @@ xupper
 autofunction
 HHmmss
 MMdd
+fgx
+getgrad
+gethess
+hceq
+Hceqx
+hcub
+Hcubx
+hess
+jceq
+Jceqx
+jcub
+Jcubx
+JHx
