@@ -827,7 +827,7 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
 
     if n_rows > 0
         fig_summary = figure('Position', [defaultFigurePosition(1:2), profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * default_width, multiplier * n_rows * default_height], 'visible', 'off');
-        T_summary = tiledlayout(fig_summary, multiplier, 1, 'Padding', 'tight', 'TileSpacing', 'tight');
+        T_summary = tiledlayout(fig_summary, multiplier, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
         T_feature_stamp = strrep(profile_options.(ProfileOptionKey.FEATURE_STAMP.value), '_', '\_');
         T_title = ['Profiles with the ``', T_feature_stamp, '" feature'];
         summary_width = profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * default_width;
@@ -839,7 +839,7 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
         axs_summary = gobjects([multiplier, 1, n_rows, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)]);
         i_axs = 0;
         for i = 1:multiplier
-            t_summary(i) = tiledlayout(T_summary, n_rows, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value), 'Padding', 'tight', 'TileSpacing', 'tight');
+            t_summary(i) = tiledlayout(T_summary, n_rows, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value), 'Padding', 'compact', 'TileSpacing', 'compact');
             t_summary(i).Layout.Tile = i;
             for j = 1:n_rows * profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)
                 i_axs = i_axs + 1;
