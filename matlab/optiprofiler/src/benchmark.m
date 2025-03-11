@@ -1054,19 +1054,19 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
         % Store the summary pdf. We will name the summary pdf as "summary_feature_name.pdf" and store it under
         % path_feature. We will also put a "summary.pdf" in the path_out directory, which will be a merged pdf of
         % all the "summary_feature_name.pdf" under path_out following the order of the feature_stamp.
-        summary_pdf_name = ['summary_', feature_name, '.pdf'];
+        summary_name = ['summary_', profile_options.(ProfileOptionKey.FEATURE_STAMP.value), '_', time_stamp];
         if n_rows > 0
             if ispc
-                print(fig_summary, fullfile(path_feature, summary_pdf_name), '-dpdf', '-vector');
+                print(fig_summary, fullfile(path_feature, [summary_name, '.pdf']), '-dpdf', '-vector');
             else
-                exportgraphics(fig_summary, fullfile(path_feature, summary_pdf_name), 'ContentType', 'vector');
+                exportgraphics(fig_summary, fullfile(path_feature, [summary_name, '.pdf']), 'ContentType', 'vector');
             end
-            savefig(fig_summary, fullfile(path_figs, ['summary_', feature_name, '.fig']));
+            savefig(fig_summary, fullfile(path_figs, [summary_name, '.fig']));
         end
 
         try
             fid = fopen(path_readme_feature, 'a');
-            fprintf(fid, "'%s': file, the summary PDF of all the profiles for the feature '%s'.\n", summary_pdf_name, feature_name);
+            fprintf(fid, "'%s': file, the summary PDF of all the profiles for the feature '%s'.\n", summary_name, feature_name);
             fclose(fid);
         catch
         end

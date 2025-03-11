@@ -62,10 +62,6 @@ function problem = s_load(problem_name, varargin)
 %            the value of which at x should be [cx(idx_cle), -cx(idx_cge)] with
 %            idx_cle = intersect(idx_le, nonlincons),
 %            idx_cge = intersect(idx_ge, nonlincons).
-%       m_nonlinear_eq: number of nonlinear equality constraints, which is
-%            length(idx_ceq).
-%       m_nonlinear_ub: number of nonlinear inequality constraints, which is
-%            length(idx_cle) + length(idx_cge).
 %
 %   The function will be used in two parts. One appears in 's_getInfo.m' to
 %   load all the problems to collect the information. The other appears in
@@ -196,14 +192,18 @@ function problem = s_load(problem_name, varargin)
     aub = [Jx(idx_aub_le, :); -Jx(idx_aub_ge, :)];
     beq = bx(idx_aeq);
     bub = [bx(idx_aub_le); -bx(idx_aub_ge)];
-    m_nonlinear_ub = length(idx_cle) + length(idx_cge);
-    m_nonlinear_eq = length(idx_ceq);
 
     getidx = @(y, idx) y(idx);
     ceq = @(x) getidx(getcx(problem_name, x), idx_ceq);
     cub = @(x) [getidx(getcx(problem_name, x), idx_cle); -getidx(getcx(problem_name, x), idx_cge)];
+    Hceq = @(x) getidx(getHx(problem_name, x), idx_ceq);
+    Hcub = @(x) [getidx(getHx(problem_name, x), idx_cle), getidx(getHx(problem_name, x), idx_cge)];
     
-    problem = Problem(struct('name', name, 'fun', fun, 'grad', grad, 'hess', hess, 'x_type', x_type, 'x0', x0, 'xl', xl, 'xu', xu, 'aeq', aeq, 'beq', beq, 'aub', aub, 'bub', bub, 'ceq', ceq, 'cub', cub, 'm_nonlinear_eq', m_nonlinear_eq, 'm_nonlinear_ub', m_nonlinear_ub));
+    getidx_mat = @(y, idx) y(idx, :);
+    Jceq = @(x) getidx_mat(getJx(problem_name, x), idx_ceq);
+    Jcub = @(x) [getidx_mat(getJx(problem_name, x), idx_cle); -getidx_mat(getJx(problem_name, x), idx_cge)];
+    
+    problem = Problem(struct('name', name, 'fun', fun, 'grad', grad, 'hess', hess, 'x_type', x_type, 'x0', x0, 'xl', xl, 'xu', xu, 'aeq', aeq, 'beq', beq, 'aub', aub, 'bub', bub, 'ceq', ceq, 'cub', cub, 'Jceq', Jceq, 'Jcub', Jcub, 'Hceq', Hceq, 'Hcub', Hcub));
     
 end
 
@@ -254,6 +254,30 @@ function cx = getcx(problem_name, x)
         end
     catch
         cx = NaN(0, 1);
+    end
+end
+
+function Jx = getJx(problem_name, x)
+    
+    funcHandle = str2func(problem_name);
+    try
+        evalc("[~, Jx] = funcHandle('cJx', x)");
+        Jx = full(Jx);
+    catch
+        Jx = NaN(0, 1);
+    end
+end
+
+function Hx = getHx(problem_name, x)
+    
+    funcHandle = str2func(problem_name);
+    try
+        evalc("[~, ~, Hx] = funcHandle('cJHx', x)");
+        for i = 1:size(Hx, 2)
+            Hx{i} = full(Hx{i});
+        end
+    catch
+        Hx = NaN(0, 1);
     end
 end
 

@@ -69,10 +69,14 @@ classdef FeaturedProblem < Problem
             [pb_struct.aeq, pb_struct.beq] = feature.modifier_linear_eq(seed, problem);
             % First inherit some properties from the original problem.
             pb_struct.fun = problem.fun_;
+            pb_struct.grad = problem.grad_;
+            pb_struct.hess = problem.hess_;
             pb_struct.cub = problem.cub_;
             pb_struct.ceq = problem.ceq_;
-            pb_struct.m_nonlinear_ub = problem.m_nonlinear_ub_;
-            pb_struct.m_nonlinear_eq = problem.m_nonlinear_eq_;
+            pb_struct.Jcub = problem.Jcub_;
+            pb_struct.Jceq = problem.Jceq_;
+            pb_struct.Hcub = problem.Hcub_;
+            pb_struct.Hceq = problem.Hceq_;
 
             % Initialize the FeaturedProblem object.
             obj@Problem(pb_struct);
