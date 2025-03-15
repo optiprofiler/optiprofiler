@@ -6,7 +6,7 @@ function [problem_names, argins] = s_select(options)
     argins = {};
 
     % Check whether the options are valid.
-    valid_fields = {'p_type', 'p_type', 'mindim', 'maxdim', 'mincon', 'maxcon', 'excludelist'};
+    valid_fields = {'p_type', 'p_type', 'mindim', 'maxdim', 'mincon', 'maxcon', 'oracle', 'excludelist'};
     if ~isstruct(options) || (~isempty(fieldnames(options)) && ~all(ismember(fieldnames(options), valid_fields)))
         error('The input argument `options` is invalid.');
     end
@@ -27,6 +27,9 @@ function [problem_names, argins] = s_select(options)
     if ~isfield(options, 'maxcon')
         options.maxcon = Inf;
     end
+    if ~isfield(options, 'oracle')
+        options.oracle = 0;
+    end
     if ~isfield(options, 'excludelist')
         options.excludelist = {};
     end
@@ -39,16 +42,43 @@ function [problem_names, argins] = s_select(options)
         p_type = probinfo{i_problem, 2};
         dim = probinfo{i_problem, 4};
         m_con = probinfo{i_problem, 8};
-        argin = probinfo{i_problem, 18};
-        dims = probinfo{i_problem, 19};
-        m_cons = probinfo{i_problem, 20};
+        argin = probinfo{i_problem, 24};
+        dims = probinfo{i_problem, 25};
+        m_cons = probinfo{i_problem, 29};
+        m_nonlinear_ub = probinfo{i_problem, 15};
+        m_nonlinear_eq = probinfo{i_problem, 16};
+        isgrad = probinfo{i_problem, 18};
+        ishess = probinfo{i_problem, 19};
+        isJcub = probinfo{i_problem, 20};
+        isJceq = probinfo{i_problem, 21};
+        isHcub = probinfo{i_problem, 22};
+        isHceq = probinfo{i_problem, 23};
 
-        % Check if the problem type satisfies the criteria.
+        % Check if the problem is in the exclude list.
         if ~isempty(options.excludelist) && ismember(problem_name, options.excludelist)
             continue;
         end
+
+        % Check if the problem type satisfies the criteria.
         if ~ismember(p_type, options.p_type)
             continue;
+        end
+
+        % Check if the oracle provided by the problem satisfies the criteria.
+        if (options.oracle == 1) || (options.oracle == 2)
+            % When oracle is 1 or 2, we need at least the 1st-order information.
+            if ~isgrad
+                continue;
+            elseif ismember(p_type, {'n'}) && ((m_nonlinear_ub > 0 && ~isJcub) || (m_nonlinear_eq > 0 && ~isJceq))
+                continue;
+            end
+        end
+        if options.oracle == 2
+            if ~ishess
+                continue;
+            elseif ismember(p_type, {'n'}) && ((m_nonlinear_ub > 0 && ~isHcub) || (m_nonlinear_eq > 0 && ~isHceq))
+                continue;
+            end
         end
 
         % If the default dimension and number of constraints satisfy the criteria, we add the problem.
@@ -75,6 +105,6 @@ function [problem_names, argins] = s_select(options)
                 argins{end + 1} = argin(idx);
             end
         end
+        
     end
-    
 end

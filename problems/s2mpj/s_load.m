@@ -35,7 +35,7 @@ function problem = s_load(problem_name, varargin)
 %             then it means that the problem is parameterized. Thus, in this
 %             case, the name will be 'problem_name_n_m', where n is the
 %             dimension of the problem and m is the number of constraints. When
-%             m =0, the name will be 'problem_name_n'.
+%             m = 0, the name will be 'problem_name_n'.
 %       fun: function handle to evaluate the objective function, which should
 %            be a function handle calling the 'fx' action.
 %       x_type: type of variables, same as pb.xtype.
@@ -87,9 +87,9 @@ function problem = s_load(problem_name, varargin)
             error('Problem %s not found in probinfo.mat.', problem_name);
         end
         % Find the corresponding argins for the specific dimension.
-        dims = probinfo{idx_pb, 19};
-        m_cons = probinfo{idx_pb, 20};
-        argins = probinfo{idx_pb, 18};
+        dims = probinfo{idx_pb, 25};
+        m_cons = probinfo{idx_pb, 29};
+        argins = probinfo{idx_pb, 24};
         idx_dim = find(dims == dim & m_cons == m_con, 1, 'first');
         if iscell(argins)
             argin = {argins{1:end-1}, argins{end}(idx_dim)};
