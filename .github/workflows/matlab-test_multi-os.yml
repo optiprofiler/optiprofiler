@@ -22,7 +22,7 @@ jobs:
       - name: Check out repository (branch main) with submodules
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: matlab
           submodules: recursive
 
       - name: Set up MATLAB with optimization toolbox and parallel computing toolbox
