@@ -294,3 +294,5 @@ Jcubx
 JHx
 isgrad
 ishess
+colororder
+palettename
