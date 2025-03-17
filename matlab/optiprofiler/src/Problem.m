@@ -49,10 +49,10 @@ classdef Problem < handle
         hess_
         cub_
         ceq_
-        Jcub_
-        Jceq_
-        Hcub_
-        Hceq_
+        jcub_
+        jceq_
+        hcub_
+        hceq_
 
     end
 
@@ -155,25 +155,25 @@ classdef Problem < handle
                     obj.ceq_ = s.ceq;
                 end
 
-                % Check if the struct contains `Jcub`, `Jceq`, `Hcub`, and `Hceq` fields
-                if isfield(s, 'Jcub')
-                    obj.Jcub_ = s.Jcub;
+                % Check if the struct contains `jcub`, `jceq`, `hcub`, and `hceq` fields
+                if isfield(s, 'jcub')
+                    obj.jcub_ = s.jcub;
                 end
-                if isfield(s, 'Jceq')
-                    obj.Jceq_ = s.Jceq;
+                if isfield(s, 'jceq')
+                    obj.jceq_ = s.jceq;
                 end
-                if isfield(s, 'Hcub')
-                    obj.Hcub_ = s.Hcub;
+                if isfield(s, 'hcub')
+                    obj.hcub_ = s.hcub;
                 end
-                if isfield(s, 'Hceq')
-                    obj.Hceq_ = s.Hceq;
+                if isfield(s, 'hceq')
+                    obj.hceq_ = s.hceq;
                 end
         
                 % Iterate over the struct's fields and assign them to the object's properties
-                expected_fields = {'name', 'fun', 'grad', 'hess', 'x_type', 'x0', 'xl', 'xu', 'aub', 'bub', 'aeq', 'beq', 'cub', 'ceq', 'Jcub', 'Jceq', 'Hcub', 'Hceq'};
+                expected_fields = {'name', 'fun', 'grad', 'hess', 'x_type', 'x0', 'xl', 'xu', 'aub', 'bub', 'aeq', 'beq', 'cub', 'ceq', 'jcub', 'jceq', 'hcub', 'hceq'};
                 fields = fieldnames(s);
                 for i = 1:numel(expected_fields)
-                    if strcmp(expected_fields{i}, 'fun') || strcmp(expected_fields{i}, 'grad') || strcmp(expected_fields{i}, 'hess') || strcmp(expected_fields{i}, 'cub') || strcmp(expected_fields{i}, 'ceq') || strcmp(expected_fields{i}, 'Jcub') || strcmp(expected_fields{i}, 'Jceq') || strcmp(expected_fields{i}, 'Hcub') || strcmp(expected_fields{i}, 'Hceq')
+                    if strcmp(expected_fields{i}, 'fun') || strcmp(expected_fields{i}, 'grad') || strcmp(expected_fields{i}, 'hess') || strcmp(expected_fields{i}, 'cub') || strcmp(expected_fields{i}, 'ceq') || strcmp(expected_fields{i}, 'jcub') || strcmp(expected_fields{i}, 'jceq') || strcmp(expected_fields{i}, 'hcub') || strcmp(expected_fields{i}, 'hceq')
                         continue
                     elseif ismember(expected_fields{i}, fields)
                         obj.(expected_fields{i}) = s.(expected_fields{i});
@@ -353,32 +353,32 @@ classdef Problem < handle
         end
 
         % Preprocess the Jacobian and the Hessian of the nonlinear constraints.
-        function set.Jcub_(obj, Jcub_)
-            if ~isa(Jcub_, 'function_handle') && ~isempty(Jcub_)
-                error("MATLAB:Problem:Jcub_NotFunctionHandle", "The argument `Jcub` for `Problem` must be a function handle.")
+        function set.jcub_(obj, jcub_)
+            if ~isa(jcub_, 'function_handle') && ~isempty(jcub_)
+                error("MATLAB:Problem:jcub_NotFunctionHandle", "The argument `jcub` for `Problem` must be a function handle.")
             end
-            obj.Jcub_ = Jcub_;
+            obj.jcub_ = jcub_;
         end
 
-        function set.Jceq_(obj, Jceq_)
-            if ~isa(Jceq_, 'function_handle') && ~isempty(Jceq_)
-                error("MATLAB:Problem:Jceq_NotFunctionHandle", "The argument `Jceq` for `Problem` must be a function handle.")
+        function set.jceq_(obj, jceq_)
+            if ~isa(jceq_, 'function_handle') && ~isempty(jceq_)
+                error("MATLAB:Problem:jceq_NotFunctionHandle", "The argument `jceq` for `Problem` must be a function handle.")
             end
-            obj.Jceq_ = Jceq_;
+            obj.jceq_ = jceq_;
         end
 
-        function set.Hcub_(obj, Hcub_)
-            if ~isa(Hcub_, 'function_handle') && ~isempty(Hcub_)
-                error("MATLAB:Problem:Hcub_NotFunctionHandle", "The argument `Hcub` for `Problem` must be a function handle.")
+        function set.hcub_(obj, hcub_)
+            if ~isa(hcub_, 'function_handle') && ~isempty(hcub_)
+                error("MATLAB:Problem:hcub_NotFunctionHandle", "The argument `hcub` for `Problem` must be a function handle.")
             end
-            obj.Hcub_ = Hcub_;
+            obj.hcub_ = hcub_;
         end
 
-        function set.Hceq_(obj, Hceq_)
-            if ~isa(Hceq_, 'function_handle') && ~isempty(Hceq_)
-                error("MATLAB:Problem:Hceq_NotFunctionHandle", "The argument `Hceq` for `Problem` must be a function handle.")
+        function set.hceq_(obj, hceq_)
+            if ~isa(hceq_, 'function_handle') && ~isempty(hceq_)
+                error("MATLAB:Problem:hceq_NotFunctionHandle", "The argument `hceq` for `Problem` must be a function handle.")
             end
-            obj.Hceq_ = Hceq_;
+            obj.hceq_ = hceq_;
         end
 
         % Getter functions for dependent properties.
@@ -747,29 +747,29 @@ classdef Problem < handle
             end
         end
 
-        function J = Jcub(obj, x)
+        function J = jcub(obj, x)
             if ~isrealvector(x)
-                error("MATLAB:Problem:InvalidInputForJCUB", "The input `x` for method `Jcub` in `Problem` must be a real vector.")
+                error("MATLAB:Problem:InvalidInputForJCUB", "The input `x` for method `jcub` in `Problem` must be a real vector.")
             end
 
             if numel(x) ~= obj.n
-                error("MATLAB:Problem:WrongSizeInputForJCUB", "The input `x` for method `Jcub` in `Problem` must have size %d.", obj.n)
+                error("MATLAB:Problem:WrongSizeInputForJCUB", "The input `x` for method `jcub` in `Problem` must have size %d.", obj.n)
             end
 
-            if isempty(obj.Jcub_)
+            if isempty(obj.jcub_)
                 J = NaN(0, 1);
             else
                 try
-                    J = obj.Jcub_(x);
+                    J = obj.jcub_(x);
                 catch ME
                     warning(ME.identifier, '%s', ME.message);
                     J = NaN(obj.m_nonlinear_ub, obj.n);
                 end
                 if ~isrealmatrix(J) && ~isempty(J)
-                    error("MATLAB:Problem:InvalidOutputForJCUB", "The output of method `Jcub` in `Problem` must be a real matrix.")
+                    error("MATLAB:Problem:InvalidOutputForJCUB", "The output of method `jcub` in `Problem` must be a real matrix.")
                 end
                 if ~isequal(size(J), [obj.m_nonlinear_ub, obj.n]) && ~isempty(J)
-                    error("MATLAB:Problem:Jcubx_m_nonlinear_ub_n_NotConsistent", "The shape of `Jcub(x)` is not consistent with `m_nonlinear_ub`=%d and `n`=%d.", obj.m_nonlinear_ub, obj.n)
+                    error("MATLAB:Problem:jcubx_m_nonlinear_ub_n_NotConsistent", "The shape of `jcub(x)` is not consistent with `m_nonlinear_ub`=%d and `n`=%d.", obj.m_nonlinear_ub, obj.n)
                 end
                 try
                     J = double(J);
@@ -780,29 +780,29 @@ classdef Problem < handle
             end
         end
 
-        function J = Jceq(obj, x)
+        function J = jceq(obj, x)
             if ~isrealvector(x)
-                error("MATLAB:Problem:InvalidInputForJCEQ", "The input `x` for method `Jceq` in `Problem` must be a real vector.")
+                error("MATLAB:Problem:InvalidInputForJCEQ", "The input `x` for method `jceq` in `Problem` must be a real vector.")
             end
 
             if numel(x) ~= obj.n
-                error("MATLAB:Problem:WrongSizeInputForJCEQ", "The input `x` for method `Jceq` in `Problem` must have size %d.", obj.n)
+                error("MATLAB:Problem:WrongSizeInputForJCEQ", "The input `x` for method `jceq` in `Problem` must have size %d.", obj.n)
             end
 
-            if isempty(obj.Jceq_)
+            if isempty(obj.jceq_)
                 J = NaN(0, 1);
             else
                 try
-                    J = obj.Jceq_(x);
+                    J = obj.jceq_(x);
                 catch ME
                     warning(ME.identifier, '%s', ME.message);
                     J = NaN(obj.m_nonlinear_eq, obj.n);
                 end
                 if ~isrealmatrix(J) && ~isempty(J)
-                    error("MATLAB:Problem:InvalidOutputForJCEQ", "The output of method `Jceq` in `Problem` must be a real matrix.")
+                    error("MATLAB:Problem:InvalidOutputForJCEQ", "The output of method `jceq` in `Problem` must be a real matrix.")
                 end
                 if ~isequal(size(J), [obj.m_nonlinear_eq, obj.n]) && ~isempty(J)
-                    error("MATLAB:Problem:Jceqx_m_nonlinear_eq_n_NotConsistent", "The shape of `Jceq(x)` is not consistent with `m_nonlinear_eq`=%d and `n`=%d.", obj.m_nonlinear_eq, obj.n)
+                    error("MATLAB:Problem:jceqx_m_nonlinear_eq_n_NotConsistent", "The shape of `jceq(x)` is not consistent with `m_nonlinear_eq`=%d and `n`=%d.", obj.m_nonlinear_eq, obj.n)
                 end
                 try
                     J = double(J);
@@ -813,22 +813,22 @@ classdef Problem < handle
             end
         end
 
-        function H = Hcub(obj, x)
+        function H = hcub(obj, x)
             % H is a cell whose i-th element is the Hessian of the i-th nonlinear inequality constraint.
 
             if ~isrealvector(x)
-                error("MATLAB:Problem:InvalidInputForHCUB", "The input `x` for method `Hcub` in `Problem` must be a real vector.")
+                error("MATLAB:Problem:InvalidInputForHCUB", "The input `x` for method `hcub` in `Problem` must be a real vector.")
             end
 
             if numel(x) ~= obj.n
-                error("MATLAB:Problem:WrongSizeInputForHCUB", "The input `x` for method `Hcub` in `Problem` must have size %d.", obj.n)
+                error("MATLAB:Problem:WrongSizeInputForHCUB", "The input `x` for method `hcub` in `Problem` must have size %d.", obj.n)
             end
 
-            if isempty(obj.Hcub_)
+            if isempty(obj.hcub_)
                 H = NaN(0, 1);
             else
                 try
-                    H = obj.Hcub_(x);
+                    H = obj.hcub_(x);
                 catch ME
                     warning(ME.identifier, '%s', ME.message);
                     H = cell(obj.m_nonlinear_ub, 1);
@@ -837,14 +837,14 @@ classdef Problem < handle
                     end
                 end
                 if ~(iscell(H) && numel(H) == obj.m_nonlinear_ub) && ~isempty(H)
-                    error("MATLAB:Problem:InvalidOutputForHCUB", "The output of method `Hcub` in `Problem` must be a cell with %d elements.", obj.m_nonlinear_ub)
+                    error("MATLAB:Problem:InvalidOutputForHCUB", "The output of method `hcub` in `Problem` must be a cell with %d elements.", obj.m_nonlinear_ub)
                 end
                 for i = 1:obj.m_nonlinear_ub
                     if ~isrealmatrix(H{i}) && ~isempty(H{i})
-                        error("MATLAB:Problem:InvalidOutputForHCUB", "The output of method `Hcub` in `Problem` must be a cell whose i-th element is a real matrix.")
+                        error("MATLAB:Problem:InvalidOutputForHCUB", "The output of method `hcub` in `Problem` must be a cell whose i-th element is a real matrix.")
                     end
                     if ~isequal(size(H{i}), [obj.n, obj.n]) && ~isempty(H{i})
-                        error("MATLAB:Problem:Hcubx_m_nonlinear_ub_n_NotConsistent", "The shape of the i-th Hessian in `Hcub(x)` is not consistent with `n`=%d.", obj.n)
+                        error("MATLAB:Problem:hcubx_m_nonlinear_ub_n_NotConsistent", "The shape of the i-th Hessian in `hcub(x)` is not consistent with `n`=%d.", obj.n)
                     end
                     try
                         H{i} = double(H{i});
@@ -856,22 +856,22 @@ classdef Problem < handle
             end
         end
 
-        function H = Hceq(obj, x)
+        function H = hceq(obj, x)
             % H is a cell whose i-th element is the Hessian of the i-th nonlinear equality constraint.
 
             if ~isrealvector(x)
-                error("MATLAB:Problem:InvalidInputForHCEQ", "The input `x` for method `Hceq` in `Problem` must be a real vector.")
+                error("MATLAB:Problem:InvalidInputForHCEQ", "The input `x` for method `hceq` in `Problem` must be a real vector.")
             end
 
             if numel(x) ~= obj.n
-                error("MATLAB:Problem:WrongSizeInputForHCEQ", "The input `x` for method `Hceq` in `Problem` must have size %d.", obj.n)
+                error("MATLAB:Problem:WrongSizeInputForHCEQ", "The input `x` for method `hceq` in `Problem` must have size %d.", obj.n)
             end
 
-            if isempty(obj.Hceq_)
+            if isempty(obj.hceq_)
                 H = NaN(0, 1);
             else
                 try
-                    H = obj.Hceq_(x);
+                    H = obj.hceq_(x);
                 catch ME
                     warning(ME.identifier, '%s', ME.message);
                     H = cell(obj.m_nonlinear_eq, 1);
@@ -880,14 +880,14 @@ classdef Problem < handle
                     end
                 end
                 if ~(iscell(H) && numel(H) == obj.m_nonlinear_eq) && ~isempty(H)
-                    error("MATLAB:Problem:InvalidOutputForHCEQ", "The output of method `Hceq` in `Problem` must be a cell with %d elements.", obj.m_nonlinear_eq)
+                    error("MATLAB:Problem:InvalidOutputForHCEQ", "The output of method `hceq` in `Problem` must be a cell with %d elements.", obj.m_nonlinear_eq)
                 end
                 for i = 1:obj.m_nonlinear_eq
                     if ~isrealmatrix(H{i}) && ~isempty(H{i})
-                        error("MATLAB:Problem:InvalidOutputForHCEQ", "The output of method `Hceq` in `Problem` must be a cell whose i-th element is a real matrix.")
+                        error("MATLAB:Problem:InvalidOutputForHCEQ", "The output of method `hceq` in `Problem` must be a cell whose i-th element is a real matrix.")
                     end
                     if ~isequal(size(H{i}), [obj.n, obj.n]) && ~isempty(H{i})
-                        error("MATLAB:Problem:Hceqx_m_nonlinear_eq_n_NotConsistent", "The shape of the i-th Hessian in `Hceq(x)` is not consistent with `n`=%d.", obj.n)
+                        error("MATLAB:Problem:hceqx_m_nonlinear_eq_n_NotConsistent", "The shape of the i-th Hessian in `hceq(x)` is not consistent with `n`=%d.", obj.n)
                     end
                     try
                         H{i} = double(H{i});

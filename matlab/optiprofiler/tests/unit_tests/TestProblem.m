@@ -76,10 +76,10 @@ classdef TestProblem < matlab.unittest.TestCase
             option.ceq = @TestProblem.sum_sin;
             option.grad = @TestProblem.rosen_grad;
             option.hess = @TestProblem.rosen_hess;
-            option.Jcub = @(x) TestProblem.sum_cos_grad(x)';
-            option.Jceq = @(x) TestProblem.sum_sin_grad(x)';
-            option.Hcub = @(x) {TestProblem.sum_cos_hess(x)};
-            option.Hceq = @(x) {TestProblem.sum_sin_hess(x)};
+            option.jcub = @(x) TestProblem.sum_cos_grad(x)';
+            option.jceq = @(x) TestProblem.sum_sin_grad(x)';
+            option.hcub = @(x) {TestProblem.sum_cos_hess(x)};
+            option.hceq = @(x) {TestProblem.sum_sin_hess(x)};
             p = Problem(option);
 
             testCase.verifyEqual(p.fun(p.x0), TestProblem.rosen(p.x0));
@@ -94,10 +94,10 @@ classdef TestProblem < matlab.unittest.TestCase
             testCase.verifyEqual(p.ceq(p.x0), TestProblem.sum_sin(p.x0));
             testCase.verifyEqual(p.grad(p.x0), TestProblem.rosen_grad(p.x0));
             testCase.verifyEqual(p.hess(p.x0), TestProblem.rosen_hess(p.x0));
-            testCase.verifyEqual(p.Jcub(p.x0), TestProblem.sum_cos_grad(p.x0)');
-            testCase.verifyEqual(p.Jceq(p.x0), TestProblem.sum_sin_grad(p.x0)');
-            testCase.verifyEqual(p.Hcub(p.x0), {TestProblem.sum_cos_hess(p.x0)});
-            testCase.verifyEqual(p.Hceq(p.x0), {TestProblem.sum_sin_hess(p.x0)});
+            testCase.verifyEqual(p.jcub(p.x0), TestProblem.sum_cos_grad(p.x0)');
+            testCase.verifyEqual(p.jceq(p.x0), TestProblem.sum_sin_grad(p.x0)');
+            testCase.verifyEqual(p.hcub(p.x0), {TestProblem.sum_cos_hess(p.x0)});
+            testCase.verifyEqual(p.hceq(p.x0), {TestProblem.sum_sin_hess(p.x0)});
             testCase.verifyEqual(p.name, 'Unnamed Problem');
             testCase.verifyEqual(p.x_type, 'real');
             testCase.verifyEqual(p.n, 10);
@@ -178,41 +178,41 @@ classdef TestProblem < matlab.unittest.TestCase
             testCase.verifyError(@() p.hess(1), "MATLAB:Problem:WrongSizeInputForHESS")
             testCase.verifyError(@() p.hess(ones(10, 1)), "MATLAB:Problem:InvalidOutputForHESS")
 
-            testCase.verifyError(@() Problem(struct('fun', @TestProblem.rosen, 'x0', ones(10, 1), 'cub', @TestProblem.sum_cos, 'Jcub', 1)), "MATLAB:Problem:Jcub_NotFunctionHandle")
-            p = Problem(struct('fun', @TestProblem.rosen, 'x0', ones(10, 1), 'cub', @TestProblem.sum_cos, 'Jcub', @(x) 1j));
-            testCase.verifyError(@() p.Jcub('a'), "MATLAB:Problem:InvalidInputForJCUB")
-            testCase.verifyError(@() p.Jcub(1), "MATLAB:Problem:WrongSizeInputForJCUB")
-            testCase.verifyError(@() p.Jcub(ones(10, 1)), "MATLAB:Problem:InvalidOutputForJCUB")
-            p = Problem(struct('fun', @TestProblem.rosen, 'x0', ones(10, 1), 'cub', @TestProblem.sum_cos, 'Jcub', @(x) 1));
-            testCase.verifyError(@() p.Jcub(ones(10, 1)), "MATLAB:Problem:Jcubx_m_nonlinear_ub_n_NotConsistent")
+            testCase.verifyError(@() Problem(struct('fun', @TestProblem.rosen, 'x0', ones(10, 1), 'cub', @TestProblem.sum_cos, 'jcub', 1)), "MATLAB:Problem:jcub_NotFunctionHandle")
+            p = Problem(struct('fun', @TestProblem.rosen, 'x0', ones(10, 1), 'cub', @TestProblem.sum_cos, 'jcub', @(x) 1j));
+            testCase.verifyError(@() p.jcub('a'), "MATLAB:Problem:InvalidInputForJCUB")
+            testCase.verifyError(@() p.jcub(1), "MATLAB:Problem:WrongSizeInputForJCUB")
+            testCase.verifyError(@() p.jcub(ones(10, 1)), "MATLAB:Problem:InvalidOutputForJCUB")
+            p = Problem(struct('fun', @TestProblem.rosen, 'x0', ones(10, 1), 'cub', @TestProblem.sum_cos, 'jcub', @(x) 1));
+            testCase.verifyError(@() p.jcub(ones(10, 1)), "MATLAB:Problem:jcubx_m_nonlinear_ub_n_NotConsistent")
 
-            testCase.verifyError(@() Problem(struct('fun', @TestProblem.rosen, 'x0', ones(10, 1), 'ceq', @TestProblem.sum_sin, 'Jceq', 1)), "MATLAB:Problem:Jceq_NotFunctionHandle")
-            p = Problem(struct('fun', @TestProblem.rosen, 'x0', ones(10, 1), 'ceq', @TestProblem.sum_sin, 'Jceq', @(x) 1j));
-            testCase.verifyError(@() p.Jceq('a'), "MATLAB:Problem:InvalidInputForJCEQ")
-            testCase.verifyError(@() p.Jceq(1), "MATLAB:Problem:WrongSizeInputForJCEQ")
-            testCase.verifyError(@() p.Jceq(ones(10, 1)), "MATLAB:Problem:InvalidOutputForJCEQ")
-            p = Problem(struct('fun', @TestProblem.rosen, 'x0', ones(10, 1), 'ceq', @TestProblem.sum_sin, 'Jceq', @(x) 1));
-            testCase.verifyError(@() p.Jceq(ones(10, 1)), "MATLAB:Problem:Jceqx_m_nonlinear_eq_n_NotConsistent")
+            testCase.verifyError(@() Problem(struct('fun', @TestProblem.rosen, 'x0', ones(10, 1), 'ceq', @TestProblem.sum_sin, 'jceq', 1)), "MATLAB:Problem:jceq_NotFunctionHandle")
+            p = Problem(struct('fun', @TestProblem.rosen, 'x0', ones(10, 1), 'ceq', @TestProblem.sum_sin, 'jceq', @(x) 1j));
+            testCase.verifyError(@() p.jceq('a'), "MATLAB:Problem:InvalidInputForJCEQ")
+            testCase.verifyError(@() p.jceq(1), "MATLAB:Problem:WrongSizeInputForJCEQ")
+            testCase.verifyError(@() p.jceq(ones(10, 1)), "MATLAB:Problem:InvalidOutputForJCEQ")
+            p = Problem(struct('fun', @TestProblem.rosen, 'x0', ones(10, 1), 'ceq', @TestProblem.sum_sin, 'jceq', @(x) 1));
+            testCase.verifyError(@() p.jceq(ones(10, 1)), "MATLAB:Problem:jceqx_m_nonlinear_eq_n_NotConsistent")
 
-            testCase.verifyError(@() Problem(struct('fun', @TestProblem.rosen, 'x0', ones(10, 1), 'cub', @TestProblem.sum_cos, 'Hcub', 1)), "MATLAB:Problem:Hcub_NotFunctionHandle")
-            p = Problem(struct('fun', @TestProblem.rosen, 'x0', ones(10, 1), 'cub', @TestProblem.sum_cos, 'Hcub', @(x) 1));
-            testCase.verifyError(@() p.Hcub('a'), "MATLAB:Problem:InvalidInputForHCUB")
-            testCase.verifyError(@() p.Hcub(1), "MATLAB:Problem:WrongSizeInputForHCUB")
-            testCase.verifyError(@() p.Hcub(ones(10, 1)), "MATLAB:Problem:InvalidOutputForHCUB")
-            p = Problem(struct('fun', @TestProblem.rosen, 'x0', ones(10, 1), 'cub', @TestProblem.sum_cos, 'Hcub', @(x) {1j}));
-            testCase.verifyError(@() p.Hcub(ones(10, 1)), "MATLAB:Problem:InvalidOutputForHCUB")
-            p = Problem(struct('fun', @TestProblem.rosen, 'x0', ones(10, 1), 'cub', @TestProblem.sum_cos, 'Hcub', @(x) {1}));
-            testCase.verifyError(@() p.Hcub(ones(10, 1)), "MATLAB:Problem:Hcubx_m_nonlinear_ub_n_NotConsistent")
+            testCase.verifyError(@() Problem(struct('fun', @TestProblem.rosen, 'x0', ones(10, 1), 'cub', @TestProblem.sum_cos, 'hcub', 1)), "MATLAB:Problem:hcub_NotFunctionHandle")
+            p = Problem(struct('fun', @TestProblem.rosen, 'x0', ones(10, 1), 'cub', @TestProblem.sum_cos, 'hcub', @(x) 1));
+            testCase.verifyError(@() p.hcub('a'), "MATLAB:Problem:InvalidInputForHCUB")
+            testCase.verifyError(@() p.hcub(1), "MATLAB:Problem:WrongSizeInputForHCUB")
+            testCase.verifyError(@() p.hcub(ones(10, 1)), "MATLAB:Problem:InvalidOutputForHCUB")
+            p = Problem(struct('fun', @TestProblem.rosen, 'x0', ones(10, 1), 'cub', @TestProblem.sum_cos, 'hcub', @(x) {1j}));
+            testCase.verifyError(@() p.hcub(ones(10, 1)), "MATLAB:Problem:InvalidOutputForHCUB")
+            p = Problem(struct('fun', @TestProblem.rosen, 'x0', ones(10, 1), 'cub', @TestProblem.sum_cos, 'hcub', @(x) {1}));
+            testCase.verifyError(@() p.hcub(ones(10, 1)), "MATLAB:Problem:hcubx_m_nonlinear_ub_n_NotConsistent")
             
-            testCase.verifyError(@() Problem(struct('fun', @TestProblem.rosen, 'x0', ones(10, 1), 'ceq', @TestProblem.sum_sin, 'Hceq', 1)), "MATLAB:Problem:Hceq_NotFunctionHandle")
-            p = Problem(struct('fun', @TestProblem.rosen, 'x0', ones(10, 1), 'ceq', @TestProblem.sum_sin, 'Hceq', @(x) 1));
-            testCase.verifyError(@() p.Hceq('a'), "MATLAB:Problem:InvalidInputForHCEQ")
-            testCase.verifyError(@() p.Hceq(1), "MATLAB:Problem:WrongSizeInputForHCEQ")
-            testCase.verifyError(@() p.Hceq(ones(10, 1)), "MATLAB:Problem:InvalidOutputForHCEQ")
-            p = Problem(struct('fun', @TestProblem.rosen, 'x0', ones(10, 1), 'ceq', @TestProblem.sum_sin, 'Hceq', @(x) {1j}));
-            testCase.verifyError(@() p.Hceq(ones(10, 1)), "MATLAB:Problem:InvalidOutputForHCEQ")
-            p = Problem(struct('fun', @TestProblem.rosen, 'x0', ones(10, 1), 'ceq', @TestProblem.sum_sin, 'Hceq', @(x) {1}));
-            testCase.verifyError(@() p.Hceq(ones(10, 1)), "MATLAB:Problem:Hceqx_m_nonlinear_eq_n_NotConsistent")
+            testCase.verifyError(@() Problem(struct('fun', @TestProblem.rosen, 'x0', ones(10, 1), 'ceq', @TestProblem.sum_sin, 'hceq', 1)), "MATLAB:Problem:hceq_NotFunctionHandle")
+            p = Problem(struct('fun', @TestProblem.rosen, 'x0', ones(10, 1), 'ceq', @TestProblem.sum_sin, 'hceq', @(x) 1));
+            testCase.verifyError(@() p.hceq('a'), "MATLAB:Problem:InvalidInputForHCEQ")
+            testCase.verifyError(@() p.hceq(1), "MATLAB:Problem:WrongSizeInputForHCEQ")
+            testCase.verifyError(@() p.hceq(ones(10, 1)), "MATLAB:Problem:InvalidOutputForHCEQ")
+            p = Problem(struct('fun', @TestProblem.rosen, 'x0', ones(10, 1), 'ceq', @TestProblem.sum_sin, 'hceq', @(x) {1j}));
+            testCase.verifyError(@() p.hceq(ones(10, 1)), "MATLAB:Problem:InvalidOutputForHCEQ")
+            p = Problem(struct('fun', @TestProblem.rosen, 'x0', ones(10, 1), 'ceq', @TestProblem.sum_sin, 'hceq', @(x) {1}));
+            testCase.verifyError(@() p.hceq(ones(10, 1)), "MATLAB:Problem:hceqx_m_nonlinear_eq_n_NotConsistent")
             
         end
     end

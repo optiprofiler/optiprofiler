@@ -49,10 +49,10 @@ function [problem_names, argins] = s_select(options)
         m_nonlinear_eq = probinfo{i_problem, 16};
         isgrad = probinfo{i_problem, 18};
         ishess = probinfo{i_problem, 19};
-        isJcub = probinfo{i_problem, 20};
-        isJceq = probinfo{i_problem, 21};
-        isHcub = probinfo{i_problem, 22};
-        isHceq = probinfo{i_problem, 23};
+        isjcub = probinfo{i_problem, 20};
+        isjceq = probinfo{i_problem, 21};
+        ishcub = probinfo{i_problem, 22};
+        ishceq = probinfo{i_problem, 23};
 
         % Check if the problem is in the exclude list.
         if ~isempty(options.excludelist) && ismember(problem_name, options.excludelist)
@@ -69,14 +69,14 @@ function [problem_names, argins] = s_select(options)
             % When oracle is 1 or 2, we need at least the 1st-order information.
             if ~isgrad
                 continue;
-            elseif ismember(p_type, {'n'}) && ((m_nonlinear_ub > 0 && ~isJcub) || (m_nonlinear_eq > 0 && ~isJceq))
+            elseif ismember(p_type, {'n'}) && ((m_nonlinear_ub > 0 && ~isjcub) || (m_nonlinear_eq > 0 && ~isjceq))
                 continue;
             end
         end
         if options.oracle == 2
             if ~ishess
                 continue;
-            elseif ismember(p_type, {'n'}) && ((m_nonlinear_ub > 0 && ~isHcub) || (m_nonlinear_eq > 0 && ~isHceq))
+            elseif ismember(p_type, {'n'}) && ((m_nonlinear_ub > 0 && ~ishcub) || (m_nonlinear_eq > 0 && ~ishceq))
                 continue;
             end
         end

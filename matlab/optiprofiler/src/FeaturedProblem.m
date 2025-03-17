@@ -73,10 +73,10 @@ classdef FeaturedProblem < Problem
             pb_struct.hess = problem.hess_;
             pb_struct.cub = problem.cub_;
             pb_struct.ceq = problem.ceq_;
-            pb_struct.Jcub = problem.Jcub_;
-            pb_struct.Jceq = problem.Jceq_;
-            pb_struct.Hcub = problem.Hcub_;
-            pb_struct.Hceq = problem.Hceq_;
+            pb_struct.jcub = problem.jcub_;
+            pb_struct.jceq = problem.jceq_;
+            pb_struct.hcub = problem.hcub_;
+            pb_struct.hceq = problem.hceq_;
 
             % Initialize the FeaturedProblem object.
             obj@Problem(pb_struct);

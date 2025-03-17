@@ -196,14 +196,14 @@ function problem = s_load(problem_name, varargin)
     getidx = @(y, idx) y(idx);
     ceq = @(x) getidx(getcx(problem_name, x), idx_ceq);
     cub = @(x) [getidx(getcx(problem_name, x), idx_cle); -getidx(getcx(problem_name, x), idx_cge)];
-    Hceq = @(x) getidx(getHx(problem_name, x), idx_ceq);
-    Hcub = @(x) [getidx(getHx(problem_name, x), idx_cle), getidx(getHx(problem_name, x), idx_cge)];
+    hceq = @(x) getidx(getHx(problem_name, x), idx_ceq);
+    hcub = @(x) [getidx(getHx(problem_name, x), idx_cle), getidx(getHx(problem_name, x), idx_cge)];
     
     getidx_mat = @(y, idx) y(idx, :);
-    Jceq = @(x) getidx_mat(getJx(problem_name, x), idx_ceq);
-    Jcub = @(x) [getidx_mat(getJx(problem_name, x), idx_cle); -getidx_mat(getJx(problem_name, x), idx_cge)];
+    jceq = @(x) getidx_mat(getJx(problem_name, x), idx_ceq);
+    jcub = @(x) [getidx_mat(getJx(problem_name, x), idx_cle); -getidx_mat(getJx(problem_name, x), idx_cge)];
     
-    problem = Problem(struct('name', name, 'fun', fun, 'grad', grad, 'hess', hess, 'x_type', x_type, 'x0', x0, 'xl', xl, 'xu', xu, 'aeq', aeq, 'beq', beq, 'aub', aub, 'bub', bub, 'ceq', ceq, 'cub', cub, 'Jceq', Jceq, 'Jcub', Jcub, 'Hceq', Hceq, 'Hcub', Hcub));
+    problem = Problem(struct('name', name, 'fun', fun, 'grad', grad, 'hess', hess, 'x_type', x_type, 'x0', x0, 'xl', xl, 'xu', xu, 'aeq', aeq, 'beq', beq, 'aub', aub, 'bub', bub, 'ceq', ceq, 'cub', cub, 'jceq', jceq, 'jcub', jcub, 'hceq', hceq, 'hcub', hcub));
     
 end
 
