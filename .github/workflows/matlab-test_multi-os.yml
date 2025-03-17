@@ -41,6 +41,10 @@ jobs:
             % Setup OptiProfiler
             setup
 
+            % Create a directory for the output
+            mkdir('output')
+            cd output
+
             % Test installation
             testOptiProfiler
 
@@ -69,4 +73,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: out_${{ matrix.os }}_${{ matrix.matlab }}
-          path: ./out
+          path: ./output
