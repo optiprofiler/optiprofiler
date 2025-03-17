@@ -1,8 +1,9 @@
 function drawFunMaxcvMeritHist(ax, y, solver_names, is_cum, problem_n, y_shift, n_eval, profile_options)
 %DRAWFUNMAXCVMERITHIST draws figures of histories of function values, maximum constraint violation, or merit function values.
 
-    line_color_order = profile_options.line_color_order;
-    line_style_order = profile_options.line_style_order;
+    line_colors = profile_options.(ProfileOptionKey.LINE_COLORS.value);
+    line_styles = profile_options.(ProfileOptionKey.LINE_STYLES.value);
+    line_widths = profile_options.(ProfileOptionKey.LINE_WIDTHS.value);
 
     % Shift the y-axis.
     y = y + y_shift;
@@ -32,21 +33,22 @@ function drawFunMaxcvMeritHist(ax, y, solver_names, is_cum, problem_n, y_shift, 
     hold(ax, 'on');
     for i_solver = 1:n_solvers
         % Truncate the histories according to the function evaluations of each solver.
-        length = max(max(n_eval(i_solver,:)), 1);
-        length = min(length, size(y(i_solver,:,:), 3));
-        x = (1:length) / (problem_n + 1);
+        i_eval = max(max(n_eval(i_solver,:)), 1);
+        i_eval = min(i_eval, size(y(i_solver,:,:), 3));
+        x = (1:i_eval) / (problem_n + 1);
         xr_lim = max(xr_lim, x(end));
 
-        color = line_color_order(mod(i_solver - 1, size(line_color_order, 1)) + 1, :);
-        line_style = line_style_order{mod(i_solver - 1, size(line_style_order, 2)) + 1};
+        color = line_colors(mod(i_solver - 1, size(line_colors, 1)) + 1, :);
+        line_style = line_styles{mod(i_solver - 1, size(line_styles, 2)) + 1};
+        line_width = line_widths(mod(i_solver - 1, length(line_widths)) + 1);
 
-        if n_runs > 1 && length > 1
-            fill(ax, [x, fliplr(x)], [y_lower(i_solver, 1:length), fliplr(y_upper(i_solver, 1:length))], color, 'FaceAlpha', 0.2, 'EdgeAlpha', 0, 'HandleVisibility', 'off');
+        if n_runs > 1 && i_eval > 1
+            fill(ax, [x, fliplr(x)], [y_lower(i_solver, 1:i_eval), fliplr(y_upper(i_solver, 1:i_eval))], color, 'FaceAlpha', 0.2, 'EdgeAlpha', 0, 'HandleVisibility', 'off');
         end
-        if length == 1
-            plot(ax, x, y_mean(i_solver, 1:length), 'o', 'Color', color, 'DisplayName', solver_names{i_solver});
+        if i_eval == 1
+            plot(ax, x, y_mean(i_solver, 1:i_eval), 'o', 'Color', color, 'DisplayName', solver_names{i_solver});
         else
-            plot(ax, x, y_mean(i_solver, 1:length), line_style, 'Color', color, 'DisplayName', solver_names{i_solver});
+            plot(ax, x, y_mean(i_solver, 1:i_eval), line_style, 'Color', color, 'LineWidth', line_width, 'DisplayName', solver_names{i_solver});
         end
     end
 

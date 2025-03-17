@@ -6,7 +6,7 @@ classdef TestProfileOptionKey < matlab.unittest.TestCase
             
             enumValues = enumeration('ProfileOptionKey');
             enumValues = cellstr(arrayfun(@char, enumValues, 'UniformOutput', false));
-            expectedValues = {'N_JOBS'; 'KEEP_POOL'; 'SEED'; 'BENCHMARK_ID'; 'FEATURE_STAMP'; 'RANGE_TYPE'; 'SAVEPATH'; 'MAX_TOL_ORDER'; 'MAX_EVAL_FACTOR'; 'PROJECT_X0'; 'RUN_PLAIN'; 'DRAW_PLOTS'; 'SUMMARIZE_PERFORMANCE_PROFILES'; 'SUMMARIZE_DATA_PROFILES'; 'SUMMARIZE_LOG_RATIO_PROFILES'; 'SUMMARIZE_OUTPUT_BASED_PROFILES'; 'SILENT'; 'SOLVER_VERBOSE'; 'SEMILOGX'; 'SCORING_FUN'; 'LOAD'; 'LINE_COLOR_ORDER'; 'LINE_STYLE_ORDER'; 'BAR_COLORS'};
+            expectedValues = {'N_JOBS'; 'KEEP_POOL'; 'SEED'; 'BENCHMARK_ID'; 'FEATURE_STAMP'; 'RANGE_TYPE'; 'SAVEPATH'; 'MAX_TOL_ORDER'; 'MAX_EVAL_FACTOR'; 'PROJECT_X0'; 'RUN_PLAIN'; 'DRAW_PLOTS'; 'SUMMARIZE_PERFORMANCE_PROFILES'; 'SUMMARIZE_DATA_PROFILES'; 'SUMMARIZE_LOG_RATIO_PROFILES'; 'SUMMARIZE_OUTPUT_BASED_PROFILES'; 'SILENT'; 'SOLVER_VERBOSE'; 'SEMILOGX'; 'SCORING_FUN'; 'LOAD'; 'LINE_COLORS'; 'LINE_STYLES'; 'LINE_WIDTHS'; 'BAR_COLORS'};
             testCase.verifyEqual(enumValues, expectedValues);
         end
 
@@ -35,8 +35,9 @@ classdef TestProfileOptionKey < matlab.unittest.TestCase
             testCase.verifyEqual(ProfileOptionKey.SEMILOGX.value, 'semilogx');
             testCase.verifyEqual(ProfileOptionKey.SCORING_FUN.value, 'scoring_fun');
             testCase.verifyEqual(ProfileOptionKey.LOAD.value, 'load');
-            testCase.verifyEqual(ProfileOptionKey.LINE_COLOR_ORDER.value, 'line_color_order');
-            testCase.verifyEqual(ProfileOptionKey.LINE_STYLE_ORDER.value, 'line_style_order');
+            testCase.verifyEqual(ProfileOptionKey.LINE_COLORS.value, 'line_colors');
+            testCase.verifyEqual(ProfileOptionKey.LINE_STYLES.value, 'line_styles');
+            testCase.verifyEqual(ProfileOptionKey.LINE_WIDTHS.value, 'line_widths');
             testCase.verifyEqual(ProfileOptionKey.BAR_COLORS.value, 'bar_colors');
         end
         

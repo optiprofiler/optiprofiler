@@ -1,9 +1,9 @@
 function drawPerformanceDataProfiles(ax, x, y, solver_names, profile_options)
 %DRAWPERFORMANCEDATAPROFILES draws performance profiles and data profiles.
 
-    line_color_order = profile_options.line_color_order;
-    line_style_order = profile_options.line_style_order;
-
+    line_colors = profile_options.(ProfileOptionKey.LINE_COLORS.value);
+    line_styles = profile_options.(ProfileOptionKey.LINE_STYLES.value);
+    line_widths = profile_options.(ProfileOptionKey.LINE_WIDTHS.value);
 
     n_solvers = size(x, 2);
     n_runs = size(y, 3);
@@ -29,14 +29,15 @@ function drawPerformanceDataProfiles(ax, x, y, solver_names, profile_options)
         [~, y_upper_stairs] = stairs(x(:, i_solver), y_upper(:, i_solver));
 
         % Get the color and the line style MATLAB will use for the next plot command in the axes 'ax'.
-        color = line_color_order(mod(i_solver - 1, size(line_color_order, 1)) + 1, :);
-        line_style = line_style_order{mod(i_solver - 1, size(line_style_order, 2)) + 1};
+        color = line_colors(mod(i_solver - 1, size(line_colors, 1)) + 1, :);
+        line_style = line_styles{mod(i_solver - 1, size(line_styles, 2)) + 1};
+        line_width = line_widths(mod(i_solver - 1, length(line_widths)) + 1);
 
         % We first plot the shaded area and then the mean line to ensure that the shaded area is behind the mean line in case the installed MATLAB version does not support transparency.
         if n_runs > 1
             fill(ax, [x_stairs; flipud(x_stairs)], [y_lower_stairs; flipud(y_upper_stairs)], color, 'FaceAlpha', 0.2, 'EdgeAlpha', 0, 'HandleVisibility', 'off');
         end
-        plot(ax, x_stairs, y_mean_stairs, line_style, 'Color', color, 'DisplayName', solver_names{i_solver});
+        plot(ax, x_stairs, y_mean_stairs, line_style, 'Color', color, 'LineWidth', line_width, 'DisplayName', solver_names{i_solver});
     end
 
     set(ax, 'YLim', [0.0, 1.0]);

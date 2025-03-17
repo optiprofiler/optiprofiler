@@ -38,7 +38,7 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
 %         specific directory to store the results. Default is 'out' .
 %       - feature_stamp: the stamp of the feature with the given options. It is
 %         used to create the specific directory to store the results. Default
-%         is different for different features.
+%         depends on features.
 %       - range_type: the type of the uncertainty interval. For stochastic
 %         features, we run several times of the experiments and get average
 %         curves and uncertainty intervals. Default is 'minmax', meaning that
@@ -89,21 +89,28 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
 %       - load: whether to load the existing results. It can be either 'latest'
 %         or a string representing the time stamp of the results. Default is
 %         ''.
-%       - line_color_order: the order of the colors of the lines in the plots.
-%         It can be a cell array of short names of colors ('r', 'g', 'b', 'c', 
-%         'm', 'y', 'k') or a matrix with each row being a RGB triplet. Default
-%         line color order is the one with the palettename named "gem" (see
-%         MATLAB documentation for 'colororder').
-%       - line_style_order: the order of the line styles in the plots. It can
-%         be a cell array of chars that are the combinations of line styles
-%         ('-', '-.', ':', '--') and markers ('none', 'o', '+', '*', '.', 'x',
-%         's', 'd', '^', 'v', '>', '<', 'p', 'h'). Default line style order is
-%         {'-', '-.', ':', '--'}.
+%       - line_colors: the colors of the lines in the plots. It can be a cell
+%         array of short names of colors ('r', 'g', 'b', 'c', 'm', 'y', 'k') or
+%         a matrix with each row being a RGB triplet. Default line colors are
+%         those in the palettename named "gem" (see MATLAB documentation for
+%         'colororder'). Note that if the number of solvers is greater than the
+%         number of colors, we will cycle through the colors.
+%       - line_styles: the styles of the lines in the plots. It can be a cell
+%         array of chars that are the combinations of line styles ('-', '-.',
+%         ':', '--') and markers ('none', 'o', '+', '*', '.', 'x', 's', 'd',
+%         '^', 'v', '>', '<', 'p', 'h'). Default line style order is {'-',
+%         '-.', ':', '--'}. Note that if the number of solvers is greater than
+%         the number of line styles, we will cycle through the styles.
+%       - line_widths: the widths of the lines in the plots. It should be a
+%         positive scalar or a vector. Default is 1.5. Note that if the number
+%         of solvers is greater than the number of line widths, we will cycle
+%         through the widths.
 %       - bar_colors: two different colors for the bars of two solvers in the
 %         log-ratio profiles. It can be a cell array of short names of colors
 %         ('r', 'g', 'b', 'c', 'm', 'y', 'k') or a 2-by-3 matrix with each row
 %         being a RGB triplet. Default is set to the first two colors in the
-%         'line_color_order'.
+%         'line_colors'.
+%
 %       2. options for features:
 %
 %       - feature_name: the name of the feature. Default is 'plain'.
@@ -438,19 +445,62 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     % Set the default values for plotting.
-    set(groot, 'DefaultLineLineWidth', 1);
     set(groot, 'DefaultAxesFontSize', 12);
     set(groot, 'DefaultAxesFontName', 'Arial');
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%% Define the directory and load the results. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    % Define the directory to store or load the results.
+    path_out = fullfile(profile_options.(ProfileOptionKey.SAVEPATH.value), profile_options.(ProfileOptionKey.BENCHMARK_ID.value));
+
+    % Record the time stamp of the current experiment.
+    time = datetime('now', 'Format', 'yyyyMMdd_HHmmss');
+    time_stamp = char(time);
+
+    % Load feature_stamp from the data.mat file if the 'load' option is not empty.
+    if isempty(profile_options.(ProfileOptionKey.LOAD.value))
+        feature_stamp = profile_options.(ProfileOptionKey.FEATURE_STAMP.value);
+    elseif strcmp(profile_options.(ProfileOptionKey.LOAD.value), 'latest')
+        % Try to find all the txt files named by time_stamp in the path_out directory and find the latest one.
+        time_stamp_files = dir(fullfile(path_out, '**', 'time_stamp_*.txt'));
+        if isempty(time_stamp_files)
+            % Note that the current experiment already generates a time stamp.
+            error("MATLAB:benchmark:NoTimeStamps", "Failed to load data since no time_stamp files are found in the directory '%s'.", path_out);
+        end
+        time_stamps = arrayfun(@(f) datetime(f.name(12:end-4), 'InputFormat', 'yyyyMMdd_HHmmss'), time_stamp_files);
+        % Find the second latest time_stamp file, since the latest one is the current experiment.
+        [~, indexes] = sort(time_stamps, 'descend');
+        latest_idx = indexes(1);
+        latest_time_stamp_file = time_stamp_files(latest_idx);
+        path_latest_time_stamp = latest_time_stamp_file.folder;
+        try
+            load(fullfile(path_latest_time_stamp, 'data.mat'), 'feature_stamp');
+        catch
+            error("MATLAB:benchmark:NoFeatureStampDataMatFile", "Failed to load the variable 'feature_stamp' from the 'data.mat' file in the directory '%s'.", path_latest_time_stamp);
+        end
+    else
+        pattern = ['time_stamp_', profile_options.(ProfileOptionKey.LOAD.value), '.txt'];
+        time_stamp_file = dir(fullfile(path_out, '**', pattern));
+        if isempty(time_stamp_file)
+            error("MATLAB:benchmark:NoTimeStamps", "Failed to load data since no time_stamp named '%s' is found in the directory '%s'.", profile_options.(ProfileOptionKey.LOAD.value), path_out);
+        end
+        path_time_stamp = time_stamp_file.folder;
+        try
+            load(fullfile(path_time_stamp, 'data.mat'), 'feature_stamp');
+        catch
+            error("MATLAB:benchmark:NoFeatureStampDataMatFile", "Failed to load the variable 'feature_stamp' from the 'data.mat' file in the directory '%s'.", path_time_stamp);
+        end
+    end
+
+    path_feature = fullfile(path_out, [feature_stamp, '_', time_stamp]);
+    path_log = fullfile(path_feature, 'test_log');
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%% Create the directory to store the results. %%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    % Create the directory to store the results.
-    path_out = fullfile(profile_options.(ProfileOptionKey.SAVEPATH.value), profile_options.(ProfileOptionKey.BENCHMARK_ID.value));
-    time = datetime('now', 'Format', 'yyyyMMdd_HHmmss');
-    time_stamp = char(time);
-    path_feature = fullfile(path_out, [profile_options.(ProfileOptionKey.FEATURE_STAMP.value), '_', time_stamp]);
     if ~exist(path_feature, 'dir')
         mkdir(path_feature);
     else
@@ -469,7 +519,6 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
     end
 
     % Create the directory to store options and log files.
-    path_log = fullfile(path_feature, 'test_log');
     if ~exist(path_log, 'dir')
         mkdir(path_log);
     else
@@ -707,6 +756,7 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
 
         % Save useful data to a structure and then to a mat file for future loading.
         data = struct();
+        data.feature_stamp = feature_stamp;
         data.n_eval = n_eval;
         data.problem_names = problem_names;
         data.problem_dimensions = problem_dimensions;
@@ -728,7 +778,8 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
         % latest one.
         time_stamp_files = dir(fullfile(path_out, '**', 'time_stamp_*.txt'));
         if isempty(time_stamp_files) || numel(time_stamp_files) == 1
-            % Note that the current experiment already generates a time stamp.
+            % Note that the current experiment already generates and saves the time stamp so that
+            % there should be at least two time_stamp files if we want to load the latest one.
             error("MATLAB:benchmark:NoTimeStamps", "Failed to load data since no time_stamp files are found in the directory '%s'.", path_out);
         end
         time_stamps = arrayfun(@(f) datetime(f.name(12:end-4), 'InputFormat', 'yyyyMMdd_HHmmss'), time_stamp_files);
@@ -842,7 +893,7 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
     if n_rows > 0
         fig_summary = figure('Position', [defaultFigurePosition(1:2), profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * default_width, multiplier * n_rows * default_height], 'visible', 'off');
         T_summary = tiledlayout(fig_summary, multiplier, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
-        T_feature_stamp = strrep(profile_options.(ProfileOptionKey.FEATURE_STAMP.value), '_', '\_');
+        T_feature_stamp = strrep(feature_stamp, '_', '\_');
         T_title = ['Profiles with the ``', T_feature_stamp, '" feature'];
         summary_width = profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * default_width;
         summary_height = multiplier * n_rows * default_height;
@@ -991,18 +1042,20 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
                 end
             end
 
-            try
-                fid = fopen(path_readme_feature, 'a');
-                fprintf(fid, "'data_hist.pdf': file, the summary PDF of history-based data profiles for all tolerances.\n");
-                fprintf(fid, "'data_out.pdf': file, the summary PDF of output-based data profiles for all tolerances.\n");
-                fprintf(fid, "'perf_hist.pdf': file, the summary PDF of history-based performance profiles for all tolerances.\n");
-                fprintf(fid, "'perf_out.pdf': file, the summary PDF of output-based performance profiles for all tolerances.\n");
-                if n_solvers == 2
-                    fprintf(fid, "'log-ratio_hist.pdf': file, the summary PDF of history-based log-ratio profiles for all tolerances.\n");
-                    fprintf(fid, "'log-ratio_out.pdf': file, the summary PDF of output-based log-ratio profiles for all tolerances.\n");
+            if i_tol == 1
+                try
+                    fid = fopen(path_readme_feature, 'a');
+                    fprintf(fid, "'data_hist.pdf': file, the summary PDF of history-based data profiles for all tolerances.\n");
+                    fprintf(fid, "'data_out.pdf': file, the summary PDF of output-based data profiles for all tolerances.\n");
+                    fprintf(fid, "'perf_hist.pdf': file, the summary PDF of history-based performance profiles for all tolerances.\n");
+                    fprintf(fid, "'perf_out.pdf': file, the summary PDF of output-based performance profiles for all tolerances.\n");
+                    if n_solvers == 2
+                        fprintf(fid, "'log-ratio_hist.pdf': file, the summary PDF of history-based log-ratio profiles for all tolerances.\n");
+                        fprintf(fid, "'log-ratio_out.pdf': file, the summary PDF of output-based log-ratio profiles for all tolerances.\n");
+                    end
+                    fclose(fid);
+                catch
                 end
-                fclose(fid);
-            catch
             end
         end
 
@@ -1020,8 +1073,8 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
     end
 
     if n_rows > 0 && ispc
-        % Check the operating system. If it is Windows, we will adjust the position, papersize, paperposition of the summary figure! (MATLAB in Windows will adjust the figure size
-        % automatically when it is too large.)
+        % Check the operating system. If it is Windows, we will adjust the position, papersize, paperposition of the
+        % summary figure! (MATLAB in Windows will adjust the figure size automatically when it is too large.)
         fig_summary.Position = [defaultFigurePosition(1:2), profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * default_width, multiplier * n_rows * default_height];
         fig_summary.Units = 'centimeters';
         fig_summary.PaperUnits = 'centimeters';
@@ -1068,7 +1121,7 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
         % Store the summary pdf. We will name the summary pdf as "summary_feature_name.pdf" and store it under
         % path_feature. We will also put a "summary.pdf" in the path_out directory, which will be a merged pdf of
         % all the "summary_feature_name.pdf" under path_out following the order of the feature_stamp.
-        summary_name = ['summary_', profile_options.(ProfileOptionKey.FEATURE_STAMP.value), '_', time_stamp];
+        summary_name = ['summary_', feature_stamp, '_', time_stamp];
         if n_rows > 0
             if ispc
                 print(fig_summary, fullfile(path_feature, [summary_name, '.pdf']), '-dpdf', '-vector');

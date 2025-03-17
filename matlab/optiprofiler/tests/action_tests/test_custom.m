@@ -2,7 +2,7 @@ function test_custom(benchmark_id)
     % Test "custom" feature that combines "noisy" and "linearly_transformed".
 
     % Go to the directory of this repository.
-    cd(fullfile(fileparts(mfilename('fullpath')), '..', '..', '..', '..'));
+    cd(fullfile(fileparts(mfilename('fullpath')), '..', '..', '..'));
 
     solvers = {@fmincon_test1, @fmincon_test2};
     options.solver_names = {'sqp', 'interior-point'};

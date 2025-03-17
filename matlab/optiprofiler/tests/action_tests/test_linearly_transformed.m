@@ -2,7 +2,7 @@ function test_linearly_transformed(benchmark_id)
     % Test "linearly_transformed" feature.
 
     % Go to the directory of this repository.
-    cd(fullfile(fileparts(mfilename('fullpath')), '..', '..', '..', '..'));
+    cd(fullfile(fileparts(mfilename('fullpath')), '..', '..', '..'));
 
     solvers = {@fmincon_test1, @fmincon_test2};
     options.solver_names = {'sqp', 'interior-point'};

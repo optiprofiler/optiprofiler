@@ -23,8 +23,9 @@ classdef ProfileOptionKey
         SEMILOGX ('semilogx')
         SCORING_FUN ('scoring_fun')
         LOAD ('load')
-        LINE_COLOR_ORDER ('line_color_order')
-        LINE_STYLE_ORDER ('line_style_order')
+        LINE_COLORS ('line_colors')
+        LINE_STYLES ('line_styles')
+        LINE_WIDTHS ('line_widths')
         BAR_COLORS ('bar_colors')
     end
     properties
