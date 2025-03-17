@@ -93,6 +93,25 @@ classdef TestCheckValidityProfileOptions < matlab.unittest.TestCase
             options.load = 1;
             testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:loadNotValid");
             options = rmfield(options, 'load');
+
+            options.line_color_order = {'w'};
+            testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:line_color_orderCellNotValid");
+            options.line_color_order = [0 0 0 0; 0 0 0 0];
+            testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:line_color_orderMatrixNotValid");
+            options.line_color_order = 'w';
+            testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:line_color_orderNotValid");
+            options = rmfield(options, 'line_color_order');
+
+            options.line_style_order = {'--.p'};
+            testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:line_style_orderNotValid");
+            options = rmfield(options, 'line_style_order');
+
+            options.bar_colors = {'w'};
+            testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:bar_colorsCellNotValid");
+            options.bar_colors = [0 0 0 0; 0 0 0 0];
+            testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:bar_colorsMatrixNotValid");
+            options.bar_colors = 'w';
+            testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:bar_colorsNotValid");
         end
 
     end

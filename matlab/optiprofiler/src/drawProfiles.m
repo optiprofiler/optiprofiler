@@ -33,7 +33,7 @@ function [fig_perf, fig_data, fig_log_ratio, curves] = drawProfiles(work, proble
     drawPerformanceDataProfiles(ax_perf, x_perf, y_perf, solver_names, profile_options);
     drawPerformanceDataProfiles(ax_data, x_data, y_data, solver_names, profile_options);
     if n_solvers == 2
-        drawLogRatioProfiles(ax_log_ratio, x_log_ratio, y_log_ratio, ratio_max_log_ratio, solver_names);
+        drawLogRatioProfiles(ax_log_ratio, x_log_ratio, y_log_ratio, ratio_max_log_ratio, solver_names, profile_options);
     end
     % Set x-axis limits.
     set(ax_data, 'XLim', [0.0, 1.1 * ratio_max_data]);
@@ -88,7 +88,7 @@ function [fig_perf, fig_data, fig_log_ratio, curves] = drawProfiles(work, proble
             ylabel(cell_axs_summary{1}, ['Performance profiles (', tolerance_label, ')'], 'Interpreter', 'latex');
             ylabel(cell_axs_summary{2}, ['Data profiles (', tolerance_label, ')'], 'Interpreter', 'latex');
             % Draw the log-ratio profiles.
-            drawLogRatioProfiles(cell_axs_summary{3}, x_log_ratio, y_log_ratio, ratio_max_log_ratio, solver_names);
+            drawLogRatioProfiles(cell_axs_summary{3}, x_log_ratio, y_log_ratio, ratio_max_log_ratio, solver_names, profile_options);
             % Set x-axis labels.
             xlabel(cell_axs_summary{3}, 'Problem', 'Interpreter', 'latex');
             % Set y-axis labels.
@@ -130,7 +130,7 @@ function [fig_perf, fig_data, fig_log_ratio, curves] = drawProfiles(work, proble
             % Set y-axis labels.
             ylabel(cell_axs_summary{1}, ['Performance profiles (', tolerance_label, ')'], 'Interpreter', 'latex');
             % Draw the log-ratio profiles.
-            drawLogRatioProfiles(cell_axs_summary{2}, x_log_ratio, y_log_ratio, ratio_max_log_ratio, solver_names);
+            drawLogRatioProfiles(cell_axs_summary{2}, x_log_ratio, y_log_ratio, ratio_max_log_ratio, solver_names, profile_options);
             % Set x-axis labels.
             xlabel(cell_axs_summary{2}, 'Problem', 'Interpreter', 'latex');
             % Set y-axis labels.
@@ -149,7 +149,7 @@ function [fig_perf, fig_data, fig_log_ratio, curves] = drawProfiles(work, proble
             % Set y-axis labels.
             ylabel(cell_axs_summary{1}, ['Data profiles (', tolerance_label, ')'], 'Interpreter', 'latex');
             % Draw the log-ratio profiles.
-            drawLogRatioProfiles(cell_axs_summary{2}, x_log_ratio, y_log_ratio, ratio_max_log_ratio, solver_names);
+            drawLogRatioProfiles(cell_axs_summary{2}, x_log_ratio, y_log_ratio, ratio_max_log_ratio, solver_names, profile_options);
             % Set x-axis labels.
             xlabel(cell_axs_summary{2}, 'Problem', 'Interpreter', 'latex');
             % Set y-axis labels.
@@ -184,7 +184,7 @@ function [fig_perf, fig_data, fig_log_ratio, curves] = drawProfiles(work, proble
             ylabel(cell_axs_summary{1}, ['Data profiles (', tolerance_label, ')'], 'Interpreter', 'latex');
         elseif is_log_ratio
             % Draw the log-ratio profiles.
-            drawLogRatioProfiles(cell_axs_summary{1}, x_log_ratio, y_log_ratio, ratio_max_log_ratio, solver_names);
+            drawLogRatioProfiles(cell_axs_summary{1}, x_log_ratio, y_log_ratio, ratio_max_log_ratio, solver_names, profile_options);
             % Set x-axis labels.
             xlabel(cell_axs_summary{1}, 'Problem', 'Interpreter', 'latex');
             % Set y-axis labels.

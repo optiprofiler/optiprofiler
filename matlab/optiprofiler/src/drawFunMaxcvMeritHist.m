@@ -1,8 +1,8 @@
 function drawFunMaxcvMeritHist(ax, y, solver_names, is_cum, problem_n, y_shift, n_eval, profile_options)
 %DRAWFUNMAXCVMERITHIST draws figures of histories of function values, maximum constraint violation, or merit function values.
 
-    color_order = [0, 0.4470, 0.7410; 0.8500, 0.3250, 0.0980; 0.9290, 0.6940, 0.1250; 0.4940, 0.1840, 0.5560; 0.4660, 0.6740, 0.1880; 0.3010, 0.7450, 0.9330; 0.6350, 0.0780, 0.1840];
-    line_style_order = {'-', '-.', ':', '--'};
+    line_color_order = profile_options.line_color_order;
+    line_style_order = profile_options.line_style_order;
 
     % Shift the y-axis.
     y = y + y_shift;
@@ -37,7 +37,7 @@ function drawFunMaxcvMeritHist(ax, y, solver_names, is_cum, problem_n, y_shift, 
         x = (1:length) / (problem_n + 1);
         xr_lim = max(xr_lim, x(end));
 
-        color = color_order(mod(i_solver - 1, size(color_order, 1)) + 1, :);
+        color = line_color_order(mod(i_solver - 1, size(line_color_order, 1)) + 1, :);
         line_style = line_style_order{mod(i_solver - 1, size(line_style_order, 2)) + 1};
 
         if n_runs > 1 && length > 1
@@ -46,7 +46,7 @@ function drawFunMaxcvMeritHist(ax, y, solver_names, is_cum, problem_n, y_shift, 
         if length == 1
             plot(ax, x, y_mean(i_solver, 1:length), 'o', 'Color', color, 'DisplayName', solver_names{i_solver});
         else
-            plot(ax, x, y_mean(i_solver, 1:length), 'Color', color, 'LineStyle', line_style, 'DisplayName', solver_names{i_solver});
+            plot(ax, x, y_mean(i_solver, 1:length), line_style, 'Color', color, 'DisplayName', solver_names{i_solver});
         end
     end
 

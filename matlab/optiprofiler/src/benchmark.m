@@ -89,7 +89,21 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
 %       - load: whether to load the existing results. It can be either 'latest'
 %         or a string representing the time stamp of the results. Default is
 %         ''.
-%
+%       - line_color_order: the order of the colors of the lines in the plots.
+%         It can be a cell array of short names of colors ('r', 'g', 'b', 'c', 
+%         'm', 'y', 'k') or a matrix with each row being a RGB triplet. Default
+%         line color order is the one with the palettename named "gem" (see
+%         MATLAB documentation for 'colororder').
+%       - line_style_order: the order of the line styles in the plots. It can
+%         be a cell array of chars that are the combinations of line styles
+%         ('-', '-.', ':', '--') and markers ('none', 'o', '+', '*', '.', 'x',
+%         's', 'd', '^', 'v', '>', '<', 'p', 'h'). Default line style order is
+%         {'-', '-.', ':', '--'}.
+%       - bar_colors: two different colors for the bars of two solvers in the
+%         log-ratio profiles. It can be a cell array of short names of colors
+%         ('r', 'g', 'b', 'c', 'm', 'y', 'k') or a 2-by-3 matrix with each row
+%         being a RGB triplet. Default is set to the first two colors in the
+%         'line_color_order'.
 %       2. options for features:
 %
 %       - feature_name: the name of the feature. Default is 'plain'.

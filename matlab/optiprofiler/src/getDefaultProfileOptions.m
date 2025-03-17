@@ -70,6 +70,21 @@ function profile_options = getDefaultProfileOptions(feature, profile_options)
     if ~isfield(profile_options, ProfileOptionKey.LOAD.value)
         profile_options.(ProfileOptionKey.LOAD.value) = '';
     end
+    if ~isfield(profile_options, ProfileOptionKey.LINE_COLOR_ORDER.value)
+        profile_options.(ProfileOptionKey.LINE_COLOR_ORDER.value) = [0, 0.4470, 0.7410; 0.8500, 0.3250, 0.0980; 0.9290, 0.6940, 0.1250; 0.4940, 0.1840, 0.5560; 0.4660, 0.6740, 0.1880; 0.3010, 0.7450, 0.9330; 0.6350, 0.0780, 0.1840];
+    end
+    if ~isfield(profile_options, ProfileOptionKey.LINE_STYLE_ORDER.value)
+        profile_options.(ProfileOptionKey.LINE_STYLE_ORDER.value) = {'-', '-.', ':', '--'};
+    end
+    if ~isfield(profile_options, ProfileOptionKey.BAR_COLORS.value)
+        % We will use the first two colors in the line color order as the bar colors.
+        % If the line color order only has one color, we will use the same color for both bars.
+        if iscell(profile_options.(ProfileOptionKey.LINE_COLOR_ORDER.value))
+            profile_options.(ProfileOptionKey.BAR_COLORS.value) = profile_options.(ProfileOptionKey.LINE_COLOR_ORDER.value)(1:min(2, length(profile_options.(ProfileOptionKey.LINE_COLOR_ORDER.value))));
+        else
+            profile_options.(ProfileOptionKey.BAR_COLORS.value) = profile_options.(ProfileOptionKey.LINE_COLOR_ORDER.value)(1:min(2, size(profile_options.(ProfileOptionKey.LINE_COLOR_ORDER.value), 1)), :);
+        end
+    end
 end
 
 function feature_stamp = getDefaultFeatureStamp(feature)

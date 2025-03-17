@@ -292,3 +292,5 @@ Jceqx
 jcub
 Jcubx
 JHx
+isgrad
+ishess

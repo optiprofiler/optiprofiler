@@ -154,9 +154,98 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
     end
     % Judge whether profile_options.load is a char or a string.
     if isfield(profile_options, ProfileOptionKey.LOAD.value)
+        if isempty(profile_options.(ProfileOptionKey.LOAD.value))
+            profile_options.(ProfileOptionKey.LOAD.value) = '';
+        end
         if ~ischarstr(profile_options.(ProfileOptionKey.LOAD.value))
             error("MATLAB:checkValidityProfileOptions:loadNotValid", "The field 'load' of options should be a char or a string.");
         end
         profile_options.(ProfileOptionKey.LOAD.value) = char(profile_options.(ProfileOptionKey.LOAD.value));
+    end
+    % Judge whether profile_options.line_color_order is a cell array of strings or a matrix whose rows are RGB triplets.
+    if isfield(profile_options, ProfileOptionKey.LINE_COLOR_ORDER.value)
+        % If it is a cell array of strings, check whether each string is a valid color short name.
+        if iscell(profile_options.(ProfileOptionKey.LINE_COLOR_ORDER.value))
+            % Convert it to a row cell array of strings.
+            if size(profile_options.(ProfileOptionKey.LINE_COLOR_ORDER.value), 1) > 1
+                profile_options.(ProfileOptionKey.LINE_COLOR_ORDER.value) = profile_options.(ProfileOptionKey.LINE_COLOR_ORDER.value)';
+            end
+            if ~all(cellfun(@(x) ischarstr(x) && ismember(x, {'r', 'g', 'b', 'c', 'm', 'y', 'k'}), profile_options.(ProfileOptionKey.LINE_COLOR_ORDER.value)))
+                error("MATLAB:checkValidityProfileOptions:line_color_orderCellNotValid", "The field 'line_color_order' of options can only contain 'r', 'g', 'b', 'c', 'm', 'y', 'k' when it is a cell array of strings.");
+            end
+            % Convert the cell array of strings to a matrix whose rows are RGB triplets.
+            profile_options.(ProfileOptionKey.LINE_COLOR_ORDER.value) = cellfun(@char, profile_options.(ProfileOptionKey.LINE_COLOR_ORDER.value), 'UniformOutput', false);
+            profile_options.(ProfileOptionKey.LINE_COLOR_ORDER.value) = cellfun(@shortname2rgb, profile_options.(ProfileOptionKey.LINE_COLOR_ORDER.value), 'UniformOutput', false);
+            profile_options.(ProfileOptionKey.LINE_COLOR_ORDER.value) = cell2mat(profile_options.(ProfileOptionKey.LINE_COLOR_ORDER.value)');
+        % If it is a matrix, check whether each row is an RGB triplet.
+        elseif isnumeric(profile_options.(ProfileOptionKey.LINE_COLOR_ORDER.value))
+            if size(profile_options.(ProfileOptionKey.LINE_COLOR_ORDER.value), 2) ~= 3 || ~all(all(profile_options.(ProfileOptionKey.LINE_COLOR_ORDER.value) >= 0 & profile_options.(ProfileOptionKey.LINE_COLOR_ORDER.value) <= 1))
+                error("MATLAB:checkValidityProfileOptions:line_color_orderMatrixNotValid", "The field 'line_color_order' of options should be a matrix whose rows are RGB triplets when it is a matrix.");
+            end
+        else
+            error("MATLAB:checkValidityProfileOptions:line_color_orderNotValid", "The field 'line_color_order' of options should be a cell array of short color names or a matrix whose rows are RGB triplets.");
+        end
+    end
+    % Judge whether profile_options.line_style_order is a cell array of chars or strings that are the combinations of line styles ('-', '-.', ':', '--') and markers ('none', 'o', '+', '*', '.', 'x', 's', 'd', '^', 'v', '>', '<', 'p', 'h'), where line styles cannot be 'none'.
+    if isfield(profile_options, ProfileOptionKey.LINE_STYLE_ORDER.value)
+        % List all the valid combinations of line styles and markers.
+        valid_line_style_marker_combinations = {...
+        '-', '-o', '-+', '-*', '-.', '-x', '-s', '-d', '-^', '-v', '->', '-<', '-p', '-h', 'o-', '+-', '*-', '.-', 'x-', 's-', 'd-', '^-', 'v-', '>-', '<-', 'p-', 'h-',...
+        '-.', '-.o', '-.+', '-.*', '-..', '-.x', '-.s', '-.d', '-.^', '-.v', '-.>', '-.<', '-.p', '-.h', 'o-.', '+-.', '*-.', '.-.', 'x-.', 's-.', 'd-.', '^-.', 'v-.', '>-.', '<-.', 'p-.', 'h-.',...
+        ':', ':o', ':+', ':*', ':.', ':x', ':s', ':d', ':^', ':v', ':>', ':<', ':p', ':h', 'o:', '+:', '*:', '.:', 'x:', 's:', 'd:', '^:', 'v:', '>:', '<:', 'p:', 'h:',...
+        '--', '--o', '--+', '--*', '--.', '--x', '--s', '--d', '--^', '--v', '-->', '--<', '--p', '--h', 'o--', '+--', '*--', '.--', 'x--', 's--', 'd--', '^--', 'v--', '>--', '<--', 'p--', 'h--'...
+        };
+        if ~iscell(profile_options.(ProfileOptionKey.LINE_STYLE_ORDER.value)) || ~all(cellfun(@(x) ischarstr(x) && ismember(x, valid_line_style_marker_combinations), profile_options.(ProfileOptionKey.LINE_STYLE_ORDER.value)))
+            error("MATLAB:checkValidityProfileOptions:line_style_orderNotValid", "The field 'line_style_order' of options should be a cell array of chars or strings that are the combinations of line styles ('-', '-.', ':', '--') and markers ('none', 'o', '+', '*', '.', 'x', 's', 'd', '^', 'v', '>', '<', 'p', 'h').");
+        end
+        % Convert it to a row cell array of strings.
+        if size(profile_options.(ProfileOptionKey.LINE_STYLE_ORDER.value), 1) > 1
+            profile_options.(ProfileOptionKey.LINE_STYLE_ORDER.value) = profile_options.(ProfileOptionKey.LINE_STYLE_ORDER.value)';
+        end
+    end
+    % Judge whether profile_options.bar_colors is a cell array of strings or a matrix whose rows are RGB triplets.
+    if isfield(profile_options, ProfileOptionKey.BAR_COLORS.value)
+        % If it is a cell array of strings, check whether each string is a valid color short name.
+        if iscell(profile_options.(ProfileOptionKey.BAR_COLORS.value))
+            % Convert it to a row cell array of strings.
+            if size(profile_options.(ProfileOptionKey.BAR_COLORS.value), 1) > 1
+                profile_options.(ProfileOptionKey.BAR_COLORS.value) = profile_options.(ProfileOptionKey.BAR_COLORS.value)';
+            end
+            if ~all(cellfun(@(x) ischarstr(x) && ismember(x, {'r', 'g', 'b', 'c', 'm', 'y', 'k'}), profile_options.(ProfileOptionKey.BAR_COLORS.value)))
+                error("MATLAB:checkValidityProfileOptions:bar_colorsCellNotValid", "The field 'bar_colors' of options can only contain 'r', 'g', 'b', 'c', 'm', 'y', 'k' when it is a cell array of strings.");
+            end
+            % Convert the cell array of strings to a matrix whose rows are RGB triplets.
+            profile_options.(ProfileOptionKey.BAR_COLORS.value) = cellfun(@char, profile_options.(ProfileOptionKey.BAR_COLORS.value), 'UniformOutput', false);
+            profile_options.(ProfileOptionKey.BAR_COLORS.value) = cellfun(@shortname2rgb, profile_options.(ProfileOptionKey.BAR_COLORS.value), 'UniformOutput', false);
+            profile_options.(ProfileOptionKey.BAR_COLORS.value) = cell2mat(profile_options.(ProfileOptionKey.BAR_COLORS.value)');
+        % If it is a matrix, check whether each row is an RGB triplet.
+        elseif isnumeric(profile_options.(ProfileOptionKey.BAR_COLORS.value))
+            if size(profile_options.(ProfileOptionKey.BAR_COLORS.value), 2) ~= 3 || ~all(all(profile_options.(ProfileOptionKey.BAR_COLORS.value) >= 0 & profile_options.(ProfileOptionKey.BAR_COLORS.value) <= 1))
+                error("MATLAB:checkValidityProfileOptions:bar_colorsMatrixNotValid", "The field 'bar_colors' of options should be a matrix whose rows are RGB triplets when it is a matrix.");
+            end
+        else
+            error("MATLAB:checkValidityProfileOptions:bar_colorsNotValid", "The field 'bar_colors' of options should be a cell array of short color names or a matrix whose rows are RGB triplets.");
+        end
+    end
+end
+
+function rgb = shortname2rgb(shortname)
+%SHORTNAME2RGB Convert a short color name to an RGB triplet
+
+    switch shortname
+        case 'r'
+            rgb = [1, 0, 0];
+        case 'g'
+            rgb = [0, 1, 0];
+        case 'b'
+            rgb = [0, 0, 1];
+        case 'c'
+            rgb = [0, 1, 1];
+        case 'm'
+            rgb = [1, 0, 1];
+        case 'y'
+            rgb = [1, 1, 0];
+        case 'k'
+            rgb = [0, 0, 0];
     end
 end
