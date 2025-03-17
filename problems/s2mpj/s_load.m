@@ -106,15 +106,9 @@ function problem = s_load(problem_name, varargin)
         return;
     end
 
-    % % Check whether there exists 'problem_name.m' in some folder called 'matlab_problems'.
-    % current_path = fileparts(mfilename('fullpath'));
-    % problem_path = fullfile(current_path, 'matlab_problems', [problem_name, '.m']);
-    % if ~exist(problem_path, 'file')
-    %     error('Problem %s not found in the directory %s.', problem_name, problem_path);
-    % end
-
-    % % Specify which 'problem_name.m' to load.
-    % addpath(fullfile(current_path, 'matlab_problems'));
+    % Check if the problem is a feasibility problem.
+    feasibility_list = {};
+    is_feasibility = ismember(problem_name, feasibility_list);
 
     % Convert the problem name to a function handle for later use.
     funcHandle = str2func(problem_name);
@@ -130,13 +124,13 @@ function problem = s_load(problem_name, varargin)
     end
 
     % Get the objective function.
-    fun = @(x) getfun(problem_name, x);
+    fun = @(x) getfun(problem_name, is_feasibility, x);
 
     % Get the gradient of the objective function.
-    grad = @(x) getgrad(problem_name, x);
+    grad = @(x) getgrad(problem_name, is_feasibility, x);
 
     % Get the Hessian of the objective function.
-    hess = @(x) gethess(problem_name, x);
+    hess = @(x) gethess(problem_name, is_feasibility, x);
 
     % Get the initial guess, lower bound, and upper bound.
     if isfield(pb, 'xtype')
@@ -207,20 +201,29 @@ function problem = s_load(problem_name, varargin)
     
 end
 
-function fx = getfun(problem_name, x)
+function fx = getfun(problem_name, is_feasibility, x)
     
+    if is_feasibility
+        % For feasibility problems, we set the objective function value to 0.
+        fx = 0;
+        return;
+    end
+
     funcHandle = str2func(problem_name);
     try
         evalc("fx = funcHandle('fx', x)");
     catch
-        % If the function evaluation fails, return NaN.
-        % Note that some problems are feasibility problems, which do not have an objective function.
-        % For these problems, we return 0.
-        fx = 0;
+        fx = NaN(0, 1);
     end
 end
 
-function gx = getgrad(problem_name, x)
+function gx = getgrad(problem_name, is_feasibility, x)
+
+    if is_feasibility
+        % For feasibility problems, we set the gradient to 0.
+        gx = zeros(size(x));
+        return;
+    end
     
     funcHandle = str2func(problem_name);
     try
@@ -231,7 +234,13 @@ function gx = getgrad(problem_name, x)
     end
 end
 
-function Hx = gethess(problem_name, x)
+function Hx = gethess(problem_name, is_feasibility, x)
+
+    if is_feasibility
+        % For feasibility problems, we set the Hessian to 0.
+        Hx = zeros(size(x, 1));
+        return;
+    end
     
     funcHandle = str2func(problem_name);
     try
