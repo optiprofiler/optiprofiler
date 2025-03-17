@@ -2,7 +2,7 @@ function test_permuted(benchmark_id)
     % Test "permuted" feature.
 
     % Go to the directory of this repository.
-    cd(fullfile(fileparts(mfilename('fullpath')), '..', '..', '..'));
+    cd(fullfile(fileparts(mfilename('fullpath')), '../../../../output'));
 
     solvers = {@fmincon_test1, @fmincon_test2};
     options.solver_names = {'sqp', 'interior-point'};

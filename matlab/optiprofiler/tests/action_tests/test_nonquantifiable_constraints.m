@@ -2,7 +2,7 @@ function test_nonquantifiable_constraints(benchmark_id)
     % Test "nonquantifiable_constraints" feature.
 
     % Go to the directory of this repository.
-    cd(fullfile(fileparts(mfilename('fullpath')), '..', '..', '..'));
+    cd(fullfile(fileparts(mfilename('fullpath')), '../../../../output'));
 
     solvers = {@fmincon_test1, @fmincon_test2};
     options.solver_names = {'sqp', 'interior-point'};
