@@ -42,17 +42,16 @@ function [problem_names, argins] = s_select(options)
         p_type = probinfo{i_problem, 2};
         dim = probinfo{i_problem, 4};
         m_con = probinfo{i_problem, 8};
-        argin = probinfo{i_problem, 24};
-        dims = probinfo{i_problem, 25};
-        m_cons = probinfo{i_problem, 29};
-        m_nonlinear_ub = probinfo{i_problem, 15};
-        m_nonlinear_eq = probinfo{i_problem, 16};
-        isgrad = probinfo{i_problem, 18};
-        ishess = probinfo{i_problem, 19};
-        isjcub = probinfo{i_problem, 20};
-        isjceq = probinfo{i_problem, 21};
-        ishcub = probinfo{i_problem, 22};
-        ishceq = probinfo{i_problem, 23};
+        argin = probinfo{i_problem, 25};
+        dims = probinfo{i_problem, 26};
+        m_cons = probinfo{i_problem, 30};
+
+        % If the oracle is not 0, then we exclude problem 'NOZZLEfp' since it does not have first- or second-order information.
+        % "NOZZLEfp" is designed to simulate jet impingement cooling.
+        % See https://optimization-online.org/wp-content/uploads/2024/03/Design_Optimization_Of_A_Jet_Plate_for_Impingement_Cooling-1.pdf
+        if options.oracle ~= 0
+            options.excludelist = [options.excludelist, 'NOZZLEfp'];
+        end
 
         % Check if the problem is in the exclude list.
         if ~isempty(options.excludelist) && ismember(problem_name, options.excludelist)
@@ -62,23 +61,6 @@ function [problem_names, argins] = s_select(options)
         % Check if the problem type satisfies the criteria.
         if ~ismember(p_type, options.p_type)
             continue;
-        end
-
-        % Check if the oracle provided by the problem satisfies the criteria.
-        if (options.oracle == 1) || (options.oracle == 2)
-            % When oracle is 1 or 2, we need at least the 1st-order information.
-            if ~isgrad
-                continue;
-            elseif ismember(p_type, {'n'}) && ((m_nonlinear_ub > 0 && ~isjcub) || (m_nonlinear_eq > 0 && ~isjceq))
-                continue;
-            end
-        end
-        if options.oracle == 2
-            if ~ishess
-                continue;
-            elseif ismember(p_type, {'n'}) && ((m_nonlinear_ub > 0 && ~ishcub) || (m_nonlinear_eq > 0 && ~ishceq))
-                continue;
-            end
         end
 
         % If the default dimension and number of constraints satisfy the criteria, we add the problem.
