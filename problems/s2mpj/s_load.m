@@ -87,9 +87,9 @@ function problem = s_load(problem_name, varargin)
             error('Problem %s not found in probinfo.mat.', problem_name);
         end
         % Find the corresponding argins for the specific dimension.
-        dims = probinfo{idx_pb, 25};
-        m_cons = probinfo{idx_pb, 29};
-        argins = probinfo{idx_pb, 24};
+        argins = probinfo{idx_pb, 25};
+        dims = probinfo{idx_pb, 26};
+        m_cons = probinfo{idx_pb, 30};
         idx_dim = find(dims == dim & m_cons == m_con, 1, 'first');
         if iscell(argins)
             argin = {argins{1:end-1}, argins{end}(idx_dim)};
