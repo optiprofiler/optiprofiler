@@ -99,7 +99,7 @@ classdef TestProblem < matlab.unittest.TestCase
             testCase.verifyEqual(p.hcub(p.x0), {TestProblem.sum_cos_hess(p.x0)});
             testCase.verifyEqual(p.hceq(p.x0), {TestProblem.sum_sin_hess(p.x0)});
             testCase.verifyEqual(p.name, 'Unnamed Problem');
-            testCase.verifyEqual(p.x_type, 'real');
+            testCase.verifyEqual(p.x_type, 'r');
             testCase.verifyEqual(p.n, 10);
             testCase.verifyEqual(p.m_linear_ub, 10);
             testCase.verifyEqual(p.m_linear_eq, 10);
