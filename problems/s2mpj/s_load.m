@@ -21,7 +21,8 @@ function problem = s_load(problem_name, varargin)
 %       pb.x0: initial guess.
 %       pb.xlower: lower bound.
 %       pb.xupper: upper bound.
-%       pb.xtype: type of variables ('r' (real), 'i'(integer), or 'b'(binary)).
+%       pb.xtype: type of variables
+%                 ('r' (real), 'i' (integer), or 'b' (binary)).
 %
 %   The objective function will be evaluated by 'fx' action.
 %       fx = problem_name('fx', x);
@@ -136,18 +137,9 @@ function problem = s_load(problem_name, varargin)
 
     % Get the initial guess, lower bound, and upper bound.
     if isfield(pb, 'xtype')
-        switch pb.xtype
-            case 'r'
-                x_type = 'real';
-            case 'i'
-                x_type = 'integer';
-            case 'b'
-                x_type = 'binary';
-            otherwise
-                x_type = 'real';
-        end
+        x_type = pb.xtype;
     else
-        x_type = 'real';
+        x_type = 'r';
     end
     x0 = pb.x0;
     xl = pb.xlower;

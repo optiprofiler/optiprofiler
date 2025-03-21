@@ -20,7 +20,7 @@ classdef Problem < handle
 
     properties (GetAccess = public, SetAccess = private)
 
-        x_type = 'real'
+        x_type = 'r'
         x0
         xl = []
         xu = []
@@ -185,9 +185,9 @@ classdef Problem < handle
 
             % Check that the arguments are legal and consistent.
 
-            % Check that `x_type` belongs to {'real', 'integer', 'binary'}.
-            if ~ismember(obj.x_type, {'real', 'integer', 'binary'})
-                error("MATLAB:Problem:x_type_NotValid", "The argument `x_type` for `Problem` must be one of {'real', 'integer', 'binary'}.")
+            % Check that `x_type` belongs to {'r', 'i', 'b'}.
+            if ~ismember(obj.x_type, {'r', 'i', 'b'})
+                error("MATLAB:Problem:x_type_NotValid", "The argument `x_type` for `Problem` must be one of {'r', 'i', 'b'}.")
             end
 
             % Check that `x0` is a real vector.
@@ -226,8 +226,8 @@ classdef Problem < handle
 
         % Preprocess the type of the variables.
         function set.x_type(obj, value)
-            if ~ismember(value, {'real', 'integer', 'binary'})
-                error("MATLAB:Problem:x_type_NotValid", "The argument `x_type` for `Problem` must be one of {'real', 'integer', 'binary'}.")
+            if ~ismember(value, {'r', 'i', 'b'})
+                error("MATLAB:Problem:x_type_NotValid", "The argument `x_type` for `Problem` must be one of {'r', 'i', 'b'}.")
             end
             obj.x_type = value;
         end
