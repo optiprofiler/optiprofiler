@@ -6,8 +6,8 @@ OptiProfiler: a platform for benchmarking optimization solvers
     :hidden:
 
     User guide <user/index>
-    Python API reference <ref/index>
     MATLAB API reference <matlab/index>
+    Python API reference <ref/index>
     Python developer guide <dev/index>
 
 MATLAB version is available.

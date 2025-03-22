@@ -1,16 +1,22 @@
 Installation
 ============
 
-Python
+MATLAB
 ------
 
-Work in progress.
+1. Clone the repository using the following command:
 
-.. caution::
+.. code-block:: bash
 
-    The installation of `PyCUTEst <https://jfowkes.github.io/pycutest/>`_ is not fully automated.
+    git clone --recurse-submodules https://github.com/optiprofiler/optiprofiler.git
 
-MATLAB
+2. In MATLAB, navigate to the folder where the source code is located, and you will see a file named ``setup.m``. Run the following command in the MATLAB command window:
+
+.. code-block:: matlab
+
+    setup
+
+Python
 ------
 
 Work in progress.
