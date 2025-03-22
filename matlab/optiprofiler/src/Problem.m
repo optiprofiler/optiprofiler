@@ -6,8 +6,8 @@ classdef Problem < handle
 %
 %       min fun(x)
 %       s.t. xl <= x <= xu
-%            aub @ x <= bub
-%            aeq @ x = beq
+%            aub * x <= bub
+%            aeq * x = beq
 %            cub(x) <= 0
 %            ceq(x) = 0
 %       with initial point x0.

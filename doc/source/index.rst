@@ -1,4 +1,4 @@
-OptiProfiler documentation
+OptiProfiler: a platform for benchmarking optimization solvers
 ==========================
 
 .. toctree::
@@ -10,7 +10,25 @@ OptiProfiler documentation
     MATLAB API reference <matlab/index>
     Python developer guide <dev/index>
 
-Work in progress.
+MATLAB version is available.
+----------------------------
+
+To install the MATLAB version, please do the following:
+
+1. Clone the repository using the following command:
+
+.. code-block:: bash
+
+    git clone --recurse-submodules https://github.com/optiprofiler/optiprofiler.git
+
+2. In MATLAB, navigate to the folder where the source code is located, and you will see a file named ``setup.m``. Run the following command in the MATLAB command window:
+
+.. code-block:: matlab
+
+    setup
+
+Python version is under development.
+------------------------------------
 
 When describing performance and data profiles, we must cite :cite:`Dolan_More_2002,More_Wild_2009,Gould_Scott_2016`.
 

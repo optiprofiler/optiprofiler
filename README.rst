@@ -1,4 +1,4 @@
-OptiProfiler: benchmarking optimization solvers
+OptiProfiler: a platform for benchmarking optimization solvers
 ===============================================
 
 .. image:: https://img.shields.io/readthedocs/optiprofiler/latest?logo=readthedocs&style=for-the-badge

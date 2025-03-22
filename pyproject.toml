@@ -52,6 +52,7 @@ doc = [
     "sphinx-copybutton==0.5.2",
     "sphinx-book-theme==1.1.2",
     "sphinxcontrib-bibtex==2.6.2",
+    "sphinxcontrib-matlabdomain",
 ]
 extra = ["pycutest>=1.6.1"]
 tests = [
