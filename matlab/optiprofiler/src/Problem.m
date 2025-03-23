@@ -1,16 +1,121 @@
 classdef Problem < handle
 %PROBLEM is a class that defines an optimization problem.
 %
-%   PROBLEM is a class that defines an optimization problem with the following
-%   structure:
+%   PROBLEM describes an optimization problem with the following structure:
 %
 %       min fun(x)
-%       s.t. xl <= x <= xu
-%            aub * x <= bub
-%            aeq * x = beq
-%            cub(x) <= 0
-%            ceq(x) = 0
-%       with initial point x0.
+%       s.t. xl <= x <= xu,
+%            aub * x <= bub,
+%            aeq * x = beq,
+%            cub(x) <= 0,
+%            ceq(x) = 0,
+%
+%   where `fun` is the objective function, `x` is the variable to optimize,
+%   `xl` and `xu` are the lower and upper bounds, `aub` and `bub` are the
+%   coefficient matrix and right-hand side vector of the linear inequality
+%   constraints, `aeq` and `beq` are the coefficient matrix and right-hand side
+%   vector of the linear equality constraints, `cub` is the function of
+%   nonlinear inequality constraints, `ceq` is the function of nonlinear
+%   equality constraints.
+%
+%   PROBLEM should be initialized by the following signiture:
+%
+%       problem = Problem(p_struct);
+%
+%   where the return `problem` is a PROBLEM class, and the input `p_struct`
+%   should be a struct.
+%
+%   The input struct accepts following fields:
+%
+%       1. compulsory fields:
+%       
+%       - fun: the objective function ``fun(x) -> float``.
+%       - x0: the initial guess.
+%
+%       2. optional fields:
+%
+%       - name: the name of the problem. It should be a string or a char.
+%       Default is 'Unnamed Problem'.
+%       - xl: the lower bounds on the variable `x` in the form of ``xl <= x``.
+%         It should be a vector of the same size as `x`. Default is -Inf.
+%       - xu: the upper bounds on the variable `x` in the form of ``xl >= x``.
+%         It should be a vector of the same size as `x`. Default is Inf.
+%       - aub, bub: the coefficient matrix and right-hand side vector of the
+%         linear inequality constraints ``aub * x <= bub``. The default setting
+%         of `aub` and `bub` are empty matrix and vector.
+%       - aeq, beq: the coefficient matrix and right-hand side vector of the
+%         linear equality constraints ``aeq * x <= beq``. The default setting
+%         of `aeq` and `beq` are empty matrix and vector.
+%       - cub: the function of nonlinearly inequality constraints
+%         ``cub(x) <= 0``, where ``cub(x) -> float vector``. By default, 
+%         ``cub(x)`` will return an empty vector.
+%       - ceq: the function of nonlinearly equality constraints
+%         ``ceq(x) <= 0``, where ``ceq(x) -> float vector``. By default, 
+%         ``ceq(x)`` will return an empty vector.
+%       - x_type: the type of variable `x`. It should be 'r' (real), 'i'
+%         (integer), or 'b' (binary). Default is 'r'.
+%       - grad: the gradient of the objective function
+%         ``grad(x) -> float vector``. By default, `grad(x)` will return an
+%         empty vector.
+%       - hess: the Hessian of the objective function
+%         ``hess(x) -> float matrix``. By default, `hess(x)` will return an
+%         empty matrix.
+%       - jcub: the Jacobian of the nonlinearly inequality constraints
+%         ``jcub(x) -> float matrix``. Note that the column size of `jcub(x)`
+%         should be the same as the length of `x` while the row size should be
+%         the same as the length of `cub(x)`. By default, `jcub(x)` will return
+%         an empty matrix.
+%       - jceq: the Jacobian of the nonlinearly equality constraints
+%         ``jceq(x) -> float matrix``. Note that the column size of `jceq(x)`
+%         should be the same as the length of `x` while the row size should be
+%         the same as the length of `ceq(x)`. By default, `jceq(x)` will return
+%         an empty matrix.
+%       - hcub: the Hessian of the nonlinearly inequality constraints
+%         ``hcub(x) -> cell array of float matrices``. The i-th element of
+%         `hcub(x)` should be the Hessian of the i-th function in `cub`. By
+%         default, `hcub(x)` will return an empty cell.
+%       - hceq: the Hessian of the nonlinearly equality constraints
+%         ``hceq(x) -> cell array of float matrices``. The i-th element of
+%         `hceq(x)` should be the Hessian of the i-th function in `ceq`. By
+%         default, `hceq(x)` will return an empty cell.
+%
+%   The output PROBLEM contains following properties:
+%
+%       1. properties inherited from the input struct:
+%
+%       name, x_type, x0, xl, xu, aub, bub, aeq, beq
+%
+%       2. properties dependent on the input struct:
+%
+%       - n: dimension of the problem, which is the length of the variable `x`.
+%       - m_linear_ub: number of the linear inequality constraints, which is
+%         the length of `bub`.
+%       - m_linear_eq: number of the linear equality constraints, which is the
+%         length of `beq`.
+%       - m_nonlinear_ub: number of the nonlinear inequality constraints, which
+%         is the length of `cub(x)`.
+%       - m_nonlinear_eq: number of the nonlinear equality constraints, which
+%         is the length of `ceq(x)`.
+%       - p_type: type of the problem. It should be 'u' (unconstrained), 'b'
+%         (bound-constrained), 'l' (linearly constrained), or 'n' (nonlinearly
+%         constrained).
+%
+%   The output PROBLEM contains following methods:
+%
+%       1. methods inherited from the input struct:
+%
+%       fun, grad, hess, cub, ceq, jcub, jceq, hcub, hceq
+%
+%       2. other methods:
+%
+%       - maxcv: the maximum constraint violation ``maxcv(x) -> float``, which
+%         is defined as the maximum of the infinity norms of
+%         `max(xl - x, 0)`, `max(x - xu, 0)`, `max(aub * x - bub, 0)`,
+%         `aeq * x - beq`, `max(cub(x), 0)`, `ceq(x)`.
+%       - project_x0: trying to project the initial guess `x0` onto the
+%         feasible region if it is not feasible (but it may fail).
+%
+
 
     properties (GetAccess = public, SetAccess = public)
 
@@ -58,72 +163,8 @@ classdef Problem < handle
 
     methods
 
+        % Initialize a PROBLEM.
         function obj = Problem(varargin)
-            %{
-            Initialize a PROBLEM.
-
-            Parameters
-            ----------
-            name : str, optional
-                Name of the optimization problem.
-            fun : callable
-                Objective function to be minimized.
-
-                    ``fun(x) -> float``
-
-                where ``x`` is an array with shape (n,).
-            grad : callable, optional
-                Gradient of the objective function.
-
-                    ``grad(x) -> array_like, shape (n,)``
-                
-                where ``x`` is an array with shape (n,).
-            hess : callable, optional
-                Hessian of the objective function.
-
-                    ``hess(x) -> array_like, shape (n, n)``
-
-                where ``x`` is an array with shape (n,).
-            x_type : str, optional
-                Type of the variables.
-            x0 : array_like, shape (n,)
-                Initial guess.
-            xl : array_like, shape (n,), optional
-                Lower bounds on the variables ``xl <= x``.
-            xu : array_like, shape (n,), optional
-                Upper bounds on the variables ``x <= xu``.
-            aub : array_like, shape (m_linear_ub, n), optional
-                Left-hand side matrix of the linear constraints ``aub @ x <= bub``.
-            bub : array_like, shape (m_linear_ub,), optional
-                Right-hand side vector of the linear constraints ``aub @ x <= bub``.
-            aeq : array_like, shape (m_linear_eq, n), optional
-                Left-hand side matrix of the linear constraints ``aeq @ x == beq``.
-            beq : array_like, shape (m_linear_eq,), optional
-                Right-hand side vector of the linear constraints ``aeq @ x == beq``.
-            cub : callable, optional
-                Nonlinear inequality constraint ``cub(x) <= 0``.
-
-                    ``cub(x) -> array_like, shape (m_nonlinear_ub,)``
-
-                where ``x`` is an array with shape (n,).
-            ceq : callable, optional
-                Nonlinear equality constraint ``ceq(x) == 0``.
-
-                    ``ceq(x) -> array_like, shape (m_nonlinear_eq,)``
-
-                where ``x`` is an array with shape (n,).
-            m_nonlinear_ub : int, optional
-                Number of nonlinear inequality constraints.
-            m_nonlinear_eq : int, optional
-                Number of nonlinear equality constraints.
-            p_type : str, optional
-                Type of the optimization problem.
-
-            Returns
-            -------
-            obj : Problem
-                a PROBLEM object.
-            %}
 
             if nargin < 1
                 error("MATLAB:Problem:MissingArguments", "At least one argument is provided for `Problem`.")
@@ -220,7 +261,6 @@ classdef Problem < handle
                 error("MATLAB:Problem:aeq_m_linear_eq_n_NotConsistent", "The argument `aeq` for `Problem` must have shape (%d, %d).", obj.m_linear_eq, obj.n);
             end
         end
-
 
         % Setter functions.
 
@@ -825,7 +865,7 @@ classdef Problem < handle
             end
 
             if isempty(obj.hcub_)
-                H = NaN(0, 1);
+                H = cell(0, 1);
             else
                 try
                     H = obj.hcub_(x);
@@ -868,7 +908,7 @@ classdef Problem < handle
             end
 
             if isempty(obj.hceq_)
-                H = NaN(0, 1);
+                H = cell(0, 1);
             else
                 try
                     H = obj.hceq_(x);

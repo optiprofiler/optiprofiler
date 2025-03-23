@@ -6,3 +6,4 @@ MATLAB API documentation
     :caption: Contents:
 
     matlab_generated/benchmark
+    matlab_generated/Problem

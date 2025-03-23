@@ -71,7 +71,7 @@ classdef Feature < handle
 %   2. perturbed_x0:
 %       perturb the initial point.
 %   3. noisy:
-%       add noise to the objective function value.
+%       add noise to the objective function and nonlinear constraints.
 %   4. truncated:
 %       truncate values of the objective function and nonlinearity constraints
 %       to a given number of significant digits.
