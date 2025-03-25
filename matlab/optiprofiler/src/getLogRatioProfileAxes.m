@@ -15,9 +15,10 @@ function [x_log_ratio, y_log_ratio, ratio_max, curves] = getLogRatioProfileAxes(
     y_log_ratio(isnan(work_flat(:, 1)) & isnan(work_flat(:, 2))) = 0.0;
     y_log_ratio = sort(y_log_ratio);
 
-    x_log_ratio = (1:(n_problems * n_runs))';
+    x_log_ratio = (1:length(y_log_ratio))';
 
     % Store the curves in the `profiles` struct.
     curves.log_ratio{1} = [x_log_ratio(y_log_ratio < 0)'; y_log_ratio(y_log_ratio < 0)'];
     curves.log_ratio{2} = [x_log_ratio(y_log_ratio > 0)'; y_log_ratio(y_log_ratio > 0)'];
+    curves.log_ratio{3} = [x_log_ratio(y_log_ratio == 0)'; 1.1 * ratio_max * ones(1, sum(y_log_ratio == 0))];
 end

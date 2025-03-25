@@ -1228,14 +1228,8 @@ function profile_scores = computeScores(curves)
             profile_scores(i_solver, i_tol, 2, 1) = integrate(curve_out_perf, 'perf');
             profile_scores(i_solver, i_tol, 2, 2) = integrate(curve_out_data, 'data');
             if n_solvers == 2
-                curve_hist_log_ratio = curves{i_tol}.hist.log_ratio{i_solver};
-                curve_out_log_ratio = curves{i_tol}.out.log_ratio{i_solver};
-                if isempty(curve_hist_log_ratio)
-                    curve_hist_log_ratio = [0; 0];
-                end
-                if isempty(curve_out_log_ratio)
-                    curve_out_log_ratio = [0; 0];
-                end
+                curve_hist_log_ratio = [curves{i_tol}.hist.log_ratio{i_solver}, curves{i_tol}.hist.log_ratio{3}];
+                curve_out_log_ratio = [curves{i_tol}.out.log_ratio{i_solver}, curves{i_tol}.out.log_ratio{3}];
                 profile_scores(i_solver, i_tol, 1, 3) = integrate(curve_hist_log_ratio, 'log_ratio');
                 profile_scores(i_solver, i_tol, 2, 3) = integrate(curve_out_log_ratio, 'log_ratio');
             end
