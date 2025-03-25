@@ -95,8 +95,8 @@ function feature_stamp = getDefaultFeatureStamp(feature)
 
     switch feature.name
         case FeatureName.PERTURBED_X0.value
-            % feature_name + noise_level + (distribution if it is gaussian or spherical)
-            feature_stamp = sprintf('%s_%g', feature.name, feature.options.(FeatureOptionKey.NOISE_LEVEL.value));
+            % feature_name + perturbation_level + (distribution if it is gaussian or spherical)
+            feature_stamp = sprintf('%s_%g', feature.name, feature.options.(FeatureOptionKey.PERTURBATION_LEVEL.value));
             if ischarstr(feature.options.(FeatureOptionKey.DISTRIBUTION.value)) && ismember(feature.options.(FeatureOptionKey.DISTRIBUTION.value), {'gaussian', 'spherical'})
                 feature_stamp = sprintf('%s_%s', feature_stamp, feature.options.(FeatureOptionKey.DISTRIBUTION.value));
             end

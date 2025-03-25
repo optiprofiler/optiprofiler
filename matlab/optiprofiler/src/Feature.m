@@ -174,7 +174,7 @@ classdef Feature < handle
                     case FeatureName.NOISY.value
                         known_options = [known_options, {FeatureOptionKey.DISTRIBUTION.value, FeatureOptionKey.NOISE_LEVEL.value, FeatureOptionKey.NOISE_TYPE.value}];
                     case FeatureName.PERTURBED_X0.value
-                        known_options = [known_options, {FeatureOptionKey.DISTRIBUTION.value, FeatureOptionKey.NOISE_LEVEL.value}];
+                        known_options = [known_options, {FeatureOptionKey.DISTRIBUTION.value, FeatureOptionKey.PERTURBATION_LEVEL.value}];
                     case FeatureName.RANDOM_NAN.value
                         known_options = [known_options, {FeatureOptionKey.NAN_RATE.value}];
                     case FeatureName.TRUNCATED.value
@@ -409,12 +409,12 @@ classdef Feature < handle
                     % Use max(1, norm(x0)) to avoid no perturbation when x0 is zero.
                     rand_stream_perturbed_x0 = obj.default_rng(seed);
                     if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
-                        x0 = problem.x0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * max(1, norm(problem.x0)) * rand_stream_perturbed_x0.randn(problem.n, 1);
+                        x0 = problem.x0 + obj.options.(FeatureOptionKey.PERTURBATION_LEVEL.value) * max(1, norm(problem.x0)) * rand_stream_perturbed_x0.randn(problem.n, 1);
                     elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'spherical')
                         perturbation = rand_stream_perturbed_x0.randn(problem.n, 1);
-                        x0 = problem.x0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * max(1, norm(problem.x0)) * perturbation / norm(perturbation);
+                        x0 = problem.x0 + obj.options.(FeatureOptionKey.PERTURBATION_LEVEL.value) * max(1, norm(problem.x0)) * perturbation / norm(perturbation);
                     else
-                        x0 = problem.x0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * max(1, norm(problem.x0)) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_perturbed_x0, problem.n);
+                        x0 = problem.x0 + obj.options.(FeatureOptionKey.PERTURBATION_LEVEL.value) * max(1, norm(problem.x0)) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_perturbed_x0, problem.n);
                     end
                 case FeatureName.PERMUTED.value
                     % Note that we need to apply the reverse permutation to the initial point so that
@@ -1117,8 +1117,8 @@ classdef Feature < handle
                     if ~isfield(obj.options, FeatureOptionKey.DISTRIBUTION.value)
                         obj.options.(FeatureOptionKey.DISTRIBUTION.value) = 'spherical';
                     end
-                    if ~isfield(obj.options, FeatureOptionKey.NOISE_LEVEL.value)
-                        obj.options.(FeatureOptionKey.NOISE_LEVEL.value) = 1e-3;
+                    if ~isfield(obj.options, FeatureOptionKey.PERTURBATION_LEVEL.value)
+                        obj.options.(FeatureOptionKey.PERTURBATION_LEVEL.value) = 1e-3;
                     end
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
                         obj.options.(FeatureOptionKey.N_RUNS.value) = 5;

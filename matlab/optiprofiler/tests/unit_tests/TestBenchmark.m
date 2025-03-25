@@ -22,6 +22,12 @@ classdef TestBenchmark < matlab.unittest.TestCase
 
             % Test perturbed_x0 feature.
             benchmark(solvers, 'perturbed_x0');
+            options.feature_name = 'perturbed_x0';
+            options.perturbation_level = 1;
+            options.distribution = 'spherical';
+            benchmark(solvers, options);
+            options = rmfield(options, 'perturbation_level');
+            options = rmfield(options, 'distribution');
 
             % Test noisy feature.
             options.feature_name = 'noisy';

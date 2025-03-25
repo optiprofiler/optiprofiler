@@ -15,7 +15,7 @@ function test_perturbed_x0(benchmark_id)
 
     benchmark(solvers, options);
 
-    options.noise_level = 0.01;
+    options.perturbation_level = 0.01;
     options.distribution = 'gaussian';
     benchmark(solvers, options);
 end

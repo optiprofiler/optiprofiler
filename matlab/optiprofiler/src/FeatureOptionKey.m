@@ -4,6 +4,7 @@ classdef FeatureOptionKey
     enumeration
         N_RUNS ('n_runs')
         DISTRIBUTION ('distribution')
+        PERTURBATION_LEVEL ('perturbation_level')
         NOISE_LEVEL ('noise_level')
         NOISE_TYPE ('noise_type')
         SIGNIFICANT_DIGITS ('significant_digits')

@@ -126,9 +126,11 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
 %         case, the char should be either 'spherical' or 'gaussian' (default is
 %         'spherical'). In 'noisy' case, the char should be either 'gaussian'
 %         or 'uniform' (default is 'gaussian').
-%       - noise_level: the magnitude of the noise in stochastic features.
+%       - perturbation_level: the magnitude of the perturbation to the initial
+%         guess in the 'perturbed_x0' feature. Default is 10^-3.
+%       - noise_level: the magnitude of the noise in the 'noisy' feature.
 %         Default is 10^-3.
-%       - noise_type: the type of the noise in stochastic features. It should
+%       - noise_type: the type of the noise in the 'noisy' features. It should
 %         be either 'absolute', 'relative', or 'mixed'. Default is 'mixed'.
 %       - significant_digits: the number of significant digits in the
 %         'truncated' feature. Default is 6.

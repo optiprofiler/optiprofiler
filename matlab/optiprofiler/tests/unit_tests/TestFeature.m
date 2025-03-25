@@ -86,14 +86,17 @@ classdef TestFeature < matlab.unittest.TestCase
             ft = Feature('perturbed_x0');
             testCase.verifyEqual(ft.name, 'perturbed_x0');
             testCase.verifyEqual(ft.options.n_runs, 5);
-            testCase.verifyEqual(ft.options.noise_level, 1e-3);
+            testCase.verifyEqual(ft.options.perturbation_level, 1e-3);
+            testCase.verifyEqual(ft.options.distribution, 'spherical');
 
             options.n_runs = 5;
-            options.noise_level = 1e-2;
+            options.perturbation_level = 1e-2;
+            options.distribution = 'gaussian';
             ft = Feature('perturbed_x0', options);
             testCase.verifyEqual(ft.name, 'perturbed_x0');
             testCase.verifyEqual(ft.options.n_runs, 5);
-            testCase.verifyEqual(ft.options.noise_level, 1e-2);
+            testCase.verifyEqual(ft.options.perturbation_level, 1e-2);
+            testCase.verifyEqual(ft.options.distribution, 'gaussian');
         end
 
         function testNoisy(testCase)
