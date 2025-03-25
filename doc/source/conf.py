@@ -78,6 +78,8 @@ html_theme_options = {
 
 html_title = f'{project} v{version}'
 
+html_favicon = '_static/favicon.ico'
+
 htmlhelp_basename = project
 
 

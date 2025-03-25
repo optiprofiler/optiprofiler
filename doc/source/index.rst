@@ -1,5 +1,13 @@
-OptiProfiler: a platform for benchmarking optimization solvers
-==========================
+|logo| **OptiProfiler**
+=======================
+
+.. |logo| image:: _static/OP_logo.png
+   :alt: OptiProfiler Logo
+   :width: 100px
+   :height: 100px
+
+A platform for benchmarking optimization solvers
+------------------------------------------------
 
 .. toctree::
     :maxdepth: 1
