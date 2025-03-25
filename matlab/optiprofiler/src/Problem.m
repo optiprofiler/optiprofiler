@@ -18,7 +18,7 @@ classdef Problem < handle
 %   nonlinear inequality constraints, `ceq` is the function of nonlinear
 %   equality constraints.
 %
-%   PROBLEM should be initialized by the following signiture:
+%   PROBLEM should be initialized by the following signature:
 %
 %       problem = Problem(p_struct);
 %
@@ -52,8 +52,6 @@ classdef Problem < handle
 %       - ceq: the function of nonlinearly equality constraints
 %         ``ceq(x) <= 0``, where ``ceq(x) -> float vector``. By default, 
 %         ``ceq(x)`` will return an empty vector.
-%       - x_type: the type of variable `x`. It should be 'r' (real), 'i'
-%         (integer), or 'b' (binary). Default is 'r'.
 %       - grad: the gradient of the objective function
 %         ``grad(x) -> float vector``. By default, `grad(x)` will return an
 %         empty vector.
@@ -83,7 +81,7 @@ classdef Problem < handle
 %
 %       1. properties inherited from the input struct:
 %
-%       name, x_type, x0, xl, xu, aub, bub, aeq, beq
+%       name, x0, xl, xu, aub, bub, aeq, beq
 %
 %       2. properties dependent on the input struct:
 %
@@ -120,12 +118,6 @@ classdef Problem < handle
     properties (GetAccess = public, SetAccess = public)
 
         name = 'Unnamed Problem'
-
-    end
-
-    properties (GetAccess = public, SetAccess = private)
-
-        x_type = 'r'
         x0
         xl = []
         xu = []
@@ -211,7 +203,7 @@ classdef Problem < handle
                 end
         
                 % Iterate over the struct's fields and assign them to the object's properties
-                expected_fields = {'name', 'fun', 'grad', 'hess', 'x_type', 'x0', 'xl', 'xu', 'aub', 'bub', 'aeq', 'beq', 'cub', 'ceq', 'jcub', 'jceq', 'hcub', 'hceq'};
+                expected_fields = {'name', 'fun', 'grad', 'hess', 'x0', 'xl', 'xu', 'aub', 'bub', 'aeq', 'beq', 'cub', 'ceq', 'jcub', 'jceq', 'hcub', 'hceq'};
                 fields = fieldnames(s);
                 for i = 1:numel(expected_fields)
                     if strcmp(expected_fields{i}, 'fun') || strcmp(expected_fields{i}, 'grad') || strcmp(expected_fields{i}, 'hess') || strcmp(expected_fields{i}, 'cub') || strcmp(expected_fields{i}, 'ceq') || strcmp(expected_fields{i}, 'jcub') || strcmp(expected_fields{i}, 'jceq') || strcmp(expected_fields{i}, 'hcub') || strcmp(expected_fields{i}, 'hceq')
@@ -225,11 +217,6 @@ classdef Problem < handle
             end
 
             % Check that the arguments are legal and consistent.
-
-            % Check that `x_type` belongs to {'r', 'i', 'b'}.
-            if ~ismember(obj.x_type, {'r', 'i', 'b'})
-                error("MATLAB:Problem:x_type_NotValid", "The argument `x_type` for `Problem` must be one of {'r', 'i', 'b'}.")
-            end
 
             % Check that `x0` is a real vector.
             if ~isrealvector(obj.x0)
@@ -263,14 +250,6 @@ classdef Problem < handle
         end
 
         % Setter functions.
-
-        % Preprocess the type of the variables.
-        function set.x_type(obj, value)
-            if ~ismember(value, {'r', 'i', 'b'})
-                error("MATLAB:Problem:x_type_NotValid", "The argument `x_type` for `Problem` must be one of {'r', 'i', 'b'}.")
-            end
-            obj.x_type = value;
-        end
 
         % Preprocess the initial guess.
         function set.x0(obj, value)

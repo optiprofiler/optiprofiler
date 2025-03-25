@@ -39,7 +39,6 @@ function problem = s_load(problem_name, varargin)
 %             m = 0, the name will be 'problem_name_n'.
 %       fun: function handle to evaluate the objective function, which should
 %            be a function handle calling the 'fx' action.
-%       x_type: type of variables, same as pb.xtype.
 %       x0: initial guess, same as pb.x0.
 %       xl: lower bound, same as pb.xlower.
 %       xu: upper bound, same as pb.xupper.
@@ -136,11 +135,6 @@ function problem = s_load(problem_name, varargin)
     hess = @(x) gethess(problem_name, is_feasibility, x);
 
     % Get the initial guess, lower bound, and upper bound.
-    if isfield(pb, 'xtype')
-        x_type = pb.xtype;
-    else
-        x_type = 'r';
-    end
     x0 = pb.x0;
     xl = pb.xlower;
     xu = pb.xupper;
@@ -191,7 +185,7 @@ function problem = s_load(problem_name, varargin)
     jceq = @(x) getidx_mat(getJx(problem_name, x), idx_ceq);
     jcub = @(x) [getidx_mat(getJx(problem_name, x), idx_cle); -getidx_mat(getJx(problem_name, x), idx_cge)];
     
-    problem = Problem(struct('name', name, 'fun', fun, 'grad', grad, 'hess', hess, 'x_type', x_type, 'x0', x0, 'xl', xl, 'xu', xu, 'aeq', aeq, 'beq', beq, 'aub', aub, 'bub', bub, 'ceq', ceq, 'cub', cub, 'jceq', jceq, 'jcub', jcub, 'hceq', hceq, 'hcub', hcub));
+    problem = Problem(struct('name', name, 'fun', fun, 'grad', grad, 'hess', hess, 'x0', x0, 'xl', xl, 'xu', xu, 'aeq', aeq, 'beq', beq, 'aub', aub, 'bub', bub, 'ceq', ceq, 'cub', cub, 'jceq', jceq, 'jcub', jcub, 'hceq', hceq, 'hcub', hcub));
     
 end
 

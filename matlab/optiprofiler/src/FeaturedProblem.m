@@ -58,7 +58,6 @@ classdef FeaturedProblem < Problem
 
             pb_struct = struct();
             pb_struct.name = problem.name;
-            pb_struct.x_type = problem.x_type;
             % Modify the initial point.
             pb_struct.x0 = feature.modifier_x0(seed, problem);
             % Modify the bounds.

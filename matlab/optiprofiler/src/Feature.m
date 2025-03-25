@@ -10,21 +10,21 @@ classdef Feature < handle
 %   Suppose we have an optimization problem
 %
 %       min fun(x)
-%       s.t. xl <= x <= xu
-%            aub @ x <= bub
-%            aeq @ x = beq
-%            cub(x) <= 0
-%            ceq(x) = 0
+%       s.t. xl <= x <= xu,
+%            aub * x <= bub,
+%            aeq * x = beq,
+%            cub(x) <= 0,
+%            ceq(x) = 0,
 %       with initial point x0.
 %
 %   Then, FEATURE maps the optimization problem to the following one.
 %
-%       min fun_mod(A @ x + b)
-%       s.t. xl_mod <= A @ x + b <= xu_mod
-%            aub_mod @ (A @ x + b) <= bub_mod
-%            aeq_mod @ (A @ x + b) = beq_mod
-%            cub_mod(A @ x + b) <= 0
-%            ceq_mod(A @ x + b) = 0
+%       min fun_mod(A * x + b)
+%       s.t. xl_mod <= A * x + b <= xu_mod,
+%            aub_mod * (A * x + b) <= bub_mod,
+%            aeq_mod * (A * x + b) = beq_mod,
+%            cub_mod(A * x + b) <= 0,
+%            ceq_mod(A * x + b) = 0,
 %       with initial point x0_mod.
 %
 %Usage:
