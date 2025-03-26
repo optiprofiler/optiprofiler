@@ -132,8 +132,6 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
                             fprintf(format_info_best, problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), fun_min, maxcv_min);
                     end
                 end
-                % If one solver succeeds once, then we say this problem is solved.
-                solvers_success = true;
             catch Exception
                 if profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) ~= 0
                     fprintf("INFO: An error occurred while solving %s with %s (run %d/%d): %s\n", problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), Exception.message);
@@ -161,6 +159,11 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
     end
     computation_time = toc(time_start);
 
+    % If one solver succeeds (there is one successful evaluation), then we say this problem is solved.
+    if any(n_eval(:) > 0)
+        solvers_success = true;
+    end
+
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%% History plots of the computation %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -169,7 +172,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
         return;
     end
 
-    try
+    % try
         merit_histories = computeMeritValues(fun_histories, maxcv_histories, maxcv_init);
         merit_init = computeMeritValues(fun_init, maxcv_init, maxcv_init);
 
@@ -223,7 +226,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
         exportgraphics(fig_summary, pdf_summary, 'ContentType', 'vector');
         warning('on');
         close(fig_summary);
-    catch Exception
-        fprintf("INFO: An error occurred while plotting the history plots of the problem %s: %s\n", problem_name, Exception.message);
-    end
+    % catch Exception
+    %     fprintf("INFO: An error occurred while plotting the history plots of the problem %s: %s\n", problem_name, Exception.message);
+    % end
 end

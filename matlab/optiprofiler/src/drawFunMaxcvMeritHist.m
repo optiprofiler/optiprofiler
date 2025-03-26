@@ -33,9 +33,9 @@ function drawFunMaxcvMeritHist(ax, y, solver_names, is_cum, problem_n, y_shift, 
     hold(ax, 'on');
     for i_solver = 1:n_solvers
         % Truncate the histories according to the function evaluations of each solver.
-        i_eval = max(max(n_eval(i_solver,:)), 1);
+        i_eval = max(n_eval(i_solver,:));
         i_eval = min(i_eval, size(y(i_solver,:,:), 3));
-        x = (1:i_eval) / (problem_n + 1);
+        x = (1:max(i_eval, 1)) / (problem_n + 1);
         xr_lim = max(xr_lim, x(end));
 
         color = line_colors(mod(i_solver - 1, size(line_colors, 1)) + 1, :);
@@ -47,7 +47,7 @@ function drawFunMaxcvMeritHist(ax, y, solver_names, is_cum, problem_n, y_shift, 
         end
         if i_eval == 1
             plot(ax, x, y_mean(i_solver, 1:i_eval), 'o', 'Color', color, 'DisplayName', solver_names{i_solver});
-        else
+        elseif i_eval > 1
             plot(ax, x, y_mean(i_solver, 1:i_eval), line_style, 'Color', color, 'LineWidth', line_width, 'DisplayName', solver_names{i_solver});
         end
     end
@@ -60,6 +60,9 @@ function drawFunMaxcvMeritHist(ax, y, solver_names, is_cum, problem_n, y_shift, 
     box(ax, 'on');
     legend(ax, 'Location', 'northeast');
     hold(ax, 'off');
+    if abs(xl_lim - xr_lim) < eps
+        xr_lim = xl_lim + eps;
+    end
     set(ax, 'XLim', [xl_lim, xr_lim]);
     xlabel(ax, 'Number of simplex gradients', 'Interpreter', 'latex');
 
