@@ -43,8 +43,8 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
 %         features, we run several times of the experiments and get average
 %         curves and uncertainty intervals. Default is 'minmax', meaning that
 %         we takes the pointwise minimum and maximum of the curves.
-%       - savepath: the path to store the results. Default is the current
-%         directory where the function is called.
+%       - savepath: the path to store the results. Default is 'pwd', the
+%         current working directory.
 %       - max_tol_order: the maximum order of the tolerance. In any profile
 %         (performance profiles, data profiles, and log-ratio profiles), we
 %         need to set a group of 'tolerances' to define the 'convergence' of
@@ -86,9 +86,9 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
 %         default scoring function takes the average of the history-based
 %         performance profiles along the tolerance axis and then normalizes the
 %         average by the maximum value of the average.
-%       - load: whether to load the existing results. It can be either 'latest'
-%         or a string representing the time stamp of the results. Default is
-%         ''.
+%       - load: loading the stored data from a completed experiment and draw
+%         profiles. It can be either 'latest' or a time stamp of an experiment
+%         in the format of 'yyyyMMdd_HHmmss'. No default.
 %       - line_colors: the colors of the lines in the plots. It can be a cell
 %         array of short names of colors ('r', 'g', 'b', 'c', 'm', 'y', 'k') or
 %         a matrix with each row being a RGB triplet. Default line colors are
@@ -323,7 +323,7 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
 %   **************************************************************************
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Preprocess the input arguments. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Process the input arguments. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     if nargin == 0
@@ -359,7 +359,79 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
         "Invalid number of arguments. `benchmark` function at most takes two arguments.");
     end
 
-    % Preprocess the solvers.
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%% Process the 'load' option if it is provided. %%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    if isfield(options, ProfileOptionKey.LOAD.value) && ~isempty(options.(ProfileOptionKey.LOAD.value))
+        % Check the validity of the 'load' field.
+        if ~ischarstr(options.(ProfileOptionKey.LOAD.value))
+            error("MATLAB:checkValidityProfileOptions:loadNotValid", "The field 'load' of options should be a char or a string.");
+        end
+        options.(ProfileOptionKey.LOAD.value) = char(options.(ProfileOptionKey.LOAD.value));
+        % Check whether it is 'latest' or a string (or char) in the format of 'yyyyMMdd_HHmmss'.
+        time_stamp_pattern = '^\d{4}(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})$';
+        if ~strcmp(options.(ProfileOptionKey.LOAD.value), 'latest') && ~isempty(regexp(options.(ProfileOptionKey.LOAD.value), time_stamp_pattern, 'once'))
+            error("MATLAB:checkValidityProfileOptions:loadNotValid", "The field 'load' of options should be either 'latest' or a time stamp in the format of 'yyyyMMdd_HHmmss'.");
+        end
+
+        % Set the path to search for the data to load.
+        if isfield(options, ProfileOptionKey.BENCHMARK_ID.value)
+            search_path = fullfile(pwd, options.(ProfileOptionKey.BENCHMARK_ID.value));
+        else
+            search_path = fullfile(pwd, 'out');
+        end
+
+        % Find the path of the data to load.
+        if strcmp(options.(ProfileOptionKey.LOAD.value), 'latest')
+            % Try to find all the txt files named by time_stamp in the search_path directory and find the latest one.
+            time_stamp_files = dir(fullfile(search_path, '**', 'time_stamp_*.txt'));
+            if isempty(time_stamp_files)
+                error("MATLAB:benchmark:NoTimeStamps", "Failed to load data since no time_stamp files are found in the directory '%s'.", search_path);
+            end
+            time_stamps = arrayfun(@(f) datetime(f.name(12:end-4), 'InputFormat', 'yyyyMMdd_HHmmss'), time_stamp_files);
+            [~, indexes] = sort(time_stamps, 'descend');
+            latest_idx = indexes(1);
+            latest_time_stamp_file = time_stamp_files(latest_idx);
+            path_data = latest_time_stamp_file.folder;
+        else
+            pattern = ['time_stamp_', options.(ProfileOptionKey.LOAD.value), '.txt'];
+            time_stamp_file = dir(fullfile(search_path, '**', pattern));
+            if isempty(time_stamp_file)
+                error("MATLAB:benchmark:NoTimeStamps", "Failed to load data since no time_stamp named '%s' is found in the directory '%s'.", ['time_stamp_', options.(ProfileOptionKey.LOAD.value), '.txt'], search_path);
+            end
+            path_data = time_stamp_file.folder;
+        end
+
+        % Load the data.mat file in the directory of the latest time stamp.
+        if ~isfield(options, ProfileOptionKey.FEATURE_STAMP.value)
+            try
+                load(fullfile(path_data, 'data.mat'), 'feature_stamp');
+            catch
+                error("MATLAB:benchmark:NoFeatureStampDataMatFile", "Failed to load the variable 'feature_stamp' from the 'data.mat' file in the directory '%s' and the 'feature_stamp' field is not provided in the options.", path_data);
+            end
+        end
+        if ~isfield(options, OtherOptionKey.SOLVER_NAMES.value)
+            try
+                load(fullfile(path_data, 'data.mat'), 'solver_names');
+            catch
+                error("MATLAB:benchmark:NoSolverNamesDataMatFile", "Failed to load the variable 'solver_names' from the 'data.mat' file in the directory '%s' and the 'solver_names' field is not provided in the options.", path_data);
+            end
+        end
+        try
+            load(fullfile(path_data, 'data.mat'), 'n_eval', 'problem_names', 'problem_dimensions', 'time_processes', 'problem_unsolved', 'merit_histories', 'merit_out', 'merit_init', 'merit_min');
+        catch
+            error("MATLAB:benchmark:NoDataMatFile", "Failed to load computation results from the 'data.mat' file in the directory '%s'.", path_data);
+        end
+
+    end
+
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%% Process `solvers` and `feature_name` %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    % Process the solvers.
     if ~iscell(solvers) || ~all(cellfun(@(s) isa(s, 'function_handle'), solvers))
         error("MATLAB:benchmark:solversWrongType", "The first argument for `benchmark` must be a cell array of function handles.");
     end
@@ -367,7 +439,7 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
         error("MATLAB:benchmark:solversAtLeastTwo", "The first argument for `benchmark` must be a cell array of at least two function handles since we need to compare at least two solvers.");
     end
 
-    % Preprocess the feature_name.
+    % Process the feature_name.
     if ~ischarstr(feature_name)
         % feature_name must be a char or string.
         error("MATLAB:benchmark:feature_nameNotcharstr", "The field `feature_name` of `options` for `benchmark` must be a char or string.");
@@ -461,39 +533,9 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
     time = datetime('now', 'Format', 'yyyyMMdd_HHmmss');
     time_stamp = char(time);
 
-    % Load feature_stamp from the data.mat file if the 'load' option is not empty.
-    if isempty(profile_options.(ProfileOptionKey.LOAD.value))
+    % Set the default feature stamp if it does not exist.
+    if ~exist('feature_stamp', 'var')
         feature_stamp = profile_options.(ProfileOptionKey.FEATURE_STAMP.value);
-    elseif strcmp(profile_options.(ProfileOptionKey.LOAD.value), 'latest')
-        % Try to find all the txt files named by time_stamp in the path_out directory and find the latest one.
-        time_stamp_files = dir(fullfile(path_out, '**', 'time_stamp_*.txt'));
-        if isempty(time_stamp_files)
-            % Note that the current experiment already generates a time stamp.
-            error("MATLAB:benchmark:NoTimeStamps", "Failed to load data since no time_stamp files are found in the directory '%s'.", path_out);
-        end
-        time_stamps = arrayfun(@(f) datetime(f.name(12:end-4), 'InputFormat', 'yyyyMMdd_HHmmss'), time_stamp_files);
-        % Find the second latest time_stamp file, since the latest one is the current experiment.
-        [~, indexes] = sort(time_stamps, 'descend');
-        latest_idx = indexes(1);
-        latest_time_stamp_file = time_stamp_files(latest_idx);
-        path_latest_time_stamp = latest_time_stamp_file.folder;
-        try
-            load(fullfile(path_latest_time_stamp, 'data.mat'), 'feature_stamp');
-        catch
-            error("MATLAB:benchmark:NoFeatureStampDataMatFile", "Failed to load the variable 'feature_stamp' from the 'data.mat' file in the directory '%s'.", path_latest_time_stamp);
-        end
-    else
-        pattern = ['time_stamp_', profile_options.(ProfileOptionKey.LOAD.value), '.txt'];
-        time_stamp_file = dir(fullfile(path_out, '**', pattern));
-        if isempty(time_stamp_file)
-            error("MATLAB:benchmark:NoTimeStamps", "Failed to load data since no time_stamp named '%s' is found in the directory '%s'.", profile_options.(ProfileOptionKey.LOAD.value), path_out);
-        end
-        path_time_stamp = time_stamp_file.folder;
-        try
-            load(fullfile(path_time_stamp, 'data.mat'), 'feature_stamp');
-        catch
-            error("MATLAB:benchmark:NoFeatureStampDataMatFile", "Failed to load the variable 'feature_stamp' from the 'data.mat' file in the directory '%s'.", path_time_stamp);
-        end
     end
 
     path_feature = fullfile(path_out, [feature_stamp, '_', time_stamp]);
@@ -673,7 +715,7 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
     end
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Solve all the problems. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%% Solve all the problems when 'load' option is not provided. %%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     if isempty(profile_options.(ProfileOptionKey.LOAD.value))
@@ -755,73 +797,11 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
                 fprintf('\nINFO: Detailed results stored in %s\n\n', path_feature);
             end
         end
-
-        % Save useful data to a structure and then to a mat file for future loading.
-        data = struct();
-        data.feature_stamp = feature_stamp;
-        data.n_eval = n_eval;
-        data.problem_names = problem_names;
-        data.problem_dimensions = problem_dimensions;
-        data.time_processes = time_processes;
-        data.problem_unsolved = problem_unsolved;
-        data.merit_histories = merit_histories;
-        data.merit_out = merit_out;
-        data.merit_init = merit_init;
-        data.merit_min = merit_min;
-        save(fullfile(path_log, 'data.mat'), '-struct', 'data');
-        try
-            fid = fopen(path_readme_log, 'a');
-            fprintf(fid, "'data.mat': file, storing the data of the current experiment for future loading.\n");
-            fclose(fid);
-        catch
-        end
-    elseif strcmp(profile_options.(ProfileOptionKey.LOAD.value), 'latest')
-        % Try to find all the txt files named by time_stamp in the path_out directory and find the
-        % latest one.
-        time_stamp_files = dir(fullfile(path_out, '**', 'time_stamp_*.txt'));
-        if isempty(time_stamp_files) || numel(time_stamp_files) == 1
-            % Note that the current experiment already generates and saves the time stamp so that
-            % there should be at least two time_stamp files if we want to load the latest one.
-            error("MATLAB:benchmark:NoTimeStamps", "Failed to load data since no time_stamp files are found in the directory '%s'.", path_out);
-        end
-        time_stamps = arrayfun(@(f) datetime(f.name(12:end-4), 'InputFormat', 'yyyyMMdd_HHmmss'), time_stamp_files);
-        % Find the second latest time_stamp file, since the latest one is the current experiment.
-        [~, indexes] = sort(time_stamps, 'descend');
-        latest_idx = indexes(2);
-        latest_time_stamp_file = time_stamp_files(latest_idx);
-        path_latest_time_stamp = latest_time_stamp_file.folder;
-        try
-            copyfile(fullfile(path_latest_time_stamp, 'data.mat'), path_log);
-            try
-                fid = fopen(path_readme_log, 'a');
-                fprintf(fid, "'data.mat': file, storing the data of the current experiment for future loading.\n");
-                fclose(fid);
-            catch
-            end
-            load(fullfile(path_log, 'data.mat'), 'n_eval', 'problem_names', 'problem_dimensions', 'time_processes', 'problem_unsolved', 'merit_histories', 'merit_out', 'merit_init', 'merit_min');
-        catch
-            error("MATLAB:benchmark:NoDataMatFile", "Failed to load the 'data.mat' file from the directory '%s'. Try to set `load` to a empty char or a specific time stamp.", path_log);
-        end
-    else
-        pattern = ['time_stamp_', profile_options.(ProfileOptionKey.LOAD.value), '.txt'];
-        time_stamp_file = dir(fullfile(path_out, '**', pattern));
-        if isempty(time_stamp_file)
-            error("MATLAB:benchmark:NoTimeStamps", "Failed to load data since no time_stamp named '%s' is found in the directory '%s'.", profile_options.(ProfileOptionKey.LOAD.value), path_out);
-        end
-        path_time_stamp = time_stamp_file.folder;
-        try
-            copyfile(fullfile(path_time_stamp, 'data.mat'), path_log);
-            try
-                fid = fopen(path_readme_log, 'a');
-                fprintf(fid, "'data.mat': file, storing the data of the current experiment for future loading.\n");
-                fclose(fid);
-            catch
-            end
-            load(fullfile(path_log, 'data.mat'), 'n_eval', 'problem_names', 'problem_dimensions', 'time_processes', 'problem_unsolved', 'merit_histories', 'merit_out', 'merit_init', 'merit_min');
-        catch
-            error("MATLAB:benchmark:NoDataMatFile", "Failed to load the 'data.mat' file from the directory '%s'. Try to set `load` to a empty char or another time stamp.", path_time_stamp);
-        end
     end
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Store the problem names. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     % Store the names of the problems.
     path_txt = fullfile(path_log, 'problems.txt');
@@ -841,7 +821,7 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
         end
         if ~isempty(problem_unsolved)
             fprintf(fid, "\n");
-            fprintf(fid, "Unsolved problems:\n");
+            fprintf(fid, "Unsolved problems (that all the solvers failed to return a solution):\n");
             for i = 1:length(problem_unsolved)
                 count = fprintf(fid, "%s\n", problem_unsolved{i});
                 if count < 0
@@ -989,9 +969,12 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
             cell_axs_summary_out = {};
         end
 
-        processed_solver_names = cellfun(@(s) strrep(s, '_', '\_'), other_options.(OtherOptionKey.SOLVER_NAMES.value), 'UniformOutput', false);
-        [fig_perf_hist, fig_data_hist, fig_log_ratio_hist, curves{i_tol}.hist] = drawProfiles(work_hist, problem_dimensions, processed_solver_names, tolerance_label, cell_axs_summary_hist, true, is_perf, is_data, is_log_ratio, profile_options, curves{i_tol}.hist);
-        [fig_perf_out, fig_data_out, fig_log_ratio_out, curves{i_tol}.out] = drawProfiles(work_out, problem_dimensions, processed_solver_names, tolerance_label, cell_axs_summary_out, is_output_based, is_perf, is_data, is_log_ratio, profile_options, curves{i_tol}.out);
+        if ~exist('solver_names', 'var')
+            solver_names = cellfun(@(s) strrep(s, '_', '\_'), other_options.(OtherOptionKey.SOLVER_NAMES.value), 'UniformOutput', false);
+        end
+
+        [fig_perf_hist, fig_data_hist, fig_log_ratio_hist, curves{i_tol}.hist] = drawProfiles(work_hist, problem_dimensions, solver_names, tolerance_label, cell_axs_summary_hist, true, is_perf, is_data, is_log_ratio, profile_options, curves{i_tol}.hist);
+        [fig_perf_out, fig_data_out, fig_log_ratio_out, curves{i_tol}.out] = drawProfiles(work_out, problem_dimensions, solver_names, tolerance_label, cell_axs_summary_out, is_output_based, is_perf, is_data, is_log_ratio, profile_options, curves{i_tol}.out);
 
         if profile_options.(ProfileOptionKey.DRAW_PLOTS.value)
             pdf_perf_hist = fullfile(path_perf_hist, ['perf_hist_', int2str(i_tol), '.pdf']);
@@ -1112,10 +1095,10 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
         % Print the scores of the solvers.
         fprintf('\n');
         fprintf('INFO: Scores of the solvers:\n');
-        max_solver_name_length = max(cellfun(@length, processed_solver_names));
+        max_solver_name_length = max(cellfun(@length, solver_names));
         for i_solver = 1:n_solvers
             format_info_str = sprintf('INFO: %%-%ds:    %%.4f\n', max_solver_name_length);
-            fprintf(format_info_str, processed_solver_names{i_solver}, solver_scores(i_solver));
+            fprintf(format_info_str, solver_names{i_solver}, solver_scores(i_solver));
         end
     end
 
@@ -1168,10 +1151,36 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
         fprintf('\nINFO: Finished the computation of the profiles under "%s" feature.\n', feature.name);
     end
 
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%% Save useful data to a structure and then to a mat file for future loading. %%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    data = struct();
+    data.feature_stamp = feature_stamp;
+    data.solver_names = solver_names;
+    data.n_eval = n_eval;
+    data.problem_names = problem_names;
+    data.problem_dimensions = problem_dimensions;
+    data.time_processes = time_processes;
+    data.problem_unsolved = problem_unsolved;
+    data.merit_histories = merit_histories;
+    data.merit_out = merit_out;
+    data.merit_init = merit_init;
+    data.merit_min = merit_min;
+    try
+        save(fullfile(path_log, 'data.mat'), '-struct', 'data');
+        fid = fopen(path_readme_log, 'a');
+        fprintf(fid, "'data.mat': file, storing the data of the current experiment for future loading.\n");
+        fclose(fid);
+    catch
+        fprintf("INFO: Failed to save the data of the current experiment.\n");
+    end
+
     diary off;
 end
 
-% Following code is modified from the code provided by Benjamin Großmann (2024). Merge PDF-Documents
+% Following one function is modified from the code provided by Benjamin Großmann (2024). Merge PDF-Documents
 % (https://www.mathworks.com/matlabcentral/fileexchange/89127-merge-pdf-documents), MATLAB Central
 % File Exchange. Retrieved November 12, 2024.
 function mergePdfs(file_path, output_file_name, output_path)

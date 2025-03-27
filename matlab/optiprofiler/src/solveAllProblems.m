@@ -87,8 +87,6 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
         problem_solvers_success(i_problem) = results{i_problem}{11};
     end
     problem_unsolved = problem_names(~problem_solvers_success);
-    % Remove the unsolved problems from the results.
-    results = results(problem_solvers_success);
 
     if length(problem_unsolved) == n_problems % Check if all problems failed to solve.
         fprintf("INFO: All problems failed to solve.\n");
@@ -104,30 +102,29 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
         computation_times = [];
     else
         % Process results.
-        n_problems_solved = length(results);
         n_solvers = length(solvers);
         n_runs = feature.options.(FeatureOptionKey.N_RUNS.value);
-        problem_dimensions = NaN(n_problems_solved, 1);
-        computation_times = NaN(n_problems_solved, 1);
-        for i_problem = 1:n_problems_solved
+        problem_dimensions = NaN(n_problems, 1);
+        computation_times = NaN(n_problems, 1);
+        for i_problem = 1:n_problems
             problem_dimensions(i_problem) = results{i_problem}{9};
             computation_times(i_problem) = results{i_problem}{10};
         end
-        if n_problems_solved > 0
+        if n_problems > 0
             max_eval = max_eval_factor * max(problem_dimensions);
         else
             max_eval = 1;
         end
-        fun_histories = NaN(n_problems_solved, n_solvers, n_runs, max_eval);
-        maxcv_histories = NaN(n_problems_solved, n_solvers, n_runs, max_eval);
-        fun_out = NaN(n_problems_solved, n_solvers, n_runs);
-        maxcv_out = NaN(n_problems_solved, n_solvers, n_runs);
-        fun_init = NaN(n_problems_solved, 1);
-        maxcv_init = NaN(n_problems_solved, 1);
-        n_eval = NaN(n_problems_solved, n_solvers, n_runs);
+        fun_histories = NaN(n_problems, n_solvers, n_runs, max_eval);
+        maxcv_histories = NaN(n_problems, n_solvers, n_runs, max_eval);
+        fun_out = NaN(n_problems, n_solvers, n_runs);
+        maxcv_out = NaN(n_problems, n_solvers, n_runs);
+        fun_init = NaN(n_problems, 1);
+        maxcv_init = NaN(n_problems, 1);
+        n_eval = NaN(n_problems, n_solvers, n_runs);
         problem_names = [];
 
-        for i_problem = 1:n_problems_solved
+        for i_problem = 1:n_problems
             max_eval = max_eval_factor * problem_dimensions(i_problem);
             result = results{i_problem};
             fun_hist = result{1};
