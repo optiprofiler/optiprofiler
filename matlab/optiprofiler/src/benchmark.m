@@ -77,15 +77,15 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
 %         (performance profiles and data profiles). Default is true.
 %       - scoring_fun: the scoring function to calculate the scores of the
 %         solvers. It should be a function handle as follows:
-%               profile_scores -> solver_scores,
+%               ``profile_scores -> solver_scores``,
 %         where `profile_scores` is a 4D tensor containing scores for all
-%         profiles. The first dimension is the index of the solver, the second
-%         is the index of tolerance starting from 1, the third represents
-%         history-based or output-based profiles, and the fourth represents
-%         performance profiles, data profiles, or log-ratio profiles. The
-%         default scoring function takes the average of the history-based
-%         performance profiles along the tolerance axis and then normalizes the
-%         average by the maximum value of the average.
+%         profiles. The first dimension of `profile_scores` is the index of the
+%         solver, the second is the index of tolerance starting from 1, the
+%         third represents history-based or output-based profiles, and the
+%         fourth represents performance profiles, data profiles, or log-ratio
+%         profiles. The default scoring function takes the average of the
+%         history-based performance profiles along the tolerance axis and then
+%         normalizes the average by the maximum value of the average.
 %       - load: loading the stored data from a completed experiment and draw
 %         profiles. It can be either 'latest' or a time stamp of an experiment
 %         in the format of 'yyyyMMdd_HHmmss'. No default.
@@ -120,7 +120,7 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
 %       - distribution: the distribution of perturbation in 'perturbed_x0'
 %         feature or noise in 'noisy' feature. It should be either a string
 %         (or char), or a function handle
-%               (random stream, dimension) -> random vector,
+%               ``(random stream, dimension) -> random vector``,
 %         accepting a random stream and the dimension of a problem and
 %         returning a random vector with the given dimension. In 'perturbed_x0'
 %         case, the char should be either 'spherical' or 'gaussian' (default is
@@ -162,26 +162,26 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
 %         is true.
 %       - mod_x0: the modifier function to modify the inital guess in the 
 %         'custom' feature. It should be a function handle as follows:
-%               (random_stream, problem) -> modified_x0,
+%               ``(random_stream, problem) -> modified_x0``,
 %         where `problem` is an instance of the class Problem, and
 %         `modified_x0` is the modified initial guess. No default.
 %       - mod_affine: the modifier function to generate the affine
 %         transformation applied to the variables in the 'custom' feature. It
 %         should be a function handle as follows:
-%               (random_stream, problem) -> (A, b, inv),
+%               ``(random_stream, problem) -> (A, b, inv)``,
 %         where `problem` is an instance of the class Problem, `A` is the
 %         matrix of the affine transformation, `b` is the vector of the affine
 %         transformation, and `inv` is the inverse of matrix `A`. No default.
 %       - mod_bounds: the modifier function to modify the bound constraints in
 %         the 'custom' feature. It should be a function handle as follows:
-%               (random_stream, problem) -> (modified_xl, modified_xu),
+%               ``(random_stream, problem) -> (modified_xl, modified_xu)``,
 %         where `problem` is an instance of the class Problem, `modified_xl` is
 %         the modified lower bound, and `modified_xu` is the modified upper
 %         bound. No default.
 %       - mod_linear_ub: the modifier function to modify the linear inequality
 %         constraints in the 'custom' feature. It should be a function handle
 %         as follows:
-%               (random_stream, problem) -> (modified_aub, modified_bub),
+%               ``(random_stream, problem) -> (modified_aub, modified_bub)``,
 %         where `problem` is an instance of the class Problem, `modified_aub`
 %         is the modified matrix of the linear inequality constraints, and
 %         `modified_bub` is the modified vector of the linear inequality
@@ -189,28 +189,28 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
 %       - mod_linear_eq: the modifier function to modify the linear equality
 %         constraints in the 'custom' feature. It should be a function handle
 %         as follows:
-%               (random_stream, problem) -> (modified_aeq, modified_beq),
+%               ``(random_stream, problem) -> (modified_aeq, modified_beq)``,
 %         where `problem` is an instance of the class Problem, `modified_aeq`
 %         is the modified matrix of the linear equality constraints, and
 %         `modified_beq` is the modified vector of the linear equality
 %         constraints. No default.
 %       - mod_fun: the modifier function to modify the objective function in
 %         the 'custom' feature. It should be a function handle as follows:
-%               (x, random_stream, problem) -> modified_fun,
+%               ``(x, random_stream, problem) -> modified_fun``,
 %         where `x` is the evaluation point, `problem` is an instance of the
 %         class Problem, and `modified_fun` is the modified objective function
 %         value. No default.
 %       - mod_cub: the modifier function to modify the nonlinear inequality
 %         constraints in the 'custom' feature. It should be a function handle
 %         as follows:
-%               (x, random_stream, problem) -> modified_cub,
+%               ``(x, random_stream, problem) -> modified_cub``,
 %         where x is the evaluation point, `problem` is an instance of the
 %         class Problem, and `modified_cub` is the modified vector of the
 %         nonlinear inequality constraints. No default.
 %       - mod_ceq: the modifier function to modify the nonlinear equality
 %         constraints in the 'custom' feature. It should be a function handle
 %         as follows:
-%               (x, random_stream, problem) -> modified_ceq,
+%               ``(x, random_stream, problem) -> modified_ceq``,
 %         where x is the evaluation point, `problem` is an instance of the
 %         class Problem, and `modified_ceq` is the modified vector of the
 %         nonlinear equality constraints. No default.
@@ -253,7 +253,7 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
 %         library by name but by the options above.
 %       - custom_problem_loader: the function handle to load the custom
 %         problems. It should be a function handle as follows:
-%               (problem_name) -> problem,
+%               ``(problem_name) -> problem``,
 %         where `problem_name` is the name of the problem, and `problem` is an
 %         instance of the class Problem. Default is not to load any custom
 %         problem.
@@ -371,7 +371,7 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
         options.(ProfileOptionKey.LOAD.value) = char(options.(ProfileOptionKey.LOAD.value));
         % Check whether it is 'latest' or a string (or char) in the format of 'yyyyMMdd_HHmmss'.
         time_stamp_pattern = '^\d{4}(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})$';
-        if ~strcmp(options.(ProfileOptionKey.LOAD.value), 'latest') && ~isempty(regexp(options.(ProfileOptionKey.LOAD.value), time_stamp_pattern, 'once'))
+        if ~strcmp(options.(ProfileOptionKey.LOAD.value), 'latest') && isempty(regexp(options.(ProfileOptionKey.LOAD.value), time_stamp_pattern, 'once'))
             error("MATLAB:checkValidityProfileOptions:loadNotValid", "The field 'load' of options should be either 'latest' or a time stamp in the format of 'yyyyMMdd_HHmmss'.");
         end
 
@@ -379,7 +379,8 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
         if isfield(options, ProfileOptionKey.BENCHMARK_ID.value)
             search_path = fullfile(pwd, options.(ProfileOptionKey.BENCHMARK_ID.value));
         else
-            search_path = fullfile(pwd, 'out');
+            search_path = pwd;
+            options.(ProfileOptionKey.BENCHMARK_ID.value) = '.';
         end
 
         % Find the path of the data to load.
@@ -1237,8 +1238,8 @@ function profile_scores = computeScores(curves)
             profile_scores(i_solver, i_tol, 2, 1) = integrate(curve_out_perf, 'perf');
             profile_scores(i_solver, i_tol, 2, 2) = integrate(curve_out_data, 'data');
             if n_solvers == 2
-                curve_hist_log_ratio = [curves{i_tol}.hist.log_ratio{i_solver}, curves{i_tol}.hist.log_ratio{3}];
-                curve_out_log_ratio = [curves{i_tol}.out.log_ratio{i_solver}, curves{i_tol}.out.log_ratio{3}];
+                curve_hist_log_ratio = curves{i_tol}.hist.log_ratio{i_solver};
+                curve_out_log_ratio = curves{i_tol}.out.log_ratio{i_solver};
                 profile_scores(i_solver, i_tol, 1, 3) = integrate(curve_hist_log_ratio, 'log_ratio');
                 profile_scores(i_solver, i_tol, 2, 3) = integrate(curve_out_log_ratio, 'log_ratio');
             end

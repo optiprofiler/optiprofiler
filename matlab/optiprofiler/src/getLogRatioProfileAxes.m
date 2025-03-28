@@ -1,4 +1,4 @@
-function [x_log_ratio, y_log_ratio, ratio_max, curves] = getLogRatioProfileAxes(work, curves)
+function [x_log_ratio, y_log_ratio, ratio_max, n_solvers_equal, curves] = getLogRatioProfileAxes(work, curves)
 %GETLOGRATIOPROFILEAXES computes the axes for the log-ratio profiles.
 
     [n_problems, n_solvers, n_runs] = size(work);
@@ -12,6 +12,13 @@ function [x_log_ratio, y_log_ratio, ratio_max, curves] = getLogRatioProfileAxes(
     end
     y_log_ratio(isnan(work_flat(:, 1)) & isfinite(work_flat(:, 2))) = 1.1 * ratio_max;
     y_log_ratio(isfinite(work_flat(:, 1)) & isnan(work_flat(:, 2))) = -1.1 * ratio_max;
+
+    % If both solvers use the same budget to solve one problem (in this case log-ratio is 0), we let
+    % log-ratio of both solvers to be 1.1 * ratio_max or -1.1 * ratio_max.
+    n_solvers_equal = sum(y_log_ratio == 0);
+    y_log_ratio(y_log_ratio == 0) = 1.1 * ratio_max;
+    y_log_ratio = [y_log_ratio; -1.1 * ratio_max * ones(n_solvers_equal, 1)];
+
     y_log_ratio(isnan(work_flat(:, 1)) & isnan(work_flat(:, 2))) = 0.0;
     y_log_ratio = sort(y_log_ratio);
 
@@ -20,5 +27,4 @@ function [x_log_ratio, y_log_ratio, ratio_max, curves] = getLogRatioProfileAxes(
     % Store the curves in the `profiles` struct.
     curves.log_ratio{1} = [x_log_ratio(y_log_ratio < 0)'; y_log_ratio(y_log_ratio < 0)'];
     curves.log_ratio{2} = [x_log_ratio(y_log_ratio > 0)'; y_log_ratio(y_log_ratio > 0)'];
-    curves.log_ratio{3} = [x_log_ratio(y_log_ratio == 0)'; 1.1 * ratio_max * ones(1, sum(y_log_ratio == 0))];
 end
