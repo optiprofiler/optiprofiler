@@ -89,6 +89,10 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
 %       - load: loading the stored data from a completed experiment and draw
 %         profiles. It can be either 'latest' or a time stamp of an experiment
 %         in the format of 'yyyyMMdd_HHmmss'. No default.
+%       - solver_toload: the indices of the solvers to load when the 'load'
+%         option is provided. It can be a vector of different integers selected
+%         from 1 to the total number of solvers of the loading experiment. At
+%         least two indices should be provided. Default is all the solvers.
 %       - line_colors: the colors of the lines in the plots. It can be a cell
 %         array of short names of colors ('r', 'g', 'b', 'c', 'm', 'y', 'k') or
 %         a matrix with each row being a RGB triplet. Default line colors are
@@ -404,27 +408,52 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
             path_data = time_stamp_file.folder;
         end
 
-        % Load the data.mat file in the directory of the latest time stamp.
+        % Load data from the 'data.mat' file in the path_data directory.
         if ~isfield(options, ProfileOptionKey.FEATURE_STAMP.value)
-            try
-                load(fullfile(path_data, 'data.mat'), 'feature_stamp');
-            catch
+            warning('off');
+            load(fullfile(path_data, 'data.mat'), 'feature_stamp');
+            warning('on');
+            if ~exist('feature_stamp', 'var')
                 error("MATLAB:benchmark:NoFeatureStampDataMatFile", "Failed to load the variable 'feature_stamp' from the 'data.mat' file in the directory '%s' and the 'feature_stamp' field is not provided in the options.", path_data);
             end
         end
-        if ~isfield(options, OtherOptionKey.SOLVER_NAMES.value)
-            try
-                load(fullfile(path_data, 'data.mat'), 'solver_names');
-            catch
-                error("MATLAB:benchmark:NoSolverNamesDataMatFile", "Failed to load the variable 'solver_names' from the 'data.mat' file in the directory '%s' and the 'solver_names' field is not provided in the options.", path_data);
-            end
-        end
-        try
-            load(fullfile(path_data, 'data.mat'), 'n_eval', 'problem_names', 'problem_dimensions', 'time_processes', 'problem_unsolved', 'merit_histories', 'merit_out', 'merit_init', 'merit_min');
-        catch
+        warning('off');
+        load(fullfile(path_data, 'data.mat'), 'n_eval', 'problem_names', 'problem_dimensions', 'time_processes', 'problem_unsolved', 'merit_histories', 'merit_out', 'merit_init');
+        warning('on');
+        if ~exist('n_eval', 'var') || ~exist('problem_names', 'var') || ~exist('problem_dimensions', 'var') || ~exist('time_processes', 'var') || ~exist('problem_unsolved', 'var') || ~exist('merit_histories', 'var') || ~exist('merit_out', 'var') || ~exist('merit_init', 'var')
             error("MATLAB:benchmark:NoDataMatFile", "Failed to load computation results from the 'data.mat' file in the directory '%s'.", path_data);
         end
 
+        % Check whether the user provides the 'solver_toload' field.
+        n_solvers_loaded = size(merit_out, 2);
+        if isfield(options, ProfileOptionKey.SOLVER_TOLOAD.value)
+            % Check the validity of the 'solver_toload' field. It should be a vector of different
+            % integers selected from 1 to the total number of solvers in the loaded data.
+            solver_toload = unique(options.(ProfileOptionKey.SOLVER_TOLOAD.value));
+            if ~isintegervector(solver_toload) || any(solver_toload < 1) || any(solver_toload > n_solvers_loaded) || numel(solver_toload) < 2
+                error("MATLAB:benchmark:solver_toloadNotValid", "The field 'solver_toload' of options should be a vector of different integers selected from 1 to the total number of solvers in the loaded data, and at least two indices should be provided.");
+            end
+        else
+            solver_toload = 1:n_solvers_loaded;
+        end
+
+        % Truncate the loaded data according to the 'solver_toload' field.
+        if ~isfield(options, OtherOptionKey.SOLVER_NAMES.value)
+            warning('off');
+            load(fullfile(path_data, 'data.mat'), 'solver_names');
+            warning('on');
+            if ~exist('solver_names', 'var')
+                error("MATLAB:benchmark:NoSolverNamesDataMatFile", "Failed to load the variable 'solver_names' from the 'data.mat' file in the directory '%s' and the 'solver_names' field is not provided in the options.", path_data);
+            end
+            solver_names = solver_names(solver_toload);
+        elseif numel(options.(OtherOptionKey.SOLVER_NAMES.value)) ~= numel(solver_toload)
+            error("MATLAB:benchmark:solver_namesNotMatch", "The number of elements in the 'solver_names' field of options should be the same as the number of solvers to load in the 'solver_toload' field.");
+        end
+        n_solvers = numel(solver_toload);
+        n_eval = n_eval(:, solver_toload, :);
+        merit_histories = merit_histories(:, solver_toload, :, :);
+        merit_out = merit_out(:, solver_toload, :);
+        merit_min = min(min(min(merit_histories, [], 4, 'omitnan'), [], 3, 'omitnan'), [], 2, 'omitnan');
     end
 
 
@@ -504,7 +533,9 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Initialize output variables. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    n_solvers = numel(solvers);
+    if ~exist('n_solvers', 'var')
+        n_solvers = numel(solvers);
+    end
     solver_scores = zeros(n_solvers, 1);
     profile_scores = [];
     curves = [];
@@ -691,7 +722,7 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
         if ~exist(path_data_out, 'dir')
             mkdir(path_data_out);
         end
-        if length(solvers) == 2
+        if n_solvers == 2
             if ~exist(path_log_ratio_hist, 'dir')
                 mkdir(path_log_ratio_hist);
             end
@@ -1168,7 +1199,6 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
     data.merit_histories = merit_histories;
     data.merit_out = merit_out;
     data.merit_init = merit_init;
-    data.merit_min = merit_min;
     try
         save(fullfile(path_log, 'data.mat'), '-struct', 'data');
         fid = fopen(path_readme_log, 'a');

@@ -172,7 +172,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
         return;
     end
 
-    % try
+    try
         merit_histories = computeMeritValues(fun_histories, maxcv_histories, maxcv_init);
         merit_init = computeMeritValues(fun_init, maxcv_init, maxcv_init);
 
@@ -226,7 +226,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
         exportgraphics(fig_summary, pdf_summary, 'ContentType', 'vector');
         warning('on');
         close(fig_summary);
-    % catch Exception
-    %     fprintf("INFO: An error occurred while plotting the history plots of the problem %s: %s\n", problem_name, Exception.message);
-    % end
+    catch Exception
+        fprintf("INFO: An error occurred while plotting the history plots of the problem %s: %s\n", problem_name, Exception.message);
+    end
 end

@@ -23,6 +23,7 @@ classdef ProfileOptionKey
         SEMILOGX ('semilogx')
         SCORING_FUN ('scoring_fun')
         LOAD ('load')
+        SOLVER_TOLOAD ('solver_toload')
         LINE_COLORS ('line_colors')
         LINE_STYLES ('line_styles')
         LINE_WIDTHS ('line_widths')
