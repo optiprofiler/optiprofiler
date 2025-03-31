@@ -1,4 +1,4 @@
-function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
+function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %BENCHMARK Create multiple profiles for benchmarking optimization solvers on a
 %   set of problems with different features.
 %
@@ -346,22 +346,35 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     if nargin == 0
-        error("MATLAB:benchmark:solverMustBeProvided", "A cell of function handles (callable solvers) must be provided as the first argument.");
+        error("MATLAB:benchmark:solverMustBeProvided", "A cell of function handles (callable solvers) or a struct of options must be provided.");
     elseif nargin == 1
-        % When input only contains one argument, we assume the user chooses benchmark(solvers) and
-        % test plain feature.
-        feature_name = 'plain';
-        options = struct();
+        if isstruct(varargin{1})
+            % When input contains one argument and the first argument is a struct, we assume the
+            % user chooses benchmark(options).
+            solvers = {};
+            feature_name = 'plain';
+            options = varargin{1};
+            options_store = options;
+            if ~isfield(options, ProfileOptionKey.LOAD.value) || isempty(options.(ProfileOptionKey.LOAD.value))
+                error("MATLAB:benchmark:LoadFieldNotProvided", "The field 'load' of options should be provided when the first argument is a struct.");
+            end
+        else
+            solvers = varargin{1};
+            feature_name = 'plain';
+            options = struct();
+        end
     elseif nargin == 2
-        if ischarstr(varargin{1}) || (iscell(varargin{1}) && all(cellfun(@ischarstr, varargin{1})))
+        if ischarstr(varargin{2})
             % When input contains two arguments and the second argument is a char or cell of char,
             % we assume the user chooses benchmark(solvers, feature_name).
-            feature_name = varargin{1};
+            solvers = varargin{1};
+            feature_name = varargin{2};
             options = struct();
-        elseif isstruct(varargin{1})
+        elseif isstruct(varargin{2})
             % When input contains two arguments and the second argument is a struct, we assume the
             % user chooses benchmark(solvers, options).
-            options = varargin{1};
+            solvers = varargin{1};
+            options = varargin{2};
             options_store = options;
             if isfield(options, 'feature_name')
                 feature_name = options.feature_name;
@@ -530,11 +543,13 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     % Process the solvers.
-    if ~iscell(solvers) || ~all(cellfun(@(s) isa(s, 'function_handle'), solvers))
-        error("MATLAB:benchmark:solversWrongType", "The first argument for `benchmark` must be a cell array of function handles.");
-    end
-    if numel(solvers) < 2
-        error("MATLAB:benchmark:solversAtLeastTwo", "The first argument for `benchmark` must be a cell array of at least two function handles since we need to compare at least two solvers.");
+    if ~isfield('load', 'options') || isempty(options.(ProfileOptionKey.LOAD.value))
+        if ~iscell(solvers) || ~all(cellfun(@(s) isa(s, 'function_handle'), solvers))
+            error("MATLAB:benchmark:solversWrongType", "The first argument for `benchmark` must be a cell array of function handles.");
+        end
+        if numel(solvers) < 2
+            error("MATLAB:benchmark:solversAtLeastTwo", "The first argument for `benchmark` must be a cell array of at least two function handles since we need to compare at least two solvers.");
+        end
     end
 
     % Process the feature_name.
