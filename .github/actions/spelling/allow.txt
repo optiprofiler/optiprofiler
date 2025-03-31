@@ -417,3 +417,7 @@ WAYSEA
 YATP
 YFITNE
 ico
+isintegervector
+isiv
+Sepcial
+toload

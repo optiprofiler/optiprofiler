@@ -851,7 +851,8 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
     % Calculate the computation times for each problem.
     time_processes = zeros(numel(problem_names), 1);
     for i_problem = 1:numel(problem_names)
-        time_processes(i_problem) = sum(computation_times(i_problem, :, :), 'omitnan');
+        time_process = computation_times(i_problem, :, :);
+        time_processes(i_problem) = sum(time_process(:), 'omitnan');
     end
 
     % Store the names of the problems.
