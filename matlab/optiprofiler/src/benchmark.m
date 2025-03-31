@@ -19,6 +19,12 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
 %   SOLVERS with options specified in the struct OPTIONS. See 'Options' part
 %   for more details.
 %
+%   SOLVER_SCORES = BENCHMARK(OPTIONS) creates profiles with options specified
+%   in the struct OPTIONS. Note that the struct OPTIONS should at least contain
+%   the field `load` with the value 'latest' or a time stamp of an experiment
+%   in the format of 'yyyyMMdd_HHmmss'. In this case, we will load the data
+%   from the specified experiment and draw the profiles.
+%
 %   [SOLVER_SCORES, PROFILE_SCORES] = BENCHMARK(...) returns a 4D tensor
 %   PROFILE_SCORES containing scores for all profiles. See `scoring_fun` in
 %   'Options' part for more details.
@@ -89,7 +95,7 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
 %       - load: loading the stored data from a completed experiment and draw
 %         profiles. It can be either 'latest' or a time stamp of an experiment
 %         in the format of 'yyyyMMdd_HHmmss'. No default.
-%       - solver_toload: the indices of the solvers to load when the 'load'
+%       - solvers_toload: the indices of the solvers to load when the 'load'
 %         option is provided. It can be a vector of different integers selected
 %         from 1 to the total number of solvers of the loading experiment. At
 %         least two indices should be provided. Default is all the solvers.
@@ -226,6 +232,7 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
 %       Professor Philippe L. Toint. More details can be found in the following
 %       website.
 %           https://github.com/GrattonToint/S2MPJ
+%
 %       - p_type: the type of the problems to be selected. It should be a
 %         string containing the combination of 'u' (unconstrained), 'b' (bound
 %         constrained), 'l' (linearly constrained), and 'n' (nonlinearly
@@ -241,6 +248,10 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
 %         problems, and 0 for the others.
 %       - excludelist: the list of problems to be excluded. Default is not to
 %         exclude any problem.
+%
+%       Note that if the field `load` of the options is provided, we will use
+%       above options to select the problems and then take an intersection with
+%       the problems in the loading experiment.
 %
 %       4. other options:
 %
@@ -388,22 +399,26 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
         end
 
         % Find the path of the data to load.
+        time_stamp_files = struct('name', {}, 'folder', {}, 'date', {}, 'bytes', {}, 'isdir', {}, 'datenum', {});
         if strcmp(options.(ProfileOptionKey.LOAD.value), 'latest')
             % Try to find all the txt files named by time_stamp in the search_path directory and find the latest one.
-            time_stamp_files = dir(fullfile(search_path, '**', 'time_stamp_*.txt'));
+            % Note that we limit the search to 5 levels of subdirectories.
+            time_stamp_files = search_in_dir(search_path, 'time_stamp_*.txt', 5, 0, time_stamp_files);
             if isempty(time_stamp_files)
-                error("MATLAB:benchmark:NoTimeStamps", "Failed to load data since no time_stamp files are found in the directory '%s'.", search_path);
+                error("MATLAB:benchmark:NoTimeStamps", "Failed to load data since no time_stamp files are found in the directory '%s'. Note that the search is limited to 5 levels of subdirectories.", search_path);
             end
             time_stamps = arrayfun(@(f) datetime(f.name(12:end-4), 'InputFormat', 'yyyyMMdd_HHmmss'), time_stamp_files);
             [~, indexes] = sort(time_stamps, 'descend');
+            % Get the latest time_stamp file. If there are multiple files with the same time_stamp, we take the first one.
             latest_idx = indexes(1);
             latest_time_stamp_file = time_stamp_files(latest_idx);
             path_data = latest_time_stamp_file.folder;
         else
+            % Same as above, but we only search for the specific time_stamp file.
             pattern = ['time_stamp_', options.(ProfileOptionKey.LOAD.value), '.txt'];
-            time_stamp_file = dir(fullfile(search_path, '**', pattern));
+            time_stamp_file = search_in_dir(search_path, pattern, 5, 0, time_stamp_files);
             if isempty(time_stamp_file)
-                error("MATLAB:benchmark:NoTimeStamps", "Failed to load data since no time_stamp named '%s' is found in the directory '%s'.", ['time_stamp_', options.(ProfileOptionKey.LOAD.value), '.txt'], search_path);
+                error("MATLAB:benchmark:NoTimeStamps", "Failed to load data since no time_stamp named '%s' is found in the directory '%s'. Note that the search is limited to 5 levels of subdirectories.", ['time_stamp_', options.(ProfileOptionKey.LOAD.value), '.txt'], search_path);
             end
             path_data = time_stamp_file.folder;
         end
@@ -424,23 +439,23 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
             error("MATLAB:benchmark:NoDataMatFile", "Failed to load computation results from the 'data.mat' file in the directory '%s'.", path_data);
         end
 
-        % Check whether the user provides the 'solver_toload' field.
+        % Check whether the user provides the 'solvers_toload' field.
         n_solvers_loaded = size(merit_out, 2);
-        if isfield(options, ProfileOptionKey.SOLVER_TOLOAD.value)
-            % Check the validity of the 'solver_toload' field. It should be a vector of different
+        if isfield(options, ProfileOptionKey.SOLVERS_TOLOAD.value)
+            % Check the validity of the 'solvers_toload' field. It should be a vector of different
             % integers selected from 1 to the total number of solvers in the loaded data.
             try
-                solver_toload = unique(options.(ProfileOptionKey.SOLVER_TOLOAD.value));
+                solvers_toload = unique(options.(ProfileOptionKey.SOLVERS_TOLOAD.value));
             catch
             end
-            if ~isintegervector(solver_toload) || any(solver_toload < 1) || any(solver_toload > n_solvers_loaded) || numel(solver_toload) < 2
-                error("MATLAB:benchmark:solver_toloadNotValid", "The field 'solver_toload' of options should be a vector of different integers selected from 1 to the total number of solvers in the loaded data, and at least two indices should be provided.");
+            if ~isintegervector(solvers_toload) || any(solvers_toload < 1) || any(solvers_toload > n_solvers_loaded) || numel(solvers_toload) < 2
+                error("MATLAB:benchmark:solvers_toloadNotValid", "The field 'solvers_toload' of options should be a vector of different integers selected from 1 to the total number of solvers in the loaded data, and at least two indices should be provided.");
             end
         else
-            solver_toload = 1:n_solvers_loaded;
+            solvers_toload = 1:n_solvers_loaded;
         end
 
-        % Truncate the loaded data according to the 'solver_toload' field.
+        % Truncate the loaded data according to the 'solvers_toload' field.
         if ~isfield(options, OtherOptionKey.SOLVER_NAMES.value)
             warning('off');
             load(fullfile(path_data, 'data.mat'), 'solver_names');
@@ -448,16 +463,16 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
             if ~exist('solver_names', 'var')
                 error("MATLAB:benchmark:NoSolverNamesDataMatFile", "Failed to load the variable 'solver_names' from the 'data.mat' file in the directory '%s' and the 'solver_names' field is not provided in the options.", path_data);
             end
-            solver_names = solver_names(solver_toload);
-        elseif numel(options.(OtherOptionKey.SOLVER_NAMES.value)) ~= numel(solver_toload)
-            error("MATLAB:benchmark:solver_namesNotMatch", "The number of elements in the 'solver_names' field of options should be the same as the number of solvers to load in the 'solver_toload' field.");
+            solver_names = solver_names(solvers_toload);
+        elseif numel(options.(OtherOptionKey.SOLVER_NAMES.value)) ~= numel(solvers_toload)
+            error("MATLAB:benchmark:solver_namesNotMatch", "The number of elements in the 'solver_names' field of options should be the same as the number of solvers to load in the 'solvers_toload' field.");
         end
-        n_solvers = numel(solver_toload);
-        n_evals = n_evals(:, solver_toload, :);
-        computation_times = computation_times(:, solver_toload, :);
-        solvers_successes = solvers_successes(:, solver_toload, :);
-        merit_histories = merit_histories(:, solver_toload, :, :);
-        merit_out = merit_out(:, solver_toload, :);
+        n_solvers = numel(solvers_toload);
+        n_evals = n_evals(:, solvers_toload, :);
+        computation_times = computation_times(:, solvers_toload, :);
+        solvers_successes = solvers_successes(:, solvers_toload, :);
+        merit_histories = merit_histories(:, solvers_toload, :, :);
+        merit_out = merit_out(:, solvers_toload, :);
         merit_min = min(min(min(merit_histories, [], 4, 'omitnan'), [], 3, 'omitnan'), [], 2, 'omitnan');
     end
 
@@ -1303,4 +1318,32 @@ function profile_scores = computeScores(curves)
     max_scores = max(profile_scores, [], 1);
     max_scores(max_scores == 0) = 1;
     profile_scores = profile_scores ./ max_scores;
+end
+
+function files = search_in_dir(current_path, pattern, max_depth, current_depth, files)
+    % Recursive function to search for files with a specified pattern within a limited directory depth.
+
+    % Check if the current depth exceeds the maximum depth
+    if current_depth > max_depth
+        return; % Stop searching deeper
+    end
+
+    % Get files in the current directory matching the pattern
+    file_list = dir(fullfile(current_path, pattern));
+    for i = 1:length(file_list)
+        if ~file_list(i).isdir
+            % Append the file information to the result list
+            files = [files; file_list(i)];
+        end
+    end
+
+    % Get all subdirectories in the current directory
+    sub_dirs = dir(current_path);
+    for i = 1:length(sub_dirs)
+        % Skip '.' and '..' directories
+        if sub_dirs(i).isdir && ~strcmp(sub_dirs(i).name, '.') && ~strcmp(sub_dirs(i).name, '..')
+            % Recursively search in the subdirectory
+            files = search_in_dir(fullfile(current_path, sub_dirs(i).name), pattern, max_depth, current_depth + 1, files);
+        end
+    end
 end
