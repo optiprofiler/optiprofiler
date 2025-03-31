@@ -418,9 +418,9 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
             end
         end
         warning('off');
-        load(fullfile(path_data, 'data.mat'), 'n_eval', 'problem_names', 'problem_dimensions', 'time_processes', 'problem_unsolved', 'merit_histories', 'merit_out', 'merit_init');
+        load(fullfile(path_data, 'data.mat'), 'n_evals', 'problem_names', 'problem_dims', 'computation_times', 'solvers_successes', 'merit_histories', 'merit_out', 'merit_init');
         warning('on');
-        if ~exist('n_eval', 'var') || ~exist('problem_names', 'var') || ~exist('problem_dimensions', 'var') || ~exist('time_processes', 'var') || ~exist('problem_unsolved', 'var') || ~exist('merit_histories', 'var') || ~exist('merit_out', 'var') || ~exist('merit_init', 'var')
+        if ~exist('n_evals', 'var') || ~exist('problem_names', 'var') || ~exist('problem_dims', 'var') || ~exist('computation_times', 'var') || ~exist('solvers_successes', 'var') || ~exist('merit_histories', 'var') || ~exist('merit_out', 'var') || ~exist('merit_init', 'var')
             error("MATLAB:benchmark:NoDataMatFile", "Failed to load computation results from the 'data.mat' file in the directory '%s'.", path_data);
         end
 
@@ -429,7 +429,10 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
         if isfield(options, ProfileOptionKey.SOLVER_TOLOAD.value)
             % Check the validity of the 'solver_toload' field. It should be a vector of different
             % integers selected from 1 to the total number of solvers in the loaded data.
-            solver_toload = unique(options.(ProfileOptionKey.SOLVER_TOLOAD.value));
+            try
+                solver_toload = unique(options.(ProfileOptionKey.SOLVER_TOLOAD.value));
+            catch
+            end
             if ~isintegervector(solver_toload) || any(solver_toload < 1) || any(solver_toload > n_solvers_loaded) || numel(solver_toload) < 2
                 error("MATLAB:benchmark:solver_toloadNotValid", "The field 'solver_toload' of options should be a vector of different integers selected from 1 to the total number of solvers in the loaded data, and at least two indices should be provided.");
             end
@@ -450,7 +453,9 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
             error("MATLAB:benchmark:solver_namesNotMatch", "The number of elements in the 'solver_names' field of options should be the same as the number of solvers to load in the 'solver_toload' field.");
         end
         n_solvers = numel(solver_toload);
-        n_eval = n_eval(:, solver_toload, :);
+        n_evals = n_evals(:, solver_toload, :);
+        computation_times = computation_times(:, solver_toload, :);
+        solvers_successes = solvers_successes(:, solver_toload, :);
         merit_histories = merit_histories(:, solver_toload, :, :);
         merit_out = merit_out(:, solver_toload, :);
         merit_min = min(min(min(merit_histories, [], 4, 'omitnan'), [], 3, 'omitnan'), [], 2, 'omitnan');
@@ -755,14 +760,14 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
         if ~profile_options.(ProfileOptionKey.SILENT.value)
             fprintf('INFO: Starting the computation of the "%s" profiles.\n', feature.name);
         end
-        [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, time_processes, problem_unsolved] = solveAllProblems(solvers, feature, profile_options, other_options, true, path_hist_plots);
+        [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_evals, problem_names, problem_dims, computation_times, solvers_successes] = solveAllProblems(solvers, feature, profile_options, other_options, true, path_hist_plots);
         merit_histories = computeMeritValues(fun_histories, maxcv_histories, maxcv_init);
         merit_out = computeMeritValues(fun_out, maxcv_out, maxcv_init);
         merit_init = computeMeritValues(fun_init, maxcv_init, maxcv_init);
         merit_min = min(min(min(merit_histories, [], 4, 'omitnan'), [], 3, 'omitnan'), [], 2, 'omitnan');
 
         % If there are no problems solved, skip the rest of the code, print a message, and return.
-        if isempty(problem_names)
+        if isempty(problem_names) || all(~solvers_successes(:))
             if ~profile_options.(ProfileOptionKey.SILENT.value)
                 fprintf('INFO: No problems were solved for the "%s" feature.\n', feature.name);
             end
@@ -800,17 +805,17 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
             if ~profile_options.(ProfileOptionKey.SILENT.value)
                 fprintf('\nINFO: Starting the computation of the profiles under "plain" feature.\n');
             end
-            [fun_histories_plain, maxcv_histories_plain, ~, ~, ~, ~, ~, problem_names_plain, ~, time_processes_plain] = solveAllProblems(solvers, feature_plain, profile_options, other_options, false, {});
+            [fun_histories_plain, maxcv_histories_plain, ~, ~, ~, ~, ~, problem_names_plain, ~, computation_times_plain] = solveAllProblems(solvers, feature_plain, profile_options, other_options, false, {});
             merit_histories_plain = computeMeritValues(fun_histories_plain, maxcv_histories_plain, maxcv_init);
             merit_min_plain = min(min(min(merit_histories_plain, [], 4, 'omitnan'), [], 3, 'omitnan'), [], 2, 'omitnan');
+            computation_times = cat(3, computation_times, NaN(size(computation_times_plain)));
+            
             for i_problem = 1:numel(problem_names)
-                % Check whether the problem is solved under the plain feature.
-                if ismember(problem_names{i_problem}, problem_names_plain)
-                    % Find the index of the problem in the plain feature.
-                    idx = find(strcmp(problem_names{i_problem}, problem_names_plain), 1);
-                    merit_min(i_problem) = min(merit_min(i_problem), merit_min_plain(idx), 'omitnan');
-                    time_processes(i_problem) = time_processes(i_problem) + time_processes_plain(idx);
-                end
+                idx = find(strcmp(problem_names{i_problem}, problem_names_plain), 1);
+                % Redefine the merit_min for the problems that are solved under the plain feature.
+                % Note that min(x, NaN) = x.
+                merit_min(i_problem) = min(merit_min(i_problem), merit_min_plain(idx), 'omitnan');
+                computation_times(i_problem, :, size(computation_times, 3)) = computation_times_plain(idx, :, :);
             end
         end
 
@@ -835,6 +840,20 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Store the problem names. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+    % Pick out unsolved problems.
+    unsolved_problems = [];
+    for i_problem = 1:numel(problem_names)
+        if all(~solvers_successes(i_problem, :, :))
+            unsolved_problems = [unsolved_problems, problem_names(i_problem)];
+        end
+    end
+
+    % Calculate the computation times for each problem.
+    time_processes = zeros(numel(problem_names), 1);
+    for i_problem = 1:numel(problem_names)
+        time_processes(i_problem) = sum(computation_times(i_problem, :, :), 'omitnan');
+    end
+
     % Store the names of the problems.
     path_txt = fullfile(path_log, 'problems.txt');
     [~, idx] = sort(lower(problem_names));
@@ -846,18 +865,21 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
     try
         fid = fopen(path_txt, 'w');
         for i = 1:length(sorted_problem_names)
+            if ismember(sorted_problem_names{i}, unsolved_problems)
+                continue;
+            end
             count = fprintf(fid, "%-*s      %*s\n", max_name_length, sorted_problem_names{i}, max_time_length, sprintf('%.2f seconds', sorted_time_processes{i}));
             if count < 0
                 fprintf("INFO: Failed to record data for %s.", sorted_problem_names{i});
             end
         end
-        if ~isempty(problem_unsolved)
+        if ~isempty(unsolved_problems)
             fprintf(fid, "\n");
             fprintf(fid, "Unsolved problems (that all the solvers failed to return a solution):\n");
-            for i = 1:length(problem_unsolved)
-                count = fprintf(fid, "%s\n", problem_unsolved{i});
+            for i = 1:length(unsolved_problems)
+                count = fprintf(fid, "%s\n", unsolved_problems{i});
                 if count < 0
-                    fprintf("INFO: Failed to record data for %s.", problem_unsolved{i});
+                    fprintf("INFO: Failed to record data for %s.", unsolved_problems{i});
                 end
             end
         end
@@ -970,7 +992,7 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
                         work_hist(i_problem, i_solver, i_run) = find(merit_histories(i_problem, i_solver, i_run, :) <= threshold, 1, 'first');
                     end
                     if merit_out(i_problem, i_solver, i_run) <= threshold
-                        work_out(i_problem, i_solver, i_run) = n_eval(i_problem, i_solver, i_run);
+                        work_out(i_problem, i_solver, i_run) = n_evals(i_problem, i_solver, i_run);
                     end
                 end
             end
@@ -1005,8 +1027,8 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
             solver_names = cellfun(@(s) strrep(s, '_', '\_'), other_options.(OtherOptionKey.SOLVER_NAMES.value), 'UniformOutput', false);
         end
 
-        [fig_perf_hist, fig_data_hist, fig_log_ratio_hist, curves{i_tol}.hist] = drawProfiles(work_hist, problem_dimensions, solver_names, tolerance_label, cell_axs_summary_hist, true, is_perf, is_data, is_log_ratio, profile_options, curves{i_tol}.hist);
-        [fig_perf_out, fig_data_out, fig_log_ratio_out, curves{i_tol}.out] = drawProfiles(work_out, problem_dimensions, solver_names, tolerance_label, cell_axs_summary_out, is_output_based, is_perf, is_data, is_log_ratio, profile_options, curves{i_tol}.out);
+        [fig_perf_hist, fig_data_hist, fig_log_ratio_hist, curves{i_tol}.hist] = drawProfiles(work_hist, problem_dims, solver_names, tolerance_label, cell_axs_summary_hist, true, is_perf, is_data, is_log_ratio, profile_options, curves{i_tol}.hist);
+        [fig_perf_out, fig_data_out, fig_log_ratio_out, curves{i_tol}.out] = drawProfiles(work_out, problem_dims, solver_names, tolerance_label, cell_axs_summary_out, is_output_based, is_perf, is_data, is_log_ratio, profile_options, curves{i_tol}.out);
 
         if profile_options.(ProfileOptionKey.DRAW_PLOTS.value)
             pdf_perf_hist = fullfile(path_perf_hist, ['perf_hist_', int2str(i_tol), '.pdf']);
@@ -1191,11 +1213,11 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
     data = struct();
     data.feature_stamp = feature_stamp;
     data.solver_names = solver_names;
-    data.n_eval = n_eval;
+    data.n_evals = n_evals;
     data.problem_names = problem_names;
-    data.problem_dimensions = problem_dimensions;
-    data.time_processes = time_processes;
-    data.problem_unsolved = problem_unsolved;
+    data.problem_dims = problem_dims;
+    data.computation_times = computation_times;
+    data.solvers_successes = solvers_successes;
     data.merit_histories = merit_histories;
     data.merit_out = merit_out;
     data.merit_init = merit_init;
