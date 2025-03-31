@@ -1,4 +1,4 @@
-function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_name, problem_dim, computation_time, solvers_success] = solveOneProblem(problem_name, solvers, feature, len_problem_names, profile_options, other_options, is_plot, path_hist_plots)
+function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_name, problem_type, problem_dim, problem_con, computation_time, solvers_success] = solveOneProblem(problem_name, solvers, feature, len_problem_names, profile_options, other_options, is_plot, path_hist_plots)
 %SOLVEONEPROBLEM solves one problem with all the solvers in solvers list.
 
     solver_names = other_options.(OtherOptionKey.SOLVER_NAMES.value);
@@ -11,7 +11,9 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
     fun_init = [];
     maxcv_init = [];
     n_eval = [];
+    problem_type = [];
     problem_dim = [];
+    problem_con = [];
     computation_time = [];
     solvers_success = [];
 
@@ -35,7 +37,9 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
         end
     end
 
+    problem_type = problem.p_type;
     problem_dim = problem.n;
+    problem_con = problem.m_linear_ub + problem.m_linear_eq + problem.m_nonlinear_ub + problem.m_nonlinear_eq;
 
     % Project the initial point if necessary.
     if profile_options.(ProfileOptionKey.PROJECT_X0.value)
@@ -82,25 +86,25 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
             warning('off', 'all');
             try
                 switch problem.p_type
-                    case 'unconstrained'
+                    case 'u'
                         if profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) == 2
                             x = solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0);
                         else
                             [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0)');
                         end
-                    case 'bound-constrained'
+                    case 'b'
                         if profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) == 2
                             x = solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu);
                         else
                             [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu)');
                         end
-                    case 'linearly constrained'
+                    case 'l'
                         if profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) == 2
                             x = solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq);
                         else
                             [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq)');
                         end
-                    case 'nonlinearly constrained'
+                    case 'n'
                         if profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) == 2
                             x = solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, @(x) featured_problem.cub(x), @(x) featured_problem.ceq(x));
                         else
@@ -126,7 +130,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
                     format_info_end = sprintf("INFO: Finish solving     %%-%ds with %%-%ds (run %%2d/%%2d) (in %%.2f seconds).\\n", len_problem_names, len_solver_names);
                     fprintf(format_info_end, problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), computation_time(i_solver, i_run));
                     switch problem.p_type
-                        case 'unconstrained'
+                        case 'u'
                             format_info_output = sprintf("INFO: Output results for %%-%ds with %%-%ds (run %%2d/%%2d): f = %%10.4e.\\n", len_problem_names, len_solver_names);
                             fprintf(format_info_output, problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), fun_out(i_solver, i_run));
                             format_info_best = sprintf("INFO: Best   results for %%-%ds with %%-%ds (run %%2d/%%2d): f = %%10.4e.\\n", len_problem_names, len_solver_names);
@@ -179,7 +183,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
 
         % Create the figure for the summary.
         warning('off');
-        if strcmp(problem.p_type, 'unconstrained')
+        if strcmp(problem.p_type, 'u')
             n_cols = 1;
         else
             n_cols = 3;
@@ -209,7 +213,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
         ylabel(t_summary(1), "History profiles", 'Interpreter', 'latex', 'FontSize', 14);
         ylabel(t_summary(2), "Cummin history profiles", 'Interpreter', 'latex', 'FontSize', 14);
 
-        if strcmp(problem.p_type, 'unconstrained')
+        if strcmp(problem.p_type, 'u')
             cell_axs_summary = {axs_summary(1)};
             cell_axs_summary_cum = {axs_summary(2)};
         else

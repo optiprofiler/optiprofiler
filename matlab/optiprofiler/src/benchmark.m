@@ -245,11 +245,11 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
 %         is 1.
 %       - maxdim: the maximum dimension of the problems to be selected. Default
 %         is 2.
-%       - mincon: the minimum number of constraints of the problems to be
-%         selected. Default is 0.
-%       - maxcon: the maximum number of constraints of the problems to be
-%         selected. Default is 10 for linearly or nonlinearly constrained
-%         problems, and 0 for the others.
+%       - mincon: the minimum number of linear and nonlinear constraints of the
+%         problems to be selected. Default is 0.
+%       - maxcon: the maximum number of linear and nonlinear constraints of the
+%         problems to be selected. Default is 10 for linearly or nonlinearly
+%         constrained problems, and 0 for the others.
 %       - excludelist: the list of problems to be excluded. Default is not to
 %         exclude any problem.
 %
@@ -437,9 +437,9 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
             end
         end
         warning('off');
-        load(fullfile(path_data, 'data.mat'), 'n_evals', 'problem_names', 'problem_dims', 'computation_times', 'solvers_successes', 'merit_histories', 'merit_out', 'merit_init');
+        load(fullfile(path_data, 'data.mat'), 'n_evals', 'problem_names', 'problem_types', 'problem_dims', 'problem_cons', 'computation_times', 'solvers_successes', 'merit_histories', 'merit_out', 'merit_init');
         warning('on');
-        if ~exist('n_evals', 'var') || ~exist('problem_names', 'var') || ~exist('problem_dims', 'var') || ~exist('computation_times', 'var') || ~exist('solvers_successes', 'var') || ~exist('merit_histories', 'var') || ~exist('merit_out', 'var') || ~exist('merit_init', 'var')
+        if ~exist('n_evals', 'var') || ~exist('problem_names', 'var') || ~exist('problem_types', 'var') || ~exist('problem_dims', 'var') || ~exist('problem_cons', 'var') || ~exist('computation_times', 'var') || ~exist('solvers_successes', 'var') || ~exist('merit_histories', 'var') || ~exist('merit_out', 'var') || ~exist('merit_init', 'var')
             error("MATLAB:benchmark:NoDataMatFile", "Failed to load computation results from the 'data.mat' file in the directory '%s'.", path_data);
         end
 
@@ -477,6 +477,50 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
         solvers_successes = solvers_successes(:, solvers_toload, :);
         merit_histories = merit_histories(:, solvers_toload, :, :);
         merit_out = merit_out(:, solvers_toload, :);
+
+        % Check whether the user provides options for CUTEst. If so, we will intersect the
+        % problems in the loaded data with the problems selected by the options from S2MPJ.
+        p_option = struct();
+        if isfield(options, CutestOptionKey.P_TYPE.value)
+            p_option.(CutestOptionKey.P_TYPE.value) = options.(CutestOptionKey.P_TYPE.value);
+        end
+        if isfield(options, CutestOptionKey.MINDIM.value)
+            p_option.(CutestOptionKey.MINDIM.value) = options.(CutestOptionKey.MINDIM.value);
+        end
+        if isfield(options, CutestOptionKey.MAXDIM.value)
+            p_option.(CutestOptionKey.MAXDIM.value) = options.(CutestOptionKey.MAXDIM.value);
+        end
+        if isfield(options, CutestOptionKey.MINCON.value)
+            p_option.(CutestOptionKey.MINCON.value) = options.(CutestOptionKey.MINCON.value);
+        end
+        if isfield(options, CutestOptionKey.MAXCON.value)
+            p_option.(CutestOptionKey.MAXCON.value) = options.(CutestOptionKey.MAXCON.value);
+        end
+        if isfield(options, CutestOptionKey.EXCLUDELIST.value)
+            p_option.(CutestOptionKey.EXCLUDELIST.value) = options.(CutestOptionKey.EXCLUDELIST.value);
+        end
+        try
+            p_to_load = s_select(p_option);
+        catch
+            error("MATLAB:benchmark:cutestProblemSelectionFailed", "Failed to select problems from the S2MPJ library using the options provided in the 'options' field.");
+        end
+        if ~isempty(p_to_load)
+            % Check whether the problems in the loaded data are in the selected problems.
+            [~, indexes] = intersect(problem_names, p_to_load);
+            if isempty(indexes)
+                error("MATLAB:benchmark:NoProblemsToLoad", "Failed to load data since problems in the loaded data do not match the selected problems by the options.");
+            end
+            % Truncate the loaded data according to the selected problems.
+            problem_names = problem_names(indexes);
+            n_evals = n_evals(indexes, :, :);
+            computation_times = computation_times(indexes, :, :);
+            solvers_successes = solvers_successes(indexes, :, :);
+            merit_histories = merit_histories(indexes, :, :, :);
+            merit_out = merit_out(indexes, :, :);
+        else
+            error("MATLAB:benchmark:NoProblemsToLoad", "Failed to load data since no problems are selected by the options.");
+        end
+
         merit_min = min(min(min(merit_histories, [], 4, 'omitnan'), [], 3, 'omitnan'), [], 2, 'omitnan');
     end
 
@@ -779,7 +823,7 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
         if ~profile_options.(ProfileOptionKey.SILENT.value)
             fprintf('INFO: Starting the computation of the "%s" profiles.\n', feature.name);
         end
-        [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_evals, problem_names, problem_dims, computation_times, solvers_successes] = solveAllProblems(solvers, feature, profile_options, other_options, true, path_hist_plots);
+        [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_evals, problem_names, problem_types, problem_dims, problem_cons,computation_times, solvers_successes] = solveAllProblems(solvers, feature, profile_options, other_options, true, path_hist_plots);
         merit_histories = computeMeritValues(fun_histories, maxcv_histories, maxcv_init);
         merit_out = computeMeritValues(fun_out, maxcv_out, maxcv_init);
         merit_init = computeMeritValues(fun_init, maxcv_init, maxcv_init);
@@ -824,7 +868,7 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
             if ~profile_options.(ProfileOptionKey.SILENT.value)
                 fprintf('\nINFO: Starting the computation of the profiles under "plain" feature.\n');
             end
-            [fun_histories_plain, maxcv_histories_plain, ~, ~, ~, ~, ~, problem_names_plain, ~, computation_times_plain] = solveAllProblems(solvers, feature_plain, profile_options, other_options, false, {});
+            [fun_histories_plain, maxcv_histories_plain, ~, ~, ~, ~, ~, problem_names_plain, ~, ~, ~, computation_times_plain] = solveAllProblems(solvers, feature_plain, profile_options, other_options, false, {});
             merit_histories_plain = computeMeritValues(fun_histories_plain, maxcv_histories_plain, maxcv_init);
             merit_min_plain = min(min(min(merit_histories_plain, [], 4, 'omitnan'), [], 3, 'omitnan'), [], 2, 'omitnan');
             computation_times = cat(3, computation_times, NaN(size(computation_times_plain)));
@@ -1235,7 +1279,9 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
     data.solver_names = solver_names;
     data.n_evals = n_evals;
     data.problem_names = problem_names;
+    data.problem_types = problem_types;
     data.problem_dims = problem_dims;
+    data.problem_cons = problem_cons;
     data.computation_times = computation_times;
     data.solvers_successes = solvers_successes;
     data.merit_histories = merit_histories;

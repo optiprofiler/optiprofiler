@@ -32,7 +32,7 @@ function drawHist(fun_histories, maxcv_histories, merit_histories, fun_init, max
     end
 
     % If the problem is unconstrained, do not draw the histories of maximum constraint violations and merit function values.
-    if strcmp(p_type, 'unconstrained')
+    if strcmp(p_type, 'u')
         return;
     end
 
