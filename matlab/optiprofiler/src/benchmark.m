@@ -81,6 +81,11 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
 %         Default is 1.
 %       - semilogx: whether to use the semilogx scale during plotting profiles
 %         (performance profiles and data profiles). Default is true.
+%       - normalized_scores: whether to normalize the scores of the solvers by
+%         the maximum score of the solvers. Default is false.
+%       - score_weight_fun: the weight function to calculate the scores of the
+%         solvers in the performance and data profiles. It should be a function
+%         handle representing a nonnegative function in R^+. Default is 1.
 %       - scoring_fun: the scoring function to calculate the scores of the
 %         solvers. It should be a function handle as follows:
 %               ``profile_scores -> solver_scores``,
@@ -90,8 +95,7 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
 %         third represents history-based or output-based profiles, and the
 %         fourth represents performance profiles, data profiles, or log-ratio
 %         profiles. The default scoring function takes the average of the
-%         history-based performance profiles along the tolerance axis and then
-%         normalizes the average by the maximum value of the average.
+%         history-based performance profiles under all the tolerances.
 %       - load: loading the stored data from a completed experiment and draw
 %         profiles. It can be either 'latest' or a time stamp of an experiment
 %         in the format of 'yyyyMMdd_HHmmss'. No default.
@@ -1150,7 +1154,7 @@ function [solver_scores, profile_scores, curves] = benchmark(solvers, varargin)
     end
 
     % Compute the `solver_scores`.
-    profile_scores = computeScores(curves);
+    profile_scores = computeScores(curves, profile_options);
     scoring_fun = profile_options.(ProfileOptionKey.SCORING_FUN.value);
     solver_scores = scoring_fun(profile_scores);
     save(fullfile(path_log, 'profile_scores.mat'), 'profile_scores');
@@ -1267,23 +1271,25 @@ function mergePdfs(file_path, output_file_name, output_path)
     merger.mergeDocuments(memSet)
 end
 
-function integral = integrate(curve, profile_type)
+function integral = integrate(curve, profile_type, profile_options)
     % Compute the integral of the curve from different types of profiles.
-    
+
+    kernel = profile_options.(ProfileOptionKey.SCORE_WEIGHT_FUN.value);
     integral = 0;
     switch profile_type
         case 'perf'
             % The curve is a right-continuous step function.
-            integral = integral + sum(diff(curve(1, :)) .* curve(2, 1:end-1));
+            integral = integral + sum(diff(curve(1, :)) .* curve(2, 1:end-1) .* kernel(curve(1, 1:end-1)));
         case 'data'
             % The curve is a right-continuous step function.
-            integral = integral + sum(diff(curve(1, :)) .* curve(2, 1:end-1));
+            integral = integral + sum(diff(curve(1, :)) .* curve(2, 1:end-1) .* kernel(curve(1, 1:end-1)));
         case 'log_ratio'
+            % We do not modify the integral of log_ratio even a score_weight_fun is provided.
             integral = integral + sum(abs(curve(2, :)));
     end
 end
 
-function profile_scores = computeScores(curves)
+function profile_scores = computeScores(curves, profile_options)
     % Compute the scores of the solvers for all the profiles.
 
     n_tols = size(curves, 2);
@@ -1301,23 +1307,25 @@ function profile_scores = computeScores(curves)
             curve_hist_data = curves{i_tol}.hist.data{i_solver, end};
             curve_out_perf = curves{i_tol}.out.perf{i_solver, end};
             curve_out_data = curves{i_tol}.out.data{i_solver, end};
-            profile_scores(i_solver, i_tol, 1, 1) = integrate(curve_hist_perf, 'perf');
-            profile_scores(i_solver, i_tol, 1, 2) = integrate(curve_hist_data, 'data');
-            profile_scores(i_solver, i_tol, 2, 1) = integrate(curve_out_perf, 'perf');
-            profile_scores(i_solver, i_tol, 2, 2) = integrate(curve_out_data, 'data');
+            profile_scores(i_solver, i_tol, 1, 1) = integrate(curve_hist_perf, 'perf', profile_options);
+            profile_scores(i_solver, i_tol, 1, 2) = integrate(curve_hist_data, 'data', profile_options);
+            profile_scores(i_solver, i_tol, 2, 1) = integrate(curve_out_perf, 'perf', profile_options);
+            profile_scores(i_solver, i_tol, 2, 2) = integrate(curve_out_data, 'data', profile_options);
             if n_solvers == 2
                 curve_hist_log_ratio = curves{i_tol}.hist.log_ratio{i_solver};
                 curve_out_log_ratio = curves{i_tol}.out.log_ratio{i_solver};
-                profile_scores(i_solver, i_tol, 1, 3) = integrate(curve_hist_log_ratio, 'log_ratio');
-                profile_scores(i_solver, i_tol, 2, 3) = integrate(curve_out_log_ratio, 'log_ratio');
+                profile_scores(i_solver, i_tol, 1, 3) = integrate(curve_hist_log_ratio, 'log_ratio', profile_options);
+                profile_scores(i_solver, i_tol, 2, 3) = integrate(curve_out_log_ratio, 'log_ratio', profile_options);
             end
         end
     end
 
     % Normalize the profile_scores by dividing the maximum profile_scores with the same tolerance and types.
-    max_scores = max(profile_scores, [], 1);
-    max_scores(max_scores == 0) = 1;
-    profile_scores = profile_scores ./ max_scores;
+    if profile_options.(ProfileOptionKey.NORMALIZED_SCORES.value)
+        max_scores = max(profile_scores, [], 1);
+        max_scores(max_scores == 0) = 1;
+        profile_scores = profile_scores ./ max_scores;
+    end
 end
 
 function files = search_in_dir(current_path, pattern, max_depth, current_depth, files)

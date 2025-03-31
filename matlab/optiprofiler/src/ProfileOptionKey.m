@@ -21,6 +21,8 @@ classdef ProfileOptionKey
         SILENT ('silent')
         SOLVER_VERBOSE ('solver_verbose')
         SEMILOGX ('semilogx')
+        NORMALIZED_SCORES ('normalized_scores')
+        SCORE_WEIGHT_FUN ('score_weight_fun')
         SCORING_FUN ('scoring_fun')
         LOAD ('load')
         SOLVERS_TOLOAD ('solvers_toload')

@@ -64,8 +64,14 @@ function profile_options = getDefaultProfileOptions(feature, profile_options)
     if ~isfield(profile_options, ProfileOptionKey.SEMILOGX.value)
         profile_options.(ProfileOptionKey.SEMILOGX.value) = true;
     end
+    if ~isfield(profile_options, ProfileOptionKey.NORMALIZED_SCORES.value)
+        profile_options.(ProfileOptionKey.NORMALIZED_SCORES.value) = false;
+    end
+    if ~isfield(profile_options, ProfileOptionKey.SCORE_WEIGHT_FUN.value)
+        profile_options.(ProfileOptionKey.SCORE_WEIGHT_FUN.value) = @(x) 1;
+    end
     if ~isfield(profile_options, ProfileOptionKey.SCORING_FUN.value)
-        profile_options.(ProfileOptionKey.SCORING_FUN.value) = @(x) mean(x(:, :, 1, 1), 2) ./ max(max(mean(x(:, :, 1, 1), 2)), eps);
+        profile_options.(ProfileOptionKey.SCORING_FUN.value) = @(x) mean(x(:, :, 1, 1), 2);
     end
     if ~isfield(profile_options, ProfileOptionKey.LOAD.value)
         profile_options.(ProfileOptionKey.LOAD.value) = '';

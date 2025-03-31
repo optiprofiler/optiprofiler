@@ -146,6 +146,18 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
             error("MATLAB:checkValidityProfileOptions:semilogxNotValid", "The field 'semilogx' of options should be a boolean.");
         end
     end
+    % Judge whether profile_options.normalized_scores is a boolean.
+    if isfield(profile_options, ProfileOptionKey.NORMALIZED_SCORES.value)
+        if ~islogicalscalar(profile_options.(ProfileOptionKey.NORMALIZED_SCORES.value))
+            error("MATLAB:checkValidityProfileOptions:normalized_scoresNotValid", "The field 'normalized_scores' of options should be a boolean.");
+        end
+    end
+    % Judge whether profile_options.score_weight_fun is a function handle.
+    if isfield(profile_options, ProfileOptionKey.SCORE_WEIGHT_FUN.value)
+        if ~isa(profile_options.(ProfileOptionKey.SCORE_WEIGHT_FUN.value), 'function_handle')
+            error("MATLAB:checkValidityProfileOptions:score_weight_funNotValid", "The field 'score_weight_fun' of options should be a function handle.");
+        end
+    end
     % Judge whether profile_options.scoring_fun is a function handle.
     if isfield(profile_options, ProfileOptionKey.SCORING_FUN.value)
         if ~isa(profile_options.(ProfileOptionKey.SCORING_FUN.value), 'function_handle')
