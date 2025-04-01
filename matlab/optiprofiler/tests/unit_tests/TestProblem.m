@@ -104,7 +104,7 @@ classdef TestProblem < matlab.unittest.TestCase
             testCase.verifyEqual(p.m_linear_eq, 10);
             testCase.verifyEqual(p.m_nonlinear_ub, 1);
             testCase.verifyEqual(p.m_nonlinear_eq, 1);
-            testCase.verifyEqual(p.p_type, 'nonlinearly constrained');
+            testCase.verifyEqual(p.p_type, 'n');
 
             p.project_x0;
         end

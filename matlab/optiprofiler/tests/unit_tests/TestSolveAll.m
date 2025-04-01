@@ -17,17 +17,20 @@ classdef TestSolveAll < matlab.unittest.TestCase
             profile_options.silent = false;
             profile_options.seed = 1;
             profile_options.solver_verbose = 1;
-            [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_names, problem_dimensions, computation_times] = solveAllProblems(solvers, feature, profile_options, other_options, false, '.');
+            [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_evals, problem_names, problem_types, problem_dims, problem_cons, computation_times, solvers_successes] = solveAllProblems(solvers, feature, profile_options, other_options, false, '.');
             testCase.verifyNotEmpty(fun_histories);
             testCase.verifyNotEmpty(maxcv_histories);
             testCase.verifyNotEmpty(fun_out);
             testCase.verifyNotEmpty(maxcv_out);
             testCase.verifyNotEmpty(fun_init);
             testCase.verifyNotEmpty(maxcv_init);
-            testCase.verifyNotEmpty(n_eval);
+            testCase.verifyNotEmpty(n_evals);
             testCase.verifyNotEmpty(problem_names);
-            testCase.verifyNotEmpty(problem_dimensions);
+            testCase.verifyNotEmpty(problem_types);
+            testCase.verifyNotEmpty(problem_dims);
+            testCase.verifyNotEmpty(problem_cons);
             testCase.verifyNotEmpty(computation_times);
+            testCase.verifyNotEmpty(solvers_successes);
         end
     end
 end
