@@ -1,5 +1,49 @@
 classdef FeaturedProblem < Problem
-%FEATUREDPROBLEM modifies the original optimization problem by applying a feature.
+%FEATUREDPROBLEM is a subclass of Problem that defines an optimization problem
+%   with a specific feature.
+%
+%   Problem and its subclass FEATUREDPROBLEM describe the following
+%   optimization problem:
+%
+%       min fun(x)
+%       s.t. xl <= x <= xu,
+%            aub * x <= bub,
+%            aeq * x = beq,
+%            cub(x) <= 0,
+%            ceq(x) = 0,
+%       with initial point x0.
+%
+%   FEATUREDPROBLEM should be initialized by the following signature:
+%
+%       FP = FEATUREDPROBLEM(P, F, MAX_EVAL, SEED);
+%
+%   where the return FP is an instance of FEATUREDPROBLEM, the input P is an
+%   instance of Problem, the input F is an instance of Feature, the input
+%   MAX_EVAL is a positive integer, and the input SEED is a nonnegative
+%   integer seed less than 2^32.
+%
+%   The output FP contains the following properties:
+%
+%       - problem: the original optimization problem.
+%       - feature: the feature applied to the optimization problem.
+%       - max_eval: the maximum number of function evaluations.
+%       - seed: the seed for the random number generator.
+%       - fun_hist: the history of the evaluated objective function values.
+%       - cub_hist: the history of the evaluated nonlinear inequality
+%         constraints.
+%       - ceq_hist: the history of the evaluated nonlinear equality
+%         constraints.
+%       - maxcv_hist: the history of the maximum constraint violation.
+%       - n_eval: the number of objective function evaluations.
+%
+%   The output FP contains all the methods of Problem, but the methods `fun`,
+%   `cub`, `ceq`, and `maxcv` are modified by the input Feature.
+%
+%   Pay attention that when the number of function evaluations reaches the
+%   input MAX_EVAL, the methods `fun`, `cub`, and `ceq` will return the
+%   values of the objective function and constraints at the point where the
+%   maximum number of function evaluations is reached, respectively.
+%
 
     properties (GetAccess = public, SetAccess = private)
 

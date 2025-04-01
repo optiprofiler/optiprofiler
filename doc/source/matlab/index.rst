@@ -7,3 +7,5 @@ MATLAB API documentation
 
     matlab_generated/benchmark
     matlab_generated/Problem
+    matlab_generated/Feature
+    matlab_generated/FeaturedProblem

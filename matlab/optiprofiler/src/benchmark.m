@@ -1,6 +1,8 @@
 function [solver_scores, profile_scores, curves] = benchmark(varargin)
-%BENCHMARK Create multiple profiles for benchmarking optimization solvers on a
+%BENCHMARK creates multiple profiles for benchmarking optimization solvers on a
 %   set of problems with different features.
+%
+%   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 %   Signatures:
 %
@@ -32,6 +34,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %   [SOLVER_SCORES, PROFILE_SCORES, CURVES] = BENCHMARK(...) returns a cell
 %   array CURVES containing the curves of all the profiles.
 %
+%   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
 %   Options:
 %
 %   Options should be specified in a struct. The following are the available
@@ -41,7 +45,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %
 %       - n_jobs: the number of parallel jobs to run the test. Default is 1.
 %       - benchmark_id: the identifier of the test. It is used to create the
-%         specific directory to store the results. Default is 'out' .
+%         specific directory to store the results. Default is 'out'.
 %       - feature_stamp: the stamp of the feature with the given options. It is
 %         used to create the specific directory to store the results. Default
 %         depends on features.
@@ -172,6 +176,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         Default is false.
 %       - mesh_size: the size of the mesh in the 'quantized' feature. Default
 %         is 10^-3.
+%       - mesh_type: the type of the mesh in the 'quantized' feature. It should
+%         be either 'absolute' or 'relative'. Default is 'absolute'.
 %       - ground_truth: whether the feature is the ground truth or not. Default
 %         is true.
 %       - mod_x0: the modifier function to modify the inital guess in the 
@@ -279,6 +285,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %       - custom_problem_names: the names of the custom problems to be
 %         selected. Default is not to select any custom problem.
 %
+%   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
 %   Cautions:
 %
 %   1. Each solver in SOLVERS should accept the following signature(s):
@@ -310,36 +318,42 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %   [5]_. For that of log-ratio profiles, see [4]_, [6]_. For that of S2MPJ,
 %   see [3]_.
 %
+%   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
 %   References:
+%
 %   .. [1] E. D. Dolan and J. J. Moré. Benchmarking optimization software with
 %          performance profiles. *Math. Program.*, 91(2):201–213, 2002.
-%          `doi:10.1007/s101070100263
+%          doi:10.1007/s101070100263
 %          <https://doi.org/10.1007/s101070100263>.
 %   .. [2] N. Gould and J. Scott. A note on performance profiles for
 %          benchmarking software. *ACM Trans. Math. Software*, 43(2):15:1–5,
-%          2016. `doi:10.1145/2950048 <https://doi.org/10.1145/2950048>.
+%          2016. doi:10.1145/2950048 <https://doi.org/10.1145/2950048>.
 %   .. [3] S. Gratton and Ph. L. Toint. S2MPJ and CUTEst optimization problems
 %          for Matlab, Python and Julia. arXiv:2407.07812, 2024.
 %   .. [4] J. L. Morales. A numerical study of limited memory BFGS methods.
 %          *Appl. Math. Lett.*, 15(4):481–487, 2002.
-%          `doi:10.1016/S0893-9659(01)00162-8
+%          doi:10.1016/S0893-9659(01)00162-8
 %          <https://doi.org/10.1016/S0893-9659(01)00162-8>.
 %   .. [5] J. J. Moré and S. M. Wild. Benchmarking derivative-free optimization
 %          algorithms. *SIAM J. Optim.*, 20(1):172–191, 2009.
-%          `doi:10.1137/080724083 <https://doi.org/10.1137/080724083>.
+%          doi:10.1137/080724083 <https://doi.org/10.1137/080724083>.
 %   .. [6] H.-J. M. Shi, M. Q. Xuan, F. Oztoprak, and J. Nocedal. On the
 %          numerical performance of finite-difference-based methods for
 %          derivative-free optimization. *Optim. Methods Softw.*,
-%          38(2):289–311, 2023. `doi:10.1080/10556788.2022.2121832
+%          38(2):289–311, 2023. doi:10.1080/10556788.2022.2121832
 %          <https://doi.org/10.1080/10556788.2022.2121832>.
 %
-%   **************************************************************************
-%   Authors:    Cunxin HUANG (cun-xin.huang@connect.polyu.hk)
+%   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%   Authors:
+%               Cunxin HUANG (cun-xin.huang@connect.polyu.hk)
 %               Tom M. RAGONNEAU (t.ragonneau@gmail.com)
-%               Zaikun ZHANG (zaikun.zhang@polyu.edu.hk)
+%               Zaikun ZHANG (zhangzaikun@mail.sysu.edu.cn)
 %               Department of Applied Mathematics,
 %               The Hong Kong Polytechnic University
-%   **************************************************************************
+%
+%   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Process the input arguments. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

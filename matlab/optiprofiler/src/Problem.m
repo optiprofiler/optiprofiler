@@ -9,6 +9,7 @@ classdef Problem < handle
 %            aeq * x = beq,
 %            cub(x) <= 0,
 %            ceq(x) = 0,
+%       with initial point x0,
 %
 %   where `fun` is the objective function, `x` is the variable to optimize,
 %   `xl` and `xu` are the lower and upper bounds, `aub` and `bub` are the
@@ -20,12 +21,12 @@ classdef Problem < handle
 %
 %   PROBLEM should be initialized by the following signature:
 %
-%       problem = Problem(p_struct);
+%       P = PROBLEM(P_STRUCT);
 %
-%   where the return `problem` is a PROBLEM class, and the input `p_struct`
-%   should be a struct.
+%   where the return P is an instance of the class PROBLEM and the input
+%   P_STRUCT is a struct.
 %
-%   The input struct accepts following fields:
+%   The input struct P_STRUCT should contain the following fields:
 %
 %       1. compulsory fields:
 %       
@@ -77,7 +78,7 @@ classdef Problem < handle
 %         `hceq(x)` should be the Hessian of the i-th function in `ceq`. By
 %         default, `hceq(x)` will return an empty cell.
 %
-%   The output PROBLEM contains following properties:
+%   The output P contains following properties:
 %
 %       1. properties inherited from the input struct:
 %
@@ -98,7 +99,7 @@ classdef Problem < handle
 %         (bound-constrained), 'l' (linearly constrained), or 'n' (nonlinearly
 %         constrained).
 %
-%   The output PROBLEM contains following methods:
+%   The output P contains following methods:
 %
 %       1. methods inherited from the input struct:
 %

@@ -15,8 +15,6 @@ A platform for benchmarking optimization solvers
 
     User guide <user/index>
     MATLAB API reference <matlab/index>
-    Python API reference <ref/index>
-    Python developer guide <dev/index>
 
 MATLAB version is available.
 ----------------------------
