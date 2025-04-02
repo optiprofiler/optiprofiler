@@ -706,7 +706,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         fprintf(fid, "This folder contains following files and directories.\n\n");
         fclose(fid);
     catch
-        fprintf("INFO: Failed to create the README.txt file for folder '%s'.\n", path_log);
+        if ~profile_options.(ProfileOptionKey.SILENT.value)
+            fprintf("INFO: Failed to create the README.txt file for folder '%s'.\n", path_log);
+        end
     end
 
     % Create a txt file named by time_stamp to record the time_stamp.
@@ -722,7 +724,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         catch
         end
     catch
-        fprintf("INFO: Failed to create the time_stamp file for folder '%s'.\n", path_log);
+        if ~profile_options.(ProfileOptionKey.SILENT.value)
+            fprintf("INFO: Failed to create the time_stamp file for folder '%s'.\n", path_log);
+        end
     end
 
     if profile_options.(ProfileOptionKey.DRAW_PLOTS.value) && ~isfield(other_options, OtherOptionKey.PROBLEM.value)
@@ -746,7 +750,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             end
         end
     catch
-        fprintf("INFO: Failed to save the `options` of the current experiment.\n");
+        if ~profile_options.(ProfileOptionKey.SILENT.value)
+            fprintf("INFO: Failed to save the `options` of the current experiment.\n");
+        end
     end
     log_file = fullfile(path_log, 'log.txt');
     diary(log_file);
@@ -769,7 +775,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         fprintf(fid, "'test_log': folder, containing log files and other useful experimental data.\n");
         fclose(fid);
     catch
-        fprintf("INFO: Failed to create the README.txt file for folder '%s'.\n", path_feature);
+        if ~profile_options.(ProfileOptionKey.SILENT.value)
+            fprintf("INFO: Failed to create the README.txt file for folder '%s'.\n", path_feature);
+        end
     end
 
     % If `n_runs` is not specified, the feature is deterministic, and at least one solver is
@@ -786,7 +794,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         calling_script = dbstack(1, '-completenames');
         if ~isempty(calling_script)
             copyfile(calling_script.file, path_log);
-            fprintf("INFO: The script or function that calls `benchmark` function is copied to: %s.\n\n", path_log);
+            if ~profile_options.(ProfileOptionKey.SILENT.value)
+                fprintf("INFO: The script or function that calls `benchmark` function is copied to: %s.\n\n", path_log);
+            end
             try
                 fid = fopen(path_readme_log, 'a');
                 fprintf(fid, "'%s': file, the script or function that calls `benchmark` function.\n", calling_script.file);
@@ -795,7 +805,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             end
         end
     catch
-        fprintf("INFO: Failed to copy the script or function that calls `benchmark` function to the log directory.\n\n");
+        if ~profile_options.(ProfileOptionKey.SILENT.value)
+            fprintf("INFO: Failed to copy the script or function that calls `benchmark` function to the log directory.\n\n");
+        end
     end
 
     if profile_options.(ProfileOptionKey.DRAW_PLOTS.value) && ~isfield(other_options, OtherOptionKey.PROBLEM.value)
@@ -963,7 +975,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             end
             count = fprintf(fid, "%-*s      %*s\n", max_name_length, sorted_problem_names{i}, max_time_length, sprintf('%.2f seconds', sorted_time_processes{i}));
             if count < 0
-                fprintf("INFO: Failed to record data for %s.", sorted_problem_names{i});
+                if ~profile_options.(ProfileOptionKey.SILENT.value)
+                    fprintf("INFO: Failed to record data for %s.", sorted_problem_names{i});
+                end
             end
         end
         if ~isempty(unsolved_problems)
@@ -972,7 +986,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             for i = 1:length(unsolved_problems)
                 count = fprintf(fid, "%s\n", unsolved_problems{i});
                 if count < 0
-                    fprintf("INFO: Failed to record data for %s.", unsolved_problems{i});
+                    if ~profile_options.(ProfileOptionKey.SILENT.value)
+                        fprintf("INFO: Failed to record data for %s.", unsolved_problems{i});
+                    end
                 end
             end
         end
@@ -984,7 +1000,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         catch
         end
     catch
-        fprintf("INFO: Error occurred when writing the problem names to %s.\n", path_txt);
+        if ~profile_options.(ProfileOptionKey.SILENT.value)
+            fprintf("INFO: Error occurred when writing the problem names to %s.\n", path_txt);
+        end
     end
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1322,7 +1340,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         fprintf(fid, "'data.mat': file, storing the data of the current experiment for future loading.\n");
         fclose(fid);
     catch
-        fprintf("INFO: Failed to save the data of the current experiment.\n");
+        if ~profile_options.(ProfileOptionKey.SILENT.value)
+            fprintf("INFO: Failed to save the data of the current experiment.\n");
+        end
     end
 
     diary off;

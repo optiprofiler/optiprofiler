@@ -1,4 +1,4 @@
-function self_comparison()
+function custom4()
 
     clc
 
