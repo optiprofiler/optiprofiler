@@ -40,8 +40,8 @@ function profile_options = getDefaultProfileOptions(feature, profile_options)
     if ~isfield(profile_options, ProfileOptionKey.RUN_PLAIN.value)
         profile_options.(ProfileOptionKey.RUN_PLAIN.value) = false;
     end
-    if ~isfield(profile_options, ProfileOptionKey.DRAW_PLOTS.value)
-        profile_options.(ProfileOptionKey.DRAW_PLOTS.value) = true;
+    if ~isfield(profile_options, ProfileOptionKey.SCORE_ONLY.value)
+        profile_options.(ProfileOptionKey.SCORE_ONLY.value) = false;
     end
     if ~isfield(profile_options, ProfileOptionKey.SUMMARIZE_PERFORMANCE_PROFILES.value)
         profile_options.(ProfileOptionKey.SUMMARIZE_PERFORMANCE_PROFILES.value) = true;

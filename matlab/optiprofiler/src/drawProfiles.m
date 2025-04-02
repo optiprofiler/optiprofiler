@@ -26,7 +26,7 @@ function [fig_perf, fig_data, fig_log_ratio, curves] = drawProfiles(work, proble
         [x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_equal, curves] = getLogRatioProfileAxes(work, curves);
     end
 
-    if ~profile_options.(ProfileOptionKey.DRAW_PLOTS.value)
+    if profile_options.(ProfileOptionKey.SCORE_ONLY.value)
         return;
     end
 

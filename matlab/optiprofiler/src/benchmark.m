@@ -67,8 +67,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         Default is false.
 %       - run_plain: whether to run an extra experiment with the 'plain'
 %         feature. Default is false.
-%       - draw_plots: whether to draw history plots and profiles. Default is
-%         true.
+%       - score_only: whether to only calculate the scores of the solvers
+%         without drawing the profiles and saving the data. Default is false.
 %       - summarize_performance_profiles: whether to add all the performance
 %         profiles to the summary PDF. Default is true.
 %       - summarize_data_profiles: whether to add all the data profiles to the
@@ -644,10 +644,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     other_options.(OtherOptionKey.CUTEST_PROBLEM_NAMES.value) = loadCutestNames(cutest_options, other_options);
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %%%%%%%%%%%%%%%%%%%%%%%%% Set the default values for plotting. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%% Set the default options for plotting. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    % Set the default values for plotting.
     set(groot, 'DefaultAxesFontSize', 12);
     set(groot, 'DefaultAxesFontName', 'Arial');
 
@@ -674,13 +673,16 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     %%%%%%%%%%%%%%%%%%%%%%%%% Create the directory to store the results. %%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    if ~exist(path_feature, 'dir')
-        mkdir(path_feature);
-    else
-        rmdir(path_feature, 's');
-        mkdir(path_feature);
+    if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
+        if ~exist(path_feature, 'dir')
+            mkdir(path_feature);
+        else
+            rmdir(path_feature, 's');
+            mkdir(path_feature);
+        end
     end
-    if ~profile_options.(ProfileOptionKey.DRAW_PLOTS.value) || ~isempty(profile_options.(ProfileOptionKey.LOAD.value))
+
+    if profile_options.(ProfileOptionKey.SCORE_ONLY.value) || ~isempty(profile_options.(ProfileOptionKey.LOAD.value))
         % If 'load' is not empty, we will directly load the results and do not need to compute
         % again. In this case, we do not need to create the directory to store the hist plots.
         path_hist_plots = '';
@@ -691,45 +693,51 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         end
     end
 
-    % Create the directory to store options and log files.
-    if ~exist(path_log, 'dir')
-        mkdir(path_log);
-    else
-        rmdir(path_log, 's');
-        mkdir(path_log);
-    end
-
-    % Create a README.txt file to explain the content of the folder `path_log`.
-    path_readme_log = fullfile(path_log, 'README.txt');
-    try
-        fid = fopen(path_readme_log, 'w');
-        fprintf(fid, "This folder contains following files and directories.\n\n");
-        fclose(fid);
-    catch
-        if ~profile_options.(ProfileOptionKey.SILENT.value)
-            fprintf("INFO: Failed to create the README.txt file for folder '%s'.\n", path_log);
+    if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
+        % Create the directory to store options and log files.
+        if ~exist(path_log, 'dir')
+            mkdir(path_log);
+        else
+            rmdir(path_log, 's');
+            mkdir(path_log);
         end
     end
 
-    % Create a txt file named by time_stamp to record the time_stamp.
-    path_time_stamp = fullfile(path_log, ['time_stamp_', time_stamp, '.txt']);
-    try
-        fid = fopen(path_time_stamp, 'w');
-        fprintf(fid, time_stamp);
-        fclose(fid);
+    if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
+        % Create a README.txt file to explain the content of the folder `path_log`.
+        path_readme_log = fullfile(path_log, 'README.txt');
         try
-            fid = fopen(path_readme_log, 'a');
-            fprintf(fid, "'time_stamp_%s.txt': file, recording the time stamp of the current experiment.\n", time_stamp);
+            fid = fopen(path_readme_log, 'w');
+            fprintf(fid, "This folder contains following files and directories.\n\n");
             fclose(fid);
         catch
-        end
-    catch
-        if ~profile_options.(ProfileOptionKey.SILENT.value)
-            fprintf("INFO: Failed to create the time_stamp file for folder '%s'.\n", path_log);
+            if ~profile_options.(ProfileOptionKey.SILENT.value)
+                fprintf("INFO: Failed to create the README.txt file for folder '%s'.\n", path_log);
+            end
         end
     end
 
-    if profile_options.(ProfileOptionKey.DRAW_PLOTS.value) && ~isfield(other_options, OtherOptionKey.PROBLEM.value)
+    if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
+        % Create a txt file named by time_stamp to record the time_stamp.
+        path_time_stamp = fullfile(path_log, ['time_stamp_', time_stamp, '.txt']);
+        try
+            fid = fopen(path_time_stamp, 'w');
+            fprintf(fid, time_stamp);
+            fclose(fid);
+            try
+                fid = fopen(path_readme_log, 'a');
+                fprintf(fid, "'time_stamp_%s.txt': file, recording the time stamp of the current experiment.\n", time_stamp);
+                fclose(fid);
+            catch
+            end
+        catch
+            if ~profile_options.(ProfileOptionKey.SILENT.value)
+                fprintf("INFO: Failed to create the time_stamp file for folder '%s'.\n", path_log);
+            end
+        end
+    end
+
+    if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value) && ~isfield(other_options, OtherOptionKey.PROBLEM.value)
         path_figs = fullfile(path_log, 'figs');
         mkdir(path_figs);
         try
@@ -739,78 +747,76 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         catch
         end
     end
-    try
-        if exist('options_store', 'var')
-            save(fullfile(path_log, 'options_store.mat'), 'options_store');
-            try
-                fid = fopen(path_readme_log, 'a');
-                fprintf(fid, "'options_store.mat': file, storing the options of the current experiment.\n");
-                fclose(fid);
-            catch
+
+    if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
+        try
+            if exist('options_store', 'var')
+                save(fullfile(path_log, 'options_store.mat'), 'options_store');
+                try
+                    fid = fopen(path_readme_log, 'a');
+                    fprintf(fid, "'options_store.mat': file, storing the options of the current experiment.\n");
+                    fclose(fid);
+                catch
+                end
             end
-        end
-    catch
-        if ~profile_options.(ProfileOptionKey.SILENT.value)
-            fprintf("INFO: Failed to save the `options` of the current experiment.\n");
-        end
-    end
-    log_file = fullfile(path_log, 'log.txt');
-    diary(log_file);
-    try
-        fid = fopen(path_readme_log, 'a');
-        fprintf(fid, "'log.txt': file, the log file of the current experiment, recording print information from MATLAB command window.\n");
-        fclose(fid);
-    catch
-    end
-
-    % Create a README.txt file to explain the content of the folder `path_feature`.
-    path_readme_feature = fullfile(path_feature, 'README.txt');
-    try
-        fid = fopen(path_readme_feature, 'w');
-        fprintf(fid, "This folder contains following files and directories.\n\n");
-        if ~isempty(path_hist_plots)
-            fprintf(fid, "'history_plots': folder, containing all the history plots for each problem.\n");
-            fprintf(fid, "'history_plots_summary.pdf': file, the summary PDF of history plots for all problems.\n");
-        end
-        fprintf(fid, "'test_log': folder, containing log files and other useful experimental data.\n");
-        fclose(fid);
-    catch
-        if ~profile_options.(ProfileOptionKey.SILENT.value)
-            fprintf("INFO: Failed to create the README.txt file for folder '%s'.\n", path_feature);
-        end
-    end
-
-    % If `n_runs` is not specified, the feature is deterministic, and at least one solver is
-    % randomized, then we set `n_runs` to 5.
-    if ~isfield(feature_options, FeatureOptionKey.N_RUNS.value) && ~feature.is_stochastic && any(other_options.(OtherOptionKey.SOLVER_ISRAND.value))
-        if ~profile_options.(ProfileOptionKey.SILENT.value)
-            fprintf("INFO: We set `n_runs` to 5 since the feature is deterministic and at least one solver is randomized and `n_runs` is not specified.\n\n");
-        end
-        feature.options.(FeatureOptionKey.N_RUNS.value) = 5;
-    end
-
-    % We try to copy the script or function that calls the benchmark function to the log directory.
-    try
-        calling_script = dbstack(1, '-completenames');
-        if ~isempty(calling_script)
-            copyfile(calling_script.file, path_log);
+        catch
             if ~profile_options.(ProfileOptionKey.SILENT.value)
-                fprintf("INFO: The script or function that calls `benchmark` function is copied to: %s.\n\n", path_log);
-            end
-            try
-                fid = fopen(path_readme_log, 'a');
-                fprintf(fid, "'%s': file, the script or function that calls `benchmark` function.\n", calling_script.file);
-                fclose(fid);
-            catch
+                fprintf("INFO: Failed to save the `options` of the current experiment.\n");
             end
         end
-    catch
-        if ~profile_options.(ProfileOptionKey.SILENT.value)
-            fprintf("INFO: Failed to copy the script or function that calls `benchmark` function to the log directory.\n\n");
+        log_file = fullfile(path_log, 'log.txt');
+        diary(log_file);
+        try
+            fid = fopen(path_readme_log, 'a');
+            fprintf(fid, "'log.txt': file, the log file of the current experiment, recording print information from MATLAB command window.\n");
+            fclose(fid);
+        catch
         end
     end
 
-    if profile_options.(ProfileOptionKey.DRAW_PLOTS.value) && ~isfield(other_options, OtherOptionKey.PROBLEM.value)
+    if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
+        % Create a README.txt file to explain the content of the folder `path_feature`.
+        path_readme_feature = fullfile(path_feature, 'README.txt');
+        try
+            fid = fopen(path_readme_feature, 'w');
+            fprintf(fid, "This folder contains following files and directories.\n\n");
+            if ~isempty(path_hist_plots)
+                fprintf(fid, "'history_plots': folder, containing all the history plots for each problem.\n");
+                fprintf(fid, "'history_plots_summary.pdf': file, the summary PDF of history plots for all problems.\n");
+            end
+            fprintf(fid, "'test_log': folder, containing log files and other useful experimental data.\n");
+            fclose(fid);
+        catch
+            if ~profile_options.(ProfileOptionKey.SILENT.value)
+                fprintf("INFO: Failed to create the README.txt file for folder '%s'.\n", path_feature);
+            end
+        end
+    end
+
+    if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
+        % We try to copy the script or function that calls the benchmark function to the log directory.
+        try
+            calling_script = dbstack(1, '-completenames');
+            if ~isempty(calling_script)
+                copyfile(calling_script.file, path_log);
+                if ~profile_options.(ProfileOptionKey.SILENT.value)
+                    fprintf("INFO: The script or function that calls `benchmark` function is copied to: %s.\n\n", path_log);
+                end
+                try
+                    fid = fopen(path_readme_log, 'a');
+                    fprintf(fid, "'%s': file, the script or function that calls `benchmark` function.\n", calling_script.file);
+                    fclose(fid);
+                catch
+                end
+            end
+        catch
+            if ~profile_options.(ProfileOptionKey.SILENT.value)
+                fprintf("INFO: Failed to copy the script or function that calls `benchmark` function to the log directory.\n\n");
+            end
+        end
+    end
+
+    if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value) && ~isfield(other_options, OtherOptionKey.PROBLEM.value)
         % Create the directories for the performance profiles, data profiles, and log-ratio profiles.
         path_perf_hist = fullfile(path_feature, 'detailed_profiles', 'perf_history-based');
         path_data_hist = fullfile(path_feature, 'detailed_profiles', 'data_history-based');
@@ -859,6 +865,15 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     %%%%%%%%%%%%%% Solve all the problems when 'load' option is not provided. %%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+    % If `n_runs` is not specified, the feature is deterministic, and at least one solver is
+    % randomized, then we set `n_runs` to 5.
+    if ~isfield(feature_options, FeatureOptionKey.N_RUNS.value) && ~feature.is_stochastic && any(other_options.(OtherOptionKey.SOLVER_ISRAND.value))
+        if ~profile_options.(ProfileOptionKey.SILENT.value)
+            fprintf("INFO: We set `n_runs` to 5 since the feature is deterministic and at least one solver is randomized and `n_runs` is not specified.\n\n");
+        end
+        feature.options.(FeatureOptionKey.N_RUNS.value) = 5;
+    end
+
     if isempty(profile_options.(ProfileOptionKey.LOAD.value))
         % If 'load' is not specified, we solve all the problems.
         if ~profile_options.(ProfileOptionKey.SILENT.value)
@@ -875,14 +890,16 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             if ~profile_options.(ProfileOptionKey.SILENT.value)
                 fprintf('INFO: No problems were solved for the "%s" feature.\n', feature.name);
             end
-            diary off;
+            if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
+                diary off;
+            end
             return;
         end
 
         % If a specific problem is provided to `other_options`, we only solve this problem and generate
         % the history plots for it.
         if isfield(other_options, OtherOptionKey.PROBLEM.value)
-            if profile_options.(ProfileOptionKey.DRAW_PLOTS.value)
+            if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
                 % We move the history plots to the feature directory.
                 try
                     movefile(fullfile(path_hist_plots, '*'), path_feature);
@@ -899,7 +916,10 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             solver_merit_mins = squeeze(min(min(merit_histories, [], 4, 'omitnan'), [], 3, 'omitnan'));
             solver_scores = (merit_init - solver_merit_mins) ./ max(merit_init - merit_min, eps);
             solver_scores = solver_scores';
-            diary off;
+
+            if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
+                diary off;
+            end
             return;
         end
 
@@ -923,7 +943,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             end
         end
 
-        if profile_options.(ProfileOptionKey.DRAW_PLOTS.value)
+        if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
             % Merge all the pdf files in path_hist_plots to a single pdf file.
             if ~profile_options.(ProfileOptionKey.SILENT.value)
                 fprintf('\nINFO: Merging all the history plots to a single PDF file.\n');
@@ -967,41 +987,44 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     max_name_length = max(cellfun(@length, sorted_problem_names));
     sorted_time_processes = num2cell(sorted_time_processes);
     max_time_length = max(cellfun(@(x) length(sprintf('%.2f', x)), sorted_time_processes));
-    try
-        fid = fopen(path_txt, 'w');
-        for i = 1:length(sorted_problem_names)
-            if ismember(sorted_problem_names{i}, unsolved_problems)
-                continue;
-            end
-            count = fprintf(fid, "%-*s      %*s\n", max_name_length, sorted_problem_names{i}, max_time_length, sprintf('%.2f seconds', sorted_time_processes{i}));
-            if count < 0
-                if ~profile_options.(ProfileOptionKey.SILENT.value)
-                    fprintf("INFO: Failed to record data for %s.", sorted_problem_names{i});
+
+    if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
+        try
+            fid = fopen(path_txt, 'w');
+            for i = 1:length(sorted_problem_names)
+                if ismember(sorted_problem_names{i}, unsolved_problems)
+                    continue;
                 end
-            end
-        end
-        if ~isempty(unsolved_problems)
-            fprintf(fid, "\n");
-            fprintf(fid, "Unsolved problems (that all the solvers failed to return a solution):\n");
-            for i = 1:length(unsolved_problems)
-                count = fprintf(fid, "%s\n", unsolved_problems{i});
+                count = fprintf(fid, "%-*s      %*s\n", max_name_length, sorted_problem_names{i}, max_time_length, sprintf('%.2f seconds', sorted_time_processes{i}));
                 if count < 0
                     if ~profile_options.(ProfileOptionKey.SILENT.value)
-                        fprintf("INFO: Failed to record data for %s.", unsolved_problems{i});
+                        fprintf("INFO: Failed to record data for %s.", sorted_problem_names{i});
                     end
                 end
             end
-        end
-        fclose(fid);
-        try
-            fid = fopen(path_readme_log, 'a');
-            fprintf(fid, "'problems.txt': file, storing the names of the problems and the time spent on solving them.\n");
+            if ~isempty(unsolved_problems)
+                fprintf(fid, "\n");
+                fprintf(fid, "Unsolved problems (that all the solvers failed to return a solution):\n");
+                for i = 1:length(unsolved_problems)
+                    count = fprintf(fid, "%s\n", unsolved_problems{i});
+                    if count < 0
+                        if ~profile_options.(ProfileOptionKey.SILENT.value)
+                            fprintf("INFO: Failed to record data for %s.", unsolved_problems{i});
+                        end
+                    end
+                end
+            end
             fclose(fid);
+            try
+                fid = fopen(path_readme_log, 'a');
+                fprintf(fid, "'problems.txt': file, storing the names of the problems and the time spent on solving them.\n");
+                fclose(fid);
+            catch
+            end
         catch
-        end
-    catch
-        if ~profile_options.(ProfileOptionKey.SILENT.value)
-            fprintf("INFO: Error occurred when writing the problem names to %s.\n", path_txt);
+            if ~profile_options.(ProfileOptionKey.SILENT.value)
+                fprintf("INFO: Error occurred when writing the problem names to %s.\n", path_txt);
+            end
         end
     end
 
@@ -1141,7 +1164,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         [fig_perf_hist, fig_data_hist, fig_log_ratio_hist, curves{i_tol}.hist] = drawProfiles(work_hist, problem_dims, solver_names, tolerance_label, cell_axs_summary_hist, true, is_perf, is_data, is_log_ratio, profile_options, curves{i_tol}.hist);
         [fig_perf_out, fig_data_out, fig_log_ratio_out, curves{i_tol}.out] = drawProfiles(work_out, problem_dims, solver_names, tolerance_label, cell_axs_summary_out, is_output_based, is_perf, is_data, is_log_ratio, profile_options, curves{i_tol}.out);
 
-        if profile_options.(ProfileOptionKey.DRAW_PLOTS.value)
+        if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
             pdf_perf_hist = fullfile(path_perf_hist, ['perf_hist_', int2str(i_tol), '.pdf']);
             figure_perf_hist = fullfile(path_figs, ['perf_hist_', int2str(i_tol), '.fig']);
             exportgraphics(fig_perf_hist, pdf_perf_hist, 'ContentType', 'vector');
@@ -1235,25 +1258,29 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         fig_summary.Children.Children(2).YLabel.FontSize = min(fig_summary.Position(4) / 30 * 4.5, fig_summary.Position(4) / n_rows * 2 / 30 * 4.5);
     end
 
-    % Save `curves` to path_log.
-    save(fullfile(path_log, 'curves.mat'), 'curves');
-    try
-        fid = fopen(path_readme_log, 'a');
-        fprintf(fid, "'curves.mat': file, storing the curves of the profiles.\n");
-        fclose(fid);
-    catch
+    if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
+        % Save `curves` to path_log.
+        save(fullfile(path_log, 'curves.mat'), 'curves');
+        try
+            fid = fopen(path_readme_log, 'a');
+            fprintf(fid, "'curves.mat': file, storing the curves of the profiles.\n");
+            fclose(fid);
+        catch
+        end
     end
 
     % Compute the `solver_scores`.
     profile_scores = computeScores(curves, profile_options);
     scoring_fun = profile_options.(ProfileOptionKey.SCORING_FUN.value);
     solver_scores = scoring_fun(profile_scores);
-    save(fullfile(path_log, 'profile_scores.mat'), 'profile_scores');
-    try
-        fid = fopen(path_readme_log, 'a');
-        fprintf(fid, "'profile_scores.mat': file, storing the scores of solvers on each profile.\n");
-        fclose(fid);
-    catch
+    if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
+        save(fullfile(path_log, 'profile_scores.mat'), 'profile_scores');
+        try
+            fid = fopen(path_readme_log, 'a');
+            fprintf(fid, "'profile_scores.mat': file, storing the scores of solvers on each profile.\n");
+            fclose(fid);
+        catch
+        end
     end
 
     if ~profile_options.(ProfileOptionKey.SILENT.value)
@@ -1267,7 +1294,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         end
     end
 
-    if profile_options.(ProfileOptionKey.DRAW_PLOTS.value)
+    if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
         % Store the summary pdf. We will name the summary pdf as "summary_feature_name.pdf" and store it under
         % path_feature. We will also put a "summary.pdf" in the path_out directory, which will be a merged pdf of
         % all the "summary_feature_name.pdf" under path_out following the order of the feature_stamp.
@@ -1307,7 +1334,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     % Close the figures.
     if n_rows > 0
         close(fig_summary);
-        if ~profile_options.(ProfileOptionKey.SILENT.value) && profile_options.(ProfileOptionKey.DRAW_PLOTS.value)
+        if ~profile_options.(ProfileOptionKey.SILENT.value) && ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
             fprintf('\nINFO: Summary stored in %s', path_out);
         end
     end
@@ -1321,31 +1348,34 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     %%%%%%%%%%% Save useful data to a structure and then to a mat file for future loading. %%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    data = struct();
-    data.feature_stamp = feature_stamp;
-    data.solver_names = solver_names;
-    data.n_evals = n_evals;
-    data.problem_names = problem_names;
-    data.problem_types = problem_types;
-    data.problem_dims = problem_dims;
-    data.problem_cons = problem_cons;
-    data.computation_times = computation_times;
-    data.solvers_successes = solvers_successes;
-    data.merit_histories = merit_histories;
-    data.merit_out = merit_out;
-    data.merit_init = merit_init;
-    try
-        save(fullfile(path_log, 'data.mat'), '-struct', 'data');
-        fid = fopen(path_readme_log, 'a');
-        fprintf(fid, "'data.mat': file, storing the data of the current experiment for future loading.\n");
-        fclose(fid);
-    catch
-        if ~profile_options.(ProfileOptionKey.SILENT.value)
-            fprintf("INFO: Failed to save the data of the current experiment.\n");
+    if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
+        data = struct();
+        data.feature_stamp = feature_stamp;
+        data.solver_names = solver_names;
+        data.n_evals = n_evals;
+        data.problem_names = problem_names;
+        data.problem_types = problem_types;
+        data.problem_dims = problem_dims;
+        data.problem_cons = problem_cons;
+        data.computation_times = computation_times;
+        data.solvers_successes = solvers_successes;
+        data.merit_histories = merit_histories;
+        data.merit_out = merit_out;
+        data.merit_init = merit_init;
+        try
+            save(fullfile(path_log, 'data.mat'), '-struct', 'data');
+            fid = fopen(path_readme_log, 'a');
+            fprintf(fid, "'data.mat': file, storing the data of the current experiment for future loading.\n");
+            fclose(fid);
+        catch
+            if ~profile_options.(ProfileOptionKey.SILENT.value)
+                fprintf("INFO: Failed to save the data of the current experiment.\n");
+            end
         end
+
+        diary off;
     end
 
-    diary off;
 end
 
 % Following one function is modified from the code provided by Benjamin Großmann (2024). Merge PDF-Documents

@@ -90,10 +90,10 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
             error("MATLAB:checkValidityProfileOptions:run_plainNotValid", "The field 'run_plain' of options should be a boolean.");
         end
     end
-    % Judge whether profile_options.draw_plots is a boolean.
-    if isfield(profile_options, ProfileOptionKey.DRAW_PLOTS.value)
-        if ~islogicalscalar(profile_options.(ProfileOptionKey.DRAW_PLOTS.value))
-            error("MATLAB:checkValidityProfileOptions:draw_plotsNotValid", "The field 'draw_plots' of options should be a boolean.");
+    % Judge whether profile_options.score_only is a boolean.
+    if isfield(profile_options, ProfileOptionKey.SCORE_ONLY.value)
+        if ~islogicalscalar(profile_options.(ProfileOptionKey.SCORE_ONLY.value))
+            error("MATLAB:checkValidityProfileOptions:score_onlyNotValid", "The field 'score_only' of options should be a boolean.");
         end
     end
     % Judge whether profile_options.summarize_performance_profiles is a boolean.
