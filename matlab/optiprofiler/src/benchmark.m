@@ -505,45 +505,69 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         merit_histories = merit_histories(:, solvers_toload, :, :);
         merit_out = merit_out(:, solvers_toload, :);
 
-        % Check whether the user provides options for CUTEst. If so, we will intersect the
-        % problems in the loaded data with the problems selected by the options from S2MPJ.
-        p_option = struct();
+        % Check whether the user provides options for CUTEst. If so, we will use them to filter the
+        % problems in the loaded data.
+        options = checkValidityCutestOptions(options);
+        p_to_load = true(size(problem_names));
         if isfield(options, CutestOptionKey.P_TYPE.value)
-            p_option.(CutestOptionKey.P_TYPE.value) = options.(CutestOptionKey.P_TYPE.value);
+            % Judge whether the type of the problems in the loaded data satisfies the options.
+            for i = 1:numel(problem_types)
+                if ~ismember(problem_types(i), options.(CutestOptionKey.P_TYPE.value))
+                    p_to_load(i) = false;
+                end
+            end
         end
         if isfield(options, CutestOptionKey.MINDIM.value)
-            p_option.(CutestOptionKey.MINDIM.value) = options.(CutestOptionKey.MINDIM.value);
+            % Judge whether the dimension of the problems in the loaded data satisfies the options.
+            for i = 1:numel(problem_dims)
+                if problem_dims(i) < options.(CutestOptionKey.MINDIM.value)
+                    p_to_load(i) = false;
+                end
+            end
         end
         if isfield(options, CutestOptionKey.MAXDIM.value)
-            p_option.(CutestOptionKey.MAXDIM.value) = options.(CutestOptionKey.MAXDIM.value);
+            % Judge whether the dimension of the problems in the loaded data satisfies the options.
+            for i = 1:numel(problem_dims)
+                if problem_dims(i) > options.(CutestOptionKey.MAXDIM.value)
+                    p_to_load(i) = false;
+                end
+            end
         end
         if isfield(options, CutestOptionKey.MINCON.value)
-            p_option.(CutestOptionKey.MINCON.value) = options.(CutestOptionKey.MINCON.value);
+            % Judge whether the number of constraints of the problems in the loaded data satisfies
+            % the options.
+            for i = 1:numel(problem_cons)
+                if problem_cons(i) < options.(CutestOptionKey.MINCON.value)
+                    p_to_load(i) = false;
+                end
+            end
         end
         if isfield(options, CutestOptionKey.MAXCON.value)
-            p_option.(CutestOptionKey.MAXCON.value) = options.(CutestOptionKey.MAXCON.value);
+            % Judge whether the number of constraints of the problems in the loaded data satisfies
+            % the options.
+            for i = 1:numel(problem_cons)
+                if problem_cons(i) > options.(CutestOptionKey.MAXCON.value)
+                    p_to_load(i) = false;
+                end
+            end
         end
         if isfield(options, CutestOptionKey.EXCLUDELIST.value)
-            p_option.(CutestOptionKey.EXCLUDELIST.value) = options.(CutestOptionKey.EXCLUDELIST.value);
-        end
-        try
-            p_to_load = s_select(p_option);
-        catch
-            error("MATLAB:benchmark:cutestProblemSelectionFailed", "Failed to select problems from the S2MPJ library using the options provided in the 'options' field.");
-        end
-        if ~isempty(p_to_load)
-            % Check whether the problems in the loaded data are in the selected problems.
-            [~, indexes] = intersect(problem_names, p_to_load);
-            if isempty(indexes)
-                error("MATLAB:benchmark:NoProblemsToLoad", "Failed to load data since problems in the loaded data do not match the selected problems by the options.");
+            % Judge whether the problems in the loaded data are in the exclude list.
+            for i = 1:numel(problem_names)
+                if ismember(problem_names(i), options.(CutestOptionKey.EXCLUDELIST.value))
+                    p_to_load(i) = false;
+                end
             end
+        end
+        
+        if any(p_to_load)
             % Truncate the loaded data according to the selected problems.
-            problem_names = problem_names(indexes);
-            n_evals = n_evals(indexes, :, :);
-            computation_times = computation_times(indexes, :, :);
-            solvers_successes = solvers_successes(indexes, :, :);
-            merit_histories = merit_histories(indexes, :, :, :);
-            merit_out = merit_out(indexes, :, :);
+            problem_names = problem_names(p_to_load);
+            n_evals = n_evals(p_to_load, :, :);
+            computation_times = computation_times(p_to_load, :, :);
+            solvers_successes = solvers_successes(p_to_load, :, :);
+            merit_histories = merit_histories(p_to_load, :, :, :);
+            merit_out = merit_out(p_to_load, :, :);
         else
             error("MATLAB:benchmark:NoProblemsToLoad", "Failed to load data since no problems are selected by the options.");
         end
@@ -551,13 +575,12 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         merit_min = min(min(min(merit_histories, [], 4, 'omitnan'), [], 3, 'omitnan'), [], 2, 'omitnan');
     end
 
-
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%% Process `solvers` and `feature_name` %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     % Process the solvers.
-    if ~isfield('load', 'options') || isempty(options.(ProfileOptionKey.LOAD.value))
+    if ~isfield(options, ProfileOptionKey.LOAD.value) || isempty(options.(ProfileOptionKey.LOAD.value))
         if ~iscell(solvers) || ~all(cellfun(@(s) isa(s, 'function_handle'), solvers))
             error("MATLAB:benchmark:solversWrongType", "The first argument for `benchmark` must be a cell array of function handles.");
         end

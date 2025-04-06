@@ -15,7 +15,7 @@ function drawLogRatioProfiles(ax, x, y, ratio_max, n_solvers_equal, solver_names
         bar(ax, x(n_solvers_equal + 1:n_solvers_equal + n_below), y(n_solvers_equal + 1:n_solvers_equal + n_below), 'FaceColor', profile_options.(ProfileOptionKey.BAR_COLORS.value)(1, :), 'LineWidth', 1.5, 'LineStyle', 'None');
     end
     if n_above > 0
-        bar(ax, x(end - n_above + 1:end - n_solvers_equal), y(end - n_above + 1:end - n_solvers_equal), 'FaceColor', profile_options.(ProfileOptionKey.BAR_COLORS.value)(mod(1, size(profile_options.(ProfileOptionKey.BAR_COLORS.value), 1)) + 1, :), 'LineWidth', 1.5, 'LineStyle', 'None');
+        bar(ax, x(end - n_solvers_equal - n_above + 1:end - n_solvers_equal), y(end - n_solvers_equal - n_above + 1:end - n_solvers_equal), 'FaceColor', profile_options.(ProfileOptionKey.BAR_COLORS.value)(mod(1, size(profile_options.(ProfileOptionKey.BAR_COLORS.value), 1)) + 1, :), 'LineWidth', 1.5, 'LineStyle', 'None');
     end
     text(ax, (n_problems + 1) / 2, -ratio_max, solver_names{1}, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom', 'FontSize', 24);
     text(ax, (n_problems + 1) / 2, ratio_max, solver_names{2}, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'top', 'FontSize', 24);
