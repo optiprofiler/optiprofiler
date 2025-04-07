@@ -928,7 +928,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                     movefile(fullfile(path_hist_plots, '*'), path_feature);
                     rmdir(path_hist_plots, 's');
                     if ~profile_options.(ProfileOptionKey.SILENT.value)
-                        fprintf('\nINFO: Detailed results stored in %s\n', path_feature);
+                        fprintf('\nINFO: Detailed results stored in: \n%s\n\n', path_feature);
                     end
                 catch
                 end
@@ -978,7 +978,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             end
 
             if ~profile_options.(ProfileOptionKey.SILENT.value)
-                fprintf('\nINFO: Detailed results stored in %s\n\n', path_feature);
+                fprintf('\nINFO: Detailed results stored in: \n%s\n\n', path_feature);
             end
         end
     end
@@ -1358,7 +1358,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     if n_rows > 0
         close(fig_summary);
         if ~profile_options.(ProfileOptionKey.SILENT.value) && ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
-            fprintf('\nINFO: Summary stored in %s', path_out);
+            fprintf('\nINFO: Summary stored in: \n%s\n\n', path_out);
         end
     end
 
