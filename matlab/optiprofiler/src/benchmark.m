@@ -512,7 +512,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         if isfield(options, CutestOptionKey.P_TYPE.value)
             % Judge whether the type of the problems in the loaded data satisfies the options.
             for i = 1:numel(problem_types)
-                if ~ismember(problem_types(i), options.(CutestOptionKey.P_TYPE.value))
+                if ~ismember(problem_types{i}, options.(CutestOptionKey.P_TYPE.value))
                     p_to_load(i) = false;
                 end
             end
@@ -554,7 +554,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         if isfield(options, CutestOptionKey.EXCLUDELIST.value)
             % Judge whether the problems in the loaded data are in the exclude list.
             for i = 1:numel(problem_names)
-                if ismember(problem_names(i), options.(CutestOptionKey.EXCLUDELIST.value))
+                if ismember(problem_names{i}, options.(CutestOptionKey.EXCLUDELIST.value))
                     p_to_load(i) = false;
                 end
             end
