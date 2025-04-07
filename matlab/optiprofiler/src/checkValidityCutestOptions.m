@@ -1,16 +1,16 @@
 function cutest_options = checkValidityCutestOptions(cutest_options)
 %CHECKVALIDITYCUTESTOPTIONS Check the validity of the options in cuteset_options
 
-    % Judge whether cutest_options.p_type is among all possible problem types.
-    if isfield(cutest_options, CutestOptionKey.P_TYPE.value)
-        if ~ischarstr(cutest_options.(CutestOptionKey.P_TYPE.value))
-            error("MATLAB:checkValidityCutestOptions:p_typeNotcharstr", "The field 'p_type' of options should be a char or a string.");
+    % Judge whether cutest_options.ptype is among all possible problem types.
+    if isfield(cutest_options, CutestOptionKey.PTYPE.value)
+        if ~ischarstr(cutest_options.(CutestOptionKey.PTYPE.value))
+            error("MATLAB:checkValidityCutestOptions:ptypeNotcharstr", "The field 'ptype' of options should be a char or a string.");
         else
             % Convert to lower case CHAR.
-            cutest_options.(CutestOptionKey.P_TYPE.value) = lower(char(cutest_options.(CutestOptionKey.P_TYPE.value)));
+            cutest_options.(CutestOptionKey.PTYPE.value) = lower(char(cutest_options.(CutestOptionKey.PTYPE.value)));
             % Check whether the problem type belongs to four types ('u', 'b', 'l', 'n') and their combinations.
-            if ~all(ismember(cutest_options.(CutestOptionKey.P_TYPE.value), 'ubln'))
-                error("MATLAB:checkValidityCutestOptions:p_typeNotubln", "The field 'p_type' of options should be a string containing only 'u', 'b', 'l', 'n'.");
+            if ~all(ismember(cutest_options.(CutestOptionKey.PTYPE.value), 'ubln'))
+                error("MATLAB:checkValidityCutestOptions:ptypeNotubln", "The field 'ptype' of options should be a string containing only 'u', 'b', 'l', 'n'.");
             end
         end
     end

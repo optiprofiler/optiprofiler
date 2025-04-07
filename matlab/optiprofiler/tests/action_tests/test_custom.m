@@ -12,7 +12,7 @@ function test_custom(benchmark_id)
     options.mod_fun = @mod_fun;
     options.mod_affine = @mod_affine;
     options.feature_stamp = 'noisy_linearly_transformed';
-    options.p_type = 'ubln';
+    options.ptype = 'ubln';
     options.mindim = 11;
     options.maxdim = 11;
     options.benchmark_id = benchmark_id;

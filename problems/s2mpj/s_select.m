@@ -6,14 +6,14 @@ function [problem_names, argins] = s_select(options)
     argins = {};
 
     % Check whether the options are valid.
-    valid_fields = {'p_type', 'p_type', 'mindim', 'maxdim', 'mincon', 'maxcon', 'oracle', 'excludelist'};
+    valid_fields = {'ptype', 'mindim', 'maxdim', 'mincon', 'maxcon', 'oracle', 'excludelist'};
     if ~isstruct(options) || (~isempty(fieldnames(options)) && ~all(ismember(fieldnames(options), valid_fields)))
         error('The input argument `options` is invalid.');
     end
 
     % Set default values for options.
-    if ~isfield(options, 'p_type')
-        options.p_type = 'ubln';
+    if ~isfield(options, 'ptype')
+        options.ptype = 'ubln';
     end
     if ~isfield(options, 'mindim')
         options.mindim = 1;
@@ -39,7 +39,7 @@ function [problem_names, argins] = s_select(options)
 
     for i_problem = 2:size(probinfo, 1)
         problem_name = probinfo{i_problem, 1};
-        p_type = probinfo{i_problem, 2};
+        ptype = probinfo{i_problem, 2};
         dim = probinfo{i_problem, 4};
         m_con = probinfo{i_problem, 8};
         argin = probinfo{i_problem, 25};
@@ -59,7 +59,7 @@ function [problem_names, argins] = s_select(options)
         end
 
         % Check if the problem type satisfies the criteria.
-        if ~ismember(p_type, options.p_type)
+        if ~ismember(ptype, options.ptype)
             continue;
         end
 

@@ -1,4 +1,4 @@
-function drawHist(fun_histories, maxcv_histories, merit_histories, fun_init, maxcv_init, merit_init, solver_names, cell_axs_summary, is_cum, p_type, problem_n, n_eval, profile_options, default_height)
+function drawHist(fun_histories, maxcv_histories, merit_histories, fun_init, maxcv_init, merit_init, solver_names, cell_axs_summary, is_cum, ptype, problem_n, n_eval, profile_options, default_height)
 %DRAWHIST draws the history plots of the function values, the maximum constraint violation, and the merit function values.
 
     fun_histories = processHistYaxes(fun_histories, fun_init);
@@ -32,7 +32,7 @@ function drawHist(fun_histories, maxcv_histories, merit_histories, fun_init, max
     end
 
     % If the problem is unconstrained, do not draw the histories of maximum constraint violations and merit function values.
-    if strcmp(p_type, 'u')
+    if strcmp(ptype, 'u')
         return;
     end
 

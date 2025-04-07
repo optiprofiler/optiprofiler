@@ -37,7 +37,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
         end
     end
 
-    problem_type = problem.p_type;
+    problem_type = problem.ptype;
     problem_dim = problem.n;
     problem_con = problem.m_linear_ub + problem.m_linear_eq + problem.m_nonlinear_ub + problem.m_nonlinear_eq;
 
@@ -85,7 +85,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
             featured_problem = FeaturedProblem(problem, feature, max_eval, real_seed);
             warning('off', 'all');
             try
-                switch problem.p_type
+                switch problem.ptype
                     case 'u'
                         if profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) == 2
                             x = solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0);
@@ -129,7 +129,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
                 if ~profile_options.(ProfileOptionKey.SILENT.value)
                     format_info_end = sprintf("INFO: Finish solving     %%-%ds with %%-%ds (run %%2d/%%2d) (in %%.2f seconds).\\n", len_problem_names, len_solver_names);
                     fprintf(format_info_end, problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), computation_time(i_solver, i_run));
-                    switch problem.p_type
+                    switch problem.ptype
                         case 'u'
                             format_info_output = sprintf("INFO: Output results for %%-%ds with %%-%ds (run %%2d/%%2d): f = %%10.4e.\\n", len_problem_names, len_solver_names);
                             fprintf(format_info_output, problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), fun_out(i_solver, i_run));
@@ -183,7 +183,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
 
         % Create the figure for the summary.
         warning('off');
-        if strcmp(problem.p_type, 'u')
+        if strcmp(problem.ptype, 'u')
             n_cols = 1;
         else
             n_cols = 3;
@@ -213,7 +213,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
         ylabel(t_summary(1), "History profiles", 'Interpreter', 'latex', 'FontSize', 14);
         ylabel(t_summary(2), "Cummin history profiles", 'Interpreter', 'latex', 'FontSize', 14);
 
-        if strcmp(problem.p_type, 'u')
+        if strcmp(problem.ptype, 'u')
             cell_axs_summary = {axs_summary(1)};
             cell_axs_summary_cum = {axs_summary(2)};
         else
@@ -225,8 +225,8 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
         pdf_summary = fullfile(path_hist_plots, pdf_hist_file_name);
         processed_solver_names = cellfun(@(s) strrep(s, '_', '\_'), solver_names, 'UniformOutput', false);
 
-        drawHist(fun_histories, maxcv_histories, merit_histories, fun_init, maxcv_init, merit_init, processed_solver_names, cell_axs_summary, false, problem.p_type, problem_dim, n_eval, profile_options, default_height);
-        drawHist(fun_histories, maxcv_histories, merit_histories, fun_init, maxcv_init, merit_init, processed_solver_names, cell_axs_summary_cum, true, problem.p_type, problem_dim, n_eval, profile_options, default_height);
+        drawHist(fun_histories, maxcv_histories, merit_histories, fun_init, maxcv_init, merit_init, processed_solver_names, cell_axs_summary, false, problem.ptype, problem_dim, n_eval, profile_options, default_height);
+        drawHist(fun_histories, maxcv_histories, merit_histories, fun_init, maxcv_init, merit_init, processed_solver_names, cell_axs_summary_cum, true, problem.ptype, problem_dim, n_eval, profile_options, default_height);
 
         exportgraphics(fig_summary, pdf_summary, 'ContentType', 'vector');
         warning('on');

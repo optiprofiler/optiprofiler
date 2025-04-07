@@ -36,7 +36,7 @@ function basic()
     % options.n_runs = 5;
     % options.benchmark_id = 'test-noisy';
     % options.solver_verbose = 1;
-    % options.p_type = 'u';
+    % options.ptype = 'u';
     % options.maxdim = 3;
     % options.excludelist = {"MUONSINELS"};
     % options.solver_names = {'simplex_1', 'simplex_2'};

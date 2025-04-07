@@ -9,8 +9,8 @@ function cutest_options = getDefaultCutestOptions(cutest_options, other_options)
         cutest_options.(CutestOptionKey.EXCLUDELIST.value) = {};
     end
     
-    if ~isfield(cutest_options, CutestOptionKey.P_TYPE.value)
-        cutest_options.(CutestOptionKey.P_TYPE.value) = 'u';
+    if ~isfield(cutest_options, CutestOptionKey.PTYPE.value)
+        cutest_options.(CutestOptionKey.PTYPE.value) = 'u';
     end
     if ~isfield(cutest_options, CutestOptionKey.MINDIM.value)
         cutest_options.(CutestOptionKey.MINDIM.value) = 1;

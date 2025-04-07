@@ -5,12 +5,12 @@ classdef TestCheckValidityCutestOptions < matlab.unittest.TestCase
 
             options = struct();
 
-            options.p_type = 1;
-            testCase.verifyError(@() checkValidityCutestOptions(options), "MATLAB:checkValidityCutestOptions:p_typeNotcharstr");
+            options.ptype = 1;
+            testCase.verifyError(@() checkValidityCutestOptions(options), "MATLAB:checkValidityCutestOptions:ptypeNotcharstr");
 
-            options.p_type = 'a';
-            testCase.verifyError(@() checkValidityCutestOptions(options), "MATLAB:checkValidityCutestOptions:p_typeNotubln");
-            options = rmfield(options, 'p_type');
+            options.ptype = 'a';
+            testCase.verifyError(@() checkValidityCutestOptions(options), "MATLAB:checkValidityCutestOptions:ptypeNotubln");
+            options = rmfield(options, 'ptype');
 
             options.mindim = 0;
             testCase.verifyError(@() checkValidityCutestOptions(options), "MATLAB:checkValidityCutestOptions:mindimNotValid");

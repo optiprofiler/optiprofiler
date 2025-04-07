@@ -95,7 +95,7 @@ classdef Problem < handle
 %         is the length of `cub(x)`.
 %       - m_nonlinear_eq: number of the nonlinear equality constraints, which
 %         is the length of `ceq(x)`.
-%       - p_type: type of the problem. It should be 'u' (unconstrained), 'b'
+%       - ptype: type of the problem. It should be 'u' (unconstrained), 'b'
 %         (bound-constrained), 'l' (linearly constrained), or 'n' (nonlinearly
 %         constrained).
 %
@@ -136,7 +136,7 @@ classdef Problem < handle
         m_linear_eq
         m_nonlinear_ub
         m_nonlinear_eq
-        p_type
+        ptype
 
     end
 
@@ -433,7 +433,7 @@ classdef Problem < handle
             end
         end
 
-        function value = get.p_type(obj)
+        function value = get.ptype(obj)
             try
                 if obj.m_nonlinear_ub + obj.m_nonlinear_eq > 0
                     value = 'n';
@@ -518,7 +518,7 @@ classdef Problem < handle
                 error("MATLAB:Problem:WrongSizeInputForMaxCV", "The input `x` for method `maxcv` in `Problem` must have size %d.", obj.n)
             end
 
-            if strcmp(obj.p_type, 'u')
+            if strcmp(obj.ptype, 'u')
                 cv = 0;
                 if detailed
                     varargout{1} = cv;
@@ -539,7 +539,7 @@ classdef Problem < handle
             if any(isfinite(obj.xu))
                 cv_bounds = max(max(x - obj.xu), cv_bounds);
             end
-            if strcmp(obj.p_type, 'b')
+            if strcmp(obj.ptype, 'b')
                 cv = max(cv_bounds);
                 if detailed
                     varargout{1} = cv;
@@ -560,7 +560,7 @@ classdef Problem < handle
             if ~isempty(obj.aeq)
                 cv_linear = max(max(abs(obj.aeq * x - obj.beq)), cv_linear);
             end
-            if strcmp(obj.p_type, 'l')
+            if strcmp(obj.ptype, 'l')
                 cv = max([cv_bounds; cv_linear]);
                 if detailed
                     varargout{1} = cv;
@@ -928,23 +928,23 @@ classdef Problem < handle
                 c = obj.cub(x);
                 ceq = obj.ceq(x);
             end
-            if strcmp(obj.p_type, 'u')
+            if strcmp(obj.ptype, 'u')
                 return
-            elseif strcmp(obj.p_type, 'b')
+            elseif strcmp(obj.ptype, 'b')
                 obj.x0 = min(max(obj.x0, obj.xl), obj.xu);
-            elseif strcmp(obj.p_type, 'l') && obj.m_linear_ub == 0 && all(obj.xl == -Inf) && all(obj.xu == Inf)
+            elseif strcmp(obj.ptype, 'l') && obj.m_linear_ub == 0 && all(obj.xl == -Inf) && all(obj.xu == Inf)
                 try
                     [~, res] = evalc('lsqr(obj.aeq, obj.beq - obj.aeq * obj.x0)');
                     obj.x0 = obj.x0 + res;
                 catch
                 end
-            elseif strcmp(obj.p_type, 'l') && exist('lsqlin') == 2
+            elseif strcmp(obj.ptype, 'l') && exist('lsqlin') == 2
                 try
                     [~, res] = evalc('lsqlin(eye(obj.n), obj.x0, obj.aub, obj.bub, obj.aeq, obj.beq, obj.xl, obj.xu, obj.x0)');
                     obj.x0 = res;
                 catch
                 end
-            elseif ~strcmp(obj.p_type, 'u') && exist('fmincon') == 2
+            elseif ~strcmp(obj.ptype, 'u') && exist('fmincon') == 2
                 try
                     [~, res] = evalc('fmincon(@(x) dist_x0_sq(x), obj.x0, obj.aub, obj.bub, obj.aeq, obj.beq, obj.xl, obj.xu, @(x) nonlcon(x))');
                     obj.x0 = res;

@@ -8,7 +8,7 @@ classdef TestBenchmark < matlab.unittest.TestCase
             options.solver_names = {'sqp', 'interior-point'};
             options.max_tol_order = 2;
             options.n_runs = 2;
-            options.p_type = 'ubln';
+            options.ptype = 'ubln';
             options.maxdim = 11;
             options.mindim = 11;
 

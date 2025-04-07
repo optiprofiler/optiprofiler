@@ -7,7 +7,7 @@ function test_unrelaxable_constraints(benchmark_id)
     solvers = {@fmincon_test1, @fmincon_test2};
     options.solver_names = {'sqp', 'interior-point'};
     options.feature_name = 'unrelaxable_constraints';
-    options.p_type = 'ubln';
+    options.ptype = 'ubln';
     options.mindim = 11;
     options.maxdim = 11;
     options.benchmark_id = benchmark_id;

@@ -7,7 +7,7 @@ function test_plain(benchmark_id)
     solvers = {@fmincon_test1, @fmincon_test2};
     options.solver_names = {'sqp', 'interior-point'};
     options.feature_name = 'plain';
-    options.p_type = 'ubln';
+    options.ptype = 'ubln';
     options.mindim = 11;
     options.maxdim = 11;
     options.benchmark_id = benchmark_id;

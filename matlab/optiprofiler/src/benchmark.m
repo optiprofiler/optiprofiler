@@ -243,7 +243,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %       website.
 %           https://github.com/GrattonToint/S2MPJ
 %
-%       - p_type: the type of the problems to be selected. It should be a
+%       - ptype: the type of the problems to be selected. It should be a
 %         string containing the combination of 'u' (unconstrained), 'b' (bound
 %         constrained), 'l' (linearly constrained), and 'n' (nonlinearly
 %         constrained). Default is 'u'.
@@ -509,10 +509,10 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         % problems in the loaded data.
         options = checkValidityCutestOptions(options);
         p_to_load = true(size(problem_names));
-        if isfield(options, CutestOptionKey.P_TYPE.value)
+        if isfield(options, CutestOptionKey.PTYPE.value)
             % Judge whether the type of the problems in the loaded data satisfies the options.
             for i = 1:numel(problem_types)
-                if ~ismember(problem_types{i}, options.(CutestOptionKey.P_TYPE.value))
+                if ~ismember(problem_types{i}, options.(CutestOptionKey.PTYPE.value))
                     p_to_load(i) = false;
                 end
             end

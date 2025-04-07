@@ -2,7 +2,7 @@ classdef CutestOptionKey
 %CUTESTOPTIONKEY enumerates options for selecting problems and constructing the problem set.
     
     enumeration
-        P_TYPE ('p_type')
+        PTYPE ('ptype')
         MINDIM ('mindim')
         MAXDIM ('maxdim')
         MINCON ('mincon')

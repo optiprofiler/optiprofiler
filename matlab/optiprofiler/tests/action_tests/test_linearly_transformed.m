@@ -8,7 +8,7 @@ function test_linearly_transformed(benchmark_id)
     options.solver_names = {'sqp', 'interior-point'};
     options.feature_name = 'linearly_transformed';
     options.n_runs = 3;
-    options.p_type = 'ubln';
+    options.ptype = 'ubln';
     options.mindim = 11;
     options.maxdim = 11;
     options.benchmark_id = benchmark_id;
