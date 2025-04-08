@@ -1433,7 +1433,11 @@ function integral = integrate(curve, profile_type, profile_options)
             integral = integral + sum(diff(curve(1, :)) .* curve(2, 1:end-1) .* kernel(curve(1, 1:end-1)));
         case 'log_ratio'
             % We do not modify the integral of log_ratio even a score_weight_fun is provided.
-            integral = integral + sum(abs(curve(2, :)));
+            if isempty(curve)
+                integral = 0;
+            else
+                integral = integral + sum(abs(curve(2, :)));
+            end
     end
 end
 
