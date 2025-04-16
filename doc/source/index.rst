@@ -10,7 +10,7 @@ A platform for benchmarking optimization solvers
 ------------------------------------------------
 
 .. toctree::
-    :maxdepth: 1
+    :maxdepth: 2
     :hidden:
 
     User guide <user/index>

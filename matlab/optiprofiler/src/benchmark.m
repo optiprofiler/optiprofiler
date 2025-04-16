@@ -7,11 +7,11 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %   Signatures:
 %
 %   SOLVER_SCORES = BENCHMARK(SOLVERS) creates performance profiles, data
-%   profiles, and log-ratio profiles (later say profiles) for the given SOLVERS
-%   on the default unconstrained problem set, returning SOLVER_SCORES based on
-%   the profiles. SOLVERS is a cell array of function handles. We require
-%   SOLVERS to accept specified inputs and return specified outputs. Details
-%   can be found in the following 'Cautions' part.
+%   profiles, and log-ratio profiles for the given SOLVERS on the default
+%   unconstrained problem set, returning SOLVER_SCORES based on the profiles.
+%   SOLVERS is a cell array of function handles. We require SOLVERS to accept
+%   specified inputs and return specified outputs. Details can be found in the
+%   following 'Cautions' part.
 %
 %   SOLVER_SCORES = BENCHMARK(SOLVERS, FEATURE_NAME) creates profiles and data
 %   profiles for the given SOLVERS on the default unconstrained problem set
@@ -131,23 +131,27 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %
 %       2. options for features:
 %
-%       - feature_name: the name of the feature. Default is 'plain'.
+%       - feature_name: the name of the feature. The available features are
+%         'plain', 'perturbed_x0', 'noisy', 'truncated', 'permuted',
+%         'linearly_transformed', 'random_nan', 'unrelaxable_constraints',
+%         'nonquantifiable_constraints, 'quantized', and 'custom'. Default is
+%         'plain'.
 %       - n_runs: the number of runs of the experiments under the given
 %         feature. Default is 10 for stochastic features and 1 for
 %         deterministic features.
 %       - distribution: the distribution of perturbation in 'perturbed_x0'
 %         feature or noise in 'noisy' feature. It should be either a string
 %         (or char), or a function handle
-%               ``(random stream, dimension) -> random vector``,
-%         accepting a random stream and the dimension of a problem and
+%               ``(random_stream, dimension) -> random vector``,
+%         accepting a random_stream and the dimension of a problem and
 %         returning a random vector with the given dimension. In 'perturbed_x0'
 %         case, the char should be either 'spherical' or 'gaussian' (default is
 %         'spherical'). In 'noisy' case, the char should be either 'gaussian'
 %         or 'uniform' (default is 'gaussian').
 %       - perturbation_level: the magnitude of the perturbation to the initial
-%         guess in the 'perturbed_x0' feature. Default is 10^-3.
+%         guess in the 'perturbed_x0' feature. Default is 1e-3.
 %       - noise_level: the magnitude of the noise in the 'noisy' feature.
-%         Default is 10^-3.
+%         Default is 1e-3.
 %       - noise_type: the type of the noise in the 'noisy' features. It should
 %         be either 'absolute', 'relative', or 'mixed'. Default is 'mixed'.
 %       - significant_digits: the number of significant digits in the
@@ -161,7 +165,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %       - condition_factor: the scaling factor of the condition number of the
 %         linear transformation in the 'linearly_transformed' feature. More
 %         specifically, the condition number of the linear transformation will
-%         2 ^ (condition_factor * n / 2), where `n` is the dimension of the
+%         be 2 ^ (condition_factor * n / 2), where `n` is the dimension of the
 %         problem. Default is 0.
 %       - nan_rate: the probability that the evaluation of the objective
 %         function will return NaN in the 'random_nan' feature. Default is
@@ -175,7 +179,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         are unrelaxable or not in the 'unrelaxable_constraints' feature.
 %         Default is false.
 %       - mesh_size: the size of the mesh in the 'quantized' feature. Default
-%         is 10^-3.
+%         is 1e-3.
 %       - mesh_type: the type of the mesh in the 'quantized' feature. It should
 %         be either 'absolute' or 'relative'. Default is 'absolute'.
 %       - ground_truth: whether the feature is the ground truth or not. Default
@@ -250,12 +254,11 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %       - mindim: the minimum dimension of the problems to be selected. Default
 %         is 1.
 %       - maxdim: the maximum dimension of the problems to be selected. Default
-%         is 2.
+%         is mindim + 1.
 %       - mincon: the minimum number of linear and nonlinear constraints of the
 %         problems to be selected. Default is 0.
 %       - maxcon: the maximum number of linear and nonlinear constraints of the
-%         problems to be selected. Default is 10 for linearly or nonlinearly
-%         constrained problems, and 0 for the others.
+%         problems to be selected. Default is mincon + 10.
 %       - excludelist: the list of problems to be excluded. Default is not to
 %         exclude any problem.
 %

@@ -1,5 +1,29 @@
 function problem = s_load(problem_name, varargin)
-%S_LOAD specific problem loader for the problem set "S2MPJ".
+%S_LOAD coverts a problem in S2MPJ to a Problem class instance.
+%
+%   Users only need to use the following signature to call this function:
+%
+%   PROBLEM = S_LOAD(PROBLEM_NAME) returns a Problem class instance PROBLEM
+%   that corresponds to the problem named PROBLEM_NAME in S2MPJ.
+%
+%   There are two ways to get PROBLEM_NAME you want.
+%
+%       1. Use the function `s_select` to get the problem names you want.
+%
+%       2. Look for a csv file named 'probinfo.csv' in the same directory as
+%          this function. The csv file contains the information of all the
+%          problems in S2MPJ.
+%
+%   Note that problem name may appear in the form of 'problem_name_dim_m_con'
+%   where 'problem_name' is the name of the problem, 'dim' is the dimension of
+%   the problem, and 'm_con' is the number of linear and nonlinear constraints
+%   of the problem. This case only happens when this problem can accept extra
+%   arguments to change the dimension or the number of constraints. This
+%   information is stored in the 'probinfo.csv' file as the last few columns.
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   Some details about S2MPJ.
+%
 %   Problems in S2MPJ are in the following form.
 %       min f(x)
 %       s.t. xlower <= x <= xupper  (xlower may be -Inf and xupper may be Inf)
@@ -73,6 +97,7 @@ function problem = s_load(problem_name, varargin)
 %   not happen since the selector 's_select' will first convert the names of 
 %   parameterized problems to "problem_name_n" and then call 's_load' without
 %   varargin.
+%
 
     % Convert 'problem_name' to a char.
     problem_name = char(problem_name);

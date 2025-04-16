@@ -54,7 +54,8 @@ classdef Feature < handle
 %           and apply the transformation to the variables. In this way, the
 %           Hessian of the objective function becomes Q * D * H * D * Q' with H
 %           being the original Hessian. Note that x0, xl, xu, aub, bub, aeq,
-%           beq will be modified as the case of 'permuted'.
+%           beq will be modified since we want to keep the new problem
+%           mathematically equivalent to the original one.
 %       7. 'random_nan':
 %           randomly replace values of the objective function and nonlinear
 %           constraints with NaN.
@@ -77,8 +78,8 @@ classdef Feature < handle
 %       - distribution: the distribution of perturbation in 'perturbed_x0'
 %         feature or noise in 'noisy' feature. It should be either a string
 %         (or char), or a function handle
-%               ``(random stream, dimension) -> random vector``,
-%         accepting a random stream and the dimension of a problem and
+%               ``(random_stream, dimension) -> random vector``,
+%         accepting a random_stream and the dimension of a problem and
 %         returning a random vector with the given dimension. In 'perturbed_x0'
 %         case, the char should be either 'spherical' or 'gaussian' (default is
 %         'spherical'). In 'noisy' case, the char should be either 'gaussian'

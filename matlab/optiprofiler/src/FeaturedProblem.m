@@ -1,5 +1,5 @@
 classdef FeaturedProblem < Problem
-%FEATUREDPROBLEM is a subclass of Problem that defines an optimization problem
+%FEATUREDPROBLEM is a subclass of Problem class and defines an optimization problem
 %   with a specific feature.
 %
 %   Problem and its subclass FEATUREDPROBLEM describe the following
