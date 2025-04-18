@@ -425,3 +425,10 @@ datenum
 sysu
 zhangzaikun
 ptype
+matbenchmark
+matfeature
+matfeaturedproblem
+matlabapi
+matproblem
+matsload
+matsselect

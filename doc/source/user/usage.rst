@@ -10,11 +10,11 @@ We provide below simple examples on how to use OptiProfiler in MATLAB. For more 
 Examples
 --------
 
-First example to try out
-^^^^^^^^^^^^^^^^^^^^^^^^
+Ex1: first example to try out
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Let us first try to benchmark two callable optimization solvers **solver1** and **solver2** (e.g., **fminsearch** and **fminunc** in MATLAB Optimization Toolbox) on the default test suite.
-(Note that each **solver** must accept signatures mentioned in the `Cautions` part of the :ref:`benchmark <matbenchmark>` function according to the type of problem you want to solve.)
+(Note that each **solver** must accept signatures mentioned in the `Cautions` part of the :ref:`benchmark <matbenchmark>` function according to the type of problems you want to solve.)
 
 To do this, run:
 
@@ -27,11 +27,46 @@ This will benchmark the two solvers on the default test suite, which means ``'pl
 There will be a new folder named ``'out'`` in the current working directory, which contains a subfolder named ``plain_<timestamp>`` with all the detailed results and a pdf file named ``summary.pdf`` summarizing all the performance profiles and data profiles.
 
 
-A step further: adding options
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Ex2: one step further by adding options
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Useful option: **load**
-^^^^^^^^^^^^^^^^^^^^^^^
+You can also add options to the benchmark function. For example, if you want to benchmark three solvers **solver1**, **solver2**, and **solver3** on the test suite with the ``'noisy'`` feature and all the unconstrained and bound-constrained problems with dimension between 6 and 100 from the default problem set, you can run:
 
-Scoring solvers
-^^^^^^^^^^^^^^^
+.. code-block:: matlab
+
+    options.ptype = 'ub';
+    options.mindim = 6;
+    options.maxdim = 100;
+    options.feature_name = 'noisy';
+    benchmark({@solver1, @solver2, @solver3}, options)
+
+This will create the corresponding folders ``'out/noisy_<timestamp>'`` and files as in the previous example Ex1, but with the new options. More details on the options can be found in the :ref:`benchmark <matbenchmark>` function documentation.
+
+
+Ex3: useful option **load**
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+OptiProfiler provides a practically useful option named **load**. This option allows you to load the results from a previous benchmarking run (without solving all the problems again) and use them to draw new profiles with different options. For example, if you have just run the second example Ex2 and OptiProfiler has finished the job and successfully created the folder ``'out'`` in the current working directory, you can run:
+
+.. code-block:: matlab
+
+    options.load = 'latest';
+    options.solvers_toload = [1 3];
+    options.ptype = 'u';
+    options.mindim = 10;
+    options.maxdim = 50;
+    benchmark(options)
+
+This will directly draw the profiles for the **solver1** and **solver3** with the ``'nosiy'`` feature and all the unconstrained problems with dimension between 10 and 50 selected from the previous run. The results will also be saved under the folder ``'out'`` with a new subfolder named ``noisy_<timestamp>`` with the new timestamp.
+
+
+Ex4: scoring solvers
+^^^^^^^^^^^^^^^^^^^^
+
+Besides generating profiles, OptiProfiler also returns scores for the solvers based in the profiles. For example, if you want to score the solvers in Ex1, you can run:
+
+.. code-block:: matlab
+
+    scores = benchmark({@solver1, @solver2})
+
+This will return a vector of scores for the two solvers. The scores by default are calculated based on all the history-based performance profiles and can be modified by the option **scoring_fun** (see :ref:`benchmark <matbenchmark>` function documentation for more details).
