@@ -1030,7 +1030,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             end
             if ~isempty(unsolved_problems)
                 fprintf(fid, "\n");
-                fprintf(fid, "Unsolved problems (that all the solvers failed to return a solution):\n");
+                fprintf(fid, "Unsolved problems (that all the solvers failed to return a solution in all runs):\n");
                 for i = 1:length(unsolved_problems)
                     count = fprintf(fid, "%s\n", unsolved_problems{i});
                     if count < 0
@@ -1043,7 +1043,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             fclose(fid);
             try
                 fid = fopen(path_readme_log, 'a');
-                fprintf(fid, "'problems.txt': file, storing the names of the problems and the time spent on solving them.\n");
+                fprintf(fid, "'problems.txt': file, storing the names of the solved and unsolved problems, the time spent on solving each problem, and the names of the problems that all the solvers failed to meet the convergence test for every tolerance and run.\n");
                 fclose(fid);
             catch
             end
@@ -1120,6 +1120,10 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         fprintf('\n');
     end
 
+    % Find the problems that all the solvers failed to meet the convergence test for every tolerance.
+    solvers_all_diverge_hist = false(n_problems, n_runs, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value));
+    solvers_all_diverge_out = false(n_problems, n_runs, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value));
+
     for i_tol = 1:profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)
         curves{i_tol} = struct();
         curves{i_tol}.hist = struct();
@@ -1155,6 +1159,13 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                         work_out(i_problem, i_solver, i_run) = n_evals(i_problem, i_solver, i_run);
                     end
                 end
+            end
+        end
+
+        for i_problem = 1:n_problems
+            for i_run = 1:n_runs
+                solvers_all_diverge_hist(i_problem, i_run, i_tol) = all(isnan(work_hist(i_problem, :, i_run)));
+                solvers_all_diverge_out(i_problem, i_run, i_tol) = all(isnan(work_out(i_problem, :, i_run)));
             end
         end
 
@@ -1268,6 +1279,40 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         end
         if ~isempty(fig_log_ratio_out)
             close(fig_log_ratio_out);
+        end
+    end
+
+    % Record the names of the problems all the solvers failed to meet the convergence test for every tolerance.
+    if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
+        try
+            fid = fopen(path_txt, 'a');
+            fprintf(fid, "\n");
+            fprintf(fid, "Problems that all the solvers failed to meet the convergence test for each tolerance and each run:\n");
+            for i_tol = 1:profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)
+                tolerance = tolerances(i_tol);
+                tolerance_str = formatFloatScientificLatex(tolerance, 1);
+                for i_run = 1:n_runs
+                    fprintf(fid, "History-based  tol = %-8s run = %-3d:\t\t", tolerance_str, i_run);
+                    for i_problem = 1:n_problems
+                        if solvers_all_diverge_hist(i_problem, i_run, i_tol)
+                            fprintf(fid, "%-*s ", max_name_length, problem_names{i_problem});
+                        end
+                    end
+                    fprintf(fid, "\n");
+                    fprintf(fid, "Output-based   tol = %-8s run = %-3d:\t\t", tolerance_str, i_run);
+                    for i_problem = 1:n_problems
+                        if solvers_all_diverge_out(i_problem, i_run, i_tol)
+                            fprintf(fid, "%-*s ", max_name_length, problem_names{i_problem});
+                        end
+                    end
+                    fprintf(fid, "\n");
+                end
+            end
+            fclose(fid);
+        catch
+            if ~profile_options.(ProfileOptionKey.SILENT.value)
+                fprintf("INFO: Failed to record the problems that all the solvers failed to meet the convergence test.\n");
+            end
         end
     end
 
