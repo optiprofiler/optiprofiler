@@ -78,6 +78,12 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
             error("MATLAB:checkValidityProfileOptions:max_eval_factorNotValid", "The field 'max_eval_factor' of options should be a positive integer.");
         end
     end
+    % Judge whether profile_options.merit_fun is a function handle.
+    if isfield(profile_options, ProfileOptionKey.MERIT_FUN.value)
+        if ~isa(profile_options.(ProfileOptionKey.MERIT_FUN.value), 'function_handle')
+            error("MATLAB:checkValidityProfileOptions:merit_funNotValid", "The field 'merit_fun' of options should be a function handle.");
+        end
+    end
     % Judge whether profile_options.project_x0 is a boolean.
     if isfield(profile_options, ProfileOptionKey.PROJECT_X0.value)
         if ~islogicalscalar(profile_options.(ProfileOptionKey.PROJECT_X0.value))

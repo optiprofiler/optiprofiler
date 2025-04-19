@@ -178,8 +178,13 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
     end
 
     try
-        merit_histories = computeMeritValues(fun_histories, maxcv_histories, maxcv_init);
-        merit_init = computeMeritValues(fun_init, maxcv_init, maxcv_init);
+        merit_fun = profile_options.(ProfileOptionKey.MERIT_FUN.value);
+        try
+            merit_histories = merit_fun(fun_histories, maxcv_histories, maxcv_init);
+            merit_init = merit_fun(fun_init, maxcv_init, maxcv_init);
+        catch
+            error("MATLAB:solveOneProblem:merit_fun_error", "Error occurred while calculating the merit values. Please check the merit function.");
+        end
 
         % Create the figure for the summary.
         warning('off');

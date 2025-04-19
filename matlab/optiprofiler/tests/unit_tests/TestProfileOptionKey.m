@@ -23,6 +23,7 @@ classdef TestProfileOptionKey < matlab.unittest.TestCase
             testCase.verifyEqual(ProfileOptionKey.SAVEPATH.value, 'savepath');
             testCase.verifyEqual(ProfileOptionKey.MAX_TOL_ORDER.value, 'max_tol_order');
             testCase.verifyEqual(ProfileOptionKey.MAX_EVAL_FACTOR.value, 'max_eval_factor');
+            testCase.verifyEqual(ProfileOptionKey.MERIT_FUN.value, 'merit_fun');
             testCase.verifyEqual(ProfileOptionKey.PROJECT_X0.value, 'project_x0');
             testCase.verifyEqual(ProfileOptionKey.RUN_PLAIN.value, 'run_plain');
             testCase.verifyEqual(ProfileOptionKey.SCORE_ONLY.value, 'score_only');

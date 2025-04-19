@@ -46,6 +46,10 @@ classdef TestCheckValidityProfileOptions < matlab.unittest.TestCase
             testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:max_eval_factorNotValid");
             options = rmfield(options, 'max_eval_factor');
 
+            options.merit_fun = 1;
+            testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:merit_funNotValid");
+            options = rmfield(options, 'merit_fun');
+
             options.project_x0 = 2;
             testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:project_x0NotValid");
             options = rmfield(options, 'project_x0');

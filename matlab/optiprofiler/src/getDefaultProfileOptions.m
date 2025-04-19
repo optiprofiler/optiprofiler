@@ -34,6 +34,9 @@ function profile_options = getDefaultProfileOptions(feature, profile_options)
     if ~isfield(profile_options, ProfileOptionKey.MAX_EVAL_FACTOR.value)
         profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value) = 500;
     end
+    if ~isfield(profile_options, ProfileOptionKey.MERIT_FUN.value)
+        profile_options.(ProfileOptionKey.MERIT_FUN.value) = @computeMeritValues;
+    end
     if ~isfield(profile_options, ProfileOptionKey.PROJECT_X0.value)
         profile_options.(ProfileOptionKey.PROJECT_X0.value) = false;
     end

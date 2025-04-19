@@ -11,6 +11,7 @@ classdef ProfileOptionKey
         SAVEPATH ('savepath')
         MAX_TOL_ORDER ('max_tol_order')
         MAX_EVAL_FACTOR ('max_eval_factor')
+        MERIT_FUN ('merit_fun')
         PROJECT_X0 ('project_x0')
         RUN_PLAIN ('run_plain')
         SCORE_ONLY ('score_only')

@@ -44,6 +44,20 @@ Options should be specified in a struct. The following are the available fields 
 
   - **max_eval_factor**: the factor multiplied to each problem's dimension to get the maximum number of evaluations for each problem. Default is ``500``.
 
+  - **merit_fun**: the merit function to measure the quality of a point using the objective function value and the maximum constraint violation. It should be a function handle
+
+      ``(fun_values, maxcv_values, maxcv_init) -> merit_values``,
+
+    where ``fun_values`` is history of the objective function values, ``maxcv_values`` is history of the maximum constraint violation, and ``maxcv_init`` is the initial maximum constraint violation. The size of ``fun_values`` and ``maxcv_values`` is the same, and the size of ``maxcv_init`` is the same as the second to last dimensions of ``fun_values``. The default merit function ``varphi(x)`` is defined by the objective function ``f(x)`` and the maximum constraint violation ``v(x)`` as
+
+    .. parsed-literal::
+
+        **varphi**\(**x**) = **f**\(**x**),                      if **v**\(**x**) <= v1,
+        **varphi**\(**x**) = **f**\(**x**) + 1e5 * (**v**\(**x**) - v1),  if v1 < **v**\(**x**) <= v2,
+        **varphi**\(**x**) = Inf,                       if **v**\(**x**) > v2,
+
+    where ``v1 = max(1e-5, v0)`` and ``v2 = min(0.01, 1e-10 * max(1, v0))``, and ``v0`` is the initial maximum constraint violation.
+
   - **project_x0**: whether to project the initial point to the feasible set. Default is ``false``.
 
   - **run_plain**: whether to run an extra experiment with the 'plain' feature. Default is ``false``.

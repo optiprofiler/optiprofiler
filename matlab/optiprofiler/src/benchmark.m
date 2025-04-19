@@ -63,6 +63,22 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %       - max_eval_factor: the factor multiplied to each problem's dimension to
 %         get the maximum number of evaluations for each problem. Default is
 %         500.
+%       - merit_fun: the merit function to measure the quality of a point using
+%         the objective function value and the maximum constraint violation.
+%         It should be a function handle as follows:
+%               ``(fun_values, maxcv_values, maxcv_init) -> merit_values``,
+%         where `fun_values` is history of the objective function values,
+%         `maxcv_values` is history of the maximum constraint violation, and
+%         `maxcv_init` is the initial maximum constraint violation. The size of
+%         `fun_values` and `maxcv_values` is the same, and the size of
+%         `maxcv_init` is the same as the second to last dimensions of
+%         `fun_values`. The default merit function varphi(x) is defined by the
+%         objective function f(x) and the maximum constraint violation v(x) as
+%           varphi(x) = f(x)                        if v(x) <= v1
+%           varphi(x) = f(x) + 1e5 * (v(x) - v1)    if v1 < v(x) <= v2
+%           varphi(x) = Inf                         if v(x) > v2
+%         where v1 = max(1e-5, v0) and v2 = min(0.01, 1e-10 * max(1, v0)),
+%         and v0 is the initial maximum constraint violation.
 %       - project_x0: whether to project the initial point to the feasible set.
 %         Default is false.
 %       - run_plain: whether to run an extra experiment with the 'plain'
@@ -906,9 +922,14 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             fprintf('INFO: Starting the computation of the "%s" profiles.\n', feature.name);
         end
         [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_evals, problem_names, problem_types, problem_dims, problem_cons,computation_times, solvers_successes] = solveAllProblems(solvers, feature, profile_options, other_options, true, path_hist_plots);
-        merit_histories = computeMeritValues(fun_histories, maxcv_histories, maxcv_init);
-        merit_out = computeMeritValues(fun_out, maxcv_out, maxcv_init);
-        merit_init = computeMeritValues(fun_init, maxcv_init, maxcv_init);
+        merit_fun = profile_options.(ProfileOptionKey.MERIT_FUN.value);
+        try
+            merit_histories = merit_fun(fun_histories, maxcv_histories, maxcv_init);
+            merit_out = merit_fun(fun_out, maxcv_out, maxcv_init);
+            merit_init = merit_fun(fun_init, maxcv_init, maxcv_init);
+        catch
+            error("MATLAB:benchmark:merit_fun_error", "Error occurred while calculating the merit values. Please check the merit function.");
+        end
         merit_min = min(min(min(merit_histories, [], 4, 'omitnan'), [], 3, 'omitnan'), [], 2, 'omitnan');
 
         % If there are no problems solved, skip the rest of the code, print a message, and return.
@@ -956,7 +977,12 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                 fprintf('\nINFO: Starting the computation of the profiles under "plain" feature.\n');
             end
             [fun_histories_plain, maxcv_histories_plain, ~, ~, ~, ~, ~, problem_names_plain, ~, ~, ~, computation_times_plain] = solveAllProblems(solvers, feature_plain, profile_options, other_options, false, {});
-            merit_histories_plain = computeMeritValues(fun_histories_plain, maxcv_histories_plain, maxcv_init);
+            merit_fun = profile_options.(ProfileOptionKey.MERIT_FUN.value);
+            try
+                merit_histories_plain = merit_fun(fun_histories_plain, maxcv_histories_plain, maxcv_init);
+            catch
+                error("MATLAB:benchmark:merit_fun_error", "Error occurred while calculating the merit values. Please check the merit function.");
+            end
             merit_min_plain = min(min(min(merit_histories_plain, [], 4, 'omitnan'), [], 3, 'omitnan'), [], 2, 'omitnan');
             computation_times = cat(3, computation_times, NaN(size(computation_times_plain)));
             
