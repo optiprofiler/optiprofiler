@@ -30,13 +30,13 @@ There will be a new folder named ``'out'`` in the current working directory, whi
 Ex2: one step further by adding options
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-You can also add options to the benchmark function. For example, if you want to benchmark three solvers **solver1**, **solver2**, and **solver3** on the test suite with the ``'noisy'`` feature and all the unconstrained and bound-constrained problems with dimension between 6 and 100 from the default problem set, you can run:
+You can also add options to the benchmark function. For example, if you want to benchmark three solvers **solver1**, **solver2**, and **solver3** on the test suite with the ``'noisy'`` feature and all the unconstrained and bound-constrained problems with dimension between 6 and 10 from the default problem set, you can run:
 
 .. code-block:: matlab
 
     options.ptype = 'ub';
     options.mindim = 6;
-    options.maxdim = 100;
+    options.maxdim = 10;
     options.feature_name = 'noisy';
     benchmark({@solver1, @solver2, @solver3}, options)
 
@@ -53,11 +53,11 @@ OptiProfiler provides a practically useful option named **load**. This option al
     options.load = 'latest';
     options.solvers_toload = [1 3];
     options.ptype = 'u';
-    options.mindim = 10;
-    options.maxdim = 50;
+    options.mindim = 7;
+    options.maxdim = 9;
     benchmark(options)
 
-This will directly draw the profiles for the **solver1** and **solver3** with the ``'noisy'`` feature and all the unconstrained problems with dimension between 10 and 50 selected from the previous run. The results will also be saved under the folder ``'out'`` with a new subfolder named ``noisy_<timestamp>`` with the new timestamp.
+This will directly draw the profiles for the **solver1** and **solver3** with the ``'noisy'`` feature and all the unconstrained problems with dimension between 7 and 9 selected from the previous run. The results will also be saved under the folder ``'out'`` with a new subfolder named ``noisy_<timestamp>`` with the new timestamp.
 
 
 Ex4: scoring solvers
