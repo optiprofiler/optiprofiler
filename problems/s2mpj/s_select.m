@@ -9,10 +9,10 @@ function [problem_names, argins] = s_select(options)
 %
 %   OPTIONS is a struct with the following fields:
 %
-%       - ptype: the type of the problems to be selected. It should be a
-%         string containing the combination of 'u' (unconstrained), 'b' (bound
-%         constrained), 'l' (linearly constrained), and 'n' (nonlinearly
-%         constrained). Default is 'ubln'.
+%       - ptype: the type of the problems to be selected. It should be a string
+%         or char consisting of any combination of 'u' (unconstrained), 'b'
+%         (bound constrained), 'l' (linearly constrained), and 'n' (nonlinearly
+%         constrained), such as 'b', 'ul', 'ubn'. Default is 'ubln'.
 %       - mindim: the minimum dimension of the problems to be selected. Default
 %         is 1.
 %       - maxdim: the maximum dimension of the problems to be selected. Default

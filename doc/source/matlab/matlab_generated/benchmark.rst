@@ -16,7 +16,7 @@ benchmark
 
 **solver_scores** = **benchmark**\(**solvers**, **options**) creates profiles for the given **solvers** with options specified in the struct **options**. See *Options* part for more details.
 
-**solver_scores** = **benchmark**\(**options**) creates profiles with options specified in the struct **options**. Note that the struct **options** should at least contain the field **load** with the value 'latest' or a time stamp of an experiment in the format of 'yyyyMMdd_HHmmss'. In this case, we will load the data from the specified experiment and draw the profiles.
+**solver_scores** = **benchmark**\(**options**) creates profiles with options specified in the struct **options**. Note that the struct **options** should at least contain the field **load** with the value **\'latest\'** or a time stamp of an experiment in the format of 'yyyyMMdd_HHmmss'. In this case, we will load the data from the specified experiment and draw the profiles.
 
 [**solver_scores**, **profile_scores**] = **benchmark**\(...) returns a 4D tensor **profile_scores** containing scores for all profiles. See **scoring_fun** in *Options* part for more details.
 
@@ -40,7 +40,7 @@ Options should be specified in a struct. The following are the available fields 
 
   - **savepath**: the path to store the results. Default is ``'pwd'``, the current working directory.
 
-  - **max_tol_order**: the maximum order of the tolerance. In any profile (performance profiles, data profiles, and log-ratio profiles), we need to set a group of 'tolerances' to define the 'convergence' of the solvers. (Details can be found in the references.) We will set the tolerances as ``10^(-1:-1:-max_tol_order)``. Default is ``10``.
+  - **max_tol_order**: the maximum order of the tolerance. In any profile (performance profiles, data profiles, and log-ratio profiles), we need to set a group of 'tolerances' to define the convergence test of the solvers. (Details can be found in the references.) We will set the tolerances as ``10^(-1:-1:-max_tol_order)``. Default is ``10``.
 
   - **max_eval_factor**: the factor multiplied to each problem's dimension to get the maximum number of evaluations for each problem. Default is ``500``.
 
@@ -60,7 +60,7 @@ Options should be specified in a struct. The following are the available fields 
 
   - **project_x0**: whether to project the initial point to the feasible set. Default is ``false``.
 
-  - **run_plain**: whether to run an extra experiment with the 'plain' feature. Default is ``false``.
+  - **run_plain**: whether to run an extra experiment with the ``'plain'`` feature. Default is ``false``.
 
   - **score_only**: whether to only calculate the scores of the solvers without drawing the profiles and saving the data. Default is ``false``.
 
@@ -86,103 +86,103 @@ Options should be specified in a struct. The following are the available fields 
 
       ``profile_scores -> solver_scores``,
 
-    where ``profile_scores`` is a 4D tensor containing scores for all profiles. The first dimension of ``profile_scores`` is the index of the solver, the second is the index of tolerance starting from 1, the third represents history-based or output-based profiles, and the fourth represents performance profiles, data profiles, or log-ratio profiles. The default scoring function takes ``the average of the history-based performance profiles under all the tolerances``.
+    where ``profile_scores`` is a 4D tensor containing scores for all profiles. The first dimension of ``profile_scores`` corresponds to the index of the solver, the second corresponds to the index of tolerance starting from 1, the third represents history-based or output-based profiles, and the fourth represents performance profiles, data profiles, or log-ratio profiles. The default scoring function takes the average of the history-based performance profiles under all the tolerances.
 
-  - **load**: loading the stored data from a completed experiment and draw profiles. It can be either 'latest' or a time stamp of an experiment in the format of 'yyyyMMdd_HHmmss'. No default.
+  - **load**: loading the stored data from a completed experiment and draw profiles. It can be either ``'latest'`` or a time stamp of an experiment in the format of 'yyyyMMdd_HHmmss'. No default.
 
-  - **solvers_toload**: the indices of the solvers to load when the 'load' option is provided. It can be a vector of different integers selected from 1 to the total number of solvers of the loading experiment. At least two indices should be provided. Default is ``all the solvers``.
+  - **solvers_toload**: the indices of the solvers to load when the ``load`` option is provided. It can be a vector of different integers selected from 1 to the total number of solvers of the loading experiment. At least two indices should be provided. Default is all the solvers.
 
-  - **line_colors**: the colors of the lines in the plots. It can be a cell array of short names of colors ('r', 'g', 'b', 'c', 'm', 'y', 'k') or a matrix with each row being a RGB triplet. Default line colors are ``those in the palettename named "gem"`` (see MATLAB documentation for 'colororder'). Note that if the number of solvers is greater than the number of colors, we will cycle through the colors.
+  - **line_colors**: the colors of the lines in the plots. It can be a cell array of short names of colors ``('r', 'g', 'b', 'c', 'm', 'y', 'k')`` or a matrix with each row being a RGB triplet. Default line colors are those in the palettename named "gem" (see MATLAB documentation for 'colororder'). Note that if the number of solvers is greater than the number of colors, we will cycle through the colors.
 
-  - **line_styles**: the styles of the lines in the plots. It can be a cell array of chars that are the combinations of line styles ('-', '-.', ':', '--') and markers ('none', 'o', '+', '*', '.', 'x', 's', 'd', '^', 'v', '>', '<', 'p', 'h'). Default line style order is ``{'-', '-.', ':', '--'}``. Note that if the number of solvers is greater than the number of line styles, we will cycle through the styles.
+  - **line_styles**: the styles of the lines in the plots. It can be a cell array of chars that are the combinations of line styles ``('-', '-.', ':', '--')`` and markers ``('none', 'o', '+', '*', '.', 'x', 's', 'd', '^', 'v', '>', '<', 'p', 'h')``. Default line style order is ``{'-', '-.', ':', '--'}``. Note that if the number of solvers is greater than the number of line styles, we will cycle through the styles.
 
   - **line_widths**: the widths of the lines in the plots. It should be a positive scalar or a vector. Default is ``1.5``. Note that if the number of solvers is greater than the number of line widths, we will cycle through the widths.
 
-  - **bar_colors**: two different colors for the bars of two solvers in the log-ratio profiles. It can be a cell array of short names of colors ('r', 'g', 'b', 'c', 'm', 'y', 'k') or a 2-by-3 matrix with each row being a RGB triplet. Default is set to ``the first two colors in the 'line_colors'``.
+  - **bar_colors**: two different colors for the bars of two solvers in the log-ratio profiles. It can be a cell array of short names of colors ``('r', 'g', 'b', 'c', 'm', 'y', 'k')`` or a 2-by-3 matrix with each row being a RGB triplet. Default is set to the first two colors in the ``line_colors`` option.
 
 2. Options for features:
 
-  - **feature_name**: the name of the feature. The available features are 'plain', 'perturbed_x0', 'noisy', 'truncated', 'permuted', 'linearly_transformed', 'random_nan', 'unrelaxable_constraints', 'nonquantifiable_constraints, 'quantized', and 'custom'. Default is ``'plain'``.
+  - **feature_name**: the name of the feature. The available features are ``'plain'``, ``'perturbed_x0'``, ``'noisy'``, ``'truncated'``, ``'permuted'``, ``'linearly_transformed'``, ``'random_nan'``, ``'unrelaxable_constraints'``, ``'nonquantifiable_constraints'``, ``'quantized'``, and ``'custom'``. Default is ``'plain'``.
 
-  - **n_runs**: the number of runs of the experiments under the given feature. Default is ``10 for stochastic features`` and ``1 for deterministic features``.
+  - **n_runs**: the number of runs of the experiments under the given feature. Default is ``10`` for stochastic features and ``1`` for deterministic features.
 
-  - **distribution**: the distribution of perturbation in 'perturbed_x0' feature or noise in 'noisy' feature. It should be either a string (or char), or a function handle
+  - **distribution**: the distribution of perturbation in ``'perturbed_x0'`` feature or noise in ``'noisy'`` feature. It should be either a string (or char), or a function handle
 
       ``(random_stream, dimension) -> random vector``
 
-    that accepts a ``random_stream`` and the ``dimension`` of a problem and returning a ``random vector`` with the given ``dimension``. In 'perturbed_x0' case, the char should be either 'spherical' or 'gaussian' (default is ``'spherical'``). In 'noisy' case, the char should be either 'gaussian' or 'uniform' (default is ``'gaussian'``).
+    that accepts a ``random_stream`` and the ``dimension`` of a problem and returning a ``random vector`` with the given ``dimension``. In ``'perturbed_x0'`` case, the char should be either ``'spherical'`` or ``'gaussian'`` (default is ``'spherical'``). In ``'noisy'`` case, the char should be either ``'gaussian'`` or ``'uniform'`` (default is ``'gaussian'``).
 
-  - **perturbation_level**: the magnitude of the perturbation to the initial guess in the 'perturbed_x0' feature. Default is ``1e-3``.
+  - **perturbation_level**: the magnitude of the perturbation to the initial guess in the ``'perturbed_x0'`` feature. Default is ``1e-3``.
 
-  - **noise_level**: the magnitude of the noise in the 'noisy' feature. Default is ``1e-3``.
+  - **noise_level**: the magnitude of the noise in the ``'noisy'`` feature. Default is ``1e-3``.
 
-  - **noise_type**: the type of the noise in the 'noisy' features. It should be either 'absolute', 'relative', or 'mixed'. Default is ``'mixed'``.
+  - **noise_type**: the type of the noise in the ``'noisy'`` features. It should be either ``'absolute'``, ``'relative'``, or ``'mixed'``. Default is ``'mixed'``.
 
-  - **significant_digits**: the number of significant digits in the 'truncated' feature. Default is ``6``.
+  - **significant_digits**: the number of significant digits in the ``'truncated'`` feature. Default is ``6``.
 
-  - **perturbed_trailing_zeros**: whether we will randomize the trailing zeros of the objective function value in the 'perturbed_x0' feature. Default is ``false``.
+  - **perturbed_trailing_zeros**: whether we will randomize the trailing zeros of the objective function value in the ``'perturbed_x0'`` feature. Default is ``false``.
 
-  - **rotated**: whether to use a random or given rotation matrix to rotate the coordinates of a problem in the 'linearly_transformed' feature. Default is ``true``.
+  - **rotated**: whether to use a random or given rotation matrix to rotate the coordinates of a problem in the ``'linearly_transformed'`` feature. Default is ``true``.
 
-  - **condition_factor**: the scaling factor of the condition number of the linear transformation in the 'linearly_transformed' feature. More specifically, the condition number of the linear transformation will be ``2 ^ (condition_factor * n / 2)``, where ``n`` is the dimension of the problem. Default is ``0``.
+  - **condition_factor**: the scaling factor of the condition number of the linear transformation in the ``'linearly_transformed'`` feature. More specifically, the condition number of the linear transformation will be ``2 ^ (condition_factor * n / 2)``, where ``n`` is the dimension of the problem. Default is ``0``.
 
-  - **nan_rate**: the probability that the evaluation of the objective function will return NaN in the 'random_nan' feature. Default is ``0.05``.
+  - **nan_rate**: the probability that the evaluation of the objective function will return NaN in the ``'random_nan'`` feature. Default is ``0.05``.
 
-  - **unrelaxable_bounds**: whether the bound constraints are unrelaxable or not in the 'unrelaxable_constraints' feature. Default is ``false``.
+  - **unrelaxable_bounds**: whether the bound constraints are unrelaxable or not in the ``'unrelaxable_constraints'`` feature. Default is ``false``.
 
-  - **unrelaxable_linear_constraints**: whether the linear constraints are unrelaxable or not in the 'unrelaxable_constraints' feature. Default is ``false``.
+  - **unrelaxable_linear_constraints**: whether the linear constraints are unrelaxable or not in the ``'unrelaxable_constraints'`` feature. Default is ``false``.
 
-  - **unrelaxable_nonlinear_constraints**: whether the nonlinear constraints are unrelaxable or not in the 'unrelaxable_constraints' feature. Default is ``false``.
+  - **unrelaxable_nonlinear_constraints**: whether the nonlinear constraints are unrelaxable or not in the ``'unrelaxable_constraints'`` feature. Default is ``false``.
 
-  - **mesh_size**: the size of the mesh in the 'quantized' feature. Default is ``1e-3``.
+  - **mesh_size**: the size of the mesh in the ``'quantized'`` feature. Default is ``1e-3``.
 
-  - **mesh_type**: the type of the mesh in the 'quantized' feature. It should be either 'absolute' or 'relative'. Default is ``'absolute'``.
+  - **mesh_type**: the type of the mesh in the ``'quantized'`` feature. It should be either ``'absolute'`` or ``'relative'``. Default is ``'absolute'``.
 
-  - **ground_truth**: whether the feature is the ground truth or not. Default is ``true``.
+  - **ground_truth**: whether the featured problem is the ground truth or not in the ``'quantized'`` feature. Default is ``true``.
 
-  - **mod_x0**: the modifier function to modify the inital guess in the 'custom' feature. It should be a function handle
+  - **mod_x0**: the modifier function to modify the inital guess in the ``'custom'`` feature. It should be a function handle
 
       ``(random_stream, problem) -> modified_x0``,
 
     where ``problem`` is an instance of the class Problem, and ``modified_x0`` is the modified initial guess. No default.
 
-  - **mod_affine**: the modifier function to generate the affine transformation applied to the variables in the 'custom' feature. It should be a function handle
+  - **mod_affine**: the modifier function to generate the affine transformation applied to the variables in the ``'custom'`` feature. It should be a function handle
 
       ``(random_stream, problem) -> (A, b, inv)``,
 
     where ``problem`` is an instance of the class Problem, ``A`` is the matrix of the affine transformation, ``b`` is the vector of the affine transformation, and ``inv`` is the inverse of matrix ``A``. No default.
 
-  - **mod_bounds**: the modifier function to modify the bound constraints in the 'custom' feature. It should be a function handle
+  - **mod_bounds**: the modifier function to modify the bound constraints in the ``'custom'`` feature. It should be a function handle
 
       ``(random_stream, problem) -> (modified_xl, modified_xu)``,
 
     where ``problem`` is an instance of the class Problem, ``modified_xl`` is the modified lower bound, and ``modified_xu`` is the modified upper bound. No default.
 
-  - **mod_linear_ub**: the modifier function to modify the linear inequality constraints in the 'custom' feature. It should be a function handle
+  - **mod_linear_ub**: the modifier function to modify the linear inequality constraints in the ``'custom'`` feature. It should be a function handle
 
       ``(random_stream, problem) -> (modified_aub, modified_bub)``,
 
     where ``problem`` is an instance of the class Problem, ``modified_aub`` is the modified matrix of the linear inequality constraints, and ``modified_bub`` is the modified vector of the linear inequality constraints. No default.
 
-  - **mod_linear_eq**: the modifier function to modify the linear equality constraints in the 'custom' feature. It should be a function handle
+  - **mod_linear_eq**: the modifier function to modify the linear equality constraints in the ``'custom'`` feature. It should be a function handle
 
       ``(random_stream, problem) -> (modified_aeq, modified_beq)``,
 
     where ``problem`` is an instance of the class Problem, ``modified_aeq`` is the modified matrix of the linear equality constraints, and ``modified_beq`` is the modified vector of the linear equality constraints. No default.
 
-  - **mod_fun**: the modifier function to modify the objective function in the 'custom' feature. It should be a function handle
+  - **mod_fun**: the modifier function to modify the objective function in the ``'custom'`` feature. It should be a function handle
 
       ``(x, random_stream, problem) -> modified_fun``,
 
     where ``x`` is the evaluation point, ``problem`` is an instance of the class Problem, and ``modified_fun`` is the modified objective function value. No default.
 
-  - **mod_cub**: the modifier function to modify the nonlinear inequality constraints in the 'custom' feature. It should be a function handle
+  - **mod_cub**: the modifier function to modify the nonlinear inequality constraints in the ``'custom'`` feature. It should be a function handle
 
       ``(x, random_stream, problem) -> modified_cub``,
 
     where ``x`` is the evaluation point, ``problem`` is an instance of the class Problem, and ``modified_cub`` is the modified vector of the nonlinear inequality constraints. No default.
 
-  - **mod_ceq**: the modifier function to modify the nonlinear equality constraints in the 'custom' feature. It should be a function handle
+  - **mod_ceq**: the modifier function to modify the nonlinear equality constraints in the ``'custom'`` feature. It should be a function handle
 
       ``(x, random_stream, problem) -> modified_ceq``,
 
@@ -192,7 +192,7 @@ Options should be specified in a struct. The following are the available fields 
 
 Note that the default problem set we used is the MATLAB codes from a GitHub repository called 'S2MPJ', created by Professor Serge Gratton and Professor Philippe L. Toint. More details can be found in the website https://github.com/GrattonToint/S2MPJ.
 
-  - **ptype**: the type of the problems to be selected. It should be a string containing the combination of 'u' (unconstrained), 'b' (bound constrained), 'l' (linearly constrained), and 'n' (nonlinearly constrained). Default is ``'u'``.
+  - **ptype**: the type of the problems to be selected. It should be a string or char consisting of any combination of ``'u'`` (unconstrained), ``'b'`` (bound constrained), ``'l'`` (linearly constrained), and ``'n'`` (nonlinearly constrained), such as ``'b'``, ``'ul'``, ``'ubn'``. Default is ``'u'``.
 
   - **mindim**: the minimum dimension of the problems to be selected. Default is ``1``.
 
@@ -204,13 +204,13 @@ Note that the default problem set we used is the MATLAB codes from a GitHub repo
 
   - **excludelist**: the list of problems to be excluded. Default is not to exclude any problem.
 
-Note that if the field **load** of the options is provided, we will use above options to select the problems and then take an intersection with the problems in the loading experiment.
+Note that if the ``load`` option is provided, we will use above options to select the problems and then take an intersection with the problems in the loading experiment.
 
 4. Other options:
 
-  - **solver_names**: the names of the solvers. Default is ``the function names of the solvers``.
+  - **solver_names**: the names of the solvers. Default is the names of the function handles in **solvers**.
 
-  - **solver_isrand**: whether the solvers are randomized or not. It is a logical array of the same length as the number of solvers, where the value is true if the solver is randomized, and false otherwise. Default is ``all false``.
+  - **solver_isrand**: whether the solvers are randomized or not. It is a logical array of the same length as the number of solvers, where the value is true if the solver is randomized, and false otherwise. Default is all false.
 
   - **problem**: a instance of the class Problem. If it is provided, we will only solve this problem and generate the history plots for it. Default is not to provide any problem.
 

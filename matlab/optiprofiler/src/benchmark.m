@@ -57,7 +57,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         current working directory.
 %       - max_tol_order: the maximum order of the tolerance. In any profile
 %         (performance profiles, data profiles, and log-ratio profiles), we
-%         need to set a group of 'tolerances' to define the 'convergence' of
+%         need to set a group of 'tolerances' to define the convergence test of
 %         the solvers. (Details can be found in the references.) We will set
 %         the tolerances as `10^(-1:-1:-max_tol_order)`. Default is 10.
 %       - max_eval_factor: the factor multiplied to each problem's dimension to
@@ -110,12 +110,13 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         solvers. It should be a function handle as follows:
 %               ``profile_scores -> solver_scores``,
 %         where `profile_scores` is a 4D tensor containing scores for all
-%         profiles. The first dimension of `profile_scores` is the index of the
-%         solver, the second is the index of tolerance starting from 1, the
-%         third represents history-based or output-based profiles, and the
-%         fourth represents performance profiles, data profiles, or log-ratio
-%         profiles. The default scoring function takes the average of the
-%         history-based performance profiles under all the tolerances.
+%         profiles. The first dimension of `profile_scores` corresponds to the
+%         index of the solver, the second corresponds to the index of tolerance
+%         starting from 1, the third represents history-based or output-based
+%         profiles, and the fourth represents performance profiles, data
+%         profiles, or log-ratio profiles. The default scoring function takes
+%         the average of the history-based performance profiles under all the
+%         tolerances.
 %       - load: loading the stored data from a completed experiment and draw
 %         profiles. It can be either 'latest' or a time stamp of an experiment
 %         in the format of 'yyyyMMdd_HHmmss'. No default.
@@ -143,14 +144,14 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         log-ratio profiles. It can be a cell array of short names of colors
 %         ('r', 'g', 'b', 'c', 'm', 'y', 'k') or a 2-by-3 matrix with each row
 %         being a RGB triplet. Default is set to the first two colors in the
-%         'line_colors'.
+%         'line_colors' option.
 %
 %       2. options for features:
 %
 %       - feature_name: the name of the feature. The available features are
 %         'plain', 'perturbed_x0', 'noisy', 'truncated', 'permuted',
 %         'linearly_transformed', 'random_nan', 'unrelaxable_constraints',
-%         'nonquantifiable_constraints, 'quantized', and 'custom'. Default is
+%         'nonquantifiable_constraints', 'quantized', and 'custom'. Default is
 %         'plain'.
 %       - n_runs: the number of runs of the experiments under the given
 %         feature. Default is 10 for stochastic features and 1 for
@@ -198,8 +199,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         is 1e-3.
 %       - mesh_type: the type of the mesh in the 'quantized' feature. It should
 %         be either 'absolute' or 'relative'. Default is 'absolute'.
-%       - ground_truth: whether the feature is the ground truth or not. Default
-%         is true.
+%       - ground_truth: whether the featured problem is the ground truth or not
+%         in the 'quantized' feature. Default is true.
 %       - mod_x0: the modifier function to modify the inital guess in the 
 %         'custom' feature. It should be a function handle as follows:
 %               ``(random_stream, problem) -> modified_x0``,
@@ -263,10 +264,10 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %       website.
 %           https://github.com/GrattonToint/S2MPJ
 %
-%       - ptype: the type of the problems to be selected. It should be a
-%         string containing the combination of 'u' (unconstrained), 'b' (bound
-%         constrained), 'l' (linearly constrained), and 'n' (nonlinearly
-%         constrained). Default is 'u'.
+%       - ptype: the type of the problems to be selected. It should be a string
+%         or char consisting of any combination of 'u' (unconstrained), 'b'
+%         (bound constrained), 'l' (linearly constrained), and 'n' (nonlinearly
+%         constrained), such as 'b', 'ul', 'ubn'. Default is 'u'.
 %       - mindim: the minimum dimension of the problems to be selected. Default
 %         is 1.
 %       - maxdim: the maximum dimension of the problems to be selected. Default
@@ -278,14 +279,14 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %       - excludelist: the list of problems to be excluded. Default is not to
 %         exclude any problem.
 %
-%       Note that if the field `load` of the options is provided, we will use
-%       above options to select the problems and then take an intersection with
-%       the problems in the loading experiment.
+%       Note that if the `load` option is provided, we will use above options
+%       to select the problems and then take an intersection with the problems
+%       in the loading experiment.
 %
 %       4. other options:
 %
-%       - solver_names: the names of the solvers. Default is the function names
-%         of the solvers.
+%       - solver_names: the names of the solvers. Default is the names of the
+%         function handles in `solvers`.
 %       - solver_isrand: whether the solvers are randomized or not. Default is
 %         a logical array of the same length as the number of solvers, where
 %         the value is true if the solver is randomized, and false otherwise.
