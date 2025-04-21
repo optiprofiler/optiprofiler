@@ -1502,10 +1502,7 @@ function integral = integrate(curve, profile_type, profile_options)
     kernel = profile_options.(ProfileOptionKey.SCORE_WEIGHT_FUN.value);
     integral = 0;
     switch profile_type
-        case 'perf'
-            % The curve is a right-continuous step function.
-            integral = integral + sum(diff(curve(1, :)) .* curve(2, 1:end-1) .* kernel(curve(1, 1:end-1)));
-        case 'data'
+        case {'perf', 'data'}
             % The curve is a right-continuous step function.
             integral = integral + sum(diff(curve(1, :)) .* curve(2, 1:end-1) .* kernel(curve(1, 1:end-1)));
         case 'log_ratio'
