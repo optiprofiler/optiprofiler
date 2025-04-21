@@ -28,7 +28,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %   from the specified experiment and draw the profiles.
 %
 %   [SOLVER_SCORES, PROFILE_SCORES] = BENCHMARK(...) returns a 4D tensor
-%   PROFILE_SCORES containing scores for all profiles. See `scoring_fun` in
+%   PROFILE_SCORES containing scores for all profiles. See `score_fun` in
 %   'Options' part for more details.
 %
 %   [SOLVER_SCORES, PROFILE_SCORES, CURVES] = BENCHMARK(...) returns a cell
@@ -106,7 +106,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %       - score_weight_fun: the weight function to calculate the scores of the
 %         solvers in the performance and data profiles. It should be a function
 %         handle representing a nonnegative function in R^+. Default is 1.
-%       - scoring_fun: the scoring function to calculate the scores of the
+%       - score_fun: the scoring function to calculate the scores of the
 %         solvers. It should be a function handle as follows:
 %               ``profile_scores -> solver_scores``,
 %         where `profile_scores` is a 4D tensor containing scores for all
@@ -120,7 +120,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %       - load: loading the stored data from a completed experiment and draw
 %         profiles. It can be either 'latest' or a time stamp of an experiment
 %         in the format of 'yyyyMMdd_HHmmss'. No default.
-%       - solvers_toload: the indices of the solvers to load when the 'load'
+%       - solvers_to_load: the indices of the solvers to load when the 'load'
 %         option is provided. It can be a vector of different integers selected
 %         from 1 to the total number of solvers of the loading experiment. At
 %         least two indices should be provided. Default is all the solvers.
@@ -490,23 +490,23 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             error("MATLAB:benchmark:NoDataMatFile", "Failed to load computation results from the 'data.mat' file in the directory '%s'.", path_data);
         end
 
-        % Check whether the user provides the 'solvers_toload' field.
+        % Check whether the user provides the 'solvers_to_load' field.
         n_solvers_loaded = size(merit_out, 2);
-        if isfield(options, ProfileOptionKey.SOLVERS_TOLOAD.value)
-            % Check the validity of the 'solvers_toload' field. It should be a vector of different
+        if isfield(options, ProfileOptionKey.SOLVERS_TO_LOAD.value)
+            % Check the validity of the 'solvers_to_load' field. It should be a vector of different
             % integers selected from 1 to the total number of solvers in the loaded data.
             try
-                solvers_toload = unique(options.(ProfileOptionKey.SOLVERS_TOLOAD.value));
+                solvers_to_load = unique(options.(ProfileOptionKey.SOLVERS_TO_LOAD.value));
             catch
             end
-            if ~isintegervector(solvers_toload) || any(solvers_toload < 1) || any(solvers_toload > n_solvers_loaded) || numel(solvers_toload) < 2
-                error("MATLAB:benchmark:solvers_toloadNotValid", "The field 'solvers_toload' of options should be a vector of different integers selected from 1 to the total number of solvers in the loaded data, and at least two indices should be provided.");
+            if ~isintegervector(solvers_to_load) || any(solvers_to_load < 1) || any(solvers_to_load > n_solvers_loaded) || numel(solvers_to_load) < 2
+                error("MATLAB:benchmark:solvers_to_loadNotValid", "The field 'solvers_to_load' of options should be a vector of different integers selected from 1 to the total number of solvers in the loaded data, and at least two indices should be provided.");
             end
         else
-            solvers_toload = 1:n_solvers_loaded;
+            solvers_to_load = 1:n_solvers_loaded;
         end
 
-        % Truncate the loaded data according to the 'solvers_toload' field.
+        % Truncate the loaded data according to the 'solvers_to_load' field.
         if ~isfield(options, OtherOptionKey.SOLVER_NAMES.value)
             warning('off');
             load(fullfile(path_data, 'data.mat'), 'solver_names');
@@ -514,16 +514,16 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             if ~exist('solver_names', 'var')
                 error("MATLAB:benchmark:NoSolverNamesDataMatFile", "Failed to load the variable 'solver_names' from the 'data.mat' file in the directory '%s' and the 'solver_names' field is not provided in the options.", path_data);
             end
-            solver_names = solver_names(solvers_toload);
-        elseif numel(options.(OtherOptionKey.SOLVER_NAMES.value)) ~= numel(solvers_toload)
-            error("MATLAB:benchmark:solver_namesNotMatch", "The number of elements in the 'solver_names' field of options should be the same as the number of solvers to load in the 'solvers_toload' field.");
+            solver_names = solver_names(solvers_to_load);
+        elseif numel(options.(OtherOptionKey.SOLVER_NAMES.value)) ~= numel(solvers_to_load)
+            error("MATLAB:benchmark:solver_namesNotMatch", "The number of elements in the 'solver_names' field of options should be the same as the number of solvers to load in the 'solvers_to_load' field.");
         end
-        n_solvers = numel(solvers_toload);
-        n_evals = n_evals(:, solvers_toload, :);
-        computation_times = computation_times(:, solvers_toload, :);
-        solvers_successes = solvers_successes(:, solvers_toload, :);
-        merit_histories = merit_histories(:, solvers_toload, :, :);
-        merit_out = merit_out(:, solvers_toload, :);
+        n_solvers = numel(solvers_to_load);
+        n_evals = n_evals(:, solvers_to_load, :);
+        computation_times = computation_times(:, solvers_to_load, :);
+        solvers_successes = solvers_successes(:, solvers_to_load, :);
+        merit_histories = merit_histories(:, solvers_to_load, :, :);
+        merit_out = merit_out(:, solvers_to_load, :);
 
         % Check whether the user provides options for CUTEst. If so, we will use them to filter the
         % problems in the loaded data.
@@ -1372,8 +1372,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 
     % Compute the `solver_scores`.
     profile_scores = computeScores(curves, profile_options);
-    scoring_fun = profile_options.(ProfileOptionKey.SCORING_FUN.value);
-    solver_scores = scoring_fun(profile_scores);
+    score_fun = profile_options.(ProfileOptionKey.SCORE_FUN.value);
+    solver_scores = score_fun(profile_scores);
     if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
         save(fullfile(path_log, 'profile_scores.mat'), 'profile_scores');
         try

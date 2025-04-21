@@ -18,7 +18,7 @@ benchmark
 
 **solver_scores** = **benchmark**\(**options**) creates profiles with options specified in the struct **options**. Note that the struct **options** should at least contain the field **load** with the value **\'latest\'** or a time stamp of an experiment in the format of 'yyyyMMdd_HHmmss'. In this case, we will load the data from the specified experiment and draw the profiles.
 
-[**solver_scores**, **profile_scores**] = **benchmark**\(...) returns a 4D tensor **profile_scores** containing scores for all profiles. See **scoring_fun** in *Options* part for more details.
+[**solver_scores**, **profile_scores**] = **benchmark**\(...) returns a 4D tensor **profile_scores** containing scores for all profiles. See **score_fun** in *Options* part for more details.
 
 [**solver_scores**, **profile_scores**, **curves**] = **benchmark**\(...) returns a cell array **curves** containing the curves of all the profiles.
 
@@ -82,7 +82,7 @@ Options should be specified in a struct. The following are the available fields 
 
   - **score_weight_fun**: the weight function to calculate the scores of the solvers in the performance and data profiles. It should be a function handle representing a nonnegative function in R^+. Default is ``1``.
 
-  - **scoring_fun**: the scoring function to calculate the scores of the solvers. It should be a function handle
+  - **score_fun**: the scoring function to calculate the scores of the solvers. It should be a function handle
 
       ``profile_scores -> solver_scores``,
 
@@ -90,7 +90,7 @@ Options should be specified in a struct. The following are the available fields 
 
   - **load**: loading the stored data from a completed experiment and draw profiles. It can be either ``'latest'`` or a time stamp of an experiment in the format of 'yyyyMMdd_HHmmss'. No default.
 
-  - **solvers_toload**: the indices of the solvers to load when the ``load`` option is provided. It can be a vector of different integers selected from 1 to the total number of solvers of the loading experiment. At least two indices should be provided. Default is all the solvers.
+  - **solvers_to_load**: the indices of the solvers to load when the ``load`` option is provided. It can be a vector of different integers selected from 1 to the total number of solvers of the loading experiment. At least two indices should be provided. Default is all the solvers.
 
   - **line_colors**: the colors of the lines in the plots. It can be a cell array of short names of colors ``('r', 'g', 'b', 'c', 'm', 'y', 'k')`` or a matrix with each row being a RGB triplet. Default line colors are those in the palettename named "gem" (see MATLAB documentation for 'colororder'). Note that if the number of solvers is greater than the number of colors, we will cycle through the colors.
 

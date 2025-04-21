@@ -73,8 +73,8 @@ function profile_options = getDefaultProfileOptions(feature, profile_options)
     if ~isfield(profile_options, ProfileOptionKey.SCORE_WEIGHT_FUN.value)
         profile_options.(ProfileOptionKey.SCORE_WEIGHT_FUN.value) = @(x) 1;
     end
-    if ~isfield(profile_options, ProfileOptionKey.SCORING_FUN.value)
-        profile_options.(ProfileOptionKey.SCORING_FUN.value) = @(x) mean(x(:, :, 1, 1), 2);
+    if ~isfield(profile_options, ProfileOptionKey.SCORE_FUN.value)
+        profile_options.(ProfileOptionKey.SCORE_FUN.value) = @(x) mean(x(:, :, 1, 1), 2);
     end
     if ~isfield(profile_options, ProfileOptionKey.LOAD.value)
         profile_options.(ProfileOptionKey.LOAD.value) = '';

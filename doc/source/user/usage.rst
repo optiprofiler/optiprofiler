@@ -51,7 +51,7 @@ OptiProfiler provides a practically useful option named **load**. This option al
 .. code-block:: matlab
 
     options.load = 'latest';
-    options.solvers_toload = [1 3];
+    options.solvers_to_load = [1 3];
     options.ptype = 'u';
     options.mindim = 7;
     options.maxdim = 9;
@@ -69,4 +69,4 @@ Besides generating profiles, OptiProfiler also returns scores for the solvers ba
 
     scores = benchmark({@solver1, @solver2})
 
-This will return a vector of scores for the two solvers. The scores by default are calculated based on all the history-based performance profiles and can be modified by the option **scoring_fun** (see :ref:`benchmark <matbenchmark>` function documentation for more details).
+This will return a vector of scores for the two solvers. The scores by default are calculated based on all the history-based performance profiles and can be modified by the option **score_fun** (see :ref:`benchmark <matbenchmark>` function documentation for more details).

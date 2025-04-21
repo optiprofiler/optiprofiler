@@ -90,9 +90,9 @@ classdef TestCheckValidityProfileOptions < matlab.unittest.TestCase
             testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:semilogxNotValid");
             options = rmfield(options, 'semilogx');
 
-            options.scoring_fun = 1;
-            testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:scoring_funNotValid");
-            options = rmfield(options, 'scoring_fun');
+            options.score_fun = 1;
+            testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:score_funNotValid");
+            options = rmfield(options, 'score_fun');
 
             options.load = 1;
             testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:loadNotValid");
