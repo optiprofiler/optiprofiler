@@ -1309,7 +1309,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     end
 
     % Record the names of the problems all the solvers failed to meet the convergence test for every tolerance.
-    if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
+    if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value) && (any(solvers_all_diverge_hist(:)) || any(solvers_all_diverge_out(:)))
         try
             fid = fopen(path_txt, 'a');
             fprintf(fid, "\n");
@@ -1318,6 +1318,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                 tolerance = tolerances(i_tol);
                 tolerance_str = formatFloatScientificLatex(tolerance, 1);
                 for i_run = 1:n_runs
+                    if ~any(solvers_all_diverge_hist(:, i_run, i_tol)) && ~any(solvers_all_diverge_out(:, i_run, i_tol))
+                        continue;
+                    end
                     fprintf(fid, "History-based  tol = %-8s run = %-3d:\t\t", tolerance_str, i_run);
                     for i_problem = 1:n_problems
                         if solvers_all_diverge_hist(i_problem, i_run, i_tol)
