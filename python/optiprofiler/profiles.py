@@ -350,7 +350,7 @@ def run_benchmark(solvers, labels=(), cutest_problem_names=(), custom_problem_lo
         # Paths to the individual results.
         path_feature = path_out / feature.name
         path_feature.mkdir(parents=True, exist_ok=True)
-        path_problems = path_feature / 'problems.txt'
+        path_problems = path_feature / 'report.txt'
         path_perf_hist = path_feature / 'perf_hist.pdf'
         path_perf_out = path_feature / 'perf_out.pdf'
         path_data_hist = path_feature / 'data_hist.pdf'

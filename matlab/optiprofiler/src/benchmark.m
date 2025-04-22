@@ -1033,7 +1033,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     end
 
     % Store the names of the problems.
-    path_txt = fullfile(path_log, 'problems.txt');
+    path_txt = fullfile(path_log, 'report.txt');
     [~, idx] = sort(lower(problem_names));
     sorted_problem_names = problem_names(idx);
     sorted_time_processes = time_processes(idx);
@@ -1044,6 +1044,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
         try
             fid = fopen(path_txt, 'w');
+            if length(unsolved_problems) < length(sorted_problem_names)
+                fprintf(fid, "Problem names and the total time spent on solving each problem:\n");
+            end
             for i = 1:length(sorted_problem_names)
                 if ismember(sorted_problem_names{i}, unsolved_problems)
                     continue;
@@ -1057,7 +1060,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             end
             if ~isempty(unsolved_problems)
                 fprintf(fid, "\n");
-                fprintf(fid, "Unsolved problems (that all the solvers failed to return a solution in all runs):\n");
+                fprintf(fid, "Problems that all the solvers failed to return a solution in all runs:\n");
                 for i = 1:length(unsolved_problems)
                     count = fprintf(fid, "%s\n", unsolved_problems{i});
                     if count < 0
@@ -1070,7 +1073,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             fclose(fid);
             try
                 fid = fopen(path_readme_log, 'a');
-                fprintf(fid, "'problems.txt': file, storing the names of the solved and unsolved problems, the time spent on solving each problem, and the names of the problems that all the solvers failed to meet the convergence test for every tolerance and run.\n");
+                fprintf(fid, "'report.txt': file, storing the names of the solved and unsolved problems, the time spent on solving each problem, and the names of the problems that all the solvers failed to meet the convergence test for every tolerance and run.\n");
                 fclose(fid);
             catch
             end
