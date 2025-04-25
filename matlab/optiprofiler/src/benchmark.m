@@ -49,10 +49,11 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %       - feature_stamp: the stamp of the feature with the given options. It is
 %         used to create the specific directory to store the results. Default
 %         depends on features.
-%       - range_type: the type of the uncertainty interval. For stochastic
-%         features, we run several times of the experiments and get average
-%         curves and uncertainty intervals. Default is 'minmax', meaning that
-%         we takes the pointwise minimum and maximum of the curves.
+%       - range_type: the type of the uncertainty interval that can be either
+%         'minmax' or 'meanstd'. When `n_runs` is greater than 1, we run
+%         several times of the experiments and get average curves and
+%         uncertainty intervals. Default is 'minmax', meaning that we takes the
+%         pointwise minimum and maximum of the curves.
 %       - savepath: the path to store the results. Default is 'pwd', the
 %         current working directory.
 %       - max_tol_order: the maximum order of the tolerance. In any profile
