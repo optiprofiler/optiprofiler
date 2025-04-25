@@ -9,7 +9,7 @@ function drawPerformanceDataProfiles(ax, x, y, solver_names, profile_options)
     n_runs = size(y, 3);
     y_mean = squeeze(mean(y, 3));
 
-    switch profile_options.(ProfileOptionKey.RANGE_TYPE.value)
+    switch profile_options.(ProfileOptionKey.ERRORBAR_TYPE.value)
         case 'minmax'
             y_lower = squeeze(min(y, [], 3));
             y_upper = squeeze(max(y, [], 3));

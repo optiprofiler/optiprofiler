@@ -30,9 +30,9 @@ classdef TestCheckValidityProfileOptions < matlab.unittest.TestCase
             testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:feature_stampNotValid");
             options = rmfield(options, 'feature_stamp');
 
-            options.range_type = 'other';
-            testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:range_typeNotValid");
-            options = rmfield(options, 'range_type');
+            options.errorbar_type = 'other';
+            testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:errorbar_typeNotValid");
+            options = rmfield(options, 'errorbar_type');
 
             options.savepath = 1;
             testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:savepathNotValid");

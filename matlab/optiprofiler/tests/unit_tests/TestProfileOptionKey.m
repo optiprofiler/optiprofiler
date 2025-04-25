@@ -6,7 +6,7 @@ classdef TestProfileOptionKey < matlab.unittest.TestCase
             
             enumValues = enumeration('ProfileOptionKey');
             enumValues = cellstr(arrayfun(@char, enumValues, 'UniformOutput', false));
-            expectedValues = {'N_JOBS'; 'KEEP_POOL'; 'SEED'; 'BENCHMARK_ID'; 'FEATURE_STAMP'; 'RANGE_TYPE'; 'SAVEPATH'; 'MAX_TOL_ORDER'; 'MAX_EVAL_FACTOR'; 'MERIT_FUN'; 'PROJECT_X0'; 'RUN_PLAIN'; 'SCORE_ONLY'; 'SUMMARIZE_PERFORMANCE_PROFILES'; 'SUMMARIZE_DATA_PROFILES'; 'SUMMARIZE_LOG_RATIO_PROFILES'; 'SUMMARIZE_OUTPUT_BASED_PROFILES'; 'SILENT'; 'SOLVER_VERBOSE'; 'SEMILOGX'; 'NORMALIZED_SCORES'; 'SCORE_WEIGHT_FUN'; 'SCORE_FUN'; 'LOAD'; 'SOLVERS_TO_LOAD'; 'LINE_COLORS'; 'LINE_STYLES'; 'LINE_WIDTHS'; 'BAR_COLORS'};
+            expectedValues = {'N_JOBS'; 'KEEP_POOL'; 'SEED'; 'BENCHMARK_ID'; 'FEATURE_STAMP'; 'ERRORBAR_TYPE'; 'SAVEPATH'; 'MAX_TOL_ORDER'; 'MAX_EVAL_FACTOR'; 'MERIT_FUN'; 'PROJECT_X0'; 'RUN_PLAIN'; 'SCORE_ONLY'; 'SUMMARIZE_PERFORMANCE_PROFILES'; 'SUMMARIZE_DATA_PROFILES'; 'SUMMARIZE_LOG_RATIO_PROFILES'; 'SUMMARIZE_OUTPUT_BASED_PROFILES'; 'SILENT'; 'SOLVER_VERBOSE'; 'SEMILOGX'; 'NORMALIZED_SCORES'; 'SCORE_WEIGHT_FUN'; 'SCORE_FUN'; 'LOAD'; 'SOLVERS_TO_LOAD'; 'LINE_COLORS'; 'LINE_STYLES'; 'LINE_WIDTHS'; 'BAR_COLORS'};
             testCase.verifyEqual(enumValues, expectedValues);
         end
 
@@ -19,7 +19,7 @@ classdef TestProfileOptionKey < matlab.unittest.TestCase
             testCase.verifyEqual(ProfileOptionKey.KEEP_POOL.value, 'keep_pool');
             testCase.verifyEqual(ProfileOptionKey.SEED.value, 'seed');
             testCase.verifyEqual(ProfileOptionKey.BENCHMARK_ID.value, 'benchmark_id');
-            testCase.verifyEqual(ProfileOptionKey.RANGE_TYPE.value, 'range_type');
+            testCase.verifyEqual(ProfileOptionKey.ERRORBAR_TYPE.value, 'errorbar_type');
             testCase.verifyEqual(ProfileOptionKey.SAVEPATH.value, 'savepath');
             testCase.verifyEqual(ProfileOptionKey.MAX_TOL_ORDER.value, 'max_tol_order');
             testCase.verifyEqual(ProfileOptionKey.MAX_EVAL_FACTOR.value, 'max_eval_factor');

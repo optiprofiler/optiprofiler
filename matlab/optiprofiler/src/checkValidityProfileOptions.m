@@ -49,10 +49,10 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
             error("MATLAB:checkValidityProfileOptions:feature_stampNotValid", "The field 'feature_stamp' of options should be a char or a string satisfying the strict file name requirements (only containing letters, numbers, underscores, hyphens, and dots).");
         end
     end
-    % Judge whether profile_options.range_type is among 'minmax' and 'meanstd'.
-    if isfield(profile_options, ProfileOptionKey.RANGE_TYPE.value)
-        if ~ischarstr(profile_options.(ProfileOptionKey.RANGE_TYPE.value)) || ~ismember(char(profile_options.(ProfileOptionKey.RANGE_TYPE.value)), {'minmax', 'meanstd'})
-            error("MATLAB:checkValidityProfileOptions:range_typeNotValid", "The field 'range_type' of options should be either 'minmax' or 'meanstd'.");
+    % Judge whether profile_options.errorbar_type is among 'minmax' and 'meanstd'.
+    if isfield(profile_options, ProfileOptionKey.ERRORBAR_TYPE.value)
+        if ~ischarstr(profile_options.(ProfileOptionKey.ERRORBAR_TYPE.value)) || ~ismember(char(profile_options.(ProfileOptionKey.ERRORBAR_TYPE.value)), {'minmax', 'meanstd'})
+            error("MATLAB:checkValidityProfileOptions:errorbar_typeNotValid", "The field 'errorbar_type' of options should be either 'minmax' or 'meanstd'.");
         end
     end
     % Judge whether profile_options.savepath is a string and exists. If not exists, create it.

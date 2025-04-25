@@ -83,7 +83,7 @@ end
 function y_shift = computeYShift(history, profile_options)
 
     y_shift = 0;
-    if strcmp(profile_options.(ProfileOptionKey.RANGE_TYPE.value), 'meanstd')
+    if strcmp(profile_options.(ProfileOptionKey.ERRORBAR_TYPE.value), 'meanstd')
         y_mean = squeeze(mean(history, 2));
         y_std = squeeze(std(history, 0, 2));
         y_lower = y_mean - y_std;

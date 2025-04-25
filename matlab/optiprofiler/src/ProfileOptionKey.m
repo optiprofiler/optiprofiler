@@ -7,7 +7,7 @@ classdef ProfileOptionKey
         SEED ('seed')
         BENCHMARK_ID ('benchmark_id')
         FEATURE_STAMP ('feature_stamp')
-        RANGE_TYPE ('range_type')
+        ERRORBAR_TYPE ('errorbar_type')
         SAVEPATH ('savepath')
         MAX_TOL_ORDER ('max_tol_order')
         MAX_EVAL_FACTOR ('max_eval_factor')

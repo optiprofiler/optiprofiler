@@ -22,8 +22,8 @@ function profile_options = getDefaultProfileOptions(feature, profile_options)
     if ~isfield(profile_options, ProfileOptionKey.FEATURE_STAMP.value)
         profile_options.(ProfileOptionKey.FEATURE_STAMP.value) = getDefaultFeatureStamp(feature);
     end
-    if ~isfield(profile_options, ProfileOptionKey.RANGE_TYPE.value)
-        profile_options.(ProfileOptionKey.RANGE_TYPE.value) = 'minmax';
+    if ~isfield(profile_options, ProfileOptionKey.ERRORBAR_TYPE.value)
+        profile_options.(ProfileOptionKey.ERRORBAR_TYPE.value) = 'minmax';
     end
     if ~isfield(profile_options, ProfileOptionKey.SAVEPATH.value)
         profile_options.(ProfileOptionKey.SAVEPATH.value) = pwd;

@@ -12,7 +12,7 @@ function drawFunMaxcvMeritHist(ax, y, solver_names, is_cum, problem_n, y_shift, 
     n_runs = size(y, 2);
     y_mean = squeeze(mean(y, 2));
 
-    if strcmp(profile_options.(ProfileOptionKey.RANGE_TYPE.value), 'minmax')
+    if strcmp(profile_options.(ProfileOptionKey.ERRORBAR_TYPE.value), 'minmax')
         y_lower = squeeze(min(y, [], 2));
         y_upper = squeeze(max(y, [], 2));
     else
