@@ -18,6 +18,12 @@ function cutest_options = getDefaultCutestOptions(cutest_options, other_options)
     if ~isfield(cutest_options, CutestOptionKey.MAXDIM.value)
         cutest_options.(CutestOptionKey.MAXDIM.value) = cutest_options.(CutestOptionKey.MINDIM.value) + 1;
     end
+    if ~isfield(cutest_options, CutestOptionKey.MINB.value)
+        cutest_options.(CutestOptionKey.MINB.value) = 0;
+    end
+    if ~isfield(cutest_options, CutestOptionKey.MAXB.value)
+        cutest_options.(CutestOptionKey.MAXB.value) = cutest_options.(CutestOptionKey.MINB.value) + 10;
+    end
     if ~isfield(cutest_options, CutestOptionKey.MINCON.value)
         cutest_options.(CutestOptionKey.MINCON.value) = 0;
     end

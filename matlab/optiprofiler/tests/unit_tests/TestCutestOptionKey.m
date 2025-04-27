@@ -6,7 +6,7 @@ classdef TestCutestOptionKey < matlab.unittest.TestCase
 
             enumValues = enumeration('CutestOptionKey');
             enumValues = cellstr(arrayfun(@char, enumValues, 'UniformOutput', false));
-            expectedValues = {'PTYPE'; 'MINDIM'; 'MAXDIM'; 'MINCON'; 'MAXCON'; 'EXCLUDELIST'};
+            expectedValues = {'PTYPE'; 'MINDIM'; 'MAXDIM'; 'MINB'; 'MAXB'; 'MINCON'; 'MAXCON'; 'EXCLUDELIST'};
             testCase.verifyEqual(enumValues, expectedValues);
         end
 
@@ -18,6 +18,8 @@ classdef TestCutestOptionKey < matlab.unittest.TestCase
             testCase.verifyEqual(CutestOptionKey.PTYPE.value, 'ptype');
             testCase.verifyEqual(CutestOptionKey.MINDIM.value, 'mindim');
             testCase.verifyEqual(CutestOptionKey.MAXDIM.value, 'maxdim');
+            testCase.verifyEqual(CutestOptionKey.MINB.value, 'minb');
+            testCase.verifyEqual(CutestOptionKey.MAXB.value, 'maxb');
             testCase.verifyEqual(CutestOptionKey.MINCON.value, 'mincon');
             testCase.verifyEqual(CutestOptionKey.MAXCON.value, 'maxcon');
             testCase.verifyEqual(CutestOptionKey.EXCLUDELIST.value, 'excludelist');
