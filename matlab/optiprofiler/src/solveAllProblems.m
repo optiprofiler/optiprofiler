@@ -45,8 +45,8 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
     if (profile_options.(ProfileOptionKey.N_JOBS.value) == 1) || n_problems  == 1
         for i_problem = 1:n_problems
             problem_name = problem_names{i_problem};
-            [tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_type, tmp_problem_dim, tmp_problem_con, tmp_computation_time, tmp_solvers_success] = solveOneProblem(problem_name, solvers, feature, len_problem_names, profile_options, other_options, is_plot, path_hist_plots);
-            results{i_problem} = {tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_type, tmp_problem_dim, tmp_problem_con, tmp_computation_time, tmp_solvers_success};
+            [tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_type, tmp_problem_dim, tmp_problem_mb, tmp_problem_con, tmp_computation_time, tmp_solvers_success] = solveOneProblem(problem_name, solvers, feature, len_problem_names, profile_options, other_options, is_plot, path_hist_plots);
+            results{i_problem} = {tmp_fun_histories, tmp_maxcv_histories, tmp_fun_out, tmp_maxcv_out, tmp_fun_init, tmp_maxcv_init, tmp_n_eval, tmp_problem_name, tmp_problem_type, tmp_problem_dim, tmp_problem_mb, tmp_problem_con, tmp_computation_time, tmp_solvers_success};
         end
     else
         try

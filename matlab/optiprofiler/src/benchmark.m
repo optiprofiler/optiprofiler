@@ -976,7 +976,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         if ~profile_options.(ProfileOptionKey.SILENT.value)
             fprintf('INFO: Starting the computation of the "%s" profiles.\n', feature.name);
         end
-        [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_evals, problem_names, problem_types, problem_dims, problem_mbs, problem_cons,computation_times, solvers_successes] = solveAllProblems(solvers, feature, profile_options, other_options, true, path_hist_plots);
+        [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_evals, problem_names, problem_types, problem_dims, problem_mbs, problem_cons, computation_times, solvers_successes] = solveAllProblems(solvers, feature, profile_options, other_options, true, path_hist_plots);
         merit_fun = profile_options.(ProfileOptionKey.MERIT_FUN.value);
         try
             merit_histories = merit_fun(fun_histories, maxcv_histories, maxcv_init);

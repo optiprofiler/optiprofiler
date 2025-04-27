@@ -16,7 +16,7 @@ classdef TestSolveOne < matlab.unittest.TestCase
             profile_options.silent = false;
             profile_options.seed = 1;
             profile_options.solver_verbose = 1;
-            [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_name, problem_type, problem_dim, problem_con, computation_time, solvers_success] = solveOneProblem(problem_name, solvers, feature, len_problem_names, profile_options, other_options, false, '.');
+            [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_name, problem_type, problem_dim, problem_mb, problem_con, computation_time, solvers_success] = solveOneProblem(problem_name, solvers, feature, len_problem_names, profile_options, other_options, false, '.');
             testCase.verifyNotEmpty(fun_histories);
             testCase.verifyNotEmpty(maxcv_histories);
             testCase.verifyNotEmpty(fun_out);
@@ -27,6 +27,7 @@ classdef TestSolveOne < matlab.unittest.TestCase
             testCase.verifyNotEmpty(problem_name);
             testCase.verifyNotEmpty(problem_type);
             testCase.verifyNotEmpty(problem_dim);
+            testCase.verifyNotEmpty(problem_mb);
             testCase.verifyNotEmpty(problem_con);
             testCase.verifyNotEmpty(computation_time);
             testCase.verifyNotEmpty(solvers_success);
