@@ -57,7 +57,7 @@ OptiProfiler provides a practically useful option named **load**. This option al
     options.maxdim = 9;
     benchmark(options)
 
-This will directly draw the profiles for the **solver1** and **solver3** with the ``'noisy'`` feature and all the unconstrained problems with dimension between 7 and 9 selected from the previous run. The results will also be saved under the folder ``'out'`` with a new subfolder named ``noisy_<timestamp>`` with the new timestamp.
+This will directly draw the profiles for the **solver1** and **solver3** with the ``'noisy'`` feature and all the unconstrained problems with dimension between 7 and 9 selected from the previous run. The results will also be saved under the current directory with a new subfolder named ``noisy_<timestamp>`` with the new timestamp.
 
 
 Ex4: scoring solvers

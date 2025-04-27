@@ -433,3 +433,4 @@ matproblem
 matsload
 matsselect
 ubn
+errorbar

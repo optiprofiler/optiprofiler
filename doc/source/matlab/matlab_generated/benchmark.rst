@@ -32,7 +32,7 @@ Options should be specified in a struct. The following are the available fields 
 
   - **n_jobs**: the number of parallel jobs to run the test. Default is ``1``.
 
-  - **benchmark_id**: the identifier of the test. It is used to create the specific directory to store the results. Default is ``'out'``.
+  - **benchmark_id**: the identifier of the test. It is used to create the specific directory to store the results. Default is ``'out'`` if the option ``load`` is not provided, otherwise default is ``'.'``.
 
   - **feature_stamp**: the stamp of the feature with the given options. It is used to create the specific directory to store the results. Default depends on features.
 
@@ -94,7 +94,7 @@ Options should be specified in a struct. The following are the available fields 
 
   - **line_colors**: the colors of the lines in the plots. It can be a cell array of short names of colors ``('r', 'g', 'b', 'c', 'm', 'y', 'k')`` or a matrix with each row being a RGB triplet. Default line colors are those in the palettename named "gem" (see MATLAB documentation for 'colororder'). Note that if the number of solvers is greater than the number of colors, we will cycle through the colors.
 
-  - **line_styles**: the styles of the lines in the plots. It can be a cell array of chars that are the combinations of line styles ``('-', '-.', ':', '--')`` and markers ``('none', 'o', '+', '*', '.', 'x', 's', 'd', '^', 'v', '>', '<', 'p', 'h')``. Default line style order is ``{'-', '-.', ':', '--'}``. Note that if the number of solvers is greater than the number of line styles, we will cycle through the styles.
+  - **line_styles**: the styles of the lines in the plots. It can be a cell array of chars that are the combinations of line styles ``('-', '-.', ':', '--')`` and markers ``('o', '+', '*', '.', 'x', 's', 'd', '^', 'v', '>', '<', 'p', 'h')``. Default line style order is ``{'-', '-.', ':', '--'}``. Note that if the number of solvers is greater than the number of line styles, we will cycle through the styles.
 
   - **line_widths**: the widths of the lines in the plots. It should be a positive scalar or a vector. Default is ``1.5``. Note that if the number of solvers is greater than the number of line widths, we will cycle through the widths.
 
@@ -197,6 +197,10 @@ Note that the default problem set we used is the MATLAB codes from a GitHub repo
   - **mindim**: the minimum dimension of the problems to be selected. Default is ``1``.
 
   - **maxdim**: the maximum dimension of the problems to be selected. Default is ``mindim + 10``.
+
+  - **minb**: the minimum number of bound constraints of the problems to be selected. Default is ``0``.
+
+  - **maxb**: the maximum number of bound constraints of the problems to be selected. Default is ``minb + 10``.
 
   - **mincon**: the minimum number of linear and nonlinear constraints of the problems to be selected. Default is ``0``.
 

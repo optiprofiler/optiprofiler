@@ -47,6 +47,7 @@ function setup(varargin)
         s2mpj_dir = fullfile(prob_dir, 's2mpj'); % Directory containing S2MPJ
         s2mpj_src_dir = fullfile(s2mpj_dir, 'src'); % Directory containing the source code of S2MPJ
         s2mpj_mat_dir = fullfile(s2mpj_src_dir, 'matlab_problems'); % Directory containing the MATLAB problems of S2MPJ
+        matcutest_dir = fullfile(prob_dir, 'matcutest'); % Directory containing tools (interfaces) for MatCUTEst
         custom_dir = fullfile(prob_dir, 'custom'); % Directory containing the custom functions
         custom_mat_dir = fullfile(custom_dir, 'matlab_problems'); % Directory containing the custom MATLAB problems
         matd = fullfile(setup_dir, 'matlab'); % Matlab directory
@@ -82,7 +83,7 @@ function setup(varargin)
         % Install the package if requested.
         if strcmp(action, 'install')
     
-            paths_saved = add_save_path({s2mpj_dir, custom_dir, s2mpj_src_dir, s2mpj_mat_dir, custom_mat_dir, src_dir, tests_dir}, package_name);
+            paths_saved = add_save_path({s2mpj_dir, custom_dir, s2mpj_src_dir, s2mpj_mat_dir, matcutest_dir, custom_mat_dir, src_dir, tests_dir}, package_name);
     
             if paths_saved(1)
                 fprintf('\nThe package is ready to use.\n');
@@ -94,10 +95,11 @@ function setup(varargin)
                 add_path_string_1 = sprintf('addpath(''%s'');', s2mpj_dir);
                 add_path_string_2 = sprintf('addpath(''%s'');', s2mpj_src_dir);
                 add_path_string_3 = sprintf('addpath(''%s'');', s2mpj_mat_dir);
-                add_path_string_4 = sprintf('addpath(''%s'');', custom_dir);
-                add_path_string_5 = sprintf('addpath(''%s'');', custom_mat_dir);
-                add_path_string_6 = sprintf('addpath(''%s'');', src_dir);
-                add_path_string_7 = sprintf('addpath(''%s'');', tests_dir);
+                add_path_string_4 = sprintf('addpath(''%s'');', matcutest_dir);
+                add_path_string_5 = sprintf('addpath(''%s'');', custom_dir);
+                add_path_string_6 = sprintf('addpath(''%s'');', custom_mat_dir);
+                add_path_string_7 = sprintf('addpath(''%s'');', src_dir);
+                add_path_string_8 = sprintf('addpath(''%s'');', tests_dir);
                 fprintf('\nTo use the package in other MATLAB sessions, append the following line to your startup script\n');
                 fprintf('(see https://www.mathworks.com/help/matlab/ref/startup.html for information):\n');
                 fprintf('\n    %s\n', add_path_string_1);
@@ -107,6 +109,7 @@ function setup(varargin)
                 fprintf('    %s\n', add_path_string_5);
                 fprintf('    %s\n', add_path_string_6);
                 fprintf('    %s\n', add_path_string_7);
+                fprintf('    %s\n', add_path_string_8);
             end
     
             fprintf('\n');
@@ -276,6 +279,7 @@ function setup(varargin)
         s2mpj_dir = fullfile(prob_dir, 's2mpj'); % Directory containing S2MPJ
         s2mpj_src_dir = fullfile(s2mpj_dir, 'src'); % Directory containing the source code of S2MPJ
         s2mpj_mat_dir = fullfile(s2mpj_src_dir, 'matlab_problems'); % Directory containing the MATLAB problems of S2MPJ
+        matcutest_dir = fullfile(prob_dir, 'matcutest'); % Directory containing tools (interfaces) for MatCUTEst
         custom_dir = fullfile(prob_dir, 'custom'); % Directory containing the custom functions
         custom_mat_dir = fullfile(custom_dir, 'matlab_problems'); % Directory containing the custom MATLAB problems
         matd = fullfile(mfiledir, 'matlab'); % OptiProfiler/matlab directory
@@ -287,12 +291,12 @@ function setup(varargin)
         orig_warning_state = warning;
         warning('off', 'MATLAB:rmpath:DirNotFound'); % Maybe the paths were not added. We do not want to see this warning.
         warning('off', 'MATLAB:SavePath:PathNotSaved'); % Maybe we do not have the permission to save path.
-        rmpath(s2mpj_dir, s2mpj_src_dir, s2mpj_mat_dir, custom_dir, custom_mat_dir, src_dir, tests_dir);
+        rmpath(s2mpj_dir, s2mpj_src_dir, s2mpj_mat_dir, matcutest_dir, custom_dir, custom_mat_dir, src_dir, tests_dir);
         savepath;
         warning(orig_warning_state); % Restore the behavior of displaying warnings
         
         % Removing the line possibly added to the user startup script
-        to_be_removed = {s2mpj_dir, s2mpj_src_dir, s2mpj_mat_dir, custom_dir, custom_mat_dir, src_dir, tests_dir};
+        to_be_removed = {s2mpj_dir, s2mpj_src_dir, s2mpj_mat_dir, matcutest_dir, custom_dir, custom_mat_dir, src_dir, tests_dir};
         user_startup = fullfile(userpath,'startup.m');
         if exist(user_startup, 'file')
             for i_path = 1:length(to_be_removed)

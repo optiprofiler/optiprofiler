@@ -45,7 +45,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %
 %       - n_jobs: the number of parallel jobs to run the test. Default is 1.
 %       - benchmark_id: the identifier of the test. It is used to create the
-%         specific directory to store the results. Default is 'out'.
+%         specific directory to store the results. Default is 'out' if the
+%         option `load` is not provided, otherwise default is '.'.
 %       - feature_stamp: the stamp of the feature with the given options. It is
 %         used to create the specific directory to store the results. Default
 %         depends on features.
@@ -133,10 +134,10 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         number of colors, we will cycle through the colors.
 %       - line_styles: the styles of the lines in the plots. It can be a cell
 %         array of chars that are the combinations of line styles ('-', '-.',
-%         ':', '--') and markers ('none', 'o', '+', '*', '.', 'x', 's', 'd',
-%         '^', 'v', '>', '<', 'p', 'h'). Default line style order is {'-',
-%         '-.', ':', '--'}. Note that if the number of solvers is greater than
-%         the number of line styles, we will cycle through the styles.
+%         ':', '--') and markers ('o', '+', '*', '.', 'x', 's', 'd', '^', 'v',
+%         '>', '<', 'p', 'h'). Default line style order is {'-', '-.', ':',
+%         '--'}. Note that if the number of solvers is greater than the number
+%         of line styles, we will cycle through the styles.
 %       - line_widths: the widths of the lines in the plots. It should be a
 %         positive scalar or a vector. Default is 1.5. Note that if the number
 %         of solvers is greater than the number of line widths, we will cycle
@@ -273,6 +274,10 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         is 1.
 %       - maxdim: the maximum dimension of the problems to be selected. Default
 %         is mindim + 1.
+%       - minb: the minimum number of bound constraints of the problems to be
+%         selected. Default is 0.
+%       - maxb: the maximum number of bound constraints of the problems to be
+%         selected. Default is minb + 10.
 %       - mincon: the minimum number of linear and nonlinear constraints of the
 %         problems to be selected. Default is 0.
 %       - maxcon: the maximum number of linear and nonlinear constraints of the
@@ -485,9 +490,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             end
         end
         warning('off');
-        load(fullfile(path_data, 'data.mat'), 'n_evals', 'problem_names', 'problem_types', 'problem_dims', 'problem_cons', 'computation_times', 'solvers_successes', 'merit_histories', 'merit_out', 'merit_init');
+        load(fullfile(path_data, 'data.mat'), 'n_evals', 'problem_names', 'problem_dims', 'computation_times', 'solvers_successes', 'merit_histories', 'merit_out', 'merit_init');
         warning('on');
-        if ~exist('n_evals', 'var') || ~exist('problem_names', 'var') || ~exist('problem_types', 'var') || ~exist('problem_dims', 'var') || ~exist('problem_cons', 'var') || ~exist('computation_times', 'var') || ~exist('solvers_successes', 'var') || ~exist('merit_histories', 'var') || ~exist('merit_out', 'var') || ~exist('merit_init', 'var')
+        if ~exist('n_evals', 'var') || ~exist('problem_names', 'var') || ~exist('problem_dims', 'var') || ~exist('computation_times', 'var') || ~exist('solvers_successes', 'var') || ~exist('merit_histories', 'var') || ~exist('merit_out', 'var') || ~exist('merit_init', 'var')
             error("MATLAB:benchmark:NoDataMatFile", "Failed to load computation results from the 'data.mat' file in the directory '%s'.", path_data);
         end
 
@@ -531,6 +536,12 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         options = checkValidityCutestOptions(options);
         p_to_load = true(size(problem_names));
         if isfield(options, CutestOptionKey.PTYPE.value)
+            warning('off');
+            load(fullfile(path_data, 'data.mat'), 'problem_types');
+            warning('on');
+            if ~exist('problem_types', 'var')
+                error("MATLAB:benchmark:NoProblemTypesDataMatFile", "Failed to load the variable 'problem_types' from the 'data.mat' file in the directory '%s'.", path_data);
+            end
             % Judge whether the type of the problems in the loaded data satisfies the options.
             for i = 1:numel(problem_types)
                 if ~ismember(problem_types{i}, options.(CutestOptionKey.PTYPE.value))
@@ -554,7 +565,43 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                 end
             end
         end
+        if isfield(options, CutestOptionKey.MINB.value)
+            warning('off');
+            load(fullfile(path_data, 'data.mat'), 'problem_mbs');
+            warning('on');
+            if ~exist('problem_mbs', 'var')
+                error("MATLAB:benchmark:NoProblemMbsDataMatFile", "Failed to load the variable 'problem_mbs' from the 'data.mat' file in the directory '%s'.", path_data);
+            end
+            % Judge whether the number of bound constraints of the problems in the loaded data
+            % satisfies the options.
+            for i = 1:numel(problem_mbs)
+                if problem_mbs(i) < options.(CutestOptionKey.MINB.value)
+                    p_to_load(i) = false;
+                end
+            end
+        end
+        if isfield(options, CutestOptionKey.MAXB.value)
+            warning('off');
+            load(fullfile(path_data, 'data.mat'), 'problem_mbs');
+            warning('on');
+            if ~exist('problem_mbs', 'var')
+                error("MATLAB:benchmark:NoProblemMbsDataMatFile", "Failed to load the variable 'problem_mbs' from the 'data.mat' file in the directory '%s'.", path_data);
+            end
+            % Judge whether the number of bound constraints of the problems in the loaded data
+            % satisfies the options.
+            for i = 1:numel(problem_mbs)
+                if problem_mbs(i) > options.(CutestOptionKey.MAXB.value)
+                    p_to_load(i) = false;
+                end
+            end
+        end
         if isfield(options, CutestOptionKey.MINCON.value)
+            warning('off');
+            load(fullfile(path_data, 'data.mat'), 'problem_cons');
+            warning('on');
+            if ~exist('problem_cons', 'var')
+                error("MATLAB:benchmark:NoProblemConsDataMatFile", "Failed to load the variable 'problem_cons' from the 'data.mat' file in the directory '%s'.", path_data);
+            end
             % Judge whether the number of constraints of the problems in the loaded data satisfies
             % the options.
             for i = 1:numel(problem_cons)
@@ -564,6 +611,12 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             end
         end
         if isfield(options, CutestOptionKey.MAXCON.value)
+            warning('off');
+            load(fullfile(path_data, 'data.mat'), 'problem_cons');
+            warning('on');
+            if ~exist('problem_cons', 'var')
+                error("MATLAB:benchmark:NoProblemConsDataMatFile", "Failed to load the variable 'problem_cons' from the 'data.mat' file in the directory '%s'.", path_data);
+            end
             % Judge whether the number of constraints of the problems in the loaded data satisfies
             % the options.
             for i = 1:numel(problem_cons)
@@ -923,7 +976,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         if ~profile_options.(ProfileOptionKey.SILENT.value)
             fprintf('INFO: Starting the computation of the "%s" profiles.\n', feature.name);
         end
-        [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_evals, problem_names, problem_types, problem_dims, problem_cons,computation_times, solvers_successes] = solveAllProblems(solvers, feature, profile_options, other_options, true, path_hist_plots);
+        [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_evals, problem_names, problem_types, problem_dims, problem_mbs, problem_cons,computation_times, solvers_successes] = solveAllProblems(solvers, feature, profile_options, other_options, true, path_hist_plots);
         merit_fun = profile_options.(ProfileOptionKey.MERIT_FUN.value);
         try
             merit_histories = merit_fun(fun_histories, maxcv_histories, maxcv_init);
@@ -978,7 +1031,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             if ~profile_options.(ProfileOptionKey.SILENT.value)
                 fprintf('\nINFO: Starting the computation of the profiles under "plain" feature.\n');
             end
-            [fun_histories_plain, maxcv_histories_plain, ~, ~, ~, ~, ~, problem_names_plain, ~, ~, ~, computation_times_plain] = solveAllProblems(solvers, feature_plain, profile_options, other_options, false, {});
+            [fun_histories_plain, maxcv_histories_plain, ~, ~, ~, ~, ~, problem_names_plain, ~, ~, ~, ~, computation_times_plain] = solveAllProblems(solvers, feature_plain, profile_options, other_options, false, {});
             merit_fun = profile_options.(ProfileOptionKey.MERIT_FUN.value);
             try
                 merit_histories_plain = merit_fun(fun_histories_plain, maxcv_histories_plain, maxcv_init);
@@ -1459,14 +1512,21 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         data.solver_names = solver_names;
         data.n_evals = n_evals;
         data.problem_names = problem_names;
-        data.problem_types = problem_types;
         data.problem_dims = problem_dims;
-        data.problem_cons = problem_cons;
         data.computation_times = computation_times;
         data.solvers_successes = solvers_successes;
         data.merit_histories = merit_histories;
         data.merit_out = merit_out;
         data.merit_init = merit_init;
+        if exist('problem_types', 'var')
+            data.problem_types = problem_types;
+        end
+        if exist('problem_mbs', 'var')
+            data.problem_mbs = problem_mbs;
+        end
+        if exist('problem_cons', 'var')
+            data.problem_cons = problem_cons;
+        end
         try
             save(fullfile(path_log, 'data.mat'), '-struct', 'data');
             fid = fopen(path_readme_log, 'a');

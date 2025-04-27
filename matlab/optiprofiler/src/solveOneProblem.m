@@ -1,4 +1,4 @@
-function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_name, problem_type, problem_dim, problem_con, computation_time, solvers_success] = solveOneProblem(problem_name, solvers, feature, len_problem_names, profile_options, other_options, is_plot, path_hist_plots)
+function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_name, problem_type, problem_dim, problem_mb, problem_con, computation_time, solvers_success] = solveOneProblem(problem_name, solvers, feature, len_problem_names, profile_options, other_options, is_plot, path_hist_plots)
 %SOLVEONEPROBLEM solves one problem with all the solvers in solvers list.
 
     solver_names = other_options.(OtherOptionKey.SOLVER_NAMES.value);
@@ -13,6 +13,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
     n_eval = [];
     problem_type = [];
     problem_dim = [];
+    problem_mb = [];
     problem_con = [];
     computation_time = [];
     solvers_success = [];
@@ -39,6 +40,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
 
     problem_type = problem.ptype;
     problem_dim = problem.n;
+    problem_mb = sum(~isinf(-problem.xl)) + sum(~isinf(problem.xu));
     problem_con = problem.m_linear_ub + problem.m_linear_eq + problem.m_nonlinear_ub + problem.m_nonlinear_eq;
 
     % Project the initial point if necessary.

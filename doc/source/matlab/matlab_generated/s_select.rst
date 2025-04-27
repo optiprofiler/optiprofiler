@@ -18,6 +18,10 @@ s_select
 
     - **maxdim**: the maximum dimension of the problems to be selected. Default is ``Inf``.
 
+    - **minb**: the minimum number of bound constraints of the problems to be selected. Default is ``0``.
+
+    - **maxb**: the maximum number of bound constraints of the problems to be selected. Default is ``Inf``.
+
     - **mincon**: the minimum number of linear and nonlinear constraints of the problems to be selected. Default is ``0``.
 
     - **maxcon**: the maximum number of linear and nonlinear constraints of the problems to be selected. Default is ``Inf``.

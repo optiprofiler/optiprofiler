@@ -5,6 +5,8 @@ classdef CutestOptionKey
         PTYPE ('ptype')
         MINDIM ('mindim')
         MAXDIM ('maxdim')
+        MINB ('minb')
+        MAXB ('maxb')
         MINCON ('mincon')
         MAXCON ('maxcon')
         EXCLUDELIST ('excludelist')

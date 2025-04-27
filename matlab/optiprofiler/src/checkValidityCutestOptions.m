@@ -22,7 +22,7 @@ function cutest_options = checkValidityCutestOptions(cutest_options)
     end
     % Judge whether cutest_options.maxdim is a integer greater or equal to 1, or equal to Inf.
     if isfield(cutest_options, CutestOptionKey.MAXDIM.value)
-        if ~isintegerscalar(cutest_options.(CutestOptionKey.MAXDIM.value)) || (cutest_options.(CutestOptionKey.MAXDIM.value) < 1 && cutest_options.(CutestOptionKey.MAXDIM.value) ~= Inf)
+        if (~isintegerscalar(cutest_options.(CutestOptionKey.MAXDIM.value)) || cutest_options.(CutestOptionKey.MAXDIM.value) < 1) && cutest_options.(CutestOptionKey.MAXDIM.value) ~= Inf
             error("MATLAB:checkValidityCutestOptions:maxdimNotValid", "The field 'maxdim' of options should be a integer greater or equal to 1, or equal to Inf.");
         end
     end
@@ -30,6 +30,24 @@ function cutest_options = checkValidityCutestOptions(cutest_options)
     if isfield(cutest_options, CutestOptionKey.MINDIM.value) && isfield(cutest_options, CutestOptionKey.MAXDIM.value)
         if cutest_options.(CutestOptionKey.MINDIM.value) > cutest_options.(CutestOptionKey.MAXDIM.value)
             error("MATLAB:checkValidityCutestOptions:maxdimSmallerThanmindim", "The field 'mindim' of options should be smaller or equal to cutest_options.maxdim.");
+        end
+    end
+    % Judge whether cutest_options.minb is a integer greater or equal to 0.
+    if isfield(cutest_options, CutestOptionKey.MINB.value)
+        if ~isintegerscalar(cutest_options.(CutestOptionKey.MINB.value)) || cutest_options.(CutestOptionKey.MINB.value) < 0
+            error("MATLAB:checkValidityCutestOptions:minbNotValid", "The field 'minb' of options should be a integer greater or equal to 0.");
+        end
+    end
+    % Judge whether cutest_options.maxb is a integer greater or equal to 0, or equal to Inf.
+    if isfield(cutest_options, CutestOptionKey.MAXB.value)
+        if (~isintegerscalar(cutest_options.(CutestOptionKey.MAXB.value)) || cutest_options.(CutestOptionKey.MAXB.value) < 0) && cutest_options.(CutestOptionKey.MAXB.value) ~= Inf
+            error("MATLAB:checkValidityCutestOptions:maxbNotValid", "The field 'maxb' of options should be a integer greater or equal to 0, or equal to Inf.");
+        end
+    end
+    % Judge whether cutest_options.minb is smaller or equal to cutest_options.maxb.
+    if isfield(cutest_options, CutestOptionKey.MINB.value) && isfield(cutest_options, CutestOptionKey.MAXB.value)
+        if cutest_options.(CutestOptionKey.MINB.value) > cutest_options.(CutestOptionKey.MAXB.value)
+            error("MATLAB:checkValidityCutestOptions:maxbSmallerThanminb", "The field 'minb' of options should be smaller or equal to cutest_options.maxb.");
         end
     end
     % Judge whether cutest_options.mincon is a integer greater or equal to 0.
@@ -40,7 +58,7 @@ function cutest_options = checkValidityCutestOptions(cutest_options)
     end
     % Judge whether cutest_options.maxcon is a integer greater or equal to 0, or equal to Inf.
     if isfield(cutest_options, CutestOptionKey.MAXCON.value)
-        if ~isintegerscalar(cutest_options.(CutestOptionKey.MAXCON.value)) || (cutest_options.(CutestOptionKey.MAXCON.value) < 0 && cutest_options.(CutestOptionKey.MAXCON.value) ~= Inf)
+        if (~isintegerscalar(cutest_options.(CutestOptionKey.MAXCON.value)) || cutest_options.(CutestOptionKey.MAXCON.value) < 0) && cutest_options.(CutestOptionKey.MAXCON.value) ~= Inf
             error("MATLAB:checkValidityCutestOptions:maxconNotValid", "The field 'maxcon' of options should be a integer greater or equal to 0, or equal to Inf.");
         end
     end

@@ -17,6 +17,10 @@ function [problem_names, argins] = s_select(options)
 %         is 1.
 %       - maxdim: the maximum dimension of the problems to be selected. Default
 %         is Inf.
+%       - minb: the minimum number of bound constraints of the problems to be
+%         selected. Default is 0.
+%       - maxb: the maximum number of bound constraints of the problems to be
+%         selected. Default is Inf.
 %       - mincon: the minimum number of linear and nonlinear constraints of the
 %         problems to be selected. Default is 0.
 %       - maxcon: the maximum number of linear and nonlinear constraints of the
@@ -46,7 +50,7 @@ function [problem_names, argins] = s_select(options)
     argins = {};
 
     % Check whether the options are valid.
-    valid_fields = {'ptype', 'mindim', 'maxdim', 'mincon', 'maxcon', 'oracle', 'excludelist'};
+    valid_fields = {'ptype', 'mindim', 'maxdim', 'minb', 'maxb', 'mincon', 'maxcon', 'oracle', 'excludelist'};
     if ~isstruct(options) || (~isempty(fieldnames(options)) && ~all(ismember(fieldnames(options), valid_fields)))
         error('The input argument `options` is invalid.');
     end
@@ -60,6 +64,12 @@ function [problem_names, argins] = s_select(options)
     end
     if ~isfield(options, 'maxdim')
         options.maxdim = Inf;
+    end
+    if ~isfield(options, 'minb')
+        options.minb = 0;
+    end
+    if ~isfield(options, 'maxb')
+        options.maxb = Inf;
     end
     if ~isfield(options, 'mincon')
         options.mincon = 0;
@@ -81,9 +91,11 @@ function [problem_names, argins] = s_select(options)
         problem_name = probinfo{i_problem, 1};
         ptype = probinfo{i_problem, 2};
         dim = probinfo{i_problem, 4};
+        mb = probinfo{i_problem, 5};
         m_con = probinfo{i_problem, 8};
         argin = probinfo{i_problem, 25};
         dims = probinfo{i_problem, 26};
+        mbs = probinfo{i_problem, 27};
         m_cons = probinfo{i_problem, 30};
 
         % If the oracle is not 0, then we exclude problem 'NOZZLEfp' since it does not have first- or second-order information.
@@ -106,7 +118,7 @@ function [problem_names, argins] = s_select(options)
         % If the default dimension and number of constraints satisfy the criteria, we add the problem.
         % That means, we will not consider the changeable dimension and number of constraints if the
         % default dimension and number of constraints satisfy the criteria.
-        if dim >= options.mindim && dim <= options.maxdim && m_con >= options.mincon && m_con <= options.maxcon
+        if dim >= options.mindim && dim <= options.maxdim && mb >= options.minb && mb <= options.maxb && m_con >= options.mincon && m_con <= options.maxcon
             problem_names{end + 1} = problem_name;
             argins{end + 1} = {};
             continue;
@@ -114,7 +126,7 @@ function [problem_names, argins] = s_select(options)
 
         % If the default dimension and number of constraints do not satisfy the criteria, we consider
         % the changeable dimension and number of constraints.
-        if ~isempty(dims) && any(dims >= options.mindim & dims <= options.maxdim) && any(m_cons >= options.mincon & m_cons <= options.maxcon)
+        if ~isempty(dims) && any(dims >= options.mindim & dims <= options.maxdim) && any(mbs >= options.minb & mbs <= options.maxb) && any(m_cons >= options.mincon & m_cons <= options.maxcon)
             idx = find(dims >= options.mindim & dims <= options.maxdim, 1, 'first');
             if m_cons(idx) == 0
                 problem_names{end + 1} = [problem_name, '_', num2str(dims(idx))];
