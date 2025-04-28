@@ -81,6 +81,20 @@ function setup(varargin)
         if strcmp(action, 'install')
     
             paths_saved = add_save_path({s2mpj_dir, custom_dir, matcutest_dir, src_dir, examples_dir}, package_name);
+
+            % Check whether the system is Linux (not Mac). If yes, try to install MatCUTEst.
+            if isunix() && ~ismac()
+                matcutest_install_dir = fullfile(matcutest_dir, 'src');
+                % Change the current directory to matcutest_install_dir and run 'install.m' to install MatCUTEst.
+                try
+                    fprintf('\nINFO: We are trying to install MatCUTEst ...\n');
+                    cd(matcutest_install_dir);
+                    install;
+                catch
+                    fprintf('\n\nINFO: The installation of MatCUTEst failed.\n');
+                end
+                cd(setup_dir);
+            end
     
             if paths_saved(1)
                 fprintf('\nThe package is ready to use.\n');

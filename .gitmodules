@@ -1,3 +1,6 @@
 [submodule "problems/s2mpj/src"]
 	path = problems/s2mpj/src
 	url = https://github.com/GrattonToint/S2MPJ.git
+[submodule "problems/matcutest/src"]
+	path = problems/matcutest/src
+	url = https://github.com/matcutest/matcutest_compiled.git
