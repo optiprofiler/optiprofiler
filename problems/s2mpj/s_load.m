@@ -99,6 +99,14 @@ function problem = s_load(problem_name, varargin)
 %   varargin.
 %
 
+    % Add the path of the problem to the MATLAB search path.
+    try
+        addpath(fullfile(fileparts(mfilename('fullpath')), 'src'));
+        addpath(fullfile(fileparts(mfilename('fullpath')), 'src', 'matlab_problems'));
+    catch
+        error('Failed to add the path of MATLAB problems of S2MPJ to the MATLAB search path.');
+    end
+
     % Convert 'problem_name' to a char.
     problem_name = char(problem_name);
 
