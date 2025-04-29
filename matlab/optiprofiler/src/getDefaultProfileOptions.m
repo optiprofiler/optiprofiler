@@ -1,7 +1,8 @@
-function profile_options = getDefaultProfileOptions(feature, profile_options)
+function profile_options = getDefaultProfileOptions(solvers, feature, profile_options)
 
-    if exist('parcluster', 'file') == 2
-        myCluster = parcluster('local');
+    if exist('parcluster', 'file') == 2 % Check if Parallel Computing Toolbox is available
+        myCluster = parcluster();
+        % Get the number of workers in the cluster
         nb_cores = myCluster.NumWorkers;
     else
         nb_cores = 1;
@@ -18,6 +19,12 @@ function profile_options = getDefaultProfileOptions(feature, profile_options)
     end
     if ~isfield(profile_options, ProfileOptionKey.BENCHMARK_ID.value)
         profile_options.(ProfileOptionKey.BENCHMARK_ID.value) = 'out';
+    end
+    if ~isfield(profile_options, ProfileOptionKey.SOLVER_NAMES.value)
+        profile_options.(ProfileOptionKey.SOLVER_NAMES.value) = cellfun(@(s) func2str(s), solvers, 'UniformOutput', false);
+    end
+    if ~isfield(profile_options, ProfileOptionKey.SOLVER_ISRAND.value)
+        profile_options.(ProfileOptionKey.SOLVER_ISRAND.value) = false(1, numel(solvers));
     end
     if ~isfield(profile_options, ProfileOptionKey.FEATURE_STAMP.value)
         profile_options.(ProfileOptionKey.FEATURE_STAMP.value) = getDefaultFeatureStamp(feature);

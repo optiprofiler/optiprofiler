@@ -30,9 +30,17 @@ Options should be specified in a struct. The following are the available fields 
 
 1. Options for profiles and plots:
 
-  - **n_jobs**: the number of parallel jobs to run the test. Default is ``1``.
+  - **n_jobs**: the number of parallel jobs to run the test. Default is the number of workers in the parallel pool.
+
+  - **keep_pool**: whether to keep the parallel pool open after the test. Default is ``true``.
+
+  - **seed**: the seed of the random number generator. Default is ``1``.
 
   - **benchmark_id**: the identifier of the test. It is used to create the specific directory to store the results. Default is ``'out'`` if the option ``load`` is not provided, otherwise default is ``'.'``.
+
+  - **solver_names**: the names of the solvers. Default is the names of the function handles in **solvers**.
+
+  - **solver_isrand**: whether the solvers are randomized or not. It is a logical array of the same length as the number of solvers, where the value is true if the solver is randomized, and false otherwise. Default is all false.
 
   - **feature_stamp**: the stamp of the feature with the given options. It is used to create the specific directory to store the results. Default depends on features.
 
@@ -211,10 +219,6 @@ Note that the default problem set we used is the MATLAB codes from a GitHub repo
 Note that if the ``load`` option is provided, we will use above options to select the problems and then take an intersection with the problems in the loading experiment.
 
 4. Other options:
-
-  - **solver_names**: the names of the solvers. Default is the names of the function handles in **solvers**.
-
-  - **solver_isrand**: whether the solvers are randomized or not. It is a logical array of the same length as the number of solvers, where the value is true if the solver is randomized, and false otherwise. Default is all false.
 
   - **problem**: a instance of the class Problem. If it is provided, we will only solve this problem and generate the history plots for it. Default is not to provide any problem.
 

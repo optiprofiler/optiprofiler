@@ -1,8 +1,8 @@
 function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_name, problem_type, problem_dim, problem_mb, problem_con, computation_time, solvers_success] = solveOneProblem(problem_name, solvers, feature, len_problem_names, profile_options, other_options, is_plot, path_hist_plots)
 %SOLVEONEPROBLEM solves one problem with all the solvers in solvers list.
 
-    solver_names = other_options.(OtherOptionKey.SOLVER_NAMES.value);
-    solver_isrand = other_options.(OtherOptionKey.SOLVER_ISRAND.value);
+    solver_names = profile_options.(ProfileOptionKey.SOLVER_NAMES.value);
+    solver_isrand = profile_options.(ProfileOptionKey.SOLVER_ISRAND.value);
     custom_problem_loader = other_options.(OtherOptionKey.CUSTOM_PROBLEM_LOADER.value);
     fun_histories = [];
     maxcv_histories = [];

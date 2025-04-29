@@ -1,8 +1,9 @@
 function profile_options = checkValidityProfileOptions(solvers, profile_options)
 %CHECKVALIDITYPROFILEOPTIONS Check the validity of the options in profile_options
 
-    if exist('parcluster', 'file') == 2
+    if exist('parcluster', 'file') == 2 % Check if Parallel Computing Toolbox is available
         myCluster = parcluster('local');
+        % Get the number of workers in the cluster
         nb_cores = myCluster.NumWorkers;
     else
         nb_cores = 1;
@@ -39,10 +40,28 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
             error("MATLAB:checkValidityProfileOptions:benchmark_idNotValid", "The field 'benchmark_id' of options should be a char or a string satisfying the strict file name requirements (only containing letters, numbers, underscores, hyphens, and dots).");
         end
     end
+    % Judge whether profile_options.solver_names is a cell of chars or strings.
+    if isfield(profile_options, ProfileOptionKey.SOLVER_NAMES.value)
+        if ~iscell(profile_options.(ProfileOptionKey.SOLVER_NAMES.value)) || ~all(cellfun(@(l) ischarstr(l), profile_options.(ProfileOptionKey.SOLVER_NAMES.value)))
+            error("MATLAB:checkValidityProfileOptions:solver_namesNotCellOfcharstr", "The field 'solver_names' of options must be a cell of chars or strings.");
+        end
+        if numel(profile_options.(ProfileOptionKey.SOLVER_NAMES.value)) ~= 0 && numel(profile_options.(ProfileOptionKey.SOLVER_NAMES.value)) ~= numel(solvers)
+            error("MATLAB:checkValidityProfileOptions:solver_namesAndsolversLengthNotSame", "The number of the field 'solver_names' of options must equal the number of solvers.");
+        end
+        if numel(profile_options.(ProfileOptionKey.SOLVER_NAMES.value)) == 0
+            profile_options.(ProfileOptionKey.SOLVER_NAMES.value) = cellfun(@(s) func2str(s), solvers, 'UniformOutput', false);
+        end
+    end
+    % Judge whether profile_options.solver_isrand is a logical array of the same length as the number of solvers.
+    if isfield(profile_options, ProfileOptionKey.SOLVER_ISRAND.value)
+        if ~islogical(profile_options.(ProfileOptionKey.SOLVER_ISRAND.value)) || numel(profile_options.(ProfileOptionKey.SOLVER_ISRAND.value)) ~= numel(solvers)
+            error("MATLAB:checkValidityProfileOptions:solver_israndNotLogical", "The field 'solver_isrand' of options must be a logical array of the same length as the number of solvers.");
+        end
+    end
     % Judge whether profile_options.feature_stamp is a char or a string and satisfies the file name requirements.
     if isfield(profile_options, ProfileOptionKey.FEATURE_STAMP.value)
         if ~ischarstr(profile_options.(ProfileOptionKey.FEATURE_STAMP.value))
-            error("MATLAB:checkValidityProfileOptions:feature_stampNotcharstr", "The field `feature_stamp` of `options` for `benchmark` must be a char or string.");
+            error("MATLAB:checkValidityProfileOptions:feature_stampNotcharstr", "The field 'feature_stamp' of options must be a char or string.");
         end
         is_valid_foldername = @(x) ischarstr(x) && ~isempty(x) && all(ismember(char(x), ['a':'z', 'A':'Z', '0':'9', '_', '-', '.']));
         if ~is_valid_foldername(profile_options.(ProfileOptionKey.FEATURE_STAMP.value))

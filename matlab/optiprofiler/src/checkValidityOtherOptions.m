@@ -1,24 +1,6 @@
 function other_options = checkValidityOtherOptions(solvers, other_options)
 %CHECKVALIDITYOTHEROPTIONS Check the validity of the options in other_options
 
-    % Judge whether other_options.solver_names is a cell of chars or strings.
-    if isfield(other_options, OtherOptionKey.SOLVER_NAMES.value)
-        if ~iscell(other_options.(OtherOptionKey.SOLVER_NAMES.value)) || ~all(cellfun(@(l) ischarstr(l), other_options.(OtherOptionKey.SOLVER_NAMES.value)))
-            error("MATLAB:checkValidityOtherOptions:solver_namesNotCellOfcharstr", "The field `solver_names` of `options` for `benchmark` must be a cell of chars or strings.");
-        end
-        if numel(other_options.(OtherOptionKey.SOLVER_NAMES.value)) ~= 0 && numel(other_options.(OtherOptionKey.SOLVER_NAMES.value)) ~= numel(solvers)
-            error("MATLAB:checkValidityOtherOptions:solver_namesAndsolversLengthNotSame", "The number of the field `solver_names` of `options` for `benchmark` must equal the number of solvers.");
-        end
-        if numel(other_options.(OtherOptionKey.SOLVER_NAMES.value)) == 0
-            other_options.(OtherOptionKey.SOLVER_NAMES.value) = cellfun(@(s) func2str(s), solvers, 'UniformOutput', false);
-        end
-    end
-    % Judge whether other_options.solver_isrand is a logical array of the same length as the number of solvers.
-    if isfield(other_options, OtherOptionKey.SOLVER_ISRAND.value)
-        if ~islogical(other_options.(OtherOptionKey.SOLVER_ISRAND.value)) || numel(other_options.(OtherOptionKey.SOLVER_ISRAND.value)) ~= numel(solvers)
-            error("MATLAB:checkValidityOtherOptions:solver_israndNotLogical", "The field `solver_isrand` of `options` for `benchmark` must be a logical array of the same length as the number of solvers.");
-        end
-    end
     % Judge whether other_options.problem is a Problem object.
     if isfield(other_options, OtherOptionKey.PROBLEM.value)
         if ~isa(other_options.(OtherOptionKey.PROBLEM.value), 'Problem')

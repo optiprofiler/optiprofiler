@@ -6,6 +6,8 @@ classdef ProfileOptionKey
         KEEP_POOL ('keep_pool')
         SEED ('seed')
         BENCHMARK_ID ('benchmark_id')
+        SOLVER_NAMES ('solver_names')
+        SOLVER_ISRAND ('solver_isrand')
         FEATURE_STAMP ('feature_stamp')
         ERRORBAR_TYPE ('errorbar_type')
         SAVEPATH ('savepath')

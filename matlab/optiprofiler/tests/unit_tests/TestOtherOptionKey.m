@@ -6,7 +6,7 @@ classdef TestOtherOptionKey < matlab.unittest.TestCase
             
             enumValues = enumeration('OtherOptionKey');
             enumValues = cellstr(arrayfun(@char, enumValues, 'UniformOutput', false));
-            expectedValues = {'SOLVER_NAMES'; 'SOLVER_ISRAND'; 'PROBLEM'; 'CUTEST_PROBLEM_NAMES'; 'CUSTOM_PROBLEM_LOADER'; 'CUSTOM_PROBLEM_NAMES'};
+            expectedValues = {'PROBLEM'; 'CUTEST_PROBLEM_NAMES'; 'CUSTOM_PROBLEM_LOADER'; 'CUSTOM_PROBLEM_NAMES'};
             testCase.verifyEqual(enumValues, expectedValues);
         end
 
@@ -15,8 +15,6 @@ classdef TestOtherOptionKey < matlab.unittest.TestCase
             
             clear obj;
             clear OtherOptionKey;
-            testCase.verifyEqual(OtherOptionKey.SOLVER_NAMES.value, 'solver_names');
-            testCase.verifyEqual(OtherOptionKey.SOLVER_ISRAND.value, 'solver_isrand');
             testCase.verifyEqual(OtherOptionKey.PROBLEM.value, 'problem');
             testCase.verifyEqual(OtherOptionKey.CUTEST_PROBLEM_NAMES.value, 'cutest_problem_names');
             testCase.verifyEqual(OtherOptionKey.CUSTOM_PROBLEM_LOADER.value, 'custom_problem_loader');

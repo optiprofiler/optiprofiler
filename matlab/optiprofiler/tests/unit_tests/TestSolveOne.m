@@ -7,8 +7,8 @@ classdef TestSolveOne < matlab.unittest.TestCase
             solvers = {@fminsearch_test1, @fminsearch_test2};
             feature = Feature('permuted', 'n_runs', 1);
             len_problem_names = length('ALLINITU');
-            other_options.solver_names = {'fminsearch', 'fminunc'};
-            other_options.solver_isrand = [false, false];
+            profile_options.solver_names = {'fminsearch', 'fminunc'};
+            profile_options.solver_isrand = [false, false];
             other_options.custom_problem_loader = [];
             profile_options.project_x0 = true;
             profile_options.max_eval_factor = 500;

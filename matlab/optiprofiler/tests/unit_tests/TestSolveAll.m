@@ -7,8 +7,8 @@ classdef TestSolveAll < matlab.unittest.TestCase
             other_options.cutest_problem_names = {'ALLINITU', 'BARD'};
             other_options.custom_problem_loader = [];
             other_options.custom_problem_names = [];
-            other_options.solver_names = {'fminsearch1', 'fminsearch2'};
-            other_options.solver_isrand = [false, false];
+            profile_options.solver_names = {'fminsearch1', 'fminsearch2'};
+            profile_options.solver_isrand = [false, false];
             feature = Feature('plain');
             profile_options.max_eval_factor = 500;
             profile_options.n_jobs = 1;

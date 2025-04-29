@@ -43,10 +43,19 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %
 %       1. options for profiles and plots:
 %
-%       - n_jobs: the number of parallel jobs to run the test. Default is 1.
+%       - n_jobs: the number of parallel jobs to run the test. Default is the
+%         number of workers in the parallel pool.
+%       - keep_pool: whether to keep the parallel pool open after the test.
+%         Default is true.
+%       - seed: the seed of the random number generator. Default is 1.
 %       - benchmark_id: the identifier of the test. It is used to create the
 %         specific directory to store the results. Default is 'out' if the
 %         option `load` is not provided, otherwise default is '.'.
+%       - solver_names: the names of the solvers. Default is the names of the
+%         function handles in `solvers`.
+%       - solver_isrand: whether the solvers are randomized or not. Default is
+%         a logical array of the same length as the number of solvers, where
+%         the value is true if the solver is randomized, and false otherwise.
 %       - feature_stamp: the stamp of the feature with the given options. It is
 %         used to create the specific directory to store the results. Default
 %         depends on features.
@@ -291,11 +300,6 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %
 %       4. other options:
 %
-%       - solver_names: the names of the solvers. Default is the names of the
-%         function handles in `solvers`.
-%       - solver_isrand: whether the solvers are randomized or not. Default is
-%         a logical array of the same length as the number of solvers, where
-%         the value is true if the solver is randomized, and false otherwise.
 %       - problem: a instance of the class Problem. If it is provided, we will
 %         only solve this problem and generate the history plots for it.
 %         Default is not to provide any problem.
@@ -513,7 +517,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         end
 
         % Truncate the loaded data according to the 'solvers_to_load' field.
-        if ~isfield(options, OtherOptionKey.SOLVER_NAMES.value)
+        if ~isfield(options, ProfileOptionKey.SOLVER_NAMES.value)
             warning('off');
             load(fullfile(path_data, 'data.mat'), 'solver_names');
             warning('on');
@@ -521,7 +525,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                 error("MATLAB:benchmark:NoSolverNamesDataMatFile", "Failed to load the variable 'solver_names' from the 'data.mat' file in the directory '%s' and the 'solver_names' field is not provided in the options.", path_data);
             end
             solver_names = solver_names(solvers_to_load);
-        elseif numel(options.(OtherOptionKey.SOLVER_NAMES.value)) ~= numel(solvers_to_load)
+        elseif numel(options.(ProfileOptionKey.SOLVER_NAMES.value)) ~= numel(solvers_to_load)
             error("MATLAB:benchmark:solver_namesNotMatch", "The number of elements in the 'solver_names' field of options should be the same as the number of solvers to load in the 'solvers_to_load' field.");
         end
         n_solvers = numel(solvers_to_load);
@@ -675,7 +679,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     end
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %%%%%%%%%%%%%%%%%%% Parse options for feature, cutest, profile and others %%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%% Parse options for feature, problem, and profile %%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     feature_options = struct();
@@ -714,7 +718,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     % Set default values for the unspecified options.
     other_options = getDefaultOtherOptions(solvers, other_options);
     cutest_options = getDefaultCutestOptions(cutest_options, other_options);
-    profile_options = getDefaultProfileOptions(feature, profile_options);
+    profile_options = getDefaultProfileOptions(solvers, feature, profile_options);
 
     % Check the validity of the options.
     % Note: the validity of the feature options has been checked in the Feature constructor, so we
@@ -964,7 +968,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 
     % If `n_runs` is not specified, the feature is deterministic, and at least one solver is
     % randomized, then we set `n_runs` to 5.
-    if ~isfield(feature_options, FeatureOptionKey.N_RUNS.value) && ~feature.is_stochastic && any(other_options.(OtherOptionKey.SOLVER_ISRAND.value))
+    if ~isfield(feature_options, FeatureOptionKey.N_RUNS.value) && ~feature.is_stochastic && any(profile_options.(ProfileOptionKey.SOLVER_ISRAND.value))
         if ~profile_options.(ProfileOptionKey.SILENT.value)
             fprintf("INFO: We set `n_runs` to 5 since the feature is deterministic and at least one solver is randomized and `n_runs` is not specified.\n\n");
         end
@@ -1279,7 +1283,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         end
 
         if ~exist('solver_names', 'var')
-            solver_names = cellfun(@(s) strrep(s, '_', '\_'), other_options.(OtherOptionKey.SOLVER_NAMES.value), 'UniformOutput', false);
+            solver_names = cellfun(@(s) strrep(s, '_', '\_'), other_options.(ProfileOptionKey.SOLVER_NAMES.value), 'UniformOutput', false);
         end
 
         [fig_perf_hist, fig_data_hist, fig_log_ratio_hist, curves{i_tol}.hist] = drawProfiles(work_hist, problem_dims, solver_names, tolerance_label, cell_axs_summary_hist, true, is_perf, is_data, is_log_ratio, profile_options, curves{i_tol}.hist);

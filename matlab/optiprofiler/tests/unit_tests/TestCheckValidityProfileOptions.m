@@ -22,6 +22,18 @@ classdef TestCheckValidityProfileOptions < matlab.unittest.TestCase
             testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:benchmark_idNotValid");
             options = rmfield(options, 'benchmark_id');
 
+            options.solver_names = 1;
+            testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:solver_namesNotCellOfcharstr");
+            options = rmfield(options, 'solver_names');
+
+            options.solver_names = {'a', 'b', 'c'};
+            testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:solver_namesAndsolversLengthNotSame");
+            options = rmfield(options, 'solver_names');
+
+            options.solver_isrand = 2;
+            testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:solver_israndNotLogical");
+            options = rmfield(options, 'solver_isrand');
+
             options.feature_stamp = 1;
             testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:feature_stampNotcharstr");
             options = rmfield(options, 'feature_stamp');
