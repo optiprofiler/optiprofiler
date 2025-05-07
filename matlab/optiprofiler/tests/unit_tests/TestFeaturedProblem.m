@@ -163,7 +163,7 @@ classdef TestFeaturedProblem < matlab.unittest.TestCase
             fp.cub(fp.x0);
             fp.ceq(fp.x0);
 
-            p = s_load('ALLINITA');
+            p = s2mpj_load('ALLINITA');
             options.mod_x0 = @TestFeaturedProblem.custom_mod_x0;
             options.mod_affine = @TestFeaturedProblem.custom_mod_affine;
             options.mod_bounds = @TestFeaturedProblem.custom_mod_bounds;

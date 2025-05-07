@@ -1,41 +1,13 @@
-function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_name, problem_type, problem_dim, problem_mb, problem_con, computation_time, solvers_success] = solveOneProblem(problem_name, solvers, feature, len_problem_names, profile_options, other_options, is_plot, path_hist_plots)
+function result = solveOneProblem(solvers, problem, feature, problem_name, len_problem_names, profile_options, is_plot, path_hist_plots)
 %SOLVEONEPROBLEM solves one problem with all the solvers in solvers list.
 
     solver_names = profile_options.(ProfileOptionKey.SOLVER_NAMES.value);
     solver_isrand = profile_options.(ProfileOptionKey.SOLVER_ISRAND.value);
-    custom_problem_loader = other_options.(OtherOptionKey.CUSTOM_PROBLEM_LOADER.value);
-    fun_histories = [];
-    maxcv_histories = [];
-    fun_out = [];
-    maxcv_out = [];
-    fun_init = [];
-    maxcv_init = [];
-    n_eval = [];
-    problem_type = [];
-    problem_dim = [];
-    problem_mb = [];
-    problem_con = [];
-    computation_time = [];
-    solvers_success = [];
+    result = struct();
 
-    if length(problem_name) == 2
-        problem = custom_problem_loader(problem_name{2});
-
-        % Verify whether problem is a Problem object.
-        if ~isa(problem, 'Problem')
-            fprintf("INFO: Custom problem %s cannot be loaded by custom_problem_loader.\n", problem_name{1});
-            problem_name = [];
-            return;
-        end
-        problem_name = sprintf('%s %s', problem_name{1}, problem_name{2});
-    else
-        try
-            problem = s_load(problem_name);
-        catch
-            fprintf("INFO: Problem %s cannot be loaded.\n", problem_name);
-            problem_name = [];
-            return;
-        end
+    if ~isa(problem, 'Problem')
+        fprintf("INFO: The problem provided is not a valid Problem object.\n");
+        return;
     end
 
     problem_type = problem.ptype;
@@ -57,9 +29,9 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
     n_runs = feature.options.(FeatureOptionKey.N_RUNS.value);
     max_eval = profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value) * problem.n;
     n_eval = zeros(n_solvers, n_runs);
-    fun_histories = NaN(n_solvers, n_runs, max_eval);
+    fun_history = NaN(n_solvers, n_runs, max_eval);
     fun_out = NaN(n_solvers, n_runs);
-    maxcv_histories = NaN(n_solvers, n_runs, max_eval);
+    maxcv_history = NaN(n_solvers, n_runs, max_eval);
     maxcv_out = NaN(n_solvers, n_runs);
     computation_time = NaN(n_solvers, n_runs);
     solvers_success = false(n_solvers, n_runs);
@@ -78,7 +50,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
     for i_solver = 1:n_solvers
         for i_run = 1:real_n_runs(i_solver)
             if ~profile_options.(ProfileOptionKey.SILENT.value)
-                format_info_start = sprintf("INFO: Start  solving     %%-%ds with %%-%ds (run %%2d/%%2d).\\n\\n", len_problem_names, len_solver_names);
+                format_info_start = sprintf("\\nINFO: Start  solving    %%-%ds with %%-%ds (run %%2d/%%2d).\\n", len_problem_names, len_solver_names);
                 fprintf(format_info_start, problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver));
             end
             time_start_solver_run = tic;
@@ -129,18 +101,18 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
                 fun_min = min(featured_problem.fun_hist, [], 'omitnan');
                 maxcv_min = min(featured_problem.maxcv_hist, [], 'omitnan');
                 if ~profile_options.(ProfileOptionKey.SILENT.value)
-                    format_info_end = sprintf("INFO: Finish solving     %%-%ds with %%-%ds (run %%2d/%%2d) (in %%.2f seconds).\\n", len_problem_names, len_solver_names);
+                    format_info_end = sprintf("INFO: Finish solving    %%-%ds with %%-%ds (run %%2d/%%2d) (in %%.2f seconds).\\n", len_problem_names, len_solver_names);
                     fprintf(format_info_end, problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), computation_time(i_solver, i_run));
                     switch problem.ptype
                         case 'u'
-                            format_info_output = sprintf("INFO: Output results for %%-%ds with %%-%ds (run %%2d/%%2d): f = %%10.4e.\\n", len_problem_names, len_solver_names);
+                            format_info_output = sprintf("INFO: Output result for %%-%ds with %%-%ds (run %%2d/%%2d): f = %%10.4e.\\n", len_problem_names, len_solver_names);
                             fprintf(format_info_output, problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), fun_out(i_solver, i_run));
-                            format_info_best = sprintf("INFO: Best   results for %%-%ds with %%-%ds (run %%2d/%%2d): f = %%10.4e.\\n", len_problem_names, len_solver_names);
+                            format_info_best = sprintf("INFO: Best   result for %%-%ds with %%-%ds (run %%2d/%%2d): f = %%10.4e.\\n", len_problem_names, len_solver_names);
                             fprintf(format_info_best, problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), fun_min);
                         otherwise
-                            format_info_output = sprintf("INFO: Output results for %%-%ds with %%-%ds (run %%2d/%%2d): f = %%10.4e, maxcv = %%10.4e.\\n", len_problem_names, len_solver_names);
+                            format_info_output = sprintf("INFO: Output result for %%-%ds with %%-%ds (run %%2d/%%2d): f = %%10.4e, maxcv = %%10.4e.\\n", len_problem_names, len_solver_names);
                             fprintf(format_info_output, problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), fun_out(i_solver, i_run), maxcv_out(i_solver, i_run));
-                            format_info_best = sprintf("INFO: Best   results for %%-%ds with %%-%ds (run %%2d/%%2d): f = %%10.4e, maxcv = %%10.4e.\\n", len_problem_names, len_solver_names);
+                            format_info_best = sprintf("INFO: Best   result for %%-%ds with %%-%ds (run %%2d/%%2d): f = %%10.4e, maxcv = %%10.4e.\\n", len_problem_names, len_solver_names);
                             fprintf(format_info_best, problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), fun_min, maxcv_min);
                     end
                 end
@@ -151,25 +123,41 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
             end
             warning('on', 'all');
             n_eval(i_solver, i_run) = featured_problem.n_eval;
-            fun_histories(i_solver, i_run, 1:n_eval(i_solver, i_run)) = featured_problem.fun_hist(1:n_eval(i_solver, i_run));
-            maxcv_histories(i_solver, i_run, 1:n_eval(i_solver, i_run)) = featured_problem.maxcv_hist(1:n_eval(i_solver, i_run));
+            fun_history(i_solver, i_run, 1:n_eval(i_solver, i_run)) = featured_problem.fun_hist(1:n_eval(i_solver, i_run));
+            maxcv_history(i_solver, i_run, 1:n_eval(i_solver, i_run)) = featured_problem.maxcv_hist(1:n_eval(i_solver, i_run));
             if n_eval(i_solver, i_run) > 0
-                fun_histories(i_solver, i_run, n_eval(i_solver, i_run)+1:end) = fun_histories(i_solver, i_run, n_eval(i_solver, i_run));
-                maxcv_histories(i_solver, i_run, n_eval(i_solver, i_run)+1:end) = maxcv_histories(i_solver, i_run, n_eval(i_solver, i_run));
+                fun_history(i_solver, i_run, n_eval(i_solver, i_run)+1:end) = fun_history(i_solver, i_run, n_eval(i_solver, i_run));
+                maxcv_history(i_solver, i_run, n_eval(i_solver, i_run)+1:end) = maxcv_history(i_solver, i_run, n_eval(i_solver, i_run));
                 solvers_success(i_solver, i_run) = true;
             end
         end
-        % If real_n_runs(i_solver) == 1 ~= n_runs, then we need to copy the results to the other runs.
+        % If real_n_runs(i_solver) == 1 ~= n_runs, then we need to copy the result to the other runs.
         if real_n_runs(i_solver) == 1 && n_runs > 1
             for j = 2:n_runs
                 n_eval(i_solver, j) = n_eval(i_solver, 1);
-                fun_histories(i_solver, j, :) = fun_histories(i_solver, 1, :);
-                maxcv_histories(i_solver, j, :) = maxcv_histories(i_solver, 1, :);
+                fun_history(i_solver, j, :) = fun_history(i_solver, 1, :);
+                maxcv_history(i_solver, j, :) = maxcv_history(i_solver, 1, :);
                 fun_out(i_solver, j) = fun_out(i_solver, 1);
                 maxcv_out(i_solver, j) = maxcv_out(i_solver, 1);
             end
         end
     end
+
+    % Return the result.
+    result.fun_history = fun_history;
+    result.maxcv_history = maxcv_history;
+    result.fun_out = fun_out;
+    result.maxcv_out = maxcv_out;
+    result.fun_init = fun_init;
+    result.maxcv_init = maxcv_init;
+    result.n_eval = n_eval;
+    result.problem_name = problem_name;
+    result.problem_type = problem_type;
+    result.problem_dim = problem_dim;
+    result.problem_mb = problem_mb;
+    result.problem_con = problem_con;
+    result.computation_time = computation_time;
+    result.solvers_success = solvers_success;
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%% History plots of the computation %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -182,7 +170,7 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
     try
         merit_fun = profile_options.(ProfileOptionKey.MERIT_FUN.value);
         try
-            merit_histories = merit_fun(fun_histories, maxcv_histories, maxcv_init);
+            merit_history = merit_fun(fun_history, maxcv_history, maxcv_init);
             merit_init = merit_fun(fun_init, maxcv_init, maxcv_init);
         catch
             error("MATLAB:solveOneProblem:merit_fun_error", "Error occurred while calculating the merit values. Please check the merit function.");
@@ -232,8 +220,8 @@ function [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_in
         pdf_summary = fullfile(path_hist_plots, pdf_hist_file_name);
         processed_solver_names = cellfun(@(s) strrep(s, '_', '\_'), solver_names, 'UniformOutput', false);
 
-        drawHist(fun_histories, maxcv_histories, merit_histories, fun_init, maxcv_init, merit_init, processed_solver_names, cell_axs_summary, false, problem.ptype, problem_dim, n_eval, profile_options, default_height);
-        drawHist(fun_histories, maxcv_histories, merit_histories, fun_init, maxcv_init, merit_init, processed_solver_names, cell_axs_summary_cum, true, problem.ptype, problem_dim, n_eval, profile_options, default_height);
+        drawHist(fun_history, maxcv_history, merit_history, fun_init, maxcv_init, merit_init, processed_solver_names, cell_axs_summary, false, problem.ptype, problem_dim, n_eval, profile_options, default_height);
+        drawHist(fun_history, maxcv_history, merit_history, fun_init, maxcv_init, merit_init, processed_solver_names, cell_axs_summary_cum, true, problem.ptype, problem_dim, n_eval, profile_options, default_height);
 
         exportgraphics(fig_summary, pdf_summary, 'ContentType', 'vector');
         warning('on');

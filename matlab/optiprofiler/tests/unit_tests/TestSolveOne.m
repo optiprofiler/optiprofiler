@@ -4,33 +4,34 @@ classdef TestSolveOne < matlab.unittest.TestCase
             % Test whether the function returns the correct outputs when given valid input.
 
             problem_name = 'ALLINITU';
+            problem = s2mpj_load(problem_name);
             solvers = {@fminsearch_test1, @fminsearch_test2};
             feature = Feature('permuted', 'n_runs', 1);
             len_problem_names = length('ALLINITU');
             profile_options.solver_names = {'fminsearch', 'fminunc'};
             profile_options.solver_isrand = [false, false];
-            other_options.custom_problem_loader = [];
             profile_options.project_x0 = true;
             profile_options.max_eval_factor = 500;
             profile_options.keep_pool = false;
             profile_options.silent = false;
             profile_options.seed = 1;
             profile_options.solver_verbose = 1;
-            [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_name, problem_type, problem_dim, problem_mb, problem_con, computation_time, solvers_success] = solveOneProblem(problem_name, solvers, feature, len_problem_names, profile_options, other_options, false, '.');
-            testCase.verifyNotEmpty(fun_histories);
-            testCase.verifyNotEmpty(maxcv_histories);
-            testCase.verifyNotEmpty(fun_out);
-            testCase.verifyNotEmpty(maxcv_out);
-            testCase.verifyNotEmpty(fun_init);
-            testCase.verifyNotEmpty(maxcv_init);
-            testCase.verifyNotEmpty(n_eval);
-            testCase.verifyNotEmpty(problem_name);
-            testCase.verifyNotEmpty(problem_type);
-            testCase.verifyNotEmpty(problem_dim);
-            testCase.verifyNotEmpty(problem_mb);
-            testCase.verifyNotEmpty(problem_con);
-            testCase.verifyNotEmpty(computation_time);
-            testCase.verifyNotEmpty(solvers_success);
+            result = solveOneProblem(solvers, problem, feature, problem_name, len_problem_names, profile_options, false, '');
+            testCase.verifyNotEmpty(result);
+            testCase.verifyNotEmpty(result.fun_history);
+            testCase.verifyNotEmpty(result.maxcv_history);
+            testCase.verifyNotEmpty(result.fun_out);
+            testCase.verifyNotEmpty(result.maxcv_out);
+            testCase.verifyNotEmpty(result.fun_init);
+            testCase.verifyNotEmpty(result.maxcv_init);
+            testCase.verifyNotEmpty(result.n_eval);
+            testCase.verifyNotEmpty(result.problem_name);
+            testCase.verifyNotEmpty(result.problem_type);
+            testCase.verifyNotEmpty(result.problem_dim);
+            testCase.verifyNotEmpty(result.problem_mb);
+            testCase.verifyNotEmpty(result.problem_con);
+            testCase.verifyNotEmpty(result.computation_time);
+            testCase.verifyNotEmpty(result.solvers_success);
         end
     end
 end

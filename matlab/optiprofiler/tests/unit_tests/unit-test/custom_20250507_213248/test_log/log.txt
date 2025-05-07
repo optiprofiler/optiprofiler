@@ -1,0 +1,16 @@
+INFO: Failed to copy the script or function that calls `benchmark` function to the log directory.
+
+INFO: Start the computation of the profiles under the "custom" feature.
+
+INFO: Creating profiles for tolerance 0.1.
+INFO: Creating profiles for tolerance 0.01.
+
+INFO: Scores of the solvers:
+INFO: sqp           :    2.7080
+INFO: interior-point:    3.0660
+
+INFO: Summary stored in: 
+/Users/huangcunxin/Work/Research/OP/optiprofiler/matlab/optiprofiler/tests/unit_tests/unit-test
+
+
+INFO: Finished the computation of the profiles under "custom" feature.

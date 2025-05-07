@@ -13,9 +13,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %   specified inputs and return specified outputs. Details can be found in the
 %   following 'Cautions' part.
 %
-%   SOLVER_SCORES = BENCHMARK(SOLVERS, FEATURE_NAME) creates profiles and data
-%   profiles for the given SOLVERS on the default unconstrained problem set
-%   with the specified feature FEATURE_NAME.
+%   SOLVER_SCORES = BENCHMARK(SOLVERS, FEATURE_NAME) creates profiles for the
+%   given SOLVERS on the default unconstrained problem set with the specified
+%   feature FEATURE_NAME.
 %
 %   SOLVER_SCORES = BENCHMARK(SOLVERS, OPTIONS) creates profiles for the given
 %   SOLVERS with options specified in the struct OPTIONS. See 'Options' part
@@ -131,7 +131,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %       - load: loading the stored data from a completed experiment and draw
 %         profiles. It can be either 'latest' or a time stamp of an experiment
 %         in the format of 'yyyyMMdd_HHmmss'. No default.
-%       - solvers_to_load: the indices of the solvers to load when the 'load'
+%       - solvers_to_load: the indices of the solvers to load when the `load`
 %         option is provided. It can be a vector of different integers selected
 %         from 1 to the total number of solvers of the loading experiment. At
 %         least two indices should be provided. Default is all the solvers.
@@ -155,7 +155,11 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         log-ratio profiles. It can be a cell array of short names of colors
 %         ('r', 'g', 'b', 'c', 'm', 'y', 'k') or a 2-by-3 matrix with each row
 %         being a RGB triplet. Default is set to the first two colors in the
-%         'line_colors' option.
+%         `line_colors` option.
+%       - problem: a problem to be used. It should be an instance of the class
+%         Problem. If it is provided, we will only run the test on this problem
+%         with the given feature and draw the history plots. Default is not to
+%         set any problem.
 %
 %       2. options for features:
 %
@@ -267,14 +271,21 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         class Problem, and `modified_ceq` is the modified vector of the
 %         nonlinear equality constraints. No default.
 %
-%       3. options for CUTEst:
+%       3. options for problems:
 %
-%       Note that the CUTEst we used is the MATLAB codes from a GitHub
-%       repository called 'S2MPJ', created by Professor Serge Gratton and
-%       Professor Philippe L. Toint. More details can be found in the following
-%       website.
-%           https://github.com/GrattonToint/S2MPJ
+%       Options in this part are used to select problems for benchmarking.
+%       First select which problem libraries to use based on the `plibs` option.
+%       Then select problems from these libraries according to the given
+%       options (`problem_names`, `ptype`, `mindim`, `maxdim`, `minb`, `maxb`,
+%       `mincon`, `maxcon`, and `excludelist`).
 %
+%       Following is the list of available options:
+%
+%       - plibs: the problem libraries to be used. It should be a cell array of
+%         strings or chars. The available choices are subfolder names in the
+%         'problems' directory. There are three three subfolders after
+%         installing the package: 's2mpj', 'matcutest', and 'custom_example'.
+%         Default setting is 's2mpj'.
 %       - ptype: the type of the problems to be selected. It should be a string
 %         or char consisting of any combination of 'u' (unconstrained), 'b'
 %         (bound constrained), 'l' (linearly constrained), and 'n' (nonlinearly
@@ -293,27 +304,22 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         problems to be selected. Default is mincon + 10.
 %       - excludelist: the list of problems to be excluded. Default is not to
 %         exclude any problem.
+%       - problem_names: the names of the problems to be selected. It should
+%         be a cell array of strings or chars. Default is not to select any
+%         problem by name but by the options above.
 %
-%       Note that if the `load` option is provided, we will use above options
-%       to select the problems and then take an intersection with the problems
-%       in the loading experiment.
+%       We point out following:
 %
-%       4. other options:
-%
-%       - problem: a instance of the class Problem. If it is provided, we will
-%         only solve this problem and generate the history plots for it.
-%         Default is not to provide any problem.
-%       - cutest_problem_names: the names of the problems in the CUTEst library
-%         to be selected. Default is not to select any problem from the CUTEst
-%         library by name but by the options above.
-%       - custom_problem_loader: the function handle to load the custom
-%         problems. It should be a function handle as follows:
-%               ``(problem_name) -> problem``,
-%         where `problem_name` is the name of the problem, and `problem` is an
-%         instance of the class Problem. Default is not to load any custom
-%         problem.
-%       - custom_problem_names: the names of the custom problems to be
-%         selected. Default is not to select any custom problem.
+%           1. The information about two problem libraries is available in the
+%              following links:
+%                   S2MPJ <https://github.com/GrattonToint/S2MPJ>
+%                   MatCUTEst <https://github.com/matcutest>
+%           2. If you want to use your own problem library, please check the
+%              README.txt in the directory 'problems/custom_example' or the
+%              guidance in our website <https://optprof.com> for more details.
+%           3. MatCUTEst is only available when the OS is Linux.
+%           4. If the `load` option is provided, we will use options in this
+%              part to select data from the specified experiment for plotting.
 %
 %   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -400,7 +406,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             options = varargin{1};
             options_store = options;
             if ~isfield(options, ProfileOptionKey.LOAD.value) || isempty(options.(ProfileOptionKey.LOAD.value))
-                error("MATLAB:benchmark:LoadFieldNotProvided", "The field 'load' of options should be provided when the first argument is a struct.");
+                error("MATLAB:benchmark:LoadFieldNotProvided", "The field `load` of options should be provided when the first argument is a struct.");
             end
         else
             solvers = varargin{1};
@@ -426,6 +432,10 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             else
                 feature_name = 'plain';
             end
+            if isfield(options, 'problem')
+                problem = options.problem;
+                options = rmfield(options, 'problem');
+            end
         else
             error("MATLAB:benchmark:SecondArgumentWrongType", ...
             "The second argument for `benchmark` must be a feature name or a struct of options.");
@@ -433,224 +443,6 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     else
         error("MATLAB:benchmark:TooMuchInput", ...
         "Invalid number of arguments. `benchmark` function at most takes two arguments.");
-    end
-
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %%%%%%%%%%%%%%%%%%%%%%% Process the 'load' option if it is provided. %%%%%%%%%%%%%%%%%%%%%%%%%%
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-    if isfield(options, ProfileOptionKey.LOAD.value) && ~isempty(options.(ProfileOptionKey.LOAD.value))
-        % Check the validity of the 'load' field.
-        if ~ischarstr(options.(ProfileOptionKey.LOAD.value))
-            error("MATLAB:checkValidityProfileOptions:loadNotValid", "The field 'load' of options should be a char or a string.");
-        end
-        options.(ProfileOptionKey.LOAD.value) = char(options.(ProfileOptionKey.LOAD.value));
-        % Check whether it is 'latest' or a string (or char) in the format of 'yyyyMMdd_HHmmss'.
-        time_stamp_pattern = '^\d{4}(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})$';
-        if ~strcmp(options.(ProfileOptionKey.LOAD.value), 'latest') && isempty(regexp(options.(ProfileOptionKey.LOAD.value), time_stamp_pattern, 'once'))
-            error("MATLAB:checkValidityProfileOptions:loadNotValid", "The field 'load' of options should be either 'latest' or a time stamp in the format of 'yyyyMMdd_HHmmss'.");
-        end
-
-        % Set the path to search for the data to load.
-        if isfield(options, ProfileOptionKey.BENCHMARK_ID.value)
-            search_path = fullfile(pwd, options.(ProfileOptionKey.BENCHMARK_ID.value));
-        else
-            search_path = pwd;
-            options.(ProfileOptionKey.BENCHMARK_ID.value) = '.';
-        end
-
-        % Find the path of the data to load.
-        time_stamp_files = struct('name', {}, 'folder', {}, 'date', {}, 'bytes', {}, 'isdir', {}, 'datenum', {});
-        if strcmp(options.(ProfileOptionKey.LOAD.value), 'latest')
-            % Try to find all the txt files named by time_stamp in the search_path directory and find the latest one.
-            % Note that we limit the search to 5 levels of subdirectories.
-            time_stamp_files = search_in_dir(search_path, 'time_stamp_*.txt', 5, 0, time_stamp_files);
-            if isempty(time_stamp_files)
-                error("MATLAB:benchmark:NoTimeStamps", "Failed to load data since no time_stamp files are found in the directory '%s'. Note that the search is limited to 5 levels of subdirectories.", search_path);
-            end
-            time_stamps = arrayfun(@(f) datetime(f.name(12:end-4), 'InputFormat', 'yyyyMMdd_HHmmss'), time_stamp_files);
-            [~, indexes] = sort(time_stamps, 'descend');
-            % Get the latest time_stamp file. If there are multiple files with the same time_stamp, we take the first one.
-            latest_idx = indexes(1);
-            latest_time_stamp_file = time_stamp_files(latest_idx);
-            path_data = latest_time_stamp_file.folder;
-        else
-            % Same as above, but we only search for the specific time_stamp file.
-            pattern = ['time_stamp_', options.(ProfileOptionKey.LOAD.value), '.txt'];
-            time_stamp_file = search_in_dir(search_path, pattern, 5, 0, time_stamp_files);
-            if isempty(time_stamp_file)
-                error("MATLAB:benchmark:NoTimeStamps", "Failed to load data since no time_stamp named '%s' is found in the directory '%s'. Note that the search is limited to 5 levels of subdirectories.", ['time_stamp_', options.(ProfileOptionKey.LOAD.value), '.txt'], search_path);
-            end
-            path_data = time_stamp_file.folder;
-        end
-
-        % Load data from the 'data.mat' file in the path_data directory.
-        if ~isfield(options, ProfileOptionKey.FEATURE_STAMP.value)
-            warning('off');
-            load(fullfile(path_data, 'data.mat'), 'feature_stamp');
-            warning('on');
-            if ~exist('feature_stamp', 'var')
-                error("MATLAB:benchmark:NoFeatureStampDataMatFile", "Failed to load the variable 'feature_stamp' from the 'data.mat' file in the directory '%s' and the 'feature_stamp' field is not provided in the options.", path_data);
-            end
-        end
-        warning('off');
-        load(fullfile(path_data, 'data.mat'), 'n_evals', 'problem_names', 'problem_dims', 'computation_times', 'solvers_successes', 'merit_histories', 'merit_out', 'merit_init');
-        warning('on');
-        if ~exist('n_evals', 'var') || ~exist('problem_names', 'var') || ~exist('problem_dims', 'var') || ~exist('computation_times', 'var') || ~exist('solvers_successes', 'var') || ~exist('merit_histories', 'var') || ~exist('merit_out', 'var') || ~exist('merit_init', 'var')
-            error("MATLAB:benchmark:NoDataMatFile", "Failed to load computation results from the 'data.mat' file in the directory '%s'.", path_data);
-        end
-
-        % Check whether the user provides the 'solvers_to_load' field.
-        n_solvers_loaded = size(merit_out, 2);
-        if isfield(options, ProfileOptionKey.SOLVERS_TO_LOAD.value)
-            % Check the validity of the 'solvers_to_load' field. It should be a vector of different
-            % integers selected from 1 to the total number of solvers in the loaded data.
-            try
-                solvers_to_load = unique(options.(ProfileOptionKey.SOLVERS_TO_LOAD.value));
-            catch
-            end
-            if ~isintegervector(solvers_to_load) || any(solvers_to_load < 1) || any(solvers_to_load > n_solvers_loaded) || numel(solvers_to_load) < 2
-                error("MATLAB:benchmark:solvers_to_loadNotValid", "The field 'solvers_to_load' of options should be a vector of different integers selected from 1 to the total number of solvers in the loaded data, and at least two indices should be provided.");
-            end
-        else
-            solvers_to_load = 1:n_solvers_loaded;
-        end
-
-        % Truncate the loaded data according to the 'solvers_to_load' field.
-        if ~isfield(options, ProfileOptionKey.SOLVER_NAMES.value)
-            warning('off');
-            load(fullfile(path_data, 'data.mat'), 'solver_names');
-            warning('on');
-            if ~exist('solver_names', 'var')
-                error("MATLAB:benchmark:NoSolverNamesDataMatFile", "Failed to load the variable 'solver_names' from the 'data.mat' file in the directory '%s' and the 'solver_names' field is not provided in the options.", path_data);
-            end
-            solver_names = solver_names(solvers_to_load);
-        elseif numel(options.(ProfileOptionKey.SOLVER_NAMES.value)) ~= numel(solvers_to_load)
-            error("MATLAB:benchmark:solver_namesNotMatch", "The number of elements in the 'solver_names' field of options should be the same as the number of solvers to load in the 'solvers_to_load' field.");
-        end
-        n_solvers = numel(solvers_to_load);
-        n_evals = n_evals(:, solvers_to_load, :);
-        computation_times = computation_times(:, solvers_to_load, :);
-        solvers_successes = solvers_successes(:, solvers_to_load, :);
-        merit_histories = merit_histories(:, solvers_to_load, :, :);
-        merit_out = merit_out(:, solvers_to_load, :);
-
-        % Check whether the user provides options for CUTEst. If so, we will use them to filter the
-        % problems in the loaded data.
-        options = checkValidityCutestOptions(options);
-        p_to_load = true(size(problem_names));
-        if isfield(options, CutestOptionKey.PTYPE.value)
-            warning('off');
-            load(fullfile(path_data, 'data.mat'), 'problem_types');
-            warning('on');
-            if ~exist('problem_types', 'var')
-                error("MATLAB:benchmark:NoProblemTypesDataMatFile", "Failed to load the variable 'problem_types' from the 'data.mat' file in the directory '%s'.", path_data);
-            end
-            % Judge whether the type of the problems in the loaded data satisfies the options.
-            for i = 1:numel(problem_types)
-                if ~ismember(problem_types{i}, options.(CutestOptionKey.PTYPE.value))
-                    p_to_load(i) = false;
-                end
-            end
-        end
-        if isfield(options, CutestOptionKey.MINDIM.value)
-            % Judge whether the dimension of the problems in the loaded data satisfies the options.
-            for i = 1:numel(problem_dims)
-                if problem_dims(i) < options.(CutestOptionKey.MINDIM.value)
-                    p_to_load(i) = false;
-                end
-            end
-        end
-        if isfield(options, CutestOptionKey.MAXDIM.value)
-            % Judge whether the dimension of the problems in the loaded data satisfies the options.
-            for i = 1:numel(problem_dims)
-                if problem_dims(i) > options.(CutestOptionKey.MAXDIM.value)
-                    p_to_load(i) = false;
-                end
-            end
-        end
-        if isfield(options, CutestOptionKey.MINB.value)
-            warning('off');
-            load(fullfile(path_data, 'data.mat'), 'problem_mbs');
-            warning('on');
-            if ~exist('problem_mbs', 'var')
-                error("MATLAB:benchmark:NoProblemMbsDataMatFile", "Failed to load the variable 'problem_mbs' from the 'data.mat' file in the directory '%s'.", path_data);
-            end
-            % Judge whether the number of bound constraints of the problems in the loaded data
-            % satisfies the options.
-            for i = 1:numel(problem_mbs)
-                if problem_mbs(i) < options.(CutestOptionKey.MINB.value)
-                    p_to_load(i) = false;
-                end
-            end
-        end
-        if isfield(options, CutestOptionKey.MAXB.value)
-            warning('off');
-            load(fullfile(path_data, 'data.mat'), 'problem_mbs');
-            warning('on');
-            if ~exist('problem_mbs', 'var')
-                error("MATLAB:benchmark:NoProblemMbsDataMatFile", "Failed to load the variable 'problem_mbs' from the 'data.mat' file in the directory '%s'.", path_data);
-            end
-            % Judge whether the number of bound constraints of the problems in the loaded data
-            % satisfies the options.
-            for i = 1:numel(problem_mbs)
-                if problem_mbs(i) > options.(CutestOptionKey.MAXB.value)
-                    p_to_load(i) = false;
-                end
-            end
-        end
-        if isfield(options, CutestOptionKey.MINCON.value)
-            warning('off');
-            load(fullfile(path_data, 'data.mat'), 'problem_cons');
-            warning('on');
-            if ~exist('problem_cons', 'var')
-                error("MATLAB:benchmark:NoProblemConsDataMatFile", "Failed to load the variable 'problem_cons' from the 'data.mat' file in the directory '%s'.", path_data);
-            end
-            % Judge whether the number of constraints of the problems in the loaded data satisfies
-            % the options.
-            for i = 1:numel(problem_cons)
-                if problem_cons(i) < options.(CutestOptionKey.MINCON.value)
-                    p_to_load(i) = false;
-                end
-            end
-        end
-        if isfield(options, CutestOptionKey.MAXCON.value)
-            warning('off');
-            load(fullfile(path_data, 'data.mat'), 'problem_cons');
-            warning('on');
-            if ~exist('problem_cons', 'var')
-                error("MATLAB:benchmark:NoProblemConsDataMatFile", "Failed to load the variable 'problem_cons' from the 'data.mat' file in the directory '%s'.", path_data);
-            end
-            % Judge whether the number of constraints of the problems in the loaded data satisfies
-            % the options.
-            for i = 1:numel(problem_cons)
-                if problem_cons(i) > options.(CutestOptionKey.MAXCON.value)
-                    p_to_load(i) = false;
-                end
-            end
-        end
-        if isfield(options, CutestOptionKey.EXCLUDELIST.value)
-            % Judge whether the problems in the loaded data are in the exclude list.
-            for i = 1:numel(problem_names)
-                if ismember(problem_names{i}, options.(CutestOptionKey.EXCLUDELIST.value))
-                    p_to_load(i) = false;
-                end
-            end
-        end
-        
-        if any(p_to_load)
-            % Truncate the loaded data according to the selected problems.
-            problem_names = problem_names(p_to_load);
-            n_evals = n_evals(p_to_load, :, :);
-            computation_times = computation_times(p_to_load, :, :);
-            solvers_successes = solvers_successes(p_to_load, :, :);
-            merit_histories = merit_histories(p_to_load, :, :, :);
-            merit_out = merit_out(p_to_load, :, :);
-        else
-            error("MATLAB:benchmark:NoProblemsToLoad", "Failed to load data since no problems are selected by the options.");
-        end
-
-        merit_min = min(min(min(merit_histories, [], 4, 'omitnan'), [], 3, 'omitnan'), [], 2, 'omitnan');
     end
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -670,12 +462,12 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     % Process the feature_name.
     if ~ischarstr(feature_name)
         % feature_name must be a char or string.
-        error("MATLAB:benchmark:feature_nameNotcharstr", "The field `feature_name` of `options` for `benchmark` must be a char or string.");
+        error("MATLAB:benchmark:feature_nameNotcharstr", "The field `feature_name` of `options` for the function `benchmark` must be a char or string.");
     end
     feature_name = char(lower(feature_name));
     valid_feature_names = cellfun(@(x) x.value, num2cell(enumeration('FeatureName')), 'UniformOutput', false);
     if ~ismember(feature_name, valid_feature_names)
-        error("MATLAB:benchmark:feature_nameNotValid", "The field `feature_name` of `options` for `benchmark` must be one of the valid feature names: %s.", strjoin(valid_feature_names, ', '));
+        error("MATLAB:benchmark:feature_nameNotValid", "The field `feature_name` of `options` for the function `benchmark` must be one of the valid feature names: %s.", strjoin(valid_feature_names, ', '));
     end
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -683,9 +475,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     feature_options = struct();
-    cutest_options = struct();
+    problem_options = struct();
     profile_options = struct();
-    other_options = struct();
 
     fieldNames = fieldnames(options);
     for i_field = 1:numel(fieldNames)
@@ -695,54 +486,63 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         % We can also use: validFeatureOptionKeys = {enumeration('FeatureOptionKey').value};  
         % However, it only works for MATLAB R2021b or later.
         validFeatureOptionKeys = cellfun(@(x) x.value, num2cell(enumeration('FeatureOptionKey')), 'UniformOutput', false);
-        validCutestOptionKeys = cellfun(@(x) x.value, num2cell(enumeration('CutestOptionKey')), 'UniformOutput', false);
+        validProblemOptionKeys = cellfun(@(x) x.value, num2cell(enumeration('ProblemOptionKey')), 'UniformOutput', false);
         validProfileOptionKeys = cellfun(@(x) x.value, num2cell(enumeration('ProfileOptionKey')), 'UniformOutput', false);
-        validOtherOptionKeys = cellfun(@(x) x.value, num2cell(enumeration('OtherOptionKey')), 'UniformOutput', false);
 
         if ismember(key, validFeatureOptionKeys)
             feature_options.(key) = value;
-        elseif ismember(key, validCutestOptionKeys)
-            cutest_options.(key) = value;
+        elseif ismember(key, validProblemOptionKeys)
+            problem_options.(key) = value;
         elseif ismember(key, validProfileOptionKeys)
             profile_options.(key) = value;
-        elseif ismember(key, validOtherOptionKeys)
-            other_options.(key) = value;
         else
             error("MATLAB:benchmark:UnknownOptions", "Unknown `option` for `benchmark`: %s", key);
         end
     end
 
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Check validity of options %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    % Note: the validity of the feature options has been checked in the Feature constructor, so we
+    % do not need to check it here.
+    problem_options = checkValidityProblemOptions(problem_options);
+    profile_options = checkValidityProfileOptions(solvers, profile_options);
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%% Process the 'load' option if it is provided. %%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    [results_plibs, profile_options] = loadResults(problem_options, profile_options);
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Get default options %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
     % Build feature.
     feature = Feature(feature_name, feature_options);
 
     % Set default values for the unspecified options.
-    other_options = getDefaultOtherOptions(solvers, other_options);
-    cutest_options = getDefaultCutestOptions(cutest_options, other_options);
-    profile_options = getDefaultProfileOptions(solvers, feature, profile_options);
-
-    % Check the validity of the options.
-    % Note: the validity of the feature options has been checked in the Feature constructor, so we
-    % do not need to check it here.
-    cutest_options = checkValidityCutestOptions(cutest_options);
-    profile_options = checkValidityProfileOptions(solvers, profile_options);
-    other_options = checkValidityOtherOptions(solvers, other_options);
+    problem_options = getDefaultProblemOptions(problem_options);
+    profile_options = getDefaultProfileOptions(solvers, feature, profile_options); 
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Initialize output variables. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    if ~exist('n_solvers', 'var')
+    if exist('results_plibs', 'var') && ~isempty(results_plibs)
+        n_solvers = size(results_plibs{1}.fun_histories, 2);
+    elseif isfield(profile_options, ProfileOptionKey.SOLVER_NAMES.value)
+        n_solvers = numel(profile_options.(ProfileOptionKey.SOLVER_NAMES.value));
+    else
         n_solvers = numel(solvers);
     end
     solver_scores = zeros(n_solvers, 1);
     profile_scores = [];
     curves = [];
-    
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %%%%%%%%%%%%%%%%%%%%%%%% Use cutest_options to select problems. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-    other_options.(OtherOptionKey.CUTEST_PROBLEM_NAMES.value) = loadCutestNames(cutest_options, other_options);
+    if ~exist('solver_names', 'var')
+        solver_names = profile_options.(ProfileOptionKey.SOLVER_NAMES.value);
+    end
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%% Set the default options for plotting. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -752,7 +552,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     set(groot, 'DefaultAxesFontName', 'Arial');
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %%%%%%%%%%%%%%%%%%%%% Define the directory and load the results. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%% Define the directory to store results. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     % Define the directory to store or load the results.
@@ -769,6 +569,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 
     path_feature = fullfile(path_out, [feature_stamp, '_', time_stamp]);
     path_log = fullfile(path_feature, 'test_log');
+    path_report = fullfile(path_log, 'report.txt');
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%% Create the directory to store the results. %%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -838,12 +639,12 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         end
     end
 
-    if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value) && ~isfield(other_options, OtherOptionKey.PROBLEM.value)
-        path_figs = fullfile(path_log, 'figs');
+    if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value) && ~exist('problem', 'var')
+        path_figs = fullfile(path_log, 'profile_figs');
         mkdir(path_figs);
         try
             fid = fopen(path_readme_log, 'a');
-            fprintf(fid, "'figs': folder, containing all the FIG files of the profiles.\n");
+            fprintf(fid, "'profile_figs': folder, containing all the FIG files of the profiles.\n");
             fclose(fid);
         catch
         end
@@ -917,7 +718,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         end
     end
 
-    if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value) && ~isfield(other_options, OtherOptionKey.PROBLEM.value)
+    if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value) && ~exist('problem', 'var')
         % Create the directories for the performance profiles, data profiles, and log-ratio profiles.
         path_perf_hist = fullfile(path_feature, 'detailed_profiles', 'perf_history-based');
         path_data_hist = fullfile(path_feature, 'detailed_profiles', 'data_history-based');
@@ -968,176 +769,258 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 
     % If `n_runs` is not specified, the feature is deterministic, and at least one solver is
     % randomized, then we set `n_runs` to 5.
-    if ~isfield(feature_options, FeatureOptionKey.N_RUNS.value) && ~feature.is_stochastic && any(profile_options.(ProfileOptionKey.SOLVER_ISRAND.value))
+    if ~isfield(feature_options, FeatureOptionKey.N_RUNS.value) && ~feature.is_stochastic && any(profile_options.(ProfileOptionKey.SOLVER_ISRAND.value)) && isempty(profile_options.(ProfileOptionKey.LOAD.value))
         if ~profile_options.(ProfileOptionKey.SILENT.value)
             fprintf("INFO: We set `n_runs` to 5 since the feature is deterministic and at least one solver is randomized and `n_runs` is not specified.\n\n");
         end
         feature.options.(FeatureOptionKey.N_RUNS.value) = 5;
     end
 
-    if isempty(profile_options.(ProfileOptionKey.LOAD.value))
-        % If 'load' is not specified, we solve all the problems.
-        if ~profile_options.(ProfileOptionKey.SILENT.value)
-            fprintf('INFO: Starting the computation of the "%s" profiles.\n', feature.name);
-        end
-        [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_evals, problem_names, problem_types, problem_dims, problem_mbs, problem_cons, computation_times, solvers_successes] = solveAllProblems(solvers, feature, profile_options, other_options, true, path_hist_plots);
-        merit_fun = profile_options.(ProfileOptionKey.MERIT_FUN.value);
-        try
-            merit_histories = merit_fun(fun_histories, maxcv_histories, maxcv_init);
-            merit_out = merit_fun(fun_out, maxcv_out, maxcv_init);
-            merit_init = merit_fun(fun_init, maxcv_init, maxcv_init);
-        catch
-            error("MATLAB:benchmark:merit_fun_error", "Error occurred while calculating the merit values. Please check the merit function.");
-        end
-        merit_min = min(min(min(merit_histories, [], 4, 'omitnan'), [], 3, 'omitnan'), [], 2, 'omitnan');
-
-        % If there are no problems solved, skip the rest of the code, print a message, and return.
-        if isempty(problem_names) || all(~solvers_successes(:))
-            if ~profile_options.(ProfileOptionKey.SILENT.value)
-                fprintf('INFO: No problems were solved for the "%s" feature.\n', feature.name);
-            end
-            if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
-                diary off;
-            end
-            return;
-        end
-
-        % If a specific problem is provided to `other_options`, we only solve this problem and generate
-        % the history plots for it.
-        if isfield(other_options, OtherOptionKey.PROBLEM.value)
-            if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
-                % We move the history plots to the feature directory.
-                try
-                    movefile(fullfile(path_hist_plots, '*'), path_feature);
-                    rmdir(path_hist_plots, 's');
-                    if ~profile_options.(ProfileOptionKey.SILENT.value)
-                        fprintf('\nINFO: Detailed results stored in: \n%s\n\n', path_feature);
-                    end
-                catch
-                end
-            end
-
-            % Since we will not compute the profiles, we set `solver_scores` to be the relative
-            % decrease in the objective function value.
-            solver_merit_mins = squeeze(min(min(merit_histories, [], 4, 'omitnan'), [], 3, 'omitnan'));
-            solver_scores = (merit_init - solver_merit_mins) ./ max(merit_init - merit_min, eps);
-            solver_scores = solver_scores';
-
-            if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
-                diary off;
-            end
-            return;
-        end
-
-        % Determine the least merit value for each problem.
-        if feature.run_plain && profile_options.(ProfileOptionKey.RUN_PLAIN.value)
-            feature_plain = Feature(FeatureName.PLAIN.value);
-            if ~profile_options.(ProfileOptionKey.SILENT.value)
-                fprintf('\nINFO: Starting the computation of the profiles under "plain" feature.\n');
-            end
-            [fun_histories_plain, maxcv_histories_plain, ~, ~, ~, ~, ~, problem_names_plain, ~, ~, ~, ~, computation_times_plain] = solveAllProblems(solvers, feature_plain, profile_options, other_options, false, {});
-            merit_fun = profile_options.(ProfileOptionKey.MERIT_FUN.value);
+    % If a specific problem is provided to `problem_options`, we only solve this problem and generate the history plots
+    % for it.
+    if exist('problem', 'var')
+        result = solveOneProblem(solvers, problem, feature, problem.name, length(problem.name), profile_options, true, path_hist_plots);
+        if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
+            % We move the history plots to the feature directory.
             try
-                merit_histories_plain = merit_fun(fun_histories_plain, maxcv_histories_plain, maxcv_init);
+                movefile(fullfile(path_hist_plots, '*'), path_feature);
+                rmdir(path_hist_plots, 's');
+                if ~profile_options.(ProfileOptionKey.SILENT.value)
+                    fprintf('\nINFO: Detailed results stored in: \n%s\n\n', path_feature);
+                end
+            catch
+            end
+        end
+        % Compute merit values.
+        merit_fun = profile_options.(ProfileOptionKey.MERIT_FUN.value);
+        if ~isempty(result)
+            try
+                merit_history = merit_fun(result.fun_history, result.maxcv_history, result.maxcv_init);
+                merit_init = merit_fun(result.fun_init, result.maxcv_init, result.maxcv_init);
             catch
                 error("MATLAB:benchmark:merit_fun_error", "Error occurred while calculating the merit values. Please check the merit function.");
             end
-            merit_min_plain = min(min(min(merit_histories_plain, [], 4, 'omitnan'), [], 3, 'omitnan'), [], 2, 'omitnan');
-            computation_times = cat(3, computation_times, NaN(size(computation_times_plain)));
-            
-            for i_problem = 1:numel(problem_names)
-                idx = find(strcmp(problem_names{i_problem}, problem_names_plain), 1);
-                % Redefine the merit_min for the problems that are solved under the plain feature.
-                % Note that min(x, NaN) = x.
-                merit_min(i_problem) = min(merit_min(i_problem), merit_min_plain(idx), 'omitnan');
-                computation_times(i_problem, :, size(computation_times, 3)) = computation_times_plain(idx, :, :);
-            end
+            % Find the least merit value for each problem.
+            merit_min = min(merit_history, [], 'all');
+            merit_min = min(merit_min, merit_init, 'omitnan');
+            % Since we will not compute the profiles, we set `solver_scores` to be the relative decreases in the objective
+            % function value.
+            solver_merit_mins = squeeze(min(min(merit_history, [], 3, 'omitnan'), [], 2, 'omitnan'));
+            solver_scores = (merit_init - solver_merit_mins) ./ max(merit_init - merit_min, eps);
+        else
+            solver_scores = zeros(n_solvers, 1);
         end
-
+        
         if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
-            % Merge all the pdf files in path_hist_plots to a single pdf file.
             if ~profile_options.(ProfileOptionKey.SILENT.value)
-                fprintf('\nINFO: Merging all the history plots to a single PDF file.\n');
+                fprintf('\n');
+                fprintf('INFO: Scores of the solvers:\n');
+                max_solver_name_length = max(cellfun(@length, solver_names));
+                for i_solver = 1:n_solvers
+                    format_info_str = sprintf('INFO: %%-%ds:    %%.4f\n', max_solver_name_length);
+                    fprintf(format_info_str, solver_names{i_solver}, solver_scores(i_solver));
+                end
             end
+            diary off;
+        end
+        return;
+    end
+
+    % If `load` is not specified, we solve all the problems.
+    if isempty(profile_options.(ProfileOptionKey.LOAD.value))
+        % We will solve all the problems from all the problem libraries that user specified in the `problem_options`.
+        plibs = problem_options.(ProblemOptionKey.PLIBS.value);
+        results_plibs = cell(1, numel(plibs));
+        for i_plib = 1:numel(plibs)
+            plib = plibs{i_plib};
+            if ~profile_options.(ProfileOptionKey.SILENT.value)
+                fprintf('INFO: Start the computation of problems from the "%s" library under "%s" feature.\n', plib, feature.name);
+            end
+
+            % Create directory to store the history plots for each problem library.
+            if isempty(path_hist_plots)
+                path_hist_plots_lib = '';
+            else
+                path_hist_plots_lib = fullfile(path_hist_plots, plib);
+                if ~exist(path_hist_plots_lib, 'dir')
+                    mkdir(path_hist_plots_lib);
+                end
+            end
+
+            % Add the path of the problem library to the MATLAB path.          
+            mydir = fileparts(mfilename('fullpath'));
+            plib_path = fullfile(mydir, '../../../problems', plib);
+            addpath(plib_path);
+
+            % Solve all the problems from the current problem library with the specified options and get the computation
+            % results.
+            results_plib = solveAllProblems(solvers, plib, feature, problem_options, profile_options, true, path_hist_plots_lib);
+
+            % If there are no problems selected or solved, skip the rest of the code, print a message, and continue to
+            % the next library.
+            if isempty(fieldnames(results_plib))
+                results_plibs{i_plib} = {};
+                continue;
+            end
+
+            % Compute merit values.
+            merit_fun = profile_options.(ProfileOptionKey.MERIT_FUN.value);
             try
-                mergePdfs(path_hist_plots, 'history_plots_summary.pdf', path_feature);
+                merit_histories = merit_fun(results_plib.fun_histories, results_plib.maxcv_histories, results_plib.maxcv_inits);
+                merit_outs = merit_fun(results_plib.fun_outs, results_plib.maxcv_outs, results_plib.maxcv_inits);
+                merit_inits = merit_fun(results_plib.fun_inits, results_plib.maxcv_inits, results_plib.maxcv_inits);
             catch
-                warning('INFO: Failed to merge the history plots to a single PDF file.');
+                error("MATLAB:benchmark:merit_fun_error", "Error occurred while calculating the merit values. Please check the merit function.");
             end
+            results_plib.merit_histories = merit_histories;
+            results_plib.merit_outs = merit_outs;
+            results_plib.merit_inits = merit_inits;
 
+            % Run the 'plain' feature if run_plain is true.
+            if profile_options.(ProfileOptionKey.RUN_PLAIN.value)
+                feature_plain = Feature(FeatureName.PLAIN.value);
+                if ~profile_options.(ProfileOptionKey.SILENT.value)
+                    fprintf('\nINFO: Start the computation of problems from the "%s" library under "plain" feature.\n', plib);
+                end
+                results_plib_plain = solveAllProblems(solvers, plib, feature_plain, problem_options, profile_options, false, {});
+                try
+                    results_plib_plain.merit_histories = merit_fun(results_plib_plain.fun_histories, results_plib_plain.maxcv_histories, results_plib_plain.maxcv_inits);
+                    results_plib_plain.merit_outs = merit_fun(results_plib_plain.fun_outs, results_plib_plain.maxcv_outs, results_plib_plain.maxcv_inits);
+                    results_plib_plain.merit_inits= merit_fun(results_plib_plain.fun_inits, results_plib_plain.maxcv_inits, results_plib_plain.maxcv_inits);
+                catch
+                    error("MATLAB:benchmark:merit_fun_error", "Error occurred while calculating the merit values. Please check the merit function.");
+                end
+
+                % Store data of the 'plain' feature for later calculating merit_mins.
+                results_plib.results_plib_plain = results_plib_plain;
+            end
+            
+            results_plibs{i_plib} = results_plib;
+
+            % Merge the history plots for each problem library to a single pdf file.
+            if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value) && any(results_plib.solvers_successes(:))
+                if ~profile_options.(ProfileOptionKey.SILENT.value)
+                    fprintf('\nINFO: Merging all the history plots of problems from the "%s" library to a single PDF file.\n', plib);
+                end
+                try
+                    mergePdfs(path_hist_plots_lib, [plib '_history_plots_summary.pdf'], path_hist_plots);
+                catch
+                    warning('INFO: Failed to merge the history plots to a single PDF file.');
+                end
+                if ~profile_options.(ProfileOptionKey.SILENT.value)
+                    fprintf('\nINFO: Merged history plots stored in: \n%s\n\n', path_hist_plots);
+                end
+            end
+        end
+        % Remove the empty elements from the results_plibs cell array.
+        results_plibs = results_plibs(~cellfun('isempty', results_plibs));
+        % If results_plibs is empty, we will directly return.
+        if isempty(results_plibs)
             if ~profile_options.(ProfileOptionKey.SILENT.value)
-                fprintf('\nINFO: Detailed results stored in: \n%s\n\n', path_feature);
+                fprintf("INFO: No problems are selected or solved from any problem library.\n");
             end
+            return;
         end
     end
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Store the problem names. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-    % Pick out unsolved problems.
-    unsolved_problems = [];
-    for i_problem = 1:numel(problem_names)
-        if all(~solvers_successes(i_problem, :, :))
-            unsolved_problems = [unsolved_problems, problem_names(i_problem)];
-        end
-    end
-
-    % Calculate the computation times for each problem.
-    time_processes = zeros(numel(problem_names), 1);
-    for i_problem = 1:numel(problem_names)
-        time_process = computation_times(i_problem, :, :);
-        time_processes(i_problem) = sum(time_process(:), 'omitnan');
-    end
-
-    % Store the names of the problems.
-    path_txt = fullfile(path_log, 'report.txt');
-    [~, idx] = sort(lower(problem_names));
-    sorted_problem_names = problem_names(idx);
-    sorted_time_processes = time_processes(idx);
-    max_name_length = max(cellfun(@length, sorted_problem_names));
-    sorted_time_processes = num2cell(sorted_time_processes);
-    max_time_length = max(cellfun(@(x) length(sprintf('%.2f', x)), sorted_time_processes));
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Store the data for loading. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
         try
-            fid = fopen(path_txt, 'w');
-            if length(unsolved_problems) < length(sorted_problem_names)
-                fprintf(fid, "Problem names and the total time spent on solving each problem:\n");
+            save(fullfile(path_log, 'data_for_loading.mat'), 'results_plibs');
+            fid = fopen(path_readme_log, 'a');
+            fprintf(fid, "'data_for_loading.mat': file, storing the data of the current experiment for future loading.\n");
+            fclose(fid);
+        catch
+            if ~profile_options.(ProfileOptionKey.SILENT.value)
+                fprintf("INFO: Failed to save the data of the current experiment.\n");
             end
-            for i = 1:length(sorted_problem_names)
-                if ismember(sorted_problem_names{i}, unsolved_problems)
-                    continue;
-                end
-                count = fprintf(fid, "%-*s      %*s\n", max_name_length, sorted_problem_names{i}, max_time_length, sprintf('%.2f seconds', sorted_time_processes{i}));
-                if count < 0
-                    if ~profile_options.(ProfileOptionKey.SILENT.value)
-                        fprintf("INFO: Failed to record data for %s.", sorted_problem_names{i});
+        end
+    end
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Write the report file. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    
+    if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
+        % Write the report file for the current problem library.
+        try
+            fid = fopen(path_report, 'w');
+            for i_plib = 1:size(results_plibs, 2)
+                results_plib = results_plibs{i_plib};
+                plib = results_plib.plib;
+                problem_names = results_plib.problem_names;
+                solvers_successes = results_plib.solvers_successes;
+                computation_times = results_plib.computation_times;
+                if isfield(results_plibs{i_plib}, 'results_plib_plain') && profile_options.(ProfileOptionKey.RUN_PLAIN.value)
+                    results_plib_plain = results_plibs{i_plib}.results_plib_plain;
+                    problem_names_plain = results_plib_plain.problem_names;
+                    computation_times_plain = results_plib_plain.computation_times;
+                    computation_times = cat(3, results_plib.computation_times, NaN(size(computation_times_plain)));
+                    for i_problem = 1:numel(problem_names)
+                        idx = find(strcmp(problem_names{i_problem}, problem_names_plain), 1);
+                        computation_times(i_problem, :, size(computation_times, 3)) = computation_times_plain(idx, :, :);
                     end
                 end
-            end
-            if ~isempty(unsolved_problems)
-                fprintf(fid, "\n");
-                fprintf(fid, "Problems that all the solvers failed to return a solution in all runs:\n");
-                for i = 1:length(unsolved_problems)
-                    count = fprintf(fid, "%s\n", unsolved_problems{i});
-                    if count < 0
-                        if ~profile_options.(ProfileOptionKey.SILENT.value)
-                            fprintf("INFO: Failed to record data for %s.", unsolved_problems{i});
+    
+                % Pick out unsolved problems and calculate the computation times for each problem.
+                unsolved_problems = [];
+                time_processes = zeros(numel(problem_names), 1);
+                for i_problem = 1:numel(problem_names)
+                    if all(~solvers_successes(i_problem, :, :))
+                        unsolved_problems = [unsolved_problems, problem_names(i_problem)];
+                    end
+                    time_process = computation_times(i_problem, :, :);
+                    time_processes(i_problem) = sum(time_process(:), 'omitnan');
+                end
+                [~, idx] = sort(lower(problem_names));
+                sorted_problem_names = problem_names(idx);
+                sorted_time_processes = time_processes(idx);
+                max_name_length = max(cellfun(@length, sorted_problem_names));
+                sorted_time_processes = num2cell(sorted_time_processes);
+                max_time_length = max(cellfun(@(x) length(sprintf('%.2f', x)), sorted_time_processes));
+
+                % Print the report file.
+                fprintf(fid, 'Report for the problem library "%s".\n\n', plib);
+                if length(unsolved_problems) < length(sorted_problem_names)
+                    fprintf(fid, "Problem names and the total time spent on solving each problem:\n");
+                    for i = 1:length(sorted_problem_names)
+                        if ismember(sorted_problem_names{i}, unsolved_problems)
+                            continue;
+                        end
+                        count = fprintf(fid, "%-*s      %*s\n", max_name_length, sorted_problem_names{i}, max_time_length, sprintf('%.2f seconds', sorted_time_processes{i}));
+                        if count < 0
+                            if ~profile_options.(ProfileOptionKey.SILENT.value)
+                                fprintf("INFO: Failed to record data for %s.", sorted_problem_names{i});
+                            end
+                        end
+                    end
+                    fprintf(fid, "\n");
+                end
+                if ~isempty(unsolved_problems)
+                    fprintf(fid, "Problems that all the solvers failed to evaluate a single point:\n");
+                    for i = 1:length(unsolved_problems)
+                        count = fprintf(fid, "%s\n", unsolved_problems{i});
+                        if count < 0
+                            if ~profile_options.(ProfileOptionKey.SILENT.value)
+                                fprintf("INFO: Failed to record data for %s.", unsolved_problems{i});
+                            end
                         end
                     end
                 end
+                fprintf(fid, "\n");
             end
             fclose(fid);
             try
                 fid = fopen(path_readme_log, 'a');
-                fprintf(fid, "'report.txt': file, storing the names of the solved and unsolved problems, the time spent on solving each problem, and the names of the problems that all the solvers failed to meet the convergence test for every tolerance and run.\n");
+                fprintf(fid, "'report.txt': file, the report file of the current experiment, recording information like problem names and time spent on solving each problem for all the problem libraries.\n");
                 fclose(fid);
             catch
             end
         catch
             if ~profile_options.(ProfileOptionKey.SILENT.value)
-                fprintf("INFO: Error occurred when writing the problem names to %s.\n", path_txt);
+                fprintf("INFO: Error occurred when writing the problem names to %s.\n", path_report);
             end
         end
     end
@@ -1146,7 +1029,15 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     %%%%%%%%%%%%%%%%%%%%%%%%% Start the computation of all profiles. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    [n_problems, n_solvers, n_runs, ~] = size(merit_histories);
+    % Process the results from all the problem libraries.
+    [merit_histories_merged, merit_outs_merged, merit_inits_merged, merit_mins_merged, n_evals_merged, problem_names_merged, problem_dims_merged] = processResults(results_plibs, profile_options);
+
+    [n_problems, n_solvers, n_runs, ~] = size(merit_histories_merged);
+
+    if ~profile_options.(ProfileOptionKey.SILENT.value)
+        fprintf('INFO: Start the computation of the profiles under the "%s" feature.\n', feature.name);
+    end
+
     max_tol_order = profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value);
     tolerances = 10.^(-1:-1:-max_tol_order);
 
@@ -1235,16 +1126,16 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         for i_problem = 1:n_problems
             for i_solver = 1:n_solvers
                 for i_run = 1:n_runs
-                    if isfinite(merit_min(i_problem))
-                        threshold = max(tolerance * merit_init(i_problem) + (1 - tolerance) * merit_min(i_problem), merit_min(i_problem));
+                    if isfinite(merit_mins_merged(i_problem))
+                        threshold = max(tolerance * merit_inits_merged(i_problem) + (1 - tolerance) * merit_mins_merged(i_problem), merit_mins_merged(i_problem));
                     else
                         threshold = -Inf;
                     end
-                    if min(merit_histories(i_problem, i_solver, i_run, :), [], 'omitnan') <= threshold
-                        work_hist(i_problem, i_solver, i_run) = find(merit_histories(i_problem, i_solver, i_run, :) <= threshold, 1, 'first');
+                    if min(merit_histories_merged(i_problem, i_solver, i_run, :), [], 'omitnan') <= threshold
+                        work_hist(i_problem, i_solver, i_run) = find(merit_histories_merged(i_problem, i_solver, i_run, :) <= threshold, 1, 'first');
                     end
-                    if merit_out(i_problem, i_solver, i_run) <= threshold
-                        work_out(i_problem, i_solver, i_run) = n_evals(i_problem, i_solver, i_run);
+                    if merit_outs_merged(i_problem, i_solver, i_run) <= threshold
+                        work_out(i_problem, i_solver, i_run) = n_evals_merged(i_problem, i_solver, i_run);
                     end
                 end
             end
@@ -1282,12 +1173,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             cell_axs_summary_out = {};
         end
 
-        if ~exist('solver_names', 'var')
-            solver_names = cellfun(@(s) strrep(s, '_', '\_'), other_options.(ProfileOptionKey.SOLVER_NAMES.value), 'UniformOutput', false);
-        end
-
-        [fig_perf_hist, fig_data_hist, fig_log_ratio_hist, curves{i_tol}.hist] = drawProfiles(work_hist, problem_dims, solver_names, tolerance_label, cell_axs_summary_hist, true, is_perf, is_data, is_log_ratio, profile_options, curves{i_tol}.hist);
-        [fig_perf_out, fig_data_out, fig_log_ratio_out, curves{i_tol}.out] = drawProfiles(work_out, problem_dims, solver_names, tolerance_label, cell_axs_summary_out, is_output_based, is_perf, is_data, is_log_ratio, profile_options, curves{i_tol}.out);
+        [fig_perf_hist, fig_data_hist, fig_log_ratio_hist, curves{i_tol}.hist] = drawProfiles(work_hist, problem_dims_merged, solver_names, tolerance_label, cell_axs_summary_hist, true, is_perf, is_data, is_log_ratio, profile_options, curves{i_tol}.hist);
+        [fig_perf_out, fig_data_out, fig_log_ratio_out, curves{i_tol}.out] = drawProfiles(work_out, problem_dims_merged, solver_names, tolerance_label, cell_axs_summary_out, is_output_based, is_perf, is_data, is_log_ratio, profile_options, curves{i_tol}.out);
 
         if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
             pdf_perf_hist = fullfile(path_perf_hist, ['perf_hist_', int2str(i_tol), '.pdf']);
@@ -1373,30 +1260,31 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     % Record the names of the problems all the solvers failed to meet the convergence test for every tolerance.
     if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value) && (any(solvers_all_diverge_hist(:)) || any(solvers_all_diverge_out(:)))
         try
-            fid = fopen(path_txt, 'a');
+            fid = fopen(path_report, 'a');
             fprintf(fid, "\n");
-            fprintf(fid, "Problems that all the solvers failed to meet the convergence test for each tolerance and each run:\n");
+            fprintf(fid, "Problems among all the libraries that all the solvers failed to meet the convergence test for each tolerance and each run:\n");
             for i_tol = 1:profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)
                 tolerance = tolerances(i_tol);
                 tolerance_str = formatFloatScientificLatex(tolerance, 1);
                 for i_run = 1:n_runs
-                    if ~any(solvers_all_diverge_hist(:, i_run, i_tol)) && ~any(solvers_all_diverge_out(:, i_run, i_tol))
-                        continue;
-                    end
-                    fprintf(fid, "History-based  tol = %-8s run = %-3d:\t\t", tolerance_str, i_run);
-                    for i_problem = 1:n_problems
-                        if solvers_all_diverge_hist(i_problem, i_run, i_tol)
-                            fprintf(fid, "%-*s ", max_name_length, problem_names{i_problem});
+                    if any(solvers_all_diverge_hist(:, i_run, i_tol))
+                        fprintf(fid, "\n");
+                        fprintf(fid, "History-based  tol = %-8s run = %-3d:\t\t", tolerance_str, i_run);
+                        for i_problem = 1:n_problems
+                            if solvers_all_diverge_hist(i_problem, i_run, i_tol)
+                                fprintf(fid, "%-*s ", max_name_length, problem_names_merged{i_problem});
+                            end
                         end
                     end
-                    fprintf(fid, "\n");
-                    fprintf(fid, "Output-based   tol = %-8s run = %-3d:\t\t", tolerance_str, i_run);
-                    for i_problem = 1:n_problems
-                        if solvers_all_diverge_out(i_problem, i_run, i_tol)
-                            fprintf(fid, "%-*s ", max_name_length, problem_names{i_problem});
+                    if any(solvers_all_diverge_out(:, i_run, i_tol))
+                        fprintf(fid, "\n");
+                        fprintf(fid, "Output-based   tol = %-8s run = %-3d:\t\t", tolerance_str, i_run);
+                        for i_problem = 1:n_problems
+                            if solvers_all_diverge_out(i_problem, i_run, i_tol)
+                                fprintf(fid, "%-*s ", max_name_length, problem_names_merged{i_problem});
+                            end
                         end
                     end
-                    fprintf(fid, "\n");
                 end
             end
             fclose(fid);
@@ -1490,7 +1378,6 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             delete(fullfile(path_out, summary_files(i_file).name));
         end
     end
-
     warning('on');
 
     % Close the figures.
@@ -1505,47 +1392,15 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         fprintf('\nINFO: Finished the computation of the profiles under "%s" feature.\n', feature.name);
     end
 
-
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %%%%%%%%%%% Save useful data to a structure and then to a mat file for future loading. %%%%%%%%
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
+    % Close the diary file.
     if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
-        data = struct();
-        data.feature_stamp = feature_stamp;
-        data.solver_names = solver_names;
-        data.n_evals = n_evals;
-        data.problem_names = problem_names;
-        data.problem_dims = problem_dims;
-        data.computation_times = computation_times;
-        data.solvers_successes = solvers_successes;
-        data.merit_histories = merit_histories;
-        data.merit_out = merit_out;
-        data.merit_init = merit_init;
-        if exist('problem_types', 'var')
-            data.problem_types = problem_types;
-        end
-        if exist('problem_mbs', 'var')
-            data.problem_mbs = problem_mbs;
-        end
-        if exist('problem_cons', 'var')
-            data.problem_cons = problem_cons;
-        end
-        try
-            save(fullfile(path_log, 'data.mat'), '-struct', 'data');
-            fid = fopen(path_readme_log, 'a');
-            fprintf(fid, "'data.mat': file, storing the data of the current experiment for future loading.\n");
-            fclose(fid);
-        catch
-            if ~profile_options.(ProfileOptionKey.SILENT.value)
-                fprintf("INFO: Failed to save the data of the current experiment.\n");
-            end
-        end
-
         diary off;
     end
-
 end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%% Subfunctions for the main function %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Following one function is modified from the code provided by Benjamin Großmann (2024). Merge PDF-Documents
 % (https://www.mathworks.com/matlabcentral/fileexchange/89127-merge-pdf-documents), MATLAB Central
@@ -1620,33 +1475,5 @@ function profile_scores = computeScores(curves, profile_options)
         max_scores = max(profile_scores, [], 1);
         max_scores(max_scores == 0) = 1;
         profile_scores = profile_scores ./ max_scores;
-    end
-end
-
-function files = search_in_dir(current_path, pattern, max_depth, current_depth, files)
-    % Recursive function to search for files with a specified pattern within a limited directory depth.
-
-    % Check if the current depth exceeds the maximum depth
-    if current_depth > max_depth
-        return; % Stop searching deeper
-    end
-
-    % Get files in the current directory matching the pattern
-    file_list = dir(fullfile(current_path, pattern));
-    for i = 1:length(file_list)
-        if ~file_list(i).isdir
-            % Append the file information to the result list
-            files = [files; file_list(i)];
-        end
-    end
-
-    % Get all subdirectories in the current directory
-    sub_dirs = dir(current_path);
-    for i = 1:length(sub_dirs)
-        % Skip '.' and '..' directories
-        if sub_dirs(i).isdir && ~strcmp(sub_dirs(i).name, '.') && ~strcmp(sub_dirs(i).name, '..')
-            % Recursively search in the subdirectory
-            files = search_in_dir(fullfile(current_path, sub_dirs(i).name), pattern, max_depth, current_depth + 1, files);
-        end
     end
 end

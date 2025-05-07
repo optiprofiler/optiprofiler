@@ -12,7 +12,7 @@ benchmark
 
 **solver_scores** = **benchmark**\(**solvers**) creates performance profiles, data profiles, and log-ratio profiles for the given **solvers** on the default unconstrained problem set, returning **solver_scores** based on the profiles. **solvers** is a cell array of function handles. We require **solvers** to accept specified inputs and return specified outputs. Details can be found in the following *Cautions* part.
 
-**solver_scores** = **benchmark**\(**solvers**, **feature_name**) creates profiles and data profiles for the given **solvers** on the default unconstrained problem set with the specified feature **feature_name**.
+**solver_scores** = **benchmark**\(**solvers**, **feature_name**) creates profiles for the given **solvers** on the default unconstrained problem set with the specified feature **feature_name**.
 
 **solver_scores** = **benchmark**\(**solvers**, **options**) creates profiles for the given **solvers** with options specified in the struct **options**. See *Options* part for more details.
 
@@ -108,6 +108,8 @@ Options should be specified in a struct. The following are the available fields 
 
   - **bar_colors**: two different colors for the bars of two solvers in the log-ratio profiles. It can be a cell array of short names of colors ``('r', 'g', 'b', 'c', 'm', 'y', 'k')`` or a 2-by-3 matrix with each row being a RGB triplet. Default is set to the first two colors in the ``line_colors`` option.
 
+  - **problem**: a problem to be used. It should be an instance of the class Problem. If it is provided, we will only run the test on this problem with the given feature and draw the history plots. Default is not to set any problem.
+
 2. Options for features:
 
   - **feature_name**: the name of the feature. The available features are ``'plain'``, ``'perturbed_x0'``, ``'noisy'``, ``'truncated'``, ``'permuted'``, ``'linearly_transformed'``, ``'random_nan'``, ``'unrelaxable_constraints'``, ``'nonquantifiable_constraints'``, ``'quantized'``, and ``'custom'``. Default is ``'plain'``.
@@ -196,9 +198,11 @@ Options should be specified in a struct. The following are the available fields 
 
     where ``x`` is the evaluation point, ``problem`` is an instance of the class Problem, and ``modified_ceq`` is the modified vector of the nonlinear equality constraints. No default.
 
-3. Options for default problem set:
+3. Options for problems:
 
-Note that the default problem set we used is the MATLAB codes from a GitHub repository called 'S2MPJ', created by Professor Serge Gratton and Professor Philippe L. Toint. More details can be found in the website https://github.com/GrattonToint/S2MPJ.
+Options in this part are used to select problems for benchmarking. First select which problem libraries to use based on the ``plibs`` option. Then select problems from these libraries according to the given options (``problem_names``, ``ptype``, ``mindim``, ``maxdim``, ``minb``, ``maxb``, ``mincon``, ``maxcon``, and ``excludelist``). Following is the list of available options:
+
+  - **plib**: the problem libraries to be used. It should be a cell array of strings or chars. The available choices are subfolder names in the ``'problems'`` directory. There are three three subfolders after installing the package: ``'s2mpj'``, ``'matcutest'``, and ``'custom_example'``. Default setting is ``'s2mpj'``.
 
   - **ptype**: the type of the problems to be selected. It should be a string or char consisting of any combination of ``'u'`` (unconstrained), ``'b'`` (bound constrained), ``'l'`` (linearly constrained), and ``'n'`` (nonlinearly constrained), such as ``'b'``, ``'ul'``, ``'ubn'``. Default is ``'u'``.
 
@@ -216,21 +220,18 @@ Note that the default problem set we used is the MATLAB codes from a GitHub repo
 
   - **excludelist**: the list of problems to be excluded. Default is not to exclude any problem.
 
-Note that if the ``load`` option is provided, we will use above options to select the problems and then take an intersection with the problems in the loading experiment.
+  - **problem_names**: the names of the problems to be selected. It should be a cell array of strings or chars. Default is not to select any problem by name but by the options above.
 
-4. Other options:
+We point out following:
 
-  - **problem**: a instance of the class Problem. If it is provided, we will only solve this problem and generate the history plots for it. Default is not to provide any problem.
+  1. The information about two problem libraries is available in the following links:
+    S2MPJ <https://github.com/GrattonToint/S2MPJ> and MatCUTEst <https://github.com/matcutest>
 
-  - **cutest_problem_names**: the names of the problems in the CUTEst library to be selected. Default is not to select any problem from the CUTEst library by name but by the options above.
+  2. If you want to use your own problem library, please check the README.txt in the directory ``'problems/custom_example'`` or the guidance in our website <https://optprof.com> for more details.
 
-  - **custom_problem_loader**: the function handle to load the custom problems. It should be a function handle
+  3. MatCUTEst is only available when the OS is Linux.
 
-      ``(problem_name) -> problem``,
-
-    where ``problem_name`` is the name of the problem, and ``problem`` is an instance of the class Problem. Default is not to load any custom problem.
-
-  - **custom_problem_names**: the names of the custom problems to be selected. Default is not to select any custom problem.
+  4. If the `load` option is provided, we will use options in this part to select data from the specified experiment for plotting.
 
 -----------------------------------------------------------------------------
 

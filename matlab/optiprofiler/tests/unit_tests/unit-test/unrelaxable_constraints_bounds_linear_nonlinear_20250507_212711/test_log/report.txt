@@ -1,0 +1,26 @@
+Report for the problem library "s2mpj".
+
+Problem names and the total time spent on solving each problem:
+EIGMAXA_11_11         0.00 seconds
+EIGMINA_11_11         0.00 seconds
+HAGER3                0.00 seconds
+MADSSCHJ_11_18        0.00 seconds
+OSBORNEB              30.77 seconds
+POLAK2                0.00 seconds
+ROSEPETAL2_11_21      0.00 seconds
+SPINLS_11             41.23 seconds
+SPINOP_11_9           0.00 seconds
+TRUSPYR1              0.00 seconds
+
+
+
+Problems among all the libraries that all the solvers failed to meet the convergence test for each tolerance and each run:
+
+History-based  tol = 0.1      run = 1  :		TRUSPYR1         
+Output-based   tol = 0.1      run = 1  :		EIGMAXA_11_11    EIGMINA_11_11    HAGER3           MADSSCHJ_11_18   POLAK2           ROSEPETAL2_11_21 SPINOP_11_9      TRUSPYR1         
+History-based  tol = 0.1      run = 2  :		TRUSPYR1         
+Output-based   tol = 0.1      run = 2  :		EIGMAXA_11_11    EIGMINA_11_11    HAGER3           MADSSCHJ_11_18   POLAK2           ROSEPETAL2_11_21 SPINOP_11_9      TRUSPYR1         
+History-based  tol = 0.01     run = 1  :		TRUSPYR1         
+Output-based   tol = 0.01     run = 1  :		EIGMAXA_11_11    EIGMINA_11_11    HAGER3           MADSSCHJ_11_18   POLAK2           ROSEPETAL2_11_21 SPINOP_11_9      TRUSPYR1         
+History-based  tol = 0.01     run = 2  :		TRUSPYR1         
+Output-based   tol = 0.01     run = 2  :		EIGMAXA_11_11    EIGMINA_11_11    HAGER3           MADSSCHJ_11_18   POLAK2           ROSEPETAL2_11_21 SPINOP_11_9      TRUSPYR1         

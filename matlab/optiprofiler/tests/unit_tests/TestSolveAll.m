@@ -4,34 +4,35 @@ classdef TestSolveAll < matlab.unittest.TestCase
             % Test whether the function returns the correct outputs when given valid input.
 
             solvers = {@fminsearch_test1, @fminsearch_test2};
-            other_options.cutest_problem_names = {'ALLINITU', 'BARD'};
-            other_options.custom_problem_loader = [];
-            other_options.custom_problem_names = [];
-            profile_options.solver_names = {'fminsearch1', 'fminsearch2'};
-            profile_options.solver_isrand = [false, false];
+            plib = 's2mpj';
             feature = Feature('plain');
-            profile_options.max_eval_factor = 500;
+
+            problem_options.ptype = 'u';
+            problem_options.maxdim = 11;
+            problem_options.mindim = 11;
+
             profile_options.n_jobs = 1;
-            profile_options.project_x0 = false;
-            profile_options.keep_pool = false;
-            profile_options.silent = false;
-            profile_options.seed = 1;
-            profile_options.solver_verbose = 1;
-            [fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_evals, problem_names, problem_types, problem_dims, problem_mbs, problem_cons, computation_times, solvers_successes] = solveAllProblems(solvers, feature, profile_options, other_options, false, '.');
-            testCase.verifyNotEmpty(fun_histories);
-            testCase.verifyNotEmpty(maxcv_histories);
-            testCase.verifyNotEmpty(fun_out);
-            testCase.verifyNotEmpty(maxcv_out);
-            testCase.verifyNotEmpty(fun_init);
-            testCase.verifyNotEmpty(maxcv_init);
-            testCase.verifyNotEmpty(n_evals);
-            testCase.verifyNotEmpty(problem_names);
-            testCase.verifyNotEmpty(problem_types);
-            testCase.verifyNotEmpty(problem_dims);
-            testCase.verifyNotEmpty(problem_mbs);
-            testCase.verifyNotEmpty(problem_cons);
-            testCase.verifyNotEmpty(computation_times);
-            testCase.verifyNotEmpty(solvers_successes);
+            profile_options = getDefaultProfileOptions(solvers, feature, profile_options);
+            
+            results = solveAllProblems(solvers, plib, feature, problem_options, profile_options, false, '');
+            testCase.verifyNotEmpty(results);
+            testCase.verifyNotEmpty(results.plib);
+            testCase.verifyNotEmpty(results.solver_names);
+            testCase.verifyNotEmpty(results.feature_stamp);
+            testCase.verifyNotEmpty(results.fun_histories);
+            testCase.verifyNotEmpty(results.maxcv_histories);
+            testCase.verifyNotEmpty(results.fun_outs);
+            testCase.verifyNotEmpty(results.maxcv_outs);
+            testCase.verifyNotEmpty(results.fun_inits);
+            testCase.verifyNotEmpty(results.maxcv_inits);
+            testCase.verifyNotEmpty(results.n_evals);
+            testCase.verifyNotEmpty(results.problem_names);
+            testCase.verifyNotEmpty(results.problem_types);
+            testCase.verifyNotEmpty(results.problem_dims);
+            testCase.verifyNotEmpty(results.problem_mbs);
+            testCase.verifyNotEmpty(results.problem_cons);
+            testCase.verifyNotEmpty(results.computation_times);
+            testCase.verifyNotEmpty(results.solvers_successes);
         end
     end
 end

@@ -1,0 +1,88 @@
+INFO: Failed to copy the script or function that calls `benchmark` function to the log directory.
+
+INFO: Start the computation of problems from the "s2mpj" library under "unrelaxable_constraints" feature.
+INFO: There are 10 problems from "s2mpj" to solve.
+
+
+INFO: Start  solving    POLAK2           with sqp            (run  1/ 1).
+
+
+
+
+INFO: Start  solving    EIGMAXA_11_11    with sqp            (run  1/ 1).
+INFO: An error occurred while solving EIGMAXA_11_11 with sqp (run 1/1): Objective function is undefined at initial point. Fmincon cannot continue.
+
+INFO: Start  solving    EIGMAXA_11_11    with interior-point (run  1/ 1).
+INFO: Start  solving    ROSEPETAL2_11_21 with sqp            (run  1/ 1).
+
+INFO: Start  solving    HAGER3           with sqp            (run  1/ 1).
+INFO: Start  solving    EIGMINA_11_11    with sqp            (run  1/ 1).
+
+INFO: Start  solving    MADSSCHJ_11_18   with sqp            (run  1/ 1).
+INFO: An error occurred while solving POLAK2 with sqp (run 1/1): Objective function is undefined at initial point. Fmincon cannot continue.
+
+INFO: Start  solving    POLAK2           with interior-point (run  1/ 1).
+INFO: An error occurred while solving POLAK2 with interior-point (run 1/1): Objective function is undefined at initial point. Fmincon cannot continue.
+INFO: An error occurred while solving MADSSCHJ_11_18 with sqp (run 1/1): Objective function is undefined at initial point. Fmincon cannot continue.
+
+INFO: Start  solving    MADSSCHJ_11_18   with interior-point (run  1/ 1).
+INFO: An error occurred while solving EIGMAXA_11_11 with interior-point (run 1/1): Objective function is undefined at initial point. Fmincon cannot continue.
+
+INFO: An error occurred while solving EIGMINA_11_11 with sqp (run 1/1): Objective function is undefined at initial point. Fmincon cannot continue.
+
+INFO: Start  solving    EIGMINA_11_11    with interior-point (run  1/ 1).
+INFO: An error occurred while solving EIGMINA_11_11 with interior-point (run 1/1): Objective function is undefined at initial point. Fmincon cannot continue.
+INFO: Start  solving    TRUSPYR1         with sqp            (run  1/ 1).
+INFO: An error occurred while solving ROSEPETAL2_11_21 with sqp (run 1/1): Objective function is undefined at initial point. Fmincon cannot continue.
+
+INFO: Start  solving    ROSEPETAL2_11_21 with interior-point (run  1/ 1).
+INFO: An error occurred while solving ROSEPETAL2_11_21 with interior-point (run 1/1): Objective function is undefined at initial point. Fmincon cannot continue.
+INFO: An error occurred while solving HAGER3 with sqp (run 1/1): Objective function is undefined at initial point. Fmincon cannot continue.
+
+INFO: Start  solving    HAGER3           with interior-point (run  1/ 1).
+INFO: An error occurred while solving HAGER3 with interior-point (run 1/1): Objective function is undefined at initial point. Fmincon cannot continue.
+INFO: An error occurred while solving MADSSCHJ_11_18 with interior-point (run 1/1): Objective function is undefined at initial point. Fmincon cannot continue.
+
+INFO: Start  solving    SPINOP_11_9      with sqp            (run  1/ 1).
+INFO: An error occurred while solving SPINOP_11_9 with sqp (run 1/1): Objective function is undefined at initial point. Fmincon cannot continue.
+
+INFO: Start  solving    SPINOP_11_9      with interior-point (run  1/ 1).
+INFO: An error occurred while solving SPINOP_11_9 with interior-point (run 1/1): Objective function is undefined at initial point. Fmincon cannot continue.
+INFO: An error occurred while solving TRUSPYR1 with sqp (run 1/1): Objective function is undefined at initial point. Fmincon cannot continue.
+
+INFO: Start  solving    TRUSPYR1         with interior-point (run  1/ 1).
+INFO: An error occurred while solving TRUSPYR1 with interior-point (run 1/1): Objective function is undefined at initial point. Fmincon cannot continue.
+INFO: Start  solving    SPINLS_11        with sqp            (run  1/ 1).
+INFO: Start  solving    OSBORNEB         with sqp            (run  1/ 1).
+INFO: Finish solving    OSBORNEB         with sqp            (run  1/ 1) (in 17.70 seconds).
+INFO: Output result for OSBORNEB         with sqp            (run  1/ 1): f = 4.0138e-02.
+INFO: Best   result for OSBORNEB         with sqp            (run  1/ 1): f = 4.0138e-02.
+
+INFO: Start  solving    OSBORNEB         with interior-point (run  1/ 1).
+INFO: Finish solving    OSBORNEB         with interior-point (run  1/ 1) (in 13.07 seconds).
+INFO: Output result for OSBORNEB         with interior-point (run  1/ 1): f = 4.0138e-02.
+INFO: Best   result for OSBORNEB         with interior-point (run  1/ 1): f = 4.0138e-02.
+INFO: Finish solving    SPINLS_11        with sqp            (run  1/ 1) (in 9.35 seconds).
+INFO: Output result for SPINLS_11        with sqp            (run  1/ 1): f = 2.3856e-11.
+INFO: Best   result for SPINLS_11        with sqp            (run  1/ 1): f = 2.2940e-11.
+
+INFO: Start  solving    SPINLS_11        with interior-point (run  1/ 1).
+INFO: Finish solving    SPINLS_11        with interior-point (run  1/ 1) (in 31.87 seconds).
+INFO: Output result for SPINLS_11        with interior-point (run  1/ 1): f = 2.1898e-05.
+INFO: Best   result for SPINLS_11        with interior-point (run  1/ 1): f = 2.1898e-05.
+
+INFO: Merging all the history plots of problems from the "s2mpj" library to a single PDF file.
+
+INFO: Merged history plots stored in: 
+/Users/huangcunxin/Work/Research/OP/optiprofiler/matlab/optiprofiler/tests/unit_tests/unit-test/unrelaxable_constraints_bounds_linear_nonlinear_20250507_212711/history_plots
+
+INFO: Start the computation of the profiles under the "unrelaxable_constraints" feature.
+
+INFO: Creating profiles for tolerance 0.1.
+INFO: Creating profiles for tolerance 0.01.
+
+INFO: Scores of the solvers:
+INFO: sqp           :    0.8981
+INFO: interior-point:    0.8118
+
+INFO: Finished the computation of the profiles under "unrelaxable_constraints" feature.

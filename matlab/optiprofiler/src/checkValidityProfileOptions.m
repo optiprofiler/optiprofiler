@@ -9,6 +9,7 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
         nb_cores = 1;
     end
 
+
     % Judge whether profile_options.n_jobs is a integer between 1 and nb_cores.
     if isfield(profile_options, ProfileOptionKey.N_JOBS.value)
         if ~isintegerscalar(profile_options.(ProfileOptionKey.N_JOBS.value))
@@ -21,18 +22,24 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
             profile_options.(ProfileOptionKey.N_JOBS.value) = round(profile_options.(ProfileOptionKey.N_JOBS.value));
         end
     end
+
+
     % Judge whether profile_options.keep_pool is a boolean.
     if isfield(profile_options, ProfileOptionKey.KEEP_POOL.value)
         if ~islogicalscalar(profile_options.(ProfileOptionKey.KEEP_POOL.value))
             error("MATLAB:checkValidityProfileOptions:keep_poolNotValid", "The field 'keep_pool' of options should be a boolean.");
         end
     end
+
+
     % Judge whether profile_options.seed is a positive integer.
     if isfield(profile_options, ProfileOptionKey.SEED.value)
         if ~isintegerscalar(profile_options.(ProfileOptionKey.SEED.value)) || profile_options.(ProfileOptionKey.SEED.value) <= 0
             error("MATLAB:checkValidityProfileOptions:seedNotValid", "The field 'seed' of options should be a positive integer.");
         end
     end
+
+
     % Judge whether profile_options.benchmark_id is a char or a string and satisfies the file name requirements.
     if isfield(profile_options, ProfileOptionKey.BENCHMARK_ID.value)
         is_valid_foldername = @(x) ischarstr(x) && ~isempty(x) && all(ismember(char(x), ['a':'z', 'A':'Z', '0':'9', '_', '-', '.']));
@@ -40,6 +47,8 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
             error("MATLAB:checkValidityProfileOptions:benchmark_idNotValid", "The field 'benchmark_id' of options should be a char or a string satisfying the strict file name requirements (only containing letters, numbers, underscores, hyphens, and dots).");
         end
     end
+
+
     % Judge whether profile_options.solver_names is a cell of chars or strings.
     if isfield(profile_options, ProfileOptionKey.SOLVER_NAMES.value)
         if ~iscell(profile_options.(ProfileOptionKey.SOLVER_NAMES.value)) || ~all(cellfun(@(l) ischarstr(l), profile_options.(ProfileOptionKey.SOLVER_NAMES.value)))
@@ -51,13 +60,20 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
         if numel(profile_options.(ProfileOptionKey.SOLVER_NAMES.value)) == 0
             profile_options.(ProfileOptionKey.SOLVER_NAMES.value) = cellfun(@(s) func2str(s), solvers, 'UniformOutput', false);
         end
+        % Handle the case where the solver names are not valid MATLAB variable names.
+        % Replace underscores with backslashes.
+        profile_options.(ProfileOptionKey.SOLVER_NAMES.value) = cellfun(@(s) strrep(s, '_', '\_'), profile_options.(ProfileOptionKey.SOLVER_NAMES.value), 'UniformOutput', false);
     end
+
+
     % Judge whether profile_options.solver_isrand is a logical array of the same length as the number of solvers.
     if isfield(profile_options, ProfileOptionKey.SOLVER_ISRAND.value)
-        if ~islogical(profile_options.(ProfileOptionKey.SOLVER_ISRAND.value)) || numel(profile_options.(ProfileOptionKey.SOLVER_ISRAND.value)) ~= numel(solvers)
+        if ~islogical(profile_options.(ProfileOptionKey.SOLVER_ISRAND.value)) || (~isempty(solvers) && numel(profile_options.(ProfileOptionKey.SOLVER_ISRAND.value)) ~= numel(solvers))
             error("MATLAB:checkValidityProfileOptions:solver_israndNotLogical", "The field 'solver_isrand' of options must be a logical array of the same length as the number of solvers.");
         end
     end
+
+
     % Judge whether profile_options.feature_stamp is a char or a string and satisfies the file name requirements.
     if isfield(profile_options, ProfileOptionKey.FEATURE_STAMP.value)
         if ~ischarstr(profile_options.(ProfileOptionKey.FEATURE_STAMP.value))
@@ -68,12 +84,16 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
             error("MATLAB:checkValidityProfileOptions:feature_stampNotValid", "The field 'feature_stamp' of options should be a char or a string satisfying the strict file name requirements (only containing letters, numbers, underscores, hyphens, and dots).");
         end
     end
+
+
     % Judge whether profile_options.errorbar_type is among 'minmax' and 'meanstd'.
     if isfield(profile_options, ProfileOptionKey.ERRORBAR_TYPE.value)
         if ~ischarstr(profile_options.(ProfileOptionKey.ERRORBAR_TYPE.value)) || ~ismember(char(profile_options.(ProfileOptionKey.ERRORBAR_TYPE.value)), {'minmax', 'meanstd'})
             error("MATLAB:checkValidityProfileOptions:errorbar_typeNotValid", "The field 'errorbar_type' of options should be either 'minmax' or 'meanstd'.");
         end
     end
+
+
     % Judge whether profile_options.savepath is a string and exists. If not exists, create it.
     if isfield(profile_options, ProfileOptionKey.SAVEPATH.value)
         if ~ischarstr(profile_options.(ProfileOptionKey.SAVEPATH.value))
@@ -85,54 +105,72 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
             end
         end
     end
+
+
     % Judge whether profile_options.max_tol_order is a positive integer smaller than or equal to 16.
     if isfield(profile_options, ProfileOptionKey.MAX_TOL_ORDER.value)
         if ~isintegerscalar(profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)) || profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) <= 0 || profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) > 16
             error("MATLAB:checkValidityProfileOptions:max_tol_orderNotValid", "The field 'max_tol_order' of options should be a positive integer smaller than or equal to 16.");
         end
     end
+
+
     % Judge whether profile_options.max_eval_factor is a positive integer.
     if isfield(profile_options, ProfileOptionKey.MAX_EVAL_FACTOR.value)
         if ~isintegerscalar(profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value)) || profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value) <= 0
             error("MATLAB:checkValidityProfileOptions:max_eval_factorNotValid", "The field 'max_eval_factor' of options should be a positive integer.");
         end
     end
+
+
     % Judge whether profile_options.merit_fun is a function handle.
     if isfield(profile_options, ProfileOptionKey.MERIT_FUN.value)
         if ~isa(profile_options.(ProfileOptionKey.MERIT_FUN.value), 'function_handle')
             error("MATLAB:checkValidityProfileOptions:merit_funNotValid", "The field 'merit_fun' of options should be a function handle.");
         end
     end
+
+
     % Judge whether profile_options.project_x0 is a boolean.
     if isfield(profile_options, ProfileOptionKey.PROJECT_X0.value)
         if ~islogicalscalar(profile_options.(ProfileOptionKey.PROJECT_X0.value))
             error("MATLAB:checkValidityProfileOptions:project_x0NotValid", "The filed 'project_x0' of options should be a boolean.");
         end
     end
+
+
     % Judge whether profile_options.run_plain is a boolean.
     if isfield(profile_options, ProfileOptionKey.RUN_PLAIN.value)
         if ~islogicalscalar(profile_options.(ProfileOptionKey.RUN_PLAIN.value))
             error("MATLAB:checkValidityProfileOptions:run_plainNotValid", "The field 'run_plain' of options should be a boolean.");
         end
     end
+
+
     % Judge whether profile_options.score_only is a boolean.
     if isfield(profile_options, ProfileOptionKey.SCORE_ONLY.value)
         if ~islogicalscalar(profile_options.(ProfileOptionKey.SCORE_ONLY.value))
             error("MATLAB:checkValidityProfileOptions:score_onlyNotValid", "The field 'score_only' of options should be a boolean.");
         end
     end
+
+
     % Judge whether profile_options.summarize_performance_profiles is a boolean.
     if isfield(profile_options, ProfileOptionKey.SUMMARIZE_PERFORMANCE_PROFILES.value)
         if ~islogicalscalar(profile_options.(ProfileOptionKey.SUMMARIZE_PERFORMANCE_PROFILES.value))
             error("MATLAB:checkValidityProfileOptions:summarize_performance_profilesNotValid", "The field 'summarize_performance_profiles' of options should be a boolean.");
         end
     end
+
+
     % Judge whether profile_options.summarize_data_profiles is a boolean.
     if isfield(profile_options, ProfileOptionKey.SUMMARIZE_DATA_PROFILES.value)
         if ~islogicalscalar(profile_options.(ProfileOptionKey.SUMMARIZE_DATA_PROFILES.value))
             error("MATLAB:checkValidityProfileOptions:summarize_data_profilesNotValid", "The field of 'summarize_data_profiles' of options should be a boolean.");
         end
     end
+
+
     % Judge whether profile_options.summarize_log_ratio_profiles is a boolean.
     if isfield(profile_options, ProfileOptionKey.SUMMARIZE_LOG_RATIO_PROFILES.value)
         if ~islogicalscalar(profile_options.(ProfileOptionKey.SUMMARIZE_LOG_RATIO_PROFILES.value))
@@ -143,18 +181,24 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
             profile_options.(ProfileOptionKey.SUMMARIZE_LOG_RATIO_PROFILES.value) = false;
         end
     end
+
+
     % Judge whether profile_options.summarize_output_based_profiles is a boolean.
     if isfield(profile_options, ProfileOptionKey.SUMMARIZE_OUTPUT_BASED_PROFILES.value)
         if ~islogicalscalar(profile_options.(ProfileOptionKey.SUMMARIZE_OUTPUT_BASED_PROFILES.value))
             error("MATLAB:checkValidityProfileOptions:summarize_output_based_profilesNotValid", "The field 'summarize_output_based_profiles' of options should be a boolean.");
         end
     end
+
+
     % Judge whether profile_options.silent is a boolean.
     if isfield(profile_options, ProfileOptionKey.SILENT.value)
         if ~islogicalscalar(profile_options.(ProfileOptionKey.SILENT.value))
             error("MATLAB:checkValidityProfileOptions:silentNotValid", "The field 'silent' of options should be a boolean.");
         end
     end
+
+
     % Judge whether profile_options.solver_verbose is among 0, 1, and 2. If silent is true, solver_verbose should be 0 or 1 (only print errors). If it is 2, print a message saying that solver_verbose will be set to 1.
     if isfield(profile_options, ProfileOptionKey.SOLVER_VERBOSE.value)
         if ~isintegerscalar(profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value)) || ~ismember(profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value), [0, 1, 2])
@@ -165,30 +209,40 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
             profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) = 1;
         end
     end
+
+
     % Judge whether profile_options.semilogx is a boolean.
     if isfield(profile_options, ProfileOptionKey.SEMILOGX.value)
         if ~islogicalscalar(profile_options.(ProfileOptionKey.SEMILOGX.value))
             error("MATLAB:checkValidityProfileOptions:semilogxNotValid", "The field 'semilogx' of options should be a boolean.");
         end
     end
+
+
     % Judge whether profile_options.normalized_scores is a boolean.
     if isfield(profile_options, ProfileOptionKey.NORMALIZED_SCORES.value)
         if ~islogicalscalar(profile_options.(ProfileOptionKey.NORMALIZED_SCORES.value))
             error("MATLAB:checkValidityProfileOptions:normalized_scoresNotValid", "The field 'normalized_scores' of options should be a boolean.");
         end
     end
+
+
     % Judge whether profile_options.score_weight_fun is a function handle.
     if isfield(profile_options, ProfileOptionKey.SCORE_WEIGHT_FUN.value)
         if ~isa(profile_options.(ProfileOptionKey.SCORE_WEIGHT_FUN.value), 'function_handle')
             error("MATLAB:checkValidityProfileOptions:score_weight_funNotValid", "The field 'score_weight_fun' of options should be a function handle.");
         end
     end
+
+
     % Judge whether profile_options.score_fun is a function handle.
     if isfield(profile_options, ProfileOptionKey.SCORE_FUN.value)
         if ~isa(profile_options.(ProfileOptionKey.SCORE_FUN.value), 'function_handle')
             error("MATLAB:checkValidityProfileOptions:score_funNotValid", "The field 'score_fun' of options should be a function handle.");
         end
     end
+
+
     % Judge whether profile_options.load is a char or a string.
     if isfield(profile_options, ProfileOptionKey.LOAD.value)
         if isempty(profile_options.(ProfileOptionKey.LOAD.value))
@@ -199,6 +253,25 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
         end
         profile_options.(ProfileOptionKey.LOAD.value) = char(profile_options.(ProfileOptionKey.LOAD.value));
     end
+
+
+    % Judge whether profile_options.solvers_to_load is a vector of different integers (with the same size as profile_options.solver_names if it exists).
+    if isfield(profile_options, ProfileOptionKey.SOLVERS_TO_LOAD.value)
+        if ~isfield(profile_options, ProfileOptionKey.LOAD.value) || isempty(profile_options.(ProfileOptionKey.LOAD.value))
+            error("MATLAB:checkValidityProfileOptions:solvers_to_loadNoLoad", "The field 'solvers_to_load' of options can only be used when the field 'load' is set.");
+        end
+        profile_options.(ProfileOptionKey.SOLVERS_TO_LOAD.value) = unique(profile_options.(ProfileOptionKey.SOLVERS_TO_LOAD.value));
+        if ~isintegervector(profile_options.(ProfileOptionKey.SOLVERS_TO_LOAD.value)) || any(profile_options.(ProfileOptionKey.SOLVERS_TO_LOAD.value) < 1) || numel(profile_options.(ProfileOptionKey.SOLVERS_TO_LOAD.value)) < 2
+            error("MATLAB:checkValidityProfileOptions:solvers_to_loadNotValid", "The field 'solvers_to_load' of options should be a vector of different integers greater than or equal to 1. At least two indices should be provided.");
+        end
+        if isfield(profile_options, ProfileOptionKey.SOLVER_NAMES.value)
+            if numel(profile_options.(ProfileOptionKey.SOLVERS_TO_LOAD.value)) ~= numel(profile_options.(ProfileOptionKey.SOLVER_NAMES.value))
+                error("MATLAB:checkValidityProfileOptions:solvers_to_loadAndsolver_namesLengthNotSame", "The field 'solvers_to_load' of options should have the same length as 'solver_names'.");
+            end
+        end
+    end
+
+
     % Judge whether profile_options.line_colors is a cell array of strings or a matrix whose rows are RGB triplets.
     if isfield(profile_options, ProfileOptionKey.LINE_COLORS.value)
         % If it is a cell array of strings, check whether each string is a valid color short name.
@@ -223,7 +296,9 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
             error("MATLAB:checkValidityProfileOptions:line_colorsNotValid", "The field 'line_colors' of options should be a cell array of short color names or a matrix whose rows are RGB triplets.");
         end
     end
-    % Judge whether profile_options.line_styles is a cell array of chars or strings that are the combinations of line styles ('-', '-.', ':', '--') and markers ('none', 'o', '+', '*', '.', 'x', 's', 'd', '^', 'v', '>', '<', 'p', 'h'), where line styles cannot be 'none'.
+
+
+    % Judge whether profile_options.line_styles is a cell array of chars or strings that are the combinations of line styles ('-', '-.', ':', '--') and markers ('o', '+', '*', '.', 'x', 's', 'd', '^', 'v', '>', '<', 'p', 'h'), where line styles cannot be 'none'.
     if isfield(profile_options, ProfileOptionKey.LINE_STYLES.value)
         % List all the valid combinations of line styles and markers.
         valid_line_style_marker_combinations = {...
@@ -240,12 +315,16 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
             profile_options.(ProfileOptionKey.LINE_STYLES.value) = profile_options.(ProfileOptionKey.LINE_STYLES.value)';
         end
     end
+
+
     % Judge whether profile_options.line_widths is a positive scalar or vector.
     if isfield(profile_options, ProfileOptionKey.LINE_WIDTHS.value)
         if ~isrealvector(profile_options.(ProfileOptionKey.LINE_WIDTHS.value)) || any(profile_options.(ProfileOptionKey.LINE_WIDTHS.value) <= 0)
             error("MATLAB:checkValidityProfileOptions:line_widthsNotValid", "The field 'line_widths' of options should be a positive scalar or vector.");
         end
     end
+
+
     % Judge whether profile_options.bar_colors is a cell array of strings or a matrix whose rows are RGB triplets.
     if isfield(profile_options, ProfileOptionKey.BAR_COLORS.value)
         % If it is a cell array of strings, check whether each string is a valid color short name.

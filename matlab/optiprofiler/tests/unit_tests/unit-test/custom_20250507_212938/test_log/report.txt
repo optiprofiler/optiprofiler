@@ -1,0 +1,24 @@
+Report for the problem library "s2mpj".
+
+Problem names and the total time spent on solving each problem:
+EIGMAXA_11_11         82.95 seconds
+EIGMINA_11_11         84.90 seconds
+HAGER3                4.83 seconds
+MADSSCHJ_11_18        63.18 seconds
+OSBORNEB              25.71 seconds
+POLAK2                43.19 seconds
+ROSEPETAL2_11_21      35.72 seconds
+SPINLS_11             22.02 seconds
+SPINOP_11_9           38.00 seconds
+TRUSPYR1              156.53 seconds
+
+
+
+Problems among all the libraries that all the solvers failed to meet the convergence test for each tolerance and each run:
+
+History-based  tol = 0.1      run = 1  :		OSBORNEB         POLAK2           SPINLS_11        
+Output-based   tol = 0.1      run = 1  :		OSBORNEB         POLAK2           SPINLS_11        
+Output-based   tol = 0.1      run = 2  :		OSBORNEB         SPINLS_11        
+History-based  tol = 0.01     run = 1  :		OSBORNEB         POLAK2           SPINLS_11        
+Output-based   tol = 0.01     run = 1  :		OSBORNEB         POLAK2           SPINLS_11        
+Output-based   tol = 0.01     run = 2  :		OSBORNEB         SPINLS_11        

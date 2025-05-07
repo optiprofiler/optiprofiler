@@ -1,0 +1,224 @@
+INFO: Failed to copy the script or function that calls `benchmark` function to the log directory.
+
+INFO: Start the computation of problems from the "s2mpj" library under "quantized" feature.
+INFO: There are 10 problems from "s2mpj" to solve.
+
+
+
+INFO: Start  solving    SPINLS_11        with sqp            (run  1/ 2).
+
+
+
+INFO: Start  solving    POLAK2           with sqp            (run  1/ 2).
+INFO: Finish solving    SPINLS_11        with sqp            (run  1/ 2) (in 0.44 seconds).
+INFO: Output result for SPINLS_11        with sqp            (run  1/ 2): f = 6.3000e+01.
+INFO: Best   result for SPINLS_11        with sqp            (run  1/ 2): f = 6.3000e+01.
+
+INFO: Start  solving    SPINLS_11        with sqp            (run  2/ 2).
+INFO: Start  solving    HAGER3           with sqp            (run  1/ 2).
+
+INFO: Finish solving    POLAK2           with sqp            (run  1/ 2) (in 0.30 seconds).
+INFO: Output result for POLAK2           with sqp            (run  1/ 2): f = 1.0000e-01, maxcv = 9.1745e+01.
+INFO: Best   result for POLAK2           with sqp            (run  1/ 2): f = 1.0000e-01, maxcv = 9.1745e+01.
+
+INFO: Start  solving    POLAK2           with sqp            (run  2/ 2).
+INFO: Finish solving    HAGER3           with sqp            (run  1/ 2) (in 0.46 seconds).
+INFO: Output result for HAGER3           with sqp            (run  1/ 2): f = 1.4795e-01, maxcv = 2.4980e-16.
+INFO: Best   result for HAGER3           with sqp            (run  1/ 2): f = 1.5625e-02, maxcv = 2.4980e-16.
+
+INFO: Start  solving    HAGER3           with sqp            (run  2/ 2).
+INFO: Start  solving    OSBORNEB         with sqp            (run  1/ 2).
+INFO: Start  solving    MADSSCHJ_11_18   with sqp            (run  1/ 2).
+INFO: Start  solving    ROSEPETAL2_11_21 with sqp            (run  1/ 2).
+INFO: Finish solving    POLAK2           with sqp            (run  2/ 2) (in 0.20 seconds).
+INFO: Output result for POLAK2           with sqp            (run  2/ 2): f = 1.0000e-01, maxcv = 9.1745e+01.
+INFO: Best   result for POLAK2           with sqp            (run  2/ 2): f = 1.0000e-01, maxcv = 9.1745e+01.
+
+INFO: Start  solving    POLAK2           with interior-point (run  1/ 2).
+INFO: Finish solving    HAGER3           with sqp            (run  2/ 2) (in 0.32 seconds).
+INFO: Output result for HAGER3           with sqp            (run  2/ 2): f = 1.4795e-01, maxcv = 2.4980e-16.
+INFO: Best   result for HAGER3           with sqp            (run  2/ 2): f = 1.5625e-02, maxcv = 2.4980e-16.
+
+INFO: Start  solving    HAGER3           with interior-point (run  1/ 2).
+INFO: Finish solving    SPINLS_11        with sqp            (run  2/ 2) (in 0.43 seconds).
+INFO: Output result for SPINLS_11        with sqp            (run  2/ 2): f = 6.3000e+01.
+INFO: Best   result for SPINLS_11        with sqp            (run  2/ 2): f = 6.3000e+01.
+
+INFO: Start  solving    SPINLS_11        with interior-point (run  1/ 2).
+INFO: Start  solving    EIGMINA_11_11    with sqp            (run  1/ 2).
+
+INFO: Finish solving    POLAK2           with interior-point (run  1/ 2) (in 0.27 seconds).
+INFO: Output result for POLAK2           with interior-point (run  1/ 2): f = 1.0000e-01, maxcv = 9.1745e+01.
+INFO: Best   result for POLAK2           with interior-point (run  1/ 2): f = 1.0000e-01, maxcv = 9.1745e+01.
+
+INFO: Start  solving    POLAK2           with interior-point (run  2/ 2).
+INFO: Finish solving    HAGER3           with interior-point (run  1/ 2) (in 0.24 seconds).
+INFO: Output result for HAGER3           with interior-point (run  1/ 2): f = 1.4795e-01, maxcv = 1.1102e-15.
+INFO: Best   result for HAGER3           with interior-point (run  1/ 2): f = 1.5625e-02, maxcv = 1.1102e-15.
+
+INFO: Start  solving    HAGER3           with interior-point (run  2/ 2).
+INFO: Finish solving    MADSSCHJ_11_18   with sqp            (run  1/ 2) (in 0.71 seconds).
+INFO: Output result for MADSSCHJ_11_18   with sqp            (run  1/ 2): f = 0.0000e+00, maxcv = 2.8900e+02.
+INFO: Best   result for MADSSCHJ_11_18   with sqp            (run  1/ 2): f = 0.0000e+00, maxcv = 2.8900e+02.
+
+INFO: Start  solving    MADSSCHJ_11_18   with sqp            (run  2/ 2).
+INFO: Finish solving    SPINLS_11        with interior-point (run  1/ 2) (in 0.45 seconds).
+INFO: Output result for SPINLS_11        with interior-point (run  1/ 2): f = 6.3000e+01.
+INFO: Best   result for SPINLS_11        with interior-point (run  1/ 2): f = 6.3000e+01.
+
+INFO: Start  solving    SPINLS_11        with interior-point (run  2/ 2).
+INFO: Start  solving    EIGMAXA_11_11    with sqp            (run  1/ 2).
+INFO: Finish solving    ROSEPETAL2_11_21 with sqp            (run  1/ 2) (in 0.72 seconds).
+INFO: Output result for ROSEPETAL2_11_21 with sqp            (run  1/ 2): f = 3.3484e-13, maxcv = 3.0000e+00.
+INFO: Best   result for ROSEPETAL2_11_21 with sqp            (run  1/ 2): f = -1.1921e-07, maxcv = 3.0000e+00.
+
+INFO: Start  solving    ROSEPETAL2_11_21 with sqp            (run  2/ 2).
+INFO: Finish solving    EIGMINA_11_11    with sqp            (run  1/ 2) (in 0.54 seconds).
+INFO: Output result for EIGMINA_11_11    with sqp            (run  1/ 2): f = 1.0000e+00, maxcv = 2.8460e+00.
+INFO: Best   result for EIGMINA_11_11    with sqp            (run  1/ 2): f = 1.0000e+00, maxcv = 2.8460e+00.
+
+INFO: Start  solving    EIGMINA_11_11    with sqp            (run  2/ 2).
+INFO: Finish solving    OSBORNEB         with sqp            (run  1/ 2) (in 0.71 seconds).
+INFO: Output result for OSBORNEB         with sqp            (run  1/ 2): f = 3.1657e+00.
+INFO: Best   result for OSBORNEB         with sqp            (run  1/ 2): f = 3.1657e+00.
+
+INFO: Start  solving    OSBORNEB         with sqp            (run  2/ 2).
+INFO: Finish solving    EIGMAXA_11_11    with sqp            (run  1/ 2) (in 0.39 seconds).
+INFO: Output result for EIGMAXA_11_11    with sqp            (run  1/ 2): f = -1.0000e+00, maxcv = 2.8460e+00.
+INFO: Best   result for EIGMAXA_11_11    with sqp            (run  1/ 2): f = -1.0000e+00, maxcv = 2.8460e+00.
+
+INFO: Start  solving    EIGMAXA_11_11    with sqp            (run  2/ 2).
+INFO: Finish solving    OSBORNEB         with sqp            (run  2/ 2) (in 0.86 seconds).
+INFO: Output result for OSBORNEB         with sqp            (run  2/ 2): f = 3.1657e+00.
+INFO: Best   result for OSBORNEB         with sqp            (run  2/ 2): f = 3.1657e+00.
+
+INFO: Start  solving    OSBORNEB         with interior-point (run  1/ 2).
+INFO: Finish solving    MADSSCHJ_11_18   with sqp            (run  2/ 2) (in 0.69 seconds).
+INFO: Output result for MADSSCHJ_11_18   with sqp            (run  2/ 2): f = 0.0000e+00, maxcv = 2.8900e+02.
+INFO: Best   result for MADSSCHJ_11_18   with sqp            (run  2/ 2): f = 0.0000e+00, maxcv = 2.8900e+02.
+
+INFO: Start  solving    MADSSCHJ_11_18   with interior-point (run  1/ 2).
+INFO: Finish solving    OSBORNEB         with interior-point (run  1/ 2) (in 0.87 seconds).
+INFO: Output result for OSBORNEB         with interior-point (run  1/ 2): f = 3.1657e+00.
+INFO: Best   result for OSBORNEB         with interior-point (run  1/ 2): f = 3.1657e+00.
+
+INFO: Start  solving    OSBORNEB         with interior-point (run  2/ 2).
+INFO: Finish solving    MADSSCHJ_11_18   with interior-point (run  1/ 2) (in 0.84 seconds).
+INFO: Output result for MADSSCHJ_11_18   with interior-point (run  1/ 2): f = 0.0000e+00, maxcv = 2.8900e+02.
+INFO: Best   result for MADSSCHJ_11_18   with interior-point (run  1/ 2): f = 0.0000e+00, maxcv = 2.8900e+02.
+
+INFO: Start  solving    MADSSCHJ_11_18   with interior-point (run  2/ 2).
+INFO: Finish solving    SPINLS_11        with interior-point (run  2/ 2) (in 0.49 seconds).
+INFO: Output result for SPINLS_11        with interior-point (run  2/ 2): f = 6.3000e+01.
+INFO: Best   result for SPINLS_11        with interior-point (run  2/ 2): f = 6.3000e+01.
+INFO: Finish solving    EIGMINA_11_11    with sqp            (run  2/ 2) (in 0.47 seconds).
+INFO: Output result for EIGMINA_11_11    with sqp            (run  2/ 2): f = 1.0000e+00, maxcv = 2.8460e+00.
+INFO: Best   result for EIGMINA_11_11    with sqp            (run  2/ 2): f = 1.0000e+00, maxcv = 2.8460e+00.
+
+INFO: Start  solving    EIGMINA_11_11    with interior-point (run  1/ 2).
+INFO: Finish solving    ROSEPETAL2_11_21 with sqp            (run  2/ 2) (in 0.84 seconds).
+INFO: Output result for ROSEPETAL2_11_21 with sqp            (run  2/ 2): f = 3.3484e-13, maxcv = 3.0000e+00.
+INFO: Best   result for ROSEPETAL2_11_21 with sqp            (run  2/ 2): f = -1.1921e-07, maxcv = 3.0000e+00.
+
+INFO: Start  solving    ROSEPETAL2_11_21 with interior-point (run  1/ 2).
+INFO: Finish solving    HAGER3           with interior-point (run  2/ 2) (in 0.21 seconds).
+INFO: Output result for HAGER3           with interior-point (run  2/ 2): f = 1.4795e-01, maxcv = 1.1102e-15.
+INFO: Best   result for HAGER3           with interior-point (run  2/ 2): f = 1.5625e-02, maxcv = 1.1102e-15.
+INFO: Finish solving    OSBORNEB         with interior-point (run  2/ 2) (in 0.91 seconds).
+INFO: Output result for OSBORNEB         with interior-point (run  2/ 2): f = 3.1657e+00.
+INFO: Best   result for OSBORNEB         with interior-point (run  2/ 2): f = 3.1657e+00.
+INFO: Finish solving    EIGMAXA_11_11    with sqp            (run  2/ 2) (in 0.32 seconds).
+INFO: Output result for EIGMAXA_11_11    with sqp            (run  2/ 2): f = -1.0000e+00, maxcv = 2.8460e+00.
+INFO: Best   result for EIGMAXA_11_11    with sqp            (run  2/ 2): f = -1.0000e+00, maxcv = 2.8460e+00.
+
+INFO: Start  solving    EIGMAXA_11_11    with interior-point (run  1/ 2).
+INFO: Finish solving    POLAK2           with interior-point (run  2/ 2) (in 0.27 seconds).
+INFO: Output result for POLAK2           with interior-point (run  2/ 2): f = 1.0000e-01, maxcv = 9.1745e+01.
+INFO: Best   result for POLAK2           with interior-point (run  2/ 2): f = 1.0000e-01, maxcv = 9.1745e+01.
+
+INFO: Start  solving    TRUSPYR1         with sqp            (run  1/ 2).
+INFO: Finish solving    MADSSCHJ_11_18   with interior-point (run  2/ 2) (in 0.96 seconds).
+INFO: Output result for MADSSCHJ_11_18   with interior-point (run  2/ 2): f = 0.0000e+00, maxcv = 2.8900e+02.
+INFO: Best   result for MADSSCHJ_11_18   with interior-point (run  2/ 2): f = 0.0000e+00, maxcv = 2.8900e+02.
+INFO: Finish solving    TRUSPYR1         with sqp            (run  1/ 2) (in 0.62 seconds).
+INFO: Output result for TRUSPYR1         with sqp            (run  1/ 2): f = 3.2626e+00, maxcv = 2.0000e+02.
+INFO: Best   result for TRUSPYR1         with sqp            (run  1/ 2): f = 3.2626e+00, maxcv = 2.0000e+02.
+
+INFO: Start  solving    TRUSPYR1         with sqp            (run  2/ 2).
+INFO: Finish solving    EIGMAXA_11_11    with interior-point (run  1/ 2) (in 3.82 seconds).
+INFO: Output result for EIGMAXA_11_11    with interior-point (run  1/ 2): f = -2.1069e-04, maxcv = 1.0000e+00.
+INFO: Best   result for EIGMAXA_11_11    with interior-point (run  1/ 2): f = -1.0000e-01, maxcv = 9.9453e-01.
+
+INFO: Start  solving    EIGMAXA_11_11    with interior-point (run  2/ 2).
+INFO: Finish solving    ROSEPETAL2_11_21 with interior-point (run  1/ 2) (in 4.12 seconds).
+INFO: Output result for ROSEPETAL2_11_21 with interior-point (run  1/ 2): f = 2.8325e+01, maxcv = 7.2697e-01.
+INFO: Best   result for ROSEPETAL2_11_21 with interior-point (run  1/ 2): f = 2.2637e+00, maxcv = 6.9069e-01.
+
+INFO: Start  solving    ROSEPETAL2_11_21 with interior-point (run  2/ 2).
+INFO: Finish solving    EIGMINA_11_11    with interior-point (run  1/ 2) (in 3.93 seconds).
+INFO: Output result for EIGMINA_11_11    with interior-point (run  1/ 2): f = 2.1069e-04, maxcv = 1.0000e+00.
+INFO: Best   result for EIGMINA_11_11    with interior-point (run  1/ 2): f = 9.3052e-06, maxcv = 9.9453e-01.
+
+INFO: Start  solving    EIGMINA_11_11    with interior-point (run  2/ 2).
+INFO: Finish solving    EIGMINA_11_11    with interior-point (run  2/ 2) (in 2.19 seconds).
+INFO: Output result for EIGMINA_11_11    with interior-point (run  2/ 2): f = 2.1069e-04, maxcv = 1.0000e+00.
+INFO: Best   result for EIGMINA_11_11    with interior-point (run  2/ 2): f = 9.3052e-06, maxcv = 9.9453e-01.
+INFO: Finish solving    EIGMAXA_11_11    with interior-point (run  2/ 2) (in 2.08 seconds).
+INFO: Output result for EIGMAXA_11_11    with interior-point (run  2/ 2): f = -2.1069e-04, maxcv = 1.0000e+00.
+INFO: Best   result for EIGMAXA_11_11    with interior-point (run  2/ 2): f = -1.0000e-01, maxcv = 9.9453e-01.
+INFO: Finish solving    ROSEPETAL2_11_21 with interior-point (run  2/ 2) (in 2.18 seconds).
+INFO: Output result for ROSEPETAL2_11_21 with interior-point (run  2/ 2): f = 2.8325e+01, maxcv = 7.2697e-01.
+INFO: Best   result for ROSEPETAL2_11_21 with interior-point (run  2/ 2): f = 2.2637e+00, maxcv = 6.9069e-01.
+
+INFO: Start  solving    SPINOP_11_9      with sqp            (run  1/ 2).
+INFO: Finish solving    TRUSPYR1         with sqp            (run  2/ 2) (in 0.46 seconds).
+INFO: Output result for TRUSPYR1         with sqp            (run  2/ 2): f = 3.2626e+00, maxcv = 2.0000e+02.
+INFO: Best   result for TRUSPYR1         with sqp            (run  2/ 2): f = 3.2626e+00, maxcv = 2.0000e+02.
+
+INFO: Start  solving    TRUSPYR1         with interior-point (run  1/ 2).
+INFO: Finish solving    SPINOP_11_9      with sqp            (run  1/ 2) (in 0.20 seconds).
+INFO: Output result for SPINOP_11_9      with sqp            (run  1/ 2): f = 3.0000e+00, maxcv = 4.0000e+00.
+INFO: Best   result for SPINOP_11_9      with sqp            (run  1/ 2): f = 3.0000e+00, maxcv = 4.0000e+00.
+
+INFO: Start  solving    SPINOP_11_9      with sqp            (run  2/ 2).
+INFO: Finish solving    SPINOP_11_9      with sqp            (run  2/ 2) (in 0.14 seconds).
+INFO: Output result for SPINOP_11_9      with sqp            (run  2/ 2): f = 3.0000e+00, maxcv = 4.0000e+00.
+INFO: Best   result for SPINOP_11_9      with sqp            (run  2/ 2): f = 3.0000e+00, maxcv = 4.0000e+00.
+
+INFO: Start  solving    SPINOP_11_9      with interior-point (run  1/ 2).
+INFO: Finish solving    SPINOP_11_9      with interior-point (run  1/ 2) (in 0.17 seconds).
+INFO: Output result for SPINOP_11_9      with interior-point (run  1/ 2): f = 3.0000e+00, maxcv = 4.0000e+00.
+INFO: Best   result for SPINOP_11_9      with interior-point (run  1/ 2): f = 3.0000e+00, maxcv = 4.0000e+00.
+
+INFO: Start  solving    SPINOP_11_9      with interior-point (run  2/ 2).
+INFO: Finish solving    SPINOP_11_9      with interior-point (run  2/ 2) (in 0.15 seconds).
+INFO: Output result for SPINOP_11_9      with interior-point (run  2/ 2): f = 3.0000e+00, maxcv = 4.0000e+00.
+INFO: Best   result for SPINOP_11_9      with interior-point (run  2/ 2): f = 3.0000e+00, maxcv = 4.0000e+00.
+INFO: Finish solving    TRUSPYR1         with interior-point (run  1/ 2) (in 4.02 seconds).
+INFO: Output result for TRUSPYR1         with interior-point (run  1/ 2): f = 6.5090e+00, maxcv = 2.0115e+02.
+INFO: Best   result for TRUSPYR1         with interior-point (run  1/ 2): f = 6.4927e+00, maxcv = 2.0000e+02.
+
+INFO: Start  solving    TRUSPYR1         with interior-point (run  2/ 2).
+INFO: Finish solving    TRUSPYR1         with interior-point (run  2/ 2) (in 2.48 seconds).
+INFO: Output result for TRUSPYR1         with interior-point (run  2/ 2): f = 6.5090e+00, maxcv = 2.0115e+02.
+INFO: Best   result for TRUSPYR1         with interior-point (run  2/ 2): f = 6.4927e+00, maxcv = 2.0000e+02.
+
+INFO: Merging all the history plots of problems from the "s2mpj" library to a single PDF file.
+
+INFO: Merged history plots stored in: 
+/Users/huangcunxin/Work/Research/OP/optiprofiler/matlab/optiprofiler/tests/unit_tests/unit-test/quantized_0.01_20250507_212908/history_plots
+
+INFO: Start the computation of the profiles under the "quantized" feature.
+
+INFO: Creating profiles for tolerance 0.1.
+INFO: Creating profiles for tolerance 0.01.
+
+INFO: Scores of the solvers:
+INFO: sqp           :    0.3632
+INFO: interior-point:    0.4198
+
+INFO: Summary stored in: 
+/Users/huangcunxin/Work/Research/OP/optiprofiler/matlab/optiprofiler/tests/unit_tests/unit-test
+
+
+INFO: Finished the computation of the profiles under "quantized" feature.
