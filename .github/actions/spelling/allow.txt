@@ -451,3 +451,9 @@ secup
 Thanminb
 ismac
 isunix
+Andsolver
+LOADRESULTS
+mydir
+plib
+PROCESSRESULTS
+subfolders

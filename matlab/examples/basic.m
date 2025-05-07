@@ -23,7 +23,7 @@ function basic()
     % solvers = {@fminsearch_test1, @fminsearch_test2};
     % options.feature_name = 'noisy';
     % options.n_runs = 5;
-    % options.problem = s_load('LIARWHD');
+    % options.problem = s2mpj_load('LIARWHD');
     % options.seed = 1;
     % benchmark(solvers, options)
 

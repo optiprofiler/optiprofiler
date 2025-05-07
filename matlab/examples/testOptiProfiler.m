@@ -8,7 +8,7 @@ function testOptiProfiler()
 
     % Test if problem from S2MPJ is callable.
     try
-        p = s_load('BEALE');
+        p = s2mpj_load('BEALE');
         assert(isequal(p.x0, [1; 1]));
         assert(isequal(p.name, 'BEALE'));
         assert(isrealscalar(p.fun(p.x0)));
@@ -22,7 +22,7 @@ function testOptiProfiler()
     path = pwd;
     path_out = fullfile(path, 'out');
     try
-        options.problem = s_load('BEALE');
+        options.problem = s2mpj_load('BEALE');
         evalc("benchmark({@fminsearch_test1, @fminsearch_test2}, options)");
         try
             rmdir(path_out, 's');
