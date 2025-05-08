@@ -11,7 +11,7 @@ function testOptiProfiler()
         p = s2mpj_load('BEALE');
         assert(isequal(p.x0, [1; 1]));
         assert(isequal(p.name, 'BEALE'));
-        assert(isrealscalar(p.fun(p.x0)));
+        assert(isnumeric(p.fun(p.x0)) && isreal(p.fun(p.x0)) && isscalar(p.fun(p.x0)));
         fprintf("OptiProfiler successfully loaded problem 'BEALE'.\n\n");
     catch
         success = false;

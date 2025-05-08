@@ -283,9 +283,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %
 %       - plibs: the problem libraries to be used. It should be a cell array of
 %         strings or chars. The available choices are subfolder names in the
-%         'problems' directory. There are three three subfolders after
-%         installing the package: 's2mpj', 'matcutest', and 'custom_example'.
-%         Default setting is 's2mpj'.
+%         'problems' directory. There are three subfolders after installing the
+%         package: 's2mpj', 'matcutest', and 'custom_example'. Default setting
+%         is 's2mpj'.
 %       - ptype: the type of the problems to be selected. It should be a string
 %         or char consisting of any combination of 'u' (unconstrained), 'b'
 %         (bound constrained), 'l' (linearly constrained), and 'n' (nonlinearly
