@@ -59,4 +59,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: unit_test_out
-          path: ./matlab/optiprofiler/tests/out/**
+          path: ./matlab/optiprofiler/tests/unit_tests/unit-test/**

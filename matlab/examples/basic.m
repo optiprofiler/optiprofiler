@@ -22,25 +22,16 @@ function basic()
 
     % solvers = {@fminsearch_test1, @fminsearch_test2};
     % options.feature_name = 'noisy';
-    % options.n_runs = 5;
-    % options.problem = s2mpj_load('LIARWHD');
+    % options.noise_level = 0.1;
+    % options.noise_type = 'absolute';
+    % options.distribution = 'uniform';
+    % options.n_runs = 3;
     % options.seed = 1;
-    % benchmark(solvers, options)
-
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Example 4 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-    % solvers = {@fminsearch_test1, @fminsearch_test2};
-    % options.feature_name = 'noisy';
-    % options.n_runs = 5;
-    % options.benchmark_id = 'test-noisy';
-    % options.solver_verbose = 1;
+    % options.plibs = {'s2mpj', 'custom_example'};
     % options.ptype = 'u';
-    % options.maxdim = 3;
-    % options.excludelist = {"MUONSINELS"};
-    % options.solver_names = {'simplex_1', 'simplex_2'};
-    % benchmark(solvers, options)
+    % options.maxdim = 2;
+    % options.mindim = 2;
+    % solver_scores = benchmark(solvers, options)
 end
 
 function x = fminsearch_test1(fun, x0)

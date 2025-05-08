@@ -20,7 +20,7 @@ function problem = s2mpj_load(problem_name, varargin)
 %   of the problem. This case only happens when this problem can accept extra
 %   arguments to change the dimension or the number of constraints. This
 %   information is stored in the 'probinfo.csv' file as the last few columns.
-%
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %   Some details about S2MPJ.
 %

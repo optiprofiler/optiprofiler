@@ -28,14 +28,14 @@ function testOptiProfiler()
             rmdir(path_out, 's');
         catch
         end
-        fprintf("OptiProfiler successfully ran function `benchmark`.\n\n");
+        fprintf("OptiProfiler successfully ran function 'benchmark'.\n\n");
     catch
         success = false;
         try
             rmdir(path_out, 's');
         catch
         end
-        error("OptiProfiler FAILED a test: Unable to call function `benchmark`.");
+        error("OptiProfiler FAILED a test: Unable to call function 'benchmark'.");
     end
 
     if success

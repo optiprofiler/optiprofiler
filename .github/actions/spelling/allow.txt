@@ -457,3 +457,4 @@ mydir
 plib
 PROCESSRESULTS
 subfolders
+plibs
