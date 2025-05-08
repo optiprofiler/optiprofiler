@@ -8,7 +8,7 @@ function problem_options = checkValidityProblemOptions(problem_options)
             problem_options.(ProblemOptionKey.PLIBS.value) = {problem_options.(ProblemOptionKey.PLIBS.value)};
         end
         mydir = fileparts(mfilename('fullpath'));
-        problems_dir = fullfile(mydir, '../../../problems');
+        problems_dir = fullfile(mydir, '../../../../problems');
         subfolder_info = dir(problems_dir);
         subfolder_names = {subfolder_info([subfolder_info.isdir] & ~ismember({subfolder_info.name}, {'.', '..'})).name};
         if isempty(problem_options.(ProblemOptionKey.PLIBS.value)) || ~all(cellfun(@ischarstr, problem_options.(ProblemOptionKey.PLIBS.value))) || ~all(ismember(problem_options.(ProblemOptionKey.PLIBS.value), subfolder_names))

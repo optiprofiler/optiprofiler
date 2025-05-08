@@ -3,6 +3,9 @@ classdef TestCheckValidityProblemOptions < matlab.unittest.TestCase
 
         function testErrors(testCase)
 
+            mydir = fileparts(mfilename('fullpath'));
+            cd(fullfile(mydir, '../../src/private'));
+
             options = struct();
 
             options.plibs = 1;
