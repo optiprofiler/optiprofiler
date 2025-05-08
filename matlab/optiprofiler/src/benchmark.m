@@ -459,7 +459,6 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         end
     end
 
-    keyboard
     % Process the feature_name.
     if ~ischarstr(feature_name)
         % feature_name must be a char or string.
