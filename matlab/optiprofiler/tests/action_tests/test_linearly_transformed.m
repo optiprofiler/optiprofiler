@@ -6,7 +6,6 @@ function test_linearly_transformed(benchmark_id)
 
     solvers = {@fmincon_test1, @fmincon_test2, @fmincon_test3};
     options.solver_names = {'sqp', 'interior-point', 'active-set'};
-    options.solver_names = {'sqp', 'interior-point'};
     options.feature_name = 'linearly_transformed';
     options.n_runs = 3;
     options.ptype = 'ubln';

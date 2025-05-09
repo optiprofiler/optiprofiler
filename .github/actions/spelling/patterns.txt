@@ -39,3 +39,12 @@
 
 # hex digits including css/html color classes:
 (?:[\\0][xX]|\\u|[uU]\+|#x?|\%23)[0-9_a-fA-FgGrR]*?[a-fA-FgGrR]{2,}[0-9_a-fA-FgGrR]*(?:[uUlL]{0,3}|u\d+)\b
+
+# hex runs
+\b[0-9a-fA-F]{16,}\b
+
+# version suffix <word>v#
+(?:(?<=[A-Z]{2})V|(?<=[a-z]{2}|[A-Z]{2})v)\d+(?:\b|(?=[a-zA-Z_]))
+
+# Compiler flags
+(?:^|[\t ,"'`=(])-[DPWXYLlf](?=[A-Z]{2,}|[A-Z][a-z]|[a-z]{2,})
