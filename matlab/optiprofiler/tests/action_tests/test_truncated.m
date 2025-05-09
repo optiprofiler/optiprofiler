@@ -8,6 +8,7 @@ function test_truncated(benchmark_id)
     options.solver_names = {'sqp', 'interior-point', 'active-set'};
     options.feature_name = 'truncated';
     options.ptype = 'ubln';
+    options.run_plain = true;
     options.mindim = 11;
     options.maxdim = 11;
     options.benchmark_id = benchmark_id;
@@ -16,13 +17,21 @@ function test_truncated(benchmark_id)
     else
         options.plibs = {'s2mpj', 'custom_example'};
     end
-
-    benchmark(solvers, options);
+    benchmark(solvers, options)
 
     options.perturbed_trailing_zeros = true;
     options.significant_digits = 4;
     options.n_runs = 3;
-    benchmark(solvers, options);
+    benchmark(solvers, options)
+
+    % Test load
+    options.load = 'latest';
+    options.solver_names = {'sqp', 'interior-point'};
+    options.solvers_to_load = [1, 2];
+    options.run_plain = false;
+    options.plibs = 's2mpj';
+    options.ptype = 'un';
+    benchmark(options)
 end
 
 function x = fmincon_test1(varargin)

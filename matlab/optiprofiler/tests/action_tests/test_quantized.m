@@ -8,6 +8,7 @@ function test_quantized(benchmark_id)
     options.solver_names = {'sqp', 'interior-point', 'active-set'};
     options.feature_name = 'quantized';
     options.ptype = 'ubln';
+    options.run_plain = true;
     options.mindim = 11;
     options.maxdim = 11;
     options.benchmark_id = benchmark_id;
@@ -16,12 +17,20 @@ function test_quantized(benchmark_id)
     else
         options.plibs = {'s2mpj', 'custom_example'};
     end
-
-    benchmark(solvers, options);
+    benchmark(solvers, options)
 
     options.mesh_size = 0.1;
     options.ground_truth = false;
-    benchmark(solvers, options);
+    benchmark(solvers, options)
+
+    % Test load
+    options.load = 'latest';
+    options.solver_names = {'sqp', 'interior-point'};
+    options.solvers_to_load = [1, 2];
+    options.run_plain = false;
+    options.plibs = 's2mpj';
+    options.ptype = 'un';
+    benchmark(options)
 end
 
 function x = fmincon_test1(varargin)

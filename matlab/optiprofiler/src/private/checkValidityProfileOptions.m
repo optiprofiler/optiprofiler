@@ -54,10 +54,10 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
         if ~iscell(profile_options.(ProfileOptionKey.SOLVER_NAMES.value)) || ~all(cellfun(@(l) ischarstr(l), profile_options.(ProfileOptionKey.SOLVER_NAMES.value)))
             error("MATLAB:checkValidityProfileOptions:solver_namesNotCellOfcharstr", "The field 'solver_names' of options must be a cell of chars or strings.");
         end
-        if numel(profile_options.(ProfileOptionKey.SOLVER_NAMES.value)) ~= 0 && numel(profile_options.(ProfileOptionKey.SOLVER_NAMES.value)) ~= numel(solvers)
+        if ~isempty(solvers) && numel(profile_options.(ProfileOptionKey.SOLVER_NAMES.value)) ~= 0 && numel(profile_options.(ProfileOptionKey.SOLVER_NAMES.value)) ~= numel(solvers)
             error("MATLAB:checkValidityProfileOptions:solver_namesAndsolversLengthNotSame", "The number of the field 'solver_names' of options must equal the number of solvers.");
         end
-        if numel(profile_options.(ProfileOptionKey.SOLVER_NAMES.value)) == 0
+        if numel(profile_options.(ProfileOptionKey.SOLVER_NAMES.value)) == 0 && ~isempty(solvers)
             profile_options.(ProfileOptionKey.SOLVER_NAMES.value) = cellfun(@(s) func2str(s), solvers, 'UniformOutput', false);
         end
         % Handle the case where the solver names are not valid MATLAB variable names.

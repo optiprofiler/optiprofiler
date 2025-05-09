@@ -1,153 +1,153 @@
 classdef TestBenchmark < matlab.unittest.TestCase
     methods (Test)
         
-        % function testWithValidInput(testCase)
+        function testWithValidInput(testCase)
 
-        %     solvers = {@fmincon_test1, @fmincon_test2};
-        %     options.benchmark_id = 'unit-test';
-        %     options.solver_names = {'sqp', 'interior-point'};
-        %     options.max_tol_order = 2;
-        %     options.n_runs = 2;
-        %     options.ptype = 'ubln';
-        %     options.maxdim = 11;
-        %     options.mindim = 11;
+            solvers = {@fmincon_test1, @fmincon_test2};
+            options.benchmark_id = 'unit-test';
+            options.solver_names = {'sqp', 'interior-point'};
+            options.max_tol_order = 2;
+            options.n_runs = 2;
+            options.ptype = 'ubln';
+            options.maxdim = 11;
+            options.mindim = 11;
 
-        %     % Test the case where problem set only contains one problem.
-        %     options.problem = s2mpj_load('ROSENBR');
-        %     benchmark(solvers, options);
-        %     options = rmfield(options, 'problem');
+            % Test the case where problem set only contains one problem.
+            options.problem = s2mpj_load('ROSENBR');
+            benchmark(solvers, options);
+            options = rmfield(options, 'problem');
 
-        %     % Test plain feature.
-        %     benchmark(solvers);
+            % Test plain feature.
+            benchmark(solvers);
             
-        %     % Test perturbed_x0 feature.
-        %     benchmark(solvers, 'perturbed_x0');
-        %     options.feature_name = 'perturbed_x0';
-        %     options.perturbation_level = 1;
-        %     options.distribution = 'spherical';
-        %     benchmark(solvers, options);
-        %     options = rmfield(options, 'perturbation_level');
-        %     options = rmfield(options, 'distribution');
+            % Test perturbed_x0 feature.
+            benchmark(solvers, 'perturbed_x0');
+            options.feature_name = 'perturbed_x0';
+            options.perturbation_level = 1;
+            options.distribution = 'spherical';
+            benchmark(solvers, options);
+            options = rmfield(options, 'perturbation_level');
+            options = rmfield(options, 'distribution');
             
-        %     % Test noisy feature.
-        %     options.feature_name = 'noisy';
-        %     options.noise_level = 1e-4;
-        %     options.distribution = 'uniform';
-        %     benchmark(solvers, options);
-        %     options = rmfield(options, 'noise_level');
-        %     options = rmfield(options, 'distribution');
+            % Test noisy feature.
+            options.feature_name = 'noisy';
+            options.noise_level = 1e-4;
+            options.distribution = 'uniform';
+            benchmark(solvers, options);
+            options = rmfield(options, 'noise_level');
+            options = rmfield(options, 'distribution');
             
-        %     % Test truncated feature.
-        %     options.summarize_log_ratio_profiles = true;
-        %     options.feature_name = 'truncated';
-        %     options.significant_digits = 4;
-        %     options.perturbed_trailing_zeros = true;
-        %     benchmark(solvers, options);
-        %     options = rmfield(options, 'significant_digits');
-        %     options = rmfield(options, 'perturbed_trailing_zeros');
+            % Test truncated feature.
+            options.summarize_log_ratio_profiles = true;
+            options.feature_name = 'truncated';
+            options.significant_digits = 4;
+            options.perturbed_trailing_zeros = true;
+            benchmark(solvers, options);
+            options = rmfield(options, 'significant_digits');
+            options = rmfield(options, 'perturbed_trailing_zeros');
             
-        %     % Test permuted feature.
-        %     options.summarize_performance_profiles = false;
-        %     options.feature_name = 'permuted';
-        %     benchmark(solvers, options);
+            % Test permuted feature.
+            options.summarize_performance_profiles = false;
+            options.feature_name = 'permuted';
+            benchmark(solvers, options);
             
-        %     % Test linearly_transformed feature.
-        %     options.summarize_data_profiles = false;
-        %     options.summarize_performance_profiles = true;
-        %     options.feature_name = 'linearly_transformed';
-        %     options.rotated = true;
-        %     options.condition_factor = 1;
-        %     benchmark(solvers, options);
-        %     options = rmfield(options, 'rotated');
-        %     options = rmfield(options, 'condition_factor');
+            % Test linearly_transformed feature.
+            options.summarize_data_profiles = false;
+            options.summarize_performance_profiles = true;
+            options.feature_name = 'linearly_transformed';
+            options.rotated = true;
+            options.condition_factor = 1;
+            benchmark(solvers, options);
+            options = rmfield(options, 'rotated');
+            options = rmfield(options, 'condition_factor');
             
-        %     % Test random_nan feature.
-        %     options.summarize_performance_profiles = false;
-        %     options.feature_name = 'random_nan';
-        %     options.nan_rate = 0.1;
-        %     benchmark(solvers, options);
-        %     options = rmfield(options, 'nan_rate');
+            % Test random_nan feature.
+            options.summarize_performance_profiles = false;
+            options.feature_name = 'random_nan';
+            options.nan_rate = 0.1;
+            benchmark(solvers, options);
+            options = rmfield(options, 'nan_rate');
             
-        %     % Test unrelaxable_constraints feature.
-        %     options.summarize_log_ratio_profiles = false;
-        %     options.feature_name = 'unrelaxable_constraints';
-        %     options.unrelaxable_bounds = true;
-        %     options.unrelaxable_linear_constraints = true;
-        %     options.unrelaxable_nonlinear_constraints = true;
-        %     benchmark(solvers, options);
-        %     options = rmfield(options, 'unrelaxable_bounds');
-        %     options = rmfield(options, 'unrelaxable_linear_constraints');
-        %     options = rmfield(options, 'unrelaxable_nonlinear_constraints');
+            % Test unrelaxable_constraints feature.
+            options.summarize_log_ratio_profiles = false;
+            options.feature_name = 'unrelaxable_constraints';
+            options.unrelaxable_bounds = true;
+            options.unrelaxable_linear_constraints = true;
+            options.unrelaxable_nonlinear_constraints = true;
+            benchmark(solvers, options);
+            options = rmfield(options, 'unrelaxable_bounds');
+            options = rmfield(options, 'unrelaxable_linear_constraints');
+            options = rmfield(options, 'unrelaxable_nonlinear_constraints');
             
-        %     % Test nonquantifiable_constraints feature.
-        %     options.summarize_data_profiles = true;
-        %     options.summarize_performance_profiles = false;
-        %     options.feature_name = 'nonquantifiable_constraints';
-        %     benchmark(solvers, options);
+            % Test nonquantifiable_constraints feature.
+            options.summarize_data_profiles = true;
+            options.summarize_performance_profiles = false;
+            options.feature_name = 'nonquantifiable_constraints';
+            benchmark(solvers, options);
             
-        %     % Test quantized feature.
-        %     options.summarize_log_ratio_profiles = true;
-        %     options.summarize_data_profiles = false;
-        %     options.feature_name = 'quantized';
-        %     options.mesh_size = 0.01;
-        %     options.ground_truth = false;
-        %     benchmark(solvers, options);
-        %     options = rmfield(options, 'mesh_size');
-        %     options = rmfield(options, 'ground_truth');
+            % Test quantized feature.
+            options.summarize_log_ratio_profiles = true;
+            options.summarize_data_profiles = false;
+            options.feature_name = 'quantized';
+            options.mesh_size = 0.01;
+            options.ground_truth = false;
+            benchmark(solvers, options);
+            options = rmfield(options, 'mesh_size');
+            options = rmfield(options, 'ground_truth');
             
-        %     % Test custom feature.
-        %     options.feature_name = 'custom';
-        %     options.mod_x0 = @mod_x0;
-        %     options.mod_fun = @mod_fun;
-        %     options.mod_affine = @mod_affine;
-        %     benchmark(solvers, options);
+            % Test custom feature.
+            options.feature_name = 'custom';
+            options.mod_x0 = @mod_x0;
+            options.mod_fun = @mod_fun;
+            options.mod_affine = @mod_affine;
+            benchmark(solvers, options);
             
-        %     % Test `load` option.
-        %     options.load = 'latest';
-        %     benchmark(solvers, options);
-        % end
+            % Test `load` option.
+            options.load = 'latest';
+            benchmark(solvers, options);
+        end
 
-        % function testErrors(testCase)
-        %     % Test whether the function throws errors as expected.
-        %     solvers = {@fmincon_test1, @fmincon_test2};
-        %     options = struct();
+        function testErrors(testCase)
+            % Test whether the function throws errors as expected.
+            solvers = {@fmincon_test1, @fmincon_test2};
+            options = struct();
     
-        %     testCase.verifyError(@() benchmark(), "MATLAB:benchmark:solverMustBeProvided")
+            testCase.verifyError(@() benchmark(), "MATLAB:benchmark:solverMustBeProvided")
 
-        %     testCase.verifyError(@() benchmark(options), "MATLAB:benchmark:LoadFieldNotProvided")
+            testCase.verifyError(@() benchmark(options), "MATLAB:benchmark:LoadFieldNotProvided")
     
-        %     testCase.verifyError(@() benchmark(solvers, {1}), "MATLAB:benchmark:SecondArgumentWrongType")
+            testCase.verifyError(@() benchmark(solvers, {1}), "MATLAB:benchmark:SecondArgumentWrongType")
     
-        %     testCase.verifyError(@() benchmark(solvers, 'plain', options, 1), "MATLAB:benchmark:TooMuchInput")
+            testCase.verifyError(@() benchmark(solvers, 'plain', options, 1), "MATLAB:benchmark:TooMuchInput")
     
-        %     testCase.verifyError(@() benchmark({1, 2}, options), "MATLAB:benchmark:solversWrongType")
+            testCase.verifyError(@() benchmark({1, 2}, options), "MATLAB:benchmark:solversWrongType")
     
-        %     testCase.verifyError(@() benchmark({@fminsearch_test}), "MATLAB:benchmark:solversAtLeastTwo")
+            testCase.verifyError(@() benchmark({@fminsearch_test}), "MATLAB:benchmark:solversAtLeastTwo")
     
-        %     options.feature_name = 1;
-        %     testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:feature_nameNotcharstr")
-        %     options = rmfield(options, 'feature_name');
+            options.feature_name = 1;
+            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:feature_nameNotcharstr")
+            options = rmfield(options, 'feature_name');
     
-        %     options.feature_name = 'a';
-        %     testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:feature_nameNotValid")
-        %     options = rmfield(options, 'feature_name');
+            options.feature_name = 'a';
+            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:feature_nameNotValid")
+            options = rmfield(options, 'feature_name');
     
-        %     options.a = {'a'};
-        %     testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:UnknownOptions")
-        %     options = rmfield(options, 'a');
+            options.a = {'a'};
+            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:UnknownOptions")
+            options = rmfield(options, 'a');
 
-        %     options.merit_fun = @(x) x;
-        %     options.n_jobs = 1;
-        %     options.mindim = 11;
-        %     options.maxdim = 11;
-        %     testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:merit_fun_error")
-        %     options = rmfield(options, 'merit_fun');
-        %     options = rmfield(options, 'n_jobs');
-        %     options = rmfield(options, 'mindim');
-        %     options = rmfield(options, 'maxdim');
-        %     rmdir('out', 's');
+            options.merit_fun = @(x) x;
+            options.n_jobs = 1;
+            options.mindim = 11;
+            options.maxdim = 11;
+            testCase.verifyError(@() benchmark(solvers, options), "MATLAB:benchmark:merit_fun_error")
+            options = rmfield(options, 'merit_fun');
+            options = rmfield(options, 'n_jobs');
+            options = rmfield(options, 'mindim');
+            options = rmfield(options, 'maxdim');
+            rmdir('out', 's');
     
-        % end
+        end
     end
 end
 

@@ -16,8 +16,15 @@ function test_plain(benchmark_id)
     else
         options.plibs = {'s2mpj', 'custom_example'};
     end
+    benchmark(solvers, options)
 
-    benchmark(solvers, options);
+    % Test load
+    options.load = 'latest';
+    options.solver_names = {'sqp', 'interior-point'};
+    options.solvers_to_load = [1, 2];
+    options.plibs = 's2mpj';
+    options.ptype = 'un';
+    benchmark(options)
 end
 
 function x = fmincon_test1(varargin)

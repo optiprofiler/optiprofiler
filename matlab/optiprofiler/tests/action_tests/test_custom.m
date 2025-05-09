@@ -8,6 +8,7 @@ function test_custom(benchmark_id)
     options.solver_names = {'sqp', 'interior-point', 'active-set'};
     options.feature_name = 'custom';
     options.n_runs = 3;
+    options.run_plain = true;
     options.mod_x0 = @mod_x0;
     options.mod_fun = @mod_fun;
     options.mod_affine = @mod_affine;
@@ -21,8 +22,17 @@ function test_custom(benchmark_id)
     else
         options.plibs = {'s2mpj', 'custom_example'};
     end
+    benchmark(solvers, options)
 
-    benchmark(solvers, options);
+    % Test load
+    options.load = 'latest';
+    options.solver_names = {'sqp', 'interior-point'};
+    options.solver_to_load = [1, 2];
+    options.run_plain = false;
+    options.plibs = 's2mpj';
+    options.ptype = 'un';
+    benchmark(options)
+
 end
 
 function x0 = mod_x0(rand_stream, problem)

@@ -7,6 +7,7 @@ function test_unrelaxable_constraints(benchmark_id)
     solvers = {@fmincon_test1, @fmincon_test2, @fmincon_test3};
     options.solver_names = {'sqp', 'interior-point', 'active-set'};
     options.feature_name = 'unrelaxable_constraints';
+    options.run_plain = true;
     options.ptype = 'ubln';
     options.mindim = 11;
     options.maxdim = 11;
@@ -16,13 +17,21 @@ function test_unrelaxable_constraints(benchmark_id)
     else
         options.plibs = {'s2mpj', 'custom_example'};
     end
-
-    benchmark(solvers, options);
+    benchmark(solvers, options)
 
     options.unrelaxable_bounds = true;
     options.unrelaxable_linear_constraints = true;
     options.unrelaxable_nonlinear_constraints = true;
-    benchmark(solvers, options);
+    benchmark(solvers, options)
+
+    % Test load
+    options.load = 'latest';
+    options.solver_names = {'sqp', 'interior-point'};
+    options.solvers_to_load = [1, 2];
+    options.run_plain = false;
+    options.plibs = 's2mpj';
+    options.ptype = 'un';
+    benchmark(options)
 end
 
 function x = fmincon_test1(varargin)

@@ -8,6 +8,7 @@ function test_permuted(benchmark_id)
     options.solver_names = {'sqp', 'interior-point', 'active-set'};
     options.feature_name = 'permuted';
     options.n_runs = 3;
+    options.run_plain = true;
     options.ptype = 'ubln';
     options.mindim = 11;
     options.maxdim = 11;
@@ -17,8 +18,16 @@ function test_permuted(benchmark_id)
     else
         options.plibs = {'s2mpj', 'custom_example'};
     end
+    benchmark(solvers, options)
 
-    benchmark(solvers, options);
+    % Test load
+    options.load = 'latest';
+    options.solver_names = {'sqp', 'interior-point'};
+    options.solvers_to_load = [1, 2];
+    options.run_plain = false;
+    options.plibs = 's2mpj';
+    options.ptype = 'un';
+    benchmark(options)
 end
 
 function x = fmincon_test1(varargin)

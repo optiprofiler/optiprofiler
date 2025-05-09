@@ -401,10 +401,18 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         if isstruct(varargin{1})
             % When input contains one argument and the first argument is a struct, we assume the
             % user chooses benchmark(options).
-            solvers = {};
-            feature_name = 'plain';
             options = varargin{1};
             options_store = options;
+            solvers = {};
+            if isfield(options, 'feature_name')
+                feature_name = options.feature_name;
+                options = rmfield(options, 'feature_name');
+            else
+                feature_name = 'plain';
+            end
+            if isfield(options, 'problem')
+                options = rmfield(options, 'problem');
+            end
             if ~isfield(options, ProfileOptionKey.LOAD.value) || isempty(options.(ProfileOptionKey.LOAD.value))
                 error("MATLAB:benchmark:LoadFieldNotProvided", "The field `load` of options should be provided when the first argument is a struct.");
             end
@@ -506,7 +514,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 
     % Note: the validity of the feature options has been checked in the Feature constructor, so we
     % do not need to check it here.
-    problem_options = checkValidityProblemOptions(problem_options);
+    problem_options = checkValidityProblemOptions(problem_options, profile_options);
     profile_options = checkValidityProfileOptions(solvers, profile_options);
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1034,8 +1042,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 
     [n_problems, n_solvers, n_runs, ~] = size(merit_histories_merged);
 
-    if ~profile_options.(ProfileOptionKey.SILENT.value)
-        fprintf('INFO: Start the computation of the profiles under the "%s" feature.\n', feature.name);
+    if ~profile_options.(ProfileOptionKey.SILENT.value) 
+        fprintf('INFO: Start the computation of the profiles.\n');
     end
 
     max_tol_order = profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value);
@@ -1370,12 +1378,16 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         % Sort the summary PDF files by their folder names.
         [~, idx] = sort({summary_files.folder});
         summary_files = summary_files(idx);
-        % Merge all the summary PDF files to a single PDF file.
-        delete(fullfile(path_out, 'summary.pdf'));
-        for i_file = 1:numel(summary_files)
-            copyfile(fullfile(summary_files(i_file).folder, summary_files(i_file).name), path_out);
-            mergePdfs(path_out, 'summary.pdf', path_out);
-            delete(fullfile(path_out, summary_files(i_file).name));
+        try
+            % Merge all the summary PDF files to a single PDF file.
+            delete(fullfile(path_out, 'summary.pdf'));
+            for i_file = 1:numel(summary_files)
+                copyfile(fullfile(summary_files(i_file).folder, summary_files(i_file).name), path_out);
+                mergePdfs(path_out, 'summary.pdf', path_out);
+                delete(fullfile(path_out, summary_files(i_file).name));
+            end
+        catch
+            warning('INFO: Failed to merge the summary PDF files.\n');
         end
     end
     warning('on');

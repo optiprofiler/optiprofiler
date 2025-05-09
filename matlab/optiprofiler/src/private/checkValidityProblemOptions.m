@@ -1,4 +1,4 @@
-function problem_options = checkValidityProblemOptions(problem_options)
+function problem_options = checkValidityProblemOptions(problem_options, profile_options)
 %CHECKVALIDITYCUTESTOPTIONS Check the validity of the options in cuteset_options
 
     % Judge whether problem_options.plibs is a char or a string or a cell array of strings or chars.
@@ -21,8 +21,8 @@ function problem_options = checkValidityProblemOptions(problem_options)
             problem_options.(ProblemOptionKey.PLIBS.value) = problem_options.(ProblemOptionKey.PLIBS.value)';
         end
     end
-    % If the OS is not Linux, then the field 'plibs' of options cannot contain 'matcutest'.
-    if (~isunix || ismac) && isfield(problem_options, ProblemOptionKey.PLIBS.value) && any(ismember(problem_options.(ProblemOptionKey.PLIBS.value), 'matcutest'))
+    % If the OS is not Linux, then the field 'plibs' of options cannot contain 'matcutest' if the field 'load' of options is not provided or empty.
+    if (~isunix || ismac) && isfield(problem_options, ProblemOptionKey.PLIBS.value) && any(ismember(problem_options.(ProblemOptionKey.PLIBS.value), 'matcutest')) && (~isfield(profile_options, ProfileOptionKey.LOAD.value) || isempty(profile_options.(ProfileOptionKey.LOAD.value)))
         error("MATLAB:checkValidityProblemOptions:plibsNotLinux", "The field 'plibs' of options cannot contain 'matcutest' on non-Linux OS.");
     end
 
