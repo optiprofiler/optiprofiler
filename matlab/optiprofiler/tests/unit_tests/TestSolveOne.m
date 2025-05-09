@@ -16,7 +16,8 @@ classdef TestSolveOne < matlab.unittest.TestCase
             profile_options.silent = false;
             profile_options.seed = 1;
             profile_options.solver_verbose = 1;
-            result = solveOneProblem(solvers, problem, feature, problem_name, len_problem_names, profile_options, false, '');
+            profile_options.score_only = false;
+            result = solveOneProblem(solvers, problem, feature, problem_name, len_problem_names, profile_options, true, '');
             testCase.verifyNotEmpty(result);
             testCase.verifyNotEmpty(result.fun_history);
             testCase.verifyNotEmpty(result.maxcv_history);
