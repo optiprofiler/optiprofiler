@@ -851,7 +851,12 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         for i_plib = 1:numel(plibs)
             plib = plibs{i_plib};
             if ~profile_options.(ProfileOptionKey.SILENT.value)
-                fprintf('INFO: Start the computation of problems from the "%s" library under "%s" feature.\n', plib, feature.name);
+                fprintf('INFO: Start the computation of problems from the problem library "%s" under "%s" feature.\n', plib, feature.name);
+                if strcmp(plib, 's2mpj')
+                    fprintf("INFO: More information about the S2MPJ problem library can be found at: https://github.com/GrattonToint/S2MPJ\n\n");
+                elseif strcmp(plib, 'matcutest')
+                    fprintf("INFO: More information about the MatCUTEst problem library can be found at: https://github.com/matcutest\n\n");
+                end
             end
 
             % Create directory to store the history plots for each problem library.
@@ -964,6 +969,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         % Write the report file for the current problem library.
         try
             fid = fopen(path_report, 'w');
+            fprintf(fid, "Report file for the current experiment.\n\n");
             for i_plib = 1:size(results_plibs, 2)
                 results_plib = results_plibs{i_plib};
                 plib = results_plib.plib;
@@ -994,19 +1000,19 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                 [~, idx] = sort(lower(problem_names));
                 sorted_problem_names = problem_names(idx);
                 sorted_time_processes = time_processes(idx);
-                max_name_length = max(cellfun(@length, sorted_problem_names));
+                max_name_length = max(max(cellfun(@length, sorted_problem_names)), 12);
                 sorted_time_processes = num2cell(sorted_time_processes);
-                max_time_length = max(cellfun(@(x) length(sprintf('%.2f', x)), sorted_time_processes));
+                max_time_length = max(max(cellfun(@(x) length(sprintf('%.2f', x)), 28), sorted_time_processes));
 
                 % Print the report file.
                 fprintf(fid, 'Report for the problem library "%s".\n\n', plib);
                 if length(unsolved_problems) < length(sorted_problem_names)
-                    fprintf(fid, "Problem names and the total time spent on solving each problem:\n");
+                    fprintf(fid, "%-*s    %-*s\n", max_name_length, "Problem name", max_time_length, "Time spent by solvers (secs)");
                     for i = 1:length(sorted_problem_names)
                         if ismember(sorted_problem_names{i}, unsolved_problems)
                             continue;
                         end
-                        count = fprintf(fid, "%-*s      %*s\n", max_name_length, sorted_problem_names{i}, max_time_length, sprintf('%.2f seconds', sorted_time_processes{i}));
+                        count = fprintf(fid, "%-*s    %-*s\n", max_name_length, sorted_problem_names{i}, max_time_length, sprintf('%.2f seconds', sorted_time_processes{i}));
                         if count < 0
                             if ~profile_options.(ProfileOptionKey.SILENT.value)
                                 fprintf("INFO: Failed to record data for %s.", sorted_problem_names{i});

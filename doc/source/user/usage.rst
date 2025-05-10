@@ -97,7 +97,7 @@ If you want to benchmark solvers based on your own problem library, you should d
 
   - **<your_problem_library_name>_load.m**: Define a function that accepts a character or string representing the optimization problem name and returns a Problem class object (see :ref:`Problem <matproblem>`).
 
-  - **<your_problem_library_name>_select.m**: Define a function that accepts a structure to specify desired problem characteristics and returns a cell array containing names of all problems in your library that satisfy the requirements. The structure may include fields such as ``ptype``, ``mindim``, ``maxdim``, ``minb``, ``maxb``, ``mincon``, ``maxcon``, and ``excludelist`` (these fieldname descriptions can be found in the :ref:benchmark <matbenchmark> function documentation in "Options for problems" part).
+  - **<your_problem_library_name>_select.m**: Define a function that accepts a structure to specify desired problem characteristics and returns a cell array containing names of all problems in your library that satisfy the requirements. The structure may include fields such as ``ptype``, ``mindim``, ``maxdim``, ``minb``, ``maxb``, ``mincon``, ``maxcon``, and ``excludelist`` (these fields descriptions can be found in the :ref:benchmark <matbenchmark> function documentation in "Options for problems" part).
 
 3. Use the benchmark function as before, but specify your desired problem libraries. For example, to use both the default S2MPJ library and your custom library:
 
