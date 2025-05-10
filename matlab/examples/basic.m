@@ -30,7 +30,6 @@ function basic()
     % options.plibs = {'s2mpj', 'custom_example'};
     % options.ptype = 'u';
     % options.maxdim = 2;
-    % options.mindim = 2;
     % solver_scores = benchmark(solvers, options)
 end
 

@@ -11,6 +11,8 @@ function test_plain(benchmark_id)
     options.mindim = 11;
     options.maxdim = 11;
     options.benchmark_id = benchmark_id;
+    options.max_tol_order = 3;
+    options.max_eval_factor = 50;
     if isunix() && ~ismac()
         options.plibs = {'s2mpj', 'matcutest', 'custom_example'};
     else

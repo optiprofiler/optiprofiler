@@ -36,6 +36,37 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %
 %   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
+%   Cautions:
+%
+%   1. Each solver in SOLVERS should accept corresponding signature(s)
+%      depending on the test suite you choose:
+%
+%       - for an unconstrained problem,
+%           x = solver(fun, x0),
+%         where `fun` is a function handle of the objective function accepting
+%         a column vector and returning a real number, and `x0` is the initial
+%         guess which is a column vector;
+%       - for a bound-constrained problem,
+%           x = solver(fun, x0, xl, xu),
+%         where `xl` and `xu` are the lower and upper bounds of the variables
+%         which are column vectors (they can contain Inf or -Inf);
+%       - for a linearly constrained problem,
+%           x = solver(fun, x0, xl, xu, aub, bub, aeq, beq);
+%         where `aub` and `aeq` are the matrices of the linear inequality and
+%         equality constraints, and `bub` and `beq` are the vectors of the
+%         linear inequality and equality constraints;
+%       - for a nonlinearly constrained problem,
+%           x = solver(fun, x0, xl, xu, aub, bub, aeq, beq, cub, ceq),
+%         where `cub` and `ceq` are the functions of the nonlinear inequality
+%         and equality constraints accepting a column vector and returning a
+%         column vector.
+%
+%   2. The log-ratio profiles are available only when there are exactly two 
+%      solvers. For more information of performance and data profiles, see
+%      [1]_, [2]_, [5]_. For that of log-ratio profiles, see [4]_, [6]_.
+%
+%   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
 %   Options:
 %
 %   Options should be specified in a struct. The following are the available
@@ -274,10 +305,10 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %       3. options for problems:
 %
 %       Options in this part are used to select problems for benchmarking.
-%       First select which problem libraries to use based on the `plibs` option.
-%       Then select problems from these libraries according to the given
-%       options (`problem_names`, `ptype`, `mindim`, `maxdim`, `minb`, `maxb`,
-%       `mincon`, `maxcon`, and `excludelist`).
+%       First select which problem libraries to use based on the `plibs`
+%       option. Then select problems from these libraries according to the
+%       given options (`problem_names`, `ptype`, `mindim`, `maxdim`, `minb`,
+%       `maxb`, `mincon`, `maxcon`, and `excludelist`).
 %
 %       Following is the list of available options:
 %
@@ -308,51 +339,33 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         be a cell array of strings or chars. Default is not to select any
 %         problem by name but by the options above.
 %
-%       We point out following:
+%   Several points to note:
 %
-%           1. The information about two problem libraries is available in the
-%              following links:
-%                   S2MPJ <https://github.com/GrattonToint/S2MPJ>
-%                   MatCUTEst <https://github.com/matcutest>
-%           2. If you want to use your own problem library, please check the
-%              README.txt in the directory 'problems/custom_example' or the
-%              guidance in our website <https://optprof.com> for more details.
-%           3. MatCUTEst is only available when the OS is Linux.
-%           4. If the `load` option is provided, we will use options in this
-%              part to select data from the specified experiment for plotting.
+%   1. The information about two problem libraries is available in the
+%      following links:
+%           S2MPJ (see [3]_) <https://github.com/GrattonToint/S2MPJ>
+%           MatCUTEst <https://github.com/matcutest>
 %
-%   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   2. If you want to use your own problem library, please check the README.txt
+%      in the directory 'problems/custom_example' or the guidance in our
+%      website <https://optprof.com> for more details.
 %
-%   Cautions:
+%   3. The problem library MatCUTEst is only available when the OS is Linux.
 %
-%   1. Each solver in SOLVERS should accept the following signature(s):
-%
-%       - for an unconstrained problem,
-%           x = solver(fun, x0),
-%         where `fun` is a function handle of the objective function accepting
-%         a column vector and returning a real number, and `x0` is the initial
-%         guess which is a column vector;
-%       - for a bound-constrained problem,
-%           x = solver(fun, x0, xl, xu),
-%         where `xl` and `xu` are the lower and upper bounds of the variables
-%         which are column vectors (they can contain Inf or -Inf);
-%       - for a linearly constrained problem,
-%           x = solver(fun, x0, xl, xu, aub, bub, aeq, beq);
-%         where `aub` and `aeq` are the matrices of the linear inequality and
-%         equality constraints, and `bub` and `beq` are the vectors of the
-%         linear inequality and equality constraints;
-%       - for a nonlinearly constrained problem,
-%           x = solver(fun, x0, xl, xu, aub, bub, aeq, beq, cub, ceq),
-%         where `cub` and `ceq` are the functions of the nonlinear inequality
-%         and equality constraints accepting a column vector and returning a
-%         column vector.
-%
-%   2. The log-ratio profiles are available only when there are exactly two 
-%      solvers.
-%
-%   For more information of performance and data profiles, see [1]_, [2]_,
-%   [5]_. For that of log-ratio profiles, see [4]_, [6]_. For that of S2MPJ,
-%   see [3]_.
+%   4. If the `load` option is provided, we will use the provided options to
+%      select data from the specified experiment for plotting the profiles.
+%      Available options are:
+%      - Options for profiles and plots: `benchmark_id`, `solver_names`,
+%        `feature_stamp`, `errorbar_type`, `savepath`, `max_tol_order`,
+%        `merit_fun`, `run_plain`, `score_only`,
+%        `summarize_performance_profiles`, `summarize_data_profiles`,
+%        `summarize_log_ratio_profiles`, `summarize_output_based_profiles`,
+%        `silent`, `semilogx`, `normalized_scores`, `score_weight_fun`,
+%        `score_fun`, `solvers_to_load`, `line_colors`, `line_styles`,
+%        `line_widths`, `bar_colors`.
+%      - *Options for features*: none.
+%      - *Options for problems*: `plibs`, `ptype`, `mindim`, `maxdim`, `minb`,
+%        `maxb`, `mincon`, `maxcon`, `excludelist`.
 %
 %   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -548,9 +561,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     solver_scores = zeros(n_solvers, 1);
     profile_scores = [];
     curves = [];
-    if ~exist('solver_names', 'var')
-        solver_names = profile_options.(ProfileOptionKey.SOLVER_NAMES.value);
-    end
+    solver_names = profile_options.(ProfileOptionKey.SOLVER_NAMES.value);
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%% Set the default options for plotting. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -570,10 +581,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     time = datetime('now', 'Format', 'yyyyMMdd_HHmmss');
     time_stamp = char(time);
 
-    % Set the default feature stamp if it does not exist.
-    if ~exist('feature_stamp', 'var')
-        feature_stamp = profile_options.(ProfileOptionKey.FEATURE_STAMP.value);
-    end
+    % Set the feature stamp
+    feature_stamp = profile_options.(ProfileOptionKey.FEATURE_STAMP.value);
 
     path_feature = fullfile(path_out, [feature_stamp, '_', time_stamp]);
     path_log = fullfile(path_feature, 'test_log');

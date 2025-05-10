@@ -28,7 +28,7 @@ end
 function f = mod_fun(x, rand_stream, problem)
 
     f = problem.fun(x);
-    f = f + max(1, abs(f)) * 1e-3 * rand_stream.randn(1);
+    f = f + 1e-3 * max(1, abs(f)) * rand_stream.randn(1);
 end
 
 function [A, b, inv] = mod_affine(rand_stream, problem)
