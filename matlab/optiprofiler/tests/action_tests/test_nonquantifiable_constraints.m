@@ -22,7 +22,7 @@ function test_nonquantifiable_constraints(benchmark_id)
     % Test load
     options.load = 'latest';
     options.solver_names = {'sqp', 'interior-point'};
-    options.solver_to_load = [1, 2];
+    options.solvers_to_load = [1, 2];
     options.run_plain = false;
     options.plibs = 's2mpj';
     options.ptype = 'un';
