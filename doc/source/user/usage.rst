@@ -105,3 +105,5 @@ If you want to benchmark solvers based on your own problem library, you should d
 
     options.plibs = {'s2mpj', 'myproblems'};
     scores = benchmark({@solver1, @solver2}, options)
+
+You may also refer to the README file in the ``'problems'`` folder for a detailed guide on how to create and use your own problem library via the OptiProfiler package.
