@@ -974,6 +974,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                 results_plib = results_plibs{i_plib};
                 plib = results_plib.plib;
                 problem_names = results_plib.problem_names;
+                problem_dims = results_plib.problem_dims;
+                problem_mbs = results_plib.problem_mbs;
+                problem_cons = results_plib.problem_cons;
                 solvers_successes = results_plib.solvers_successes;
                 computation_times = results_plib.computation_times;
                 if isfield(results_plibs{i_plib}, 'results_plib_plain') && profile_options.(ProfileOptionKey.RUN_PLAIN.value)
@@ -999,20 +1002,30 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                 end
                 [~, idx] = sort(lower(problem_names));
                 sorted_problem_names = problem_names(idx);
-                sorted_time_processes = time_processes(idx);
+                sorted_problem_dims = num2cell(problem_dims(idx));
+                sorted_problem_mbs = num2cell(problem_mbs(idx));
+                sorted_problem_cons = num2cell(problem_cons(idx));
+                sorted_time_processes = num2cell(time_processes(idx));
                 max_name_length = max(max(cellfun(@length, sorted_problem_names)), 12);
-                sorted_time_processes = num2cell(sorted_time_processes);
-                max_time_length = max(max(cellfun(@(x) length(sprintf('%.2f', x)), 28), sorted_time_processes));
+                max_dim_length = max(max(cellfun(@length, sorted_problem_dims)), 9);
+                max_mbs_length = max(max(cellfun(@length, sorted_problem_mbs)), 2);
+                max_cons_length = max(max(cellfun(@length, sorted_problem_cons)), 4);
+                max_time_length = max(max(cellfun(@(x) length(sprintf('%.2f', x)), sorted_time_processes)), 28);
 
                 % Print the report file.
                 fprintf(fid, 'Report for the problem library "%s".\n\n', plib);
                 if length(unsolved_problems) < length(sorted_problem_names)
-                    fprintf(fid, "%-*s    %-*s\n", max_name_length, "Problem name", max_time_length, "Time spent by solvers (secs)");
+                    fprintf(fid, "%-*s    %-*s    %-*s    %-*s    %-*s\n", max_name_length, "Problem name", max_dim_length, "Dimension", max_mbs_length, "mb", max_cons_length, "mcon", max_time_length, "Time spent by solvers (secs)");
                     for i = 1:length(sorted_problem_names)
                         if ismember(sorted_problem_names{i}, unsolved_problems)
                             continue;
                         end
-                        count = fprintf(fid, "%-*s    %-*s\n", max_name_length, sorted_problem_names{i}, max_time_length, sprintf('%.2f seconds', sorted_time_processes{i}));
+                        name = sorted_problem_names{i};
+                        dim = sprintf('%d', sorted_problem_dims{i});
+                        mb = sprintf('%d', sorted_problem_mbs{i});
+                        mcon = sprintf('%d', sorted_problem_cons{i});
+                        time = sprintf('%.2f', sorted_time_processes{i});
+                        count = fprintf(fid, "%-*s    %-*s    %-*s    %-*s    %-*s\n", max_name_length, name, max_dim_length, dim, max_mbs_length, mb, max_cons_length, mcon, max_time_length, time);
                         if count < 0
                             if ~profile_options.(ProfileOptionKey.SILENT.value)
                                 fprintf("INFO: Failed to record data for %s.", sorted_problem_names{i});
@@ -1022,17 +1035,17 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                     fprintf(fid, "\n");
                 end
                 if ~isempty(unsolved_problems)
-                    fprintf(fid, "Problems that all the solvers failed to evaluate a single point:\n");
+                    fprintf(fid, 'Problems from the problem library "%s" that all the solvers failed to evaluate a single point:\n\n', plib);
                     for i = 1:length(unsolved_problems)
-                        count = fprintf(fid, "%s\n", unsolved_problems{i});
+                        count = fprintf(fid, "%s ", unsolved_problems{i});
                         if count < 0
                             if ~profile_options.(ProfileOptionKey.SILENT.value)
                                 fprintf("INFO: Failed to record data for %s.", unsolved_problems{i});
                             end
                         end
                     end
+                    fprintf(fid, "\n\n");
                 end
-                fprintf(fid, "\n");
             end
             fclose(fid);
             try
