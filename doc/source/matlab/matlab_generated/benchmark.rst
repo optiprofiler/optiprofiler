@@ -267,7 +267,7 @@ Options in this part are used to select problems for benchmarking. First select 
   1. The information about two problem libraries is available in the following links:
     S2MPJ (see [3]_) <https://github.com/GrattonToint/S2MPJ> and MatCUTEst <https://github.com/matcutest>.
 
-  2. If you want to use your own problem library, please check the README.txt in the directory ``'problems/custom_example'`` or the guidance in our website <https://optprof.com> for more details.
+  2. If you want to use your own problem library, please check the README.txt in the directory ``'problems/'`` or the :ref:`guidance <use>` in our website for more details.
 
   3. The problem library MatCUTEst is only available when the OS is Linux.
 

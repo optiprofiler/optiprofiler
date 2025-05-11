@@ -347,8 +347,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %           MatCUTEst <https://github.com/matcutest>
 %
 %   2. If you want to use your own problem library, please check the README.txt
-%      in the directory 'problems/custom_example' or the guidance in our
-%      website <https://optprof.com> for more details.
+%      in the directory 'problems/' or the guidance in our website
+%      <https://optprof.com> for more details.
 %
 %   3. The problem library MatCUTEst is only available when the OS is Linux.
 %
@@ -627,7 +627,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         path_readme_log = fullfile(path_log, 'README.txt');
         try
             fid = fopen(path_readme_log, 'w');
-            fprintf(fid, "This folder contains following files and directories.\n\n");
+            fprintf(fid, "# Content of this folder\n\n");
             fclose(fid);
         catch
             if ~profile_options.(ProfileOptionKey.SILENT.value)
@@ -698,7 +698,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         path_readme_feature = fullfile(path_feature, 'README.txt');
         try
             fid = fopen(path_readme_feature, 'w');
-            fprintf(fid, "This folder contains following files and directories.\n\n");
+            fprintf(fid, "# Content of this folder\n\n");
             if ~isempty(path_hist_plots)
                 fprintf(fid, "'history_plots': folder, containing all the history plots for each problem.\n");
                 fprintf(fid, "'history_plots_summary.pdf': file, the summary PDF of history plots for all problems.\n");
@@ -969,7 +969,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         % Write the report file for the current problem library.
         try
             fid = fopen(path_report, 'w');
-            fprintf(fid, "Report file for the current experiment.\n\n");
+            fprintf(fid, "# Report file for the current experiment\n\n");
             for i_plib = 1:size(results_plibs, 2)
                 results_plib = results_plibs{i_plib};
                 plib = results_plib.plib;
@@ -1013,7 +1013,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                 max_time_length = max(max(cellfun(@(x) length(sprintf('%.2f', x)), sorted_time_processes)), 28);
 
                 % Print the report file.
-                fprintf(fid, 'Report for the problem library "%s".\n\n', plib);
+                fprintf(fid, '## Report for the problem library "%s"\n\n', plib);
                 if length(unsolved_problems) < length(sorted_problem_names)
                     fprintf(fid, "%-*s    %-*s    %-*s    %-*s    %-*s\n", max_name_length, "Problem name", max_dim_length, "Dimension", max_mbs_length, "mb", max_cons_length, "mcon", max_time_length, "Time spent by solvers (secs)");
                     for i = 1:length(sorted_problem_names)
@@ -1035,7 +1035,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                     fprintf(fid, "\n");
                 end
                 if ~isempty(unsolved_problems)
-                    fprintf(fid, 'Problems from the problem library "%s" that all the solvers failed to evaluate a single point:\n\n', plib);
+                    fprintf(fid, '## Problems from the problem library "%s" that all the solvers failed to evaluate a single point\n\n', plib);
                     for i = 1:length(unsolved_problems)
                         count = fprintf(fid, "%s ", unsolved_problems{i});
                         if count < 0
@@ -1298,7 +1298,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         try
             fid = fopen(path_report, 'a');
             fprintf(fid, "\n");
-            fprintf(fid, "Problems among all the libraries that all the solvers failed to meet the convergence test for each tolerance and each run:\n");
+            fprintf(fid, "## Problems among all the libraries that all the solvers failed to meet the convergence test for each tolerance and each run\n");
             for i_tol = 1:profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)
                 tolerance = tolerances(i_tol);
                 tolerance_str = formatFloatScientificLatex(tolerance, 1);
