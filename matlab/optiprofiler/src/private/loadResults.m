@@ -9,7 +9,7 @@ function [results_plibs, profile_options] = loadResults(problem_options, profile
     % Check whether it is 'latest' or a string (or char) in the format of 'yyyyMMdd_HHmmss'.
     time_stamp_pattern = '^\d{4}(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})$';
     if ~strcmp(profile_options.(ProfileOptionKey.LOAD.value), 'latest') && isempty(regexp(profile_options.(ProfileOptionKey.LOAD.value), time_stamp_pattern, 'once'))
-        error("MATLAB:checkValidityProfileOptions:loadNotValid", "The field `load` of options should be either 'latest' or a time stamp in the format of 'yyyyMMdd_HHmmss'.");
+        error("MATLAB:checkValidityProfileOptions:loadNotValid", "The option `load` should be either 'latest' or a time stamp in the format of 'yyyyMMdd_HHmmss'.");
     end
 
     % Set the path to search for the data to load.
@@ -58,7 +58,7 @@ function [results_plibs, profile_options] = loadResults(problem_options, profile
     if isfield(profile_options, ProfileOptionKey.SOLVERS_TO_LOAD.value)
         solvers_to_load = profile_options.(ProfileOptionKey.SOLVERS_TO_LOAD.value);
         if any(solvers_to_load > n_solvers_loaded) || (isfield(profile_options, ProfileOptionKey.SOLVER_NAMES.value) && numel(profile_options.(ProfileOptionKey.SOLVER_NAMES.value)) ~= numel(solvers_to_load))
-            error("MATLAB:loadResults:solvers_to_loadNotValid", "The field `solvers_to_load` of options should be a vector of different integers selected from 1 to the total number of solvers in the loaded data, and at least two indices should be provided.");
+            error("MATLAB:loadResults:solvers_to_loadNotValid", "The option `solvers_to_load` should be a vector of different integers selected from 1 to the total number of solvers in the loaded data, and at least two indices should be provided.");
         end
     else
         solvers_to_load = 1:n_solvers_loaded;
@@ -77,7 +77,7 @@ function [results_plibs, profile_options] = loadResults(problem_options, profile
         valid_plib_names = cellfun(@(x) x.plib, results_plibs, 'UniformOutput', false);
         plibs = problem_options.(ProblemOptionKey.PLIBS.value);
         if ~all(cellfun(@ischarstr, plibs)) || ~all(ismember(plibs, valid_plib_names))
-            error("MATLAB:loadResults:plibNotValid", "When you use `load` option, the field `plibs` of options should be a cell array of strings or chars, and each string or char should be one of the problem libraries in the loaded data ('%s').", strjoin(valid_plib_names, "', '"));
+            error("MATLAB:loadResults:plibNotValid", "When you use the option `load`, the option `plibs` should be a cell array of strings or chars, and each string or char should be one of the problem libraries in the loaded data ('%s').", strjoin(valid_plib_names, "', '"));
         end
         % Select the problem libraries to load.
         results_plibs = results_plibs(cellfun(@(x) ismember(x.plib, plibs), results_plibs));

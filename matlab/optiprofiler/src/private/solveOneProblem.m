@@ -6,8 +6,7 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
     result = struct();
 
     if ~isa(problem, 'Problem')
-        fprintf("INFO: The problem provided is not a valid Problem object.\n");
-        return;
+        error("MATLAB:solveOneProblem:invalid_problem", "The problem provided is not a valid Problem object.\n");
     end
 
     problem_type = problem.ptype;
@@ -227,6 +226,8 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
         warning('on');
         close(fig_summary);
     catch Exception
-        fprintf("INFO: An error occurred while plotting the history plots of the problem %s: %s\n", problem_name, Exception.message);
+        if ~profile_options.(ProfileOptionKey.SILENT.value)
+            fprintf("INFO: An error occurred while plotting the history plots of the problem %s: %s\n", problem_name, Exception.message);
+        end
     end
 end

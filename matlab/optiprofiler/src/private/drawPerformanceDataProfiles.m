@@ -18,7 +18,7 @@ function drawPerformanceDataProfiles(ax, x, y, solver_names, profile_options)
             y_lower = max(y_mean - y_std, 0);
             y_upper = min(y_mean + y_std, 1);
         otherwise
-            error("Unknown range type.");
+            error("Unknown `errorbar_type`: %s", profile_options.(ProfileOptionKey.ERRORBAR_TYPE.value));
     end
 
     hold(ax, 'on');

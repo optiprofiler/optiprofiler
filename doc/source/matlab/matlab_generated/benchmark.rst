@@ -154,7 +154,7 @@ Options should be specified in a struct. The following are the available fields 
 
   - **feature_name**: the name of the feature. The available features are ``'plain'``, ``'perturbed_x0'``, ``'noisy'``, ``'truncated'``, ``'permuted'``, ``'linearly_transformed'``, ``'random_nan'``, ``'unrelaxable_constraints'``, ``'nonquantifiable_constraints'``, ``'quantized'``, and ``'custom'``. Default is ``'plain'``.
 
-  - **n_runs**: the number of runs of the experiments under the given feature. Default is ``10`` for stochastic features and ``1`` for deterministic features.
+  - **n_runs**: the number of runs of the experiments under the given feature. Default is ``5`` for stochastic features and ``1`` for deterministic features.
 
   - **distribution**: the distribution of perturbation in ``'perturbed_x0'`` feature or noise in ``'noisy'`` feature. It should be either a string (or char), or a function handle
 

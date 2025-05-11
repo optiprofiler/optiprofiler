@@ -29,7 +29,9 @@ function results = solveAllProblems(solvers, plib, feature, problem_options, pro
     end
 
     if isempty(problem_names)
-        fprintf('INFO: No problem is selected from "%s".\n', plib);
+        if ~profile_options.(ProfileOptionKey.SILENT.value)
+            fprintf('INFO: No problem is selected from "%s".\n', plib);
+        end
         return;
     end
 
@@ -80,7 +82,7 @@ function results = solveAllProblems(solvers, plib, feature, problem_options, pro
             pool = gcp('nocreate');
         catch
             % If the user does not have the Parallel Computing Toolbox, the gcp function will not be available. We will print a error message and exit.
-            error("The Parallel Computing Toolbox is not available. Please set the n_jobs option to 1.");
+            error("The Parallel Computing Toolbox is not available. Please set the option `n_jobs` to 1.");
         end
         if isempty(pool)
             try
@@ -90,7 +92,9 @@ function results = solveAllProblems(solvers, plib, feature, problem_options, pro
                     evalc("parpool(profile_options.(ProfileOptionKey.N_JOBS.value))");
                 end
             catch
-                fprintf("INFO: Failed to create a parallel pool with the specified number of workers. Using the default number of workers.\n");
+                if ~profile_options.(ProfileOptionKey.SILENT.value)
+                    fprintf("INFO: Failed to create a parallel pool with the specified number of workers. Using the default number of workers.\n");
+                end
             end
         end
         parfor i_problem = 1:n_problems
@@ -124,7 +128,9 @@ function results = solveAllProblems(solvers, plib, feature, problem_options, pro
     n_problems = length(tmp_results);
 
     if all(cellfun(@isempty, tmp_results))
-        fprintf("INFO: All problems failed to solve.\n");
+        if ~profile_options.(ProfileOptionKey.SILENT.value)
+            fprintf("INFO: All problems failed to solve.\n");
+        end
         return;
     else
         % Process results.

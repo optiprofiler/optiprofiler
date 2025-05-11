@@ -72,7 +72,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %   Options should be specified in a struct. The following are the available
 %   fields of the struct:
 %
-%       1. options for profiles and plots:
+%       1. Options for profiles and plots:
 %
 %       - n_jobs: the number of parallel jobs to run the test. Default is the
 %         number of workers in the parallel pool.
@@ -192,7 +192,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         with the given feature and draw the history plots. Default is not to
 %         set any problem.
 %
-%       2. options for features:
+%       2. Options for features:
 %
 %       - feature_name: the name of the feature. The available features are
 %         'plain', 'perturbed_x0', 'noisy', 'truncated', 'permuted',
@@ -200,8 +200,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         'nonquantifiable_constraints', 'quantized', and 'custom'. Default is
 %         'plain'.
 %       - n_runs: the number of runs of the experiments under the given
-%         feature. Default is 10 for stochastic features and 1 for
-%         deterministic features.
+%         feature. Default is 5 for stochastic features and 1 for deterministic
+%         features.
 %       - distribution: the distribution of perturbation in 'perturbed_x0'
 %         feature or noise in 'noisy' feature. It should be either a string
 %         (or char), or a function handle
@@ -302,7 +302,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         class Problem, and `modified_ceq` is the modified vector of the
 %         nonlinear equality constraints. No default.
 %
-%       3. options for problems:
+%       3. Options for problems:
 %
 %       Options in this part are used to select problems for benchmarking.
 %       First select which problem libraries to use based on the `plibs`
@@ -363,8 +363,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %        `silent`, `semilogx`, `normalized_scores`, `score_weight_fun`,
 %        `score_fun`, `solvers_to_load`, `line_colors`, `line_styles`,
 %        `line_widths`, `bar_colors`.
-%      - *Options for features*: none.
-%      - *Options for problems*: `plibs`, `ptype`, `mindim`, `maxdim`, `minb`,
+%      - Options for features: none.
+%      - Options for problems: `plibs`, `ptype`, `mindim`, `maxdim`, `minb`,
 %        `maxb`, `mincon`, `maxcon`, `excludelist`.
 %
 %   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -409,7 +409,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     if nargin == 0
-        error("MATLAB:benchmark:solverMustBeProvided", "A cell of function handles (callable solvers) or a struct of options must be provided.");
+        error("MATLAB:benchmark:solverMustBeProvided", "At least a cell of function handles (callable solvers) or a struct of options must be provided to `benchmark`.");
     elseif nargin == 1
         if isstruct(varargin{1})
             % When input contains one argument and the first argument is a struct, we assume the
@@ -427,7 +427,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                 options = rmfield(options, 'problem');
             end
             if ~isfield(options, ProfileOptionKey.LOAD.value) || isempty(options.(ProfileOptionKey.LOAD.value))
-                error("MATLAB:benchmark:LoadFieldNotProvided", "The field `load` of options should be provided when the first argument is a struct.");
+                error("MATLAB:benchmark:LoadFieldNotProvided", "The field `load` must be provided when the first argument for `benchmark` is a struct.");
             end
         else
             solvers = varargin{1};
@@ -458,12 +458,10 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                 options = rmfield(options, 'problem');
             end
         else
-            error("MATLAB:benchmark:SecondArgumentWrongType", ...
-            "The second argument for `benchmark` must be a feature name or a struct of options.");
+            error("MATLAB:benchmark:SecondArgumentWrongType", "The second argument for `benchmark` must be a feature name or a struct of options.");
         end
     else
-        error("MATLAB:benchmark:TooMuchInput", ...
-        "Invalid number of arguments. `benchmark` function at most takes two arguments.");
+        error("MATLAB:benchmark:TooMuchInput", "Invalid number of arguments. The function `benchmark` at most takes two arguments.");
     end
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -483,12 +481,12 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     % Process the feature_name.
     if ~ischarstr(feature_name)
         % feature_name must be a char or string.
-        error("MATLAB:benchmark:feature_nameNotcharstr", "The field `feature_name` of `options` for the function `benchmark` must be a char or string.");
+        error("MATLAB:benchmark:feature_nameNotcharstr", "`feature_name` provided for `benchmark` must be a char or string.");
     end
     feature_name = char(lower(feature_name));
     valid_feature_names = cellfun(@(x) x.value, num2cell(enumeration('FeatureName')), 'UniformOutput', false);
     if ~ismember(feature_name, valid_feature_names)
-        error("MATLAB:benchmark:feature_nameNotValid", "The field `feature_name` of `options` for the function `benchmark` must be one of the valid feature names: %s.", strjoin(valid_feature_names, ', '));
+        error("MATLAB:benchmark:feature_nameNotValid", "`feature_name` provided for `benchmark` must be one of the valid feature names: %s.", strjoin(valid_feature_names, ', '));
     end
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -517,7 +515,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         elseif ismember(key, validProfileOptionKeys)
             profile_options.(key) = value;
         else
-            error("MATLAB:benchmark:UnknownOptions", "Unknown `option` for `benchmark`: %s", key);
+            error("MATLAB:benchmark:UnknownOptions", "Unknown option for `benchmark`: %s", key);
         end
     end
 
@@ -680,7 +678,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             end
         catch
             if ~profile_options.(ProfileOptionKey.SILENT.value)
-                fprintf("INFO: Failed to save the `options` of the current experiment.\n");
+                fprintf("INFO: Failed to save the options of the current experiment.\n");
             end
         end
         log_file = fullfile(path_log, 'log.txt');
@@ -788,13 +786,13 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     % randomized, then we set `n_runs` to 5.
     if ~isfield(feature_options, FeatureOptionKey.N_RUNS.value) && ~feature.is_stochastic && any(profile_options.(ProfileOptionKey.SOLVER_ISRAND.value)) && isempty(profile_options.(ProfileOptionKey.LOAD.value))
         if ~profile_options.(ProfileOptionKey.SILENT.value)
-            fprintf("INFO: We set `n_runs` to 5 since the feature is deterministic and at least one solver is randomized and `n_runs` is not specified.\n\n");
+            fprintf("INFO: We set `n_runs` to 5 since it is not specified and at least one solver is randomized.\n\n");
         end
         feature.options.(FeatureOptionKey.N_RUNS.value) = 5;
     end
 
-    % If a specific problem is provided to `problem_options`, we only solve this problem and generate the history plots
-    % for it.
+    % If a specific problem is provided to `problem_options`, we only solve this problem and generate
+    % the history plots for it.
     if exist('problem', 'var')
         result = solveOneProblem(solvers, problem, feature, problem.name, length(problem.name), profile_options, true, path_hist_plots);
         if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
@@ -820,24 +818,24 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             % Find the least merit value for each problem.
             merit_min = min(merit_history, [], 'all');
             merit_min = min(merit_min, merit_init, 'omitnan');
-            % Since we will not compute the profiles, we set `solver_scores` to be the relative decreases in the objective
-            % function value.
+            % Since we will not compute the profiles, we set `solver_scores` to be the relative decreases
+            % in the objective function value.
             solver_merit_mins = squeeze(min(min(merit_history, [], 3, 'omitnan'), [], 2, 'omitnan'));
             solver_scores = (merit_init - solver_merit_mins) ./ max(merit_init - merit_min, eps);
         else
             solver_scores = zeros(n_solvers, 1);
         end
-        
-        if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
-            if ~profile_options.(ProfileOptionKey.SILENT.value)
-                fprintf('\n');
-                fprintf('INFO: Scores of the solvers:\n');
-                max_solver_name_length = max(cellfun(@length, solver_names));
-                for i_solver = 1:n_solvers
-                    format_info_str = sprintf('INFO: %%-%ds:    %%.4f\n', max_solver_name_length);
-                    fprintf(format_info_str, solver_names{i_solver}, solver_scores(i_solver));
-                end
+
+        if ~profile_options.(ProfileOptionKey.SILENT.value)
+            fprintf('\n');
+            fprintf('INFO: Scores of the solvers:\n');
+            max_solver_name_length = max(cellfun(@length, solver_names));
+            for i_solver = 1:n_solvers
+                format_info_str = sprintf('INFO: %%-%ds:    %%.4f\n', max_solver_name_length);
+                fprintf(format_info_str, solver_names{i_solver}, solver_scores(i_solver));
             end
+        end
+        if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
             diary off;
         end
         return;
@@ -874,12 +872,12 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             plib_path = fullfile(mydir, '../../../problems', plib);
             addpath(plib_path);
 
-            % Solve all the problems from the current problem library with the specified options and get the computation
-            % results.
+            % Solve all the problems from the current problem library with the specified options and
+            % get the computation results.
             results_plib = solveAllProblems(solvers, plib, feature, problem_options, profile_options, true, path_hist_plots_lib);
 
-            % If there are no problems selected or solved, skip the rest of the code, print a message, and continue to
-            % the next library.
+            % If there are no problems selected or solved, skip the rest of the code, print a message,
+            % and continue to the next library.
             if isempty(fieldnames(results_plib))
                 results_plibs{i_plib} = {};
                 continue;
@@ -926,11 +924,13 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                 end
                 try
                     mergePdfs(path_hist_plots_lib, [plib '_history_plots_summary.pdf'], path_hist_plots);
+                    if ~profile_options.(ProfileOptionKey.SILENT.value)
+                        fprintf('\nINFO: Merged history plots stored in: \n%s\n\n', path_hist_plots);
+                    end
                 catch
-                    warning('INFO: Failed to merge the history plots to a single PDF file.');
-                end
-                if ~profile_options.(ProfileOptionKey.SILENT.value)
-                    fprintf('\nINFO: Merged history plots stored in: \n%s\n\n', path_hist_plots);
+                    if ~profile_options.(ProfileOptionKey.SILENT.value)
+                        fprintf('INFO: Failed to merge the history plots to a single PDF file.');
+                    end
                 end
             end
         end
@@ -1071,7 +1071,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     [n_problems, n_solvers, n_runs, ~] = size(merit_histories_merged);
 
     if ~profile_options.(ProfileOptionKey.SILENT.value) 
-        fprintf('INFO: Start the computation of the profiles.\n');
+        fprintf('INFO: Start the computation of profiles.\n');
     end
 
     max_tol_order = profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value);
@@ -1332,8 +1332,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     end
 
     if n_rows > 0 && ispc
-        % Check the operating system. If it is Windows, we will adjust the position, papersize, paperposition of the
-        % summary figure! (MATLAB in Windows will adjust the figure size automatically when it is too large.)
+        % Check the operating system. If it is Windows, we will adjust the position, papersize, paperposition
+        % of the summary figure! (MATLAB in Windows will adjust the figure size automatically when it is too large.)
         fig_summary.Position = [defaultFigurePosition(1:2), profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * default_width, multiplier * n_rows * default_height];
         fig_summary.Units = 'centimeters';
         fig_summary.PaperUnits = 'centimeters';
@@ -1381,9 +1381,10 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     end
 
     if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
-        % Store the summary pdf. We will name the summary pdf as "summary_feature_name.pdf" and store it under
-        % path_feature. We will also put a "summary.pdf" in the path_out directory, which will be a merged pdf of
-        % all the "summary_feature_name.pdf" under path_out following the order of the feature_stamp.
+        % Store the summary pdf. We will name the summary pdf as "summary_feature_name.pdf" and store
+        % it under path_feature. We will also put a "summary.pdf" in the path_out directory, which will
+        % be a merged pdf of all the "summary_feature_name.pdf" under path_out following the order of
+        % the feature_stamp.
         summary_name = ['summary_', feature_stamp, '_', time_stamp];
         if n_rows > 0
             if ispc
@@ -1415,7 +1416,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                 delete(fullfile(path_out, summary_files(i_file).name));
             end
         catch
-            warning('INFO: Failed to merge the summary PDF files.\n');
+            if ~profile_options.(ProfileOptionKey.SILENT.value)
+                fprintf('INFO: Failed to merge the summary PDF files.\n');
+            end
         end
     end
     warning('on');

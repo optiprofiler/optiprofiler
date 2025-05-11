@@ -73,8 +73,8 @@ classdef Feature < handle
 %   following fields:
 %
 %       - n_runs: the number of runs of the experiments under the given
-%         feature. Default is 10 for stochastic features and 1 for
-%         deterministic features.
+%         feature. Default is 5 for stochastic features and 1 for deterministic
+%         features.
 %       - distribution: the distribution of perturbation in 'perturbed_x0'
 %         feature or noise in 'noisy' feature. It should be either a string
 %         (or char), or a function handle

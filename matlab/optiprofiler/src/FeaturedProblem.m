@@ -84,20 +84,20 @@ classdef FeaturedProblem < Problem
 
             % Preprocess the problem and the feature.
             if ~isa(problem, 'Problem')
-                error("MATLAB:FeaturedProblem:NotProblemClass", "The first argument of FeaturedProblem must be an instance of the class Problem.");
+                error("MATLAB:FeaturedProblem:NotProblemClass", "The first argument of `FeaturedProblem` must be an instance of the class Problem.");
             end
             if ~isa(feature, 'Feature')
-                error("MATLAB:FeaturedProblem:NotFeatureClass", "The second argument of FeaturedProblem must be an instance of the class Feature.");
+                error("MATLAB:FeaturedProblem:NotFeatureClass", "The second argument of `FeaturedProblem` must be an instance of the class Feature.");
             end
 
             % Preprocess the maximum number of function evaluations.
             if ~(isintegerscalar(max_eval) && max_eval > 0)
-                error("MATLAB:FeaturedProblem:max_evalNotPositiveInteger", "The argument max_eval must be a positive integer.");
+                error("MATLAB:FeaturedProblem:max_evalNotPositiveInteger", "The argument `max_eval` of `FeaturedProblem` must be a positive integer.");
             end
 
             % Preprocess the seed.
             if ~(isintegerscalar(seed) && seed >= 0 && seed < 2^32)
-                error("MATLAB:FeaturedProblem:seedNotNonnegativeInteger", "The argument seed must be a nonnegative integer seed less than 2^32");
+                error("MATLAB:FeaturedProblem:seedNotNonnegativeInteger", "The argument `seed` of `FeaturedProblem` must be a nonnegative integer seed less than 2^32");
             end
 
             pb_struct = struct();
