@@ -367,6 +367,10 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %      - Options for problems: `plibs`, `ptype`, `mindim`, `maxdim`, `minb`,
 %        `maxb`, `mincon`, `maxcon`, `excludelist`.
 %
+%   5. More information about OptiProfiler can be found on our website:
+%
+%                           https://www.optprof.com
+%
 %   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 %   References:
