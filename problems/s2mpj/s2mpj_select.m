@@ -5,7 +5,8 @@ function [problem_names, argins] = s2mpj_select(options)
 %
 %   PROBLEM_NAMES = S2MPJ_SELECT(OPTIONS) returns the names of selected
 %   problems from S2MPJ that satisfy the criteria in OPTIONS as a cell array
-%   PROBLEM_NAMES.
+%   PROBLEM_NAMES. More details about S2MPJ can be found in the official
+%   website: <https://github.com/GrattonToint/S2MPJ>.
 %
 %   OPTIONS is a struct with the following fields:
 %
@@ -44,6 +45,7 @@ function [problem_names, argins] = s2mpj_select(options)
 %          the number of constraints. This information is stored in the
 %          'probinfo.csv' file as the last few columns.
 %
+
 
     % Initialization.
     problem_names = {};

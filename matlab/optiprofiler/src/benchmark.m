@@ -560,6 +560,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     profile_scores = [];
     curves = [];
     solver_names = profile_options.(ProfileOptionKey.SOLVER_NAMES.value);
+    % Remove backslash from the solver names.
+    solver_names = cellfun(@(s) strrep(s, '\_', '_'), solver_names, 'UniformOutput', false);
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%% Set the default options for plotting. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

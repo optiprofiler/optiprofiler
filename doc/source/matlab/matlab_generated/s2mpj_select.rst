@@ -1,14 +1,14 @@
-.. _matsselect:
+.. _mats2mpjselect:
 
-s_select
-========
+s2mpj_select
+============
 
-**s_select(**\ *options*\ **)**
-    **s_select** selects the problems in S2MPJ that satisfy given criteria.
+**s2mpj_select(**\ *options*\ **)**
+    **s2mpj_select** selects the problems in S2MPJ that satisfy given criteria.
 
 --------------------------------------------------------------------------
 
-**problem_names** = **s_select**\(**options**) returns the names of selected problems from S2MPJ that satisfy the criteria in **options** as a cell array **problem_names**. More details about S2MPJ can be found in the website https://github.com/GrattonToint/S2MPJ.
+**problem_names** = **s2mpj_select**\(**options**) returns the names of selected problems from S2MPJ that satisfy the criteria in **options** as a cell array **problem_names**. More details about S2MPJ can be found in the official website <https://github.com/GrattonToint/S2MPJ>.
 
 **options** is a struct with the following fields:
 

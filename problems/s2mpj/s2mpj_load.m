@@ -1,10 +1,12 @@
 function problem = s2mpj_load(problem_name, varargin)
-%S2MPJ_LOAD coverts a problem in S2MPJ to a Problem class instance.
+%S2MPJ_LOAD coverts the S2MPJ problem name to a Problem class instance.
 %
 %   Users only need to use the following signature to call this function:
 %
 %   PROBLEM = S2MPJ_LOAD(PROBLEM_NAME) returns a Problem class instance PROBLEM
-%   that corresponds to the problem named PROBLEM_NAME in S2MPJ.
+%   that corresponds to the problem named PROBLEM_NAME in S2MPJ. More details
+%   about S2MPJ can be found in the official website:
+%   <https://github.com/GrattonToint/S2MPJ>.
 %
 %   There are two ways to get PROBLEM_NAME you want.
 %

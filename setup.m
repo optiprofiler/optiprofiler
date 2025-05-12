@@ -47,7 +47,6 @@ function setup(varargin)
         matd = fullfile(setup_dir, 'matlab'); % Matlab directory
         optiprofiler_dir = fullfile(matd, 'optiprofiler'); % Directory containing the package
         src_dir = fullfile(optiprofiler_dir, 'src'); % Directory containing the source code of the package
-        examples_dir = fullfile(matd, 'examples'); % Directory containing some examples
         s2mpj_dir = fullfile(prob_dir, 's2mpj'); % Directory containing S2MPJ
         matcutest_dir = fullfile(prob_dir, 'matcutest'); % Directory containing tools (interfaces) for MatCUTEst
         
@@ -80,7 +79,7 @@ function setup(varargin)
         if strcmp(action, 'install')
             % Check whether the system is Linux (not Mac). If yes, try to install MatCUTEst.
             if isunix() && ~ismac()
-                paths_saved = add_save_path({src_dir, examples_dir, s2mpj_dir, matcutest_dir}, package_name);
+                paths_saved = add_save_path({src_dir, s2mpj_dir, matcutest_dir}, package_name);
                 matcutest_install_dir = fullfile(matcutest_dir, 'src');
                 % Change the current directory to matcutest_install_dir and run 'install.m' to install MatCUTEst.
                 try
@@ -92,25 +91,26 @@ function setup(varargin)
                 end
                 cd(setup_dir);
             else
-                paths_saved = add_save_path({src_dir, examples_dir, s2mpj_dir}, package_name);
+                paths_saved = add_save_path({src_dir, s2mpj_dir}, package_name);
             end
     
             if all(paths_saved)
                 fprintf('\nThe package is ready to use.\n');
                 fprintf('\nYou may now try ''help benchmark'' for information on the usage of the package.\n');
                 fprintf('\nYou may also run ''testOptiProfiler'' to test the package on a few examples.\n');
+                fprintf('\nFew examples are provided in the directory:\n\n');
+                ex_dir = fullfile(matd, 'examples');
+                fprintf('    %s\n\n', ex_dir);
             else
                 add_path_string_1 = sprintf('addpath(''%s'');', src_dir);
-                add_path_string_2 = sprintf('addpath(''%s'');', examples_dir);
-                add_path_string_3 = sprintf('addpath(''%s'');', s2mpj_dir);
-                add_path_string_4 = sprintf('addpath(''%s'');', matcutest_dir);
+                add_path_string_2 = sprintf('addpath(''%s'');', s2mpj_dir);
+                add_path_string_3 = sprintf('addpath(''%s'');', matcutest_dir);
                 fprintf('\n***** To use the package in other MATLAB sessions, append the following line to your startup script. *****\n');
                 fprintf('\n  (see https://www.mathworks.com/help/matlab/ref/startup.html for information):\n');
                 fprintf('\n    %s\n', add_path_string_1);
                 fprintf('    %s\n', add_path_string_2);
-                fprintf('    %s\n', add_path_string_3);
                 if isunix() && ~ismac()
-                    fprintf('    %s\n', add_path_string_4);
+                    fprintf('    %s\n', add_path_string_3);
                 end
             end
     
@@ -281,7 +281,6 @@ function setup(varargin)
         matd = fullfile(mfiledir, 'matlab'); % OptiProfiler/matlab directory
         optiprofiler_dir = fullfile(matd, 'optiprofiler'); % Directory containing the package
         src_dir = fullfile(optiprofiler_dir, 'src'); % Directory containing the source code of the package
-        examples_dir = fullfile(matd, 'examples'); % Directory containing some examples
         s2mpj_dir = fullfile(prob_dir, 's2mpj'); % Directory containing S2MPJ
         matcutest_dir = fullfile(prob_dir, 'matcutest'); % Directory containing tools (interfaces) for MatCUTEst
     
@@ -289,13 +288,13 @@ function setup(varargin)
         orig_warning_state = warning;
         warning('off', 'MATLAB:rmpath:DirNotFound'); % Maybe the paths were not added. We do not want to see this warning.
         warning('off', 'MATLAB:SavePath:PathNotSaved'); % Maybe we do not have the permission to save path.
-        rmpath(src_dir, examples_dir, s2mpj_dir, matcutest_dir);
+        rmpath(src_dir, s2mpj_dir, matcutest_dir);
         
         savepath;
         warning(orig_warning_state); % Restore the behavior of displaying warnings
         
         % Removing the line possibly added to the user startup script
-        to_be_removed = {src_dir, examples_dir, s2mpj_dir, matcutest_dir};
+        to_be_removed = {src_dir, s2mpj_dir, matcutest_dir};
         user_startup = fullfile(userpath,'startup.m');
         if exist(user_startup, 'file')
             for i_path = 1:length(to_be_removed)

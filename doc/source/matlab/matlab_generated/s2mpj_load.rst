@@ -1,20 +1,20 @@
-.. _matsload:
+.. _mats2mpjload:
 
-s_load
-=======
+s2mpj_load
+==========
 
-**s_load(**\ *problem_name*\ **)**
-    **s_load** coverts a problem in S2MPJ to a Problem class instance.
+**s2mpj_load(**\ *problem_name*\ **)**
+    **s2mpj_load** coverts the S2MPJ problem name to a Problem class instance.
 
 --------------------------------------------------------------------------
 
 Users only need to use the following signature to call this function:
 
-**problem** = **s_load**\(**problem_name**) returns a **Problem** class instance **problem** that corresponds to the problem named **problem_name** in S2MPJ. More details about S2MPJ can be found in the website https://github.com/GrattonToint/S2MPJ.
+**problem** = **s2mpj_load**\(**problem_name**) returns a **Problem** class instance **problem** that corresponds to the problem named **problem_name** in S2MPJ. More details about S2MPJ can be found in the official website <https://github.com/GrattonToint/S2MPJ>.
 
 There are two ways to get **problem_name** you want.
 
-1. Use the function **s_select** to get the problem names you want.
+1. Use the function **s2mpj_select** to get the problem names you want.
 
 2. Look for a csv file named 'probinfo.csv' in the same directory as this function. The csv file contains the information of all the problems in S2MPJ.
 

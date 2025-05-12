@@ -2,6 +2,7 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
 %SOLVEONEPROBLEM solves one problem with all the solvers in solvers list.
 
     solver_names = profile_options.(ProfileOptionKey.SOLVER_NAMES.value);
+    solver_names = cellfun(@(s) strrep(s, '\_', '_'), solver_names, 'UniformOutput', false);    % Remove backslash from the solver names.
     solver_isrand = profile_options.(ProfileOptionKey.SOLVER_ISRAND.value);
     result = struct();
 

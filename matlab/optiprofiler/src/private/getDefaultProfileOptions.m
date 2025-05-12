@@ -22,9 +22,6 @@ function profile_options = getDefaultProfileOptions(solvers, feature, profile_op
     end
     if ~isfield(profile_options, ProfileOptionKey.SOLVER_NAMES.value)
         profile_options.(ProfileOptionKey.SOLVER_NAMES.value) = cellfun(@(s) func2str(s), solvers, 'UniformOutput', false);
-        % Handle the case where the solver names are not valid MATLAB variable names.
-        % Replace underscores with backslashes.
-        profile_options.(ProfileOptionKey.SOLVER_NAMES.value) = cellfun(@(s) strrep(s, '_', '\_'), profile_options.(ProfileOptionKey.SOLVER_NAMES.value), 'UniformOutput', false);
     end
     if ~isfield(profile_options, ProfileOptionKey.SOLVER_ISRAND.value)
         profile_options.(ProfileOptionKey.SOLVER_ISRAND.value) = false(1, numel(solvers));

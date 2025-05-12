@@ -23,5 +23,7 @@ This section references the MATLAB API of OptiProfiler. It contains the detailed
     :caption: Other tools
     :maxdepth: 1
 
-    matlab_generated/s_load
-    matlab_generated/s_select
+    matlab_generated/s2mpj_load
+    matlab_generated/s2mpj_select
+    matlab_generated/matcutest_load
+    matlab_generated/matcutest_select

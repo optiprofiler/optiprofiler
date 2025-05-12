@@ -1,11 +1,8 @@
-function custom4()
+function hyperparameterized_solver()
 
-    clc
+    % This is a simple example to show how to benchmark with a hyperparameterized solver.
 
-    % This is a simple example to show how to test one solver with one
-    % changeable hyperparameter.
-
-    n_solvers = 5;
+    n_solvers = 3;
     solvers = cell(1, n_solvers);
     solver_names = cell(1, n_solvers);
     for i_solver = 1:n_solvers
@@ -15,6 +12,9 @@ function custom4()
     options.solver_names = solver_names;
     benchmark(solvers, options)
 end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% A simple parameterized solver
 
 function x = test_solver(fun, x0, theta)
 

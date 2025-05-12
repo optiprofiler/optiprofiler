@@ -3,9 +3,10 @@ function problem_names = matcutest_select(options)
 %
 %   Users only need to use the following signature to call this function:
 %
-%   PROBLEM_NAMES = MATCUTEST_SELECT(OPTIONS) returns the names of selected problems
-%   from MatCUTEst that satisfy the criteria in OPTIONS as a cell array
-%   PROBLEM_NAMES.
+%   PROBLEM_NAMES = MATCUTEST_SELECT(OPTIONS) returns the names of selected
+%   problems from MatCUTEst that satisfy the criteria in OPTIONS as a cell
+%   array PROBLEM_NAMES. More details about MatCUTEst can be found in the
+%   official website: <https://github.com/matcutest>.
 %
 %   OPTIONS is a struct with the following fields:
 %
@@ -28,11 +29,8 @@ function problem_names = matcutest_select(options)
 %       - excludelist: the list of problems to be excluded. Default is not to
 %         exclude any problem.
 %
-%   More details about MatCUTEst can be found in the official website:
+%   Note that MatCUTEst is only available in Linux.
 %
-%       https://github.com/matcutest
-%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     % Check whether the options are valid.
     valid_fields = {'ptype', 'mindim', 'maxdim', 'minb', 'maxb', 'mincon', 'maxcon', 'excludelist'};

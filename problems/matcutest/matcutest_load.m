@@ -1,17 +1,16 @@
 function problem = matcutest_load(problem_name)
-%MATCUTEST_LOAD coverts a problem in MatCUTEst to a Problem class instance.
-%
-%   Users only need to use the following signature to call this function:
+%MATCUTEST_LOAD coverts the MatCUTEst problem name to a Problem class instance.
 %
 %   PROBLEM = MATCUTEST_LOAD(PROBLEM_NAME) returns a Problem class instance
 %   PROBLEM that corresponds to the problem named PROBLEM_NAME in MatCUTEst.
+%   More details about MatCUTEst can be found in the official website:
+%   <https://github.com/matcutest>.
 %
-%   You may use the function `m_select` to get the problem names you want. More
-%   details about MatCUTEst can be found in the official website:
+%   You may use the function `matcutest_select` to get the problem names you
+%   want.
 %
-%       https://github.com/matcutest
+%   Note that MatCUTEst is only available in Linux.
 %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     % Convert 'problem_name' to a char.
     problem_name = char(problem_name);

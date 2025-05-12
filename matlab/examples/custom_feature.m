@@ -1,22 +1,20 @@
-function custom3()
+function custom_feature()
 
-    clc
-    
-    % Define a custom feature that combines "perturbed_x0", "noisy", and
-    % "linearly_transformed".
-    
-    solvers = {@fminsearch_test1, @fminsearch_test2};
-    options.feature_name = 'custom';
+    % Define a custom feature that combines "perturbed_x0", "noisy", and "linearly_transformed".
+
+    solvers = {@fminsearch, @fminunc};
+    options.feature_name = 'custom';    % Set the feature name to "custom" if you want to use a custom feature.
     options.n_runs = 5;
-    % We need mod_x0 to make sure that the linearly transformed problem is mathematically equivalent
-    % to the original problem.
+    % We need mod_x0 to make sure that the linearly transformed problem is mathematically equivalent to the original problem.
     options.mod_x0 = @mod_x0;
-    % We only modify mod_fun since we are dealing with unconstrained problems.
+    % We use mod_fun to add noise to the function value.
     options.mod_fun = @mod_fun;
+    % We use mod_affine to define the linear transformation.
     options.mod_affine = @mod_affine;
+    % We can define the feature stamp to represent the custom feature (optional).
     options.feature_stamp = 'perturbed_x0_noisy_linearly_transformed';
 
-    benchmark(solvers, options)
+    scores = benchmark(solvers, options)
 end
 
 function x0 = mod_x0(rand_stream, problem)
@@ -40,16 +38,4 @@ function [A, b, inv] = mod_affine(rand_stream, problem)
     A = Q';
     b = zeros(problem.n, 1);
     inv = Q;
-end
-
-function x = fminsearch_test1(fun, x0)
-
-    options = optimset('MaxFunEvals', 200);
-    x = fminsearch(fun, x0, options);
-end
-
-function x = fminsearch_test2(fun, x0)
-
-    options = optimset('MaxFunEvals', 500);
-    x = fminsearch(fun, x0, options);
 end

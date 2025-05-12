@@ -60,9 +60,6 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
         if numel(profile_options.(ProfileOptionKey.SOLVER_NAMES.value)) == 0 && ~isempty(solvers)
             profile_options.(ProfileOptionKey.SOLVER_NAMES.value) = cellfun(@(s) func2str(s), solvers, 'UniformOutput', false);
         end
-        % Handle the case where the solver names are not valid MATLAB variable names.
-        % Replace underscores with backslashes.
-        profile_options.(ProfileOptionKey.SOLVER_NAMES.value) = cellfun(@(s) strrep(s, '_', '\_'), profile_options.(ProfileOptionKey.SOLVER_NAMES.value), 'UniformOutput', false);
     end
 
 
