@@ -11,6 +11,10 @@ function problem = custom_example_load(problem_name)
             problem = custom1();
         case 'custom2'
             problem = custom2();
+        case 'custom3'
+            problem = custom3();
+        case 'custom4'
+            problem = custom4();
         otherwise
             error('Unknown problem name: %s', problem_name);
     end

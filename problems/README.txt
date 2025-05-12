@@ -49,7 +49,7 @@ Create a function that filters and returns problems matching specified criteria.
 
 - Name the file `your_problem_lib_select.m`, where `your_problem_lib` is the name of your subfolder
 - Accept an options structure containing filtering criteria, such as:
-  - `options.ptype`: Problem type (e.g., 'u', 'b', 'l', 'n')
+  - `options.ptype`: Problem type ('u', 'b', 'l', 'n', and their combinations)
   - `options.mindim`: Minimum dimension
   - `options.maxdim`: Maximum dimension
   - `options.minb`: Minimum number of bound constraints
