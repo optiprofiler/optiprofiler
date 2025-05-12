@@ -29,7 +29,7 @@ First, create a new subfolder (e.g., `your_problem_lib/`) within the `problems/`
     │   ├── s2mpj/                <-- Built-in problem library
     │   └── matcutest/            <-- Another built-in problem library
     ├── matlab/                   <-- Core MATLAB functions
-    └── ...                       <-- Other OptipProfiler components
+    └── ...                       <-- Other OptiProfiler components
 
 ### 2. Implement Core Functions
 
