@@ -100,10 +100,14 @@ classdef TestProblem < matlab.unittest.TestCase
             testCase.verifyEqual(p.hceq(p.x0), {TestProblem.sum_sin_hess(p.x0)});
             testCase.verifyEqual(p.name, 'Unnamed Problem');
             testCase.verifyEqual(p.n, 10);
+            testCase.verifyEqual(p.mb, 20);
             testCase.verifyEqual(p.m_linear_ub, 10);
             testCase.verifyEqual(p.m_linear_eq, 10);
             testCase.verifyEqual(p.m_nonlinear_ub, 1);
             testCase.verifyEqual(p.m_nonlinear_eq, 1);
+            testCase.verifyEqual(p.mlcon, 20);
+            testCase.verifyEqual(p.mnlcon, 2);
+            testCase.verifyEqual(p.mcon, 22);
             testCase.verifyEqual(p.ptype, 'n');
 
             p.project_x0;

@@ -30,7 +30,7 @@ classdef TestSolveOne < matlab.unittest.TestCase
             testCase.verifyNotEmpty(result.problem_type);
             testCase.verifyNotEmpty(result.problem_dim);
             testCase.verifyNotEmpty(result.problem_mb);
-            testCase.verifyNotEmpty(result.problem_con);
+            testCase.verifyNotEmpty(result.problem_mcon);
             testCase.verifyNotEmpty(result.computation_time);
             testCase.verifyNotEmpty(result.solvers_success);
 
@@ -52,7 +52,7 @@ classdef TestSolveOne < matlab.unittest.TestCase
             testCase.verifyNotEmpty(result.problem_type);
             testCase.verifyNotEmpty(result.problem_dim);
             testCase.verifyNotEmpty(result.problem_mb);
-            testCase.verifyNotEmpty(result.problem_con);
+            testCase.verifyNotEmpty(result.problem_mcon);
             testCase.verifyNotEmpty(result.computation_time);
             testCase.verifyNotEmpty(result.solvers_success);
         end

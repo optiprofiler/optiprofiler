@@ -10,11 +10,6 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
         error("MATLAB:solveOneProblem:invalid_problem", "The problem provided is not a valid Problem object.\n");
     end
 
-    problem_type = problem.ptype;
-    problem_dim = problem.n;
-    problem_mb = sum(~isinf(-problem.xl)) + sum(~isinf(problem.xu));
-    problem_con = problem.m_linear_ub + problem.m_linear_eq + problem.m_nonlinear_ub + problem.m_nonlinear_eq;
-
     % Project the initial point if necessary.
     if profile_options.(ProfileOptionKey.PROJECT_X0.value)
         problem.project_x0;
@@ -54,9 +49,20 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
                 fprintf(format_info_start, problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver));
             end
             time_start_solver_run = tic;
+
             % Construct featured_problem.
             real_seed = mod(23333 * profile_options.(ProfileOptionKey.SEED.value) + 211 * i_run, 2^32);
             featured_problem = FeaturedProblem(problem, feature, max_eval, real_seed);
+
+            % Save the problem information.
+            problem_type = featured_problem.ptype;
+            problem_dim = featured_problem.n;
+            problem_mb = featured_problem.mb;
+            problem_mlcon = featured_problem.mlcon;
+            problem_mnlcon = featured_problem.mnlcon;
+            problem_mcon = featured_problem.mcon;
+
+            % Solve the problem with the solver.
             warning('off', 'all');
             try
                 switch problem.ptype
@@ -155,7 +161,9 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
     result.problem_type = problem_type;
     result.problem_dim = problem_dim;
     result.problem_mb = problem_mb;
-    result.problem_con = problem_con;
+    result.problem_mlcon = problem_mlcon;
+    result.problem_mnlcon = problem_mnlcon;
+    result.problem_mcon = problem_mcon;
     result.computation_time = computation_time;
     result.solvers_success = solvers_success;
 

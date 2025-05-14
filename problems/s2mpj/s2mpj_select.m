@@ -22,6 +22,14 @@ function [problem_names, argins] = s2mpj_select(options)
 %         selected. Default is 0.
 %       - maxb: the maximum number of bound constraints of the problems to be
 %         selected. Default is Inf.
+%       - minlcon: the minimum number of linear constraints of the problems to
+%         be selected. Default is 0.
+%       - maxlcon: the maximum number of linear constraints of the problems to
+%         be selected. Default is Inf.
+%       - minnlcon: the minimum number of nonlinear constraints of the problems
+%         to be selected. Default is 0.
+%       - maxnlcon: the maximum number of nonlinear constraints of the problems
+%         to be selected. Default is Inf.
 %       - mincon: the minimum number of linear and nonlinear constraints of the
 %         problems to be selected. Default is 0.
 %       - maxcon: the maximum number of linear and nonlinear constraints of the
@@ -37,9 +45,9 @@ function [problem_names, argins] = s2mpj_select(options)
 %   Two things to note:
 %       1. All the information about the problems can be found in a csv file
 %          named 'probinfo.csv' in the same directory as this function.
-%       2. The problem name may appear in the form of 'problem_name_dim_m_con'
+%       2. The problem name may appear in the form of 'problem_name_dim_mcon'
 %          where 'problem_name' is the name of the problem, 'dim' is the
-%          dimension of the problem, and 'm_con' is the number of linear and
+%          dimension of the problem, and 'mcon' is the number of linear and
 %          nonlinear constraints of the problem. This case only happens when
 %          this problem can accept extra arguments to change the dimension or
 %          the number of constraints. This information is stored in the
@@ -52,7 +60,7 @@ function [problem_names, argins] = s2mpj_select(options)
     argins = {};
 
     % Check whether the options are valid.
-    valid_fields = {'ptype', 'mindim', 'maxdim', 'minb', 'maxb', 'mincon', 'maxcon', 'oracle', 'excludelist'};
+    valid_fields = {'ptype', 'mindim', 'maxdim', 'minb', 'maxb', 'minlcon', 'maxlcon', 'minnlcon', 'maxnlcon', 'mincon', 'maxcon', 'oracle', 'excludelist'};
     if ~isstruct(options) || (~isempty(fieldnames(options)) && ~all(ismember(fieldnames(options), valid_fields)))
         error('The input argument `options` is invalid.');
     end
@@ -72,6 +80,18 @@ function [problem_names, argins] = s2mpj_select(options)
     end
     if ~isfield(options, 'maxb')
         options.maxb = Inf;
+    end
+    if ~isfield(options, 'minlcon')
+        options.minlcon = 0;
+    end
+    if ~isfield(options, 'maxlcon')
+        options.maxlcon = Inf;
+    end
+    if ~isfield(options, 'minnlcon')
+        options.minnlcon = 0;
+    end
+    if ~isfield(options, 'maxnlcon')
+        options.maxnlcon = Inf;
     end
     if ~isfield(options, 'mincon')
         options.mincon = 0;
@@ -99,11 +119,15 @@ function [problem_names, argins] = s2mpj_select(options)
         ptype = probinfo{i_problem, 2};
         dim = probinfo{i_problem, 4};
         mb = probinfo{i_problem, 5};
-        m_con = probinfo{i_problem, 8};
+        mlcon = probinfo{i_problem, 9};
+        mnlcon = probinfo{i_problem, 10};
+        mcon = probinfo{i_problem, 8};
         argin = probinfo{i_problem, 25};
         dims = probinfo{i_problem, 26};
         mbs = probinfo{i_problem, 27};
-        m_cons = probinfo{i_problem, 30};
+        mlcons = probinfo{i_problem, 31};
+        mnlcons = probinfo{i_problem, 32};
+        mcons = probinfo{i_problem, 30};
 
         % If the oracle is not 0, then we exclude problem 'NOZZLEfp' since it does not have first- or second-order information.
         % "NOZZLEfp" is designed to simulate jet impingement cooling.
@@ -125,7 +149,7 @@ function [problem_names, argins] = s2mpj_select(options)
         % If the default dimension and number of constraints satisfy the criteria, we add the problem.
         % That means, we will not consider the changeable dimension and number of constraints if the
         % default dimension and number of constraints satisfy the criteria.
-        if dim >= options.mindim && dim <= options.maxdim && mb >= options.minb && mb <= options.maxb && m_con >= options.mincon && m_con <= options.maxcon
+        if dim >= options.mindim && dim <= options.maxdim && mb >= options.minb && mb <= options.maxb && mlcon >= options.minlcon && mlcon <= options.maxlcon && mnlcon >= options.minnlcon && mnlcon <= options.maxnlcon && mcon >= options.mincon && mcon <= options.maxcon
             problem_names{end + 1} = problem_name;
             argins{end + 1} = {};
             continue;
@@ -133,12 +157,12 @@ function [problem_names, argins] = s2mpj_select(options)
 
         % If the default dimension and number of constraints do not satisfy the criteria, we consider
         % the changeable dimension and number of constraints.
-        if ~isempty(dims) && any(dims >= options.mindim & dims <= options.maxdim) && any(mbs >= options.minb & mbs <= options.maxb) && any(m_cons >= options.mincon & m_cons <= options.maxcon)
+        if ~isempty(dims) && any(dims >= options.mindim & dims <= options.maxdim) && any(mbs >= options.minb & mbs <= options.maxb) && any(mlcons >= options.minlcon & mlcons <= options.maxlcon) && any(mnlcons >= options.minnlcon & mnlcons <= options.maxnlcon) && any(mcons >= options.mincon & mcons <= options.maxcon)
             idx = find(dims >= options.mindim & dims <= options.maxdim, 1, 'first');
-            if m_cons(idx) == 0
+            if mcons(idx) == 0
                 problem_names{end + 1} = [problem_name, '_', num2str(dims(idx))];
             else
-                problem_names{end + 1} = [problem_name, '_', num2str(dims(idx)), '_', num2str(m_cons(idx))];
+                problem_names{end + 1} = [problem_name, '_', num2str(dims(idx)), '_', num2str(mcons(idx))];
             end
             if iscell(argin)
                 argins{end + 1} = {argin{1:end-1}, argin{end}(idx)};

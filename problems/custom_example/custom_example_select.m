@@ -22,6 +22,18 @@ function problem_names = custom_example_select(options)
     if ~isfield(options, 'maxb')
         options.maxb = Inf;
     end
+    if ~isfield(options, 'minlcon')
+        options.minlcon = 0;
+    end
+    if ~isfield(options, 'maxlcon')
+        options.maxlcon = Inf;
+    end
+    if ~isfield(options, 'minnlcon')
+        options.minnlcon = 0;
+    end
+    if ~isfield(options, 'maxnlcon')
+        options.maxnlcon = Inf;
+    end
     if ~isfield(options, 'mincon')
         options.mincon = 0;
     end
@@ -33,21 +45,25 @@ function problem_names = custom_example_select(options)
     end
 
     % Load the data from a .mat file.
-    load('custom_example_info.mat', 'problem_info');
+    load('custom_example_info.mat', 'probinfo');
 
     % Loop through each problem and check the criteria.
-    for i_problem = 2:size(problem_info, 1)
-        problem_name = problem_info{i_problem, 1};
-        ptype = problem_info{i_problem, 2};
-        dim = problem_info{i_problem, 3};
-        mb = problem_info{i_problem, 4};
-        m_con = problem_info{i_problem, 5};
+    for i_problem = 2:size(probinfo, 1)
+        problem_name = probinfo{i_problem, 1};
+        ptype = probinfo{i_problem, 2};
+        dim = probinfo{i_problem, 3};
+        mb = probinfo{i_problem, 4};
+        mlcon = probinfo{i_problem, 5};
+        mnlcon = probinfo{i_problem, 6};
+        mcon = probinfo{i_problem, 7};
 
         % Check the criteria.
         if ismember(ptype, options.ptype) && ...
            (dim >= options.mindim && dim <= options.maxdim) && ...
            (mb >= options.minb && mb <= options.maxb) && ...
-           (m_con >= options.mincon && m_con <= options.maxcon) && ...
+           (mlcon >= options.minlcon && mlcon <= options.maxlcon) && ...
+           (mnlcon >= options.minnlcon && mnlcon <= options.maxnlcon) && ...
+           (mcon >= options.mincon && mcon <= options.maxcon) && ...
            ~ismember(problem_name, options.excludelist)
             problem_names{end + 1} = problem_name;
         end

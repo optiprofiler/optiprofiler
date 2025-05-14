@@ -82,6 +82,46 @@ function problem_options = checkValidityProblemOptions(problem_options, profile_
     end
 
 
+    % Judge whether problem_options.minlcon is a integer greater or equal to 0.
+    if isfield(problem_options, ProblemOptionKey.MINLCON.value)
+        if ~isintegerscalar(problem_options.(ProblemOptionKey.MINLCON.value)) || problem_options.(ProblemOptionKey.MINLCON.value) < 0
+            error("MATLAB:checkValidityProblemOptions:minlconNotValid", "The option `minlcon` should be a integer greater or equal to 0.");
+        end
+    end
+    % Judge whether problem_options.maxlcon is a integer greater or equal to 0, or equal to Inf.
+    if isfield(problem_options, ProblemOptionKey.MAXLCON.value)
+        if (~isintegerscalar(problem_options.(ProblemOptionKey.MAXLCON.value)) || problem_options.(ProblemOptionKey.MAXLCON.value) < 0) && problem_options.(ProblemOptionKey.MAXLCON.value) ~= Inf
+            error("MATLAB:checkValidityProblemOptions:maxlconNotValid", "The option `maxlcon` should be a integer greater or equal to 0, or equal to Inf.");
+        end
+    end
+    % Judge whether problem_options.minlcon is smaller or equal to problem_options.maxlcon.
+    if isfield(problem_options, ProblemOptionKey.MINLCON.value) && isfield(problem_options, ProblemOptionKey.MAXLCON.value)
+        if problem_options.(ProblemOptionKey.MINLCON.value) > problem_options.(ProblemOptionKey.MAXLCON.value)
+            error("MATLAB:checkValidityProblemOptions:maxlconSmallerThanminlcon", "The option `minlcon` should be smaller or equal to `maxlcon`.");
+        end
+    end
+
+
+    % Judge whether problem_options.minnlcon is a integer greater or equal to 0.
+    if isfield(problem_options, ProblemOptionKey.MINNLCON.value)
+        if ~isintegerscalar(problem_options.(ProblemOptionKey.MINNLCON.value)) || problem_options.(ProblemOptionKey.MINNLCON.value) < 0
+            error("MATLAB:checkValidityProblemOptions:minnlconNotValid", "The option `minnlcon` should be a integer greater or equal to 0.");
+        end
+    end
+    % Judge whether problem_options.maxnlcon is a integer greater or equal to 0, or equal to Inf.
+    if isfield(problem_options, ProblemOptionKey.MAXNLCON.value)
+        if (~isintegerscalar(problem_options.(ProblemOptionKey.MAXNLCON.value)) || problem_options.(ProblemOptionKey.MAXNLCON.value) < 0) && problem_options.(ProblemOptionKey.MAXNLCON.value) ~= Inf
+            error("MATLAB:checkValidityProblemOptions:maxnlconNotValid", "The option `maxnlcon` should be a integer greater or equal to 0, or equal to Inf.");
+        end
+    end
+    % Judge whether problem_options.minnlcon is smaller or equal to problem_options.maxnlcon.
+    if isfield(problem_options, ProblemOptionKey.MINNLCON.value) && isfield(problem_options, ProblemOptionKey.MAXNLCON.value)
+        if problem_options.(ProblemOptionKey.MINNLCON.value) > problem_options.(ProblemOptionKey.MAXNLCON.value)
+            error("MATLAB:checkValidityProblemOptions:maxnlconSmallerThanminnlcon", "The option `minnlcon` should be smaller or equal to `maxnlcon`.");
+        end
+    end
+
+
     % Judge whether problem_options.mincon is a integer greater or equal to 0.
     if isfield(problem_options, ProblemOptionKey.MINCON.value)
         if ~isintegerscalar(problem_options.(ProblemOptionKey.MINCON.value)) || problem_options.(ProblemOptionKey.MINCON.value) < 0
@@ -100,6 +140,19 @@ function problem_options = checkValidityProblemOptions(problem_options, profile_
             error("MATLAB:checkValidityProblemOptions:maxconSmallerThanmincon", "The option `mincon` should be smaller or equal to `maxcon`.");
         end
     end
+    % Judge whether problem_options.mincon is smaller or equal to both problem_options.minlcon and problem_options.minnlcon.
+    if isfield(problem_options, ProblemOptionKey.MINCON.value) && isfield(problem_options, ProblemOptionKey.MINLCON.value) && isfield(problem_options, ProblemOptionKey.MINNLCON.value)
+        if problem_options.(ProblemOptionKey.MINCON.value) > min([problem_options.(ProblemOptionKey.MINLCON.value), problem_options.(ProblemOptionKey.MINNLCON.value)])
+            error("MATLAB:checkValidityProblemOptions:minconSmallerThanminlconAndminnlcon", "The option `mincon` should be smaller or equal to both `minlcon` and `minnlcon`.");
+        end
+    end
+    % Judge whether problem_options.maxcon is greater or equal to both problem_options.maxlcon and problem_options.maxnlcon.
+    if isfield(problem_options, ProblemOptionKey.MAXCON.value) && isfield(problem_options, ProblemOptionKey.MAXLCON.value) && isfield(problem_options, ProblemOptionKey.MAXNLCON.value)
+        if problem_options.(ProblemOptionKey.MAXCON.value) < max([problem_options.(ProblemOptionKey.MAXLCON.value), problem_options.(ProblemOptionKey.MAXNLCON.value)])
+            error("MATLAB:checkValidityProblemOptions:maxconGreaterThanmaxlconAndmaxnlcon", "The option `maxcon` should be greater or equal to both `maxlcon` and `maxnlcon`.");
+        end
+    end
+
 
 
     % Judge whether problem_options.excludelist is a cell array of strings or chars.

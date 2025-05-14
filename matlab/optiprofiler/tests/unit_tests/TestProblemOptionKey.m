@@ -6,7 +6,7 @@ classdef TestProblemOptionKey < matlab.unittest.TestCase
 
             enumValues = enumeration('ProblemOptionKey');
             enumValues = cellstr(arrayfun(@char, enumValues, 'UniformOutput', false));
-            expectedValues = {'PLIBS'; 'PTYPE'; 'MINDIM'; 'MAXDIM'; 'MINB'; 'MAXB'; 'MINCON'; 'MAXCON'; 'EXCLUDELIST'; 'PROBLEM_NAMES'};
+            expectedValues = {'PLIBS'; 'PTYPE'; 'MINDIM'; 'MAXDIM'; 'MINB'; 'MAXB'; 'MINLCON'; 'MAXLCON'; 'MINNLCON'; 'MAXNLCON'; 'MINCON'; 'MAXCON'; 'EXCLUDELIST'; 'PROBLEM_NAMES'};
             testCase.verifyEqual(enumValues, expectedValues);
         end
 
@@ -21,6 +21,10 @@ classdef TestProblemOptionKey < matlab.unittest.TestCase
             testCase.verifyEqual(ProblemOptionKey.MAXDIM.value, 'maxdim');
             testCase.verifyEqual(ProblemOptionKey.MINB.value, 'minb');
             testCase.verifyEqual(ProblemOptionKey.MAXB.value, 'maxb');
+            testCase.verifyEqual(ProblemOptionKey.MINLCON.value, 'minlcon');
+            testCase.verifyEqual(ProblemOptionKey.MAXLCON.value, 'maxlcon');
+            testCase.verifyEqual(ProblemOptionKey.MINNLCON.value, 'minnlcon');
+            testCase.verifyEqual(ProblemOptionKey.MAXNLCON.value, 'maxnlcon');
             testCase.verifyEqual(ProblemOptionKey.MINCON.value, 'mincon');
             testCase.verifyEqual(ProblemOptionKey.MAXCON.value, 'maxcon');
             testCase.verifyEqual(ProblemOptionKey.EXCLUDELIST.value, 'excludelist');

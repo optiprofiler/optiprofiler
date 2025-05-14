@@ -22,6 +22,14 @@ s2mpj_select
 
     - **maxb**: the maximum number of bound constraints of the problems to be selected. Default is ``Inf``.
 
+    - **minlcon**: the minimum number of linear constraints of the problems to be selected. Default is ``0``.
+
+    - **maxlcon**: the maximum number of linear constraints of the problems to be selected. Default is ``Inf``.
+
+    - **minnlcon**: the minimum number of nonlinear constraints of the problems to be selected. Default is ``0``.
+
+    - **maxnlcon**: the maximum number of nonlinear constraints of the problems to be selected. Default is ``Inf``.
+
     - **mincon**: the minimum number of linear and nonlinear constraints of the problems to be selected. Default is ``0``.
 
     - **maxcon**: the maximum number of linear and nonlinear constraints of the problems to be selected. Default is ``Inf``.

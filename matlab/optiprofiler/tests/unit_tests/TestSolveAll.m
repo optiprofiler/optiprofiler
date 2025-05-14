@@ -30,7 +30,9 @@ classdef TestSolveAll < matlab.unittest.TestCase
             testCase.verifyNotEmpty(results.problem_types);
             testCase.verifyNotEmpty(results.problem_dims);
             testCase.verifyNotEmpty(results.problem_mbs);
-            testCase.verifyNotEmpty(results.problem_cons);
+            testCase.verifyNotEmpty(results.problem_mlcons);
+            testCase.verifyNotEmpty(results.problem_mnlcons);
+            testCase.verifyNotEmpty(results.problem_mcons);
             testCase.verifyNotEmpty(results.computation_times);
             testCase.verifyNotEmpty(results.solvers_successes);
         end

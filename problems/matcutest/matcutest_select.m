@@ -22,6 +22,14 @@ function problem_names = matcutest_select(options)
 %         selected. Default is 0.
 %       - maxb: the maximum number of bound constraints of the problems to be
 %         selected. Default is Inf.
+%       - minlcon: the minimum number of linear constraints of the problems to
+%         be selected. Default is 0.
+%       - maxlcon: the maximum number of linear constraints of the problems to
+%         be selected. Default is Inf.
+%       - minnlcon: the minimum number of nonlinear constraints of the problems
+%         to be selected. Default is 0.
+%       - maxnlcon: the maximum number of nonlinear constraints of the problems
+%         to be selected. Default is Inf.
 %       - mincon: the minimum number of linear and nonlinear constraints of the
 %         problems to be selected. Default is 0.
 %       - maxcon: the maximum number of linear and nonlinear constraints of the
@@ -33,7 +41,7 @@ function problem_names = matcutest_select(options)
 %
 
     % Check whether the options are valid.
-    valid_fields = {'ptype', 'mindim', 'maxdim', 'minb', 'maxb', 'mincon', 'maxcon', 'excludelist'};
+    valid_fields = {'ptype', 'mindim', 'maxdim', 'minb', 'maxb', 'minlcon', 'maxlcon', 'minnlcon', 'maxnlcon', 'mincon', 'maxcon', 'excludelist'};
     if ~isstruct(options) || (~isempty(fieldnames(options)) && ~all(ismember(fieldnames(options), valid_fields)))
         error('The input argument `options` is invalid.');
     end
@@ -53,6 +61,18 @@ function problem_names = matcutest_select(options)
     end
     if ~isfield(options, 'maxb')
         options.maxb = Inf;
+    end
+    if ~isfield(options, 'minlcon')
+        options.minlcon = 0;
+    end
+    if ~isfield(options, 'maxlcon')
+        options.maxlcon = Inf;
+    end
+    if ~isfield(options, 'minnlcon')
+        options.minnlcon = 0;
+    end
+    if ~isfield(options, 'maxnlcon')
+        options.maxnlcon = Inf;
     end
     if ~isfield(options, 'mincon')
         options.mincon = 0;

@@ -72,7 +72,11 @@ Properties inherited from the input struct:
 
 Properties dependent on the input struct:
 
+    - **ptype**: type of the problem. It should be ``'u'`` (unconstrained), ``'b'`` (bound-constrained), ``'l'`` (linearly constrained), or ``'n'`` (nonlinearly constrained).
+
     - **n**: dimension of the problem, which is the length of the variable ``x``.
+
+    - **mb**: number of the bound constraints, which is the length of finite elements in ``xl`` and ``xu``.
 
     - **m_linear_ub**: number of the linear inequality constraints, which is the length of ``bub``.
 
@@ -82,7 +86,11 @@ Properties dependent on the input struct:
 
     - **m_nonlinear_eq**: number of the nonlinear equality constraints, which is the length of ``ceq(x)``.
 
-    - **ptype**: type of the problem. It should be ``'u'`` (unconstrained), ``'b'`` (bound-constrained), ``'l'`` (linearly constrained), or ``'n'`` (nonlinearly constrained).
+    - **mlcon**: number of the linear constraints, which is the sum of ``m_linear_ub`` and ``m_linear_eq``.
+
+    - **mnlcon**: number of the nonlinear constraints, which is the sum of ``m_nonlinear_ub`` and ``m_nonlinear_eq``.
+
+    - **mcon**: number of the constraints, which is the sum of ``mlcon`` and ``mnlcon``.
 
 The output **P** contains following methods:
 

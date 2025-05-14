@@ -86,7 +86,12 @@ classdef Problem < handle
 %
 %       2. properties dependent on the input struct:
 %
+%       - ptype: type of the problem. It should be 'u' (unconstrained), 'b'
+%         (bound-constrained), 'l' (linearly constrained), or 'n' (nonlinearly
+%         constrained).
 %       - n: dimension of the problem, which is the length of the variable `x`.
+%       - mb: number of the bound constraints, which is the length of finite
+%         elements in `xl` and `xu`.
 %       - m_linear_ub: number of the linear inequality constraints, which is
 %         the length of `bub`.
 %       - m_linear_eq: number of the linear equality constraints, which is the
@@ -95,9 +100,12 @@ classdef Problem < handle
 %         is the length of `cub(x)`.
 %       - m_nonlinear_eq: number of the nonlinear equality constraints, which
 %         is the length of `ceq(x)`.
-%       - ptype: type of the problem. It should be 'u' (unconstrained), 'b'
-%         (bound-constrained), 'l' (linearly constrained), or 'n' (nonlinearly
-%         constrained).
+%       - mlcon: number of the linear constraints, which is the sum of
+%         `m_linear_ub` and `m_linear_eq`.
+%       - mnlcon: number of the nonlinear constraints, which is the sum of
+%         `m_nonlinear_ub` and `m_nonlinear_eq`.
+%       - mcon: number of the constraints, which is the sum of `mlcon` and
+%         `mnlcon`.
 %
 %   The output P contains following methods:
 %
@@ -132,10 +140,14 @@ classdef Problem < handle
     properties (Dependent)
 
         n
+        mb
         m_linear_ub
         m_linear_eq
         m_nonlinear_ub
         m_nonlinear_eq
+        mlcon
+        mnlcon
+        mcon
         ptype
 
     end
@@ -407,6 +419,10 @@ classdef Problem < handle
             value = numel(obj.x0);
         end
 
+        function value = get.mb(obj)
+            value = sum(~isinf(-obj.xl)) + sum(~isinf(obj.xu));
+        end
+
         function value = get.m_linear_ub(obj)
             value = sum(~isinf(obj.bub));
         end
@@ -431,6 +447,18 @@ classdef Problem < handle
             catch ME
                 value = 0;
             end
+        end
+
+        function value = get.mlcon(obj)
+            value = obj.m_linear_ub + obj.m_linear_eq;
+        end
+
+        function value = get.mnlcon(obj)
+            value = obj.m_nonlinear_ub + obj.m_nonlinear_eq;
+        end
+
+        function value = get.mcon(obj)
+            value = obj.mlcon + obj.mnlcon;
         end
 
         function value = get.ptype(obj)

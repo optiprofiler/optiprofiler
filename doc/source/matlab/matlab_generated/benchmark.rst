@@ -240,7 +240,7 @@ Options should be specified in a struct. The following are the available fields 
 
 3. *Options for problems*:
 
-Options in this part are used to select problems for benchmarking. First select which problem libraries to use based on the ``plibs`` option. Then select problems from these libraries according to the given options (``problem_names``, ``ptype``, ``mindim``, ``maxdim``, ``minb``, ``maxb``, ``mincon``, ``maxcon``, and ``excludelist``). Following is the list of available options:
+Options in this part are used to select problems for benchmarking. First select which problem libraries to use based on the ``plibs`` option. Then select problems from these libraries according to the given options (``problem_names``, ``ptype``, ``mindim``, ``maxdim``, ``minb``, ``maxb``, ``minlcon``, ``maxlcon``, ``minnlcon``, ``maxnlcon``, ``mincon``, ``maxcon``, and ``excludelist``). Following is the list of available options:
 
   - **plibs**: the problem libraries to be used. It should be a cell array of strings or chars. The available choices are subfolder names in the ``'problems'`` directory. There are three subfolders after installing the package: 's2mpj', 'matcutest', and 'custom_example'. Default setting is ``'s2mpj'``.
 
@@ -254,9 +254,17 @@ Options in this part are used to select problems for benchmarking. First select 
 
   - **maxb**: the maximum number of bound constraints of the problems to be selected. Default is ``minb + 10``.
 
-  - **mincon**: the minimum number of linear and nonlinear constraints of the problems to be selected. Default is ``0``.
+  - **minlcon**: the minimum number of linear constraints of the problems to be selected. Default is ``0``.
 
-  - **maxcon**: the maximum number of linear and nonlinear constraints of the problems to be selected. Default is ``mincon + 10``.
+  - **maxlcon**: the maximum number of linear constraints of the problems to be selected. Default is ``minlcon + 10``.
+
+  - **minnlcon**: the minimum number of nonlinear constraints of the problems to be selected. Default is ``0``.
+
+  - **maxnlcon**: the maximum number of nonlinear constraints of the problems to be selected. Default is ``minnlcon + 10``.
+
+  - **mincon**: the minimum number of linear and nonlinear constraints of the problems to be selected. Default is ``min(minlcon, minnlcon)``.
+
+  - **maxcon**: the maximum number of linear and nonlinear constraints of the problems to be selected. Default is ``max(maxlcon, maxnlcon)``.
 
   - **excludelist**: the list of problems to be excluded. Default is not to exclude any problem.
 
@@ -277,7 +285,7 @@ Options in this part are used to select problems for benchmarking. First select 
 
     - *Options for features*: none.
 
-    - *Options for problems*: ``plibs``, ``ptype``, ``mindim``, ``maxdim``, ``minb``, ``maxb``, ``mincon``, ``maxcon``, ``excludelist``.
+    - *Options for problems*: ``plibs``, ``ptype``, ``mindim``, ``maxdim``, ``minb``, ``maxb``, ``minlcon``, ``maxlcon``, ``minnlcon``, ``maxnlcon``, ``mincon``, ``maxcon``, ``excludelist``.
 
 -----------------------------------------------------------------------------
 

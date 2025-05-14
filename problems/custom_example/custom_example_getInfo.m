@@ -12,8 +12,8 @@ function custom_example_getInfo()
 
     % Initial the cell array to store the problem information.
     n_problems = length(mfile_names);
-    problem_info = cell(n_problems + 1, 5);
-    problem_info(1, :) = {'name', 'ptype', 'dim', 'mb', 'mcon'};
+    probinfo = cell(n_problems + 1, 7);
+    probinfo(1, :) = {'name', 'ptype', 'dim', 'mb', 'mlcon', 'mnlcon', 'mcon'};
 
     % Loop through each m file and collect the information.
     for i_problem = 1:n_problems
@@ -22,13 +22,15 @@ function custom_example_getInfo()
         % Load the problem.
         p = custom_example_load(problem_name);
         % Record the problem information.
-        problem_info{i_problem + 1, 1} = p.name;
-        problem_info{i_problem + 1, 2} = p.ptype;
-        problem_info{i_problem + 1, 3} = p.n;
-        problem_info{i_problem + 1, 4} = sum(~isinf(-p.xl)) + sum(~isinf(p.xu));
-        problem_info{i_problem + 1, 5} = p.m_linear_eq + p.m_linear_ub + p.m_nonlinear_eq + p.m_nonlinear_ub;
+        probinfo{i_problem + 1, 1} = p.name;
+        probinfo{i_problem + 1, 2} = p.ptype;
+        probinfo{i_problem + 1, 3} = p.n;
+        probinfo{i_problem + 1, 4} = p.mb;
+        probinfo{i_problem + 1, 5} = p.mlcon;
+        probinfo{i_problem + 1, 6} = p.mnlcon;
+        probinfo{i_problem + 1, 7} = p.mcon;
     end
 
     % Save the problem information to a MAT file.
-    save(fullfile(mydir, 'custom_example_info.mat'), 'problem_info');
+    save(fullfile(mydir, 'custom_example_info.mat'), 'probinfo');
 end
