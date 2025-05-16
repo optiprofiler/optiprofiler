@@ -19,8 +19,8 @@ What is OptiProfiler?
 ---------------------
 
 OptiProfiler is a benchmarking platform for optimization solvers.
-It is designed to help researchers and practitioners in the field of optimization to streamline their benchmarking process and to offer a consistent and comprehensive framework for evaluating optimization algorithms.
-It currently provides a MATLAB interface to benchmark derivative-free optimization solvers on various test suites by generating high-quality performance profiles and data profiles and storing other useful information. 
+It is designed to help researchers and practitioners in the field of optimization to streamline their benchmarking process and to offer a consistent and comprehensive framework for evaluating optimization solvers.
+It currently provides a MATLAB interface to benchmark derivative-free optimization solvers on various test suites by generating high-quality performance profiles, data profiles, and other visualizations.
 
 Why OptiProfiler?
 -----------------

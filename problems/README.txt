@@ -54,6 +54,10 @@ Create a function that filters and returns problems matching specified criteria.
   - `options.maxdim`: Maximum dimension
   - `options.minb`: Minimum number of bound constraints
   - `options.maxb`: Maximum number of bound constraints
+  - `options.minlcon`: Minimum number of linear constraints
+  - `options.maxlcon`: Maximum number of linear constraints
+  - `options.minnlcon`: Minimum number of nonlinear constraints
+  - `options.maxnlcon`: Maximum number of nonlinear constraints
   - `options.mincon`: Minimum number of linear and nonlinear constraints
   - `options.maxcon`: Maximum number of linear and nonlinear constraints
   - `excludelist`: List of problem names to exclude

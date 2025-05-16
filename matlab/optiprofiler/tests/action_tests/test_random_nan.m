@@ -12,6 +12,10 @@ function test_random_nan(benchmark_id)
     options.ptype = 'ubln';
     options.mindim = 11;
     options.maxdim = 11;
+    options.maxb = 15;
+    options.maxlcon = 3;
+    options.maxnlcon = 3;
+    options.maxcon = 5;
     options.benchmark_id = benchmark_id;
     options.max_tol_order = 3;
     options.max_eval_factor = 50;
@@ -32,6 +36,9 @@ function test_random_nan(benchmark_id)
     options.run_plain = false;
     options.plibs = 's2mpj';
     options.ptype = 'un';
+    options.maxb = 14;
+    options.maxnlcon = 2;
+    options.maxcon = 3;
     benchmark(options)
 end
 

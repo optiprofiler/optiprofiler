@@ -18,6 +18,12 @@ MATLAB
 
     setup
 
+If you want to uninstall the package, you can run:
+
+.. code-block:: matlab
+
+    setup uninstall
+
 Python
 ------
 

@@ -5,17 +5,7 @@ function problem = custom_example_load(problem_name)
     mydir = fileparts(mfilename('fullpath'));
     addpath(fullfile(mydir, 'matlab_problems'));
 
-    % Load the problem.
-    switch problem_name
-        case 'custom1'
-            problem = custom1();
-        case 'custom2'
-            problem = custom2();
-        case 'custom3'
-            problem = custom3();
-        case 'custom4'
-            problem = custom4();
-        otherwise
-            error('Unknown problem name: %s', problem_name);
-    end
+    % Load the problem by directly calling the problem's m file.
+    function_handle = str2func(problem_name);
+    problem = function_handle();
 end

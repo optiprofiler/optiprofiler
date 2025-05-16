@@ -11,6 +11,10 @@ classdef TestBenchmark < matlab.unittest.TestCase
             options.ptype = 'ubln';
             options.maxdim = 11;
             options.mindim = 11;
+            options.maxb = 15;
+            options.maxlcon = 3;
+            options.maxnlcon = 3;
+            options.maxcon = 5;
 
             % Test the case where problem set only contains one problem.
             options.problem = s2mpj_load('ROSENBR');
@@ -104,6 +108,9 @@ classdef TestBenchmark < matlab.unittest.TestCase
             
             % Test `load` option.
             options.load = 'latest';
+            options.maxb = 14;
+            options.maxnlcon = 2;
+            options.maxcon = 3;
             benchmark(solvers, options);
         end
 

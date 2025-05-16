@@ -16,9 +16,9 @@ function problem = s2mpj_load(problem_name, varargin)
 %          this function. The csv file contains the information of all the
 %          problems in S2MPJ.
 %
-%   Note that problem name may appear in the form of 'problem_name_dim_m_con'
+%   Note that problem name may appear in the form of 'problem_name_dim_mcon'
 %   where 'problem_name' is the name of the problem, 'dim' is the dimension of
-%   the problem, and 'm_con' is the number of linear and nonlinear constraints
+%   the problem, and 'mcon' is the number of linear and nonlinear constraints
 %   of the problem. This case only happens when this problem can accept extra
 %   arguments to change the dimension or the number of constraints. This
 %   information is stored in the 'probinfo.csv' file as the last few columns.
@@ -108,7 +108,7 @@ function problem = s2mpj_load(problem_name, varargin)
     problem_name = char(problem_name);
 
     % Check if 'problem_name' has the pattern '_n_m' or '_n_0'.
-    [is_problem_parameterized, problem_name, dim, m_con] = isproblem_parameterized(problem_name);
+    [is_problem_parameterized, problem_name, dim, mcon] = isproblem_parameterized(problem_name);
 
     if is_problem_parameterized
         load('probinfo.mat', 'probinfo');
@@ -119,8 +119,8 @@ function problem = s2mpj_load(problem_name, varargin)
         % Find the corresponding argins for the specific dimension.
         argins = probinfo{idx_pb, 25};
         dims = probinfo{idx_pb, 26};
-        m_cons = probinfo{idx_pb, 30};
-        idx_dim = find(dims == dim & m_cons == m_con, 1, 'first');
+        mcons = probinfo{idx_pb, 30};
+        idx_dim = find(dims == dim & mcons == mcon, 1, 'first');
         if iscell(argins)
             argin = {argins{1:end-1}, argins{end}(idx_dim)};
         else
@@ -308,7 +308,7 @@ function Hx = getHx(problem_name, x)
     end
 end
 
-function [result, problem_name, dim, m_con] = isproblem_parameterized(problem_name)
+function [result, problem_name, dim, mcon] = isproblem_parameterized(problem_name)
     % Check if 'problem_name' has the pattern '_n_m' or 'n'. If it has, find
     % the position of the pattern and return the dimension 'n' and the number
     % of constraints 'm'.
@@ -320,12 +320,12 @@ function [result, problem_name, dim, m_con] = isproblem_parameterized(problem_na
         if isempty(match)
             result = false;
             dim = 0;
-            m_con = 0;
+            mcon = 0;
         else
             problem_name = problem_name(1:idx-1);
             results = sscanf(match{1}, '_%d');
             dim = results(1);
-            m_con = 0;
+            mcon = 0;
             result = true;
         end
         return;
@@ -335,6 +335,6 @@ function [result, problem_name, dim, m_con] = isproblem_parameterized(problem_na
     problem_name = problem_name(1:idx-1);
     results = sscanf(match{1}, '_%d_%d');
     dim = results(1);
-    m_con = results(2);
+    mcon = results(2);
     result = true;
 end
