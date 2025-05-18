@@ -1218,6 +1218,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     % Record the names of the problems all the solvers failed to meet the convergence test for every tolerance.
     if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value) && (any(solvers_all_diverge_hist(:)) || any(solvers_all_diverge_out(:)))
         try
+            max_name_length = max(cellfun(@length, problem_names_merged));
             fid = fopen(path_report, 'a');
             fprintf(fid, "\n");
             fprintf(fid, "## Problems among all the libraries that all the solvers failed to meet the convergence test for each tolerance and each run\n");

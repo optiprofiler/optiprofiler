@@ -13,6 +13,7 @@ function writeReport(profile_options, results_plibs, path_report, path_readme_lo
             results_plib = results_plibs{i_plib};
             plib = results_plib.plib;
             problem_names = results_plib.problem_names;
+            problem_types = results_plib.problem_types;
             problem_dims = results_plib.problem_dims;
             problem_mbs = results_plib.problem_mbs;
             problem_mlcons = results_plib.problem_mlcons;
@@ -43,6 +44,7 @@ function writeReport(profile_options, results_plibs, path_report, path_readme_lo
             end
             [~, idx] = sort(lower(problem_names));
             sorted_problem_names = problem_names(idx);
+            sorted_problem_types = problem_types(idx);
             sorted_problem_dims = num2cell(problem_dims(idx));
             sorted_problem_mbs = num2cell(problem_mbs(idx));
             sorted_problem_mlcons = num2cell(problem_mlcons(idx));
@@ -50,6 +52,7 @@ function writeReport(profile_options, results_plibs, path_report, path_readme_lo
             sorted_problem_mcons = num2cell(problem_mcons(idx));
             sorted_time_processes = num2cell(time_processes(idx));
             max_name_length = max(max(cellfun(@length, sorted_problem_names)), 12);
+            max_type_length = max(max(cellfun(@length, sorted_problem_types)), 4);
             max_dim_length = max(max(cellfun(@length, sorted_problem_dims)), 9);
             max_mbs_length = max(max(cellfun(@length, sorted_problem_mbs)), 2);
             max_mlcons_length = max(max(cellfun(@length, sorted_problem_mlcons)), 5);
@@ -60,19 +63,20 @@ function writeReport(profile_options, results_plibs, path_report, path_readme_lo
             % Print the report file.
             fprintf(fid, '## Report for the problem library "%s"\n\n', plib);
             if length(unsolved_problems) < length(sorted_problem_names)
-                fprintf(fid, "%-*s    %-*s    %-*s    %-*s    %-*s    %-*s    %-*s\n", max_name_length, "Problem name", max_dim_length, "Dimension", max_mbs_length, "mb", max_mlcons_length, "mlcon", max_mnlcons_length, "mnlcon", max_mcons_length, "mcon", max_time_length, "Time spent by solvers (secs)");
+                fprintf(fid, "%-*s    %-*s    %-*s    %-*s    %-*s    %-*s    %-*s    %-*s\n", max_name_length, "Problem name", max_type_length, "Type", max_dim_length, "Dimension", max_mbs_length, "mb", max_mlcons_length, "mlcon", max_mnlcons_length, "mnlcon", max_mcons_length, "mcon", max_time_length, "Time spent by solvers (secs)");
                 for i = 1:length(sorted_problem_names)
                     if ismember(sorted_problem_names{i}, unsolved_problems)
                         continue;
                     end
                     name = sorted_problem_names{i};
+                    type = sorted_problem_types{i};
                     dim = sprintf('%d', sorted_problem_dims{i});
                     mb = sprintf('%d', sorted_problem_mbs{i});
                     mlcon = sprintf('%d', sorted_problem_mlcons{i});
                     mnlcon = sprintf('%d', sorted_problem_mnlcons{i});
                     mcon = sprintf('%d', sorted_problem_mcons{i});
                     time = sprintf('%.2f', sorted_time_processes{i});
-                    count = fprintf(fid, "%-*s    %-*s    %-*s    %-*s    %-*s    %-*s    %-*s\n", max_name_length, name, max_dim_length, dim, max_mbs_length, mb, max_mlcons_length, mlcon, max_mnlcons_length, mnlcon, max_mcons_length, mcon, max_time_length, time);
+                    count = fprintf(fid, "%-*s    %-*s    %-*s    %-*s    %-*s    %-*s    %-*s    %-*s\n", max_name_length, name, max_type_length, type, max_dim_length, dim, max_mbs_length, mb, max_mlcons_length, mlcon, max_mnlcons_length, mnlcon, max_mcons_length, mcon, max_time_length, time);
                     if count < 0
                         if ~profile_options.(ProfileOptionKey.SILENT.value)
                             fprintf("INFO: Failed to record data for %s.", sorted_problem_names{i});
@@ -103,7 +107,7 @@ function writeReport(profile_options, results_plibs, path_report, path_readme_lo
         end
     catch
         if ~profile_options.(ProfileOptionKey.SILENT.value)
-            fprintf("INFO: Error occurred when writing the problem names to %s.\n", path_report);
+            fprintf("INFO: Error occurred when writing the report to %s.\n", path_report);
         end
     end
 end
