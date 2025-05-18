@@ -8,6 +8,7 @@ function test_custom(benchmark_id)
     options.solver_names = {'sqp', 'interior-point', 'active-set'};
     options.feature_name = 'custom';
     options.n_runs = 2;
+    options.max_eval_factor = 100;
     options.run_plain = true;
     options.mod_x0 = @mod_x0;
     options.mod_fun = @mod_fun;

@@ -8,6 +8,7 @@ function test_perturbed_x0(benchmark_id)
     options.solver_names = {'sqp', 'interior-point', 'active-set'};
     options.feature_name = 'perturbed_x0';
     options.n_runs = 2;
+    options.max_eval_factor = 100;
     options.run_plain = true;
     options.ptype = 'ubln';
     options.mindim = 11;

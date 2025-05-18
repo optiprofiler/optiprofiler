@@ -8,6 +8,7 @@ function test_truncated(benchmark_id)
     options.solver_names = {'sqp', 'interior-point', 'active-set'};
     options.feature_name = 'truncated';
     options.ptype = 'ubln';
+    options.max_eval_factor = 100;
     options.run_plain = true;
     options.mindim = 11;
     options.maxdim = 11;

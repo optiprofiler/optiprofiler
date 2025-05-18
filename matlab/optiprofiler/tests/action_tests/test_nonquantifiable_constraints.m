@@ -7,6 +7,7 @@ function test_nonquantifiable_constraints(benchmark_id)
     solvers = {@fmincon_test1, @fmincon_test2, @fmincon_test3};
     options.solver_names = {'sqp', 'interior-point', 'active-set'};
     options.feature_name = 'nonquantifiable_constraints';
+    options.max_eval_factor = 100;
     options.ptype = 'ubln';
     options.run_plain = true;
     options.mindim = 11;
