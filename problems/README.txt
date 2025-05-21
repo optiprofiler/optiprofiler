@@ -1,6 +1,21 @@
 # Using Custom Problem Libraries in OptiProfiler
 
-This guide explains how to create and integrate your own optimization problem library into OptiProfiler using the `custom_example` as a reference.
+This guide explains how to create and integrate your own optimization problem library into OptiProfiler using the `custom` as a reference.
+
+## Quick Start: The Simplest Way to Create and Use Custom Problems
+
+If you want to quickly create and use your own optimization problems, follow these steps:
+
+1. Create Your Problem Files:
+   - Use the existing `.m` files (`custom1.m`, `custom2.m`, `custom3.m`, `custom4.m`) in the `problems/custom/matlab_problems/` folder as examples to define your own problems. Each file should define a MATLAB function that returns a `Problem` object.
+   - Save your new `.m` files in the `problems/custom/matlab_problems/` folder.
+   - You may delete the existing example files (`custom1.m`, `custom2.m`, `custom3.m`, `custom4.m`) if you don't need them.
+
+2. Run `custom_getInfo` in the `problems/custom/` Path:
+   - Navigate to the `problems/custom/` folder in MATLAB.
+   - Run the `custom_getInfo` function. This function will automatically generate a `.mat` file in the `problems/custom/` folder.
+
+That's it! You can now use your custom problems in OptiProfiler by specifying `options.plibs = {'custom'}` in your benchmarking script. Check `Options for problems` part in `benchmark.m` for more details.
 
 ## Overview
 
@@ -9,7 +24,7 @@ OptiProfiler allows benchmarking solvers using custom problem libraries. To use 
 1. A loading function that retrieves problems by name
 2. A selection function that filters problems based on criteria
 
-The `custom_example` folder demonstrates one possible implementation approach.
+The `custom` folder demonstrates one possible implementation approach.
 
 ## Detailed Steps
 
@@ -19,9 +34,9 @@ First, create a new subfolder (e.g., `your_problem_lib/`) within the `problems/`
 
     optiprofiler/
     ├── problems/
-    │   ├── custom_example/       <-- Example implementation
-    │   │   ├── custom_example_load.m
-    │   │   ├── custom_example_select.m
+    │   ├── custom/               <-- Example implementation
+    │   │   ├── custom_load.m
+    │   │   ├── custom_select.m
     │   │   └── matlab_problems/  <-- MATLAB implementation of example problems
     │   ├── your_problem_lib/     <-- Your custom problem library folder
     │   │   ├── your_problem_lib_load.m
@@ -33,7 +48,7 @@ First, create a new subfolder (e.g., `your_problem_lib/`) within the `problems/`
 
 ### 2. Implement Core Functions
 
-#### 2.1 Problem Loading Function (refer to `custom_example_load.m`)
+#### 2.1 Problem Loading Function (refer to `custom_load.m`)
 
 Create a function that loads a specific optimization problem by name and returns a Problem class object. This function must:
 
@@ -41,9 +56,9 @@ Create a function that loads a specific optimization problem by name and returns
 - Accept a problem name as input
 - Return a valid Problem class object
 
-The internal implementation is flexible - you can organize your problem files however you prefer. The example in `custom_example_load.m` demonstrates one approach, but you can use any method as long as the function correctly returns Problem objects.
+The internal implementation is flexible - you can organize your problem files however you prefer. The example in `custom_load.m` demonstrates one approach, but you can use any method as long as the function correctly returns Problem objects.
 
-#### 2.2 Problem Selection Function (refer to `custom_example_select.m`)
+#### 2.2 Problem Selection Function (refer to `custom_select.m`)
 
 Create a function that filters and returns problems matching specified criteria. This function must:
 
@@ -63,7 +78,7 @@ Create a function that filters and returns problems matching specified criteria.
   - `excludelist`: List of problem names to exclude
 - Return a cell array of problem names that satisfy the criteria
 
-The example in `custom_example_select.m` shows one implementation approach where we pre-compute problem data and store it in a .mat file for faster access. This is particularly useful for large problem libraries.
+The example in `custom_select.m` shows one implementation approach where we pre-compute problem data and store it in a .mat file for faster access. This is particularly useful for large problem libraries.
 
 ### 3. Create Problem Definitions
 
@@ -111,11 +126,11 @@ help Problem
 
 ## Example Implementation
 
-The `custom_example` folder provides a reference implementation that you can study and adapt for your own problem library. It demonstrates:
+The `custom` folder provides a reference implementation that you can study and adapt for your own problem library. It demonstrates:
 
 1. One way to organize problem files
 2. How to implement the required functions
 
-You are encouraged to examine the files in the `custom_example` folder to understand the implementation details and adapt them to your specific needs.
+You are encouraged to examine the files in the `custom` folder to understand the implementation details and adapt them to your specific needs.
 
 You may also want to view our website for more information on how to use OptiProfiler: www.optprof.com

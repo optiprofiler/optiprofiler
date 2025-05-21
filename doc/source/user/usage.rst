@@ -10,7 +10,7 @@ We provide below simple examples on how to use OptiProfiler in MATLAB. For more 
 Examples
 --------
 
-Ex1: first example to try out
+Example 1: first example to try out
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Let us first try to benchmark two callable optimization solvers **solver1** and **solver2** (e.g., **fminsearch** and **fminunc** in MATLAB Optimization Toolbox) on the default test suite.
@@ -43,7 +43,7 @@ Additionally, a PDF file named ``summary.pdf`` is generated, summarizing all the
    Figure 2: Example of the summary.pdf file summarizing all the performance profiles and data profiles.
 
 
-Ex2: one step further by adding options
+Example 2: one step further by adding options
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You can also add options to the benchmark function. For example, if you want to benchmark three solvers **solver1**, **solver2**, and **solver3** on the test suite with the ``'noisy'`` feature and all the unconstrained and bound-constrained problems with dimension between 6 and 10 from the default problem set, you can run:
@@ -59,7 +59,22 @@ You can also add options to the benchmark function. For example, if you want to 
 This will create the corresponding folders ``'out/noisy_<timestamp>'`` and files as in the previous example Ex1. More details on the options can be found in the :ref:`benchmark <matbenchmark>` function documentation.
 
 
-Ex3: useful option **load**
+Example 3: testing parametrized solvers
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If you want to benchmark a solver with one variable parameter, you can define function handles by looping over the parameter values. For example, if **solver** accepts the signature ``@(fun, x0, para)``, and you want to benchmark it with the parameter ``para`` taking values from 1 to 5, you can run:
+.. code-block:: matlab
+
+    solvers = cell(1, 5);
+    options.solver_names = cell(1, 5);
+    for i = 1:5
+        solvers{i} = @(fun, x0) solver(fun, x0, i);
+        options.solver_names{i} = ['solver' num2str(i)];
+    end
+    scores = benchmark(solvers, options)
+
+
+Example 4: useful option **load**
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 OptiProfiler provides a practically useful option named **load**. This option allows you to load the results from a previous benchmarking run (without solving all the problems again) and use them to draw new profiles with different options. For example, if you have just run the second example Ex2 and OptiProfiler has finished the job and successfully created the folder ``'out'`` in the current working directory, you can run:
@@ -76,7 +91,7 @@ OptiProfiler provides a practically useful option named **load**. This option al
 This will directly draw the profiles for the **solver1** and **solver3** with the ``'noisy'`` feature and all the unconstrained problems with dimension between 7 and 9 selected from the previous run. The results will also be saved under the current directory with a new subfolder named ``noisy_<timestamp>`` with the new timestamp.
 
 
-Ex4: customizing the test suite
+Example 5: customizing the test suite
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 OptiProfiler allows you to customize the test suite by creating your own feature and loading your own problem library.

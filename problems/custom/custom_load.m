@@ -1,4 +1,4 @@
-function problem = custom_example_load(problem_name)
+function problem = custom_load(problem_name)
     % This is a toy example to show how to write a custom problem loader.
 
     % Add the path to the problem directory.

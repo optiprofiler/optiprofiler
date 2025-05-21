@@ -83,10 +83,12 @@ function writeReport(profile_options, results_plibs, path_report, path_readme_lo
                         end
                     end
                 end
-                fprintf(fid, "\n");
+            else
+                fprintf(fid, "This part is empty.\n");
             end
+            fprintf(fid, "\n");
+            fprintf(fid, '## Problems from the problem library "%s" that all the solvers failed to evaluate a single point\n\n', plib);
             if ~isempty(unsolved_problems)
-                fprintf(fid, '## Problems from the problem library "%s" that all the solvers failed to evaluate a single point\n\n', plib);
                 for i = 1:length(unsolved_problems)
                     count = fprintf(fid, "%s ", unsolved_problems{i});
                     if count < 0
@@ -95,8 +97,10 @@ function writeReport(profile_options, results_plibs, path_report, path_readme_lo
                         end
                     end
                 end
-                fprintf(fid, "\n\n");
+            else
+                fprintf(fid, "This part is empty.\n");
             end
+            fprintf(fid, "\n");
         end
         fclose(fid);
         try

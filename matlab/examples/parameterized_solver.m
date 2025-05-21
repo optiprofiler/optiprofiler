@@ -1,6 +1,6 @@
-function hyperparameterized_solver()
+function parameterized_solver()
 
-    % This is a simple example to show how to benchmark with a hyperparameterized solver.
+    % This is a simple example to show how to benchmark with a parameterized solver.
 
     n_solvers = 3;
     solvers = cell(1, n_solvers);

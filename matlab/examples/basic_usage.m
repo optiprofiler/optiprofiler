@@ -26,7 +26,7 @@ function basic_usage()
     % options.distribution = 'uniform';
     % options.n_runs = 3;
     % options.seed = 1;
-    % options.plibs = {'s2mpj', 'custom_example'};
+    % options.plibs = {'s2mpj', 'custom'};
     % options.ptype = 'u';
     % options.maxdim = 2;
     % scores = benchmark(solvers, options)

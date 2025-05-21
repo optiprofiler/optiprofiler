@@ -1,7 +1,7 @@
-function problem_names = custom_example_select(options)
+function problem_names = custom_select(options)
     % This is a toy example to show how to write a custom problem selector.
-    % We will use the mat file `custom_example_info.mat` created by
-    % `custom_example_getInfo` to select the problems.
+    % We will use the mat file `custom_info.mat` created by
+    % `custom_getInfo` to select the problems.
 
     % Initialization.
     problem_names = {};
@@ -45,7 +45,7 @@ function problem_names = custom_example_select(options)
     end
 
     % Load the data from a .mat file.
-    load('custom_example_info.mat', 'probinfo');
+    load('custom_info.mat', 'probinfo');
 
     % Loop through each problem and check the criteria.
     for i_problem = 2:size(probinfo, 1)

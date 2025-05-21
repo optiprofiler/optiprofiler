@@ -21,9 +21,9 @@ function test_random_nan(benchmark_id)
     options.max_tol_order = 3;
     options.max_eval_factor = 50;
     if isunix() && ~ismac()
-        options.plibs = {'s2mpj', 'matcutest', 'custom_example'};
+        options.plibs = {'s2mpj', 'matcutest', 'custom'};
     else
-        options.plibs = {'s2mpj', 'custom_example'};
+        options.plibs = {'s2mpj', 'custom'};
     end
     benchmark(solvers, options)
 

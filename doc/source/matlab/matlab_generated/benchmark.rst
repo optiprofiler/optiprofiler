@@ -242,7 +242,7 @@ Options should be specified in a struct. The following are the available fields 
 
 Options in this part are used to select problems for benchmarking. First select which problem libraries to use based on the ``plibs`` option. Then select problems from these libraries according to the given options (``problem_names``, ``ptype``, ``mindim``, ``maxdim``, ``minb``, ``maxb``, ``minlcon``, ``maxlcon``, ``minnlcon``, ``maxnlcon``, ``mincon``, ``maxcon``, and ``excludelist``). Following is the list of available options:
 
-  - **plibs**: the problem libraries to be used. It should be a cell array of strings or chars. The available choices are subfolder names in the ``'problems'`` directory. There are three subfolders after installing the package: 's2mpj', 'matcutest', and 'custom_example'. Default setting is ``'s2mpj'``.
+  - **plibs**: the problem libraries to be used. It should be a cell array of strings or chars. The available choices are subfolder names in the ``'problems'`` directory. There are three subfolders after installing the package: 's2mpj', 'matcutest', and 'custom'. Default setting is ``'s2mpj'``.
 
   - **ptype**: the type of the problems to be selected. It should be a string or char consisting of any combination of ``'u'`` (unconstrained), ``'b'`` (bound constrained), ``'l'`` (linearly constrained), and ``'n'`` (nonlinearly constrained), such as ``'b'``, ``'ul'``, ``'ubn'``. Default is ``'u'``.
 

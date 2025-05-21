@@ -1,7 +1,7 @@
-function custom_example_getInfo()
+function custom_getInfo()
     % This is a toy example to show one way of collecting information about
-    % the problems in the custom_example problem library.
-    % We will store the information in a MAT file so that `custom_example_select`
+    % the problems in the custom problem library.
+    % We will store the information in a MAT file so that `custom_select`
     % can use it to select problems.
 
     % Collect all the m file names in the directory `matlab_problems`.
@@ -20,7 +20,7 @@ function custom_example_getInfo()
         % Get the problem name.
         problem_name = mfile_names{i_problem};
         % Load the problem.
-        p = custom_example_load(problem_name);
+        p = custom_load(problem_name);
         % Record the problem information.
         probinfo{i_problem + 1, 1} = p.name;
         probinfo{i_problem + 1, 2} = p.ptype;
@@ -32,5 +32,5 @@ function custom_example_getInfo()
     end
 
     % Save the problem information to a MAT file.
-    save(fullfile(mydir, 'custom_example_info.mat'), 'probinfo');
+    save(fullfile(mydir, 'custom_info.mat'), 'probinfo');
 end

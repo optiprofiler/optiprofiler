@@ -316,8 +316,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %       - plibs: the problem libraries to be used. It should be a cell array of
 %         strings or chars. The available choices are subfolder names in the
 %         'problems' directory. There are three subfolders after installing the
-%         package: 's2mpj', 'matcutest', and 'custom_example'. Default setting
-%         is 's2mpj'.
+%         package: 's2mpj', 'matcutest', and 'custom'. Default setting is
+%         's2mpj'.
 %       - ptype: the type of the problems to be selected. It should be a string
 %         or char consisting of any combination of 'u' (unconstrained), 'b'
 %         (bound constrained), 'l' (linearly constrained), and 'n' (nonlinearly
@@ -1216,35 +1216,40 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     end
 
     % Record the names of the problems all the solvers failed to meet the convergence test for every tolerance.
-    if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value) && (any(solvers_all_diverge_hist(:)) || any(solvers_all_diverge_out(:)))
+    if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
         try
             max_name_length = max(cellfun(@length, problem_names_merged));
             fid = fopen(path_report, 'a');
             fprintf(fid, "\n");
             fprintf(fid, "## Problems among all the libraries that all the solvers failed to meet the convergence test for each tolerance and each run\n");
-            for i_tol = 1:profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)
-                tolerance = tolerances(i_tol);
-                tolerance_str = formatFloatScientificLatex(tolerance, 1);
-                for i_run = 1:n_runs
-                    if any(solvers_all_diverge_hist(:, i_run, i_tol))
-                        fprintf(fid, "\n");
-                        fprintf(fid, "History-based  tol = %-8s run = %-3d:\t\t", tolerance_str, i_run);
-                        for i_problem = 1:n_problems
-                            if solvers_all_diverge_hist(i_problem, i_run, i_tol)
-                                fprintf(fid, "%-*s ", max_name_length, problem_names_merged{i_problem});
+            if (any(solvers_all_diverge_hist(:)) || any(solvers_all_diverge_out(:)))
+                for i_tol = 1:profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)
+                    tolerance = tolerances(i_tol);
+                    tolerance_str = formatFloatScientificLatex(tolerance, 1);
+                    for i_run = 1:n_runs
+                        if any(solvers_all_diverge_hist(:, i_run, i_tol))
+                            fprintf(fid, "\n");
+                            fprintf(fid, "History-based  tol = %-8s run = %-3d:\t\t", tolerance_str, i_run);
+                            for i_problem = 1:n_problems
+                                if solvers_all_diverge_hist(i_problem, i_run, i_tol)
+                                    fprintf(fid, "%-*s ", max_name_length, problem_names_merged{i_problem});
+                                end
                             end
                         end
-                    end
-                    if any(solvers_all_diverge_out(:, i_run, i_tol))
-                        fprintf(fid, "\n");
-                        fprintf(fid, "Output-based   tol = %-8s run = %-3d:\t\t", tolerance_str, i_run);
-                        for i_problem = 1:n_problems
-                            if solvers_all_diverge_out(i_problem, i_run, i_tol)
-                                fprintf(fid, "%-*s ", max_name_length, problem_names_merged{i_problem});
+                        if any(solvers_all_diverge_out(:, i_run, i_tol))
+                            fprintf(fid, "\n");
+                            fprintf(fid, "Output-based   tol = %-8s run = %-3d:\t\t", tolerance_str, i_run);
+                            for i_problem = 1:n_problems
+                                if solvers_all_diverge_out(i_problem, i_run, i_tol)
+                                    fprintf(fid, "%-*s ", max_name_length, problem_names_merged{i_problem});
+                                end
                             end
                         end
                     end
                 end
+            else
+                fprintf(fid, "\n");
+                fprintf(fid, "This part is empty.\n");
             end
             fclose(fid);
         catch
@@ -1335,7 +1340,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             delete(fullfile(path_out, 'summary.pdf'));
             for i_file = 1:numel(summary_files)
                 copyfile(fullfile(summary_files(i_file).folder, summary_files(i_file).name), path_out);
-                mergePdfs(path_out, 'summary.pdf', path_out);
+                mergePdfs(path_out, 'summary.pdf', path_out, 'summary');
                 delete(fullfile(path_out, summary_files(i_file).name));
             end
         catch
@@ -1371,11 +1376,16 @@ end
 % Following one function is modified from the code provided by Benjamin Großmann (2024). Merge PDF-Documents
 % (https://www.mathworks.com/matlabcentral/fileexchange/89127-merge-pdf-documents), MATLAB Central
 % File Exchange. Retrieved November 12, 2024.
-function mergePdfs(file_path, output_file_name, output_path)
+function mergePdfs(file_path, output_file_name, output_path, pattern)
 
     fileNames = dir(fullfile(file_path, '*.pdf'));
     fileNames = {fileNames.name};
     fileNames = cellfun(@(f) fullfile(file_path, f), fileNames, 'UniformOutput', false);
+
+    % If a pattern is provided, filter the file names based on the pattern.
+    if exist('pattern', 'var') && ~isempty(pattern)
+        fileNames = fileNames(contains(fileNames, pattern));
+    end
 
     memSet = org.apache.pdfbox.io.MemoryUsageSetting.setupMainMemoryOnly();
     merger = org.apache.pdfbox.multipdf.PDFMergerUtility;
