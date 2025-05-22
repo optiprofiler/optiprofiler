@@ -26,10 +26,15 @@ Why OptiProfiler?
 -----------------
 
 - **Simple** usage for beginners
+    Get started quickly with the main function `benchmark` in one line of code
 - **Multiple** degrees of freedom for experts
+    Multiple built-in features and customization options for test suites
 - **Automatic** generation of high-quality profiles
+    Publication-ready PDF visualizations with precise, clear, and aesthetically pleasing figures
 - **Reliable** methodology for benchmarking
-- **Trackable** experimental results for reproducibility
+    Based on the widely accepted performance profile and data profile
+- **Time-stamped** experimental results for reproducibility
+    All experimental results are time-stamped and saved in a structured format for easy access and reproducibility
 
 How to use OptiProfiler?
 ------------------------
