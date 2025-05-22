@@ -26,7 +26,7 @@ Why OptiProfiler?
 -----------------
 
 - **Simple** usage for beginners
-    Get started quickly with the main function `benchmark` in one line of code
+    Easy :ref:`installation <install>` and :ref:`quick start <use>` with a few lines of code
 - **Multiple** degrees of freedom for experts
     Multiple built-in features and customization options for test suites
 - **Automatic** generation of high-quality profiles
