@@ -34,7 +34,7 @@ Why OptiProfiler?
 - **Reliable** methodology for benchmarking
     Based on the widely accepted performance profile and data profile
 - **Time-stamped** experimental results for reproducibility
-    All experimental results are time-stamped and saved in a structured format for easy access and reproducibility
+    All experimental results are time-stamped and saved in a structured format for easy reproducibility
 
 How to use OptiProfiler?
 ------------------------
