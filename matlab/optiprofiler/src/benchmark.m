@@ -1293,6 +1293,14 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             fid = fopen(path_readme_log, 'a');
             fprintf(fid, "'profile_scores.mat': file, storing the scores of solvers on each profile.\n");
             fclose(fid);
+
+            fid = fopen(path_report, 'a');
+            fprintf(fid, "\n");
+            fprintf(fid, "## Scores of the solvers\n\n");
+            max_solver_name_length = max(cellfun(@length, solver_names));
+            for i_solver = 1:n_solvers
+                fprintf(fid, "%-*s:    %.4f\n", max_solver_name_length, solver_names{i_solver}, solver_scores(i_solver));
+            end
         catch
         end
     end

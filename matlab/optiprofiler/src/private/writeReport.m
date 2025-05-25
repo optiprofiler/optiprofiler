@@ -62,6 +62,7 @@ function writeReport(profile_options, results_plibs, path_report, path_readme_lo
 
             % Print the report file.
             fprintf(fid, '## Report for the problem library "%s"\n\n', plib);
+            fprintf(fid, 'Number of problems selected: %d\n\n', length(sorted_problem_names));
             if length(unsolved_problems) < length(sorted_problem_names)
                 fprintf(fid, "%-*s    %-*s    %-*s    %-*s    %-*s    %-*s    %-*s    %-*s\n", max_name_length, "Problem name", max_type_length, "Type", max_dim_length, "Dimension", max_mbs_length, "mb", max_mlcons_length, "mlcon", max_mnlcons_length, "mnlcon", max_mcons_length, "mcon", max_time_length, "Time spent by solvers (secs)");
                 for i = 1:length(sorted_problem_names)
