@@ -63,6 +63,7 @@ Example 3: testing parametrized solvers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 If you want to benchmark a solver with one variable parameter, you can define function handles by looping over the parameter values. For example, if **solver** accepts the signature ``@(fun, x0, para)``, and you want to benchmark it with the parameter ``para`` taking values from 1 to 5, you can run:
+
 .. code-block:: matlab
 
     solvers = cell(1, 5);
