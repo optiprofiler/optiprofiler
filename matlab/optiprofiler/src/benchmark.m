@@ -1247,6 +1247,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                         end
                     end
                 end
+                fprintf(fid, "\n");
             else
                 fprintf(fid, "\n");
                 fprintf(fid, "This part is empty.\n");
