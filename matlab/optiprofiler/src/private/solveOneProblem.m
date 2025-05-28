@@ -23,6 +23,7 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
     n_solvers = length(solvers);
     n_runs = feature.options.(FeatureOptionKey.N_RUNS.value);
     max_eval = profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value) * problem.n;
+    max_eval = ceil(max_eval);  % Ensure max_eval is an integer greater than or equal to 1.
     n_eval = zeros(n_solvers, n_runs);
     fun_history = NaN(n_solvers, n_runs, max_eval);
     fun_out = NaN(n_solvers, n_runs);

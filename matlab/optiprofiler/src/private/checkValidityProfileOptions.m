@@ -16,10 +16,10 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
             error("MATLAB:checkValidityProfileOptions:n_jobsNotValid", "The option `n_jobs` should be a integer.");
         elseif profile_options.(ProfileOptionKey.N_JOBS.value) < 1
             profile_options.(ProfileOptionKey.N_JOBS.value) = 1;
+            fprintf("INFO: The option `n_jobs` is set to 1 because it cannot be smaller than 1.\n");
         elseif profile_options.(ProfileOptionKey.N_JOBS.value) > nb_cores
             profile_options.(ProfileOptionKey.N_JOBS.value) = nb_cores;
-        else
-            profile_options.(ProfileOptionKey.N_JOBS.value) = round(profile_options.(ProfileOptionKey.N_JOBS.value));
+            fprintf("INFO: The option `n_jobs` is set to %d because it cannot be larger than the number of available workers in the cluster.\n", nb_cores, nb_cores);
         end
     end
 
@@ -112,10 +112,10 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
     end
 
 
-    % Judge whether profile_options.max_eval_factor is a positive integer.
+    % Judge whether profile_options.max_eval_factor is a positive real number.
     if isfield(profile_options, ProfileOptionKey.MAX_EVAL_FACTOR.value)
-        if ~isintegerscalar(profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value)) || profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value) <= 0
-            error("MATLAB:checkValidityProfileOptions:max_eval_factorNotValid", "The option `max_eval_factor` should be a positive integer.");
+        if ~isrealscalar(profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value)) || profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value) <= 0
+            error("MATLAB:checkValidityProfileOptions:max_eval_factorNotValid", "The option `max_eval_factor` should be a positive real number.");
         end
     end
 
