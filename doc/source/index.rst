@@ -33,8 +33,8 @@ Why OptiProfiler?
     Publication-ready PDF visualizations with precise, clear, and aesthetically pleasing figures
 - **Reliable** methodology for benchmarking
     Based on the widely accepted performance profile and data profile
-- **Time-stamped** experimental results for reproducibility
-    All experimental results are time-stamped and saved in a structured format for easy reproducibility
+- **Trackable** experimental results for reproducibility
+    Seed-controlled and time-stamped experimental results for easy reproducibility and loading
 
 How to use OptiProfiler?
 ------------------------

@@ -92,7 +92,7 @@ classdef Feature < handle
 %         be either 'absolute', 'relative', or 'mixed'. Default is 'mixed'.
 %       - significant_digits: the number of significant digits in the
 %         'truncated' feature. Default is 6.
-%       - perturbed_trailing_zeros: whether we will randomize the trailing
+%       - perturbed_trailing_digits: whether we will randomize the trailing
 %         zeros of the objective function value in the 'perturbed_x0' feature.
 %         Default is false.
 %       - rotated: whether to use a random or given rotation matrix to rotate
@@ -185,7 +185,7 @@ classdef Feature < handle
 %       3. 'noisy':
 %           n_runs, distribution, noise_level, noise_type
 %       4. 'truncated':
-%           n_runs, significant_digits, perturbed_trailing_zeros
+%           n_runs, significant_digits, perturbed_trailing_digits
 %       5. 'permuted':
 %           n_runs
 %       6. 'linearly_transformed':
@@ -306,7 +306,7 @@ classdef Feature < handle
                     case FeatureName.RANDOM_NAN.value
                         known_options = [known_options, {FeatureOptionKey.NAN_RATE.value}];
                     case FeatureName.TRUNCATED.value
-                        known_options = [known_options, {FeatureOptionKey.PERTURBED_TRAILING_ZEROS.value, FeatureOptionKey.SIGNIFICANT_DIGITS.value}];
+                        known_options = [known_options, {FeatureOptionKey.PERTURBED_TRAILING_DIGITS.value, FeatureOptionKey.SIGNIFICANT_DIGITS.value}];
                     case FeatureName.UNRELAXABLE_CONSTRAINTS.value
                         known_options = [known_options, {FeatureOptionKey.UNRELAXABLE_BOUNDS.value, FeatureOptionKey.UNRELAXABLE_LINEAR_CONSTRAINTS.value, FeatureOptionKey.UNRELAXABLE_NONLINEAR_CONSTRAINTS.value}];
                     case FeatureName.LINEARLY_TRANSFORMED.value
@@ -361,9 +361,9 @@ classdef Feature < handle
                             error("MATLAB:Feature:noise_type_InvalidInput", "Option `" + key + "` must be 'absolute', 'relative', or 'mixed'.")
                         end
                         obj.options.(key) = char(obj.options.(key));
-                    case FeatureOptionKey.PERTURBED_TRAILING_ZEROS.value
+                    case FeatureOptionKey.PERTURBED_TRAILING_DIGITS.value
                         if ~islogicalscalar(obj.options.(key))
-                            error("MATLAB:Feature:perturbed_trailing_zeros_NotLogical", "Option `" + key + "` must be a logical value.")
+                            error("MATLAB:Feature:perturbed_trailing_digits_NotLogical", "Option `" + key + "` must be a logical value.")
                         end
                     case FeatureOptionKey.ROTATED.value
                         if ~islogicalscalar(obj.options.(key))
@@ -451,7 +451,7 @@ classdef Feature < handle
                 case FeatureName.NOISY.value
                     is_stochastic = true;
                 case FeatureName.TRUNCATED.value
-                    if obj.options.(FeatureOptionKey.PERTURBED_TRAILING_ZEROS.value)
+                    if obj.options.(FeatureOptionKey.PERTURBED_TRAILING_DIGITS.value)
                         is_stochastic = true;
                     else
                         is_stochastic = false;
@@ -949,7 +949,7 @@ classdef Feature < handle
                     % directly, but we want to keep the same format as the Python code. The code before
                     % 'round(f, digits)' cannot be removed since the default choice of 'round' in MATLAB
                     % will consider digits in relation to the decimal point.
-                    if obj.options.(FeatureOptionKey.PERTURBED_TRAILING_ZEROS.value)
+                    if obj.options.(FeatureOptionKey.PERTURBED_TRAILING_DIGITS.value)
                         if f >= 0
                             f = f + rand_stream_truncated.rand() * 10 ^ (-digits);
                         else
@@ -1059,7 +1059,7 @@ classdef Feature < handle
                             cub_(i_cub) = round(cub_(i_cub), digits(i_cub));
                         end
                     end
-                    if obj.options.(FeatureOptionKey.PERTURBED_TRAILING_ZEROS.value)
+                    if obj.options.(FeatureOptionKey.PERTURBED_TRAILING_DIGITS.value)
                         cub_(cub_ >= 0) = cub_(cub_ >= 0) + rand_stream_truncated.rand(size(cub_(cub_ >= 0))) .* (10 .^ (-digits(cub_ >= 0)));
                         cub_(cub_ < 0) = cub_(cub_ < 0) - rand_stream_truncated.rand(size(cub_(cub_ < 0))) .* (10 .^ (-digits(cub_ < 0)));
                     end
@@ -1160,7 +1160,7 @@ classdef Feature < handle
                             ceq_(i_ceq) = round(ceq_(i_ceq), digits(i_ceq));
                         end
                     end
-                    if obj.options.(FeatureOptionKey.PERTURBED_TRAILING_ZEROS.value)
+                    if obj.options.(FeatureOptionKey.PERTURBED_TRAILING_DIGITS.value)
                         ceq_(ceq_ >= 0) = ceq_(ceq_ >= 0) + rand_stream_truncated.rand(size(ceq_(ceq_ >= 0))) .* (10 .^ (-digits(ceq_ >= 0)));
                         ceq_(ceq_ < 0) = ceq_(ceq_ < 0) - rand_stream_truncated.rand(size(ceq_(ceq_ < 0))) .* (10 .^ (-digits(ceq_ < 0)));
                     end
@@ -1235,11 +1235,11 @@ classdef Feature < handle
                         obj.options.(FeatureOptionKey.NAN_RATE.value) = 0.05;
                     end
                 case FeatureName.TRUNCATED.value
-                    if ~isfield(obj.options, FeatureOptionKey.PERTURBED_TRAILING_ZEROS.value)
-                        obj.options.(FeatureOptionKey.PERTURBED_TRAILING_ZEROS.value) = false;
+                    if ~isfield(obj.options, FeatureOptionKey.PERTURBED_TRAILING_DIGITS.value)
+                        obj.options.(FeatureOptionKey.PERTURBED_TRAILING_DIGITS.value) = false;
                     end
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
-                        if obj.options.(FeatureOptionKey.PERTURBED_TRAILING_ZEROS.value)
+                        if obj.options.(FeatureOptionKey.PERTURBED_TRAILING_DIGITS.value)
                             obj.options.(FeatureOptionKey.N_RUNS.value) = 5;
                         else
                             obj.options.(FeatureOptionKey.N_RUNS.value) = 1;

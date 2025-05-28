@@ -8,7 +8,7 @@ classdef FeatureOptionKey
         NOISE_LEVEL ('noise_level')
         NOISE_TYPE ('noise_type')
         SIGNIFICANT_DIGITS ('significant_digits')
-        PERTURBED_TRAILING_ZEROS ('perturbed_trailing_zeros')
+        PERTURBED_TRAILING_DIGITS ('perturbed_trailing_digits')
         ROTATED ('rotated')
         CONDITION_FACTOR ('condition_factor')
         NAN_RATE ('nan_rate')

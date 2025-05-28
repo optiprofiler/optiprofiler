@@ -45,10 +45,10 @@ classdef TestBenchmark < matlab.unittest.TestCase
             options.summarize_log_ratio_profiles = true;
             options.feature_name = 'truncated';
             options.significant_digits = 4;
-            options.perturbed_trailing_zeros = true;
+            options.perturbed_trailing_digits = true;
             benchmark(solvers, options);
             options = rmfield(options, 'significant_digits');
-            options = rmfield(options, 'perturbed_trailing_zeros');
+            options = rmfield(options, 'perturbed_trailing_digits');
             
             % Test permuted feature.
             options.summarize_performance_profiles = false;

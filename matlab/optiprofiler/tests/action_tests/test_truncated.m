@@ -26,7 +26,7 @@ function test_truncated(benchmark_id)
     end
     benchmark(solvers, options)
 
-    options.perturbed_trailing_zeros = true;
+    options.perturbed_trailing_digits = true;
     options.significant_digits = 4;
     options.n_runs = 3;
     benchmark(solvers, options)

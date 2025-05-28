@@ -91,9 +91,9 @@ function y_shift = computeYShift(history, profile_options)
     else
         y_min = min(history(:));
     end
-    
-    % Shift the y-axis if there is value that is smaller than 1e-12 and the values are not all the same.
-    if any(diff(history(:))) && y_min <= 1e-12
-        y_shift = 1e-12 - y_min;
+
+    % Shift the y-axis if there is value that is smaller than eps and the values are not all the same.
+    if any(diff(history(:))) && y_min < eps
+        y_shift = max(eps - y_min, eps(-y_min) - y_min);
     end
 end

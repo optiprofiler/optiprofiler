@@ -125,16 +125,16 @@ classdef TestFeature < matlab.unittest.TestCase
             testCase.verifyEqual(ft.name, 'truncated');
             testCase.verifyEqual(ft.options.n_runs, 1);
             testCase.verifyEqual(ft.options.significant_digits, 6);
-            testCase.verifyEqual(ft.options.perturbed_trailing_zeros, false);
+            testCase.verifyEqual(ft.options.perturbed_trailing_digits, false);
 
             options.n_runs = 5;
             options.significant_digits = 2;
-            options.perturbed_trailing_zeros = false;
+            options.perturbed_trailing_digits = false;
             ft = Feature('truncated', options);
             testCase.verifyEqual(ft.name, 'truncated');
             testCase.verifyEqual(ft.options.n_runs, 5);
             testCase.verifyEqual(ft.options.significant_digits, 2);
-            testCase.verifyEqual(ft.options.perturbed_trailing_zeros, false);
+            testCase.verifyEqual(ft.options.perturbed_trailing_digits, false);
         end
 
         function testPermuted(testCase)
@@ -297,7 +297,7 @@ classdef TestFeature < matlab.unittest.TestCase
 
             testCase.verifyError(@() Feature('noisy', struct('noise_type', 'unknown')), "MATLAB:Feature:noise_type_InvalidInput")
 
-            testCase.verifyError(@() Feature('truncated', struct('perturbed_trailing_zeros', 'unknown')), "MATLAB:Feature:perturbed_trailing_zeros_NotLogical")
+            testCase.verifyError(@() Feature('truncated', struct('perturbed_trailing_digits', 'unknown')), "MATLAB:Feature:perturbed_trailing_digits_NotLogical")
 
             testCase.verifyError(@() Feature('linearly_transformed', struct('rotated', 'unknown')), "MATLAB:Feature:rotated_NotLogical")
 

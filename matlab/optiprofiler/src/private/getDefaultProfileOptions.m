@@ -123,10 +123,10 @@ function feature_stamp = getDefaultFeatureStamp(feature)
                 feature_stamp = sprintf('%s_%s', feature_stamp, feature.options.(FeatureOptionKey.DISTRIBUTION.value));
             end
         case FeatureName.TRUNCATED.value
-            % feature_name + significant_digits + (perturbed_trailing_zeros if it is true)
+            % feature_name + significant_digits + (perturbed_trailing_digits if it is true)
             feature_stamp = sprintf('%s_%d', feature.name, feature.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value));
-            if feature.options.(FeatureOptionKey.PERTURBED_TRAILING_ZEROS.value)
-                feature_stamp = sprintf('%s_perturbed_trailing_zeros', feature_stamp);
+            if feature.options.(FeatureOptionKey.PERTURBED_TRAILING_DIGITS.value)
+                feature_stamp = sprintf('%s_perturbed_trailing_digits', feature_stamp);
             end
         case FeatureName.LINEARLY_TRANSFORMED.value
             % feature_name + (rotated if it is true) + (condition_factor if it is not 0)

@@ -11,7 +11,8 @@ Examples
 --------
 
 Example 1: first example to try out
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(See also: ``matlab/examples/example1.m``)
 
 Let us first try to benchmark two callable optimization solvers **solver1** and **solver2** (e.g., **fminsearch** and **fminunc** in MATLAB Optimization Toolbox) on the default test suite.
 (Note that each **solver** must accept signatures mentioned in the `Cautions` part of the :ref:`benchmark <matbenchmark>` function according to the type of problems you want to solve.)
@@ -24,7 +25,7 @@ To do this, run:
 
 This will benchmark the two solvers on the default test suite, which means ``'plain'`` feature (see :ref:`Feature <matfeature>`) and 49 unconstrained problems from the default problem library. It will also return the scores of the two solvers based on the profiles.
 
-There will be a new folder named ``'out'`` in the current working directory, which contains a subfolder named ``plain_<timestamp>`` with all the detailed results.
+There will be a new folder named ``out`` in the current working directory, which contains a subfolder named ``plain_<timestamp>`` with all the detailed results.
 
 .. figure:: images/subfolder_structure.png
    :width: 80%
@@ -44,7 +45,8 @@ Additionally, a PDF file named ``summary.pdf`` is generated, summarizing all the
 
 
 Example 2: one step further by adding options
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(See also: ``matlab/examples/example2.m``)
 
 You can also add options to the benchmark function. For example, if you want to benchmark three solvers **solver1**, **solver2**, and **solver3** on the test suite with the ``'noisy'`` feature and all the unconstrained and bound-constrained problems with dimension between 6 and 10 from the default problem set, you can run:
 
@@ -56,11 +58,12 @@ You can also add options to the benchmark function. For example, if you want to 
     options.feature_name = 'noisy';
     scores = benchmark({@solver1, @solver2, @solver3}, options)
 
-This will create the corresponding folders ``'out/noisy_<timestamp>'`` and files as in the previous example Ex1. More details on the options can be found in the :ref:`benchmark <matbenchmark>` function documentation.
+This will create the corresponding folders ``out/noisy_<timestamp>`` and files as in the previous example Ex1. More details on the options can be found in the :ref:`benchmark <matbenchmark>` function documentation.
 
 
 Example 3: testing parametrized solvers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(See also: ``matlab/examples/example3.m``)
 
 If you want to benchmark a solver with one variable parameter, you can define function handles by looping over the parameter values. For example, if **solver** accepts the signature ``@(fun, x0, para)``, and you want to benchmark it with the parameter ``para`` taking values from 1 to 5, you can run:
 
@@ -76,9 +79,10 @@ If you want to benchmark a solver with one variable parameter, you can define fu
 
 
 Example 4: useful option **load**
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(See also: ``matlab/examples/example4.m``)
 
-OptiProfiler provides a practically useful option named **load**. This option allows you to load the results from a previous benchmarking run (without solving all the problems again) and use them to draw new profiles with different options. For example, if you have just run the second example Ex2 and OptiProfiler has finished the job and successfully created the folder ``'out'`` in the current working directory, you can run:
+OptiProfiler provides a practically useful option named **load**. This option allows you to load the results from a previous benchmarking run (without solving all the problems again) and use them to draw new profiles with different options. For example, if you have just run the second example Ex2 and OptiProfiler has finished the job and successfully created the folder ``out`` in the current working directory, you can run:
 
 .. code-block:: matlab
 
@@ -93,7 +97,8 @@ This will directly draw the profiles for the **solver1** and **solver3** with th
 
 
 Example 5: customizing the test suite
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(See also: ``matlab/examples/example5.m``)
 
 OptiProfiler allows you to customize the test suite by creating your own feature and loading your own problem library.
 For example, if you want to create a new feature that adds noise to the objective function and perturbs the initial guess at the same time, you can try the following:

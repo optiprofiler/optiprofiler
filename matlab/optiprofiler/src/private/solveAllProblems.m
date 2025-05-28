@@ -177,14 +177,14 @@ function results = solveAllProblems(solvers, plib, feature, problem_options, pro
         end
 
         if n_problems > 0
-            max_max_eval = max_eval_factor * max(problem_dims);
+            max_max_eval = ceil(max_eval_factor * max(problem_dims));
         else
             max_max_eval = 1;
         end
         fun_histories = NaN(n_problems, n_solvers, n_runs, max_max_eval);
         maxcv_histories = NaN(n_problems, n_solvers, n_runs, max_max_eval);
         for i_problem = 1:n_problems
-            max_eval = max_eval_factor * problem_dims(i_problem);
+            max_eval = ceil(max_eval_factor * problem_dims(i_problem));
             result = tmp_results{i_problem};
             fun_histories(i_problem, :, :, 1:max_eval) = result.fun_history;
             maxcv_histories(i_problem, :, :, 1:max_eval) = result.maxcv_history;
