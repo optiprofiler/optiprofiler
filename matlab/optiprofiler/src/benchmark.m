@@ -199,8 +199,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         'linearly_transformed', 'random_nan', 'unrelaxable_constraints',
 %         'nonquantifiable_constraints', 'quantized', and 'custom'. Default is
 %         'plain'.
-%       - n_runs: the number of runs of the experiments under the given
-%         feature. Default is 5 for stochastic features and 1 for deterministic
+%       - n_runs: the number of runs of the experiments with the given feature.
+%         Default is 5 for stochastic features and 1 for deterministic
 %         features.
 %       - distribution: the distribution of perturbation in 'perturbed_x0'
 %         feature or noise in 'noisy' feature. It should be either a string
@@ -645,7 +645,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             fclose(fid);
         catch
             if ~profile_options.(ProfileOptionKey.SILENT.value)
-                fprintf("INFO: Failed to create the README.txt file for folder '%s'.\n", path_log);
+                fprintf("\nINFO: Failed to create the README.txt file for folder '%s'.\n", path_log);
             end
         end
     end
@@ -665,7 +665,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             end
         catch
             if ~profile_options.(ProfileOptionKey.SILENT.value)
-                fprintf("INFO: Failed to create the time_stamp file for folder '%s'.\n", path_log);
+                fprintf("\nINFO: Failed to create the time_stamp file for folder '%s'.\n", path_log);
             end
         end
     end
@@ -694,7 +694,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             end
         catch
             if ~profile_options.(ProfileOptionKey.SILENT.value)
-                fprintf("INFO: Failed to save the options of the current experiment.\n");
+                fprintf("\nINFO: Failed to save the options of the current experiment.\n");
             end
         end
         log_file = fullfile(path_log, 'log.txt');
@@ -721,7 +721,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             fclose(fid);
         catch
             if ~profile_options.(ProfileOptionKey.SILENT.value)
-                fprintf("INFO: Failed to create the README.txt file for folder '%s'.\n", path_feature);
+                fprintf("\nINFO: Failed to create the README.txt file for folder '%s'.\n", path_feature);
             end
         end
     end
@@ -733,7 +733,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             if ~isempty(calling_script)
                 copyfile(calling_script.file, path_log);
                 if ~profile_options.(ProfileOptionKey.SILENT.value)
-                    fprintf("INFO: The script or function that calls `benchmark` function is copied to: %s.\n\n", path_log);
+                    fprintf("\nINFO: The script or function that calls `benchmark` function is copied to: %s.\n", path_log);
                 end
                 try
                     fid = fopen(path_readme_log, 'a');
@@ -744,7 +744,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             end
         catch
             if ~profile_options.(ProfileOptionKey.SILENT.value)
-                fprintf("INFO: Failed to copy the script or function that calls `benchmark` function to the log directory.\n\n");
+                fprintf("\nINFO: Failed to copy the script or function that calls `benchmark` function to the log directory.\n");
             end
         end
     end
@@ -802,7 +802,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     % randomized, then we set `n_runs` to 5.
     if ~isfield(feature_options, FeatureOptionKey.N_RUNS.value) && ~feature.is_stochastic && any(profile_options.(ProfileOptionKey.SOLVER_ISRAND.value)) && isempty(profile_options.(ProfileOptionKey.LOAD.value))
         if ~profile_options.(ProfileOptionKey.SILENT.value)
-            fprintf("INFO: We set `n_runs` to 5 since it is not specified and at least one solver is randomized.\n\n");
+            fprintf("\nINFO: We set `n_runs` to 5 since it is not specified and at least one solver is randomized.\n");
         end
         feature.options.(FeatureOptionKey.N_RUNS.value) = 5;
     end
@@ -817,7 +817,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                 movefile(fullfile(path_hist_plots, '*'), path_feature);
                 rmdir(path_hist_plots, 's');
                 if ~profile_options.(ProfileOptionKey.SILENT.value)
-                    fprintf('\nINFO: Detailed results stored in: \n%s\n\n', path_feature);
+                    fprintf('\nINFO: Detailed results stored in: \n%s\n', path_feature);
                 end
             catch
             end
@@ -843,8 +843,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         end
 
         if ~profile_options.(ProfileOptionKey.SILENT.value)
-            fprintf('\n');
-            fprintf('INFO: Scores of the solvers:\n');
+            fprintf('\nINFO: Scores of the solvers:\n');
             max_solver_name_length = max(cellfun(@length, solver_names));
             for i_solver = 1:n_solvers
                 format_info_str = sprintf('INFO: %%-%ds:    %%.4f\n', max_solver_name_length);
@@ -865,11 +864,11 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         for i_plib = 1:numel(plibs)
             plib = plibs{i_plib};
             if ~profile_options.(ProfileOptionKey.SILENT.value)
-                fprintf('INFO: Start the computation of problems from the problem library "%s" under "%s" feature.\n', plib, feature.name);
+                fprintf('\nINFO: Start testing problems from the problem library "%s" with "%s" feature.\n', plib, feature.name);
                 if strcmp(plib, 's2mpj')
-                    fprintf("INFO: More information about the S2MPJ problem library can be found at: https://github.com/GrattonToint/S2MPJ\n\n");
+                    fprintf("\nINFO: More information about the S2MPJ problem library can be found at: https://github.com/GrattonToint/S2MPJ\n");
                 elseif strcmp(plib, 'matcutest')
-                    fprintf("INFO: More information about the MatCUTEst problem library can be found at: https://github.com/matcutest\n\n");
+                    fprintf("\nINFO: More information about the MatCUTEst problem library can be found at: https://github.com/matcutest\n");
                 end
             end
 
@@ -916,7 +915,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             if profile_options.(ProfileOptionKey.RUN_PLAIN.value)
                 feature_plain = Feature(FeatureName.PLAIN.value);
                 if ~profile_options.(ProfileOptionKey.SILENT.value)
-                    fprintf('\nINFO: Start the computation of problems from the "%s" library under "plain" feature.\n', plib);
+                    fprintf('\nINFO: Start testing problems from the problem library "%s" with "plain" feature.\n', plib);
                 end
                 results_plib_plain = solveAllProblems(solvers, plib, feature_plain, problem_options, profile_options, false, {});
                 try
@@ -941,11 +940,11 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                 try
                     mergePdfs(path_hist_plots_lib, [plib '_history_plots_summary.pdf'], path_hist_plots);
                     if ~profile_options.(ProfileOptionKey.SILENT.value)
-                        fprintf('\nINFO: Merged history plots stored in: \n%s\n\n', path_hist_plots);
+                        fprintf('\nINFO: Merged history plots stored in: \n%s\n', path_hist_plots);
                     end
                 catch
                     if ~profile_options.(ProfileOptionKey.SILENT.value)
-                        fprintf('INFO: Failed to merge the history plots to a single PDF file.');
+                        fprintf('\nINFO: Failed to merge the history plots to a single PDF file.\n');
                     end
                 end
             end
@@ -955,7 +954,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         % If results_plibs is empty, we will directly return.
         if isempty(results_plibs)
             if ~profile_options.(ProfileOptionKey.SILENT.value)
-                fprintf("INFO: No problems are selected or solved from any problem library.\n");
+                fprintf("\nINFO: No problems are selected or solved from any problem library.\n");
             end
             return;
         end
@@ -972,7 +971,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             fclose(fid);
         catch
             if ~profile_options.(ProfileOptionKey.SILENT.value)
-                fprintf("INFO: Failed to save the data of the current experiment.\n");
+                fprintf("\nINFO: Failed to save the data of the current experiment.\n");
             end
         end
     end
@@ -993,7 +992,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     [n_problems, n_solvers, n_runs, ~] = size(merit_histories_merged);
 
     if ~profile_options.(ProfileOptionKey.SILENT.value) 
-        fprintf('INFO: Start the computation of profiles.\n');
+        fprintf('\nINFO: Start computing profiles.\n');
     end
 
     max_tol_order = profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value);
@@ -1255,7 +1254,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             fclose(fid);
         catch
             if ~profile_options.(ProfileOptionKey.SILENT.value)
-                fprintf("INFO: Failed to record the problems that all the solvers failed to meet the convergence test.\n");
+                fprintf("\nINFO: Failed to record the problems that all the solvers failed to meet the convergence test.\n");
             end
         end
     end
@@ -1308,8 +1307,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 
     if ~profile_options.(ProfileOptionKey.SILENT.value)
         % Print the scores of the solvers.
-        fprintf('\n');
-        fprintf('INFO: Scores of the solvers:\n');
+        fprintf('\nINFO: Scores of the solvers:\n');
         max_solver_name_length = max(cellfun(@length, solver_names));
         for i_solver = 1:n_solvers
             format_info_str = sprintf('INFO: %%-%ds:    %%.4f\n', max_solver_name_length);
@@ -1354,7 +1352,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             end
         catch
             if ~profile_options.(ProfileOptionKey.SILENT.value)
-                fprintf('INFO: Failed to merge the summary PDF files.\n');
+                fprintf('\nINFO: Failed to merge the summary PDF files.\n');
             end
         end
     end
@@ -1369,7 +1367,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     end
 
     if ~profile_options.(ProfileOptionKey.SILENT.value)
-        fprintf('\nINFO: Finished the computation of the profiles under "%s" feature.\n', feature.name);
+        fprintf('\nINFO: Finished computing profiles with "%s" feature.\n', feature.name);
     end
 
     % Close the diary file.

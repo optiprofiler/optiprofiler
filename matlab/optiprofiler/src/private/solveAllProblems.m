@@ -30,7 +30,7 @@ function results = solveAllProblems(solvers, plib, feature, problem_options, pro
 
     if isempty(problem_names)
         if ~profile_options.(ProfileOptionKey.SILENT.value)
-            fprintf('INFO: No problem is selected from "%s".\n', plib);
+            fprintf('\nINFO: No problem is selected from "%s".\n', plib);
         end
         return;
     end
@@ -43,7 +43,7 @@ function results = solveAllProblems(solvers, plib, feature, problem_options, pro
     max_eval_factor = profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value);
     tmp_results = cell(1, n_problems);
     if ~profile_options.(ProfileOptionKey.SILENT.value)
-        fprintf('INFO: There are %d problems from "%s" to solve.\n', n_problems, plib);
+        fprintf('\nINFO: There are %d problems from "%s" to test.\n', n_problems, plib);
     end
 
     % Decide whether to delete the pool.
@@ -65,10 +65,14 @@ function results = solveAllProblems(solvers, plib, feature, problem_options, pro
             problem_name = problem_names{i_problem};
             % Load the problem.
             try
+                if ~profile_options.(ProfileOptionKey.SILENT.value)
+                    loading_info = sprintf('\\nINFO: Loading problem   %%-%ds from \"%%s\".\\n', len_problem_names);
+                    fprintf(loading_info, problem_name, plib);
+                end
                 problem = load(problem_name);
             catch
                 if ~profile_options.(ProfileOptionKey.SILENT.value)
-                    fail_load_info = sprintf("INFO: Failed to load     %%-%ds from %%s.\\n\\n", len_problem_names);
+                    fail_load_info = sprintf('\\nINFO: Failed to load    %%-%ds from \"%%s\".\\n', len_problem_names);
                     fprintf(fail_load_info, problem_name, plib);
                 end
                 tmp_results{i_problem} = struct();
@@ -101,10 +105,14 @@ function results = solveAllProblems(solvers, plib, feature, problem_options, pro
             problem_name = problem_names{i_problem};
             % Load the problem.
             try
+                if ~profile_options.(ProfileOptionKey.SILENT.value)
+                    loading_info = sprintf('\\nINFO: Loading problem   %%-%ds from \"%%s\".\\n', len_problem_names);
+                    fprintf(loading_info, problem_name, plib);
+                end
                 problem = load(problem_name);
             catch
                 if ~profile_options.(ProfileOptionKey.SILENT.value)
-                    fail_load_info = sprintf("INFO: Failed to load     %%-%ds from %%s.\\n\\n", len_problem_names);
+                    fail_load_info = sprintf('\\nINFO: Failed to load    %%-%ds from \"%%s\".\\n', len_problem_names);
                     fprintf(fail_load_info, problem_name, plib);
                 end
                 tmp_results{i_problem} = struct();
@@ -129,7 +137,7 @@ function results = solveAllProblems(solvers, plib, feature, problem_options, pro
 
     if all(cellfun(@isempty, tmp_results))
         if ~profile_options.(ProfileOptionKey.SILENT.value)
-            fprintf("INFO: All problems failed to solve.\n");
+            fprintf('INFO: All problems from "%s" are not solved successfully.\n', plib);
         end
         return;
     else
