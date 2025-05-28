@@ -595,11 +595,14 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     time = datetime('now', 'Format', 'yyyyMMdd_HHmmss');
     time_stamp = char(time);
 
-    % Set the feature stamp
+    % Set the feature stamp.
     feature_stamp = profile_options.(ProfileOptionKey.FEATURE_STAMP.value);
 
-    path_feature = fullfile(path_out, [feature_stamp, '_', time_stamp]);
-    path_log = fullfile(path_feature, 'test_log');
+    % Create the stamp for the current experiment.
+    stamp = createStamp(solver_names, problem_options, feature_stamp, time_stamp);
+
+    path_stamp = fullfile(path_out, stamp);
+    path_log = fullfile(path_stamp, 'test_log');
     path_report = fullfile(path_log, 'report.txt');
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -607,11 +610,11 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
-        if ~exist(path_feature, 'dir')
-            mkdir(path_feature);
+        if ~exist(path_stamp, 'dir')
+            mkdir(path_stamp);
         else
-            rmdir(path_feature, 's');
-            mkdir(path_feature);
+            rmdir(path_stamp, 's');
+            mkdir(path_stamp);
         end
     end
 
@@ -620,7 +623,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         % again. In this case, we do not need to create the directory to store the hist plots.
         path_hist_plots = '';
     else
-        path_hist_plots = fullfile(path_feature, 'history_plots');
+        path_hist_plots = fullfile(path_stamp, 'history_plots');
         if ~exist(path_hist_plots, 'dir')
             mkdir(path_hist_plots);
         end
@@ -708,8 +711,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     end
 
     if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
-        % Create a README.txt file to explain the content of the folder `path_feature`.
-        path_readme_feature = fullfile(path_feature, 'README.txt');
+        % Create a README.txt file to explain the content of the folder `path_stamp`.
+        path_readme_feature = fullfile(path_stamp, 'README.txt');
         try
             fid = fopen(path_readme_feature, 'w');
             fprintf(fid, "# Content of this folder\n\n");
@@ -721,7 +724,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             fclose(fid);
         catch
             if ~profile_options.(ProfileOptionKey.SILENT.value)
-                fprintf("\nINFO: Failed to create the README.txt file for folder '%s'.\n", path_feature);
+                fprintf("\nINFO: Failed to create the README.txt file for folder '%s'.\n", path_stamp);
             end
         end
     end
@@ -751,12 +754,12 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 
     if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value) && ~exist('problem', 'var')
         % Create the directories for the performance profiles, data profiles, and log-ratio profiles.
-        path_perf_hist = fullfile(path_feature, 'detailed_profiles', 'perf_history-based');
-        path_data_hist = fullfile(path_feature, 'detailed_profiles', 'data_history-based');
-        path_log_ratio_hist = fullfile(path_feature, 'detailed_profiles', 'log-ratio_history-based');
-        path_perf_out = fullfile(path_feature, 'detailed_profiles', 'perf_output-based');
-        path_data_out = fullfile(path_feature, 'detailed_profiles', 'data_output-based');
-        path_log_ratio_out = fullfile(path_feature, 'detailed_profiles', 'log-ratio_output-based');
+        path_perf_hist = fullfile(path_stamp, 'detailed_profiles', 'perf_history-based');
+        path_data_hist = fullfile(path_stamp, 'detailed_profiles', 'data_history-based');
+        path_log_ratio_hist = fullfile(path_stamp, 'detailed_profiles', 'log-ratio_history-based');
+        path_perf_out = fullfile(path_stamp, 'detailed_profiles', 'perf_output-based');
+        path_data_out = fullfile(path_stamp, 'detailed_profiles', 'data_output-based');
+        path_log_ratio_out = fullfile(path_stamp, 'detailed_profiles', 'log-ratio_output-based');
         
         if ~exist(path_perf_hist, 'dir')
             mkdir(path_perf_hist);
@@ -786,12 +789,12 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         catch
         end
 
-        pdf_perf_hist_summary = fullfile(path_feature, 'perf_hist.pdf');
-        pdf_perf_out_summary = fullfile(path_feature, 'perf_out.pdf');
-        pdf_data_hist_summary = fullfile(path_feature, 'data_hist.pdf');
-        pdf_data_out_summary = fullfile(path_feature, 'data_out.pdf');
-        pdf_log_ratio_hist_summary = fullfile(path_feature, 'log-ratio_hist.pdf');
-        pdf_log_ratio_out_summary = fullfile(path_feature, 'log-ratio_out.pdf');
+        pdf_perf_hist_summary = fullfile(path_stamp, 'perf_hist.pdf');
+        pdf_perf_out_summary = fullfile(path_stamp, 'perf_out.pdf');
+        pdf_data_hist_summary = fullfile(path_stamp, 'data_hist.pdf');
+        pdf_data_out_summary = fullfile(path_stamp, 'data_out.pdf');
+        pdf_log_ratio_hist_summary = fullfile(path_stamp, 'log-ratio_hist.pdf');
+        pdf_log_ratio_out_summary = fullfile(path_stamp, 'log-ratio_out.pdf');
     end
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -814,10 +817,10 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
             % We move the history plots to the feature directory.
             try
-                movefile(fullfile(path_hist_plots, '*'), path_feature);
+                movefile(fullfile(path_hist_plots, '*'), path_stamp);
                 rmdir(path_hist_plots, 's');
                 if ~profile_options.(ProfileOptionKey.SILENT.value)
-                    fprintf('\nINFO: Detailed results stored in: \n%s\n', path_feature);
+                    fprintf('\nINFO: Detailed results stored in: \n%s\n', path_stamp);
                 end
             catch
             end
@@ -1025,8 +1028,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     if n_rows > 0
         fig_summary = figure('Position', [defaultFigurePosition(1:2), profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * default_width, multiplier * n_rows * default_height], 'visible', 'off');
         T_summary = tiledlayout(fig_summary, multiplier, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
-        T_feature_stamp = strrep(feature_stamp, '_', '\_');
-        T_title = ['Profiles with the ``', T_feature_stamp, '" feature'];
+        T_stamp = strrep(stamp, '_', '\_');
+        T_title = ['Profiles for ``', T_stamp, '"'];
         summary_width = profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * default_width;
         summary_height = multiplier * n_rows * default_height;
         summary_fontsize = min(summary_width / 75 * 2, summary_width / profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * 3 / 75 * 2);
@@ -1316,16 +1319,16 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     end
 
     if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
-        % Store the summary pdf. We will name the summary pdf as "summary_feature_name.pdf" and store
-        % it under path_feature. We will also put a "summary.pdf" in the path_out directory, which will
-        % be a merged pdf of all the "summary_feature_name.pdf" under path_out following the order of
-        % the feature_stamp.
-        summary_name = ['summary_', feature_stamp, '_', time_stamp];
+        % Store the summary pdf. We will name the summary pdf as "summary_stamp.pdf" and store
+        % it under path_stamp. We will also put a "summary.pdf" in the path_out directory, which will
+        % be a merged pdf of latest 10 "summary_stamp.pdf" under path_out following descending order
+        % of their time stamps.
+        summary_name = ['summary_', stamp];
         if n_rows > 0
             if ispc
-                print(fig_summary, fullfile(path_feature, [summary_name, '.pdf']), '-dpdf', '-vector');
+                print(fig_summary, fullfile(path_stamp, [summary_name, '.pdf']), '-dpdf', '-vector');
             else
-                exportgraphics(fig_summary, fullfile(path_feature, [summary_name, '.pdf']), 'ContentType', 'vector');
+                exportgraphics(fig_summary, fullfile(path_stamp, [summary_name, '.pdf']), 'ContentType', 'vector');
             end
             savefig(fig_summary, fullfile(path_figs, [summary_name, '.fig']));
         end
@@ -1339,15 +1342,18 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 
         % List all summary PDF files in the output path and its subdirectories.
         summary_files = dir(fullfile(path_out, '**', 'summary_*.pdf'));
-        % Sort the summary PDF files by their folder names.
-        [~, idx] = sort({summary_files.folder});
+        % Sort the summary PDF files by their time stamps (last 15 characters of the file names).
+        summary_time_stamps = arrayfun(@(f) datetime(f.name(end-18:end-4), 'InputFormat', 'yyyyMMdd_HHmmss'), summary_files);
+        [~, idx] = sort(summary_time_stamps, 'descend');
         summary_files = summary_files(idx);
+        % Keep only the latest 10 summary PDF files.
+        summary_files = summary_files(1:min(10, numel(summary_files)));
         try
             % Merge all the summary PDF files to a single PDF file.
             delete(fullfile(path_out, 'summary.pdf'));
             for i_file = 1:numel(summary_files)
                 copyfile(fullfile(summary_files(i_file).folder, summary_files(i_file).name), path_out);
-                mergePdfs(path_out, 'summary.pdf', path_out, 'summary');
+                mergePdfs(path_out, 'summary.pdf', path_out);
                 delete(fullfile(path_out, summary_files(i_file).name));
             end
         catch
@@ -1383,16 +1389,11 @@ end
 % Following one function is modified from the code provided by Benjamin Großmann (2024). Merge PDF-Documents
 % (https://www.mathworks.com/matlabcentral/fileexchange/89127-merge-pdf-documents), MATLAB Central
 % File Exchange. Retrieved November 12, 2024.
-function mergePdfs(file_path, output_file_name, output_path, pattern)
+function mergePdfs(file_path, output_file_name, output_path)
 
     fileNames = dir(fullfile(file_path, '*.pdf'));
     fileNames = {fileNames.name};
     fileNames = cellfun(@(f) fullfile(file_path, f), fileNames, 'UniformOutput', false);
-
-    % If a pattern is provided, filter the file names based on the pattern.
-    if exist('pattern', 'var') && ~isempty(pattern)
-        fileNames = fileNames(contains(fileNames, pattern));
-    end
 
     memSet = org.apache.pdfbox.io.MemoryUsageSetting.setupMainMemoryOnly();
     merger = org.apache.pdfbox.multipdf.PDFMergerUtility;
