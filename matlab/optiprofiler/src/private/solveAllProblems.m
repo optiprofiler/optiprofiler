@@ -11,20 +11,31 @@ function results = solveAllProblems(solvers, plib, feature, problem_options, pro
     if isfield(option_select, ProblemOptionKey.PROBLEM_NAMES.value)
         option_select = rmfield(option_select, ProblemOptionKey.PROBLEM_NAMES.value);
     end
+    if isfield(option_select, ProblemOptionKey.EXCLUDELIST.value)
+        option_select = rmfield(option_select, ProblemOptionKey.EXCLUDELIST.value);
+    end
     selector_name = [plib, '_select'];
     select = str2func(selector_name);
     try
-        problem_names = {};
-        if isfield(problem_options, ProblemOptionKey.PROBLEM_NAMES.value)
-            problem_names = problem_options.(ProblemOptionKey.PROBLEM_NAMES.value);
-        end
+        problem_names = problem_options.(ProblemOptionKey.PROBLEM_NAMES.value);
+        exclude_list = problem_options.(ProblemOptionKey.EXCLUDELIST.value);
         % Try to use selector function to select problems.
         selected_problem_names = select(option_select);
         % Make sure selected_problem_names is a cell row vector.
         if size(selected_problem_names, 1) > 1
             selected_problem_names = selected_problem_names';
         end
-        problem_names = unique([problem_names, selected_problem_names]);
+        if isempty(problem_names)
+            problem_names = selected_problem_names;
+        else
+            % Take an intersection of problem_names and selected_problem_names.
+            problem_names = intersect(problem_names, selected_problem_names, 'stable');
+            problem_names = unique(problem_names);
+        end
+        if ~isempty(exclude_list)
+            % Remove problems in exclude_list.
+            problem_names = setdiff(problem_names, exclude_list, 'stable');
+        end
     catch
     end
 
