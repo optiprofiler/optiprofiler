@@ -1368,6 +1368,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     if n_rows > 0
         close(fig_summary);
         if ~profile_options.(ProfileOptionKey.SILENT.value) && ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
+            fprintf('\nINFO: Report of the experiment is stored in: \n%s\n\n', path_report);
             fprintf('\nINFO: Summary stored in: \n%s\n\n', path_out);
         end
     end

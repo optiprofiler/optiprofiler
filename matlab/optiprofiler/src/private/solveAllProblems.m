@@ -17,7 +17,11 @@ function results = solveAllProblems(solvers, plib, feature, problem_options, pro
     selector_name = [plib, '_select'];
     select = str2func(selector_name);
     try
-        problem_names = problem_options.(ProblemOptionKey.PROBLEM_NAMES.value);
+        if isfield(problem_options, ProblemOptionKey.PROBLEM_NAMES.value)
+            problem_names = problem_options.(ProblemOptionKey.PROBLEM_NAMES.value);
+        else
+            problem_names = {};
+        end
         exclude_list = problem_options.(ProblemOptionKey.EXCLUDELIST.value);
         % Try to use selector function to select problems.
         selected_problem_names = select(option_select);
