@@ -165,8 +165,10 @@ end
 function results_plib = truncate_problems(results_plib, problem_options)
     % Truncate the loaded data by the 'problem_options' field.
     p_to_load = true(size(results_plib.problem_names));
+
     if isfield(problem_options, ProblemOptionKey.PTYPE.value)
         % Judge whether the type of the problems in the loaded data satisfies the options.
+        results_plib.ptype = intersect(results_plib.ptype, problem_options.(ProblemOptionKey.PTYPE.value));
         for i = 1:numel(results_plib.problem_types)
             if ~ismember(results_plib.problem_types{i}, problem_options.(ProblemOptionKey.PTYPE.value))
                 p_to_load(i) = false;
@@ -175,6 +177,7 @@ function results_plib = truncate_problems(results_plib, problem_options)
     end
     if isfield(problem_options, ProblemOptionKey.MINDIM.value)
         % Judge whether the dimension of the problems in the loaded data satisfies the options.
+        results_plib.mindim = max(results_plib.mindim, problem_options.(ProblemOptionKey.MINDIM.value));
         for i = 1:numel(results_plib.problem_dims)
             if results_plib.problem_dims(i) < problem_options.(ProblemOptionKey.MINDIM.value)
                 p_to_load(i) = false;
@@ -183,6 +186,7 @@ function results_plib = truncate_problems(results_plib, problem_options)
     end
     if isfield(problem_options, ProblemOptionKey.MAXDIM.value)
         % Judge whether the dimension of the problems in the loaded data satisfies the options.
+        results_plib.maxdim = min(results_plib.maxdim, problem_options.(ProblemOptionKey.MAXDIM.value));
         for i = 1:numel(results_plib.problem_dims)
             if results_plib.problem_dims(i) > problem_options.(ProblemOptionKey.MAXDIM.value)
                 p_to_load(i) = false;
@@ -192,6 +196,7 @@ function results_plib = truncate_problems(results_plib, problem_options)
     if isfield(problem_options, ProblemOptionKey.MINB.value)
         % Judge whether the number of bound constraints of the problems in the loaded data
         % satisfies the options.
+        results_plib.minb = max(results_plib.minb, problem_options.(ProblemOptionKey.MINB.value));
         for i = 1:numel(results_plib.problem_mbs)
             if results_plib.problem_mbs(i) < problem_options.(ProblemOptionKey.MINB.value)
                 p_to_load(i) = false;
@@ -201,6 +206,7 @@ function results_plib = truncate_problems(results_plib, problem_options)
     if isfield(problem_options, ProblemOptionKey.MAXB.value)
         % Judge whether the number of bound constraints of the problems in the loaded data
         % satisfies the options.
+        results_plib.maxb = min(results_plib.maxb, problem_options.(ProblemOptionKey.MAXB.value));
         for i = 1:numel(results_plib.problem_mbs)
             if results_plib.problem_mbs(i) > problem_options.(ProblemOptionKey.MAXB.value)
                 p_to_load(i) = false;
@@ -210,6 +216,7 @@ function results_plib = truncate_problems(results_plib, problem_options)
     if isfield(problem_options, ProblemOptionKey.MINLCON.value)
         % Judge whether the number of linear constraints of the problems in the loaded data
         % satisfies the options.
+        results_plib.minlcon = max(results_plib.minlcon, problem_options.(ProblemOptionKey.MINLCON.value));
         for i = 1:numel(results_plib.problem_mlcons)
             if results_plib.problem_mlcons(i) < problem_options.(ProblemOptionKey.MINLCON.value)
                 p_to_load(i) = false;
@@ -219,6 +226,7 @@ function results_plib = truncate_problems(results_plib, problem_options)
     if isfield(problem_options, ProblemOptionKey.MAXLCON.value)
         % Judge whether the number of linear constraints of the problems in the loaded data
         % satisfies the options.
+        results_plib.maxlcon = min(results_plib.maxlcon, problem_options.(ProblemOptionKey.MAXLCON.value));
         for i = 1:numel(results_plib.problem_mlcons)
             if results_plib.problem_mlcons(i) > problem_options.(ProblemOptionKey.MAXLCON.value)
                 p_to_load(i) = false;
@@ -228,6 +236,7 @@ function results_plib = truncate_problems(results_plib, problem_options)
     if isfield(problem_options, ProblemOptionKey.MINNLCON.value)
         % Judge whether the number of nonlinear constraints of the problems in the loaded data
         % satisfies the options.
+        results_plib.minnlcon = max(results_plib.minnlcon, problem_options.(ProblemOptionKey.MINNLCON.value));
         for i = 1:numel(results_plib.problem_mnlcons)
             if results_plib.problem_mnlcons(i) < problem_options.(ProblemOptionKey.MINNLCON.value)
                 p_to_load(i) = false;
@@ -237,6 +246,7 @@ function results_plib = truncate_problems(results_plib, problem_options)
     if isfield(problem_options, ProblemOptionKey.MAXNLCON.value)
         % Judge whether the number of nonlinear constraints of the problems in the loaded data
         % satisfies the options.
+        results_plib.maxnlcon = min(results_plib.maxnlcon, problem_options.(ProblemOptionKey.MAXNLCON.value));
         for i = 1:numel(results_plib.problem_mnlcons)
             if results_plib.problem_mnlcons(i) > problem_options.(ProblemOptionKey.MAXNLCON.value)
                 p_to_load(i) = false;
@@ -246,6 +256,7 @@ function results_plib = truncate_problems(results_plib, problem_options)
     if isfield(problem_options, ProblemOptionKey.MINCON.value)
         % Judge whether the number of constraints of the problems in the loaded data satisfies
         % the options.
+        results_plib.mincon = max(results_plib.mincon, problem_options.(ProblemOptionKey.MINCON.value));
         for i = 1:numel(results_plib.problem_mcons)
             if results_plib.problem_mcons(i) < problem_options.(ProblemOptionKey.MINCON.value)
                 p_to_load(i) = false;
@@ -255,6 +266,7 @@ function results_plib = truncate_problems(results_plib, problem_options)
     if isfield(problem_options, ProblemOptionKey.MAXCON.value)
         % Judge whether the number of constraints of the problems in the loaded data satisfies
         % the options.
+        results_plib.maxcon = min(results_plib.maxcon, problem_options.(ProblemOptionKey.MAXCON.value));
         for i = 1:numel(results_plib.problem_mcons)
             if results_plib.problem_mcons(i) > problem_options.(ProblemOptionKey.MAXCON.value)
                 p_to_load(i) = false;

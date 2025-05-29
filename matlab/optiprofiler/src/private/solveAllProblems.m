@@ -208,6 +208,17 @@ function results = solveAllProblems(solvers, plib, feature, problem_options, pro
 
     results.plib = plib;
     results.solver_names = profile_options.(ProfileOptionKey.SOLVER_NAMES.value);
+    results.ptype = problem_options.(ProblemOptionKey.PTYPE.value);
+    results.mindim = problem_options.(ProblemOptionKey.MINDIM.value);
+    results.maxdim = problem_options.(ProblemOptionKey.MAXDIM.value);
+    results.minb = problem_options.(ProblemOptionKey.MINB.value);
+    results.maxb = problem_options.(ProblemOptionKey.MAXB.value);
+    results.minlcon = problem_options.(ProblemOptionKey.MINLCON.value);
+    results.maxlcon = problem_options.(ProblemOptionKey.MAXLCON.value);
+    results.minnlcon = problem_options.(ProblemOptionKey.MINNLCON.value);
+    results.maxnlcon = problem_options.(ProblemOptionKey.MAXNLCON.value);
+    results.mincon = problem_options.(ProblemOptionKey.MINCON.value);
+    results.maxcon = problem_options.(ProblemOptionKey.MAXCON.value);
     results.feature_stamp = profile_options.(ProfileOptionKey.FEATURE_STAMP.value);
     results.fun_histories = fun_histories;
     results.maxcv_histories = maxcv_histories;
