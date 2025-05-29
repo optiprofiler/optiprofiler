@@ -1,18 +1,21 @@
 function profile_options = getDefaultProfileOptions(solvers, feature, profile_options)
 
     if exist('parcluster', 'file') == 2 % Check if Parallel Computing Toolbox is available
-        myCluster = parcluster();
+        if isempty(gcp('nocreate'))
+            % If there is no pool, then check the default profile options.
+            myCluster = parcluster();
+        else
+            % If there is a pool, then get the current cluster.
+            myCluster = gcp('nocreate');
+        end
         % Get the number of workers in the cluster
-        nb_cores = myCluster.NumWorkers;
+        n_workers = myCluster.NumWorkers;
     else
-        nb_cores = 1;
+        n_workers = 1;
     end
 
     if ~isfield(profile_options, ProfileOptionKey.N_JOBS.value)
-        profile_options.(ProfileOptionKey.N_JOBS.value) = nb_cores;
-    end
-    if ~isfield(profile_options, ProfileOptionKey.KEEP_POOL.value)
-        profile_options.(ProfileOptionKey.KEEP_POOL.value) = true;
+        profile_options.(ProfileOptionKey.N_JOBS.value) = n_workers;
     end
     if ~isfield(profile_options, ProfileOptionKey.SEED.value)
         profile_options.(ProfileOptionKey.SEED.value) = 1;
@@ -42,7 +45,7 @@ function profile_options = getDefaultProfileOptions(solvers, feature, profile_op
         profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value) = 500;
     end
     if ~isfield(profile_options, ProfileOptionKey.MERIT_FUN.value)
-        profile_options.(ProfileOptionKey.MERIT_FUN.value) = @computeMeritValues;
+        profile_options.(ProfileOptionKey.MERIT_FUN.value) = @defaultMerit;
     end
     if ~isfield(profile_options, ProfileOptionKey.PROJECT_X0.value)
         profile_options.(ProfileOptionKey.PROJECT_X0.value) = false;

@@ -6,7 +6,7 @@ classdef TestProfileOptionKey < matlab.unittest.TestCase
             
             enumValues = enumeration('ProfileOptionKey');
             enumValues = cellstr(arrayfun(@char, enumValues, 'UniformOutput', false));
-            expectedValues = {'N_JOBS'; 'KEEP_POOL'; 'SEED'; 'BENCHMARK_ID'; 'SOLVER_NAMES'; 'SOLVER_ISRAND'; 'FEATURE_STAMP'; 'ERRORBAR_TYPE'; 'SAVEPATH'; 'MAX_TOL_ORDER'; 'MAX_EVAL_FACTOR'; 'MERIT_FUN'; 'PROJECT_X0'; 'RUN_PLAIN'; 'SCORE_ONLY'; 'SUMMARIZE_PERFORMANCE_PROFILES'; 'SUMMARIZE_DATA_PROFILES'; 'SUMMARIZE_LOG_RATIO_PROFILES'; 'SUMMARIZE_OUTPUT_BASED_PROFILES'; 'SILENT'; 'SOLVER_VERBOSE'; 'SEMILOGX'; 'NORMALIZED_SCORES'; 'SCORE_WEIGHT_FUN'; 'SCORE_FUN'; 'LOAD'; 'SOLVERS_TO_LOAD'; 'LINE_COLORS'; 'LINE_STYLES'; 'LINE_WIDTHS'; 'BAR_COLORS'};
+            expectedValues = {'N_JOBS'; 'SEED'; 'BENCHMARK_ID'; 'SOLVER_NAMES'; 'SOLVER_ISRAND'; 'FEATURE_STAMP'; 'ERRORBAR_TYPE'; 'SAVEPATH'; 'MAX_TOL_ORDER'; 'MAX_EVAL_FACTOR'; 'MERIT_FUN'; 'PROJECT_X0'; 'RUN_PLAIN'; 'SCORE_ONLY'; 'SUMMARIZE_PERFORMANCE_PROFILES'; 'SUMMARIZE_DATA_PROFILES'; 'SUMMARIZE_LOG_RATIO_PROFILES'; 'SUMMARIZE_OUTPUT_BASED_PROFILES'; 'SILENT'; 'SOLVER_VERBOSE'; 'SEMILOGX'; 'NORMALIZED_SCORES'; 'SCORE_WEIGHT_FUN'; 'SCORE_FUN'; 'LOAD'; 'SOLVERS_TO_LOAD'; 'LINE_COLORS'; 'LINE_STYLES'; 'LINE_WIDTHS'; 'BAR_COLORS'};
             testCase.verifyEqual(enumValues, expectedValues);
         end
 
@@ -16,7 +16,6 @@ classdef TestProfileOptionKey < matlab.unittest.TestCase
             clear obj;
             clear ProfileOptionKey;
             testCase.verifyEqual(ProfileOptionKey.N_JOBS.value, 'n_jobs');
-            testCase.verifyEqual(ProfileOptionKey.KEEP_POOL.value, 'keep_pool');
             testCase.verifyEqual(ProfileOptionKey.SEED.value, 'seed');
             testCase.verifyEqual(ProfileOptionKey.BENCHMARK_ID.value, 'benchmark_id');
             testCase.verifyEqual(ProfileOptionKey.SOLVER_NAMES.value, 'solver_names');

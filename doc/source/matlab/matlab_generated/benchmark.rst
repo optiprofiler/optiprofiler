@@ -72,8 +72,6 @@ Options should be specified in a struct. The following are the available fields 
 
   - **n_jobs**: the number of parallel jobs to run the test. Default is the number of workers in the parallel pool.
 
-  - **keep_pool**: whether to keep the parallel pool open after the test. Default is ``true``.
-
   - **seed**: the seed of the random number generator. Default is ``1``.
 
   - **benchmark_id**: the identifier of the test. It is used to create the specific directory to store the results. Default is ``'out'`` if the option ``load`` is not provided, otherwise default is ``'.'``.
@@ -94,9 +92,9 @@ Options should be specified in a struct. The following are the available fields 
 
   - **merit_fun**: the merit function to measure the quality of a point using the objective function value and the maximum constraint violation. It should be a function handle
 
-      ``(fun_values, maxcv_values, maxcv_init) -> merit_values``,
+      ``(fun_value, maxcv_value, maxcv_init) -> merit_value``,
 
-    where ``fun_values`` is history of the objective function values, ``maxcv_values`` is history of the maximum constraint violation, and ``maxcv_init`` is the initial maximum constraint violation. The size of ``fun_values`` and ``maxcv_values`` is the same, and the size of ``maxcv_init`` is the same as the second to last dimensions of ``fun_values``. The default merit function ``varphi(x)`` is defined by the objective function ``f(x)`` and the maximum constraint violation ``v(x)`` as
+    where ``fun_value`` is the objective function value, ``maxcv_value`` is the maximum constraint violation, and ``maxcv_init`` is the maximum constraint violation at the initial guess. The size of ``fun_values`` and ``maxcv_values`` is the same, and the size of ``maxcv_init`` is the same as the second to last dimensions of ``fun_values``. The default merit function ``varphi(x)`` is defined by the objective function ``f(x)`` and the maximum constraint violation ``v(x)`` as
 
     .. parsed-literal::
 

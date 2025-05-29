@@ -1,33 +1,13 @@
 function profile_options = checkValidityProfileOptions(solvers, profile_options)
 %CHECKVALIDITYPROFILEOPTIONS Check the validity of the options in profile_options
 
-    if exist('parcluster', 'file') == 2 % Check if Parallel Computing Toolbox is available
-        myCluster = parcluster('local');
-        % Get the number of workers in the cluster
-        nb_cores = myCluster.NumWorkers;
-    else
-        nb_cores = 1;
-    end
-
-
-    % Judge whether profile_options.n_jobs is a integer between 1 and nb_cores.
+    % Judge whether profile_options.n_jobs is a integer between 1 and n_workers.
     if isfield(profile_options, ProfileOptionKey.N_JOBS.value)
         if ~isintegerscalar(profile_options.(ProfileOptionKey.N_JOBS.value))
             error("MATLAB:checkValidityProfileOptions:n_jobsNotValid", "The option `n_jobs` should be a integer.");
         elseif profile_options.(ProfileOptionKey.N_JOBS.value) < 1
             profile_options.(ProfileOptionKey.N_JOBS.value) = 1;
-            fprintf("INFO: The option `n_jobs` is set to 1 because it cannot be smaller than 1.\n");
-        elseif profile_options.(ProfileOptionKey.N_JOBS.value) > nb_cores
-            profile_options.(ProfileOptionKey.N_JOBS.value) = nb_cores;
-            fprintf("INFO: The option `n_jobs` is set to %d because it cannot be larger than the number of available workers in the cluster.\n", nb_cores, nb_cores);
-        end
-    end
-
-
-    % Judge whether profile_options.keep_pool is a boolean.
-    if isfield(profile_options, ProfileOptionKey.KEEP_POOL.value)
-        if ~islogicalscalar(profile_options.(ProfileOptionKey.KEEP_POOL.value))
-            error("MATLAB:checkValidityProfileOptions:keep_poolNotValid", "The option `keep_pool` should be a boolean.");
+            fprintf("\nINFO: The option `n_jobs` is set to 1 because it cannot be smaller than 1.\n");
         end
     end
 

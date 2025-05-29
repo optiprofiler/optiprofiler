@@ -179,8 +179,8 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
     try
         merit_fun = profile_options.(ProfileOptionKey.MERIT_FUN.value);
         try
-            merit_history = merit_fun(fun_history, maxcv_history, maxcv_init);
-            merit_init = merit_fun(fun_init, maxcv_init, maxcv_init);
+            merit_history = meritFunCompute(merit_fun, fun_history, maxcv_history, maxcv_init);
+            merit_init = meritFunCompute(merit_fun, fun_init, maxcv_init, maxcv_init);
         catch
             error("MATLAB:solveOneProblem:merit_fun_error", "Error occurred while calculating the merit values. Please check the merit function.");
         end

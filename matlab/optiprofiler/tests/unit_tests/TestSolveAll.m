@@ -10,6 +10,7 @@ classdef TestSolveAll < matlab.unittest.TestCase
             problem_options.ptype = 'u';
             problem_options.maxdim = 11;
             problem_options.mindim = 11;
+            problem_options = getDefaultProblemOptions(problem_options);
 
             profile_options.n_jobs = 1;
             profile_options = getDefaultProfileOptions(solvers, feature, profile_options);

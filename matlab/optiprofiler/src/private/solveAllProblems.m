@@ -22,7 +22,11 @@ function results = solveAllProblems(solvers, plib, feature, problem_options, pro
         else
             problem_names = {};
         end
-        exclude_list = problem_options.(ProblemOptionKey.EXCLUDELIST.value);
+        if isfield(problem_options, ProblemOptionKey.EXCLUDELIST.value)
+            exclude_list = problem_options.(ProblemOptionKey.EXCLUDELIST.value);
+        else
+            exclude_list = {};
+        end
         % Try to use selector function to select problems.
         selected_problem_names = select(option_select);
         % Make sure selected_problem_names is a cell row vector.
@@ -61,21 +65,10 @@ function results = solveAllProblems(solvers, plib, feature, problem_options, pro
         fprintf('\nINFO: There are %d problems from "%s" to test.\n', n_problems, plib);
     end
 
-    % Decide whether to delete the pool.
-    try
-        pool = gcp('nocreate');
-        % We will delete the pool only when keep_pool is false and the number of workers is not equal to n_jobs.
-        if (~isempty(pool) && (profile_options.n_jobs == 1 || profile_options.n_jobs ~= pool.NumWorkers)) && ~profile_options.(ProfileOptionKey.KEEP_POOL.value)
-            if ~profile_options.(ProfileOptionKey.SILENT.value)
-                delete(pool);
-            else
-                evalc("delete(pool)");
-            end
-        end
-    catch
-    end
-
-    if (profile_options.(ProfileOptionKey.N_JOBS.value) == 1) || n_problems  == 1
+    % Setup parallel pool if necessary.
+    success_setup = setupPool(profile_options.(ProfileOptionKey.N_JOBS.value));
+    
+    if ~success_setup
         for i_problem = 1:n_problems
             problem_name = problem_names{i_problem};
             % Load the problem.
@@ -97,26 +90,7 @@ function results = solveAllProblems(solvers, plib, feature, problem_options, pro
             tmp_results{i_problem} = result;
         end
     else
-        try
-            pool = gcp('nocreate');
-        catch
-            % If the user does not have the Parallel Computing Toolbox, the gcp function will not be available. We will print a error message and exit.
-            error("The Parallel Computing Toolbox is not available. Please set the option `n_jobs` to 1.");
-        end
-        if isempty(pool)
-            try
-                if ~profile_options.(ProfileOptionKey.SILENT.value)
-                    parpool(profile_options.(ProfileOptionKey.N_JOBS.value));
-                else
-                    evalc("parpool(profile_options.(ProfileOptionKey.N_JOBS.value))");
-                end
-            catch
-                if ~profile_options.(ProfileOptionKey.SILENT.value)
-                    fprintf("INFO: Failed to create a parallel pool with the specified number of workers. Using the default number of workers.\n");
-                end
-            end
-        end
-        parfor i_problem = 1:n_problems
+        parfor (i_problem = 1:n_problems, profile_options.(ProfileOptionKey.N_JOBS.value))
             problem_name = problem_names{i_problem};
             % Load the problem.
             try
@@ -135,14 +109,6 @@ function results = solveAllProblems(solvers, plib, feature, problem_options, pro
             end
             result = solveOneProblem(solvers, problem, feature, problem_name, len_problem_names, profile_options, is_plot, path_hist_plots);
             tmp_results{i_problem} = result;
-        end
-        if ~profile_options.(ProfileOptionKey.KEEP_POOL.value)
-            if ~profile_options.(ProfileOptionKey.SILENT.value)
-                delete(gcp);
-                fprintf("INFO: Leaving the parallel section.\n");
-            else
-                evalc("delete(gcp)");
-            end
         end
     end
 

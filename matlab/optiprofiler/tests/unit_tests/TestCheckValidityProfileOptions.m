@@ -12,11 +12,6 @@ classdef TestCheckValidityProfileOptions < matlab.unittest.TestCase
             options = rmfield(options, 'n_jobs');
 
 
-            options.keep_pool = 2;
-            testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:keep_poolNotValid");
-            options = rmfield(options, 'keep_pool');
-
-
             options.seed = 0;
             testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:seedNotValid");
             options = rmfield(options, 'seed');

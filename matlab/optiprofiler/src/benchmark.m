@@ -76,8 +76,6 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %
 %       - n_jobs: the number of parallel jobs to run the test. Default is the
 %         number of workers in the parallel pool.
-%       - keep_pool: whether to keep the parallel pool open after the test.
-%         Default is true.
 %       - seed: the seed of the random number generator. Default is 1.
 %       - benchmark_id: the identifier of the test. It is used to create the
 %         specific directory to store the results. Default is 'out' if the
@@ -108,19 +106,17 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %       - merit_fun: the merit function to measure the quality of a point using
 %         the objective function value and the maximum constraint violation.
 %         It should be a function handle as follows:
-%               ``(fun_values, maxcv_values, maxcv_init) -> merit_values``,
-%         where `fun_values` is history of the objective function values,
-%         `maxcv_values` is history of the maximum constraint violation, and
-%         `maxcv_init` is the initial maximum constraint violation. The size of
-%         `fun_values` and `maxcv_values` is the same, and the size of
-%         `maxcv_init` is the same as the second to last dimensions of
-%         `fun_values`. The default merit function varphi(x) is defined by the
-%         objective function f(x) and the maximum constraint violation v(x) as
+%               ``(fun_value, maxcv_value, maxcv_init) -> merit_value``,
+%         where `fun_value` is the objective function value, `maxcv_value` is
+%         the maximum constraint violation, and `maxcv_init` is the maximum
+%         constraint violation at the initial guess. The default merit function
+%         varphi(x) is defined by the objective function f(x) and the maximum
+%         constraint violation v(x) as
 %           varphi(x) = f(x)                        if v(x) <= v1
 %           varphi(x) = f(x) + 1e5 * (v(x) - v1)    if v1 < v(x) <= v2
 %           varphi(x) = Inf                         if v(x) > v2
 %         where v1 = max(1e-5, v0) and v2 = min(0.01, 1e-10 * max(1, v0)),
-%         and v0 is the initial maximum constraint violation.
+%         and v0 is the maximum constraint violation at the initial guess.
 %       - project_x0: whether to project the initial point to the feasible set.
 %         Default is false.
 %       - run_plain: whether to run an extra experiment with the 'plain'
@@ -829,8 +825,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         merit_fun = profile_options.(ProfileOptionKey.MERIT_FUN.value);
         if ~isempty(result)
             try
-                merit_history = merit_fun(result.fun_history, result.maxcv_history, result.maxcv_init);
-                merit_init = merit_fun(result.fun_init, result.maxcv_init, result.maxcv_init);
+                merit_history = meritFunCompute(merit_fun, result.fun_history, result.maxcv_history, result.maxcv_init);
+                merit_init = meritFunCompute(merit_fun, result.fun_init, result.maxcv_init, result.maxcv_init);
             catch
                 error("MATLAB:benchmark:merit_fun_error", "Error occurred while calculating the merit values. Please check the merit function.");
             end
@@ -904,9 +900,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             % Compute merit values.
             merit_fun = profile_options.(ProfileOptionKey.MERIT_FUN.value);
             try
-                merit_histories = merit_fun(results_plib.fun_histories, results_plib.maxcv_histories, results_plib.maxcv_inits);
-                merit_outs = merit_fun(results_plib.fun_outs, results_plib.maxcv_outs, results_plib.maxcv_inits);
-                merit_inits = merit_fun(results_plib.fun_inits, results_plib.maxcv_inits, results_plib.maxcv_inits);
+                merit_histories = meritFunCompute(merit_fun, results_plib.fun_histories, results_plib.maxcv_histories, results_plib.maxcv_inits);
+                merit_outs = meritFunCompute(merit_fun, results_plib.fun_outs, results_plib.maxcv_outs, results_plib.maxcv_inits);
+                merit_inits = meritFunCompute(merit_fun, results_plib.fun_inits, results_plib.maxcv_inits, results_plib.maxcv_inits);
             catch
                 error("MATLAB:benchmark:merit_fun_error", "Error occurred while calculating the merit values. Please check the merit function.");
             end
@@ -922,9 +918,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                 end
                 results_plib_plain = solveAllProblems(solvers, plib, feature_plain, problem_options, profile_options, false, {});
                 try
-                    results_plib_plain.merit_histories = merit_fun(results_plib_plain.fun_histories, results_plib_plain.maxcv_histories, results_plib_plain.maxcv_inits);
-                    results_plib_plain.merit_outs = merit_fun(results_plib_plain.fun_outs, results_plib_plain.maxcv_outs, results_plib_plain.maxcv_inits);
-                    results_plib_plain.merit_inits= merit_fun(results_plib_plain.fun_inits, results_plib_plain.maxcv_inits, results_plib_plain.maxcv_inits);
+                    results_plib_plain.merit_histories = meritFunCompute(merit_fun, results_plib_plain.fun_histories, results_plib_plain.maxcv_histories, results_plib_plain.maxcv_inits);
+                    results_plib_plain.merit_outs = meritFunCompute(merit_fun, results_plib_plain.fun_outs, results_plib_plain.maxcv_outs, results_plib_plain.maxcv_inits);
+                    results_plib_plain.merit_inits= meritFunCompute(merit_fun, results_plib_plain.fun_inits, results_plib_plain.maxcv_inits, results_plib_plain.maxcv_inits);
                 catch
                     error("MATLAB:benchmark:merit_fun_error", "Error occurred while calculating the merit values. Please check the merit function.");
                 end

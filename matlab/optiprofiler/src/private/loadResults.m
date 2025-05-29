@@ -308,9 +308,9 @@ function results_plib = recompute_merits(results_plib, merit_fun)
     % Recompute the merit values for the loaded data if the 'merit_fun' is provided.
     
     try
-        results_plib.merit_histories = merit_fun(results_plib.fun_histories, results_plib.maxcv_histories, results_plib.maxcv_inits);
-        results_plib.merit_outs = merit_fun(results_plib.fun_outs, results_plib.maxcv_outs, results_plib.maxcv_inits);
-        results_plib.merit_inits = merit_fun(results_plib.fun_inits, results_plib.maxcv_inits, results_plib.maxcv_inits);
+        results_plib.merit_histories = meritFunCompute(merit_fun, results_plib.fun_histories, results_plib.maxcv_histories, results_plib.maxcv_inits);
+        results_plib.merit_outs = meritFunCompute(merit_fun, results_plib.fun_outs, results_plib.maxcv_outs, results_plib.maxcv_inits);
+        results_plib.merit_inits = meritFunCompute(merit_fun, results_plib.fun_inits, results_plib.maxcv_inits, results_plib.maxcv_inits);
     catch
         error("MATLAB:loadResults:meritFunError", "The merit function provided in the options is not valid. Please check the function and try again.");
     end

@@ -12,11 +12,12 @@ classdef TestSolveOne < matlab.unittest.TestCase
             profile_options.solver_isrand = [false, false];
             profile_options.project_x0 = true;
             profile_options.max_eval_factor = 500;
-            profile_options.keep_pool = false;
             profile_options.silent = false;
             profile_options.seed = 1;
             profile_options.solver_verbose = 1;
             profile_options.score_only = false;
+            profile_options = getDefaultProfileOptions(solvers, feature, profile_options);
+
             result = solveOneProblem(solvers, problem, feature, problem_name, len_problem_names, profile_options, true, '');
             testCase.verifyNotEmpty(result);
             testCase.verifyNotEmpty(result.fun_history);
