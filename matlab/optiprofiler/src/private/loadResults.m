@@ -273,6 +273,14 @@ function results_plib = truncate_problems(results_plib, problem_options)
             end
         end
     end
+    if isfield(problem_options, ProblemOptionKey.PROBLEM_NAMES.value)
+        % Only load the problems whose names are in the 'problem_names' field.
+        for i = 1:numel(results_plib.problem_names)
+            if ~ismember(results_plib.problem_names{i}, problem_options.(ProblemOptionKey.PROBLEM_NAMES.value))
+                p_to_load(i) = false;
+            end
+        end
+    end
     if isfield(problem_options, ProblemOptionKey.EXCLUDELIST.value)
         % Judge whether the problems in the loaded data are in the exclude list.
         for i = 1:numel(results_plib.problem_names)

@@ -65,10 +65,13 @@ function results = solveAllProblems(solvers, plib, feature, problem_options, pro
         fprintf('\nINFO: There are %d problems from "%s" to test.\n', n_problems, plib);
     end
 
-    % Setup parallel pool if necessary.
-    success_setup = setupPool(profile_options.(ProfileOptionKey.N_JOBS.value));
-    
-    if ~success_setup
+    % Determine whether to use sequential mode or parallel mode.
+    seqential_mode = (profile_options.(ProfileOptionKey.N_JOBS.value) == 1) || setupPool(profile_options.(ProfileOptionKey.N_JOBS.value), profile_options.(ProfileOptionKey.SILENT.value));
+
+    % The following code uses either a for-loop or a parfor-loop depending on the situation.
+    % Although the code blocks look similar, this distinction is necessary. When n_jobs == 1 or the
+    % parallel pool fails to start, sequential execution is the most reasonable choice.
+    if seqential_mode
         for i_problem = 1:n_problems
             problem_name = problem_names{i_problem};
             % Load the problem.
@@ -189,6 +192,8 @@ function results = solveAllProblems(solvers, plib, feature, problem_options, pro
     results.maxnlcon = problem_options.(ProblemOptionKey.MAXNLCON.value);
     results.mincon = problem_options.(ProblemOptionKey.MINCON.value);
     results.maxcon = problem_options.(ProblemOptionKey.MAXCON.value);
+    results.problem_names_options = problem_options.(ProblemOptionKey.PROBLEM_NAMES.value);
+    results.excludelist = problem_options.(ProblemOptionKey.EXCLUDELIST.value);
     results.feature_stamp = profile_options.(ProfileOptionKey.FEATURE_STAMP.value);
     results.fun_histories = fun_histories;
     results.maxcv_histories = maxcv_histories;

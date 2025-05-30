@@ -425,7 +425,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             % When input contains one argument and the first argument is a struct, we assume the
             % user chooses benchmark(options).
             options = varargin{1};
-            options_store = options;
+            options_user = options;
             solvers = {};
             if isfield(options, 'feature_name')
                 feature_name = options.feature_name;
@@ -456,7 +456,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             % user chooses benchmark(solvers, options).
             solvers = varargin{1};
             options = varargin{2};
-            options_store = options;
+            options_user = options;
             if isfield(options, 'feature_name')
                 feature_name = options.feature_name;
                 options = rmfield(options, 'feature_name');
@@ -550,6 +550,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 
     % Build feature.
     feature = Feature(feature_name, feature_options);
+    feature_options = feature.options;
 
     % Set default values for the unspecified options.
     problem_options = getDefaultProblemOptions(problem_options);
@@ -682,11 +683,29 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 
     if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
         try
-            if exist('options_store', 'var')
-                save(fullfile(path_log, 'options_store.mat'), 'options_store');
+            if exist('options_user', 'var')
+                save(fullfile(path_log, 'options_user.mat'), 'options_user');
                 try
                     fid = fopen(path_readme_log, 'a');
-                    fprintf(fid, "'options_store.mat': file, storing the options of the current experiment.\n");
+                    fprintf(fid, "'options_user.mat': file, storing the options provided by the user for the current experiment.\n");
+                    fclose(fid);
+                catch
+                end
+                options_refined = profile_options;
+                feature_options_keys = fieldnames(feature_options);
+                for i_option = 1:numel(feature_options_keys)
+                    key = feature_options_keys{i_option};
+                    options_refined.(key) = feature_options.(key);
+                end
+                problem_options_keys = fieldnames(problem_options);
+                for i_option = 1:numel(problem_options_keys)
+                    key = problem_options_keys{i_option};
+                    options_refined.(key) = problem_options.(key);
+                end
+                save(fullfile(path_log, 'options_refined.mat'), 'options_refined');
+                try
+                    fid = fopen(path_readme_log, 'a');
+                    fprintf(fid, "'options_refined.mat': file, storing the options refined by OptiProfiler for the current experiment.\n");
                     fclose(fid);
                 catch
                 end
@@ -857,6 +876,33 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 
     % If `load` is not specified, we solve all the problems.
     if isempty(profile_options.(ProfileOptionKey.LOAD.value))
+        % Print the information about the experiment.
+        if ~profile_options.(ProfileOptionKey.SILENT.value)
+            fprintf('\nINFO: Start testing with the following options:\n');
+            fprintf('INFO: - Solvers: %s\n', strjoin(solver_names, ', '));
+            fprintf('INFO: - Problem libraries: %s\n', strjoin(problem_options.(ProblemOptionKey.PLIBS.value), ', '));
+            fprintf('INFO: - Problem types: %s\n', problem_options.(ProblemOptionKey.PTYPE.value));
+            fprintf('INFO: - Problem dimension range: [%d, %d]\n', problem_options.(ProblemOptionKey.MINDIM.value), problem_options.(ProblemOptionKey.MAXDIM.value));
+            if any(ismember(problem_options.(ProblemOptionKey.PTYPE.value), 'bln'))
+            fprintf('INFO: - Problem mb range: [%d, %d]\n', problem_options.(ProblemOptionKey.MINB.value), problem_options.(ProblemOptionKey.MAXB.value));
+            end
+            if any(ismember(problem_options.(ProblemOptionKey.PTYPE.value), 'ln'))
+            fprintf('INFO: - Problem mlcon range: [%d, %d]\n', problem_options.(ProblemOptionKey.MINLCON.value), problem_options.(ProblemOptionKey.MAXLCON.value));
+            end
+            if any(ismember(problem_options.(ProblemOptionKey.PTYPE.value), 'n'))
+            fprintf('INFO: - Problem mnlcon range: [%d, %d]\n', problem_options.(ProblemOptionKey.MINNLCON.value), problem_options.(ProblemOptionKey.MAXNLCON.value));
+            end
+            if any(ismember(problem_options.(ProblemOptionKey.PTYPE.value), 'ln'))
+            fprintf('INFO: - Problem mcon range: [%d, %d]\n', problem_options.(ProblemOptionKey.MINCON.value), problem_options.(ProblemOptionKey.MAXCON.value));
+            end
+            if ~isempty(problem_options.(ProblemOptionKey.PROBLEM_NAMES.value))
+            fprintf('INFO: - Number of user-provided problem names: %d\n', numel(problem_options.(ProblemOptionKey.PROBLEM_NAMES.value)));
+            end
+            if ~isempty(problem_options.(ProblemOptionKey.EXCLUDELIST.value))
+            fprintf('INFO: - Number of user-excluded problem names: %d\n', numel(problem_options.(ProblemOptionKey.EXCLUDELIST.value)));
+            end
+            fprintf('INFO: - Feature stamp: %s\n', feature_stamp);
+        end
         % We will solve all the problems from all the problem libraries that user specified in the `problem_options`.
         plibs = problem_options.(ProblemOptionKey.PLIBS.value);
         results_plibs = cell(1, numel(plibs));
