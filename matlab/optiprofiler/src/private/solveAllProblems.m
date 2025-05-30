@@ -66,7 +66,7 @@ function results = solveAllProblems(solvers, plib, feature, problem_options, pro
     end
 
     % Determine whether to use sequential mode or parallel mode.
-    seqential_mode = (profile_options.(ProfileOptionKey.N_JOBS.value) == 1) || setupPool(profile_options.(ProfileOptionKey.N_JOBS.value), profile_options.(ProfileOptionKey.SILENT.value));
+    seqential_mode = (profile_options.(ProfileOptionKey.N_JOBS.value) == 1) || ~setupPool(profile_options.(ProfileOptionKey.N_JOBS.value), profile_options.(ProfileOptionKey.SILENT.value));
 
     % The following code uses either a for-loop or a parfor-loop depending on the situation.
     % Although the code blocks look similar, this distinction is necessary. When n_jobs == 1 or the
