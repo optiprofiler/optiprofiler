@@ -491,3 +491,6 @@ seqential
 SETUPPOOL
 vectorize
 vectorized
+randi
+ubl
+uln

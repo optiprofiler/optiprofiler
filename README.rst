@@ -7,6 +7,18 @@ OptiProfiler: a platform for benchmarking optimization solvers
 .. image:: https://img.shields.io/codecov/c/github/optiprofiler/optiprofiler?style=for-the-badge&logo=codecov
    :target: https://app.codecov.io/github/optiprofiler/optiprofiler/tree/main
 
+.. image:: https://github.com/optiprofiler/optiprofiler/actions/workflows/matlab-unit_test.yml/badge.svg
+   :target: https://github.com/optiprofiler/optiprofiler/actions/workflows/matlab-unit_test.yml
+
+.. image:: https://github.com/optiprofiler/optiprofiler/actions/workflows/matlab-test_multi-os.yml/badge.svg
+   :target: https://github.com/optiprofiler/optiprofiler/actions/workflows/matlab-test_multi-os.yml
+
+.. image:: https://github.com/optiprofiler/optiprofiler/actions/workflows/matlab-random_test.yml/badge.svg
+    :target: https://github.com/optiprofiler/optiprofiler/actions/workflows/matlab-random_test.yml
+
+.. image:: https://github.com/optiprofiler/optiprofiler/actions/workflows/matlab-stress_test.yml/badge.svg
+    :target: https://github.com/optiprofiler/optiprofiler/actions/workflows/matlab-stress_test.yml
+
 MATLAB version is available.
 ----------------------------
 
