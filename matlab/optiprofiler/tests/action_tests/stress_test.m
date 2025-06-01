@@ -25,8 +25,8 @@ function stress_test(benchmark_id)
     % Set options for OptiProfiler.
     options.seed = seed;
     options.problem_names = selected_pb_list;
-    options.mindim = 1;
-    options.maxdim = Inf;
+    options.mindim = 2000;
+    options.maxdim = 10000;
     options.max_eval_factor = 0.01;
     options.benchmark_id = benchmark_id;
     if isunix && ~ismac

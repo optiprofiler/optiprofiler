@@ -486,3 +486,8 @@ mnlcons
 bln
 CREATESTAMP
 xhist
+MERITFUNCOMPUTE
+seqential
+SETUPPOOL
+vectorize
+vectorized

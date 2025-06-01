@@ -1,0 +1,68 @@
+name: MATLAB random test
+
+on:
+  push:
+    branches: [main, matlab]
+  schedule:
+    - cron: '0 0 * * *'  # Every day at midnight
+
+jobs:
+
+  test:
+
+    name: MATLAB ${{ matrix.matlab }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+        matlab: [R2023a, R2023b, latest]
+
+    steps:
+
+      - name: Check out repository (branch main) with submodules
+        uses: actions/checkout@v4
+        with:
+          ref: matlab
+          submodules: recursive
+
+      - name: Set up MATLAB with optimization toolbox and parallel computing toolbox
+        uses: matlab-actions/setup-matlab@v2
+        with:
+          release: ${{ matrix.matlab }}
+          cache: true
+          products: Optimization_Toolbox Parallel_Computing_Toolbox
+
+      - name: Setup OptiProfiler and run tests
+        uses: matlab-actions/run-command@v2.1.1
+        with:
+          command: |
+            root_dir = pwd()
+
+            % Setup OptiProfiler
+            setup
+
+            % Create a directory for the output
+            mkdir('output')
+            cd output
+
+            % Test installation
+            testOptiProfiler
+
+            % Add './matlab/optiprofiler/tests/action_tests' to the path
+            addpath(fullfile(root_dir, 'matlab/optiprofiler/tests/action_tests'))
+
+            % Generate the benchmark_id with operating system and MATLAB version
+            os = computer('arch');
+            matlab_version = version('-release');
+            benchmark_id = ['os_', os, '_matlab_', matlab_version];
+
+            % Run the action tests
+            random_test(benchmark_id)
+
+      - name: Upload all artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: out_${{ matrix.os }}_${{ matrix.matlab }}
+          path: output/
