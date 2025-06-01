@@ -86,8 +86,8 @@ function setup(varargin)
                     fprintf('\nINFO: We are trying to install MatCUTEst ...\n');
                     cd(matcutest_install_dir);
                     install;
-                catch
-                    fprintf('\n\nINFO: The installation of MatCUTEst failed.\n');
+                catch ME
+                    fprintf('\nINFO: The installation of MatCUTEst failed.\n\nError message from MatCUTEst: %s\n', ME.message)
                 end
                 cd(setup_dir);
             else
