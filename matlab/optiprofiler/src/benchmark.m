@@ -1313,8 +1313,12 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         fig_summary.PaperSize = fig_summary.Position(3:4);
         fig_summary.PaperPosition = [0, 0, fig_summary.Position(3:4)];
         fig_summary.Children.Title.FontSize = min(fig_summary.Position(3) / 75 * 10, fig_summary.Position(3) / profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * 3 / 75 * 10);
-        fig_summary.Children.Children(1).YLabel.FontSize = min(fig_summary.Position(4) / 30 * 4.5, fig_summary.Position(4) / n_rows * 2 / 30 * 4.5);
-        fig_summary.Children.Children(2).YLabel.FontSize = min(fig_summary.Position(4) / 30 * 4.5, fig_summary.Position(4) / n_rows * 2 / 30 * 4.5);
+        if profile_options.(ProfileOptionKey.SUMMARIZE_OUTPUT_BASED_PROFILES.value)
+            fig_summary.Children.Children(1).YLabel.FontSize = min(fig_summary.Position(4) / 30 * 4.5, fig_summary.Position(4) / n_rows * 2 / 30 * 4.5);
+            fig_summary.Children.Children(2).YLabel.FontSize = min(fig_summary.Position(4) / 30 * 4.5, fig_summary.Position(4) / n_rows * 2 / 30 * 4.5);
+        else
+            fig_summary.Children.Children(1).YLabel.FontSize = min(fig_summary.Position(4) / 30 * 4.5, fig_summary.Position(4) / n_rows * 2 / 30 * 4.5);
+        end
     end
 
     if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
