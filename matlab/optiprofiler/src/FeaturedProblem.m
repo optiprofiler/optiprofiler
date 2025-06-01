@@ -200,7 +200,11 @@ classdef FeaturedProblem < Problem
                 f_true = f;
             end
             obj.fun_hist = [obj.fun_hist, f_true];
-            obj.maxcv_hist = [obj.maxcv_hist, obj.maxcv(x)];
+            try
+                obj.maxcv_hist = [obj.maxcv_hist, obj.maxcv(x)];
+            catch
+                obj.maxcv_hist = [obj.maxcv_hist, NaN];
+            end
         end
 
         function cub_ = cub(obj, x)

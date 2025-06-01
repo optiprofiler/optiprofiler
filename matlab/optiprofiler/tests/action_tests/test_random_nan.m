@@ -6,6 +6,7 @@ function test_random_nan(benchmark_id)
 
     solvers = {@fmincon_test1, @fmincon_test2, @fmincon_test3};
     options.solver_names = {'sqp', 'interior-point', 'active-set'};
+    options.solver_verbose = 2;
     options.feature_name = 'random_nan';
     options.n_runs = 2;
     options.max_eval_factor = 100;
