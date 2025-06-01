@@ -757,7 +757,7 @@ classdef Problem < handle
             end
 
             if numel(f) ~= obj.m_nonlinear_ub
-                error("MATLAB:Problem:cubx_m_nonlinear_ub_NotConsistent", "The size of `cub(x)` is not consistent with `m_nonlinear_ub`=%d.", obj.m_nonlinear_ub)
+                error("MATLAB:Problem:cubx_m_nonlinear_ub_NotConsistent", "The size of cub(x) is not consistent with m_nonlinear_ub=%d.\n\nCurrent x:\n%s\n\nCurrent cub(x):\n%s", obj.m_nonlinear_ub, mat2str(x(:), 16), mat2str(f(:), 16));
             end
         end
 
@@ -791,7 +791,7 @@ classdef Problem < handle
             end
 
             if numel(f) ~= obj.m_nonlinear_eq
-                error("MATLAB:Problem:ceqx_m_nonlinear_eq_NotConsistent", "The size of `ceq(x)` is not consistent with `m_nonlinear_eq`=%d.", obj.m_nonlinear_eq)
+                error("MATLAB:Problem:ceqx_m_nonlinear_eq_NotConsistent", "The size of `ceq(x)` is not consistent with `m_nonlinear_eq`=%d.\n\nCurrent x:\n%s\n\nCurrent ceq(x):\n%s", obj.m_nonlinear_eq, mat2str(x(:), 16), mat2str(f(:), 16));
             end
         end
 

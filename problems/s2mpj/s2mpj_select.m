@@ -147,27 +147,27 @@ function [problem_names, argins] = s2mpj_select(options)
         end
 
         % If the default dimension and number of constraints satisfy the criteria, we add the problem.
-        % That means, we will not consider the changeable dimension and number of constraints if the
-        % default dimension and number of constraints satisfy the criteria.
         if dim >= options.mindim && dim <= options.maxdim && mb >= options.minb && mb <= options.maxb && mlcon >= options.minlcon && mlcon <= options.maxlcon && mnlcon >= options.minnlcon && mnlcon <= options.maxnlcon && mcon >= options.mincon && mcon <= options.maxcon
             problem_names{end + 1} = problem_name;
             argins{end + 1} = {};
-            continue;
         end
 
-        % If the default dimension and number of constraints do not satisfy the criteria, we consider
-        % the changeable dimension and number of constraints.
-        if ~isempty(dims) && any(dims >= options.mindim & dims <= options.maxdim) && any(mbs >= options.minb & mbs <= options.maxb) && any(mlcons >= options.minlcon & mlcons <= options.maxlcon) && any(mnlcons >= options.minnlcon & mnlcons <= options.maxnlcon) && any(mcons >= options.mincon & mcons <= options.maxcon)
-            idx = find(dims >= options.mindim & dims <= options.maxdim, 1, 'first');
-            if mcons(idx) == 0
-                problem_names{end + 1} = [problem_name, '_', num2str(dims(idx))];
-            else
-                problem_names{end + 1} = [problem_name, '_', num2str(dims(idx)), '_', num2str(mcons(idx))];
-            end
-            if iscell(argin)
-                argins{end + 1} = {argin{1:end-1}, argin{end}(idx)};
-            else
-                argins{end + 1} = argin(idx);
+        % We consider the changeable dimension and number of constraints.
+        if ~isempty(dims)
+            mask = (dims >= options.mindim & dims <= options.maxdim) & (mbs >= options.minb & mbs <= options.maxb) & (mlcons >= options.minlcon & mlcons <= options.maxlcon) & (mnlcons >= options.minnlcon & mnlcons <= options.maxnlcon) & (mcons >= options.mincon & mcons <= options.maxcon);
+            idxs = find(mask);
+            for k = 1:numel(idxs)
+                idx = idxs(k);
+                if mcons(idx) == 0
+                    problem_names{end + 1} = [problem_name, '_', num2str(dims(idx))];
+                else
+                    problem_names{end + 1} = [problem_name, '_', num2str(dims(idx)), '_', num2str(mcons(idx))];
+                end
+                if iscell(argin)
+                    argins{end + 1} = {argin{1:end-1}, argin{end}(idx)};
+                else
+                    argins{end + 1} = argin(idx);
+                end
             end
         end
     end
