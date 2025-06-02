@@ -1,9 +1,6 @@
 function random_test(benchmark_id)
 %RANDOM_TEST tests OptiProfiler with random options.
 
-    % Go to the directory of this repository.
-    cd(fullfile(fileparts(mfilename('fullpath')), '../../../../output'));
-
     % Use the current wall-clock time to generate a random seed.
     time = datetime;
     seed = 100*mod(year(time), 100) + week(time);

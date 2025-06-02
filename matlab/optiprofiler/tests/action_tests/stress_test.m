@@ -1,9 +1,6 @@
 function stress_test(benchmark_id)
 %STRESS_TEST tests randomly high-dimensional (unconstrained) problems from s2mpj or matcutest.
 
-    % Go to the directory of this repository.
-    cd(fullfile(fileparts(mfilename('fullpath')), '../../../../output'));
-
     % Get the list of problems from s2mpj and matcutest whose dimension ranging from 2000 to 10000.
     s2mpj_pb_list = s2mpj_select(struct('ptype', 'u', 'mindim', 2000, 'maxdim', 10000));
     if isunix && ~ismac

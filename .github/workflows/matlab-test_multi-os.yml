@@ -57,17 +57,39 @@ jobs:
             benchmark_id = ['os_', os, '_matlab_', matlab_version];
 
             % Run the action tests
+            tic
             test_plain(benchmark_id)
+            fprintf('Time for plain test: %.2f seconds\n', toc);
+            tic
             test_perturbed_x0(benchmark_id)
+            fprintf('Time for perturbed_x0 test: %.2f seconds\n', toc);
+            tic
             test_noisy(benchmark_id)
+            fprintf('Time for noisy test: %.2f seconds\n', toc);
+            tic
             test_truncated(benchmark_id)
+            fprintf('Time for truncated test: %.2f seconds\n', toc);
+            tic
             test_permuted(benchmark_id)
+            fprintf('Time for permuted test: %.2f seconds\n', toc);
+            tic
             test_linearly_transformed(benchmark_id)
+            fprintf('Time for linearly_transformed test: %.2f seconds\n', toc);
+            tic
             test_random_nan(benchmark_id)
+            fprintf('Time for random_nan test: %.2f seconds\n', toc);
+            tic
             test_unrelaxable_constraints(benchmark_id)
+            fprintf('Time for unrelaxable_constraints test: %.2f seconds\n', toc);
+            tic
             test_nonquantifiable_constraints(benchmark_id)
+            fprintf('Time for nonquantifiable_constraints test: %.2f seconds\n', toc);
+            tic
             test_quantized(benchmark_id)
+            fprintf('Time for quantized test: %.2f seconds\n', toc);
+            tic
             test_custom(benchmark_id)
+            fprintf('Time for custom test: %.2f seconds\n', toc);
 
       - name: Upload all artifacts
         uses: actions/upload-artifact@v4

@@ -1,9 +1,6 @@
 function test_unrelaxable_constraints(benchmark_id)
     % Test "unrelaxable_constraints" feature.
 
-    % Go to the directory of this repository.
-    cd(fullfile(fileparts(mfilename('fullpath')), '../../../../output'));
-
     solvers = {@fmincon_test1, @fmincon_test2, @fmincon_test3};
     options.solver_names = {'sqp', 'interior-point', 'active-set'};
     options.solver_verbose = 2;
