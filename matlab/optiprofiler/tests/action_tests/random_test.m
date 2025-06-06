@@ -3,7 +3,7 @@ function random_test(benchmark_id)
 
     % Use the current wall-clock time to generate a random seed.
     time = datetime;
-    seed = 100*mod(year(time), 100) + week(time);
+    seed = 100*mod(year(time), 100) + month(time) + week(time) + day(time);
     fprintf("Seed: %d\n\n", seed);
     rand_stream = RandStream("mt19937ar", "Seed", seed);
 

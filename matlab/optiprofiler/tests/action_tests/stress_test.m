@@ -12,7 +12,7 @@ function stress_test(benchmark_id)
 
     % Use the current wall-clock time to randomly select 5 problems.
     time = datetime;
-    seed = 100*mod(year(time), 100) + week(time);
+    seed = 100*mod(year(time), 100) + month(time) + week(time) + day(time);
     fprintf("Seed: %d\n\n", seed);
     rand_stream = RandStream("mt19937ar", "Seed", seed);
     random_idx = rand_stream.randperm(numel(pb_list), 5);
