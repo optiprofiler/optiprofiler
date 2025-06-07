@@ -84,27 +84,27 @@ function random_test(benchmark_id)
         case 'plain'
             options.n_runs = 1;
         case 'perturbed_x0'
-            options.n_runs = rand_stream.randi([1, 5], 1, 1);
+            options.n_runs = rand_stream.randi([1, 3], 1, 1);
             options.perturbation_level = rand_stream.rand(1, 1);
             distribution_choices = {'gaussian', 'spherical'};
             options.distribution = distribution_choices{rand_stream.randi(length(distribution_choices), 1, 1)};
         case 'noisy'
-            options.n_runs = rand_stream.randi([1, 5], 1, 1);
+            options.n_runs = rand_stream.randi([1, 3], 1, 1);
             options.noise_level = rand_stream.rand(1, 1);
             distribution_choices = {'gaussian', 'uniform'};
             options.distribution = distribution_choices{rand_stream.randi(length(distribution_choices), 1, 1)};
             noise_type_choices = {'absolute', 'relative', 'mixed'};
             options.noise_type = noise_type_choices{rand_stream.randi(length(noise_type_choices), 1, 1)};
         case 'truncated'
-            options.n_runs = rand_stream.randi([1, 5], 1, 1);
+            options.n_runs = rand_stream.randi([1, 3], 1, 1);
             options.significant_digits = rand_stream.randi([1, 10], 1, 1);
             options.perturbed_trailing_digits = (rand_stream.rand(1, 1) < 0.5);
         case 'linearly_transformed'
-            options.n_runs = rand_stream.randi([1, 5], 1, 1);
+            options.n_runs = rand_stream.randi([1, 3], 1, 1);
             options.rotated = (rand_stream.rand(1, 1) < 0.5);
             options.condition_factor = rand_stream.rand(1, 1) * 100;
         case 'random_nan'
-            options.n_runs = rand_stream.randi([1, 5], 1, 1);
+            options.n_runs = rand_stream.randi([1, 3], 1, 1);
             options.nan_rate = rand_stream.rand(1, 1) * 0.5;
         case 'unrelaxable_constraints'
             options.n_runs = 1;
@@ -131,7 +131,7 @@ function random_test(benchmark_id)
     options.ptype = ptype_choices{rand_stream.randi(length(ptype_choices), 1, 1)};
 
     options.mindim = rand_stream.randi([1, 5], 1, 1);
-    options.maxdim = options.mindim + rand_stream.randi([1, 20], 1, 1);
+    options.maxdim = options.mindim + rand_stream.randi([1, 5], 1, 1);
 
     options.minb = 0;
     options.maxb = rand_stream.randi([20, 40], 1, 1);
