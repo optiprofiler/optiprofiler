@@ -70,7 +70,7 @@ Options should be specified in a struct. The following are the available fields 
 
 1. *Options for profiles and plots*:
 
-  - **n_jobs**: the number of parallel jobs to run the test. Default is the number of workers in the parallel pool.
+  - **n_jobs**: the number of parallel jobs to run the test. Default is the default number of workers in the default local cluster.
 
   - **seed**: the seed of the random number generator. Default is ``1``.
 
@@ -78,7 +78,7 @@ Options should be specified in a struct. The following are the available fields 
 
   - **solver_names**: the names of the solvers. Default is the names of the function handles in **solvers**.
 
-  - **solver_isrand**: whether the solvers are randomized or not. It is a logical array of the same length as the number of solvers, where the value is true if the solver is randomized, and false otherwise. Default is all false.
+  - **solver_isrand**: whether the solvers are randomized or not. It is a logical array of the same length as the number of solvers, where the value is true if the solver is randomized, and false otherwise. Default is all false. Note that if ``n_runs`` is not specified, we will set it 5 for the randomized solvers.
 
   - **feature_stamp**: the stamp of the feature with the given options. It is used to create the specific directory to store the results. Default depends on features.
 

@@ -75,7 +75,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %       1. Options for profiles and plots:
 %
 %       - n_jobs: the number of parallel jobs to run the test. Default is the
-%         number of workers in the parallel pool.
+%         default number of workers in the default local cluster.
 %       - seed: the seed of the random number generator. Default is 1.
 %       - benchmark_id: the identifier of the test. It is used to create the
 %         specific directory to store the results. Default is 'out' if the
@@ -85,6 +85,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %       - solver_isrand: whether the solvers are randomized or not. Default is
 %         a logical array of the same length as the number of solvers, where
 %         the value is true if the solver is randomized, and false otherwise.
+%         Note that if `n_runs` is not specified, we will set it 5 for the
+%         randomized solvers.
 %       - feature_stamp: the stamp of the feature with the given options. It is
 %         used to create the specific directory to store the results. Default
 %         depends on features.
@@ -538,6 +540,17 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     problem_options = checkValidityProblemOptions(problem_options, profile_options);
     profile_options = checkValidityProfileOptions(solvers, profile_options);
 
+    % Whether load the existing results.
+    is_load = isfield(profile_options, ProfileOptionKey.LOAD.value) && ~isempty(profile_options.(ProfileOptionKey.LOAD.value));
+
+    % If `n_runs` is not specified, we set it to 5 if at least one solver is randomized.
+    if ~isfield(feature_options, FeatureOptionKey.N_RUNS.value) && any(profile_options.(ProfileOptionKey.SOLVER_ISRAND.value)) && ~is_load
+        if ~isfield(profile_options, ProfileOptionKey.SILENT.value) || ~profile_options.(ProfileOptionKey.SILENT.value)
+            fprintf("\nINFO: We set `n_runs` to 5 since it is not specified and at least one solver is randomized.\n");
+        end
+        feature_options.(FeatureOptionKey.N_RUNS.value) = 5;
+    end
+
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%% Process the 'load' option if it is provided. %%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -554,7 +567,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 
     % Set default values for the unspecified options.
     problem_options = getDefaultProblemOptions(problem_options);
-    profile_options = getDefaultProfileOptions(solvers, feature, profile_options); 
+    profile_options = getDefaultProfileOptions(solvers, feature, profile_options);
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Initialize output variables. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -615,7 +628,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         end
     end
 
-    if profile_options.(ProfileOptionKey.SCORE_ONLY.value) || ~isempty(profile_options.(ProfileOptionKey.LOAD.value))
+    if profile_options.(ProfileOptionKey.SCORE_ONLY.value) || is_load
         % If 'load' is not empty, we will directly load the results and do not need to compute
         % again. In this case, we do not need to create the directory to store the hist plots.
         path_hist_plots = '';
@@ -816,15 +829,6 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     %%%%%%%%%%%%%% Solve all the problems when 'load' option is not provided. %%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    % If `n_runs` is not specified, the feature is deterministic, and at least one solver is
-    % randomized, then we set `n_runs` to 5.
-    if ~isfield(feature_options, FeatureOptionKey.N_RUNS.value) && ~feature.is_stochastic && any(profile_options.(ProfileOptionKey.SOLVER_ISRAND.value)) && isempty(profile_options.(ProfileOptionKey.LOAD.value))
-        if ~profile_options.(ProfileOptionKey.SILENT.value)
-            fprintf("\nINFO: We set `n_runs` to 5 since it is not specified and at least one solver is randomized.\n");
-        end
-        feature.options.(FeatureOptionKey.N_RUNS.value) = 5;
-    end
-
     % If a specific problem is provided to `problem_options`, we only solve this problem and generate
     % the history plots for it.
     if exist('problem', 'var')
@@ -875,7 +879,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     end
 
     % If `load` is not specified, we solve all the problems.
-    if isempty(profile_options.(ProfileOptionKey.LOAD.value))
+    if ~is_load
         % Print the information about the experiment.
         if ~profile_options.(ProfileOptionKey.SILENT.value)
             fprintf('\nINFO: Start testing with the following options:\n');
