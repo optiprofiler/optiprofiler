@@ -21,7 +21,7 @@ function testOptiProfiler()
     % Test if function `benchmark` is callable.
     path = pwd;
     path_out = fullfile(path, 'out');
-    try
+    % try
         options.problem = s2mpj_load('BEALE');
         evalc("benchmark({@fminsearch_test1, @fminsearch_test2}, options)");
         try
@@ -29,14 +29,14 @@ function testOptiProfiler()
         catch
         end
         fprintf("OptiProfiler successfully ran function 'benchmark'.\n\n");
-    catch
-        success = false;
-        try
-            rmdir(path_out, 's');
-        catch
-        end
-        error("OptiProfiler FAILED a test: Unable to call function 'benchmark'.");
-    end
+    % catch
+    %     success = false;
+    %     try
+    %         rmdir(path_out, 's');
+    %     catch
+    %     end
+    %     error("OptiProfiler FAILED a test: Unable to call function 'benchmark'.");
+    % end
 
     if success
         fprintf("OptiProfiler passed all tests.\n\n");

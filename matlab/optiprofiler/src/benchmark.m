@@ -544,7 +544,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     is_load = isfield(profile_options, ProfileOptionKey.LOAD.value) && ~isempty(profile_options.(ProfileOptionKey.LOAD.value));
 
     % If `n_runs` is not specified, we set it to 5 if at least one solver is randomized.
-    if ~isfield(feature_options, FeatureOptionKey.N_RUNS.value) && any(profile_options.(ProfileOptionKey.SOLVER_ISRAND.value)) && ~is_load
+    any_solver_isrand = isfield(profile_options, ProfileOptionKey.SOLVER_ISRAND.value) && any(profile_options.(ProfileOptionKey.SOLVER_ISRAND.value));
+    if ~isfield(feature_options, FeatureOptionKey.N_RUNS.value) && any_solver_isrand && ~is_load
         if ~isfield(profile_options, ProfileOptionKey.SILENT.value) || ~profile_options.(ProfileOptionKey.SILENT.value)
             fprintf("\nINFO: We set `n_runs` to 5 since it is not specified and at least one solver is randomized.\n");
         end
