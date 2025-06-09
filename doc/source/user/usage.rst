@@ -10,6 +10,8 @@ We provide below simple examples on how to use OptiProfiler in MATLAB. For more 
 Examples
 --------
 
+.. _example1:
+
 Example 1: first example to try out
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 (See also the file in the repository: ``matlab/examples/example1.m``)
@@ -43,6 +45,7 @@ Additionally, a PDF file named ``summary.pdf`` is generated, summarizing all the
    
    Figure 2: Example of the summary.pdf file summarizing all the performance profiles and data profiles.
 
+.. _example2:
 
 Example 2: one step further by adding options
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -58,14 +61,14 @@ You can also add options to the benchmark function. For example, if you want to 
     options.feature_name = 'noisy';
     scores = benchmark({@solver1, @solver2, @solver3}, options)
 
-This will create the corresponding folders ``out/noisy_<timestamp>`` and files as in the previous example Ex1. More details on the options can be found in the :ref:`benchmark <matbenchmark>` function documentation.
+This will create the corresponding folders ``out/noisy_<timestamp>`` and files as in the previous example :ref:`Example 1 <example1>`. More details on the options can be found in the :ref:`benchmark <matbenchmark>` function documentation.
 
 
 Example 3: useful option **load**
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 (See also the file in the repository: ``matlab/examples/example3.m``)
 
-OptiProfiler provides a practically useful option named **load**. This option allows you to load the results from a previous benchmarking run (without solving all the problems again) and use them to draw new profiles with different options. For example, if you have just run the second example Ex2 and OptiProfiler has finished the job and successfully created the folder ``out`` in the current working directory, you can run:
+OptiProfiler provides a practically useful option named **load**. This option allows you to load the results from a previous benchmarking run (without solving all the problems again) and use them to draw new profiles with different options. For example, if you have just run the second example :ref:`Example 2 <example2>` and OptiProfiler has finished the job and successfully created the folder ``out`` in the current working directory, you can run:
 
 .. code-block:: matlab
 
@@ -83,13 +86,13 @@ Example 4: testing parametrized solvers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 (See also the file in the repository: ``matlab/examples/example4.m``)
 
-If you want to benchmark a solver with one variable parameter, you can define function handles by looping over the parameter values. For example, if **solver** accepts the signature ``@(fun, x0, para)``, and you want to benchmark it with the parameter ``para`` taking values from 1 to 5, you can run:
+If you want to benchmark a solver with one variable parameter, you can define function handles by looping over the parameter values. For example, if **solver** accepts the signature ``@(fun, x0, para)``, and you want to benchmark it with the parameter ``para`` taking values from 1 to 3, you can run:
 
 .. code-block:: matlab
 
-    solvers = cell(1, 5);
-    options.solver_names = cell(1, 5);
-    for i = 1:5
+    solvers = cell(1, 3);
+    options.solver_names = cell(1, 3);
+    for i = 1:3
         solvers{i} = @(fun, x0) solver(fun, x0, i);
         options.solver_names{i} = ['solver' num2str(i)];
     end
