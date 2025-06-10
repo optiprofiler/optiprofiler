@@ -61,14 +61,14 @@ You can also add options to the benchmark function. For example, if you want to 
     options.feature_name = 'noisy';
     scores = benchmark({@solver1, @solver2, @solver3}, options)
 
-This will create the corresponding folders ``out/noisy_<timestamp>`` and files as in the previous example :ref:`Example 1 <example1>`. More details on the options can be found in the :ref:`benchmark <matbenchmark>` function documentation.
+This will create the corresponding folders ``out/noisy_<timestamp>`` and files as in :ref:`Example 1 <example1>`. More details on the options can be found in the :ref:`benchmark <matbenchmark>` function documentation.
 
 
 Example 3: useful option **load**
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 (See also the file in the repository: ``matlab/examples/example3.m``)
 
-OptiProfiler provides a practically useful option named **load**. This option allows you to load the results from a previous benchmarking run (without solving all the problems again) and use them to draw new profiles with different options. For example, if you have just run the second example :ref:`Example 2 <example2>` and OptiProfiler has finished the job and successfully created the folder ``out`` in the current working directory, you can run:
+OptiProfiler provides a practically useful option named **load**. This option allows you to load the results from a previous benchmarking run (without solving all the problems again) and use them to draw new profiles with different options. For example, if you have just run :ref:`Example 2 <example2>` and OptiProfiler has finished the job and successfully created the folder ``out`` in the current working directory, you can run:
 
 .. code-block:: matlab
 
