@@ -662,6 +662,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                 fprintf("\nINFO: Failed to create the README.txt file for folder '%s'.\n", path_log);
             end
         end
+    else
+        path_readme_log = '';
     end
 
     if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
