@@ -98,7 +98,7 @@ function setup(varargin)
                 fprintf('\nThe package is ready to use.\n');
                 fprintf('\nYou may now try ''help benchmark'' for information on the usage of the package.\n');
                 fprintf('\nYou may also run ''testOptiProfiler'' to test the package.\n');
-                fprintf('\nFew examples showing how to use the package are provided in the directory:\n\n');
+                fprintf('\nA few examples showing how to use the package are provided in the directory:\n\n');
                 ex_dir = fullfile(matd, 'examples');
                 fprintf('    %s\n\n', ex_dir);
             else

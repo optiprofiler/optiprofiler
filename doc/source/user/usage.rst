@@ -38,7 +38,7 @@ There will be a new folder named ``out`` in the current working directory, which
 
 Additionally, a PDF file named ``summary.pdf`` is generated, summarizing all the performance profiles and data profiles.
 
-.. figure:: images/summary_pdf.png
+.. figure:: images/summary_pdf.jpg
    :width: 90%
    :align: center
    :alt: Summary PDF preview

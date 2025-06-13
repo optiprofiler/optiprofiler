@@ -140,7 +140,7 @@ Options should be specified in a struct. The following are the available fields 
 
   - **line_colors**: the colors of the lines in the plots. It can be a cell array of short names of colors ``('r', 'g', 'b', 'c', 'm', 'y', 'k')`` or a matrix with each row being a RGB triplet. Default line colors are those in the palettename named "gem" (see MATLAB documentation for 'colororder'). Note that if the number of solvers is greater than the number of colors, we will cycle through the colors.
 
-  - **line_styles**: the styles of the lines in the plots. It can be a cell array of chars that are the combinations of line styles ``('-', '-.', ':', '--')`` and markers ``('o', '+', '*', '.', 'x', 's', 'd', '^', 'v', '>', '<', 'p', 'h')``. Default line style order is ``{'-', '-.', ':', '--'}``. Note that if the number of solvers is greater than the number of line styles, we will cycle through the styles.
+  - **line_styles**: the styles of the lines in the plots. It can be a cell array of chars that are the combinations of line styles ``('-', '-.', '--', ':')`` and markers ``('o', '+', '*', '.', 'x', 's', 'd', '^', 'v', '>', '<', 'p', 'h')``. Default line style order is ``{'-', '-.', '--', ':'}``. Note that if the number of solvers is greater than the number of line styles, we will cycle through the styles.
 
   - **line_widths**: the widths of the lines in the plots. It should be a positive scalar or a vector. Default is ``1.5``. Note that if the number of solvers is greater than the number of line widths, we will cycle through the widths.
 
