@@ -177,6 +177,27 @@ classdef TestCheckValidityProfileOptions < matlab.unittest.TestCase
             testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:bar_colorsMatrixNotValid");
             options.bar_colors = 'w';
             testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:bar_colorsNotValid");
+            options = rmfield(options, 'bar_colors');
+
+
+            options.xlabel_performance_profile = 1;
+            testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:xlabel_performance_profileNotValid");
+            options = rmfield(options, 'xlabel_performance_profile');
+            options.ylabel_performance_profile = 1;
+            testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:ylabel_performance_profileNotValid");
+            options = rmfield(options, 'ylabel_performance_profile');
+            options.xlabel_data_profile = 1;
+            testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:xlabel_data_profileNotValid");
+            options = rmfield(options, 'xlabel_data_profile');
+            options.ylabel_data_profile = 1;
+            testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:ylabel_data_profileNotValid");
+            options = rmfield(options, 'ylabel_data_profile');
+            options.xlabel_log_ratio_profile = 1;
+            testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:xlabel_log_ratio_profileNotValid");
+            options = rmfield(options, 'xlabel_log_ratio_profile');
+            options.ylabel_log_ratio_profile = 1;
+            testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:ylabel_log_ratio_profileNotValid");
+            options = rmfield(options, 'ylabel_log_ratio_profile');
         end
 
     end

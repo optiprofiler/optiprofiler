@@ -331,6 +331,39 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
             error("MATLAB:checkValidityProfileOptions:bar_colorsNotValid", "The option `bar_colors` should be a cell array of short color names or a matrix whose rows are RGB triplets.");
         end
     end
+
+
+    % Judge whether profile_options.xlabel_performance_profile, profile_options.ylabel_performance_profile, profile_options.xlabel_data_profile, profile_options.ylabel_data_profile, profile_options.xlabel_log_ratio_profile, and profile_options.ylabel_log_ratio_profile are char or string.
+    if isfield(profile_options, ProfileOptionKey.XLABEL_PERFORMANCE_PROFILE.value)
+        if ~ischarstr(profile_options.(ProfileOptionKey.XLABEL_PERFORMANCE_PROFILE.value))
+            error("MATLAB:checkValidityProfileOptions:xlabel_performance_profileNotValid", "The option `xlabel_performance_profile` should be a char or a string.");
+        end
+    end
+    if isfield(profile_options, ProfileOptionKey.YLABEL_PERFORMANCE_PROFILE.value)
+        if ~ischarstr(profile_options.(ProfileOptionKey.YLABEL_PERFORMANCE_PROFILE.value))
+            error("MATLAB:checkValidityProfileOptions:ylabel_performance_profileNotValid", "The option `ylabel_performance_profile` should be a char or a string.");
+        end
+    end
+    if isfield(profile_options, ProfileOptionKey.XLABEL_DATA_PROFILE.value)
+        if ~ischarstr(profile_options.(ProfileOptionKey.XLABEL_DATA_PROFILE.value))
+            error("MATLAB:checkValidityProfileOptions:xlabel_data_profileNotValid", "The option `xlabel_data_profile` should be a char or a string.");
+        end
+    end
+    if isfield(profile_options, ProfileOptionKey.YLABEL_DATA_PROFILE.value)
+        if ~ischarstr(profile_options.(ProfileOptionKey.YLABEL_DATA_PROFILE.value))
+            error("MATLAB:checkValidityProfileOptions:ylabel_data_profileNotValid", "The option `ylabel_data_profile` should be a char or a string.");
+        end
+    end
+    if isfield(profile_options, ProfileOptionKey.XLABEL_LOG_RATIO_PROFILE.value)
+        if ~ischarstr(profile_options.(ProfileOptionKey.XLABEL_LOG_RATIO_PROFILE.value))
+            error("MATLAB:checkValidityProfileOptions:xlabel_log_ratio_profileNotValid", "The option `xlabel_log_ratio_profile` should be a char or a string.");
+        end
+    end
+    if isfield(profile_options, ProfileOptionKey.YLABEL_LOG_RATIO_PROFILE.value)
+        if ~ischarstr(profile_options.(ProfileOptionKey.YLABEL_LOG_RATIO_PROFILE.value))
+            error("MATLAB:checkValidityProfileOptions:ylabel_log_ratio_profileNotValid", "The option `ylabel_log_ratio_profile` should be a char or a string.");
+        end
+    end
 end
 
 function rgb = shortname2rgb(shortname)

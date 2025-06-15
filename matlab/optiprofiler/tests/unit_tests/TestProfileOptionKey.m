@@ -6,7 +6,7 @@ classdef TestProfileOptionKey < matlab.unittest.TestCase
             
             enumValues = enumeration('ProfileOptionKey');
             enumValues = cellstr(arrayfun(@char, enumValues, 'UniformOutput', false));
-            expectedValues = {'N_JOBS'; 'SEED'; 'BENCHMARK_ID'; 'SOLVER_NAMES'; 'SOLVER_ISRAND'; 'FEATURE_STAMP'; 'ERRORBAR_TYPE'; 'SAVEPATH'; 'MAX_TOL_ORDER'; 'MAX_EVAL_FACTOR'; 'MERIT_FUN'; 'PROJECT_X0'; 'RUN_PLAIN'; 'SCORE_ONLY'; 'SUMMARIZE_PERFORMANCE_PROFILES'; 'SUMMARIZE_DATA_PROFILES'; 'SUMMARIZE_LOG_RATIO_PROFILES'; 'SUMMARIZE_OUTPUT_BASED_PROFILES'; 'SILENT'; 'SOLVER_VERBOSE'; 'SEMILOGX'; 'NORMALIZED_SCORES'; 'SCORE_WEIGHT_FUN'; 'SCORE_FUN'; 'LOAD'; 'SOLVERS_TO_LOAD'; 'LINE_COLORS'; 'LINE_STYLES'; 'LINE_WIDTHS'; 'BAR_COLORS'};
+            expectedValues = {'N_JOBS'; 'SEED'; 'BENCHMARK_ID'; 'SOLVER_NAMES'; 'SOLVER_ISRAND'; 'FEATURE_STAMP'; 'ERRORBAR_TYPE'; 'SAVEPATH'; 'MAX_TOL_ORDER'; 'MAX_EVAL_FACTOR'; 'MERIT_FUN'; 'PROJECT_X0'; 'RUN_PLAIN'; 'SCORE_ONLY'; 'SUMMARIZE_PERFORMANCE_PROFILES'; 'SUMMARIZE_DATA_PROFILES'; 'SUMMARIZE_LOG_RATIO_PROFILES'; 'SUMMARIZE_OUTPUT_BASED_PROFILES'; 'SILENT'; 'SOLVER_VERBOSE'; 'SEMILOGX'; 'NORMALIZED_SCORES'; 'SCORE_WEIGHT_FUN'; 'SCORE_FUN'; 'LOAD'; 'SOLVERS_TO_LOAD'; 'LINE_COLORS'; 'LINE_STYLES'; 'LINE_WIDTHS'; 'BAR_COLORS'; 'XLABEL_PERFORMANCE_PROFILE'; 'YLABEL_PERFORMANCE_PROFILE'; 'XLABEL_DATA_PROFILE'; 'YLABEL_DATA_PROFILE'; 'XLABEL_LOG_RATIO_PROFILE'; 'YLABEL_LOG_RATIO_PROFILE'};
             testCase.verifyEqual(enumValues, expectedValues);
         end
 
@@ -44,6 +44,12 @@ classdef TestProfileOptionKey < matlab.unittest.TestCase
             testCase.verifyEqual(ProfileOptionKey.LINE_STYLES.value, 'line_styles');
             testCase.verifyEqual(ProfileOptionKey.LINE_WIDTHS.value, 'line_widths');
             testCase.verifyEqual(ProfileOptionKey.BAR_COLORS.value, 'bar_colors');
+            testCase.verifyEqual(ProfileOptionKey.XLABEL_PERFORMANCE_PROFILE.value, 'xlabel_performance_profile');
+            testCase.verifyEqual(ProfileOptionKey.YLABEL_PERFORMANCE_PROFILE.value, 'ylabel_performance_profile');
+            testCase.verifyEqual(ProfileOptionKey.XLABEL_DATA_PROFILE.value, 'xlabel_data_profile');
+            testCase.verifyEqual(ProfileOptionKey.YLABEL_DATA_PROFILE.value, 'ylabel_data_profile');
+            testCase.verifyEqual(ProfileOptionKey.XLABEL_LOG_RATIO_PROFILE.value, 'xlabel_log_ratio_profile');
+            testCase.verifyEqual(ProfileOptionKey.YLABEL_LOG_RATIO_PROFILE.value, 'ylabel_log_ratio_profile');
         end
         
     end

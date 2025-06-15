@@ -114,6 +114,24 @@ function profile_options = getDefaultProfileOptions(solvers, feature, profile_op
             profile_options.(ProfileOptionKey.BAR_COLORS.value) = profile_options.(ProfileOptionKey.LINE_COLORS.value)(1:min(2, size(profile_options.(ProfileOptionKey.LINE_COLORS.value), 1)), :);
         end
     end
+    if ~isfield(profile_options, ProfileOptionKey.XLABEL_PERFORMANCE_PROFILE.value)
+        profile_options.(ProfileOptionKey.XLABEL_PERFORMANCE_PROFILE.value) = 'Performance ratio';
+    end
+    if ~isfield(profile_options, ProfileOptionKey.YLABEL_PERFORMANCE_PROFILE.value)
+        profile_options.(ProfileOptionKey.YLABEL_PERFORMANCE_PROFILE.value) = 'Performance profiles ($\\mathrm{tol} = %s$)';
+    end
+    if ~isfield(profile_options, ProfileOptionKey.XLABEL_DATA_PROFILE.value)
+        profile_options.(ProfileOptionKey.XLABEL_DATA_PROFILE.value) = 'Number of simplex gradients';
+    end
+    if ~isfield(profile_options, ProfileOptionKey.YLABEL_DATA_PROFILE.value)
+        profile_options.(ProfileOptionKey.YLABEL_DATA_PROFILE.value) = 'Data profiles ($\\mathrm{tol} = %s$)';
+    end
+    if ~isfield(profile_options, ProfileOptionKey.XLABEL_LOG_RATIO_PROFILE.value)
+        profile_options.(ProfileOptionKey.XLABEL_LOG_RATIO_PROFILE.value) = 'Problem';
+    end
+    if ~isfield(profile_options, ProfileOptionKey.YLABEL_LOG_RATIO_PROFILE.value)
+        profile_options.(ProfileOptionKey.YLABEL_LOG_RATIO_PROFILE.value) = 'Log-ratio profiles ($\\mathrm{tol} = %s$)';
+    end
 end
 
 function feature_stamp = getDefaultFeatureStamp(feature)

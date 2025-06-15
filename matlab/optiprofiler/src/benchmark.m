@@ -185,10 +185,31 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         ('r', 'g', 'b', 'c', 'm', 'y', 'k') or a 2-by-3 matrix with each row
 %         being a RGB triplet. Default is set to the first two colors in the
 %         `line_colors` option.
-%       - problem: a problem to be used. It should be an instance of the class
-%         Problem. If it is provided, we will only run the test on this problem
-%         with the given feature and draw the history plots. Default is not to
-%         set any problem.
+%       - xlabel_performance_profile: the label of the x-axis of the
+%         performance profiles. Default is 'Performance ratio'.
+%         Note: the 'Interpreter' property is set to 'latex', so LaTeX
+%         formatting is supported. The same applies to the options
+%         `ylabel_performance_profile`, `xlabel_data_profile`,
+%         `ylabel_data_profile`, `xlabel_log_ratio_profile`, and
+%         `ylabel_log_ratio_profile`.
+%       - ylabel_performance_profile: the label of the y-axis of the
+%         performance profiles. Default is
+%         'Performance profiles ($\\mathrm{tol} = %s$)', where `%s` will be
+%         replaced by the current tolerance in LaTeX format. You can also use
+%         `%s` in your custom label, and it will be replaced accordingly.
+%       - xlabel_data_profile: the label of the x-axis of the data profiles.
+%         Default is 'Number of simplex gradients'.
+%       - ylabel_data_profile: the label of the y-axis of the data profiles.
+%         Default is 'Data profiles ($\\mathrm{tol} = %s$)', where `%s` will be
+%         replaced by the current tolerance in LaTeX format. You can also use
+%         `%s` in your custom label, and it will be replaced accordingly.
+%       - xlabel_log_ratio_profile: the label of the x-axis of the log-ratio
+%         profiles. Default is 'Problem'.
+%       - ylabel_log_ratio_profile: the label of the y-axis of the log-ratio
+%         profiles. Default is 'Log-ratio profiles ($\\mathrm{tol} = %s$)',
+%         where `%s` will be replaced by the current tolerance in LaTeX format.
+%         You can also use `%s` in your custom label, and it will be replaced
+%         accordingly.
 %
 %       2. Options for features:
 %
@@ -345,6 +366,13 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %       - problem_names: the names of the problems to be selected. It should
 %         be a cell array of strings or chars. Default is not to select any
 %         problem by name but by the options above.
+%
+%       You may also pass an instance of the class Problem by the option
+%
+%       - problem: a problem to be benchmarked. It should be an instance of the
+%         class Problem. If it is provided, we will only run the test on this
+%         problem with the given feature and draw the history plots. Default is
+%         not to set any problem.
 %
 %   Several points to note:
 %
@@ -1128,7 +1156,6 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         if ~profile_options.(ProfileOptionKey.SILENT.value)
             fprintf("INFO: Creating profiles for tolerance %s.\n", tolerance_str);
         end
-        tolerance_label = ['$\mathrm{tol} = ' tolerance_latex '$'];
 
         work_hist = NaN(n_problems, n_solvers, n_runs);
         work_out = NaN(n_problems, n_solvers, n_runs);
@@ -1182,8 +1209,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             cell_axs_summary_out = {};
         end
 
-        [fig_perf_hist, fig_data_hist, fig_log_ratio_hist, curves{i_tol}.hist] = drawProfiles(work_hist, problem_dims_merged, solver_names, tolerance_label, cell_axs_summary_hist, true, is_perf, is_data, is_log_ratio, profile_options, curves{i_tol}.hist);
-        [fig_perf_out, fig_data_out, fig_log_ratio_out, curves{i_tol}.out] = drawProfiles(work_out, problem_dims_merged, solver_names, tolerance_label, cell_axs_summary_out, is_output_based, is_perf, is_data, is_log_ratio, profile_options, curves{i_tol}.out);
+        [fig_perf_hist, fig_data_hist, fig_log_ratio_hist, curves{i_tol}.hist] = drawProfiles(work_hist, problem_dims_merged, solver_names, tolerance_latex, cell_axs_summary_hist, true, is_perf, is_data, is_log_ratio, profile_options, curves{i_tol}.hist);
+        [fig_perf_out, fig_data_out, fig_log_ratio_out, curves{i_tol}.out] = drawProfiles(work_out, problem_dims_merged, solver_names, tolerance_latex, cell_axs_summary_out, is_output_based, is_perf, is_data, is_log_ratio, profile_options, curves{i_tol}.out);
 
         if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
             pdf_perf_hist = fullfile(path_perf_hist, ['perf_hist_', int2str(i_tol), '.pdf']);

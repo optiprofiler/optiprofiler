@@ -32,6 +32,12 @@ classdef ProfileOptionKey
         LINE_STYLES ('line_styles')
         LINE_WIDTHS ('line_widths')
         BAR_COLORS ('bar_colors')
+        XLABEL_PERFORMANCE_PROFILE ('xlabel_performance_profile')
+        YLABEL_PERFORMANCE_PROFILE ('ylabel_performance_profile')
+        XLABEL_DATA_PROFILE ('xlabel_data_profile')
+        YLABEL_DATA_PROFILE ('ylabel_data_profile')
+        XLABEL_LOG_RATIO_PROFILE ('xlabel_log_ratio_profile')
+        YLABEL_LOG_RATIO_PROFILE ('ylabel_log_ratio_profile')
     end
     properties
         value

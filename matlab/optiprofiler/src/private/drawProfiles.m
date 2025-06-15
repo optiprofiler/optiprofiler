@@ -1,4 +1,4 @@
-function [fig_perf, fig_data, fig_log_ratio, curves] = drawProfiles(work, problem_dimensions, solver_names, tolerance_label, cell_axs_summary, is_summary, is_perf, is_data, is_log_ratio, profile_options, curves)
+function [fig_perf, fig_data, fig_log_ratio, curves] = drawProfiles(work, problem_dimensions, solver_names, tolerance_latex, cell_axs_summary, is_summary, is_perf, is_data, is_log_ratio, profile_options, curves)
 %DRAWPROFILES draws the performance, data, and log-ratio profiles.
 
     solver_names = cellfun(@(s) strrep(s, '_', '\_'), solver_names, 'UniformOutput', false);
@@ -31,10 +31,10 @@ function [fig_perf, fig_data, fig_log_ratio, curves] = drawProfiles(work, proble
         return;
     end
 
-    drawPerfDetail(ax_perf, x_perf, y_perf, ratio_max_perf, solver_names, profile_options, tolerance_label);
-    drawDataDetail(ax_data, x_data, y_data, ratio_max_data, solver_names, profile_options, tolerance_label);
+    drawPerfDetail(ax_perf, x_perf, y_perf, ratio_max_perf, solver_names, profile_options, tolerance_latex);
+    drawDataDetail(ax_data, x_data, y_data, ratio_max_data, solver_names, profile_options, tolerance_latex);
     if n_solvers == 2
-        drawLogRatioDetail(ax_log_ratio, x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, solver_names, profile_options, tolerance_label);
+        drawLogRatioDetail(ax_log_ratio, x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, solver_names, profile_options, tolerance_latex);
     end
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -43,29 +43,29 @@ function [fig_perf, fig_data, fig_log_ratio, curves] = drawProfiles(work, proble
 
     if is_summary
         if is_perf && is_data && is_log_ratio
-            drawPerfDetail(cell_axs_summary{1}, x_perf, y_perf, ratio_max_perf, solver_names, profile_options, tolerance_label);
-            drawDataDetail(cell_axs_summary{2}, x_data, y_data, ratio_max_data, solver_names, profile_options, tolerance_label);
-            drawLogRatioDetail(cell_axs_summary{3}, x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, solver_names, profile_options, tolerance_label);
+            drawPerfDetail(cell_axs_summary{1}, x_perf, y_perf, ratio_max_perf, solver_names, profile_options, tolerance_latex);
+            drawDataDetail(cell_axs_summary{2}, x_data, y_data, ratio_max_data, solver_names, profile_options, tolerance_latex);
+            drawLogRatioDetail(cell_axs_summary{3}, x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, solver_names, profile_options, tolerance_latex);
         elseif is_perf && is_data
-            drawPerfDetail(cell_axs_summary{1}, x_perf, y_perf, ratio_max_perf, solver_names, profile_options, tolerance_label);
-            drawDataDetail(cell_axs_summary{2}, x_data, y_data, ratio_max_data, solver_names, profile_options, tolerance_label);
+            drawPerfDetail(cell_axs_summary{1}, x_perf, y_perf, ratio_max_perf, solver_names, profile_options, tolerance_latex);
+            drawDataDetail(cell_axs_summary{2}, x_data, y_data, ratio_max_data, solver_names, profile_options, tolerance_latex);
         elseif is_perf && is_log_ratio
-            drawPerfDetail(cell_axs_summary{1}, x_perf, y_perf, ratio_max_perf, solver_names, profile_options, tolerance_label);
-            drawLogRatioDetail(cell_axs_summary{2}, x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, solver_names, profile_options, tolerance_label);
+            drawPerfDetail(cell_axs_summary{1}, x_perf, y_perf, ratio_max_perf, solver_names, profile_options, tolerance_latex);
+            drawLogRatioDetail(cell_axs_summary{2}, x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, solver_names, profile_options, tolerance_latex);
         elseif is_data && is_log_ratio
-            drawDataDetail(cell_axs_summary{1}, x_data, y_data, ratio_max_data, solver_names, profile_options, tolerance_label);
-            drawLogRatioDetail(cell_axs_summary{2}, x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, solver_names, profile_options, tolerance_label);
+            drawDataDetail(cell_axs_summary{1}, x_data, y_data, ratio_max_data, solver_names, profile_options, tolerance_latex);
+            drawLogRatioDetail(cell_axs_summary{2}, x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, solver_names, profile_options, tolerance_latex);
         elseif is_perf
-            drawPerfDetail(cell_axs_summary{1}, x_perf, y_perf, ratio_max_perf, solver_names, profile_options, tolerance_label);
+            drawPerfDetail(cell_axs_summary{1}, x_perf, y_perf, ratio_max_perf, solver_names, profile_options, tolerance_latex);
         elseif is_data
-            drawDataDetail(cell_axs_summary{1}, x_data, y_data, ratio_max_data, solver_names, profile_options, tolerance_label);
+            drawDataDetail(cell_axs_summary{1}, x_data, y_data, ratio_max_data, solver_names, profile_options, tolerance_latex);
         elseif is_log_ratio
-            drawLogRatioDetail(cell_axs_summary{1}, x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, solver_names, profile_options, tolerance_label);
+            drawLogRatioDetail(cell_axs_summary{1}, x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, solver_names, profile_options, tolerance_latex);
         end
     end
 end
 
-function drawPerfDetail(ax_perf, x_perf, y_perf, ratio_max_perf, solver_names, profile_options, tolerance_label)
+function drawPerfDetail(ax_perf, x_perf, y_perf, ratio_max_perf, solver_names, profile_options, tolerance_latex)
     drawPerformanceDataProfiles(ax_perf, x_perf, y_perf, solver_names, profile_options);
     % Set x-axis limits.
     if profile_options.(ProfileOptionKey.SEMILOGX.value)
@@ -77,12 +77,18 @@ function drawPerfDetail(ax_perf, x_perf, y_perf, ratio_max_perf, solver_names, p
     [ticks_perf, tickLabels_perf] = perfTicks(1.1 * ratio_max_perf, profile_options.(ProfileOptionKey.SEMILOGX.value));
     set(ax_perf, 'XTick', ticks_perf, 'XTickLabel', tickLabels_perf, 'TickLabelInterpreter', 'latex');
     % Set x-axis labels.
-    xlabel(ax_perf, 'Performance ratio', 'Interpreter', 'latex');
+    if ~isempty(profile_options.(ProfileOptionKey.XLABEL_PERFORMANCE_PROFILE.value))
+        xlabel_str = profile_options.(ProfileOptionKey.XLABEL_PERFORMANCE_PROFILE.value);
+        xlabel(ax_perf, xlabel_str, 'Interpreter', 'latex');
+    end
     % Set y-axis labels.
-    ylabel(ax_perf, ['Performance profiles (', tolerance_label, ')'], 'Interpreter', 'latex');
+    if ~isempty(profile_options.(ProfileOptionKey.YLABEL_PERFORMANCE_PROFILE.value))
+        ylabel_str = sprintf(profile_options.(ProfileOptionKey.YLABEL_PERFORMANCE_PROFILE.value), tolerance_latex);
+        ylabel(ax_perf, ylabel_str, 'Interpreter', 'latex');
+    end
 end
 
-function drawDataDetail(ax_data, x_data, y_data, ratio_max_data, solver_names, profile_options, tolerance_label)
+function drawDataDetail(ax_data, x_data, y_data, ratio_max_data, solver_names, profile_options, tolerance_latex)
     drawPerformanceDataProfiles(ax_data, x_data, y_data, solver_names, profile_options);
     % Set x-axis limits.
     set(ax_data, 'XLim', [0.0, 1.1 * ratio_max_data]);
@@ -90,17 +96,29 @@ function drawDataDetail(ax_data, x_data, y_data, ratio_max_data, solver_names, p
     [ticks_data, tickLabels_data] = dataTicks(1.1 * ratio_max_data, profile_options.(ProfileOptionKey.SEMILOGX.value));
     set(ax_data, 'XTick', ticks_data, 'XTickLabel', tickLabels_data, 'TickLabelInterpreter', 'latex');
     % Set x-axis labels.
-    xlabel(ax_data, 'Number of simplex gradients', 'Interpreter', 'latex');
+    if ~isempty(profile_options.(ProfileOptionKey.XLABEL_DATA_PROFILE.value))
+        xlabel_str = profile_options.(ProfileOptionKey.XLABEL_DATA_PROFILE.value);
+        xlabel(ax_data, xlabel_str, 'Interpreter', 'latex');
+    end
     % Set y-axis labels.
-    ylabel(ax_data, ['Data profiles (', tolerance_label, ')'], 'Interpreter', 'latex');
+    if ~isempty(profile_options.(ProfileOptionKey.YLABEL_DATA_PROFILE.value))
+        ylabel_str = sprintf(profile_options.(ProfileOptionKey.YLABEL_DATA_PROFILE.value), tolerance_latex);
+        ylabel(ax_data, ylabel_str, 'Interpreter', 'latex');
+    end
 end
 
-function drawLogRatioDetail(ax_log_ratio, x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, solver_names, profile_options, tolerance_label)
+function drawLogRatioDetail(ax_log_ratio, x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, solver_names, profile_options, tolerance_latex)
     drawLogRatioProfiles(ax_log_ratio, x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, solver_names, profile_options);
     % Set x-axis labels.
-    xlabel(ax_log_ratio, 'Problem', 'Interpreter', 'latex');
+    if ~isempty(profile_options.(ProfileOptionKey.XLABEL_LOG_RATIO_PROFILE.value)) 
+        xlabel_str = profile_options.(ProfileOptionKey.XLABEL_LOG_RATIO_PROFILE.value);
+        xlabel(ax_log_ratio, xlabel_str, 'Interpreter', 'latex');
+    end
     % Set y-axis labels.
-    ylabel(ax_log_ratio, ['Log-ratio profile (', tolerance_label, ')'], 'Interpreter', 'latex');
+    if ~isempty(profile_options.(ProfileOptionKey.YLABEL_LOG_RATIO_PROFILE.value))
+        ylabel_str = sprintf(profile_options.(ProfileOptionKey.YLABEL_LOG_RATIO_PROFILE.value), tolerance_latex);
+        ylabel(ax_log_ratio, ylabel_str, 'Interpreter', 'latex');
+    end
 end
 
 function [ticks, tickLabels] = perfTicks(ratio_cut_perf, is_semilogx)

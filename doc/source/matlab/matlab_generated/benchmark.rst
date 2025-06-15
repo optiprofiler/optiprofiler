@@ -146,7 +146,17 @@ Options should be specified in a struct. The following are the available fields 
 
   - **bar_colors**: two different colors for the bars of two solvers in the log-ratio profiles. It can be a cell array of short names of colors ``('r', 'g', 'b', 'c', 'm', 'y', 'k')`` or a 2-by-3 matrix with each row being a RGB triplet. Default is set to the first two colors in the ``line_colors`` option.
 
-  - **problem**: a problem to be used. It should be an instance of the class Problem. If it is provided, we will only run the test on this problem with the given feature and draw the history plots. Default is not to set any problem.
+  - **xlabel_performance_profile**: the label of the x-axis of the performance profiles. Default is ``'Performance ratio'``. Note: the ``'Interpreter'`` property is set to ``'latex'``, so LaTeX formatting is supported. The same applies to the options ``ylabel_performance_profile``, ``xlabel_data_profile``, ``ylabel_data_profile``, ``xlabel_log_ratio_profile``, and ``ylabel_log_ratio_profile``.
+
+  - **ylabel_performance_profile**: ylabel_performance_profile: the label of the y-axis of the performance profiles. Default is ``'Performance profiles ($\\mathrm{tol} = %s$)'``, where ``%s`` will be replaced by the current tolerance in LaTeX format. You can also use ``%s`` in your custom label, and it will be replaced accordingly.
+
+  - **xlabel_data_profile**: the label of the x-axis of the data profiles. Default is ``'Number of simplex gradients'``.
+
+  - **ylabel_data_profile**: the label of the y-axis of the data profiles. Default is ``'Data profiles ($\\mathrm{tol} = %s$)'``, where ``%s`` will be replaced by the current tolerance in LaTeX format. You can also use ``%s`` in your custom label, and it will be replaced accordingly.
+
+  - **xlabel_log_ratio_profile**: the label of the x-axis of the log-ratio profiles. Default is ``'Problem'``.
+
+  - **ylabel_log_ratio_profile**: the label of the y-axis of the log-ratio profiles. Default is ``'Log-ratio profiles ($\\mathrm{tol} = %s$)'``, where ``%s`` will be replaced by the current tolerance in LaTeX format. You can also use ``%s`` in your custom label, and it will be replaced accordingly.
 
 2. *Options for features*:
 
@@ -267,6 +277,10 @@ Options in this part are used to select problems for benchmarking. First select 
   - **excludelist**: the list of problems to be excluded. Default is not to exclude any problem.
 
   - **problem_names**: the names of the problems to be selected. It should be a cell array of strings or chars. Default is not to select any problem by name but by the options above.
+
+You may also pass an instance of the class Problem by the option
+
+  - **problem**: a problem to be benchmarked. It should be an instance of the class Problem. If it is provided, we will only run the test on this problem with the given feature and draw the history plots. Default is not to set any problem.
 
 *Several points to note*:
 
