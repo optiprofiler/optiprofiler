@@ -70,25 +70,25 @@ Options should be specified in a struct. The following are the available fields 
 
 1. *Options for profiles and plots*:
 
-  - **n_jobs**: the number of parallel jobs to run the test. Default is the default number of workers in the default local cluster.
-
-  - **seed**: the seed of the random number generator. Default is ``1``.
+  - **bar_colors**: two different colors for the bars of two solvers in the log-ratio profiles. It can be a cell array of short names of colors ``('r', 'g', 'b', 'c', 'm', 'y', 'k')`` or a 2-by-3 matrix with each row being a RGB triplet. Default is set to the first two colors in the ``line_colors`` option.
 
   - **benchmark_id**: the identifier of the test. It is used to create the specific directory to store the results. Default is ``'out'`` if the option ``load`` is not provided, otherwise default is ``'.'``.
 
-  - **solver_names**: the names of the solvers. Default is the names of the function handles in **solvers**.
-
-  - **solver_isrand**: whether the solvers are randomized or not. It is a logical array of the same length as the number of solvers, where the value is true if the solver is randomized, and false otherwise. Default is all false. Note that if ``n_runs`` is not specified, we will set it 5 for the randomized solvers.
+  - **errorbar_type**: the type of the uncertainty interval that can be either ``'minmax'`` or ``'meanstd'``. When ``n_runs`` is greater than 1, we run several times of the experiments and get average curves and get average curves and uncertainty intervals. Default is ``'minmax'``, meaning that we takes the pointwise minimum and maximum of the curves.
 
   - **feature_stamp**: the stamp of the feature with the given options. It is used to create the specific directory to store the results. Default depends on features.
 
-  - **errorbar_type**: the type of the uncertainty interval that can be either ``'minmax'`` or ``'meanstd'``. When ``n_runs`` is greater than 1, we run several times of the experiments and get average curves and get average curves and uncertainty intervals. Default is ``'minmax'``, meaning that we takes the pointwise minimum and maximum of the curves.
+  - **line_colors**: the colors of the lines in the plots. It can be a cell array of short names of colors ``('r', 'g', 'b', 'c', 'm', 'y', 'k')`` or a matrix with each row being a RGB triplet. Default line colors are those in the palettename named "gem" (see MATLAB documentation for 'colororder'). Note that if the number of solvers is greater than the number of colors, we will cycle through the colors.
 
-  - **savepath**: the path to store the results. Default is ``'pwd'``, the current working directory.
+  - **line_styles**: the styles of the lines in the plots. It can be a cell array of chars that are the combinations of line styles ``('-', '-.', '--', ':')`` and markers ``('o', '+', '*', '.', 'x', 's', 'd', '^', 'v', '>', '<', 'p', 'h')``. Default line style order is ``{'-', '-.', '--', ':'}``. Note that if the number of solvers is greater than the number of line styles, we will cycle through the styles.
 
-  - **max_tol_order**: the maximum order of the tolerance. In any profile (performance profiles, data profiles, and log-ratio profiles), we need to set a group of 'tolerances' to define the convergence test of the solvers. (Details can be found in the references.) We will set the tolerances as ``10^(-1:-1:-max_tol_order)``. Default is ``10``.
+  - **line_widths**: the widths of the lines in the plots. It should be a positive scalar or a vector. Default is ``1.5``. Note that if the number of solvers is greater than the number of line widths, we will cycle through the widths.
+
+  - **load**: loading the stored data from a completed experiment and draw profiles. It can be either ``'latest'`` or a time stamp of an experiment in the format of 'yyyyMMdd_HHmmss'. No default.
 
   - **max_eval_factor**: the factor multiplied to each problem's dimension to get the maximum number of evaluations for each problem. Default is ``500``.
+
+  - **max_tol_order**: the maximum order of the tolerance. In any profile (performance profiles, data profiles, and log-ratio profiles), we need to set a group of 'tolerances' to define the convergence test of the solvers. (Details can be found in the references.) We will set the tolerances as ``10^(-1:-1:-max_tol_order)``. Default is ``10``.
 
   - **merit_fun**: the merit function to measure the quality of a point using the objective function value and the maximum constraint violation. It should be a function handle
 
@@ -104,29 +104,15 @@ Options should be specified in a struct. The following are the available fields 
 
     where ``v1 = max(1e-5, v0)`` and ``v2 = min(0.01, 1e-10 * max(1, v0))``, and ``v0`` is the initial maximum constraint violation.
 
+  - **n_jobs**: the number of parallel jobs to run the test. Default is the default number of workers in the default local cluster.
+  
+  - **normalized_scores**: whether to normalize the scores of the solvers by the maximum score of the solvers. Default is ``false``.
+
   - **project_x0**: whether to project the initial point to the feasible set. Default is ``false``.
 
   - **run_plain**: whether to run an extra experiment with the ``'plain'`` feature. Default is ``false``.
 
-  - **score_only**: whether to only calculate the scores of the solvers without drawing the profiles and saving the data. Default is ``false``.
-
-  - **summarize_performance_profiles**: whether to add all the performance profiles to the summary PDF. Default is ``true``.
-
-  - **summarize_data_profiles**: whether to add all the data profiles to the summary PDF. Default is ``true``.
-
-  - **summarize_log_ratio_profiles**: whether to add all the log-ratio profiles to the summary PDF. Default is ``false``.
-
-  - **summarize_output_based_profiles**: whether to add all the output-based profiles of the selected profiles to the summary PDF. Default is ``true``.
-
-  - **silent**: whether to show the information of the progress. Default is ``false``.
-
-  - **solver_verbose**: the level of the verbosity of the solvers. ``0`` means no verbosity, ``1`` means some verbosity, and ``2`` means full verbosity. Default is ``1``.
-
-  - **semilogx**: whether to use the semilogx scale during plotting profiles (performance profiles and data profiles). Default is ``true``.
-
-  - **normalized_scores**: whether to normalize the scores of the solvers by the maximum score of the solvers. Default is ``false``.
-
-  - **score_weight_fun**: the weight function to calculate the scores of the solvers in the performance and data profiles. It should be a function handle representing a nonnegative function in R^+. Default is ``1``.
+  - **savepath**: the path to store the results. Default is ``'pwd'``, the current working directory.
 
   - **score_fun**: the scoring function to calculate the scores of the solvers. It should be a function handle
 
@@ -134,29 +120,43 @@ Options should be specified in a struct. The following are the available fields 
 
     where ``profile_scores`` is a 4D tensor containing scores for all profiles. The first dimension of ``profile_scores`` corresponds to the index of the solver, the second corresponds to the index of tolerance starting from 1, the third represents history-based or output-based profiles, and the fourth represents performance profiles, data profiles, or log-ratio profiles. The default scoring function takes the average of the history-based performance profiles under all the tolerances.
 
-  - **load**: loading the stored data from a completed experiment and draw profiles. It can be either ``'latest'`` or a time stamp of an experiment in the format of 'yyyyMMdd_HHmmss'. No default.
+  - **score_only**: whether to only calculate the scores of the solvers without drawing the profiles and saving the data. Default is ``false``.
+
+  - **score_weight_fun**: the weight function to calculate the scores of the solvers in the performance and data profiles. It should be a function handle representing a nonnegative function in R^+. Default is ``1``.
+
+  - **seed**: the seed of the random number generator. Default is ``1``.
+
+  - **semilogx**: whether to use the semilogx scale during plotting profiles (performance profiles and data profiles). Default is ``true``.
+
+  - **silent**: whether to show the information of the progress. Default is ``false``.
+
+  - **solver_isrand**: whether the solvers are randomized or not. It is a logical array of the same length as the number of solvers, where the value is true if the solver is randomized, and false otherwise. Default is all false. Note that if ``n_runs`` is not specified, we will set it 5 for the randomized solvers.
+
+  - **solver_names**: the names of the solvers. Default is the names of the function handles in **solvers**.
+
+  - **solver_verbose**: the level of the verbosity of the solvers. ``0`` means no verbosity, ``1`` means some verbosity, and ``2`` means full verbosity. Default is ``1``.
 
   - **solvers_to_load**: the indices of the solvers to load when the ``load`` option is provided. It can be a vector of different integers selected from 1 to the total number of solvers of the loading experiment. At least two indices should be provided. Default is all the solvers.
 
-  - **line_colors**: the colors of the lines in the plots. It can be a cell array of short names of colors ``('r', 'g', 'b', 'c', 'm', 'y', 'k')`` or a matrix with each row being a RGB triplet. Default line colors are those in the palettename named "gem" (see MATLAB documentation for 'colororder'). Note that if the number of solvers is greater than the number of colors, we will cycle through the colors.
+  - **summarize_data_profiles**: whether to add all the data profiles to the summary PDF. Default is ``true``.
 
-  - **line_styles**: the styles of the lines in the plots. It can be a cell array of chars that are the combinations of line styles ``('-', '-.', '--', ':')`` and markers ``('o', '+', '*', '.', 'x', 's', 'd', '^', 'v', '>', '<', 'p', 'h')``. Default line style order is ``{'-', '-.', '--', ':'}``. Note that if the number of solvers is greater than the number of line styles, we will cycle through the styles.
+  - **summarize_log_ratio_profiles**: whether to add all the log-ratio profiles to the summary PDF. Default is ``false``.
 
-  - **line_widths**: the widths of the lines in the plots. It should be a positive scalar or a vector. Default is ``1.5``. Note that if the number of solvers is greater than the number of line widths, we will cycle through the widths.
+  - **summarize_output_based_profiles**: whether to add all the output-based profiles of the selected profiles to the summary PDF. Default is ``true``.
 
-  - **bar_colors**: two different colors for the bars of two solvers in the log-ratio profiles. It can be a cell array of short names of colors ``('r', 'g', 'b', 'c', 'm', 'y', 'k')`` or a 2-by-3 matrix with each row being a RGB triplet. Default is set to the first two colors in the ``line_colors`` option.
+  - **summarize_performance_profiles**: whether to add all the performance profiles to the summary PDF. Default is ``true``.
 
-  - **xlabel_performance_profile**: the label of the x-axis of the performance profiles. Default is ``'Performance ratio'``. Note: the ``'Interpreter'`` property is set to ``'latex'``, so LaTeX formatting is supported. The same applies to the options ``ylabel_performance_profile``, ``xlabel_data_profile``, ``ylabel_data_profile``, ``xlabel_log_ratio_profile``, and ``ylabel_log_ratio_profile``.
-
-  - **ylabel_performance_profile**: ylabel_performance_profile: the label of the y-axis of the performance profiles. Default is ``'Performance profiles ($\\mathrm{tol} = %s$)'``, where ``%s`` will be replaced by the current tolerance in LaTeX format. You can also use ``%s`` in your custom label, and it will be replaced accordingly.
-
-  - **xlabel_data_profile**: the label of the x-axis of the data profiles. Default is ``'Number of simplex gradients'``.
-
-  - **ylabel_data_profile**: the label of the y-axis of the data profiles. Default is ``'Data profiles ($\\mathrm{tol} = %s$)'``, where ``%s`` will be replaced by the current tolerance in LaTeX format. You can also use ``%s`` in your custom label, and it will be replaced accordingly.
+  - **xlabel_data_profile**: the label of the x-axis of the data profiles. Default is ``'Number of simplex gradients'``. Note: the ``'Interpreter'`` property is set to ``'latex'``, so LaTeXformatting is supported. The same applies to the options ``xlabel_log_ratio_profile``, ``xlabel_performance_profile``, ``ylabel_data_profile``, ``ylabel_log_ratio_profile``, and ``ylabel_performance_profile``.
 
   - **xlabel_log_ratio_profile**: the label of the x-axis of the log-ratio profiles. Default is ``'Problem'``.
 
-  - **ylabel_log_ratio_profile**: the label of the y-axis of the log-ratio profiles. Default is ``'Log-ratio profiles ($\\mathrm{tol} = %s$)'``, where ``%s`` will be replaced by the current tolerance in LaTeX format. You can also use ``%s`` in your custom label, and it will be replaced accordingly.
+  - **xlabel_performance_profile**: the label of the x-axis of the performance profiles. Default is ``'Performance ratio'``.
+
+  - **ylabel_data_profile**: the label of the y-axis of the data profiles. Default is ``'Data profiles ($\\mathrm{tol} = %s$)'``, where ``%s`` will be replaced by the current tolerance in LaTeX format. You can also use ``%s`` in your custom label, and it will be replaced accordingly. The same applies to the options ``ylabel_log_ratio_profile`` and ``ylabel_performance_profile``.
+
+  - **ylabel_log_ratio_profile**: the label of the y-axis of the log-ratio profiles. Default is ``'Log-ratio profiles ($\\mathrm{tol} = %s$)'``, where ``%s`` will be replaced by the current tolerance in LaTeX format.
+
+  - **ylabel_performance_profile**: ylabel_performance_profile: the label of the y-axis of the performance profiles. Default is ``'Performance profiles ($\\mathrm{tol} = %s$)'``, where ``%s`` will be replaced by the current tolerance in LaTeX format.
 
 2. *Options for features*:
 
