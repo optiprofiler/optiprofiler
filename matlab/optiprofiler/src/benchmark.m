@@ -1019,9 +1019,6 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                 end
                 try
                     mergePdfs(path_hist_plots_lib, [plib '_history_plots_summary.pdf'], path_hist_plots);
-                    if ~profile_options.(ProfileOptionKey.SILENT.value)
-                        fprintf('\nINFO: Merged history plots stored in: \n%s\n', path_hist_plots);
-                    end
                 catch
                     if ~profile_options.(ProfileOptionKey.SILENT.value)
                         fprintf('\nINFO: Failed to merge the history plots to a single PDF file.\n');
@@ -1447,14 +1444,16 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     % Close the figures.
     if n_rows > 0
         close(fig_summary);
-        if ~profile_options.(ProfileOptionKey.SILENT.value) && ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
-            fprintf('\nINFO: Report of the experiment is stored in: \n%s\n\n', path_report);
-            fprintf('\nINFO: Summary stored in: \n%s\n\n', path_out);
-        end
     end
 
     if ~profile_options.(ProfileOptionKey.SILENT.value)
         fprintf('\nINFO: Finished computing profiles with "%s" feature.\n', feature.name);
+        fprintf("\nINFO: Report of the experiment ('report.txt') is stored in: \n%s\n\n", path_log);
+        if ~isempty(path_hist_plots)
+            fprintf('\nINFO: PDF of merged history plots is stored in: \n%s\n\n', path_hist_plots);
+        end
+        fprintf('\nINFO: Summary PDF of profiles is stored in: \n%s\n\n', path_out);
+        fprintf('\nINFO: Single profiles are stored in: \n%s\n\n', fullfile(path_stamp, 'detailed_profiles'));
     end
 
     % Close the diary file.
