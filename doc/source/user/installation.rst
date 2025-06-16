@@ -12,13 +12,13 @@ MATLAB
 
     git clone --recurse-submodules https://github.com/optiprofiler/optiprofiler.git
 
-2. In MATLAB, navigate to the folder where the source code is located, and you will see a file named ``setup.m``. Run the following command in the MATLAB command window:
+2. In MATLAB, navigate to the root directory of this repository, where you can see a file named ``setup.m``. Run the following command in the MATLAB command window:
 
 .. code-block:: matlab
 
     setup
 
-If you want to uninstall the package, you can run:
+3. If you want to uninstall the package, you can run:
 
 .. code-block:: matlab
 
