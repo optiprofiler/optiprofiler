@@ -1447,12 +1447,12 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 
     if ~profile_options.(ProfileOptionKey.SILENT.value)
         fprintf('\nINFO: Finished computing profiles with "%s" feature.\n', feature.name);
-        fprintf("\nINFO: Report of the experiment ('report.txt') is stored in: \n%s\n\n", path_log);
-        if ~isempty(path_hist_plots)
-            fprintf('\nINFO: PDF of merged history plots is stored in: \n%s\n\n', path_hist_plots);
-        end
-        fprintf('\nINFO: Summary PDF of profiles is stored in: \n%s\n\n', path_out);
-        fprintf('\nINFO: Single profiles are stored in: \n%s\n\n', fullfile(path_stamp, 'detailed_profiles'));
+        fprintf('\n**********************************************************************\n');
+        fprintf('\nSummary PDF of profiles is saved as: \n%s\n\n', fullfile(path_stamp, [summary_name, '.pdf']));
+        fprintf('\nSingle profiles are stored in: \n%s\n\n', fullfile(path_stamp, 'detailed_profiles'));
+        fprintf('\nReport of the experiment is saved as: \n%s\n\n', path_report);
+        fprintf('\nCheck the README file for more information about the experiment and the results: \n%s\n\n', path_readme_feature);
+        fprintf('\n***********************************************************************\n');
     end
 
     % Close the diary file.

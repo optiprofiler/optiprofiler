@@ -146,7 +146,7 @@ Options should be specified in a struct. The following are the available fields 
 
   - **summarize_performance_profiles**: whether to add all the performance profiles to the summary PDF. Default is ``true``.
 
-  - **xlabel_data_profile**: the label of the x-axis of the data profiles. Default is ``'Number of simplex gradients'``. Note: the ``'Interpreter'`` property is set to ``'latex'``, so LaTeXformatting is supported. The same applies to the options ``xlabel_log_ratio_profile``, ``xlabel_performance_profile``, ``ylabel_data_profile``, ``ylabel_log_ratio_profile``, and ``ylabel_performance_profile``.
+  - **xlabel_data_profile**: the label of the x-axis of the data profiles. Default is ``'Number of simplex gradients'``. Note: the ``'Interpreter'`` property is set to ``'latex'``, so LaTeX formatting is supported. The same applies to the options ``xlabel_log_ratio_profile``, ``xlabel_performance_profile``, ``ylabel_data_profile``, ``ylabel_log_ratio_profile``, and ``ylabel_performance_profile``.
 
   - **xlabel_log_ratio_profile**: the label of the x-axis of the log-ratio profiles. Default is ``'Problem'``.
 

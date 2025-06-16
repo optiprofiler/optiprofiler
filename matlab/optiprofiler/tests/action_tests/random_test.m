@@ -130,8 +130,8 @@ function random_test(benchmark_id)
     ptype_choices = {'u', 'b', 'l', 'n', 'ub', 'ul', 'un', 'bl', 'bn', 'ln', 'ubl', 'ubn', 'uln', 'bln', 'ubln'};
     options.ptype = ptype_choices{rand_stream.randi(length(ptype_choices), 1, 1)};
 
-    options.mindim = rand_stream.randi([1, 5], 1, 1);
-    options.maxdim = options.mindim + rand_stream.randi([1, 5], 1, 1);
+    options.mindim = rand_stream.randi([1, 3], 1, 1);
+    options.maxdim = options.mindim + rand_stream.randi([1, 3], 1, 1);
 
     options.minb = 0;
     options.maxb = rand_stream.randi([20, 40], 1, 1);
@@ -144,6 +144,30 @@ function random_test(benchmark_id)
 
     options.mincon = 0;
     options.maxcon = rand_stream.randi([20, 40], 1, 1);
+
+    if rand_stream.rand(1, 1) < 0.5
+        options.xlabel_data_profile = '';
+    end
+
+    if rand_stream.rand(1, 1) < 0.5
+        options.ylabel_data_profile = '';
+    end
+
+    if rand_stream.rand(1, 1) < 0.5
+        options.xlabel_performance_profile = '';
+    end
+
+    if rand_stream.rand(1, 1) < 0.5
+        options.ylabel_performance_profile = '';
+    end
+
+    if rand_stream.rand(1, 1) < 0.5
+        options.xlabel_log_ratio_profile = '';
+    end
+
+    if rand_stream.rand(1, 1) < 0.5
+        options.ylabel_log_ratio_profile = '';
+    end
 
     % Run the stress test.
     benchmark(solvers, options)
