@@ -83,9 +83,16 @@ function setup(varargin)
                 matcutest_install_dir = fullfile(matcutest_dir, 'src');
                 % Change the current directory to matcutest_install_dir and run 'install.m' to install MatCUTEst.
                 try
-                    fprintf('\nINFO: We are trying to install MatCUTEst ...\n');
+                    fprintf('\nINFO: We are trying to install MatCUTEst.\n');
+                    fprintf('\nINFO: Following are messages from MatCUTEst.\n');
                     cd(matcutest_install_dir);
-                    install;
+                    success = install;
+                    if success
+                        fprintf('\nINFO: MatCUTEst is installed successfully.\n');
+                    else
+                        fprintf('\nINFO: The installation of MatCUTEst failed.\n');
+                        fprintf('\nINFO: If you want to use MatCUTEst, please complete steps from MatCUTEst messages manually.\n');
+                    end
                 catch ME
                     fprintf('\nINFO: The installation of MatCUTEst failed.\n\nError message from MatCUTEst: %s\n', ME.message)
                 end
