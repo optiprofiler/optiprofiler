@@ -18,11 +18,12 @@ function setup(varargin)
     %   contains this script and its subdirectories.
     %
     %   ***********************************************************************
-    %   Authors:    Cunxin HUANG (cun-xin.huang@connect.polyu.hk)
-    %               Tom M. RAGONNEAU (tom.ragonneau@connect.polyu.hk)
-    %               Zaikun ZHANG (zaikun.zhang@polyu.edu.hk)
-    %               Department of Applied Mathematics,
-    %               The Hong Kong Polytechnic University.
+    %   Authors:
+    %           Cunxin HUANG (cun-xin.huang@connect.polyu.hk)
+    %           Tom M. RAGONNEAU (t.ragonneau@gmail.com)
+    %           Zaikun ZHANG (zhangzaikun@mail.sysu.edu.cn)
+    %           Department of Mathematics,
+    %           Sun Yat-sen University
     %   ***********************************************************************
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

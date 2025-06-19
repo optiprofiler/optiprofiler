@@ -42,7 +42,8 @@ function [problem_names, argins] = s2mpj_select(options)
 %       - excludelist: the list of problems to be excluded. Default is not to
 %         exclude any problem.
 %
-%   Two things to note:
+%   Three things to note:
+%
 %       1. All the information about the problems can be found in a csv file
 %          named 'probinfo.csv' in the same directory as this function.
 %       2. The problem name may appear in the form of 'problem_name_dim_mcon'
@@ -52,8 +53,55 @@ function [problem_names, argins] = s2mpj_select(options)
 %          this problem can accept extra arguments to change the dimension or
 %          the number of constraints. This information is stored in the
 %          'probinfo.csv' file as the last few columns.
-%
+%       3. There is a file `variable_size.txt` in the same directory as this
+%          function. This file can be used to set the `variable_size` option
+%          to 'default', 'min', 'max', or 'all' (without quotes in the file).
+%          If this file does not exist or is empty, the `variable_size` option
+%          will be set to 'default'. `variable_size` is used to determine how
+%          to select the problems with variable dimension and/or number of
+%          constraints. The options are:
+%           - 'default': Only consider the default dimension and number of
+%                        constraints for each problem.
+%           - 'min':     For problems with variable dimension and/or
+%                        constraints, select the one with the smallest
+%                        dimension and, among those, the smallest number of
+%                        constraints that satisfies the options (priority:
+%                        smaller dimension, then fewer constraints).
+%           - 'max':     For problems with variable dimension and/or
+%                        constraints, select the one with the largest
+%                        dimension and, among those, the largest number of
+%                        constraints that satisfies the options (priority:
+%                        larger dimension, then more constraints).
+%           - 'all':     For problems with variable dimension and/or
+%                        constraints, include all configurations that satisfy
+%                        the options.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%% Set the `variable_size` %%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    variable_size = '';
+    % Check whether there is a file named 'variable_size.txt' in the current directory.
+    if exist('variable_size.txt', 'file') == 2
+        % Read the content of the file.
+        try
+            fid = fopen('variable_size.txt', 'r');
+            variable_size = strtrim(fgetl(fid));
+            fclose(fid);
+        catch
+            variable_size = '';
+        end
+    end
+    % Check the validity of `variable_size`.
+    if ~isempty(variable_size) && ~((ischar(variable_size) || isstring(variable_size)) && ismember(char(variable_size), {'default', 'min', 'max', 'all'}))
+        error("Invalid `variable_size` in the file `variable_size.txt`. Please set it to 'default', 'min', 'max', or 'all' (without quotes).");
+    end
+    % If `variable_size` is empty, set it to 'default'.
+    if isempty(variable_size)
+        variable_size = 'default';
+    end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     % Initialization.
     problem_names = {};
@@ -147,15 +195,58 @@ function [problem_names, argins] = s2mpj_select(options)
         end
 
         % If the default dimension and number of constraints satisfy the criteria, we add the problem.
-        if dim >= options.mindim && dim <= options.maxdim && mb >= options.minb && mb <= options.maxb && mlcon >= options.minlcon && mlcon <= options.maxlcon && mnlcon >= options.minnlcon && mnlcon <= options.maxnlcon && mcon >= options.mincon && mcon <= options.maxcon
+        default_satisfy = dim >= options.mindim && dim <= options.maxdim && mb >= options.minb && mb <= options.maxb && mlcon >= options.minlcon && mlcon <= options.maxlcon && mnlcon >= options.minnlcon && mnlcon <= options.maxnlcon && mcon >= options.mincon && mcon <= options.maxcon;
+        if default_satisfy && (isempty(dims) || (strcmp(variable_size, 'default')))
             problem_names{end + 1} = problem_name;
             argins{end + 1} = {};
         end
+        if strcmp(variable_size, 'default')
+            continue;
+        end
 
-        % We consider the changeable dimension and number of constraints.
+        % If `variable_size` is  'min', 'max', or 'all', we need to check the variable sizes.
         if ~isempty(dims)
-            mask = (dims >= options.mindim & dims <= options.maxdim) & (mbs >= options.minb & mbs <= options.maxb) & (mlcons >= options.minlcon & mlcons <= options.maxlcon) & (mnlcons >= options.minnlcon & mnlcons <= options.maxnlcon) & (mcons >= options.mincon & mcons <= options.maxcon);
+            mask = (dims >= options.mindim & dims <= options.maxdim) & (mbs >= options.minb & mbs <= options.maxb) & (mlcons >= options.minlcon & mlcons <= options.maxlcon) & (mnlcons >= options.minnlcon & mnlcons <= options.maxnlcon) & (mcons >= options.mincon & mcons <= options.maxcon) & (dims ~= dim & mcons ~= mcon);
             idxs = find(mask);
+            if isempty(idxs)
+                if default_satisfy
+                    problem_names{end + 1} = problem_name;
+                    argins{end + 1} = {};
+                end
+                continue;
+            end
+            if strcmp(variable_size, 'min')
+                % Find the minimal dimension among all configurations that satisfy the options
+                min_dim = min(dims(idxs));
+                idxs_dim = idxs(dims(idxs) == min_dim);
+                % Among those, find the one with the minimal number of constraints.
+                min_mcon = min(mcons(idxs_dim));
+                idxs = idxs_dim(mcons(idxs_dim) == min_mcon);
+                idxs = idxs(1);
+                % Compare with the default configuration.
+                if default_satisfy && (dim < min_dim || (dim == min_dim && mcon < min_mcon))
+                    problem_names{end + 1} = problem_name;
+                    argins{end + 1} = {};
+                    continue;
+                end
+            elseif strcmp(variable_size, 'max')
+                % Find the maximal dimension among all configurations that satisfy the options
+                max_dim = max(dims(idxs));
+                idxs_dim = idxs(dims(idxs) == max_dim);
+                % Among those, find the one with the maximal number of constraints.
+                max_mcon = max(mcons(idxs_dim));
+                idxs = idxs_dim(mcons(idxs_dim) == max_mcon);
+                idxs = idxs(1);
+                % Compare with the default configuration.
+                if default_satisfy && (dim > max_dim || (dim == max_dim && mcon > max_mcon))
+                    problem_names{end + 1} = problem_name;
+                    argins{end + 1} = {};
+                    continue;
+                end
+            elseif strcmp(variable_size, 'all')
+                % Include all configurations that satisfy the options.
+                % Do nothing, we will process all idxs.
+            end
             for k = 1:numel(idxs)
                 idx = idxs(k);
                 if mcons(idx) == 0

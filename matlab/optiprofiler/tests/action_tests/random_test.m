@@ -2,8 +2,9 @@ function random_test(benchmark_id)
 %RANDOM_TEST tests OptiProfiler with random options.
 
     % Use the current wall-clock time to generate a random seed.
-    time = datetime;
-    seed = 100*mod(year(time), 100) + month(time) + week(time) + day(time);
+    time_zone = 'Asia/Shanghai';
+    dt = datetime('now', 'TimeZone', time_zone);
+    seed = 100*mod(year(dt), 100) + week(dt) + day(dt);
     fprintf("Seed: %d\n\n", seed);
     rand_stream = RandStream("mt19937ar", "Seed", seed);
 
@@ -35,7 +36,7 @@ function random_test(benchmark_id)
     max_tol_order_choices = (1:16);
     options.max_tol_order = max_tol_order_choices(rand_stream.randi(length(max_tol_order_choices), 1, 1));
 
-    options.max_eval_factor = rand_stream.rand(1, 1) * 1000;
+    options.max_eval_factor = rand_stream.rand(1, 1) * 300;
 
     options.project_x0 = (rand_stream.rand(1, 1) < 0.5);
 

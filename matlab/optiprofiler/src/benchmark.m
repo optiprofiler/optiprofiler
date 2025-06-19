@@ -438,8 +438,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %               Cunxin HUANG (cun-xin.huang@connect.polyu.hk)
 %               Tom M. RAGONNEAU (t.ragonneau@gmail.com)
 %               Zaikun ZHANG (zhangzaikun@mail.sysu.edu.cn)
-%               Department of Applied Mathematics,
-%               The Hong Kong Polytechnic University
+%               Department of Mathematics,
+%               Sun Yat-sen University
 %
 %   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

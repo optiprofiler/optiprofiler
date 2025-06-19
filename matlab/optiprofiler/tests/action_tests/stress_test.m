@@ -11,8 +11,9 @@ function stress_test(benchmark_id)
     end
 
     % Use the current wall-clock time to randomly select 5 problems.
-    time = datetime;
-    seed = 100*mod(year(time), 100) + month(time) + week(time) + day(time);
+    time_zone = 'Asia/Shanghai';
+    dt = datetime('now', 'TimeZone', time_zone);
+    seed = 100*mod(year(dt), 100) + week(dt);
     fprintf("Seed: %d\n\n", seed);
     rand_stream = RandStream("mt19937ar", "Seed", seed);
     random_idx = rand_stream.randperm(numel(pb_list), 5);
@@ -24,7 +25,7 @@ function stress_test(benchmark_id)
     options.problem_names = selected_pb_list;
     options.mindim = 2000;
     options.maxdim = 10000;
-    options.max_eval_factor = 0.1;
+    options.max_eval_factor = 3;
     options.benchmark_id = benchmark_id;
     if isunix && ~ismac
         options.plibs = {'s2mpj', 'matcutest'};
