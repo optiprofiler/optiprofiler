@@ -494,3 +494,6 @@ vectorized
 randi
 ubl
 uln
+fgetl
+isstring
+strtrim

@@ -43,6 +43,15 @@ jobs:
             % Setup OptiProfiler
             setup
 
+            % Remove text in `problems/s2mpj/variable_size.txt` and write 'all' to it.
+            variable_size_file = fullfile(root_dir, 'problems/s2mpj/variable_size.txt');
+            fid = fopen(variable_size_file, 'w');
+            if fid == -1
+                error('Cannot open `variable_size.txt` for writing.');
+            end
+            fprintf(fid, 'all');
+            fclose(fid);
+
             % Create a directory for the output
             mkdir('output')
             cd output
