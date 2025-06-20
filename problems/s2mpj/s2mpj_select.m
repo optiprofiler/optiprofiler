@@ -206,7 +206,7 @@ function [problem_names, argins] = s2mpj_select(options)
 
         % If `variable_size` is  'min', 'max', or 'all', we need to check the variable sizes.
         if ~isempty(dims)
-            mask = (dims >= options.mindim & dims <= options.maxdim) & (mbs >= options.minb & mbs <= options.maxb) & (mlcons >= options.minlcon & mlcons <= options.maxlcon) & (mnlcons >= options.minnlcon & mnlcons <= options.maxnlcon) & (mcons >= options.mincon & mcons <= options.maxcon) & (dims ~= dim & mcons ~= mcon);
+            mask = (dims >= options.mindim & dims <= options.maxdim) & (mbs >= options.minb & mbs <= options.maxb) & (mlcons >= options.minlcon & mlcons <= options.maxlcon) & (mnlcons >= options.minnlcon & mnlcons <= options.maxnlcon) & (mcons >= options.mincon & mcons <= options.maxcon) & (dims ~= dim | mcons ~= mcon);
             idxs = find(mask);
             if isempty(idxs)
                 if default_satisfy
