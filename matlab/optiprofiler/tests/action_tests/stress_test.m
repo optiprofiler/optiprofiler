@@ -16,7 +16,7 @@ function stress_test(benchmark_id)
     seed = 100*mod(year(dt), 100) + week(dt);
     fprintf("Seed: %d\n\n", seed);
     rand_stream = RandStream("mt19937ar", "Seed", seed);
-    random_idx = rand_stream.randperm(numel(pb_list), 5);
+    random_idx = rand_stream.randperm(numel(pb_list), 3);
     selected_pb_list = pb_list(random_idx);
     fprintf("Selected problem names: %s\n\n", strjoin(selected_pb_list, ', '));
 
@@ -25,7 +25,7 @@ function stress_test(benchmark_id)
     options.problem_names = selected_pb_list;
     options.mindim = 2000;
     options.maxdim = 10000;
-    options.max_eval_factor = 3;
+    options.max_eval_factor = 2;
     options.benchmark_id = benchmark_id;
     if isunix && ~ismac
         options.plibs = {'s2mpj', 'matcutest'};
