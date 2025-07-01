@@ -25,7 +25,7 @@ function stress_test(benchmark_id)
     options.problem_names = selected_pb_list;
     options.mindim = 2000;
     options.maxdim = 10000;
-    options.max_eval_factor = 2;
+    options.max_eval_factor = 1;
     options.benchmark_id = benchmark_id;
     if isunix && ~ismac
         options.plibs = {'s2mpj', 'matcutest'};
