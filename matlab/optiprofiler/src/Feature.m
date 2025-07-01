@@ -260,12 +260,21 @@ classdef Feature < handle
                 A FEATURE object.
             %}
 
+            % Preprocess the feature name.
             if ~ischarstr(name)
                 error("MATLAB:Feature:FeaturenameNotString", "The first input argument for `Feature` must be a char or string.")
             end
             % Convert the feature name to lowercase characters.
             obj.name = char(lower(name));
+            % Check whether the feature is valid.
+            % validFeatureNames = {enumeration('FeatureName').value};
+            % Only for MATLAB R2021b and later.
+            validFeatureNames = cellfun(@(x) x.value, num2cell(enumeration('FeatureName')), 'UniformOutput', false);
+            if ~ismember(obj.name, validFeatureNames)
+                error("MATLAB:Feature:UnknownFeature", "Unknown `Feature`: " + obj.name + ".")
+            end
 
+            % Preprocess the feature options.
             obj.options = struct();
             if nargin > 1
                 if isstruct(varargin{1})
@@ -277,14 +286,6 @@ classdef Feature < handle
                         obj.options.(lower(varargin{i})) = varargin{i+1};
                     end
                 end
-            end
-
-            % Check whether the feature is valid.
-            % validFeatureNames = {enumeration('FeatureName').value};
-            % Only for MATLAB R2021b and later.
-            validFeatureNames = cellfun(@(x) x.value, num2cell(enumeration('FeatureName')), 'UniformOutput', false);
-            if ~ismember(obj.name, validFeatureNames)
-                error("MATLAB:Feature:UnknownFeature", "Unknown `Feature`: " + obj.name + ".")
             end
             optionKeys = fieldnames(obj.options);
             validOptionKeys = cellfun(@(x) x.value, num2cell(enumeration('FeatureOptionKey')), 'UniformOutput', false);
