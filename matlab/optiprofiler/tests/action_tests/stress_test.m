@@ -28,7 +28,7 @@ function stress_test(benchmark_id)
     if isunix && ~ismac
         options.max_eval_factor = 1;
     else
-        options.max_eval_factor = 0.2;
+        options.max_eval_factor = 0.1;
     end
     options.benchmark_id = benchmark_id;
     if isunix && ~ismac
