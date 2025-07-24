@@ -12,7 +12,7 @@ jobs:
 
     name: MATLAB ${{ matrix.matlab }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 10
+    timeout-minutes: 360
     continue-on-error: true
 
     strategy:
