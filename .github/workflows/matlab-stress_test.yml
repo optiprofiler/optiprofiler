@@ -94,3 +94,17 @@ jobs:
 
       - name: Check whether the tests were successful or cancelled due to timeout
         run: bash scripts/check_success_timeout ${{ secrets.GITHUB_TOKEN }} ${{ github.repository }} ${{ github.run_id }}
+  
+  workflow_status:
+    runs-on: ubuntu-latest
+    if: always()
+    needs: check_success_timeout
+    steps:
+      - name: Set workflow status based on check_success_timeout
+        run: |
+          if [ "${{ needs.check_success_timeout.result }}" != "success" ]; then
+            echo "check_success_timeout task failed with result: ${{ needs.check_success_timeout.result }}"
+            exit 1
+          else
+            echo "All tests were either successful or cancelled due to timeout as expected."
+          fi
