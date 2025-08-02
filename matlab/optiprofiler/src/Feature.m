@@ -447,20 +447,12 @@ classdef Feature < handle
             is_stochastic : bool
             %}
             switch obj.name
-                case FeatureName.PERTURBED_X0.value
-                    is_stochastic = true;
-                case FeatureName.NOISY.value
+                case {FeatureName.PERTURBED_X0.value, FeatureName.NOISY.value, FeatureName.PERMUTED.value, FeatureName.RANDOM_NAN.value, FeatureName.CUSTOM.value}
                     is_stochastic = true;
                 case FeatureName.TRUNCATED.value
                     is_stochastic = obj.options.(FeatureOptionKey.PERTURBED_TRAILING_DIGITS.value);
-                case FeatureName.PERMUTED.value
-                    is_stochastic = true;
                 case FeatureName.LINEARLY_TRANSFORMED.value
                     is_stochastic = obj.options.(FeatureOptionKey.ROTATED.value);
-                case FeatureName.RANDOM_NAN.value
-                    is_stochastic = true;
-                case FeatureName.CUSTOM.value
-                    is_stochastic = true;
                 otherwise
                     is_stochastic = false;
             end
@@ -873,7 +865,7 @@ classdef Feature < handle
             end
         end
 
-        function f = modifier_fun(obj, x, seed, problem)
+        function f = modifier_fun(obj, x, seed, problem, n_eval)
             %{
             Modify the objective function value.
 
@@ -885,6 +877,11 @@ classdef Feature < handle
                 Seed used to generate random numbers.
             problem : Problem
                 Optimization problem to be modified.
+            n_eval : int
+                Number of evaluations of the objective function.
+                (We will use it to generate random streams so that evaluating
+                the same point multiple times will not lead to the same
+                random numbers.)
 
             Returns
             -------
@@ -901,12 +898,12 @@ classdef Feature < handle
             switch obj.name
                 case FeatureName.CUSTOM.value
                     if isfield(obj.options, FeatureOptionKey.MOD_FUN.value)
-                        rand_stream_custom = obj.default_rng(seed, f, xCell{:});
+                        rand_stream_custom = obj.default_rng(seed, f, xCell{:}, n_eval);
                         f = obj.options.(FeatureOptionKey.MOD_FUN.value)(x, rand_stream_custom, problem);
                         return;
                     end
                 case FeatureName.NOISY.value
-                    rand_stream_noisy = obj.default_rng(seed, f, xCell{:});
+                    rand_stream_noisy = obj.default_rng(seed, f, xCell{:}, n_eval);
                     if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
                         noise = rand_stream_noisy.randn();
                     elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
@@ -923,7 +920,7 @@ classdef Feature < handle
                         f = f + max(1, abs(f)) * obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * noise;
                     end
                 case FeatureName.RANDOM_NAN.value
-                    rand_stream_random_nan = obj.default_rng(seed, f, xCell{:});
+                    rand_stream_random_nan = obj.default_rng(seed, f, xCell{:}, n_eval);
                     if rand_stream_random_nan.rand() < obj.options.(FeatureOptionKey.NAN_RATE.value)
                         f = NaN;
                     end
@@ -934,7 +931,7 @@ classdef Feature < handle
                         % to an error when calling 'round(f, digits)'.
                         return;
                     end
-                    rand_stream_truncated = obj.default_rng(seed, f, xCell{:});
+                    rand_stream_truncated = obj.default_rng(seed, f, xCell{:}, n_eval);
                     if f == 0
                         digits = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - 1;
                     else
@@ -974,7 +971,7 @@ classdef Feature < handle
             end
         end
 
-        function cub_ = modifier_cub(obj, x, seed, problem)
+        function cub_ = modifier_cub(obj, x, seed, problem, n_eval_cub)
             %{
             Modify the values of the nonlinear inequality constraints.
 
@@ -986,6 +983,11 @@ classdef Feature < handle
                 Seed used to generate random numbers.
             problem : Problem
                 Problem for which the nonlinear inequality constraints are modified.
+            n_eval_cub : int
+                Number of evaluations of the nonlinear inequality constraints.
+                (We will use it to generate random streams so that evaluating
+                the same point multiple times will not lead to the same
+                random numbers.)
             
             Returns
             -------
@@ -1007,13 +1009,13 @@ classdef Feature < handle
             switch obj.name
                 case FeatureName.CUSTOM.value
                     if isfield(obj.options, FeatureOptionKey.MOD_CUB.value)
-                        rand_stream_custom = obj.default_rng(seed, cubCell{:}, xCell{:});
+                        rand_stream_custom = obj.default_rng(seed, cubCell{:}, xCell{:}, n_eval_cub);
                         cub_ = obj.options.(FeatureOptionKey.MOD_CUB.value)(x, rand_stream_custom, problem);
                         return;
                     end
                 case FeatureName.NOISY.value
                     % Similar to the case in the modifier_fun method.
-                    rand_stream_noisy = obj.default_rng(seed, cubCell{:}, xCell{:});
+                    rand_stream_noisy = obj.default_rng(seed, cubCell{:}, xCell{:}, n_eval_cub);
                     if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
                         noise = rand_stream_noisy.randn(size(cub_));
                     elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
@@ -1030,11 +1032,11 @@ classdef Feature < handle
                     end
                 case FeatureName.RANDOM_NAN.value
                     % Similar to the case in the modifier_fun method.
-                    rand_stream_random_nan = obj.default_rng(seed, cubCell{:}, xCell{:});
+                    rand_stream_random_nan = obj.default_rng(seed, cubCell{:}, xCell{:}, n_eval_cub);
                     cub_(rand_stream_random_nan.rand(size(cub_)) < obj.options.(FeatureOptionKey.NAN_RATE.value)) = NaN;
                 case FeatureName.TRUNCATED.value
                     % Similar to the case in the modifier_fun method.
-                    rand_stream_truncated = obj.default_rng(seed, cubCell{:}, xCell{:});
+                    rand_stream_truncated = obj.default_rng(seed, cubCell{:}, xCell{:}, n_eval_cub);
                     digits = zeros(size(cub_));
                     digits(cub_ == 0) = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - 1;
                     digits(cub_ ~= 0) = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - floor(log10(abs(cub_(cub_ ~= 0)))) - 1;
@@ -1066,7 +1068,7 @@ classdef Feature < handle
             end
         end
 
-        function ceq_ = modifier_ceq(obj, x, seed, problem)
+        function ceq_ = modifier_ceq(obj, x, seed, problem, n_eval_ceq)
             %{
             Modify the values of the nonlinear equality constraints.
 
@@ -1078,6 +1080,11 @@ classdef Feature < handle
                 Seed used to generate random numbers.
             problem : Problem
                 Problem for which the nonlinear equality constraints are modified.
+            n_eval_ceq : int
+                Number of evaluations of the nonlinear equality constraints.
+                (We will use it to generate random streams so that evaluating
+                the same point multiple times will not lead to the same
+                random numbers.)
             
             Returns
             -------
@@ -1099,13 +1106,13 @@ classdef Feature < handle
             switch obj.name
                 case FeatureName.CUSTOM.value
                     if isfield(obj.options, FeatureOptionKey.MOD_CEQ.value)
-                        rand_stream_custom = obj.default_rng(seed, ceqCell{:}, xCell{:});
+                        rand_stream_custom = obj.default_rng(seed, ceqCell{:}, xCell{:}, n_eval_ceq);
                         ceq_ = obj.options.(FeatureOptionKey.MOD_CEQ.value)(x, rand_stream_custom, problem);
                         return;
                     end
                 case FeatureName.NOISY.value
                     % Similar to the case in the modifier_fun method.
-                    rand_stream_noisy = obj.default_rng(seed, ceqCell{:}, xCell{:});
+                    rand_stream_noisy = obj.default_rng(seed, ceqCell{:}, xCell{:}, n_eval_ceq);
                     if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
                         noise = rand_stream_noisy.randn(size(ceq_));
                     elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
@@ -1122,11 +1129,11 @@ classdef Feature < handle
                     end
                 case FeatureName.RANDOM_NAN.value
                     % Similar to the case in the modifier_fun method.
-                    rand_stream_random_nan = obj.default_rng(seed, ceqCell{:}, xCell{:});
+                    rand_stream_random_nan = obj.default_rng(seed, ceqCell{:}, xCell{:}, n_eval_ceq);
                     ceq_(rand_stream_random_nan.rand(size(ceq_)) < obj.options.(FeatureOptionKey.NAN_RATE.value)) = NaN;
                 case FeatureName.TRUNCATED.value
                     % Similar to the case in the modifier_fun method.
-                    rand_stream_truncated = obj.default_rng(seed, ceqCell{:}, xCell{:});
+                    rand_stream_truncated = obj.default_rng(seed, ceqCell{:}, xCell{:}, n_eval_ceq);
                     digits = zeros(size(ceq_));
                     digits(ceq_ == 0) = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - 1;
                     digits(ceq_ ~= 0) = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - floor(log10(abs(ceq_(ceq_ ~= 0)))) - 1;
