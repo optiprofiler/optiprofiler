@@ -199,7 +199,7 @@ classdef FeaturedProblem < Problem
             % Evaluate the modified the objective function value according to the feature and return the
             % modified value. We should not store the modified value because the performance 
             % of an optimization solver should be measured using the original objective function.
-            f = obj.feature.modifier_fun(A * x + b, obj.seed, obj.problem);
+            f = obj.feature.modifier_fun(A * x + b, obj.seed, obj.problem, obj.n_eval);
             obj.last_fun = f;
 
             % Evaluate the objective function and store the results.
@@ -244,7 +244,7 @@ classdef FeaturedProblem < Problem
             [A, b] = obj.feature.modifier_affine(obj.seed, obj.problem);
 
             % Evaluate the nonlinear inequality constraints and store the results.
-            cub_ = obj.feature.modifier_cub(A * x + b, obj.seed, obj.problem);
+            cub_ = obj.feature.modifier_cub(A * x + b, obj.seed, obj.problem, length(obj.cub_hist));
             obj.last_cub = cub_;
             
             % Evaluate the nonlinear inequality constraints and store the results.
@@ -284,7 +284,7 @@ classdef FeaturedProblem < Problem
             [A, b] = obj.feature.modifier_affine(obj.seed, obj.problem);
 
             % Evaluate the nonlinear equality constraints and store the results.
-            ceq_ = obj.feature.modifier_ceq(A * x + b, obj.seed, obj.problem);
+            ceq_ = obj.feature.modifier_ceq(A * x + b, obj.seed, obj.problem, length(obj.ceq_hist));
             obj.last_ceq = ceq_;
 
             % Evaluate the nonlinear equality constraints and store the results.
