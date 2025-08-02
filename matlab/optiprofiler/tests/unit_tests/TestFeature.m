@@ -191,7 +191,7 @@ classdef TestFeature < matlab.unittest.TestCase
             ft = Feature('unrelaxable_constraints');
             testCase.verifyEqual(ft.name, 'unrelaxable_constraints');
             testCase.verifyEqual(ft.options.n_runs, 1);
-            testCase.verifyEqual(ft.options.unrelaxable_bounds, false);
+            testCase.verifyEqual(ft.options.unrelaxable_bounds, true);
             testCase.verifyEqual(ft.options.unrelaxable_linear_constraints, false);
             testCase.verifyEqual(ft.options.unrelaxable_nonlinear_constraints, false);
 

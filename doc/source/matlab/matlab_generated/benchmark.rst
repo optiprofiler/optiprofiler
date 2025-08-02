@@ -186,7 +186,7 @@ Options should be specified in a struct. The following are the available fields 
 
   - **nan_rate**: the probability that the evaluation of the objective function will return NaN in the ``'random_nan'`` feature. Default is ``0.05``.
 
-  - **unrelaxable_bounds**: whether the bound constraints are unrelaxable or not in the ``'unrelaxable_constraints'`` feature. Default is ``false``.
+  - **unrelaxable_bounds**: whether the bound constraints are unrelaxable or not in the ``'unrelaxable_constraints'`` feature. Default is ``true``.
 
   - **unrelaxable_linear_constraints**: whether the linear constraints are unrelaxable or not in the ``'unrelaxable_constraints'`` feature. Default is ``false``.
 
