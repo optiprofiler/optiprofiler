@@ -58,6 +58,13 @@ classdef FeaturedProblem < Problem
 
     end
 
+    properties (GetAccess = private, SetAccess = private)
+
+        last_fun
+        last_cub
+        last_ceq
+    end
+
     properties (Dependent)
 
         n_eval
@@ -136,6 +143,9 @@ classdef FeaturedProblem < Problem
             obj.cub_hist = [];
             obj.ceq_hist = [];
             obj.maxcv_hist = [];
+            obj.last_fun = NaN;
+            obj.last_cub = NaN;
+            obj.last_ceq = NaN;
 
         end
 
@@ -177,24 +187,25 @@ classdef FeaturedProblem < Problem
             %}
 
             if obj.n_eval >= obj.max_eval
-                % If the maximum number of function evaluations has been reached, return the value
-                % of the objective function at the last point.
-                f = obj.fun_hist(obj.max_eval);
+                % If the maximum number of function evaluations has been reached,
+                % return the last evaluated objective function value.
+                f = obj.last_fun;
                 return
             end
 
             % Generate the affine transformation.
             [A, b] = obj.feature.modifier_affine(obj.seed, obj.problem);
 
-            % Modified the objective function value according to the feature and return the 
+            % Evaluate the modified the objective function value according to the feature and return the
             % modified value. We should not store the modified value because the performance 
             % of an optimization solver should be measured using the original objective function.
             f = obj.feature.modifier_fun(A * x + b, obj.seed, obj.problem);
+            obj.last_fun = f;
 
             % Evaluate the objective function and store the results.
             f_true = obj.problem.fun(A * x + b);
 
-            % If the Feature is ``quantized'' and the option ``ground_truth'' is set to true, we should
+            % If the feature is 'quantized' and the option ``ground_truth'' is set to true, we should
             % set f_true to f.
             if strcmp(obj.feature.name, FeatureName.QUANTIZED.value) && obj.feature.options.(FeatureOptionKey.GROUND_TRUTH.value)
                 f_true = f;
@@ -223,9 +234,9 @@ classdef FeaturedProblem < Problem
             %}
 
             if length(obj.cub_hist) >= obj.max_eval
-                % If the maximum number of function evaluations has been reached, return the value
-                % of the nonlinear inequality constraints at the last point.
-                cub_ = obj.cub_hist(obj.max_eval);
+                % If the maximum number of function evaluations has been reached,
+                % return the last evaluated nonlinear inequality constraints.
+                cub_ = obj.last_cub;
                 return
             end
 
@@ -234,11 +245,12 @@ classdef FeaturedProblem < Problem
 
             % Evaluate the nonlinear inequality constraints and store the results.
             cub_ = obj.feature.modifier_cub(A * x + b, obj.seed, obj.problem);
+            obj.last_cub = cub_;
             
             % Evaluate the nonlinear inequality constraints and store the results.
             cub_true = obj.problem.cub(A * x + b);
 
-            % If the Feature is ``quantized'' and the option ``ground_truth'' is set to true, we should
+            % If the feature is 'quantized' and the option ``ground_truth'' is set to true, we should
             % use the modified constraint violation.
             if strcmp(obj.feature.name, FeatureName.QUANTIZED.value) && obj.feature.options.(FeatureOptionKey.GROUND_TRUTH.value)
                 cub_true = cub_;
@@ -262,9 +274,9 @@ classdef FeaturedProblem < Problem
             %}
 
             if length(obj.ceq_hist) >= obj.max_eval
-                % If the maximum number of function evaluations has been reached, return the value
-                % of the nonlinear equality constraints at the last point.
-                ceq_ = obj.ceq_hist(obj.max_eval);
+                % If the maximum number of function evaluations has been reached,
+                % return the last evaluated nonlinear equality constraints.
+                ceq_ = obj.last_ceq;
                 return
             end
 
@@ -273,6 +285,7 @@ classdef FeaturedProblem < Problem
 
             % Evaluate the nonlinear equality constraints and store the results.
             ceq_ = obj.feature.modifier_ceq(A * x + b, obj.seed, obj.problem);
+            obj.last_ceq = ceq_;
 
             % Evaluate the nonlinear equality constraints and store the results.
             ceq_true = obj.problem.ceq(A * x + b);
@@ -303,17 +316,20 @@ classdef FeaturedProblem < Problem
             % Generate the affine transformation.
             [A, b] = obj.feature.modifier_affine(obj.seed, obj.problem);
 
-            cv = obj.problem.maxcv(A * x + b);
-
             % If the Feature is ``quantized'' and the option ``ground_truth'' is set to true, we should
             % use the modified constraint violation.
             if strcmp(obj.feature.name, FeatureName.QUANTIZED.value) && obj.feature.options.(FeatureOptionKey.GROUND_TRUTH.value)
                 % `maxcv@Problem` is a method of the class `Problem`. By using this, maxcv will use obj.cub_ and
                 % obj.ceq_ instead of obj.problem.cub_ and obj.problem.ceq_.
+                % (We use `x` instead of `A * x + b` because this step is done inside obj.ceq_ and obj.cub_ methods.)
                 cv = maxcv@Problem(obj, x);
+            else
+                cv = obj.problem.maxcv(A * x + b);
             end
-
         end
-        
+
+
+        % Note: We need to add methods `grad`, `hess`, `jcub`, and `jceq` to the FeaturedProblem class in the future.)
+
     end
 end

@@ -463,11 +463,11 @@ classdef Problem < handle
 
         function value = get.ptype(obj)
             try
-                if obj.m_nonlinear_ub + obj.m_nonlinear_eq > 0
+                if obj.mnlcon > 0
                     value = 'n';
-                elseif obj.m_linear_ub + obj.m_linear_eq > 0
+                elseif obj.mlcon > 0
                     value = 'l';
-                elseif any(obj.xl > -inf) || any(obj.xu < inf)
+                elseif obj.mb > 0
                     value = 'b';
                 else
                     value = 'u';

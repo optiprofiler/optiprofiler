@@ -252,7 +252,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         function will return NaN in the 'random_nan' feature. Default is
 %         0.05.
 %       - unrelaxable_bounds: whether the bound constraints are unrelaxable or
-%         not in the 'unrelaxable_constraints' feature. Default is false.
+%         not in the 'unrelaxable_constraints' feature. Default is true.
 %       - unrelaxable_linear_constraints: whether the linear constraints are
 %         unrelaxable or not in the 'unrelaxable_constraints' feature. Default
 %         is false.

@@ -1,20 +1,21 @@
 import numpy as np
 
-from .utils import FeatureName, FeatureOption, NoiseType
+from .utils import FeatureName, FeatureOption
 
 
 class Feature:
     """
-    Feature used to modify the objective function.
+    Feature is a class that defines a mapping from an optimization problem to a new one with specified features.
+    We are interested to test solvers on problems with different features. For example, we want to test the performance of solvers under the case where the objective function is noisy. For this purpose, we define `Feature` class.
     """
 
-    def __init__(self, feature_name, **feature_options):
+    def __init__(self, name, **feature_options):
         """
         Initialize a feature.
 
         Parameters
         ----------
-        feature_name : str
+        name : str
             Name of the feature.
 
         Other Parameters
@@ -40,9 +41,9 @@ class Feature:
             If the arguments are inconsistent.
         """
         # Preprocess the feature name.
-        self._name = feature_name
+        self._name = name
         if not isinstance(self._name, str):
-            raise TypeError('The feature name must be a string.')
+            raise TypeError('The first input argument for `Feature` must be a string.')
         self._name = self._name.lower()
         if self._name not in FeatureName.__members__.values():
             raise ValueError(f'Unknown feature: {self._name}.')
