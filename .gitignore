@@ -294,3 +294,6 @@ fabric.properties
 
 ## Built Visual Studio Code Extensions
 *.vsix
+
+## Python test file
+test_file.py

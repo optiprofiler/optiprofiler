@@ -16,7 +16,7 @@ from matplotlib.backends import backend_pdf
 from matplotlib.ticker import MaxNLocator, FuncFormatter
 
 from .features import Feature
-from .problems import FeaturedProblem, get_cutest_problem_options, set_cutest_problem_options, load_cutest_problem
+from .problems import FeaturedProblem
 from .utils import FeatureName, ProfileOption, FeatureOption, ProblemError, get_logger
 
 
