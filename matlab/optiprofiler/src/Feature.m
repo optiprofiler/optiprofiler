@@ -107,7 +107,7 @@ classdef Feature < handle
 %         function will return NaN in the 'random_nan' feature. Default is
 %         0.05.
 %       - unrelaxable_bounds: whether the bound constraints are unrelaxable or
-%         not in the 'unrelaxable_constraints' feature. Default is false.
+%         not in the 'unrelaxable_constraints' feature. Default is true.
 %       - unrelaxable_linear_constraints: whether the linear constraints are
 %         unrelaxable or not in the 'unrelaxable_constraints' feature. Default
 %         is false.
@@ -271,7 +271,7 @@ classdef Feature < handle
             % Only for MATLAB R2021b and later.
             validFeatureNames = cellfun(@(x) x.value, num2cell(enumeration('FeatureName')), 'UniformOutput', false);
             if ~ismember(obj.name, validFeatureNames)
-                error("MATLAB:Feature:UnknownFeature", "Unknown `Feature`: " + obj.name + ".")
+                error("MATLAB:Feature:UnknownFeature", "Unknown feature: " + obj.name + ".")
             end
 
             % Preprocess the feature options.
@@ -292,7 +292,7 @@ classdef Feature < handle
             for i = 1:numel(optionKeys)
                 key = optionKeys{i};
                 if ~ismember(key, validOptionKeys)
-                    error("MATLAB:Feature:UnknownOption", "Unknown option for `Feature`: " + key + ".")
+                    error("MATLAB:Feature:UnknownOption", "Unknown option for feature: " + key + ".")
                 end
 
                 % Check whether the option is valid for the feature.
@@ -321,10 +321,10 @@ classdef Feature < handle
                     case FeatureName.PLAIN.value
                         % Do nothing
                     otherwise
-                        error("MATLAB:Feature:UnknownFeature", "Unknown `Feature`: " + obj.name + ".")
+                        error("MATLAB:Feature:UnknownFeature", "Unknown feature: " + obj.name + ".")
                 end
                 if ~ismember(key, known_options)
-                    error("MATLAB:Feature:InvalidOptionForFeature", "Option `" + key + "` is not valid for `Feature` '" + obj.name + "'.")
+                    error("MATLAB:Feature:InvalidOptionForFeature", "Option `" + key + "` is not valid for feature '" + obj.name + "'.")
                 end
 
                 % Check whether the option type is valid.
@@ -338,9 +338,9 @@ classdef Feature < handle
                             error("MATLAB:Feature:distribution_NotFunctionHandle", "Option `" + key + "` must be the char (or string), or a function handle.")
                         end
                         if strcmp(obj.name, FeatureName.NOISY.value) && ~ismember(char(obj.options.(key)), {'gaussian', 'uniform'})
-                            error("MATLAB:Feature:distribution_NotFunctionHandle_noisy", "Option `" + key + "` for 'noisy' feature must be the char (or string) 'gaussian' or 'uniform', or a function handle.")
+                            error("MATLAB:Feature:distribution_NotFunctionHandle_noisy", "Option `" + key + "` for feature 'noisy' must be the char (or string) 'gaussian' or 'uniform', or a function handle.")
                         elseif strcmp(obj.name, FeatureName.PERTURBED_X0.value) && ~ismember(char(obj.options.(key)), {'gaussian', 'spherical'})
-                            error("MATLAB:Feature:distribution_NotFunctionHandle_perturbed_x0", "Option `" + key + "` for 'perturbed_x0' feature must be the char (or string) 'gaussian' or 'spherical', or a function handle.")
+                            error("MATLAB:Feature:distribution_NotFunctionHandle_perturbed_x0", "Option `" + key + "` for feature 'perturbed_x0' must be the char (or string) 'gaussian' or 'spherical', or a function handle.")
                         end
                         if ischarstr(obj.options.(key))
                             obj.options.(key) = char(obj.options.(key));
@@ -354,8 +354,8 @@ classdef Feature < handle
                             error("MATLAB:Feature:significant_digits_NotPositiveInteger", "Option `" + key + "` must be a positive integer.")
                         end
                     case FeatureOptionKey.NOISE_LEVEL.value
-                        if ~isrealscalar(obj.options.(key)) || obj.options.(key) <= 0.0
-                            error("MATLAB:Feature:noise_level_NotPositive", "Option `" + key + "` must be a positive real number.")
+                        if ~isrealscalar(obj.options.(key)) || obj.options.(key) < 0.0
+                            error("MATLAB:Feature:noise_level_NotPositive", "Option `" + key + "` must be a nonnegative real number.")
                         end
                     case FeatureOptionKey.NOISE_TYPE.value
                         if ~ischarstr(obj.options.(key)) || ~ismember(obj.options.(key), {'absolute', 'relative', 'mixed'})
@@ -452,22 +452,12 @@ classdef Feature < handle
                 case FeatureName.NOISY.value
                     is_stochastic = true;
                 case FeatureName.TRUNCATED.value
-                    if obj.options.(FeatureOptionKey.PERTURBED_TRAILING_DIGITS.value)
-                        is_stochastic = true;
-                    else
-                        is_stochastic = false;
-                    end
+                    is_stochastic = obj.options.(FeatureOptionKey.PERTURBED_TRAILING_DIGITS.value);
                 case FeatureName.PERMUTED.value
                     is_stochastic = true;
                 case FeatureName.LINEARLY_TRANSFORMED.value
-                    if obj.options.(FeatureOptionKey.ROTATED.value)
-                        is_stochastic = true;
-                    else
-                        is_stochastic = false;
-                    end
+                    is_stochastic = obj.options.(FeatureOptionKey.ROTATED.value);
                 case FeatureName.RANDOM_NAN.value
-                    is_stochastic = true;
-                case FeatureName.QUANTIZED.value
                     is_stochastic = true;
                 case FeatureName.CUSTOM.value
                     is_stochastic = true;
@@ -485,7 +475,7 @@ classdef Feature < handle
             seed : int
                 Seed used to generate random numbers.
             problem : Problem
-                Optimization problem to be modified.
+                Problem for which the initial point is modified.
             
             Returns
             -------
@@ -513,13 +503,14 @@ classdef Feature < handle
                 case FeatureName.PERTURBED_X0.value
                     % Use max(1, norm(x0)) to avoid no perturbation when x0 is zero.
                     rand_stream_perturbed_x0 = obj.default_rng(seed);
+                    perturbation_level = obj.options.(FeatureOptionKey.PERTURBATION_LEVEL.value) * max(1, norm(problem.x0));
                     if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
-                        x0 = problem.x0 + obj.options.(FeatureOptionKey.PERTURBATION_LEVEL.value) * max(1, norm(problem.x0)) * rand_stream_perturbed_x0.randn(problem.n, 1);
+                        x0 = problem.x0 + perturbation_level * rand_stream_perturbed_x0.randn(problem.n, 1);
                     elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'spherical')
                         perturbation = rand_stream_perturbed_x0.randn(problem.n, 1);
-                        x0 = problem.x0 + obj.options.(FeatureOptionKey.PERTURBATION_LEVEL.value) * max(1, norm(problem.x0)) * perturbation / norm(perturbation);
+                        x0 = problem.x0 + perturbation_level * perturbation / norm(perturbation);
                     else
-                        x0 = problem.x0 + obj.options.(FeatureOptionKey.PERTURBATION_LEVEL.value) * max(1, norm(problem.x0)) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_perturbed_x0, problem.n);
+                        x0 = problem.x0 + perturbation_level * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_perturbed_x0, problem.n);
                     end
                 case FeatureName.PERMUTED.value
                     % Note that we need to apply the reverse permutation to the initial point so that
@@ -538,8 +529,24 @@ classdef Feature < handle
         end
 
         function [A, b, inv] = modifier_affine(obj, seed, problem)
-            % Define the affine transformation A @ x + b and the inverse inv of A. The transformation
-            % is applied to the variables later.
+            %{
+            Generate an invertible matrix A and a vector b for the affine transformation applied to the variables.
+
+            Parameters
+            ----------
+            seed : int
+                Seed used to generate random numbers.
+            problem : Problem
+                Problem for which the affine transformation is generated.
+            Returns
+            -------
+            A : double, size (n, n)
+                Matrix of the affine transformation.
+            b : double, size (n, 1)
+                Vector of the affine transformation.
+            inv : double, size (n, n)
+                Inverse of the matrix A.
+            %}
 
             % Default values
             A = eye(problem.n);
@@ -598,14 +605,14 @@ classdef Feature < handle
 
         function [xl, xu] = modifier_bounds(obj, seed, problem)
             %{
-            Modify the lower bounds.
+            Modify the bounds.
 
             Parameters
             ----------
             seed : int
                 Seed used to generate random numbers.
             problem : Problem
-                Optimization problem to be modified.
+                Problem for which the bounds are modified.
 
             Returns
             -------
@@ -636,7 +643,7 @@ classdef Feature < handle
                         xu = Inf(problem.n, 1);
                         return;
                     end
-                    % If the inverse of the affine transformation is diagonal, we can aplly it to get
+                    % If the inverse of the affine transformation is diagonal, we can apply it to get
                     % the modified bounds.
                     xl_tmp = diag(inv) .* (problem.xl - b);
                     xu_tmp = diag(inv) .* (problem.xu - b);
@@ -677,7 +684,7 @@ classdef Feature < handle
             seed : int
                 Seed used to generate random numbers.
             problem : Problem
-                Optimization problem to be modified.
+                Problem for which the linear inequality constraints are modified.
 
             Returns
             -------
@@ -715,16 +722,16 @@ classdef Feature < handle
                     We need to specially handle bound constraints and linear inequality constraints.
 
                     Bound constraints
-                    xl <= A @ x + b <= xu
+                    xl <= A * x + b <= xu
                     should be modified to
-                    A @ x <= xu - b
+                    A * x <= xu - b
                     and
-                    -A @ x <= -xl + b
+                    -A * x <= -xl + b
                     when A is not diagonal.
 
                     Linear inequality constraints
                     turn out to be
-                    (aub @ A) @ x <= bub - aub @ b
+                    (aub * A) * x <= bub - aub * b
                     %}
                     
                     % Pick out the indices of lower bounds who are not -Inf and upper bounds who are
@@ -785,7 +792,7 @@ classdef Feature < handle
             seed : int
                 Seed used to generate random numbers.
             problem : Problem
-                Optimization problem to be modified.
+                Problem for which the linear equality constraints are modified.
 
             Returns
             -------
@@ -819,14 +826,14 @@ classdef Feature < handle
                     We need to specially handle bound constraints and linear equality constraints.
 
                     Bound constraints
-                    xl <= A @ x + b <= xu
+                    xl <= A * x + b <= xu
                     with xl = xu should be modified to
-                    A @ x = xu - b
+                    A * x = xu - b
                     when A is not diagonal.
 
                     Linear equality constraints
                     turn out to be
-                    (aeq @ A) @ x = beq - aeq @ b
+                    (aeq * A) * x = beq - aeq * b
                     %}
 
                     % Pick out the indices, of which the lower and upper bound are equal.
@@ -873,7 +880,7 @@ classdef Feature < handle
             Parameters
             ----------
             x : double, size (n,)
-                Decision variables.
+                Point at which the objective function is evaluated.
             seed : int
                 Seed used to generate random numbers.
             problem : Problem
@@ -900,31 +907,20 @@ classdef Feature < handle
                     end
                 case FeatureName.NOISY.value
                     rand_stream_noisy = obj.default_rng(seed, f, xCell{:});
+                    if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
+                        noise = rand_stream_noisy.randn();
+                    elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
+                        noise = 2 * rand_stream_noisy.rand() - 1;
+                    else
+                        noise = obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1);
+                    end
                     if strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), 'absolute')
-                        if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
-                            f = f + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn();
-                        elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
-                            f = f + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * (2 * rand_stream_noisy.rand() - 1);
-                        else
-                            f = f + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1);
-                        end
+                        f = f + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * noise;
                     elseif strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), 'relative')
-                        if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
-                            f = f * (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn());
-                        elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
-                            f = f * (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * (2 * rand_stream_noisy.rand() - 1));
-                        else
-                            f = f * (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1));
-                        end
+                        f = f * (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * noise);
                     else
                         % We need the distribution of the noise to be symmetric with respect to 0.
-                        if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
-                            f = f + max(1, abs(f)) * obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn();
-                        elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
-                            f = f + max(1, abs(f)) * obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * (2 * rand_stream_noisy.rand() - 1);
-                        else
-                            f = f + max(1, abs(f)) * obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1);
-                        end
+                        f = f + max(1, abs(f)) * obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * noise;
                     end
                 case FeatureName.RANDOM_NAN.value
                     rand_stream_random_nan = obj.default_rng(seed, f, xCell{:});
@@ -985,17 +981,16 @@ classdef Feature < handle
             Parameters
             ----------
             x : double, size (n,)
-                Decision variables.
+                Point at which the nonlinear inequality constraints are evaluated.
             seed : int
                 Seed used to generate random numbers.
             problem : Problem
-                Optimization problem to be modified.
+                Problem for which the nonlinear inequality constraints are modified.
             
             Returns
             -------
             cub_ : double, size (m_nonlinear_ub,)
-                Modified values of the upper bounds of the nonlinear inequality
-                constraints.
+                Modified values of the nonlinear inequality constraints.
             %}
             
             % Convert x into a cell array. We will later use it to generate 
@@ -1019,30 +1014,19 @@ classdef Feature < handle
                 case FeatureName.NOISY.value
                     % Similar to the case in the modifier_fun method.
                     rand_stream_noisy = obj.default_rng(seed, cubCell{:}, xCell{:});
-                    if strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), 'absolute')
-                        if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
-                            cub_ = cub_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn(size(cub_));
-                        elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
-                            cub_ = cub_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * (2 * rand_stream_noisy.rand(size(cub_)) - 1);
-                        else
-                            cub_ = cub_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, size(cub_));
-                        end
-                    elseif strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), 'relative')
-                        if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
-                            cub_ = cub_ .* (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn(size(cub_)));
-                        elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
-                            cub_ = cub_ .* (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * (2 * rand_stream_noisy.rand(size(cub_)) - 1));
-                        else
-                            cub_ = cub_ .* (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, size(cub_)));
-                        end
+                    if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
+                        noise = rand_stream_noisy.randn(size(cub_));
+                    elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
+                        noise = 2 * rand_stream_noisy.rand(size(cub_)) - 1;
                     else
-                        if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
-                            cub_ = cub_ + max(1, abs(cub_)) .* (obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn(size(cub_)));
-                        elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
-                            cub_ = cub_ + max(1, abs(cub_)) .* (obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * (2 * rand_stream_noisy.rand(size(cub_)) - 1));
-                        else
-                            cub_ = cub_ + max(1, abs(cub_)) .* (obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, size(cub_)));
-                        end
+                        noise = obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, size(cub_));
+                    end
+                    if strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), 'absolute')
+                        cub_ = cub_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * noise;
+                    elseif strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), 'relative')
+                        cub_ = cub_ .* (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * noise);
+                    else
+                        cub_ = cub_ + max(1, abs(cub_)) .* (obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * noise);
                     end
                 case FeatureName.RANDOM_NAN.value
                     % Similar to the case in the modifier_fun method.
@@ -1072,7 +1056,10 @@ classdef Feature < handle
                 case FeatureName.QUANTIZED.value
                     % Similar to the case in the modifier_fun method.
                     mesh_size = obj.options.(FeatureOptionKey.MESH_SIZE.value);
-                    x = mesh_size * floor(x / mesh_size + 0.5);
+                    if strcmp(obj.options.(FeatureOptionKey.MESH_TYPE.value), 'relative')
+                        mesh_size = mesh_size .* max(1, abs(x));
+                    end
+                    x = mesh_size .* round(x ./ mesh_size);
                     cub_ = problem.cub(x);
                 otherwise
                     % Do nothing
@@ -1086,17 +1073,16 @@ classdef Feature < handle
             Parameters
             ----------
             x : double, size (n,)
-                Decision variables.
+                Point at which the nonlinear equality constraints are evaluated.
             seed : int
                 Seed used to generate random numbers.
             problem : Problem
-                Optimization problem to be modified.
+                Problem for which the nonlinear equality constraints are modified.
             
             Returns
             -------
             ceq_ : double, size (m_nonlinear_eq,)
-                Modified values of the upper bounds of the nonlinear equality
-                constraints.
+                Modified values of the nonlinear equality constraints.
             %}
 
             % Convert x into a cell array. We will later use it to generate
@@ -1120,30 +1106,19 @@ classdef Feature < handle
                 case FeatureName.NOISY.value
                     % Similar to the case in the modifier_fun method.
                     rand_stream_noisy = obj.default_rng(seed, ceqCell{:}, xCell{:});
-                    if strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), 'absolute')
-                        if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
-                            ceq_ = ceq_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn(size(ceq_));
-                        elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
-                            ceq_ = ceq_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * (2 * rand_stream_noisy.rand(size(ceq_)) - 1);
-                        else
-                            ceq_ = ceq_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, size(ceq_));
-                        end
-                    elseif strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), 'relative')
-                        if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
-                            ceq_ = ceq_ .* (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn(size(ceq_)));
-                        elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
-                            ceq_ = ceq_ .* (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * (2 * rand_stream_noisy.rand(size(ceq_)) - 1));
-                        else
-                            ceq_ = ceq_ .* (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, size(ceq_)));
-                        end
+                    if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
+                        noise = rand_stream_noisy.randn(size(ceq_));
+                    elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
+                        noise = 2 * rand_stream_noisy.rand(size(ceq_)) - 1;
                     else
-                        if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
-                            ceq_ = ceq_ + max(1, abs(ceq_)) .* (obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * rand_stream_noisy.randn(size(ceq_)));
-                        elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
-                            ceq_ = ceq_ + max(1, abs(ceq_)) .* (obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * (2 * rand_stream_noisy.rand(size(ceq_)) - 1));
-                        else
-                            ceq_ = ceq_ + max(1, abs(ceq_)) .* (obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, size(ceq_)));
-                        end
+                        noise = obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, size(ceq_));
+                    end
+                    if strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), 'absolute')
+                        ceq_ = ceq_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * noise;
+                    elseif strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), 'relative')
+                        ceq_ = ceq_ .* (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * noise);
+                    else
+                        ceq_ = ceq_ + max(1, abs(ceq_)) .* (obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * noise);
                     end
                 case FeatureName.RANDOM_NAN.value
                     % Similar to the case in the modifier_fun method.
@@ -1173,7 +1148,10 @@ classdef Feature < handle
                 case FeatureName.QUANTIZED.value
                     % Similar to the case in the modifier_fun method.
                     mesh_size = obj.options.(FeatureOptionKey.MESH_SIZE.value);
-                    x = mesh_size * floor(x / mesh_size + 0.5);
+                    if strcmp(obj.options.(FeatureOptionKey.MESH_TYPE.value), 'relative')
+                        mesh_size = mesh_size .* max(1, abs(x));
+                    end
+                    x = mesh_size .* round(x ./ mesh_size);
                     ceq_ = problem.ceq(x);
                 otherwise
                     % Do nothing
@@ -1254,7 +1232,7 @@ classdef Feature < handle
                         obj.options.(FeatureOptionKey.N_RUNS.value) = 1;
                     end
                     if ~isfield(obj.options, FeatureOptionKey.UNRELAXABLE_BOUNDS.value)
-                        obj.options.(FeatureOptionKey.UNRELAXABLE_BOUNDS.value) = false;
+                        obj.options.(FeatureOptionKey.UNRELAXABLE_BOUNDS.value) = true;
                     end
                     if ~isfield(obj.options, FeatureOptionKey.UNRELAXABLE_LINEAR_CONSTRAINTS.value)
                         obj.options.(FeatureOptionKey.UNRELAXABLE_LINEAR_CONSTRAINTS.value) = false;
@@ -1280,20 +1258,13 @@ classdef Feature < handle
                         obj.options.(FeatureOptionKey.GROUND_TRUTH.value) = true;
                     end
                 otherwise
-                    error("MATLAB:Feature:UnknownFeature", "Unknown `Feature`: " + obj.name + ".")
+                    error("MATLAB:Feature:UnknownFeature", "Unknown feature: " + obj.name + ".")
             end
         end
 
     end
 
     methods (Static)
-        function value = default_distribution(rand_stream, n)
-            if nargin < 2
-                n = 1;
-            end
-            value = rand_stream.randn(n, 1);
-        end
-
         function rand_stream = default_rng(seed, varargin)
             % Generate a random number generator.
             %
@@ -1310,8 +1281,11 @@ classdef Feature < handle
             %     Random number generator.
 
             % Create an initial rand_stream with the given seed
+            if nargin < 1 || isempty(seed)
+                seed = 'shuffle';  % Default behavior is to shuffle the seed.
+            end
             if ~strcmp(seed, 'shuffle')
-                if isnan(seed)
+                if isnan(seed) || isinf(seed)
                     seed = 0;
                 end
                 if ~isrealscalar(seed)
@@ -1319,17 +1293,17 @@ classdef Feature < handle
                 end
                 seed = mod(floor(seed), 2^32);
             end
-            rand_stream = RandStream('mt19937ar', 'Seed', seed);
 
             % Convert all elements in varargin to double
             varargin = cellfun(@double, varargin, 'UniformOutput', false);
 
+            % Create a RandStream object with the specified seed
+            rand_stream = RandStream('mt19937ar', 'Seed', seed);
+
             % Generate a new seed based on the initial rand_stream and the additional arguments
             newSeed = abs(sin(1e5 * randn(rand_stream, 1)) + sum(sin(1e5 * prod(cellfun(@(x) x, varargin))))) * 1e9;
             newSeed = mod(floor(newSeed), 2^32);
-
-            % Create a new rand_stream with the new seed
-            if isnan(newSeed)
+            if isnan(newSeed) || isinf(newSeed)
                 newSeed = 0;
             end
             rand_stream = RandStream('mt19937ar', 'Seed', floor(newSeed));
