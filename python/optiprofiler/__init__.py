@@ -1,5 +1,5 @@
 from .problems import Problem
-from .profiles import run_benchmark
+from .profiles import benchmark
 from .utils import show_versions
 
 # PEP0440 compatible formatted version, see:
@@ -20,6 +20,6 @@ __version__ = '1.0.dev0'
 
 __all__ = [
     'Problem',
-    'run_benchmark',
+    'benchmark',
     'show_versions',
 ]

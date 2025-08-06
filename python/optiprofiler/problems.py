@@ -16,8 +16,8 @@ class Problem:
     Optimization problem to be used in the benchmarking.
 
     This class provides a uniform interface for providing general optimization
-    problems. It is used to supply custom problems to the `run_benchmark`
-    function, and the signature of solvers supplied to the `run_benchmark`
+    problems. It is used to supply custom problems to the `benchmark`
+    function, and the signature of solvers supplied to the `benchmark`
     function can be
 
         ``solver(problem) -> array_like, shape (n,)``
@@ -497,11 +497,12 @@ class Problem:
             raise ValueError(f'The argument `x` for method `fun` in problem must have size {self.n}.')
         try:
             f = self._fun(x)
+            f = float(f)
         except Exception as err:
             logger = get_logger(__name__)
             logger.warning(f'Failed to evaluate the objective function: {err}')
             f = np.nan
-        return float(f)
+        return f
 
     def grad(self, x):
         """
@@ -1061,7 +1062,7 @@ class FeaturedProblem(Problem):
 
         # Evaluate the modified the objective function value according to the feature and return the
         # modified value.
-        f = self._feature.modifier_fun(A @ x + b, self._seed, self._problem)
+        f = self._feature.modifier_fun(A @ x + b, self._seed, self._problem, self.n_eval)
         self._last_fun = f
 
         # Evaluate the objective function and store the results.
@@ -1112,7 +1113,7 @@ class FeaturedProblem(Problem):
         A, b = self._feature.modifier_affine(self._seed, self._problem)[:2]
 
         # Evaluate the modified nonlinear inequality constraints and store the results.
-        c = self._feature.modifier_cub(A @ x + b, self._seed, self._problem)
+        c = self._feature.modifier_cub(A @ x + b, self._seed, self._problem, len(self._cub_hist))
         self._last_cub = c
 
         # Evaluate the nonlinear inequality constraints and store the results.
@@ -1156,7 +1157,7 @@ class FeaturedProblem(Problem):
         A, b = self._feature.modifier_affine(self._seed, self._problem)[:2]
 
         # Evaluate the modified nonlinear equality constraints and store the results.
-        c = self._feature.modifier_ceq(A @ x + b, self._seed, self._problem)
+        c = self._feature.modifier_ceq(A @ x + b, self._seed, self._problem, len(self._ceq_hist))
         self._last_ceq = c
 
         # Evaluate the nonlinear equality constraints and store the results.
@@ -1224,6 +1225,8 @@ def _process_1d_array(x, message):
     ValueError
         If the array is invalid.
     """
+    if x is None or (isinstance(x, np.ndarray) and x.size == 0):
+        return x
     x = np.atleast_1d(np.squeeze(x)).astype(float)
     if x.ndim != 1:
         raise ValueError(message)
@@ -1250,6 +1253,8 @@ def _process_2d_array(x, message):
     ValueError
         If the array is invalid.
     """
+    if x is None or (isinstance(x, np.ndarray) and x.size == 0):
+        return x
     x = np.atleast_2d(x).astype(float)
     if x.ndim != 2:
         raise ValueError(message)

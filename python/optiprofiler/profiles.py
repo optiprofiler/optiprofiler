@@ -20,7 +20,7 @@ from .problems import FeaturedProblem
 from .utils import FeatureName, ProfileOption, FeatureOption, ProblemError, get_logger
 
 
-def run_benchmark(solvers, labels=(), cutest_problem_names=(), custom_problem_loader=None, custom_problem_names=(), feature_name=FeatureName.PLAIN.value, **kwargs):
+def benchmark(solvers, labels=(), cutest_problem_names=(), custom_problem_loader=None, custom_problem_names=(), feature_name=FeatureName.PLAIN.value, **kwargs):
     """
     Run the benchmark.
 

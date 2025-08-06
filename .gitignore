@@ -297,3 +297,7 @@ fabric.properties
 
 ## Python test file
 test_file.py
+
+## Problems
+problems/s2mpj/__pycache__/
+problems/s2mpj/src/__pycache__/

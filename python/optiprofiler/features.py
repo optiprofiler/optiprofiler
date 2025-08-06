@@ -510,7 +510,7 @@ class Feature:
         else:
             return problem.aeq, problem.beq
 
-    def modifier_fun(self, x, seed, problem):
+    def modifier_fun(self, x, seed, problem, n_eval):
         """
         Modify the objective function value.
 
@@ -522,6 +522,11 @@ class Feature:
             Seed used to generate random numbers.
         problem : `Problem`
             Problem for which the objective function is modified.
+        n_eval: int
+            Number of evaluations of the objective function.
+            (We will use it to generate random streams so that evaluating
+            the same point multiple times will not lead to the same
+            random numbers.)
 
         Returns
         -------
@@ -532,12 +537,12 @@ class Feature:
         f = problem.fun(x)
         if self._name == FeatureName.CUSTOM:
             if FeatureOption.MOD_FUN in self._options:
-                rng_custom = self.get_default_rng(seed, f, *x)
+                rng_custom = self.get_default_rng(seed, f, *x, n_eval)
                 return self._options[FeatureOption.MOD_FUN](x, rng_custom, problem)
             else:
                 return f
         elif self._name == FeatureName.NOISY:
-            rng_noisy = self.get_default_rng(seed, f, *x)
+            rng_noisy = self.get_default_rng(seed, f, *x, n_eval)
             if self._options[FeatureOption.DISTRIBUTION] == 'gaussian':
                 noise = rng_noisy.standard_normal()
             elif self._options[FeatureOption.DISTRIBUTION] == 'uniform':
@@ -551,7 +556,7 @@ class Feature:
             else:
                 return f + max(1, np.abs(f)) * self._options[FeatureOption.NOISE_LEVEL] * noise
         elif self._name == FeatureName.RANDOM_NAN:
-            rng_random_nan = self.get_default_rng(seed, f, *x)
+            rng_random_nan = self.get_default_rng(seed, f, *x, n_eval)
             if rng_random_nan.random() < self._options[FeatureOption.NAN_RATE]:
                 return np.nan
             else:
@@ -562,7 +567,7 @@ class Feature:
                 # Note that if f is NaN or Inf, digits will be set to NaN or Inf respectively, which will lead
                 # to an error when calling 'round(f, digits)'.
                 return f
-            rng_truncated = self.get_default_rng(seed, f, *x)
+            rng_truncated = self.get_default_rng(seed, f, *x, n_eval)
             if f == 0.0:
                 digits = self._options[FeatureOption.SIGNIFICANT_DIGITS] - 1
             else:
@@ -594,7 +599,7 @@ class Feature:
         else:
             return f
 
-    def modifier_cub(self, x, seed, problem):
+    def modifier_cub(self, x, seed, problem, n_eval_cub):
         """
         Modify the values of the nonlinear inequality constraints.
 
@@ -606,6 +611,11 @@ class Feature:
             Seed used to generate random numbers.
         problem : `Problem`
             Problem for which the nonlinear inequality constraints are modified.
+        n_eval_cub : int
+            Number of evaluations of the nonlinear inequality constraints.
+            (We will use it to generate random streams so that evaluating
+            the same point multiple times will not lead to the same
+            random numbers.)
 
         Returns
         -------
@@ -618,13 +628,13 @@ class Feature:
             return cub
         elif self._name == FeatureName.CUSTOM:
             if FeatureOption.MOD_CUB in self._options:
-                rng_custom = self.get_default_rng(seed, *cub, *x)
+                rng_custom = self.get_default_rng(seed, *cub, *x, n_eval_cub)
                 return self._options[FeatureOption.MOD_CUB](x, rng_custom, problem)
             else:
                 return cub
         elif self._name == FeatureName.NOISY:
             # Similar to the case in the modifier_fun method.
-            rng_noisy = self.get_default_rng(seed, *cub, *x)
+            rng_noisy = self.get_default_rng(seed, *cub, *x, n_eval_cub)
             if self._options[FeatureOption.DISTRIBUTION] == 'gaussian':
                 noise = rng_noisy.standard_normal(cub.size)
             elif self._options[FeatureOption.DISTRIBUTION] == 'uniform':
@@ -639,12 +649,12 @@ class Feature:
                 return cub + np.maximum(1, np.abs(cub)) * self._options[FeatureOption.NOISE_LEVEL] * noise
         elif self._name == FeatureName.RANDOM_NAN:
             # Similar to the case in the modifier_fun method.
-            rng_random_nan = self.get_default_rng(seed, *cub, *x)
+            rng_random_nan = self.get_default_rng(seed, *cub, *x, n_eval_cub)
             cub[rng_random_nan.random(cub.size) < self._options[FeatureOption.NAN_RATE]] = np.nan
             return cub
         elif self._name == FeatureName.TRUNCATED:
             # Similar to the case in the modifier_fun method.
-            rng_truncated = self.get_default_rng(seed, *cub, *x)
+            rng_truncated = self.get_default_rng(seed, *cub, *x, n_eval_cub)
             digits = np.zeros(cub.size)
             digits[cub == 0.0] = self._options[FeatureOption.SIGNIFICANT_DIGITS] - 1
             digits[cub != 0.0] = self._options[FeatureOption.SIGNIFICANT_DIGITS] - np.int_(np.log10(np.abs(cub[cub != 0.0]))) - 1
@@ -671,7 +681,7 @@ class Feature:
         else:
             return cub
 
-    def modifier_ceq(self, x, seed, problem):
+    def modifier_ceq(self, x, seed, problem, n_eval_ceq):
         """
         Modify the values of the nonlinear equality constraints.
 
@@ -683,6 +693,11 @@ class Feature:
             Seed used to generate random numbers.
         problem : `Problem`
             Problem for which the nonlinear equality constraints are modified.
+        n_eval_ceq : int
+            Number of evaluations of the nonlinear equality constraints.
+            (We will use it to generate random streams so that evaluating
+            the same point multiple times will not lead to the same
+            random numbers.)
 
         Returns
         -------
@@ -695,13 +710,13 @@ class Feature:
             return ceq
         elif self._name == FeatureName.CUSTOM:
             if FeatureOption.MOD_CEQ in self._options:
-                rng_custom = self.get_default_rng(seed, *ceq, *x)
+                rng_custom = self.get_default_rng(seed, *ceq, *x, n_eval_ceq)
                 return self._options[FeatureOption.MOD_CEQ](x, rng_custom, problem)
             else:
                 return ceq
         elif self._name == FeatureName.NOISY:
             # Similar to the case in the modifier_fun method.
-            rng_noisy = self.get_default_rng(seed, *ceq, *x)
+            rng_noisy = self.get_default_rng(seed, *ceq, *x, n_eval_ceq)
             if self._options[FeatureOption.DISTRIBUTION] == 'gaussian':
                 noise = rng_noisy.standard_normal(ceq.size)
             elif self._options[FeatureOption.DISTRIBUTION] == 'uniform':
@@ -716,12 +731,12 @@ class Feature:
                 return ceq + np.maximum(1, np.abs(ceq)) * self._options[FeatureOption.NOISE_LEVEL] * noise
         elif self._name == FeatureName.RANDOM_NAN:
             # Similar to the case in the modifier_fun method.
-            rng_random_nan = self.get_default_rng(seed, *ceq, *x)
+            rng_random_nan = self.get_default_rng(seed, *ceq, *x, n_eval_ceq)
             ceq[rng_random_nan.random(ceq.size) < self._options[FeatureOption.NAN_RATE]] = np.nan
             return ceq
         elif self._name == FeatureName.TRUNCATED:
             # Similar to the case in the modifier_fun method.
-            rng_truncated = self.get_default_rng(seed, *ceq, *x)
+            rng_truncated = self.get_default_rng(seed, *ceq, *x, n_eval_ceq)
             digits = np.zeros(ceq.size)
             digits[ceq == 0.0] = self._options[FeatureOption.SIGNIFICANT_DIGITS] - 1
             digits[ceq != 0.0] = self._options[FeatureOption.SIGNIFICANT_DIGITS] - np.int_(np.log10(np.abs(ceq[ceq != 0.0]))) - 1
@@ -833,7 +848,7 @@ class Feature:
         rng = np.random.default_rng(seed)
 
         # Generate a new seed based on the initial rand_stream and the additional arguments
-        new_seed = np.abs(np.sin(1e5 * rng.standard_normal()) + sum(np.sin(1e5 * arg) for arg in args))
+        new_seed = 1e9 * np.abs(np.sin(1e5 * rng.standard_normal()) + sum(np.sin(1e5 * arg) for arg in args))
         new_seed = int(new_seed) % 2**32
         if np.isnan(new_seed) or np.isinf(new_seed):
             new_seed = 0
