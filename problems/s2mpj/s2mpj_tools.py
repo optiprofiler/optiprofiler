@@ -9,7 +9,7 @@ add_optiprofiler()
 from optiprofiler.problems import Problem, FeaturedProblem
 from optiprofiler.features import Feature
 
-def s2mpj_load(problem_name, **kwargs):
+def s2mpj_load(problem_name, *args):
     """
     Load the S2MPJ problem.
 
@@ -48,7 +48,7 @@ def s2mpj_load(problem_name, **kwargs):
     problem_class = getattr(problem_module, problem_name)
 
     # Create an instance of the class from the module.
-    p = problem_class()
+    p = problem_class(*args)
 
     # List of feasibility problems.
     feasibility_list = [
@@ -59,9 +59,9 @@ def s2mpj_load(problem_name, **kwargs):
     # Collect the problem parameters for transforming into a Problem instance.
     name = problem_name
 
-    fun = lambda x: getfun(p, is_feasibility, x)
-    grad = lambda x: getgrad(p, is_feasibility, x)
-    hess = lambda x: gethess(p, is_feasibility, x)
+    fun = lambda x: _getfun(p, is_feasibility, x)
+    grad = lambda x: _getgrad(p, is_feasibility, x)
+    hess = lambda x: _gethess(p, is_feasibility, x)
 
     x0 = p.x0
     xl = p.xlower
@@ -79,7 +79,7 @@ def s2mpj_load(problem_name, **kwargs):
     buf = io.StringIO()
     with redirect_stdout(buf):
         try:
-            cx, jx = p.cJHx(x0)[2]
+            cx, jx = p.cJx(x0)[:2]
             if hasattr(cx, 'toarray'):
                 cx = cx.toarray()
             if hasattr(jx, 'toarray'):
@@ -89,7 +89,7 @@ def s2mpj_load(problem_name, **kwargs):
             jx = None
             bx = None
 
-    cx, jx = p.cJHx(x0)[2]
+    cx, jx = p.cJx(x0)[:2]
     if hasattr(cx, 'toarray'):
         cx = cx.toarray()
     if hasattr(jx, 'toarray'):
@@ -112,17 +112,18 @@ def s2mpj_load(problem_name, **kwargs):
     bub = np.concatenate([bx[idx_aub_le], -bx[idx_aub_ge]])
 
     getidx = lambda y, idx: y[idx]
-    ceq = lambda x: getidx(getcx(p, x), idx_ceq)
-    cub = lambda x: np.concatenate([getidx(getcx(p, x), idx_cle),
-                                    -getidx(getcx(p, x), idx_cge)])
-    hceq = lambda x: getidx(getHx(p, x), idx_ceq)
-    hcub = lambda x: np.hstack([getidx(getHx(p, x), idx_cle),
-                                getidx(getHx(p, x), idx_cge)])
+    ceq = lambda x: getidx(_getcx(p, x), idx_ceq)
+    cub = lambda x: np.concatenate([getidx(_getcx(p, x), idx_cle),
+                                    -getidx(_getcx(p, x), idx_cge)])
+
+    getidx_list = lambda y, idx: [y[i] for i in idx]
+    hceq = lambda x: getidx_list(_getHx(p, x), idx_ceq)
+    hcub = lambda x: getidx_list(_getHx(p, x), idx_cle) + getidx_list(_getHx(p, x), idx_cge)
 
     getidx_mat = lambda y, idx: y[idx, :]
-    jceq = lambda x: getidx_mat(getJx(p, x), idx_ceq)
-    jcub = lambda x: np.vstack([getidx_mat(getJx(p, x), idx_cle),
-                                -getidx_mat(getJx(p, x), idx_cge)])
+    jceq = lambda x: getidx_mat(_getJx(p, x), idx_ceq)
+    jcub = lambda x: np.vstack([getidx_mat(_getJx(p, x), idx_cle),
+                                -getidx_mat(_getJx(p, x), idx_cge)])
 
     # Construct the Problem instance.
     problem = Problem(fun, x0, name=name, xl=xl, xu=xu, aub=aub, bub=bub, aeq=aeq, beq=beq, cub=cub, ceq=ceq, grad=grad, hess=hess, jcub=jcub, jceq=jceq, hcub=hcub, hceq=hceq)
@@ -132,7 +133,7 @@ def s2mpj_load(problem_name, **kwargs):
 def s2mpj_select():
     pass
 
-def getfun(p, is_feasibility, x):
+def _getfun(p, is_feasibility, x):
     if is_feasibility:
         f = 0
     else:
@@ -144,7 +145,7 @@ def getfun(p, is_feasibility, x):
                 f = None
     return f
 
-def getgrad(p, is_feasibility, x):
+def _getgrad(p, is_feasibility, x):
     if is_feasibility:
         g = np.zeros_like(x)
     else:
@@ -157,7 +158,7 @@ def getgrad(p, is_feasibility, x):
                 g = None
     return g
 
-def gethess(p, is_feasibility, x):
+def _gethess(p, is_feasibility, x):
     if is_feasibility:
         h = np.zeros((len(x), len(x)))
     else:
@@ -170,7 +171,7 @@ def gethess(p, is_feasibility, x):
                 h = None
     return h
 
-def getcx(p, x):
+def _getcx(p, x):
     buf = io.StringIO()
     with redirect_stdout(buf):
         try:
@@ -180,24 +181,24 @@ def getcx(p, x):
             c = None
     return c
 
-def getJx(p, x):
+def _getJx(p, x):
     buf = io.StringIO()
     with redirect_stdout(buf):
         try:
-            _, j = p.cJHx(x)[2]
+            _, j = p.cJx(x)[:2]
             j = j.toarray() if hasattr(j, 'toarray') else j
         except Exception:
             j = None
     return j
 
-def getHx(p, x):
-    # buf = io.StringIO()
-    # with redirect_stdout(buf):
-    try:
-        _, _, h = p.cJHx(x)
-        for i in range(len(h)):
-            if hasattr(h[i], 'toarray'):
-                h[i] = h[i].toarray()
-    except Exception:
-            h = None
-    return h
+def _getHx(p, x):
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        try:
+            _, _, h = p.cJHx(x)
+            for i in range(len(h)):
+                if hasattr(h[i], 'toarray'):
+                    h[i] = h[i].toarray()
+        except Exception:
+                h = None
+        return h
