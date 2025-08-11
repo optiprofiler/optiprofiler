@@ -20,6 +20,8 @@ __version__ = '1.0.dev0'
 
 __all__ = [
     'Problem',
+    'Feature',
+    'FeaturedProblem',
     'benchmark',
     'show_versions',
 ]

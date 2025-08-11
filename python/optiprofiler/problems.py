@@ -541,7 +541,7 @@ class Problem:
                 logger.warning(f'Failed to evaluate the gradient of the objective function: {err}')
                 g = np.full(self.n, np.nan)
             g = _process_1d_array(g, 'The return value of the argument `grad` for problem must be a one-dimensional array.')
-            if g.size != self.n:
+            if g.size != 0 and g.size != self.n:
                 raise ValueError(f'The return value of the argument `grad` for problem must have size {self.n}.')
         return g
 
@@ -578,7 +578,7 @@ class Problem:
                 logger.warning(f'Failed to evaluate the Hessian of the objective function: {err}')
                 h = np.full((self.n, self.n), np.nan)
             h = _process_2d_array(h, 'The return value of the argument `hess` for problem must be a two-dimensional array.')
-            if h.shape != (self.n, self.n):
+            if h.size != 0 and h.shape != (self.n, self.n):
                 raise ValueError(f'The return value of the argument `hess` for problem must have shape {(self.n, self.n)}.')
         return h
 
@@ -615,7 +615,7 @@ class Problem:
                 logger.warning(f'Failed to evaluate the nonlinear inequality constraint function: {err}')
                 c = np.full(self.m_nonlinear_ub, np.nan)
             c = _process_1d_array(c, 'The return value of the argument `cub` for problem must be a one-dimensional array.')
-            if c.size != self.m_nonlinear_ub:
+            if c.size != 0 and c.size != self.m_nonlinear_ub:
                 raise ValueError(f'The return value of the argument `cub` for problem must have size {self.m_nonlinear_ub}.')
         return c
 
@@ -652,7 +652,7 @@ class Problem:
                 logger.warning(f'Failed to evaluate the nonlinear equality constraint function: {err}')
                 c = np.full(self.m_nonlinear_eq, np.nan)
             c = _process_1d_array(c, 'The return value of the argument `ceq` for problem must be a one-dimensional array.')
-            if c.size != self.m_nonlinear_eq:
+            if c.size != 0 and c.size != self.m_nonlinear_eq:
                 raise ValueError(f'The return value of the argument `ceq` for problem must have size {self.m_nonlinear_eq}.')
         return c
 
@@ -689,7 +689,7 @@ class Problem:
                 logger.warning(f'Failed to evaluate the Jacobian of the nonlinear inequality constraint function: {err}')
                 j = np.full((self.m_nonlinear_ub, self.n), np.nan)
             j = _process_2d_array(j, 'The return value of the argument `jcub` for problem must be a two-dimensional array.')
-            if j.shape != (self.m_nonlinear_ub, self.n):
+            if j.size != 0 and j.shape != (self.m_nonlinear_ub, self.n):
                 raise ValueError(f'The return value of the argument `jcub` for problem must have shape {(self.m_nonlinear_ub, self.n)}.')
         return j
 
@@ -726,7 +726,7 @@ class Problem:
                 logger.warning(f'Failed to evaluate the Jacobian of the nonlinear equality constraint function: {err}')
                 j = np.full((self.m_nonlinear_eq, self.n), np.nan)
             j = _process_2d_array(j, 'The return value of the argument `jceq` for problem must be a two-dimensional array.')
-            if j.shape != (self.m_nonlinear_eq, self.n):
+            if j.size != 0 and j.shape != (self.m_nonlinear_eq, self.n):
                 raise ValueError(f'The return value of the argument `jceq` for problem must have shape {(self.m_nonlinear_eq, self.n)}.')
         return j
 
@@ -766,7 +766,7 @@ class Problem:
             if len(h) != self.m_nonlinear_ub:
                 raise ValueError(f'The return value of the argument `hcub` for problem must have {self.m_nonlinear_ub} elements.')
             for h_i in h:
-                if h_i.shape != (self.n, self.n):
+                if h_i.size != 0 and h_i.shape != (self.n, self.n):
                     raise ValueError(f'Each element of the return value of the argument `hcub` for problem must have shape {(self.n, self.n)}.')
         return h
 
@@ -806,7 +806,7 @@ class Problem:
             if len(h) != self.m_nonlinear_eq:
                 raise ValueError(f'The return value of the argument `hceq` for problem must have {self.m_nonlinear_eq} elements.')
             for h_i in h:
-                if h_i.shape != (self.n, self.n):
+                if h_i.size != 0 and h_i.shape != (self.n, self.n):
                     raise ValueError(f'Each element of the return value of the argument `hceq` for problem must have shape {(self.n, self.n)}.')
         return h
 
@@ -1229,7 +1229,9 @@ def _process_1d_array(x, message):
     ValueError
         If the array is invalid.
     """
-    if x is None or (isinstance(x, np.ndarray) and x.size == 0):
+    if x is None:
+        return np.empty(0)
+    elif isinstance(x, np.ndarray) and x.size == 0:
         return x
     x = np.atleast_1d(np.squeeze(x)).astype(float)
     if x.ndim != 1:
@@ -1257,7 +1259,9 @@ def _process_2d_array(x, message):
     ValueError
         If the array is invalid.
     """
-    if x is None or (isinstance(x, np.ndarray) and x.size == 0):
+    if x is None:
+        return np.empty(0)
+    elif isinstance(x, np.ndarray) and x.size == 0:
         return x
     x = np.atleast_2d(x).astype(float)
     if x.ndim != 2:

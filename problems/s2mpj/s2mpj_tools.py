@@ -17,7 +17,7 @@ def s2mpj_load(problem_name, *args):
     ----------
     problem_name : str
         Name of the problem in S2MPJ.
-    **args : tuple
+    *args : tuple
         Additional arguments to pass to the problem class constructor
 
     Returns
@@ -105,16 +105,16 @@ def s2mpj_load(problem_name, *args):
     getidx = lambda y, idx: y[idx] if y is not None else None
     ceq = lambda x: getidx(_getcx(p, x), idx_ceq)
     cub = lambda x: np.concatenate([getidx(_getcx(p, x), idx_cle),
-                                    -getidx(_getcx(p, x), idx_cge)]) if _getcx(p, x) is not None else None
+                                    -getidx(_getcx(p, x), idx_cge)]) if getidx(_getcx(p, x), idx_cle) is not None else None
 
-    getidx_list = lambda y, idx: [y[i] for i in idx]
+    getidx_list = lambda y, idx: [y[i] for i in idx] if y is not None else []
     hceq = lambda x: getidx_list(_getHx(p, x), idx_ceq)
     hcub = lambda x: getidx_list(_getHx(p, x), idx_cle) + getidx_list(_getHx(p, x), idx_cge)
 
-    getidx_mat = lambda y, idx: y[idx, :]
+    getidx_mat = lambda y, idx: y[idx, :] if y is not None else None
     jceq = lambda x: getidx_mat(_getJx(p, x), idx_ceq)
     jcub = lambda x: np.vstack([getidx_mat(_getJx(p, x), idx_cle),
-                                -getidx_mat(_getJx(p, x), idx_cge)])
+                                -getidx_mat(_getJx(p, x), idx_cge)]) if getidx_mat(_getJx(p, x), idx_cle) is not None else None
 
     # Construct the Problem instance.
     problem = Problem(fun, x0, name=name, xl=xl, xu=xu, aub=aub, bub=bub, aeq=aeq, beq=beq, cub=cub, ceq=ceq, grad=grad, hess=hess, jcub=jcub, jceq=jceq, hcub=hcub, hceq=hceq)
@@ -151,7 +151,7 @@ def _getgrad(p, is_feasibility, x):
                 _, g = p.fgx(x)
                 g = g.toarray() if hasattr(g, 'toarray') else g
             except Exception:
-                g = np.empty((0, len(x)))
+                g = None
     return g
 
 def _gethess(p, is_feasibility, x):
@@ -174,7 +174,7 @@ def _getcx(p, x):
             c = p.cx(x)
             c = c.toarray() if hasattr(c, 'toarray') else c
         except Exception:
-            c = np.empty((0, len(x)))
+            c = None
     return c
 
 def _getJx(p, x):
