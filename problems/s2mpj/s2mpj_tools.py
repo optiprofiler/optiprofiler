@@ -17,8 +17,8 @@ def s2mpj_load(problem_name, *args):
     ----------
     problem_name : str
         Name of the problem in S2MPJ.
-    **kwargs : dict
-        Additional keyword arguments for the problem.
+    **args : tuple
+        Additional arguments to pass to the problem class constructor
 
     Returns
     -------
@@ -51,9 +51,7 @@ def s2mpj_load(problem_name, *args):
     p = problem_class(*args)
 
     # List of feasibility problems.
-    feasibility_list = [
-        'AIRCRFTA', 'ARGAUSS', 'ARGLALE', 'ARGLBLE'
-        ]
+    feasibility_list = []
     is_feasibility = problem_name in feasibility_list
 
     # Collect the problem parameters for transforming into a Problem instance.
@@ -89,13 +87,6 @@ def s2mpj_load(problem_name, *args):
             jx = None
             bx = None
 
-    cx, jx = p.cJx(x0)[:2]
-    if hasattr(cx, 'toarray'):
-        cx = cx.toarray()
-    if hasattr(jx, 'toarray'):
-        jx = jx.toarray()
-    bx = jx @ x0 - cx
-
     nonlincons = np.setdiff1d(np.arange(p.m), p.lincons)
     idx_le = np.arange(p.nle)
     idx_eq = np.arange(p.nle, p.nle + p.neq)
@@ -106,15 +97,15 @@ def s2mpj_load(problem_name, *args):
     idx_cle = np.intersect1d(idx_le, nonlincons)
     idx_ceq = np.intersect1d(idx_eq, nonlincons)
     idx_cge = np.intersect1d(idx_ge, nonlincons)
-    aeq = jx[idx_aeq, :]
-    aub =np.vstack([jx[idx_aub_le, :], -jx[idx_aub_ge, :]])
-    beq = bx[idx_aeq]
-    bub = np.concatenate([bx[idx_aub_le], -bx[idx_aub_ge]])
+    aeq = jx[idx_aeq, :] if jx is not None else None
+    aub = np.vstack([jx[idx_aub_le, :], -jx[idx_aub_ge, :]]) if jx is not None else None
+    beq = bx[idx_aeq] if bx is not None else None
+    bub = np.concatenate([bx[idx_aub_le], -bx[idx_aub_ge]]) if bx is not None else None
 
-    getidx = lambda y, idx: y[idx]
+    getidx = lambda y, idx: y[idx] if y is not None else None
     ceq = lambda x: getidx(_getcx(p, x), idx_ceq)
     cub = lambda x: np.concatenate([getidx(_getcx(p, x), idx_cle),
-                                    -getidx(_getcx(p, x), idx_cge)])
+                                    -getidx(_getcx(p, x), idx_cge)]) if _getcx(p, x) is not None else None
 
     getidx_list = lambda y, idx: [y[i] for i in idx]
     hceq = lambda x: getidx_list(_getHx(p, x), idx_ceq)
@@ -133,6 +124,11 @@ def s2mpj_load(problem_name, *args):
 def s2mpj_select():
     pass
 
+
+
+
+
+
 def _getfun(p, is_feasibility, x):
     if is_feasibility:
         f = 0
@@ -142,7 +138,7 @@ def _getfun(p, is_feasibility, x):
             try:
                 f = p.fx(x)
             except Exception:
-                f = None
+                f = np.empty(0)
     return f
 
 def _getgrad(p, is_feasibility, x):
@@ -155,7 +151,7 @@ def _getgrad(p, is_feasibility, x):
                 _, g = p.fgx(x)
                 g = g.toarray() if hasattr(g, 'toarray') else g
             except Exception:
-                g = None
+                g = np.empty((0, len(x)))
     return g
 
 def _gethess(p, is_feasibility, x):
@@ -178,7 +174,7 @@ def _getcx(p, x):
             c = p.cx(x)
             c = c.toarray() if hasattr(c, 'toarray') else c
         except Exception:
-            c = None
+            c = np.empty((0, len(x)))
     return c
 
 def _getJx(p, x):

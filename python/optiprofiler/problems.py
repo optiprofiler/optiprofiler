@@ -181,24 +181,28 @@ class Problem:
 
         # Preprocess the nonlinear constraints.
         self._cub = cub
-        self._m_nonlinear_ub = 0
         if self._cub is not None:
             if not callable(self._cub):
                 raise TypeError('The argument `cub` for problem must be callable.')
             else:
                 try:
-                    self._m_nonlinear_ub = self._cub(self._x0).size
+                    if self._cub(self._x0) is not None:
+                        self._m_nonlinear_ub = self._cub(self._x0).size
+                    else:
+                        self._m_nonlinear_ub = 0
                 except Exception as err:
                     logger = get_logger(__name__)
                     logger.warning(f'Failed to evaluate the nonlinear inequality constraint function: {err}')
         self._ceq = ceq
-        self._m_nonlinear_eq = 0
         if self._ceq is not None:
             if not callable(self._ceq):
                 raise TypeError('The argument `ceq` for problem must be callable.')
             else:
                 try:
-                    self._m_nonlinear_eq = self._ceq(self._x0).size
+                    if self._ceq(self._x0) is not None:
+                        self._m_nonlinear_eq = self._ceq(self._x0).size
+                    else:
+                        self._m_nonlinear_eq = 0
                 except Exception as err:
                     logger = get_logger(__name__)
                     logger.warning(f'Failed to evaluate nonlinear equality constraints: {err}')
