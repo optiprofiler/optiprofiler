@@ -25,7 +25,7 @@ To do this, run:
 
     scores = benchmark({@solver1, @solver2})
 
-This will benchmark the two solvers on the default test suite, which means ``'plain'`` feature (see :ref:`Feature <matfeature>`) and 49 unconstrained problems from the default problem library. It will also return the scores of the two solvers based on the profiles.
+This will benchmark the two solvers under the default test setting, which means ``'plain'`` feature (see :ref:`Feature <matfeature>`) and unconstrained problems from the default problem library whose dimension is smaller or equal to 2. It will also return the scores of the two solvers based on the profiles.
 
 There will be a new folder named ``out`` in the current working directory, which contains a subfolder named ``plain_<timestamp>`` with all the detailed results.
 
@@ -34,7 +34,7 @@ There will be a new folder named ``out`` in the current working directory, which
    :align: center
    :alt: Structure of the plain_<timestamp> subfolder
    
-   Figure 1: The subfolder structure containing detailed results of the benchmarking run.
+   Figure 1: Screenshot of the subfolder containing detailed results of the benchmarking run.
 
 Additionally, a PDF file named ``summary.pdf`` is generated, summarizing all the performance profiles and data profiles.
 
@@ -43,7 +43,7 @@ Additionally, a PDF file named ``summary.pdf`` is generated, summarizing all the
    :align: center
    :alt: Summary PDF preview
    
-   Figure 2: Example of the summary.pdf file summarizing all the performance profiles and data profiles.
+   Figure 2: Screenshot of the summary PDF file summarizing all the performance profiles and data profiles.
 
 .. _example2:
 
