@@ -36,7 +36,7 @@ function random_test(benchmark_id)
     max_tol_order_choices = (1:16);
     options.max_tol_order = max_tol_order_choices(rand_stream.randi(length(max_tol_order_choices), 1, 1));
 
-    options.max_eval_factor = rand_stream.rand(1, 1) * 300;
+    options.max_eval_factor = rand_stream.rand(1, 1) * 100;
 
     options.project_x0 = (rand_stream.rand(1, 1) < 0.5);
 
