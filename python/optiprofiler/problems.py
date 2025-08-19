@@ -180,6 +180,7 @@ class Problem:
             self._beq = _process_1d_array(self._beq, 'The argument `beq` for problem must be a one-dimensional array.')
 
         # Preprocess the nonlinear constraints.
+        self._m_nonlinear_ub = 0
         self._cub = cub
         if self._cub is not None:
             if not callable(self._cub):
@@ -193,6 +194,7 @@ class Problem:
                 except Exception as err:
                     logger = get_logger(__name__)
                     logger.warning(f'Failed to evaluate the nonlinear inequality constraint function: {err}')
+        self._m_nonlinear_eq = 0
         self._ceq = ceq
         if self._ceq is not None:
             if not callable(self._ceq):
