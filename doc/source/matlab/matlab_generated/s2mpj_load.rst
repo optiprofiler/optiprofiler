@@ -16,6 +16,6 @@ There are two ways to get **problem_name** you want.
 
 1. Use the function **s2mpj_select** to get the problem names you want.
 
-2. Look for a csv file named 'probinfo.csv' in the same directory as this function. The csv file contains the information of all the problems in S2MPJ.
+2. Look for a csv file named 'probinfo_matlab.csv' in the same directory as this function. The csv file contains the information of all the problems in S2MPJ.
 
-Note that problem name may appear in the form of 'problem_name_dim_m_con' where 'problem_name' is the name of the problem, 'dim' is the dimension of the problem, and 'm_con' is the number of linear and nonlinear constraints of the problem. This case only happens when this problem can accept extra arguments to change the dimension or the number of constraints. This information is stored in the 'probinfo.csv' file as the last few columns.
+Note that problem name may appear in the form of 'problem_name_dim_m_con' where 'problem_name' is the name of the problem, 'dim' is the dimension of the problem, and 'm_con' is the number of linear and nonlinear constraints of the problem. This case only happens when this problem can accept extra arguments to change the dimension or the number of constraints. This information is stored in the 'probinfo_matlab.csv' file as the last few columns.

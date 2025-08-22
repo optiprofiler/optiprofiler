@@ -12,16 +12,17 @@ function problem = s2mpj_load(problem_name, varargin)
 %
 %       1. Use the function `s2mpj_select` to get the problem names you want.
 %
-%       2. Look for a csv file named 'probinfo.csv' in the same directory as
-%          this function. The csv file contains the information of all the
-%          problems in S2MPJ.
+%       2. Look for a csv file named 'probinfo_matlab.csv' in the same
+%          directory as this function. The csv file contains the information of
+%          all the problems in S2MPJ.
 %
 %   Note that problem name may appear in the form of 'problem_name_dim_mcon'
 %   where 'problem_name' is the name of the problem, 'dim' is the dimension of
 %   the problem, and 'mcon' is the number of linear and nonlinear constraints
 %   of the problem. This case only happens when this problem can accept extra
 %   arguments to change the dimension or the number of constraints. This
-%   information is stored in the 'probinfo.csv' file as the last few columns.
+%   information is stored in the 'probinfo_matlab.csv' file as the last few
+%   columns.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %   Some details about S2MPJ.
@@ -111,10 +112,10 @@ function problem = s2mpj_load(problem_name, varargin)
     [is_problem_parameterized, problem_name, dim, mcon] = isproblem_parameterized(problem_name);
 
     if is_problem_parameterized
-        load('probinfo.mat', 'probinfo');
+        load('probinfo_matlab.mat', 'probinfo');
         idx_pb = find(strcmp(probinfo(:, 1), problem_name), 1, 'first');
         if isempty(idx_pb)
-            error('Problem %s not found in probinfo.mat.', problem_name);
+            error('Problem %s not found in probinfo_matlab.mat.', problem_name);
         end
         % Find the corresponding argins for the specific dimension.
         argins = probinfo{idx_pb, 25};

@@ -45,14 +45,14 @@ function [problem_names, argins] = s2mpj_select(options)
 %   Three things to note:
 %
 %       1. All the information about the problems can be found in a csv file
-%          named 'probinfo.csv' in the same directory as this function.
+%          named 'probinfo_matlab.csv' in the same directory as this function.
 %       2. The problem name may appear in the form of 'problem_name_dim_mcon'
 %          where 'problem_name' is the name of the problem, 'dim' is the
 %          dimension of the problem, and 'mcon' is the number of linear and
 %          nonlinear constraints of the problem. This case only happens when
 %          this problem can accept extra arguments to change the dimension or
 %          the number of constraints. This information is stored in the
-%          'probinfo.csv' file as the last few columns.
+%          'probinfo_matlab.csv' file as the last few columns.
 %       3. There is a file `variable_size.txt` in the same directory as this
 %          function. This file can be used to set the `variable_size` option
 %          to 'default', 'min', 'max', or 'all' (without quotes in the file).
@@ -160,7 +160,7 @@ function [problem_names, argins] = s2mpj_select(options)
     options.excludelist = unique([options.excludelist, {'DANWOODLS', 'MISRA1CLS', 'ROSSIMP1', 'ROSSIMP2', 'ROSSIMP3'}]);
 
     % Load the data from a .mat file.
-    load('probinfo.mat', 'probinfo');
+    load('probinfo_matlab.mat', 'probinfo');
 
     for i_problem = 2:size(probinfo, 1)
         problem_name = probinfo{i_problem, 1};
