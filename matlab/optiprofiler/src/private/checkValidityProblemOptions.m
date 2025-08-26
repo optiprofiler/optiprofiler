@@ -10,7 +10,7 @@ function problem_options = checkValidityProblemOptions(problem_options, profile_
         mydir = fileparts(mfilename('fullpath'));
         problems_dir = fullfile(mydir, '../../../../problems');
         subfolder_info = dir(problems_dir);
-        subfolder_names = {subfolder_info([subfolder_info.isdir] & ~ismember({subfolder_info.name}, {'.', '..'})).name};
+        subfolder_names = {subfolder_info([subfolder_info.isdir] & ~ismember({subfolder_info.name}, {'.', '..', '__pycache__'})).name};
         if isempty(problem_options.(ProblemOptionKey.PLIBS.value)) || ~all(cellfun(@ischarstr, problem_options.(ProblemOptionKey.PLIBS.value))) || ~all(ismember(problem_options.(ProblemOptionKey.PLIBS.value), subfolder_names))
             error("MATLAB:checkValidityProblemOptions:plibsNotValid", "The option `plibs` should be a nonempty cell array of strings or chars selected from '%s'.", strjoin(subfolder_names, "', '"));
         end
@@ -140,19 +140,6 @@ function problem_options = checkValidityProblemOptions(problem_options, profile_
             error("MATLAB:checkValidityProblemOptions:maxconSmallerThanmincon", "The option `mincon` should be smaller or equal to `maxcon`.");
         end
     end
-    % Judge whether problem_options.mincon is smaller or equal to both problem_options.minlcon and problem_options.minnlcon.
-    if isfield(problem_options, ProblemOptionKey.MINCON.value) && isfield(problem_options, ProblemOptionKey.MINLCON.value) && isfield(problem_options, ProblemOptionKey.MINNLCON.value)
-        if problem_options.(ProblemOptionKey.MINCON.value) > min([problem_options.(ProblemOptionKey.MINLCON.value), problem_options.(ProblemOptionKey.MINNLCON.value)])
-            error("MATLAB:checkValidityProblemOptions:minconSmallerThanminlconAndminnlcon", "The option `mincon` should be smaller or equal to both `minlcon` and `minnlcon`.");
-        end
-    end
-    % Judge whether problem_options.maxcon is greater or equal to both problem_options.maxlcon and problem_options.maxnlcon.
-    if isfield(problem_options, ProblemOptionKey.MAXCON.value) && isfield(problem_options, ProblemOptionKey.MAXLCON.value) && isfield(problem_options, ProblemOptionKey.MAXNLCON.value)
-        if problem_options.(ProblemOptionKey.MAXCON.value) < max([problem_options.(ProblemOptionKey.MAXLCON.value), problem_options.(ProblemOptionKey.MAXNLCON.value)])
-            error("MATLAB:checkValidityProblemOptions:maxconGreaterThanmaxlconAndmaxnlcon", "The option `maxcon` should be greater or equal to both `maxlcon` and `maxnlcon`.");
-        end
-    end
-
 
 
     % Judge whether problem_options.excludelist is a cell array of strings or chars.

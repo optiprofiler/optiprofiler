@@ -12,7 +12,7 @@ classdef TestCheckValidityProfileOptions < matlab.unittest.TestCase
             options = rmfield(options, 'n_jobs');
 
 
-            options.seed = 0;
+            options.seed = -1;
             testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:seedNotValid");
             options = rmfield(options, 'seed');
 

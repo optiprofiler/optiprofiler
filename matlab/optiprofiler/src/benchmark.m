@@ -157,7 +157,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %       - score_weight_fun: the weight function to calculate the scores of the
 %         solvers in the performance and data profiles. It should be a function
 %         handle representing a nonnegative function in R^+. Default is 1.
-%       - seed: the seed of the random number generator. Default is 1.
+%       - seed: the seed of the random number generator. Default is 0.
 %       - semilogx: whether to use the semilogx scale during plotting profiles
 %         (performance profiles and data profiles). Default is true.
 %       - silent: whether to show the information of the progress. Default is

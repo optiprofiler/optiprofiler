@@ -17,35 +17,33 @@ from matplotlib.ticker import MaxNLocator, FuncFormatter
 
 from .features import Feature
 from .problems import FeaturedProblem
-from .utils import FeatureName, ProfileOption, FeatureOption, ProblemError, get_logger
+from .utils import FeatureName, ProfileOption, FeatureOption, ProblemOption, ProblemError, get_logger
 
 
-def benchmark(solvers, labels=(), cutest_problem_names=(), custom_problem_loader=None, custom_problem_names=(), feature_name=FeatureName.PLAIN.value, **kwargs):
+def benchmark(
+    solvers: list[callable] | None = None,
+    /,
+    **kwargs
+) -> tuple[np.ndarray, np.ndarray | None, list[dict] | None]:
     """
-    Run the benchmark.
+    Benchmark optimization solvers on a set of problems with specified features.
 
-    This function generates performance/data profiles [1]_, [2]_, [4]_ and
-    log-ratio profiles [3]_, [5]_ for the given solvers on the given problems.
-
-    .. caution::
-
-        To use CUTEst problems in your benchmark, you must first install
-        `PyCUTEst <https://jfowkes.github.io/pycutest/>`_. Follow the
-        instructions carefully, as the CUTEst library must be installed in
-        order to use `PyCUTEst <https://jfowkes.github.io/pycutest/>`_.
+    This function creates multiple profiles for benchmarking optimization solvers on a
+    set of problems with different features. It generates performance profiles, data
+    profiles, and log-ratio profiles [1]_, [2]_, [4]_, [5]_ for the given solvers on
+    various test suites, returning solver scores based on the profiles.
 
     Parameters
     ----------
-    solvers : list of callable
+    solvers : list of callable, optional if 'load' in ``**kwargs``
         Solvers to benchmark. Each solver must be a callable, as follows. For
         unconstrained problems, the signature of the callable can be
 
             ``solver(fun, x0) -> numpy.ndarray, shape (n,)``
 
         where ``fun`` is the objective function and ``x0`` is the initial
-        point. The solver must return the best point found. The objective
-        function returns a scalar and should be minimized. For
-        bound-constrained problems, the signature of the callable can be
+        point. The solver must return a numpy array as the solution. For
+        bound constrained problems, the signature of the callable can be
 
             ``solver(fun, x0, lb, ub) -> numpy.ndarray, shape (n,)``
 
@@ -69,85 +67,393 @@ def benchmark(solvers, labels=(), cutest_problem_names=(), custom_problem_loader
         where ``problem`` is an instance of `Problem`.
 
         All vectors and matrices mentioned above are `numpy.ndarray`.
-    labels : list of str, optional
-        Labels of the solvers in the plots. By default, the labels are the
-        names of the callables in `solvers`.
-    cutest_problem_names : list of str, optional
-        Names of the CUTEst problems to use in the benchmark. Each of these
-        problems will be loaded from CUTEst with their default parameters. If a
-        problem cannot be loaded, it is ignored. You can use the function
-        `find_cutest_problems` to obtain a list of available CUTEst problems.
-    custom_problem_loader : callable, optional
-        Callable to load custom problems. The signature of the callable must be
 
-            ``custom_problem_loader(problem_name) -> Problem``
-
-        where ``problem_name`` is the name of the problem to load.
-    custom_problem_names : list of str, optional
-        Names of the custom problems to use in the benchmark. Each of these
-        problems will be loaded using the custom problem loader.
-    feature_name : str, optional
-        Name of the feature to use in the benchmark. Available features are
-
-            ``'plain'`` :
-                The problems are not modified.
-            ``'noisy'`` :
-                The objective function are perturbed with noise.
-            ``'permuted'`` :
-                The variables are randomly permuted.
-            ``'perturbed_x0'`` :
-                The initial point is randomly perturbed.
-            ``'random_nan'`` :
-                NaN values are randomly returned by the objective function.
-            ``'truncated'`` :
-                The objective function values are truncated.
-            ``'unrelaxable_constraints'`` :
-                The objective function values are infinite if constraints are not satisfied.
-            ``'all'`` :
-                All the features are used.
+        If the 'load' option is provided in ``**kwargs``, solvers can be None,
+        in which case data from a previous experiment will be loaded to generate profiles.
 
     Other Parameters
     ----------------
-    n_jobs : int, optional
-        Number of parallel workers to use.
-    benchmark_id : str, optional
-        Identifier of the benchmark to use in the output paths.
-    project_x0 : bool, optional
-        Whether to project the initial points of all the problems included in
-        the benchmark onto their feasible set.
-    summarize_performance_profiles : bool, optional
-        Whether to plot the performance profiles on the summary.
-    summarize_data_profiles : bool, optional
-        Whether to plot the data profiles on the summary.
-    summarize_log_ratio_profiles : bool, optional
-        Whether to plot the log-ratio profiles on the summary.
+    **Options for features:**
+
+    feature_name : str, optional
+        Name of the feature to apply to problems. The available features are
+        'plain', 'perturbed_x0', 'noisy', 'truncated', 'permuted',
+        'linearly_transformed', 'random_nan', 'unrelaxable_constraints',
+        'nonquantifiable_constraints', 'quantized', and 'custom'. Default is
+        'plain'.
     n_runs : int, optional
-        Number of runs to perform for each solver on each problem.
-    distribution : callable, optional
-        Only used when ``feature_name='noisy'``. Distribution of the noise to
-        include in the objective function values.
-    perturbed_trailing_zeros : bool, optional
-        Only used when ``feature_name='truncated'``. Whether to perturb the
-        trailing zeros in the objective function values.
-    rate_nan : float, optional
-        Only used when ``feature_name='random_nan'``. Rate of NaN values
-        occurring in the objective function values.
+        The number of runs of the experiments with the given feature.
+        Default is 5 for stochastic features and 1 for deterministic
+        features.
+    distribution : str or callable, optional
+        The distribution of perturbation in 'perturbed_x0'
+        feature or noise in 'noisy' feature. It should be either a str
+        (or char), or a callable
+            (random_stream, dimension) -> random vector,
+        accepting a random_stream and the dimension of a problem and
+        returning a random vector with the given dimension. In 'perturbed_x0'
+        case, the str should be either 'spherical' or 'gaussian' (default is
+        'spherical'). In 'noisy' case, the str should be either 'gaussian'
+        or 'uniform' (default is 'gaussian').
+    perturbation_level : float, optional
+        The magnitude of the perturbation to the initial
+        guess in the 'perturbed_x0' feature. Default is 1e-3.
+    noise_level : float, optional
+        The magnitude of the noise in the 'noisy' feature.
+        Default is 1e-3.
+    noise_type : str, optional
+        The type of the noise in the 'noisy' features. It should
+        be either 'absolute', 'relative', or 'mixed'. Default is 'mixed'.
     significant_digits : int, optional
-        Only used when ``feature_name='truncated'``. Number of significant
-        digits to keep in the objective function values.
-    type : str, optional
-        Only used when ``feature_name='noisy'``. Type of the noise to include
-        in the objective function values. Available types are ``'absolute'``
-        and ``'relative'``.
+        The number of significant digits in the
+        'truncated' feature. Default is 6.
+    perturbed_trailing_digits : bool, optional
+        Whether we will randomize the trailing
+        zeros of the objective function value in the 'perturbed_x0' feature.
+        Default is False.
+    rotated : bool, optional
+        Whether to use a random or given rotation matrix to rotate
+        the coordinates of a problem in the 'linearly_transformed' feature.
+        Default is True.
+    condition_factor : float, optional
+        The scaling factor of the condition number of the
+        linear transformation in the 'linearly_transformed' feature. More
+        specifically, the condition number of the linear transformation will
+        be 2 ** (condition_factor * n / 2), where n is the dimension of the
+        problem. Default is 0.
+    nan_rate : float, optional
+        The probability that the evaluation of the objective
+        function will return np.nan in the 'random_nan' feature. Default is
+        0.05.
     unrelaxable_bounds : bool, optional
-        Only used when ``feature_name='unrelaxable_constraints'``. Whether to
-        make the bounds unrelaxable.
+        Whether the bound constraints are unrelaxable or
+        not in the 'unrelaxable_constraints' feature. Default is True.
     unrelaxable_linear_constraints : bool, optional
-        Only used when ``feature_name='unrelaxable_constraints'``. Whether to
-        make the linear constraints unrelaxable.
+        Whether the linear constraints are
+        unrelaxable or not in the 'unrelaxable_constraints' feature. Default
+        is False.
     unrelaxable_nonlinear_constraints : bool, optional
-        Only used when ``feature_name='unrelaxable_constraints'``. Whether to
-        make the nonlinear constraints unrelaxable.
+        Whether the nonlinear constraints
+        are unrelaxable or not in the 'unrelaxable_constraints' feature.
+        Default is False.
+    mesh_size : float, optional
+        The size of the mesh in the 'quantized' feature. Default
+        is 1e-3.
+    mesh_type : str, optional
+        The type of the mesh in the 'quantized' feature. It should
+        be either 'absolute' or 'relative'. Default is 'absolute'.
+    ground_truth : bool, optional
+        Whether the featured problem is the ground truth or not
+        in the 'quantized' feature. Default is True.
+    mod_x0 : callable, optional
+        The modifier function to modify the initial guess in the
+        'custom' feature. It should be a callable as follows:
+            (random_stream, problem) -> modified_x0,
+        where problem is an instance of the class Problem, and
+        modified_x0 is the modified initial guess. No default.
+    mod_affine : callable, optional
+        The modifier function to generate the affine
+        transformation applied to the variables in the 'custom' feature. It
+        should be a callable as follows:
+            (random_stream, problem) -> (A, b, inv),
+        where problem is an instance of the class Problem, A is the
+        matrix of the affine transformation, b is the vector of the affine
+        transformation, and inv is the inverse of matrix A. No default.
+    mod_bounds : callable, optional
+        The modifier function to modify the bound constraints in
+        the 'custom' feature. It should be a callable as follows:
+            (random_stream, problem) -> (modified_xl, modified_xu),
+        where problem is an instance of the class Problem, modified_xl is
+        the modified lower bound, and modified_xu is the modified upper
+        bound. No default.
+    mod_linear_ub : callable, optional
+        The modifier function to modify the linear inequality
+        constraints in the 'custom' feature. It should be a callable as follows:
+            (random_stream, problem) -> (modified_aub, modified_bub),
+        where problem is an instance of the class Problem, modified_aub
+        is the modified matrix of the linear inequality constraints, and
+        modified_bub is the modified vector of the linear inequality
+        constraints. No default.
+    mod_linear_eq : callable, optional
+        The modifier function to modify the linear equality
+        constraints in the 'custom' feature. It should be a callable as follows:
+            (random_stream, problem) -> (modified_aeq, modified_beq),
+        where problem is an instance of the class Problem, modified_aeq
+        is the modified matrix of the linear equality constraints, and
+        modified_beq is the modified vector of the linear equality
+        constraints. No default.
+    mod_fun : callable, optional
+        The modifier function to modify the objective function in
+        the 'custom' feature. It should be a callable as follows:
+            (x, random_stream, problem) -> modified_fun,
+        where x is the evaluation point, problem is an instance of the
+        class Problem, and modified_fun is the modified objective function
+        value. No default.
+    mod_cub : callable, optional
+        The modifier function to modify the nonlinear inequality
+        constraints in the 'custom' feature. It should be a callable as follows:
+            (x, random_stream, problem) -> modified_cub,
+        where x is the evaluation point, problem is an instance of the
+        class Problem, and modified_cub is the modified vector of the
+        nonlinear inequality constraints. No default.
+    mod_ceq : callable, optional
+        The modifier function to modify the nonlinear equality
+        constraints in the 'custom' feature. It should be a callable as follows:
+            (x, random_stream, problem) -> modified_ceq,
+        where x is the evaluation point, problem is an instance of the
+        class Problem, and modified_ceq is the modified vector of the
+        nonlinear equality constraints. No default.
+
+    **Options for profiles and plots:**
+
+    bar_colors : list or numpy.ndarray, optional
+        Two different colors for the bars of two solvers in the
+        log-ratio profiles. It can be a list of short names of colors
+        ('r', 'g', 'b', 'c', 'm', 'y', 'k') or a 2-by-3 array with each row
+        being a RGB triplet. Default is set to the first two colors in the
+        'line_colors' option.
+    benchmark_id : str, optional
+        The identifier of the test. It is used to create the
+        specific directory to store the results. Default is 'out' if the
+        option 'load' is not provided, otherwise default is '.'.
+    errorbar_type : str, optional
+        The type of the uncertainty interval that can be
+        either 'minmax' or 'meanstd'. When 'n_runs' is greater than 1, we run
+        several times of the experiments and get average curves and
+        uncertainty intervals. Default is 'minmax', meaning that we takes the
+        pointwise minimum and maximum of the curves.
+    feature_stamp : str, optional
+        The stamp of the feature with the given options. It is
+        used to create the specific directory to store the results. Default
+        depends on features.
+    line_colors : list or numpy.ndarray, optional
+        The colors of the lines in the plots. It can be a list
+        of short names of colors ('r', 'g', 'b', 'c', 'm', 'y', 'k') or
+        an array with each row being a RGB triplet. Default line colors are
+        those in the palettename named "gem" (see MATLAB documentation for
+        'colororder'). Note that if the number of solvers is greater than the
+        number of colors, we will cycle through the colors.
+    line_styles : list of str, optional
+        The styles of the lines in the plots. It can be a list
+        of strs that are the combinations of line styles ('-', '-.',
+        '--', ':') and markers ('o', '+', '*', '.', 'x', 's', 'd', '^', 'v',
+        '>', '<', 'p', 'h'). Default line style order is ['-', '-.', '--',
+        ':']. Note that if the number of solvers is greater than the number
+        of line styles, we will cycle through the styles.
+    line_widths : float or list, optional
+        The widths of the lines in the plots. It should be a
+        positive float or a list. Default is 1.5. Note that if the number
+        of solvers is greater than the number of line widths, we will cycle
+        through the widths.
+    load : str, optional
+        Loading the stored data from a completed experiment and draw
+        profiles. It can be either 'latest' or a time stamp of an experiment
+        in the format of 'yyyyMMdd_HHmmss'. No default. Note that if solvers is None,
+        this key must be provided to load data from a previous experiment
+        and generate profiles.
+    max_eval_factor : int, optional
+        The factor multiplied to each problem's dimension to
+        get the maximum number of evaluations for each problem. Default is
+        500.
+    max_tol_order : int, optional
+        The maximum order of the tolerance. In any profile
+        (performance profiles, data profiles, and log-ratio profiles), we
+        need to set a group of 'tolerances' to define the convergence test of
+        the solvers. (Details can be found in the references.) We will set
+        the tolerances as 10**(-1:-1:-max_tol_order). Default is 10.
+    merit_fun : callable, optional
+        The merit function to measure the quality of a point using
+        the objective function value and the maximum constraint violation.
+        It should be a callable as follows:
+            (fun_value, maxcv_value, maxcv_init) -> merit_value,
+        where fun_value is the objective function value, maxcv_value is
+        the maximum constraint violation, and maxcv_init is the maximum
+        constraint violation at the initial guess. The default merit function
+        varphi(x) is defined by the objective function f(x) and the maximum
+        constraint violation v(x) as
+          varphi(x) = f(x)                        if v(x) <= v1
+          varphi(x) = f(x) + 1e5 * (v(x) - v1)   if v1 < v(x) <= v2
+          varphi(x) = np.inf                      if v(x) > v2
+        where v1 = max(1e-5, v0) and v2 = min(0.01, 1e-10 * max(1, v0)),
+        and v0 is the maximum constraint violation at the initial guess.
+    n_jobs : int, optional
+        The number of parallel jobs to run the test. Default is the
+        default number of workers in the default local cluster.
+    normalized_scores : bool, optional
+        Whether to normalize the scores of the solvers by
+        the maximum score of the solvers. Default is False.
+    project_x0 : bool, optional
+        Whether to project the initial point to the feasible set.
+        Default is False.
+    run_plain : bool, optional
+        Whether to run an extra experiment with the 'plain'
+        feature. Default is False.
+    savepath : str, optional
+        The path to store the results. Default is the current
+        working directory.
+    score_fun : callable, optional
+        The scoring function to calculate the scores of the
+        solvers. It should be a callable as follows:
+            profile_scores -> solver_scores,
+        where profile_scores is a 4D array containing scores for all
+        profiles. The first dimension of profile_scores corresponds to the
+        index of the solver, the second corresponds to the index of tolerance
+        starting from 1, the third represents history-based or output-based
+        profiles, and the fourth represents performance profiles, data
+        profiles, or log-ratio profiles. The default scoring function takes
+        the average of the history-based performance profiles under all the
+        tolerances.
+    score_only : bool, optional
+        Whether to only calculate the scores of the solvers
+        without drawing the profiles and saving the data. Default is False.
+    score_weight_fun : callable, optional
+        The weight function to calculate the scores of the
+        solvers in the performance and data profiles. It should be a callable
+        representing a nonnegative function in R^+. Default is lambda x: 1.
+    seed : int, optional
+        The seed of the random number generator. Default is 1.
+    semilogx : bool, optional
+        Whether to use the semilogx scale during plotting profiles
+        (performance profiles and data profiles). Default is True.
+    silent : bool, optional
+        Whether to show the information of the progress. Default is
+        False.
+    solver_isrand : list of bool, optional
+        Whether the solvers are randomized or not. Default is
+        a list of bools of the same length as the number of solvers, where
+        the value is True if the solver is randomized, and False otherwise.
+        Note that if 'n_runs' is not specified, we will set it 5 for the
+        randomized solvers.
+    solver_names : list of str, optional
+        The names of the solvers. Default is the names of the
+        callables in solvers.
+    solver_verbose : int, optional
+        The level of the verbosity of the solvers. 0 means
+        no verbosity, 1 means some verbosity, and 2 means full verbosity.
+        Default is 1.
+    solvers_to_load : list of int, optional
+        The indices of the solvers to load when the 'load'
+        option is provided. It can be a list of different integers selected
+        from 1 to the total number of solvers of the loading experiment. At
+        least two indices should be provided. Default is all the solvers.
+    summarize_data_profiles : bool, optional
+        Whether to add all the data profiles to the
+        summary PDF. Default is True.
+    summarize_log_ratio_profiles : bool, optional
+        Whether to add all the log-ratio
+        profiles to the summary PDF. Default is False.
+    summarize_output_based_profiles : bool, optional
+        Whether to add all the output-based
+        profiles of the selected profiles to the summary PDF. Default is
+        True.
+    summarize_performance_profiles : bool, optional
+        Whether to add all the performance
+        profiles to the summary PDF. Default is True.
+    xlabel_data_profile : str, optional
+        The label of the x-axis of the data profiles.
+        Default is 'Number of simplex gradients'.
+        Note: LaTeX formatting is supported. The same applies to the options
+        'xlabel_log_ratio_profile', 'xlabel_performance_profile',
+        'ylabel_data_profile', 'ylabel_log_ratio_profile', and
+        'ylabel_performance_profile'.
+    xlabel_log_ratio_profile : str, optional
+        The label of the x-axis of the log-ratio
+        profiles. Default is 'Problem'.
+    xlabel_performance_profile : str, optional
+        The label of the x-axis of the
+        performance profiles. Default is 'Performance ratio'.
+    ylabel_data_profile : str, optional
+        The label of the y-axis of the data profiles.
+        Default is 'Data profiles ($\\mathrm{tol} = %s$)', where '%s' will be
+        replaced by the current tolerance in LaTeX format. You can also use
+        '%s' in your custom label, and it will be replaced accordingly. The
+        same applies to the options 'ylabel_log_ratio_profile' and
+        'ylabel_performance_profile'.
+    ylabel_log_ratio_profile : str, optional
+        The label of the y-axis of the log-ratio
+        profiles. Default is 'Log-ratio profiles ($\\mathrm{tol} = %s$)',
+        where '%s' will be replaced by the current tolerance in LaTeX format.
+    ylabel_performance_profile : str, optional
+        The label of the y-axis of the
+        performance profiles. Default is
+        'Performance profiles ($\\mathrm{tol} = %s$)', where '%s' will be
+        replaced by the current tolerance in LaTeX format.
+
+    **Options for problems:**
+
+    Options in this part are used to select problems for benchmarking.
+    First select which problem libraries to use based on the 'plibs'
+    option. Then select problems from these libraries according to the
+    given options ('problem_names', 'ptype', 'mindim', 'maxdim', 'minb',
+    'maxb', 'minlcon', 'maxlcon', 'minnlcon', 'maxnlcon', 'mincon',
+    'maxcon', and 'excludelist').
+
+    plibs : list of str, optional
+        The problem libraries to be used. It should be a list of
+        strs. The available choices are subfolder names in the
+        'problems' directory. There are three subfolders after installing the
+        package: 's2mpj', 'matcutest', and 'custom'. Default setting is
+        's2mpj'.
+    ptype : str, optional
+        The type of the problems to be selected. It should be a str
+        consisting of any combination of 'u' (unconstrained), 'b'
+        (bound constrained), 'l' (linearly constrained), and 'n' (nonlinearly
+        constrained), such as 'b', 'ul', 'ubn'. Default is 'u'.
+    mindim : int, optional
+        The minimum dimension of the problems to be selected. Default
+        is 1.
+    maxdim : int, optional
+        The maximum dimension of the problems to be selected. Default
+        is mindim + 1.
+    minb : int, optional
+        The minimum number of bound constraints of the problems to be
+        selected. Default is 0.
+    maxb : int, optional
+        The maximum number of bound constraints of the problems to be
+        selected. Default is minb + 10.
+    minlcon : int, optional
+        The minimum number of linear constraints of the problems to
+        be selected. Default is 0.
+    maxlcon : int, optional
+        The maximum number of linear constraints of the problems to
+        be selected. Default is minlcon + 10.
+    minnlcon : int, optional
+        The minimum number of nonlinear constraints of the problems
+        to be selected. Default is 0.
+    maxnlcon : int, optional
+        The maximum number of nonlinear constraints of the problems
+        to be selected. Default is minnlcon + 10.
+    mincon : int, optional
+        The minimum number of linear and nonlinear constraints of the
+        problems to be selected. Default is min(minlcon, minnlcon).
+    maxcon : int, optional
+        The maximum number of linear and nonlinear constraints of the
+        problems to be selected. Default is max(maxlcon, maxnlcon).
+    excludelist : list, optional
+        The list of problems to be excluded. Default is not to
+        exclude any problem.
+    problem_names : list of str, optional
+        The names of the problems to be selected. It should
+        be a list of strs. Default is not to select any
+        problem by name but by the options above.
+    problem : Problem, optional
+        A problem to be benchmarked. It should be an instance of the
+        class Problem. If it is provided, we will only run the test on this
+        problem with the given feature and draw the history plots. Default is
+        not to set any problem.
+
+    Returns
+    -------
+    solver_scores : numpy.ndarray
+        Scores of the solvers based on the profiles. See 'score_fun' in
+        'Other Parameters' for more details.
+    profile_scores : numpy.ndarray or None
+        A 4D array containing scores for all profiles. The first dimension corresponds to the
+        index of the solver, the second to the index of tolerance starting from 1, the third
+        represents history-based or output-based profiles, and the fourth represents
+        performance profiles, data profiles, or log-ratio profiles.
+    curves : list of dict or None
+        A list containing the curves of all the profiles.
 
     Raises
     ------
@@ -158,35 +464,74 @@ def benchmark(solvers, labels=(), cutest_problem_names=(), custom_problem_loader
 
     See Also
     --------
-    find_cutest_problems : Find names of CUTEst problems.
     Problem : Representation of optimization problems.
 
     Notes
     -----
-    The current version of `optiprofiler` only supports derivative-free
-    optimization solvers.
+    The current version supports benchmarking derivative-free optimization solvers.
+
+    .. caution::
+
+        The log-ratio profiles are available only when there are exactly two
+        solvers. For more information of performance and data profiles, see
+        [1]_, [2]_, [5]_. For that of log-ratio profiles, see [4]_, [6]_.
+
+    Several points to note:
+
+    1. The information about two problem libraries is available in the
+       following links:
+            S2MPJ (see [3]_) <https://github.com/GrattonToint/S2MPJ>
+            MatCUTEst <https://github.com/matcutest>
+
+    2. If you want to use your own problem library, please check the README.txt
+       in the directory 'problems/' or the guidance in our website
+       <https://www.optprof.com> for more details.
+
+    3. The problem library MatCUTEst is only available when the OS is Linux.
+
+    4. If the 'load' option is provided, we will use the provided options to
+       select data from the specified experiment for plotting the profiles.
+       Available options are:
+       - 'benchmark_id', 'solver_names',
+         'feature_stamp', 'errorbar_type', 'savepath', 'max_tol_order',
+         'merit_fun', 'run_plain', 'score_only',
+         'summarize_performance_profiles', 'summarize_data_profiles',
+         'summarize_log_ratio_profiles', 'summarize_output_based_profiles',
+         'silent', 'semilogx', 'normalized_scores', 'score_weight_fun',
+         'score_fun', 'solvers_to_load', 'line_colors', 'line_styles',
+         'line_widths', 'bar_colors'.
+       - Options for features: none.
+       - 'plibs', 'ptype', 'mindim', 'maxdim', 'minb',
+         'maxb', 'minlcon', 'maxlcon', 'minnlcon', 'maxnlcon', 'mincon',
+         'maxcon', 'excludelist'.
+
+    5. More information about OptiProfiler can be found on our website:
+
+                            https://www.optprof.com
 
     References
     ----------
     .. [1] E. D. Dolan and J. J. Moré. Benchmarking optimization software with
            performance profiles. *Math. Program.*, 91(2):201–213, 2002.
-           `doi:10.1007/s101070100263
-           <https://doi.org/10.1007/s101070100263>`_.
+           doi:10.1007/s101070100263
+           <https://doi.org/10.1007/s101070100263>.
     .. [2] N. Gould and J. Scott. A note on performance profiles for
            benchmarking software. *ACM Trans. Math. Software*, 43(2):15:1–5,
-           2016. `doi:10.1145/2950048 <https://doi.org/10.1145/2950048>`_.
-    .. [3] J. L. Morales. A numerical study of limited memory BFGS methods.
+           2016. doi:10.1145/2950048 <https://doi.org/10.1145/2950048>.
+    .. [3] S. Gratton and Ph. L. Toint. S2MPJ and CUTEst optimization problems
+           for Matlab, Python and Julia. arXiv:2407.07812, 2024.
+    .. [4] J. L. Morales. A numerical study of limited memory BFGS methods.
            *Appl. Math. Lett.*, 15(4):481–487, 2002.
-           `doi:10.1016/S0893-9659(01)00162-8
-           <https://doi.org/10.1016/S0893-9659(01)00162-8>`_.
-    .. [4] J. J. Moré and S. M. Wild. Benchmarking derivative-free optimization
+           doi:10.1016/S0893-9659(01)00162-8
+           <https://doi.org/10.1016/S0893-9659(01)00162-8>.
+    .. [5] J. J. Moré and S. M. Wild. Benchmarking derivative-free optimization
            algorithms. *SIAM J. Optim.*, 20(1):172–191, 2009.
-           `doi:10.1137/080724083 <https://doi.org/10.1137/080724083>`_.
-    .. [5] H.-J. M. Shi, M. Q. Xuan, F. Oztoprak, and J. Nocedal. On the
+           doi:10.1137/080724083 <https://doi.org/10.1137/080724083>.
+    .. [6] H.-J. M. Shi, M. Q. Xuan, F. Oztoprak, and J. Nocedal. On the
            numerical performance of finite-difference-based methods for
            derivative-free optimization. *Optim. Methods Softw.*,
-           38(2):289–311, 2023. `doi:10.1080/10556788.2022.2121832
-           <https://doi.org/10.1080/10556788.2022.2121832>`_.
+           38(2):289–311, 2023. doi:10.1080/10556788.2022.2121832
+           <https://doi.org/10.1080/10556788.2022.2121832>.
 
     Examples
     --------
@@ -194,51 +539,27 @@ def benchmark(solvers, labels=(), cutest_problem_names=(), custom_problem_loader
     """
     logger = get_logger(__name__)
 
-    # Preprocess the solvers.
-    if not hasattr(solvers, '__len__') or not all(callable(solver) for solver in solvers):
-        raise TypeError('The solvers must be a list of callables.')
-    if len(solvers) < 2:
-        raise ValueError('At least two solvers must be given.')
-    solvers = list(solvers)
+    # Check whether solvers or 'load' option is given.
+    if solvers is None and 'load' not in kwargs:
+        raise ValueError('Either solvers or the \'load\' option must be given.')
 
-    # Preprocess the labels.
-    if not hasattr(labels, '__len__') or not all(isinstance(label, str) for label in labels):
-        raise TypeError('The labels must be a list of strings.')
-    if len(labels) not in [0, len(solvers)]:
-        raise ValueError('The number of labels must equal the number of solvers.')
-    labels = list(labels)
-    if len(labels) == 0:
-        labels = [solver.__name__ for solver in solvers]
-
-    # Preprocess the CUTEst problem names.
-    # N.B.: Duplicate names are and MUST BE removed.
-    if not hasattr(cutest_problem_names, '__len__') or not all(isinstance(problem_name, str) for problem_name in cutest_problem_names):
-        raise TypeError('The CUTEst problem names must be a list of strings.')
-    cutest_problem_names = list(set(problem_name.upper() for problem_name in cutest_problem_names))
-
-    # Preprocess the custom problems.
-    if custom_problem_loader is not None and not callable(custom_problem_loader):
-        raise TypeError('The custom problem loader must be a callable.')
-    if custom_problem_loader is not None:
-        sig = signature(custom_problem_loader)
-        if len(sig.parameters) != 1:
-            raise ValueError('The custom problem loader must take exactly one argument.')
-    if not hasattr(custom_problem_names, '__len__') or not all(isinstance(problem, str) for problem in custom_problem_names):
-        raise TypeError('The custom problem names must be a list of strings.')
-    custom_problem_names = list(custom_problem_names)
-    if custom_problem_loader is None and len(custom_problem_names) > 0:
-        raise ValueError('A custom problem loader must be given to load custom problems.')
-
-    # Check that the number of problems is satisfactory.
-    if len(cutest_problem_names) + len(custom_problem_names) < 1:
-        raise ValueError('At least one problem must be given.')
+    # Preprocess the solvers if given.
+    if solvers is not None:
+        if not hasattr(solvers, '__len__') or not all(callable(solver) for solver in solvers):
+            raise TypeError('The solvers must be a list of callables.')
+        if len(solvers) < 2:
+            raise ValueError('At least two solvers must be given.')
+        solvers = list(solvers)
 
     # Get the different options from the keyword arguments.
     feature_options = {}
     profile_options = {}
+    problem_options = {}
     for key, value in kwargs.items():
         if key in FeatureOption.__members__.values():
             feature_options[key] = value
+        elif key in ProblemOption.__members__.values():
+            problem_options[key] = value
         elif key in ProfileOption.__members__.values():
             profile_options[key] = value
         else:
@@ -873,3 +1194,162 @@ def _data_formatter(x, _):
         return str(int(2 ** x - 1))
     else:
         return f'$2^{{{f"{x:.8f}".rstrip("0").rstrip(".")}}}-1$'
+
+def _check_validity_problem_options(problem_options):
+    """
+    Check the validity of the problem options.
+    """
+    if ProblemOption.PLIBS in problem_options:
+        if not isinstance(problem_options[ProblemOption.PLIBS], list):
+            problem_options[ProblemOption.PLIBS] = [problem_options[ProblemOption.PLIBS]]
+        mydir = os.path.dirname(os.path.abspath(__file__))
+        problem_dir = os.path.abspath(os.path.join(mydir, '..', '..', 'problems'))
+        subfolders = [name for name in os.listdir(problem_dir) if os.path.isdir(os.path.join(problem_dir, name))]
+        # Remove '__pycache__' and folders starting with '.'
+        subfolder_names = [name for name in subfolders if not name.startswith('.') and name != '__pycache__']
+        # Check if plibs is empty or any element is not str or not in subfolder_names
+        if len(problem_options[ProblemOption.PLIBS]) == 0:
+            raise ValueError(f'Option {ProblemOption.PLIBS} cannot be an empty list.')
+        elif any(not isinstance(plib, str) for plib in problem_options[ProblemOption.PLIBS]):
+            raise TypeError(f'Option {ProblemOption.PLIBS} must be a string or a list of strings.')
+        elif any(plib not in subfolder_names for plib in problem_options[ProblemOption.PLIBS]):
+            raise ValueError(f'Option {ProblemOption.PLIBS} contains invalid problem libraries. Available libraries: {subfolder_names}.')
+
+    if ProblemOption.PTYPE in problem_options:
+        if not isinstance(problem_options[ProblemOption.PTYPE], str):
+            raise TypeError(f'Option {ProblemOption.PTYPE} must be a string.')
+        if any(t not in 'ubln' for t in problem_options[ProblemOption.PTYPE]):
+            raise ValueError(f"Option {ProblemOption.PTYPE} should be a string containing only the characters 'u', 'b', 'l', and 'n'.")
+
+    if ProblemOption.MINDIM in problem_options:
+        if isinstance(problem_options[ProblemOption.MINDIM], float) and problem_options[ProblemOption.MINDIM].is_integer():
+            problem_options[ProblemOption.MINDIM] = int(problem_options[ProblemOption.MINDIM])
+        if not isinstance(problem_options[ProblemOption.MINDIM], int):
+            raise TypeError(f'Option {ProblemOption.MINDIM} must be an integer.')
+        if problem_options[ProblemOption.MINDIM] < 1:
+            raise ValueError(f'Option {ProblemOption.MINDIM} must be at least 1.')
+    if ProblemOption.MAXDIM in problem_options:
+        if not np.isinf(problem_options[ProblemOption.MAXDIM]):
+            if isinstance(problem_options[ProblemOption.MAXDIM], float) and problem_options[ProblemOption.MAXDIM].is_integer():
+                problem_options[ProblemOption.MAXDIM] = int(problem_options[ProblemOption.MAXDIM])
+            if not isinstance(problem_options[ProblemOption.MAXDIM], int):
+                raise TypeError(f'Option {ProblemOption.MAXDIM} must be an integer or np.inf.')
+            if problem_options[ProblemOption.MAXDIM] < 1:
+                raise ValueError(f'Option {ProblemOption.MAXDIM} must be at least 1 or np.inf.')
+    if ProblemOption.MINDIM in problem_options and ProblemOption.MAXDIM in problem_options:
+        if problem_options[ProblemOption.MINDIM] > problem_options[ProblemOption.MAXDIM]:
+            raise ValueError(f'Option {ProblemOption.MINDIM} cannot be larger than option {ProblemOption.MAXDIM}.')
+
+    if ProblemOption.MINB in problem_options:
+        if isinstance(problem_options[ProblemOption.MINB], float) and problem_options[ProblemOption.MINB].is_integer():
+            problem_options[ProblemOption.MINB] = int(problem_options[ProblemOption.MINB])
+        if not isinstance(problem_options[ProblemOption.MINB], int):
+            raise TypeError(f'Option {ProblemOption.MINB} must be an integer.')
+        if problem_options[ProblemOption.MINB] < 0:
+            raise ValueError(f'Option {ProblemOption.MINB} must be nonnegative.')
+    if ProblemOption.MAXB in problem_options:
+        if not np.isinf(problem_options[ProblemOption.MAXB]):
+            if isinstance(problem_options[ProblemOption.MAXB], float) and problem_options[ProblemOption.MAXB].is_integer():
+                problem_options[ProblemOption.MAXB] = int(problem_options[ProblemOption.MAXB])
+            if not isinstance(problem_options[ProblemOption.MAXB], int):
+                raise TypeError(f'Option {ProblemOption.MAXB} must be an integer or np.inf.')
+            if problem_options[ProblemOption.MAXB] < 0:
+                raise ValueError(f'Option {ProblemOption.MAXB} must be nonnegative or np.inf.')
+    if ProblemOption.MINB in problem_options and ProblemOption.MAXB in problem_options:
+        if problem_options[ProblemOption.MINB] > problem_options[ProblemOption.MAXB]:
+            raise ValueError(f'Option {ProblemOption.MINB} cannot be larger than option {ProblemOption.MAXB}.')
+
+    if ProblemOption.MINLCON in problem_options:
+        if isinstance(problem_options[ProblemOption.MINLCON], float) and problem_options[ProblemOption.MINLCON].is_integer():
+            problem_options[ProblemOption.MINLCON] = int(problem_options[ProblemOption.MINLCON])
+        if not isinstance(problem_options[ProblemOption.MINLCON], int):
+            raise TypeError(f'Option {ProblemOption.MINLCON} must be an integer.')
+        if problem_options[ProblemOption.MINLCON] < 0:
+            raise ValueError(f'Option {ProblemOption.MINLCON} must be nonnegative.')
+    if ProblemOption.MAXLCON in problem_options:
+        if not np.isinf(problem_options[ProblemOption.MAXLCON]):
+            if isinstance(problem_options[ProblemOption.MAXLCON], float) and problem_options[ProblemOption.MAXLCON].is_integer():
+                problem_options[ProblemOption.MAXLCON] = int(problem_options[ProblemOption.MAXLCON])
+            if not isinstance(problem_options[ProblemOption.MAXLCON], int):
+                raise TypeError(f'Option {ProblemOption.MAXLCON} must be an integer or np.inf.')
+            if problem_options[ProblemOption.MAXLCON] < 0:
+                raise ValueError(f'Option {ProblemOption.MAXLCON} must be nonnegative or np.inf.')
+    if ProblemOption.MINLCON in problem_options and ProblemOption.MAXLCON in problem_options:
+        if problem_options[ProblemOption.MINLCON] > problem_options[ProblemOption.MAXLCON]:
+            raise ValueError(f'Option {ProblemOption.MINLCON} cannot be larger than option {ProblemOption.MAXLCON}.')
+
+    if ProblemOption.MINNLCON in problem_options:
+        if isinstance(problem_options[ProblemOption.MINNLCON], float) and problem_options[ProblemOption.MINNLCON].is_integer():
+            problem_options[ProblemOption.MINNLCON] = int(problem_options[ProblemOption.MINNLCON])
+        if not isinstance(problem_options[ProblemOption.MINNLCON], int):
+            raise TypeError(f'Option {ProblemOption.MINNLCON} must be an integer.')
+        if problem_options[ProblemOption.MINNLCON] < 0:
+            raise ValueError(f'Option {ProblemOption.MINNLCON} must be nonnegative.')
+    if ProblemOption.MAXNLCON in problem_options:
+        if not np.isinf(problem_options[ProblemOption.MAXNLCON]):
+            if isinstance(problem_options[ProblemOption.MAXNLCON], float) and problem_options[ProblemOption.MAXNLCON].is_integer():
+                problem_options[ProblemOption.MAXNLCON] = int(problem_options[ProblemOption.MAXNLCON])
+            if not isinstance(problem_options[ProblemOption.MAXNLCON], int):
+                raise TypeError(f'Option {ProblemOption.MAXNLCON} must be an integer or np.inf.')
+            if problem_options[ProblemOption.MAXNLCON] < 0:
+                raise ValueError(f'Option {ProblemOption.MAXNLCON} must be nonnegative or np.inf.')
+    if ProblemOption.MINNLCON in problem_options and ProblemOption.MAXNLCON in problem_options:
+        if problem_options[ProblemOption.MINNLCON] > problem_options[ProblemOption.MAXNLCON]:
+            raise ValueError(f'Option {ProblemOption.MINNLCON} cannot be larger than option {ProblemOption.MAXNLCON}.')
+
+    if ProblemOption.MINCON in problem_options:
+        if isinstance(problem_options[ProblemOption.MINCON], float) and problem_options[ProblemOption.MINCON].is_integer():
+            problem_options[ProblemOption.MINCON] = int(problem_options[ProblemOption.MINCON])
+        if not isinstance(problem_options[ProblemOption.MINCON], int):
+            raise TypeError(f'Option {ProblemOption.MINCON} must be an integer.')
+        if problem_options[ProblemOption.MINCON] < 0:
+            raise ValueError(f'Option {ProblemOption.MINCON} must be nonnegative.')
+    if ProblemOption.MAXCON in problem_options:
+        if not np.isinf(problem_options[ProblemOption.MAXCON]):
+            if isinstance(problem_options[ProblemOption.MAXCON], float) and problem_options[ProblemOption.MAXCON].is_integer():
+                problem_options[ProblemOption.MAXCON] = int(problem_options[ProblemOption.MAXCON])
+            if not isinstance(problem_options[ProblemOption.MAXCON], int):
+                raise TypeError(f'Option {ProblemOption.MAXCON} must be an integer or np.inf.')
+            if problem_options[ProblemOption.MAXCON] < 0:
+                raise ValueError(f'Option {ProblemOption.MAXCON} must be nonnegative or np.inf.')
+    if ProblemOption.MINCON in problem_options and ProblemOption.MAXCON in problem_options:
+        if problem_options[ProblemOption.MINCON] > problem_options[ProblemOption.MAXCON]:
+            raise ValueError(f'Option {ProblemOption.MINCON} cannot be larger than option {ProblemOption.MAXCON}.')
+
+    if ProblemOption.EXCLUDELIST in problem_options:
+        if not isinstance(problem_options[ProblemOption.EXCLUDELIST], list):
+            problem_options[ProblemOption.EXCLUDELIST] = [problem_options[ProblemOption.EXCLUDELIST]]
+        if any(not isinstance(name, str) for name in problem_options[ProblemOption.EXCLUDELIST]):
+            raise TypeError(f'Option {ProblemOption.EXCLUDELIST} must be a string or a list of strings.')
+
+    if ProblemOption.PROBLEM_NAMES in problem_options:
+        if not isinstance(problem_options[ProblemOption.PROBLEM_NAMES], list):
+            problem_options[ProblemOption.PROBLEM_NAMES] = [problem_options[ProblemOption.PROBLEM_NAMES]]
+        if any(not isinstance(name, str) for name in problem_options[ProblemOption.PROBLEM_NAMES]):
+            raise TypeError(f'Option {ProblemOption.PROBLEM_NAMES} must be a string or a list of strings.')
+
+    return problem_options
+
+def _check_validity_profile_options(solvers, profile_options):
+    """
+    Check the validity of the profile options.
+    """
+    if ProfileOption.N_JOBS in profile_options:
+        if isinstance(profile_options[ProfileOption.N_JOBS], float) and profile_options[ProfileOption.N_JOBS].is_integer():
+            profile_options[ProfileOption.N_JOBS] = int(profile_options[ProfileOption.N_JOBS])
+        if not isinstance(profile_options[ProfileOption.N_JOBS], int):
+            raise TypeError(f'Option {ProfileOption.N_JOBS} must be an integer.')
+        if profile_options[ProfileOption.N_JOBS] < 1:
+            profile_options[ProfileOption.N_JOBS] = 1
+            logger = get_logger(__name__)
+            logger.warning(f'Option {ProfileOption.N_JOBS} is set to 1 because it cannot be smaller than 1.')
+
+    if ProfileOption.SEED in profile_options:
+        if isinstance(profile_options[ProfileOption.SEED], float) and profile_options[ProfileOption.SEED].is_integer():
+            profile_options[ProfileOption.SEED] = int(profile_options[ProfileOption.SEED])
+        if not isinstance(profile_options[ProfileOption.SEED], int):
+            raise TypeError(f'Option {ProfileOption.SEED} must be an integer.')
+        if profile_options[ProfileOption.SEED] < 0:
+            raise ValueError(f'Option {ProfileOption.SEED} must be nonnegative.')
+
+

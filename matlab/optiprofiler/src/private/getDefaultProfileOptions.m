@@ -18,7 +18,7 @@ function profile_options = getDefaultProfileOptions(solvers, feature, profile_op
         profile_options.(ProfileOptionKey.N_JOBS.value) = n_workers;
     end
     if ~isfield(profile_options, ProfileOptionKey.SEED.value)
-        profile_options.(ProfileOptionKey.SEED.value) = 1;
+        profile_options.(ProfileOptionKey.SEED.value) = 0;
     end
     if ~isfield(profile_options, ProfileOptionKey.BENCHMARK_ID.value)
         profile_options.(ProfileOptionKey.BENCHMARK_ID.value) = 'out';
