@@ -52,7 +52,7 @@ function drawFunMaxcvMeritHist(ax, y, solver_names, is_cum, problem_n, y_shift, 
         end
     end
 
-    % When the function values are not all zero and there is at least some change in the function values, , use log scale for the y-axis.
+    % When the function values are not all zero and there is at least some change in the function values, use log scale for the y-axis.
     if any(y_mean(i_solver, :)) && any(diff(y_mean(i_solver, :)))
         set(ax, 'YScale', 'log');
     end
@@ -64,6 +64,6 @@ function drawFunMaxcvMeritHist(ax, y, solver_names, is_cum, problem_n, y_shift, 
         xr_lim = xl_lim + eps;
     end
     set(ax, 'XLim', [xl_lim, xr_lim]);
-    xlabel(ax, 'Number of simplex gradients', 'Interpreter', 'latex');
+    xlabel(ax, profile_options.(ProfileOptionKey.XLABEL_DATA_PROFILE.value), 'Interpreter', 'latex');
 
 end

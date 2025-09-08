@@ -50,7 +50,7 @@ function problem_options = getDefaultProblemOptions(problem_options)
         problem_options.(ProblemOptionKey.MAXNLCON.value) = problem_options.(ProblemOptionKey.MINNLCON.value) + 10;
     end
 
-    % Set default values for the problem_options.maxcon if it is not set.
+    % Set default values for the problem_options.mincon if it is not set.
     if ~isfield(problem_options, ProblemOptionKey.MINCON.value)
         problem_options.(ProblemOptionKey.MINCON.value) = min(problem_options.(ProblemOptionKey.MINLCON.value), problem_options.(ProblemOptionKey.MINNLCON.value));
     end

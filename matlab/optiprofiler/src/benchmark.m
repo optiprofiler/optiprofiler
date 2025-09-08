@@ -129,7 +129,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %           varphi(x) = f(x)                        if v(x) <= v1
 %           varphi(x) = f(x) + 1e5 * (v(x) - v1)    if v1 < v(x) <= v2
 %           varphi(x) = Inf                         if v(x) > v2
-%         where v1 = max(1e-5, v0) and v2 = min(0.01, 1e-10 * max(1, v0)),
+%         where v1 = min(0.01, 1e-10 * max(1, v0)), v2 = max(0.1, 2 * v0),
 %         and v0 is the maximum constraint violation at the initial guess.
 %       - n_jobs: the number of parallel jobs to run the test. Default is the
 %         default number of workers in the default local cluster.
@@ -567,7 +567,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     problem_options = checkValidityProblemOptions(problem_options, profile_options);
     profile_options = checkValidityProfileOptions(solvers, profile_options);
 
-    % Whether load the existing results.
+    % Whether to load the existing results.
     is_load = isfield(profile_options, ProfileOptionKey.LOAD.value) && ~isempty(profile_options.(ProfileOptionKey.LOAD.value));
 
     % If `n_runs` is not specified, we set it to 5 if at least one solver is randomized.
@@ -762,7 +762,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         diary(log_file);
         try
             fid = fopen(path_readme_log, 'a');
-            fprintf(fid, "'log.txt': file, the log file of the current experiment, recording print information from MATLAB command window.\n");
+            fprintf(fid, "'log.txt': file, the log file of the current experiment, recording printed information from MATLAB command window.\n");
             fclose(fid);
         catch
         end
@@ -918,22 +918,22 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             fprintf('INFO: - Problem types: %s\n', problem_options.(ProblemOptionKey.PTYPE.value));
             fprintf('INFO: - Problem dimension range: [%d, %d]\n', problem_options.(ProblemOptionKey.MINDIM.value), problem_options.(ProblemOptionKey.MAXDIM.value));
             if any(ismember(problem_options.(ProblemOptionKey.PTYPE.value), 'bln'))
-            fprintf('INFO: - Problem mb range: [%d, %d]\n', problem_options.(ProblemOptionKey.MINB.value), problem_options.(ProblemOptionKey.MAXB.value));
+                fprintf('INFO: - Problem mb range: [%d, %d]\n', problem_options.(ProblemOptionKey.MINB.value), problem_options.(ProblemOptionKey.MAXB.value));
             end
             if any(ismember(problem_options.(ProblemOptionKey.PTYPE.value), 'ln'))
-            fprintf('INFO: - Problem mlcon range: [%d, %d]\n', problem_options.(ProblemOptionKey.MINLCON.value), problem_options.(ProblemOptionKey.MAXLCON.value));
+                fprintf('INFO: - Problem mlcon range: [%d, %d]\n', problem_options.(ProblemOptionKey.MINLCON.value), problem_options.(ProblemOptionKey.MAXLCON.value));
             end
             if any(ismember(problem_options.(ProblemOptionKey.PTYPE.value), 'n'))
-            fprintf('INFO: - Problem mnlcon range: [%d, %d]\n', problem_options.(ProblemOptionKey.MINNLCON.value), problem_options.(ProblemOptionKey.MAXNLCON.value));
+                fprintf('INFO: - Problem mnlcon range: [%d, %d]\n', problem_options.(ProblemOptionKey.MINNLCON.value), problem_options.(ProblemOptionKey.MAXNLCON.value));
             end
             if any(ismember(problem_options.(ProblemOptionKey.PTYPE.value), 'ln'))
-            fprintf('INFO: - Problem mcon range: [%d, %d]\n', problem_options.(ProblemOptionKey.MINCON.value), problem_options.(ProblemOptionKey.MAXCON.value));
+                fprintf('INFO: - Problem mcon range: [%d, %d]\n', problem_options.(ProblemOptionKey.MINCON.value), problem_options.(ProblemOptionKey.MAXCON.value));
             end
             if ~isempty(problem_options.(ProblemOptionKey.PROBLEM_NAMES.value))
-            fprintf('INFO: - Number of user-provided problem names: %d\n', numel(problem_options.(ProblemOptionKey.PROBLEM_NAMES.value)));
+                fprintf('INFO: - Number of user-provided problem names: %d\n', numel(problem_options.(ProblemOptionKey.PROBLEM_NAMES.value)));
             end
             if ~isempty(problem_options.(ProblemOptionKey.EXCLUDELIST.value))
-            fprintf('INFO: - Number of user-excluded problem names: %d\n', numel(problem_options.(ProblemOptionKey.EXCLUDELIST.value)));
+                fprintf('INFO: - Number of user-excluded problem names: %d\n', numel(problem_options.(ProblemOptionKey.EXCLUDELIST.value)));
             end
             fprintf('INFO: - Feature stamp: %s\n', feature_stamp);
         end

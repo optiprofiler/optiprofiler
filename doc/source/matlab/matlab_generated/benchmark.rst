@@ -102,7 +102,7 @@ Options should be specified in a struct. The following are the available fields 
         **varphi**\(**x**) = **f**\(**x**) + 1e5 * (**v**\(**x**) - v1),  if v1 < **v**\(**x**) <= v2,
         **varphi**\(**x**) = Inf,                       if **v**\(**x**) > v2,
 
-    where ``v1 = max(1e-5, v0)`` and ``v2 = min(0.01, 1e-10 * max(1, v0))``, and ``v0`` is the initial maximum constraint violation.
+    where ``v1 = min(0.01, 1e-10 * max(1, v0))``, ``v2 = max(0.1, 2 * v0)``, and ``v0`` is the initial maximum constraint violation.
 
   - **n_jobs**: the number of parallel jobs to run the test. Default is the default number of workers in the default local cluster.
   

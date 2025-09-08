@@ -1,5 +1,6 @@
 function result = solveOneProblem(solvers, problem, feature, problem_name, len_problem_names, profile_options, is_plot, path_hist_plots)
 %SOLVEONEPROBLEM solves one problem with all the solvers in solvers list.
+%   Note that the input `problem` is a FeaturedProblem object when we call this function in `benchmark`.
 
     solver_names = profile_options.(ProfileOptionKey.SOLVER_NAMES.value);
     solver_names = cellfun(@(s) strrep(s, '\_', '_'), solver_names, 'UniformOutput', false);    % Remove backslash from the solver names.
@@ -49,7 +50,6 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
                 format_info_start = sprintf("\\nINFO: Start  solving    %%-%ds with %%-%ds (run %%2d/%%2d).\\n", len_problem_names, len_solver_names);
                 fprintf(format_info_start, problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver));
             end
-            time_start_solver_run = tic;
 
             % Construct featured_problem.
             real_seed = mod(23333 * profile_options.(ProfileOptionKey.SEED.value) + 211 * i_run, 2^32);
@@ -65,32 +65,30 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
 
             % Solve the problem with the solver.
             warning('off', 'all');
+            time_start_solver_run = tic;
             try
-                switch problem.ptype
-                    case 'u'
-                        if profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) == 2
+                if profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) == 2
+                    switch problem_type
+                        case 'u'
                             x = solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0);
-                        else
-                            [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0)');
-                        end
-                    case 'b'
-                        if profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) == 2
+                        case 'b'
                             x = solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu);
-                        else
-                            [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu)');
-                        end
-                    case 'l'
-                        if profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) == 2
+                        case 'l'
                             x = solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq);
-                        else
-                            [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq)');
-                        end
-                    case 'n'
-                        if profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) == 2
+                        case 'n'
                             x = solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, @(x) featured_problem.cub(x), @(x) featured_problem.ceq(x));
-                        else
+                    end
+                else
+                    switch problem_type
+                        case 'u'
+                            [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0)');
+                        case 'b'
+                            [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu)');
+                        case 'l'
+                            [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq)');
+                        case 'n'
                             [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, @(x) featured_problem.cub(x), @(x) featured_problem.ceq(x))');
-                        end
+                    end
                 end
 
                 computation_time(i_solver, i_run) = toc(time_start_solver_run);
@@ -110,7 +108,7 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
                 if ~profile_options.(ProfileOptionKey.SILENT.value)
                     format_info_end = sprintf("INFO: Finish solving    %%-%ds with %%-%ds (run %%2d/%%2d) (in %%.2f seconds).\\n", len_problem_names, len_solver_names);
                     fprintf(format_info_end, problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), computation_time(i_solver, i_run));
-                    switch problem.ptype
+                    switch problem_type
                         case 'u'
                             format_info_output = sprintf("INFO: Output result for %%-%ds with %%-%ds (run %%2d/%%2d): f = %%10.4e.\\n", len_problem_names, len_solver_names);
                             fprintf(format_info_output, problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), fun_out(i_solver, i_run));
@@ -187,7 +185,7 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
 
         % Create the figure for the summary.
         warning('off');
-        if strcmp(problem.ptype, 'u')
+        if strcmp(problem_type, 'u')
             n_cols = 1;
         else
             n_cols = 3;
@@ -217,7 +215,7 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
         ylabel(t_summary(1), "History profiles", 'Interpreter', 'latex', 'FontSize', 14);
         ylabel(t_summary(2), "Cummin history profiles", 'Interpreter', 'latex', 'FontSize', 14);
 
-        if strcmp(problem.ptype, 'u')
+        if strcmp(problem_type, 'u')
             cell_axs_summary = {axs_summary(1)};
             cell_axs_summary_cum = {axs_summary(2)};
         else
@@ -229,8 +227,8 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
         pdf_summary = fullfile(path_hist_plots, pdf_hist_file_name);
         processed_solver_names = cellfun(@(s) strrep(s, '_', '\_'), solver_names, 'UniformOutput', false);
 
-        drawHist(fun_history, maxcv_history, merit_history, fun_init, maxcv_init, merit_init, processed_solver_names, cell_axs_summary, false, problem.ptype, problem_dim, n_eval, profile_options, default_height);
-        drawHist(fun_history, maxcv_history, merit_history, fun_init, maxcv_init, merit_init, processed_solver_names, cell_axs_summary_cum, true, problem.ptype, problem_dim, n_eval, profile_options, default_height);
+        drawHist(fun_history, maxcv_history, merit_history, fun_init, maxcv_init, merit_init, processed_solver_names, cell_axs_summary, false, problem_type, problem_dim, n_eval, profile_options, default_height);
+        drawHist(fun_history, maxcv_history, merit_history, fun_init, maxcv_init, merit_init, processed_solver_names, cell_axs_summary_cum, true, problem_type, problem_dim, n_eval, profile_options, default_height);
 
         exportgraphics(fig_summary, pdf_summary, 'ContentType', 'vector');
         warning('on');
