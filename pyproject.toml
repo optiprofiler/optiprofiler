@@ -42,6 +42,9 @@ dependencies = [
     "matplotlib>=3.4.0",
     "numpy>=1.17.0",
     "scipy>=1.10.0",
+    "pandas>=1.1.0",
+    "h5py>=3.0.0",
+    "pypdf>=3.8.0",
 ]
 dynamic = ["version"]
 

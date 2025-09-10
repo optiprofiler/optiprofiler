@@ -842,14 +842,24 @@ class Feature:
                 raise ValueError('The argument seed must be nonnegative.')
 
         # Convert the arguments to numbers.
-        args = [float(arg) for arg in args if isinstance(arg, (int, float))]
+        args = [float(arg) for arg in args if isinstance(arg, (int, float)) and not np.isnan(arg) and not np.isinf(arg)]
 
         # Create a random number generator based on the specified seed.
-        rng = np.random.default_rng(seed)
+        rng = np.random.default_rng(seed if seed is not None else 0)
 
         # Generate a new seed based on the initial rand_stream and the additional arguments
-        new_seed = 1e9 * np.abs(np.sin(1e5 * rng.standard_normal()) + sum(np.sin(1e5 * arg) for arg in args))
-        new_seed = int(new_seed) % 2**32
-        if np.isnan(new_seed) or np.isinf(new_seed):
-            new_seed = 0
+        try:
+            rand_val = rng.standard_normal()
+            if not np.isfinite(rand_val):
+                rand_val = 0.0
+            sin_rand = np.sin(1e5 * rand_val)
+            sin_args = sum(np.sin(1e5 * arg) for arg in args if np.isfinite(arg))
+
+            new_seed = 1e9 * np.abs(sin_rand + sin_args)
+            if not np.isfinite(new_seed):
+                new_seed = 42
+            new_seed = int(new_seed) % 2**32
+        except:
+            new_seed = 42
+
         return np.random.default_rng(new_seed)

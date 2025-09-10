@@ -8,7 +8,7 @@ from numpy.linalg import lstsq
 from scipy.optimize import Bounds, LinearConstraint, NonlinearConstraint, minimize
 
 from .features import Feature
-from .utils import FeatureName, ProblemOption, FeatureOption, ProblemError, get_logger
+from .utils import FeatureName, ProblemOption, FeatureOption, get_logger
 
 
 class Problem:

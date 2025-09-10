@@ -1,8 +1,10 @@
 import logging
+from logging.handlers import QueueListener, QueueHandler
 import os
 import platform
 import sys
 from enum import Enum
+import multiprocessing as mp
 from importlib.metadata import PackageNotFoundError, version
 
 
@@ -117,8 +119,16 @@ class FeatureOption(str, Enum):
 
 class ProblemError(Exception):
     """
-    Exception raised when a problem cannot be loaded.
+    Exception raised for errors in the problem definition or processing.
+
+    Attributes
+    ----------
+    message : str
+        Explanation of the error.
     """
+    def __init__(self, message):
+        self.message = message
+        super().__init__(self.message)
 
 
 def show_versions():
@@ -147,6 +157,73 @@ def show_versions():
     ))
 
 
+
+
+
+
+def setup_main_process_logging(log_file=None, level=logging.INFO):
+    """
+    Set up logging for the main process.
+    This function configures logging to output messages to both the console
+    and a specified log file. It uses a queue to handle log messages from
+    multiple processes.
+
+    Parameters
+    ----------
+    log_file : str, optional
+        Path to the log file. If `None`, logging to file is disabled.
+    level : int, optional
+        Logging level. Default is `logging.INFO`.
+    Returns
+    -------
+    log_queue : `multiprocessing.Queue`
+        Queue for log messages.
+    listener : `logging.handlers.QueueListener`
+        Listener for the log queue.
+    """
+    log_queue = mp.Queue(-1)
+
+    root = logging.getLogger()
+    root.handlers[:] = []
+    root.setLevel(level)
+
+    fmt = logging.Formatter('[%(levelname)-8s] %(message)s')
+    console = logging.StreamHandler(sys.stdout)
+    console.setFormatter(fmt)
+    handlers = [console]
+    if log_file:
+        fh = logging.FileHandler(log_file, mode='a', encoding='utf-8')
+        fh.setFormatter(fmt)
+        handlers.append(fh)
+
+    listener = QueueListener(log_queue, *handlers, respect_handler_level=True)
+    listener.start()
+
+    qh = QueueHandler(log_queue)
+    root.addHandler(qh)
+
+    return log_queue, listener
+
+def setup_worker_logging(log_queue, level=logging.INFO):
+    """
+    Set up logging for worker processes.
+    This function configures logging to send messages to a queue, which
+    is then handled by the main process.
+
+    Parameters
+    ----------
+    log_queue : `multiprocessing.Queue`
+        Queue for log messages.
+    level : int, optional
+        Logging level. Default is `logging.INFO`.
+    """
+    root = logging.getLogger()
+    root.handlers[:] = []
+    root.setLevel(level)
+    qh = QueueHandler(log_queue)
+    root.addHandler(qh)
+
+
 def get_logger(name, level=logging.INFO):
     """
     Get a logger.
@@ -165,14 +242,8 @@ def get_logger(name, level=logging.INFO):
         been created, it is returned instead of creating a new one.
     """
     logger = logging.getLogger(name)
-    if len(logger.handlers) == 0:
-        logger.setLevel(level)
-        formatter = logging.Formatter('[%(levelname)-8s] %(message)s')
-
-        # Attach a console handler.
-        console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setFormatter(formatter)
-        logger.addHandler(console_handler)
+    logger.setLevel(level)
+    logger.propagate = True
     return logger
 
 
