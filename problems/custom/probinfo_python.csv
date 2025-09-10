@@ -1,0 +1,5 @@
+name,ptype,dim,mb,mlcon,mnlcon,mcon
+custom1,u,2,0,0,0,0
+custom2,b,2,4,0,0,0
+custom3,l,2,4,2,0,2
+custom4,n,2,4,2,3,5

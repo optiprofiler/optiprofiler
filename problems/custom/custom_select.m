@@ -1,6 +1,6 @@
 function problem_names = custom_select(options)
     % This is a toy example to show how to write a custom problem selector.
-    % We will use the mat file `custom_info.mat` created by
+    % We will use the mat file `probinfo_matlab.mat` created by
     % `custom_getInfo` to select the problems.
 
     % Initialization.
@@ -45,7 +45,7 @@ function problem_names = custom_select(options)
     end
 
     % Load the data from a .mat file.
-    load('custom_info.mat', 'probinfo');
+    load('probinfo_matlab.mat', 'probinfo');
 
     % Loop through each problem and check the criteria.
     for i_problem = 2:size(probinfo, 1)
@@ -58,13 +58,16 @@ function problem_names = custom_select(options)
         mcon = probinfo{i_problem, 7};
 
         % Check the criteria.
-        if ismember(ptype, options.ptype) && ...
-           (dim >= options.mindim && dim <= options.maxdim) && ...
-           (mb >= options.minb && mb <= options.maxb) && ...
-           (mlcon >= options.minlcon && mlcon <= options.maxlcon) && ...
-           (mnlcon >= options.minnlcon && mnlcon <= options.maxnlcon) && ...
-           (mcon >= options.mincon && mcon <= options.maxcon) && ...
-           ~ismember(problem_name, options.excludelist)
+        type_match = ismember(ptype, options.ptype);
+        dim_match = (dim >= options.mindim && dim <= options.maxdim);
+        mb_match = (mb >= options.minb && mb <= options.maxb);
+        mlcon_match = (mlcon >= options.minlcon && mlcon <= options.maxlcon);
+        mnlcon_match = (mnlcon >= options.minnlcon && mnlcon <= options.maxnlcon);
+        mcon_match = (mcon >= options.mincon && mcon <= options.maxcon);
+        exclude_match = ~ismember(problem_name, options.excludelist);
+
+        problem_match = type_match && dim_match && mb_match && mlcon_match && mnlcon_match && mcon_match && exclude_match;
+        if problem_match
             problem_names{end + 1} = problem_name;
         end
     end

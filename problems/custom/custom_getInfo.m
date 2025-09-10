@@ -9,6 +9,7 @@ function custom_getInfo()
     mfiles = dir(fullfile(mydir, 'matlab_problems', '*.m'));
     mfile_names = {mfiles.name};
     mfile_names = regexprep(mfile_names, '\.m$', ''); % Remove the .m extension
+    mfile_names = sort(mfile_names); % Sort the file names.
 
     % Initial the cell array to store the problem information.
     n_problems = length(mfile_names);
@@ -32,5 +33,5 @@ function custom_getInfo()
     end
 
     % Save the problem information to a MAT file.
-    save(fullfile(mydir, 'custom_info.mat'), 'probinfo');
+    save(fullfile(mydir, 'probinfo_matlab.mat'), 'probinfo');
 end

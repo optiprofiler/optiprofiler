@@ -4,10 +4,9 @@ import numpy as np
 import pandas as pd
 
 from ..utils import add_optiprofiler
-
 add_optiprofiler()
-
 from optiprofiler.problems import Problem
+
 
 def s2mpj_load(problem_name, *args):
     """
@@ -126,7 +125,7 @@ def s2mpj_load(problem_name, *args):
     xu = p.xupper
 
     if not hasattr(p, 'lincons'):
-        p.lincons = None
+        p.lincons = np.array([], dtype=int)
     if not hasattr(p, 'nle'):
         p.nle = 0
     if not hasattr(p, 'neq'):
@@ -157,15 +156,27 @@ def s2mpj_load(problem_name, *args):
     idx_cle = np.intersect1d(idx_le, nonlincons)
     idx_ceq = np.intersect1d(idx_eq, nonlincons)
     idx_cge = np.intersect1d(idx_ge, nonlincons)
-    aeq = jx[idx_aeq, :] if jx is not None else None
-    aub = np.vstack([jx[idx_aub_le, :], -jx[idx_aub_ge, :]]) if jx is not None else None
-    beq = bx[idx_aeq] if bx is not None else None
-    bub = np.concatenate([bx[idx_aub_le], -bx[idx_aub_ge]]) if bx is not None else None
+    aeq = jx[idx_aeq, :] if jx is not None and idx_aeq.size > 0 else None
+    aub = np.vstack([jx[idx_aub_le, :], -jx[idx_aub_ge, :]]) if jx is not None and (idx_aub_le.size > 0 or idx_aub_ge.size > 0) else None
+    beq = bx[idx_aeq] if bx is not None and idx_aeq.size > 0 else None
+    bub = np.concatenate([bx[idx_aub_le], -bx[idx_aub_ge]]) if bx is not None and (idx_aub_le.size > 0 or idx_aub_ge.size > 0) else None
 
-    getidx = lambda y, idx: y[idx] if y is not None else None
-    ceq = lambda x: getidx(_getcx(p, x), idx_ceq)
-    cub = lambda x: np.concatenate([getidx(_getcx(p, x), idx_cle),
-                                    -getidx(_getcx(p, x), idx_cge)]) if getidx(_getcx(p, x), idx_cle) is not None else None
+    getidx = lambda y, idx: y[idx] if (y is not None and idx.size > 0) else None
+    def ceq(x):
+        y = _getcx(p, x)
+        z = getidx(y, idx_ceq)
+        return None if z is None or (hasattr(z, "size") and z.size == 0) else z
+    def cub(x):
+        y = _getcx(p, x)
+        le = getidx(y, idx_cle)
+        ge = getidx(y, idx_cge)
+        if le is None and ge is None:
+            return None
+        if ge is None:
+            return le
+        if le is None:
+            return -ge
+        return np.concatenate([le, -ge])
 
     getidx_list = lambda y, idx: [y[i] for i in idx] if y is not None else []
     hceq = lambda x: getidx_list(_getHx(p, x), idx_ceq)
@@ -244,13 +255,8 @@ def s2mpj_select(options):
         'oracle': 0,
         'excludelist': []
     }
-    
-    # Update default options with provided options
-    for key in options:
-        if key not in default_options:
-            raise ValueError(f"Invalid option: {key}")
-        default_options[key] = options[key]
-    options = default_options
+    for key in default_options:
+        options.setdefault(key, default_options[key])
     
     # Add known problematic problems to exclude list
     exclude_problems = ['DANWOODLS', 'MISRA1CLS', 'ROSSIMP1', 'ROSSIMP2', 'ROSSIMP3']
