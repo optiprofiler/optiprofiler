@@ -22,7 +22,7 @@ from .utils import ProfileOption
 
 
 
-def draw_profiles(work, problem_dimensions, solver_names, tolerance_latex, ax_summary_perf_hist, ax_summary_data_hist, ax_summary_log_ratio_hist, is_summary, is_perf, is_data, is_log_ratio, profile_options, curves):
+def draw_profiles(work, problem_dimensions, solver_names, tolerance_latex, i_tol, ax_summary_perf, ax_summary_data, ax_summary_log_ratio, is_summary, is_perf, is_data, is_log_ratio, profile_options, curves):
     solver_names = [name.replace('_', r'\_') for name in solver_names]
     n_solvers = work.shape[1]
 
@@ -35,7 +35,7 @@ def draw_profiles(work, problem_dimensions, solver_names, tolerance_latex, ax_su
         fig_log_ratio, ax_log_ratio = plt.subplots()
 
     # Calculate the performance and data profiles.
-    x_perf_hist, y_perf_hist, ratio_max_perf_hist, x_data_hist, y_data_hist, ratio_max_data_hist, curves = _get_extended_performances_data_profile_axes(work, problem_dimensions, profile_options, curves)
+    x_perf, y_perf, ratio_max_perf, x_data, y_data, ratio_max_data, curves = _get_extended_performances_data_profile_axes(work, problem_dimensions, profile_options, curves)
     if n_solvers == 2:
         x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, curves = _get_log_ratio_profile_axes(work, curves)
     
@@ -45,97 +45,118 @@ def draw_profiles(work, problem_dimensions, solver_names, tolerance_latex, ax_su
     
 
     # Draw the performance profiles
-    _draw_performance_data_profiles(ax_perf_hist, x_perf_hist, y_perf_hist, labels)
-    _draw_performance_data_profiles(ax_perf_out, x_perf_out, y_perf_out, labels)
-    if ax_summary_perf_hist is not None:
-        if i_tolerance == 0:
-            _draw_performance_data_profiles(ax_summary_perf_hist[i_tolerance], x_perf_hist, y_perf_hist, labels)
-        else:
-            _draw_performance_data_profiles(ax_summary_perf_hist[i_tolerance], x_perf_hist, y_perf_hist)
-    if ax_summary_perf_out is not None:
-        _draw_performance_data_profiles(ax_summary_perf_out[i_tolerance], x_perf_out, y_perf_out)
-    perf_formatter = FuncFormatter(_perf_formatter)
-    ax_perf_hist.xaxis.set_major_formatter(perf_formatter)
-    ax_perf_out.xaxis.set_major_formatter(perf_formatter)
-    if ax_summary_perf_hist is not None:
-        ax_summary_perf_hist[i_tolerance].xaxis.set_major_formatter(perf_formatter)
-    if ax_summary_perf_out is not None:
-        ax_summary_perf_out[i_tolerance].xaxis.set_major_formatter(perf_formatter)
-    with warnings.catch_warnings():
-        warnings.filterwarnings('ignore', category=UserWarning)
-        ax_perf_hist.set_xlim(0.0, 1.05 * ratio_max_perf_hist)
-        ax_perf_out.set_xlim(0.0, 1.05 * ratio_max_perf_out)
-        if ax_summary_perf_hist is not None:
-            ax_summary_perf_hist[i_tolerance].set_xlim(0.0, 1.05 * ratio_max_perf_hist)
-        if ax_summary_perf_out is not None:
-            ax_summary_perf_out[i_tolerance].set_xlim(0.0, 1.05 * ratio_max_perf_out)
-    ax_perf_hist.set_xlabel('Performance ratio')
-    ax_perf_out.set_xlabel('Performance ratio')
-    if ax_summary_perf_hist is not None:
-        ax_summary_perf_hist[i_tolerance].set_xlabel('Performance ratio')
-    if ax_summary_perf_out is not None:
-        ax_summary_perf_out[i_tolerance].set_xlabel('Performance ratio')
-    ax_perf_hist.set_ylabel(f'Performance profiles {tolerance_label}')
-    ax_perf_out.set_ylabel(f'Performance profiles {tolerance_label}')
-    if ax_summary_perf_hist is not None:
-        ax_summary_perf_hist[i_tolerance].set_ylabel(f'Performance profiles {tolerance_label}')
-    if ax_summary_perf_out is not None:
-        ax_summary_perf_out[i_tolerance].set_ylabel(f'Performance profiles {tolerance_label}')
+    _draw_perf_detail(ax_perf, x_perf, y_perf, ratio_max_perf, solver_names, profile_options, tolerance_latex)
+    _draw_data_detail(ax_data, x_data, y_data, ratio_max_data, solver_names, profile_options, tolerance_latex)
+    if n_solvers == 2:
+        _draw_log_ratio_detail(ax_log_ratio, x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, solver_names, profile_options, tolerance_latex)
+    
 
-    # Draw the data profiles.
-    _draw_performance_data_profiles(ax_data_hist, x_data_hist, y_data_hist, labels)
-    _draw_performance_data_profiles(ax_data_out, x_data_out, y_data_out, labels)
-    if ax_summary_data_hist is not None:
-        _draw_performance_data_profiles(ax_summary_data_hist[i_tolerance], x_data_hist, y_data_hist)
-    if ax_summary_data_out is not None:
-        _draw_performance_data_profiles(ax_summary_data_out[i_tolerance], x_data_out, y_data_out)
-    data_formatter = FuncFormatter(_data_formatter)
-    ax_data_hist.xaxis.set_major_formatter(data_formatter)
-    ax_data_out.xaxis.set_major_formatter(data_formatter)
-    if ax_summary_data_hist is not None:
-        ax_summary_data_hist[i_tolerance].xaxis.set_major_formatter(data_formatter)
-    if ax_summary_data_out is not None:
-        ax_summary_data_out[i_tolerance].xaxis.set_major_formatter(data_formatter)
-    ax_data_hist.set_xlim(0.0, 1.05 * ratio_max_data_hist)
-    ax_data_out.set_xlim(0.0, 1.05 * ratio_max_data_out)
-    if ax_summary_data_hist is not None:
-        ax_summary_data_hist[i_tolerance].set_xlim(0.0, 1.05 * ratio_max_data_hist)
-    if ax_summary_data_out is not None:
-        ax_summary_data_out[i_tolerance].set_xlim(0.0, 1.05 * ratio_max_data_out)
-    ax_data_hist.set_xlabel('Number of simplex gradients')
-    ax_data_out.set_xlabel('Number of simplex gradients')
-    if ax_summary_data_hist is not None:
-        ax_summary_data_hist[i_tolerance].set_xlabel('Number of simplex gradients')
-    if ax_summary_data_out is not None:
-        ax_summary_data_out[i_tolerance].set_xlabel('Number of simplex gradients')
-    ax_data_hist.set_ylabel(f'Data profiles {tolerance_label}')
-    ax_data_out.set_ylabel(f'Data profiles {tolerance_label}')
-    if ax_summary_data_hist is not None:
-        ax_summary_data_hist[i_tolerance].set_ylabel(f'Data profiles {tolerance_label}')
-    if ax_summary_data_out is not None:
-        ax_summary_data_out[i_tolerance].set_ylabel(f'Data profiles {tolerance_label}')
+    # Create the figures in the summary.
 
-    # Draw the log-ratio profiles.
-    if n_solvers <= 2:
-        _draw_log_ratio_profiles(ax_log_ratio_hist, np.copy(work_hist), labels)
-        _draw_log_ratio_profiles(ax_log_ratio_out, np.copy(work_out), labels)
-        if ax_summary_log_ratio_hist is not None:
-            _draw_log_ratio_profiles(ax_summary_log_ratio_hist[i_tolerance], np.copy(work_hist), labels)
-        if ax_summary_log_ratio_out is not None:
-            _draw_log_ratio_profiles(ax_summary_log_ratio_out[i_tolerance], np.copy(work_out), labels)
-        ax_log_ratio_hist.set_xlabel('Problem')
-        ax_log_ratio_out.set_xlabel('Problem')
-        if ax_summary_log_ratio_hist is not None:
-            ax_summary_log_ratio_hist[i_tolerance].set_xlabel('Problem')
-        if ax_summary_log_ratio_out is not None:
-            ax_summary_log_ratio_out[i_tolerance].set_xlabel('Problem')
-        ax_log_ratio_hist.set_ylabel(f'Log-ratio profiles {tolerance_label}')
-        ax_log_ratio_out.set_ylabel(f'Log-ratio profiles {tolerance_label}')
-        if ax_summary_log_ratio_hist is not None:
-            ax_summary_log_ratio_hist[i_tolerance].set_ylabel(f'Log-ratio profiles {tolerance_label}')
-        if ax_summary_log_ratio_out is not None:
-            ax_summary_log_ratio_out[i_tolerance].set_ylabel(f'Log-ratio profiles {tolerance_label}')
-    return fig_perf_hist, fig_perf_out, fig_data_hist, fig_data_out, fig_log_ratio_hist, fig_log_ratio_out
+    if is_summary:
+        if is_perf and ax_summary_perf is not None:
+            _draw_perf_detail(ax_summary_perf[i_tol], x_perf, y_perf, ratio_max_perf, solver_names, profile_options, tolerance_latex)
+        if is_data and ax_summary_data is not None:
+            _draw_data_detail(ax_summary_data[i_tol], x_data, y_data, ratio_max_data, solver_names, profile_options, tolerance_latex)
+        if is_log_ratio and ax_summary_log_ratio is not None:
+            _draw_log_ratio_detail(ax_summary_log_ratio[i_tol], x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, solver_names, profile_options, tolerance_latex)
+        
+
+
+
+
+
+
+
+    # if ax_summary_perf_hist is not None:
+    #     if i_tolerance == 0:
+    #         _draw_performance_data_profiles(ax_summary_perf_hist[i_tolerance], x_perf_hist, y_perf_hist, labels)
+    #     else:
+    #         _draw_performance_data_profiles(ax_summary_perf_hist[i_tolerance], x_perf_hist, y_perf_hist)
+    # if ax_summary_perf_out is not None:
+    #     _draw_performance_data_profiles(ax_summary_perf_out[i_tolerance], x_perf_out, y_perf_out)
+    # perf_formatter = FuncFormatter(_perf_formatter)
+    # ax_perf_hist.xaxis.set_major_formatter(perf_formatter)
+    # ax_perf_out.xaxis.set_major_formatter(perf_formatter)
+    # if ax_summary_perf_hist is not None:
+    #     ax_summary_perf_hist[i_tolerance].xaxis.set_major_formatter(perf_formatter)
+    # if ax_summary_perf_out is not None:
+    #     ax_summary_perf_out[i_tolerance].xaxis.set_major_formatter(perf_formatter)
+    # with warnings.catch_warnings():
+    #     warnings.filterwarnings('ignore', category=UserWarning)
+    #     ax_perf_hist.set_xlim(0.0, 1.05 * ratio_max_perf_hist)
+    #     ax_perf_out.set_xlim(0.0, 1.05 * ratio_max_perf_out)
+    #     if ax_summary_perf_hist is not None:
+    #         ax_summary_perf_hist[i_tolerance].set_xlim(0.0, 1.05 * ratio_max_perf_hist)
+    #     if ax_summary_perf_out is not None:
+    #         ax_summary_perf_out[i_tolerance].set_xlim(0.0, 1.05 * ratio_max_perf_out)
+    # ax_perf_hist.set_xlabel('Performance ratio')
+    # ax_perf_out.set_xlabel('Performance ratio')
+    # if ax_summary_perf_hist is not None:
+    #     ax_summary_perf_hist[i_tolerance].set_xlabel('Performance ratio')
+    # if ax_summary_perf_out is not None:
+    #     ax_summary_perf_out[i_tolerance].set_xlabel('Performance ratio')
+    # ax_perf_hist.set_ylabel(f'Performance profiles {tolerance_label}')
+    # ax_perf_out.set_ylabel(f'Performance profiles {tolerance_label}')
+    # if ax_summary_perf_hist is not None:
+    #     ax_summary_perf_hist[i_tolerance].set_ylabel(f'Performance profiles {tolerance_label}')
+    # if ax_summary_perf_out is not None:
+    #     ax_summary_perf_out[i_tolerance].set_ylabel(f'Performance profiles {tolerance_label}')
+
+    # # Draw the data profiles.
+    # _draw_performance_data_profiles(ax_data_hist, x_data_hist, y_data_hist, labels)
+    # _draw_performance_data_profiles(ax_data_out, x_data_out, y_data_out, labels)
+    # if ax_summary_data_hist is not None:
+    #     _draw_performance_data_profiles(ax_summary_data_hist[i_tolerance], x_data_hist, y_data_hist)
+    # if ax_summary_data_out is not None:
+    #     _draw_performance_data_profiles(ax_summary_data_out[i_tolerance], x_data_out, y_data_out)
+    # data_formatter = FuncFormatter(_data_formatter)
+    # ax_data_hist.xaxis.set_major_formatter(data_formatter)
+    # ax_data_out.xaxis.set_major_formatter(data_formatter)
+    # if ax_summary_data_hist is not None:
+    #     ax_summary_data_hist[i_tolerance].xaxis.set_major_formatter(data_formatter)
+    # if ax_summary_data_out is not None:
+    #     ax_summary_data_out[i_tolerance].xaxis.set_major_formatter(data_formatter)
+    # ax_data_hist.set_xlim(0.0, 1.05 * ratio_max_data_hist)
+    # ax_data_out.set_xlim(0.0, 1.05 * ratio_max_data_out)
+    # if ax_summary_data_hist is not None:
+    #     ax_summary_data_hist[i_tolerance].set_xlim(0.0, 1.05 * ratio_max_data_hist)
+    # if ax_summary_data_out is not None:
+    #     ax_summary_data_out[i_tolerance].set_xlim(0.0, 1.05 * ratio_max_data_out)
+    # ax_data_hist.set_xlabel('Number of simplex gradients')
+    # ax_data_out.set_xlabel('Number of simplex gradients')
+    # if ax_summary_data_hist is not None:
+    #     ax_summary_data_hist[i_tolerance].set_xlabel('Number of simplex gradients')
+    # if ax_summary_data_out is not None:
+    #     ax_summary_data_out[i_tolerance].set_xlabel('Number of simplex gradients')
+    # ax_data_hist.set_ylabel(f'Data profiles {tolerance_label}')
+    # ax_data_out.set_ylabel(f'Data profiles {tolerance_label}')
+    # if ax_summary_data_hist is not None:
+    #     ax_summary_data_hist[i_tolerance].set_ylabel(f'Data profiles {tolerance_label}')
+    # if ax_summary_data_out is not None:
+    #     ax_summary_data_out[i_tolerance].set_ylabel(f'Data profiles {tolerance_label}')
+
+    # # Draw the log-ratio profiles.
+    # if n_solvers <= 2:
+    #     _draw_log_ratio_profiles(ax_log_ratio_hist, np.copy(work_hist), labels)
+    #     _draw_log_ratio_profiles(ax_log_ratio_out, np.copy(work_out), labels)
+    #     if ax_summary_log_ratio_hist is not None:
+    #         _draw_log_ratio_profiles(ax_summary_log_ratio_hist[i_tolerance], np.copy(work_hist), labels)
+    #     if ax_summary_log_ratio_out is not None:
+    #         _draw_log_ratio_profiles(ax_summary_log_ratio_out[i_tolerance], np.copy(work_out), labels)
+    #     ax_log_ratio_hist.set_xlabel('Problem')
+    #     ax_log_ratio_out.set_xlabel('Problem')
+    #     if ax_summary_log_ratio_hist is not None:
+    #         ax_summary_log_ratio_hist[i_tolerance].set_xlabel('Problem')
+    #     if ax_summary_log_ratio_out is not None:
+    #         ax_summary_log_ratio_out[i_tolerance].set_xlabel('Problem')
+    #     ax_log_ratio_hist.set_ylabel(f'Log-ratio profiles {tolerance_label}')
+    #     ax_log_ratio_out.set_ylabel(f'Log-ratio profiles {tolerance_label}')
+    #     if ax_summary_log_ratio_hist is not None:
+    #         ax_summary_log_ratio_hist[i_tolerance].set_ylabel(f'Log-ratio profiles {tolerance_label}')
+    #     if ax_summary_log_ratio_out is not None:
+    #         ax_summary_log_ratio_out[i_tolerance].set_ylabel(f'Log-ratio profiles {tolerance_label}')
+    return fig_perf, fig_data, fig_log_ratio, curves
 
 
 def _draw_perf_detail(ax_perf, x_perf, y_perf, ratio_max_perf, solver_names, profile_options, tolerance_latex):
@@ -146,7 +167,21 @@ def _draw_perf_detail(ax_perf, x_perf, y_perf, ratio_max_perf, solver_names, pro
     else:
         ax_perf.set_xlim(1.0, 1.1 * ratio_max_perf)
     # Modify x-axis ticks labels of the performance profiles.
-    
+
+
+
+
+def _draw_data_detail(ax_data, x_data, y_data, ratio_max_data, solver_names, profile_options, tolerance_latex):
+    _draw_performance_data_profiles(ax_data, x_data, y_data, solver_names, profile_options)
+    # Set x-axis limits.
+    ax_data.set_xlim(0.0, 1.1 * ratio_max_data)
+    # Modify x-axis ticks labels of the data profiles.
+
+
+
+def _draw_log_ratio_detail(ax_log_ratio, x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, solver_names, profile_options, tolerance_latex):
+    _draw_log_ratio_profiles(ax_log_ratio, x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, solver_names, profile_options)
+    # Set x-axis limits.
 
 
 
@@ -154,57 +189,71 @@ def _draw_perf_detail(ax_perf, x_perf, y_perf, ratio_max_perf, solver_names, pro
 
 
 
-
-
-
-def _draw_performance_data_profiles(ax, x, y, labels=None):
+def _draw_performance_data_profiles(ax, x, y, solver_names, profile_options):
+    profile_context = set_profile_context(profile_options)
+    line_colors = profile_options[ProfileOption.LINE_COLORS]
+    line_styles = profile_options[ProfileOption.LINE_STYLES]
+    line_widths = profile_options[ProfileOption.LINE_WIDTHS]
     n_solvers = x.shape[1]
     n_runs = y.shape[2]
     y_mean = np.mean(y, 2)
-    y_min = np.min(y, 2)
-    y_max = np.max(y, 2)
-    for i_solver in range(n_solvers):
-        x_stairs = np.repeat(x[:, i_solver], 2)[1:]
-        y_mean_stairs = np.repeat(y_mean[:, i_solver], 2)[:-1]
-        y_min_stairs = np.repeat(y_min[:, i_solver], 2)[:-1]
-        y_max_stairs = np.repeat(y_max[:, i_solver], 2)[:-1]
-        if labels is not None:
-            ax.plot(x_stairs, y_mean_stairs, label=labels[i_solver])
-        else:
-            ax.plot(x_stairs, y_mean_stairs)
-        if n_runs > 1:
-            ax.fill_between(x_stairs, y_min_stairs, y_max_stairs, alpha=0.2)
-    ax.xaxis.set_major_locator(MaxNLocator(5, integer=True))
-    ax.yaxis.set_ticks_position('both')
-    ax.yaxis.set_major_locator(MaxNLocator(5, prune='lower'))
-    ax.yaxis.set_minor_locator(MaxNLocator(10))
-    ax.set_ylim(0.0, 1.0)
-    ax.tick_params(which='both', direction='in')
-    if labels is not None:
+
+    if profile_options[ProfileOption.ERRORBAR_TYPE] == 'minmax':
+        y_lower = np.min(y, 2)
+        y_upper = np.max(y, 2)
+    elif profile_options[ProfileOption.ERRORBAR_TYPE] == 'meanstd':
+        y_std = np.std(y, 2)
+        y_lower = np.maximum(0.0, y_mean - y_std)
+        y_upper = np.minimum(1.0, y_mean + y_std)
+    else:
+        raise ValueError("Unknown {ProfileOption.ERRORBAR_TYPE.value}: {profile_options[ProfileOption.ERRORBAR_TYPE]}")
+
+    with plt.rc_context(profile_context):
+        for i_solver in range(n_solvers):
+            x_stairs = np.repeat(x[:, i_solver], 2)[1:]
+            y_mean_stairs = np.repeat(y_mean[:, i_solver], 2)[:-1]
+            y_lower_stairs = np.repeat(y_lower[:, i_solver], 2)[:-1]
+            y_upper_stairs = np.repeat(y_upper[:, i_solver], 2)[:-1]
+
+            color = line_colors[i_solver % len(line_colors)]
+            line_style = line_styles[i_solver % len(line_styles)]
+            line_width = line_widths[i_solver % len(line_widths)]
+
+            ax.plot(x_stairs, y_mean_stairs, label=solver_names[i_solver], color=color, linestyle=line_style, linewidth=line_width)
+            if n_runs > 1:
+                ax.fill_between(x_stairs, y_lower_stairs, y_upper_stairs, color=color, alpha=0.2)
+        ax.xaxis.set_major_locator(MaxNLocator(5, integer=True))
+        ax.yaxis.set_ticks_position('both')
+        ax.yaxis.set_major_locator(MaxNLocator(5, prune='lower'))
+        ax.yaxis.set_minor_locator(MaxNLocator(10))
+        ax.set_ylim(0.0, 1.0)
+        ax.tick_params(which='both', direction='in')
         ax.legend(loc='lower right')
 
-def _draw_log_ratio_profiles(ax, work, labels):
-    n_problems, n_solvers, n_runs = work.shape
-    work_flat = np.reshape(np.swapaxes(work, 1, 2), (n_problems * n_runs, n_solvers))
-    log_ratio = np.full(n_problems * n_runs, np.nan)
-    log_ratio_finite = np.isfinite(work_flat[:, 0]) & np.isfinite(work_flat[:, 1])
-    log_ratio[log_ratio_finite] = np.log2(work_flat[log_ratio_finite, 0]) - np.log2(work_flat[log_ratio_finite, 1])
-    ratio_max = np.max(np.abs(log_ratio[log_ratio_finite]), initial=np.finfo(float).eps)
-    log_ratio[np.isnan(work_flat[:, 0]) & np.isfinite(work_flat[:, 1])] = 2.0 * ratio_max
-    log_ratio[np.isfinite(work_flat[:, 0]) & np.isnan(work_flat[:, 1])] = -2.0 * ratio_max
-    log_ratio[np.isnan(work_flat[:, 0]) & np.isnan(work_flat[:, 1])] = 0.0
-    log_ratio = np.sort(log_ratio)
 
-    x = np.arange(1, n_problems * n_runs + 1)
-    ax.bar(x[log_ratio < 0], log_ratio[log_ratio < 0])
-    ax.bar(x[log_ratio > 0], log_ratio[log_ratio > 0])
-    ax.text((n_problems * n_runs + 1) / 2, -ratio_max, labels[0], horizontalalignment='center', verticalalignment='bottom')
-    ax.text((n_problems * n_runs + 1) / 2, ratio_max, labels[1], horizontalalignment='center', verticalalignment='top')
-    with warnings.catch_warnings():
-        warnings.filterwarnings('ignore', category=UserWarning)
-        ax.set_xlim(0.5, n_problems * n_runs + 0.5)
-    ax.set_ylim(-1.1 * ratio_max, 1.1 * ratio_max)
-    ax.tick_params(which='both', direction='in')
+def _draw_log_ratio_profiles(ax, x, y, ratio_max, n_solvers_equal, solver_names, profile_options):
+    profile_context = set_profile_context(profile_options)
+    n_problems = x.shape[0]
+    n_below = np.sum(y < 0) - n_solvers_equal
+    n_above = np.sum(y > 0) - n_solvers_equal
+
+    with plt.rc_context(profile_context):
+        bar_colors = profile_options[ProfileOption.BAR_COLORS][:2]
+        if n_solvers_equal > 0:
+            ax.bar(x[:n_solvers_equal], y[:n_solvers_equal], color=bar_colors[0], alpha=0.5)
+            ax.bar(x[-n_solvers_equal:], y[-n_solvers_equal:], color=bar_colors[1], alpha=0.5)
+        if n_below > 0:
+            ax.bar(x[n_solvers_equal:n_solvers_equal + n_below], y[n_solvers_equal:n_solvers_equal + n_below], color=bar_colors[0])
+        if n_above > 0:
+            ax.bar(x[-(n_solvers_equal + n_above):-n_solvers_equal], y[-(n_solvers_equal + n_above):-n_solvers_equal], color=bar_colors[1])
+
+        ax.text((n_problems + 1) / 2, -ratio_max, solver_names[0], horizontalalignment='center', verticalalignment='bottom')
+        ax.text((n_problems + 1) / 2, ratio_max, solver_names[1], horizontalalignment='center', verticalalignment='top')
+        with warnings.catch_warnings():
+            warnings.filterwarnings('ignore', category=UserWarning)
+            ax.set_xlim(0.5, n_problems + 0.5)
+        ax.set_ylim(-1.1 * ratio_max, 1.1 * ratio_max)
+        ax.tick_params(which='both', direction='in')
 
 
 

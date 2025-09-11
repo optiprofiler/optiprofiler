@@ -26,7 +26,7 @@ from .problems import Problem, FeaturedProblem
 from .utils import FeatureName, ProfileOption, FeatureOption, ProblemOption, get_logger, setup_main_process_logging, setup_worker_logging
 from .loader import load_results
 from .profile_utils import check_validity_problem_options, check_validity_profile_options, get_default_problem_options, get_default_profile_options, compute_merit_values, create_stamp, merge_pdfs_with_pypdf, write_report, process_results
-from .plotting import draw_hist, set_profile_context, format_float_scientific_latex
+from .plotting import draw_hist, set_profile_context, format_float_scientific_latex, draw_profiles
 
 
 def benchmark(
@@ -791,10 +791,10 @@ def benchmark(
             path_perf_hist.mkdir(parents=True, exist_ok=True)
         if not path_data_hist.exists():
             path_data_hist.mkdir(parents=True, exist_ok=True)
-        if not path_log_ratio_hist.exists():
-            path_log_ratio_hist.mkdir(parents=True, exist_ok=True)
         if not path_perf_out.exists():
             path_perf_out.mkdir(parents=True, exist_ok=True)
+        if not path_data_out.exists():
+            path_data_out.mkdir(parents=True, exist_ok=True)
         if n_solvers == 2:
             if not path_log_ratio_hist.exists():
                 path_log_ratio_hist.mkdir(parents=True, exist_ok=True)
@@ -1074,8 +1074,8 @@ def benchmark(
                     solvers_all_diverge_out[i_problem, i_run, i_tol] = np.all(np.isnan(work_out[i_problem, :, i_run]))
 
             # Draw the profiles.
-            fig_perf_hist, fig_data_hist, fig_log_ratio_hist, curve['hist'] = draw_profiles(work_hist, problem_dims_merged, solver_names, tolerance_latex, ax_summary_perf_hist, ax_summary_data_hist, ax_summary_log_ratio_hist, True, is_perf, is_data, is_log_ratio, profile_options, curve['hist'])
-            fig_perf_out, fig_data_out, fig_log_ratio_out, curve['out'] = draw_profiles(work_out, problem_dims_merged, solver_names, tolerance_latex, ax_summary_perf_out, ax_summary_data_out, ax_summary_log_ratio_out, is_output_based, is_perf, is_data, is_log_ratio, profile_options, curve['out'])
+            fig_perf_hist, fig_data_hist, fig_log_ratio_hist, curve['hist'] = draw_profiles(work_hist, problem_dims_merged, solver_names, tolerance_latex, i_tol, ax_summary_perf_hist, ax_summary_data_hist, ax_summary_log_ratio_hist, True, is_perf, is_data, is_log_ratio, profile_options, curve['hist'])
+            fig_perf_out, fig_data_out, fig_log_ratio_out, curve['out'] = draw_profiles(work_out, problem_dims_merged, solver_names, tolerance_latex, i_tol, ax_summary_perf_out, ax_summary_data_out, ax_summary_log_ratio_out, is_output_based, is_perf, is_data, is_log_ratio, profile_options, curve['out'])
             curves.append(curve)
 
             # Save the profiles to files.
@@ -1142,7 +1142,7 @@ def benchmark(
         fig_summary.suptitle(f"Profiles with the ``{feature.name}'' feature", fontsize='xx-large', verticalalignment='bottom')
         path_summary = path_stamp / f'summary_{stamp}.pdf'
         fig_summary.savefig(path_summary, bbox_inches='tight')
- 
+
         plt.close(fig_summary)
 
     
