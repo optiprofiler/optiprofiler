@@ -44,9 +44,4 @@ Three things to note:
 
 2. The problem name may appear in the form of 'problem_name_dim_m_con' where 'problem_name' is the name of the problem, 'dim' is the dimension of the problem, and 'm_con' is the number of linear and nonlinear constraints of the problem. This case only happens when this problem can accept extra arguments to change the dimension or the number of constraints. This information is stored in the ``probinfo_matlab.csv`` file as the last few columns.
 
-3. There is a file ``variable_size.txt`` in the same directory as this function. This file can be used to set the ``variable_size`` option to ``'default'``, ``'min'``, ``'max'``, or ``'all'`` (without quotes in the file). If this file does not exist or is empty, the ``variable_size`` option will be set to ``'default'``. ``variable_size`` is used to determine how to select the problems with variable dimension and/or number of constraints. The options are:
-
-    - 'default': Only consider the default dimension and number of constraints for each problem.
-    - 'min':     For problems with variable dimension and/or constraints, select the one with the smallest dimension and, among those, the smallest number of constraints that satisfies the options (priority: smaller dimension, then fewer constraints).
-    - 'max':     For problems with variable dimension and/or constraints, select the one with the largest dimension and, among those, the largest number of constraints that satisfies the options (priority: larger dimension, then more constraints).
-    - 'all':     For problems with variable dimension and/or constraints, include all configurations that satisfy the options.
+3. There is a file `config.txt` in the same directory as this function. This file can be used to set the options `variable_size` and `test_feasibility_problems`. Details about these two options can be found in the comments in the `config.txt` file.

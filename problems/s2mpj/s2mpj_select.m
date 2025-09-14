@@ -53,52 +53,43 @@ function [problem_names, argins] = s2mpj_select(options)
 %          this problem can accept extra arguments to change the dimension or
 %          the number of constraints. This information is stored in the
 %          'probinfo_matlab.csv' file as the last few columns.
-%       3. There is a file `variable_size.txt` in the same directory as this
-%          function. This file can be used to set the `variable_size` option
-%          to 'default', 'min', 'max', or 'all' (without quotes in the file).
-%          If this file does not exist or is empty, the `variable_size` option
-%          will be set to 'default'. `variable_size` is used to determine how
-%          to select the problems with variable dimension and/or number of
-%          constraints. The options are:
-%           - 'default': Only consider the default dimension and number of
-%                        constraints for each problem.
-%           - 'min':     For problems with variable dimension and/or
-%                        constraints, select the one with the smallest
-%                        dimension and, among those, the smallest number of
-%                        constraints that satisfies the options (priority:
-%                        smaller dimension, then fewer constraints).
-%           - 'max':     For problems with variable dimension and/or
-%                        constraints, select the one with the largest
-%                        dimension and, among those, the largest number of
-%                        constraints that satisfies the options (priority:
-%                        larger dimension, then more constraints).
-%           - 'all':     For problems with variable dimension and/or
-%                        constraints, include all configurations that satisfy
-%                        the options.
+%       3. There is a file `config.txt` in the same directory as this function.
+%          This file can be used to set the options `variable_size` and
+%          `test_feasibility_problems`. Details about these two options can be
+%          found in the comments in the `config.txt` file.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%% Set the `variable_size` %%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    variable_size = '';
-    % Check whether there is a file named 'variable_size.txt' in the current directory.
-    if exist('variable_size.txt', 'file') == 2
+    % Set default options in the config file if not provided.
+    variable_size = 'default';
+    test_feasibility_problems = 0;
+    % Check whether there is a file named 'config.txt' in the current directory.
+    if exist('config.txt', 'file') == 2
         % Read the content of the file.
         try
-            fid = fopen('variable_size.txt', 'r');
-            variable_size = strtrim(fgetl(fid));
+            fid = fopen('config.txt', 'r');
+            % Find the line starting with 'variable_size=' and 'test_feasibility_problems='
+            while ~feof(fid)
+                line = fgetl(fid);
+                if startsWith(line, 'variable_size=')
+                    variable_size = strtrim(extractAfter(line, 'variable_size='));
+                elseif startsWith(line, 'test_feasibility_problems=')
+                    test_feasibility_problems = str2double(strtrim(extractAfter(line, 'test_feasibility_problems=')));
+                end
+            end
             fclose(fid);
         catch
-            variable_size = '';
+            warning('Failed to read the file `config.txt`. Using default options.');
         end
     end
-    % Check the validity of `variable_size`.
-    if ~isempty(variable_size) && ~((ischar(variable_size) || isstring(variable_size)) && ismember(char(variable_size), {'default', 'min', 'max', 'all'}))
-        error("Invalid `variable_size` in the file `variable_size.txt`. Please set it to 'default', 'min', 'max', or 'all' (without quotes).");
+    % Check the validity of `variable_size` and `test_feasibility_problems`.
+    if ~((ischar(variable_size) || isstring(variable_size)) && ismember(char(variable_size), {'default', 'min', 'max', 'all'}))
+        error("Invalid `variable_size` in the file `config.txt`. Please set it to 'default', 'min', 'max', or 'all' (without quotes).");
     end
-    % If `variable_size` is empty, set it to 'default'.
-    if isempty(variable_size)
-        variable_size = 'default';
+    if ~ismember(test_feasibility_problems, [0, 1, 2])
+        error("Invalid `test_feasibility_problems` in the file `config.txt`. Please set it to 0, 1, or 2.");
     end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -170,6 +161,7 @@ function [problem_names, argins] = s2mpj_select(options)
         mlcon = probinfo{i_problem, 9};
         mnlcon = probinfo{i_problem, 10};
         mcon = probinfo{i_problem, 8};
+        is_feasibility = probinfo{i_problem, 18};
         argin = probinfo{i_problem, 25};
         dims = probinfo{i_problem, 26};
         mbs = probinfo{i_problem, 27};
@@ -192,6 +184,19 @@ function [problem_names, argins] = s2mpj_select(options)
         % Check if the problem type satisfies the criteria.
         if ~ismember(ptype, options.ptype)
             continue;
+        end
+
+        % Check if the problem is a feasibility problem.
+        if test_feasibility_problems == 0
+            if is_feasibility
+                continue;
+            end
+        elseif test_feasibility_problems == 1
+            if ~is_feasibility
+                continue;
+            end
+        % elseif test_feasibility_problems == 2
+        %     Do nothing, include all problems.
         end
 
         % If the default dimension and number of constraints satisfy the criteria, we add the problem.

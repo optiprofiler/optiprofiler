@@ -890,6 +890,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             % in the objective function value.
             solver_merit_mins = squeeze(min(min(merit_history, [], 3, 'omitnan'), [], 2, 'omitnan'));
             solver_scores = (merit_init - solver_merit_mins) ./ max(merit_init - merit_min, eps);
+            solver_scores = max(solver_scores, 0);
         else
             solver_scores = zeros(n_solvers, 1);
         end
@@ -1452,7 +1453,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             fprintf('\nSummary PDF of profiles is saved as: \n%s\n\n', fullfile(path_stamp, [summary_name, '.pdf']));
             fprintf('\nSingle profiles are stored in: \n%s\n\n', fullfile(path_stamp, 'detailed_profiles'));
             fprintf('\nReport of the experiment is saved as: \n%s\n\n', path_report);
-            fprintf('\nCheck the README file for more information about the experiment and the results: \n%s\n\n', path_readme_feature);
+            fprintf('\nCheck the README file for more information about the experiment and the results: \n%s\n', path_readme_feature);
             fprintf('\n***********************************************************************\n');
         end
     end

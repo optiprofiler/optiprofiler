@@ -45,14 +45,20 @@ jobs:
             % Setup OptiProfiler
             setup
 
-            % Remove text in `problems/s2mpj/variable_size.txt` and write 'all' to it.
-            variable_size_file = fullfile(root_dir, 'problems/s2mpj/variable_size.txt');
-            fid = fopen(variable_size_file, 'w');
+            % Change the text 'variable_size=default' in `problems/s2mpj/config.txt` to
+            % 'variable_size=all' to test all problems with variable sizes.
+            % Change the text 'test_feasibility_problems=0' in `problems/s2mpj/config.txt` to
+            % 'test_feasibility_problems=2' to test all problems as well.
+            config_path = fullfile(root_dir, 'problems/s2mpj/config.txt');
+            fid = fopen(config_path, 'w');
             if fid == -1
-                error('Cannot open `variable_size.txt` for writing.');
+                error('Cannot open `config.txt` for writing.');
             end
-            fprintf(fid, 'all');
+            fprintf(fid, 'variable_size=all\n');
+            fprintf(fid, 'test_feasibility_problems=2\n');
             fclose(fid);
+            
+            
 
             % Create a directory for the output
             mkdir('output')
