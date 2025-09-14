@@ -1209,6 +1209,10 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         [fig_perf_hist, fig_data_hist, fig_log_ratio_hist, curves{i_tol}.hist] = drawProfiles(work_hist, problem_dims_merged, solver_names, tolerance_latex, cell_axs_summary_hist, true, is_perf, is_data, is_log_ratio, profile_options, curves{i_tol}.hist);
         [fig_perf_out, fig_data_out, fig_log_ratio_out, curves{i_tol}.out] = drawProfiles(work_out, problem_dims_merged, solver_names, tolerance_latex, cell_axs_summary_out, is_output_based, is_perf, is_data, is_log_ratio, profile_options, curves{i_tol}.out);
 
+        % Clear working memory.
+        clear work_hist;
+        clear work_out;
+
         if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
             pdf_perf_hist = fullfile(path_perf_hist, ['perf_hist_', int2str(i_tol), '.pdf']);
             figure_perf_hist = fullfile(path_figs, ['perf_hist_', int2str(i_tol), '.fig']);
