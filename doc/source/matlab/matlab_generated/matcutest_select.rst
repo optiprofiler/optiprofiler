@@ -36,4 +36,8 @@ matcutest_select
 
     - **excludelist**: the list of problems to be excluded. Default is not to exclude any problem.
 
-Note that MatCUTEst is only available in Linux.
+Two things to note:
+
+1. MatCUTEst is only available in Linux.
+
+2. There is a file ``config.txt`` in the same directory as this function. This file can be used to set the option ``test_feasibility_problems``. Details about this option can be found in the comments in the ``config.txt`` file.

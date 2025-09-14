@@ -1,0 +1,49 @@
+# =============================================================================
+# Problem Set 'MatCUTEst' Configuration File
+# =============================================================================
+#
+# This configuration file controls the selection behavior of problem sets
+# 'MatCUTEst'. The file uses a simple key-value pair format:
+#
+# parameter_name=parameter_value
+#
+# Lines starting with # are comments and empty lines are ignored.
+#
+# =============================================================================
+# Parameter Descriptions
+# =============================================================================
+#
+# 1. test_feasibility_problems Parameter
+# --------------------------------------
+# Purpose: Determines whether to include feasibility problems in the problem set
+#
+# Background:
+# Feasibility problems are a special class of optimization problems where the goal
+# is to find a feasible solution that satisfies all constraints, rather than 
+# optimizing a specific objective function. These problems are important in certain
+# application scenarios but may not be the main focus in standard optimization 
+# algorithm testing.
+#
+# Available values and meanings:
+# - 0: Completely exclude feasibility problems
+#     All problems marked as feasibility problems will not be included in the 
+#     final problem set
+# - 1: Include only feasibility problems  
+#     Only filter from feasibility problems, regular optimization problems will
+#     be excluded
+# - 2: Do not distinguish problem types
+#     Include both feasibility problems and regular optimization problems as long
+#     as they satisfy other selecting criteria
+#
+# Usage recommendations:
+# - If testing standard optimization algorithms, recommend setting to 0
+# - If specifically studying feasibility problem solving, recommend setting to 1
+# - If wanting a complete comprehensive test set, recommend setting to 2
+#
+# =============================================================================
+# Configuration Parameters
+# =============================================================================
+
+# Strategy for including feasibility problems
+# Available values: 0 (exclude), 1 (only include), 2 (no distinction)
+test_feasibility_problems=0

@@ -44,4 +44,4 @@ Three things to note:
 
 2. The problem name may appear in the form of 'problem_name_dim_m_con' where 'problem_name' is the name of the problem, 'dim' is the dimension of the problem, and 'm_con' is the number of linear and nonlinear constraints of the problem. This case only happens when this problem can accept extra arguments to change the dimension or the number of constraints. This information is stored in the ``probinfo_matlab.csv`` file as the last few columns.
 
-3. There is a file `config.txt` in the same directory as this function. This file can be used to set the options `variable_size` and `test_feasibility_problems`. Details about these two options can be found in the comments in the `config.txt` file.
+3. There is a file ``config.txt`` in the same directory as this function. This file can be used to set the options ``variable_size`` and ``test_feasibility_problems``. Details about these two options can be found in the comments in the ``config.txt`` file.

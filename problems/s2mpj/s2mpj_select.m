@@ -66,10 +66,11 @@ function [problem_names, argins] = s2mpj_select(options)
     variable_size = 'default';
     test_feasibility_problems = 0;
     % Check whether there is a file named 'config.txt' in the current directory.
-    if exist('config.txt', 'file') == 2
+    config_path = fullfile(fileparts(mfilename('fullpath')), 'config.txt');
+    if exist(config_path, 'file') == 2
         % Read the content of the file.
         try
-            fid = fopen('config.txt', 'r');
+            fid = fopen(config_path, 'r');
             % Find the line starting with 'variable_size=' and 'test_feasibility_problems='
             while ~feof(fid)
                 line = fgetl(fid);

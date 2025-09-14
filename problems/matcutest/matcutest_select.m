@@ -37,8 +37,13 @@ function problem_names = matcutest_select(options)
 %       - excludelist: the list of problems to be excluded. Default is not to
 %         exclude any problem.
 %
-%   Note that MatCUTEst is only available in Linux.
+%   Two things to note:
 %
+%       1. MatCUTEst is only available in Linux.
+%       2. There is a file `config.txt` in the same directory as this function.
+%          This file can be used to set the option `test_feasibility_problems`.
+%          Details about this option can be found in the comments in the
+%          `config.txt` file.
 
     % Check whether the options are valid.
     valid_fields = {'ptype', 'mindim', 'maxdim', 'minb', 'maxb', 'minlcon', 'maxlcon', 'minnlcon', 'maxnlcon', 'mincon', 'maxcon', 'excludelist'};
@@ -88,6 +93,38 @@ function problem_names = matcutest_select(options)
     options = rmfield(options, 'ptype');
     options.blacklist = options.excludelist;
     options = rmfield(options, 'excludelist');
+
+    % Read the configuration file to set options.
+    test_feasibility_problems = 0;
+    config_path = fullfile(fileparts(mfilename('fullpath')), 'config.txt');
+    if exist(config_path, 'file') == 2
+        % Read the content of the file.
+        try
+            fid = fopen(config_path, 'r');
+            % Find the line starting with 'test_feasibility_problems='
+            while ~feof(fid)
+                line = fgetl(fid);
+                if startsWith(line, 'test_feasibility_problems=')
+                    test_feasibility_problems = str2double(strtrim(extractAfter(line, 'test_feasibility_problems=')));
+                end
+            end
+            fclose(fid);
+        catch
+            warning('Failed to read the file `config.txt`. Using default options.');
+        end
+    end
+    % Check the validity of `test_feasibility_problems`.
+    if ~ismember(test_feasibility_problems, [0, 1, 2])
+        error("Invalid `test_feasibility_problems` in the file `config.txt`. Please set it to 0, 1, or 2.");
+    end
+
+    % Set the option `is_feasibility` depending on `test_feasibility_problems`.
+    if test_feasibility_problems == 0
+        options.is_feasibility = false;
+    elseif test_feasibility_problems == 1
+        options.is_feasibility = true;
+    % Else do nothing.
+    end
 
     % Use functions from MatCUTEst to select the problems.
     try
