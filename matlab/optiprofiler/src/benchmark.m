@@ -486,6 +486,11 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                 problem = options.problem;
                 options = rmfield(options, 'problem');
             end
+            % If the `load` field is provided, we will not use `solvers`.
+            if isfield(options, ProfileOptionKey.LOAD.value) && ~isempty(options.(ProfileOptionKey.LOAD.value))
+                warning("MATLAB:benchmark:LoadFieldProvided", "The field `load` is provided, so the first argument for `benchmark` (the cell of function handles) will be ignored.");
+                solvers = {};
+            end
         else
             error("MATLAB:benchmark:SecondArgumentWrongType", "The second argument for `benchmark` must be a structure.");
         end
