@@ -76,8 +76,17 @@ function [problem_names, argins] = s2mpj_select(options)
                 line = fgetl(fid);
                 if startsWith(line, 'variable_size=')
                     variable_size = strtrim(extractAfter(line, 'variable_size='));
+                    comment_pos = regexp(variable_size, '[#%]', 'once');
+                    if ~isempty(comment_pos)
+                        variable_size = strtrim(variable_size(1:comment_pos-1));
+                    end
                 elseif startsWith(line, 'test_feasibility_problems=')
-                    test_feasibility_problems = str2double(strtrim(extractAfter(line, 'test_feasibility_problems=')));
+                    test_feasibility_problems = strtrim(extractAfter(line, 'test_feasibility_problems='));
+                    comment_pos = regexp(test_feasibility_problems, '[#%]', 'once');
+                    if ~isempty(comment_pos)
+                        test_feasibility_problems = strtrim(test_feasibility_problems(1:comment_pos-1));
+                    end
+                    test_feasibility_problems = str2double(test_feasibility_problems);
                 end
             end
             fclose(fid);

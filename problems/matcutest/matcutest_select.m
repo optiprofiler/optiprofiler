@@ -105,7 +105,12 @@ function problem_names = matcutest_select(options)
             while ~feof(fid)
                 line = fgetl(fid);
                 if startsWith(line, 'test_feasibility_problems=')
-                    test_feasibility_problems = str2double(strtrim(extractAfter(line, 'test_feasibility_problems=')));
+                    test_feasibility_problems = strtrim(extractAfter(line, 'test_feasibility_problems='));
+                    comment_pos = regexp(test_feasibility_problems, '[#%]', 'once');
+                    if ~isempty(comment_pos)
+                        test_feasibility_problems = strtrim(test_feasibility_problems(1:comment_pos-1));
+                    end
+                    test_feasibility_problems = str2double(test_feasibility_problems);
                 end
             end
             fclose(fid);

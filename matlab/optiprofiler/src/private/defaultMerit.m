@@ -13,14 +13,16 @@ function merit_value = defaultMerit(fun_value, maxcv_value, maxcv_init)
         return;
     end
 
-    merit_value = fun_value;   % Initialize the merit value with the objective function value.
     tolerance = 1e-10;
+    % Note that v1 <= v2.
     v1 = min(0.01, tolerance * max(1, maxcv_init));   % Equal to 1e-10 if `maxcv_init` is NaN.
     v2 = max(0.1, 2 * maxcv_init);   % Equal to 0.1 if `maxcv_init` is NaN.
     
     if maxcv_value > v2
-        merit_value = Inf;   % Case 3: v(x) > v2.
+        merit_value = Inf;
     elseif maxcv_value > v1
-        merit_value = fun_value + 1e5 * (maxcv_value - v1);   % Case 2: v1 < v(x) <= v2.
+        merit_value = fun_value + 1e5 * (maxcv_value - v1);
+    else
+        merit_value = fun_value;
     end
 end

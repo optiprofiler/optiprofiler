@@ -235,8 +235,10 @@ def s2mpj_select(options):
                 for line in lines:
                     if line.strip().startswith('variable_size='):
                         variable_size = line.strip().split('=')[1].strip()
+                        variable_size = variable_size.split('#')[0].split('%')[0].strip()
                     elif line.strip().startswith('test_feasibility_problems='):
-                        test_feasibility_problems = int(line.strip().split('=')[1].strip())
+                        test_feasibility_problems = line.strip().split('=')[1].strip()
+                        test_feasibility_problems = int(test_feasibility_problems.split('#')[0].split('%')[0].strip())
         except:
             pass
     
