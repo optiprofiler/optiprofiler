@@ -12,8 +12,6 @@ benchmark
 
 **solver_scores** = **benchmark**\(**solvers**) creates performance profiles, data profiles, and log-ratio profiles for the given **solvers** on the default unconstrained problem set, returning **solver_scores** based on the profiles. **solvers** is a cell array of function handles. We require **solvers** to accept specified inputs and return specified outputs. Details can be found in the following *Cautions* part.
 
-**solver_scores** = **benchmark**\(**solvers**, **feature_name**) creates profiles for the given **solvers** on the default unconstrained problem set with the specified feature **feature_name**.
-
 **solver_scores** = **benchmark**\(**solvers**, **options**) creates profiles for the given **solvers** with options specified in the struct **options**. See *Options* part for more details.
 
 **solver_scores** = **benchmark**\(**options**) creates profiles with options specified in the struct **options**. Note that the struct **options** should at least contain the field **load** with the value **\'latest\'** or a time stamp of an experiment in the format of 'yyyyMMdd_HHmmss'. In this case, we will load the data from the specified experiment and draw the profiles.

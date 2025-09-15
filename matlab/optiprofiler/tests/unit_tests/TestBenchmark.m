@@ -25,7 +25,6 @@ classdef TestBenchmark < matlab.unittest.TestCase
             benchmark(solvers);
             
             % Test perturbed_x0 feature.
-            benchmark(solvers, 'perturbed_x0');
             options.feature_name = 'perturbed_x0';
             options.perturbation_level = 1;
             options.distribution = 'spherical';
@@ -125,7 +124,7 @@ classdef TestBenchmark < matlab.unittest.TestCase
     
             testCase.verifyError(@() benchmark(solvers, {1}), "MATLAB:benchmark:SecondArgumentWrongType")
     
-            testCase.verifyError(@() benchmark(solvers, 'plain', options, 1), "MATLAB:benchmark:TooMuchInput")
+            testCase.verifyError(@() benchmark(solvers, options, 1), "MATLAB:benchmark:TooMuchInput")
     
             testCase.verifyError(@() benchmark({1, 2}, options), "MATLAB:benchmark:solversWrongType")
     

@@ -13,10 +13,6 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %   specified inputs and return specified outputs. Details can be found in the
 %   following 'Cautions' part.
 %
-%   SOLVER_SCORES = BENCHMARK(SOLVERS, FEATURE_NAME) creates profiles for the
-%   given SOLVERS on the default unconstrained problem set with the specified
-%   feature FEATURE_NAME.
-%
 %   SOLVER_SCORES = BENCHMARK(SOLVERS, OPTIONS) creates profiles for the given
 %   SOLVERS with options specified in the struct OPTIONS. See 'Options' part
 %   for more details.
@@ -474,13 +470,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             options = struct();
         end
     elseif nargin == 2
-        if ischarstr(varargin{2})
-            % When input contains two arguments and the second argument is a char or cell of char,
-            % we assume the user chooses benchmark(solvers, feature_name).
-            solvers = varargin{1};
-            feature_name = varargin{2};
-            options = struct();
-        elseif isstruct(varargin{2})
+        if isstruct(varargin{2})
             % When input contains two arguments and the second argument is a struct, we assume the
             % user chooses benchmark(solvers, options).
             solvers = varargin{1};
@@ -497,7 +487,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                 options = rmfield(options, 'problem');
             end
         else
-            error("MATLAB:benchmark:SecondArgumentWrongType", "The second argument for `benchmark` must be a feature name or a struct of options.");
+            error("MATLAB:benchmark:SecondArgumentWrongType", "The second argument for `benchmark` must be a structure.");
         end
     else
         error("MATLAB:benchmark:TooMuchInput", "Invalid number of arguments. The function `benchmark` at most takes two arguments.");
