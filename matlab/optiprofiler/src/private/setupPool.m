@@ -54,7 +54,7 @@ function success = setupPool(n_jobs, silent)
         end
         n_jobs = min(n_jobs, max_workers);
         if ~silent
-            fprintf('\nINFO: Opening a parallel pool with %d workers...\n\n', n_jobs);
+            fprintf('\nINFO: Starting a parallel pool with %d workers...\n\n', n_jobs);
             parpool(n_jobs);
         else
             evalc("parpool(n_jobs);");

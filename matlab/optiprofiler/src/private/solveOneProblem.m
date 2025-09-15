@@ -106,7 +106,7 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
                 fun_min = min(featured_problem.fun_hist, [], 'omitnan');
                 maxcv_min = min(featured_problem.maxcv_hist, [], 'omitnan');
                 if ~profile_options.(ProfileOptionKey.SILENT.value)
-                    format_info_end = sprintf("INFO: Finish solving    %%-%ds with %%-%ds (run %%2d/%%2d) (in %%.2f seconds).\\n", len_problem_names, len_solver_names);
+                    format_info_end = sprintf("INFO: Finish solving    %%-%ds with %%-%ds (run %%2d/%%2d) in %%.2f seconds.\\n", len_problem_names, len_solver_names);
                     fprintf(format_info_end, problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), computation_time(i_solver, i_run));
                     switch problem_type
                         case 'u'

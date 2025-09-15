@@ -789,7 +789,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             if ~isempty(calling_script)
                 copyfile(calling_script.file, path_log);
                 if ~profile_options.(ProfileOptionKey.SILENT.value)
-                    fprintf("\nINFO: The script or function that calls `benchmark` function is copied to: %s.\n", path_log);
+                    fprintf("\nINFO: The script or function that calls `benchmark` function is copied to\n%s\n", path_log);
                 end
                 try
                     fid = fopen(path_readme_log, 'a');
@@ -864,7 +864,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                 movefile(fullfile(path_hist_plots, '*'), path_stamp);
                 rmdir(path_hist_plots, 's');
                 if ~profile_options.(ProfileOptionKey.SILENT.value)
-                    fprintf('\nINFO: Detailed results stored in: \n%s\n', path_stamp);
+                    fprintf('\nINFO: Detailed results stored in\n%s\n', path_stamp);
                 end
             catch
             end
@@ -908,7 +908,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     if ~is_load
         % Print the information about the experiment.
         if ~profile_options.(ProfileOptionKey.SILENT.value)
-            fprintf('\nINFO: Start testing with the following options:\n');
+            fprintf('\nINFO: Start testing with the following options\n');
             fprintf('INFO: - Solvers: %s\n', strjoin(solver_names, ', '));
             fprintf('INFO: - Problem libraries: %s\n', strjoin(problem_options.(ProblemOptionKey.PLIBS.value), ', '));
             fprintf('INFO: - Problem types: %s\n', problem_options.(ProblemOptionKey.PTYPE.value));
@@ -939,11 +939,11 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         for i_plib = 1:numel(plibs)
             plib = plibs{i_plib};
             if ~profile_options.(ProfileOptionKey.SILENT.value)
-                fprintf('\nINFO: Start testing problems from the problem library "%s" with "%s" feature.\n', plib, feature.name);
+                fprintf('\nINFO: Start testing problems from the problem library "%s" with the "%s" feature.\n', plib, feature.name);
                 if strcmp(plib, 's2mpj')
-                    fprintf("\nINFO: More information about the S2MPJ problem library can be found at: https://github.com/GrattonToint/S2MPJ\n");
+                    fprintf("\nINFO: More information about the S2MPJ problem library can be found at\nhttps://github.com/GrattonToint/S2MPJ\n");
                 elseif strcmp(plib, 'matcutest')
-                    fprintf("\nINFO: More information about the MatCUTEst problem library can be found at: https://github.com/matcutest\n");
+                    fprintf("\nINFO: More information about the MatCUTEst problem library can be found at\nhttps://github.com/matcutest\n");
                 end
             end
 
@@ -1064,7 +1064,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     [n_problems, n_solvers, n_runs, ~] = size(merit_histories_merged);
 
     if ~profile_options.(ProfileOptionKey.SILENT.value) 
-        fprintf('\nINFO: Start computing profiles.\n');
+        fprintf('\nINFO: Start creating profiles.\n');
     end
 
     max_tol_order = profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value);
@@ -1386,7 +1386,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 
     if ~profile_options.(ProfileOptionKey.SILENT.value)
         % Print the scores of the solvers.
-        fprintf('\nINFO: Scores of the solvers:\n');
+        fprintf('\nINFO: Scores of the solvers\n');
         max_solver_name_length = max(cellfun(@length, solver_names));
         for i_solver = 1:n_solvers
             format_info_str = sprintf('INFO: %%-%ds:    %%.4f\n', max_solver_name_length);
@@ -1446,13 +1446,13 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     end
 
     if ~profile_options.(ProfileOptionKey.SILENT.value)
-        fprintf('\nINFO: Finished computing profiles with "%s" feature.\n', feature.name);
+        fprintf('\nINFO: Finished creating profiles with the "%s" feature.\n', feature.name);
         if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
             fprintf('\n**********************************************************************\n');
-            fprintf('\nSummary PDF of profiles is saved as: \n%s\n\n', fullfile(path_stamp, [summary_name, '.pdf']));
-            fprintf('\nSingle profiles are stored in: \n%s\n\n', fullfile(path_stamp, 'detailed_profiles'));
-            fprintf('\nReport of the experiment is saved as: \n%s\n\n', path_report);
-            fprintf('\nCheck the README file for more information about the experiment and the results: \n%s\n', path_readme_feature);
+            fprintf('\nSummary PDF of the profiles is saved as\n%s\n\n', fullfile(path_stamp, [summary_name, '.pdf']));
+            fprintf('\nSingle profiles are stored in\n%s\n\n', fullfile(path_stamp, 'detailed_profiles'));
+            fprintf('\nReport of the experiment is saved as\n%s\n\n', path_report);
+            fprintf('\nCheck the README file for more information about the experiment and the results\n%s\n', path_readme_feature);
             fprintf('\n***********************************************************************\n');
         end
     end
