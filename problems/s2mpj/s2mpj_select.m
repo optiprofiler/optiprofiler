@@ -161,7 +161,9 @@ function [problem_names, argins] = s2mpj_select(options)
     options.excludelist = unique([options.excludelist, {'DANWOODLS', 'MISRA1CLS', 'ROSSIMP1', 'ROSSIMP2', 'ROSSIMP3'}]);
 
     % Load the data from a .mat file.
-    load('probinfo_matlab.mat', 'probinfo');
+    % Remember to use the absolute path. (Or MATLAB will look for the file following the order of the folders in the path, which may lead to unexpected results.)
+    path_matfile = fullfile(fileparts(mfilename('fullpath')), 'probinfo_matlab.mat');
+    load(path_matfile, 'probinfo');
 
     for i_problem = 2:size(probinfo, 1)
         problem_name = probinfo{i_problem, 1};

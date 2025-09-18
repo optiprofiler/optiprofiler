@@ -47,6 +47,7 @@ function [results_plibs, profile_options] = loadResults(problem_options, profile
 
     % Load data from the 'data_for_loading.mat' file in the path_data directory.
     warning('off');
+    fprintf("\nINFO: Loading data from the directory '%s'...\n", path_data);
     load(fullfile(path_data, 'data_for_loading.mat'), 'results_plibs');
     warning('on');
     if ~exist('results_plibs', 'var')
@@ -288,6 +289,13 @@ function results_plib = truncate_problems(results_plib, problem_options)
                 p_to_load(i) = false;
             end
         end
+    end
+
+    % Check whether there is any problem to load.
+    if ~any(p_to_load)
+        fprintf("\nINFO: No problem is selected to load by the given options. Please check your options and try again.\n");
+        results_plib = [];
+        return;
     end
 
     % Truncate the loaded data.

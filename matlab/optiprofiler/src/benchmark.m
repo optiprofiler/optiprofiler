@@ -579,6 +579,13 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     [results_plibs, profile_options] = loadResults(problem_options, profile_options);
+    if is_load && isempty(results_plibs)
+        % If we cannot load any valid results, we stop the execution.
+        solver_scores = [];
+        profile_scores = [];
+        curves = [];
+        return;
+    end
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Get default options %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1010,7 +1017,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             % Merge the history plots for each problem library to a single pdf file.
             if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value) && any(results_plib.solvers_successes(:))
                 if ~profile_options.(ProfileOptionKey.SILENT.value)
-                    fprintf('\nINFO: Merging all the history plots of problems from the "%s" library to a single PDF file.\n', plib);
+                    fprintf('INFO: Merging all the history plots of problems from the "%s" library to a single PDF file.\n', plib);
                 end
                 try
                     mergePdfs(path_hist_plots_lib, [plib '_history_plots_summary.pdf'], path_hist_plots);
@@ -1146,7 +1153,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         [tolerance_str, tolerance_latex] = formatFloatScientificLatex(tolerance, 1);
 
         if ~profile_options.(ProfileOptionKey.SILENT.value)
-            fprintf("INFO: Creating profiles for tolerance %s.\n", tolerance_str);
+            fprintf('INFO: Creating profiles for tolerance %s.\n', tolerance_str);
         end
 
         work_hist = NaN(n_problems, n_solvers, n_runs);
@@ -1289,6 +1296,10 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         end
     end
 
+    if ~profile_options.(ProfileOptionKey.SILENT.value)
+        fprintf('\nINFO: All single profiles are created.\n');
+    end
+    
     % Record the names of the problems all the solvers failed to meet the convergence test for every tolerance.
     if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
         try
@@ -1401,12 +1412,18 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         % of their time stamps.
         summary_name = ['summary_', stamp];
         if n_rows > 0
+            if ~profile_options.(ProfileOptionKey.SILENT.value)
+                fprintf('\nINFO: Start creating the summary PDF of all the profiles.\n');
+            end
             if ispc
                 print(fig_summary, fullfile(path_stamp, [summary_name, '.pdf']), '-dpdf', '-vector');
             else
                 exportgraphics(fig_summary, fullfile(path_stamp, [summary_name, '.pdf']), 'ContentType', 'vector');
             end
             savefig(fig_summary, fullfile(path_figs, [summary_name, '.fig']));
+            if ~profile_options.(ProfileOptionKey.SILENT.value)
+                fprintf('INFO: The summary PDF of all the profiles is created.\n');
+            end
         end
 
         try

@@ -11,5 +11,9 @@ function example1()
     % e.g., `@fminunc`, `@fminsearch`, etc.
     % More possible signatures can be found by typing `help benchmark` in the MATLAB command window.
 
+    % Print the information about this example.
+    fprintf('\nThis is an example to benchmark two toy solvers on the default problem set.\n');
+    pause(1.5);
+    fprintf('INFO: Start Example 1...\n\n');
     scores = benchmark({@solver1, @solver2})
 end

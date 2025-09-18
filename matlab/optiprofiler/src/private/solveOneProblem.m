@@ -147,6 +147,7 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
             end
         end
     end
+    fprintf("\n");
 
     % Return the result.
     result.fun_history = fun_history;

@@ -45,7 +45,8 @@ function problem_names = custom_select(options)
     end
 
     % Load the data from a .mat file.
-    load('probinfo_matlab.mat', 'probinfo');
+    path_matfile = fullfile(fileparts(mfilename('fullpath')), 'probinfo_matlab.mat');
+    load(path_matfile, 'probinfo');
 
     % Loop through each problem and check the criteria.
     for i_problem = 2:size(probinfo, 1)

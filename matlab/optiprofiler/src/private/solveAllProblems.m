@@ -62,7 +62,7 @@ function results = solveAllProblems(solvers, plib, feature, problem_options, pro
     max_eval_factor = profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value);
     tmp_results = cell(1, n_problems);
     if ~profile_options.(ProfileOptionKey.SILENT.value)
-        fprintf('\nINFO: There are %d problems from "%s" to test.\n', n_problems, plib);
+        fprintf('\nINFO: There are %d problems from "%s" to test.\n\n', n_problems, plib);
     end
 
     % Determine whether to use sequential mode or parallel mode.
@@ -77,7 +77,7 @@ function results = solveAllProblems(solvers, plib, feature, problem_options, pro
             % Load the problem.
             try
                 if ~profile_options.(ProfileOptionKey.SILENT.value)
-                    loading_info = sprintf('\\nINFO: Loading problem   %%-%ds from \"%%s\".\\n', len_problem_names);
+                    loading_info = sprintf('INFO: Loading problem   %%-%ds from \"%%s\".\\n', len_problem_names);
                     fprintf(loading_info, problem_name, plib);
                 end
                 problem = load(problem_name);
@@ -98,7 +98,7 @@ function results = solveAllProblems(solvers, plib, feature, problem_options, pro
             % Load the problem.
             try
                 if ~profile_options.(ProfileOptionKey.SILENT.value)
-                    loading_info = sprintf('\\nINFO: Loading problem   %%-%ds from \"%%s\".\\n', len_problem_names);
+                    loading_info = sprintf('INFO: Loading problem   %%-%ds from \"%%s\".\\n', len_problem_names);
                     fprintf(loading_info, problem_name, plib);
                 end
                 problem = load(problem_name);

@@ -4,9 +4,10 @@ function success = setupPool(n_jobs, silent)
     % Check whether the Parallel Computing Toolbox is available.
     if exist('parpool', 'file') ~= 2
         if ~silent
-            fprintf('\nINFO: Parallel Computing Toolbox is not available. We will not use parallel computing.\n');
+            fprintf('INFO: Parallel Computing Toolbox is not available. We will not use parallel computing.\n');
         end
         success = false;
+        fprintf("\n");
         return;
     end
 
@@ -21,23 +22,25 @@ function success = setupPool(n_jobs, silent)
         if n_jobs <= n_workers
             % If there are more workers than `n_jobs`, then we will use `n_jobs` workers.
             if ~silent
-                fprintf('\nINFO: There is an existing parallel pool with %d workers. We will use %d workers by the option `n_jobs`.\n', n_workers, n_jobs);
+                fprintf('INFO: There is an existing parallel pool with %d workers. We will use %d workers by the option `n_jobs`.\n', n_workers, n_jobs);
             end
             success = true;
+            fprintf("\n");
             return;
         elseif n_workers == max_workers
             % If there are maximum workers in the cluster profile, then we will use all workers.
             if ~silent
-                fprintf('\nINFO: There is an existing parallel pool with %d workers, which is equal to the maximum number of workers in your cluster profile setting. We will use all %d workers instead of the option `n_jobs` (%d).\n', n_workers, n_workers, n_jobs);
+                fprintf('INFO: There is an existing parallel pool with %d workers, which is equal to the maximum number of workers in your cluster profile setting. We will use all %d workers instead of the option `n_jobs` (%d).\n', n_workers, n_workers, n_jobs);
                 fprintf("\nINFO: You may change the maximum number of workers in your cluster by running following command in the MATLAB command window:\n\n");
                 fprintf("    myCluster = parcluster(); myCluster.NumWorkers = <new_number_of_workers>; saveProfile(myCluster);\n\n");
             end
             success = true;
+            fprintf("\n");
             return;
         else
             % If there are fewer workers than `n_jobs`, then we will close the existing pool and try to open a new one with more workers later.
             if ~silent
-                fprintf('\nINFO: There is an existing parallel pool with %d workers, which is fewer than the option `n_jobs` (%d). We will close the existing pool and try to open a new one with more workers.\n', n_workers, n_jobs);
+                fprintf('INFO: There is an existing parallel pool with %d workers, which is fewer than the option `n_jobs` (%d). We will close the existing pool and try to open a new one with more workers.\n', n_workers, n_jobs);
             end
             delete(myCluster);
         end
@@ -54,12 +57,13 @@ function success = setupPool(n_jobs, silent)
         end
         n_jobs = min(n_jobs, max_workers);
         if ~silent
-            fprintf('\nINFO: Starting a parallel pool with %d workers...\n\n', n_jobs);
+            fprintf('INFO: Starting a parallel pool with %d workers...\n\n', n_jobs);
             parpool(n_jobs);
         else
             evalc("parpool(n_jobs);");
         end
         success = true;
+        fprintf("\n");
     catch ME
         fprintf('\nINFO: Failed to open a parallel pool with %d workers. Error message: %s\n', n_jobs, ME.message);
         success = false;
