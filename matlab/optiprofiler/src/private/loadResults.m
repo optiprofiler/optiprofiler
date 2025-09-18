@@ -35,6 +35,7 @@ function [results_plibs, profile_options] = loadResults(problem_options, profile
         latest_idx = indexes(1);
         latest_time_stamp_file = time_stamp_files(latest_idx);
         path_data = latest_time_stamp_file.folder;
+        time_stamp = time_stamps(latest_idx);
     else
         % Same as above, but we only search for the specific time_stamp file.
         pattern = ['time_stamp_', profile_options.(ProfileOptionKey.LOAD.value), '.txt'];
@@ -43,11 +44,13 @@ function [results_plibs, profile_options] = loadResults(problem_options, profile
             error("MATLAB:loadResults:NoTimeStamps", "Failed to load data since no time_stamp named '%s' is found in the directory '%s'. Note that the search is limited to 5 levels of subdirectories.", ['time_stamp_', profile_options.(ProfileOptionKey.LOAD.value), '.txt'], search_path);
         end
         path_data = time_stamp_file.folder;
+        time_stamp = profile_options.(ProfileOptionKey.LOAD.value);
     end
+    path_experiment = fileparts(path_data);
 
     % Load data from the 'data_for_loading.mat' file in the path_data directory.
     warning('off');
-    fprintf("\nINFO: Loading data from the directory '%s'...\n", path_data);
+    fprintf("INFO: Loading data from the directory '%s'...\n", path_data);
     load(fullfile(path_data, 'data_for_loading.mat'), 'results_plibs');
     warning('on');
     if ~exist('results_plibs', 'var')
@@ -119,6 +122,30 @@ function [results_plibs, profile_options] = loadResults(problem_options, profile
             results_plibs{i_plib} = results_plib;
         end
     end
+
+    % Count the number of selected problems.
+    problem_nums = 0;
+    for i_plib = 1:size(results_plibs, 2)
+        if ~isempty(results_plibs{i_plib})
+            problem_nums = problem_nums + size(results_plibs{i_plib}.fun_histories, 1);
+        end
+    end
+
+    % Check whether there is any problem to load.
+    if problem_nums == 0
+        fprintf("\nINFO: No problem is selected to load by the given options. Please check your options and try again.\n");
+        results_plibs = {};
+        return;
+    end
+
+    % Print the information about the loaded experiment.
+    fprintf('INFO: Loaded experiment successfully.\n');
+    fprintf('\nINFO: Information about the loaded experiment\n');
+    fprintf('INFO: - Time stamp: %s\n', time_stamp);
+    fprintf('INFO: - Path: %s\n', path_experiment);
+    fprintf('INFO: - Solvers: %s\n', strjoin(results_plibs{1}.solver_names, ', '));
+    fprintf('INFO: - Feature stamp: %s\n', results_plibs{1}.feature_stamp);
+    fprintf('INFO: - Number of selected problems: %d\n', problem_nums);
 end
 
 function files = search_in_dir(current_path, pattern, max_depth, current_depth, files)
@@ -289,13 +316,6 @@ function results_plib = truncate_problems(results_plib, problem_options)
                 p_to_load(i) = false;
             end
         end
-    end
-
-    % Check whether there is any problem to load.
-    if ~any(p_to_load)
-        fprintf("\nINFO: No problem is selected to load by the given options. Please check your options and try again.\n");
-        results_plib = [];
-        return;
     end
 
     % Truncate the loaded data.

@@ -14,6 +14,8 @@ function example1()
     % Print the information about this example.
     fprintf('\nThis is an example to benchmark two toy solvers on the default problem set.\n');
     pause(1.5);
-    fprintf('INFO: Start Example 1...\n\n');
+    fprintf('\nStart Example 1...\n\n');
+
+    % Start example 1.
     scores = benchmark({@solver1, @solver2})
 end

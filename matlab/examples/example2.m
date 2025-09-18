@@ -5,6 +5,12 @@ function example2()
 % This example shows how to use OptiProfiler with options. More options can be found by typing
 % `help benchmark` in the MATLAB command window.
 
+    % Print the information about this example.
+    fprintf('\nThis is an example to benchmark two toy solvers and one built-in solver `fminsearch` on a selected problem set with the "noisy" feature.\n');
+    pause(1.5);
+    fprintf('\nStart Example 2...\n\n');
+
+    % Start example 2.
     options.ptype = 'u';    % Select unconstrained optimization problems. You can change it to any combination of 'u' (unconstrained), 'b' (box-constrained), 'l' (linearly constrained), and 'n' (nonlinearly constrained).
     options.mindim = 2;     % Select problems with dimension at least 2.
     options.maxdim = 5;     % Select problems with dimension at most 5.

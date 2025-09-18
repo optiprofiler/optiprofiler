@@ -4,10 +4,16 @@ function example5()
 %
 % This example shows how to customize your own test suite.
 
+    % Print the information about this example.
+    fprintf('\nThis is an example to benchmark two toy solvers on two problem libraries (one is custom) with a custom feature.\n');
+    pause(1.5);
+    fprintf('\nStart Example 5...\n\n');
+
+    % Start example 5.
     % You can custom your own problem library by following the steps in `problems/README.txt`.
     % After you finish the construction of your problem library, you can use it via the `plibs` option.
     % Here we use a custom problem library named "custom" as an example.
-    options.plibs = 'custom';
+    options.plibs = {'custom', 's2mpj'};    % Here we use two problem libraries: "custom" and "s2mpj". You can use one or more problem libraries.
     % You can also select problems as in the previous examples.
     options.ptype = 'u';    % Select unconstrained optimization problems.
     options.mindim = 2;     % Select problems with dimension at least 2.
@@ -32,13 +38,13 @@ function x0 = mod_x0(rand_stream, problem)
     [Q, R] = qr(rand_stream.randn(problem.n));
     Q(:, diag(R) < 0) = -Q(:, diag(R) < 0);
     x0 = Q * problem.x0;
-    x0 = x0 + 1e-3 * max(1, norm(x0)) * rand_stream.randn(problem.n, 1) / norm(rand_stream.randn(problem.n, 1));
+    x0 = x0 + 1e-5 * max(1, norm(x0)) * rand_stream.randn(problem.n, 1) / norm(rand_stream.randn(problem.n, 1));
 end
 
 function f = mod_fun(x, rand_stream, problem)
 
     f = problem.fun(x);
-    f = f + max(1, abs(f)) * 1e-3 * rand_stream.randn(1);
+    f = f + max(1, abs(f)) * 1e-6 * rand_stream.randn(1);
 end
 
 function [A, b, inv] = mod_affine(rand_stream, problem)

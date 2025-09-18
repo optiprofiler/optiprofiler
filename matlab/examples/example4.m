@@ -4,6 +4,12 @@ function example4()
 %
 % This example shows how to benchmark with a parameterized solver.
 
+    % Print the information about this example.
+    fprintf('\nThis is an example to benchmark a parameterized toy solver with different parameters on the default problem set.\n');
+    pause(1.5);
+    fprintf('\nStart Example 4...\n\n');
+
+    % Start example 4.
     % We will test the toy solver `solver` with parameters `1`, `2`, and `3`.
     solvers = cell(1, 3);
     solver_names = cell(1, 3);
