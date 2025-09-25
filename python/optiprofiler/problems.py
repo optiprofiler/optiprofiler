@@ -736,7 +736,7 @@ class Problem:
         """
         Evaluate the Hessian of the nonlinear inequality constraints.
 
-        Parametersc[0]c[0]
+        Parameters
         ----------
         x : array_like, shape (n,)
             Point at which to evaluate the Hessian of the nonlinear inequality constraints.

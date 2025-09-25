@@ -24,8 +24,8 @@ classdef TestSolveOne < matlab.unittest.TestCase
             testCase.verifyNotEmpty(result.maxcv_history);
             testCase.verifyNotEmpty(result.fun_out);
             testCase.verifyNotEmpty(result.maxcv_out);
-            testCase.verifyNotEmpty(result.fun_init);
-            testCase.verifyNotEmpty(result.maxcv_init);
+            testCase.verifyNotEmpty(result.fun_inits);
+            testCase.verifyNotEmpty(result.maxcv_inits);
             testCase.verifyNotEmpty(result.n_eval);
             testCase.verifyNotEmpty(result.problem_name);
             testCase.verifyNotEmpty(result.problem_type);
@@ -46,8 +46,8 @@ classdef TestSolveOne < matlab.unittest.TestCase
             testCase.verifyNotEmpty(result.maxcv_history);
             testCase.verifyNotEmpty(result.fun_out);
             testCase.verifyNotEmpty(result.maxcv_out);
-            testCase.verifyNotEmpty(result.fun_init);
-            testCase.verifyNotEmpty(result.maxcv_init);
+            testCase.verifyNotEmpty(result.fun_inits);
+            testCase.verifyNotEmpty(result.maxcv_inits);
             testCase.verifyNotEmpty(result.n_eval);
             testCase.verifyNotEmpty(result.problem_name);
             testCase.verifyNotEmpty(result.problem_type);
