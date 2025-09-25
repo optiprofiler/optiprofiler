@@ -840,12 +840,35 @@ class Problem:
         x = _process_1d_array(x, 'The argument `x` for method `maxcv` in problem must be a one-dimensional array.')
         if x.size != self.n:
             raise ValueError(f'The argument `x` for method `maxcv` in problem must have size {self.n}.')
-        cv_bounds = np.max(self.xl - x, initial=0.0)
-        cv_bounds = np.max(x - self.xu, initial=cv_bounds)
-        cv_linear = np.max(self.aub @ x - self.bub, initial=0.0)
-        cv_linear = np.max(np.abs(self.aeq @ x - self.beq), initial=cv_linear)
-        cv_nonlinear = np.max(self.cub(x), initial=0.0)
-        cv_nonlinear = np.max(np.abs(self.ceq(x)), initial=cv_nonlinear)
+        
+        cv = 0.0
+        cv_bounds = 0.0
+        cv_linear = 0.0
+        cv_nonlinear = 0.0
+
+        if self.ptype == 'u':
+            return cv, cv_bounds, cv_linear, cv_nonlinear
+
+        if np.any(np.isfinite(self.xl)):
+            cv_bounds = np.max(self.xl - x, initial=0.0)
+        if np.any(np.isfinite(self.xu)):
+            cv_bounds = np.max(x - self.xu, initial=cv_bounds)
+        if self.ptype == 'b':
+            cv = max(cv_bounds)
+            return cv, cv_bounds, cv_linear, cv_nonlinear
+        
+        if self.aub.size > 0:
+            cv_linear = np.max(self.aub @ x - self.bub, initial=0.0)
+        if self.aeq.size > 0:
+            cv_linear = np.max(np.abs(self.aeq @ x - self.beq), initial=cv_linear)
+        if self.ptype == 'l':
+            cv = max(cv_bounds, cv_linear)
+            return cv, cv_bounds, cv_linear, cv_nonlinear
+        
+        if self.m_nonlinear_ub > 0:
+            cv_nonlinear = np.max(self.cub(x), initial=0.0)
+        if self.m_nonlinear_eq > 0:
+            cv_nonlinear = np.max(np.abs(self.ceq(x)), initial=cv_nonlinear)
         cv = max(cv_bounds, cv_linear, cv_nonlinear)
         return cv, cv_bounds, cv_linear, cv_nonlinear
 
@@ -949,6 +972,11 @@ class FeaturedProblem(Problem):
                 raise TypeError('The argument seed must be an integer.')
             if self._seed < 0:
                 raise ValueError('The argument seed must be nonnegative.')
+            
+        # Record the real evaluation numbers.
+        self._real_n_eval_fun = 0
+        self._real_n_eval_cub = 0
+        self._real_n_eval_ceq = 0
 
         # Modify the problem according to the feature.
         self._x0 = self._feature.modifier_x0(self._seed, self._problem)
@@ -966,6 +994,16 @@ class FeaturedProblem(Problem):
         self._last_cub = np.nan
         self._last_ceq = np.nan
 
+        # Evaluate the objective function and the maximum constraint violation at the initial point.
+        # Pay attention to the case when the feature is 'quantized' and the option ``ground_truth'' is set to true.
+        A, b = self._feature.modifier_affine(self._seed, self._problem)[:2]
+        if self._feature.name == 'quantized' and self._feature.options[FeatureOption.GROUND_TRUTH]:
+            self._fun_init = self._feature.modifier_fun(A @ self._x0 + b, self._seed, self._problem, self.n_eval_fun)
+        else:
+            self._fun_init = self._problem.fun(A @ self._x0 + b)
+        self._maxcv_init = self._problem.maxcv(A @ self._x0 + b)
+
+
     def __new__(cls, problem, feature, max_eval, seed=None):
         # Preprocess the problem.
         if not isinstance(problem, Problem):
@@ -979,7 +1017,31 @@ class FeaturedProblem(Problem):
         return instance
 
     @property
-    def n_eval(self):
+    def fun_init(self):
+        """
+        Objective function value at the initial point.
+
+        Returns
+        -------
+        float
+            Objective function value at the initial point.
+        """
+        return self._fun_init
+    
+    @property
+    def maxcv_init(self):
+        """
+        Maximum constraint violation at the initial point.
+
+        Returns
+        -------
+        float
+            Maximum constraint violation at the initial point.
+        """
+        return self._maxcv_init
+
+    @property
+    def n_eval_fun(self):
         """
         Number of objective function evaluations.
 
@@ -989,6 +1051,30 @@ class FeaturedProblem(Problem):
             Number of objective function evaluations.
         """
         return len(self._fun_hist)
+    
+    @property
+    def n_eval_cub(self):
+        """
+        Number of nonlinear inequality constraint evaluations.
+
+        Returns
+        -------
+        int
+            Number of nonlinear inequality constraint evaluations.
+        """
+        return len(self._cub_hist)
+    
+    @property
+    def n_eval_ceq(self):
+        """
+        Number of nonlinear equality constraint evaluations.
+
+        Returns
+        -------
+        int
+            Number of nonlinear equality constraint evaluations.
+        """
+        return len(self._ceq_hist)
 
     @property
     def fun_hist(self):
@@ -997,7 +1083,7 @@ class FeaturedProblem(Problem):
 
         Returns
         -------
-        `numpy.ndarray`, shape (n_eval,)
+        `numpy.ndarray`, shape (n_eval_fun,)
             History of objective function values.
         """
         return np.array(self._fun_hist)
@@ -1009,7 +1095,7 @@ class FeaturedProblem(Problem):
 
         Returns
         -------
-        `numpy.ndarray`, shape (n_eval, m_nonlinear_ub)
+        `numpy.ndarray`, shape (n_eval_cub, m_nonlinear_ub)
             History of nonlinear inequality constraints.
         """
         return np.array(self._cub_hist)
@@ -1021,7 +1107,7 @@ class FeaturedProblem(Problem):
 
         Returns
         -------
-        `numpy.ndarray`, shape (n_eval, m_nonlinear_eq)
+        `numpy.ndarray`, shape (n_eval_ceq, m_nonlinear_eq)
             History of nonlinear equality constraints.
         """
         return np.array(self._ceq_hist)
@@ -1033,7 +1119,7 @@ class FeaturedProblem(Problem):
 
         Returns
         -------
-        `numpy.ndarray`, shape (n_eval,)
+        `numpy.ndarray`, shape (n_eval_fun,)
             History of maximum constraint violations.
         """
         return np.array(self._maxcv_hist)
@@ -1057,8 +1143,14 @@ class FeaturedProblem(Problem):
         ------
         ValueError
             If the argument `x` has an invalid shape.
+        StopIteration
+            If the number of the objective function evaluations has reached two times the maximum function evaluations.
         """
-        if self.n_eval >= self._max_eval:
+        if self._real_n_eval_fun >= 2 * self._max_eval:
+            raise StopIteration(f'The number of the objective function evaluations has reached {2 * self._max_eval} (two times the maximum function evaluations).')
+        self._real_n_eval_fun += 1
+
+        if self.n_eval_fun >= self._max_eval:
             # If the maximum number of evaluations has been reached, return
             # the last evaluated objective function value.
             return self._last_fun
@@ -1068,7 +1160,7 @@ class FeaturedProblem(Problem):
 
         # Evaluate the modified the objective function value according to the feature and return the
         # modified value.
-        f = self._feature.modifier_fun(A @ x + b, self._seed, self._problem, self.n_eval)
+        f = self._feature.modifier_fun(A @ x + b, self._seed, self._problem, self.n_eval_fun)
         self._last_fun = f
 
         # Evaluate the objective function and store the results.
@@ -1089,7 +1181,7 @@ class FeaturedProblem(Problem):
 
         return f
 
-    def cub(self, x):
+    def cub(self, x, record_hist=True):
         """
         Evaluate the nonlinear constraints ``cub(x) <= 0``.
 
@@ -1109,8 +1201,14 @@ class FeaturedProblem(Problem):
         ValueError
             If the argument `x` has an invalid shape or if the return value of
             the argument `cub` has an invalid shape.
+        StopIteration
+            If the number of the nonlinear inequality constraint evaluations has reached two times the maximum function evaluations.
         """
-        if len(self._cub_hist) >= self._max_eval:
+        if self._real_n_eval_cub >= 2 * self._max_eval:
+            raise StopIteration(f'The number of the nonlinear inequality constraint evaluations has reached {2 * self._max_eval} (two times the maximum function evaluations).')
+        self._real_n_eval_cub += 1
+
+        if self.n_eval_cub >= self._max_eval:
             # If the maximum number of evaluations has been reached, return
             # the last evaluated nonlinear inequality constraints.
             return self._last_cub
@@ -1129,11 +1227,14 @@ class FeaturedProblem(Problem):
         # set c_true to c.
         if self._feature.name == 'quantized' and self._feature.options[FeatureOption.GROUND_TRUTH]:
             c_true = c
-        self._cub_hist.append(c_true)
+
+        # Record the history of the nonlinear inequality constraints only when `record_hist` is true.
+        if record_hist:
+            self._cub_hist.append(c_true)
 
         return c
 
-    def ceq(self, x):
+    def ceq(self, x, record_hist=True):
         """
         Evaluate the nonlinear constraints ``ceq(x) == 0``.
 
@@ -1153,8 +1254,14 @@ class FeaturedProblem(Problem):
         ValueError
             If the argument `x` has an invalid shape or if the return value of
             the argument `ceq` has an invalid shape.
+        StopIteration
+            If the number of the nonlinear equality constraint evaluations has reached two times the maximum function evaluations.
         """
-        if len(self._ceq_hist) >= self._max_eval:
+        if self._real_n_eval_ceq >= 2 * self._max_eval:
+            raise StopIteration(f'The number of the nonlinear equality constraint evaluations has reached {2 * self._max_eval} (two times the maximum function evaluations).')
+        self._real_n_eval_ceq += 1
+
+        if self.n_eval_ceq >= self._max_eval:
             # If the maximum number of evaluations has been reached, return
             # the last evaluated nonlinear equality constraints.
             return self._last_ceq
@@ -1173,7 +1280,10 @@ class FeaturedProblem(Problem):
         # set c_true to c.
         if self._feature.name == 'quantized' and self._feature.options[FeatureOption.GROUND_TRUTH]:
             c_true = c
-        self._ceq_hist.append(c_true)
+        
+        # Record the history of the nonlinear equality constraints only when `record_hist` is true.
+        if record_hist:
+            self._ceq_hist.append(c_true)
 
         return c
 
@@ -1197,18 +1307,47 @@ class FeaturedProblem(Problem):
             If the argument `x` has an invalid shape.
         """
 
-        # Generate the affine transformation.
-        A, b = self._feature.modifier_affine(self._seed, self._problem)[:2]
-
         # If the Feature is ``quantized'' and the option ``ground_truth'' is set to true, we should
         # use the modified constraint violation.
         if self._feature.name == 'quantized' and self._feature.options[FeatureOption.GROUND_TRUTH]:
-            # `maxcv@Problem` is a method of the class `Problem`. By using this, maxcv will use self.cub_ and
-            # self.ceq_ instead of self.problem.cub_ and self.problem.ceq_.
-            # (We use `x` instead of `A * x + b` because this step is done inside self.ceq_ and self.cub_ methods.)
-            return super().maxcv(x)
+            if self.ptype == 'u':
+                cv = 0.0
+                return cv
+            
+            if np.any(np.isfinite(self.xl)):
+                cv_bounds = np.max(self.xl - x, initial=0.0)
+            else:
+                cv_bounds = 0.0
+            if np.any(np.isfinite(self.xu)):
+                cv_bounds = np.max(x - self.xu, initial=cv_bounds)
+            if self.ptype == 'b':
+                cv = max(cv_bounds)
+                return cv
+            
+            if self.aub.size > 0:
+                cv_linear = np.max(self.aub @ x - self.bub, initial=0.0)
+            else:
+                cv_linear = 0.0
+            if self.aeq.size > 0:
+                cv_linear = np.max(np.abs(self.aeq @ x - self.beq), initial=cv_linear)
+            if self.ptype == 'l':
+                cv = max(cv_bounds, cv_linear)
+                return cv
+            
+            if self.m_nonlinear_ub > 0:
+                cv_nonlinear = np.max(self.cub(x, record_hist=False), initial=0.0)
+            else:
+                cv_nonlinear = 0.0
+            if self.m_nonlinear_eq > 0:
+                cv_nonlinear = np.max(np.abs(self.ceq(x, record_hist=False)), initial=cv_nonlinear)
+            cv = max(cv_bounds, cv_linear, cv_nonlinear)
+            return cv
         else:
+            # Generate the affine transformation.
+            A, b = self._feature.modifier_affine(self._seed, self._problem)[:2]
             return self._problem.maxcv(A @ x + b)
+        
+    # Note: We need to add methods `grad`, `hess`, `jcub`, and `jceq` to the FeaturedProblem class in the future.
 
 def _process_1d_array(x, message):
     """

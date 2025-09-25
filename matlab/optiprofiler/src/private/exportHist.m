@@ -3,7 +3,7 @@ function exportHist(problem_name, problem_type, problem_dim, solver_names, solve
         return;
     end
 
-    % try
+    try
         merit_fun = profile_options.(ProfileOptionKey.MERIT_FUN.value);
         try
             merit_history = meritFunCompute(merit_fun, fun_history, maxcv_history, maxcv_inits);
@@ -62,9 +62,9 @@ function exportHist(problem_name, problem_type, problem_dim, solver_names, solve
         exportgraphics(fig_summary, pdf_summary, 'ContentType', 'vector');
         warning('on');
         close(fig_summary);
-    % catch Exception
-    %     if ~profile_options.(ProfileOptionKey.SILENT.value)
-    %         fprintf("INFO: An error occurred while plotting the history plots of the problem %s: %s\n", problem_name, Exception.message);
-    %     end
-    % end
+    catch Exception
+        if ~profile_options.(ProfileOptionKey.SILENT.value)
+            fprintf("INFO: An error occurred while plotting the history plots of the problem %s: %s\n", problem_name, Exception.message);
+        end
+    end
 end

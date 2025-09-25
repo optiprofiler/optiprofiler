@@ -19,7 +19,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %
 %   SOLVER_SCORES = BENCHMARK(OPTIONS) creates profiles with options specified
 %   in the struct OPTIONS. Note that the struct OPTIONS should at least contain
-%   the field `load` with the value 'latest' or a time stamp of an experiment
+%   the option `load` with the value 'latest' or a time stamp of an experiment
 %   in the format of 'yyyyMMdd_HHmmss'. In this case, we will load the data
 %   from the specified experiment and draw the profiles.
 %
@@ -78,6 +78,12 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %       - benchmark_id: the identifier of the test. It is used to create the
 %         specific directory to store the results. Default is 'out' if the
 %         option `load` is not provided, otherwise default is '.'.
+%       - draw_hist_plots: whether or how to draw the history plots of all the
+%         problems. It can be either 'none', 'sequential', or 'parallel'. If it
+%         is 'none', we will not draw the history plots. If it is 'parallel',
+%         we will draw the history plots in the same time when solvers are
+%         solving the problems. If it is 'sequential', we will draw the history
+%         plots after all the problems are solved. Default is 'sequential'.
 %       - errorbar_type: the type of the uncertainty interval that can be
 %         either 'minmax' or 'meanstd'. When `n_runs` is greater than 1, we run
 %         several times of the experiments and get average curves and
@@ -462,7 +468,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                 options = rmfield(options, 'problem');
             end
             if ~isfield(options, ProfileOptionKey.LOAD.value) || isempty(options.(ProfileOptionKey.LOAD.value))
-                error("MATLAB:benchmark:LoadFieldNotProvided", "The field `load` must be provided when the first argument for `benchmark` is a struct.");
+                error("MATLAB:benchmark:LoadFieldNotProvided", "The option `load` must be provided when the first argument for `benchmark` is a struct.");
             end
         else
             solvers = varargin{1};
@@ -488,7 +494,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             end
             % If the `load` field is provided, we will not use `solvers`.
             if isfield(options, ProfileOptionKey.LOAD.value) && ~isempty(options.(ProfileOptionKey.LOAD.value))
-                warning("MATLAB:benchmark:LoadFieldProvided", "The field `load` is provided, so the first argument for `benchmark` (the cell of function handles) will be ignored.");
+                warning("MATLAB:benchmark:LoadFieldProvided", "The option `load` is provided, so the first argument for `benchmark` (the cell of function handles) will be ignored.");
                 solvers = {};
             end
         else
@@ -882,13 +888,13 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         % Compute merit values and solver scores.
         merit_fun = profile_options.(ProfileOptionKey.MERIT_FUN.value);
         if ~isempty(result)
-            % try
+            try
                 merit_history = meritFunCompute(merit_fun, result.fun_history, result.maxcv_history, result.maxcv_inits);
                 merit_inits = meritFunCompute(merit_fun, result.fun_inits, result.maxcv_inits, result.maxcv_inits);
                 [n_solvers, n_runs, ~] = size(merit_history);
-            % catch
-            %     error("MATLAB:benchmark:merit_fun_error", "Error occurred while calculating the merit values. Please check the merit function.");
-            % end
+            catch
+                error("MATLAB:benchmark:merit_fun_error", "Error occurred while calculating the merit values. Please check the merit function.");
+            end
             % Find the least merit value for each run.
             merit_mins = NaN(n_runs, 1);
             for i_run = 1:n_runs
@@ -994,13 +1000,13 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 
             % Compute merit values.
             merit_fun = profile_options.(ProfileOptionKey.MERIT_FUN.value);
-            % try
+            try
                 merit_histories = meritFunCompute(merit_fun, results_plib.fun_histories, results_plib.maxcv_histories, results_plib.maxcv_inits);
                 merit_outs = meritFunCompute(merit_fun, results_plib.fun_outs, results_plib.maxcv_outs, results_plib.maxcv_inits);
                 merit_inits = meritFunCompute(merit_fun, results_plib.fun_inits, results_plib.maxcv_inits, results_plib.maxcv_inits);
-            % catch
-            %     error("MATLAB:benchmark:merit_fun_error", "Error occurred while calculating the merit values. Please check the merit function.");
-            % end
+            catch
+                error("MATLAB:benchmark:merit_fun_error", "Error occurred while calculating the merit values. Please check the merit function.");
+            end
             results_plib.merit_histories = merit_histories;
             results_plib.merit_outs = merit_outs;
             results_plib.merit_inits = merit_inits;
@@ -1012,13 +1018,13 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                     fprintf('\nINFO: Start testing problems from the problem library "%s" with "plain" feature.\n', plib);
                 end
                 results_plib_plain = solveAllProblems(solvers, plib, feature_plain, problem_options, profile_options, false, {});
-                % try
+                try
                     results_plib_plain.merit_histories = meritFunCompute(merit_fun, results_plib_plain.fun_histories, results_plib_plain.maxcv_histories, results_plib_plain.maxcv_inits);
                     results_plib_plain.merit_outs = meritFunCompute(merit_fun, results_plib_plain.fun_outs, results_plib_plain.maxcv_outs, results_plib_plain.maxcv_inits);
                     results_plib_plain.merit_inits= meritFunCompute(merit_fun, results_plib_plain.fun_inits, results_plib_plain.maxcv_inits, results_plib_plain.maxcv_inits);
-                % catch
-                %     error("MATLAB:benchmark:merit_fun_error", "Error occurred while calculating the merit values. Please check the merit function.");
-                % end
+                catch
+                    error("MATLAB:benchmark:merit_fun_error", "Error occurred while calculating the merit values. Please check the merit function.");
+                end
 
                 % Store data of the 'plain' feature for later calculating merit_mins.
                 results_plib.results_plib_plain = results_plib_plain;

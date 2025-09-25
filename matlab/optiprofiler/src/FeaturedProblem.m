@@ -169,9 +169,10 @@ classdef FeaturedProblem < Problem
             obj.last_ceq = NaN;
 
             % Evaluate the objective function and the maximum constraint violation at the initial point.
+            % Pay attention to the case when the feature is 'quantized' and the option ``ground_truth'' is set to true.
             [A, b] = obj.feature.modifier_affine(obj.seed, obj.problem);
             if strcmp(obj.feature.name, FeatureName.QUANTIZED.value) && obj.feature.options.(FeatureOptionKey.GROUND_TRUTH.value)
-                obj.fun_init = obj.feature.modifier_fun(A * x + b, obj.seed, obj.problem, obj.n_eval_fun);
+                obj.fun_init = obj.feature.modifier_fun(A * obj.x0 + b, obj.seed, obj.problem, obj.n_eval_fun);
             else
                 obj.fun_init = obj.problem.fun(A * obj.x0 + b);
             end
@@ -438,7 +439,7 @@ classdef FeaturedProblem < Problem
         end
 
 
-        % Note: We need to add methods `grad`, `hess`, `jcub`, and `jceq` to the FeaturedProblem class in the future.)
+        % Note: We need to add methods `grad`, `hess`, `jcub`, and `jceq` to the FeaturedProblem class in the future.
 
     end
 end

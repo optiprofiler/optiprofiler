@@ -14,7 +14,7 @@ benchmark
 
 **solver_scores** = **benchmark**\(**solvers**, **options**) creates profiles for the given **solvers** with options specified in the struct **options**. See *Options* part for more details.
 
-**solver_scores** = **benchmark**\(**options**) creates profiles with options specified in the struct **options**. Note that the struct **options** should at least contain the field **load** with the value **\'latest\'** or a time stamp of an experiment in the format of 'yyyyMMdd_HHmmss'. In this case, we will load the data from the specified experiment and draw the profiles.
+**solver_scores** = **benchmark**\(**options**) creates profiles with options specified in the struct **options**. Note that the struct **options** should at least contain the option **load** with the value **\'latest\'** or a time stamp of an experiment in the format of 'yyyyMMdd_HHmmss'. In this case, we will load the data from the specified experiment and draw the profiles.
 
 [**solver_scores**, **profile_scores**] = **benchmark**\(...) returns a 4D tensor **profile_scores** containing scores for all profiles. See **score_fun** in *Options* part for more details.
 
@@ -71,6 +71,8 @@ Options should be specified in a struct. The following are the available fields 
   - **bar_colors**: two different colors for the bars of two solvers in the log-ratio profiles. It can be a cell array of short names of colors ``('r', 'g', 'b', 'c', 'm', 'y', 'k')`` or a 2-by-3 matrix with each row being a RGB triplet. Default is set to the first two colors in the ``line_colors`` option.
 
   - **benchmark_id**: the identifier of the test. It is used to create the specific directory to store the results. Default is ``'out'`` if the option ``load`` is not provided, otherwise default is ``'.'``.
+
+  - **draw_hist_plots**: whether or how to draw the history plots of all the problems. It can be either ``'none'``, ``'sequential'``, or ``'parallel'``. If it is ``'none'``, we will not draw the history plots. If it is ``'parallel'``, we will draw the history plots in the same time when solvers are solving the problems. If it is ``'sequential'``, we will draw the history plots after all the problems are solved. Default is ``'sequential'``.
 
   - **errorbar_type**: the type of the uncertainty interval that can be either ``'minmax'`` or ``'meanstd'``. When ``n_runs`` is greater than 1, we run several times of the experiments and get average curves and get average curves and uncertainty intervals. Default is ``'minmax'``, meaning that we takes the pointwise minimum and maximum of the curves.
 
