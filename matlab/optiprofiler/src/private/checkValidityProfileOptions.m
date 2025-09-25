@@ -132,6 +132,18 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
     end
 
 
+    % Judge whether profile_options.draw_hist_plots is among 'none', 'parallel', and 'sequential'.
+    if isfield(profile_options, ProfileOptionKey.DRAW_HIST_PLOTS.value)
+        valid_modes = {'none', 'parallel', 'sequential'};
+        if ischarstr(profile_options.(ProfileOptionKey.DRAW_HIST_PLOTS.value))
+            profile_options.(ProfileOptionKey.DRAW_HIST_PLOTS.value) = char(profile_options.(ProfileOptionKey.DRAW_HIST_PLOTS.value));
+        end
+        if ~ischarstr(profile_options.(ProfileOptionKey.DRAW_HIST_PLOTS.value)) || ~ismember(profile_options.(ProfileOptionKey.DRAW_HIST_PLOTS.value), valid_modes)
+            error("MATLAB:checkValidityProfileOptions:draw_hist_plotsNotValid", "The option `draw_hist_plots` should be either 'none', 'parallel', or 'sequential'.");
+        end
+    end
+
+
     % Judge whether profile_options.summarize_performance_profiles is a boolean.
     if isfield(profile_options, ProfileOptionKey.SUMMARIZE_PERFORMANCE_PROFILES.value)
         if ~islogicalscalar(profile_options.(ProfileOptionKey.SUMMARIZE_PERFORMANCE_PROFILES.value))

@@ -1,9 +1,9 @@
-function drawHist(fun_histories, maxcv_histories, merit_histories, fun_init, maxcv_init, merit_init, solver_names, cell_axs_summary, is_cum, ptype, problem_n, n_eval, profile_options, default_height)
+function drawHist(fun_histories, maxcv_histories, merit_histories, fun_inits, maxcv_inits, merit_inits, solver_names, cell_axs_summary, is_cum, ptype, problem_n, n_eval, profile_options, default_height)
 %DRAWHIST draws the history plots of the function values, the maximum constraint violation, and the merit function values.
 
-    fun_histories = processHistYaxes(fun_histories, fun_init);
-    maxcv_histories = processHistYaxes(maxcv_histories, maxcv_init);
-    merit_histories = processHistYaxes(merit_histories, merit_init);
+    fun_histories = processHistYaxes(fun_histories, fun_inits);
+    maxcv_histories = processHistYaxes(maxcv_histories, maxcv_inits);
+    merit_histories = processHistYaxes(merit_histories, merit_inits);
     
     % Define the shift of the y-axis. Shift the y-axis if there is value that is too close to zero.
     y_shift_fun = computeYShift(fun_histories, profile_options);

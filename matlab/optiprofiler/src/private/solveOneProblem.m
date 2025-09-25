@@ -16,10 +16,6 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
         problem.project_x0;
     end
 
-    % Evaluate the functions at the initial point.
-    fun_init = problem.fun(problem.x0);
-    maxcv_init = problem.maxcv(problem.x0);
-
     % Solve the problem with each solver.
     n_solvers = length(solvers);
     n_runs = feature.options.(FeatureOptionKey.N_RUNS.value);
@@ -30,6 +26,8 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
     fun_out = NaN(n_solvers, n_runs);
     maxcv_history = NaN(n_solvers, n_runs, max_eval);
     maxcv_out = NaN(n_solvers, n_runs);
+    fun_inits = NaN(n_runs, 1);
+    maxcv_inits = NaN(n_runs, 1);
     computation_time = NaN(n_solvers, n_runs);
     solvers_success = false(n_solvers, n_runs);
 
@@ -62,6 +60,8 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
             problem_mlcon = featured_problem.mlcon;
             problem_mnlcon = featured_problem.mnlcon;
             problem_mcon = featured_problem.mcon;
+            fun_inits(i_run) = featured_problem.fun_init;
+            maxcv_inits(i_run) = featured_problem.maxcv_init;
 
             % Solve the problem with the solver.
             warning('off', 'all');
@@ -127,7 +127,7 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
                 end
             end
             warning('on', 'all');
-            n_eval(i_solver, i_run) = featured_problem.n_eval;
+            n_eval(i_solver, i_run) = featured_problem.n_eval_fun;
             fun_history(i_solver, i_run, 1:n_eval(i_solver, i_run)) = featured_problem.fun_hist(1:n_eval(i_solver, i_run));
             maxcv_history(i_solver, i_run, 1:n_eval(i_solver, i_run)) = featured_problem.maxcv_hist(1:n_eval(i_solver, i_run));
             if n_eval(i_solver, i_run) > 0
@@ -149,13 +149,22 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
     end
     fprintf("\n");
 
+    % Complete fun_inits and maxcv_inits if real_n_runs(i_solver) < n_runs for all solvers.
+    % In this case, real_n_runs(i_solver) should be 1 for all solvers.
+    if max(real_n_runs) < n_runs
+        for i_run = 2:n_runs
+            fun_inits(i_run) = fun_inits(1);
+            maxcv_inits(i_run) = maxcv_inits(1);
+        end
+    end
+
     % Return the result.
     result.fun_history = fun_history;
     result.maxcv_history = maxcv_history;
     result.fun_out = fun_out;
     result.maxcv_out = maxcv_out;
-    result.fun_init = fun_init;
-    result.maxcv_init = maxcv_init;
+    result.fun_inits = fun_inits;
+    result.maxcv_inits = maxcv_inits;
     result.n_eval = n_eval;
     result.problem_name = problem_name;
     result.problem_type = problem_type;
@@ -171,72 +180,7 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
     %%%%%%%%%%%%%%%%%%%%%%%%%%%% History plots of the computation %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    if ~is_plot || profile_options.(ProfileOptionKey.SCORE_ONLY.value) || all(~solvers_success(:))
-        return;
-    end
-
-    try
-        merit_fun = profile_options.(ProfileOptionKey.MERIT_FUN.value);
-        try
-            merit_history = meritFunCompute(merit_fun, fun_history, maxcv_history, maxcv_init);
-            merit_init = meritFunCompute(merit_fun, fun_init, maxcv_init, maxcv_init);
-        catch
-            error("MATLAB:solveOneProblem:merit_fun_error", "Error occurred while calculating the merit values. Please check the merit function.");
-        end
-
-        % Create the figure for the summary.
-        warning('off');
-        if strcmp(problem_type, 'u')
-            n_cols = 1;
-        else
-            n_cols = 3;
-        end
-        defaultFigurePosition = get(0, 'DefaultFigurePosition');
-        default_width = defaultFigurePosition(3);
-        default_height = defaultFigurePosition(4);
-        fig_summary = figure('Position', [defaultFigurePosition(1:2), n_cols * default_width, 2 * default_height], 'visible', 'off');
-        T_summary = tiledlayout(fig_summary, 2, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
-        F_title = strrep(profile_options.feature_stamp, '_', '\_');
-        P_title = strrep(problem_name, '_', '\_');
-        T_title = ['Solving ``', P_title, '" with ``', F_title, '" feature'];
-        title_fontsize = min(12, 1.2 * default_width / length(T_title));
-        title(T_summary, ['Solving ``', P_title, '" with ``', F_title, '" feature'], 'Interpreter', 'latex', 'FontSize', title_fontsize);
-        % Use gobjects to create arrays of handles and axes.
-        t_summary = gobjects(2, 1);
-        axs_summary = gobjects([2, 1, 1, n_cols]);
-        i_axs = 0;
-        for i = 1:2
-            t_summary(i) = tiledlayout(T_summary, 1, n_cols, 'Padding', 'compact', 'TileSpacing', 'compact');
-            t_summary(i).Layout.Tile = i;
-            for j = 1:n_cols
-                i_axs = i_axs + 1;
-                axs_summary(i_axs) = nexttile(t_summary(i));
-            end
-        end
-        ylabel(t_summary(1), "History profiles", 'Interpreter', 'latex', 'FontSize', 14);
-        ylabel(t_summary(2), "Cummin history profiles", 'Interpreter', 'latex', 'FontSize', 14);
-
-        if strcmp(problem_type, 'u')
-            cell_axs_summary = {axs_summary(1)};
-            cell_axs_summary_cum = {axs_summary(2)};
-        else
-            cell_axs_summary = {axs_summary(1), axs_summary(2), axs_summary(3)};
-            cell_axs_summary_cum = {axs_summary(4), axs_summary(5), axs_summary(6)};
-        end
-
-        pdf_hist_file_name = [regexprep(regexprep(regexprep(strrep(problem_name,' ','_'),'[^a-zA-Z0-9\-_]',''),'[-_]+','_'),'^[-_]+',''), '.pdf'];
-        pdf_summary = fullfile(path_hist_plots, pdf_hist_file_name);
-        processed_solver_names = cellfun(@(s) strrep(s, '_', '\_'), solver_names, 'UniformOutput', false);
-
-        drawHist(fun_history, maxcv_history, merit_history, fun_init, maxcv_init, merit_init, processed_solver_names, cell_axs_summary, false, problem_type, problem_dim, n_eval, profile_options, default_height);
-        drawHist(fun_history, maxcv_history, merit_history, fun_init, maxcv_init, merit_init, processed_solver_names, cell_axs_summary_cum, true, problem_type, problem_dim, n_eval, profile_options, default_height);
-
-        exportgraphics(fig_summary, pdf_summary, 'ContentType', 'vector');
-        warning('on');
-        close(fig_summary);
-    catch Exception
-        if ~profile_options.(ProfileOptionKey.SILENT.value)
-            fprintf("INFO: An error occurred while plotting the history plots of the problem %s: %s\n", problem_name, Exception.message);
-        end
+    if is_plot && strcmp(profile_options.(ProfileOptionKey.DRAW_HIST_PLOTS.value), 'parallel')
+        exportHist(problem_name, problem_type, problem_dim, solver_names, solvers_success, fun_history, maxcv_history, fun_inits, maxcv_inits, n_eval, profile_options, path_hist_plots)
     end
 end

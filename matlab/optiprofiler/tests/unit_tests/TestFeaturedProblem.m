@@ -73,7 +73,9 @@ classdef TestFeaturedProblem < matlab.unittest.TestCase
             testCase.verifyEqual(fp.maxcv_hist, []);
             testCase.verifyEqual(fp.cub_hist, []);
             testCase.verifyEqual(fp.ceq_hist, []);
-            testCase.verifyEqual(fp.n_eval, 0);
+            testCase.verifyEqual(fp.n_eval_fun, 0);
+            testCase.verifyEqual(fp.n_eval_cub, 0);
+            testCase.verifyEqual(fp.n_eval_ceq, 0);
 
             ft = Feature('perturbed_x0');
             fp = FeaturedProblem(p, ft, 500, 1);

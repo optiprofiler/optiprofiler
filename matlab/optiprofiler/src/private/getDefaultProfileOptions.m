@@ -56,6 +56,9 @@ function profile_options = getDefaultProfileOptions(solvers, feature, profile_op
     if ~isfield(profile_options, ProfileOptionKey.SCORE_ONLY.value)
         profile_options.(ProfileOptionKey.SCORE_ONLY.value) = false;
     end
+    if ~isfield(profile_options, ProfileOptionKey.DRAW_HIST_PLOTS.value)
+        profile_options.(ProfileOptionKey.DRAW_HIST_PLOTS.value) = 'parallel';
+    end
     if ~isfield(profile_options, ProfileOptionKey.SUMMARIZE_PERFORMANCE_PROFILES.value)
         profile_options.(ProfileOptionKey.SUMMARIZE_PERFORMANCE_PROFILES.value) = true;
     end

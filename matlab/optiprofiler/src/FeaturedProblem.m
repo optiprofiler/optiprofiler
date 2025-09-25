@@ -19,8 +19,8 @@ classdef FeaturedProblem < Problem
 %
 %   where the return FP is an instance of FEATUREDPROBLEM, the input P is an
 %   instance of Problem, the input F is an instance of Feature, the input
-%   MAX_EVAL is a positive integer, and the input SEED is a nonnegative
-%   integer seed less than 2^32.
+%   MAX_EVAL is a positive integer, and the input SEED is a nonnegative integer
+%   seed less than 2^32.
 %
 %   The output FP contains the following properties:
 %
@@ -34,15 +34,28 @@ classdef FeaturedProblem < Problem
 %       - ceq_hist: the history of the evaluated nonlinear equality
 %         constraints.
 %       - maxcv_hist: the history of the maximum constraint violation.
-%       - n_eval: the number of objective function evaluations.
+%       - n_eval_fun: the minimum between the number of objective function
+%         evaluations and max_eval.
+%       - n_eval_cub: the minimum between the number of nonlinear inequality
+%         constraint evaluations and max_eval.
+%       - n_eval_ceq: the minimum between the number of nonlinear equality
+%         constraint evaluations and max_eval.
+%       - fun_init: the objective function value at the initial point.
+%       - maxcv_init: the maximum constraint violation at the initial point.
 %
 %   The output FP contains all the methods of Problem, but the methods `fun`,
 %   `cub`, `ceq`, and `maxcv` are modified by the input Feature.
 %
-%   Pay attention that when the number of function evaluations reaches the
-%   input MAX_EVAL, the methods `fun`, `cub`, and `ceq` will return the
-%   values of the objective function and constraints at the point where the
-%   maximum number of function evaluations is reached, respectively.
+%   Note the following two points.
+%
+%   1. When the number of function evaluations reaches the input MAX_EVAL, the
+%   methods `fun`, `cub`, and `ceq` will return the values of the objective
+%   function and constraints at the point where the maximum number of function
+%   evaluations is reached, respectively.
+%
+%   2. When the number of function evaluations reaches two times the input
+%   MAX_EVAL, the methods `fun`, `cub`, and `ceq` will raise an error
+%   to terminate the optimization process.
 %
 
     properties (GetAccess = public, SetAccess = private)
@@ -55,11 +68,15 @@ classdef FeaturedProblem < Problem
         cub_hist
         ceq_hist
         maxcv_hist
-
+        fun_init
+        maxcv_init
     end
 
     properties (GetAccess = private, SetAccess = private)
 
+        real_n_eval_fun
+        real_n_eval_cub
+        real_n_eval_ceq
         last_fun
         last_cub
         last_ceq
@@ -67,8 +84,9 @@ classdef FeaturedProblem < Problem
 
     properties (Dependent)
 
-        n_eval
-
+        n_eval_fun
+        n_eval_cub
+        n_eval_ceq
     end
 
     methods
@@ -134,6 +152,9 @@ classdef FeaturedProblem < Problem
             obj.feature = feature;
             obj.max_eval = max_eval;
             obj.seed = seed;
+            obj.real_n_eval_fun = 0;
+            obj.real_n_eval_cub = 0;
+            obj.real_n_eval_ceq = 0;
 
             % Initialize the history of the objective function, nonlinear inequality and equality constraints, and
             % the maximum constraint violation.
@@ -147,12 +168,33 @@ classdef FeaturedProblem < Problem
             obj.last_cub = NaN;
             obj.last_ceq = NaN;
 
+            % Evaluate the objective function and the maximum constraint violation at the initial point.
+            [A, b] = obj.feature.modifier_affine(obj.seed, obj.problem);
+            if strcmp(obj.feature.name, FeatureName.QUANTIZED.value) && obj.feature.options.(FeatureOptionKey.GROUND_TRUTH.value)
+                obj.fun_init = obj.feature.modifier_fun(A * x + b, obj.seed, obj.problem, obj.n_eval_fun);
+            else
+                obj.fun_init = obj.problem.fun(A * obj.x0 + b);
+            end
+            obj.maxcv_init = obj.problem.maxcv(A * obj.x0 + b);
+
         end
 
-        function value = get.n_eval(obj)
+        function value = get.n_eval_fun(obj)
             % Return number of objective function evaluations.
 
             value = length(obj.fun_hist);
+        end
+
+        function value = get.n_eval_cub(obj)
+            % Return number of nonlinear inequality constraint evaluations.
+
+            value = length(obj.cub_hist);
+        end
+
+        function value = get.n_eval_ceq(obj)
+            % Return number of nonlinear equality constraint evaluations.
+
+            value = length(obj.ceq_hist);
         end
 
         function value = get.fun_hist(obj)
@@ -186,7 +228,12 @@ classdef FeaturedProblem < Problem
                 Modified objective function value.
             %}
 
-            if obj.n_eval >= obj.max_eval
+            if obj.real_n_eval_fun >= 2 * obj.max_eval
+                error("MATLAB:FeaturedProblem:funExceedTerminationEval", "The number of the objective function evaluations has reached %d (two times the maximum function evaluations).", 2 * obj.max_eval);
+            end
+            obj.real_n_eval_fun = obj.real_n_eval_fun + 1;
+
+            if obj.n_eval_fun >= obj.max_eval
                 % If the maximum number of function evaluations has been reached,
                 % return the last evaluated objective function value.
                 f = obj.last_fun;
@@ -199,7 +246,7 @@ classdef FeaturedProblem < Problem
             % Evaluate the modified the objective function value according to the feature and return the
             % modified value. We should not store the modified value because the performance 
             % of an optimization solver should be measured using the original objective function.
-            f = obj.feature.modifier_fun(A * x + b, obj.seed, obj.problem, obj.n_eval);
+            f = obj.feature.modifier_fun(A * x + b, obj.seed, obj.problem, obj.n_eval_fun);
             obj.last_fun = f;
 
             % Evaluate the objective function and store the results.
@@ -218,7 +265,7 @@ classdef FeaturedProblem < Problem
             end
         end
 
-        function cub_ = cub(obj, x)
+        function cub_ = cub(obj, x, record_hist)
             %{
             Evaluate the nonlinear inequality constraints.
 
@@ -233,7 +280,12 @@ classdef FeaturedProblem < Problem
                 Modified nonlinear inequality constraints.    
             %}
 
-            if length(obj.cub_hist) >= obj.max_eval
+            if obj.real_n_eval_cub >= 2 * obj.max_eval
+                error("MATLAB:FeaturedProblem:cubExceedTerminationEval", "The number of the nonlinear inequality constraint evaluations has reached %d (two times the maximum function evaluations).", 2 * obj.max_eval);
+            end
+            obj.real_n_eval_cub = obj.real_n_eval_cub + 1;
+
+            if obj.n_eval_cub >= obj.max_eval
                 % If the maximum number of function evaluations has been reached,
                 % return the last evaluated nonlinear inequality constraints.
                 cub_ = obj.last_cub;
@@ -244,7 +296,7 @@ classdef FeaturedProblem < Problem
             [A, b] = obj.feature.modifier_affine(obj.seed, obj.problem);
 
             % Evaluate the nonlinear inequality constraints and store the results.
-            cub_ = obj.feature.modifier_cub(A * x + b, obj.seed, obj.problem, length(obj.cub_hist));
+            cub_ = obj.feature.modifier_cub(A * x + b, obj.seed, obj.problem, obj.n_eval_cub);
             obj.last_cub = cub_;
             
             % Evaluate the nonlinear inequality constraints and store the results.
@@ -255,10 +307,14 @@ classdef FeaturedProblem < Problem
             if strcmp(obj.feature.name, FeatureName.QUANTIZED.value) && obj.feature.options.(FeatureOptionKey.GROUND_TRUTH.value)
                 cub_true = cub_;
             end
-            obj.cub_hist = [obj.cub_hist, cub_true];
+
+            % Record the history of the nonlinear inequality constraints only when `record_hist` is true.
+            if nargin < 3 || record_hist
+                obj.cub_hist = [obj.cub_hist, cub_true];
+            end
         end
 
-        function ceq_ = ceq(obj, x)
+        function ceq_ = ceq(obj, x, record_hist)
             %{
             Evaluate the nonlinear equality constraints.
 
@@ -273,7 +329,12 @@ classdef FeaturedProblem < Problem
                 Modified nonlinear equality constraints.
             %}
 
-            if length(obj.ceq_hist) >= obj.max_eval
+            if obj.real_n_eval_ceq >= 2 * obj.max_eval
+                error("MATLAB:FeaturedProblem:ceqExceedTerminationEval", "The number of the nonlinear equality constraint evaluations has reached %d (two times the maximum function evaluations).", 2 * obj.max_eval);
+            end
+            obj.real_n_eval_ceq = obj.real_n_eval_ceq + 1;
+
+            if obj.n_eval_ceq >= obj.max_eval
                 % If the maximum number of function evaluations has been reached,
                 % return the last evaluated nonlinear equality constraints.
                 ceq_ = obj.last_ceq;
@@ -284,7 +345,7 @@ classdef FeaturedProblem < Problem
             [A, b] = obj.feature.modifier_affine(obj.seed, obj.problem);
 
             % Evaluate the nonlinear equality constraints and store the results.
-            ceq_ = obj.feature.modifier_ceq(A * x + b, obj.seed, obj.problem, length(obj.ceq_hist));
+            ceq_ = obj.feature.modifier_ceq(A * x + b, obj.seed, obj.problem, obj.n_eval_ceq);
             obj.last_ceq = ceq_;
 
             % Evaluate the nonlinear equality constraints and store the results.
@@ -295,7 +356,11 @@ classdef FeaturedProblem < Problem
             if strcmp(obj.feature.name, FeatureName.QUANTIZED.value) && obj.feature.options.(FeatureOptionKey.GROUND_TRUTH.value)
                 ceq_true = ceq_;
             end
-            obj.ceq_hist = [obj.ceq_hist, ceq_true];
+
+            % Record the history of the nonlinear equality constraints only when `record_hist` is true.
+            if nargin < 3 || record_hist
+                obj.ceq_hist = [obj.ceq_hist, ceq_true];
+            end
         end
 
         function cv = maxcv(obj, x)
@@ -313,17 +378,61 @@ classdef FeaturedProblem < Problem
                 Maximum constraint violation.
             %}
 
-            % Generate the affine transformation.
-            [A, b] = obj.feature.modifier_affine(obj.seed, obj.problem);
-
             % If the Feature is ``quantized'' and the option ``ground_truth'' is set to true, we should
             % use the modified constraint violation.
             if strcmp(obj.feature.name, FeatureName.QUANTIZED.value) && obj.feature.options.(FeatureOptionKey.GROUND_TRUTH.value)
-                % `maxcv@Problem` is a method of the class `Problem`. By using this, maxcv will use obj.cub_ and
-                % obj.ceq_ instead of obj.problem.cub_ and obj.problem.ceq_.
-                % (We use `x` instead of `A * x + b` because this step is done inside obj.ceq_ and obj.cub_ methods.)
-                cv = maxcv@Problem(obj, x);
+                if strcmp(obj.ptype, 'u')
+                    cv = 0;
+                    return
+                end
+                
+                if any(isfinite(obj.xl))
+                    cv_bounds = max(max(obj.xl - x), 0);
+                else
+                    cv_bounds = 0;
+                end
+                if any(isfinite(obj.xu))
+                    cv_bounds = max(max(x - obj.xu), cv_bounds);
+                end
+                if strcmp(obj.ptype, 'b')
+                    cv = max(cv_bounds);
+                    return
+                end
+
+                if ~isempty(obj.aub)
+                    cv_linear = max(max(obj.aub * x - obj.bub), 0);
+                else
+                    cv_linear = 0;
+                end
+                if ~isempty(obj.aeq)
+                    cv_linear = max(max(abs(obj.aeq * x - obj.beq)), cv_linear);
+                end
+                if strcmp(obj.ptype, 'l')
+                    cv = max([cv_bounds; cv_linear]);
+                    return
+                end
+
+                if ~isempty(obj.cub_)
+                    cub_val = obj.cub(x, false);    % Do not record history
+                    if ~isempty(cub_val)
+                        cv_nonlinear = max(max(cub_val), 0);
+                    else
+                        cv_nonlinear = 0;
+                    end
+                else
+                    cv_nonlinear = 0;
+                end
+                if ~isempty(obj.ceq_)
+                    ceq_val = obj.ceq(x, false);    % Do not record history
+                    if ~isempty(ceq_val)
+                        cv_nonlinear = max(max(abs(ceq_val)), cv_nonlinear);
+                    end
+                end
+
+                cv = max([cv_bounds; cv_linear; cv_nonlinear]);
             else
+                % Generate the affine transformation.
+                [A, b] = obj.feature.modifier_affine(obj.seed, obj.problem);
                 cv = obj.problem.maxcv(A * x + b);
             end
         end

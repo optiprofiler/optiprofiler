@@ -1,12 +1,20 @@
-function value_histories_processed = processHistYaxes(value_histories, value_init)
+function value_histories_processed = processHistYaxes(value_histories, value_inits)
 %PROCESSHISTYAXES Process the value_histories of the y-axis data.
+%   value_histories has the size of (n_solvers, n_runs, n_evals).
+%   value_inits is a vector of size (n_runs, 1).
+%   This function processes the value_histories by replacing NaN and Inf values
+%   with a value larger than the maximum finite value in value_histories.
+%
 
-    mask_hist_nan_inf = ~isfinite(value_histories);
-    value_histories(mask_hist_nan_inf) = value_init;
-    value_max = max(value_histories(:));
-    value_min = min(value_histories(:));
+    n_runs = size(value_histories, 2);
     value_histories_processed = value_histories;
-    value_histories_processed(mask_hist_nan_inf) = value_min + 1.5 * (value_max - value_min);
+    for i_run = 1:n_runs
+        mask_hist_nan_inf = ~isfinite(value_histories(:, i_run, :));
+        value_histories(mask_hist_nan_inf) = value_inits(i_run);
+        value_max = max(value_histories(:, i_run, :), [], 'all', 'omitnan');
+        value_min = min(value_histories(:, i_run, :), [], 'all', 'omitnan');
+        value_histories_processed(mask_hist_nan_inf) = value_min + 1.5 * (value_max - value_min);
+    end
 
     % Following code is used to truncate the value_histories according to the last evaluation where the value decreases. But at this moment, we do not use this strategy.
 

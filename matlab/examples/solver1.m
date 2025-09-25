@@ -8,10 +8,12 @@ function x = solver1(fun, x0)
     % solver1 will randomly sample 50 * n points in the search space and return the one with the lowest
     % function value, where n is the dimension of the problem.
     n = length(x0);
+    n_eval_factor = 50;
+    n_eval = n_eval_factor * n;
     rand_stream = RandStream('mt19937ar', 'Seed', 1);
-    xhist = NaN(n, 50 * n);
-    fhist = NaN(50 * n, 1);
-    for i = 1:50 * n
+    xhist = NaN(n, n_eval);
+    fhist = NaN(n_eval, 1);
+    for i = 1:n_eval
         xhist(:, i) = x0 + rand_stream.randn(n, 1);
         fhist(i) = fun(xhist(:, i));
     end

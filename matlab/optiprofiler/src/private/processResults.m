@@ -24,10 +24,12 @@ function [merit_histories_merged, merit_outs_merged, merit_inits_merged, merit_m
             results_plibs{i_plib} = results_plib;
         end
     end
-    % Find the least merit value for each problem.
-    merit_mins_merged = min(min(min(merit_histories_merged, [], 4, 'omitnan'), [], 3, 'omitnan'), [], 2, 'omitnan');
+    % Find the least merit value for each problem in each run.
+    merit_mins_merged = min(min(merit_histories_merged, [], 4, 'omitnan'), [], 2, 'omitnan');
     for i_problem = 1:size(merit_histories_merged, 1)
-        merit_mins_merged(i_problem) = min(merit_mins_merged(i_problem), merit_inits_merged(i_problem), 'omitnan');
+        for i_run = 1:size(merit_histories_merged, 3)
+            merit_mins_merged(i_problem, i_run) = min(merit_mins_merged(i_problem, i_run), merit_inits_merged(i_problem, i_run), 'omitnan');
+        end
     end
 
     % If `results_plib_plain` exists and the `run_plain` field in `profile_options` is true. Then we need to redefine `merit_mins_merged`.
@@ -43,15 +45,23 @@ function [merit_histories_merged, merit_outs_merged, merit_inits_merged, merit_m
             merit_inits_plain_merged = cat(1, merit_inits_plain_merged, results_plib.results_plib_plain.merit_inits);
             problem_names_plain_merged = [problem_names_plain_merged, results_plib.results_plib_plain.problem_names];
         end
-        merit_mins_plain_merged = min(min(min(merit_histories_plain_merged, [], 4, 'omitnan'), [], 3, 'omitnan'), [], 2, 'omitnan');
+        merit_mins_plain_merged = min(min(merit_histories_plain_merged, [], 4, 'omitnan'), [], 2, 'omitnan');
         for i_problem = 1:size(merit_histories_plain_merged, 1)
-            merit_mins_plain_merged(i_problem) = min(merit_mins_plain_merged(i_problem), merit_inits_plain_merged(i_problem), 'omitnan');
+            for i_run = 1:size(merit_histories_plain_merged, 3)
+                merit_mins_plain_merged(i_problem, i_run) = min(merit_mins_plain_merged(i_problem, i_run), merit_inits_plain_merged(i_problem, i_run), 'omitnan');
+            end
         end
         for i_problem = 1:size(merit_histories_merged, 1)
             idx = find(strcmp(problem_names_merged{i_problem}, problem_names_plain_merged), 1);
-            % Redefine the `merit_mins_merged` for the problems that are solved under the plain feature.
-            % Note that min(x, NaN) = x.
-            merit_mins_merged(i_problem) = min(merit_mins_merged(i_problem), merit_mins_plain_merged(idx), 'omitnan');
+            if isempty(idx)
+                continue;
+            end
+            for i_run = 1:size(merit_histories_merged, 3)
+                % Redefine the `merit_mins_merged` for the problems that are solved under the plain feature.
+                % Note that min(x, NaN) = x.
+                merit_mins_merged(i_problem, i_run) = min(merit_mins_merged(i_problem, i_run), merit_mins_plain_merged(idx, i_run), 'omitnan');
+            end
+            
         end
     end
 end

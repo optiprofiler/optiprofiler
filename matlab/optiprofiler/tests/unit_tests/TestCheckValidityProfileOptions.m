@@ -85,6 +85,11 @@ classdef TestCheckValidityProfileOptions < matlab.unittest.TestCase
             options = rmfield(options, 'score_only');
 
 
+            options.draw_hist_plots = 'invalid_option';
+            testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:draw_hist_plotsNotValid");
+            options = rmfield(options, 'draw_hist_plots');
+
+
             options.summarize_performance_profiles = 2;
             testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:summarize_performance_profilesNotValid");
             options = rmfield(options, 'summarize_performance_profiles');

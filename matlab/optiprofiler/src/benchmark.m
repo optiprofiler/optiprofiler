@@ -658,9 +658,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         end
     end
 
-    if profile_options.(ProfileOptionKey.SCORE_ONLY.value) || is_load
-        % If 'load' is not empty, we will directly load the results and do not need to compute
-        % again. In this case, we do not need to create the directory to store the hist plots.
+    if profile_options.(ProfileOptionKey.SCORE_ONLY.value)
         path_hist_plots = '';
     else
         path_hist_plots = fullfile(path_stamp, 'history_plots');
@@ -864,6 +862,11 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     % If a specific problem is provided to `problem_options`, we only solve this problem and generate
     % the history plots for it.
     if exist('problem', 'var')
+        if profile_options.(ProfileOptionKey.SCORE_ONLY.value)
+            profile_options.(ProfileOptionKey.DRAW_HIST_PLOTS.value) = 'None';
+        elseif strcmp(profile_options.(ProfileOptionKey.DRAW_HIST_PLOTS.value), 'sequential')
+            profile_options.(ProfileOptionKey.DRAW_HIST_PLOTS.value) = 'parallel';
+        end
         result = solveOneProblem(solvers, problem, feature, problem.name, length(problem.name), profile_options, true, path_hist_plots);
         if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
             % We move the history plots to the feature directory.
@@ -876,23 +879,32 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             catch
             end
         end
-        % Compute merit values.
+        % Compute merit values and solver scores.
         merit_fun = profile_options.(ProfileOptionKey.MERIT_FUN.value);
         if ~isempty(result)
-            try
-                merit_history = meritFunCompute(merit_fun, result.fun_history, result.maxcv_history, result.maxcv_init);
-                merit_init = meritFunCompute(merit_fun, result.fun_init, result.maxcv_init, result.maxcv_init);
-            catch
-                error("MATLAB:benchmark:merit_fun_error", "Error occurred while calculating the merit values. Please check the merit function.");
+            % try
+                merit_history = meritFunCompute(merit_fun, result.fun_history, result.maxcv_history, result.maxcv_inits);
+                merit_inits = meritFunCompute(merit_fun, result.fun_inits, result.maxcv_inits, result.maxcv_inits);
+                [n_solvers, n_runs, ~] = size(merit_history);
+            % catch
+            %     error("MATLAB:benchmark:merit_fun_error", "Error occurred while calculating the merit values. Please check the merit function.");
+            % end
+            % Find the least merit value for each run.
+            merit_mins = NaN(n_runs, 1);
+            for i_run = 1:n_runs
+                merit_mins(i_run) = min(merit_history(:, i_run, :), [], 'all', 'omitnan');
+                merit_mins(i_run) = min(merit_mins(i_run), merit_inits(i_run));
             end
-            % Find the least merit value for each problem.
-            merit_min = min(merit_history, [], 'all');
-            merit_min = min(merit_min, merit_init, 'omitnan');
             % Since we will not compute the profiles, we set `solver_scores` to be the relative decreases
             % in the objective function value.
-            solver_merit_mins = squeeze(min(min(merit_history, [], 3, 'omitnan'), [], 2, 'omitnan'));
-            solver_scores = (merit_init - solver_merit_mins) ./ max(merit_init - merit_min, eps);
-            solver_scores = max(solver_scores, 0);
+            solver_merit_mins = squeeze(min(merit_history, [], 3, 'omitnan'));
+            solver_scores_runs = zeros(n_solvers, n_runs);
+            for i_run = 1:n_runs
+                solver_scores_runs(:, i_run) = (merit_inits(i_run) - solver_merit_mins(:, i_run)) ./ max(merit_inits(i_run) - merit_mins(i_run), eps);
+                solver_scores_runs(:, i_run) = max(solver_scores_runs(:, i_run), 0);
+            end
+            % We set the score of a solver to be the mean score over all runs.
+            solver_scores = mean(solver_scores_runs, 2);
         else
             solver_scores = zeros(n_solvers, 1);
         end
@@ -956,11 +968,11 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 
             % Create directory to store the history plots for each problem library.
             if isempty(path_hist_plots)
-                path_hist_plots_lib = '';
+                path_hist_plots_plib = '';
             else
-                path_hist_plots_lib = fullfile(path_hist_plots, plib);
-                if ~exist(path_hist_plots_lib, 'dir')
-                    mkdir(path_hist_plots_lib);
+                path_hist_plots_plib = fullfile(path_hist_plots, plib);
+                if ~exist(path_hist_plots_plib, 'dir')
+                    mkdir(path_hist_plots_plib);
                 end
             end
 
@@ -971,7 +983,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 
             % Solve all the problems from the current problem library with the specified options and
             % get the computation results.
-            results_plib = solveAllProblems(solvers, plib, feature, problem_options, profile_options, true, path_hist_plots_lib);
+            results_plib = solveAllProblems(solvers, plib, feature, problem_options, profile_options, true, path_hist_plots_plib);
 
             % If there are no problems selected or solved, skip the rest of the code, print a message,
             % and continue to the next library.
@@ -982,13 +994,13 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 
             % Compute merit values.
             merit_fun = profile_options.(ProfileOptionKey.MERIT_FUN.value);
-            try
+            % try
                 merit_histories = meritFunCompute(merit_fun, results_plib.fun_histories, results_plib.maxcv_histories, results_plib.maxcv_inits);
                 merit_outs = meritFunCompute(merit_fun, results_plib.fun_outs, results_plib.maxcv_outs, results_plib.maxcv_inits);
                 merit_inits = meritFunCompute(merit_fun, results_plib.fun_inits, results_plib.maxcv_inits, results_plib.maxcv_inits);
-            catch
-                error("MATLAB:benchmark:merit_fun_error", "Error occurred while calculating the merit values. Please check the merit function.");
-            end
+            % catch
+            %     error("MATLAB:benchmark:merit_fun_error", "Error occurred while calculating the merit values. Please check the merit function.");
+            % end
             results_plib.merit_histories = merit_histories;
             results_plib.merit_outs = merit_outs;
             results_plib.merit_inits = merit_inits;
@@ -1000,13 +1012,13 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                     fprintf('\nINFO: Start testing problems from the problem library "%s" with "plain" feature.\n', plib);
                 end
                 results_plib_plain = solveAllProblems(solvers, plib, feature_plain, problem_options, profile_options, false, {});
-                try
+                % try
                     results_plib_plain.merit_histories = meritFunCompute(merit_fun, results_plib_plain.fun_histories, results_plib_plain.maxcv_histories, results_plib_plain.maxcv_inits);
                     results_plib_plain.merit_outs = meritFunCompute(merit_fun, results_plib_plain.fun_outs, results_plib_plain.maxcv_outs, results_plib_plain.maxcv_inits);
                     results_plib_plain.merit_inits= meritFunCompute(merit_fun, results_plib_plain.fun_inits, results_plib_plain.maxcv_inits, results_plib_plain.maxcv_inits);
-                catch
-                    error("MATLAB:benchmark:merit_fun_error", "Error occurred while calculating the merit values. Please check the merit function.");
-                end
+                % catch
+                %     error("MATLAB:benchmark:merit_fun_error", "Error occurred while calculating the merit values. Please check the merit function.");
+                % end
 
                 % Store data of the 'plain' feature for later calculating merit_mins.
                 results_plib.results_plib_plain = results_plib_plain;
@@ -1020,7 +1032,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                     fprintf('INFO: Merging all the history plots of problems from the "%s" library to a single PDF file.\n', plib);
                 end
                 try
-                    mergePdfs(path_hist_plots_lib, [plib '_history_plots_summary.pdf'], path_hist_plots);
+                    mergePdfs(path_hist_plots_plib, [plib '_history_plots_summary.pdf'], path_hist_plots);
                 catch
                     if ~profile_options.(ProfileOptionKey.SILENT.value)
                         fprintf('\nINFO: Failed to merge the history plots to a single PDF file.\n');
@@ -1036,6 +1048,53 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                 fprintf("\nINFO: No problems are selected or solved from any problem library.\n");
             end
             return;
+        end
+    end
+
+    % Draw hist plots sequentially if profile_options.draw_hist_plots is set to 'sequential'.
+    if strcmp(profile_options.(ProfileOptionKey.DRAW_HIST_PLOTS.value), 'sequential')
+        for i_plib = 1:numel(results_plibs)
+            results_plib = results_plibs{i_plib};
+            fprintf("INFO: Sequentially drawing history plots for problems from the problem library '%s'.\n", results_plib.plib);
+            % Create directory to store the history plots for each problem library.
+            if isempty(path_hist_plots)
+                path_hist_plots_plib = '';
+            else
+                path_hist_plots_plib = fullfile(path_hist_plots, results_plib.plib);
+                if ~exist(path_hist_plots_plib, 'dir')
+                    mkdir(path_hist_plots_plib);
+                end
+            end
+            n_problems_solved = size(results_plib.fun_histories, 1);
+            for i_problem = 1:n_problems_solved
+                problem_name = results_plib.problem_names{i_problem};
+                problem_type = results_plib.problem_types{i_problem};
+                problem_dim = results_plib.problem_dims(i_problem);
+                solvers_success = sliceDim(results_plib.solvers_successes, 1, i_problem);
+                fun_history = sliceDim(results_plib.fun_histories, 1, i_problem);
+                maxcv_history = sliceDim(results_plib.maxcv_histories, 1, i_problem);
+                fun_inits = results_plib.fun_inits(i_problem, :);
+                maxcv_inits = results_plib.maxcv_inits(i_problem, :);
+                n_eval = sliceDim(results_plib.n_evals, 1, i_problem);
+                exportHist(problem_name, problem_type, problem_dim, solver_names, solvers_success, fun_history, maxcv_history, fun_inits, maxcv_inits, n_eval, profile_options, path_hist_plots_plib);
+            end
+
+            fprintf("INFO: Finished drawing history plots for problems from the problem library '%s'.\n", results_plib.plib);
+
+            % Merge the history plots for each problem library to a single pdf file.
+            if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value) && any(results_plib.solvers_successes(:))
+                if ~profile_options.(ProfileOptionKey.SILENT.value)
+                    fprintf('INFO: Merging all the history plots of problems from the "%s" library to a single PDF file.\n', results_plib.plib);
+                end
+                try
+                    mergePdfs(path_hist_plots_plib, [results_plib.plib '_history_plots_summary.pdf'], path_hist_plots);
+                catch
+                    if ~profile_options.(ProfileOptionKey.SILENT.value)
+                        fprintf('\nINFO: Failed to merge the history plots to a single PDF file.\n');
+                    end
+                end
+            end
+
         end
     end
 
@@ -1161,8 +1220,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         for i_problem = 1:n_problems
             for i_solver = 1:n_solvers
                 for i_run = 1:n_runs
-                    if isfinite(merit_mins_merged(i_problem))
-                        threshold = max(tolerance * merit_inits_merged(i_problem) + (1 - tolerance) * merit_mins_merged(i_problem), merit_mins_merged(i_problem));
+                    if isfinite(merit_mins_merged(i_problem, i_run))
+                        threshold = max(tolerance * merit_inits_merged(i_problem, i_run) + (1 - tolerance) * merit_mins_merged(i_problem, i_run), merit_mins_merged(i_problem, i_run));
                     else
                         threshold = -Inf;
                     end
@@ -1433,8 +1492,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         catch
         end
 
-        % List all summary PDF files in the output path and its subdirectories.
-        summary_files = dir(fullfile(path_out, '**', 'summary_*.pdf'));
+        % Find all summary PDF files in path_out and its immediate subfolders with the pattern "summary_*.pdf".
+        summary_files = dir(fullfile(path_out, '*', 'summary_*.pdf'));
         % Sort the summary PDF files by their time stamps (last 15 characters of the file names).
         summary_time_stamps = arrayfun(@(f) datetime(f.name(end-18:end-4), 'InputFormat', 'yyyyMMdd_HHmmss'), summary_files);
         [~, idx] = sort(summary_time_stamps, 'descend');
