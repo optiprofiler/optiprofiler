@@ -6,7 +6,7 @@ function exportHist(problem_name, problem_type, problem_dim, solver_names, solve
     try
         merit_fun = profile_options.(ProfileOptionKey.MERIT_FUN.value);
         try
-            merit_history = meritFunCompute(merit_fun, fun_history, maxcv_history, maxcv_inits);
+            merit_history = meritFunCompute(merit_fun, fun_history, maxcv_history, maxcv_inits, 'single');
             merit_inits = meritFunCompute(merit_fun, fun_inits, maxcv_inits, maxcv_inits);
         catch
             error("MATLAB:solveOneProblem:merit_fun_error", "Error occurred while calculating the merit values. Please check the merit function.");
