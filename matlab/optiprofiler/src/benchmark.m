@@ -1032,16 +1032,18 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             
             results_plibs{i_plib} = results_plib;
 
-            % Merge the history plots for each problem library to a single pdf file.
-            if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value) && any(results_plib.solvers_successes(:))
-                if ~profile_options.(ProfileOptionKey.SILENT.value)
-                    fprintf('INFO: Merging all the history plots of problems from the "%s" library to a single PDF file.\n', plib);
-                end
-                try
-                    mergePdfs(path_hist_plots_plib, [plib '_history_plots_summary.pdf'], path_hist_plots);
-                catch
+            if strcmp(profile_options.(ProfileOptionKey.DRAW_HIST_PLOTS.value), 'parallel')    
+                % Merge the history plots for each problem library to a single pdf file.
+                if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value) && any(results_plib.solvers_successes(:))
                     if ~profile_options.(ProfileOptionKey.SILENT.value)
-                        fprintf('\nINFO: Failed to merge the history plots to a single PDF file.\n');
+                        fprintf('INFO: Merging all the history plots of problems from the "%s" library to a single PDF file.\n', plib);
+                    end
+                    try
+                        mergePdfs(path_hist_plots_plib, [plib '_history_plots_summary.pdf'], path_hist_plots);
+                    catch
+                        if ~profile_options.(ProfileOptionKey.SILENT.value)
+                            fprintf('\nINFO: Failed to merge the history plots to a single PDF file.\n');
+                        end
                     end
                 end
             end
@@ -1062,6 +1064,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         for i_plib = 1:numel(results_plibs)
             results_plib = results_plibs{i_plib};
             fprintf("INFO: Sequentially drawing history plots for problems from the problem library '%s'.\n", results_plib.plib);
+            fprintf("INFO: This may take a while if there are many problems solved from this problem library.\n");
+            fprintf("INFO: The history plots for each problem will be saved in\n%s\n\n", fullfile(path_hist_plots, results_plib.plib));
             % Create directory to store the history plots for each problem library.
             if isempty(path_hist_plots)
                 path_hist_plots_plib = '';

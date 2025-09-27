@@ -78,6 +78,14 @@ function random_test(benchmark_id)
     bar_colors_choices = {'r', 'g', 'b', 'c', 'm', 'y', 'k'};
     options.bar_colors = bar_colors_choices(rand_stream.randperm(length(bar_colors_choices), length(solvers)));
 
+    if rand_stream.rand(1, 1) < 0.33
+        options.draw_hist_plots = 'none';
+    elseif rand_stream.rand(1, 1) < 0.66
+        options.draw_hist_plots = 'sequential';
+    else
+        options.draw_hist_plots = 'parallel';
+    end
+
     feature_name_choices = {'plain', 'perturbed_x0', 'noisy', 'truncated', 'permuted', 'linearly_transformed', 'random_nan', 'unrelaxable_constraints', 'nonquantifiable_constraints', 'quantized'};
     options.feature_name = feature_name_choices{rand_stream.randi(length(feature_name_choices), 1, 1)};
 
