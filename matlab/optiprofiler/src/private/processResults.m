@@ -45,11 +45,11 @@ function [merit_histories_merged, merit_outs_merged, merit_inits_merged, merit_m
             merit_inits_plain_merged = cat(1, merit_inits_plain_merged, results_plib.results_plib_plain.merit_inits);
             problem_names_plain_merged = [problem_names_plain_merged, results_plib.results_plib_plain.problem_names];
         end
-        merit_mins_plain_merged = min(min(merit_histories_plain_merged, [], 4, 'omitnan'), [], 2, 'omitnan');
+        % Note that we will not consider merit_min for each run under the plain feature. Instead, we
+        % only consider the minimum merit value among all runs under the plain feature.
+        merit_mins_plain_merged = min(min(min(merit_histories_plain_merged, [], 4, 'omitnan'), [], 3, 'omitnan'), [], 2, 'omitnan');
         for i_problem = 1:size(merit_histories_plain_merged, 1)
-            for i_run = 1:size(merit_histories_plain_merged, 3)
-                merit_mins_plain_merged(i_problem, i_run) = min(merit_mins_plain_merged(i_problem, i_run), merit_inits_plain_merged(i_problem, i_run), 'omitnan');
-            end
+            merit_mins_plain_merged(i_problem) = min(merit_mins_plain_merged(i_problem), merit_inits_plain_merged(i_problem, i_run), 'omitnan');
         end
         for i_problem = 1:size(merit_histories_merged, 1)
             idx = find(strcmp(problem_names_merged{i_problem}, problem_names_plain_merged), 1);
@@ -59,7 +59,7 @@ function [merit_histories_merged, merit_outs_merged, merit_inits_merged, merit_m
             for i_run = 1:size(merit_histories_merged, 3)
                 % Redefine the `merit_mins_merged` for the problems that are solved under the plain feature.
                 % Note that min(x, NaN) = x.
-                merit_mins_merged(i_problem, i_run) = min(merit_mins_merged(i_problem, i_run), merit_mins_plain_merged(idx, i_run), 'omitnan');
+                merit_mins_merged(i_problem, i_run) = min(merit_mins_merged(i_problem, i_run), merit_mins_plain_merged(idx), 'omitnan');
             end
             
         end
