@@ -49,7 +49,7 @@ function [merit_histories_merged, merit_outs_merged, merit_inits_merged, merit_m
         % only consider the minimum merit value among all runs under the plain feature.
         merit_mins_plain_merged = min(min(min(merit_histories_plain_merged, [], 4, 'omitnan'), [], 3, 'omitnan'), [], 2, 'omitnan');
         for i_problem = 1:size(merit_histories_plain_merged, 1)
-            merit_mins_plain_merged(i_problem) = min(merit_mins_plain_merged(i_problem), merit_inits_plain_merged(i_problem, i_run), 'omitnan');
+            merit_mins_plain_merged(i_problem) = min(merit_mins_plain_merged(i_problem), merit_inits_plain_merged(i_problem), 'omitnan');
         end
         for i_problem = 1:size(merit_histories_merged, 1)
             idx = find(strcmp(problem_names_merged{i_problem}, problem_names_plain_merged), 1);

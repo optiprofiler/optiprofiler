@@ -21,15 +21,14 @@ function merit_values = meritFunCompute(merit_fun, fun_values, maxcv_values, max
 %       type = 'single' for case 4 and 5
 %   We do not need to distinguish the case where fun_values has the same size as maxcv_inits, since we will first check if their sizes are the same.
 
-    % If `fun_values`, `maxcv_values`, or `maxcv_inits` is a row vector, convert it to a column vector.
-    if isrealrow(fun_values)
-        fun_values = fun_values(:);
-    end
-    if isrealrow(maxcv_values)
-        maxcv_values = maxcv_values(:);
-    end
-    if isrealrow(maxcv_inits)
-        maxcv_inits = maxcv_inits(:);
+    % In the case 'single', if fun_values or maxcv_values is a row vector, convert it to a column vector. (Since in any case, n_solvers >= 2, so the first dimension cannot be 1.)
+    if nargin >= 5 && strcmp(type, 'single')
+        if isrealrow(fun_values)
+            fun_values = fun_values(:);
+        end
+        if isrealrow(maxcv_values)
+            maxcv_values = maxcv_values(:);
+        end
     end
 
     % Scale `maxcv_init` to match the dimensions of `fun_values`.

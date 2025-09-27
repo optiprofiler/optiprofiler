@@ -67,27 +67,33 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
             warning('off', 'all');
             time_start_solver_run = tic;
             try
-                if profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) == 2
-                    switch problem_type
-                        case 'u'
-                            x = solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0);
-                        case 'b'
-                            x = solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu);
-                        case 'l'
-                            x = solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq);
-                        case 'n'
-                            x = solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, @(x) featured_problem.cub(x), @(x) featured_problem.ceq(x));
+                try
+                    if profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) == 2
+                        switch problem_type
+                            case 'u'
+                                x = solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0);
+                            case 'b'
+                                x = solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu);
+                            case 'l'
+                                x = solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq);
+                            case 'n'
+                                x = solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, @(x) featured_problem.cub(x), @(x) featured_problem.ceq(x));
+                        end
+                    else
+                        switch problem_type
+                            case 'u'
+                                [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0)');
+                            case 'b'
+                                [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu)');
+                            case 'l'
+                                [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq)');
+                            case 'n'
+                                [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, @(x) featured_problem.cub(x), @(x) featured_problem.ceq(x))');
+                        end
                     end
-                else
-                    switch problem_type
-                        case 'u'
-                            [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0)');
-                        case 'b'
-                            [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu)');
-                        case 'l'
-                            [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq)');
-                        case 'n'
-                            [~, x] = evalc('solvers{i_solver}(@(x) featured_problem.fun(x), featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, @(x) featured_problem.cub(x), @(x) featured_problem.ceq(x))');
+                catch Exception
+                    if profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) ~= 0
+                        fprintf("INFO: An error occurred while solving %s with %s (run %d/%d): %s\n", problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), Exception.message);
                     end
                 end
 
@@ -121,10 +127,15 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
                             fprintf(format_info_best, problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), fun_min, maxcv_min);
                     end
                 end
+
+                % Clear the solution.
+                clear x;
             catch Exception
                 if profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) ~= 0
-                    fprintf("INFO: An error occurred while solving %s with %s (run %d/%d): %s\n", problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), Exception.message);
+                    fprintf("INFO: An error occurred while processing the solution of %s from %s (run %d/%d): %s\n", problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), Exception.message);
                 end
+                % Clear the solution.
+                clear x;
             end
             warning('on', 'all');
             n_eval(i_solver, i_run) = featured_problem.n_eval_fun;
