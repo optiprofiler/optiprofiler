@@ -1,6 +1,16 @@
-function stamp = createStamp(solver_names, problem_options, feature_stamp, time_stamp)
+function stamp = createStamp(solver_names, problem_options, feature_stamp, time_stamp, path_out)
 %CREATESTAMP creates a stamp for the current experiment.
 % The stamp is a string that contains the solver names, problem settings, feature stamp, and time stamp.
+
+    % Set the max length of the stamp.
+    max_length = 100;
+    if ispc
+        max_dir_length = 260; % Windows max path length
+    else
+        max_dir_length = 4096; % Unix max path length
+    end
+    % We want to avoid the path 'path_out/stamp/summary_stamp.pdf' exceeding the max path length.
+    max_length = min(max_length, floor((max_dir_length - length(path_out) - length('summary_') - length('.pdf') - 1) / 2));
 
     % Get the solver stamp.
     for i = 1:length(solver_names)
@@ -23,5 +33,14 @@ function stamp = createStamp(solver_names, problem_options, feature_stamp, time_
     end
 
     % Create the final stamp.
-    stamp = sprintf('%s_%s_%s_%s', solver_stamp, problem_stamp, feature_stamp, time_stamp);
+    stamp = time_stamp;
+    if length(feature_stamp) + length(stamp) + 1 <= max_length
+        stamp = sprintf('%s_%s', feature_stamp, stamp);
+    end
+    if length(problem_stamp) + length(stamp) + 1 <= max_length
+        stamp = sprintf('%s_%s', problem_stamp, stamp);
+    end
+    if length(solver_stamp) + length(stamp) + 1 <= max_length
+        stamp = sprintf('%s_%s', solver_stamp, stamp);
+    end
 end

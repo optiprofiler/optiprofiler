@@ -645,7 +645,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     feature_stamp = profile_options.(ProfileOptionKey.FEATURE_STAMP.value);
 
     % Create the stamp for the current experiment.
-    stamp = createStamp(solver_names, problem_options, feature_stamp, time_stamp);
+    stamp = createStamp(solver_names, problem_options, feature_stamp, time_stamp, path_out);
 
     path_stamp = fullfile(path_out, stamp);
     path_log = fullfile(path_stamp, 'test_log');
