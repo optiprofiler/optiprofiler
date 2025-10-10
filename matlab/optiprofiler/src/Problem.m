@@ -956,25 +956,28 @@ classdef Problem < handle
                 c = obj.cub(x);
                 ceq = obj.ceq(x);
             end
+            tol = 1e-16;
             if strcmp(obj.ptype, 'u')
                 return
             elseif strcmp(obj.ptype, 'b')
                 obj.x0 = min(max(obj.x0, obj.xl), obj.xu);
             elseif strcmp(obj.ptype, 'l') && obj.m_linear_ub == 0 && all(obj.xl == -Inf) && all(obj.xu == Inf)
                 try
-                    [~, res] = evalc('lsqr(obj.aeq, obj.beq - obj.aeq * obj.x0)');
+                    [~, res] = evalc('lsqr(obj.aeq, obj.beq - obj.aeq * obj.x0, tol)');
                     obj.x0 = obj.x0 + res;
                 catch
                 end
             elseif strcmp(obj.ptype, 'l') && exist('lsqlin') == 2
                 try
-                    [~, res] = evalc('lsqlin(eye(obj.n), obj.x0, obj.aub, obj.bub, obj.aeq, obj.beq, obj.xl, obj.xu, obj.x0)');
+                    opts = optimoptions('lsqlin', 'OptimalityTolerance', tol, 'ConstraintTolerance', tol);
+                    [~, res] = evalc('lsqlin(eye(obj.n), obj.x0, obj.aub, obj.bub, obj.aeq, obj.beq, obj.xl, obj.xu, obj.x0, opts)');
                     obj.x0 = res;
                 catch
                 end
             elseif ~strcmp(obj.ptype, 'u') && exist('fmincon') == 2
                 try
-                    [~, res] = evalc('fmincon(@(x) dist_x0_sq(x), obj.x0, obj.aub, obj.bub, obj.aeq, obj.beq, obj.xl, obj.xu, @(x) nonlcon(x))');
+                    opts = optimoptions('fmincon', 'OptimalityTolerance', tol, 'ConstraintTolerance', tol);
+                    [~, res] = evalc('fmincon(@(x) dist_x0_sq(x), obj.x0, obj.aub, obj.bub, obj.aeq, obj.beq, obj.xl, obj.xu, @(x) nonlcon(x), opts)');
                     obj.x0 = res;
                 catch
                 end

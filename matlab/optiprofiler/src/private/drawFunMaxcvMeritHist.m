@@ -27,15 +27,70 @@ function drawFunMaxcvMeritHist(ax, y, solver_names, is_cum, problem_n, y_shift, 
         y_upper = cummin(y_upper, 2);
     end
 
+    % We use block minimization aggregation in case there are too many points, which will cost a lot of time and memory to plot.
+    max_eval = size(y, 3);
+    max_length = 1000;
+    block_size = ceil(max_eval / max_length);
+    n_blocks = ceil(max_eval / block_size);
+    % We initialize the cell array for indexing.
+    x_indices = repmat({[]}, 1, n_solvers);
+
+    % We only do block minimization when the number of evaluations exceeds max_length.
+    if max_eval > max_length
+        for i_block = 1:n_blocks
+            idx_start = (i_block - 1) * block_size + 1;
+            idx_end = min(i_block * block_size, max_eval);
+            idx = idx_start:idx_end;
+
+            for i_solver = 1:n_solvers
+                i_eval = max(n_eval(i_solver,:));
+                [~, rel_idx] = min(y_mean(i_solver, idx), [], 'omitnan');
+                abs_idx = idx(rel_idx);
+                if abs_idx > i_eval
+                    continue;
+                end
+                x_indices{i_solver} = [x_indices{i_solver}, abs_idx];
+            end
+        end
+    else
+        for i_solver = 1:n_solvers
+            i_eval = max(n_eval(i_solver,:));
+            if i_eval > 0
+                x_indices{i_solver} = 1:i_eval;
+            end
+        end
+    end
+
+    % We add the first and last indices if they are not included.
+    for i_solver = 1:n_solvers
+        i_eval = max(n_eval(i_solver,:));
+        if i_eval > 0
+            if isempty(x_indices{i_solver})
+                x_indices{i_solver} = [1, i_eval];
+            else
+                if x_indices{i_solver}(1) ~= 1
+                    x_indices{i_solver} = [1, x_indices{i_solver}];
+                end
+                if x_indices{i_solver}(end) ~= i_eval && i_eval ~= 1
+                    x_indices{i_solver} = [x_indices{i_solver}, i_eval];
+                end
+            end
+        end
+    end
+
     xl_lim = 1 / (problem_n + 1);
     xr_lim = 1 / (problem_n + 1);
+    is_log_scale = false;
 
     hold(ax, 'on');
     for i_solver = 1:n_solvers
         % Truncate the histories according to the function evaluations of each solver.
-        i_eval = max(n_eval(i_solver,:));
-        i_eval = min(i_eval, size(y(i_solver,:,:), 3));
-        x = (1:max(i_eval, 1)) / (problem_n + 1);
+        i_x = x_indices{i_solver};
+        i_y_mean = y_mean(i_solver, i_x);
+        i_y_lower = y_lower(i_solver, i_x);
+        i_y_upper = y_upper(i_solver, i_x);
+        i_eval = length(i_x);
+        x = i_x / (problem_n + 1);
         xr_lim = max(xr_lim, x(end));
 
         color = line_colors(mod(i_solver - 1, size(line_colors, 1)) + 1, :);
@@ -43,17 +98,20 @@ function drawFunMaxcvMeritHist(ax, y, solver_names, is_cum, problem_n, y_shift, 
         line_width = line_widths(mod(i_solver - 1, length(line_widths)) + 1);
 
         if n_runs > 1 && i_eval > 1
-            fill(ax, [x, fliplr(x)], [y_lower(i_solver, 1:i_eval), fliplr(y_upper(i_solver, 1:i_eval))], color, 'FaceAlpha', 0.2, 'EdgeAlpha', 0, 'HandleVisibility', 'off');
+            fill(ax, [x, fliplr(x)], [i_y_lower, fliplr(i_y_upper)], color, 'FaceAlpha', 0.2, 'EdgeAlpha', 0, 'HandleVisibility', 'off');
         end
         if i_eval == 1
-            plot(ax, x, y_mean(i_solver, 1:i_eval), 'o', 'Color', color, 'DisplayName', solver_names{i_solver});
+            plot(ax, x, i_y_mean, 'o', 'Color', color, 'DisplayName', solver_names{i_solver});
         elseif i_eval > 1
-            plot(ax, x, y_mean(i_solver, 1:i_eval), line_style, 'Color', color, 'LineWidth', line_width, 'DisplayName', solver_names{i_solver});
+            plot(ax, x, i_y_mean, line_style, 'Color', color, 'LineWidth', line_width, 'DisplayName', solver_names{i_solver});
+        end
+        if any(i_y_mean) && any(diff(i_y_mean))
+            is_log_scale = true;
         end
     end
 
     % When the function values are not all zero and there is at least some change in the function values, use log scale for the y-axis.
-    if any(y_mean(i_solver, :)) && any(diff(y_mean(i_solver, :)))
+    if is_log_scale
         set(ax, 'YScale', 'log');
     end
 
