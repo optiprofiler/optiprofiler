@@ -683,29 +683,79 @@ def draw_fun_maxcv_merit_hist(ax, y, solver_names, is_cum, problem_n, y_shift, n
         y_lower = np.minimum.accumulate(y_lower, axis=1)
         y_upper = np.minimum.accumulate(y_upper, axis=1)
 
+    # We use block minimization aggregation in case there are too many points, which will cost a lot of time and memory to plot.
+    max_eval = y.shape[2]
+    n_blocks = 10
+    q = max_eval // n_blocks
+    r = max_eval % n_blocks
+    blocks = np.full(n_blocks, q)
+    blocks[:r] += 1
+    # We initialize the cell array for indexing.
+    x_indices = [[] for _ in range(n_solvers)]
+
+    # We only do block minimization when the number of evaluations exceeds n_blocks.
+    if max_eval > n_blocks:
+        for i_block in range(n_blocks):
+            idx_start = int(sum(blocks[:i_block]))
+            idx_end = int(idx_start + blocks[i_block])
+            idx = np.arange(idx_start, idx_end)
+            for i_solver in range(n_solvers):
+                i_eval = int(np.max(n_eval[i_solver, :]))
+                y_mean_block = y_mean[i_solver, idx]
+                rel_idx = int(np.nanargmin(y_mean_block))
+                abs_idx = idx[rel_idx]
+                if abs_idx > i_eval:
+                    continue
+                x_indices[i_solver].append(abs_idx)
+    else:
+        for i_solver in range(n_solvers):
+            i_eval = int(np.max(n_eval[i_solver, :]))
+            if i_eval > 0:
+                x_indices[i_solver] = list(range(min(i_eval, max_eval)))
+
+    # We add the first and last indices if they are not included.
+    for i_solver in range(n_solvers):
+        i_eval = int(np.max(n_eval[i_solver, :]))
+        if i_eval > 0:
+            if len(x_indices[i_solver]) == 0:
+                x_indices[i_solver] = [0, i_eval - 1]
+            else:
+                if x_indices[i_solver][0] != 0:
+                    x_indices[i_solver] = [0] + x_indices[i_solver]
+                if x_indices[i_solver][-1] != i_eval - 1 and i_eval != 1:
+                    x_indices[i_solver].append(i_eval - 1)
+        x_indices[i_solver] = np.unique(x_indices[i_solver])
+
     xl_lim = 1 / (problem_n + 1)
     xr_lim = 1 / (problem_n + 1)
+    is_log_scale = False
 
     with plt.rc_context(profile_context):
         for i_solver in range(n_solvers):
-            i_eval = np.max(n_eval[i_solver, :])
-            i_eval = min(i_eval, y.shape[2])
-            x = np.arange(1, max(i_eval, 1) + 1) / (problem_n + 1)
-            xr_lim = max(xr_lim, x[-1]) if len(x) > 0 else xr_lim
+            # Truncate the histories according to the function evaluations of each solver.
+            i_x = x_indices[i_solver]
+            i_y_mean = y_mean[i_solver, i_x]
+            i_y_lower = y_lower[i_solver, i_x]
+            i_y_upper = y_upper[i_solver, i_x]
+            i_eval = len(i_x)
+            x = (i_x + 1) / (problem_n + 1)
+            xr_lim = max(xr_lim, x[-1])
 
             color = line_colors[i_solver % len(line_colors)]
             line_style = line_styles[i_solver % len(line_styles)]
             line_width = line_widths[i_solver % len(line_widths)]
 
             if i_eval == 1:
-                ax.plot(x, y_mean[i_solver, :i_eval], color=color, marker='o', label=solver_names[i_solver])
+                ax.plot(x, i_y_mean, color=color, marker='o', label=solver_names[i_solver])
             elif i_eval > 1:
-                ax.plot(x, y_mean[i_solver, :i_eval], color=color, linestyle=line_style, linewidth=line_width, label=solver_names[i_solver])
+                ax.plot(x, i_y_mean, color=color, linestyle=line_style, linewidth=line_width, label=solver_names[i_solver])
                 if n_runs > 1:
-                    ax.fill_between(x, y_lower[i_solver, :i_eval], y_upper[i_solver, :i_eval], color=color, alpha=0.2)
+                    ax.fill_between(x, i_y_lower, i_y_upper, color=color, alpha=0.2)
+            if np.any(i_y_mean) and np.any(np.diff(i_y_mean)):
+                is_log_scale = True
 
     # When the function values are not all zero and there is at least some change in the function values, use log scale for the y-axis.
-    if np.any(y_mean) and np.any(np.diff(y_mean)):
+    if is_log_scale:
         ax.set_yscale('log')
     
     ax.yaxis.set_ticks_position('both')

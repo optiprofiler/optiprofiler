@@ -5,9 +5,9 @@ function stamp = createStamp(solver_names, problem_options, feature_stamp, time_
     % Set the max length of the stamp.
     max_length = 100;
     if ispc
-        max_dir_length = 260; % Windows max path length
+        max_dir_length = 250; % Windows max path length (260) minus some buffer
     else
-        max_dir_length = 4096; % Unix max path length
+        max_dir_length = 4000; % Unix max path length (4096) minus some buffer
     end
     % We want to avoid the path 'path_out/stamp/summary_stamp.pdf' exceeding the max path length.
     max_length = min(max_length, floor((max_dir_length - length(path_out) - length('summary_') - length('.pdf') - 1) / 2));

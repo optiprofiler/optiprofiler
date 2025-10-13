@@ -29,19 +29,20 @@ function drawFunMaxcvMeritHist(ax, y, solver_names, is_cum, problem_n, y_shift, 
 
     % We use block minimization aggregation in case there are too many points, which will cost a lot of time and memory to plot.
     max_eval = size(y, 3);
-    max_length = 1000;
-    block_size = ceil(max_eval / max_length);
-    n_blocks = ceil(max_eval / block_size);
+    n_blocks = 1000;
+    q = floor(max_eval / n_blocks);
+    r = mod(max_eval, n_blocks);
+    blocks = q * ones(1, n_blocks);
+    blocks(1:r) = blocks(1:r) + 1;
     % We initialize the cell array for indexing.
     x_indices = repmat({[]}, 1, n_solvers);
 
-    % We only do block minimization when the number of evaluations exceeds max_length.
-    if max_eval > max_length
+    % We only do block minimization when the number of evaluations exceeds n_blocks.
+    if max_eval > n_blocks
         for i_block = 1:n_blocks
-            idx_start = (i_block - 1) * block_size + 1;
-            idx_end = min(i_block * block_size, max_eval);
+            idx_start = sum(blocks(1:i_block-1)) + 1;
+            idx_end = idx_start + blocks(i_block) - 1;
             idx = idx_start:idx_end;
-
             for i_solver = 1:n_solvers
                 i_eval = max(n_eval(i_solver,:));
                 [~, rel_idx] = min(y_mean(i_solver, idx), [], 'omitnan');
@@ -76,6 +77,7 @@ function drawFunMaxcvMeritHist(ax, y, solver_names, is_cum, problem_n, y_shift, 
                 end
             end
         end
+        x_indices{i_solver} = unique(x_indices{i_solver});
     end
 
     xl_lim = 1 / (problem_n + 1);

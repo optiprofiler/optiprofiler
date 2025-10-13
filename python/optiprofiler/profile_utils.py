@@ -529,11 +529,23 @@ def compute_merit_values(merit_fun, fun_values, maxcv_values, maxcv_init):
     return merit_values
 
 
-def create_stamp(solver_names, problem_options, feature_stamp, time_stamp):
+def create_stamp(solver_names, problem_options, feature_stamp, time_stamp, path_out):
     """
     Create a stamp for the current experiment.
     The stamp is a string that contains the solver names, problem settings, feature stamp, and time stamp.
     """
+
+    # Set the max length of the stamp
+    max_length = 100
+    # Check the system os
+    if os.name == 'nt':  # Windows
+        max_dir_length = 250  # Windows max path length (260) minus some buffer
+    else:
+        max_dir_length = 4000  # Unix max path length (4096) minus some buffer
+    # We want to avoid the path 'path_out/stamp/summary_stamp.pdf' exceeding the max path length
+    max_length = min(max_length, (max_dir_length - len(path_out) - len('summary_') - len('.pdf') - 1) // 2)
+
+
     # Get the solver stamp: replace non-alphanumeric/underscore with '_'
     solver_names_clean = [re.sub(r'[^a-zA-Z0-9_]', '_', name) for name in solver_names]
     solver_stamp = '_'.join(solver_names_clean)
@@ -550,7 +562,13 @@ def create_stamp(solver_names, problem_options, feature_stamp, time_stamp):
         problem_stamp = f"{ptype}_{mindim}_{maxdim}_{mincon}_{maxcon}"
 
     # Create the final stamp
-    stamp = f"{solver_stamp}_{problem_stamp}_{feature_stamp}_{time_stamp}"
+    stamp = time_stamp
+    if len(feature_stamp) + len(stamp) + 1 <= max_length:
+        stamp = f"{feature_stamp}_{stamp}"
+    if len(problem_stamp) + len(stamp) + 1 <= max_length:
+        stamp = f"{problem_stamp}_{stamp}"
+    if len(solver_stamp) + len(stamp) + 1 <= max_length:
+        stamp = f"{solver_stamp}_{stamp}"
 
     return stamp
 

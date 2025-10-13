@@ -641,7 +641,7 @@ def benchmark(
     feature_stamp = profile_options[ProfileOption.FEATURE_STAMP]
 
     # Create the stamp for the current experiment.
-    stamp = create_stamp(solver_names, problem_options, feature_stamp, time_stamp)
+    stamp = create_stamp(solver_names, problem_options, feature_stamp, time_stamp, path_out)
 
     path_stamp = path_out / stamp
     path_log = path_stamp / 'test_log'
@@ -1629,7 +1629,7 @@ def _solve_one_problem(solvers, problem, feature, problem_name, len_problem_name
                 except Exception as exc:
                     if profile_options[ProfileOption.SOLVER_VERBOSE] >= 1:
                         logger.warning(f'An error occurred while solving {problem_name} with {solver_names[i_solver]}: {exc}')
-            n_eval[i_solver, i_run] = featured_problem.n_eval
+            n_eval[i_solver, i_run] = featured_problem.n_eval_fun
             fun_history[i_solver, i_run, :n_eval[i_solver, i_run]] = featured_problem.fun_hist[:n_eval[i_solver, i_run]]
             maxcv_history[i_solver, i_run, :n_eval[i_solver, i_run]] = featured_problem.maxcv_hist[:n_eval[i_solver, i_run]]
             if n_eval[i_solver, i_run] > 0:
