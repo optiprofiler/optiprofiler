@@ -34,8 +34,11 @@ function drawFunMaxcvMeritHist(ax, y, solver_names, is_cum, problem_n, y_shift, 
     r = mod(max_eval, n_blocks);
     blocks = q * ones(1, n_blocks);
     blocks(1:r) = blocks(1:r) + 1;
-    % We initialize the cell array for indexing.
+    % We initialize the cell array to store the x indices and y values to be plotted.
     x_indices = repmat({[]}, 1, n_solvers);
+    y_values_m = repmat({[]}, 1, n_solvers);
+    y_values_l = repmat({[]}, 1, n_solvers);
+    y_values_u = repmat({[]}, 1, n_solvers);
 
     % We only do block minimization when the number of evaluations exceeds n_blocks.
     if max_eval > n_blocks
@@ -45,12 +48,30 @@ function drawFunMaxcvMeritHist(ax, y, solver_names, is_cum, problem_n, y_shift, 
             idx = idx_start:idx_end;
             for i_solver = 1:n_solvers
                 i_eval = max(n_eval(i_solver,:));
-                [~, rel_idx] = min(y_mean(i_solver, idx), [], 'omitnan');
-                abs_idx = idx(rel_idx);
+                switch profile_options.(ProfileOptionKey.HIST_AGGREGATION.value)
+                    case 'min'
+                        [y_value_m, rel_idx] = min(y_mean(i_solver, idx), [], 'omitnan');
+                        abs_idx = idx(rel_idx);
+                        y_value_l = y_lower(i_solver, abs_idx);
+                        y_value_u = y_upper(i_solver, abs_idx);
+                    case 'mean'
+                        abs_idx = floor((idx_start + idx_end) / 2);
+                        y_value_m = mean(y_mean(i_solver, idx), 'omitnan');
+                        y_value_l = mean(y_lower(i_solver, idx), 'omitnan');
+                        y_value_u = mean(y_upper(i_solver, idx), 'omitnan');
+                    case 'max'
+                        [y_value_m, rel_idx] = max(y_mean(i_solver, idx), [], 'omitnan');
+                        abs_idx = idx(rel_idx);
+                        y_value_l = y_lower(i_solver, abs_idx);
+                        y_value_u = y_upper(i_solver, abs_idx);
+                end
                 if abs_idx > i_eval
                     continue;
                 end
                 x_indices{i_solver} = [x_indices{i_solver}, abs_idx];
+                y_values_m{i_solver} = [y_values_m{i_solver}, y_value_m];
+                y_values_l{i_solver} = [y_values_l{i_solver}, y_value_l];
+                y_values_u{i_solver} = [y_values_u{i_solver}, y_value_u];
             end
         end
     else
@@ -58,6 +79,9 @@ function drawFunMaxcvMeritHist(ax, y, solver_names, is_cum, problem_n, y_shift, 
             i_eval = max(n_eval(i_solver,:));
             if i_eval > 0
                 x_indices{i_solver} = 1:i_eval;
+                y_values_m{i_solver} = y_mean(i_solver, 1:i_eval);
+                y_values_l{i_solver} = y_lower(i_solver, 1:i_eval);
+                y_values_u{i_solver} = y_upper(i_solver, 1:i_eval);
             end
         end
     end
@@ -67,17 +91,24 @@ function drawFunMaxcvMeritHist(ax, y, solver_names, is_cum, problem_n, y_shift, 
         i_eval = max(n_eval(i_solver,:));
         if i_eval > 0
             if isempty(x_indices{i_solver})
-                x_indices{i_solver} = [1, i_eval];
-            else
-                if x_indices{i_solver}(1) ~= 1
-                    x_indices{i_solver} = [1, x_indices{i_solver}];
-                end
-                if x_indices{i_solver}(end) ~= i_eval && i_eval ~= 1
-                    x_indices{i_solver} = [x_indices{i_solver}, i_eval];
-                end
+                x_indices{i_solver} = [1];
+                y_values_m{i_solver} = [y_mean(i_solver, 1)];
+                y_values_l{i_solver} = [y_lower(i_solver, 1)];
+                y_values_u{i_solver} = [y_upper(i_solver, 1)];
+            end
+            if x_indices{i_solver}(1) ~= 1
+                x_indices{i_solver} = [1, x_indices{i_solver}];
+                y_values_m{i_solver} = [y_mean(i_solver, 1), y_values_m{i_solver}];
+                y_values_l{i_solver} = [y_lower(i_solver, 1), y_values_l{i_solver}];
+                y_values_u{i_solver} = [y_upper(i_solver, 1), y_values_u{i_solver}];
+            end
+            if x_indices{i_solver}(end) ~= i_eval && i_eval ~= 1
+                x_indices{i_solver} = [x_indices{i_solver}, i_eval];
+                y_values_m{i_solver} = [y_values_m{i_solver}, y_mean(i_solver, i_eval)];
+                y_values_l{i_solver} = [y_values_l{i_solver}, y_lower(i_solver, i_eval)];
+                y_values_u{i_solver} = [y_values_u{i_solver}, y_upper(i_solver, i_eval)];
             end
         end
-        x_indices{i_solver} = unique(x_indices{i_solver});
     end
 
     xl_lim = 1 / (problem_n + 1);
@@ -88,9 +119,9 @@ function drawFunMaxcvMeritHist(ax, y, solver_names, is_cum, problem_n, y_shift, 
     for i_solver = 1:n_solvers
         % Truncate the histories according to the function evaluations of each solver.
         i_x = x_indices{i_solver};
-        i_y_mean = y_mean(i_solver, i_x);
-        i_y_lower = y_lower(i_solver, i_x);
-        i_y_upper = y_upper(i_solver, i_x);
+        i_y_mean = y_values_m{i_solver};
+        i_y_lower = y_values_l{i_solver};
+        i_y_upper = y_values_u{i_solver};
         i_eval = length(i_x);
         x = i_x / (problem_n + 1);
         xr_lim = max(xr_lim, x(end));

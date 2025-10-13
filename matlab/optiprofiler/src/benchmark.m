@@ -92,6 +92,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %       - feature_stamp: the stamp of the feature with the given options. It is
 %         used to create the specific directory to store the results. Default
 %         depends on features.
+%       - hist_aggregation: the aggregation method we use to reduce the number
+%         of points in the history plots. It can be 'min', 'mean', or 'max'.
+%         Default is 'min'.
 %       - line_colors: the colors of the lines in the plots. It can be a cell
 %         array of short names of colors ('r', 'g', 'b', 'c', 'm', 'y', 'k') or
 %         a matrix with each row being a RGB triplet. Default line colors are

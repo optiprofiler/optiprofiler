@@ -50,6 +50,11 @@ classdef TestCheckValidityProfileOptions < matlab.unittest.TestCase
             options = rmfield(options, 'errorbar_type');
 
 
+            options.hist_aggregation = 'other';
+            testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:hist_aggregationNotValid");
+            options = rmfield(options, 'hist_aggregation');
+
+
             options.savepath = 1;
             testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:savepathNotValid");
             options = rmfield(options, 'savepath');

@@ -6,7 +6,7 @@ classdef TestProfileOptionKey < matlab.unittest.TestCase
             
             enumValues = enumeration('ProfileOptionKey');
             enumValues = cellstr(arrayfun(@char, enumValues, 'UniformOutput', false));
-            expectedValues = {'N_JOBS'; 'SEED'; 'BENCHMARK_ID'; 'SOLVER_NAMES'; 'SOLVER_ISRAND'; 'FEATURE_STAMP'; 'ERRORBAR_TYPE'; 'SAVEPATH'; 'MAX_TOL_ORDER'; 'MAX_EVAL_FACTOR'; 'MERIT_FUN'; 'PROJECT_X0'; 'RUN_PLAIN'; 'SCORE_ONLY'; 'DRAW_HIST_PLOTS'; 'SUMMARIZE_PERFORMANCE_PROFILES'; 'SUMMARIZE_DATA_PROFILES'; 'SUMMARIZE_LOG_RATIO_PROFILES'; 'SUMMARIZE_OUTPUT_BASED_PROFILES'; 'SILENT'; 'SOLVER_VERBOSE'; 'SEMILOGX'; 'NORMALIZED_SCORES'; 'SCORE_WEIGHT_FUN'; 'SCORE_FUN'; 'LOAD'; 'SOLVERS_TO_LOAD'; 'LINE_COLORS'; 'LINE_STYLES'; 'LINE_WIDTHS'; 'BAR_COLORS'; 'XLABEL_PERFORMANCE_PROFILE'; 'YLABEL_PERFORMANCE_PROFILE'; 'XLABEL_DATA_PROFILE'; 'YLABEL_DATA_PROFILE'; 'XLABEL_LOG_RATIO_PROFILE'; 'YLABEL_LOG_RATIO_PROFILE'};
+            expectedValues = {'N_JOBS'; 'SEED'; 'BENCHMARK_ID'; 'SOLVER_NAMES'; 'SOLVER_ISRAND'; 'FEATURE_STAMP'; 'ERRORBAR_TYPE'; 'HIST_AGGREGATION'; 'SAVEPATH'; 'MAX_TOL_ORDER'; 'MAX_EVAL_FACTOR'; 'MERIT_FUN'; 'PROJECT_X0'; 'RUN_PLAIN'; 'SCORE_ONLY'; 'DRAW_HIST_PLOTS'; 'SUMMARIZE_PERFORMANCE_PROFILES'; 'SUMMARIZE_DATA_PROFILES'; 'SUMMARIZE_LOG_RATIO_PROFILES'; 'SUMMARIZE_OUTPUT_BASED_PROFILES'; 'SILENT'; 'SOLVER_VERBOSE'; 'SEMILOGX'; 'NORMALIZED_SCORES'; 'SCORE_WEIGHT_FUN'; 'SCORE_FUN'; 'LOAD'; 'SOLVERS_TO_LOAD'; 'LINE_COLORS'; 'LINE_STYLES'; 'LINE_WIDTHS'; 'BAR_COLORS'; 'XLABEL_PERFORMANCE_PROFILE'; 'YLABEL_PERFORMANCE_PROFILE'; 'XLABEL_DATA_PROFILE'; 'YLABEL_DATA_PROFILE'; 'XLABEL_LOG_RATIO_PROFILE'; 'YLABEL_LOG_RATIO_PROFILE'};
             testCase.verifyEqual(enumValues, expectedValues);
         end
 
@@ -21,6 +21,7 @@ classdef TestProfileOptionKey < matlab.unittest.TestCase
             testCase.verifyEqual(ProfileOptionKey.SOLVER_NAMES.value, 'solver_names');
             testCase.verifyEqual(ProfileOptionKey.SOLVER_ISRAND.value, 'solver_isrand');
             testCase.verifyEqual(ProfileOptionKey.ERRORBAR_TYPE.value, 'errorbar_type');
+            testCase.verifyEqual(ProfileOptionKey.HIST_AGGREGATION.value, 'hist_aggregation');
             testCase.verifyEqual(ProfileOptionKey.SAVEPATH.value, 'savepath');
             testCase.verifyEqual(ProfileOptionKey.MAX_TOL_ORDER.value, 'max_tol_order');
             testCase.verifyEqual(ProfileOptionKey.MAX_EVAL_FACTOR.value, 'max_eval_factor');

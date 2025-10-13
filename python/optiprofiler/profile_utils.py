@@ -207,8 +207,16 @@ def check_validity_profile_options(solvers, profile_options):
             raise ValueError(f"Option {ProfileOption.FEATURE_STAMP} should be a string satisfying the strict file name requirements (only containing letters, numbers, underscores, hyphens, and dots).")
 
     if ProfileOption.ERRORBAR_TYPE in profile_options:
-        if not isinstance(profile_options[ProfileOption.ERRORBAR_TYPE], str) or profile_options[ProfileOption.ERRORBAR_TYPE] not in ['minmax', 'meanstd']:
-            raise TypeError(f"Option {ProfileOption.ERRORBAR_TYPE} must be 'minmax' or 'meanstd'.")
+        if not isinstance(profile_options[ProfileOption.ERRORBAR_TYPE], str):
+            raise TypeError(f'Option {ProfileOption.ERRORBAR_TYPE} must be a string.')
+        if profile_options[ProfileOption.ERRORBAR_TYPE] not in ['minmax', 'meanstd']:
+            raise ValueError(f"Option {ProfileOption.ERRORBAR_TYPE} must be 'minmax' or 'meanstd'.")
+        
+    if ProfileOption.HIST_AGGREGATION in profile_options:
+        if not isinstance(profile_options[ProfileOption.HIST_AGGREGATION], str):
+            raise TypeError(f'Option {ProfileOption.HIST_AGGREGATION} must be a string.')
+        if profile_options[ProfileOption.HIST_AGGREGATION] not in ['min', 'mean', 'max']:
+            raise ValueError(f"Option {ProfileOption.HIST_AGGREGATION} must be 'min', 'mean', or 'max'.")
 
     if ProfileOption.SAVEPATH in profile_options:
         if not isinstance(profile_options[ProfileOption.SAVEPATH], str):
@@ -446,6 +454,7 @@ def get_default_profile_options(solvers, feature, profile_options):
     profile_options.setdefault(ProfileOption.SOLVER_ISRAND.value, [False for _ in solvers])
     profile_options.setdefault(ProfileOption.FEATURE_STAMP, _get_default_feature_stamp(feature))
     profile_options.setdefault(ProfileOption.ERRORBAR_TYPE.value, 'minmax')
+    profile_options.setdefault(ProfileOption.HIST_AGGREGATION.value, 'min')
     profile_options.setdefault(ProfileOption.SAVEPATH.value, str(Path('.').expanduser().resolve()))
     profile_options.setdefault(ProfileOption.MAX_TOL_ORDER.value, 10)
     profile_options.setdefault(ProfileOption.MAX_EVAL_FACTOR.value, 500)
@@ -543,7 +552,7 @@ def create_stamp(solver_names, problem_options, feature_stamp, time_stamp, path_
     else:
         max_dir_length = 4000  # Unix max path length (4096) minus some buffer
     # We want to avoid the path 'path_out/stamp/summary_stamp.pdf' exceeding the max path length
-    max_length = min(max_length, (max_dir_length - len(path_out) - len('summary_') - len('.pdf') - 1) // 2)
+    max_length = min(max_length, (max_dir_length - len(str(path_out)) - len('summary_') - len('.pdf') - 1) // 2)
 
 
     # Get the solver stamp: replace non-alphanumeric/underscore with '_'

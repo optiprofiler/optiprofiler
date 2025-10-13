@@ -685,13 +685,16 @@ def draw_fun_maxcv_merit_hist(ax, y, solver_names, is_cum, problem_n, y_shift, n
 
     # We use block minimization aggregation in case there are too many points, which will cost a lot of time and memory to plot.
     max_eval = y.shape[2]
-    n_blocks = 10
+    n_blocks = 1000
     q = max_eval // n_blocks
     r = max_eval % n_blocks
     blocks = np.full(n_blocks, q)
     blocks[:r] += 1
-    # We initialize the cell array for indexing.
+    # We initialize the cell array to store the x indices and y values to be plotted.
     x_indices = [[] for _ in range(n_solvers)]
+    y_values_m = [[] for _ in range(n_solvers)]
+    y_values_l = [[] for _ in range(n_solvers)]
+    y_values_u = [[] for _ in range(n_solvers)]
 
     # We only do block minimization when the number of evaluations exceeds n_blocks.
     if max_eval > n_blocks:
@@ -701,30 +704,57 @@ def draw_fun_maxcv_merit_hist(ax, y, solver_names, is_cum, problem_n, y_shift, n
             idx = np.arange(idx_start, idx_end)
             for i_solver in range(n_solvers):
                 i_eval = int(np.max(n_eval[i_solver, :]))
-                y_mean_block = y_mean[i_solver, idx]
-                rel_idx = int(np.nanargmin(y_mean_block))
-                abs_idx = idx[rel_idx]
+                if profile_options[ProfileOption.HIST_AGGREGATION] == 'min':
+                    y_value_m = np.nanmin(y_mean[i_solver, idx])
+                    rel_idx = int(np.nanargmin(y_mean[i_solver, idx]))
+                    abs_idx = idx[rel_idx]
+                    y_value_l = y_lower[i_solver, abs_idx]
+                    y_value_u = y_upper[i_solver, abs_idx]
+                elif profile_options[ProfileOption.HIST_AGGREGATION] == 'mean':
+                    abs_idx = (idx_start + idx_end) // 2
+                    y_value_m = np.nanmean(y_mean[i_solver, idx])
+                    y_value_l = np.nanmean(y_lower[i_solver, idx])
+                    y_value_u = np.nanmean(y_upper[i_solver, idx])
+                elif profile_options[ProfileOption.HIST_AGGREGATION] == 'max':
+                    y_value_m = np.nanmax(y_mean[i_solver, idx])
+                    rel_idx = int(np.nanargmax(y_mean[i_solver, idx]))
+                    abs_idx = idx[rel_idx]
+                    y_value_l = y_lower[i_solver, abs_idx]
+                    y_value_u = y_upper[i_solver, abs_idx]
                 if abs_idx > i_eval:
                     continue
                 x_indices[i_solver].append(abs_idx)
+                y_values_m[i_solver].append(y_value_m)
+                y_values_l[i_solver].append(y_value_l)
+                y_values_u[i_solver].append(y_value_u)
     else:
         for i_solver in range(n_solvers):
             i_eval = int(np.max(n_eval[i_solver, :]))
             if i_eval > 0:
                 x_indices[i_solver] = list(range(min(i_eval, max_eval)))
+                y_values_m[i_solver] = y_mean[i_solver, :i_eval].tolist()
+                y_values_l[i_solver] = y_lower[i_solver, :i_eval].tolist()
+                y_values_u[i_solver] = y_upper[i_solver, :i_eval].tolist()
 
     # We add the first and last indices if they are not included.
     for i_solver in range(n_solvers):
         i_eval = int(np.max(n_eval[i_solver, :]))
         if i_eval > 0:
             if len(x_indices[i_solver]) == 0:
-                x_indices[i_solver] = [0, i_eval - 1]
-            else:
-                if x_indices[i_solver][0] != 0:
-                    x_indices[i_solver] = [0] + x_indices[i_solver]
-                if x_indices[i_solver][-1] != i_eval - 1 and i_eval != 1:
-                    x_indices[i_solver].append(i_eval - 1)
-        x_indices[i_solver] = np.unique(x_indices[i_solver])
+                x_indices[i_solver] = [0]
+                y_values_m[i_solver] = [y_mean[i_solver, 0]]
+                y_values_l[i_solver] = [y_lower[i_solver, 0]]
+                y_values_u[i_solver] = [y_upper[i_solver, 0]]
+            if x_indices[i_solver][0] != 0:
+                x_indices[i_solver] = [0] + x_indices[i_solver]
+                y_values_m[i_solver] = [y_mean[i_solver, 0]] + y_values_m[i_solver]
+                y_values_l[i_solver] = [y_lower[i_solver, 0]] + y_values_l[i_solver]
+                y_values_u[i_solver] = [y_upper[i_solver, 0]] + y_values_u[i_solver]
+            if x_indices[i_solver][-1] != i_eval - 1 and i_eval != 1:
+                x_indices[i_solver].append(i_eval - 1)
+                y_values_m[i_solver].append(y_mean[i_solver, i_eval - 1])
+                y_values_l[i_solver].append(y_lower[i_solver, i_eval - 1])
+                y_values_u[i_solver].append(y_upper[i_solver, i_eval - 1])
 
     xl_lim = 1 / (problem_n + 1)
     xr_lim = 1 / (problem_n + 1)
@@ -734,11 +764,11 @@ def draw_fun_maxcv_merit_hist(ax, y, solver_names, is_cum, problem_n, y_shift, n
         for i_solver in range(n_solvers):
             # Truncate the histories according to the function evaluations of each solver.
             i_x = x_indices[i_solver]
-            i_y_mean = y_mean[i_solver, i_x]
-            i_y_lower = y_lower[i_solver, i_x]
-            i_y_upper = y_upper[i_solver, i_x]
+            i_y_mean = y_values_m[i_solver]
+            i_y_lower = y_values_l[i_solver]
+            i_y_upper = y_values_u[i_solver]
             i_eval = len(i_x)
-            x = (i_x + 1) / (problem_n + 1)
+            x = (np.array(i_x) + 1) / (problem_n + 1)
             xr_lim = max(xr_lim, x[-1])
 
             color = line_colors[i_solver % len(line_colors)]

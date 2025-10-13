@@ -35,6 +35,9 @@ function profile_options = getDefaultProfileOptions(solvers, feature, profile_op
     if ~isfield(profile_options, ProfileOptionKey.ERRORBAR_TYPE.value)
         profile_options.(ProfileOptionKey.ERRORBAR_TYPE.value) = 'minmax';
     end
+    if ~isfield(profile_options, ProfileOptionKey.HIST_AGGREGATION.value)
+        profile_options.(ProfileOptionKey.HIST_AGGREGATION.value) = 'min';
+    end
     if ~isfield(profile_options, ProfileOptionKey.SAVEPATH.value)
         profile_options.(ProfileOptionKey.SAVEPATH.value) = pwd;
     end

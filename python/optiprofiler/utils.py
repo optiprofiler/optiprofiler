@@ -36,6 +36,7 @@ class ProfileOption(str, Enum):
     SOLVER_ISRAND = 'solver_isrand'
     FEATURE_STAMP = 'feature_stamp'
     ERRORBAR_TYPE = 'errorbar_type'
+    HIST_AGGREGATION = 'hist_aggregation'
     SAVEPATH = 'savepath'
     MAX_TOL_ORDER = 'max_tol_order'
     MAX_EVAL_FACTOR = 'max_eval_factor'

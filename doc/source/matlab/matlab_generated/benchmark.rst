@@ -78,6 +78,8 @@ Options should be specified in a struct. The following are the available fields 
 
   - **feature_stamp**: the stamp of the feature with the given options. It is used to create the specific directory to store the results. Default depends on features.
 
+  - **hist_aggregation**: the aggregation method we use to reduce the number of points in the history plots. It can be ``'min'``, ``'mean'``, or ``'max'``. Default is ``'min'``.
+
   - **line_colors**: the colors of the lines in the plots. It can be a cell array of short names of colors ``('r', 'g', 'b', 'c', 'm', 'y', 'k')`` or a matrix with each row being a RGB triplet. Default line colors are those in the palettename named "gem" (see MATLAB documentation for 'colororder'). Note that if the number of solvers is greater than the number of colors, we will cycle through the colors.
 
   - **line_styles**: the styles of the lines in the plots. It can be a cell array of chars that are the combinations of line styles ``('-', '-.', '--', ':')`` and markers ``('o', '+', '*', '.', 'x', 's', 'd', '^', 'v', '>', '<', 'p', 'h')``. Default line style order is ``{'-', '-.', '--', ':'}``. Note that if the number of solvers is greater than the number of line styles, we will cycle through the styles.

@@ -68,6 +68,16 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
         if ~ischarstr(profile_options.(ProfileOptionKey.ERRORBAR_TYPE.value)) || ~ismember(char(profile_options.(ProfileOptionKey.ERRORBAR_TYPE.value)), {'minmax', 'meanstd'})
             error("MATLAB:checkValidityProfileOptions:errorbar_typeNotValid", "The option `errorbar_type` should be either 'minmax' or 'meanstd'.");
         end
+        profile_options.(ProfileOptionKey.ERRORBAR_TYPE.value) = char(profile_options.(ProfileOptionKey.ERRORBAR_TYPE.value));
+    end
+
+
+    % Judge whether profile_options.hist_aggregation is among 'min', 'mean', and 'max'.
+    if isfield(profile_options, ProfileOptionKey.HIST_AGGREGATION.value)
+        if ~ischarstr(profile_options.(ProfileOptionKey.HIST_AGGREGATION.value)) || ~ismember(char(profile_options.(ProfileOptionKey.HIST_AGGREGATION.value)), {'min', 'mean', 'max'})
+            error("MATLAB:checkValidityProfileOptions:hist_aggregationNotValid", "The option `hist_aggregation` should be one of 'min', 'mean', or 'max'.");
+        end
+        profile_options.(ProfileOptionKey.HIST_AGGREGATION.value) = char(profile_options.(ProfileOptionKey.HIST_AGGREGATION.value));
     end
 
 
