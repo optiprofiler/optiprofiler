@@ -987,9 +987,6 @@ def benchmark(
     default_width = default_figsize[0]
     default_height = default_figsize[1]
 
-
-
-
     with plt.rc_context(profile_context):
         fig_summary = plt.figure(figsize=(len(tolerances) * default_width, multiplier * n_rows * default_height), layout='constrained')
         if multiplier == 2:
@@ -1004,22 +1001,22 @@ def benchmark(
         
         i_rows = 0
         if is_perf:
-            ax_summary_perf_hist = subfigs_summary_hist[i_rows].subplots(1, len(tolerances), sharey=True)
-            ax_summary_perf_out = subfigs_summary_out[i_rows].subplots(1, len(tolerances), sharey=True) if multiplier == 2 else None
+            ax_summary_perf_hist = np.atleast_1d(subfigs_summary_hist[i_rows].subplots(1, len(tolerances), sharey=True))
+            ax_summary_perf_out = np.atleast_1d(subfigs_summary_out[i_rows].subplots(1, len(tolerances), sharey=True)) if multiplier == 2 else None
             i_rows += 1
         else:
             ax_summary_perf_hist = None
             ax_summary_perf_out = None
         if is_data:
-            ax_summary_data_hist = subfigs_summary_hist[i_rows].subplots(1, len(tolerances), sharey=True)
-            ax_summary_data_out = subfigs_summary_out[i_rows].subplots(1, len(tolerances), sharey=True) if multiplier == 2 else None
+            ax_summary_data_hist = np.atleast_1d(subfigs_summary_hist[i_rows].subplots(1, len(tolerances), sharey=True))
+            ax_summary_data_out = np.atleast_1d(subfigs_summary_out[i_rows].subplots(1, len(tolerances), sharey=True)) if multiplier == 2 else None
             i_rows += 1
         else:
             ax_summary_data_hist = None
             ax_summary_data_out = None
         if is_log_ratio:
-            ax_summary_log_ratio_hist = subfigs_summary_hist[i_rows].subplots(1, len(tolerances))
-            ax_summary_log_ratio_out = subfigs_summary_out[i_rows].subplots(1, len(tolerances)) if multiplier == 2 else None
+            ax_summary_log_ratio_hist = np.atleast_1d(subfigs_summary_hist[i_rows].subplots(1, len(tolerances)))
+            ax_summary_log_ratio_out = np.atleast_1d(subfigs_summary_out[i_rows].subplots(1, len(tolerances))) if multiplier == 2 else None
             i_rows += 1
         else:
             ax_summary_log_ratio_hist = None

@@ -77,10 +77,17 @@ function drawFunMaxcvMeritHist(ax, y, solver_names, is_cum, problem_n, y_shift, 
     if max_eval > 2
         inner_len = max_eval - 2;
         n_blocks_eff = min(n_blocks, inner_len);
-        q = floor(max_eval / n_blocks_eff);
-        r = mod(max_eval, n_blocks_eff);
+        q = floor(inner_len / n_blocks_eff);
+        r = mod(inner_len, n_blocks_eff);
         blocks = q * ones(1, n_blocks_eff);
-        blocks = blocks + round(linspace(1, n_blocks_eff, r));
+        if r > 0
+            % Distribute the remaining points (r) evenly across the blocks.
+            % We choose roughly r evenly spaced block indices using linspace,
+            % then add one extra element to each of these blocks so that
+            % the total number of elements sums back to inner_len.
+            idxs = round(linspace(1, n_blocks_eff, r));
+            blocks(idxs) = blocks(idxs) + 1;
+        end
 
         % We aggregate over inner blocks (indices 2, ..., max_eval-1).
         for i_block = 1:n_blocks_eff

@@ -683,23 +683,74 @@ def draw_fun_maxcv_merit_hist(ax, y, solver_names, is_cum, problem_n, y_shift, n
         y_lower = np.minimum.accumulate(y_lower, axis=1)
         y_upper = np.minimum.accumulate(y_upper, axis=1)
 
-    # We use block minimization aggregation in case there are too many points, which will cost a lot of time and memory to plot.
+    """
+    Block Aggregation for Large Evaluation Histories
+    
+    When the number of evaluation points is very large, directly plotting all
+    y-values becomes computationally expensive (both time and memory). To
+    avoid this, we apply block aggregation, which means that we group
+    neighboring points into small segments ("blocks") and keep only one
+    representative value from each block. This greatly reduces the total
+    number of points we need to draw, while still keeping the main shape of
+    the curve.
+    
+    There are three ways (modes) to get the value for each block:
+    
+    1. 'min'
+        - Find the smallest y_mean value inside the block.
+        - Its position (x index) is used as the x coordinate (abs_idx).
+        - The corresponding y_lower and y_upper at that same position are used.
+        - This highlights the best (lowest) performance in that part of the curve.
+
+    2. 'mean'
+        - Use the middle x position of the block (the median of start and end indices).
+        - Compute the average of all y_mean, y_lower, and y_upper values in the block.
+        - This produces a smooth averaged curve that represents the general trend.
+
+    3. 'max'
+        - Find the largest y_mean value inside the block.
+        - Its position (x index) is used as the x coordinate (abs_idx).
+        - The corresponding y_lower and y_upper at that same position are used.
+        - This shows the worst (highest) value in that part of the curve.
+    
+    The first and last points are always kept. Only the points between them
+    are affected by the block aggregation.
+    
+    After doing this, we only keep around `n_blocks` (1000) points instead of
+    all evaluations. This keeps the figure clear and makes plotting faster.
+    """
     max_eval = y.shape[2]
     n_blocks = 1000
-    q = max_eval // n_blocks
-    r = max_eval % n_blocks
-    blocks = np.full(n_blocks, q)
-    blocks[:r] += 1
+
     # We initialize the cell array to store the x indices and y values to be plotted.
     x_indices = [[] for _ in range(n_solvers)]
     y_values_m = [[] for _ in range(n_solvers)]
     y_values_l = [[] for _ in range(n_solvers)]
     y_values_u = [[] for _ in range(n_solvers)]
 
-    # We only do block minimization when the number of evaluations exceeds n_blocks.
-    if max_eval > n_blocks:
-        for i_block in range(n_blocks):
-            idx_start = int(sum(blocks[:i_block]))
+    # We will build blocks only for 2:(max_eval-1) so the first and last points
+    # are excluded from block aggregation and will be appended unconditionally
+    # at the end.
+    if max_eval > 2:
+        inner_len = max_eval - 2
+        print(max_eval)
+        n_blocks_eff = min(n_blocks, inner_len)
+        q = inner_len // n_blocks_eff
+        r = inner_len % n_blocks_eff
+        blocks = np.full(n_blocks_eff, q, dtype=int)
+        if r > 0:
+            # Distribute the remaining r elements evenly across the blocks.
+            # Choose approximately r equally spaced block indices using linspace,
+            # and add one extra element to each of these blocks so that
+            # the total number of elements sums back to inner_len.
+            idxs = np.round(np.linspace(0, n_blocks_eff - 1, r)).astype(int)
+            blocks[idxs] += 1
+        print(blocks)
+        print(sum(blocks))
+
+        # We aggregate over inner blocks (indices 1, ..., max_eval-2).
+        for i_block in range(n_blocks_eff):
+            idx_start = int(sum(blocks[:i_block])) + 1  # Add 1 to account skip the first point.
             idx_end = int(idx_start + blocks[i_block])
             idx = np.arange(idx_start, idx_end)
             for i_solver in range(n_solvers):
@@ -727,31 +778,20 @@ def draw_fun_maxcv_merit_hist(ax, y, solver_names, is_cum, problem_n, y_shift, n
                 y_values_m[i_solver].append(y_value_m)
                 y_values_l[i_solver].append(y_value_l)
                 y_values_u[i_solver].append(y_value_u)
-    else:
-        for i_solver in range(n_solvers):
-            i_eval = int(np.max(n_eval[i_solver, :]))
-            if i_eval > 0:
-                x_indices[i_solver] = list(range(min(i_eval, max_eval)))
-                y_values_m[i_solver] = y_mean[i_solver, :i_eval].tolist()
-                y_values_l[i_solver] = y_lower[i_solver, :i_eval].tolist()
-                y_values_u[i_solver] = y_upper[i_solver, :i_eval].tolist()
 
-    # We add the first and last indices if they are not included.
+    # We add the first and last indices unconditionally.
     for i_solver in range(n_solvers):
         i_eval = int(np.max(n_eval[i_solver, :]))
         if i_eval > 0:
-            if len(x_indices[i_solver]) == 0:
-                x_indices[i_solver] = [0]
-                y_values_m[i_solver] = [y_mean[i_solver, 0]]
-                y_values_l[i_solver] = [y_lower[i_solver, 0]]
-                y_values_u[i_solver] = [y_upper[i_solver, 0]]
-            if x_indices[i_solver][0] != 0:
-                x_indices[i_solver] = [0] + x_indices[i_solver]
-                y_values_m[i_solver] = [y_mean[i_solver, 0]] + y_values_m[i_solver]
-                y_values_l[i_solver] = [y_lower[i_solver, 0]] + y_values_l[i_solver]
-                y_values_u[i_solver] = [y_upper[i_solver, 0]] + y_values_u[i_solver]
-            if x_indices[i_solver][-1] != i_eval - 1 and i_eval != 1:
-                x_indices[i_solver].append(i_eval - 1)
+            # Add the first point.
+            x_indices[i_solver] = [1] + x_indices[i_solver]
+            y_values_m[i_solver] = [y_mean[i_solver, 0]] + y_values_m[i_solver]
+            y_values_l[i_solver] = [y_lower[i_solver, 0]] + y_values_l[i_solver]
+            y_values_u[i_solver] = [y_upper[i_solver, 0]] + y_values_u[i_solver]
+
+            # Add the last point.                
+            if i_eval != 1:
+                x_indices[i_solver].append(i_eval)
                 y_values_m[i_solver].append(y_mean[i_solver, i_eval - 1])
                 y_values_l[i_solver].append(y_lower[i_solver, i_eval - 1])
                 y_values_u[i_solver].append(y_upper[i_solver, i_eval - 1])
