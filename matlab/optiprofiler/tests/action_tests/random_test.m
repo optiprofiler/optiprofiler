@@ -33,6 +33,9 @@ function random_test(benchmark_id)
     error_bar_choices = {'minmax', 'meanstd'};
     options.errorbar_type = error_bar_choices{rand_stream.randi(length(error_bar_choices), 1, 1)};
 
+    profile_aggregation_choices = {'min', 'mean', 'max'};
+    options.hist_aggregation = profile_aggregation_choices{rand_stream.randi(length(profile_aggregation_choices), 1, 1)};
+
     max_tol_order_choices = (1:16);
     options.max_tol_order = max_tol_order_choices(rand_stream.randi(length(max_tol_order_choices), 1, 1));
 
