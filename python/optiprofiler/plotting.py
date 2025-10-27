@@ -733,7 +733,6 @@ def draw_fun_maxcv_merit_hist(ax, y, solver_names, is_cum, problem_n, y_shift, n
     # at the end.
     if max_eval > 2:
         inner_len = max_eval - 2
-        print(max_eval)
         n_blocks_eff = min(n_blocks, inner_len)
         q = inner_len // n_blocks_eff
         r = inner_len % n_blocks_eff
@@ -745,8 +744,6 @@ def draw_fun_maxcv_merit_hist(ax, y, solver_names, is_cum, problem_n, y_shift, n
             # the total number of elements sums back to inner_len.
             idxs = np.round(np.linspace(0, n_blocks_eff - 1, r)).astype(int)
             blocks[idxs] += 1
-        print(blocks)
-        print(sum(blocks))
 
         # We aggregate over inner blocks (indices 1, ..., max_eval-2).
         for i_block in range(n_blocks_eff):
