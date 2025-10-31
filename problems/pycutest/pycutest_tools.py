@@ -3,6 +3,9 @@ from contextlib import redirect_stdout
 import numpy as np
 import pandas as pd
 
+import builtins
+builtins.np = np  # Make numpy available globally as 'np'
+
 # Set the destination directory for pycutest cache.
 current_dir = os.path.dirname(os.path.abspath(__file__))
 cache_dir = os.path.join(current_dir, 'pycutest_cache')
@@ -17,16 +20,44 @@ from ..utils import add_optiprofiler
 add_optiprofiler()
 from optiprofiler.problems import Problem
 
-def pycutest_load(problem_name):
+def pycutest_load(problem_name, **kwargs):
     """
     Load a problem from pycutest and return a Problem instance.
+
+    Parameters
+    ----------
+    problem_name : str
+        The name of the problem in pycutest to load.
+    **kwargs : dict
+        Additional keyword arguments (only for problems with available SIF parameters).
+    
+    Returns
+    -------
+    `Problem`
+        An instance of the Problem class.
     """
 
-    
+    # Check if 'problem_name' has the pattern '_n_m' or 'n'. If it has, find the position of the pattern and return the dimension 'n' and the number of constraints 'm'.
+    # Note that when 'm' is 0, the pattern is '_n' instead of '_n_0'.
+    pattern = r'_(\d+)_(\d+)$|_(\d+)$'
+    match = re.search(pattern, problem_name)
     name = problem_name
+    if match:
+        name = problem_name[:match.start()]
+        if match.group(1) and match.group(2):
+            dim = int(match.group(1))
+            mcon = int(match.group(2))
+        elif match.group(3):
+            dim = int(match.group(3))
+            mcon = 0
+        else:
+            raise ValueError(f"Invalid problem name format: {problem_name}")
+    else:
+        dim = None
+        mcon = None
 
     # Initialize CUTEst problem
-    p = pycutest.import_problem(name, destination=problem_name)
+    p = pycutest.import_problem(name, destination=problem_name, sifParams=kwargs)
 
     fun = lambda x: p.obj(x)
     grad = lambda x: p.grad(x)
@@ -162,3 +193,95 @@ def pycutest_load(problem_name):
 
     return problem
 
+def pycutest_select(**kwargs):
+    problem_names = pycutest.find_problems(**kwargs)
+    return problem_names
+
+# Define a function to collect SIF parameters
+def pycutest_get_sif_params(problem_name):
+    """
+    Parse the printed output of pycutest.print_available_sif_params(problem_name)
+    and extract available SIF parameters.
+
+    Parameters
+    ----------
+    problem_name : str
+        The name of the problem in pycutest.
+
+    Returns
+    -------
+    para_names : list of str
+        list of parameter names (e.g., ['A', 'N'])
+    para_values : list of list
+        list of possible values, each is a list (e.g., [[1, 2, 3], [10, 20, 40]])
+    para_defaults : list
+        list of default values (e.g., [2, 20])
+    If the problem has no SIF parameters, all three lists are empty.
+    """
+
+    # Capture the printed output of pycutest.print_available_sif_params
+    buf = io.StringIO()
+    sys_stdout = sys.stdout
+    sys.stdout = buf
+    try:
+        pycutest.print_available_sif_params(problem_name)
+    finally:
+        sys.stdout = sys_stdout
+
+    lines = buf.getvalue().splitlines()
+    buf.close()
+
+    # Updated pattern — now we capture also the optional type (inside parentheses)
+    # Example line: "N = 40 (int) [default]"
+    pattern = re.compile(
+        r"^\s*([^\s=]+)\s*=\s*([^\s\(]+)"   # param name and numeric value
+        r"(?:\s*\(([^)]*)\))?"              # optional '(int)' or '(float)' group
+        r"\s*(\[default\])?\s*$"            # optional [default] at end, with any spaces before end
+    )
+
+    params = {}    # dict: param_name -> list of values
+    defaults = {}  # dict: param_name -> default value
+
+    for line in lines:
+        m = pattern.search(line)
+        if not m:
+            continue
+
+        key = m.group(1)                # parameter name
+        val_raw = m.group(2)            # numeric/string value
+        type_hint = m.group(3) or ""    # 'int', 'float', maybe empty
+        default_flag = bool(m.group(4)) # whether [default] exists
+
+        # Determine type conversion priority:
+        # 1. explicit type hint in parentheses (best)
+        # 2. fallback heuristic based on the string itself
+        val = val_raw
+        try:
+            if "float" in type_hint.lower():
+                val = float(val_raw)
+            elif "int" in type_hint.lower():
+                val = int(val_raw)
+            else:
+                # fallback heuristic if no type specified
+                if "." in val_raw or "e" in val_raw.lower():
+                    val = float(val_raw)
+                else:
+                    val = int(val_raw)
+        except ValueError:
+            # fallback to original string if conversion fails
+            val = val_raw
+
+        params.setdefault(key, []).append(val)
+        if default_flag:
+            defaults[key] = val
+
+    # Return empty lists if no parameters found
+    if not params:
+        return [], [], []
+
+    # Keep order of appearance
+    para_names = list(params.keys())
+    para_values = [params[k] for k in para_names]
+    para_defaults = [defaults.get(k) for k in para_names]
+
+    return para_names, para_values, para_defaults
