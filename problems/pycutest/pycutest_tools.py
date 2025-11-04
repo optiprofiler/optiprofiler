@@ -233,10 +233,11 @@ def pycutest_get_sif_params(problem_name):
 
     # Updated pattern — now we capture also the optional type (inside parentheses)
     # Example line: "N = 40 (int) [default]"
+    # Exclude lines where parentheses contain 'for' (e.g., "(for SIF parameter N=1)")
     pattern = re.compile(
-        r"^\s*([^\s=]+)\s*=\s*([^\s\(]+)"   # param name and numeric value
-        r"(?:\s*\(([^)]*)\))?"              # optional '(int)' or '(float)' group
-        r"\s*(\[default\])?\s*$"            # optional [default] at end, with any spaces before end
+        r"^\s*([^\s=]+)\s*=\s*([^\s\(]+)"   # param name and value
+        r"(?:\s*\((?!.*\bfor\b)([^)]*)\))?" # optional '(int)' or '(float)' group, negative lookahead to avoid 'for'
+        r"\s*(\[default\])?\s*$"            # optional [default]
     )
 
     params = {}    # dict: param_name -> list of values
@@ -284,4 +285,18 @@ def pycutest_get_sif_params(problem_name):
     para_values = [params[k] for k in para_names]
     para_defaults = [defaults.get(k) for k in para_names]
 
-    return para_names, para_values, para_defaults
+    # Filter out parameters with only one value
+    filtered_names = []
+    filtered_values = []
+    filtered_defaults = []
+    
+    for name, values, default in zip(para_names, para_values, para_defaults):
+        if len(values) > 1:
+            filtered_names.append(name)
+            filtered_values.append(values)
+            filtered_defaults.append(default)
+
+    return filtered_names, filtered_values, filtered_defaults
+
+def pycutest_clear_cache(problem_name, **kwargs):
+    pycutest.clear_cache(problem_name, sifParams=kwargs)

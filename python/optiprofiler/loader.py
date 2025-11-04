@@ -297,7 +297,9 @@ def load_results(problem_options: Dict[str, Any], profile_options: Dict[str, Any
                                     f"Note that the search is limited to 5 levels of subdirectories.")
         
         # Sort files by date (newest first)
-        time_stamp_files.sort(key=lambda x: x['date'], reverse=True)
+        def key_func(x):
+            return x['date']
+        time_stamp_files.sort(key=key_func, reverse=True)
         latest_time_stamp_file = time_stamp_files[0]
         path_data = latest_time_stamp_file['folder']
     else:

@@ -916,10 +916,12 @@ class Problem:
             def dist_x0_sq(x):
                 g = x - self.x0
                 return 0.5 * (g @ g), g
+            def hessp(p):
+                return p
 
             with warnings.catch_warnings():
                 warnings.simplefilter('ignore')
-                res = minimize(dist_x0_sq, self.x0, jac=True, hessp=lambda p: p, bounds=bounds, constraints=constraints, tol=1e-16)
+                res = minimize(dist_x0_sq, self.x0, jac=True, hessp=hessp, bounds=bounds, constraints=constraints, tol=1e-16)
             self._x0 = res.x
 
 class FeaturedProblem(Problem):

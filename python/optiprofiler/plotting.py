@@ -260,7 +260,8 @@ def _draw_log_ratio_profiles(ax, x, y, ratio_max, n_solvers_equal, solver_names,
 def _get_extended_performances_data_profile_axes(work, problem_dimensions, profile_options, curves):
     n_problems, n_solvers, n_runs = work.shape
 
-    denominator_perf = lambda i_problem, i_run: np.nanmin(work[i_problem, :, i_run], initial=np.inf)
+    def denominator_perf(i_problem, i_run):
+        return np.nanmin(work[i_problem, :, i_run], initial=np.inf)
     x_perf, y_perf, ratio_max_perf = _get_performance_data_profile_axes(work, denominator_perf)
     if profile_options[ProfileOption.SEMILOGX]:
         # We output the log2(x_perf) and log2(ratio_max_perf). This is because we want the x-axis is in log2 scale in the performance profile.
@@ -277,7 +278,8 @@ def _get_extended_performances_data_profile_axes(work, problem_dimensions, profi
         x_perf = np.vstack([x_perf, np.full((1, n_solvers), ratio_max_perf * 1.1)])
         y_perf = np.vstack([y_perf, y_perf[-1, np.newaxis, :, :]])
 
-    denominator_data = lambda i_problem, i_run: problem_dimensions[i_problem] + 1
+    def denominator_data(i_problem, i_run):
+        return problem_dimensions[i_problem] + 1
     x_data, y_data, ratio_max_data = _get_performance_data_profile_axes(work, denominator_data)
     if profile_options[ProfileOption.SEMILOGX]:
         # We output the log2(1 + x_data) and log2(1 + ratio_max_data). This is because we want the x-axis is in log2 scale in the data profile.
