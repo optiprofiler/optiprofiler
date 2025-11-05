@@ -279,6 +279,16 @@ def pycutest_get_sif_params(problem_name):
     # Return empty lists if no parameters found
     if not params:
         return [], [], []
+    
+    # Remove duplicate values while preserving order
+    for key in params:
+        seen = set()
+        unique_values = []
+        for val in params[key]:
+            if val not in seen:
+                seen.add(val)
+                unique_values.append(val)
+        params[key] = unique_values
 
     # Keep order of appearance
     para_names = list(params.keys())
