@@ -40,7 +40,7 @@ def s2mpj_load(problem_name, *args):
         print(f"Failed to add the path of Python problems of S2MPJ to the system path: {err}")
         raise
 
-    # Check if 'problem_name' has the pattern '_n_m' or 'n'. If it has, find the position of the pattern and return the dimension 'n' and the number of constraints 'm'.
+    # Check if 'problem_name' has the pattern '_n_m' or '_n'. If it has, find the position of the pattern and return the dimension 'n' and the number of constraints 'm'.
     # Note that when 'm' is 0, the pattern is '_n' instead of '_n_0'.
     pattern = r'_(\d+)_(\d+)$|_(\d+)$'
     match = re.search(pattern, problem_name)

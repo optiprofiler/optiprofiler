@@ -27,7 +27,8 @@ def pycutest_load(problem_name, **kwargs):
     Parameters
     ----------
     problem_name : str
-        The name of the problem in pycutest to load.
+        The name of the problem in pycutest to load. It may include SIF parameters in the format
+        '_{paramname}_{paramvalue}' appended to the base problem name.
     **kwargs : dict
         Additional keyword arguments (only for problems with available SIF parameters).
     
@@ -37,27 +38,13 @@ def pycutest_load(problem_name, **kwargs):
         An instance of the Problem class.
     """
 
-    # Check if 'problem_name' has the pattern '_n_m' or 'n'. If it has, find the position of the pattern and return the dimension 'n' and the number of constraints 'm'.
-    # Note that when 'm' is 0, the pattern is '_n' instead of '_n_0'.
-    pattern = r'_(\d+)_(\d+)$|_(\d+)$'
-    match = re.search(pattern, problem_name)
-    name = problem_name
-    if match:
-        name = problem_name[:match.start()]
-        if match.group(1) and match.group(2):
-            dim = int(match.group(1))
-            mcon = int(match.group(2))
-        elif match.group(3):
-            dim = int(match.group(3))
-            mcon = 0
-        else:
-            raise ValueError(f"Invalid problem name format: {problem_name}")
-    else:
-        dim = None
-        mcon = None
+    # Check if 'problem_name' has the pattern '_{paramname}_{paramvalue}'. If it has, we load the problem with the specified SIF parameters.
+    problem_name, params = _parse_problem_name(problem_name)
+    if params:
+        return pycutest_load(problem_name, **params)
 
     # Initialize CUTEst problem
-    p = pycutest.import_problem(name, destination=problem_name, sifParams=kwargs)
+    p = pycutest.import_problem(problem_name, destination=problem_name, sifParams=kwargs)
 
     fun = lambda x: p.obj(x)
     grad = lambda x: p.grad(x)
@@ -189,7 +176,7 @@ def pycutest_load(problem_name, **kwargs):
     def hcub(x):
         return _process_nonlinear_ineq(x, "hessian")
 
-    problem = Problem(fun, x0, name=name, xl=xl, xu=xu, aub=aub, bub=bub, aeq=aeq, beq=beq, cub=cub, ceq=ceq, grad=grad, hess=hess, jcub=jcub, jceq=jceq, hcub=hcub, hceq=hceq)
+    problem = Problem(fun, x0, name=problem_name, xl=xl, xu=xu, aub=aub, bub=bub, aeq=aeq, beq=beq, cub=cub, ceq=ceq, grad=grad, hess=hess, jcub=jcub, jceq=jceq, hcub=hcub, hceq=hceq)
 
     return problem
 
@@ -310,3 +297,30 @@ def pycutest_get_sif_params(problem_name):
 
 def pycutest_clear_cache(problem_name, **kwargs):
     pycutest.clear_cache(problem_name, sifParams=kwargs)
+
+def _parse_problem_name(problem_name):
+    # Check if 'problem_name' has the pattern '_{paramname}_{paramvalue}'. If it has, we seperate the problem name and its sif parameters (and their values).
+    base_name = problem_name
+    params = {}
+
+    if '_' in problem_name:
+        parts = problem_name.split('_')
+        base_name = parts[0]
+
+        if len(parts) > 1 and len(parts[1:]) % 2 == 0:
+            
+            for i_param in range(1, len(parts), 2):
+                param_name = parts[i_param]
+                param_value = parts[i_param + 1]
+                # Try to convert to int or float if possible
+                try:
+                    value_float = float(param_value)
+                    if value_float.is_integer():
+                        param_value = int(value_float)
+                    else:
+                        param_value = value_float
+                except ValueError:
+                    raise ValueError(f"Invalid problem name, which contains non-numeric SIF parameter value: {problem_name}")
+                params[param_name] = param_value
+            
+    return base_name, params
