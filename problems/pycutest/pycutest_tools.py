@@ -206,6 +206,10 @@ def pycutest_get_sif_params(problem_name):
     If the problem has no SIF parameters, all three lists are empty.
     """
 
+    problem_name, params = _parse_problem_name(problem_name)
+    if params:
+        return pycutest_get_sif_params(problem_name)
+
     # Capture the printed output of pycutest.print_available_sif_params
     buf = io.StringIO()
     sys_stdout = sys.stdout
@@ -296,7 +300,11 @@ def pycutest_get_sif_params(problem_name):
     return filtered_names, filtered_values, filtered_defaults
 
 def pycutest_clear_cache(problem_name, **kwargs):
-    pycutest.clear_cache(problem_name, sifParams=kwargs)
+    problem_name, params = _parse_problem_name(problem_name)
+    if params:
+        pycutest_clear_cache(problem_name, **params)
+    else:
+        pycutest.clear_cache(problem_name, sifParams=kwargs)
 
 def _parse_problem_name(problem_name):
     # Check if 'problem_name' has the pattern '_{paramname}_{paramvalue}'. If it has, we seperate the problem name and its sif parameters (and their values).
