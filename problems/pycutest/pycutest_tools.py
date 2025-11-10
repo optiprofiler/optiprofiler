@@ -1,4 +1,4 @@
-import sys, os, io, re, importlib
+import sys, os, io, re, importlib, shutil
 from contextlib import redirect_stdout
 import numpy as np
 import pandas as pd
@@ -180,8 +180,242 @@ def pycutest_load(problem_name, **kwargs):
 
     return problem
 
-def pycutest_select(**kwargs):
-    problem_names = pycutest.find_problems(**kwargs)
+def pycutest_select(options):
+    """
+    Select problems from the pycutest collection that satisfy given criteria.
+    
+    Parameters
+    ----------
+    options : dict
+        A dictionary containing selection criteria:
+        - ptype: problem type, string containing any of 'u', 'b', 'l', 'n' 
+                 (default: 'ubln')
+        - mindim: minimum dimension (default: 1)
+        - maxdim: maximum dimension (default: inf)
+        - minb: minimum number of bound constraints (default: 0)
+        - maxb: maximum number of bound constraints (default: inf)
+        - minlcon: minimum number of linear constraints (default: 0)
+        - maxlcon: maximum number of linear constraints (default: inf)
+        - minnlcon: minimum number of nonlinear constraints (default: 0)
+        - maxnlcon: maximum number of nonlinear constraints (default: inf)
+        - mincon: minimum total number of constraints (default: 0)
+        - maxcon: maximum total number of constraints (default: inf)
+        - excludelist: list of problems to exclude (default: [])
+    
+    Returns
+    -------
+    list
+        A list of problem names that satisfy the criteria.
+    """
+    # Set default options in the config file if not provided.
+    variable_size = 'default'
+    test_feasibility_problems = 0
+    # Check if 'config.txt' exists under the same directory as this script
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    config_path = os.path.join(current_dir, 'config.txt')
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, 'r') as f:
+                # Find the line starting with 'variable_size=' and 'test_feasibility_problems='
+                lines = f.readlines()
+                for line in lines:
+                    if line.strip().startswith('variable_size='):
+                        variable_size = line.strip().split('=')[1].strip()
+                        variable_size = variable_size.split('#')[0].split('%')[0].strip()
+                    elif line.strip().startswith('test_feasibility_problems='):
+                        test_feasibility_problems = line.strip().split('=')[1].strip()
+                        test_feasibility_problems = int(test_feasibility_problems.split('#')[0].split('%')[0].strip())
+        except:
+            pass
+    
+    if variable_size not in ['default', 'min', 'max', 'all']:
+        raise ValueError("Invalid `variable_size` in the file `config.txt`. Please set it to 'default', 'min', 'max', or 'all'.")
+    if test_feasibility_problems not in [0, 1, 2]:
+        raise ValueError("Invalid `test_feasibility_problems` in the file `config.txt`. Please set it to 0, 1, or 2.")
+    
+    # Initialize result lists
+    problem_names = []
+    
+    # Set default values for options
+    default_options = {
+        'ptype': 'ubln',
+        'mindim': 1,
+        'maxdim': np.inf,
+        'minb': 0,
+        'maxb': np.inf,
+        'minlcon': 0,
+        'maxlcon': np.inf,
+        'minnlcon': 0, 
+        'maxnlcon': np.inf,
+        'mincon': 0,
+        'maxcon': np.inf,
+        'excludelist': []
+    }
+    for key in default_options:
+        options.setdefault(key, default_options[key])
+    
+    # Get the directory where this script is located
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    # Load problem info from CSV file
+    try:
+        probinfo_path = os.path.join(current_dir, 'probinfo_pycutest.csv')
+        probinfo = pd.read_csv(probinfo_path)
+    except:
+        raise FileNotFoundError(f"Could not find or load problem info file at {probinfo_path}")
+    
+    # Helper function to safely convert values
+    def safe_convert(value, default=0):
+        if pd.isna(value) or value == 'unknown':
+            return default
+        try:
+            return int(value)
+        except (ValueError, TypeError):
+            try:
+                return float(value)
+            except (ValueError, TypeError):
+                return default
+
+    # Process each problem
+    for _, row in probinfo.iterrows():
+        # Get problem default attributes
+        problem_name = row['problem_name']
+        ptype = row['ptype']
+        is_feasibility = row['isfeasibility']
+        dim = safe_convert(row['dim'])
+        mb = safe_convert(row['mb'])
+        mlcon = safe_convert(row['mlcon'])
+        mnlcon = safe_convert(row['mnlcon'])
+        mcon = safe_convert(row['mcon'])
+
+        # Check if argins (variable sizes) exist. If exist, convert them to numeric
+        # `row['argins']` is in the format: '{'N':10,'B':5}{'N':10,'B':10} ...'
+        argins_str = row['argins'] if pd.notna(row['argins']) else ''
+        argins = []
+        # We convert argins_str to a list of strings in the format: ['N_10_B_5', 'N_10_B_10', ...]
+        if argins_str:
+            argins_parts = re.findall(r'\{([^}]+)\}', argins_str)
+            for part in argins_parts:
+                cleaned_str = part.replace("'", "").replace('"', '').replace(' ', '')
+                cleaned_str = cleaned_str.replace(':', '_').replace(',', '_')
+                argins.append(cleaned_str)
+
+        dims = row['dims'].split() if pd.notna(row['dims']) else []
+        mbs = row['mbs'].split() if pd.notna(row['mbs']) else []
+        mlcons = row['mlcons'].split() if pd.notna(row['mlcons']) else []
+        mnlcons = row['mnlcons'].split() if pd.notna(row['mnlcons']) else []
+        mcons = row['mcons'].split() if pd.notna(row['mcons']) else []
+        if dims:
+            dims = [safe_convert(d) for d in dims]
+        if mbs:
+            mbs = [safe_convert(m) for m in mbs]
+        if mlcons:
+            mlcons = [safe_convert(m) for m in mlcons]
+        if mnlcons:
+            mnlcons = [safe_convert(m) for m in mnlcons]
+        if mcons:
+            mcons = [safe_convert(m) for m in mcons]
+
+        # Check problem type
+        if ptype not in options['ptype']:
+            continue
+
+        # Check feasibility problems based on user preference
+        if test_feasibility_problems == 0:
+            if is_feasibility:
+                continue
+        elif test_feasibility_problems == 1:
+            if not is_feasibility:
+                continue
+        # If test_feasibility_problems == 2, do nothing (include all problems)
+
+        # Check if default dimension and constraints satisfy criteria
+        default_satisfy = (
+            dim >= options['mindim'] and dim <= options['maxdim'] and
+            mb >= options['minb'] and mb <= options['maxb'] and
+            mlcon >= options['minlcon'] and mlcon <= options['maxlcon'] and
+            mnlcon >= options['minnlcon'] and mnlcon <= options['maxnlcon'] and
+            mcon >= options['mincon'] and mcon <= options['maxcon'] and
+            problem_name not in options['excludelist']
+        )
+        
+        # If default satisfies and (no variable sizes or we only want default), add the problem
+        if default_satisfy and (not dims or variable_size == 'default'):
+            problem_names.append(problem_name)
+        
+        # Skip variable size processing if we only want default
+        if variable_size == 'default':
+            continue
+        
+        # Process variable sizes if they exist
+        if dims:
+            # Create mask for configurations that satisfy criteria
+            mask = []
+            names = [f"{problem_name}_{arg}" for arg in argins] if argins else [problem_name]*len(dims)
+
+            for i in range(len(dims)):
+                # Create the name for the current configuration
+                name = names[i] if i < len(names) else problem_name
+                satisfies = (
+                    dims[i] >= options['mindim'] and dims[i] <= options['maxdim'] and
+                    (i >= len(mbs) or mbs[i] >= options['minb']) and
+                    (i >= len(mbs) or mbs[i] <= options['maxb']) and
+                    (i >= len(mlcons) or mlcons[i] >= options['minlcon']) and
+                    (i >= len(mlcons) or mlcons[i] <= options['maxlcon']) and
+                    (i >= len(mnlcons) or mnlcons[i] >= options['minnlcon']) and
+                    (i >= len(mnlcons) or mnlcons[i] <= options['maxnlcon']) and
+                    (i >= len(mcons) or mcons[i] >= options['mincon']) and
+                    (i >= len(mcons) or mcons[i] <= options['maxcon']) and
+                    name not in options['excludelist']
+                )
+                mask.append(satisfies)
+            
+            idxs = [i for i, m in enumerate(mask) if m]
+            
+            if not idxs:
+                if default_satisfy:
+                    problem_names.append(problem_name)
+                continue
+            
+            if variable_size == 'min':
+                # Find minimum dimension among configurations that satisfy
+                min_dim = min(dims[i] for i in idxs)
+                idxs_dim = [i for i in idxs if dims[i] == min_dim]
+                
+                # Find minimum constraints among those
+                if mcons and idxs_dim:
+                    min_mcon = min(mcons[i] if i < len(mcons) else 0 for i in idxs_dim)
+                    idxs = [i for i in idxs_dim if i >= len(mcons) or mcons[i] == min_mcon]
+                    idxs = [idxs[0]]  # Take just the first
+                    
+                    # Compare with default
+                    if default_satisfy and (dim < min_dim or (dim == min_dim and mcon < min_mcon)):
+                        problem_names.append(problem_name)
+                        continue
+            
+            elif variable_size == 'max':
+                # Find maximum dimension among configurations that satisfy
+                max_dim = max(dims[i] for i in idxs)
+                idxs_dim = [i for i in idxs if dims[i] == max_dim]
+                
+                # Find maximum constraints among those
+                if mcons and idxs_dim:
+                    max_mcon = max(mcons[i] if i < len(mcons) else 0 for i in idxs_dim)
+                    idxs = [i for i in idxs_dim if i < len(mcons) and mcons[i] == max_mcon]
+                    idxs = [idxs[0]]  # Take just the first
+                    
+                    # Compare with default
+                    if default_satisfy and (dim > max_dim or (dim == max_dim and mcon > max_mcon)):
+                        problem_names.append(problem_name)
+                        continue
+            
+            # For 'all' we just process all idxs
+            
+            # Add problems with specific dimensions/constraints
+            for idx in idxs:
+                if argins and idx < len(argins):
+                    problem_names.append(names[idx])
+    
     return problem_names
 
 # Define a function to collect SIF parameters
@@ -305,6 +539,12 @@ def pycutest_clear_cache(problem_name, **kwargs):
         pycutest_clear_cache(problem_name, **params)
     else:
         pycutest.clear_cache(problem_name, sifParams=kwargs)
+
+def pycutest_clear_all_cache():
+    # Delete the folder 'pycutest_cache_holder' directly.
+    cache_holder_path = os.path.join(cache_dir, 'pycutest_cache_holder')
+    if os.path.exists(cache_holder_path):
+        shutil.rmtree(cache_holder_path)
 
 def _parse_problem_name(problem_name):
     # Check if 'problem_name' has the pattern '_{paramname}_{paramvalue}'. If it has, we seperate the problem name and its sif parameters (and their values).

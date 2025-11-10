@@ -1,1 +1,1 @@
-from .pycutest_tools import pycutest_load, pycutest_select, pycutest_get_sif_params, pycutest_clear_cache
+from .pycutest_tools import pycutest_load, pycutest_select, pycutest_get_sif_params, pycutest_clear_cache, pycutest_clear_all_cache

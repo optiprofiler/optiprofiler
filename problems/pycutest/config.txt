@@ -1,9 +1,9 @@
 # =============================================================================
-# Problem Set 'S2MPJ' Configuration File
+# Problem Set 'PyCUTEst' Configuration File
 # =============================================================================
 #
 # This configuration file controls the selection behavior of problem sets
-# 'S2MPJ'. The file uses a simple key-value pair format:
+# 'PyCUTEst'. The file uses a simple key-value pair format:
 #
 # parameter_name=parameter_value
 #

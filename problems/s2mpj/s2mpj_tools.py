@@ -300,34 +300,16 @@ def s2mpj_select(options):
     
     # Process each problem
     for _, row in probinfo.iterrows():
+        # Get problem default attributes
         problem_name = row['problem_name']
-        
-        # Skip problems in exclude list
-        if problem_name in options['excludelist']:
-            continue
-        
-        # Check if problem type matches
         ptype = row['ptype']
-        if not any(pt in options['ptype'] for pt in ptype):
-            continue
-
-        # Check feasibility problems based on user preference
         is_feasibility = row['isfeasibility']
-        if test_feasibility_problems == 0:
-            if is_feasibility:
-                continue
-        elif test_feasibility_problems == 1:
-            if not is_feasibility:
-                continue
-        # If test_feasibility_problems == 2, include all problems
-        
-        # Get problem attributes
         dim = safe_convert(row['dim'])
         mb = safe_convert(row['mb'])
         mlcon = safe_convert(row['mlcon'])
         mnlcon = safe_convert(row['mnlcon'])
         mcon = safe_convert(row['mcon'])
-        
+
         # Check if argins (variable sizes) exist
         argins = row['argins'] if pd.notna(row['argins']) else ''
         dims = row['dims'].split() if pd.notna(row['dims']) else []
@@ -335,8 +317,6 @@ def s2mpj_select(options):
         mlcons = row['mlcons'].split() if pd.notna(row['mlcons']) else []
         mnlcons = row['mnlcons'].split() if pd.notna(row['mnlcons']) else []
         mcons = row['mcons'].split() if pd.notna(row['mcons']) else []
-        
-        # Convert string arrays to numeric
         if dims:
             dims = [safe_convert(d) for d in dims]
         if mbs:
@@ -347,6 +327,19 @@ def s2mpj_select(options):
             mnlcons = [safe_convert(m) for m in mnlcons]
         if mcons:
             mcons = [safe_convert(m) for m in mcons]
+
+        # Check if problem type matches
+        if ptype not in options['ptype']:
+            continue
+
+        # Check feasibility problems based on user preference
+        if test_feasibility_problems == 0:
+            if is_feasibility:
+                continue
+        elif test_feasibility_problems == 1:
+            if not is_feasibility:
+                continue
+        # If test_feasibility_problems == 2, include all problems
         
         # Check if default dimension and constraints satisfy criteria
         default_satisfy = (
@@ -354,7 +347,8 @@ def s2mpj_select(options):
             mb >= options['minb'] and mb <= options['maxb'] and
             mlcon >= options['minlcon'] and mlcon <= options['maxlcon'] and
             mnlcon >= options['minnlcon'] and mnlcon <= options['maxnlcon'] and
-            mcon >= options['mincon'] and mcon <= options['maxcon']
+            mcon >= options['mincon'] and mcon <= options['maxcon'] and
+            problem_name not in options['excludelist']
         )
         
         # If default satisfies and (no variable sizes or we only want default), add the problem
@@ -369,7 +363,10 @@ def s2mpj_select(options):
         if dims:
             # Create mask for configurations that satisfy criteria
             mask = []
+            names = [f"{problem_name}_{dims[i]}_{mcons[i]}" if mcons[i] > 0 else f"{problem_name}_{dims[i]}" for i in range(len(dims))]
             for i in range(len(dims)):
+                # Create the name for the current configuration
+                name = names[i]
                 satisfies = (
                     dims[i] >= options['mindim'] and dims[i] <= options['maxdim'] and
                     (i >= len(mbs) or mbs[i] >= options['minb']) and
@@ -380,7 +377,8 @@ def s2mpj_select(options):
                     (i >= len(mnlcons) or mnlcons[i] <= options['maxnlcon']) and
                     (i >= len(mcons) or mcons[i] >= options['mincon']) and
                     (i >= len(mcons) or mcons[i] <= options['maxcon']) and
-                    (dims[i] != dim or (i < len(mcons) and mcons[i] != mcon))
+                    (dims[i] != dim or (i < len(mcons) and mcons[i] != mcon)) and
+                    name not in options['excludelist']
                 )
                 mask.append(satisfies)
             
@@ -427,12 +425,8 @@ def s2mpj_select(options):
             
             # Add problems with specific dimensions/constraints
             for idx in idxs:
-                if idx < len(mcons) and mcons[idx] > 0:
-                    variant_name = f"{problem_name}_{dims[idx]}_{mcons[idx]}"
-                else:
-                    variant_name = f"{problem_name}_{dims[idx]}"
-                
-                problem_names.append(variant_name)
+                if argins:
+                    problem_names.append(names[idx])
     
     return problem_names
 
