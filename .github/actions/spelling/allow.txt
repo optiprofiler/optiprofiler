@@ -529,3 +529,12 @@ toarray
 TRAINF
 vlen
 yscale
+bfor
+hlist
+ihess
+ineq
+nanargmax
+nanargmin
+paramname
+paramvalue
+vals

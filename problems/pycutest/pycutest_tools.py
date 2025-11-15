@@ -547,7 +547,7 @@ def pycutest_clear_all_cache():
         shutil.rmtree(cache_holder_path)
 
 def _parse_problem_name(problem_name):
-    # Check if 'problem_name' has the pattern '_{paramname}_{paramvalue}'. If it has, we seperate the problem name and its sif parameters (and their values).
+    # Check if 'problem_name' has the pattern '_{paramname}_{paramvalue}'. If it has, we separate the problem name and its sif parameters (and their values).
     base_name = problem_name
     params = {}
 
