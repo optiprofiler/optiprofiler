@@ -21,8 +21,7 @@ from matplotlib.lines import Line2D
 from matplotlib.backends import backend_pdf
 from matplotlib.ticker import MaxNLocator, FuncFormatter
 
-from .features import Feature
-from .problems import Problem, FeaturedProblem
+from .modules import Feature, Problem, FeaturedProblem
 from .utils import FeatureName, ProfileOption, FeatureOption, ProblemOption, get_logger, setup_main_process_logging, setup_worker_logging
 from .loader import load_results
 from .profile_utils import check_validity_problem_options, check_validity_profile_options, get_default_problem_options, get_default_profile_options, compute_merit_values, create_stamp, merge_pdfs_with_pypdf, write_report, process_results

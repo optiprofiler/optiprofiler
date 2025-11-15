@@ -3,8 +3,7 @@ from contextlib import suppress
 import numpy as np
 import pytest
 
-from optiprofiler.features import Feature
-from optiprofiler.problems import Problem, FeaturedProblem, get_cutest_problem_options, set_cutest_problem_options, find_cutest_problems, load_cutest_problem
+from optiprofiler.modules import  Feature, Problem, FeaturedProblem
 from optiprofiler.utils import ProblemError
 
 

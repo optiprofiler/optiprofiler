@@ -5,7 +5,7 @@ import pandas as pd
 
 from ..utils import add_optiprofiler
 add_optiprofiler()
-from optiprofiler.problems import Problem
+from optiprofiler.modules import Problem
 
 
 def s2mpj_load(problem_name, *args):

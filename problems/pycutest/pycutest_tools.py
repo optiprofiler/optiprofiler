@@ -18,7 +18,7 @@ import pycutest
 # Import Problem class from optiprofiler
 from ..utils import add_optiprofiler
 add_optiprofiler()
-from optiprofiler.problems import Problem
+from optiprofiler.modules import Problem
 
 def pycutest_load(problem_name, **kwargs):
     """

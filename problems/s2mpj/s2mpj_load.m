@@ -167,8 +167,11 @@ function problem = s2mpj_load(problem_name, varargin)
 
     % Get the initial guess, lower bound, and upper bound.
     x0 = pb.x0;
+    x0 = full(x0);
     xl = pb.xlower;
+    xl = full(xl);
     xu = pb.xupper;
+    xu = full(xu);
     
     if ~isfield(pb, 'lincons')
         pb.lincons = [];
@@ -202,9 +205,13 @@ function problem = s2mpj_load(problem_name, varargin)
     idx_ceq = intersect(idx_eq, nonlincons);
     idx_cge = intersect(idx_ge, nonlincons);
     aeq = Jx(idx_aeq, :);
+    aeq = full(aeq);
     aub = [Jx(idx_aub_le, :); -Jx(idx_aub_ge, :)];
+    aub = full(aub);
     beq = bx(idx_aeq);
+    beq = full(beq);
     bub = [bx(idx_aub_le); -bx(idx_aub_ge)];
+    bub = full(bub);
 
     getidx = @(y, idx) y(idx);
     ceq = @(x) getidx(getcx(problem_name, x), idx_ceq);
@@ -232,6 +239,7 @@ function fx = getfun(problem_name, is_feasibility, x)
     funcHandle = str2func(problem_name);
     try
         evalc("fx = funcHandle('fx', x)");
+        fx = full(fx);
     catch
         fx = NaN(0, 1);
     end
