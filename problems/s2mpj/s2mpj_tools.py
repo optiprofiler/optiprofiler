@@ -123,6 +123,9 @@ def s2mpj_load(problem_name, *args):
     x0 = p.x0
     xl = p.xlower
     xu = p.xupper
+    # We replace 1.0e+20 (which represents infinity) bounds with np.inf.
+    xl = np.where(xl <= -1.0e+20, -np.inf, xl)
+    xu = np.where(xu >= 1.0e+20, np.inf, xu)
 
     if not hasattr(p, 'lincons'):
         p.lincons = np.array([], dtype=int)

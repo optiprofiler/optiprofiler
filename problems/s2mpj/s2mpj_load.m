@@ -172,6 +172,9 @@ function problem = s2mpj_load(problem_name, varargin)
     xl = full(xl);
     xu = pb.xupper;
     xu = full(xu);
+    % Replace 1.0e+20 (which represents infinity) bounds with np.inf.
+    xl(xl <= -1.0e+20) = -Inf;
+    xu(xu >= 1.0e+20) = Inf;
     
     if ~isfield(pb, 'lincons')
         pb.lincons = [];
