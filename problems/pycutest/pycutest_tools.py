@@ -60,17 +60,28 @@ def pycutest_load(problem_name, **kwargs):
     xl = p.bl
     xu = p.bu
 
+    cl = np.asarray(p.cl) if p.m > 0 else np.array([], dtype=float)
+    cu = np.asarray(p.cu) if p.m > 0 else np.array([], dtype=float)
+    mask_cl_finite = (cl > -np.inf) if p.m > 0 else np.array([], dtype=bool)
+    mask_cu_finite = (cu < np.inf) if p.m > 0 else np.array([], dtype=bool)
+
     mask_linear = getattr(p, "is_linear_cons", None)
     if mask_linear is None:
         mask_linear = np.zeros(p.m, dtype=bool)
     mask_eq = getattr(p, "is_eq_cons", None)
     if mask_eq is None:
         mask_eq = np.zeros(p.m, dtype=bool)
-    mask_linear_eq = mask_linear & mask_eq
+    mask_linear_eq = mask_linear & mask_eq & mask_cl_finite
     mask_linear_ineq = mask_linear & ~mask_eq
-    mask_nonlinear_eq = ~mask_linear & mask_eq
+    mask_linear_le = mask_linear_ineq & mask_cu_finite
+    mask_linear_ge = mask_linear_ineq & mask_cl_finite
+    mask_nonlinear_eq = ~mask_linear & mask_eq & mask_cl_finite
     mask_nonlinear_ineq = ~mask_linear & ~mask_eq
+    mask_nonlinear_le = mask_nonlinear_ineq & mask_cu_finite
+    mask_nonlinear_ge = mask_nonlinear_ineq & mask_cl_finite
 
+    # The linear constraints are hidden in the cJx method output.
+    # cx = jx @ x0 - bx
     buf = io.StringIO()
     with redirect_stdout(buf):
         try:
@@ -80,28 +91,28 @@ def pycutest_load(problem_name, **kwargs):
             jx = None
             bx = None
 
-    # Create the linear equality constraints if any.
+    # Create the linear constraints if any.
+    # Note that in PyCUTEst, the constraints are defined as:
+    #  cl <= c(x) <= cu
+    # Thus, the linear equality constraints are:
+    #  jx[mask_linear_eq, :] @ x = bx[mask_linear_eq] + cu[mask_linear_eq]
+    # and the linear inequality constraints are:
+    #  jx[mask_linear_le, :] @ x <= bx[mask_linear_le] + cu[mask_linear_le]
+    #  -jx[mask_linear_ge, :] @ x <= -bx[mask_linear_ge] - cl[mask_linear_ge]
     aeq = jx[mask_linear_eq, :] if np.any(mask_linear_eq) else np.zeros((0, p.n))
-    beq = bx[mask_linear_eq] if np.any(mask_linear_eq) else np.zeros(0)
-
-    # Create the linear inequality constraints if any.
-    idx_upper = np.where(mask_linear_ineq & (p.cu < np.inf))[0] if p.m > 0 else np.array([], dtype=int)
-    idx_lower = np.where(mask_linear_ineq & (p.cl > -np.inf))[0] if p.m > 0 else np.array([], dtype=int)
-
-    aub_upper = jx[idx_upper, :] if np.any(idx_upper) else np.zeros((0, p.n))
-    bub_upper = p.cu[idx_upper] - bx[idx_upper] if np.any(idx_upper) else np.zeros(0)
-
-    aub_lower = -jx[idx_lower, :] if np.any(idx_lower) else np.zeros((0, p.n))
-    bub_lower = -(p.cl[idx_lower] - bx[idx_lower]) if np.any(idx_lower) else np.zeros(0)
-
-    if idx_upper.size > 0 or idx_lower.size > 0:
-        aub = np.vstack([aub_upper, aub_lower])
-        bub = np.concatenate([bub_upper, bub_lower])
-    else:
-        aub = np.zeros((0, p.n))
-        bub = np.zeros(0)
+    beq = bx[mask_linear_eq] + cu[mask_linear_eq] if np.any(mask_linear_eq) else np.zeros(0)
+    aub = np.vstack([jx[mask_linear_le, :], -jx[mask_linear_ge, :]]) if jx is not None and (np.any(mask_linear_le) or np.any(mask_linear_ge)) else np.zeros((0, p.n))
+    bub = np.concatenate([bx[mask_linear_le] + cu[mask_linear_le], -bx[mask_linear_ge] - cl[mask_linear_ge]]) if bx is not None and (np.any(mask_linear_le) or np.any(mask_linear_ge)) else np.zeros(0)
 
     # Handle nonlinear constraints.
+    # Construct nonlinear constraint functions
+    # Remind that in S2MPJ, the constraints are defined as:
+    #  cl <= c(x) <= cu
+    # Thus, the nonlinear equality constraints are:
+    #  ceq(x) = c(x)[mask_nonlinear_eq] - cu[mask_nonlinear_eq] = 0
+    # and the nonlinear inequality constraints are:
+    #  cub(x) = [c(x)[mask_nonlinear_le] - cu[mask_nonlinear_le];
+    #           -c(x)[mask_nonlinear_ge] + cl[mask_nonlinear_ge]] <= 0
     def _process_nonlinear_ineq(x, mode="value"):
         """Helper for nonlinear inequality constraints
         mode in {"value", "jacobian", "hessian"}
@@ -114,29 +125,22 @@ def pycutest_load(problem_name, **kwargs):
             elif mode == "hessian":
                 return []
 
-        ineq_idx = np.where(mask_nonlinear_ineq)[0]
-        cu = np.asarray(p.cu)
-        cl = np.asarray(p.cl)
-        # Indices of upper and lower bounds for nonlinear inequalities.
-        upper_idx = ineq_idx[cu[ineq_idx] < np.inf]
-        lower_idx = ineq_idx[cl[ineq_idx] > -np.inf]
-
         if mode == "value":
             c_all = p.cons(x)
-            upper_vals = c_all[upper_idx] - cu[upper_idx]
-            lower_vals = -(c_all[lower_idx] - cl[lower_idx])
+            upper_vals = c_all[mask_nonlinear_le] - cu[mask_nonlinear_le]
+            lower_vals = -c_all[mask_nonlinear_ge] + cl[mask_nonlinear_ge]
             return np.concatenate([upper_vals, lower_vals])
         elif mode == "jacobian":
             _, j_all = p.cons(x, gradient=True)
-            j_upper = j_all[upper_idx, :]
-            j_lower = -j_all[lower_idx, :]
-            return np.vstack([j_upper, j_lower]) if (upper_idx.size or lower_idx.size) else np.zeros((0, p.n))
+            j_upper = j_all[mask_nonlinear_le, :]
+            j_lower = -j_all[mask_nonlinear_ge, :]
+            return np.vstack([j_upper, j_lower]) if (j_upper.size > 0 or j_lower.size > 0) else np.zeros((0, p.n))
         elif mode == "hessian":
             hlist = []
-            for i in upper_idx:
+            for i in np.where(mask_nonlinear_le)[0]:
                 H = p.ihess(x, cons_index=i)
                 hlist.append(H)
-            for i in lower_idx:
+            for i in np.where(mask_nonlinear_ge)[0]:
                 H = -p.ihess(x, cons_index=i)
                 hlist.append(H)
             return hlist
@@ -146,7 +150,7 @@ def pycutest_load(problem_name, **kwargs):
         if not np.any(mask_nonlinear_eq):
             return np.zeros(0)
         c_all = p.cons(x)
-        return c_all[mask_nonlinear_eq]
+        return c_all[mask_nonlinear_eq] - cu[mask_nonlinear_eq]
     
     # Create the nonlinear inequality constraints.
     def cub(x):

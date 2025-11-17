@@ -127,6 +127,15 @@ def s2mpj_load(problem_name, *args):
     xl = np.where(xl <= -1.0e+20, -np.inf, xl)
     xu = np.where(xu >= 1.0e+20, np.inf, xu)
 
+    cl = p.clower if hasattr(p, 'clower') else None
+    cu = p.cupper if hasattr(p, 'cupper') else None
+    if cl is not None:
+        cl = np.where(cl <= -1.0e+20, -np.inf, cl)
+    if cu is not None:
+        cu = np.where(cu >= 1.0e+20, np.inf, cu)
+    idx_cl_finite = np.where(np.isfinite(cl))[0] if cl is not None else np.array([], dtype=int)
+    idx_cu_finite = np.where(np.isfinite(cu))[0] if cu is not None else np.array([], dtype=int)
+
     if not hasattr(p, 'lincons'):
         p.lincons = np.array([], dtype=int)
     if not hasattr(p, 'nle'):
@@ -136,6 +145,8 @@ def s2mpj_load(problem_name, *args):
     if not hasattr(p, 'nge'):
         p.nge = 0
 
+    # The linear constraints are hidden in the cJx method output.
+    # cx = jx @ x0 - bx
     buf = io.StringIO()
     with redirect_stdout(buf):
         try:
@@ -150,29 +161,46 @@ def s2mpj_load(problem_name, *args):
             bx = None
 
     nonlincons = np.setdiff1d(np.arange(p.m), p.lincons)
-    idx_le = np.arange(p.nle)
-    idx_eq = np.arange(p.nle, p.nle + p.neq)
-    idx_ge = np.arange(p.nle + p.neq, p.nle + p.neq + p.nge)
+    idx_eq = np.intersect1d(np.arange(p.nle, p.nle + p.neq), idx_cl_finite)
+    idx_ineq = np.setdiff1d(np.arange(p.m), np.arange(p.nle, p.nle + p.neq))
+    idx_le = np.intersect1d(idx_ineq, idx_cu_finite)
+    idx_ge = np.intersect1d(idx_ineq, idx_cl_finite)
     idx_aeq = np.intersect1d(idx_eq, p.lincons)
     idx_aub_le = np.intersect1d(idx_le, p.lincons)
     idx_aub_ge = np.intersect1d(idx_ge, p.lincons)
     idx_cle = np.intersect1d(idx_le, nonlincons)
     idx_ceq = np.intersect1d(idx_eq, nonlincons)
     idx_cge = np.intersect1d(idx_ge, nonlincons)
+
+    # Note that in S2MPJ, the constraints are defined as:
+    #  cl <= c(x) <= cu
+    # Thus, the linear equality constraints are:
+    #  jx[idx_aeq, :] @ x = bx[idx_aeq] + cu[idx_aeq]
+    # and the linear inequality constraints are:
+    #  jx[idx_aub_le, :] @ x <= bx[idx_aub_le] + cu[idx_aub_le]
+    #  -jx[idx_aub_ge, :] @ x <= -bx[idx_aub_ge] - cl[idx_aub_ge]
     aeq = jx[idx_aeq, :] if jx is not None and idx_aeq.size > 0 else None
     aub = np.vstack([jx[idx_aub_le, :], -jx[idx_aub_ge, :]]) if jx is not None and (idx_aub_le.size > 0 or idx_aub_ge.size > 0) else None
-    beq = bx[idx_aeq] if bx is not None and idx_aeq.size > 0 else None
-    bub = np.concatenate([bx[idx_aub_le], -bx[idx_aub_ge]]) if bx is not None and (idx_aub_le.size > 0 or idx_aub_ge.size > 0) else None
+    beq = bx[idx_aeq] + cu[idx_aeq] if bx is not None and idx_aeq.size > 0 else None
+    bub = np.concatenate([bx[idx_aub_le] + cu[idx_aub_le], -bx[idx_aub_ge] - cl[idx_aub_ge]]) if bx is not None and (idx_aub_le.size > 0 or idx_aub_ge.size > 0) else None
 
     getidx = lambda y, idx: y[idx] if (y is not None and idx.size > 0) else None
+    # Construct nonlinear constraint functions
+    # Remind that in S2MPJ, the constraints are defined as:
+    #  cl <= c(x) <= cu
+    # Thus, the nonlinear equality constraints are:
+    #  ceq(x) = c(x)[idx_ceq] - cu[idx_ceq] = 0
+    # and the nonlinear inequality constraints are:
+    #  cub(x) = [c(x)[idx_cle] - cu[idx_cle];
+    #           -c(x)[idx_cge] + cl[idx_cge]] <= 0
     def ceq(x):
         y = _getcx(p, x)
-        z = getidx(y, idx_ceq)
+        z = getidx(y, idx_ceq) - cu[idx_ceq]
         return None if z is None or (hasattr(z, "size") and z.size == 0) else z
     def cub(x):
         y = _getcx(p, x)
-        le = getidx(y, idx_cle)
-        ge = getidx(y, idx_cge)
+        le = getidx(y, idx_cle) - cu[idx_cle]
+        ge = getidx(y, idx_cge) - cl[idx_cge]
         if le is None and ge is None:
             return None
         if ge is None:

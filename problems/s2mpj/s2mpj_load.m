@@ -175,6 +175,43 @@ function problem = s2mpj_load(problem_name, varargin)
     % Replace 1.0e+20 (which represents infinity) bounds with np.inf.
     xl(xl <= -1.0e+20) = -Inf;
     xu(xu >= 1.0e+20) = Inf;
+
+    try
+        cl = pb.clower;
+        cl = full(cl);
+        % Check if cl is a row vector, if yes, transpose it to a column vector.
+        if size(cl, 1) == 1
+            cl = cl';
+        end
+    catch
+        cl = NaN(0, 1);
+    end
+    try
+        cu = pb.cupper;
+        cu = full(cu);
+        % Check if cu is a row vector, if yes, transpose it to a column vector.
+        if size(cu, 1) == 1
+            cu = cu';
+        end
+    catch
+        cu = NaN(0, 1);
+    end
+    if ~isempty(cl)
+        cl(cl <= -1.0e+20) = -Inf;
+    end
+    if ~isempty(cu)
+        cu(cu >= 1.0e+20) = Inf;
+    end
+    if ~isempty(cl)
+        idx_cl_finite = find(isfinite(cl));
+    else
+        idx_cl_finite = [];
+    end
+    if ~isempty(cu)
+        idx_cu_finite = find(isfinite(cu));
+    else
+        idx_cu_finite = [];
+    end
     
     if ~isfield(pb, 'lincons')
         pb.lincons = [];
@@ -189,6 +226,8 @@ function problem = s2mpj_load(problem_name, varargin)
         pb.nge = 0;
     end
 
+    % The linear constraints are hidden in the cJx method output.
+    % cx = Jx @ x0 - bx
     try
         [~] = evalc('[cx, Jx] = funcHandle("cJx", x0)');
         bx = Jx * x0 - cx;
@@ -198,27 +237,44 @@ function problem = s2mpj_load(problem_name, varargin)
     end
 
     nonlincons = setdiff(1:pb.m, pb.lincons);
-    idx_le = 1:pb.nle;
-    idx_eq = pb.nle + 1 : pb.nle + pb.neq;
-    idx_ge = pb.nle + pb.neq + 1 : pb.nle + pb.neq + pb.nge;
+    idx_eq = intersect(pb.nle + 1 : pb.nle + pb.neq, idx_cl_finite);
+    idx_ineq = setdiff(1:pb.m, pb.nle + 1 : pb.nle + pb.neq);
+    idx_le = intersect(idx_ineq, idx_cu_finite);
+    idx_ge = intersect(idx_ineq, idx_cl_finite);
     idx_aeq = intersect(idx_eq, pb.lincons);
     idx_aub_le = intersect(idx_le, pb.lincons);
     idx_aub_ge = intersect(idx_ge, pb.lincons);
     idx_cle = intersect(idx_le, nonlincons);
     idx_ceq = intersect(idx_eq, nonlincons);
     idx_cge = intersect(idx_ge, nonlincons);
+
+    % Note that in S2MPJ, the constraints are defined as:
+    %  cl <= c(x) <= cu
+    % Thus, the linear equality constraints are:
+    %  Jx(idx_aeq, :) @ x = bx(idx_aeq) + cu(idx_aeq)
+    % and the linear inequality constraints are:
+    %  Jx(idx_aub_le, :) @ x <= bx(idx_aub_le) + cu(idx_aub_le)
+    %  -jx(idx_aub_ge, :) @ x <= -bx(idx_aub_ge) - cl(idx_aub_ge)
     aeq = Jx(idx_aeq, :);
     aeq = full(aeq);
     aub = [Jx(idx_aub_le, :); -Jx(idx_aub_ge, :)];
     aub = full(aub);
-    beq = bx(idx_aeq);
+    beq = bx(idx_aeq) + cu(idx_aeq);
     beq = full(beq);
-    bub = [bx(idx_aub_le); -bx(idx_aub_ge)];
+    bub = [bx(idx_aub_le) + cu(idx_aub_le); -bx(idx_aub_ge) - cl(idx_aub_ge)];
     bub = full(bub);
 
     getidx = @(y, idx) y(idx);
-    ceq = @(x) getidx(getcx(problem_name, x), idx_ceq);
-    cub = @(x) [getidx(getcx(problem_name, x), idx_cle); -getidx(getcx(problem_name, x), idx_cge)];
+    % Construct nonlinear constraint functions
+    % Remind that in S2MPJ, the constraints are defined as:
+    %  cl <= c(x) <= cu
+    % Thus, the nonlinear equality constraints are:
+    %  ceq(x) = c(x)(idx_ceq) - cu(idx_ceq) = 0
+    % and the nonlinear inequality constraints are:
+    %  cub(x) = [c(x)(idx_cle) - cu(idx_cle);
+    %           -c(x)(idx_cge) + cl(idx_cge)] <= 0
+    ceq = @(x) getidx(getcx(problem_name, x), idx_ceq) - cu(idx_ceq);
+    cub = @(x) [getidx(getcx(problem_name, x), idx_cle) - cu(idx_cle); -getidx(getcx(problem_name, x), idx_cge) + cl(idx_cge)];
     hceq = @(x) getidx(getHx(problem_name, x), idx_ceq);
     hcub = @(x) [getidx(getHx(problem_name, x), idx_cle), getidx(getHx(problem_name, x), idx_cge)];
     
