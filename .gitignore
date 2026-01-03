@@ -297,3 +297,7 @@ fabric.properties
 
 ## Python test file
 test_file.py
+# MATLAB generated files
+matlab/optiprofiler/problem_libs/s2mpj/src/
+matlab/optiprofiler/problem_libs/matcutest/src/
+matlab/optiprofiler/problem_libs/matcutest/matcutest_compiled_git/

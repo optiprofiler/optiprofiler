@@ -52,7 +52,7 @@ parallel_read_safe = False
 
 templates_path = ['_templates']
 
-exclude_patterns = []
+exclude_patterns = ['dev']
 
 today_fmt = '%B %d, %Y'
 
