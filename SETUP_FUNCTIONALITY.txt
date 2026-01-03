@@ -31,7 +31,7 @@ Current setup.m Functionality Summary:
     *   **MatCUTEst Setup (Linux only)**:
         *   Check if OS is Linux (and not Mac). If not, print "MatCUTEst is not supported on this OS".
         *   If Linux:
-            *   Check if MatCUTEst is already installed (e.g., by checking if `mcutest` is in path or `help mcutest` returns content).
+            *   Check if MatCUTEst is already installed (e.g., by checking if `matcutest` is in path or `help matcutest` returns content).
             *   If installed, print "MatCUTEst already installed".
             *   If not installed, prompt user (Y/N) to download and install.
             *   If 'Y':

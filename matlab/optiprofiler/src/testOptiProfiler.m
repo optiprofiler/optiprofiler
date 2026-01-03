@@ -40,7 +40,7 @@ function testOptiProfiler()
 
     if success
         fprintf("OptiProfiler passed all tests.\n\n");
-        fprintf("You may now try 'help benchmark' for information on the usage of the package.\n\n");
+        fprintf("You may now try 'help optiprofiler' for information on the usage of the package.\n\n");
     end
 
     warning('on', 'all');

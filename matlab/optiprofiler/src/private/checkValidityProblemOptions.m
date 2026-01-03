@@ -2,13 +2,13 @@ function problem_options = checkValidityProblemOptions(problem_options, profile_
 %CHECKVALIDITYCUTESTOPTIONS Check the validity of the options in cuteset_options
 
     % Judge whether problem_options.plibs is a char or a string or a cell array of strings or chars.
-    % Judge whether all the members of problem_options.plibs belong to the subfolder names under the relative path '../../../problems/' to this file.
+    % Judge whether all the members of problem_options.plibs belong to the subfolder names under the relative path '../../problem_libs' to this file.
     if isfield(problem_options, ProblemOptionKey.PLIBS.value)
         if ~iscell(problem_options.(ProblemOptionKey.PLIBS.value))
             problem_options.(ProblemOptionKey.PLIBS.value) = {problem_options.(ProblemOptionKey.PLIBS.value)};
         end
         mydir = fileparts(mfilename('fullpath'));
-        problems_dir = fullfile(mydir, '../../../../problems');
+        problems_dir = fullfile(mydir, '../../problem_libs');
         subfolder_info = dir(problems_dir);
         subfolder_names = {subfolder_info([subfolder_info.isdir] & ~ismember({subfolder_info.name}, {'.', '..', '__pycache__'})).name};
         if isempty(problem_options.(ProblemOptionKey.PLIBS.value)) || ~all(cellfun(@ischarstr, problem_options.(ProblemOptionKey.PLIBS.value))) || ~all(ismember(problem_options.(ProblemOptionKey.PLIBS.value), subfolder_names))

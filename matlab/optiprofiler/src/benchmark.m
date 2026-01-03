@@ -987,7 +987,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 
             % Add the path of the problem library to the MATLAB path.          
             mydir = fileparts(mfilename('fullpath'));
-            plib_path = fullfile(mydir, '../../../problems', plib);
+            plib_path = fullfile(mydir, '../problem_libs', plib);
             addpath(plib_path);
 
             % Solve all the problems from the current problem library with the specified options and
