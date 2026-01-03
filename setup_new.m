@@ -263,7 +263,7 @@ function setup_new(varargin)
 
         if all(paths_saved)
             fprintf('\nThe package is ready to use.\n');
-            fprintf('\nYou may now try ''help benchmark'' for information on the usage of the package.\n');
+            fprintf('\nYou may now try ''help optiprofiler'' for information on the usage of the package.\n');
             fprintf('\nYou may also run ''testOptiProfiler'' to test the package.\n');
             fprintf('\nA few examples showing how to use the package are provided in the directory:\n\n');
             ex_dir = fullfile(mat_dir, 'examples');
