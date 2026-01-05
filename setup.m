@@ -65,7 +65,7 @@ function setup(varargin)
     end
     
     % Parse the input.
-    [action, ~, wrong_input] = parse_input(varargin);
+    [action, options, wrong_input] = parse_input(varargin);
     
     % Exit if wrong input detected. Error messages have been printed during the parsing.
     if wrong_input
@@ -172,7 +172,15 @@ function setup(varargin)
                 fprintf('MatCUTEst is NOT detected.\n');
                 
                 % Ask user if they want to install it
-                user_response = input('Do you want to download and install MatCUTEst? (y/n): ', 's');
+                if isfield(options, 'install_matcutest')
+                    if options.install_matcutest
+                        user_response = 'y';
+                    else
+                        user_response = 'n';
+                    end
+                else
+                    user_response = input('Do you want to download and install MatCUTEst? (y/n): ', 's');
+                end
                 user_response = strtrim(lower(user_response));
                 
                 if strcmpi(user_response, 'y')
@@ -437,13 +445,15 @@ function uninstall_optiprofiler(path_string_stamp)
     s2mpj_dir = fullfile(plib_dir, 's2mpj'); 
     matcutest_dir = fullfile(plib_dir, 'matcutest');
 
-    % Check whether MatCUTEst is installed inside OptiProfiler
-    if isunix() && ~ismac()
-        matcutest_src_dir = fullfile(matcutest_dir, 'src');
-        if exist(matcutest_src_dir, 'dir')
-            % TODO: Uninstall MatCUTEst properly if needed
-        end
-    end
+    % We do not need to specifically uninstall S2MPJ or MatCUTEst, since they
+    % only add paths to MATLAB and do not modify MATLAB installation files.
+    % % Check whether MatCUTEst is installed inside OptiProfiler
+    % if isunix() && ~ismac()
+    %     matcutest_src_dir = fullfile(matcutest_dir, 'src');
+    %     if exist(matcutest_src_dir, 'dir')
+    %         % TODO: Uninstall MatCUTEst properly if needed
+    %     end
+    % end
 
     % Try removing the paths possibly added by OptiProfiler
     orig_warning_state = warning;

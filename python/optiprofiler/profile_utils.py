@@ -22,7 +22,7 @@ def check_validity_problem_options(problem_options):
         if not isinstance(problem_options[ProblemOption.PLIBS], list):
             problem_options[ProblemOption.PLIBS] = [problem_options[ProblemOption.PLIBS]]
         mydir = Path(__file__).parent.resolve()
-        problem_dir = Path(mydir, '..', '..', 'problems').resolve()
+        problem_dir = Path(mydir, 'problem_libs').resolve()
         subfolders = [p.name for p in problem_dir.iterdir() if p.is_dir()]
         # Remove '__pycache__' and folders starting with '.'
         subfolder_names = [name for name in subfolders if not name.startswith('.') and name != '__pycache__']

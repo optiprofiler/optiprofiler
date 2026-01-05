@@ -7,121 +7,105 @@ This guide explains how to create and integrate your own optimization problem li
 If you want to quickly create and use your own optimization problems, follow these steps:
 
 1. Create Your Problem Files:
-   - Use the existing `.m` files (`custom1.m`, `custom2.m`, `custom3.m`, `custom4.m`) in the `problems/custom/matlab_problems/` folder as examples to define your own problems. Each file should define a MATLAB function that returns a `Problem` object.
-   - Save your new `.m` files in the `problems/custom/matlab_problems/` folder.
-   - You may delete the existing example files (`custom1.m`, `custom2.m`, `custom3.m`, `custom4.m`) if you don't need them.
+   - Use the existing `.py` files (`custom1.py`, `custom2.py`, `custom3.py`, `custom4.py`) in the `optiprofiler/problem_libs/custom/python_problems/` folder as examples to define your own problems. Each file should define a function that returns a dictionary containing the problem attributes (fun, x0, etc.).
+   - Save your new `.py` files in the `optiprofiler/problem_libs/custom/python_problems/` folder.
+   - You may delete the existing example files if you don't need them.
 
-2. Run `custom_getInfo` in the `problems/custom/` Path:
-   - Navigate to the `problems/custom/` folder in MATLAB.
-   - Run the `custom_getInfo` function. This function will automatically generate a `.mat` file in the `problems/custom/` folder.
+2. Run `custom_get_info`:
+   - You can run the `custom_get_info` function from `optiprofiler.problem_libs.custom.custom_tools` to update the problem information.
+   - This function will automatically generate/update the `probinfo_python.csv` file in the `optiprofiler/problem_libs/custom/` folder.
+   - Example code to run it:
+     ```python
+     from optiprofiler.problem_libs.custom.custom_tools import custom_get_info
+     custom_get_info()
+     ```
 
-That's it! You can now use your custom problems in OptiProfiler by specifying `options.plibs = {'custom'}` in your benchmarking script. Check `Options for problems` part in `benchmark.m` for more details.
+That's it! You can now use your custom problems in OptiProfiler by specifying `problem_options={'plibs': ['custom']}` in your benchmarking script.
 
 ## Overview
 
-OptiProfiler allows benchmarking solvers using custom problem libraries. To use your own problem library, you need to implement two key functions:
+OptiProfiler allows benchmarking solvers using custom problem libraries. To use your own problem library, you need to implement two key functions in a tools file:
 
-1. A loading function that retrieves problems by name
-2. A selection function that filters problems based on criteria
+1. A loading function that retrieves problems by name (`*_load`)
+2. A selection function that filters problems based on criteria (`*_select`)
 
-The `custom` folder demonstrates one possible implementation approach.
+The `custom` library demonstrates one possible implementation approach.
 
 ## Detailed Steps
 
 ### 1. Create Problem Library Folder
 
-First, create a new subfolder (e.g., `your_problem_lib/`) within the `problems/` folder in the OptiProfiler project root directory:
+First, create a new subfolder (e.g., `your_problem_lib/`) within the `optiprofiler/problem_libs/` folder:
 
     optiprofiler/
-    ├── problems/
+    ├── problem_libs/
     │   ├── custom/               <-- Example implementation
-    │   │   ├── custom_load.m
-    │   │   ├── custom_select.m
-    │   │   └── matlab_problems/  <-- MATLAB implementation of example problems
+    │   │   ├── custom_tools.py   <-- Contains load and select functions
+    │   │   ├── probinfo_python.csv
+    │   │   └── python_problems/  <-- Python implementation of example problems
     │   ├── your_problem_lib/     <-- Your custom problem library folder
-    │   │   ├── your_problem_lib_load.m
-    │   │   └── your_problem_lib_select.m
+    │   │   ├── your_problem_lib_tools.py
+    │   │   └── python_problems/  <-- Your problem files
     │   ├── s2mpj/                <-- Built-in problem library
-    │   └── matcutest/            <-- Another built-in problem library
-    ├── matlab/                   <-- Core MATLAB functions
-    └── ...                       <-- Other OptiProfiler components
+    │   └── ...
+    └── ...
 
 ### 2. Implement Core Functions
 
-#### 2.1 Problem Loading Function (refer to `custom_load.m`)
+#### 2.1 Tools File (refer to `custom_tools.py`)
 
-Create a function that loads a specific optimization problem by name and returns a Problem class object. This function must:
+Create a python file named `your_problem_lib_tools.py` inside your library folder. This file must contain two functions:
 
-- Name the file `your_problem_lib_load.m`, where `your_problem_lib` is the name of your subfolder
-- Accept a problem name as input
-- Return a valid Problem class object
+1.  `your_problem_lib_load(problem_name)`:
+    -   Accepts a problem name as input.
+    -   Returns a valid `Problem` class instance (from `optiprofiler.opclasses`).
 
-The internal implementation is flexible - you can organize your problem files however you prefer. The example in `custom_load.m` demonstrates one approach, but you can use any method as long as the function correctly returns Problem objects.
+2.  `your_problem_lib_select(options)`:
+    -   Accepts a dictionary `options` containing filtering criteria (e.g., `mindim`, `maxdim`, `ptype`, etc.).
+    -   Returns a list of problem names that satisfy the criteria.
 
-#### 2.2 Problem Selection Function (refer to `custom_select.m`)
-
-Create a function that filters and returns problems matching specified criteria. This function must:
-
-- Name the file `your_problem_lib_select.m`, where `your_problem_lib` is the name of your subfolder
-- Accept an options structure containing filtering criteria, such as:
-  - `options.ptype`: Problem type ('u', 'b', 'l', 'n', and their combinations)
-  - `options.mindim`: Minimum dimension
-  - `options.maxdim`: Maximum dimension
-  - `options.minb`: Minimum number of bound constraints
-  - `options.maxb`: Maximum number of bound constraints
-  - `options.minlcon`: Minimum number of linear constraints
-  - `options.maxlcon`: Maximum number of linear constraints
-  - `options.minnlcon`: Minimum number of nonlinear constraints
-  - `options.maxnlcon`: Maximum number of nonlinear constraints
-  - `options.mincon`: Minimum number of linear and nonlinear constraints
-  - `options.maxcon`: Maximum number of linear and nonlinear constraints
-  - `excludelist`: List of problem names to exclude
-- Return a cell array of problem names that satisfy the criteria
-
-The example in `custom_select.m` shows one implementation approach where we pre-compute problem data and store it in a .mat file for faster access. This is particularly useful for large problem libraries.
+The internal implementation is flexible. The example in `custom_tools.py` demonstrates an approach where problem information is stored in a CSV file (`probinfo_python.csv`) for efficient filtering.
 
 ### 3. Create Problem Definitions
 
 You have complete flexibility in how you organize and define your optimization problems. Some options include:
 
-- Individual MATLAB files (one per problem)
-- A single file containing multiple problem definitions
-- Problem definitions stored in MAT files
+- Individual Python files (one per problem), as seen in `python_problems/`.
+- A single file containing multiple problem definitions.
+- Problem definitions stored in other formats.
 
-The only requirement is that your `your_problem_lib_select.m` function can retrieve these problems by name and return them as Problem class objects.
+The only requirement is that your `your_problem_lib_load` function can retrieve these problems by name and return them as `Problem` objects.
 
 ### 4. Using Your Custom Problem Library
 
-In your benchmarking script, use your custom problem library by setting the `options.plibs` parameter:
+In your benchmarking script, use your custom problem library by setting the `plibs` option in `problem_options`:
 
-```matlab
-% Set options
-options = struct();
-options.plibs = {'your_problem_lib'};  % Use your custom library only
-% Or:
-% options.plibs = {'s2mpj', 'your_problem_lib'};  % Use both built-in and custom libraries
+```python
+from optiprofiler import benchmark
 
-% Run benchmark
-scores = benchmark({@solver1, @solver2}, options);
+# Set options
+problem_options = {
+    'plibs': ['your_problem_lib'],  # Use your custom library
+    'mindim': 1,
+    'maxdim': 100
+}
+
+# Run benchmark
+benchmark(solvers, **problem_options)
 ```
 
 ## Problem Class Properties
 
-When creating Problem class objects, you have to set at least two properties:
+When creating Problem objects, you have to set at least two properties:
 
-- `fun`: The function handle for the objective function
+- `fun`: The objective function callable
 - `x0`: The initial guess for the optimization variable
 
-You can create the Problem class object using the constructor:
+You can create the Problem object using the constructor:
 
-```matlab
-problem = Problem(struct('fun', @your_objective_function, 'x0', initial_guess));
-```
-
-More details on the Problem class and its properties can be found by helping the class in MATLAB:
-
-```matlab
-help Problem
+```python
+from optiprofiler.opclasses import Problem
+problem = Problem(fun=your_objective_function, x0=initial_guess)
 ```
 
 ## Example Implementation

@@ -3,7 +3,7 @@ from contextlib import suppress
 import numpy as np
 import pytest
 
-from optiprofiler.modules import  Feature, Problem, FeaturedProblem
+from optiprofiler.opclasses import  Feature, Problem, FeaturedProblem
 from optiprofiler.utils import ProblemError
 
 

@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from optiprofiler.modules import Feature
+from optiprofiler.opclasses import Feature
 
 
 class TestFeature:

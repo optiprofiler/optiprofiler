@@ -5,9 +5,7 @@ import pandas as pd
 import numpy as np
 
 # Import Problem class from optiprofiler
-from ..utils import add_optiprofiler
-add_optiprofiler()
-from optiprofiler.modules import Problem
+from optiprofiler.opclasses import Problem
 
 
 def custom_load(problem_name):

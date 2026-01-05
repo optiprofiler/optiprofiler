@@ -338,9 +338,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %
 %       - plibs: the problem libraries to be used. It should be a cell array of
 %         strings or chars. The available choices are subfolder names in the
-%         'problems' directory. There are three subfolders after installing the
-%         package: 's2mpj', 'matcutest', and 'custom'. Default setting is
-%         's2mpj'.
+%         'optiprofiler/problem_libs' directory. There are three subfolders
+%         after installing the package: 's2mpj', 'matcutest', and 'custom'.
+%         Default setting is 's2mpj'.
 %       - ptype: the type of the problems to be selected. It should be a string
 %         or char consisting of any combination of 'u' (unconstrained), 'b'
 %         (bound constrained), 'l' (linearly constrained), and 'n' (nonlinearly
@@ -386,8 +386,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %           MatCUTEst <https://github.com/matcutest>
 %
 %   2. If you want to use your own problem library, please check the README.txt
-%      in the directory 'problems/' or the guidance in our website
-%      <https://optprof.com> for more details.
+%      in the directory 'optiprofiler/problem_libs/' or the guidance in our
+%      website <https://optprof.com> for more details.
 %
 %   3. The problem library MatCUTEst is only available when the OS is Linux.
 %

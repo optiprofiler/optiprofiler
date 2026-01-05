@@ -8,7 +8,7 @@ builtins.np = np  # Make numpy available globally as 'np'
 
 # Set the destination directory for pycutest cache.
 current_dir = os.path.dirname(os.path.abspath(__file__))
-cache_dir = os.path.join(current_dir, 'pycutest_cache')
+cache_dir = os.path.join(current_dir, '__pycutest_cache__')
 os.makedirs(cache_dir, exist_ok=True)
 if cache_dir not in sys.path:
     sys.path.append(cache_dir)
@@ -16,9 +16,7 @@ os.environ['PYCUTEST_CACHE'] = cache_dir
 import pycutest
 
 # Import Problem class from optiprofiler
-from ..utils import add_optiprofiler
-add_optiprofiler()
-from optiprofiler.modules import Problem
+from optiprofiler.opclasses import Problem
 
 def pycutest_load(problem_name, **kwargs):
     """

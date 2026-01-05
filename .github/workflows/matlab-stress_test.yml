@@ -42,14 +42,11 @@ jobs:
           command: |
             root_dir = pwd()
 
-            % Setup OptiProfiler
-            setup
-
-            % Change the text 'variable_size=default' in `problems/s2mpj/config.txt` to
-            % 'variable_size=all' to test all problems with variable sizes.
-            % Change the text 'test_feasibility_problems=0' in `problems/s2mpj/config.txt` to
-            % 'test_feasibility_problems=2' to test all problems as well.
-            config_path = fullfile(root_dir, 'problems/s2mpj/config.txt');
+            % Change the text 'variable_size=default' in `python/optiprofiler/problem_libs/s2mpj/config.txt`
+            % to 'variable_size=all' to test all problems with variable sizes.
+            % Change the text 'test_feasibility_problems=0' in `python/optiprofiler/problem_libs/s2mpj/config.txt`
+            % to 'test_feasibility_problems=2' to test all problems as well.
+            config_path = fullfile(root_dir, 'python/optiprofiler/problem_libs/s2mpj/config.txt');
             fid = fopen(config_path, 'w');
             if fid == -1
                 error('Cannot open `config.txt` for writing.');
@@ -58,7 +55,8 @@ jobs:
             fprintf(fid, 'test_feasibility_problems=2\n');
             fclose(fid);
             
-            
+            % Setup OptiProfiler
+            setup(struct('install_matcutest', true))
 
             % Create a directory for the output
             mkdir('output')

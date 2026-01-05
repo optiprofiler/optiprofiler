@@ -3,9 +3,7 @@ from contextlib import redirect_stdout
 import numpy as np
 import pandas as pd
 
-from ..utils import add_optiprofiler
-add_optiprofiler()
-from optiprofiler.modules import Problem
+from optiprofiler.opclasses import Problem
 
 
 def s2mpj_load(problem_name, *args):
@@ -195,12 +193,15 @@ def s2mpj_load(problem_name, *args):
     #           -c(x)[idx_cge] + cl[idx_cge]] <= 0
     def ceq(x):
         y = _getcx(p, x)
-        z = getidx(y, idx_ceq) - cu[idx_ceq]
+        if idx_ceq.size > 0:
+            z = getidx(y, idx_ceq) - cu[idx_ceq]
+        else:
+            z = None
         return None if z is None or (hasattr(z, "size") and z.size == 0) else z
     def cub(x):
         y = _getcx(p, x)
-        le = getidx(y, idx_cle) - cu[idx_cle]
-        ge = getidx(y, idx_cge) - cl[idx_cge]
+        le = getidx(y, idx_cle) - cu[idx_cle] if idx_cle.size > 0 else None
+        ge = getidx(y, idx_cge) - cl[idx_cge] if idx_cge.size > 0 else None
         if le is None and ge is None:
             return None
         if ge is None:

@@ -21,7 +21,7 @@ from matplotlib.lines import Line2D
 from matplotlib.backends import backend_pdf
 from matplotlib.ticker import MaxNLocator, FuncFormatter
 
-from .modules import Feature, Problem, FeaturedProblem
+from .opclasses import Feature, Problem, FeaturedProblem
 from .utils import FeatureName, ProfileOption, FeatureOption, ProblemOption, get_logger, setup_main_process_logging, setup_worker_logging
 from .loader import load_results
 from .profile_utils import check_validity_problem_options, check_validity_profile_options, get_default_problem_options, get_default_profile_options, compute_merit_values, create_stamp, merge_pdfs_with_pypdf, write_report, process_results
@@ -399,9 +399,9 @@ def benchmark(
     plibs : list of str, optional
         The problem libraries to be used. It should be a list of
         strs. The available choices are subfolder names in the
-        'problems' directory. There are three subfolders after installing the
-        package: 's2mpj', 'matcutest', and 'custom'. Default setting is
-        's2mpj'.
+        'optiprofiler/problem_libs' directory. There are three subfolders after
+        installing the package: 's2mpj', 'matcutest', and 'custom'. Default
+        setting is 's2mpj'.
     ptype : str, optional
         The type of the problems to be selected. It should be a str
         consisting of any combination of 'u' (unconstrained), 'b'
@@ -492,8 +492,8 @@ def benchmark(
             MatCUTEst <https://github.com/matcutest>
 
     2. If you want to use your own problem library, please check the README.txt
-       in the directory 'problems/' or the guidance in our website
-       <https://www.optprof.com> for more details.
+       in the directory 'optiprofiler/problem_libs/' or the guidance in our
+       website <https://www.optprof.com> for more details.
 
     3. The problem library MatCUTEst is only available when the OS is Linux.
 
@@ -1326,9 +1326,9 @@ def _solve_all_problems(solvers, plib, feature, problem_options, profile_options
         option_select.pop(key, None)
 
     current_dir = Path(__file__).parent.resolve()
-    module_file_path = current_dir / '../..' / 'problems' / plib / f'{plib}_tools.py'
+    module_file_path = current_dir / 'problem_libs' / plib / f'{plib}_tools.py'
     module_file_path = module_file_path.resolve()
-    module_name = 'problems.' + plib + '.' + plib + '_tools'
+    module_name = 'optiprofiler.problem_libs.' + plib + '.' + plib + '_tools'
 
     # Import the problem library module.
     try:
@@ -1473,9 +1473,9 @@ def _solve_all_problems(solvers, plib, feature, problem_options, profile_options
 def _solve_one_problem_wrapper(solvers, feature, problem_name, len_problem_names, profile_options, is_plot, path_hist_plots, plib):
     logger = get_logger(__name__)
     current_dir = Path(__file__).parent.resolve()
-    module_file_path = current_dir / '../..' / 'problems' / plib / f'{plib}_tools.py'
+    module_file_path = current_dir / 'problem_libs' / plib / f'{plib}_tools.py'
     module_file_path = module_file_path.resolve()
-    module_name = 'problems.' + plib + '.' + plib + '_tools'
+    module_name = 'optiprofiler.problem_libs.' + plib + '.' + plib + '_tools'
     # Import the problem library module.
     try:
         spec = importlib.util.spec_from_file_location(module_name, str(module_file_path))
