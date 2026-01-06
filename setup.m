@@ -494,7 +494,7 @@ function uninstall_optiprofiler(path_string_stamp)
             end
         end
         
-        % 2. Robust removal: Remove any lines containing the package stamp
+        % 2. Robust removal: Remove any lines containing the package stamp OR the package root directory
         try
             % Read the file content
             file_content = fileread(user_startup);
@@ -502,7 +502,10 @@ function uninstall_optiprofiler(path_string_stamp)
             
             % Identify lines with the stamp
             stamp_pattern = ['% ', path_string_stamp];
-            lines_to_keep = ~contains(lines, stamp_pattern);
+
+            % Identify lines containing the root directory (handles cases where the stamp might differ or be missing)
+            % This ensures we remove paths related to this package even if they were added with a different stamp (e.g., % matcutest).
+            lines_to_keep = ~contains(lines, stamp_pattern) & ~contains(lines, mfiledir);
             
             if ~all(lines_to_keep)
                 % Reconstruct the file content
