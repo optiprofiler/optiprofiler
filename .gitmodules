@@ -1,0 +1,9 @@
+[submodule "matlab/optiprofiler/problem_libs/s2mpj"]
+	path = matlab/optiprofiler/problem_libs/s2mpj
+	url = https://github.com/optiprofiler/s2mpj_matlab.git
+[submodule "python/optiprofiler/problem_libs/s2mpj"]
+	path = python/optiprofiler/problem_libs/s2mpj
+	url = https://github.com/optiprofiler/s2mpj_python.git
+[submodule "python/optiprofiler/problem_libs/pycutest"]
+	path = python/optiprofiler/problem_libs/pycutest
+	url = https://github.com/optiprofiler/pycutest.git
