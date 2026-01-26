@@ -119,7 +119,11 @@ function setup(varargin)
         
         paths_to_add = {src_dir, s2mpj_dir};
         if isunix() && ~ismac()
-            % Check if MatCUTEst is already installed
+            % Local variable to track if we should proceed with MatCUTEst actions
+            proceed_with_matcutest = false;
+            skip_clone_msg = false;
+
+            % 1. Check if MatCUTEst is already installed on the system (global/path)
             is_matcutest_installed = false;
             if exist('matcutest', 'file') == 2 || exist('matcutest', 'file') == 3
                 is_matcutest_installed = true;
@@ -133,20 +137,16 @@ function setup(varargin)
                 end
             end
             
-            % Check if the local MatCUTEst directory is populated
+            % 2. Check if the local MatCUTEst directory is populated
             is_matcutest_dir_populated = exist(matcutest_dir, 'dir') && length(dir(matcutest_dir)) > 2;
 
-            % Determine if we need to ask the user
-            should_ask = true;
-            user_response = 'n'; 
-
+            % 3. Determine if we skip asking because we are already good to go
+            % (Installed AND Populated -> Good)
             if is_matcutest_installed && is_matcutest_dir_populated
-                fprintf('MatCUTEst detected and local directory seems populated. Skipping download query.\n');
-                should_ask = false;
-                user_response = 'y'; 
-            end
-
-            if should_ask
+                fprintf('MatCUTEst is installed and local repository detected. Skipping setup query.\n');
+                proceed_with_matcutest = true;
+                skip_clone_msg = true; 
+            else
                 % Ask user if they want to download/setup MatCUTEst (includes OptiProfiler plugins)
                 if isfield(options, 'install_matcutest')
                     if options.install_matcutest
@@ -157,13 +157,15 @@ function setup(varargin)
                 else
                     user_response = input('Do you want to download and install/setup MatCUTEst? (y/n): ', 's');
                 end
+                if strcmpi(strtrim(user_response), 'y')
+                    proceed_with_matcutest = true;
+                end
             end
-            user_response = strtrim(lower(user_response));
             
-            if strcmpi(user_response, 'y')
-                % 1. Clone MatCUTEst repository if needed
+            if proceed_with_matcutest
+                % 4. Clone MatCUTEst repository if needed
                 if exist(matcutest_dir, 'dir') && length(dir(matcutest_dir)) > 2
-                    if should_ask
+                    if ~skip_clone_msg
                          fprintf('MatCUTEst directory at %s seems populated. Skipping clone.\n', matcutest_dir);
                     end
                 else
@@ -178,29 +180,30 @@ function setup(varargin)
                     end
                 end
                 
-                % Add the MatCUTEst directory to the path list
+                % 5. Add the MatCUTEst directory to the path list
                 paths_to_add{end+1} = matcutest_dir;
                 
-                % 2. Install if not already installed
+                % 6. Install if not already installed
                 if is_matcutest_installed
-                    if should_ask
+                    if ~skip_clone_msg
                         fprintf('MatCUTEst is already installed. Skipping installation script.\n');
                     end
                 else
                     fprintf('MatCUTEst not detected. Running installation script...\n');
                     current_dir = pwd;
                     try
-                        cd(matcutest_dir);
+                        matcutest_src_dir = fullfile(matcutest_dir, 'src');
+                        cd(matcutest_src_dir);
                         if exist('install.m', 'file')
                             try
                                 % Run install script targeting the src directory inside the repo
-                                install(fullfile(matcutest_dir, 'src'));
+                                install(matcutest_src_dir);
                                 fprintf('MatCUTEst installed successfully.\n');
                             catch ME_install
                                 fprintf('WARNING: MatCUTEst installation script failed: %s\n', ME_install.message);
                             end
                         else
-                            fprintf('WARNING: install.m not found in %s.\n', matcutest_dir);
+                            fprintf('WARNING: install.m not found in %s.\n', matcutest_src_dir);
                         end
                         cd(current_dir);
                     catch ME
