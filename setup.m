@@ -86,55 +86,29 @@ function setup(varargin)
         % =================================================================
         fprintf('\n--- Setting up S2MPJ ---\n\n');
         
-        % Define source (Python) and destination (MATLAB) paths
-        s2mpj_src_python = fullfile(setup_dir, 'python', 'optiprofiler', 'problem_libs', 's2mpj', 'src');
+        % Define destination (MATLAB) path for S2MPJ
         s2mpj_dest_matlab = s2mpj_dir;
-        s2mpj_dest_src = fullfile(s2mpj_dest_matlab, 'src');
 
-        % Create destination source directory if it does not exist
-        if ~exist(s2mpj_dest_src, 'dir')
-            mkdir(s2mpj_dest_src);
-        end
-        
-        % Attempt to copy S2MPJ source from Python directory
-        if exist(s2mpj_dest_src, 'dir') && length(dir(s2mpj_dest_src)) > 2
-            fprintf('S2MPJ already exists in the MATLAB directory. Skipping copy.\n');
-        elseif exist(s2mpj_src_python, 'dir')
-            fprintf('Copying S2MPJ from Python directory...\n');
-            try
-                % Copy content of s2mpj_src_python to s2mpj_dest_src
-                copyfile(s2mpj_src_python, s2mpj_dest_src);
-                fprintf('S2MPJ copied successfully.\n');
-            catch ME
-                fprintf('WARNING: Failed to copy S2MPJ automatically.\n');
-                fprintf('Error: %s\n', ME.message);
-                fprintf('Please manually copy the contents of:\n  %s\nto:\n  %s\n', s2mpj_src_python, s2mpj_dest_src);
-            end
+        % Check if S2MPJ directory exists and is not empty
+        if exist(s2mpj_dest_matlab, 'dir') && length(dir(s2mpj_dest_matlab)) > 2
+            fprintf('S2MPJ detected at %s. No further action required.\n', s2mpj_dest_matlab);
         else
-            % If source doesn't exist, we can't copy. User might have moved things or it's a fresh clone without submodules.
-            fprintf('WARNING: S2MPJ source not found at %s.\n', s2mpj_src_python);
-            % Try to clone S2MPJ from its Git repository.
-            fprintf('Cloning the S2MPJ repository from GitHub... This may take a few minutes.\n');
+            fprintf('S2MPJ not found. Cloning the repository...\n');
             
-            clone_cmd = sprintf('git clone https://github.com/GrattonToint/S2MPJ.git "%s"', s2mpj_dest_src);
+            % Clone S2MPJ from the OptiProfiler GitHub organization to s2mpj_dest_matlab
+            clone_cmd = sprintf('git clone https://github.com/optiprofiler/s2mpj_matlab.git "%s"', s2mpj_dest_matlab);
+            fprintf('Executing: %s\n', clone_cmd);
+            
             status = system(clone_cmd);
             if status == 0
                 fprintf('S2MPJ cloned successfully.\n');
             else
-                fprintf('ERROR: Failed to clone S2MPJ repository. Please download S2MPJ manually from:\n');
-                fprintf('https://github.com/GrattonToint/S2MPJ\n');
-                fprintf("and name the directory 'src' under:\n  %s\n", s2mpj_dest_matlab);
+                fprintf('ERROR: Failed to clone S2MPJ repository.\n');
+                fprintf('Please manually clone or download "s2mpj_matlab" from:\n');
+                fprintf('  https://github.com/optiprofiler/s2mpj_matlab\n');
+                fprintf('to:\n  %s\n', s2mpj_dest_matlab);
                 return; % Stop setup if cloning fails
             end
-        end
-        
-        % Verify S2MPJ installation
-        % We check if the src directory is populated (has more than just . and ..)
-        s2mpj_files = dir(s2mpj_dest_src);
-        if length(s2mpj_files) <= 2
-            fprintf('ERROR: S2MPJ library not found in %s.\n', s2mpj_dest_src);
-            fprintf('Please ensure S2MPJ is properly installed or copied manually.\n');
-            return; % Stop setup if S2MPJ is missing
         end
         
         
@@ -144,34 +118,36 @@ function setup(varargin)
         fprintf('\n--- Setting up MatCUTEst ---\n\n');
         
         paths_to_add = {src_dir, s2mpj_dir};
-        
         if isunix() && ~ismac()
             % Check if MatCUTEst is already installed
-            % Strategy: Check if 'matcutest' is in path or help returns something
             is_matcutest_installed = false;
-            
-            % Check 1: exist function
             if exist('matcutest', 'file') == 2 || exist('matcutest', 'file') == 3
                 is_matcutest_installed = true;
             else
-                % Check 2: help command
                 try
                     help_str = help('matcutest');
                     if ~isempty(help_str)
                         is_matcutest_installed = true;
                     end
                 catch
-                    % Ignore errors from help
                 end
             end
             
-            if is_matcutest_installed
-                fprintf('MatCUTEst is already installed.\n');
-                paths_to_add{end+1} = matcutest_dir;
-            else
-                fprintf('MatCUTEst is NOT detected.\n');
-                
-                % Ask user if they want to install it
+            % Check if the local MatCUTEst directory is populated
+            is_matcutest_dir_populated = exist(matcutest_dir, 'dir') && length(dir(matcutest_dir)) > 2;
+
+            % Determine if we need to ask the user
+            should_ask = true;
+            user_response = 'n'; 
+
+            if is_matcutest_installed && is_matcutest_dir_populated
+                fprintf('MatCUTEst detected and local directory seems populated. Skipping download query.\n');
+                should_ask = false;
+                user_response = 'y'; 
+            end
+
+            if should_ask
+                % Ask user if they want to download/setup MatCUTEst (includes OptiProfiler plugins)
                 if isfield(options, 'install_matcutest')
                     if options.install_matcutest
                         user_response = 'y';
@@ -179,83 +155,61 @@ function setup(varargin)
                         user_response = 'n';
                     end
                 else
-                    user_response = input('Do you want to download and install MatCUTEst? (y/n): ', 's');
+                    user_response = input('Do you want to download and install/setup MatCUTEst? (y/n): ', 's');
                 end
-                user_response = strtrim(lower(user_response));
-                
-                if strcmpi(user_response, 'y')
-                    % Define paths
-                    % matcutest_src_dir: The final destination for the installed MatCUTEst files.
-                    matcutest_src_dir = fullfile(matcutest_dir, 'src');
-                    % matcutest_clone_dir: A temporary directory to clone the repository into.
-                    % We use a temporary directory to avoid conflicts with the final 'src' directory
-                    % and to allow for a clean installation process as recommended by MatCUTEst.
-                    matcutest_clone_dir = fullfile(matcutest_dir, 'matcutest_compiled_git');
-                    
-                    % Clean up any previous incomplete attempts
-                    if exist(matcutest_clone_dir, 'dir')
-                        rmdir(matcutest_clone_dir, 's');
+            end
+            user_response = strtrim(lower(user_response));
+            
+            if strcmpi(user_response, 'y')
+                % 1. Clone MatCUTEst repository if needed
+                if exist(matcutest_dir, 'dir') && length(dir(matcutest_dir)) > 2
+                    if should_ask
+                         fprintf('MatCUTEst directory at %s seems populated. Skipping clone.\n', matcutest_dir);
                     end
-                    if exist(matcutest_src_dir, 'dir')
-                        rmdir(matcutest_src_dir, 's');
-                    end
-                    
-                    fprintf('Cloning MatCUTEst repository... This may take a few minutes.\n');
-                    % Git clone command
-                    % We clone into a temporary directory first.
-                    clone_cmd = sprintf('git clone https://github.com/matcutest/matcutest_compiled.git "%s"', matcutest_clone_dir);
-                    
+                else
+                    fprintf('Cloning MatCUTEst repository (optiprofiler fork)...\n');
+                    clone_cmd = sprintf('git clone https://github.com/optiprofiler/matcutest.git "%s"', matcutest_dir);
                     status = system(clone_cmd);
                     
                     if status == 0
                         fprintf('MatCUTEst cloned successfully.\n');
-                        
-                        % Run internal installation
-                        % The official installation command is:
-                        %   rm -rf matcutest_compiled && git clone ... && matlab -batch "cd matcutest_compiled; install;" && rm -rf matcutest_compiled
-                        %
-                        % We adapt this by:
-                        % 1. Cloning to 'matcutest_clone_dir'.
-                        % 2. Running 'install(matcutest_src_dir)' to install to our desired location.
-                        % 3. Removing 'matcutest_clone_dir'.
-                        
-                        fprintf('Running MatCUTEst installation script...\n');
-                        current_dir = pwd;
-                        try
-                            cd(matcutest_clone_dir);
-                            % Check for install.m
-                            if exist('install.m', 'file')
-                                % Run the install script/function.
-                                % We pass the destination directory to the install function.
-                                try
-                                    install(matcutest_src_dir);
-                                    fprintf('MatCUTEst installed successfully to %s.\n', matcutest_src_dir);
-                                    
-                                    % Add the directory to the path
-                                    paths_to_add{end+1} = matcutest_dir;
-                                    
-                                    % Clean up the cloned repository
-                                    cd(current_dir); % Move out before deleting
-                                    fprintf('Cleaning up cloned repository...\n');
-                                    rmdir(matcutest_clone_dir, 's');
-                                catch ME_install
-                                    fprintf('WARNING: MatCUTEst installation script failed: %s\n', ME_install.message);
-                                    cd(current_dir);
-                                end
-                            else
-                                fprintf('WARNING: install.m not found in MatCUTEst repository.\n');
-                                cd(current_dir);
-                            end
-                        catch ME
-                            fprintf('WARNING: An error occurred during MatCUTEst installation: %s\n', ME.message);
-                            cd(current_dir); % Ensure we switch back even on error
-                        end
                     else
-                        fprintf('WARNING: Failed to clone MatCUTEst. Please install manually.\n');
+                        fprintf('WARNING: Failed to clone MatCUTEst repository.\n');
+                    end
+                end
+                
+                % Add the MatCUTEst directory to the path list
+                paths_to_add{end+1} = matcutest_dir;
+                
+                % 2. Install if not already installed
+                if is_matcutest_installed
+                    if should_ask
+                        fprintf('MatCUTEst is already installed. Skipping installation script.\n');
                     end
                 else
-                    fprintf('Skip MatCUTEst installation.\n');
+                    fprintf('MatCUTEst not detected. Running installation script...\n');
+                    current_dir = pwd;
+                    try
+                        cd(matcutest_dir);
+                        if exist('install.m', 'file')
+                            try
+                                % Run install script targeting the src directory inside the repo
+                                install(fullfile(matcutest_dir, 'src'));
+                                fprintf('MatCUTEst installed successfully.\n');
+                            catch ME_install
+                                fprintf('WARNING: MatCUTEst installation script failed: %s\n', ME_install.message);
+                            end
+                        else
+                            fprintf('WARNING: install.m not found in %s.\n', matcutest_dir);
+                        end
+                        cd(current_dir);
+                    catch ME
+                        fprintf('WARNING: Error during MatCUTEst setup: %s\n', ME.message);
+                        cd(current_dir);
+                    end
                 end
+            else
+                fprintf('Skipping MatCUTEst setup.\n');
             end
         else
             fprintf('Not a Linux system. MatCUTEst is not supported and will be skipped.\n');
