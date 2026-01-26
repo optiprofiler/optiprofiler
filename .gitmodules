@@ -1,3 +1,0 @@
-[submodule "python/optiprofiler/problem_libs/s2mpj/src"]
-	path = python/optiprofiler/problem_libs/s2mpj/src
-	url = https://github.com/GrattonToint/S2MPJ.git
