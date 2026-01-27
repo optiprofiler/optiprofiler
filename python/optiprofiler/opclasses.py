@@ -890,7 +890,7 @@ class Problem:
 
     To create an instance of the class `Problem` for this problem, run:
 
-    >>> from optiprofiler.modules import Problem
+    >>> from optiprofiler.opclasses import Problem
     >>>
     >>> def rosen(x):
     ...     return 100 * (x[1] - x[0] ** 2) ** 2 + (1 - x[0]) ** 2
@@ -1791,7 +1791,7 @@ class FeaturedProblem(Problem):
 
         Parameters
         ----------
-        problem : `optiprofiler.modules.Problem`
+        problem : `optiprofiler.opclasses.Problem`
             Problem to be used in the benchmarking.
         feature : `optiprofiler.features.Feature`
             Feature to be used in the benchmarking.

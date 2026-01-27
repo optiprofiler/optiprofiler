@@ -1,9 +1,9 @@
-.. py:module:: optiprofiler.features
+.. py:module:: optiprofiler
 
 Problem features
 ================
 
-.. currentmodule:: optiprofiler.features
+.. currentmodule:: optiprofiler
 
 .. autosummary::
     :toctree: generated/

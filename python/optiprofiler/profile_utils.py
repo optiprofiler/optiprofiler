@@ -1,5 +1,6 @@
 import os
 import re
+import textwrap
 from pathlib import Path
 import numpy as np
 from matplotlib import pyplot as plt
@@ -22,7 +23,7 @@ def check_validity_problem_options(problem_options):
         if not isinstance(problem_options[ProblemOption.PLIBS], list):
             problem_options[ProblemOption.PLIBS] = [problem_options[ProblemOption.PLIBS]]
         mydir = Path(__file__).parent.resolve()
-        problem_dir = Path(mydir, '..', '..', 'problems').resolve()
+        problem_dir = Path(mydir, 'problem_libs').resolve()
         subfolders = [p.name for p in problem_dir.iterdir() if p.is_dir()]
         # Remove '__pycache__' and folders starting with '.'
         subfolder_names = [name for name in subfolders if not name.startswith('.') and name != '__pycache__']
@@ -811,11 +812,7 @@ def write_report(profile_options, results_plibs, path_report, path_readme_log):
                 else:
                     fid.write("This part is empty.\n")
         # Optionally update the readme log
-        try:
-            with open(path_readme_log, 'a') as fid_log:
-                fid_log.write("'report.txt': file, the report file of the current experiment, recording information like problem names and time spent on solving each problem for all the problem libraries.\n")
-        except Exception:
-            pass
+        add_to_readme(path_readme_log, 'report.txt', 'File, the report file of the current experiment, recording information like problem names and time spent on solving each problem for all the problem libraries.')
     except Exception as exc:
         if not profile_options[ProfileOption.SILENT]:
             logger.warning(f'Error occurred when writing the report to {path_report}: {exc}')
@@ -889,3 +886,67 @@ def process_results(results_plibs, profile_options):
                 merit_mins_merged[i_problem] = np.nanmin([merit_mins_merged[i_problem], merit_mins_plain_merged[idx]])
 
     return (merit_histories_merged, merit_outs_merged, merit_inits_merged, merit_mins_merged, n_evals_merged, problem_names_merged, problem_dims_merged)
+
+
+def init_readme(path_readme):
+    """
+    Initialize the README file with a header.
+    """
+    width = 100
+    name_width = 33
+    type_width = 8
+    gap = 2
+    try:
+        with open(path_readme, 'w') as f:
+            f.write("# Content of this folder\n\n")
+            header = f"{'File/Folder Name':<{name_width}}{' ' * gap}{'Type':<{type_width}}{' ' * gap}{'Description'}\n"
+            f.write(header)
+            f.write('-' * width + '\n')
+    except Exception:
+        pass
+
+
+def add_to_readme(path_readme, filename, description):
+    """
+    Add an entry to the README file.
+    """
+    width = 100
+    name_width = 33
+    type_width = 8
+    gap = 2
+    desc_width = width - name_width - type_width - 2 * gap
+
+    # Parse type and content from description
+    type_str = ""
+    content_str = description
+    if description.startswith("File, "):
+        type_str = "File"
+        content_str = description[6:]
+    elif description.startswith("Folder, "):
+        type_str = "Folder"
+        content_str = description[8:]
+    
+    # Capitalize the first letter of the content
+    if content_str:
+        content_str = content_str[0].upper() + content_str[1:]
+
+    try:
+        with open(path_readme, 'a') as f:
+            wrapped_filename = textwrap.wrap(filename, width=name_width)
+            wrapped_desc = textwrap.wrap(content_str, width=desc_width)
+            
+            if not wrapped_filename:
+                wrapped_filename = ['']
+            
+            n_lines = max(len(wrapped_filename), len(wrapped_desc))
+            
+            for i in range(n_lines):
+                f_part = wrapped_filename[i] if i < len(wrapped_filename) else ''
+                # Type only appears on the first line
+                t_part = type_str if i == 0 else ''
+                d_part = wrapped_desc[i] if i < len(wrapped_desc) else ''
+                
+                line = f"{f_part:<{name_width}}{' ' * gap}{t_part:<{type_width}}{' ' * gap}{d_part}\n"
+                f.write(line)
+    except Exception:
+        pass

@@ -1,11 +1,11 @@
-.. py:module:: optiprofiler.profiles
+.. py:module:: optiprofiler
 
 Profiles
 ========
 
-.. currentmodule:: optiprofiler.profiles
+.. currentmodule:: optiprofiler
 
 .. autosummary::
     :toctree: generated/
 
-    run_benchmark
+    benchmark

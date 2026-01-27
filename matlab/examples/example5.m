@@ -10,7 +10,7 @@ function example5()
     fprintf('\nStart Example 5...\n\n');
 
     % Start example 5.
-    % You can custom your own problem library by following the steps in `problems/README.txt`.
+    % You can custom your own problem library by following the steps in `optiprofiler/problem_libs/README.txt`.
     % After you finish the construction of your problem library, you can use it via the `plibs` option.
     % Here we use a custom problem library named "custom" as an example.
     options.plibs = {'custom', 's2mpj'};    % Here we use two problem libraries: "custom" and "s2mpj". You can use one or more problem libraries.

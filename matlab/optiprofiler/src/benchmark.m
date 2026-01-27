@@ -338,9 +338,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %
 %       - plibs: the problem libraries to be used. It should be a cell array of
 %         strings or chars. The available choices are subfolder names in the
-%         'problems' directory. There are three subfolders after installing the
-%         package: 's2mpj', 'matcutest', and 'custom'. Default setting is
-%         's2mpj'.
+%         'optiprofiler/problem_libs' directory. There are three subfolders
+%         after installing the package: 's2mpj', 'matcutest', and 'custom'.
+%         Default setting is 's2mpj'.
 %       - ptype: the type of the problems to be selected. It should be a string
 %         or char consisting of any combination of 'u' (unconstrained), 'b'
 %         (bound constrained), 'l' (linearly constrained), and 'n' (nonlinearly
@@ -386,8 +386,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %           MatCUTEst <https://github.com/matcutest>
 %
 %   2. If you want to use your own problem library, please check the README.txt
-%      in the directory 'problems/' or the guidance in our website
-%      <https://optprof.com> for more details.
+%      in the directory 'optiprofiler/problem_libs/' or the guidance in our
+%      website <https://optprof.com> for more details.
 %
 %   3. The problem library MatCUTEst is only available when the OS is Linux.
 %
@@ -687,17 +687,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     end
 
     if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
-        % Create a README.txt file to explain the content of the folder `path_log`.
         path_readme_log = fullfile(path_log, 'README.txt');
-        try
-            fid = fopen(path_readme_log, 'w');
-            fprintf(fid, "# Content of this folder\n\n");
-            fclose(fid);
-        catch
-            if ~profile_options.(ProfileOptionKey.SILENT.value)
-                fprintf("\nINFO: Failed to create the README.txt file for folder '%s'.\n", path_log);
-            end
-        end
+        initReadme(path_readme_log);
     else
         path_readme_log = '';
     end
@@ -707,14 +698,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         path_time_stamp = fullfile(path_log, ['time_stamp_', time_stamp, '.txt']);
         try
             fid = fopen(path_time_stamp, 'w');
-            fprintf(fid, time_stamp);
+            fprintf(fid, '%s', time_stamp);
             fclose(fid);
-            try
-                fid = fopen(path_readme_log, 'a');
-                fprintf(fid, "'time_stamp_%s.txt': file, recording the time stamp of the current experiment.\n", time_stamp);
-                fclose(fid);
-            catch
-            end
+            addToReadme(path_readme_log, ['time_stamp_', time_stamp, '.txt'], 'File, recording the time stamp of the current experiment.');
         catch
             if ~profile_options.(ProfileOptionKey.SILENT.value)
                 fprintf("\nINFO: Failed to create the time_stamp file for folder '%s'.\n", path_log);
@@ -725,24 +711,14 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value) && ~exist('problem', 'var')
         path_figs = fullfile(path_log, 'profile_figs');
         mkdir(path_figs);
-        try
-            fid = fopen(path_readme_log, 'a');
-            fprintf(fid, "'profile_figs': folder, containing all the FIG files of the profiles.\n");
-            fclose(fid);
-        catch
-        end
+        addToReadme(path_readme_log, 'profile_figs', 'Folder, containing all the FIG files of the profiles.');
     end
 
     if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
         try
             if exist('options_user', 'var')
                 save(fullfile(path_log, 'options_user.mat'), 'options_user');
-                try
-                    fid = fopen(path_readme_log, 'a');
-                    fprintf(fid, "'options_user.mat': file, storing the options provided by the user for the current experiment.\n");
-                    fclose(fid);
-                catch
-                end
+                addToReadme(path_readme_log, 'options_user.mat', 'File, storing the options provided by the user for the current experiment.');
                 options_refined = profile_options;
                 feature_options_keys = fieldnames(feature_options);
                 for i_option = 1:numel(feature_options_keys)
@@ -755,12 +731,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                     options_refined.(key) = problem_options.(key);
                 end
                 save(fullfile(path_log, 'options_refined.mat'), 'options_refined');
-                try
-                    fid = fopen(path_readme_log, 'a');
-                    fprintf(fid, "'options_refined.mat': file, storing the options refined by OptiProfiler for the current experiment.\n");
-                    fclose(fid);
-                catch
-                end
+                addToReadme(path_readme_log, 'options_refined.mat', 'File, storing the options refined by OptiProfiler for the current experiment.');
             end
         catch
             if ~profile_options.(ProfileOptionKey.SILENT.value)
@@ -769,26 +740,19 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         end
         log_file = fullfile(path_log, 'log.txt');
         diary(log_file);
-        try
-            fid = fopen(path_readme_log, 'a');
-            fprintf(fid, "'log.txt': file, the log file of the current experiment, recording printed information from MATLAB command window.\n");
-            fclose(fid);
-        catch
-        end
+        addToReadme(path_readme_log, 'log.txt', 'File, the log file of the current experiment, recording printed information from MATLAB command window.');
     end
 
     if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
         % Create a README.txt file to explain the content of the folder `path_stamp`.
         path_readme_feature = fullfile(path_stamp, 'README.txt');
         try
-            fid = fopen(path_readme_feature, 'w');
-            fprintf(fid, "# Content of this folder\n\n");
+            initReadme(path_readme_feature);
             if ~isempty(path_hist_plots)
-                fprintf(fid, "'history_plots': folder, containing all the history plots for each problem.\n");
-                fprintf(fid, "'history_plots_summary.pdf': file, the summary PDF of history plots for all problems.\n");
+                addToReadme(path_readme_feature, 'history_plots', 'Folder, containing all the history plots for each problem.');
+                addToReadme(path_readme_feature, 'history_plots_summary.pdf', 'File, the summary PDF of history plots for all problems.');
             end
-            fprintf(fid, "'test_log': folder, containing log files and other useful experimental data.\n");
-            fclose(fid);
+            addToReadme(path_readme_feature, 'test_log', 'Folder, containing log files and other useful experimental data.');
         catch
             if ~profile_options.(ProfileOptionKey.SILENT.value)
                 fprintf("\nINFO: Failed to create the README.txt file for folder '%s'.\n", path_stamp);
@@ -805,12 +769,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                 if ~profile_options.(ProfileOptionKey.SILENT.value)
                     fprintf("\nINFO: The script or function that calls `benchmark` function is copied to\n%s\n", path_log);
                 end
-                try
-                    fid = fopen(path_readme_log, 'a');
-                    fprintf(fid, "'%s': file, the script or function that calls `benchmark` function.\n", calling_script.file);
-                    fclose(fid);
-                catch
-                end
+                [~, script_name, script_ext] = fileparts(calling_script.file);
+                addToReadme(path_readme_log, [script_name, script_ext], 'File, the script or function that calls `benchmark` function.');
             end
         catch
             if ~profile_options.(ProfileOptionKey.SILENT.value)
@@ -850,9 +810,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         end
 
         try
-            fid = fopen(path_readme_feature, 'a');
-            fprintf(fid, "'detailed_profiles': folder, containing all the high-quality single profiles.\n");
-            fclose(fid);
+            addToReadme(path_readme_feature, 'detailed_profiles', 'Folder, containing all the high-quality single profiles.');
         catch
         end
 
@@ -987,7 +945,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 
             % Add the path of the problem library to the MATLAB path.          
             mydir = fileparts(mfilename('fullpath'));
-            plib_path = fullfile(mydir, '../../../problems', plib);
+            plib_path = fullfile(mydir, '../problem_libs', plib);
             addpath(plib_path);
 
             % Solve all the problems from the current problem library with the specified options and
@@ -1117,9 +1075,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
         try
             save(fullfile(path_log, 'data_for_loading.mat'), 'results_plibs');
-            fid = fopen(path_readme_log, 'a');
-            fprintf(fid, "'data_for_loading.mat': file, storing the data of the current experiment for future loading.\n");
-            fclose(fid);
+            addToReadme(path_readme_log, 'data_for_loading.mat', 'File, storing the data of the current experiment for future loading.');
         catch
             if ~profile_options.(ProfileOptionKey.SILENT.value)
                 fprintf("\nINFO: Failed to save the data of the current experiment.\n");
@@ -1340,16 +1296,14 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 
             if i_tol == 1
                 try
-                    fid = fopen(path_readme_feature, 'a');
-                    fprintf(fid, "'data_hist.pdf': file, the summary PDF of history-based data profiles for all tolerances.\n");
-                    fprintf(fid, "'data_out.pdf': file, the summary PDF of output-based data profiles for all tolerances.\n");
-                    fprintf(fid, "'perf_hist.pdf': file, the summary PDF of history-based performance profiles for all tolerances.\n");
-                    fprintf(fid, "'perf_out.pdf': file, the summary PDF of output-based performance profiles for all tolerances.\n");
+                    addToReadme(path_readme_feature, 'data_hist.pdf', 'File, the summary PDF of history-based data profiles for all tolerances.');
+                    addToReadme(path_readme_feature, 'data_out.pdf', 'File, the summary PDF of output-based data profiles for all tolerances.');
+                    addToReadme(path_readme_feature, 'perf_hist.pdf', 'File, the summary PDF of history-based performance profiles for all tolerances.');
+                    addToReadme(path_readme_feature, 'perf_out.pdf', 'File, the summary PDF of output-based performance profiles for all tolerances.');
                     if n_solvers == 2
-                        fprintf(fid, "'log-ratio_hist.pdf': file, the summary PDF of history-based log-ratio profiles for all tolerances.\n");
-                        fprintf(fid, "'log-ratio_out.pdf': file, the summary PDF of output-based log-ratio profiles for all tolerances.\n");
+                        addToReadme(path_readme_feature, 'log-ratio_hist.pdf', 'File, the summary PDF of history-based log-ratio profiles for all tolerances.');
+                        addToReadme(path_readme_feature, 'log-ratio_out.pdf', 'File, the summary PDF of output-based log-ratio profiles for all tolerances.');
                     end
-                    fclose(fid);
                 catch
                 end
             end
@@ -1438,9 +1392,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         % Save `curves` to path_log.
         save(fullfile(path_log, 'curves.mat'), 'curves');
         try
-            fid = fopen(path_readme_log, 'a');
-            fprintf(fid, "'curves.mat': file, storing the curves of the profiles.\n");
-            fclose(fid);
+            addToReadme(path_readme_log, 'curves.mat', 'File, storing the curves of the profiles.');
         catch
         end
     end
@@ -1452,9 +1404,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
         save(fullfile(path_log, 'profile_scores.mat'), 'profile_scores');
         try
-            fid = fopen(path_readme_log, 'a');
-            fprintf(fid, "'profile_scores.mat': file, storing the scores of solvers on each profile.\n");
-            fclose(fid);
+            addToReadme(path_readme_log, 'profile_scores.mat', 'File, storing the scores of solvers on each profile.');
 
             fid = fopen(path_report, 'a');
             fprintf(fid, "\n");
@@ -1499,9 +1449,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         end
 
         try
-            fid = fopen(path_readme_feature, 'a');
-            fprintf(fid, "'%s': file, the summary PDF of all the profiles for the feature '%s'.\n", summary_name, feature_name);
-            fclose(fid);
+            addToReadme(path_readme_feature, summary_name, sprintf('File, the summary PDF of all the profiles for the feature ''%s''.', feature_name));
         catch
         end
 

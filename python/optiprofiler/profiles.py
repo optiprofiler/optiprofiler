@@ -21,10 +21,10 @@ from matplotlib.lines import Line2D
 from matplotlib.backends import backend_pdf
 from matplotlib.ticker import MaxNLocator, FuncFormatter
 
-from .modules import Feature, Problem, FeaturedProblem
+from .opclasses import Feature, Problem, FeaturedProblem
 from .utils import FeatureName, ProfileOption, FeatureOption, ProblemOption, get_logger, setup_main_process_logging, setup_worker_logging
-from .loader import load_results
-from .profile_utils import check_validity_problem_options, check_validity_profile_options, get_default_problem_options, get_default_profile_options, compute_merit_values, create_stamp, merge_pdfs_with_pypdf, write_report, process_results
+from .loader import load_results, save_results_to_h5, save_options
+from .profile_utils import check_validity_problem_options, check_validity_profile_options, get_default_problem_options, get_default_profile_options, compute_merit_values, create_stamp, merge_pdfs_with_pypdf, write_report, process_results, init_readme, add_to_readme
 from .plotting import draw_hist, set_profile_context, format_float_scientific_latex, draw_profiles
 
 
@@ -399,9 +399,9 @@ def benchmark(
     plibs : list of str, optional
         The problem libraries to be used. It should be a list of
         strs. The available choices are subfolder names in the
-        'problems' directory. There are three subfolders after installing the
-        package: 's2mpj', 'matcutest', and 'custom'. Default setting is
-        's2mpj'.
+        'optiprofiler/problem_libs' directory. There are three subfolders after
+        installing the package: 's2mpj', 'matcutest', and 'custom'. Default
+        setting is 's2mpj'.
     ptype : str, optional
         The type of the problems to be selected. It should be a str
         consisting of any combination of 'u' (unconstrained), 'b'
@@ -492,8 +492,8 @@ def benchmark(
             MatCUTEst <https://github.com/matcutest>
 
     2. If you want to use your own problem library, please check the README.txt
-       in the directory 'problems/' or the guidance in our website
-       <https://www.optprof.com> for more details.
+       in the directory 'optiprofiler/problem_libs/' or the guidance in our
+       website <https://www.optprof.com> for more details.
 
     3. The problem library MatCUTEst is only available when the OS is Linux.
 
@@ -603,6 +603,7 @@ def benchmark(
         feature_options[FeatureOption.N_RUNS] = 5
 
     # Load the existing results if needed.
+    # If 'load' is specified, we skip the solving phase and restore the results from disk.
     if is_load:
         results_plibs, profile_options = load_results(problem_options, profile_options)
     
@@ -616,7 +617,7 @@ def benchmark(
 
     # Initialize outputs.
     if 'results_plibs' in locals() and results_plibs is not None:
-        n_solvers = results_plibs[0].fun_histories.shape[1]
+        n_solvers = results_plibs[0]['fun_histories'].shape[1]
     elif ProfileOption.SOLVER_NAMES in profile_options:
         n_solvers = len(profile_options[ProfileOption.SOLVER_NAMES])
     else:
@@ -673,12 +674,7 @@ def benchmark(
     # Create a README.txt file to explain the content of the folder `path_log`.
     if not profile_options[ProfileOption.SCORE_ONLY]:
         path_readme_log = path_log / 'README.txt'
-        try:
-            with path_readme_log.open('w') as f:
-                f.write("# Content of this folder\n\n")
-        except Exception:
-            if not profile_options[ProfileOption.SILENT]:
-                logger.warning(f'Fail to create the README.txt file in {path_log}.')
+        init_readme(path_readme_log)
     else:
         path_readme_log = None
 
@@ -688,52 +684,42 @@ def benchmark(
         try:
             with path_time_stamp.open('w') as f:
                 f.write(f'{time_stamp}')
-            try:
-                with path_readme_log.open('a') as f:
-                    f.write(f"'time_stamp_{time_stamp}.txt': file, recording the time stamp of the current experiment.\n")
-            except:
-                pass
+            add_to_readme(path_readme_log, f'time_stamp_{time_stamp}.txt', 'File, recording the time stamp of the current experiment.')
         except:
             if not profile_options[ProfileOption.SILENT]:
                 logger.warning(f'Fail to create the time stamp file in {path_log}.')
         
     if not profile_options[ProfileOption.SCORE_ONLY] and 'problem' not in locals():
-        path_figs = path_log / 'profile_figs'
-        path_figs.mkdir(parents=True, exist_ok=True)
-        try:
-            with path_readme_log.open('a') as f:
-                f.write(f"'profile_figs': folder, containing all the FIG files of the profiles.\n")
-        except:
-            pass
+        # path_figs = path_log / 'profile_figs'
+        # path_figs.mkdir(parents=True, exist_ok=True)
+        # try:
+        #     with path_readme_log.open('a') as f:
+        #         f.write(f"'profile_figs': folder, containing all the FIG files of the profiles.\n")
+        # except:
+        #     pass
+        pass
 
     # Save the options and record the log.
     if not profile_options[ProfileOption.SCORE_ONLY]:
         try:
+            # Save the user-provided options.
+            # We use pickle because options may contain function handles or other non-serializable objects.
             if 'options_user' in locals() and options_user is not None:
-                # TODO Save the dict of user options.
-                pass
+                save_options(options_user, path_log / 'options_user.pkl')
 
-                try:
-                    # TODO change the file name
-                    with path_readme_log.open('a') as f:
-                        f.write(f"'options_user': file,storing the options provided by the user for the current experiment.\n")
-                except:
-                    pass
-                options_refined = profile_options.copy()
-                feature_options_keys = list(feature_options.keys())
-                problem_options_keys = list(problem_options.keys())
-                for key in feature_options_keys:
-                    options_refined[key] = feature_options[key]
-                for key in problem_options_keys:
-                    options_refined[key] = problem_options[key]
-                # TODO Save the dict of refined options.
-                pass
-                try:
-                    # TODO change the file name
-                    with path_readme_log.open('a') as f:
-                        f.write(f"'options_refined': file, storing the options refined by OptiProfiler for the current experiment.\n")
-                except:
-                    pass
+                add_to_readme(path_readme_log, 'options_user.pkl', 'File, storing the options provided by the user for the current experiment.')
+
+            # Save the refined options (including defaults and internal settings).
+            options_refined = profile_options.copy()
+            feature_options_keys = list(feature_options.keys())
+            problem_options_keys = list(problem_options.keys())
+            for key in feature_options_keys:
+                options_refined[key] = feature_options[key]
+            for key in problem_options_keys:
+                options_refined[key] = problem_options[key]
+            
+            save_options(options_refined, path_log / 'options_refined.pkl')
+            add_to_readme(path_readme_log, 'options_refined.pkl', 'File, storing the options refined by OptiProfiler for the current experiment.')
         except Exception:
             if not profile_options[ProfileOption.SILENT]:
                 logger.warning(f'Failed to save the options of the current experiment.')
@@ -742,22 +728,17 @@ def benchmark(
         log_file = path_log / 'log.txt'
         log_queue, listener = setup_main_process_logging(log_file=log_file, level=logging.INFO)
 
-        try:
-            with path_readme_log.open('a') as f:
-                f.write(f"'log.txt': file, the log file of the current experiment, recording printed information from the screen.\n")
-        except:
-            pass
+        add_to_readme(path_readme_log, 'log.txt', 'File, the log file of the current experiment, recording printed information from the screen.')
 
     # Create a README.txt file to explain the content of the folder `path_stamp`.
     if not profile_options[ProfileOption.SCORE_ONLY]:
         path_readme_feature = path_stamp / 'README.txt'
         try:
-            with path_readme_feature.open('w') as f:
-                f.write("# Content of this folder\n\n")
-                if path_hist_plots is not None:
-                    f.write(f"'history_plots': folder, containing all the history plots for each problem.\n")
-                    f.write(f"'history_plots_summary.pdf': file, the summary PDF of history plots for all problems.\n")
-                f.write(f"'test_log': folder, containing log files and other useful experimental data.\n")
+            init_readme(path_readme_feature)
+            if path_hist_plots is not None:
+                add_to_readme(path_readme_feature, 'history_plots', 'Folder, containing all the history plots for each problem.')
+                add_to_readme(path_readme_feature, 'history_plots_summary.pdf', 'File, the summary PDF of history plots for all problems.')
+            add_to_readme(path_readme_feature, 'test_log', 'Folder, containing log files and other useful experimental data.')
         except Exception:
             if not profile_options[ProfileOption.SILENT]:
                 logger.warning(f'Fail to create the README.txt file in {path_stamp}.')
@@ -768,11 +749,7 @@ def benchmark(
             caller_path = inspect.stack()[1].filename
             if caller_path is not None and Path(caller_path).is_file():
                 shutil.copy2(caller_path, path_log / os.path.basename(caller_path))
-                try:
-                    with path_readme_log.open('a') as f:
-                        f.write(f"'{os.path.basename(caller_path)}': file, the script or function that calls the benchmark function.\n")
-                except:
-                    pass
+                add_to_readme(path_readme_log, os.path.basename(caller_path), 'File, the script or function that calls the benchmark function.')
         except Exception:
             if not profile_options[ProfileOption.SILENT]:
                 logger.warning(f'Failed to copy the script or function that calls `benchmark` function to the log directory.')
@@ -801,8 +778,7 @@ def benchmark(
                 path_log_ratio_out.mkdir(parents=True, exist_ok=True)
 
         try:
-            with path_readme_feature.open('a') as f:
-                f.write(f"'detailed_profiles': folder, containing all the high-quality single profiles.\n")
+            add_to_readme(path_readme_feature, 'detailed_profiles', 'Folder, containing all the high-quality single profiles.')
         except:
             pass
 
@@ -952,8 +928,13 @@ def benchmark(
             return solver_scores, None, None
 
     # Store the data for loading.
-    # TODO
-    pass
+    # This HDF5 file contains all the numerical results of the experiment.
+    # It can be used to reload the experiment state using the 'load' option.
+    try:
+        save_results_to_h5(results_plibs, path_log / 'data_for_loading.h5')
+    except Exception as e:
+        if not profile_options[ProfileOption.SILENT]:
+            logger.warning(f'Failed to save the data of the current experiment: {e}')
 
 
 
@@ -1120,14 +1101,14 @@ def benchmark(
         if n_solvers == 2:
             pdf_log_ratio_hist_summary.close()
             pdf_log_ratio_out_summary.close()
-        with open(path_readme_feature, 'a') as f:
-            f.write("'data_hist.pdf': file, the summary PDF of history-based data profiles for all tolerances.\n")
-            f.write("'data_out.pdf': file, the summary PDF of output-based data profiles for all tolerances.\n")
-            f.write("'perf_hist.pdf': file, the summary PDF of history-based performance profiles for all tolerances.\n")
-            f.write("'perf_out.pdf': file, the summary PDF of output-based performance profiles for all tolerances.\n")
-            if n_solvers == 2:
-                f.write("'log-ratio_hist.pdf': file, the summary PDF of history-based log-ratio profiles for all tolerances.\n")
-                f.write("'log-ratio_out.pdf': file, the summary PDF of output-based log-ratio profiles for all tolerances.\n")
+        
+        add_to_readme(path_readme_feature, 'data_hist.pdf', 'File, the summary PDF of history-based data profiles for all tolerances.')
+        add_to_readme(path_readme_feature, 'data_out.pdf', 'File, the summary PDF of output-based data profiles for all tolerances.')
+        add_to_readme(path_readme_feature, 'perf_hist.pdf', 'File, the summary PDF of history-based performance profiles for all tolerances.')
+        add_to_readme(path_readme_feature, 'perf_out.pdf', 'File, the summary PDF of output-based performance profiles for all tolerances.')
+        if n_solvers == 2:
+            add_to_readme(path_readme_feature, 'log-ratio_hist.pdf', 'File, the summary PDF of history-based log-ratio profiles for all tolerances.')
+            add_to_readme(path_readme_feature, 'log-ratio_out.pdf', 'File, the summary PDF of output-based log-ratio profiles for all tolerances.')
         
         # TODO Record the names of the problems all the solvers failed to meet the convergence test for every tolerance.
         pass
@@ -1326,9 +1307,9 @@ def _solve_all_problems(solvers, plib, feature, problem_options, profile_options
         option_select.pop(key, None)
 
     current_dir = Path(__file__).parent.resolve()
-    module_file_path = current_dir / '../..' / 'problems' / plib / f'{plib}_tools.py'
+    module_file_path = current_dir / 'problem_libs' / plib / f'{plib}_tools.py'
     module_file_path = module_file_path.resolve()
-    module_name = 'problems.' + plib + '.' + plib + '_tools'
+    module_name = 'optiprofiler.problem_libs.' + plib + '.' + plib + '_tools'
 
     # Import the problem library module.
     try:
@@ -1473,9 +1454,9 @@ def _solve_all_problems(solvers, plib, feature, problem_options, profile_options
 def _solve_one_problem_wrapper(solvers, feature, problem_name, len_problem_names, profile_options, is_plot, path_hist_plots, plib):
     logger = get_logger(__name__)
     current_dir = Path(__file__).parent.resolve()
-    module_file_path = current_dir / '../..' / 'problems' / plib / f'{plib}_tools.py'
+    module_file_path = current_dir / 'problem_libs' / plib / f'{plib}_tools.py'
     module_file_path = module_file_path.resolve()
-    module_name = 'problems.' + plib + '.' + plib + '_tools'
+    module_name = 'optiprofiler.problem_libs.' + plib + '.' + plib + '_tools'
     # Import the problem library module.
     try:
         spec = importlib.util.spec_from_file_location(module_name, str(module_file_path))

@@ -140,12 +140,7 @@ function writeReport(profile_options, results_plibs, path_report, path_readme_lo
             end
         end
         fclose(fid);
-        try
-            fid = fopen(path_readme_log, 'a');
-            fprintf(fid, "'report.txt': file, the report file of the current experiment, recording information like problem names and time spent on solving each problem for all the problem libraries.\n");
-            fclose(fid);
-        catch
-        end
+        addToReadme(path_readme_log, 'report.txt', 'File, the report file of the current experiment, recording information like problem names and time spent on solving each problem for all the problem libraries.');
     catch
         if ~profile_options.(ProfileOptionKey.SILENT.value)
             fprintf("INFO: Error occurred when writing the report to %s.\n", path_report);

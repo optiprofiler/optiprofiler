@@ -7,13 +7,13 @@ This guide explains how to create and integrate your own optimization problem li
 If you want to quickly create and use your own optimization problems, follow these steps:
 
 1. Create Your Problem Files:
-   - Use the existing `.m` files (`custom1.m`, `custom2.m`, `custom3.m`, `custom4.m`) in the `problems/custom/matlab_problems/` folder as examples to define your own problems. Each file should define a MATLAB function that returns a `Problem` object.
-   - Save your new `.m` files in the `problems/custom/matlab_problems/` folder.
+   - Use the existing `.m` files (`custom1.m`, `custom2.m`, `custom3.m`, `custom4.m`) in the `matlab/optiprofiler/problem_libs/custom/matlab_problems/` folder as examples to define your own problems. Each file should define a MATLAB function that returns a `Problem` object.
+   - Save your new `.m` files in the `matlab/optiprofiler/problem_libs/custom/matlab_problems/` folder.
    - You may delete the existing example files (`custom1.m`, `custom2.m`, `custom3.m`, `custom4.m`) if you don't need them.
 
-2. Run `custom_getInfo` in the `problems/custom/` Path:
-   - Navigate to the `problems/custom/` folder in MATLAB.
-   - Run the `custom_getInfo` function. This function will automatically generate a `.mat` file in the `problems/custom/` folder.
+2. Run `custom_getInfo` in the `matlab/optiprofiler/problem_libs/custom/` Path:
+   - Navigate to the `matlab/optiprofiler/problem_libs/custom/` folder in MATLAB.
+   - Run the `custom_getInfo` function. This function will automatically generate a `.mat` file in the `matlab/optiprofiler/problem_libs/custom/` folder.
 
 That's it! You can now use your custom problems in OptiProfiler by specifying `options.plibs = {'custom'}` in your benchmarking script. Check `Options for problems` part in `benchmark.m` for more details.
 
@@ -30,21 +30,23 @@ The `custom` folder demonstrates one possible implementation approach.
 
 ### 1. Create Problem Library Folder
 
-First, create a new subfolder (e.g., `your_problem_lib/`) within the `problems/` folder in the OptiProfiler project root directory:
+First, create a new subfolder (e.g., `your_problem_lib/`) within the `matlab/optiprofiler/problem_libs/` folder in the OptiProfiler project root directory:
 
     optiprofiler/
-    ├── problems/
-    │   ├── custom/               <-- Example implementation
-    │   │   ├── custom_load.m
-    │   │   ├── custom_select.m
-    │   │   └── matlab_problems/  <-- MATLAB implementation of example problems
-    │   ├── your_problem_lib/     <-- Your custom problem library folder
-    │   │   ├── your_problem_lib_load.m
-    │   │   └── your_problem_lib_select.m
-    │   ├── s2mpj/                <-- Built-in problem library
-    │   └── matcutest/            <-- Another built-in problem library
-    ├── matlab/                   <-- Core MATLAB functions
-    └── ...                       <-- Other OptiProfiler components
+    ├── matlab/
+    │   ├── optiprofiler/
+    │   │   ├── problem_libs/
+    │   │   │   ├── custom/               <-- Example implementation
+    │   │   │   │   ├── custom_load.m
+    │   │   │   │   ├── custom_select.m
+    │   │   │   │   └── matlab_problems/  <-- MATLAB implementation of example problems
+    │   │   │   ├── your_problem_lib/     <-- Your custom problem library folder
+    │   │   │   │   ├── your_problem_lib_load.m
+    │   │   │   │   └── your_problem_lib_select.m
+    │   │   │   ├── s2mpj/                <-- Built-in problem library
+    │   │   │   └── matcutest/            <-- Another built-in problem library
+    │   │   ├── src/                      <-- Core MATLAB functions
+    └── ...                               <-- Other OptiProfiler components
 
 ### 2. Implement Core Functions
 

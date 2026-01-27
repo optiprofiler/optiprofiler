@@ -4,6 +4,7 @@ import glob
 import datetime
 import numpy as np
 import h5py
+import pickle
 from typing import Dict, List, Any, Tuple, Optional, Union, Callable
 from enum import Enum
 from pathlib import Path
@@ -176,8 +177,14 @@ def truncate_problems(results_plib: Dict[str, Any], problem_options: Dict[str, A
     results_plib['maxcv_histories'] = results_plib['maxcv_histories'][p_to_load, :, :, :]
     results_plib['fun_outs'] = results_plib['fun_outs'][p_to_load, :, :]
     results_plib['maxcv_outs'] = results_plib['maxcv_outs'][p_to_load, :, :]
-    results_plib['fun_inits'] = results_plib['fun_inits'][p_to_load, :]
-    results_plib['maxcv_inits'] = results_plib['maxcv_inits'][p_to_load, :]
+    if results_plib['fun_inits'].ndim == 1:
+        results_plib['fun_inits'] = results_plib['fun_inits'][p_to_load]
+    else:
+        results_plib['fun_inits'] = results_plib['fun_inits'][p_to_load, :]
+    if results_plib['maxcv_inits'].ndim == 1:
+        results_plib['maxcv_inits'] = results_plib['maxcv_inits'][p_to_load]
+    else:
+        results_plib['maxcv_inits'] = results_plib['maxcv_inits'][p_to_load, :]
     results_plib['n_evals'] = results_plib['n_evals'][p_to_load, :, :]
     results_plib['problem_names'] = [results_plib['problem_names'][i] for i in p_to_load]
     results_plib['problem_types'] = [results_plib['problem_types'][i] for i in p_to_load]
@@ -190,7 +197,10 @@ def truncate_problems(results_plib: Dict[str, Any], problem_options: Dict[str, A
     results_plib['solvers_successes'] = results_plib['solvers_successes'][p_to_load, :, :]
     results_plib['merit_histories'] = results_plib['merit_histories'][p_to_load, :, :, :]
     results_plib['merit_outs'] = results_plib['merit_outs'][p_to_load, :, :]
-    results_plib['merit_inits'] = results_plib['merit_inits'][p_to_load, :]
+    if results_plib['merit_inits'].ndim == 1:
+        results_plib['merit_inits'] = results_plib['merit_inits'][p_to_load]
+    else:
+        results_plib['merit_inits'] = results_plib['merit_inits'][p_to_load, :]
     
     return results_plib
 
@@ -231,7 +241,22 @@ def recompute_merits(results_plib: Dict[str, Any], merit_fun: Callable) -> Dict[
 
 
 def load_results_from_h5(file_path: str) -> List[Dict[str, Any]]:
-    """Load results from an HDF5 file."""
+    """
+    Load results from an HDF5 file.
+    
+    This function reads the HDF5 file created by `save_results_to_h5` and reconstructs the list of problem library results.
+    It handles the decoding of strings (which are stored as bytes in HDF5) and the unpickling of complex objects.
+    
+    Parameters
+    ----------
+    file_path : str
+        The path to the HDF5 file to load.
+        
+    Returns
+    -------
+    results_plibs : List[Dict[str, Any]]
+        The loaded results.
+    """
     results_plibs = []
     
     with h5py.File(file_path, 'r') as f:
@@ -243,19 +268,46 @@ def load_results_from_h5(file_path: str) -> List[Dict[str, Any]]:
             # Load all datasets in this problem library
             for key in plib_group.keys():
                 if isinstance(plib_group[key], h5py.Dataset):
+                    # Check if it is a pickled dataset
+                    if key.endswith('_pickled'):
+                        data_void = plib_group[key][...]
+                        data = pickle.loads(data_void.tobytes())
+                        real_key = key[:-8]
+                        plib_data[real_key] = data
+                        continue
+
                     data = plib_group[key][...]
                     
-                    # Convert string datasets back to lists
+                    # Convert string datasets back to lists or scalars
                     if data.dtype.kind == 'O' or data.dtype.kind == 'S' or data.dtype.kind == 'U':
                         if data.ndim == 1:
                             data = [s.decode('utf-8') if isinstance(s, bytes) else s for s in data]
+                        elif data.ndim == 0:
+                            s = data.item()
+                            data = s.decode('utf-8') if isinstance(s, bytes) else s
                         
                     plib_data[key] = data
                 elif isinstance(plib_group[key], h5py.Group):
                     # Handle nested groups
                     nested_data = {}
                     for nested_key in plib_group[key].keys():
-                        nested_data[nested_key] = plib_group[key][nested_key][...]
+                        if nested_key.endswith('_pickled'):
+                            data_void = plib_group[key][nested_key][...]
+                            data = pickle.loads(data_void.tobytes())
+                            real_nested_key = nested_key[:-8]
+                            nested_data[real_nested_key] = data
+                            continue
+
+                        nested_val = plib_group[key][nested_key][...]
+                        
+                        if nested_val.dtype.kind == 'O' or nested_val.dtype.kind == 'S' or nested_val.dtype.kind == 'U':
+                            if nested_val.ndim == 1:
+                                nested_val = [s.decode('utf-8') if isinstance(s, bytes) else s for s in nested_val]
+                            elif nested_val.ndim == 0:
+                                s = nested_val.item()
+                                nested_val = s.decode('utf-8') if isinstance(s, bytes) else s
+                        
+                        nested_data[nested_key] = nested_val
                     plib_data[key] = nested_data
             
             results_plibs.append(plib_data)
@@ -264,7 +316,26 @@ def load_results_from_h5(file_path: str) -> List[Dict[str, Any]]:
 
 
 def load_results(problem_options: Dict[str, Any], profile_options: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
-    """Load the results by the given options."""
+    """
+    Load the results by the given options.
+    
+    This function restores the state of a previous experiment by loading the data from the 'data_for_loading.h5' file.
+    It also filters the loaded data based on the current problem and profile options (e.g., selecting specific solvers or problems).
+    
+    Parameters
+    ----------
+    problem_options : Dict[str, Any]
+        The problem options used to filter the loaded problems.
+    profile_options : Dict[str, Any]
+        The profile options used to specify which experiment to load (via 'load' option) and how to filter solvers.
+        
+    Returns
+    -------
+    results_plibs : List[Dict[str, Any]]
+        The loaded and filtered results.
+    profile_options : Dict[str, Any]
+        The updated profile options (e.g., solver names might be updated based on loaded data).
+    """
     results_plibs = []
     
     # Check if 'load' option is provided
@@ -384,7 +455,20 @@ def load_results(problem_options: Dict[str, Any], profile_options: Dict[str, Any
 
 
 def save_results_to_h5(results_plibs: List[Dict[str, Any]], file_path: str) -> None:
-    """Save results to an HDF5 file."""
+    """
+    Save results to an HDF5 file.
+    
+    This function iterates through the list of problem library results and saves them into an HDF5 file.
+    It handles different data types including numpy arrays, lists of strings, and nested dictionaries.
+    For data types not natively supported by HDF5 (like lists of numbers or mixed types), it uses pickle serialization.
+    
+    Parameters
+    ----------
+    results_plibs : List[Dict[str, Any]]
+        A list of dictionaries, where each dictionary contains the results for a problem library.
+    file_path : str
+        The path to the HDF5 file where the results will be saved.
+    """
     with h5py.File(file_path, 'w') as f:
         # Save each problem library
         for i, plib in enumerate(results_plibs):
@@ -394,7 +478,11 @@ def save_results_to_h5(results_plibs: List[Dict[str, Any]], file_path: str) -> N
             for key, value in plib.items():
                 if isinstance(value, np.ndarray):
                     # Save numpy arrays directly
-                    plib_group.create_dataset(key, data=value, compression='gzip')
+                    # Note: HDF5 does not support compression for scalar datasets (ndim=0).
+                    if value.ndim == 0:
+                        plib_group.create_dataset(key, data=value)
+                    else:
+                        plib_group.create_dataset(key, data=value, compression='gzip')
                 elif isinstance(value, list):
                     # Convert lists to appropriate datasets
                     if all(isinstance(item, str) for item in value):
@@ -404,25 +492,35 @@ def save_results_to_h5(results_plibs: List[Dict[str, Any]], file_path: str) -> N
                     else:
                         # Other lists (assuming numeric)
                         try:
-                            plib_group.create_dataset(key, data=np.array(value), compression='gzip')
+                            arr = np.array(value)
+                            # Handle scalar arrays resulting from single-element lists
+                            if arr.ndim == 0:
+                                plib_group.create_dataset(key, data=arr)
+                            else:
+                                plib_group.create_dataset(key, data=arr, compression='gzip')
                         except:
-                            # If conversion fails, store as pickled object
-                            import pickle
+                            # If conversion fails (e.g., mixed types), store as pickled object
                             plib_group.create_dataset(f"{key}_pickled", data=np.void(pickle.dumps(value)))
                 elif isinstance(value, dict):
                     # Handle nested dictionaries
                     nested_group = plib_group.create_group(key)
                     for nested_key, nested_value in value.items():
                         if isinstance(nested_value, np.ndarray):
-                            nested_group.create_dataset(nested_key, data=nested_value, compression='gzip')
+                            if nested_value.ndim == 0:
+                                nested_group.create_dataset(nested_key, data=nested_value)
+                            else:
+                                nested_group.create_dataset(nested_key, data=nested_value, compression='gzip')
                         elif isinstance(nested_value, list) and all(isinstance(item, str) for item in nested_value):
                             string_dt = h5py.special_dtype(vlen=str)
                             nested_group.create_dataset(nested_key, data=np.array(nested_value, dtype=string_dt))
                         else:
                             try:
-                                nested_group.create_dataset(nested_key, data=np.array(nested_value), compression='gzip')
+                                arr = np.array(nested_value)
+                                if arr.ndim == 0:
+                                    nested_group.create_dataset(nested_key, data=arr)
+                                else:
+                                    nested_group.create_dataset(nested_key, data=arr, compression='gzip')
                             except:
-                                import pickle
                                 nested_group.create_dataset(f"{nested_key}_pickled", data=np.void(pickle.dumps(nested_value)))
                 else:
                     # Scalar values
@@ -433,6 +531,26 @@ def save_results_to_h5(results_plibs: List[Dict[str, Any]], file_path: str) -> N
                         try:
                             plib_group.create_dataset(key, data=value)
                         except:
-                            import pickle
                             plib_group.create_dataset(f"{key}_pickled", data=np.void(pickle.dumps(value)))
+
+
+def save_options(options: Dict[str, Any], file_path: Union[str, Path]) -> None:
+    """
+    Save the options dictionary to a pickle file.
+    
+    This is necessary because options dictionaries often contain Python objects 
+    (like function handles or Enum members) that cannot be saved to HDF5 or JSON.
+    
+    Parameters
+    ----------
+    options : Dict[str, Any]
+        The options dictionary to save.
+    file_path : Union[str, Path]
+        The path to the pickle file.
+    """
+    try:
+        with open(file_path, 'wb') as f:
+            pickle.dump(options, f)
+    except Exception as e:
+        get_logger().warning(f"Failed to save options to {file_path}: {e}")
 

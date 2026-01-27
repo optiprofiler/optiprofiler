@@ -65,6 +65,3 @@ ignore$
 ^\.github/actions/spelling/
 ^\Q.github/workflows/spelling.yml\E$
 /tests/__init__.py$
-^\Qproblems/s2mpj/probinfo.csv\E$
-^\Qproblems/s2mpj/probinfo.mat\E$
-^\Qproblems/s2mpj/probinfo.txt\E$
