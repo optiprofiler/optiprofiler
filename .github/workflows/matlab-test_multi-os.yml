@@ -39,7 +39,8 @@ jobs:
             root_dir = pwd()
 
             % Setup OptiProfiler
-            setup
+            options = struct('install_matcutest', true);
+            setup(options);
 
             % Create a directory for the output
             mkdir('output')

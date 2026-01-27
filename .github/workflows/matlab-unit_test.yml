@@ -42,7 +42,8 @@ jobs:
         with:
           command: |
             % Setup OptiProfiler
-            setup
+            options = struct('install_matcutest', true);
+            setup(options);
             
             % Run tests
             cd matlab/optiprofiler/

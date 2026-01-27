@@ -16,8 +16,13 @@ function stress_test(benchmark_id)
     seed = 100*mod(year(dt), 100) + week(dt);
     fprintf("Seed: %d\n\n", seed);
     rand_stream = RandStream("mt19937ar", "Seed", seed);
-    random_idx = rand_stream.randperm(numel(pb_list), 3);
-    selected_pb_list = pb_list(random_idx);
+    num_to_select = min(numel(pb_list), 3);
+    if num_to_select > 0
+        random_idx = rand_stream.randperm(numel(pb_list), num_to_select);
+        selected_pb_list = pb_list(random_idx);
+    else
+        error("No problems found satisfying the criteria (dimension 2000-10000, unconstrained).");
+    end
     fprintf("Selected problem names: %s\n\n", strjoin(selected_pb_list, ', '));
 
     % Set options for OptiProfiler.
