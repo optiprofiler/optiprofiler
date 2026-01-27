@@ -538,3 +538,10 @@ nanargmin
 paramname
 paramvalue
 vals
+ADDTOREADME
+INITREADME
+opclasses
+pkl
+strcmpi
+tobytes
+unpickling
