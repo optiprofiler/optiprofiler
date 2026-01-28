@@ -1211,6 +1211,16 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             end
         end
 
+        % Check whether the profiles can be drawn for the current tolerance.
+        is_hist_drawable = any(~isnan(work_hist), 'all');
+        is_out_drawable = any(~isnan(work_out), 'all');
+        if ~is_hist_drawable && ~profile_options.(ProfileOptionKey.SILENT.value)
+            fprintf('INFO: All solvers failed to meet the convergence test for tolerance %s in history-based profiles.\n', tolerance_str);
+        end
+        if ~is_out_drawable && ~profile_options.(ProfileOptionKey.SILENT.value)
+            fprintf('INFO: All solvers failed to meet the convergence test for tolerance %s in output-based profiles.\n', tolerance_str);
+        end
+
         % Draw the profiles.
         cell_axs_summary_out = {};
         if is_perf && is_data && is_log_ratio
@@ -1236,73 +1246,99 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             cell_axs_summary_out = {};
         end
 
-        [fig_perf_hist, fig_data_hist, fig_log_ratio_hist, curves{i_tol}.hist] = drawProfiles(work_hist, problem_dims_merged, solver_names, tolerance_latex, cell_axs_summary_hist, true, is_perf, is_data, is_log_ratio, profile_options, curves{i_tol}.hist);
-        [fig_perf_out, fig_data_out, fig_log_ratio_out, curves{i_tol}.out] = drawProfiles(work_out, problem_dims_merged, solver_names, tolerance_latex, cell_axs_summary_out, is_output_based, is_perf, is_data, is_log_ratio, profile_options, curves{i_tol}.out);
+        if is_hist_drawable
+            [fig_perf_hist, fig_data_hist, fig_log_ratio_hist, curves{i_tol}.hist] = drawProfiles(work_hist, problem_dims_merged, solver_names, tolerance_latex, cell_axs_summary_hist, true, is_perf, is_data, is_log_ratio, profile_options, curves{i_tol}.hist);
+        end
+        if is_out_drawable
+            [fig_perf_out, fig_data_out, fig_log_ratio_out, curves{i_tol}.out] = drawProfiles(work_out, problem_dims_merged, solver_names, tolerance_latex, cell_axs_summary_out, is_output_based, is_perf, is_data, is_log_ratio, profile_options, curves{i_tol}.out);
+        end
 
         % Clear working memory.
         clear work_hist;
         clear work_out;
 
         if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
-            pdf_perf_hist = fullfile(path_perf_hist, ['perf_hist_', int2str(i_tol), '.pdf']);
-            figure_perf_hist = fullfile(path_figs, ['perf_hist_', int2str(i_tol), '.fig']);
-            exportgraphics(fig_perf_hist, pdf_perf_hist, 'ContentType', 'vector');
-            savefig(fig_perf_hist, figure_perf_hist);
-            pdf_perf_out = fullfile(path_perf_out, ['perf_out_', int2str(i_tol), '.pdf']);
-            figure_perf_out = fullfile(path_figs, ['perf_out_', int2str(i_tol), '.fig']);
-            exportgraphics(fig_perf_out, pdf_perf_out, 'ContentType', 'vector');
-            savefig(fig_perf_out, figure_perf_out);
-            pdf_data_hist = fullfile(path_data_hist, ['data_hist_', int2str(i_tol), '.pdf']);
-            figure_data_hist = fullfile(path_figs, ['data_hist_', int2str(i_tol), '.fig']);
-            exportgraphics(fig_data_hist, pdf_data_hist, 'ContentType', 'vector');
-            savefig(fig_data_hist, figure_data_hist);
-            pdf_data_out = fullfile(path_data_out, ['data_out_', int2str(i_tol), '.pdf']);
-            figure_data_out = fullfile(path_figs, ['data_out_', int2str(i_tol), '.fig']);
-            exportgraphics(fig_data_out, pdf_data_out, 'ContentType', 'vector');
-            savefig(fig_data_out, figure_data_out);
+            if is_hist_drawable
+                pdf_perf_hist = fullfile(path_perf_hist, ['perf_hist_', int2str(i_tol), '.pdf']);
+                figure_perf_hist = fullfile(path_figs, ['perf_hist_', int2str(i_tol), '.fig']);
+                exportgraphics(fig_perf_hist, pdf_perf_hist, 'ContentType', 'vector');
+                savefig(fig_perf_hist, figure_perf_hist);
+                pdf_data_hist = fullfile(path_data_hist, ['data_hist_', int2str(i_tol), '.pdf']);
+                figure_data_hist = fullfile(path_figs, ['data_hist_', int2str(i_tol), '.fig']);
+                exportgraphics(fig_data_hist, pdf_data_hist, 'ContentType', 'vector');
+                savefig(fig_data_hist, figure_data_hist);
+            end
+            if is_out_drawable
+                pdf_perf_out = fullfile(path_perf_out, ['perf_out_', int2str(i_tol), '.pdf']);
+                figure_perf_out = fullfile(path_figs, ['perf_out_', int2str(i_tol), '.fig']);
+                exportgraphics(fig_perf_out, pdf_perf_out, 'ContentType', 'vector');
+                savefig(fig_perf_out, figure_perf_out);
+                pdf_data_out = fullfile(path_data_out, ['data_out_', int2str(i_tol), '.pdf']);
+                figure_data_out = fullfile(path_figs, ['data_out_', int2str(i_tol), '.fig']);
+                exportgraphics(fig_data_out, pdf_data_out, 'ContentType', 'vector');
+                savefig(fig_data_out, figure_data_out);
+            end
             if n_solvers <= 2
-                pdf_log_ratio_hist = fullfile(path_log_ratio_hist, ['log-ratio_hist_', int2str(i_tol), '.pdf']);
-                figure_log_ratio_hist = fullfile(path_figs, ['log-ratio_hist_', int2str(i_tol), '.fig']);
-                exportgraphics(fig_log_ratio_hist, pdf_log_ratio_hist, 'ContentType', 'vector');
-                savefig(fig_log_ratio_hist, figure_log_ratio_hist);
-                pdf_log_ratio_out = fullfile(path_log_ratio_out, ['log-ratio_out_', int2str(i_tol), '.pdf']);
-                figure_log_ratio_out = fullfile(path_figs, ['log-ratio_out_', int2str(i_tol), '.fig']);
-                exportgraphics(fig_log_ratio_out, pdf_log_ratio_out, 'ContentType', 'vector');
-                savefig(fig_log_ratio_out, figure_log_ratio_out);
+                if is_hist_drawable
+                    pdf_log_ratio_hist = fullfile(path_log_ratio_hist, ['log-ratio_hist_', int2str(i_tol), '.pdf']);
+                    figure_log_ratio_hist = fullfile(path_figs, ['log-ratio_hist_', int2str(i_tol), '.fig']);
+                    exportgraphics(fig_log_ratio_hist, pdf_log_ratio_hist, 'ContentType', 'vector');
+                    savefig(fig_log_ratio_hist, figure_log_ratio_hist);
+                end
+                if is_out_drawable && ~isempty(fig_log_ratio_out)
+                    pdf_log_ratio_out = fullfile(path_log_ratio_out, ['log-ratio_out_', int2str(i_tol), '.pdf']);
+                    figure_log_ratio_out = fullfile(path_figs, ['log-ratio_out_', int2str(i_tol), '.fig']);
+                    exportgraphics(fig_log_ratio_out, pdf_log_ratio_out, 'ContentType', 'vector');
+                    savefig(fig_log_ratio_out, figure_log_ratio_out);
+                end
             end
             if i_tol == 1
-                exportgraphics(fig_perf_hist, pdf_perf_hist_summary, 'ContentType', 'vector');
-                exportgraphics(fig_perf_out, pdf_perf_out_summary, 'ContentType', 'vector');
-                exportgraphics(fig_data_hist, pdf_data_hist_summary, 'ContentType', 'vector');
-                exportgraphics(fig_data_out, pdf_data_out_summary, 'ContentType', 'vector');
-                if n_solvers <= 2
-                    exportgraphics(fig_log_ratio_hist, pdf_log_ratio_hist_summary, 'ContentType', 'vector');
+                if is_hist_drawable
+                    exportgraphics(fig_perf_hist, pdf_perf_hist_summary, 'ContentType', 'vector');
+                    exportgraphics(fig_data_hist, pdf_data_hist_summary, 'ContentType', 'vector');
+                    if n_solvers <= 2
+                        exportgraphics(fig_log_ratio_hist, pdf_log_ratio_hist_summary, 'ContentType', 'vector');
+                    end
                 end
-                if ~isempty(fig_log_ratio_out)
-                    exportgraphics(fig_log_ratio_out, pdf_log_ratio_out_summary, 'ContentType', 'vector');
+                if is_out_drawable
+                    exportgraphics(fig_perf_out, pdf_perf_out_summary, 'ContentType', 'vector');
+                    exportgraphics(fig_data_out, pdf_data_out_summary, 'ContentType', 'vector');
+                    if n_solvers <= 2 && ~isempty(fig_log_ratio_out)
+                        exportgraphics(fig_log_ratio_out, pdf_log_ratio_out_summary, 'ContentType', 'vector');
+                    end
                 end
             else
-                exportgraphics(fig_perf_hist, pdf_perf_hist_summary, 'ContentType', 'vector', 'Append', true);
-                exportgraphics(fig_perf_out, pdf_perf_out_summary, 'ContentType', 'vector', 'Append', true);
-                exportgraphics(fig_data_hist, pdf_data_hist_summary, 'ContentType', 'vector', 'Append', true);
-                exportgraphics(fig_data_out, pdf_data_out_summary, 'ContentType', 'vector', 'Append', true);
-                if n_solvers == 2
-                    exportgraphics(fig_log_ratio_hist, pdf_log_ratio_hist_summary, 'ContentType', 'vector', 'Append', true);
+                if is_hist_drawable
+                    exportgraphics(fig_perf_hist, pdf_perf_hist_summary, 'ContentType', 'vector', 'Append', true);
+                    exportgraphics(fig_data_hist, pdf_data_hist_summary, 'ContentType', 'vector', 'Append', true);
+                    if n_solvers == 2
+                        exportgraphics(fig_log_ratio_hist, pdf_log_ratio_hist_summary, 'ContentType', 'vector', 'Append', true);
+                    end
                 end
-                if ~isempty(fig_log_ratio_out)
-                    exportgraphics(fig_log_ratio_out, pdf_log_ratio_out_summary, 'ContentType', 'vector', 'Append', true);
+                if is_out_drawable
+                    exportgraphics(fig_perf_out, pdf_perf_out_summary, 'ContentType', 'vector', 'Append', true);
+                    exportgraphics(fig_data_out, pdf_data_out_summary, 'ContentType', 'vector', 'Append', true);
+                    if n_solvers == 2 && ~isempty(fig_log_ratio_out)
+                        exportgraphics(fig_log_ratio_out, pdf_log_ratio_out_summary, 'ContentType', 'vector', 'Append', true);
+                    end
                 end
             end
 
             if i_tol == 1
                 try
-                    addToReadme(path_readme_feature, 'data_hist.pdf', 'File, the summary PDF of history-based data profiles for all tolerances.');
-                    addToReadme(path_readme_feature, 'data_out.pdf', 'File, the summary PDF of output-based data profiles for all tolerances.');
-                    addToReadme(path_readme_feature, 'perf_hist.pdf', 'File, the summary PDF of history-based performance profiles for all tolerances.');
-                    addToReadme(path_readme_feature, 'perf_out.pdf', 'File, the summary PDF of output-based performance profiles for all tolerances.');
-                    if n_solvers == 2
-                        addToReadme(path_readme_feature, 'log-ratio_hist.pdf', 'File, the summary PDF of history-based log-ratio profiles for all tolerances.');
-                        addToReadme(path_readme_feature, 'log-ratio_out.pdf', 'File, the summary PDF of output-based log-ratio profiles for all tolerances.');
+                    if is_hist_drawable
+                        addToReadme(path_readme_feature, 'perf_hist.pdf', 'File, the summary PDF of history-based performance profiles for all tolerances.');
+                        addToReadme(path_readme_feature, 'data_hist.pdf', 'File, the summary PDF of history-based data profiles for all tolerances.');
+                        if n_solvers == 2
+                            addToReadme(path_readme_feature, 'log-ratio_hist.pdf', 'File, the summary PDF of history-based log-ratio profiles for all tolerances.');
+                        end
+                    end
+                    if is_out_drawable
+                        addToReadme(path_readme_feature, 'perf_out.pdf', 'File, the summary PDF of output-based performance profiles for all tolerances.');
+                        addToReadme(path_readme_feature, 'data_out.pdf', 'File, the summary PDF of output-based data profiles for all tolerances.');
+                        if n_solvers == 2 && ~isempty(fig_log_ratio_out)
+                            addToReadme(path_readme_feature, 'log-ratio_out.pdf', 'File, the summary PDF of output-based log-ratio profiles for all tolerances.');
+                        end
                     end
                 catch
                 end
@@ -1310,15 +1346,19 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         end
 
         % Close the figures.
-        close(fig_perf_hist);
-        close(fig_perf_out);
-        close(fig_data_hist);
-        close(fig_data_out);
-        if n_solvers == 2
-            close(fig_log_ratio_hist);
+        if is_hist_drawable
+            close(fig_perf_hist);
+            close(fig_data_hist);
+            if n_solvers == 2
+                close(fig_log_ratio_hist);
+            end
         end
-        if ~isempty(fig_log_ratio_out)
-            close(fig_log_ratio_out);
+        if is_out_drawable
+            close(fig_perf_out);
+            close(fig_data_out);
+            if n_solvers == 2 && ~isempty(fig_log_ratio_out)
+                close(fig_log_ratio_out);
+            end
         end
     end
 
@@ -1524,6 +1564,11 @@ end
 
 function integral = integrate(curve, profile_type, profile_options)
     % Compute the integral of the curve from different types of profiles.
+
+    if isempty(curve)
+        integral = 0;
+        return;
+    end
 
     kernel = profile_options.(ProfileOptionKey.SCORE_WEIGHT_FUN.value);
     integral = 0;

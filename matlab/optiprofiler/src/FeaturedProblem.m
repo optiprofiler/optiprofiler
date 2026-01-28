@@ -170,13 +170,44 @@ classdef FeaturedProblem < Problem
 
             % Evaluate the objective function and the maximum constraint violation at the initial point.
             % Pay attention to the case when the feature is 'quantized' and the option ``ground_truth'' is set to true.
+            % Note: For some problems (e.g., 'NOZZLEfp' from S2MPJ), the evaluation of the objective function or
+            % constraints at the initial point may fail and return an empty value, especially when a feature
+            % (e.g., 'linearly_transformed') is applied. This is likely due to the numerical sensitivity of the
+            % underlying problem interfaces (e.g., MEX files) to the tiny numerical perturbations (around machine
+            % precision) introduced by the affine transformation. A specific example of this was observed during
+            % a random test with seed 2632 on problem 'NOZZLEfp'. To handle this, we check whether the evaluation
+            % returns an empty value and, if so, attempt to use the evaluation at the original initial point.
             [A, b] = obj.feature.modifier_affine(obj.seed, obj.problem);
             if strcmp(obj.feature.name, FeatureName.QUANTIZED.value) && obj.feature.options.(FeatureOptionKey.GROUND_TRUTH.value)
-                obj.fun_init = obj.feature.modifier_fun(A * obj.x0 + b, obj.seed, obj.problem, obj.n_eval_fun);
+                val = obj.feature.modifier_fun(A * obj.x0 + b, obj.seed, obj.problem, obj.n_eval_fun);
+                if isempty(val)
+                    val = obj.feature.modifier_fun(obj.problem.x0, obj.seed, obj.problem, obj.n_eval_fun);
+                    if isempty(val)
+                        val = NaN;
+                    end
+                end
+                obj.fun_init = val;
             else
-                obj.fun_init = obj.problem.fun(A * obj.x0 + b);
+                val = obj.problem.fun(A * obj.x0 + b);
+                % We check whether `val` is empty.
+                if isempty(val)
+                    val = obj.problem.fun(obj.problem.x0); 
+                    if isempty(val)
+                        val = NaN;
+                    end
+                end
+                obj.fun_init = val;
             end
-            obj.maxcv_init = obj.problem.maxcv(A * obj.x0 + b);
+
+            % Similar check for maxcv_init.
+            val = obj.problem.maxcv(A * obj.x0 + b);
+            if isempty(val)
+                val = obj.problem.maxcv(obj.problem.x0);
+                if isempty(val)
+                    val = NaN;
+                end
+            end
+            obj.maxcv_init = val;
 
         end
 
