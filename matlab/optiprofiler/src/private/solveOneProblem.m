@@ -64,6 +64,8 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
             maxcv_inits(i_run) = featured_problem.maxcv_init;
 
             % Solve the problem with the solver.
+            % Initialize x with the initial guess to handle cases where the solver fails or crashes.
+            x = featured_problem.x0;
             warning('off', 'all');
             time_start_solver_run = tic;
             try
@@ -95,6 +97,12 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
                     if profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) ~= 0
                         fprintf("INFO: An error occurred while solving %s with %s (run %d/%d): %s\n", problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), Exception.message);
                     end
+                end
+
+                % Ensure x is a valid non-empty vector. If the solver failed or returned an empty value,
+                % we fall back to the initial guess to avoid secondary errors in subsequent processing.
+                if isempty(x)
+                    x = featured_problem.x0;
                 end
 
                 computation_time(i_solver, i_run) = toc(time_start_solver_run);
