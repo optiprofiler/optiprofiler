@@ -545,3 +545,6 @@ pkl
 strcmpi
 tobytes
 unpickling
+cta
+rgba
+svg

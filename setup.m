@@ -106,7 +106,8 @@ function setup(varargin)
                 fprintf('ERROR: Failed to clone S2MPJ repository.\n');
                 fprintf('Please manually clone or download "s2mpj_matlab" from:\n');
                 fprintf('  https://github.com/optiprofiler/s2mpj_matlab\n');
-                fprintf('to:\n  %s\n', s2mpj_dest_matlab);
+                fprintf('Then rename the folder from "s2mpj_matlab" to "s2mpj" and place it at:\n');
+                fprintf('  %s\n', plib_dir);
                 return; % Stop setup if cloning fails
             end
         end
