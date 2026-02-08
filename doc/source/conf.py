@@ -37,6 +37,7 @@ extensions = [
     'sphinx.ext.linkcode',
     'numpydoc',
     'sphinx_copybutton',
+    'sphinx_design',
     'sphinxcontrib.bibtex',
     'sphinxcontrib.matlab',
 ]
@@ -79,6 +80,10 @@ html_theme_options = {
 html_title = f'{project} v{version}'
 
 html_favicon = '_static/favicon.ico'
+
+html_css_files = [
+    'custom.css',
+]
 
 htmlhelp_basename = project
 

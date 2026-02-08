@@ -1,10 +1,4 @@
-|logo| **OptiProfiler**: A platform for benchmarking optimization solvers
-=========================================================================
-
-.. |logo| image:: _static/OP_logo.png
-   :alt: OptiProfiler Logo
-   :width: 100px
-   :height: 100px
+:html_theme.sidebar_secondary.remove:
 
 .. toctree::
     :maxdepth: 2
@@ -13,31 +7,132 @@
     User guide <user/index>
     MATLAB API reference <matlab/index>
 
--------------------------------------------------
+.. raw:: html
 
-What is OptiProfiler?
----------------------
+    <style>h1 {display:none;}</style>
 
-OptiProfiler is a benchmarking platform for optimization solvers.
-It is designed to help researchers and practitioners in the field of optimization to streamline their benchmarking process and to offer a consistent and comprehensive framework for evaluating optimization solvers.
-It currently provides a MATLAB interface to benchmark derivative-free optimization solvers on various test suites by generating high-quality performance profiles, data profiles, and other visualizations.
+OptiProfiler
+============
 
-Why OptiProfiler?
------------------
+.. div:: hero-section
 
-- **Simple** usage for beginners
-    Easy :ref:`installation <install>` and :ref:`quick start <use>` with a few lines of code
-- **Multiple** degrees of freedom for experts
-    Multiple built-in features and customization options for test suites
-- **Automatic** generation of high-quality profiles
-    Publication-ready PDF visualizations with precise, clear, and aesthetically pleasing figures
-- **Reliable** methodology for benchmarking
-    Based on the widely accepted performance profile and data profile
-- **Trackable** experimental results for reproducibility
-    Seed-controlled and time-stamped experimental results for easy reproducibility and loading
+    .. image:: _static/organization_rec.png
+        :alt: OptiProfiler
+        :width: 680px
+        :class: hero-banner
 
-How to use OptiProfiler?
-------------------------
+    .. raw:: html
 
-You may check the :ref:`User guide <guide>` for a quick start.
-You can also check the :ref:`MATLAB API reference <matlabapi>` for more details on the functions and classes in OptiProfiler.
+        <p>A platform for benchmarking optimization solvers.<br/>
+        All in a few lines of code.</p>
+
+    .. grid:: 1 1 2 2
+        :gutter: 2
+        :class-container: cta-section
+
+        .. grid-item::
+
+            .. button-ref:: install
+                :color: primary
+                :expand:
+
+                🚀 Get Started
+
+        .. grid-item::
+
+            .. button-link:: https://github.com/optiprofiler/optiprofiler
+                :color: secondary
+                :outline:
+                :expand:
+
+                💻 View on GitHub
+
+----
+
+.. div:: section-heading
+
+    ✨ Why OptiProfiler?
+
+.. raw:: html
+
+    <div class="feature-list">
+
+        <div class="feature-item">
+            <img src="_static/egg.png" alt="Simple" class="feature-icon" />
+            <div class="feature-content">
+                <div class="feature-title"><span class="feature-keyword">Simple</span> usage for beginners</div>
+                <div class="feature-desc">Easy <a href="user/installation.html">installation</a> and <a href="user/usage.html">quick start</a> with a few lines of code</div>
+            </div>
+        </div>
+
+        <div class="feature-item">
+            <img src="_static/expert.png" alt="Multiple" class="feature-icon" />
+            <div class="feature-content">
+                <div class="feature-title"><span class="feature-keyword">Multiple</span> degrees of freedom for experts</div>
+                <div class="feature-desc">Multiple built-in features and customization options for test suites</div>
+            </div>
+        </div>
+
+        <div class="feature-item">
+            <img src="_static/automatic.png" alt="Automatic" class="feature-icon" />
+            <div class="feature-content">
+                <div class="feature-title"><span class="feature-keyword">Automatic</span> generation of high-quality profiles</div>
+                <div class="feature-desc">Publication-ready PDF visualizations with precise, clear, and aesthetically pleasing figures</div>
+            </div>
+        </div>
+
+        <div class="feature-item">
+            <img src="_static/reliable.png" alt="Reliable" class="feature-icon" />
+            <div class="feature-content">
+                <div class="feature-title"><span class="feature-keyword">Reliable</span> methodology for benchmarking</div>
+                <div class="feature-desc">Based on the widely accepted performance profile and data profile</div>
+            </div>
+        </div>
+
+        <div class="feature-item">
+            <img src="_static/detection.png" alt="Trackable" class="feature-icon" />
+            <div class="feature-content">
+                <div class="feature-title"><span class="feature-keyword">Trackable</span> experimental results for reproducibility</div>
+                <div class="feature-desc">Seed-controlled and time-stamped experimental results for easy reproducibility</div>
+            </div>
+        </div>
+
+    </div>
+
+----
+
+.. div:: section-heading
+
+    🌐 Multi-Language Support
+
+.. grid:: 1 1 2 2
+    :gutter: 3
+
+    .. grid-item-card::
+        :class-card: sd-border-0 sd-shadow-sm lang-card
+
+        .. raw:: html
+
+            <div class="lang-title-row">
+                <img src="_static/python.svg" alt="Python" class="lang-inline-icon" />
+                <strong>Python</strong>
+            </div>
+            <span class="badge-coming-soon">Coming Soon</span>
+
+        The Python interface is currently under development.
+        Stay tuned for updates!
+
+    .. grid-item-card::
+        :class-card: sd-border-0 sd-shadow-sm lang-card
+
+        .. raw:: html
+
+            <div class="lang-title-row">
+                <img src="_static/matlab.png" alt="MATLAB" class="lang-inline-icon" />
+                <strong>MATLAB</strong>
+            </div>
+
+        The full MATLAB interface is ready to use.
+        Check out the :ref:`installation guide <install>` to get started,
+        explore :ref:`examples <use>` for common workflows,
+        or dive into the :ref:`API reference <matlabapi>` for details.

@@ -1,0 +1,211 @@
+/* =====================================================
+   OptiProfiler Homepage Custom Styles
+   ===================================================== */
+
+/* --- Hero Section --- */
+.hero-section {
+    text-align: center;
+    padding: 2rem 1rem 1.5rem 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.hero-section img.hero-banner {
+    max-width: 680px;
+    width: 100%;
+    height: auto;
+    margin-bottom: 1rem;
+}
+
+.hero-section p {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--pst-color-text-base, #2c3e50);
+    max-width: 700px;
+    margin: 0 auto 1rem auto;
+    line-height: 1.6;
+}
+
+/* --- CTA buttons --- */
+.cta-section {
+    text-align: center;
+    margin: 2rem 0 1.5rem 0;
+}
+
+.cta-section .sd-btn {
+    font-size: 1rem !important;
+    padding: 0.6em 1.8em !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    text-decoration: none !important;
+    margin: 0.3rem;
+}
+
+.cta-section .sd-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.sd-btn-primary {
+    background-color: #3b82f6 !important;
+    border-color: #3b82f6 !important;
+    color: #fff !important;
+}
+
+.sd-btn-primary:hover {
+    background-color: #2563eb !important;
+    border-color: #2563eb !important;
+}
+
+.sd-btn-outline-primary {
+    color: #3b82f6 !important;
+    border-color: #3b82f6 !important;
+}
+
+.sd-btn-outline-primary:hover {
+    background-color: #3b82f6 !important;
+    color: #fff !important;
+}
+
+/* --- Section headings --- */
+.section-heading {
+    text-align: center;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--pst-color-text-base, #2c3e50);
+    margin-bottom: 1.5rem;
+}
+
+/* =====================================================
+   Feature List (Why OptiProfiler?)
+   ===================================================== */
+.feature-list {
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 0 1rem;
+}
+
+.feature-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1.8rem;
+}
+
+.feature-icon {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.feature-content {
+    flex: 1;
+}
+
+.feature-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--pst-color-text-base, #2c3e50);
+    margin-bottom: 0.25rem;
+    line-height: 1.4;
+}
+
+.feature-keyword {
+    color: #3b82f6;
+    font-weight: 700;
+}
+
+.feature-desc {
+    font-size: 0.92rem;
+    color: var(--pst-color-text-muted, #666);
+    line-height: 1.55;
+}
+
+.feature-desc a {
+    color: #3b82f6;
+    text-decoration: underline;
+}
+
+.feature-desc a:hover {
+    color: #2563eb;
+}
+
+/* =====================================================
+   Language Cards (Multi-Language Support)
+   ===================================================== */
+.sd-card {
+    border: 1px solid #e8ecf1 !important;
+    border-radius: 12px !important;
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+    overflow: hidden;
+}
+
+.sd-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1) !important;
+}
+
+.sd-card .sd-card-header {
+    background: transparent !important;
+    border-bottom: none !important;
+    padding-bottom: 0 !important;
+}
+
+.sd-card .sd-card-text {
+    font-size: 0.92rem !important;
+    color: var(--pst-color-text-muted, #666) !important;
+    line-height: 1.55 !important;
+}
+
+.lang-card .sd-card-body {
+    padding: 1.4rem !important;
+}
+
+/* Icon + Language name inline row */
+.lang-title-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.6rem;
+}
+
+.lang-inline-icon {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+}
+
+.lang-title-row strong {
+    font-size: 1.2rem;
+    color: var(--pst-color-text-base, #2c3e50);
+}
+
+/* --- Coming Soon Badge --- */
+.badge-coming-soon {
+    display: inline-block;
+    background: linear-gradient(135deg, #f59e0b, #f97316);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.2em 0.65em;
+    border-radius: 12px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+}
+
+/* --- Responsive tweaks --- */
+@media (max-width: 768px) {
+    .hero-section p {
+        font-size: 1rem;
+    }
+
+    .feature-list {
+        padding: 0 0.5rem;
+    }
+
+    .hero-section p {
+        font-size: 1rem;
+    }
+}
