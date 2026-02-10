@@ -9,11 +9,22 @@
     margin-bottom: 1.5rem;
 }
 
-.hero-section img.hero-banner {
-    max-width: 680px;
-    width: 100%;
+/* Desktop: show wide banner, hide square logo */
+.hero-banner {
     height: auto;
     margin-bottom: 1rem;
+}
+
+.hero-desktop {
+    display: block;
+    max-width: 680px;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.hero-mobile {
+    display: none;
 }
 
 .hero-section p {
@@ -197,15 +208,23 @@
 
 /* --- Responsive tweaks --- */
 @media (max-width: 768px) {
+    /* Mobile: show square logo, hide wide banner */
+    .hero-desktop {
+        display: none;
+    }
+
+    .hero-mobile {
+        display: block;
+        width: 140px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
     .hero-section p {
-        font-size: 1rem;
+        font-size: 1.1rem;
     }
 
     .feature-list {
         padding: 0 0.5rem;
-    }
-
-    .hero-section p {
-        font-size: 1rem;
     }
 }

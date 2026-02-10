@@ -16,13 +16,10 @@ OptiProfiler
 
 .. div:: hero-section
 
-    .. image:: _static/organization_rec.png
-        :alt: OptiProfiler
-        :width: 680px
-        :class: hero-banner
-
     .. raw:: html
 
+        <img src="_static/op_rect.png" alt="OptiProfiler" class="hero-banner hero-desktop" />
+        <img src="_static/op_box.png" alt="OptiProfiler" class="hero-banner hero-mobile" />
         <p>A platform for benchmarking optimization solvers.<br/>
         All in a few lines of code.</p>
 
