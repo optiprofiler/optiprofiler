@@ -60,102 +60,7 @@ def draw_profiles(work, problem_dimensions, solver_names, tolerance_latex, i_tol
             _draw_data_detail(ax_summary_data[i_tol], x_data, y_data, ratio_max_data, solver_names, profile_options, tolerance_latex)
         if is_log_ratio and ax_summary_log_ratio is not None:
             _draw_log_ratio_detail(ax_summary_log_ratio[i_tol], x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, solver_names, profile_options, tolerance_latex)
-        
 
-
-
-
-
-
-
-    # if ax_summary_perf_hist is not None:
-    #     if i_tolerance == 0:
-    #         _draw_performance_data_profiles(ax_summary_perf_hist[i_tolerance], x_perf_hist, y_perf_hist, labels)
-    #     else:
-    #         _draw_performance_data_profiles(ax_summary_perf_hist[i_tolerance], x_perf_hist, y_perf_hist)
-    # if ax_summary_perf_out is not None:
-    #     _draw_performance_data_profiles(ax_summary_perf_out[i_tolerance], x_perf_out, y_perf_out)
-    # perf_formatter = FuncFormatter(_perf_formatter)
-    # ax_perf_hist.xaxis.set_major_formatter(perf_formatter)
-    # ax_perf_out.xaxis.set_major_formatter(perf_formatter)
-    # if ax_summary_perf_hist is not None:
-    #     ax_summary_perf_hist[i_tolerance].xaxis.set_major_formatter(perf_formatter)
-    # if ax_summary_perf_out is not None:
-    #     ax_summary_perf_out[i_tolerance].xaxis.set_major_formatter(perf_formatter)
-    # with warnings.catch_warnings():
-    #     warnings.filterwarnings('ignore', category=UserWarning)
-    #     ax_perf_hist.set_xlim(0.0, 1.05 * ratio_max_perf_hist)
-    #     ax_perf_out.set_xlim(0.0, 1.05 * ratio_max_perf_out)
-    #     if ax_summary_perf_hist is not None:
-    #         ax_summary_perf_hist[i_tolerance].set_xlim(0.0, 1.05 * ratio_max_perf_hist)
-    #     if ax_summary_perf_out is not None:
-    #         ax_summary_perf_out[i_tolerance].set_xlim(0.0, 1.05 * ratio_max_perf_out)
-    # ax_perf_hist.set_xlabel('Performance ratio')
-    # ax_perf_out.set_xlabel('Performance ratio')
-    # if ax_summary_perf_hist is not None:
-    #     ax_summary_perf_hist[i_tolerance].set_xlabel('Performance ratio')
-    # if ax_summary_perf_out is not None:
-    #     ax_summary_perf_out[i_tolerance].set_xlabel('Performance ratio')
-    # ax_perf_hist.set_ylabel(f'Performance profiles {tolerance_label}')
-    # ax_perf_out.set_ylabel(f'Performance profiles {tolerance_label}')
-    # if ax_summary_perf_hist is not None:
-    #     ax_summary_perf_hist[i_tolerance].set_ylabel(f'Performance profiles {tolerance_label}')
-    # if ax_summary_perf_out is not None:
-    #     ax_summary_perf_out[i_tolerance].set_ylabel(f'Performance profiles {tolerance_label}')
-
-    # # Draw the data profiles.
-    # _draw_performance_data_profiles(ax_data_hist, x_data_hist, y_data_hist, labels)
-    # _draw_performance_data_profiles(ax_data_out, x_data_out, y_data_out, labels)
-    # if ax_summary_data_hist is not None:
-    #     _draw_performance_data_profiles(ax_summary_data_hist[i_tolerance], x_data_hist, y_data_hist)
-    # if ax_summary_data_out is not None:
-    #     _draw_performance_data_profiles(ax_summary_data_out[i_tolerance], x_data_out, y_data_out)
-    # data_formatter = FuncFormatter(_data_formatter)
-    # ax_data_hist.xaxis.set_major_formatter(data_formatter)
-    # ax_data_out.xaxis.set_major_formatter(data_formatter)
-    # if ax_summary_data_hist is not None:
-    #     ax_summary_data_hist[i_tolerance].xaxis.set_major_formatter(data_formatter)
-    # if ax_summary_data_out is not None:
-    #     ax_summary_data_out[i_tolerance].xaxis.set_major_formatter(data_formatter)
-    # ax_data_hist.set_xlim(0.0, 1.05 * ratio_max_data_hist)
-    # ax_data_out.set_xlim(0.0, 1.05 * ratio_max_data_out)
-    # if ax_summary_data_hist is not None:
-    #     ax_summary_data_hist[i_tolerance].set_xlim(0.0, 1.05 * ratio_max_data_hist)
-    # if ax_summary_data_out is not None:
-    #     ax_summary_data_out[i_tolerance].set_xlim(0.0, 1.05 * ratio_max_data_out)
-    # ax_data_hist.set_xlabel('Number of simplex gradients')
-    # ax_data_out.set_xlabel('Number of simplex gradients')
-    # if ax_summary_data_hist is not None:
-    #     ax_summary_data_hist[i_tolerance].set_xlabel('Number of simplex gradients')
-    # if ax_summary_data_out is not None:
-    #     ax_summary_data_out[i_tolerance].set_xlabel('Number of simplex gradients')
-    # ax_data_hist.set_ylabel(f'Data profiles {tolerance_label}')
-    # ax_data_out.set_ylabel(f'Data profiles {tolerance_label}')
-    # if ax_summary_data_hist is not None:
-    #     ax_summary_data_hist[i_tolerance].set_ylabel(f'Data profiles {tolerance_label}')
-    # if ax_summary_data_out is not None:
-    #     ax_summary_data_out[i_tolerance].set_ylabel(f'Data profiles {tolerance_label}')
-
-    # # Draw the log-ratio profiles.
-    # if n_solvers <= 2:
-    #     _draw_log_ratio_profiles(ax_log_ratio_hist, np.copy(work_hist), labels)
-    #     _draw_log_ratio_profiles(ax_log_ratio_out, np.copy(work_out), labels)
-    #     if ax_summary_log_ratio_hist is not None:
-    #         _draw_log_ratio_profiles(ax_summary_log_ratio_hist[i_tolerance], np.copy(work_hist), labels)
-    #     if ax_summary_log_ratio_out is not None:
-    #         _draw_log_ratio_profiles(ax_summary_log_ratio_out[i_tolerance], np.copy(work_out), labels)
-    #     ax_log_ratio_hist.set_xlabel('Problem')
-    #     ax_log_ratio_out.set_xlabel('Problem')
-    #     if ax_summary_log_ratio_hist is not None:
-    #         ax_summary_log_ratio_hist[i_tolerance].set_xlabel('Problem')
-    #     if ax_summary_log_ratio_out is not None:
-    #         ax_summary_log_ratio_out[i_tolerance].set_xlabel('Problem')
-    #     ax_log_ratio_hist.set_ylabel(f'Log-ratio profiles {tolerance_label}')
-    #     ax_log_ratio_out.set_ylabel(f'Log-ratio profiles {tolerance_label}')
-    #     if ax_summary_log_ratio_hist is not None:
-    #         ax_summary_log_ratio_hist[i_tolerance].set_ylabel(f'Log-ratio profiles {tolerance_label}')
-    #     if ax_summary_log_ratio_out is not None:
-    #         ax_summary_log_ratio_out[i_tolerance].set_ylabel(f'Log-ratio profiles {tolerance_label}')
     return fig_perf, fig_data, fig_log_ratio, curves
 
 
@@ -166,7 +71,17 @@ def _draw_perf_detail(ax_perf, x_perf, y_perf, ratio_max_perf, solver_names, pro
         ax_perf.set_xlim(0.0, 1.1 * ratio_max_perf)
     else:
         ax_perf.set_xlim(1.0, 1.1 * ratio_max_perf)
-    # Modify x-axis ticks labels of the performance profiles.
+    # Modify x-axis ticks labels of the performance profiles (matching MATLAB).
+    ticks, tick_labels = perf_ticks(1.1 * ratio_max_perf, profile_options[ProfileOption.SEMILOGX])
+    ax_perf.set_xticks(ticks)
+    ax_perf.set_xticklabels(tick_labels)
+    # Set x-axis labels.
+    if profile_options[ProfileOption.XLABEL_PERFORMANCE_PROFILE]:
+        ax_perf.set_xlabel(profile_options[ProfileOption.XLABEL_PERFORMANCE_PROFILE])
+    # Set y-axis labels.
+    if profile_options[ProfileOption.YLABEL_PERFORMANCE_PROFILE]:
+        ylabel_str = profile_options[ProfileOption.YLABEL_PERFORMANCE_PROFILE] % tolerance_latex if '%s' in profile_options[ProfileOption.YLABEL_PERFORMANCE_PROFILE] else profile_options[ProfileOption.YLABEL_PERFORMANCE_PROFILE]
+        ax_perf.set_ylabel(ylabel_str)
 
 
 
@@ -175,13 +90,29 @@ def _draw_data_detail(ax_data, x_data, y_data, ratio_max_data, solver_names, pro
     _draw_performance_data_profiles(ax_data, x_data, y_data, solver_names, profile_options)
     # Set x-axis limits.
     ax_data.set_xlim(0.0, 1.1 * ratio_max_data)
-    # Modify x-axis ticks labels of the data profiles.
+    # Modify x-axis ticks labels of the data profiles (matching MATLAB).
+    ticks, tick_labels = data_ticks(1.1 * ratio_max_data, profile_options[ProfileOption.SEMILOGX])
+    ax_data.set_xticks(ticks)
+    ax_data.set_xticklabels(tick_labels)
+    # Set x-axis labels.
+    if profile_options[ProfileOption.XLABEL_DATA_PROFILE]:
+        ax_data.set_xlabel(profile_options[ProfileOption.XLABEL_DATA_PROFILE])
+    # Set y-axis labels.
+    if profile_options[ProfileOption.YLABEL_DATA_PROFILE]:
+        ylabel_str = profile_options[ProfileOption.YLABEL_DATA_PROFILE] % tolerance_latex if '%s' in profile_options[ProfileOption.YLABEL_DATA_PROFILE] else profile_options[ProfileOption.YLABEL_DATA_PROFILE]
+        ax_data.set_ylabel(ylabel_str)
 
 
 
 def _draw_log_ratio_detail(ax_log_ratio, x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, solver_names, profile_options, tolerance_latex):
     _draw_log_ratio_profiles(ax_log_ratio, x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, solver_names, profile_options)
-    # Set x-axis limits.
+    # Set x-axis labels.
+    if profile_options[ProfileOption.XLABEL_LOG_RATIO_PROFILE]:
+        ax_log_ratio.set_xlabel(profile_options[ProfileOption.XLABEL_LOG_RATIO_PROFILE])
+    # Set y-axis labels.
+    if profile_options[ProfileOption.YLABEL_LOG_RATIO_PROFILE]:
+        ylabel_str = profile_options[ProfileOption.YLABEL_LOG_RATIO_PROFILE] % tolerance_latex if '%s' in profile_options[ProfileOption.YLABEL_LOG_RATIO_PROFILE] else profile_options[ProfileOption.YLABEL_LOG_RATIO_PROFILE]
+        ax_log_ratio.set_ylabel(ylabel_str)
 
 
 
@@ -222,12 +153,18 @@ def _draw_performance_data_profiles(ax, x, y, solver_names, profile_options):
             ax.plot(x_stairs, y_mean_stairs, label=solver_names[i_solver], color=color, linestyle=line_style, linewidth=line_width)
             if n_runs > 1:
                 ax.fill_between(x_stairs, y_lower_stairs, y_upper_stairs, color=color, alpha=0.2)
-        ax.xaxis.set_major_locator(MaxNLocator(5, integer=True))
-        ax.yaxis.set_ticks_position('both')
-        ax.yaxis.set_major_locator(MaxNLocator(5, prune='lower'))
-        ax.yaxis.set_minor_locator(MaxNLocator(10))
+        
+        # Set Y-axis ticks to match MATLAB style: major ticks at 0, 0.2, 0.4, 0.6, 0.8, 1.0
         ax.set_ylim(0.0, 1.0)
-        ax.tick_params(which='both', direction='in')
+        ax.set_yticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0])
+        # Set minor ticks at 0.1, 0.3, 0.5, 0.7, 0.9
+        ax.set_yticks([0.1, 0.3, 0.5, 0.7, 0.9], minor=True)
+        # Show ticks on both sides (left and right)
+        ax.yaxis.set_ticks_position('both')
+        ax.tick_params(axis='y', which='both', direction='in', right=True)
+        ax.tick_params(axis='x', which='both', direction='in')
+        # Remove tick labels on the right side
+        ax.tick_params(axis='y', which='both', labelleft=True, labelright=False)
         ax.legend(loc='lower right')
 
 
@@ -247,13 +184,19 @@ def _draw_log_ratio_profiles(ax, x, y, ratio_max, n_solvers_equal, solver_names,
         if n_above > 0:
             ax.bar(x[-(n_solvers_equal + n_above):-n_solvers_equal], y[-(n_solvers_equal + n_above):-n_solvers_equal], color=bar_colors[1])
 
-        ax.text((n_problems + 1) / 2, -ratio_max, solver_names[0], horizontalalignment='center', verticalalignment='bottom')
-        ax.text((n_problems + 1) / 2, ratio_max, solver_names[1], horizontalalignment='center', verticalalignment='top')
+        # Add solver names with fontsize=24 to match MATLAB
+        ax.text((n_problems + 1) / 2, -ratio_max, solver_names[0], horizontalalignment='center', verticalalignment='bottom', fontsize=24)
+        ax.text((n_problems + 1) / 2, ratio_max, solver_names[1], horizontalalignment='center', verticalalignment='top', fontsize=24)
+        # Remove x-axis ticks (matching MATLAB's xticks([]))
+        ax.set_xticks([])
         with warnings.catch_warnings():
             warnings.filterwarnings('ignore', category=UserWarning)
             ax.set_xlim(0.5, n_problems + 0.5)
         ax.set_ylim(-1.1 * ratio_max, 1.1 * ratio_max)
-        ax.tick_params(which='both', direction='in')
+        # Show ticks on both sides (left and right) and set direction to 'in'
+        ax.yaxis.set_ticks_position('both')
+        ax.tick_params(axis='y', which='both', direction='in', right=True, labelleft=True, labelright=False)
+        ax.tick_params(axis='x', which='both', direction='in')
 
 
 
@@ -407,6 +350,79 @@ def _data_formatter(x, _):
         return f'$2^{{{f"{x:.8f}".rstrip("0").rstrip(".")}}}-1$'
 
 
+def perf_ticks(ratio_cut_perf, is_semilogx):
+    """
+    Generate ticks and tick labels for performance profiles.
+    Matches MATLAB's perfTicks function.
+    """
+    if is_semilogx:
+        if ratio_cut_perf >= 5:
+            max_power = int(np.floor(ratio_cut_perf))
+            ticks = np.linspace(0, max_power, 6)
+            ticks[1:-1] = np.round(ticks[1:-1])
+            ticks = np.unique(ticks)
+        elif ratio_cut_perf >= 1:
+            max_power = int(np.floor(ratio_cut_perf))
+            ticks = np.arange(0, max_power + 1)
+        elif ratio_cut_perf >= 1e-3:
+            ticks = np.array([0, ratio_cut_perf])
+        else:
+            ticks = np.array([0])
+        tick_labels = [str(int(2 ** t)) for t in ticks]
+    else:
+        if ratio_cut_perf >= 5:
+            max_power = int(np.floor(ratio_cut_perf))
+            ticks = np.linspace(1, max_power, 5)
+            ticks[1:-1] = np.round(ticks[1:-1])
+            ticks = np.unique(ticks)
+        elif ratio_cut_perf >= 2:
+            max_power = int(np.floor(ratio_cut_perf))
+            ticks = np.arange(1, max_power + 1)
+        elif ratio_cut_perf >= 1 + 1e-3:
+            ticks = np.array([1, ratio_cut_perf])
+        else:
+            ticks = np.array([1])
+        tick_labels = [str(int(t)) if t == int(t) else f'{t:.2f}' for t in ticks]
+    return ticks, tick_labels
+
+
+def data_ticks(ratio_cut_data, is_semilogx):
+    """
+    Generate ticks and tick labels for data profiles.
+    Matches MATLAB's dataTicks function.
+    """
+    if is_semilogx:
+        if ratio_cut_data >= 5:
+            max_power = int(np.floor(ratio_cut_data))
+            ticks = np.linspace(1, max_power, 5)
+            ticks = np.concatenate([[0], ticks])
+            ticks[1:-1] = np.round(ticks[1:-1])
+            ticks = np.unique(ticks)
+        elif ratio_cut_data >= 1:
+            max_power = int(np.floor(ratio_cut_data))
+            ticks = np.arange(0, max_power + 1)
+        elif ratio_cut_data >= 1e-1:
+            ticks = np.array([0, ratio_cut_data])
+        else:
+            ticks = np.array([0])
+        tick_labels = [str(int(2 ** t - 1)) for t in ticks]
+    else:
+        if ratio_cut_data >= 5:
+            max_power = int(np.floor(ratio_cut_data))
+            ticks = np.linspace(0, max_power, 5)
+            ticks[1:-1] = np.round(ticks[1:-1])
+            ticks = np.unique(ticks)
+        elif ratio_cut_data >= 1:
+            max_power = int(np.floor(ratio_cut_data))
+            ticks = np.arange(0, max_power + 1)
+        elif ratio_cut_data >= 1e-1:
+            ticks = np.array([0, ratio_cut_data])
+        else:
+            ticks = np.array([0])
+        tick_labels = [str(int(t)) if t == int(t) else f'{t:.2f}' for t in ticks]
+    return ticks, tick_labels
+
+
 def set_profile_context(profile_options):
     profile_context = {
         'font.family': 'serif',
@@ -530,65 +546,46 @@ def draw_hist(fun_histories, maxcv_histories, merit_histories, fun_init, maxcv_i
     maxcv_histories = process_hist_y_axes(maxcv_histories, maxcv_init)
     merit_histories = process_hist_y_axes(merit_histories, merit_init)
     
-    # Define the shift of the y-axis. Shift the y-axis if there is value that is too close to zero.
-    y_shift_fun = compute_y_shift(fun_histories, profile_options)
+    # Convert default_height from inches to pixels for fontsize calculation.
+    # MATLAB uses pixels directly, while matplotlib uses inches.
+    dpi = plt.rcParams.get('figure.dpi', 100)
+    default_height_px = default_height * dpi
+    profile_context = set_profile_context(profile_options)
     
-    # First, draw the histories of function values.
+    def set_hist_ylabel(ax, base_label, y_shift, formatted_shift):
+        """Helper function to set ylabel with dynamic fontsize."""
+        if y_shift > 0:
+            label = f"{base_label} shifted above by ${formatted_shift}$"
+        else:
+            label = base_label
+        fontsize = min(10, 1.2 * default_height_px / len(f"{base_label} shifted above by ${formatted_shift}$"))
+        with plt.rc_context(profile_context):
+            ax.set_ylabel(label, fontsize=fontsize)
+    
+    # Draw and label function value histories.
+    y_shift_fun = compute_y_shift(fun_histories, profile_options)
     draw_fun_maxcv_merit_hist(list_axs_summary[0], fun_histories, solver_names, is_cum, problem_n, y_shift_fun, n_eval, profile_options)
     _, formatted_fun_shift = format_float_scientific_latex(y_shift_fun)
+    base_label_fun = "Cummin of function values" if is_cum else "Function values"
+    set_hist_ylabel(list_axs_summary[0], base_label_fun, y_shift_fun, formatted_fun_shift)
     
-    if is_cum:
-        if y_shift_fun > 0:
-            y_label = f"Cummin of function values shifted above by ${formatted_fun_shift}$"
-            list_axs_summary[0].set_ylabel(y_label)
-        else:
-            list_axs_summary[0].set_ylabel("Cummin of function values")
-    else:
-        if y_shift_fun > 0:
-            y_label = f"Function values shifted above by ${formatted_fun_shift}$"
-            list_axs_summary[0].set_ylabel(y_label)
-        else:
-            list_axs_summary[0].set_ylabel("Function values")
-    
-    # If the problem is unconstrained, do not draw the histories of maximum constraint violations and merit function values.
+    # Return early for unconstrained problems.
     if ptype == 'u':
         return
     
-    # Do the same for the maximum constraint violations and the merit function values.
+    # Draw and label maxcv and merit histories.
     y_shift_maxcv = compute_y_shift(maxcv_histories, profile_options)
     y_shift_merit = compute_y_shift(merit_histories, profile_options)
     
-    # Second, draw the histories of maximum constraint violations and merit function values.
     draw_fun_maxcv_merit_hist(list_axs_summary[1], maxcv_histories, solver_names, is_cum, problem_n, y_shift_maxcv, n_eval, profile_options)
     _, formatted_maxcv_shift = format_float_scientific_latex(y_shift_maxcv)
+    base_label_maxcv = "Cummin of maximum constraint violations" if is_cum else "Maximum constraint violations"
+    set_hist_ylabel(list_axs_summary[1], base_label_maxcv, y_shift_maxcv, formatted_maxcv_shift)
     
     draw_fun_maxcv_merit_hist(list_axs_summary[2], merit_histories, solver_names, is_cum, problem_n, y_shift_merit, n_eval, profile_options)
     _, formatted_merit_shift = format_float_scientific_latex(y_shift_merit)
-    
-    if is_cum:
-        if y_shift_maxcv > 0:
-            y_label = f"Cummin of maximum constraint violations shifted above by ${formatted_maxcv_shift}$"
-            list_axs_summary[1].set_ylabel(y_label)
-        else:
-            list_axs_summary[1].set_ylabel("Cummin of maximum constraint violations")
-        
-        if y_shift_merit > 0:
-            y_label = f"Cummin of merit function values shifted above by ${formatted_merit_shift}$"
-            list_axs_summary[2].set_ylabel(y_label)
-        else:
-            list_axs_summary[2].set_ylabel("Cummin of merit function values")
-    else:
-        if y_shift_maxcv > 0:
-            y_label = f"Maximum constraint violations shifted above by ${formatted_maxcv_shift}$"
-            list_axs_summary[1].set_ylabel(y_label)
-        else:
-            list_axs_summary[1].set_ylabel("Maximum constraint violations")
-        
-        if y_shift_merit > 0:
-            y_label = f"Merit function values shifted above by ${formatted_merit_shift}$"
-            list_axs_summary[2].set_ylabel(y_label)
-        else:
-            list_axs_summary[2].set_ylabel("Merit function values")
+    base_label_merit = "Cummin of merit function values" if is_cum else "Merit function values"
+    set_hist_ylabel(list_axs_summary[2], base_label_merit, y_shift_merit, formatted_merit_shift)
 
 
 def compute_y_shift(history, profile_options):
@@ -807,7 +804,7 @@ def draw_fun_maxcv_merit_hist(ax, y, solver_names, is_cum, problem_n, y_shift, n
             i_y_lower = y_values_l[i_solver]
             i_y_upper = y_values_u[i_solver]
             i_eval = len(i_x)
-            x = (np.array(i_x) + 1) / (problem_n + 1)
+            x = np.array(i_x) / (problem_n + 1)
             xr_lim = max(xr_lim, x[-1])
 
             color = line_colors[i_solver % len(line_colors)]
@@ -827,8 +824,13 @@ def draw_fun_maxcv_merit_hist(ax, y, solver_names, is_cum, problem_n, y_shift, n
     if is_log_scale:
         ax.set_yscale('log')
     
+    # Show ticks on both sides (left and right) and set direction to 'in' (matching MATLAB).
     ax.yaxis.set_ticks_position('both')
-    ax.tick_params(which='both', direction='in')
+    ax.tick_params(axis='y', which='both', direction='in', right=True, labelleft=True, labelright=False)
+    ax.tick_params(axis='x', which='both', direction='in')
+    # Add box around the plot (matching MATLAB's box(ax, 'on')).
+    for spine in ax.spines.values():
+        spine.set_visible(True)
     ax.legend(loc='upper right')
 
     if abs(xl_lim - xr_lim) < np.finfo(float).eps:

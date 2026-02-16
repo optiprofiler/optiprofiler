@@ -1664,13 +1664,17 @@ def _solve_one_problem(solvers, problem, feature, problem_name, len_problem_name
         default_height = default_figsize[1]
         profile_context = set_profile_context(profile_options)
         with plt.rc_context(profile_context):
-            fig_summary = plt.figure(figsize=(default_width * n_cols, default_height * 2), layout='constrained')
+            # Create figure without constrained layout (will use tight_layout instead)
+            fig_summary = plt.figure(figsize=(default_width * n_cols, default_height * 2))
 
             F_title = profile_options['feature_stamp'].replace('_', r'\_')
             P_title = problem_name.replace('_', r'\_')
             T_title = f'Solving ``{P_title}" with ``{F_title}" feature'
 
-            fig_summary.suptitle(T_title, verticalalignment='bottom')
+            # Set title with dynamic fontsize (matching MATLAB)
+            dpi = plt.rcParams.get('figure.dpi', 100)
+            title_fontsize = min(12, 1.2 * default_width * dpi / len(T_title))
+            fig_summary.suptitle(T_title, fontsize=title_fontsize)
 
             # Create axes arrays
             axs_summary = []
@@ -1684,10 +1688,6 @@ def _solve_one_problem(solvers, problem, feature, problem_name, len_problem_name
             for j in range(n_cols):
                 ax = fig_summary.add_subplot(2, n_cols, n_cols+j+1)
                 axs_summary.append(ax)
-            
-            # Add y-axis labels to the rows
-            fig_summary.text(0.04, 0.75, "History profiles", rotation=90, va='center')
-            fig_summary.text(0.04, 0.25, "Cummin history profiles", rotation=90, va='center')
             
             # Create cell_axs_summary and cell_axs_summary_cum
             if problem_type == 'u':
@@ -1710,8 +1710,14 @@ def _solve_one_problem(solvers, problem, feature, problem_name, len_problem_name
             # Draw cumulative minimum history plots
             draw_hist(fun_history, maxcv_history, merit_history, fun_init, maxcv_init, merit_init, processed_solver_names, cell_axs_summary_cum, True, problem_type, problem_dim, n_eval, profile_options, default_height)
             
-            # Make layout tight to avoid overlapping
-            fig_summary.tight_layout(rect=[0.05, 0.0, 1.0, 0.95])  # Leave space for the row labels and title
+            # Apply tight_layout first, leaving space for row labels on the left
+            fig_summary.tight_layout(rect=[0.05, 0.0, 1.0, 0.98])
+            
+            # After tight_layout, calculate actual positions for row labels
+            row1_y = 0.5 * (axs_summary[0].get_position().y0 + axs_summary[0].get_position().y1)
+            row2_y = 0.5 * (axs_summary[-1].get_position().y0 + axs_summary[-1].get_position().y1)
+            fig_summary.text(0.005, row1_y, "History profiles", rotation=90, va='center', fontsize=14)
+            fig_summary.text(0.005, row2_y, "Cummin history profiles", rotation=90, va='center', fontsize=14)
             
             # Save figure
             fig_summary.savefig(pdf_summary, bbox_inches='tight')
