@@ -470,7 +470,7 @@ def get_default_profile_options(solvers, feature, profile_options):
     profile_options.setdefault(ProfileOption.SILENT.value, False)
     profile_options.setdefault(ProfileOption.SOLVER_VERBOSE.value, 1)
     profile_options.setdefault(ProfileOption.SEMILOGX.value, True)
-    profile_options.setdefault(ProfileOption.NORMALIZED_SCORES.value, False)
+    profile_options.setdefault(ProfileOption.NORMALIZED_SCORES.value, True)
     profile_options.setdefault(ProfileOption.SCORE_WEIGHT_FUN.value, _default_score_weight_fun)
     profile_options.setdefault(ProfileOption.SCORE_FUN.value, _default_score_fun)
     profile_options.setdefault(ProfileOption.LOAD.value, None)

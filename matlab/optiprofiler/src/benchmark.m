@@ -139,7 +139,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %       - n_jobs: the number of parallel jobs to run the test. Default is the
 %         default number of workers in the default local cluster.
 %       - normalized_scores: whether to normalize the scores of the solvers by
-%         the maximum score of the solvers. Default is false.
+%         the maximum score of the solvers. Default is true.
 %       - project_x0: whether to project the initial point to the feasible set.
 %         Default is false.
 %       - run_plain: whether to run an extra experiment with the 'plain'

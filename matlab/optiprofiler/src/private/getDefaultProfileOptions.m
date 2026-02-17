@@ -84,7 +84,7 @@ function profile_options = getDefaultProfileOptions(solvers, feature, profile_op
         profile_options.(ProfileOptionKey.SEMILOGX.value) = true;
     end
     if ~isfield(profile_options, ProfileOptionKey.NORMALIZED_SCORES.value)
-        profile_options.(ProfileOptionKey.NORMALIZED_SCORES.value) = false;
+        profile_options.(ProfileOptionKey.NORMALIZED_SCORES.value) = true;
     end
     if ~isfield(profile_options, ProfileOptionKey.SCORE_WEIGHT_FUN.value)
         profile_options.(ProfileOptionKey.SCORE_WEIGHT_FUN.value) = @(x) 1;

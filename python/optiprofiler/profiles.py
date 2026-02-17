@@ -234,6 +234,9 @@ def benchmark(
         The stamp of the feature with the given options. It is
         used to create the specific directory to store the results. Default
         depends on features.
+    hist_aggregation : str, optional
+        The aggregation method we use to reduce the number of points in the
+        history plots. It can be 'min', 'mean', or 'max'. Default is 'min'.
     line_colors : list or numpy.ndarray, optional
         The colors of the lines in the plots. It can be a list
         of short names of colors ('r', 'g', 'b', 'c', 'm', 'y', 'k') or
@@ -289,7 +292,7 @@ def benchmark(
         default number of workers in the default local cluster.
     normalized_scores : bool, optional
         Whether to normalize the scores of the solvers by
-        the maximum score of the solvers. Default is False.
+        the maximum score of the solvers. Default is True.
     project_x0 : bool, optional
         Whether to project the initial point to the feasible set.
         Default is False.
@@ -319,7 +322,7 @@ def benchmark(
         solvers in the performance and data profiles. It should be a callable
         representing a nonnegative function in R^+. Default is lambda x: 1.
     seed : int, optional
-        The seed of the random number generator. Default is 1.
+        The seed of the random number generator. Default is 0.
     semilogx : bool, optional
         Whether to use the semilogx scale during plotting profiles
         (performance profiles and data profiles). Default is True.
@@ -342,7 +345,7 @@ def benchmark(
     solvers_to_load : list of int, optional
         The indices of the solvers to load when the 'load'
         option is provided. It can be a list of different integers selected
-        from 1 to the total number of solvers of the loading experiment. At
+        from 0 to the total number of solvers minus 1 of the loading experiment. At
         least two indices should be provided. Default is all the solvers.
     summarize_data_profiles : bool, optional
         Whether to add all the data profiles to the
