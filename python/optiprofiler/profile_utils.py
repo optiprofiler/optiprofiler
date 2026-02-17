@@ -950,3 +950,122 @@ def add_to_readme(path_readme, filename, description):
                 f.write(line)
     except Exception:
         pass
+
+
+def integrate(curve, profile_type, profile_options):
+    """
+    Compute the integral of the curve from different types of profiles.
+    
+    Parameters
+    ----------
+    curve : tuple, list, or numpy.ndarray
+        The curve to integrate. Can be:
+        - A tuple/list (x, y) where x and y are 1D arrays
+        - A 2D array with shape (2, n_points) where curve[0] is x and curve[1] is y
+    profile_type : str
+        Type of profile: 'perf', 'data', or 'log_ratio'.
+    profile_options : dict
+        Profile options containing SCORE_WEIGHT_FUN.
+    
+    Returns
+    -------
+    float
+        The integral value.
+    """
+    # Handle None or empty cases
+    if curve is None:
+        return 0.0
+    if isinstance(curve, (tuple, list)):
+        if len(curve) == 0:
+            return 0.0
+        # curve is (x, y) tuple/list
+        x = np.asarray(curve[0])
+        y = np.asarray(curve[1])
+        if x.size == 0 or y.size == 0:
+            return 0.0
+    elif isinstance(curve, np.ndarray):
+        if curve.size == 0:
+            return 0.0
+        # curve is 2D array with shape (2, n_points)
+        x = curve[0, :]
+        y = curve[1, :]
+    else:
+        return 0.0
+    
+    kernel = profile_options.get(ProfileOption.SCORE_WEIGHT_FUN, _default_score_weight_fun)
+    integral = 0.0
+    
+    if profile_type in ('perf', 'data'):
+        # The curve is a right-continuous step function.
+        # Use rectangle rule (left endpoint): sum(dx * y[:-1] * kernel(x[:-1]))
+        if len(x) < 2:
+            return 0.0
+        dx = np.diff(x)
+        y_left = y[:-1]
+        x_left = x[:-1]
+        integral = np.sum(dx * y_left * kernel(x_left))
+    elif profile_type == 'log_ratio':
+        # We do not modify the integral of log_ratio even if a score_weight_fun is provided.
+        integral = np.sum(np.abs(y))
+    
+    return integral
+
+
+def compute_scores(curves, profile_options):
+    """
+    Compute the scores of the solvers for all the profiles.
+    
+    Parameters
+    ----------
+    curves : list
+        List of curve dictionaries, one per tolerance level.
+    profile_options : dict
+        Profile options.
+    
+    Returns
+    -------
+    profile_scores : numpy.ndarray
+        A 4D array containing scores for all profiles.
+        Shape: (n_solvers, n_tols, 2, 2 or 3)
+        - First dimension: solver index
+        - Second dimension: tolerance index
+        - Third dimension: 0 = history-based, 1 = output-based
+        - Fourth dimension: 0 = perf, 1 = data, 2 = log_ratio (only if n_solvers == 2)
+    """
+    if not curves:
+        return np.array([])
+    
+    n_tols = len(curves)
+    n_solvers = len(curves[0]['hist']['perf'])
+    
+    if n_solvers == 2:
+        profile_scores = np.ones((n_solvers, n_tols, 2, 3))
+    else:
+        profile_scores = np.ones((n_solvers, n_tols, 2, 2))
+    
+    for i_tol in range(n_tols):
+        for i_solver in range(n_solvers):
+            # Get curves for this solver and tolerance (use the last run, which is the mean)
+            curve_hist_perf = curves[i_tol]['hist']['perf'][i_solver][-1]
+            curve_hist_data = curves[i_tol]['hist']['data'][i_solver][-1]
+            curve_out_perf = curves[i_tol]['out']['perf'][i_solver][-1]
+            curve_out_data = curves[i_tol]['out']['data'][i_solver][-1]
+            
+            profile_scores[i_solver, i_tol, 0, 0] = integrate(curve_hist_perf, 'perf', profile_options)
+            profile_scores[i_solver, i_tol, 0, 1] = integrate(curve_hist_data, 'data', profile_options)
+            profile_scores[i_solver, i_tol, 1, 0] = integrate(curve_out_perf, 'perf', profile_options)
+            profile_scores[i_solver, i_tol, 1, 1] = integrate(curve_out_data, 'data', profile_options)
+            
+            if n_solvers == 2:
+                curve_hist_log_ratio = curves[i_tol]['hist']['log_ratio'][i_solver]
+                curve_out_log_ratio = curves[i_tol]['out']['log_ratio'][i_solver]
+                profile_scores[i_solver, i_tol, 0, 2] = integrate(curve_hist_log_ratio, 'log_ratio', profile_options)
+                profile_scores[i_solver, i_tol, 1, 2] = integrate(curve_out_log_ratio, 'log_ratio', profile_options)
+    
+    # Normalize the profile_scores by dividing by the maximum with the same tolerance and types
+    if profile_options.get(ProfileOption.NORMALIZED_SCORES, False):
+        max_scores = np.max(profile_scores, axis=0, keepdims=True)
+        max_scores[max_scores == 0] = 1
+        profile_scores = profile_scores / max_scores
+    
+    return profile_scores

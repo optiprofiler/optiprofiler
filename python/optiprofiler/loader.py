@@ -358,6 +358,7 @@ def load_results(problem_options: Dict[str, Any], profile_options: Dict[str, Any
     
     # Find the path of the data to load
     time_stamp_files = []
+    time_stamp = None
     
     if load_value == 'latest':
         # Find all timestamp files and get the latest one
@@ -367,12 +368,18 @@ def load_results(problem_options: Dict[str, Any], profile_options: Dict[str, Any
             raise FileNotFoundError(f"Failed to load data since no time_stamp files are found in the directory '{search_path}'. "
                                     f"Note that the search is limited to 5 levels of subdirectories.")
         
-        # Sort files by date (newest first)
-        def key_func(x):
-            return x['date']
-        time_stamp_files.sort(key=key_func, reverse=True)
+        # Sort files by the timestamp in filename (not file modification time)
+        # Filename format: time_stamp_yyyyMMdd_HHmmss.txt
+        def extract_timestamp(file_info):
+            # Extract timestamp from filename: time_stamp_yyyyMMdd_HHmmss.txt -> yyyyMMdd_HHmmss
+            filename = file_info['name']
+            ts_str = filename[11:-4]  # Remove 'time_stamp_' prefix and '.txt' suffix
+            return datetime.datetime.strptime(ts_str, '%Y%m%d_%H%M%S')
+        
+        time_stamp_files.sort(key=extract_timestamp, reverse=True)
         latest_time_stamp_file = time_stamp_files[0]
         path_data = latest_time_stamp_file['folder']
+        time_stamp = latest_time_stamp_file['name'][11:-4]  # Extract timestamp string
     else:
         # Search for the specific timestamp file
         pattern = f'time_stamp_{load_value}.txt'
@@ -383,6 +390,9 @@ def load_results(problem_options: Dict[str, Any], profile_options: Dict[str, Any
                                     f"Note that the search is limited to 5 levels of subdirectories.")
         
         path_data = time_stamp_files[0]['folder']
+        time_stamp = load_value
+    
+    path_experiment = os.path.dirname(path_data)
     
     # Load data from the 'data_for_loading.h5' file
     data_file_path = os.path.join(path_data, 'data_for_loading.h5')
@@ -450,6 +460,28 @@ def load_results(problem_options: Dict[str, Any], profile_options: Dict[str, Any
             results_plibs[i] = recompute_merits(results_plib, merit_fun)
             if 'results_plib_plain' in results_plib:
                 results_plibs[i]['results_plib_plain'] = recompute_merits(results_plib['results_plib_plain'], merit_fun)
+    
+    # Count the number of selected problems
+    problem_nums = 0
+    for results_plib in results_plibs:
+        if results_plib:
+            problem_nums += results_plib['fun_histories'].shape[0]
+    
+    # Check whether there is any problem to load
+    if problem_nums == 0:
+        print("\nINFO: No problem is selected to load by the given options. Please check your options and try again.")
+        return [], profile_options
+    
+    # Print the information about the loaded experiment
+    logger = get_logger(__name__)
+    logger.info('Loaded experiment successfully.')
+    logger.info('Information about the loaded experiment:')
+    logger.info(f'- Time stamp: {time_stamp}')
+    logger.info(f'- Path: {path_experiment}')
+    logger.info(f'- Solvers: {", ".join(results_plibs[0]["solver_names"])}')
+    if 'feature_stamp' in results_plibs[0]:
+        logger.info(f'- Feature stamp: {results_plibs[0]["feature_stamp"]}')
+    logger.info(f'- Number of selected problems: {problem_nums}')
     
     return results_plibs, profile_options
 
@@ -552,5 +584,5 @@ def save_options(options: Dict[str, Any], file_path: Union[str, Path]) -> None:
         with open(file_path, 'wb') as f:
             pickle.dump(options, f)
     except Exception as e:
-        get_logger().warning(f"Failed to save options to {file_path}: {e}")
+        get_logger(__name__).warning(f"Failed to save options to {file_path}: {e}")
 

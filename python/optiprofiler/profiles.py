@@ -24,7 +24,7 @@ from matplotlib.ticker import MaxNLocator, FuncFormatter
 from .opclasses import Feature, Problem, FeaturedProblem
 from .utils import FeatureName, ProfileOption, FeatureOption, ProblemOption, get_logger, setup_main_process_logging, setup_worker_logging
 from .loader import load_results, save_results_to_h5, save_options
-from .profile_utils import check_validity_problem_options, check_validity_profile_options, get_default_problem_options, get_default_profile_options, compute_merit_values, create_stamp, merge_pdfs_with_pypdf, write_report, process_results, init_readme, add_to_readme
+from .profile_utils import check_validity_problem_options, check_validity_profile_options, get_default_problem_options, get_default_profile_options, compute_merit_values, create_stamp, merge_pdfs_with_pypdf, write_report, process_results, init_readme, add_to_readme, compute_scores
 from .plotting import draw_hist, set_profile_context, format_float_scientific_latex, draw_profiles
 
 
@@ -1122,15 +1122,49 @@ def benchmark(
 
         plt.close(fig_summary)
 
-    
+    # Save curves to file.
+    if not profile_options[ProfileOption.SCORE_ONLY]:
+        try:
+            import pickle
+            with open(path_log / 'curves.pkl', 'wb') as f:
+                pickle.dump(curves, f)
+            add_to_readme(path_readme_log, 'curves.pkl', 'File, storing the curves of the profiles.')
+        except Exception as e:
+            if not profile_options[ProfileOption.SILENT]:
+                logger.warning(f'Failed to save curves: {e}')
 
-    
+    # Compute profile_scores from curves.
+    profile_scores = compute_scores(curves, profile_options)
 
+    # Save profile_scores to file.
+    if not profile_options[ProfileOption.SCORE_ONLY]:
+        try:
+            import pickle
+            with open(path_log / 'profile_scores.pkl', 'wb') as f:
+                pickle.dump(profile_scores, f)
+            add_to_readme(path_readme_log, 'profile_scores.pkl', 'File, storing the scores of solvers on each profile.')
+        except Exception as e:
+            if not profile_options[ProfileOption.SILENT]:
+                logger.warning(f'Failed to save profile_scores: {e}')
+
+    # Compute solver_scores using score_fun.
+    score_fun = profile_options[ProfileOption.SCORE_FUN]
+    solver_scores = score_fun(profile_scores)
+
+    # Print solver scores.
+    if not profile_options[ProfileOption.SILENT]:
+        logger.info('Scores of the solvers:')
+        max_solver_name_length = max(len(name) for name in solver_names)
+        for i, name in enumerate(solver_names):
+            format_info_str = f'{{:<{max_solver_name_length}}}:    {{:.4f}}'
+            logger.info(format_info_str.format(name, solver_scores[i]))
 
     # Close the listener of the logger.
     if not profile_options[ProfileOption.SCORE_ONLY]:
         listener.stop()
-    
+
+    return solver_scores, profile_scores, curves
+
     """
 
     # Run the benchmarks.
