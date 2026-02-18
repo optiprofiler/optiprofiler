@@ -174,7 +174,7 @@ def random_test(benchmark_id=None):
     print()
     
     # Run benchmark
-    benchmark(solvers, options)
+    benchmark(solvers, **options)
 
 
 if __name__ == '__main__':

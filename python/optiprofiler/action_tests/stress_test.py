@@ -68,7 +68,7 @@ def stress_test(benchmark_id=None):
     print()
     
     # Run benchmark
-    benchmark(UNCONSTRAINED_SOLVERS, options)
+    benchmark(UNCONSTRAINED_SOLVERS, **options)
 
 
 if __name__ == '__main__':

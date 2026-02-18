@@ -58,7 +58,7 @@ def run_feature_test(feature_name, benchmark_id=None):
     print(f"{'='*60}\n")
     
     start_time = time.time()
-    benchmark(SOLVERS, options)
+    benchmark(SOLVERS, **options)
     elapsed = time.time() - start_time
     print(f"\nTime for {feature_name} test: {elapsed:.2f} seconds\n")
 

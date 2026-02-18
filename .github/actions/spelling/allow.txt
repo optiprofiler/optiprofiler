@@ -548,3 +548,15 @@ unpickling
 cta
 rgba
 svg
+dpi
+keepdims
+labelleft
+labelright
+linux
+nelder
+rtol
+skipif
+tolist
+usr
+XAxis
+xticklabels
