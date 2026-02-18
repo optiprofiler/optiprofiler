@@ -18,8 +18,11 @@ from optiprofiler.action_tests.solvers import SOLVERS, SOLVER_NAMES
 
 
 def get_plibs():
-    """Get problem libraries based on OS."""
-    if sys.platform.startswith('linux') or sys.platform == 'darwin':
+    """Get problem libraries based on OS.
+    
+    Note: pycutest is only available on Linux in CI (macOS ARM64 has installation issues).
+    """
+    if sys.platform.startswith('linux'):
         return ['s2mpj', 'pycutest']
     else:
         return ['s2mpj']
@@ -82,9 +85,6 @@ def random_test(benchmark_id=None):
     options['line_styles'] = list(rng.choice(styles, len(solvers), replace=True))
     options['line_widths'] = (rng.random(len(solvers)) * 2 + 0.5).tolist()
     
-    # Random hist plot mode
-    hist_choices = ['none', 'sequential', 'parallel']
-    options['draw_hist_plots'] = rng.choice(hist_choices)
     
     # Random feature
     feature_choices = [
@@ -152,6 +152,9 @@ def random_test(benchmark_id=None):
     options['maxnlcon'] = rng.integers(10, 21)
     options['mincon'] = 0
     options['maxcon'] = rng.integers(20, 41)
+    
+    # Random draw_hist_plots option
+    options['draw_hist_plots'] = rng.choice(['none', 'parallel', 'sequential'])
     
     # Random label options
     if rng.random() < 0.5:

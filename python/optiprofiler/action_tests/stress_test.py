@@ -18,8 +18,11 @@ from optiprofiler.action_tests.solvers import UNCONSTRAINED_SOLVERS, UNCONSTRAIN
 
 
 def get_plibs():
-    """Get problem libraries based on OS."""
-    if sys.platform.startswith('linux') or sys.platform == 'darwin':
+    """Get problem libraries based on OS.
+    
+    Note: pycutest is only available on Linux in CI (macOS ARM64 has installation issues).
+    """
+    if sys.platform.startswith('linux'):
         return ['s2mpj', 'pycutest']
     else:
         return ['s2mpj']

@@ -226,6 +226,13 @@ def benchmark(
         The identifier of the test. It is used to create the
         specific directory to store the results. Default is 'out' if the
         option 'load' is not provided, otherwise default is '.'.
+    draw_hist_plots : str, optional
+        Whether or how to draw the history plots of all the problems. It can
+        be either 'none', 'sequential', or 'parallel'. If it is 'none', we
+        will not draw the history plots. If it is 'parallel', we will draw
+        the history plots at the same time when solvers are solving the
+        problems. If it is 'sequential', we will draw the history plots
+        after all the problems are solved. Default is 'parallel'.
     errorbar_type : str, optional
         The type of the uncertainty interval that can be
         either 'minmax' or 'meanstd'. When 'n_runs' is greater than 1, we run
@@ -660,8 +667,8 @@ def benchmark(
             shutil.rmtree(path_stamp)
             path_stamp.mkdir(parents=True, exist_ok=True)
     
-    if profile_options[ProfileOption.SCORE_ONLY] or is_load:
-        # If 'load' is not empty, we will directly load the results and do not need to compute again. In this case, we do not need to create the directory to store the hist plots.
+    # Create directory to store history plots based on draw_hist_plots option.
+    if profile_options[ProfileOption.DRAW_HIST_PLOTS] == 'none':
         path_hist_plots = None
     else:
         path_hist_plots = path_stamp / 'history_plots'
@@ -834,6 +841,9 @@ def benchmark(
                 format_info_str = f'{{:<{max_solver_name_length}}}:    {{:.4f}}'
                 logger.info(format_info_str.format(name, solver_scores[i]))
     
+        # Close the listener of the logger before returning.
+        if not profile_options[ProfileOption.SCORE_ONLY]:
+            listener.stop()
         return solver_scores, None, None
 
     # If 'load' option is not specified, we solve all the selected problems.
@@ -875,8 +885,11 @@ def benchmark(
             if path_hist_plots_plib is not None and not path_hist_plots_plib.exists():
                 path_hist_plots_plib.mkdir(parents=True, exist_ok=True)
 
+            # Determine whether to draw history plots during solving (parallel mode) or after (sequential mode).
+            is_plot_parallel = profile_options[ProfileOption.DRAW_HIST_PLOTS] == 'parallel'
+
             # Solve all the problems from the current problem library with the specified options and get the computation results.
-            results_plib = _solve_all_problems(solvers, plib, feature, problem_options, profile_options, True, path_hist_plots_plib, log_queue=log_queue)
+            results_plib = _solve_all_problems(solvers, plib, feature, problem_options, profile_options, is_plot_parallel, path_hist_plots_plib, log_queue=log_queue)
 
             # If there are no problems selected or solved, skip the rest of the code, and continue to the next library.
             if results_plib is None:
@@ -929,8 +942,57 @@ def benchmark(
         results_plibs = [results_plib for results_plib in results_plibs if results_plib is not None]
         if len(results_plibs) == 0:
             if not profile_options[ProfileOption.SILENT]:
-                logger.warning('No problems are selected or solved from any problem library.')
+                logger.info('No problems are selected or solved from any problem library.')
+            # Close the listener of the logger before returning.
+            if not profile_options[ProfileOption.SCORE_ONLY]:
+                listener.stop()
             return solver_scores, None, None
+
+    # Draw history plots sequentially if draw_hist_plots is set to 'sequential'.
+    if profile_options[ProfileOption.DRAW_HIST_PLOTS] == 'sequential':
+        for results_plib in results_plibs:
+            plib = results_plib['plib']
+            if not profile_options[ProfileOption.SILENT]:
+                logger.info(f'Sequentially drawing history plots for problems from the problem library "{plib}".')
+                logger.info('This may take a while if there are many problems solved from this problem library.')
+                logger.info(f'The history plots for each problem will be saved in: {path_hist_plots / plib}')
+
+            # Create directory to store the history plots for each problem library.
+            path_hist_plots_plib = path_hist_plots / plib if path_hist_plots is not None else None
+            if path_hist_plots_plib is not None and not path_hist_plots_plib.exists():
+                path_hist_plots_plib.mkdir(parents=True, exist_ok=True)
+
+            n_problems_solved = len(results_plib['problem_names'])
+            for i_problem in range(n_problems_solved):
+                problem_name = results_plib['problem_names'][i_problem]
+                problem_type = results_plib['problem_types'][i_problem]
+                problem_dim = results_plib['problem_dims'][i_problem]
+                solvers_success = results_plib['solvers_successes'][i_problem]
+                fun_history = results_plib['fun_histories'][i_problem]
+                maxcv_history = results_plib['maxcv_histories'][i_problem]
+                fun_init = results_plib['fun_inits'][i_problem]
+                maxcv_init = results_plib['maxcv_inits'][i_problem]
+                n_eval = results_plib['n_evals'][i_problem]
+
+                # Draw the history plot for this problem.
+                _draw_problem_history_plot(
+                    problem_name, problem_type, problem_dim, profile_options['solver_names'],
+                    solvers_success, fun_history, maxcv_history, fun_init, maxcv_init,
+                    n_eval, profile_options, path_hist_plots_plib
+                )
+
+            if not profile_options[ProfileOption.SILENT]:
+                logger.info(f'Finished drawing history plots for problems from the problem library "{plib}".')
+
+            # Merge the history plots for each problem library to a single pdf file.
+            if not profile_options[ProfileOption.SCORE_ONLY] and np.any(results_plib['solvers_successes']):
+                if not profile_options[ProfileOption.SILENT]:
+                    logger.info(f'Merging all the history plots of problems from the "{plib}" library to a single PDF file.')
+                try:
+                    merge_pdfs_with_pypdf(path_hist_plots_plib, path_hist_plots / f'{plib}_history_plots_summary.pdf')
+                except Exception as exc:
+                    if not profile_options[ProfileOption.SILENT]:
+                        logger.warning(f'Failed to merge the history plots to a single PDF file. Error message: {exc}')
 
     # Store the data for loading.
     # This HDF5 file contains all the numerical results of the experiment.
@@ -1386,7 +1448,7 @@ def _solve_all_problems(solvers, plib, feature, problem_options, profile_options
     if not problem_names:
         if not profile_options[ProfileOption.SILENT]:
             logger.info(f'No problem is selected from "{plib}".')
-        return results
+        return None
 
     n_problems = len(problem_names)
     len_problem_names = max(len(name) for name in problem_names)
@@ -1770,6 +1832,124 @@ def _solve_one_problem(solvers, problem, feature, problem_name, len_problem_name
     return result
 
 
+def _draw_problem_history_plot(problem_name, problem_type, problem_dim, solver_names, solvers_success,
+                                fun_history, maxcv_history, fun_init, maxcv_init, n_eval, 
+                                profile_options, path_hist_plots):
+    """
+    Draw history plot for a single problem (used in sequential mode).
+    
+    Parameters
+    ----------
+    problem_name : str
+        Name of the problem.
+    problem_type : str
+        Type of the problem ('u' for unconstrained, etc.).
+    problem_dim : int
+        Dimension of the problem.
+    solver_names : list
+        Names of the solvers.
+    solvers_success : numpy.ndarray
+        Boolean array indicating solver success.
+    fun_history : numpy.ndarray
+        History of function values.
+    maxcv_history : numpy.ndarray
+        History of maximum constraint violations.
+    fun_init : numpy.ndarray
+        Initial function values.
+    maxcv_init : numpy.ndarray
+        Initial maximum constraint violations.
+    n_eval : numpy.ndarray
+        Number of function evaluations.
+    profile_options : dict
+        Profile options.
+    path_hist_plots : Path
+        Path to save the history plots.
+    """
+    logger = get_logger(__name__)
+    
+    # Skip if no solver succeeded.
+    if all(not success for success in solvers_success.flatten()):
+        return
+    
+    try:
+        merit_fun = profile_options[ProfileOption.MERIT_FUN]
+        try:
+            merit_history = compute_merit_values(merit_fun, fun_history, maxcv_history, maxcv_init)
+            merit_init = compute_merit_values(merit_fun, fun_init, maxcv_init, maxcv_init)
+        except Exception as exc:
+            logger.error(f'Error occurred while calculating the merit values. Please check the merit function. Error message: {exc}')
+            raise exc
+
+        warnings.filterwarnings('ignore')
+        n_cols = 1 if problem_type == 'u' else 3
+        default_figsize = plt.rcParams['figure.figsize']
+        default_width = default_figsize[0]
+        default_height = default_figsize[1]
+        profile_context = set_profile_context(profile_options)
+        with plt.rc_context(profile_context):
+            # Create figure without constrained layout (will use tight_layout instead)
+            fig_summary = plt.figure(figsize=(default_width * n_cols, default_height * 2))
+
+            F_title = profile_options['feature_stamp'].replace('_', r'\_')
+            P_title = problem_name.replace('_', r'\_')
+            T_title = f'Solving ``{P_title}" with ``{F_title}" feature'
+
+            # Set title with dynamic fontsize (matching MATLAB)
+            dpi = plt.rcParams.get('figure.dpi', 100)
+            title_fontsize = min(12, 1.2 * default_width * dpi / len(T_title))
+            fig_summary.suptitle(T_title, fontsize=title_fontsize)
+
+            # Create axes arrays
+            axs_summary = []
+            
+            # Create subplots - first row
+            for j in range(n_cols):
+                ax = fig_summary.add_subplot(2, n_cols, j+1)
+                axs_summary.append(ax)
+            
+            # Create subplots - second row
+            for j in range(n_cols):
+                ax = fig_summary.add_subplot(2, n_cols, n_cols+j+1)
+                axs_summary.append(ax)
+            
+            # Create cell_axs_summary and cell_axs_summary_cum
+            if problem_type == 'u':
+                cell_axs_summary = [axs_summary[0]]
+                cell_axs_summary_cum = [axs_summary[1]]
+            else:
+                cell_axs_summary = [axs_summary[0], axs_summary[1], axs_summary[2]]
+                cell_axs_summary_cum = [axs_summary[3], axs_summary[4], axs_summary[5]]
+            
+            # Create PDF filename
+            pdf_hist_file_name = re.sub(r'^[-_]+', '', re.sub(r'[-_]+', '_', re.sub(r'[^a-zA-Z0-9\-_]', '', problem_name.replace(' ', '_')))) + '.pdf'
+            pdf_summary = os.path.join(path_hist_plots, pdf_hist_file_name)
+            
+            # Process solver names (replace underscores)
+            processed_solver_names = [name.replace('_', r'\_') for name in solver_names]
+            
+            # Draw history plots
+            draw_hist(fun_history, maxcv_history, merit_history, fun_init, maxcv_init, merit_init, processed_solver_names, cell_axs_summary, False, problem_type, problem_dim, n_eval, profile_options, default_height)
+            
+            # Draw cumulative minimum history plots
+            draw_hist(fun_history, maxcv_history, merit_history, fun_init, maxcv_init, merit_init, processed_solver_names, cell_axs_summary_cum, True, problem_type, problem_dim, n_eval, profile_options, default_height)
+            
+            # Apply tight_layout first, leaving space for row labels on the left
+            fig_summary.tight_layout(rect=[0.05, 0.0, 1.0, 0.98])
+            
+            # After tight_layout, calculate actual positions for row labels
+            row1_y = 0.5 * (axs_summary[0].get_position().y0 + axs_summary[0].get_position().y1)
+            row2_y = 0.5 * (axs_summary[-1].get_position().y0 + axs_summary[-1].get_position().y1)
+            fig_summary.text(0.005, row1_y, "History profiles", rotation=90, va='center', fontsize=14)
+            fig_summary.text(0.005, row2_y, "Cummin history profiles", rotation=90, va='center', fontsize=14)
+            
+            # Save figure
+            fig_summary.savefig(pdf_summary, bbox_inches='tight')
+            plt.close(fig_summary)
+
+    except Exception as exc:
+        if not profile_options[ProfileOption.SILENT]:
+            logger.info(f'An error occurred while plotting the history plots of the problem {problem_name}: {exc}')
+        pass
 
 
 

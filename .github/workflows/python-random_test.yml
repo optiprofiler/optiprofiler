@@ -34,13 +34,20 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install CUTEst on Linux and macOS
-        if: ${{ runner.os == 'Linux' || runner.os == 'macOS' }}
+      - name: Install CUTEst on Linux
+        if: ${{ runner.os == 'Linux' }}
         run: bash .github/actions/test-python/install-cutest.sh
+
+      - name: Configure s2mpj for variable size problems
+        run: |
+          CONFIG_PATH="python/optiprofiler/problem_libs/s2mpj/config.txt"
+          echo "variable_size=all" > "$CONFIG_PATH"
+          echo "test_feasibility_problems=2" >> "$CONFIG_PATH"
+        shell: bash
 
       - name: Install package
         run: |
-          if [[ "$RUNNER_OS" == "Linux" || "$RUNNER_OS" == "macOS" ]]; then
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
             export PYCUTEST_CACHE=$GITHUB_WORKSPACE
             python -m pip install --progress-bar=off ".[extra,tests]"
           else

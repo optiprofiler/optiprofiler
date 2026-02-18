@@ -262,6 +262,13 @@ def check_validity_profile_options(solvers, profile_options):
         if not isinstance(profile_options[ProfileOption.SCORE_ONLY], bool):
             raise TypeError(f'Option {ProfileOption.SCORE_ONLY} must be a boolean.')
 
+    if ProfileOption.DRAW_HIST_PLOTS in profile_options:
+        if not isinstance(profile_options[ProfileOption.DRAW_HIST_PLOTS], str):
+            raise TypeError(f'Option {ProfileOption.DRAW_HIST_PLOTS} must be a string.')
+        valid_modes = ['none', 'parallel', 'sequential']
+        if profile_options[ProfileOption.DRAW_HIST_PLOTS] not in valid_modes:
+            raise ValueError(f"Option {ProfileOption.DRAW_HIST_PLOTS} must be 'none', 'parallel', or 'sequential'.")
+
     if ProfileOption.SUMMARIZE_PERFORMANCE_PROFILES in profile_options:
         if not isinstance(profile_options[ProfileOption.SUMMARIZE_PERFORMANCE_PROFILES], bool):
             raise TypeError(f'Option {ProfileOption.SUMMARIZE_PERFORMANCE_PROFILES} must be a boolean.')
@@ -463,6 +470,7 @@ def get_default_profile_options(solvers, feature, profile_options):
     profile_options.setdefault(ProfileOption.PROJECT_X0.value, False)
     profile_options.setdefault(ProfileOption.RUN_PLAIN.value, False)
     profile_options.setdefault(ProfileOption.SCORE_ONLY.value, False)
+    profile_options.setdefault(ProfileOption.DRAW_HIST_PLOTS.value, 'parallel')
     profile_options.setdefault(ProfileOption.SUMMARIZE_PERFORMANCE_PROFILES.value, True)
     profile_options.setdefault(ProfileOption.SUMMARIZE_DATA_PROFILES.value, True)
     profile_options.setdefault(ProfileOption.SUMMARIZE_LOG_RATIO_PROFILES.value, False)
@@ -497,6 +505,14 @@ def get_default_profile_options(solvers, feature, profile_options):
     profile_options.setdefault(ProfileOption.YLABEL_DATA_PROFILE.value, 'Data profiles ($\\mathrm{tol} = %s$)')
     profile_options.setdefault(ProfileOption.XLABEL_LOG_RATIO_PROFILE.value, 'Problem')
     profile_options.setdefault(ProfileOption.YLABEL_LOG_RATIO_PROFILE.value, 'Log-ratio profiles ($\\mathrm{tol} = %s$)')
+
+    # Resolve potential conflicts in the options.
+    if profile_options[ProfileOption.SCORE_ONLY.value]:
+        print('INFO: Since the option "score_only" is true, we will not draw any history plots of the problems (the option "draw_hist_plots" is set to "none").')
+        profile_options[ProfileOption.DRAW_HIST_PLOTS.value] = 'none'
+    if profile_options[ProfileOption.LOAD.value] is not None:
+        print('INFO: Since the option "load" is provided, we will draw history plots of the problems after loading the results (the option "draw_hist_plots" is set to "sequential").')
+        profile_options[ProfileOption.DRAW_HIST_PLOTS.value] = 'sequential'
 
     return profile_options
 
