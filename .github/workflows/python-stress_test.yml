@@ -38,13 +38,6 @@ jobs:
         if: ${{ runner.os == 'Linux' }}
         run: bash .github/actions/test-python/install-cutest.sh
 
-      - name: Configure s2mpj for variable size problems
-        run: |
-          CONFIG_PATH="python/optiprofiler/problem_libs/s2mpj/config.txt"
-          echo "variable_size=all" > "$CONFIG_PATH"
-          echo "test_feasibility_problems=2" >> "$CONFIG_PATH"
-        shell: bash
-
       - name: Install package
         run: |
           if [[ "$RUNNER_OS" == "Linux" ]]; then
@@ -53,6 +46,17 @@ jobs:
           else
             python -m pip install --progress-bar=off ".[tests]"
           fi
+        shell: bash
+
+      - name: Configure s2mpj for variable size problems
+        run: |
+          # Find the installed package location and modify config there
+          SITE_PACKAGES=$(python -c "import site; print(site.getsitepackages()[0])")
+          CONFIG_PATH="$SITE_PACKAGES/optiprofiler/problem_libs/s2mpj/config.txt"
+          echo "Modifying config at: $CONFIG_PATH"
+          echo "variable_size=all" > "$CONFIG_PATH"
+          echo "test_feasibility_problems=2" >> "$CONFIG_PATH"
+          cat "$CONFIG_PATH"
         shell: bash
 
       - name: Create output directory

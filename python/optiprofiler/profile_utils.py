@@ -44,7 +44,9 @@ def check_validity_problem_options(problem_options):
             raise ValueError(f"Option {ProblemOption.PTYPE} should be a string containing only the characters 'u', 'b', 'l', and 'n'.")
 
     if ProblemOption.MINDIM in problem_options:
-        if isinstance(problem_options[ProblemOption.MINDIM], float) and problem_options[ProblemOption.MINDIM].is_integer():
+        if isinstance(problem_options[ProblemOption.MINDIM], (float, np.floating)) and float(problem_options[ProblemOption.MINDIM]).is_integer():
+            problem_options[ProblemOption.MINDIM] = int(problem_options[ProblemOption.MINDIM])
+        if isinstance(problem_options[ProblemOption.MINDIM], np.integer):
             problem_options[ProblemOption.MINDIM] = int(problem_options[ProblemOption.MINDIM])
         if not isinstance(problem_options[ProblemOption.MINDIM], int):
             raise TypeError(f'Option {ProblemOption.MINDIM} must be an integer.')
@@ -52,7 +54,9 @@ def check_validity_problem_options(problem_options):
             raise ValueError(f'Option {ProblemOption.MINDIM} must be at least 1.')
     if ProblemOption.MAXDIM in problem_options:
         if not np.isinf(problem_options[ProblemOption.MAXDIM]):
-            if isinstance(problem_options[ProblemOption.MAXDIM], float) and problem_options[ProblemOption.MAXDIM].is_integer():
+            if isinstance(problem_options[ProblemOption.MAXDIM], (float, np.floating)) and float(problem_options[ProblemOption.MAXDIM]).is_integer():
+                problem_options[ProblemOption.MAXDIM] = int(problem_options[ProblemOption.MAXDIM])
+            if isinstance(problem_options[ProblemOption.MAXDIM], np.integer):
                 problem_options[ProblemOption.MAXDIM] = int(problem_options[ProblemOption.MAXDIM])
             if not isinstance(problem_options[ProblemOption.MAXDIM], int):
                 raise TypeError(f'Option {ProblemOption.MAXDIM} must be an integer or np.inf.')
@@ -63,7 +67,9 @@ def check_validity_problem_options(problem_options):
             raise ValueError(f'Option {ProblemOption.MINDIM} cannot be larger than option {ProblemOption.MAXDIM}.')
 
     if ProblemOption.MINB in problem_options:
-        if isinstance(problem_options[ProblemOption.MINB], float) and problem_options[ProblemOption.MINB].is_integer():
+        if isinstance(problem_options[ProblemOption.MINB], (float, np.floating)) and float(problem_options[ProblemOption.MINB]).is_integer():
+            problem_options[ProblemOption.MINB] = int(problem_options[ProblemOption.MINB])
+        if isinstance(problem_options[ProblemOption.MINB], np.integer):
             problem_options[ProblemOption.MINB] = int(problem_options[ProblemOption.MINB])
         if not isinstance(problem_options[ProblemOption.MINB], int):
             raise TypeError(f'Option {ProblemOption.MINB} must be an integer.')
@@ -71,7 +77,9 @@ def check_validity_problem_options(problem_options):
             raise ValueError(f'Option {ProblemOption.MINB} must be nonnegative.')
     if ProblemOption.MAXB in problem_options:
         if not np.isinf(problem_options[ProblemOption.MAXB]):
-            if isinstance(problem_options[ProblemOption.MAXB], float) and problem_options[ProblemOption.MAXB].is_integer():
+            if isinstance(problem_options[ProblemOption.MAXB], (float, np.floating)) and float(problem_options[ProblemOption.MAXB]).is_integer():
+                problem_options[ProblemOption.MAXB] = int(problem_options[ProblemOption.MAXB])
+            if isinstance(problem_options[ProblemOption.MAXB], np.integer):
                 problem_options[ProblemOption.MAXB] = int(problem_options[ProblemOption.MAXB])
             if not isinstance(problem_options[ProblemOption.MAXB], int):
                 raise TypeError(f'Option {ProblemOption.MAXB} must be an integer or np.inf.')
@@ -82,7 +90,9 @@ def check_validity_problem_options(problem_options):
             raise ValueError(f'Option {ProblemOption.MINB} cannot be larger than option {ProblemOption.MAXB}.')
 
     if ProblemOption.MINLCON in problem_options:
-        if isinstance(problem_options[ProblemOption.MINLCON], float) and problem_options[ProblemOption.MINLCON].is_integer():
+        if isinstance(problem_options[ProblemOption.MINLCON], (float, np.floating)) and float(problem_options[ProblemOption.MINLCON]).is_integer():
+            problem_options[ProblemOption.MINLCON] = int(problem_options[ProblemOption.MINLCON])
+        if isinstance(problem_options[ProblemOption.MINLCON], np.integer):
             problem_options[ProblemOption.MINLCON] = int(problem_options[ProblemOption.MINLCON])
         if not isinstance(problem_options[ProblemOption.MINLCON], int):
             raise TypeError(f'Option {ProblemOption.MINLCON} must be an integer.')
@@ -90,7 +100,9 @@ def check_validity_problem_options(problem_options):
             raise ValueError(f'Option {ProblemOption.MINLCON} must be nonnegative.')
     if ProblemOption.MAXLCON in problem_options:
         if not np.isinf(problem_options[ProblemOption.MAXLCON]):
-            if isinstance(problem_options[ProblemOption.MAXLCON], float) and problem_options[ProblemOption.MAXLCON].is_integer():
+            if isinstance(problem_options[ProblemOption.MAXLCON], (float, np.floating)) and float(problem_options[ProblemOption.MAXLCON]).is_integer():
+                problem_options[ProblemOption.MAXLCON] = int(problem_options[ProblemOption.MAXLCON])
+            if isinstance(problem_options[ProblemOption.MAXLCON], np.integer):
                 problem_options[ProblemOption.MAXLCON] = int(problem_options[ProblemOption.MAXLCON])
             if not isinstance(problem_options[ProblemOption.MAXLCON], int):
                 raise TypeError(f'Option {ProblemOption.MAXLCON} must be an integer or np.inf.')
@@ -101,7 +113,9 @@ def check_validity_problem_options(problem_options):
             raise ValueError(f'Option {ProblemOption.MINLCON} cannot be larger than option {ProblemOption.MAXLCON}.')
 
     if ProblemOption.MINNLCON in problem_options:
-        if isinstance(problem_options[ProblemOption.MINNLCON], float) and problem_options[ProblemOption.MINNLCON].is_integer():
+        if isinstance(problem_options[ProblemOption.MINNLCON], (float, np.floating)) and float(problem_options[ProblemOption.MINNLCON]).is_integer():
+            problem_options[ProblemOption.MINNLCON] = int(problem_options[ProblemOption.MINNLCON])
+        if isinstance(problem_options[ProblemOption.MINNLCON], np.integer):
             problem_options[ProblemOption.MINNLCON] = int(problem_options[ProblemOption.MINNLCON])
         if not isinstance(problem_options[ProblemOption.MINNLCON], int):
             raise TypeError(f'Option {ProblemOption.MINNLCON} must be an integer.')
@@ -109,7 +123,9 @@ def check_validity_problem_options(problem_options):
             raise ValueError(f'Option {ProblemOption.MINNLCON} must be nonnegative.')
     if ProblemOption.MAXNLCON in problem_options:
         if not np.isinf(problem_options[ProblemOption.MAXNLCON]):
-            if isinstance(problem_options[ProblemOption.MAXNLCON], float) and problem_options[ProblemOption.MAXNLCON].is_integer():
+            if isinstance(problem_options[ProblemOption.MAXNLCON], (float, np.floating)) and float(problem_options[ProblemOption.MAXNLCON]).is_integer():
+                problem_options[ProblemOption.MAXNLCON] = int(problem_options[ProblemOption.MAXNLCON])
+            if isinstance(problem_options[ProblemOption.MAXNLCON], np.integer):
                 problem_options[ProblemOption.MAXNLCON] = int(problem_options[ProblemOption.MAXNLCON])
             if not isinstance(problem_options[ProblemOption.MAXNLCON], int):
                 raise TypeError(f'Option {ProblemOption.MAXNLCON} must be an integer or np.inf.')
@@ -120,7 +136,9 @@ def check_validity_problem_options(problem_options):
             raise ValueError(f'Option {ProblemOption.MINNLCON} cannot be larger than option {ProblemOption.MAXNLCON}.')
 
     if ProblemOption.MINCON in problem_options:
-        if isinstance(problem_options[ProblemOption.MINCON], float) and problem_options[ProblemOption.MINCON].is_integer():
+        if isinstance(problem_options[ProblemOption.MINCON], (float, np.floating)) and float(problem_options[ProblemOption.MINCON]).is_integer():
+            problem_options[ProblemOption.MINCON] = int(problem_options[ProblemOption.MINCON])
+        if isinstance(problem_options[ProblemOption.MINCON], np.integer):
             problem_options[ProblemOption.MINCON] = int(problem_options[ProblemOption.MINCON])
         if not isinstance(problem_options[ProblemOption.MINCON], int):
             raise TypeError(f'Option {ProblemOption.MINCON} must be an integer.')
@@ -128,7 +146,9 @@ def check_validity_problem_options(problem_options):
             raise ValueError(f'Option {ProblemOption.MINCON} must be nonnegative.')
     if ProblemOption.MAXCON in problem_options:
         if not np.isinf(problem_options[ProblemOption.MAXCON]):
-            if isinstance(problem_options[ProblemOption.MAXCON], float) and problem_options[ProblemOption.MAXCON].is_integer():
+            if isinstance(problem_options[ProblemOption.MAXCON], (float, np.floating)) and float(problem_options[ProblemOption.MAXCON]).is_integer():
+                problem_options[ProblemOption.MAXCON] = int(problem_options[ProblemOption.MAXCON])
+            if isinstance(problem_options[ProblemOption.MAXCON], np.integer):
                 problem_options[ProblemOption.MAXCON] = int(problem_options[ProblemOption.MAXCON])
             if not isinstance(problem_options[ProblemOption.MAXCON], int):
                 raise TypeError(f'Option {ProblemOption.MAXCON} must be an integer or np.inf.')
@@ -159,7 +179,9 @@ def check_validity_profile_options(solvers, profile_options):
     """
     logger = get_logger(__name__)
     if ProfileOption.N_JOBS in profile_options:
-        if isinstance(profile_options[ProfileOption.N_JOBS], float) and profile_options[ProfileOption.N_JOBS].is_integer():
+        if isinstance(profile_options[ProfileOption.N_JOBS], (float, np.floating)) and float(profile_options[ProfileOption.N_JOBS]).is_integer():
+            profile_options[ProfileOption.N_JOBS] = int(profile_options[ProfileOption.N_JOBS])
+        if isinstance(profile_options[ProfileOption.N_JOBS], np.integer):
             profile_options[ProfileOption.N_JOBS] = int(profile_options[ProfileOption.N_JOBS])
         if not isinstance(profile_options[ProfileOption.N_JOBS], int):
             raise TypeError(f'Option {ProfileOption.N_JOBS} must be an integer.')
@@ -168,7 +190,9 @@ def check_validity_profile_options(solvers, profile_options):
             logger.warning(f'Option {ProfileOption.N_JOBS} is set to 1 because it cannot be smaller than 1.')
 
     if ProfileOption.SEED in profile_options:
-        if isinstance(profile_options[ProfileOption.SEED], float) and profile_options[ProfileOption.SEED].is_integer():
+        if isinstance(profile_options[ProfileOption.SEED], (float, np.floating)) and float(profile_options[ProfileOption.SEED]).is_integer():
+            profile_options[ProfileOption.SEED] = int(profile_options[ProfileOption.SEED])
+        if isinstance(profile_options[ProfileOption.SEED], np.integer):
             profile_options[ProfileOption.SEED] = int(profile_options[ProfileOption.SEED])
         if not isinstance(profile_options[ProfileOption.SEED], int):
             raise TypeError(f'Option {ProfileOption.SEED} must be an integer.')
@@ -233,7 +257,9 @@ def check_validity_profile_options(solvers, profile_options):
                 raise ValueError(f'Option {ProfileOption.SAVEPATH} is not a valid path and cannot be created: {exc}.') from exc
 
     if ProfileOption.MAX_TOL_ORDER in profile_options:
-        if isinstance(profile_options[ProfileOption.MAX_TOL_ORDER], float) and profile_options[ProfileOption.MAX_TOL_ORDER].is_integer():
+        if isinstance(profile_options[ProfileOption.MAX_TOL_ORDER], (float, np.floating)) and float(profile_options[ProfileOption.MAX_TOL_ORDER]).is_integer():
+            profile_options[ProfileOption.MAX_TOL_ORDER] = int(profile_options[ProfileOption.MAX_TOL_ORDER])
+        if isinstance(profile_options[ProfileOption.MAX_TOL_ORDER], np.integer):
             profile_options[ProfileOption.MAX_TOL_ORDER] = int(profile_options[ProfileOption.MAX_TOL_ORDER])
         if not isinstance(profile_options[ProfileOption.MAX_TOL_ORDER], int):
             raise TypeError(f'Option {ProfileOption.MAX_TOL_ORDER} must be an integer.')
@@ -294,7 +320,9 @@ def check_validity_profile_options(solvers, profile_options):
             raise TypeError(f'Option {ProfileOption.SILENT} must be a boolean.')
 
     if ProfileOption.SOLVER_VERBOSE in profile_options:
-        if isinstance(profile_options[ProfileOption.SOLVER_VERBOSE], float) and profile_options[ProfileOption.SOLVER_VERBOSE].is_integer():
+        if isinstance(profile_options[ProfileOption.SOLVER_VERBOSE], (float, np.floating)) and float(profile_options[ProfileOption.SOLVER_VERBOSE]).is_integer():
+            profile_options[ProfileOption.SOLVER_VERBOSE] = int(profile_options[ProfileOption.SOLVER_VERBOSE])
+        if isinstance(profile_options[ProfileOption.SOLVER_VERBOSE], np.integer):
             profile_options[ProfileOption.SOLVER_VERBOSE] = int(profile_options[ProfileOption.SOLVER_VERBOSE])
         if not isinstance(profile_options[ProfileOption.SOLVER_VERBOSE], int):
             raise TypeError(f'Option {ProfileOption.SOLVER_VERBOSE} must be 0, 1, or 2.')
@@ -342,7 +370,9 @@ def check_validity_profile_options(solvers, profile_options):
             if len(profile_options[ProfileOption.SOLVERS_TO_LOAD]) != len(profile_options[ProfileOption.SOLVER_NAMES]):
                 raise ValueError(f'Option {ProfileOption.SOLVERS_TO_LOAD} must have the same length as option {ProfileOption.SOLVER_NAMES} ({len(profile_options[ProfileOption.SOLVER_NAMES])}).')
         for i in range(len(profile_options[ProfileOption.SOLVERS_TO_LOAD])):
-            if isinstance(profile_options[ProfileOption.SOLVERS_TO_LOAD][i], float) and profile_options[ProfileOption.SOLVERS_TO_LOAD][i].is_integer():
+            if isinstance(profile_options[ProfileOption.SOLVERS_TO_LOAD][i], (float, np.floating)) and float(profile_options[ProfileOption.SOLVERS_TO_LOAD][i]).is_integer():
+                profile_options[ProfileOption.SOLVERS_TO_LOAD][i] = int(profile_options[ProfileOption.SOLVERS_TO_LOAD][i])
+            if isinstance(profile_options[ProfileOption.SOLVERS_TO_LOAD][i], np.integer):
                 profile_options[ProfileOption.SOLVERS_TO_LOAD][i] = int(profile_options[ProfileOption.SOLVERS_TO_LOAD][i])
             if not isinstance(profile_options[ProfileOption.SOLVERS_TO_LOAD][i], int):
                 raise TypeError(f'All elements of option {ProfileOption.SOLVERS_TO_LOAD} must be integers.')
