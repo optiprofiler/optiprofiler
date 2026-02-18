@@ -1016,6 +1016,10 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             if ~profile_options.(ProfileOptionKey.SILENT.value)
                 fprintf("\nINFO: No problems are selected or solved from any problem library.\n");
             end
+            % Close the diary before returning.
+            if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
+                diary off;
+            end
             return;
         end
     end
