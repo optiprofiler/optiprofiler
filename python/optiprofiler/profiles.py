@@ -712,6 +712,9 @@ def benchmark(
         pass
 
     # Save the options and record the log.
+    # Initialize log_queue and listener to None for the case when score_only=True.
+    log_queue = None
+    listener = None
     if not profile_options[ProfileOption.SCORE_ONLY]:
         try:
             # Save the user-provided options.

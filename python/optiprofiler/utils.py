@@ -214,11 +214,13 @@ def setup_worker_logging(log_queue, level=logging.INFO):
 
     Parameters
     ----------
-    log_queue : `multiprocessing.Queue`
-        Queue for log messages.
+    log_queue : `multiprocessing.Queue` or None
+        Queue for log messages. If None, logging is not configured.
     level : int, optional
         Logging level. Default is `logging.INFO`.
     """
+    if log_queue is None:
+        return
     root = logging.getLogger()
     root.handlers[:] = []
     root.setLevel(level)
