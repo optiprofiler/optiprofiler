@@ -84,7 +84,9 @@ class Feature:
 
             # Check whether the options are valid.
             if key == FeatureOption.N_RUNS:
-                if isinstance(self._options[key], float) and self._options[key].is_integer():
+                if isinstance(self._options[key], (float, np.floating)) and float(self._options[key]).is_integer():
+                    self._options[key] = int(self._options[key])
+                if isinstance(self._options[key], np.integer):
                     self._options[key] = int(self._options[key])
                 if not isinstance(self._options[key], int):
                     raise TypeError(f'Option `{key}` must be an integer.')
@@ -104,7 +106,9 @@ class Feature:
                 if not (0.0 <= self._options[key] <= 1.0):
                     raise ValueError(f'Option `{key}` must be between 0 and 1.')
             elif key == FeatureOption.SIGNIFICANT_DIGITS:
-                if isinstance(self._options[key], float) and self._options[key].is_integer():
+                if isinstance(self._options[key], (float, np.floating)) and float(self._options[key]).is_integer():
+                    self._options[key] = int(self._options[key])
+                if isinstance(self._options[key], np.integer):
                     self._options[key] = int(self._options[key])
                 if not isinstance(self._options[key], int):
                     raise TypeError(f'Option `{key}` must be an integer.')
@@ -837,7 +841,9 @@ class Feature:
         if seed is not None:
             if np.isnan(seed) or np.isinf(seed):
                 seed = 0
-            if isinstance(seed, float) and seed.is_integer():
+            if isinstance(seed, (float, np.floating)) and float(seed).is_integer():
+                seed = int(seed)
+            if isinstance(seed, np.integer):
                 seed = int(seed)
             if not isinstance(seed, int):
                 raise TypeError('The argument seed must be an integer.')
@@ -1814,7 +1820,9 @@ class FeaturedProblem(Problem):
 
         # Preprocess the maximum number of function evaluations.
         self._max_eval = max_eval
-        if isinstance(self._max_eval, float) and self._max_eval.is_integer():
+        if isinstance(self._max_eval, (float, np.floating)) and float(self._max_eval).is_integer():
+            self._max_eval = int(self._max_eval)
+        if isinstance(self._max_eval, np.integer):
             self._max_eval = int(self._max_eval)
         if not isinstance(self._max_eval, int):
             raise TypeError('The argument `max_eval` for featured problem must be an integer.')
@@ -1824,7 +1832,9 @@ class FeaturedProblem(Problem):
         # Preprocess the seed.
         self._seed = seed
         if self._seed is not None:
-            if isinstance(self._seed, float) and self._seed.is_integer():
+            if isinstance(self._seed, (float, np.floating)) and float(self._seed).is_integer():
+                self._seed = int(self._seed)
+            if isinstance(self._seed, np.integer):
                 self._seed = int(self._seed)
             if not isinstance(self._seed, int):
                 raise TypeError('The argument seed must be an integer.')

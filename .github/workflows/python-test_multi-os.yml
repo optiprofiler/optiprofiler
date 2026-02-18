@@ -48,9 +48,9 @@ jobs:
 
       - name: Configure s2mpj for variable size problems
         run: |
-          # Find the installed package location and modify config there
-          SITE_PACKAGES=$(python -c "import site; print(site.getsitepackages()[0])")
-          CONFIG_PATH="$SITE_PACKAGES/optiprofiler/problem_libs/s2mpj/config.txt"
+          # Find the installed package location by importing optiprofiler
+          PACKAGE_DIR=$(python -c "import optiprofiler; import os; print(os.path.dirname(optiprofiler.__file__))")
+          CONFIG_PATH="$PACKAGE_DIR/problem_libs/s2mpj/config.txt"
           echo "Modifying config at: $CONFIG_PATH"
           echo "variable_size=all" > "$CONFIG_PATH"
           echo "test_feasibility_problems=2" >> "$CONFIG_PATH"
