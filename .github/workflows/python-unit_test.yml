@@ -1,6 +1,6 @@
-# Code coverage
+# Python unit test with code coverage
 
-name: test-python
+name: Python unit test
 
 on:
   push:

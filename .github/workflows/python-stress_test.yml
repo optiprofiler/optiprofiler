@@ -1,0 +1,104 @@
+# Python stress test: Test high-dimensional problems
+
+name: Python stress test
+
+on:
+  push:
+    branches: [main, python]
+  schedule:
+    - cron: '0 0 * * *'  # Every day at midnight
+  workflow_dispatch:
+
+jobs:
+
+  test:
+    name: Python ${{ matrix.python-version }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 360
+    continue-on-error: true
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ['3.10', '3.11', '3.12']
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install CUTEst on Linux and macOS
+        if: ${{ runner.os == 'Linux' || runner.os == 'macOS' }}
+        run: bash .github/actions/test-python/install-cutest.sh
+
+      - name: Configure for stress test
+        run: |
+          # Change config to test all problems with variable sizes
+          CONFIG_PATH="python/optiprofiler/problem_libs/s2mpj/config.txt"
+          if [ -f "$CONFIG_PATH" ]; then
+            echo "variable_size=all" > "$CONFIG_PATH"
+            echo "test_feasibility_problems=2" >> "$CONFIG_PATH"
+          fi
+        shell: bash
+
+      - name: Install package
+        run: |
+          if [[ "$RUNNER_OS" == "Linux" || "$RUNNER_OS" == "macOS" ]]; then
+            export PYCUTEST_CACHE=$GITHUB_WORKSPACE
+            python -m pip install --progress-bar=off ".[extra,tests]"
+          else
+            python -m pip install --progress-bar=off ".[tests]"
+          fi
+        shell: bash
+
+      - name: Create output directory
+        run: mkdir -p output
+        shell: bash
+
+      - name: Run stress test
+        run: |
+          cd output
+          python ../python/optiprofiler/action_tests/stress_test.py "os_${{ runner.os }}_py${{ matrix.python-version }}"
+        shell: bash
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: out_${{ matrix.os }}_py${{ matrix.python-version }}
+          path: output/
+
+  check_success_timeout:
+    runs-on: ubuntu-latest
+    if: ${{ !cancelled() }}
+    needs: test
+    steps:
+      - name: Clone the GitHub actions scripts
+        uses: actions/checkout@v4.2.2
+        with:
+          repository: OptHuang/github_actions_scripts
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY_ACT }}
+          path: scripts
+
+      - name: Check whether the tests were successful or cancelled due to timeout
+        run: bash scripts/check_success_timeout ${{ secrets.GITHUB_TOKEN }} ${{ github.repository }} ${{ github.run_id }}
+
+  workflow_status:
+    runs-on: ubuntu-latest
+    if: always()
+    needs: check_success_timeout
+    steps:
+      - name: Set workflow status based on check_success_timeout
+        run: |
+          if [ "${{ needs.check_success_timeout.result }}" != "success" ]; then
+            echo "check_success_timeout task failed with result: ${{ needs.check_success_timeout.result }}"
+            exit 1
+          else
+            echo "All tests were either successful or cancelled due to timeout as expected."
+          fi

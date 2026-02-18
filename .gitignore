@@ -295,8 +295,11 @@ fabric.properties
 ## Built Visual Studio Code Extensions
 *.vsix
 
-## Python test file
+## Python local debug/test files
 test_file.py
+_scratch*.py
+_debug*.py
+playground*.py
 # MATLAB generated files
 matlab/optiprofiler/problem_libs/s2mpj/src/
 matlab/optiprofiler/problem_libs/matcutest/src/

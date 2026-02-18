@@ -77,3 +77,12 @@ version = {attr = "optiprofiler.__version__"}
 [tool.setuptools.packages.find]
 where = ["python"]
 include = ["optiprofiler*"]
+
+[tool.pytest.ini_options]
+testpaths = ["python/optiprofiler/tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+markers = [
+    "extra: mark test as requiring extra dependencies (pycutest)",
+]
