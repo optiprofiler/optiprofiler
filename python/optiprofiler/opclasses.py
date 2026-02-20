@@ -1716,7 +1716,7 @@ class Problem:
         if np.any(np.isfinite(self.xu)):
             cv_bounds = np.max(x - self.xu, initial=cv_bounds)
         if self.ptype == 'b':
-            cv = max(cv_bounds)
+            cv = cv_bounds
             return cv, cv_bounds, cv_linear, cv_nonlinear
         
         if self.aub.size > 0:
@@ -2189,7 +2189,7 @@ class FeaturedProblem(Problem):
             if np.any(np.isfinite(self.xu)):
                 cv_bounds = np.max(x - self.xu, initial=cv_bounds)
             if self.ptype == 'b':
-                cv = max(cv_bounds)
+                cv = cv_bounds
                 return cv
             
             if self.aub.size > 0:

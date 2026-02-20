@@ -427,7 +427,7 @@ classdef FeaturedProblem < Problem
                     cv_bounds = max(max(x - obj.xu), cv_bounds);
                 end
                 if strcmp(obj.ptype, 'b')
-                    cv = max(cv_bounds);
+                    cv = cv_bounds;
                     return
                 end
 

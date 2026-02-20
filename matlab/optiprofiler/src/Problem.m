@@ -568,7 +568,7 @@ classdef Problem < handle
                 cv_bounds = max(max(x - obj.xu), cv_bounds);
             end
             if strcmp(obj.ptype, 'b')
-                cv = max(cv_bounds);
+                cv = cv_bounds;
                 if detailed
                     varargout{1} = cv;
                     varargout{2} = cv_bounds;
