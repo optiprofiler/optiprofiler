@@ -113,3 +113,4 @@ python_functions = ["test_*"]
 markers = [
     "extra: mark test as requiring extra dependencies (pycutest)",
 ]
+norecursedirs = ["action_tests"]
