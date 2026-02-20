@@ -2,6 +2,37 @@
 
 This guide explains how to create and integrate your own optimization problem library into OptiProfiler using the `custom` as a reference.
 
+## Important Note for pip/conda Users
+
+If you installed OptiProfiler via pip or conda, the package is installed in a
+read-only location (e.g., `site-packages`), and you cannot easily add new problem
+libraries directly to the `problem_libs` folder. In this case, you should use the
+`custom_problem_libs_path` option to specify an external directory containing your
+custom problem libraries.
+
+Example:
+```python
+from optiprofiler import benchmark
+
+benchmark(
+    solvers,
+    plibs=['my_problems'],  # Your custom library name
+    custom_problem_libs_path='/path/to/your/problem_libs',  # External path
+    mindim=1,
+    maxdim=10
+)
+```
+
+Where `/path/to/your/problem_libs/` should have this structure:
+```
+/path/to/your/problem_libs/
+├── my_problems/                    # Your custom library
+│   ├── my_problems_tools.py       # Must contain my_problems_load() and my_problems_select()
+│   └── ...
+└── another_lib/                    # Another custom library (optional)
+    └── another_lib_tools.py
+```
+
 ## Quick Start: The Simplest Way to Create and Use Custom Problems
 
 If you want to quickly create and use your own optimization problems, follow these steps:

@@ -449,6 +449,15 @@ def benchmark(
     maxcon : int, optional
         The maximum number of linear and nonlinear constraints of the
         problems to be selected. Default is max(maxlcon, maxnlcon).
+    custom_problem_libs_path : str or Path, optional
+        The path to a directory containing custom problem libraries. Each
+        subdirectory in this path should be a problem library with the same
+        structure as the built-in libraries (e.g., 's2mpj', 'pycutest', 'custom').
+        Specifically, each subdirectory should contain a file named
+        '<library_name>_tools.py' with two functions: '<library_name>_load' and
+        '<library_name>_select'. This option allows users to use their own
+        problem libraries without modifying the installed package. Default is
+        None, meaning only built-in libraries are available.
     excludelist : list, optional
         The list of problems to be excluded. Default is not to
         exclude any problem.
@@ -765,6 +774,9 @@ def benchmark(
             if caller_path is not None and Path(caller_path).is_file():
                 shutil.copy2(caller_path, path_log / os.path.basename(caller_path))
                 add_to_readme(path_readme_log, os.path.basename(caller_path), 'File, the script or function that calls the benchmark function.')
+                if not profile_options[ProfileOption.SILENT]:
+                    logger.info(f'The script or function that calls `benchmark` function is copied to:')
+                    logger.info(f'{path_log}')
         except Exception:
             if not profile_options[ProfileOption.SILENT]:
                 logger.warning(f'Failed to copy the script or function that calls `benchmark` function to the log directory.')
@@ -838,12 +850,13 @@ def benchmark(
             solver_scores = np.zeros(n_solvers)
 
         if not profile_options[ProfileOption.SILENT]:
+            logger.info('')
             logger.info('Scores of the solvers:')
             max_solver_name_length = max(len(name) for name in solver_names)
             for i, name in enumerate(solver_names):
                 format_info_str = f'{{:<{max_solver_name_length}}}:    {{:.4f}}'
                 logger.info(format_info_str.format(name, solver_scores[i]))
-    
+
         # Close the listener of the logger before returning.
         if not profile_options[ProfileOption.SCORE_ONLY]:
             listener.stop()
@@ -853,6 +866,7 @@ def benchmark(
     if not is_load:
         # Print the information of the current experiment.
         if not profile_options[ProfileOption.SILENT]:
+            logger.info('')
             logger.info(f'Start testing with the following options:')
             logger.info(f'- Solvers: {", ".join(solver_names)}')
             logger.info(f'- Problem libraries: {", ".join(problem_options[ProblemOption.PLIBS])}')
@@ -877,11 +891,16 @@ def benchmark(
         results_plibs = []
         for i, plib in enumerate(plibs):
             if not profile_options[ProfileOption.SILENT]:
-                logger.info(f'Start testing problems from the problem library {plib} with {feature.name} feature.')
+                logger.info('')
+                logger.info(f'Start testing problems from the problem library "{plib}" with the "{feature.name}" feature.')
                 if plib == 's2mpj':
-                    logger.info('More information about the S2MPJ problem library can be found at: https://github.com/GrattonToint/S2MPJ')
+                    logger.info('')
+                    logger.info('More information about the S2MPJ problem library can be found at:')
+                    logger.info('https://github.com/GrattonToint/S2MPJ')
                 elif plib == 'pycutest':
-                    logger.info('More information about the PyCUTEst problem library can be found at: https://jfowkes.github.io/pycutest/_build/html/index.html')
+                    logger.info('')
+                    logger.info('More information about the PyCUTEst problem library can be found at:')
+                    logger.info('https://jfowkes.github.io/pycutest/_build/html/index.html')
 
             # Create directory to store the history plots for each problem library.
             path_hist_plots_plib = path_hist_plots / plib if path_hist_plots is not None else None
@@ -915,7 +934,8 @@ def benchmark(
             if profile_options[ProfileOption.RUN_PLAIN]:
                 feature_plain = Feature(FeatureName.PLAIN.value)
                 if not profile_options[ProfileOption.SILENT]:
-                    logger.info(f'Start testing problems from the problem library {plib} with "plain" feature.')
+                    logger.info('')
+                    logger.info(f'Start testing problems from the problem library "{plib}" with "plain" feature.')
                 results_plib_plain = _solve_all_problems(solvers, plib, feature_plain, problem_options, profile_options, False, None, log_queue=log_queue)
                 try:
                     results_plib_plain['merit_histories'] = compute_merit_values(merit_fun, results_plib_plain['fun_histories'], results_plib_plain['maxcv_histories'], results_plib_plain['maxcv_inits'])
@@ -945,6 +965,7 @@ def benchmark(
         results_plibs = [results_plib for results_plib in results_plibs if results_plib is not None]
         if len(results_plibs) == 0:
             if not profile_options[ProfileOption.SILENT]:
+                logger.info('')
                 logger.info('No problems are selected or solved from any problem library.')
             # Close the listener of the logger before returning.
             if not profile_options[ProfileOption.SCORE_ONLY]:
@@ -1016,7 +1037,8 @@ def benchmark(
     n_problems, n_solvers, n_runs = merit_histories_merged.shape[:3]
 
     if not profile_options[ProfileOption.SILENT]:
-        logger.info('Start computing profiles.')
+        logger.info('')
+        logger.info('Start creating profiles.')
 
     max_tol_order = profile_options[ProfileOption.MAX_TOL_ORDER]
     tolerances = [10**(-i) for i in range(1, max_tol_order + 1)]
@@ -1120,6 +1142,14 @@ def benchmark(
                     solvers_all_diverge_hist[i_problem, i_run, i_tol] = np.all(np.isnan(work_hist[i_problem, :, i_run]))
                     solvers_all_diverge_out[i_problem, i_run, i_tol] = np.all(np.isnan(work_out[i_problem, :, i_run]))
 
+            # Log if all solvers failed to meet convergence test.
+            is_hist_drawable = np.any(~np.isnan(work_hist))
+            is_out_drawable = np.any(~np.isnan(work_out))
+            if not is_hist_drawable and not profile_options[ProfileOption.SILENT]:
+                logger.info(f'All solvers failed to meet the convergence test for tolerance {tolerance_str} in history-based profiles.')
+            if not is_out_drawable and not profile_options[ProfileOption.SILENT]:
+                logger.info(f'All solvers failed to meet the convergence test for tolerance {tolerance_str} in output-based profiles.')
+
             # Draw the profiles.
             fig_perf_hist, fig_data_hist, fig_log_ratio_hist, curve['hist'] = draw_profiles(work_hist, problem_dims_merged, solver_names, tolerance_latex, i_tol, ax_summary_perf_hist, ax_summary_data_hist, ax_summary_log_ratio_hist, True, is_perf, is_data, is_log_ratio, profile_options, curve['hist'])
             fig_perf_out, fig_data_out, fig_log_ratio_out, curve['out'] = draw_profiles(work_out, problem_dims_merged, solver_names, tolerance_latex, i_tol, ax_summary_perf_out, ax_summary_data_out, ax_summary_log_ratio_out, is_output_based, is_perf, is_data, is_log_ratio, profile_options, curve['out'])
@@ -1183,12 +1213,24 @@ def benchmark(
         # TODO Record the names of the problems all the solvers failed to meet the convergence test for every tolerance.
         pass
 
+    if not profile_options[ProfileOption.SILENT]:
+        logger.info('')
+        logger.info('All single profiles are created.')
+
+    if not profile_options[ProfileOption.SCORE_ONLY]:
+        if not profile_options[ProfileOption.SILENT]:
+            logger.info('')
+            logger.info('Start creating the summary PDF of all the profiles.')
+
         # Save the summary for the current feature.
         fig_summary_hist.supylabel('History-based profiles', fontsize='xx-large', horizontalalignment='right')
         fig_summary_out.supylabel('Output-based profiles', fontsize='xx-large', horizontalalignment='right')
         fig_summary.suptitle(f"Profiles with the ``{feature.name}'' feature", fontsize='xx-large', verticalalignment='bottom')
         path_summary = path_stamp / f'summary_{stamp}.pdf'
         fig_summary.savefig(path_summary, bbox_inches='tight')
+
+        if not profile_options[ProfileOption.SILENT]:
+            logger.info('The summary PDF of all the profiles is created.')
 
         plt.close(fig_summary)
 
@@ -1223,179 +1265,40 @@ def benchmark(
 
     # Print solver scores.
     if not profile_options[ProfileOption.SILENT]:
+        logger.info('')
         logger.info('Scores of the solvers:')
         max_solver_name_length = max(len(name) for name in solver_names)
         for i, name in enumerate(solver_names):
             format_info_str = f'{{:<{max_solver_name_length}}}:    {{:.4f}}'
             logger.info(format_info_str.format(name, solver_scores[i]))
 
+    # Print summary of saved files.
+    if not profile_options[ProfileOption.SILENT]:
+        logger.info('')
+        logger.info(f'Finished creating profiles with the "{feature.name}" feature.')
+        if not profile_options[ProfileOption.SCORE_ONLY]:
+            logger.info('')
+            logger.info('=' * 70)
+            logger.info('')
+            logger.info(f'Summary PDF of the profiles is saved as:')
+            logger.info(f'{path_stamp / f"summary_{stamp}.pdf"}')
+            logger.info('')
+            logger.info(f'Single profiles are stored in:')
+            logger.info(f'{path_stamp / "detailed_profiles"}')
+            logger.info('')
+            logger.info(f'Report of the experiment is saved as:')
+            logger.info(f'{path_report}')
+            logger.info('')
+            logger.info(f'Check the README file for more information about the experiment and the results:')
+            logger.info(f'{path_readme_feature}')
+            logger.info('')
+            logger.info('=' * 70)
+
     # Close the listener of the logger.
     if not profile_options[ProfileOption.SCORE_ONLY]:
         listener.stop()
 
     return solver_scores, profile_scores, curves
-
-    """
-
-    # Run the benchmarks.
-    pdf_summary = backend_pdf.PdfPages(path_summary)
-    problem_names = None
-    merit_init = None
-    merit_histories_plain = None
-    merit_out_plain = None
-    for feature in features:
-        # Solve the problems.
-        logger.info(f'Starting the computations of the "{feature.name}" profiles.')
-        max_eval_factor = 500
-        if feature.name == FeatureName.PLAIN and merit_histories_plain is not None:
-            merit_histories = np.copy(merit_histories_plain)
-            merit_out = np.copy(merit_out_plain)
-        else:
-            problem_names, fun_histories, maxcv_histories, fun_out, maxcv_out, fun_init, maxcv_init, n_eval, problem_dimensions, time_processes = _solve_all_problems(cutest_problem_names, custom_problem_loader, custom_problem_names, solvers, labels, feature, max_eval_factor, profile_options)
-            merit_histories = _compute_merit_values(fun_histories, maxcv_histories, maxcv_init)
-            merit_out = _compute_merit_values(fun_out, maxcv_out, maxcv_init)
-            merit_init = _compute_merit_values(fun_init, maxcv_init, maxcv_init)
-            if feature.name == FeatureName.PLAIN:
-                merit_histories_plain = np.copy(merit_histories)
-                merit_out_plain = np.copy(merit_out)
-
-        # Determine the least merit value for each problem.
-        merit_min = np.min(merit_histories, (1, 2, 3))
-        if feature.is_stochastic:
-            if merit_histories_plain is None:
-                feature_plain = Feature('plain')
-                logger.info(f'Starting the computations of the "plain" profiles.')
-                problem_names, fun_histories_plain, maxcv_histories_plain, fun_out_plain, maxcv_out_plain, fun_init, maxcv_init, _, _, time_processes_plain = _solve_all_problems(cutest_problem_names, custom_problem_loader, custom_problem_names, solvers, labels, feature_plain, max_eval_factor, profile_options)
-                merit_histories_plain = _compute_merit_values(fun_histories_plain, maxcv_histories_plain, maxcv_init)
-                merit_out_plain = _compute_merit_values(fun_out_plain, maxcv_out_plain, maxcv_init)
-                merit_init = _compute_merit_values(fun_init, maxcv_init, maxcv_init)
-            merit_min_plain = np.min(merit_histories_plain, (1, 2, 3))
-            merit_min = np.minimum(merit_min, merit_min_plain)
-
-        # Paths to the individual results.
-        path_feature = path_out / feature.name
-        path_feature.mkdir(parents=True, exist_ok=True)
-        path_problems = path_feature / 'report.txt'
-        path_perf_hist = path_feature / 'perf_hist.pdf'
-        path_perf_out = path_feature / 'perf_out.pdf'
-        path_data_hist = path_feature / 'data_hist.pdf'
-        path_data_out = path_feature / 'data_out.pdf'
-        path_log_ratio_hist = path_feature / 'log-ratio_hist.pdf'
-        path_log_ratio_out = path_feature / 'log-ratio_out.pdf'
-
-        # Store the names of the problems.
-        with path_problems.open('w') as f:
-            f.write(os.linesep.join(problem_names))
-
-        with plt.rc_context(profile_context):
-            # Create the summary figure.
-            n_rows = 0
-            if profile_options[ProfileOption.SUMMARIZE_PERFORMANCE_PROFILES]:
-                n_rows += 1
-            if profile_options[ProfileOption.SUMMARIZE_DATA_PROFILES]:
-                n_rows += 1
-            if profile_options[ProfileOption.SUMMARIZE_LOG_RATIO_PROFILES]:
-                n_rows += 1
-            fig_summary = plt.figure(figsize=(len(tolerances) * 4.8, 2 * n_rows * 4.8), layout='constrained')
-            fig_summary_hist, fig_summary_out = fig_summary.subfigures(2, 1)
-            subfigs_summary_hist = fig_summary_hist.subfigures(n_rows, 1)
-            subfigs_summary_out = fig_summary_out.subfigures(n_rows, 1)
-            i_rows = 0
-            if profile_options[ProfileOption.SUMMARIZE_PERFORMANCE_PROFILES]:
-                ax_summary_perf_hist = subfigs_summary_hist[i_rows].subplots(1, len(tolerances), sharey=True)
-                ax_summary_perf_out = subfigs_summary_out[i_rows].subplots(1, len(tolerances), sharey=True)
-                i_rows += 1
-            else:
-                ax_summary_perf_hist = None
-                ax_summary_perf_out = None
-            if profile_options[ProfileOption.SUMMARIZE_DATA_PROFILES]:
-                ax_summary_data_hist = subfigs_summary_hist[i_rows].subplots(1, len(tolerances), sharey=True)
-                ax_summary_data_out = subfigs_summary_out[i_rows].subplots(1, len(tolerances), sharey=True)
-                i_rows += 1
-            else:
-                ax_summary_data_hist = None
-                ax_summary_data_out = None
-            if profile_options[ProfileOption.SUMMARIZE_LOG_RATIO_PROFILES]:
-                ax_summary_log_ratio_hist = subfigs_summary_hist[i_rows].subplots(1, len(tolerances))
-                ax_summary_log_ratio_out = subfigs_summary_out[i_rows].subplots(1, len(tolerances))
-                i_rows += 1
-            else:
-                ax_summary_log_ratio_hist = None
-                ax_summary_log_ratio_out = None
-
-            # Create the performance and data profiles.
-            n_problems, n_solvers, n_runs, max_eval = merit_histories.shape
-            pdf_perf_hist = backend_pdf.PdfPages(path_perf_hist)
-            pdf_perf_out = backend_pdf.PdfPages(path_perf_out)
-            pdf_data_hist = backend_pdf.PdfPages(path_data_hist)
-            pdf_data_out = backend_pdf.PdfPages(path_data_out)
-            pdf_log_ratio_hist = backend_pdf.PdfPages(path_log_ratio_hist, False)
-            pdf_log_ratio_out = backend_pdf.PdfPages(path_log_ratio_out, False)
-            for i_tolerance, tolerance in enumerate(tolerances):
-                tolerance_str, tolerance_latex = _format_float_scientific_latex(tolerance)
-                logger.info(f'Creating profiles for tolerance {tolerance_str}.')
-                tolerance_label = f'($\\mathrm{{tol}} = {tolerance_latex}$)'
-
-                # Compute the number of function evaluations used by each
-                # solver on each problem at each run to achieve convergence.
-                work_hist = np.full((n_problems, n_solvers, n_runs), np.nan)
-                work_out = np.full((n_problems, n_solvers, n_runs), np.nan)
-                for i_problem in range(n_problems):
-                    for i_solver in range(n_solvers):
-                        for i_run in range(n_runs):
-                            if np.isfinite(merit_min[i_problem]):
-                                threshold = max(tolerance * merit_init[i_problem] + (1.0 - tolerance) * merit_min[i_problem], merit_min[i_problem])
-                            else:
-                                threshold = -np.inf
-                            if np.min(merit_histories[i_problem, i_solver, i_run, :]) <= threshold:
-                                work_hist[i_problem, i_solver, i_run] = np.argmax(merit_histories[i_problem, i_solver, i_run, :] <= threshold) + 1
-                            if merit_out[i_problem, i_solver, i_run] <= threshold:
-                                work_out[i_problem, i_solver, i_run] = n_eval[i_problem, i_solver, i_run]
-
-                # Draw and save the profiles.
-                fig_perf_hist, fig_perf_out, fig_data_hist, fig_data_out, fig_log_ratio_hist, fig_log_ratio_out = _draw_profiles(work_hist, work_out, problem_dimensions, labels, tolerance_label, i_tolerance, ax_summary_perf_hist, ax_summary_data_hist, ax_summary_log_ratio_hist, ax_summary_perf_out, ax_summary_data_out, ax_summary_log_ratio_out)
-                pdf_perf_hist.savefig(fig_perf_hist, bbox_inches='tight')
-                pdf_perf_out.savefig(fig_perf_out, bbox_inches='tight')
-                pdf_data_hist.savefig(fig_data_hist, bbox_inches='tight')
-                pdf_data_out.savefig(fig_data_out, bbox_inches='tight')
-                if fig_log_ratio_hist is not None:
-                    pdf_log_ratio_hist.savefig(fig_log_ratio_hist, bbox_inches='tight')
-                if fig_log_ratio_out is not None:
-                    pdf_log_ratio_out.savefig(fig_log_ratio_out, bbox_inches='tight')
-
-                # Close the individual figures.
-                plt.close(fig_perf_hist)
-                plt.close(fig_perf_out)
-                plt.close(fig_data_hist)
-                plt.close(fig_data_out)
-                if fig_log_ratio_hist is not None:
-                    plt.close(fig_log_ratio_hist)
-                if fig_log_ratio_out is not None:
-                    plt.close(fig_log_ratio_out)
-
-            # Close the individual PDF files.
-            pdf_perf_hist.close()
-            pdf_perf_out.close()
-            pdf_data_hist.close()
-            pdf_data_out.close()
-            pdf_log_ratio_hist.close()
-            pdf_log_ratio_out.close()
-            logger.info(f'Detailed results stored in {path_feature}.')
-
-            # Save the summary for the current feature.
-            fig_summary_hist.supylabel('History-based profiles', fontsize='xx-large', horizontalalignment='right')
-            fig_summary_out.supylabel('Output-based profiles', fontsize='xx-large', horizontalalignment='right')
-            fig_summary.suptitle(f"Profiles with the ``{feature.name}'' feature", fontsize='xx-large', verticalalignment='bottom')
-            pdf_summary.savefig(fig_summary, bbox_inches='tight')
-
-            # Close the summary figure.
-            plt.close(fig_summary)
-
-    # Close the summary PDF file.
-    pdf_summary.close()
-    logger.info(f'Summary stored in {path_summary}.')
-    
-    """
 
 
 def _solve_all_problems(solvers, plib, feature, problem_options, profile_options, is_plot, path_hist_plots, log_queue=None):
@@ -1407,13 +1310,14 @@ def _solve_all_problems(solvers, plib, feature, problem_options, profile_options
 
     # Get satisfied problem names.
     option_select = problem_options.copy()
-    for key in [ProblemOption.PLIBS.value, ProblemOption.PROBLEM_NAMES.value, ProblemOption.EXCLUDELIST.value]:
+    for key in [ProblemOption.PLIBS.value, ProblemOption.PROBLEM_NAMES.value, ProblemOption.EXCLUDELIST.value, ProblemOption.CUSTOM_PROBLEM_LIBS_PATH.value]:
         option_select.pop(key, None)
 
-    current_dir = Path(__file__).parent.resolve()
-    module_file_path = current_dir / 'problem_libs' / plib / f'{plib}_tools.py'
-    module_file_path = module_file_path.resolve()
-    module_name = 'optiprofiler.problem_libs.' + plib + '.' + plib + '_tools'
+    # Get the custom problem libraries path (if any).
+    custom_problem_libs_path = problem_options.get(ProblemOption.CUSTOM_PROBLEM_LIBS_PATH, None)
+
+    # Get the module file path for the problem library.
+    module_file_path, module_name, _ = _get_problem_lib_module_path(plib, custom_problem_libs_path)
 
     # Import the problem library module.
     try:
@@ -1450,6 +1354,7 @@ def _solve_all_problems(solvers, plib, feature, problem_options, profile_options
 
     if not problem_names:
         if not profile_options[ProfileOption.SILENT]:
+            logger.info('')
             logger.info(f'No problem is selected from "{plib}".')
         return None
 
@@ -1457,13 +1362,14 @@ def _solve_all_problems(solvers, plib, feature, problem_options, profile_options
     len_problem_names = max(len(name) for name in problem_names)
     max_eval_factor = profile_options[ProfileOption.MAX_EVAL_FACTOR]
     if not profile_options[ProfileOption.SILENT]:
+        logger.info('')
         logger.info(f'There are {n_problems} problems selected from "{plib}" to test.')
 
     # Determine whether to use sequential mode or parallel mode.
     seqential_mode = profile_options[ProfileOption.N_JOBS] == 1 or os.cpu_count() == 1
 
     # Solve all problems.
-    args = [(solvers, feature, problem_name, len_problem_names, profile_options, is_plot, path_hist_plots, plib) for problem_name in problem_names]
+    args = [(solvers, feature, problem_name, len_problem_names, profile_options, is_plot, path_hist_plots, plib, custom_problem_libs_path) for problem_name in problem_names]
     if seqential_mode:
         results = map(lambda arg: _solve_one_problem_wrapper(*arg), args)
     else:
@@ -1555,12 +1461,12 @@ def _solve_all_problems(solvers, plib, feature, problem_options, profile_options
     return results
 
 
-def _solve_one_problem_wrapper(solvers, feature, problem_name, len_problem_names, profile_options, is_plot, path_hist_plots, plib):
+def _solve_one_problem_wrapper(solvers, feature, problem_name, len_problem_names, profile_options, is_plot, path_hist_plots, plib, custom_problem_libs_path=None):
     logger = get_logger(__name__)
-    current_dir = Path(__file__).parent.resolve()
-    module_file_path = current_dir / 'problem_libs' / plib / f'{plib}_tools.py'
-    module_file_path = module_file_path.resolve()
-    module_name = 'optiprofiler.problem_libs.' + plib + '.' + plib + '_tools'
+    
+    # Get the module file path for the problem library.
+    module_file_path, module_name, _ = _get_problem_lib_module_path(plib, custom_problem_libs_path)
+    
     # Import the problem library module.
     try:
         spec = importlib.util.spec_from_file_location(module_name, str(module_file_path))
@@ -1955,8 +1861,49 @@ def _draw_problem_history_plot(problem_name, problem_type, problem_dim, solver_n
         pass
 
 
-
-
+def _get_problem_lib_module_path(plib, custom_problem_libs_path=None):
+    """
+    Get the module file path and module name for a problem library.
+    
+    This function checks if the problem library is a built-in library (in the 
+    optiprofiler/problem_libs/ directory) or a custom library (in the 
+    custom_problem_libs_path directory).
+    
+    Parameters
+    ----------
+    plib : str
+        The name of the problem library.
+    custom_problem_libs_path : Path or None
+        The path to the directory containing custom problem libraries.
+        
+    Returns
+    -------
+    module_file_path : Path
+        The path to the problem library's tools module file.
+    module_name : str
+        The module name for importing.
+    is_builtin : bool
+        True if the problem library is a built-in library, False otherwise.
+    """
+    current_dir = Path(__file__).parent.resolve()
+    builtin_module_file_path = current_dir / 'problem_libs' / plib / f'{plib}_tools.py'
+    
+    # Check if it's a built-in library.
+    if builtin_module_file_path.exists():
+        module_file_path = builtin_module_file_path.resolve()
+        module_name = f'optiprofiler.problem_libs.{plib}.{plib}_tools'
+        return module_file_path, module_name, True
+    
+    # Check if it's a custom library.
+    if custom_problem_libs_path is not None:
+        custom_module_file_path = Path(custom_problem_libs_path) / plib / f'{plib}_tools.py'
+        if custom_module_file_path.exists():
+            module_file_path = custom_module_file_path.resolve()
+            module_name = f'{plib}.{plib}_tools'
+            return module_file_path, module_name, False
+    
+    # If not found in either location, return the builtin path (will fail later with a clear error).
+    return builtin_module_file_path.resolve(), f'optiprofiler.problem_libs.{plib}.{plib}_tools', True
 
 
 

@@ -73,20 +73,21 @@ class ProblemOption(str, Enum):
     """
     Options for selecting problems from problem libraries.
     """
-    PLIBS = 'plibs'
-    PTYPE = 'ptype'
-    MINDIM = 'mindim'
-    MAXDIM = 'maxdim'
-    MINB = 'minb'
-    MAXB = 'maxb'
-    MINLCON = 'minlcon'
-    MAXLCON = 'maxlcon'
-    MINNLCON = 'minnlcon'
-    MAXNLCON = 'maxnlcon'
-    MINCON = 'mincon'
-    MAXCON = 'maxcon'
+    CUSTOM_PROBLEM_LIBS_PATH = 'custom_problem_libs_path'
     EXCLUDELIST = 'excludelist'
+    MAXB = 'maxb'
+    MAXCON = 'maxcon'
+    MAXDIM = 'maxdim'
+    MAXLCON = 'maxlcon'
+    MAXNLCON = 'maxnlcon'
+    MINB = 'minb'
+    MINCON = 'mincon'
+    MINDIM = 'mindim'
+    MINLCON = 'minlcon'
+    MINNLCON = 'minnlcon'
+    PLIBS = 'plibs'
     PROBLEM_NAMES = 'problem_names'
+    PTYPE = 'ptype'
 
 
 class FeatureOption(str, Enum):

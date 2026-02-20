@@ -19,21 +19,51 @@ def check_validity_problem_options(problem_options):
     """
     Check the validity of the problem options.
     """
+    # Check custom_problem_libs_path first, as it affects plibs validation.
+    custom_libs_path = None
+    custom_libs_names = []
+    if ProblemOption.CUSTOM_PROBLEM_LIBS_PATH in problem_options:
+        custom_libs_path = problem_options[ProblemOption.CUSTOM_PROBLEM_LIBS_PATH]
+        if custom_libs_path is not None:
+            if not isinstance(custom_libs_path, (str, Path)):
+                raise TypeError(f'Option {ProblemOption.CUSTOM_PROBLEM_LIBS_PATH} must be a string or a Path.')
+            # Expand ~ to user's home directory before resolving.
+            custom_libs_path = Path(custom_libs_path).expanduser().resolve()
+            if not custom_libs_path.exists():
+                raise ValueError(f'Option {ProblemOption.CUSTOM_PROBLEM_LIBS_PATH} path does not exist: {custom_libs_path}')
+            if not custom_libs_path.is_dir():
+                raise ValueError(f'Option {ProblemOption.CUSTOM_PROBLEM_LIBS_PATH} must be a directory: {custom_libs_path}')
+            # Get the list of custom problem libraries (subdirectories that contain {name}_tools.py).
+            for p in custom_libs_path.iterdir():
+                if p.is_dir() and not p.name.startswith('.') and p.name != '__pycache__':
+                    # Check if the subdirectory contains the required tools file.
+                    tools_file = p / f'{p.name}_tools.py'
+                    if tools_file.exists():
+                        custom_libs_names.append(p.name)
+            # Store the resolved path back.
+            problem_options[ProblemOption.CUSTOM_PROBLEM_LIBS_PATH] = custom_libs_path
+
     if ProblemOption.PLIBS in problem_options:
         if not isinstance(problem_options[ProblemOption.PLIBS], list):
             problem_options[ProblemOption.PLIBS] = [problem_options[ProblemOption.PLIBS]]
         mydir = Path(__file__).parent.resolve()
         problem_dir = Path(mydir, 'problem_libs').resolve()
-        subfolders = [p.name for p in problem_dir.iterdir() if p.is_dir()]
-        # Remove '__pycache__' and folders starting with '.'
-        subfolder_names = [name for name in subfolders if not name.startswith('.') and name != '__pycache__']
-        # Check if plibs is empty or any element is not str or not in subfolder_names
+        # Get built-in libraries (subdirectories that contain {name}_tools.py).
+        builtin_libs_names = []
+        for p in problem_dir.iterdir():
+            if p.is_dir() and not p.name.startswith('.') and p.name != '__pycache__':
+                tools_file = p / f'{p.name}_tools.py'
+                if tools_file.exists():
+                    builtin_libs_names.append(p.name)
+        # All available libraries = builtin + custom
+        all_available_libs = builtin_libs_names + custom_libs_names
+        # Check if plibs is empty or any element is not str or not in available libraries
         if len(problem_options[ProblemOption.PLIBS]) == 0:
             raise ValueError(f'Option {ProblemOption.PLIBS} cannot be an empty list.')
         elif any(not isinstance(plib, str) for plib in problem_options[ProblemOption.PLIBS]):
             raise TypeError(f'Option {ProblemOption.PLIBS} must be a string or a list of strings.')
-        elif any(plib not in subfolder_names for plib in problem_options[ProblemOption.PLIBS]):
-            raise ValueError(f'Option {ProblemOption.PLIBS} contains invalid problem libraries. Available libraries: {subfolder_names}.')
+        elif any(plib not in all_available_libs for plib in problem_options[ProblemOption.PLIBS]):
+            raise ValueError(f'Option {ProblemOption.PLIBS} contains invalid problem libraries. Available libraries: {all_available_libs}. Note: Each problem library must be a subdirectory containing a file named "<library_name>_tools.py".')
 
     if ProblemOption.PTYPE in problem_options:
         if not isinstance(problem_options[ProblemOption.PTYPE], str):
