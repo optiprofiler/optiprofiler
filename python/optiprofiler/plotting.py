@@ -182,7 +182,11 @@ def _draw_log_ratio_profiles(ax, x, y, ratio_max, n_solvers_equal, solver_names,
         if n_below > 0:
             ax.bar(x[n_solvers_equal:n_solvers_equal + n_below], y[n_solvers_equal:n_solvers_equal + n_below], color=bar_colors[0])
         if n_above > 0:
-            ax.bar(x[-(n_solvers_equal + n_above):-n_solvers_equal], y[-(n_solvers_equal + n_above):-n_solvers_equal], color=bar_colors[1])
+            # When n_solvers_equal == 0, x[-n_above:0] returns empty array, so we need special handling
+            if n_solvers_equal > 0:
+                ax.bar(x[-(n_solvers_equal + n_above):-n_solvers_equal], y[-(n_solvers_equal + n_above):-n_solvers_equal], color=bar_colors[1])
+            else:
+                ax.bar(x[-n_above:], y[-n_above:], color=bar_colors[1])
 
         # Add solver names with fontsize=24 to match MATLAB
         ax.text((n_problems + 1) / 2, -ratio_max, solver_names[0], horizontalalignment='center', verticalalignment='bottom', fontsize=24)

@@ -1223,11 +1223,13 @@ def benchmark(
             logger.info('Start creating the summary PDF of all the profiles.')
 
         # Save the summary for the current feature.
-        fig_summary_hist.supylabel('History-based profiles', fontsize='xx-large', horizontalalignment='right')
-        fig_summary_out.supylabel('Output-based profiles', fontsize='xx-large', horizontalalignment='right')
-        fig_summary.suptitle(f"Profiles with the ``{feature.name}'' feature", fontsize='xx-large', verticalalignment='bottom')
-        path_summary = path_stamp / f'summary_{stamp}.pdf'
-        fig_summary.savefig(path_summary, bbox_inches='tight')
+        # Use rc_context to ensure LaTeX rendering is applied to the title
+        with plt.rc_context(profile_context):
+            fig_summary_hist.supylabel('History-based profiles', fontsize='xx-large', horizontalalignment='right')
+            fig_summary_out.supylabel('Output-based profiles', fontsize='xx-large', horizontalalignment='right')
+            fig_summary.suptitle(f'Profiles with the ``{feature.name}" feature', fontsize='xx-large', verticalalignment='bottom')
+            path_summary = path_stamp / f'summary_{stamp}.pdf'
+            fig_summary.savefig(path_summary, bbox_inches='tight')
 
         if not profile_options[ProfileOption.SILENT]:
             logger.info('The summary PDF of all the profiles is created.')
