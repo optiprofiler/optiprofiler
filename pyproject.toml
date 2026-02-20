@@ -78,6 +78,33 @@ version = {attr = "optiprofiler.__version__"}
 where = ["python"]
 include = ["optiprofiler*"]
 
+[tool.setuptools.package-data]
+"optiprofiler.problem_libs.s2mpj" = [
+    "config.txt",
+    "probinfo_python.csv",
+    "README.md",
+]
+"optiprofiler.problem_libs.s2mpj.src" = [
+    "*.py",
+    "list_of_python_problems",
+]
+"optiprofiler.problem_libs.s2mpj.src.python_problems" = ["*.py"]
+"optiprofiler.problem_libs.pycutest" = [
+    "config.txt",
+    "probinfo_pycutest.csv",
+    "README.md",
+]
+"optiprofiler.problem_libs.custom" = ["*.py", "README.txt"]
+"optiprofiler.problem_libs" = ["README.txt"]
+
+[tool.setuptools.exclude-package-data]
+"*" = [
+    ".git*",
+    ".DS_Store",
+    "__pycache__",
+    "__pycutest_cache__",
+]
+
 [tool.pytest.ini_options]
 testpaths = ["python/optiprofiler/tests"]
 python_files = ["test_*.py"]
