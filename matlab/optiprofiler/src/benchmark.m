@@ -1113,7 +1113,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     n_rows = 0;
     is_perf = profile_options.(ProfileOptionKey.SUMMARIZE_PERFORMANCE_PROFILES.value);
     is_data = profile_options.(ProfileOptionKey.SUMMARIZE_DATA_PROFILES.value);
-    is_log_ratio = profile_options.(ProfileOptionKey.SUMMARIZE_LOG_RATIO_PROFILES.value) && (n_solvers <= 2);
+    is_log_ratio = profile_options.(ProfileOptionKey.SUMMARIZE_LOG_RATIO_PROFILES.value) && (n_solvers == 2);
     is_output_based = profile_options.(ProfileOptionKey.SUMMARIZE_OUTPUT_BASED_PROFILES.value);
     if is_perf
         n_rows = n_rows + 1;
@@ -1282,8 +1282,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                 exportgraphics(fig_data_out, pdf_data_out, 'ContentType', 'vector');
                 savefig(fig_data_out, figure_data_out);
             end
-            if n_solvers <= 2
-                if is_hist_drawable
+            if n_solvers == 2
+                if is_hist_drawable && ~isempty(fig_log_ratio_hist)
                     pdf_log_ratio_hist = fullfile(path_log_ratio_hist, ['log-ratio_hist_', int2str(i_tol), '.pdf']);
                     figure_log_ratio_hist = fullfile(path_figs, ['log-ratio_hist_', int2str(i_tol), '.fig']);
                     exportgraphics(fig_log_ratio_hist, pdf_log_ratio_hist, 'ContentType', 'vector');
@@ -1300,14 +1300,14 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                 if is_hist_drawable
                     exportgraphics(fig_perf_hist, pdf_perf_hist_summary, 'ContentType', 'vector');
                     exportgraphics(fig_data_hist, pdf_data_hist_summary, 'ContentType', 'vector');
-                    if n_solvers <= 2
+                    if n_solvers == 2 && ~isempty(fig_log_ratio_hist)
                         exportgraphics(fig_log_ratio_hist, pdf_log_ratio_hist_summary, 'ContentType', 'vector');
                     end
                 end
                 if is_out_drawable
                     exportgraphics(fig_perf_out, pdf_perf_out_summary, 'ContentType', 'vector');
                     exportgraphics(fig_data_out, pdf_data_out_summary, 'ContentType', 'vector');
-                    if n_solvers <= 2 && ~isempty(fig_log_ratio_out)
+                    if n_solvers == 2 && ~isempty(fig_log_ratio_out)
                         exportgraphics(fig_log_ratio_out, pdf_log_ratio_out_summary, 'ContentType', 'vector');
                     end
                 end
@@ -1315,7 +1315,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                 if is_hist_drawable
                     exportgraphics(fig_perf_hist, pdf_perf_hist_summary, 'ContentType', 'vector', 'Append', true);
                     exportgraphics(fig_data_hist, pdf_data_hist_summary, 'ContentType', 'vector', 'Append', true);
-                    if n_solvers == 2
+                    if n_solvers == 2 && ~isempty(fig_log_ratio_hist)
                         exportgraphics(fig_log_ratio_hist, pdf_log_ratio_hist_summary, 'ContentType', 'vector', 'Append', true);
                     end
                 end
@@ -1333,7 +1333,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                     if is_hist_drawable
                         addToReadme(path_readme_feature, 'perf_hist.pdf', 'File, the summary PDF of history-based performance profiles for all tolerances.');
                         addToReadme(path_readme_feature, 'data_hist.pdf', 'File, the summary PDF of history-based data profiles for all tolerances.');
-                        if n_solvers == 2
+                        if n_solvers == 2 && ~isempty(fig_log_ratio_hist)
                             addToReadme(path_readme_feature, 'log-ratio_hist.pdf', 'File, the summary PDF of history-based log-ratio profiles for all tolerances.');
                         end
                     end
@@ -1353,7 +1353,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         if is_hist_drawable
             close(fig_perf_hist);
             close(fig_data_hist);
-            if n_solvers == 2
+            if n_solvers == 2 && ~isempty(fig_log_ratio_hist)
                 close(fig_log_ratio_hist);
             end
         end
