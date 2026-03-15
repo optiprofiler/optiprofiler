@@ -1202,13 +1202,20 @@ def benchmark(
             pdf_log_ratio_hist_summary.close()
             pdf_log_ratio_out_summary.close()
         
-        add_to_readme(path_readme_feature, 'data_hist.pdf', 'File, the summary PDF of history-based data profiles for all tolerances.')
-        add_to_readme(path_readme_feature, 'data_out.pdf', 'File, the summary PDF of output-based data profiles for all tolerances.')
-        add_to_readme(path_readme_feature, 'perf_hist.pdf', 'File, the summary PDF of history-based performance profiles for all tolerances.')
-        add_to_readme(path_readme_feature, 'perf_out.pdf', 'File, the summary PDF of output-based performance profiles for all tolerances.')
-        if n_solvers == 2:
-            add_to_readme(path_readme_feature, 'log-ratio_hist.pdf', 'File, the summary PDF of history-based log-ratio profiles for all tolerances.')
-            add_to_readme(path_readme_feature, 'log-ratio_out.pdf', 'File, the summary PDF of output-based log-ratio profiles for all tolerances.')
+        if not profile_options[ProfileOption.SCORE_ONLY]:
+            try:
+                if is_hist_drawable:
+                    add_to_readme(path_readme_feature, 'perf_hist.pdf', 'File, the summary PDF of history-based performance profiles for all tolerances.')
+                    add_to_readme(path_readme_feature, 'data_hist.pdf', 'File, the summary PDF of history-based data profiles for all tolerances.')
+                    if n_solvers == 2 and fig_log_ratio_hist is not None:
+                        add_to_readme(path_readme_feature, 'log-ratio_hist.pdf', 'File, the summary PDF of history-based log-ratio profiles for all tolerances.')
+                if is_out_drawable:
+                    add_to_readme(path_readme_feature, 'perf_out.pdf', 'File, the summary PDF of output-based performance profiles for all tolerances.')
+                    add_to_readme(path_readme_feature, 'data_out.pdf', 'File, the summary PDF of output-based data profiles for all tolerances.')
+                    if n_solvers == 2 and fig_log_ratio_out is not None:
+                        add_to_readme(path_readme_feature, 'log-ratio_out.pdf', 'File, the summary PDF of output-based log-ratio profiles for all tolerances.')
+            except Exception:
+                pass
         
         # TODO Record the names of the problems all the solvers failed to meet the convergence test for every tolerance.
         pass
