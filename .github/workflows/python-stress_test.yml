@@ -46,6 +46,7 @@ jobs:
           else
             python -m pip install --progress-bar=off ".[tests]"
           fi
+          python -m pip install --progress-bar=off "scipy>=1.16.0"
         shell: bash
 
       - name: Configure s2mpj for variable size problems

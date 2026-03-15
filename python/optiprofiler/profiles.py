@@ -1063,12 +1063,12 @@ def benchmark(
         fig_summary = plt.figure(figsize=(len(tolerances) * default_width, multiplier * n_rows * default_height), layout='constrained')
         if multiplier == 2:
             fig_summary_hist, fig_summary_out = fig_summary.subfigures(2, 1)
-            subfigs_summary_hist = fig_summary_hist.subfigures(n_rows, 1)
-            subfigs_summary_out = fig_summary_out.subfigures(n_rows, 1)
+            subfigs_summary_hist = np.atleast_1d(fig_summary_hist.subfigures(n_rows, 1))
+            subfigs_summary_out = np.atleast_1d(fig_summary_out.subfigures(n_rows, 1))
         else:
             fig_summary_hist = fig_summary.subfigures(1, 1)
             fig_summary_out = None
-            subfigs_summary_hist = fig_summary_hist.subfigures(n_rows, 1)
+            subfigs_summary_hist = np.atleast_1d(fig_summary_hist.subfigures(n_rows, 1))
             subfigs_summary_out = None
         
         i_rows = 0
