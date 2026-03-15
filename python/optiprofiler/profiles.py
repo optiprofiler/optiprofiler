@@ -1217,8 +1217,37 @@ def benchmark(
             except Exception:
                 pass
         
-        # TODO Record the names of the problems all the solvers failed to meet the convergence test for every tolerance.
-        pass
+        # Record the names of the problems all the solvers failed to meet the convergence test for every tolerance.
+        if not profile_options[ProfileOption.SCORE_ONLY]:
+            try:
+                max_name_length = max(len(name) for name in problem_names_merged)
+                with open(path_report, 'a') as fid:
+                    fid.write('\n')
+                    fid.write('## Problems among all the libraries that all the solvers failed to meet the convergence test for each tolerance and each run\n')
+                    if np.any(solvers_all_diverge_hist) or np.any(solvers_all_diverge_out):
+                        for i_tol in range(profile_options[ProfileOption.MAX_TOL_ORDER]):
+                            tolerance = tolerances[i_tol]
+                            tolerance_str = format_float_scientific_latex(tolerance, 1)[0]
+                            for i_run in range(n_runs):
+                                if np.any(solvers_all_diverge_hist[:, i_run, i_tol]):
+                                    fid.write('\n')
+                                    fid.write(f'History-based  tol = {tolerance_str:<8s} run = {i_run + 1:<3d}:\t\t')
+                                    for i_problem in range(n_problems):
+                                        if solvers_all_diverge_hist[i_problem, i_run, i_tol]:
+                                            fid.write(f'{problem_names_merged[i_problem]:<{max_name_length}s} ')
+                                if np.any(solvers_all_diverge_out[:, i_run, i_tol]):
+                                    fid.write('\n')
+                                    fid.write(f'Output-based   tol = {tolerance_str:<8s} run = {i_run + 1:<3d}:\t\t')
+                                    for i_problem in range(n_problems):
+                                        if solvers_all_diverge_out[i_problem, i_run, i_tol]:
+                                            fid.write(f'{problem_names_merged[i_problem]:<{max_name_length}s} ')
+                        fid.write('\n')
+                    else:
+                        fid.write('\n')
+                        fid.write('This part is empty.\n')
+            except Exception:
+                if not profile_options[ProfileOption.SILENT]:
+                    logger.warning('Failed to record the problems that all the solvers failed to meet the convergence test.')
 
     if not profile_options[ProfileOption.SILENT]:
         logger.info('')
