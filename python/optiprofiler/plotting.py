@@ -66,6 +66,9 @@ def draw_profiles(work, problem_dimensions, solver_names, tolerance_latex, i_tol
 
 def _draw_perf_detail(ax_perf, x_perf, y_perf, ratio_max_perf, solver_names, profile_options, tolerance_latex):
     _draw_performance_data_profiles(ax_perf, x_perf, y_perf, solver_names, profile_options)
+    # MATLAB tolerates Inf in set(ax, 'XLim', ...) but matplotlib does not.
+    if not np.isfinite(ratio_max_perf):
+        ratio_max_perf = np.finfo(float).eps
     # Set x-axis limits.
     if profile_options[ProfileOption.SEMILOGX]:
         ax_perf.set_xlim(0.0, 1.1 * ratio_max_perf)
@@ -88,6 +91,9 @@ def _draw_perf_detail(ax_perf, x_perf, y_perf, ratio_max_perf, solver_names, pro
 
 def _draw_data_detail(ax_data, x_data, y_data, ratio_max_data, solver_names, profile_options, tolerance_latex):
     _draw_performance_data_profiles(ax_data, x_data, y_data, solver_names, profile_options)
+    # MATLAB tolerates Inf in set(ax, 'XLim', ...) but matplotlib does not.
+    if not np.isfinite(ratio_max_data):
+        ratio_max_data = np.finfo(float).eps
     # Set x-axis limits.
     ax_data.set_xlim(0.0, 1.1 * ratio_max_data)
     # Modify x-axis ticks labels of the data profiles (matching MATLAB).

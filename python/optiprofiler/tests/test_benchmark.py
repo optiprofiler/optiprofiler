@@ -12,11 +12,6 @@ from optiprofiler import benchmark
 from optiprofiler.opclasses import Feature, FeaturedProblem, Problem
 
 
-def rosen(x):
-    """Rosenbrock function."""
-    return np.sum(1e2 * (x[1:] - x[:-1] ** 2) ** 2 + (1.0 - x[:-1]) ** 2)
-
-
 def simple_solver_1(fun, x0):
     """A trivial solver that returns x0."""
     return x0
@@ -28,12 +23,13 @@ def simple_solver_2(fun, x0):
     best_x = x0.copy()
     best_f = fun(x0)
     for i in range(n):
-        x_trial = x0.copy()
-        x_trial[i] += 0.1
-        f_trial = fun(x_trial)
-        if f_trial < best_f:
-            best_f = f_trial
-            best_x = x_trial.copy()
+        for step in [0.5, -0.5, 0.1, -0.1]:
+            x_trial = best_x.copy()
+            x_trial[i] += step
+            f_trial = fun(x_trial)
+            if f_trial < best_f:
+                best_f = f_trial
+                best_x = x_trial.copy()
     return best_x
 
 
@@ -42,12 +38,13 @@ def problem_solver(problem):
     x = problem.x0.copy()
     f0 = problem.fun(x)
     for i in range(problem.n):
-        x_trial = x.copy()
-        x_trial[i] += 0.01
-        f_trial = problem.fun(x_trial)
-        if f_trial < f0:
-            x = x_trial
-            f0 = f_trial
+        for step in [0.5, -0.5]:
+            x_trial = x.copy()
+            x_trial[i] += step
+            f_trial = problem.fun(x_trial)
+            if f_trial < f0:
+                x = x_trial
+                f0 = f_trial
     return x
 
 

@@ -40,7 +40,15 @@ extensions = [
     'sphinx_design',
     'sphinxcontrib.bibtex',
     'sphinxcontrib.matlab',
+    'sphinxext.opengraph',
 ]
+
+# -- Open Graph metadata (controls Google/social media preview images) --------
+ogp_site_url = 'https://www.optprof.com/'
+ogp_image = '_static/OP_logo.png'
+ogp_image_alt = 'OptiProfiler Logo'
+ogp_site_name = 'OptiProfiler'
+ogp_description_length = 200
 
 # primary_domain = 'mat'
 
