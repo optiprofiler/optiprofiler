@@ -243,7 +243,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %       - significant_digits: the number of significant digits in the
 %         'truncated' feature. Default is 6.
 %       - perturbed_trailing_digits: whether we will randomize the trailing
-%         zeros of the objective function value in the 'perturbed_x0' feature.
+%         digits of the objective function value in the 'truncated' feature.
 %         Default is false.
 %       - rotated: whether to use a random or given rotation matrix to rotate
 %         the coordinates of a problem in the 'linearly_transformed' feature.

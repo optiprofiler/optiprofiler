@@ -46,35 +46,26 @@ def benchmark(
     Parameters
     ----------
     solvers : list of callable, optional if 'load' in ``**kwargs``
-        Solvers to benchmark. Each solver must be a callable, as follows. For
-        unconstrained problems, the signature of the callable can be
+        Solvers to benchmark. Each solver must be a callable accepting
+        corresponding arguments depending on the test suite you choose:
 
+        - for an unconstrained problem,
             ``solver(fun, x0) -> numpy.ndarray, shape (n,)``
-
-        where ``fun`` is the objective function and ``x0`` is the initial
-        point. The solver must return a numpy array as the solution. For
-        bound constrained problems, the signature of the callable can be
-
-            ``solver(fun, x0, lb, ub) -> numpy.ndarray, shape (n,)``
-
-        where ``lb`` and ``ub`` are the lower and upper bounds, respectively.
-        For linearly constrained problems, the signature of the callable can be
-
-            ``solver(fun, x0, lb, ub, a_ub, b_ub, a_eq, b_eq) -> numpy.ndarray, shape (n,)``
-
-        where ``a_ub @ x <= b_ub`` and ``a_eq @ x == b_eq`` form the linear
-        inequality and equality constraints, respectively. For nonlinearly
-        constrained problems, the signature of the callable can be
-
-            ``solver(fun, x0, lb, ub, a_ub, b_ub, a_eq, b_eq, c_ub, c_eq) -> numpy.ndarray, shape (n,)``
-
-        where ``c_ub(x) <= 0`` and ``c_eq(x) == 0`` form the nonlinear
-        inequality and equality constraints, respectively. In all cases, the
-        signature of the callable can also be
-
-            ``solver(problem) -> numpy.ndarray, shape (n,)``
-
-        where ``problem`` is an instance of `Problem`.
+          where ``fun`` is the objective function accepting a 1-D array and
+          returning a float, and ``x0`` is the initial guess (1-D array);
+        - for a bound-constrained problem,
+            ``solver(fun, x0, xl, xu) -> numpy.ndarray, shape (n,)``
+          where ``xl`` and ``xu`` are the lower and upper bounds (1-D arrays,
+          may contain ``-numpy.inf`` or ``numpy.inf``);
+        - for a linearly constrained problem,
+            ``solver(fun, x0, xl, xu, aub, bub, aeq, beq) -> numpy.ndarray, shape (n,)``
+          where ``aub`` and ``aeq`` are the coefficient matrices of the linear
+          inequality and equality constraints, and ``bub`` and ``beq`` are the
+          right-hand side vectors;
+        - for a nonlinearly constrained problem,
+            ``solver(fun, x0, xl, xu, aub, bub, aeq, beq, cub, ceq) -> numpy.ndarray, shape (n,)``
+          where ``cub`` and ``ceq`` are the nonlinear inequality and equality
+          constraint functions accepting a 1-D array and returning a 1-D array.
 
         All vectors and matrices mentioned above are `numpy.ndarray`.
 
@@ -119,7 +110,7 @@ def benchmark(
         'truncated' feature. Default is 6.
     perturbed_trailing_digits : bool, optional
         Whether we will randomize the trailing
-        zeros of the objective function value in the 'perturbed_x0' feature.
+        digits of the objective function value in the 'truncated' feature.
         Default is False.
     rotated : bool, optional
         Whether to use a random or given rotation matrix to rotate
@@ -246,13 +237,12 @@ def benchmark(
     hist_aggregation : str, optional
         The aggregation method we use to reduce the number of points in the
         history plots. It can be 'min', 'mean', or 'max'. Default is 'min'.
-    line_colors : list or numpy.ndarray, optional
-        The colors of the lines in the plots. It can be a list
-        of short names of colors ('r', 'g', 'b', 'c', 'm', 'y', 'k') or
-        an array with each row being a RGB triplet. Default line colors are
-        those in the palettename named "gem" (see MATLAB documentation for
-        'colororder'). Note that if the number of solvers is greater than the
-        number of colors, we will cycle through the colors.
+    line_colors : list, optional
+        The colors of the lines in the plots. It can be a list of any valid
+        matplotlib colors (short names, hex strings, RGB tuples, etc.).
+        Default line colors are from the matplotlib tab10 color cycle. Note
+        that if the number of solvers is greater than the number of colors,
+        we will cycle through the colors.
     line_styles : list of str, optional
         The styles of the lines in the plots. It can be a list
         of strs that are the combinations of line styles ('-', '-.',
@@ -294,7 +284,7 @@ def benchmark(
           varphi(x) = f(x)                        if v(x) <= v1
           varphi(x) = f(x) + 1e5 * (v(x) - v1)   if v1 < v(x) <= v2
           varphi(x) = np.inf                      if v(x) > v2
-        where v1 = max(1e-5, v0) and v2 = min(0.01, 1e-10 * max(1, v0)),
+        where v1 = min(0.01, 1e-10 * max(1, v0)), v2 = max(0.1, 2 * v0),
         and v0 is the maximum constraint violation at the initial guess.
     n_jobs : int, optional
         The number of parallel jobs to run the test. Default is the
@@ -412,8 +402,10 @@ def benchmark(
         The problem libraries to be used. It should be a list of
         strs. The available choices are subfolder names in the
         'optiprofiler/problem_libs' directory. There are three subfolders after
-        installing the package: 's2mpj', 'matcutest', and 'custom'. Default
-        setting is 's2mpj'.
+        installing the package: 's2mpj', 'pycutest', and 'custom'. Default
+        setting is 's2mpj'. Note that 'pycutest' requires the separate
+        installation of the ``pycutest`` package; see
+        https://jfowkes.github.io/pycutest/ for installation instructions.
     ptype : str, optional
         The type of the problems to be selected. It should be a str
         consisting of any combination of 'u' (unconstrained), 'b'
@@ -516,7 +508,7 @@ def benchmark(
        in the directory 'optiprofiler/problem_libs/' or the guidance in our
        website <https://www.optprof.com> for more details.
 
-    3. The problem library MatCUTEst is only available when the OS is Linux.
+    3. The problem library PyCUTEst is only available on Linux and macOS.
 
     4. If the 'load' option is provided, we will use the provided options to
        select data from the specified experiment for plotting the profiles.
@@ -860,6 +852,9 @@ def benchmark(
         # Close the listener of the logger before returning.
         if not profile_options[ProfileOption.SCORE_ONLY]:
             listener.stop()
+            for h in listener.handlers:
+                if hasattr(h, 'close'):
+                    h.close()
         return solver_scores, None, None
 
     # If 'load' option is not specified, we solve all the selected problems.
@@ -970,6 +965,9 @@ def benchmark(
             # Close the listener of the logger before returning.
             if not profile_options[ProfileOption.SCORE_ONLY]:
                 listener.stop()
+                for h in listener.handlers:
+                    if hasattr(h, 'close'):
+                        h.close()
             return solver_scores, None, None
 
     # Draw history plots sequentially if draw_hist_plots is set to 'sequential'.
@@ -1335,6 +1333,9 @@ def benchmark(
     # Close the listener of the logger.
     if not profile_options[ProfileOption.SCORE_ONLY]:
         listener.stop()
+        for h in listener.handlers:
+            if hasattr(h, 'close'):
+                h.close()
 
     return solver_scores, profile_scores, curves
 

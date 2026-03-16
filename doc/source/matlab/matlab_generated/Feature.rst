@@ -95,7 +95,7 @@ The optional input **options** should be a struct which can contain the followin
 
   - **significant_digits**: the number of significant digits in the ``'truncated'`` feature. Default is ``6``.
 
-  - **perturbed_trailing_digits**: whether we will randomize the trailing zeros of the objective function value in the ``'perturbed_x0'`` feature. Default is ``false``.
+  - **perturbed_trailing_digits**: whether we will randomize the trailing digits of the objective function value in the ``'truncated'`` feature. Default is ``false``.
 
   - **rotated**: whether to use a random or given rotation matrix to rotate the coordinates of a problem in the ``'linearly_transformed'`` feature. Default is ``true``.
 

@@ -33,20 +33,6 @@ def simple_solver_2(fun, x0):
     return best_x
 
 
-def problem_solver(problem):
-    """A solver that accepts a Problem object."""
-    x = problem.x0.copy()
-    f0 = problem.fun(x)
-    for i in range(problem.n):
-        for step in [0.5, -0.5]:
-            x_trial = x.copy()
-            x_trial[i] += step
-            f_trial = problem.fun(x_trial)
-            if f_trial < f0:
-                x = x_trial
-                f0 = f_trial
-    return x
-
 
 def _common_kwargs(tmpdir, benchmark_id='test'):
     return dict(
@@ -71,17 +57,7 @@ class TestBenchmarkBasic:
             scores, profile_scores, curves = benchmark(
                 [simple_solver_1, simple_solver_2],
                 feature_name='plain',
-                **_common_kwargs(tmpdir, 'test_plain'),
-            )
-            assert isinstance(scores, np.ndarray)
-            assert scores.shape[0] == 2
-
-    def test_problem_interface_solver(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            scores, profile_scores, curves = benchmark(
-                [problem_solver, simple_solver_1],
-                feature_name='plain',
-                **_common_kwargs(tmpdir, 'test_prob_iface'),
+                **_common_kwargs(tmpdir),
             )
             assert isinstance(scores, np.ndarray)
             assert scores.shape[0] == 2
@@ -91,7 +67,7 @@ class TestBenchmarkBasic:
             scores, profile_scores, curves = benchmark(
                 [simple_solver_1, simple_solver_2],
                 feature_name='plain',
-                **_common_kwargs(tmpdir, 'test_curves'),
+                **_common_kwargs(tmpdir),
             )
             assert curves is not None
             assert isinstance(curves, list)
@@ -107,7 +83,7 @@ class TestBenchmarkFeatures:
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
     def _run_benchmark(self, feature_name, **extra_kwargs):
-        kwargs = _common_kwargs(self.tmpdir, f'test_{feature_name}')
+        kwargs = _common_kwargs(self.tmpdir)
         kwargs.update(extra_kwargs)
         return benchmark(
             [simple_solver_1, simple_solver_2],
@@ -152,7 +128,7 @@ class TestBenchmarkErrors:
                 benchmark(
                     [simple_solver_1],
                     feature_name='plain',
-                    **_common_kwargs(tmpdir, 'test_single'),
+                    **_common_kwargs(tmpdir),
                 )
 
     def test_solvers_not_callable(self):
@@ -168,7 +144,7 @@ class TestBenchmarkOptions:
                 [simple_solver_1, simple_solver_2],
                 feature_name='plain',
                 solver_names=['MySolver1', 'MySolver2'],
-                **_common_kwargs(tmpdir, 'test_names'),
+                **_common_kwargs(tmpdir),
             )
             assert isinstance(scores, np.ndarray)
 
@@ -178,7 +154,7 @@ class TestBenchmarkOptions:
                 [simple_solver_1, simple_solver_2],
                 feature_name='plain',
                 max_tol_order=3,
-                **_common_kwargs(tmpdir, 'test_tol'),
+                **_common_kwargs(tmpdir),
             )
             assert isinstance(scores, np.ndarray)
 
@@ -188,6 +164,6 @@ class TestBenchmarkOptions:
                 [simple_solver_1, simple_solver_2],
                 feature_name='plain',
                 seed=42,
-                **_common_kwargs(tmpdir, 'test_seed'),
+                **_common_kwargs(tmpdir),
             )
             assert isinstance(scores, np.ndarray)
