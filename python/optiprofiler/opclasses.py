@@ -588,7 +588,7 @@ class Feature:
                     f -= rng_truncated.uniform(0.0, 10.0 ** (-digits))
             return f
         elif self._name == FeatureName.UNRELAXABLE_CONSTRAINTS:
-            _, maxcv_bounds, maxcv_linear, maxcv_nonlinear = problem.maxcv(x)
+            _, maxcv_bounds, maxcv_linear, maxcv_nonlinear = problem._maxcv(x)
             if self._options[FeatureOption.UNRELAXABLE_BOUNDS] and maxcv_bounds > 0.0:
                 return np.inf
             elif self._options[FeatureOption.UNRELAXABLE_LINEAR_CONSTRAINTS] and maxcv_linear > 0.0:
@@ -662,12 +662,12 @@ class Feature:
         elif self._name == FeatureName.TRUNCATED:
             # Similar to the case in the modifier_fun method.
             rng_truncated = self.get_default_rng(seed, *cub, *x, n_eval_cub)
-            digits = np.zeros(cub.size)
+            digits = np.zeros(cub.size, dtype=int)
             digits[cub == 0.0] = self._options[FeatureOption.SIGNIFICANT_DIGITS] - 1
             digits[cub != 0.0] = self._options[FeatureOption.SIGNIFICANT_DIGITS] - np.int_(np.log10(np.abs(cub[cub != 0.0]))) - 1
             for i in range(cub.size):
                 if not np.isnan(cub[i]) and not np.isinf(cub[i]):
-                    cub[i] = round(cub[i], digits[i])
+                    cub[i] = round(cub[i], int(digits[i]))
             if self._options[FeatureOption.PERTURBED_TRAILING_DIGITS]:
                 cub[cub >= 0.0] += rng_truncated.uniform(0.0, 10.0 ** (-digits[cub >= 0.0]))
                 cub[cub < 0.0] -= rng_truncated.uniform(0.0, 10.0 ** (-digits[cub < 0.0]))
@@ -744,12 +744,12 @@ class Feature:
         elif self._name == FeatureName.TRUNCATED:
             # Similar to the case in the modifier_fun method.
             rng_truncated = self.get_default_rng(seed, *ceq, *x, n_eval_ceq)
-            digits = np.zeros(ceq.size)
+            digits = np.zeros(ceq.size, dtype=int)
             digits[ceq == 0.0] = self._options[FeatureOption.SIGNIFICANT_DIGITS] - 1
             digits[ceq != 0.0] = self._options[FeatureOption.SIGNIFICANT_DIGITS] - np.int_(np.log10(np.abs(ceq[ceq != 0.0]))) - 1
             for i in range(ceq.size):
                 if not np.isnan(ceq[i]) and not np.isinf(ceq[i]):
-                    ceq[i] = round(ceq[i], digits[i])
+                    ceq[i] = round(ceq[i], int(digits[i]))
             if self._options[FeatureOption.PERTURBED_TRAILING_DIGITS]:
                 ceq[ceq >= 0.0] += rng_truncated.uniform(0.0, 10.0 ** (-digits[ceq >= 0.0]))
                 ceq[ceq < 0.0] -= rng_truncated.uniform(0.0, 10.0 ** (-digits[ceq < 0.0]))
