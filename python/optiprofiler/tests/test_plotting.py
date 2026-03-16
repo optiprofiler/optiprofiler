@@ -4,11 +4,17 @@ matplotlib.use('Agg')
 
 import numpy as np
 import pytest
+from matplotlib import pyplot as plt
 
 from optiprofiler.plotting import (
     _data_formatter,
+    _draw_perf_detail,
+    _draw_data_detail,
+    _get_extended_performances_data_profile_axes,
+    _get_performance_data_profile_axes,
     _perf_formatter,
     data_ticks,
+    draw_profiles,
     format_float_scientific_latex,
     perf_ticks,
     set_profile_context,
@@ -224,3 +230,163 @@ class TestProcessHistYAxes:
         init = 0.5
         result = process_hist_y_axes(histories, init)
         assert isinstance(result, np.ndarray)
+
+
+class TestGetPerformanceDataProfileAxes:
+
+    def test_basic(self):
+        work = np.array([[[10.0], [20.0]], [[5.0], [15.0]]])
+        denominator = lambda i_problem, i_run: np.nanmin(work[i_problem, :, i_run])
+        x, y, ratio_max = _get_performance_data_profile_axes(work, denominator)
+        assert np.isfinite(ratio_max)
+        assert ratio_max > 0
+
+    def test_all_nan(self):
+        work = np.full((3, 2, 1), np.nan)
+        denominator = lambda i_problem, i_run: np.nanmin(work[i_problem, :, i_run], initial=np.inf)
+        x, y, ratio_max = _get_performance_data_profile_axes(work, denominator)
+        assert ratio_max == np.finfo(float).eps
+
+    def test_single_problem(self):
+        work = np.array([[[5.0], [10.0]]])
+        denominator = lambda i_problem, i_run: np.nanmin(work[i_problem, :, i_run])
+        x, y, ratio_max = _get_performance_data_profile_axes(work, denominator)
+        assert ratio_max == 2.0
+
+
+class TestGetExtendedPerformancesDataProfileAxes:
+
+    def _make_profile_options(self):
+        return {ProfileOption.SEMILOGX: True}
+
+    def _make_curves(self, n_solvers, n_runs):
+        return {
+            'perf': [[None] * (n_runs + 1) for _ in range(n_solvers)],
+            'data': [[None] * (n_runs + 1) for _ in range(n_solvers)],
+            'log_ratio': [None] * n_solvers,
+        }
+
+    def test_basic(self):
+        work = np.array([[[10.0], [20.0]], [[5.0], [15.0]]])
+        problem_dims = np.array([2, 3])
+        curves = self._make_curves(2, 1)
+        x_perf, y_perf, ratio_max_perf, x_data, y_data, ratio_max_data, curves = \
+            _get_extended_performances_data_profile_axes(work, problem_dims, self._make_profile_options(), curves)
+        assert np.isfinite(ratio_max_perf)
+        assert np.isfinite(ratio_max_data)
+        assert x_perf.shape[1] == 2
+        assert x_data.shape[1] == 2
+
+    def test_semilogx_false(self):
+        work = np.array([[[10.0], [20.0]]])
+        problem_dims = np.array([2])
+        opts = {ProfileOption.SEMILOGX: False}
+        curves = self._make_curves(2, 1)
+        x_perf, y_perf, ratio_max_perf, x_data, y_data, ratio_max_data, curves = \
+            _get_extended_performances_data_profile_axes(work, problem_dims, opts, curves)
+        assert np.isfinite(ratio_max_perf)
+
+
+class TestDrawProfiles:
+
+    def _make_profile_options(self):
+        return {
+            ProfileOption.SEMILOGX: True,
+            ProfileOption.SCORE_ONLY: True,
+            ProfileOption.LINE_COLORS: ['#1f77b4', '#ff7f0e'],
+            ProfileOption.LINE_STYLES: ['-', '--'],
+            ProfileOption.LINE_WIDTHS: [1.5],
+            ProfileOption.ERRORBAR_TYPE: 'minmax',
+            ProfileOption.XLABEL_PERFORMANCE_PROFILE: '',
+            ProfileOption.YLABEL_PERFORMANCE_PROFILE: '',
+            ProfileOption.XLABEL_DATA_PROFILE: '',
+            ProfileOption.YLABEL_DATA_PROFILE: '',
+            ProfileOption.XLABEL_LOG_RATIO_PROFILE: '',
+            ProfileOption.YLABEL_LOG_RATIO_PROFILE: '',
+        }
+
+    def test_score_only(self):
+        n_problems, n_solvers, n_runs = 3, 2, 1
+        work = np.random.rand(n_problems, n_solvers, n_runs) * 100 + 1
+        problem_dims = np.array([2, 3, 5])
+        curves = {
+            'perf': [[None] * (n_runs + 1) for _ in range(n_solvers)],
+            'data': [[None] * (n_runs + 1) for _ in range(n_solvers)],
+            'log_ratio': [None] * n_solvers,
+        }
+        fig_perf, fig_data, fig_log_ratio, curves = draw_profiles(
+            work, problem_dims, ['s1', 's2'], '0.1', 0,
+            None, None, None, False, True, True, False,
+            self._make_profile_options(), curves,
+        )
+        assert fig_perf is not None
+        assert fig_data is not None
+        assert curves['perf'][0][0] is not None
+        assert curves['data'][0][0] is not None
+        plt.close('all')
+
+    def test_with_nan_work(self):
+        n_problems, n_solvers, n_runs = 2, 2, 1
+        work = np.full((n_problems, n_solvers, n_runs), np.nan)
+        work[0, 0, 0] = 5.0
+        problem_dims = np.array([2, 3])
+        curves = {
+            'perf': [[None] * (n_runs + 1) for _ in range(n_solvers)],
+            'data': [[None] * (n_runs + 1) for _ in range(n_solvers)],
+            'log_ratio': [None] * n_solvers,
+        }
+        fig_perf, fig_data, fig_log_ratio, curves = draw_profiles(
+            work, problem_dims, ['s1', 's2'], '0.1', 0,
+            None, None, None, False, True, True, False,
+            self._make_profile_options(), curves,
+        )
+        assert fig_perf is not None
+        plt.close('all')
+
+
+class TestDrawPerfDataDetail:
+
+    def _make_profile_options(self):
+        return {
+            ProfileOption.SEMILOGX: True,
+            ProfileOption.LINE_COLORS: ['#1f77b4', '#ff7f0e'],
+            ProfileOption.LINE_STYLES: ['-', '--'],
+            ProfileOption.LINE_WIDTHS: [1.5],
+            ProfileOption.ERRORBAR_TYPE: 'minmax',
+            ProfileOption.XLABEL_PERFORMANCE_PROFILE: 'Perf ratio',
+            ProfileOption.YLABEL_PERFORMANCE_PROFILE: 'Perf profiles (tol = %s)',
+            ProfileOption.XLABEL_DATA_PROFILE: 'Simplex gradients',
+            ProfileOption.YLABEL_DATA_PROFILE: 'Data profiles (tol = %s)',
+        }
+
+    def test_draw_perf_detail_finite(self):
+        fig, ax = plt.subplots()
+        x = np.array([[0, 1, 2, 3], [0, 1, 2, 3]], dtype=float).T
+        y = np.array([[[0, 0.5, 0.8, 1.0]], [[0, 0.3, 0.6, 0.9]]], dtype=float).T
+        y = y.reshape(4, 2, 1)
+        _draw_perf_detail(ax, x, y, 3.0, ['s1', 's2'], self._make_profile_options(), '0.1')
+        plt.close(fig)
+
+    def test_draw_perf_detail_inf_ratio(self):
+        fig, ax = plt.subplots()
+        x = np.array([[0, np.inf], [0, np.inf]], dtype=float).T
+        y = np.array([[[0, 0]], [[0, 0]]], dtype=float).T
+        y = y.reshape(2, 2, 1)
+        _draw_perf_detail(ax, x, y, np.inf, ['s1', 's2'], self._make_profile_options(), '0.1')
+        plt.close(fig)
+
+    def test_draw_data_detail_finite(self):
+        fig, ax = plt.subplots()
+        x = np.array([[0, 1, 2], [0, 1, 2]], dtype=float).T
+        y = np.array([[[0, 0.5, 1.0]], [[0, 0.3, 0.8]]], dtype=float).T
+        y = y.reshape(3, 2, 1)
+        _draw_data_detail(ax, x, y, 2.0, ['s1', 's2'], self._make_profile_options(), '0.1')
+        plt.close(fig)
+
+    def test_draw_data_detail_inf_ratio(self):
+        fig, ax = plt.subplots()
+        x = np.array([[0, np.inf], [0, np.inf]], dtype=float).T
+        y = np.array([[[0, 0]], [[0, 0]]], dtype=float).T
+        y = y.reshape(2, 2, 1)
+        _draw_data_detail(ax, x, y, np.inf, ['s1', 's2'], self._make_profile_options(), '0.1')
+        plt.close(fig)

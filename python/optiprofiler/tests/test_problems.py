@@ -286,6 +286,278 @@ class TestFeaturedProblem(BaseTestProblem):
         FeaturedProblem(problem, feature, 1000, 1.0)
 
 
+class TestProblemDerivatives(BaseTestProblem):
+    """Tests for Problem gradient, Hessian, Jacobian methods."""
+
+    @staticmethod
+    def rosen_grad(x):
+        g = np.zeros_like(x)
+        g[0] = -400 * x[0] * (x[1] - x[0] ** 2) - 2 * (1 - x[0])
+        g[1] = 200 * (x[1] - x[0] ** 2)
+        return g
+
+    @staticmethod
+    def rosen_hess(x):
+        H = np.zeros((2, 2))
+        H[0, 0] = -400 * (x[1] - 3 * x[0] ** 2) + 2
+        H[0, 1] = -400 * x[0]
+        H[1, 0] = -400 * x[0]
+        H[1, 1] = 200
+        return H
+
+    def test_grad(self):
+        x0 = np.array([1.0, 1.0])
+        problem = Problem(self.rosen, x0, grad=self.rosen_grad)
+        g = problem.grad(x0)
+        assert g.shape == (2,)
+        np.testing.assert_allclose(g, [0.0, 0.0], atol=1e-10)
+
+    def test_grad_none(self):
+        x0 = np.array([1.0, 1.0])
+        problem = Problem(self.rosen, x0)
+        g = problem.grad(x0)
+        assert g.shape == (0,)
+
+    def test_hess(self):
+        x0 = np.array([1.0, 1.0])
+        problem = Problem(self.rosen, x0, hess=self.rosen_hess)
+        H = problem.hess(x0)
+        assert H.shape == (2, 2)
+
+    def test_hess_none(self):
+        x0 = np.array([1.0, 1.0])
+        problem = Problem(self.rosen, x0)
+        H = problem.hess(x0)
+        assert H.shape == (0, 0)
+
+    def test_jcub(self):
+        def cub(x):
+            return np.array([x[0] ** 2 + x[1] ** 2 - 1])
+        def jcub(x):
+            return np.array([[2 * x[0], 2 * x[1]]])
+        x0 = np.zeros(2)
+        problem = Problem(self.rosen, x0, cub=cub, jcub=jcub)
+        J = problem.jcub(x0)
+        assert J.shape == (1, 2)
+        np.testing.assert_array_equal(J, [[0.0, 0.0]])
+
+    def test_jcub_none(self):
+        x0 = np.zeros(2)
+        problem = Problem(self.rosen, x0)
+        J = problem.jcub(x0)
+        assert J.shape == (0, 0)
+
+    def test_jceq(self):
+        def ceq(x):
+            return np.array([x[0] + x[1] - 1])
+        def jceq(x):
+            return np.array([[1.0, 1.0]])
+        x0 = np.zeros(2)
+        problem = Problem(self.rosen, x0, ceq=ceq, jceq=jceq)
+        J = problem.jceq(x0)
+        assert J.shape == (1, 2)
+
+    def test_jceq_none(self):
+        x0 = np.zeros(2)
+        problem = Problem(self.rosen, x0)
+        J = problem.jceq(x0)
+        assert J.shape == (0, 0)
+
+    def test_hcub(self):
+        def cub(x):
+            return np.array([x[0] ** 2 + x[1] ** 2 - 1])
+        def hcub(x):
+            return [np.array([[2.0, 0.0], [0.0, 2.0]])]
+        x0 = np.zeros(2)
+        problem = Problem(self.rosen, x0, cub=cub, hcub=hcub)
+        H = problem.hcub(x0)
+        assert len(H) == 1
+        assert H[0].shape == (2, 2)
+
+    def test_hcub_none(self):
+        x0 = np.zeros(2)
+        problem = Problem(self.rosen, x0)
+        H = problem.hcub(x0)
+        assert H == []
+
+    def test_hceq(self):
+        def ceq(x):
+            return np.array([x[0] + x[1] - 1])
+        def hceq(x):
+            return [np.zeros((2, 2))]
+        x0 = np.zeros(2)
+        problem = Problem(self.rosen, x0, ceq=ceq, hceq=hceq)
+        H = problem.hceq(x0)
+        assert len(H) == 1
+        assert H[0].shape == (2, 2)
+
+    def test_hceq_none(self):
+        x0 = np.zeros(2)
+        problem = Problem(self.rosen, x0)
+        H = problem.hceq(x0)
+        assert H == []
+
+
+class TestProblemProjectX0(BaseTestProblem):
+    """Tests for Problem.project_x0."""
+
+    def test_bound_constrained(self):
+        x0 = np.array([5.0, -5.0])
+        problem = Problem(self.rosen, x0, xl=np.array([0.0, 0.0]), xu=np.array([2.0, 2.0]))
+        problem.project_x0()
+        np.testing.assert_array_equal(problem.x0, [2.0, 0.0])
+
+    def test_unconstrained(self):
+        x0 = np.array([5.0, -5.0])
+        problem = Problem(self.rosen, x0)
+        original_x0 = x0.copy()
+        problem.project_x0()
+        np.testing.assert_array_equal(problem.x0, original_x0)
+
+
+class TestProblemPtype(BaseTestProblem):
+    """Tests for Problem.ptype property."""
+
+    def test_unconstrained(self):
+        problem = Problem(self.rosen, np.zeros(2))
+        assert problem.ptype == 'u'
+
+    def test_bound_constrained(self):
+        problem = Problem(self.rosen, np.zeros(2), xl=np.zeros(2), xu=np.ones(2))
+        assert problem.ptype == 'b'
+
+    def test_linearly_constrained(self):
+        problem = Problem(self.rosen, np.zeros(2), aub=np.ones((1, 2)), bub=np.array([1.0]))
+        assert problem.ptype == 'l'
+
+    def test_nonlinearly_constrained(self):
+        problem = Problem(self.rosen, np.zeros(2), cub=self.sum_cos)
+        assert problem.ptype == 'n'
+
+
+class TestProblemMaxcv(BaseTestProblem):
+    """Tests for Problem.maxcv."""
+
+    def test_unconstrained(self):
+        problem = Problem(self.rosen, np.zeros(2))
+        assert problem.maxcv(np.zeros(2)) == 0.0
+
+    def test_bound_violated(self):
+        problem = Problem(self.rosen, np.zeros(2), xl=np.array([1.0, 1.0]))
+        cv = problem.maxcv(np.zeros(2))
+        assert cv > 0
+
+    def test_bound_feasible(self):
+        problem = Problem(self.rosen, np.ones(2), xl=np.zeros(2), xu=np.full(2, 2.0))
+        cv = problem.maxcv(np.ones(2))
+        assert cv == 0.0
+
+    def test_linear_violated(self):
+        aub = np.array([[1.0, 1.0]])
+        bub = np.array([0.5])
+        problem = Problem(self.rosen, np.ones(2), aub=aub, bub=bub)
+        cv = problem.maxcv(np.ones(2))
+        assert cv > 0
+
+
+class TestFeaturedProblemConstraints(BaseTestProblem):
+    """Tests for FeaturedProblem with nonlinear constraints under various features."""
+
+    def _make_constrained_problem(self):
+        x0 = np.zeros(2)
+        return Problem(self.rosen, x0, cub=self.sum_cos, ceq=self.sum_sin)
+
+    def test_noisy_cub_ceq(self):
+        problem = self._make_constrained_problem()
+        feature = Feature('noisy', noise_level=0.01, n_runs=1)
+        fp = FeaturedProblem(problem, feature, 100, seed=42)
+        cub_val = fp.cub(fp.x0)
+        ceq_val = fp.ceq(fp.x0)
+        assert cub_val.shape == (1,)
+        assert ceq_val.shape == (1,)
+
+    def test_truncated_cub_ceq(self):
+        problem = self._make_constrained_problem()
+        feature = Feature('truncated', significant_digits=4)
+        fp = FeaturedProblem(problem, feature, 100)
+        cub_val = fp.cub(fp.x0)
+        ceq_val = fp.ceq(fp.x0)
+        assert cub_val.shape == (1,)
+        assert ceq_val.shape == (1,)
+
+    def test_random_nan_cub_ceq(self):
+        problem = self._make_constrained_problem()
+        feature = Feature('random_nan', nan_rate=0.0)
+        fp = FeaturedProblem(problem, feature, 100, seed=42)
+        cub_val = fp.cub(fp.x0)
+        ceq_val = fp.ceq(fp.x0)
+        assert cub_val.shape == (1,)
+        assert ceq_val.shape == (1,)
+
+    def test_quantized_cub_ceq(self):
+        problem = self._make_constrained_problem()
+        feature = Feature('quantized', mesh_size=0.1)
+        fp = FeaturedProblem(problem, feature, 100)
+        cub_val = fp.cub(fp.x0)
+        ceq_val = fp.ceq(fp.x0)
+        assert cub_val.shape == (1,)
+        assert ceq_val.shape == (1,)
+
+    def test_nonquantifiable_cub_ceq(self):
+        problem = self._make_constrained_problem()
+        feature = Feature('nonquantifiable_constraints')
+        fp = FeaturedProblem(problem, feature, 100)
+        cub_val = fp.cub(fp.x0)
+        ceq_val = fp.ceq(fp.x0)
+        assert cub_val.shape == (1,)
+        assert ceq_val.shape == (1,)
+        assert cub_val[0] in [0.0, 1.0]
+        assert ceq_val[0] in [0.0, 1.0]
+
+    def test_unrelaxable_constraints_fun(self):
+        x0 = np.zeros(2)
+        problem = Problem(self.rosen, x0, xl=np.array([-1.0, -1.0]), xu=np.array([1.0, 1.0]))
+        feature = Feature('unrelaxable_constraints', unrelaxable_bounds=True)
+        fp = FeaturedProblem(problem, feature, 100)
+        f = fp.fun(fp.x0)
+        assert isinstance(f, float)
+
+    def test_custom_mod_cub(self):
+        def mod_cub(x, rng, prob):
+            return prob.cub(x) + 1.0
+        problem = self._make_constrained_problem()
+        feature = Feature('custom', mod_cub=mod_cub)
+        fp = FeaturedProblem(problem, feature, 100)
+        cub_val = fp.cub(fp.x0)
+        assert cub_val.shape == (1,)
+
+    def test_custom_mod_ceq(self):
+        def mod_ceq(x, rng, prob):
+            return prob.ceq(x) + 0.5
+        problem = self._make_constrained_problem()
+        feature = Feature('custom', mod_ceq=mod_ceq)
+        fp = FeaturedProblem(problem, feature, 100)
+        ceq_val = fp.ceq(fp.x0)
+        assert ceq_val.shape == (1,)
+
+    def test_custom_mod_x0(self):
+        def mod_x0(rng, prob):
+            return prob.x0 + 0.1
+        problem = Problem(self.rosen, np.zeros(2))
+        feature = Feature('custom', mod_x0=mod_x0)
+        fp = FeaturedProblem(problem, feature, 100, seed=42)
+        np.testing.assert_allclose(fp.x0, [0.1, 0.1])
+
+    def test_custom_mod_bounds(self):
+        def mod_bounds(rng, prob):
+            return prob.xl - 1.0, prob.xu + 1.0
+        problem = Problem(self.rosen, np.zeros(2), xl=np.zeros(2), xu=np.ones(2))
+        feature = Feature('custom', mod_bounds=mod_bounds)
+        fp = FeaturedProblem(problem, feature, 100, seed=42)
+        np.testing.assert_array_equal(fp.xl, [-1.0, -1.0])
+        np.testing.assert_array_equal(fp.xu, [2.0, 2.0])
+
+
 @pytest.mark.extra
 @pytest.mark.skipif(not PYCUTEST_AVAILABLE, reason="pycutest not available")
 class TestPyCUTEstSelect:

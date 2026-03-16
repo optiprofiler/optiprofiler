@@ -171,6 +171,48 @@ class TestTruncateProblems:
         for mb in truncated['problem_mbs']:
             assert mb <= 4
 
+    def test_filter_by_minlcon(self):
+        results = _make_dummy_results_plib(n_problems=5)
+        results['problem_mlcons'] = np.array([0, 1, 3, 5, 8])
+        truncated = truncate_problems(results, {ProblemOption.MINLCON.value: 3})
+        for mlcon in truncated['problem_mlcons']:
+            assert mlcon >= 3
+
+    def test_filter_by_maxlcon(self):
+        results = _make_dummy_results_plib(n_problems=5)
+        results['problem_mlcons'] = np.array([0, 1, 3, 5, 8])
+        truncated = truncate_problems(results, {ProblemOption.MAXLCON.value: 3})
+        for mlcon in truncated['problem_mlcons']:
+            assert mlcon <= 3
+
+    def test_filter_by_minnlcon(self):
+        results = _make_dummy_results_plib(n_problems=5)
+        results['problem_mnlcons'] = np.array([0, 2, 4, 6, 8])
+        truncated = truncate_problems(results, {ProblemOption.MINNLCON.value: 4})
+        for mnlcon in truncated['problem_mnlcons']:
+            assert mnlcon >= 4
+
+    def test_filter_by_maxnlcon(self):
+        results = _make_dummy_results_plib(n_problems=5)
+        results['problem_mnlcons'] = np.array([0, 2, 4, 6, 8])
+        truncated = truncate_problems(results, {ProblemOption.MAXNLCON.value: 4})
+        for mnlcon in truncated['problem_mnlcons']:
+            assert mnlcon <= 4
+
+    def test_filter_by_mincon(self):
+        results = _make_dummy_results_plib(n_problems=5)
+        results['problem_mcons'] = np.array([0, 1, 3, 5, 10])
+        truncated = truncate_problems(results, {ProblemOption.MINCON.value: 3})
+        for mcon in truncated['problem_mcons']:
+            assert mcon >= 3
+
+    def test_filter_by_maxcon(self):
+        results = _make_dummy_results_plib(n_problems=5)
+        results['problem_mcons'] = np.array([0, 1, 3, 5, 10])
+        truncated = truncate_problems(results, {ProblemOption.MAXCON.value: 5})
+        for mcon in truncated['problem_mcons']:
+            assert mcon <= 5
+
     def test_empty_result(self):
         results = _make_dummy_results_plib(n_problems=5)
         truncated = truncate_problems(results, {ProblemOption.MINDIM.value: 1000})

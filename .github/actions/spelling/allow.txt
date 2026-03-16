@@ -561,3 +561,13 @@ usr
 XAxis
 xticklabels
 pyo
+Agg
+autouse
+capsys
+ctx
+ogp
+opengraph
+readouterr
+sphinxext
+tmpdir
+YAxes
