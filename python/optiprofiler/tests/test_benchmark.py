@@ -1,4 +1,5 @@
 """Tests for the benchmark function and solve helpers in profiles module."""
+import os
 import shutil
 import tempfile
 
@@ -31,7 +32,6 @@ def simple_solver_2(fun, x0):
                 best_f = f_trial
                 best_x = x_trial.copy()
     return best_x
-
 
 
 def _common_kwargs(tmpdir, benchmark_id='test'):
@@ -73,6 +73,94 @@ class TestBenchmarkBasic:
             assert isinstance(curves, list)
             assert len(curves) > 0
 
+    def test_silent_false(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            scores, profile_scores, curves = benchmark(
+                [simple_solver_1, simple_solver_2],
+                feature_name='plain',
+                plibs=['s2mpj'],
+                ptype='u',
+                mindim=2,
+                maxdim=2,
+                max_eval_factor=10,
+                benchmark_id='test',
+                savepath=tmpdir,
+                n_jobs=1,
+                silent=False,
+                draw_hist_plots='none',
+                problem_names=['ROSENBR'],
+            )
+            assert isinstance(scores, np.ndarray)
+            assert scores.shape[0] == 2
+
+    def test_with_problem_option(self):
+        def rosen(x):
+            return np.sum(1e2 * (x[1:] - x[:-1] ** 2) ** 2 + (1.0 - x[:-1]) ** 2)
+        problem = Problem(rosen, np.zeros(2), name='rosen')
+        with tempfile.TemporaryDirectory() as tmpdir:
+            scores, profile_scores, curves = benchmark(
+                [simple_solver_1, simple_solver_2],
+                feature_name='plain',
+                problem=problem,
+                savepath=tmpdir,
+                benchmark_id='test',
+                n_jobs=1,
+                silent=True,
+                draw_hist_plots='none',
+            )
+            assert isinstance(scores, np.ndarray)
+
+    def test_score_only(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            scores, profile_scores, curves = benchmark(
+                [simple_solver_1, simple_solver_2],
+                feature_name='plain',
+                plibs=['s2mpj'],
+                ptype='u',
+                mindim=2,
+                maxdim=2,
+                max_eval_factor=10,
+                benchmark_id='test',
+                savepath=tmpdir,
+                n_jobs=1,
+                silent=True,
+                score_only=True,
+                problem_names=['ROSENBR'],
+            )
+            assert isinstance(scores, np.ndarray)
+            assert profile_scores is None
+            assert curves is None
+
+    def test_run_plain(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            scores, _, _ = benchmark(
+                [simple_solver_1, simple_solver_2],
+                feature_name='noisy',
+                n_runs=1,
+                run_plain=True,
+                **_common_kwargs(tmpdir),
+            )
+            assert isinstance(scores, np.ndarray)
+
+    def test_sequential_hist_plots(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            scores, _, _ = benchmark(
+                [simple_solver_1, simple_solver_2],
+                feature_name='plain',
+                plibs=['s2mpj'],
+                ptype='u',
+                mindim=2,
+                maxdim=2,
+                max_eval_factor=10,
+                benchmark_id='test',
+                savepath=tmpdir,
+                n_jobs=1,
+                silent=True,
+                draw_hist_plots='sequential',
+                problem_names=['ROSENBR'],
+            )
+            assert isinstance(scores, np.ndarray)
+
 
 class TestBenchmarkFeatures:
 
@@ -106,6 +194,14 @@ class TestBenchmarkFeatures:
 
     def test_quantized(self):
         scores, _, _ = self._run_benchmark('quantized')
+        assert isinstance(scores, np.ndarray)
+
+    def test_permuted(self):
+        scores, _, _ = self._run_benchmark('permuted', n_runs=2)
+        assert isinstance(scores, np.ndarray)
+
+    def test_linearly_transformed(self):
+        scores, _, _ = self._run_benchmark('linearly_transformed', n_runs=2)
         assert isinstance(scores, np.ndarray)
 
 
@@ -164,6 +260,48 @@ class TestBenchmarkOptions:
                 [simple_solver_1, simple_solver_2],
                 feature_name='plain',
                 seed=42,
+                **_common_kwargs(tmpdir),
+            )
+            assert isinstance(scores, np.ndarray)
+
+    def test_project_x0(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            scores, _, _ = benchmark(
+                [simple_solver_1, simple_solver_2],
+                feature_name='plain',
+                project_x0=True,
+                **_common_kwargs(tmpdir),
+            )
+            assert isinstance(scores, np.ndarray)
+
+    def test_custom_merit_fun(self):
+        def my_merit(f, v, v0):
+            return f
+        with tempfile.TemporaryDirectory() as tmpdir:
+            scores, _, _ = benchmark(
+                [simple_solver_1, simple_solver_2],
+                feature_name='plain',
+                merit_fun=my_merit,
+                **_common_kwargs(tmpdir),
+            )
+            assert isinstance(scores, np.ndarray)
+
+    def test_normalized_scores_false(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            scores, _, _ = benchmark(
+                [simple_solver_1, simple_solver_2],
+                feature_name='plain',
+                normalized_scores=False,
+                **_common_kwargs(tmpdir),
+            )
+            assert isinstance(scores, np.ndarray)
+
+    def test_semilogx_false(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            scores, _, _ = benchmark(
+                [simple_solver_1, simple_solver_2],
+                feature_name='plain',
+                semilogx=False,
                 **_common_kwargs(tmpdir),
             )
             assert isinstance(scores, np.ndarray)

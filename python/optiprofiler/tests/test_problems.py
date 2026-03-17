@@ -414,6 +414,30 @@ class TestProblemProjectX0(BaseTestProblem):
         problem.project_x0()
         np.testing.assert_array_equal(problem.x0, original_x0)
 
+    def test_linear_equality_only(self):
+        x0 = np.array([0.0, 0.0])
+        aeq = np.array([[1.0, 1.0]])
+        beq = np.array([1.0])
+        problem = Problem(self.rosen, x0, aeq=aeq, beq=beq)
+        problem.project_x0()
+        np.testing.assert_allclose(problem.aeq @ problem.x0, beq, atol=1e-6)
+
+    def test_linearly_constrained(self):
+        x0 = np.array([5.0, 5.0])
+        aub = np.array([[1.0, 1.0]])
+        bub = np.array([1.0])
+        problem = Problem(self.rosen, x0, xl=np.zeros(2), xu=np.full(2, 10.0), aub=aub, bub=bub)
+        problem.project_x0()
+        assert problem.aub @ problem.x0 <= bub[0] + 1e-6
+
+    def test_nonlinearly_constrained(self):
+        def cub(x):
+            return np.array([x[0] ** 2 + x[1] ** 2 - 1])
+        x0 = np.array([2.0, 2.0])
+        problem = Problem(self.rosen, x0, cub=cub)
+        problem.project_x0()
+        assert isinstance(problem.x0, np.ndarray)
+
 
 class TestProblemPtype(BaseTestProblem):
     """Tests for Problem.ptype property."""
@@ -458,6 +482,37 @@ class TestProblemMaxcv(BaseTestProblem):
         problem = Problem(self.rosen, np.ones(2), aub=aub, bub=bub)
         cv = problem.maxcv(np.ones(2))
         assert cv > 0
+
+    def test_linear_equality_violated(self):
+        aeq = np.array([[1.0, 1.0]])
+        beq = np.array([0.0])
+        problem = Problem(self.rosen, np.ones(2), aeq=aeq, beq=beq)
+        cv = problem.maxcv(np.ones(2))
+        assert cv > 0
+
+    def test_nonlinear_violated(self):
+        def cub(x):
+            return np.array([x[0] ** 2 + x[1] ** 2 - 0.5])
+        problem = Problem(self.rosen, np.ones(2), cub=cub)
+        cv = problem.maxcv(np.ones(2))
+        assert cv > 0
+
+    def test_nonlinear_equality_violated(self):
+        def ceq(x):
+            return np.array([x[0] + x[1] - 1.0])
+        problem = Problem(self.rosen, np.ones(2), ceq=ceq)
+        cv = problem.maxcv(np.ones(2))
+        assert cv > 0
+
+    def test_maxcv_detailed(self):
+        def cub(x):
+            return np.array([x[0] ** 2 + x[1] ** 2 - 0.5])
+        problem = Problem(self.rosen, np.ones(2), xl=np.array([-1.0, -1.0]), cub=cub)
+        cv, cv_bounds, cv_linear, cv_nonlinear = problem._maxcv(np.ones(2))
+        assert cv >= 0
+        assert cv_bounds >= 0
+        assert cv_linear >= 0
+        assert cv_nonlinear >= 0
 
 
 class TestFeaturedProblemConstraints(BaseTestProblem):
@@ -547,6 +602,44 @@ class TestFeaturedProblemConstraints(BaseTestProblem):
         feature = Feature('custom', mod_x0=mod_x0)
         fp = FeaturedProblem(problem, feature, 100, seed=42)
         np.testing.assert_allclose(fp.x0, [0.1, 0.1])
+
+    def test_quantized_ground_truth_maxcv(self):
+        x0 = np.zeros(2)
+        problem = Problem(self.rosen, x0, xl=np.array([-1.0, -1.0]), xu=np.array([1.0, 1.0]))
+        feature = Feature('quantized', ground_truth=True)
+        fp = FeaturedProblem(problem, feature, 100)
+        cv = fp.maxcv(fp.x0)
+        assert isinstance(cv, (float, np.floating))
+        assert cv >= 0
+
+    def test_quantized_ground_truth_maxcv_unconstrained(self):
+        x0 = np.zeros(2)
+        problem = Problem(self.rosen, x0)
+        feature = Feature('quantized', ground_truth=True)
+        fp = FeaturedProblem(problem, feature, 100)
+        cv = fp.maxcv(fp.x0)
+        assert cv == 0.0
+
+    def test_quantized_ground_truth_maxcv_linear(self):
+        x0 = np.zeros(2)
+        aub = np.array([[1.0, 1.0]])
+        bub = np.array([1.0])
+        problem = Problem(self.rosen, x0, xl=np.zeros(2), xu=np.ones(2), aub=aub, bub=bub)
+        feature = Feature('quantized', ground_truth=True)
+        fp = FeaturedProblem(problem, feature, 100)
+        cv = fp.maxcv(fp.x0)
+        assert isinstance(cv, (float, np.floating))
+
+    def test_quantized_ground_truth_maxcv_nonlinear(self):
+        def cub(x):
+            return np.array([x[0] ** 2 + x[1] ** 2 - 1])
+        x0 = np.zeros(2)
+        problem = Problem(self.rosen, x0, xl=np.zeros(2), xu=np.ones(2), cub=cub)
+        feature = Feature('quantized', ground_truth=True)
+        fp = FeaturedProblem(problem, feature, 100)
+        fp.fun(fp.x0)
+        cv = fp.maxcv(fp.x0)
+        assert isinstance(cv, (float, np.floating))
 
     def test_custom_mod_bounds(self):
         def mod_bounds(rng, prob):

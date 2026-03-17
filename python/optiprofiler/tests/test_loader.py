@@ -329,6 +329,95 @@ class TestSaveLoadH5:
             os.unlink(path)
 
 
+class TestLoadResults:
+
+    def _create_experiment(self, tmpdir):
+        """Create a fake experiment directory with HDF5 data for loading."""
+        results_plibs = [_make_dummy_results_plib(n_problems=3, n_solvers=2)]
+        benchmark_dir = os.path.join(tmpdir, 'out')
+        stamp_dir = os.path.join(benchmark_dir, 'test_stamp')
+        log_dir = os.path.join(stamp_dir, 'test_log')
+        os.makedirs(log_dir, exist_ok=True)
+
+        import datetime
+        ts = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+        ts_file = os.path.join(log_dir, f'time_stamp_{ts}.txt')
+        with open(ts_file, 'w') as f:
+            f.write(ts)
+
+        h5_path = os.path.join(log_dir, 'data_for_loading.h5')
+        save_results_to_h5(results_plibs, h5_path)
+        return benchmark_dir, ts
+
+    def test_load_latest(self):
+        from optiprofiler.loader import load_results
+        from optiprofiler.utils import ProfileOption, ProblemOption
+        with tempfile.TemporaryDirectory() as tmpdir:
+            benchmark_dir, ts = self._create_experiment(tmpdir)
+            profile_options = {
+                ProfileOption.LOAD.value: 'latest',
+                ProfileOption.BENCHMARK_ID.value: 'out',
+            }
+            problem_options = {}
+            old_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                results, opts = load_results(problem_options, profile_options)
+                assert len(results) > 0
+                assert ProfileOption.SOLVER_NAMES.value in opts
+            finally:
+                os.chdir(old_cwd)
+
+    def test_load_specific_timestamp(self):
+        from optiprofiler.loader import load_results
+        from optiprofiler.utils import ProfileOption, ProblemOption
+        with tempfile.TemporaryDirectory() as tmpdir:
+            benchmark_dir, ts = self._create_experiment(tmpdir)
+            profile_options = {
+                ProfileOption.LOAD.value: ts,
+                ProfileOption.BENCHMARK_ID.value: 'out',
+            }
+            problem_options = {}
+            old_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                results, opts = load_results(problem_options, profile_options)
+                assert len(results) > 0
+            finally:
+                os.chdir(old_cwd)
+
+    def test_load_no_option(self):
+        from optiprofiler.loader import load_results
+        results, opts = load_results({}, {})
+        assert results == []
+
+    def test_load_invalid_timestamp(self):
+        from optiprofiler.loader import load_results
+        from optiprofiler.utils import ProfileOption
+        with tempfile.TemporaryDirectory() as tmpdir:
+            profile_options = {
+                ProfileOption.LOAD.value: 'invalid_format',
+            }
+            with pytest.raises(ValueError):
+                load_results({}, profile_options)
+
+    def test_load_not_found(self):
+        from optiprofiler.loader import load_results
+        from optiprofiler.utils import ProfileOption
+        with tempfile.TemporaryDirectory() as tmpdir:
+            profile_options = {
+                ProfileOption.LOAD.value: 'latest',
+                ProfileOption.BENCHMARK_ID.value: 'nonexistent',
+            }
+            old_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                with pytest.raises(FileNotFoundError):
+                    load_results({}, profile_options)
+            finally:
+                os.chdir(old_cwd)
+
+
 class TestSaveOptions:
 
     def test_basic(self):
