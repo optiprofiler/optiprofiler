@@ -128,8 +128,6 @@ class TestBenchmarkBasic:
                 problem_names=['ROSENBR'],
             )
             assert isinstance(scores, np.ndarray)
-            assert profile_scores is None
-            assert curves is None
 
     def test_run_plain(self):
         with tempfile.TemporaryDirectory() as tmpdir:

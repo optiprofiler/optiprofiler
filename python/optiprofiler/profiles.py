@@ -1041,6 +1041,8 @@ def benchmark(
     max_tol_order = profile_options[ProfileOption.MAX_TOL_ORDER]
     tolerances = [10**(-i) for i in range(1, max_tol_order + 1)]
 
+    is_saving = not profile_options[ProfileOption.SCORE_ONLY]
+
     n_rows = 0
     is_perf = profile_options[ProfileOption.SUMMARIZE_PERFORMANCE_PROFILES]
     is_data = profile_options[ProfileOption.SUMMARIZE_DATA_PROFILES]
@@ -1096,13 +1098,14 @@ def benchmark(
         solvers_all_diverge_hist = np.zeros((n_problems, n_runs, profile_options[ProfileOption.MAX_TOL_ORDER]), dtype=bool)
         solvers_all_diverge_out = solvers_all_diverge_hist.copy()
 
-        pdf_perf_hist_summary = backend_pdf.PdfPages(path_perf_hist_summary)
-        pdf_perf_out_summary = backend_pdf.PdfPages(path_perf_out_summary)
-        pdf_data_hist_summary = backend_pdf.PdfPages(path_data_hist_summary)
-        pdf_data_out_summary = backend_pdf.PdfPages(path_data_out_summary)
-        if n_solvers == 2:
-            pdf_log_ratio_hist_summary = backend_pdf.PdfPages(path_log_ratio_hist_summary)
-            pdf_log_ratio_out_summary = backend_pdf.PdfPages(path_log_ratio_out_summary)
+        if is_saving:
+            pdf_perf_hist_summary = backend_pdf.PdfPages(path_perf_hist_summary)
+            pdf_perf_out_summary = backend_pdf.PdfPages(path_perf_out_summary)
+            pdf_data_hist_summary = backend_pdf.PdfPages(path_data_hist_summary)
+            pdf_data_out_summary = backend_pdf.PdfPages(path_data_out_summary)
+            if n_solvers == 2:
+                pdf_log_ratio_hist_summary = backend_pdf.PdfPages(path_log_ratio_hist_summary)
+                pdf_log_ratio_out_summary = backend_pdf.PdfPages(path_log_ratio_out_summary)
 
         for i_tol, tolerance in enumerate(tolerances):
             hist = {
@@ -1154,32 +1157,35 @@ def benchmark(
             curves.append(curve)
 
             # Save the profiles to files.
-            if not profile_options[ProfileOption.SCORE_ONLY]:
-                # Save the individual profiles to separate PDF files and summary files.
-                pdf_perf_hist = path_perf_hist / f'perf_hist_{i_tol + 1}.pdf'
-                fig_perf_hist.savefig(pdf_perf_hist, bbox_inches='tight')
-                pdf_perf_hist_summary.savefig(fig_perf_hist, bbox_inches='tight')
+            if is_saving:
+                if is_hist_drawable:
+                    pdf_perf_hist = path_perf_hist / f'perf_hist_{i_tol + 1}.pdf'
+                    fig_perf_hist.savefig(pdf_perf_hist, bbox_inches='tight')
+                    pdf_perf_hist_summary.savefig(fig_perf_hist, bbox_inches='tight')
 
-                pdf_data_hist = path_data_hist / f'data_hist_{i_tol + 1}.pdf'
-                fig_data_hist.savefig(pdf_data_hist, bbox_inches='tight')
-                pdf_data_hist_summary.savefig(fig_data_hist, bbox_inches='tight')
+                    pdf_data_hist = path_data_hist / f'data_hist_{i_tol + 1}.pdf'
+                    fig_data_hist.savefig(pdf_data_hist, bbox_inches='tight')
+                    pdf_data_hist_summary.savefig(fig_data_hist, bbox_inches='tight')
 
-                pdf_perf_out = path_perf_out / f'perf_out_{i_tol + 1}.pdf'
-                fig_perf_out.savefig(pdf_perf_out, bbox_inches='tight')
-                pdf_perf_out_summary.savefig(fig_perf_out, bbox_inches='tight')
+                if is_out_drawable:
+                    pdf_perf_out = path_perf_out / f'perf_out_{i_tol + 1}.pdf'
+                    fig_perf_out.savefig(pdf_perf_out, bbox_inches='tight')
+                    pdf_perf_out_summary.savefig(fig_perf_out, bbox_inches='tight')
 
-                pdf_data_out = path_data_out / f'data_out_{i_tol + 1}.pdf'
-                fig_data_out.savefig(pdf_data_out, bbox_inches='tight')
-                pdf_data_out_summary.savefig(fig_data_out, bbox_inches='tight')
+                    pdf_data_out = path_data_out / f'data_out_{i_tol + 1}.pdf'
+                    fig_data_out.savefig(pdf_data_out, bbox_inches='tight')
+                    pdf_data_out_summary.savefig(fig_data_out, bbox_inches='tight')
 
                 if n_solvers == 2:
-                    pdf_log_ratio_hist = path_log_ratio_hist / f'log-ratio_hist_{i_tol + 1}.pdf'
-                    fig_log_ratio_hist.savefig(pdf_log_ratio_hist, bbox_inches='tight')
-                    pdf_log_ratio_hist_summary.savefig(fig_log_ratio_hist, bbox_inches='tight')
+                    if is_hist_drawable and fig_log_ratio_hist is not None:
+                        pdf_log_ratio_hist = path_log_ratio_hist / f'log-ratio_hist_{i_tol + 1}.pdf'
+                        fig_log_ratio_hist.savefig(pdf_log_ratio_hist, bbox_inches='tight')
+                        pdf_log_ratio_hist_summary.savefig(fig_log_ratio_hist, bbox_inches='tight')
                     
-                    pdf_log_ratio_out = path_log_ratio_out / f'log-ratio_out_{i_tol + 1}.pdf'
-                    fig_log_ratio_out.savefig(pdf_log_ratio_out, bbox_inches='tight')
-                    pdf_log_ratio_out_summary.savefig(fig_log_ratio_out, bbox_inches='tight')
+                    if is_out_drawable and fig_log_ratio_out is not None:
+                        pdf_log_ratio_out = path_log_ratio_out / f'log-ratio_out_{i_tol + 1}.pdf'
+                        fig_log_ratio_out.savefig(pdf_log_ratio_out, bbox_inches='tight')
+                        pdf_log_ratio_out_summary.savefig(fig_log_ratio_out, bbox_inches='tight')
                 
             # Close the individual figures.
             plt.close(fig_perf_hist)
@@ -1192,15 +1198,16 @@ def benchmark(
                 plt.close(fig_log_ratio_out)
             
         # Close the summary pdf files.
-        pdf_perf_hist_summary.close()
-        pdf_perf_out_summary.close()
-        pdf_data_hist_summary.close()
-        pdf_data_out_summary.close()
-        if n_solvers == 2:
-            pdf_log_ratio_hist_summary.close()
-            pdf_log_ratio_out_summary.close()
+        if is_saving:
+            pdf_perf_hist_summary.close()
+            pdf_perf_out_summary.close()
+            pdf_data_hist_summary.close()
+            pdf_data_out_summary.close()
+            if n_solvers == 2:
+                pdf_log_ratio_hist_summary.close()
+                pdf_log_ratio_out_summary.close()
         
-        if not profile_options[ProfileOption.SCORE_ONLY]:
+        if is_saving:
             try:
                 if is_hist_drawable:
                     add_to_readme(path_readme_feature, 'perf_hist.pdf', 'File, the summary PDF of history-based performance profiles for all tolerances.')
@@ -1216,7 +1223,7 @@ def benchmark(
                 pass
         
         # Record the names of the problems all the solvers failed to meet the convergence test for every tolerance.
-        if not profile_options[ProfileOption.SCORE_ONLY]:
+        if is_saving:
             try:
                 max_name_length = max(len(name) for name in problem_names_merged)
                 with open(path_report, 'a') as fid:
@@ -1251,7 +1258,7 @@ def benchmark(
         logger.info('')
         logger.info('All single profiles are created.')
 
-    if not profile_options[ProfileOption.SCORE_ONLY]:
+    if is_saving:
         if not profile_options[ProfileOption.SILENT]:
             logger.info('')
             logger.info('Start creating the summary PDF of all the profiles.')
@@ -1271,7 +1278,7 @@ def benchmark(
         plt.close(fig_summary)
 
     # Save curves to file.
-    if not profile_options[ProfileOption.SCORE_ONLY]:
+    if is_saving:
         try:
             import pickle
             with open(path_log / 'curves.pkl', 'wb') as f:
@@ -1285,7 +1292,7 @@ def benchmark(
     profile_scores = compute_scores(curves, profile_options)
 
     # Save profile_scores to file.
-    if not profile_options[ProfileOption.SCORE_ONLY]:
+    if is_saving:
         try:
             import pickle
             with open(path_log / 'profile_scores.pkl', 'wb') as f:
@@ -1312,7 +1319,7 @@ def benchmark(
     if not profile_options[ProfileOption.SILENT]:
         logger.info('')
         logger.info(f'Finished creating profiles with the "{feature.name}" feature.')
-        if not profile_options[ProfileOption.SCORE_ONLY]:
+        if is_saving:
             logger.info('')
             logger.info('=' * 70)
             logger.info('')
@@ -1331,7 +1338,7 @@ def benchmark(
             logger.info('=' * 70)
 
     # Close the listener of the logger.
-    if not profile_options[ProfileOption.SCORE_ONLY]:
+    if is_saving:
         listener.stop()
         for h in listener.handlers:
             if hasattr(h, 'close'):
