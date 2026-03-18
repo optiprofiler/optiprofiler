@@ -1054,43 +1054,55 @@ def benchmark(
         n_rows += 1
     if is_log_ratio:
         n_rows += 1
+    is_summary = n_rows > 0
     multiplier = 2 if is_output_based else 1
     default_figsize = plt.rcParams['figure.figsize']
     default_width = default_figsize[0]
     default_height = default_figsize[1]
 
     with plt.rc_context(profile_context):
-        fig_summary = plt.figure(figsize=(len(tolerances) * default_width, multiplier * n_rows * default_height), layout='constrained')
-        if multiplier == 2:
-            fig_summary_hist, fig_summary_out = fig_summary.subfigures(2, 1)
-            subfigs_summary_hist = np.atleast_1d(fig_summary_hist.subfigures(n_rows, 1))
-            subfigs_summary_out = np.atleast_1d(fig_summary_out.subfigures(n_rows, 1))
+        if is_summary:
+            fig_summary = plt.figure(figsize=(len(tolerances) * default_width, multiplier * n_rows * default_height), layout='constrained')
+            if multiplier == 2:
+                fig_summary_hist, fig_summary_out = fig_summary.subfigures(2, 1)
+                subfigs_summary_hist = np.atleast_1d(fig_summary_hist.subfigures(n_rows, 1))
+                subfigs_summary_out = np.atleast_1d(fig_summary_out.subfigures(n_rows, 1))
+            else:
+                fig_summary_hist = fig_summary.subfigures(1, 1)
+                fig_summary_out = None
+                subfigs_summary_hist = np.atleast_1d(fig_summary_hist.subfigures(n_rows, 1))
+                subfigs_summary_out = None
+            
+            i_rows = 0
+            if is_perf:
+                ax_summary_perf_hist = np.atleast_1d(subfigs_summary_hist[i_rows].subplots(1, len(tolerances), sharey=True))
+                ax_summary_perf_out = np.atleast_1d(subfigs_summary_out[i_rows].subplots(1, len(tolerances), sharey=True)) if multiplier == 2 else None
+                i_rows += 1
+            else:
+                ax_summary_perf_hist = None
+                ax_summary_perf_out = None
+            if is_data:
+                ax_summary_data_hist = np.atleast_1d(subfigs_summary_hist[i_rows].subplots(1, len(tolerances), sharey=True))
+                ax_summary_data_out = np.atleast_1d(subfigs_summary_out[i_rows].subplots(1, len(tolerances), sharey=True)) if multiplier == 2 else None
+                i_rows += 1
+            else:
+                ax_summary_data_hist = None
+                ax_summary_data_out = None
+            if is_log_ratio:
+                ax_summary_log_ratio_hist = np.atleast_1d(subfigs_summary_hist[i_rows].subplots(1, len(tolerances)))
+                ax_summary_log_ratio_out = np.atleast_1d(subfigs_summary_out[i_rows].subplots(1, len(tolerances))) if multiplier == 2 else None
+                i_rows += 1
+            else:
+                ax_summary_log_ratio_hist = None
+                ax_summary_log_ratio_out = None
         else:
-            fig_summary_hist = fig_summary.subfigures(1, 1)
+            fig_summary = None
+            fig_summary_hist = None
             fig_summary_out = None
-            subfigs_summary_hist = np.atleast_1d(fig_summary_hist.subfigures(n_rows, 1))
-            subfigs_summary_out = None
-        
-        i_rows = 0
-        if is_perf:
-            ax_summary_perf_hist = np.atleast_1d(subfigs_summary_hist[i_rows].subplots(1, len(tolerances), sharey=True))
-            ax_summary_perf_out = np.atleast_1d(subfigs_summary_out[i_rows].subplots(1, len(tolerances), sharey=True)) if multiplier == 2 else None
-            i_rows += 1
-        else:
             ax_summary_perf_hist = None
             ax_summary_perf_out = None
-        if is_data:
-            ax_summary_data_hist = np.atleast_1d(subfigs_summary_hist[i_rows].subplots(1, len(tolerances), sharey=True))
-            ax_summary_data_out = np.atleast_1d(subfigs_summary_out[i_rows].subplots(1, len(tolerances), sharey=True)) if multiplier == 2 else None
-            i_rows += 1
-        else:
             ax_summary_data_hist = None
             ax_summary_data_out = None
-        if is_log_ratio:
-            ax_summary_log_ratio_hist = np.atleast_1d(subfigs_summary_hist[i_rows].subplots(1, len(tolerances)))
-            ax_summary_log_ratio_out = np.atleast_1d(subfigs_summary_out[i_rows].subplots(1, len(tolerances))) if multiplier == 2 else None
-            i_rows += 1
-        else:
             ax_summary_log_ratio_hist = None
             ax_summary_log_ratio_out = None
 
@@ -1258,7 +1270,7 @@ def benchmark(
         logger.info('')
         logger.info('All single profiles are created.')
 
-    if is_saving:
+    if is_saving and is_summary:
         if not profile_options[ProfileOption.SILENT]:
             logger.info('')
             logger.info('Start creating the summary PDF of all the profiles.')
@@ -1267,7 +1279,8 @@ def benchmark(
         # Use rc_context to ensure LaTeX rendering is applied to the title
         with plt.rc_context(profile_context):
             fig_summary_hist.supylabel('History-based profiles', fontsize='xx-large', horizontalalignment='right')
-            fig_summary_out.supylabel('Output-based profiles', fontsize='xx-large', horizontalalignment='right')
+            if fig_summary_out is not None:
+                fig_summary_out.supylabel('Output-based profiles', fontsize='xx-large', horizontalalignment='right')
             fig_summary.suptitle(f'Profiles with the ``{feature.name}" feature', fontsize='xx-large', verticalalignment='bottom')
             path_summary = path_stamp / f'summary_{stamp}.pdf'
             fig_summary.savefig(path_summary, bbox_inches='tight')
@@ -1322,9 +1335,10 @@ def benchmark(
         if is_saving:
             logger.info('')
             logger.info('=' * 70)
-            logger.info('')
-            logger.info(f'Summary PDF of the profiles is saved as:')
-            logger.info(f'{path_stamp / f"summary_{stamp}.pdf"}')
+            if is_summary:
+                logger.info('')
+                logger.info(f'Summary PDF of the profiles is saved as:')
+                logger.info(f'{path_stamp / f"summary_{stamp}.pdf"}')
             logger.info('')
             logger.info(f'Single profiles are stored in:')
             logger.info(f'{path_stamp / "detailed_profiles"}')
