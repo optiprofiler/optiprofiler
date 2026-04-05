@@ -3,6 +3,25 @@
 Installation
 ============
 
+Python
+------
+
+Install OptiProfiler via pip:
+
+.. code-block:: bash
+
+    pip install optiprofiler
+
+Or via conda (from the ``optiprofiler`` channel):
+
+.. code-block:: bash
+
+    conda install -c optiprofiler optiprofiler
+
+.. note::
+
+    OptiProfiler includes the `S2MPJ <https://github.com/GrattonToint/S2MPJ>`_ problem library by default. If you also want to use the `PyCUTEst <https://jfowkes.github.io/pycutest/>`_ problem library (available on Linux and macOS only), please follow the `PyCUTEst installation guide <https://jfowkes.github.io/pycutest/_build/html/install.html>`_.
+
 MATLAB
 ------
 
@@ -36,8 +55,3 @@ For automated environments (e.g., CI/CD scripts) where interactive input is not 
 .. code-block:: matlab
 
     setup uninstall
-
-Python
-------
-
-Work in progress.

@@ -5,7 +5,9 @@
     :hidden:
 
     User guide <user/index>
+    Python API reference <ref/index>
     MATLAB API reference <matlab/index>
+
 
 .. raw:: html
 
@@ -114,10 +116,11 @@ OptiProfiler
                 <img src="_static/python.svg" alt="Python" class="lang-inline-icon" />
                 <strong>Python</strong>
             </div>
-            <span class="badge-coming-soon">Coming Soon</span>
 
-        The Python interface is currently under development.
-        Stay tuned for updates!
+        The Python interface is ready to use.
+        Check out the :ref:`installation guide <install>` to get started,
+        explore :ref:`examples <use_python>` for common workflows,
+        or dive into the :ref:`API reference <pythonapi>` for details.
 
     .. grid-item-card::
         :class-card: sd-border-0 sd-shadow-sm lang-card
