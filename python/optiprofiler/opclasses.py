@@ -8,9 +8,203 @@ from .utils import FeatureName, FeatureOption, get_logger
 
 
 class Feature:
-    """
-    Feature is a class that defines a mapping from an optimization problem to a new one with specified features.
-    We are interested to test solvers on problems with different features. For example, we want to test the performance of solvers under the case where the objective function is noisy. For this purpose, we define `Feature` class.
+    r"""
+    Mapping from an optimization problem to a new one with specified features.
+
+    We are interested in testing solvers on problems with different features.
+    For example, we may want to test the performance of solvers when the
+    objective function is noisy. For this purpose, we define the ``Feature``
+    class.
+
+    Suppose we have an optimization problem
+
+    .. math::
+
+        \min \; \mathrm{fun}(x) \quad
+        \text{s.t.} \; x_l \le x \le x_u, \;
+        A_{\mathrm{ub}} x \le b_{\mathrm{ub}}, \;
+        A_{\mathrm{eq}} x = b_{\mathrm{eq}}, \;
+        c_{\mathrm{ub}}(x) \le 0, \;
+        c_{\mathrm{eq}}(x) = 0.
+
+    Then ``Feature`` maps the above problem to a new one where the objective
+    function, constraints, bounds, and/or initial point may be modified
+    according to the chosen feature name and options.
+
+    Parameters
+    ----------
+    name : str
+        Name of the feature. Must be one of the following:
+
+        1. ``'plain'`` : do nothing to the optimization problem.
+        2. ``'perturbed_x0'`` : perturb the initial guess ``x0``.
+        3. ``'noisy'`` : add noise to the objective function and nonlinear
+           constraints.
+        4. ``'truncated'`` : truncate values of the objective function and
+           nonlinear constraints to a given number of significant digits.
+        5. ``'permuted'`` : randomly permute the variables. The bounds and
+           linear constraints are modified accordingly so that the new
+           problem is mathematically equivalent to the original one.
+        6. ``'linearly_transformed'`` : apply an invertible linear
+           transformation ``D @ Q'`` (with ``D`` diagonal and ``Q``
+           orthogonal) to the variables. Bounds and linear constraints are
+           modified accordingly.
+        7. ``'random_nan'`` : randomly replace values of the objective
+           function and nonlinear constraints with ``NaN``.
+        8. ``'unrelaxable_constraints'`` : set the objective function to
+           ``Inf`` outside the feasible region.
+        9. ``'nonquantifiable_constraints'`` : replace values of nonlinear
+           constraints with either ``0`` (satisfied) or ``1`` (violated).
+        10. ``'quantized'`` : quantize the objective function and nonlinear
+            constraints.
+        11. ``'custom'`` : user-defined feature.
+
+    \*\*feature_options : dict
+        Keyword arguments for the feature. The available options depend on
+        the chosen ``name``:
+
+        - **n_runs** (*int*) -- Number of runs of the experiment under the
+          given feature. Default is ``5`` for stochastic features and ``1``
+          for deterministic features. Valid for all features.
+        - **distribution** (*str or callable*) -- Distribution of
+          perturbation (``'perturbed_x0'``) or noise (``'noisy'``). For
+          ``'perturbed_x0'``, it should be ``'spherical'`` (default) or
+          ``'gaussian'``. For ``'noisy'``, it should be ``'gaussian'``
+          (default) or ``'uniform'``. It can also be a callable
+          ``(rng, dimension) -> array``.
+        - **perturbation_level** (*float*) -- Magnitude of the perturbation
+          in ``'perturbed_x0'``. Default is ``1e-3``.
+        - **noise_level** (*float*) -- Magnitude of the noise in
+          ``'noisy'``. Default is ``1e-3``.
+        - **noise_type** (*str*) -- Type of the noise in ``'noisy'``. Must
+          be ``'absolute'``, ``'relative'``, or ``'mixed'`` (default).
+        - **significant_digits** (*int*) -- Number of significant digits in
+          ``'truncated'``. Default is ``6``.
+        - **perturbed_trailing_digits** (*bool*) -- Whether to randomize
+          the trailing digits in ``'truncated'``. Default is ``False``.
+        - **rotated** (*bool*) -- Whether to use a random rotation matrix
+          in ``'linearly_transformed'``. Default is ``True``.
+        - **condition_factor** (*float*) -- Scaling factor of the condition
+          number of the linear transformation in
+          ``'linearly_transformed'``. The condition number will be
+          ``2 ** (condition_factor * n / 2)``. Default is ``0``.
+        - **nan_rate** (*float*) -- Probability that an evaluation returns
+          ``NaN`` in ``'random_nan'``. Default is ``0.05``.
+        - **unrelaxable_bounds** (*bool*) -- Whether bound constraints are
+          unrelaxable in ``'unrelaxable_constraints'``. Default is ``True``.
+        - **unrelaxable_linear_constraints** (*bool*) -- Whether linear
+          constraints are unrelaxable. Default is ``False``.
+        - **unrelaxable_nonlinear_constraints** (*bool*) -- Whether
+          nonlinear constraints are unrelaxable. Default is ``False``.
+        - **mesh_size** (*float*) -- Size of the mesh in ``'quantized'``.
+          Default is ``1e-3``.
+        - **mesh_type** (*str*) -- Type of the mesh in ``'quantized'``.
+          Must be ``'absolute'`` (default) or ``'relative'``.
+        - **ground_truth** (*bool*) -- Whether the featured problem is the
+          ground truth in ``'quantized'``. Default is ``True``.
+        - **mod_x0** (*callable*) -- Modifier for the initial guess in
+          ``'custom'``: ``(rng, problem) -> modified_x0``.
+        - **mod_affine** (*callable*) -- Modifier for the affine
+          transformation in ``'custom'``:
+          ``(rng, problem) -> (A, b, inv)``.
+        - **mod_bounds** (*callable*) -- Modifier for the bounds in
+          ``'custom'``: ``(rng, problem) -> (xl, xu)``.
+        - **mod_linear_ub** (*callable*) -- Modifier for the linear
+          inequality constraints in ``'custom'``:
+          ``(rng, problem) -> (aub, bub)``.
+        - **mod_linear_eq** (*callable*) -- Modifier for the linear
+          equality constraints in ``'custom'``:
+          ``(rng, problem) -> (aeq, beq)``.
+        - **mod_fun** (*callable*) -- Modifier for the objective function
+          in ``'custom'``: ``(x, rng, problem) -> modified_fun``.
+        - **mod_cub** (*callable*) -- Modifier for the nonlinear inequality
+          constraints in ``'custom'``:
+          ``(x, rng, problem) -> modified_cub``.
+        - **mod_ceq** (*callable*) -- Modifier for the nonlinear equality
+          constraints in ``'custom'``:
+          ``(x, rng, problem) -> modified_ceq``.
+
+    Attributes
+    ----------
+    name : str
+        Name of the feature.
+    options : dict
+        Options of the feature.
+    is_stochastic : bool
+        Whether the feature is stochastic.
+
+    Methods
+    -------
+    modifier_x0(seed, problem)
+        Modify the initial guess.
+    modifier_affine(seed, problem)
+        Generate an invertible matrix ``A``, a vector ``b``, and the
+        inverse of ``A`` for the affine transformation applied to the
+        variables.
+    modifier_bounds(seed, problem)
+        Modify the lower and upper bounds.
+    modifier_linear_ub(seed, problem)
+        Modify the linear inequality constraints.
+    modifier_linear_eq(seed, problem)
+        Modify the linear equality constraints.
+    modifier_fun(x, seed, problem, n_eval)
+        Modify the objective function value.
+    modifier_cub(x, seed, problem, n_eval_cub)
+        Modify the values of the nonlinear inequality constraints.
+    modifier_ceq(x, seed, problem, n_eval_ceq)
+        Modify the values of the nonlinear equality constraints.
+
+    Notes
+    -----
+    Different feature names accept different subsets of options. The valid
+    options for each feature name are:
+
+    1. ``'plain'`` : ``n_runs``.
+    2. ``'perturbed_x0'`` : ``n_runs``, ``distribution``,
+       ``perturbation_level``.
+    3. ``'noisy'`` : ``n_runs``, ``distribution``, ``noise_level``,
+       ``noise_type``.
+    4. ``'truncated'`` : ``n_runs``, ``significant_digits``,
+       ``perturbed_trailing_digits``.
+    5. ``'permuted'`` : ``n_runs``.
+    6. ``'linearly_transformed'`` : ``n_runs``, ``rotated``,
+       ``condition_factor``.
+    7. ``'random_nan'`` : ``n_runs``, ``nan_rate``.
+    8. ``'unrelaxable_constraints'`` : ``n_runs``,
+       ``unrelaxable_bounds``, ``unrelaxable_linear_constraints``,
+       ``unrelaxable_nonlinear_constraints``.
+    9. ``'nonquantifiable_constraints'`` : ``n_runs``.
+    10. ``'quantized'`` : ``n_runs``, ``mesh_size``, ``mesh_type``,
+        ``ground_truth``.
+    11. ``'custom'`` : ``n_runs``, ``mod_x0``, ``mod_affine``,
+        ``mod_bounds``, ``mod_linear_ub``, ``mod_linear_eq``,
+        ``mod_fun``, ``mod_cub``, ``mod_ceq``.
+
+    See Also
+    --------
+    Problem : Optimization problem.
+    FeaturedProblem : Problem equipped with a specific feature.
+    benchmark : Main benchmarking function.
+
+    Examples
+    --------
+    Create a plain feature (no modification to problems):
+
+    .. code-block:: python
+
+        from optiprofiler import Feature
+
+        feature = Feature('plain')
+        print(feature.name)           # 'plain'
+        print(feature.is_stochastic)  # False
+
+    Create a noisy feature with custom noise level:
+
+    .. code-block:: python
+
+        feature = Feature('noisy', noise_level=1e-2, noise_type='relative')
+        print(feature.is_stochastic)  # True
+        print(feature.options)
     """
 
     def __init__(self, name, **feature_options):
@@ -877,14 +1071,163 @@ class Problem:
     r"""
     Optimization problem to be used in the benchmarking.
 
-    This class provides a uniform interface for providing general optimization
-    problems. It is used to supply custom problems to the `benchmark`
-    function, and the signature of solvers supplied to the `benchmark`
-    function can be
+    ``Problem`` describes an optimization problem with the following
+    structure:
 
-        ``solver(problem) -> array_like, shape (n,)``
+    .. math::
 
-    where `problem` is an instance of the class `Problem`.
+        \min \; \mathrm{fun}(x) \quad
+        \text{s.t.} \; x_l \le x \le x_u, \;
+        A_{\mathrm{ub}} x \le b_{\mathrm{ub}}, \;
+        A_{\mathrm{eq}} x = b_{\mathrm{eq}}, \;
+        c_{\mathrm{ub}}(x) \le 0, \;
+        c_{\mathrm{eq}}(x) = 0, \;
+        \text{with initial point } x_0,
+
+    where ``fun`` is the objective function, ``x`` is the variable to
+    optimize, ``xl`` and ``xu`` are the lower and upper bounds, ``aub`` and
+    ``bub`` are the coefficient matrix and right-hand side vector of the
+    linear inequality constraints, ``aeq`` and ``beq`` are the coefficient
+    matrix and right-hand side vector of the linear equality constraints,
+    ``cub`` is the function of nonlinear inequality constraints, and ``ceq``
+    is the function of nonlinear equality constraints.
+
+    Parameters
+    ----------
+    fun : callable
+        Objective function to be minimized: ``fun(x) -> float``, where
+        ``x`` is an array with shape ``(n,)``.
+    x0 : array_like, shape (n,)
+        Initial guess.
+    name : str, optional
+        Name of the problem. Default is ``'Unnamed Problem'``.
+    xl : array_like, shape (n,), optional
+        Lower bounds on the variables ``xl <= x``. Default is ``-numpy.inf``
+        for each component.
+    xu : array_like, shape (n,), optional
+        Upper bounds on the variables ``x <= xu``. Default is ``numpy.inf``
+        for each component.
+    aub : array_like, shape (m_linear_ub, n), optional
+        Coefficient matrix of the linear inequality constraints
+        ``aub @ x <= bub``. Default is an empty matrix.
+    bub : array_like, shape (m_linear_ub,), optional
+        Right-hand side of the linear inequality constraints
+        ``aub @ x <= bub``. Default is an empty vector.
+    aeq : array_like, shape (m_linear_eq, n), optional
+        Coefficient matrix of the linear equality constraints
+        ``aeq @ x == beq``. Default is an empty matrix.
+    beq : array_like, shape (m_linear_eq,), optional
+        Right-hand side of the linear equality constraints
+        ``aeq @ x == beq``. Default is an empty vector.
+    cub : callable, optional
+        Nonlinear inequality constraints ``cub(x) <= 0``:
+        ``cub(x) -> array_like, shape (m_nonlinear_ub,)``. Default returns
+        an empty array.
+    ceq : callable, optional
+        Nonlinear equality constraints ``ceq(x) == 0``:
+        ``ceq(x) -> array_like, shape (m_nonlinear_eq,)``. Default returns
+        an empty array.
+    grad : callable, optional
+        Gradient of the objective function: ``grad(x) -> array, shape (n,)``.
+        Default returns an empty array.
+    hess : callable, optional
+        Hessian of the objective function:
+        ``hess(x) -> array, shape (n, n)``. Default returns an empty matrix.
+    jcub : callable, optional
+        Jacobian of the nonlinear inequality constraints:
+        ``jcub(x) -> array, shape (m_nonlinear_ub, n)``. The number of
+        columns must equal ``n`` and the number of rows must equal
+        ``m_nonlinear_ub``. Default returns an empty matrix.
+    jceq : callable, optional
+        Jacobian of the nonlinear equality constraints:
+        ``jceq(x) -> array, shape (m_nonlinear_eq, n)``. Default returns
+        an empty matrix.
+    hcub : callable, optional
+        Hessians of the nonlinear inequality constraints:
+        ``hcub(x) -> list of arrays, each shape (n, n)``. The *i*-th
+        element is the Hessian of the *i*-th constraint in ``cub``. Default
+        returns an empty list.
+    hceq : callable, optional
+        Hessians of the nonlinear equality constraints:
+        ``hceq(x) -> list of arrays, each shape (n, n)``. Default returns
+        an empty list.
+
+    Attributes
+    ----------
+    name : str
+        Name of the problem.
+    x0 : numpy.ndarray, shape (n,)
+        Initial guess.
+    xl : numpy.ndarray, shape (n,)
+        Lower bounds on the variables.
+    xu : numpy.ndarray, shape (n,)
+        Upper bounds on the variables.
+    aub : numpy.ndarray, shape (m_linear_ub, n)
+        Coefficient matrix of the linear inequality constraints.
+    bub : numpy.ndarray, shape (m_linear_ub,)
+        Right-hand side of the linear inequality constraints.
+    aeq : numpy.ndarray, shape (m_linear_eq, n)
+        Coefficient matrix of the linear equality constraints.
+    beq : numpy.ndarray, shape (m_linear_eq,)
+        Right-hand side of the linear equality constraints.
+    ptype : str
+        Type of the problem: ``'u'`` (unconstrained), ``'b'``
+        (bound-constrained), ``'l'`` (linearly constrained), or ``'n'``
+        (nonlinearly constrained).
+    n : int
+        Dimension of the problem (length of ``x``).
+    mb : int
+        Number of finite bound constraints.
+    m_linear_ub : int
+        Number of linear inequality constraints.
+    m_linear_eq : int
+        Number of linear equality constraints.
+    m_nonlinear_ub : int
+        Number of nonlinear inequality constraints.
+    m_nonlinear_eq : int
+        Number of nonlinear equality constraints.
+    mlcon : int
+        Total number of linear constraints (``m_linear_ub + m_linear_eq``).
+    mnlcon : int
+        Total number of nonlinear constraints
+        (``m_nonlinear_ub + m_nonlinear_eq``).
+    mcon : int
+        Total number of constraints (``mlcon + mnlcon``).
+
+    Methods
+    -------
+    fun(x)
+        Evaluate the objective function.
+    grad(x)
+        Evaluate the gradient of the objective function.
+    hess(x)
+        Evaluate the Hessian of the objective function.
+    cub(x)
+        Evaluate the nonlinear inequality constraints.
+    ceq(x)
+        Evaluate the nonlinear equality constraints.
+    jcub(x)
+        Evaluate the Jacobian of the nonlinear inequality constraints.
+    jceq(x)
+        Evaluate the Jacobian of the nonlinear equality constraints.
+    hcub(x)
+        Evaluate the Hessians of the nonlinear inequality constraints.
+    hceq(x)
+        Evaluate the Hessians of the nonlinear equality constraints.
+    maxcv(x)
+        Compute the maximum constraint violation at ``x``, defined as the
+        maximum of the infinity norms of ``max(xl - x, 0)``,
+        ``max(x - xu, 0)``, ``max(aub @ x - bub, 0)``,
+        ``aeq @ x - beq``, ``max(cub(x), 0)``, and ``ceq(x)``.
+    project_x0()
+        Attempt to project the initial guess ``x0`` onto the feasible
+        region (may fail).
+
+    See Also
+    --------
+    Feature : Feature applied to problems during benchmarking.
+    FeaturedProblem : Problem equipped with a specific feature.
+    benchmark : Main benchmarking function.
 
     Examples
     --------
@@ -894,69 +1237,51 @@ class Problem:
 
         f(x) = 100 (x_2 - x_1^2)^2 + (1 - x_1)^2.
 
-    To create an instance of the class `Problem` for this problem, run:
+    To create an instance of the class ``Problem`` for this problem:
 
-    >>> from optiprofiler.opclasses import Problem
-    >>>
-    >>> def rosen(x):
-    ...     return 100 * (x[1] - x[0] ** 2) ** 2 + (1 - x[0]) ** 2
-    ...
-    >>> problem = Problem(rosen, [0, 0])
+    .. code-block:: python
 
-    The second argument ``[0, 0]`` is the initial guess. This instance can now
-    be used to evaluate the objective function at any point and access extra
-    information about the problem. For example, to evaluate the objective
-    function at the initial guess, run:
+        from optiprofiler import Problem
 
-    >>> problem.fun(problem.x0)
-    1.0
+        def rosen(x):
+            return 100 * (x[1] - x[0] ** 2) ** 2 + (1 - x[0]) ** 2
 
-    All the attributes and methods of the class `Problem` described below are
-    always well-defined. For example, since the problem ``problem`` is
-    unconstrained, the components of the lower and upper bounds on the
-    variables must be :math:`-\infty` and :math:`\infty`, respectively:
+        problem = Problem(rosen, [0, 0])
 
-    >>> problem.xl
-    array([-inf, -inf])
-    >>> problem.xu
-    array([inf, inf])
+    The second argument ``[0, 0]`` is the initial guess. This instance can
+    now be used to evaluate the objective function at any point and access
+    extra information about the problem:
 
-    The optional arguments of the constructor of the class `Problem` can be
-    used to specify constraints. For example, to specify that the variables
-    must be nonnegative, run:
+    .. code-block:: python
 
-    >>> problem = Problem(rosen, [0, 0], [0, 0])
+        problem.fun(problem.x0)  # returns 1.0
+        problem.xl               # array([-inf, -inf])
+        problem.xu               # array([inf, inf])
 
-    The lower bounds on the variables are now zero:
+    The optional arguments of the constructor can be used to specify
+    constraints. For example, to specify that the variables must be
+    nonnegative:
 
-    >>> problem.xl
-    array([0., 0.])
-    >>> problem.xu
-    array([inf, inf])
+    .. code-block:: python
 
-    The optional arguments ``aub``, ``bub``, ``aeq``, and ``beq`` can be
-    used to specify linear inequality and equality constraints, respectively.
-    The optional arguments ``cub`` and ``ceq`` can be used to specify
-    nonlinear inequality and equality constraints, respectively. For example,
-    to specify that the variables must satisfy the constraint
-    :math:`x_1^2 + x_2^2 \le 1` and :math:`x_1^3 - x_2^2 \le 1`, run:
+        problem = Problem(rosen, [0, 0], xl=[0, 0])
+        problem.xl  # array([0., 0.])
 
-    >>> def cub(x):
-    ...     return [x[0] ** 2 + x[1] ** 2 - 1, x[0] ** 3 - x[1] ** 2 - 1]
-    ...
-    >>> problem = Problem(rosen, [0, 0], cub=cub, m_nonlinear_ub=2)
+    Nonlinear inequality constraints can be specified using ``cub``. For
+    example, to require :math:`x_1^2 + x_2^2 \le 1` and
+    :math:`x_1^3 - x_2^2 \le 1`:
 
-    The instance ``problem`` can now be used to evaluate the nonlinear
-    inequality constraints at any point. For example, to evaluate the nonlinear
-    inequality constraints at the initial guess, run:
+    .. code-block:: python
 
-    >>> problem.cub(problem.x0)
-    array([-1., -1.])
+        def cub(x):
+            return [x[0] ** 2 + x[1] ** 2 - 1, x[0] ** 3 - x[1] ** 2 - 1]
 
-    If you do not provide the number of nonlinear inequality constraints in
-    ``m_nonlinear_ub``, it will be inferred at the first call to ``cub``.
-    Nonlinear equality constraints can be specified in a similar way, using the
-    optional arguments ``ceq`` and ``m_nonlinear_eq``.
+        problem = Problem(rosen, [0, 0], cub=cub)
+        problem.cub(problem.x0)  # array([-1., -1.])
+
+    The number of nonlinear inequality constraints is inferred
+    automatically from the return value of ``cub`` at ``x0``. Nonlinear
+    equality constraints can be specified in a similar way using ``ceq``.
     """
 
     def __init__(self, fun, x0, name=None, xl=None, xu=None, aub=None, bub=None, aeq=None, beq=None, cub=None, ceq=None, grad=None, hess=None, jcub=None, jceq=None, hcub=None, hceq=None):
@@ -1787,8 +2112,97 @@ class Problem:
             self._x0 = res.x
 
 class FeaturedProblem(Problem):
-    """
-    Optimization problem to be used in the benchmarking, with extra features.
+    r"""
+    Subclass of `Problem` that equips an optimization problem with a feature.
+
+    ``Problem`` and its subclass ``FeaturedProblem`` describe the following
+    optimization problem:
+
+    .. math::
+
+        \min \; \mathrm{fun}(x) \quad
+        \text{s.t.} \; x_l \le x \le x_u, \;
+        A_{\mathrm{ub}} x \le b_{\mathrm{ub}}, \;
+        A_{\mathrm{eq}} x = b_{\mathrm{eq}}, \;
+        c_{\mathrm{ub}}(x) \le 0, \;
+        c_{\mathrm{eq}}(x) = 0, \;
+        \text{with initial point } x_0.
+
+    Parameters
+    ----------
+    problem : Problem
+        The original optimization problem.
+    feature : Feature
+        The feature to apply to the problem.
+    max_eval : int
+        Maximum number of function evaluations.
+    seed : int, optional
+        Nonnegative integer seed for the random number generator.
+
+    Attributes
+    ----------
+    problem : Problem
+        The original (unmodified) optimization problem.
+    feature : Feature
+        The feature applied to the optimization problem.
+    max_eval : int
+        Maximum number of function evaluations.
+    seed : int
+        Seed for the random number generator.
+    fun_hist : list of float
+        History of evaluated objective function values.
+    cub_hist : list of numpy.ndarray
+        History of evaluated nonlinear inequality constraint values.
+    ceq_hist : list of numpy.ndarray
+        History of evaluated nonlinear equality constraint values.
+    maxcv_hist : list of float
+        History of maximum constraint violations.
+    n_eval_fun : int
+        Minimum of the number of objective function evaluations and
+        ``max_eval``.
+    n_eval_cub : int
+        Minimum of the number of nonlinear inequality constraint
+        evaluations and ``max_eval``.
+    n_eval_ceq : int
+        Minimum of the number of nonlinear equality constraint evaluations
+        and ``max_eval``.
+    fun_init : float
+        Objective function value at the initial point.
+    maxcv_init : float
+        Maximum constraint violation at the initial point.
+
+    Notes
+    -----
+    ``FeaturedProblem`` inherits all methods of ``Problem``, but the
+    methods ``fun``, ``cub``, ``ceq``, and ``maxcv`` are modified by the
+    input ``Feature``.
+
+    1. When the number of function evaluations reaches ``max_eval``, the
+       methods ``fun``, ``cub``, and ``ceq`` will return the values at the
+       point where the maximum number of function evaluations was reached.
+    2. When the number of function evaluations reaches
+       ``termination_eval`` (used internally by ``benchmark``), the
+       methods ``fun``, ``cub``, and ``ceq`` will raise an error to
+       terminate the optimization process.
+
+    See Also
+    --------
+    Problem : Optimization problem.
+    Feature : Feature applied to problems during benchmarking.
+    benchmark : Main benchmarking function.
+
+    Examples
+    --------
+    Create a featured problem with a noisy feature:
+
+    .. code-block:: python
+
+        import numpy as np
+        from optiprofiler import Problem, Feature, FeaturedProblem
+
+        problem = Problem(lambda x: np.sum(x**2), [1.0, 2.0])
+        feature = Feature('noisy')
+        fp = FeaturedProblem(problem, feature, max_eval=100, seed=0)
     """
 
     def __init__(self, problem, feature, max_eval, seed=None):
@@ -1799,7 +2213,7 @@ class FeaturedProblem(Problem):
         ----------
         problem : `optiprofiler.opclasses.Problem`
             Problem to be used in the benchmarking.
-        feature : `optiprofiler.features.Feature`
+        feature : `optiprofiler.opclasses.Feature`
             Feature to be used in the benchmarking.
         max_eval : int
             Maximum number of function evaluations.

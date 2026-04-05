@@ -74,7 +74,7 @@ def benchmark(
 
     Other Parameters
     ----------------
-    **Options for features:**
+    *Options for features:*
 
     feature_name : str, optional
         Name of the feature to apply to problems. The available features are
@@ -205,7 +205,7 @@ def benchmark(
         class Problem, and modified_ceq is the modified vector of the
         nonlinear equality constraints. No default.
 
-    **Options for profiles and plots:**
+    *Options for profiles and plots:*
 
     bar_colors : list or numpy.ndarray, optional
         Two different colors for the bars of two solvers in the
@@ -270,7 +270,8 @@ def benchmark(
         (performance profiles, data profiles, and log-ratio profiles), we
         need to set a group of 'tolerances' to define the convergence test of
         the solvers. (Details can be found in the references.) We will set
-        the tolerances as 10**(-1:-1:-max_tol_order). Default is 10.
+        the tolerances as ``10**(-k)`` for ``k = 1, 2, ..., max_tol_order``.
+        Default is 10.
     merit_fun : callable, optional
         The merit function to measure the quality of a point using
         the objective function value and the maximum constraint violation.
@@ -389,7 +390,7 @@ def benchmark(
         'Performance profiles ($\\mathrm{tol} = %s$)', where '%s' will be
         replaced by the current tolerance in LaTeX format.
 
-    **Options for problems:**
+    *Options for problems:*
 
     Options in this part are used to select problems for benchmarking.
     First select which problem libraries to use based on the 'plibs'
@@ -486,49 +487,55 @@ def benchmark(
     See Also
     --------
     Problem : Representation of optimization problems.
+    Feature : Feature applied to problems during benchmarking.
+    FeaturedProblem : Problem equipped with a specific feature.
 
     Notes
     -----
-    The current version supports benchmarking derivative-free optimization solvers.
+    The current version supports benchmarking derivative-free optimization
+    solvers.
 
     .. caution::
 
         The log-ratio profiles are available only when there are exactly two
-        solvers. For more information of performance and data profiles, see
+        solvers. For more information on performance and data profiles, see
         [1]_, [2]_, [5]_. For that of log-ratio profiles, see [4]_, [6]_.
 
-    Several points to note:
+    1. Two problem libraries are available by default:
+       `S2MPJ <https://github.com/GrattonToint/S2MPJ>`_ (see [3]_) and
+       `PyCUTEst <https://jfowkes.github.io/pycutest/>`_ (Linux and macOS
+       only). To use your own problem library, see the ``README.txt`` in
+       ``optiprofiler/problem_libs/`` or the guide on our
+       `website <https://www.optprof.com>`_.
 
-    1. The information about two problem libraries is available in the
-       following links:
-            S2MPJ (see [3]_) <https://github.com/GrattonToint/S2MPJ>
-            MatCUTEst <https://github.com/matcutest>
+    2. Each problem library has a ``config.txt`` file that controls options
+       such as ``variable_size`` and ``test_feasibility_problems``. You can
+       override these at runtime using `set_plib_config` or by setting the
+       corresponding environment variables (e.g.,
+       ``S2MPJ_VARIABLE_SIZE``). See `get_plib_config` and
+       `set_plib_config` for details.
 
-    2. If you want to use your own problem library, please check the README.txt
-       in the directory 'optiprofiler/problem_libs/' or the guidance in our
-       website <https://www.optprof.com> for more details.
+    3. When the ``load`` option is provided, the function loads data from a
+       previous experiment and draws profiles using the provided options.
+       Available options in this mode are:
 
-    3. The problem library PyCUTEst is only available on Linux and macOS.
+       - *Profile and plot options*: ``benchmark_id``, ``solver_names``,
+         ``feature_stamp``, ``errorbar_type``, ``savepath``,
+         ``max_tol_order``, ``merit_fun``, ``run_plain``, ``score_only``,
+         ``summarize_performance_profiles``,
+         ``summarize_data_profiles``,
+         ``summarize_log_ratio_profiles``,
+         ``summarize_output_based_profiles``, ``silent``, ``semilogx``,
+         ``normalized_scores``, ``score_weight_fun``, ``score_fun``,
+         ``solvers_to_load``, ``line_colors``, ``line_styles``,
+         ``line_widths``, ``bar_colors``.
+       - *Feature options*: none.
+       - *Problem options*: ``plibs``, ``ptype``, ``mindim``, ``maxdim``,
+         ``minb``, ``maxb``, ``minlcon``, ``maxlcon``, ``minnlcon``,
+         ``maxnlcon``, ``mincon``, ``maxcon``, ``excludelist``.
 
-    4. If the 'load' option is provided, we will use the provided options to
-       select data from the specified experiment for plotting the profiles.
-       Available options are:
-       - 'benchmark_id', 'solver_names',
-         'feature_stamp', 'errorbar_type', 'savepath', 'max_tol_order',
-         'merit_fun', 'run_plain', 'score_only',
-         'summarize_performance_profiles', 'summarize_data_profiles',
-         'summarize_log_ratio_profiles', 'summarize_output_based_profiles',
-         'silent', 'semilogx', 'normalized_scores', 'score_weight_fun',
-         'score_fun', 'solvers_to_load', 'line_colors', 'line_styles',
-         'line_widths', 'bar_colors'.
-       - Options for features: none.
-       - 'plibs', 'ptype', 'mindim', 'maxdim', 'minb',
-         'maxb', 'minlcon', 'maxlcon', 'minnlcon', 'maxnlcon', 'mincon',
-         'maxcon', 'excludelist'.
-
-    5. More information about OptiProfiler can be found on our website:
-
-                            https://www.optprof.com
+    4. More information about OptiProfiler can be found at
+       https://www.optprof.com.
 
     References
     ----------
@@ -556,7 +563,36 @@ def benchmark(
 
     Examples
     --------
-    To do.
+    Benchmark two toy solvers that randomly sample around the initial point.
+    Save the following as a ``.py`` file and run it (the
+    ``if __name__ == '__main__'`` guard is required on macOS/Windows
+    because ``benchmark`` uses multiprocessing):
+
+    .. code-block:: python
+
+        import numpy as np
+        from optiprofiler import benchmark
+
+        def solver1(fun, x0):
+            rng = np.random.default_rng(0)
+            best_x, best_f = x0, fun(x0)
+            for _ in range(10 * len(x0)):
+                x = x0 + rng.standard_normal(len(x0))
+                if fun(x) < best_f:
+                    best_x, best_f = x, fun(x)
+            return best_x
+
+        def solver2(fun, x0):
+            rng = np.random.default_rng(0)
+            best_x, best_f = x0, fun(x0)
+            for _ in range(20 * len(x0)):
+                x = x0 + rng.standard_normal(len(x0))
+                if fun(x) < best_f:
+                    best_x, best_f = x, fun(x)
+            return best_x
+
+        if __name__ == '__main__':
+            scores = benchmark([solver1, solver2])
     """
     logger = get_logger(__name__)
 

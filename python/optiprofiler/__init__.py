@@ -18,6 +18,7 @@ __version__ = '1.0.dev2'
 from .opclasses import Feature, Problem, FeaturedProblem
 from .profiles import benchmark
 from .utils import show_versions
+from .plib_config import get_plib_config, set_plib_config
 
 __all__ = [
     'Problem',
@@ -25,4 +26,6 @@ __all__ = [
     'FeaturedProblem',
     'benchmark',
     'show_versions',
+    'get_plib_config',
+    'set_plib_config',
 ]
