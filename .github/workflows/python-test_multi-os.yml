@@ -46,17 +46,6 @@ jobs:
           fi
         shell: bash
 
-      - name: Configure s2mpj for variable size problems
-        run: |
-          # Find the installed package location by importing optiprofiler
-          PACKAGE_DIR=$(python -c "import optiprofiler; import os; print(os.path.dirname(optiprofiler.__file__))")
-          CONFIG_PATH="$PACKAGE_DIR/problem_libs/s2mpj/config.txt"
-          echo "Modifying config at: $CONFIG_PATH"
-          echo "variable_size=all" > "$CONFIG_PATH"
-          echo "test_feasibility_problems=2" >> "$CONFIG_PATH"
-          cat "$CONFIG_PATH"
-        shell: bash
-
       - name: Create output directory
         run: mkdir -p output
         shell: bash
@@ -65,6 +54,9 @@ jobs:
         run: |
           cd output
           python ../python/optiprofiler/action_tests/test_all_features.py "os_${{ runner.os }}_py${{ matrix.python-version }}"
+        env:
+          S2MPJ_VARIABLE_SIZE: all
+          S2MPJ_TEST_FEASIBILITY_PROBLEMS: 2
         shell: bash
 
       - name: Upload artifacts
