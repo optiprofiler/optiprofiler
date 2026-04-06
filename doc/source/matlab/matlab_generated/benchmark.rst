@@ -287,7 +287,7 @@ You may also pass an instance of the class Problem by the option
 *Several points to note*:
 
   1. The information about two problem libraries is available in the following links:
-    S2MPJ (see [3]_) <https://github.com/GrattonToint/S2MPJ> and MatCUTEst <https://github.com/matcutest>.
+     S2MPJ (see [3]_) <https://github.com/GrattonToint/S2MPJ> and MatCUTEst <https://github.com/matcutest>.
 
   2. If you want to use your own problem library, please check the README.txt in the directory ``optiprofiler/problem_libs`` or the :ref:`guidance <use>` in our website for more details.
 

@@ -50,20 +50,20 @@ def benchmark(
         corresponding arguments depending on the test suite you choose:
 
         - for an unconstrained problem,
-            ``solver(fun, x0) -> numpy.ndarray, shape (n,)``
+          ``solver(fun, x0) -> numpy.ndarray, shape (n,)``,
           where ``fun`` is the objective function accepting a 1-D array and
           returning a float, and ``x0`` is the initial guess (1-D array);
         - for a bound-constrained problem,
-            ``solver(fun, x0, xl, xu) -> numpy.ndarray, shape (n,)``
+          ``solver(fun, x0, xl, xu) -> numpy.ndarray, shape (n,)``,
           where ``xl`` and ``xu`` are the lower and upper bounds (1-D arrays,
           may contain ``-numpy.inf`` or ``numpy.inf``);
         - for a linearly constrained problem,
-            ``solver(fun, x0, xl, xu, aub, bub, aeq, beq) -> numpy.ndarray, shape (n,)``
+          ``solver(fun, x0, xl, xu, aub, bub, aeq, beq) -> numpy.ndarray, shape (n,)``,
           where ``aub`` and ``aeq`` are the coefficient matrices of the linear
           inequality and equality constraints, and ``bub`` and ``beq`` are the
           right-hand side vectors;
         - for a nonlinearly constrained problem,
-            ``solver(fun, x0, xl, xu, aub, bub, aeq, beq, cub, ceq) -> numpy.ndarray, shape (n,)``
+          ``solver(fun, x0, xl, xu, aub, bub, aeq, beq, cub, ceq) -> numpy.ndarray, shape (n,)``,
           where ``cub`` and ``ceq`` are the nonlinear inequality and equality
           constraint functions accepting a 1-D array and returning a 1-D array.
 
@@ -90,7 +90,7 @@ def benchmark(
         The distribution of perturbation in 'perturbed_x0'
         feature or noise in 'noisy' feature. It should be either a str
         (or char), or a callable
-            (random_stream, dimension) -> random vector,
+        ``(random_stream, dimension) -> random vector``,
         accepting a random_stream and the dimension of a problem and
         returning a random vector with the given dimension. In 'perturbed_x0'
         case, the str should be either 'spherical' or 'gaussian' (default is
@@ -148,59 +148,59 @@ def benchmark(
         in the 'quantized' feature. Default is True.
     mod_x0 : callable, optional
         The modifier function to modify the initial guess in the
-        'custom' feature. It should be a callable as follows:
-            (random_stream, problem) -> modified_x0,
+        'custom' feature. It should be a callable
+        ``(random_stream, problem) -> modified_x0``,
         where problem is an instance of the class Problem, and
         modified_x0 is the modified initial guess. No default.
     mod_affine : callable, optional
         The modifier function to generate the affine
         transformation applied to the variables in the 'custom' feature. It
-        should be a callable as follows:
-            (random_stream, problem) -> (A, b, inv),
+        should be a callable
+        ``(random_stream, problem) -> (A, b, inv)``,
         where problem is an instance of the class Problem, A is the
         matrix of the affine transformation, b is the vector of the affine
         transformation, and inv is the inverse of matrix A. No default.
     mod_bounds : callable, optional
         The modifier function to modify the bound constraints in
-        the 'custom' feature. It should be a callable as follows:
-            (random_stream, problem) -> (modified_xl, modified_xu),
+        the 'custom' feature. It should be a callable
+        ``(random_stream, problem) -> (modified_xl, modified_xu)``,
         where problem is an instance of the class Problem, modified_xl is
         the modified lower bound, and modified_xu is the modified upper
         bound. No default.
     mod_linear_ub : callable, optional
         The modifier function to modify the linear inequality
-        constraints in the 'custom' feature. It should be a callable as follows:
-            (random_stream, problem) -> (modified_aub, modified_bub),
+        constraints in the 'custom' feature. It should be a callable
+        ``(random_stream, problem) -> (modified_aub, modified_bub)``,
         where problem is an instance of the class Problem, modified_aub
         is the modified matrix of the linear inequality constraints, and
         modified_bub is the modified vector of the linear inequality
         constraints. No default.
     mod_linear_eq : callable, optional
         The modifier function to modify the linear equality
-        constraints in the 'custom' feature. It should be a callable as follows:
-            (random_stream, problem) -> (modified_aeq, modified_beq),
+        constraints in the 'custom' feature. It should be a callable
+        ``(random_stream, problem) -> (modified_aeq, modified_beq)``,
         where problem is an instance of the class Problem, modified_aeq
         is the modified matrix of the linear equality constraints, and
         modified_beq is the modified vector of the linear equality
         constraints. No default.
     mod_fun : callable, optional
         The modifier function to modify the objective function in
-        the 'custom' feature. It should be a callable as follows:
-            (x, random_stream, problem) -> modified_fun,
+        the 'custom' feature. It should be a callable
+        ``(x, random_stream, problem) -> modified_fun``,
         where x is the evaluation point, problem is an instance of the
         class Problem, and modified_fun is the modified objective function
         value. No default.
     mod_cub : callable, optional
         The modifier function to modify the nonlinear inequality
-        constraints in the 'custom' feature. It should be a callable as follows:
-            (x, random_stream, problem) -> modified_cub,
+        constraints in the 'custom' feature. It should be a callable
+        ``(x, random_stream, problem) -> modified_cub``,
         where x is the evaluation point, problem is an instance of the
         class Problem, and modified_cub is the modified vector of the
         nonlinear inequality constraints. No default.
     mod_ceq : callable, optional
         The modifier function to modify the nonlinear equality
-        constraints in the 'custom' feature. It should be a callable as follows:
-            (x, random_stream, problem) -> modified_ceq,
+        constraints in the 'custom' feature. It should be a callable
+        ``(x, random_stream, problem) -> modified_ceq``,
         where x is the evaluation point, problem is an instance of the
         class Problem, and modified_ceq is the modified vector of the
         nonlinear equality constraints. No default.
@@ -275,16 +275,18 @@ def benchmark(
     merit_fun : callable, optional
         The merit function to measure the quality of a point using
         the objective function value and the maximum constraint violation.
-        It should be a callable as follows:
-            (fun_value, maxcv_value, maxcv_init) -> merit_value,
+        It should be a callable
+        ``(fun_value, maxcv_value, maxcv_init) -> merit_value``,
         where fun_value is the objective function value, maxcv_value is
         the maximum constraint violation, and maxcv_init is the maximum
         constraint violation at the initial guess. The default merit function
         varphi(x) is defined by the objective function f(x) and the maximum
-        constraint violation v(x) as
-          varphi(x) = f(x)                        if v(x) <= v1
-          varphi(x) = f(x) + 1e5 * (v(x) - v1)   if v1 < v(x) <= v2
-          varphi(x) = np.inf                      if v(x) > v2
+        constraint violation v(x) as::
+
+            varphi(x) = f(x)                        if v(x) <= v1
+            varphi(x) = f(x) + 1e5 * (v(x) - v1)   if v1 < v(x) <= v2
+            varphi(x) = np.inf                       if v(x) > v2
+
         where v1 = min(0.01, 1e-10 * max(1, v0)), v2 = max(0.1, 2 * v0),
         and v0 is the maximum constraint violation at the initial guess.
     n_jobs : int, optional
@@ -304,8 +306,8 @@ def benchmark(
         working directory.
     score_fun : callable, optional
         The scoring function to calculate the scores of the
-        solvers. It should be a callable as follows:
-            profile_scores -> solver_scores,
+        solvers. It should be a callable
+        ``profile_scores -> solver_scores``,
         where profile_scores is a 4D array containing scores for all
         profiles. The first dimension of profile_scores corresponds to the
         index of the solver, the second corresponds to the index of tolerance

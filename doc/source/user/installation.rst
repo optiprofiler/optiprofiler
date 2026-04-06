@@ -12,12 +12,6 @@ Install OptiProfiler via pip:
 
     pip install optiprofiler
 
-Or via the Anaconda ``optiprofiler`` channel (using pip):
-
-.. code-block:: bash
-
-    pip install -i https://pypi.anaconda.org/optiprofiler/simple optiprofiler
-
 .. note::
 
     OptiProfiler includes the `S2MPJ <https://github.com/GrattonToint/S2MPJ>`_ problem library by default. If you also want to use the `PyCUTEst <https://jfowkes.github.io/pycutest/>`_ problem library (available on Linux and macOS only), please follow the `PyCUTEst installation guide <https://jfowkes.github.io/pycutest/_build/html/install.html>`_.
