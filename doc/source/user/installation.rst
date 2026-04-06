@@ -12,11 +12,11 @@ Install OptiProfiler via pip:
 
     pip install optiprofiler
 
-Or via conda (from the ``optiprofiler`` channel):
+Or via the Anaconda ``optiprofiler`` channel (using pip):
 
 .. code-block:: bash
 
-    conda install -c optiprofiler optiprofiler
+    pip install -i https://pypi.anaconda.org/optiprofiler/simple optiprofiler
 
 .. note::
 
