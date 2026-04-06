@@ -8,6 +8,8 @@ import sys
 import os
 import platform
 import time
+import matplotlib
+matplotlib.use('Agg')
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))

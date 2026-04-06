@@ -7,6 +7,8 @@ This test is run by GitHub Actions workflows, not by pytest.
 import sys
 import os
 import platform
+import matplotlib
+matplotlib.use('Agg')
 import numpy as np
 from datetime import datetime
 
