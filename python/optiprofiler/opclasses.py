@@ -20,16 +20,27 @@ class Feature:
 
     .. math::
 
-        \min \; \mathrm{fun}(x) \quad
-        \text{s.t.} \; x_l \le x \le x_u, \;
-        A_{\mathrm{ub}} x \le b_{\mathrm{ub}}, \;
-        A_{\mathrm{eq}} x = b_{\mathrm{eq}}, \;
-        c_{\mathrm{ub}}(x) \le 0, \;
-        c_{\mathrm{eq}}(x) = 0.
+        \min \quad & \mathrm{fun}(x) \\
+        \text{s.t.} \quad & x_l \le x \le x_u, \\
+        & A_{\mathrm{ub}} x \le b_{\mathrm{ub}}, \\
+        & A_{\mathrm{eq}} x = b_{\mathrm{eq}}, \\
+        & c_{\mathrm{ub}}(x) \le 0, \\
+        & c_{\mathrm{eq}}(x) = 0.
 
-    Then ``Feature`` maps the above problem to a new one where the objective
-    function, constraints, bounds, and/or initial point may be modified
-    according to the chosen feature name and options.
+    Then ``Feature`` maps the above problem to the following one:
+
+    .. math::
+
+        \min \quad & \mathrm{fun\_mod}(Ax + b) \\
+        \text{s.t.} \quad & x_{l,\mathrm{mod}} \le Ax + b \le x_{u,\mathrm{mod}}, \\
+        & A_{\mathrm{ub,mod}} (Ax + b) \le b_{\mathrm{ub,mod}}, \\
+        & A_{\mathrm{eq,mod}} (Ax + b) = b_{\mathrm{eq,mod}}, \\
+        & c_{\mathrm{ub,mod}}(Ax + b) \le 0, \\
+        & c_{\mathrm{eq,mod}}(Ax + b) = 0, \\
+        & \text{with initial guess } x_{0,\mathrm{mod}},
+
+    where the modified quantities are determined by the chosen feature name
+    and options.
 
     Parameters
     ----------
@@ -1076,13 +1087,13 @@ class Problem:
 
     .. math::
 
-        \min \; \mathrm{fun}(x) \quad
-        \text{s.t.} \; x_l \le x \le x_u, \;
-        A_{\mathrm{ub}} x \le b_{\mathrm{ub}}, \;
-        A_{\mathrm{eq}} x = b_{\mathrm{eq}}, \;
-        c_{\mathrm{ub}}(x) \le 0, \;
-        c_{\mathrm{eq}}(x) = 0, \;
-        \text{with initial point } x_0,
+        \min \quad & \mathrm{fun}(x) \\
+        \text{s.t.} \quad & x_l \le x \le x_u, \\
+        & A_{\mathrm{ub}} x \le b_{\mathrm{ub}}, \\
+        & A_{\mathrm{eq}} x = b_{\mathrm{eq}}, \\
+        & c_{\mathrm{ub}}(x) \le 0, \\
+        & c_{\mathrm{eq}}(x) = 0, \\
+        & \text{with initial point } x_0,
 
     where ``fun`` is the objective function, ``x`` is the variable to
     optimize, ``xl`` and ``xu`` are the lower and upper bounds, ``aub`` and
@@ -2120,13 +2131,13 @@ class FeaturedProblem(Problem):
 
     .. math::
 
-        \min \; \mathrm{fun}(x) \quad
-        \text{s.t.} \; x_l \le x \le x_u, \;
-        A_{\mathrm{ub}} x \le b_{\mathrm{ub}}, \;
-        A_{\mathrm{eq}} x = b_{\mathrm{eq}}, \;
-        c_{\mathrm{ub}}(x) \le 0, \;
-        c_{\mathrm{eq}}(x) = 0, \;
-        \text{with initial point } x_0.
+        \min \quad & \mathrm{fun}(x) \\
+        \text{s.t.} \quad & x_l \le x \le x_u, \\
+        & A_{\mathrm{ub}} x \le b_{\mathrm{ub}}, \\
+        & A_{\mathrm{eq}} x = b_{\mathrm{eq}}, \\
+        & c_{\mathrm{ub}}(x) \le 0, \\
+        & c_{\mathrm{eq}}(x) = 0, \\
+        & \text{with initial point } x_0.
 
     Parameters
     ----------

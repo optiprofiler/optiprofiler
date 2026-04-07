@@ -83,12 +83,22 @@ If you want to benchmark a solver with one variable parameter, you can define ca
 
     from optiprofiler import benchmark
 
-    solvers = []
-    solver_names = []
-    for i in range(1, 4):
-        solvers.append(lambda fun, x0, para=i: solver(fun, x0, para))
-        solver_names.append(f'solver{i}')
+    def make_solver(para):
+        def solver_wrapper(fun, x0):
+            return solver(fun, x0, para)
+        return solver_wrapper
+
+    solvers = [make_solver(i) for i in range(1, 4)]
+    solver_names = [f'solver{i}' for i in range(1, 4)]
     scores = benchmark(solvers, solver_names=solver_names)
+
+.. note::
+
+    We use named functions (``def``) instead of lambda expressions here.
+    Lambda functions cannot be serialized by Python's ``multiprocessing``
+    module, which would force OptiProfiler to fall back to sequential
+    execution. Using named functions ensures that the benchmark can run in
+    parallel when ``n_jobs > 1``.
 
 .. _py_example5:
 
@@ -102,30 +112,51 @@ For example, if you want to create a new feature that adds noise to the objectiv
 
     from optiprofiler import benchmark
 
+    def mod_fun(x, rand_stream, problem):
+        return problem.fun(x) + 1e-3 * rand_stream.standard_normal()
+
+    def mod_x0(rand_stream, problem):
+        return problem.x0 + 1e-3 * rand_stream.standard_normal(problem.n)
+
     scores = benchmark(
         [solver1, solver2],
         feature_name='custom',
-        mod_fun=lambda x, rand_stream, problem: problem.fun(x) + 1e-3 * rand_stream.standard_normal(),
-        mod_x0=lambda rand_stream, problem: problem.x0 + 1e-3 * rand_stream.standard_normal(problem.n),
+        mod_fun=mod_fun,
+        mod_x0=mod_x0,
     )
+
+.. note::
+
+    In this example, we use named functions (``def``) instead of lambda
+    expressions. This is recommended because lambda functions cannot be
+    serialized by Python's ``multiprocessing`` module, which would prevent
+    parallel execution. Using named functions ensures that the benchmark can
+    run in parallel when ``n_jobs > 1``.
 
 If you want to benchmark solvers based on your own problem library, you should do the following three steps:
 
-1. Create a new subfolder (e.g., ``'myproblems'``) within the ``'problem_libs'`` folder located in the optiprofiler package directory.
+1. Create a directory anywhere on your system (e.g., ``'/path/to/my_libs'``), and create a subfolder inside it for your problem library (e.g., ``'myproblems'``), so the structure looks like::
 
-2. Implement a Python module named ``<your_problem_library_name>_tools.py`` with two functions:
+       /path/to/my_libs/
+       └── myproblems/
+           └── myproblems_tools.py
 
-   - **<your_problem_library_name>_load**: A function that accepts a string representing the optimization problem name and returns a :class:`~optiprofiler.Problem` instance.
+2. In ``myproblems_tools.py``, implement two functions:
 
-   - **<your_problem_library_name>_select**: A function that accepts a dictionary to specify desired problem characteristics and returns a list of problem names that satisfy the requirements.
+   - **myproblems_load**: A function that accepts a string representing the optimization problem name and returns a :class:`~optiprofiler.Problem` instance.
 
-3. Use the benchmark function as before, but specify your desired problem libraries. For example, to use both the default S2MPJ library and your custom library in the subfolder ``'myproblems'``, you can run:
+   - **myproblems_select**: A function that accepts a dictionary to specify desired problem characteristics and returns a list of problem names that satisfy the requirements.
+
+   In general, the module should be named ``<library_name>_tools.py`` and the two functions should be named ``<library_name>_load`` and ``<library_name>_select``.
+
+3. Use the benchmark function with the ``custom_problem_libs_path`` option pointing to your directory. For example, to use both the default S2MPJ library and your custom library ``'myproblems'``, you can run:
 
 .. code-block:: python
 
     scores = benchmark(
         [solver1, solver2],
         plibs=['s2mpj', 'myproblems'],
+        custom_problem_libs_path='/path/to/my_libs',
     )
 
-You may also refer to the ``README.txt`` in the ``problem_libs`` directory for a detailed guide on how to create and use your own problem library via the OptiProfiler package.
+For a detailed guide on the required structure of a custom problem library, please refer to the `guide on our website <https://www.optprof.com>`_ or the `README on GitHub <https://github.com/optiprofiler/optiprofiler/blob/main/python/optiprofiler/problem_libs/README.txt>`_.

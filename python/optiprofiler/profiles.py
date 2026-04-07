@@ -322,7 +322,8 @@ def benchmark(
     score_weight_fun : callable, optional
         The weight function to calculate the scores of the
         solvers in the performance and data profiles. It should be a callable
-        representing a nonnegative function in R^+. Default is lambda x: 1.
+        representing a nonnegative function in R^+. Default is a constant
+        function returning 1.
     seed : int, optional
         The seed of the random number generator. Default is 0.
     semilogx : bool, optional
@@ -402,13 +403,14 @@ def benchmark(
     'maxcon', and 'excludelist').
 
     plibs : list of str, optional
-        The problem libraries to be used. It should be a list of
-        strs. The available choices are subfolder names in the
-        'optiprofiler/problem_libs' directory. There are three subfolders after
-        installing the package: 's2mpj', 'pycutest', and 'custom'. Default
-        setting is 's2mpj'. Note that 'pycutest' requires the separate
-        installation of the ``pycutest`` package; see
-        https://jfowkes.github.io/pycutest/ for installation instructions.
+        The problem libraries to be used. It should be a list of strs.
+        The built-in choices are ``'s2mpj'``, ``'pycutest'``, and
+        ``'custom'``. Default setting is ``'s2mpj'``. Note that
+        ``'pycutest'`` requires the separate installation of the
+        ``pycutest`` package; see https://jfowkes.github.io/pycutest/
+        for installation instructions. You can also use your own problem
+        library by specifying its name here together with the
+        ``custom_problem_libs_path`` option.
     ptype : str, optional
         The type of the problems to be selected. It should be a str
         consisting of any combination of 'u' (unconstrained), 'b'
@@ -503,11 +505,22 @@ def benchmark(
         solvers. For more information on performance and data profiles, see
         [1]_, [2]_, [5]_. For that of log-ratio profiles, see [4]_, [6]_.
 
+    .. caution::
+
+        All callable arguments (``solvers``, ``distribution``, ``mod_x0``,
+        ``mod_affine``, ``mod_bounds``, ``mod_linear_ub``, ``mod_linear_eq``,
+        ``mod_fun``, ``mod_cub``, ``mod_ceq``, ``merit_fun``, ``score_fun``,
+        ``score_weight_fun``) must be picklable for parallel execution
+        (``n_jobs > 1``). In particular, **lambda functions are not
+        picklable** and will cause the benchmark to fall back to sequential
+        mode automatically. To take advantage of parallel execution, define
+        named functions (using ``def``) instead of lambda expressions.
+
     1. Two problem libraries are available by default:
        `S2MPJ <https://github.com/GrattonToint/S2MPJ>`_ (see [3]_) and
        `PyCUTEst <https://jfowkes.github.io/pycutest/>`_ (Linux and macOS
-       only). To use your own problem library, see the ``README.txt`` in
-       ``optiprofiler/problem_libs/`` or the guide on our
+       only). To use your own problem library, see the
+       ``custom_problem_libs_path`` option or the guide on our
        `website <https://www.optprof.com>`_.
 
     2. Each problem library has a ``config.txt`` file that controls options
@@ -1464,11 +1477,21 @@ def _solve_all_problems(solvers, plib, feature, problem_options, profile_options
         logger.info(f'There are {n_problems} problems selected from "{plib}" to test.')
 
     # Determine whether to use sequential mode or parallel mode.
-    seqential_mode = profile_options[ProfileOption.N_JOBS] == 1 or os.cpu_count() == 1
+    sequential_mode = profile_options[ProfileOption.N_JOBS] == 1 or os.cpu_count() == 1
+
+    # Fall back to sequential mode if the arguments cannot be pickled (e.g.,
+    # when the user passes lambda functions as solvers or feature modifiers).
+    if not sequential_mode:
+        import pickle
+        try:
+            pickle.dumps((solvers, feature, profile_options))
+        except (pickle.PicklingError, AttributeError, TypeError):
+            sequential_mode = True
+            logger.info('Falling back to sequential mode because some arguments contain unpicklable objects (e.g., lambda functions).')
 
     # Solve all problems.
     args = [(solvers, feature, problem_name, len_problem_names, profile_options, is_plot, path_hist_plots, plib, custom_problem_libs_path) for problem_name in problem_names]
-    if seqential_mode:
+    if sequential_mode:
         results = map(lambda arg: _solve_one_problem_wrapper(*arg), args)
     else:
         logger.info('Entering the parallel section.')

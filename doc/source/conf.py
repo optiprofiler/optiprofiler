@@ -186,8 +186,20 @@ def linkcode_resolve(domain, info):
     except OSError:
         lines = ''
 
+    fn_str = str(fn).replace('\\', '/')
+
+    # Submodule mappings: files under these paths live in separate repositories.
+    _submodule_repos = {
+        'problem_libs/s2mpj/': 'https://github.com/optiprofiler/s2mpj_python',
+        'problem_libs/pycutest/': 'https://github.com/optiprofiler/pycutest',
+    }
+    for prefix, repo_url in _submodule_repos.items():
+        if fn_str.startswith(prefix):
+            sub_fn = fn_str[len(prefix):]
+            return f'{repo_url}/blob/main/{sub_fn}{lines}'
+
     repository = 'https://github.com/optiprofiler/optiprofiler'
     if 'dev' in release:
-        return f'{repository}/blob/main/python/optiprofiler/{fn}{lines}'
+        return f'{repository}/blob/main/python/optiprofiler/{fn_str}{lines}'
     else:
-        return f'{repository}/blob/v{release}/python/optiprofiler/{fn}{lines}'
+        return f'{repository}/blob/v{release}/python/optiprofiler/{fn_str}{lines}'

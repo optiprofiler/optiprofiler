@@ -10,15 +10,15 @@ Problem
 
 **Problem** describes an optimization problem with the following structure:
 
-.. parsed-literal::
+.. math::
 
-    min  **fun**\(**x**)
-    s.t. **xl** <= **x** <= **xu**,
-         **aub** * **x** <= **bub**,
-         **aeq** * **x** = **beq**,
-         **cub**\(**x**) <= 0,
-         **ceq**\(**x**) = 0,
-    with initial point **x0**,
+    \min \quad & \mathrm{fun}(x) \\
+    \text{s.t.} \quad & x_l \le x \le x_u, \\
+    & A_{\mathrm{ub}} x \le b_{\mathrm{ub}}, \\
+    & A_{\mathrm{eq}} x = b_{\mathrm{eq}}, \\
+    & c_{\mathrm{ub}}(x) \le 0, \\
+    & c_{\mathrm{eq}}(x) = 0, \\
+    & \text{with initial point } x_0,
 
 where ``fun`` is the objective function, ``x`` is the variable to optimize, ``xl`` and ``xu`` are the lower and upper bounds, ``aub`` and ``bub`` are the coefficient matrix and right-hand side vector of the linear inequality constraints, ``aeq`` and ``beq`` are the coefficient matrix and right-hand side vector of the linear equality constraints, ``cub`` is the function of nonlinear inequality constraints, ``ceq`` is the function of nonlinear equality constraints.
 

@@ -98,13 +98,15 @@ Options should be specified in a struct. The following are the available fields 
 
     where ``fun_value`` is the objective function value, ``maxcv_value`` is the maximum constraint violation, and ``maxcv_init`` is the maximum constraint violation at the initial guess. The size of ``fun_values`` and ``maxcv_values`` is the same, and the size of ``maxcv_init`` is the same as the second to last dimensions of ``fun_values``. The default merit function ``varphi(x)`` is defined by the objective function ``f(x)`` and the maximum constraint violation ``v(x)`` as
 
-    .. parsed-literal::
+    .. math::
 
-        **varphi**\(**x**) = **f**\(**x**),                      if **v**\(**x**) <= v1,
-        **varphi**\(**x**) = **f**\(**x**) + 1e5 * (**v**\(**x**) - v1),  if v1 < **v**\(**x**) <= v2,
-        **varphi**\(**x**) = Inf,                       if **v**\(**x**) > v2,
+        \varphi(x) = \begin{cases}
+            f(x), & \text{if } v(x) \le v_1, \\
+            f(x) + 10^5 \cdot (v(x) - v_1), & \text{if } v_1 < v(x) \le v_2, \\
+            +\infty, & \text{if } v(x) > v_2,
+        \end{cases}
 
-    where ``v1 = min(0.01, 1e-10 * max(1, v0))``, ``v2 = max(0.1, 2 * v0)``, and ``v0`` is the initial maximum constraint violation.
+    where :math:`v_1 = \min(0.01,\; 10^{-10} \max(1, v_0))`, :math:`v_2 = \max(0.1,\; 2v_0)`, and :math:`v_0` is the initial maximum constraint violation.
 
   - **n_jobs**: the number of parallel jobs to run the test. Default is the default number of workers in the default local cluster.
   
@@ -252,7 +254,7 @@ Options should be specified in a struct. The following are the available fields 
 
 Options in this part are used to select problems for benchmarking. First select which problem libraries to use based on the ``plibs`` option. Then select problems from these libraries according to the given options (``problem_names``, ``ptype``, ``mindim``, ``maxdim``, ``minb``, ``maxb``, ``minlcon``, ``maxlcon``, ``minnlcon``, ``maxnlcon``, ``mincon``, ``maxcon``, and ``excludelist``). Following is the list of available options:
 
-  - **plibs**: the problem libraries to be used. It should be a cell array of strings or chars. The available choices are subfolder names in the ``optiprofiler/problem_libs`` directory. There are three subfolders after installing the package: ``s2mpj``, ``matcutest``, and ``custom``. Default setting is ``'s2mpj'``.
+  - **plibs**: the problem libraries to be used. It should be a cell array of strings or chars. The built-in choices are ``s2mpj``, ``matcutest``, and ``custom``. Default setting is ``'s2mpj'``.
 
   - **ptype**: the type of the problems to be selected. It should be a string or char consisting of any combination of ``'u'`` (unconstrained), ``'b'`` (bound constrained), ``'l'`` (linearly constrained), and ``'n'`` (nonlinearly constrained), such as ``'b'``, ``'ul'``, ``'ubn'``. Default is ``'u'``.
 
@@ -289,7 +291,7 @@ You may also pass an instance of the class Problem by the option
   1. The information about two problem libraries is available in the following links:
      S2MPJ (see [3]_) <https://github.com/GrattonToint/S2MPJ> and MatCUTEst <https://github.com/matcutest>.
 
-  2. If you want to use your own problem library, please check the README.txt in the directory ``optiprofiler/problem_libs`` or the :ref:`guidance <use>` in our website for more details.
+  2. If you want to use your own problem library, please refer to the :ref:`guidance <use>` on our website or the `README on GitHub <https://github.com/optiprofiler/optiprofiler/blob/main/python/optiprofiler/problem_libs/README.txt>`_ for more details.
 
   3. The problem library MatCUTEst is only available when the OS is Linux.
 

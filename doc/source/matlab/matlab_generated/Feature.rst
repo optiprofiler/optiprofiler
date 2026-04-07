@@ -12,27 +12,27 @@ We are interested to test solvers on problems with different features. For examp
 
 Suppose we have an optimization problem
 
-.. parsed-literal::
+.. math::
 
-    min  **fun**\(**x**)
-    s.t. **xl** <= **x** <= **xu**,
-         **aub** * **x** <= **bub**,
-         **aeq** * **x** = **beq**,
-         **cub**\(**x**) <= 0,
-         **ceq**\(**x**) = 0,
-    with initial point **x0**。
+    \min \quad & \mathrm{fun}(x) \\
+    \text{s.t.} \quad & x_l \le x \le x_u, \\
+    & A_{\mathrm{ub}} x \le b_{\mathrm{ub}}, \\
+    & A_{\mathrm{eq}} x = b_{\mathrm{eq}}, \\
+    & c_{\mathrm{ub}}(x) \le 0, \\
+    & c_{\mathrm{eq}}(x) = 0, \\
+    & \text{with initial point } x_0.
 
 Then, **Feature** maps the above optimization problem to the following one.
 
-.. parsed-literal::
+.. math::
 
-    min  **fun_mod**\(**A** * **x** + **b**)
-    s.t. **xl_mod** <= **A** * **x** + **b** <= **xu_mod**,
-         **aub_mod** * (**A** * **x** + **b**) <= **bub_mod**,
-         **aeq_mod** * (**A** * **x** + **b**) = **beq_mod**,
-         **cub_mod**\(**A** * **x** + **b**) <= 0,
-         **ceq_mod**\(**A** * **x** + **b**) = 0,
-    with initial guess **x0_mod**.
+    \min \quad & \mathrm{fun\_mod}(Ax + b) \\
+    \text{s.t.} \quad & x_{l,\mathrm{mod}} \le Ax + b \le x_{u,\mathrm{mod}}, \\
+    & A_{\mathrm{ub,mod}} (Ax + b) \le b_{\mathrm{ub,mod}}, \\
+    & A_{\mathrm{eq,mod}} (Ax + b) = b_{\mathrm{eq,mod}}, \\
+    & c_{\mathrm{ub,mod}}(Ax + b) \le 0, \\
+    & c_{\mathrm{eq,mod}}(Ax + b) = 0, \\
+    & \text{with initial guess } x_{0,\mathrm{mod}}.
 
 -------------------------------------------------------------------------------
 
