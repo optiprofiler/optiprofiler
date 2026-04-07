@@ -115,6 +115,8 @@ latex_elements = {
 
 autosummary_generate = True
 
+autodoc_mock_imports = ['pycutest']
+
 
 # -- Link to other projects' documentation ------------------------------------
 
