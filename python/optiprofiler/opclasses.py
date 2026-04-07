@@ -25,7 +25,8 @@ class Feature:
         & A_{\mathrm{ub}} x \le b_{\mathrm{ub}}, \\
         & A_{\mathrm{eq}} x = b_{\mathrm{eq}}, \\
         & c_{\mathrm{ub}}(x) \le 0, \\
-        & c_{\mathrm{eq}}(x) = 0.
+        & c_{\mathrm{eq}}(x) = 0, \\
+        & \text{with initial point } x_0.
 
     Then ``Feature`` maps the above problem to the following one:
 
