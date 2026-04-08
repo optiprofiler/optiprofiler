@@ -13,6 +13,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from datetime import datetime
 from inspect import signature
 from multiprocessing import Pool
+from multiprocessing.reduction import ForkingPickler
 from pathlib import Path
 
 import numpy as np
@@ -1481,13 +1482,30 @@ def _solve_all_problems(solvers, plib, feature, problem_options, profile_options
 
     # Fall back to sequential mode if the arguments cannot be pickled (e.g.,
     # when the user passes lambda functions as solvers or feature modifiers).
+    # Use ForkingPickler (same as multiprocessing.Pool) — plain pickle.dumps can
+    # disagree and let unpicklable tasks reach starmap, which then crashes.
     if not sequential_mode:
-        import pickle
         try:
-            pickle.dumps((solvers, feature, profile_options))
-        except (pickle.PicklingError, AttributeError, TypeError):
+            sample_arg = (
+                solvers,
+                feature,
+                problem_names[0],
+                len_problem_names,
+                profile_options,
+                is_plot,
+                path_hist_plots,
+                plib,
+                custom_problem_libs_path,
+            )
+            ForkingPickler.dumps(sample_arg)
+        except Exception:
             sequential_mode = True
-            logger.info('Falling back to sequential mode because some arguments contain unpicklable objects (e.g., lambda functions).')
+            logger.info(
+                'Falling back to sequential mode because worker processes cannot '
+                'serialize the benchmark arguments (e.g., lambda functions in '
+                'solvers, feature modifiers, or profile options). Use top-level '
+                'functions (def ...) instead of lambdas to enable parallel execution.'
+            )
 
     # Solve all problems.
     args = [(solvers, feature, problem_name, len_problem_names, profile_options, is_plot, path_hist_plots, plib, custom_problem_libs_path) for problem_name in problem_names]

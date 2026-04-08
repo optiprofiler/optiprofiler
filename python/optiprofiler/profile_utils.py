@@ -518,8 +518,12 @@ def get_default_profile_options(solvers, feature, profile_options):
     profile_options.setdefault(ProfileOption.N_JOBS.value, os.cpu_count() or 1)
     profile_options.setdefault(ProfileOption.SEED.value, 0)
     profile_options.setdefault(ProfileOption.BENCHMARK_ID.value, 'out')
-    profile_options.setdefault(ProfileOption.SOLVER_NAMES.value, [getattr(s, '__name__', f'Solver {i+1}') for i, s in enumerate(solvers)])
-    profile_options.setdefault(ProfileOption.SOLVER_ISRAND.value, [False for _ in solvers])
+    if solvers is not None:
+        profile_options.setdefault(ProfileOption.SOLVER_NAMES.value, [getattr(s, '__name__', f'Solver {i+1}') for i, s in enumerate(solvers)])
+        profile_options.setdefault(ProfileOption.SOLVER_ISRAND.value, [False for _ in solvers])
+    else:
+        profile_options.setdefault(ProfileOption.SOLVER_NAMES.value, [])
+        profile_options.setdefault(ProfileOption.SOLVER_ISRAND.value, [])
     profile_options.setdefault(ProfileOption.FEATURE_STAMP, _get_default_feature_stamp(feature))
     profile_options.setdefault(ProfileOption.ERRORBAR_TYPE.value, 'minmax')
     profile_options.setdefault(ProfileOption.HIST_AGGREGATION.value, 'min')
