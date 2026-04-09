@@ -907,6 +907,8 @@ def benchmark(
             for h in listener.handlers:
                 if hasattr(h, 'close'):
                     h.close()
+            log_queue.close()
+            log_queue.join_thread()
         return solver_scores, None, None
 
     # If 'load' option is not specified, we solve all the selected problems.
@@ -1020,6 +1022,8 @@ def benchmark(
                 for h in listener.handlers:
                     if hasattr(h, 'close'):
                         h.close()
+                log_queue.close()
+                log_queue.join_thread()
             return solver_scores, None, None
 
     # Draw history plots sequentially if draw_hist_plots is set to 'sequential'.
@@ -1409,6 +1413,8 @@ def benchmark(
         for h in listener.handlers:
             if hasattr(h, 'close'):
                 h.close()
+        log_queue.close()
+        log_queue.join_thread()
 
     return solver_scores, profile_scores, curves
 
