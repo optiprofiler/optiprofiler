@@ -115,3 +115,10 @@ markers = [
     "extra: mark test as requiring extra dependencies (pycutest)",
 ]
 norecursedirs = ["action_tests"]
+
+# Limit measurement to the installed package. Do not use the repo root as
+# coverage source: the tree contains many unrelated .py files (e.g. embedded
+# problem libraries), which makes reporting slow on some platforms (notably
+# Windows CI) when combined with --cov=.
+[tool.coverage.run]
+source_pkgs = ["optiprofiler"]
