@@ -1001,7 +1001,15 @@ def benchmark(
             results_plibs.append(results_plib)
 
             # Merge the history plots for each problem library to a single pdf file.
-            if not profile_options[ProfileOption.SCORE_ONLY] and np.any(results_plib['solvers_successes']):
+            # Only do this in 'parallel' mode: in that case the workers have already
+            # written the per-problem PDFs into `path_hist_plots_plib` while solving.
+            # In 'sequential' mode, the per-problem PDFs are drawn (and merged) later
+            # in the dedicated block below; in 'none' mode there are no PDFs at all.
+            if (
+                profile_options[ProfileOption.DRAW_HIST_PLOTS] == 'parallel'
+                and not profile_options[ProfileOption.SCORE_ONLY]
+                and np.any(results_plib['solvers_successes'])
+            ):
                 if not profile_options[ProfileOption.SILENT]:
                     logger.info(f'Merging all the history plots of problems from the "{plib}" library to a single PDF file.')
                 try:
