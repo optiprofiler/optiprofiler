@@ -11,6 +11,7 @@ Andminnlcon
 Andsolver
 Andsolvers
 aplly
+APPLYMATLABPATCHES
 ARGAUSS
 argins
 ARGLALE
@@ -200,6 +201,7 @@ hcubx
 HDF
 HELIXNE
 hess
+hgweb
 HHmmss
 Higham
 HIMMELBA
@@ -283,6 +285,7 @@ lastd
 LEVYMONE
 LIARWHD
 LIARWHDNE
+libmwhgweb
 lincoa
 lincons
 Linealy
@@ -366,6 +369,7 @@ nanargmin
 nanmean
 nansum
 nargin
+NASGU
 nelder
 neq
 newuoa
@@ -394,6 +398,7 @@ Ofcharstr
 ogp
 omitnan
 opclasses
+opengl
 opengraph
 optimoptions
 optimset
@@ -546,6 +551,7 @@ vlen
 WATSONNE
 WAYSEA
 website
+workaround
 workflows
 WRITEREPORT
 XAxis

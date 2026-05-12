@@ -94,11 +94,10 @@ If you want to benchmark a solver with one variable parameter, you can define ca
 
 .. note::
 
-    We use named functions (``def``) instead of lambda expressions here.
-    Lambda functions cannot be serialized by Python's ``multiprocessing``
-    module, which would force OptiProfiler to fall back to sequential
-    execution. Using named functions ensures that the benchmark can run in
-    parallel when ``n_jobs > 1``.
+    We use named functions (``def``) instead of lambda expressions here so
+    that the benchmark can still run in parallel when ``n_jobs > 1``.
+    See :ref:`py_callable_picklability` for the full list of affected
+    callables and the rationale.
 
 .. _py_example5:
 
@@ -127,11 +126,9 @@ For example, if you want to create a new feature that adds noise to the objectiv
 
 .. note::
 
-    In this example, we use named functions (``def``) instead of lambda
-    expressions. This is recommended because lambda functions cannot be
-    serialized by Python's ``multiprocessing`` module, which would prevent
-    parallel execution. Using named functions ensures that the benchmark can
-    run in parallel when ``n_jobs > 1``.
+    Again, ``mod_fun`` and ``mod_x0`` are defined with ``def`` rather than
+    ``lambda`` so that the benchmark can run in parallel when
+    ``n_jobs > 1``. See :ref:`py_callable_picklability` for details.
 
 If you want to benchmark solvers based on your own problem library, you should do the following three steps:
 
@@ -160,3 +157,35 @@ If you want to benchmark solvers based on your own problem library, you should d
     )
 
 For a detailed guide on the required structure of a custom problem library, please refer to the `guide on our website <https://www.optprof.com>`_ or the `README on GitHub <https://github.com/optiprofiler/optiprofiler/blob/main/python/optiprofiler/problem_libs/README.txt>`_.
+
+.. _py_cautions:
+
+Cautions
+--------
+
+.. _py_callable_picklability:
+
+Callable arguments must be picklable when running in parallel
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When ``n_jobs > 1``, OptiProfiler dispatches problems to worker
+processes via :mod:`multiprocessing`. The following callable
+arguments are sent across process boundaries and must therefore be
+picklable:
+
+- the entries of ``solvers``;
+- feature options: ``distribution``, ``mod_x0``, ``mod_affine``,
+  ``mod_bounds``, ``mod_linear_ub``, ``mod_linear_eq``, ``mod_fun``,
+  ``mod_cub``, ``mod_ceq``;
+- profile options: ``merit_fun``, ``score_fun``, ``score_weight_fun``.
+
+**Lambda expressions and locally-defined nested functions are not
+picklable.** If any of the callables above is a lambda, OptiProfiler
+detects the failure when serializing the worker arguments and silently
+falls back to sequential mode (``n_jobs = 1``), which can be much
+slower.
+
+To enable parallel execution, define these callables as module-level
+functions using ``def``. For parametrized solvers, use a closure
+factory (see :ref:`py_example4`) or :func:`functools.partial` instead
+of a lambda.

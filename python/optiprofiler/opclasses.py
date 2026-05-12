@@ -2197,6 +2197,15 @@ class FeaturedProblem(Problem):
        methods ``fun``, ``cub``, and ``ceq`` will raise an error to
        terminate the optimization process.
 
+    .. note::
+
+        For consistency with the rest of OptiProfiler, we recommend
+        defining callables (such as ``fun``) with ``def`` rather than
+        ``lambda``. Lambda expressions are not picklable, which prevents
+        parallel execution when such callables are eventually passed to
+        :func:`~optiprofiler.benchmark` with ``n_jobs > 1``. See
+        :ref:`py_callable_picklability` for details.
+
     See Also
     --------
     Problem : Optimization problem.
@@ -2212,7 +2221,10 @@ class FeaturedProblem(Problem):
         import numpy as np
         from optiprofiler import Problem, Feature, FeaturedProblem
 
-        problem = Problem(lambda x: np.sum(x**2), [1.0, 2.0])
+        def fun(x):
+            return np.sum(x ** 2)
+
+        problem = Problem(fun, [1.0, 2.0])
         feature = Feature('noisy')
         fp = FeaturedProblem(problem, feature, max_eval=100, seed=0)
     """
