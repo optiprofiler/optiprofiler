@@ -527,13 +527,18 @@ def draw_hist(fun_histories, maxcv_histories, merit_histories, fun_init, maxcv_i
     Parameters:
     -----------
     fun_histories : numpy.ndarray
-        Histories of function values
+        Histories of function values, shape ``(n_solvers, n_runs, n_evals)``.
     maxcv_histories : numpy.ndarray
-        Histories of maximum constraint violations
+        Histories of maximum constraint violations, same shape as
+        ``fun_histories``.
     merit_histories : numpy.ndarray
-        Histories of merit function values
-    fun_init, maxcv_init, merit_init : float
-        Initial values
+        Histories of merit function values, same shape as ``fun_histories``.
+    fun_init, maxcv_init, merit_init : array-like or float
+        Initial values. May be either a scalar (legacy) or a per-run
+        vector of length ``n_runs`` so that ``process_hist_y_axes`` can
+        substitute the matching run's initial value for non-finite
+        history entries (mirroring MATLAB's ``drawHist.m`` /
+        ``processHistYaxes.m``).
     solver_names : list
         Names of the solvers
     list_axs_summary : list
@@ -630,18 +635,48 @@ def compute_y_shift(history, profile_options):
     return y_shift
 
 
-def process_hist_y_axes(value_histories, value_init):
+def process_hist_y_axes(value_histories, value_inits):
     """
     Process the value_histories of the y-axis data.
-    Replace non-finite values with value_init, then set those positions to value_min + 1.5 * (value_max - value_min).
+
+    ``value_histories`` has shape ``(n_solvers, n_runs, n_evals)`` and
+    ``value_inits`` is either a scalar (legacy) or a per-run vector of
+    length ``n_runs``. Non-finite entries are first replaced with the
+    matching run's initial value, and then re-mapped to a value safely
+    above the maximum so that the plotted lines stay visible. This
+    mirrors MATLAB's ``processHistYaxes.m`` (which iterates over runs
+    explicitly).
     """
     value_histories = np.array(value_histories, copy=True)
-    mask_hist_nan_inf = ~np.isfinite(value_histories)
-    value_histories[mask_hist_nan_inf] = value_init
-    value_max = np.max(value_histories)
-    value_min = np.min(value_histories)
+    if np.isscalar(value_inits):
+        # Legacy scalar path: identical to the old behaviour.
+        mask_hist_nan_inf = ~np.isfinite(value_histories)
+        value_histories[mask_hist_nan_inf] = value_inits
+        value_max = np.max(value_histories)
+        value_min = np.min(value_histories)
+        value_histories_processed = value_histories.copy()
+        value_histories_processed[mask_hist_nan_inf] = value_min + 1.5 * (value_max - value_min)
+        return value_histories_processed
+
+    value_inits = np.asarray(value_inits)
+    n_runs = value_histories.shape[1]
     value_histories_processed = value_histories.copy()
-    value_histories_processed[mask_hist_nan_inf] = value_min + 1.5 * (value_max - value_min)
+    for i_run in range(n_runs):
+        slice_run = value_histories[:, i_run, :]
+        mask_run = ~np.isfinite(slice_run)
+        # Use the per-run init for this run (NaN-safe via nanmin/nanmax
+        # below if the init itself happens to be NaN).
+        slice_run_filled = np.where(mask_run, value_inits[i_run], slice_run)
+        value_histories[:, i_run, :] = slice_run_filled
+        # Recompute min/max on the filled slice so that the placeholder
+        # value lies safely above the run's actual data range.
+        with np.errstate(all='ignore'):
+            value_max = np.nanmax(slice_run_filled)
+            value_min = np.nanmin(slice_run_filled)
+        replacement = value_min + 1.5 * (value_max - value_min)
+        slice_processed = value_histories_processed[:, i_run, :]
+        slice_processed = np.where(mask_run, replacement, slice_run_filled)
+        value_histories_processed[:, i_run, :] = slice_processed
     return value_histories_processed
 
 

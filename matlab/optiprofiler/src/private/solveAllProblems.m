@@ -142,6 +142,9 @@ function results = solveAllProblems(solvers, plib, feature, problem_options, pro
         problem_names = cell(1, n_problems);
         computation_times = NaN(n_problems, n_solvers, n_runs);
         solvers_successes = NaN(n_problems, n_solvers, n_runs);
+        % Per-(problem, solver, run) flags for the §6 report sections.
+        solver_abnormal_terminations = false(n_problems, n_solvers, n_runs);
+        solver_output_fallbacks = false(n_problems, n_solvers, n_runs);
         for i_problem = 1:n_problems
             result = tmp_results{i_problem};
             problem_types{i_problem} = result.problem_type;
@@ -158,6 +161,12 @@ function results = solveAllProblems(solvers, plib, feature, problem_options, pro
             problem_names{i_problem} = result.problem_name;
             computation_times(i_problem, :, :) = result.computation_time;
             solvers_successes(i_problem, :, :) = result.solvers_success;
+            if isfield(result, 'solver_abnormal_termination')
+                solver_abnormal_terminations(i_problem, :, :) = result.solver_abnormal_termination;
+            end
+            if isfield(result, 'solver_output_fallback')
+                solver_output_fallbacks(i_problem, :, :) = result.solver_output_fallback;
+            end
         end
 
         if n_problems > 0
@@ -211,4 +220,6 @@ function results = solveAllProblems(solvers, plib, feature, problem_options, pro
     results.problem_mcons = problem_mcons;
     results.computation_times = computation_times;
     results.solvers_successes = solvers_successes;
+    results.solver_abnormal_terminations = solver_abnormal_terminations;
+    results.solver_output_fallbacks = solver_output_fallbacks;
 end

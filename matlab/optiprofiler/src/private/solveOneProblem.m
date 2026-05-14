@@ -30,6 +30,16 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
     maxcv_inits = NaN(n_runs, 1);
     computation_time = NaN(n_solvers, n_runs);
     solvers_success = false(n_solvers, n_runs);
+    % solver_abnormal_terminations(i_solver, i_run) is true when the
+    % solver call raised an exception; solver_output_fallbacks is true
+    % when the output x was reset to the initial guess because the
+    % solver did not return a usable point (raised, or returned an
+    % empty value). These two flags feed dedicated report sections in
+    % benchmark.m so the user can see which (problem, solver, run)
+    % triples were affected by the OUTPUT-BASED PENALTY mechanism
+    % documented above.
+    solver_abnormal_terminations = false(n_solvers, n_runs);
+    solver_output_fallbacks = false(n_solvers, n_runs);
 
     % The number of real runs for each solver, which is determined by feature and solver_isrand.
     real_n_runs = n_runs * ones(n_solvers, 1);
@@ -64,7 +74,22 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
             maxcv_inits(i_run) = featured_problem.maxcv_init;
 
             % Solve the problem with the solver.
-            % Initialize x with the initial guess to handle cases where the solver fails or crashes.
+            %
+            % Pre-assign x to the modified initial guess so that we always
+            % have a valid point at which to evaluate the output, even if
+            % the solver crashes inside the inner try below (and therefore
+            % never assigns x). This fallback to x0 is an INTENTIONAL
+            % output-based penalty for failed runs: the output-based
+            % profile / score is then computed at x0, while the
+            % history-based profile / score is unaffected because it is
+            % built from featured_problem.fun_hist /
+            % featured_problem.maxcv_hist which already contain every
+            % evaluation the solver actually performed before crashing. We
+            % deliberately do NOT recover the best evaluated point from
+            % the history for the output-based score: the user only ever
+            % sees the point a solver returns, so a crashed run must be
+            % punished there. Falling back to x0 is the most basic choice
+            % that is solver-independent.
             x = featured_problem.x0;
             warning('off', 'all');
             time_start_solver_run = tic;
@@ -94,15 +119,27 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
                         end
                     end
                 catch Exception
+                    % Mark this (solver, run) as abnormally terminated;
+                    % x keeps its pre-assigned featured_problem.x0 value
+                    % and the fallback flag will also be set below
+                    % (since x is featured_problem.x0 here).
+                    solver_abnormal_terminations(i_solver, i_run) = true;
+                    solver_output_fallbacks(i_solver, i_run) = true;
                     if profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) ~= 0
                         fprintf("INFO: An error occurred while solving %s with %s (run %d/%d): %s\n", problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), Exception.message);
                     end
                 end
 
-                % Ensure x is a valid non-empty vector. If the solver failed or returned an empty value,
-                % we fall back to the initial guess to avoid secondary errors in subsequent processing.
+                % Ensure x is a valid non-empty vector. If the solver did
+                % not raise but returned an empty value, still fall back
+                % to the initial guess. This is the same OUTPUT-BASED
+                % PENALTY mechanism described above for the crash case:
+                % an empty return is treated as "no usable output", so
+                % the output-based score is evaluated at x0 while the
+                % history-based score keeps using featured_problem.*_hist.
                 if isempty(x)
                     x = featured_problem.x0;
+                    solver_output_fallbacks(i_solver, i_run) = true;
                 end
 
                 computation_time(i_solver, i_run) = toc(time_start_solver_run);
@@ -163,6 +200,8 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
                 maxcv_history(i_solver, j, :) = maxcv_history(i_solver, 1, :);
                 fun_out(i_solver, j) = fun_out(i_solver, 1);
                 maxcv_out(i_solver, j) = maxcv_out(i_solver, 1);
+                solver_abnormal_terminations(i_solver, j) = solver_abnormal_terminations(i_solver, 1);
+                solver_output_fallbacks(i_solver, j) = solver_output_fallbacks(i_solver, 1);
             end
         end
     end
@@ -194,6 +233,8 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
     result.problem_mcon = problem_mcon;
     result.computation_time = computation_time;
     result.solvers_success = solvers_success;
+    result.solver_abnormal_termination = solver_abnormal_terminations;
+    result.solver_output_fallback = solver_output_fallbacks;
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%% History plots of the computation %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

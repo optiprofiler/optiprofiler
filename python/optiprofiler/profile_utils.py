@@ -585,36 +585,107 @@ def compute_merit_values(merit_fun, fun_values, maxcv_values, maxcv_init):
     """
     Compute the merit function values.
 
+    This is the Python counterpart of MATLAB's ``meritFunCompute.m`` and
+    supports the same family of input shapes. The shape of ``fun_values``
+    drives the broadcasting of ``maxcv_init``; the supported combinations
+    are:
+
+    +----------------+--------------------------------------+----------------------+
+    | use case       | ``fun_values`` shape                 | ``maxcv_init`` shape |
+    +================+======================================+======================+
+    | merit history  | ``(n_problems, n_solvers, n_runs,    | ``(n_problems,       |
+    |                | n_evals)``                           | n_runs)``            |
+    +----------------+--------------------------------------+----------------------+
+    | merit out      | ``(n_problems, n_solvers, n_runs)``  | ``(n_problems,       |
+    |                |                                      | n_runs)``            |
+    +----------------+--------------------------------------+----------------------+
+    | merit inits    | ``(n_problems, n_runs)``             | ``(n_problems,       |
+    |                |                                      | n_runs)``            |
+    +----------------+--------------------------------------+----------------------+
+    | single-problem | ``(n_solvers, n_runs, n_evals)``     | ``(n_runs,)``        |
+    | history        |                                      |                      |
+    +----------------+--------------------------------------+----------------------+
+    | single-problem | ``(n_solvers, n_runs)``              | ``(n_runs,)``        |
+    | out / inits    | or ``(n_runs,)``                     |                      |
+    +----------------+--------------------------------------+----------------------+
+    | legacy 1-D     | ``(n_problems, n_solvers, n_runs,    | ``(n_problems,)``    |
+    | inits (loaded  | n_evals)`` or coarser                |                      |
+    | from old .h5)  |                                      |                      |
+    +----------------+--------------------------------------+----------------------+
+    | scalar init    | any                                  | scalar               |
+    +----------------+--------------------------------------+----------------------+
+
     Parameters
     ----------
     merit_fun : callable
-        The merit function to be used. It must have the signature merit_fun(fun_value, maxcv_value, maxcv_init).
+        The merit function. It must have the signature
+        ``merit_fun(fun_value, maxcv_value, maxcv_init)`` and accept
+        either scalar or numpy array inputs (``np.vectorize`` is used
+        internally to lift scalar implementations).
     fun_values : array-like
         The objective function values.
     maxcv_values : array-like
-        The maximum constraint violation values.
+        The maximum constraint violation values; same shape as
+        ``fun_values``.
     maxcv_init : float or array-like
-        The initial maximum constraint violation value(s).
+        The initial maximum constraint violation value(s); see the
+        table above for the supported shapes.
 
     Returns
     -------
     merit_values : np.ndarray
-        The merit function values.
+        The merit function values, with the same shape as ``fun_values``.
     """
-    
-    # Scale `maxcv_init` to match the dimensions of `fun_values`.
-    copied_dim = np.shape(fun_values)
+    fun_values = np.asarray(fun_values)
+    maxcv_values = np.asarray(maxcv_values)
+    fun_shape = fun_values.shape
+
     if np.isscalar(maxcv_init):
-        maxcv_init_expanded = np.full(copied_dim, maxcv_init)
+        # Scalar broadcast: trivially equal at every entry.
+        maxcv_init_b = np.full(fun_shape, maxcv_init)
     else:
         maxcv_init = np.asarray(maxcv_init)
-        ndim = len(copied_dim)
-        shaped = maxcv_init.reshape(-1, *([1] * (ndim - 1)))
-        reps = (1,) + copied_dim[1:]
-        maxcv_init_expanded = np.tile(shaped, reps)
+        init_shape = maxcv_init.shape
+
+        if init_shape == fun_shape:
+            # Already the target shape (e.g. ``merit_inits`` recomputed
+            # from per-run ``fun_inits`` / ``maxcv_inits``).
+            maxcv_init_b = maxcv_init
+        else:
+            ndim_fun = len(fun_shape)
+            # Mirror MATLAB ``meritFunCompute.m`` (type='multiple' /
+            # 'single'). We pick the case by inspecting the shapes
+            # explicitly rather than relying on numpy's right-aligned
+            # broadcasting, which would silently mix up the
+            # ``n_problems`` / ``n_runs`` axes.
+            if ndim_fun == 4 and init_shape == (fun_shape[0], fun_shape[2]):
+                # (P, S, R, E) <- (P, R)
+                new_shape = (fun_shape[0], 1, fun_shape[2], 1)
+            elif ndim_fun == 3 and init_shape == (fun_shape[0], fun_shape[2]):
+                # (P, S, R) <- (P, R)
+                new_shape = (fun_shape[0], 1, fun_shape[2])
+            elif ndim_fun == 3 and init_shape == (fun_shape[1],):
+                # (S, R, E) <- (R,)  (single-problem history)
+                new_shape = (1, fun_shape[1], 1)
+            elif ndim_fun == 2 and init_shape == (fun_shape[1],):
+                # (S, R) <- (R,)  (single-problem out / inits)
+                new_shape = (1, fun_shape[1])
+            elif ndim_fun > 1 and init_shape == (fun_shape[0],):
+                # Backward compatibility for legacy 1-D ``maxcv_inits``
+                # loaded from old .h5 files: broadcast along the
+                # leading axis only.
+                new_shape = (fun_shape[0],) + (1,) * (ndim_fun - 1)
+            elif ndim_fun == 1 and init_shape == fun_shape:
+                new_shape = init_shape
+            else:
+                raise ValueError(
+                    f"compute_merit_values: cannot align maxcv_init of shape "
+                    f"{init_shape} with fun_values of shape {fun_shape}."
+                )
+            maxcv_init_b = np.broadcast_to(maxcv_init.reshape(new_shape), fun_shape)
 
     vectorized_merit_fun = np.vectorize(merit_fun)
-    merit_values = vectorized_merit_fun(fun_values, maxcv_values, maxcv_init_expanded)
+    merit_values = vectorized_merit_fun(fun_values, maxcv_values, maxcv_init_b)
 
     return merit_values
 
@@ -942,11 +1013,34 @@ def process_results(results_plibs, profile_options):
     n_evals_merged = np.concatenate(n_evals_merged, axis=0)
     problem_dims_merged = np.concatenate(problem_dims_merged, axis=0)
 
-    # Find the least merit value for each problem
-    merit_mins_merged = np.nanmin(np.nanmin(np.nanmin(merit_histories_merged, axis=3), axis=2), axis=1)
-    merit_mins_merged = np.minimum(merit_mins_merged, merit_inits_merged)
+    # Find the least merit value for each (problem, run). Mirrors MATLAB
+    # ``processResults.m``:
+    #
+    #     merit_mins_merged = min(min(history, [], 4, omitnan), [], 2,
+    #                              omitnan)
+    #
+    # i.e. collapse the evaluation axis (axis=3) and the solver axis
+    # (axis=1), keeping the (problem, run) layout. ``merit_inits_merged``
+    # is itself per-(problem, run) so the elementwise ``np.minimum`` is
+    # well-defined and enforces the ``merit_min <= merit_init`` invariant
+    # used by the Moré-Wild convergence test downstream.
+    #
+    # Backward compatibility: if ``merit_inits_merged`` was loaded from
+    # an older .h5 file as a 1-D ``(n_problems,)`` vector, broadcast it
+    # along the run axis before taking the elementwise min.
+    merit_mins_merged = np.nanmin(np.nanmin(merit_histories_merged, axis=3), axis=1)
+    if merit_inits_merged.ndim == 1:
+        merit_inits_for_min = merit_inits_merged[:, None]
+    else:
+        merit_inits_for_min = merit_inits_merged
+    merit_mins_merged = np.minimum(merit_mins_merged, merit_inits_for_min)
 
-    # If results_plib_plain exists and run_plain is True, redefine merit_mins_merged
+    # If results_plib_plain exists and run_plain is True, redefine merit_mins_merged.
+    # For the plain feature we deliberately collapse over runs as well,
+    # matching MATLAB ``processResults.m`` lines 50-53: the plain feature
+    # is meant to provide a single solver-independent reference point per
+    # problem, and only the best value across all plain runs is used to
+    # tighten ``merit_mins_merged`` further.
     if 'results_plib_plain' in results_plibs[0] and profile_options[ProfileOption.RUN_PLAIN]:
         merit_histories_plain_merged = []
         merit_inits_plain_merged = []
@@ -958,12 +1052,25 @@ def process_results(results_plibs, profile_options):
             problem_names_plain_merged.extend(results_plib['results_plib_plain']['problem_names'])
         merit_histories_plain_merged = np.concatenate(merit_histories_plain_merged, axis=0)
         merit_inits_plain_merged = np.concatenate(merit_inits_plain_merged, axis=0)
+        # Collapse evaluation, run, and solver axes -> (n_problems_plain,)
         merit_mins_plain_merged = np.nanmin(np.nanmin(np.nanmin(merit_histories_plain_merged, axis=3), axis=2), axis=1)
-        merit_mins_plain_merged = np.minimum(merit_mins_plain_merged, merit_inits_plain_merged)
+        # Match MATLAB's linear-indexing semantics: the plain inits
+        # vector indexes as the FIRST run's value per problem (since
+        # ``merit_inits_plain_merged`` is column-major in MATLAB).
+        if merit_inits_plain_merged.ndim == 1:
+            init_for_plain = merit_inits_plain_merged
+        else:
+            init_for_plain = merit_inits_plain_merged[:, 0]
+        merit_mins_plain_merged = np.minimum(merit_mins_plain_merged, init_for_plain)
         for i_problem, name in enumerate(problem_names_merged):
             if name in problem_names_plain_merged:
                 idx = problem_names_plain_merged.index(name)
-                merit_mins_merged[i_problem] = np.nanmin([merit_mins_merged[i_problem], merit_mins_plain_merged[idx]])
+                # Apply the same plain reference value across all runs
+                # of this problem, mirroring MATLAB's per-run loop.
+                merit_mins_merged[i_problem, :] = np.minimum(
+                    merit_mins_merged[i_problem, :],
+                    merit_mins_plain_merged[idx],
+                )
 
     return (merit_histories_merged, merit_outs_merged, merit_inits_merged, merit_mins_merged, n_evals_merged, problem_names_merged, problem_dims_merged)
 

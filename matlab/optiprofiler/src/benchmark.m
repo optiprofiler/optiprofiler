@@ -1176,6 +1176,29 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     solvers_all_diverge_hist = false(n_problems, n_runs, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value));
     solvers_all_diverge_out = false(n_problems, n_runs, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value));
 
+    % Detect "merit_init = Inf" problems (i.e. phi(x_0) = Inf at one or
+    % more runs). For these (problem, run) pairs the standard Moré-Wild
+    % convergence threshold tau*phi(x_0) + (1-tau)*phi_min collapses to
+    % Inf - Inf = NaN, so the convergence test cannot meaningfully
+    % discriminate solvers. By convention we then declare every solver to
+    % "pass" the convergence test on these (problem, run) pairs (see the
+    % threshold computation below). The problem names will also be
+    % recorded in the report under a dedicated section so the user can
+    % identify and inspect them. Note: by construction
+    % merit_min <= merit_init (see processResults.m), so the case
+    % "merit_init finite, merit_min = Inf" cannot occur; only the cases
+    % "merit_init = Inf, merit_min finite" and "merit_init = Inf,
+    % merit_min = Inf" need this special handling, and they follow the
+    % same code path.
+    merit_init_inf_mask = isinf(merit_inits_merged);
+    if ~profile_options.(ProfileOptionKey.SILENT.value) && any(merit_init_inf_mask(:))
+        for i_problem = 1:n_problems
+            if any(merit_init_inf_mask(i_problem, :))
+                fprintf("WARNING: Problem '%s' has merit_init = phi(x_0) = Inf at one or more runs. By convention, all solvers are declared to pass the convergence test for this problem at those runs.\n", problem_names_merged{i_problem});
+            end
+        end
+    end
+
     for i_tol = 1:profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)
         curves{i_tol} = struct();
         curves{i_tol}.hist = struct();
@@ -1198,9 +1221,24 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         for i_problem = 1:n_problems
             for i_solver = 1:n_solvers
                 for i_run = 1:n_runs
-                    if isfinite(merit_mins_merged(i_problem, i_run))
+                    if isinf(merit_inits_merged(i_problem, i_run))
+                        % Degenerate case phi(x_0) = Inf. The Moré-Wild
+                        % threshold tau*phi(x_0) + (1-tau)*phi_min is
+                        % Inf - Inf = NaN, so the test cannot rank
+                        % solvers. We declare every solver to pass by
+                        % using +Inf as the threshold (any finite or
+                        % infinite merit value <= +Inf). Both subcases
+                        % "merit_min finite" and "merit_min = Inf" go
+                        % through this branch and behave identically.
+                        threshold = Inf;
+                    elseif isfinite(merit_mins_merged(i_problem, i_run))
                         threshold = max(tolerance * merit_inits_merged(i_problem, i_run) + (1 - tolerance) * merit_mins_merged(i_problem, i_run), merit_mins_merged(i_problem, i_run));
                     else
+                        % Unreachable under the merit_min <= merit_init
+                        % invariant established in processResults.m
+                        % (since merit_inits_merged is finite here).
+                        % Kept defensively to preserve the previous
+                        % "no convergence" behaviour.
                         threshold = -Inf;
                     end
                     if min(merit_histories_merged(i_problem, i_solver, i_run, :), [], 'omitnan') <= threshold
@@ -1401,6 +1439,113 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                             fprintf(fid, "Output-based   tol = %-8s run = %-3d:\t\t", tolerance_str, i_run);
                             for i_problem = 1:n_problems
                                 if solvers_all_diverge_out(i_problem, i_run, i_tol)
+                                    fprintf(fid, "%-*s ", max_name_length, problem_names_merged{i_problem});
+                                end
+                            end
+                        end
+                    end
+                end
+                fprintf(fid, "\n");
+            else
+                fprintf(fid, "\n");
+                fprintf(fid, "This part is empty.\n");
+            end
+
+            % Record the problems whose merit_init = phi(x_0) = Inf at one
+            % or more runs. For these (problem, run) pairs the convergence
+            % test is degenerate and every solver is declared to pass; the
+            % section below lets the user identify and inspect them.
+            fprintf(fid, "\n");
+            fprintf(fid, "## Problems with merit_init = phi(x_0) = Inf (all solvers declared passing for these runs)\n");
+            if any(merit_init_inf_mask(:))
+                for i_run = 1:n_runs
+                    if any(merit_init_inf_mask(:, i_run))
+                        fprintf(fid, "\n");
+                        fprintf(fid, "run = %-3d:\t\t", i_run);
+                        for i_problem = 1:n_problems
+                            if merit_init_inf_mask(i_problem, i_run)
+                                fprintf(fid, "%-*s ", max_name_length, problem_names_merged{i_problem});
+                            end
+                        end
+                    end
+                end
+                fprintf(fid, "\n");
+            else
+                fprintf(fid, "\n");
+                fprintf(fid, "This part is empty.\n");
+            end
+
+            % Merge the per-(problem, solver, run) diagnostic flags
+            % across problem libraries so they share the same problem
+            % index space as problem_names_merged. Default to all-false
+            % arrays for older saved data that does not contain these
+            % fields (kept for backward compatibility).
+            solver_abnormal_terminations_merged = false(n_problems, n_solvers, n_runs);
+            solver_output_fallbacks_merged = false(n_problems, n_solvers, n_runs);
+            row_offset = 0;
+            for i_plib = 1:size(results_plibs, 2)
+                results_plib = results_plibs{i_plib};
+                if isempty(fieldnames(results_plib))
+                    continue;
+                end
+                n_p = size(results_plib.fun_histories, 1);
+                if isfield(results_plib, 'solver_abnormal_terminations')
+                    solver_abnormal_terminations_merged(row_offset+1:row_offset+n_p, :, :) = results_plib.solver_abnormal_terminations;
+                end
+                if isfield(results_plib, 'solver_output_fallbacks')
+                    solver_output_fallbacks_merged(row_offset+1:row_offset+n_p, :, :) = results_plib.solver_output_fallbacks;
+                end
+                row_offset = row_offset + n_p;
+            end
+
+            max_solver_name_length = max(cellfun(@length, results_plibs{1}.solver_names));
+
+            % Solver runs that terminated abnormally (the solver call
+            % raised an exception). The evaluation history collected
+            % BEFORE the crash is preserved and used for the
+            % history-based profiles; only the output-based profile is
+            % affected (it falls back to the initial point as a
+            % penalty -- see the next section).
+            fprintf(fid, "\n");
+            fprintf(fid, "## Solver runs that terminated abnormally (history is preserved; output uses x_0 as a penalty)\n");
+            if any(solver_abnormal_terminations_merged(:))
+                for i_solver = 1:n_solvers
+                    for i_run = 1:n_runs
+                        col = solver_abnormal_terminations_merged(:, i_solver, i_run);
+                        if any(col)
+                            fprintf(fid, "\n");
+                            fprintf(fid, "solver = %-*s  run = %-3d:\t\t", max_solver_name_length, results_plibs{1}.solver_names{i_solver}, i_run);
+                            for i_problem = 1:n_problems
+                                if col(i_problem)
+                                    fprintf(fid, "%-*s ", max_name_length, problem_names_merged{i_problem});
+                                end
+                            end
+                        end
+                    end
+                end
+                fprintf(fid, "\n");
+            else
+                fprintf(fid, "\n");
+                fprintf(fid, "This part is empty.\n");
+            end
+
+            % Solver runs whose output was REPLACED by the initial point
+            % because the solver did not return a usable value (raised,
+            % or returned an empty value). This is an OUTPUT-BASED
+            % PENALTY, not a recovery of the best point from the
+            % evaluation history. See solveOneProblem.m for the design
+            % rationale.
+            fprintf(fid, "\n");
+            fprintf(fid, "## Solver runs using the initial point as output fallback (output-based penalty)\n");
+            if any(solver_output_fallbacks_merged(:))
+                for i_solver = 1:n_solvers
+                    for i_run = 1:n_runs
+                        col = solver_output_fallbacks_merged(:, i_solver, i_run);
+                        if any(col)
+                            fprintf(fid, "\n");
+                            fprintf(fid, "solver = %-*s  run = %-3d:\t\t", max_solver_name_length, results_plibs{1}.solver_names{i_solver}, i_run);
+                            for i_problem = 1:n_problems
+                                if col(i_problem)
                                     fprintf(fid, "%-*s ", max_name_length, problem_names_merged{i_problem});
                                 end
                             end

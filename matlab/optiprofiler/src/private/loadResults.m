@@ -188,6 +188,14 @@ function results_plib = truncate_solvers(results_plib, solvers_to_load)
     results_plib.solvers_successes = results_plib.solvers_successes(:, solvers_to_load, :);
     results_plib.merit_histories = results_plib.merit_histories(:, solvers_to_load, :, :);
     results_plib.merit_outs = results_plib.merit_outs(:, solvers_to_load, :);
+    % Optional per-(problem, solver, run) diagnostic flags introduced
+    % together with the §6 report sections; absent in legacy saved data.
+    if isfield(results_plib, 'solver_abnormal_terminations')
+        results_plib.solver_abnormal_terminations = results_plib.solver_abnormal_terminations(:, solvers_to_load, :);
+    end
+    if isfield(results_plib, 'solver_output_fallbacks')
+        results_plib.solver_output_fallbacks = results_plib.solver_output_fallbacks(:, solvers_to_load, :);
+    end
 end
 
 function results_plib = truncate_problems(results_plib, problem_options)
@@ -338,6 +346,12 @@ function results_plib = truncate_problems(results_plib, problem_options)
     results_plib.merit_histories = results_plib.merit_histories(p_to_load, :, :, :);
     results_plib.merit_outs = results_plib.merit_outs(p_to_load, :, :);
     results_plib.merit_inits = results_plib.merit_inits(p_to_load, :);
+    if isfield(results_plib, 'solver_abnormal_terminations')
+        results_plib.solver_abnormal_terminations = results_plib.solver_abnormal_terminations(p_to_load, :, :);
+    end
+    if isfield(results_plib, 'solver_output_fallbacks')
+        results_plib.solver_output_fallbacks = results_plib.solver_output_fallbacks(p_to_load, :, :);
+    end
 end
 
 function results_plib = recompute_merits(results_plib, merit_fun)

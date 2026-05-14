@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import os
 import sys
 import re
@@ -875,7 +876,12 @@ def benchmark(
             except:
                 pass
         
-        # Compute merit values.
+        # Compute merit values. ``result['fun_init']`` /
+        # ``result['maxcv_init']`` are now per-run vectors of shape
+        # ``(n_runs,)``; the resulting ``merit_init`` therefore also has
+        # shape ``(n_runs,)`` and the per-run ``solver_scores`` are
+        # averaged across runs at the end (mirroring MATLAB
+        # ``benchmark.m`` lines 858-879).
         merit_fun = profile_options[ProfileOption.MERIT_FUN]
         if result is not None:
             try:
@@ -884,12 +890,23 @@ def benchmark(
             except Exception as exc:
                 logger.error(f'Error occurred while calculating the merit values. Please check the merit function. Error message: {exc}')
                 raise exc
-            # Find the least merit value for each problem.
-            merit_min = np.nanmin(merit_history)
-            merit_min = np.nanmin([merit_min, merit_init])
-            # Since we will not compute the profiles, we set `solver_scores` to be the relative decreases in the objective function value.
-            solver_merit_mins = np.nanmin(np.nanmin(merit_history, axis=2), axis=1).squeeze()
-            solver_scores = (merit_init - solver_merit_mins) / max(merit_init - merit_min, np.finfo(float).eps)
+            merit_init = np.atleast_1d(np.asarray(merit_init))
+            local_n_solvers, local_n_runs = merit_history.shape[:2]
+            # Find the least merit value for each run.
+            merit_mins = np.full(local_n_runs, np.nan)
+            for i_run in range(local_n_runs):
+                merit_mins[i_run] = np.nanmin(merit_history[:, i_run, :])
+                merit_mins[i_run] = np.nanmin([merit_mins[i_run], merit_init[i_run]])
+            # Since we will not compute the profiles, we set `solver_scores`
+            # to be the relative decreases in the objective function value
+            # (per run, then averaged across runs).
+            solver_merit_mins = np.nanmin(merit_history, axis=2)  # (n_solvers, n_runs)
+            solver_scores_runs = np.zeros((local_n_solvers, local_n_runs))
+            for i_run in range(local_n_runs):
+                denom = max(merit_init[i_run] - merit_mins[i_run], np.finfo(float).eps)
+                solver_scores_runs[:, i_run] = (merit_init[i_run] - solver_merit_mins[:, i_run]) / denom
+                solver_scores_runs[:, i_run] = np.maximum(solver_scores_runs[:, i_run], 0)
+            solver_scores = np.mean(solver_scores_runs, axis=1)
         else:
             solver_scores = np.zeros(n_solvers)
 
@@ -1174,6 +1191,62 @@ def benchmark(
         solvers_all_diverge_hist = np.zeros((n_problems, n_runs, profile_options[ProfileOption.MAX_TOL_ORDER]), dtype=bool)
         solvers_all_diverge_out = solvers_all_diverge_hist.copy()
 
+        # Detect "merit_init = Inf" (problem, run) pairs (i.e.
+        # phi(x_0) = Inf). For these the standard Moré-Wild convergence
+        # threshold tau*phi(x_0) + (1-tau)*phi_min collapses to
+        # Inf - Inf = NaN, so the test cannot meaningfully discriminate
+        # solvers. By convention we then declare every solver to "pass"
+        # the test on these (problem, run) pairs (see the threshold
+        # computation below). The problem names will also be recorded in
+        # the report under a dedicated section so the user can identify
+        # and inspect them.
+        # Note: by construction merit_min <= merit_init (see
+        # ``process_results`` in ``profile_utils.py``), so the case
+        # "merit_init finite, merit_min = Inf" cannot occur; only
+        # "merit_init = Inf, merit_min finite" and
+        # "merit_init = Inf, merit_min = Inf" need this special handling
+        # and they follow the same code path.
+        # Backward-compat: ``merit_inits_merged`` may be 1-D for old
+        # .h5 files; broadcast to (n_problems, n_runs) here so the rest
+        # of the code can treat it uniformly.
+        if merit_inits_merged.ndim == 1:
+            merit_inits_per_run = np.broadcast_to(
+                merit_inits_merged[:, None], (n_problems, n_runs)
+            )
+        else:
+            merit_inits_per_run = merit_inits_merged
+        if merit_mins_merged.ndim == 1:
+            merit_mins_per_run = np.broadcast_to(
+                merit_mins_merged[:, None], (n_problems, n_runs)
+            )
+        else:
+            merit_mins_per_run = merit_mins_merged
+        merit_init_inf_mask = np.isinf(merit_inits_per_run)
+        if not profile_options[ProfileOption.SILENT] and np.any(merit_init_inf_mask):
+            for i_problem in range(n_problems):
+                if np.any(merit_init_inf_mask[i_problem, :]):
+                    logger.warning(
+                        f"Problem '{problem_names_merged[i_problem]}' has merit_init = phi(x_0) = Inf at one or more runs. "
+                        f"By convention, all solvers are declared to pass the convergence test for this problem at those runs."
+                    )
+
+        # Merge per-(problem, solver, run) diagnostic flags across the
+        # problem libraries so they share the same problem index space as
+        # ``problem_names_merged``. Default to all-False arrays for older
+        # .h5 files that do not contain these fields.
+        def _collect_flag(field_name):
+            arrays = []
+            for plib_dict in results_plibs:
+                if field_name in plib_dict:
+                    arrays.append(plib_dict[field_name])
+                else:
+                    n_p = plib_dict['fun_histories'].shape[0]
+                    arrays.append(np.zeros((n_p, n_solvers, n_runs), dtype=bool))
+            return np.concatenate(arrays, axis=0) if arrays else np.zeros((0, n_solvers, n_runs), dtype=bool)
+
+        solver_abnormal_terminations_merged = _collect_flag('solver_abnormal_terminations')
+        solver_output_fallbacks_merged = _collect_flag('solver_output_fallbacks')
+
         if is_saving:
             pdf_perf_hist_summary = backend_pdf.PdfPages(path_perf_hist_summary)
             pdf_perf_out_summary = backend_pdf.PdfPages(path_perf_out_summary)
@@ -1190,9 +1263,19 @@ def benchmark(
             }
             if n_solvers == 2:
                 hist['log_ratio'] = [None, None]
+            # IMPORTANT: ``curve['hist']`` and ``curve['out']`` must be fully
+            # independent containers. ``draw_profiles`` mutates the inner
+            # ``perf`` / ``data`` / ``log_ratio`` lists in place when storing
+            # the computed curves, and ``compute_scores`` later reads the two
+            # branches separately to integrate history-based and output-based
+            # profiles. A shallow copy (e.g. ``hist.copy()``) would leave the
+            # nested lists shared between the two branches; the second
+            # ``draw_profiles`` call would then overwrite the curves stored by
+            # the first, so the history-based and output-based scores would be
+            # silently identical. Use ``copy.deepcopy`` to break the sharing.
             curve = {
                 'hist': hist,
-                'out': hist.copy()
+                'out': copy.deepcopy(hist),
             }
             tolerance_str, tolerance_latex = format_float_scientific_latex(tolerance)
             if not profile_options[ProfileOption.SILENT]:
@@ -1205,9 +1288,27 @@ def benchmark(
             for i_problem in range(n_problems):
                 for i_solver in range(n_solvers):
                     for i_run in range(n_runs):
-                        if np.isfinite(merit_mins_merged[i_problem]):
-                            threshold = max(tolerance * merit_inits_merged[i_problem] + (1.0 - tolerance) * merit_mins_merged[i_problem], merit_mins_merged[i_problem])
+                        if np.isinf(merit_inits_per_run[i_problem, i_run]):
+                            # Degenerate case phi(x_0) = Inf. The
+                            # Moré-Wild threshold
+                            # tau*phi(x_0) + (1-tau)*phi_min is
+                            # Inf - Inf = NaN, so the test cannot rank
+                            # solvers. We declare every solver to pass
+                            # by using +Inf as the threshold (any finite
+                            # or infinite merit value <= +Inf). Both
+                            # subcases "merit_min finite" and
+                            # "merit_min = Inf" go through this branch
+                            # and behave identically.
+                            threshold = np.inf
+                        elif np.isfinite(merit_mins_per_run[i_problem, i_run]):
+                            threshold = max(tolerance * merit_inits_per_run[i_problem, i_run] + (1.0 - tolerance) * merit_mins_per_run[i_problem, i_run], merit_mins_per_run[i_problem, i_run])
                         else:
+                            # Unreachable under the merit_min <=
+                            # merit_init invariant established in
+                            # ``process_results`` (since
+                            # merit_inits_per_run is finite here). Kept
+                            # defensively to preserve the previous
+                            # "no convergence" behaviour.
                             threshold = -np.inf
                         if np.min(merit_histories_merged[i_problem, i_solver, i_run, :]) <= threshold:
                             work_hist[i_problem, i_solver, i_run] = np.argmax(merit_histories_merged[i_problem, i_solver, i_run, :] <= threshold) + 1
@@ -1326,6 +1427,75 @@ def benchmark(
                     else:
                         fid.write('\n')
                         fid.write('This part is empty.\n')
+
+                    # Record the (problem, run) pairs whose
+                    # merit_init = phi(x_0) = Inf. For these the
+                    # convergence test is degenerate and every solver is
+                    # declared to pass; the section below lets the user
+                    # identify and inspect them.
+                    fid.write('\n')
+                    fid.write('## Problems with merit_init = phi(x_0) = Inf (all solvers declared passing for these runs)\n')
+                    if np.any(merit_init_inf_mask):
+                        for i_run in range(n_runs):
+                            if np.any(merit_init_inf_mask[:, i_run]):
+                                fid.write('\n')
+                                fid.write(f'run = {i_run + 1:<3d}:\t\t')
+                                for i_problem in range(n_problems):
+                                    if merit_init_inf_mask[i_problem, i_run]:
+                                        fid.write(f'{problem_names_merged[i_problem]:<{max_name_length}s} ')
+                        fid.write('\n')
+                    else:
+                        fid.write('\n')
+                        fid.write('This part is empty.\n')
+
+                    # Record (solver, problem, run) triples that
+                    # terminated abnormally (solver raised an exception).
+                    # Note: the evaluation history collected before the
+                    # crash IS preserved and used for history-based
+                    # profiles; only the output-based profile is
+                    # affected (it falls back to the initial point as a
+                    # penalty -- see the next section).
+                    solver_names_no_esc = [s.replace('\\_', '_') for s in profile_options[ProfileOption.SOLVER_NAMES]]
+                    fid.write('\n')
+                    fid.write('## Solver runs that terminated abnormally (history is preserved; output uses x_0 as a penalty)\n')
+                    if np.any(solver_abnormal_terminations_merged):
+                        for i_solver in range(n_solvers):
+                            for i_run in range(n_runs):
+                                col = solver_abnormal_terminations_merged[:, i_solver, i_run]
+                                if np.any(col):
+                                    fid.write('\n')
+                                    fid.write(f'solver = {solver_names_no_esc[i_solver]:<{len(max(solver_names_no_esc, key=len))}s}  run = {i_run + 1:<3d}:\t\t')
+                                    for i_problem in range(n_problems):
+                                        if col[i_problem]:
+                                            fid.write(f'{problem_names_merged[i_problem]:<{max_name_length}s} ')
+                        fid.write('\n')
+                    else:
+                        fid.write('\n')
+                        fid.write('This part is empty.\n')
+
+                    # Record (solver, problem, run) triples whose output
+                    # was REPLACED by the initial point because the
+                    # solver did not return a usable value (raised, or
+                    # returned None / empty). This is an OUTPUT-BASED
+                    # PENALTY, not a recovery of the best point from the
+                    # evaluation history. See ``_solve_one_problem`` for
+                    # the design rationale.
+                    fid.write('\n')
+                    fid.write('## Solver runs using the initial point as output fallback (output-based penalty)\n')
+                    if np.any(solver_output_fallbacks_merged):
+                        for i_solver in range(n_solvers):
+                            for i_run in range(n_runs):
+                                col = solver_output_fallbacks_merged[:, i_solver, i_run]
+                                if np.any(col):
+                                    fid.write('\n')
+                                    fid.write(f'solver = {solver_names_no_esc[i_solver]:<{len(max(solver_names_no_esc, key=len))}s}  run = {i_run + 1:<3d}:\t\t')
+                                    for i_problem in range(n_problems):
+                                        if col[i_problem]:
+                                            fid.write(f'{problem_names_merged[i_problem]:<{max_name_length}s} ')
+                        fid.write('\n')
+                    else:
+                        fid.write('\n')
+                        fid.write('This part is empty.\n')
             except Exception:
                 if not profile_options[ProfileOption.SILENT]:
                     logger.warning('Failed to record the problems that all the solvers failed to meet the convergence test.')
@@ -1382,6 +1552,21 @@ def benchmark(
     # Compute solver_scores using score_fun.
     score_fun = profile_options[ProfileOption.SCORE_FUN]
     solver_scores = score_fun(profile_scores)
+
+    # Append the solver scores to the experiment report file. Mirrors
+    # MATLAB ``benchmark.m`` lines 1602-1612 so that the on-disk
+    # ``report.txt`` is identical between the two implementations.
+    if is_saving:
+        try:
+            with open(path_report, 'a') as fid:
+                fid.write('\n')
+                fid.write('## Scores of the solvers\n\n')
+                max_solver_name_length = max(len(name) for name in solver_names)
+                for i, name in enumerate(solver_names):
+                    fid.write(f'{name:<{max_solver_name_length}s}:    {solver_scores[i]:.4f}\n')
+        except Exception:
+            if not profile_options[ProfileOption.SILENT]:
+                logger.warning('Failed to append the solver scores to the report file.')
 
     # Print solver scores.
     if not profile_options[ProfileOption.SILENT]:
@@ -1558,6 +1743,17 @@ def _solve_all_problems(solvers, plib, feature, problem_options, profile_options
     problem_names = [r['problem_name'] for r in results]
     computation_times = np.array([r['computation_time'] for r in results])
     solvers_successes = np.array([r['solvers_success'] for r in results])
+    # Per-(problem, solver, run) flags for the §6 report sections.
+    # Default to False for backward compatibility with results that
+    # predate this field (e.g. when loaded from old .h5 files).
+    solver_abnormal_terminations = np.array([
+        r.get('solver_abnormal_termination', np.zeros((n_solvers, n_runs), dtype=bool))
+        for r in results
+    ])
+    solver_output_fallbacks = np.array([
+        r.get('solver_output_fallback', np.zeros((n_solvers, n_runs), dtype=bool))
+        for r in results
+    ])
 
     if n_problems > 0:
         max_max_eval = int(np.ceil(max_eval_factor * np.max(problem_dims)))
@@ -1610,6 +1806,8 @@ def _solve_all_problems(solvers, plib, feature, problem_options, profile_options
     results['problem_mcons'] = problem_mcons
     results['computation_times'] = computation_times
     results['solvers_successes'] = solvers_successes
+    results['solver_abnormal_terminations'] = solver_abnormal_terminations
+    results['solver_output_fallbacks'] = solver_output_fallbacks
 
     return results
 
@@ -1657,10 +1855,6 @@ def _solve_one_problem(solvers, problem, feature, problem_name, len_problem_name
     if profile_options[ProfileOption.PROJECT_X0]:
         problem.project_x0()
 
-    # Evaluate the functions at the initial point.
-    fun_init = problem.fun(problem.x0)
-    maxcv_init = problem.maxcv(problem.x0)
-
     # Solve the problem with each solver.
     n_solvers = len(solvers)
     n_runs = feature.options[FeatureOption.N_RUNS]
@@ -1671,8 +1865,31 @@ def _solve_one_problem(solvers, problem, feature, problem_name, len_problem_name
     fun_out = np.full((n_solvers, n_runs), np.nan)
     maxcv_history = np.full((n_solvers, n_runs, max_eval), np.nan)
     maxcv_out = np.full((n_solvers, n_runs), np.nan)
+    # ``fun_inits`` / ``maxcv_inits`` are vectors of length ``n_runs``: the
+    # initial values must be recorded per-run because the feature can
+    # modify the initial guess differently at every run (e.g., the
+    # ``perturbed_x0`` and ``noisy`` features), and using a single
+    # problem-level value would silently misrepresent the initial point
+    # actually seen by the solver. They are filled inside the run loop
+    # below using ``featured_problem.fun_init`` / ``maxcv_init`` (which
+    # apply the feature) instead of ``problem.fun(problem.x0)`` (which
+    # would ignore the feature). This mirrors MATLAB's
+    # ``solveOneProblem.m`` (lines 29-30, 63-64).
+    fun_inits = np.full(n_runs, np.nan)
+    maxcv_inits = np.full(n_runs, np.nan)
     computation_time = np.full((n_solvers, n_runs), np.nan)
     solvers_success = np.full((n_solvers, n_runs), False)
+    # ``solver_abnormal_terminations[i_solver, i_run]`` is True when the
+    # solver call raised an exception; ``solver_output_fallbacks`` is
+    # True when the output ``x`` was reset to the initial guess because
+    # the solver did not return a usable point (either because it raised
+    # or because it returned ``None`` / an empty array). These two flags
+    # power the dedicated report sections written in ``benchmark`` so the
+    # user can see which (problem, solver, run) triples were affected by
+    # the OUTPUT-BASED PENALTY mechanism documented in
+    # ``_solve_one_problem`` above.
+    solver_abnormal_terminations = np.full((n_solvers, n_runs), False)
+    solver_output_fallbacks = np.full((n_solvers, n_runs), False)
 
     # The number of real runs for each solver, which is determined by feature and solver_isrand.
     real_n_runs = np.array([
@@ -1703,6 +1920,14 @@ def _solve_one_problem(solvers, problem, feature, problem_name, len_problem_name
             problem_mlcon = featured_problem.mlcon
             problem_mnlcon = featured_problem.mnlcon
             problem_mcon = featured_problem.mcon
+            # Record the per-run initial values *after* the feature is
+            # applied. ``real_seed`` depends only on ``i_run``, so the
+            # FeaturedProblem (and hence ``fun_init`` / ``maxcv_init``)
+            # is identical regardless of which solver's loop sets it
+            # for a given run; assigning here keeps the loop structure
+            # aligned with MATLAB's ``solveOneProblem.m``.
+            fun_inits[i_run] = featured_problem.fun_init
+            maxcv_inits[i_run] = featured_problem.maxcv_init
 
             # Define a function to call the solver.
             def call_solver():
@@ -1716,18 +1941,74 @@ def _solve_one_problem(solvers, problem, feature, problem_name, len_problem_name
                     return solvers[i_solver](featured_problem.fun, featured_problem.x0, featured_problem.xl, featured_problem.xu, featured_problem.aub, featured_problem.bub, featured_problem.aeq, featured_problem.beq, featured_problem.cub, featured_problem.ceq)              
 
             # Solve the problem with the solver.
+            #
+            # The control flow below mirrors the MATLAB implementation in
+            # ``solveOneProblem.m`` and is built around two nested
+            # ``try`` blocks:
+            #
+            # * The INNER ``try`` wraps only the solver call. If the solver
+            #   raises, ``x`` is *not* reassigned and stays as the pre-set
+            #   initial guess ``featured_problem.x0`` (assigned just below
+            #   for exactly this reason). This fallback to ``x0`` is an
+            #   intentional OUTPUT-BASED PENALTY for failed / crashed runs:
+            #   the output-based profile (and the corresponding score) is
+            #   then evaluated at the initial point, while the
+            #   history-based profile is unaffected because it is built
+            #   from ``featured_problem.fun_hist`` /
+            #   ``featured_problem.maxcv_hist`` which already record every
+            #   evaluation the solver actually performed before crashing.
+            #   We deliberately do NOT try to "recover" the best evaluated
+            #   point from the history for the output-based score: the
+            #   user only ever sees the point a solver returns, so a
+            #   crashed run must be punished there. Falling back to ``x0``
+            #   is the most basic choice that is solver-independent and
+            #   guarantees a finite-or-Inf value derived from the problem
+            #   itself, not from the failing solver.
+            #
+            # * The OUTER ``try`` wraps the post-solve processing
+            #   (back-transform of ``x``, evaluation of ``fun_out`` /
+            #   ``maxcv_out``, logging). If anything in there raises we
+            #   just log it; ``fun_out`` / ``maxcv_out`` then stay at NaN
+            #   so downstream code treats them as missing data.
+            #
+            # Note: ``featured_problem.x0`` already returns a fresh
+            # ``np.copy`` of the modified initial guess, so this assignment
+            # is safe even if the solver mutates its input array.
+            x = featured_problem.x0
             with warnings.catch_warnings():
                 warnings.filterwarnings('ignore')
                 time_start_solver_run = time.monotonic()
                 try:
-                    if profile_options[ProfileOption.SOLVER_VERBOSE] == 2:
-                        x = call_solver()
-                    elif profile_options[ProfileOption.SOLVER_VERBOSE] == 1:
-                        with open(os.devnull, 'w') as devnull, redirect_stdout(devnull):
+                    try:
+                        if profile_options[ProfileOption.SOLVER_VERBOSE] == 2:
                             x = call_solver()
-                    else:
-                        with open(os.devnull, 'w') as devnull, redirect_stdout(devnull), redirect_stderr(devnull):
-                            x = call_solver()
+                        elif profile_options[ProfileOption.SOLVER_VERBOSE] == 1:
+                            with open(os.devnull, 'w') as devnull, redirect_stdout(devnull):
+                                x = call_solver()
+                        else:
+                            with open(os.devnull, 'w') as devnull, redirect_stdout(devnull), redirect_stderr(devnull):
+                                x = call_solver()
+                    except Exception as exc:
+                        # Mark this (solver, run) as abnormally terminated;
+                        # ``x`` keeps its pre-assigned ``featured_problem.x0``
+                        # value and the fallback flag will also be set
+                        # below (since ``x is featured_problem.x0`` here).
+                        solver_abnormal_terminations[i_solver, i_run] = True
+                        solver_output_fallbacks[i_solver, i_run] = True
+                        if profile_options[ProfileOption.SOLVER_VERBOSE] >= 1:
+                            logger.warning(
+                                f'An error occurred while solving {problem_name} with {solver_names[i_solver]} '
+                                f'(run {i_run + 1}/{real_n_runs[i_solver]}): {exc}'
+                            )
+
+                    # Mirror MATLAB's ``if isempty(x)`` guard: when the
+                    # solver did not raise but returned ``None`` or an
+                    # empty array, still fall back to the initial guess
+                    # (same OUTPUT-BASED PENALTY as the crash case above).
+                    x_arr = np.asarray(x) if x is not None else None
+                    if x_arr is None or x_arr.size == 0:
+                        x = featured_problem.x0
+                        solver_output_fallbacks[i_solver, i_run] = True
 
                     computation_time[i_solver, i_run] = time.monotonic() - time_start_solver_run
 
@@ -1768,7 +2049,10 @@ def _solve_one_problem(solvers, problem, feature, problem_name, len_problem_name
                             )
                 except Exception as exc:
                     if profile_options[ProfileOption.SOLVER_VERBOSE] >= 1:
-                        logger.warning(f'An error occurred while solving {problem_name} with {solver_names[i_solver]}: {exc}')
+                        logger.warning(
+                            f'An error occurred while processing the solution of {problem_name} from {solver_names[i_solver]} '
+                            f'(run {i_run + 1}/{real_n_runs[i_solver]}): {exc}'
+                        )
             n_eval[i_solver, i_run] = featured_problem.n_eval_fun
             fun_history[i_solver, i_run, :n_eval[i_solver, i_run]] = featured_problem.fun_hist[:n_eval[i_solver, i_run]]
             maxcv_history[i_solver, i_run, :n_eval[i_solver, i_run]] = featured_problem.maxcv_hist[:n_eval[i_solver, i_run]]
@@ -1786,6 +2070,20 @@ def _solve_one_problem(solvers, problem, feature, problem_name, len_problem_name
                 maxcv_history[i_solver, j, :] = maxcv_history[i_solver, 0, :]
                 fun_out[i_solver, j] = fun_out[i_solver, 0]
                 maxcv_out[i_solver, j] = maxcv_out[i_solver, 0]
+                solver_abnormal_terminations[i_solver, j] = solver_abnormal_terminations[i_solver, 0]
+                solver_output_fallbacks[i_solver, j] = solver_output_fallbacks[i_solver, 0]
+
+    # Complete fun_inits / maxcv_inits when real_n_runs[i_solver] < n_runs
+    # for *every* solver (which forces real_n_runs[i_solver] == 1 for all
+    # solvers, since otherwise some solver's run loop would have set every
+    # run). In that degenerate case only fun_inits[0] / maxcv_inits[0] is
+    # populated, so we replicate them to the remaining runs to keep the
+    # output shape consistent. Mirrors MATLAB's solveOneProblem.m
+    # (lines 191-198).
+    if int(np.max(real_n_runs)) < n_runs:
+        for i_run in range(1, n_runs):
+            fun_inits[i_run] = fun_inits[0]
+            maxcv_inits[i_run] = maxcv_inits[0]
 
     # Return the result.
     result = {
@@ -1793,8 +2091,8 @@ def _solve_one_problem(solvers, problem, feature, problem_name, len_problem_name
         'maxcv_history': maxcv_history,
         'fun_out': fun_out,
         'maxcv_out': maxcv_out,
-        'fun_init': fun_init,
-        'maxcv_init': maxcv_init,
+        'fun_init': fun_inits,
+        'maxcv_init': maxcv_inits,
         'n_eval': n_eval,
         'problem_name': problem_name,
         'problem_type': problem_type,
@@ -1804,7 +2102,9 @@ def _solve_one_problem(solvers, problem, feature, problem_name, len_problem_name
         'problem_mnlcon': problem_mnlcon,
         'problem_mcon': problem_mcon,
         'computation_time': computation_time,
-        'solvers_success': solvers_success
+        'solvers_success': solvers_success,
+        'solver_abnormal_termination': solver_abnormal_terminations,
+        'solver_output_fallback': solver_output_fallbacks,
     }
 
     # Draw the history plots if required.
@@ -1814,8 +2114,10 @@ def _solve_one_problem(solvers, problem, feature, problem_name, len_problem_name
     try:
         merit_fun = profile_options[ProfileOption.MERIT_FUN]
         try:
-            merit_history = compute_merit_values(merit_fun, fun_history, maxcv_history, maxcv_init)
-            merit_init = compute_merit_values(merit_fun, fun_init, maxcv_init, maxcv_init)
+            # ``fun_inits`` / ``maxcv_inits`` are per-run vectors of shape
+            # ``(n_runs,)`` (see the per-run initialization block above).
+            merit_history = compute_merit_values(merit_fun, fun_history, maxcv_history, maxcv_inits)
+            merit_init = compute_merit_values(merit_fun, fun_inits, maxcv_inits, maxcv_inits)
         except Exception as exc:
             logger.error(f'Error occurred while calculating the merit values. Please check the merit function. Error message: {exc}')
             raise exc
@@ -1868,10 +2170,10 @@ def _solve_one_problem(solvers, problem, feature, problem_name, len_problem_name
             processed_solver_names = [name.replace('_', r'\_') for name in solver_names]
             
             # Draw history plots
-            draw_hist(fun_history, maxcv_history, merit_history, fun_init, maxcv_init, merit_init, processed_solver_names, cell_axs_summary, False, problem_type, problem_dim, n_eval, profile_options, default_height)
+            draw_hist(fun_history, maxcv_history, merit_history, fun_inits, maxcv_inits, merit_init, processed_solver_names, cell_axs_summary, False, problem_type, problem_dim, n_eval, profile_options, default_height)
             
             # Draw cumulative minimum history plots
-            draw_hist(fun_history, maxcv_history, merit_history, fun_init, maxcv_init, merit_init, processed_solver_names, cell_axs_summary_cum, True, problem_type, problem_dim, n_eval, profile_options, default_height)
+            draw_hist(fun_history, maxcv_history, merit_history, fun_inits, maxcv_inits, merit_init, processed_solver_names, cell_axs_summary_cum, True, problem_type, problem_dim, n_eval, profile_options, default_height)
             
             # Apply tight_layout first, leaving space for row labels on the left
             fig_summary.tight_layout(rect=[0.05, 0.0, 1.0, 0.98])

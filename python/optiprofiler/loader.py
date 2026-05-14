@@ -57,6 +57,12 @@ def truncate_solvers(results_plib: Dict[str, Any], solvers_to_load: List[int]) -
     results_plib['solvers_successes'] = results_plib['solvers_successes'][:, solvers_to_load, :]
     results_plib['merit_histories'] = results_plib['merit_histories'][:, solvers_to_load, :, :]
     results_plib['merit_outs'] = results_plib['merit_outs'][:, solvers_to_load, :]
+    # Optional per-(problem, solver, run) diagnostic flags introduced
+    # together with the §6 report sections; absent in legacy .h5 files.
+    if 'solver_abnormal_terminations' in results_plib:
+        results_plib['solver_abnormal_terminations'] = results_plib['solver_abnormal_terminations'][:, solvers_to_load, :]
+    if 'solver_output_fallbacks' in results_plib:
+        results_plib['solver_output_fallbacks'] = results_plib['solver_output_fallbacks'][:, solvers_to_load, :]
     
     return results_plib
 
@@ -172,7 +178,11 @@ def truncate_problems(results_plib: Dict[str, Any], problem_options: Dict[str, A
     # Apply the mask to truncate the data
     p_to_load = np.where(p_to_load)[0]  # Convert boolean mask to indices
     
-    # Truncate problem-related fields
+    # Truncate problem-related fields. ``fun_inits`` / ``maxcv_inits`` /
+    # ``merit_inits`` are now always per-(problem, run), but we keep the
+    # 1-D branch for backward compatibility with .h5 files saved by
+    # earlier versions where these fields were stored as 1-D arrays of
+    # shape ``(n_problems,)``.
     results_plib['fun_histories'] = results_plib['fun_histories'][p_to_load, :, :, :]
     results_plib['maxcv_histories'] = results_plib['maxcv_histories'][p_to_load, :, :, :]
     results_plib['fun_outs'] = results_plib['fun_outs'][p_to_load, :, :]
@@ -201,13 +211,28 @@ def truncate_problems(results_plib: Dict[str, Any], problem_options: Dict[str, A
         results_plib['merit_inits'] = results_plib['merit_inits'][p_to_load]
     else:
         results_plib['merit_inits'] = results_plib['merit_inits'][p_to_load, :]
+    if 'solver_abnormal_terminations' in results_plib:
+        results_plib['solver_abnormal_terminations'] = results_plib['solver_abnormal_terminations'][p_to_load, :, :]
+    if 'solver_output_fallbacks' in results_plib:
+        results_plib['solver_output_fallbacks'] = results_plib['solver_output_fallbacks'][p_to_load, :, :]
     
     return results_plib
 
 
 def merit_fun_compute(merit_fun: Callable, fun_values: np.ndarray, maxcv_values: np.ndarray, maxcv_inits: np.ndarray) -> np.ndarray:
-    """Compute merit values from function values and constraint violations."""
-    return merit_fun(fun_values, maxcv_values, maxcv_inits)
+    """Compute merit values from function values and constraint violations.
+
+    Delegates to ``profile_utils.compute_merit_values`` so that the
+    shape-broadcasting logic stays in a single place. The previous
+    implementation called ``merit_fun`` directly with whole arrays,
+    which silently produced wrong results when ``maxcv_inits`` did not
+    already match the shape of ``fun_values`` (e.g. when ``maxcv_inits``
+    is per-(problem, run) but ``fun_values`` is per-(problem, solver,
+    run, eval)).
+    """
+    # Local import to avoid a circular import at module load time.
+    from .profile_utils import compute_merit_values
+    return compute_merit_values(merit_fun, fun_values, maxcv_values, maxcv_inits)
 
 
 def recompute_merits(results_plib: Dict[str, Any], merit_fun: Callable) -> Dict[str, Any]:
