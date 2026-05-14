@@ -116,6 +116,7 @@ EGGCRATENE
 EIGENA
 EIGENB
 ELATVIDUNE
+elementwise
 emumerates
 ENGVAL
 ENSO
@@ -125,6 +126,7 @@ errorbar
 errormacup
 errorsecup
 errortest
+errstate
 etal
 evalc
 evals
@@ -424,6 +426,7 @@ pdfs
 Pdfs
 pdmodel
 PENLT
+picklability
 picklable
 pkl
 plib
@@ -496,6 +499,7 @@ strrep
 strs
 strsplit
 strtrim
+subcases
 subfigs
 subfolders
 Subfolders
@@ -552,6 +556,7 @@ WATSONNE
 WAYSEA
 website
 workaround
+workarounds
 workflows
 WRITEREPORT
 XAxis
