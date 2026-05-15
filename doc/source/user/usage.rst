@@ -29,20 +29,20 @@ This will benchmark the two solvers under the default test setting, which means 
 
 There will be a new folder named ``out`` in the current working directory, which contains a subfolder named ``plain_<timestamp>`` with all the detailed results.
 
-.. figure:: images/subfolder_structure.png
+.. figure:: images/mat_subfolder_structure.png
    :width: 80%
    :align: center
    :alt: Structure of the plain_<timestamp> subfolder
-   
+
    Figure 1: Screenshot of the subfolder containing detailed results of the benchmarking run.
 
 Additionally, a PDF file named ``summary.pdf`` is generated, summarizing all the performance profiles and data profiles.
 
-.. figure:: images/summary_pdf.jpg
+.. figure:: images/mat_summary_pdf.jpg
    :width: 90%
    :align: center
    :alt: Summary PDF preview
-   
+
    Figure 2: Screenshot of the summary PDF file summarizing all the performance profiles and data profiles.
 
 .. _example2:

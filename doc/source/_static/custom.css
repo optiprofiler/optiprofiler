@@ -1,97 +1,533 @@
 /* =====================================================
-   OptiProfiler Homepage Custom Styles
+   OptiProfiler Documentation — Visual System
+   -----------------------------------------------------
+   Aligns the Sphinx Book Theme docs site with the
+   hosted platform (app.optprof.com) design tokens:
+   warm stone neutrals + Tailwind orange-500 brand,
+   Inter typography, glass cards, gradient text,
+   subtle motion. Theme structure is untouched; only
+   colors / typography / spacing / a few new components.
    ===================================================== */
 
-/* --- Hero Section --- */
-.hero-section {
-    text-align: center;
-    padding: 2rem 1rem 1.5rem 1rem;
-    margin-bottom: 1.5rem;
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+
+/* ── Design tokens ────────────────────────────────── */
+:root,
+html[data-theme="light"] {
+    --brand: #f97316;          /* orange-500 — matches platform */
+    --brand-dark: #ea580c;     /* orange-600 — hover */
+    --brand-light: #fb923c;    /* orange-400 — gradient stop */
+    --brand-glow: rgba(249, 115, 22, 0.35);
+    --brand-soft: rgba(249, 115, 22, 0.10);
+
+    --bg: #ffffff;
+    --bg-soft: #fafaf9;
+    --bg-card: #ffffff;
+    --bg-code: #f5f5f4;
+
+    --text: #1c1917;           /* stone-900 */
+    --text-secondary: #57534e; /* stone-600 */
+    --text-tertiary: #a8a29e;  /* stone-400 */
+
+    --border: #e7e5e4;         /* stone-200 */
+    --border-soft: #f5f5f4;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.08);
+
+    /* Override pydata/book theme primary so all built-in widgets
+       (search button, prev/next, in-page links) pick up the brand */
+    --pst-color-primary: var(--brand);
+    --pst-color-primary-text: #ffffff;
+    --pst-color-link: var(--brand-dark);
+    --pst-color-link-hover: var(--brand);
+    --pst-color-inline-code: #ad4f00;
+    --pst-color-target: var(--brand-soft);
 }
 
-/* Desktop: show wide banner, hide square logo */
-.hero-banner {
-    height: auto;
-    margin-bottom: 1rem;
+html[data-theme="dark"] {
+    --bg: #0c0a09;             /* stone-950 */
+    --bg-soft: #1c1917;        /* stone-900 */
+    --bg-card: #292524;        /* stone-800 */
+    --bg-code: #1c1917;
+
+    --text: #fafaf9;
+    --text-secondary: #a8a29e; /* stone-400 */
+    --text-tertiary: #78716c;  /* stone-500 */
+
+    --border: #292524;
+    --border-soft: #292524;
+
+    --brand-soft: rgba(249, 115, 22, 0.16);
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
+    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.55);
+
+    --pst-color-primary: var(--brand);
+    --pst-color-primary-text: #0c0a09;
+    --pst-color-link: var(--brand-light);
+    --pst-color-link-hover: var(--brand);
+    --pst-color-inline-code: #fdba74;
 }
 
-.hero-desktop {
-    display: block;
-    max-width: 680px;
-    width: 100%;
-    margin-left: auto;
-    margin-right: auto;
+/* ── Base typography ─────────────────────────────── */
+html {
+    scroll-behavior: smooth;
 }
 
-.hero-mobile {
-    display: none;
+body,
+.bd-content {
+    font-family: "Inter", ui-sans-serif, system-ui, -apple-system,
+        "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
-.hero-section p {
-    font-size: 1.4rem;
+::selection {
+    background: var(--brand);
+    color: #fff;
+}
+
+/* Headings: tighter tracking, stronger weight, subtle border on h2 */
+.bd-content h1,
+.bd-content h2,
+.bd-content h3,
+.bd-content h4 {
+    letter-spacing: -0.01em;
     font-weight: 700;
-    color: var(--pst-color-text-base, #2c3e50);
-    max-width: 700px;
-    margin: 0 auto 1rem auto;
-    line-height: 1.6;
 }
 
-/* --- CTA buttons --- */
-.cta-section {
-    text-align: center;
-    margin: 2rem 0 1.5rem 0;
+.bd-content h2 {
+    margin-top: 2.5rem;
+    padding-bottom: 0.35rem;
+    border-bottom: 1px solid var(--border);
 }
 
-.cta-section .sd-btn {
-    font-size: 1rem !important;
-    padding: 0.6em 1.8em !important;
-    border-radius: 8px !important;
-    font-weight: 600 !important;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-    text-decoration: none !important;
-    margin: 0.3rem;
+.bd-content h3 {
+    margin-top: 2rem;
 }
 
-.cta-section .sd-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+/* Body links — readable, not screaming */
+.bd-content a:not(.headerlink):not(.sd-btn):not(.toc-backref) {
+    color: var(--pst-color-link);
+    text-underline-offset: 2px;
+    transition: color 0.15s ease;
 }
 
-.sd-btn-primary {
-    background-color: #3b82f6 !important;
-    border-color: #3b82f6 !important;
-    color: #fff !important;
+.bd-content a:not(.headerlink):not(.sd-btn):not(.toc-backref):hover {
+    color: var(--pst-color-link-hover);
 }
 
-.sd-btn-primary:hover {
-    background-color: #2563eb !important;
-    border-color: #2563eb !important;
+/* ── Animations ──────────────────────────────────── */
+@keyframes op-fade-in {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
 }
 
-.sd-btn-outline-primary {
-    color: #3b82f6 !important;
-    border-color: #3b82f6 !important;
+@keyframes op-fade-in-up {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
 }
 
-.sd-btn-outline-primary:hover {
-    background-color: #3b82f6 !important;
-    color: #fff !important;
+@keyframes op-pulse-glow {
+    0%, 100% { box-shadow: 0 0 24px var(--brand-glow); }
+    50%      { box-shadow: 0 0 48px var(--brand-glow), 0 0 80px rgba(249, 115, 22, 0.18); }
 }
 
-/* --- Section headings --- */
-.section-heading {
-    text-align: center;
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--pst-color-text-base, #2c3e50);
-    margin-bottom: 1.5rem;
+.animate-fade-in    { animation: op-fade-in 0.6s ease-out both; }
+.animate-fade-in-up { animation: op-fade-in-up 0.7s ease-out both; }
+
+.delay-100 { animation-delay: 0.10s; }
+.delay-200 { animation-delay: 0.20s; }
+.delay-300 { animation-delay: 0.30s; }
+
+@media (prefers-reduced-motion: reduce) {
+    .animate-fade-in,
+    .animate-fade-in-up {
+        animation: none;
+    }
 }
 
 /* =====================================================
-   Feature List (Why OptiProfiler?)
+   Hero section (homepage) — product-forward first viewport
+   ===================================================== */
+.hero-section {
+    position: relative;
+    padding: clamp(2rem, 5vw, 4.25rem) 0 1.75rem 0;
+    margin-bottom: 0.75rem;
+}
+
+.hero-section::before {
+    content: "";
+    position: absolute;
+    left: 52%;
+    top: -18%;
+    width: min(980px, 95vw);
+    height: 560px;
+    transform: translateX(-50%);
+    background:
+        radial-gradient(circle at 50% 35%, rgba(249, 115, 22, 0.24), transparent 45%),
+        radial-gradient(circle at 85% 20%, rgba(251, 146, 60, 0.12), transparent 35%);
+    filter: blur(78px);
+    z-index: -1;
+    pointer-events: none;
+}
+
+html[data-theme="dark"] .hero-section::before {
+    background:
+        radial-gradient(circle at 50% 35%, rgba(249, 115, 22, 0.20), transparent 45%),
+        radial-gradient(circle at 85% 20%, rgba(251, 146, 60, 0.10), transparent 35%);
+}
+
+.hero-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.12fr) minmax(300px, 0.88fr);
+    align-items: center;
+    gap: clamp(1.5rem, 3.5vw, 2.75rem);
+    max-width: 940px;
+    margin: 0 auto;
+}
+
+.hero-copy {
+    animation: op-fade-in 0.6s ease-out both;
+}
+
+.hero-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.65rem;
+    margin-bottom: 1.15rem;
+    padding: 0.36rem 0.72rem 0.36rem 0.42rem;
+    border: 1px solid rgba(249, 115, 22, 0.22);
+    border-radius: 999px;
+    background: var(--bg-card);
+    background: color-mix(in srgb, var(--bg-card) 78%, transparent);
+    color: var(--brand-dark);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    box-shadow: var(--shadow-sm);
+}
+
+html[data-theme="dark"] .hero-kicker {
+    color: var(--brand-light);
+    background: rgba(41, 37, 36, 0.74);
+}
+
+.hero-logo-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 999px;
+    background: transparent;
+    box-shadow: 0 0 18px rgba(249, 115, 22, 0.18);
+}
+
+.hero-logo-mark img {
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    object-fit: contain;
+    display: block;
+}
+
+.hero-title {
+    display: block !important;
+    font-size: clamp(2.25rem, 4.8vw, 3.65rem);
+    font-weight: 800;
+    letter-spacing: 0;
+    line-height: 0.98;
+    color: var(--text);
+    max-width: 720px;
+    margin: 0 0 1.25rem 0 !important;
+}
+
+.hero-tagline {
+    font-size: clamp(1rem, 1.7vw, 1.14rem);
+    font-weight: 500;
+    color: var(--text-secondary);
+    max-width: 640px;
+    margin: 0 0 1.7rem 0 !important;
+    line-height: 1.68;
+}
+
+.hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.85rem;
+}
+
+.hero-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 0.72rem 1.35rem;
+    border-radius: 10px;
+    font-size: 0.94rem;
+    font-weight: 700;
+    text-decoration: none !important;
+    transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.hero-button:hover {
+    transform: translateY(-1px);
+}
+
+.hero-button-primary {
+    background: var(--brand);
+    border: 1px solid var(--brand);
+    color: #fff !important;
+    box-shadow: 0 10px 28px rgba(249, 115, 22, 0.26);
+}
+
+.hero-button-primary:hover {
+    background: var(--brand-dark);
+    border-color: var(--brand-dark);
+    color: #fff !important;
+}
+
+.hero-button-secondary {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text) !important;
+    box-shadow: var(--shadow-sm);
+}
+
+.hero-button-secondary:hover {
+    border-color: rgba(249, 115, 22, 0.45);
+    color: var(--brand) !important;
+    box-shadow: var(--shadow-md);
+}
+
+.hero-panel {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--bg-code);
+    background: color-mix(in srgb, var(--bg-code) 92%, var(--bg-card));
+    box-shadow: var(--shadow-lg);
+    animation: op-fade-in-up 0.7s ease-out 0.12s both;
+    min-width: 0;
+}
+
+.hero-panel::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(135deg, rgba(249, 115, 22, 0.10), transparent 38%);
+}
+
+.hero-panel-bar {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.72rem 0.9rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.hero-panel-title {
+    margin-left: 0.45rem;
+    color: var(--text-tertiary);
+    font-size: 0.78rem;
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas,
+        "Liberation Mono", monospace;
+}
+
+.code-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+}
+
+.code-dot-red { background: #ff5f57; }
+.code-dot-yellow { background: #ffbd2e; }
+.code-dot-green { background: #28c840; }
+
+.bd-content .hero-panel pre {
+    position: relative;
+    z-index: 1;
+    margin: 0 !important;
+    padding: 1.15rem 1.2rem 1.25rem 1.2rem !important;
+    overflow-x: auto;
+    border: none !important;
+    background: transparent !important;
+    color: var(--text);
+    box-shadow: none !important;
+    font-size: clamp(0.72rem, 0.96vw, 0.80rem);
+    line-height: 1.62;
+}
+
+.bd-content .hero-panel code {
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas,
+        "Liberation Mono", monospace;
+}
+
+.code-muted {
+    color: var(--text-tertiary);
+}
+
+.hero-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.85rem;
+    max-width: 940px;
+    margin: clamp(1.5rem, 4vw, 2.5rem) auto 0 auto;
+    animation: op-fade-in 0.6s ease-out 0.22s both;
+}
+
+.hero-metrics > div {
+    min-height: 92px;
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--bg-card);
+    background: color-mix(in srgb, var(--bg-card) 86%, transparent);
+    box-shadow: var(--shadow-sm);
+}
+
+html[data-theme="dark"] .hero-metrics > div {
+    background: rgba(41, 37, 36, 0.76);
+}
+
+.hero-metrics strong,
+.hero-metrics span {
+    display: block;
+}
+
+.hero-metrics strong {
+    color: var(--text);
+    font-size: 0.96rem;
+    margin-bottom: 0.3rem;
+}
+
+.hero-metrics span {
+    color: var(--text-secondary);
+    font-size: 0.84rem;
+    line-height: 1.45;
+}
+
+/* Legacy (used to be needed for old hero banner) — kept harmless */
+.hero-banner,
+.hero-logo-wrap {
+    display: none;
+}
+
+/* ── CTA buttons ─────────────────────────────────── */
+.cta-section {
+    text-align: center;
+    margin: 1.75rem auto 1.25rem auto;
+    max-width: 640px;
+    animation: op-fade-in 0.6s ease-out 0.2s both;
+}
+
+.cta-section .sd-btn {
+    font-size: 0.95rem !important;
+    padding: 0.7em 1.6em !important;
+    border-radius: 10px !important;
+    font-weight: 600 !important;
+    transition: transform 0.15s ease, box-shadow 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+    text-decoration: none !important;
+    margin: 0.3rem;
+    letter-spacing: -0.005em;
+}
+
+.cta-section .sd-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+}
+
+.cta-section .sd-btn:active {
+    transform: translateY(0) scale(0.98);
+}
+
+.sd-btn-primary,
+.cta-section .sd-btn-primary {
+    background-color: var(--brand) !important;
+    border-color: var(--brand) !important;
+    color: #fff !important;
+    box-shadow: 0 4px 12px var(--brand-glow);
+}
+
+.sd-btn-primary:hover,
+.cta-section .sd-btn-primary:hover {
+    background-color: var(--brand-dark) !important;
+    border-color: var(--brand-dark) !important;
+    color: #fff !important;
+}
+
+/* Secondary CTA: fully visible in both themes,
+   visually balanced next to the primary orange button.
+   Subtle filled card look, not a transparent ghost. */
+.sd-btn-secondary,
+.sd-btn-outline-secondary,
+.cta-section .sd-btn-secondary,
+.cta-section .sd-btn-outline-secondary {
+    background-color: var(--bg-card) !important;
+    border-color: var(--border) !important;
+    color: var(--text) !important;
+    box-shadow: var(--shadow-sm);
+}
+
+html[data-theme="dark"] .sd-btn-secondary,
+html[data-theme="dark"] .sd-btn-outline-secondary,
+html[data-theme="dark"] .cta-section .sd-btn-secondary,
+html[data-theme="dark"] .cta-section .sd-btn-outline-secondary {
+    background-color: var(--bg-soft) !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
+    color: var(--text) !important;
+}
+
+.sd-btn-secondary:hover,
+.sd-btn-outline-secondary:hover,
+.cta-section .sd-btn-secondary:hover,
+.cta-section .sd-btn-outline-secondary:hover {
+    border-color: var(--brand) !important;
+    color: var(--brand) !important;
+    background-color: var(--bg-card) !important;
+    box-shadow: var(--shadow-md);
+}
+
+html[data-theme="dark"] .sd-btn-secondary:hover,
+html[data-theme="dark"] .sd-btn-outline-secondary:hover {
+    background-color: var(--bg-card) !important;
+    color: var(--brand-light) !important;
+}
+
+/* ── Section heading ─────────────────────────────── */
+.section-heading {
+    text-align: center;
+    font-size: 1.65rem;
+    font-weight: 700;
+    color: var(--text);
+    margin: 1.5rem 0 1.5rem 0;
+    letter-spacing: -0.015em;
+}
+
+.section-eyebrow {
+    text-align: center;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--brand);
+    margin-bottom: 0.4rem;
+}
+
+/* =====================================================
+   Why OptiProfiler — feature list
    ===================================================== */
 .feature-list {
-    max-width: 700px;
+    max-width: 760px;
     margin: 0 auto;
     padding: 0 1rem;
 }
@@ -99,15 +535,46 @@
 .feature-item {
     display: flex;
     align-items: flex-start;
-    gap: 1rem;
-    margin-bottom: 1.8rem;
+    gap: 1.1rem;
+    margin-bottom: 1.7rem;
+    padding: 0.4rem 0.2rem;
+    transition: transform 0.2s ease;
 }
 
+.feature-item:hover .feature-icon {
+    background: var(--brand);
+    color: #fff;
+    border-color: var(--brand);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px var(--brand-glow);
+}
+
+/* New icon container — soft brand-tinted square, lucide-style stroke svg inside */
 .feature-icon {
-    width: 40px;
-    height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
     flex-shrink: 0;
     margin-top: 2px;
+    border-radius: 11px;
+    background: var(--brand-soft);
+    color: var(--brand);
+    border: 1px solid rgba(249, 115, 22, 0.22);
+    transition: background 0.2s ease, color 0.2s ease,
+        transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+html[data-theme="dark"] .feature-icon {
+    color: var(--brand-light);
+    border-color: rgba(249, 115, 22, 0.30);
+}
+
+.feature-icon svg {
+    width: 22px;
+    height: 22px;
+    display: block;
 }
 
 .feature-content {
@@ -117,68 +584,72 @@
 .feature-title {
     font-size: 1.05rem;
     font-weight: 600;
-    color: var(--pst-color-text-base, #2c3e50);
+    color: var(--text);
     margin-bottom: 0.25rem;
     line-height: 1.4;
 }
 
 .feature-keyword {
-    color: #3b82f6;
+    color: var(--brand);
     font-weight: 700;
 }
 
 .feature-desc {
-    font-size: 0.92rem;
-    color: var(--pst-color-text-muted, #666);
-    line-height: 1.55;
+    font-size: 0.93rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
 }
 
 .feature-desc a {
-    color: #3b82f6;
+    color: var(--brand-dark);
     text-decoration: underline;
+    text-underline-offset: 2px;
 }
 
 .feature-desc a:hover {
-    color: #2563eb;
+    color: var(--brand);
 }
 
 /* =====================================================
-   Language Cards (Multi-Language Support)
+   Cards (sphinx_design grid-item-card)
    ===================================================== */
-.sd-card {
-    border: 1px solid #e8ecf1 !important;
+.bd-content .sd-card {
+    border: 1px solid var(--border) !important;
     border-radius: 12px !important;
-    transition: transform 0.25s ease, box-shadow 0.25s ease;
+    background: var(--bg-card) !important;
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     overflow: hidden;
 }
 
-.sd-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1) !important;
+.bd-content .sd-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-md) !important;
+    border-color: var(--brand) !important;
 }
 
-.sd-card .sd-card-header {
+.bd-content .sd-card .sd-card-header {
     background: transparent !important;
     border-bottom: none !important;
     padding-bottom: 0 !important;
 }
 
-.sd-card .sd-card-text {
-    font-size: 0.92rem !important;
-    color: var(--pst-color-text-muted, #666) !important;
-    line-height: 1.55 !important;
+.bd-content .sd-card .sd-card-text {
+    font-size: 0.93rem !important;
+    color: var(--text-secondary) !important;
+    line-height: 1.6 !important;
 }
 
+/* Language cards (Multi-Language Support) */
 .lang-card .sd-card-body {
-    padding: 1.4rem !important;
+    padding: 1.5rem !important;
 }
 
-/* Icon + Language name inline row */
 .lang-title-row {
     display: flex;
     align-items: center;
     gap: 0.6rem;
-    margin-bottom: 0.6rem;
+    margin-bottom: 0.7rem;
 }
 
 .lang-inline-icon {
@@ -189,13 +660,73 @@
 
 .lang-title-row strong {
     font-size: 1.2rem;
-    color: var(--pst-color-text-base, #2c3e50);
+    color: var(--text);
+    letter-spacing: -0.01em;
 }
 
-/* --- Coming Soon Badge --- */
+/* "Two ways to use" callout cards */
+.use-card {
+    height: 100%;
+}
+
+.use-card .sd-card-body {
+    padding: 1.5rem !important;
+    display: flex;
+    flex-direction: column;
+}
+
+.use-card .use-eyebrow {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--brand);
+    margin-bottom: 0.4rem;
+}
+
+.use-card h3 {
+    font-size: 1.12rem !important;
+    margin: 0 0 0.5rem 0 !important;
+    border-bottom: none !important;
+    padding-bottom: 0 !important;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+}
+
+.use-card p {
+    color: var(--text-secondary);
+    font-size: 0.93rem;
+    line-height: 1.6;
+    margin-bottom: 1rem !important;
+}
+
+.use-card-cta {
+    margin-top: auto;
+}
+
+.use-card-cta a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-weight: 600;
+    font-size: 0.92rem;
+    color: var(--brand) !important;
+    text-decoration: none !important;
+}
+
+.use-card-cta a:hover {
+    color: var(--brand-dark) !important;
+}
+
+.use-card-primary {
+    background: linear-gradient(180deg, var(--brand-soft), transparent) !important;
+    border-color: rgba(249, 115, 22, 0.25) !important;
+}
+
+/* Coming soon badge (kept for future use) */
 .badge-coming-soon {
     display: inline-block;
-    background: linear-gradient(135deg, #f59e0b, #f97316);
+    background: linear-gradient(135deg, #f59e0b, var(--brand));
     color: #fff;
     font-size: 0.7rem;
     font-weight: 700;
@@ -206,25 +737,400 @@
     margin-bottom: 0.5rem;
 }
 
-/* --- Responsive tweaks --- */
+/* =====================================================
+   Gradient text utility
+   ===================================================== */
+.gradient-text {
+    background: linear-gradient(135deg, var(--brand), var(--brand-light));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    color: transparent;
+}
+
+/* =====================================================
+   Announcement banner (top of every page)
+   ===================================================== */
+.bd-header-announcement {
+    background: linear-gradient(90deg, var(--brand), var(--brand-light)) !important;
+    color: #fff !important;
+    font-weight: 500 !important;
+    text-align: center;
+}
+
+.bd-header-announcement a {
+    color: #fff !important;
+    font-weight: 600 !important;
+    text-decoration: underline !important;
+    text-underline-offset: 3px;
+    text-decoration-thickness: 1px;
+}
+
+.bd-header-announcement a:hover {
+    color: #fff !important;
+    opacity: 0.92;
+}
+
+/* =====================================================
+   Header / sidebar polish
+   ===================================================== */
+.bd-header {
+    background: rgba(255, 255, 255, 0.85) !important;
+    backdrop-filter: saturate(180%) blur(12px);
+    border-bottom: 1px solid var(--border);
+}
+
+html[data-theme="dark"] .bd-header {
+    background: rgba(12, 10, 9, 0.85) !important;
+}
+
+.bd-header .navbar-brand {
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+.bd-sidebar-primary {
+    border-right: 1px solid var(--border);
+}
+
+.bd-sidebar-primary .sidebar-primary-items__start a.nav-link,
+.bd-sidebar-primary .sidebar-primary-items__end a.nav-link {
+    border-radius: 6px;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.bd-sidebar-primary a.nav-link:hover {
+    background: var(--brand-soft);
+    color: var(--brand-dark);
+}
+
+.bd-sidebar-primary a.nav-link.active,
+.bd-sidebar-primary a.current {
+    color: var(--brand-dark) !important;
+    font-weight: 600;
+}
+
+html[data-theme="dark"] .bd-sidebar-primary a.nav-link.active,
+html[data-theme="dark"] .bd-sidebar-primary a.current {
+    color: var(--brand-light) !important;
+}
+
+/* In-page TOC active marker */
+.bd-toc-nav .active > a,
+.toc-entry > .active {
+    color: var(--brand-dark) !important;
+    border-left-color: var(--brand) !important;
+    font-weight: 600;
+}
+
+html[data-theme="dark"] .bd-toc-nav .active > a {
+    color: var(--brand-light) !important;
+}
+
+/* Repository / issues / etc. icon buttons in book theme top bar */
+.bd-header .header-article-items__end .btn,
+.bd-article-container .header-article-items__end .btn {
+    color: var(--text-secondary);
+    transition: color 0.15s ease;
+}
+
+.bd-header .header-article-items__end .btn:hover {
+    color: var(--brand);
+}
+
+/* =====================================================
+   Code blocks — soft mac-style window
+   ===================================================== */
+.bd-content div.highlight,
+.bd-content pre {
+    background: var(--bg-code) !important;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+
+.bd-content div.highlight {
+    box-shadow: var(--shadow-sm);
+}
+
+.bd-content div.highlight pre {
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+    background: transparent !important;
+    padding: 1rem 1.1rem;
+    line-height: 1.55;
+    font-size: 0.88rem;
+}
+
+/* Inline code, but spare the .literal in section headings */
+.bd-content code.literal,
+code.docutils {
+    background: var(--bg-code);
+    color: var(--pst-color-inline-code);
+    padding: 0.12em 0.42em;
+    border-radius: 5px;
+    border: 1px solid var(--border-soft);
+    font-size: 0.86em;
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas,
+        "Liberation Mono", monospace;
+}
+
+.bd-content h1 code.literal,
+.bd-content h2 code.literal,
+.bd-content h3 code.literal,
+.bd-content h4 code.literal {
+    background: transparent;
+    border: none;
+    padding: 0;
+    color: inherit;
+    font-size: 0.9em;
+}
+
+/* sphinx_copybutton: keep tight in the corner, brand on hover */
+.bd-content button.copybtn {
+    border-radius: 6px;
+    transition: color 0.15s ease, background 0.15s ease;
+}
+
+.bd-content button.copybtn:hover {
+    color: var(--brand);
+}
+
+/* =====================================================
+   Admonitions — note / warning / tip etc.
+   Keep them readable, just retint
+   ===================================================== */
+.bd-content .admonition {
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-sm);
+    background: var(--bg-card);
+}
+
+.bd-content .admonition.note,
+.bd-content .admonition.seealso {
+    border-left: 4px solid var(--brand);
+}
+
+.bd-content .admonition.note > .admonition-title,
+.bd-content .admonition.seealso > .admonition-title {
+    background: var(--brand-soft);
+    color: var(--brand-dark);
+}
+
+html[data-theme="dark"] .bd-content .admonition.note > .admonition-title,
+html[data-theme="dark"] .bd-content .admonition.seealso > .admonition-title {
+    color: var(--brand-light);
+}
+
+/* =====================================================
+   API reference — autosummary tables, signatures,
+   parameter / return field lists
+   ===================================================== */
+
+/* autosummary table: feel like a clean grid */
+.bd-content table.autosummary,
+.bd-content table.longtable {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    border-collapse: separate;
+    border-spacing: 0;
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+}
+
+.bd-content table.autosummary tr td,
+.bd-content table.autosummary tr th,
+.bd-content table.longtable tr td,
+.bd-content table.longtable tr th {
+    border: none;
+    border-bottom: 1px solid var(--border-soft);
+    padding: 0.55rem 0.85rem;
+    background: transparent !important;
+}
+
+.bd-content table.autosummary tr:last-child td,
+.bd-content table.longtable tr:last-child td {
+    border-bottom: none;
+}
+
+.bd-content table.autosummary tr:hover td {
+    background: var(--brand-soft) !important;
+}
+
+/* Function / class signatures (dl.py) */
+.bd-content dl.py > dt,
+.bd-content dl.mat > dt,
+.bd-content dl.c > dt,
+.bd-content dl[class$="-method"] > dt,
+.bd-content dl[class$="-attribute"] > dt,
+.bd-content dl[class$="-property"] > dt,
+.bd-content dl.py.class > dt,
+.bd-content dl.py.function > dt,
+.bd-content dl.py.method > dt,
+.bd-content dl.py.attribute > dt,
+.bd-content dl.py.property > dt {
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--brand);
+    border-radius: 8px;
+    padding: 0.55rem 0.85rem;
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas,
+        "Liberation Mono", monospace;
+    font-size: 0.92em;
+    margin-bottom: 0.6rem;
+}
+
+.bd-content dl.py em.property,
+.bd-content dl.py span.pre {
+    color: var(--brand-dark);
+}
+
+html[data-theme="dark"] .bd-content dl.py em.property,
+html[data-theme="dark"] .bd-content dl.py span.pre {
+    color: var(--brand-light);
+}
+
+/* numpydoc field lists (Parameters / Returns / etc.) */
+.bd-content dl.field-list > dt,
+.bd-content dl.simple > dt {
+    color: var(--brand-dark);
+    font-weight: 700;
+}
+
+html[data-theme="dark"] .bd-content dl.field-list > dt,
+html[data-theme="dark"] .bd-content dl.simple > dt {
+    color: var(--brand-light);
+}
+
+.bd-content dl.field-list > dt::after {
+    content: "";
+}
+
+/* Section subheadings inside API pages (Parameters / Returns rubric) */
+.bd-content p.rubric {
+    color: var(--text);
+    font-weight: 700;
+    font-size: 1rem;
+    margin-top: 1.5rem;
+    margin-bottom: 0.6rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.25rem;
+    letter-spacing: -0.005em;
+}
+
+/* Ref/glossary anchor highlight uses brand */
+.bd-content :target {
+    background: var(--brand-soft) !important;
+    border-radius: 4px;
+}
+
+/* =====================================================
+   Footer / prev-next
+   ===================================================== */
+.prev-next-area a.left-prev,
+.prev-next-area a.right-next {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.prev-next-area a.left-prev:hover,
+.prev-next-area a.right-next:hover {
+    border-color: var(--brand);
+    box-shadow: var(--shadow-sm);
+}
+
+footer {
+    color: var(--text-tertiary);
+    font-size: 0.86rem;
+}
+
+footer a {
+    color: var(--text-secondary) !important;
+}
+
+footer a:hover {
+    color: var(--brand) !important;
+}
+
+/* =====================================================
+   Responsive
+   ===================================================== */
 @media (max-width: 768px) {
-    /* Mobile: show square logo, hide wide banner */
-    .hero-desktop {
-        display: none;
+    article.bd-article > section#optiprofiler {
+        overflow-x: hidden;
     }
 
-    .hero-mobile {
+    .use-card h3 {
+        white-space: normal;
+    }
+
+    .hero-section {
+        padding: 2.25rem 1rem 0.5rem 1rem;
+        margin-left: -1rem;
+        margin-right: -1rem;
+    }
+
+    .hero-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+
+    .hero-kicker {
+        font-size: 0.68rem;
+        line-height: 1.35;
+        max-width: 100%;
+    }
+
+    .hero-title {
+        font-size: clamp(2rem, 9.4vw, 2.55rem);
+        line-height: 1.05;
+        overflow-wrap: normal;
+    }
+
+    .hero-title .gradient-text {
         display: block;
-        width: 140px;
-        margin-left: auto;
-        margin-right: auto;
     }
 
-    .hero-section p {
-        font-size: 1.1rem;
+    .hero-tagline {
+        font-size: 1rem;
+        max-width: none;
+    }
+
+    .hero-actions {
+        gap: 0.65rem;
+    }
+
+    .hero-button {
+        flex: 1 1 100%;
+        padding-inline: 1rem;
+        width: 100%;
+    }
+
+    .hero-panel {
+        width: 100%;
+    }
+
+    .bd-content .hero-panel pre {
+        font-size: 0.74rem;
+        white-space: pre;
+    }
+
+    .hero-metrics {
+        grid-template-columns: 1fr;
+        gap: 0.7rem;
+    }
+
+    .hero-metrics > div {
+        min-height: 0;
     }
 
     .feature-list {
         padding: 0 0.5rem;
+    }
+
+    .section-heading {
+        font-size: 1.4rem;
     }
 }

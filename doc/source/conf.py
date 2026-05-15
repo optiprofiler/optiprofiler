@@ -83,6 +83,12 @@ html_theme_options = {
     'use_issues_button': True,
     'use_download_button': False,
     'max_navbar_depth': 2,
+    'home_page_in_toc': False,
+    'announcement': (
+        'Prefer running in the cloud? Try the hosted platform at '
+        '<a href="https://app.optprof.com" target="_blank" '
+        'rel="noopener noreferrer">app.optprof.com</a> &rarr;'
+    ),
 }
 
 html_title = f'{project} v{version}'

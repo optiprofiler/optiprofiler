@@ -28,7 +28,23 @@ To do this, run:
 
 This will benchmark the two solvers under the default test setting, which means ``'plain'`` feature (see :class:`~optiprofiler.Feature`) and unconstrained problems from the default problem library whose dimension is smaller or equal to 2. It will also return the scores of the two solvers based on the profiles.
 
-There will be a new folder named ``out`` in the current working directory, which contains a subfolder named ``plain_<timestamp>`` with all the detailed results. Additionally, a PDF file named ``summary.pdf`` is generated, summarizing all the performance profiles and data profiles.
+There will be a new folder named ``out`` in the current working directory, which contains a subfolder named ``plain_<timestamp>`` with all the detailed results.
+
+.. figure:: images/py_subfolder_structure.png
+   :width: 80%
+   :align: center
+   :alt: Structure of the plain_<timestamp> subfolder
+
+   Figure 1: Screenshot of the subfolder containing detailed results of the benchmarking run.
+
+Additionally, a PDF file named ``summary.pdf`` is generated, summarizing all the performance profiles and data profiles.
+
+.. figure:: images/py_summary_pdf.jpg
+   :width: 90%
+   :align: center
+   :alt: Summary PDF preview
+
+   Figure 2: Screenshot of the summary PDF file summarizing all the performance profiles and data profiles.
 
 .. _py_example2:
 
