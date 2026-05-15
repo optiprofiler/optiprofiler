@@ -24,11 +24,10 @@ OptiProfiler
 
         <div class="hero-grid">
             <div class="hero-copy">
-                <div class="hero-logo-wrap">
-                    <img src="_static/OP_logo.png" alt="OptiProfiler" class="hero-logo" />
-                </div>
-                <div class="hero-kicker">
-                    Open-source benchmarking for optimization
+                <div class="hero-brand">
+                    <div class="hero-logo-wrap">
+                        <img src="_static/OP_logo.png" alt="OptiProfiler" class="hero-logo" />
+                    </div>
                 </div>
                 <h1 class="hero-title">Benchmark your <span class="gradient-text">optimization solver</span></h1>
                 <p class="hero-tagline">OptiProfiler standardizes solver benchmarking with curated problem libraries, shared interfaces, baseline comparisons, and reproducible performance profiles.</p>

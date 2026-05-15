@@ -40,12 +40,6 @@ html[data-theme="light"] {
     --hero-orb-bg:
         radial-gradient(circle at 50% 35%, rgba(249, 115, 22, 0.24), transparent 45%),
         radial-gradient(circle at 85% 20%, rgba(251, 146, 60, 0.12), transparent 35%);
-    --hero-logo-filter: none;
-    --hero-logo-opacity: 1;
-    --hero-logo-mask-opacity: 0;
-    --hero-logo-mask-color: transparent;
-    --hero-kicker-color: var(--brand-dark);
-    --hero-kicker-bg: color-mix(in srgb, var(--bg-card) 78%, transparent);
     --hero-metric-bg: color-mix(in srgb, var(--bg-card) 86%, transparent);
     --secondary-button-bg: var(--bg-card);
     --secondary-button-border: var(--border);
@@ -96,12 +90,6 @@ html[data-theme="light"] {
         --hero-orb-bg:
             radial-gradient(circle at 50% 35%, rgba(249, 115, 22, 0.20), transparent 45%),
             radial-gradient(circle at 85% 20%, rgba(251, 146, 60, 0.10), transparent 35%);
-        --hero-logo-filter: none;
-        --hero-logo-opacity: 0;
-        --hero-logo-mask-opacity: 0.92;
-        --hero-logo-mask-color: #fafaf9;
-        --hero-kicker-color: var(--brand-light);
-        --hero-kicker-bg: rgba(41, 37, 36, 0.74);
         --hero-metric-bg: rgba(41, 37, 36, 0.76);
         --secondary-button-bg: var(--bg-soft);
         --secondary-button-border: rgba(255, 255, 255, 0.12);
@@ -141,12 +129,6 @@ html[data-theme="dark"] {
     --hero-orb-bg:
         radial-gradient(circle at 50% 35%, rgba(249, 115, 22, 0.20), transparent 45%),
         radial-gradient(circle at 85% 20%, rgba(251, 146, 60, 0.10), transparent 35%);
-    --hero-logo-filter: none;
-    --hero-logo-opacity: 0;
-    --hero-logo-mask-opacity: 0.92;
-    --hero-logo-mask-color: #fafaf9;
-    --hero-kicker-color: var(--brand-light);
-    --hero-kicker-bg: rgba(41, 37, 36, 0.74);
     --hero-metric-bg: rgba(41, 37, 36, 0.76);
     --secondary-button-bg: var(--bg-soft);
     --secondary-button-border: rgba(255, 255, 255, 0.12);
@@ -284,6 +266,12 @@ body,
     animation: op-fade-in 0.6s ease-out both;
 }
 
+.hero-brand {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1.75rem;
+}
+
 .hero-logo-wrap {
     position: relative;
     display: inline-flex;
@@ -291,22 +279,9 @@ body,
     justify-content: center;
     width: 80px;
     height: 80px;
-    margin-bottom: 1.6rem;
+    flex: 0 0 80px;
     border-radius: 999px;
     animation: op-pulse-glow 3s ease-in-out infinite;
-}
-
-.hero-logo-wrap::after {
-    content: "";
-    position: absolute;
-    width: 72px;
-    height: 72px;
-    border-radius: 999px;
-    background: var(--hero-logo-mask-color);
-    opacity: var(--hero-logo-mask-opacity);
-    pointer-events: none;
-    -webkit-mask: url("OP_logo.png") center / contain no-repeat;
-    mask: url("OP_logo.png") center / contain no-repeat;
 }
 
 .hero-logo {
@@ -315,25 +290,7 @@ body,
     height: 72px;
     border-radius: 999px;
     background: transparent !important;
-    filter: var(--hero-logo-filter);
-    opacity: var(--hero-logo-opacity);
     padding: 0 !important;
-}
-
-.hero-kicker {
-    display: inline-flex;
-    align-items: center;
-    margin-bottom: 1.15rem;
-    padding: 0.42rem 0.78rem;
-    border: 1px solid rgba(249, 115, 22, 0.22);
-    border-radius: 999px;
-    background: var(--hero-kicker-bg);
-    color: var(--hero-kicker-color);
-    font-size: 0.78rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    box-shadow: var(--shadow-sm);
 }
 
 .hero-title {
@@ -1145,10 +1102,19 @@ footer a:hover {
         gap: 1.5rem;
     }
 
-    .hero-kicker {
-        font-size: 0.68rem;
-        line-height: 1.35;
-        max-width: 100%;
+    .hero-brand {
+        margin-bottom: 1.4rem;
+    }
+
+    .hero-logo-wrap {
+        width: 68px;
+        height: 68px;
+        flex-basis: 68px;
+    }
+
+    .hero-logo {
+        width: 62px;
+        height: 62px;
     }
 
     .hero-title {
