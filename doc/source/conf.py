@@ -99,6 +99,10 @@ html_css_files = [
     'custom.css',
 ]
 
+html_js_files = [
+    'system-theme.js',
+]
+
 htmlhelp_basename = project
 
 

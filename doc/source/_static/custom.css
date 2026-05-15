@@ -36,6 +36,24 @@ html[data-theme="light"] {
     --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.06);
     --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.08);
 
+    --brand-emphasis: var(--brand-dark);
+    --hero-orb-bg:
+        radial-gradient(circle at 50% 35%, rgba(249, 115, 22, 0.24), transparent 45%),
+        radial-gradient(circle at 85% 20%, rgba(251, 146, 60, 0.12), transparent 35%);
+    --hero-logo-filter: none;
+    --hero-logo-opacity: 1;
+    --hero-logo-mask-opacity: 0;
+    --hero-logo-mask-color: transparent;
+    --hero-kicker-color: var(--brand-dark);
+    --hero-kicker-bg: color-mix(in srgb, var(--bg-card) 78%, transparent);
+    --hero-metric-bg: color-mix(in srgb, var(--bg-card) 86%, transparent);
+    --secondary-button-bg: var(--bg-card);
+    --secondary-button-border: var(--border);
+    --secondary-button-hover-bg: var(--bg-card);
+    --secondary-button-hover-color: var(--brand);
+    --feature-icon-ink: var(--brand);
+    --header-bg: rgba(255, 255, 255, 0.85);
+
     /* Override pydata/book theme primary so all built-in widgets
        (search button, prev/next, in-page links) pick up the brand */
     --pst-color-primary: var(--brand);
@@ -44,6 +62,60 @@ html[data-theme="light"] {
     --pst-color-link-hover: var(--brand);
     --pst-color-inline-code: #ad4f00;
     --pst-color-target: var(--brand-soft);
+    --pst-color-background: var(--bg);
+    --pst-color-on-background: var(--bg-card);
+    --pst-color-surface: var(--bg-soft);
+    --pst-color-text-base: var(--text);
+    --pst-color-text-muted: var(--text-secondary);
+    --pst-color-muted: var(--text-secondary);
+    --pst-color-border: var(--border);
+    --pst-color-shadow: rgba(0, 0, 0, 0.10);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --bg: #0c0a09;             /* stone-950 */
+        --bg-soft: #1c1917;        /* stone-900 */
+        --bg-card: #292524;        /* stone-800 */
+        --bg-code: #1c1917;
+
+        --text: #fafaf9;
+        --text-secondary: #a8a29e; /* stone-400 */
+        --text-tertiary: #78716c;  /* stone-500 */
+
+        --border: #292524;
+        --border-soft: #292524;
+
+        --brand-soft: rgba(249, 115, 22, 0.16);
+
+        --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+        --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
+        --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.55);
+
+        --brand-emphasis: var(--brand-light);
+        --hero-orb-bg:
+            radial-gradient(circle at 50% 35%, rgba(249, 115, 22, 0.20), transparent 45%),
+            radial-gradient(circle at 85% 20%, rgba(251, 146, 60, 0.10), transparent 35%);
+        --hero-logo-filter: none;
+        --hero-logo-opacity: 0;
+        --hero-logo-mask-opacity: 0.92;
+        --hero-logo-mask-color: #fafaf9;
+        --hero-kicker-color: var(--brand-light);
+        --hero-kicker-bg: rgba(41, 37, 36, 0.74);
+        --hero-metric-bg: rgba(41, 37, 36, 0.76);
+        --secondary-button-bg: var(--bg-soft);
+        --secondary-button-border: rgba(255, 255, 255, 0.12);
+        --secondary-button-hover-bg: var(--bg-card);
+        --secondary-button-hover-color: var(--brand-light);
+        --feature-icon-ink: var(--brand-light);
+        --header-bg: rgba(12, 10, 9, 0.85);
+
+        --pst-color-primary-text: #0c0a09;
+        --pst-color-link: var(--brand-light);
+        --pst-color-link-hover: var(--brand);
+        --pst-color-inline-code: #fdba74;
+        --pst-color-shadow: rgba(0, 0, 0, 0.55);
+    }
 }
 
 html[data-theme="dark"] {
@@ -65,11 +137,37 @@ html[data-theme="dark"] {
     --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
     --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.55);
 
+    --brand-emphasis: var(--brand-light);
+    --hero-orb-bg:
+        radial-gradient(circle at 50% 35%, rgba(249, 115, 22, 0.20), transparent 45%),
+        radial-gradient(circle at 85% 20%, rgba(251, 146, 60, 0.10), transparent 35%);
+    --hero-logo-filter: none;
+    --hero-logo-opacity: 0;
+    --hero-logo-mask-opacity: 0.92;
+    --hero-logo-mask-color: #fafaf9;
+    --hero-kicker-color: var(--brand-light);
+    --hero-kicker-bg: rgba(41, 37, 36, 0.74);
+    --hero-metric-bg: rgba(41, 37, 36, 0.76);
+    --secondary-button-bg: var(--bg-soft);
+    --secondary-button-border: rgba(255, 255, 255, 0.12);
+    --secondary-button-hover-bg: var(--bg-card);
+    --secondary-button-hover-color: var(--brand-light);
+    --feature-icon-ink: var(--brand-light);
+    --header-bg: rgba(12, 10, 9, 0.85);
+
     --pst-color-primary: var(--brand);
     --pst-color-primary-text: #0c0a09;
     --pst-color-link: var(--brand-light);
     --pst-color-link-hover: var(--brand);
     --pst-color-inline-code: #fdba74;
+    --pst-color-background: var(--bg);
+    --pst-color-on-background: var(--bg-card);
+    --pst-color-surface: var(--bg-soft);
+    --pst-color-text-base: var(--text);
+    --pst-color-text-muted: var(--text-secondary);
+    --pst-color-muted: var(--text-secondary);
+    --pst-color-border: var(--border);
+    --pst-color-shadow: rgba(0, 0, 0, 0.55);
 }
 
 /* ── Base typography ─────────────────────────────── */
@@ -167,18 +265,10 @@ body,
     width: min(980px, 95vw);
     height: 560px;
     transform: translateX(-50%);
-    background:
-        radial-gradient(circle at 50% 35%, rgba(249, 115, 22, 0.24), transparent 45%),
-        radial-gradient(circle at 85% 20%, rgba(251, 146, 60, 0.12), transparent 35%);
+    background: var(--hero-orb-bg);
     filter: blur(78px);
     z-index: -1;
     pointer-events: none;
-}
-
-html[data-theme="dark"] .hero-section::before {
-    background:
-        radial-gradient(circle at 50% 35%, rgba(249, 115, 22, 0.20), transparent 45%),
-        radial-gradient(circle at 85% 20%, rgba(251, 146, 60, 0.10), transparent 35%);
 }
 
 .hero-grid {
@@ -194,46 +284,56 @@ html[data-theme="dark"] .hero-section::before {
     animation: op-fade-in 0.6s ease-out both;
 }
 
+.hero-logo-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 80px;
+    height: 80px;
+    margin-bottom: 1.6rem;
+    border-radius: 999px;
+    animation: op-pulse-glow 3s ease-in-out infinite;
+}
+
+.hero-logo-wrap::after {
+    content: "";
+    position: absolute;
+    width: 72px;
+    height: 72px;
+    border-radius: 999px;
+    background: var(--hero-logo-mask-color);
+    opacity: var(--hero-logo-mask-opacity);
+    pointer-events: none;
+    -webkit-mask: url("OP_logo.png") center / contain no-repeat;
+    mask: url("OP_logo.png") center / contain no-repeat;
+}
+
+.hero-logo {
+    display: block;
+    width: 72px;
+    height: 72px;
+    border-radius: 999px;
+    background: transparent !important;
+    filter: var(--hero-logo-filter);
+    opacity: var(--hero-logo-opacity);
+    padding: 0 !important;
+}
+
 .hero-kicker {
     display: inline-flex;
     align-items: center;
-    gap: 0.65rem;
     margin-bottom: 1.15rem;
-    padding: 0.36rem 0.72rem 0.36rem 0.42rem;
+    padding: 0.42rem 0.78rem;
     border: 1px solid rgba(249, 115, 22, 0.22);
     border-radius: 999px;
-    background: var(--bg-card);
-    background: color-mix(in srgb, var(--bg-card) 78%, transparent);
-    color: var(--brand-dark);
+    background: var(--hero-kicker-bg);
+    color: var(--hero-kicker-color);
     font-size: 0.78rem;
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
     box-shadow: var(--shadow-sm);
-}
-
-html[data-theme="dark"] .hero-kicker {
-    color: var(--brand-light);
-    background: rgba(41, 37, 36, 0.74);
-}
-
-.hero-logo-mark {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 30px;
-    height: 30px;
-    border-radius: 999px;
-    background: transparent;
-    box-shadow: 0 0 18px rgba(249, 115, 22, 0.18);
-}
-
-.hero-logo-mark img {
-    width: 28px;
-    height: 28px;
-    border-radius: 999px;
-    object-fit: contain;
-    display: block;
 }
 
 .hero-title {
@@ -390,13 +490,8 @@ html[data-theme="dark"] .hero-kicker {
     padding: 1rem;
     border: 1px solid var(--border);
     border-radius: 12px;
-    background: var(--bg-card);
-    background: color-mix(in srgb, var(--bg-card) 86%, transparent);
+    background: var(--hero-metric-bg);
     box-shadow: var(--shadow-sm);
-}
-
-html[data-theme="dark"] .hero-metrics > div {
-    background: rgba(41, 37, 36, 0.76);
 }
 
 .hero-metrics strong,
@@ -416,9 +511,7 @@ html[data-theme="dark"] .hero-metrics > div {
     line-height: 1.45;
 }
 
-/* Legacy (used to be needed for old hero banner) — kept harmless */
-.hero-banner,
-.hero-logo-wrap {
+.hero-banner {
     display: none;
 }
 
@@ -472,19 +565,10 @@ html[data-theme="dark"] .hero-metrics > div {
 .sd-btn-outline-secondary,
 .cta-section .sd-btn-secondary,
 .cta-section .sd-btn-outline-secondary {
-    background-color: var(--bg-card) !important;
-    border-color: var(--border) !important;
+    background-color: var(--secondary-button-bg) !important;
+    border-color: var(--secondary-button-border) !important;
     color: var(--text) !important;
     box-shadow: var(--shadow-sm);
-}
-
-html[data-theme="dark"] .sd-btn-secondary,
-html[data-theme="dark"] .sd-btn-outline-secondary,
-html[data-theme="dark"] .cta-section .sd-btn-secondary,
-html[data-theme="dark"] .cta-section .sd-btn-outline-secondary {
-    background-color: var(--bg-soft) !important;
-    border-color: rgba(255, 255, 255, 0.12) !important;
-    color: var(--text) !important;
 }
 
 .sd-btn-secondary:hover,
@@ -492,15 +576,9 @@ html[data-theme="dark"] .cta-section .sd-btn-outline-secondary {
 .cta-section .sd-btn-secondary:hover,
 .cta-section .sd-btn-outline-secondary:hover {
     border-color: var(--brand) !important;
-    color: var(--brand) !important;
-    background-color: var(--bg-card) !important;
+    color: var(--secondary-button-hover-color) !important;
+    background-color: var(--secondary-button-hover-bg) !important;
     box-shadow: var(--shadow-md);
-}
-
-html[data-theme="dark"] .sd-btn-secondary:hover,
-html[data-theme="dark"] .sd-btn-outline-secondary:hover {
-    background-color: var(--bg-card) !important;
-    color: var(--brand-light) !important;
 }
 
 /* ── Section heading ─────────────────────────────── */
@@ -519,7 +597,7 @@ html[data-theme="dark"] .sd-btn-outline-secondary:hover {
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.14em;
-    color: var(--brand);
+    color: var(--feature-icon-ink);
     margin-bottom: 0.4rem;
 }
 
@@ -566,11 +644,6 @@ html[data-theme="dark"] .sd-btn-outline-secondary:hover {
         transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
-html[data-theme="dark"] .feature-icon {
-    color: var(--brand-light);
-    border-color: rgba(249, 115, 22, 0.30);
-}
-
 .feature-icon svg {
     width: 22px;
     height: 22px;
@@ -601,7 +674,7 @@ html[data-theme="dark"] .feature-icon {
 }
 
 .feature-desc a {
-    color: var(--brand-dark);
+    color: var(--brand-emphasis);
     text-decoration: underline;
     text-underline-offset: 2px;
 }
@@ -715,7 +788,7 @@ html[data-theme="dark"] .feature-icon {
 }
 
 .use-card-cta a:hover {
-    color: var(--brand-dark) !important;
+    color: var(--brand-emphasis) !important;
 }
 
 .use-card-primary {
@@ -775,13 +848,9 @@ html[data-theme="dark"] .feature-icon {
    Header / sidebar polish
    ===================================================== */
 .bd-header {
-    background: rgba(255, 255, 255, 0.85) !important;
+    background: var(--header-bg) !important;
     backdrop-filter: saturate(180%) blur(12px);
     border-bottom: 1px solid var(--border);
-}
-
-html[data-theme="dark"] .bd-header {
-    background: rgba(12, 10, 9, 0.85) !important;
 }
 
 .bd-header .navbar-brand {
@@ -801,30 +870,21 @@ html[data-theme="dark"] .bd-header {
 
 .bd-sidebar-primary a.nav-link:hover {
     background: var(--brand-soft);
-    color: var(--brand-dark);
+    color: var(--brand-emphasis);
 }
 
 .bd-sidebar-primary a.nav-link.active,
 .bd-sidebar-primary a.current {
-    color: var(--brand-dark) !important;
+    color: var(--brand-emphasis) !important;
     font-weight: 600;
-}
-
-html[data-theme="dark"] .bd-sidebar-primary a.nav-link.active,
-html[data-theme="dark"] .bd-sidebar-primary a.current {
-    color: var(--brand-light) !important;
 }
 
 /* In-page TOC active marker */
 .bd-toc-nav .active > a,
 .toc-entry > .active {
-    color: var(--brand-dark) !important;
+    color: var(--brand-emphasis) !important;
     border-left-color: var(--brand) !important;
     font-weight: 600;
-}
-
-html[data-theme="dark"] .bd-toc-nav .active > a {
-    color: var(--brand-light) !important;
 }
 
 /* Repository / issues / etc. icon buttons in book theme top bar */
@@ -915,12 +975,7 @@ code.docutils {
 .bd-content .admonition.note > .admonition-title,
 .bd-content .admonition.seealso > .admonition-title {
     background: var(--brand-soft);
-    color: var(--brand-dark);
-}
-
-html[data-theme="dark"] .bd-content .admonition.note > .admonition-title,
-html[data-theme="dark"] .bd-content .admonition.seealso > .admonition-title {
-    color: var(--brand-light);
+    color: var(--brand-emphasis);
 }
 
 /* =====================================================
@@ -983,24 +1038,14 @@ html[data-theme="dark"] .bd-content .admonition.seealso > .admonition-title {
 
 .bd-content dl.py em.property,
 .bd-content dl.py span.pre {
-    color: var(--brand-dark);
-}
-
-html[data-theme="dark"] .bd-content dl.py em.property,
-html[data-theme="dark"] .bd-content dl.py span.pre {
-    color: var(--brand-light);
+    color: var(--brand-emphasis);
 }
 
 /* numpydoc field lists (Parameters / Returns / etc.) */
 .bd-content dl.field-list > dt,
 .bd-content dl.simple > dt {
-    color: var(--brand-dark);
+    color: var(--brand-emphasis);
     font-weight: 700;
-}
-
-html[data-theme="dark"] .bd-content dl.field-list > dt,
-html[data-theme="dark"] .bd-content dl.simple > dt {
-    color: var(--brand-light);
 }
 
 .bd-content dl.field-list > dt::after {

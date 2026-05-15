@@ -26,6 +26,7 @@ aub
 autofunction
 autouse
 axs
+backref
 BARDNE
 BEALE
 BEALENE
@@ -70,7 +71,9 @@ codecov
 codecoverage
 codeql
 colororder
+Consolas
 COOLHANS
+copybtn
 CREATESTAMP
 cstr
 cta
@@ -79,6 +82,7 @@ CUBENE
 cubx
 cumminhist
 cunxin
+curated
 customloader
 customnames
 cuteset
@@ -98,8 +102,10 @@ DENSCHNDNE
 DENSCHNFNE
 depsc
 DEVGLA
+DFO
 DIAMON
 DMN
+docutils
 doi
 dpdf
 dpi
@@ -183,6 +189,7 @@ gitmodules
 gmail
 gobjects
 GOTTFR
+grayscale
 GULFNE
 HAHN
 HATFLDANE
@@ -201,6 +208,7 @@ hceqx
 hcub
 hcubx
 HDF
+headerlink
 HELIXNE
 hess
 hgweb
@@ -276,6 +284,7 @@ jcubx
 JHx
 joblib
 keepdims
+keyframes
 KOEBHELBNE
 KOWOSBNE
 KSS
@@ -291,6 +300,8 @@ libmwhgweb
 lincoa
 lincons
 Linealy
+linecap
+linejoin
 linewidth
 linkprop
 linux
@@ -298,8 +309,10 @@ LINVERSENE
 listdir
 LOADCUTEST
 LOADRESULTS
+longtable
 lsqlin
 lsqr
+lucide
 LUKSAN
 macup
 MANCINONE
@@ -355,6 +368,7 @@ mnlcon
 mnlcons
 MODBEALENE
 movefile
+moz
 mpj
 mpjlib
 mpjload
@@ -374,6 +388,7 @@ nargin
 NASGU
 nelder
 neq
+Neue
 newuoa
 nexttile
 nfailed
@@ -410,6 +425,7 @@ optprof
 OSBORNE
 OSCIGRNE
 OSCIPANE
+osx
 OTHEROPTIONKEY
 oztoprak
 palettename
@@ -434,6 +450,7 @@ plibs
 pname
 polyu
 posixtime
+powell
 POWELLBS
 POWELLSQ
 POWERSUMNE
@@ -443,6 +460,7 @@ PROCESSRESULTS
 PROFILEOPTIONKEY
 ptype
 pycutest
+pydata
 pyo
 pypdf
 pythonapi
@@ -457,6 +475,7 @@ repmat
 rgba
 rmfield
 rmpath
+Roboto
 ROSENBR
 rosenbrock
 ROSSIMP
@@ -467,6 +486,8 @@ savepath
 Screenshot
 SCURLY
 secup
+seealso
+Segoe
 SEMICN
 SEMICON
 semilogx
@@ -487,6 +508,7 @@ sphinxext
 sprintf
 Sqeeze
 sqp
+srgb
 SSBRYBNDNE
 sscanf
 SSINE
@@ -506,6 +528,7 @@ Subfolders
 subfoler
 svg
 sysu
+tagline
 TESTOPTIPROFILER
 testsuite
 textscan

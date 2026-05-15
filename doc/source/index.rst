@@ -24,10 +24,10 @@ OptiProfiler
 
         <div class="hero-grid">
             <div class="hero-copy">
+                <div class="hero-logo-wrap">
+                    <img src="_static/OP_logo.png" alt="OptiProfiler" class="hero-logo" />
+                </div>
                 <div class="hero-kicker">
-                    <span class="hero-logo-mark">
-                        <img src="_static/OP_logo_mark.png" alt="" />
-                    </span>
                     Open-source benchmarking for optimization
                 </div>
                 <h1 class="hero-title">Benchmark your <span class="gradient-text">optimization solver</span></h1>
