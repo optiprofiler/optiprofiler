@@ -898,6 +898,29 @@ body,
     color: var(--brand);
 }
 
+/* Theme toggle: show the action, not the current state.
+   Light page shows a moon (switch to dark); dark page shows a sun
+   (switch to light). Auto remains the default behavior, not a visible state. */
+.theme-switch[data-mode="auto"] {
+    display: none !important;
+}
+
+html[data-theme="light"] .theme-switch[data-mode="light"] {
+    display: none !important;
+}
+
+html[data-theme="light"] .theme-switch[data-mode="dark"] {
+    display: inline-block !important;
+}
+
+html[data-theme="dark"] .theme-switch[data-mode="dark"] {
+    display: none !important;
+}
+
+html[data-theme="dark"] .theme-switch[data-mode="light"] {
+    display: inline-block !important;
+}
+
 /* =====================================================
    Code blocks — soft mac-style window
    ===================================================== */

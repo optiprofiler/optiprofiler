@@ -62,15 +62,15 @@ OptiProfiler
         <div class="hero-metrics" aria-label="OptiProfiler capabilities">
             <div>
                 <strong>Python + MATLAB</strong>
-                <span>Benchmark solvers from either interface</span>
+                <span>Benchmark solvers through either interface with the same workflow</span>
             </div>
             <div>
-                <strong>DFO test suites</strong>
-                <span>CUTEst, S2MPJ, and custom problems</span>
+                <strong>Problem libraries</strong>
+                <span>Use CUTEst, S2MPJ, custom problems, and diverse features</span>
             </div>
             <div>
                 <strong>Reproducible outputs</strong>
-                <span>Profiles, scores, logs, and result files</span>
+                <span>Export profiles, scores, logs, and result files for reporting</span>
             </div>
         </div>
 
