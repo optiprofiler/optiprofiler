@@ -6,11 +6,17 @@ Installation
 Python
 ------
 
-Install OptiProfiler via pip:
+Install OptiProfiler from PyPI:
 
 .. code-block:: bash
 
     pip install optiprofiler
+
+You can also install OptiProfiler from conda-forge:
+
+.. code-block:: bash
+
+    conda install conda-forge::optiprofiler
 
 .. note::
 
