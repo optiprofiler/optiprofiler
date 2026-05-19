@@ -92,7 +92,25 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
             % that is solver-independent.
             x = featured_problem.x0;
             warning('off', 'all');
-            time_start_solver_run = tic;
+            % Record the START timestamp as a POSIX second (double).
+            % We deliberately avoid tic/toc here because the
+            % underlying high-resolution counter that tic/toc reads
+            % can occasionally appear to step backward on some
+            % systems (observed on Linux with OptiProfiler; the
+            % originally documented case was AMD/Windows). tic/toc
+            % subtracts two uint64 ticks MODULO 2^64, so any tiny
+            % backward step produces an elapsed time near
+            % 2^64/1e6 ~ 1.8e13 s. By storing the start and end as
+            % plain doubles and subtracting them directly, the
+            % result is always a regular IEEE double difference; a
+            % non-monotonic event surfaces as a small NEGATIVE
+            % number, which we can detect and clamp. The MathWorks
+            % Support Team accepted answer at MathWorks Answers
+            % #97194 describes the root cause (a non-monotonic CPU
+            % cycle counter used as the time source) which is
+            % platform-agnostic:
+            %   https://www.mathworks.com/matlabcentral/answers/97194
+            time_start_posix = posixtime(datetime('now'));
             try
                 try
                     if profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) == 2
@@ -142,7 +160,43 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
                     solver_output_fallbacks(i_solver, i_run) = true;
                 end
 
-                computation_time(i_solver, i_run) = toc(time_start_solver_run);
+                % Read the END timestamp (POSIX second, double) and
+                % take the straightforward double difference. Both
+                % endpoints are kept as plain doubles, so the result
+                % is a regular IEEE difference: a non-monotonic clock
+                % shows up as a small negative number, not as a
+                % uint64 wrap-around (~2^64/1e6 s).
+                time_end_posix = posixtime(datetime('now'));
+                elapsed_s = time_end_posix - time_start_posix;
+
+                if elapsed_s < 0
+                    % Backward clock event between the two POSIX
+                    % reads (NTP step, suspend/resume, or per-core
+                    % cycle-counter desynchronization). Warn on a
+                    % single line with both raw timestamps + the
+                    % MathWorks #97194 link for traceability, and
+                    % clamp the recorded duration to 0.
+                    if ~profile_options.(ProfileOptionKey.SILENT.value)
+                        warning('OptiProfiler:NonMonotonicClock', ...
+                            'Negative elapsed time for %s with %s (run %d/%d): t_start=%.6f t_end=%.6f diff=%.6g s (clamped to 0; see https://www.mathworks.com/matlabcentral/answers/97194).', ...
+                            problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), ...
+                            time_start_posix, time_end_posix, elapsed_s);
+                    end
+                    elapsed_s = 0;
+                elseif ~isfinite(elapsed_s) || elapsed_s > 1e7
+                    % Defensive upper bound: NTP jumps forward,
+                    % manual clock changes, etc. >1e7 s (~115 days)
+                    % is far beyond any realistic single solver run.
+                    % Record NaN so downstream omitnan sums skip it.
+                    if ~profile_options.(ProfileOptionKey.SILENT.value)
+                        warning('OptiProfiler:NonMonotonicClock', ...
+                            'Implausibly large elapsed time %.6g s for %s with %s (run %d/%d): t_start=%.6f t_end=%.6f (recorded as NaN; see https://www.mathworks.com/matlabcentral/answers/97194).', ...
+                            elapsed_s, problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), ...
+                            time_start_posix, time_end_posix);
+                    end
+                    elapsed_s = NaN;
+                end
+                computation_time(i_solver, i_run) = elapsed_s;
 
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 % It is very important to transform the solution back to the one related to the original problem. (Note that the problem we solve has the objective function f(A @ x + b). Thus, if x is the output solution, then A @ x + b is the solution of the original problem.)

@@ -2010,7 +2010,46 @@ def _solve_one_problem(solvers, problem, feature, problem_name, len_problem_name
                         x = featured_problem.x0
                         solver_output_fallbacks[i_solver, i_run] = True
 
-                    computation_time[i_solver, i_run] = time.monotonic() - time_start_solver_run
+                    # Record the END timestamp explicitly and take the
+                    # straightforward float difference. Storing both
+                    # endpoints (as opposed to wrapping a tic/toc-style
+                    # opaque handle) means the elapsed time is just an
+                    # IEEE-754 subtraction and the raw start / end
+                    # values are available for forensics if either of
+                    # the defensive branches below ever fires.
+                    #
+                    # ``time.monotonic`` is guaranteed by PEP 418 not
+                    # to go backward (see
+                    # https://docs.python.org/3/library/time.html#time.monotonic
+                    # and https://peps.python.org/pep-0418/ ), so under
+                    # normal operation neither branch below is reached.
+                    # We keep them as defensive guards against
+                    # pathological cases (custom solver tampering with
+                    # the timer, mocked time during tests, etc.) and
+                    # to keep the control flow in lockstep with the
+                    # MATLAB implementation in ``solveOneProblem.m``.
+                    time_end_monotonic = time.monotonic()
+                    elapsed = time_end_monotonic - time_start_solver_run
+
+                    if elapsed < 0:
+                        if not profile_options[ProfileOption.SILENT]:
+                            logger.warning(
+                                f'Negative elapsed time for {problem_name} with {solver_names[i_solver]} '
+                                f'(run {i_run + 1}/{real_n_runs[i_solver]}): '
+                                f't_start={time_start_solver_run:.6f} t_end={time_end_monotonic:.6f} '
+                                f'diff={elapsed:.6g} s (clamped to 0; time.monotonic violates PEP 418).'
+                            )
+                        elapsed = 0.0
+                    elif not np.isfinite(elapsed) or elapsed > 1e7:
+                        if not profile_options[ProfileOption.SILENT]:
+                            logger.warning(
+                                f'Implausibly large elapsed time {elapsed:.6g} s for {problem_name} with '
+                                f'{solver_names[i_solver]} (run {i_run + 1}/{real_n_runs[i_solver]}): '
+                                f't_start={time_start_solver_run:.6f} t_end={time_end_monotonic:.6f} '
+                                '(recorded as NaN; likely a timer glitch, not a real run).'
+                            )
+                        elapsed = np.nan
+                    computation_time[i_solver, i_run] = elapsed
 
                     # It is very important to transform the solution back to the one related to the original problem. (Note that the problem we solve has the objective function f(A @ x + b). Thus, if x is the output solution, then A @ x + b is the solution of the original problem.)
                     A, b = featured_problem._feature.modifier_affine(featured_problem._seed, featured_problem._problem)[:2]
