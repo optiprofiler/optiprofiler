@@ -136,8 +136,10 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %           varphi(x) = Inf                         if v(x) > v2
 %         where v1 = min(0.01, 1e-10 * max(1, v0)), v2 = max(0.1, 2 * v0),
 %         and v0 is the maximum constraint violation at the initial guess.
-%       - n_jobs: the number of parallel jobs to run the test. Default is the
-%         default number of workers in the default local cluster.
+%       - n_jobs: the number of parallel jobs to run the test. Default is a
+%         conservative number of workers, chosen as about half of the
+%         available workers (at least 2 when more than one worker is
+%         available).
 %       - normalized_scores: whether to normalize the scores of the solvers by
 %         the maximum score of the solvers. Default is true.
 %       - project_x0: whether to project the initial point to the feasible set.
@@ -777,9 +779,10 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                 [~, script_name, script_ext] = fileparts(calling_script.file);
                 addToReadme(path_readme_log, [script_name, script_ext], 'File, the script or function that calls `benchmark` function.');
             end
-        catch
+        catch ME
             if ~profile_options.(ProfileOptionKey.SILENT.value)
                 fprintf("\nINFO: Failed to copy the script or function that calls `benchmark` function to the log directory.\n");
+                fprintf("INFO: Error message: %s\n", shortenMessageForLog(ME.message));
             end
         end
     end
@@ -1776,5 +1779,17 @@ function profile_scores = computeScores(curves, profile_options)
         max_scores = max(profile_scores, [], 1);
         max_scores(max_scores == 0) = 1;
         profile_scores = profile_scores ./ max_scores;
+    end
+end
+
+function short_message = shortenMessageForLog(message)
+    % Shorten an error message for log output.
+
+    max_length = 180;
+    short_message = strtrim(regexprep(message, '\s+', ' '));
+    if isempty(short_message)
+        short_message = 'Unknown error.';
+    elseif numel(short_message) > max_length
+        short_message = [short_message(1:max_length-3), '...'];
     end
 end

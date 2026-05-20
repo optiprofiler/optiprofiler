@@ -63,6 +63,11 @@ You can also add options to the benchmark function. For example, if you want to 
 
 This will create the corresponding folders ``out/noisy_<timestamp>`` and files as in :ref:`Example 1 <example1>`. More details on the options can be found in the :ref:`benchmark <matbenchmark>` function documentation.
 
+By default, **n_jobs** is set conservatively to about half of the available
+workers instead of all workers. For the most reproducible timing experiments,
+set ``options.n_jobs`` explicitly, for example ``options.n_jobs = 1`` for
+sequential runs.
+
 
 Example 3: useful option **load**
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -108,7 +108,7 @@ Options should be specified in a struct. The following are the available fields 
 
     where :math:`v_1 = \min(0.01,\; 10^{-10} \max(1, v_0))`, :math:`v_2 = \max(0.1,\; 2v_0)`, and :math:`v_0` is the initial maximum constraint violation.
 
-  - **n_jobs**: the number of parallel jobs to run the test. Default is the default number of workers in the default local cluster.
+  - **n_jobs**: the number of parallel jobs to run the test. Default is a conservative number of workers, chosen as about half of the available workers (at least 2 when more than one worker is available).
   
   - **normalized_scores**: whether to normalize the scores of the solvers by the maximum score of the solvers. Default is ``true``.
 

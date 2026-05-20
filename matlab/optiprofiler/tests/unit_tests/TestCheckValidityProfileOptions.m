@@ -1,5 +1,60 @@
 classdef TestCheckValidityProfileOptions < matlab.unittest.TestCase
+    properties (Access = private)
+        CurrentDirectory
+    end
+
+    methods (TestMethodSetup)
+
+        function goToPrivateFolder(testCase)
+            testCase.CurrentDirectory = pwd;
+            test_dir = fileparts(mfilename('fullpath'));
+            source_dir = fullfile(test_dir, '../../src');
+            addpath(source_dir);
+            cd(fullfile(source_dir, 'private'));
+        end
+
+    end
+
+    methods (TestMethodTeardown)
+
+        function restoreFolder(testCase)
+            cd(testCase.CurrentDirectory);
+        end
+
+    end
+
     methods (Test)
+
+        function testDefaultNJobs(testCase)
+            solvers = {@fminsearch, @fminunc};
+            feature = Feature('plain');
+            options = struct();
+            options = checkValidityProfileOptions(solvers, options);
+            options = getDefaultProfileOptions(solvers, feature, options);
+
+            if exist('parcluster', 'file') == 2
+                if isempty(gcp('nocreate'))
+                    myCluster = parcluster();
+                else
+                    myCluster = gcp('nocreate');
+                end
+                expected_n_jobs = 1;
+                if myCluster.NumWorkers > 1
+                    expected_n_jobs = max(2, floor(myCluster.NumWorkers / 2));
+                end
+            else
+                expected_n_jobs = 1;
+            end
+
+            testCase.verifyEqual(options.n_jobs, expected_n_jobs);
+        end
+
+        function testConservativeDefaultNJobs(testCase)
+            testCase.verifyEqual(getConservativeDefaultNJobs(1), 1);
+            testCase.verifyEqual(getConservativeDefaultNJobs(2), 2);
+            testCase.verifyEqual(getConservativeDefaultNJobs(3), 2);
+            testCase.verifyEqual(getConservativeDefaultNJobs(8), 4);
+        end
 
         function testErrors(testCase)
 

@@ -67,6 +67,10 @@ You can also add options to the benchmark function. For example, if you want to 
 
 This will create the corresponding folders ``out/noisy_<timestamp>`` and files as in :ref:`Example 1 <py_example1>`. More details on the options can be found in the :func:`~optiprofiler.benchmark` function documentation.
 
+By default, ``n_jobs`` is set conservatively to about half of the available
+workers instead of all workers. For the most reproducible timing experiments,
+set ``n_jobs`` explicitly, for example ``n_jobs=1`` for sequential runs.
+
 .. _py_example3:
 
 Example 3: useful option **load**

@@ -10,6 +10,7 @@ from optiprofiler.profile_utils import (
     _default_merit,
     _default_score_fun,
     _default_score_weight_fun,
+    _get_conservative_default_n_jobs,
     _get_default_feature_stamp,
     add_to_readme,
     check_validity_problem_options,
@@ -510,6 +511,7 @@ class TestGetDefaultProfileOptions:
         solvers = [self._dummy_solver]
         feature = Feature('plain')
         opts = get_default_profile_options(solvers, feature, {})
+        assert opts[ProfileOption.N_JOBS.value] == _get_conservative_default_n_jobs()
         assert opts[ProfileOption.SEED.value] == 0
         assert opts[ProfileOption.BENCHMARK_ID.value] == 'out'
         assert opts[ProfileOption.MAX_TOL_ORDER.value] == 10
@@ -527,6 +529,14 @@ class TestGetDefaultProfileOptions:
         feature = Feature('plain')
         opts = get_default_profile_options(solvers, feature, {})
         assert opts[ProfileOption.SOLVER_NAMES.value] == ['my_solver']
+
+    @pytest.mark.parametrize(
+        ('n_workers', 'expected_n_jobs'),
+        [(None, 1), (1, 1), (2, 2), (3, 2), (8, 4)],
+    )
+    def test_conservative_default_n_jobs(self, monkeypatch, n_workers, expected_n_jobs):
+        monkeypatch.setattr(os, 'cpu_count', lambda: n_workers)
+        assert _get_conservative_default_n_jobs() == expected_n_jobs
 
 
 class TestDefaultMerit:

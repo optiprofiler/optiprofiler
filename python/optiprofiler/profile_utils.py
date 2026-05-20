@@ -11,8 +11,14 @@ from pypdf import PdfWriter
 from .utils import FeatureName, ProfileOption, FeatureOption, ProblemOption, get_logger
 
 
-
-
+def _get_conservative_default_n_jobs():
+    """
+    Get a conservative default number of parallel jobs.
+    """
+    n_workers = os.cpu_count() or 1
+    if n_workers <= 1:
+        return 1
+    return max(2, n_workers // 2)
 
 
 def check_validity_problem_options(problem_options):
@@ -515,7 +521,8 @@ def get_default_profile_options(solvers, feature, profile_options):
     """
     Get the default profile options.
     """
-    profile_options.setdefault(ProfileOption.N_JOBS.value, os.cpu_count() or 1)
+    # Use a conservative default instead of all available workers.
+    profile_options.setdefault(ProfileOption.N_JOBS.value, _get_conservative_default_n_jobs())
     profile_options.setdefault(ProfileOption.SEED.value, 0)
     profile_options.setdefault(ProfileOption.BENCHMARK_ID.value, 'out')
     if solvers is not None:

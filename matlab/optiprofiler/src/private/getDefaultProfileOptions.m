@@ -15,7 +15,7 @@ function profile_options = getDefaultProfileOptions(solvers, feature, profile_op
     end
 
     if ~isfield(profile_options, ProfileOptionKey.N_JOBS.value)
-        profile_options.(ProfileOptionKey.N_JOBS.value) = n_workers;
+        profile_options.(ProfileOptionKey.N_JOBS.value) = getConservativeDefaultNJobs(n_workers);
     end
     if ~isfield(profile_options, ProfileOptionKey.SEED.value)
         profile_options.(ProfileOptionKey.SEED.value) = 0;

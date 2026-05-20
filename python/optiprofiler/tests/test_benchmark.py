@@ -2,6 +2,7 @@
 import os
 import shutil
 import tempfile
+from unittest.mock import patch
 
 import matplotlib
 matplotlib.use('Agg')
@@ -228,6 +229,28 @@ class TestBenchmarkErrors:
     def test_solvers_not_callable(self):
         with pytest.raises(TypeError):
             benchmark(['not_callable', 'also_not_callable'])
+
+    def test_copy_failure_logs_reason(self, capsys):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch('optiprofiler.profiles.shutil.copy2', side_effect=OSError('copy failed for testing')):
+                benchmark(
+                    [simple_solver_1, simple_solver_2],
+                    feature_name='plain',
+                    plibs=['s2mpj'],
+                    ptype='u',
+                    mindim=2,
+                    maxdim=2,
+                    max_eval_factor=10,
+                    benchmark_id='test',
+                    savepath=tmpdir,
+                    n_jobs=1,
+                    silent=False,
+                    draw_hist_plots='none',
+                    problem_names=['ROSENBR'],
+                )
+        captured = capsys.readouterr()
+        assert 'Failed to copy the script or function that calls `benchmark` function to the log directory.' in captured.out
+        assert 'Error message: copy failed for testing' in captured.out
 
 
 class TestBenchmarkOptions:

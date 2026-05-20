@@ -32,6 +32,18 @@ from .profile_utils import check_validity_problem_options, check_validity_profil
 from .plotting import draw_hist, set_profile_context, format_float_scientific_latex, draw_profiles
 
 
+def _shorten_log_message(message: object, max_length: int = 180) -> str:
+    """
+    Shorten an exception message for log output.
+    """
+    short_message = ' '.join(str(message).split()).strip()
+    if not short_message:
+        return 'Unknown error.'
+    if len(short_message) > max_length:
+        return short_message[: max_length - 3] + '...'
+    return short_message
+
+
 def benchmark(
     solvers: list[callable] | None = None,
     /,
@@ -292,8 +304,10 @@ def benchmark(
         where v1 = min(0.01, 1e-10 * max(1, v0)), v2 = max(0.1, 2 * v0),
         and v0 is the maximum constraint violation at the initial guess.
     n_jobs : int, optional
-        The number of parallel jobs to run the test. Default is the
-        default number of workers in the default local cluster.
+        The number of parallel jobs to run the test. Default is a
+        conservative number of workers, chosen as about half of the
+        available workers (at least 2 when more than one worker is
+        available).
     normalized_scores : bool, optional
         Whether to normalize the scores of the solvers by
         the maximum score of the solvers. Default is True.
@@ -822,9 +836,10 @@ def benchmark(
                 if not profile_options[ProfileOption.SILENT]:
                     logger.info(f'The script or function that calls `benchmark` function is copied to:')
                     logger.info(f'{path_log}')
-        except Exception:
+        except Exception as exc:
             if not profile_options[ProfileOption.SILENT]:
                 logger.warning(f'Failed to copy the script or function that calls `benchmark` function to the log directory.')
+                logger.warning(f'Error message: {_shorten_log_message(exc)}')
 
     # Create the directories for the performance profiles, data profiles, and log-ratio profiles.
     if not profile_options[ProfileOption.SCORE_ONLY] and 'problem' not in locals():
