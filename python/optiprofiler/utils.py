@@ -3,6 +3,7 @@ from logging.handlers import QueueListener, QueueHandler
 import os
 import platform
 import sys
+import textwrap
 from enum import Enum
 import multiprocessing as mp
 from importlib.metadata import PackageNotFoundError, version
@@ -134,6 +135,96 @@ class ProblemError(Exception):
         super().__init__(self.message)
 
 
+class WrappedLogFormatter(logging.Formatter):
+    """
+    Format log messages with controlled line width.
+
+    INFO and WARNING records are wrapped to keep each line within a
+    conservative width. ERROR and CRITICAL records are shortened to a
+    fixed maximum length, which keeps exception logs compact while still
+    showing the key part of the message.
+    """
+
+    def __init__(self, line_width=100, error_max_length=180):
+        super().__init__()
+        self._line_width = line_width
+        self._error_max_length = error_max_length
+
+    def format(self, record):
+        message = normalize_log_message(record.getMessage())
+        if not message:
+            return ''
+
+        if record.levelno >= logging.ERROR:
+            prefix = f'[{record.levelname:<8}] '
+            max_body_length = min(self._error_max_length, max(20, self._line_width - len(prefix)))
+            message = shorten_log_message(message, max_body_length)
+            return prefix + message
+        return format_log_message(record.levelname, message, self._line_width)
+
+
+def normalize_log_message(message: object) -> str:
+    """
+    Normalize a log message by collapsing whitespace.
+    """
+    return ' '.join(str(message).split()).strip()
+
+
+def wrap_log_message(message: object, width: int):
+    """
+    Wrap a message body without adding a log-level prefix.
+    """
+    message = normalize_log_message(message)
+    if not message:
+        return ['']
+    wrapper = textwrap.TextWrapper(
+        width=max(20, width),
+        break_long_words=True,
+        break_on_hyphens=False,
+        replace_whitespace=True,
+        drop_whitespace=True,
+    )
+    return wrapper.wrap(message) or ['']
+
+
+def format_log_message(level: str, message: object, line_width: int = 100) -> str:
+    """
+    Format a message with OptiProfiler's log prefix and wrapping.
+    """
+    message = normalize_log_message(message)
+    if not message:
+        return ''
+    prefix = f'[{str(level).upper():<8}] '
+    message_width = max(20, line_width - len(prefix))
+    wrapped = wrap_log_message(message, message_width)
+    continuation_prefix = ' ' * len(prefix)
+    return '\n'.join(
+        (prefix if i == 0 else continuation_prefix) + line
+        for i, line in enumerate(wrapped)
+    )
+
+
+def print_log_message(level: str, message: object, line_width: int = 100) -> None:
+    """
+    Print an OptiProfiler-formatted log message.
+    """
+    formatted = format_log_message(level, message, line_width)
+    if formatted:
+        print(formatted)
+
+
+def shorten_log_message(message: object, max_length: int = 180) -> str:
+    """
+    Shorten an exception message for log output.
+    """
+    short_message = normalize_log_message(message)
+    if not short_message:
+        return 'Unknown error.'
+    if len(short_message) > max_length:
+        return short_message[: max_length - 3] + '...'
+    return short_message
+
+
 def show_versions():
     """
     Display useful system and dependency information.
@@ -190,7 +281,7 @@ def setup_main_process_logging(log_file=None, level=logging.INFO):
     root.handlers[:] = []
     root.setLevel(level)
 
-    fmt = logging.Formatter('[%(levelname)-8s] %(message)s')
+    fmt = WrappedLogFormatter(line_width=100, error_max_length=180)
     console = logging.StreamHandler(sys.stdout)
     console.setFormatter(fmt)
     handlers = [console]

@@ -585,7 +585,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     any_solver_isrand = isfield(profile_options, ProfileOptionKey.SOLVER_ISRAND.value) && any(profile_options.(ProfileOptionKey.SOLVER_ISRAND.value));
     if ~isfield(feature_options, FeatureOptionKey.N_RUNS.value) && any_solver_isrand && ~is_load
         if ~isfield(profile_options, ProfileOptionKey.SILENT.value) || ~profile_options.(ProfileOptionKey.SILENT.value)
-            fprintf("\nINFO: We set `n_runs` to 5 since it is not specified and at least one solver is randomized.\n");
+            fprintf('\n');
+            printOptiProfilerMessage('INFO', 'We set `n_runs` to 5 since it is not specified and at least one solver is randomized.');
         end
         feature_options.(FeatureOptionKey.N_RUNS.value) = 5;
     end
@@ -708,9 +709,10 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             fprintf(fid, '%s', time_stamp);
             fclose(fid);
             addToReadme(path_readme_log, ['time_stamp_', time_stamp, '.txt'], 'File, recording the time stamp of the current experiment.');
-        catch
+        catch ME
             if ~profile_options.(ProfileOptionKey.SILENT.value)
-                fprintf("\nINFO: Failed to create the time_stamp file for folder '%s'.\n", path_log);
+                printOptiProfilerMessage('INFO', sprintf("Failed to create the time_stamp file for folder '%s'.", path_log));
+                printOptiProfilerMessage('INFO', sprintf('Error message: %s', shortenMessageForLog(ME.message)));
             end
         end
     end
@@ -740,9 +742,10 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                 save(fullfile(path_log, 'options_refined.mat'), 'options_refined');
                 addToReadme(path_readme_log, 'options_refined.mat', 'File, storing the options refined by OptiProfiler for the current experiment.');
             end
-        catch
+        catch ME
             if ~profile_options.(ProfileOptionKey.SILENT.value)
-                fprintf("\nINFO: Failed to save the options of the current experiment.\n");
+                printOptiProfilerMessage('INFO', 'Failed to save the options of the current experiment.');
+                printOptiProfilerMessage('INFO', sprintf('Error message: %s', shortenMessageForLog(ME.message)));
             end
         end
         log_file = fullfile(path_log, 'log.txt');
@@ -760,9 +763,10 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                 addToReadme(path_readme_feature, 'history_plots_summary.pdf', 'File, the summary PDF of history plots for all problems.');
             end
             addToReadme(path_readme_feature, 'test_log', 'Folder, containing log files and other useful experimental data.');
-        catch
+        catch ME
             if ~profile_options.(ProfileOptionKey.SILENT.value)
-                fprintf("\nINFO: Failed to create the README.txt file for folder '%s'.\n", path_stamp);
+                printOptiProfilerMessage('INFO', sprintf("Failed to create the README.txt file for folder '%s'.", path_stamp));
+                printOptiProfilerMessage('INFO', sprintf('Error message: %s', shortenMessageForLog(ME.message)));
             end
         end
     end
@@ -774,15 +778,16 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             if ~isempty(calling_script)
                 copyfile(calling_script.file, path_log);
                 if ~profile_options.(ProfileOptionKey.SILENT.value)
-                    fprintf("\nINFO: The script or function that calls `benchmark` function is copied to\n%s\n", path_log);
+                    fprintf('\n');
+                    printOptiProfilerMessage('INFO', sprintf('The script or function that calls `benchmark` function is copied to: %s', path_log));
                 end
                 [~, script_name, script_ext] = fileparts(calling_script.file);
                 addToReadme(path_readme_log, [script_name, script_ext], 'File, the script or function that calls `benchmark` function.');
             end
         catch ME
             if ~profile_options.(ProfileOptionKey.SILENT.value)
-                fprintf("\nINFO: Failed to copy the script or function that calls `benchmark` function to the log directory.\n");
-                fprintf("INFO: Error message: %s\n", shortenMessageForLog(ME.message));
+                printOptiProfilerMessage('INFO', 'Failed to copy the script or function that calls `benchmark` function to the log directory.');
+                printOptiProfilerMessage('INFO', sprintf('Error message: %s', shortenMessageForLog(ME.message)));
             end
         end
     end
@@ -849,7 +854,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                 movefile(fullfile(path_hist_plots, '*'), path_stamp);
                 rmdir(path_hist_plots, 's');
                 if ~profile_options.(ProfileOptionKey.SILENT.value)
-                    fprintf('\nINFO: Detailed results stored in\n%s\n', path_stamp);
+                    fprintf('\n');
+                    printOptiProfilerMessage('INFO', sprintf('Detailed results stored in: %s', path_stamp));
                 end
             catch
             end
@@ -885,11 +891,12 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         end
 
         if ~profile_options.(ProfileOptionKey.SILENT.value)
-            fprintf('\nINFO: Scores of the solvers:\n');
+            fprintf('\n');
+            printOptiProfilerMessage('INFO', 'Scores of the solvers:');
             max_solver_name_length = max(cellfun(@length, solver_names));
             for i_solver = 1:n_solvers
-                format_info_str = sprintf('INFO: %%-%ds:    %%.4f\n', max_solver_name_length);
-                fprintf(format_info_str, solver_names{i_solver}, solver_scores(i_solver));
+                format_info_str = sprintf('%%-%ds:    %%.4f', max_solver_name_length);
+                printOptiProfilerMessage('INFO', sprintf(format_info_str, solver_names{i_solver}, solver_scores(i_solver)));
             end
         end
         if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
@@ -902,30 +909,31 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     if ~is_load
         % Print the information about the experiment.
         if ~profile_options.(ProfileOptionKey.SILENT.value)
-            fprintf('\nINFO: Start testing with the following options\n');
-            fprintf('INFO: - Solvers: %s\n', strjoin(solver_names, ', '));
-            fprintf('INFO: - Problem libraries: %s\n', strjoin(problem_options.(ProblemOptionKey.PLIBS.value), ', '));
-            fprintf('INFO: - Problem types: %s\n', problem_options.(ProblemOptionKey.PTYPE.value));
-            fprintf('INFO: - Problem dimension range: [%d, %d]\n', problem_options.(ProblemOptionKey.MINDIM.value), problem_options.(ProblemOptionKey.MAXDIM.value));
+            fprintf('\n');
+            printOptiProfilerMessage('INFO', 'Start testing with the following options:');
+            printOptiProfilerMessage('INFO', sprintf('- Solvers: %s', strjoin(solver_names, ', ')));
+            printOptiProfilerMessage('INFO', sprintf('- Problem libraries: %s', strjoin(problem_options.(ProblemOptionKey.PLIBS.value), ', ')));
+            printOptiProfilerMessage('INFO', sprintf('- Problem types: %s', problem_options.(ProblemOptionKey.PTYPE.value)));
+            printOptiProfilerMessage('INFO', sprintf('- Problem dimension range: [%d, %d]', problem_options.(ProblemOptionKey.MINDIM.value), problem_options.(ProblemOptionKey.MAXDIM.value)));
             if any(ismember(problem_options.(ProblemOptionKey.PTYPE.value), 'bln'))
-                fprintf('INFO: - Problem mb range: [%d, %d]\n', problem_options.(ProblemOptionKey.MINB.value), problem_options.(ProblemOptionKey.MAXB.value));
+                printOptiProfilerMessage('INFO', sprintf('- Problem mb range: [%d, %d]', problem_options.(ProblemOptionKey.MINB.value), problem_options.(ProblemOptionKey.MAXB.value)));
             end
             if any(ismember(problem_options.(ProblemOptionKey.PTYPE.value), 'ln'))
-                fprintf('INFO: - Problem mlcon range: [%d, %d]\n', problem_options.(ProblemOptionKey.MINLCON.value), problem_options.(ProblemOptionKey.MAXLCON.value));
+                printOptiProfilerMessage('INFO', sprintf('- Problem mlcon range: [%d, %d]', problem_options.(ProblemOptionKey.MINLCON.value), problem_options.(ProblemOptionKey.MAXLCON.value)));
             end
             if any(ismember(problem_options.(ProblemOptionKey.PTYPE.value), 'n'))
-                fprintf('INFO: - Problem mnlcon range: [%d, %d]\n', problem_options.(ProblemOptionKey.MINNLCON.value), problem_options.(ProblemOptionKey.MAXNLCON.value));
+                printOptiProfilerMessage('INFO', sprintf('- Problem mnlcon range: [%d, %d]', problem_options.(ProblemOptionKey.MINNLCON.value), problem_options.(ProblemOptionKey.MAXNLCON.value)));
             end
             if any(ismember(problem_options.(ProblemOptionKey.PTYPE.value), 'ln'))
-                fprintf('INFO: - Problem mcon range: [%d, %d]\n', problem_options.(ProblemOptionKey.MINCON.value), problem_options.(ProblemOptionKey.MAXCON.value));
+                printOptiProfilerMessage('INFO', sprintf('- Problem mcon range: [%d, %d]', problem_options.(ProblemOptionKey.MINCON.value), problem_options.(ProblemOptionKey.MAXCON.value)));
             end
             if ~isempty(problem_options.(ProblemOptionKey.PROBLEM_NAMES.value))
-                fprintf('INFO: - Number of user-provided problem names: %d\n', numel(problem_options.(ProblemOptionKey.PROBLEM_NAMES.value)));
+                printOptiProfilerMessage('INFO', sprintf('- Number of user-provided problem names: %d', numel(problem_options.(ProblemOptionKey.PROBLEM_NAMES.value))));
             end
             if ~isempty(problem_options.(ProblemOptionKey.EXCLUDELIST.value))
-                fprintf('INFO: - Number of user-excluded problem names: %d\n', numel(problem_options.(ProblemOptionKey.EXCLUDELIST.value)));
+                printOptiProfilerMessage('INFO', sprintf('- Number of user-excluded problem names: %d', numel(problem_options.(ProblemOptionKey.EXCLUDELIST.value))));
             end
-            fprintf('INFO: - Feature stamp: %s\n', feature_stamp);
+            printOptiProfilerMessage('INFO', sprintf('- Feature stamp: %s', feature_stamp));
         end
         % We will solve all the problems from all the problem libraries that user specified in the `problem_options`.
         plibs = problem_options.(ProblemOptionKey.PLIBS.value);
@@ -933,11 +941,14 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         for i_plib = 1:numel(plibs)
             plib = plibs{i_plib};
             if ~profile_options.(ProfileOptionKey.SILENT.value)
-                fprintf('\nINFO: Start testing problems from the problem library "%s" with the "%s" feature.\n', plib, feature.name);
+                fprintf('\n');
+                printOptiProfilerMessage('INFO', sprintf('Start testing problems from the problem library "%s" with the "%s" feature.', plib, feature.name));
                 if strcmp(plib, 's2mpj')
-                    fprintf("\nINFO: More information about the S2MPJ problem library can be found at\nhttps://github.com/GrattonToint/S2MPJ\n");
+                    fprintf('\n');
+                    printOptiProfilerMessage('INFO', 'More information about the S2MPJ problem library can be found at: https://github.com/GrattonToint/S2MPJ');
                 elseif strcmp(plib, 'matcutest')
-                    fprintf("\nINFO: More information about the MatCUTEst problem library can be found at\nhttps://github.com/matcutest\n");
+                    fprintf('\n');
+                    printOptiProfilerMessage('INFO', 'More information about the MatCUTEst problem library can be found at: https://github.com/matcutest');
                 end
             end
 
@@ -984,7 +995,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             if profile_options.(ProfileOptionKey.RUN_PLAIN.value)
                 feature_plain = Feature(FeatureName.PLAIN.value);
                 if ~profile_options.(ProfileOptionKey.SILENT.value)
-                    fprintf('\nINFO: Start testing problems from the problem library "%s" with "plain" feature.\n', plib);
+                    fprintf('\n');
+                    printOptiProfilerMessage('INFO', sprintf('Start testing problems from the problem library "%s" with "plain" feature.', plib));
                 end
                 results_plib_plain = solveAllProblems(solvers, plib, feature_plain, problem_options, profile_options, false, {});
                 try
@@ -1005,13 +1017,14 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                 % Merge the history plots for each problem library to a single pdf file.
                 if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value) && any(results_plib.solvers_successes(:))
                     if ~profile_options.(ProfileOptionKey.SILENT.value)
-                        fprintf('INFO: Merging all the history plots of problems from the "%s" library to a single PDF file.\n', plib);
+                        printOptiProfilerMessage('INFO', sprintf('Merging all the history plots of problems from the "%s" library to a single PDF file.', plib));
                     end
                     try
                         mergePdfs(path_hist_plots_plib, [plib '_history_plots_summary.pdf'], path_hist_plots);
-                    catch
+                    catch ME
                         if ~profile_options.(ProfileOptionKey.SILENT.value)
-                            fprintf('\nINFO: Failed to merge the history plots to a single PDF file.\n');
+                            printOptiProfilerMessage('INFO', 'Failed to merge the history plots to a single PDF file.');
+                            printOptiProfilerMessage('INFO', sprintf('Error message: %s', shortenMessageForLog(ME.message)));
                         end
                     end
                 end
@@ -1022,7 +1035,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         % If results_plibs is empty, we will directly return.
         if isempty(results_plibs)
             if ~profile_options.(ProfileOptionKey.SILENT.value)
-                fprintf("\nINFO: No problems are selected or solved from any problem library.\n");
+                fprintf('\n');
+                printOptiProfilerMessage('INFO', 'No problems are selected or solved from any problem library.');
             end
             % Close the diary before returning.
             if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
@@ -1036,9 +1050,12 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     if strcmp(profile_options.(ProfileOptionKey.DRAW_HIST_PLOTS.value), 'sequential')
         for i_plib = 1:numel(results_plibs)
             results_plib = results_plibs{i_plib};
-            fprintf("INFO: Sequentially drawing history plots for problems from the problem library '%s'.\n", results_plib.plib);
-            fprintf("INFO: This may take a while if there are many problems solved from this problem library.\n");
-            fprintf("INFO: The history plots for each problem will be saved in\n%s\n\n", fullfile(path_hist_plots, results_plib.plib));
+            if ~profile_options.(ProfileOptionKey.SILENT.value)
+                printOptiProfilerMessage('INFO', sprintf("Sequentially drawing history plots for problems from the problem library '%s'.", results_plib.plib));
+                printOptiProfilerMessage('INFO', 'This may take a while if there are many problems solved from this problem library.');
+                printOptiProfilerMessage('INFO', sprintf('The history plots for each problem will be saved in: %s', fullfile(path_hist_plots, results_plib.plib)));
+                fprintf('\n');
+            end
             % Create directory to store the history plots for each problem library.
             if isempty(path_hist_plots)
                 path_hist_plots_plib = '';
@@ -1062,18 +1079,21 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                 exportHist(problem_name, problem_type, problem_dim, solver_names, solvers_success, fun_history, maxcv_history, fun_inits, maxcv_inits, n_eval, profile_options, path_hist_plots_plib);
             end
 
-            fprintf("INFO: Finished drawing history plots for problems from the problem library '%s'.\n", results_plib.plib);
+            if ~profile_options.(ProfileOptionKey.SILENT.value)
+                printOptiProfilerMessage('INFO', sprintf("Finished drawing history plots for problems from the problem library '%s'.", results_plib.plib));
+            end
 
             % Merge the history plots for each problem library to a single pdf file.
             if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value) && any(results_plib.solvers_successes(:))
                 if ~profile_options.(ProfileOptionKey.SILENT.value)
-                    fprintf('INFO: Merging all the history plots of problems from the "%s" library to a single PDF file.\n', results_plib.plib);
+                    printOptiProfilerMessage('INFO', sprintf('Merging all the history plots of problems from the "%s" library to a single PDF file.', results_plib.plib));
                 end
                 try
                     mergePdfs(path_hist_plots_plib, [results_plib.plib '_history_plots_summary.pdf'], path_hist_plots);
-                catch
+                catch ME
                     if ~profile_options.(ProfileOptionKey.SILENT.value)
-                        fprintf('\nINFO: Failed to merge the history plots to a single PDF file.\n');
+                        printOptiProfilerMessage('INFO', 'Failed to merge the history plots to a single PDF file.');
+                        printOptiProfilerMessage('INFO', sprintf('Error message: %s', shortenMessageForLog(ME.message)));
                     end
                 end
             end
@@ -1088,9 +1108,10 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         try
             save(fullfile(path_log, 'data_for_loading.mat'), 'results_plibs');
             addToReadme(path_readme_log, 'data_for_loading.mat', 'File, storing the data of the current experiment for future loading.');
-        catch
+        catch ME
             if ~profile_options.(ProfileOptionKey.SILENT.value)
-                fprintf("\nINFO: Failed to save the data of the current experiment.\n");
+                printOptiProfilerMessage('INFO', 'Failed to save the data of the current experiment.');
+                printOptiProfilerMessage('INFO', sprintf('Error message: %s', shortenMessageForLog(ME.message)));
             end
         end
     end
@@ -1111,7 +1132,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     [n_problems, n_solvers, n_runs, ~] = size(merit_histories_merged);
 
     if ~profile_options.(ProfileOptionKey.SILENT.value) 
-        fprintf('\nINFO: Start creating profiles.\n');
+        fprintf('\n');
+        printOptiProfilerMessage('INFO', 'Start creating profiles.');
     end
 
     max_tol_order = profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value);
@@ -1197,7 +1219,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     if ~profile_options.(ProfileOptionKey.SILENT.value) && any(merit_init_inf_mask(:))
         for i_problem = 1:n_problems
             if any(merit_init_inf_mask(i_problem, :))
-                fprintf("WARNING: Problem '%s' has merit_init = phi(x_0) = Inf at one or more runs. By convention, all solvers are declared to pass the convergence test for this problem at those runs.\n", problem_names_merged{i_problem});
+                printOptiProfilerMessage('WARNING', sprintf("Problem '%s' has merit_init = phi(x_0) = Inf at one or more runs. By convention, all solvers are declared to pass the convergence test for this problem at those runs.", problem_names_merged{i_problem}));
             end
         end
     end
@@ -1216,7 +1238,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         [tolerance_str, tolerance_latex] = formatFloatScientificLatex(tolerance, 1);
 
         if ~profile_options.(ProfileOptionKey.SILENT.value)
-            fprintf('INFO: Creating profiles for tolerance %s.\n', tolerance_str);
+            printOptiProfilerMessage('INFO', sprintf('Creating profiles for tolerance %s.', tolerance_str));
         end
 
         work_hist = NaN(n_problems, n_solvers, n_runs);
@@ -1265,10 +1287,10 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         is_hist_drawable = any(~isnan(work_hist), 'all');
         is_out_drawable = any(~isnan(work_out), 'all');
         if ~is_hist_drawable && ~profile_options.(ProfileOptionKey.SILENT.value)
-            fprintf('INFO: All solvers failed to meet the convergence test for tolerance %s in history-based profiles.\n', tolerance_str);
+            printOptiProfilerMessage('INFO', sprintf('All solvers failed to meet the convergence test for tolerance %s in history-based profiles.', tolerance_str));
         end
         if ~is_out_drawable && ~profile_options.(ProfileOptionKey.SILENT.value)
-            fprintf('INFO: All solvers failed to meet the convergence test for tolerance %s in output-based profiles.\n', tolerance_str);
+            printOptiProfilerMessage('INFO', sprintf('All solvers failed to meet the convergence test for tolerance %s in output-based profiles.', tolerance_str));
         end
 
         % Draw the profiles.
@@ -1413,7 +1435,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     end
 
     if ~profile_options.(ProfileOptionKey.SILENT.value)
-        fprintf('\nINFO: All single profiles are created.\n');
+        fprintf('\n');
+        printOptiProfilerMessage('INFO', 'All single profiles are created.');
     end
     
     % Record the names of the problems all the solvers failed to meet the convergence test for every tolerance.
@@ -1561,9 +1584,10 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                 fprintf(fid, "This part is empty.\n");
             end
             fclose(fid);
-        catch
+        catch ME
             if ~profile_options.(ProfileOptionKey.SILENT.value)
-                fprintf("\nINFO: Failed to record the problems that all the solvers failed to meet the convergence test.\n");
+                printOptiProfilerMessage('INFO', 'Failed to record the problems that all the solvers failed to meet the convergence test.');
+                printOptiProfilerMessage('INFO', sprintf('Error message: %s', shortenMessageForLog(ME.message)));
             end
         end
     end
@@ -1616,11 +1640,12 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 
     if ~profile_options.(ProfileOptionKey.SILENT.value)
         % Print the scores of the solvers.
-        fprintf('\nINFO: Scores of the solvers\n');
+        fprintf('\n');
+        printOptiProfilerMessage('INFO', 'Scores of the solvers:');
         max_solver_name_length = max(cellfun(@length, solver_names));
         for i_solver = 1:n_solvers
-            format_info_str = sprintf('INFO: %%-%ds:    %%.4f\n', max_solver_name_length);
-            fprintf(format_info_str, solver_names{i_solver}, solver_scores(i_solver));
+            format_info_str = sprintf('%%-%ds:    %%.4f', max_solver_name_length);
+            printOptiProfilerMessage('INFO', sprintf(format_info_str, solver_names{i_solver}, solver_scores(i_solver)));
         end
     end
 
@@ -1632,7 +1657,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         summary_name = ['summary_', stamp];
         if n_rows > 0
             if ~profile_options.(ProfileOptionKey.SILENT.value)
-                fprintf('\nINFO: Start creating the summary PDF of all the profiles.\n');
+                fprintf('\n');
+                printOptiProfilerMessage('INFO', 'Start creating the summary PDF of all the profiles.');
             end
             if ispc
                 print(fig_summary, fullfile(path_stamp, [summary_name, '.pdf']), '-dpdf', '-vector');
@@ -1641,7 +1667,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             end
             savefig(fig_summary, fullfile(path_figs, [summary_name, '.fig']));
             if ~profile_options.(ProfileOptionKey.SILENT.value)
-                fprintf('INFO: The summary PDF of all the profiles is created.\n');
+                printOptiProfilerMessage('INFO', 'The summary PDF of all the profiles is created.');
             end
         end
 
@@ -1666,9 +1692,10 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                 mergePdfs(path_out, 'summary.pdf', path_out);
                 delete(fullfile(path_out, summary_files(i_file).name));
             end
-        catch
+        catch ME
             if ~profile_options.(ProfileOptionKey.SILENT.value)
-                fprintf('\nINFO: Failed to merge the summary PDF files.\n');
+                printOptiProfilerMessage('INFO', 'Failed to merge the summary PDF files.');
+                printOptiProfilerMessage('INFO', sprintf('Error message: %s', shortenMessageForLog(ME.message)));
             end
         end
     end
@@ -1680,13 +1707,17 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     end
 
     if ~profile_options.(ProfileOptionKey.SILENT.value)
-        fprintf('\nINFO: Finished creating profiles with the "%s" feature.\n', feature.name);
+        fprintf('\n');
+        printOptiProfilerMessage('INFO', sprintf('Finished creating profiles with the "%s" feature.', feature.name));
         if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
             fprintf('\n**********************************************************************\n');
-            fprintf('\nSummary PDF of the profiles is saved as\n%s\n\n', fullfile(path_stamp, [summary_name, '.pdf']));
-            fprintf('\nSingle profiles are stored in\n%s\n\n', fullfile(path_stamp, 'detailed_profiles'));
-            fprintf('\nReport of the experiment is saved as\n%s\n\n', path_report);
-            fprintf('\nCheck the README file for more information about the experiment and the results\n%s\n', path_readme_feature);
+            printOptiProfilerMessage('INFO', sprintf('Summary PDF of the profiles is saved as: %s', fullfile(path_stamp, [summary_name, '.pdf'])));
+            fprintf('\n');
+            printOptiProfilerMessage('INFO', sprintf('Single profiles are stored in: %s', fullfile(path_stamp, 'detailed_profiles')));
+            fprintf('\n');
+            printOptiProfilerMessage('INFO', sprintf('Report of the experiment is saved as: %s', path_report));
+            fprintf('\n');
+            printOptiProfilerMessage('INFO', sprintf('Check the README file for more information about the experiment and the results: %s', path_readme_feature));
             fprintf('\n***********************************************************************\n');
         end
     end
@@ -1732,13 +1763,15 @@ function integral = integrate(curve, profile_type, profile_options)
     switch profile_type
         case {'perf', 'data'}
             % The curve is a right-continuous step function.
-            integral = integral + sum(diff(curve(1, :)) .* curve(2, 1:end-1) .* kernel(curve(1, 1:end-1)));
+            contribution = diff(curve(1, :)) .* curve(2, 1:end-1) .* kernel(curve(1, 1:end-1));
+            integral = integral + sum(contribution(isfinite(contribution)));
         case 'log_ratio'
             % We do not modify the integral of log_ratio even a score_weight_fun is provided.
             if isempty(curve)
                 integral = 0;
             else
-                integral = integral + sum(abs(curve(2, :)));
+                contribution = abs(curve(2, :));
+                integral = integral + sum(contribution(isfinite(contribution)));
             end
     end
 end
@@ -1779,17 +1812,5 @@ function profile_scores = computeScores(curves, profile_options)
         max_scores = max(profile_scores, [], 1);
         max_scores(max_scores == 0) = 1;
         profile_scores = profile_scores ./ max_scores;
-    end
-end
-
-function short_message = shortenMessageForLog(message)
-    % Shorten an error message for log output.
-
-    max_length = 180;
-    short_message = strtrim(regexprep(message, '\s+', ' '));
-    if isempty(short_message)
-        short_message = 'Unknown error.';
-    elseif numel(short_message) > max_length
-        short_message = [short_message(1:max_length-3), '...'];
     end
 end

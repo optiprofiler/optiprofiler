@@ -2,6 +2,9 @@ function drawLogRatioProfiles(ax, x, y, ratio_max, n_solvers_equal, solver_names
 %DRAWLOGRATIOPROFILES draws log-ratio profiles.
 
     n_problems = length(x);
+    if ~isfinite(ratio_max) || ratio_max <= 0
+        ratio_max = eps;
+    end
     n_below = sum(y < 0) - n_solvers_equal;
     n_above = sum(y > 0) - n_solvers_equal;
 

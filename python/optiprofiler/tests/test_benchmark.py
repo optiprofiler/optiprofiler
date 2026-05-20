@@ -249,8 +249,9 @@ class TestBenchmarkErrors:
                     problem_names=['ROSENBR'],
                 )
         captured = capsys.readouterr()
-        assert 'Failed to copy the script or function that calls `benchmark` function to the log directory.' in captured.out
-        assert 'Error message: copy failed for testing' in captured.out
+        normalized_output = ' '.join(captured.out.split())
+        assert 'Failed to copy the script or function that calls `benchmark` function to the log directory.' in normalized_output
+        assert 'Error message: copy failed for testing' in normalized_output
 
 
 class TestBenchmarkOptions:

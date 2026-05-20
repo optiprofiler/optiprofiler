@@ -142,16 +142,16 @@ function profile_options = getDefaultProfileOptions(solvers, feature, profile_op
 
     % Resolve potential conflicts in the options.
     if profile_options.(ProfileOptionKey.SCORE_ONLY.value)
-        fprintf('INFO: Since the option "score_only" is true, we will not draw any history plots of the problems (the option "draw_hist_plots" is set to "none").\n');
+        printOptiProfilerMessage('INFO', 'Since the option "score_only" is true, we will not draw any history plots of the problems (the option "draw_hist_plots" is set to "none").');
         profile_options.(ProfileOptionKey.DRAW_HIST_PLOTS.value) = 'none';
     end
     if ~isempty(profile_options.(ProfileOptionKey.LOAD.value))
-        fprintf('INFO: Since the option "load" is provided, we will draw history plots of the problems after loading the results (the option "draw_hist_plots" is set to "sequential").\n');
+        printOptiProfilerMessage('INFO', 'Since the option "load" is provided, we will draw history plots of the problems after loading the results (the option "draw_hist_plots" is set to "sequential").');
         profile_options.(ProfileOptionKey.DRAW_HIST_PLOTS.value) = 'sequential';
     end
 
     if profile_options.(ProfileOptionKey.SILENT.value)
-        fprintf('INFO: Since the option "silent" is true, we will not print any information during the benchmarking (the option "solver_verbose" is set to 0).\n');
+        printOptiProfilerMessage('INFO', 'Since the option "silent" is true, we will not print any information during the benchmarking (the option "solver_verbose" is set to 0).');
         profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) = 0;
     end
 end

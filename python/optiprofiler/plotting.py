@@ -177,6 +177,8 @@ def _draw_performance_data_profiles(ax, x, y, solver_names, profile_options):
 def _draw_log_ratio_profiles(ax, x, y, ratio_max, n_solvers_equal, solver_names, profile_options):
     profile_context = set_profile_context(profile_options)
     n_problems = x.shape[0]
+    if not np.isfinite(ratio_max) or ratio_max <= 0:
+        ratio_max = np.finfo(float).eps
     n_below = np.sum(y < 0) - n_solvers_equal
     n_above = np.sum(y > 0) - n_solvers_equal
 
@@ -318,19 +320,27 @@ def _get_log_ratio_profile_axes(work, curves):
     n_problems, n_solvers, n_runs = work.shape
     work_flat = np.reshape(np.swapaxes(work, 1, 2), (n_problems * n_runs, n_solvers))
     y_log_ratio = np.full(n_problems * n_runs, np.nan)
-    log_ratio_finite = np.isfinite(work_flat[:, 0]) & np.isfinite(work_flat[:, 1])
+    log_ratio_finite = (
+        np.isfinite(work_flat[:, 0])
+        & np.isfinite(work_flat[:, 1])
+        & (work_flat[:, 0] > 0)
+        & (work_flat[:, 1] > 0)
+    )
     y_log_ratio[log_ratio_finite] = np.log2(work_flat[log_ratio_finite, 0]) - np.log2(work_flat[log_ratio_finite, 1])
 
     ratio_max = np.nanmax(np.abs(y_log_ratio[log_ratio_finite]), initial=np.finfo(float).eps)
-    if ratio_max == 0 or np.isnan(ratio_max):
+    if ratio_max == 0 or not np.isfinite(ratio_max):
         ratio_max = np.finfo(float).eps
     
-    mask1 = np.isnan(work_flat[:, 0]) & np.isfinite(work_flat[:, 1])
+    fail1 = ~np.isfinite(work_flat[:, 0]) | (work_flat[:, 0] <= 0)
+    fail2 = ~np.isfinite(work_flat[:, 1]) | (work_flat[:, 1] <= 0)
+
+    mask1 = fail1 & ~fail2
     y_log_ratio[mask1] = 1.1 * ratio_max
-    mask2 = np.isfinite(work_flat[:, 0]) & np.isnan(work_flat[:, 1])
+    mask2 = ~fail1 & fail2
     y_log_ratio[mask2] = -1.1 * ratio_max
 
-    mask_both_fail = np.isnan(work_flat[:, 0]) & np.isnan(work_flat[:, 1])
+    mask_both_fail = fail1 & fail2
     n_solvers_fail = np.sum(mask_both_fail)
     y_log_ratio[mask_both_fail] = 1.1 * ratio_max
     if n_solvers_fail > 0:

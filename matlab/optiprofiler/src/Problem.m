@@ -646,7 +646,7 @@ classdef Problem < handle
                 f = obj.fun_(x);
             catch ME
                 % If an error occurred, issue a warning and set f to NaN.
-                warning(ME.identifier, '%s', ME.message);
+                warning(ME.identifier, '%s', shortenMessageForLog(ME.message));
                 f = NaN;
             end
 
@@ -654,7 +654,7 @@ classdef Problem < handle
                 f = double(f);
             catch ME
                 % If an error occurred, issue a warning and set f to NaN.
-                warning(ME.identifier, '%s', ME.message);
+                warning(ME.identifier, '%s', shortenMessageForLog(ME.message));
                 f = NaN;
             end
         end
@@ -677,7 +677,7 @@ classdef Problem < handle
                     g = obj.grad_(x);
                 catch ME
                     % If an error occurred, issue a warning and set g to NaN.
-                    warning(ME.identifier, '%s', ME.message);
+                    warning(ME.identifier, '%s', shortenMessageForLog(ME.message));
                     g = NaN(obj.n, 1);
                 end
                 if ~(isrealvector(g) && numel(g) == obj.n) && ~isempty(g)
@@ -687,7 +687,7 @@ classdef Problem < handle
                     g = double(g);
                 catch ME
                     % If an error occurred, issue a warning and set g to NaN.
-                    warning(ME.identifier, '%s', ME.message);
+                    warning(ME.identifier, '%s', shortenMessageForLog(ME.message));
                     g = NaN(obj.n, 1);
                 end
             end
@@ -711,7 +711,7 @@ classdef Problem < handle
                     h = obj.hess_(x);
                 catch ME
                     % If an error occurred, issue a warning and set h to NaN.
-                    warning(ME.identifier, '%s', ME.message);
+                    warning(ME.identifier, '%s', shortenMessageForLog(ME.message));
                     h = NaN(obj.n, obj.n);
                 end
                 if ~(isrealmatrix(h) && isequal(size(h), [obj.n, obj.n])) && ~isempty(h)
@@ -721,7 +721,7 @@ classdef Problem < handle
                     h = double(h);
                 catch ME
                     % If an error occurred, issue a warning and set h to NaN.
-                    warning(ME.identifier, '%s', ME.message);
+                    warning(ME.identifier, '%s', shortenMessageForLog(ME.message));
                     h = NaN(obj.n, obj.n);
                 end
             end
@@ -742,7 +742,7 @@ classdef Problem < handle
                 try
                     f = obj.cub_(x);
                 catch ME
-                    warning(ME.identifier, '%s', ME.message);
+                    warning(ME.identifier, '%s', shortenMessageForLog(ME.message));
                     f = NaN(obj.m_nonlinear_ub, 1);
                 end
                 if ~isrealvector(f) && ~isempty(f)
@@ -751,7 +751,7 @@ classdef Problem < handle
                 try
                     f = double(f);
                 catch ME
-                    warning(ME.identifier, '%s', ME.message);
+                    warning(ME.identifier, '%s', shortenMessageForLog(ME.message));
                     f = NaN;
                 end
             end
@@ -776,7 +776,7 @@ classdef Problem < handle
                 try
                     f = obj.ceq_(x);
                 catch ME
-                    warning(ME.identifier, '%s', ME.message);
+                    warning(ME.identifier, '%s', shortenMessageForLog(ME.message));
                     f = NaN(obj.m_nonlinear_eq, 1);
                 end
                 if ~isrealvector(f) && ~isempty(f)
@@ -785,7 +785,7 @@ classdef Problem < handle
                 try
                     f = double(f);
                 catch ME
-                    warning(ME.identifier, '%s', ME.message);
+                    warning(ME.identifier, '%s', shortenMessageForLog(ME.message));
                     f = NaN;
                 end
             end
@@ -810,7 +810,7 @@ classdef Problem < handle
                 try
                     J = obj.jcub_(x);
                 catch ME
-                    warning(ME.identifier, '%s', ME.message);
+                    warning(ME.identifier, '%s', shortenMessageForLog(ME.message));
                     J = NaN(obj.m_nonlinear_ub, obj.n);
                 end
                 if ~isrealmatrix(J) && ~isempty(J)
@@ -822,7 +822,7 @@ classdef Problem < handle
                 try
                     J = double(J);
                 catch ME
-                    warning(ME.identifier, '%s', ME.message);
+                    warning(ME.identifier, '%s', shortenMessageForLog(ME.message));
                     J = NaN(obj.m_nonlinear_ub, obj.n);
                 end
             end
@@ -843,7 +843,7 @@ classdef Problem < handle
                 try
                     J = obj.jceq_(x);
                 catch ME
-                    warning(ME.identifier, '%s', ME.message);
+                    warning(ME.identifier, '%s', shortenMessageForLog(ME.message));
                     J = NaN(obj.m_nonlinear_eq, obj.n);
                 end
                 if ~isrealmatrix(J) && ~isempty(J)
@@ -855,7 +855,7 @@ classdef Problem < handle
                 try
                     J = double(J);
                 catch ME
-                    warning(ME.identifier, '%s', ME.message);
+                    warning(ME.identifier, '%s', shortenMessageForLog(ME.message));
                     J = NaN(obj.m_nonlinear_eq, obj.n);
                 end
             end
@@ -878,7 +878,7 @@ classdef Problem < handle
                 try
                     H = obj.hcub_(x);
                 catch ME
-                    warning(ME.identifier, '%s', ME.message);
+                    warning(ME.identifier, '%s', shortenMessageForLog(ME.message));
                     H = cell(obj.m_nonlinear_ub, 1);
                     for i = 1:obj.m_nonlinear_ub
                         H{i} = NaN(obj.n, obj.n);
@@ -897,7 +897,7 @@ classdef Problem < handle
                     try
                         H{i} = double(H{i});
                     catch ME
-                        warning(ME.identifier, '%s', ME.message);
+                        warning(ME.identifier, '%s', shortenMessageForLog(ME.message));
                         H{i} = NaN(obj.n, obj.n);
                     end
                 end
@@ -921,7 +921,7 @@ classdef Problem < handle
                 try
                     H = obj.hceq_(x);
                 catch ME
-                    warning(ME.identifier, '%s', ME.message);
+                    warning(ME.identifier, '%s', shortenMessageForLog(ME.message));
                     H = cell(obj.m_nonlinear_eq, 1);
                     for i = 1:obj.m_nonlinear_eq
                         H{i} = NaN(obj.n, obj.n);
@@ -940,7 +940,7 @@ classdef Problem < handle
                     try
                         H{i} = double(H{i});
                     catch ME
-                        warning(ME.identifier, '%s', ME.message);
+                        warning(ME.identifier, '%s', shortenMessageForLog(ME.message));
                         H{i} = NaN(obj.n, obj.n);
                     end
                 end

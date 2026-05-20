@@ -10,7 +10,9 @@ from optiprofiler.plotting import (
     _data_formatter,
     _draw_perf_detail,
     _draw_data_detail,
+    _draw_log_ratio_profiles,
     _get_extended_performances_data_profile_axes,
+    _get_log_ratio_profile_axes,
     _get_performance_data_profile_axes,
     _perf_formatter,
     data_ticks,
@@ -285,6 +287,47 @@ class TestGetExtendedPerformancesDataProfileAxes:
         x_perf, y_perf, ratio_max_perf, x_data, y_data, ratio_max_data, curves = \
             _get_extended_performances_data_profile_axes(work, problem_dims, opts, curves)
         assert np.isfinite(ratio_max_perf)
+
+
+class TestGetLogRatioProfileAxes:
+
+    def _make_curves(self):
+        return {
+            'perf': [[None], [None]],
+            'data': [[None], [None]],
+            'log_ratio': [None, None],
+        }
+
+    def test_zero_and_nonfinite_work_are_treated_as_failures(self):
+        work = np.array([
+            [[0.0], [2.0]],
+            [[np.nan], [0.0]],
+            [[np.inf], [3.0]],
+        ])
+        x, y, ratio_max, n_solvers_fail, curves = _get_log_ratio_profile_axes(work, self._make_curves())
+        assert np.isfinite(ratio_max)
+        assert ratio_max > 0
+        assert np.all(np.isfinite(y))
+        assert n_solvers_fail == 1
+        assert curves['log_ratio'][0] is not None
+        assert curves['log_ratio'][1] is not None
+
+    def test_draw_log_ratio_profiles_with_zero_work_axis_limit(self):
+        work = np.array([[[0.0], [0.0]]])
+        x, y, ratio_max, n_solvers_fail, _ = _get_log_ratio_profile_axes(work, self._make_curves())
+        fig, ax = plt.subplots()
+        _draw_log_ratio_profiles(
+            ax,
+            x,
+            y,
+            ratio_max,
+            n_solvers_fail,
+            ['s1', 's2'],
+            {ProfileOption.BAR_COLORS: ['#1f77b4', '#ff7f0e']},
+        )
+        ylim = ax.get_ylim()
+        assert np.all(np.isfinite(ylim))
+        plt.close(fig)
 
 
 class TestDrawProfiles:

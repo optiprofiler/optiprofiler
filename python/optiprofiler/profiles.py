@@ -26,7 +26,7 @@ from matplotlib.backends import backend_pdf
 from matplotlib.ticker import MaxNLocator, FuncFormatter
 
 from .opclasses import Feature, Problem, FeaturedProblem
-from .utils import FeatureName, ProfileOption, FeatureOption, ProblemOption, get_logger, setup_main_process_logging, setup_worker_logging
+from .utils import FeatureName, ProfileOption, FeatureOption, ProblemOption, get_logger, print_log_message, setup_main_process_logging, setup_worker_logging, shorten_log_message
 from .loader import load_results, save_results_to_h5, save_options
 from .profile_utils import check_validity_problem_options, check_validity_profile_options, get_default_problem_options, get_default_profile_options, compute_merit_values, create_stamp, merge_pdfs_with_pypdf, write_report, process_results, init_readme, add_to_readme, compute_scores
 from .plotting import draw_hist, set_profile_context, format_float_scientific_latex, draw_profiles
@@ -36,12 +36,7 @@ def _shorten_log_message(message: object, max_length: int = 180) -> str:
     """
     Shorten an exception message for log output.
     """
-    short_message = ' '.join(str(message).split()).strip()
-    if not short_message:
-        return 'Unknown error.'
-    if len(short_message) > max_length:
-        return short_message[: max_length - 3] + '...'
-    return short_message
+    return shorten_log_message(message, max_length)
 
 
 def benchmark(
@@ -679,7 +674,7 @@ def benchmark(
     any_solver_isrand = ProfileOption.SOLVER_ISRAND in profile_options and any(profile_options[ProfileOption.SOLVER_ISRAND])
     if FeatureOption.N_RUNS not in feature_options and any_solver_isrand and not is_load:
         if ProfileOption.SILENT not in profile_options or not profile_options[ProfileOption.SILENT]:
-            logger.info(f'We set {FeatureOption.N_RUNS} to 5 since it is not specified and at least one solver is randomized.')
+            print_log_message('INFO', f'We set {FeatureOption.N_RUNS} to 5 since it is not specified and at least one solver is randomized.')
         feature_options[FeatureOption.N_RUNS] = 5
 
     # Load the existing results if needed.
@@ -765,9 +760,10 @@ def benchmark(
             with path_time_stamp.open('w') as f:
                 f.write(f'{time_stamp}')
             add_to_readme(path_readme_log, f'time_stamp_{time_stamp}.txt', 'File, recording the time stamp of the current experiment.')
-        except:
+        except Exception as exc:
             if not profile_options[ProfileOption.SILENT]:
-                logger.warning(f'Fail to create the time stamp file in {path_log}.')
+                print_log_message('WARNING', f'Failed to create the time stamp file in {path_log}.')
+                print_log_message('WARNING', f'Error message: {shorten_log_message(exc)}')
         
     if not profile_options[ProfileOption.SCORE_ONLY] and 'problem' not in locals():
         # path_figs = path_log / 'profile_figs'
@@ -803,9 +799,10 @@ def benchmark(
             
             save_options(options_refined, path_log / 'options_refined.pkl')
             add_to_readme(path_readme_log, 'options_refined.pkl', 'File, storing the options refined by OptiProfiler for the current experiment.')
-        except Exception:
+        except Exception as exc:
             if not profile_options[ProfileOption.SILENT]:
-                logger.warning(f'Failed to save the options of the current experiment.')
+                print_log_message('WARNING', 'Failed to save the options of the current experiment.')
+                print_log_message('WARNING', f'Error message: {shorten_log_message(exc)}')
 
         # Set up the logger to log the information in a file.
         log_file = path_log / 'log.txt'
@@ -822,9 +819,10 @@ def benchmark(
                 add_to_readme(path_readme_feature, 'history_plots', 'Folder, containing all the history plots for each problem.')
                 add_to_readme(path_readme_feature, 'history_plots_summary.pdf', 'File, the summary PDF of history plots for all problems.')
             add_to_readme(path_readme_feature, 'test_log', 'Folder, containing log files and other useful experimental data.')
-        except Exception:
+        except Exception as exc:
             if not profile_options[ProfileOption.SILENT]:
                 logger.warning(f'Fail to create the README.txt file in {path_stamp}.')
+                logger.warning(f'Error message: {shorten_log_message(exc)}')
 
     # We try to copy the script or function that calls the benchmark function to the log directory.
     if not profile_options[ProfileOption.SCORE_ONLY]:
@@ -903,7 +901,7 @@ def benchmark(
                 merit_history = compute_merit_values(merit_fun, result['fun_history'], result['maxcv_history'], result['maxcv_init'])
                 merit_init = compute_merit_values(merit_fun, result['fun_init'], result['maxcv_init'], result['maxcv_init'])
             except Exception as exc:
-                logger.error(f'Error occurred while calculating the merit values. Please check the merit function. Error message: {exc}')
+                logger.error(f'Error occurred while calculating the merit values. Please check the merit function. Error message: {shorten_log_message(exc)}')
                 raise exc
             merit_init = np.atleast_1d(np.asarray(merit_init))
             local_n_solvers, local_n_runs = merit_history.shape[:2]
@@ -1005,7 +1003,7 @@ def benchmark(
                 merit_outs = compute_merit_values(merit_fun, results_plib['fun_outs'], results_plib['maxcv_outs'], results_plib['maxcv_inits'])
                 merit_inits = compute_merit_values(merit_fun, results_plib['fun_inits'], results_plib['maxcv_inits'], results_plib['maxcv_inits'])
             except Exception as exc:
-                logger.error(f'Error occurred while calculating the merit values. Please check the merit function. Error message: {exc}')
+                logger.error(f'Error occurred while calculating the merit values. Please check the merit function. Error message: {shorten_log_message(exc)}')
                 raise exc
             results_plib['merit_histories'] = merit_histories
             results_plib['merit_outs'] = merit_outs
@@ -1023,7 +1021,7 @@ def benchmark(
                     results_plib_plain['merit_outs'] = compute_merit_values(merit_fun, results_plib_plain['fun_outs'], results_plib_plain['maxcv_outs'], results_plib_plain['maxcv_inits'])
                     results_plib_plain['merit_inits'] = compute_merit_values(merit_fun, results_plib_plain['fun_inits'], results_plib_plain['maxcv_inits'], results_plib_plain['maxcv_inits'])
                 except Exception as exc:
-                    logger.error(f'Error occurred while calculating the merit values for the "plain" feature. Please check the merit function. Error message: {exc}')
+                    logger.error(f'Error occurred while calculating the merit values for the "plain" feature. Please check the merit function. Error message: {shorten_log_message(exc)}')
                     raise exc
                 
                 # Store data of the 'plain' feature for later calculating merit_mins.
@@ -1048,7 +1046,8 @@ def benchmark(
                     merge_pdfs_with_pypdf(path_hist_plots_plib, path_hist_plots / f'{plib}_history_plots_summary.pdf')
                 except Exception as exc:
                     if not profile_options[ProfileOption.SILENT]:
-                        logger.warning(f'Failed to merge the history plots to a single PDF file. Error message: {exc}')
+                        logger.warning('Failed to merge the history plots to a single PDF file.')
+                        logger.warning(f'Error message: {shorten_log_message(exc)}')
 
         # Remove the None elements from results_plibs.
         results_plibs = [results_plib for results_plib in results_plibs if results_plib is not None]
@@ -1110,16 +1109,18 @@ def benchmark(
                     merge_pdfs_with_pypdf(path_hist_plots_plib, path_hist_plots / f'{plib}_history_plots_summary.pdf')
                 except Exception as exc:
                     if not profile_options[ProfileOption.SILENT]:
-                        logger.warning(f'Failed to merge the history plots to a single PDF file. Error message: {exc}')
+                        logger.warning('Failed to merge the history plots to a single PDF file.')
+                        logger.warning(f'Error message: {shorten_log_message(exc)}')
 
     # Store the data for loading.
     # This HDF5 file contains all the numerical results of the experiment.
     # It can be used to reload the experiment state using the 'load' option.
     try:
         save_results_to_h5(results_plibs, path_log / 'data_for_loading.h5')
-    except Exception as e:
+    except Exception as exc:
         if not profile_options[ProfileOption.SILENT]:
-            logger.warning(f'Failed to save the data of the current experiment: {e}')
+            logger.warning('Failed to save the data of the current experiment.')
+            logger.warning(f'Error message: {shorten_log_message(exc)}')
 
 
 
@@ -1511,9 +1512,10 @@ def benchmark(
                     else:
                         fid.write('\n')
                         fid.write('This part is empty.\n')
-            except Exception:
+            except Exception as exc:
                 if not profile_options[ProfileOption.SILENT]:
                     logger.warning('Failed to record the problems that all the solvers failed to meet the convergence test.')
+                    logger.warning(f'Error message: {shorten_log_message(exc)}')
 
     if not profile_options[ProfileOption.SILENT]:
         logger.info('')
@@ -1546,9 +1548,10 @@ def benchmark(
             with open(path_log / 'curves.pkl', 'wb') as f:
                 pickle.dump(curves, f)
             add_to_readme(path_readme_log, 'curves.pkl', 'File, storing the curves of the profiles.')
-        except Exception as e:
+        except Exception as exc:
             if not profile_options[ProfileOption.SILENT]:
-                logger.warning(f'Failed to save curves: {e}')
+                logger.warning('Failed to save curves.')
+                logger.warning(f'Error message: {shorten_log_message(exc)}')
 
     # Compute profile_scores from curves.
     profile_scores = compute_scores(curves, profile_options)
@@ -1560,9 +1563,10 @@ def benchmark(
             with open(path_log / 'profile_scores.pkl', 'wb') as f:
                 pickle.dump(profile_scores, f)
             add_to_readme(path_readme_log, 'profile_scores.pkl', 'File, storing the scores of solvers on each profile.')
-        except Exception as e:
+        except Exception as exc:
             if not profile_options[ProfileOption.SILENT]:
-                logger.warning(f'Failed to save profile_scores: {e}')
+                logger.warning('Failed to save profile_scores.')
+                logger.warning(f'Error message: {shorten_log_message(exc)}')
 
     # Compute solver_scores using score_fun.
     score_fun = profile_options[ProfileOption.SCORE_FUN]
@@ -1579,9 +1583,10 @@ def benchmark(
                 max_solver_name_length = max(len(name) for name in solver_names)
                 for i, name in enumerate(solver_names):
                     fid.write(f'{name:<{max_solver_name_length}s}:    {solver_scores[i]:.4f}\n')
-        except Exception:
+        except Exception as exc:
             if not profile_options[ProfileOption.SILENT]:
                 logger.warning('Failed to append the solver scores to the report file.')
+                logger.warning(f'Error message: {shorten_log_message(exc)}')
 
     # Print solver scores.
     if not profile_options[ProfileOption.SILENT]:
@@ -1653,7 +1658,7 @@ def _solve_all_problems(solvers, plib, feature, problem_options, profile_options
         selector_name = plib + '_select'
         select = getattr(module, selector_name)
     except Exception as exc:
-        logger.error(f'Error occurred while importing the problem library {plib}. Error message: {exc}')
+        logger.error(f'Error occurred while importing the problem library {plib}. Error message: {shorten_log_message(exc)}')
         raise exc
 
     # Select the problem names satisfying the options.
@@ -1841,7 +1846,7 @@ def _solve_one_problem_wrapper(solvers, feature, problem_name, len_problem_names
         loader_name = plib + '_load'
         load = getattr(module, loader_name)
     except Exception as exc:
-        logger.error(f'Error occurred while importing the problem library {plib}. Error message: {exc}')
+        logger.error(f'Error occurred while importing the problem library {plib}. Error message: {shorten_log_message(exc)}')
         raise exc
     try:
         if not profile_options[ProfileOption.SILENT]:
@@ -2013,7 +2018,7 @@ def _solve_one_problem(solvers, problem, feature, problem_name, len_problem_name
                         if profile_options[ProfileOption.SOLVER_VERBOSE] >= 1:
                             logger.warning(
                                 f'An error occurred while solving {problem_name} with {solver_names[i_solver]} '
-                                f'(run {i_run + 1}/{real_n_runs[i_solver]}): {exc}'
+                                f'(run {i_run + 1}/{real_n_runs[i_solver]}): {_shorten_log_message(exc)}'
                             )
 
                     # Mirror MATLAB's ``if isempty(x)`` guard: when the
@@ -2074,8 +2079,10 @@ def _solve_one_problem(solvers, problem, feature, problem_name, len_problem_name
                     fun_out[i_solver, i_run] = problem.fun(x)
                     maxcv_out[i_solver, i_run] = problem.maxcv(x)
                     # Calculate the minimum function value and the minimum constraint violation, omitting the NaN values.
-                    fun_min = np.nanmin(featured_problem.fun_hist)
-                    maxcv_min = np.nanmin(featured_problem.maxcv_hist)
+                    fun_hist = featured_problem.fun_hist
+                    maxcv_hist = featured_problem.maxcv_hist
+                    fun_min = np.nan if fun_hist.size == 0 else np.nanmin(fun_hist)
+                    maxcv_min = np.nan if maxcv_hist.size == 0 else np.nanmin(maxcv_hist)
 
                     if not profile_options[ProfileOption.SILENT]:
                         logger.info(
@@ -2105,7 +2112,7 @@ def _solve_one_problem(solvers, problem, feature, problem_name, len_problem_name
                     if profile_options[ProfileOption.SOLVER_VERBOSE] >= 1:
                         logger.warning(
                             f'An error occurred while processing the solution of {problem_name} from {solver_names[i_solver]} '
-                            f'(run {i_run + 1}/{real_n_runs[i_solver]}): {exc}'
+                            f'(run {i_run + 1}/{real_n_runs[i_solver]}): {_shorten_log_message(exc)}'
                         )
             n_eval[i_solver, i_run] = featured_problem.n_eval_fun
             fun_history[i_solver, i_run, :n_eval[i_solver, i_run]] = featured_problem.fun_hist[:n_eval[i_solver, i_run]]
@@ -2173,7 +2180,7 @@ def _solve_one_problem(solvers, problem, feature, problem_name, len_problem_name
             merit_history = compute_merit_values(merit_fun, fun_history, maxcv_history, maxcv_inits)
             merit_init = compute_merit_values(merit_fun, fun_inits, maxcv_inits, maxcv_inits)
         except Exception as exc:
-            logger.error(f'Error occurred while calculating the merit values. Please check the merit function. Error message: {exc}')
+            logger.error(f'Error occurred while calculating the merit values. Please check the merit function. Error message: {shorten_log_message(exc)}')
             raise exc
 
         warnings.filterwarnings('ignore')
@@ -2244,7 +2251,8 @@ def _solve_one_problem(solvers, problem, feature, problem_name, len_problem_name
 
     except Exception as exc:
         if not profile_options[ProfileOption.SILENT]:
-            logger.info(f'An error occurred while plotting the history plots of the problem {problem_name}: {exc}')
+            logger.info(f'An error occurred while plotting the history plots of the problem {problem_name}.')
+            logger.info(f'Error message: {shorten_log_message(exc)}')
         pass
     
     return result
@@ -2295,7 +2303,7 @@ def _draw_problem_history_plot(problem_name, problem_type, problem_dim, solver_n
             merit_history = compute_merit_values(merit_fun, fun_history, maxcv_history, maxcv_init)
             merit_init = compute_merit_values(merit_fun, fun_init, maxcv_init, maxcv_init)
         except Exception as exc:
-            logger.error(f'Error occurred while calculating the merit values. Please check the merit function. Error message: {exc}')
+            logger.error(f'Error occurred while calculating the merit values. Please check the merit function. Error message: {shorten_log_message(exc)}')
             raise exc
 
         warnings.filterwarnings('ignore')
@@ -2366,7 +2374,8 @@ def _draw_problem_history_plot(problem_name, problem_type, problem_dim, solver_n
 
     except Exception as exc:
         if not profile_options[ProfileOption.SILENT]:
-            logger.info(f'An error occurred while plotting the history plots of the problem {problem_name}: {exc}')
+            logger.info(f'An error occurred while plotting the history plots of the problem {problem_name}.')
+            logger.info(f'Error message: {shorten_log_message(exc)}')
         pass
 
 

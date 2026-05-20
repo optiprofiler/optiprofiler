@@ -62,9 +62,12 @@ function writeReport(profile_options, results_plibs, path_report, path_readme_lo
                 problem_names_plain = results_plib_plain.problem_names;
                 computation_times_plain = results_plib_plain.computation_times;
                 computation_times = cat(3, results_plib.computation_times, NaN(size(computation_times_plain)));
+                plain_runs = size(computation_times_plain, 3);
                 for i_problem = 1:numel(problem_names)
                     idx = find(strcmp(problem_names{i_problem}, problem_names_plain), 1);
-                    computation_times(i_problem, :, size(computation_times, 3)) = computation_times_plain(idx, :, :);
+                    if ~isempty(idx)
+                        computation_times(i_problem, :, end - plain_runs + 1:end) = computation_times_plain(idx, :, :);
+                    end
                 end
             end
 
@@ -118,7 +121,7 @@ function writeReport(profile_options, results_plibs, path_report, path_readme_lo
                     count = fprintf(fid, "%-*s    %-*s    %-*s    %-*s    %-*s    %-*s    %-*s    %-*s\n", max_name_length, name, max_type_length, type, max_dim_length, dim, max_mbs_length, mb, max_mlcons_length, mlcon, max_mnlcons_length, mnlcon, max_mcons_length, mcon, max_time_length, time);
                     if count < 0
                         if ~profile_options.(ProfileOptionKey.SILENT.value)
-                            fprintf("INFO: Failed to record data for %s.", sorted_problem_names{i});
+                            printOptiProfilerMessage('INFO', sprintf('Failed to record data for %s.', sorted_problem_names{i}));
                         end
                     end
                 end
@@ -131,7 +134,7 @@ function writeReport(profile_options, results_plibs, path_report, path_readme_lo
                     count = fprintf(fid, "%s ", unsolved_problems{i});
                     if count < 0
                         if ~profile_options.(ProfileOptionKey.SILENT.value)
-                            fprintf("INFO: Failed to record data for %s.", unsolved_problems{i});
+                            printOptiProfilerMessage('INFO', sprintf('Failed to record data for %s.', unsolved_problems{i}));
                         end
                     end
                 end
@@ -141,9 +144,10 @@ function writeReport(profile_options, results_plibs, path_report, path_readme_lo
         end
         fclose(fid);
         addToReadme(path_readme_log, 'report.txt', 'File, the report file of the current experiment, recording information like problem names and time spent on solving each problem for all the problem libraries.');
-    catch
+    catch ME
         if ~profile_options.(ProfileOptionKey.SILENT.value)
-            fprintf("INFO: Error occurred when writing the report to %s.\n", path_report);
+            printOptiProfilerMessage('INFO', sprintf('Error occurred when writing the report to %s.', path_report));
+            printOptiProfilerMessage('INFO', sprintf('Error message: %s', shortenMessageForLog(ME.message)));
         end
     end
 end

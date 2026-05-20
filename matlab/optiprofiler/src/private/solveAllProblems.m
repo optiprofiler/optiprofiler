@@ -49,7 +49,8 @@ function results = solveAllProblems(solvers, plib, feature, problem_options, pro
 
     if isempty(problem_names)
         if ~profile_options.(ProfileOptionKey.SILENT.value)
-            fprintf('\nINFO: No problem is selected from "%s".\n', plib);
+            fprintf('\n');
+            printOptiProfilerMessage('INFO', sprintf('No problem is selected from "%s".', plib));
         end
         return;
     end
@@ -62,7 +63,9 @@ function results = solveAllProblems(solvers, plib, feature, problem_options, pro
     max_eval_factor = profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value);
     tmp_results = cell(1, n_problems);
     if ~profile_options.(ProfileOptionKey.SILENT.value)
-        fprintf('\nINFO: There are %d problems from "%s" to test.\n\n', n_problems, plib);
+        fprintf('\n');
+        printOptiProfilerMessage('INFO', sprintf('There are %d problems from "%s" to test.', n_problems, plib));
+        fprintf('\n');
     end
 
     % Determine whether to use sequential mode or parallel mode.
@@ -77,14 +80,15 @@ function results = solveAllProblems(solvers, plib, feature, problem_options, pro
             % Load the problem.
             try
                 if ~profile_options.(ProfileOptionKey.SILENT.value)
-                    loading_info = sprintf('INFO: Loading problem   %%-%ds from \"%%s\".\\n', len_problem_names);
-                    fprintf(loading_info, problem_name, plib);
+                    loading_info = sprintf('Loading problem   %%-%ds from \"%%s\".', len_problem_names);
+                    printOptiProfilerMessage('INFO', sprintf(loading_info, problem_name, plib));
                 end
                 problem = load(problem_name);
             catch
                 if ~profile_options.(ProfileOptionKey.SILENT.value)
-                    fail_load_info = sprintf('\\nINFO: Failed to load    %%-%ds from \"%%s\".\\n', len_problem_names);
-                    fprintf(fail_load_info, problem_name, plib);
+                    fprintf('\n');
+                    fail_load_info = sprintf('Failed to load    %%-%ds from \"%%s\".', len_problem_names);
+                    printOptiProfilerMessage('INFO', sprintf(fail_load_info, problem_name, plib));
                 end
                 tmp_results{i_problem} = struct();
                 continue;
@@ -98,14 +102,15 @@ function results = solveAllProblems(solvers, plib, feature, problem_options, pro
             % Load the problem.
             try
                 if ~profile_options.(ProfileOptionKey.SILENT.value)
-                    loading_info = sprintf('INFO: Loading problem   %%-%ds from \"%%s\".\\n', len_problem_names);
-                    fprintf(loading_info, problem_name, plib);
+                    loading_info = sprintf('Loading problem   %%-%ds from \"%%s\".', len_problem_names);
+                    printOptiProfilerMessage('INFO', sprintf(loading_info, problem_name, plib));
                 end
                 problem = load(problem_name);
             catch
                 if ~profile_options.(ProfileOptionKey.SILENT.value)
-                    fail_load_info = sprintf('\\nINFO: Failed to load    %%-%ds from \"%%s\".\\n', len_problem_names);
-                    fprintf(fail_load_info, problem_name, plib);
+                    fprintf('\n');
+                    fail_load_info = sprintf('Failed to load    %%-%ds from \"%%s\".', len_problem_names);
+                    printOptiProfilerMessage('INFO', sprintf(fail_load_info, problem_name, plib));
                 end
                 tmp_results{i_problem} = struct();
                 continue;
@@ -121,7 +126,7 @@ function results = solveAllProblems(solvers, plib, feature, problem_options, pro
 
     if all(cellfun(@isempty, tmp_results))
         if ~profile_options.(ProfileOptionKey.SILENT.value)
-            fprintf('INFO: All problems from "%s" are not solved successfully.\n', plib);
+            printOptiProfilerMessage('INFO', sprintf('All problems from "%s" are not solved successfully.', plib));
         end
         return;
     else

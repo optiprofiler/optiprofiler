@@ -4,7 +4,7 @@ import warnings
 from numpy.linalg import lstsq
 from scipy.optimize import Bounds, LinearConstraint, NonlinearConstraint, minimize
 
-from .utils import FeatureName, FeatureOption, get_logger
+from .utils import FeatureName, FeatureOption, get_logger, shorten_log_message
 
 
 class Feature:
@@ -1392,7 +1392,7 @@ class Problem:
                         self._m_nonlinear_ub = 0
                 except Exception as err:
                     logger = get_logger(__name__)
-                    logger.warning(f'Failed to evaluate the nonlinear inequality constraint function: {err}')
+                    logger.warning(f'Failed to evaluate the nonlinear inequality constraint function: {shorten_log_message(err)}')
         self._m_nonlinear_eq = 0
         self._ceq = ceq
         if self._ceq is not None:
@@ -1406,7 +1406,7 @@ class Problem:
                         self._m_nonlinear_eq = 0
                 except Exception as err:
                     logger = get_logger(__name__)
-                    logger.warning(f'Failed to evaluate nonlinear equality constraints: {err}')
+                    logger.warning(f'Failed to evaluate nonlinear equality constraints: {shorten_log_message(err)}')
 
         # Preprocess the gradient and the Hessian of the objective function.
         self._grad = grad
@@ -1705,7 +1705,7 @@ class Problem:
             f = float(f)
         except Exception as err:
             logger = get_logger(__name__)
-            logger.warning(f'Failed to evaluate the objective function: {err}')
+            logger.warning(f'Failed to evaluate the objective function: {shorten_log_message(err)}')
             f = np.nan
         return f
 
@@ -1739,7 +1739,7 @@ class Problem:
                 g = self._grad(x)
             except Exception as err:
                 logger = get_logger(__name__)
-                logger.warning(f'Failed to evaluate the gradient of the objective function: {err}')
+                logger.warning(f'Failed to evaluate the gradient of the objective function: {shorten_log_message(err)}')
                 g = np.full(self.n, np.nan)
             g = _process_1d_array(g, 'The return value of the argument `grad` for problem must be a one-dimensional array.')
             if g.size != 0 and g.size != self.n:
@@ -1776,7 +1776,7 @@ class Problem:
                 h = self._hess(x)
             except Exception as err:
                 logger = get_logger(__name__)
-                logger.warning(f'Failed to evaluate the Hessian of the objective function: {err}')
+                logger.warning(f'Failed to evaluate the Hessian of the objective function: {shorten_log_message(err)}')
                 h = np.full((self.n, self.n), np.nan)
             h = _process_2d_array(h, 'The return value of the argument `hess` for problem must be a two-dimensional array.')
             if h.size != 0 and h.shape != (self.n, self.n):
@@ -1813,7 +1813,7 @@ class Problem:
                 c = self._cub(x)
             except Exception as err:
                 logger = get_logger(__name__)
-                logger.warning(f'Failed to evaluate the nonlinear inequality constraint function: {err}')
+                logger.warning(f'Failed to evaluate the nonlinear inequality constraint function: {shorten_log_message(err)}')
                 c = np.full(self.m_nonlinear_ub, np.nan)
             c = _process_1d_array(c, 'The return value of the argument `cub` for problem must be a one-dimensional array.')
             if c.size != 0 and c.size != self.m_nonlinear_ub:
@@ -1850,7 +1850,7 @@ class Problem:
                 c = self._ceq(x)
             except Exception as err:
                 logger = get_logger(__name__)
-                logger.warning(f'Failed to evaluate the nonlinear equality constraint function: {err}')
+                logger.warning(f'Failed to evaluate the nonlinear equality constraint function: {shorten_log_message(err)}')
                 c = np.full(self.m_nonlinear_eq, np.nan)
             c = _process_1d_array(c, 'The return value of the argument `ceq` for problem must be a one-dimensional array.')
             if c.size != 0 and c.size != self.m_nonlinear_eq:
@@ -1887,7 +1887,7 @@ class Problem:
                 j = self._jcub(x)
             except Exception as err:
                 logger = get_logger(__name__)
-                logger.warning(f'Failed to evaluate the Jacobian of the nonlinear inequality constraint function: {err}')
+                logger.warning(f'Failed to evaluate the Jacobian of the nonlinear inequality constraint function: {shorten_log_message(err)}')
                 j = np.full((self.m_nonlinear_ub, self.n), np.nan)
             j = _process_2d_array(j, 'The return value of the argument `jcub` for problem must be a two-dimensional array.')
             if j.size != 0 and j.shape != (self.m_nonlinear_ub, self.n):
@@ -1924,7 +1924,7 @@ class Problem:
                 j = self._jceq(x)
             except Exception as err:
                 logger = get_logger(__name__)
-                logger.warning(f'Failed to evaluate the Jacobian of the nonlinear equality constraint function: {err}')
+                logger.warning(f'Failed to evaluate the Jacobian of the nonlinear equality constraint function: {shorten_log_message(err)}')
                 j = np.full((self.m_nonlinear_eq, self.n), np.nan)
             j = _process_2d_array(j, 'The return value of the argument `jceq` for problem must be a two-dimensional array.')
             if j.size != 0 and j.shape != (self.m_nonlinear_eq, self.n):
@@ -1961,7 +1961,7 @@ class Problem:
                 h = self._hcub(x)
             except Exception as err:
                 logger = get_logger(__name__)
-                logger.warning(f'Failed to evaluate the Hessian of the nonlinear inequality constraint function: {err}')
+                logger.warning(f'Failed to evaluate the Hessian of the nonlinear inequality constraint function: {shorten_log_message(err)}')
                 h = [np.full((self.n, self.n), np.nan)] * self.m_nonlinear_ub
             h = [_process_2d_array(h_i, 'Each element of the return value of the argument `hcub` for problem must be a two-dimensional array.') for h_i in h]
             if len(h) != self.m_nonlinear_ub:
@@ -2001,7 +2001,7 @@ class Problem:
                 h = self._hceq(x)
             except Exception as err:
                 logger = get_logger(__name__)
-                logger.warning(f'Failed to evaluate the Hessian of the nonlinear equality constraint function: {err}')
+                logger.warning(f'Failed to evaluate the Hessian of the nonlinear equality constraint function: {shorten_log_message(err)}')
                 h = [np.full((self.n, self.n), np.nan)] * self.m_nonlinear_eq
             h = [_process_2d_array(h_i, 'Each element of the return value of the argument `hceq` for problem must be a two-dimensional array.') for h_i in h]
             if len(h) != self.m_nonlinear_eq:

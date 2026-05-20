@@ -437,7 +437,7 @@ class TestSaveOptions:
         with tempfile.NamedTemporaryFile(suffix='.pkl', delete=False) as f:
             path = f.name
         try:
-            save_options(opts, path)
-            assert os.path.exists(path)
+            with pytest.raises(Exception):
+                save_options(opts, path)
         finally:
             os.unlink(path)

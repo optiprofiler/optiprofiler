@@ -50,7 +50,7 @@ function [results_plibs, profile_options] = loadResults(problem_options, profile
 
     % Load data from the 'data_for_loading.mat' file in the path_data directory.
     warning('off');
-    fprintf("INFO: Loading data from the directory '%s'...\n", path_data);
+    printOptiProfilerMessage('INFO', sprintf("Loading data from the directory '%s'...", path_data));
     load(fullfile(path_data, 'data_for_loading.mat'), 'results_plibs');
     warning('on');
     if ~exist('results_plibs', 'var')
@@ -133,19 +133,21 @@ function [results_plibs, profile_options] = loadResults(problem_options, profile
 
     % Check whether there is any problem to load.
     if problem_nums == 0
-        fprintf("\nINFO: No problem is selected to load by the given options. Please check your options and try again.\n");
+        fprintf('\n');
+        printOptiProfilerMessage('INFO', 'No problem is selected to load by the given options. Please check your options and try again.');
         results_plibs = {};
         return;
     end
 
     % Print the information about the loaded experiment.
-    fprintf('INFO: Loaded experiment successfully.\n');
-    fprintf('\nINFO: Information about the loaded experiment\n');
-    fprintf('INFO: - Time stamp: %s\n', time_stamp);
-    fprintf('INFO: - Path: %s\n', path_experiment);
-    fprintf('INFO: - Solvers: %s\n', strjoin(results_plibs{1}.solver_names, ', '));
-    fprintf('INFO: - Feature stamp: %s\n', results_plibs{1}.feature_stamp);
-    fprintf('INFO: - Number of selected problems: %d\n', problem_nums);
+    printOptiProfilerMessage('INFO', 'Loaded experiment successfully.');
+    fprintf('\n');
+    printOptiProfilerMessage('INFO', 'Information about the loaded experiment:');
+    printOptiProfilerMessage('INFO', sprintf('- Time stamp: %s', time_stamp));
+    printOptiProfilerMessage('INFO', sprintf('- Path: %s', path_experiment));
+    printOptiProfilerMessage('INFO', sprintf('- Solvers: %s', strjoin(results_plibs{1}.solver_names, ', ')));
+    printOptiProfilerMessage('INFO', sprintf('- Feature stamp: %s', results_plibs{1}.feature_stamp));
+    printOptiProfilerMessage('INFO', sprintf('- Number of selected problems: %d', problem_nums));
 end
 
 function files = search_in_dir(current_path, pattern, max_depth, current_depth, files)

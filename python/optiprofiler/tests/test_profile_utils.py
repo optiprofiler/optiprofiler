@@ -1,4 +1,5 @@
 """Tests for the profile_utils module."""
+import logging
 import os
 import tempfile
 
@@ -22,8 +23,9 @@ from optiprofiler.profile_utils import (
     init_readme,
     integrate,
     merge_pdfs_with_pypdf,
+    write_report,
 )
-from optiprofiler.utils import FeatureOption, ProblemOption, ProfileOption
+from optiprofiler.utils import FeatureOption, ProblemOption, ProfileOption, WrappedLogFormatter
 
 
 class TestCheckValidityProblemOptions:
@@ -539,6 +541,72 @@ class TestGetDefaultProfileOptions:
         assert _get_conservative_default_n_jobs() == expected_n_jobs
 
 
+class TestLogFormatting:
+
+    def test_wrapped_warning_lines_are_aligned(self):
+        record = logging.LogRecord('optiprofiler', logging.WARNING, '', 1, 'A long warning message ' * 12, (), None)
+        output = WrappedLogFormatter(line_width=60).format(record)
+        lines = output.splitlines()
+        assert len(lines) > 1
+        assert lines[0].startswith('[WARNING ] ')
+        assert lines[1].startswith(' ' * len('[WARNING ] '))
+
+    def test_error_lines_are_shortened(self):
+        record = logging.LogRecord('optiprofiler', logging.ERROR, '', 1, 'x' * 300, (), None)
+        output = WrappedLogFormatter(line_width=60, error_max_length=50).format(record)
+        assert output.startswith('[ERROR   ] ')
+        assert len(output) <= len('[ERROR   ] ') + 50
+
+
+class TestWriteReport:
+
+    def test_run_plain_computation_times_keep_run_axis(self, tmp_path):
+        path_report = tmp_path / 'report.txt'
+        path_readme = tmp_path / 'README.txt'
+        path_readme.write_text('')
+
+        results_plib = {
+            'solver_names': ['s1', 's2'],
+            'ptype': 'u',
+            'mindim': 1,
+            'maxdim': 1,
+            'minb': 0,
+            'maxb': 0,
+            'minlcon': 0,
+            'maxlcon': 0,
+            'minnlcon': 0,
+            'maxnlcon': 0,
+            'mincon': 0,
+            'maxcon': 0,
+            'problem_names_options': [],
+            'excludelist': [],
+            'feature_stamp': 'random_nan',
+            'plib': 'test',
+            'problem_names': ['P'],
+            'problem_types': ['u'],
+            'problem_dims': np.array([1]),
+            'problem_mbs': np.array([0]),
+            'problem_mlcons': np.array([0]),
+            'problem_mnlcons': np.array([0]),
+            'problem_mcons': np.array([0]),
+            'solvers_successes': np.ones((1, 2, 1), dtype=bool),
+            'computation_times': np.ones((1, 2, 1)),
+            'results_plib_plain': {
+                'problem_names': ['P'],
+                'computation_times': np.array([[[2.0], [3.0]]]),
+            },
+        }
+
+        write_report(
+            {ProfileOption.SCORE_ONLY: False, ProfileOption.RUN_PLAIN: True, ProfileOption.SILENT: True},
+            [results_plib],
+            path_report,
+            path_readme,
+        )
+
+        assert 'Wall-clock time spent by all the solvers: 7.00 secs' in path_report.read_text()
+
+
 class TestDefaultMerit:
 
     def test_feasible(self):
@@ -732,6 +800,12 @@ class TestIntegrate:
         result = integrate((x, y), 'log_ratio', {})
         expected = np.sum(np.abs(y))
         np.testing.assert_allclose(result, expected)
+
+    def test_nonfinite_segments_are_ignored(self):
+        result = integrate((np.array([1.0, np.inf]), np.array([0.0, 1.0])), 'perf', {})
+        assert result == 0.0
+        result = integrate((np.array([1.0]), np.array([np.inf])), 'log_ratio', {})
+        assert result == 0.0
 
     def test_ndarray_input(self):
         curve = np.array([[1.0, 2.0, 3.0], [0.5, 0.8, 1.0]])

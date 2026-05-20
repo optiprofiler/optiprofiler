@@ -8,7 +8,7 @@ from matplotlib.colors import is_color_like
 from pypdf import PdfWriter
 
 
-from .utils import FeatureName, ProfileOption, FeatureOption, ProblemOption, get_logger
+from .utils import FeatureName, ProfileOption, FeatureOption, ProblemOption, get_logger, print_log_message, shorten_log_message
 
 
 def _get_conservative_default_n_jobs():
@@ -213,7 +213,6 @@ def check_validity_profile_options(solvers, profile_options):
     """
     Check the validity of the profile options.
     """
-    logger = get_logger(__name__)
     if ProfileOption.N_JOBS in profile_options:
         if isinstance(profile_options[ProfileOption.N_JOBS], (float, np.floating)) and float(profile_options[ProfileOption.N_JOBS]).is_integer():
             profile_options[ProfileOption.N_JOBS] = int(profile_options[ProfileOption.N_JOBS])
@@ -223,7 +222,7 @@ def check_validity_profile_options(solvers, profile_options):
             raise TypeError(f'Option {ProfileOption.N_JOBS} must be an integer.')
         if profile_options[ProfileOption.N_JOBS] < 1:
             profile_options[ProfileOption.N_JOBS] = 1
-            logger.warning(f'Option {ProfileOption.N_JOBS} is set to 1 because it cannot be smaller than 1.')
+            print_log_message('WARNING', f'Option {ProfileOption.N_JOBS} is set to 1 because it cannot be smaller than 1.')
 
     if ProfileOption.SEED in profile_options:
         if isinstance(profile_options[ProfileOption.SEED], (float, np.floating)) and float(profile_options[ProfileOption.SEED]).is_integer():
@@ -344,7 +343,7 @@ def check_validity_profile_options(solvers, profile_options):
             raise TypeError(f'Option {ProfileOption.SUMMARIZE_LOG_RATIO_PROFILES} must be a boolean.')
         if profile_options[ProfileOption.SUMMARIZE_LOG_RATIO_PROFILES]:
             if len(solvers) != 2:
-                logger.warning(f'The log-ratio profiles are available only when there are exactly two solvers. We will not generate the log-ratio profiles.')
+                print_log_message('WARNING', 'The log-ratio profiles are available only when there are exactly two solvers. We will not generate the log-ratio profiles.')
                 profile_options[ProfileOption.SUMMARIZE_LOG_RATIO_PROFILES] = False
 
     if ProfileOption.SUMMARIZE_OUTPUT_BASED_PROFILES in profile_options:
@@ -366,10 +365,10 @@ def check_validity_profile_options(solvers, profile_options):
             raise ValueError(f'Option {ProfileOption.SOLVER_VERBOSE} must be 0, 1, or 2.')
         if ProfileOption.SILENT in profile_options and profile_options[ProfileOption.SILENT]:
             if profile_options[ProfileOption.SOLVER_VERBOSE] == 2:
-                logger.warning(f'Option {ProfileOption.SOLVER_VERBOSE} is set to 1 because option {ProfileOption.SILENT} is True.')
+                print_log_message('WARNING', f'Option {ProfileOption.SOLVER_VERBOSE} is set to 1 because option {ProfileOption.SILENT} is True.')
                 profile_options[ProfileOption.SOLVER_VERBOSE] = 1
             elif profile_options[ProfileOption.SOLVER_VERBOSE] == 1:
-                logger.warning(f'Option {ProfileOption.SOLVER_VERBOSE} is set to 0 because option {ProfileOption.SILENT} is True.')
+                print_log_message('WARNING', f'Option {ProfileOption.SOLVER_VERBOSE} is set to 0 because option {ProfileOption.SILENT} is True.')
                 profile_options[ProfileOption.SOLVER_VERBOSE] = 0
 
     if ProfileOption.SEMILOGX in profile_options:
@@ -579,10 +578,18 @@ def get_default_profile_options(solvers, feature, profile_options):
 
     # Resolve potential conflicts in the options.
     if profile_options[ProfileOption.SCORE_ONLY.value]:
-        print('INFO: Since the option "score_only" is true, we will not draw any history plots of the problems (the option "draw_hist_plots" is set to "none").')
+        print_log_message(
+            'INFO',
+            'Since the option "score_only" is true, we will not draw any history plots of the '
+            'problems (the option "draw_hist_plots" is set to "none").',
+        )
         profile_options[ProfileOption.DRAW_HIST_PLOTS.value] = 'none'
     if profile_options[ProfileOption.LOAD.value] is not None:
-        print('INFO: Since the option "load" is provided, we will draw history plots of the problems after loading the results (the option "draw_hist_plots" is set to "sequential").')
+        print_log_message(
+            'INFO',
+            'Since the option "load" is provided, we will draw history plots of the problems '
+            'after loading the results (the option "draw_hist_plots" is set to "sequential").',
+        )
         profile_options[ProfileOption.DRAW_HIST_PLOTS.value] = 'sequential'
 
     return profile_options
@@ -886,18 +893,29 @@ def write_report(profile_options, results_plibs, path_report, path_readme_log):
                     results_plib_plain = results_plib['results_plib_plain']
                     problem_names_plain = results_plib_plain['problem_names']
                     computation_times_plain = results_plib_plain['computation_times']
-                    import numpy as np
+                    if computation_times_plain.ndim != 3:
+                        raise ValueError(
+                            'The plain computation times must be a three-dimensional array.'
+                        )
+                    if computation_times_plain.ndim != computation_times.ndim:
+                        raise ValueError(
+                            'The plain computation times must have the same number of dimensions as '
+                            'the main computation times.'
+                        )
                     computation_times = np.concatenate(
-                        (computation_times, np.full_like(computation_times_plain, np.nan)), axis=2
+                        (computation_times, np.full_like(computation_times_plain, np.nan)),
+                        axis=2,
                     )
+                    plain_runs = computation_times_plain.shape[2]
                     for i_problem, pname in enumerate(problem_names):
                         if pname in problem_names_plain:
                             idx = problem_names_plain.index(pname)
-                            computation_times[i_problem, :, -1] = computation_times_plain[idx, :, :]
+                            computation_times[i_problem, :, -plain_runs:] = np.asarray(
+                                computation_times_plain[idx, :, :]
+                            )
 
                 # Pick out unsolved problems and calculate computation times for each problem
                 unsolved_problems = []
-                import numpy as np
                 time_processes = np.zeros(len(problem_names))
                 for i_problem, pname in enumerate(problem_names):
                     if np.all(~np.array(solvers_successes[i_problem])):
@@ -973,7 +991,8 @@ def write_report(profile_options, results_plibs, path_report, path_readme_log):
         add_to_readme(path_readme_log, 'report.txt', 'File, the report file of the current experiment, recording information like problem names and time spent on solving each problem for all the problem libraries.')
     except Exception as exc:
         if not profile_options[ProfileOption.SILENT]:
-            logger.warning(f'Error occurred when writing the report to {path_report}: {exc}')
+            logger.warning(f'Error occurred when writing the report to {path_report}.')
+            logger.warning(f'Error message: {shorten_log_message(exc)}')
 
 
 def process_results(results_plibs, profile_options):
@@ -1197,10 +1216,13 @@ def integrate(curve, profile_type, profile_options):
         dx = np.diff(x)
         y_left = y[:-1]
         x_left = x[:-1]
-        integral = np.sum(dx * y_left * kernel(x_left))
+        with np.errstate(invalid='ignore', divide='ignore', over='ignore'):
+            contribution = dx * y_left * kernel(x_left)
+        integral = np.sum(contribution[np.isfinite(contribution)])
     elif profile_type == 'log_ratio':
         # We do not modify the integral of log_ratio even if a score_weight_fun is provided.
-        integral = np.sum(np.abs(y))
+        abs_y = np.abs(y)
+        integral = np.sum(abs_y[np.isfinite(abs_y)])
     
     return integral
 

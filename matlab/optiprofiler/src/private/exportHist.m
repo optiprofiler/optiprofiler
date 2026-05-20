@@ -64,7 +64,7 @@ function exportHist(problem_name, problem_type, problem_dim, solver_names, solve
         close(fig_summary);
     catch Exception
         if ~profile_options.(ProfileOptionKey.SILENT.value)
-            fprintf("INFO: An error occurred while plotting the history plots of the problem %s: %s\n", problem_name, Exception.message);
+            printOptiProfilerMessage('INFO', sprintf('An error occurred while plotting the history plots of the problem %s: %s', problem_name, shortenMessageForLog(Exception.message)));
         end
     end
 end

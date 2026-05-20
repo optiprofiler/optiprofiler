@@ -55,8 +55,9 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
     for i_solver = 1:n_solvers
         for i_run = 1:real_n_runs(i_solver)
             if ~profile_options.(ProfileOptionKey.SILENT.value)
-                format_info_start = sprintf("\\nINFO: Start  solving    %%-%ds with %%-%ds (run %%2d/%%2d).\\n", len_problem_names, len_solver_names);
-                fprintf(format_info_start, problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver));
+                fprintf('\n');
+                format_info_start = sprintf("Start  solving    %%-%ds with %%-%ds (run %%2d/%%2d).", len_problem_names, len_solver_names);
+                printOptiProfilerMessage('INFO', sprintf(format_info_start, problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver)));
             end
 
             % Construct featured_problem.
@@ -144,7 +145,7 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
                     solver_abnormal_terminations(i_solver, i_run) = true;
                     solver_output_fallbacks(i_solver, i_run) = true;
                     if profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) ~= 0
-                        fprintf("INFO: An error occurred while solving %s with %s (run %d/%d): %s\n", problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), Exception.message);
+                        printOptiProfilerMessage('WARNING', sprintf('An error occurred while solving %s with %s (run %d/%d): %s', problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), shortenMessageForLog(Exception.message)));
                     end
                 end
 
@@ -177,10 +178,7 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
                     % MathWorks #97194 link for traceability, and
                     % clamp the recorded duration to 0.
                     if ~profile_options.(ProfileOptionKey.SILENT.value)
-                        warning('OptiProfiler:NonMonotonicClock', ...
-                            'Negative elapsed time for %s with %s (run %d/%d): t_start=%.6f t_end=%.6f diff=%.6g s (clamped to 0; see https://www.mathworks.com/matlabcentral/answers/97194).', ...
-                            problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), ...
-                            time_start_posix, time_end_posix, elapsed_s);
+                        printOptiProfilerMessage('WARNING', sprintf('Negative elapsed time for %s with %s (run %d/%d): t_start=%.6f t_end=%.6f diff=%.6g s (clamped to 0; see https://www.mathworks.com/matlabcentral/answers/97194).', problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), time_start_posix, time_end_posix, elapsed_s));
                     end
                     elapsed_s = 0;
                 elseif ~isfinite(elapsed_s) || elapsed_s > 1e7
@@ -189,10 +187,7 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
                     % is far beyond any realistic single solver run.
                     % Record NaN so downstream omitnan sums skip it.
                     if ~profile_options.(ProfileOptionKey.SILENT.value)
-                        warning('OptiProfiler:NonMonotonicClock', ...
-                            'Implausibly large elapsed time %.6g s for %s with %s (run %d/%d): t_start=%.6f t_end=%.6f (recorded as NaN; see https://www.mathworks.com/matlabcentral/answers/97194).', ...
-                            elapsed_s, problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), ...
-                            time_start_posix, time_end_posix);
+                        printOptiProfilerMessage('WARNING', sprintf('Implausibly large elapsed time %.6g s for %s with %s (run %d/%d): t_start=%.6f t_end=%.6f (recorded as NaN; see https://www.mathworks.com/matlabcentral/answers/97194).', elapsed_s, problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), time_start_posix, time_end_posix));
                     end
                     elapsed_s = NaN;
                 end
@@ -208,22 +203,30 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
                 fun_out(i_solver, i_run) = problem.fun(x);
                 maxcv_out(i_solver, i_run) = problem.maxcv(x);
                 % Calculate the minimum function value and the minimum constraint violation, omitting the NaN values.
-                fun_min = min(featured_problem.fun_hist, [], 'omitnan');
-                maxcv_min = min(featured_problem.maxcv_hist, [], 'omitnan');
+                if isempty(featured_problem.fun_hist)
+                    fun_min = NaN;
+                else
+                    fun_min = min(featured_problem.fun_hist, [], 'omitnan');
+                end
+                if isempty(featured_problem.maxcv_hist)
+                    maxcv_min = NaN;
+                else
+                    maxcv_min = min(featured_problem.maxcv_hist, [], 'omitnan');
+                end
                 if ~profile_options.(ProfileOptionKey.SILENT.value)
-                    format_info_end = sprintf("INFO: Finish solving    %%-%ds with %%-%ds (run %%2d/%%2d) in %%.2f seconds.\\n", len_problem_names, len_solver_names);
-                    fprintf(format_info_end, problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), computation_time(i_solver, i_run));
+                    format_info_end = sprintf("Finish solving    %%-%ds with %%-%ds (run %%2d/%%2d) in %%.2f seconds.", len_problem_names, len_solver_names);
+                    printOptiProfilerMessage('INFO', sprintf(format_info_end, problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), computation_time(i_solver, i_run)));
                     switch problem_type
                         case 'u'
-                            format_info_output = sprintf("INFO: Output result for %%-%ds with %%-%ds (run %%2d/%%2d): f = %%10.4e.\\n", len_problem_names, len_solver_names);
-                            fprintf(format_info_output, problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), fun_out(i_solver, i_run));
-                            format_info_best = sprintf("INFO: Best   result for %%-%ds with %%-%ds (run %%2d/%%2d): f = %%10.4e.\\n", len_problem_names, len_solver_names);
-                            fprintf(format_info_best, problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), fun_min);
+                            format_info_output = sprintf("Output result for %%-%ds with %%-%ds (run %%2d/%%2d): f = %%10.4e.", len_problem_names, len_solver_names);
+                            printOptiProfilerMessage('INFO', sprintf(format_info_output, problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), fun_out(i_solver, i_run)));
+                            format_info_best = sprintf("Best   result for %%-%ds with %%-%ds (run %%2d/%%2d): f = %%10.4e.", len_problem_names, len_solver_names);
+                            printOptiProfilerMessage('INFO', sprintf(format_info_best, problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), fun_min));
                         otherwise
-                            format_info_output = sprintf("INFO: Output result for %%-%ds with %%-%ds (run %%2d/%%2d): f = %%10.4e, maxcv = %%10.4e.\\n", len_problem_names, len_solver_names);
-                            fprintf(format_info_output, problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), fun_out(i_solver, i_run), maxcv_out(i_solver, i_run));
-                            format_info_best = sprintf("INFO: Best   result for %%-%ds with %%-%ds (run %%2d/%%2d): f = %%10.4e, maxcv = %%10.4e.\\n", len_problem_names, len_solver_names);
-                            fprintf(format_info_best, problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), fun_min, maxcv_min);
+                            format_info_output = sprintf("Output result for %%-%ds with %%-%ds (run %%2d/%%2d): f = %%10.4e, maxcv = %%10.4e.", len_problem_names, len_solver_names);
+                            printOptiProfilerMessage('INFO', sprintf(format_info_output, problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), fun_out(i_solver, i_run), maxcv_out(i_solver, i_run)));
+                            format_info_best = sprintf("Best   result for %%-%ds with %%-%ds (run %%2d/%%2d): f = %%10.4e, maxcv = %%10.4e.", len_problem_names, len_solver_names);
+                            printOptiProfilerMessage('INFO', sprintf(format_info_best, problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), fun_min, maxcv_min));
                     end
                 end
 
@@ -231,7 +234,7 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
                 clear x;
             catch Exception
                 if profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) ~= 0
-                    fprintf("INFO: An error occurred while processing the solution of %s from %s (run %d/%d): %s\n", problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), Exception.message);
+                    printOptiProfilerMessage('WARNING', sprintf('An error occurred while processing the solution of %s from %s (run %d/%d): %s', problem_name, solver_names{i_solver}, i_run, real_n_runs(i_solver), shortenMessageForLog(Exception.message)));
                 end
                 % Clear the solution.
                 clear x;
@@ -259,7 +262,9 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
             end
         end
     end
-    fprintf("\n");
+    if ~profile_options.(ProfileOptionKey.SILENT.value)
+        fprintf("\n");
+    end
 
     % Complete fun_inits and maxcv_inits if real_n_runs(i_solver) < n_runs for all solvers.
     % In this case, real_n_runs(i_solver) should be 1 for all solvers.

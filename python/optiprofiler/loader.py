@@ -8,7 +8,7 @@ import pickle
 from typing import Dict, List, Any, Tuple, Optional, Union, Callable
 from enum import Enum
 from pathlib import Path
-from optiprofiler.utils import FeatureName, ProfileOption, FeatureOption, ProblemOption, ProblemError, get_logger
+from optiprofiler.utils import FeatureName, ProfileOption, FeatureOption, ProblemOption, ProblemError, print_log_message
 
 def search_in_dir(current_path: str, pattern: str, max_depth: int, current_depth: int, files: List[Dict]) -> List[Dict]:
     """Recursive function to search for files with a specified pattern within a limited directory depth."""
@@ -494,19 +494,20 @@ def load_results(problem_options: Dict[str, Any], profile_options: Dict[str, Any
     
     # Check whether there is any problem to load
     if problem_nums == 0:
-        print("\nINFO: No problem is selected to load by the given options. Please check your options and try again.")
+        print()
+        print_log_message('INFO', 'No problem is selected to load by the given options. Please check your options and try again.')
         return [], profile_options
     
-    # Print the information about the loaded experiment
-    logger = get_logger(__name__)
-    logger.info('Loaded experiment successfully.')
-    logger.info('Information about the loaded experiment:')
-    logger.info(f'- Time stamp: {time_stamp}')
-    logger.info(f'- Path: {path_experiment}')
-    logger.info(f'- Solvers: {", ".join(results_plibs[0]["solver_names"])}')
+    # Print the information about the loaded experiment.
+    print_log_message('INFO', 'Loaded experiment successfully.')
+    print()
+    print_log_message('INFO', 'Information about the loaded experiment:')
+    print_log_message('INFO', f'- Time stamp: {time_stamp}')
+    print_log_message('INFO', f'- Path: {path_experiment}')
+    print_log_message('INFO', f'- Solvers: {", ".join(results_plibs[0]["solver_names"])}')
     if 'feature_stamp' in results_plibs[0]:
-        logger.info(f'- Feature stamp: {results_plibs[0]["feature_stamp"]}')
-    logger.info(f'- Number of selected problems: {problem_nums}')
+        print_log_message('INFO', f'- Feature stamp: {results_plibs[0]["feature_stamp"]}')
+    print_log_message('INFO', f'- Number of selected problems: {problem_nums}')
     
     return results_plibs, profile_options
 
@@ -605,9 +606,6 @@ def save_options(options: Dict[str, Any], file_path: Union[str, Path]) -> None:
     file_path : Union[str, Path]
         The path to the pickle file.
     """
-    try:
-        with open(file_path, 'wb') as f:
-            pickle.dump(options, f)
-    except Exception as e:
-        get_logger(__name__).warning(f"Failed to save options to {file_path}: {e}")
-
+    payload = pickle.dumps(options)
+    with open(file_path, 'wb') as f:
+        f.write(payload)
