@@ -2,6 +2,7 @@ import logging
 from logging.handlers import QueueListener, QueueHandler
 import os
 import platform
+import re
 import sys
 import textwrap
 from enum import Enum
@@ -156,7 +157,7 @@ class WrappedLogFormatter(logging.Formatter):
             return ''
 
         if record.levelno >= logging.ERROR:
-            prefix = f'[{record.levelname:<8}] '
+            prefix = format_log_prefix(record.levelname)
             max_body_length = min(self._error_max_length, max(20, self._line_width - len(prefix)))
             message = shorten_log_message(message, max_body_length)
             return prefix + message
@@ -165,9 +166,16 @@ class WrappedLogFormatter(logging.Formatter):
 
 def normalize_log_message(message: object) -> str:
     """
-    Normalize a log message by collapsing whitespace.
+    Normalize a log message while preserving intentional column padding.
     """
-    return ' '.join(str(message).split()).strip()
+    return re.sub(r'[\f\n\r\t\v]+', ' ', str(message)).strip()
+
+
+def format_log_prefix(level: str) -> str:
+    """
+    Format a fixed-width OptiProfiler log-level prefix.
+    """
+    return f'[{str(level).upper():<7}] '
 
 
 def wrap_log_message(message: object, width: int):
@@ -194,7 +202,7 @@ def format_log_message(level: str, message: object, line_width: int = 100) -> st
     message = normalize_log_message(message)
     if not message:
         return ''
-    prefix = f'[{str(level).upper():<8}] '
+    prefix = format_log_prefix(level)
     message_width = max(20, line_width - len(prefix))
     wrapped = wrap_log_message(message, message_width)
     continuation_prefix = ' ' * len(prefix)

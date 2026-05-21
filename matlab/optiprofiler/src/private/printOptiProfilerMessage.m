@@ -11,8 +11,8 @@ function lines = formatOptiProfilerMessage(level, message)
 %FORMATOPTIPROFILERMESSAGE formats a wrapped OptiProfiler log message.
 
     width = 100;
-    prefix = sprintf('%s: ', upper(char(level)));
-    message = strtrim(regexprep(char(message), '\s+', ' '));
+    prefix = sprintf('[%-7s] ', upper(char(level)));
+    message = strtrim(regexprep(char(message), '[\f\n\r\t\v]+', ' '));
     if isempty(message)
         lines = {};
         return;

@@ -25,7 +25,7 @@ from optiprofiler.profile_utils import (
     merge_pdfs_with_pypdf,
     write_report,
 )
-from optiprofiler.utils import FeatureOption, ProblemOption, ProfileOption, WrappedLogFormatter
+from optiprofiler.utils import FeatureOption, ProblemOption, ProfileOption, WrappedLogFormatter, format_log_prefix
 
 
 class TestCheckValidityProblemOptions:
@@ -543,19 +543,38 @@ class TestGetDefaultProfileOptions:
 
 class TestLogFormatting:
 
+    def test_core_log_prefixes_have_same_length(self):
+        prefixes = [format_log_prefix(level) for level in ('INFO', 'WARNING', 'ERROR')]
+        assert prefixes == ['[INFO   ] ', '[WARNING] ', '[ERROR  ] ']
+        assert len(set(map(len, prefixes))) == 1
+
+    def test_log_formatter_preserves_column_padding(self):
+        record = logging.LogRecord(
+            'optiprofiler',
+            logging.INFO,
+            '',
+            1,
+            'Finish solving    P_LONG with S (run  1/ 3) (in 0.12 seconds).',
+            (),
+            None,
+        )
+        output = WrappedLogFormatter(line_width=120).format(record)
+        assert 'Finish solving    P_LONG' in output
+        assert '(run  1/ 3)' in output
+
     def test_wrapped_warning_lines_are_aligned(self):
         record = logging.LogRecord('optiprofiler', logging.WARNING, '', 1, 'A long warning message ' * 12, (), None)
         output = WrappedLogFormatter(line_width=60).format(record)
         lines = output.splitlines()
         assert len(lines) > 1
-        assert lines[0].startswith('[WARNING ] ')
-        assert lines[1].startswith(' ' * len('[WARNING ] '))
+        assert lines[0].startswith('[WARNING] ')
+        assert lines[1].startswith(' ' * len('[WARNING] '))
 
     def test_error_lines_are_shortened(self):
         record = logging.LogRecord('optiprofiler', logging.ERROR, '', 1, 'x' * 300, (), None)
         output = WrappedLogFormatter(line_width=60, error_max_length=50).format(record)
-        assert output.startswith('[ERROR   ] ')
-        assert len(output) <= len('[ERROR   ] ') + 50
+        assert output.startswith('[ERROR  ] ')
+        assert len(output) <= len('[ERROR  ] ') + 50
 
 
 class TestWriteReport:
