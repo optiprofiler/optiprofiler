@@ -1,18 +1,10 @@
 (function () {
-    var migrationKey = "op_docs_theme_defaulted_to_system_v1";
+    var migrationKey = "op_docs_theme_defaulted_to_dark_v1";
+    var defaultTheme = "dark";
 
-    function getSystemTheme() {
-        var prefersDark = window.matchMedia &&
-            window.matchMedia("(prefers-color-scheme: dark)").matches;
-        return prefersDark ? "dark" : "light";
-    }
-
-    function applyAutoTheme(updateStorage) {
-        var theme = getSystemTheme();
-
-        document.documentElement.dataset.mode = "auto";
-        setTheme(theme, updateStorage);
-        document.documentElement.dataset.mode = "auto";
+    function applyDefaultTheme(updateStorage) {
+        document.documentElement.dataset.mode = defaultTheme;
+        setTheme(defaultTheme, updateStorage);
     }
 
     function setTheme(theme, updateStorage) {
@@ -78,48 +70,27 @@
 
     try {
         var storedMode = localStorage.getItem("mode");
-        var migrated = localStorage.getItem(migrationKey);
 
-        if (!migrated) {
+        if (storedMode === "light" || storedMode === "dark") {
+            document.documentElement.dataset.mode = storedMode;
+            setTheme(storedMode, false);
+        } else {
             localStorage.setItem(migrationKey, "1");
-            applyAutoTheme(true);
-        } else if (!storedMode || storedMode === "auto") {
-            applyAutoTheme(!storedMode);
+            applyDefaultTheme(true);
         }
     } catch (error) {
-        applyAutoTheme(false);
-    }
-
-    if (window.matchMedia) {
-        var query = window.matchMedia("(prefers-color-scheme: dark)");
-        var updateAutoMode = function () {
-            try {
-                var mode = localStorage.getItem("mode");
-                if (mode && mode !== "auto") {
-                    return;
-                }
-            } catch (error) {
-                /* Fall through and update the DOM. */
-            }
-            applyAutoTheme(true);
-        };
-
-        if (query.addEventListener) {
-            query.addEventListener("change", updateAutoMode);
-        } else if (query.addListener) {
-            query.addListener(updateAutoMode);
-        }
+        applyDefaultTheme(false);
     }
 
     document.addEventListener("DOMContentLoaded", function () {
-        updateThemeButton(document.documentElement.dataset.theme || getSystemTheme());
+        updateThemeButton(document.documentElement.dataset.theme || defaultTheme);
 
         document.querySelectorAll(".theme-switch-button").forEach(function (button) {
             button.addEventListener("click", function (event) {
                 event.preventDefault();
                 event.stopImmediatePropagation();
 
-                var currentTheme = document.documentElement.dataset.theme || getSystemTheme();
+                var currentTheme = document.documentElement.dataset.theme || defaultTheme;
                 setManualTheme(currentTheme === "dark" ? "light" : "dark");
             }, true);
         });

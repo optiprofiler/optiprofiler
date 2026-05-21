@@ -847,7 +847,12 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         elseif strcmp(profile_options.(ProfileOptionKey.DRAW_HIST_PLOTS.value), 'sequential')
             profile_options.(ProfileOptionKey.DRAW_HIST_PLOTS.value) = 'parallel';
         end
-        result = solveOneProblem(solvers, problem, feature, problem.name, length(problem.name), profile_options, true, path_hist_plots);
+        profile_options_problem = profile_options;
+        profile_options_problem.solver_log_names = getSolverLogNames(solver_names, length(problem.name));
+        if ~profile_options.(ProfileOptionKey.SILENT.value)
+            printSolverLogAliases(solver_names, profile_options_problem.solver_log_names);
+        end
+        result = solveOneProblem(solvers, problem, feature, problem.name, length(problem.name), profile_options_problem, true, path_hist_plots);
         if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
             % We move the history plots to the feature directory.
             try

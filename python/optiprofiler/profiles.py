@@ -16,6 +16,7 @@ from inspect import signature
 from multiprocessing import Pool
 from multiprocessing.reduction import ForkingPickler
 from pathlib import Path
+from typing import Any, Callable
 
 import numpy as np
 from cycler import cycler
@@ -26,7 +27,7 @@ from matplotlib.backends import backend_pdf
 from matplotlib.ticker import MaxNLocator, FuncFormatter
 
 from .opclasses import Feature, Problem, FeaturedProblem
-from .utils import FeatureName, ProfileOption, FeatureOption, ProblemOption, get_logger, print_log_message, setup_main_process_logging, setup_worker_logging, shorten_log_message
+from .utils import DEFAULT_LOG_LINE_WIDTH, FeatureName, ProfileOption, FeatureOption, ProblemOption, get_logger, print_log_message, setup_main_process_logging, setup_worker_logging, shorten_log_message, format_log_prefix
 from .loader import load_results, save_results_to_h5, save_options
 from .profile_utils import check_validity_problem_options, check_validity_profile_options, get_default_problem_options, get_default_profile_options, compute_merit_values, create_stamp, merge_pdfs_with_pypdf, write_report, process_results, init_readme, add_to_readme, compute_scores
 from .plotting import draw_hist, set_profile_context, format_float_scientific_latex, draw_profiles
@@ -39,8 +40,61 @@ def _shorten_log_message(message: object, max_length: int = 180) -> str:
     return shorten_log_message(message, max_length)
 
 
+_SOLVER_LOG_NAMES_KEY = '_solver_log_names'
+
+
+def _standard_constrained_result_log_length(problem_name_width: int, solver_name_width: int) -> int:
+    """
+    Length of the standard constrained ``Output result`` log line.
+    """
+    problem_name = 'P' * max(1, problem_name_width)
+    solver_name = 'S' * max(1, solver_name_width)
+    line = (
+        f'{format_log_prefix("INFO")}'
+        f'Output result for {problem_name:<{problem_name_width}} with {solver_name:<{solver_name_width}} '
+        f'(run {1:2d}/{1:2d}): f = {-9.5:10.4e}, maxcv = {1.1102e-16:10.4e}.'
+    )
+    return len(line)
+
+
+def _get_solver_log_names(solver_names, problem_name_width: int, line_width: int = DEFAULT_LOG_LINE_WIDTH):
+    """
+    Return short solver display names for aligned terminal logs when needed.
+    """
+    solver_names = list(solver_names)
+    solver_width = max(len(name) for name in solver_names)
+    if _standard_constrained_result_log_length(problem_name_width, solver_width) <= line_width:
+        return solver_names, False
+    return [f'solver{i + 1}' for i in range(len(solver_names))], True
+
+
+def _with_solver_log_names(profile_options, problem_name_width: int):
+    """
+    Copy profile options and add internal solver names used only in logs.
+    """
+    solver_log_names, solver_aliases_used = _get_solver_log_names(
+        profile_options[ProfileOption.SOLVER_NAMES],
+        problem_name_width,
+    )
+    profile_options_log = profile_options.copy()
+    profile_options_log[_SOLVER_LOG_NAMES_KEY] = solver_log_names
+    return profile_options_log, solver_aliases_used
+
+
+def _log_solver_aliases(logger, solver_names, solver_log_names):
+    """
+    Print the mapping from short log aliases to true solver names.
+    """
+    if list(solver_log_names) == list(solver_names):
+        return
+    logger.info('Solver aliases used in the log:')
+    max_alias_len = max(len(name) for name in solver_log_names)
+    for alias, name in zip(solver_log_names, solver_names):
+        logger.info(f'{alias:<{max_alias_len}} = {name}')
+
+
 def benchmark(
-    solvers: list[callable] | None = None,
+    solvers: list[Callable[..., Any]] | None = None,
     /,
     **kwargs
 ) -> tuple[np.ndarray, np.ndarray | None, list[dict] | None]:
@@ -876,7 +930,10 @@ def benchmark(
 
     # If a specific problem is provided to `problem_options`, we only solve this problem and generate the history plots for it.
     if 'problem' in locals():
-        result = _solve_one_problem(solvers, problem, feature, problem.name, len(problem.name), profile_options, True, path_hist_plots)
+        profile_options_log, _ = _with_solver_log_names(profile_options, len(problem.name))
+        if not profile_options[ProfileOption.SILENT]:
+            _log_solver_aliases(logger, solver_names, profile_options_log[_SOLVER_LOG_NAMES_KEY])
+        result = _solve_one_problem(solvers, problem, feature, problem.name, len(problem.name), profile_options_log, True, path_hist_plots)
 
         if not profile_options[ProfileOption.SCORE_ONLY]:
             # We move the history plots to the feature directory.
@@ -1692,9 +1749,12 @@ def _solve_all_problems(solvers, plib, feature, problem_options, profile_options
     n_problems = len(problem_names)
     len_problem_names = max(len(name) for name in problem_names)
     max_eval_factor = profile_options[ProfileOption.MAX_EVAL_FACTOR]
+    profile_options_log, solver_aliases_used = _with_solver_log_names(profile_options, len_problem_names)
     if not profile_options[ProfileOption.SILENT]:
         logger.info('')
         logger.info(f'There are {n_problems} problems selected from "{plib}" to test.')
+        if solver_aliases_used:
+            _log_solver_aliases(logger, profile_options[ProfileOption.SOLVER_NAMES], profile_options_log[_SOLVER_LOG_NAMES_KEY])
 
     # Determine whether to use sequential mode or parallel mode.
     sequential_mode = profile_options[ProfileOption.N_JOBS] == 1 or os.cpu_count() == 1
@@ -1710,7 +1770,7 @@ def _solve_all_problems(solvers, plib, feature, problem_options, profile_options
                 feature,
                 problem_names[0],
                 len_problem_names,
-                profile_options,
+                profile_options_log,
                 is_plot,
                 path_hist_plots,
                 plib,
@@ -1727,7 +1787,7 @@ def _solve_all_problems(solvers, plib, feature, problem_options, profile_options
             )
 
     # Solve all problems.
-    args = [(solvers, feature, problem_name, len_problem_names, profile_options, is_plot, path_hist_plots, plib, custom_problem_libs_path) for problem_name in problem_names]
+    args = [(solvers, feature, problem_name, len_problem_names, profile_options_log, is_plot, path_hist_plots, plib, custom_problem_libs_path) for problem_name in problem_names]
     if sequential_mode:
         results = map(lambda arg: _solve_one_problem_wrapper(*arg), args)
     else:
@@ -1865,6 +1925,7 @@ def _solve_one_problem(solvers, problem, feature, problem_name, len_problem_name
     Solve a given problem.
     """
     solver_names = profile_options[ProfileOption.SOLVER_NAMES]
+    solver_log_names = profile_options.get(_SOLVER_LOG_NAMES_KEY, solver_names)
     solver_isrand = profile_options[ProfileOption.SOLVER_ISRAND]
     result = None
 
@@ -1917,7 +1978,7 @@ def _solve_one_problem(solvers, problem, feature, problem_name, len_problem_name
         for i_solver in range(n_solvers)
     ], dtype=int)
     
-    len_solver_names = max(len(name) for name in solver_names)
+    len_solver_log_names = max(len(name) for name in solver_log_names)
 
     logger = get_logger(__name__)
 
@@ -1926,7 +1987,7 @@ def _solve_one_problem(solvers, problem, feature, problem_name, len_problem_name
         for i_run in range(real_n_runs[i_solver]):
             if not profile_options[ProfileOption.SILENT]:
                 logger.info(
-                    f"Start  solving    {problem_name:<{len_problem_names}} with {solver_names[i_solver]:<{len_solver_names}} (run {i_run + 1:2d}/{real_n_runs[i_solver]:2d})."
+                    f"Start  solving    {problem_name:<{len_problem_names}} with {solver_log_names[i_solver]:<{len_solver_log_names}} (run {i_run + 1:2d}/{real_n_runs[i_solver]:2d})."
                 )
 
             # Construct the featured problem.
@@ -2017,7 +2078,7 @@ def _solve_one_problem(solvers, problem, feature, problem_name, len_problem_name
                         solver_output_fallbacks[i_solver, i_run] = True
                         if profile_options[ProfileOption.SOLVER_VERBOSE] >= 1:
                             logger.warning(
-                                f'An error occurred while solving {problem_name} with {solver_names[i_solver]} '
+                                f'An error occurred while solving {problem_name} with {solver_log_names[i_solver]} '
                                 f'(run {i_run + 1}/{real_n_runs[i_solver]}): {_shorten_log_message(exc)}'
                             )
 
@@ -2054,7 +2115,7 @@ def _solve_one_problem(solvers, problem, feature, problem_name, len_problem_name
                     if elapsed < 0:
                         if not profile_options[ProfileOption.SILENT]:
                             logger.warning(
-                                f'Negative elapsed time for {problem_name} with {solver_names[i_solver]} '
+                                f'Negative elapsed time for {problem_name} with {solver_log_names[i_solver]} '
                                 f'(run {i_run + 1}/{real_n_runs[i_solver]}): '
                                 f't_start={time_start_solver_run:.6f} t_end={time_end_monotonic:.6f} '
                                 f'diff={elapsed:.6g} s (clamped to 0; time.monotonic violates PEP 418).'
@@ -2064,7 +2125,7 @@ def _solve_one_problem(solvers, problem, feature, problem_name, len_problem_name
                         if not profile_options[ProfileOption.SILENT]:
                             logger.warning(
                                 f'Implausibly large elapsed time {elapsed:.6g} s for {problem_name} with '
-                                f'{solver_names[i_solver]} (run {i_run + 1}/{real_n_runs[i_solver]}): '
+                                f'{solver_log_names[i_solver]} (run {i_run + 1}/{real_n_runs[i_solver]}): '
                                 f't_start={time_start_solver_run:.6f} t_end={time_end_monotonic:.6f} '
                                 '(recorded as NaN; likely a timer glitch, not a real run).'
                             )
@@ -2086,32 +2147,32 @@ def _solve_one_problem(solvers, problem, feature, problem_name, len_problem_name
 
                     if not profile_options[ProfileOption.SILENT]:
                         logger.info(
-                            f"Finish solving    {problem_name:<{len_problem_names}} with {solver_names[i_solver]:<{len_solver_names}} "
+                            f"Finish solving    {problem_name:<{len_problem_names}} with {solver_log_names[i_solver]:<{len_solver_log_names}} "
                             f"(run {i_run + 1:2d}/{real_n_runs[i_solver]:2d}) (in {computation_time[i_solver, i_run]:.2f} seconds)."
                         )
 
                         if problem_type == 'u':
                             logger.info(
-                                f"Output result for {problem_name:<{len_problem_names}} with {solver_names[i_solver]:<{len_solver_names}} "
+                                f"Output result for {problem_name:<{len_problem_names}} with {solver_log_names[i_solver]:<{len_solver_log_names}} "
                                 f"(run {i_run + 1:2d}/{real_n_runs[i_solver]:2d}): f = {fun_out[i_solver, i_run]:10.4e}."
                             )
                             logger.info(
-                                f"Best   result for {problem_name:<{len_problem_names}} with {solver_names[i_solver]:<{len_solver_names}} "
+                                f"Best   result for {problem_name:<{len_problem_names}} with {solver_log_names[i_solver]:<{len_solver_log_names}} "
                                 f"(run {i_run + 1:2d}/{real_n_runs[i_solver]:2d}): f = {fun_min:10.4e}."
                             )
                         else:
                             logger.info(
-                                f"Output result for {problem_name:<{len_problem_names}} with {solver_names[i_solver]:<{len_solver_names}} "
+                                f"Output result for {problem_name:<{len_problem_names}} with {solver_log_names[i_solver]:<{len_solver_log_names}} "
                                 f"(run {i_run + 1:2d}/{real_n_runs[i_solver]:2d}): f = {fun_out[i_solver, i_run]:10.4e}, maxcv = {maxcv_out[i_solver, i_run]:10.4e}."
                             )
                             logger.info(
-                                f"Best   result for {problem_name:<{len_problem_names}} with {solver_names[i_solver]:<{len_solver_names}} "
+                                f"Best   result for {problem_name:<{len_problem_names}} with {solver_log_names[i_solver]:<{len_solver_log_names}} "
                                 f"(run {i_run + 1:2d}/{real_n_runs[i_solver]:2d}): f = {fun_min:10.4e}, maxcv = {maxcv_min:10.4e}."
                             )
                 except Exception as exc:
                     if profile_options[ProfileOption.SOLVER_VERBOSE] >= 1:
                         logger.warning(
-                            f'An error occurred while processing the solution of {problem_name} from {solver_names[i_solver]} '
+                            f'An error occurred while processing the solution of {problem_name} from {solver_log_names[i_solver]} '
                             f'(run {i_run + 1}/{real_n_runs[i_solver]}): {_shorten_log_message(exc)}'
                         )
             n_eval[i_solver, i_run] = featured_problem.n_eval_fun

@@ -26,6 +26,7 @@ from optiprofiler.profile_utils import (
     write_report,
 )
 from optiprofiler.utils import DEFAULT_LOG_LINE_WIDTH, FeatureOption, ProblemOption, ProfileOption, WrappedLogFormatter, format_log_prefix
+from optiprofiler.profiles import _get_solver_log_names, _standard_constrained_result_log_length
 
 
 class TestCheckValidityProblemOptions:
@@ -569,6 +570,20 @@ class TestLogFormatting:
         assert output == f'{format_log_prefix("INFO")}{message}'
         assert len(output) <= DEFAULT_LOG_LINE_WIDTH
         assert len(output.splitlines()) == 1
+
+    def test_short_solver_names_are_kept_in_logs(self):
+        solver_log_names, aliases_used = _get_solver_log_names(['COBYLA', 'Nelder-Mead'], problem_name_width=8)
+        assert solver_log_names == ['COBYLA', 'Nelder-Mead']
+        assert not aliases_used
+
+    def test_long_solver_names_use_log_aliases(self):
+        solver_log_names, aliases_used = _get_solver_log_names(
+            ['VeryLongCustomSolverNameFromUser', 'AnotherLongCustomSolverNameFromUser'],
+            problem_name_width=8,
+        )
+        assert solver_log_names == ['solver1', 'solver2']
+        assert aliases_used
+        assert _standard_constrained_result_log_length(8, max(map(len, solver_log_names))) <= DEFAULT_LOG_LINE_WIDTH
 
     def test_wrapped_warning_lines_are_aligned(self):
         record = logging.LogRecord('optiprofiler', logging.WARNING, '', 1, 'A long warning message ' * 12, (), None)

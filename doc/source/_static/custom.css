@@ -66,44 +66,42 @@ html[data-theme="light"] {
     --pst-color-shadow: rgba(0, 0, 0, 0.10);
 }
 
-@media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-        --bg: #0c0a09;             /* stone-950 */
-        --bg-soft: #1c1917;        /* stone-900 */
-        --bg-card: #292524;        /* stone-800 */
-        --bg-code: #1c1917;
+:root:not([data-theme="light"]) {
+    --bg: #0c0a09;             /* stone-950 */
+    --bg-soft: #1c1917;        /* stone-900 */
+    --bg-card: #292524;        /* stone-800 */
+    --bg-code: #1c1917;
 
-        --text: #fafaf9;
-        --text-secondary: #a8a29e; /* stone-400 */
-        --text-tertiary: #78716c;  /* stone-500 */
+    --text: #fafaf9;
+    --text-secondary: #a8a29e; /* stone-400 */
+    --text-tertiary: #78716c;  /* stone-500 */
 
-        --border: #292524;
-        --border-soft: #292524;
+    --border: #292524;
+    --border-soft: #292524;
 
-        --brand-soft: rgba(249, 115, 22, 0.16);
+    --brand-soft: rgba(249, 115, 22, 0.16);
 
-        --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-        --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
-        --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.55);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
+    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.55);
 
-        --brand-emphasis: var(--brand-light);
-        --hero-orb-bg:
-            radial-gradient(circle at 50% 35%, rgba(249, 115, 22, 0.20), transparent 45%),
-            radial-gradient(circle at 85% 20%, rgba(251, 146, 60, 0.10), transparent 35%);
-        --hero-metric-bg: rgba(41, 37, 36, 0.76);
-        --secondary-button-bg: var(--bg-soft);
-        --secondary-button-border: rgba(255, 255, 255, 0.12);
-        --secondary-button-hover-bg: var(--bg-card);
-        --secondary-button-hover-color: var(--brand-light);
-        --feature-icon-ink: var(--brand-light);
-        --header-bg: rgba(12, 10, 9, 0.85);
+    --brand-emphasis: var(--brand-light);
+    --hero-orb-bg:
+        radial-gradient(circle at 50% 35%, rgba(249, 115, 22, 0.20), transparent 45%),
+        radial-gradient(circle at 85% 20%, rgba(251, 146, 60, 0.10), transparent 35%);
+    --hero-metric-bg: rgba(41, 37, 36, 0.76);
+    --secondary-button-bg: var(--bg-soft);
+    --secondary-button-border: rgba(255, 255, 255, 0.12);
+    --secondary-button-hover-bg: var(--bg-card);
+    --secondary-button-hover-color: var(--brand-light);
+    --feature-icon-ink: var(--brand-light);
+    --header-bg: rgba(12, 10, 9, 0.85);
 
-        --pst-color-primary-text: #0c0a09;
-        --pst-color-link: var(--brand-light);
-        --pst-color-link-hover: var(--brand);
-        --pst-color-inline-code: #fdba74;
-        --pst-color-shadow: rgba(0, 0, 0, 0.55);
-    }
+    --pst-color-primary-text: #0c0a09;
+    --pst-color-link: var(--brand-light);
+    --pst-color-link-hover: var(--brand);
+    --pst-color-inline-code: #fdba74;
+    --pst-color-shadow: rgba(0, 0, 0, 0.55);
 }
 
 html[data-theme="dark"] {

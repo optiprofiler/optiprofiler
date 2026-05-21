@@ -60,11 +60,14 @@ function results = solveAllProblems(solvers, plib, feature, problem_options, pro
     load = str2func(loader_name);
     n_problems = length(problem_names);
     len_problem_names = max(cellfun(@length, problem_names));
+    profile_options_log = profile_options;
+    profile_options_log.solver_log_names = getSolverLogNames(profile_options.(ProfileOptionKey.SOLVER_NAMES.value), len_problem_names);
     max_eval_factor = profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value);
     tmp_results = cell(1, n_problems);
     if ~profile_options.(ProfileOptionKey.SILENT.value)
         fprintf('\n');
         printOptiProfilerMessage('INFO', sprintf('There are %d problems from "%s" to test.', n_problems, plib));
+        printSolverLogAliases(profile_options.(ProfileOptionKey.SOLVER_NAMES.value), profile_options_log.solver_log_names);
         fprintf('\n');
     end
 
@@ -93,7 +96,7 @@ function results = solveAllProblems(solvers, plib, feature, problem_options, pro
                 tmp_results{i_problem} = struct();
                 continue;
             end
-            result = solveOneProblem(solvers, problem, feature, problem_name, len_problem_names, profile_options, is_plot, path_hist_plots);
+            result = solveOneProblem(solvers, problem, feature, problem_name, len_problem_names, profile_options_log, is_plot, path_hist_plots);
             tmp_results{i_problem} = result;
         end
     else
@@ -115,7 +118,7 @@ function results = solveAllProblems(solvers, plib, feature, problem_options, pro
                 tmp_results{i_problem} = struct();
                 continue;
             end
-            result = solveOneProblem(solvers, problem, feature, problem_name, len_problem_names, profile_options, is_plot, path_hist_plots);
+            result = solveOneProblem(solvers, problem, feature, problem_name, len_problem_names, profile_options_log, is_plot, path_hist_plots);
             tmp_results{i_problem} = result;
         end
     end
