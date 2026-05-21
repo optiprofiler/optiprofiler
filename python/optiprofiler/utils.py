@@ -136,6 +136,9 @@ class ProblemError(Exception):
         super().__init__(self.message)
 
 
+DEFAULT_LOG_LINE_WIDTH = 104
+
+
 class WrappedLogFormatter(logging.Formatter):
     """
     Format log messages with controlled line width.
@@ -146,7 +149,7 @@ class WrappedLogFormatter(logging.Formatter):
     showing the key part of the message.
     """
 
-    def __init__(self, line_width=100, error_max_length=180):
+    def __init__(self, line_width=DEFAULT_LOG_LINE_WIDTH, error_max_length=180):
         super().__init__()
         self._line_width = line_width
         self._error_max_length = error_max_length
@@ -195,7 +198,7 @@ def wrap_log_message(message: object, width: int):
     return wrapper.wrap(message) or ['']
 
 
-def format_log_message(level: str, message: object, line_width: int = 100) -> str:
+def format_log_message(level: str, message: object, line_width: int = DEFAULT_LOG_LINE_WIDTH) -> str:
     """
     Format a message with OptiProfiler's log prefix and wrapping.
     """
@@ -212,7 +215,7 @@ def format_log_message(level: str, message: object, line_width: int = 100) -> st
     )
 
 
-def print_log_message(level: str, message: object, line_width: int = 100) -> None:
+def print_log_message(level: str, message: object, line_width: int = DEFAULT_LOG_LINE_WIDTH) -> None:
     """
     Print an OptiProfiler-formatted log message.
     """
@@ -289,7 +292,7 @@ def setup_main_process_logging(log_file=None, level=logging.INFO):
     root.handlers[:] = []
     root.setLevel(level)
 
-    fmt = WrappedLogFormatter(line_width=100, error_max_length=180)
+    fmt = WrappedLogFormatter(line_width=DEFAULT_LOG_LINE_WIDTH, error_max_length=180)
     console = logging.StreamHandler(sys.stdout)
     console.setFormatter(fmt)
     handlers = [console]

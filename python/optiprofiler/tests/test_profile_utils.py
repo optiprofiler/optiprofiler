@@ -25,7 +25,7 @@ from optiprofiler.profile_utils import (
     merge_pdfs_with_pypdf,
     write_report,
 )
-from optiprofiler.utils import FeatureOption, ProblemOption, ProfileOption, WrappedLogFormatter, format_log_prefix
+from optiprofiler.utils import DEFAULT_LOG_LINE_WIDTH, FeatureOption, ProblemOption, ProfileOption, WrappedLogFormatter, format_log_prefix
 
 
 class TestCheckValidityProblemOptions:
@@ -561,6 +561,14 @@ class TestLogFormatting:
         output = WrappedLogFormatter(line_width=120).format(record)
         assert 'Finish solving    P_LONG' in output
         assert '(run  1/ 3)' in output
+
+    def test_constrained_result_line_is_not_wrapped_by_default(self):
+        message = 'Output result for DEGTRID2 with COBYLA      (run  1/ 1): f = -9.5000e+00, maxcv = 1.1102e-16.'
+        record = logging.LogRecord('optiprofiler', logging.INFO, '', 1, message, (), None)
+        output = WrappedLogFormatter().format(record)
+        assert output == f'{format_log_prefix("INFO")}{message}'
+        assert len(output) <= DEFAULT_LOG_LINE_WIDTH
+        assert len(output.splitlines()) == 1
 
     def test_wrapped_warning_lines_are_aligned(self):
         record = logging.LogRecord('optiprofiler', logging.WARNING, '', 1, 'A long warning message ' * 12, (), None)
