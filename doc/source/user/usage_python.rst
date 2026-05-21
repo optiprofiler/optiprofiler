@@ -178,6 +178,91 @@ If you want to benchmark solvers based on your own problem library, you should d
 
 For a detailed guide on the required structure of a custom problem library, please refer to the `guide on our website <https://www.optprof.com>`_ or the `README on GitHub <https://github.com/optiprofiler/optiprofiler/blob/main/python/optiprofiler/problem_libs/README.txt>`_.
 
+.. _py_example6:
+
+Example 6: wrapping SciPy solvers with nonlinear constraints
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+(See also the file in the repository: ``python/examples/scipy_cobyqa_wrapper.py``)
+
+For nonlinearly constrained problems, OptiProfiler calls each solver with the
+signature
+
+.. code-block:: python
+
+    x = solver(fun, x0, xl, xu, aub, bub, aeq, beq, cub, ceq)
+
+where ``cub(x) <= 0`` contains the nonlinear inequality constraints and
+``ceq(x) = 0`` contains the nonlinear equality constraints. SciPy's
+``minimize`` interface represents constraints with objects such as
+``Bounds``, ``LinearConstraint``, and ``NonlinearConstraint``. The SciPy
+documentation for `COBYQA <https://docs.scipy.org/doc/scipy/reference/optimize.minimize-cobyqa.html>`_
+and the `optimization tutorial <https://docs.scipy.org/doc/scipy/tutorial/optimize.html>`_
+show this object-based constraint interface; see also the API references for
+`LinearConstraint <https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.LinearConstraint.html>`_
+and `NonlinearConstraint <https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.NonlinearConstraint.html>`_.
+
+.. code-block:: python
+
+    import numpy as np
+    from scipy.optimize import Bounds, LinearConstraint, NonlinearConstraint, minimize
+
+    def scipy_cobyqa_wrapper(fun, x0, xl, xu, aub, bub, aeq, beq, cub, ceq,
+                             maxfev=200):
+        constraints = []
+
+        if bub.size > 0:
+            constraints.append(LinearConstraint(aub, -np.inf, bub))
+        if beq.size > 0:
+            constraints.append(LinearConstraint(aeq, beq, beq))
+
+        c_ub_x0 = np.atleast_1d(cub(x0))
+        if c_ub_x0.size > 0:
+            constraints.append(NonlinearConstraint(cub, -np.inf, np.zeros_like(c_ub_x0)))
+        c_eq_x0 = np.atleast_1d(ceq(x0))
+        if c_eq_x0.size > 0:
+            constraints.append(NonlinearConstraint(ceq, np.zeros_like(c_eq_x0),
+                                                   np.zeros_like(c_eq_x0)))
+
+        result = minimize(
+            fun,
+            x0,
+            method='COBYQA',
+            bounds=Bounds(xl, xu),
+            constraints=constraints,
+            options={'maxfev': maxfev},
+        )
+        return result.x
+
+Then pass the wrapper to ``benchmark`` as an ordinary solver. Since
+``benchmark`` compares at least two solvers, this example compares two
+COBYQA wrappers with different function-evaluation budgets:
+
+.. code-block:: python
+
+    def scipy_cobyqa_short(fun, x0, xl, xu, aub, bub, aeq, beq, cub, ceq):
+        return scipy_cobyqa_wrapper(
+            fun, x0, xl, xu, aub, bub, aeq, beq, cub, ceq, maxfev=100
+        )
+
+    def scipy_cobyqa_long(fun, x0, xl, xu, aub, bub, aeq, beq, cub, ceq):
+        return scipy_cobyqa_wrapper(
+            fun, x0, xl, xu, aub, bub, aeq, beq, cub, ceq, maxfev=200
+        )
+
+    scores = benchmark(
+        [scipy_cobyqa_short, scipy_cobyqa_long],
+        solver_names=['SciPy COBYQA short', 'SciPy COBYQA long'],
+        ptype='n',
+        problem_names=['HS10', 'HS11', 'HS12'],
+        mindim=2,
+        maxdim=5,
+        max_eval_factor=500,
+        plibs=['s2mpj'],
+        draw_hist_plots='none',
+        n_jobs=1,
+    )
+
 .. _py_cautions:
 
 Cautions

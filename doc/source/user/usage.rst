@@ -136,3 +136,53 @@ If you want to benchmark solvers based on your own problem library, you should d
     scores = benchmark({@solver1, @solver2}, options)
 
 You may also refer to the README file in the ``'problems'`` folder for a detailed guide on how to create and use your own problem library via the OptiProfiler package.
+
+
+Example 6: wrapping solvers with nonlinear constraints
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(See also the file in the repository: ``matlab/examples/example6.m``)
+
+For nonlinearly constrained problems, OptiProfiler calls each solver with the
+signature
+
+.. code-block:: matlab
+
+    x = solver(fun, x0, xl, xu, aub, bub, aeq, beq, cub, ceq)
+
+where ``cub(x) <= 0`` contains the nonlinear inequality constraints and
+``ceq(x) = 0`` contains the nonlinear equality constraints. MATLAB solvers
+such as ``fmincon`` instead expect one nonlinear constraint callback
+``nonlcon`` returning both values. See the MathWorks documentation for
+`fmincon nonlinear constraints <https://www.mathworks.com/help/optim/ug/nonlinear-constraints.html>`_
+and `deal <https://www.mathworks.com/help/matlab/ref/deal.html>`_.
+
+.. code-block:: matlab
+
+    function x = fmincon_short(fun, x0, xl, xu, aub, bub, aeq, beq, cub, ceq)
+        x = fmincon_wrapper(fun, x0, xl, xu, aub, bub, aeq, beq, cub, ceq, 100);
+    end
+
+    function x = fmincon_long(fun, x0, xl, xu, aub, bub, aeq, beq, cub, ceq)
+        x = fmincon_wrapper(fun, x0, xl, xu, aub, bub, aeq, beq, cub, ceq, 200);
+    end
+
+    function x = fmincon_wrapper(fun, x0, xl, xu, aub, bub, aeq, beq, cub, ceq, max_fun_evals)
+        nonlcon = @(x) deal(cub(x), ceq(x));
+        options = optimoptions('fmincon', 'MaxFunctionEvaluations', max_fun_evals);
+        x = fmincon(fun, x0, aub, bub, aeq, beq, xl, xu, nonlcon, options);
+    end
+
+Then pass the wrappers to ``benchmark`` as ordinary solvers:
+
+.. code-block:: matlab
+
+    options.ptype = 'n';
+    options.problem_names = {'HS10', 'HS11', 'HS12'};
+    options.plibs = {'s2mpj'};
+    options.mindim = 2;
+    options.maxdim = 5;
+    options.max_eval_factor = 500;
+    options.draw_hist_plots = 'none';
+    options.n_jobs = 1;
+    options.solver_names = {'fmincon short', 'fmincon long'};
+    scores = benchmark({@fmincon_short, @fmincon_long}, options)
