@@ -8,6 +8,7 @@ function setup(varargin)
 %   This script can be called in the following ways.
 %
 %   setup  % Add the paths needed to use the package
+%   setup(struct('install_matcutest', true))  % Set up MatCUTEst without prompting
 %   setup uninstall  % Uninstall the package
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -331,7 +332,8 @@ function [action, options, wrong_input] = parse_input(argin)
     
     action_list = {'install', 'uninstall'};
     action = 'install';
-    options = []; % Initialize options
+    option_list = {'install_matcutest'};
+    options = struct(); % Initialize options
     wrong_input = false;
     
     % Start the parsing to set `input_string` and `options`.
@@ -342,8 +344,10 @@ function [action, options, wrong_input] = parse_input(argin)
     elseif length(argin) == 1
         if ischarstr(argin{1})
             input_string = argin{1};
-        elseif isa(argin{1}, 'struct') || isempty(argin{1})
+        elseif isa(argin{1}, 'struct')
             options = argin{1};
+        elseif isempty(argin{1})
+            options = struct();
         else
             fprintf('\nThe input to setup should be a string and/or a structure.\n\n');
             wrong_input = true;
@@ -351,10 +355,18 @@ function [action, options, wrong_input] = parse_input(argin)
     elseif length(argin) == 2
         if (ischarstr(argin{1})) && (isa(argin{2}, 'struct') || isempty(argin{2}))
             input_string = argin{1};
-            options = argin{2};
+            if isa(argin{2}, 'struct')
+                options = argin{2};
+            else
+                options = struct();
+            end
         elseif (ischarstr(argin{2})) && (isa(argin{1}, 'struct') || isempty(argin{1}))
             input_string = argin{2};
-            options = argin{1};
+            if isa(argin{1}, 'struct')
+                options = argin{1};
+            else
+                options = struct();
+            end
         else
             fprintf('\nThe input to setup should be a string and/or a structure.\n\n');
             wrong_input = true;
@@ -368,10 +380,62 @@ function [action, options, wrong_input] = parse_input(argin)
     if ismember(input_string, action_list)
         action = input_string;
     else
+        fprintf('\nUnknown setup action `%s`. Valid actions are: %s.\n\n', input_string, strjoin(action_list, ', '));
         wrong_input = true;
+    end
+
+    % Validate `options` explicitly. Silently ignoring misspelled options is
+    % confusing for users because setup may continue while their request has
+    % no effect.
+    if ~wrong_input
+        [options, wrong_options] = validate_options(options, option_list, action);
+        wrong_input = wrong_input || wrong_options;
     end
     
     return
+
+end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+function [options, wrong_options] = validate_options(options, option_list, action)
+    %VALIDATE_OPTIONS validates the option structure passed to setup.
+
+    wrong_options = false;
+
+    if isempty(options)
+        options = struct();
+        return
+    end
+
+    if ~isa(options, 'struct') || ~isscalar(options)
+        fprintf('\nThe options input to setup should be a scalar structure.\n\n');
+        wrong_options = true;
+        return
+    end
+
+    option_fields = fieldnames(options);
+    unknown_fields = setdiff(option_fields, option_list);
+    if ~isempty(unknown_fields)
+        fprintf('\nUnknown setup option(s): %s.\n', strjoin(unknown_fields, ', '));
+        fprintf('Supported setup option(s): %s.\n\n', strjoin(option_list, ', '));
+        wrong_options = true;
+    end
+
+    if isfield(options, 'install_matcutest')
+        if ~(islogical(options.install_matcutest) && isscalar(options.install_matcutest))
+            fprintf('\nThe setup option `install_matcutest` must be a scalar logical value: true or false.\n\n');
+            wrong_options = true;
+        end
+    end
+
+    install_only_fields = intersect(option_fields, option_list);
+    if strcmp(action, 'uninstall') && ~isempty(install_only_fields)
+        fprintf('\nThe setup option(s) %s only apply to `install`; they are not used with `uninstall`.\n\n', strjoin(install_only_fields, ', '));
+        wrong_options = true;
+    end
 
 end
 
