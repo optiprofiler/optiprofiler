@@ -3,8 +3,9 @@
 OptiProfiler passes nonlinear inequality and equality callbacks separately:
 ``cub(x) <= 0`` and ``ceq(x) = 0``. SciPy's ``minimize`` interface expects
 constraints to be supplied as ``Bounds``, ``LinearConstraint``, and
-``NonlinearConstraint`` objects. This example shows that conversion for the
-COBYQA method in SciPy.
+``NonlinearConstraint`` objects. This example shows the signature conversion
+for the COBYQA method in SciPy: the wrapper translates OptiProfiler's
+separate callbacks into SciPy constraint objects before calling ``minimize``.
 """
 
 import numpy as np
@@ -18,16 +19,21 @@ def scipy_cobyqa_wrapper(fun, x0, xl, xu, aub, bub, aeq, beq, cub, ceq, maxfev=2
     constraints = []
 
     if bub.size > 0:
+        # OptiProfiler gives aub @ x <= bub; SciPy represents it with
+        # lower bound -inf and upper bound bub.
         constraints.append(LinearConstraint(aub, -np.inf, bub))
     if beq.size > 0:
+        # Equality constraints use identical lower and upper bounds.
         constraints.append(LinearConstraint(aeq, beq, beq))
 
     c_ub_x0 = np.atleast_1d(cub(x0))
     if c_ub_x0.size > 0:
+        # Convert cub(x) <= 0 to SciPy's object-based constraint interface.
         constraints.append(NonlinearConstraint(cub, -np.inf, np.zeros_like(c_ub_x0)))
 
     c_eq_x0 = np.atleast_1d(ceq(x0))
     if c_eq_x0.size > 0:
+        # Convert ceq(x) = 0 by setting both bounds to zero.
         constraints.append(NonlinearConstraint(ceq, np.zeros_like(c_eq_x0), np.zeros_like(c_eq_x0)))
 
     result = minimize(

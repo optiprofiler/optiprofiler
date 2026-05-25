@@ -2,8 +2,10 @@ function example6()
 %EXAMPLE6 corresponds to "Example 6: wrapping a solver with nonlinear constraints" in the
 % "Usage for MATLAB" part of our official website (www.optprof.com).
 %
-% This example shows how to wrap a solver such as fmincon whose nonlinear
-% constraint callback returns both inequality and equality constraints.
+% This example shows how to wrap a solver such as fmincon. OptiProfiler
+% provides nonlinear inequalities and equalities as two callbacks, cub and
+% ceq, while fmincon expects one callback with two outputs. The wrapper uses
+% deal to perform this signature conversion.
 
     if exist('fmincon', 'file') ~= 2
         error('OptiProfiler:Example6:MissingFmincon', ...
@@ -47,7 +49,9 @@ function x = fmincon_wrapper(fun, x0, xl, xu, aub, bub, aeq, beq, cub, ceq, max_
 %
 % OptiProfiler provides nonlinear inequalities and equalities separately as
 % cub(x) <= 0 and ceq(x) = 0. MATLAB solvers such as fmincon expect a single
-% nonlcon callback returning both values: [c, ceq] = nonlcon(x).
+% nonlcon callback returning both values: [c, ceq] = nonlcon(x). The call to
+% deal below evaluates cub(x) and ceq(x), then returns them as those two
+% outputs in the order fmincon expects.
 
     nonlcon = @(x) deal(cub(x), ceq(x));
     options = optimoptions('fmincon', 'MaxFunctionEvaluations', max_fun_evals);

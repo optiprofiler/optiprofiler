@@ -152,7 +152,11 @@ signature
 where ``cub(x) <= 0`` contains the nonlinear inequality constraints and
 ``ceq(x) = 0`` contains the nonlinear equality constraints. MATLAB solvers
 such as ``fmincon`` instead expect one nonlinear constraint callback
-``nonlcon`` returning both values. See the MathWorks documentation for
+``nonlcon`` returning both values. The small but important adapter is
+``deal``: the expression ``@(x) deal(cub(x), ceq(x))`` evaluates
+OptiProfiler's two callbacks and returns them as the two outputs expected by
+``fmincon``, i.e., ``[c, ceq] = nonlcon(x)``. See the MathWorks
+documentation for
 `fmincon nonlinear constraints <https://www.mathworks.com/help/optim/ug/nonlinear-constraints.html>`_
 and `deal <https://www.mathworks.com/help/matlab/ref/deal.html>`_.
 
@@ -167,6 +171,8 @@ and `deal <https://www.mathworks.com/help/matlab/ref/deal.html>`_.
     end
 
     function x = fmincon_wrapper(fun, x0, xl, xu, aub, bub, aeq, beq, cub, ceq, max_fun_evals)
+        % Convert OptiProfiler's separate nonlinear callbacks to fmincon's
+        % two-output callback: [c, ceq] = nonlcon(x).
         nonlcon = @(x) deal(cub(x), ceq(x));
         options = optimoptions('fmincon', 'MaxFunctionEvaluations', max_fun_evals);
         x = fmincon(fun, x0, aub, bub, aeq, beq, xl, xu, nonlcon, options);

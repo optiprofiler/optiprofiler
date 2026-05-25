@@ -71,26 +71,31 @@ def _build_bounds(lb, ub):
 
 def _build_linear_constraints(a_ub, b_ub, a_eq, b_eq):
     """
-    Build the linear constraints.
+    Convert OptiProfiler's linear constraints to SciPy constraint objects.
     """
     constraints = []
     if b_ub.size > 0:
+        # OptiProfiler gives a_ub @ x <= b_ub; SciPy represents it with
+        # lower bound -inf and upper bound b_ub.
         constraints.append(LinearConstraint(a_ub, -np.inf, b_ub))
     if b_eq.size > 0:
+        # Equality constraints use identical lower and upper bounds.
         constraints.append(LinearConstraint(a_eq, b_eq, b_eq))
     return constraints
 
 
 def _build_nonlinear_constraints(c_ub, c_eq, x0):
     """
-    Build the nonlinear constraints.
+    Convert OptiProfiler's nonlinear callbacks to SciPy constraint objects.
     """
     constraints = []
     c_ub_x0 = c_ub(x0)
     if c_ub_x0.size > 0:
+        # Convert c_ub(x) <= 0 to SciPy's object-based constraint interface.
         constraints.append(NonlinearConstraint(c_ub, -np.inf, np.zeros_like(c_ub_x0)))
     c_eq_x0 = c_eq(x0)
     if c_eq_x0.size > 0:
+        # Convert c_eq(x) = 0 by setting both bounds to zero.
         constraints.append(NonlinearConstraint(c_eq, np.zeros_like(c_eq_x0), np.zeros_like(c_eq_x0)))
     return constraints
 
