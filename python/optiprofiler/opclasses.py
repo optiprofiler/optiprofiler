@@ -1,10 +1,24 @@
 import numpy as np
 from scipy.linalg import qr
+import re
+import sys
 import warnings
 from numpy.linalg import lstsq
 from scipy.optimize import Bounds, LinearConstraint, NonlinearConstraint, minimize
+from scipy import __version__ as _SCIPY_VERSION
 
 from .utils import FeatureName, FeatureOption, get_logger, shorten_log_message
+
+
+def _scipy_version_less_than(major, minor):
+    """
+    Check whether the installed SciPy version is older than ``major.minor``.
+    """
+    match = re.match(r'(\d+)\.(\d+)', _SCIPY_VERSION)
+    if match is None:
+        return False
+    scipy_major, scipy_minor = (int(match.group(1)), int(match.group(2)))
+    return (scipy_major, scipy_minor) < (major, minor)
 
 
 class Feature:
@@ -2115,12 +2129,40 @@ class Problem:
             def dist_x0_sq(x):
                 g = x - self.x0
                 return 0.5 * (g @ g), g
-            def hessp(p):
+            def hessp(x, p):
                 return p
 
             with warnings.catch_warnings():
                 warnings.simplefilter('ignore')
-                res = minimize(dist_x0_sq, self.x0, jac=True, hessp=hessp, bounds=bounds, constraints=constraints, tol=1e-16)
+                minimize_options = {}
+                # In SciPy < 1.16, constrained ``minimize`` chooses SLSQP
+                # when ``method`` is not specified.  On Python 3.10, SciPy
+                # cannot be upgraded past 1.15.x, and the old f2py/Fortran
+                # SLSQP wrapper can corrupt native memory for overdetermined
+                # equality systems (``m_eq > n``).  The solver still reports
+                # status 2 ("More equality constraints than independent
+                # variables"), but the process may later abort or segfault
+                # during garbage collection.  This is exactly the failure
+                # chain observed for PyCUTEst problem JENSMPNE
+                # (n = 2, m_eq = 10) when ``project_x0=True``.  Keep the
+                # workaround narrow: only this Python/SciPy/version/shape
+                # combination avoids the unsafe default SLSQP path.
+                if (
+                    sys.version_info[:2] == (3, 10)
+                    and _scipy_version_less_than(1, 16)
+                    and self.m_linear_eq + self.m_nonlinear_eq > self.n
+                ):
+                    minimize_options['method'] = 'trust-constr'
+                res = minimize(
+                    dist_x0_sq,
+                    self.x0,
+                    jac=True,
+                    hessp=hessp,
+                    bounds=bounds,
+                    constraints=constraints,
+                    tol=1e-16,
+                    **minimize_options,
+                )
             self._x0 = res.x
 
 class FeaturedProblem(Problem):

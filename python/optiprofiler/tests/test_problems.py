@@ -4,6 +4,7 @@ from contextlib import suppress
 import numpy as np
 import pytest
 
+import optiprofiler.opclasses as opclasses
 from optiprofiler.opclasses import Feature, Problem, FeaturedProblem
 from optiprofiler.utils import ProblemError
 
@@ -437,6 +438,47 @@ class TestProblemProjectX0(BaseTestProblem):
         problem = Problem(self.rosen, x0, cub=cub)
         problem.project_x0()
         assert isinstance(problem.x0, np.ndarray)
+
+    def test_project_x0_uses_trust_constr_for_py310_old_scipy_overdetermined_eq(self, monkeypatch):
+        calls = []
+
+        def fake_minimize(*args, **kwargs):
+            calls.append(kwargs)
+            np.testing.assert_array_equal(kwargs['hessp'](np.zeros(2), np.ones(2)), np.ones(2))
+
+            class Result:
+                x = np.array([0.3, 0.4])
+
+            return Result()
+
+        monkeypatch.setattr(opclasses.sys, 'version_info', (3, 10, 12))
+        monkeypatch.setattr(opclasses, '_scipy_version_less_than', lambda major, minor: True)
+        monkeypatch.setattr(opclasses, 'minimize', fake_minimize)
+
+        problem = Problem(self.rosen, np.array([0.3, 0.4]), ceq=lambda x: np.ones(10))
+        problem.project_x0()
+
+        assert calls[0]['method'] == 'trust-constr'
+
+    def test_project_x0_keeps_default_method_without_overdetermined_eq(self, monkeypatch):
+        calls = []
+
+        def fake_minimize(*args, **kwargs):
+            calls.append(kwargs)
+
+            class Result:
+                x = np.array([0.3, 0.4])
+
+            return Result()
+
+        monkeypatch.setattr(opclasses.sys, 'version_info', (3, 10, 12))
+        monkeypatch.setattr(opclasses, '_scipy_version_less_than', lambda major, minor: True)
+        monkeypatch.setattr(opclasses, 'minimize', fake_minimize)
+
+        problem = Problem(self.rosen, np.array([0.3, 0.4]), ceq=lambda x: np.ones(2))
+        problem.project_x0()
+
+        assert 'method' not in calls[0]
 
 
 class TestProblemPtype(BaseTestProblem):
