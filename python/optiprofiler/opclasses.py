@@ -2146,13 +2146,18 @@ class Problem:
                 # chain observed for PyCUTEst problem JENSMPNE
                 # (n = 2, m_eq = 10) when ``project_x0=True``.  Keep the
                 # workaround narrow: only this Python/SciPy/version/shape
-                # combination avoids the unsafe default SLSQP path.
+                # combination avoids the unsafe default SLSQP path.  In the
+                # same overdetermined equality case, ``trust-constr`` also
+                # needs the SVD projection factorization; otherwise SciPy can
+                # fail before returning a projected point with
+                # "expected square matrix".
                 if (
                     sys.version_info[:2] == (3, 10)
                     and _scipy_version_less_than(1, 16)
                     and self.m_linear_eq + self.m_nonlinear_eq > self.n
                 ):
                     minimize_options['method'] = 'trust-constr'
+                    minimize_options['options'] = {'factorization_method': 'SVDFactorization'}
                 res = minimize(
                     dist_x0_sq,
                     self.x0,

@@ -459,6 +459,7 @@ class TestProblemProjectX0(BaseTestProblem):
         problem.project_x0()
 
         assert calls[0]['method'] == 'trust-constr'
+        assert calls[0]['options'] == {'factorization_method': 'SVDFactorization'}
 
     def test_project_x0_keeps_default_method_without_overdetermined_eq(self, monkeypatch):
         calls = []
@@ -479,6 +480,7 @@ class TestProblemProjectX0(BaseTestProblem):
         problem.project_x0()
 
         assert 'method' not in calls[0]
+        assert 'options' not in calls[0]
 
 
 class TestProblemPtype(BaseTestProblem):
