@@ -1745,14 +1745,102 @@ function mergePdfs(file_path, output_file_name, output_path)
     fileNames = dir(fullfile(file_path, '*.pdf'));
     fileNames = {fileNames.name};
     fileNames = cellfun(@(f) fullfile(file_path, f), fileNames, 'UniformOutput', false);
+    output_file = fullfile(output_path, output_file_name);
 
-    memSet = org.apache.pdfbox.io.MemoryUsageSetting.setupMainMemoryOnly();
-    merger = org.apache.pdfbox.multipdf.PDFMergerUtility;
-    
-    cellfun(@(f) merger.addSource(f), fileNames)
-    
-    merger.setDestinationFileName(fullfile(output_path, output_file_name));
-    merger.mergeDocuments(memSet)
+    if isempty(fileNames)
+        error("MATLAB:benchmark:mergePdfsNoPdfFiles", "No PDF files were found in '%s'.", file_path);
+    end
+
+    [merged, failure_messages] = mergePdfsWithPdfbox(fileNames, output_file);
+    if ~merged
+        [merged, failure_messages] = mergePdfsWithExternalTools(fileNames, output_file, failure_messages);
+    end
+    if ~merged
+        error("MATLAB:benchmark:mergePdfsNoBackend", ...
+            "Could not merge PDF files because no supported PDF merge backend succeeded. " + ...
+            "Tried Apache PDFBox, qpdf, pdfunite, and Ghostscript. " + ...
+            "Please install one of these tools or add a compatible PDFBox jar to the MATLAB Java class path. Details: %s", ...
+            strjoin(failure_messages, " | "));
+    end
+end
+
+function [merged, failure_messages] = mergePdfsWithPdfbox(fileNames, output_file)
+    merged = false;
+    failure_messages = strings(0);
+    temp_output = [tempname(fileparts(output_file)), '.pdf'];
+    cleanup_temp_output = onCleanup(@() deleteFileIfExists(temp_output));
+    try
+        memSet = org.apache.pdfbox.io.MemoryUsageSetting.setupMainMemoryOnly();
+        merger = org.apache.pdfbox.multipdf.PDFMergerUtility;
+        cellfun(@(f) merger.addSource(f), fileNames);
+        merger.setDestinationFileName(temp_output);
+        merger.mergeDocuments(memSet);
+        movefile(temp_output, output_file, 'f');
+        merged = true;
+    catch ME
+        failure_messages(end + 1) = "PDFBox: " + string(ME.message);
+    end
+end
+
+function [merged, failure_messages] = mergePdfsWithExternalTools(fileNames, output_file, failure_messages)
+    merged = false;
+    command_builders = {
+        @buildQpdfCommand
+        @buildPdfuniteCommand
+        @buildGhostscriptCommand
+    };
+    tool_names = ["qpdf", "pdfunite", "Ghostscript"];
+
+    for i_tool = 1:numel(command_builders)
+        temp_output = [tempname(fileparts(output_file)), '.pdf'];
+        cleanup_temp_output = onCleanup(@() deleteFileIfExists(temp_output));
+        command = command_builders{i_tool}(fileNames, temp_output);
+        [status, output] = system(command + " 2>&1");
+        if status == 0 && isfile(temp_output)
+            movefile(temp_output, output_file, 'f');
+            merged = true;
+            return;
+        end
+        output = string(strtrim(output));
+        if strlength(output) == 0
+            output = "command failed or was not found";
+        end
+        failure_messages(end + 1) = tool_names(i_tool) + ": " + output; %#ok<AGROW>
+        clear cleanup_temp_output;
+    end
+end
+
+function command = buildQpdfCommand(fileNames, output_file)
+    command = strjoin(["qpdf", "--empty", "--pages", shellQuote(fileNames), "--", shellQuote(output_file)], " ");
+end
+
+function command = buildPdfuniteCommand(fileNames, output_file)
+    command = strjoin(["pdfunite", shellQuote(fileNames), shellQuote(output_file)], " ");
+end
+
+function command = buildGhostscriptCommand(fileNames, output_file)
+    if ispc
+        executable = "gswin64c";
+    else
+        executable = "gs";
+    end
+    command = strjoin([executable, "-dBATCH", "-dNOPAUSE", "-q", "-sDEVICE=pdfwrite", ...
+        "-sOutputFile=" + shellQuote(output_file), shellQuote(fileNames)], " ");
+end
+
+function quoted = shellQuote(values)
+    values = string(values);
+    if ispc
+        quoted = '"' + replace(values, '"', '\"') + '"';
+    else
+        quoted = "'" + replace(values, "'", "'\''") + "'";
+    end
+end
+
+function deleteFileIfExists(file)
+    if isfile(file)
+        delete(file);
+    end
 end
 
 function integral = integrate(curve, profile_type, profile_options)
