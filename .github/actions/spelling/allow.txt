@@ -139,8 +139,8 @@ errortest
 errstate
 etal
 evalc
-evals
 Evals
+evals
 excludelist
 exmaple
 exportgraphics
@@ -191,12 +191,14 @@ GETLOGRATIOPROFILEAXES
 GETPERFORMANCEDATAPROFILEAXES
 GETSOLVERLOGNAMES
 gfortran
+Ghostscript
 github
 gitmodules
 gmail
 gobjects
 GOTTFR
 grayscale
+gswin
 GULFNE
 HAHN
 HATFLDANE
@@ -288,6 +290,7 @@ jceq
 jceqx
 jcub
 jcubx
+JENSMPNE
 JHx
 joblib
 keepdims
@@ -414,6 +417,7 @@ nonlcon
 nonlincons
 nonquantifiable
 NONSCOMPNE
+NOPAUSE
 Notcharstr
 notna
 Notubln
@@ -451,6 +455,8 @@ pdfbox
 pdfo
 pdfs
 Pdfs
+pdfunite
+pdfwrite
 pdmodel
 PENLT
 picklability
@@ -478,6 +484,7 @@ pyo
 pypdf
 pythonapi
 QINGNE
+qpdf
 ragonneau
 randi
 randperm
@@ -500,6 +507,7 @@ Screenshot
 SCURLY
 secup
 seealso
+segfault
 Segoe
 SEMICN
 SEMICON
@@ -515,6 +523,7 @@ sif
 SISSER
 skipif
 SLICEDIM
+SLSQP
 SOLVEALLPROBLEMS
 SOLVEONEPROBLEM
 SPECANNE
@@ -531,6 +540,7 @@ startpoint
 strcmp
 strcmpi
 strjoin
+strlength
 strrep
 strs
 strsplit
@@ -540,9 +550,11 @@ subfigs
 subfolders
 Subfolders
 subfoler
+SVD
 svg
 sysu
 tagline
+tempname
 TESTOPTIPROFILER
 testsuite
 textscan
@@ -611,8 +623,8 @@ Yaxes
 YAxes
 YFITNE
 YMinor
-yscale
 YScale
+yscale
 YShift
 ytick
 YTick

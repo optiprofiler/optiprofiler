@@ -58,6 +58,7 @@ jobs:
           cd output
           python ../python/optiprofiler/action_tests/stress_test.py "os_${{ runner.os }}_py${{ matrix.python-version }}"
         env:
+          OPTIPROFILER_STRESS_MAX_PROBLEMS_PER_PLIB: '1'
           S2MPJ_VARIABLE_SIZE: all
           S2MPJ_TEST_FEASIBILITY_PROBLEMS: 2
         shell: bash

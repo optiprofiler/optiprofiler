@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Stress test for OptiProfiler.
 
-Tests randomly high-dimensional (unconstrained) problems from s2mpj or pycutest.
-This test is run by GitHub Actions workflows, not by pytest.
+Tests randomly selected high-dimensional (unconstrained) problems from s2mpj
+or pycutest. This test is run by GitHub Actions workflows, not by pytest.
 """
 import sys
 import os
@@ -17,6 +17,29 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirna
 
 from optiprofiler import benchmark
 from optiprofiler.action_tests.solvers import UNCONSTRAINED_SOLVERS, UNCONSTRAINED_SOLVER_NAMES
+
+
+DEFAULT_MAX_PROBLEMS_PER_PLIB = 1
+
+STRESS_PROBLEM_NAMES = {
+    's2mpj': [
+        'SPMSRTLS',
+        'WOODS',
+    ],
+    'pycutest': [
+        'ARWHEAD',
+        'BDQRTIC',
+        'BRYBND',
+        'CURLY10',
+        'DIXMAANA',
+        'EIGENALS',
+        'ENGVAL1',
+        'LIARWHD',
+        'NONDIA',
+        'SPMSRTLS',
+        'WOODS',
+    ],
+}
 
 
 def get_plibs():
@@ -37,6 +60,29 @@ def get_benchmark_id():
     return f"os_{os_name}_{py_version}"
 
 
+def get_max_problems_per_plib():
+    """Get the maximum number of stress problems to run from each library."""
+    env_value = os.environ.get('OPTIPROFILER_STRESS_MAX_PROBLEMS_PER_PLIB')
+    if env_value is None:
+        return DEFAULT_MAX_PROBLEMS_PER_PLIB
+    try:
+        max_problems = int(env_value)
+    except ValueError as exc:
+        raise ValueError('OPTIPROFILER_STRESS_MAX_PROBLEMS_PER_PLIB must be an integer.') from exc
+    if max_problems < 1:
+        raise ValueError('OPTIPROFILER_STRESS_MAX_PROBLEMS_PER_PLIB must be positive.')
+    return max_problems
+
+
+def get_stress_problem_names(plib, seed):
+    """Select a small deterministic subset of high-dimensional stress problems."""
+    problem_names = STRESS_PROBLEM_NAMES[plib]
+    max_problems = min(get_max_problems_per_plib(), len(problem_names))
+    rng = np.random.default_rng(seed + sum(ord(c) for c in plib))
+    idx = sorted(rng.permutation(len(problem_names))[:max_problems])
+    return [problem_names[i] for i in idx]
+
+
 def stress_test(benchmark_id=None):
     """Run stress test on high-dimensional problems.
     
@@ -51,29 +97,36 @@ def stress_test(benchmark_id=None):
     print(f"Seed: {seed}\n")
     
     # Set options
-    options = {
+    common_options = {
         'seed': seed,
         'solver_names': UNCONSTRAINED_SOLVER_NAMES,
         'ptype': 'u',
         'mindim': 2000,
         'maxdim': 10000,
         'benchmark_id': benchmark_id,
-        'plibs': get_plibs(),
     }
     
     # Adjust max_eval_factor based on OS
     if sys.platform.startswith('linux'):
-        options['max_eval_factor'] = 0.8
+        common_options['max_eval_factor'] = 0.8
     else:
-        options['max_eval_factor'] = 0.2
+        common_options['max_eval_factor'] = 0.2
     
-    print(f"Running stress test with options:")
-    for key, value in options.items():
-        print(f"  {key}: {value}")
-    print()
-    
-    # Run benchmark
-    benchmark(UNCONSTRAINED_SOLVERS, **options)
+    for plib in get_plibs():
+        options = {
+            **common_options,
+            'plibs': [plib],
+            'problem_names': get_stress_problem_names(plib, seed),
+            'benchmark_id': f'{benchmark_id}_{plib}',
+        }
+
+        print(f"Running stress test with options:")
+        for key, value in options.items():
+            print(f"  {key}: {value}")
+        print()
+
+        # Run benchmark
+        benchmark(UNCONSTRAINED_SOLVERS, **options)
 
 
 if __name__ == '__main__':
