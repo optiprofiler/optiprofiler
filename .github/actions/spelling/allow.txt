@@ -22,6 +22,7 @@ ARGTRIG
 Arguement
 arrayfun
 ARTIF
+ARWHEAD
 asarray
 atol
 aub
@@ -30,6 +31,7 @@ autouse
 axs
 backref
 BARDNE
+BDQRTIC
 BEALE
 BEALENE
 BENNETT
@@ -42,11 +44,13 @@ bineq
 bln
 bobyqa
 bools
+borderaxespad
 BOXBOD
 BRATU
 BROWNBSNE
 BROWNDENE
 BROYDN
+BRYBND
 capsys
 CBRATU
 cellfun
@@ -108,6 +112,7 @@ desynchronization
 DEVGLA
 DFO
 DIAMON
+DIXMAANA
 DMN
 docutils
 doi
@@ -119,11 +124,13 @@ DRAWLOGRATIOPROFILES
 DRAWPERFORMANCEDATAPROFILES
 DRAWPROFILES
 DRCAVTY
+eastoutside
 ECKERLE
 edu
 Efp
 EGGCRATENE
 EIGENA
+EIGENALS
 EIGENB
 ELATVIDUNE
 elementwise
@@ -139,8 +146,8 @@ errortest
 errstate
 etal
 evalc
-Evals
 evals
+Evals
 excludelist
 exmaple
 exportgraphics
@@ -156,6 +163,7 @@ fhist
 fileattrib
 fileparts
 fileread
+findobj
 fliplr
 flipud
 FLOSP
@@ -201,6 +209,7 @@ grayscale
 gswin
 GULFNE
 HAHN
+handlelength
 HATFLDANE
 HATFLDBNE
 HATFLDCNE
@@ -301,10 +310,12 @@ KSS
 labelleft
 labelright
 labelsize
+labelspacing
 LANCZOS
 lastd
 levelno
 LEVYMONE
+lgd
 LIARWHD
 LIARWHDNE
 libmwhgweb
@@ -399,6 +410,7 @@ nanmean
 nansum
 nargin
 NASGU
+ncol
 nelder
 neq
 Neue
@@ -451,6 +463,7 @@ parcluster
 parfor
 parpool
 pathdef
+pbaspect
 pdfbox
 pdfo
 pdfs
@@ -462,6 +475,7 @@ PENLT
 picklability
 picklable
 pkl
+PLACESOLVERLEGEND
 plib
 plibs
 pname
@@ -516,6 +530,7 @@ semilogy
 Sepcial
 seqential
 setdiff
+SETPROFILEBOXASPECT
 SETSAVINGPATH
 SETUPPOOL
 SHORTENMESSAGEFORLOG
@@ -528,6 +543,7 @@ SOLVEALLPROBLEMS
 SOLVEONEPROBLEM
 SPECANNE
 sphinxext
+SPMSRTLS
 sprintf
 Sqeeze
 sqp
@@ -550,6 +566,7 @@ subfigs
 subfolders
 Subfolders
 subfoler
+SUMMARYLEGENDEXTRAWIDTH
 SVD
 svg
 sysu
@@ -609,9 +626,11 @@ workarounds
 workflows
 WRITEREPORT
 XAxis
+xdata
 xhist
 xin
 xlower
+xscale
 xtick
 xticklabels
 xticks
@@ -621,10 +640,11 @@ xupper
 YATP
 Yaxes
 YAxes
+ydata
 YFITNE
 YMinor
-YScale
 yscale
+YScale
 YShift
 ytick
 YTick

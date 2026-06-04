@@ -46,6 +46,14 @@ Additionally, a PDF file named ``summary.pdf`` is generated, summarizing all the
 
    Figure 2: Screenshot of the summary PDF file summarizing all the performance profiles and data profiles.
 
+The subfolder ``test_log`` contains diagnostic files for the experiment. In
+particular, ``test_log/report.txt`` records selected problem names, timing
+information, and special cases detected while building the profiles: problems
+where ``merit_init = phi(x_0) = inf`` (all solvers are declared to pass that
+problem/run), solver runs that terminated abnormally, and solver outputs that
+were replaced by the initial point as an output-based penalty. The file
+``test_log/log.txt`` contains the messages printed during the run.
+
 .. _py_example2:
 
 Example 2: one step further by adding options

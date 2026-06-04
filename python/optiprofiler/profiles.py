@@ -352,6 +352,9 @@ def benchmark(
 
         where v1 = min(0.01, 1e-10 * max(1, v0)), v2 = max(0.1, 2 * v0),
         and v0 is the maximum constraint violation at the initial guess.
+        If varphi(x_0) is inf for a problem/run, the convergence test is
+        degenerate; by convention, all solvers are declared to pass that
+        problem/run. These cases are listed in ``test_log/report.txt``.
     n_jobs : int, optional
         The number of parallel jobs to run the test. Default is a
         conservative number of workers, chosen as about half of the

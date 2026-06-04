@@ -143,7 +143,7 @@ function writeReport(profile_options, results_plibs, path_report, path_readme_lo
             end
         end
         fclose(fid);
-        addToReadme(path_readme_log, 'report.txt', 'File, the report file of the current experiment, recording information like problem names and time spent on solving each problem for all the problem libraries.');
+        addToReadme(path_readme_log, 'report.txt', 'File, the report file of the current experiment, recording problem names, timing information, and diagnostics such as merit_init = phi(x_0) = Inf cases, abnormal solver terminations, and output fallbacks.');
     catch ME
         if ~profile_options.(ProfileOptionKey.SILENT.value)
             printOptiProfilerMessage('INFO', sprintf('Error occurred when writing the report to %s.', path_report));

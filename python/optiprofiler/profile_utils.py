@@ -988,7 +988,7 @@ def write_report(profile_options, results_plibs, path_report, path_readme_log):
                 else:
                     fid.write("This part is empty.\n")
         # Optionally update the readme log
-        add_to_readme(path_readme_log, 'report.txt', 'File, the report file of the current experiment, recording information like problem names and time spent on solving each problem for all the problem libraries.')
+        add_to_readme(path_readme_log, 'report.txt', 'File, the report file of the current experiment, recording problem names, timing information, and diagnostics such as merit_init = phi(x_0) = inf cases, abnormal solver terminations, and output fallbacks.')
     except Exception as exc:
         if not profile_options[ProfileOption.SILENT]:
             logger.warning(f'Error occurred when writing the report to {path_report}.')
