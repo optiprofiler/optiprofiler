@@ -86,6 +86,7 @@ function drawPerfDetail(ax_perf, x_perf, y_perf, ratio_max_perf, solver_names, p
         ylabel_str = sprintf(profile_options.(ProfileOptionKey.YLABEL_PERFORMANCE_PROFILE.value), tolerance_latex);
         ylabel(ax_perf, ylabel_str, 'Interpreter', 'latex');
     end
+    placeSolverLegend(ax_perf, size(x_perf, 2), 'southeast');
 end
 
 function drawDataDetail(ax_data, x_data, y_data, ratio_max_data, solver_names, profile_options, tolerance_latex)
@@ -105,6 +106,7 @@ function drawDataDetail(ax_data, x_data, y_data, ratio_max_data, solver_names, p
         ylabel_str = sprintf(profile_options.(ProfileOptionKey.YLABEL_DATA_PROFILE.value), tolerance_latex);
         ylabel(ax_data, ylabel_str, 'Interpreter', 'latex');
     end
+    placeSolverLegend(ax_data, size(x_data, 2), 'southeast');
 end
 
 function drawLogRatioDetail(ax_log_ratio, x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, solver_names, profile_options, tolerance_latex)

@@ -182,12 +182,12 @@ function drawFunMaxcvMeritHist(ax, y, solver_names, is_cum, problem_n, y_shift, 
     end
 
     box(ax, 'on');
-    legend(ax, 'Location', 'northeast');
     hold(ax, 'off');
     if abs(xl_lim - xr_lim) < eps
         xr_lim = xl_lim + eps;
     end
     set(ax, 'XLim', [xl_lim, xr_lim]);
     xlabel(ax, profile_options.(ProfileOptionKey.XLABEL_DATA_PROFILE.value), 'Interpreter', 'latex');
+    placeSolverLegend(ax, n_solvers, 'northeast');
 
 end

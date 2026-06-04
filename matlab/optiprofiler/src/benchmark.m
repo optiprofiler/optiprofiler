@@ -633,6 +633,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     solver_names = profile_options.(ProfileOptionKey.SOLVER_NAMES.value);
     % Remove backslash from the solver names.
     solver_names = cellfun(@(s) strrep(s, '\_', '_'), solver_names, 'UniformOutput', false);
+    if n_solvers > 10 && ~profile_options.(ProfileOptionKey.SILENT.value)
+        printOptiProfilerMessage('WARNING', sprintf('Comparing %d solvers at once can make profiles hard to interpret; pairwise comparisons are recommended.', n_solvers));
+    end
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%% Set the default options for plotting. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1167,13 +1170,14 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     defaultFigurePosition = get(0, 'DefaultFigurePosition');
     default_width = defaultFigurePosition(3);
     default_height = defaultFigurePosition(4);
+    summary_profile_width = default_width + summaryLegendExtraWidth(n_solvers, default_width, solver_names);
 
     if n_rows > 0
-        fig_summary = figure('Position', [defaultFigurePosition(1:2), profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * default_width, multiplier * n_rows * default_height], 'visible', 'off');
+        fig_summary = figure('Position', [defaultFigurePosition(1:2), profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * summary_profile_width, multiplier * n_rows * default_height], 'visible', 'off');
         T_summary = tiledlayout(fig_summary, multiplier, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
         T_stamp = strrep(stamp, '_', '\_');
         T_title = ['Profiles for ``', T_stamp, '"'];
-        summary_width = profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * default_width;
+        summary_width = profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * summary_profile_width;
         summary_height = multiplier * n_rows * default_height;
         summary_fontsize = min(summary_width / 75 * 2, summary_width / profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * 3 / 75 * 2);
         title(T_summary, T_title, 'Interpreter', 'latex', 'FontSize', summary_fontsize);
@@ -1600,7 +1604,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     if n_rows > 0 && ispc
         % Check the operating system. If it is Windows, we will adjust the position, papersize, paperposition
         % of the summary figure! (MATLAB in Windows will adjust the figure size automatically when it is too large.)
-        fig_summary.Position = [defaultFigurePosition(1:2), profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * default_width, multiplier * n_rows * default_height];
+        fig_summary.Position = [defaultFigurePosition(1:2), profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * summary_profile_width, multiplier * n_rows * default_height];
         fig_summary.Units = 'centimeters';
         fig_summary.PaperUnits = 'centimeters';
         fig_summary.PaperSize = fig_summary.Position(3:4);

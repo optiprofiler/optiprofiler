@@ -22,7 +22,8 @@ function exportHist(problem_name, problem_type, problem_dim, solver_names, solve
         defaultFigurePosition = get(0, 'DefaultFigurePosition');
         default_width = defaultFigurePosition(3);
         default_height = defaultFigurePosition(4);
-        fig_summary = figure('Position', [defaultFigurePosition(1:2), n_cols * default_width, 2 * default_height], 'visible', 'off');
+        summary_profile_width = default_width + summaryLegendExtraWidth(numel(solver_names), default_width, solver_names);
+        fig_summary = figure('Position', [defaultFigurePosition(1:2), n_cols * summary_profile_width, 2 * default_height], 'visible', 'off');
         T_summary = tiledlayout(fig_summary, 2, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
         F_title = strrep(profile_options.feature_stamp, '_', '\_');
         P_title = strrep(problem_name, '_', '\_');

@@ -14,12 +14,14 @@ from optiprofiler.plotting import (
     _get_extended_performances_data_profile_axes,
     _get_log_ratio_profile_axes,
     _get_performance_data_profile_axes,
+    _place_solver_legend,
     _perf_formatter,
     data_ticks,
     draw_profiles,
     format_float_scientific_latex,
     perf_ticks,
     set_profile_context,
+    summary_legend_extra_width,
     compute_y_shift,
     process_hist_y_axes,
 )
@@ -386,6 +388,33 @@ class TestDrawProfiles:
         assert fig_perf is not None
         plt.close('all')
 
+    def test_many_solver_summary_axes_keep_own_outside_legend(self):
+        n_problems, n_solvers, n_runs = 3, 11, 1
+        work = np.arange(1, n_problems * n_solvers * n_runs + 1, dtype=float).reshape(n_problems, n_solvers, n_runs)
+        problem_dims = np.array([2, 3, 5])
+        solver_names = [f's{i_solver}' for i_solver in range(n_solvers)]
+        curves = {
+            'perf': [[None] * (n_runs + 1) for _ in range(n_solvers)],
+            'data': [[None] * (n_runs + 1) for _ in range(n_solvers)],
+            'log_ratio': [None] * n_solvers,
+        }
+        profile_options = self._make_profile_options()
+        profile_options[ProfileOption.SCORE_ONLY] = False
+        profile_options[ProfileOption.LINE_COLORS] = [f'C{i_solver % 10}' for i_solver in range(n_solvers)]
+        fig_summary, ax_summary = plt.subplots()
+        fig_perf, fig_data, _, _ = draw_profiles(
+            work, problem_dims, solver_names, '0.1', 0,
+            np.array([ax_summary]), None, None, True, True, False, False,
+            profile_options, curves,
+        )
+        legend = ax_summary.get_legend()
+        assert legend is not None
+        assert legend._loc == 6  # center left
+        assert legend._ncols == 1
+        plt.close(fig_summary)
+        plt.close(fig_perf)
+        plt.close(fig_data)
+
 
 class TestDrawPerfDataDetail:
 
@@ -432,4 +461,57 @@ class TestDrawPerfDataDetail:
         y = np.array([[[0, 0]], [[0, 0]]], dtype=float).T
         y = y.reshape(2, 2, 1)
         _draw_data_detail(ax, x, y, np.inf, ['s1', 's2'], self._make_profile_options(), '0.1')
+        plt.close(fig)
+
+    def test_small_solver_legend_uses_empty_corner(self):
+        fig, ax = plt.subplots()
+        for i_solver in range(3):
+            ax.plot([0.75, 0.85, 0.95], [0.05, 0.10, 0.15], label=f's{i_solver}')
+        ax.set_xlim(0.0, 1.0)
+        ax.set_ylim(0.0, 1.0)
+        _place_solver_legend(ax, 3, default_loc='lower right')
+        assert ax.get_legend()._loc == 2  # upper left
+        plt.close(fig)
+
+    def test_many_solver_legend_is_outside_and_single_column_for_eleven(self):
+        fig, ax = plt.subplots()
+        n_solvers = 11
+        for i_solver in range(n_solvers):
+            ax.plot([0, 1], [i_solver, i_solver + 1], label=f's{i_solver}')
+        _place_solver_legend(ax, n_solvers, default_loc='lower right')
+        legend = ax.get_legend()
+        assert legend._loc == 6  # center left
+        assert legend._ncols == 1
+        assert legend.get_bbox_to_anchor() is not None
+        plt.close(fig)
+
+    def test_many_solver_legend_keeps_one_column_until_twenty(self):
+        fig, ax = plt.subplots()
+        n_solvers = 17
+        for i_solver in range(n_solvers):
+            ax.plot([0, 1], [i_solver, i_solver + 1], label=f's{i_solver}')
+        _place_solver_legend(ax, n_solvers, default_loc='lower right')
+        assert ax.get_legend()._ncols == 1
+        plt.close(fig)
+
+    def test_many_solver_legend_uses_multiple_columns_at_twenty(self):
+        fig, ax = plt.subplots()
+        n_solvers = 20
+        for i_solver in range(n_solvers):
+            ax.plot([0, 1], [i_solver, i_solver + 1], label=f's{i_solver}')
+        _place_solver_legend(ax, n_solvers, default_loc='lower right')
+        assert ax.get_legend()._ncols == 2
+        plt.close(fig)
+
+    def test_summary_extra_width_only_for_many_solvers(self):
+        assert summary_legend_extra_width(10, 6.0) == 0.0
+        assert summary_legend_extra_width(11, 6.0) > 0.0
+
+    def test_profile_box_aspect_matches_default_figure(self):
+        fig, ax = plt.subplots()
+        for i_solver in range(11):
+            ax.plot([0, 1], [i_solver, i_solver + 1], label=f's{i_solver}')
+        _place_solver_legend(ax, 11, default_loc='lower right')
+        default_width, default_height = plt.rcParams['figure.figsize']
+        assert ax.get_box_aspect() == pytest.approx(default_height / default_width)
         plt.close(fig)

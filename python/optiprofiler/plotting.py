@@ -21,6 +21,15 @@ from matplotlib.ticker import MaxNLocator, FuncFormatter
 from .utils import ProfileOption
 
 
+_COMPACT_LEGEND_SOLVER_THRESHOLD = 10
+_COMPACT_LEGEND_MIN_ROWS_PER_COLUMN = 10
+
+
+def _set_profile_box_aspect(ax):
+    default_width, default_height = plt.rcParams['figure.figsize']
+    if default_width > np.finfo(float).eps and hasattr(ax, 'set_box_aspect'):
+        ax.set_box_aspect(default_height / default_width)
+
 
 def draw_profiles(work, problem_dimensions, solver_names, tolerance_latex, i_tol, ax_summary_perf, ax_summary_data, ax_summary_log_ratio, is_summary, is_perf, is_data, is_log_ratio, profile_options, curves):
     solver_names = [name.replace('_', r'\_') for name in solver_names]
@@ -85,6 +94,7 @@ def _draw_perf_detail(ax_perf, x_perf, y_perf, ratio_max_perf, solver_names, pro
     if profile_options[ProfileOption.YLABEL_PERFORMANCE_PROFILE]:
         ylabel_str = profile_options[ProfileOption.YLABEL_PERFORMANCE_PROFILE] % tolerance_latex if '%s' in profile_options[ProfileOption.YLABEL_PERFORMANCE_PROFILE] else profile_options[ProfileOption.YLABEL_PERFORMANCE_PROFILE]
         ax_perf.set_ylabel(ylabel_str)
+    _place_solver_legend(ax_perf, x_perf.shape[1], default_loc='lower right')
 
 
 
@@ -107,6 +117,7 @@ def _draw_data_detail(ax_data, x_data, y_data, ratio_max_data, solver_names, pro
     if profile_options[ProfileOption.YLABEL_DATA_PROFILE]:
         ylabel_str = profile_options[ProfileOption.YLABEL_DATA_PROFILE] % tolerance_latex if '%s' in profile_options[ProfileOption.YLABEL_DATA_PROFILE] else profile_options[ProfileOption.YLABEL_DATA_PROFILE]
         ax_data.set_ylabel(ylabel_str)
+    _place_solver_legend(ax_data, x_data.shape[1], default_loc='lower right')
 
 
 
@@ -119,6 +130,7 @@ def _draw_log_ratio_detail(ax_log_ratio, x_log_ratio, y_log_ratio, ratio_max_log
     if profile_options[ProfileOption.YLABEL_LOG_RATIO_PROFILE]:
         ylabel_str = profile_options[ProfileOption.YLABEL_LOG_RATIO_PROFILE] % tolerance_latex if '%s' in profile_options[ProfileOption.YLABEL_LOG_RATIO_PROFILE] else profile_options[ProfileOption.YLABEL_LOG_RATIO_PROFILE]
         ax_log_ratio.set_ylabel(ylabel_str)
+    _set_profile_box_aspect(ax_log_ratio)
 
 
 
@@ -171,8 +183,6 @@ def _draw_performance_data_profiles(ax, x, y, solver_names, profile_options):
         ax.tick_params(axis='x', which='both', direction='in')
         # Remove tick labels on the right side
         ax.tick_params(axis='y', which='both', labelleft=True, labelright=False)
-        ax.legend(loc='lower right')
-
 
 def _draw_log_ratio_profiles(ax, x, y, ratio_max, n_solvers_equal, solver_names, profile_options):
     profile_context = set_profile_context(profile_options)
@@ -886,10 +896,116 @@ def draw_fun_maxcv_merit_hist(ax, y, solver_names, is_cum, problem_n, y_shift, n
     # Add box around the plot (matching MATLAB's box(ax, 'on')).
     for spine in ax.spines.values():
         spine.set_visible(True)
-    ax.legend(loc='upper right')
-
     if abs(xl_lim - xr_lim) < np.finfo(float).eps:
         xr_lim = xl_lim + np.finfo(float).eps
     
     ax.set_xlim([xl_lim, xr_lim])
     ax.set_xlabel(profile_options[ProfileOption.XLABEL_DATA_PROFILE])
+    _place_solver_legend(ax, n_solvers, default_loc='upper right')
+
+
+def _compact_legend_fontsize(n_solvers):
+    if n_solvers <= _COMPACT_LEGEND_SOLVER_THRESHOLD:
+        return None
+    if n_solvers <= 20:
+        return 10
+    if n_solvers <= 30:
+        return 9
+    return 8
+
+
+def _legend_columns(n_solvers):
+    if n_solvers <= _COMPACT_LEGEND_SOLVER_THRESHOLD:
+        return 1
+    return max(1, n_solvers // _COMPACT_LEGEND_MIN_ROWS_PER_COLUMN)
+
+
+def summary_legend_extra_width(n_solvers, default_width, solver_names=None):
+    if n_solvers <= _COMPACT_LEGEND_SOLVER_THRESHOLD:
+        return 0.0
+    if solver_names:
+        max_label_length = max(len(str(name).replace(r'\_', '_')) for name in solver_names)
+    else:
+        max_label_length = 12
+    per_column_fraction = min(0.45, max(0.22, 0.08 + 0.015 * max_label_length))
+    return default_width * (0.05 + per_column_fraction * _legend_columns(n_solvers))
+
+
+def _normalize_axis_values(values, axis_limits, axis_scale):
+    values = np.asarray(values, dtype=float)
+    limits = np.asarray(axis_limits, dtype=float)
+    finite_mask = np.isfinite(values)
+    if axis_scale == 'log':
+        finite_mask &= values > 0.0
+        finite_mask &= np.all(limits > 0.0)
+        if not np.any(finite_mask):
+            return np.array([])
+        values = np.log10(values[finite_mask])
+        limits = np.log10(limits)
+    else:
+        values = values[finite_mask]
+    span = limits[1] - limits[0]
+    if not np.isfinite(span) or abs(span) < np.finfo(float).eps:
+        return np.array([])
+    normalized = (values - limits[0]) / span
+    normalized = normalized[np.isfinite(normalized)]
+    return np.clip(normalized, 0.0, 1.0)
+
+
+def _choose_legend_location(ax, default_loc):
+    handles, _ = ax.get_legend_handles_labels()
+    if not handles:
+        return default_loc
+
+    xlim = ax.get_xlim()
+    ylim = ax.get_ylim()
+    x_values = []
+    y_values = []
+    for handle in handles:
+        if not isinstance(handle, Line2D):
+            continue
+        x_norm = _normalize_axis_values(handle.get_xdata(), xlim, ax.get_xscale())
+        y_norm = _normalize_axis_values(handle.get_ydata(), ylim, ax.get_yscale())
+        n = min(x_norm.size, y_norm.size)
+        if n == 0:
+            continue
+        x_values.append(x_norm[:n])
+        y_values.append(y_norm[:n])
+    if not x_values:
+        return default_loc
+
+    x_all = np.concatenate(x_values)
+    y_all = np.concatenate(y_values)
+    if x_all.size == 0:
+        return default_loc
+
+    targets = {
+        'upper right': (0.85, 0.85),
+        'upper left': (0.15, 0.85),
+        'lower right': (0.85, 0.15),
+        'lower left': (0.15, 0.15),
+    }
+    scores = {}
+    for loc, (target_x, target_y) in targets.items():
+        distance2 = (x_all - target_x) ** 2 + (y_all - target_y) ** 2
+        scores[loc] = float(np.sum(np.exp(-distance2 / 0.06)))
+    return min(targets, key=lambda loc: (scores[loc], loc != default_loc))
+
+
+def _place_solver_legend(ax, n_solvers, default_loc='lower right'):
+    _set_profile_box_aspect(ax)
+    if n_solvers > _COMPACT_LEGEND_SOLVER_THRESHOLD:
+        legend = ax.legend(
+            loc='center left',
+            bbox_to_anchor=(1.02, 0.5),
+            ncol=_legend_columns(n_solvers),
+            borderaxespad=0.0,
+            fontsize=_compact_legend_fontsize(n_solvers),
+            handlelength=2.0,
+            columnspacing=0.9,
+            labelspacing=0.35,
+        )
+    else:
+        legend = ax.legend(loc=_choose_legend_location(ax, default_loc))
+    if legend is not None:
+        legend.set_in_layout(True)

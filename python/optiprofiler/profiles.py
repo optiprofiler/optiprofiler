@@ -30,7 +30,7 @@ from .opclasses import Feature, Problem, FeaturedProblem
 from .utils import DEFAULT_LOG_LINE_WIDTH, FeatureName, ProfileOption, FeatureOption, ProblemOption, get_logger, print_log_message, setup_main_process_logging, setup_worker_logging, shorten_log_message, format_log_prefix
 from .loader import load_results, save_results_to_h5, save_options
 from .profile_utils import check_validity_problem_options, check_validity_profile_options, get_default_problem_options, get_default_profile_options, compute_merit_values, create_stamp, merge_pdfs_with_pypdf, write_report, process_results, init_readme, add_to_readme, compute_scores
-from .plotting import draw_hist, set_profile_context, format_float_scientific_latex, draw_profiles
+from .plotting import draw_hist, set_profile_context, format_float_scientific_latex, draw_profiles, summary_legend_extra_width
 
 
 def _shorten_log_message(message: object, max_length: int = 180) -> str:
@@ -756,6 +756,9 @@ def benchmark(
     profile_scores = []
     curves = []
     solver_names = profile_options[ProfileOption.SOLVER_NAMES]
+    many_solver_warning = None
+    if n_solvers > 10 and not profile_options[ProfileOption.SILENT]:
+        many_solver_warning = f'Comparing {n_solvers} solvers at once can make profiles hard to interpret; pairwise comparisons are recommended.'
 
     # Set the options for plotting.
     profile_context = set_profile_context(profile_options)
@@ -863,6 +866,12 @@ def benchmark(
         log_queue, listener = setup_main_process_logging(log_file=log_file, level=logging.INFO)
 
         add_to_readme(path_readme_log, 'log.txt', 'File, the log file of the current experiment, recording printed information from the screen.')
+
+    if many_solver_warning is not None:
+        if listener is not None:
+            logger.warning(many_solver_warning)
+        else:
+            print_log_message('WARNING', many_solver_warning)
 
     # Create a README.txt file to explain the content of the folder `path_stamp`.
     if not profile_options[ProfileOption.SCORE_ONLY]:
@@ -1213,10 +1222,12 @@ def benchmark(
     default_figsize = plt.rcParams['figure.figsize']
     default_width = default_figsize[0]
     default_height = default_figsize[1]
+    summary_profile_width = default_width + summary_legend_extra_width(n_solvers, default_width, solver_names)
+    summary_width = len(tolerances) * summary_profile_width
 
     with plt.rc_context(profile_context):
         if is_summary:
-            fig_summary = plt.figure(figsize=(len(tolerances) * default_width, multiplier * n_rows * default_height), layout='constrained')
+            fig_summary = plt.figure(figsize=(summary_width, multiplier * n_rows * default_height), layout='constrained')
             if multiplier == 2:
                 fig_summary_hist, fig_summary_out = fig_summary.subfigures(2, 1)
                 subfigs_summary_hist = np.atleast_1d(fig_summary_hist.subfigures(n_rows, 1))
@@ -2230,7 +2241,7 @@ def _solve_one_problem(solvers, problem, feature, problem_name, len_problem_name
     }
 
     # Draw the history plots if required.
-    if not is_plot or profile_options[ProfileOption.SCORE_ONLY] or all(not success for success in solvers_success.flatten()):
+    if not is_plot or path_hist_plots is None or profile_options[ProfileOption.SCORE_ONLY] or all(not success for success in solvers_success.flatten()):
         return result
     
     try:
@@ -2249,10 +2260,11 @@ def _solve_one_problem(solvers, problem, feature, problem_name, len_problem_name
         default_figsize = plt.rcParams['figure.figsize']
         default_width = default_figsize[0]
         default_height = default_figsize[1]
+        summary_profile_width = default_width + summary_legend_extra_width(len(solver_names), default_width, solver_names)
         profile_context = set_profile_context(profile_options)
         with plt.rc_context(profile_context):
             # Create figure without constrained layout (will use tight_layout instead)
-            fig_summary = plt.figure(figsize=(default_width * n_cols, default_height * 2))
+            fig_summary = plt.figure(figsize=(summary_profile_width * n_cols, default_height * 2))
 
             F_title = profile_options['feature_stamp'].replace('_', r'\_')
             P_title = problem_name.replace('_', r'\_')
@@ -2354,8 +2366,8 @@ def _draw_problem_history_plot(problem_name, problem_type, problem_dim, solver_n
     """
     logger = get_logger(__name__)
     
-    # Skip if no solver succeeded.
-    if all(not success for success in solvers_success.flatten()):
+    # Skip if history plots are disabled or no solver succeeded.
+    if path_hist_plots is None or all(not success for success in solvers_success.flatten()):
         return
     
     try:
@@ -2372,10 +2384,11 @@ def _draw_problem_history_plot(problem_name, problem_type, problem_dim, solver_n
         default_figsize = plt.rcParams['figure.figsize']
         default_width = default_figsize[0]
         default_height = default_figsize[1]
+        summary_profile_width = default_width + summary_legend_extra_width(len(solver_names), default_width, solver_names)
         profile_context = set_profile_context(profile_options)
         with plt.rc_context(profile_context):
             # Create figure without constrained layout (will use tight_layout instead)
-            fig_summary = plt.figure(figsize=(default_width * n_cols, default_height * 2))
+            fig_summary = plt.figure(figsize=(summary_profile_width * n_cols, default_height * 2))
 
             F_title = profile_options['feature_stamp'].replace('_', r'\_')
             P_title = problem_name.replace('_', r'\_')
