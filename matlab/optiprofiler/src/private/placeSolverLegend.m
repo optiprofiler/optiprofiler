@@ -1,8 +1,6 @@
 function placeSolverLegend(ax, n_solvers, default_location)
 %PLACESOLVERLEGEND places the solver legend without hiding plotted curves.
 
-    setProfileBoxAspect(ax);
-
     compact_threshold = 10;
     min_rows_per_column = 10;
 

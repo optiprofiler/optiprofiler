@@ -506,12 +506,3 @@ class TestDrawPerfDataDetail:
     def test_summary_extra_width_only_for_many_solvers(self):
         assert summary_legend_extra_width(10, 6.0) == 0.0
         assert summary_legend_extra_width(11, 6.0) > 0.0
-
-    def test_profile_box_aspect_matches_default_figure(self):
-        fig, ax = plt.subplots()
-        for i_solver in range(11):
-            ax.plot([0, 1], [i_solver, i_solver + 1], label=f's{i_solver}')
-        _place_solver_legend(ax, 11, default_loc='lower right')
-        default_width, default_height = plt.rcParams['figure.figsize']
-        assert ax.get_box_aspect() == pytest.approx(default_height / default_width)
-        plt.close(fig)

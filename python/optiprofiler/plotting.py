@@ -25,12 +25,6 @@ _COMPACT_LEGEND_SOLVER_THRESHOLD = 10
 _COMPACT_LEGEND_MIN_ROWS_PER_COLUMN = 10
 
 
-def _set_profile_box_aspect(ax):
-    default_width, default_height = plt.rcParams['figure.figsize']
-    if default_width > np.finfo(float).eps and hasattr(ax, 'set_box_aspect'):
-        ax.set_box_aspect(default_height / default_width)
-
-
 def draw_profiles(work, problem_dimensions, solver_names, tolerance_latex, i_tol, ax_summary_perf, ax_summary_data, ax_summary_log_ratio, is_summary, is_perf, is_data, is_log_ratio, profile_options, curves):
     solver_names = [name.replace('_', r'\_') for name in solver_names]
     n_solvers = work.shape[1]
@@ -130,7 +124,6 @@ def _draw_log_ratio_detail(ax_log_ratio, x_log_ratio, y_log_ratio, ratio_max_log
     if profile_options[ProfileOption.YLABEL_LOG_RATIO_PROFILE]:
         ylabel_str = profile_options[ProfileOption.YLABEL_LOG_RATIO_PROFILE] % tolerance_latex if '%s' in profile_options[ProfileOption.YLABEL_LOG_RATIO_PROFILE] else profile_options[ProfileOption.YLABEL_LOG_RATIO_PROFILE]
         ax_log_ratio.set_ylabel(ylabel_str)
-    _set_profile_box_aspect(ax_log_ratio)
 
 
 
@@ -993,7 +986,6 @@ def _choose_legend_location(ax, default_loc):
 
 
 def _place_solver_legend(ax, n_solvers, default_loc='lower right'):
-    _set_profile_box_aspect(ax)
     if n_solvers > _COMPACT_LEGEND_SOLVER_THRESHOLD:
         legend = ax.legend(
             loc='center left',
