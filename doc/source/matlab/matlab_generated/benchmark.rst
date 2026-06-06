@@ -186,7 +186,7 @@ Options should be specified in a struct. The following are the available fields 
 
       ``x -> noise``
 
-    that accepts the evaluation point and returns a real scalar. It is used only when ``noise_mode`` is ``'deterministic'``. Default is ``'chebyshev'``. The built-in ``'chebyshev'`` map follows the deterministic noise model in Moré and Wild, "Benchmarking derivative-free optimization algorithms" (2009).
+    that accepts the evaluation point and returns a real scalar. It is used only when ``noise_mode`` is ``'deterministic'``. Default is ``'chebyshev'``. The built-in ``'chebyshev'`` map follows the deterministic noise model in Moré and Wild [5]_.
 
   - **significant_digits**: the number of significant digits in the ``'truncated'`` feature. Default is ``6``.
 

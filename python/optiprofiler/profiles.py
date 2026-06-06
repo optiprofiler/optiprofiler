@@ -178,8 +178,7 @@ def benchmark(
         be either 'chebyshev' or a callable ``x -> noise`` returning a real
         scalar. It is used only when noise_mode is 'deterministic'. Default
         is 'chebyshev'. The built-in 'chebyshev' map follows the deterministic
-        noise model in Moré and Wild, "Benchmarking derivative-free
-        optimization algorithms" (2009).
+        noise model in Moré and Wild [5]_.
     significant_digits : int, optional
         The number of significant digits in the
         'truncated' feature. Default is 6.
