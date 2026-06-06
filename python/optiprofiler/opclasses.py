@@ -109,7 +109,10 @@ class Feature:
         - **noise_map** (*str or callable*) -- Deterministic scalar noise
           map in ``'noisy'``. It should be ``'chebyshev'`` (default) or a
           callable ``x -> noise`` returning a real scalar. It is used only
-          when ``noise_mode`` is ``'deterministic'``.
+          when ``noise_mode`` is ``'deterministic'``. The built-in
+          ``'chebyshev'`` map follows the deterministic noise model in Moré
+          and Wild, "Benchmarking derivative-free optimization algorithms"
+          (2009).
         - **significant_digits** (*int*) -- Number of significant digits in
           ``'truncated'``. Default is ``6``.
         - **perturbed_trailing_digits** (*bool*) -- Whether to randomize
@@ -1096,6 +1099,8 @@ class Feature:
 
     @staticmethod
     def chebyshev_noise_map(x):
+        # Deterministic noise map from Moré and Wild, "Benchmarking
+        # derivative-free optimization algorithms" (2009).
         alpha = 0.9 * np.sin(100 * np.linalg.norm(x, 1)) * np.cos(100 * np.linalg.norm(x, np.inf)) + 0.1 * np.cos(np.linalg.norm(x, 2))
         return alpha * (4 * alpha ** 2 - 3)
 

@@ -99,7 +99,7 @@ The optional input **options** should be a struct which can contain the followin
 
       ``x -> noise``
 
-    that accepts the evaluation point and returns a real scalar. It is used only when ``noise_mode`` is ``'deterministic'``. Default is ``'chebyshev'``.
+    that accepts the evaluation point and returns a real scalar. It is used only when ``noise_mode`` is ``'deterministic'``. Default is ``'chebyshev'``. The built-in ``'chebyshev'`` map follows the deterministic noise model in Moré and Wild, "Benchmarking derivative-free optimization algorithms" (2009).
 
   - **significant_digits**: the number of significant digits in the ``'truncated'`` feature. Default is ``6``.
 
