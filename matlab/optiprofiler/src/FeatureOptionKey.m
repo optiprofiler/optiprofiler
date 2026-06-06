@@ -7,6 +7,8 @@ classdef FeatureOptionKey
         PERTURBATION_LEVEL ('perturbation_level')
         NOISE_LEVEL ('noise_level')
         NOISE_TYPE ('noise_type')
+        NOISE_MODE ('noise_mode')
+        NOISE_MAP ('noise_map')
         SIGNIFICANT_DIGITS ('significant_digits')
         PERTURBED_TRAILING_DIGITS ('perturbed_trailing_digits')
         ROTATED ('rotated')

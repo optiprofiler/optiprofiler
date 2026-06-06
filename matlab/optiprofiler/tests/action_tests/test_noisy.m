@@ -35,6 +35,12 @@ function test_noisy(benchmark_id)
     options.distribution = 'gaussian';
     benchmark(solvers, options)
 
+    options.noise_mode = 'deterministic';
+    options.noise_map = 'chebyshev';
+    options.n_runs = 1;
+    options.noise_type = 'mixed';
+    benchmark(solvers, options)
+
     % Test load
     options.load = 'latest';
     options.solver_names = {'sqp', 'interior-point'};

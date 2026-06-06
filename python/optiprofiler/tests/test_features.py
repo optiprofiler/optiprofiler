@@ -12,6 +12,34 @@ class TestFeature:
         """Rosenbrock function."""
         return np.sum(1e2 * (x[1:] - x[:-1] ** 2) ** 2 + (1.0 - x[:-1]) ** 2)
 
+    @staticmethod
+    def constant_five(x):
+        return 5.0
+
+    @staticmethod
+    def simple_cub(x):
+        return np.array([1.0, 2.0])
+
+    @staticmethod
+    def simple_ceq(x):
+        return np.array([-3.0])
+
+    @staticmethod
+    def constant_two_noise_map(x):
+        return 2.0
+
+    @staticmethod
+    def vector_noise_map(x):
+        return np.array([1.0, 2.0])
+
+    @staticmethod
+    def ones_distribution(rng, size):
+        return np.ones(size)
+
+    @staticmethod
+    def legacy_scalar_distribution(rng):
+        return 1.0
+
     @pytest.mark.parametrize('n', [2, 10])
     def test_plain(self, n):
         """Test the plain feature."""
@@ -35,6 +63,10 @@ class TestFeature:
         assert feature.name == 'noisy'
         assert 'noise_level' in feature.options
         assert feature.options['n_runs'] == 5  # Default is 5
+        assert feature.options['distribution'] == 'gaussian'
+        assert feature.options['noise_type'] == 'mixed'
+        assert feature.options['noise_mode'] == 'random'
+        assert feature.options['noise_map'] == 'chebyshev'
         assert feature.is_stochastic
 
         # Noisy feature with custom options
@@ -52,6 +84,68 @@ class TestFeature:
         # The noisy value should be different from the true value (with high probability)
         # but we can't guarantee it, so we just check that it's a number
         assert isinstance(f_noisy, (int, float))
+
+        # Custom random distributions use the same (rng, size) signature for
+        # objective and constraint noise; the objective path is converted back
+        # to a scalar.
+        problem = Problem(
+            self.constant_five,
+            np.array([1.0, 2.0]),
+            cub=self.simple_cub,
+            ceq=self.simple_ceq,
+        )
+        feature = Feature(
+            'noisy',
+            distribution=self.ones_distribution,
+            noise_type='absolute',
+            noise_level=0.5,
+        )
+        featured_problem = FeaturedProblem(problem, feature, 500)
+        assert featured_problem.fun(problem.x0) == 5.5
+        np.testing.assert_allclose(featured_problem.cub(problem.x0), np.array([1.5, 2.5]))
+        np.testing.assert_allclose(featured_problem.ceq(problem.x0), np.array([-2.5]))
+
+        # Keep the previous one-argument scalar objective sampler working.
+        feature = Feature(
+            'noisy',
+            distribution=self.legacy_scalar_distribution,
+            noise_type='absolute',
+            noise_level=0.5,
+        )
+        featured_problem = FeaturedProblem(problem, feature, 500)
+        assert featured_problem.fun(problem.x0) == 5.5
+
+        # Deterministic noisy feature defaults to one run and is repeatable at the same point.
+        feature = Feature('noisy', noise_mode='deterministic')
+        assert feature.options['n_runs'] == 1
+        assert feature.options['noise_map'] == 'chebyshev'
+        assert not feature.is_stochastic
+        featured_problem = FeaturedProblem(problem, feature, 500)
+        assert featured_problem.fun(problem.x0) == featured_problem.fun(problem.x0)
+
+    def test_deterministic_noisy_custom_map(self):
+        problem = Problem(
+            self.constant_five,
+            np.array([1.0, 2.0]),
+            cub=self.simple_cub,
+            ceq=self.simple_ceq,
+        )
+        feature = Feature(
+            'noisy',
+            noise_mode='deterministic',
+            noise_map=self.constant_two_noise_map,
+            noise_type='absolute',
+            noise_level=0.5,
+        )
+        featured_problem = FeaturedProblem(problem, feature, 500)
+        np.testing.assert_allclose(featured_problem.fun(problem.x0), 6.0)
+        np.testing.assert_allclose(featured_problem.cub(problem.x0), np.array([2.0, 3.0]))
+        np.testing.assert_allclose(featured_problem.ceq(problem.x0), np.array([-2.0]))
+
+        feature = Feature('noisy', noise_mode='deterministic', noise_map=self.vector_noise_map)
+        featured_problem = FeaturedProblem(problem, feature, 500)
+        with pytest.raises(ValueError, match='real scalar'):
+            featured_problem.fun(problem.x0)
 
     @pytest.mark.parametrize('n', [2, 10])
     def test_truncated(self, n):
@@ -189,6 +283,18 @@ class TestFeature:
             Feature('noisy', noise_type=1)
         with pytest.raises(ValueError):
             Feature('noisy', noise_type='invalid')
+
+        # Invalid noise_mode
+        with pytest.raises(TypeError):
+            Feature('noisy', noise_mode=1)
+        with pytest.raises(ValueError):
+            Feature('noisy', noise_mode='invalid')
+
+        # Invalid noise_map
+        with pytest.raises(TypeError):
+            Feature('noisy', noise_map=1)
+        with pytest.raises(ValueError):
+            Feature('noisy', noise_map='invalid')
 
     def test_catch(self):
         """Test edge cases that should work."""

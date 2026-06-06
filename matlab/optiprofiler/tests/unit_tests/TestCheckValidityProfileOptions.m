@@ -56,6 +56,22 @@ classdef TestCheckValidityProfileOptions < matlab.unittest.TestCase
             testCase.verifyEqual(getConservativeDefaultNJobs(8), 4);
         end
 
+        function testNoisyFeatureStamp(testCase)
+            solvers = {@fminsearch, @fminunc};
+
+            feature = Feature('noisy');
+            options = getDefaultProfileOptions(solvers, feature, struct('n_jobs', 1));
+            testCase.verifyEqual(options.feature_stamp, 'noisy_0.001_mixed_gaussian');
+
+            feature = Feature('noisy', struct('noise_mode', 'deterministic'));
+            options = getDefaultProfileOptions(solvers, feature, struct('n_jobs', 1));
+            testCase.verifyEqual(options.feature_stamp, 'noisy_0.001_mixed_deterministic_chebyshev');
+
+            feature = Feature('noisy', struct('noise_mode', 'deterministic', 'noise_map', @(x) sum(x)));
+            options = getDefaultProfileOptions(solvers, feature, struct('n_jobs', 1));
+            testCase.verifyEqual(options.feature_stamp, 'noisy_0.001_mixed_deterministic');
+        end
+
         function testErrors(testCase)
 
             solvers = {@fminsearch, @fminunc};

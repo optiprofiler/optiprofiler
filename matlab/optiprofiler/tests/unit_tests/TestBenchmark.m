@@ -39,6 +39,11 @@ classdef TestBenchmark < matlab.unittest.TestCase
             benchmark(solvers, options);
             options = rmfield(options, 'noise_level');
             options = rmfield(options, 'distribution');
+            options.noise_mode = 'deterministic';
+            options.noise_map = 'chebyshev';
+            benchmark(solvers, options);
+            options = rmfield(options, 'noise_mode');
+            options = rmfield(options, 'noise_map');
             
             % Test truncated feature.
             options.summarize_log_ratio_profiles = true;

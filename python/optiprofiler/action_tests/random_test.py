@@ -105,9 +105,14 @@ def random_test(benchmark_id=None):
         options['perturbation_level'] = rng.random()
         options['distribution'] = rng.choice(['gaussian', 'spherical'])
     elif feature_name == 'noisy':
-        options['n_runs'] = rng.integers(1, 4)
+        options['noise_mode'] = rng.choice(['random', 'deterministic'])
+        if options['noise_mode'] == 'deterministic':
+            options['n_runs'] = 1
+            options['noise_map'] = 'chebyshev'
+        else:
+            options['n_runs'] = rng.integers(1, 4)
+            options['distribution'] = rng.choice(['gaussian', 'uniform'])
         options['noise_level'] = rng.random()
-        options['distribution'] = rng.choice(['gaussian', 'uniform'])
         options['noise_type'] = rng.choice(['absolute', 'relative', 'mixed'])
     elif feature_name == 'truncated':
         options['n_runs'] = rng.integers(1, 4)

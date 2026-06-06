@@ -296,9 +296,9 @@ arguments are sent across process boundaries and must therefore be
 picklable:
 
 - the entries of ``solvers``;
-- feature options: ``distribution``, ``mod_x0``, ``mod_affine``,
-  ``mod_bounds``, ``mod_linear_ub``, ``mod_linear_eq``, ``mod_fun``,
-  ``mod_cub``, ``mod_ceq``;
+- feature options: ``distribution``, ``noise_map``, ``mod_x0``,
+  ``mod_affine``, ``mod_bounds``, ``mod_linear_ub``, ``mod_linear_eq``,
+  ``mod_fun``, ``mod_cub``, ``mod_ceq``;
 - profile options: ``merit_fun``, ``score_fun``, ``score_weight_fun``.
 
 **Lambda expressions and locally-defined nested functions are not

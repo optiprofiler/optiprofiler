@@ -101,10 +101,17 @@ function random_test(benchmark_id)
             distribution_choices = {'gaussian', 'spherical'};
             options.distribution = distribution_choices{rand_stream.randi(length(distribution_choices), 1, 1)};
         case 'noisy'
-            options.n_runs = rand_stream.randi([1, 3], 1, 1);
+            noise_mode_choices = {'random', 'deterministic'};
+            options.noise_mode = noise_mode_choices{rand_stream.randi(length(noise_mode_choices), 1, 1)};
+            if strcmp(options.noise_mode, 'deterministic')
+                options.n_runs = 1;
+                options.noise_map = 'chebyshev';
+            else
+                options.n_runs = rand_stream.randi([1, 3], 1, 1);
+                distribution_choices = {'gaussian', 'uniform'};
+                options.distribution = distribution_choices{rand_stream.randi(length(distribution_choices), 1, 1)};
+            end
             options.noise_level = rand_stream.rand(1, 1);
-            distribution_choices = {'gaussian', 'uniform'};
-            options.distribution = distribution_choices{rand_stream.randi(length(distribution_choices), 1, 1)};
             noise_type_choices = {'absolute', 'relative', 'mixed'};
             options.noise_type = noise_type_choices{rand_stream.randi(length(noise_type_choices), 1, 1)};
         case 'truncated'

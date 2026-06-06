@@ -106,6 +106,8 @@ class TestFeatureOption:
         assert FeatureOption.PERTURBATION_LEVEL == 'perturbation_level'
         assert FeatureOption.NOISE_LEVEL == 'noise_level'
         assert FeatureOption.NOISE_TYPE == 'noise_type'
+        assert FeatureOption.NOISE_MODE == 'noise_mode'
+        assert FeatureOption.NOISE_MAP == 'noise_map'
         assert FeatureOption.SIGNIFICANT_DIGITS == 'significant_digits'
         assert FeatureOption.PERTURBED_TRAILING_DIGITS == 'perturbed_trailing_digits'
         assert FeatureOption.ROTATED == 'rotated'

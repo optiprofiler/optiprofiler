@@ -762,9 +762,15 @@ def _get_default_feature_stamp(feature):
     elif name == FeatureName.NOISY:
         # feature_name + noise_level + noise_type + (distribution if it is gaussian or uniform)
         feature_stamp = f"{feature.name}_{feature.options[FeatureOption.NOISE_LEVEL]}_{feature.options[FeatureOption.NOISE_TYPE]}"
-        dist = feature.options.get(FeatureOption.DISTRIBUTION.value)
-        if isinstance(dist, str) and dist in ('gaussian', 'uniform'):
-            feature_stamp = f"{feature_stamp}_{dist}"
+        if feature.options[FeatureOption.NOISE_MODE] == 'deterministic':
+            feature_stamp = f"{feature_stamp}_deterministic"
+            noise_map = feature.options.get(FeatureOption.NOISE_MAP.value)
+            if isinstance(noise_map, str) and noise_map == 'chebyshev':
+                feature_stamp = f"{feature_stamp}_{noise_map}"
+        else:
+            dist = feature.options.get(FeatureOption.DISTRIBUTION.value)
+            if isinstance(dist, str) and dist in ('gaussian', 'uniform'):
+                feature_stamp = f"{feature_stamp}_{dist}"
     elif name == FeatureName.TRUNCATED:
         # feature_name + significant_digits + (perturbed_trailing_digits if it is true)
         feature_stamp = f"{feature.name}_{feature.options[FeatureOption.SIGNIFICANT_DIGITS]}"

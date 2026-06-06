@@ -575,6 +575,19 @@ class TestFeaturedProblemConstraints(BaseTestProblem):
         assert cub_val.shape == (1,)
         assert ceq_val.shape == (1,)
 
+    def test_deterministic_noisy_cub_ceq(self):
+        problem = self._make_constrained_problem()
+        feature = Feature(
+            'noisy',
+            noise_mode='deterministic',
+            noise_map=lambda x: 2.0,
+            noise_type='absolute',
+            noise_level=0.5,
+        )
+        fp = FeaturedProblem(problem, feature, 100, seed=42)
+        np.testing.assert_allclose(fp.cub(fp.x0), problem.cub(fp.x0) + 1.0)
+        np.testing.assert_allclose(fp.ceq(fp.x0), problem.ceq(fp.x0) + 1.0)
+
     def test_truncated_cub_ceq(self):
         problem = self._make_constrained_problem()
         feature = Feature('truncated', significant_digits=4)

@@ -6,7 +6,7 @@ classdef TestFeatureOptionKey < matlab.unittest.TestCase
 
             enumValues = enumeration('FeatureOptionKey');
             enumValues = cellstr(arrayfun(@char, enumValues, 'UniformOutput', false));
-            expectedValues = {'N_RUNS'; 'DISTRIBUTION'; 'PERTURBATION_LEVEL'; 'NOISE_LEVEL'; 'NOISE_TYPE'; 'SIGNIFICANT_DIGITS'; 'PERTURBED_TRAILING_DIGITS'; 'ROTATED'; 'CONDITION_FACTOR'; 'NAN_RATE'; 'UNRELAXABLE_BOUNDS'; 'UNRELAXABLE_LINEAR_CONSTRAINTS'; 'UNRELAXABLE_NONLINEAR_CONSTRAINTS'; 'MESH_SIZE'; 'MESH_TYPE'; 'GROUND_TRUTH'; 'MOD_X0'; 'MOD_AFFINE'; 'MOD_BOUNDS'; 'MOD_LINEAR_UB'; 'MOD_LINEAR_EQ'; 'MOD_FUN'; 'MOD_CUB'; 'MOD_CEQ'};
+            expectedValues = {'N_RUNS'; 'DISTRIBUTION'; 'PERTURBATION_LEVEL'; 'NOISE_LEVEL'; 'NOISE_TYPE'; 'NOISE_MODE'; 'NOISE_MAP'; 'SIGNIFICANT_DIGITS'; 'PERTURBED_TRAILING_DIGITS'; 'ROTATED'; 'CONDITION_FACTOR'; 'NAN_RATE'; 'UNRELAXABLE_BOUNDS'; 'UNRELAXABLE_LINEAR_CONSTRAINTS'; 'UNRELAXABLE_NONLINEAR_CONSTRAINTS'; 'MESH_SIZE'; 'MESH_TYPE'; 'GROUND_TRUTH'; 'MOD_X0'; 'MOD_AFFINE'; 'MOD_BOUNDS'; 'MOD_LINEAR_UB'; 'MOD_LINEAR_EQ'; 'MOD_FUN'; 'MOD_CUB'; 'MOD_CEQ'};
             testCase.verifyEqual(enumValues, expectedValues);
         end
 
@@ -20,6 +20,8 @@ classdef TestFeatureOptionKey < matlab.unittest.TestCase
             testCase.verifyEqual(FeatureOptionKey.PERTURBATION_LEVEL.value, 'perturbation_level');
             testCase.verifyEqual(FeatureOptionKey.NOISE_LEVEL.value, 'noise_level');
             testCase.verifyEqual(FeatureOptionKey.NOISE_TYPE.value, 'noise_type');
+            testCase.verifyEqual(FeatureOptionKey.NOISE_MODE.value, 'noise_mode');
+            testCase.verifyEqual(FeatureOptionKey.NOISE_MAP.value, 'noise_map');
             testCase.verifyEqual(FeatureOptionKey.SIGNIFICANT_DIGITS.value, 'significant_digits');
             testCase.verifyEqual(FeatureOptionKey.PERTURBED_TRAILING_DIGITS.value, 'perturbed_trailing_digits');
             testCase.verifyEqual(FeatureOptionKey.ROTATED.value, 'rotated');

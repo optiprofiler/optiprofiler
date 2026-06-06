@@ -169,7 +169,12 @@ function feature_stamp = getDefaultFeatureStamp(feature)
         case FeatureName.NOISY.value
             % feature_name + noise_level + noise_type + (distribution if it is gaussian or uniform)
             feature_stamp = sprintf('%s_%g_%s', feature.name, feature.options.(FeatureOptionKey.NOISE_LEVEL.value), feature.options.(FeatureOptionKey.NOISE_TYPE.value));
-            if ischarstr(feature.options.(FeatureOptionKey.DISTRIBUTION.value)) && ismember(feature.options.(FeatureOptionKey.DISTRIBUTION.value), {'gaussian', 'uniform'})
+            if strcmp(feature.options.(FeatureOptionKey.NOISE_MODE.value), 'deterministic')
+                feature_stamp = sprintf('%s_deterministic', feature_stamp);
+                if ischarstr(feature.options.(FeatureOptionKey.NOISE_MAP.value)) && strcmp(feature.options.(FeatureOptionKey.NOISE_MAP.value), 'chebyshev')
+                    feature_stamp = sprintf('%s_%s', feature_stamp, feature.options.(FeatureOptionKey.NOISE_MAP.value));
+                end
+            elseif ischarstr(feature.options.(FeatureOptionKey.DISTRIBUTION.value)) && ismember(feature.options.(FeatureOptionKey.DISTRIBUTION.value), {'gaussian', 'uniform'})
                 feature_stamp = sprintf('%s_%s', feature_stamp, feature.options.(FeatureOptionKey.DISTRIBUTION.value));
             end
         case FeatureName.TRUNCATED.value

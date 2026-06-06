@@ -757,8 +757,14 @@ class TestGetDefaultFeatureStamp:
     def test_noisy(self):
         feature = Feature('noisy')
         stamp = _get_default_feature_stamp(feature)
-        assert 'noisy' in stamp
-        assert '0.001' in stamp
+        assert stamp == 'noisy_0.001_mixed_gaussian'
+
+    def test_noisy_deterministic(self):
+        feature = Feature('noisy', noise_mode='deterministic')
+        assert _get_default_feature_stamp(feature) == 'noisy_0.001_mixed_deterministic_chebyshev'
+
+        feature = Feature('noisy', noise_mode='deterministic', noise_map=lambda x: 0.0)
+        assert _get_default_feature_stamp(feature) == 'noisy_0.001_mixed_deterministic'
 
     def test_truncated(self):
         feature = Feature('truncated')

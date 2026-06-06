@@ -9,7 +9,19 @@ classdef TestFeature < matlab.unittest.TestCase
             if nargin < 2
                 n = 1;
             end
-            value = randstream.rand(n, 1);
+            if isscalar(n)
+                value = randstream.rand(n, 1);
+            else
+                value = randstream.rand(n);
+            end
+        end
+
+        function value = custom_noise_map(x)
+            value = sum(x);
+        end
+
+        function value = vector_noise_map(x)
+            value = [sum(x); 1];
         end
 
         function x0 = custom_mod_x0(rand_stream, p)
@@ -105,17 +117,40 @@ classdef TestFeature < matlab.unittest.TestCase
             ft = Feature('noisy');
             testCase.verifyEqual(ft.name, 'noisy');
             testCase.verifyEqual(ft.options.n_runs, 5);
+            testCase.verifyEqual(ft.options.distribution, 'gaussian');
             testCase.verifyEqual(ft.options.noise_type, 'mixed');
             testCase.verifyEqual(ft.options.noise_level, 1e-3);
+            testCase.verifyEqual(ft.options.noise_mode, 'random');
+            testCase.verifyEqual(ft.options.noise_map, 'chebyshev');
+            testCase.verifyTrue(ft.is_stochastic());
 
             options.n_runs = 5;
             options.noise_type = 'absolute';
             options.noise_level = 1e-2;
+            options.distribution = @TestFeature.custom_distribution;
             ft = Feature('noisy', options);
             testCase.verifyEqual(ft.name, 'noisy');
             testCase.verifyEqual(ft.options.n_runs, 5);
             testCase.verifyEqual(ft.options.noise_type, 'absolute');
             testCase.verifyEqual(ft.options.noise_level, 1e-2);
+            testCase.verifyEqual(ft.options.distribution, @TestFeature.custom_distribution);
+            testCase.verifyEqual(ft.options.noise_mode, 'random');
+            testCase.verifyTrue(ft.is_stochastic());
+
+            options = struct();
+            options.noise_mode = 'deterministic';
+            ft = Feature('noisy', options);
+            testCase.verifyEqual(ft.name, 'noisy');
+            testCase.verifyEqual(ft.options.n_runs, 1);
+            testCase.verifyEqual(ft.options.noise_mode, 'deterministic');
+            testCase.verifyEqual(ft.options.noise_map, 'chebyshev');
+            testCase.verifyFalse(ft.is_stochastic());
+
+            options.n_runs = 3;
+            options.noise_map = @TestFeature.custom_noise_map;
+            ft = Feature('noisy', options);
+            testCase.verifyEqual(ft.options.n_runs, 3);
+            testCase.verifyEqual(ft.options.noise_map, @TestFeature.custom_noise_map);
         end
 
         function testTruncated(testCase)
@@ -296,6 +331,14 @@ classdef TestFeature < matlab.unittest.TestCase
             testCase.verifyError(@() Feature('noisy', struct('noise_level', 'unknown')), "MATLAB:Feature:noise_level_NotPositive")
 
             testCase.verifyError(@() Feature('noisy', struct('noise_type', 'unknown')), "MATLAB:Feature:noise_type_InvalidInput")
+
+            testCase.verifyError(@() Feature('noisy', struct('noise_mode', 1)), "MATLAB:Feature:noise_mode_InvalidInput")
+
+            testCase.verifyError(@() Feature('noisy', struct('noise_mode', 'unknown')), "MATLAB:Feature:noise_mode_InvalidInput")
+
+            testCase.verifyError(@() Feature('noisy', struct('noise_map', 1)), "MATLAB:Feature:noise_map_NotFunctionHandle")
+
+            testCase.verifyError(@() Feature('noisy', struct('noise_map', 'unknown')), "MATLAB:Feature:noise_map_InvalidInput")
 
             testCase.verifyError(@() Feature('truncated', struct('perturbed_trailing_digits', 'unknown')), "MATLAB:Feature:perturbed_trailing_digits_NotLogical")
 

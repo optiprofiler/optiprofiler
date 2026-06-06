@@ -183,6 +183,11 @@ class TestBenchmarkFeatures:
         assert isinstance(scores, np.ndarray)
         assert scores.shape[0] == 2
 
+    def test_noisy_deterministic(self):
+        scores, _, _ = self._run_benchmark('noisy', noise_mode='deterministic')
+        assert isinstance(scores, np.ndarray)
+        assert scores.shape[0] == 2
+
     def test_truncated(self):
         scores, _, _ = self._run_benchmark('truncated')
         assert isinstance(scores, np.ndarray)

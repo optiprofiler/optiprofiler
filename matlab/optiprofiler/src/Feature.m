@@ -76,20 +76,29 @@ classdef Feature < handle
 %         feature. Default is 5 for stochastic features and 1 for deterministic
 %         features.
 %       - distribution: the distribution of perturbation in 'perturbed_x0'
-%         feature or noise in 'noisy' feature. It should be either a string
-%         (or char), or a function handle
+%         feature or random noise in 'noisy' feature. It should be either a
+%         string (or char), or a function handle
 %               ``(random_stream, dimension) -> random vector``,
 %         accepting a random_stream and the dimension of a problem and
 %         returning a random vector with the given dimension. In 'perturbed_x0'
 %         case, the char should be either 'spherical' or 'gaussian' (default is
 %         'spherical'). In 'noisy' case, the char should be either 'gaussian'
-%         or 'uniform' (default is 'gaussian').
+%         or 'uniform' (default is 'gaussian'), and the function handle should
+%         accept a random stream and output size.
 %       - perturbation_level: the magnitude of the perturbation to the initial
 %         guess in the 'perturbed_x0' feature. Default is 10^-3.
 %       - noise_level: the magnitude of the noise in the 'noisy' feature.
 %         Default is 10^-3.
 %       - noise_type: the type of the noise in the 'noisy' features. It should
 %         be either 'absolute', 'relative', or 'mixed'. Default is 'mixed'.
+%       - noise_mode: the mode of the noise in the 'noisy' feature. It should
+%         be either 'random' or 'deterministic'. Default is 'random'.
+%       - noise_map: the deterministic scalar noise map in the 'noisy'
+%         feature. It should be either 'chebyshev' or a function handle
+%               ``x -> noise``,
+%         accepting the evaluation point and returning a real scalar. It is
+%         used only when `noise_mode` is 'deterministic'. Default is
+%         'chebyshev'.
 %       - significant_digits: the number of significant digits in the
 %         'truncated' feature. Default is 6.
 %       - perturbed_trailing_digits: whether we will randomize the trailing
@@ -183,7 +192,8 @@ classdef Feature < handle
 %       2. 'perturbed_x0':
 %           n_runs, distribution, perturbation_level
 %       3. 'noisy':
-%           n_runs, distribution, noise_level, noise_type
+%           n_runs, distribution, noise_level, noise_type, noise_mode,
+%           noise_map
 %       4. 'truncated':
 %           n_runs, significant_digits, perturbed_trailing_digits
 %       5. 'permuted':
@@ -301,7 +311,7 @@ classdef Feature < handle
                     case FeatureName.CUSTOM.value
                         known_options = [known_options, {FeatureOptionKey.MOD_X0.value, FeatureOptionKey.MOD_BOUNDS.value, FeatureOptionKey.MOD_LINEAR_UB.value, FeatureOptionKey.MOD_LINEAR_EQ.value, FeatureOptionKey.MOD_AFFINE.value, FeatureOptionKey.MOD_FUN.value, FeatureOptionKey.MOD_CUB.value, FeatureOptionKey.MOD_CEQ.value}];
                     case FeatureName.NOISY.value
-                        known_options = [known_options, {FeatureOptionKey.DISTRIBUTION.value, FeatureOptionKey.NOISE_LEVEL.value, FeatureOptionKey.NOISE_TYPE.value}];
+                        known_options = [known_options, {FeatureOptionKey.DISTRIBUTION.value, FeatureOptionKey.NOISE_LEVEL.value, FeatureOptionKey.NOISE_TYPE.value, FeatureOptionKey.NOISE_MODE.value, FeatureOptionKey.NOISE_MAP.value}];
                     case FeatureName.PERTURBED_X0.value
                         known_options = [known_options, {FeatureOptionKey.DISTRIBUTION.value, FeatureOptionKey.PERTURBATION_LEVEL.value}];
                     case FeatureName.RANDOM_NAN.value
@@ -337,13 +347,14 @@ classdef Feature < handle
                         if ~isa(obj.options.(key), 'function_handle') && ~ischarstr(obj.options.(key))
                             error("MATLAB:Feature:distribution_NotFunctionHandle", "Option `" + key + "` must be the char (or string), or a function handle.")
                         end
-                        if strcmp(obj.name, FeatureName.NOISY.value) && ~ismember(char(obj.options.(key)), {'gaussian', 'uniform'})
-                            error("MATLAB:Feature:distribution_NotFunctionHandle_noisy", "Option `" + key + "` for feature 'noisy' must be the char (or string) 'gaussian' or 'uniform', or a function handle.")
-                        elseif strcmp(obj.name, FeatureName.PERTURBED_X0.value) && ~ismember(char(obj.options.(key)), {'gaussian', 'spherical'})
-                            error("MATLAB:Feature:distribution_NotFunctionHandle_perturbed_x0", "Option `" + key + "` for feature 'perturbed_x0' must be the char (or string) 'gaussian' or 'spherical', or a function handle.")
-                        end
                         if ischarstr(obj.options.(key))
-                            obj.options.(key) = char(obj.options.(key));
+                            option_value = char(obj.options.(key));
+                            if strcmp(obj.name, FeatureName.NOISY.value) && ~ismember(option_value, {'gaussian', 'uniform'})
+                                error("MATLAB:Feature:distribution_NotFunctionHandle_noisy", "Option `" + key + "` for feature 'noisy' must be the char (or string) 'gaussian' or 'uniform', or a function handle.")
+                            elseif strcmp(obj.name, FeatureName.PERTURBED_X0.value) && ~ismember(option_value, {'gaussian', 'spherical'})
+                                error("MATLAB:Feature:distribution_NotFunctionHandle_perturbed_x0", "Option `" + key + "` for feature 'perturbed_x0' must be the char (or string) 'gaussian' or 'spherical', or a function handle.")
+                            end
+                            obj.options.(key) = option_value;
                         end
                     case FeatureOptionKey.NAN_RATE.value
                         if ~isrealscalar(obj.options.(key)) || obj.options.(key) < 0.0 || obj.options.(key) > 1.0
@@ -362,6 +373,21 @@ classdef Feature < handle
                             error("MATLAB:Feature:noise_type_InvalidInput", "Option `" + key + "` must be 'absolute', 'relative', or 'mixed'.")
                         end
                         obj.options.(key) = char(obj.options.(key));
+                    case FeatureOptionKey.NOISE_MODE.value
+                        if ~ischarstr(obj.options.(key)) || ~ismember(obj.options.(key), {'random', 'deterministic'})
+                            error("MATLAB:Feature:noise_mode_InvalidInput", "Option `" + key + "` must be 'random' or 'deterministic'.")
+                        end
+                        obj.options.(key) = char(obj.options.(key));
+                    case FeatureOptionKey.NOISE_MAP.value
+                        if ~isa(obj.options.(key), 'function_handle') && ~ischarstr(obj.options.(key))
+                            error("MATLAB:Feature:noise_map_NotFunctionHandle", "Option `" + key + "` must be the char (or string), or a function handle.")
+                        end
+                        if ischarstr(obj.options.(key)) && ~strcmp(char(obj.options.(key)), 'chebyshev')
+                            error("MATLAB:Feature:noise_map_InvalidInput", "Option `" + key + "` must be 'chebyshev' when specified as a char or string.")
+                        end
+                        if ischarstr(obj.options.(key))
+                            obj.options.(key) = char(obj.options.(key));
+                        end
                     case FeatureOptionKey.PERTURBED_TRAILING_DIGITS.value
                         if ~islogicalscalar(obj.options.(key))
                             error("MATLAB:Feature:perturbed_trailing_digits_NotLogical", "Option `" + key + "` must be a logical value.")
@@ -447,7 +473,9 @@ classdef Feature < handle
             is_stochastic : bool
             %}
             switch obj.name
-                case {FeatureName.PERTURBED_X0.value, FeatureName.NOISY.value, FeatureName.PERMUTED.value, FeatureName.RANDOM_NAN.value, FeatureName.CUSTOM.value}
+                case FeatureName.NOISY.value
+                    is_stochastic = strcmp(obj.options.(FeatureOptionKey.NOISE_MODE.value), 'random');
+                case {FeatureName.PERTURBED_X0.value, FeatureName.PERMUTED.value, FeatureName.RANDOM_NAN.value, FeatureName.CUSTOM.value}
                     is_stochastic = true;
                 case FeatureName.TRUNCATED.value
                     is_stochastic = obj.options.(FeatureOptionKey.PERTURBED_TRAILING_DIGITS.value);
@@ -903,22 +931,8 @@ classdef Feature < handle
                         return;
                     end
                 case FeatureName.NOISY.value
-                    rand_stream_noisy = obj.default_rng(seed, f, xCell{:}, n_eval);
-                    if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
-                        noise = rand_stream_noisy.randn();
-                    elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
-                        noise = 2 * rand_stream_noisy.rand() - 1;
-                    else
-                        noise = obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, 1);
-                    end
-                    if strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), 'absolute')
-                        f = f + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * noise;
-                    elseif strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), 'relative')
-                        f = f * (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * noise);
-                    else
-                        % We need the distribution of the noise to be symmetric with respect to 0.
-                        f = f + max(1, abs(f)) * obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * noise;
-                    end
+                    noise = obj.computeNoise(x, seed, n_eval, f, 1);
+                    f = obj.applyNoise(f, noise);
                 case FeatureName.RANDOM_NAN.value
                     rand_stream_random_nan = obj.default_rng(seed, f, xCell{:}, n_eval);
                     if rand_stream_random_nan.rand() < obj.options.(FeatureOptionKey.NAN_RATE.value)
@@ -1015,21 +1029,8 @@ classdef Feature < handle
                     end
                 case FeatureName.NOISY.value
                     % Similar to the case in the modifier_fun method.
-                    rand_stream_noisy = obj.default_rng(seed, cubCell{:}, xCell{:}, n_eval_cub);
-                    if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
-                        noise = rand_stream_noisy.randn(size(cub_));
-                    elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
-                        noise = 2 * rand_stream_noisy.rand(size(cub_)) - 1;
-                    else
-                        noise = obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, size(cub_));
-                    end
-                    if strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), 'absolute')
-                        cub_ = cub_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * noise;
-                    elseif strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), 'relative')
-                        cub_ = cub_ .* (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * noise);
-                    else
-                        cub_ = cub_ + max(1, abs(cub_)) .* (obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * noise);
-                    end
+                    noise = obj.computeNoise(x, seed, n_eval_cub, cubCell, size(cub_));
+                    cub_ = obj.applyNoise(cub_, noise);
                 case FeatureName.RANDOM_NAN.value
                     % Similar to the case in the modifier_fun method.
                     rand_stream_random_nan = obj.default_rng(seed, cubCell{:}, xCell{:}, n_eval_cub);
@@ -1112,21 +1113,8 @@ classdef Feature < handle
                     end
                 case FeatureName.NOISY.value
                     % Similar to the case in the modifier_fun method.
-                    rand_stream_noisy = obj.default_rng(seed, ceqCell{:}, xCell{:}, n_eval_ceq);
-                    if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
-                        noise = rand_stream_noisy.randn(size(ceq_));
-                    elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
-                        noise = 2 * rand_stream_noisy.rand(size(ceq_)) - 1;
-                    else
-                        noise = obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, size(ceq_));
-                    end
-                    if strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), 'absolute')
-                        ceq_ = ceq_ + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * noise;
-                    elseif strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), 'relative')
-                        ceq_ = ceq_ .* (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * noise);
-                    else
-                        ceq_ = ceq_ + max(1, abs(ceq_)) .* (obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * noise);
-                    end
+                    noise = obj.computeNoise(x, seed, n_eval_ceq, ceqCell, size(ceq_));
+                    ceq_ = obj.applyNoise(ceq_, noise);
                 case FeatureName.RANDOM_NAN.value
                     % Similar to the case in the modifier_fun method.
                     rand_stream_random_nan = obj.default_rng(seed, ceqCell{:}, xCell{:}, n_eval_ceq);
@@ -1165,6 +1153,55 @@ classdef Feature < handle
             end
         end
 
+        function noise = computeNoise(obj, x, seed, n_eval, base_values, noise_size)
+            if strcmp(obj.options.(FeatureOptionKey.NOISE_MODE.value), 'deterministic')
+                noise = obj.evaluateNoiseMap(x);
+                noise = noise .* ones(noise_size);
+                return;
+            end
+
+            xCell = num2cell(x);
+            if iscell(base_values)
+                baseCell = base_values;
+            else
+                baseCell = num2cell(base_values);
+            end
+            rand_stream_noisy = obj.default_rng(seed, baseCell{:}, xCell{:}, n_eval);
+            if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
+                noise = randn(rand_stream_noisy, noise_size);
+            elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
+                noise = 2 * rand(rand_stream_noisy, noise_size) - 1;
+            else
+                noise = obj.options.(FeatureOptionKey.DISTRIBUTION.value)(rand_stream_noisy, noise_size);
+            end
+        end
+
+        function value = applyNoise(obj, value, noise)
+            if strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), 'absolute')
+                value = value + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * noise;
+            elseif strcmp(obj.options.(FeatureOptionKey.NOISE_TYPE.value), 'relative')
+                value = value .* (1.0 + obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * noise);
+            else
+                % We need the noise to be symmetric with respect to 0.
+                value = value + max(1, abs(value)) .* (obj.options.(FeatureOptionKey.NOISE_LEVEL.value) * noise);
+            end
+        end
+
+        function noise = evaluateNoiseMap(obj, x)
+            noise_map = obj.options.(FeatureOptionKey.NOISE_MAP.value);
+            if isa(noise_map, 'function_handle')
+                noise = noise_map(x);
+            elseif strcmp(noise_map, 'chebyshev')
+                noise = obj.chebyshevNoiseMap(x);
+            else
+                error("MATLAB:Feature:noise_map_InvalidInput", "Option `noise_map` must be 'chebyshev' or a function handle.")
+            end
+            if ~isrealscalar(noise)
+                error("MATLAB:Feature:noise_map_InvalidOutput", "The output of `noise_map` must be a real scalar.")
+            end
+            noise = double(noise);
+        end
+
         function obj = set_default_options(obj)
             % Set default options.
             switch obj.name
@@ -1177,11 +1214,21 @@ classdef Feature < handle
                         obj.options.(FeatureOptionKey.N_RUNS.value) = 1;
                     end
                 case FeatureName.NOISY.value
+                    if ~isfield(obj.options, FeatureOptionKey.NOISE_MODE.value)
+                        obj.options.(FeatureOptionKey.NOISE_MODE.value) = 'random';
+                    end
                     if ~isfield(obj.options, FeatureOptionKey.DISTRIBUTION.value)
                         obj.options.(FeatureOptionKey.DISTRIBUTION.value) = 'gaussian';
                     end
+                    if ~isfield(obj.options, FeatureOptionKey.NOISE_MAP.value)
+                        obj.options.(FeatureOptionKey.NOISE_MAP.value) = 'chebyshev';
+                    end
                     if ~isfield(obj.options, FeatureOptionKey.N_RUNS.value)
-                        obj.options.(FeatureOptionKey.N_RUNS.value) = 5;
+                        if strcmp(obj.options.(FeatureOptionKey.NOISE_MODE.value), 'deterministic')
+                            obj.options.(FeatureOptionKey.N_RUNS.value) = 1;
+                        else
+                            obj.options.(FeatureOptionKey.N_RUNS.value) = 5;
+                        end
                     end
                     if ~isfield(obj.options, FeatureOptionKey.NOISE_LEVEL.value)
                         obj.options.(FeatureOptionKey.NOISE_LEVEL.value) = 1e-3;
@@ -1272,6 +1319,11 @@ classdef Feature < handle
     end
 
     methods (Static)
+        function noise = chebyshevNoiseMap(x)
+            alpha = 0.9 * sin(100 * norm(x, 1)) * cos(100 * norm(x, Inf)) + 0.1 * cos(norm(x, 2));
+            noise = alpha .* (4 * alpha.^2 - 3);
+        end
+
         function rand_stream = default_rng(seed, varargin)
             % Generate a random number generator.
             %

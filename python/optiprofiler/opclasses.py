@@ -104,6 +104,12 @@ class Feature:
           ``'noisy'``. Default is ``1e-3``.
         - **noise_type** (*str*) -- Type of the noise in ``'noisy'``. Must
           be ``'absolute'``, ``'relative'``, or ``'mixed'`` (default).
+        - **noise_mode** (*str*) -- Mode of the noise in ``'noisy'``. Must
+          be ``'random'`` (default) or ``'deterministic'``.
+        - **noise_map** (*str or callable*) -- Deterministic scalar noise
+          map in ``'noisy'``. It should be ``'chebyshev'`` (default) or a
+          callable ``x -> noise`` returning a real scalar. It is used only
+          when ``noise_mode`` is ``'deterministic'``.
         - **significant_digits** (*int*) -- Number of significant digits in
           ``'truncated'``. Default is ``6``.
         - **perturbed_trailing_digits** (*bool*) -- Whether to randomize
@@ -189,7 +195,7 @@ class Feature:
     2. ``'perturbed_x0'`` : ``n_runs``, ``distribution``,
        ``perturbation_level``.
     3. ``'noisy'`` : ``n_runs``, ``distribution``, ``noise_level``,
-       ``noise_type``.
+       ``noise_type``, ``noise_mode``, ``noise_map``.
     4. ``'truncated'`` : ``n_runs``, ``significant_digits``,
        ``perturbed_trailing_digits``.
     5. ``'permuted'`` : ``n_runs``.
@@ -254,8 +260,12 @@ class Feature:
             Rate of NaNs used by the 'tough' feature.
         significant_digits : int, optional
             Number of significant digits used by the 'truncated' feature.
-        type : str, optional
+        noise_type : str, optional
             Type of the noise used by the 'noisy' feature.
+        noise_mode : str, optional
+            Mode of the noise used by the 'noisy' feature.
+        noise_map : str or callable, optional
+            Deterministic scalar map used by the 'noisy' feature.
 
         Raises
         ------
@@ -284,7 +294,7 @@ class Feature:
             if self._name == FeatureName.CUSTOM:
                 known_options.extend([FeatureOption.MOD_X0, FeatureOption.MOD_BOUNDS, FeatureOption.MOD_LINEAR_UB, FeatureOption.MOD_LINEAR_EQ, FeatureOption.MOD_AFFINE, FeatureOption.MOD_FUN, FeatureOption.MOD_CUB, FeatureOption.MOD_CEQ])
             elif self._name == FeatureName.NOISY:
-                known_options.extend([FeatureOption.DISTRIBUTION, FeatureOption.NOISE_LEVEL, FeatureOption.NOISE_TYPE])
+                known_options.extend([FeatureOption.DISTRIBUTION, FeatureOption.NOISE_LEVEL, FeatureOption.NOISE_TYPE, FeatureOption.NOISE_MODE, FeatureOption.NOISE_MAP])
             elif self._name == FeatureName.PERTURBED_X0:
                 known_options.extend([FeatureOption.DISTRIBUTION, FeatureOption.PERTURBATION_LEVEL])
             elif self._name == FeatureName.RANDOM_NAN:
@@ -344,6 +354,20 @@ class Feature:
                     raise TypeError(f'Option {key} must be a string.')
                 if self._options[key].lower() not in ['absolute', 'relative', 'mixed']:
                     raise ValueError(f"Option `{key}` must be one of 'absolute', 'relative', or 'mixed'.")
+                self._options[key] = self._options[key].lower()
+            elif key == FeatureOption.NOISE_MODE:
+                if not isinstance(self._options[key], str):
+                    raise TypeError(f'Option {key} must be a string.')
+                if self._options[key].lower() not in ['random', 'deterministic']:
+                    raise ValueError(f"Option `{key}` must be either 'random' or 'deterministic'.")
+                self._options[key] = self._options[key].lower()
+            elif key == FeatureOption.NOISE_MAP:
+                if isinstance(self._options[key], str):
+                    if self._options[key].lower() != 'chebyshev':
+                        raise ValueError(f'Option `{key}` must be "chebyshev" when specified as a string.')
+                    self._options[key] = self._options[key].lower()
+                elif not callable(self._options[key]):
+                    raise TypeError(f'Option `{key}` must be a string or it must be callable.')
             elif key in [FeatureOption.PERTURBED_TRAILING_DIGITS, FeatureOption.ROTATED, FeatureOption.UNRELAXABLE_BOUNDS, FeatureOption.UNRELAXABLE_LINEAR_CONSTRAINTS, FeatureOption.UNRELAXABLE_NONLINEAR_CONSTRAINTS, FeatureOption.GROUND_TRUTH]:
                 if not isinstance(self._options[key], bool):
                     raise TypeError(f'Option `{key}` must be a boolean.')
@@ -398,7 +422,9 @@ class Feature:
         bool
             Whether the feature is stochastic.
         """
-        if self._name in [FeatureName.PERTURBED_X0, FeatureName.NOISY, FeatureName.PERMUTED, FeatureName.RANDOM_NAN, FeatureName.CUSTOM]:
+        if self._name == FeatureName.NOISY:
+            return self._options[FeatureOption.NOISE_MODE] == 'random'
+        elif self._name in [FeatureName.PERTURBED_X0, FeatureName.PERMUTED, FeatureName.RANDOM_NAN, FeatureName.CUSTOM]:
             return True
         elif self._name == FeatureName.TRUNCATED:
             return self._options[FeatureOption.PERTURBED_TRAILING_DIGITS]
@@ -769,19 +795,8 @@ class Feature:
             else:
                 return f
         elif self._name == FeatureName.NOISY:
-            rng_noisy = self.get_default_rng(seed, f, *x, n_eval)
-            if self._options[FeatureOption.DISTRIBUTION] == 'gaussian':
-                noise = rng_noisy.standard_normal()
-            elif self._options[FeatureOption.DISTRIBUTION] == 'uniform':
-                noise = rng_noisy.uniform(-1, 1)
-            else:
-                noise = self._options[FeatureOption.DISTRIBUTION](rng_noisy)
-            if self._options[FeatureOption.NOISE_TYPE] == 'absolute':
-                return f + self._options[FeatureOption.NOISE_LEVEL] * noise
-            elif self._options[FeatureOption.NOISE_TYPE] == 'relative':
-                return f * (1.0 + self._options[FeatureOption.NOISE_LEVEL] * noise)
-            else:
-                return f + max(1, np.abs(f)) * self._options[FeatureOption.NOISE_LEVEL] * noise
+            noise = self._compute_noise(x, seed, n_eval, f)
+            return self._apply_noise(f, noise)
         elif self._name == FeatureName.RANDOM_NAN:
             rng_random_nan = self.get_default_rng(seed, f, *x, n_eval)
             if rng_random_nan.random() < self._options[FeatureOption.NAN_RATE]:
@@ -861,19 +876,8 @@ class Feature:
                 return cub
         elif self._name == FeatureName.NOISY:
             # Similar to the case in the modifier_fun method.
-            rng_noisy = self.get_default_rng(seed, *cub, *x, n_eval_cub)
-            if self._options[FeatureOption.DISTRIBUTION] == 'gaussian':
-                noise = rng_noisy.standard_normal(cub.size)
-            elif self._options[FeatureOption.DISTRIBUTION] == 'uniform':
-                noise = rng_noisy.uniform(-1, 1, cub.size)
-            else:
-                noise = self._options[FeatureOption.DISTRIBUTION](rng_noisy, cub.size)
-            if self._options[FeatureOption.NOISE_TYPE] == 'absolute':
-                return cub + self._options[FeatureOption.NOISE_LEVEL] * noise
-            elif self._options[FeatureOption.NOISE_TYPE] == 'relative':
-                return cub * (1.0 + self._options[FeatureOption.NOISE_LEVEL] * noise)
-            else:
-                return cub + np.maximum(1, np.abs(cub)) * self._options[FeatureOption.NOISE_LEVEL] * noise
+            noise = self._compute_noise(x, seed, n_eval_cub, cub, cub.size)
+            return self._apply_noise(cub, noise)
         elif self._name == FeatureName.RANDOM_NAN:
             # Similar to the case in the modifier_fun method.
             rng_random_nan = self.get_default_rng(seed, *cub, *x, n_eval_cub)
@@ -943,19 +947,8 @@ class Feature:
                 return ceq
         elif self._name == FeatureName.NOISY:
             # Similar to the case in the modifier_fun method.
-            rng_noisy = self.get_default_rng(seed, *ceq, *x, n_eval_ceq)
-            if self._options[FeatureOption.DISTRIBUTION] == 'gaussian':
-                noise = rng_noisy.standard_normal(ceq.size)
-            elif self._options[FeatureOption.DISTRIBUTION] == 'uniform':
-                noise = rng_noisy.uniform(-1, 1, ceq.size)
-            else:
-                noise = self._options[FeatureOption.DISTRIBUTION](rng_noisy, ceq.size)
-            if self._options[FeatureOption.NOISE_TYPE] == 'absolute':
-                return ceq + self._options[FeatureOption.NOISE_LEVEL] * noise
-            elif self._options[FeatureOption.NOISE_TYPE] == 'relative':
-                return ceq * (1.0 + self._options[FeatureOption.NOISE_LEVEL] * noise)
-            else:
-                return ceq + np.maximum(1, np.abs(ceq)) * self._options[FeatureOption.NOISE_LEVEL] * noise
+            noise = self._compute_noise(x, seed, n_eval_ceq, ceq, ceq.size)
+            return self._apply_noise(ceq, noise)
         elif self._name == FeatureName.RANDOM_NAN:
             # Similar to the case in the modifier_fun method.
             rng_random_nan = self.get_default_rng(seed, *ceq, *x, n_eval_ceq)
@@ -990,6 +983,64 @@ class Feature:
         else:
             return ceq
 
+    def _compute_noise(self, x, seed, n_eval, base_values, noise_size=None):
+        if self._options[FeatureOption.NOISE_MODE] == 'deterministic':
+            noise = self._evaluate_noise_map(x)
+            if noise_size is None:
+                return noise
+            return np.full(noise_size, noise)
+
+        base_values = np.asarray(base_values, dtype=float).ravel()
+        rng_noisy = self.get_default_rng(seed, *base_values, *x, n_eval)
+        if self._options[FeatureOption.DISTRIBUTION] == 'gaussian':
+            if noise_size is None:
+                return rng_noisy.standard_normal()
+            return rng_noisy.standard_normal(noise_size)
+        elif self._options[FeatureOption.DISTRIBUTION] == 'uniform':
+            if noise_size is None:
+                return rng_noisy.uniform(-1, 1)
+            return rng_noisy.uniform(-1, 1, noise_size)
+        elif noise_size is None:
+            return self._sample_scalar_distribution(rng_noisy)
+        else:
+            return self._options[FeatureOption.DISTRIBUTION](rng_noisy, noise_size)
+
+    def _apply_noise(self, value, noise):
+        if self._options[FeatureOption.NOISE_TYPE] == 'absolute':
+            return value + self._options[FeatureOption.NOISE_LEVEL] * noise
+        elif self._options[FeatureOption.NOISE_TYPE] == 'relative':
+            return value * (1.0 + self._options[FeatureOption.NOISE_LEVEL] * noise)
+        else:
+            return value + np.maximum(1, np.abs(value)) * self._options[FeatureOption.NOISE_LEVEL] * noise
+
+    def _sample_scalar_distribution(self, rng):
+        distribution = self._options[FeatureOption.DISTRIBUTION]
+        try:
+            noise = distribution(rng, 1)
+        except TypeError:
+            noise = distribution(rng)
+
+        noise = np.asarray(noise)
+        if noise.shape == ():
+            return float(noise)
+        if noise.size == 1:
+            return float(noise.ravel()[0])
+        raise ValueError('The output of `distribution` must be scalar for objective noise.')
+
+    def _evaluate_noise_map(self, x):
+        noise_map = self._options[FeatureOption.NOISE_MAP]
+        if callable(noise_map):
+            noise = noise_map(x)
+        elif noise_map == 'chebyshev':
+            noise = self.chebyshev_noise_map(x)
+        else:
+            raise ValueError('Option `noise_map` must be "chebyshev" or it must be callable.')
+
+        noise = np.asarray(noise)
+        if noise.shape != () or not np.isrealobj(noise):
+            raise ValueError('The output of `noise_map` must be a real scalar.')
+        return float(noise)
+
     def _set_default_options(self):
         """
         Set default options.
@@ -1003,8 +1054,11 @@ class Feature:
         if self._name in [FeatureName.PLAIN, FeatureName.CUSTOM, FeatureName.NONQUANTIFIABLE_CONSTRAINTS]:
             self._options.setdefault(FeatureOption.N_RUNS.value, 1)
         elif self._name == FeatureName.NOISY:
+            self._options.setdefault(FeatureOption.NOISE_MODE.value, 'random')
             self._options.setdefault(FeatureOption.DISTRIBUTION.value, 'gaussian')
-            self._options.setdefault(FeatureOption.N_RUNS.value, 5)
+            self._options.setdefault(FeatureOption.NOISE_MAP.value, 'chebyshev')
+            if FeatureOption.N_RUNS.value not in self._options:
+                self._options[FeatureOption.N_RUNS.value] = 1 if self._options[FeatureOption.NOISE_MODE] == 'deterministic' else 5
             self._options.setdefault(FeatureOption.NOISE_LEVEL.value, 1e-3)
             self._options.setdefault(FeatureOption.NOISE_TYPE.value, 'mixed')
         elif self._name == FeatureName.PERMUTED:
@@ -1039,6 +1093,11 @@ class Feature:
             self._options.setdefault(FeatureOption.GROUND_TRUTH.value, True)
         else:
             raise NotImplementedError(f'Unknown feature: {self._name}.')
+
+    @staticmethod
+    def chebyshev_noise_map(x):
+        alpha = 0.9 * np.sin(100 * np.linalg.norm(x, 1)) * np.cos(100 * np.linalg.norm(x, np.inf)) + 0.1 * np.cos(np.linalg.norm(x, 2))
+        return alpha * (4 * alpha ** 2 - 3)
 
     @staticmethod
     def get_default_rng(seed, *args):

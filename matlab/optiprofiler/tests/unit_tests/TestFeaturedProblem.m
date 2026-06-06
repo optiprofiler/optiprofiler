@@ -13,6 +13,26 @@ classdef TestFeaturedProblem < matlab.unittest.TestCase
             f = sum(sin(x));
         end
 
+        function f = constant_five(~)
+            f = 5;
+        end
+
+        function cub = simple_cub(~)
+            cub = [1; 2];
+        end
+
+        function ceq = simple_ceq(~)
+            ceq = -3;
+        end
+
+        function value = constant_two_noise_map(~)
+            value = 2;
+        end
+
+        function value = vector_noise_map(~)
+            value = [1; 2];
+        end
+
         function x0 = custom_mod_x0(rand_stream, p)
             x0 = p.x0 + rand_stream.rand(size(p.x0));
         end
@@ -117,6 +137,14 @@ classdef TestFeaturedProblem < matlab.unittest.TestCase
             fp.fun(fp.x0);
             fp.cub(fp.x0);
             fp.ceq(fp.x0);
+            options_noisy = struct('noise_mode', 'deterministic');
+            ft = Feature('noisy', options_noisy);
+            fp = FeaturedProblem(p, ft, 500, 1);
+            f1 = fp.fun(fp.x0);
+            f2 = fp.fun(fp.x0);
+            testCase.verifyEqual(f1, f2, 'AbsTol', 1e-12);
+            fp.cub(fp.x0);
+            fp.ceq(fp.x0);
 
             ft = Feature('truncated');
             fp = FeaturedProblem(p, ft, 500, 1);
@@ -186,6 +214,30 @@ classdef TestFeaturedProblem < matlab.unittest.TestCase
             fp.beq;
             fp.cub(fp.x0);
             fp.ceq(fp.x0);
+        end
+
+        function testDeterministicNoisyCustomMap(testCase)
+            p = Problem(struct(...
+                'fun', @TestFeaturedProblem.constant_five, ...
+                'x0', [1; 2], ...
+                'cub', @TestFeaturedProblem.simple_cub, ...
+                'ceq', @TestFeaturedProblem.simple_ceq));
+            options_noisy = struct(...
+                'noise_mode', 'deterministic', ...
+                'noise_map', @TestFeaturedProblem.constant_two_noise_map, ...
+                'noise_type', 'absolute', ...
+                'noise_level', 0.5);
+            ft = Feature('noisy', options_noisy);
+            fp = FeaturedProblem(p, ft, 500, 1);
+
+            testCase.verifyEqual(fp.fun(fp.x0), 6, 'AbsTol', 1e-12);
+            testCase.verifyEqual(fp.cub(fp.x0), [2; 3], 'AbsTol', 1e-12);
+            testCase.verifyEqual(fp.ceq(fp.x0), -2, 'AbsTol', 1e-12);
+
+            options_noisy.noise_map = @TestFeaturedProblem.vector_noise_map;
+            ft = Feature('noisy', options_noisy);
+            fp = FeaturedProblem(p, ft, 500, 1);
+            testCase.verifyError(@() fp.fun(fp.x0), "MATLAB:Feature:noise_map_InvalidOutput");
         end
 
         function testError(testCase)

@@ -151,14 +151,15 @@ def benchmark(
         features.
     distribution : str or callable, optional
         The distribution of perturbation in 'perturbed_x0'
-        feature or noise in 'noisy' feature. It should be either a str
-        (or char), or a callable
+        feature or random noise in 'noisy' feature. It should be either a
+        str (or char), or a callable
         ``(random_stream, dimension) -> random vector``,
         accepting a random_stream and the dimension of a problem and
         returning a random vector with the given dimension. In 'perturbed_x0'
         case, the str should be either 'spherical' or 'gaussian' (default is
         'spherical'). In 'noisy' case, the str should be either 'gaussian'
-        or 'uniform' (default is 'gaussian').
+        or 'uniform' (default is 'gaussian'), and the callable should accept
+        a random stream and output size.
     perturbation_level : float, optional
         The magnitude of the perturbation to the initial
         guess in the 'perturbed_x0' feature. Default is 1e-3.
@@ -168,6 +169,15 @@ def benchmark(
     noise_type : str, optional
         The type of the noise in the 'noisy' features. It should
         be either 'absolute', 'relative', or 'mixed'. Default is 'mixed'.
+    noise_mode : str, optional
+        The mode of the noise in the 'noisy' feature. It should be either
+        'random' or 'deterministic'. Default is 'random'. When it is
+        'deterministic' and n_runs is not specified, n_runs defaults to 1.
+    noise_map : str or callable, optional
+        The deterministic scalar noise map in the 'noisy' feature. It should
+        be either 'chebyshev' or a callable ``x -> noise`` returning a real
+        scalar. It is used only when noise_mode is 'deterministic'. Default
+        is 'chebyshev'.
     significant_digits : int, optional
         The number of significant digits in the
         'truncated' feature. Default is 6.
@@ -575,10 +585,11 @@ def benchmark(
 
     .. caution::
 
-        All callable arguments (``solvers``, ``distribution``, ``mod_x0``,
-        ``mod_affine``, ``mod_bounds``, ``mod_linear_ub``, ``mod_linear_eq``,
-        ``mod_fun``, ``mod_cub``, ``mod_ceq``, ``merit_fun``, ``score_fun``,
-        ``score_weight_fun``) must be picklable for parallel execution
+        All callable arguments (``solvers``, ``distribution``, ``noise_map``,
+        ``mod_x0``, ``mod_affine``, ``mod_bounds``, ``mod_linear_ub``,
+        ``mod_linear_eq``, ``mod_fun``, ``mod_cub``, ``mod_ceq``,
+        ``merit_fun``, ``score_fun``, ``score_weight_fun``) must be
+        picklable for parallel execution
         (``n_jobs > 1``). In particular, **lambda functions are not
         picklable** and will cause the benchmark to fall back to sequential
         mode automatically. To take advantage of parallel execution, define

@@ -81,17 +81,25 @@ The optional input **options** should be a struct which can contain the followin
 
   - **n_runs**: the number of runs of the experiments under the given feature. Default is ``5`` for stochastic features and ``1`` for deterministic features.
 
-  - **distribution**: the distribution of perturbation in ``'perturbed_x0'`` feature or noise in ``'noisy'`` feature. It should be either a string (or char), or a function handle
+  - **distribution**: the distribution of perturbation in ``'perturbed_x0'`` feature or random noise in ``'noisy'`` feature. It should be either a string (or char), or a function handle
 
       ``(random_stream, dimension) -> random vector``
 
-    that accepts a ``random_stream`` and the ``dimension`` of a problem and returning a ``random vector`` with the given ``dimension``. In ``'perturbed_x0'`` case, the char should be either ``'spherical'`` or ``'gaussian'`` (default is ``'spherical'``). In ``'noisy'`` case, the char should be either ``'gaussian'`` or ``'uniform'`` (default is ``'gaussian'``).
+    that accepts a ``random_stream`` and the ``dimension`` of a problem and returning a ``random vector`` with the given ``dimension``. In ``'perturbed_x0'`` case, the char should be either ``'spherical'`` or ``'gaussian'`` (default is ``'spherical'``). In ``'noisy'`` case, the char should be either ``'gaussian'`` or ``'uniform'`` (default is ``'gaussian'``), and the function handle should accept a random stream and output size.
 
   - **perturbation_level**: the magnitude of the perturbation to the initial guess in the ``'perturbed_x0'`` feature. Default is ``1e-3``.
 
   - **noise_level**: the magnitude of the noise in the ``'noisy'`` feature. Default is ``1e-3``.
 
   - **noise_type**: the type of the noise in the ``'noisy'`` features. It should be either ``'absolute'``, ``'relative'``, or ``'mixed'``. Default is ``'mixed'``.
+
+  - **noise_mode**: the mode of the noise in the ``'noisy'`` feature. It should be either ``'random'`` or ``'deterministic'``. Default is ``'random'``. When it is ``'deterministic'`` and ``n_runs`` is not specified, ``n_runs`` defaults to ``1``.
+
+  - **noise_map**: the deterministic scalar noise map in the ``'noisy'`` feature. It should be either ``'chebyshev'`` or a function handle
+
+      ``x -> noise``
+
+    that accepts the evaluation point and returns a real scalar. It is used only when ``noise_mode`` is ``'deterministic'``. Default is ``'chebyshev'``.
 
   - **significant_digits**: the number of significant digits in the ``'truncated'`` feature. Default is ``6``.
 
@@ -174,7 +182,7 @@ Different input **name** will have different valid fields of **options**. We lis
         **n_runs**, **distribution**, **perturbation_level**
 
     3. **\'noisy\'**:
-        **n_runs**, **distribution**, **noise_level**, **noise_type**
+        **n_runs**, **distribution**, **noise_level**, **noise_type**, **noise_mode**, **noise_map**
 
     4. **\'truncated\'**:
         **n_runs**, **significant_digits**, **perturbed_trailing_digits**
