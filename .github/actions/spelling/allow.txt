@@ -61,6 +61,7 @@ cge
 CHANDHEQ
 CHANDHEU
 charstr
+chebyshev
 CHECKVALIDITYCUTESTOPTIONS
 CHECKVALIDITYOTHEROPTIONS
 CHECKVALIDITYPROFILEOPTIONS
@@ -281,6 +282,7 @@ isrc
 isreal
 isrealcolumn
 isrealmatrix
+isrealobj
 isrealrow
 isrealscalar
 isrealvector
@@ -411,6 +413,7 @@ nansum
 nargin
 NASGU
 ncol
+ncols
 nelder
 neq
 Neue
