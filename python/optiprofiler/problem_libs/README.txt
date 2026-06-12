@@ -78,6 +78,7 @@ First, create a new subfolder (e.g., `your_problem_lib/`) within the `optiprofil
     │   │   ├── your_problem_lib_tools.py
     │   │   └── python_problems/  <-- Your problem files
     │   ├── s2mpj/                <-- Built-in problem library
+    │   ├── solar_python/         <-- Optional SOLAR adapter with a slim runtime
     │   └── ...
     └── ...
 
@@ -154,3 +155,13 @@ The `custom` folder provides a reference implementation that you can study and a
 You are encouraged to examine the files in the `custom` folder to understand the implementation details and adapt them to your specific needs.
 
 You may also want to view our website for more information on how to use OptiProfiler: www.optprof.com
+
+## Built-in adapter note: SOLAR
+
+The `solar_python` problem library wraps the upstream SOLAR black-box
+optimization simulator. It vendors a slim runtime under `runtime/solar/`,
+including the upstream LGPL-2.1 license, README, and manifest recording the
+exact upstream commit. The adapter builds a local `solar` executable on first
+use when the binary is missing. Some SOLAR problems are much slower than
+ordinary algebraic test problems, so use small `max_eval_factor` values when
+trying it for the first time.

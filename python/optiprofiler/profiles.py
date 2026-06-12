@@ -483,13 +483,16 @@ def benchmark(
 
     plibs : list of str, optional
         The problem libraries to be used. It should be a list of strs.
-        The built-in choices are ``'s2mpj'``, ``'pycutest'``, and
+        The built-in choices are ``'s2mpj'``, ``'pycutest'``,
+        ``'solar_python'``, and
         ``'custom'``. Default setting is ``'s2mpj'``. Note that
         ``'pycutest'`` requires the separate installation of the
         ``pycutest`` package; see https://jfowkes.github.io/pycutest/
-        for installation instructions. You can also use your own problem
-        library by specifying its name here together with the
-        ``custom_problem_libs_path`` option.
+        for installation instructions. ``'solar_python'`` uses a slim
+        SOLAR runtime and may be substantially slower than algebraic test
+        problems because it calls an external simulator.
+        You can also use your own problem library by specifying its name here
+        together with the ``custom_problem_libs_path`` option.
     ptype : str, optional
         The type of the problems to be selected. It should be a str
         consisting of any combination of 'u' (unconstrained), 'b'
@@ -594,10 +597,13 @@ def benchmark(
         mode automatically. To take advantage of parallel execution, define
         named functions (using ``def``) instead of lambda expressions.
 
-    1. Two problem libraries are available by default:
+    1. Several problem libraries are available by default:
        `S2MPJ <https://github.com/GrattonToint/S2MPJ>`_ (see [3]_) and
        `PyCUTEst <https://jfowkes.github.io/pycutest/>`_ (Linux and macOS
-       only). To use your own problem library, see the
+       only), and SOLAR (see [7]_) through the ``solar_python`` adapter.
+       SOLAR is distributed through its own LGPL-2.1 runtime files; see the
+       adapter README and ``runtime/solar/manifest.json`` for provenance. To
+       use your own problem library, see the
        ``custom_problem_libs_path`` option or the guide on our
        `website <https://www.optprof.com>`_.
 
@@ -653,6 +659,12 @@ def benchmark(
            derivative-free optimization. *Optim. Methods Softw.*,
            38(2):289–311, 2023. doi:10.1080/10556788.2022.2121832
            <https://doi.org/10.1080/10556788.2022.2121832>.
+    .. [7] N. Andrés-Thió, C. Audet, M. Diago, A. E. Gheribi,
+           S. Le Digabel, X. Lebeuf, M. Lemyre-Garneau, and C. Tribes.
+           ``solar``: A solar thermal power plant simulator for blackbox
+           optimization benchmarking. *Optimization and Engineering*, 2025.
+           doi:10.1007/s11081-024-09952-x
+           <https://doi.org/10.1007/s11081-024-09952-x>.
 
     Examples
     --------
@@ -1059,6 +1071,11 @@ def benchmark(
                     logger.info('')
                     logger.info('More information about the PyCUTEst problem library can be found at:')
                     logger.info('https://jfowkes.github.io/pycutest/_build/html/index.html')
+                elif plib == 'solar_python':
+                    logger.info('')
+                    logger.info('More information about the SOLAR problem library can be found at:')
+                    logger.info('https://github.com/bbopt/solar')
+                    logger.info('SOLAR uses an LGPL-2.1 slim runtime and calls an external simulator; some problems can be slow.')
 
             # Create directory to store the history plots for each problem library.
             path_hist_plots_plib = path_hist_plots / plib if path_hist_plots is not None else None

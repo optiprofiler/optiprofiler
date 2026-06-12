@@ -262,7 +262,7 @@ Options should be specified in a struct. The following are the available fields 
 
 Options in this part are used to select problems for benchmarking. First select which problem libraries to use based on the ``plibs`` option. Then select problems from these libraries according to the given options (``problem_names``, ``ptype``, ``mindim``, ``maxdim``, ``minb``, ``maxb``, ``minlcon``, ``maxlcon``, ``minnlcon``, ``maxnlcon``, ``mincon``, ``maxcon``, and ``excludelist``). Following is the list of available options:
 
-  - **plibs**: the problem libraries to be used. It should be a cell array of strings or chars. The built-in choices are ``s2mpj``, ``matcutest``, and ``custom``. Default setting is ``'s2mpj'``.
+  - **plibs**: the problem libraries to be used. It should be a cell array of strings or chars. The built-in choices are ``s2mpj``, ``matcutest``, ``solar_matlab``, and ``custom``. Default setting is ``'s2mpj'``.
 
   - **ptype**: the type of the problems to be selected. It should be a string or char consisting of any combination of ``'u'`` (unconstrained), ``'b'`` (bound constrained), ``'l'`` (linearly constrained), and ``'n'`` (nonlinearly constrained), such as ``'b'``, ``'ul'``, ``'ubn'``. Default is ``'u'``.
 
@@ -296,8 +296,8 @@ You may also pass an instance of the class Problem by the option
 
 *Several points to note*:
 
-  1. The information about two problem libraries is available in the following links:
-     S2MPJ (see [3]_) <https://github.com/GrattonToint/S2MPJ> and MatCUTEst <https://github.com/matcutest>.
+  1. Information about built-in problem libraries is available in the following links:
+     S2MPJ (see [3]_) <https://github.com/GrattonToint/S2MPJ>, MatCUTEst <https://github.com/matcutest>, and SOLAR (see [7]_) <https://github.com/bbopt/solar>. The SOLAR MATLAB adapter vendors a slim SOLAR runtime under LGPL-2.1; see its README and runtime manifest for license and provenance details.
 
   2. If you want to use your own problem library, please refer to the :ref:`guidance <use>` on our website or the `README on GitHub <https://github.com/optiprofiler/optiprofiler/blob/main/python/optiprofiler/problem_libs/README.txt>`_ for more details.
 
@@ -341,3 +341,10 @@ You may also pass an instance of the class Problem by the option
     derivative-free optimization. *Optim. Methods Softw.*,
     38(2):289--311, 2023. doi:10.1080/10556788.2022.2121832
     <https://doi.org/10.1080/10556788.2022.2121832>.
+
+.. [7] N. Andrés-Thió, C. Audet, M. Diago, A. E. Gheribi,
+    S. Le Digabel, X. Lebeuf, M. Lemyre-Garneau, and C. Tribes.
+    ``solar``: A solar thermal power plant simulator for blackbox
+    optimization benchmarking. *Optimization and Engineering*, 2025.
+    doi:10.1007/s11081-024-09952-x
+    <https://doi.org/10.1007/s11081-024-09952-x>.

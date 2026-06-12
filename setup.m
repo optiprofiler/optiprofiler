@@ -9,6 +9,7 @@ function setup(varargin)
 %
 %   setup  % Add the paths needed to use the package
 %   setup(struct('install_matcutest', true))  % Set up MatCUTEst without prompting
+%   setup(struct('install_solar', true))  % Set up the SOLAR MATLAB adapter without prompting
 %   setup uninstall  % Uninstall the package
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -53,6 +54,7 @@ function setup(varargin)
     plib_dir = fullfile(optiprofiler_dir, 'problem_libs'); % Directory containing problem libraries
     s2mpj_dir = fullfile(plib_dir, 's2mpj'); % Directory containing S2MPJ
     matcutest_dir = fullfile(plib_dir, 'matcutest'); % Directory containing tools (interfaces) for MatCUTEst
+    solar_matlab_dir = fullfile(plib_dir, 'solar_matlab'); % Directory containing the SOLAR MATLAB adapter
     
     % We need write access to `setup_dir` (and its subdirectories). Return if we do not have it.
     % N.B.: This checking is NOT perfect because of the following --- but it is better than nothing.
@@ -219,10 +221,60 @@ function setup(varargin)
         else
             fprintf('Not a Linux system. MatCUTEst is not supported and will be skipped.\n');
         end
+
+
+        % =================================================================
+        % 3. SOLAR MATLAB adapter setup (optional)
+        % =================================================================
+        fprintf('\n--- Setting up SOLAR MATLAB adapter ---\n\n');
+
+        is_solar_dir_populated = exist(solar_matlab_dir, 'dir') && length(dir(solar_matlab_dir)) > 2;
+        proceed_with_solar = false;
+        skip_solar_by_request = isfield(options, 'install_solar') && ~options.install_solar;
+        if skip_solar_by_request
+            fprintf('Skipping SOLAR MATLAB adapter setup by request.\n');
+        elseif is_solar_dir_populated
+            fprintf('SOLAR MATLAB adapter detected at %s. No further action required.\n', solar_matlab_dir);
+            proceed_with_solar = true;
+        else
+            if isfield(options, 'install_solar')
+                user_response = 'y';
+            else
+                user_response = input('Do you want to download/setup the SOLAR MATLAB adapter? (y/n): ', 's');
+            end
+            if strcmpi(strtrim(user_response), 'y')
+                proceed_with_solar = true;
+            end
+        end
+
+        if proceed_with_solar
+            if ~is_solar_dir_populated
+                fprintf('Cloning SOLAR MATLAB adapter (optiprofiler fork)...\n');
+                clone_cmd = sprintf('git clone https://github.com/optiprofiler/solar_matlab.git "%s"', solar_matlab_dir);
+                status = system(clone_cmd);
+                if status == 0
+                    fprintf('SOLAR MATLAB adapter cloned successfully.\n');
+                    is_solar_dir_populated = true;
+                else
+                    fprintf('WARNING: Failed to clone SOLAR MATLAB adapter repository.\n');
+                    fprintf('You can manually clone or download "solar_matlab" from:\n');
+                    fprintf('  https://github.com/optiprofiler/solar_matlab\n');
+                    fprintf('Then place it at:\n');
+                    fprintf('  %s\n', solar_matlab_dir);
+                end
+            end
+            if is_solar_dir_populated
+                paths_to_add{end+1} = solar_matlab_dir;
+                fprintf('SOLAR MATLAB adapter will be added to the MATLAB path.\n');
+                fprintf('The adapter vendors a slim SOLAR runtime under LGPL-2.1; see its README and runtime manifest for details.\n');
+            end
+        elseif ~skip_solar_by_request
+            fprintf('Skipping SOLAR MATLAB adapter setup.\n');
+        end
         
         
         % =================================================================
-        % 3. Path Configuration & Persistence
+        % 4. Path Configuration & Persistence
         % =================================================================
         fprintf('\n--- Finalizing Setup ---\n');
         
@@ -332,7 +384,7 @@ function [action, options, wrong_input] = parse_input(argin)
     
     action_list = {'install', 'uninstall'};
     action = 'install';
-    option_list = {'install_matcutest'};
+    option_list = {'install_matcutest', 'install_solar'};
     options = struct(); % Initialize options
     wrong_input = false;
     
@@ -431,6 +483,13 @@ function [options, wrong_options] = validate_options(options, option_list, actio
         end
     end
 
+    if isfield(options, 'install_solar')
+        if ~(islogical(options.install_solar) && isscalar(options.install_solar))
+            fprintf('\nThe setup option `install_solar` must be a scalar logical value: true or false.\n\n');
+            wrong_options = true;
+        end
+    end
+
     install_only_fields = intersect(option_fields, option_list);
     if strcmp(action, 'uninstall') && ~isempty(install_only_fields)
         fprintf('\nThe setup option(s) %s only apply to `install`; they are not used with `uninstall`.\n\n', strjoin(install_only_fields, ', '));
@@ -466,6 +525,7 @@ function uninstall_optiprofiler(path_string_stamp)
     plib_dir = fullfile(optiprofiler_dir, 'problem_libs'); 
     s2mpj_dir = fullfile(plib_dir, 's2mpj'); 
     matcutest_dir = fullfile(plib_dir, 'matcutest');
+    solar_matlab_dir = fullfile(plib_dir, 'solar_matlab');
 
     % We do not need to specifically uninstall S2MPJ or MatCUTEst, since they
     % only add paths to MATLAB and do not modify MATLAB installation files.
@@ -483,7 +543,7 @@ function uninstall_optiprofiler(path_string_stamp)
     warning('off', 'MATLAB:SavePath:PathNotSaved'); 
     
     % Standard removal of known paths
-    rmpath(src_dir, s2mpj_dir, matcutest_dir);
+    rmpath(src_dir, s2mpj_dir, matcutest_dir, solar_matlab_dir);
     
     % Robust removal: Remove any path that is a subdirectory of the package root
     % This handles cases where the folder structure might have changed or extra paths were added.
@@ -502,7 +562,7 @@ function uninstall_optiprofiler(path_string_stamp)
     warning(orig_warning_state); 
     
     % Removing the line possibly added to the user startup script
-    to_be_removed = {src_dir, s2mpj_dir, matcutest_dir};
+    to_be_removed = {src_dir, s2mpj_dir, matcutest_dir, solar_matlab_dir};
     user_startup = fullfile(userpath,'startup.m');
     if exist(user_startup, 'file')
         % 1. Try removing specific known lines (legacy support)

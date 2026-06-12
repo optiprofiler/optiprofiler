@@ -354,9 +354,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %
 %       - plibs: the problem libraries to be used. It should be a cell array of
 %         strings or chars. The available choices are subfolder names in the
-%         'optiprofiler/problem_libs' directory. There are three subfolders
-%         after installing the package: 's2mpj', 'matcutest', and 'custom'.
-%         Default setting is 's2mpj'.
+%         'optiprofiler/problem_libs' directory. The built-in choices include
+%         's2mpj', 'matcutest', 'solar_matlab', and 'custom'. Default setting
+%         is 's2mpj'.
 %       - ptype: the type of the problems to be selected. It should be a string
 %         or char consisting of any combination of 'u' (unconstrained), 'b'
 %         (bound constrained), 'l' (linearly constrained), and 'n' (nonlinearly
@@ -396,10 +396,13 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %
 %   Several points to note:
 %
-%   1. The information about two problem libraries is available in the
+%   1. Information about built-in problem libraries is available in the
 %      following links:
 %           S2MPJ (see [3]_) <https://github.com/GrattonToint/S2MPJ>
 %           MatCUTEst <https://github.com/matcutest>
+%           SOLAR (see [7]_) <https://github.com/bbopt/solar>
+%      The SOLAR MATLAB adapter vendors a slim SOLAR runtime under LGPL-2.1;
+%      see its README and runtime manifest for license and provenance details.
 %
 %   2. If you want to use your own problem library, please check the README.txt
 %      in the directory 'optiprofiler/problem_libs/' or the guidance in our
@@ -452,6 +455,12 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %          derivative-free optimization. *Optim. Methods Softw.*,
 %          38(2):289–311, 2023. doi:10.1080/10556788.2022.2121832
 %          <https://doi.org/10.1080/10556788.2022.2121832>.
+%   .. [7] N. Andrés-Thió, C. Audet, M. Diago, A. E. Gheribi,
+%          S. Le Digabel, X. Lebeuf, M. Lemyre-Garneau, and C. Tribes.
+%          ``solar``: A solar thermal power plant simulator for blackbox
+%          optimization benchmarking. *Optimization and Engineering*, 2025.
+%          doi:10.1007/s11081-024-09952-x
+%          <https://doi.org/10.1007/s11081-024-09952-x>.
 %
 %   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -971,6 +980,10 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                 elseif strcmp(plib, 'matcutest')
                     fprintf('\n');
                     printOptiProfilerMessage('INFO', 'More information about the MatCUTEst problem library can be found at: https://github.com/matcutest');
+                elseif strcmp(plib, 'solar_matlab')
+                    fprintf('\n');
+                    printOptiProfilerMessage('INFO', 'More information about the SOLAR problem library can be found at: https://github.com/bbopt/solar');
+                    printOptiProfilerMessage('INFO', 'SOLAR uses an LGPL-2.1 slim runtime and calls an external simulator; some problems can be slow.');
                 end
             end
 

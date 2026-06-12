@@ -47,7 +47,7 @@ You can also install OptiProfiler from conda-forge:
 
 .. note::
 
-    OptiProfiler includes the `S2MPJ <https://github.com/GrattonToint/S2MPJ>`_ problem library by default. If you also want to use the `PyCUTEst <https://jfowkes.github.io/pycutest/>`_ problem library (available on Linux and macOS only), please follow the `PyCUTEst installation guide <https://jfowkes.github.io/pycutest/_build/html/install.html>`_.
+    OptiProfiler includes the `S2MPJ <https://github.com/GrattonToint/S2MPJ>`_ problem library by default. Optional problem libraries include `PyCUTEst <https://jfowkes.github.io/pycutest/>`_ and the SOLAR adapter. PyCUTEst requires a separate installation. SOLAR uses a slim runtime derived from `bbopt/solar <https://github.com/bbopt/solar>`_ under LGPL-2.1; see the adapter README and runtime manifest for provenance.
 
 MATLAB
 ------
@@ -63,3 +63,13 @@ MATLAB
 .. code-block:: matlab
 
     setup
+
+The optional SOLAR MATLAB adapter can be enabled during setup:
+
+.. code-block:: matlab
+
+    setup(struct('install_solar', true))
+
+If the ``solar_matlab`` submodule is already populated, ``setup`` adds it to
+the MATLAB path automatically. Passing ``install_solar=false`` skips the
+adapter even when it is present.

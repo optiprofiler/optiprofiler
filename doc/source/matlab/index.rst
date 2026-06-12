@@ -50,6 +50,12 @@ Other tools
 :doc:`matlab_generated/matcutest_select`
     Function to select problems from the MatCUTEst collection.
 
+:doc:`matlab_generated/solar_matlab_load`
+    Function to load a problem from the SOLAR collection.
+
+:doc:`matlab_generated/solar_matlab_select`
+    Function to select problems from the SOLAR collection.
+
 .. toctree::
     :hidden:
 
@@ -57,3 +63,5 @@ Other tools
     matlab_generated/s2mpj_select
     matlab_generated/matcutest_load
     matlab_generated/matcutest_select
+    matlab_generated/solar_matlab_load
+    matlab_generated/solar_matlab_select

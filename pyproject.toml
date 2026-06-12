@@ -95,6 +95,18 @@ include = ["optiprofiler*"]
     "probinfo_pycutest.csv",
     "README.md",
 ]
+"optiprofiler.problem_libs.solar_python" = [
+    "README.md",
+    "runtime/solar/LICENSE",
+    "runtime/solar/README.md",
+    "runtime/solar/README.upstream.md",
+    "runtime/solar/manifest.json",
+    "runtime/solar/metadata/problems.json",
+    "runtime/solar/metadata/probinfo.csv",
+    "runtime/solar/src/*.cpp",
+    "runtime/solar/src/*.hpp",
+    "runtime/solar/src/makefile",
+]
 "optiprofiler.problem_libs.custom" = ["*.py", "README.txt"]
 "optiprofiler.problem_libs" = ["README.txt"]
 
