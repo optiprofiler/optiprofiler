@@ -75,6 +75,21 @@ You can also add options to the benchmark function. For example, if you want to 
 
 This will create the corresponding folders ``out/noisy_<timestamp>`` and files as in :ref:`Example 1 <py_example1>`. More details on the options can be found in the :func:`~optiprofiler.benchmark` function documentation.
 
+For the deterministic noisy variant from Moré and Wild's benchmarking model,
+set ``noise_mode='deterministic'``. If ``n_runs`` is not provided, OptiProfiler
+uses one run for this deterministic feature unless ``solver_isrand`` marks at
+least one solver as randomized, in which case OptiProfiler uses five runs as
+usual.
+
+.. code-block:: python
+
+    scores = benchmark(
+        [solver1, solver2, solver3],
+        feature_name='noisy',
+        noise_mode='deterministic',
+        noise_map='chebyshev',
+    )
+
 By default, ``n_jobs`` is set conservatively to about half of the available
 workers instead of all workers. For the most reproducible timing experiments,
 set ``n_jobs`` explicitly, for example ``n_jobs=1`` for sequential runs.
@@ -172,9 +187,9 @@ If you want to benchmark solvers based on your own problem library, you should d
 
    - **myproblems_select**: A function that accepts a dictionary to specify desired problem characteristics and returns a list of problem names that satisfy the requirements.
 
-   In general, the module should be named ``<library_name>_tools.py`` and the two functions should be named ``<library_name>_load`` and ``<library_name>_select``.
+   In general, the module should be named ``<library_name>_tools.py`` and the two functions should be named ``<library_name>_load`` and ``<library_name>_select``. OptiProfiler does not infer the library name from other ``*_tools.py`` files; for example, a library named ``myproblems`` must provide ``myproblems_tools.py``.
 
-3. Use the benchmark function with the ``custom_problem_libs_path`` option pointing to your directory. For example, to use both the default S2MPJ library and your custom library ``'myproblems'``, you can run:
+3. Use the benchmark function with the ``custom_problem_libs_path`` option pointing to your directory. This path can be either the parent directory containing custom libraries or the directory of one custom library. For example, to use both the default S2MPJ library and your custom library ``'myproblems'``, you can run:
 
 .. code-block:: python
 

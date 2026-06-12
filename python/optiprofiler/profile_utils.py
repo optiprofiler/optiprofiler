@@ -11,6 +11,27 @@ from pypdf import PdfWriter
 from .utils import FeatureName, ProfileOption, FeatureOption, ProblemOption, get_logger, print_log_message, shorten_log_message
 
 
+def _custom_problem_library_names(custom_libs_path):
+    """
+    Return custom problem library names available under ``custom_libs_path``.
+
+    ``custom_libs_path`` may be either a parent directory containing one or more
+    library subdirectories, or the directory of a single custom library. Each
+    library directory must contain ``<library_name>_tools.py``; OptiProfiler does
+    not infer the library name from other ``*_tools.py`` files.
+    """
+    custom_libs_path = Path(custom_libs_path)
+    if (custom_libs_path / f'{custom_libs_path.name}_tools.py').is_file():
+        return [custom_libs_path.name]
+
+    custom_libs_names = []
+    for p in custom_libs_path.iterdir():
+        if p.is_dir() and not p.name.startswith('.') and p.name != '__pycache__':
+            if (p / f'{p.name}_tools.py').is_file():
+                custom_libs_names.append(p.name)
+    return custom_libs_names
+
+
 def _get_conservative_default_n_jobs():
     """
     Get a conservative default number of parallel jobs.
@@ -39,13 +60,7 @@ def check_validity_problem_options(problem_options):
                 raise ValueError(f'Option {ProblemOption.CUSTOM_PROBLEM_LIBS_PATH} path does not exist: {custom_libs_path}')
             if not custom_libs_path.is_dir():
                 raise ValueError(f'Option {ProblemOption.CUSTOM_PROBLEM_LIBS_PATH} must be a directory: {custom_libs_path}')
-            # Get the list of custom problem libraries (subdirectories that contain {name}_tools.py).
-            for p in custom_libs_path.iterdir():
-                if p.is_dir() and not p.name.startswith('.') and p.name != '__pycache__':
-                    # Check if the subdirectory contains the required tools file.
-                    tools_file = p / f'{p.name}_tools.py'
-                    if tools_file.exists():
-                        custom_libs_names.append(p.name)
+            custom_libs_names = _custom_problem_library_names(custom_libs_path)
             # Store the resolved path back.
             problem_options[ProblemOption.CUSTOM_PROBLEM_LIBS_PATH] = custom_libs_path
 
@@ -69,7 +84,13 @@ def check_validity_problem_options(problem_options):
         elif any(not isinstance(plib, str) for plib in problem_options[ProblemOption.PLIBS]):
             raise TypeError(f'Option {ProblemOption.PLIBS} must be a string or a list of strings.')
         elif any(plib not in all_available_libs for plib in problem_options[ProblemOption.PLIBS]):
-            raise ValueError(f'Option {ProblemOption.PLIBS} contains invalid problem libraries. Available libraries: {all_available_libs}. Note: Each problem library must be a subdirectory containing a file named "<library_name>_tools.py".')
+            raise ValueError(
+                f'Option {ProblemOption.PLIBS} contains invalid problem libraries. '
+                f'Available libraries: {all_available_libs}. Note: custom problem libraries '
+                'may be supplied by a parent directory or a direct library directory. Each '
+                'library directory must contain "<library_name>_tools.py", where '
+                '"<library_name>" is the name used in the option "plibs".'
+            )
 
     if ProblemOption.PTYPE in problem_options:
         if not isinstance(problem_options[ProblemOption.PTYPE], str):

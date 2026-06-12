@@ -12,6 +12,8 @@ import pytest
 
 from optiprofiler import benchmark
 from optiprofiler.opclasses import Feature, FeaturedProblem, Problem
+from optiprofiler.profile_utils import get_default_problem_options, get_default_profile_options
+from optiprofiler.profiles import _solve_all_problems
 
 
 def simple_solver_1(fun, x0):
@@ -33,6 +35,11 @@ def simple_solver_2(fun, x0):
                 best_f = f_trial
                 best_x = x_trial.copy()
     return best_x
+
+
+def simple_solver_zero_no_eval(fun, x0):
+    """A trivial solver that returns the zero vector without evaluating the objective."""
+    return np.zeros_like(x0)
 
 
 def _common_kwargs(tmpdir, benchmark_id='test'):
@@ -111,6 +118,56 @@ class TestBenchmarkBasic:
             )
             assert isinstance(scores, np.ndarray)
 
+    def test_custom_problem_library_with_direct_path(self, tmp_path):
+        lib_dir = tmp_path / 'solar_python'
+        lib_dir.mkdir()
+        (lib_dir / 'solar_python_tools.py').write_text(
+            "\n".join([
+                "import numpy as np",
+                "from optiprofiler.opclasses import Problem",
+                "",
+                "def solar_python_select(options):",
+                "    return ['SOLAR_TOY']",
+                "",
+                "def solar_python_load(problem_name):",
+                "    return Problem(lambda x: float(np.dot(x, x)), np.array([1.0, -1.0]), name=problem_name)",
+            ]),
+            encoding='utf-8',
+        )
+
+        solvers = [simple_solver_1, simple_solver_zero_no_eval]
+        feature = Feature('plain')
+        problem_options = get_default_problem_options(
+            {
+                'plibs': ['solar_python'],
+                'custom_problem_libs_path': lib_dir,
+                'problem_names': ['SOLAR_TOY'],
+            }
+        )
+        profile_options = get_default_profile_options(
+            solvers,
+            feature,
+            {
+                'max_eval_factor': 2,
+                'n_jobs': 1,
+                'silent': True,
+                'solver_names': ['solver1', 'solver2'],
+            },
+        )
+        results = _solve_all_problems(
+            solvers,
+            'solar_python',
+            feature,
+            problem_options,
+            profile_options,
+            False,
+            None,
+        )
+
+        assert results['plib'] == 'solar_python'
+        assert results['problem_names'] == ['SOLAR_TOY']
+        assert results['fun_outs'].shape == (1, 2, 1)
+
     def test_score_only(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             scores, profile_scores, curves = benchmark(
@@ -184,9 +241,19 @@ class TestBenchmarkFeatures:
         assert scores.shape[0] == 2
 
     def test_noisy_deterministic(self):
-        scores, _, _ = self._run_benchmark('noisy', noise_mode='deterministic')
+        scores, _, curves = self._run_benchmark('noisy', noise_mode='deterministic')
         assert isinstance(scores, np.ndarray)
         assert scores.shape[0] == 2
+        assert len(curves[0]['hist']['perf'][0]) == 2
+
+        scores, _, curves = self._run_benchmark(
+            'noisy',
+            noise_mode='deterministic',
+            solver_isrand=[True, False],
+        )
+        assert isinstance(scores, np.ndarray)
+        assert scores.shape[0] == 2
+        assert len(curves[0]['hist']['perf'][0]) == 6
 
     def test_truncated(self):
         scores, _, _ = self._run_benchmark('truncated')

@@ -160,7 +160,7 @@ Options should be specified in a struct. The following are the available fields 
 
   - **ylabel_log_ratio_profile**: the label of the y-axis of the log-ratio profiles. Default is ``'Log-ratio profiles ($\\mathrm{tol} = %s$)'``, where ``%s`` will be replaced by the current tolerance in LaTeX format.
 
-  - **ylabel_performance_profile**: ylabel_performance_profile: the label of the y-axis of the performance profiles. Default is ``'Performance profiles ($\\mathrm{tol} = %s$)'``, where ``%s`` will be replaced by the current tolerance in LaTeX format.
+  - **ylabel_performance_profile**: the label of the y-axis of the performance profiles. Default is ``'Performance profiles ($\\mathrm{tol} = %s$)'``, where ``%s`` will be replaced by the current tolerance in LaTeX format.
 
 2. *Options for features*:
 

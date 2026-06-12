@@ -7,8 +7,8 @@ This guide explains how to create and integrate your own optimization problem li
 If you installed OptiProfiler via pip or conda, the package is installed in a
 read-only location (e.g., `site-packages`), and you cannot easily add new problem
 libraries directly to the `problem_libs` folder. In this case, you should use the
-`custom_problem_libs_path` option to specify an external directory containing your
-custom problem libraries.
+`custom_problem_libs_path` option to specify an external directory containing
+your custom problem libraries.
 
 Example:
 ```python
@@ -86,6 +86,11 @@ First, create a new subfolder (e.g., `your_problem_lib/`) within the `optiprofil
 #### 2.1 Tools File (refer to `custom_tools.py`)
 
 Create a python file named `your_problem_lib_tools.py` inside your library folder. This file must contain two functions:
+
+The tools file and functions must use the library name exactly. OptiProfiler
+does not infer the library name from other `*_tools.py` files. For example, a
+library folder named `solar_python` must contain `solar_python_tools.py` with
+`solar_python_load` and `solar_python_select`.
 
 1.  `your_problem_lib_load(problem_name)`:
     -   Accepts a problem name as input.

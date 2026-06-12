@@ -108,7 +108,7 @@ def benchmark(
 
     Parameters
     ----------
-    solvers : list of callable, optional if 'load' in ``**kwargs``
+    solvers : list of callable, optional if ``load`` is provided
         Solvers to benchmark. Each solver must be a callable accepting
         corresponding arguments depending on the test suite you choose:
 
@@ -132,7 +132,7 @@ def benchmark(
 
         All vectors and matrices mentioned above are `numpy.ndarray`.
 
-        If the 'load' option is provided in ``**kwargs``, solvers can be None,
+        If the ``load`` option is provided, solvers can be None,
         in which case data from a previous experiment will be loaded to generate profiles.
 
     Other Parameters
@@ -194,7 +194,7 @@ def benchmark(
         The scaling factor of the condition number of the
         linear transformation in the 'linearly_transformed' feature. More
         specifically, the condition number of the linear transformation will
-        be 2 ** (condition_factor * n / 2), where n is the dimension of the
+        be ``2^(condition_factor * n / 2)``, where n is the dimension of the
         problem. Default is 0.
     nan_rate : float, optional
         The probability that the evaluation of the objective
@@ -526,14 +526,12 @@ def benchmark(
         The maximum number of linear and nonlinear constraints of the
         problems to be selected. Default is max(maxlcon, maxnlcon).
     custom_problem_libs_path : str or Path, optional
-        The path to a directory containing custom problem libraries. Each
-        subdirectory in this path should be a problem library with the same
-        structure as the built-in libraries (e.g., 's2mpj', 'pycutest', 'custom').
-        Specifically, each subdirectory should contain a file named
-        '<library_name>_tools.py' with two functions: '<library_name>_load' and
-        '<library_name>_select'. This option allows users to use their own
-        problem libraries without modifying the installed package. Default is
-        None, meaning only built-in libraries are available.
+        The path to a directory containing custom problem libraries, or a direct
+        path to one custom problem library. Each custom problem library must
+        contain a tools module named '<library_name>_tools.py' with two functions:
+        '<library_name>_load' and '<library_name>_select'. This option allows
+        users to use their own problem libraries without modifying the installed
+        package. Default is None, meaning only built-in libraries are available.
     excludelist : list, optional
         The list of problems to be excluded. Default is not to
         exclude any problem.
@@ -2503,11 +2501,28 @@ def _get_problem_lib_module_path(plib, custom_problem_libs_path=None):
     
     # Check if it's a custom library.
     if custom_problem_libs_path is not None:
-        custom_module_file_path = Path(custom_problem_libs_path) / plib / f'{plib}_tools.py'
-        if custom_module_file_path.exists():
-            module_file_path = custom_module_file_path.resolve()
-            module_name = f'{plib}.{plib}_tools'
-            return module_file_path, module_name, False
+        custom_problem_libs_path = Path(custom_problem_libs_path).expanduser().resolve()
+        # The custom path may be either a parent directory containing ``plib``
+        # or the ``plib`` directory itself.  Keep the tools-module naming strict
+        # (``<plib>_tools.py``) and reject ambiguous layouts instead of guessing.
+        custom_library_dirs = {
+            candidate.resolve()
+            for candidate in (custom_problem_libs_path / plib, custom_problem_libs_path)
+            if candidate.is_dir() and candidate.name == plib
+        }
+        if len(custom_library_dirs) > 1:
+            raise ValueError(
+                f'The option {ProblemOption.CUSTOM_PROBLEM_LIBS_PATH} is ambiguous for '
+                f'problem library "{plib}". It can point to either the parent directory '
+                f'containing "{plib}" or the "{plib}" directory itself, but not both.'
+            )
+
+        for custom_library_dir in custom_library_dirs:
+            custom_module_file_path = custom_library_dir / f'{plib}_tools.py'
+            if custom_module_file_path.is_file():
+                module_file_path = custom_module_file_path.resolve()
+                module_name = f'{plib}.{plib}_tools'
+                return module_file_path, module_name, False
     
     # If not found in either location, return the builtin path (will fail later with a clear error).
     return builtin_module_file_path.resolve(), f'optiprofiler.problem_libs.{plib}.{plib}_tools', True

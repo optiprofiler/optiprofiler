@@ -136,8 +136,8 @@ def set_plib_config(plib, **kwargs):
     ----------
     plib : str
         Name of the problem library (e.g. ``'s2mpj'``, ``'pycutest'``).
-    **kwargs
-        Configuration variables to set.  The variable names must exist
+    kwargs
+        Configuration variables passed as keyword arguments. The variable names must exist
         in the library's ``config.txt``; otherwise a ``ValueError`` is
         raised to prevent silent typos.
 

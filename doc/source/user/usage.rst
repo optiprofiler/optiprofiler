@@ -71,6 +71,19 @@ You can also add options to the benchmark function. For example, if you want to 
 
 This will create the corresponding folders ``out/noisy_<timestamp>`` and files as in :ref:`Example 1 <example1>`. More details on the options can be found in the :ref:`benchmark <matbenchmark>` function documentation.
 
+For the deterministic noisy variant from Moré and Wild's benchmarking model,
+set ``options.noise_mode = 'deterministic'``. If ``options.n_runs`` is not
+provided, OptiProfiler uses one run for this deterministic feature unless
+``options.solver_isrand`` marks at least one solver as randomized, in which
+case OptiProfiler uses five runs as usual.
+
+.. code-block:: matlab
+
+    options.feature_name = 'noisy';
+    options.noise_mode = 'deterministic';
+    options.noise_map = 'chebyshev';
+    scores = benchmark({@solver1, @solver2, @solver3}, options)
+
 By default, **n_jobs** is set conservatively to about half of the available
 workers instead of all workers. For the most reproducible timing experiments,
 set ``options.n_jobs`` explicitly, for example ``options.n_jobs = 1`` for

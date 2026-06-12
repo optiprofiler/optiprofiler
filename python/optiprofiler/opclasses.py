@@ -85,8 +85,8 @@ class Feature:
             constraints.
         11. ``'custom'`` : user-defined feature.
 
-    \*\*feature_options : dict
-        Keyword arguments for the feature. The available options depend on
+    feature_options : dict
+        Keyword arguments passed after ``name``. The available options depend on
         the chosen ``name``:
 
         - **n_runs** (*int*) -- Number of runs of the experiment under the
@@ -122,7 +122,7 @@ class Feature:
         - **condition_factor** (*float*) -- Scaling factor of the condition
           number of the linear transformation in
           ``'linearly_transformed'``. The condition number will be
-          ``2 ** (condition_factor * n / 2)``. Default is ``0``.
+          ``2^(condition_factor * n / 2)``. Default is ``0``.
         - **nan_rate** (*float*) -- Probability that an evaluation returns
           ``NaN`` in ``'random_nan'``. Default is ``0.05``.
         - **unrelaxable_bounds** (*bool*) -- Whether bound constraints are
