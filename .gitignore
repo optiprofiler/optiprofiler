@@ -307,3 +307,4 @@ playground*.py
 matlab/optiprofiler/problem_libs/s2mpj/src/
 matlab/optiprofiler/problem_libs/matcutest/src/
 matlab/optiprofiler/problem_libs/matcutest/matcutest_compiled_git/
+matlab/optiprofiler/problem_libs/solar/

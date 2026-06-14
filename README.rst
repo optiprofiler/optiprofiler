@@ -70,6 +70,9 @@ The optional SOLAR MATLAB adapter can be enabled during setup:
 
     setup(struct('install_solar', true))
 
-If the ``solar`` submodule is already populated, ``setup`` adds it to
-the MATLAB path automatically. Passing ``install_solar=false`` skips the
-adapter even when it is present.
+When requested, ``setup`` clones `optiprofiler/solar_matlab
+<https://github.com/optiprofiler/solar_matlab>`_ into the local directory
+``matlab/optiprofiler/problem_libs/solar`` and adds it to the MATLAB path.
+This directory is a local optional installation, not a submodule of the
+OptiProfiler repository. Passing ``install_solar=false`` skips the adapter
+even when it is present locally.

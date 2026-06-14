@@ -7,9 +7,6 @@
 [submodule "python/optiprofiler/problem_libs/pycutest"]
 	path = python/optiprofiler/problem_libs/pycutest
 	url = https://github.com/optiprofiler/pycutest.git
-[submodule "matlab/optiprofiler/problem_libs/solar"]
-	path = matlab/optiprofiler/problem_libs/solar
-	url = https://github.com/optiprofiler/solar_matlab.git
 [submodule "python/optiprofiler/problem_libs/solar"]
 	path = python/optiprofiler/problem_libs/solar
 	url = https://github.com/optiprofiler/solar_python.git

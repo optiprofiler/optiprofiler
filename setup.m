@@ -54,7 +54,7 @@ function setup(varargin)
     plib_dir = fullfile(optiprofiler_dir, 'problem_libs'); % Directory containing problem libraries
     s2mpj_dir = fullfile(plib_dir, 's2mpj'); % Directory containing S2MPJ
     matcutest_dir = fullfile(plib_dir, 'matcutest'); % Directory containing tools (interfaces) for MatCUTEst
-    solar_dir = fullfile(plib_dir, 'solar'); % Directory containing the SOLAR MATLAB adapter
+    solar_dir = fullfile(plib_dir, 'solar'); % Local directory for the optional SOLAR MATLAB adapter
     
     % We need write access to `setup_dir` (and its subdirectories). Return if we do not have it.
     % N.B.: This checking is NOT perfect because of the following --- but it is better than nothing.
@@ -250,6 +250,9 @@ function setup(varargin)
         if proceed_with_solar
             if ~is_solar_dir_populated
                 fprintf('Cloning SOLAR MATLAB adapter (optiprofiler fork)...\n');
+                if exist(plib_dir, 'dir') ~= 7
+                    mkdir(plib_dir);
+                end
                 clone_cmd = sprintf('git clone https://github.com/optiprofiler/solar_matlab.git "%s"', solar_dir);
                 status = system(clone_cmd);
                 if status == 0
