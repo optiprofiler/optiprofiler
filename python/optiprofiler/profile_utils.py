@@ -32,6 +32,38 @@ def _custom_problem_library_names(custom_libs_path):
     return custom_libs_names
 
 
+def _custom_problem_library_dir(custom_libs_path, plib):
+    """
+    Return the explicit custom directory for ``plib`` if one is present.
+
+    ``custom_libs_path`` may point either to a parent directory containing a
+    ``plib`` subdirectory, or directly to the ``plib`` directory.  The function
+    deliberately does not inspect tools files; callers can use this to reject a
+    malformed custom directory before falling back to a built-in library with the
+    same name.
+    """
+    custom_libs_path = Path(custom_libs_path)
+    candidates = []
+    if custom_libs_path.name == plib and custom_libs_path.is_dir():
+        candidates.append(custom_libs_path)
+    parent_candidate = custom_libs_path / plib
+    if parent_candidate.is_dir():
+        candidates.append(parent_candidate)
+
+    resolved = []
+    for candidate in candidates:
+        candidate = candidate.resolve()
+        if candidate not in resolved:
+            resolved.append(candidate)
+    if len(resolved) > 1:
+        raise ValueError(
+            f'The option {ProblemOption.CUSTOM_PROBLEM_LIBS_PATH} is ambiguous for '
+            f'problem library "{plib}". It can point to either the parent directory '
+            f'containing "{plib}" or the "{plib}" directory itself, but not both.'
+        )
+    return resolved[0] if resolved else None
+
+
 def _get_conservative_default_n_jobs():
     """
     Get a conservative default number of parallel jobs.
@@ -76,14 +108,26 @@ def check_validity_problem_options(problem_options):
                 tools_file = p / f'{p.name}_tools.py'
                 if tools_file.exists():
                     builtin_libs_names.append(p.name)
-        # All available libraries = builtin + custom
+        # All available libraries = builtin + custom.  If a custom path
+        # explicitly contains a directory named like the requested library, that
+        # directory must contain the strict tools filename; do not silently fall
+        # back to a built-in library with the same name.
         all_available_libs = builtin_libs_names + custom_libs_names
         # Check if plibs is empty or any element is not str or not in available libraries
         if len(problem_options[ProblemOption.PLIBS]) == 0:
             raise ValueError(f'Option {ProblemOption.PLIBS} cannot be an empty list.')
         elif any(not isinstance(plib, str) for plib in problem_options[ProblemOption.PLIBS]):
             raise TypeError(f'Option {ProblemOption.PLIBS} must be a string or a list of strings.')
-        elif any(plib not in all_available_libs for plib in problem_options[ProblemOption.PLIBS]):
+        if custom_libs_path is not None:
+            for plib in problem_options[ProblemOption.PLIBS]:
+                custom_library_dir = _custom_problem_library_dir(custom_libs_path, plib)
+                if custom_library_dir is not None and not (custom_library_dir / f'{plib}_tools.py').is_file():
+                    raise ValueError(
+                        f'Option {ProblemOption.PLIBS} contains invalid problem libraries. '
+                        f'The custom problem library "{plib}" at {custom_library_dir} must '
+                        f'contain "{plib}_tools.py".'
+                    )
+        if any(plib not in all_available_libs for plib in problem_options[ProblemOption.PLIBS]):
             raise ValueError(
                 f'Option {ProblemOption.PLIBS} contains invalid problem libraries. '
                 f'Available libraries: {all_available_libs}. Note: custom problem libraries '
