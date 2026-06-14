@@ -12,6 +12,14 @@ classdef TestCheckValidityProblemOptions < matlab.unittest.TestCase
             options.plibs = 1;
             testCase.verifyError(@() checkValidityProblemOptions(options, profile_options), "MATLAB:checkValidityProblemOptions:plibsNotValid");
             if ~isunix || ismac
+                mydir = fileparts(mfilename('fullpath'));
+                problem_libs_dir = fullfile(mydir, '../../problem_libs');
+                matcutest_dir = fullfile(problem_libs_dir, 'matcutest');
+                created_matcutest_dir = exist(matcutest_dir, 'dir') ~= 7;
+                if created_matcutest_dir
+                    mkdir(matcutest_dir);
+                    testCase.addTeardown(@() rmdir(matcutest_dir));
+                end
                 options.plibs = {'matcutest'};
                 testCase.verifyError(@() checkValidityProblemOptions(options, profile_options), "MATLAB:checkValidityProblemOptions:plibsNotLinux");
             end
@@ -66,6 +74,29 @@ classdef TestCheckValidityProblemOptions < matlab.unittest.TestCase
 
             options.problem_names = 1;
             testCase.verifyError(@() checkValidityProblemOptions(options, profile_options), "MATLAB:checkValidityProblemOptions:problem_namesNotCellOfcharstr");
+        end
+
+        function testOptionalSolarPlibName(testCase)
+
+            mydir = fileparts(mfilename('fullpath'));
+            original_dir = pwd;
+            testCase.addTeardown(@() cd(original_dir));
+
+            problem_libs_dir = fullfile(mydir, '../../problem_libs');
+            solar_dir = fullfile(problem_libs_dir, 'solar');
+            created_solar_dir = exist(solar_dir, 'dir') ~= 7;
+            if created_solar_dir
+                mkdir(solar_dir);
+                testCase.addTeardown(@() rmdir(solar_dir));
+            end
+
+            cd(fullfile(mydir, '../../src/private'));
+
+            options = struct('plibs', 'solar');
+            profile_options = struct();
+            options = checkValidityProblemOptions(options, profile_options);
+
+            testCase.verifyEqual(options.plibs, {'solar'});
         end
 
     end

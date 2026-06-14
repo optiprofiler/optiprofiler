@@ -43,7 +43,7 @@ jobs:
             root_dir = pwd()
 
             % Setup OptiProfiler
-            options = struct('install_matcutest', true);
+            options = struct('install_matcutest', true, 'install_solar', false);
             setup(options);
 
             % Create a directory for the output

@@ -9,7 +9,7 @@ function setup(varargin)
 %
 %   setup  % Add the paths needed to use the package
 %   setup(struct('install_matcutest', true))  % Set up MatCUTEst without prompting
-%   setup(struct('install_solar', true))  % Set up the SOLAR MATLAB adapter without prompting
+%   setup(struct('install_solar', true))  % Download and set up the optional SOLAR MATLAB adapter
 %   setup uninstall  % Uninstall the package
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -228,51 +228,39 @@ function setup(varargin)
         % =================================================================
         fprintf('\n--- Setting up SOLAR MATLAB adapter ---\n\n');
 
-        is_solar_dir_populated = exist(solar_dir, 'dir') && length(dir(solar_dir)) > 2;
-        proceed_with_solar = false;
+        is_solar_dir_populated = is_populated_directory(solar_dir);
+        install_solar_requested = isfield(options, 'install_solar') && options.install_solar;
         skip_solar_by_request = isfield(options, 'install_solar') && ~options.install_solar;
         if skip_solar_by_request
             fprintf('Skipping SOLAR MATLAB adapter setup by request.\n');
         elseif is_solar_dir_populated
             fprintf('SOLAR MATLAB adapter detected at %s. No further action required.\n', solar_dir);
-            proceed_with_solar = true;
-        else
-            if isfield(options, 'install_solar')
-                user_response = 'y';
+        elseif install_solar_requested
+            fprintf('Cloning SOLAR MATLAB adapter (optiprofiler fork)...\n');
+            if exist(plib_dir, 'dir') ~= 7
+                mkdir(plib_dir);
+            end
+            clone_cmd = sprintf('git clone https://github.com/optiprofiler/solar_matlab.git "%s"', solar_dir);
+            status = system(clone_cmd);
+            if status == 0
+                fprintf('SOLAR MATLAB adapter cloned successfully.\n');
+                is_solar_dir_populated = true;
             else
-                user_response = input('Do you want to download/setup the SOLAR MATLAB adapter? (y/n): ', 's');
+                fprintf('WARNING: Failed to clone SOLAR MATLAB adapter repository.\n');
+                fprintf('You can manually clone or download "solar_matlab" from:\n');
+                fprintf('  https://github.com/optiprofiler/solar_matlab\n');
+                fprintf('Then rename the folder from "solar_matlab" to "solar" and place it at:\n');
+                fprintf('  %s\n', plib_dir);
             end
-            if strcmpi(strtrim(user_response), 'y')
-                proceed_with_solar = true;
-            end
+        else
+            fprintf('SOLAR MATLAB adapter is not installed locally. Skipping optional setup.\n');
+            fprintf('Run setup(struct(''install_solar'', true)) to download and enable it.\n');
         end
 
-        if proceed_with_solar
-            if ~is_solar_dir_populated
-                fprintf('Cloning SOLAR MATLAB adapter (optiprofiler fork)...\n');
-                if exist(plib_dir, 'dir') ~= 7
-                    mkdir(plib_dir);
-                end
-                clone_cmd = sprintf('git clone https://github.com/optiprofiler/solar_matlab.git "%s"', solar_dir);
-                status = system(clone_cmd);
-                if status == 0
-                    fprintf('SOLAR MATLAB adapter cloned successfully.\n');
-                    is_solar_dir_populated = true;
-                else
-                    fprintf('WARNING: Failed to clone SOLAR MATLAB adapter repository.\n');
-                    fprintf('You can manually clone or download "solar_matlab" from:\n');
-                    fprintf('  https://github.com/optiprofiler/solar_matlab\n');
-                    fprintf('Then rename the folder from "solar_matlab" to "solar" and place it at:\n');
-                    fprintf('  %s\n', plib_dir);
-                end
-            end
-            if is_solar_dir_populated
-                paths_to_add{end+1} = solar_dir;
-                fprintf('SOLAR MATLAB adapter will be added to the MATLAB path.\n');
-                fprintf('The adapter vendors a slim SOLAR runtime under LGPL-2.1; see its README and runtime manifest for details.\n');
-            end
-        elseif ~skip_solar_by_request
-            fprintf('Skipping SOLAR MATLAB adapter setup.\n');
+        if is_solar_dir_populated && ~skip_solar_by_request
+            paths_to_add{end+1} = solar_dir;
+            fprintf('SOLAR MATLAB adapter will be added to the MATLAB path.\n');
+            fprintf('The adapter vendors a slim SOLAR runtime under LGPL-2.1; see its README and runtime manifest for details.\n');
         end
         
         
@@ -509,6 +497,16 @@ function iscs = ischarstr(x)
     %ISCHARSTR checks whether an input is a `char` or `string`
     
     iscs = (isa(x, 'char') || isa(x, 'string'));
+end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+function tf = is_populated_directory(directory)
+    %IS_POPULATED_DIRECTORY checks whether a directory exists and is not empty.
+
+    tf = exist(directory, 'dir') == 7 && length(dir(directory)) > 2;
 end
 
 

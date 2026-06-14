@@ -56,7 +56,7 @@ jobs:
             fclose(fid);
             
             % Setup OptiProfiler
-            setup(struct('install_matcutest', true))
+            setup(struct('install_matcutest', true, 'install_solar', false))
 
             % Create a directory for the output
             mkdir('output')
