@@ -202,7 +202,7 @@ def linkcode_resolve(domain, info):
     _submodule_repos = {
         'problem_libs/s2mpj/': 'https://github.com/optiprofiler/s2mpj_python',
         'problem_libs/pycutest/': 'https://github.com/optiprofiler/pycutest',
-        'problem_libs/solar_python/': 'https://github.com/optiprofiler/solar_python',
+        'problem_libs/solar/': 'https://github.com/optiprofiler/solar_python',
     }
     for prefix, repo_url in _submodule_repos.items():
         if fn_str.startswith(prefix):

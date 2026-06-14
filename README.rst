@@ -70,6 +70,6 @@ The optional SOLAR MATLAB adapter can be enabled during setup:
 
     setup(struct('install_solar', true))
 
-If the ``solar_matlab`` submodule is already populated, ``setup`` adds it to
+If the ``solar`` submodule is already populated, ``setup`` adds it to
 the MATLAB path automatically. Passing ``install_solar=false`` skips the
 adapter even when it is present.

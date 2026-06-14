@@ -484,11 +484,11 @@ def benchmark(
     plibs : list of str, optional
         The problem libraries to be used. It should be a list of strs.
         The built-in choices are ``'s2mpj'``, ``'pycutest'``,
-        ``'solar_python'``, and
+        ``'solar'``, and
         ``'custom'``. Default setting is ``'s2mpj'``. Note that
         ``'pycutest'`` requires the separate installation of the
         ``pycutest`` package; see https://jfowkes.github.io/pycutest/
-        for installation instructions. ``'solar_python'`` uses a slim
+        for installation instructions. ``'solar'`` uses a slim
         SOLAR runtime and may be substantially slower than algebraic test
         problems because it calls an external simulator.
         You can also use your own problem library by specifying its name here
@@ -602,7 +602,7 @@ def benchmark(
     1. Several problem libraries are available by default:
        `S2MPJ <https://github.com/GrattonToint/S2MPJ>`_ (see [3]_) and
        `PyCUTEst <https://jfowkes.github.io/pycutest/>`_ (Linux and macOS
-       only), and SOLAR (see [7]_) through the ``solar_python`` adapter.
+       only), and SOLAR (see [7]_) through the ``solar`` adapter.
        SOLAR is distributed through its own LGPL-2.1 runtime files; see the
        adapter README and ``runtime/solar/manifest.json`` for provenance. To
        use your own problem library, see the
@@ -1074,7 +1074,7 @@ def benchmark(
                     logger.info('')
                     logger.info('More information about the PyCUTEst problem library can be found at:')
                     logger.info('https://jfowkes.github.io/pycutest/_build/html/index.html')
-                elif plib == 'solar_python':
+                elif plib == 'solar':
                     logger.info('')
                     logger.info('More information about the SOLAR problem library can be found at:')
                     logger.info('https://github.com/bbopt/solar')

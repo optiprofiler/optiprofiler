@@ -176,52 +176,52 @@ class TestCheckValidityProblemOptions:
             check_validity_problem_options({ProblemOption.PLIBS: [123]})
 
     def test_custom_problem_libs_path_parent(self, tmp_path):
-        lib_dir = tmp_path / 'solar_python'
+        lib_dir = tmp_path / 'solar'
         lib_dir.mkdir()
-        tools_file = lib_dir / 'solar_python_tools.py'
+        tools_file = lib_dir / 'solar_tools.py'
         tools_file.write_text('', encoding='utf-8')
 
         opts = check_validity_problem_options({
-            ProblemOption.PLIBS: 'solar_python',
+            ProblemOption.PLIBS: 'solar',
             ProblemOption.CUSTOM_PROBLEM_LIBS_PATH: tmp_path,
         })
 
-        assert opts[ProblemOption.PLIBS] == ['solar_python']
+        assert opts[ProblemOption.PLIBS] == ['solar']
         assert opts[ProblemOption.CUSTOM_PROBLEM_LIBS_PATH] == tmp_path.resolve()
         module_file_path, _, is_builtin = _get_problem_lib_module_path(
-            'solar_python',
+            'solar',
             opts[ProblemOption.CUSTOM_PROBLEM_LIBS_PATH],
         )
         assert module_file_path == tools_file.resolve()
         assert not is_builtin
 
     def test_custom_problem_libs_path_direct(self, tmp_path):
-        lib_dir = tmp_path / 'solar_python'
+        lib_dir = tmp_path / 'solar'
         lib_dir.mkdir()
-        tools_file = lib_dir / 'solar_python_tools.py'
+        tools_file = lib_dir / 'solar_tools.py'
         tools_file.write_text('', encoding='utf-8')
 
         opts = check_validity_problem_options({
-            ProblemOption.PLIBS: ['solar_python'],
+            ProblemOption.PLIBS: ['solar'],
             ProblemOption.CUSTOM_PROBLEM_LIBS_PATH: lib_dir,
         })
 
-        assert opts[ProblemOption.PLIBS] == ['solar_python']
+        assert opts[ProblemOption.PLIBS] == ['solar']
         module_file_path, _, is_builtin = _get_problem_lib_module_path(
-            'solar_python',
+            'solar',
             opts[ProblemOption.CUSTOM_PROBLEM_LIBS_PATH],
         )
         assert module_file_path == tools_file.resolve()
         assert not is_builtin
 
     def test_custom_problem_libs_path_does_not_infer_tools_prefix(self, tmp_path):
-        lib_dir = tmp_path / 'solar_python'
+        lib_dir = tmp_path / 'solar'
         lib_dir.mkdir()
-        (lib_dir / 'solar_tools.py').write_text('', encoding='utf-8')
+        (lib_dir / 'solar_adapter_tools.py').write_text('', encoding='utf-8')
 
         with pytest.raises(ValueError, match='invalid problem libraries'):
             check_validity_problem_options({
-                ProblemOption.PLIBS: ['solar_python'],
+                ProblemOption.PLIBS: ['solar'],
                 ProblemOption.CUSTOM_PROBLEM_LIBS_PATH: lib_dir,
             })
 
