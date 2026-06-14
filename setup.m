@@ -526,7 +526,6 @@ function uninstall_optiprofiler(path_string_stamp)
     s2mpj_dir = fullfile(plib_dir, 's2mpj'); 
     matcutest_dir = fullfile(plib_dir, 'matcutest');
     solar_dir = fullfile(plib_dir, 'solar');
-    legacy_solar_matlab_dir = fullfile(plib_dir, 'solar_matlab');
 
     % We do not need to specifically uninstall S2MPJ or MatCUTEst, since they
     % only add paths to MATLAB and do not modify MATLAB installation files.
@@ -544,7 +543,7 @@ function uninstall_optiprofiler(path_string_stamp)
     warning('off', 'MATLAB:SavePath:PathNotSaved'); 
     
     % Standard removal of known paths
-    rmpath(src_dir, s2mpj_dir, matcutest_dir, solar_dir, legacy_solar_matlab_dir);
+    rmpath(src_dir, s2mpj_dir, matcutest_dir, solar_dir);
     
     % Robust removal: Remove any path that is a subdirectory of the package root
     % This handles cases where the folder structure might have changed or extra paths were added.
@@ -563,7 +562,7 @@ function uninstall_optiprofiler(path_string_stamp)
     warning(orig_warning_state); 
     
     % Removing the line possibly added to the user startup script
-    to_be_removed = {src_dir, s2mpj_dir, matcutest_dir, solar_dir, legacy_solar_matlab_dir};
+    to_be_removed = {src_dir, s2mpj_dir, matcutest_dir, solar_dir};
     user_startup = fullfile(userpath,'startup.m');
     if exist(user_startup, 'file')
         % 1. Try removing specific known lines (legacy support)
