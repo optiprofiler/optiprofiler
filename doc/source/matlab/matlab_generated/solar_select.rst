@@ -1,14 +1,14 @@
-.. _matsolarmatlabselect:
+.. _matsolarselect:
 
-solar_matlab_select
+solar_select
 ===================
 
-**solar_matlab_select(**\ *options*\ **)**
-    **solar_matlab_select** selects SOLAR problems satisfying given criteria.
+**solar_select(**\ *options*\ **)**
+    **solar_select** selects SOLAR problems satisfying given criteria.
 
 --------------------------------------------------------------------------
 
-**problem_names** = **solar_matlab_select**\(**options**) returns the names of
+**problem_names** = **solar_select**\(**options**) returns the names of
 selected SOLAR problems as a cell array. More details about the upstream SOLAR
 simulator can be found at <https://github.com/bbopt/solar>.
 

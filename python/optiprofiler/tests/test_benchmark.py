@@ -119,17 +119,17 @@ class TestBenchmarkBasic:
             assert isinstance(scores, np.ndarray)
 
     def test_custom_problem_library_with_direct_path(self, tmp_path):
-        lib_dir = tmp_path / 'solar_python'
+        lib_dir = tmp_path / 'solar'
         lib_dir.mkdir()
-        (lib_dir / 'solar_python_tools.py').write_text(
+        (lib_dir / 'solar_tools.py').write_text(
             "\n".join([
                 "import numpy as np",
                 "from optiprofiler.opclasses import Problem",
                 "",
-                "def solar_python_select(options):",
+                "def solar_select(options):",
                 "    return ['SOLAR_TOY']",
                 "",
-                "def solar_python_load(problem_name):",
+                "def solar_load(problem_name):",
                 "    return Problem(lambda x: float(np.dot(x, x)), np.array([1.0, -1.0]), name=problem_name)",
             ]),
             encoding='utf-8',
@@ -139,7 +139,7 @@ class TestBenchmarkBasic:
         feature = Feature('plain')
         problem_options = get_default_problem_options(
             {
-                'plibs': ['solar_python'],
+                'plibs': ['solar'],
                 'custom_problem_libs_path': lib_dir,
                 'problem_names': ['SOLAR_TOY'],
             }
@@ -156,7 +156,7 @@ class TestBenchmarkBasic:
         )
         results = _solve_all_problems(
             solvers,
-            'solar_python',
+            'solar',
             feature,
             problem_options,
             profile_options,
@@ -164,7 +164,7 @@ class TestBenchmarkBasic:
             None,
         )
 
-        assert results['plib'] == 'solar_python'
+        assert results['plib'] == 'solar'
         assert results['problem_names'] == ['SOLAR_TOY']
         assert results['fun_outs'].shape == (1, 2, 1)
 

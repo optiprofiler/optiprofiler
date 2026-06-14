@@ -63,10 +63,10 @@ Other tools
     pycutest_load
     pycutest_select
 
-.. currentmodule:: optiprofiler.problem_libs.solar_python
+.. currentmodule:: optiprofiler.problem_libs.solar
 
 .. autosummary::
     :toctree: generated/
 
-    solar_python_load
-    solar_python_select
+    solar_load
+    solar_select

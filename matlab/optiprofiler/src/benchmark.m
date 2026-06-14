@@ -355,7 +355,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %       - plibs: the problem libraries to be used. It should be a cell array of
 %         strings or chars. The available choices are subfolder names in the
 %         'optiprofiler/problem_libs' directory. The built-in choices include
-%         's2mpj', 'matcutest', 'solar_matlab', and 'custom'. Default setting
+%         's2mpj', 'matcutest', 'solar', and 'custom'. Default setting
 %         is 's2mpj'.
 %       - ptype: the type of the problems to be selected. It should be a string
 %         or char consisting of any combination of 'u' (unconstrained), 'b'
@@ -980,7 +980,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                 elseif strcmp(plib, 'matcutest')
                     fprintf('\n');
                     printOptiProfilerMessage('INFO', 'More information about the MatCUTEst problem library can be found at: https://github.com/matcutest');
-                elseif strcmp(plib, 'solar_matlab')
+                elseif strcmp(plib, 'solar')
                     fprintf('\n');
                     printOptiProfilerMessage('INFO', 'More information about the SOLAR problem library can be found at: https://github.com/bbopt/solar');
                     printOptiProfilerMessage('INFO', 'SOLAR uses an LGPL-2.1 slim runtime and calls an external simulator; some problems can be slow.');

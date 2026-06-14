@@ -95,7 +95,7 @@ include = ["optiprofiler*"]
     "probinfo_pycutest.csv",
     "README.md",
 ]
-"optiprofiler.problem_libs.solar_python" = [
+"optiprofiler.problem_libs.solar" = [
     "README.md",
     "runtime/solar/LICENSE",
     "runtime/solar/README.md",

@@ -44,8 +44,8 @@ First, create a new subfolder (e.g., `your_problem_lib/`) within the `matlab/opt
     │   │   │   │   ├── your_problem_lib_load.m
     │   │   │   │   └── your_problem_lib_select.m
     │   │   │   ├── s2mpj/                <-- Built-in problem library
-    │   │   │   └── matcutest/            <-- Another built-in problem library
-    │   │   │   └── solar_matlab/         <-- Optional SOLAR adapter with a slim runtime
+    │   │   │   ├── matcutest/            <-- Another built-in problem library
+    │   │   │   └── solar/                <-- Optional SOLAR adapter with a slim runtime
     │   │   ├── src/                      <-- Core MATLAB functions
     └── ...                               <-- Other OptiProfiler components
 
@@ -140,7 +140,7 @@ You may also want to view our website for more information on how to use OptiPro
 
 ## Built-in adapter note: SOLAR
 
-The `solar_matlab` problem library wraps the upstream SOLAR black-box
+The `solar` problem library wraps the upstream SOLAR black-box
 optimization simulator. It vendors a slim runtime under `runtime/solar/`,
 including the upstream LGPL-2.1 license, README, and manifest recording the
 exact upstream commit. The adapter builds a local `solar` executable on first
