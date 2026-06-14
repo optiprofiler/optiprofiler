@@ -24,6 +24,11 @@ function optiprofiler
 %   - matcutest_select: Selects problems from the MatCUTEst interface based on
 %     specified criteria.
 %
+%   - solar_load: Loads a problem from the optional SOLAR adapter.
+%
+%   - solar_select: Selects problems from the optional SOLAR adapter based on
+%     specified criteria.
+%
 %   Try "help benchmark", "help s2mpj_load", etc., for more information.
 %
 %   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
