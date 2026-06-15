@@ -229,13 +229,29 @@ function setup(varargin)
         fprintf('\n--- Setting up SOLAR MATLAB adapter ---\n\n');
 
         is_solar_dir_populated = is_populated_directory(solar_dir);
-        install_solar_requested = isfield(options, 'install_solar') && options.install_solar;
+        proceed_with_solar = false;
         skip_solar_by_request = isfield(options, 'install_solar') && ~options.install_solar;
         if skip_solar_by_request
             fprintf('Skipping SOLAR MATLAB adapter setup by request.\n');
         elseif is_solar_dir_populated
             fprintf('SOLAR MATLAB adapter detected at %s. No further action required.\n', solar_dir);
-        elseif install_solar_requested
+            proceed_with_solar = true;
+        else
+            if isfield(options, 'install_solar')
+                if options.install_solar
+                    user_response = 'y';
+                else
+                    user_response = 'n';
+                end
+            else
+                user_response = input('Do you want to download/setup the SOLAR MATLAB adapter? (y/n): ', 's');
+            end
+            if strcmpi(strtrim(user_response), 'y')
+                proceed_with_solar = true;
+            end
+        end
+
+        if proceed_with_solar && ~is_solar_dir_populated
             fprintf('Cloning SOLAR MATLAB adapter (optiprofiler fork)...\n');
             if exist(plib_dir, 'dir') ~= 7
                 mkdir(plib_dir);
@@ -252,12 +268,11 @@ function setup(varargin)
                 fprintf('Then rename the folder from "solar_matlab" to "solar" and place it at:\n');
                 fprintf('  %s\n', plib_dir);
             end
-        else
-            fprintf('SOLAR MATLAB adapter is not installed locally. Skipping optional setup.\n');
-            fprintf('Run setup(struct(''install_solar'', true)) to download and enable it.\n');
+        elseif ~proceed_with_solar && ~skip_solar_by_request
+            fprintf('Skipping SOLAR MATLAB adapter setup.\n');
         end
 
-        if is_solar_dir_populated && ~skip_solar_by_request
+        if is_solar_dir_populated && proceed_with_solar
             paths_to_add{end+1} = solar_dir;
             fprintf('SOLAR MATLAB adapter will be added to the MATLAB path.\n');
             fprintf('The adapter vendors a slim SOLAR runtime under LGPL-2.1; see its README and runtime manifest for details.\n');
