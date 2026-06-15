@@ -230,11 +230,8 @@ function setup(varargin)
 
         is_solar_dir_populated = is_populated_directory(solar_dir);
         proceed_with_solar = false;
-        skip_solar_by_request = isfield(options, 'install_solar') && ~options.install_solar;
-        if skip_solar_by_request
-            fprintf('Skipping SOLAR MATLAB adapter setup by request.\n');
-        elseif is_solar_dir_populated
-            fprintf('SOLAR MATLAB adapter detected at %s. No further action required.\n', solar_dir);
+        if is_solar_dir_populated
+            fprintf('SOLAR MATLAB adapter detected at %s. Skipping setup query.\n', solar_dir);
             proceed_with_solar = true;
         else
             if isfield(options, 'install_solar')
@@ -268,7 +265,7 @@ function setup(varargin)
                 fprintf('Then rename the folder from "solar_matlab" to "solar" and place it at:\n');
                 fprintf('  %s\n', plib_dir);
             end
-        elseif ~proceed_with_solar && ~skip_solar_by_request
+        elseif ~proceed_with_solar
             fprintf('Skipping SOLAR MATLAB adapter setup.\n');
         end
 

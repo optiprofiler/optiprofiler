@@ -142,10 +142,11 @@ You may also want to view our website for more information on how to use OptiPro
 
 The optional `solar` problem library wraps the upstream SOLAR black-box
 optimization simulator. In MATLAB, `setup` prompts before installing it from
-the separate `optiprofiler/solar_matlab` repository; CI and batch scripts can
-pass `install_solar=true` or `install_solar=false` to avoid the prompt. It is
-not a submodule of the main OptiProfiler repository. The public problem-library
-name is still `solar`, matching `options.plibs = {'solar'}`. The adapter vendors a slim runtime under
+the separate `optiprofiler/solar_matlab` repository when it is not already
+available locally; CI and batch scripts can pass `install_solar=true` or
+`install_solar=false` to avoid the prompt. It is not a submodule of the main
+OptiProfiler repository. The public problem-library name is still `solar`,
+matching `options.plibs = {'solar'}`. The adapter vendors a slim runtime under
 `runtime/solar/`, including the upstream LGPL-2.1 license, README, and
 manifest recording the exact upstream commit. The adapter builds a local
 `solar` executable on first use when the binary is missing. Some SOLAR
