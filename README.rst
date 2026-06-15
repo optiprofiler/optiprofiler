@@ -77,7 +77,8 @@ When accepted or requested, ``setup`` clones `optiprofiler/solar_matlab
 <https://github.com/optiprofiler/solar_matlab>`_ into the local directory
 ``matlab/optiprofiler/problem_libs/solar`` and adds it to the MATLAB path.
 This directory is a local optional installation, not a submodule of the
-OptiProfiler repository. Passing ``install_solar=false`` skips the adapter
-without prompting, which is useful in CI and batch scripts.
+OptiProfiler repository. Passing ``install_solar=false`` skips the prompt and
+optional download when the adapter is not installed locally, which is useful
+in CI and batch scripts.
 The public problem-library name remains ``solar``; use ``plibs={'solar'}``
 in MATLAB benchmark options.
