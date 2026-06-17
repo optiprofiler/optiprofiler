@@ -322,6 +322,8 @@ labelsize
 labelspacing
 LANCZOS
 lastd
+Lebeuf
+Lemyre
 levelno
 LEVYMONE
 lgd
