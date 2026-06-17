@@ -25,11 +25,13 @@ ARTIF
 ARWHEAD
 asarray
 atol
+Audet
 aub
 autofunction
 autouse
 axs
 backref
+bbopt
 BARDNE
 BDQRTIC
 BEALE
@@ -41,6 +43,7 @@ bfor
 bibtex
 BIGGS
 bineq
+blackbox
 bln
 bobyqa
 bools
@@ -112,6 +115,8 @@ depsc
 desynchronization
 DEVGLA
 DFO
+Diago
+Digabel
 DIAMON
 DIXMAANA
 DMN
@@ -200,6 +205,7 @@ GETLOGRATIOPROFILEAXES
 GETPERFORMANCEDATAPROFILEAXES
 GETSOLVERLOGNAMES
 gfortran
+Gheribi
 Ghostscript
 github
 gitmodules
@@ -239,6 +245,7 @@ HIMMELBD
 HIMMELBFNE
 HIMMELBH
 hlist
+hpp
 huang
 HYDCAR
 HYPCIR
@@ -355,6 +362,8 @@ matmatcutestselect
 matplotlib
 matproblem
 matsload
+matsolarload
+matsolarselect
 matsselect
 maxb
 maxcon
@@ -402,6 +411,7 @@ mpjselect
 MSQRTA
 MSQRTB
 multipdf
+multiobjective
 MUONSINE
 MUONSINELS
 mydir
@@ -585,6 +595,7 @@ Thanmindim
 Thanminlcon
 Thanminnlcon
 THH
+Thi
 THURBER
 tiledlayout
 titlesize
@@ -616,6 +627,7 @@ varargout
 VARDIMNE
 vectorize
 vectorized
+vendored
 VESUVIA
 VESUVIO
 VESUVIOU
