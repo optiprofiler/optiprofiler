@@ -30,7 +30,7 @@ from .opclasses import Feature, Problem, FeaturedProblem
 from .utils import DEFAULT_LOG_LINE_WIDTH, FeatureName, ProfileOption, FeatureOption, ProblemOption, get_logger, print_log_message, setup_main_process_logging, setup_worker_logging, shorten_log_message, format_log_prefix
 from .loader import load_results, save_results_to_h5, save_options
 from .profile_utils import check_validity_problem_options, check_validity_profile_options, get_default_problem_options, get_default_profile_options, compute_merit_values, create_stamp, merge_pdfs_with_pypdf, write_report, process_results, init_readme, add_to_readme, compute_scores
-from .plotting import draw_hist, set_profile_context, format_float_scientific_latex, draw_profiles, summary_legend_extra_width
+from .plotting import draw_hist, set_profile_context, format_float_scientific_latex, draw_profiles, summary_legend_extra_width, latex_escape_text
 
 
 def _shorten_log_message(message: object, max_length: int = 180) -> str:
@@ -2331,7 +2331,7 @@ def _solve_one_problem(solvers, problem, feature, problem_name, len_problem_name
             pdf_summary = os.path.join(path_hist_plots, pdf_hist_file_name)
             
             # Process solver names (replace underscores)
-            processed_solver_names = [name.replace('_', r'\_') for name in solver_names]
+            processed_solver_names = [latex_escape_text(name) for name in solver_names]
             
             # Draw history plots
             draw_hist(fun_history, maxcv_history, merit_history, fun_inits, maxcv_inits, merit_init, processed_solver_names, cell_axs_summary, False, problem_type, problem_dim, n_eval, profile_options, default_height)
@@ -2455,7 +2455,7 @@ def _draw_problem_history_plot(problem_name, problem_type, problem_dim, solver_n
             pdf_summary = os.path.join(path_hist_plots, pdf_hist_file_name)
             
             # Process solver names (replace underscores)
-            processed_solver_names = [name.replace('_', r'\_') for name in solver_names]
+            processed_solver_names = [latex_escape_text(name) for name in solver_names]
             
             # Draw history plots
             draw_hist(fun_history, maxcv_history, merit_history, fun_init, maxcv_init, merit_init, processed_solver_names, cell_axs_summary, False, problem_type, problem_dim, n_eval, profile_options, default_height)

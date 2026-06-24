@@ -19,11 +19,9 @@ function exportHist(problem_name, problem_type, problem_dim, solver_names, solve
         else
             n_cols = 3;
         end
-        defaultFigurePosition = get(0, 'DefaultFigurePosition');
-        default_width = defaultFigurePosition(3);
-        default_height = defaultFigurePosition(4);
+        [~, default_width, default_height] = profileFigurePosition();
         summary_profile_width = default_width + summaryLegendExtraWidth(numel(solver_names), default_width, solver_names);
-        fig_summary = figure('Position', [defaultFigurePosition(1:2), n_cols * summary_profile_width, 2 * default_height], 'visible', 'off');
+        fig_summary = figure('Units', 'pixels', 'Position', profileFigurePosition(n_cols * summary_profile_width, 2 * default_height), 'visible', 'off');
         T_summary = tiledlayout(fig_summary, 2, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
         F_title = strrep(profile_options.feature_stamp, '_', '\_');
         P_title = strrep(problem_name, '_', '\_');
@@ -55,7 +53,7 @@ function exportHist(problem_name, problem_type, problem_dim, solver_names, solve
 
         pdf_hist_file_name = [regexprep(regexprep(regexprep(strrep(problem_name,' ','_'),'[^a-zA-Z0-9\-_]',''),'[-_]+','_'),'^[-_]+',''), '.pdf'];
         pdf_summary = fullfile(path_hist_plots, pdf_hist_file_name);
-        processed_solver_names = cellfun(@(s) strrep(s, '_', '\_'), solver_names, 'UniformOutput', false);
+        processed_solver_names = cellfun(@escapeLatexText, solver_names, 'UniformOutput', false);
 
         drawHist(fun_history, maxcv_history, merit_history, fun_inits, maxcv_inits, merit_inits, processed_solver_names, cell_axs_summary, false, problem_type, problem_dim, n_eval, profile_options, default_height);
         drawHist(fun_history, maxcv_history, merit_history, fun_inits, maxcv_inits, merit_inits, processed_solver_names, cell_axs_summary_cum, true, problem_type, problem_dim, n_eval, profile_options, default_height);

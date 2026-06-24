@@ -7,9 +7,9 @@ function placeSolverLegend(ax, n_solvers, default_location)
     if n_solvers > compact_threshold
         n_cols = max(1, floor(n_solvers / min_rows_per_column));
         try
-            lgd = legend(ax, 'Location', 'eastoutside', 'NumColumns', n_cols);
+            lgd = legend(ax, 'Location', 'eastoutside', 'NumColumns', n_cols, 'Interpreter', 'latex');
         catch
-            lgd = legend(ax, 'Location', 'eastoutside');
+            lgd = legend(ax, 'Location', 'eastoutside', 'Interpreter', 'latex');
         end
         if n_solvers <= 20
             lgd.FontSize = 8;
@@ -19,7 +19,7 @@ function placeSolverLegend(ax, n_solvers, default_location)
             lgd.FontSize = 6;
         end
     else
-        legend(ax, 'Location', chooseLegendLocation(ax, default_location));
+        legend(ax, 'Location', chooseLegendLocation(ax, default_location), 'Interpreter', 'latex');
     end
 end
 

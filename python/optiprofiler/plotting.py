@@ -25,8 +25,25 @@ _COMPACT_LEGEND_SOLVER_THRESHOLD = 10
 _COMPACT_LEGEND_MIN_ROWS_PER_COLUMN = 10
 
 
+def latex_escape_text(text):
+    """Escape literal labels for Matplotlib when LaTeX rendering is enabled."""
+    replacements = {
+        '\\': r'\textbackslash{}',
+        '_': r'\_',
+        '#': r'\#',
+        '%': r'\%',
+        '&': r'\&',
+        '$': r'\$',
+        '{': r'\{',
+        '}': r'\}',
+        '^': r'\^{}',
+        '~': r'\~{}',
+    }
+    return ''.join(replacements.get(char, char) for char in str(text))
+
+
 def draw_profiles(work, problem_dimensions, solver_names, tolerance_latex, i_tol, ax_summary_perf, ax_summary_data, ax_summary_log_ratio, is_summary, is_perf, is_data, is_log_ratio, profile_options, curves):
-    solver_names = [name.replace('_', r'\_') for name in solver_names]
+    solver_names = [latex_escape_text(name) for name in solver_names]
     n_solvers = work.shape[1]
 
     # Create the individual figures.
