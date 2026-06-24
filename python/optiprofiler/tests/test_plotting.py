@@ -4,6 +4,7 @@ matplotlib.use('Agg')
 
 import numpy as np
 import pytest
+import shutil
 from matplotlib import pyplot as plt
 
 from optiprofiler.plotting import (
@@ -19,6 +20,7 @@ from optiprofiler.plotting import (
     data_ticks,
     draw_profiles,
     format_float_scientific_latex,
+    latex_escape_text,
     perf_ticks,
     set_profile_context,
     summary_legend_extra_width,
@@ -152,6 +154,30 @@ class TestSetProfileContext:
         assert ctx['font.family'] == 'serif'
         assert ctx['font.size'] == 16
         assert 'text.usetex' in ctx
+
+
+class TestLatexEscapeText:
+
+    def test_escapes_solver_label_special_characters(self):
+        assert latex_escape_text(r'a_b#c%d&e$f{g}h^i~j\k') == (
+            r'a\_b\#c\%d\&e\$f\{g\}h\^{}i\~{}j\textbackslash{}k'
+        )
+
+    def test_escaped_solver_label_can_be_drawn_in_legend(self):
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1], label=latex_escape_text(r'solver_b#1%'))
+        ax.legend()
+        fig.canvas.draw()
+        plt.close(fig)
+
+    @pytest.mark.skipif(shutil.which('latex') is None, reason='LaTeX is not installed')
+    def test_escaped_solver_label_can_be_drawn_with_usetex(self):
+        with plt.rc_context({'text.usetex': True}):
+            fig, ax = plt.subplots()
+            ax.plot([0, 1], [0, 1], label=latex_escape_text(r'solver_b#1%'))
+            ax.legend()
+            fig.canvas.draw()
+            plt.close(fig)
 
 
 class TestFormatFloatScientificLatex:
