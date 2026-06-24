@@ -25,14 +25,14 @@ ARTIF
 ARWHEAD
 asarray
 atol
-aub
 Audet
+aub
 autofunction
 autouse
 axs
 backref
-BARDNE
 bbopt
+BARDNE
 BDQRTIC
 BEALE
 BEALENE
@@ -322,6 +322,8 @@ labelsize
 labelspacing
 LANCZOS
 lastd
+Lebeuf
+Lemyre
 levelno
 LEVYMONE
 lgd
@@ -345,8 +347,6 @@ lsqlin
 lsqr
 lucide
 LUKSAN
-Lebeuf
-Lemyre
 macup
 MANCINONE
 mann
@@ -364,6 +364,8 @@ matmatcutestselect
 matplotlib
 matproblem
 matsload
+matsolarload
+matsolarselect
 matsselect
 maxb
 maxcon
