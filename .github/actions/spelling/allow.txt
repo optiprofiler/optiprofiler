@@ -26,11 +26,13 @@ ARWHEAD
 asarray
 atol
 aub
+Audet
 autofunction
 autouse
 axs
 backref
 BARDNE
+bbopt
 BDQRTIC
 BEALE
 BEALENE
@@ -41,6 +43,7 @@ bfor
 bibtex
 BIGGS
 bineq
+blackbox
 bln
 bobyqa
 bools
@@ -112,6 +115,8 @@ depsc
 desynchronization
 DEVGLA
 DFO
+Diago
+Digabel
 DIAMON
 DIXMAANA
 DMN
@@ -185,6 +190,7 @@ gaussian
 gcp
 genpath
 GENROSEBNE
+Gheribi
 getceq
 GETCONSERVATIVEDEFAULTNJOBS
 getcub
@@ -239,6 +245,7 @@ HIMMELBD
 HIMMELBFNE
 HIMMELBH
 hlist
+hpp
 huang
 HYDCAR
 HYPCIR
@@ -338,6 +345,8 @@ lsqlin
 lsqr
 lucide
 LUKSAN
+Lebeuf
+Lemyre
 macup
 MANCINONE
 mann
@@ -401,6 +410,7 @@ mpjload
 mpjselect
 MSQRTA
 MSQRTB
+multiobjective
 multipdf
 MUONSINE
 MUONSINELS
@@ -577,6 +587,7 @@ tagline
 tempname
 TESTOPTIPROFILER
 testsuite
+textbackslash
 textscan
 Thanmaxlcon
 Thanminb
@@ -584,6 +595,7 @@ Thanmincon
 Thanmindim
 Thanminlcon
 Thanminnlcon
+Thi
 THH
 THURBER
 tiledlayout
@@ -616,6 +628,7 @@ varargout
 VARDIMNE
 vectorize
 vectorized
+vendored
 VESUVIA
 VESUVIO
 VESUVIOU

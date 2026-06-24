@@ -48,3 +48,9 @@
 
 # Compiler flags
 (?:^|[\t ,"'`=(])-[DPWXYLlf](?=[A-Z]{2,}|[A-Z][a-z]|[a-z]{2,})
+
+# Sphinx reference labels, e.g. `.. _matsolarload:`
+^\.\. _[A-Za-z0-9_]+:
+
+# MATLAB help headers begin with the function name in uppercase.
+^%[A-Z][A-Z0-9_]+(?=\s|$)
