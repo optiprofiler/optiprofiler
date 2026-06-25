@@ -29,7 +29,7 @@ from matplotlib.ticker import MaxNLocator, FuncFormatter
 from .opclasses import Feature, Problem, FeaturedProblem
 from .utils import DEFAULT_LOG_LINE_WIDTH, FeatureName, ProfileOption, FeatureOption, ProblemOption, get_logger, print_log_message, setup_main_process_logging, setup_worker_logging, shorten_log_message, format_log_prefix
 from .loader import load_results, save_results_to_h5, save_options
-from .profile_utils import check_validity_problem_options, check_validity_profile_options, get_default_problem_options, get_default_profile_options, compute_merit_values, create_stamp, merge_pdfs_with_pypdf, write_report, process_results, init_readme, add_to_readme, compute_scores
+from .profile_utils import check_validity_problem_options, check_validity_profile_options, get_default_problem_options, get_default_profile_options, compute_merit_values, create_stamp, merge_pdfs_with_pypdf, write_report, process_results, init_readme, add_to_readme, compute_scores, _custom_problem_library_dir
 from .plotting import draw_hist, set_profile_context, format_float_scientific_latex, draw_profiles, summary_legend_extra_width, latex_escape_text
 
 
@@ -534,7 +534,9 @@ def benchmark(
         contain a tools module named '<library_name>_tools.py' with two functions:
         '<library_name>_load' and '<library_name>_select'. This option allows
         users to use their own problem libraries without modifying the installed
-        package. Default is None, meaning only built-in libraries are available.
+        package. If a custom library has the same name as a built-in library,
+        the custom library is used. Default is None, meaning only built-in
+        libraries are available.
     excludelist : list, optional
         The list of problems to be excluded. Default is not to
         exclude any problem.
@@ -605,7 +607,8 @@ def benchmark(
        adapter README and ``runtime/solar/manifest.json`` for provenance. To
        use your own problem library, see the
        ``custom_problem_libs_path`` option or the guide on our
-       `website <https://www.optprof.com>`_.
+       `website <https://www.optprof.com>`_. A custom library with the same
+       name as a built-in library overrides the built-in one for that run.
 
     2. Each problem library has a ``config.txt`` file that controls options
        such as ``variable_size`` and ``test_feasibility_problems``. You can
@@ -2509,37 +2512,29 @@ def _get_problem_lib_module_path(plib, custom_problem_libs_path=None):
     """
     current_dir = Path(__file__).parent.resolve()
     builtin_module_file_path = current_dir / 'problem_libs' / plib / f'{plib}_tools.py'
-    
-    # Check if it's a built-in library.
-    if builtin_module_file_path.exists():
-        module_file_path = builtin_module_file_path.resolve()
-        module_name = f'optiprofiler.problem_libs.{plib}.{plib}_tools'
-        return module_file_path, module_name, True
-    
-    # Check if it's a custom library.
+
+    # Check explicit custom libraries before built-ins. This allows users to
+    # test or override a built-in adapter by passing custom_problem_libs_path
+    # with a library of the same name.
     if custom_problem_libs_path is not None:
         custom_problem_libs_path = Path(custom_problem_libs_path).expanduser().resolve()
-        # The custom path may be either a parent directory containing ``plib``
-        # or the ``plib`` directory itself.  Keep the tools-module naming strict
-        # (``<plib>_tools.py``) and reject ambiguous layouts instead of guessing.
-        custom_library_dirs = {
-            candidate.resolve()
-            for candidate in (custom_problem_libs_path / plib, custom_problem_libs_path)
-            if candidate.is_dir() and candidate.name == plib
-        }
-        if len(custom_library_dirs) > 1:
-            raise ValueError(
-                f'The option {ProblemOption.CUSTOM_PROBLEM_LIBS_PATH} is ambiguous for '
-                f'problem library "{plib}". It can point to either the parent directory '
-                f'containing "{plib}" or the "{plib}" directory itself, but not both.'
-            )
-
-        for custom_library_dir in custom_library_dirs:
+        custom_library_dir = _custom_problem_library_dir(custom_problem_libs_path, plib)
+        if custom_library_dir is not None:
             custom_module_file_path = custom_library_dir / f'{plib}_tools.py'
             if custom_module_file_path.is_file():
                 module_file_path = custom_module_file_path.resolve()
                 module_name = f'{plib}.{plib}_tools'
                 return module_file_path, module_name, False
+            raise ValueError(
+                f'The custom problem library "{plib}" at {custom_library_dir} must '
+                f'contain "{plib}_tools.py".'
+            )
+
+    # Check if it's a built-in library.
+    if builtin_module_file_path.exists():
+        module_file_path = builtin_module_file_path.resolve()
+        module_name = f'optiprofiler.problem_libs.{plib}.{plib}_tools'
+        return module_file_path, module_name, True
     
     # If not found in either location, return the builtin path (will fail later with a clear error).
     return builtin_module_file_path.resolve(), f'optiprofiler.problem_libs.{plib}.{plib}_tools', True

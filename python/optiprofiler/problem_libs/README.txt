@@ -10,6 +10,10 @@ libraries directly to the `problem_libs` folder. In this case, you should use th
 `custom_problem_libs_path` option to specify an external directory containing
 your custom problem libraries.
 
+If an external library has the same name as a built-in library, the external
+library takes precedence for that benchmark run. This is useful for testing a
+new adapter version without modifying the installed OptiProfiler package.
+
 Example:
 ```python
 from optiprofiler import benchmark

@@ -25,11 +25,13 @@ ARTIF
 ARWHEAD
 asarray
 atol
+Audet
 aub
 autofunction
 autouse
 axs
 backref
+bbopt
 BARDNE
 BDQRTIC
 BEALE
@@ -41,6 +43,7 @@ bfor
 bibtex
 BIGGS
 bineq
+blackbox
 bln
 bobyqa
 bools
@@ -112,6 +115,8 @@ depsc
 desynchronization
 DEVGLA
 DFO
+Diago
+Digabel
 DIAMON
 DIXMAANA
 DMN
@@ -185,6 +190,7 @@ gaussian
 gcp
 genpath
 GENROSEBNE
+Gheribi
 getceq
 GETCONSERVATIVEDEFAULTNJOBS
 getcub
@@ -239,6 +245,7 @@ HIMMELBD
 HIMMELBFNE
 HIMMELBH
 hlist
+hpp
 huang
 HYDCAR
 HYPCIR
@@ -315,6 +322,8 @@ labelsize
 labelspacing
 LANCZOS
 lastd
+Lebeuf
+Lemyre
 levelno
 LEVYMONE
 lgd
@@ -355,6 +364,8 @@ matmatcutestselect
 matplotlib
 matproblem
 matsload
+matsolarload
+matsolarselect
 matsselect
 maxb
 maxcon
@@ -401,6 +412,7 @@ mpjload
 mpjselect
 MSQRTA
 MSQRTB
+multiobjective
 multipdf
 MUONSINE
 MUONSINELS
@@ -577,6 +589,7 @@ tagline
 tempname
 TESTOPTIPROFILER
 testsuite
+textbackslash
 textscan
 Thanmaxlcon
 Thanminb
@@ -584,6 +597,7 @@ Thanmincon
 Thanmindim
 Thanminlcon
 Thanminnlcon
+Thi
 THH
 THURBER
 tiledlayout
@@ -616,6 +630,7 @@ varargout
 VARDIMNE
 vectorize
 vectorized
+vendored
 VESUVIA
 VESUVIO
 VESUVIOU
