@@ -54,6 +54,9 @@ function setup(varargin)
     plib_dir = fullfile(optiprofiler_dir, 'problem_libs'); % Directory containing problem libraries
     s2mpj_dir = fullfile(plib_dir, 's2mpj'); % Directory containing S2MPJ
     matcutest_dir = fullfile(plib_dir, 'matcutest'); % Directory containing tools (interfaces) for MatCUTEst
+    % Pin MatCUTEst to the commit validated with this OptiProfiler release.
+    matcutest_repo_url = 'https://github.com/optiprofiler/matcutest.git';
+    matcutest_commit = '50f3ccb7e4050675bdae5e79e1047216a7aedce7';
     solar_dir = fullfile(plib_dir, 'solar'); % Local directory for the optional SOLAR MATLAB adapter
     
     % We need write access to `setup_dir` (and its subdirectories). Return if we do not have it.
@@ -172,14 +175,15 @@ function setup(varargin)
                     if ~skip_clone_msg
                          fprintf('MatCUTEst directory at %s seems populated. Skipping clone.\n', matcutest_dir);
                     end
-                    update_git_repository_if_clean(matcutest_dir, 'MatCUTEst');
+                    checkout_git_repository_commit_if_clean(matcutest_dir, matcutest_repo_url, matcutest_commit, 'MatCUTEst');
                 else
                     fprintf('Cloning MatCUTEst repository (optiprofiler fork)...\n');
-                    clone_cmd = sprintf('git clone --depth 1 https://github.com/optiprofiler/matcutest.git "%s"', matcutest_dir);
+                    clone_cmd = sprintf('git clone "%s" "%s"', matcutest_repo_url, matcutest_dir);
                     status = system(clone_cmd);
                     
                     if status == 0
                         fprintf('MatCUTEst cloned successfully.\n');
+                        checkout_git_repository_commit_if_clean(matcutest_dir, matcutest_repo_url, matcutest_commit, 'MatCUTEst');
                     else
                         fprintf('WARNING: Failed to clone MatCUTEst repository.\n');
                     end
@@ -383,12 +387,19 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-function update_git_repository_if_clean(repo_dir, repo_name)
-    %UPDATE_GIT_REPOSITORY_IF_CLEAN fast-forwards an optional problem library checkout.
+function checkout_git_repository_commit_if_clean(repo_dir, repo_url, commit_hash, repo_name)
+    %CHECKOUT_GIT_REPOSITORY_COMMIT_IF_CLEAN pins an optional problem library checkout.
 
     git_dir = fullfile(repo_dir, '.git');
     if exist(git_dir, 'dir') ~= 7 && exist(git_dir, 'file') ~= 2
         fprintf('%s directory is not a git repository. Using it as-is.\n', repo_name);
+        return
+    end
+
+    head_cmd = sprintf('git -C "%s" rev-parse HEAD', repo_dir);
+    [status, head_output] = system(head_cmd);
+    if status == 0 && strcmp(strtrim(head_output), commit_hash)
+        fprintf('%s repository is already at pinned commit %s.\n', repo_name, commit_hash);
         return
     end
 
@@ -400,17 +411,32 @@ function update_git_repository_if_clean(repo_dir, repo_name)
     end
 
     if ~isempty(strtrim(status_output))
-        fprintf('%s repository has local changes. Skipping automatic update.\n', repo_name);
+        fprintf('%s repository has local changes. Skipping checkout of pinned commit %s.\n', repo_name, commit_hash);
         return
     end
 
-    pull_cmd = sprintf('git -C "%s" pull --ff-only', repo_dir);
-    status = system(pull_cmd);
-    if status == 0
-        fprintf('%s repository is up to date or fast-forwarded successfully.\n', repo_name);
-    else
-        fprintf('WARNING: Could not fast-forward %s repository. Using it as-is.\n', repo_name);
+    fetch_cmd = sprintf('git -C "%s" fetch --tags "%s"', repo_dir, repo_url);
+    status = system(fetch_cmd);
+    if status ~= 0
+        fprintf('WARNING: Could not fetch %s repository. Using it as-is.\n', repo_name);
+        return
     end
+
+    checkout_cmd = sprintf('git -C "%s" checkout --detach %s', repo_dir, commit_hash);
+    status = system(checkout_cmd);
+    if status ~= 0
+        fprintf('WARNING: Could not checkout %s pinned commit %s. Using repository as-is.\n', repo_name, commit_hash);
+        return
+    end
+
+    clean_cmd = sprintf('git -C "%s" reset --hard %s', repo_dir, commit_hash);
+    status = system(clean_cmd);
+    if status ~= 0
+        fprintf('WARNING: Could not reset %s repository to pinned commit %s. Using repository as-is.\n', repo_name, commit_hash);
+        return
+    end
+
+    fprintf('%s repository checked out at pinned commit %s.\n', repo_name, commit_hash);
 
     return
 
