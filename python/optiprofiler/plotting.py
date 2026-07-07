@@ -28,6 +28,7 @@ _PROFILE_TICK_LABELSIZE = 11
 _HISTORY_LABELSIZE = 12
 _HISTORY_TICK_LABELSIZE = 11
 _HISTORY_LEGEND_FONTSIZE = 10
+_HISTORY_YLABEL_PAD = 18
 
 
 def latex_escape_text(text):
@@ -630,7 +631,7 @@ def draw_hist(fun_histories, maxcv_histories, merit_histories, fun_init, maxcv_i
             label = base_label
         fontsize = min(10, 1.2 * default_height_px / len(f"{base_label} shifted above by ${formatted_shift}$"))
         with plt.rc_context(profile_context):
-            ax.set_ylabel(label, fontsize=min(fontsize, _HISTORY_LABELSIZE), labelpad=10)
+            ax.set_ylabel(label, fontsize=min(fontsize, _HISTORY_LABELSIZE), labelpad=_HISTORY_YLABEL_PAD)
     
     # Draw and label function value histories.
     y_shift_fun = compute_y_shift(fun_histories, profile_options)
@@ -928,7 +929,7 @@ def draw_fun_maxcv_merit_hist(ax, y, solver_names, is_cum, problem_n, y_shift, n
     
     # Show ticks on both sides (left and right) and set direction to 'in' (matching MATLAB).
     ax.yaxis.set_ticks_position('both')
-    ax.tick_params(axis='y', which='both', direction='in', right=True, labelleft=True, labelright=False)
+    ax.tick_params(axis='y', which='both', direction='in', right=True, labelleft=True, labelright=False, pad=4)
     ax.tick_params(axis='x', which='both', direction='in')
     # Add box around the plot (matching MATLAB's box(ax, 'on')).
     for spine in ax.spines.values():

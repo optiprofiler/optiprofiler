@@ -2033,14 +2033,10 @@ def _save_problem_history_pdf(pdf_path, mode, problem_name, problem_type, proble
                           profile_options, default_height, show_xlabel=i_row == n_rows - 1)
 
             if mode == 'combined':
-                fig_summary.tight_layout(rect=[0.07, 0.04, 0.98, 0.97], h_pad=2.0, w_pad=1.5)
-                row1_y = 0.5 * (axs_summary[0].get_position().y0 + axs_summary[0].get_position().y1)
-                row2_y = 0.5 * (axs_summary[-1].get_position().y0 + axs_summary[-1].get_position().y1)
-                fig_summary.text(0.015, row1_y, "History profiles", rotation=90, va='center', fontsize=12)
-                fig_summary.text(0.015, row2_y, "Cummin history profiles", rotation=90, va='center', fontsize=12)
+                fig_summary.tight_layout(rect=[0.055, 0.04, 0.98, 0.97], h_pad=2.0, w_pad=1.5)
             else:
                 axs_summary[n_cols // 2].set_title(title_text, fontsize=title_fontsize, pad=8)
-                fig_summary.tight_layout(rect=[0.04, 0.055, 0.98, 0.98], h_pad=1.2, w_pad=1.5)
+                fig_summary.tight_layout(rect=[0.055, 0.055, 0.98, 0.98], h_pad=1.2, w_pad=1.5)
 
             fig_summary.savefig(pdf_path, bbox_inches='tight')
         finally:

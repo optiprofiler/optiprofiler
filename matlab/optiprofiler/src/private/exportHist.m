@@ -90,11 +90,6 @@ function exportHistoryFigure(pdf_file, mode, problem_name, problem_type, problem
             axs_summary(i_axs) = nexttile(t_summary(i));
         end
     end
-    if strcmp(mode, 'combined')
-        ylabel(t_summary(1), "History profiles", 'Interpreter', 'latex', 'FontSize', 11);
-        ylabel(t_summary(2), "Cummin history profiles", 'Interpreter', 'latex', 'FontSize', 11);
-    end
-
     for i = 1:n_rows
         row_start = (i - 1) * n_cols + 1;
         if strcmp(problem_type, 'u')
