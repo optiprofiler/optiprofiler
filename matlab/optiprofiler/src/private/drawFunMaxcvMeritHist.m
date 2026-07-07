@@ -156,6 +156,9 @@ function drawFunMaxcvMeritHist(ax, y, solver_names, is_cum, problem_n, y_shift, 
         i_y_lower = y_values_l{i_solver};
         i_y_upper = y_values_u{i_solver};
         i_eval = length(i_x);
+        if i_eval == 0
+            continue;
+        end
         x = i_x / (problem_n + 1);
         xr_lim = max(xr_lim, x(end));
 

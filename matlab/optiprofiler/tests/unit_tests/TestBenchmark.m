@@ -125,6 +125,35 @@ classdef TestBenchmark < matlab.unittest.TestCase
             benchmark(solvers, options);
         end
 
+        function testHistoryPlotFiles(testCase)
+            solvers = {@history_test_solver1, @history_test_solver2};
+            tmp_dir = tempname;
+            mkdir(tmp_dir);
+            cleanup = onCleanup(@() rmdir(tmp_dir, 's'));
+
+            options.savepath = tmp_dir;
+            options.benchmark_id = 'hist-test';
+            options.solver_names = {'solver_1', 'solver_2'};
+            options.max_tol_order = 1;
+            options.n_runs = 1;
+            options.ptype = 'u';
+            options.problem_names = {'ROSENBR'};
+            options.mindim = 2;
+            options.maxdim = 2;
+            options.max_eval_factor = 5;
+            options.n_jobs = 1;
+            options.silent = true;
+            options.draw_hist_plots = 'sequential';
+
+            benchmark(solvers, options);
+
+            testCase.verifyNumElements(dir(fullfile(tmp_dir, 'hist-test', '*', 'history_plots', 's2mpj', 'ROSENBR.pdf')), 1);
+            testCase.verifyNumElements(dir(fullfile(tmp_dir, 'hist-test', '*', 'history_plots', 's2mpj', 'raw', 'ROSENBR.pdf')), 1);
+            testCase.verifyNumElements(dir(fullfile(tmp_dir, 'hist-test', '*', 'history_plots', 's2mpj', 'cummin', 'ROSENBR.pdf')), 1);
+            testCase.verifyNumElements(dir(fullfile(tmp_dir, 'hist-test', '*', 'history_plots', 's2mpj_history_plots_summary.pdf')), 1);
+            clear cleanup;
+        end
+
         function testErrors(testCase)
             % Test whether the function throws errors as expected.
             solvers = {@fmincon_test1, @fmincon_test2};
@@ -167,6 +196,17 @@ classdef TestBenchmark < matlab.unittest.TestCase
     
         end
     end
+end
+
+function x = history_test_solver1(fun, x0)
+    fun(x0);
+    x = x0;
+end
+
+function x = history_test_solver2(fun, x0)
+    fun(x0);
+    x = x0 + 0.1;
+    fun(x);
 end
 
 function x = fmincon_test1(varargin)

@@ -83,7 +83,10 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         is 'none', we will not draw the history plots. If it is 'parallel',
 %         we will draw the history plots in the same time when solvers are
 %         solving the problems. If it is 'sequential', we will draw the history
-%         plots after all the problems are solved. Default is 'sequential'.
+%         plots after all the problems are solved. For each problem, the
+%         original combined history plot is saved as `PROBLEM.pdf`; raw-only
+%         and cumulative-minimum-only plots are saved under the `raw` and
+%         `cummin` subfolders. Default is 'sequential'.
 %       - errorbar_type: the type of the uncertainty interval that can be
 %         either 'minmax' or 'meanstd'. When `n_runs` is greater than 1, we run
 %         several times of the experiments and get average curves and
@@ -169,7 +172,10 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         handle representing a nonnegative function in R^+. Default is 1.
 %       - seed: the seed of the random number generator. Default is 0.
 %       - semilogx: whether to use the semilogx scale during plotting profiles
-%         (performance profiles and data profiles). Default is true.
+%         (performance profiles and data profiles). For data profiles, the
+%         plotted coordinate is `log2(1 + n_eval / (n + 1))` but tick labels
+%         are displayed in the original `n_eval / (n + 1)` units, typically
+%         `0, 1, 2, 4, ...`. Default is true.
 %       - silent: whether to show the information of the progress. Default is
 %         false.
 %       - solver_isrand: whether the solvers are randomized or not. Default is
@@ -785,8 +791,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         try
             initReadme(path_readme_feature);
             if ~isempty(path_hist_plots)
-                addToReadme(path_readme_feature, 'history_plots', 'Folder, containing all the history plots for each problem.');
-                addToReadme(path_readme_feature, 'history_plots_summary.pdf', 'File, the summary PDF of history plots for all problems.');
+                addToReadme(path_readme_feature, 'history_plots', 'Folder, containing combined history plots for each problem; raw-only and cumulative-minimum-only plots are stored in the raw and cummin subfolders of each problem-library folder.');
+                addToReadme(path_readme_feature, 'history_plots_summary.pdf', 'File, the summary PDF of combined history plots for all problems.');
             end
             addToReadme(path_readme_feature, 'test_log', 'Folder, containing log files and other useful experimental data.');
         catch ME
@@ -1202,10 +1208,11 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         summary_height = multiplier * n_rows * default_height;
         fig_summary = figure('Units', 'pixels', 'Position', profileFigurePosition(summary_width, summary_height), 'visible', 'off');
         T_summary = tiledlayout(fig_summary, multiplier, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
-        T_feature = strrep(feature.name, '_', '\_');
-        T_title = ['Profiles with the ``', T_feature, '" feature'];
+        T_feature = escapeLatexText(feature.name);
+        T_title = ['Profiles with "', T_feature, '" feature'];
         summary_fontsize = min(summary_width / 75 * 2, summary_width / profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * 3 / 75 * 2);
-        title(T_summary, T_title, 'Interpreter', 'latex', 'FontSize', summary_fontsize);
+        title_obj = title(T_summary, T_title, 'Interpreter', 'latex', 'FontSize', summary_fontsize);
+        set(title_obj, 'Interpreter', 'latex');
         % Use gobjects to create arrays of handles and axes.
         t_summary = gobjects(multiplier, 1);
         axs_summary = gobjects([multiplier, 1, n_rows, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)]);

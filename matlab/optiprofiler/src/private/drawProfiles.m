@@ -161,21 +161,28 @@ end
 function [ticks, tickLabels] = dataTicks(ratio_cut_data, is_semilogx)
 
     if is_semilogx
-        if ratio_cut_data >= 5
-            max_power = floor(ratio_cut_data);
-            ticks = linspace(1, max_power, 5);
-            ticks = [0 ticks];
-            ticks(2:end-1) = round(ticks(2:end-1));
-            ticks = unique(ticks, 'stable');
-        elseif ratio_cut_data >= 1
-            max_power = floor(ratio_cut_data);
-            ticks = (0:1:max_power);
-        elseif ratio_cut_data >= 1e-1
+        % Data profiles are plotted at z = log2(1 + alpha), where
+        % alpha = n_eval / (n + 1). Choose ticks in the original alpha
+        % units and then map them to z so that labels remain literal
+        % simplex-gradient budgets (0, 1, 2, 4, ...).
+        ratio_cut_alpha = max(0, 2 ^ ratio_cut_data - 1);
+        if ratio_cut_alpha >= 1
+            max_power = floor(log2(ratio_cut_alpha));
+            if max_power + 1 <= 5
+                powers = 0:1:max_power;
+            else
+                powers = unique([0, floor(linspace(1, max_power, 4))], 'stable');
+            end
+            alpha_ticks = [0, 2 .^ powers];
+            ticks = log2(1 + alpha_ticks);
+            tickLabels = arrayfun(@(x) num2str(x), alpha_ticks, 'UniformOutput', false);
+        elseif ratio_cut_alpha >= 1e-1
             ticks = [0 ratio_cut_data];
+            tickLabels = {'0', stripTrailingZeros(sprintf('%.2f', ratio_cut_alpha))};
         else
             ticks = [0];
+            tickLabels = {'0'};
         end
-        tickLabels = arrayfun(@(x) num2str(2 ^ x - 1), ticks, 'UniformOutput', false);
     else
         if ratio_cut_data >= 5
             max_power = floor(ratio_cut_data);
@@ -192,4 +199,9 @@ function [ticks, tickLabels] = dataTicks(ratio_cut_data, is_semilogx)
         end
         tickLabels = arrayfun(@(x) num2str(x), ticks, 'UniformOutput', false);
     end
+end
+
+function label = stripTrailingZeros(label)
+    label = regexprep(label, '0+$', '');
+    label = regexprep(label, '\.$', '');
 end

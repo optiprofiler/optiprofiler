@@ -53,6 +53,12 @@ problem/run), solver runs that terminated abnormally, and solver outputs that
 were replaced by the initial point as an output-based penalty. The file
 ``test_log/log.txt`` contains the messages printed during the run.
 
+If history plots are enabled, each problem library has a subfolder under
+``history_plots``. The top-level ``PROBLEM.pdf`` files keep the combined view
+with both raw and cumulative-minimum histories. The ``raw`` and ``cummin``
+subfolders contain the corresponding single-view PDFs. The merged
+``*_history_plots_summary.pdf`` file uses the top-level combined PDFs.
+
 .. _example2:
 
 Example 2: one step further by adding options

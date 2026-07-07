@@ -72,7 +72,7 @@ Options should be specified in a struct. The following are the available fields 
 
   - **benchmark_id**: the identifier of the test. It is used to create the specific directory to store the results. Default is ``'out'`` if the option ``load`` is not provided, otherwise default is ``'.'``.
 
-  - **draw_hist_plots**: whether or how to draw the history plots of all the problems. It can be either ``'none'``, ``'sequential'``, or ``'parallel'``. If it is ``'none'``, we will not draw the history plots. If it is ``'parallel'``, we will draw the history plots in the same time when solvers are solving the problems. If it is ``'sequential'``, we will draw the history plots after all the problems are solved. Default is ``'sequential'``.
+  - **draw_hist_plots**: whether or how to draw the history plots of all the problems. It can be either ``'none'``, ``'sequential'``, or ``'parallel'``. If it is ``'none'``, we will not draw the history plots. If it is ``'parallel'``, we will draw the history plots in the same time when solvers are solving the problems. If it is ``'sequential'``, we will draw the history plots after all the problems are solved. For each problem, the original combined history plot is saved as ``PROBLEM.pdf``; raw-only and cumulative-minimum-only plots are saved under the ``raw`` and ``cummin`` subfolders. Default is ``'sequential'``.
 
   - **errorbar_type**: the type of the uncertainty interval that can be either ``'minmax'`` or ``'meanstd'``. When ``n_runs`` is greater than 1, we run several times of the experiments and get average curves and get average curves and uncertainty intervals. Default is ``'minmax'``, meaning that we takes the pointwise minimum and maximum of the curves.
 
@@ -130,7 +130,7 @@ Options should be specified in a struct. The following are the available fields 
 
   - **seed**: the seed of the random number generator. Default is ``0``.
 
-  - **semilogx**: whether to use the semilogx scale during plotting profiles (performance profiles and data profiles). Default is ``true``.
+  - **semilogx**: whether to use the semilogx scale during plotting profiles (performance profiles and data profiles). For data profiles, the plotted coordinate is ``log2(1 + n_eval / (n + 1))`` but tick labels are displayed in the original ``n_eval / (n + 1)`` units, typically ``0, 1, 2, 4, ...``. Default is ``true``.
 
   - **silent**: whether to show the information of the progress. Default is ``false``.
 

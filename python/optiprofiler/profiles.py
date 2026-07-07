@@ -30,7 +30,7 @@ from .opclasses import Feature, Problem, FeaturedProblem
 from .utils import DEFAULT_LOG_LINE_WIDTH, FeatureName, ProfileOption, FeatureOption, ProblemOption, get_logger, print_log_message, setup_main_process_logging, setup_worker_logging, shorten_log_message, format_log_prefix
 from .loader import load_results, save_results_to_h5, save_options
 from .profile_utils import check_validity_problem_options, check_validity_profile_options, get_default_problem_options, get_default_profile_options, compute_merit_values, create_stamp, merge_pdfs_with_pypdf, write_report, process_results, init_readme, add_to_readme, compute_scores, _custom_problem_library_dir
-from .plotting import draw_hist, set_profile_context, format_float_scientific_latex, draw_profiles, summary_legend_extra_width, latex_escape_text
+from .plotting import draw_hist, set_profile_context, format_float_scientific_latex, draw_profiles, summary_legend_extra_width, latex_escape_text, format_profile_text
 
 
 def _shorten_log_message(message: object, max_length: int = 180) -> str:
@@ -137,7 +137,7 @@ def benchmark(
 
     Other Parameters
     ----------------
-    *Options for features:*
+    Feature options:
 
     feature_name : str, optional
         Name of the feature to apply to problems. The available features are
@@ -279,7 +279,7 @@ def benchmark(
         class Problem, and modified_ceq is the modified vector of the
         nonlinear equality constraints. No default.
 
-    *Options for profiles and plots:*
+    Profile and plot options:
 
     bar_colors : list or numpy.ndarray, optional
         Two different colors for the bars of two solvers in the
@@ -297,7 +297,10 @@ def benchmark(
         will not draw the history plots. If it is 'parallel', we will draw
         the history plots at the same time when solvers are solving the
         problems. If it is 'sequential', we will draw the history plots
-        after all the problems are solved. Default is 'parallel'.
+        after all the problems are solved. For each problem, the original
+        combined history plot is saved as ``PROBLEM.pdf``; raw-only and
+        cumulative-minimum-only plots are saved under the ``raw`` and
+        ``cummin`` subfolders. Default is 'parallel'.
     errorbar_type : str, optional
         The type of the uncertainty interval that can be
         either 'minmax' or 'meanstd'. When 'n_runs' is greater than 1, we run
@@ -407,7 +410,10 @@ def benchmark(
         The seed of the random number generator. Default is 0.
     semilogx : bool, optional
         Whether to use the semilogx scale during plotting profiles
-        (performance profiles and data profiles). Default is True.
+        (performance profiles and data profiles). For data profiles, the
+        plotted coordinate is ``log2(1 + n_eval / (n + 1))`` but tick labels
+        are displayed in the original ``n_eval / (n + 1)`` units, typically
+        ``0, 1, 2, 4, ...``. Default is True.
     silent : bool, optional
         Whether to show the information of the progress. Default is
         False.
@@ -472,7 +478,7 @@ def benchmark(
         'Performance profiles ($\\mathrm{tol} = %s$)', where '%s' will be
         replaced by the current tolerance in LaTeX format.
 
-    *Options for problems:*
+    Problem options:
 
     Options in this part are used to select problems for benchmarking.
     First select which problem libraries to use based on the 'plibs'
@@ -907,8 +913,8 @@ def benchmark(
         try:
             init_readme(path_readme_feature)
             if path_hist_plots is not None:
-                add_to_readme(path_readme_feature, 'history_plots', 'Folder, containing all the history plots for each problem.')
-                add_to_readme(path_readme_feature, 'history_plots_summary.pdf', 'File, the summary PDF of history plots for all problems.')
+                add_to_readme(path_readme_feature, 'history_plots', 'Folder, containing combined history plots for each problem; raw-only and cumulative-minimum-only plots are stored in the raw and cummin subfolders of each problem-library folder.')
+                add_to_readme(path_readme_feature, 'history_plots_summary.pdf', 'File, the summary PDF of combined history plots for all problems.')
             add_to_readme(path_readme_feature, 'test_log', 'Folder, containing log files and other useful experimental data.')
         except Exception as exc:
             if not profile_options[ProfileOption.SILENT]:
@@ -1633,7 +1639,7 @@ def benchmark(
             fig_summary_hist.supylabel('History-based profiles', fontsize='xx-large', horizontalalignment='right')
             if fig_summary_out is not None:
                 fig_summary_out.supylabel('Output-based profiles', fontsize='xx-large', horizontalalignment='right')
-            fig_summary.suptitle(f'Profiles with the ``{feature.name}" feature', fontsize='xx-large', verticalalignment='bottom')
+            fig_summary.suptitle(_format_feature_title(feature.name, profile_context), fontsize='xx-large', verticalalignment='bottom')
             path_summary = path_stamp / f'summary_{stamp}.pdf'
             fig_summary.savefig(path_summary, bbox_inches='tight')
 
@@ -1964,6 +1970,99 @@ def _solve_one_problem_wrapper(solvers, feature, problem_name, len_problem_names
     return result
 
 
+def _safe_history_pdf_file_name(problem_name):
+    return re.sub(r'^[-_]+', '', re.sub(r'[-_]+', '_', re.sub(r'[^a-zA-Z0-9\-_]', '', str(problem_name).replace(' ', '_')))) + '.pdf'
+
+
+def _format_feature_title(feature_name, profile_context):
+    feature_title = format_profile_text(feature_name, profile_context)
+    return f'Profiles with "{feature_title}" feature'
+
+
+def _format_problem_feature_title(problem_name, feature_stamp, profile_context):
+    problem_title = format_profile_text(problem_name, profile_context)
+    feature_title = format_profile_text(feature_stamp, profile_context)
+    return f'Solving "{problem_title}" with "{feature_title}" feature'
+
+
+def _history_title_fontsize(title_text, default_width):
+    dpi = plt.rcParams.get('figure.dpi', 100)
+    return min(12, 1.2 * default_width * dpi / max(len(title_text), 1))
+
+
+def _save_problem_history_pdf(pdf_path, mode, problem_name, problem_type, problem_dim, solver_names,
+                              fun_history, maxcv_history, merit_history, fun_init, maxcv_init, merit_init,
+                              n_eval, profile_options, default_width, default_height, summary_profile_width,
+                              profile_context):
+    if mode not in {'combined', 'raw', 'cummin'}:
+        raise ValueError(f'Unknown history plot mode: {mode}.')
+
+    is_cum_rows = {'combined': [False, True], 'raw': [False], 'cummin': [True]}[mode]
+    n_rows = len(is_cum_rows)
+    n_cols = 1 if problem_type == 'u' else 3
+    pdf_path = Path(pdf_path)
+    pdf_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with plt.rc_context(profile_context):
+        fig_summary = plt.figure(figsize=(summary_profile_width * n_cols, default_height * n_rows))
+        try:
+            title_text = _format_problem_feature_title(problem_name, profile_options[ProfileOption.FEATURE_STAMP], profile_context)
+            fig_summary.suptitle(title_text, fontsize=_history_title_fontsize(title_text, default_width))
+
+            axs_summary = []
+            for i_row in range(n_rows):
+                for j_col in range(n_cols):
+                    axs_summary.append(fig_summary.add_subplot(n_rows, n_cols, i_row * n_cols + j_col + 1))
+
+            for i_row, is_cum in enumerate(is_cum_rows):
+                row_start = i_row * n_cols
+                if problem_type == 'u':
+                    cell_axs_summary = [axs_summary[row_start]]
+                else:
+                    cell_axs_summary = axs_summary[row_start:row_start + n_cols]
+                draw_hist(fun_history, maxcv_history, merit_history, fun_init, maxcv_init, merit_init,
+                          solver_names, cell_axs_summary, is_cum, problem_type, problem_dim, n_eval,
+                          profile_options, default_height)
+
+            if mode == 'combined':
+                fig_summary.tight_layout(rect=[0.05, 0.0, 1.0, 0.98])
+                row1_y = 0.5 * (axs_summary[0].get_position().y0 + axs_summary[0].get_position().y1)
+                row2_y = 0.5 * (axs_summary[-1].get_position().y0 + axs_summary[-1].get_position().y1)
+                fig_summary.text(0.005, row1_y, "History profiles", rotation=90, va='center', fontsize=14)
+                fig_summary.text(0.005, row2_y, "Cummin history profiles", rotation=90, va='center', fontsize=14)
+            else:
+                fig_summary.tight_layout(rect=[0.0, 0.0, 1.0, 0.96])
+
+            fig_summary.savefig(pdf_path, bbox_inches='tight')
+        finally:
+            plt.close(fig_summary)
+
+
+def _export_problem_history_plots(problem_name, problem_type, problem_dim, solver_names,
+                                  fun_history, maxcv_history, merit_history, fun_init, maxcv_init, merit_init,
+                                  n_eval, profile_options, path_hist_plots):
+    default_figsize = plt.rcParams['figure.figsize']
+    default_width = default_figsize[0]
+    default_height = default_figsize[1]
+    summary_profile_width = default_width + summary_legend_extra_width(len(solver_names), default_width, solver_names)
+    profile_context = set_profile_context(profile_options)
+    processed_solver_names = [latex_escape_text(name) for name in solver_names]
+
+    path_hist_plots = Path(path_hist_plots)
+    pdf_file_name = _safe_history_pdf_file_name(problem_name)
+    outputs = [
+        (path_hist_plots / pdf_file_name, 'combined'),
+        (path_hist_plots / 'raw' / pdf_file_name, 'raw'),
+        (path_hist_plots / 'cummin' / pdf_file_name, 'cummin'),
+    ]
+    for pdf_path, mode in outputs:
+        _save_problem_history_pdf(
+            pdf_path, mode, problem_name, problem_type, problem_dim, processed_solver_names,
+            fun_history, maxcv_history, merit_history, fun_init, maxcv_init, merit_init,
+            n_eval, profile_options, default_width, default_height, summary_profile_width, profile_context
+        )
+
+
 def _solve_one_problem(solvers, problem, feature, problem_name, len_problem_names, profile_options, is_plot, path_hist_plots):
     """
     Solve a given problem.
@@ -2288,72 +2387,13 @@ def _solve_one_problem(solvers, problem, feature, problem_name, len_problem_name
             logger.error(f'Error occurred while calculating the merit values. Please check the merit function. Error message: {shorten_log_message(exc)}')
             raise exc
 
-        warnings.filterwarnings('ignore')
-        n_cols = 1 if problem_type == 'u' else 3
-        default_figsize = plt.rcParams['figure.figsize']
-        default_width = default_figsize[0]
-        default_height = default_figsize[1]
-        summary_profile_width = default_width + summary_legend_extra_width(len(solver_names), default_width, solver_names)
-        profile_context = set_profile_context(profile_options)
-        with plt.rc_context(profile_context):
-            # Create figure without constrained layout (will use tight_layout instead)
-            fig_summary = plt.figure(figsize=(summary_profile_width * n_cols, default_height * 2))
-
-            F_title = profile_options['feature_stamp'].replace('_', r'\_')
-            P_title = problem_name.replace('_', r'\_')
-            T_title = f'Solving ``{P_title}" with ``{F_title}" feature'
-
-            # Set title with dynamic fontsize (matching MATLAB)
-            dpi = plt.rcParams.get('figure.dpi', 100)
-            title_fontsize = min(12, 1.2 * default_width * dpi / len(T_title))
-            fig_summary.suptitle(T_title, fontsize=title_fontsize)
-
-            # Create axes arrays
-            axs_summary = []
-            
-            # Create subplots - first row
-            for j in range(n_cols):
-                ax = fig_summary.add_subplot(2, n_cols, j+1)
-                axs_summary.append(ax)
-            
-            # Create subplots - second row
-            for j in range(n_cols):
-                ax = fig_summary.add_subplot(2, n_cols, n_cols+j+1)
-                axs_summary.append(ax)
-            
-            # Create cell_axs_summary and cell_axs_summary_cum
-            if problem_type == 'u':
-                cell_axs_summary = [axs_summary[0]]
-                cell_axs_summary_cum = [axs_summary[1]]
-            else:
-                cell_axs_summary = [axs_summary[0], axs_summary[1], axs_summary[2]]
-                cell_axs_summary_cum = [axs_summary[3], axs_summary[4], axs_summary[5]]
-            
-            # Create PDF filename
-            pdf_hist_file_name = re.sub(r'^[-_]+', '', re.sub(r'[-_]+', '_', re.sub(r'[^a-zA-Z0-9\-_]', '', problem_name.replace(' ', '_')))) + '.pdf'
-            pdf_summary = os.path.join(path_hist_plots, pdf_hist_file_name)
-            
-            # Process solver names (replace underscores)
-            processed_solver_names = [latex_escape_text(name) for name in solver_names]
-            
-            # Draw history plots
-            draw_hist(fun_history, maxcv_history, merit_history, fun_inits, maxcv_inits, merit_init, processed_solver_names, cell_axs_summary, False, problem_type, problem_dim, n_eval, profile_options, default_height)
-            
-            # Draw cumulative minimum history plots
-            draw_hist(fun_history, maxcv_history, merit_history, fun_inits, maxcv_inits, merit_init, processed_solver_names, cell_axs_summary_cum, True, problem_type, problem_dim, n_eval, profile_options, default_height)
-            
-            # Apply tight_layout first, leaving space for row labels on the left
-            fig_summary.tight_layout(rect=[0.05, 0.0, 1.0, 0.98])
-            
-            # After tight_layout, calculate actual positions for row labels
-            row1_y = 0.5 * (axs_summary[0].get_position().y0 + axs_summary[0].get_position().y1)
-            row2_y = 0.5 * (axs_summary[-1].get_position().y0 + axs_summary[-1].get_position().y1)
-            fig_summary.text(0.005, row1_y, "History profiles", rotation=90, va='center', fontsize=14)
-            fig_summary.text(0.005, row2_y, "Cummin history profiles", rotation=90, va='center', fontsize=14)
-            
-            # Save figure
-            fig_summary.savefig(pdf_summary, bbox_inches='tight')
-            plt.close(fig_summary)
+        with warnings.catch_warnings():
+            warnings.filterwarnings('ignore')
+            _export_problem_history_plots(
+                problem_name, problem_type, problem_dim, solver_names,
+                fun_history, maxcv_history, merit_history, fun_inits, maxcv_inits, merit_init,
+                n_eval, profile_options, path_hist_plots
+            )
 
     except Exception as exc:
         if not profile_options[ProfileOption.SILENT]:
@@ -2412,72 +2452,13 @@ def _draw_problem_history_plot(problem_name, problem_type, problem_dim, solver_n
             logger.error(f'Error occurred while calculating the merit values. Please check the merit function. Error message: {shorten_log_message(exc)}')
             raise exc
 
-        warnings.filterwarnings('ignore')
-        n_cols = 1 if problem_type == 'u' else 3
-        default_figsize = plt.rcParams['figure.figsize']
-        default_width = default_figsize[0]
-        default_height = default_figsize[1]
-        summary_profile_width = default_width + summary_legend_extra_width(len(solver_names), default_width, solver_names)
-        profile_context = set_profile_context(profile_options)
-        with plt.rc_context(profile_context):
-            # Create figure without constrained layout (will use tight_layout instead)
-            fig_summary = plt.figure(figsize=(summary_profile_width * n_cols, default_height * 2))
-
-            F_title = profile_options['feature_stamp'].replace('_', r'\_')
-            P_title = problem_name.replace('_', r'\_')
-            T_title = f'Solving ``{P_title}" with ``{F_title}" feature'
-
-            # Set title with dynamic fontsize (matching MATLAB)
-            dpi = plt.rcParams.get('figure.dpi', 100)
-            title_fontsize = min(12, 1.2 * default_width * dpi / len(T_title))
-            fig_summary.suptitle(T_title, fontsize=title_fontsize)
-
-            # Create axes arrays
-            axs_summary = []
-            
-            # Create subplots - first row
-            for j in range(n_cols):
-                ax = fig_summary.add_subplot(2, n_cols, j+1)
-                axs_summary.append(ax)
-            
-            # Create subplots - second row
-            for j in range(n_cols):
-                ax = fig_summary.add_subplot(2, n_cols, n_cols+j+1)
-                axs_summary.append(ax)
-            
-            # Create cell_axs_summary and cell_axs_summary_cum
-            if problem_type == 'u':
-                cell_axs_summary = [axs_summary[0]]
-                cell_axs_summary_cum = [axs_summary[1]]
-            else:
-                cell_axs_summary = [axs_summary[0], axs_summary[1], axs_summary[2]]
-                cell_axs_summary_cum = [axs_summary[3], axs_summary[4], axs_summary[5]]
-            
-            # Create PDF filename
-            pdf_hist_file_name = re.sub(r'^[-_]+', '', re.sub(r'[-_]+', '_', re.sub(r'[^a-zA-Z0-9\-_]', '', problem_name.replace(' ', '_')))) + '.pdf'
-            pdf_summary = os.path.join(path_hist_plots, pdf_hist_file_name)
-            
-            # Process solver names (replace underscores)
-            processed_solver_names = [latex_escape_text(name) for name in solver_names]
-            
-            # Draw history plots
-            draw_hist(fun_history, maxcv_history, merit_history, fun_init, maxcv_init, merit_init, processed_solver_names, cell_axs_summary, False, problem_type, problem_dim, n_eval, profile_options, default_height)
-            
-            # Draw cumulative minimum history plots
-            draw_hist(fun_history, maxcv_history, merit_history, fun_init, maxcv_init, merit_init, processed_solver_names, cell_axs_summary_cum, True, problem_type, problem_dim, n_eval, profile_options, default_height)
-            
-            # Apply tight_layout first, leaving space for row labels on the left
-            fig_summary.tight_layout(rect=[0.05, 0.0, 1.0, 0.98])
-            
-            # After tight_layout, calculate actual positions for row labels
-            row1_y = 0.5 * (axs_summary[0].get_position().y0 + axs_summary[0].get_position().y1)
-            row2_y = 0.5 * (axs_summary[-1].get_position().y0 + axs_summary[-1].get_position().y1)
-            fig_summary.text(0.005, row1_y, "History profiles", rotation=90, va='center', fontsize=14)
-            fig_summary.text(0.005, row2_y, "Cummin history profiles", rotation=90, va='center', fontsize=14)
-            
-            # Save figure
-            fig_summary.savefig(pdf_summary, bbox_inches='tight')
-            plt.close(fig_summary)
+        with warnings.catch_warnings():
+            warnings.filterwarnings('ignore')
+            _export_problem_history_plots(
+                problem_name, problem_type, problem_dim, solver_names,
+                fun_history, maxcv_history, merit_history, fun_init, maxcv_init, merit_init,
+                n_eval, profile_options, path_hist_plots
+            )
 
     except Exception as exc:
         if not profile_options[ProfileOption.SILENT]:

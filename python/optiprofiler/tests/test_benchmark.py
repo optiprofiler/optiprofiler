@@ -2,6 +2,7 @@
 import os
 import shutil
 import tempfile
+from pathlib import Path
 from unittest.mock import patch
 
 import matplotlib
@@ -13,7 +14,7 @@ import pytest
 from optiprofiler import benchmark
 from optiprofiler.opclasses import Feature, FeaturedProblem, Problem
 from optiprofiler.profile_utils import get_default_problem_options, get_default_profile_options
-from optiprofiler.profiles import _solve_all_problems
+from optiprofiler.profiles import _format_feature_title, _format_problem_feature_title, _solve_all_problems
 
 
 def simple_solver_1(fun, x0):
@@ -59,6 +60,13 @@ def _common_kwargs(tmpdir, benchmark_id='test'):
 
 
 class TestBenchmarkBasic:
+
+    def _assert_history_plot_files(self, tmpdir):
+        root = Path(tmpdir)
+        assert len(list(root.glob('**/history_plots/s2mpj/ROSENBR.pdf'))) == 1
+        assert len(list(root.glob('**/history_plots/s2mpj/raw/ROSENBR.pdf'))) == 1
+        assert len(list(root.glob('**/history_plots/s2mpj/cummin/ROSENBR.pdf'))) == 1
+        assert len(list(root.glob('**/history_plots/s2mpj_history_plots_summary.pdf'))) == 1
 
     def test_two_solvers_plain(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -216,6 +224,32 @@ class TestBenchmarkBasic:
                 problem_names=['ROSENBR'],
             )
             assert isinstance(scores, np.ndarray)
+            self._assert_history_plot_files(tmpdir)
+
+    def test_parallel_hist_plots(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            scores, _, _ = benchmark(
+                [simple_solver_1, simple_solver_2],
+                feature_name='plain',
+                plibs=['s2mpj'],
+                ptype='u',
+                mindim=2,
+                maxdim=2,
+                max_eval_factor=10,
+                benchmark_id='test',
+                savepath=tmpdir,
+                n_jobs=1,
+                silent=True,
+                draw_hist_plots='parallel',
+                problem_names=['ROSENBR'],
+            )
+            assert isinstance(scores, np.ndarray)
+            self._assert_history_plot_files(tmpdir)
+
+    def test_profile_titles_escape_only_for_latex_backend(self):
+        assert _format_feature_title('plain_feature', {'text.usetex': False}) == 'Profiles with "plain_feature" feature'
+        assert _format_feature_title('plain_feature', {'text.usetex': True}) == r'Profiles with "plain\_feature" feature'
+        assert _format_problem_feature_title('PROB_1', 'feat_1', {'text.usetex': False}) == 'Solving "PROB_1" with "feat_1" feature'
 
 
 class TestBenchmarkFeatures:

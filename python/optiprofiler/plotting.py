@@ -42,6 +42,13 @@ def latex_escape_text(text):
     return ''.join(replacements.get(char, char) for char in str(text))
 
 
+def format_profile_text(text, profile_context):
+    """Format literal plot text according to the active Matplotlib text backend."""
+    if profile_context.get('text.usetex', False):
+        return latex_escape_text(text)
+    return str(text)
+
+
 def draw_profiles(work, problem_dimensions, solver_names, tolerance_latex, i_tol, ax_summary_perf, ax_summary_data, ax_summary_log_ratio, is_summary, is_perf, is_data, is_log_ratio, profile_options, curves):
     solver_names = [latex_escape_text(name) for name in solver_names]
     n_solvers = work.shape[1]
@@ -390,6 +397,12 @@ def _data_formatter(x, _):
         return f'$2^{{{f"{x:.8f}".rstrip("0").rstrip(".")}}}-1$'
 
 
+def _format_tick_value(value):
+    if np.isclose(value, round(value)):
+        return str(int(round(value)))
+    return f'{value:.2f}'.rstrip('0').rstrip('.')
+
+
 def perf_ticks(ratio_cut_perf, is_semilogx):
     """
     Generate ticks and tick labels for performance profiles.
@@ -408,7 +421,7 @@ def perf_ticks(ratio_cut_perf, is_semilogx):
             ticks = np.array([0, ratio_cut_perf])
         else:
             ticks = np.array([0])
-        tick_labels = [str(int(2 ** t)) for t in ticks]
+        tick_labels = [_format_tick_value(2 ** t) for t in ticks]
     else:
         if ratio_cut_perf >= 5:
             max_power = int(np.floor(ratio_cut_perf))
@@ -432,20 +445,26 @@ def data_ticks(ratio_cut_data, is_semilogx):
     Matches MATLAB's dataTicks function.
     """
     if is_semilogx:
-        if ratio_cut_data >= 5:
-            max_power = int(np.floor(ratio_cut_data))
-            ticks = np.linspace(1, max_power, 5)
-            ticks = np.concatenate([[0], ticks])
-            ticks[1:-1] = np.round(ticks[1:-1])
-            ticks = np.unique(ticks)
-        elif ratio_cut_data >= 1:
-            max_power = int(np.floor(ratio_cut_data))
-            ticks = np.arange(0, max_power + 1)
-        elif ratio_cut_data >= 1e-1:
+        # Data profiles are plotted at z = log2(1 + alpha), where
+        # alpha = n_eval / (n + 1). Choose ticks in the original alpha
+        # units and then map them to z so that labels remain literal
+        # simplex-gradient budgets (0, 1, 2, 4, ...).
+        ratio_cut_alpha = max(0.0, 2 ** ratio_cut_data - 1.0)
+        if ratio_cut_alpha >= 1:
+            max_power = int(np.floor(np.log2(ratio_cut_alpha)))
+            if max_power + 1 <= 5:
+                powers = np.arange(0, max_power + 1)
+            else:
+                powers = np.unique(np.concatenate([[0], np.floor(np.linspace(1, max_power, 4)).astype(int)]))
+            alpha_ticks = np.concatenate([[0], 2.0 ** powers])
+            ticks = np.log2(1.0 + alpha_ticks)
+            tick_labels = [str(int(tick)) for tick in alpha_ticks]
+        elif ratio_cut_alpha >= 1e-1:
             ticks = np.array([0, ratio_cut_data])
+            tick_labels = ['0', f'{ratio_cut_alpha:.2f}'.rstrip('0').rstrip('.')]
         else:
             ticks = np.array([0])
-        tick_labels = [str(int(2 ** t - 1)) for t in ticks]
+            tick_labels = ['0']
     else:
         if ratio_cut_data >= 5:
             max_power = int(np.floor(ratio_cut_data))
@@ -879,6 +898,8 @@ def draw_fun_maxcv_merit_hist(ax, y, solver_names, is_cum, problem_n, y_shift, n
             i_y_lower = y_values_l[i_solver]
             i_y_upper = y_values_u[i_solver]
             i_eval = len(i_x)
+            if i_eval == 0:
+                continue
             x = np.array(i_x) / (problem_n + 1)
             xr_lim = max(xr_lim, x[-1])
 

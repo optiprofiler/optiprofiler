@@ -19,6 +19,7 @@ from optiprofiler.plotting import (
     _perf_formatter,
     data_ticks,
     draw_profiles,
+    format_profile_text,
     format_float_scientific_latex,
     latex_escape_text,
     perf_ticks,
@@ -84,6 +85,7 @@ class TestPerfTicks:
         ticks, labels = perf_ticks(0.5, True)
         assert len(ticks) == 2
         assert ticks[0] == 0
+        assert labels == ['1', '1.41']
 
     def test_semilogx_very_small(self):
         ticks, labels = perf_ticks(1e-4, True)
@@ -113,16 +115,23 @@ class TestDataTicks:
     def test_semilogx_large(self):
         ticks, labels = data_ticks(10.0, True)
         assert len(ticks) > 0
+        assert len(ticks) <= 6
         assert ticks[0] == 0
         assert labels[0] == '0'
+        assert labels[1] == '1'
+        assert labels == ['0', '1', '2', '8', '64', '512']
 
     def test_semilogx_medium(self):
         ticks, labels = data_ticks(3.0, True)
         assert len(ticks) > 0
+        assert np.allclose(ticks, np.log2(1.0 + np.array([0.0, 1.0, 2.0, 4.0])))
+        assert labels == ['0', '1', '2', '4']
 
     def test_semilogx_small(self):
         ticks, labels = data_ticks(0.5, True)
         assert len(ticks) == 2
+        assert ticks[-1] == 0.5
+        assert labels == ['0', '0.41']
 
     def test_semilogx_very_small(self):
         ticks, labels = data_ticks(0.05, True)
@@ -154,6 +163,15 @@ class TestSetProfileContext:
         assert ctx['font.family'] == 'serif'
         assert ctx['font.size'] == 16
         assert 'text.usetex' in ctx
+
+
+class TestFormatProfileText:
+
+    def test_plain_text_backend_keeps_literal_text(self):
+        assert format_profile_text('a_b#c', {'text.usetex': False}) == 'a_b#c'
+
+    def test_latex_backend_escapes_literal_text(self):
+        assert format_profile_text('a_b#c', {'text.usetex': True}) == r'a\_b\#c'
 
 
 class TestLatexEscapeText:
