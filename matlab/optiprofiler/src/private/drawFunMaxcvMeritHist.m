@@ -1,5 +1,9 @@
-function drawFunMaxcvMeritHist(ax, y, solver_names, is_cum, problem_n, y_shift, n_eval, profile_options)
+function drawFunMaxcvMeritHist(ax, y, solver_names, is_cum, problem_n, y_shift, n_eval, profile_options, show_xlabel)
 %DRAWFUNMAXCVMERITHIST draws figures of histories of function values, maximum constraint violation, or merit function values.
+
+    if nargin < 9
+        show_xlabel = true;
+    end
 
     line_colors = profile_options.(ProfileOptionKey.LINE_COLORS.value);
     line_styles = profile_options.(ProfileOptionKey.LINE_STYLES.value);
@@ -189,8 +193,14 @@ function drawFunMaxcvMeritHist(ax, y, solver_names, is_cum, problem_n, y_shift, 
     if abs(xl_lim - xr_lim) < eps
         xr_lim = xl_lim + eps;
     end
+    set(ax, 'FontSize', 9);
     set(ax, 'XLim', [xl_lim, xr_lim]);
-    xlabel(ax, profile_options.(ProfileOptionKey.XLABEL_DATA_PROFILE.value), 'Interpreter', 'latex');
+    if show_xlabel
+        x_label = xlabel(ax, profile_options.(ProfileOptionKey.XLABEL_DATA_PROFILE.value), 'Interpreter', 'latex', 'FontSize', 10);
+        set(x_label, 'Units', 'normalized', 'Position', [0.5, -0.10, 0], 'VerticalAlignment', 'top');
+    else
+        xlabel(ax, '');
+    end
     placeSolverLegend(ax, n_solvers, 'northeast');
 
 end

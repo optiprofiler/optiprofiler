@@ -43,6 +43,21 @@ def simple_solver_zero_no_eval(fun, x0):
     return np.zeros_like(x0)
 
 
+def history_solver_1(fun, x0, *args):
+    """A solver that records at least one history entry for any problem type."""
+    fun(x0)
+    return x0
+
+
+def history_solver_2(fun, x0, *args):
+    """A solver that records two history entries for any problem type."""
+    fun(x0)
+    x = x0.copy()
+    x[0] += 0.1
+    fun(x)
+    return x
+
+
 def _common_kwargs(tmpdir, benchmark_id='test'):
     return dict(
         plibs=['s2mpj'],
@@ -61,11 +76,11 @@ def _common_kwargs(tmpdir, benchmark_id='test'):
 
 class TestBenchmarkBasic:
 
-    def _assert_history_plot_files(self, tmpdir):
+    def _assert_history_plot_files(self, tmpdir, problem_name='ROSENBR'):
         root = Path(tmpdir)
-        assert len(list(root.glob('**/history_plots/s2mpj/ROSENBR.pdf'))) == 1
-        assert len(list(root.glob('**/history_plots/s2mpj/raw/ROSENBR.pdf'))) == 1
-        assert len(list(root.glob('**/history_plots/s2mpj/cummin/ROSENBR.pdf'))) == 1
+        assert len(list(root.glob(f'**/history_plots/s2mpj/{problem_name}.pdf'))) == 1
+        assert len(list(root.glob(f'**/history_plots/s2mpj/raw/{problem_name}.pdf'))) == 1
+        assert len(list(root.glob(f'**/history_plots/s2mpj/cummin/{problem_name}.pdf'))) == 1
         assert len(list(root.glob('**/history_plots/s2mpj_history_plots_summary.pdf'))) == 1
 
     def test_two_solvers_plain(self):
@@ -226,6 +241,29 @@ class TestBenchmarkBasic:
             assert isinstance(scores, np.ndarray)
             self._assert_history_plot_files(tmpdir)
 
+    def test_constrained_hist_plots(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            scores, _, _ = benchmark(
+                [history_solver_1, history_solver_2],
+                feature_name='plain',
+                plibs=['s2mpj'],
+                ptype='n',
+                mindim=2,
+                maxdim=2,
+                max_eval_factor=10,
+                maxnlcon=2,
+                maxcon=2,
+                benchmark_id='test',
+                savepath=tmpdir,
+                n_jobs=1,
+                silent=True,
+                draw_hist_plots='sequential',
+                problem_names=['BT1'],
+                solver_names=['solver_1', 'solver_2'],
+            )
+            assert isinstance(scores, np.ndarray)
+            self._assert_history_plot_files(tmpdir, 'BT1')
+
     def test_parallel_hist_plots(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             scores, _, _ = benchmark(
@@ -248,8 +286,9 @@ class TestBenchmarkBasic:
 
     def test_profile_titles_escape_only_for_latex_backend(self):
         assert _format_feature_title('plain_feature', {'text.usetex': False}) == 'Profiles with "plain_feature" feature'
-        assert _format_feature_title('plain_feature', {'text.usetex': True}) == r'Profiles with "plain\_feature" feature'
+        assert _format_feature_title('plain_feature', {'text.usetex': True}) == r"Profiles with ``plain\_feature'' feature"
         assert _format_problem_feature_title('PROB_1', 'feat_1', {'text.usetex': False}) == 'Solving "PROB_1" with "feat_1" feature'
+        assert _format_problem_feature_title('PROB_1', 'feat_1', {'text.usetex': True}) == r"Solving ``PROB\_1'' with ``feat\_1'' feature"
 
 
 class TestBenchmarkFeatures:

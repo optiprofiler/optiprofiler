@@ -1976,18 +1976,24 @@ def _safe_history_pdf_file_name(problem_name):
 
 def _format_feature_title(feature_name, profile_context):
     feature_title = format_profile_text(feature_name, profile_context)
-    return f'Profiles with "{feature_title}" feature'
+    return f'Profiles with {_quote_profile_text(feature_title, profile_context)} feature'
 
 
 def _format_problem_feature_title(problem_name, feature_stamp, profile_context):
     problem_title = format_profile_text(problem_name, profile_context)
     feature_title = format_profile_text(feature_stamp, profile_context)
-    return f'Solving "{problem_title}" with "{feature_title}" feature'
+    return f'Solving {_quote_profile_text(problem_title, profile_context)} with {_quote_profile_text(feature_title, profile_context)} feature'
+
+
+def _quote_profile_text(text, profile_context):
+    if profile_context.get('text.usetex', False):
+        return f"``{text}''"
+    return f'"{text}"'
 
 
 def _history_title_fontsize(title_text, default_width):
     dpi = plt.rcParams.get('figure.dpi', 100)
-    return min(12, 1.2 * default_width * dpi / max(len(title_text), 1))
+    return min(11, 1.2 * default_width * dpi / max(len(title_text), 1))
 
 
 def _save_problem_history_pdf(pdf_path, mode, problem_name, problem_type, problem_dim, solver_names,
@@ -2007,7 +2013,9 @@ def _save_problem_history_pdf(pdf_path, mode, problem_name, problem_type, proble
         fig_summary = plt.figure(figsize=(summary_profile_width * n_cols, default_height * n_rows))
         try:
             title_text = _format_problem_feature_title(problem_name, profile_options[ProfileOption.FEATURE_STAMP], profile_context)
-            fig_summary.suptitle(title_text, fontsize=_history_title_fontsize(title_text, default_width))
+            title_fontsize = _history_title_fontsize(title_text, default_width)
+            if mode == 'combined':
+                fig_summary.suptitle(title_text, fontsize=title_fontsize)
 
             axs_summary = []
             for i_row in range(n_rows):
@@ -2022,16 +2030,17 @@ def _save_problem_history_pdf(pdf_path, mode, problem_name, problem_type, proble
                     cell_axs_summary = axs_summary[row_start:row_start + n_cols]
                 draw_hist(fun_history, maxcv_history, merit_history, fun_init, maxcv_init, merit_init,
                           solver_names, cell_axs_summary, is_cum, problem_type, problem_dim, n_eval,
-                          profile_options, default_height)
+                          profile_options, default_height, show_xlabel=i_row == n_rows - 1)
 
             if mode == 'combined':
-                fig_summary.tight_layout(rect=[0.05, 0.0, 1.0, 0.98])
+                fig_summary.tight_layout(rect=[0.07, 0.04, 0.98, 0.97], h_pad=2.0, w_pad=1.5)
                 row1_y = 0.5 * (axs_summary[0].get_position().y0 + axs_summary[0].get_position().y1)
                 row2_y = 0.5 * (axs_summary[-1].get_position().y0 + axs_summary[-1].get_position().y1)
-                fig_summary.text(0.005, row1_y, "History profiles", rotation=90, va='center', fontsize=14)
-                fig_summary.text(0.005, row2_y, "Cummin history profiles", rotation=90, va='center', fontsize=14)
+                fig_summary.text(0.015, row1_y, "History profiles", rotation=90, va='center', fontsize=12)
+                fig_summary.text(0.015, row2_y, "Cummin history profiles", rotation=90, va='center', fontsize=12)
             else:
-                fig_summary.tight_layout(rect=[0.0, 0.0, 1.0, 0.96])
+                axs_summary[n_cols // 2].set_title(title_text, fontsize=title_fontsize, pad=8)
+                fig_summary.tight_layout(rect=[0.04, 0.055, 0.98, 0.98], h_pad=1.2, w_pad=1.5)
 
             fig_summary.savefig(pdf_path, bbox_inches='tight')
         finally:

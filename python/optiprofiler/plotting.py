@@ -23,6 +23,11 @@ from .utils import ProfileOption
 
 _COMPACT_LEGEND_SOLVER_THRESHOLD = 10
 _COMPACT_LEGEND_MIN_ROWS_PER_COLUMN = 10
+_PROFILE_LABELSIZE = 12
+_PROFILE_TICK_LABELSIZE = 11
+_HISTORY_LABELSIZE = 12
+_HISTORY_TICK_LABELSIZE = 11
+_HISTORY_LEGEND_FONTSIZE = 10
 
 
 def latex_escape_text(text):
@@ -93,6 +98,7 @@ def draw_profiles(work, problem_dimensions, solver_names, tolerance_latex, i_tol
 
 def _draw_perf_detail(ax_perf, x_perf, y_perf, ratio_max_perf, solver_names, profile_options, tolerance_latex):
     _draw_performance_data_profiles(ax_perf, x_perf, y_perf, solver_names, profile_options)
+    ax_perf.tick_params(axis='both', which='major', labelsize=_PROFILE_TICK_LABELSIZE)
     # MATLAB tolerates Inf in set(ax, 'XLim', ...) but matplotlib does not.
     if not np.isfinite(ratio_max_perf):
         ratio_max_perf = np.finfo(float).eps
@@ -107,11 +113,11 @@ def _draw_perf_detail(ax_perf, x_perf, y_perf, ratio_max_perf, solver_names, pro
     ax_perf.set_xticklabels(tick_labels)
     # Set x-axis labels.
     if profile_options[ProfileOption.XLABEL_PERFORMANCE_PROFILE]:
-        ax_perf.set_xlabel(profile_options[ProfileOption.XLABEL_PERFORMANCE_PROFILE])
+        ax_perf.set_xlabel(profile_options[ProfileOption.XLABEL_PERFORMANCE_PROFILE], fontsize=_PROFILE_LABELSIZE)
     # Set y-axis labels.
     if profile_options[ProfileOption.YLABEL_PERFORMANCE_PROFILE]:
         ylabel_str = profile_options[ProfileOption.YLABEL_PERFORMANCE_PROFILE] % tolerance_latex if '%s' in profile_options[ProfileOption.YLABEL_PERFORMANCE_PROFILE] else profile_options[ProfileOption.YLABEL_PERFORMANCE_PROFILE]
-        ax_perf.set_ylabel(ylabel_str)
+        ax_perf.set_ylabel(ylabel_str, fontsize=_PROFILE_LABELSIZE, labelpad=10)
     _place_solver_legend(ax_perf, x_perf.shape[1], default_loc='lower right')
 
 
@@ -119,6 +125,7 @@ def _draw_perf_detail(ax_perf, x_perf, y_perf, ratio_max_perf, solver_names, pro
 
 def _draw_data_detail(ax_data, x_data, y_data, ratio_max_data, solver_names, profile_options, tolerance_latex):
     _draw_performance_data_profiles(ax_data, x_data, y_data, solver_names, profile_options)
+    ax_data.tick_params(axis='both', which='major', labelsize=_PROFILE_TICK_LABELSIZE)
     # MATLAB tolerates Inf in set(ax, 'XLim', ...) but matplotlib does not.
     if not np.isfinite(ratio_max_data):
         ratio_max_data = np.finfo(float).eps
@@ -130,24 +137,25 @@ def _draw_data_detail(ax_data, x_data, y_data, ratio_max_data, solver_names, pro
     ax_data.set_xticklabels(tick_labels)
     # Set x-axis labels.
     if profile_options[ProfileOption.XLABEL_DATA_PROFILE]:
-        ax_data.set_xlabel(profile_options[ProfileOption.XLABEL_DATA_PROFILE])
+        ax_data.set_xlabel(profile_options[ProfileOption.XLABEL_DATA_PROFILE], fontsize=_PROFILE_LABELSIZE)
     # Set y-axis labels.
     if profile_options[ProfileOption.YLABEL_DATA_PROFILE]:
         ylabel_str = profile_options[ProfileOption.YLABEL_DATA_PROFILE] % tolerance_latex if '%s' in profile_options[ProfileOption.YLABEL_DATA_PROFILE] else profile_options[ProfileOption.YLABEL_DATA_PROFILE]
-        ax_data.set_ylabel(ylabel_str)
+        ax_data.set_ylabel(ylabel_str, fontsize=_PROFILE_LABELSIZE, labelpad=10)
     _place_solver_legend(ax_data, x_data.shape[1], default_loc='lower right')
 
 
 
 def _draw_log_ratio_detail(ax_log_ratio, x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, solver_names, profile_options, tolerance_latex):
     _draw_log_ratio_profiles(ax_log_ratio, x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, solver_names, profile_options)
+    ax_log_ratio.tick_params(axis='both', which='major', labelsize=_PROFILE_TICK_LABELSIZE)
     # Set x-axis labels.
     if profile_options[ProfileOption.XLABEL_LOG_RATIO_PROFILE]:
-        ax_log_ratio.set_xlabel(profile_options[ProfileOption.XLABEL_LOG_RATIO_PROFILE])
+        ax_log_ratio.set_xlabel(profile_options[ProfileOption.XLABEL_LOG_RATIO_PROFILE], fontsize=_PROFILE_LABELSIZE)
     # Set y-axis labels.
     if profile_options[ProfileOption.YLABEL_LOG_RATIO_PROFILE]:
         ylabel_str = profile_options[ProfileOption.YLABEL_LOG_RATIO_PROFILE] % tolerance_latex if '%s' in profile_options[ProfileOption.YLABEL_LOG_RATIO_PROFILE] else profile_options[ProfileOption.YLABEL_LOG_RATIO_PROFILE]
-        ax_log_ratio.set_ylabel(ylabel_str)
+        ax_log_ratio.set_ylabel(ylabel_str, fontsize=_PROFILE_LABELSIZE, labelpad=14)
 
 
 
@@ -223,20 +231,18 @@ def _draw_log_ratio_profiles(ax, x, y, ratio_max, n_solvers_equal, solver_names,
             else:
                 ax.bar(x[-n_above:], y[-n_above:], color=bar_colors[1])
 
-        # Add solver names with fontsize=24 to match MATLAB
-        ax.text((n_problems + 1) / 2, -ratio_max, solver_names[0], horizontalalignment='center', verticalalignment='bottom', fontsize=24)
-        ax.text((n_problems + 1) / 2, ratio_max, solver_names[1], horizontalalignment='center', verticalalignment='top', fontsize=24)
         # Remove x-axis ticks (matching MATLAB's xticks([]))
         ax.set_xticks([])
         with warnings.catch_warnings():
             warnings.filterwarnings('ignore', category=UserWarning)
             ax.set_xlim(0.5, n_problems + 0.5)
         ax.set_ylim(-1.1 * ratio_max, 1.1 * ratio_max)
+        ax.text((n_problems + 1) / 2, -ratio_max, solver_names[0], horizontalalignment='center', verticalalignment='bottom', fontsize=24)
+        ax.text((n_problems + 1) / 2, ratio_max, solver_names[1], horizontalalignment='center', verticalalignment='top', fontsize=24)
         # Show ticks on both sides (left and right) and set direction to 'in'
         ax.yaxis.set_ticks_position('both')
         ax.tick_params(axis='y', which='both', direction='in', right=True, labelleft=True, labelright=False)
         ax.tick_params(axis='x', which='both', direction='in')
-
 
 
 def _get_extended_performances_data_profile_axes(work, problem_dimensions, profile_options, curves):
@@ -568,7 +574,7 @@ def format_float_scientific_latex(x, digits=3):
     return raw, f"{sign}{coefficient} \\times 10^{{{exponent}}}"
 
 
-def draw_hist(fun_histories, maxcv_histories, merit_histories, fun_init, maxcv_init, merit_init, solver_names, list_axs_summary, is_cum, ptype, problem_n, n_eval, profile_options, default_height):
+def draw_hist(fun_histories, maxcv_histories, merit_histories, fun_init, maxcv_init, merit_init, solver_names, list_axs_summary, is_cum, ptype, problem_n, n_eval, profile_options, default_height, show_xlabel=True):
     """
     Draws the history plots of the function values, the maximum constraint violation, 
     and the merit function values.
@@ -624,11 +630,11 @@ def draw_hist(fun_histories, maxcv_histories, merit_histories, fun_init, maxcv_i
             label = base_label
         fontsize = min(10, 1.2 * default_height_px / len(f"{base_label} shifted above by ${formatted_shift}$"))
         with plt.rc_context(profile_context):
-            ax.set_ylabel(label, fontsize=fontsize)
+            ax.set_ylabel(label, fontsize=min(fontsize, _HISTORY_LABELSIZE), labelpad=10)
     
     # Draw and label function value histories.
     y_shift_fun = compute_y_shift(fun_histories, profile_options)
-    draw_fun_maxcv_merit_hist(list_axs_summary[0], fun_histories, solver_names, is_cum, problem_n, y_shift_fun, n_eval, profile_options)
+    draw_fun_maxcv_merit_hist(list_axs_summary[0], fun_histories, solver_names, is_cum, problem_n, y_shift_fun, n_eval, profile_options, show_xlabel)
     _, formatted_fun_shift = format_float_scientific_latex(y_shift_fun)
     base_label_fun = "Cummin of function values" if is_cum else "Function values"
     set_hist_ylabel(list_axs_summary[0], base_label_fun, y_shift_fun, formatted_fun_shift)
@@ -641,12 +647,12 @@ def draw_hist(fun_histories, maxcv_histories, merit_histories, fun_init, maxcv_i
     y_shift_maxcv = compute_y_shift(maxcv_histories, profile_options)
     y_shift_merit = compute_y_shift(merit_histories, profile_options)
     
-    draw_fun_maxcv_merit_hist(list_axs_summary[1], maxcv_histories, solver_names, is_cum, problem_n, y_shift_maxcv, n_eval, profile_options)
+    draw_fun_maxcv_merit_hist(list_axs_summary[1], maxcv_histories, solver_names, is_cum, problem_n, y_shift_maxcv, n_eval, profile_options, show_xlabel)
     _, formatted_maxcv_shift = format_float_scientific_latex(y_shift_maxcv)
     base_label_maxcv = "Cummin of maximum constraint violations" if is_cum else "Maximum constraint violations"
     set_hist_ylabel(list_axs_summary[1], base_label_maxcv, y_shift_maxcv, formatted_maxcv_shift)
     
-    draw_fun_maxcv_merit_hist(list_axs_summary[2], merit_histories, solver_names, is_cum, problem_n, y_shift_merit, n_eval, profile_options)
+    draw_fun_maxcv_merit_hist(list_axs_summary[2], merit_histories, solver_names, is_cum, problem_n, y_shift_merit, n_eval, profile_options, show_xlabel)
     _, formatted_merit_shift = format_float_scientific_latex(y_shift_merit)
     base_label_merit = "Cummin of merit function values" if is_cum else "Merit function values"
     set_hist_ylabel(list_axs_summary[2], base_label_merit, y_shift_merit, formatted_merit_shift)
@@ -729,7 +735,7 @@ def process_hist_y_axes(value_histories, value_inits):
     return value_histories_processed
 
 
-def draw_fun_maxcv_merit_hist(ax, y, solver_names, is_cum, problem_n, y_shift, n_eval, profile_options):
+def draw_fun_maxcv_merit_hist(ax, y, solver_names, is_cum, problem_n, y_shift, n_eval, profile_options, show_xlabel=True):
     """
     Draws figures of histories of function values, maximum constraint violation, or merit function values.
     
@@ -930,9 +936,16 @@ def draw_fun_maxcv_merit_hist(ax, y, solver_names, is_cum, problem_n, y_shift, n
     if abs(xl_lim - xr_lim) < np.finfo(float).eps:
         xr_lim = xl_lim + np.finfo(float).eps
     
+    ax.tick_params(axis='both', which='major', labelsize=_HISTORY_TICK_LABELSIZE)
     ax.set_xlim([xl_lim, xr_lim])
-    ax.set_xlabel(profile_options[ProfileOption.XLABEL_DATA_PROFILE])
-    _place_solver_legend(ax, n_solvers, default_loc='upper right')
+    if show_xlabel:
+        ax.set_xlabel(profile_options[ProfileOption.XLABEL_DATA_PROFILE], fontsize=_HISTORY_LABELSIZE, labelpad=12)
+    else:
+        ax.set_xlabel('')
+    legend = _place_solver_legend(ax, n_solvers, default_loc='upper right')
+    if legend is not None:
+        for text in legend.get_texts():
+            text.set_fontsize(_HISTORY_LEGEND_FONTSIZE)
 
 
 def _compact_legend_fontsize(n_solvers):
@@ -1039,3 +1052,4 @@ def _place_solver_legend(ax, n_solvers, default_loc='lower right'):
         legend = ax.legend(loc=_choose_legend_location(ax, default_loc))
     if legend is not None:
         legend.set_in_layout(True)
+    return legend

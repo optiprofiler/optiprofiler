@@ -67,6 +67,7 @@ end
 
 function drawPerfDetail(ax_perf, x_perf, y_perf, ratio_max_perf, solver_names, profile_options, tolerance_latex)
     drawPerformanceDataProfiles(ax_perf, x_perf, y_perf, solver_names, profile_options);
+    set(ax_perf, 'FontSize', 10);
     % Set x-axis limits.
     if profile_options.(ProfileOptionKey.SEMILOGX.value)
         set(ax_perf, 'XLim', [0.0, 1.1 * ratio_max_perf]);
@@ -79,18 +80,19 @@ function drawPerfDetail(ax_perf, x_perf, y_perf, ratio_max_perf, solver_names, p
     % Set x-axis labels.
     if ~isempty(profile_options.(ProfileOptionKey.XLABEL_PERFORMANCE_PROFILE.value))
         xlabel_str = profile_options.(ProfileOptionKey.XLABEL_PERFORMANCE_PROFILE.value);
-        xlabel(ax_perf, xlabel_str, 'Interpreter', 'latex');
+        xlabel(ax_perf, xlabel_str, 'Interpreter', 'latex', 'FontSize', 11);
     end
     % Set y-axis labels.
     if ~isempty(profile_options.(ProfileOptionKey.YLABEL_PERFORMANCE_PROFILE.value))
         ylabel_str = sprintf(profile_options.(ProfileOptionKey.YLABEL_PERFORMANCE_PROFILE.value), tolerance_latex);
-        ylabel(ax_perf, ylabel_str, 'Interpreter', 'latex');
+        ylabel(ax_perf, ylabel_str, 'Interpreter', 'latex', 'FontSize', 11);
     end
     placeSolverLegend(ax_perf, size(x_perf, 2), 'southeast');
 end
 
 function drawDataDetail(ax_data, x_data, y_data, ratio_max_data, solver_names, profile_options, tolerance_latex)
     drawPerformanceDataProfiles(ax_data, x_data, y_data, solver_names, profile_options);
+    set(ax_data, 'FontSize', 10);
     % Set x-axis limits.
     set(ax_data, 'XLim', [0.0, 1.1 * ratio_max_data]);
     % Modify x-axis ticks labels of the data profiles.
@@ -99,27 +101,32 @@ function drawDataDetail(ax_data, x_data, y_data, ratio_max_data, solver_names, p
     % Set x-axis labels.
     if ~isempty(profile_options.(ProfileOptionKey.XLABEL_DATA_PROFILE.value))
         xlabel_str = profile_options.(ProfileOptionKey.XLABEL_DATA_PROFILE.value);
-        xlabel(ax_data, xlabel_str, 'Interpreter', 'latex');
+        xlabel(ax_data, xlabel_str, 'Interpreter', 'latex', 'FontSize', 11);
     end
     % Set y-axis labels.
     if ~isempty(profile_options.(ProfileOptionKey.YLABEL_DATA_PROFILE.value))
         ylabel_str = sprintf(profile_options.(ProfileOptionKey.YLABEL_DATA_PROFILE.value), tolerance_latex);
-        ylabel(ax_data, ylabel_str, 'Interpreter', 'latex');
+        ylabel(ax_data, ylabel_str, 'Interpreter', 'latex', 'FontSize', 11);
     end
     placeSolverLegend(ax_data, size(x_data, 2), 'southeast');
 end
 
 function drawLogRatioDetail(ax_log_ratio, x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, solver_names, profile_options, tolerance_latex)
     drawLogRatioProfiles(ax_log_ratio, x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, solver_names, profile_options);
+    set(ax_log_ratio, 'FontSize', 10);
     % Set x-axis labels.
     if ~isempty(profile_options.(ProfileOptionKey.XLABEL_LOG_RATIO_PROFILE.value)) 
         xlabel_str = profile_options.(ProfileOptionKey.XLABEL_LOG_RATIO_PROFILE.value);
-        xlabel(ax_log_ratio, xlabel_str, 'Interpreter', 'latex');
+        xlabel(ax_log_ratio, xlabel_str, 'Interpreter', 'latex', 'FontSize', 11);
     end
     % Set y-axis labels.
     if ~isempty(profile_options.(ProfileOptionKey.YLABEL_LOG_RATIO_PROFILE.value))
         ylabel_str = sprintf(profile_options.(ProfileOptionKey.YLABEL_LOG_RATIO_PROFILE.value), tolerance_latex);
-        ylabel(ax_log_ratio, ylabel_str, 'Interpreter', 'latex');
+        y_label = ylabel(ax_log_ratio, ylabel_str, 'Interpreter', 'latex', 'FontSize', 11);
+        set(y_label, 'Units', 'normalized');
+        label_position = y_label.Position;
+        label_position(1) = -0.045;
+        y_label.Position = label_position;
     end
 end
 

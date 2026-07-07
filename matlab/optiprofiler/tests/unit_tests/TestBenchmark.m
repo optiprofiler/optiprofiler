@@ -153,6 +153,36 @@ classdef TestBenchmark < matlab.unittest.TestCase
             clear cleanup;
         end
 
+        function testConstrainedHistoryPlotFiles(testCase)
+            solvers = {@history_constrained_test_solver1, @history_constrained_test_solver2};
+            tmp_dir = tempname;
+            mkdir(tmp_dir);
+            cleanup = onCleanup(@() rmdir(tmp_dir, 's'));
+
+            options.savepath = tmp_dir;
+            options.benchmark_id = 'hist-test';
+            options.solver_names = {'solver_1', 'solver_2'};
+            options.max_tol_order = 1;
+            options.n_runs = 1;
+            options.ptype = 'n';
+            options.problem_names = {'BT1'};
+            options.mindim = 2;
+            options.maxdim = 2;
+            options.max_eval_factor = 5;
+            options.maxnlcon = 2;
+            options.maxcon = 2;
+            options.n_jobs = 1;
+            options.silent = true;
+            options.draw_hist_plots = 'sequential';
+
+            benchmark(solvers, options);
+
+            testCase.verifyNumElements(dir(fullfile(tmp_dir, 'hist-test', '*', 'history_plots', 's2mpj', 'BT1.pdf')), 1);
+            testCase.verifyNumElements(dir(fullfile(tmp_dir, 'hist-test', '*', 'history_plots', 's2mpj', 'raw', 'BT1.pdf')), 1);
+            testCase.verifyNumElements(dir(fullfile(tmp_dir, 'hist-test', '*', 'history_plots', 's2mpj', 'cummin', 'BT1.pdf')), 1);
+            clear cleanup;
+        end
+
         function testErrors(testCase)
             % Test whether the function throws errors as expected.
             solvers = {@fmincon_test1, @fmincon_test2};
@@ -203,6 +233,21 @@ function x = history_test_solver1(fun, x0)
 end
 
 function x = history_test_solver2(fun, x0)
+    fun(x0);
+    x = x0 + 0.1;
+    fun(x);
+end
+
+function x = history_constrained_test_solver1(varargin)
+    fun = varargin{1};
+    x0 = varargin{2};
+    fun(x0);
+    x = x0;
+end
+
+function x = history_constrained_test_solver2(varargin)
+    fun = varargin{1};
+    x0 = varargin{2};
     fun(x0);
     x = x0 + 0.1;
     fun(x);

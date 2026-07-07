@@ -1209,7 +1209,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         fig_summary = figure('Units', 'pixels', 'Position', profileFigurePosition(summary_width, summary_height), 'visible', 'off');
         T_summary = tiledlayout(fig_summary, multiplier, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
         T_feature = escapeLatexText(feature.name);
-        T_title = ['Profiles with "', T_feature, '" feature'];
+        T_title = ['Profiles with ', latexQuoteText(T_feature), ' feature'];
         summary_fontsize = min(summary_width / 75 * 2, summary_width / profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * 3 / 75 * 2);
         title_obj = title(T_summary, T_title, 'Interpreter', 'latex', 'FontSize', summary_fontsize);
         set(title_obj, 'Interpreter', 'latex');

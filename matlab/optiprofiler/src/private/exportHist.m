@@ -74,8 +74,8 @@ function exportHistoryFigure(pdf_file, mode, problem_name, problem_type, problem
     T_summary = tiledlayout(fig_summary, n_rows, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
     F_title = escapeLatexText(profile_options.(ProfileOptionKey.FEATURE_STAMP.value));
     P_title = escapeLatexText(problem_name);
-    T_title = ['Solving "', P_title, '" with "', F_title, '" feature'];
-    title_fontsize = min(12, 1.2 * default_width / max(length(T_title), 1));
+    T_title = ['Solving ', latexQuoteText(P_title), ' with ', latexQuoteText(F_title), ' feature'];
+    title_fontsize = min(10, 1.2 * default_width / max(length(T_title), 1));
     title_obj = title(T_summary, T_title, 'Interpreter', 'latex', 'FontSize', title_fontsize);
     set(title_obj, 'Interpreter', 'latex');
 
@@ -91,8 +91,8 @@ function exportHistoryFigure(pdf_file, mode, problem_name, problem_type, problem
         end
     end
     if strcmp(mode, 'combined')
-        ylabel(t_summary(1), "History profiles", 'Interpreter', 'latex', 'FontSize', 14);
-        ylabel(t_summary(2), "Cummin history profiles", 'Interpreter', 'latex', 'FontSize', 14);
+        ylabel(t_summary(1), "History profiles", 'Interpreter', 'latex', 'FontSize', 11);
+        ylabel(t_summary(2), "Cummin history profiles", 'Interpreter', 'latex', 'FontSize', 11);
     end
 
     for i = 1:n_rows
@@ -102,7 +102,8 @@ function exportHistoryFigure(pdf_file, mode, problem_name, problem_type, problem
         else
             cell_axs_summary = {axs_summary(row_start), axs_summary(row_start + 1), axs_summary(row_start + 2)};
         end
-        drawHist(fun_history, maxcv_history, merit_history, fun_inits, maxcv_inits, merit_inits, solver_names, cell_axs_summary, is_cum_rows(i), problem_type, problem_dim, n_eval, profile_options, default_height);
+        show_xlabel = i == n_rows;
+        drawHist(fun_history, maxcv_history, merit_history, fun_inits, maxcv_inits, merit_inits, solver_names, cell_axs_summary, is_cum_rows(i), problem_type, problem_dim, n_eval, profile_options, default_height, show_xlabel);
     end
 
     exportgraphics(fig_summary, pdf_file, 'ContentType', 'vector');
