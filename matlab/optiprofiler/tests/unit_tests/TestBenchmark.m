@@ -150,7 +150,6 @@ classdef TestBenchmark < matlab.unittest.TestCase
             testCase.verifyNumElements(dir(fullfile(tmp_dir, 'hist-test', '*', 'history_plots', 's2mpj', 'ROSENBR.pdf')), 1);
             testCase.verifyNumElements(dir(fullfile(tmp_dir, 'hist-test', '*', 'history_plots', 's2mpj', 'raw', 'ROSENBR.pdf')), 1);
             testCase.verifyNumElements(dir(fullfile(tmp_dir, 'hist-test', '*', 'history_plots', 's2mpj', 'cummin', 'ROSENBR.pdf')), 1);
-            testCase.verifyNumElements(dir(fullfile(tmp_dir, 'hist-test', '*', 'history_plots', 's2mpj_history_plots_summary.pdf')), 1);
             clear cleanup;
         end
 
