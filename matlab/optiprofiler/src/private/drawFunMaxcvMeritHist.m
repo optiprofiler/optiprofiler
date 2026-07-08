@@ -185,7 +185,7 @@ function drawFunMaxcvMeritHist(ax, y, solver_names, is_cum, problem_n, y_shift, 
 
     % When the function values are not all zero and there is at least some change in the function values, use log scale for the y-axis.
     if is_log_scale
-        set(ax, 'YScale', 'log');
+        set(ax, 'YScale', 'log', 'TickLabelInterpreter', 'latex');
     end
 
     box(ax, 'on');
