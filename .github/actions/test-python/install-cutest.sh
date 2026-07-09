@@ -25,8 +25,13 @@ if [[ "$RUNNER_OS" == "Linux" ]]; then
     echo "MYARCH=$MYARCH"
   } >> "$GITHUB_ENV"
 
-  # Build and install CUTEst
-  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/jfowkes/pycutest/master/.install_cutest.sh)"
+  # Build and install CUTEst. Download the installer first so that curl errors
+  # are not hidden by `bash -c "$(curl ...)"`.
+  installer="$(mktemp)"
+  curl --retry 5 --retry-all-errors --retry-delay 5 -fsSL \
+    https://raw.githubusercontent.com/jfowkes/pycutest/master/.install_cutest.sh \
+    -o "$installer"
+  bash "$installer"
 elif [[ "$RUNNER_OS" == "macOS" ]]; then
   # Install gfortran
   sudo ln -fs /usr/local/bin/gfortran-12 /usr/local/bin/gfortran
