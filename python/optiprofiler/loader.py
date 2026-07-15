@@ -559,6 +559,14 @@ def save_results_to_h5(results_plibs: List[Dict[str, Any]], file_path: str) -> N
                         except:
                             # If conversion fails (e.g., mixed types), store as pickled object
                             plib_group.create_dataset(f"{key}_pickled", data=np.void(pickle.dumps(value)))
+                elif key == 'plib_options':
+                    # Library options may contain arbitrary pickleable values.
+                    # Store the mapping atomically so tuples, nested mappings,
+                    # and library-defined scalar types survive an exact round trip.
+                    plib_group.create_dataset(
+                        f'{key}_pickled',
+                        data=np.void(pickle.dumps(value)),
+                    )
                 elif isinstance(value, dict):
                     # Handle nested dictionaries
                     nested_group = plib_group.create_group(key)

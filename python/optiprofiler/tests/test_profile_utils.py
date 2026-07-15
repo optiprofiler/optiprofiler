@@ -2,11 +2,13 @@
 import logging
 import os
 import tempfile
+from pathlib import Path
 
 import numpy as np
 import pytest
 
 from optiprofiler.opclasses import Feature
+from optiprofiler.problem_libraries import resolve_problem_library
 from optiprofiler.profile_utils import (
     _default_merit,
     _default_score_fun,
@@ -26,7 +28,7 @@ from optiprofiler.profile_utils import (
     write_report,
 )
 from optiprofiler.utils import DEFAULT_LOG_LINE_WIDTH, FeatureOption, ProblemOption, ProfileOption, WrappedLogFormatter, format_log_prefix
-from optiprofiler.profiles import _get_problem_lib_module_path, _get_solver_log_names, _standard_constrained_result_log_length
+from optiprofiler.profiles import _get_solver_log_names, _standard_constrained_result_log_length
 
 
 class TestCheckValidityProblemOptions:
@@ -175,6 +177,59 @@ class TestCheckValidityProblemOptions:
         with pytest.raises(TypeError):
             check_validity_problem_options({ProblemOption.PLIBS: [123]})
 
+    def test_saved_result_library_filter_does_not_require_provider(self):
+        options = check_validity_problem_options(
+            {ProblemOption.PLIBS: ['retired_external_library']},
+            require_available=False,
+        )
+
+        assert options[ProblemOption.PLIBS] == ['retired_external_library']
+
+    def test_plib_options_valid(self):
+        opts = check_validity_problem_options({
+            ProblemOption.PLIB_OPTIONS: {
+                's2mpj': {
+                    'variable_size': 'all',
+                    'test_feasibility_problems': 2,
+                },
+            },
+        })
+
+        assert opts[ProblemOption.PLIB_OPTIONS] == {
+            's2mpj': {
+                'variable_size': 'all',
+                'test_feasibility_problems': 2,
+            },
+        }
+
+    @pytest.mark.parametrize(
+        'value',
+        [[], 's2mpj', 1],
+    )
+    def test_plib_options_invalid_outer_mapping(self, value):
+        with pytest.raises(TypeError, match='must be a mapping'):
+            check_validity_problem_options({ProblemOption.PLIB_OPTIONS: value})
+
+    def test_plib_options_none_becomes_empty_mapping(self):
+        opts = check_validity_problem_options({ProblemOption.PLIB_OPTIONS: None})
+        assert opts[ProblemOption.PLIB_OPTIONS] == {}
+
+    def test_plib_options_requires_string_library_names(self):
+        with pytest.raises(TypeError, match='name strings'):
+            check_validity_problem_options({ProblemOption.PLIB_OPTIONS: {1: {}}})
+
+    def test_plib_options_requires_nested_mappings(self):
+        with pytest.raises(TypeError, match='s2mpj.*must be a mapping'):
+            check_validity_problem_options({
+                ProblemOption.PLIB_OPTIONS: {'s2mpj': []},
+            })
+
+    def test_plib_options_requires_string_option_names(self):
+        with pytest.raises(TypeError, match='must use string keys'):
+            check_validity_problem_options({
+                ProblemOption.PLIB_OPTIONS: {'s2mpj': {1: 'all'}},
+            })
+
     def test_custom_problem_libs_path_parent(self, tmp_path):
         lib_dir = tmp_path / 'solar'
         lib_dir.mkdir()
@@ -188,12 +243,12 @@ class TestCheckValidityProblemOptions:
 
         assert opts[ProblemOption.PLIBS] == ['solar']
         assert opts[ProblemOption.CUSTOM_PROBLEM_LIBS_PATH] == tmp_path.resolve()
-        module_file_path, _, is_builtin = _get_problem_lib_module_path(
+        library_ref = resolve_problem_library(
             'solar',
             opts[ProblemOption.CUSTOM_PROBLEM_LIBS_PATH],
         )
-        assert module_file_path == tools_file.resolve()
-        assert not is_builtin
+        assert Path(library_ref.locator) == tools_file.resolve()
+        assert not library_ref.is_builtin
 
     def test_custom_problem_libs_path_direct(self, tmp_path):
         lib_dir = tmp_path / 'solar'
@@ -207,12 +262,12 @@ class TestCheckValidityProblemOptions:
         })
 
         assert opts[ProblemOption.PLIBS] == ['solar']
-        module_file_path, _, is_builtin = _get_problem_lib_module_path(
+        library_ref = resolve_problem_library(
             'solar',
             opts[ProblemOption.CUSTOM_PROBLEM_LIBS_PATH],
         )
-        assert module_file_path == tools_file.resolve()
-        assert not is_builtin
+        assert Path(library_ref.locator) == tools_file.resolve()
+        assert not library_ref.is_builtin
 
     def test_custom_problem_libs_path_does_not_infer_tools_prefix(self, tmp_path):
         lib_dir = tmp_path / 'solar'

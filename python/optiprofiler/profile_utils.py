@@ -1,6 +1,7 @@
 import os
 import re
 import textwrap
+from collections.abc import Mapping
 from pathlib import Path
 import numpy as np
 from matplotlib import pyplot as plt
@@ -8,60 +9,8 @@ from matplotlib.colors import is_color_like
 from pypdf import PdfWriter
 
 
+from .problem_libraries import list_problem_libraries, resolve_problem_library
 from .utils import FeatureName, ProfileOption, FeatureOption, ProblemOption, get_logger, print_log_message, shorten_log_message
-
-
-def _custom_problem_library_names(custom_libs_path):
-    """
-    Return custom problem library names available under ``custom_libs_path``.
-
-    ``custom_libs_path`` may be either a parent directory containing one or more
-    library subdirectories, or the directory of a single custom library. Each
-    library directory must contain ``<library_name>_tools.py``; OptiProfiler does
-    not infer the library name from other ``*_tools.py`` files.
-    """
-    custom_libs_path = Path(custom_libs_path)
-    if (custom_libs_path / f'{custom_libs_path.name}_tools.py').is_file():
-        return [custom_libs_path.name]
-
-    custom_libs_names = []
-    for p in custom_libs_path.iterdir():
-        if p.is_dir() and not p.name.startswith('.') and p.name != '__pycache__':
-            if (p / f'{p.name}_tools.py').is_file():
-                custom_libs_names.append(p.name)
-    return custom_libs_names
-
-
-def _custom_problem_library_dir(custom_libs_path, plib):
-    """
-    Return the explicit custom directory for ``plib`` if one is present.
-
-    ``custom_libs_path`` may point either to a parent directory containing a
-    ``plib`` subdirectory, or directly to the ``plib`` directory.  The function
-    deliberately does not inspect tools files; callers can use this to reject a
-    malformed custom directory before falling back to a built-in library with the
-    same name.
-    """
-    custom_libs_path = Path(custom_libs_path)
-    candidates = []
-    if custom_libs_path.name == plib and custom_libs_path.is_dir():
-        candidates.append(custom_libs_path)
-    parent_candidate = custom_libs_path / plib
-    if parent_candidate.is_dir():
-        candidates.append(parent_candidate)
-
-    resolved = []
-    for candidate in candidates:
-        candidate = candidate.resolve()
-        if candidate not in resolved:
-            resolved.append(candidate)
-    if len(resolved) > 1:
-        raise ValueError(
-            f'The option {ProblemOption.CUSTOM_PROBLEM_LIBS_PATH} is ambiguous for '
-            f'problem library "{plib}". It can point to either the parent directory '
-            f'containing "{plib}" or the "{plib}" directory itself, but not both.'
-        )
-    return resolved[0] if resolved else None
 
 
 def _get_conservative_default_n_jobs():
@@ -74,13 +23,21 @@ def _get_conservative_default_n_jobs():
     return max(2, n_workers // 2)
 
 
-def check_validity_problem_options(problem_options):
+def check_validity_problem_options(problem_options, require_available=True):
     """
     Check the validity of the problem options.
+
+    Parameters
+    ----------
+    problem_options : dict
+        Problem options to normalize and validate.
+    require_available : bool, optional
+        Resolve each requested problem-library provider when true. Loading a
+        saved experiment sets this to false because filtering stored results
+        by library name does not require that provider to remain installed.
     """
     # Check custom_problem_libs_path first, as it affects plibs validation.
     custom_libs_path = None
-    custom_libs_names = []
     if ProblemOption.CUSTOM_PROBLEM_LIBS_PATH in problem_options:
         custom_libs_path = problem_options[ProblemOption.CUSTOM_PROBLEM_LIBS_PATH]
         if custom_libs_path is not None:
@@ -92,49 +49,58 @@ def check_validity_problem_options(problem_options):
                 raise ValueError(f'Option {ProblemOption.CUSTOM_PROBLEM_LIBS_PATH} path does not exist: {custom_libs_path}')
             if not custom_libs_path.is_dir():
                 raise ValueError(f'Option {ProblemOption.CUSTOM_PROBLEM_LIBS_PATH} must be a directory: {custom_libs_path}')
-            custom_libs_names = _custom_problem_library_names(custom_libs_path)
             # Store the resolved path back.
             problem_options[ProblemOption.CUSTOM_PROBLEM_LIBS_PATH] = custom_libs_path
 
     if ProblemOption.PLIBS in problem_options:
         if not isinstance(problem_options[ProblemOption.PLIBS], list):
             problem_options[ProblemOption.PLIBS] = [problem_options[ProblemOption.PLIBS]]
-        mydir = Path(__file__).parent.resolve()
-        problem_dir = Path(mydir, 'problem_libs').resolve()
-        # Get built-in libraries (subdirectories that contain {name}_tools.py).
-        builtin_libs_names = []
-        for p in problem_dir.iterdir():
-            if p.is_dir() and not p.name.startswith('.') and p.name != '__pycache__':
-                tools_file = p / f'{p.name}_tools.py'
-                if tools_file.exists():
-                    builtin_libs_names.append(p.name)
-        # All available libraries = builtin + custom.  If a custom path
-        # explicitly contains a directory named like the requested library, that
-        # directory must contain the strict tools filename; do not silently fall
-        # back to a built-in library with the same name.
-        all_available_libs = builtin_libs_names + custom_libs_names
-        # Check if plibs is empty or any element is not str or not in available libraries
+        # Check if plibs is empty or any element is not str.
         if len(problem_options[ProblemOption.PLIBS]) == 0:
             raise ValueError(f'Option {ProblemOption.PLIBS} cannot be an empty list.')
         elif any(not isinstance(plib, str) for plib in problem_options[ProblemOption.PLIBS]):
             raise TypeError(f'Option {ProblemOption.PLIBS} must be a string or a list of strings.')
-        if custom_libs_path is not None:
+        if require_available:
+            all_available_libs = list_problem_libraries(custom_libs_path)
             for plib in problem_options[ProblemOption.PLIBS]:
-                custom_library_dir = _custom_problem_library_dir(custom_libs_path, plib)
-                if custom_library_dir is not None and not (custom_library_dir / f'{plib}_tools.py').is_file():
+                try:
+                    resolve_problem_library(plib, custom_libs_path)
+                except ValueError as exc:
                     raise ValueError(
-                        f'Option {ProblemOption.PLIBS} contains invalid problem libraries. '
-                        f'The custom problem library "{plib}" at {custom_library_dir} must '
-                        f'contain "{plib}_tools.py".'
-                    )
-        if any(plib not in all_available_libs for plib in problem_options[ProblemOption.PLIBS]):
-            raise ValueError(
-                f'Option {ProblemOption.PLIBS} contains invalid problem libraries. '
-                f'Available libraries: {all_available_libs}. Note: custom problem libraries '
-                'may be supplied by a parent directory or a direct library directory. Each '
-                'library directory must contain "<library_name>_tools.py", where '
-                '"<library_name>" is the name used in the option "plibs".'
+                        f'Option {ProblemOption.PLIBS} contains invalid problem '
+                        f'libraries. Available libraries: {all_available_libs}. '
+                        f'{exc}'
+                    ) from exc
+
+    if ProblemOption.PLIB_OPTIONS in problem_options:
+        plib_options = problem_options[ProblemOption.PLIB_OPTIONS]
+        if plib_options is None:
+            plib_options = {}
+        if not isinstance(plib_options, Mapping):
+            raise TypeError(
+                f'Option {ProblemOption.PLIB_OPTIONS} must be a mapping from '
+                'problem-library names to option mappings.'
             )
+        plib_options = dict(plib_options)
+        if any(not isinstance(plib, str) for plib in plib_options):
+            raise TypeError(
+                f'Option {ProblemOption.PLIB_OPTIONS} must use problem-library '
+                'name strings as keys.'
+            )
+        for plib, options in plib_options.items():
+            if not isinstance(options, Mapping):
+                raise TypeError(
+                    f'Options for problem library "{plib}" in '
+                    f'{ProblemOption.PLIB_OPTIONS} must be a mapping.'
+                )
+            options = dict(options)
+            if any(not isinstance(key, str) for key in options):
+                raise TypeError(
+                    f'Options for problem library "{plib}" in '
+                    f'{ProblemOption.PLIB_OPTIONS} must use string keys.'
+                )
+            plib_options[plib] = options
+        problem_options[ProblemOption.PLIB_OPTIONS] = plib_options
 
     if ProblemOption.PTYPE in problem_options:
         if not isinstance(problem_options[ProblemOption.PTYPE], str):
@@ -558,6 +524,7 @@ def get_default_problem_options(problem_options):
     Get the default problem options.
     """
     problem_options.setdefault(ProblemOption.PLIBS.value, ['s2mpj'])
+    problem_options.setdefault(ProblemOption.PLIB_OPTIONS.value, {})
     problem_options.setdefault(ProblemOption.PTYPE.value, 'u')
     problem_options.setdefault(ProblemOption.MINDIM.value, 1)
     problem_options.setdefault(ProblemOption.MAXDIM.value, problem_options[ProblemOption.MINDIM] + 1)

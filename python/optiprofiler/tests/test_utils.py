@@ -91,6 +91,7 @@ class TestProblemOption:
         assert ProblemOption.EXCLUDELIST == 'excludelist'
         assert ProblemOption.PROBLEM_NAMES == 'problem_names'
         assert ProblemOption.CUSTOM_PROBLEM_LIBS_PATH == 'custom_problem_libs_path'
+        assert ProblemOption.PLIB_OPTIONS == 'plib_options'
 
     def test_constructor(self):
         assert ProblemOption('plibs') == ProblemOption.PLIBS

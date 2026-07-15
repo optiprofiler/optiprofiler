@@ -16,6 +16,7 @@ __version__ = '1.3.4'
 
 # Public API of the optiprofiler package
 from .opclasses import Feature, Problem, FeaturedProblem
+from .problem_libraries import ProblemLibraryPlugin, list_problem_libraries
 from .profiles import benchmark
 from .utils import show_versions
 from .plib_config import get_plib_config, set_plib_config
@@ -24,7 +25,9 @@ __all__ = [
     'Problem',
     'Feature',
     'FeaturedProblem',
+    'ProblemLibraryPlugin',
     'benchmark',
+    'list_problem_libraries',
     'show_versions',
     'get_plib_config',
     'set_plib_config',

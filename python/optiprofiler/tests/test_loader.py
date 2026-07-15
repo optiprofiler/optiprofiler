@@ -316,6 +316,22 @@ class TestSaveLoadH5:
         finally:
             os.unlink(path)
 
+    def test_problem_library_options_preserve_library_defined_types(self):
+        results_plibs = [_make_dummy_results_plib(n_problems=2)]
+        expected = {
+            'variant': ('large', 3),
+            'nested': {'weights': [1.0, 2.0]},
+        }
+        results_plibs[0]['plib_options'] = expected
+        with tempfile.NamedTemporaryFile(suffix='.h5', delete=False) as f:
+            path = f.name
+        try:
+            save_results_to_h5(results_plibs, path)
+            loaded = load_results_from_h5(path)
+            assert loaded[0]['plib_options'] == expected
+        finally:
+            os.unlink(path)
+
     def test_scalar_string(self):
         results_plibs = [_make_dummy_results_plib(n_problems=2)]
         results_plibs[0]['feature_stamp'] = 'plain'

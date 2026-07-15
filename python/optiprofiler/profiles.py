@@ -7,11 +7,11 @@ import re
 import shutil
 import inspect
 import logging
-import importlib.util
 import time
 import warnings
 from contextlib import redirect_stderr, redirect_stdout
 from datetime import datetime
+from functools import wraps
 from inspect import signature
 from multiprocessing import Pool
 from multiprocessing.reduction import ForkingPickler
@@ -27,9 +27,11 @@ from matplotlib.backends import backend_pdf
 from matplotlib.ticker import MaxNLocator, FuncFormatter
 
 from .opclasses import Feature, Problem, FeaturedProblem
+from .plib_config import _resolve_plib_options
+from .problem_libraries import _copy_problem_library_options, _normalize_selected_problem_names, load_problem_library, resolve_problem_library
 from .utils import DEFAULT_LOG_LINE_WIDTH, FeatureName, ProfileOption, FeatureOption, ProblemOption, get_logger, print_log_message, setup_main_process_logging, setup_worker_logging, shorten_log_message, format_log_prefix
 from .loader import load_results, save_results_to_h5, save_options
-from .profile_utils import check_validity_problem_options, check_validity_profile_options, get_default_problem_options, get_default_profile_options, compute_merit_values, create_stamp, merge_pdfs_with_pypdf, write_report, process_results, init_readme, add_to_readme, compute_scores, _custom_problem_library_dir
+from .profile_utils import check_validity_problem_options, check_validity_profile_options, get_default_problem_options, get_default_profile_options, compute_merit_values, create_stamp, merge_pdfs_with_pypdf, write_report, process_results, init_readme, add_to_readme, compute_scores
 from .plotting import draw_hist, set_profile_context, format_float_scientific_latex, draw_profiles, summary_legend_extra_width, latex_escape_text, format_profile_text
 
 
@@ -41,6 +43,49 @@ def _shorten_log_message(message: object, max_length: int = 180) -> str:
 
 
 _SOLVER_LOG_NAMES_KEY = '_solver_log_names'
+
+
+def _close_logging_resources(resources):
+    """Close benchmark logging resources once, including on exceptions."""
+    listener = resources.pop('listener', None)
+    log_queue = resources.pop('log_queue', None)
+    cleanup_errors = []
+    if log_queue is not None:
+        root_logger = logging.getLogger()
+        for handler in list(root_logger.handlers):
+            if getattr(handler, 'queue', None) is log_queue:
+                root_logger.removeHandler(handler)
+                try:
+                    handler.close()
+                except Exception as exc:
+                    cleanup_errors.append(exc)
+    if listener is not None:
+        try:
+            listener.stop()
+        except Exception as exc:
+            cleanup_errors.append(exc)
+        for handler in listener.handlers:
+            if hasattr(handler, 'close'):
+                try:
+                    handler.close()
+                except Exception as exc:
+                    cleanup_errors.append(exc)
+    if log_queue is not None:
+        try:
+            log_queue.close()
+        except Exception as exc:
+            cleanup_errors.append(exc)
+        try:
+            log_queue.join_thread()
+        except Exception as exc:
+            cleanup_errors.append(exc)
+    if cleanup_errors and sys.exc_info()[0] is None:
+        warnings.warn(
+            f'Failed to close one or more benchmark logging resources: '
+            f'{shorten_log_message(cleanup_errors[0])}',
+            RuntimeWarning,
+            stacklevel=2,
+        )
 
 
 def _standard_constrained_result_log_length(problem_name_width: int, solver_name_width: int) -> int:
@@ -93,7 +138,7 @@ def _log_solver_aliases(logger, solver_names, solver_log_names):
         logger.info(f'{alias:<{max_alias_len}} = {name}')
 
 
-def benchmark(
+def _benchmark(
     solvers: list[Callable[..., Any]] | None = None,
     /,
     **kwargs
@@ -485,10 +530,13 @@ def benchmark(
     option. Then select problems from these libraries according to the
     given options ('problem_names', 'ptype', 'mindim', 'maxdim', 'minb',
     'maxb', 'minlcon', 'maxlcon', 'minnlcon', 'maxnlcon', 'mincon',
-    'maxcon', and 'excludelist').
+    'maxcon', and 'excludelist'). Library-specific selection and loading
+    behavior is configured separately through 'plib_options'.
 
     plibs : list of str, optional
         The problem libraries to be used. It should be a list of strs.
+        Each name must be an ASCII Python identifier: it must start with a
+        letter or underscore and contain only letters, digits, and underscores.
         The built-in choices are ``'s2mpj'``, ``'pycutest'``,
         ``'solar'``, and
         ``'custom'``. Default setting is ``'s2mpj'``. Note that
@@ -497,8 +545,23 @@ def benchmark(
         for installation instructions. ``'solar'`` uses a slim
         SOLAR runtime and may be substantially slower than algebraic test
         problems because it calls an external simulator.
-        You can also use your own problem library by specifying its name here
-        together with the ``custom_problem_libs_path`` option.
+        Separately installed problem-library packages are discovered through
+        the ``optiprofiler.problem_libraries`` entry-point group. You can also
+        use an unpackaged local library by specifying its name here together
+        with the ``custom_problem_libs_path`` option.
+    plib_options : mapping, optional
+        Per-experiment options grouped by problem-library name. Each value must
+        be a mapping understood and validated by that library. For example, a
+        hypothetical API-v1 plugin may accept
+        ``{'myproblems': {'variant': 'large'}}`` without changing another
+        library or process-wide defaults. Keys for libraries not selected in
+        ``plibs`` are rejected. Per-experiment values take precedence over
+        :func:`set_plib_config`, environment-level settings, and package-owned
+        defaults. The validated effective mapping, including defaults, is saved
+        in ``test_log/options_refined.pkl`` and in each library's data in
+        ``test_log/data_for_loading.h5``. This option is rejected with
+        ``problem`` and ``load``, because those modes do not invoke a problem
+        library. Default is an empty mapping.
     ptype : str, optional
         The type of the problems to be selected. It should be a str
         consisting of any combination of 'u' (unconstrained), 'b'
@@ -540,9 +603,10 @@ def benchmark(
         contain a tools module named '<library_name>_tools.py' with two functions:
         '<library_name>_load' and '<library_name>_select'. This option allows
         users to use their own problem libraries without modifying the installed
-        package. If a custom library has the same name as a built-in library,
-        the custom library is used. Default is None, meaning only built-in
-        libraries are available.
+        package. If an explicitly supplied custom library has the same name as
+        another provider, the custom library is used for that run. Without an
+        explicit custom path, duplicate providers are rejected as ambiguous.
+        Default is None.
     excludelist : list, optional
         The list of problems to be excluded. Default is not to
         exclude any problem.
@@ -610,18 +674,23 @@ def benchmark(
        `PyCUTEst <https://jfowkes.github.io/pycutest/>`_ (Linux and macOS
        only), and SOLAR (see [7]_) through the ``solar`` adapter.
        SOLAR is distributed through its own LGPL-2.1 runtime files; see the
-       adapter README and ``runtime/solar/manifest.json`` for provenance. To
-       use your own problem library, see the
-       ``custom_problem_libs_path`` option or the guide on our
-       `website <https://www.optprof.com>`_. A custom library with the same
-       name as a built-in library overrides the built-in one for that run.
+       adapter README and ``runtime/solar/manifest.json`` for provenance.
+       Problem libraries can also be installed as separate Python packages
+       through the versioned OptiProfiler problem-library protocol. For local
+       development without packaging, see the ``custom_problem_libs_path``
+       option or the guide on our `website <https://www.optprof.com>`_. An
+       explicitly supplied custom library overrides other providers with the
+       same name for that run; all other duplicate providers are rejected.
 
-    2. Each problem library has a ``config.txt`` file that controls options
-       such as ``variable_size`` and ``test_feasibility_problems``. You can
-       override these at runtime using `set_plib_config` or by setting the
-       corresponding environment variables (e.g.,
-       ``S2MPJ_VARIABLE_SIZE``). See `get_plib_config` and
-       `set_plib_config` for details.
+    2. Problem libraries may define different library-specific options. For a
+       reproducible run, provide them through ``plib_options``. Package-owned
+       defaults may come from ``config.txt`` or another plugin-specific source.
+       :func:`set_plib_config` remains available for process-level defaults,
+       and some adapters also support environment variables such as
+       ``S2MPJ_VARIABLE_SIZE``. The precedence is ``plib_options`` first, then
+       :func:`set_plib_config`, then the library-owned environment/configuration
+       and defaults. See :func:`get_plib_config` for the current process-level
+       values.
 
     3. When the ``load`` option is provided, the function loads data from a
        previous experiment and draws profiles using the provided options.
@@ -708,6 +777,7 @@ def benchmark(
         if __name__ == '__main__':
             scores = benchmark([solver1, solver2])
     """
+    logging_resources = kwargs.pop('_logging_resources', {})
     logger = get_logger(__name__)
 
     # Check whether solvers or 'load' option is given.
@@ -751,12 +821,28 @@ def benchmark(
         else:
             raise ValueError(f'Unknown option: {key}.')
 
-    # Check validity of the options.
-    problem_options = check_validity_problem_options(problem_options)
+    # Check profile options first so loading saved results can validate library
+    # names structurally without requiring those providers to remain installed.
     profile_options = check_validity_profile_options(solvers, profile_options)
 
     # Whether to load the existing results.
     is_load = ProfileOption.LOAD in profile_options and profile_options[ProfileOption.LOAD] is not None
+    problem_options = check_validity_problem_options(
+        problem_options,
+        require_available=not is_load,
+    )
+
+    explicit_plib_options = problem_options.get(ProblemOption.PLIB_OPTIONS, {})
+    if explicit_plib_options and 'problem' in locals():
+        raise ValueError(
+            f'Option {ProblemOption.PLIB_OPTIONS} cannot be used with the '
+            '`problem` option because no problem library is selected or loaded.'
+        )
+    if explicit_plib_options and is_load:
+        raise ValueError(
+            f'Option {ProblemOption.PLIB_OPTIONS} cannot be used with the `load` '
+            'option because a saved experiment is not reloaded from its problem library.'
+        )
 
     # If `n_runs` is not specified, set it to 5 if at least one solver is randomized.
     any_solver_isrand = ProfileOption.SOLVER_ISRAND in profile_options and any(profile_options[ProfileOption.SOLVER_ISRAND])
@@ -777,6 +863,14 @@ def benchmark(
     # Set default values for the unspecified options.
     problem_options = get_default_problem_options(problem_options)
     profile_options = get_default_profile_options(solvers, feature, profile_options)
+
+    # Resolve plugin-owned options before creating output directories or logging
+    # resources. Configuration errors therefore fail without leaving a partial
+    # experiment behind.
+    if not is_load and 'problem' not in locals():
+        problem_options[ProblemOption.PLIB_OPTIONS] = _resolve_benchmark_plib_options(
+            problem_options
+        )
 
     # Initialize outputs.
     if 'results_plibs' in locals() and results_plibs is not None:
@@ -871,6 +965,13 @@ def benchmark(
     log_queue = None
     listener = None
     if not profile_options[ProfileOption.SCORE_ONLY]:
+        log_file = path_log / 'log.txt'
+        log_queue, listener = setup_main_process_logging(log_file=log_file, level=logging.INFO)
+        logging_resources['log_queue'] = log_queue
+        logging_resources['listener'] = listener
+        add_to_readme(path_readme_log, 'log.txt', 'File, the log file of the current experiment, recording printed information from the screen.')
+
+    if not profile_options[ProfileOption.SCORE_ONLY]:
         try:
             # Save the user-provided options.
             # We use pickle because options may contain function handles or other non-serializable objects.
@@ -894,12 +995,6 @@ def benchmark(
             if not profile_options[ProfileOption.SILENT]:
                 print_log_message('WARNING', 'Failed to save the options of the current experiment.')
                 print_log_message('WARNING', f'Error message: {shorten_log_message(exc)}')
-
-        # Set up the logger to log the information in a file.
-        log_file = path_log / 'log.txt'
-        log_queue, listener = setup_main_process_logging(log_file=log_file, level=logging.INFO)
-
-        add_to_readme(path_readme_log, 'log.txt', 'File, the log file of the current experiment, recording printed information from the screen.')
 
     if many_solver_warning is not None:
         if listener is not None:
@@ -1033,12 +1128,7 @@ def benchmark(
 
         # Close the listener of the logger before returning.
         if not profile_options[ProfileOption.SCORE_ONLY]:
-            listener.stop()
-            for h in listener.handlers:
-                if hasattr(h, 'close'):
-                    h.close()
-            log_queue.close()
-            log_queue.join_thread()
+            _close_logging_resources(logging_resources)
         return solver_scores, None, None
 
     # If 'load' option is not specified, we solve all the selected problems.
@@ -1049,6 +1139,9 @@ def benchmark(
             logger.info(f'Start testing with the following options:')
             logger.info(f'- Solvers: {", ".join(solver_names)}')
             logger.info(f'- Problem libraries: {", ".join(problem_options[ProblemOption.PLIBS])}')
+            for plib, library_options in problem_options[ProblemOption.PLIB_OPTIONS].items():
+                if library_options:
+                    logger.info(f'- Options for problem library "{plib}": {library_options}')
             logger.info(f'- Problem types: {problem_options[ProblemOption.PTYPE]}')
             logger.info(f'- Problem dimension range: [{problem_options[ProblemOption.MINDIM]}, {problem_options[ProblemOption.MAXDIM]}]')
             if any(t in 'bln' for t in problem_options[ProblemOption.PTYPE]):
@@ -1162,12 +1255,7 @@ def benchmark(
                 logger.info('No problems are selected or solved from any problem library.')
             # Close the listener of the logger before returning.
             if not profile_options[ProfileOption.SCORE_ONLY]:
-                listener.stop()
-                for h in listener.handlers:
-                    if hasattr(h, 'close'):
-                        h.close()
-                log_queue.close()
-                log_queue.join_thread()
+                _close_logging_resources(logging_resources)
             return solver_scores, None, None
 
     # Draw history plots sequentially if draw_hist_plots is set to 'sequential'.
@@ -1729,14 +1817,51 @@ def benchmark(
 
     # Close the listener of the logger.
     if is_saving:
-        listener.stop()
-        for h in listener.handlers:
-            if hasattr(h, 'close'):
-                h.close()
-        log_queue.close()
-        log_queue.join_thread()
+        _close_logging_resources(logging_resources)
 
     return solver_scores, profile_scores, curves
+
+
+@wraps(_benchmark)
+def benchmark(
+    solvers: list[Callable[..., Any]] | None = None,
+    /,
+    **kwargs
+) -> tuple[np.ndarray, np.ndarray | None, list[dict] | None]:
+    """Run :func:`_benchmark` and always release its logging resources."""
+    logging_resources = {}
+    try:
+        return _benchmark(
+            solvers,
+            _logging_resources=logging_resources,
+            **kwargs,
+        )
+    finally:
+        _close_logging_resources(logging_resources)
+
+
+def _resolve_benchmark_plib_options(problem_options):
+    """Resolve and validate the effective options of every selected library."""
+    plibs = problem_options[ProblemOption.PLIBS]
+    run_options = problem_options.get(ProblemOption.PLIB_OPTIONS, {})
+    extra_libraries = sorted(set(run_options) - set(plibs))
+    if extra_libraries:
+        raise ValueError(
+            f'Option {ProblemOption.PLIB_OPTIONS} contains options for unselected '
+            f'problem libraries: {extra_libraries}.'
+        )
+    custom_path = problem_options.get(
+        ProblemOption.CUSTOM_PROBLEM_LIBS_PATH,
+        None,
+    )
+    return {
+        plib: _resolve_plib_options(
+            plib,
+            run_options.get(plib, {}),
+            custom_path,
+        )
+        for plib in plibs
+    }
 
 
 def _solve_all_problems(solvers, plib, feature, problem_options, profile_options, is_plot, path_hist_plots, log_queue=None):
@@ -1748,25 +1873,30 @@ def _solve_all_problems(solvers, plib, feature, problem_options, profile_options
 
     # Get satisfied problem names.
     option_select = problem_options.copy()
-    for key in [ProblemOption.PLIBS.value, ProblemOption.PROBLEM_NAMES.value, ProblemOption.EXCLUDELIST.value, ProblemOption.CUSTOM_PROBLEM_LIBS_PATH.value]:
+    for key in [ProblemOption.PLIBS.value, ProblemOption.PLIB_OPTIONS.value, ProblemOption.PROBLEM_NAMES.value, ProblemOption.EXCLUDELIST.value, ProblemOption.CUSTOM_PROBLEM_LIBS_PATH.value]:
         option_select.pop(key, None)
+
+    library_options = problem_options.get(ProblemOption.PLIB_OPTIONS, {}).get(
+        plib,
+        {},
+    )
 
     # Get the custom problem libraries path (if any).
     custom_problem_libs_path = problem_options.get(ProblemOption.CUSTOM_PROBLEM_LIBS_PATH, None)
 
-    # Get the module file path for the problem library.
-    module_file_path, module_name, _ = _get_problem_lib_module_path(plib, custom_problem_libs_path)
-
-    # Import the problem library module.
+    # Resolve first without importing so the serializable reference can also be
+    # used by worker processes.
+    library_ref = resolve_problem_library(plib, custom_problem_libs_path)
     try:
-        spec = importlib.util.spec_from_file_location(module_name, str(module_file_path))
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        selector_name = plib + '_select'
-        select = getattr(module, selector_name)
+        library = load_problem_library(library_ref)
+        if library.check_available is not None:
+            library.check_available()
     except Exception as exc:
-        logger.error(f'Error occurred while importing the problem library {plib}. Error message: {shorten_log_message(exc)}')
-        raise exc
+        logger.error(
+            f'Problem library "{plib}" could not be loaded or is unavailable. '
+            f'Error message: {shorten_log_message(exc)}'
+        )
+        raise
 
     # Select the problem names satisfying the options.
     try:
@@ -1778,7 +1908,13 @@ def _solve_all_problems(solvers, plib, feature, problem_options, profile_options
             exclude_list = problem_options[ProblemOption.EXCLUDELIST]
         else:
             exclude_list = []
-        selected_problem_names = select(option_select)
+        selected_problem_names = _normalize_selected_problem_names(
+            library.select(
+                dict(option_select),
+                _copy_problem_library_options(library_options),
+            ),
+            plib,
+        )
         if not problem_names:
             problem_names = selected_problem_names
         else:
@@ -1787,8 +1923,12 @@ def _solve_all_problems(solvers, plib, feature, problem_options, profile_options
             problem_names = list(set(problem_names))
         if exclude_list:
             problem_names = [name for name in problem_names if name not in exclude_list]
-    except:
-        pass
+    except Exception as exc:
+        logger.error(
+            f'Failed to select problems from the problem library "{plib}". '
+            f'Error message: {shorten_log_message(exc)}'
+        )
+        raise
 
     if not problem_names:
         if not profile_options[ProfileOption.SILENT]:
@@ -1823,8 +1963,8 @@ def _solve_all_problems(solvers, plib, feature, problem_options, profile_options
                 profile_options_log,
                 is_plot,
                 path_hist_plots,
-                plib,
-                custom_problem_libs_path,
+                library_ref,
+                library_options,
             )
             ForkingPickler.dumps(sample_arg)
         except Exception:
@@ -1837,7 +1977,7 @@ def _solve_all_problems(solvers, plib, feature, problem_options, profile_options
             )
 
     # Solve all problems.
-    args = [(solvers, feature, problem_name, len_problem_names, profile_options_log, is_plot, path_hist_plots, plib, custom_problem_libs_path) for problem_name in problem_names]
+    args = [(solvers, feature, problem_name, len_problem_names, profile_options_log, is_plot, path_hist_plots, library_ref, library_options) for problem_name in problem_names]
     if sequential_mode:
         results = map(lambda arg: _solve_one_problem_wrapper(*arg), args)
     else:
@@ -1905,6 +2045,7 @@ def _solve_all_problems(solvers, plib, feature, problem_options, profile_options
 
     results = {}
     results['plib'] = plib
+    results['plib_options'] = _copy_problem_library_options(library_options)
     results['solver_names'] = profile_options[ProfileOption.SOLVER_NAMES]
     results['ptype'] = problem_options[ProblemOption.PTYPE]
     results['mindim'] = problem_options[ProblemOption.MINDIM]
@@ -1942,26 +2083,25 @@ def _solve_all_problems(solvers, plib, feature, problem_options, profile_options
     return results
 
 
-def _solve_one_problem_wrapper(solvers, feature, problem_name, len_problem_names, profile_options, is_plot, path_hist_plots, plib, custom_problem_libs_path=None):
+def _solve_one_problem_wrapper(solvers, feature, problem_name, len_problem_names, profile_options, is_plot, path_hist_plots, library_ref, library_options):
     logger = get_logger(__name__)
-    
-    # Get the module file path for the problem library.
-    module_file_path, module_name, _ = _get_problem_lib_module_path(plib, custom_problem_libs_path)
-    
-    # Import the problem library module.
+    plib = library_ref.name
+
     try:
-        spec = importlib.util.spec_from_file_location(module_name, str(module_file_path))
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        loader_name = plib + '_load'
-        load = getattr(module, loader_name)
+        library = load_problem_library(library_ref)
     except Exception as exc:
-        logger.error(f'Error occurred while importing the problem library {plib}. Error message: {shorten_log_message(exc)}')
-        raise exc
+        logger.error(
+            f'Problem library "{plib}" could not be loaded in a worker process. '
+            f'Error message: {shorten_log_message(exc)}'
+        )
+        raise
     try:
         if not profile_options[ProfileOption.SILENT]:
             logger.info(f'Loading problem   {problem_name:<{len_problem_names}} from "{plib}".')
-        problem = load(problem_name)
+        problem = library.load(
+            problem_name,
+            _copy_problem_library_options(library_options),
+        )
     except:
         if not profile_options[ProfileOption.SILENT]:
             logger.warning(f'Failed to load    {problem_name:<{len_problem_names}} from "{plib}".')
@@ -2470,66 +2610,3 @@ def _draw_problem_history_plot(problem_name, problem_type, problem_dim, solver_n
             logger.info(f'An error occurred while plotting the history plots of the problem {problem_name}.')
             logger.info(f'Error message: {shorten_log_message(exc)}')
         pass
-
-
-def _get_problem_lib_module_path(plib, custom_problem_libs_path=None):
-    """
-    Get the module file path and module name for a problem library.
-    
-    This function checks if the problem library is a built-in library (in the 
-    optiprofiler/problem_libs/ directory) or a custom library (in the 
-    custom_problem_libs_path directory).
-    
-    Parameters
-    ----------
-    plib : str
-        The name of the problem library.
-    custom_problem_libs_path : Path or None
-        The path to the directory containing custom problem libraries.
-        
-    Returns
-    -------
-    module_file_path : Path
-        The path to the problem library's tools module file.
-    module_name : str
-        The module name for importing.
-    is_builtin : bool
-        True if the problem library is a built-in library, False otherwise.
-    """
-    current_dir = Path(__file__).parent.resolve()
-    builtin_module_file_path = current_dir / 'problem_libs' / plib / f'{plib}_tools.py'
-
-    # Check explicit custom libraries before built-ins. This allows users to
-    # test or override a built-in adapter by passing custom_problem_libs_path
-    # with a library of the same name.
-    if custom_problem_libs_path is not None:
-        custom_problem_libs_path = Path(custom_problem_libs_path).expanduser().resolve()
-        custom_library_dir = _custom_problem_library_dir(custom_problem_libs_path, plib)
-        if custom_library_dir is not None:
-            custom_module_file_path = custom_library_dir / f'{plib}_tools.py'
-            if custom_module_file_path.is_file():
-                module_file_path = custom_module_file_path.resolve()
-                module_name = f'{plib}.{plib}_tools'
-                return module_file_path, module_name, False
-            raise ValueError(
-                f'The custom problem library "{plib}" at {custom_library_dir} must '
-                f'contain "{plib}_tools.py".'
-            )
-
-    # Check if it's a built-in library.
-    if builtin_module_file_path.exists():
-        module_file_path = builtin_module_file_path.resolve()
-        module_name = f'optiprofiler.problem_libs.{plib}.{plib}_tools'
-        return module_file_path, module_name, True
-    
-    # If not found in either location, return the builtin path (will fail later with a clear error).
-    return builtin_module_file_path.resolve(), f'optiprofiler.problem_libs.{plib}.{plib}_tools', True
-
-
-
-
-
-    
-
-            
-        

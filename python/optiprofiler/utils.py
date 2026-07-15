@@ -87,6 +87,7 @@ class ProblemOption(str, Enum):
     MINDIM = 'mindim'
     MINLCON = 'minlcon'
     MINNLCON = 'minnlcon'
+    PLIB_OPTIONS = 'plib_options'
     PLIBS = 'plibs'
     PROBLEM_NAMES = 'problem_names'
     PTYPE = 'ptype'
