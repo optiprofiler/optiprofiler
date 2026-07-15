@@ -179,7 +179,71 @@ For example, if you want to create a new feature that adds noise to the objectiv
     ``lambda`` so that the benchmark can run in parallel when
     ``n_jobs > 1``. See :ref:`py_callable_picklability` for details.
 
-If you want to benchmark solvers based on your own problem library, you should do the following three steps:
+Problem libraries may be distributed as independent Python packages. Once such
+a package is installed, its public library name can be passed directly to
+``plibs``; no filesystem path is needed. For example, a package named
+``optiprofiler-myproblems`` may register the library ``'myproblems'``, after
+which it can be used as follows:
+
+.. code-block:: python
+
+    scores = benchmark(
+        [solver1, solver2],
+        plibs=['s2mpj', 'myproblems'],
+    )
+
+OptiProfiler discovers these packages without importing them. Their optional
+dependencies are imported only when the corresponding library is selected for
+a benchmark. The :ref:`problem_library_plugin_protocol` section below gives the
+package-author contract.
+
+Library-specific experiment options
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Different problem libraries may expose entirely different options. Keep these
+options separated by library name with ``plib_options`` instead of mixing them
+with the common problem filters such as ``ptype``, ``mindim``, and ``maxdim``.
+For example, using two hypothetical installable plugins:
+
+.. code-block:: python
+
+    scores = benchmark(
+        [solver1, solver2],
+        plibs=['myproblems', 'otherproblems'],
+        plib_options={
+            'myproblems': {
+                'variant': 'large',
+            },
+            'otherproblems': {
+                'data_split': 'validation',
+            },
+        },
+    )
+
+Each library validates only its own mapping. Options for a library not listed
+in ``plibs`` and unknown option names are errors. ``plib_options`` is only for
+runs that select problems from libraries; it is rejected with ``problem`` and
+``load`` because those modes do not call a library adapter. The precedence is:
+
+1. values in ``benchmark(..., plib_options=...)``;
+2. process-level overrides from :func:`~optiprofiler.set_plib_config`;
+3. environment or package configuration owned by the library;
+4. the library's built-in defaults.
+
+Use :func:`~optiprofiler.get_plib_config` to inspect the effective
+process-level values. The per-experiment values do not mutate them. The raw
+``plib_options`` supplied by the user are saved in ``options_user.pkl``. The
+validated mapping with defaults filled in is saved in ``options_refined.pkl``
+and, as one type-preserving serialized mapping, in the library's group in
+``data_for_loading.h5``. These files are under the experiment's ``test_log``
+directory.
+
+Paths to external runtimes, licenses, compiled binaries, and caches are
+installation concerns rather than benchmark semantics. A library should check
+those in its availability hook instead of placing them in ``plib_options``.
+
+For local development, a problem library can instead be loaded directly from
+the filesystem in three steps:
 
 1. Create a directory anywhere on your system (e.g., ``'/path/to/my_libs'``), and create a subfolder inside it for your problem library (e.g., ``'myproblems'``), so the structure looks like::
 
@@ -195,6 +259,17 @@ If you want to benchmark solvers based on your own problem library, you should d
 
    In general, the module should be named ``<library_name>_tools.py`` and the two functions should be named ``<library_name>_load`` and ``<library_name>_select``. OptiProfiler does not infer the library name from other ``*_tools.py`` files; for example, a library named ``myproblems`` must provide ``myproblems_tools.py``.
 
+   The original one-argument functions remain supported when the library has no
+   explicit ``plib_options``. To make a local adapter configurable, additionally
+   define ``myproblems_get_default_options()`` and
+   ``myproblems_validate_options(options)``. Its selector must then accept
+   ``(problem_options, library_options)``, and its loader must accept
+   ``library_options`` as a keyword argument. This is the same semantic contract
+   as an installable plugin. A legacy adapter without these callbacks can still
+   be selected with its existing external configuration, but it cannot accept
+   ``plib_options`` or provider-scoped :func:`~optiprofiler.set_plib_config`
+   overrides.
+
 3. Use the benchmark function with the ``custom_problem_libs_path`` option pointing to your directory. This path can be either the parent directory containing custom libraries or the directory of one custom library. For example, to use both the default S2MPJ library and your custom library ``'myproblems'``, you can run:
 
 .. code-block:: python
@@ -206,6 +281,99 @@ If you want to benchmark solvers based on your own problem library, you should d
     )
 
 For a detailed guide on the required structure of a custom problem library, please refer to the `guide on our website <https://www.optprof.com>`_ or the `README on GitHub <https://github.com/optiprofiler/optiprofiler/blob/main/python/optiprofiler/problem_libs/README.txt>`_.
+
+.. _problem_library_plugin_protocol:
+
+Problem-library plugin protocol
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+An installable problem-library package registers exactly one entry point for
+each public library name in the ``optiprofiler.problem_libraries`` group. The
+entry point must resolve to a zero-argument factory returning
+:class:`~optiprofiler.ProblemLibraryPlugin`. For example, the package's
+``pyproject.toml`` may contain:
+
+.. code-block:: toml
+
+    [project.entry-points."optiprofiler.problem_libraries"]
+    myproblems = "optiprofiler_myproblems.plugin:get_problem_library"
+
+The corresponding factory can be implemented as follows:
+
+.. code-block:: python
+
+    from optiprofiler import ProblemLibraryPlugin
+
+    from .problems import (
+        get_default_options,
+        load_problem,
+        select_problems,
+        validate_options,
+    )
+
+    def get_problem_library():
+        return ProblemLibraryPlugin(
+            name='myproblems',
+            api_version=1,
+            select=select_problems,
+            load=load_problem,
+            check_available=None,
+            get_default_options=get_default_options,
+            validate_options=validate_options,
+        )
+
+This API-v1 protocol is currently a development feature and has not yet been
+published in an OptiProfiler release. For the future release, plugin metadata
+should declare ``optiprofiler>=1.4.0`` (or a later minimum version if it uses a
+newer protocol feature), so an ordinary ``pip`` installation can resolve a
+compatible released core. Until then, plugin CI should test against a checkout
+of the development core rather than presenting ``1.4.0`` as available on a
+package index.
+
+The required ``select(problem_options, library_options)`` function returns an
+ordered sequence of problem-name strings matching the common OptiProfiler
+filters and the already validated library-specific mapping. The required
+``load(problem_name, library_options)`` function returns a
+:class:`~optiprofiler.Problem`. Both callbacks receive the same effective
+``library_options`` mapping.
+
+A configurable plugin supplies both ``get_default_options()`` and
+``validate_options(options)``; defining only one is an invalid protocol
+implementation. The first returns raw package, environment, or file defaults.
+OptiProfiler overlays process-level and per-run values and only then calls the
+second function once to reject unknown or invalid values and return a normalized
+mapping. Consequently, an explicit valid per-run value can replace an invalid
+lower-priority value. Libraries with no configurable options omit both
+callbacks. Raw defaults, overrides, and effective options must use string keys
+and be pickleable so that OptiProfiler can isolate and store them and pass the
+effective mapping to spawned workers.
+
+The optional zero-argument ``check_available`` function should raise an
+informative exception when an external runtime is unavailable. OptiProfiler
+calls it once before selecting problems. ``collect_info`` is an optional
+library-maintenance hook reserved for metadata collection; benchmarking does
+not currently call it.
+
+Discovery only reads entry-point metadata. When a library is selected,
+OptiProfiler loads its factory and runs ``check_available`` in the main process.
+Before each problem is loaded, OptiProfiler reconstructs the plugin in the
+current process, which may be a spawned worker. Thus the factory should be
+lightweight, its imports must be safe in spawned workers, and ``select`` and
+``load`` must not depend on mutable state shared through a particular plugin
+instance. OptiProfiler resolves the effective options in the main process and
+passes an isolated copy of the resulting mapping explicitly to the selector and
+each worker loader. Callbacks should treat this mapping as read-only and must not
+rely on mutable plugin-instance or process-global state.
+
+The entry-point name, ``ProblemLibraryPlugin.name``, and the name passed in
+``plibs`` must be identical. A public name must be an ASCII Python identifier:
+it must start with a letter or underscore and contain only letters, digits, and
+underscores. OptiProfiler currently accepts protocol version ``1``. It rejects two
+installed packages providing the same name, and also
+rejects a name provided both by the core package and an installed package. An
+explicit ``custom_problem_libs_path`` is the only override mechanism and takes
+precedence for that benchmark run. These rules avoid provider selection that
+depends on installation order.
 
 .. _py_example6:
 

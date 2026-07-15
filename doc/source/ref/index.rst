@@ -30,6 +30,15 @@ Main classes
     Feature
     FeaturedProblem
 
+Problem-library protocol
+------------------------
+
+.. autosummary::
+    :toctree: generated/
+
+    ProblemLibraryPlugin
+    list_problem_libraries
+
 Problem library configuration
 ------------------------------
 
