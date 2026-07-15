@@ -26,6 +26,10 @@ def _clean_process_overrides(monkeypatch):
     monkeypatch.delenv('PYCUTEST_TEST_FEASIBILITY_PROBLEMS', raising=False)
     yield
     plib_config._PLIB_CONFIG_OVERRIDES.clear()
+    plib_config.os.environ.pop('S2MPJ_VARIABLE_SIZE', None)
+    plib_config.os.environ.pop('S2MPJ_TEST_FEASIBILITY_PROBLEMS', None)
+    plib_config.os.environ.pop('PYCUTEST_VARIABLE_SIZE', None)
+    plib_config.os.environ.pop('PYCUTEST_TEST_FEASIBILITY_PROBLEMS', None)
 
 
 def _write_configurable_library(root, default_variant):
