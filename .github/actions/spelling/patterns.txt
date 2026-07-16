@@ -52,5 +52,8 @@
 # Sphinx reference labels, e.g. `.. _matsolarload:`
 ^\.\. _[A-Za-z0-9_]+:
 
+# Synthetic problem-library identifiers used in tests and examples.
+\b(?:(?:config|entryconfig|external|legacy|local)toy|otherproblems)\b
+
 # MATLAB help headers begin with the function name in uppercase.
 ^%[A-Z][A-Z0-9_]+(?=\s|$)

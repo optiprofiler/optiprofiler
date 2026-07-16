@@ -208,6 +208,7 @@ GETSOLVERLOGNAMES
 gfortran
 Ghostscript
 github
+gitlink
 gitmodules
 gmail
 gobjects
@@ -257,6 +258,7 @@ initargs
 INITREADME
 INTEGREQ
 INTEQNE
+installable
 isa
 iscell
 ischarstr
@@ -440,6 +442,7 @@ nocedal
 nocreate
 NOISETYPE
 NONDIA
+nonconfigurable
 nonlcon
 nonlincons
 nonquantifiable
@@ -489,6 +492,7 @@ pdmodel
 PENLT
 picklability
 picklable
+pickleable
 pkl
 PLACESOLVERLEGEND
 plib
@@ -519,6 +523,7 @@ randi
 randperm
 randstream
 readouterr
+rescanning
 regexprep
 repmat
 rgba
@@ -529,8 +534,10 @@ ROSENBR
 rosenbrock
 ROSSIMP
 ROSZMAN
+roundtripped
 RSNBRNE
 rtol
+runtimes
 savepath
 Screenshot
 SCURLY
@@ -611,6 +618,7 @@ TOINTGOR
 tolist
 toload
 tols
+toml
 TQUARTICNE
 TRAINF
 ubl
@@ -628,9 +636,11 @@ VANDERM
 varargin
 varargout
 VARDIMNE
+variant
 vectorize
 vectorized
 vendored
+versioned
 VESUVIA
 VESUVIO
 VESUVIOU

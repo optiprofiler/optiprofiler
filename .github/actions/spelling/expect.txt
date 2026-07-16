@@ -18,6 +18,7 @@ cls
 conftest
 copybutton
 currentmodule
+delenv
 dtype
 endblock
 endfor
@@ -36,6 +37,7 @@ idx
 infty
 intersphinx
 jac
+labelpad
 levelname
 linalg
 linestyle
@@ -74,6 +76,7 @@ SOURCEDIR
 SPHINXBUILD
 sphinxcontrib
 SPHINXOPTS
+stacklevel
 suptitle
 supylabel
 swapaxes
