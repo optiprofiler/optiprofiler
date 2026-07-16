@@ -4,7 +4,7 @@ classdef TestSolveAll < matlab.unittest.TestCase
             % Test whether the function returns the correct outputs when given valid input.
 
             solvers = {@fminsearch_test1, @fminsearch_test2};
-            plib = 's2mpj';
+            library = resolveProblemLibrary('s2mpj');
             feature = Feature('plain');
 
             problem_options.ptype = 'u';
@@ -15,7 +15,7 @@ classdef TestSolveAll < matlab.unittest.TestCase
             profile_options.n_jobs = 1;
             profile_options = getDefaultProfileOptions(solvers, feature, profile_options);
             
-            results = solveAllProblems(solvers, plib, feature, problem_options, profile_options, false, '');
+            results = solveAllProblems(solvers, library, feature, problem_options, profile_options, false, '');
             testCase.verifyNotEmpty(results);
             testCase.verifyNotEmpty(results.plib);
             testCase.verifyNotEmpty(results.solver_names);

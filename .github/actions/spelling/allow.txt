@@ -314,6 +314,7 @@ jcubx
 JENSMPNE
 JHx
 joblib
+jsondecode
 keepdims
 keyframes
 KOEBHELBNE
@@ -505,6 +506,7 @@ powell
 POWELLBS
 POWELLSQ
 POWERSUMNE
+prefdir
 PRINTOPTIPROFILERMESSAGE
 PRINTSOLVERLOGALIASES
 probinfo
@@ -524,6 +526,7 @@ randi
 randperm
 randstream
 readouterr
+rehash
 rescanning
 regexprep
 repmat

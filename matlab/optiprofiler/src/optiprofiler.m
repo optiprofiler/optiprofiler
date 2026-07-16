@@ -14,6 +14,12 @@ function optiprofiler
 %
 %   Other tools:
 %
+%   - registerProblemLibrary: Persists the root and canonical functions of an
+%     optional or custom MATLAB problem library.
+%
+%   - resolveProblemLibrary: Resolves a registered library to validated select
+%     and load function handles.
+%
 %   - s2mpj_load: Loads a problem from the S2MPJ collection.
 %
 %   - s2mpj_select: Selects problems from the S2MPJ collection based on

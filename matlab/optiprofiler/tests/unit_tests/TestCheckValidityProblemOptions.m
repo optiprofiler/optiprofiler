@@ -76,7 +76,7 @@ classdef TestCheckValidityProblemOptions < matlab.unittest.TestCase
             testCase.verifyError(@() checkValidityProblemOptions(options, profile_options), "MATLAB:checkValidityProblemOptions:problem_namesNotCellOfcharstr");
         end
 
-        function testOptionalSolarPlibName(testCase)
+        function testOptionalSolarPlibNameWhenLoading(testCase)
 
             mydir = fileparts(mfilename('fullpath'));
             original_dir = pwd;
@@ -93,7 +93,9 @@ classdef TestCheckValidityProblemOptions < matlab.unittest.TestCase
             cd(fullfile(mydir, '../../src/private'));
 
             options = struct('plibs', 'solar');
-            profile_options = struct();
+            % Loading an existing result only needs the registered library
+            % identity; it must not require the optional implementation.
+            profile_options = struct('load', 'saved-results');
             options = checkValidityProblemOptions(options, profile_options);
 
             testCase.verifyEqual(options.plibs, {'solar'});

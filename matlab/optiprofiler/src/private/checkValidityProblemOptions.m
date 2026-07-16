@@ -1,29 +1,57 @@
 function problem_options = checkValidityProblemOptions(problem_options, profile_options)
 %CHECKVALIDITYCUTESTOPTIONS Check the validity of the options in cuteset_options
 
-    % Judge whether problem_options.plibs is a char or a string or a cell array of strings or chars.
-    % Judge whether all the members of problem_options.plibs belong to the subfolder names under the relative path '../../problem_libs' to this file.
+    % Validate problem_options.plibs through the explicit MATLAB registry.
     if isfield(problem_options, ProblemOptionKey.PLIBS.value)
         if ~iscell(problem_options.(ProblemOptionKey.PLIBS.value))
             problem_options.(ProblemOptionKey.PLIBS.value) = {problem_options.(ProblemOptionKey.PLIBS.value)};
         end
-        mydir = fileparts(mfilename('fullpath'));
-        problems_dir = fullfile(mydir, '../../problem_libs');
-        subfolder_info = dir(problems_dir);
-        subfolder_names = {subfolder_info([subfolder_info.isdir] & ~ismember({subfolder_info.name}, {'.', '..', '__pycache__'})).name};
-        if isempty(problem_options.(ProblemOptionKey.PLIBS.value)) || ~all(cellfun(@ischarstr, problem_options.(ProblemOptionKey.PLIBS.value))) || ~all(ismember(problem_options.(ProblemOptionKey.PLIBS.value), subfolder_names))
-            error("MATLAB:checkValidityProblemOptions:plibsNotValid", "The option `plibs` should be a nonempty cell array of strings or chars selected from '%s'.", strjoin(subfolder_names, "', '"));
+        valid_name_types = cellfun( ...
+            @(name) ischarstr(name) && isscalar(string(name)), ...
+            problem_options.(ProblemOptionKey.PLIBS.value));
+        if isempty(problem_options.(ProblemOptionKey.PLIBS.value)) || ...
+                ~all(valid_name_types)
+            error("MATLAB:checkValidityProblemOptions:plibsNotValid", ...
+                "The option `plibs` should be a nonempty cell array of strings or chars.");
         end
         % Convert to cell array of chars.
-        problem_options.(ProblemOptionKey.PLIBS.value) = cellfun(@char, problem_options.(ProblemOptionKey.PLIBS.value), 'UniformOutput', false);
+        problem_options.(ProblemOptionKey.PLIBS.value) = cellfun( ...
+            @(name) lower(char(name)), ...
+            problem_options.(ProblemOptionKey.PLIBS.value), ...
+            'UniformOutput', false);
         % Convert to a row vector if not.
         if size(problem_options.(ProblemOptionKey.PLIBS.value), 1) > 1
             problem_options.(ProblemOptionKey.PLIBS.value) = problem_options.(ProblemOptionKey.PLIBS.value)';
         end
-    end
-    % If the OS is not Linux, then the option 'plibs' cannot contain 'matcutest' if the option 'load' is not provided or empty.
-    if (~isunix || ismac) && isfield(problem_options, ProblemOptionKey.PLIBS.value) && any(ismember(problem_options.(ProblemOptionKey.PLIBS.value), 'matcutest')) && (~isfield(profile_options, ProfileOptionKey.LOAD.value) || isempty(profile_options.(ProfileOptionKey.LOAD.value)))
-        error("MATLAB:checkValidityProblemOptions:plibsNotLinux", "The option `plibs` cannot contain 'matcutest' on non-Linux OS.");
+
+        is_loading = isfield(profile_options, ProfileOptionKey.LOAD.value) && ...
+            ~isempty(profile_options.(ProfileOptionKey.LOAD.value));
+        % MatCUTEst can label previously saved results on every OS, but live
+        % problem resolution remains Linux-only.
+        if (~isunix || ismac) && ...
+                any(ismember(problem_options.(ProblemOptionKey.PLIBS.value), 'matcutest')) && ...
+                ~is_loading
+            error("MATLAB:checkValidityProblemOptions:plibsNotLinux", ...
+                "The option `plibs` cannot contain 'matcutest' on non-Linux OS.");
+        end
+
+        for i_plib = 1:numel(problem_options.(ProblemOptionKey.PLIBS.value))
+            plib = problem_options.(ProblemOptionKey.PLIBS.value){i_plib};
+            try
+                if is_loading
+                    if ~isKnownProblemLibrary(plib)
+                        error("MATLAB:resolveProblemLibrary:notRegistered", ...
+                            "Problem library '%s' is not registered.", plib);
+                    end
+                else
+                    resolveProblemLibrary(plib);
+                end
+            catch ME
+                error("MATLAB:checkValidityProblemOptions:plibsNotValid", ...
+                    "Problem library '%s' is unavailable or invalid: %s", ...
+                    plib, ME.message);
+            end
+        end
     end
 
 

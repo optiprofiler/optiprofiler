@@ -24,6 +24,9 @@ jobs:
           ref: matlab
           submodules: recursive
 
+      - name: Validate MATLAB problem-library lock
+        run: python3 tools/check_matlab_problem_libraries_lock.py
+
       - name: Cache MATLAB  # N.B.: Clear the cache when the `latest` version of MATLAB changes in March and September
         uses: actions/cache@v4
         with:
@@ -42,7 +45,10 @@ jobs:
         with:
           command: |
             % Setup OptiProfiler
-            options = struct('install_matcutest', true, 'install_solar', false);
+            % Core unit tests exercise the bundled default only. Optional
+            % libraries have separately locked repositories and integration
+            % gates, so do not install them on this fast path.
+            options = struct('install_matcutest', false, 'install_solar', false);
             setup(options);
             
             % Run tests

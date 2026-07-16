@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "problem_library_api_version": 1,
+  "libraries": [
+    {
+      "name": "s2mpj",
+      "role": "bundled-default",
+      "repository": "optiprofiler/s2mpj_matlab",
+      "commit": "8938143d17cd9413676f563eba8d89770f8d2ecc",
+      "api_version": 1,
+      "gitlink": "matlab/optiprofiler/problem_libs/s2mpj",
+      "select_function": "s2mpj_select",
+      "load_function": "s2mpj_load",
+      "collect_info_function": null,
+      "platforms": ["linux", "macos", "windows"]
+    },
+    {
+      "name": "matcutest",
+      "role": "external",
+      "repository": "optiprofiler/matcutest",
+      "commit": "50f3ccb7e4050675bdae5e79e1047216a7aedce7",
+      "api_version": 1,
+      "install_directory": "matcutest",
+      "select_function": "matcutest_select",
+      "load_function": "matcutest_load",
+      "collect_info_function": null,
+      "platforms": ["linux"]
+    },
+    {
+      "name": "solar",
+      "role": "external",
+      "repository": "optiprofiler/solar_matlab",
+      "commit": "7ac9439e97b91de2eb1196677bcdb858663e0bf4",
+      "api_version": 1,
+      "install_directory": "solar",
+      "select_function": "solar_select",
+      "load_function": "solar_load",
+      "collect_info_function": "solar_collect_info",
+      "platforms": ["linux", "macos", "windows"]
+    }
+  ]
+}

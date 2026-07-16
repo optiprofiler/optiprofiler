@@ -262,7 +262,7 @@ Options should be specified in a struct. The following are the available fields 
 
 Options in this part are used to select problems for benchmarking. First select which problem libraries to use based on the ``plibs`` option. Then select problems from these libraries according to the given options (``problem_names``, ``ptype``, ``mindim``, ``maxdim``, ``minb``, ``maxb``, ``minlcon``, ``maxlcon``, ``minnlcon``, ``maxnlcon``, ``mincon``, ``maxcon``, and ``excludelist``). Following is the list of available options:
 
-  - **plibs**: the problem libraries to be used. It should be a cell array of strings or chars. The built-in choices are ``s2mpj``, ``matcutest``, ``solar``, and ``custom``. Default setting is ``'s2mpj'``.
+  - **plibs**: the problem libraries to be used. It should be a cell array of registered library names. The bundled choices are ``s2mpj`` and ``custom``; setup can register the optional ``matcutest`` and ``solar`` adapters. Default setting is ``'s2mpj'``.
 
   - **ptype**: the type of the problems to be selected. It should be a string or char consisting of any combination of ``'u'`` (unconstrained), ``'b'`` (bound constrained), ``'l'`` (linearly constrained), and ``'n'`` (nonlinearly constrained), such as ``'b'``, ``'ul'``, ``'ubn'``. Default is ``'u'``.
 
@@ -299,7 +299,7 @@ You may also pass an instance of the class Problem by the option
   1. Information about built-in problem libraries is available in the following links:
      S2MPJ (see [3]_) <https://github.com/GrattonToint/S2MPJ>, MatCUTEst <https://github.com/matcutest>, and SOLAR (see [7]_) <https://github.com/bbopt/solar>. The SOLAR MATLAB adapter vendors a slim SOLAR runtime under LGPL-2.1; see its README and runtime manifest for license and provenance details.
 
-  2. If you want to use your own problem library, please refer to the :ref:`guidance <use>` on our website or the `README on GitHub <https://github.com/optiprofiler/optiprofiler/blob/main/python/optiprofiler/problem_libs/README.txt>`_ for more details.
+  2. If you want to use your own problem library, implement its select/load functions and call ``registerProblemLibrary`` with its root and canonical function names. See the MATLAB problem-library README for details.
 
   3. The problem library MatCUTEst is only available when the OS is Linux.
 

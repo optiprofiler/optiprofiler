@@ -2,6 +2,25 @@
 
 This guide explains how to create and integrate your own optimization problem library into OptiProfiler using the `custom` as a reference.
 
+## Preferred Registry Contract
+
+New libraries do not need to live inside the OptiProfiler source tree. Put the
+library in any writable directory, provide canonical `<name>_select` and
+`<name>_load` functions, and register it once:
+
+```matlab
+registration = struct( ...
+    'name', 'your_problem_lib', ...
+    'root', '/path/to/your_problem_lib', ...
+    'select_function', 'your_problem_lib_select', ...
+    'load_function', 'your_problem_lib_load');
+registerProblemLibrary(registration);
+```
+
+The registry persists the root and function names for later MATLAB sessions.
+OptiProfiler validates both functions before accepting the registration. The
+core-local subfolder layout described below remains as a compatibility path.
+
 ## Quick Start: The Simplest Way to Create and Use Custom Problems
 
 If you want to quickly create and use your own optimization problems, follow these steps:

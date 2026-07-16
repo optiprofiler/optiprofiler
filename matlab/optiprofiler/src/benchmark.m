@@ -359,10 +359,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %       Following is the list of available options:
 %
 %       - plibs: the problem libraries to be used. It should be a cell array of
-%         strings or chars. The available choices are subfolder names in the
-%         'optiprofiler/problem_libs' directory. The built-in choices include
-%         's2mpj', 'matcutest', 'solar', and 'custom'. Default setting
-%         is 's2mpj'.
+%         strings or chars naming registered libraries. The bundled choices
+%         are 's2mpj' and 'custom'; setup can register the optional
+%         'matcutest' and 'solar' adapters. Default setting is 's2mpj'.
 %       - ptype: the type of the problems to be selected. It should be a string
 %         or char consisting of any combination of 'u' (unconstrained), 'b'
 %         (bound constrained), 'l' (linearly constrained), and 'n' (nonlinearly
@@ -410,9 +409,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %      The SOLAR MATLAB adapter vendors a slim SOLAR runtime under LGPL-2.1;
 %      see its README and runtime manifest for license and provenance details.
 %
-%   2. If you want to use your own problem library, please check the README.txt
-%      in the directory 'optiprofiler/problem_libs/' or the guidance in our
-%      website <https://optprof.com> for more details.
+%   2. If you want to use your own problem library, implement its select and
+%      load functions and call registerProblemLibrary with their root and
+%      canonical names. See 'optiprofiler/problem_libs/README.txt'.
 %
 %   3. The problem library MatCUTEst is only available when the OS is Linux.
 %
@@ -1003,14 +1002,13 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                 end
             end
 
-            % Add the path of the problem library to the MATLAB path.          
-            mydir = fileparts(mfilename('fullpath'));
-            plib_path = fullfile(mydir, '../problem_libs', plib);
-            addpath(plib_path);
+            % Resolve the library through the explicit MATLAB registry. The
+            % returned handles have already been checked against its root.
+            library = resolveProblemLibrary(plib);
 
             % Solve all the problems from the current problem library with the specified options and
             % get the computation results.
-            results_plib = solveAllProblems(solvers, plib, feature, problem_options, profile_options, true, path_hist_plots_plib);
+            results_plib = solveAllProblems(solvers, library, feature, problem_options, profile_options, true, path_hist_plots_plib);
 
             % If there are no problems selected or solved, skip the rest of the code, print a message,
             % and continue to the next library.
@@ -1039,7 +1037,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                     fprintf('\n');
                     printOptiProfilerMessage('INFO', sprintf('Start testing problems from the problem library "%s" with "plain" feature.', plib));
                 end
-                results_plib_plain = solveAllProblems(solvers, plib, feature_plain, problem_options, profile_options, false, {});
+                results_plib_plain = solveAllProblems(solvers, library, feature_plain, problem_options, profile_options, false, {});
                 try
                     results_plib_plain.merit_histories = meritFunCompute(merit_fun, results_plib_plain.fun_histories, results_plib_plain.maxcv_histories, results_plib_plain.maxcv_inits, 'multiple');
                     results_plib_plain.merit_outs = meritFunCompute(merit_fun, results_plib_plain.fun_outs, results_plib_plain.maxcv_outs, results_plib_plain.maxcv_inits, 'multiple');

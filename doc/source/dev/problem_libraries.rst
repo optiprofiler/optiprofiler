@@ -40,10 +40,22 @@ responsible for downloading every optional runtime.
 MATLAB parity
 -------------
 
-The MATLAB implementation must ultimately provide the same engineering goals:
-an explicit and testable problem-library contract, a clean boundary between
-the default library and optional libraries, reproducible integration checks,
-and preservation of default behavior.  It may use MATLAB-native setup,
-registry, and path mechanisms rather than Python entry points.  Completion of
-the Python physical split therefore does not by itself complete the overall
-problem-library modernization.
+MATLAB uses its own lock because Python distribution and entry-point metadata
+do not apply to MATLAB.  The repository-root
+``matlab_problem_libraries.lock`` records the S2MPJ, MatCUTEst, and SOLAR
+repositories, exact commits, canonical select/load functions, and supported
+platforms.  Validate it with::
+
+    python tools/check_matlab_problem_libraries_lock.py
+
+At runtime, ``resolveProblemLibrary`` returns validated function handles and
+``registerProblemLibrary`` persists the root and function names of an optional
+or custom library.  The registry is stored under the MATLAB preferences
+directory by default.  Set
+``OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_REGISTRY`` to isolate or relocate it.
+
+``setup`` reads the MATLAB lock, checks out clean optional repositories at the
+locked commits, and registers installed adapters without overwriting a dirty
+checkout.  S2MPJ remains the bundled default.  A core-local folder fallback is
+temporarily retained for compatibility, but new libraries should use the
+explicit registry and may live outside the OptiProfiler source tree.

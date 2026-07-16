@@ -145,9 +145,11 @@ For example, if you want to create a new feature that adds noise to the objectiv
     options.mod_x0 = @(rand_stream, problem) problem.x0 + 1e-3 * rand_stream.randn(problem.n, 1);
     scores = benchmark({@solver1, @solver2}, options)
 
-If you want to benchmark solvers based on your own problem library, you should do the following three steps:
+If you want to benchmark solvers based on your own problem library, use the
+MATLAB registry:
 
-1. Create a new subfolder (e.g., ``'myproblems'``) within the ``'problems'`` folder located in the optiprofiler project root directory.
+1. Create a directory for the library anywhere writable and place the two
+   interface functions there.
 
 2. Implement two MATLAB functions:
 
@@ -155,14 +157,22 @@ If you want to benchmark solvers based on your own problem library, you should d
 
   - **<your_problem_library_name>_select.m**: Define a function that accepts a structure to specify desired problem characteristics and returns a cell array containing names of all problems in your library that satisfy the requirements. The structure may include fields such as ``ptype``, ``mindim``, ``maxdim``, ``minb``, ``maxb``, ``minlcon``, ``maxlcon``, ``minnlcon``, ``maxnlcon``, ``mincon``, ``maxcon``, and ``excludelist`` (these fields descriptions can be found in the :ref:`benchmark <matbenchmark>` function documentation in "Options for problems" part).
 
-3. Use the benchmark function as before, but specify your desired problem libraries. For example, to use both the default S2MPJ library and your custom library in the subfolder ``'myproblems'``, you can run:
+3. Register the directory and canonical function names once, then use the
+   benchmark function as before:
 
 .. code-block:: matlab
 
+    registration = struct( ...
+        'name', 'myproblems', ...
+        'root', '/path/to/myproblems', ...
+        'select_function', 'myproblems_select', ...
+        'load_function', 'myproblems_load');
+    registerProblemLibrary(registration);
     options.plibs = {'s2mpj', 'myproblems'};
     scores = benchmark({@solver1, @solver2}, options)
 
-You may also refer to the README file in the ``'problems'`` folder for a detailed guide on how to create and use your own problem library via the OptiProfiler package.
+You may also refer to ``matlab/optiprofiler/problem_libs/README.txt`` for the
+interface contract and the legacy core-local compatibility layout.
 
 
 Example 6: wrapping solvers with nonlinear constraints

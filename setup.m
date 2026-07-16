@@ -54,10 +54,17 @@ function setup(varargin)
     plib_dir = fullfile(optiprofiler_dir, 'problem_libs'); % Directory containing problem libraries
     s2mpj_dir = fullfile(plib_dir, 's2mpj'); % Directory containing S2MPJ
     matcutest_dir = fullfile(plib_dir, 'matcutest'); % Directory containing tools (interfaces) for MatCUTEst
-    % Pin MatCUTEst to the commit validated with this OptiProfiler release.
-    matcutest_repo_url = 'https://github.com/optiprofiler/matcutest.git';
-    matcutest_commit = '50f3ccb7e4050675bdae5e79e1047216a7aedce7';
     solar_dir = fullfile(plib_dir, 'solar'); % Local directory for the optional SOLAR MATLAB adapter
+    problem_library_lock = read_matlab_problem_library_lock(setup_dir);
+    s2mpj_spec = get_locked_problem_library(problem_library_lock, 's2mpj');
+    matcutest_spec = get_locked_problem_library(problem_library_lock, 'matcutest');
+    solar_spec = get_locked_problem_library(problem_library_lock, 'solar');
+    s2mpj_repo_url = locked_repository_url(s2mpj_spec);
+    matcutest_repo_url = locked_repository_url(matcutest_spec);
+    solar_repo_url = locked_repository_url(solar_spec);
+    s2mpj_commit = char(s2mpj_spec.commit);
+    matcutest_commit = char(matcutest_spec.commit);
+    solar_commit = char(solar_spec.commit);
     
     % We need write access to `setup_dir` (and its subdirectories). Return if we do not have it.
     % N.B.: This checking is NOT perfect because of the following --- but it is better than nothing.
@@ -102,7 +109,7 @@ function setup(varargin)
             fprintf('S2MPJ not found. Cloning the repository...\n');
             
             % Clone S2MPJ from the OptiProfiler GitHub organization to s2mpj_dest_matlab
-            clone_cmd = sprintf('git clone https://github.com/optiprofiler/s2mpj_matlab.git "%s"', s2mpj_dest_matlab);
+            clone_cmd = sprintf('git clone "%s" "%s"', s2mpj_repo_url, s2mpj_dest_matlab);
             fprintf('Executing: %s\n', clone_cmd);
             
             status = system(clone_cmd);
@@ -111,12 +118,14 @@ function setup(varargin)
             else
                 fprintf('ERROR: Failed to clone S2MPJ repository.\n');
                 fprintf('Please manually clone or download "s2mpj_matlab" from:\n');
-                fprintf('  https://github.com/optiprofiler/s2mpj_matlab\n');
+                fprintf('  https://github.com/%s\n', char(s2mpj_spec.repository));
                 fprintf('Then rename the folder from "s2mpj_matlab" to "s2mpj" and place it at:\n');
                 fprintf('  %s\n', plib_dir);
                 return; % Stop setup if cloning fails
             end
         end
+        checkout_git_repository_commit_if_clean( ...
+            s2mpj_dir, s2mpj_repo_url, s2mpj_commit, 'S2MPJ');
         
         
         % =================================================================
@@ -125,6 +134,7 @@ function setup(varargin)
         fprintf('\n--- Setting up MatCUTEst ---\n\n');
         
         paths_to_add = {src_dir, s2mpj_dir};
+        register_matcutest = false;
         if isunix() && ~ismac()
             % Local variable to track if we should proceed with MatCUTEst actions
             proceed_with_matcutest = false;
@@ -149,7 +159,9 @@ function setup(varargin)
 
             % 3. Determine if we skip asking because we are already good to go
             % (Installed AND Populated -> Good)
-            if is_matcutest_installed && is_matcutest_dir_populated
+            if isfield(options, 'install_matcutest') && ~options.install_matcutest
+                fprintf('MatCUTEst setup disabled by setup options.\n');
+            elseif is_matcutest_installed && is_matcutest_dir_populated
                 fprintf('MatCUTEst is installed and local repository detected. Skipping setup query.\n');
                 proceed_with_matcutest = true;
                 skip_clone_msg = true; 
@@ -191,6 +203,7 @@ function setup(varargin)
                 
                 % 5. Add the MatCUTEst directory to the path list
                 paths_to_add{end+1} = matcutest_dir;
+                register_matcutest = is_populated_directory(matcutest_dir);
                 
                 % 6. Install if not already installed
                 if is_matcutest_installed
@@ -236,8 +249,12 @@ function setup(varargin)
         is_solar_dir_populated = is_populated_directory(solar_dir);
         proceed_with_solar = false;
         if is_solar_dir_populated
-            fprintf('SOLAR MATLAB adapter detected at %s. Skipping setup query.\n', solar_dir);
-            proceed_with_solar = true;
+            if isfield(options, 'install_solar') && ~options.install_solar
+                fprintf('SOLAR MATLAB adapter detected at %s but disabled by setup options.\n', solar_dir);
+            else
+                fprintf('SOLAR MATLAB adapter detected at %s. Skipping setup query.\n', solar_dir);
+                proceed_with_solar = true;
+            end
         else
             if isfield(options, 'install_solar')
                 if options.install_solar
@@ -258,7 +275,7 @@ function setup(varargin)
             if exist(plib_dir, 'dir') ~= 7
                 mkdir(plib_dir);
             end
-            clone_cmd = sprintf('git clone https://github.com/optiprofiler/solar_matlab.git "%s"', solar_dir);
+            clone_cmd = sprintf('git clone "%s" "%s"', solar_repo_url, solar_dir);
             status = system(clone_cmd);
             if status == 0
                 fprintf('SOLAR MATLAB adapter cloned successfully.\n');
@@ -266,7 +283,7 @@ function setup(varargin)
             else
                 fprintf('WARNING: Failed to clone SOLAR MATLAB adapter repository.\n');
                 fprintf('You can manually clone or download "solar_matlab" from:\n');
-                fprintf('  https://github.com/optiprofiler/solar_matlab\n');
+                fprintf('  https://github.com/%s\n', char(solar_spec.repository));
                 fprintf('Then rename the folder from "solar_matlab" to "solar" and place it at:\n');
                 fprintf('  %s\n', plib_dir);
             end
@@ -275,6 +292,8 @@ function setup(varargin)
         end
 
         if is_solar_dir_populated && proceed_with_solar
+            checkout_git_repository_commit_if_clean( ...
+                solar_dir, solar_repo_url, solar_commit, 'SOLAR MATLAB adapter');
             paths_to_add{end+1} = solar_dir;
             fprintf('SOLAR MATLAB adapter will be added to the MATLAB path.\n');
             fprintf('The adapter vendors a slim SOLAR runtime under LGPL-2.1; see its README and runtime manifest for details.\n');
@@ -287,6 +306,16 @@ function setup(varargin)
         fprintf('\n--- Finalizing Setup ---\n');
         
         paths_saved = add_save_path(paths_to_add, package_name);
+
+        % Persist explicit optional-library registrations after the source
+        % directory is available on the MATLAB path. Bundled S2MPJ is
+        % resolved directly from its locked gitlink.
+        if register_matcutest
+            register_locked_problem_library(matcutest_spec, matcutest_dir);
+        end
+        if is_solar_dir_populated && proceed_with_solar
+            register_locked_problem_library(solar_spec, solar_dir);
+        end
 
         if all(paths_saved)
             fprintf('\nThe package is ready to use.\n');
@@ -311,6 +340,95 @@ function setup(varargin)
     % setup ends
     return
 
+end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+function lock = read_matlab_problem_library_lock(setup_dir)
+    %READ_MATLAB_PROBLEM_LIBRARY_LOCK reads the setup integration manifest.
+
+    lock_path = fullfile(setup_dir, 'matlab_problem_libraries.lock');
+    if exist(lock_path, 'file') ~= 2
+        error('setup:ProblemLibraryLockNotFound', ...
+            'Cannot find the MATLAB problem-library lock at %s.', lock_path);
+    end
+    try
+        lock = jsondecode(fileread(lock_path));
+    catch ME
+        error('setup:ProblemLibraryLockInvalid', ...
+            'Cannot read the MATLAB problem-library lock: %s', ME.message);
+    end
+    if ~isstruct(lock) || ~isfield(lock, 'problem_library_api_version') || ...
+            lock.problem_library_api_version ~= 1 || ~isfield(lock, 'libraries')
+        error('setup:ProblemLibraryLockInvalid', ...
+            'The MATLAB problem-library lock must use API version 1.');
+    end
+end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+function entry = get_locked_problem_library(lock, name)
+    %GET_LOCKED_PROBLEM_LIBRARY returns one named lock entry.
+
+    entries = lock.libraries;
+    entry = [];
+    for i_entry = 1:numel(entries)
+        if iscell(entries)
+            candidate = entries{i_entry};
+        else
+            candidate = entries(i_entry);
+        end
+        if strcmp(char(candidate.name), name)
+            entry = candidate;
+            break
+        end
+    end
+    if isempty(entry)
+        error('setup:ProblemLibraryLockInvalid', ...
+            'The MATLAB problem-library lock has no entry for %s.', name);
+    end
+end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+function repo_url = locked_repository_url(entry)
+    %LOCKED_REPOSITORY_URL returns the HTTPS clone URL for one lock entry.
+
+    repo_url = sprintf('https://github.com/%s.git', char(entry.repository));
+end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+function register_locked_problem_library(entry, root)
+    %REGISTER_LOCKED_PROBLEM_LIBRARY persists one optional setup result.
+
+    collect_info_function = entry.collect_info_function;
+    if isempty(collect_info_function)
+        collect_info_function = '';
+    else
+        collect_info_function = char(collect_info_function);
+    end
+    registration = struct( ...
+        'name', char(entry.name), ...
+        'api_version', double(entry.api_version), ...
+        'role', char(entry.role), ...
+        'root', root, ...
+        'select_function', char(entry.select_function), ...
+        'load_function', char(entry.load_function), ...
+        'collect_info_function', collect_info_function, ...
+        'check_available_function', '', ...
+        'platforms', {cellstr(entry.platforms)});
+    registerProblemLibrary(registration);
+    fprintf('Registered problem library "%s" at %s.\n', ...
+        registration.name, registration.root);
 end
 
 

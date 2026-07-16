@@ -1,7 +1,8 @@
-function results = solveAllProblems(solvers, plib, feature, problem_options, profile_options, is_plot, path_hist_plots)
-%SOLVEALLPROBLEMS solves all problems in plib satisfying problem_options using solvers in the solvers and stores the computing results.
+function results = solveAllProblems(solvers, library, feature, problem_options, profile_options, is_plot, path_hist_plots)
+%SOLVEALLPROBLEMS solves all problems from a resolved problem library.
 
     results = struct();
+    plib = library.name;
 
     % Get satisfied problem names.
     option_select = problem_options;
@@ -14,8 +15,7 @@ function results = solveAllProblems(solvers, plib, feature, problem_options, pro
     if isfield(option_select, ProblemOptionKey.EXCLUDELIST.value)
         option_select = rmfield(option_select, ProblemOptionKey.EXCLUDELIST.value);
     end
-    selector_name = [plib, '_select'];
-    select = str2func(selector_name);
+    select = library.select;
     try
         if isfield(problem_options, ProblemOptionKey.PROBLEM_NAMES.value)
             problem_names = problem_options.(ProblemOptionKey.PROBLEM_NAMES.value);
@@ -56,8 +56,7 @@ function results = solveAllProblems(solvers, plib, feature, problem_options, pro
     end
 
     % Start solving problems.
-    loader_name = [plib, '_load'];
-    load = str2func(loader_name);
+    load = library.load;
     n_problems = length(problem_names);
     len_problem_names = max(cellfun(@length, problem_names));
     profile_options_log = profile_options;
