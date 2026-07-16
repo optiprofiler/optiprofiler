@@ -98,7 +98,8 @@ jobs:
             assert(strcmp(func2str(library.select), '${{ matrix.select_function }}'));
             assert(strcmp(func2str(library.load), '${{ matrix.load_function }}'));
             assert(strcmp(func2str(library.collect_info), '${{ matrix.collect_info_function }}'));
-            names = library.select(struct('ptype', 'u', 'maxdim', 10));
+            names = library.select(struct('ptype', 'b', 'mindim', 5, 'maxdim', 5, ...
+                'maxb', 10, 'maxnlcon', 0, 'maxcon', 0));
             assert(ismember('SOLAR10_MINCOST_UNCONSTRAINED', names));
             problem = library.load('SOLAR10_MINCOST_UNCONSTRAINED');
             assert(problem.n == 5 && isfinite(problem.fun(problem.x0)));
