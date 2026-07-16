@@ -1,0 +1,207 @@
+name: MATLAB problem-library contract
+
+on:
+  push:
+    branches: [main, matlab]
+    paths:
+      - matlab_problem_libraries.lock
+      - setup.m
+      - tools/check_matlab_problem_libraries_lock.py
+      - matlab/optiprofiler/src/benchmark.m
+      - matlab/optiprofiler/src/registerProblemLibrary.m
+      - matlab/optiprofiler/src/resolveProblemLibrary.m
+      - matlab/optiprofiler/src/private/**
+      - matlab/optiprofiler/tests/unit_tests/TestCheckValidityProblemOptions.m
+      - matlab/optiprofiler/tests/unit_tests/TestProblemLibraryRegistry.m
+      - .github/workflows/matlab-problem-library-contract.yml
+  pull_request:
+    paths:
+      - matlab_problem_libraries.lock
+      - setup.m
+      - tools/check_matlab_problem_libraries_lock.py
+      - matlab/optiprofiler/src/benchmark.m
+      - matlab/optiprofiler/src/registerProblemLibrary.m
+      - matlab/optiprofiler/src/resolveProblemLibrary.m
+      - matlab/optiprofiler/src/private/**
+      - matlab/optiprofiler/tests/unit_tests/TestCheckValidityProblemOptions.m
+      - matlab/optiprofiler/tests/unit_tests/TestProblemLibraryRegistry.m
+      - .github/workflows/matlab-problem-library-contract.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lock:
+    name: Validate MATLAB integration lock
+    runs-on: ubuntu-latest
+    outputs:
+      external-matrix: ${{ steps.matrix.outputs.value }}
+    steps:
+      - name: Checkout core repository
+        uses: actions/checkout@v4
+
+      - name: Validate lock and external matrix
+        id: matrix
+        shell: bash
+        run: |
+          python3 tools/check_matlab_problem_libraries_lock.py
+          echo "value=$(python3 tools/check_matlab_problem_libraries_lock.py --external-matrix)" >> "$GITHUB_OUTPUT"
+
+  contract:
+    name: Registry, setup boundary, and parallel handles
+    needs: lock
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout core repository with bundled S2MPJ
+        uses: actions/checkout@v4
+        with:
+          path: core
+          submodules: recursive
+
+      - name: Set up MATLAB
+        uses: matlab-actions/setup-matlab@v2
+        with:
+          release: latest
+          products: Parallel_Computing_Toolbox
+
+      - name: Run fast MATLAB problem-library contract tests
+        uses: matlab-actions/run-command@v2.1.1
+        with:
+          command: |
+            cd('core');
+            registry_root = fullfile(tempdir, 'optiprofiler-contract-registry');
+            if exist(registry_root, 'dir') == 7; rmdir(registry_root, 's'); end
+            mkdir(registry_root);
+            setenv('OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_REGISTRY', ...
+                fullfile(registry_root, 'problem_libraries.mat'));
+            library_root = fullfile(tempdir, 'optiprofiler-contract-libraries');
+            options = struct('install_matcutest', false, 'install_solar', false, ...
+                'problem_library_root', library_root);
+            setup(options);
+            cd(fullfile('matlab', 'optiprofiler'));
+            suite = [ ...
+                testsuite(fullfile('tests', 'unit_tests', 'TestProblemLibraryRegistry.m')), ...
+                testsuite(fullfile('tests', 'unit_tests', 'TestCheckValidityProblemOptions.m'))];
+            results = run(suite);
+            assert(~any([results.Failed]), 'MATLAB problem-library contract tests failed.');
+
+      - name: Verify setup did not write optional libraries into core
+        shell: bash
+        run: |
+          test ! -e core/matlab/optiprofiler/problem_libs/matcutest
+          test ! -e core/matlab/optiprofiler/problem_libs/solar
+          git -C core diff --exit-code
+
+  external-contract:
+    name: Fast locked ${{ matrix.library }} smoke
+    needs: lock
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.lock.outputs.external-matrix) }}
+    env:
+      OP_EXTERNAL_LIBRARY_ROOT: ${{ github.workspace }}/external-library
+      OP_MATCUTEST_RUNTIME_ROOT: ${{ runner.temp }}/matcutest-test-runtime
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '2'
+      MKL_NUM_THREADS: '2'
+    steps:
+      - name: Checkout core repository with bundled S2MPJ
+        uses: actions/checkout@v4
+        with:
+          path: core
+          submodules: recursive
+
+      - name: Checkout locked external library
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ matrix.repository }}
+          ref: ${{ matrix.commit }}
+          path: external-library
+
+      - name: Install MatCUTEst test runtime
+        if: matrix.library == 'matcutest'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y 7zip || sudo apt-get install -y p7zip-full
+          mkdir -p "$OP_MATCUTEST_RUNTIME_ROOT"
+          7z x "$OP_EXTERNAL_LIBRARY_ROOT/src/test.matcutest.7z.001" -o"$OP_MATCUTEST_RUNTIME_ROOT"
+
+      - name: Build SOLAR runtime
+        if: matrix.library == 'solar'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential
+          mkdir -p "$OP_EXTERNAL_LIBRARY_ROOT/runtime/solar/bin"
+          make -C "$OP_EXTERNAL_LIBRARY_ROOT/runtime/solar/src"
+
+      - name: Set up MATLAB
+        uses: matlab-actions/setup-matlab@v2
+        with:
+          release: R2024a
+
+      - name: Run fast locked MatCUTEst smoke
+        if: matrix.library == 'matcutest'
+        uses: matlab-actions/run-command@v2.1.1
+        with:
+          command: |
+            core_root = fullfile(pwd, 'core');
+            external_root = getenv('OP_EXTERNAL_LIBRARY_ROOT');
+            runtime_root = getenv('OP_MATCUTEST_RUNTIME_ROOT');
+            addpath(fullfile(runtime_root, 'matcutest', 'mtools'));
+            current_dir = pwd;
+            cd(fullfile(runtime_root, 'matcutest', 'mtools'));
+            setup();
+            cd(current_dir);
+            addpath(fullfile(core_root, 'matlab', 'optiprofiler', 'src'));
+            setenv('OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_REGISTRY', ...
+                fullfile(tempdir, 'optiprofiler-fast-matcutest-registry.mat'));
+            registration = struct('name', 'matcutest', 'root', external_root, ...
+                'select_function', '${{ matrix.select_function }}', ...
+                'load_function', '${{ matrix.load_function }}');
+            registerProblemLibrary(registration);
+            library = resolveProblemLibrary('matcutest');
+            assert(isempty(library.collect_info));
+            names = library.select(struct('ptype', 'ubln', 'maxdim', 5, ...
+                'maxb', 20, 'maxlcon', 20, 'maxnlcon', 20, 'maxcon', 20));
+            assert(ismember('AKIVA', names));
+            problem = library.load('AKIVA');
+            fx0 = problem.fun(problem.x0);
+            assert(isfinite(fx0) || isnan(fx0));
+            problem.cub(problem.x0);
+            problem.ceq(problem.x0);
+
+      - name: Run fast locked SOLAR smoke
+        if: matrix.library == 'solar'
+        uses: matlab-actions/run-command@v2.1.1
+        with:
+          command: |
+            core_root = fullfile(pwd, 'core');
+            external_root = getenv('OP_EXTERNAL_LIBRARY_ROOT');
+            addpath(fullfile(core_root, 'matlab', 'optiprofiler', 'src'));
+            setenv('OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_REGISTRY', ...
+                fullfile(tempdir, 'optiprofiler-fast-solar-registry.mat'));
+            registration = struct('name', 'solar', 'root', external_root, ...
+                'select_function', '${{ matrix.select_function }}', ...
+                'load_function', '${{ matrix.load_function }}', ...
+                'collect_info_function', '${{ matrix.collect_info_function }}');
+            registerProblemLibrary(registration);
+            library = resolveProblemLibrary('solar');
+            names = library.select(struct('ptype', 'b', 'mindim', 5, 'maxdim', 5, ...
+                'maxb', 10, 'maxnlcon', 0, 'maxcon', 0));
+            assert(ismember('SOLAR10_MINCOST_UNCONSTRAINED', names));
+            assert(~isempty(library.collect_info()));
+            problem = library.load('SOLAR10_MINCOST_UNCONSTRAINED');
+            assert(problem.n == 5 && isfinite(problem.fun(problem.x0)));
+
+      - name: Verify external identity and clean core boundary
+        shell: bash
+        run: |
+          test "$(git -C "$OP_EXTERNAL_LIBRARY_ROOT" rev-parse HEAD)" = "${{ matrix.commit }}"
+          test ! -e core/matlab/optiprofiler/problem_libs/${{ matrix.install_directory }}
+          git -C core diff --exit-code

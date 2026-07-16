@@ -69,6 +69,34 @@ classdef TestProblemLibraryRegistry < matlab.unittest.TestCase
                 "MATLAB:problemLibraryRegistry:lockedContractMismatch");
         end
 
+        function testUnregisteredFolderIsNotDiscovered(testCase)
+            cleanup = isolateRegistry(testCase); %#ok<NASGU>
+            provider_root = createProvider(testCase, 'unregistered', true);
+            addpath(provider_root);
+            testCase.addTeardown(@() removePathIfPresent(provider_root));
+
+            testCase.verifyError(@() resolveProblemLibrary('unregistered'), ...
+                "MATLAB:resolveProblemLibrary:notRegistered");
+        end
+
+        function testResolvedProviderRunsOnParallelWorker(testCase)
+            testCase.assumeTrue(license('test', 'Distrib_Computing_Toolbox'));
+            testCase.assumeEqual(exist('parpool', 'file'), 2);
+
+            cleanup = isolateRegistry(testCase); %#ok<NASGU>
+            provider_root = createProvider(testCase, 'parallel', true);
+            registerProblemLibrary(providerRegistration('parallel', provider_root));
+            library = resolveProblemLibrary('parallel');
+
+            pool = gcp('nocreate');
+            if isempty(pool)
+                pool = parpool('local', 2);
+                testCase.addTeardown(@() deletePoolIfPresent(pool));
+            end
+            future = parfeval(pool, library.load, 1, 'DEMO');
+            testCase.verifyEqual(fetchOutputs(future), 'DEMO');
+        end
+
     end
 end
 
@@ -142,4 +170,11 @@ end
 function cleanupProvider(root)
     removePathIfPresent(root);
     removeDirectoryIfPresent(root);
+end
+
+
+function deletePoolIfPresent(pool)
+    if ~isempty(pool) && isvalid(pool)
+        delete(pool);
+    end
 end

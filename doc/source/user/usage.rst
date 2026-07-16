@@ -172,7 +172,7 @@ MATLAB registry:
     scores = benchmark({@solver1, @solver2}, options)
 
 You may also refer to ``matlab/optiprofiler/problem_libs/README.txt`` for the
-interface contract and the legacy core-local compatibility layout.
+interface and registry contract.
 
 
 Example 6: wrapping solvers with nonlinear constraints

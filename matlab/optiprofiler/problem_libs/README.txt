@@ -19,7 +19,8 @@ registerProblemLibrary(registration);
 
 The registry persists the root and function names for later MATLAB sessions.
 OptiProfiler validates both functions before accepting the registration. The
-core-local subfolder layout described below remains as a compatibility path.
+directory does not need to be inside the OptiProfiler checkout. Unregistered
+folders are not scanned or loaded implicitly.
 
 ## Quick Start: The Simplest Way to Create and Use Custom Problems
 
@@ -49,24 +50,20 @@ The `custom` folder demonstrates one possible implementation approach.
 
 ### 1. Create Problem Library Folder
 
-First, create a new subfolder (e.g., `your_problem_lib/`) within the `matlab/optiprofiler/problem_libs/` folder in the OptiProfiler project root directory:
+First, create a new directory (e.g., `your_problem_lib/`) anywhere writable.
+The default root used by `setup` for optional libraries is the MATLAB
+preferences directory:
 
-    optiprofiler/
-    ├── matlab/
-    │   ├── optiprofiler/
-    │   │   ├── problem_libs/
-    │   │   │   ├── custom/               <-- Example implementation
-    │   │   │   │   ├── custom_load.m
-    │   │   │   │   ├── custom_select.m
-    │   │   │   │   └── matlab_problems/  <-- MATLAB implementation of example problems
-    │   │   │   ├── your_problem_lib/     <-- Your custom problem library folder
-    │   │   │   │   ├── your_problem_lib_load.m
-    │   │   │   │   └── your_problem_lib_select.m
-    │   │   │   ├── s2mpj/                <-- Built-in problem library
-    │   │   │   ├── matcutest/            <-- Another built-in problem library
-    │   │   │   └── solar/                <-- Optional SOLAR adapter with a slim runtime
-    │   │   ├── src/                      <-- Core MATLAB functions
-    └── ...                               <-- Other OptiProfiler components
+    prefdir/
+    └── optiprofiler/
+        └── problem_libraries/
+            └── your_problem_lib/
+                ├── your_problem_lib_load.m
+                └── your_problem_lib_select.m
+
+Register custom libraries explicitly with `registerProblemLibrary` after
+creating them. The `custom` directory shipped with OptiProfiler is only a
+bundled example implementation.
 
 ### 2. Implement Core Functions
 
@@ -166,8 +163,9 @@ available locally; CI and batch scripts can pass `install_solar=true` or
 `install_solar=false` to avoid the prompt. It is not a submodule of the main
 OptiProfiler repository. The public problem-library name is still `solar`,
 matching `options.plibs = {'solar'}`. The adapter vendors a slim runtime under
-`runtime/solar/`, including the upstream LGPL-2.1 license, README, and
-manifest recording the exact upstream commit. The adapter builds a local
-`solar` executable on first use when the binary is missing. Some SOLAR
-problems are much slower than ordinary algebraic test problems, so use small
-`max_eval_factor` values when trying it for the first time.
+`runtime/solar/` and preserves the upstream license file, per-file source
+notices, README, and manifest recording the exact upstream commit. See the
+adapter repository for the complete mixed-license notice. The adapter builds
+a local `solar` executable on first use when the binary is missing. Some
+SOLAR problems are much slower than ordinary algebraic test problems, so use
+small `max_eval_factor` values when trying it for the first time.

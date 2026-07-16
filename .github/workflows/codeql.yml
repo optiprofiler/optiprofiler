@@ -4,7 +4,16 @@ name: codeql
 
 on:
   push:
+    branches: [main, python]
+    paths:
+      - python/**
+      - pyproject.toml
+      - .github/workflows/codeql.yml
   pull_request:
+    paths:
+      - python/**
+      - pyproject.toml
+      - .github/workflows/codeql.yml
   workflow_dispatch:
 
 jobs:

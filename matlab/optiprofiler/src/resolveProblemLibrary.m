@@ -17,22 +17,15 @@ function library = resolveProblemLibrary(name)
     definitions = getProblemLibraryDefinitions();
     matching = find(strcmp({definitions.name}, name), 1);
     if isempty(matching)
-        registration = legacyProblemLibraryRegistration(name);
-        if isempty(registration)
-            error("MATLAB:resolveProblemLibrary:notRegistered", ...
-                "Problem library '%s' is not registered.", name);
-        end
-    else
-        registration = definitions(matching);
-        if isempty(registration.root)
-            legacy_registration = legacyProblemLibraryRegistration(name);
-            if isempty(legacy_registration)
-                error("MATLAB:resolveProblemLibrary:notInstalled", ...
-                    ["Problem library '%s' is known but not installed. " ...
-                    "Run setup or registerProblemLibrary first."], name);
-            end
-            registration.root = legacy_registration.root;
-        end
+        error("MATLAB:resolveProblemLibrary:notRegistered", ...
+            "Problem library '%s' is not registered. " + ...
+            "Use registerProblemLibrary to add external or custom libraries.", name);
+    end
+    registration = definitions(matching);
+    if isempty(registration.root)
+        error("MATLAB:resolveProblemLibrary:notInstalled", ...
+            "Problem library '%s' is known but not installed. " + ...
+            "Run setup or registerProblemLibrary first.", name);
     end
 
     current_platform = matlabPlatformName();

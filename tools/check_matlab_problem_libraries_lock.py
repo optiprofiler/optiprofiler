@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Validate the MATLAB problem-library integration lock."""
 
+import argparse
 import json
 from pathlib import Path
 import re
@@ -187,12 +188,47 @@ def validate_lock(path=LOCK_PATH):
     return data
 
 
-def main():
+def external_matrix(data):
+    """Return the GitHub Actions matrix derived from external lock entries."""
+
+    include = []
+    for entry in data["libraries"]:
+        if entry["role"] != "external":
+            continue
+        include.append(
+            {
+                "library": entry["name"],
+                "repository": entry["repository"],
+                "commit": entry["commit"],
+                "install_directory": entry["install_directory"],
+                "select_function": entry["select_function"],
+                "load_function": entry["load_function"],
+                "collect_info_function": entry["collect_info_function"] or "",
+            }
+        )
+    return {"include": include}
+
+
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--external-matrix",
+        action="store_true",
+        help="print the locked external-library GitHub Actions matrix",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv=None):
+    args = parse_args(argv)
     try:
-        validate_lock()
+        data = validate_lock()
     except LockError as exc:
         print(f"MATLAB problem-library lock error: {exc}", file=sys.stderr)
         return 1
+    if args.external_matrix:
+        print(json.dumps(external_matrix(data), separators=(",", ":")))
+        return 0
     print(f"Validated {LOCK_PATH.name}.")
     return 0
 

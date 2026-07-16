@@ -1,12 +1,13 @@
-name: MATLAB unit test
+name: MATLAB full unit regression
 
 on:
   push:
-    branches: [main, matlab]
+    branches: [main]
+  workflow_dispatch:
 
 jobs:
   run:
-    name: Generate coverage report for MATLAB ${{ matrix.matlab-version }} on ${{ matrix.os }}
+    name: Generate coverage report for MATLAB ${{ matrix.matlab }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -18,10 +19,9 @@ jobs:
 
     steps:
 
-      - name: Check out repository (branch matlab) with submodules
+      - name: Check out requested revision with submodules
         uses: actions/checkout@v4
         with:
-          ref: matlab
           submodules: recursive
 
       - name: Validate MATLAB problem-library lock

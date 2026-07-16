@@ -2,7 +2,8 @@ name: MATLAB test multi-OS
 
 on:
   push:
-    branches: [main, matlab]
+    branches: [main]
+  workflow_dispatch:
 
 jobs:
 
@@ -19,10 +20,9 @@ jobs:
 
     steps:
 
-      - name: Check out repository (branch main) with submodules
+      - name: Check out requested revision with submodules
         uses: actions/checkout@v4
         with:
-          ref: matlab
           submodules: recursive
 
       - name: Set up MATLAB with optimization toolbox and parallel computing toolbox

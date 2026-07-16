@@ -10,14 +10,17 @@ function setup(varargin)
 %   setup  % Add the paths needed to use the package
 %   setup(struct('install_matcutest', true))  % Set up MatCUTEst without prompting
 %   setup(struct('install_solar', true))  % Download and set up the optional SOLAR MATLAB adapter
+%   setup(struct('problem_library_root', '/path/to/libraries'))  % Relocate optional libraries
 %   setup uninstall  % Uninstall the package
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 %   REMARKS:
 %
-%   To run this script, you need to have write access to the directory that
-%   contains this script and its subdirectories.
+%   S2MPJ is bundled with OptiProfiler. Optional problem libraries are stored
+%   outside the OptiProfiler source tree under the MATLAB preferences directory
+%   by default. Use the `problem_library_root` option to choose another writable
+%   location.
 %
 %   ***********************************************************************
 %   Authors:
@@ -44,52 +47,40 @@ function setup(varargin)
         return
     end
     
-    % The full paths to several directories needed for the setup.
+    % The full path to the repository root.
     setup_dir = fileparts(mfilename('fullpath')); % The directory containing this setup script
+
+    % Parse the input before constructing optional-library paths because the
+    % caller may relocate them with `problem_library_root`.
+    [action, options, wrong_input] = parse_input(varargin);
+    if wrong_input
+        error('setup: The input is invalid.');
+    end
+    if strcmp(action, 'uninstall')
+        uninstall_optiprofiler(package_name);
+        return
+    end
     
     % Define the new directory structure
     mat_dir = fullfile(setup_dir, 'matlab'); % Matlab directory
     optiprofiler_dir = fullfile(mat_dir, 'optiprofiler'); % Directory containing the package
     src_dir = fullfile(optiprofiler_dir, 'src'); % Directory containing the source code of the package
-    plib_dir = fullfile(optiprofiler_dir, 'problem_libs'); % Directory containing problem libraries
-    s2mpj_dir = fullfile(plib_dir, 's2mpj'); % Directory containing S2MPJ
-    matcutest_dir = fullfile(plib_dir, 'matcutest'); % Directory containing tools (interfaces) for MatCUTEst
-    solar_dir = fullfile(plib_dir, 'solar'); % Local directory for the optional SOLAR MATLAB adapter
+    bundled_plib_dir = fullfile(optiprofiler_dir, 'problem_libs'); % Bundled problem libraries
+    s2mpj_dir = fullfile(bundled_plib_dir, 's2mpj'); % Directory containing S2MPJ
     problem_library_lock = read_matlab_problem_library_lock(setup_dir);
     s2mpj_spec = get_locked_problem_library(problem_library_lock, 's2mpj');
     matcutest_spec = get_locked_problem_library(problem_library_lock, 'matcutest');
     solar_spec = get_locked_problem_library(problem_library_lock, 'solar');
+    optional_plib_dir = get_optional_problem_library_root(options);
+    matcutest_dir = fullfile(optional_plib_dir, char(matcutest_spec.install_directory));
+    solar_dir = fullfile(optional_plib_dir, char(solar_spec.install_directory));
+    matcutest_runtime_root = fullfile(optional_plib_dir, 'runtime');
     s2mpj_repo_url = locked_repository_url(s2mpj_spec);
     matcutest_repo_url = locked_repository_url(matcutest_spec);
     solar_repo_url = locked_repository_url(solar_spec);
     s2mpj_commit = char(s2mpj_spec.commit);
     matcutest_commit = char(matcutest_spec.commit);
     solar_commit = char(solar_spec.commit);
-    
-    % We need write access to `setup_dir` (and its subdirectories). Return if we do not have it.
-    % N.B.: This checking is NOT perfect because of the following --- but it is better than nothing.
-    % 1. `fileattrib` may not reflect the attributes correctly, particularly on Windows. See
-    % https://www.mathworks.com/matlabcentral/answers/296657-how-can-i-check-if-i-have-read-or-write-access-to-a-directory
-    % 2. Even if we have write access to `setup_dir`, we may not have the same access to its subdirectories.
-    [~, attribute] = fileattrib(setup_dir);
-    if ~attribute.UserWrite
-        fprintf('\nSorry, we cannot continue because we do not have write access to\n\n%s\n\n', setup_dir);
-        return
-    end
-    
-    % Parse the input.
-    [action, options, wrong_input] = parse_input(varargin);
-    
-    % Exit if wrong input detected. Error messages have been printed during the parsing.
-    if wrong_input
-        error('setup: The input is invalid.');
-    end
-    
-    % Uninstall the package if requested.
-    if strcmp(action, 'uninstall')
-        uninstall_optiprofiler(package_name);
-        return
-    end
     
     % Install the package if requested.
     if strcmp(action, 'install')
@@ -120,7 +111,7 @@ function setup(varargin)
                 fprintf('Please manually clone or download "s2mpj_matlab" from:\n');
                 fprintf('  https://github.com/%s\n', char(s2mpj_spec.repository));
                 fprintf('Then rename the folder from "s2mpj_matlab" to "s2mpj" and place it at:\n');
-                fprintf('  %s\n', plib_dir);
+                fprintf('  %s\n', bundled_plib_dir);
                 return; % Stop setup if cloning fails
             end
         end
@@ -190,6 +181,7 @@ function setup(varargin)
                     checkout_git_repository_commit_if_clean(matcutest_dir, matcutest_repo_url, matcutest_commit, 'MatCUTEst');
                 else
                     fprintf('Cloning MatCUTEst repository (optiprofiler fork)...\n');
+                    ensure_directory(optional_plib_dir, 'optional problem-library root');
                     clone_cmd = sprintf('git clone "%s" "%s"', matcutest_repo_url, matcutest_dir);
                     status = system(clone_cmd);
                     
@@ -219,7 +211,8 @@ function setup(varargin)
                         if exist('install.m', 'file')
                             try
                                 % Run install script targeting the src directory inside the repo
-                                install(matcutest_src_dir);
+                                ensure_directory(matcutest_runtime_root, 'MatCUTEst runtime root');
+                                install(matcutest_runtime_root);
                                 fprintf('MatCUTEst installed successfully.\n');
                             catch ME_install
                                 fprintf('WARNING: MatCUTEst installation script failed: %s\n', ME_install.message);
@@ -272,9 +265,7 @@ function setup(varargin)
 
         if proceed_with_solar && ~is_solar_dir_populated
             fprintf('Cloning SOLAR MATLAB adapter (optiprofiler fork)...\n');
-            if exist(plib_dir, 'dir') ~= 7
-                mkdir(plib_dir);
-            end
+            ensure_directory(optional_plib_dir, 'optional problem-library root');
             clone_cmd = sprintf('git clone "%s" "%s"', solar_repo_url, solar_dir);
             status = system(clone_cmd);
             if status == 0
@@ -285,7 +276,7 @@ function setup(varargin)
                 fprintf('You can manually clone or download "solar_matlab" from:\n');
                 fprintf('  https://github.com/%s\n', char(solar_spec.repository));
                 fprintf('Then rename the folder from "solar_matlab" to "solar" and place it at:\n');
-                fprintf('  %s\n', plib_dir);
+                fprintf('  %s\n', optional_plib_dir);
             end
         elseif ~proceed_with_solar
             fprintf('Skipping SOLAR MATLAB adapter setup.\n');
@@ -296,7 +287,7 @@ function setup(varargin)
                 solar_dir, solar_repo_url, solar_commit, 'SOLAR MATLAB adapter');
             paths_to_add{end+1} = solar_dir;
             fprintf('SOLAR MATLAB adapter will be added to the MATLAB path.\n');
-            fprintf('The adapter vendors a slim SOLAR runtime under LGPL-2.1; see its README and runtime manifest for details.\n');
+            fprintf('The adapter vendors a slim SOLAR runtime; see its README, license files, and runtime manifest for details.\n');
         end
         
         
@@ -569,7 +560,7 @@ function [action, options, wrong_input] = parse_input(argin)
     
     action_list = {'install', 'uninstall'};
     action = 'install';
-    option_list = {'install_matcutest', 'install_solar'};
+    option_list = {'install_matcutest', 'install_solar', 'problem_library_root'};
     options = struct(); % Initialize options
     wrong_input = false;
     
@@ -675,12 +666,76 @@ function [options, wrong_options] = validate_options(options, option_list, actio
         end
     end
 
+    if isfield(options, 'problem_library_root')
+        root = options.problem_library_root;
+        if ~ischarstr(root) || ~isscalar(string(root)) || isempty(strtrim(char(root)))
+            fprintf('\nThe setup option `problem_library_root` must be a nonempty char or string scalar.\n\n');
+            wrong_options = true;
+        end
+    end
+
     install_only_fields = intersect(option_fields, option_list);
     if strcmp(action, 'uninstall') && ~isempty(install_only_fields)
         fprintf('\nThe setup option(s) %s only apply to `install`; they are not used with `uninstall`.\n\n', strjoin(install_only_fields, ', '));
         wrong_options = true;
     end
 
+end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+function root = get_optional_problem_library_root(options)
+    %GET_OPTIONAL_PROBLEM_LIBRARY_ROOT returns an absolute external cache root.
+
+    if isfield(options, 'problem_library_root')
+        root = strtrim(char(options.problem_library_root));
+    else
+        root = fullfile(prefdir, 'optiprofiler', 'problem_libraries');
+    end
+    if ~is_absolute_path(root)
+        root = fullfile(pwd, root);
+    end
+end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+function tf = is_absolute_path(path_string)
+    %IS_ABSOLUTE_PATH checks Unix, drive-letter, and UNC absolute paths.
+
+    if ispc
+        tf = ~isempty(regexp(path_string, '^[A-Za-z]:[\\/]', 'once')) || ...
+            startsWith(path_string, '\\');
+    else
+        tf = startsWith(path_string, filesep);
+    end
+end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+function ensure_directory(directory, description)
+    %ENSURE_DIRECTORY creates a required writable setup directory.
+
+    if exist(directory, 'dir') ~= 7
+        [status, message] = mkdir(directory);
+        if ~status
+            error('setup:ProblemLibraryDirectory', ...
+                'Cannot create the %s at %s: %s', description, directory, message);
+        end
+    end
+    probe = [tempname(directory), '.tmp'];
+    file_id = fopen(probe, 'w');
+    if file_id == -1
+        error('setup:ProblemLibraryDirectory', ...
+            'The %s is not writable: %s', description, directory);
+    end
+    fclose(file_id);
+    delete(probe);
 end
 
 
@@ -721,6 +776,7 @@ function uninstall_optiprofiler(path_string_stamp)
     s2mpj_dir = fullfile(plib_dir, 's2mpj'); 
     matcutest_dir = fullfile(plib_dir, 'matcutest');
     solar_dir = fullfile(plib_dir, 'solar');
+    registered_roots = get_registered_problem_library_roots();
 
     % We do not need to specifically uninstall S2MPJ or MatCUTEst, since they
     % only add paths to MATLAB and do not modify MATLAB installation files.
@@ -738,7 +794,7 @@ function uninstall_optiprofiler(path_string_stamp)
     warning('off', 'MATLAB:SavePath:PathNotSaved'); 
     
     % Standard removal of known paths
-    rmpath(src_dir, s2mpj_dir, matcutest_dir, solar_dir);
+    rmpath(src_dir, s2mpj_dir, matcutest_dir, solar_dir, registered_roots{:});
     
     % Robust removal: Remove any path that is a subdirectory of the package root
     % This handles cases where the folder structure might have changed or extra paths were added.
@@ -757,7 +813,7 @@ function uninstall_optiprofiler(path_string_stamp)
     warning(orig_warning_state); 
     
     % Removing the line possibly added to the user startup script
-    to_be_removed = {src_dir, s2mpj_dir, matcutest_dir, solar_dir};
+    to_be_removed = [{src_dir, s2mpj_dir, matcutest_dir, solar_dir}, registered_roots];
     user_startup = fullfile(userpath,'startup.m');
     if exist(user_startup, 'file')
         % 1. Try removing specific known lines (legacy support)
@@ -803,6 +859,33 @@ function uninstall_optiprofiler(path_string_stamp)
     fprintf('Done.\nYou may now remove\n\n    %s\n\nif it contains nothing you want to keep.\n\n', mfiledir);
     
     return
+end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+function roots = get_registered_problem_library_roots()
+    %GET_REGISTERED_PROBLEM_LIBRARY_ROOTS reads paths persisted by the registry.
+
+    registry_file = getenv('OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_REGISTRY');
+    if isempty(registry_file)
+        registry_file = fullfile(prefdir, 'optiprofiler', 'problem_libraries.mat');
+    end
+    roots = {};
+    if exist(registry_file, 'file') ~= 2
+        return
+    end
+    try
+        data = load(registry_file, 'registrations');
+        if isfield(data, 'registrations') && isstruct(data.registrations)
+            roots = {data.registrations.root};
+            roots = roots(~cellfun(@isempty, roots));
+        end
+    catch
+        % A stale registry should not prevent core path cleanup.
+        roots = {};
+    end
 end
 
 

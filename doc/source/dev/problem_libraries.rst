@@ -56,6 +56,14 @@ directory by default.  Set
 
 ``setup`` reads the MATLAB lock, checks out clean optional repositories at the
 locked commits, and registers installed adapters without overwriting a dirty
-checkout.  S2MPJ remains the bundled default.  A core-local folder fallback is
-temporarily retained for compatibility, but new libraries should use the
-explicit registry and may live outside the OptiProfiler source tree.
+checkout.  S2MPJ remains the bundled default.  Optional repositories are
+stored outside the OptiProfiler source tree under
+``prefdir/optiprofiler/problem_libraries`` by default; callers may choose a
+different writable root through the ``problem_library_root`` setup option.
+Unregistered folders are not discovered implicitly.
+
+The ``MATLAB problem-library contract`` workflow is the fast development gate
+for the lock, registry, setup boundary, and parallel-worker handles.  The
+manual ``MATLAB problem-library integration`` workflow performs clean-clone
+runtime smokes for locked MatCUTEst and SOLAR.  Full MATLAB unit, random,
+stress, and multi-OS workflows remain separate long-running regressions.
