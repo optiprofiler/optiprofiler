@@ -33,3 +33,11 @@ The `utils` module implements utilities.
     :maxdepth: 2
 
     utils
+
+Problem-library integration is governed by a repository-level lock and a
+versioned adapter contract.
+
+.. toctree::
+    :maxdepth: 2
+
+    problem_libraries

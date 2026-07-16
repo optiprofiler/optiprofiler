@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "problem_library_api_version": 1,
+  "libraries": [
+    {
+      "name": "s2mpj",
+      "role": "bundled-default",
+      "repository": "optiprofiler/s2mpj_python",
+      "commit": "208dd884a6b72e10ce41a192d4fc5f19f353d3b4",
+      "api_version": 1,
+      "gitlink": "python/optiprofiler/problem_libs/s2mpj"
+    },
+    {
+      "name": "pycutest",
+      "role": "external",
+      "repository": "optiprofiler/pycutest",
+      "commit": "902a61f9d51874ec7f8ffb6923c0e82adb319bbe",
+      "api_version": 1,
+      "distribution": "optiprofiler-pycutest",
+      "entry_point": "optiprofiler_pycutest:get_problem_library",
+      "legacy_gitlink": "python/optiprofiler/problem_libs/pycutest",
+      "legacy_gitlink_commit": "44906dd8a5ccdf9eb47c9e315fac834f1cfc1c85"
+    },
+    {
+      "name": "solar",
+      "role": "external",
+      "repository": "optiprofiler/solar_python",
+      "commit": "8483de33a2c4a85d7b3473ce2cbb510350de1614",
+      "api_version": 1,
+      "distribution": "optiprofiler-solar",
+      "entry_point": "optiprofiler_solar:get_problem_library",
+      "legacy_gitlink": "python/optiprofiler/problem_libs/solar",
+      "legacy_gitlink_commit": "ea544f85efcdbcb5c945eaca788c909efc38a6c5"
+    },
+    {
+      "name": "rs13",
+      "role": "external-experimental",
+      "repository": "optiprofiler/rs13",
+      "commit": "8aa73662808b1174b12c5cb2f8dd395afdb8e301",
+      "api_version": 1,
+      "distribution": "optiprofiler-rs13",
+      "entry_point": "optiprofiler_rs13:get_problem_library"
+    }
+  ]
+}

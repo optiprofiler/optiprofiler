@@ -1,0 +1,136 @@
+name: Problem-library integration
+
+on:
+  push:
+    paths:
+      - problem_libraries.lock
+      - tools/check_problem_libraries_lock.py
+      - python/optiprofiler/problem_libraries.py
+      - python/optiprofiler/plib_config.py
+      - python/optiprofiler/profiles.py
+      - python/optiprofiler/problem_libs/s2mpj
+      - python/optiprofiler/tests/test_problem_libraries_lock.py
+      - pyproject.toml
+      - .github/workflows/problem-library-integration.yml
+  pull_request:
+    paths:
+      - problem_libraries.lock
+      - tools/check_problem_libraries_lock.py
+      - python/optiprofiler/problem_libraries.py
+      - python/optiprofiler/plib_config.py
+      - python/optiprofiler/profiles.py
+      - python/optiprofiler/problem_libs/s2mpj
+      - python/optiprofiler/tests/test_problem_libraries_lock.py
+      - pyproject.toml
+      - .github/workflows/problem-library-integration.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lock:
+    name: Validate integration lock
+    runs-on: ubuntu-latest
+    outputs:
+      external-matrix: ${{ steps.matrix.outputs.value }}
+    steps:
+      - name: Checkout core repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Validate lock and generate external matrix
+        id: matrix
+        shell: bash
+        run: |
+          python tools/check_problem_libraries_lock.py
+          echo "value=$(python tools/check_problem_libraries_lock.py --external-matrix)" >> "$GITHUB_OUTPUT"
+
+  bundled-default:
+    name: Bundled default / S2MPJ
+    needs: lock
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout core repository
+        uses: actions/checkout@v4
+
+      - name: Checkout locked S2MPJ gitlink
+        run: git submodule update --init --depth 1 python/optiprofiler/problem_libs/s2mpj
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install core package
+        run: python -m pip install --disable-pip-version-check -e .
+
+      - name: Verify bundled default behavior
+        run: |
+          python tools/check_problem_libraries_lock.py
+          python - <<'PY'
+          from optiprofiler.problem_libraries import (
+              _resolve_problem_library_options,
+              load_problem_library,
+              resolve_problem_library,
+          )
+
+          reference = resolve_problem_library("s2mpj")
+          assert reference.source == "builtin"
+          plugin = load_problem_library(reference)
+          library_options = _resolve_problem_library_options(
+              plugin,
+              {"variable_size": "default", "test_feasibility_problems": 0},
+          )
+          names = plugin.select(
+              {"ptype": "u", "mindim": 2, "maxdim": 2},
+              library_options,
+          )
+          assert "ROSENBR" in names
+          problem = plugin.load("ROSENBR", library_options)
+          assert problem.name == "ROSENBR"
+          assert problem.n == 2
+          PY
+
+  external-contract:
+    name: External / ${{ matrix.library }} (${{ matrix.role }})
+    needs: lock
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.lock.outputs.external-matrix) }}
+    steps:
+      - name: Checkout core repository
+        uses: actions/checkout@v4
+
+      - name: Checkout bundled default library
+        run: git submodule update --init --depth 1 python/optiprofiler/problem_libs/s2mpj
+
+      - name: Checkout locked external library
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ matrix.repository }}
+          ref: ${{ matrix.commit }}
+          path: external-library
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Build and install core plus external plugin
+        shell: bash
+        run: |
+          python -m pip install --disable-pip-version-check build
+          python -m pip install --disable-pip-version-check -e .
+          python -m build --wheel --outdir external-dist external-library
+          python -m pip install --disable-pip-version-check --no-deps external-dist/*.whl
+
+      - name: Verify locked entry point and API v1 contract
+        run: |
+          python tools/check_problem_libraries_lock.py --verify-installed "${{ matrix.library }}"
+          python -m unittest discover -s external-library/tests -p 'test_plugin_protocol.py' -v
