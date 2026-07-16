@@ -3,10 +3,21 @@ from pathlib import Path
 import subprocess
 import sys
 
+import pytest
+
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 CHECKER = REPOSITORY_ROOT / "tools/check_problem_libraries_lock.py"
 LOCK = REPOSITORY_ROOT / "problem_libraries.lock"
+
+
+# The integration lock and its validator intentionally stay at repository
+# level; they are not runtime package data.  Source checkouts exercise these
+# tests, while wheel/sdist smoke tests skip them after installing the package.
+pytestmark = pytest.mark.skipif(
+    not CHECKER.is_file() or not LOCK.is_file(),
+    reason="problem-library lock validation requires a repository checkout",
+)
 
 
 def _run_checker(*arguments):
