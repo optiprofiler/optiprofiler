@@ -104,7 +104,7 @@ jobs:
       matrix: ${{ fromJSON(needs.lock.outputs.external-matrix) }}
     env:
       OP_EXTERNAL_LIBRARY_ROOT: ${{ github.workspace }}/external-library
-      OP_MATCUTEST_RUNTIME_ROOT: ${{ runner.temp }}/matcutest-test-runtime
+      OP_MATCUTEST_RUNTIME_ROOT: ${{ github.workspace }}/matcutest-test-runtime
       OMP_NUM_THREADS: '2'
       OPENBLAS_NUM_THREADS: '2'
       MKL_NUM_THREADS: '2'

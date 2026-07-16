@@ -35,7 +35,7 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJSON(needs.lock.outputs.external-matrix) }}
     env:
-      OP_MATLAB_LIBRARY_ROOT: ${{ runner.temp }}/optiprofiler-problem-libraries
+      OP_MATLAB_LIBRARY_ROOT: ${{ github.workspace }}/optiprofiler-problem-libraries
       OMP_NUM_THREADS: '2'
       OPENBLAS_NUM_THREADS: '2'
       MKL_NUM_THREADS: '2'
