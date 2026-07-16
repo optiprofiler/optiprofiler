@@ -15,6 +15,7 @@ autosummary
 bibfiles
 BUILDDIR
 cls
+configtoy
 conftest
 copybutton
 currentmodule
@@ -22,7 +23,9 @@ delenv
 dtype
 endblock
 endfor
+entryconfigtoy
 eps
+externaltoy
 figsize
 finfo
 flatnonzero
@@ -38,11 +41,13 @@ infty
 intersphinx
 jac
 labelpad
+legacytoy
 levelname
 linalg
 linestyle
 linkcode
 linspace
+localtoy
 logspace
 lstsq
 mathrm
@@ -60,6 +65,7 @@ numpydoc
 objname
 Opti
 Optim
+otherproblems
 papersize
 plt
 pyplot
@@ -83,6 +89,7 @@ swapaxes
 tocdepth
 toctree
 usetex
+varient
 vartype
 verticalalignment
 xaxis

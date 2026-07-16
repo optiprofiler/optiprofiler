@@ -209,6 +209,7 @@ gfortran
 Ghostscript
 github
 gitlink
+gitlinks
 gitmodules
 gmail
 gobjects
