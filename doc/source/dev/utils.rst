@@ -10,7 +10,6 @@ Utilities
 
     FeatureName
     ProfileOption
-    CUTEstProblemOption
     FeatureOption
     NoiseType
     ProblemError

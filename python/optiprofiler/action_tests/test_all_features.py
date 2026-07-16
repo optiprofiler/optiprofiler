@@ -19,14 +19,8 @@ from optiprofiler.action_tests.solvers import SOLVERS, SOLVER_NAMES, UNCONSTRAIN
 
 
 def get_plibs():
-    """Get problem libraries based on OS.
-    
-    Note: pycutest is only available on Linux in CI (macOS ARM64 has installation issues).
-    """
-    if sys.platform.startswith('linux'):
-        return ['s2mpj', 'pycutest', 'custom']
-    else:
-        return ['s2mpj', 'custom']
+    """Return bundled libraries exercised by core feature tests."""
+    return ['s2mpj', 'custom']
 
 
 def get_benchmark_id():

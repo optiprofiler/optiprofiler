@@ -1,19 +1,10 @@
 """Tests for Problem and FeaturedProblem classes."""
-from contextlib import suppress
 
 import numpy as np
 import pytest
 
 import optiprofiler.opclasses as opclasses
 from optiprofiler.opclasses import Feature, Problem, FeaturedProblem
-from optiprofiler.utils import ProblemError
-
-# Import pycutest tools for CUTEst tests (if available)
-try:
-    from optiprofiler.problem_libs.pycutest.pycutest_tools import pycutest_load, pycutest_select
-    PYCUTEST_AVAILABLE = True
-except ImportError:
-    PYCUTEST_AVAILABLE = False
 
 
 class BaseTestProblem:
@@ -706,67 +697,3 @@ class TestFeaturedProblemConstraints(BaseTestProblem):
         fp = FeaturedProblem(problem, feature, 100, seed=42)
         np.testing.assert_array_equal(fp.xl, [-1.0, -1.0])
         np.testing.assert_array_equal(fp.xu, [2.0, 2.0])
-
-
-@pytest.mark.extra
-@pytest.mark.skipif(not PYCUTEST_AVAILABLE, reason="pycutest not available")
-class TestPyCUTEstSelect:
-    """Tests for pycutest_select function."""
-
-    def test_simple(self):
-        """Test pycutest_select with different problem types."""
-        for ptype in ['u', 'b', 'l', 'n']:
-            options = {'ptype': ptype, 'maxdim': 10}
-            problem_names = pycutest_select(options)
-            assert isinstance(problem_names, list)
-            for problem_name in problem_names:
-                assert isinstance(problem_name, str)
-
-    def test_dimension_filter(self):
-        """Test that dimension filtering works."""
-        options_1_100 = {'ptype': 'u', 'mindim': 1, 'maxdim': 100}
-        problem_names_1_100 = pycutest_select(options_1_100)
-        
-        options_10_50 = {'ptype': 'u', 'mindim': 10, 'maxdim': 50}
-        problem_names_10_50 = pycutest_select(options_10_50)
-        
-        # Problems with narrower dimension range should be subset.
-        assert set(problem_names_10_50).issubset(set(problem_names_1_100))
-
-    def test_combined_types(self):
-        """Test that combining problem types works."""
-        options_u = {'ptype': 'u', 'maxdim': 10}
-        unconstrained = pycutest_select(options_u)
-        
-        options_b = {'ptype': 'b', 'maxdim': 10}
-        bound = pycutest_select(options_b)
-        
-        options_ub = {'ptype': 'ub', 'maxdim': 10}
-        both = pycutest_select(options_ub)
-        
-        assert set(both) == set(unconstrained + bound)
-
-
-@pytest.mark.extra
-@pytest.mark.skipif(not PYCUTEST_AVAILABLE, reason="pycutest not available")
-class TestPyCUTEstLoad:
-    """Tests for pycutest_load function."""
-
-    @pytest.mark.parametrize('ptype', ['u', 'b', 'l', 'n'])
-    def test_simple(self, ptype):
-        """Test loading problems from pycutest."""
-        options = {'ptype': ptype, 'maxdim': 10, 'maxcon': 10}
-        problem_names = pycutest_select(options)
-        
-        for i_problem in range(min(3, len(problem_names))):
-            with suppress(ProblemError, Exception):
-                problem = pycutest_load(problem_names[i_problem])
-                assert isinstance(problem, Problem)
-                problem.fun(problem.x0)
-
-    def test_load_specific_problem(self):
-        """Test loading a specific known problem."""
-        with suppress(ProblemError, Exception):
-            problem = pycutest_load('ROSENBR')
-            assert isinstance(problem, Problem)
-            assert problem.n == 2

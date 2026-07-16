@@ -16,21 +16,20 @@ the validator after changing the protocol or any pinned library::
 
     python tools/check_problem_libraries_lock.py
 
-The validator checks the lock schema, the core API version, bundled gitlinks,
-and any explicitly recorded legacy gitlinks.  The External Integration
-workflow derives its test matrix directly from the lock, builds every external
-provider at the pinned commit, installs it without its optional runtime, and
-executes its API-v1 protocol tests.
+The validator checks the lock schema, the core API version, and the bundled
+S2MPJ gitlink.  The External Integration workflow derives its test matrix
+directly from the lock, builds every external provider at the pinned commit,
+installs it without its optional runtime, and executes its API-v1 protocol
+tests.
 
-Current transition boundary
----------------------------
+Physical package boundary
+-------------------------
 
 S2MPJ is the one bundled default provider.  PyCUTEst and SOLAR are external
-providers, but their legacy gitlinks remain temporarily during this transition
-and are recorded separately from their external integration commits.  RS13 is
-external and experimental; it has no core gitlink.  A later physical-split
-change may remove the two legacy gitlinks only after the lock-driven
-integration workflow is green from a clean checkout.
+providers installed through their own distributions; they have no core
+gitlinks and their sources are not included in core build artifacts.  RS13 is
+external and experimental and likewise exists only in the lock-driven
+integration matrix.
 
 Each external library owns its build and runtime tests.  The core integration
 workflow checks only the cross-repository boundary: locked source identity,

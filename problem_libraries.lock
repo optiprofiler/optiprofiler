@@ -17,9 +17,7 @@
       "commit": "902a61f9d51874ec7f8ffb6923c0e82adb319bbe",
       "api_version": 1,
       "distribution": "optiprofiler-pycutest",
-      "entry_point": "optiprofiler_pycutest:get_problem_library",
-      "legacy_gitlink": "python/optiprofiler/problem_libs/pycutest",
-      "legacy_gitlink_commit": "44906dd8a5ccdf9eb47c9e315fac834f1cfc1c85"
+      "entry_point": "optiprofiler_pycutest:get_problem_library"
     },
     {
       "name": "solar",
@@ -28,9 +26,7 @@
       "commit": "8483de33a2c4a85d7b3473ce2cbb510350de1614",
       "api_version": 1,
       "distribution": "optiprofiler-solar",
-      "entry_point": "optiprofiler_solar:get_problem_library",
-      "legacy_gitlink": "python/optiprofiler/problem_libs/solar",
-      "legacy_gitlink_commit": "ea544f85efcdbcb5c945eaca788c909efc38a6c5"
+      "entry_point": "optiprofiler_solar:get_problem_library"
     },
     {
       "name": "rs13",

@@ -386,7 +386,6 @@ def _get_deps_info():
         'optiprofiler',
         'matplotlib',
         'numpy',
-        'pycutest',
         'pypdf',
         'scipy',
         'setuptools',

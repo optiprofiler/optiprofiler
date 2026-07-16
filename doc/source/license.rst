@@ -4,13 +4,13 @@ License
 .. include:: ../../LICENSE
     :literal:
 
-Bundled Optional Runtimes
--------------------------
+External Provider Licenses
+--------------------------
 
-Some optional problem-library adapters carry their own runtime files and
-license notices. In particular, the SOLAR adapters vendor a slim runtime
-derived from `bbopt/solar <https://github.com/bbopt/solar>`_, which is licensed
-under LGPL-2.1. The distributed SOLAR runtime keeps its upstream ``LICENSE``,
-``README.upstream.md``, and ``manifest.json`` files under
-``runtime/solar/`` so users can inspect the exact upstream commit, source
-provenance, and citation information.
+Optional Python problem-library providers are separate distributions and are
+not included in the OptiProfiler core wheel or source distribution. Each
+provider repository and distribution owns its runtime sources, license texts,
+and third-party notices. In particular, consult the `PyCUTEst provider
+<https://github.com/optiprofiler/pycutest>`_, `SOLAR provider
+<https://github.com/optiprofiler/solar_python>`_, and experimental `RS13
+provider <https://github.com/optiprofiler/rs13>`_ before installation.

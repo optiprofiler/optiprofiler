@@ -66,3 +66,16 @@ def test_problem_library_lock_rejects_core_api_mismatch(tmp_path):
 
     assert result.returncode == 1
     assert "does not match core API version 1" in result.stderr
+
+
+def test_problem_library_lock_rejects_external_source_in_core(tmp_path):
+    data = json.loads(LOCK.read_text(encoding="utf-8"))
+    rs13 = next(entry for entry in data["libraries"] if entry["name"] == "rs13")
+    rs13["name"] = "custom"
+    invalid_lock = tmp_path / "problem_libraries.lock"
+    invalid_lock.write_text(json.dumps(data), encoding="utf-8")
+
+    result = _run_checker("--lock", invalid_lock)
+
+    assert result.returncode == 1
+    assert "must not be tracked inside the core package" in result.stderr

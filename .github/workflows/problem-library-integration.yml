@@ -3,6 +3,8 @@ name: Problem-library integration
 on:
   push:
     paths:
+      - .gitmodules
+      - MANIFEST.in
       - problem_libraries.lock
       - tools/check_problem_libraries_lock.py
       - python/optiprofiler/problem_libraries.py
@@ -14,6 +16,8 @@ on:
       - .github/workflows/problem-library-integration.yml
   pull_request:
     paths:
+      - .gitmodules
+      - MANIFEST.in
       - problem_libraries.lock
       - tools/check_problem_libraries_lock.py
       - python/optiprofiler/problem_libraries.py

@@ -32,8 +32,6 @@ BUNDLED_LIBRARY_KEYS = COMMON_LIBRARY_KEYS | {"gitlink"}
 EXTERNAL_LIBRARY_KEYS = COMMON_LIBRARY_KEYS | {
     "distribution",
     "entry_point",
-    "legacy_gitlink",
-    "legacy_gitlink_commit",
 }
 
 
@@ -109,6 +107,25 @@ def _index_gitlink(path):
     return fields[1]
 
 
+def _require_external_path_absent(name):
+    path = f"python/optiprofiler/problem_libs/{name}"
+    result = subprocess.run(
+        ["git", "ls-files", "--stage", "--", path],
+        cwd=str(REPOSITORY_ROOT),
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise LockError(f"Cannot inspect external provider path {path}: {result.stderr.strip()}")
+    if result.stdout.strip():
+        raise LockError(
+            f"External provider {name!r} must not be tracked inside the core "
+            f"package at {path}."
+        )
+
+
 def _validate_library(entry, lock_api_version, index):
     context = f"libraries[{index}]"
     if not isinstance(entry, dict):
@@ -122,8 +139,6 @@ def _validate_library(entry, lock_api_version, index):
         if role == "bundled-default"
         else EXTERNAL_LIBRARY_KEYS
     )
-    if role != "bundled-default" and "legacy_gitlink" not in entry:
-        expected_keys = expected_keys - {"legacy_gitlink", "legacy_gitlink_commit"}
     _require_exact_keys(entry, expected_keys, context)
 
     name = entry["name"]
@@ -156,12 +171,7 @@ def _validate_library(entry, lock_api_version, index):
     entry_point = entry["entry_point"]
     if not isinstance(entry_point, str) or ENTRY_POINT_PATTERN.fullmatch(entry_point) is None:
         raise LockError(f"{context}.entry_point must have the form module:attribute.")
-    if "legacy_gitlink" in entry:
-        legacy_commit = entry["legacy_gitlink_commit"]
-        if not isinstance(legacy_commit, str) or SHA_PATTERN.fullmatch(legacy_commit) is None:
-            raise LockError(f"{context}.legacy_gitlink_commit must be a full Git SHA.")
-        if _index_gitlink(entry["legacy_gitlink"]) != legacy_commit:
-            raise LockError(f"{context}.legacy_gitlink_commit does not match the Git index.")
+    _require_external_path_absent(name)
 
 
 def validate_lock(path=DEFAULT_LOCK):

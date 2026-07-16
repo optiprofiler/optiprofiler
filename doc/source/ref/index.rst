@@ -64,18 +64,7 @@ Other tools
     s2mpj_load
     s2mpj_select
 
-.. currentmodule:: optiprofiler.problem_libs.pycutest
-
-.. autosummary::
-    :toctree: generated/
-
-    pycutest_load
-    pycutest_select
-
-.. currentmodule:: optiprofiler.problem_libs.solar
-
-.. autosummary::
-    :toctree: generated/
-
-    solar_load
-    solar_select
+External provider APIs are documented by their independently installed
+packages: `PyCUTEst <https://github.com/optiprofiler/pycutest>`_,
+`SOLAR <https://github.com/optiprofiler/solar_python>`_, and experimental
+`RS13 <https://github.com/optiprofiler/rs13>`_.

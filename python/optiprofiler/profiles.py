@@ -537,18 +537,13 @@ def _benchmark(
         The problem libraries to be used. It should be a list of strs.
         Each name must be an ASCII Python identifier: it must start with a
         letter or underscore and contain only letters, digits, and underscores.
-        The built-in choices are ``'s2mpj'``, ``'pycutest'``,
-        ``'solar'``, and
-        ``'custom'``. Default setting is ``'s2mpj'``. Note that
-        ``'pycutest'`` requires the separate installation of the
-        ``pycutest`` package; see https://jfowkes.github.io/pycutest/
-        for installation instructions. ``'solar'`` uses a slim
-        SOLAR runtime and may be substantially slower than algebraic test
-        problems because it calls an external simulator.
-        Separately installed problem-library packages are discovered through
-        the ``optiprofiler.problem_libraries`` entry-point group. You can also
-        use an unpackaged local library by specifying its name here together
-        with the ``custom_problem_libs_path`` option.
+        The built-in choices are ``'s2mpj'`` and ``'custom'``. Default
+        setting is ``'s2mpj'``. Separately installed problem-library packages,
+        including the OptiProfiler PyCUTEst, SOLAR, and experimental RS13
+        providers, are discovered through the
+        ``optiprofiler.problem_libraries`` entry-point group. You can also use
+        an unpackaged local library by specifying its name here together with
+        the ``custom_problem_libs_path`` option.
     plib_options : mapping, optional
         Per-experiment options grouped by problem-library name. Each value must
         be a mapping understood and validated by that library. For example, a
@@ -669,18 +664,16 @@ def _benchmark(
         mode automatically. To take advantage of parallel execution, define
         named functions (using ``def``) instead of lambda expressions.
 
-    1. Several problem libraries are available by default:
-       `S2MPJ <https://github.com/GrattonToint/S2MPJ>`_ (see [3]_) and
-       `PyCUTEst <https://jfowkes.github.io/pycutest/>`_ (Linux and macOS
-       only), and SOLAR (see [7]_) through the ``solar`` adapter.
-       SOLAR is distributed through its own LGPL-2.1 runtime files; see the
-       adapter README and ``runtime/solar/manifest.json`` for provenance.
-       Problem libraries can also be installed as separate Python packages
-       through the versioned OptiProfiler problem-library protocol. For local
-       development without packaging, see the ``custom_problem_libs_path``
-       option or the guide on our `website <https://www.optprof.com>`_. An
-       explicitly supplied custom library overrides other providers with the
-       same name for that run; all other duplicate providers are rejected.
+    1. `S2MPJ <https://github.com/GrattonToint/S2MPJ>`_ (see [3]_) is the
+       bundled default problem library. PyCUTEst, SOLAR (see [7]_), and RS13
+       providers are distributed and tested independently; install a
+       compatible provider package before selecting its public name.
+       OptiProfiler discovers these packages through the versioned
+       problem-library protocol. For local development without packaging, see
+       the ``custom_problem_libs_path`` option or the guide on our
+       `website <https://www.optprof.com>`_. An explicitly supplied custom
+       library overrides other providers with the same name for that run; all
+       other duplicate providers are rejected.
 
     2. Problem libraries may define different library-specific options. For a
        reproducible run, provide them through ``plib_options``. Package-owned
@@ -1169,15 +1162,6 @@ def _benchmark(
                     logger.info('')
                     logger.info('More information about the S2MPJ problem library can be found at:')
                     logger.info('https://github.com/GrattonToint/S2MPJ')
-                elif plib == 'pycutest':
-                    logger.info('')
-                    logger.info('More information about the PyCUTEst problem library can be found at:')
-                    logger.info('https://jfowkes.github.io/pycutest/_build/html/index.html')
-                elif plib == 'solar':
-                    logger.info('')
-                    logger.info('More information about the SOLAR problem library can be found at:')
-                    logger.info('https://github.com/bbopt/solar')
-                    logger.info('SOLAR uses an LGPL-2.1 slim runtime and calls an external simulator; some problems can be slow.')
 
             # Create directory to store the history plots for each problem library.
             path_hist_plots_plib = path_hist_plots / plib if path_hist_plots is not None else None

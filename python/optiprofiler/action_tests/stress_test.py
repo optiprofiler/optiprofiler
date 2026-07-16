@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Stress test for OptiProfiler.
 
-Tests randomly selected high-dimensional (unconstrained) problems from s2mpj
-or pycutest. This test is run by GitHub Actions workflows, not by pytest.
+Tests randomly selected high-dimensional (unconstrained) problems from the
+bundled S2MPJ library. This test is run by GitHub Actions workflows, not by
+pytest.
 """
 import sys
 import os
@@ -26,31 +27,12 @@ STRESS_PROBLEM_NAMES = {
         'SPMSRTLS',
         'WOODS',
     ],
-    'pycutest': [
-        'ARWHEAD',
-        'BDQRTIC',
-        'BRYBND',
-        'CURLY10',
-        'DIXMAANA',
-        'EIGENALS',
-        'ENGVAL1',
-        'LIARWHD',
-        'NONDIA',
-        'SPMSRTLS',
-        'WOODS',
-    ],
 }
 
 
 def get_plibs():
-    """Get problem libraries based on OS.
-    
-    Note: pycutest is only available on Linux in CI (macOS ARM64 has installation issues).
-    """
-    if sys.platform.startswith('linux'):
-        return ['s2mpj', 'pycutest']
-    else:
-        return ['s2mpj']
+    """Return the bundled library exercised by core stress tests."""
+    return ['s2mpj']
 
 
 def get_benchmark_id():

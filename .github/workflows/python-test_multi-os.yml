@@ -24,27 +24,17 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
+
+      - name: Checkout bundled S2MPJ
+        run: git submodule update --init --depth 1 python/optiprofiler/problem_libs/s2mpj
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install CUTEst on Linux
-        if: ${{ runner.os == 'Linux' }}
-        run: bash .github/actions/test-python/install-cutest.sh
-
       - name: Install package
-        run: |
-          if [[ "$RUNNER_OS" == "Linux" ]]; then
-            export PYCUTEST_CACHE=$GITHUB_WORKSPACE
-            python -m pip install --progress-bar=off ".[extra,tests]"
-          else
-            python -m pip install --progress-bar=off ".[tests]"
-          fi
-        shell: bash
+        run: python -m pip install --progress-bar=off ".[tests]"
 
       - name: Create output directory
         run: mkdir -p output

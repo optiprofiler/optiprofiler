@@ -155,9 +155,8 @@ def get_plib_config(
     config_path = _config_path_from_reference(reference)
 
     # Preserve the original built-in configuration API without importing the
-    # adapter. In particular, an old bundled PyCUTEst adapter imports the
-    # optional ``pycutest`` runtime at module import time even though reading
-    # its config.txt does not require CUTEst.
+    # adapter. Reading a package-owned config file should remain import-safe
+    # even when a bundled adapter has optional runtime dependencies.
     if reference.source == 'builtin' and config_path is not None:
         config = _legacy_file_config(reference)
         config.update(_copy_problem_library_options(

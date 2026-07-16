@@ -125,7 +125,7 @@ latex_elements = {
 
 autosummary_generate = True
 
-autodoc_mock_imports = ['pycutest']
+autodoc_mock_imports = []
 
 
 # -- Link to other projects' documentation ------------------------------------
@@ -201,8 +201,6 @@ def linkcode_resolve(domain, info):
     # Submodule mappings: files under these paths live in separate repositories.
     _submodule_repos = {
         'problem_libs/s2mpj/': 'https://github.com/optiprofiler/s2mpj_python',
-        'problem_libs/pycutest/': 'https://github.com/optiprofiler/pycutest',
-        'problem_libs/solar/': 'https://github.com/optiprofiler/solar_python',
     }
     for prefix, repo_url in _submodule_repos.items():
         if fn_str.startswith(prefix):

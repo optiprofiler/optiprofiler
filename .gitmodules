@@ -4,9 +4,3 @@
 [submodule "python/optiprofiler/problem_libs/s2mpj"]
 	path = python/optiprofiler/problem_libs/s2mpj
 	url = https://github.com/optiprofiler/s2mpj_python.git
-[submodule "python/optiprofiler/problem_libs/pycutest"]
-	path = python/optiprofiler/problem_libs/pycutest
-	url = https://github.com/optiprofiler/pycutest.git
-[submodule "python/optiprofiler/problem_libs/solar"]
-	path = python/optiprofiler/problem_libs/solar
-	url = https://github.com/optiprofiler/solar_python.git

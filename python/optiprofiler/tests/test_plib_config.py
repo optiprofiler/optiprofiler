@@ -22,14 +22,10 @@ def _clean_process_overrides(monkeypatch):
     plib_config._PLIB_CONFIG_OVERRIDES.clear()
     monkeypatch.delenv('S2MPJ_VARIABLE_SIZE', raising=False)
     monkeypatch.delenv('S2MPJ_TEST_FEASIBILITY_PROBLEMS', raising=False)
-    monkeypatch.delenv('PYCUTEST_VARIABLE_SIZE', raising=False)
-    monkeypatch.delenv('PYCUTEST_TEST_FEASIBILITY_PROBLEMS', raising=False)
     yield
     plib_config._PLIB_CONFIG_OVERRIDES.clear()
     plib_config.os.environ.pop('S2MPJ_VARIABLE_SIZE', None)
     plib_config.os.environ.pop('S2MPJ_TEST_FEASIBILITY_PROBLEMS', None)
-    plib_config.os.environ.pop('PYCUTEST_VARIABLE_SIZE', None)
-    plib_config.os.environ.pop('PYCUTEST_TEST_FEASIBILITY_PROBLEMS', None)
 
 
 def _write_configurable_library(root, default_variant):
@@ -61,23 +57,6 @@ def test_get_plib_config_reads_effective_s2mpj_defaults():
         'variable_size': 'default',
         'test_feasibility_problems': 0,
     }
-
-
-def test_get_pycutest_config_does_not_require_the_optional_runtime(monkeypatch):
-    monkeypatch.setattr(
-        plib_config,
-        'load_problem_library',
-        lambda reference: pytest.fail(
-            'reading built-in config must not import the adapter'
-        ),
-    )
-
-    assert get_plib_config('pycutest') == {
-        'variable_size': 'default',
-        'test_feasibility_problems': 0,
-    }
-    set_plib_config('pycutest', variable_size='all')
-    assert get_plib_config('pycutest')['variable_size'] == 'all'
 
 
 def test_set_plib_config_remains_a_process_level_default():

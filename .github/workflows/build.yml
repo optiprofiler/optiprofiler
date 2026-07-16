@@ -19,8 +19,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
+
+      - name: Checkout bundled S2MPJ
+        run: git submodule update --init --depth 1 python/optiprofiler/problem_libs/s2mpj
 
       - name: Setup Python
         uses: actions/setup-python@v5

@@ -4,7 +4,6 @@ include README.rst
 
 # Include problem libraries data files
 recursive-include python/optiprofiler/problem_libs *.py *.txt *.csv *.md
-recursive-include python/optiprofiler/problem_libs/solar/runtime/solar *.cpp *.hpp makefile LICENSE *.json
 include python/optiprofiler/problem_libs/s2mpj/src/list_of_python_problems
 
 # Exclude unnecessary files
@@ -13,5 +12,4 @@ global-exclude .DS_Store
 global-exclude __pycache__
 global-exclude *.pyc
 global-exclude *.pyo
-prune python/optiprofiler/problem_libs/pycutest/__pycutest_cache__
 prune python/optiprofiler/problem_libs/*/.github

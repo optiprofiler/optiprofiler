@@ -59,7 +59,6 @@ doc = [
     "sphinxcontrib-matlabdomain",
     "sphinxext-opengraph",
 ]
-extra = ["pycutest>=1.6.1"]
 tests = [
     "pytest",
     "pytest-cov",
@@ -90,23 +89,6 @@ include = ["optiprofiler*"]
     "list_of_python_problems",
 ]
 "optiprofiler.problem_libs.s2mpj.src.python_problems" = ["*.py"]
-"optiprofiler.problem_libs.pycutest" = [
-    "config.txt",
-    "probinfo_pycutest.csv",
-    "README.md",
-]
-"optiprofiler.problem_libs.solar" = [
-    "README.md",
-    "runtime/solar/LICENSE",
-    "runtime/solar/README.md",
-    "runtime/solar/README.upstream.md",
-    "runtime/solar/manifest.json",
-    "runtime/solar/metadata/problems.json",
-    "runtime/solar/metadata/probinfo.csv",
-    "runtime/solar/src/*.cpp",
-    "runtime/solar/src/*.hpp",
-    "runtime/solar/src/makefile",
-]
 "optiprofiler.problem_libs.custom" = ["*.py", "README.txt"]
 "optiprofiler.problem_libs" = ["README.txt"]
 
@@ -115,7 +97,6 @@ include = ["optiprofiler*"]
     ".git*",
     ".DS_Store",
     "__pycache__",
-    "__pycutest_cache__",
 ]
 
 [tool.pytest.ini_options]
@@ -123,9 +104,6 @@ testpaths = ["python/optiprofiler/tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-markers = [
-    "extra: mark test as requiring extra dependencies (pycutest)",
-]
 norecursedirs = ["action_tests"]
 
 [tool.coverage.run]

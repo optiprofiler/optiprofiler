@@ -186,8 +186,8 @@ Create a python file named `your_problem_lib_tools.py` inside your library folde
 
 The tools file and functions must use the library name exactly. OptiProfiler
 does not infer the library name from other `*_tools.py` files. For example, a
-library folder named `solar` must contain `solar_tools.py` with
-`solar_load` and `solar_select`.
+library folder named `demo_lib` must contain `demo_lib_tools.py` with
+`demo_lib_load` and `demo_lib_select`.
 
 1.  `your_problem_lib_load(problem_name)`:
     -   Accepts a problem name as input.
@@ -272,12 +272,15 @@ You are encouraged to examine the files in the `custom` folder to understand the
 
 You may also want to view our website for more information on how to use OptiProfiler: www.optprof.com
 
-## Built-in adapter note: SOLAR
+## Official external providers
 
-The `solar` problem library wraps the upstream SOLAR black-box
-optimization simulator. It vendors a slim runtime under `runtime/solar/`,
-including the upstream LGPL-2.1 license, README, and manifest recording the
-exact upstream commit. The adapter builds a local `solar` executable on first
-use when the binary is missing. Some SOLAR problems are much slower than
-ordinary algebraic test problems, so use small `max_eval_factor` values when
-trying it for the first time.
+The OptiProfiler PyCUTEst, SOLAR, and experimental RS13 providers are
+independently installed packages. Their adapters, runtime files, tests, and
+license notices live in their own repositories rather than this core package:
+
+- https://github.com/optiprofiler/pycutest
+- https://github.com/optiprofiler/solar_python
+- https://github.com/optiprofiler/rs13
+
+After installation they are discovered through the same entry-point protocol
+described above; no source checkout or custom path is required.
