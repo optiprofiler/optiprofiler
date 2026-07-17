@@ -17,6 +17,9 @@ function optiprofiler
 %   - registerProblemLibrary: Persists the root and canonical functions of an
 %     optional or custom MATLAB problem library.
 %
+%   - unregisterProblemLibrary: Removes one persistent external registration
+%     and its MATLAB path entry without deleting provider data.
+%
 %   - resolveProblemLibrary: Resolves a registered library to validated select
 %     and load function handles.
 %

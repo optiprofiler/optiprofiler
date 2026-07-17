@@ -24,18 +24,19 @@ folders are not scanned or loaded implicitly.
 
 ## Quick Start: The Simplest Way to Create and Use Custom Problems
 
-If you want to quickly create and use your own optimization problems, follow these steps:
+Treat the bundled `custom` directory as a read-only example. Do not add or
+delete files inside the OptiProfiler checkout. Instead:
 
-1. Create Your Problem Files:
-   - Use the existing `.m` files (`custom1.m`, `custom2.m`, `custom3.m`, `custom4.m`) in the `matlab/optiprofiler/problem_libs/custom/matlab_problems/` folder as examples to define your own problems. Each file should define a MATLAB function that returns a `Problem` object.
-   - Save your new `.m` files in the `matlab/optiprofiler/problem_libs/custom/matlab_problems/` folder.
-   - You may delete the existing example files (`custom1.m`, `custom2.m`, `custom3.m`, `custom4.m`) if you don't need them.
+1. Create a new directory anywhere writable, for example
+   `/path/to/your_problem_lib`.
+2. Add `your_problem_lib_select.m`, `your_problem_lib_load.m`, and any problem
+   definition or metadata files that they need.
+3. Register that directory with the `registerProblemLibrary` example above.
+4. Set `options.plibs = {'your_problem_lib'}` in the benchmark options.
 
-2. Run `custom_getInfo` in the `matlab/optiprofiler/problem_libs/custom/` Path:
-   - Navigate to the `matlab/optiprofiler/problem_libs/custom/` folder in MATLAB.
-   - Run the `custom_getInfo` function. This function will automatically generate a `.mat` file in the `matlab/optiprofiler/problem_libs/custom/` folder.
-
-That's it! You can now use your custom problems in OptiProfiler by specifying `options.plibs = {'custom'}` in your benchmarking script. Check `Options for problems` part in `benchmark.m` for more details.
+The detailed sections below describe the function contracts. You may copy and
+adapt the bundled `custom` implementation, but keep the copied files outside
+the installed OptiProfiler package.
 
 ## Overview
 

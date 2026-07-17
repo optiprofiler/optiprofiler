@@ -9,6 +9,7 @@ on:
       - tools/check_matlab_problem_libraries_lock.py
       - matlab/optiprofiler/src/benchmark.m
       - matlab/optiprofiler/src/registerProblemLibrary.m
+      - matlab/optiprofiler/src/unregisterProblemLibrary.m
       - matlab/optiprofiler/src/resolveProblemLibrary.m
       - matlab/optiprofiler/src/private/**
       - matlab/optiprofiler/tests/unit_tests/TestCheckValidityProblemOptions.m
@@ -21,6 +22,7 @@ on:
       - tools/check_matlab_problem_libraries_lock.py
       - matlab/optiprofiler/src/benchmark.m
       - matlab/optiprofiler/src/registerProblemLibrary.m
+      - matlab/optiprofiler/src/unregisterProblemLibrary.m
       - matlab/optiprofiler/src/resolveProblemLibrary.m
       - matlab/optiprofiler/src/private/**
       - matlab/optiprofiler/tests/unit_tests/TestCheckValidityProblemOptions.m

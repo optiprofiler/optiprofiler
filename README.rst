@@ -49,6 +49,15 @@ You can also install OptiProfiler from conda-forge:
 
     OptiProfiler includes the `S2MPJ <https://github.com/GrattonToint/S2MPJ>`_ problem library by default. The Python `PyCUTEst <https://github.com/optiprofiler/pycutest>`_, `SOLAR <https://github.com/optiprofiler/solar_python>`_, and experimental `RS13 <https://github.com/optiprofiler/rs13>`_ providers are independently installed plugin packages; their source, runtime, and license files are not included in the OptiProfiler core distribution.
 
+Python package removal follows distribution ownership. Running
+``python -m pip uninstall optiprofiler`` removes the core package and its
+bundled S2MPJ contents, but it does not remove independently installed
+problem-library distributions, their external runtimes, or their caches.
+Those plugins require OptiProfiler and become usable again after the core is
+reinstalled. Remove one adapter separately with, for example,
+``python -m pip uninstall optiprofiler-pycutest``. This does not remove the
+independently managed PyCUTEst or CUTEst runtime and problem definitions.
+
 MATLAB
 ------
 
@@ -74,11 +83,21 @@ explicitly:
     setup(struct('install_solar', false))
 
 When accepted or requested, ``setup`` clones `optiprofiler/solar_matlab
-<https://github.com/optiprofiler/solar_matlab>`_ into the local directory
-``matlab/optiprofiler/problem_libs/solar`` and adds it to the MATLAB path.
-This directory is a local optional installation, not a submodule of the
-OptiProfiler repository. Passing ``install_solar=false`` skips the prompt and
-optional download when the adapter is not installed locally, which is useful
-in CI and batch scripts.
+<https://github.com/optiprofiler/solar_matlab>`_ under
+``prefdir/optiprofiler/problem_libraries`` by default, adds the adapter root to
+the MATLAB path, and registers its canonical functions. Pass
+``problem_library_root`` to choose another writable parent directory. The
+adapter is not a submodule of the OptiProfiler repository. Passing
+``install_solar=false`` skips the prompt and optional download when the adapter
+is not installed locally, which is useful in CI and batch scripts.
 The public problem-library name remains ``solar``; use ``plibs={'solar'}``
-in MATLAB benchmark options.
+in MATLAB benchmark options. The library-specific ``solar_select`` and
+``solar_load`` functions remain callable after setup. Generic code may instead
+call ``library = resolveProblemLibrary('solar')`` and then use
+``library.select`` and ``library.load``.
+
+To detach an optional or custom library without deleting its source, runtime,
+cache, or compiled artifacts, call
+``unregisterProblemLibrary('solar')``. Running ``setup uninstall`` removes the
+OptiProfiler core and setup-managed search paths, including registered adapter
+roots, but preserves external-library registrations and data.

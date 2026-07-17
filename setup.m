@@ -11,7 +11,7 @@ function setup(varargin)
 %   setup(struct('install_matcutest', true))  % Set up MatCUTEst without prompting
 %   setup(struct('install_solar', true))  % Download and set up the optional SOLAR MATLAB adapter
 %   setup(struct('problem_library_root', '/path/to/libraries'))  % Relocate optional libraries
-%   setup uninstall  % Uninstall the package
+%   setup uninstall  % Remove setup-managed paths; preserve registrations and data
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -20,7 +20,8 @@ function setup(varargin)
 %   S2MPJ is bundled with OptiProfiler. Optional problem libraries are stored
 %   outside the OptiProfiler source tree under the MATLAB preferences directory
 %   by default. Use the `problem_library_root` option to choose another writable
-%   location.
+%   location. Use `unregisterProblemLibrary` to detach one optional or custom
+%   library without deleting its source, runtime, cache, or compiled artifacts.
 %
 %   ***********************************************************************
 %   Authors:
@@ -763,7 +764,7 @@ end
 
 
 function uninstall_optiprofiler(path_string_stamp)
-    %UNINSTALL_OPTIPROFILER uninstalls OptiProfiler.
+    %UNINSTALL_OPTIPROFILER removes setup-managed paths without deleting data.
     
     fprintf('\nUninstalling OptiProfiler (if it is installed) ... ');
     
@@ -778,15 +779,9 @@ function uninstall_optiprofiler(path_string_stamp)
     solar_dir = fullfile(plib_dir, 'solar');
     registered_roots = get_registered_problem_library_roots();
 
-    % We do not need to specifically uninstall S2MPJ or MatCUTEst, since they
-    % only add paths to MATLAB and do not modify MATLAB installation files.
-    % % Check whether MatCUTEst is installed inside OptiProfiler
-    % if isunix() && ~ismac()
-    %     matcutest_src_dir = fullfile(matcutest_dir, 'src');
-    %     if exist(matcutest_src_dir, 'dir')
-    %         % TODO: Uninstall MatCUTEst properly if needed
-    %     end
-    % end
+    % Remove paths introduced by setup, including registered adapter roots, but
+    % do not modify the problem-library registry and do not delete optional
+    % source trees, MatCUTEst runtimes, SOLAR builds, caches, or other user data.
 
     % Try removing the paths possibly added by OptiProfiler
     orig_warning_state = warning;
@@ -856,7 +851,8 @@ function uninstall_optiprofiler(path_string_stamp)
         end
     end
     
-    fprintf('Done.\nYou may now remove\n\n    %s\n\nif it contains nothing you want to keep.\n\n', mfiledir);
+    fprintf(['Done.\nSetup-managed paths were removed; optional problem-library registrations and data were preserved.\n', ...
+        'You may now remove\n\n    %s\n\nif it contains nothing you want to keep.\n\n'], mfiledir);
     
     return
 end

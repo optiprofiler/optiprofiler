@@ -14,39 +14,82 @@ function library = registerProblemLibrary(registration)
 
     registration = normalizeProblemLibraryRegistration(registration);
     registration = applyLockedProblemLibraryContract(registration);
-    library = materializeProblemLibrary(registration);
+    if strcmp(registration.name, 'custom') || ...
+            ismember(registration.role, {'bundled-default', 'bundled-example'})
+        error("MATLAB:problemLibraryRegistry:bundledRegistration", ...
+            "The bundled problem library '%s' cannot be registered externally.", ...
+            registration.name);
+    end
 
     registry_file = getProblemLibraryRegistryFile();
-    registrations = loadRegisteredProblemLibraries(registry_file);
-    matching = strcmp({registrations.name}, registration.name);
-    registrations(matching) = [];
-    registrations(end + 1) = registration;
-
-    registry_dir = fileparts(registry_file);
-    if exist(registry_dir, 'dir') ~= 7
-        [status, message] = mkdir(registry_dir);
-        if ~status
-            error("MATLAB:registerProblemLibrary:registryDirectory", ...
-                "Cannot create the problem-library registry directory '%s': %s", ...
-                registry_dir, message);
+    registrations = readProblemLibraryRegistry(registry_file);
+    names = storedRegistrationNames(registrations, registry_file);
+    matching = find(strcmp(names, registration.name));
+    if numel(matching) > 1
+        error("MATLAB:problemLibraryRegistry:invalidFile", ...
+            "The problem-library registry '%s' contains duplicate entries for '%s'.", ...
+            registry_file, registration.name);
+    elseif numel(matching) == 1
+        stored = registrations(matching);
+        try
+            stored = normalizeProblemLibraryRegistration(stored);
+            stored = applyLockedProblemLibraryContract(stored);
+        catch ME
+            if strcmp(ME.identifier, 'MATLAB:problemLibraryRegistry:rootNotFound')
+                error("MATLAB:registerProblemLibrary:alreadyRegistered", ...
+                    "Problem library '%s' is registered at a missing root. " + ...
+                    "Call unregisterProblemLibrary('%s') before registering it again.", ...
+                    registration.name, registration.name);
+            end
+            rethrow(ME)
         end
+        if isequaln(stored, registration)
+            library = materializeProblemLibrary(registration);
+            return
+        end
+        error("MATLAB:registerProblemLibrary:alreadyRegistered", ...
+            "Problem library '%s' is already registered with different metadata. " + ...
+            "Call unregisterProblemLibrary('%s') before registering a replacement.", ...
+            registration.name, registration.name);
     end
 
-    temporary_file = [tempname(registry_dir), '.mat'];
-    cleanup = onCleanup(@() deleteIfExists(temporary_file));
-    save(temporary_file, 'registrations');
-    [status, message] = movefile(temporary_file, registry_file, 'f');
-    if ~status
-        error("MATLAB:registerProblemLibrary:registryWrite", ...
-            "Cannot update the problem-library registry '%s': %s", ...
-            registry_file, message);
+    was_on_path = isPathEntry(registration.root);
+    library = materializeProblemLibrary(registration);
+    registrations(end + 1) = registration;
+    try
+        writeProblemLibraryRegistry(registry_file, registrations);
+    catch ME
+        if ~was_on_path && isPathEntry(registration.root)
+            rmpath(registration.root);
+        end
+        rethrow(ME)
     end
-    clear cleanup
 end
 
 
-function deleteIfExists(filename)
-    if exist(filename, 'file') == 2
-        delete(filename);
+function names = storedRegistrationNames(registrations, registry_file)
+    if isempty(registrations)
+        names = {};
+        return
     end
+    if ~isfield(registrations, 'name')
+        error("MATLAB:problemLibraryRegistry:invalidFile", ...
+            "The problem-library registry '%s' contains an entry without a name.", ...
+            registry_file);
+    end
+    names = cell(1, numel(registrations));
+    for i_registration = 1:numel(registrations)
+        name = registrations(i_registration).name;
+        if ~ischarstr(name) || ~isscalar(string(name))
+            error("MATLAB:problemLibraryRegistry:invalidFile", ...
+                "The problem-library registry '%s' contains an invalid name.", ...
+                registry_file);
+        end
+        names{i_registration} = lower(strtrim(char(name)));
+    end
+end
+
+
+function tf = isPathEntry(root)
+    tf = any(strcmp(strsplit(path, pathsep), root));
 end
