@@ -14,7 +14,7 @@
       "name": "pycutest",
       "role": "external",
       "repository": "optiprofiler/pycutest",
-      "commit": "902a61f9d51874ec7f8ffb6923c0e82adb319bbe",
+      "commit": "9c0f9fdcedb64d26ec09b78bf40d638491cd418b",
       "api_version": 1,
       "distribution": "optiprofiler-pycutest",
       "entry_point": "optiprofiler_pycutest:get_problem_library"

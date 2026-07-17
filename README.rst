@@ -49,6 +49,15 @@ You can also install OptiProfiler from conda-forge:
 
     OptiProfiler includes the `S2MPJ <https://github.com/GrattonToint/S2MPJ>`_ problem library by default. The Python `PyCUTEst <https://github.com/optiprofiler/pycutest>`_, `SOLAR <https://github.com/optiprofiler/solar_python>`_, and experimental `RS13 <https://github.com/optiprofiler/rs13>`_ providers are independently installed plugin packages; their source, runtime, and license files are not included in the OptiProfiler core distribution.
 
+Python package removal follows distribution ownership. Running
+``python -m pip uninstall optiprofiler`` removes the core package and its
+bundled S2MPJ contents, but it does not remove independently installed
+problem-library distributions, their external runtimes, or their caches.
+Those plugins require OptiProfiler and become usable again after the core is
+reinstalled. Remove one adapter separately with, for example,
+``python -m pip uninstall optiprofiler-pycutest``. This does not remove the
+independently managed PyCUTEst or CUTEst runtime and problem definitions.
+
 MATLAB
 ------
 
