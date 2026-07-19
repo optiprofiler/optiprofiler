@@ -32,7 +32,7 @@
       "name": "rs13",
       "role": "external-experimental",
       "repository": "optiprofiler/rs13",
-      "commit": "6695808af971293950bef2ae9b8a7c31455bb466",
+      "commit": "5e39f1e5ac134ac1eceb3ee2266b435677878bb6",
       "api_version": 1,
       "distribution": "optiprofiler-rs13",
       "entry_point": "optiprofiler_rs13:get_problem_library"
