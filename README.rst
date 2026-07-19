@@ -47,7 +47,14 @@ You can also install OptiProfiler from conda-forge:
 
 .. note::
 
-    OptiProfiler includes the `S2MPJ <https://github.com/GrattonToint/S2MPJ>`_ problem library by default. The Python development branch supports independent `PyCUTEst <https://github.com/optiprofiler/pycutest>`_, `SOLAR <https://github.com/optiprofiler/solar_python>`_, and experimental `RS13 <https://github.com/optiprofiler/rs13>`_ adapter distributions. These adapters are not yet published as part of the current stable PyPI release; install matching development checkouts using the commits recorded in ``problem_libraries.lock``. Their independently managed runtime and data installations are not included in the OptiProfiler core distribution.
+    OptiProfiler includes the `S2MPJ
+    <https://github.com/GrattonToint/S2MPJ>`_ problem library by default.
+    Optional `PyCUTEst <https://github.com/optiprofiler/pycutest>`_, `SOLAR
+    <https://github.com/optiprofiler/solar_python>`_, and experimental `RS13
+    <https://github.com/optiprofiler/rs13>`_ providers are installed as
+    independent distributions. PyCUTEst and CUTEst remain a separately managed
+    system runtime; SOLAR and RS13 ship the problem definitions needed by their
+    adapters.
 
 Python package removal follows distribution ownership. Running
 ``python -m pip uninstall optiprofiler`` removes the core package and its
@@ -57,8 +64,8 @@ Those plugins require OptiProfiler and become usable again after the core is
 reinstalled. Remove one adapter separately with, for example,
 ``python -m pip uninstall optiprofiler-pycutest``. This does not remove the
 independently managed PyCUTEst or CUTEst runtime and problem definitions.
-The complete development workflow for installing, discovering, updating, and
-removing providers is documented in ``doc/source/user/problem_libraries.rst``.
+The complete workflow for installing, discovering, updating, and removing
+providers is documented under ``doc/source/user/problem_libraries/``.
 
 MATLAB
 ------
