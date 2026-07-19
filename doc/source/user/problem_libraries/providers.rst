@@ -62,9 +62,28 @@ selection metadata.  Complete solution vectors and independent upstream audit
 records are maintainer test inputs; they are not required for a benchmark and
 are not installed for users.
 
-The external provider repositories contain their detailed provenance,
-licenses, maintenance checks, and provider-specific APIs:
+Sources and provenance
+----------------------
 
-* `PyCUTEst adapter <https://github.com/optiprofiler/pycutest>`_;
-* `SOLAR adapter <https://github.com/optiprofiler/solar_python>`_; and
-* `RS13 adapter <https://github.com/optiprofiler/rs13>`_.
+The OptiProfiler repositories below are integration layers or maintained
+subsets, not replacements for the original projects.  Please follow the
+upstream projects' citation and license guidance when using their problem
+collections.
+
+* **S2MPJ:** `OptiProfiler adapter and synchronized Python subset
+  <https://github.com/optiprofiler/s2mpj_python>`_; `original S2MPJ repository
+  <https://github.com/GrattonToint/S2MPJ>`_.
+* **PyCUTEst:** `OptiProfiler PyCUTEst adapter
+  <https://github.com/optiprofiler/pycutest>`_; `upstream PyCUTEst
+  <https://github.com/jfowkes/pycutest>`_; `CUTEst
+  <https://github.com/ralna/CUTEst>`_; `SIFDecode
+  <https://github.com/ralna/SIFDecode>`_; `MASTSIF problem definitions on
+  Bitbucket <https://bitbucket.org/optrove/sif>`_.
+* **SOLAR:** `OptiProfiler adapter and pinned slim runtime snapshot
+  <https://github.com/optiprofiler/solar_python>`_; `original SOLAR repository
+  <https://github.com/bbopt/solar>`_.
+* **RS13:** `OptiProfiler adapter and vendored official 502-problem Python runtime
+  <https://github.com/optiprofiler/rs13>`_; `official problem-collection source
+  <https://minlp.com/black-box-optimization-test-problems>`_; `original paper
+  <https://doi.org/10.1007/s10898-012-9951-y>`_.  RS13's official source is a
+  project page and archive rather than a public upstream GitHub repository.
