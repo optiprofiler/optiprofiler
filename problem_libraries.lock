@@ -6,7 +6,7 @@
       "name": "s2mpj",
       "role": "bundled-default",
       "repository": "optiprofiler/s2mpj_python",
-      "commit": "208dd884a6b72e10ce41a192d4fc5f19f353d3b4",
+      "commit": "b9ad6267f2b023d7ae05f0033e1d5636fd0560cd",
       "api_version": 1,
       "gitlink": "python/optiprofiler/problem_libs/s2mpj"
     },
@@ -14,7 +14,7 @@
       "name": "pycutest",
       "role": "external",
       "repository": "optiprofiler/pycutest",
-      "commit": "9c0f9fdcedb64d26ec09b78bf40d638491cd418b",
+      "commit": "6ca882c0175d5a3efae6659c9fe01c2090c035db",
       "api_version": 1,
       "distribution": "optiprofiler-pycutest",
       "entry_point": "optiprofiler_pycutest:get_problem_library"
@@ -23,7 +23,7 @@
       "name": "solar",
       "role": "external",
       "repository": "optiprofiler/solar_python",
-      "commit": "8483de33a2c4a85d7b3473ce2cbb510350de1614",
+      "commit": "ceb09305d4f2aec6239dec861293a28dcfbdb3c7",
       "api_version": 1,
       "distribution": "optiprofiler-solar",
       "entry_point": "optiprofiler_solar:get_problem_library"
@@ -32,7 +32,7 @@
       "name": "rs13",
       "role": "external-experimental",
       "repository": "optiprofiler/rs13",
-      "commit": "8aa73662808b1174b12c5cb2f8dd395afdb8e301",
+      "commit": "6695808af971293950bef2ae9b8a7c31455bb466",
       "api_version": 1,
       "distribution": "optiprofiler-rs13",
       "entry_point": "optiprofiler_rs13:get_problem_library"
