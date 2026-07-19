@@ -82,7 +82,7 @@ html_theme_options = {
     'use_repository_button': True,
     'use_issues_button': True,
     'use_download_button': False,
-    'max_navbar_depth': 2,
+    'max_navbar_depth': 3,
     'home_page_in_toc': False,
     'announcement': (
         'Prefer running in the cloud? Try the hosted platform at '

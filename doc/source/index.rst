@@ -1,7 +1,7 @@
 :html_theme.sidebar_secondary.remove:
 
 .. toctree::
-    :maxdepth: 2
+    :maxdepth: 3
     :hidden:
 
     User guide <user/index>
