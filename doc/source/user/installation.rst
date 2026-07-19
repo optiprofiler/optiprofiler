@@ -65,3 +65,10 @@ To place optional libraries in a specific writable directory, set
 .. code-block:: matlab
 
     setup uninstall
+
+This removes OptiProfiler and setup-managed MATLAB path entries, including
+registered adapter roots, but preserves the registry, optional checkouts,
+runtimes, caches, executables, and user data.  Use
+``unregisterProblemLibrary`` to detach one provider without deleting its files.
+See :ref:`matlab_problem_libraries` for installation, storage, updates, and the
+full removal matrix.

@@ -101,3 +101,6 @@ cache, or compiled artifacts, call
 ``unregisterProblemLibrary('solar')``. Running ``setup uninstall`` removes the
 OptiProfiler core and setup-managed search paths, including registered adapter
 roots, but preserves external-library registrations and data.
+The complete development workflow, including storage locations, updates, and
+the difference between detaching and deleting files, is documented in
+``doc/source/user/problem_libraries.rst`` on the MATLAB branch.

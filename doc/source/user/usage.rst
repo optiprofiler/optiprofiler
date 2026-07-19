@@ -171,6 +171,13 @@ MATLAB registry:
     options.plibs = {'s2mpj', 'myproblems'};
     scores = benchmark({@solver1, @solver2}, options)
 
+Most users select a registered provider only through ``options.plibs``.  Generic
+tools may call ``library = resolveProblemLibrary('myproblems')`` and then use
+``library.select`` and ``library.load``.  To detach the provider without
+deleting its directory or data, call
+``unregisterProblemLibrary('myproblems')``.  See
+:ref:`matlab_problem_libraries` for the complete lifecycle and storage rules.
+
 You may also refer to ``matlab/optiprofiler/problem_libs/README.txt`` for the
 interface and registry contract.
 

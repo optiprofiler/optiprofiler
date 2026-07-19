@@ -38,6 +38,15 @@ Main classes
 Other tools
 -----------
 
+:doc:`matlab_generated/registerProblemLibrary`
+    Function to register an external or custom problem library.
+
+:doc:`matlab_generated/resolveProblemLibrary`
+    Function to resolve a public library name to validated handles.
+
+:doc:`matlab_generated/unregisterProblemLibrary`
+    Function to detach a registered library without deleting its files.
+
 :doc:`matlab_generated/s2mpj_load`
     Function to load a problem from the S2MPJ collection.
 
@@ -59,6 +68,9 @@ Other tools
 .. toctree::
     :hidden:
 
+    matlab_generated/registerProblemLibrary
+    matlab_generated/resolveProblemLibrary
+    matlab_generated/unregisterProblemLibrary
     matlab_generated/s2mpj_load
     matlab_generated/s2mpj_select
     matlab_generated/matcutest_load
