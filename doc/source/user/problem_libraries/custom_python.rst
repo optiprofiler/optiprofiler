@@ -12,8 +12,8 @@ directory per public library name:
 .. code-block:: text
 
     /path/to/my-libraries/
-    `-- myproblems/
-        `-- myproblems_tools.py
+    └── myproblems/
+        └── myproblems_tools.py
 
 ``myproblems_tools.py`` must define ``myproblems_select`` and
 ``myproblems_load``.  The selector returns problem-name strings and the loader
