@@ -69,11 +69,11 @@ The default layout is:
 .. code-block:: text
 
     prefdir/optiprofiler/
-    |-- problem_libraries.mat
-    `-- problem_libraries/
-        |-- matcutest/
-        |-- solar/
-        `-- runtime/
+    ├── problem_libraries.mat
+    └── problem_libraries/
+        ├── matcutest/
+        ├── solar/
+        └── runtime/
 
 ``problem_libraries.mat`` is the persistent registry.  Adapter checkouts and
 the MatCUTEst runtime live below the optional-library root.  A custom
