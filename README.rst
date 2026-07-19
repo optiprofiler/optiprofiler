@@ -47,7 +47,14 @@ You can also install OptiProfiler from conda-forge:
 
 .. note::
 
-    OptiProfiler includes the `S2MPJ <https://github.com/GrattonToint/S2MPJ>`_ problem library by default. The Python `PyCUTEst <https://github.com/optiprofiler/pycutest>`_, `SOLAR <https://github.com/optiprofiler/solar_python>`_, and experimental `RS13 <https://github.com/optiprofiler/rs13>`_ providers are independently installed plugin packages; their source, runtime, and license files are not included in the OptiProfiler core distribution.
+    OptiProfiler includes the `S2MPJ <https://github.com/GrattonToint/S2MPJ>`_
+    problem library by default. The Python `PyCUTEst
+    <https://github.com/optiprofiler/pycutest>`_, `SOLAR
+    <https://github.com/optiprofiler/solar_python>`_, and experimental `RS13
+    <https://github.com/optiprofiler/rs13>`_ providers are independently
+    installed plugin packages. PyCUTEst and CUTEst remain a separately managed
+    system runtime; SOLAR and RS13 ship the problem definitions needed by their
+    adapters.
 
 Python package removal follows distribution ownership. Running
 ``python -m pip uninstall optiprofiler`` removes the core package and its
@@ -61,13 +68,9 @@ independently managed PyCUTEst or CUTEst runtime and problem definitions.
 MATLAB
 ------
 
-1. Clone the repository using the following command:
-
-.. code-block:: bash
-
-    git clone https://github.com/optiprofiler/optiprofiler.git
-
-2. In MATLAB, navigate to the folder where the source code is located, and you will see a file named ``setup.m``. Run the following command in the MATLAB command window:
+Download the MATLAB-only ZIP from the OptiProfiler release page and extract it
+to a writable directory. In MATLAB, navigate to the extracted directory, where
+``setup.m`` is located, and run:
 
 .. code-block:: matlab
 
@@ -101,6 +104,6 @@ cache, or compiled artifacts, call
 ``unregisterProblemLibrary('solar')``. Running ``setup uninstall`` removes the
 OptiProfiler core and setup-managed search paths, including registered adapter
 roots, but preserves external-library registrations and data.
-The complete development workflow, including storage locations, updates, and
-the difference between detaching and deleting files, is documented in
-``doc/source/user/problem_libraries.rst`` on the MATLAB branch.
+The complete workflow, including storage locations, updates, and the
+difference between detaching and deleting files, is documented under
+``doc/source/user/problem_libraries/``.

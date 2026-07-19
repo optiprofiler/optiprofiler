@@ -25,13 +25,13 @@ You can also install OptiProfiler from conda-forge:
 MATLAB
 ------
 
-1. Clone the repository using the following command:
+1. Download the MATLAB-only ZIP from the OptiProfiler release page and extract
+   it to a writable directory.  The archive contains ``setup.m``, the MATLAB
+   engine, documentation, licenses, and bundled S2MPJ; it does not clone the
+   Python package or repository-development files.
 
-.. code-block:: bash
-
-    git clone https://github.com/optiprofiler/optiprofiler.git
-
-2. In MATLAB, navigate to the root directory of this repository, where you can see a file named ``setup.m``. Run the following command in the MATLAB command window:
+2. In MATLAB, navigate to the extracted directory, where ``setup.m`` is
+   located, and run:
 
 .. code-block:: matlab
 
@@ -40,7 +40,8 @@ MATLAB
 The ``setup`` function performs the following tasks:
 
 - Adds the necessary directories to the MATLAB search path.
-- Uses the bundled `S2MPJ <https://github.com/GrattonToint/S2MPJ>`_ library and can optionally set up `MatCUTEst <https://github.com/matcutest>`_ and SOLAR at the commits recorded in ``matlab_problem_libraries.lock``.
+- Uses the bundled `S2MPJ <https://github.com/GrattonToint/S2MPJ>`_ library and
+  can optionally set up `MatCUTEst <https://github.com/matcutest>`_ and SOLAR.
 
 Note that the installation of MatCUTEst and the SOLAR MATLAB adapter is optional. During the setup process, you will be asked whether you want to install them. By default, optional repositories are cloned under ``prefdir/optiprofiler/problem_libraries`` rather than into the OptiProfiler source tree. Passing ``install_solar=false`` or ``install_matcutest=false`` skips the corresponding adapter even when it is already present. Please be aware that MatCUTEst is only supported on Linux systems and is not available on macOS or Windows. The SOLAR adapter builds a local C++ executable from its slim SOLAR runtime when it is first used.
 
@@ -70,5 +71,5 @@ This removes OptiProfiler and setup-managed MATLAB path entries, including
 registered adapter roots, but preserves the registry, optional checkouts,
 runtimes, caches, executables, and user data.  Use
 ``unregisterProblemLibrary`` to detach one provider without deleting its files.
-See :ref:`matlab_problem_libraries` for installation, storage, updates, and the
-full removal matrix.
+See :ref:`matlab_problem_libraries` for provider installation, storage,
+updates, and the full removal matrix.

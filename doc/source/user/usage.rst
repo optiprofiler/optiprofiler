@@ -145,41 +145,11 @@ For example, if you want to create a new feature that adds noise to the objectiv
     options.mod_x0 = @(rand_stream, problem) problem.x0 + 1e-3 * rand_stream.randn(problem.n, 1);
     scores = benchmark({@solver1, @solver2}, options)
 
-If you want to benchmark solvers based on your own problem library, use the
-MATLAB registry:
-
-1. Create a directory for the library anywhere writable and place the two
-   interface functions there.
-
-2. Implement two MATLAB functions:
-
-  - **<your_problem_library_name>_load.m**: Define a function that accepts a character or string representing the optimization problem name and returns a Problem class object (see :ref:`Problem <matproblem>`).
-
-  - **<your_problem_library_name>_select.m**: Define a function that accepts a structure to specify desired problem characteristics and returns a cell array containing names of all problems in your library that satisfy the requirements. The structure may include fields such as ``ptype``, ``mindim``, ``maxdim``, ``minb``, ``maxb``, ``minlcon``, ``maxlcon``, ``minnlcon``, ``maxnlcon``, ``mincon``, ``maxcon``, and ``excludelist`` (these fields descriptions can be found in the :ref:`benchmark <matbenchmark>` function documentation in "Options for problems" part).
-
-3. Register the directory and canonical function names once, then use the
-   benchmark function as before:
-
-.. code-block:: matlab
-
-    registration = struct( ...
-        'name', 'myproblems', ...
-        'root', '/path/to/myproblems', ...
-        'select_function', 'myproblems_select', ...
-        'load_function', 'myproblems_load');
-    registerProblemLibrary(registration);
-    options.plibs = {'s2mpj', 'myproblems'};
-    scores = benchmark({@solver1, @solver2}, options)
-
-Most users select a registered provider only through ``options.plibs``.  Generic
-tools may call ``library = resolveProblemLibrary('myproblems')`` and then use
-``library.select`` and ``library.load``.  To detach the provider without
-deleting its directory or data, call
-``unregisterProblemLibrary('myproblems')``.  See
-:ref:`matlab_problem_libraries` for the complete lifecycle and storage rules.
-
-You may also refer to ``matlab/optiprofiler/problem_libs/README.txt`` for the
-interface and registry contract.
+Installed providers are selected with ``options.plibs``.  See
+:ref:`matlab_problem_libraries` for installing MatCUTEst and SOLAR, and
+:ref:`matlab_custom_problem_libraries` to register a library stored in any
+user-owned directory.  The detailed provider-authoring contract is kept out of
+this solver tutorial so that the benchmark workflow remains focused.
 
 
 Example 6: wrapping solvers with nonlinear constraints
