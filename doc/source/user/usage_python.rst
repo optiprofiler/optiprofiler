@@ -179,9 +179,11 @@ For example, if you want to create a new feature that adds noise to the objectiv
     ``lambda`` so that the benchmark can run in parallel when
     ``n_jobs > 1``. See :ref:`py_callable_picklability` for details.
 
-Problem libraries may be distributed as independent Python packages. Once such
-a package is installed, its public library name can be passed directly to
-``plibs``; no filesystem path is needed. For example, a package named
+Problem libraries may be distributed as independent Python packages. The
+development adapters and their ownership boundaries are described in
+:ref:`python_problem_libraries`. Once a compatible package is installed, its
+public library name can be passed directly to ``plibs``; no filesystem path is
+needed. For example, a package named
 ``optiprofiler-myproblems`` may register the library ``'myproblems'``, after
 which it can be used as follows:
 
