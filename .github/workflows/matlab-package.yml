@@ -1,0 +1,98 @@
+name: MATLAB-only ZIP
+
+on:
+  push:
+    branches: [matlab]
+    paths:
+      - LICENSE
+      - README.rst
+      - THIRD_PARTY_NOTICES.md
+      - matlab_problem_libraries.lock
+      - setup.m
+      - matlab/examples/**
+      - matlab/optiprofiler/src/**
+      - matlab/optiprofiler/problem_libs/README.txt
+      - matlab/optiprofiler/problem_libs/custom/**
+      - matlab/optiprofiler/problem_libs/s2mpj
+      - tools/build_matlab_zip.py
+      - tools/check_matlab_zip.py
+      - tools/check_matlab_problem_libraries_lock.py
+      - tools/smoke_matlab_zip.m
+      - .github/workflows/matlab-package.yml
+  pull_request:
+    branches: [main, matlab]
+    paths:
+      - LICENSE
+      - README.rst
+      - THIRD_PARTY_NOTICES.md
+      - matlab_problem_libraries.lock
+      - setup.m
+      - matlab/examples/**
+      - matlab/optiprofiler/src/**
+      - matlab/optiprofiler/problem_libs/README.txt
+      - matlab/optiprofiler/problem_libs/custom/**
+      - matlab/optiprofiler/problem_libs/s2mpj
+      - tools/build_matlab_zip.py
+      - tools/check_matlab_zip.py
+      - tools/check_matlab_problem_libraries_lock.py
+      - tools/smoke_matlab_zip.m
+      - .github/workflows/matlab-package.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  clean-extraction:
+    name: Clean extraction on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    env:
+      OP_MATLAB_ARCHIVE_ROOT: ${{ github.workspace }}/extracted/optiprofiler-matlab
+      OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_REGISTRY: ${{ runner.temp }}/optiprofiler-matlab-registry/problem_libraries.mat
+      MATLAB_PREFDIR: ${{ runner.temp }}/optiprofiler-matlab-prefdir
+    steps:
+      - name: Checkout core and bundled S2MPJ
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Validate lock and build deterministic ZIP
+        run: |
+          python tools/check_matlab_problem_libraries_lock.py
+          python tools/build_matlab_zip.py
+          python tools/check_matlab_zip.py dist/optiprofiler-matlab.zip
+
+      - name: Extract ZIP into a clean directory
+        run: |
+          python -m zipfile -e dist/optiprofiler-matlab.zip extracted
+          python -c "from pathlib import Path; import os; Path(os.environ['MATLAB_PREFDIR']).mkdir(parents=True, exist_ok=True); Path(os.environ['OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_REGISTRY']).parent.mkdir(parents=True, exist_ok=True)"
+
+      - name: Set up MATLAB
+        uses: matlab-actions/setup-matlab@v2
+        with:
+          release: latest
+
+      - name: Test setup and default S2MPJ benchmark
+        uses: matlab-actions/run-command@v2.1.1
+        with:
+          command: |
+            addpath(fullfile(pwd, 'tools'));
+            smoke_matlab_zip(getenv('OP_MATLAB_ARCHIVE_ROOT'));
+
+      # Do not upload the ZIP yet. S2MPJ provenance is recorded, but a public
+      # release asset remains gated on an upstream license or written
+      # redistribution permission.
