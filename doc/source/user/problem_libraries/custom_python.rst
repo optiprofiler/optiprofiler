@@ -17,7 +17,15 @@ directory per public library name:
 
 ``myproblems_tools.py`` must define ``myproblems_select`` and
 ``myproblems_load``.  The selector returns problem-name strings and the loader
-returns an :class:`~optiprofiler.Problem`.  Point the benchmark to either the
+returns an :class:`~optiprofiler.Problem`.  A basic local adapter uses the
+signatures ``myproblems_select(problem_options)`` and
+``myproblems_load(problem_name)``.
+
+To accept library-specific ``plib_options``, also define both
+``myproblems_get_default_options()`` and
+``myproblems_validate_options(options)``.  In that case the selector receives
+``(problem_options, library_options)``, and the loader must accept
+``library_options`` as a keyword argument.  Point the benchmark to either the
 parent directory or the library directory:
 
 .. code-block:: python
