@@ -1,50 +1,66 @@
-.. _matlab_problem_library_providers:
+.. _python_problem_library_providers:
 
-MATLAB providers
+Python providers
 ================
 
 .. list-table:: Provider ownership and installation
     :header-rows: 1
-    :widths: 12 26 28 34
+    :widths: 12 24 30 34
 
     * - Public name
-      - Adapter source
+      - Distribution
       - Runtime or problem definitions
       - Removal boundary
     * - ``s2mpj``
-      - Bundled with OptiProfiler
+      - Bundled in ``optiprofiler``
       - Bundled S2MPJ subset
-      - Installed and removed with the core; it cannot be unregistered.
-    * - ``matcutest``
-      - Setup-managed ``optiprofiler/matcutest`` checkout
-      - MatCUTEst runtime under the optional-library root
-      - Linux only; registry removal and file removal are separate actions.
+      - Installed and removed with the core.
+    * - ``pycutest``
+      - ``optiprofiler-pycutest``
+      - User-managed PyCUTEst, CUTEst, MASTSIF, and compiled problems
+      - Removing the adapter preserves the complete upstream runtime.
     * - ``solar``
-      - Setup-managed ``optiprofiler/solar_matlab`` checkout
-      - Slim SOLAR source and locally compiled executable
-      - Detaching preserves the checkout, runtime, executable, and output.
+      - ``optiprofiler-solar``
+      - Slim SOLAR source in the adapter; executable in a user cache
+      - Removing the adapter preserves its external cache and user output.
+    * - ``rs13``
+      - ``optiprofiler-rs13`` (experimental)
+      - Official RS13 Python problem definitions shipped with the adapter
+      - Removing the adapter removes its packaged problems but preserves
+        benchmark output and unrelated user data.
 
 S2MPJ
 -----
 
-S2MPJ is the bundled default and needs no separate download.  Use
-``s2mpj_select`` and ``s2mpj_load`` directly, or select the public name
-``'s2mpj'`` through ``options.plibs``.
+S2MPJ is the default provider and needs no separate installation.  Its public
+selection and loading functions are :func:`~optiprofiler.problem_libs.s2mpj.s2mpj_select`
+and :func:`~optiprofiler.problem_libs.s2mpj.s2mpj_load`.
 
-MatCUTEst
----------
+PyCUTEst
+--------
 
-MatCUTEst is optional and supported only on Linux.  Request it during setup
-with ``install_matcutest=true``.  Setup installs the locked adapter and runtime
-under the optional-library root and registers ``matcutest_select`` and
-``matcutest_load``.
+The PyCUTEst adapter connects OptiProfiler to an existing upstream PyCUTEst
+installation.  Install and validate PyCUTEst first, then install
+``optiprofiler-pycutest``.  Platform-specific compiler, CUTEst, and MASTSIF
+setup remains entirely upstream-owned.
 
 SOLAR
 -----
 
-SOLAR is optional and supported on all MATLAB platforms targeted by
-OptiProfiler.  Request it with ``install_solar=true``.  The adapter includes a
-slim runtime and builds its executable locally when first needed.
+The SOLAR adapter includes the slim runtime source used by its wrapper.  It
+builds the executable lazily and caches the result outside the Python
+distribution.  Set ``SOLAR_CACHE_DIR`` only when a non-default cache root is
+required.
+
+RS13
+----
+
+RS13 is an experimental provider for the Rios--Sahinidis derivative-free
+optimization test set.  Its distribution includes the official Python problem
+definitions required by ``rs13_load`` together with adapter-maintained
+selection metadata.  Complete solution vectors and independent upstream audit
+records are maintainer test inputs; they are not required for a benchmark and
+are not installed for users.
 
 Sources and provenance
 ----------------------
@@ -54,14 +70,20 @@ subsets, not replacements for the original projects.  Please follow the
 upstream projects' citation and license guidance when using their problem
 collections.
 
-* **S2MPJ:** `OptiProfiler adapter and synchronized MATLAB subset
-  <https://github.com/optiprofiler/s2mpj_matlab>`_; `original S2MPJ repository
+* **S2MPJ:** `OptiProfiler adapter and synchronized Python subset
+  <https://github.com/optiprofiler/s2mpj_python>`_; `original S2MPJ repository
   <https://github.com/GrattonToint/S2MPJ>`_.
-* **MatCUTEst:** `OptiProfiler adapter and maintained precompiled mirror
-  <https://github.com/optiprofiler/matcutest>`_; `official precompiled
-  MatCUTEst distribution <https://github.com/matcutest/matcutest_compiled>`_;
-  `MatCUTEst source project <https://github.com/matcutest/matcutest>`_;
-  `underlying CUTEst engine <https://github.com/ralna/CUTEst>`_.
-* **SOLAR:** `OptiProfiler MATLAB adapter and pinned slim runtime snapshot
-  <https://github.com/optiprofiler/solar_matlab>`_; `original SOLAR repository
+* **PyCUTEst:** `OptiProfiler PyCUTEst adapter
+  <https://github.com/optiprofiler/pycutest>`_; `upstream PyCUTEst
+  <https://github.com/jfowkes/pycutest>`_; `CUTEst
+  <https://github.com/ralna/CUTEst>`_; `SIFDecode
+  <https://github.com/ralna/SIFDecode>`_; `MASTSIF problem definitions on
+  Bitbucket <https://bitbucket.org/optrove/sif>`_.
+* **SOLAR:** `OptiProfiler adapter and pinned slim runtime snapshot
+  <https://github.com/optiprofiler/solar_python>`_; `original SOLAR repository
   <https://github.com/bbopt/solar>`_.
+* **RS13:** `OptiProfiler adapter and vendored official 502-problem Python runtime
+  <https://github.com/optiprofiler/rs13>`_; `official problem-collection source
+  <https://minlp.com/black-box-optimization-test-problems>`_; `original paper
+  <https://doi.org/10.1007/s10898-012-9951-y>`_.  RS13's official source is a
+  project page and archive rather than a public upstream GitHub repository.

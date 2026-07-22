@@ -67,4 +67,6 @@ Other tools
 External provider APIs are documented by their independently installed
 packages: `PyCUTEst <https://github.com/optiprofiler/pycutest>`_,
 `SOLAR <https://github.com/optiprofiler/solar_python>`_, and experimental
-`RS13 <https://github.com/optiprofiler/rs13>`_.
+`RS13 <https://github.com/optiprofiler/rs13>`_.  See
+:ref:`python_problem_libraries` for their development installation and
+uninstall boundaries.

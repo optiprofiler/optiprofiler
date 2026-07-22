@@ -47,12 +47,12 @@ You can also install OptiProfiler from conda-forge:
 
 .. note::
 
-    OptiProfiler includes the `S2MPJ <https://github.com/GrattonToint/S2MPJ>`_
-    problem library by default. The Python `PyCUTEst
-    <https://github.com/optiprofiler/pycutest>`_, `SOLAR
+    OptiProfiler includes the `S2MPJ
+    <https://github.com/GrattonToint/S2MPJ>`_ problem library by default.
+    Optional `PyCUTEst <https://github.com/optiprofiler/pycutest>`_, `SOLAR
     <https://github.com/optiprofiler/solar_python>`_, and experimental `RS13
-    <https://github.com/optiprofiler/rs13>`_ providers are independently
-    installed plugin packages. PyCUTEst and CUTEst remain a separately managed
+    <https://github.com/optiprofiler/rs13>`_ providers are installed as
+    independent distributions. PyCUTEst and CUTEst remain a separately managed
     system runtime; SOLAR and RS13 ship the problem definitions needed by their
     adapters.
 
@@ -64,6 +64,8 @@ Those plugins require OptiProfiler and become usable again after the core is
 reinstalled. Remove one adapter separately with, for example,
 ``python -m pip uninstall optiprofiler-pycutest``. This does not remove the
 independently managed PyCUTEst or CUTEst runtime and problem definitions.
+The complete workflow for installing, discovering, updating, and removing
+providers is documented under ``doc/source/user/problem_libraries/``.
 
 MATLAB
 ------

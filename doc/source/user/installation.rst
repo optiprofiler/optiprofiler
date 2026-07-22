@@ -20,7 +20,10 @@ You can also install OptiProfiler from conda-forge:
 
 .. note::
 
-    OptiProfiler includes the `S2MPJ <https://github.com/GrattonToint/S2MPJ>`_ problem library by default. The Python `PyCUTEst <https://github.com/optiprofiler/pycutest>`_, `SOLAR <https://github.com/optiprofiler/solar_python>`_, and experimental `RS13 <https://github.com/optiprofiler/rs13>`_ providers are installed independently and discovered through the versioned problem-library entry-point protocol. They are not part of the OptiProfiler core wheel or source distribution; follow each provider repository for its runtime and license requirements.
+    OptiProfiler includes `S2MPJ <https://github.com/GrattonToint/S2MPJ>`_
+    by default. Optional Python problem libraries are installed as independent
+    distributions. See :ref:`python_problem_libraries` for the provider list,
+    installation commands, runtime requirements, and uninstall boundaries.
 
 MATLAB
 ------
