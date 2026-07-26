@@ -433,6 +433,8 @@ function paths_saved = add_save_path(path_strings, path_string_stamp)
     % needed only if `savepath` fails.
     
     paths_saved = false(length(path_strings), 1);
+    pathdef_file = get_setup_pathdef_file();
+    startup_file = get_setup_startup_file();
     for i_path = 1:length(path_strings)
         path_string = path_strings{i_path};
 
@@ -442,36 +444,35 @@ function paths_saved = add_save_path(path_strings, path_string_stamp)
         end
         addpath(path_string);
     
-        % Try saving the path in the system path-defining file at sys_pathdef.
+        % Persist to the configured pathdef file. Tests and managed
+        % deployments can redirect this away from the user's MATLAB state.
         orig_warning_state = warning;
         warning('off', 'MATLAB:SavePath:PathNotSaved'); 
-        sys_pathdef = fullfile(matlabroot(), 'toolbox', 'local', 'pathdef.m');
-        paths_saved(i_path) = (savepath(sys_pathdef) == 0);
+        paths_saved(i_path) = (savepath(pathdef_file) == 0);
         warning(orig_warning_state); 
         
-        % If path not saved, try editing the startup.m of this user.
-        if ~paths_saved(i_path) && numel(userpath) > 0
-            user_startup = fullfile(userpath, 'startup.m');
+        % If pathdef persistence fails, use the configured startup file.
+        if ~paths_saved(i_path) && ~isempty(startup_file)
             add_path_string = sprintf('addpath(''%s'');', path_string);
             full_add_path_string = sprintf('%s\t%s %s', add_path_string, '%', path_string_stamp);
         
             % Check if already exists
-            if exist(user_startup, 'file')
-                startup_text_cells = regexp(fileread(user_startup), '\n', 'split');
+            if exist(startup_file, 'file')
+                startup_text_cells = regexp(fileread(startup_file), '\n', 'split');
                 paths_saved(i_path) = any(strcmp(startup_text_cells, full_add_path_string));
             end
         
             if ~paths_saved(i_path)
                 % Check for empty last line
-                if exist(user_startup, 'file')
-                    startup_text_cells = regexp(fileread(user_startup), '\n', 'split');
+                if exist(startup_file, 'file')
+                    startup_text_cells = regexp(fileread(startup_file), '\n', 'split');
                     last_line_empty = isempty(startup_text_cells) || (isempty(startup_text_cells{end}) && ...
                         isempty(startup_text_cells{max(1, end-1)}));
                 else
                     last_line_empty = true;
                 end
         
-                file_id = fopen(user_startup, 'a');
+                file_id = fopen(startup_file, 'a');
                 if file_id ~= -1 
                     if ~last_line_empty
                         fprintf(file_id, '\n');
@@ -479,8 +480,8 @@ function paths_saved = add_save_path(path_strings, path_string_stamp)
                     fprintf(file_id, '%s', full_add_path_string);
                     fclose(file_id);
                     % Verify
-                    if exist(user_startup, 'file')
-                        startup_text_cells = regexp(fileread(user_startup), '\n', 'split');
+                    if exist(startup_file, 'file')
+                        startup_text_cells = regexp(fileread(startup_file), '\n', 'split');
                         paths_saved(i_path) = any(strcmp(startup_text_cells, full_add_path_string));
                     end
                 end
@@ -491,6 +492,37 @@ function paths_saved = add_save_path(path_strings, path_string_stamp)
     
     return
 
+end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+function pathdef_file = get_setup_pathdef_file()
+    %GET_SETUP_PATHDEF_FILE returns the path persistence target.
+
+    pathdef_file = getenv('OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_PATHDEF');
+    if isempty(pathdef_file)
+        pathdef_file = fullfile(matlabroot(), 'toolbox', 'local', 'pathdef.m');
+    end
+end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+function startup_file = get_setup_startup_file()
+    %GET_SETUP_STARTUP_FILE returns the startup fallback target.
+
+    startup_file = getenv('OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_STARTUP');
+    if isempty(startup_file)
+        matlab_userpath = userpath;
+        if isempty(matlab_userpath)
+            startup_file = '';
+        else
+            startup_file = fullfile(matlab_userpath, 'startup.m');
+        end
+    end
 end
 
 
@@ -804,13 +836,13 @@ function uninstall_optiprofiler(path_string_stamp)
         rmpath(paths_to_remove_robust{:});
     end
     
-    savepath;
+    savepath(get_setup_pathdef_file());
     warning(orig_warning_state); 
     
     % Removing the line possibly added to the user startup script
     to_be_removed = [{src_dir, s2mpj_dir, matcutest_dir, solar_dir}, registered_roots];
-    user_startup = fullfile(userpath,'startup.m');
-    if exist(user_startup, 'file')
+    user_startup = get_setup_startup_file();
+    if ~isempty(user_startup) && exist(user_startup, 'file')
         % 1. Try removing specific known lines (legacy support)
         for i_path = 1:length(to_be_removed)
             add_path_string = sprintf('addpath(''%s'');', to_be_removed{i_path});

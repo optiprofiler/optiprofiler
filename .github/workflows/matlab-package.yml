@@ -7,6 +7,7 @@ on:
       - LICENSE
       - README.rst
       - THIRD_PARTY_NOTICES.md
+      - licenses/**
       - matlab_problem_libraries.lock
       - setup.m
       - matlab/examples/**
@@ -25,6 +26,7 @@ on:
       - LICENSE
       - README.rst
       - THIRD_PARTY_NOTICES.md
+      - licenses/**
       - matlab_problem_libraries.lock
       - setup.m
       - matlab/examples/**

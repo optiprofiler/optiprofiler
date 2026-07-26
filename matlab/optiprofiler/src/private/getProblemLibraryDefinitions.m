@@ -20,15 +20,17 @@ function definitions = getProblemLibraryDefinitions()
             'platforms', {cellstr(entry.platforms)});
 
         matching = find(strcmp({registered.name}, definition.name), 1);
-        if ~isempty(matching)
+        if strcmp(definition.role, 'bundled-default')
+            % Bundled defaults are always resolved from the locked gitlink.
+            % A manually edited registry must not redirect their source root.
+            definition.root = fullfile(repository_root, char(entry.gitlink));
+        elseif ~isempty(matching)
             registered_entry = registered(matching);
             if strcmp(registered_entry.select_function, definition.select_function) && ...
                     strcmp(registered_entry.load_function, definition.load_function)
                 definition.root = registered_entry.root;
                 definition.check_available_function = registered_entry.check_available_function;
             end
-        elseif strcmp(definition.role, 'bundled-default')
-            definition.root = fullfile(repository_root, char(entry.gitlink));
         end
         if isempty(definition.root)
             definitions(end + 1) = definition;

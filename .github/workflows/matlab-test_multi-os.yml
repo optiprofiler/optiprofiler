@@ -2,7 +2,7 @@ name: MATLAB test multi-OS
 
 on:
   push:
-    branches: [main]
+    branches: [main, matlab]
   workflow_dispatch:
 
 jobs:

@@ -24,8 +24,20 @@ function smoke_matlab_zip(archive_root)
     mkdir(library_root);
     cleanup_registry = onCleanup(@() remove_directory(registry_root));
     cleanup_libraries = onCleanup(@() remove_directory(library_root));
+    original_registry = getenv( ...
+        'OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_REGISTRY');
+    original_pathdef = getenv( ...
+        'OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_PATHDEF');
+    original_startup = getenv( ...
+        'OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_STARTUP');
+    cleanup_environment = onCleanup(@() restore_environment( ...
+        original_registry, original_pathdef, original_startup));
     setenv('OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_REGISTRY', ...
         fullfile(registry_root, 'problem_libraries.mat'));
+    setenv('OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_PATHDEF', ...
+        fullfile(registry_root, 'pathdef.m'));
+    setenv('OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_STARTUP', ...
+        fullfile(registry_root, 'startup.m'));
 
     cd(archive_root);
     setup(struct('install_matcutest', false, 'install_solar', false, ...
@@ -46,6 +58,13 @@ function smoke_matlab_zip(archive_root)
     archive_paths = strsplit(path, pathsep);
     assert(~any(startsWith(archive_paths, archive_root)), ...
         'setup uninstall did not remove the extracted engine path.');
+end
+
+
+function restore_environment(registry, pathdef, startup)
+    setenv('OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_REGISTRY', registry);
+    setenv('OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_PATHDEF', pathdef);
+    setenv('OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_STARTUP', startup);
 end
 
 

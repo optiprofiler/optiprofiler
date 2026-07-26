@@ -14,6 +14,7 @@ on:
       - matlab/optiprofiler/src/private/**
       - matlab/optiprofiler/tests/unit_tests/TestCheckValidityProblemOptions.m
       - matlab/optiprofiler/tests/unit_tests/TestProblemLibraryRegistry.m
+      - matlab/optiprofiler/tests/unit_tests/TestSetupPersistenceIsolation.m
       - .github/workflows/matlab-problem-library-contract.yml
   pull_request:
     paths:
@@ -27,6 +28,7 @@ on:
       - matlab/optiprofiler/src/private/**
       - matlab/optiprofiler/tests/unit_tests/TestCheckValidityProblemOptions.m
       - matlab/optiprofiler/tests/unit_tests/TestProblemLibraryRegistry.m
+      - matlab/optiprofiler/tests/unit_tests/TestSetupPersistenceIsolation.m
       - .github/workflows/matlab-problem-library-contract.yml
   workflow_dispatch:
 
@@ -78,6 +80,10 @@ jobs:
             mkdir(registry_root);
             setenv('OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_REGISTRY', ...
                 fullfile(registry_root, 'problem_libraries.mat'));
+            setenv('OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_PATHDEF', ...
+                fullfile(registry_root, 'pathdef.m'));
+            setenv('OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_STARTUP', ...
+                fullfile(registry_root, 'startup.m'));
             library_root = fullfile(tempdir, 'optiprofiler-contract-libraries');
             options = struct('install_matcutest', false, 'install_solar', false, ...
                 'problem_library_root', library_root);
@@ -85,9 +91,12 @@ jobs:
             cd(fullfile('matlab', 'optiprofiler'));
             suite = [ ...
                 testsuite(fullfile('tests', 'unit_tests', 'TestProblemLibraryRegistry.m')), ...
-                testsuite(fullfile('tests', 'unit_tests', 'TestCheckValidityProblemOptions.m'))];
+                testsuite(fullfile('tests', 'unit_tests', 'TestCheckValidityProblemOptions.m')), ...
+                testsuite(fullfile('tests', 'unit_tests', 'TestSetupPersistenceIsolation.m'))];
             results = run(suite);
             assert(~any([results.Failed]), 'MATLAB problem-library contract tests failed.');
+            assert(~any([results.Incomplete]), ...
+                'MATLAB problem-library contract tests were filtered or incomplete.');
 
       - name: Verify setup did not write optional libraries into core
         shell: bash

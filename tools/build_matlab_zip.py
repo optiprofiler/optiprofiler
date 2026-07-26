@@ -27,6 +27,9 @@ CORE_PATHS = (
     Path("setup.m"),
 )
 CORE_TREES = (
+    # Include redistribution documents automatically once they are tracked.
+    # The release checker still requires one of the canonical S2MPJ files.
+    Path("licenses"),
     Path("matlab/examples"),
     Path("matlab/optiprofiler/src"),
     Path("matlab/optiprofiler/problem_libs/README.txt"),

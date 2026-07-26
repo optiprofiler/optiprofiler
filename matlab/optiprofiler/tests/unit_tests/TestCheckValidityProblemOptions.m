@@ -4,6 +4,8 @@ classdef TestCheckValidityProblemOptions < matlab.unittest.TestCase
         function testErrors(testCase)
 
             mydir = fileparts(mfilename('fullpath'));
+            original_dir = pwd;
+            testCase.addTeardown(@() cd(original_dir));
             cd(fullfile(mydir, '../../src/private'));
 
             options = struct();
@@ -99,6 +101,33 @@ classdef TestCheckValidityProblemOptions < matlab.unittest.TestCase
             options = checkValidityProblemOptions(options, profile_options);
 
             testCase.verifyEqual(options.plibs, {'solar'});
+        end
+
+        function testUnknownLibraryLoadErrorIsStable(testCase)
+            original_dir = pwd;
+            testCase.addTeardown(@() cd(original_dir));
+            mydir = fileparts(mfilename('fullpath'));
+            cd(fullfile(mydir, '../../src/private'));
+
+            options = struct('plibs', {{'not_registered'}});
+            profile_options = struct('load', 'saved-results');
+            did_throw = false;
+            caught_identifier = '';
+            caught_message = '';
+            try
+                checkValidityProblemOptions(options, profile_options);
+            catch ME
+                did_throw = true;
+                caught_identifier = ME.identifier;
+                caught_message = ME.message;
+            end
+            testCase.verifyTrue(did_throw, ...
+                'An unknown library should be rejected.');
+            testCase.verifyEqual(caught_identifier, ...
+                'MATLAB:checkValidityProblemOptions:plibsNotValid');
+            testCase.verifySubstring(caught_message, 'not registered');
+            testCase.verifyFalse(contains( ...
+                caught_message, 'legacyProblemLibraryRegistration'));
         end
 
     end
