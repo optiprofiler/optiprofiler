@@ -1145,12 +1145,13 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 
     if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
         try
-            save(fullfile(path_log, 'data_for_loading.mat'), 'results_plibs');
+            % Version 7 can omit variables larger than 2 GB after issuing only a warning.
+            save(fullfile(path_log, 'data_for_loading.mat'), 'results_plibs', '-v7.3');
             addToReadme(path_readme_log, 'data_for_loading.mat', 'File, storing the data of the current experiment for future loading.');
         catch ME
             if ~profile_options.(ProfileOptionKey.SILENT.value)
-                printOptiProfilerMessage('INFO', 'Failed to save the data of the current experiment.');
-                printOptiProfilerMessage('INFO', sprintf('Error message: %s', shortenMessageForLog(ME.message)));
+                printOptiProfilerMessage('WARNING', 'Failed to save the data of the current experiment. This experiment cannot be reloaded with the `load` option.');
+                printOptiProfilerMessage('WARNING', sprintf('Error message: %s', shortenMessageForLog(ME.message)));
             end
         end
     end
