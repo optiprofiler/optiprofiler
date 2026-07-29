@@ -53,11 +53,17 @@ function setup(varargin)
     src_dir = fullfile(optiprofiler_dir, 'src'); % Directory containing the source code of the package
     plib_dir = fullfile(optiprofiler_dir, 'problem_libs'); % Directory containing problem libraries
     s2mpj_dir = fullfile(plib_dir, 's2mpj'); % Directory containing S2MPJ
+    % Pin S2MPJ to the commit included by OptiProfiler v1.3.1.
+    s2mpj_repo_url = 'https://github.com/optiprofiler/s2mpj_matlab.git';
+    s2mpj_commit = '8938143d17cd9413676f563eba8d89770f8d2ecc';
     matcutest_dir = fullfile(plib_dir, 'matcutest'); % Directory containing tools (interfaces) for MatCUTEst
     % Pin MatCUTEst to the commit validated with this OptiProfiler release.
     matcutest_repo_url = 'https://github.com/optiprofiler/matcutest.git';
     matcutest_commit = '50f3ccb7e4050675bdae5e79e1047216a7aedce7';
     solar_dir = fullfile(plib_dir, 'solar'); % Local directory for the optional SOLAR MATLAB adapter
+    % Pin SOLAR to the last adapter commit available before OptiProfiler v1.3.1.
+    solar_repo_url = 'https://github.com/optiprofiler/solar_matlab.git';
+    solar_commit = '7ac9439e97b91de2eb1196677bcdb858663e0bf4';
     
     % We need write access to `setup_dir` (and its subdirectories). Return if we do not have it.
     % N.B.: This checking is NOT perfect because of the following --- but it is better than nothing.
@@ -97,25 +103,11 @@ function setup(varargin)
 
         % Check if S2MPJ directory exists and is not empty
         if exist(s2mpj_dest_matlab, 'dir') && length(dir(s2mpj_dest_matlab)) > 2
-            fprintf('S2MPJ detected at %s. No further action required.\n', s2mpj_dest_matlab);
+            fprintf('S2MPJ detected at %s.\n', s2mpj_dest_matlab);
+            verify_existing_git_repository_commit(s2mpj_dest_matlab, s2mpj_commit, 'S2MPJ');
         else
             fprintf('S2MPJ not found. Cloning the repository...\n');
-            
-            % Clone S2MPJ from the OptiProfiler GitHub organization to s2mpj_dest_matlab
-            clone_cmd = sprintf('git clone https://github.com/optiprofiler/s2mpj_matlab.git "%s"', s2mpj_dest_matlab);
-            fprintf('Executing: %s\n', clone_cmd);
-            
-            status = system(clone_cmd);
-            if status == 0
-                fprintf('S2MPJ cloned successfully.\n');
-            else
-                fprintf('ERROR: Failed to clone S2MPJ repository.\n');
-                fprintf('Please manually clone or download "s2mpj_matlab" from:\n');
-                fprintf('  https://github.com/optiprofiler/s2mpj_matlab\n');
-                fprintf('Then rename the folder from "s2mpj_matlab" to "s2mpj" and place it at:\n');
-                fprintf('  %s\n', plib_dir);
-                return; % Stop setup if cloning fails
-            end
+            clone_git_repository_at_commit(s2mpj_repo_url, s2mpj_dest_matlab, s2mpj_commit, 'S2MPJ');
         end
         
         
@@ -175,18 +167,10 @@ function setup(varargin)
                     if ~skip_clone_msg
                          fprintf('MatCUTEst directory at %s seems populated. Skipping clone.\n', matcutest_dir);
                     end
-                    checkout_git_repository_commit_if_clean(matcutest_dir, matcutest_repo_url, matcutest_commit, 'MatCUTEst');
+                    verify_existing_git_repository_commit(matcutest_dir, matcutest_commit, 'MatCUTEst');
                 else
                     fprintf('Cloning MatCUTEst repository (optiprofiler fork)...\n');
-                    clone_cmd = sprintf('git clone "%s" "%s"', matcutest_repo_url, matcutest_dir);
-                    status = system(clone_cmd);
-                    
-                    if status == 0
-                        fprintf('MatCUTEst cloned successfully.\n');
-                        checkout_git_repository_commit_if_clean(matcutest_dir, matcutest_repo_url, matcutest_commit, 'MatCUTEst');
-                    else
-                        fprintf('WARNING: Failed to clone MatCUTEst repository.\n');
-                    end
+                    clone_git_repository_at_commit(matcutest_repo_url, matcutest_dir, matcutest_commit, 'MatCUTEst');
                 end
                 
                 % 5. Add the MatCUTEst directory to the path list
@@ -237,6 +221,7 @@ function setup(varargin)
         proceed_with_solar = false;
         if is_solar_dir_populated
             fprintf('SOLAR MATLAB adapter detected at %s. Skipping setup query.\n', solar_dir);
+            verify_existing_git_repository_commit(solar_dir, solar_commit, 'SOLAR MATLAB adapter');
             proceed_with_solar = true;
         else
             if isfield(options, 'install_solar')
@@ -258,18 +243,8 @@ function setup(varargin)
             if exist(plib_dir, 'dir') ~= 7
                 mkdir(plib_dir);
             end
-            clone_cmd = sprintf('git clone https://github.com/optiprofiler/solar_matlab.git "%s"', solar_dir);
-            status = system(clone_cmd);
-            if status == 0
-                fprintf('SOLAR MATLAB adapter cloned successfully.\n');
-                is_solar_dir_populated = true;
-            else
-                fprintf('WARNING: Failed to clone SOLAR MATLAB adapter repository.\n');
-                fprintf('You can manually clone or download "solar_matlab" from:\n');
-                fprintf('  https://github.com/optiprofiler/solar_matlab\n');
-                fprintf('Then rename the folder from "solar_matlab" to "solar" and place it at:\n');
-                fprintf('  %s\n', plib_dir);
-            end
+            clone_git_repository_at_commit(solar_repo_url, solar_dir, solar_commit, 'SOLAR MATLAB adapter');
+            is_solar_dir_populated = true;
         elseif ~proceed_with_solar
             fprintf('Skipping SOLAR MATLAB adapter setup.\n');
         end
@@ -387,56 +362,104 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-function checkout_git_repository_commit_if_clean(repo_dir, repo_url, commit_hash, repo_name)
-    %CHECKOUT_GIT_REPOSITORY_COMMIT_IF_CLEAN pins an optional problem library checkout.
+function clone_git_repository_at_commit(repo_url, repo_dir, commit_hash, repo_name)
+    %CLONE_GIT_REPOSITORY_AT_COMMIT clones and verifies a frozen problem-library checkout.
 
-    git_dir = fullfile(repo_dir, '.git');
-    if exist(git_dir, 'dir') ~= 7 && exist(git_dir, 'file') ~= 2
-        fprintf('%s directory is not a git repository. Using it as-is.\n', repo_name);
-        return
-    end
-
-    head_cmd = sprintf('git -C "%s" rev-parse HEAD', repo_dir);
-    [status, head_output] = system(head_cmd);
-    if status == 0 && strcmp(strtrim(head_output), commit_hash)
-        fprintf('%s repository is already at pinned commit %s.\n', repo_name, commit_hash);
-        return
-    end
-
-    status_cmd = sprintf('git -C "%s" status --porcelain', repo_dir);
-    [status, status_output] = system(status_cmd);
+    clone_cmd = sprintf('git clone "%s" "%s"', repo_url, repo_dir);
+    fprintf('Executing: %s\n', clone_cmd);
+    status = system(clone_cmd);
     if status ~= 0
-        fprintf('WARNING: Could not inspect %s repository status. Using it as-is.\n', repo_name);
-        return
-    end
-
-    if ~isempty(strtrim(status_output))
-        fprintf('%s repository has local changes. Skipping checkout of pinned commit %s.\n', repo_name, commit_hash);
-        return
-    end
-
-    fetch_cmd = sprintf('git -C "%s" fetch --tags "%s"', repo_dir, repo_url);
-    status = system(fetch_cmd);
-    if status ~= 0
-        fprintf('WARNING: Could not fetch %s repository. Using it as-is.\n', repo_name);
-        return
+        remove_failed_clone_directory(repo_dir, repo_name);
+        error('setup:ProblemLibraryCloneFailed', ...
+            'Failed to clone %s from %s.', repo_name, repo_url);
     end
 
     checkout_cmd = sprintf('git -C "%s" checkout --detach %s', repo_dir, commit_hash);
     status = system(checkout_cmd);
     if status ~= 0
-        fprintf('WARNING: Could not checkout %s pinned commit %s. Using repository as-is.\n', repo_name, commit_hash);
+        remove_failed_clone_directory(repo_dir, repo_name);
+        error('setup:ProblemLibraryCheckoutFailed', ...
+            'Failed to checkout %s at pinned commit %s.', repo_name, commit_hash);
+    end
+
+    [verified, actual_commit] = git_repository_is_at_commit(repo_dir, commit_hash);
+    if ~verified
+        remove_failed_clone_directory(repo_dir, repo_name);
+        error('setup:ProblemLibraryVerificationFailed', ...
+            '%s checkout is at %s instead of pinned commit %s.', ...
+            repo_name, actual_commit, commit_hash);
+    end
+
+    fprintf('%s cloned at pinned commit %s.\n', repo_name, commit_hash);
+
+    return
+
+end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+function verify_existing_git_repository_commit(repo_dir, commit_hash, repo_name)
+    %VERIFY_EXISTING_GIT_REPOSITORY_COMMIT checks a user-provided checkout without modifying it.
+
+    git_dir = fullfile(repo_dir, '.git');
+    if exist(git_dir, 'dir') ~= 7 && exist(git_dir, 'file') ~= 2
+        warning('setup:ProblemLibraryNotGitRepository', ...
+            '%s directory is not a git repository. Using it as-is.', repo_name);
         return
     end
 
-    clean_cmd = sprintf('git -C "%s" reset --hard %s', repo_dir, commit_hash);
-    status = system(clean_cmd);
-    if status ~= 0
-        fprintf('WARNING: Could not reset %s repository to pinned commit %s. Using repository as-is.\n', repo_name, commit_hash);
-        return
+    [verified, actual_commit] = git_repository_is_at_commit(repo_dir, commit_hash);
+    if verified
+        fprintf('%s repository is at pinned commit %s.\n', repo_name, commit_hash);
+    else
+        warning('setup:ProblemLibraryCommitMismatch', ...
+            '%s repository is at %s instead of pinned commit %s. Using it as-is.', ...
+            repo_name, actual_commit, commit_hash);
     end
 
-    fprintf('%s repository checked out at pinned commit %s.\n', repo_name, commit_hash);
+    return
+
+end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+function [verified, actual_commit] = git_repository_is_at_commit(repo_dir, commit_hash)
+    %GIT_REPOSITORY_IS_AT_COMMIT reports whether REPO_DIR is exactly at COMMIT_HASH.
+
+    head_cmd = sprintf('git -C "%s" rev-parse HEAD', repo_dir);
+    [status, head_output] = system(head_cmd);
+    actual_commit = strtrim(head_output);
+    if status ~= 0 || isempty(actual_commit)
+        actual_commit = '<unknown>';
+        verified = false;
+    else
+        verified = strcmp(actual_commit, commit_hash);
+    end
+
+    return
+
+end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+function remove_failed_clone_directory(repo_dir, repo_name)
+    %REMOVE_FAILED_CLONE_DIRECTORY removes a directory created by a failed setup clone.
+
+    if exist(repo_dir, 'dir') == 7
+        try
+            rmdir(repo_dir, 's');
+        catch exception
+            warning('setup:ProblemLibraryCleanupFailed', ...
+                'Could not remove the incomplete %s directory %s: %s', ...
+                repo_name, repo_dir, exception.message);
+        end
+    end
 
     return
 
