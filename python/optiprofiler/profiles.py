@@ -29,7 +29,7 @@ from matplotlib.ticker import MaxNLocator, FuncFormatter
 from .opclasses import Feature, Problem, FeaturedProblem
 from .utils import DEFAULT_LOG_LINE_WIDTH, FeatureName, ProfileOption, FeatureOption, ProblemOption, get_logger, print_log_message, setup_main_process_logging, setup_worker_logging, shorten_log_message, format_log_prefix
 from .loader import load_results, save_results_to_h5, save_options
-from .profile_utils import check_validity_problem_options, check_validity_profile_options, get_default_problem_options, get_default_profile_options, compute_merit_values, create_stamp, merge_pdfs_with_pypdf, write_report, process_results, init_readme, add_to_readme, compute_scores, _custom_problem_library_dir
+from .profile_utils import check_validity_problem_options, check_validity_profile_options, check_post_load_profile_options, get_default_problem_options, get_default_profile_options, compute_merit_values, create_stamp, merge_pdfs_with_pypdf, write_report, process_results, init_readme, add_to_readme, compute_scores, _custom_problem_library_dir
 from .plotting import draw_hist, set_profile_context, format_float_scientific_latex, draw_profiles, summary_legend_extra_width, latex_escape_text, format_profile_text
 
 
@@ -769,7 +769,16 @@ def benchmark(
     # If 'load' is specified, we skip the solving phase and restore the results from disk.
     if is_load:
         results_plibs, profile_options = load_results(problem_options, profile_options)
-    
+        if not results_plibs:
+            # No problems were selected from the loaded data; there is nothing
+            # to plot, so we stop cleanly instead of failing later.
+            return np.zeros(0), None, None
+        # Finish the solver-count-dependent option checks that were deferred by
+        # `check_validity_profile_options` (where `solvers` is None on the load
+        # path). The count below is the final effective one, i.e. after the
+        # 'solvers_to_load' selection has been applied by `load_results`.
+        profile_options = check_post_load_profile_options(results_plibs[0]['fun_histories'].shape[1], profile_options)
+
     # Build feature.
     feature = Feature(feature_name, **feature_options)
     feature_options = feature.options
