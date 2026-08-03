@@ -77,15 +77,16 @@ def truncate_problems(results_plib: Dict[str, Any], problem_options: Dict[str, A
     
     # Filter problems based on problem type
     if ProblemOption.PTYPE.value in problem_options:
-        if hasattr(results_plib, 'ptype'):
-            results_plib['ptype'] = list(set(results_plib['ptype']).intersection(problem_options[ProblemOption.PTYPE.value]))
+        if 'ptype' in results_plib:
+            selected_ptypes = set(results_plib['ptype']).intersection(problem_options[ProblemOption.PTYPE.value])
+            results_plib['ptype'] = ''.join(c for c in 'ubln' if c in selected_ptypes)
         for i, ptype in enumerate(results_plib['problem_types']):
             if ptype not in problem_options[ProblemOption.PTYPE.value]:
                 p_to_load[i] = False
     
     # Filter problems based on minimum dimension
     if ProblemOption.MINDIM.value in problem_options:
-        if hasattr(results_plib, 'mindim'):
+        if 'mindim' in results_plib:
             results_plib['mindim'] = max(results_plib['mindim'], problem_options[ProblemOption.MINDIM.value])
         for i, dim in enumerate(results_plib['problem_dims']):
             if dim < problem_options[ProblemOption.MINDIM.value]:
@@ -93,7 +94,7 @@ def truncate_problems(results_plib: Dict[str, Any], problem_options: Dict[str, A
     
     # Filter problems based on maximum dimension
     if ProblemOption.MAXDIM.value in problem_options:
-        if hasattr(results_plib, 'maxdim'):
+        if 'maxdim' in results_plib:
             results_plib['maxdim'] = min(results_plib['maxdim'], problem_options[ProblemOption.MAXDIM.value])
         for i, dim in enumerate(results_plib['problem_dims']):
             if dim > problem_options[ProblemOption.MAXDIM.value]:
@@ -101,7 +102,7 @@ def truncate_problems(results_plib: Dict[str, Any], problem_options: Dict[str, A
     
     # Filter problems based on minimum number of bound constraints
     if ProblemOption.MINB.value in problem_options:
-        if hasattr(results_plib, 'minb'):
+        if 'minb' in results_plib:
             results_plib['minb'] = max(results_plib['minb'], problem_options[ProblemOption.MINB.value])
         for i, mb in enumerate(results_plib['problem_mbs']):
             if mb < problem_options[ProblemOption.MINB.value]:
@@ -109,7 +110,7 @@ def truncate_problems(results_plib: Dict[str, Any], problem_options: Dict[str, A
     
     # Filter problems based on maximum number of bound constraints
     if ProblemOption.MAXB.value in problem_options:
-        if hasattr(results_plib, 'maxb'):
+        if 'maxb' in results_plib:
             results_plib['maxb'] = min(results_plib['maxb'], problem_options[ProblemOption.MAXB.value])
         for i, mb in enumerate(results_plib['problem_mbs']):
             if mb > problem_options[ProblemOption.MAXB.value]:
@@ -117,7 +118,7 @@ def truncate_problems(results_plib: Dict[str, Any], problem_options: Dict[str, A
     
     # Filter problems based on minimum number of linear constraints
     if ProblemOption.MINLCON.value in problem_options:
-        if hasattr(results_plib, 'minlcon'):
+        if 'minlcon' in results_plib:
             results_plib['minlcon'] = max(results_plib['minlcon'], problem_options[ProblemOption.MINLCON.value])
         for i, mlcon in enumerate(results_plib['problem_mlcons']):
             if mlcon < problem_options[ProblemOption.MINLCON.value]:
@@ -125,7 +126,7 @@ def truncate_problems(results_plib: Dict[str, Any], problem_options: Dict[str, A
     
     # Filter problems based on maximum number of linear constraints
     if ProblemOption.MAXLCON.value in problem_options:
-        if hasattr(results_plib, 'maxlcon'):
+        if 'maxlcon' in results_plib:
             results_plib['maxlcon'] = min(results_plib['maxlcon'], problem_options[ProblemOption.MAXLCON.value])
         for i, mlcon in enumerate(results_plib['problem_mlcons']):
             if mlcon > problem_options[ProblemOption.MAXLCON.value]:
@@ -133,7 +134,7 @@ def truncate_problems(results_plib: Dict[str, Any], problem_options: Dict[str, A
     
     # Filter problems based on minimum number of nonlinear constraints
     if ProblemOption.MINNLCON.value in problem_options:
-        if hasattr(results_plib, 'minnlcon'):
+        if 'minnlcon' in results_plib:
             results_plib['minnlcon'] = max(results_plib['minnlcon'], problem_options[ProblemOption.MINNLCON.value])
         for i, mnlcon in enumerate(results_plib['problem_mnlcons']):
             if mnlcon < problem_options[ProblemOption.MINNLCON.value]:
@@ -141,7 +142,7 @@ def truncate_problems(results_plib: Dict[str, Any], problem_options: Dict[str, A
     
     # Filter problems based on maximum number of nonlinear constraints
     if ProblemOption.MAXNLCON.value in problem_options:
-        if hasattr(results_plib, 'maxnlcon'):
+        if 'maxnlcon' in results_plib:
             results_plib['maxnlcon'] = min(results_plib['maxnlcon'], problem_options[ProblemOption.MAXNLCON.value])
         for i, mnlcon in enumerate(results_plib['problem_mnlcons']):
             if mnlcon > problem_options[ProblemOption.MAXNLCON.value]:
@@ -149,7 +150,7 @@ def truncate_problems(results_plib: Dict[str, Any], problem_options: Dict[str, A
     
     # Filter problems based on minimum number of constraints
     if ProblemOption.MINCON.value in problem_options:
-        if hasattr(results_plib, 'mincon'):
+        if 'mincon' in results_plib:
             results_plib['mincon'] = max(results_plib['mincon'], problem_options[ProblemOption.MINCON.value])
         for i, mcon in enumerate(results_plib['problem_mcons']):
             if mcon < problem_options[ProblemOption.MINCON.value]:
@@ -157,7 +158,7 @@ def truncate_problems(results_plib: Dict[str, Any], problem_options: Dict[str, A
     
     # Filter problems based on maximum number of constraints
     if ProblemOption.MAXCON.value in problem_options:
-        if hasattr(results_plib, 'maxcon'):
+        if 'maxcon' in results_plib:
             results_plib['maxcon'] = min(results_plib['maxcon'], problem_options[ProblemOption.MAXCON.value])
         for i, mcon in enumerate(results_plib['problem_mcons']):
             if mcon > problem_options[ProblemOption.MAXCON.value]:
@@ -340,6 +341,64 @@ def load_results_from_h5(file_path: str) -> List[Dict[str, Any]]:
     return results_plibs
 
 
+def _backfill_problem_options_from_loaded(problem_options: Dict[str, Any], results_plibs: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Backfill the problem-selection options that the user did not supply from
+    the saved (and, when explicit filters were given, already intersected)
+    metadata of the selected problem libraries.
+
+    The saved selection is the baseline of a reloaded experiment; explicit
+    load-time filters keep precedence because they are already present in
+    ``problem_options`` and have narrowed both the data and the per-library
+    metadata in ``truncate_problems``. Backfilling the remaining fields keeps
+    the new experiment stamp and report truthful instead of describing
+    defaults such as ``u_1_2``. For multiple libraries the metadata is
+    aggregated: problem types are united, lower bounds take the minimum, and
+    upper bounds take the maximum over the selected libraries.
+    """
+    plibs = [plib for plib in results_plibs if plib]
+    if not plibs:
+        return problem_options
+
+    if ProblemOption.PTYPE.value not in problem_options:
+        chars = set()
+        for plib in plibs:
+            chars.update(str(plib.get('ptype', '')))
+        ptype = ''.join(c for c in 'ubln' if c in chars)
+        if ptype:
+            problem_options[ProblemOption.PTYPE.value] = ptype
+
+    aggregations = [
+        (ProblemOption.MINDIM.value, min),
+        (ProblemOption.MAXDIM.value, max),
+        (ProblemOption.MINB.value, min),
+        (ProblemOption.MAXB.value, max),
+        (ProblemOption.MINLCON.value, min),
+        (ProblemOption.MAXLCON.value, max),
+        (ProblemOption.MINNLCON.value, min),
+        (ProblemOption.MAXNLCON.value, max),
+        (ProblemOption.MINCON.value, min),
+        (ProblemOption.MAXCON.value, max),
+    ]
+    for key, aggregate in aggregations:
+        if key not in problem_options:
+            values = [plib[key] for plib in plibs if key in plib]
+            if values:
+                problem_options[key] = aggregate(values)
+
+    if ProblemOption.PROBLEM_NAMES.value not in problem_options:
+        names = [name for plib in plibs for name in list(plib.get('problem_names_options', []))]
+        if names:
+            problem_options[ProblemOption.PROBLEM_NAMES.value] = list(dict.fromkeys(names))
+
+    if ProblemOption.EXCLUDELIST.value not in problem_options:
+        excludelist = [name for plib in plibs for name in list(plib.get('excludelist', []))]
+        if excludelist:
+            problem_options[ProblemOption.EXCLUDELIST.value] = list(dict.fromkeys(excludelist))
+
+    return problem_options
+
+
 def load_results(problem_options: Dict[str, Any], profile_options: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     """
     Load the results by the given options.
@@ -498,6 +557,10 @@ def load_results(problem_options: Dict[str, Any], profile_options: Dict[str, Any
         print_log_message('INFO', 'No problem is selected to load by the given options. Please check your options and try again.')
         return [], profile_options
     
+    # Backfill the unspecified problem-selection options from the saved
+    # metadata so that the new stamp describes the loaded subset.
+    problem_options = _backfill_problem_options_from_loaded(problem_options, results_plibs)
+
     # Print the information about the loaded experiment.
     print_log_message('INFO', 'Loaded experiment successfully.')
     print()

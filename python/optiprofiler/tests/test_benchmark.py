@@ -572,3 +572,29 @@ class TestBenchmarkLoad:
                 solvers_to_load=[0],
                 silent=True,
             )
+
+
+class TestBenchmarkLoadStamp:
+    """The stamp of a reloaded experiment must describe the loaded subset."""
+
+    def test_load_without_options_keeps_saved_selection_in_stamp(self, saved_two_solver_experiment, monkeypatch):
+        tmpdir = saved_two_solver_experiment
+        monkeypatch.chdir(tmpdir)
+        bench_root = Path(tmpdir) / 'loadtest'
+        before = {p for p in bench_root.iterdir() if p.is_dir()}
+        benchmark(
+            None,
+            load='latest',
+            benchmark_id='loadtest',
+            savepath=tmpdir,
+            max_tol_order=1,
+            silent=True,
+            n_jobs=1,
+        )
+        new_dirs = [p for p in bench_root.iterdir() if p.is_dir() and p not in before]
+        assert new_dirs
+        # The fixture experiment was saved with ptype 'u', mindim 2, maxdim 2.
+        assert any('_u_2_2_' in d.name for d in new_dirs), \
+            f'stamp does not describe the loaded subset: {[d.name for d in new_dirs]}'
+        for d in new_dirs:
+            assert '_u_1_2_' not in d.name, f'default problem selection leaked into stamp {d.name}'

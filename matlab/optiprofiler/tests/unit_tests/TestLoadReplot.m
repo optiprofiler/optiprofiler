@@ -103,6 +103,17 @@ classdef TestLoadReplot < matlab.unittest.TestCase
             fclose(fid);
         end
 
+        function new_dirs = loadAndDiff(options)
+            %LOADANDDIFF Run one load call and return the stamp dirs it created.
+            bench_root = fullfile(pwd, options.benchmark_id);
+            before = dir(bench_root);
+            before_names = {before([before.isdir]).name};
+            benchmark(options);
+            after = dir(bench_root);
+            after_names = {after([after.isdir]).name};
+            new_dirs = setdiff(after_names, before_names);
+        end
+
         function options = loadOptions(varargin)
             %LOADOPTIONS Common options for loading the synthetic experiment.
             options = struct('load', '20200101_000000', 'benchmark_id', 'bench', ...
@@ -140,6 +151,28 @@ classdef TestLoadReplot < matlab.unittest.TestCase
             testCase.verifyEqual(numel(scores), 2);
             pdfs = dir(fullfile(pwd, 'bench', '**', 'log-ratio_hist_*.pdf'));
             testCase.verifyNotEmpty(pdfs, 'The log-ratio profile PDFs are missing after selecting two of three solvers.');
+        end
+
+        function loadWithoutOptionsKeepsSavedStamp(testCase)
+            TestLoadReplot.makeExperiment(pwd, 'bench', 2, 1);
+            options = TestLoadReplot.loadOptions();
+            new_dirs = TestLoadReplot.loadAndDiff(options);
+            testCase.verifyNotEmpty(new_dirs);
+            % The synthetic experiment was saved with ptype 'u', mindim 2, maxdim 3.
+            testCase.verifyTrue(any(cellfun(@(d) contains(d, '_u_2_3_'), new_dirs)), ...
+                sprintf('The stamp does not describe the loaded subset: %s', strjoin(new_dirs, ', ')));
+            testCase.verifyFalse(any(cellfun(@(d) contains(d, '_u_1_2_'), new_dirs)), ...
+                'The default problem selection leaked into the stamp of a reloaded experiment.');
+        end
+
+        function loadWithNarrowerFilterIntersectsStamp(testCase)
+            TestLoadReplot.makeExperiment(pwd, 'bench', 2, 1);
+            options = TestLoadReplot.loadOptions('maxdim', 2);
+            new_dirs = TestLoadReplot.loadAndDiff(options);
+            testCase.verifyNotEmpty(new_dirs);
+            % maxdim 2 intersects the saved selection 'u', 2..3 down to 'u', 2..2.
+            testCase.verifyTrue(any(cellfun(@(d) contains(d, '_u_2_2_'), new_dirs)), ...
+                sprintf('The stamp does not describe the intersected subset: %s', strjoin(new_dirs, ', ')));
         end
 
         function solverNamesWrongLengthErrors(testCase)
