@@ -624,7 +624,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     %%%%%%%%%%%%%%%%%%%%%%% Process the 'load' option if it is provided. %%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    [results_plibs, profile_options] = loadResults(problem_options, profile_options);
+    [results_plibs, profile_options, problem_options] = loadResults(problem_options, profile_options);
     if is_load && isempty(results_plibs)
         % If we cannot load any valid results, we stop the execution.
         solver_scores = [];

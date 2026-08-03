@@ -1,5 +1,9 @@
-function [results_plibs, profile_options] = loadResults(problem_options, profile_options)
+function [results_plibs, profile_options, problem_options] = loadResults(problem_options, profile_options)
 %LOADRESULTS loads the results by the given options.
+%   The returned `problem_options` is the input with every problem-selection
+%   field the user did not supply backfilled from the saved (and, when explicit
+%   filters were given, already intersected) metadata of the selected problem
+%   libraries, so that the new experiment stamp describes the loaded subset.
 
     results_plibs = {};
     if ~isfield(profile_options, ProfileOptionKey.LOAD.value) || isempty(profile_options.(ProfileOptionKey.LOAD.value))
@@ -139,6 +143,10 @@ function [results_plibs, profile_options] = loadResults(problem_options, profile
         return;
     end
 
+    % Backfill the unspecified problem-selection options from the saved metadata
+    % so that the new stamp describes the loaded subset instead of defaults.
+    problem_options = backfill_problem_options(problem_options, results_plibs);
+
     % Print the information about the loaded experiment.
     printOptiProfilerMessage('INFO', 'Loaded experiment successfully.');
     fprintf('\n');
@@ -148,6 +156,77 @@ function [results_plibs, profile_options] = loadResults(problem_options, profile
     printOptiProfilerMessage('INFO', sprintf('- Solvers: %s', strjoin(results_plibs{1}.solver_names, ', ')));
     printOptiProfilerMessage('INFO', sprintf('- Feature stamp: %s', results_plibs{1}.feature_stamp));
     printOptiProfilerMessage('INFO', sprintf('- Number of selected problems: %d', problem_nums));
+end
+
+function problem_options = backfill_problem_options(problem_options, results_plibs)
+    % Backfill the problem-selection options that the user did not supply from the
+    % saved metadata, aggregated over the selected problem libraries: problem types
+    % are united, lower bounds take the minimum, and upper bounds take the maximum.
+    valid_plibs = results_plibs(~cellfun(@isempty, results_plibs));
+    if isempty(valid_plibs)
+        return;
+    end
+
+    if ~isfield(problem_options, ProblemOptionKey.PTYPE.value)
+        chars = '';
+        for i_plib = 1:numel(valid_plibs)
+            if isfield(valid_plibs{i_plib}, 'ptype')
+                chars = [chars, valid_plibs{i_plib}.ptype];
+            end
+        end
+        canonical = 'ubln';
+        ptype = canonical(ismember(canonical, chars));
+        if ~isempty(ptype)
+            problem_options.(ProblemOptionKey.PTYPE.value) = ptype;
+        end
+    end
+
+    min_keys = {ProblemOptionKey.MINDIM.value, ProblemOptionKey.MINB.value, ProblemOptionKey.MINLCON.value, ProblemOptionKey.MINNLCON.value, ProblemOptionKey.MINCON.value};
+    max_keys = {ProblemOptionKey.MAXDIM.value, ProblemOptionKey.MAXB.value, ProblemOptionKey.MAXLCON.value, ProblemOptionKey.MAXNLCON.value, ProblemOptionKey.MAXCON.value};
+    for i_key = 1:numel(min_keys)
+        problem_options = backfill_numeric_option(problem_options, valid_plibs, min_keys{i_key}, @min);
+        problem_options = backfill_numeric_option(problem_options, valid_plibs, max_keys{i_key}, @max);
+    end
+
+    if ~isfield(problem_options, ProblemOptionKey.PROBLEM_NAMES.value)
+        names = {};
+        for i_plib = 1:numel(valid_plibs)
+            if isfield(valid_plibs{i_plib}, 'problem_names_options')
+                names = [names, cellstr(valid_plibs{i_plib}.problem_names_options)];
+            end
+        end
+        if ~isempty(names)
+            problem_options.(ProblemOptionKey.PROBLEM_NAMES.value) = unique(names, 'stable');
+        end
+    end
+
+    if ~isfield(problem_options, ProblemOptionKey.EXCLUDELIST.value)
+        excludelist = {};
+        for i_plib = 1:numel(valid_plibs)
+            if isfield(valid_plibs{i_plib}, 'excludelist')
+                excludelist = [excludelist, cellstr(valid_plibs{i_plib}.excludelist)];
+            end
+        end
+        if ~isempty(excludelist)
+            problem_options.(ProblemOptionKey.EXCLUDELIST.value) = unique(excludelist, 'stable');
+        end
+    end
+end
+
+function problem_options = backfill_numeric_option(problem_options, valid_plibs, key, aggregate)
+    % Backfill one numeric problem-selection option by aggregating the saved values.
+    if isfield(problem_options, key)
+        return;
+    end
+    values = [];
+    for i_plib = 1:numel(valid_plibs)
+        if isfield(valid_plibs{i_plib}, key)
+            values(end + 1) = valid_plibs{i_plib}.(key); %#ok<AGROW>
+        end
+    end
+    if ~isempty(values)
+        problem_options.(key) = aggregate(values);
+    end
 end
 
 function files = search_in_dir(current_path, pattern, max_depth, current_depth, files)
