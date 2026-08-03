@@ -661,3 +661,66 @@ class TestBenchmarkLoadStamp:
             f'stamp does not describe the loaded subset: {[d.name for d in new_dirs]}'
         for d in new_dirs:
             assert '_u_1_2_' not in d.name, f'default problem selection leaked into stamp {d.name}'
+
+
+class TestBenchmarkLoadDrawHistPrecedence:
+    """Precedence of draw_hist_plots on the load path: score_only is strongest,
+    an explicit user choice is honored, and only an omitted option defaults to
+    sequential drawing after loading."""
+
+    @staticmethod
+    def _history_pdfs(dirs):
+        return [pdf for d in dirs for pdf in d.glob('history_plots/**/*.pdf')]
+
+    def test_explicit_none_is_honored_on_load(self, saved_two_solver_experiment, monkeypatch, capsys):
+        tmpdir = saved_two_solver_experiment
+        monkeypatch.chdir(tmpdir)
+        scores, new_dirs = TestBenchmarkLoad._load_and_diff(
+            tmpdir, 'loadtest',
+            draw_hist_plots='none', max_tol_order=1,
+        )
+        assert scores.shape[0] == 2
+        assert not self._history_pdfs(new_dirs), 'history plots were drawn despite an explicit draw_hist_plots="none"'
+        assert 'is set to "sequential"' not in ' '.join(capsys.readouterr().out.split())
+
+    def test_omitted_defaults_to_sequential_on_load(self, saved_two_solver_experiment, monkeypatch, capsys):
+        tmpdir = saved_two_solver_experiment
+        monkeypatch.chdir(tmpdir)
+        scores, new_dirs = TestBenchmarkLoad._load_and_diff(
+            tmpdir, 'loadtest',
+            max_tol_order=1,
+        )
+        assert scores.shape[0] == 2
+        assert self._history_pdfs(new_dirs), 'history plots missing although draw_hist_plots was omitted on load'
+        assert 'is set to "sequential"' in ' '.join(capsys.readouterr().out.split())
+
+    def test_explicit_parallel_still_draws_on_load(self, saved_two_solver_experiment, monkeypatch):
+        tmpdir = saved_two_solver_experiment
+        monkeypatch.chdir(tmpdir)
+        scores, new_dirs = TestBenchmarkLoad._load_and_diff(
+            tmpdir, 'loadtest',
+            draw_hist_plots='parallel', max_tol_order=1,
+        )
+        assert scores.shape[0] == 2
+        assert self._history_pdfs(new_dirs), 'history plots missing for an explicit draw_hist_plots="parallel" on load'
+
+    def test_score_only_with_explicit_drawing_warns_and_suppresses(self, saved_two_solver_experiment, monkeypatch, capsys):
+        tmpdir = saved_two_solver_experiment
+        monkeypatch.chdir(tmpdir)
+        bench_root = Path(tmpdir) / 'loadtest'
+        before = {p for p in bench_root.iterdir() if p.is_dir()}
+        scores, _, _ = benchmark(
+            None,
+            load='latest',
+            benchmark_id='loadtest',
+            savepath=tmpdir,
+            score_only=True,
+            draw_hist_plots='sequential',
+            silent=True,
+            n_jobs=1,
+        )
+        assert scores.shape[0] == 2
+        out = ' '.join(capsys.readouterr().out.split())
+        assert 'is ignored and no history plots will be drawn' in out
+        new_dirs = [p for p in bench_root.iterdir() if p.is_dir() and p not in before]
+        assert not self._history_pdfs(new_dirs), 'history plots were drawn despite score_only=True'

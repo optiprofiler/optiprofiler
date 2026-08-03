@@ -59,7 +59,10 @@ function profile_options = getDefaultProfileOptions(solvers, feature, profile_op
     if ~isfield(profile_options, ProfileOptionKey.SCORE_ONLY.value)
         profile_options.(ProfileOptionKey.SCORE_ONLY.value) = false;
     end
-    if ~isfield(profile_options, ProfileOptionKey.DRAW_HIST_PLOTS.value)
+    % Remember whether the user explicitly chose a history-plot mode; the
+    % conflict resolution below must not override an explicit choice.
+    user_provided_draw_hist_plots = isfield(profile_options, ProfileOptionKey.DRAW_HIST_PLOTS.value);
+    if ~user_provided_draw_hist_plots
         profile_options.(ProfileOptionKey.DRAW_HIST_PLOTS.value) = 'parallel';
     end
     if ~isfield(profile_options, ProfileOptionKey.SUMMARIZE_PERFORMANCE_PROFILES.value)
@@ -140,12 +143,19 @@ function profile_options = getDefaultProfileOptions(solvers, feature, profile_op
     end
 
 
-    % Resolve potential conflicts in the options.
+    % Resolve potential conflicts in the options. The precedence for the
+    % history-plot mode is: 'score_only' is the strongest setting and yields an
+    % effective 'none'; otherwise an explicit user choice is honored exactly;
+    % when the option is omitted, loading defaults to 'sequential' while fresh
+    % runs keep the 'parallel' default.
     if profile_options.(ProfileOptionKey.SCORE_ONLY.value)
-        printOptiProfilerMessage('INFO', 'Since the option "score_only" is true, we will not draw any history plots of the problems (the option "draw_hist_plots" is set to "none").');
+        if user_provided_draw_hist_plots && ~strcmp(profile_options.(ProfileOptionKey.DRAW_HIST_PLOTS.value), 'none')
+            warning("MATLAB:getDefaultProfileOptions:draw_hist_plotsIgnoredWithScoreOnly", 'Since the option "score_only" is true, the requested "draw_hist_plots" mode "%s" is ignored and no history plots will be drawn.', profile_options.(ProfileOptionKey.DRAW_HIST_PLOTS.value));
+        else
+            printOptiProfilerMessage('INFO', 'Since the option "score_only" is true, we will not draw any history plots of the problems (the option "draw_hist_plots" is set to "none").');
+        end
         profile_options.(ProfileOptionKey.DRAW_HIST_PLOTS.value) = 'none';
-    end
-    if ~isempty(profile_options.(ProfileOptionKey.LOAD.value))
+    elseif ~user_provided_draw_hist_plots && ~isempty(profile_options.(ProfileOptionKey.LOAD.value))
         printOptiProfilerMessage('INFO', 'Since the option "load" is provided, we will draw history plots of the problems after loading the results (the option "draw_hist_plots" is set to "sequential").');
         profile_options.(ProfileOptionKey.DRAW_HIST_PLOTS.value) = 'sequential';
     end
