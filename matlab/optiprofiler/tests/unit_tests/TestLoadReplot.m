@@ -210,6 +210,21 @@ classdef TestLoadReplot < matlab.unittest.TestCase
             testCase.verifyEmpty(pdfs, 'History plots were drawn despite score_only=true.');
         end
 
+        function multiRunLoadDrawsHistoryPlots(testCase)
+            % Regression for the loaded multi-run history plots: the per-problem
+            % slice maxcv_inits(i_problem, :) is a row of length n_runs, which
+            % meritFunCompute must accept in its 'single' case. Before the fix
+            % every history plot of an n_runs > 1 reload failed and was silently
+            % swallowed by the catch in exportHist.
+            TestLoadReplot.makeExperiment(pwd, 'bench', 2, 5);
+            options = TestLoadReplot.loadOptions();
+            new_dirs = TestLoadReplot.loadAndDiff(options);
+            testCase.verifyNotEmpty(new_dirs);
+            combined = dir(fullfile(pwd, 'bench', '**', 'history_plots', 'synthetic', '*.pdf'));
+            testCase.verifyGreaterThanOrEqual(numel(combined), 2, ...
+                'Per-problem history plots are missing after reloading an n_runs=5 experiment.');
+        end
+
         function solverNamesWrongLengthErrors(testCase)
             TestLoadReplot.makeExperiment(pwd, 'bench', 2, 1);
             options = TestLoadReplot.loadOptions('solver_names', {'only_one'});

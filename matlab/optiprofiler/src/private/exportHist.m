@@ -63,7 +63,9 @@ function exportHist(problem_name, problem_type, problem_dim, solver_names, solve
         close(fig_summary);
     catch Exception
         if ~profile_options.(ProfileOptionKey.SILENT.value)
-            printOptiProfilerMessage('INFO', sprintf('An error occurred while plotting the history plots of the problem %s: %s', problem_name, shortenMessageForLog(Exception.message)));
+            % A failed history plot means a missing output PDF; report it as a
+            % warning so that a systematic failure cannot hide in a passing run.
+            printOptiProfilerMessage('WARNING', sprintf('An error occurred while plotting the history plots of the problem %s: %s', problem_name, shortenMessageForLog(Exception.message)));
         end
     end
 end
