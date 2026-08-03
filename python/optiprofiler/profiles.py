@@ -30,7 +30,7 @@ from .opclasses import Feature, Problem, FeaturedProblem
 from .utils import DEFAULT_LOG_LINE_WIDTH, FeatureName, ProfileOption, FeatureOption, ProblemOption, get_logger, print_log_message, setup_main_process_logging, setup_worker_logging, shorten_log_message, format_log_prefix
 from .loader import load_results, save_results_to_h5, save_options
 from .profile_utils import check_validity_problem_options, check_validity_profile_options, check_post_load_profile_options, get_default_problem_options, get_default_profile_options, compute_merit_values, create_stamp, merge_pdfs_with_pypdf, write_report, process_results, init_readme, add_to_readme, compute_scores, _custom_problem_library_dir
-from .plotting import draw_hist, set_profile_context, format_float_scientific_latex, draw_profiles, summary_legend_extra_width, latex_escape_text
+from .plotting import draw_hist, set_profile_context, format_float_scientific_latex, draw_profiles, summary_legend_extra_width, latex_escape_text, format_profile_text
 
 
 def _shorten_log_message(message: object, max_length: int = 180) -> str:
@@ -799,6 +799,11 @@ def benchmark(
 
     # Set the options for plotting.
     profile_context = set_profile_context(profile_options)
+    if not profile_options[ProfileOption.SILENT]:
+        if profile_context.get('text.usetex', False):
+            print_log_message('INFO', 'Rendering plot text with LaTeX (a latex executable was found on the PATH).')
+        else:
+            print_log_message('INFO', 'Rendering plot text without LaTeX (no latex executable was found on the PATH).')
 
     # Define the directory to store the results.
     path_out = Path(profile_options[ProfileOption.SAVEPATH], profile_options[ProfileOption.BENCHMARK_ID]).resolve()
@@ -2312,8 +2317,8 @@ def _solve_one_problem(solvers, problem, feature, problem_name, len_problem_name
             # Create figure without constrained layout (will use tight_layout instead)
             fig_summary = plt.figure(figsize=(summary_profile_width * n_cols, default_height * 2))
 
-            F_title = profile_options['feature_stamp'].replace('_', r'\_')
-            P_title = problem_name.replace('_', r'\_')
+            F_title = format_profile_text(profile_options['feature_stamp'], profile_context)
+            P_title = format_profile_text(problem_name, profile_context)
             T_title = f'Solving ``{P_title}" with ``{F_title}" feature'
 
             # Set title with dynamic fontsize (matching MATLAB)
@@ -2347,7 +2352,9 @@ def _solve_one_problem(solvers, problem, feature, problem_name, len_problem_name
             pdf_summary = os.path.join(path_hist_plots, pdf_hist_file_name)
             
             # Process solver names (replace underscores)
-            processed_solver_names = [latex_escape_text(name) for name in solver_names]
+            # Escaping is a LaTeX concern: without usetex the escapes would show
+            # up as literal backslashes in the legends.
+            processed_solver_names = [format_profile_text(name, profile_context) for name in solver_names]
             
             # Draw history plots
             draw_hist(fun_history, maxcv_history, merit_history, fun_inits, maxcv_inits, merit_init, processed_solver_names, cell_axs_summary, False, problem_type, problem_dim, n_eval, profile_options, default_height)
@@ -2436,8 +2443,8 @@ def _draw_problem_history_plot(problem_name, problem_type, problem_dim, solver_n
             # Create figure without constrained layout (will use tight_layout instead)
             fig_summary = plt.figure(figsize=(summary_profile_width * n_cols, default_height * 2))
 
-            F_title = profile_options['feature_stamp'].replace('_', r'\_')
-            P_title = problem_name.replace('_', r'\_')
+            F_title = format_profile_text(profile_options['feature_stamp'], profile_context)
+            P_title = format_profile_text(problem_name, profile_context)
             T_title = f'Solving ``{P_title}" with ``{F_title}" feature'
 
             # Set title with dynamic fontsize (matching MATLAB)
@@ -2471,7 +2478,9 @@ def _draw_problem_history_plot(problem_name, problem_type, problem_dim, solver_n
             pdf_summary = os.path.join(path_hist_plots, pdf_hist_file_name)
             
             # Process solver names (replace underscores)
-            processed_solver_names = [latex_escape_text(name) for name in solver_names]
+            # Escaping is a LaTeX concern: without usetex the escapes would show
+            # up as literal backslashes in the legends.
+            processed_solver_names = [format_profile_text(name, profile_context) for name in solver_names]
             
             # Draw history plots
             draw_hist(fun_history, maxcv_history, merit_history, fun_init, maxcv_init, merit_init, processed_solver_names, cell_axs_summary, False, problem_type, problem_dim, n_eval, profile_options, default_height)

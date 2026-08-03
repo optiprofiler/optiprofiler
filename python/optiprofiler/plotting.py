@@ -42,8 +42,18 @@ def latex_escape_text(text):
     return ''.join(replacements.get(char, char) for char in str(text))
 
 
+def format_profile_text(text, profile_context):
+    """Format literal plot text according to the active Matplotlib text backend."""
+    if profile_context.get('text.usetex', False):
+        return latex_escape_text(text)
+    return str(text)
+
+
 def draw_profiles(work, problem_dimensions, solver_names, tolerance_latex, i_tol, ax_summary_perf, ax_summary_data, ax_summary_log_ratio, is_summary, is_perf, is_data, is_log_ratio, profile_options, curves):
-    solver_names = [latex_escape_text(name) for name in solver_names]
+    # Escaping is a LaTeX concern: without usetex the escapes would show up as
+    # literal backslashes in the legends (e.g. 'scipy\_nelder\_mead').
+    profile_context = set_profile_context(profile_options)
+    solver_names = [format_profile_text(name, profile_context) for name in solver_names]
     n_solvers = work.shape[1]
 
     # Create the individual figures.
