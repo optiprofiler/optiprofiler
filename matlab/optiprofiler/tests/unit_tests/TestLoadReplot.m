@@ -175,6 +175,41 @@ classdef TestLoadReplot < matlab.unittest.TestCase
                 sprintf('The stamp does not describe the intersected subset: %s', strjoin(new_dirs, ', ')));
         end
 
+        function loadHonorsExplicitNone(testCase)
+            TestLoadReplot.makeExperiment(pwd, 'bench', 2, 1);
+            options = TestLoadReplot.loadOptions('draw_hist_plots', 'none');
+            new_dirs = TestLoadReplot.loadAndDiff(options);
+            testCase.verifyNotEmpty(new_dirs);
+            pdfs = dir(fullfile(pwd, 'bench', '**', 'history_plots', '**', '*.pdf'));
+            testCase.verifyEmpty(pdfs, 'History plots were drawn despite an explicit draw_hist_plots=''none''.');
+        end
+
+        function loadDefaultsToSequentialWhenOmitted(testCase)
+            TestLoadReplot.makeExperiment(pwd, 'bench', 2, 1);
+            options = TestLoadReplot.loadOptions();
+            new_dirs = TestLoadReplot.loadAndDiff(options);
+            testCase.verifyNotEmpty(new_dirs);
+            pdfs = dir(fullfile(pwd, 'bench', '**', 'history_plots', '**', '*.pdf'));
+            testCase.verifyNotEmpty(pdfs, 'History plots are missing although draw_hist_plots was omitted on load.');
+        end
+
+        function loadHonorsExplicitParallel(testCase)
+            TestLoadReplot.makeExperiment(pwd, 'bench', 2, 1);
+            options = TestLoadReplot.loadOptions('draw_hist_plots', 'parallel');
+            new_dirs = TestLoadReplot.loadAndDiff(options);
+            testCase.verifyNotEmpty(new_dirs);
+            pdfs = dir(fullfile(pwd, 'bench', '**', 'history_plots', '**', '*.pdf'));
+            testCase.verifyNotEmpty(pdfs, 'History plots are missing for an explicit draw_hist_plots=''parallel'' on load.');
+        end
+
+        function scoreOnlyWithExplicitDrawingWarns(testCase)
+            TestLoadReplot.makeExperiment(pwd, 'bench', 2, 1);
+            options = TestLoadReplot.loadOptions('score_only', true, 'draw_hist_plots', 'sequential');
+            testCase.verifyWarning(@() benchmark(options), 'MATLAB:getDefaultProfileOptions:draw_hist_plotsIgnoredWithScoreOnly');
+            pdfs = dir(fullfile(pwd, 'bench', '**', 'history_plots', '**', '*.pdf'));
+            testCase.verifyEmpty(pdfs, 'History plots were drawn despite score_only=true.');
+        end
+
         function solverNamesWrongLengthErrors(testCase)
             TestLoadReplot.makeExperiment(pwd, 'bench', 2, 1);
             options = TestLoadReplot.loadOptions('solver_names', {'only_one'});

@@ -1097,7 +1097,11 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     end
 
     % Draw hist plots sequentially if profile_options.draw_hist_plots is set to 'sequential'.
-    if strcmp(profile_options.(ProfileOptionKey.DRAW_HIST_PLOTS.value), 'sequential')
+    % On the load path this loop is the only drawing mechanism (parallel drawing
+    % happens during solving, which is skipped when loading), so it also serves
+    % an explicit 'parallel' request there.
+    if strcmp(profile_options.(ProfileOptionKey.DRAW_HIST_PLOTS.value), 'sequential') || ...
+            (is_load && strcmp(profile_options.(ProfileOptionKey.DRAW_HIST_PLOTS.value), 'parallel'))
         for i_plib = 1:numel(results_plibs)
             results_plib = results_plibs{i_plib};
             if ~profile_options.(ProfileOptionKey.SILENT.value)

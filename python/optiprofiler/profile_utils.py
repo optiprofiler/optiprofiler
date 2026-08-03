@@ -613,6 +613,9 @@ def get_default_profile_options(solvers, feature, profile_options):
     """
     Get the default profile options.
     """
+    # Remember whether the user explicitly chose a history-plot mode; the
+    # conflict resolution below must not override an explicit choice.
+    user_draw_hist_plots = profile_options.get(ProfileOption.DRAW_HIST_PLOTS.value)
     # Use a conservative default instead of all available workers.
     profile_options.setdefault(ProfileOption.N_JOBS.value, _get_conservative_default_n_jobs())
     profile_options.setdefault(ProfileOption.SEED.value, 0)
@@ -669,15 +672,26 @@ def get_default_profile_options(solvers, feature, profile_options):
     profile_options.setdefault(ProfileOption.XLABEL_LOG_RATIO_PROFILE.value, 'Problem')
     profile_options.setdefault(ProfileOption.YLABEL_LOG_RATIO_PROFILE.value, 'Log-ratio profiles ($\\mathrm{tol} = %s$)')
 
-    # Resolve potential conflicts in the options.
+    # Resolve potential conflicts in the options. The precedence for the
+    # history-plot mode is: 'score_only' is the strongest setting and yields an
+    # effective 'none'; otherwise an explicit user choice is honored exactly;
+    # when the option is omitted, loading defaults to 'sequential' while fresh
+    # runs keep the 'parallel' default.
     if profile_options[ProfileOption.SCORE_ONLY.value]:
-        print_log_message(
-            'INFO',
-            'Since the option "score_only" is true, we will not draw any history plots of the '
-            'problems (the option "draw_hist_plots" is set to "none").',
-        )
+        if user_draw_hist_plots is not None and user_draw_hist_plots != 'none':
+            print_log_message(
+                'WARNING',
+                f'Since the option "score_only" is true, the requested "draw_hist_plots" mode '
+                f'"{user_draw_hist_plots}" is ignored and no history plots will be drawn.',
+            )
+        else:
+            print_log_message(
+                'INFO',
+                'Since the option "score_only" is true, we will not draw any history plots of the '
+                'problems (the option "draw_hist_plots" is set to "none").',
+            )
         profile_options[ProfileOption.DRAW_HIST_PLOTS.value] = 'none'
-    if profile_options[ProfileOption.LOAD.value] is not None:
+    elif user_draw_hist_plots is None and profile_options[ProfileOption.LOAD.value] is not None:
         print_log_message(
             'INFO',
             'Since the option "load" is provided, we will draw history plots of the problems '

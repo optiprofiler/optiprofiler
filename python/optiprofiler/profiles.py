@@ -1174,7 +1174,11 @@ def benchmark(
             return solver_scores, None, None
 
     # Draw history plots sequentially if draw_hist_plots is set to 'sequential'.
-    if profile_options[ProfileOption.DRAW_HIST_PLOTS] == 'sequential':
+    # On the load path this loop is the only drawing mechanism (parallel drawing
+    # happens during solving, which is skipped when loading), so it also serves
+    # an explicit 'parallel' request there.
+    draw_hist_mode = profile_options[ProfileOption.DRAW_HIST_PLOTS]
+    if draw_hist_mode == 'sequential' or (is_load and draw_hist_mode == 'parallel'):
         for results_plib in results_plibs:
             plib = results_plib['plib']
             if not profile_options[ProfileOption.SILENT]:
