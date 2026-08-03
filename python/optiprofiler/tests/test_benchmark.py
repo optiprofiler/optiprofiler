@@ -2,6 +2,7 @@
 import os
 import shutil
 import tempfile
+from pathlib import Path
 from unittest.mock import patch
 
 import matplotlib
@@ -399,3 +400,175 @@ class TestBenchmarkOptions:
                 **_common_kwargs(tmpdir),
             )
             assert isinstance(scores, np.ndarray)
+
+
+def history_solver_2(fun, x0, *args):
+    """A solver that records two history entries for any problem type."""
+    fun(x0)
+    x = x0.copy()
+    x[0] += 0.1
+    fun(x)
+    return x
+
+
+def _load_solver_1(fun, x0):
+    """Records at least one history entry so loaded history plots have data."""
+    fun(x0)
+    return x0
+
+
+def _load_solver_2(fun, x0):
+    """Records two history entries so loaded history plots have data."""
+    fun(x0)
+    x = x0.copy()
+    x[0] += 0.1
+    fun(x)
+    return x
+
+
+def _load_solver_3(fun, x0):
+    """A third distinct solver for the multi-solver load fixtures."""
+    fun(x0)
+    x = x0.copy()
+    x[0] -= 0.2
+    fun(x)
+    return x
+
+
+@pytest.fixture(scope='module')
+def saved_two_solver_experiment(tmp_path_factory):
+    """A small saved experiment with two solvers, reused by the load tests."""
+    tmpdir = str(tmp_path_factory.mktemp('load_two'))
+    benchmark(
+        [_load_solver_1, _load_solver_2],
+        feature_name='plain',
+        **_common_kwargs(tmpdir, benchmark_id='loadtest'),
+    )
+    return tmpdir
+
+
+@pytest.fixture(scope='module')
+def saved_three_solver_experiment(tmp_path_factory):
+    """A small saved experiment with three solvers, reused by the load tests."""
+    tmpdir = str(tmp_path_factory.mktemp('load_three'))
+    benchmark(
+        [_load_solver_1, _load_solver_2, _load_solver_3],
+        feature_name='plain',
+        **_common_kwargs(tmpdir, benchmark_id='loadtest3'),
+    )
+    return tmpdir
+
+
+class TestBenchmarkLoad:
+    """End-to-end checks of the load path: deferred solver-dependent option
+    validation and the post-load two-solver decision for log-ratio profiles."""
+
+    @staticmethod
+    def _load_and_diff(tmpdir, benchmark_id, **load_kwargs):
+        """Run a load call and return (scores, stamp dirs created by this call)."""
+        bench_root = Path(tmpdir) / benchmark_id
+        before = {p for p in bench_root.iterdir() if p.is_dir()}
+        scores, _, _ = benchmark(
+            None,
+            load='latest',
+            benchmark_id=benchmark_id,
+            savepath=tmpdir,
+            silent=True,
+            n_jobs=1,
+            **load_kwargs,
+        )
+        new_dirs = [p for p in bench_root.iterdir() if p.is_dir()] 
+        new_dirs = [p for p in new_dirs if p not in before]
+        return scores, new_dirs
+
+    def test_load_two_solvers_generates_log_ratio(self, saved_two_solver_experiment, monkeypatch):
+        tmpdir = saved_two_solver_experiment
+        monkeypatch.chdir(tmpdir)
+        scores, new_dirs = self._load_and_diff(
+            tmpdir, 'loadtest',
+            summarize_log_ratio_profiles=True, max_tol_order=2,
+        )
+        assert scores.shape[0] == 2
+        assert new_dirs
+        assert any(list(d.glob('**/log-ratio_hist_*.pdf')) for d in new_dirs), \
+            'log-ratio profile PDFs missing after a two-solver load'
+
+    def test_load_three_solvers_warns_and_skips_log_ratio(self, saved_three_solver_experiment, monkeypatch, capsys):
+        tmpdir = saved_three_solver_experiment
+        monkeypatch.chdir(tmpdir)
+        scores, new_dirs = self._load_and_diff(
+            tmpdir, 'loadtest3',
+            summarize_log_ratio_profiles=True, max_tol_order=2,
+        )
+        assert scores.shape[0] == 3
+        assert 'exactly two solvers' in capsys.readouterr().out
+        for d in new_dirs:
+            for pdf in d.glob('**/log-ratio_hist_*.pdf'):
+                pytest.fail(f'log-ratio profile {pdf} generated for a three-solver load')
+
+    def test_load_select_two_of_three_generates_log_ratio(self, saved_three_solver_experiment, monkeypatch):
+        tmpdir = saved_three_solver_experiment
+        monkeypatch.chdir(tmpdir)
+        scores, new_dirs = self._load_and_diff(
+            tmpdir, 'loadtest3',
+            solvers_to_load=[0, 2], summarize_log_ratio_profiles=True, max_tol_order=2,
+        )
+        assert scores.shape[0] == 2
+        assert any(list(d.glob('**/log-ratio_hist_*.pdf')) for d in new_dirs), \
+            'log-ratio profile PDFs missing after selecting two of three solvers'
+
+    def test_load_with_solver_names_renames(self, saved_two_solver_experiment, monkeypatch):
+        tmpdir = saved_two_solver_experiment
+        monkeypatch.chdir(tmpdir)
+        scores, _, _ = benchmark(
+            None,
+            load='latest',
+            benchmark_id='loadtest',
+            savepath=tmpdir,
+            solver_names=['first', 'second'],
+            max_tol_order=1,
+            silent=True,
+            n_jobs=1,
+        )
+        assert scores.shape[0] == 2
+
+    def test_load_with_solver_isrand_accepted(self, saved_two_solver_experiment, monkeypatch):
+        tmpdir = saved_two_solver_experiment
+        monkeypatch.chdir(tmpdir)
+        scores, _, _ = benchmark(
+            None,
+            load='latest',
+            benchmark_id='loadtest',
+            savepath=tmpdir,
+            solver_isrand=[True, False],
+            max_tol_order=1,
+            silent=True,
+            n_jobs=1,
+        )
+        assert scores.shape[0] == 2
+
+    def test_load_with_wrong_solver_names_length_raises(self, saved_two_solver_experiment, monkeypatch):
+        tmpdir = saved_two_solver_experiment
+        monkeypatch.chdir(tmpdir)
+        with pytest.raises(ValueError, match='loaded solvers'):
+            benchmark(
+                None,
+                load='latest',
+                benchmark_id='loadtest',
+                savepath=tmpdir,
+                solver_names=['only_one'],
+                silent=True,
+            )
+
+    def test_load_with_single_solvers_to_load_raises(self, saved_two_solver_experiment, monkeypatch):
+        tmpdir = saved_two_solver_experiment
+        monkeypatch.chdir(tmpdir)
+        with pytest.raises(ValueError, match='at least two indices'):
+            benchmark(
+                None,
+                load='latest',
+                benchmark_id='loadtest',
+                savepath=tmpdir,
+                solvers_to_load=[0],
+                silent=True,
+            )

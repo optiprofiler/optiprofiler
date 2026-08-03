@@ -626,6 +626,21 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         curves = [];
         return;
     end
+    if is_load
+        % The solver-count-dependent checks could not run before loading (`solvers` is
+        % empty then). Redo them here with the final effective solver count, i.e., after
+        % the 'solvers_to_load' selection has been applied by `loadResults`.
+        n_solvers_loaded_eff = size(results_plibs{1}.fun_histories, 2);
+        if isfield(profile_options, ProfileOptionKey.SOLVER_NAMES.value) ...
+                && numel(profile_options.(ProfileOptionKey.SOLVER_NAMES.value)) ~= n_solvers_loaded_eff
+            error("MATLAB:benchmark:solver_namesAndLoadedSolversLengthNotSame", "The option `solver_names` must have the same length as the number of loaded solvers (%d).", n_solvers_loaded_eff);
+        end
+        if isfield(profile_options, ProfileOptionKey.SUMMARIZE_LOG_RATIO_PROFILES.value) ...
+                && profile_options.(ProfileOptionKey.SUMMARIZE_LOG_RATIO_PROFILES.value) && n_solvers_loaded_eff ~= 2
+            warning("MATLAB:benchmark:summarize_log_ratio_profilesOnlyWhenTwoSolvers", "The log-ratio profiles are available only when there are exactly two solvers. We will not generate the log-ratio profiles.");
+            profile_options.(ProfileOptionKey.SUMMARIZE_LOG_RATIO_PROFILES.value) = false;
+        end
+    end
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Get default options %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
