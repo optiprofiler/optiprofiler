@@ -635,6 +635,10 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                 && numel(profile_options.(ProfileOptionKey.SOLVER_NAMES.value)) ~= n_solvers_loaded_eff
             error("MATLAB:benchmark:solver_namesAndLoadedSolversLengthNotSame", "The option `solver_names` must have the same length as the number of loaded solvers (%d).", n_solvers_loaded_eff);
         end
+        if isfield(profile_options, ProfileOptionKey.SOLVER_ISRAND.value) ...
+                && numel(profile_options.(ProfileOptionKey.SOLVER_ISRAND.value)) ~= n_solvers_loaded_eff
+            error("MATLAB:benchmark:solver_israndAndLoadedSolversLengthNotSame", "The option `solver_isrand` must have the same length as the number of loaded solvers (%d).", n_solvers_loaded_eff);
+        end
         if isfield(profile_options, ProfileOptionKey.SUMMARIZE_LOG_RATIO_PROFILES.value) ...
                 && profile_options.(ProfileOptionKey.SUMMARIZE_LOG_RATIO_PROFILES.value) && n_solvers_loaded_eff ~= 2
             warning("MATLAB:benchmark:summarize_log_ratio_profilesOnlyWhenTwoSolvers", "The log-ratio profiles are available only when there are exactly two solvers. We will not generate the log-ratio profiles.");
