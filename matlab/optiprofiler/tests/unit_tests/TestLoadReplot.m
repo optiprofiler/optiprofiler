@@ -231,6 +231,39 @@ classdef TestLoadReplot < matlab.unittest.TestCase
             testCase.verifyError(@() benchmark(options), 'MATLAB:benchmark:solver_namesAndLoadedSolversLengthNotSame');
         end
 
+        function solverIsrandWrongLengthErrors(testCase)
+            % `solver_isrand` is a per-solver logical array and is never
+            % broadcast, so a single value cannot describe two loaded solvers.
+            TestLoadReplot.makeExperiment(pwd, 'bench', 2, 1);
+            options = TestLoadReplot.loadOptions('solver_isrand', true, 'score_only', true);
+            testCase.verifyError(@() benchmark(options), 'MATLAB:benchmark:solver_israndAndLoadedSolversLengthNotSame');
+        end
+
+        function solverIsrandMatchingLengthAccepted(testCase)
+            TestLoadReplot.makeExperiment(pwd, 'bench', 2, 1);
+            options = TestLoadReplot.loadOptions('solver_isrand', [true, false], 'score_only', true);
+            scores = benchmark(options);
+            testCase.verifyEqual(numel(scores), 2);
+        end
+
+        function solverIsrandValidatedAfterNarrowing(testCase)
+            % The check must use the final solver count, i.e. the one left after
+            % `solvers_to_load` narrowing, not the count saved on disk. Three
+            % values match the saved data but not the two selected solvers.
+            TestLoadReplot.makeExperiment(pwd, 'bench', 3, 1);
+            options = TestLoadReplot.loadOptions('solvers_to_load', [1, 3], ...
+                'solver_isrand', [true, false, true], 'score_only', true);
+            testCase.verifyError(@() benchmark(options), 'MATLAB:benchmark:solver_israndAndLoadedSolversLengthNotSame');
+        end
+
+        function solverIsrandMatchesNarrowedCount(testCase)
+            TestLoadReplot.makeExperiment(pwd, 'bench', 3, 1);
+            options = TestLoadReplot.loadOptions('solvers_to_load', [1, 3], ...
+                'solver_isrand', [true, false], 'score_only', true);
+            scores = benchmark(options);
+            testCase.verifyEqual(numel(scores), 2);
+        end
+
         function singleSolversToLoadErrors(testCase)
             TestLoadReplot.makeExperiment(pwd, 'bench', 2, 1);
             options = TestLoadReplot.loadOptions('solvers_to_load', 1);
