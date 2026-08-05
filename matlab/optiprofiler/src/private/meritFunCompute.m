@@ -29,6 +29,13 @@ function merit_values = meritFunCompute(merit_fun, fun_values, maxcv_values, max
         if isrealrow(maxcv_values)
             maxcv_values = maxcv_values(:);
         end
+        % Accept a row `maxcv_inits` as well: in the 'single' case the only valid
+        % length is n_runs, so the orientation is unambiguous. Loaded histories
+        % slice `maxcv_inits(i_problem, :)`, which is a row, while fresh runs
+        % pass a column; both must work.
+        if isrealrow(maxcv_inits)
+            maxcv_inits = maxcv_inits(:);
+        end
     end
 
     % Scale `maxcv_init` to match the dimensions of `fun_values`.
