@@ -892,6 +892,11 @@ def _benchmark(
 
     # Set the options for plotting.
     profile_context = set_profile_context(profile_options)
+    if not profile_options[ProfileOption.SILENT]:
+        if profile_context.get('text.usetex', False):
+            print_log_message('INFO', 'Rendering plot text with LaTeX (a latex executable was found on the PATH).')
+        else:
+            print_log_message('INFO', 'Rendering plot text without LaTeX (no latex executable was found on the PATH).')
 
     # Define the directory to store the results.
     path_out = Path(profile_options[ProfileOption.SAVEPATH], profile_options[ProfileOption.BENCHMARK_ID]).resolve()
@@ -2188,7 +2193,9 @@ def _export_problem_history_plots(problem_name, problem_type, problem_dim, solve
     default_height = default_figsize[1]
     summary_profile_width = default_width + summary_legend_extra_width(len(solver_names), default_width, solver_names)
     profile_context = set_profile_context(profile_options)
-    processed_solver_names = [latex_escape_text(name) for name in solver_names]
+    # Escaping is a LaTeX concern: without usetex the escapes would show up as
+    # literal backslashes in the legends (e.g. 'scipy\_nelder\_mead').
+    processed_solver_names = [format_profile_text(name, profile_context) for name in solver_names]
 
     path_hist_plots = Path(path_hist_plots)
     pdf_file_name = _safe_history_pdf_file_name(problem_name)

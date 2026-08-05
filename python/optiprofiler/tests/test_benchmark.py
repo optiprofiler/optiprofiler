@@ -1336,3 +1336,35 @@ class TestBenchmarkLoadDrawHistPrecedence:
         assert 'is ignored and no history plots will be drawn' in out
         new_dirs = [p for p in bench_root.iterdir() if p.is_dir() and p not in before]
         assert not self._history_pdfs(new_dirs), 'history plots were drawn despite score_only=True'
+
+
+class TestBenchmarkRendererFallback:
+    """Without a latex executable, plot text must fall back to plain rendering:
+    identity text such as solver names must not carry LaTeX escapes."""
+
+    def test_no_latex_pdf_has_unescaped_solver_names(self, capsys):
+        from pypdf import PdfReader
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch('optiprofiler.plotting.shutil.which', return_value=None):
+                benchmark(
+                    [simple_solver_1, simple_solver_2],
+                    feature_name='plain',
+                    plibs=['s2mpj'],
+                    ptype='u',
+                    mindim=2,
+                    maxdim=2,
+                    max_eval_factor=10,
+                    max_tol_order=1,
+                    benchmark_id='render',
+                    savepath=tmpdir,
+                    n_jobs=1,
+                    silent=False,
+                    draw_hist_plots='none',
+                    problem_names=['ROSENBR'],
+                )
+            assert 'Rendering plot text without LaTeX' in ' '.join(capsys.readouterr().out.split())
+            summary_pdfs = list(Path(tmpdir).glob('render/**/summary_*.pdf'))
+            assert summary_pdfs
+            text = ''.join(page.extract_text() or '' for page in PdfReader(str(summary_pdfs[0])).pages)
+            assert 'simple_solver_1' in text.replace('\n', '')
+            assert 'simple\\_solver' not in text, 'LaTeX escapes leaked into a non-LaTeX PDF'
