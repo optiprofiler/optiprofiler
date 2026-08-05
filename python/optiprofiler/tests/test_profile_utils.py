@@ -1089,3 +1089,25 @@ class TestPostLoadProfileOptions:
     def test_post_load_accepts_matching_lengths(self):
         opts = check_post_load_profile_options(2, {ProfileOption.SOLVER_NAMES: ['a', 'b'], ProfileOption.SOLVER_ISRAND: [True, False]})
         assert opts[ProfileOption.SOLVER_NAMES] == ['a', 'b']
+
+
+class TestComputeMeritValuesShapeParity:
+    """Cross-language parity: the single-problem loaded-history case takes
+    (n_solvers, n_runs, n_evals) values with an (n_runs,) init vector, which is
+    the shape the load path slices out of the saved per-problem arrays."""
+
+    def test_single_problem_history_with_run_vector(self):
+        fun_values = np.zeros((2, 5, 6))
+        maxcv_values = np.zeros_like(fun_values)
+        inits = np.arange(1.0, 6.0)
+        merits = compute_merit_values(lambda f, cv, cv_init: f + cv + cv_init, fun_values, maxcv_values, inits)
+        assert merits.shape == (2, 5, 6)
+        np.testing.assert_array_equal(merits[0, :, 0], inits)
+
+    def test_single_problem_out_with_run_vector(self):
+        fun_values = np.zeros((2, 5))
+        maxcv_values = np.zeros_like(fun_values)
+        inits = np.arange(1.0, 6.0)
+        merits = compute_merit_values(lambda f, cv, cv_init: f + cv + cv_init, fun_values, maxcv_values, inits)
+        assert merits.shape == (2, 5)
+        np.testing.assert_array_equal(merits[1, :], inits)
