@@ -276,7 +276,10 @@ def check_validity_profile_options(solvers, profile_options):
     if ProfileOption.SOLVER_NAMES in profile_options:
         if not isinstance(profile_options[ProfileOption.SOLVER_NAMES], list):
             raise TypeError(f'Option {ProfileOption.SOLVER_NAMES} must be a list of strings.')
-        if len(profile_options[ProfileOption.SOLVER_NAMES]) != len(solvers):
+        # When loading saved results, `solvers` is None and the effective solver
+        # count is only known after the load; the length check is then deferred
+        # to `check_post_load_profile_options`.
+        if solvers is not None and len(profile_options[ProfileOption.SOLVER_NAMES]) != len(solvers):
             raise ValueError(f'Option {ProfileOption.SOLVER_NAMES} must have the same length as the number of solvers ({len(solvers)}).')
         if any(not isinstance(name, str) for name in profile_options[ProfileOption.SOLVER_NAMES]):
             raise TypeError(f'Option {ProfileOption.SOLVER_NAMES} must be a list of strings.')
@@ -284,7 +287,7 @@ def check_validity_profile_options(solvers, profile_options):
     if ProfileOption.SOLVER_ISRAND in profile_options:
         if not isinstance(profile_options[ProfileOption.SOLVER_ISRAND], list):
             raise TypeError(f'Option {ProfileOption.SOLVER_ISRAND} must be a list of booleans.')
-        if len(profile_options[ProfileOption.SOLVER_ISRAND]) != len(solvers):
+        if solvers is not None and len(profile_options[ProfileOption.SOLVER_ISRAND]) != len(solvers):
             raise ValueError(f'Option {ProfileOption.SOLVER_ISRAND} must have the same length as the number of solvers ({len(solvers)}).')
         if any(not isinstance(isrand, bool) for isrand in profile_options[ProfileOption.SOLVER_ISRAND]):
             raise TypeError(f'Option {ProfileOption.SOLVER_ISRAND} must be a list of booleans.')
@@ -372,7 +375,10 @@ def check_validity_profile_options(solvers, profile_options):
     if ProfileOption.SUMMARIZE_LOG_RATIO_PROFILES in profile_options:
         if not isinstance(profile_options[ProfileOption.SUMMARIZE_LOG_RATIO_PROFILES], bool):
             raise TypeError(f'Option {ProfileOption.SUMMARIZE_LOG_RATIO_PROFILES} must be a boolean.')
-        if profile_options[ProfileOption.SUMMARIZE_LOG_RATIO_PROFILES]:
+        # When loading saved results, `solvers` is None; the two-solver check is
+        # deferred to `check_post_load_profile_options`, which knows the final
+        # effective solver count after `solvers_to_load` is applied.
+        if profile_options[ProfileOption.SUMMARIZE_LOG_RATIO_PROFILES] and solvers is not None:
             if len(solvers) != 2:
                 print_log_message('WARNING', 'The log-ratio profiles are available only when there are exactly two solvers. We will not generate the log-ratio profiles.')
                 profile_options[ProfileOption.SUMMARIZE_LOG_RATIO_PROFILES] = False
@@ -430,8 +436,8 @@ def check_validity_profile_options(solvers, profile_options):
             raise ValueError(f'Option {ProfileOption.SOLVERS_TO_LOAD} cannot be used if option {ProfileOption.LOAD} is not set or is None.')
         if not isinstance(profile_options[ProfileOption.SOLVERS_TO_LOAD], list):
             raise TypeError(f'Option {ProfileOption.SOLVERS_TO_LOAD} must be a list of integers.')
-        if len(profile_options[ProfileOption.SOLVERS_TO_LOAD]) == 0:
-            raise ValueError(f'Option {ProfileOption.SOLVERS_TO_LOAD} cannot be an empty list.')
+        if len(profile_options[ProfileOption.SOLVERS_TO_LOAD]) < 2:
+            raise ValueError(f'Option {ProfileOption.SOLVERS_TO_LOAD} must contain at least two indices since at least two solvers are needed for a comparison.')
         if ProfileOption.SOLVER_NAMES in profile_options:
             if len(profile_options[ProfileOption.SOLVERS_TO_LOAD]) != len(profile_options[ProfileOption.SOLVER_NAMES]):
                 raise ValueError(f'Option {ProfileOption.SOLVERS_TO_LOAD} must have the same length as option {ProfileOption.SOLVER_NAMES} ({len(profile_options[ProfileOption.SOLVER_NAMES])}).')
@@ -519,6 +525,28 @@ def check_validity_profile_options(solvers, profile_options):
     return profile_options
 
 
+def check_post_load_profile_options(n_solvers, profile_options):
+    """
+    Finish the solver-count-dependent option checks that were deferred by
+    `check_validity_profile_options` because the results were loaded from disk
+    (`solvers` was None there). `n_solvers` is the final effective solver count
+    after the 'load' and 'solvers_to_load' options have been applied.
+    """
+    if ProfileOption.SOLVER_NAMES in profile_options:
+        if len(profile_options[ProfileOption.SOLVER_NAMES]) != n_solvers:
+            raise ValueError(f'Option {ProfileOption.SOLVER_NAMES} must have the same length as the number of loaded solvers ({n_solvers}).')
+
+    if ProfileOption.SOLVER_ISRAND in profile_options:
+        if len(profile_options[ProfileOption.SOLVER_ISRAND]) != n_solvers:
+            raise ValueError(f'Option {ProfileOption.SOLVER_ISRAND} must have the same length as the number of loaded solvers ({n_solvers}).')
+
+    if profile_options.get(ProfileOption.SUMMARIZE_LOG_RATIO_PROFILES, False) and n_solvers != 2:
+        print_log_message('WARNING', 'The log-ratio profiles are available only when there are exactly two solvers. We will not generate the log-ratio profiles.')
+        profile_options[ProfileOption.SUMMARIZE_LOG_RATIO_PROFILES] = False
+
+    return profile_options
+
+
 def get_default_problem_options(problem_options):
     """
     Get the default problem options.
@@ -552,6 +580,9 @@ def get_default_profile_options(solvers, feature, profile_options):
     """
     Get the default profile options.
     """
+    # Remember whether the user explicitly chose a history-plot mode; the
+    # conflict resolution below must not override an explicit choice.
+    user_draw_hist_plots = profile_options.get(ProfileOption.DRAW_HIST_PLOTS.value)
     # Use a conservative default instead of all available workers.
     profile_options.setdefault(ProfileOption.N_JOBS.value, _get_conservative_default_n_jobs())
     profile_options.setdefault(ProfileOption.SEED.value, 0)
@@ -608,15 +639,26 @@ def get_default_profile_options(solvers, feature, profile_options):
     profile_options.setdefault(ProfileOption.XLABEL_LOG_RATIO_PROFILE.value, 'Problem')
     profile_options.setdefault(ProfileOption.YLABEL_LOG_RATIO_PROFILE.value, 'Log-ratio profiles ($\\mathrm{tol} = %s$)')
 
-    # Resolve potential conflicts in the options.
+    # Resolve potential conflicts in the options. The precedence for the
+    # history-plot mode is: 'score_only' is the strongest setting and yields an
+    # effective 'none'; otherwise an explicit user choice is honored exactly;
+    # when the option is omitted, loading defaults to 'sequential' while fresh
+    # runs keep the 'parallel' default.
     if profile_options[ProfileOption.SCORE_ONLY.value]:
-        print_log_message(
-            'INFO',
-            'Since the option "score_only" is true, we will not draw any history plots of the '
-            'problems (the option "draw_hist_plots" is set to "none").',
-        )
+        if user_draw_hist_plots is not None and user_draw_hist_plots != 'none':
+            print_log_message(
+                'WARNING',
+                f'Since the option "score_only" is true, the requested "draw_hist_plots" mode '
+                f'"{user_draw_hist_plots}" is ignored and no history plots will be drawn.',
+            )
+        else:
+            print_log_message(
+                'INFO',
+                'Since the option "score_only" is true, we will not draw any history plots of the '
+                'problems (the option "draw_hist_plots" is set to "none").',
+            )
         profile_options[ProfileOption.DRAW_HIST_PLOTS.value] = 'none'
-    if profile_options[ProfileOption.LOAD.value] is not None:
+    elif user_draw_hist_plots is None and profile_options[ProfileOption.LOAD.value] is not None:
         print_log_message(
             'INFO',
             'Since the option "load" is provided, we will draw history plots of the problems '

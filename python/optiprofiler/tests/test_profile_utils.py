@@ -18,6 +18,7 @@ from optiprofiler.profile_utils import (
     add_to_readme,
     check_validity_problem_options,
     check_validity_profile_options,
+    check_post_load_profile_options,
     compute_merit_values,
     create_stamp,
     get_default_problem_options,
@@ -1037,3 +1038,76 @@ class TestMergePdfs:
         with tempfile.TemporaryDirectory() as tmpdir:
             with pytest.raises(FileNotFoundError):
                 merge_pdfs_with_pypdf(tmpdir, os.path.join(tmpdir, 'out.pdf'))
+
+
+class TestPostLoadProfileOptions:
+    """Solver-count-dependent checks are deferred when loading saved results."""
+
+    def test_solver_names_deferred_when_solvers_none(self):
+        opts = check_validity_profile_options(None, {ProfileOption.LOAD: 'latest', ProfileOption.SOLVER_NAMES: ['a', 'b']})
+        assert opts[ProfileOption.SOLVER_NAMES] == ['a', 'b']
+
+    def test_solver_isrand_deferred_when_solvers_none(self):
+        opts = check_validity_profile_options(None, {ProfileOption.LOAD: 'latest', ProfileOption.SOLVER_ISRAND: [True, False]})
+        assert opts[ProfileOption.SOLVER_ISRAND] == [True, False]
+
+    def test_log_ratio_deferred_when_solvers_none(self):
+        opts = check_validity_profile_options(None, {ProfileOption.LOAD: 'latest', ProfileOption.SUMMARIZE_LOG_RATIO_PROFILES: True})
+        assert opts[ProfileOption.SUMMARIZE_LOG_RATIO_PROFILES] is True
+
+    def test_log_ratio_still_disabled_for_three_actual_solvers(self, capsys):
+        solvers = [lambda fun, x0: x0] * 3
+        opts = check_validity_profile_options(solvers, {ProfileOption.SUMMARIZE_LOG_RATIO_PROFILES: True})
+        assert opts[ProfileOption.SUMMARIZE_LOG_RATIO_PROFILES] is False
+        assert 'exactly two solvers' in capsys.readouterr().out
+
+    def test_solvers_to_load_rejects_single_index(self):
+        with pytest.raises(ValueError, match='at least two indices'):
+            check_validity_profile_options(None, {ProfileOption.LOAD: 'latest', ProfileOption.SOLVERS_TO_LOAD: [0]})
+
+    def test_solvers_to_load_rejects_empty(self):
+        with pytest.raises(ValueError, match='at least two indices'):
+            check_validity_profile_options(None, {ProfileOption.LOAD: 'latest', ProfileOption.SOLVERS_TO_LOAD: []})
+
+    def test_post_load_keeps_log_ratio_for_two_solvers(self):
+        opts = check_post_load_profile_options(2, {ProfileOption.SUMMARIZE_LOG_RATIO_PROFILES: True})
+        assert opts[ProfileOption.SUMMARIZE_LOG_RATIO_PROFILES] is True
+
+    def test_post_load_warns_and_disables_log_ratio_for_three_solvers(self, capsys):
+        opts = check_post_load_profile_options(3, {ProfileOption.SUMMARIZE_LOG_RATIO_PROFILES: True})
+        assert opts[ProfileOption.SUMMARIZE_LOG_RATIO_PROFILES] is False
+        assert 'exactly two solvers' in capsys.readouterr().out
+
+    def test_post_load_solver_names_length_mismatch(self):
+        with pytest.raises(ValueError, match='loaded solvers'):
+            check_post_load_profile_options(2, {ProfileOption.SOLVER_NAMES: ['a', 'b', 'c']})
+
+    def test_post_load_solver_isrand_length_mismatch(self):
+        with pytest.raises(ValueError, match='loaded solvers'):
+            check_post_load_profile_options(2, {ProfileOption.SOLVER_ISRAND: [True]})
+
+    def test_post_load_accepts_matching_lengths(self):
+        opts = check_post_load_profile_options(2, {ProfileOption.SOLVER_NAMES: ['a', 'b'], ProfileOption.SOLVER_ISRAND: [True, False]})
+        assert opts[ProfileOption.SOLVER_NAMES] == ['a', 'b']
+
+
+class TestComputeMeritValuesShapeParity:
+    """Cross-language parity: the single-problem loaded-history case takes
+    (n_solvers, n_runs, n_evals) values with an (n_runs,) init vector, which is
+    the shape the load path slices out of the saved per-problem arrays."""
+
+    def test_single_problem_history_with_run_vector(self):
+        fun_values = np.zeros((2, 5, 6))
+        maxcv_values = np.zeros_like(fun_values)
+        inits = np.arange(1.0, 6.0)
+        merits = compute_merit_values(lambda f, cv, cv_init: f + cv + cv_init, fun_values, maxcv_values, inits)
+        assert merits.shape == (2, 5, 6)
+        np.testing.assert_array_equal(merits[0, :, 0], inits)
+
+    def test_single_problem_out_with_run_vector(self):
+        fun_values = np.zeros((2, 5))
+        maxcv_values = np.zeros_like(fun_values)
+        inits = np.arange(1.0, 6.0)
+        merits = compute_merit_values(lambda f, cv, cv_init: f + cv + cv_init, fun_values, maxcv_values, inits)
+        assert merits.shape == (2, 5)
+        np.testing.assert_array_equal(merits[1, :], inits)

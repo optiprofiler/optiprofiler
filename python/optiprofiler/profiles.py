@@ -31,7 +31,7 @@ from .plib_config import _resolve_plib_options
 from .problem_libraries import _copy_problem_library_options, _normalize_selected_problem_names, load_problem_library, resolve_problem_library
 from .utils import DEFAULT_LOG_LINE_WIDTH, FeatureName, ProfileOption, FeatureOption, ProblemOption, get_logger, print_log_message, setup_main_process_logging, setup_worker_logging, shorten_log_message, format_log_prefix
 from .loader import load_results, save_results_to_h5, save_options
-from .profile_utils import check_validity_problem_options, check_validity_profile_options, get_default_problem_options, get_default_profile_options, compute_merit_values, create_stamp, merge_pdfs_with_pypdf, write_report, process_results, init_readme, add_to_readme, compute_scores
+from .profile_utils import check_validity_problem_options, check_validity_profile_options, check_post_load_profile_options, get_default_problem_options, get_default_profile_options, compute_merit_values, create_stamp, merge_pdfs_with_pypdf, write_report, process_results, init_readme, add_to_readme, compute_scores
 from .plotting import draw_hist, set_profile_context, format_float_scientific_latex, draw_profiles, summary_legend_extra_width, latex_escape_text, format_profile_text
 
 
@@ -848,7 +848,16 @@ def _benchmark(
     # If 'load' is specified, we skip the solving phase and restore the results from disk.
     if is_load:
         results_plibs, profile_options = load_results(problem_options, profile_options)
-    
+        if not results_plibs:
+            # No problems were selected from the loaded data; there is nothing
+            # to plot, so we stop cleanly instead of failing later.
+            return np.zeros(0), None, None
+        # Finish the solver-count-dependent option checks that were deferred by
+        # `check_validity_profile_options` (where `solvers` is None on the load
+        # path). The count below is the final effective one, i.e. after the
+        # 'solvers_to_load' selection has been applied by `load_results`.
+        profile_options = check_post_load_profile_options(results_plibs[0]['fun_histories'].shape[1], profile_options)
+
     # Build feature.
     feature = Feature(feature_name, **feature_options)
     feature_options = feature.options
@@ -883,6 +892,11 @@ def _benchmark(
 
     # Set the options for plotting.
     profile_context = set_profile_context(profile_options)
+    if not profile_options[ProfileOption.SILENT]:
+        if profile_context.get('text.usetex', False):
+            print_log_message('INFO', 'Rendering plot text with LaTeX (a latex executable was found on the PATH).')
+        else:
+            print_log_message('INFO', 'Rendering plot text without LaTeX (no latex executable was found on the PATH).')
 
     # Define the directory to store the results.
     path_out = Path(profile_options[ProfileOption.SAVEPATH], profile_options[ProfileOption.BENCHMARK_ID]).resolve()
@@ -1243,7 +1257,11 @@ def _benchmark(
             return solver_scores, None, None
 
     # Draw history plots sequentially if draw_hist_plots is set to 'sequential'.
-    if profile_options[ProfileOption.DRAW_HIST_PLOTS] == 'sequential':
+    # On the load path this loop is the only drawing mechanism (parallel drawing
+    # happens during solving, which is skipped when loading), so it also serves
+    # an explicit 'parallel' request there.
+    draw_hist_mode = profile_options[ProfileOption.DRAW_HIST_PLOTS]
+    if draw_hist_mode == 'sequential' or (is_load and draw_hist_mode == 'parallel'):
         for results_plib in results_plibs:
             plib = results_plib['plib']
             if not profile_options[ProfileOption.SILENT]:
@@ -2175,7 +2193,9 @@ def _export_problem_history_plots(problem_name, problem_type, problem_dim, solve
     default_height = default_figsize[1]
     summary_profile_width = default_width + summary_legend_extra_width(len(solver_names), default_width, solver_names)
     profile_context = set_profile_context(profile_options)
-    processed_solver_names = [latex_escape_text(name) for name in solver_names]
+    # Escaping is a LaTeX concern: without usetex the escapes would show up as
+    # literal backslashes in the legends (e.g. 'scipy\_nelder\_mead').
+    processed_solver_names = [format_profile_text(name, profile_context) for name in solver_names]
 
     path_hist_plots = Path(path_hist_plots)
     pdf_file_name = _safe_history_pdf_file_name(problem_name)

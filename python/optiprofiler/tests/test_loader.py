@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 
 from optiprofiler.loader import (
+    _backfill_problem_options_from_loaded,
     load_results_from_h5,
     merit_fun_compute,
     recompute_merits,
@@ -457,3 +458,74 @@ class TestSaveOptions:
                 save_options(opts, path)
         finally:
             os.unlink(path)
+
+
+class TestTruncateProblemsMetadata:
+    """Explicit load-time filters must also narrow the saved selection metadata."""
+
+    def test_mindim_updates_metadata(self):
+        results = _make_dummy_results_plib(n_problems=5)
+        truncated = truncate_problems(results, {ProblemOption.MINDIM.value: 10})
+        assert truncated['mindim'] == 10
+
+    def test_maxdim_updates_metadata(self):
+        results = _make_dummy_results_plib(n_problems=5)
+        truncated = truncate_problems(results, {ProblemOption.MAXDIM.value: 10})
+        assert truncated['maxdim'] == 10
+
+    def test_ptype_intersects_metadata_in_canonical_order(self):
+        results = _make_dummy_results_plib(n_problems=5)
+        results['ptype'] = 'ubln'
+        results['problem_types'] = ['u', 'b', 'u', 'l', 'n']
+        truncated = truncate_problems(results, {ProblemOption.PTYPE.value: 'nb'})
+        assert truncated['ptype'] == 'bn'
+
+    def test_wider_filter_keeps_saved_bounds(self):
+        results = _make_dummy_results_plib(n_problems=5)
+        truncated = truncate_problems(results, {ProblemOption.MINDIM.value: 1, ProblemOption.MAXDIM.value: 1000})
+        assert truncated['mindim'] == 1
+        assert truncated['maxdim'] == 100
+
+
+class TestBackfillProblemOptions:
+    """Unspecified problem options are backfilled from the loaded metadata."""
+
+    def test_backfills_all_unspecified_fields(self):
+        results = _make_dummy_results_plib(n_problems=3)
+        results['ptype'] = 'ub'
+        results['problem_names_options'] = ['PROB_0', 'PROB_2']
+        results['excludelist'] = ['BAD']
+        options = _backfill_problem_options_from_loaded({}, [results])
+        assert options[ProblemOption.PTYPE.value] == 'ub'
+        assert options[ProblemOption.MINDIM.value] == 1
+        assert options[ProblemOption.MAXDIM.value] == 100
+        assert options[ProblemOption.MINCON.value] == 0
+        assert options[ProblemOption.MAXCON.value] == 10
+        assert options[ProblemOption.PROBLEM_NAMES.value] == ['PROB_0', 'PROB_2']
+        assert options[ProblemOption.EXCLUDELIST.value] == ['BAD']
+
+    def test_user_options_keep_precedence(self):
+        results = _make_dummy_results_plib(n_problems=3)
+        options = {ProblemOption.MINDIM.value: 5, ProblemOption.PTYPE.value: 'u'}
+        options = _backfill_problem_options_from_loaded(options, [results])
+        assert options[ProblemOption.MINDIM.value] == 5
+        assert options[ProblemOption.PTYPE.value] == 'u'
+        assert options[ProblemOption.MAXDIM.value] == 100
+
+    def test_aggregates_across_multiple_plibs(self):
+        first = _make_dummy_results_plib(n_problems=3)
+        second = _make_dummy_results_plib(n_problems=3)
+        first['ptype'] = 'u'
+        second['ptype'] = 'bn'
+        first['mindim'] = 2
+        second['mindim'] = 4
+        first['maxdim'] = 30
+        second['maxdim'] = 60
+        options = _backfill_problem_options_from_loaded({}, [first, second])
+        assert options[ProblemOption.PTYPE.value] == 'ubn'
+        assert options[ProblemOption.MINDIM.value] == 2
+        assert options[ProblemOption.MAXDIM.value] == 60
+
+    def test_empty_results_leave_options_untouched(self):
+        options = _backfill_problem_options_from_loaded({}, [])
+        assert options == {}
