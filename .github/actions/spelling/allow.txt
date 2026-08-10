@@ -81,6 +81,7 @@ codecov
 codecoverage
 codeql
 colororder
+compresslevel
 Consolas
 COOLHANS
 copybtn
@@ -118,6 +119,7 @@ DFO
 Diago
 Digabel
 DIAMON
+Distrib
 DIXMAANA
 DMN
 docutils
@@ -169,6 +171,7 @@ fhist
 fileattrib
 fileparts
 fileread
+filesep
 findobj
 fliplr
 flipud
@@ -180,6 +183,7 @@ FOLDTR
 fopen
 FORMATOPTIPROFILERMESSAGE
 fprintf
+fread
 FREURONE
 fscanf
 fullfile
@@ -267,6 +271,7 @@ iscs
 isdiag
 isempty
 isequal
+isequaln
 isfeasibility
 isfield
 isgrad
@@ -304,6 +309,7 @@ isscalar
 isstring
 isstruct
 isunix
+isvalid
 isvector
 iterrows
 Jacobians
@@ -334,6 +340,7 @@ lgd
 LIARWHD
 LIARWHDNE
 libmwhgweb
+lifecycle
 lincoa
 lincons
 Linealy
@@ -344,16 +351,21 @@ linkprop
 linux
 LINVERSENE
 listdir
+LOADANDDIFF
 LOADCUTEST
+LOADOPTIONS
 LOADRESULTS
+loadtest
 longtable
 lsqlin
 lsqr
 lucide
 LUKSAN
 macup
+MAKEEXPERIMENT
 MANCINONE
 mann
+MASTSIF
 matbenchmark
 matcutest
 matd
@@ -469,6 +481,7 @@ optimset
 OPTIPROFIER
 optiprofiler
 optprof
+orderfields
 OSBORNE
 OSCIGRNE
 OSCIPANE
@@ -480,6 +493,7 @@ paperposition
 paramname
 paramvalue
 parcluster
+parfeval
 parfor
 parpool
 pathdef
@@ -514,10 +528,12 @@ PROCESSHISTYAXES
 PROCESSRESULTS
 PROFILEOPTIONKEY
 ptype
+ptypes
 pycutest
 pydata
 pyo
 pypdf
+pytestmark
 pythonapi
 QINGNE
 qpdf
@@ -529,8 +545,12 @@ readouterr
 rehash
 rescanning
 regexprep
+REGISTERPROBLEMLIBRARY
 repmat
+RESOLVEPROBLEMLIBRARY
+restoredefaultpath
 rgba
+Rios
 rmfield
 rmpath
 Roboto
@@ -542,6 +562,7 @@ roundtripped
 RSNBRNE
 rtol
 runtimes
+Sahinidis
 savepath
 Screenshot
 SCURLY
@@ -556,9 +577,11 @@ semilogy
 Sepcial
 seqential
 setdiff
+setenv
 SETPROFILEBOXASPECT
 SETSAVINGPATH
 SETUPPOOL
+setxor
 SHORTENMESSAGEFORLOG
 sif
 SISSER
@@ -595,6 +618,7 @@ subfoler
 SUMMARYLEGENDEXTRAWIDTH
 SVD
 svg
+SYNPROB
 sysu
 tagline
 tempname
@@ -632,6 +656,8 @@ uln
 uninstalls
 unpicklable
 unpickling
+unregistering
+UNREGISTERPROBLEMLIBRARY
 uobyqa
 userpath
 usr
@@ -653,12 +679,14 @@ vlen
 WATSONNE
 WAYSEA
 website
+whos
 workaround
 workarounds
 workflows
 WRITEREPORT
 XAxis
 xdata
+XDG
 xhist
 xin
 xlower
