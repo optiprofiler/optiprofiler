@@ -51,9 +51,9 @@ The `custom` folder demonstrates one possible implementation approach.
 
 The common numeric selection options use finite integer lower bounds
 (`mindim`, `minb`, `minlcon`, `minnlcon`, and `mincon`). The corresponding
-upper bounds (`maxdim`, `maxb`, `maxlcon`, `maxnlcon`, and `maxcon`) accept an
-integer (with `maxdim` at least 1) or `Inf`. `Inf` means that no upper limit is
-imposed; negative infinity and non-scalar values are invalid.
+upper bounds (`maxdim`, `maxb`, `maxlcon`, `maxnlcon`, and `maxcon`) accept a
+nonnegative integer (with `maxdim` at least 1) or `Inf`. `Inf` means that no
+upper limit is imposed; negative infinity and non-scalar values are invalid.
 
 ## Detailed Steps
 
