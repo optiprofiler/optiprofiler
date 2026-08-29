@@ -84,6 +84,48 @@ class TestCheckValidityProblemOptions:
         opts = check_validity_problem_options({ProblemOption.MAXDIM: np.inf})
         assert np.isinf(opts[ProblemOption.MAXDIM])
 
+    @pytest.mark.parametrize(
+        'option',
+        [
+            ProblemOption.MAXDIM,
+            ProblemOption.MAXB,
+            ProblemOption.MAXLCON,
+            ProblemOption.MAXNLCON,
+            ProblemOption.MAXCON,
+        ],
+    )
+    def test_all_upper_bounds_accept_positive_infinity(self, option):
+        opts = check_validity_problem_options({option: np.inf})
+        assert np.isposinf(opts[option])
+
+    @pytest.mark.parametrize(
+        'option',
+        [
+            ProblemOption.MAXDIM,
+            ProblemOption.MAXB,
+            ProblemOption.MAXLCON,
+            ProblemOption.MAXNLCON,
+            ProblemOption.MAXCON,
+        ],
+    )
+    def test_all_upper_bounds_reject_negative_infinity(self, option):
+        with pytest.raises(TypeError, match=r'positive np\.inf'):
+            check_validity_problem_options({option: -np.inf})
+
+    @pytest.mark.parametrize(
+        'option',
+        [
+            ProblemOption.MINDIM,
+            ProblemOption.MINB,
+            ProblemOption.MINLCON,
+            ProblemOption.MINNLCON,
+            ProblemOption.MINCON,
+        ],
+    )
+    def test_all_lower_bounds_reject_positive_infinity(self, option):
+        with pytest.raises(TypeError, match='must be an integer'):
+            check_validity_problem_options({option: np.inf})
+
     def test_maxdim_invalid_type(self):
         with pytest.raises(TypeError):
             check_validity_problem_options({ProblemOption.MAXDIM: 'ten'})

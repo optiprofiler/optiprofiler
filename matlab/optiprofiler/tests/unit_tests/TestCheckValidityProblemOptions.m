@@ -1,6 +1,34 @@
 classdef TestCheckValidityProblemOptions < matlab.unittest.TestCase
     methods (Test)
 
+        function testInfinityBounds(testCase)
+
+            mydir = fileparts(mfilename('fullpath'));
+            original_dir = pwd;
+            testCase.addTeardown(@() cd(original_dir));
+            cd(fullfile(mydir, '../../src/private'));
+
+            profile_options = struct();
+            upper_fields = {'maxdim', 'maxb', 'maxlcon', 'maxnlcon', 'maxcon'};
+            lower_fields = {'mindim', 'minb', 'minlcon', 'minnlcon', 'mincon'};
+
+            for i = 1:numel(upper_fields)
+                upper = struct(upper_fields{i}, Inf);
+                checked = checkValidityProblemOptions(upper, profile_options);
+                testCase.verifyEqual(checked.(upper_fields{i}), Inf);
+
+                negative_upper = struct(upper_fields{i}, -Inf);
+                testCase.verifyError(@() checkValidityProblemOptions(negative_upper, profile_options), ...
+                    ['MATLAB:checkValidityProblemOptions:' upper_fields{i} 'NotValid']);
+            end
+
+            for i = 1:numel(lower_fields)
+                lower = struct(lower_fields{i}, Inf);
+                testCase.verifyError(@() checkValidityProblemOptions(lower, profile_options), ...
+                    ['MATLAB:checkValidityProblemOptions:' lower_fields{i} 'NotValid']);
+            end
+        end
+
         function testErrors(testCase)
 
             mydir = fileparts(mfilename('fullpath'));

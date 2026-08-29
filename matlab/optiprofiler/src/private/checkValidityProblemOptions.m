@@ -42,13 +42,13 @@ function problem_options = checkValidityProblemOptions(problem_options, profile_
     end
 
 
-    % Judge whether problem_options.mindim is a integer greater or equal to 1.
+    % Judge whether problem_options.mindim is a finite integer greater or equal to 1.
     if isfield(problem_options, ProblemOptionKey.MINDIM.value)
         if ~isintegerscalar(problem_options.(ProblemOptionKey.MINDIM.value)) || problem_options.(ProblemOptionKey.MINDIM.value) < 1
             error("MATLAB:checkValidityProblemOptions:mindimNotValid", "The option of `mindim` should be a integer greater or equal to 1.");
         end
     end
-    % Judge whether problem_options.maxdim is a integer greater or equal to 1, or equal to Inf.
+    % Judge whether problem_options.maxdim is an integer greater or equal to 1, or equal to positive Inf.
     if isfield(problem_options, ProblemOptionKey.MAXDIM.value)
         if (~isintegerscalar(problem_options.(ProblemOptionKey.MAXDIM.value)) || problem_options.(ProblemOptionKey.MAXDIM.value) < 1) && problem_options.(ProblemOptionKey.MAXDIM.value) ~= Inf
             error("MATLAB:checkValidityProblemOptions:maxdimNotValid", "The option `maxdim` should be a integer greater or equal to 1, or equal to Inf.");
@@ -62,13 +62,13 @@ function problem_options = checkValidityProblemOptions(problem_options, profile_
     end
 
 
-    % Judge whether problem_options.minb is a integer greater or equal to 0.
+    % Judge whether problem_options.minb is a finite integer greater or equal to 0.
     if isfield(problem_options, ProblemOptionKey.MINB.value)
         if ~isintegerscalar(problem_options.(ProblemOptionKey.MINB.value)) || problem_options.(ProblemOptionKey.MINB.value) < 0
             error("MATLAB:checkValidityProblemOptions:minbNotValid", "The option `minb` should be a integer greater or equal to 0.");
         end
     end
-    % Judge whether problem_options.maxb is a integer greater or equal to 0, or equal to Inf.
+    % Judge whether problem_options.maxb is an integer greater or equal to 0, or equal to positive Inf.
     if isfield(problem_options, ProblemOptionKey.MAXB.value)
         if (~isintegerscalar(problem_options.(ProblemOptionKey.MAXB.value)) || problem_options.(ProblemOptionKey.MAXB.value) < 0) && problem_options.(ProblemOptionKey.MAXB.value) ~= Inf
             error("MATLAB:checkValidityProblemOptions:maxbNotValid", "The option `maxb` should be a integer greater or equal to 0, or equal to Inf.");
@@ -82,13 +82,13 @@ function problem_options = checkValidityProblemOptions(problem_options, profile_
     end
 
 
-    % Judge whether problem_options.minlcon is a integer greater or equal to 0.
+    % Judge whether problem_options.minlcon is a finite integer greater or equal to 0.
     if isfield(problem_options, ProblemOptionKey.MINLCON.value)
         if ~isintegerscalar(problem_options.(ProblemOptionKey.MINLCON.value)) || problem_options.(ProblemOptionKey.MINLCON.value) < 0
             error("MATLAB:checkValidityProblemOptions:minlconNotValid", "The option `minlcon` should be a integer greater or equal to 0.");
         end
     end
-    % Judge whether problem_options.maxlcon is a integer greater or equal to 0, or equal to Inf.
+    % Judge whether problem_options.maxlcon is an integer greater or equal to 0, or equal to positive Inf.
     if isfield(problem_options, ProblemOptionKey.MAXLCON.value)
         if (~isintegerscalar(problem_options.(ProblemOptionKey.MAXLCON.value)) || problem_options.(ProblemOptionKey.MAXLCON.value) < 0) && problem_options.(ProblemOptionKey.MAXLCON.value) ~= Inf
             error("MATLAB:checkValidityProblemOptions:maxlconNotValid", "The option `maxlcon` should be a integer greater or equal to 0, or equal to Inf.");
@@ -102,13 +102,13 @@ function problem_options = checkValidityProblemOptions(problem_options, profile_
     end
 
 
-    % Judge whether problem_options.minnlcon is a integer greater or equal to 0.
+    % Judge whether problem_options.minnlcon is a finite integer greater or equal to 0.
     if isfield(problem_options, ProblemOptionKey.MINNLCON.value)
         if ~isintegerscalar(problem_options.(ProblemOptionKey.MINNLCON.value)) || problem_options.(ProblemOptionKey.MINNLCON.value) < 0
             error("MATLAB:checkValidityProblemOptions:minnlconNotValid", "The option `minnlcon` should be a integer greater or equal to 0.");
         end
     end
-    % Judge whether problem_options.maxnlcon is a integer greater or equal to 0, or equal to Inf.
+    % Judge whether problem_options.maxnlcon is an integer greater or equal to 0, or equal to positive Inf.
     if isfield(problem_options, ProblemOptionKey.MAXNLCON.value)
         if (~isintegerscalar(problem_options.(ProblemOptionKey.MAXNLCON.value)) || problem_options.(ProblemOptionKey.MAXNLCON.value) < 0) && problem_options.(ProblemOptionKey.MAXNLCON.value) ~= Inf
             error("MATLAB:checkValidityProblemOptions:maxnlconNotValid", "The option `maxnlcon` should be a integer greater or equal to 0, or equal to Inf.");
@@ -122,13 +122,13 @@ function problem_options = checkValidityProblemOptions(problem_options, profile_
     end
 
 
-    % Judge whether problem_options.mincon is a integer greater or equal to 0.
+    % Judge whether problem_options.mincon is a finite integer greater or equal to 0.
     if isfield(problem_options, ProblemOptionKey.MINCON.value)
         if ~isintegerscalar(problem_options.(ProblemOptionKey.MINCON.value)) || problem_options.(ProblemOptionKey.MINCON.value) < 0
             error("MATLAB:checkValidityProblemOptions:minconNotValid", "The option `mincon` should be a integer greater or equal to 0.");
         end
     end
-    % Judge whether problem_options.maxcon is a integer greater or equal to 0, or equal to Inf.
+    % Judge whether problem_options.maxcon is an integer greater or equal to 0, or equal to positive Inf.
     if isfield(problem_options, ProblemOptionKey.MAXCON.value)
         if (~isintegerscalar(problem_options.(ProblemOptionKey.MAXCON.value)) || problem_options.(ProblemOptionKey.MAXCON.value) < 0) && problem_options.(ProblemOptionKey.MAXCON.value) ~= Inf
             error("MATLAB:checkValidityProblemOptions:maxconNotValid", "The option `maxcon` should be a integer greater or equal to 0, or equal to Inf.");
