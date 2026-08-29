@@ -20,6 +20,59 @@ def _is_positive_infinity(value):
     )
 
 
+def _custom_problem_library_names(custom_libs_path):
+    """
+    Return custom problem library names available under ``custom_libs_path``.
+
+    ``custom_libs_path`` may be either a parent directory containing one or more
+    library subdirectories, or the directory of a single custom library. Each
+    library directory must contain ``<library_name>_tools.py``; OptiProfiler does
+    not infer the library name from other ``*_tools.py`` files.
+    """
+    custom_libs_path = Path(custom_libs_path)
+    if (custom_libs_path / f'{custom_libs_path.name}_tools.py').is_file():
+        return [custom_libs_path.name]
+
+    custom_libs_names = []
+    for p in custom_libs_path.iterdir():
+        if p.is_dir() and not p.name.startswith('.') and p.name != '__pycache__':
+            if (p / f'{p.name}_tools.py').is_file():
+                custom_libs_names.append(p.name)
+    return custom_libs_names
+
+
+def _custom_problem_library_dir(custom_libs_path, plib):
+    """
+    Return the explicit custom directory for ``plib`` if one is present.
+
+    ``custom_libs_path`` may point either to a parent directory containing a
+    ``plib`` subdirectory, or directly to the ``plib`` directory.  The function
+    deliberately does not inspect tools files; callers can use this to reject a
+    malformed custom directory before falling back to a built-in library with the
+    same name.
+    """
+    custom_libs_path = Path(custom_libs_path)
+    candidates = []
+    if custom_libs_path.name == plib and custom_libs_path.is_dir():
+        candidates.append(custom_libs_path)
+    parent_candidate = custom_libs_path / plib
+    if parent_candidate.is_dir():
+        candidates.append(parent_candidate)
+
+    resolved = []
+    for candidate in candidates:
+        candidate = candidate.resolve()
+        if candidate not in resolved:
+            resolved.append(candidate)
+    if len(resolved) > 1:
+        raise ValueError(
+            f'The option {ProblemOption.CUSTOM_PROBLEM_LIBS_PATH} is ambiguous for '
+            f'problem library "{plib}". It can point to either the parent directory '
+            f'containing "{plib}" or the "{plib}" directory itself, but not both.'
+        )
+    return resolved[0] if resolved else None
+
+
 def _get_conservative_default_n_jobs():
     """
     Get a conservative default number of parallel jobs.
