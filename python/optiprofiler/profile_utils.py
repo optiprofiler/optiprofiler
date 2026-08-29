@@ -13,6 +13,68 @@ from .problem_libraries import list_problem_libraries, resolve_problem_library
 from .utils import FeatureName, ProfileOption, FeatureOption, ProblemOption, get_logger, print_log_message, shorten_log_message
 
 
+def _is_positive_infinity(value):
+    """Return whether *value* is a scalar positive infinity."""
+    return (
+        isinstance(value, (float, np.floating))
+        and np.isinf(value)
+        and value > 0
+    )
+
+
+def _custom_problem_library_names(custom_libs_path):
+    """
+    Return custom problem library names available under ``custom_libs_path``.
+
+    ``custom_libs_path`` may be either a parent directory containing one or more
+    library subdirectories, or the directory of a single custom library. Each
+    library directory must contain ``<library_name>_tools.py``; OptiProfiler does
+    not infer the library name from other ``*_tools.py`` files.
+    """
+    custom_libs_path = Path(custom_libs_path)
+    if (custom_libs_path / f'{custom_libs_path.name}_tools.py').is_file():
+        return [custom_libs_path.name]
+
+    custom_libs_names = []
+    for p in custom_libs_path.iterdir():
+        if p.is_dir() and not p.name.startswith('.') and p.name != '__pycache__':
+            if (p / f'{p.name}_tools.py').is_file():
+                custom_libs_names.append(p.name)
+    return custom_libs_names
+
+
+def _custom_problem_library_dir(custom_libs_path, plib):
+    """
+    Return the explicit custom directory for ``plib`` if one is present.
+
+    ``custom_libs_path`` may point either to a parent directory containing a
+    ``plib`` subdirectory, or directly to the ``plib`` directory.  The function
+    deliberately does not inspect tools files; callers can use this to reject a
+    malformed custom directory before falling back to a built-in library with the
+    same name.
+    """
+    custom_libs_path = Path(custom_libs_path)
+    candidates = []
+    if custom_libs_path.name == plib and custom_libs_path.is_dir():
+        candidates.append(custom_libs_path)
+    parent_candidate = custom_libs_path / plib
+    if parent_candidate.is_dir():
+        candidates.append(parent_candidate)
+
+    resolved = []
+    for candidate in candidates:
+        candidate = candidate.resolve()
+        if candidate not in resolved:
+            resolved.append(candidate)
+    if len(resolved) > 1:
+        raise ValueError(
+            f'The option {ProblemOption.CUSTOM_PROBLEM_LIBS_PATH} is ambiguous for '
+            f'problem library "{plib}". It can point to either the parent directory '
+            f'containing "{plib}" or the "{plib}" directory itself, but not both.'
+        )
+    return resolved[0] if resolved else None
+
+
 def _get_conservative_default_n_jobs():
     """
     Get a conservative default number of parallel jobs.
@@ -120,15 +182,15 @@ def check_validity_problem_options(problem_options, require_available=True):
         if problem_options[ProblemOption.MINDIM] < 1:
             raise ValueError(f'Option {ProblemOption.MINDIM} must be at least 1.')
     if ProblemOption.MAXDIM in problem_options:
-        if not np.isinf(problem_options[ProblemOption.MAXDIM]):
+        if not _is_positive_infinity(problem_options[ProblemOption.MAXDIM]):
             if isinstance(problem_options[ProblemOption.MAXDIM], (float, np.floating)) and float(problem_options[ProblemOption.MAXDIM]).is_integer():
                 problem_options[ProblemOption.MAXDIM] = int(problem_options[ProblemOption.MAXDIM])
             if isinstance(problem_options[ProblemOption.MAXDIM], np.integer):
                 problem_options[ProblemOption.MAXDIM] = int(problem_options[ProblemOption.MAXDIM])
             if not isinstance(problem_options[ProblemOption.MAXDIM], int):
-                raise TypeError(f'Option {ProblemOption.MAXDIM} must be an integer or np.inf.')
+                raise TypeError(f'Option {ProblemOption.MAXDIM} must be an integer or positive np.inf.')
             if problem_options[ProblemOption.MAXDIM] < 1:
-                raise ValueError(f'Option {ProblemOption.MAXDIM} must be at least 1 or np.inf.')
+                raise ValueError(f'Option {ProblemOption.MAXDIM} must be at least 1 or positive np.inf.')
     if ProblemOption.MINDIM in problem_options and ProblemOption.MAXDIM in problem_options:
         if problem_options[ProblemOption.MINDIM] > problem_options[ProblemOption.MAXDIM]:
             raise ValueError(f'Option {ProblemOption.MINDIM} cannot be larger than option {ProblemOption.MAXDIM}.')
@@ -143,15 +205,15 @@ def check_validity_problem_options(problem_options, require_available=True):
         if problem_options[ProblemOption.MINB] < 0:
             raise ValueError(f'Option {ProblemOption.MINB} must be nonnegative.')
     if ProblemOption.MAXB in problem_options:
-        if not np.isinf(problem_options[ProblemOption.MAXB]):
+        if not _is_positive_infinity(problem_options[ProblemOption.MAXB]):
             if isinstance(problem_options[ProblemOption.MAXB], (float, np.floating)) and float(problem_options[ProblemOption.MAXB]).is_integer():
                 problem_options[ProblemOption.MAXB] = int(problem_options[ProblemOption.MAXB])
             if isinstance(problem_options[ProblemOption.MAXB], np.integer):
                 problem_options[ProblemOption.MAXB] = int(problem_options[ProblemOption.MAXB])
             if not isinstance(problem_options[ProblemOption.MAXB], int):
-                raise TypeError(f'Option {ProblemOption.MAXB} must be an integer or np.inf.')
+                raise TypeError(f'Option {ProblemOption.MAXB} must be an integer or positive np.inf.')
             if problem_options[ProblemOption.MAXB] < 0:
-                raise ValueError(f'Option {ProblemOption.MAXB} must be nonnegative or np.inf.')
+                raise ValueError(f'Option {ProblemOption.MAXB} must be nonnegative or positive np.inf.')
     if ProblemOption.MINB in problem_options and ProblemOption.MAXB in problem_options:
         if problem_options[ProblemOption.MINB] > problem_options[ProblemOption.MAXB]:
             raise ValueError(f'Option {ProblemOption.MINB} cannot be larger than option {ProblemOption.MAXB}.')
@@ -166,15 +228,15 @@ def check_validity_problem_options(problem_options, require_available=True):
         if problem_options[ProblemOption.MINLCON] < 0:
             raise ValueError(f'Option {ProblemOption.MINLCON} must be nonnegative.')
     if ProblemOption.MAXLCON in problem_options:
-        if not np.isinf(problem_options[ProblemOption.MAXLCON]):
+        if not _is_positive_infinity(problem_options[ProblemOption.MAXLCON]):
             if isinstance(problem_options[ProblemOption.MAXLCON], (float, np.floating)) and float(problem_options[ProblemOption.MAXLCON]).is_integer():
                 problem_options[ProblemOption.MAXLCON] = int(problem_options[ProblemOption.MAXLCON])
             if isinstance(problem_options[ProblemOption.MAXLCON], np.integer):
                 problem_options[ProblemOption.MAXLCON] = int(problem_options[ProblemOption.MAXLCON])
             if not isinstance(problem_options[ProblemOption.MAXLCON], int):
-                raise TypeError(f'Option {ProblemOption.MAXLCON} must be an integer or np.inf.')
+                raise TypeError(f'Option {ProblemOption.MAXLCON} must be an integer or positive np.inf.')
             if problem_options[ProblemOption.MAXLCON] < 0:
-                raise ValueError(f'Option {ProblemOption.MAXLCON} must be nonnegative or np.inf.')
+                raise ValueError(f'Option {ProblemOption.MAXLCON} must be nonnegative or positive np.inf.')
     if ProblemOption.MINLCON in problem_options and ProblemOption.MAXLCON in problem_options:
         if problem_options[ProblemOption.MINLCON] > problem_options[ProblemOption.MAXLCON]:
             raise ValueError(f'Option {ProblemOption.MINLCON} cannot be larger than option {ProblemOption.MAXLCON}.')
@@ -189,15 +251,15 @@ def check_validity_problem_options(problem_options, require_available=True):
         if problem_options[ProblemOption.MINNLCON] < 0:
             raise ValueError(f'Option {ProblemOption.MINNLCON} must be nonnegative.')
     if ProblemOption.MAXNLCON in problem_options:
-        if not np.isinf(problem_options[ProblemOption.MAXNLCON]):
+        if not _is_positive_infinity(problem_options[ProblemOption.MAXNLCON]):
             if isinstance(problem_options[ProblemOption.MAXNLCON], (float, np.floating)) and float(problem_options[ProblemOption.MAXNLCON]).is_integer():
                 problem_options[ProblemOption.MAXNLCON] = int(problem_options[ProblemOption.MAXNLCON])
             if isinstance(problem_options[ProblemOption.MAXNLCON], np.integer):
                 problem_options[ProblemOption.MAXNLCON] = int(problem_options[ProblemOption.MAXNLCON])
             if not isinstance(problem_options[ProblemOption.MAXNLCON], int):
-                raise TypeError(f'Option {ProblemOption.MAXNLCON} must be an integer or np.inf.')
+                raise TypeError(f'Option {ProblemOption.MAXNLCON} must be an integer or positive np.inf.')
             if problem_options[ProblemOption.MAXNLCON] < 0:
-                raise ValueError(f'Option {ProblemOption.MAXNLCON} must be nonnegative or np.inf.')
+                raise ValueError(f'Option {ProblemOption.MAXNLCON} must be nonnegative or positive np.inf.')
     if ProblemOption.MINNLCON in problem_options and ProblemOption.MAXNLCON in problem_options:
         if problem_options[ProblemOption.MINNLCON] > problem_options[ProblemOption.MAXNLCON]:
             raise ValueError(f'Option {ProblemOption.MINNLCON} cannot be larger than option {ProblemOption.MAXNLCON}.')
@@ -212,15 +274,15 @@ def check_validity_problem_options(problem_options, require_available=True):
         if problem_options[ProblemOption.MINCON] < 0:
             raise ValueError(f'Option {ProblemOption.MINCON} must be nonnegative.')
     if ProblemOption.MAXCON in problem_options:
-        if not np.isinf(problem_options[ProblemOption.MAXCON]):
+        if not _is_positive_infinity(problem_options[ProblemOption.MAXCON]):
             if isinstance(problem_options[ProblemOption.MAXCON], (float, np.floating)) and float(problem_options[ProblemOption.MAXCON]).is_integer():
                 problem_options[ProblemOption.MAXCON] = int(problem_options[ProblemOption.MAXCON])
             if isinstance(problem_options[ProblemOption.MAXCON], np.integer):
                 problem_options[ProblemOption.MAXCON] = int(problem_options[ProblemOption.MAXCON])
             if not isinstance(problem_options[ProblemOption.MAXCON], int):
-                raise TypeError(f'Option {ProblemOption.MAXCON} must be an integer or np.inf.')
+                raise TypeError(f'Option {ProblemOption.MAXCON} must be an integer or positive np.inf.')
             if problem_options[ProblemOption.MAXCON] < 0:
-                raise ValueError(f'Option {ProblemOption.MAXCON} must be nonnegative or np.inf.')
+                raise ValueError(f'Option {ProblemOption.MAXCON} must be nonnegative or positive np.inf.')
     if ProblemOption.MINCON in problem_options and ProblemOption.MAXCON in problem_options:
         if problem_options[ProblemOption.MINCON] > problem_options[ProblemOption.MAXCON]:
             raise ValueError(f'Option {ProblemOption.MINCON} cannot be larger than option {ProblemOption.MAXCON}.')

@@ -266,25 +266,48 @@ Options in this part are used to select problems for benchmarking. First select 
 
   - **ptype**: the type of the problems to be selected. It should be a string or char consisting of any combination of ``'u'`` (unconstrained), ``'b'`` (bound constrained), ``'l'`` (linearly constrained), and ``'n'`` (nonlinearly constrained), such as ``'b'``, ``'ul'``, ``'ubn'``. Default is ``'u'``.
 
-  - **mindim**: the minimum dimension of the problems to be selected. Default is ``1``.
+  - **mindim**: the minimum dimension of the problems to be selected. It must
+    be a finite integer greater than or equal to ``1``. Default is ``1``.
 
-  - **maxdim**: the maximum dimension of the problems to be selected. Default is ``mindim + 10``.
+  - **maxdim**: the maximum dimension of the problems to be selected. It must
+    be an integer greater than or equal to ``1``, or ``Inf``. ``Inf`` means
+    that no maximum dimension is imposed. Default is ``mindim + 1``.
 
-  - **minb**: the minimum number of bound constraints of the problems to be selected. Default is ``0``.
+  - **minb**: the minimum number of bound constraints of the problems to be
+    selected. It must be a finite integer greater than or equal to ``0``.
+    Default is ``0``.
 
-  - **maxb**: the maximum number of bound constraints of the problems to be selected. Default is ``minb + 10``.
+  - **maxb**: the maximum number of bound constraints of the problems to be
+    selected. It must be an integer greater than or equal to ``0``, or ``Inf``.
+    ``Inf`` means that no maximum number of bound constraints is imposed.
+    Default is ``minb + 10``.
 
-  - **minlcon**: the minimum number of linear constraints of the problems to be selected. Default is ``0``.
+  - **minlcon**: the minimum number of linear constraints of the problems to
+    be selected. It must be a finite integer greater than or equal to ``0``.
+    Default is ``0``.
 
-  - **maxlcon**: the maximum number of linear constraints of the problems to be selected. Default is ``minlcon + 10``.
+  - **maxlcon**: the maximum number of linear constraints of the problems to
+    be selected. It must be an integer greater than or equal to ``0``, or
+    ``Inf``. ``Inf`` means that no maximum number of linear constraints is
+    imposed. Default is ``minlcon + 10``.
 
-  - **minnlcon**: the minimum number of nonlinear constraints of the problems to be selected. Default is ``0``.
+  - **minnlcon**: the minimum number of nonlinear constraints of the problems
+    to be selected. It must be a finite integer greater than or equal to ``0``.
+    Default is ``0``.
 
-  - **maxnlcon**: the maximum number of nonlinear constraints of the problems to be selected. Default is ``minnlcon + 10``.
+  - **maxnlcon**: the maximum number of nonlinear constraints of the problems
+    to be selected. It must be an integer greater than or equal to ``0``, or
+    ``Inf``. ``Inf`` means that no maximum number of nonlinear constraints is
+    imposed. Default is ``minnlcon + 10``.
 
-  - **mincon**: the minimum number of linear and nonlinear constraints of the problems to be selected. Default is ``min(minlcon, minnlcon)``.
+  - **mincon**: the minimum number of linear and nonlinear constraints of the
+    problems to be selected. It must be a finite integer greater than or equal
+    to ``0``. Default is ``min(minlcon, minnlcon)``.
 
-  - **maxcon**: the maximum number of linear and nonlinear constraints of the problems to be selected. Default is ``max(maxlcon, maxnlcon)``.
+  - **maxcon**: the maximum number of linear and nonlinear constraints of the
+    problems to be selected. It must be an integer greater than or equal to
+    ``0``, or ``Inf``. ``Inf`` means that no maximum number of constraints is
+    imposed. Default is ``max(maxlcon, maxnlcon)``.
 
   - **excludelist**: the list of problems to be excluded. Default is not to exclude any problem.
 

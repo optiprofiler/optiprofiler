@@ -166,6 +166,15 @@ OptiProfiler allows benchmarking solvers using custom problem libraries. To use 
 
 The `custom` library demonstrates one possible implementation approach.
 
+### Problem-selection bound types
+
+The common numeric selection options use finite integer lower bounds
+(`mindim`, `minb`, `minlcon`, `minnlcon`, and `mincon`). The corresponding
+upper bounds (`maxdim`, `maxb`, `maxlcon`, `maxnlcon`, and `maxcon`) accept a
+nonnegative integer (with `maxdim` at least 1) or positive `numpy.inf`.
+`numpy.inf` means that no upper limit is imposed; negative infinity, NaN,
+arrays, and other non-scalar values are invalid.
+
 ## Detailed Steps
 
 ### 1. Create Problem Library Folder
