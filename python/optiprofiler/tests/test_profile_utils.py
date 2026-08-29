@@ -117,6 +117,20 @@ class TestCheckValidityProblemOptions:
     @pytest.mark.parametrize(
         'option',
         [
+            ProblemOption.MAXDIM,
+            ProblemOption.MAXB,
+            ProblemOption.MAXLCON,
+            ProblemOption.MAXNLCON,
+            ProblemOption.MAXCON,
+        ],
+    )
+    def test_all_upper_bounds_reject_non_scalar_infinity(self, option):
+        with pytest.raises(TypeError, match=r'positive np\.inf'):
+            check_validity_problem_options({option: np.array([np.inf])})
+
+    @pytest.mark.parametrize(
+        'option',
+        [
             ProblemOption.MINDIM,
             ProblemOption.MINB,
             ProblemOption.MINLCON,
