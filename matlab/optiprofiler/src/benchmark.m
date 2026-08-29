@@ -361,26 +361,36 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         or char consisting of any combination of 'u' (unconstrained), 'b'
 %         (bound constrained), 'l' (linearly constrained), and 'n' (nonlinearly
 %         constrained), such as 'b', 'ul', 'ubn'. Default is 'u'.
-%       - mindim: the minimum dimension of the problems to be selected. Default
-%         is 1.
-%       - maxdim: the maximum dimension of the problems to be selected. Default
-%         is mindim + 1.
+%       - mindim: the minimum dimension of the problems to be selected. It must
+%         be a finite integer greater or equal to 1. Default is 1.
+%       - maxdim: the maximum dimension of the problems to be selected. It must
+%         be an integer greater or equal to 1, or Inf. Inf means no upper
+%         dimension limit. Default is mindim + 1.
 %       - minb: the minimum number of bound constraints of the problems to be
-%         selected. Default is 0.
+%         selected. It must be a finite integer greater or equal to 0. Default
+%         is 0.
 %       - maxb: the maximum number of bound constraints of the problems to be
-%         selected. Default is minb + 10.
+%         selected. It must be an integer greater or equal to 0, or Inf. Inf
+%         means no upper bound-constraint limit. Default is minb + 10.
 %       - minlcon: the minimum number of linear constraints of the problems to
-%         be selected. Default is 0.
+%         be selected. It must be a finite integer greater or equal to 0.
+%         Default is 0.
 %       - maxlcon: the maximum number of linear constraints of the problems to
-%         be selected. Default is minlcon + 10.
+%         be selected. It must be an integer greater or equal to 0, or Inf. Inf
+%         means no upper linear-constraint limit. Default is minlcon + 10.
 %       - minnlcon: the minimum number of nonlinear constraints of the problems
-%         to be selected. Default is 0.
+%         to be selected. It must be a finite integer greater or equal to 0.
+%         Default is 0.
 %       - maxnlcon: the maximum number of nonlinear constraints of the problems
-%         to be selected. Default is minnlcon + 10.
+%         to be selected. It must be an integer greater or equal to 0, or Inf.
+%         Inf means no upper nonlinear-constraint limit. Default is minnlcon + 10.
 %       - mincon: the minimum number of linear and nonlinear constraints of the
-%         problems to be selected. Default is min(minlcon, minnlcon).
+%         problems to be selected. It must be a finite integer greater or equal
+%         to 0. Default is min(minlcon, minnlcon).
 %       - maxcon: the maximum number of linear and nonlinear constraints of the
-%         problems to be selected. Default is max(maxlcon, maxnlcon).
+%         problems to be selected. It must be an integer greater or equal to 0,
+%         or Inf. Inf means no upper constraint limit. Default is
+%         max(maxlcon, maxnlcon).
 %       - excludelist: the list of problems to be excluded. Default is not to
 %         exclude any problem.
 %       - problem_names: the names of the problems to be selected. It should

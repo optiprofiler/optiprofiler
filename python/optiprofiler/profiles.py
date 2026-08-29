@@ -499,35 +499,50 @@ def benchmark(
         (bound constrained), 'l' (linearly constrained), and 'n' (nonlinearly
         constrained), such as 'b', 'ul', 'ubn'. Default is 'u'.
     mindim : int, optional
-        The minimum dimension of the problems to be selected. Default
-        is 1.
-    maxdim : int, optional
-        The maximum dimension of the problems to be selected. Default
-        is mindim + 1.
+        The minimum dimension of the problems to be selected. It must be a
+        finite integer greater than or equal to 1. Default is 1.
+    maxdim : int or positive infinity, optional
+        The maximum dimension of the problems to be selected. It must be an
+        integer greater than or equal to 1, or positive infinity. A positive
+        infinity (``np.inf``) means that no maximum dimension is imposed.
+        Default is mindim + 1.
     minb : int, optional
         The minimum number of bound constraints of the problems to be
-        selected. Default is 0.
-    maxb : int, optional
+        selected. It must be a finite integer greater than or equal to 0.
+        Default is 0.
+    maxb : int or positive infinity, optional
         The maximum number of bound constraints of the problems to be
-        selected. Default is minb + 10.
+        selected. It must be an integer greater than or equal to 0, or
+        positive infinity. A positive infinity (``np.inf``) means that no
+        maximum number of bound constraints is imposed. Default is minb + 10.
     minlcon : int, optional
         The minimum number of linear constraints of the problems to
-        be selected. Default is 0.
-    maxlcon : int, optional
+        be selected. It must be a finite integer greater than or equal to 0.
+        Default is 0.
+    maxlcon : int or positive infinity, optional
         The maximum number of linear constraints of the problems to
-        be selected. Default is minlcon + 10.
+        be selected. It must be an integer greater than or equal to 0, or
+        positive infinity. A positive infinity (``np.inf``) means that no
+        maximum number of linear constraints is imposed. Default is minlcon + 10.
     minnlcon : int, optional
         The minimum number of nonlinear constraints of the problems
-        to be selected. Default is 0.
-    maxnlcon : int, optional
+        to be selected. It must be a finite integer greater than or equal to 0.
+        Default is 0.
+    maxnlcon : int or positive infinity, optional
         The maximum number of nonlinear constraints of the problems
-        to be selected. Default is minnlcon + 10.
+        to be selected. It must be an integer greater than or equal to 0, or
+        positive infinity. A positive infinity (``np.inf``) means that no
+        maximum number of nonlinear constraints is imposed. Default is minnlcon + 10.
     mincon : int, optional
         The minimum number of linear and nonlinear constraints of the
-        problems to be selected. Default is min(minlcon, minnlcon).
-    maxcon : int, optional
+        problems to be selected. It must be a finite integer greater than or
+        equal to 0. Default is min(minlcon, minnlcon).
+    maxcon : int or positive infinity, optional
         The maximum number of linear and nonlinear constraints of the
-        problems to be selected. Default is max(maxlcon, maxnlcon).
+        problems to be selected. It must be an integer greater than or equal
+        to 0, or positive infinity. A positive infinity (``np.inf``) means
+        that no maximum number of constraints is imposed. Default is
+        max(maxlcon, maxnlcon).
     custom_problem_libs_path : str or Path, optional
         The path to a directory containing custom problem libraries, or a direct
         path to one custom problem library. Each custom problem library must

@@ -11,6 +11,15 @@ from pypdf import PdfWriter
 from .utils import FeatureName, ProfileOption, FeatureOption, ProblemOption, get_logger, print_log_message, shorten_log_message
 
 
+def _is_positive_infinity(value):
+    """Return whether *value* is a scalar positive infinity."""
+    return (
+        isinstance(value, (float, np.floating))
+        and np.isinf(value)
+        and value > 0
+    )
+
+
 def _custom_problem_library_names(custom_libs_path):
     """
     Return custom problem library names available under ``custom_libs_path``.
@@ -154,15 +163,15 @@ def check_validity_problem_options(problem_options):
         if problem_options[ProblemOption.MINDIM] < 1:
             raise ValueError(f'Option {ProblemOption.MINDIM} must be at least 1.')
     if ProblemOption.MAXDIM in problem_options:
-        if not np.isinf(problem_options[ProblemOption.MAXDIM]):
+        if not _is_positive_infinity(problem_options[ProblemOption.MAXDIM]):
             if isinstance(problem_options[ProblemOption.MAXDIM], (float, np.floating)) and float(problem_options[ProblemOption.MAXDIM]).is_integer():
                 problem_options[ProblemOption.MAXDIM] = int(problem_options[ProblemOption.MAXDIM])
             if isinstance(problem_options[ProblemOption.MAXDIM], np.integer):
                 problem_options[ProblemOption.MAXDIM] = int(problem_options[ProblemOption.MAXDIM])
             if not isinstance(problem_options[ProblemOption.MAXDIM], int):
-                raise TypeError(f'Option {ProblemOption.MAXDIM} must be an integer or np.inf.')
+                raise TypeError(f'Option {ProblemOption.MAXDIM} must be an integer or positive np.inf.')
             if problem_options[ProblemOption.MAXDIM] < 1:
-                raise ValueError(f'Option {ProblemOption.MAXDIM} must be at least 1 or np.inf.')
+                raise ValueError(f'Option {ProblemOption.MAXDIM} must be at least 1 or positive np.inf.')
     if ProblemOption.MINDIM in problem_options and ProblemOption.MAXDIM in problem_options:
         if problem_options[ProblemOption.MINDIM] > problem_options[ProblemOption.MAXDIM]:
             raise ValueError(f'Option {ProblemOption.MINDIM} cannot be larger than option {ProblemOption.MAXDIM}.')
@@ -177,15 +186,15 @@ def check_validity_problem_options(problem_options):
         if problem_options[ProblemOption.MINB] < 0:
             raise ValueError(f'Option {ProblemOption.MINB} must be nonnegative.')
     if ProblemOption.MAXB in problem_options:
-        if not np.isinf(problem_options[ProblemOption.MAXB]):
+        if not _is_positive_infinity(problem_options[ProblemOption.MAXB]):
             if isinstance(problem_options[ProblemOption.MAXB], (float, np.floating)) and float(problem_options[ProblemOption.MAXB]).is_integer():
                 problem_options[ProblemOption.MAXB] = int(problem_options[ProblemOption.MAXB])
             if isinstance(problem_options[ProblemOption.MAXB], np.integer):
                 problem_options[ProblemOption.MAXB] = int(problem_options[ProblemOption.MAXB])
             if not isinstance(problem_options[ProblemOption.MAXB], int):
-                raise TypeError(f'Option {ProblemOption.MAXB} must be an integer or np.inf.')
+                raise TypeError(f'Option {ProblemOption.MAXB} must be an integer or positive np.inf.')
             if problem_options[ProblemOption.MAXB] < 0:
-                raise ValueError(f'Option {ProblemOption.MAXB} must be nonnegative or np.inf.')
+                raise ValueError(f'Option {ProblemOption.MAXB} must be nonnegative or positive np.inf.')
     if ProblemOption.MINB in problem_options and ProblemOption.MAXB in problem_options:
         if problem_options[ProblemOption.MINB] > problem_options[ProblemOption.MAXB]:
             raise ValueError(f'Option {ProblemOption.MINB} cannot be larger than option {ProblemOption.MAXB}.')
@@ -200,15 +209,15 @@ def check_validity_problem_options(problem_options):
         if problem_options[ProblemOption.MINLCON] < 0:
             raise ValueError(f'Option {ProblemOption.MINLCON} must be nonnegative.')
     if ProblemOption.MAXLCON in problem_options:
-        if not np.isinf(problem_options[ProblemOption.MAXLCON]):
+        if not _is_positive_infinity(problem_options[ProblemOption.MAXLCON]):
             if isinstance(problem_options[ProblemOption.MAXLCON], (float, np.floating)) and float(problem_options[ProblemOption.MAXLCON]).is_integer():
                 problem_options[ProblemOption.MAXLCON] = int(problem_options[ProblemOption.MAXLCON])
             if isinstance(problem_options[ProblemOption.MAXLCON], np.integer):
                 problem_options[ProblemOption.MAXLCON] = int(problem_options[ProblemOption.MAXLCON])
             if not isinstance(problem_options[ProblemOption.MAXLCON], int):
-                raise TypeError(f'Option {ProblemOption.MAXLCON} must be an integer or np.inf.')
+                raise TypeError(f'Option {ProblemOption.MAXLCON} must be an integer or positive np.inf.')
             if problem_options[ProblemOption.MAXLCON] < 0:
-                raise ValueError(f'Option {ProblemOption.MAXLCON} must be nonnegative or np.inf.')
+                raise ValueError(f'Option {ProblemOption.MAXLCON} must be nonnegative or positive np.inf.')
     if ProblemOption.MINLCON in problem_options and ProblemOption.MAXLCON in problem_options:
         if problem_options[ProblemOption.MINLCON] > problem_options[ProblemOption.MAXLCON]:
             raise ValueError(f'Option {ProblemOption.MINLCON} cannot be larger than option {ProblemOption.MAXLCON}.')
@@ -223,15 +232,15 @@ def check_validity_problem_options(problem_options):
         if problem_options[ProblemOption.MINNLCON] < 0:
             raise ValueError(f'Option {ProblemOption.MINNLCON} must be nonnegative.')
     if ProblemOption.MAXNLCON in problem_options:
-        if not np.isinf(problem_options[ProblemOption.MAXNLCON]):
+        if not _is_positive_infinity(problem_options[ProblemOption.MAXNLCON]):
             if isinstance(problem_options[ProblemOption.MAXNLCON], (float, np.floating)) and float(problem_options[ProblemOption.MAXNLCON]).is_integer():
                 problem_options[ProblemOption.MAXNLCON] = int(problem_options[ProblemOption.MAXNLCON])
             if isinstance(problem_options[ProblemOption.MAXNLCON], np.integer):
                 problem_options[ProblemOption.MAXNLCON] = int(problem_options[ProblemOption.MAXNLCON])
             if not isinstance(problem_options[ProblemOption.MAXNLCON], int):
-                raise TypeError(f'Option {ProblemOption.MAXNLCON} must be an integer or np.inf.')
+                raise TypeError(f'Option {ProblemOption.MAXNLCON} must be an integer or positive np.inf.')
             if problem_options[ProblemOption.MAXNLCON] < 0:
-                raise ValueError(f'Option {ProblemOption.MAXNLCON} must be nonnegative or np.inf.')
+                raise ValueError(f'Option {ProblemOption.MAXNLCON} must be nonnegative or positive np.inf.')
     if ProblemOption.MINNLCON in problem_options and ProblemOption.MAXNLCON in problem_options:
         if problem_options[ProblemOption.MINNLCON] > problem_options[ProblemOption.MAXNLCON]:
             raise ValueError(f'Option {ProblemOption.MINNLCON} cannot be larger than option {ProblemOption.MAXNLCON}.')
@@ -246,15 +255,15 @@ def check_validity_problem_options(problem_options):
         if problem_options[ProblemOption.MINCON] < 0:
             raise ValueError(f'Option {ProblemOption.MINCON} must be nonnegative.')
     if ProblemOption.MAXCON in problem_options:
-        if not np.isinf(problem_options[ProblemOption.MAXCON]):
+        if not _is_positive_infinity(problem_options[ProblemOption.MAXCON]):
             if isinstance(problem_options[ProblemOption.MAXCON], (float, np.floating)) and float(problem_options[ProblemOption.MAXCON]).is_integer():
                 problem_options[ProblemOption.MAXCON] = int(problem_options[ProblemOption.MAXCON])
             if isinstance(problem_options[ProblemOption.MAXCON], np.integer):
                 problem_options[ProblemOption.MAXCON] = int(problem_options[ProblemOption.MAXCON])
             if not isinstance(problem_options[ProblemOption.MAXCON], int):
-                raise TypeError(f'Option {ProblemOption.MAXCON} must be an integer or np.inf.')
+                raise TypeError(f'Option {ProblemOption.MAXCON} must be an integer or positive np.inf.')
             if problem_options[ProblemOption.MAXCON] < 0:
-                raise ValueError(f'Option {ProblemOption.MAXCON} must be nonnegative or np.inf.')
+                raise ValueError(f'Option {ProblemOption.MAXCON} must be nonnegative or positive np.inf.')
     if ProblemOption.MINCON in problem_options and ProblemOption.MAXCON in problem_options:
         if problem_options[ProblemOption.MINCON] > problem_options[ProblemOption.MAXCON]:
             raise ValueError(f'Option {ProblemOption.MINCON} cannot be larger than option {ProblemOption.MAXCON}.')
