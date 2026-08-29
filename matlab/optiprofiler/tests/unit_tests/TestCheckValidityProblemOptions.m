@@ -17,8 +17,20 @@ classdef TestCheckValidityProblemOptions < matlab.unittest.TestCase
                 checked = checkValidityProblemOptions(upper, profile_options);
                 testCase.verifyEqual(checked.(upper_fields{i}), Inf);
 
+                single_upper = struct(upper_fields{i}, single(Inf));
+                checked = checkValidityProblemOptions(single_upper, profile_options);
+                testCase.verifyEqual(checked.(upper_fields{i}), single(Inf));
+
                 negative_upper = struct(upper_fields{i}, -Inf);
                 testCase.verifyError(@() checkValidityProblemOptions(negative_upper, profile_options), ...
+                    ['MATLAB:checkValidityProblemOptions:' upper_fields{i} 'NotValid']);
+
+                vector_upper = struct(upper_fields{i}, [Inf Inf]);
+                testCase.verifyError(@() checkValidityProblemOptions(vector_upper, profile_options), ...
+                    ['MATLAB:checkValidityProblemOptions:' upper_fields{i} 'NotValid']);
+
+                nan_upper = struct(upper_fields{i}, NaN);
+                testCase.verifyError(@() checkValidityProblemOptions(nan_upper, profile_options), ...
                     ['MATLAB:checkValidityProblemOptions:' upper_fields{i} 'NotValid']);
             end
 

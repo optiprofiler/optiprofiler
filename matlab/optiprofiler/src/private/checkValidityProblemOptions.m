@@ -78,7 +78,8 @@ function problem_options = checkValidityProblemOptions(problem_options, profile_
     end
     % Judge whether problem_options.maxdim is an integer greater or equal to 1, or equal to positive Inf.
     if isfield(problem_options, ProblemOptionKey.MAXDIM.value)
-        if (~isintegerscalar(problem_options.(ProblemOptionKey.MAXDIM.value)) || problem_options.(ProblemOptionKey.MAXDIM.value) < 1) && problem_options.(ProblemOptionKey.MAXDIM.value) ~= Inf
+        value = problem_options.(ProblemOptionKey.MAXDIM.value);
+        if ~(isintegerscalar(value) && value >= 1) && ~(isrealscalar(value) && isinf(value) && value > 0)
             error("MATLAB:checkValidityProblemOptions:maxdimNotValid", "The option `maxdim` should be a integer greater or equal to 1, or equal to Inf.");
         end
     end
@@ -98,7 +99,8 @@ function problem_options = checkValidityProblemOptions(problem_options, profile_
     end
     % Judge whether problem_options.maxb is an integer greater or equal to 0, or equal to positive Inf.
     if isfield(problem_options, ProblemOptionKey.MAXB.value)
-        if (~isintegerscalar(problem_options.(ProblemOptionKey.MAXB.value)) || problem_options.(ProblemOptionKey.MAXB.value) < 0) && problem_options.(ProblemOptionKey.MAXB.value) ~= Inf
+        value = problem_options.(ProblemOptionKey.MAXB.value);
+        if ~(isintegerscalar(value) && value >= 0) && ~(isrealscalar(value) && isinf(value) && value > 0)
             error("MATLAB:checkValidityProblemOptions:maxbNotValid", "The option `maxb` should be a integer greater or equal to 0, or equal to Inf.");
         end
     end
@@ -118,7 +120,8 @@ function problem_options = checkValidityProblemOptions(problem_options, profile_
     end
     % Judge whether problem_options.maxlcon is an integer greater or equal to 0, or equal to positive Inf.
     if isfield(problem_options, ProblemOptionKey.MAXLCON.value)
-        if (~isintegerscalar(problem_options.(ProblemOptionKey.MAXLCON.value)) || problem_options.(ProblemOptionKey.MAXLCON.value) < 0) && problem_options.(ProblemOptionKey.MAXLCON.value) ~= Inf
+        value = problem_options.(ProblemOptionKey.MAXLCON.value);
+        if ~(isintegerscalar(value) && value >= 0) && ~(isrealscalar(value) && isinf(value) && value > 0)
             error("MATLAB:checkValidityProblemOptions:maxlconNotValid", "The option `maxlcon` should be a integer greater or equal to 0, or equal to Inf.");
         end
     end
@@ -138,7 +141,8 @@ function problem_options = checkValidityProblemOptions(problem_options, profile_
     end
     % Judge whether problem_options.maxnlcon is an integer greater or equal to 0, or equal to positive Inf.
     if isfield(problem_options, ProblemOptionKey.MAXNLCON.value)
-        if (~isintegerscalar(problem_options.(ProblemOptionKey.MAXNLCON.value)) || problem_options.(ProblemOptionKey.MAXNLCON.value) < 0) && problem_options.(ProblemOptionKey.MAXNLCON.value) ~= Inf
+        value = problem_options.(ProblemOptionKey.MAXNLCON.value);
+        if ~(isintegerscalar(value) && value >= 0) && ~(isrealscalar(value) && isinf(value) && value > 0)
             error("MATLAB:checkValidityProblemOptions:maxnlconNotValid", "The option `maxnlcon` should be a integer greater or equal to 0, or equal to Inf.");
         end
     end
@@ -158,7 +162,8 @@ function problem_options = checkValidityProblemOptions(problem_options, profile_
     end
     % Judge whether problem_options.maxcon is an integer greater or equal to 0, or equal to positive Inf.
     if isfield(problem_options, ProblemOptionKey.MAXCON.value)
-        if (~isintegerscalar(problem_options.(ProblemOptionKey.MAXCON.value)) || problem_options.(ProblemOptionKey.MAXCON.value) < 0) && problem_options.(ProblemOptionKey.MAXCON.value) ~= Inf
+        value = problem_options.(ProblemOptionKey.MAXCON.value);
+        if ~(isintegerscalar(value) && value >= 0) && ~(isrealscalar(value) && isinf(value) && value > 0)
             error("MATLAB:checkValidityProblemOptions:maxconNotValid", "The option `maxcon` should be a integer greater or equal to 0, or equal to Inf.");
         end
     end
