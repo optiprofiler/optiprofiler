@@ -125,7 +125,7 @@ function drawLogRatioDetail(ax_log_ratio, x_log_ratio, y_log_ratio, ratio_max_lo
         y_label = ylabel(ax_log_ratio, ylabel_str, 'Interpreter', 'latex', 'FontSize', 11);
         set(y_label, 'Units', 'normalized');
         label_position = y_label.Position;
-        label_position(1) = -0.045;
+        label_position(1) = -0.05;
         y_label.Position = label_position;
     end
 end
