@@ -85,7 +85,8 @@ def test_score_only_needs_no_figures_or_files(tmp_path, monkeypatch, caplog, lin
         plt.close(caller_figure)
 
 
-def test_file_plots_do_not_use_pyplot_managers(tmp_path, monkeypatch):
+@pytest.mark.parametrize('line_styles', [[':', '--'], ['solid', 'dashdot'], [(0, (1, 2)), 'dotted']])
+def test_file_plots_do_not_use_pyplot_managers(tmp_path, monkeypatch, line_styles):
     caller_figure, caller_axes = plt.subplots()
     caller_axes.plot([0, 1], [1, 0])
     existing_numbers = plt.get_fignums()
@@ -98,7 +99,7 @@ def test_file_plots_do_not_use_pyplot_managers(tmp_path, monkeypatch):
     monkeypatch.setattr(plt, 'new_figure_manager', reject_figure_manager)
     options = benchmark_options(tmp_path)
     options['draw_hist_plots'] = 'sequential'
-    options['line_styles'] = [':', '--']
+    options['line_styles'] = line_styles
     try:
         results = benchmark([initial_point_solver, zero_point_solver], **options)
         scores, _, _ = results
