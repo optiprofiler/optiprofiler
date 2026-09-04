@@ -408,8 +408,9 @@ class TestDrawProfiles:
             None, None, None, False, True, True, False,
             self._make_profile_options(), curves,
         )
-        assert fig_perf is not None
-        assert fig_data is not None
+        assert fig_perf is None
+        assert fig_data is None
+        assert fig_log_ratio is None
         assert curves['perf'][0][0] is not None
         assert curves['data'][0][0] is not None
         plt.close('all')
@@ -429,8 +430,11 @@ class TestDrawProfiles:
             None, None, None, False, True, True, False,
             self._make_profile_options(), curves,
         )
-        assert fig_perf is not None
-        plt.close('all')
+        assert fig_perf is None
+        assert fig_data is None
+        assert fig_log_ratio is None
+        assert curves['perf'][0][0] is not None
+        assert curves['data'][0][0] is not None
 
     def test_many_solver_summary_axes_keep_own_outside_legend(self):
         n_problems, n_solvers, n_runs = 3, 11, 1

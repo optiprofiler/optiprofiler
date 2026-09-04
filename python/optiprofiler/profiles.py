@@ -18,9 +18,10 @@ from multiprocessing.reduction import ForkingPickler
 from pathlib import Path
 from typing import Any, Callable
 
+import matplotlib
 import numpy as np
 from cycler import cycler
-from matplotlib import pyplot as plt
+from matplotlib.figure import Figure
 from matplotlib.colors import is_color_like
 from matplotlib.lines import Line2D
 from matplotlib.backends import backend_pdf
@@ -1271,6 +1272,17 @@ def _benchmark(
                 _close_logging_resources(logging_resources)
             return solver_scores, None, None
 
+    # Preserve completed numerical results before sequential history rendering.
+    # On load, these are the filtered/recomputed results for the new output,
+    # not the original input file. Parallel history still runs during solving.
+    if not profile_options[ProfileOption.SCORE_ONLY]:
+        try:
+            save_results_to_h5(results_plibs, path_log / 'data_for_loading.h5')
+        except Exception as exc:
+            if not profile_options[ProfileOption.SILENT]:
+                logger.warning('Failed to save the data of the current experiment.')
+                logger.warning(f'Error message: {shorten_log_message(exc)}')
+
     # Draw history plots sequentially if draw_hist_plots is set to 'sequential'.
     # On the load path this loop is the only drawing mechanism (parallel drawing
     # happens during solving, which is skipped when loading), so it also serves
@@ -1322,18 +1334,6 @@ def _benchmark(
                         logger.warning('Failed to merge the history plots to a single PDF file.')
                         logger.warning(f'Error message: {shorten_log_message(exc)}')
 
-    # Store the data for loading.
-    # This HDF5 file contains all the numerical results of the experiment.
-    # It can be used to reload the experiment state using the 'load' option.
-    try:
-        save_results_to_h5(results_plibs, path_log / 'data_for_loading.h5')
-    except Exception as exc:
-        if not profile_options[ProfileOption.SILENT]:
-            logger.warning('Failed to save the data of the current experiment.')
-            logger.warning(f'Error message: {shorten_log_message(exc)}')
-
-
-
     # Write the report file.
     write_report(profile_options, results_plibs, path_report, path_readme_log)
 
@@ -1363,15 +1363,15 @@ def _benchmark(
         n_rows += 1
     is_summary = n_rows > 0
     multiplier = 2 if is_output_based else 1
-    default_figsize = plt.rcParams['figure.figsize']
+    default_figsize = matplotlib.rcParams['figure.figsize']
     default_width = default_figsize[0]
     default_height = default_figsize[1]
     summary_profile_width = default_width + summary_legend_extra_width(n_solvers, default_width, solver_names)
     summary_width = len(tolerances) * summary_profile_width
 
-    with plt.rc_context(profile_context):
-        if is_summary:
-            fig_summary = plt.figure(figsize=(summary_width, multiplier * n_rows * default_height), layout='constrained')
+    with matplotlib.rc_context(profile_context):
+        if is_saving and is_summary:
+            fig_summary = Figure(figsize=(summary_width, multiplier * n_rows * default_height), layout='constrained')
             if multiplier == 2:
                 fig_summary_hist, fig_summary_out = fig_summary.subfigures(2, 1)
                 subfigs_summary_hist = np.atleast_1d(fig_summary_hist.subfigures(n_rows, 1))
@@ -1592,15 +1592,11 @@ def _benchmark(
                         fig_log_ratio_out.savefig(pdf_log_ratio_out, bbox_inches='tight')
                         pdf_log_ratio_out_summary.savefig(fig_log_ratio_out, bbox_inches='tight')
                 
-            # Close the individual figures.
-            plt.close(fig_perf_hist)
-            plt.close(fig_perf_out)
-            plt.close(fig_data_hist)
-            plt.close(fig_data_out)
-            if fig_log_ratio_hist is not None:
-                plt.close(fig_log_ratio_hist)
-            if fig_log_ratio_out is not None:
-                plt.close(fig_log_ratio_out)
+            # These file-only figures are not registered with pyplot.
+            for figure in (fig_perf_hist, fig_perf_out, fig_data_hist, fig_data_out,
+                           fig_log_ratio_hist, fig_log_ratio_out):
+                if figure is not None:
+                    figure.clear()
             
         # Close the summary pdf files.
         if is_saving:
@@ -1740,7 +1736,7 @@ def _benchmark(
 
         # Save the summary for the current feature.
         # Use rc_context to ensure LaTeX rendering is applied to the title
-        with plt.rc_context(profile_context):
+        with matplotlib.rc_context(profile_context):
             fig_summary_hist.supylabel('History-based profiles', fontsize='xx-large', horizontalalignment='right')
             if fig_summary_out is not None:
                 fig_summary_out.supylabel('Output-based profiles', fontsize='xx-large', horizontalalignment='right')
@@ -1751,7 +1747,7 @@ def _benchmark(
         if not profile_options[ProfileOption.SILENT]:
             logger.info('The summary PDF of all the profiles is created.')
 
-        plt.close(fig_summary)
+        fig_summary.clear()
 
     # Save curves to file.
     if is_saving:
@@ -2149,7 +2145,7 @@ def _quote_profile_text(text, profile_context):
 
 
 def _history_title_fontsize(title_text, default_width):
-    dpi = plt.rcParams.get('figure.dpi', 100)
+    dpi = matplotlib.rcParams.get('figure.dpi', 100)
     return min(11, 1.2 * default_width * dpi / max(len(title_text), 1))
 
 
@@ -2166,8 +2162,8 @@ def _save_problem_history_pdf(pdf_path, mode, problem_name, problem_type, proble
     pdf_path = Path(pdf_path)
     pdf_path.parent.mkdir(parents=True, exist_ok=True)
 
-    with plt.rc_context(profile_context):
-        fig_summary = plt.figure(figsize=(summary_profile_width * n_cols, default_height * n_rows))
+    with matplotlib.rc_context(profile_context):
+        fig_summary = Figure(figsize=(summary_profile_width * n_cols, default_height * n_rows))
         try:
             title_text = _format_problem_feature_title(problem_name, profile_options[ProfileOption.FEATURE_STAMP], profile_context)
             title_fontsize = _history_title_fontsize(title_text, default_width)
@@ -2197,13 +2193,13 @@ def _save_problem_history_pdf(pdf_path, mode, problem_name, problem_type, proble
 
             fig_summary.savefig(pdf_path, bbox_inches='tight')
         finally:
-            plt.close(fig_summary)
+            fig_summary.clear()
 
 
 def _export_problem_history_plots(problem_name, problem_type, problem_dim, solver_names,
                                   fun_history, maxcv_history, merit_history, fun_init, maxcv_init, merit_init,
                                   n_eval, profile_options, path_hist_plots):
-    default_figsize = plt.rcParams['figure.figsize']
+    default_figsize = matplotlib.rcParams['figure.figsize']
     default_width = default_figsize[0]
     default_height = default_figsize[1]
     summary_profile_width = default_width + summary_legend_extra_width(len(solver_names), default_width, solver_names)
