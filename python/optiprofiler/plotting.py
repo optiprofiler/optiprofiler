@@ -10,9 +10,10 @@ from inspect import signature
 from multiprocessing import Pool
 from pathlib import Path
 
+import matplotlib
 import numpy as np
 from cycler import cycler
-from matplotlib import pyplot as plt
+from matplotlib.figure import Figure
 from matplotlib.colors import is_color_like
 from matplotlib.lines import Line2D
 from matplotlib.backends import backend_pdf
@@ -62,23 +63,22 @@ def draw_profiles(work, problem_dimensions, solver_names, tolerance_latex, i_tol
     solver_names = [format_profile_text(name, profile_context) for name in solver_names]
     n_solvers = work.shape[1]
 
-    # Create the individual figures.
-    fig_perf, ax_perf = plt.subplots()
-    fig_data, ax_data = plt.subplots()
-    if n_solvers > 2:
-        fig_log_ratio, ax_log_ratio = None, None
-    else:
-        fig_log_ratio, ax_log_ratio = plt.subplots()
-
     # Calculate the performance and data profiles.
     x_perf, y_perf, ratio_max_perf, x_data, y_data, ratio_max_data, curves = _get_extended_performances_data_profile_axes(work, problem_dimensions, profile_options, curves)
     if n_solvers == 2:
         x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, curves = _get_log_ratio_profile_axes(work, curves)
     
     if profile_options[ProfileOption.SCORE_ONLY]:
-        return fig_perf, fig_data, fig_log_ratio, curves
+        return None, None, None, curves
 
-    
+    # File-only figures do not need pyplot's backend or GUI figure managers.
+    fig_perf, fig_data = Figure(), Figure()
+    ax_perf, ax_data = fig_perf.subplots(), fig_data.subplots()
+    if n_solvers > 2:
+        fig_log_ratio, ax_log_ratio = None, None
+    else:
+        fig_log_ratio = Figure()
+        ax_log_ratio = fig_log_ratio.subplots()
 
     # Draw the performance profiles
     _draw_perf_detail(ax_perf, x_perf, y_perf, ratio_max_perf, solver_names, profile_options, tolerance_latex)
@@ -186,7 +186,7 @@ def _draw_performance_data_profiles(ax, x, y, solver_names, profile_options):
     else:
         raise ValueError("Unknown {ProfileOption.ERRORBAR_TYPE.value}: {profile_options[ProfileOption.ERRORBAR_TYPE]}")
 
-    with plt.rc_context(profile_context):
+    with matplotlib.rc_context(profile_context):
         for i_solver in range(n_solvers):
             x_stairs = np.repeat(x[:, i_solver], 2)[1:]
             y_mean_stairs = np.repeat(y_mean[:, i_solver], 2)[:-1]
@@ -221,7 +221,7 @@ def _draw_log_ratio_profiles(ax, x, y, ratio_max, n_solvers_equal, solver_names,
     n_below = np.sum(y < 0) - n_solvers_equal
     n_above = np.sum(y > 0) - n_solvers_equal
 
-    with plt.rc_context(profile_context):
+    with matplotlib.rc_context(profile_context):
         bar_colors = profile_options[ProfileOption.BAR_COLORS][:2]
         if n_solvers_equal > 0:
             ax.bar(x[:n_solvers_equal], y[:n_solvers_equal], color=bar_colors[0], alpha=0.5)
@@ -622,7 +622,7 @@ def draw_hist(fun_histories, maxcv_histories, merit_histories, fun_init, maxcv_i
     
     # Convert default_height from inches to pixels for fontsize calculation.
     # MATLAB uses pixels directly, while matplotlib uses inches.
-    dpi = plt.rcParams.get('figure.dpi', 100)
+    dpi = matplotlib.rcParams.get('figure.dpi', 100)
     default_height_px = default_height * dpi
     profile_context = set_profile_context(profile_options)
     
@@ -633,7 +633,7 @@ def draw_hist(fun_histories, maxcv_histories, merit_histories, fun_init, maxcv_i
         else:
             label = base_label
         fontsize = min(10, 1.2 * default_height_px / len(f"{base_label} shifted above by ${formatted_shift}$"))
-        with plt.rc_context(profile_context):
+        with matplotlib.rc_context(profile_context):
             ax.set_ylabel(label, fontsize=min(fontsize, _HISTORY_LABELSIZE), labelpad=_HISTORY_YLABEL_PAD)
     
     # Draw and label function value histories.
@@ -900,7 +900,7 @@ def draw_fun_maxcv_merit_hist(ax, y, solver_names, is_cum, problem_n, y_shift, n
     xr_lim = 1 / (problem_n + 1)
     is_log_scale = False
 
-    with plt.rc_context(profile_context):
+    with matplotlib.rc_context(profile_context):
         for i_solver in range(n_solvers):
             # Truncate the histories according to the function evaluations of each solver.
             i_x = x_indices[i_solver]
