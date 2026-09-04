@@ -366,12 +366,12 @@ def _benchmark(
         Default line colors are from the matplotlib tab10 color cycle. Note
         that if the number of solvers is greater than the number of colors,
         we will cycle through the colors.
-    line_styles : list of str, optional
-        The styles of the lines in the plots. It can be a list
-        of strs that are the combinations of line styles ('-', '-.',
-        '--', ':') and markers ('o', '+', '*', '.', 'x', 's', 'd', '^', 'v',
-        '>', '<', 'p', 'h'). Default line style order is ['-', '-.', '--',
-        ':']. Note that if the number of solvers is greater than the number
+    line_styles : list, optional
+        The Matplotlib line styles, such as '-', '--', '-.', ':', their
+        names (e.g., 'solid' or 'dashed'), or dash tuples (offset, dash_sequence).
+        Color/marker format strings such as 'r--' or '-o' are not line styles.
+        Default line style order is ['-', '-.', '--', ':'].
+        Note that if the number of solvers is greater than the number
         of line styles, we will cycle through the styles.
     line_widths : float or list, optional
         The widths of the lines in the plots. It should be a
