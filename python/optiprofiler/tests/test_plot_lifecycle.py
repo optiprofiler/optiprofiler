@@ -53,7 +53,8 @@ def benchmark_options(tmp_path):
     )
 
 
-def test_score_only_needs_no_figures_or_files(tmp_path, monkeypatch, caplog):
+@pytest.mark.parametrize('line_styles', [None, ['-', '--'], ['solid', 'dashdot'], [(0, (1, 2)), 'dotted']])
+def test_score_only_needs_no_figures_or_files(tmp_path, monkeypatch, caplog, line_styles):
     caller_figure, caller_axes = plt.subplots()
     caller_axes.plot([0, 1], [1, 0])
     backend = matplotlib.get_backend()
@@ -64,6 +65,8 @@ def test_score_only_needs_no_figures_or_files(tmp_path, monkeypatch, caplog):
     monkeypatch.setattr(Figure, '__init__', reject_figure_creation)
     options = benchmark_options(tmp_path)
     options.update(score_only=True, silent=False)
+    if line_styles is not None:
+        options['line_styles'] = line_styles
     try:
         for _ in range(2):
             scores, profile_scores, curves = benchmark(
@@ -95,6 +98,7 @@ def test_file_plots_do_not_use_pyplot_managers(tmp_path, monkeypatch):
     monkeypatch.setattr(plt, 'new_figure_manager', reject_figure_manager)
     options = benchmark_options(tmp_path)
     options['draw_hist_plots'] = 'sequential'
+    options['line_styles'] = [':', '--']
     try:
         results = benchmark([initial_point_solver, zero_point_solver], **options)
         scores, _, _ = results
@@ -128,6 +132,22 @@ def test_file_plots_do_not_use_pyplot_managers(tmp_path, monkeypatch):
             for path in tmp_path.rglob('*') if path.is_file()
         } == original_hashes
         assert plt.get_fignums() == existing_numbers
+    finally:
+        plt.close(caller_figure)
+
+
+@pytest.mark.parametrize('line_styles', [[], ['bad-style'], ['r--'], [(0, (1, 'bad'))]])
+def test_invalid_line_styles_do_not_touch_caller_figure(tmp_path, line_styles):
+    caller_figure, caller_axes = plt.subplots()
+    caller_axes.plot([0, 1], [1, 0])
+    try:
+        options = benchmark_options(tmp_path)
+        options.update(score_only=True, line_styles=line_styles)
+        with pytest.raises(ValueError, match='line styles|empty list'):
+            benchmark([initial_point_solver, zero_point_solver], **options)
+        assert plt.fignum_exists(caller_figure.number)
+        assert len(caller_axes.lines) == 1
+        assert list(tmp_path.iterdir()) == []
     finally:
         plt.close(caller_figure)
 

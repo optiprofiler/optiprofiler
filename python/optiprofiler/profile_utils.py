@@ -4,8 +4,8 @@ import textwrap
 from collections.abc import Mapping
 from pathlib import Path
 import numpy as np
-from matplotlib import pyplot as plt
 from matplotlib.colors import is_color_like
+from matplotlib.lines import Line2D
 from pypdf import PdfWriter
 
 
@@ -531,8 +531,9 @@ def check_validity_profile_options(solvers, profile_options):
             raise ValueError(f'Option {ProfileOption.LINE_STYLES} cannot be an empty list.')
         def is_valid_linestyle(style):
             try:
-                plt.plot([0, 1], [0, 1], style)
-                plt.close()
+                # Validate the rendered property without creating a GUI figure
+                # or drawing into (and closing) the caller's current axes.
+                Line2D([], [], linestyle=style)
                 return True
             except Exception:
                 return False
