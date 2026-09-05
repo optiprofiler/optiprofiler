@@ -118,6 +118,8 @@ Options should be specified in a struct. The following are the available fields 
 
   - **savepath**: the path to store the results. Default is ``'pwd'``, the current working directory.
 
+    Saving requires the Java Virtual Machine (JVM); do not start MATLAB with ``-nojvm``. This requirement does not apply when ``score_only`` is ``true``.
+
   - **score_fun**: the scoring function to calculate the scores of the solvers. It should be a function handle
 
       ``profile_scores -> solver_scores``,
