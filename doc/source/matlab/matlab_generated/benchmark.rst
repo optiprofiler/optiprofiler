@@ -14,7 +14,7 @@ benchmark
 
 **solver_scores** = **benchmark**\(**solvers**, **options**) creates profiles for the given **solvers** with options specified in the struct **options**. See *Options* part for more details.
 
-**solver_scores** = **benchmark**\(**options**) creates profiles with options specified in the struct **options**. Note that the struct **options** should at least contain the option **load** with the value **\'latest\'** or a time stamp of an experiment in the format of 'yyyyMMdd_HHmmss'. In this case, we will load the data from the specified experiment and draw the profiles.
+**solver_scores** = **benchmark**\(**options**) creates profiles with options specified in the struct **options**. Note that the struct **options** should at least contain the option **load** with the value **\'latest\'** or a time stamp of an experiment in the format of 'yyyyMMdd_HHmmss', optionally followed by a collision suffix such as '_001'. In this case, we will load the data from the specified experiment and draw the profiles.
 
 [**solver_scores**, **profile_scores**] = **benchmark**\(...) returns a 4D tensor **profile_scores** containing scores for all profiles. See **score_fun** in *Options* part for more details.
 
@@ -86,7 +86,7 @@ Options should be specified in a struct. The following are the available fields 
 
   - **line_widths**: the widths of the lines in the plots. It should be a positive scalar or a vector. Default is ``1.5``. Note that if the number of solvers is greater than the number of line widths, we will cycle through the widths.
 
-  - **load**: loading the stored data from a completed experiment and draw profiles. It can be either ``'latest'`` or a time stamp of an experiment in the format of 'yyyyMMdd_HHmmss'. No default.
+  - **load**: loading the stored data from a completed experiment and draw profiles. It can be either ``'latest'`` or a time stamp of an experiment in the format of 'yyyyMMdd_HHmmss', optionally followed by a collision suffix such as '_001'. No default.
 
   - **max_eval_factor**: the factor multiplied to each problem's dimension to get the maximum number of evaluations for each problem. Default is ``500``.
 
@@ -106,7 +106,7 @@ Options should be specified in a struct. The following are the available fields 
             +\infty, & \text{if } v(x) > v_2,
         \end{cases}
 
-    where :math:`v_1 = \min(0.01,\; 10^{-10} \max(1, v_0))`, :math:`v_2 = \max(0.1,\; 2v_0)`, and :math:`v_0` is the initial maximum constraint violation. If :math:`\varphi(x_0) = +\infty` for a problem/run, the convergence test is degenerate; by convention, all solvers are declared to pass that problem/run. These cases are listed in ``test_log/report.txt``.
+    where :math:`v_1 = \min(0.01,\; 10^{-10} \max(1, v_0))`, :math:`v_2 = \max(0.1,\; 2v_0)`, and :math:`v_0` is the initial maximum constraint violation. NaN objective or constraint values are invalid evaluations, even if a custom merit returns a finite value. Runs with undefined initial values are not declared passing. Otherwise, if :math:`\varphi(x_0) = +\infty`, the existing degenerate-test convention accepts valid evaluations. Both cases are listed in ``test_log/report.txt``.
 
   - **n_jobs**: the number of parallel jobs to run the test. Default is a conservative number of workers, chosen as about half of the available workers (at least 2 when more than one worker is available).
   

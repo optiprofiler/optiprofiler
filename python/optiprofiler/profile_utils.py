@@ -837,6 +837,11 @@ def compute_merit_values(merit_fun, fun_values, maxcv_values, maxcv_init):
 
     vectorized_merit_fun = np.vectorize(merit_fun)
     merit_values = vectorized_merit_fun(fun_values, maxcv_values, maxcv_init_b)
+    # A custom merit callback must not turn an invalid raw evaluation into a
+    # finite reference value. Preserve the callback's policy for +/-Inf.
+    invalid = np.isnan(fun_values) | np.isnan(maxcv_values)
+    if np.any(invalid):
+        merit_values = np.where(invalid, np.inf, merit_values)
 
     return merit_values
 
@@ -1045,11 +1050,9 @@ def write_report(profile_options, results_plibs, path_report, path_readme_log):
                             'The plain computation times must have the same number of dimensions as '
                             'the main computation times.'
                         )
-                    computation_times = np.concatenate(
-                        (computation_times, np.full_like(computation_times_plain, np.nan)),
-                        axis=2,
-                    )
                     plain_runs = computation_times_plain.shape[2]
+                    padding = np.full(computation_times.shape[:2] + (plain_runs,), np.nan)
+                    computation_times = np.concatenate((computation_times, padding), axis=2)
                     for i_problem, pname in enumerate(problem_names):
                         if pname in problem_names_plain:
                             idx = problem_names_plain.index(pname)
@@ -1138,6 +1141,43 @@ def write_report(profile_options, results_plibs, path_report, path_readme_log):
             logger.warning(f'Error message: {shorten_log_message(exc)}')
 
 
+def _mask_invalid_merits(results_plib):
+    """Invalidate cached merits only where saved raw evaluations are NaN.
+
+    Mutate and return one library record, including its nested plain results.
+    Legacy helper records without raw values retain their existing merits.
+    """
+    if not results_plib:
+        return results_plib
+    for suffix in ('histories', 'outs', 'inits'):
+        merit_key = 'merit_' + suffix
+        if merit_key not in results_plib:
+            continue
+        merits = np.asarray(results_plib[merit_key])
+        if suffix == 'inits' and merits.ndim == 1:
+            for raw_key in ('fun_inits', 'maxcv_inits'):
+                raw = np.asarray(results_plib.get(raw_key, []))
+                if raw.ndim == 2:
+                    merits = np.broadcast_to(merits[:, None], raw.shape).copy()
+                    results_plib[merit_key] = merits
+                    break
+        invalid = np.zeros(merits.shape, dtype=bool)
+        for prefix in ('fun_', 'maxcv_'):
+            raw_key = prefix + suffix
+            if raw_key not in results_plib:
+                continue
+            raw_invalid = np.isnan(results_plib[raw_key])
+            if suffix == 'inits' and raw_invalid.ndim == 1 and merits.ndim == 2:
+                raw_invalid = raw_invalid[:, None]
+            invalid |= raw_invalid
+        if np.any(invalid):
+            results_plib[merit_key] = np.where(invalid, np.inf, merits)
+    plain = results_plib.get('results_plib_plain')
+    if plain:
+        _mask_invalid_merits(plain)
+    return results_plib
+
+
 def process_results(results_plibs, profile_options):
     """
     Processes results from results_plibs.
@@ -1158,6 +1198,13 @@ def process_results(results_plibs, profile_options):
             r[name] = field_unified
         return results_plibs
 
+    # Padding is local to this merge. Keep the caller's merit/raw shapes aligned
+    # for saving or processing the same results again; arrays need no deep copy.
+    results_plibs = [record.copy() for record in results_plibs]
+    for record in results_plibs:
+        if record.get('results_plib_plain'):
+            record['results_plib_plain'] = record['results_plib_plain'].copy()
+
     merit_histories_merged = []
     merit_outs_merged = []
     merit_inits_merged = []
@@ -1165,6 +1212,9 @@ def process_results(results_plibs, profile_options):
     problem_names_merged = []
     problem_dims_merged = []
 
+    # Old saved custom-merit arrays may predate raw-NaN validation.
+    for results_plib in results_plibs:
+        _mask_invalid_merits(results_plib)
     results_plibs = unify_length(results_plibs, 'merit_histories')
     for results_plib in results_plibs:
         merit_histories_merged.append(results_plib['merit_histories'])
@@ -1173,8 +1223,6 @@ def process_results(results_plibs, profile_options):
         n_evals_merged.append(results_plib['n_evals'])
         problem_dims_merged.append(results_plib['problem_dims'])
         problem_names_merged.extend(results_plib['problem_names'])
-        if 'results_plib_plain' in results_plib:
-            results_plib['merit_histories_plain'] = results_plib['results_plib_plain']['merit_histories']
 
     merit_histories_merged = np.concatenate(merit_histories_merged, axis=0)
     merit_outs_merged = np.concatenate(merit_outs_merged, axis=0)
@@ -1204,42 +1252,39 @@ def process_results(results_plibs, profile_options):
         merit_inits_for_min = merit_inits_merged
     merit_mins_merged = np.minimum(merit_mins_merged, merit_inits_for_min)
 
-    # If results_plib_plain exists and run_plain is True, redefine merit_mins_merged.
-    # For the plain feature we deliberately collapse over runs as well,
-    # matching MATLAB ``processResults.m`` lines 50-53: the plain feature
-    # is meant to provide a single solver-independent reference point per
-    # problem, and only the best value across all plain runs is used to
-    # tighten ``merit_mins_merged`` further.
-    if 'results_plib_plain' in results_plibs[0] and profile_options[ProfileOption.RUN_PLAIN]:
-        merit_histories_plain_merged = []
-        merit_inits_plain_merged = []
-        problem_names_plain_merged = []
-        results_plibs = unify_length(results_plibs, 'merit_histories_plain')
+    # Match plain rows inside their original library container, before losing
+    # library/variant identity in the merged arrays. Saved H5 data already keeps
+    # this nesting, including when load filters solvers or problem rows.
+    if profile_options.get(ProfileOption.RUN_PLAIN, False):
+        first_problem = 0
         for results_plib in results_plibs:
-            merit_histories_plain_merged.append(results_plib['merit_histories_plain'])
-            merit_inits_plain_merged.append(results_plib['results_plib_plain']['merit_inits'])
-            problem_names_plain_merged.extend(results_plib['results_plib_plain']['problem_names'])
-        merit_histories_plain_merged = np.concatenate(merit_histories_plain_merged, axis=0)
-        merit_inits_plain_merged = np.concatenate(merit_inits_plain_merged, axis=0)
-        # Collapse evaluation, run, and solver axes -> (n_problems_plain,)
-        merit_mins_plain_merged = np.nanmin(np.nanmin(np.nanmin(merit_histories_plain_merged, axis=3), axis=2), axis=1)
-        # Match MATLAB's linear-indexing semantics: the plain inits
-        # vector indexes as the FIRST run's value per problem (since
-        # ``merit_inits_plain_merged`` is column-major in MATLAB).
-        if merit_inits_plain_merged.ndim == 1:
-            init_for_plain = merit_inits_plain_merged
-        else:
-            init_for_plain = merit_inits_plain_merged[:, 0]
-        merit_mins_plain_merged = np.minimum(merit_mins_plain_merged, init_for_plain)
-        for i_problem, name in enumerate(problem_names_merged):
-            if name in problem_names_plain_merged:
-                idx = problem_names_plain_merged.index(name)
-                # Apply the same plain reference value across all runs
-                # of this problem, mirroring MATLAB's per-run loop.
-                merit_mins_merged[i_problem, :] = np.minimum(
-                    merit_mins_merged[i_problem, :],
-                    merit_mins_plain_merged[idx],
+            names = results_plib['problem_names']
+            offset = first_problem
+            first_problem += len(names)
+            plain = results_plib.get('results_plib_plain')
+            if not plain or not plain['problem_names']:
+                continue
+            plain_names = plain['problem_names']
+            if len(set(names)) != len(names) or len(set(plain_names)) != len(plain_names):
+                raise ValueError(
+                    'The run_plain reference is ambiguous: duplicate problem names '
+                    'within one problem library cannot be matched uniquely.'
                 )
+            # One reference per problem: reduce over all plain solvers, runs,
+            # and evaluations. fmin ignores invalid plain values, as MATLAB's
+            # min(..., omitnan) does, rather than erasing a valid featured value.
+            plain_mins = np.fmin.reduce(plain['merit_histories'], axis=(1, 2, 3))
+            plain_inits = plain['merit_inits']
+            # Preserve the first-run convention and legacy one-dimensional inits.
+            init_for_plain = plain_inits if plain_inits.ndim == 1 else plain_inits[:, 0]
+            plain_mins = np.fmin(plain_mins, init_for_plain)
+            plain_indices = {name: idx for idx, name in enumerate(plain_names)}
+            for i_problem, name in enumerate(names):
+                if name in plain_indices:
+                    row = offset + i_problem
+                    merit_mins_merged[row, :] = np.fmin(
+                        merit_mins_merged[row, :], plain_mins[plain_indices[name]],
+                    )
 
     return (merit_histories_merged, merit_outs_merged, merit_inits_merged, merit_mins_merged, n_evals_merged, problem_names_merged, problem_dims_merged)
 

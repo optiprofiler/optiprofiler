@@ -61,8 +61,9 @@ function writeReport(profile_options, results_plibs, path_report, path_readme_lo
                 results_plib_plain = results_plibs{i_plib}.results_plib_plain;
                 problem_names_plain = results_plib_plain.problem_names;
                 computation_times_plain = results_plib_plain.computation_times;
-                computation_times = cat(3, results_plib.computation_times, NaN(size(computation_times_plain)));
                 plain_runs = size(computation_times_plain, 3);
+                padding = NaN(size(computation_times, 1), size(computation_times, 2), plain_runs);
+                computation_times = cat(3, computation_times, padding);
                 for i_problem = 1:numel(problem_names)
                     idx = find(strcmp(problem_names{i_problem}, problem_names_plain), 1);
                     if ~isempty(idx)

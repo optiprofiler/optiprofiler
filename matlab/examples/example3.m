@@ -14,7 +14,7 @@ function example3()
     fprintf('\nStart Example 3...\n\n');
 
     % Start example 3.
-    options.load = 'latest';    % Load results from the latest run. You may set it to a specific timestamp (e.g., '20250528_163340') which is the last 15 characters of the folder name saving the results.
+    options.load = 'latest';    % Or use the ID from test_log/time_stamp_<ID>.txt (e.g., '20250528_163340' or '20250528_163340_001').
     options.mindim = 3;         % Select problems with dimension at least 3 from the loaded results.
     options.maxdim = 4;         % Select problems with dimension at most 4 from the loaded results.
     options.solvers_to_load = [1, 2];    % Load results of the first two solvers.

@@ -6,7 +6,7 @@
       "name": "s2mpj",
       "role": "bundled-default",
       "repository": "optiprofiler/s2mpj_python",
-      "commit": "9ebd196908a0085b3f07ef3c86fd34c88b1721fa",
+      "commit": "0e609519b1a38352122b4765a3dba9df76ad05aa",
       "api_version": 1,
       "gitlink": "python/optiprofiler/problem_libs/s2mpj"
     },
@@ -14,7 +14,7 @@
       "name": "pycutest",
       "role": "external",
       "repository": "optiprofiler/pycutest",
-      "commit": "696fec23723f17ee920e637d439d455c9cd7edcf",
+      "commit": "488ef21f8ca3cb712b6f9ff6b101cd710acb222b",
       "api_version": 1,
       "distribution": "optiprofiler-pycutest",
       "entry_point": "optiprofiler_pycutest:get_problem_library"

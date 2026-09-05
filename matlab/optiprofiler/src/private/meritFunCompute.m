@@ -78,4 +78,10 @@ function merit_values = meritFunCompute(merit_fun, fun_values, maxcv_values, max
 
     % Convert the cell array to a numeric array.
     merit_values = cell2mat(merit_values);
+    % A custom merit cannot make an undefined objective/constraint valid.
+    invalid = isnan(fun_values) | isnan(maxcv_values);
+    if any(invalid(:))
+        merit_values = double(merit_values);
+        merit_values(invalid) = Inf;
+    end
 end

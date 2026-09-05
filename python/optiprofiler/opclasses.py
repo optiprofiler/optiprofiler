@@ -637,7 +637,7 @@ class Feature:
             # constraints but specifies a custom affine transformation, we need to specially
             # handle the linear inequality constraints.
             A, b = self.modifier_affine(seed, problem)[:2]
-            if np.count_nonzero(A - np.diag(np.diagonal(A))) != 0:
+            if np.count_nonzero(A - np.diag(np.diagonal(A))) == 0:
                 return problem.aub @ A, problem.bub - problem.aub @ b
             """
             We need to specially handle bound constraints and linear inequality constraints.
@@ -1464,13 +1464,10 @@ class Problem:
                 raise TypeError('The argument `cub` for problem must be callable.')
             else:
                 try:
-                    if self._cub(self._x0) is not None:
-                        self._m_nonlinear_ub = self._cub(self._x0).size
-                    else:
-                        self._m_nonlinear_ub = 0
+                    c = _process_1d_array(self._cub(self._x0), 'The return value of the argument `cub` for problem must be a one-dimensional array.')
+                    self._m_nonlinear_ub = c.size
                 except Exception as err:
-                    logger = get_logger(__name__)
-                    logger.warning(f'Failed to evaluate the nonlinear inequality constraint function: {shorten_log_message(err)}')
+                    raise ValueError('Failed to determine the number of nonlinear inequality constraints at the initial guess.') from err
         self._m_nonlinear_eq = 0
         self._ceq = ceq
         if self._ceq is not None:
@@ -1478,13 +1475,10 @@ class Problem:
                 raise TypeError('The argument `ceq` for problem must be callable.')
             else:
                 try:
-                    if self._ceq(self._x0) is not None:
-                        self._m_nonlinear_eq = self._ceq(self._x0).size
-                    else:
-                        self._m_nonlinear_eq = 0
+                    c = _process_1d_array(self._ceq(self._x0), 'The return value of the argument `ceq` for problem must be a one-dimensional array.')
+                    self._m_nonlinear_eq = c.size
                 except Exception as err:
-                    logger = get_logger(__name__)
-                    logger.warning(f'Failed to evaluate nonlinear equality constraints: {shorten_log_message(err)}')
+                    raise ValueError('Failed to determine the number of nonlinear equality constraints at the initial guess.') from err
 
         # Preprocess the gradient and the Hessian of the objective function.
         self._grad = grad
@@ -2139,14 +2133,14 @@ class Problem:
         if self.aeq.size > 0:
             cv_linear = np.max(np.abs(self.aeq @ x - self.beq), initial=cv_linear)
         if self.ptype == 'l':
-            cv = max(cv_bounds, cv_linear)
+            cv = np.maximum(cv_bounds, cv_linear)
             return cv, cv_bounds, cv_linear, cv_nonlinear
         
         if self.m_nonlinear_ub > 0:
             cv_nonlinear = np.max(self.cub(x), initial=0.0)
         if self.m_nonlinear_eq > 0:
             cv_nonlinear = np.max(np.abs(self.ceq(x)), initial=cv_nonlinear)
-        cv = max(cv_bounds, cv_linear, cv_nonlinear)
+        cv = np.max([cv_bounds, cv_linear, cv_nonlinear])
         return cv, cv_bounds, cv_linear, cv_nonlinear
 
     def maxcv(self, x):
@@ -2177,7 +2171,7 @@ class Problem:
         if self.ptype == 'b':
             self._x0 = np.clip(self._x0, self.xl, self.xu)
         elif self.ptype == 'l' and self.m_linear_ub == 0 and np.all(self.xl == -np.inf) and np.all(self.xu == np.inf):
-            self._x0 = lstsq(self.aeq, self.beq - self.aeq @ self.x0)[0]
+            self._x0 = self.x0 + lstsq(self.aeq, self.beq - self.aeq @ self.x0)[0]
         elif self.ptype != 'u':
             bounds = Bounds(self.xl, self.xu)
             constraints = []
@@ -2748,7 +2742,7 @@ class FeaturedProblem(Problem):
             if self.aeq.size > 0:
                 cv_linear = np.max(np.abs(self.aeq @ x - self.beq), initial=cv_linear)
             if self.ptype == 'l':
-                cv = max(cv_bounds, cv_linear)
+                cv = np.maximum(cv_bounds, cv_linear)
                 return cv
             
             if self.m_nonlinear_ub > 0:
@@ -2757,7 +2751,7 @@ class FeaturedProblem(Problem):
                 cv_nonlinear = 0.0
             if self.m_nonlinear_eq > 0:
                 cv_nonlinear = np.max(np.abs(self.ceq(x, record_hist=False)), initial=cv_nonlinear)
-            cv = max(cv_bounds, cv_linear, cv_nonlinear)
+            cv = np.max([cv_bounds, cv_linear, cv_nonlinear])
             return cv
         else:
             # Generate the affine transformation.
