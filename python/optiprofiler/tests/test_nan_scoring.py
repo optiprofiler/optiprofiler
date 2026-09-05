@@ -20,6 +20,11 @@ def visit_one_again(fun, x0, *constraints):
     return visit_one(fun, x0, *constraints)
 
 
+def visit_initial(fun, x0, *constraints):
+    fun(x0)
+    return x0
+
+
 def invalid_then_valid(fun, x0, *constraints):
     fun(np.ones_like(x0))
     fun(x0)
@@ -130,3 +135,32 @@ def test_saved_raw_nan_validity_survives_load(nan_library, tmp_path, legacy):
     assert hashlib.sha256(source.read_bytes()).hexdigest() == digest
     report = next(source.parent.glob('*report*.txt')).read_text()
     assert 'undefined initial objective or constraint' in report
+
+
+@pytest.mark.parametrize('legacy_field,bad_name', [
+    ('fun_inits', 'NAN_INIT_FUN'), ('maxcv_inits', 'NAN_INIT_CV'),
+])
+@pytest.mark.parametrize('n_problems', [2, 3])
+def test_mixed_legacy_initial_dimensions_on_load(nan_library, tmp_path,
+                                                legacy_field, bad_name, n_problems):
+    names = ['FINITE', bad_name]
+    if n_problems == 3:
+        names.append('VALID_INF')
+    options = dict(nan_library, problem_names=names, score_only=False)
+    _, _, original = benchmark([visit_initial, visit_initial], **options)
+    source = next(tmp_path.glob('nan-scoring/**/data_for_loading.h5'))
+    # Keep one raw initialization per problem while the other raw field and
+    # cached merits retain their per-run layout. Test both square and unequal
+    # problem/run axes: NumPy must not mistake problem identity for run index.
+    with h5py.File(source, 'r+') as saved:
+        group = next(iter(saved.values()))
+        values = group[legacy_field][...][:, 0]
+        del group[legacy_field]
+        group.create_dataset(legacy_field, data=values)
+    digest = hashlib.sha256(source.read_bytes()).hexdigest()
+    _, _, loaded = benchmark(None, **dict(options, load='latest', score_only=True))
+    for channel in ['hist', 'out']:
+        expected = (n_problems - 1) / n_problems
+        assert passing_fraction(original, channel) == pytest.approx(expected)
+        assert passing_fraction(loaded, channel) == pytest.approx(expected)
+    assert hashlib.sha256(source.read_bytes()).hexdigest() == digest
