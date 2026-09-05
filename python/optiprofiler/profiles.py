@@ -1407,10 +1407,11 @@ def _benchmark(
         for result in results_plibs:
             n_p, _, _, length = result['fun_histories'].shape
             rows = slice(row_offset, row_offset + n_p)
-            bad_init = np.isnan(result['fun_inits']) | np.isnan(result['maxcv_inits'])
-            if bad_init.ndim == 1:
-                bad_init = bad_init[:, None]
-            invalid_initial[rows] = np.broadcast_to(bad_init, (n_p, n_runs))
+            # Normalize each legacy field before combining: a (problem,)
+            # vector must broadcast along runs, not across problem identities.
+            bad_fun_init = np.isnan(result['fun_inits']).reshape(n_p, -1)
+            bad_cv_init = np.isnan(result['maxcv_inits']).reshape(n_p, -1)
+            invalid_initial[rows] = np.broadcast_to(bad_fun_init | bad_cv_init, (n_p, n_runs))
             valid_histories[rows, :, :, :length] = ~(
                 np.isnan(result['fun_histories']) | np.isnan(result['maxcv_histories']))
             # Repeated tails and cross-library padding are not evaluations.
