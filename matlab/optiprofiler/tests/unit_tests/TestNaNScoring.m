@@ -18,7 +18,7 @@ classdef TestNaNScoring < matlab.unittest.TestCase
             cd(testCase.Directory);
             setenv('OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_REGISTRY', fullfile(testCase.Directory, 'registry.mat'));
             fixtures = fullfile(fileparts(mfilename('fullpath')), '../fixtures/nanvalidity');
-            if exist('registerProblemLibrary', 'file') == 2
+            if exist(fullfile(fileparts(which('benchmark')), 'registerProblemLibrary.m'), 'file') == 2
                 registerProblemLibrary(struct('name', 'nanvalidity', 'root', fixtures, ...
                     'select_function', 'nanvalidity_select', 'load_function', 'nanvalidity_load'));
             else

@@ -447,7 +447,7 @@ classdef FeaturedProblem < Problem
                 if ~isempty(obj.cub_)
                     cub_val = obj.cub(x, false);    % Do not record history
                     if ~isempty(cub_val)
-                        cv_nonlinear = max([cub_val; 0], [], 'includenan');
+                    cv_nonlinear = max([cub_val(:); 0], [], 'includenan');
                     else
                         cv_nonlinear = 0;
                     end
@@ -457,7 +457,7 @@ classdef FeaturedProblem < Problem
                 if ~isempty(obj.ceq_)
                     ceq_val = obj.ceq(x, false);    % Do not record history
                     if ~isempty(ceq_val)
-                        cv_nonlinear = max([abs(ceq_val); cv_nonlinear], [], 'includenan');
+                    cv_nonlinear = max([abs(ceq_val(:)); cv_nonlinear], [], 'includenan');
                     end
                 end
 

@@ -14,6 +14,26 @@ classdef TestConstraintValidity < matlab.unittest.TestCase
             testCase.verifyTrue(isnan(problem.maxcv(0)));
         end
 
+        function testRowConstraintValues(testCase)
+            for kind = {'cub', 'ceq'}
+                for values = {[-1, 2], [-1, NaN]}
+                    row = values{1};
+                    problem = Problem(struct('fun', @(x) 7, 'x0', 0, ...
+                        kind{1}, @(x) row));
+                    expected = 2;
+                    if any(isnan(row))
+                        expected = NaN;
+                    end
+                    testCase.verifyEqual(problem.maxcv(0), expected);
+                    for name = {'plain', 'quantized'}
+                        featured = FeaturedProblem(problem, Feature(name{1}), 10, 0);
+                        testCase.verifyEqual(featured.maxcv_init, expected);
+                        testCase.verifyEqual(featured.maxcv(0), expected);
+                    end
+                end
+            end
+        end
+
         function testNaNLinearConstraint(testCase)
             problem = Problem(struct('fun', @(x) 7, 'x0', 0, ...
                 'xl', -1, 'xu', 1, 'aub', 1, 'bub', NaN));
