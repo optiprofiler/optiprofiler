@@ -20,7 +20,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %   SOLVER_SCORES = BENCHMARK(OPTIONS) creates profiles with options specified
 %   in the struct OPTIONS. Note that the struct OPTIONS should at least contain
 %   the option `load` with the value 'latest' or a time stamp of an experiment
-%   in the format of 'yyyyMMdd_HHmmss'. In this case, we will load the data
+%   in the format of 'yyyyMMdd_HHmmss', optionally followed by a collision
+%   suffix such as '_001'. In this case, we will load the data
 %   from the specified experiment and draw the profiles.
 %
 %   [SOLVER_SCORES, PROFILE_SCORES] = BENCHMARK(...) returns a 4D tensor
@@ -116,7 +117,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         through the widths.
 %       - load: loading the stored data from a completed experiment and draw
 %         profiles. It can be either 'latest' or a time stamp of an experiment
-%         in the format of 'yyyyMMdd_HHmmss'. No default.
+%         in the format of 'yyyyMMdd_HHmmss', optionally followed by a
+%         collision suffix such as '_001'. No default.
 %       - max_eval_factor: the factor multiplied to each problem's dimension to
 %         get the maximum number of evaluations for each problem. Default is
 %         500.
@@ -139,9 +141,11 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %           varphi(x) = Inf                         if v(x) > v2
 %         where v1 = min(0.01, 1e-10 * max(1, v0)), v2 = max(0.1, 2 * v0),
 %         and v0 is the maximum constraint violation at the initial guess.
-%         If varphi(x_0) is Inf for a problem/run, the convergence test is
-%         degenerate; by convention, all solvers are declared to pass that
-%         problem/run. These cases are listed in test_log/report.txt.
+%         NaN objective or constraint values are invalid evaluations, even
+%         if a custom merit returns a finite value. Runs with undefined initial
+%         values are not declared passing. Otherwise, if varphi(x_0) is Inf,
+%         the existing degenerate-test convention accepts valid evaluations.
+%         Both cases are listed in test_log/report.txt.
 %       - n_jobs: the number of parallel jobs to run the test. Default is a
 %         conservative number of workers, chosen as about half of the
 %         available workers (at least 2 when more than one worker is
@@ -635,6 +639,11 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     [results_plibs, profile_options, problem_options] = loadResults(problem_options, profile_options);
+    if is_load
+        for i_plib = 1:numel(results_plibs)
+            results_plibs{i_plib} = maskInvalidMerits(results_plibs{i_plib});
+        end
+    end
     if is_load && isempty(results_plibs)
         % If we cannot load any valid results, we stop the execution.
         solver_scores = [];
@@ -716,8 +725,12 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     % Set the feature stamp.
     feature_stamp = profile_options.(ProfileOptionKey.FEATURE_STAMP.value);
 
-    % Create the stamp for the current experiment.
-    stamp = createStamp(solver_names, problem_options, feature_stamp, time_stamp, path_out);
+    % Reserve output exclusively, including when replotting a saved experiment.
+    if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
+        [stamp, time_stamp] = reserveExperimentDirectory(path_out, solver_names, problem_options, feature_stamp, time_stamp);
+    else
+        stamp = createStamp(solver_names, problem_options, feature_stamp, time_stamp, path_out);
+    end
 
     path_stamp = fullfile(path_out, stamp);
     path_log = fullfile(path_stamp, 'test_log');
@@ -726,15 +739,6 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%% Create the directory to store the results. %%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-    if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
-        if ~exist(path_stamp, 'dir')
-            mkdir(path_stamp);
-        else
-            rmdir(path_stamp, 's');
-            mkdir(path_stamp);
-        end
-    end
 
     if profile_options.(ProfileOptionKey.SCORE_ONLY.value)
         path_hist_plots = '';
@@ -747,12 +751,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 
     if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
         % Create the directory to store options and log files.
-        if ~exist(path_log, 'dir')
-            mkdir(path_log);
-        else
-            rmdir(path_log, 's');
-            mkdir(path_log);
-        end
+        mkdir(path_log);
     end
 
     if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
@@ -760,22 +759,6 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         initReadme(path_readme_log);
     else
         path_readme_log = '';
-    end
-
-    if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
-        % Create a txt file named by time_stamp to record the time_stamp.
-        path_time_stamp = fullfile(path_log, ['time_stamp_', time_stamp, '.txt']);
-        try
-            fid = fopen(path_time_stamp, 'w');
-            fprintf(fid, '%s', time_stamp);
-            fclose(fid);
-            addToReadme(path_readme_log, ['time_stamp_', time_stamp, '.txt'], 'File, recording the time stamp of the current experiment.');
-        catch ME
-            if ~profile_options.(ProfileOptionKey.SILENT.value)
-                printOptiProfilerMessage('INFO', sprintf("Failed to create the time_stamp file for folder '%s'.", path_log));
-                printOptiProfilerMessage('INFO', sprintf('Error message: %s', shortenMessageForLog(ME.message)));
-            end
-        end
     end
 
     if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value) && ~exist('problem', 'var')
@@ -1069,16 +1052,21 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                     printOptiProfilerMessage('INFO', sprintf('Start testing problems from the problem library "%s" with "plain" feature.', plib));
                 end
                 results_plib_plain = solveAllProblems(solvers, plib, feature_plain, problem_options, profile_options, false, {});
-                try
-                    results_plib_plain.merit_histories = meritFunCompute(merit_fun, results_plib_plain.fun_histories, results_plib_plain.maxcv_histories, results_plib_plain.maxcv_inits, 'multiple');
-                    results_plib_plain.merit_outs = meritFunCompute(merit_fun, results_plib_plain.fun_outs, results_plib_plain.maxcv_outs, results_plib_plain.maxcv_inits, 'multiple');
-                    results_plib_plain.merit_inits= meritFunCompute(merit_fun, results_plib_plain.fun_inits, results_plib_plain.maxcv_inits, results_plib_plain.maxcv_inits);
-                catch
-                    error("MATLAB:benchmark:merit_fun_error", "Error occurred while calculating the merit values. Please check the merit function.");
+                if isempty(results_plib_plain) || isempty(results_plib_plain.problem_names)
+                    if ~profile_options.(ProfileOptionKey.SILENT.value)
+                        printOptiProfilerMessage('WARNING', sprintf('No plain baseline was obtained from "%s"; keeping the featured results without a plain reference.', plib));
+                    end
+                else
+                    try
+                        results_plib_plain.merit_histories = meritFunCompute(merit_fun, results_plib_plain.fun_histories, results_plib_plain.maxcv_histories, results_plib_plain.maxcv_inits, 'multiple');
+                        results_plib_plain.merit_outs = meritFunCompute(merit_fun, results_plib_plain.fun_outs, results_plib_plain.maxcv_outs, results_plib_plain.maxcv_inits, 'multiple');
+                        results_plib_plain.merit_inits= meritFunCompute(merit_fun, results_plib_plain.fun_inits, results_plib_plain.maxcv_inits, results_plib_plain.maxcv_inits);
+                    catch
+                        error("MATLAB:benchmark:merit_fun_error", "Error occurred while calculating the merit values. Please check the merit function.");
+                    end
+                    % Keep the optional baseline nested under its own library.
+                    results_plib.results_plib_plain = results_plib_plain;
                 end
-
-                % Store data of the 'plain' feature for later calculating merit_mins.
-                results_plib.results_plib_plain = results_plib_plain;
             end
             
             results_plibs{i_plib} = results_plib;
@@ -1180,12 +1168,25 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 
     if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
         try
-            save(fullfile(path_log, 'data_for_loading.mat'), 'results_plibs');
+            % Version 7 can omit variables larger than 2 GB after issuing only a warning.
+            save(fullfile(path_log, 'data_for_loading.mat'), 'results_plibs', '-v7.3');
+            if isempty(whos('-file', fullfile(path_log, 'data_for_loading.mat'), 'results_plibs'))
+                error('OptiProfiler:SavedResultsMissing', 'The saved file does not contain results_plibs.');
+            end
             addToReadme(path_readme_log, 'data_for_loading.mat', 'File, storing the data of the current experiment for future loading.');
+            % Publish a load marker only once the numerical data is saved.
+            marker_name = ['time_stamp_', time_stamp, '.txt'];
+            fid = fopen(fullfile(path_log, marker_name), 'w');
+            if fid < 0
+                error('OptiProfiler:TimeStamp', 'Cannot create the experiment time stamp file.');
+            end
+            fprintf(fid, '%s', time_stamp);
+            fclose(fid);
+            addToReadme(path_readme_log, marker_name, 'File, recording the time stamp of the saved experiment.');
         catch ME
             if ~profile_options.(ProfileOptionKey.SILENT.value)
-                printOptiProfilerMessage('INFO', 'Failed to save the data of the current experiment.');
-                printOptiProfilerMessage('INFO', sprintf('Error message: %s', shortenMessageForLog(ME.message)));
+                printOptiProfilerMessage('WARNING', 'Failed to save the data of the current experiment. This experiment cannot be reloaded with the `load` option.');
+                printOptiProfilerMessage('WARNING', sprintf('Error message: %s', shortenMessageForLog(ME.message)));
             end
         end
     end
@@ -1275,27 +1276,41 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     solvers_all_diverge_hist = false(n_problems, n_runs, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value));
     solvers_all_diverge_out = false(n_problems, n_runs, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value));
 
-    % Detect "merit_init = Inf" problems (i.e. phi(x_0) = Inf at one or
-    % more runs). For these (problem, run) pairs the standard Moré-Wild
-    % convergence threshold tau*phi(x_0) + (1-tau)*phi_min collapses to
-    % Inf - Inf = NaN, so the convergence test cannot meaningfully
-    % discriminate solvers. By convention we then declare every solver to
-    % "pass" the convergence test on these (problem, run) pairs (see the
-    % threshold computation below). The problem names will also be
-    % recorded in the report under a dedicated section so the user can
-    % identify and inspect them. Note: by construction
-    % merit_min <= merit_init (see processResults.m), so the case
-    % "merit_init finite, merit_min = Inf" cannot occur; only the cases
-    % "merit_init = Inf, merit_min finite" and "merit_init = Inf,
-    % merit_min = Inf" need this special handling, and they follow the
-    % same code path.
-    merit_init_inf_mask = isinf(merit_inits_merged);
+    % Raw saved fields distinguish undefined evaluations from the existing
+    % Inf-initial merit convention, identically for new and loaded runs.
+    invalid_initial = false(n_problems, n_runs);
+    valid_histories = false(size(merit_histories_merged));
+    valid_outs = false(size(merit_outs_merged));
+    row_offset = 0;
+    for i_plib = 1:numel(results_plibs)
+        result = results_plibs{i_plib};
+        n_p = size(result.fun_histories, 1);
+        rows = row_offset + (1:n_p);
+        bad_init = isnan(result.fun_inits) | isnan(result.maxcv_inits);
+        if size(bad_init, 2) == 1 && n_runs > 1
+            bad_init = repmat(bad_init, 1, n_runs);
+        end
+        invalid_initial(rows, :) = bad_init;
+        n_history = size(result.fun_histories, 4);
+        valid_histories(rows, :, :, 1:n_history) = ...
+            ~(isnan(result.fun_histories) | isnan(result.maxcv_histories));
+        % Repeated tails and cross-library padding are not evaluations.
+        valid_histories(rows, :, :, 1:n_history) = ...
+            valid_histories(rows, :, :, 1:n_history) & ...
+            (reshape(1:n_history, 1, 1, 1, []) <= n_evals_merged(rows, :, :));
+        valid_outs(rows, :, :) = ~(isnan(result.fun_outs) | isnan(result.maxcv_outs));
+        row_offset = row_offset + n_p;
+    end
+    merit_init_inf_mask = isinf(merit_inits_merged) & ~invalid_initial;
     if ~profile_options.(ProfileOptionKey.SILENT.value) && any(merit_init_inf_mask(:))
         for i_problem = 1:n_problems
             if any(merit_init_inf_mask(i_problem, :))
-                printOptiProfilerMessage('WARNING', sprintf("Problem '%s' has merit_init = phi(x_0) = Inf at one or more runs. By convention, all solvers are declared to pass the convergence test for this problem at those runs.", problem_names_merged{i_problem}));
+                printOptiProfilerMessage('WARNING', sprintf("Problem '%s' has merit_init = phi(x_0) = Inf at one or more runs. By convention, valid evaluations pass the convergence test for this problem at those runs.", problem_names_merged{i_problem}));
             end
         end
+    end
+    if ~profile_options.(ProfileOptionKey.SILENT.value) && any(invalid_initial(:))
+        printOptiProfilerMessage('WARNING', 'Runs with an undefined initial objective or constraint cannot be assessed by the convergence test and are not declared passing.');
     end
 
     for i_tol = 1:profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)
@@ -1320,15 +1335,12 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         for i_problem = 1:n_problems
             for i_solver = 1:n_solvers
                 for i_run = 1:n_runs
-                    if isinf(merit_inits_merged(i_problem, i_run))
-                        % Degenerate case phi(x_0) = Inf. The Moré-Wild
-                        % threshold tau*phi(x_0) + (1-tau)*phi_min is
-                        % Inf - Inf = NaN, so the test cannot rank
-                        % solvers. We declare every solver to pass by
-                        % using +Inf as the threshold (any finite or
-                        % infinite merit value <= +Inf). Both subcases
-                        % "merit_min finite" and "merit_min = Inf" go
-                        % through this branch and behave identically.
+                    if invalid_initial(i_problem, i_run)
+                        continue;
+                    end
+                    if merit_init_inf_mask(i_problem, i_run)
+                        % Preserve the Inf-initial convention only for
+                        % actual evaluations without raw NaN values.
                         threshold = Inf;
                     elseif isfinite(merit_mins_merged(i_problem, i_run))
                         threshold = max(tolerance * merit_inits_merged(i_problem, i_run) + (1 - tolerance) * merit_mins_merged(i_problem, i_run), merit_mins_merged(i_problem, i_run));
@@ -1340,10 +1352,12 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                         % "no convergence" behaviour.
                         threshold = -Inf;
                     end
-                    if min(merit_histories_merged(i_problem, i_solver, i_run, :), [], 'omitnan') <= threshold
-                        work_hist(i_problem, i_solver, i_run) = find(merit_histories_merged(i_problem, i_solver, i_run, :) <= threshold, 1, 'first');
+                    passing = valid_histories(i_problem, i_solver, i_run, :) & ...
+                        (merit_histories_merged(i_problem, i_solver, i_run, :) <= threshold);
+                    if any(passing(:))
+                        work_hist(i_problem, i_solver, i_run) = find(passing, 1, 'first');
                     end
-                    if merit_outs_merged(i_problem, i_solver, i_run) <= threshold
+                    if valid_outs(i_problem, i_solver, i_run) && merit_outs_merged(i_problem, i_solver, i_run) <= threshold
                         work_out(i_problem, i_solver, i_run) = n_evals_merged(i_problem, i_solver, i_run);
                     end
                 end
@@ -1551,12 +1565,10 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                 fprintf(fid, "This part is empty.\n");
             end
 
-            % Record the problems whose merit_init = phi(x_0) = Inf at one
-            % or more runs. For these (problem, run) pairs the convergence
-            % test is degenerate and every solver is declared to pass; the
-            % section below lets the user identify and inspect them.
+            % Report the Inf-initial convention separately from undefined
+            % initial values, which cannot establish a convergence test.
             fprintf(fid, "\n");
-            fprintf(fid, "## Problems with merit_init = phi(x_0) = Inf (all solvers declared passing for these runs)\n");
+            fprintf(fid, "## Problems with merit_init = phi(x_0) = Inf (valid evaluations accepted by the Inf-initial convention)\n");
             if any(merit_init_inf_mask(:))
                 for i_run = 1:n_runs
                     if any(merit_init_inf_mask(:, i_run))
@@ -1573,6 +1585,18 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             else
                 fprintf(fid, "\n");
                 fprintf(fid, "This part is empty.\n");
+            end
+
+            fprintf(fid, "\n## Problems with undefined initial objective or constraint (not assessable; not declared passing)\n");
+            if any(invalid_initial(:))
+                for i_run = 1:n_runs
+                    names = problem_names_merged(invalid_initial(:, i_run));
+                    if ~isempty(names)
+                        fprintf(fid, "\nrun = %-3d:\t\t%s\n", i_run, strjoin(names, ' '));
+                    end
+                end
+            else
+                fprintf(fid, "\nThis part is empty.\n");
             end
 
             % Merge the per-(problem, solver, run) diagnostic flags
@@ -1752,26 +1776,46 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 
         % Find all summary PDF files in path_out and its immediate subfolders with the pattern "summary_*.pdf".
         summary_files = dir(fullfile(path_out, '*', 'summary_*.pdf'));
-        % Sort the summary PDF files by their time stamps (last 15 characters of the file names).
-        summary_time_stamps = arrayfun(@(f) datetime(f.name(end-18:end-4), 'InputFormat', 'yyyyMMdd_HHmmss'), summary_files);
-        [~, idx] = sort(summary_time_stamps, 'descend');
+        % Accept both legacy timestamps and same-second collision suffixes.
+        summary_keys = NaN(numel(summary_files), 2);
+        for i_file = 1:numel(summary_files)
+            token = regexp(summary_files(i_file).name, '(\d{8}_\d{6}(?:_\d{3,})?)\.pdf$', 'tokens', 'once');
+            if ~isempty(token)
+                summary_keys(i_file, :) = parseExperimentTimeStamp(token{1});
+            end
+        end
+        valid_summary = all(isfinite(summary_keys), 2);
+        summary_files = summary_files(valid_summary);
+        [~, idx] = sortrows(summary_keys(valid_summary, :), [-1, -2]);
         summary_files = summary_files(idx);
         % Keep only the latest 10 summary PDF files.
         summary_files = summary_files(1:min(10, numel(summary_files)));
         try
-            % Merge all the summary PDF files to a single PDF file.
-            delete(fullfile(path_out, 'summary.pdf'));
+            % Each run owns its staging directory. Concurrent benchmark calls
+            % must not stage or delete temporary PDFs in the shared path_out.
+            path_staging = fullfile(path_stamp, '.summary_merge');
+            mkdir(path_staging);
+            cleanup_summary = onCleanup(@() rmdir(path_staging, 's'));
             for i_file = 1:numel(summary_files)
-                copyfile(fullfile(summary_files(i_file).folder, summary_files(i_file).name), path_out);
-                mergePdfs(path_out, 'summary.pdf', path_out);
-                delete(fullfile(path_out, summary_files(i_file).name));
+                copyfile(fullfile(summary_files(i_file).folder, summary_files(i_file).name), ...
+                    fullfile(path_staging, sprintf('%03d.pdf', i_file)));
             end
+            mergePdfs(path_staging, 'summary.pdf', path_staging);
+            % A same-filesystem atomic replacement preserves the old aggregate
+            % if merging/replacement fails and prevents readers seeing a gap.
+            source_file = java.io.File(fullfile(path_staging, 'summary.pdf'));
+            target_file = java.io.File(fullfile(path_out, 'summary.pdf'));
+            move_options = javaArray('java.nio.file.CopyOption', 2);
+            move_options(1) = java.nio.file.StandardCopyOption.ATOMIC_MOVE;
+            move_options(2) = java.nio.file.StandardCopyOption.REPLACE_EXISTING;
+            java.nio.file.Files.move(source_file.toPath(), target_file.toPath(), move_options);
         catch ME
             if ~profile_options.(ProfileOptionKey.SILENT.value)
                 printOptiProfilerMessage('INFO', 'Failed to merge the summary PDF files.');
                 printOptiProfilerMessage('INFO', sprintf('Error message: %s', shortenMessageForLog(ME.message)));
             end
         end
+        clear cleanup_summary;
     end
     warning('on');
 

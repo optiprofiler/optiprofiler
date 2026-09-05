@@ -12,6 +12,7 @@ import time
 import warnings
 from contextlib import redirect_stderr, redirect_stdout
 from datetime import datetime
+from functools import wraps
 from inspect import signature
 from multiprocessing import Pool
 from multiprocessing.reduction import ForkingPickler
@@ -31,6 +32,7 @@ from .opclasses import Feature, Problem, FeaturedProblem
 from .utils import DEFAULT_LOG_LINE_WIDTH, FeatureName, ProfileOption, FeatureOption, ProblemOption, get_logger, print_log_message, setup_main_process_logging, setup_worker_logging, shorten_log_message, format_log_prefix
 from .loader import load_results, save_results_to_h5, save_options
 from .profile_utils import check_validity_problem_options, check_validity_profile_options, check_post_load_profile_options, get_default_problem_options, get_default_profile_options, compute_merit_values, create_stamp, merge_pdfs_with_pypdf, write_report, process_results, init_readme, add_to_readme, compute_scores, _custom_problem_library_dir
+from .profile_utils import _mask_invalid_merits
 from .plotting import draw_hist, set_profile_context, format_float_scientific_latex, draw_profiles, summary_legend_extra_width, latex_escape_text, format_profile_text
 
 
@@ -42,6 +44,65 @@ def _shorten_log_message(message: object, max_length: int = 180) -> str:
 
 
 _SOLVER_LOG_NAMES_KEY = '_solver_log_names'
+
+
+def _reserve_experiment_directory(path_out, solver_names, problem_options,
+                                  feature_stamp, time_stamp):
+    """Exclusively create a run directory, without consuming any random state."""
+    path_out.mkdir(parents=True, exist_ok=True)
+    collision = 0
+    while True:
+        run_id = time_stamp if collision == 0 else f'{time_stamp}_{collision:03d}'
+        stamp = create_stamp(solver_names, problem_options, feature_stamp, run_id, path_out)
+        try:
+            (path_out / stamp).mkdir()
+        except FileExistsError:
+            collision += 1
+        else:
+            return stamp, run_id
+
+
+def _close_logging_resources(resources):
+    """Close benchmark logging resources once, including on exceptions."""
+    listener = resources.pop('listener', None)
+    log_queue = resources.pop('log_queue', None)
+    cleanup_errors = []
+    if log_queue is not None:
+        root_logger = logging.getLogger()
+        for handler in list(root_logger.handlers):
+            if getattr(handler, 'queue', None) is log_queue:
+                root_logger.removeHandler(handler)
+                try:
+                    handler.close()
+                except Exception as exc:
+                    cleanup_errors.append(exc)
+    if listener is not None:
+        try:
+            listener.stop()
+        except Exception as exc:
+            cleanup_errors.append(exc)
+        for handler in listener.handlers:
+            if hasattr(handler, 'close'):
+                try:
+                    handler.close()
+                except Exception as exc:
+                    cleanup_errors.append(exc)
+    if log_queue is not None:
+        try:
+            log_queue.close()
+        except Exception as exc:
+            cleanup_errors.append(exc)
+        try:
+            log_queue.join_thread()
+        except Exception as exc:
+            cleanup_errors.append(exc)
+    if cleanup_errors and sys.exc_info()[0] is None:
+        warnings.warn(
+            f'Failed to close one or more benchmark logging resources: '
+            f'{shorten_log_message(cleanup_errors[0])}',
+            RuntimeWarning,
+            stacklevel=2,
+        )
 
 
 def _standard_constrained_result_log_length(problem_name_width: int, solver_name_width: int) -> int:
@@ -94,7 +155,7 @@ def _log_solver_aliases(logger, solver_names, solver_log_names):
         logger.info(f'{alias:<{max_alias_len}} = {name}')
 
 
-def benchmark(
+def _benchmark(
     solvers: list[Callable[..., Any]] | None = None,
     /,
     **kwargs
@@ -336,7 +397,8 @@ def benchmark(
     load : str, optional
         Loading the stored data from a completed experiment and draw
         profiles. It can be either 'latest' or a time stamp of an experiment
-        in the format of 'yyyyMMdd_HHmmss'. No default. Note that if solvers is None,
+        in the format of 'yyyyMMdd_HHmmss', optionally followed by a collision
+        suffix such as '_001'. No default. Note that if solvers is None,
         this key must be provided to load data from a previous experiment
         and generate profiles.
     max_eval_factor : int, optional
@@ -367,9 +429,11 @@ def benchmark(
 
         where v1 = min(0.01, 1e-10 * max(1, v0)), v2 = max(0.1, 2 * v0),
         and v0 is the maximum constraint violation at the initial guess.
-        If varphi(x_0) is inf for a problem/run, the convergence test is
-        degenerate; by convention, all solvers are declared to pass that
-        problem/run. These cases are listed in ``test_log/report.txt``.
+        NaN objective or constraint values are invalid evaluations, including
+        when a custom merit function returns a finite value for them. A run
+        with an undefined initial value is not declared passing. Otherwise,
+        if varphi(x_0) is inf, the existing degenerate-test convention accepts
+        valid evaluations. Both cases are listed in ``test_log/report.txt``.
     n_jobs : int, optional
         The number of parallel jobs to run the test. Default is a
         conservative number of workers, chosen as about half of the
@@ -724,6 +788,7 @@ def benchmark(
         if __name__ == '__main__':
             scores = benchmark([solver1, solver2])
     """
+    logging_resources = kwargs.pop('_logging_resources', {})
     logger = get_logger(__name__)
 
     # Check whether solvers or 'load' option is given.
@@ -785,6 +850,8 @@ def benchmark(
     # If 'load' is specified, we skip the solving phase and restore the results from disk.
     if is_load:
         results_plibs, profile_options = load_results(problem_options, profile_options)
+        for result in results_plibs:
+            _mask_invalid_merits(result)
         if not results_plibs:
             # No problems were selected from the loaded data; there is nothing
             # to plot, so we stop cleanly instead of failing later.
@@ -836,21 +903,18 @@ def benchmark(
     # Set the feature stamp.
     feature_stamp = profile_options[ProfileOption.FEATURE_STAMP]
 
-    # Create the stamp for the current experiment.
-    stamp = create_stamp(solver_names, problem_options, feature_stamp, time_stamp, path_out)
+    # Reserve a fresh directory atomically; a repeated timestamp is not permission
+    # to overwrite another experiment (including the source of a load call).
+    if not profile_options[ProfileOption.SCORE_ONLY]:
+        stamp, time_stamp = _reserve_experiment_directory(
+            path_out, solver_names, problem_options, feature_stamp, time_stamp)
+    else:
+        stamp = create_stamp(solver_names, problem_options, feature_stamp, time_stamp, path_out)
 
     path_stamp = path_out / stamp
     path_log = path_stamp / 'test_log'
     path_report = path_log / 'report.txt'
 
-    # Create the directory to store the results.
-    if not profile_options[ProfileOption.SCORE_ONLY]:
-        if not path_stamp.exists():
-            path_stamp.mkdir(parents=True, exist_ok=True)
-        else:
-            shutil.rmtree(path_stamp)
-            path_stamp.mkdir(parents=True, exist_ok=True)
-    
     # Create directory to store history plots based on draw_hist_plots option.
     if profile_options[ProfileOption.DRAW_HIST_PLOTS] == 'none':
         path_hist_plots = None
@@ -861,11 +925,7 @@ def benchmark(
     
     # Create the directory to store options and log files.
     if not profile_options[ProfileOption.SCORE_ONLY]:
-        if not path_log.exists():
-            path_log.mkdir(parents=True, exist_ok=True)
-        else:
-            shutil.rmtree(path_log)
-            path_log.mkdir(parents=True, exist_ok=True)
+        path_log.mkdir()
 
     # Create a README.txt file to explain the content of the folder `path_log`.
     if not profile_options[ProfileOption.SCORE_ONLY]:
@@ -874,18 +934,6 @@ def benchmark(
     else:
         path_readme_log = None
 
-    # Create a text file named by time_stamp to record the time_stamp.
-    if not profile_options[ProfileOption.SCORE_ONLY]:
-        path_time_stamp = path_log / f'time_stamp_{time_stamp}.txt'
-        try:
-            with path_time_stamp.open('w') as f:
-                f.write(f'{time_stamp}')
-            add_to_readme(path_readme_log, f'time_stamp_{time_stamp}.txt', 'File, recording the time stamp of the current experiment.')
-        except Exception as exc:
-            if not profile_options[ProfileOption.SILENT]:
-                print_log_message('WARNING', f'Failed to create the time stamp file in {path_log}.')
-                print_log_message('WARNING', f'Error message: {shorten_log_message(exc)}')
-        
     if not profile_options[ProfileOption.SCORE_ONLY] and 'problem' not in locals():
         # path_figs = path_log / 'profile_figs'
         # path_figs.mkdir(parents=True, exist_ok=True)
@@ -928,6 +976,8 @@ def benchmark(
         # Set up the logger to log the information in a file.
         log_file = path_log / 'log.txt'
         log_queue, listener = setup_main_process_logging(log_file=log_file, level=logging.INFO)
+        logging_resources['log_queue'] = log_queue
+        logging_resources['listener'] = listener
 
         add_to_readme(path_readme_log, 'log.txt', 'File, the log file of the current experiment, recording printed information from the screen.')
 
@@ -954,7 +1004,8 @@ def benchmark(
     # We try to copy the script or function that calls the benchmark function to the log directory.
     if not profile_options[ProfileOption.SCORE_ONLY]:
         try:
-            caller_path = inspect.stack()[1].filename
+            # Skip the public benchmark wrapper to preserve the user's script.
+            caller_path = inspect.stack()[2].filename
             if caller_path is not None and Path(caller_path).is_file():
                 shutil.copy2(caller_path, path_log / os.path.basename(caller_path))
                 add_to_readme(path_readme_log, os.path.basename(caller_path), 'File, the script or function that calls the benchmark function.')
@@ -1063,12 +1114,7 @@ def benchmark(
 
         # Close the listener of the logger before returning.
         if not profile_options[ProfileOption.SCORE_ONLY]:
-            listener.stop()
-            for h in listener.handlers:
-                if hasattr(h, 'close'):
-                    h.close()
-            log_queue.close()
-            log_queue.join_thread()
+            _close_logging_resources(logging_resources)
         return solver_scores, None, None
 
     # If 'load' option is not specified, we solve all the selected problems.
@@ -1151,16 +1197,19 @@ def benchmark(
                     logger.info('')
                     logger.info(f'Start testing problems from the problem library "{plib}" with "plain" feature.')
                 results_plib_plain = _solve_all_problems(solvers, plib, feature_plain, problem_options, profile_options, False, None, log_queue=log_queue)
-                try:
-                    results_plib_plain['merit_histories'] = compute_merit_values(merit_fun, results_plib_plain['fun_histories'], results_plib_plain['maxcv_histories'], results_plib_plain['maxcv_inits'])
-                    results_plib_plain['merit_outs'] = compute_merit_values(merit_fun, results_plib_plain['fun_outs'], results_plib_plain['maxcv_outs'], results_plib_plain['maxcv_inits'])
-                    results_plib_plain['merit_inits'] = compute_merit_values(merit_fun, results_plib_plain['fun_inits'], results_plib_plain['maxcv_inits'], results_plib_plain['maxcv_inits'])
-                except Exception as exc:
-                    logger.error(f'Error occurred while calculating the merit values for the "plain" feature. Please check the merit function. Error message: {shorten_log_message(exc)}')
-                    raise exc
-                
-                # Store data of the 'plain' feature for later calculating merit_mins.
-                results_plib['results_plib_plain'] = results_plib_plain
+                if not results_plib_plain or len(results_plib_plain['problem_names']) == 0:
+                    if not profile_options[ProfileOption.SILENT]:
+                        logger.warning(f'No plain baseline was obtained from "{plib}"; keeping the featured results without a plain reference.')
+                else:
+                    try:
+                        results_plib_plain['merit_histories'] = compute_merit_values(merit_fun, results_plib_plain['fun_histories'], results_plib_plain['maxcv_histories'], results_plib_plain['maxcv_inits'])
+                        results_plib_plain['merit_outs'] = compute_merit_values(merit_fun, results_plib_plain['fun_outs'], results_plib_plain['maxcv_outs'], results_plib_plain['maxcv_inits'])
+                        results_plib_plain['merit_inits'] = compute_merit_values(merit_fun, results_plib_plain['fun_inits'], results_plib_plain['maxcv_inits'], results_plib_plain['maxcv_inits'])
+                    except Exception as exc:
+                        logger.error(f'Error occurred while calculating the merit values for the "plain" feature. Please check the merit function. Error message: {shorten_log_message(exc)}')
+                        raise exc
+                    # Keep the optional baseline nested under its own library.
+                    results_plib['results_plib_plain'] = results_plib_plain
 
             # Append the results of the current problem library to the list.
             results_plibs.append(results_plib)
@@ -1192,12 +1241,7 @@ def benchmark(
                 logger.info('No problems are selected or solved from any problem library.')
             # Close the listener of the logger before returning.
             if not profile_options[ProfileOption.SCORE_ONLY]:
-                listener.stop()
-                for h in listener.handlers:
-                    if hasattr(h, 'close'):
-                        h.close()
-                log_queue.close()
-                log_queue.join_thread()
+                _close_logging_resources(logging_resources)
             return solver_scores, None, None
 
     # Preserve completed numerical results before sequential history rendering.
@@ -1206,6 +1250,12 @@ def benchmark(
     if not profile_options[ProfileOption.SCORE_ONLY]:
         try:
             save_results_to_h5(results_plibs, path_log / 'data_for_loading.h5')
+            # Publish the load marker only after the data file has been closed
+            # successfully. An interrupted solve/save must not become `latest`.
+            marker_name = f'time_stamp_{time_stamp}.txt'
+            (path_log / marker_name).write_text(time_stamp, encoding='utf-8')
+            add_to_readme(path_readme_log, marker_name,
+                          'File, recording the time stamp of the saved experiment.')
         except Exception as exc:
             if not profile_options[ProfileOption.SILENT]:
                 logger.warning('Failed to save the data of the current experiment.')
@@ -1347,21 +1397,28 @@ def benchmark(
         solvers_all_diverge_hist = np.zeros((n_problems, n_runs, profile_options[ProfileOption.MAX_TOL_ORDER]), dtype=bool)
         solvers_all_diverge_out = solvers_all_diverge_hist.copy()
 
-        # Detect "merit_init = Inf" (problem, run) pairs (i.e.
-        # phi(x_0) = Inf). For these the standard Moré-Wild convergence
-        # threshold tau*phi(x_0) + (1-tau)*phi_min collapses to
-        # Inf - Inf = NaN, so the test cannot meaningfully discriminate
-        # solvers. By convention we then declare every solver to "pass"
-        # the test on these (problem, run) pairs (see the threshold
-        # computation below). The problem names will also be recorded in
-        # the report under a dedicated section so the user can identify
-        # and inspect them.
-        # Note: by construction merit_min <= merit_init (see
-        # ``process_results`` in ``profile_utils.py``), so the case
-        # "merit_init finite, merit_min = Inf" cannot occur; only
-        # "merit_init = Inf, merit_min finite" and
-        # "merit_init = Inf, merit_min = Inf" need this special handling
-        # and they follow the same code path.
+        # Raw values distinguish an undefined evaluation from the existing
+        # Inf-initial merit convention. Derive masks from saved fields too,
+        # so loading cannot turn a failed evaluation into a successful one.
+        invalid_initial = np.zeros((n_problems, n_runs), dtype=bool)
+        valid_histories = np.zeros(merit_histories_merged.shape, dtype=bool)
+        valid_outs = np.zeros(merit_outs_merged.shape, dtype=bool)
+        row_offset = 0
+        for result in results_plibs:
+            n_p, _, _, length = result['fun_histories'].shape
+            rows = slice(row_offset, row_offset + n_p)
+            bad_init = np.isnan(result['fun_inits']) | np.isnan(result['maxcv_inits'])
+            if bad_init.ndim == 1:
+                bad_init = bad_init[:, None]
+            invalid_initial[rows] = np.broadcast_to(bad_init, (n_p, n_runs))
+            valid_histories[rows, :, :, :length] = ~(
+                np.isnan(result['fun_histories']) | np.isnan(result['maxcv_histories']))
+            # Repeated tails and cross-library padding are not evaluations.
+            valid_histories[rows, :, :, :length] &= (
+                np.arange(length) < n_evals_merged[rows, :, :, None])
+            valid_outs[rows] = ~(np.isnan(result['fun_outs']) | np.isnan(result['maxcv_outs']))
+            row_offset += n_p
+
         # Backward-compat: ``merit_inits_merged`` may be 1-D for old
         # .h5 files; broadcast to (n_problems, n_runs) here so the rest
         # of the code can treat it uniformly.
@@ -1377,14 +1434,16 @@ def benchmark(
             )
         else:
             merit_mins_per_run = merit_mins_merged
-        merit_init_inf_mask = np.isinf(merit_inits_per_run)
+        merit_init_inf_mask = np.isinf(merit_inits_per_run) & ~invalid_initial
         if not profile_options[ProfileOption.SILENT] and np.any(merit_init_inf_mask):
             for i_problem in range(n_problems):
                 if np.any(merit_init_inf_mask[i_problem, :]):
                     logger.warning(
                         f"Problem '{problem_names_merged[i_problem]}' has merit_init = phi(x_0) = Inf at one or more runs. "
-                        f"By convention, all solvers are declared to pass the convergence test for this problem at those runs."
+                        f"By convention, valid evaluations pass the convergence test for this problem at those runs."
                     )
+        if not profile_options[ProfileOption.SILENT] and np.any(invalid_initial):
+            logger.warning('Runs with an undefined initial objective or constraint cannot be assessed by the convergence test and are not declared passing.')
 
         # Merge per-(problem, solver, run) diagnostic flags across the
         # problem libraries so they share the same problem index space as
@@ -1444,17 +1503,11 @@ def benchmark(
             for i_problem in range(n_problems):
                 for i_solver in range(n_solvers):
                     for i_run in range(n_runs):
-                        if np.isinf(merit_inits_per_run[i_problem, i_run]):
-                            # Degenerate case phi(x_0) = Inf. The
-                            # Moré-Wild threshold
-                            # tau*phi(x_0) + (1-tau)*phi_min is
-                            # Inf - Inf = NaN, so the test cannot rank
-                            # solvers. We declare every solver to pass
-                            # by using +Inf as the threshold (any finite
-                            # or infinite merit value <= +Inf). Both
-                            # subcases "merit_min finite" and
-                            # "merit_min = Inf" go through this branch
-                            # and behave identically.
+                        if invalid_initial[i_problem, i_run]:
+                            continue
+                        if merit_init_inf_mask[i_problem, i_run]:
+                            # Preserve the Inf-initial convention, but only
+                            # for actual evaluations without raw NaN values.
                             threshold = np.inf
                         elif np.isfinite(merit_mins_per_run[i_problem, i_run]):
                             threshold = max(tolerance * merit_inits_per_run[i_problem, i_run] + (1.0 - tolerance) * merit_mins_per_run[i_problem, i_run], merit_mins_per_run[i_problem, i_run])
@@ -1466,9 +1519,10 @@ def benchmark(
                             # defensively to preserve the previous
                             # "no convergence" behaviour.
                             threshold = -np.inf
-                        if np.min(merit_histories_merged[i_problem, i_solver, i_run, :]) <= threshold:
-                            work_hist[i_problem, i_solver, i_run] = np.argmax(merit_histories_merged[i_problem, i_solver, i_run, :] <= threshold) + 1
-                        if merit_outs_merged[i_problem, i_solver, i_run] <= threshold:
+                        passing = valid_histories[i_problem, i_solver, i_run] & (merit_histories_merged[i_problem, i_solver, i_run] <= threshold)
+                        if np.any(passing):
+                            work_hist[i_problem, i_solver, i_run] = np.flatnonzero(passing)[0] + 1
+                        if valid_outs[i_problem, i_solver, i_run] and merit_outs_merged[i_problem, i_solver, i_run] <= threshold:
                             work_out[i_problem, i_solver, i_run] = n_evals_merged[i_problem, i_solver, i_run]
                         
             for i_problem in range(n_problems):
@@ -1580,13 +1634,10 @@ def benchmark(
                         fid.write('\n')
                         fid.write('This part is empty.\n')
 
-                    # Record the (problem, run) pairs whose
-                    # merit_init = phi(x_0) = Inf. For these the
-                    # convergence test is degenerate and every solver is
-                    # declared to pass; the section below lets the user
-                    # identify and inspect them.
+                    # Report the Inf-initial convention separately from
+                    # undefined initial values, which cannot establish a test.
                     fid.write('\n')
-                    fid.write('## Problems with merit_init = phi(x_0) = Inf (all solvers declared passing for these runs)\n')
+                    fid.write('## Problems with merit_init = phi(x_0) = Inf (valid evaluations accepted by the Inf-initial convention)\n')
                     if np.any(merit_init_inf_mask):
                         for i_run in range(n_runs):
                             if np.any(merit_init_inf_mask[:, i_run]):
@@ -1599,6 +1650,15 @@ def benchmark(
                     else:
                         fid.write('\n')
                         fid.write('This part is empty.\n')
+
+                    fid.write('\n## Problems with undefined initial objective or constraint (not assessable; not declared passing)\n')
+                    if np.any(invalid_initial):
+                        for i_run in range(n_runs):
+                            names = [problem_names_merged[i] for i in range(n_problems) if invalid_initial[i, i_run]]
+                            if names:
+                                fid.write(f'\nrun = {i_run + 1:<3d}:\t\t' + ' '.join(names) + '\n')
+                    else:
+                        fid.write('\nThis part is empty.\n')
 
                     # Record (solver, problem, run) triples that
                     # terminated abnormally (solver raised an exception).
@@ -1758,14 +1818,27 @@ def benchmark(
 
     # Close the listener of the logger.
     if is_saving:
-        listener.stop()
-        for h in listener.handlers:
-            if hasattr(h, 'close'):
-                h.close()
-        log_queue.close()
-        log_queue.join_thread()
+        _close_logging_resources(logging_resources)
 
     return solver_scores, profile_scores, curves
+
+
+@wraps(_benchmark)
+def benchmark(
+    solvers: list[Callable[..., Any]] | None = None,
+    /,
+    **kwargs
+) -> tuple[np.ndarray, np.ndarray | None, list[dict] | None]:
+    """Run :func:`_benchmark` and always release its logging resources."""
+    logging_resources = {}
+    try:
+        return _benchmark(
+            solvers,
+            _logging_resources=logging_resources,
+            **kwargs,
+        )
+    finally:
+        _close_logging_resources(logging_resources)
 
 
 def _solve_all_problems(solvers, plib, feature, problem_options, profile_options, is_plot, path_hist_plots, log_queue=None):

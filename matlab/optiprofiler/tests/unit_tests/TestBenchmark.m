@@ -183,6 +183,49 @@ classdef TestBenchmark < matlab.unittest.TestCase
             clear cleanup;
         end
 
+        function testLoadingDataUsesMatFileVersion73(testCase)
+            solvers = {@history_test_solver1, @history_test_solver2};
+            output_dir = fullfile(testCase.TestDirectory, 'mat73-output');
+            mkdir(output_dir);
+
+            options.savepath = output_dir;
+            options.benchmark_id = 'mat73-test';
+            options.solver_names = {'solver_1', 'solver_2'};
+            options.max_tol_order = 1;
+            options.n_runs = 1;
+            options.ptype = 'u';
+            options.problem_names = {'ROSENBR'};
+            options.mindim = 2;
+            options.maxdim = 2;
+            options.max_eval_factor = 5;
+            options.n_jobs = 1;
+            options.silent = true;
+            options.draw_hist_plots = 'none';
+            options.summarize_performance_profiles = false;
+            options.summarize_data_profiles = false;
+            options.summarize_log_ratio_profiles = false;
+            options.summarize_output_based_profiles = false;
+
+            benchmark(solvers, options);
+
+            data_files = dir(fullfile(output_dir, 'mat73-test', '*', 'test_log', 'data_for_loading.mat'));
+            testCase.verifyNumElements(data_files, 1);
+            data_file = fullfile(data_files(1).folder, data_files(1).name);
+
+            fid = fopen(data_file, 'r');
+            testCase.assertGreaterThan(fid, 0);
+            cleanup_fid = onCleanup(@() fclose(fid));
+            header = char(fread(fid, 128, '*char')');
+            clear cleanup_fid;
+            testCase.verifyTrue(contains(header, 'MATLAB 7.3 MAT-file'));
+
+            saved_variables = whos('-file', data_file, 'results_plibs');
+            testCase.verifyNumElements(saved_variables, 1);
+            loaded_data = load(data_file, 'results_plibs');
+            testCase.verifyTrue(iscell(loaded_data.results_plibs));
+            testCase.verifyNotEmpty(loaded_data.results_plibs);
+        end
+
         function testErrors(testCase)
             % Test whether the function throws errors as expected.
             solvers = {@fmincon_test1, @fmincon_test2};

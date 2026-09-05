@@ -55,7 +55,7 @@ function setup(varargin)
     s2mpj_dir = fullfile(plib_dir, 's2mpj'); % Directory containing S2MPJ
     % Pin S2MPJ to the commit validated with this OptiProfiler release.
     s2mpj_repo_url = 'https://github.com/optiprofiler/s2mpj_matlab.git';
-    s2mpj_commit = '8938143d17cd9413676f563eba8d89770f8d2ecc';
+    s2mpj_commit = '8d8ae2e996293b2a373db43d55a98700d16a8909';
     matcutest_dir = fullfile(plib_dir, 'matcutest'); % Directory containing tools (interfaces) for MatCUTEst
     % Pin MatCUTEst to the commit validated with this OptiProfiler release.
     matcutest_repo_url = 'https://github.com/optiprofiler/matcutest.git';

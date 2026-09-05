@@ -10,6 +10,18 @@ from enum import Enum
 from pathlib import Path
 from optiprofiler.utils import FeatureName, ProfileOption, FeatureOption, ProblemOption, ProblemError, print_log_message
 
+
+def _parse_experiment_time_stamp(value):
+    """Return a chronological key for old timestamps and collision suffixes."""
+    match = re.fullmatch(r'(\d{8}_\d{6})(?:_(\d{3,}))?', value)
+    if match is None:
+        raise ValueError('Invalid experiment time stamp.')
+    sequence = int(match[2] or 0)
+    if match[2] is not None and sequence == 0:
+        raise ValueError('Invalid experiment collision suffix.')
+    return datetime.datetime.strptime(match[1], '%Y%m%d_%H%M%S'), sequence
+
+
 def search_in_dir(current_path: str, pattern: str, max_depth: int, current_depth: int, files: List[Dict]) -> List[Dict]:
     """Recursive function to search for files with a specified pattern within a limited directory depth."""
     # Check if the current depth exceeds the maximum depth
@@ -426,12 +438,13 @@ def load_results(problem_options: Dict[str, Any], profile_options: Dict[str, Any
     if ProfileOption.LOAD.value not in profile_options or not profile_options[ProfileOption.LOAD.value]:
         return results_plibs, profile_options
     
-    # Check if 'load' is 'latest' or a timestamp
-    time_stamp_pattern = r'^\d{4}(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})$'
     load_value = profile_options[ProfileOption.LOAD.value]
-    
-    if load_value != 'latest' and not re.match(time_stamp_pattern, load_value):
-        raise ValueError("The option `load` should be either 'latest' or a time stamp in the format of 'yyyyMMdd_HHmmss'.")
+    if load_value != 'latest':
+        try:
+            _parse_experiment_time_stamp(load_value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("The option `load` should be 'latest' or a time stamp in the format "
+                             "'yyyyMMdd_HHmmss', optionally followed by a suffix such as '_001'.") from exc
     
     # Set the path to search for the data
     if ProfileOption.BENCHMARK_ID.value in profile_options:
@@ -440,41 +453,29 @@ def load_results(problem_options: Dict[str, Any], profile_options: Dict[str, Any
         search_path = os.getcwd()
         profile_options[ProfileOption.BENCHMARK_ID.value] = '.'
     
-    # Find the path of the data to load
-    time_stamp_files = []
-    time_stamp = None
-    
+    # New markers are published after save succeeds. Legacy markers can precede
+    # the data, so exclude missing-data entries from both old and new searches.
     if load_value == 'latest':
-        # Find all timestamp files and get the latest one
-        time_stamp_files = search_in_dir(search_path, 'time_stamp_*.txt', 5, 0, [])
-        
-        if not time_stamp_files:
-            raise FileNotFoundError(f"Failed to load data since no time_stamp files are found in the directory '{search_path}'. "
-                                    f"Note that the search is limited to 5 levels of subdirectories.")
-        
-        # Sort files by the timestamp in filename (not file modification time)
-        # Filename format: time_stamp_yyyyMMdd_HHmmss.txt
-        def extract_timestamp(file_info):
-            # Extract timestamp from filename: time_stamp_yyyyMMdd_HHmmss.txt -> yyyyMMdd_HHmmss
-            filename = file_info['name']
-            ts_str = filename[11:-4]  # Remove 'time_stamp_' prefix and '.txt' suffix
-            return datetime.datetime.strptime(ts_str, '%Y%m%d_%H%M%S')
-        
-        time_stamp_files.sort(key=extract_timestamp, reverse=True)
-        latest_time_stamp_file = time_stamp_files[0]
-        path_data = latest_time_stamp_file['folder']
-        time_stamp = latest_time_stamp_file['name'][11:-4]  # Extract timestamp string
+        pattern = 'time_stamp_*.txt'
     else:
-        # Search for the specific timestamp file
         pattern = f'time_stamp_{load_value}.txt'
-        time_stamp_files = search_in_dir(search_path, pattern, 5, 0, [])
-        
-        if not time_stamp_files:
-            raise FileNotFoundError(f"Failed to load data since no time_stamp named 'time_stamp_{load_value}.txt' is found in the directory '{search_path}'. "
-                                    f"Note that the search is limited to 5 levels of subdirectories.")
-        
-        path_data = time_stamp_files[0]['folder']
-        time_stamp = load_value
+    candidates = []
+    for entry in search_in_dir(search_path, pattern, 5, 0, []):
+        try:
+            key = _parse_experiment_time_stamp(entry['name'][11:-4])
+        except ValueError:
+            continue
+        if os.path.isfile(os.path.join(entry['folder'], 'data_for_loading.h5')):
+            candidates.append((key, entry['folder'], entry['name'][11:-4]))
+    if not candidates:
+        raise FileNotFoundError(f"No saved experiment matching '{load_value}' was found in '{search_path}'. "
+                                "The search is limited to 5 levels of subdirectories.")
+    if load_value != 'latest' and len(candidates) > 1:
+        raise ValueError(f"Time stamp '{load_value}' matches multiple saved experiments. "
+                         "Change to the intended experiment directory and use `benchmark_id='.'` to disambiguate.")
+    # Timestamp/collision sequence determines order; path breaks legacy ties
+    # deterministically, independently of directory traversal and copy mtimes.
+    _, path_data, time_stamp = max(candidates)
     
     path_experiment = os.path.dirname(path_data)
     

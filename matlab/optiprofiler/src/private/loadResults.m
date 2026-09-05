@@ -10,10 +10,9 @@ function [results_plibs, profile_options, problem_options] = loadResults(problem
         return;
     end
 
-    % Check whether it is 'latest' or a string (or char) in the format of 'yyyyMMdd_HHmmss'.
-    time_stamp_pattern = '^\d{4}(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})$';
-    if ~strcmp(profile_options.(ProfileOptionKey.LOAD.value), 'latest') && isempty(regexp(profile_options.(ProfileOptionKey.LOAD.value), time_stamp_pattern, 'once'))
-        error("MATLAB:checkValidityProfileOptions:loadNotValid", "The option `load` should be either 'latest' or a time stamp in the format of 'yyyyMMdd_HHmmss'.");
+    load_value = char(profile_options.(ProfileOptionKey.LOAD.value));
+    if ~strcmp(load_value, 'latest') && any(isnan(parseExperimentTimeStamp(load_value)))
+        error("MATLAB:checkValidityProfileOptions:loadNotValid", "The option `load` should be 'latest' or a time stamp in the format 'yyyyMMdd_HHmmss', optionally followed by a suffix such as '_001'.");
     end
 
     % Set the path to search for the data to load.
@@ -24,32 +23,38 @@ function [results_plibs, profile_options, problem_options] = loadResults(problem
         profile_options.(ProfileOptionKey.BENCHMARK_ID.value) = '.';
     end
 
-    % Find the path of the data to load.
+    % New markers follow successful saves. Ignore incomplete legacy entries
+    % without data, and malformed marker names, rather than selecting them.
     time_stamp_files = struct('name', {}, 'folder', {}, 'date', {}, 'bytes', {}, 'isdir', {}, 'datenum', {});
-    if strcmp(profile_options.(ProfileOptionKey.LOAD.value), 'latest')
-        % Try to find all the txt files named by time_stamp in the search_path directory and find the latest one.
-        % Note that we limit the search to 5 levels of subdirectories.
-        time_stamp_files = search_in_dir(search_path, 'time_stamp_*.txt', 5, 0, time_stamp_files);
-        if isempty(time_stamp_files)
-            error("MATLAB:loadResults:NoTimeStamps", "Failed to load data since no time_stamp files are found in the directory '%s'. Note that the search is limited to 5 levels of subdirectories.", search_path);
-        end
-        time_stamps = arrayfun(@(f) datetime(f.name(12:end-4), 'InputFormat', 'yyyyMMdd_HHmmss'), time_stamp_files);
-        [~, indexes] = sort(time_stamps, 'descend');
-        % Get the latest time_stamp file. If there are multiple files with the same time_stamp, we take the first one.
-        latest_idx = indexes(1);
-        latest_time_stamp_file = time_stamp_files(latest_idx);
-        path_data = latest_time_stamp_file.folder;
-        time_stamp = time_stamps(latest_idx);
+    if strcmp(load_value, 'latest')
+        pattern = 'time_stamp_*.txt';
     else
-        % Same as above, but we only search for the specific time_stamp file.
-        pattern = ['time_stamp_', profile_options.(ProfileOptionKey.LOAD.value), '.txt'];
-        time_stamp_file = search_in_dir(search_path, pattern, 5, 0, time_stamp_files);
-        if isempty(time_stamp_file)
-            error("MATLAB:loadResults:NoTimeStamps", "Failed to load data since no time_stamp named '%s' is found in the directory '%s'. Note that the search is limited to 5 levels of subdirectories.", ['time_stamp_', profile_options.(ProfileOptionKey.LOAD.value), '.txt'], search_path);
-        end
-        path_data = time_stamp_file.folder;
-        time_stamp = profile_options.(ProfileOptionKey.LOAD.value);
+        pattern = ['time_stamp_', load_value, '.txt'];
     end
+    time_stamp_files = search_in_dir(search_path, pattern, 5, 0, time_stamp_files);
+    keys = NaN(numel(time_stamp_files), 2);
+    for i_file = 1:numel(time_stamp_files)
+        entry = time_stamp_files(i_file);
+        if isfile(fullfile(entry.folder, 'data_for_loading.mat'))
+            keys(i_file, :) = parseExperimentTimeStamp(entry.name(12:end-4));
+        end
+    end
+    valid = all(isfinite(keys), 2);
+    time_stamp_files = time_stamp_files(valid);
+    keys = keys(valid, :);
+    if isempty(time_stamp_files)
+        error("MATLAB:loadResults:NoTimeStamps", "No saved experiment matching '%s' was found in '%s'. The search is limited to 5 levels of subdirectories.", load_value, search_path);
+    end
+    if ~strcmp(load_value, 'latest') && numel(time_stamp_files) > 1
+        error('OptiProfiler:AmbiguousTimeStamp', 'Time stamp ''%s'' matches multiple saved experiments. Change to the intended experiment directory and use benchmark_id=''.'' to disambiguate.', load_value);
+    end
+    % Sort folder paths first to make ties independent of traversal order.
+    [~, path_order] = sort(string({time_stamp_files.folder}), 'descend');
+    time_stamp_files = time_stamp_files(path_order);
+    [~, order] = sortrows(keys(path_order, :), [-1, -2]);
+    selected = time_stamp_files(order(1));
+    path_data = selected.folder;
+    time_stamp = selected.name(12:end-4);
     path_experiment = fileparts(path_data);
 
     % Load data from the 'data_for_loading.mat' file in the path_data directory.

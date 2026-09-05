@@ -7,6 +7,10 @@ function [merit_histories_merged, merit_outs_merged, merit_inits_merged, merit_m
     n_evals_merged = [];
     problem_names_merged = [];
     problem_dims_merged = [];
+    % Old saved custom-merit arrays may predate raw-NaN validation.
+    for i_plib = 1:numel(results_plibs)
+        results_plibs{i_plib} = maskInvalidMerits(results_plibs{i_plib});
+    end
     % Unify the length of merit_histories.
     results_plibs = unify_length(results_plibs, 'merit_histories');
     % Use results_plibs to merge the results from all the problem libraries.
@@ -18,11 +22,6 @@ function [merit_histories_merged, merit_outs_merged, merit_inits_merged, merit_m
         n_evals_merged = cat(1, n_evals_merged, results_plib.n_evals);
         problem_dims_merged = cat(1, problem_dims_merged, results_plib.problem_dims);
         problem_names_merged = [problem_names_merged, results_plib.problem_names];
-
-        if isfield(results_plib, 'results_plib_plain')
-            results_plib.merit_histories_plain = results_plib.results_plib_plain.merit_histories;
-            results_plibs{i_plib} = results_plib;
-        end
     end
     % Find the least merit value for each problem in each run.
     merit_mins_merged = min(min(merit_histories_merged, [], 4, 'omitnan'), [], 2, 'omitnan');
@@ -32,36 +31,41 @@ function [merit_histories_merged, merit_outs_merged, merit_inits_merged, merit_m
         end
     end
 
-    % If `results_plib_plain` exists and the `run_plain` field in `profile_options` is true. Then we need to redefine `merit_mins_merged`.
-    if isfield(results_plibs{1}, 'results_plib_plain') && profile_options.(ProfileOptionKey.RUN_PLAIN.value)
-        merit_histories_plain_merged = [];
-        merit_inits_plain_merged = [];
-        problem_names_plain_merged = [];
-        % Unify the length of merit_histories_plain.
-        results_plibs = unify_length(results_plibs, 'merit_histories_plain');
+    % Match plain rows inside their original library container. MAT files
+    % already preserve this nesting, including after load-time filtering.
+    if isfield(profile_options, ProfileOptionKey.RUN_PLAIN.value) && profile_options.(ProfileOptionKey.RUN_PLAIN.value)
+        first_problem = 0;
         for i_plib = 1:size(results_plibs, 2)
             results_plib = results_plibs{i_plib};
-            merit_histories_plain_merged = cat(1, merit_histories_plain_merged, results_plib.merit_histories_plain);
-            merit_inits_plain_merged = cat(1, merit_inits_plain_merged, results_plib.results_plib_plain.merit_inits);
-            problem_names_plain_merged = [problem_names_plain_merged, results_plib.results_plib_plain.problem_names];
-        end
-        % Note that we will not consider merit_min for each run under the plain feature. Instead, we
-        % only consider the minimum merit value among all runs under the plain feature.
-        merit_mins_plain_merged = min(min(min(merit_histories_plain_merged, [], 4, 'omitnan'), [], 3, 'omitnan'), [], 2, 'omitnan');
-        for i_problem = 1:size(merit_histories_plain_merged, 1)
-            merit_mins_plain_merged(i_problem) = min(merit_mins_plain_merged(i_problem), merit_inits_plain_merged(i_problem), 'omitnan');
-        end
-        for i_problem = 1:size(merit_histories_merged, 1)
-            idx = find(strcmp(problem_names_merged{i_problem}, problem_names_plain_merged), 1);
-            if isempty(idx)
+            names = results_plib.problem_names;
+            offset = first_problem;
+            first_problem = first_problem + numel(names);
+            if ~isfield(results_plib, 'results_plib_plain') || isempty(results_plib.results_plib_plain)
                 continue;
             end
-            for i_run = 1:size(merit_histories_merged, 3)
-                % Redefine the `merit_mins_merged` for the problems that are solved under the plain feature.
-                % Note that min(x, NaN) = x.
-                merit_mins_merged(i_problem, i_run) = min(merit_mins_merged(i_problem, i_run), merit_mins_plain_merged(idx), 'omitnan');
+            plain = results_plib.results_plib_plain;
+            plain_names = plain.problem_names;
+            if isempty(plain_names)
+                continue;
             end
-            
+            if numel(unique(names)) ~= numel(names) || numel(unique(plain_names)) ~= numel(plain_names)
+                error('MATLAB:processResults:duplicateProblemNames', ...
+                    'The run_plain reference is ambiguous: duplicate problem names within one problem library cannot be matched uniquely.');
+            end
+            % One reference per problem, over all plain solvers/runs/evaluations.
+            plain_mins = min(min(min(plain.merit_histories, [], 4, 'omitnan'), [], 3, 'omitnan'), [], 2, 'omitnan');
+            for i_plain = 1:numel(plain_names)
+                % Preserve the existing first-run convention for plain inits.
+                plain_mins(i_plain) = min(plain_mins(i_plain), plain.merit_inits(i_plain), 'omitnan');
+            end
+            for i_problem = 1:numel(names)
+                idx = find(strcmp(names{i_problem}, plain_names), 1);
+                if isempty(idx)
+                    continue;
+                end
+                row = offset + i_problem;
+                merit_mins_merged(row, :) = min(merit_mins_merged(row, :), plain_mins(idx), 'omitnan');
+            end
         end
     end
 end

@@ -560,12 +560,12 @@ classdef Problem < handle
             end
             
             if any(isfinite(obj.xl))
-                cv_bounds = max(max(obj.xl - x), 0);
+                cv_bounds = max([obj.xl - x; 0], [], 'includenan');
             else
                 cv_bounds = 0;
             end
             if any(isfinite(obj.xu))
-                cv_bounds = max(max(x - obj.xu), cv_bounds);
+                cv_bounds = max([x - obj.xu; cv_bounds], [], 'includenan');
             end
             if strcmp(obj.ptype, 'b')
                 cv = cv_bounds;
@@ -581,15 +581,15 @@ classdef Problem < handle
             end
 
             if ~isempty(obj.aub)
-                cv_linear = max(max(obj.aub * x - obj.bub), 0);
+                cv_linear = max([obj.aub * x - obj.bub; 0], [], 'includenan');
             else
                 cv_linear = 0;
             end
             if ~isempty(obj.aeq)
-                cv_linear = max(max(abs(obj.aeq * x - obj.beq)), cv_linear);
+                cv_linear = max([abs(obj.aeq * x - obj.beq); cv_linear], [], 'includenan');
             end
             if strcmp(obj.ptype, 'l')
-                cv = max([cv_bounds; cv_linear]);
+                cv = max([cv_bounds; cv_linear], [], 'includenan');
                 if detailed
                     varargout{1} = cv;
                     varargout{2} = cv_bounds;
@@ -604,7 +604,7 @@ classdef Problem < handle
             if ~isempty(obj.cub_)
                 cub_val = obj.cub(x);
                 if ~isempty(cub_val)
-                    cv_nonlinear = max(max(cub_val), 0);
+                    cv_nonlinear = max([cub_val; 0], [], 'includenan');
                 else
                     cv_nonlinear = 0;
                 end
@@ -614,11 +614,11 @@ classdef Problem < handle
             if ~isempty(obj.ceq_)
                 ceq_val = obj.ceq(x);
                 if ~isempty(ceq_val)
-                    cv_nonlinear = max(max(abs(ceq_val)), cv_nonlinear);
+                    cv_nonlinear = max([abs(ceq_val); cv_nonlinear], [], 'includenan');
                 end
             end
 
-            cv = max([cv_bounds; cv_linear; cv_nonlinear]);
+            cv = max([cv_bounds; cv_linear; cv_nonlinear], [], 'includenan');
 
             if detailed
                 varargout{1} = cv;
