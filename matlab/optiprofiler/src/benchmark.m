@@ -158,6 +158,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         feature. Default is false.
 %       - savepath: the path to store the results. Default is 'pwd', the
 %         current working directory.
+%         Saving requires the Java Virtual Machine (JVM); do not start MATLAB
+%         with -nojvm. This requirement does not apply when score_only is true.
 %       - score_fun: the scoring function to calculate the scores of the
 %         solvers. It should be a function handle as follows:
 %               ``profile_scores -> solver_scores``,
