@@ -1,4 +1,27 @@
 classdef TestBenchmark < matlab.unittest.TestCase
+    properties (Access = private)
+        OriginalDirectory
+        TestDirectory
+    end
+
+    methods (TestMethodSetup)
+        function useIsolatedWorkingDirectory(testCase)
+            testCase.OriginalDirectory = pwd;
+            testCase.TestDirectory = tempname;
+            mkdir(testCase.TestDirectory);
+            cd(testCase.TestDirectory);
+        end
+    end
+
+    methods (TestMethodTeardown)
+        function restoreWorkingDirectory(testCase)
+            cd(testCase.OriginalDirectory);
+            if exist(testCase.TestDirectory, 'dir') == 7
+                rmdir(testCase.TestDirectory, 's');
+            end
+        end
+    end
+
     methods (Test)
         
         function testWithValidInput(testCase)

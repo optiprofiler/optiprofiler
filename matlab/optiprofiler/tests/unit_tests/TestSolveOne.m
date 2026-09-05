@@ -1,4 +1,37 @@
 classdef TestSolveOne < matlab.unittest.TestCase
+    properties (Access = private)
+        OriginalDirectory
+        TestDirectory
+        GetDefaultProfileOptions
+        SolveOneProblem
+    end
+
+    methods (TestMethodSetup)
+
+        function useIsolatedWorkingDirectory(testCase)
+            testCase.OriginalDirectory = pwd;
+            testCase.TestDirectory = tempname;
+            mkdir(testCase.TestDirectory);
+            test_dir = fileparts(mfilename('fullpath'));
+            cd(fullfile(test_dir, '../../src/private'));
+            testCase.GetDefaultProfileOptions = @getDefaultProfileOptions;
+            testCase.SolveOneProblem = @solveOneProblem;
+            cd(testCase.TestDirectory);
+        end
+
+    end
+
+    methods (TestMethodTeardown)
+
+        function restoreWorkingDirectory(testCase)
+            cd(testCase.OriginalDirectory);
+            if exist(testCase.TestDirectory, 'dir') == 7
+                rmdir(testCase.TestDirectory, 's');
+            end
+        end
+
+    end
+
     methods (Test)
         function testWithValidInput(testCase)
             % Test whether the function returns the correct outputs when given valid input.
@@ -16,9 +49,12 @@ classdef TestSolveOne < matlab.unittest.TestCase
             profile_options.seed = 1;
             profile_options.solver_verbose = 1;
             profile_options.score_only = false;
-            profile_options = getDefaultProfileOptions(solvers, feature, profile_options);
+            get_default_profile_options = testCase.GetDefaultProfileOptions;
+            profile_options = get_default_profile_options(solvers, feature, profile_options);
 
-            result = solveOneProblem(solvers, problem, feature, problem_name, len_problem_names, profile_options, true, '');
+            solve_one_problem = testCase.SolveOneProblem;
+            result = solve_one_problem( ...
+                solvers, problem, feature, problem_name, len_problem_names, profile_options, true, '');
             testCase.verifyNotEmpty(result);
             testCase.verifyNotEmpty(result.fun_history);
             testCase.verifyNotEmpty(result.maxcv_history);
@@ -40,7 +76,8 @@ classdef TestSolveOne < matlab.unittest.TestCase
             solvers = {@fmincon_test1, @fmincon_test2};
             len_problem_names = length('BT1');
             profile_options.solver_names = {'sqp', 'interior-point'};
-            result = solveOneProblem(solvers, problem, feature, problem_name, len_problem_names, profile_options, true, '');
+            result = solve_one_problem( ...
+                solvers, problem, feature, problem_name, len_problem_names, profile_options, true, '');
             testCase.verifyNotEmpty(result);
             testCase.verifyNotEmpty(result.fun_history);
             testCase.verifyNotEmpty(result.maxcv_history);

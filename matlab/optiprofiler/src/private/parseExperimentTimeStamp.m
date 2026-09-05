@@ -3,13 +3,15 @@ function key = parseExperimentTimeStamp(time_stamp)
 %   An invalid identifier returns [NaN, NaN] and is ignored during discovery.
 
     key = [NaN, NaN];
-    parts = regexp(char(time_stamp), '^(\d{8}_\d{6})(?:_(\d{3,}))?$', 'tokens', 'once');
+    % Capture the whole optional suffix: MATLAB drops captures nested inside
+    % an optional noncapturing group from the returned token list.
+    parts = regexp(char(time_stamp), '^(\d{8}_\d{6})(_\d{3,})?$', 'tokens', 'once');
     if isempty(parts)
         return;
     end
     sequence = 0;
     if numel(parts) > 1 && ~isempty(parts{2})
-        sequence = str2double(parts{2});
+        sequence = str2double(parts{2}(2:end));
         if ~isfinite(sequence) || sequence == 0
             return;
         end

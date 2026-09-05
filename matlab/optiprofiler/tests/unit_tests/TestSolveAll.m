@@ -1,4 +1,39 @@
 classdef TestSolveAll < matlab.unittest.TestCase
+    properties (Access = private)
+        OriginalDirectory
+        TestDirectory
+        GetDefaultProblemOptions
+        GetDefaultProfileOptions
+        SolveAllProblems
+    end
+
+    methods (TestMethodSetup)
+
+        function useIsolatedWorkingDirectory(testCase)
+            testCase.OriginalDirectory = pwd;
+            testCase.TestDirectory = tempname;
+            mkdir(testCase.TestDirectory);
+            test_dir = fileparts(mfilename('fullpath'));
+            cd(fullfile(test_dir, '../../src/private'));
+            testCase.GetDefaultProblemOptions = @getDefaultProblemOptions;
+            testCase.GetDefaultProfileOptions = @getDefaultProfileOptions;
+            testCase.SolveAllProblems = @solveAllProblems;
+            cd(testCase.TestDirectory);
+        end
+
+    end
+
+    methods (TestMethodTeardown)
+
+        function restoreWorkingDirectory(testCase)
+            cd(testCase.OriginalDirectory);
+            if exist(testCase.TestDirectory, 'dir') == 7
+                rmdir(testCase.TestDirectory, 's');
+            end
+        end
+
+    end
+
     methods (Test)
         function testWithValidInput(testCase)
             % Test whether the function returns the correct outputs when given valid input.
@@ -10,12 +45,16 @@ classdef TestSolveAll < matlab.unittest.TestCase
             problem_options.ptype = 'u';
             problem_options.maxdim = 11;
             problem_options.mindim = 11;
-            problem_options = getDefaultProblemOptions(problem_options);
+            get_default_problem_options = testCase.GetDefaultProblemOptions;
+            problem_options = get_default_problem_options(problem_options);
 
             profile_options.n_jobs = 1;
-            profile_options = getDefaultProfileOptions(solvers, feature, profile_options);
+            get_default_profile_options = testCase.GetDefaultProfileOptions;
+            profile_options = get_default_profile_options(solvers, feature, profile_options);
             
-            results = solveAllProblems(solvers, plib, feature, problem_options, profile_options, false, '');
+            solve_all_problems = testCase.SolveAllProblems;
+            results = solve_all_problems( ...
+                solvers, plib, feature, problem_options, profile_options, false, '');
             testCase.verifyNotEmpty(results);
             testCase.verifyNotEmpty(results.plib);
             testCase.verifyNotEmpty(results.solver_names);
