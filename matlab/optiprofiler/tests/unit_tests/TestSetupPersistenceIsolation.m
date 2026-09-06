@@ -17,8 +17,10 @@ classdef TestSetupPersistenceIsolation < matlab.unittest.TestCase
             runUninstall(state.repository_root);
             path(state.original_path);
 
-            testCase.verifyFalse(contains( ...
-                fileread(pathdef_file), state.repository_root));
+            for directory = {'src', fullfile('problem_libs', 's2mpj')}
+                owned = fullfile(state.repository_root, 'matlab', 'optiprofiler', directory{1});
+                testCase.verifyFalse(contains(fileread(pathdef_file), [owned, pathsep]));
+            end
             verifyDefaultStartupUnchanged(testCase, state);
         end
 
@@ -60,6 +62,16 @@ function state = isolateSetupState(testCase)
     mkdir(state.library_root);
     state.original_directory = pwd;
     state.original_path = path;
+    % These cases exercise newly owned additions. Borrowed paths are covered
+    % separately by TestSetupPathOwnership and must not be removed by setup.
+    setup_paths = {fullfile(state.repository_root, 'matlab', 'optiprofiler', 'src'), ...
+        fullfile(state.repository_root, 'matlab', 'optiprofiler', 'problem_libs', 's2mpj')};
+    current_paths = strsplit(path, pathsep);
+    for k = 1:numel(setup_paths)
+        if ismember(setup_paths{k}, current_paths)
+            rmpath(setup_paths{k});
+        end
+    end
     state.original_registry = getenv( ...
         'OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_REGISTRY');
     state.original_pathdef = getenv( ...

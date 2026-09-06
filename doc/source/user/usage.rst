@@ -48,8 +48,9 @@ Additionally, a PDF file named ``summary.pdf`` is generated, summarizing all the
 The subfolder ``test_log`` contains diagnostic files for the experiment. In
 particular, ``test_log/report.txt`` records selected problem names, timing
 information, and special cases detected while building the profiles: problems
-where ``merit_init = phi(x_0) = Inf`` (all solvers are declared to pass that
-problem/run), solver runs that terminated abnormally, and solver outputs that
+where ``merit_init = phi(x_0) = Inf`` (valid evaluations pass by convention,
+but undefined objective or constraint values do not), solver runs that
+terminated abnormally, and solver outputs that
 were replaced by the initial point as an output-based penalty. The file
 ``test_log/log.txt`` contains the messages printed during the run.
 
@@ -58,6 +59,10 @@ If history plots are enabled, each problem library has a subfolder under
 with both raw and cumulative-minimum histories. The ``raw`` and ``cummin``
 subfolders contain the corresponding single-view PDFs. The merged
 ``*_history_plots_summary.pdf`` file uses the top-level combined PDFs.
+
+.. include:: history_display.rst
+
+.. include:: matlab_runtime_output.rst
 
 .. _example2:
 

@@ -158,8 +158,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         feature. Default is false.
 %       - savepath: the path to store the results. Default is 'pwd', the
 %         current working directory.
-%         Saving requires the Java Virtual Machine (JVM); do not start MATLAB
-%         with -nojvm. This requirement does not apply when score_only is true.
+%         Saving without the Java Virtual Machine (JVM) is supported on
+%         macOS/Linux. If native figures are unavailable, SVG charts and an
+%         HTML summary replace PDF/FIG output. Windows saving requires the JVM.
 %       - score_fun: the scoring function to calculate the scores of the
 %         solvers. It should be a function handle as follows:
 %               ``profile_scores -> solver_scores``,
@@ -279,8 +280,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %       - condition_factor: the scaling factor of the condition number of the
 %         linear transformation in the 'linearly_transformed' feature. More
 %         specifically, the condition number of the linear transformation will
-%         be 2 ^ (condition_factor * n / 2), where `n` is the dimension of the
-%         problem. Default is 0.
+%         be 2 ^ sqrt(condition_factor * n / 2) for dimension n >= 2.
+%         In dimension 1 it is 1. Default is 0. This describes the existing
+%         transformation; it does not change its matrix or random stream.
 %       - nan_rate: the probability that the evaluation of the objective
 %         function will return NaN in the 'random_nan' feature. Default is
 %         0.05.
@@ -699,6 +701,19 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     profile_scores = [];
     curves = [];
     solver_names = profile_options.(ProfileOptionKey.SOLVER_NAMES.value);
+    native_graphics = false;
+    if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
+        native_graphics = hasNativeGraphics();
+        if ~native_graphics
+            printOptiProfilerMessage('WARNING', 'Native MATLAB graphics are unavailable. Saving portable SVG charts and an HTML summary instead of PDF/FIG; numeric results and scores are unchanged.');
+        end
+    end
+    drawing_options = profile_options;
+    if ~native_graphics
+        % This private copy suppresses figure allocation, not numerical curves
+        % or saving. The user's score_only option retains its original meaning.
+        drawing_options.(ProfileOptionKey.SCORE_ONLY.value) = true;
+    end
     % Remove backslash from the solver names.
     solver_names = cellfun(@(s) strrep(s, '\_', '_'), solver_names, 'UniformOutput', false);
     if n_solvers > 10 && ~profile_options.(ProfileOptionKey.SILENT.value)
@@ -821,6 +836,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         try
             calling_script = dbstack(1, '-completenames');
             if ~isempty(calling_script)
+                % Preserve the immediate caller, not every ancestor in the stack.
+                calling_script = calling_script(1);
                 copyfile(calling_script.file, path_log);
                 if ~profile_options.(ProfileOptionKey.SILENT.value)
                     fprintf('\n');
@@ -1073,7 +1090,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 
             if strcmp(profile_options.(ProfileOptionKey.DRAW_HIST_PLOTS.value), 'parallel')    
                 % Merge the history plots for each problem library to a single pdf file.
-                if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value) && any(results_plib.solvers_successes(:))
+                if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value) && any(results_plib.solvers_successes(:)) && ...
+                        ~isempty(dir(fullfile(path_hist_plots_plib, '*.pdf')))
                     if ~profile_options.(ProfileOptionKey.SILENT.value)
                         printOptiProfilerMessage('INFO', sprintf('Merging all the history plots of problems from the "%s" library to a single PDF file.', plib));
                     end
@@ -1102,6 +1120,16 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             end
             return;
         end
+    end
+
+    % Persist the numerical result BEFORE sequential rendering. A graphics
+    % crash or forced interruption must not discard a completed experiment.
+    if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
+        saveResultsForLoading(results_plibs, path_log, time_stamp, path_readme_log);
+    end
+    writeReport(profile_options, results_plibs, path_report, path_readme_log);
+    if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
+        appendRuntimeReportNotes(results_plibs, feature, is_load, path_report, path_readme_feature);
     end
 
     % Draw hist plots sequentially if profile_options.draw_hist_plots is set to 'sequential'.
@@ -1146,7 +1174,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             end
 
             % Merge the history plots for each problem library to a single pdf file.
-            if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value) && any(results_plib.solvers_successes(:))
+            if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value) && any(results_plib.solvers_successes(:)) && ...
+                    ~isempty(dir(fullfile(path_hist_plots_plib, '*.pdf')))
                 if ~profile_options.(ProfileOptionKey.SILENT.value)
                     printOptiProfilerMessage('INFO', sprintf('Merging all the history plots of problems from the "%s" library to a single PDF file.', results_plib.plib));
                 end
@@ -1162,40 +1191,6 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 
         end
     end
-
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Store the data for loading. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-    if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
-        try
-            % Version 7 can omit variables larger than 2 GB after issuing only a warning.
-            save(fullfile(path_log, 'data_for_loading.mat'), 'results_plibs', '-v7.3');
-            if isempty(whos('-file', fullfile(path_log, 'data_for_loading.mat'), 'results_plibs'))
-                error('OptiProfiler:SavedResultsMissing', 'The saved file does not contain results_plibs.');
-            end
-            addToReadme(path_readme_log, 'data_for_loading.mat', 'File, storing the data of the current experiment for future loading.');
-            % Publish a load marker only once the numerical data is saved.
-            marker_name = ['time_stamp_', time_stamp, '.txt'];
-            fid = fopen(fullfile(path_log, marker_name), 'w');
-            if fid < 0
-                error('OptiProfiler:TimeStamp', 'Cannot create the experiment time stamp file.');
-            end
-            fprintf(fid, '%s', time_stamp);
-            fclose(fid);
-            addToReadme(path_readme_log, marker_name, 'File, recording the time stamp of the saved experiment.');
-        catch ME
-            if ~profile_options.(ProfileOptionKey.SILENT.value)
-                printOptiProfilerMessage('WARNING', 'Failed to save the data of the current experiment. This experiment cannot be reloaded with the `load` option.');
-                printOptiProfilerMessage('WARNING', sprintf('Error message: %s', shortenMessageForLog(ME.message)));
-            end
-        end
-    end
-
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Write the report file. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    
-    writeReport(profile_options, results_plibs, path_report, path_readme_log);
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%% Start the computation of all profiles. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1214,11 +1209,13 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     max_tol_order = profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value);
     tolerances = 10.^(-1:-1:-max_tol_order);
 
+    warning_state = warning;
+    warning_cleanup = onCleanup(@() warning(warning_state));
     warning('off');
     n_rows = 0;
-    is_perf = profile_options.(ProfileOptionKey.SUMMARIZE_PERFORMANCE_PROFILES.value);
-    is_data = profile_options.(ProfileOptionKey.SUMMARIZE_DATA_PROFILES.value);
-    is_log_ratio = profile_options.(ProfileOptionKey.SUMMARIZE_LOG_RATIO_PROFILES.value) && (n_solvers == 2);
+    is_perf = native_graphics && profile_options.(ProfileOptionKey.SUMMARIZE_PERFORMANCE_PROFILES.value);
+    is_data = native_graphics && profile_options.(ProfileOptionKey.SUMMARIZE_DATA_PROFILES.value);
+    is_log_ratio = native_graphics && profile_options.(ProfileOptionKey.SUMMARIZE_LOG_RATIO_PROFILES.value) && (n_solvers == 2);
     is_output_based = profile_options.(ProfileOptionKey.SUMMARIZE_OUTPUT_BASED_PROFILES.value);
     if is_perf
         n_rows = n_rows + 1;
@@ -1237,31 +1234,41 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     [~, default_width, default_height] = profileFigurePosition();
     summary_profile_width = default_width + summaryLegendExtraWidth(n_solvers, default_width, solver_names);
 
+    fig_summary = [];
     if n_rows > 0
-        summary_width = profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * summary_profile_width;
-        summary_height = multiplier * n_rows * default_height;
-        fig_summary = figure('Units', 'pixels', 'Position', profileFigurePosition(summary_width, summary_height), 'visible', 'off');
-        T_summary = tiledlayout(fig_summary, multiplier, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
-        T_feature = escapeLatexText(feature.name);
-        T_title = ['Profiles with ', latexQuoteText(T_feature), ' feature'];
-        summary_fontsize = min(summary_width / 75 * 2, summary_width / profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * 3 / 75 * 2);
-        title_obj = title(T_summary, T_title, 'Interpreter', 'latex', 'FontSize', summary_fontsize);
-        set(title_obj, 'Interpreter', 'latex');
-        % Use gobjects to create arrays of handles and axes.
-        t_summary = gobjects(multiplier, 1);
-        axs_summary = gobjects([multiplier, 1, n_rows, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)]);
-        i_axs = 0;
-        for i = 1:multiplier
-            t_summary(i) = tiledlayout(T_summary, n_rows, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value), 'Padding', 'compact', 'TileSpacing', 'compact');
-            t_summary(i).Layout.Tile = i;
-            for j = 1:n_rows * profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)
-                i_axs = i_axs + 1;
-                axs_summary(i_axs) = nexttile(t_summary(i));
+        try
+            summary_width = profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * summary_profile_width;
+            summary_height = multiplier * n_rows * default_height;
+            fig_summary = figure('Units', 'pixels', 'Position', profileFigurePosition(summary_width, summary_height), 'visible', 'off');
+            T_summary = tiledlayout(fig_summary, multiplier, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
+            T_feature = escapeLatexText(feature.name);
+            T_title = ['Profiles with ', latexQuoteText(T_feature), ' feature'];
+            summary_fontsize = min(summary_width / 75 * 2, summary_width / profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * 3 / 75 * 2);
+            title_obj = title(T_summary, T_title, 'Interpreter', 'latex', 'FontSize', summary_fontsize);
+            set(title_obj, 'Interpreter', 'latex');
+            % Use gobjects to create arrays of handles and axes.
+            t_summary = gobjects(multiplier, 1);
+            axs_summary = gobjects([multiplier, 1, n_rows, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)]);
+            i_axs = 0;
+            for i = 1:multiplier
+                t_summary(i) = tiledlayout(T_summary, n_rows, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value), 'Padding', 'compact', 'TileSpacing', 'compact');
+                t_summary(i).Layout.Tile = i;
+                for j = 1:n_rows * profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)
+                    i_axs = i_axs + 1;
+                    axs_summary(i_axs) = nexttile(t_summary(i));
+                end
             end
-        end
-        ylabel(t_summary(1), "History-based profiles", 'Interpreter', 'latex', 'FontSize', min(summary_height / 60 * 2, summary_height / n_rows * 2 / 60 * 2));
-        if is_output_based
-            ylabel(t_summary(2), "Output-based profiles", 'Interpreter', 'latex', 'FontSize', min(summary_height / 60 * 2, summary_height / n_rows * 2 / 60 * 2));
+            ylabel(t_summary(1), "History-based profiles", 'Interpreter', 'latex', 'FontSize', min(summary_height / 60 * 2, summary_height / n_rows * 2 / 60 * 2));
+            if is_output_based
+                ylabel(t_summary(2), "Output-based profiles", 'Interpreter', 'latex', 'FontSize', min(summary_height / 60 * 2, summary_height / n_rows * 2 / 60 * 2));
+            end
+        catch cause
+            if ~isempty(fig_summary) && isgraphics(fig_summary), close(fig_summary); end
+            fig_summary = []; n_rows = 0;
+            is_perf = false; is_data = false; is_log_ratio = false;
+            native_graphics = false;
+            drawing_options.(ProfileOptionKey.SCORE_ONLY.value) = true;
+            printOptiProfilerMessage('WARNING', sprintf('Native summary layout failed; using SVG fallback: %s',cause.message));
         end
     end
 
@@ -1406,18 +1413,26 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             cell_axs_summary_out = {};
         end
 
+        hist_graphics_ok = true; out_graphics_ok = true;
         if is_hist_drawable
-            [fig_perf_hist, fig_data_hist, fig_log_ratio_hist, curves{i_tol}.hist] = drawProfiles(work_hist, problem_dims_merged, solver_names, tolerance_latex, cell_axs_summary_hist, true, is_perf, is_data, is_log_ratio, profile_options, curves{i_tol}.hist);
+            [fig_perf_hist, fig_data_hist, fig_log_ratio_hist, curves{i_tol}.hist, hist_graphics_ok] = drawProfiles(work_hist, problem_dims_merged, solver_names, tolerance_latex, cell_axs_summary_hist, true, is_perf, is_data, is_log_ratio, drawing_options, curves{i_tol}.hist);
         end
         if is_out_drawable
-            [fig_perf_out, fig_data_out, fig_log_ratio_out, curves{i_tol}.out] = drawProfiles(work_out, problem_dims_merged, solver_names, tolerance_latex, cell_axs_summary_out, is_output_based, is_perf, is_data, is_log_ratio, profile_options, curves{i_tol}.out);
+            [fig_perf_out, fig_data_out, fig_log_ratio_out, curves{i_tol}.out, out_graphics_ok] = drawProfiles(work_out, problem_dims_merged, solver_names, tolerance_latex, cell_axs_summary_out, is_output_based, is_perf, is_data, is_log_ratio, drawing_options, curves{i_tol}.out);
+        end
+
+        if ~hist_graphics_ok || ~out_graphics_ok
+            native_graphics = false;
+            drawing_options.(ProfileOptionKey.SCORE_ONLY.value) = true;
+            is_perf = false; is_data = false; is_log_ratio = false;
         end
 
         % Clear working memory.
         clear work_hist;
         clear work_out;
 
-        if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
+        if native_graphics
+          try
             if is_hist_drawable
                 pdf_perf_hist = fullfile(path_perf_hist, ['perf_hist_', int2str(i_tol), '.pdf']);
                 figure_perf_hist = fullfile(path_figs, ['perf_hist_', int2str(i_tol), '.fig']);
@@ -1503,6 +1518,13 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                 catch
                 end
             end
+          catch cause
+            % An export backend can fail after figure creation succeeded.
+            % Finish computing all curves, then publish portable SVGs below.
+            native_graphics = false;
+            drawing_options.(ProfileOptionKey.SCORE_ONLY.value) = true;
+            printOptiProfilerMessage('WARNING', sprintf('Native profile export failed; using SVG fallback: %s', cause.message));
+          end
         end
 
         % Close the figures.
@@ -1726,12 +1748,15 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             addToReadme(path_readme_log, 'profile_scores.mat', 'File, storing the scores of solvers on each profile.');
 
             fid = fopen(path_report, 'a');
+            if fid < 0, error('OptiProfiler:ReportOutput','Cannot append profile scores to the report.'); end
+            report_cleanup = onCleanup(@() fclose(fid));
             fprintf(fid, "\n");
             fprintf(fid, "## Scores of the solvers\n\n");
             max_solver_name_length = max(cellfun(@length, solver_names));
             for i_solver = 1:n_solvers
                 fprintf(fid, "%-*s:    %.4f\n", max_solver_name_length, solver_names{i_solver}, solver_scores(i_solver));
             end
+            clear report_cleanup;
         catch
         end
     end
@@ -1747,7 +1772,11 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         end
     end
 
-    if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
+    if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value) && ~native_graphics
+        exportPortableProfiles(curves, solver_names, profile_options, path_stamp);
+    end
+
+    if native_graphics
         % Store the summary pdf. We will name the summary pdf as "summary_stamp.pdf" and store
         % it under path_stamp. We will also put a "summary.pdf" in the path_out directory, which will
         % be a merged pdf of latest 10 "summary_stamp.pdf" under path_out following descending order
@@ -1758,19 +1787,26 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                 fprintf('\n');
                 printOptiProfilerMessage('INFO', 'Start creating the summary PDF of all the profiles.');
             end
-            if ispc
-                print(fig_summary, fullfile(path_stamp, [summary_name, '.pdf']), '-dpdf', '-vector');
-            else
-                exportgraphics(fig_summary, fullfile(path_stamp, [summary_name, '.pdf']), 'ContentType', 'vector');
-            end
-            savefig(fig_summary, fullfile(path_figs, [summary_name, '.fig']));
-            if ~profile_options.(ProfileOptionKey.SILENT.value)
-                printOptiProfilerMessage('INFO', 'The summary PDF of all the profiles is created.');
+            try
+                if ispc
+                    print(fig_summary, fullfile(path_stamp, [summary_name, '.pdf']), '-dpdf', '-vector');
+                else
+                    exportgraphics(fig_summary, fullfile(path_stamp, [summary_name, '.pdf']), 'ContentType', 'vector');
+                end
+                savefig(fig_summary, fullfile(path_figs, [summary_name, '.fig']));
+                if ~profile_options.(ProfileOptionKey.SILENT.value)
+                    printOptiProfilerMessage('INFO', 'The summary PDF of all the profiles is created.');
+                end
+            catch cause
+                printOptiProfilerMessage('WARNING', sprintf('Native summary export failed; using SVG fallback: %s', cause.message));
+                exportPortableProfiles(curves, solver_names, profile_options, path_stamp);
             end
         end
 
         try
-            addToReadme(path_readme_feature, summary_name, sprintf('File, the summary PDF of all the profiles for the feature ''%s''.', feature_name));
+            if isfile(fullfile(path_stamp, [summary_name, '.pdf']))
+                addToReadme(path_readme_feature, summary_name, sprintf('File, the summary PDF of all the profiles for the feature ''%s''.', feature_name));
+            end
         catch
         end
 
@@ -1795,7 +1831,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             % must not stage or delete temporary PDFs in the shared path_out.
             path_staging = fullfile(path_stamp, '.summary_merge');
             mkdir(path_staging);
-            cleanup_summary = onCleanup(@() rmdir(path_staging, 's'));
+            cleanup_summary = onCleanup(@() cleanupSummaryStaging(path_staging));
             for i_file = 1:numel(summary_files)
                 copyfile(fullfile(summary_files(i_file).folder, summary_files(i_file).name), ...
                     fullfile(path_staging, sprintf('%03d.pdf', i_file)));
@@ -1803,21 +1839,28 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             mergePdfs(path_staging, 'summary.pdf', path_staging);
             % A same-filesystem atomic replacement preserves the old aggregate
             % if merging/replacement fails and prevents readers seeing a gap.
-            source_file = java.io.File(fullfile(path_staging, 'summary.pdf'));
-            target_file = java.io.File(fullfile(path_out, 'summary.pdf'));
-            move_options = javaArray('java.nio.file.CopyOption', 2);
-            move_options(1) = java.nio.file.StandardCopyOption.ATOMIC_MOVE;
-            move_options(2) = java.nio.file.StandardCopyOption.REPLACE_EXISTING;
-            java.nio.file.Files.move(source_file.toPath(), target_file.toPath(), move_options);
+            atomicReplaceFile(fullfile(path_staging, 'summary.pdf'), fullfile(path_out, 'summary.pdf'));
         catch ME
-            if ~profile_options.(ProfileOptionKey.SILENT.value)
-                printOptiProfilerMessage('INFO', 'Failed to merge the summary PDF files.');
-                printOptiProfilerMessage('INFO', sprintf('Error message: %s', shortenMessageForLog(ME.message)));
+            % Missing output is actionable even in silent mode. Preserve full
+            % backend diagnostics and provide a visible current-run fallback.
+            printOptiProfilerMessage('WARNING', sprintf('Could not merge the summary PDFs: %s', ME.message));
+            if isfile(fullfile(path_staging, 'summary.pdf'))
+                printOptiProfilerMessage('WARNING', sprintf('Completed unpublished summary retained at: %s', fullfile(path_staging, 'summary.pdf')));
+            end
+            writeGraphicsIndex(path_stamp, ['PDF aggregation failed; individual plots are available below. ', ME.message]);
+            fid = fopen(fullfile(path_log, 'pdf_merge_failure.txt'), 'w');
+            if fid >= 0
+                fprintf(fid, '%s\n', getReport(ME, 'extended', 'hyperlinks', 'off'));
+                fclose(fid);
             end
         end
         clear cleanup_summary;
     end
-    warning('on');
+    if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value) && isfile(fullfile(path_stamp, 'summary.html'))
+        % Index creation can follow a failed probe, export, or PDF merge.
+        addToReadme(path_readme_feature, 'summary.html', 'File, fallback plot summary/index linking the available SVG or PDF charts.');
+    end
+    clear warning_cleanup;
 
     % Close the figures.
     if n_rows > 0
@@ -1829,9 +1872,17 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         printOptiProfilerMessage('INFO', sprintf('Finished creating profiles with the "%s" feature.', feature.name));
         if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
             fprintf('\n**********************************************************************\n');
-            printOptiProfilerMessage('INFO', sprintf('Summary PDF of the profiles is saved as: %s', fullfile(path_stamp, [summary_name, '.pdf'])));
+            if isfile(fullfile(path_stamp, 'summary.html'))
+                printOptiProfilerMessage('INFO', sprintf('Plot summary/index is saved as: %s', fullfile(path_stamp, 'summary.html')));
+            elseif exist('summary_name', 'var') && isfile(fullfile(path_stamp, [summary_name, '.pdf']))
+                printOptiProfilerMessage('INFO', sprintf('Summary PDF of the profiles is saved as: %s', fullfile(path_stamp, [summary_name, '.pdf'])));
+            end
             fprintf('\n');
-            printOptiProfilerMessage('INFO', sprintf('Single profiles are stored in: %s', fullfile(path_stamp, 'detailed_profiles')));
+            if native_graphics
+                printOptiProfilerMessage('INFO', sprintf('Single profiles are stored in: %s', fullfile(path_stamp, 'detailed_profiles')));
+            else
+                printOptiProfilerMessage('INFO', sprintf('Portable profiles are stored in: %s', path_stamp));
+            end
             fprintf('\n');
             printOptiProfilerMessage('INFO', sprintf('Report of the experiment is saved as: %s', path_report));
             fprintf('\n');
@@ -1953,6 +2004,14 @@ end
 function deleteFileIfExists(file)
     if isfile(file)
         delete(file);
+    end
+end
+
+function cleanupSummaryStaging(folder)
+    % Keep a completed merged file if final publication failed. Successful
+    % atomic publication consumes it; incomplete backend work is disposable.
+    if isfolder(folder) && ~isfile(fullfile(folder, 'summary.pdf'))
+        rmdir(folder, 's');
     end
 end
 

@@ -123,14 +123,15 @@ def test_failed_data_write_does_not_publish_load_marker(saved_same_second_runs, 
     real_file = h5py.File
 
     def fail_output_write(name, mode='r', *args, **kwargs):
-        if mode == 'w' and Path(name).name == 'data_for_loading.h5':
+        if mode == 'w' and 'data_for_loading.h5' in Path(name).name:
             raise OSError('simulated output filesystem failure')
         return real_file(name, mode, *args, **kwargs)
 
     monkeypatch.setattr(h5py, 'File', fail_output_write)
-    benchmark(None, load='latest', benchmark_id='saved',
-              draw_hist_plots='none', silent=True, max_tol_order=1,
-              summarize_performance_profiles=False, summarize_data_profiles=False)
+    with pytest.raises(RuntimeError, match='Failed to save the experiment'):
+        benchmark(None, load='latest', benchmark_id='saved',
+                  draw_hist_plots='none', silent=True, max_tol_order=1,
+                  summarize_performance_profiles=False, summarize_data_profiles=False)
     assert len(list(root.glob('*/test_log/time_stamp_*.txt'))) == len(markers)
     assert len([path for path in root.iterdir() if path.is_dir()]) == 3
 

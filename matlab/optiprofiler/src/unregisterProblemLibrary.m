@@ -43,9 +43,12 @@ function registration = unregisterProblemLibrary(name)
             registry_file, name);
     end
 
+    managed = setupPathOwnership('remove-owner', root);
+    if ~managed
+        removeProblemLibraryPath(root);
+    end
     registrations(matching) = [];
     writeProblemLibraryRegistry(registry_file, registrations);
-    removeProblemLibraryPath(root);
 end
 
 

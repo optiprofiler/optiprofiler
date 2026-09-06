@@ -1,45 +1,54 @@
-function value_histories_processed = processHistYaxes(value_histories, value_inits)
-%PROCESSHISTYAXES Process the value_histories of the y-axis data.
-%   value_histories has the size of (n_solvers, n_runs, n_evals).
-%   value_inits is a vector of size (n_runs, 1).
-%   This function processes the value_histories by replacing NaN and Inf values
-%   with a value larger than the maximum finite value in value_histories.
-%
+function [processed, display_note] = processHistYaxes(value_histories, value_inits)
+%PROCESSHISTYAXES Prepare a bounded display copy, never experimental data.
+%   The history shape is (solver, run, evaluation). Finite display values
+%   outside +/-1e100 are clipped BEFORE computing means, squared deviations
+%   and axis margins. This leaves ample double-precision arithmetic headroom.
+%   NaN/Inf are displayed above their run's finite range, including its finite
+%   initial value; with no finite reference they are displayed at 1.
+%   Callers must show DISPLAY_NOTE when nonempty. This limit is not used by
+%   oracle evaluations, saved histories, merit functions or profile scores.
 
-    n_runs = size(value_histories, 2);
-    value_histories_processed = value_histories;
-    for i_run = 1:n_runs
-        mask_hist_nan_inf = ~isfinite(value_histories(:, i_run, :));
-        value_histories(mask_hist_nan_inf) = value_inits(i_run);
-        value_max = max(value_histories(:, i_run, :), [], 'all', 'omitnan');
-        value_min = min(value_histories(:, i_run, :), [], 'all', 'omitnan');
-        value_histories_processed(mask_hist_nan_inf) = value_min + 1.5 * (value_max - value_min);
+    display_limit = 1e100;
+    processed = max(-display_limit, min(display_limit, value_histories));
+    notes = {};
+    n_clipped = nnz(isfinite(value_histories) & abs(value_histories) > display_limit);
+    n_nonfinite = nnz(~isfinite(value_histories));
+    if n_clipped
+        notes{end + 1} = sprintf('Display clipped at +/-1e100: %d entries', n_clipped);
     end
-
-    % Following code is used to truncate the value_histories according to the last evaluation where the value decreases. But at this moment, we do not use this strategy.
-
-    % n_solvers = size(value_histories, 1);
-    % n_runs = size(value_histories, 2);
-
-    % % Find the last evaluation where the value decreases.
-    % mask_diff = diff(value_histories, 1, 3) < 0;
-    % if ~any(mask_diff(:))
-    %     max_lastd = 2;
-    % else
-    %     for i_solver = 1:n_solvers
-    %         for i_run = 1:n_runs
-    %             lastd_tmp = find(mask_diff(i_solver, i_run, :), 1, 'last');
-    %             if isempty(lastd_tmp)
-    %                 lastd(i_solver, i_run) = 2;
-    %             else
-    %                 lastd(i_solver, i_run) = lastd_tmp;
-    %             end
-    %         end
-    %     end
-    %     max_lastd = max(lastd(:));
-    % end
-
-    % % Truncate the value_histories of the function values according to `max_last_true_fun_eval'.
-    % value_histories_processed = value_histories_processed(:, :, 1:max_lastd);
-
+    if n_nonfinite
+        notes{end + 1} = sprintf('Nonfinite placeholders: %d entries', n_nonfinite);
+    end
+    n_empty_runs = 0;
+    for i_run = 1:size(value_histories, 2)
+        % A slice mask must never index the whole multi-run array: MATLAB
+        % linear indexing would otherwise change a different run's values.
+        slice_run = processed(:, i_run, :);
+        mask_run = ~isfinite(value_histories(:, i_run, :));
+        if ~any(mask_run, 'all')
+            continue;
+        end
+        finite = slice_run(~mask_run);
+        initial = value_inits(min(i_run, numel(value_inits)));
+        if isfinite(initial)
+            finite(end + 1) = max(-display_limit, min(display_limit, initial));
+        end
+        if isempty(finite)
+            replacement = 1;
+            n_empty_runs = n_empty_runs + 1;
+        else
+            low = min(finite);
+            high = max(finite);
+            % Clip first so the range and placeholder cannot overflow. Give
+            % a constant run a distinct, visible nonfinite placeholder too.
+            gap = max([0.5 * (high - low), 0.05 * abs(high), eps]);
+            replacement = high + gap;
+        end
+        slice_run(mask_run) = replacement;
+        processed(:, i_run, :) = slice_run;
+    end
+    if n_empty_runs
+        notes{end + 1} = sprintf('No finite reference in %d run(s): shown at 1', n_empty_runs);
+    end
+    display_note = strjoin(notes, newline);
 end

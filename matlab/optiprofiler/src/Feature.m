@@ -64,6 +64,7 @@ classdef Feature < handle
 %       9. 'nonquantifiable_constraints':
 %           replace values of nonlinear constraints with either 0 (if the
 %           constraint is satisfied) or 1 (if the constraint is violated).
+%           Undefined values remain NaN.
 %       10. 'quantized':
 %           quantize the objective function and nonlinear constraints.
 %       11. 'custom':
@@ -111,9 +112,9 @@ classdef Feature < handle
 %         Default is true.
 %       - condition_factor: the scaling factor of the condition number of the
 %         linear transformation in the 'linearly_transformed' feature. More
-%         specifically, the condition number of the linear transformation will
-%         2 ^ (condition_factor * n / 2), where `n` is the dimension of the
-%         problem. Default is 0.
+%         specifically, the condition number of the linear transformation is
+%         2 ^ sqrt(condition_factor * n / 2) for n >= 2 (and 1 for n = 1),
+%         where `n` is the dimension of the problem. Default is 0.
 %       - nan_rate: the probability that the evaluation of the objective
 %         function will return NaN in the 'random_nan' feature. Default is
 %         0.05.
@@ -130,7 +131,10 @@ classdef Feature < handle
 %       - mesh_type: the type of the mesh in the 'quantized' feature. It should
 %         be either 'absolute' or 'relative'. Default is 'absolute'.
 %       - ground_truth: whether the feature is the ground truth or not. Default
-%         is true.
+%         is true. For 'quantized', true evaluates initialization, histories,
+%         and output using the quantized objective and nonlinear constraints;
+%         false uses the original problem. Bounds and linear constraints are
+%         not quantized, and the solver's returned point is never rounded.
 %       - mod_x0: the modifier function to modify the inital guess in the 
 %         'custom' feature. It should be a function handle as follows:
 %               ``(random_stream, problem) -> modified_x0``,
@@ -613,9 +617,9 @@ classdef Feature < handle
                     else
                         Q = eye(problem.n);
                     end
-                    % Generate a positive definite diagonal matrix D with condition number equal to
-                    % 2^(condition_factor * n / 2), where n is the dimension of the problem. In this
-                    % way, the condition number of Q * D^2 * Q' is 2^(condition_factor * n).
+                    % The extreme exponents differ by sqrt(condition_factor*n/2),
+                    % so cond(A)=2^sqrt(condition_factor*n/2) for n>=2. Orthogonal
+                    % rotation preserves singular values; n=1 has cond(A)=1.
                     log_condition_number = sqrt(obj.options.(FeatureOptionKey.CONDITION_FACTOR.value) * problem.n / 2);
                     power = linspace(-log_condition_number/2, log_condition_number/2, problem.n);
                     A = diag(2.^power) * Q';
@@ -1056,8 +1060,8 @@ classdef Feature < handle
                 case FeatureName.NONQUANTIFIABLE_CONSTRAINTS.value
                     % Set the elements whose value are less than or equal to 0 to 0.
                     cub_(cub_ <= 0) = 0;
-                    % Set the rest to 1.
-                    cub_(~(cub_ <= 0)) = 1;
+                    % Preserve NaN: an undefined oracle is not a known violation.
+                    cub_(cub_ > 0) = 1;
                 case FeatureName.QUANTIZED.value
                     % Similar to the case in the modifier_fun method.
                     mesh_size = obj.options.(FeatureOptionKey.MESH_SIZE.value);
@@ -1140,8 +1144,8 @@ classdef Feature < handle
                 case FeatureName.NONQUANTIFIABLE_CONSTRAINTS.value
                     % Set the elements whose absolute value are less than or equal to 10^(-6) to 0.
                     ceq_(abs(ceq_) <= 1e-6) = 0;
-                    % Set the rest to 1.
-                    ceq_(~(abs(ceq_) <= 1e-6)) = 1;
+                    % Preserve NaN, matching Python and the raw truth channel.
+                    ceq_(abs(ceq_) > 1e-6) = 1;
                 case FeatureName.QUANTIZED.value
                     % Similar to the case in the modifier_fun method.
                     mesh_size = obj.options.(FeatureOptionKey.MESH_SIZE.value);

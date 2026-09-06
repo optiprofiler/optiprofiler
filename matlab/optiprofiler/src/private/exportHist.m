@@ -36,22 +36,37 @@ function exportHist(problem_name, problem_type, problem_dim, solver_names, solve
             mkdir(cummin_path);
         end
 
-        exportHistoryFigure(pdf_summary, 'combined', problem_name, problem_type, problem_dim, processed_solver_names, ...
-            fun_history, maxcv_history, merit_history, fun_inits, maxcv_inits, merit_inits, n_eval, ...
-            profile_options, n_cols, default_width, default_height, summary_profile_width);
-        exportHistoryFigure(fullfile(raw_path, pdf_hist_file_name), 'raw', problem_name, problem_type, problem_dim, processed_solver_names, ...
-            fun_history, maxcv_history, merit_history, fun_inits, maxcv_inits, merit_inits, n_eval, ...
-            profile_options, n_cols, default_width, default_height, summary_profile_width);
-        exportHistoryFigure(fullfile(cummin_path, pdf_hist_file_name), 'cummin', problem_name, problem_type, problem_dim, processed_solver_names, ...
-            fun_history, maxcv_history, merit_history, fun_inits, maxcv_inits, merit_inits, n_eval, ...
-            profile_options, n_cols, default_width, default_height, summary_profile_width);
+        histories = {fun_history}; inits = {fun_inits}; labels = {'Objective'};
+        if ~strcmp(problem_type, 'u')
+            histories = {fun_history, maxcv_history, merit_history};
+            inits = {fun_inits, maxcv_inits, merit_inits};
+            labels = {'Objective', 'Maximum constraint violation', 'Merit'};
+        end
+        files={pdf_summary,fullfile(raw_path,pdf_hist_file_name),fullfile(cummin_path,pdf_hist_file_name)};
+        modes={'combined','raw','cummin'};
+        native_graphics=hasNativeGraphics();
+        for i=1:numel(modes)
+            if native_graphics
+                try
+                    exportHistoryFigure(files{i}, modes{i}, problem_name, problem_type, problem_dim, processed_solver_names, ...
+                        fun_history, maxcv_history, merit_history, fun_inits, maxcv_inits, merit_inits, n_eval, ...
+                        profile_options, n_cols, default_width, default_height, summary_profile_width);
+                    continue;
+                catch cause
+                    % A working figure probe does not guarantee that a later
+                    % renderer or PDF exporter works. Only this native block
+                    % falls back; merit-computation failures remain failures.
+                    printOptiProfilerMessage('WARNING', sprintf('History rendering failed; using SVG fallback: %s',cause.message));
+                end
+            end
+            exportPortableHistory(strrep(files{i},'.pdf','.svg'),modes{i},problem_name,problem_dim, ...
+                solver_names,histories,inits,n_eval,labels,profile_options);
+        end
         clear warning_cleanup;
     catch Exception
-        if ~profile_options.(ProfileOptionKey.SILENT.value)
-            % A failed history plot means a missing output PDF; report it as a
-            % warning so that a systematic failure cannot hide in a passing run.
-            printOptiProfilerMessage('WARNING', sprintf('An error occurred while plotting the history plots of the problem %s: %s', problem_name, shortenMessageForLog(Exception.message)));
-        end
+        % A failed fallback is still a missing artifact. Silent mode suppresses
+        % progress, not this actionable failure (including merit diagnostics).
+        printOptiProfilerMessage('WARNING', sprintf('An error occurred while plotting the history plots of the problem %s: %s', problem_name, shortenMessageForLog(Exception.message)));
     end
 end
 

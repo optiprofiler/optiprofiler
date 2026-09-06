@@ -200,7 +200,13 @@ classdef FeaturedProblem < Problem
             end
 
             % Similar check for maxcv_init.
-            val = obj.problem.maxcv(A * obj.x0 + b);
+            % The initial violation must use the same truth as histories;
+            % maxcv does not consume any solver constraint evaluations.
+            if strcmp(obj.feature.name, FeatureName.QUANTIZED.value) && obj.feature.options.(FeatureOptionKey.GROUND_TRUTH.value)
+                val = obj.maxcv(obj.x0);
+            else
+                val = obj.problem.maxcv(A * obj.x0 + b);
+            end
             if isempty(val)
                 val = obj.problem.maxcv(obj.problem.x0);
                 if isempty(val)
@@ -445,7 +451,9 @@ classdef FeaturedProblem < Problem
                 end
 
                 if ~isempty(obj.cub_)
-                    cub_val = obj.cub(x, false);    % Do not record history
+                    % Do not call the public oracle even with record_hist=false:
+                    % it consumes the real budget and may return a cached value.
+                    cub_val = obj.feature.modifier_cub(x, obj.seed, obj.problem, obj.n_eval_cub);
                     if ~isempty(cub_val)
                         cv_nonlinear = max([cub_val(:); 0], [], 'includenan');
                     else
@@ -455,7 +463,7 @@ classdef FeaturedProblem < Problem
                     cv_nonlinear = 0;
                 end
                 if ~isempty(obj.ceq_)
-                    ceq_val = obj.ceq(x, false);    % Do not record history
+                    ceq_val = obj.feature.modifier_ceq(x, obj.seed, obj.problem, obj.n_eval_ceq);
                     if ~isempty(ceq_val)
                         cv_nonlinear = max([abs(ceq_val(:)); cv_nonlinear], [], 'includenan');
                     end
@@ -472,5 +480,31 @@ classdef FeaturedProblem < Problem
 
         % Note: We need to add methods `grad`, `hess`, `jcub`, and `jceq` to the FeaturedProblem class in the future.
 
+    end
+
+    methods (Access = protected)
+        function x = constraintProbePoint(obj)
+            % Inherited cub_/ceq_ are base callbacks, while obj.x0 is in solver
+            % coordinates. Probe dimensions at the original problem's point,
+            % or an affine map can falsely make a valid callback unavailable.
+            x = obj.problem.x0;
+        end
+    end
+
+    methods (Hidden)
+        function [f, cv] = evaluateTruth(obj, x)
+            % Internal scoring at solver coordinates, without an oracle call.
+            % True uses the quantized problem itself; False and other features
+            % retain base truth. Never snap the returned point, append history,
+            % consume budget, or overwrite the last oracle value here.
+            [A, b] = obj.feature.modifier_affine(obj.seed, obj.problem);
+            if strcmp(obj.feature.name, FeatureName.QUANTIZED.value) && obj.feature.options.(FeatureOptionKey.GROUND_TRUTH.value)
+                f = obj.feature.modifier_fun(A * x + b, obj.seed, obj.problem, obj.n_eval_fun);
+                cv = obj.maxcv(x);
+            else
+                f = obj.problem.fun(A * x + b);
+                cv = obj.problem.maxcv(A * x + b);
+            end
+        end
     end
 end

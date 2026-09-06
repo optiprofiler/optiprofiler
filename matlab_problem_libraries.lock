@@ -18,7 +18,7 @@
       "name": "matcutest",
       "role": "external",
       "repository": "optiprofiler/matcutest",
-      "commit": "095d41a49ff20c18a82e8b2d65b540d798229843",
+      "commit": "d711b39523e941ab3b85edb4488be0398de557a3",
       "api_version": 1,
       "install_directory": "matcutest",
       "select_function": "matcutest_select",

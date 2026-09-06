@@ -1,67 +1,81 @@
-function [fig_perf, fig_data, fig_log_ratio, curves] = drawProfiles(work, problem_dimensions, solver_names, tolerance_latex, cell_axs_summary, is_summary, is_perf, is_data, is_log_ratio, profile_options, curves)
+function [fig_perf, fig_data, fig_log_ratio, curves, graphics_ok] = drawProfiles(work, problem_dimensions, solver_names, tolerance_latex, cell_axs_summary, is_summary, is_perf, is_data, is_log_ratio, profile_options, curves)
 %DRAWPROFILES draws the performance, data, and log-ratio profiles.
 
     solver_names = cellfun(@escapeLatexText, solver_names, 'UniformOutput', false);
     n_solvers = size(work, 2);
 
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % Create the individual figures.
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    fig_perf = figure('Units', 'pixels', 'Position', profileFigurePosition(), 'visible', 'off');
-    t_perf = tiledlayout(fig_perf, 1, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
-    ax_perf = nexttile(t_perf);
-    fig_data = figure('Units', 'pixels', 'Position', profileFigurePosition(), 'visible', 'off');
-    t_data = tiledlayout(fig_data, 1, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
-    ax_data = nexttile(t_data);
-    if n_solvers == 2
-        fig_log_ratio = figure('Units', 'pixels', 'Position', profileFigurePosition(), 'visible', 'off');
-        t_log_ratio = tiledlayout(fig_log_ratio, 1, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
-        ax_log_ratio = nexttile(t_log_ratio);
-    else
-        fig_log_ratio = [];
-        ax_log_ratio = [];
-    end
-
+    % Numerical curves are also the scoring input. Compute them independently
+    % of graphics so score_only and the no-graphics SVG fallback are identical.
+    fig_perf = []; fig_data = []; fig_log_ratio = []; graphics_ok = true;
     [x_perf, y_perf, ratio_max_perf, x_data, y_data, ratio_max_data, curves] = getExtendedPerformancesDataProfileAxes(work, problem_dimensions, profile_options, curves);
     if n_solvers == 2
         [x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, curves] = getLogRatioProfileAxes(work, curves);
     end
-
     if profile_options.(ProfileOptionKey.SCORE_ONLY.value)
         return;
     end
 
-    drawPerfDetail(ax_perf, x_perf, y_perf, ratio_max_perf, solver_names, profile_options, tolerance_latex);
-    drawDataDetail(ax_data, x_data, y_data, ratio_max_data, solver_names, profile_options, tolerance_latex);
-    if n_solvers == 2
-        drawLogRatioDetail(ax_log_ratio, x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, solver_names, profile_options, tolerance_latex);
-    end
-
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % Create the figures in summary.
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-    if is_summary
-        if is_perf && is_data && is_log_ratio
-            drawPerfDetail(cell_axs_summary{1}, x_perf, y_perf, ratio_max_perf, solver_names, profile_options, tolerance_latex);
-            drawDataDetail(cell_axs_summary{2}, x_data, y_data, ratio_max_data, solver_names, profile_options, tolerance_latex);
-            drawLogRatioDetail(cell_axs_summary{3}, x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, solver_names, profile_options, tolerance_latex);
-        elseif is_perf && is_data
-            drawPerfDetail(cell_axs_summary{1}, x_perf, y_perf, ratio_max_perf, solver_names, profile_options, tolerance_latex);
-            drawDataDetail(cell_axs_summary{2}, x_data, y_data, ratio_max_data, solver_names, profile_options, tolerance_latex);
-        elseif is_perf && is_log_ratio
-            drawPerfDetail(cell_axs_summary{1}, x_perf, y_perf, ratio_max_perf, solver_names, profile_options, tolerance_latex);
-            drawLogRatioDetail(cell_axs_summary{2}, x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, solver_names, profile_options, tolerance_latex);
-        elseif is_data && is_log_ratio
-            drawDataDetail(cell_axs_summary{1}, x_data, y_data, ratio_max_data, solver_names, profile_options, tolerance_latex);
-            drawLogRatioDetail(cell_axs_summary{2}, x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, solver_names, profile_options, tolerance_latex);
-        elseif is_perf
-            drawPerfDetail(cell_axs_summary{1}, x_perf, y_perf, ratio_max_perf, solver_names, profile_options, tolerance_latex);
-        elseif is_data
-            drawDataDetail(cell_axs_summary{1}, x_data, y_data, ratio_max_data, solver_names, profile_options, tolerance_latex);
-        elseif is_log_ratio
-            drawLogRatioDetail(cell_axs_summary{1}, x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, solver_names, profile_options, tolerance_latex);
+    try
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        % Create the individual figures.
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        fig_perf = figure('Units', 'pixels', 'Position', profileFigurePosition(), 'visible', 'off');
+        t_perf = tiledlayout(fig_perf, 1, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
+        ax_perf = nexttile(t_perf);
+        fig_data = figure('Units', 'pixels', 'Position', profileFigurePosition(), 'visible', 'off');
+        t_data = tiledlayout(fig_data, 1, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
+        ax_data = nexttile(t_data);
+        if n_solvers == 2
+            fig_log_ratio = figure('Units', 'pixels', 'Position', profileFigurePosition(), 'visible', 'off');
+            t_log_ratio = tiledlayout(fig_log_ratio, 1, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
+            ax_log_ratio = nexttile(t_log_ratio);
+        else
+            fig_log_ratio = [];
+            ax_log_ratio = [];
         end
+
+        drawPerfDetail(ax_perf, x_perf, y_perf, ratio_max_perf, solver_names, profile_options, tolerance_latex);
+        drawDataDetail(ax_data, x_data, y_data, ratio_max_data, solver_names, profile_options, tolerance_latex);
+        if n_solvers == 2
+            drawLogRatioDetail(ax_log_ratio, x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, solver_names, profile_options, tolerance_latex);
+        end
+
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        % Create the figures in summary.
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+        if is_summary
+            if is_perf && is_data && is_log_ratio
+                drawPerfDetail(cell_axs_summary{1}, x_perf, y_perf, ratio_max_perf, solver_names, profile_options, tolerance_latex);
+                drawDataDetail(cell_axs_summary{2}, x_data, y_data, ratio_max_data, solver_names, profile_options, tolerance_latex);
+                drawLogRatioDetail(cell_axs_summary{3}, x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, solver_names, profile_options, tolerance_latex);
+            elseif is_perf && is_data
+                drawPerfDetail(cell_axs_summary{1}, x_perf, y_perf, ratio_max_perf, solver_names, profile_options, tolerance_latex);
+                drawDataDetail(cell_axs_summary{2}, x_data, y_data, ratio_max_data, solver_names, profile_options, tolerance_latex);
+            elseif is_perf && is_log_ratio
+                drawPerfDetail(cell_axs_summary{1}, x_perf, y_perf, ratio_max_perf, solver_names, profile_options, tolerance_latex);
+                drawLogRatioDetail(cell_axs_summary{2}, x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, solver_names, profile_options, tolerance_latex);
+            elseif is_data && is_log_ratio
+                drawDataDetail(cell_axs_summary{1}, x_data, y_data, ratio_max_data, solver_names, profile_options, tolerance_latex);
+                drawLogRatioDetail(cell_axs_summary{2}, x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, solver_names, profile_options, tolerance_latex);
+            elseif is_perf
+                drawPerfDetail(cell_axs_summary{1}, x_perf, y_perf, ratio_max_perf, solver_names, profile_options, tolerance_latex);
+            elseif is_data
+                drawDataDetail(cell_axs_summary{1}, x_data, y_data, ratio_max_data, solver_names, profile_options, tolerance_latex);
+            elseif is_log_ratio
+                drawLogRatioDetail(cell_axs_summary{1}, x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, solver_names, profile_options, tolerance_latex);
+            end
+        end
+    catch cause
+        % Only graphics are guarded: curve/scoring calculations above must
+        % retain their original failure semantics. The caller emits SVG from
+        % the completed curves and does not retry or recompute solver data.
+        graphics_ok = false;
+        for candidate = {fig_perf, fig_data, fig_log_ratio}
+            if ~isempty(candidate{1}) && isgraphics(candidate{1}), close(candidate{1}); end
+        end
+        fig_perf = []; fig_data = []; fig_log_ratio = [];
+        printOptiProfilerMessage('WARNING', sprintf('Native profile rendering failed; using SVG fallback: %s',cause.message));
     end
 end
 
@@ -115,7 +129,7 @@ function drawLogRatioDetail(ax_log_ratio, x_log_ratio, y_log_ratio, ratio_max_lo
     drawLogRatioProfiles(ax_log_ratio, x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, solver_names, profile_options);
     set(ax_log_ratio, 'FontSize', 10);
     % Set x-axis labels.
-    if ~isempty(profile_options.(ProfileOptionKey.XLABEL_LOG_RATIO_PROFILE.value)) 
+    if ~isempty(profile_options.(ProfileOptionKey.XLABEL_LOG_RATIO_PROFILE.value))
         xlabel_str = profile_options.(ProfileOptionKey.XLABEL_LOG_RATIO_PROFILE.value);
         xlabel(ax_log_ratio, xlabel_str, 'Interpreter', 'latex', 'FontSize', 11);
     end

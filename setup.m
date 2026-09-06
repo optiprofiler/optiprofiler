@@ -8,6 +8,11 @@ function setup(varargin)
 %   This script can be called in the following ways.
 %
 %   setup  % Add the paths needed to use the package
+%   Setup borrows pre-existing paths and records only its own additions.
+%   Uninstall without an ownership record preserves legacy paths; it never
+%   guesses ownership from directory prefixes or startup-file comments.
+%   An interrupted cross-file update may leave an unowned startup entry;
+%   setup diagnoses and preserves that entry rather than claiming it.
 %   setup(struct('install_matcutest', true))  % Set up MatCUTEst without prompting
 %   setup(struct('install_solar', true))  % Download and set up the optional SOLAR MATLAB adapter
 %   setup(struct('problem_library_root', '/path/to/libraries'))  % Relocate optional libraries
@@ -126,6 +131,7 @@ function setup(varargin)
         fprintf('\n--- Setting up MatCUTEst ---\n\n');
         
         paths_to_add = {src_dir, s2mpj_dir};
+        path_owners = {setup_dir, setup_dir};
         register_matcutest = false;
         if isunix() && ~ismac()
             % Local variable to track if we should proceed with MatCUTEst actions
@@ -196,36 +202,22 @@ function setup(varargin)
                 
                 % 5. Add the MatCUTEst directory to the path list
                 paths_to_add{end+1} = matcutest_dir;
+                path_owners{end+1} = matcutest_dir;
                 register_matcutest = is_populated_directory(matcutest_dir);
                 
-                % 6. Install if not already installed
-                if is_matcutest_installed
-                    if ~skip_clone_msg
-                        fprintf('MatCUTEst is already installed. Skipping installation script.\n');
-                    end
+                % Use only the managed adapter entry point, never native setup.
+                runtime_parent = matcutest_runtime_root;
+                expected_tools = fullfile(runtime_parent, 'matcutest', 'mtools', 'src');
+                user_runtime = is_matcutest_installed && ...
+                    ~strcmp(fileparts(which('macup')), expected_tools);
+                if user_runtime
+                    fprintf('Using the existing user-managed MatCUTEst runtime; no paths are claimed.\n');
                 else
-                    fprintf('MatCUTEst not detected. Running installation script...\n');
-                    current_dir = pwd;
-                    try
-                        matcutest_src_dir = fullfile(matcutest_dir, 'src');
-                        cd(matcutest_src_dir);
-                        if exist('install.m', 'file')
-                            try
-                                % Run install script targeting the src directory inside the repo
-                                ensure_directory(matcutest_runtime_root, 'MatCUTEst runtime root');
-                                install(matcutest_runtime_root);
-                                fprintf('MatCUTEst installed successfully.\n');
-                            catch ME_install
-                                fprintf('WARNING: MatCUTEst installation script failed: %s\n', ME_install.message);
-                            end
-                        else
-                            fprintf('WARNING: install.m not found in %s.\n', matcutest_src_dir);
-                        end
-                        cd(current_dir);
-                    catch ME
-                        fprintf('WARNING: Error during MatCUTEst setup: %s\n', ME.message);
-                        cd(current_dir);
-                    end
+                    [~, prepare_runtime] = setup_helpers();
+                    receipt = prepare_runtime(matcutest_dir, runtime_parent);
+                    paths_to_add = [paths_to_add, receipt.runtime_paths];
+                    path_owners = [path_owners, repmat({matcutest_dir}, size(receipt.runtime_paths))];
+                    fprintf('MatCUTEst managed runtime prepared at %s.\n', receipt.runtime_root);
                 end
             else
                 fprintf('Skipping MatCUTEst setup.\n');
@@ -287,6 +279,7 @@ function setup(varargin)
             checkout_git_repository_commit_if_clean( ...
                 solar_dir, solar_repo_url, solar_commit, 'SOLAR MATLAB adapter');
             paths_to_add{end+1} = solar_dir;
+            path_owners{end+1} = solar_dir;
             fprintf('SOLAR MATLAB adapter will be added to the MATLAB path.\n');
             fprintf('The adapter vendors a slim SOLAR runtime; see its README, license files, and runtime manifest for details.\n');
         end
@@ -297,7 +290,7 @@ function setup(varargin)
         % =================================================================
         fprintf('\n--- Finalizing Setup ---\n');
         
-        paths_saved = add_save_path(paths_to_add, package_name);
+        paths_saved = add_save_path(paths_to_add, path_owners);
 
         % Persist explicit optional-library registrations after the source
         % directory is available on the MATLAB path. Bundled S2MPJ is
@@ -427,76 +420,28 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-function paths_saved = add_save_path(path_strings, path_string_stamp)
-    %ADD_SAVE_PATH adds the paths indicated by PATH_STRINGS to the MATLAB path and then tries saving the paths.
-    % PATH_STRING_STAMP is a stamp used when writing PATH_STRINGS to the user's startup.m file, which is
-    % needed only if `savepath` fails.
-    
-    paths_saved = false(length(path_strings), 1);
-    pathdef_file = get_setup_pathdef_file();
-    startup_file = get_setup_startup_file();
-    for i_path = 1:length(path_strings)
-        path_string = path_strings{i_path};
-
-        if ~exist(path_string, 'dir')
-            warning('The directory %s does not exist. Skipping.', path_string);
-            continue;
-        end
-        addpath(path_string);
-    
-        % Persist to the configured pathdef file. Tests and managed
-        % deployments can redirect this away from the user's MATLAB state.
-        orig_warning_state = warning;
-        warning('off', 'MATLAB:SavePath:PathNotSaved'); 
-        paths_saved(i_path) = (savepath(pathdef_file) == 0);
-        warning(orig_warning_state); 
-        
-        % If pathdef persistence fails, use the configured startup file.
-        if ~paths_saved(i_path) && ~isempty(startup_file)
-            add_path_string = sprintf('addpath(''%s'');', path_string);
-            full_add_path_string = sprintf('%s\t%s %s', add_path_string, '%', path_string_stamp);
-        
-            % Check if already exists
-            if exist(startup_file, 'file')
-                startup_text_cells = regexp(fileread(startup_file), '\n', 'split');
-                paths_saved(i_path) = any(strcmp(startup_text_cells, full_add_path_string));
-            end
-        
-            if ~paths_saved(i_path)
-                % Check for empty last line
-                if exist(startup_file, 'file')
-                    startup_text_cells = regexp(fileread(startup_file), '\n', 'split');
-                    last_line_empty = isempty(startup_text_cells) || (isempty(startup_text_cells{end}) && ...
-                        isempty(startup_text_cells{max(1, end-1)}));
-                else
-                    last_line_empty = true;
-                end
-        
-                file_id = fopen(startup_file, 'a');
-                if file_id ~= -1 
-                    if ~last_line_empty
-                        fprintf(file_id, '\n');
-                    end
-                    fprintf(file_id, '%s', full_add_path_string);
-                    fclose(file_id);
-                    % Verify
-                    if exist(startup_file, 'file')
-                        startup_text_cells = regexp(fileread(startup_file), '\n', 'split');
-                        paths_saved(i_path) = any(strcmp(startup_text_cells, full_add_path_string));
-                    end
-                end
-            end
-        end
-        
+function paths_saved = add_save_path(path_strings, owners)
+    % Only explicit additions are recorded; existing caller paths are borrowed.
+    [manage_paths, ~] = setup_helpers();
+    context = fileparts(mfilename('fullpath'));
+    paths_saved = false(numel(path_strings), 1);
+    groups = unique(owners, 'stable');
+    for k = 1:numel(groups)
+        indices = strcmp(owners, groups{k});
+        paths_saved(indices) = manage_paths('add', context, groups{k}, path_strings(indices));
     end
-    
-    return
-
 end
 
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
+function [manage_paths, prepare_runtime] = setup_helpers()
+    % Bind private helpers without adding a private directory to MATLAB path.
+    original = pwd;
+    cleanup = onCleanup(@() cd(original)); %#ok<NASGU>
+    private_dir = fullfile(fileparts(mfilename('fullpath')), ...
+        'matlab', 'optiprofiler', 'src', 'private');
+    cd(private_dir);
+    manage_paths = @setupPathOwnership;
+    prepare_runtime = @prepareMatcutestRuntime;
+end
 
 function pathdef_file = get_setup_pathdef_file()
     %GET_SETUP_PATHDEF_FILE returns the path persistence target.
@@ -795,155 +740,14 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-function uninstall_optiprofiler(path_string_stamp)
-    %UNINSTALL_OPTIPROFILER removes setup-managed paths without deleting data.
-    
-    fprintf('\nUninstalling OptiProfiler (if it is installed) ... ');
-    
-    % The full path of several directories.   
-    mfiledir = fileparts(mfilename('fullpath'));  % The directory where this .m file resides
-    mat_dir = fullfile(mfiledir, 'matlab'); 
-    optiprofiler_dir = fullfile(mat_dir, 'optiprofiler'); 
-    src_dir = fullfile(optiprofiler_dir, 'src'); 
-    plib_dir = fullfile(optiprofiler_dir, 'problem_libs'); 
-    s2mpj_dir = fullfile(plib_dir, 's2mpj'); 
-    matcutest_dir = fullfile(plib_dir, 'matcutest');
-    solar_dir = fullfile(plib_dir, 'solar');
-    registered_roots = get_registered_problem_library_roots();
-
-    % Remove paths introduced by setup, including registered adapter roots, but
-    % do not modify the problem-library registry and do not delete optional
-    % source trees, MatCUTEst runtimes, SOLAR builds, caches, or other user data.
-
-    % Try removing the paths possibly added by OptiProfiler
-    orig_warning_state = warning;
-    warning('off', 'MATLAB:rmpath:DirNotFound'); 
-    warning('off', 'MATLAB:SavePath:PathNotSaved'); 
-    
-    % Standard removal of known paths
-    rmpath(src_dir, s2mpj_dir, matcutest_dir, solar_dir, registered_roots{:});
-    
-    % Robust removal: Remove any path that is a subdirectory of the package root
-    % This handles cases where the folder structure might have changed or extra paths were added.
-    all_paths = strsplit(path, pathsep);
-    paths_to_remove_robust = {};
-    for i = 1:length(all_paths)
-        if startsWith(all_paths{i}, mfiledir)
-            paths_to_remove_robust{end+1} = all_paths{i};
-        end
+function uninstall_optiprofiler(~)
+    % Keep registry and all data; remove only setup's recorded exact paths.
+    context = fileparts(mfilename('fullpath'));
+    [manage_paths, ~] = setup_helpers();
+    found = manage_paths('remove-context', context);
+    if ~found
+        fprintf('No setup ownership record exists. Existing user paths and startup bytes were preserved.\n');
+    else
+        fprintf('Setup-owned paths removed; borrowed paths, registrations, sources and data preserved.\n');
     end
-    if ~isempty(paths_to_remove_robust)
-        rmpath(paths_to_remove_robust{:});
-    end
-    
-    savepath(get_setup_pathdef_file());
-    warning(orig_warning_state); 
-    
-    % Removing the line possibly added to the user startup script
-    to_be_removed = [{src_dir, s2mpj_dir, matcutest_dir, solar_dir}, registered_roots];
-    user_startup = get_setup_startup_file();
-    if ~isempty(user_startup) && exist(user_startup, 'file')
-        % 1. Try removing specific known lines (legacy support)
-        for i_path = 1:length(to_be_removed)
-            add_path_string = sprintf('addpath(''%s'');', to_be_removed{i_path});
-            full_add_path_string = sprintf('%s\t%s %s', add_path_string, '%', path_string_stamp);
-            try
-                del_str_ln(user_startup, full_add_path_string);
-            catch
-                % Do nothing.
-            end
-        end
-        
-        % 2. Robust removal: Remove any lines containing the package stamp OR the package root directory
-        try
-            % Read the file content
-            file_content = fileread(user_startup);
-            lines = strsplit(file_content, '\n');
-            
-            % Identify lines with the stamp
-            stamp_pattern = ['% ', path_string_stamp];
-
-            % Identify lines containing the root directory (handles cases where the stamp might differ or be missing)
-            % This ensures we remove paths related to this package even if they were added with a different stamp (e.g., % matcutest).
-            lines_to_keep = ~contains(lines, stamp_pattern) & ~contains(lines, mfiledir);
-            
-            if ~all(lines_to_keep)
-                % Reconstruct the file content
-                new_content = strjoin(lines(lines_to_keep), '\n');
-                
-                % Write back to file
-                fid = fopen(user_startup, 'w');
-                if fid ~= -1
-                    fprintf(fid, '%s', new_content);
-                    fclose(fid);
-                end
-            end
-        catch
-            % Ignore errors during robust cleanup
-        end
-    end
-    
-    fprintf(['Done.\nSetup-managed paths were removed; optional problem-library registrations and data were preserved.\n', ...
-        'You may now remove\n\n    %s\n\nif it contains nothing you want to keep.\n\n'], mfiledir);
-    
-    return
-end
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
-function roots = get_registered_problem_library_roots()
-    %GET_REGISTERED_PROBLEM_LIBRARY_ROOTS reads paths persisted by the registry.
-
-    registry_file = getenv('OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_REGISTRY');
-    if isempty(registry_file)
-        registry_file = fullfile(prefdir, 'optiprofiler', 'problem_libraries.mat');
-    end
-    roots = {};
-    if exist(registry_file, 'file') ~= 2
-        return
-    end
-    try
-        data = load(registry_file, 'registrations');
-        if isfield(data, 'registrations') && isstruct(data.registrations)
-            roots = {data.registrations.root};
-            roots = roots(~cellfun(@isempty, roots));
-        end
-    catch
-        % A stale registry should not prevent core path cleanup.
-        roots = {};
-    end
-end
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
-function del_str_ln(filename, string)
-    %DEL_STR_LN deletes from filename all the lines that are identical to string
-    
-    fid = fopen(filename, 'r');  % Open file for reading.
-    if fid == -1
-        error('Cannot open file %s.', filename);
-    end
-    
-    % Read the file into a cell of strings
-    data = textscan(fid, '%s', 'delimiter', '\n', 'whitespace', '');
-    fclose(fid);
-    cstr = data{1};
-    
-    % Remove the rows containing string
-    cstr(strcmp(cstr, string)) = [];
-    
-    % Save the file again
-    fid = fopen(filename, 'w');  % Open/create new file for writing. Discard existing contents, if any.
-    if fid == -1
-        error('Cannot open file %s.', filename);
-    end
-    fprintf(fid, '%s\n', cstr{:});
-    fclose(fid);
-    
-    return
-
 end

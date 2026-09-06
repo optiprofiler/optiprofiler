@@ -31,6 +31,12 @@ from optiprofiler.plotting import (
 from optiprofiler.utils import ProfileOption
 
 
+def _legend_column_count(legend):
+    # Matplotlib 3.5 stores the same column count as _ncol; later releases
+    # renamed it _ncols. Keep the exact layout assertions on both versions.
+    return legend._ncols if hasattr(legend, '_ncols') else legend._ncol
+
+
 class TestPerfFormatter:
 
     def test_integer_power(self):
@@ -458,7 +464,7 @@ class TestDrawProfiles:
         legend = ax_summary.get_legend()
         assert legend is not None
         assert legend._loc == 6  # center left
-        assert legend._ncols == 1
+        assert _legend_column_count(legend) == 1
         plt.close(fig_summary)
         plt.close(fig_perf)
         plt.close(fig_data)
@@ -529,7 +535,7 @@ class TestDrawPerfDataDetail:
         _place_solver_legend(ax, n_solvers, default_loc='lower right')
         legend = ax.get_legend()
         assert legend._loc == 6  # center left
-        assert legend._ncols == 1
+        assert _legend_column_count(legend) == 1
         assert legend.get_bbox_to_anchor() is not None
         plt.close(fig)
 
@@ -539,7 +545,7 @@ class TestDrawPerfDataDetail:
         for i_solver in range(n_solvers):
             ax.plot([0, 1], [i_solver, i_solver + 1], label=f's{i_solver}')
         _place_solver_legend(ax, n_solvers, default_loc='lower right')
-        assert ax.get_legend()._ncols == 1
+        assert _legend_column_count(ax.get_legend()) == 1
         plt.close(fig)
 
     def test_many_solver_legend_uses_multiple_columns_at_twenty(self):
@@ -548,7 +554,7 @@ class TestDrawPerfDataDetail:
         for i_solver in range(n_solvers):
             ax.plot([0, 1], [i_solver, i_solver + 1], label=f's{i_solver}')
         _place_solver_legend(ax, n_solvers, default_loc='lower right')
-        assert ax.get_legend()._ncols == 2
+        assert _legend_column_count(ax.get_legend()) == 2
         plt.close(fig)
 
     def test_summary_extra_width_only_for_many_solvers(self):

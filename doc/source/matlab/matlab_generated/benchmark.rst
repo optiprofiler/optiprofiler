@@ -118,7 +118,7 @@ Options should be specified in a struct. The following are the available fields 
 
   - **savepath**: the path to store the results. Default is ``'pwd'``, the current working directory.
 
-    Saving requires the Java Virtual Machine (JVM); do not start MATLAB with ``-nojvm``. This requirement does not apply when ``score_only`` is ``true``.
+    Saving without the Java Virtual Machine (JVM) is supported on macOS/Linux. If native figures are unavailable, SVG charts and an HTML summary replace PDF/FIG output. Windows saving requires the JVM. No files are produced when ``score_only`` is ``true``.
 
   - **score_fun**: the scoring function to calculate the scores of the solvers. It should be a function handle
 
@@ -196,7 +196,7 @@ Options should be specified in a struct. The following are the available fields 
 
   - **rotated**: whether to use a random or given rotation matrix to rotate the coordinates of a problem in the ``'linearly_transformed'`` feature. Default is ``true``.
 
-  - **condition_factor**: the scaling factor of the condition number of the linear transformation in the ``'linearly_transformed'`` feature. More specifically, the condition number of the linear transformation will be ``2 ^ (condition_factor * n / 2)``, where ``n`` is the dimension of the problem. Default is ``0``.
+  - **condition_factor**: the scaling factor of the condition number of the linear transformation in the ``'linearly_transformed'`` feature. The condition number is ``2 ^ sqrt(condition_factor * n / 2)`` for dimension ``n >= 2``, and ``1`` in dimension one. Default is ``0``. This describes the existing transformation; it does not change its matrix or random stream.
 
   - **nan_rate**: the probability that the evaluation of the objective function will return NaN in the ``'random_nan'`` feature. Default is ``0.05``.
 
@@ -210,7 +210,7 @@ Options should be specified in a struct. The following are the available fields 
 
   - **mesh_type**: the type of the mesh in the ``'quantized'`` feature. It should be either ``'absolute'`` or ``'relative'``. Default is ``'absolute'``.
 
-  - **ground_truth**: whether the featured problem is the ground truth or not in the ``'quantized'`` feature. Default is ``true``.
+  - **ground_truth**: whether the featured problem is the ground truth in the ``'quantized'`` feature. Default is ``true``. If true, initialization, histories and output evaluation use the quantized objective and nonlinear constraints; if false, they use the original problem. Bounds and linear constraints are not quantized. The solver's returned point is never rounded.
 
   - **mod_x0**: the modifier function to modify the inital guess in the ``'custom'`` feature. It should be a function handle
 

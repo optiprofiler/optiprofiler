@@ -58,10 +58,14 @@ function [results_plibs, profile_options, problem_options] = loadResults(problem
     path_experiment = fileparts(path_data);
 
     % Load data from the 'data_for_loading.mat' file in the path_data directory.
+    % Loading can throw (for example a damaged MAT file). Restore the caller's
+    % individual warning settings on both success and failure, not all-on.
+    warning_state = warning;
+    warning_cleanup = onCleanup(@() warning(warning_state));
     warning('off');
     printOptiProfilerMessage('INFO', sprintf("Loading data from the directory '%s'...", path_data));
     load(fullfile(path_data, 'data_for_loading.mat'), 'results_plibs');
-    warning('on');
+    clear warning_cleanup;
     if ~exist('results_plibs', 'var')
         error("MATLAB:loadResults:NoResultsPlibsDataMatFile", "Failed to load the variable 'results_plibs' from the 'data_for_loading.mat' file in the directory '%s'.", path_data);
     end

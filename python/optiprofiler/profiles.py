@@ -63,6 +63,26 @@ def _reserve_experiment_directory(path_out, solver_names, problem_options,
             return stamp, run_id
 
 
+def _append_quantized_truth_note(feature, is_load, results_plibs, path_report, path_readme):
+    """Do not certify old saved evaluation channels from today's options."""
+    if is_load:
+        # feature_stamp is user-settable, so it cannot identify the saved
+        # oracle reliably. Do not infer its truth convention from a label.
+        note = ('Loaded experiment: saved evaluation channels are retained. '
+                'Replotting does not repair historical evaluations or certify '
+                'their truth convention; older quantized archives may contain '
+                'mixed truth channels.')
+    elif feature.name == FeatureName.QUANTIZED:
+        truth = bool(feature.options[FeatureOption.GROUND_TRUTH])
+        note = (f"Quantized truth: {'featured' if truth else 'original'}, "
+                f"ground_truth={str(truth).lower()}; the returned point is unchanged.")
+    else:
+        return
+    for path in (path_report, path_readme):
+        with open(path, 'a', encoding='utf-8') as stream:
+            stream.write('\n' + note + '\n')
+
+
 def _close_logging_resources(resources):
     """Close benchmark logging resources once, including on exceptions."""
     listener = resources.pop('listener', None)
@@ -257,8 +277,8 @@ def _benchmark(
         The scaling factor of the condition number of the
         linear transformation in the 'linearly_transformed' feature. More
         specifically, the condition number of the linear transformation will
-        be ``2^(condition_factor * n / 2)``, where n is the dimension of the
-        problem. Default is 0.
+        be ``2**sqrt(condition_factor * n / 2)`` for dimension n >= 2
+        (it is 1 when n = 1). Default is 0.
     nan_rate : float, optional
         The probability that the evaluation of the objective
         function will return np.nan in the 'random_nan' feature. Default is
@@ -402,6 +422,8 @@ def _benchmark(
         suffix such as '_001'. No default. Note that if solvers is None,
         this key must be provided to load data from a previous experiment
         and generate profiles.
+        Load only archives from trusted sources: saved Python options may
+        contain pickle objects, whose deserialization can execute code.
     max_eval_factor : int, optional
         The factor multiplied to each problem's dimension to
         get the maximum number of evaluations for each problem. Default is
@@ -1292,9 +1314,12 @@ def _benchmark(
             add_to_readme(path_readme_log, marker_name,
                           'File, recording the time stamp of the saved experiment.')
         except Exception as exc:
-            if not profile_options[ProfileOption.SILENT]:
-                logger.warning('Failed to save the data of the current experiment.')
-                logger.warning(f'Error message: {shorten_log_message(exc)}')
+            # silent suppresses progress, not loss of requested experiment
+            # data. Do not return apparently successful scores after a failed
+            # save; the benchmark wrapper restores logging in its finally block.
+            raise RuntimeError(
+                f'Failed to save the experiment in {path_log}: {exc}'
+            ) from exc
 
     # Draw history plots sequentially if draw_hist_plots is set to 'sequential'.
     # On the load path this loop is the only drawing mechanism (parallel drawing
@@ -1349,6 +1374,9 @@ def _benchmark(
 
     # Write the report file.
     write_report(profile_options, results_plibs, path_report, path_readme_log)
+    if not profile_options[ProfileOption.SCORE_ONLY]:
+        _append_quantized_truth_note(feature, is_load, results_plibs,
+                                     path_report, path_readme_log)
 
     # Process the results from all the problem libraries.
     merit_histories_merged, merit_outs_merged, merit_inits_merged, merit_mins_merged, n_evals_merged, problem_names_merged, problem_dims_merged = process_results(results_plibs, profile_options)
@@ -1384,7 +1412,9 @@ def _benchmark(
 
     with matplotlib.rc_context(profile_context):
         if is_saving and is_summary:
-            fig_summary = Figure(figsize=(summary_width, multiplier * n_rows * default_height), layout='constrained')
+            # This spelling also works with our declared Matplotlib 3.4 floor;
+            # the newer layout= keyword is not available there.
+            fig_summary = Figure(figsize=(summary_width, multiplier * n_rows * default_height), constrained_layout=True)
             if multiplier == 2:
                 fig_summary_hist, fig_summary_out = fig_summary.subfigures(2, 1)
                 subfigs_summary_hist = np.atleast_1d(fig_summary_hist.subfigures(n_rows, 1))
@@ -2459,13 +2489,10 @@ def _solve_one_problem(solvers, problem, feature, problem_name, len_problem_name
                         elapsed = np.nan
                     computation_time[i_solver, i_run] = elapsed
 
-                    # It is very important to transform the solution back to the one related to the original problem. (Note that the problem we solve has the objective function f(A @ x + b). Thus, if x is the output solution, then A @ x + b is the solution of the original problem.)
-                    A, b = featured_problem._feature.modifier_affine(featured_problem._seed, featured_problem._problem)[:2]
-                    x = A @ x + b
-
-                    # Use problem.fun and problem.maxcv to evaluate the solution since it is possible that featured_problem.fun and featured_problem.maxcv are modified.
-                    fun_out[i_solver, i_run] = problem.fun(x)
-                    maxcv_out[i_solver, i_run] = problem.maxcv(x)
+                    # Use the same non-recording truth as initialization/history.
+                    # The helper maps solver coordinates back to the original
+                    # problem, but never snaps x or consumes an oracle evaluation.
+                    fun_out[i_solver, i_run], maxcv_out[i_solver, i_run] = featured_problem._evaluate_truth(x)
                     # Calculate the minimum function value and the minimum constraint violation, omitting the NaN values.
                     fun_hist = featured_problem.fun_hist
                     maxcv_hist = featured_problem.maxcv_hist

@@ -69,7 +69,7 @@ The input **name** should be one of the following char or string:
         set the objective function to ``Inf`` outside the feasible region.
 
     9. **\'nonquantifiable_constraints\'**:
-        replace values of nonlinear constraints with either ``0`` (if the constraint is satisfied) or ``1`` (if the constraint is violated).
+        replace values of nonlinear constraints with either ``0`` (if the constraint is satisfied) or ``1`` (if the constraint is violated). Undefined values remain ``NaN``.
 
     10. **\'quantized\'**:
             quantize the objective function and nonlinear constraints.
@@ -107,7 +107,7 @@ The optional input **options** should be a struct which can contain the followin
 
   - **rotated**: whether to use a random or given rotation matrix to rotate the coordinates of a problem in the ``'linearly_transformed'`` feature. Default is ``true``.
 
-  - **condition_factor**: the scaling factor of the condition number of the linear transformation in the ``'linearly_transformed'`` feature. More specifically, the condition number of the linear transformation will be ``2 ^ (condition_factor * n / 2)``, where ``n`` is the dimension of the problem. Default is ``0``.
+  - **condition_factor**: the scaling factor of the condition number of the linear transformation in the ``'linearly_transformed'`` feature. The condition number is ``2 ^ sqrt(condition_factor * n / 2)`` for dimension ``n >= 2``, and ``1`` in dimension one. Default is ``0``. This describes the existing transformation; it does not change its matrix or random stream.
 
   - **nan_rate**: the probability that the evaluation of the objective function will return NaN in the ``'random_nan'`` feature. Default is ``0.05``.
 
@@ -121,7 +121,7 @@ The optional input **options** should be a struct which can contain the followin
 
   - **mesh_type**: the type of the mesh in the ``'quantized'`` feature. It should be either ``'absolute'`` or ``'relative'``. Default is ``'absolute'``.
 
-  - **ground_truth**: whether the featured problem is the ground truth or not in the ``'quantized'`` feature. Default is ``true``.
+  - **ground_truth**: whether the featured problem is the ground truth in the ``'quantized'`` feature. Default is ``true``. If true, initialization, histories and output evaluation use the quantized objective and nonlinear constraints; if false, they use the original problem. Bounds and linear constraints are not quantized. The solver's returned point is never rounded.
 
   - **mod_x0**: the modifier function to modify the inital guess in the ``'custom'`` feature. It should be a function handle
 
