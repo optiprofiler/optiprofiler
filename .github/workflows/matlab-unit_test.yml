@@ -61,34 +61,20 @@ jobs:
         uses: matlab-actions/run-command@v2.1.1
         with:
           command: |
-            % These tests require real PDF merging and page-order inspection;
-            % the product's HTML fallback is tested separately.
-            for tool = {'pdfunite', 'pdftotext'}
-                [status, diagnostic] = system([tool{1}, ' -v 2>&1']);
-                assert(status == 0, 'OptiProfiler:MissingPdfTestTool', ...
-                    '%s is required for PDF regression tests: %s', tool{1}, diagnostic);
-            end
+            addpath(fullfile(pwd, 'tools'));
+            run_matlab_full_unit_ci(pwd, fullfile(getenv('RUNNER_TEMP'), 'matlab-full-unit'));
 
-            % Setup OptiProfiler
-            % Core unit tests exercise the bundled default only. Optional
-            % libraries have separately locked repositories and integration
-            % gates, so do not install them on this fast path.
-            options = struct('install_matcutest', false, 'install_solar', false);
-            setup(options);
-            
-            % Run tests
-            cd matlab/optiprofiler/
-            runTests
+      - name: Upload full-unit results and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: matlab-full-unit-${{ github.sha }}
+          path: ${{ runner.temp }}/matlab-full-unit/
+          if-no-files-found: error
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1
         with:
-          file: ./matlab/optiprofiler/coverage.xml
+          file: ${{ runner.temp }}/matlab-full-unit/coverage.xml
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: unit_test_out
-          path: ./matlab/optiprofiler/tests/unit_tests/unit-test/**

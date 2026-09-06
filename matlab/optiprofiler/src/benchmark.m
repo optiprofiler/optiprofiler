@@ -1435,6 +1435,11 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 
         if native_graphics
           try
+            % User callbacks may change TMPDIR after the initial capability
+            % query. Re-check before native export so the existing catch can
+            % use portable output instead of entering a known renderer hang.
+            assert(hasNativeGraphics(), 'OptiProfiler:NativeGraphicsUnavailable', ...
+                'Native export is not safe in the current graphics environment.');
             if is_hist_drawable
                 pdf_perf_hist = fullfile(path_perf_hist, ['perf_hist_', int2str(i_tol), '.pdf']);
                 figure_perf_hist = fullfile(path_figs, ['perf_hist_', int2str(i_tol), '.fig']);
@@ -1790,6 +1795,10 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                 printOptiProfilerMessage('INFO', 'Start creating the summary PDF of all the profiles.');
             end
             try
+                % score_fun runs after the per-tolerance exports and may have
+                % changed the environment; do not trust the earlier flag.
+                assert(hasNativeGraphics(), 'OptiProfiler:NativeGraphicsUnavailable', ...
+                    'Native export is not safe in the current graphics environment.');
                 if ispc
                     print(fig_summary, fullfile(path_stamp, [summary_name, '.pdf']), '-dpdf', '-vector');
                 else
@@ -1961,13 +1970,16 @@ function [merged, failure_messages] = mergePdfsWithExternalTools(fileNames, outp
         temp_output = [tempname(fileparts(output_file)), '.pdf'];
         cleanup_temp_output = onCleanup(@() deleteFileIfExists(temp_output));
         command = command_builders{i_tool}(fileNames, temp_output);
-        [status, output] = system(command + " 2>&1");
+        [status, output] = runPdfToolCommand(command, temp_output);
         if status == 0 && isfile(temp_output)
             movefile(temp_output, output_file, 'f');
             merged = true;
             return;
         end
         output = string(strtrim(output));
+        if status == 0 && ~isfile(temp_output)
+            output = "command reported success without producing a PDF output";
+        end
         if strlength(output) == 0
             output = "command failed or was not found";
         end

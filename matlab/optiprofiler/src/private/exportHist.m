@@ -118,6 +118,10 @@ function exportHistoryFigure(pdf_file, mode, problem_name, problem_type, problem
         drawHist(fun_history, maxcv_history, merit_history, fun_inits, maxcv_inits, merit_inits, solver_names, cell_axs_summary, is_cum_rows(i), problem_type, problem_dim, n_eval, profile_options, default_height, show_xlabel);
     end
 
+    % Figure callbacks may change TMPDIR after the initial capability query.
+    % Re-check at export so the caller can use its existing SVG fallback.
+    assert(hasNativeGraphics(), 'OptiProfiler:NativeGraphicsUnavailable', ...
+        'Native export is not safe in the current graphics environment.');
     exportgraphics(fig_summary, pdf_file, 'ContentType', 'vector');
     clear fig_cleanup;
 end
