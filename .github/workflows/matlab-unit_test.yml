@@ -24,6 +24,13 @@ jobs:
           ref: matlab
           submodules: recursive
 
+      - name: Install PDF regression test tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends poppler-utils
+          pdfunite -v
+          pdftotext -v
+
       - name: Cache MATLAB  # N.B.: Clear the cache when the `latest` version of MATLAB changes in March and September
         uses: actions/cache@v4
         with:
@@ -41,6 +48,14 @@ jobs:
         uses: matlab-actions/run-command@v2.1.1
         with:
           command: |
+            % These tests require real PDF merging and page-order inspection;
+            % the product's HTML fallback is tested separately.
+            for tool = {'pdfunite', 'pdftotext'}
+                [status, diagnostic] = system([tool{1}, ' -v 2>&1']);
+                assert(status == 0, 'OptiProfiler:MissingPdfTestTool', ...
+                    '%s is required for PDF regression tests: %s', tool{1}, diagnostic);
+            end
+
             % Setup OptiProfiler
             options = struct('install_matcutest', true, 'install_solar', false);
             setup(options);
