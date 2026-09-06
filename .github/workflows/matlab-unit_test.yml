@@ -2,11 +2,12 @@ name: MATLAB unit test
 
 on:
   push:
-    branches: [main, matlab]
+    branches: [main, matlab, paper/v1.3.4-errata]
+  workflow_dispatch:
 
 jobs:
   run:
-    name: Generate coverage report for MATLAB ${{ matrix.matlab-version }} on ${{ matrix.os }}
+    name: Generate coverage report for MATLAB ${{ matrix.matlab }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -18,10 +19,9 @@ jobs:
 
     steps:
 
-      - name: Check out repository (branch matlab) with submodules
+      - name: Check out requested revision with submodules
         uses: actions/checkout@v4
         with:
-          ref: matlab
           submodules: recursive
 
       - name: Install PDF regression test tools
@@ -57,7 +57,10 @@ jobs:
             end
 
             % Setup OptiProfiler
-            options = struct('install_matcutest', true, 'install_solar', false);
+            % Core unit tests exercise the bundled default only. Optional
+            % libraries have separately locked repositories and integration
+            % gates, so do not install them on this fast path.
+            options = struct('install_matcutest', false, 'install_solar', false);
             setup(options);
             
             % Run tests
