@@ -40,6 +40,15 @@ page order, and preservation of an existing summary when a merge fails.
 Its CI job installs and checks these tools explicitly rather than relying
 on MATLAB's bundled Java classes. This is a test prerequisite, not a new
 requirement for users: the no-merger HTML fallback is tested separately.
+On Linux CI, only these two system-tool subprocesses clear
+``LD_LIBRARY_PATH`` so they do not load an incompatible MATLAB-bundled C++
+library. MATLAB's own environment and user-installed tool configurations
+are not changed by OptiProfiler.
+In a normal Linux session, an external tool's ``GLIBCXX ... not found``
+diagnostic can indicate the same library conflict. Individual plots and the
+HTML fallback remain available; a tool-specific shell wrapper can use the
+system libraries without replacing MATLAB's libraries or changing its
+process-wide environment.
 
 Completed experiment data is saved as a verified version-7.3 MAT file before
 sequential history rendering. A timestamp becomes loadable only after this

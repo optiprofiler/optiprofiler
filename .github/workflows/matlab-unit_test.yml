@@ -31,6 +31,19 @@ jobs:
           pdfunite -v
           pdftotext -v
 
+      - name: Use system libraries for PDF test tools
+        run: |
+          # MATLAB's bundled libstdc++ may be older than Ubuntu's Poppler.
+          # Only these system-tool children use a clean loader path; MATLAB
+          # itself and its solver/MEX dependencies keep their environment.
+          tool_bin="$RUNNER_TEMP/op-pdf-test-bin"
+          mkdir -p "$tool_bin"
+          for tool in pdfunite pdftotext; do
+            printf '#!/bin/sh\nexec /usr/bin/env -u LD_LIBRARY_PATH /usr/bin/%s "$@"\n' "$tool" > "$tool_bin/$tool"
+            chmod +x "$tool_bin/$tool"
+          done
+          echo "$tool_bin" >> "$GITHUB_PATH"
+
       - name: Cache MATLAB  # N.B.: Clear the cache when the `latest` version of MATLAB changes in March and September
         uses: actions/cache@v4
         with:
