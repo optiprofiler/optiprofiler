@@ -63,6 +63,15 @@ function result = setupPathOwnership(action, context, owner, requested)
         record.pathdef_saved = record.pathdef_saved || saved;
         if ~saved
             if isempty(record.startup_file)
+                if isempty(getenv('OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_PATHDEF')) && ...
+                        isempty(getenv('OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_STARTUP'))
+                    % Default persistence may be unavailable in a CI/session
+                    % without userpath. Keep the exact ledger for uninstall.
+                    warning('OptiProfiler:SessionOnlyPaths', ...
+                        'Default path persistence is unavailable; paths are available in the current MATLAB session only.');
+                    result = false(numel(requested), 1);
+                    return;
+                end
                 error('OptiProfiler:PathPersistence', 'No writable pathdef or explicit startup fallback.');
             end
             for k = 1:numel(record.owned_paths)

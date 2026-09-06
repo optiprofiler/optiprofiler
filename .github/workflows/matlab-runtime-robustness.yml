@@ -17,9 +17,6 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-    env:
-      MATLAB_PREFDIR: ${{ runner.temp }}/op-runtime-prefs
-      OP_RUNTIME_EVIDENCE: ${{ runner.temp }}/op-runtime-evidence
     steps:
       - name: Check out the triggering commit and its locked submodules
         uses: actions/checkout@v4
@@ -28,12 +25,17 @@ jobs:
           submodules: recursive
           persist-credentials: false
 
+      # Runner-dependent paths are available in steps, not in job-level env.
       - name: Prepare isolated output and MATLAB preferences
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path $env:MATLAB_PREFDIR,$env:OP_RUNTIME_EVIDENCE | Out-Null
+          $prefDir = Join-Path $env:RUNNER_TEMP 'op-runtime-prefs'
+          $evidenceDir = Join-Path $env:RUNNER_TEMP 'op-runtime-evidence'
+          New-Item -ItemType Directory -Force -Path $prefDir,$evidenceDir | Out-Null
+          "MATLAB_PREFDIR=$prefDir" >> $env:GITHUB_ENV
+          "OP_RUNTIME_EVIDENCE=$evidenceDir" >> $env:GITHUB_ENV
 
-      # These targeted tests reload synthetic data; no optimizer or pool runs.
+      # Synthetic history reloads and bundled S2MPJ/setup; no optimizer or pool runs.
       - name: Set up MATLAB
         uses: matlab-actions/setup-matlab@v2
         with:

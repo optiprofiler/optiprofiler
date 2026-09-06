@@ -47,3 +47,11 @@ caller's warning settings on success and exceptions, and borrows an existing
 parallel pool without deleting or resizing it. A smaller existing pool may
 use fewer workers than ``n_jobs``; this changes throughput, not the requested
 problems or evaluation budgets.
+
+If setup cannot save the default pathdef and no default startup location
+exists, it keeps the installed paths available in the current session and
+prints the commands needed for future sessions. It does not claim successful
+persistence. This session-only fallback is not used when a persistence target
+was explicitly specified. Uninstall removes only paths recorded as newly
+added by setup, including the bundled S2MPJ runtime paths; pre-existing paths
+are borrowed and preserved.

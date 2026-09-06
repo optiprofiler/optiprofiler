@@ -1,5 +1,6 @@
 function run_matlab_runtime_robustness(repository_root, output_root)
-%RUN_MATLAB_RUNTIME_ROBUSTNESS Small exact-SHA gate, without full setup/solvers.
+%RUN_MATLAB_RUNTIME_ROBUSTNESS Exact-SHA history and bundled S2MPJ/setup gate.
+% Reloads synthetic histories and checks setup; no optimizer or pool runs.
 % All selected cases are mandatory on this platform: an unexpected assumption
 % or incomplete method fails the gate, even when its Failed flag is false.
     old_dir=pwd; old_path=path;
@@ -39,13 +40,17 @@ function run_matlab_runtime_robustness(repository_root, output_root)
         testsuite(fullfile(tests,'TestHistoryExtremes.m'))];
     setup_suite=testsuite(fullfile(tests,'TestSetupPathOwnership.m'));
     % These setup methods are cross-platform and isolate their own state.
+    % Default empty-userpath fallback requires a read-only default pathdef;
+    % its environment-dependent test is validated separately, not skipped here.
     methods={'testBorrowedPathsAndRepeatedSetup', ...
         'testFallbackPreservesUnrelatedStartupBytes','testUnknownOwnershipDoesNotGuess', ...
         'testPersistenceTargetChangeFails','testCorruptLedgerFailsBeforeCleanup', ...
         'testRelativeOwnershipLocationIsRejected','testPersistedUserPathSurvivesDifferentSessionPath', ...
         'testFailedStartupAppendCanRetry','testExistingUserStartupEntryIsNotClaimed', ...
         'testSidecarWriteFailureDoesNotMutatePaths','testRemovalWriteFailurePreservesBytesAndCanRetry', ...
-        'testPersistedPathIsBorrowedEvenWhenNotCurrentlyLoaded'};
+        'testPersistedPathIsBorrowedEvenWhenNotCurrentlyLoaded', ...
+        'testExplicitTargetCannotDegradeToSessionOnly','testSetupOwnsS2RuntimePaths', ...
+        'testSetupBorrowsExistingS2RuntimePaths'};
     if ispc
         methods=[methods,{'testWindowsRelativePathsRejected','testWindowsAbsolutePathForms'}];
     else

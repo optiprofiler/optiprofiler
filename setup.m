@@ -130,8 +130,13 @@ function setup(varargin)
         % =================================================================
         fprintf('\n--- Setting up MatCUTEst ---\n\n');
         
-        paths_to_add = {src_dir, s2mpj_dir};
-        path_owners = {setup_dir, setup_dir};
+        % The locked S2MPJ loader uses these exact runtime directories.
+        % Record them before evaluation, preserving any pre-existing paths.
+        s2mpj_paths = {s2mpj_dir, fullfile(s2mpj_dir, 'src'), ...
+            fullfile(s2mpj_dir, 'src', 'matlab_problems')};
+        s2mpj_paths = s2mpj_paths(cellfun(@isfolder, s2mpj_paths));
+        paths_to_add = [{src_dir}, s2mpj_paths];
+        path_owners = repmat({setup_dir}, size(paths_to_add));
         register_matcutest = false;
         if isunix() && ~ismac()
             % Local variable to track if we should proceed with MatCUTEst actions
@@ -310,6 +315,7 @@ function setup(varargin)
             ex_dir = fullfile(mat_dir, 'examples');
             fprintf('    %s\n\n', ex_dir);
         else
+            fprintf('\nPaths are available in this MATLAB session, but setup could not persist all required paths.\n');
             fprintf('\n***** To use the package in other MATLAB sessions, append the following lines to your startup script. *****\n');
             fprintf('\n  (see https://www.mathworks.com/help/matlab/ref/startup.html for information):\n');
             for i = 1:length(paths_to_add)
