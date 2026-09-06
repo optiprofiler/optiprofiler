@@ -60,6 +60,8 @@ with both raw and cumulative-minimum histories. The ``raw`` and ``cummin``
 subfolders contain the corresponding single-view PDFs. The merged
 ``*_history_plots_summary.pdf`` file uses the top-level combined PDFs.
 
+.. include:: history_display.rst
+
 .. _py_example2:
 
 Example 2: one step further by adding options
@@ -104,6 +106,12 @@ set ``n_jobs`` explicitly, for example ``n_jobs=1`` for sequential runs.
 
 Example 3: useful option **load**
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. warning::
+
+   Load only experiment archives from trusted sources. Python HDF5 archives
+   may contain pickled objects; loading an untrusted file can execute code.
+   The loader is not a safe reader for public uploads.
 
 OptiProfiler provides a practically useful option named ``load``. This option allows you to load the results from a previous benchmarking run (without solving all the problems again) and use them to draw new profiles with different options. For example, if you have just run :ref:`Example 2 <py_example2>` and OptiProfiler has finished the job and successfully created the folder ``out`` in the current working directory, you can run:
 

@@ -3,11 +3,28 @@ from scipy.linalg import qr
 import re
 import sys
 import warnings
+from decimal import Context, Decimal, InvalidOperation, ROUND_HALF_UP
 from numpy.linalg import lstsq
 from scipy.optimize import Bounds, LinearConstraint, NonlinearConstraint, minimize
 from scipy import __version__ as _SCIPY_VERSION
 
 from .utils import FeatureName, FeatureOption, get_logger, shorten_log_message
+
+
+def _round_truncated(value, digits):
+    """Round decimal ties using MATLAB's default away-from-zero direction."""
+    # Use the decimal representation rather than scaling a binary float:
+    # this preserves decimal ties (e.g. 1.005) and avoids scale overflow.
+    decimal_value = Decimal(str(float(value)))
+    if decimal_value.as_tuple().exponent >= -int(digits):
+        return float(value)
+    # A float has at most 17 significant decimal digits; allow a carry and
+    # isolate rounding from the caller's global decimal context.
+    return float(decimal_value.quantize(
+        Decimal((0, (1,), -int(digits))), rounding=ROUND_HALF_UP,
+        context=Context(prec=18, rounding=ROUND_HALF_UP, Emin=-999999, Emax=999999,
+                        capitals=1, clamp=0, flags=[], traps=[InvalidOperation]),
+    ))
 
 
 def _scipy_version_less_than(major, minor):
@@ -81,6 +98,7 @@ class Feature:
            ``Inf`` outside the feasible region.
         9. ``'nonquantifiable_constraints'`` : replace values of nonlinear
            constraints with either ``0`` (satisfied) or ``1`` (violated).
+           Undefined values remain ``NaN``.
         10. ``'quantized'`` : quantize the objective function and nonlinear
             constraints.
         11. ``'custom'`` : user-defined feature.
@@ -122,7 +140,8 @@ class Feature:
         - **condition_factor** (*float*) -- Scaling factor of the condition
           number of the linear transformation in
           ``'linearly_transformed'``. The condition number will be
-          ``2^(condition_factor * n / 2)``. Default is ``0``.
+          ``2**sqrt(condition_factor * n / 2)`` for dimension ``n >= 2``
+          (and ``1`` for ``n = 1``). Default is ``0``.
         - **nan_rate** (*float*) -- Probability that an evaluation returns
           ``NaN`` in ``'random_nan'``. Default is ``0.05``.
         - **unrelaxable_bounds** (*bool*) -- Whether bound constraints are
@@ -136,7 +155,11 @@ class Feature:
         - **mesh_type** (*str*) -- Type of the mesh in ``'quantized'``.
           Must be ``'absolute'`` (default) or ``'relative'``.
         - **ground_truth** (*bool*) -- Whether the featured problem is the
-          ground truth in ``'quantized'``. Default is ``True``.
+          ground truth in ``'quantized'``. Default is ``True``. If true,
+          initialization, histories, and output evaluation use the quantized
+          objective and nonlinear constraints; if false, they use the original
+          problem. Bounds and linear constraints are not quantized. The
+          solver's returned point is never rounded by this option.
         - **mod_x0** (*callable*) -- Modifier for the initial guess in
           ``'custom'``: ``(rng, problem) -> modified_x0``.
         - **mod_affine** (*callable*) -- Modifier for the affine
@@ -548,9 +571,9 @@ class Feature:
                 q[:, np.diag(r) < 0] *= -1
             else:
                 q = np.eye(problem.n)
-            # Generate a positive definite diagonal matrix D with condition number equal to
-            # 2^(condition_factor * n / 2), where n is the dimension of the problem. In this
-            # way, the condition number of Q * D^2 * Q^T is 2^(condition_factor * n).
+            # The extreme exponents differ by sqrt(condition_factor * n / 2),
+            # so cond(A) is 2**sqrt(condition_factor * n / 2) for n >= 2.
+            # Orthogonal rotation does not change the singular values; n=1 has cond(A)=1.
             log_condition_number = np.sqrt(self._options[FeatureOption.CONDITION_FACTOR] * problem.n / 2)
             power = np.linspace(-log_condition_number/2, log_condition_number/2, problem.n)
             A = np.diag(2**power) @ q.T
@@ -816,8 +839,9 @@ class Feature:
             if f == 0.0:
                 digits = self._options[FeatureOption.SIGNIFICANT_DIGITS] - 1
             else:
-                digits = self._options[FeatureOption.SIGNIFICANT_DIGITS] - int(np.log10(np.abs(f))) - 1
-            f = round(f, digits)
+                # Floor matters below one: int would truncate a negative logarithm toward zero.
+                digits = self._options[FeatureOption.SIGNIFICANT_DIGITS] - int(np.floor(np.log10(np.abs(f)))) - 1
+            f = _round_truncated(f, digits)
             # Round f to the desired number of significant digits.
             if self._options[FeatureOption.PERTURBED_TRAILING_DIGITS]:
                 if f >= 0.0:
@@ -890,14 +914,19 @@ class Feature:
             # Similar to the case in the modifier_fun method.
             rng_truncated = self.get_default_rng(seed, *cub, *x, n_eval_cub)
             digits = np.zeros(cub.size, dtype=int)
+            finite = np.isfinite(cub)
+            nonzero = finite & (cub != 0.0)
             digits[cub == 0.0] = self._options[FeatureOption.SIGNIFICANT_DIGITS] - 1
-            digits[cub != 0.0] = self._options[FeatureOption.SIGNIFICANT_DIGITS] - np.int_(np.log10(np.abs(cub[cub != 0.0]))) - 1
+            # Do not cast NaN/Inf exponents to integers or perturb them.
+            digits[nonzero] = self._options[FeatureOption.SIGNIFICANT_DIGITS] - np.floor(np.log10(np.abs(cub[nonzero]))).astype(int) - 1
             for i in range(cub.size):
                 if not np.isnan(cub[i]) and not np.isinf(cub[i]):
-                    cub[i] = round(cub[i], int(digits[i]))
+                    cub[i] = _round_truncated(cub[i], digits[i])
             if self._options[FeatureOption.PERTURBED_TRAILING_DIGITS]:
-                cub[cub >= 0.0] += rng_truncated.uniform(0.0, 10.0 ** (-digits[cub >= 0.0]))
-                cub[cub < 0.0] -= rng_truncated.uniform(0.0, 10.0 ** (-digits[cub < 0.0]))
+                positive = finite & (cub >= 0.0)
+                negative = finite & (cub < 0.0)
+                cub[positive] += rng_truncated.uniform(0.0, 10.0 ** (-digits[positive]))
+                cub[negative] -= rng_truncated.uniform(0.0, 10.0 ** (-digits[negative]))
             return cub
         elif self._name == FeatureName.NONQUANTIFIABLE_CONSTRAINTS:
             # Set the elements whose value are less than or equal to 0 to 0.
@@ -961,14 +990,18 @@ class Feature:
             # Similar to the case in the modifier_fun method.
             rng_truncated = self.get_default_rng(seed, *ceq, *x, n_eval_ceq)
             digits = np.zeros(ceq.size, dtype=int)
+            finite = np.isfinite(ceq)
+            nonzero = finite & (ceq != 0.0)
             digits[ceq == 0.0] = self._options[FeatureOption.SIGNIFICANT_DIGITS] - 1
-            digits[ceq != 0.0] = self._options[FeatureOption.SIGNIFICANT_DIGITS] - np.int_(np.log10(np.abs(ceq[ceq != 0.0]))) - 1
+            digits[nonzero] = self._options[FeatureOption.SIGNIFICANT_DIGITS] - np.floor(np.log10(np.abs(ceq[nonzero]))).astype(int) - 1
             for i in range(ceq.size):
                 if not np.isnan(ceq[i]) and not np.isinf(ceq[i]):
-                    ceq[i] = round(ceq[i], int(digits[i]))
+                    ceq[i] = _round_truncated(ceq[i], digits[i])
             if self._options[FeatureOption.PERTURBED_TRAILING_DIGITS]:
-                ceq[ceq >= 0.0] += rng_truncated.uniform(0.0, 10.0 ** (-digits[ceq >= 0.0]))
-                ceq[ceq < 0.0] -= rng_truncated.uniform(0.0, 10.0 ** (-digits[ceq < 0.0]))
+                positive = finite & (ceq >= 0.0)
+                negative = finite & (ceq < 0.0)
+                ceq[positive] += rng_truncated.uniform(0.0, 10.0 ** (-digits[positive]))
+                ceq[negative] -= rng_truncated.uniform(0.0, 10.0 ** (-digits[negative]))
             return ceq
         elif self._name == FeatureName.NONQUANTIFIABLE_CONSTRAINTS:
             # Set the elements whose absolute value are less than or equal to 10^(-6) to 0.
@@ -2405,14 +2438,22 @@ class FeaturedProblem(Problem):
         self._last_cub = np.nan
         self._last_ceq = np.nan
 
-        # Evaluate the objective function and the maximum constraint violation at the initial point.
-        # Pay attention to the case when the feature is 'quantized' and the option ``ground_truth'' is set to true.
+        self._fun_init, self._maxcv_init = self._evaluate_truth(self._x0)
+
+    def _evaluate_truth(self, x):
+        """Evaluate scoring truth at solver coordinates, without recording an oracle call."""
         A, b = self._feature.modifier_affine(self._seed, self._problem)[:2]
+        # True means the quantized problem itself is the ground truth. False
+        # (and all other features) keeps base truth. Never snap the returned
+        # solver point or call self.fun here: bookkeeping must not consume its
+        # budget, append a synthetic history entry, or update last-value caches.
         if self._feature.name == 'quantized' and self._feature.options[FeatureOption.GROUND_TRUTH]:
-            self._fun_init = self._feature.modifier_fun(A @ self._x0 + b, self._seed, self._problem, self.n_eval_fun)
+            f = self._feature.modifier_fun(A @ x + b, self._seed, self._problem, self.n_eval_fun)
+            cv = self.maxcv(x)
         else:
-            self._fun_init = self._problem.fun(A @ self._x0 + b)
-        self._maxcv_init = self._problem.maxcv(A @ self._x0 + b)
+            f = self._problem.fun(A @ x + b)
+            cv = self._problem.maxcv(A @ x + b)
+        return f, cv
 
 
     def __new__(cls, problem, feature, max_eval, seed=None):
@@ -2745,12 +2786,17 @@ class FeaturedProblem(Problem):
                 cv = np.maximum(cv_bounds, cv_linear)
                 return cv
             
+            # Quantized modifiers are deterministic. Calling the public cub/ceq
+            # oracle even with record_hist=False would still consume its real
+            # evaluation budget and may reuse a cached last value after exhaustion.
             if self.m_nonlinear_ub > 0:
-                cv_nonlinear = np.max(self.cub(x, record_hist=False), initial=0.0)
+                cub = self._feature.modifier_cub(x, self._seed, self._problem, self.n_eval_cub)
+                cv_nonlinear = np.max(cub, initial=0.0)
             else:
                 cv_nonlinear = 0.0
             if self.m_nonlinear_eq > 0:
-                cv_nonlinear = np.max(np.abs(self.ceq(x, record_hist=False)), initial=cv_nonlinear)
+                ceq = self._feature.modifier_ceq(x, self._seed, self._problem, self.n_eval_ceq)
+                cv_nonlinear = np.max(np.abs(ceq), initial=cv_nonlinear)
             cv = np.max([cv_bounds, cv_linear, cv_nonlinear])
             return cv
         else:

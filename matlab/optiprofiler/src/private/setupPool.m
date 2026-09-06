@@ -11,45 +11,22 @@ function success = setupPool(n_jobs, silent)
         return;
     end
 
-    % Check the default setting for the maximum number of workers in the cluster profile.
-    defaultCluster = parcluster();
-    max_workers = defaultCluster.NumWorkers;
-
     % Check whether there is an existing parallel pool.
-    if ~isempty(gcp('nocreate'))
-        myCluster = gcp('nocreate');
-        n_workers = myCluster.NumWorkers;
-        if n_jobs <= n_workers
-            % If there are more workers than `n_jobs`, then we will use `n_jobs` workers.
-            if ~silent
-                printOptiProfilerMessage('INFO', sprintf('There is an existing parallel pool with %d workers. We will use %d workers by the option `n_jobs`.', n_workers, n_jobs));
-            end
-            success = true;
-            fprintf("\n");
-            return;
-        elseif n_workers == max_workers
-            % If there are maximum workers in the cluster profile, then we will use all workers.
-            if ~silent
-                printOptiProfilerMessage('INFO', sprintf('There is an existing parallel pool with %d workers, which is equal to the maximum number of workers in your cluster profile setting. We will use all %d workers instead of the option `n_jobs` (%d).', n_workers, n_workers, n_jobs));
-                fprintf("\n");
-                printOptiProfilerMessage('INFO', 'You may change the maximum number of workers in your cluster by running following command in the MATLAB command window:');
-                fprintf("\n");
-                fprintf("    myCluster = parcluster(); myCluster.NumWorkers = <new_number_of_workers>; saveProfile(myCluster);\n\n");
-            end
-            success = true;
-            fprintf("\n");
-            return;
-        else
-            % If there are fewer workers than `n_jobs`, then we will close the existing pool and try to open a new one with more workers later.
-            if ~silent
-                printOptiProfilerMessage('INFO', sprintf('There is an existing parallel pool with %d workers, which is fewer than the option `n_jobs` (%d). We will close the existing pool and try to open a new one with more workers.', n_workers, n_jobs));
-            end
-            delete(myCluster);
+    existing_pool = gcp('nocreate');
+    if ~isempty(existing_pool)
+        % Borrow caller-owned resources, including smaller pools. Replacing a
+        % pool can discard their worker state or interrupt unrelated work.
+        if ~silent
+            printOptiProfilerMessage('INFO', sprintf('Using the existing pool with up to %d workers (n_jobs=%d); the pool will not be resized or deleted.', min(n_jobs, existing_pool.NumWorkers), n_jobs));
         end
+        success = true;
+        return;
     end
 
     % Try to open a new parallel pool with maximum workers.
     try
+        defaultCluster = parcluster();
+        max_workers = defaultCluster.NumWorkers;
         if n_jobs > max_workers
             if ~silent
                 fprintf('\n');

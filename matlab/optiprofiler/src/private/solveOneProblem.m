@@ -98,6 +98,10 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
             % punished there. Falling back to x0 is the most basic choice
             % that is solver-independent.
             x = featured_problem.x0;
+            % Solver callbacks may change warning settings or throw. A caller's
+            % disabled warnings must not become enabled after a benchmark.
+            warning_state = warning;
+            warning_cleanup = onCleanup(@() warning(warning_state));
             warning('off', 'all');
             % Record the START timestamp as a POSIX second (double).
             % We deliberately avoid tic/toc here because the
@@ -199,15 +203,10 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
                 end
                 computation_time(i_solver, i_run) = elapsed_s;
 
-                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                % It is very important to transform the solution back to the one related to the original problem. (Note that the problem we solve has the objective function f(A @ x + b). Thus, if x is the output solution, then A @ x + b is the solution of the original problem.)
-                [A, b] = featured_problem.feature.modifier_affine(featured_problem.seed, featured_problem.problem);
-                x = A * x + b;
-                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                
-                % Use problem.fun and problem.maxcv to evaluate the solution since it is possible that featured_problem.fun and featured_problem.maxcv are modified.
-                fun_out(i_solver, i_run) = problem.fun(x);
-                maxcv_out(i_solver, i_run) = problem.maxcv(x);
+                % Use initialization/history truth without recording another
+                % oracle call. The helper applies the affine map internally;
+                % the solver's returned point is never snapped to a mesh.
+                [fun_out(i_solver, i_run), maxcv_out(i_solver, i_run)] = featured_problem.evaluateTruth(x);
                 % Calculate the minimum function value and the minimum constraint violation, omitting the NaN values.
                 if isempty(featured_problem.fun_hist)
                     fun_min = NaN;
@@ -245,7 +244,7 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
                 % Clear the solution.
                 clear x;
             end
-            warning('on', 'all');
+            clear warning_cleanup;
             n_eval(i_solver, i_run) = featured_problem.n_eval_fun;
             fun_history(i_solver, i_run, 1:n_eval(i_solver, i_run)) = featured_problem.fun_hist(1:n_eval(i_solver, i_run));
             maxcv_history(i_solver, i_run, 1:n_eval(i_solver, i_run)) = featured_problem.maxcv_hist(1:n_eval(i_solver, i_run));

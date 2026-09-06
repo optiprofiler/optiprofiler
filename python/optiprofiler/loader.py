@@ -5,6 +5,8 @@ import datetime
 import numpy as np
 import h5py
 import pickle
+import stat
+import uuid
 from typing import Dict, List, Any, Tuple, Optional, Union, Callable
 from enum import Enum
 from pathlib import Path
@@ -284,6 +286,9 @@ def load_results_from_h5(file_path: str) -> List[Dict[str, Any]]:
     
     This function reads the HDF5 file created by `save_results_to_h5` and reconstructs the list of problem library results.
     It handles the decoding of strings (which are stored as bytes in HDF5) and the unpickling of complex objects.
+
+    Warning: load only trusted archives. Pickled objects in an HDF5 container
+    can execute code during deserialization; this is not a safe upload reader.
     
     Parameters
     ----------
@@ -591,6 +596,52 @@ def save_results_to_h5(results_plibs: List[Dict[str, Any]], file_path: str) -> N
     file_path : str
         The path to the HDF5 file where the results will be saved.
     """
+    destination = Path(file_path)
+    previous_mode = (stat.S_IMODE(destination.stat().st_mode)
+                     if destination.exists() else None)
+    # Write beside the destination, not in the system temporary directory:
+    # os.replace must stay on the same filesystem. A failed/partial HDF5 write
+    # must never truncate an earlier usable archive.
+    # mkstemp would silently change shared archives to owner-only (0600).
+    # Exclusive creation with 0666 lets the OS apply the current umask without
+    # reading/changing that process-wide setting. UUIDs do not consume the
+    # experiment's random stream.
+    # On overwrite, do not expose a private archive through a more permissive
+    # staging file while serializing. Owner access is needed for HDF5/fsync;
+    # the original mode is restored before publication.
+    creation_mode = 0o666 if previous_mode is None else previous_mode | 0o600
+    while True:
+        temporary = destination.with_name(
+            f'.{destination.name}.{uuid.uuid4().hex}.tmp')
+        try:
+            descriptor = os.open(temporary, os.O_CREAT | os.O_EXCL | os.O_RDWR, creation_mode)
+        except FileExistsError:
+            continue
+        os.close(descriptor)
+        break
+    try:
+        _write_results_to_h5(results_plibs, temporary)
+        # Windows requires a write-capable handle for FlushFileBuffers/fsync.
+        with temporary.open('r+b') as stream:
+            os.fsync(stream.fileno())
+    except BaseException:
+        temporary.unlink(missing_ok=True)
+        raise
+    try:
+        if previous_mode is not None:
+            os.chmod(temporary, previous_mode)
+        os.replace(temporary, destination)
+    except OSError as exc:
+        # Serialization completed. Keep this recoverable archive if publication
+        # fails, but do not advertise it as a completed benchmark/load marker.
+        raise OSError(
+            f'Cannot publish saved results to {destination}; '
+            f'the complete archive is preserved at {temporary}.'
+        ) from exc
+
+
+def _write_results_to_h5(results_plibs, file_path):
+    """Serialize the existing archive schema into an unpublished file."""
     with h5py.File(file_path, 'w') as f:
         # Save each problem library
         for i, plib in enumerate(results_plibs):

@@ -1,0 +1,56 @@
+name: MATLAB runtime robustness (exact SHA)
+
+on:
+  push:
+    branches: [main, python, matlab, paper/v1.3.4-errata]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    name: Latest MATLAB on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    env:
+      MATLAB_PREFDIR: ${{ runner.temp }}/op-runtime-prefs
+      OP_RUNTIME_EVIDENCE: ${{ runner.temp }}/op-runtime-evidence
+    steps:
+      - name: Check out the triggering commit and its locked submodules
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Prepare isolated output and MATLAB preferences
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path $env:MATLAB_PREFDIR,$env:OP_RUNTIME_EVIDENCE | Out-Null
+
+      # These targeted tests reload synthetic data; no optimizer or pool runs.
+      - name: Set up MATLAB
+        uses: matlab-actions/setup-matlab@v2
+        with:
+          release: latest
+          cache: true
+
+      - name: Run mandatory platform-specific regression cases
+        uses: matlab-actions/run-command@v2.1.1
+        with:
+          command: |
+            addpath('tools');
+            run_matlab_runtime_robustness(pwd, getenv('OP_RUNTIME_EVIDENCE'));
+
+      - name: Upload exact-SHA results, including failed runs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: matlab-runtime-${{ matrix.os }}-${{ github.sha }}
+          path: ${{ env.OP_RUNTIME_EVIDENCE }}
+          if-no-files-found: warn

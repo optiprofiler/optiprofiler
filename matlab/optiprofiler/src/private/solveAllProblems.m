@@ -44,7 +44,12 @@ function results = solveAllProblems(solvers, plib, feature, problem_options, pro
             % Remove problems in exclude_list.
             problem_names = setdiff(problem_names, exclude_list, 'stable');
         end
-    catch
+    catch cause
+        % A failed selector is not an empty selection, and must never bypass
+        % user filters by continuing with an explicit list of problem names.
+        failure = MException('OptiProfiler:ProblemSelectionFailed', ...
+            'Could not select problems from library ''%s'': %s', plib, cause.message);
+        throw(addCause(failure, cause));
     end
 
     if isempty(problem_names)

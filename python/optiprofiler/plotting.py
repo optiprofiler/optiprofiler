@@ -17,7 +17,7 @@ from matplotlib.figure import Figure
 from matplotlib.colors import is_color_like
 from matplotlib.lines import Line2D
 from matplotlib.backends import backend_pdf
-from matplotlib.ticker import MaxNLocator, FuncFormatter
+from matplotlib.ticker import MaxNLocator, FuncFormatter, FixedLocator, NullLocator
 
 from .utils import ProfileOption
 
@@ -30,6 +30,9 @@ _HISTORY_LABELSIZE = 12
 _HISTORY_TICK_LABELSIZE = 11
 _HISTORY_LEGEND_FONTSIZE = 10
 _HISTORY_YLABEL_PAD = 18
+# A display limit, never an oracle/score/data limit. Squared deviations, run
+# means and axis margins retain ample float64 headroom below overflow.
+_HISTORY_DISPLAY_LIMIT = 1e100
 
 
 def latex_escape_text(text):
@@ -101,7 +104,7 @@ def draw_profiles(work, problem_dimensions, solver_names, tolerance_latex, i_tol
 
 
 def _draw_perf_detail(ax_perf, x_perf, y_perf, ratio_max_perf, solver_names, profile_options, tolerance_latex):
-    _draw_performance_data_profiles(ax_perf, x_perf, y_perf, solver_names, profile_options)
+    handles = _draw_performance_data_profiles(ax_perf, x_perf, y_perf, solver_names, profile_options)
     ax_perf.tick_params(axis='both', which='major', labelsize=_PROFILE_TICK_LABELSIZE)
     # MATLAB tolerates Inf in set(ax, 'XLim', ...) but matplotlib does not.
     if not np.isfinite(ratio_max_perf):
@@ -122,13 +125,13 @@ def _draw_perf_detail(ax_perf, x_perf, y_perf, ratio_max_perf, solver_names, pro
     if profile_options[ProfileOption.YLABEL_PERFORMANCE_PROFILE]:
         ylabel_str = profile_options[ProfileOption.YLABEL_PERFORMANCE_PROFILE] % tolerance_latex if '%s' in profile_options[ProfileOption.YLABEL_PERFORMANCE_PROFILE] else profile_options[ProfileOption.YLABEL_PERFORMANCE_PROFILE]
         ax_perf.set_ylabel(ylabel_str, fontsize=_PROFILE_LABELSIZE, labelpad=10)
-    _place_solver_legend(ax_perf, x_perf.shape[1], default_loc='lower right')
+    _place_solver_legend(ax_perf, x_perf.shape[1], default_loc='lower right', handles=handles)
 
 
 
 
 def _draw_data_detail(ax_data, x_data, y_data, ratio_max_data, solver_names, profile_options, tolerance_latex):
-    _draw_performance_data_profiles(ax_data, x_data, y_data, solver_names, profile_options)
+    handles = _draw_performance_data_profiles(ax_data, x_data, y_data, solver_names, profile_options)
     ax_data.tick_params(axis='both', which='major', labelsize=_PROFILE_TICK_LABELSIZE)
     # MATLAB tolerates Inf in set(ax, 'XLim', ...) but matplotlib does not.
     if not np.isfinite(ratio_max_data):
@@ -146,7 +149,7 @@ def _draw_data_detail(ax_data, x_data, y_data, ratio_max_data, solver_names, pro
     if profile_options[ProfileOption.YLABEL_DATA_PROFILE]:
         ylabel_str = profile_options[ProfileOption.YLABEL_DATA_PROFILE] % tolerance_latex if '%s' in profile_options[ProfileOption.YLABEL_DATA_PROFILE] else profile_options[ProfileOption.YLABEL_DATA_PROFILE]
         ax_data.set_ylabel(ylabel_str, fontsize=_PROFILE_LABELSIZE, labelpad=10)
-    _place_solver_legend(ax_data, x_data.shape[1], default_loc='lower right')
+    _place_solver_legend(ax_data, x_data.shape[1], default_loc='lower right', handles=handles)
 
 
 
@@ -168,6 +171,7 @@ def _draw_log_ratio_detail(ax_log_ratio, x_log_ratio, y_log_ratio, ratio_max_log
 
 
 def _draw_performance_data_profiles(ax, x, y, solver_names, profile_options):
+    handles = []
     profile_context = set_profile_context(profile_options)
     line_colors = profile_options[ProfileOption.LINE_COLORS]
     line_styles = profile_options[ProfileOption.LINE_STYLES]
@@ -197,7 +201,7 @@ def _draw_performance_data_profiles(ax, x, y, solver_names, profile_options):
             line_style = line_styles[i_solver % len(line_styles)]
             line_width = line_widths[i_solver % len(line_widths)]
 
-            ax.plot(x_stairs, y_mean_stairs, label=solver_names[i_solver], color=color, linestyle=line_style, linewidth=line_width)
+            handles.extend(ax.plot(x_stairs, y_mean_stairs, label=solver_names[i_solver], color=color, linestyle=line_style, linewidth=line_width))
             if n_runs > 1:
                 ax.fill_between(x_stairs, y_lower_stairs, y_upper_stairs, color=color, alpha=0.2)
         
@@ -212,6 +216,7 @@ def _draw_performance_data_profiles(ax, x, y, solver_names, profile_options):
         ax.tick_params(axis='x', which='both', direction='in')
         # Remove tick labels on the right side
         ax.tick_params(axis='y', which='both', labelleft=True, labelright=False)
+    return handles
 
 def _draw_log_ratio_profiles(ax, x, y, ratio_max, n_solvers_equal, solver_names, profile_options):
     profile_context = set_profile_context(profile_options)
@@ -616,9 +621,9 @@ def draw_hist(fun_histories, maxcv_histories, merit_histories, fun_init, maxcv_i
         Default height for sizing
     """
     
-    fun_histories = process_hist_y_axes(fun_histories, fun_init)
-    maxcv_histories = process_hist_y_axes(maxcv_histories, maxcv_init)
-    merit_histories = process_hist_y_axes(merit_histories, merit_init)
+    fun_histories, fun_note = process_hist_y_axes(fun_histories, fun_init, return_note=True)
+    maxcv_histories, maxcv_note = process_hist_y_axes(maxcv_histories, maxcv_init, return_note=True)
+    merit_histories, merit_note = process_hist_y_axes(merit_histories, merit_init, return_note=True)
     
     # Convert default_height from inches to pixels for fontsize calculation.
     # MATLAB uses pixels directly, while matplotlib uses inches.
@@ -642,6 +647,7 @@ def draw_hist(fun_histories, maxcv_histories, merit_histories, fun_init, maxcv_i
     _, formatted_fun_shift = format_float_scientific_latex(y_shift_fun)
     base_label_fun = "Cummin of function values" if is_cum else "Function values"
     set_hist_ylabel(list_axs_summary[0], base_label_fun, y_shift_fun, formatted_fun_shift)
+    _annotate_history_display(list_axs_summary[0], fun_note)
     
     # Return early for unconstrained problems.
     if ptype == 'u':
@@ -655,11 +661,20 @@ def draw_hist(fun_histories, maxcv_histories, merit_histories, fun_init, maxcv_i
     _, formatted_maxcv_shift = format_float_scientific_latex(y_shift_maxcv)
     base_label_maxcv = "Cummin of maximum constraint violations" if is_cum else "Maximum constraint violations"
     set_hist_ylabel(list_axs_summary[1], base_label_maxcv, y_shift_maxcv, formatted_maxcv_shift)
+    _annotate_history_display(list_axs_summary[1], maxcv_note)
     
     draw_fun_maxcv_merit_hist(list_axs_summary[2], merit_histories, solver_names, is_cum, problem_n, y_shift_merit, n_eval, profile_options, show_xlabel)
     _, formatted_merit_shift = format_float_scientific_latex(y_shift_merit)
     base_label_merit = "Cummin of merit function values" if is_cum else "Merit function values"
     set_hist_ylabel(list_axs_summary[2], base_label_merit, y_shift_merit, formatted_merit_shift)
+    _annotate_history_display(list_axs_summary[2], merit_note)
+
+
+def _annotate_history_display(ax, note):
+    if note:
+        ax.text(0.01, 0.01, note, transform=ax.transAxes, fontsize=7,
+                ha='left', va='bottom', usetex=False,
+                bbox={'facecolor': 'white', 'alpha': 0.85, 'edgecolor': 'none'})
 
 
 def compute_y_shift(history, profile_options):
@@ -681,62 +696,73 @@ def compute_y_shift(history, profile_options):
     y_shift = 0
     if profile_options[ProfileOption.ERRORBAR_TYPE] == 'meanstd':
         y_mean = np.mean(history, axis=1)
-        y_std = np.std(history, axis=1, ddof=0)  # ddof=0 for MATLAB compatibility
+        # Preserve Python's population standard deviation (N denominator).
+        # MATLAB histories use N-1 for N>1; changing this would alter old bands.
+        y_std = np.std(history, axis=1, ddof=0)
         y_lower = y_mean - y_std
         y_min = np.min(y_lower)
     else:
         y_min = np.min(history)
     
-    # Shift the y-axis if there is value that is smaller than eps and the values are not all the same.
-    if np.any(np.diff(history.flatten())) and y_min < np.finfo(float).eps:
+    # Strictly positive tiny values are valid on a log axis. Adding eps to
+    # them would erase their relative variation, so shift only nonpositive data.
+    if np.any(np.diff(history.flatten())) and y_min <= 0:
         y_shift = max(np.finfo(float).eps - y_min, np.spacing(-y_min) - y_min)
     
     return y_shift
 
 
-def process_hist_y_axes(value_histories, value_inits):
+def process_hist_y_axes(value_histories, value_inits, return_note=False):
     """
     Process the value_histories of the y-axis data.
 
     ``value_histories`` has shape ``(n_solvers, n_runs, n_evals)`` and
     ``value_inits`` is either a scalar (legacy) or a per-run vector of
-    length ``n_runs``. Non-finite entries are first replaced with the
-    matching run's initial value, and then re-mapped to a value safely
-    above the maximum so that the plotted lines stay visible. This
-    mirrors MATLAB's ``processHistYaxes.m`` (which iterates over runs
-    explicitly).
+    length ``n_runs``. The legacy 2-D input accepts only a scalar initial value.
+    Only the returned display copy is clipped to +/-1e100
+    before statistics/axis arithmetic. Non-finite entries are shown above the
+    matching run's finite range; absent finite data and initial value, use 1.
+    The optional note must be displayed whenever this transformation occurs.
+    Raw histories, solver evaluations and scores are never changed here.
     """
-    value_histories = np.array(value_histories, copy=True)
-    if np.isscalar(value_inits):
-        # Legacy scalar path: identical to the old behaviour.
-        mask_hist_nan_inf = ~np.isfinite(value_histories)
-        value_histories[mask_hist_nan_inf] = value_inits
-        value_max = np.max(value_histories)
-        value_min = np.min(value_histories)
-        value_histories_processed = value_histories.copy()
-        value_histories_processed[mask_hist_nan_inf] = value_min + 1.5 * (value_max - value_min)
-        return value_histories_processed
-
-    value_inits = np.asarray(value_inits)
-    n_runs = value_histories.shape[1]
-    value_histories_processed = value_histories.copy()
+    original = np.asarray(value_histories, dtype=float)
+    processed = np.clip(original, -_HISTORY_DISPLAY_LIMIT, _HISTORY_DISPLAY_LIMIT)
+    notes = []
+    n_clipped = np.count_nonzero(np.isfinite(original) & (np.abs(original) > _HISTORY_DISPLAY_LIMIT))
+    n_nonfinite = np.count_nonzero(~np.isfinite(original))
+    if n_clipped:
+        notes.append(f'Display clipped at +/-1e100: {n_clipped} entries')
+    if n_nonfinite:
+        notes.append(f'Nonfinite placeholders: {n_nonfinite} entries')
+    # Preserve the legacy scalar/2-D helper interface as one range; actual
+    # history plotting always uses a separate range for each run.
+    by_run = original.ndim == 3
+    n_runs = original.shape[1] if by_run else 1
+    inits = np.broadcast_to(np.asarray(value_inits, dtype=float).reshape(-1), (n_runs,))
+    n_empty_runs = 0
     for i_run in range(n_runs):
-        slice_run = value_histories[:, i_run, :]
-        mask_run = ~np.isfinite(slice_run)
-        # Use the per-run init for this run (NaN-safe via nanmin/nanmax
-        # below if the init itself happens to be NaN).
-        slice_run_filled = np.where(mask_run, value_inits[i_run], slice_run)
-        value_histories[:, i_run, :] = slice_run_filled
-        # Recompute min/max on the filled slice so that the placeholder
-        # value lies safely above the run's actual data range.
-        with np.errstate(all='ignore'):
-            value_max = np.nanmax(slice_run_filled)
-            value_min = np.nanmin(slice_run_filled)
-        replacement = value_min + 1.5 * (value_max - value_min)
-        slice_processed = value_histories_processed[:, i_run, :]
-        slice_processed = np.where(mask_run, replacement, slice_run_filled)
-        value_histories_processed[:, i_run, :] = slice_processed
-    return value_histories_processed
+        source_run = original[:, i_run, :] if by_run else original
+        slice_run = processed[:, i_run, :] if by_run else processed
+        mask_run = ~np.isfinite(source_run)
+        if not np.any(mask_run):
+            continue
+        finite = slice_run[~mask_run]
+        if np.isfinite(inits[i_run]):
+            finite = np.append(finite, np.clip(inits[i_run], -_HISTORY_DISPLAY_LIMIT, _HISTORY_DISPLAY_LIMIT))
+        if finite.size:
+            low, high = np.min(finite), np.max(finite)
+            # Clip first: even high-low and the placeholder cannot overflow.
+            # A constant finite run still needs a visibly distinct placeholder.
+            gap = max(0.5 * (high - low), abs(high) * 0.05, np.finfo(float).eps)
+            replacement = high + gap
+        else:
+            replacement = 1.0
+            n_empty_runs += 1
+        slice_run[mask_run] = replacement
+    if n_empty_runs:
+        notes.append(f'No finite reference in {n_empty_runs} run(s): shown at 1')
+    note = '\n'.join(notes)
+    return (processed, note) if return_note else processed
 
 
 def draw_fun_maxcv_merit_hist(ax, y, solver_names, is_cum, problem_n, y_shift, n_eval, profile_options, show_xlabel=True):
@@ -768,18 +794,27 @@ def draw_fun_maxcv_merit_hist(ax, y, solver_names, is_cum, problem_n, y_shift, n
     line_styles = profile_options[ProfileOption.LINE_STYLES]
     line_widths = profile_options[ProfileOption.LINE_WIDTHS]
     
-    y = y + y_shift
     n_solvers = y.shape[0]
     n_runs = y.shape[1]
-    y_mean = np.nanmean(y, axis=1).squeeze()
+    # Keep (solver, evaluation) even for one solver or one evaluation.
+    y_mean = np.mean(y, axis=1)
 
     if profile_options[ProfileOption.ERRORBAR_TYPE] == 'minmax':
-        y_lower = np.nanmin(y, axis=1).squeeze()
-        y_upper = np.nanmax(y, axis=1).squeeze()
+        y_lower = np.min(y, axis=1)
+        y_upper = np.max(y, axis=1)
     else:
-        y_std = np.std(y, axis=1, ddof=0).squeeze()
+        # Match compute_y_shift and the established Python population bands;
+        # MATLAB retains its sample normalization (see history_display docs).
+        y_std = np.std(y, axis=1, ddof=0)
         y_lower = y_mean - y_std
         y_upper = y_mean + y_std
+
+    # Compute the band before translating, exactly as compute_y_shift does.
+    # Recomputing variance after a large translation can reintroduce negative
+    # lower bands through cancellation even when the selected shift was safe.
+    y_mean = y_mean + y_shift
+    y_lower = y_lower + y_shift
+    y_upper = y_upper + y_shift
 
     if is_cum:
         y_mean = np.minimum.accumulate(y_mean, axis=1)
@@ -858,20 +893,22 @@ def draw_fun_maxcv_merit_hist(ax, y, solver_names, is_cum, problem_n, y_shift, n
                 if profile_options[ProfileOption.HIST_AGGREGATION] == 'min':
                     y_value_m = np.nanmin(y_mean[i_solver, idx])
                     rel_idx = int(np.nanargmin(y_mean[i_solver, idx]))
-                    abs_idx = idx[rel_idx]
-                    y_value_l = y_lower[i_solver, abs_idx]
-                    y_value_u = y_upper[i_solver, abs_idx]
+                    # NumPy array offsets are zero based, but plotted
+                    # evaluation numbers and n_eval are one based.
+                    abs_idx = idx[rel_idx] + 1
+                    y_value_l = y_lower[i_solver, abs_idx - 1]
+                    y_value_u = y_upper[i_solver, abs_idx - 1]
                 elif profile_options[ProfileOption.HIST_AGGREGATION] == 'mean':
-                    abs_idx = (idx_start + idx_end) // 2
+                    abs_idx = (idx_start + idx_end + 1) // 2
                     y_value_m = np.nanmean(y_mean[i_solver, idx])
                     y_value_l = np.nanmean(y_lower[i_solver, idx])
                     y_value_u = np.nanmean(y_upper[i_solver, idx])
                 elif profile_options[ProfileOption.HIST_AGGREGATION] == 'max':
                     y_value_m = np.nanmax(y_mean[i_solver, idx])
                     rel_idx = int(np.nanargmax(y_mean[i_solver, idx]))
-                    abs_idx = idx[rel_idx]
-                    y_value_l = y_lower[i_solver, abs_idx]
-                    y_value_u = y_upper[i_solver, abs_idx]
+                    abs_idx = idx[rel_idx] + 1
+                    y_value_l = y_lower[i_solver, abs_idx - 1]
+                    y_value_u = y_upper[i_solver, abs_idx - 1]
                 if abs_idx > i_eval:
                     continue
                 x_indices[i_solver].append(abs_idx)
@@ -899,6 +936,7 @@ def draw_fun_maxcv_merit_hist(ax, y, solver_names, is_cum, problem_n, y_shift, n
     xl_lim = 1 / (problem_n + 1)
     xr_lim = 1 / (problem_n + 1)
     is_log_scale = False
+    handles = []
 
     with matplotlib.rc_context(profile_context):
         for i_solver in range(n_solvers):
@@ -918,9 +956,9 @@ def draw_fun_maxcv_merit_hist(ax, y, solver_names, is_cum, problem_n, y_shift, n
             line_width = line_widths[i_solver % len(line_widths)]
 
             if i_eval == 1:
-                ax.plot(x, i_y_mean, color=color, marker='o', label=solver_names[i_solver])
+                handles.extend(ax.plot(x, i_y_mean, color=color, marker='o', label=solver_names[i_solver]))
             elif i_eval > 1:
-                ax.plot(x, i_y_mean, color=color, linestyle=line_style, linewidth=line_width, label=solver_names[i_solver])
+                handles.extend(ax.plot(x, i_y_mean, color=color, linestyle=line_style, linewidth=line_width, label=solver_names[i_solver]))
                 if n_runs > 1:
                     ax.fill_between(x, i_y_lower, i_y_upper, color=color, alpha=0.2)
             if np.any(i_y_mean) and np.any(np.diff(i_y_mean)):
@@ -929,6 +967,28 @@ def draw_fun_maxcv_merit_hist(ax, y, solver_names, is_cum, problem_n, y_shift, n
     # When the function values are not all zero and there is at least some change in the function values, use log scale for the y-axis.
     if is_log_scale:
         ax.set_yscale('log')
+        shown = np.concatenate([np.asarray(values) for group in
+                                (y_values_m, y_values_l, y_values_u)
+                                for values in group if len(values)])
+        positive = shown[shown > 0]
+        if positive.size:
+            log_low, log_high = np.log10(np.min(positive)), np.log10(np.max(positive))
+            margin = max(0.05 * (log_high - log_low), 0.05)
+            # Explicit finite limits prevent autoscale's silent [1, 10]
+            # fallback. Do not floor valid tiny values in the displayed data.
+            smallest = np.nextafter(0.0, 1.0)
+            low = max(smallest, 10.0 ** max(np.log10(smallest), log_low - margin))
+            high = 10.0 ** min(102.0, log_high + margin)
+            ax.set_ylim(low, high)
+            # Automatic LogLocator may request decades outside float64 even
+            # when all data/limits are finite. Restrict only extreme axes;
+            # ordinary histories keep Matplotlib's usual tick placement.
+            if log_low < -250 or log_high - log_low > 200:
+                first, last = int(np.ceil(np.log10(low))), int(np.floor(np.log10(high)))
+                step = max(1, int(np.ceil((last - first) / 8)))
+                ticks = np.power(10.0, np.arange(first, last + 1, step, dtype=float))
+                ax.yaxis.set_major_locator(FixedLocator(ticks))
+                ax.yaxis.set_minor_locator(NullLocator())
     
     # Show ticks on both sides (left and right) and set direction to 'in' (matching MATLAB).
     ax.yaxis.set_ticks_position('both')
@@ -946,7 +1006,7 @@ def draw_fun_maxcv_merit_hist(ax, y, solver_names, is_cum, problem_n, y_shift, n
         ax.set_xlabel(profile_options[ProfileOption.XLABEL_DATA_PROFILE], fontsize=_HISTORY_LABELSIZE, labelpad=12)
     else:
         ax.set_xlabel('')
-    legend = _place_solver_legend(ax, n_solvers, default_loc='upper right')
+    legend = _place_solver_legend(ax, n_solvers, default_loc='upper right', handles=handles)
     if legend is not None:
         for text in legend.get_texts():
             text.set_fontsize(_HISTORY_LEGEND_FONTSIZE)
@@ -1000,8 +1060,9 @@ def _normalize_axis_values(values, axis_limits, axis_scale):
     return np.clip(normalized, 0.0, 1.0)
 
 
-def _choose_legend_location(ax, default_loc):
-    handles, _ = ax.get_legend_handles_labels()
+def _choose_legend_location(ax, default_loc, handles=None):
+    if handles is None:
+        handles, _ = ax.get_legend_handles_labels()
     if not handles:
         return default_loc
 
@@ -1040,9 +1101,19 @@ def _choose_legend_location(ax, default_loc):
     return min(targets, key=lambda loc: (scores[loc], loc != default_loc))
 
 
-def _place_solver_legend(ax, n_solvers, default_loc='lower right'):
+def _place_solver_legend(ax, n_solvers, default_loc='lower right', handles=None):
+    if handles is None:
+        handles, _ = ax.get_legend_handles_labels()
+    if not handles:
+        return None
+    labels = [handle.get_label() for handle in handles]
+    # Solver identifiers beginning with '_' are literal names, not requests
+    # to suppress their curves. Older Matplotlib also filters explicit labels:
+    # construct with neutral labels, then restore the exact visible names.
+    legend_args = (handles, [str(index) for index in range(len(handles))])
     if n_solvers > _COMPACT_LEGEND_SOLVER_THRESHOLD:
         legend = ax.legend(
+            *legend_args,
             loc='center left',
             bbox_to_anchor=(1.02, 0.5),
             ncol=_legend_columns(n_solvers),
@@ -1053,7 +1124,9 @@ def _place_solver_legend(ax, n_solvers, default_loc='lower right'):
             labelspacing=0.35,
         )
     else:
-        legend = ax.legend(loc=_choose_legend_location(ax, default_loc))
+        legend = ax.legend(*legend_args, loc=_choose_legend_location(ax, default_loc, handles))
     if legend is not None:
+        for text, label in zip(legend.get_texts(), labels):
+            text.set_text(label)
         legend.set_in_layout(True)
     return legend

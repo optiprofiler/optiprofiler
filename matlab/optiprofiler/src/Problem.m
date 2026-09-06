@@ -432,20 +432,24 @@ classdef Problem < handle
         end
 
         function value = get.m_nonlinear_ub(obj)
-            try
-                cub = obj.cub_(obj.x0);
-                value = numel(cub);
-            catch ME
+            % Absence or a successfully empty result means no constraints.
+            % A failed probe must propagate, not silently classify the problem
+            % as unconstrained. Do not cache: x0 and callbacks can be changed.
+            if isempty(obj.cub_)
                 value = 0;
+            else
+                cub = obj.cub_(obj.constraintProbePoint());
+                value = numel(cub);
             end
         end
 
         function value = get.m_nonlinear_eq(obj)
-            try
-                ceq = obj.ceq_(obj.x0);
-                value = numel(ceq);
-            catch ME
+            % Match the inequality count policy, including empty callbacks.
+            if isempty(obj.ceq_)
                 value = 0;
+            else
+                ceq = obj.ceq_(obj.constraintProbePoint());
+                value = numel(ceq);
             end
         end
 
@@ -985,4 +989,10 @@ classdef Problem < handle
         end
     end
 
+    methods (Access = protected)
+        function x = constraintProbePoint(obj)
+            % Dependent dimensions remain live when x0/callbacks are changed.
+            x = obj.x0;
+        end
+    end
 end

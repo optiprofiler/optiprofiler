@@ -815,7 +815,9 @@ def compute_merit_values(merit_fun, fun_values, maxcv_values, maxcv_init):
                 )
             maxcv_init_b = np.broadcast_to(maxcv_init.reshape(new_shape), fun_shape)
 
-    vectorized_merit_fun = np.vectorize(merit_fun)
+    # A callback may return an integer first and a fraction or infinity later.
+    # Do not let np.vectorize infer an integer/bool dtype from the first result.
+    vectorized_merit_fun = np.vectorize(merit_fun, otypes=[float])
     merit_values = vectorized_merit_fun(fun_values, maxcv_values, maxcv_init_b)
     # A custom merit callback must not turn an invalid raw evaluation into a
     # finite reference value. Preserve the callback's policy for +/-Inf.
@@ -965,6 +967,31 @@ def merge_pdfs_with_pypdf(input_dir, output_file):
     merger.close()
 
 
+def _write_history_display_note(stream, results_plibs):
+    """Report display transforms separately from the untouched scientific data."""
+    from .plotting import _HISTORY_DISPLAY_LIMIT
+
+    stream.write(
+        f"History display only: finite magnitudes above {_HISTORY_DISPLAY_LIMIT:.0e} "
+        "are clipped before plotting; NaN/Inf use labelled placeholders.\n"
+        "Raw data, oracle values and scores are not clipped. Counts below refer "
+        "to stored history entries, including padded tails.\n"
+    )
+    for record in results_plibs:
+        for key in ('fun_histories', 'maxcv_histories', 'merit_histories'):
+            clipped = nonfinite = 0
+            # Count one problem at a time rather than allocating another
+            # full experiment-sized mask for a potentially multi-GB archive.
+            for values in np.asarray(record.get(key, [])):
+                finite = np.isfinite(values)
+                clipped += np.count_nonzero(finite & (np.abs(values) > _HISTORY_DISPLAY_LIMIT))
+                nonfinite += np.count_nonzero(~finite)
+            if clipped or nonfinite:
+                stream.write(f"  {record['plib']} / {key}: {clipped} clipped, "
+                             f"{nonfinite} nonfinite entries.\n")
+    stream.write('\n')
+
+
 def write_report(profile_options, results_plibs, path_report, path_readme_log):
     """
     Writes the report of the current experiment to a file.
@@ -1003,6 +1030,8 @@ def write_report(profile_options, results_plibs, path_report, path_readme_log):
             else:
                 fid.write("Exclude list from user:  This part is empty.\n")
             fid.write(f"Feature stamp:           {results_plibs[0]['feature_stamp']}\n\n")
+            if profile_options.get(ProfileOption.DRAW_HIST_PLOTS, 'none') != 'none':
+                _write_history_display_note(fid, results_plibs)
 
             for results_plib in results_plibs:
                 plib = results_plib['plib']
@@ -1218,19 +1247,24 @@ def process_results(results_plibs, profile_options):
     #
     # i.e. collapse the evaluation axis (axis=3) and the solver axis
     # (axis=1), keeping the (problem, run) layout. ``merit_inits_merged``
-    # is itself per-(problem, run) so the elementwise ``np.minimum`` is
+    # is itself per-(problem, run) so the elementwise ``np.fmin`` is
     # well-defined and enforces the ``merit_min <= merit_init`` invariant
     # used by the Moré-Wild convergence test downstream.
     #
     # Backward compatibility: if ``merit_inits_merged`` was loaded from
     # an older .h5 file as a 1-D ``(n_problems,)`` vector, broadcast it
     # along the run axis before taking the elementwise min.
-    merit_mins_merged = np.nanmin(np.nanmin(merit_histories_merged, axis=3), axis=1)
+    # A custom merit can return NaN even for valid raw evaluations. Retain a
+    # valid initial reference when every history merit is NaN, matching MATLAB
+    # omitnan. fmin.reduce also leaves an entirely undefined slice as NaN without
+    # an all-NaN warning. Raw-invalid initial points remain rejected by the
+    # independent convergence-validity mask; this is not a feasibility repair.
+    merit_mins_merged = np.fmin.reduce(merit_histories_merged, axis=(1, 3))
     if merit_inits_merged.ndim == 1:
         merit_inits_for_min = merit_inits_merged[:, None]
     else:
         merit_inits_for_min = merit_inits_merged
-    merit_mins_merged = np.minimum(merit_mins_merged, merit_inits_for_min)
+    merit_mins_merged = np.fmin(merit_mins_merged, merit_inits_for_min)
 
     # Match plain rows inside their original library container, before losing
     # library/variant identity in the merged arrays. Saved H5 data already keeps
