@@ -57,6 +57,48 @@ classdef TestSetupPathOwnership < matlab.unittest.TestCase
                 state.root, fullfile(state.root, 'provider'), {owned}), 'OptiProfiler:PathOwnership');
         end
 
+        function testDefaultEmptyUserpathUsesSessionOnly(testCase)
+            state = isolate(testCase);
+            defaults_without_startup(testCase);
+            [ok, attributes] = fileattrib(fullfile(matlabroot, 'toolbox', 'local', 'pathdef.m'));
+            testCase.assertTrue(ok);
+            % Exercise a genuinely unavailable default, without changing its mode.
+            testCase.assumeFalse(attributes.UserWrite);
+            owned = fullfile(state.root, 'owned'); mkdir(owned);
+            lastwarn('');
+            output = evalc('saved = setupPathOwnership(''add'', state.root, state.root, {owned});');
+            [~, identifier] = lastwarn;
+            testCase.verifyEqual(identifier, 'OptiProfiler:SessionOnlyPaths');
+            testCase.verifySubstring(output, 'current MATLAB session');
+            testCase.verifyFalse(any(saved));
+            testCase.verifyTrue(on_path(owned));
+            data = load([state.registry, '.setup-paths.mat']);
+            testCase.verifyEqual(data.records.owned_paths, {owned});
+            testCase.verifyFalse(data.records.pathdef_saved);
+            testCase.verifyEmpty(data.records.startup_additions);
+            setupPathOwnership('remove-context', state.root);
+            testCase.verifyFalse(on_path(owned));
+        end
+
+        function testExplicitTargetCannotDegradeToSessionOnly(testCase)
+            state = isolate(testCase);
+            defaults_without_startup(testCase);
+            setenv('OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_PATHDEF', ...
+                fullfile(state.root, 'missing', 'pathdef.m'));
+            owned = fullfile(state.root, 'owned'); mkdir(owned);
+            testCase.verifyError(@() setupPathOwnership('add', state.root, ...
+                state.root, {owned}), 'OptiProfiler:PathPersistence');
+            testCase.verifyFalse(isfolder(fullfile(state.root, 'missing')));
+        end
+
+        function testSetupOwnsS2RuntimePaths(testCase)
+            s2_setup_lifecycle(testCase, false);
+        end
+
+        function testSetupBorrowsExistingS2RuntimePaths(testCase)
+            s2_setup_lifecycle(testCase, true);
+        end
+
         function testCorruptLedgerFailsBeforeCleanup(testCase)
             state = isolate(testCase);
             addpath(state.root);
@@ -473,6 +515,55 @@ classdef TestSetupPathOwnership < matlab.unittest.TestCase
             testCase.verifyEqual(get_mode(filename), '600');
         end
     end
+end
+
+function defaults_without_startup(testCase)
+    original = userpath;
+    testCase.addTeardown(@() restore_userpath(original));
+    userpath('clear');
+    testCase.assertEmpty(userpath);
+    setenv('OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_PATHDEF', '');
+    setenv('OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_STARTUP', '');
+    warnings = warning;
+    testCase.addTeardown(@() warning(warnings));
+    warning('on', 'OptiProfiler:SessionOnlyPaths');
+end
+
+function restore_userpath(original)
+    if isempty(original), userpath('clear'); else, userpath(original); end
+end
+
+function s2_setup_lifecycle(testCase, borrow_runtime)
+    state = isolate(testCase);
+    test_dir = fileparts(mfilename('fullpath'));
+    [ok, attributes] = fileattrib(fullfile(test_dir, '..', '..', '..', '..'));
+    testCase.assertTrue(ok);
+    repository = attributes.Name;
+    engine = fullfile(repository, 'matlab', 'optiprofiler', 'src');
+    s2 = fullfile(repository, 'matlab', 'optiprofiler', 'problem_libs', 's2mpj');
+    runtime = {fullfile(s2, 'src'), fullfile(s2, 'src', 'matlab_problems')};
+    required = [{engine, s2}, runtime];
+    testCase.assertTrue(all(cellfun(@isfolder, required)));
+    present = required(ismember(required, strsplit(path, pathsep)));
+    if ~isempty(present), rmpath(present{:}); end
+    unrelated = strsplit(path, pathsep);
+    if borrow_runtime, addpath(runtime{:}); end
+    cd(repository);
+    options = struct('install_matcutest', false, 'install_solar', false);
+    setup(options); setup(options);
+    data = load([state.registry, '.setup-paths.mat']);
+    if borrow_runtime
+        testCase.verifyFalse(any(ismember(runtime, data.records.owned_paths)));
+    else
+        testCase.verifyTrue(all(ismember(required, data.records.owned_paths)));
+    end
+    problem = s2mpj_load('BEALE');
+    testCase.verifyTrue(isfinite(problem.fun(problem.x0)));
+    setup('uninstall');
+    testCase.verifyFalse(on_path(engine) || on_path(s2));
+    testCase.verifyEqual(cellfun(@on_path, runtime), repmat(borrow_runtime, size(runtime)));
+    % Framework/user paths are not setup-owned, even inside the source tree.
+    testCase.verifyTrue(all(ismember(unrelated, strsplit(path, pathsep))));
 end
 
 function state = isolate(testCase)
