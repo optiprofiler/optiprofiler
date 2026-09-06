@@ -210,6 +210,8 @@ classdef TestExperimentIdentity < matlab.unittest.TestCase
 
         function bytes = readBytes(file)
             fid = fopen(file, 'rb');
+            assert(fid >= 0, 'TestExperimentIdentity:UnreadableFixture', ...
+                'Expected test file cannot be opened: %s', file);
             cleanup = onCleanup(@() fclose(fid));
             bytes = fread(fid, Inf, '*uint8');
         end

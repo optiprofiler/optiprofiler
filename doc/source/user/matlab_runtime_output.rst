@@ -34,6 +34,13 @@ not certified: enable the JVM there rather than relying on an unverified
 replacement operation. External PDF mergers (qpdf, pdfunite, or Ghostscript)
 are optional fallbacks, not silently installed dependencies.
 
+The full MATLAB regression suite additionally requires ``pdfunite`` and
+``pdftotext`` (Ubuntu package ``poppler-utils``) to test actual PDF merging,
+page order, and preservation of an existing summary when a merge fails.
+Its CI job installs and checks these tools explicitly rather than relying
+on MATLAB's bundled Java classes. This is a test prerequisite, not a new
+requirement for users: the no-merger HTML fallback is tested separately.
+
 Completed experiment data is saved as a verified version-7.3 MAT file before
 sequential history rendering. A timestamp becomes loadable only after this
 save succeeds. Requested saving failures are errors, including in silent
