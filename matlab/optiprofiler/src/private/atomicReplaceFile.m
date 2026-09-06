@@ -43,7 +43,9 @@ function atomicReplaceFile(source, target)
         end
         if ~same_parent, delete(source); end
     else
-        error('OptiProfiler:SafeOutputPlatform', 'Enable the JVM for atomic output replacement on this platform.');
+        error('OptiProfiler:SafeOutputPlatform', ...
+            ['Saving output on Windows requires the Java Virtual Machine (JVM). ', ...
+             'Restart MATLAB without -nojvm to replace output files safely.']);
     end
 end
 

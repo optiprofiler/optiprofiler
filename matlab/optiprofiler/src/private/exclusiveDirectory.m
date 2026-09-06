@@ -14,7 +14,8 @@ function created = exclusiveDirectory(directory)
         exists = isfolder(directory) || isfile(directory);
     else
         error('OptiProfiler:SafeOutputPlatform', ...
-            'No-JVM safe output is supported on macOS/Linux. Enable the JVM on this platform.');
+            ['Saving output on Windows requires the Java Virtual Machine (JVM). ', ...
+             'Restart MATLAB without -nojvm. No-JVM safe output is supported on macOS/Linux.']);
     end
     if ~created && ~exists
         error('OptiProfiler:OutputDirectory', 'Cannot create directory ''%s'': %s', directory, strtrim(message));
