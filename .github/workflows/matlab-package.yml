@@ -95,6 +95,7 @@ jobs:
             addpath(fullfile(pwd, 'tools'));
             smoke_matlab_zip(getenv('OP_MATLAB_ARCHIVE_ROOT'));
 
-      # Do not upload the ZIP yet. S2MPJ provenance is recorded, but a public
-      # release asset remains gated on an upstream license or written
-      # redistribution permission.
+      # This workflow validates a candidate; publishing remains a separate,
+      # approved release step. Bundled S2MPJ already includes its upstream
+      # BSD-3-Clause license. Retain that text and the provenance notices in
+      # the final archive; do not confuse an unpublished ZIP with no license.

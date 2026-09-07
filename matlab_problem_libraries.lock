@@ -6,7 +6,7 @@
       "name": "s2mpj",
       "role": "bundled-default",
       "repository": "optiprofiler/s2mpj_matlab",
-      "commit": "23eff8b992a6001c5ea2f536bea5e566104df504",
+      "commit": "fa7eb16c11d9a060061c5fe079afe9de568f5086",
       "api_version": 1,
       "gitlink": "matlab/optiprofiler/problem_libs/s2mpj",
       "select_function": "s2mpj_select",

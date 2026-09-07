@@ -32,6 +32,12 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      # These fixture-based checks need only Python and Git, not Sphinx or
+      # numerical dependencies. One matrix job is sufficient for docs config.
+      - name: Check documentation source links
+        if: ${{ matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12' }}
+        run: python -m unittest discover -s doc/tests -v
+
       - name: Generate coverage reports
         run: bash .github/actions/test-python/run-tests.sh
 

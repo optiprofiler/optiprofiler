@@ -3,6 +3,21 @@
 Python problem libraries
 ========================
 
+.. note::
+
+   This page describes the unreleased provider API on the development line.
+   The distribution names below describe the installation flow once compatible
+   releases are available; they do not mean that the published OptiProfiler
+   1.3.4 package already includes these external-provider interfaces.
+
+   When testing development sources, use an isolated environment and record
+   the exact core revision and the provider revisions listed in
+   ``problem_libraries.lock``, along with separately installed runtime versions.
+   The lock is a tested integration
+   manifest, not an automatic pin applied by ordinary ``pip install``. Installing
+   an adapter with ``--no-deps`` after preparing its prerequisites is a controlled
+   development check, not certification of the public dependency chain.
+
 Install a provider
 ------------------
 
@@ -76,8 +91,9 @@ Update the core and each independently installed adapter explicitly:
     python -m pip install --upgrade optiprofiler-solar
     python -m pip install --upgrade optiprofiler-rs13
 
-Only run the commands for distributions that are installed.  Package metadata
-prevents an adapter from being installed with an incompatible core version.
+Only run the commands for distributions that are installed.  With normal
+dependency resolution, package metadata declares the compatible core versions;
+it does not verify a source commit or replace an installation test.
 Upstream runtimes that are not owned by an adapter, such as CUTEst, follow
 their own update procedure.
 

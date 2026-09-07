@@ -38,6 +38,14 @@ s2mpj_select
 
     - **excludelist**: the list of problems to be excluded. Default is not to exclude any problem.
 
+The supported dimension limits are integers greater than or equal to ``1``;
+constraint-count limits are integers greater than or equal to ``0``. Lower
+limits must be finite. Each upper limit (``maxdim``, ``maxb``, ``maxlcon``,
+``maxnlcon``, and ``maxcon``) also accepts positive ``Inf``, meaning that no
+upper limit is imposed for that criterion. A lower limit must not exceed its
+corresponding upper limit. These are the supported input conventions, not a
+promise that a direct selector call validates every invalid input.
+
 Three things to note:
 
 1. All the information about the problems can be found in a csv file named ``probinfo_matlab.csv`` in the same directory as this function.
