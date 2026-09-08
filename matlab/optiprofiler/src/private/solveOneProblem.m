@@ -301,7 +301,11 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
     result.solver_abnormal_termination = solver_abnormal_terminations;
     result.solver_output_fallback = solver_output_fallbacks;
     % Transient controller metadata, intentionally not aggregated into MAT.
-    result.eval_report_metadata = struct('real_n_runs', real_n_runs, 'render_status', 'not_requested');
+    % oracle_seeds are the actual FeaturedProblem seeds of runs 1..n_runs
+    % under MATLAB's 1-based rule (see real_seed above); repeated slots
+    % reuse run 1. Python records its own 0-based rule; neither is changed.
+    result.eval_report_metadata = struct('real_n_runs', real_n_runs, 'render_status', 'not_requested', ...
+        'oracle_seeds', mod(23333 * profile_options.(ProfileOptionKey.SEED.value) + 211 * (1:n_runs), 2^32));
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%% History plots of the computation %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

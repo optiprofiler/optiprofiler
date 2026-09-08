@@ -23,18 +23,38 @@ function [fig_perf, fig_data, fig_log_ratio, curves, graphics_ok, presentation] 
         presentation = [profilePresentation(x_perf,y_perf,ratio_max_perf,'performance',profile_options), ...
             profilePresentation(x_data,y_data,ratio_max_data,'data',profile_options)];
         if n_solvers == 2
+            % Same record vocabulary as Python prepare_log_ratio_plot_data;
+            % MATLAB additionally retains bar identity (problem_mapping).
             opacity = ones(size(y_log_ratio)); opacity(bar_sources.solver1_failed & bar_sources.solver2_failed) = 0.5;
             for field = fieldnames(bar_sources)'
                 values = bar_sources.(field{1});
                 bar_sources.(field{1}) = num2cell(values(:)');
             end
+            n_bars = numel(y_log_ratio);
+            n_below = sum(y_log_ratio < 0) - n_solvers_fail;
+            n_above = sum(y_log_ratio > 0) - n_solvers_fail;
+            % The bar() calls of drawLogRatioProfiles in drawing order.
+            groups = {};
+            if n_solvers_fail > 0
+                groups{end+1} = struct('start_index', 1, 'end_index', n_solvers_fail, 'solver_index', 1, 'opacity', 0.5);
+                groups{end+1} = struct('start_index', n_bars - n_solvers_fail + 1, 'end_index', n_bars, 'solver_index', 2, 'opacity', 0.5);
+            end
+            if n_below > 0
+                groups{end+1} = struct('start_index', n_solvers_fail + 1, 'end_index', n_solvers_fail + n_below, 'solver_index', 1, 'opacity', 1);
+            end
+            if n_above > 0
+                groups{end+1} = struct('start_index', n_bars - n_solvers_fail - n_above + 1, 'end_index', n_bars - n_solvers_fail, 'solver_index', 2, 'opacity', 1);
+            end
             presentation{end+1} = struct('kind', 'log_ratio', 'status', 'numeric_prepared', ...
-                'fidelity', 'exact_rendered_data', 'series', {{struct('x', {num2cell(x_log_ratio(:)')}, ...
-                    'y', {num2cell(y_log_ratio(:)')}, 'geometry', 'bar', 'visible', {num2cell(y_log_ratio(:)'~=0)}, ...
-                    'opacity', {num2cell(opacity(:)')})}}, 'ratio_max', ratio_max_log_ratio, ...
-                'both_failed_count', n_solvers_fail, 'solver_indices', {{1,2}}, 'y_transform', 'log2(work_solver1/work_solver2)', ...
-                'failure_placeholder', 1.1*ratio_max_log_ratio, 'bar_sources', bar_sources, ...
-                'tie_policy', 'zero_height_retained_in_numeric_data_not_drawn_by_bar_calls');
+                'fidelity', 'exact_rendered_data', 'series', {{struct('geometry', 'bar', 'x', {num2cell(x_log_ratio(:)')}, ...
+                    'y', {num2cell(y_log_ratio(:)')}, 'visible', {num2cell(y_log_ratio(:)'~=0)}, ...
+                    'opacity', {num2cell(opacity(:)')}, 'solver_index_by_sign', struct('negative', 1, 'positive', 2))}}, ...
+                'bar_groups', {groups}, 'ratio_max', ratio_max_log_ratio, ...
+                'failure_placeholder', 1.1*ratio_max_log_ratio, ...
+                'x_transform', 'sorted_bar_position', 'y_transform', 'log2(work_solver_1/work_solver_2)', ...
+                'x_limits', {{0.5, n_bars + 0.5}}, 'y_limits', {{-1.1*ratio_max_log_ratio, 1.1*ratio_max_log_ratio}}, ...
+                'both_failed_pairs', n_solvers_fail, 'tie_pairs', sum(y_log_ratio == 0), ...
+                'problem_mapping', 'bar_sources', 'bar_sources', bar_sources);
         end
       catch cause
         % A secondary numeric-presentation failure is report evidence, not
@@ -111,13 +131,19 @@ function [fig_perf, fig_data, fig_log_ratio, curves, graphics_ok, presentation] 
 end
 
 function panels = profilePresentation(x,y,maximum,kind,options)
+    % Same record vocabulary as the Python _plot_sink data in draw_profiles;
+    % x_transform labels and limits are pinned by plot_data.schema.json.
     [xs,means,lower,upper,n_runs] = prepareProfilePlotData(x,y,options);
-    transform = 'ratio';
-    if strcmp(kind,'data'), transform = 'evaluations/(dimension+1)'; end
+    transform = 'work/best_work';
+    if strcmp(kind,'data'), transform = 'work/(dimension+1)'; end
     if options.semilogx
-        transform = 'log2(ratio)';
-        if strcmp(kind,'data'), transform = 'log2(1+evaluations/(dimension+1))'; end
+        transform = 'log2(work/best_work)';
+        if strcmp(kind,'data'), transform = 'log2(1+work/(dimension+1))'; end
     end
+    % The limits actually given to set(ax, 'XLim', ...) by drawPerfDetail /
+    % drawDataDetail (MATLAB tolerates an infinite ratio_max there).
+    x_low = 0;
+    if strcmp(kind,'performance') && ~options.semilogx, x_low = 1; end
     series = cell(1,numel(xs));
     for solver = 1:numel(xs)
         series{solver} = struct('solver_index', solver, ...
@@ -128,6 +154,7 @@ function panels = profilePresentation(x,y,maximum,kind,options)
     panels = {struct('kind', kind, 'status', 'numeric_prepared', ...
         'fidelity', 'exact_rendered_data', 'series', {series}, ...
         'x_transform', transform, 'ratio_max', maximum, 'failure_placeholder', 1.1*maximum, ...
+        'x_limits', {{x_low, 1.1*maximum}}, 'y_limits', {{0, 1}}, ...
         'errorbar_type', options.errorbar_type, 'std_ddof', double(n_runs>1), 'n_runs', n_runs)};
 end
 

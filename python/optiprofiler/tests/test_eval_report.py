@@ -2,12 +2,16 @@
 import json
 import hashlib
 import os
+import stat
 from pathlib import Path
 
 import numpy as np
 import pytest
 
 from optiprofiler import Problem, benchmark
+from optiprofiler.plotting import prepare_history_plot_data
+from optiprofiler.utils import ProfileOption
+from optiprofiler.tests.eval_report_contract import assert_valid
 
 
 def stay(fun, x0):
@@ -54,7 +58,15 @@ def worker_only(fun, x0):
 
 
 def _read(path):
-    return json.loads(path.read_text(), parse_constant=lambda token: (_ for _ in ()).throw(ValueError(token)))
+    """Read a main report; every report read by a test must satisfy the schema.
+
+    The schema is the shared Python/MATLAB contract, so a key spelled
+    differently by this emitter fails here (MATLAB's fixture does the same).
+    """
+    report = json.loads(path.read_text(), parse_constant=lambda token: (_ for _ in ()).throw(ValueError(token)))
+    if report.get('schema') == 'optiprofiler.eval_report/1':
+        assert_valid(report, 'eval_report.schema.json')
+    return report
 
 
 def _plot_data(path, report):
@@ -65,6 +77,7 @@ def _plot_data(path, report):
     companion = _read(companion_path)
     assert companion['evaluation_id'] == report['evaluation_id']
     assert companion['schema'] == 'optiprofiler.plot_data/1'
+    assert_valid(companion, 'plot_data.schema.json')
     return companion
 
 
@@ -134,7 +147,7 @@ def test_report_only_preserves_single_problem_scores_and_creates_no_plots(tmp_pa
     np.testing.assert_array_equal(actual[0], expected[0])
     np.testing.assert_array_equal(actual[0], [0.0, 1.0])
     assert actual[1:] == expected[1:] == (None, None)
-    report = json.loads(target.read_text(), parse_constant=lambda token: (_ for _ in ()).throw(ValueError(token)))
+    report = _read(target)
     assert report['schema'] == 'optiprofiler.eval_report/1'
     assert report['status'] == 'completed'
     assert report['stages']['rendering']['status'] == 'not_requested'
@@ -174,14 +187,21 @@ def test_whole_libraries_preserve_identity_partial_coverage_and_actual_runs(tmp_
     assert len({p['id'] for p in solved}) == 2
     for problem in solved:
         assert problem['provider']['source'] == 'custom'
+        assert problem['library'] in ('evaltoy_a', 'evaltoy_b')
+        assert problem['budget'] == {'evaluations': 10, 'rule': 'ceil(max_eval_factor*dimension)'}
         assert len(problem['runs']) == 6
         for run in problem['runs']:
             assert run['evaluations'] == 1
-            assert run['budget'] == 10
-            assert run['objective']['invalid_evaluations']['nan'] == 0
+            assert 'budget' not in run and run['budget_reached'] is False
+            # The integer 0 means every retained evaluation was finite.
+            assert run['objective']['invalid_evaluations'] == 0
+            assert 'first_invalid_evaluation_index' not in run['objective']
+            assert 'availability_reason' not in run['objective']
+            assert 'convergence' not in run
             assert histories[run['history_ref']]['channels']['objective']['count'] == 1
             assert run['execution']['kind'] == ('actual' if run['run_index'] == 1 else 'repeated')
             assert run['oracle_seed'] == 23333 * 17
+            assert run.get('oracle_seed_reason') == (None if run['run_index'] == 1 else 'copied_from_source_run')
     assert report['scores']['profile_scores'] == actual[1].tolist()
     assert len(report['profiles']['convergence']) == 2
     assert report['profiles']['convergence'][0]['history'][1]['hits'] == 6
@@ -198,6 +218,10 @@ def test_empty_and_all_failed_selection_are_not_success(tmp_path):
         report = _read(target)
         assert report['status'] == status
         assert report['coverage']['completed'] == 0
+        # Same stage vocabulary as MATLAB for these two outcomes.
+        expected = ('not_applicable', 'empty_selection') if status == 'empty' else ('failed', 'all_selected_problem_loads_failed')
+        assert (report['stages']['numerical']['status'], report['stages']['numerical']['reason']) == expected
+        assert report['stages']['scoring'] == {'status': 'not_applicable', 'reason': 'no_loaded_problems'}
 
 
 def test_collision_refuses_before_calling_solver_and_preserves_bytes(tmp_path):
@@ -242,7 +266,8 @@ def test_solver_abnormality_is_observed_without_reclassifying_numerical_completi
     assert run['abnormal_termination'] is True
     assert run['output_fallback'] is True
     assert run['evaluations'] == 1
-    assert run['convergence'] is None
+    assert 'convergence' not in run  # never inferred; see semantics.convergence
+    assert report['semantics']['convergence'].startswith('Never inferred')
 
 
 def test_merit_failure_preserves_completed_raw_measurements(tmp_path):
@@ -316,7 +341,13 @@ def test_save_load_records_source_and_artifacts_without_reexecuting_provider(tmp
     assert report['source']['sha256'] == next(v for p, v in before.items() if p.name == 'data_for_loading.h5')
     assert report['artifacts'] == []
     assert all(hashlib.sha256(p.read_bytes()).hexdigest() == value for p, value in before.items())
-    assert report['problems'][0]['runs'][0]['budget'] is None
+    # Load cannot infer the original budget from today's options.
+    assert report['problems'][0]['budget'] == {'evaluations': None, 'reason': 'original_execution_budget_not_retained'}
+    assert report['problems'][0]['runs'][0]['budget_reached'] is None
+    assert report['problems'][0]['runs'][0]['oracle_seed'] is None
+    assert report['problems'][0]['runs'][0]['oracle_seed_reason'] == 'execution_metadata_not_retained'
+    assert report['configuration']['scope'] == 'current_load_selection_reanalysis_and_rendering'
+    assert report['configuration']['effective']['feature']['scope'] == 'current_load_context_not_original_execution_feature'
 
     def invalid_merit(f, cv, cv0):
         raise ArithmeticError('invalid reload merit')
@@ -329,7 +360,9 @@ def test_save_load_records_source_and_artifacts_without_reexecuting_provider(tmp
     assert failed['stages']['scoring']['status'] == 'failed'
     assert failed['coverage']['completed'] == 1
     assert failed['problems'][0]['runs'][0]['objective']['initial'] == 5.0
-    assert failed['problems'][0]['runs'][0]['merit']['best'] is None
+    merit = failed['problems'][0]['runs'][0]['merit']
+    assert merit['best'] is None
+    assert merit['availability_reason'] == 'history_or_evaluation_count_unavailable'
     assert all(hashlib.sha256(p.read_bytes()).hexdigest() == value for p, value in before.items())
 
 
@@ -373,6 +406,9 @@ def test_lossy_bins_preserve_extrema_indices_and_all_nonfinite_counts(tmp_path):
     assert len(channel['bins']) == 32
     assert channel['bins'][0]['start_index'] == 1
     assert channel['bins'][-1]['end_index'] == 130
+    # Exact integer edges shared with MATLAB: bin k covers (k-1)*n//32+1..k*n//32.
+    assert [(b['start_index'], b['end_index']) for b in channel['bins']] == \
+        [(k * 130 // 32 + 1, (k + 1) * 130 // 32) for k in range(32)]
     assert channel['bins'][0]['first'] == {'value': None, 'reason': 'nan'}
     assert channel['bins'][-1]['finite_max'] == {'value': 16384.0, 'evaluation_index': 130}
     assert run['objective']['first_invalid_evaluation_index'] == 1
@@ -383,22 +419,71 @@ def test_compact_bins_keep_spike_missed_by_uniform_preview_and_full_plot_vertice
     def objective(x):
         return 1e6 if x[0] == 17 else float(x[0])
     target = tmp_path / 'spike.json'
+    # Budget 1100 > 1002 on purpose: the padded history (max_eval = 1100 for
+    # a 1-D problem) makes the renderer block-aggregate the raw display
+    # series, so an array position is not an evaluation number.
     benchmark([spike_walk, zero], problem=Problem(objective, [1.0]),
               max_eval_factor=1100, n_runs=1, score_only=True, silent=True,
               report_path=target)
     report = _read(target)
     detail = _plot_data(target, report)
     run = report['problems'][0]['runs'][0]
+    assert report['problems'][0]['budget']['evaluations'] == 1100
     history = next(h for h in detail['histories'] if h['id'] == run['history_ref'])
     bins = history['channels']['objective']['bins']
     assert len(bins) == 32
     assert bins[0]['finite_max'] == {'value': 1e6, 'evaluation_index': 17}
     raw = next(p for p in detail['plots'] if p['kind'] == 'history' and p['mode'] == 'raw')
+    assert raw['padded_length'] == 1100
+    assert raw['aggregation_trigger'] == 'padded_history_length_above_1002'
     series = raw['series'][0]
-    assert series['evaluation_indices'][16] == 17
-    assert series['mean'][16] == 1e6
-    assert len(series['x']) > 256  # Complete arrays, not metadata truncation.
-    assert len(series['mean']) == len(series['lower']) == len(series['upper'])
+    indices = series['evaluation_indices']
+    assert indices[0] == 1 and indices[-1] == 1000
+    assert 256 < len(indices) < 1000  # Aggregated display copy, not one point per evaluation.
+    # Non-decreasing; the renderer appends the last actual evaluation
+    # unconditionally, so it may repeat the final interior block's vertex.
+    assert indices == sorted(indices) and len(set(indices)) >= len(indices) - 1
+    assert 3 not in indices  # The first two-point 'min' block dropped evaluation 3.
+    # Locate the spike through its evaluation index, never through position.
+    position = indices.index(17)
+    assert position != 16
+    assert series['mean'][position] == 1e6
+    assert len(series['x']) == len(series['mean']) == len(series['lower']) == len(series['upper']) == len(indices)
+    assert series['x'][position] == pytest.approx(17 / 2)
+
+
+def _display_history(values):
+    """A (solver=1, run=1, evaluation) display copy with one spike at 17."""
+    history = np.asarray(values, dtype=float)[np.newaxis, np.newaxis, :]
+    options = {ProfileOption.ERRORBAR_TYPE: 'minmax', ProfileOption.HIST_AGGREGATION: 'min'}
+    n_eval = np.array([[history.shape[2]]])
+    indices, means, _, _ = prepare_history_plot_data(history, False, 0.0, n_eval, options)
+    return list(indices[0]), list(means[0])
+
+
+def test_history_block_aggregation_boundary_is_the_padded_length():
+    # 1002 padded evaluations = 1000 interior blocks of one point: every
+    # evaluation keeps its own vertex, so position == evaluation index - 1.
+    values = [float(i) for i in range(1, 1003)]
+    values[16] = 1e6
+    indices, means = _display_history(values)
+    assert indices == list(range(1, 1003))
+    assert means[16] == 1e6
+    # 1003 padded evaluations: one block now holds two points and the 'min'
+    # mode drops the larger one, so a spike at 17 is found by index only.
+    values = [float(i) for i in range(1, 1004)]
+    values[16] = 1e6
+    indices, means = _display_history(values)
+    assert len(indices) == 1002 and indices[0] == 1 and indices[-1] == 1003
+    assert means[indices.index(17)] == 1e6
+    # Aggregation is keyed on the padded length, not on actual evaluations:
+    # 200 actual evaluations inside a 1003-long padded history are still
+    # subject to the block rule (here the 'min' block merges two points).
+    n_eval = np.array([[200]])
+    history = np.asarray(values, dtype=float)[np.newaxis, np.newaxis, :]
+    options = {ProfileOption.ERRORBAR_TYPE: 'minmax', ProfileOption.HIST_AGGREGATION: 'min'}
+    short, _, _, _ = prepare_history_plot_data(history, False, 0.0, n_eval, options)
+    assert short[0][-1] == 200 and 3 not in short[0] and 2 in short[0]
 
 
 def test_report_captures_rendering_merit_without_extra_stateful_callback_calls(tmp_path, monkeypatch):
@@ -425,7 +510,12 @@ def test_report_captures_rendering_merit_without_extra_stateful_callback_calls(t
     target = tmp_path / 'stateful.json'
     benchmark([bound_stay, bound_zero], report_path=target, **options)
     assert len(calls) == expected_calls
-    detail = _plot_data(target, _read(target))
+    report = _read(target)
+    detail = _plot_data(target, report)
+    # The direct-problem run rendered its history PDFs: say so, as MATLAB does.
+    assert report['stages']['rendering'] == {'status': 'completed'}
+    assert report['problems'][0]['rendering'] == {'status': 'completed'}
+    assert any(a['path'].endswith('.pdf') for a in report['artifacts'])
     for plot in detail['plots']:
         if plot.get('channel') == 'merit':
             assert plot['observation_scope'] == 'rendering_inputs'
@@ -517,6 +607,79 @@ def test_parallel_report_collects_actual_worker_results(tmp_path):
         assert run['abnormal_termination'] is False
         assert run['output_fallback'] is False
         assert run['evaluations'] == 1
+
+
+def test_report_files_are_owner_only_on_posix_and_say_so(tmp_path):
+    target = tmp_path / 'private.json'
+    benchmark([stay, zero], problem=Problem(lambda x: float(x @ x), [1.0], name='QUAD'),
+              score_only=True, silent=True, report_path=target)
+    report = _read(target)
+    policy = report['report_files']
+    assert policy['permission_policy'] == 'owner_read_write_only_best_effort'
+    if os.name != 'posix':
+        pytest.skip('POSIX file modes are not enforced on this platform; the report says so')
+    for path in (target, tmp_path / report['plot_data']['path']):
+        assert stat.S_IMODE(path.stat().st_mode) == 0o600
+    assert policy['permissions_applied'] is True
+
+
+def test_single_problem_report_shares_the_cross_language_vocabulary(tmp_path):
+    target = tmp_path / 'vocabulary.json'
+    benchmark([stay, zero], problem=Problem(lambda x: float(x @ x), [1.0], name='QUAD'),
+              score_only=True, silent=True, n_runs=2, report_path=target)
+    report = _read(target)
+    detail = _plot_data(target, report)
+    assert report['producer']['language'] == 'python'
+    problem = report['problems'][0]
+    assert problem['library'] == 'user'  # MATLAB uses the same label for a direct problem.
+    assert problem['id'] == '["user","QUAD","primary"]'
+    assert set(report['semantics']) == {'index_base', 'metric_best', 'budget', 'convergence',
+                                        'run_defaults', 'configuration', 'paths', 'privacy'}
+    assert set(detail['semantics']) == {'index_base', 'history_bins', 'history_plots', 'profile_plots',
+                                        'error_bands', 'target_work', 'privacy'}
+    assert report['stages']['persistence'] == {'status': 'not_applicable', 'reason': 'single_problem_has_no_reload_archive'}
+    assert report['stages']['rendering'] == {'status': 'not_requested', 'reason': 'score_only'}
+    for plot in detail['plots']:
+        assert plot['x_transform'] == 'evaluation_index/(dimension+1)'
+        assert plot['display_limit'] == 1e100
+        assert plot['n_runs'] == 2 and plot['std_ddof'] == 0
+        assert plot['observation_scope'] == 'retained_scoring_observations'
+    run = problem['runs'][0]
+    assert set(run) == {'solver_index', 'run_index', 'evaluations', 'budget_reached', 'objective',
+                        'constraint', 'merit', 'abnormal_termination', 'output_fallback', 'execution',
+                        'history_ref', 'oracle_seed', 'elapsed_seconds'}
+    assert run['merit']['availability_reason'] == 'output_or_initial_unavailable'
+
+
+def test_profile_plots_share_the_cross_language_vocabulary(tmp_path):
+    _library(tmp_path / 'libraries', 'evalvocab', ['ONE', 'TWO'])
+    options = _options(tmp_path, ['evalvocab'])
+    options.update(n_runs=2, max_tol_order=1)
+    target = tmp_path / 'profiles.json'
+    # Two identical solvers: every problem/run pair is a log-ratio tie.
+    benchmark([zero, zero], report_path=target, **options)
+    report = _read(target)
+    detail = _plot_data(target, report)
+    plots = {plot['kind']: plot for plot in detail['plots'] if plot['kind'] != 'history'}
+    assert set(plots) == {'performance', 'data', 'log_ratio'}
+    assert plots['performance']['x_transform'] == 'log2(work/best_work)'
+    assert plots['data']['x_transform'] == 'log2(1+work/(dimension+1))'
+    for kind in ('performance', 'data'):
+        plot = plots[kind]
+        assert plot['observation_scope'] == 'scoring_profile_work'
+        assert plot['target_work_ref'] == 'target-work-1'
+        assert plot['failure_placeholder'] == pytest.approx(1.1 * plot['ratio_max'])
+        assert plot['n_runs'] == 2 and plot['std_ddof'] == 0
+        assert all(series['geometry'] == 'step' and series['band_visible'] for series in plot['series'])
+    log_ratio = plots['log_ratio']
+    assert log_ratio['x_transform'] == 'sorted_bar_position'
+    assert log_ratio['problem_mapping'] is None
+    assert log_ratio['problem_mapping_reason'] == 'legacy_bar_sort_does_not_retain_identity'
+    assert log_ratio['tie_pairs'] == 4 and log_ratio['both_failed_pairs'] == 0
+    assert log_ratio['bar_groups'] == [] and not any(log_ratio['series'][0]['visible'])
+    assert log_ratio['failure_placeholder'] == pytest.approx(1.1 * log_ratio['ratio_max'])
+    assert set(report['profiles']['plot_refs']) == {plot['id'] for plot in detail['plots'] if plot['kind'] != 'history'}
+    assert {plot['history_or_output'] for plot in detail['plots'] if plot['kind'] != 'history'} == {'history', 'output'}
 
 
 def test_unicode_identity_is_preserved_and_sensitive_unknown_option_is_redacted(tmp_path):

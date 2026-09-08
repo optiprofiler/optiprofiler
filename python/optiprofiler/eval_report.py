@@ -138,6 +138,9 @@ def _history_bins(history, count):
     n_bins = min(count_retained, _MAX_BINS)
     bins = []
     for i in range(n_bins):
+        # Exact integer edges i*n//32. MATLAB uses floor(linspace(0, n, 33)):
+        # n/32 is an exact binary fraction, so both languages partition a
+        # history of the same length identically (validated by both suites).
         start, end = i * count_retained // n_bins, (i + 1) * count_retained // n_bins
         values = vector[start:end]
         finite_indices = np.flatnonzero(np.isfinite(values))
@@ -215,6 +218,13 @@ def _vector(value):
 
 
 def _metric(history, count, output, initial):
+    """One objective/constraint/merit record; shared with MATLAB's metric().
+
+    Keys that would only carry ``null`` are omitted: an absent
+    ``availability_reason`` means every observation was available and an
+    absent ``first_invalid_evaluation_index`` means no invalid evaluation was
+    observed (``invalid_evaluations`` is then the integer 0).
+    """
     vector = _vector(history)
     actual = None if vector is None or count is None else vector[:max(count, 0)]
     best = None
@@ -242,11 +252,19 @@ def _metric(history, count, output, initial):
             reason = 'history_shorter_than_evaluation_count'
         elif not count:
             reason = 'no_evaluations'
-    return {'output': _safe(output), 'initial': _safe(initial), 'best': best,
-            'best_evaluation_index': best_index, 'first_invalid_evaluation_index': invalid_index,
-            'invalid_evaluations': invalid,
-            'availability_reason': reason if reason else
-            ('output_or_initial_unavailable' if output is None or initial is None else None)}
+        if bad.size == 0 and actual.size == count:
+            # Nothing is lost: observed_evaluations equals the run's
+            # evaluations and every categorized count is zero.
+            invalid = 0
+    record = {'output': _safe(output), 'initial': _safe(initial), 'best': best,
+              'best_evaluation_index': best_index, 'invalid_evaluations': invalid}
+    if invalid_index is not None:
+        record['first_invalid_evaluation_index'] = invalid_index
+    if reason is None and (output is None or initial is None):
+        reason = 'output_or_initial_unavailable'
+    if reason is not None:
+        record['availability_reason'] = reason
+    return record
 
 
 def _digest(path, directory=None):
@@ -295,7 +313,7 @@ def _digest(path, directory=None):
 
 def _producer():
     source = Path(__file__).resolve()
-    result = {'language': 'Python', 'version': None, 'revision': None,
+    result = {'language': 'python', 'version': None, 'revision': None,
               'dirty': None, 'exact_revision': False,
               'scope': 'current_invocation_not_original_archive_producer',
               'version_kind': 'local_package_source_declaration',
@@ -379,22 +397,32 @@ class EvalReport:
                          'work_summary_reason': 'not_supplied'},
             'artifact_root': None, 'artifacts': [], 'diagnostics': [], 'source': None,
             'plot_data': None,
+            # Shared vocabulary with MATLAB: the same keys are emitted by
+            # EvalReport.m and pinned by eval_report.schema.json. Values are
+            # prose describing THIS producer; language-specific conventions
+            # (bands, seeds) are stated, not equalized.
             'semantics': {
-                'index_base': 1, 'metric_best': 'componentwise_minimum_ignoring_nan;first_tie_index;not_necessarily_a_jointly_attained_point',
-                'budget': 'Reaching the cap does not identify the termination cause.',
-                'convergence': 'Not inferred from solver return; target_work observes the existing scoring predicate.',
+                'index_base': 1,
+                'metric_best': 'componentwise_minimum_ignoring_nan;first_tie_index;not_necessarily_a_jointly_attained_point',
+                'budget': 'problems[].budget applies to every run unless runs[].budget overrides it; budget_reached is a per-run comparison and reaching the cap does not identify the termination cause.',
+                'convergence': 'Never inferred from solver return values; there is no per-run convergence field. target_work in the companion observes the existing scoring predicate.',
+                'run_defaults': 'evaluations, budget_reached, abnormal_termination, output_fallback, execution, oracle_seed and elapsed_seconds are per-run facts. An absent *_reason key means the observation was available; an absent first_invalid_evaluation_index means no invalid evaluation was observed and invalid_evaluations is then the integer 0.',
+                'configuration': 'configuration.request lists user-supplied options; configuration.effective lists the resolved options of this invocation. In a load operation they describe reanalysis/rendering, not the archived execution.',
                 'paths': {'artifacts': 'relative_to_artifact_root', 'artifact_root': 'relative_to_main_report_parent',
                           'plot_data': 'relative_to_main_report_parent', 'source': 'relative_to_main_report_parent'},
+                'privacy': 'controller_private;not_an_allowlisted_agent_prompt;consumers_build_an_allowlisted_feedback_view',
             },
+            'report_files': None,
             'timing': {'started_at': _now(), 'finished_at': None,
                        'elapsed_seconds': None},
         }
         self.plot_document = {'schema': 'optiprofiler.plot_data/1',
                               'evaluation_id': self.document['evaluation_id'],
                               'semantics': {'index_base': 1,
-                                  'history_bins': 'exact_samples_up_to_64;otherwise_lossy_max_32_contiguous_bins_with_exact_endpoints_finite_extrema_first_tie_indices_and_nonfinite_counts;internal_order_not_retained_in_bins;excludes_padding',
-                                  'history_plots': 'display_copy_only;across_run_band_then_shift_then_cummin_then_block_aggregation;Python_population_std_ddof_0',
-                                  'profile_plots': 'full_step_vertices_and_across_run_bands;Python_population_std_ddof_0;band_clamped_to_0_1',
+                                  'history_bins': 'exact_samples_up_to_64;otherwise_lossy_max_32_contiguous_bins_with_exact_endpoints_finite_extrema_first_tie_indices_and_nonfinite_counts;internal_order_not_retained_in_bins;excludes_padding;not_a_scoring_input',
+                                  'history_plots': 'display_copy_only;across_run_band_then_shift_then_cummin_then_block_aggregation;block_aggregation_applies_when_padded_length_exceeds_1002_and_keeps_about_1000_points;array_position_is_not_an_evaluation_index_use_evaluation_indices',
+                                  'profile_plots': 'full_step_vertices_and_across_run_bands;band_clamped_to_0_1;unreached_work_shown_at_failure_placeholder_not_counted_as_hit;log_ratio_zero_height_ties_retained_in_numeric_data_but_not_drawn',
+                                  'error_bands': 'python_population_std_ddof_0_for_history_and_profile_bands',
                                   'target_work': 'existing_profile_work_arrays;history_first_actual_hit;output_total_evaluations_at_passing_returned_output;nan_is_nonhit_not_solver_diagnosis',
                                   'privacy': 'controller_private;not_an_allowlisted_agent_prompt'},
                               'histories': [], 'plots': [], 'target_work': [], 'diagnostics': []}
@@ -417,6 +445,21 @@ class EvalReport:
                     target.unlink()
             raise
         self._owned_identity, self._plot_identity = (entry[1] for entry in reserved)
+        # Both targets are created with mode 0600 (O_EXCL here, mkstemp for
+        # every republish). This is only a best-effort owner-only policy on
+        # POSIX filesystems; it is not enforced on Windows or on filesystems
+        # without POSIX modes, so the directory itself must be private.
+        applied = None
+        if os.name == 'posix':
+            try:
+                applied = all(stat.S_IMODE(target.lstat().st_mode) == 0o600
+                              for target, _ in reserved)
+            except OSError:
+                applied = None
+        self.document['report_files'] = {
+            'permission_policy': 'owner_read_write_only_best_effort',
+            'permissions_applied': applied,
+            'platform_note': 'posix_mode_0600_via_exclusive_create_and_mkstemp;not_enforced_on_windows;directory_privacy_is_the_caller_responsibility'}
         self._write()
 
     @staticmethod
@@ -481,16 +524,17 @@ class EvalReport:
             state = {}
         feature_data = {'name': _safe(state.get('_name')),
                         'options': _safe(state.get('_options', {}))}
-        self.document['configuration'].update({
+        # request = what the caller supplied; effective = the resolved options
+        # of this invocation. Stated once here, never repeated per run.
+        self.document['configuration']['effective'] = {
             'problem_options': _safe(problem_options),
-            'profile_options': _safe(profile_options), 'feature': feature_data})
+            'profile_options': _safe(profile_options), 'feature': feature_data}
         if self.document['operation'] == 'load':
             self.document['configuration'].update({
                 'scope': 'current_load_selection_reanalysis_and_rendering',
                 'solver_execution_requested': False,
                 'original_execution_configuration': None,
                 'original_execution_configuration_reason': 'not_fully_retained_by_archive',
-                'execution_only_options_note': 'Current feature, seed, n_runs, and max_eval_factor do not describe or rerun the archived execution.',
             })
             feature_data['scope'] = 'current_load_context_not_original_execution_feature'
         else:
@@ -531,8 +575,8 @@ class EvalReport:
                 'id': identity,
                 'library': library, 'name': name, 'role': role,
                 'dimension': None, 'type': None,
-                'selection_status': 'unknown', 'load_status': 'unknown',
-                'status': 'unknown', 'runs': [],
+                'selection_status': 'unknown', 'load_status': 'pending',
+                'status': 'pending', 'budget': None, 'runs': [],
             }
         return self._problems[key]
 
@@ -614,6 +658,14 @@ class EvalReport:
         if (budget is None and self.document['operation'] != 'load' and dim is not None
                 and isinstance(factor, (int, float, np.number)) and np.isfinite(factor)):
             budget = int(math.ceil(float(factor) * dim))
+        # The cap is a per-problem fact (same for every solver/run of this
+        # invocation); each run keeps its own budget_reached comparison.
+        if budget is None:
+            problem['budget'] = {'evaluations': None,
+                                 'reason': 'original_execution_budget_not_retained'
+                                 if self.document['operation'] == 'load' else 'budget_rule_inputs_unavailable'}
+        else:
+            problem['budget'] = {'evaluations': budget, 'rule': 'ceil(max_eval_factor*dimension)'}
         runs = []
         for solver_index in range(n_evals.shape[0]):
             for run_index in range(n_evals.shape[1]):
@@ -630,21 +682,23 @@ class EvalReport:
                                  'source_run_index': None if run_index < real else 1}
                 run = {
                     'solver_index': solver_index + 1, 'run_index': run_index + 1,
-                    'evaluations': count, 'budget': budget,
+                    'evaluations': count,
                     'budget_reached': None if count is None or budget is None else count >= budget,
-                    'budget_reason': 'original_execution_budget_not_retained' if budget is None else None,
                     'abnormal_termination': _safe(_at(result.get('solver_abnormal_termination'), solver_index, run_index)),
                     'output_fallback': _safe(_at(result.get('solver_output_fallback'), solver_index, run_index)),
-                    'termination_metadata_reason': 'solver_termination_metadata_not_retained'
-                        if ('solver_abnormal_termination' not in result or 'solver_output_fallback' not in result) else None,
                     'execution': execution,
                     'oracle_seed': _safe(_at(metadata.get('oracle_seeds'),
                                              0 if execution['kind'] == 'repeated' else run_index)),
-                    'oracle_seed_reason': 'execution_metadata_not_retained' if 'oracle_seeds' not in metadata
-                                          else ('copied_from_source_run' if execution['kind'] == 'repeated' else None),
                     'elapsed_seconds': _safe(_at(result.get('computation_time'), solver_index, run_index)),
-                    'convergence': None,
                 }
+                # Reasons are recorded only when an observation is missing;
+                # see semantics.run_defaults. No convergence field exists.
+                if 'solver_abnormal_termination' not in result or 'solver_output_fallback' not in result:
+                    run['termination_metadata_reason'] = 'solver_termination_metadata_not_retained'
+                if 'oracle_seeds' not in metadata:
+                    run['oracle_seed_reason'] = 'execution_metadata_not_retained'
+                elif execution['kind'] == 'repeated':
+                    run['oracle_seed_reason'] = 'copied_from_source_run'
                 for label, prefix in (('objective', 'fun'), ('constraint', 'maxcv'), ('merit', 'merit')):
                     run[label] = _metric(histories[label], count,
                                          _at(result.get(prefix + '_out'), solver_index, run_index),
@@ -664,7 +718,13 @@ class EvalReport:
             if (metadata['render_status'] in ('failed', 'partial')
                     and self.document['stages']['rendering']['status'] != 'failed'):
                 self.document['stages']['rendering'] = {'status': metadata['render_status'],
-                                                       'reason': 'problem_history_render_failure'}
+                                                       'reason': 'history_render_failed'}
+            elif (metadata['render_status'] == 'completed'
+                    and self.document['stages']['rendering']['status'] == 'unknown'):
+                # A direct-problem run renders only history plots; observe
+                # that success like MATLAB does. Profile export, when it
+                # happens later, re-enters running and can still fail.
+                self.document['stages']['rendering'] = {'status': 'completed'}
         for diagnostic in metadata.get('diagnostics', [])[:_MAX_DIAGNOSTICS]:
             if type(diagnostic) is dict:
                 self.add_diagnostic(diagnostic.get('code'), diagnostic.get('stage'),
@@ -715,7 +775,12 @@ class EvalReport:
         record = {'id': plot_id, 'kind': kind, 'history_or_output': channel,
                   'tolerance_index': tolerance_index,
                   'fidelity': 'exact_rendered_data', 'status': 'numeric_prepared',
-                  'errorbar_type': _safe(self._options.get('errorbar_type')), 'std_ddof': 0}
+                  'observation_scope': 'scoring_profile_work',
+                  'target_work_ref': f'target-work-{tolerance_index}'}
+        if kind != 'log_ratio':
+            # Bars carry no across-run band, so band conventions are stated
+            # only on performance/data records (same as MATLAB).
+            record.update(errorbar_type=_safe(self._options.get('errorbar_type')), std_ddof=0)
         # Plot arrays are complete numerical data, not bounded option metadata.
         record.update(_numeric_payload(presentation))
         self._plots[plot_id] = record
@@ -809,7 +874,11 @@ class EvalReport:
             'comparability_note': 'Scores depend on the retained cohort, tolerances, options, and scoring callbacks.',
         }
         self.document['stages']['scoring'] = {'status': 'completed'}
+        # score_only already explains a not-requested rendering (same
+        # precedence as MATLAB); only a plotting run with history plots
+        # disabled needs the more specific reason.
         if (single and self._options.get('draw_hist_plots') == 'none'
+                and not self._options.get('score_only', False)
                 and self.document['stages']['rendering']['status'] not in ('failed', 'partial')):
             self.document['stages']['rendering'] = {'status': 'not_requested',
                                                    'reason': 'single_problem_history_plots_disabled'}
@@ -937,10 +1006,22 @@ class EvalReport:
                 for stage in _STAGES:
                     if self.document['stages'][stage]['status'] == 'running':
                         self.document['stages'][stage] = {'status': 'completed'}
-                if self.document['coverage']['load_failed']:
+                coverage = self.document['coverage']
+                if coverage['load_failed']:
+                    self.document['stages']['numerical'] = (
+                        {'status': 'partial', 'reason': 'selected_problem_load_failures'}
+                        if coverage['completed'] else
+                        {'status': 'failed', 'reason': 'all_selected_problem_loads_failed'})
+                elif (not coverage['selected'] and not coverage['loaded']
+                        and self.document['stages']['numerical']['status'] == 'completed'):
                     self.document['stages']['numerical'] = {
-                        'status': 'partial' if self.document['coverage']['completed'] else 'failed',
-                        'reason': 'selected_problem_load_failures'}
+                        'status': 'not_applicable', 'reason': 'empty_selection'}
+                if (not coverage['loaded'] and self.document['operation'] == 'benchmark'
+                        and self.document['stages']['scoring']['status'] in ('unknown', 'running', 'completed')):
+                    # Same vocabulary as MATLAB: nothing was loaded, so no
+                    # cohort score exists even if the pipeline returned zeros.
+                    self.document['stages']['scoring'] = {
+                        'status': 'not_applicable', 'reason': 'no_loaded_problems'}
                 if (self.document['operation'] == 'benchmark'
                         and any(problem['role'] == 'plain_reference'
                                 and problem['load_status'] == 'failed'

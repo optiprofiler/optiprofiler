@@ -2,19 +2,20 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:optiprofiler:plot_data:1",
   "title": "OptiProfiler numeric plot data v1",
-  "description": "Controller-private companion to an evaluation report. Binned histories are explicitly lossy summaries. Exact numeric plot presentations reproduce the renderer's prepared coordinates, not unmodified scientific observations, and do not imply successful rendering. Neither representation introduces a new score or convergence rule.",
+  "description": "Controller-private companion to an evaluation report. Binned histories are explicitly lossy summaries. Exact numeric plot presentations reproduce the renderer's prepared coordinates, not unmodified scientific observations, and do not imply successful rendering. Neither representation introduces a new score or convergence rule. Python and MATLAB emit one vocabulary; genuine language differences (band normalization, retained log-ratio bar identity, native/portable renderer variants) are explicit fields, never differently spelled concepts.",
   "$comment": "Reject bare JSON NaN/Infinity before schema validation. Also verify the main-report hash and evaluation_id, unique IDs, references, bin contiguity/counts/extrema indices, equal coordinate lengths, and target-work tensor shape and problem order. Schema validation does not authorize publication or filesystem access.",
   "type": "object",
   "required": ["schema", "evaluation_id", "semantics", "histories", "plots", "target_work", "diagnostics"],
   "properties": {
     "schema": {"const": "optiprofiler.plot_data/1"},
     "evaluation_id": {"type": "string", "minLength": 1},
-    "semantics": {"type": "object"},
+    "semantics": {"$ref": "#/$defs/semantics"},
     "histories": {"type": "array", "items": {"$ref": "#/$defs/history"}},
     "plots": {"type": "array", "items": {"$ref": "#/$defs/plot"}},
     "target_work": {"type": "array", "items": {"$ref": "#/$defs/targetWork"}},
     "diagnostics": {"type": "array", "items": {"type": "object"}}
   },
+  "additionalProperties": false,
   "$defs": {
     "count": {"type": "integer", "minimum": 0},
     "index": {"type": "integer", "minimum": 1},
@@ -26,6 +27,22 @@
       ]
     },
     "vector": {"type": "array", "items": {"$ref": "#/$defs/value"}},
+    "pair": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"$ref": "#/$defs/value"}},
+    "semantics": {
+      "type": "object",
+      "required": ["index_base", "history_bins", "history_plots", "profile_plots", "error_bands", "target_work", "privacy"],
+      "properties": {
+        "index_base": {"const": 1},
+        "history_bins": {"type": "string", "minLength": 1},
+        "history_plots": {"type": "string", "minLength": 1},
+        "profile_plots": {"type": "string", "minLength": 1},
+        "error_bands": {"type": "string", "minLength": 1, "description": "The emitting language's band normalization: Python population std (ddof 0); MATLAB sample std (ddof 1 for N>1). Deliberately not equalized."},
+        "target_work": {"type": "string", "minLength": 1},
+        "privacy": {"type": "string", "minLength": 1},
+        "renderer_variants": {"type": "object", "description": "MATLAB only: how the native and portable SVG renderers draw the shared prepared data. Referenced by renderer_variants_ref on MATLAB plots."}
+      },
+      "additionalProperties": false
+    },
     "extremum": {
       "anyOf": [
         {"type": "null"},
@@ -46,17 +63,20 @@
         "finite_min": {"$ref": "#/$defs/extremum"}, "finite_max": {"$ref": "#/$defs/extremum"},
         "nonfinite": {"$ref": "#/$defs/nonfiniteCounts"}
       },
-      "description": "Inclusive, one-based actual-evaluation interval, excluding padding. The summary retains endpoints, finite extrema/positions and nonfinite counts, not the complete internal order."
+      "additionalProperties": false,
+      "description": "Inclusive, one-based actual-evaluation interval, excluding padding. Bin k of n retained evaluations covers (k-1)*n//32+1 .. k*n//32 in both languages. The summary retains endpoints, finite extrema/positions and nonfinite counts, not the complete internal order."
     },
     "channel": {
       "type": "object", "required": ["status", "reason", "count", "total_evaluations", "representation", "bins"],
       "properties": {
-        "status": {"enum": ["available", "unavailable"]}, "reason": {"type": ["string", "null"]},
+        "status": {"enum": ["available", "unavailable"]},
+        "reason": {"enum": [null, "history_or_evaluation_count_unavailable", "history_shorter_than_evaluation_count", "no_evaluations"]},
         "count": {"$ref": "#/$defs/count"}, "total_evaluations": {"$ref": "#/$defs/nullableCount"},
         "representation": {"enum": ["exact_samples", "bin_extrema", null]},
         "values": {"anyOf": [{"type": "null"}, {"type": "array", "maxItems": 64, "items": {"$ref": "#/$defs/value"}}]},
         "bins": {"type": "array", "maxItems": 32, "items": {"$ref": "#/$defs/bin"}}
       },
+      "additionalProperties": false,
       "allOf": [
         {"if": {"properties": {"representation": {"const": "exact_samples"}}}, "then": {"required": ["values"], "properties": {"count": {"maximum": 64}, "values": {"type": "array"}, "bins": {"maxItems": 0}}}},
         {"if": {"properties": {"representation": {"const": "bin_extrema"}}}, "then": {"properties": {"count": {"minimum": 65}, "values": {"type": "null"}}}},
@@ -70,16 +90,141 @@
         "id": {"type": "string", "minLength": 1}, "problem_id": {"type": "string", "minLength": 1},
         "solver_index": {"$ref": "#/$defs/index"}, "run_index": {"$ref": "#/$defs/index"},
         "channels": {"type": "object", "required": ["objective", "constraint", "merit"], "properties": {"objective": {"$ref": "#/$defs/channel"}, "constraint": {"$ref": "#/$defs/channel"}, "merit": {"$ref": "#/$defs/channel"}}, "additionalProperties": false}
-      }
+      },
+      "additionalProperties": false
     },
-    "series": {
+    "historySeries": {
       "type": "object",
+      "required": ["solver_index", "evaluation_indices", "x", "mean", "lower", "upper", "geometry", "band_visible"],
       "properties": {
         "solver_index": {"$ref": "#/$defs/index"},
+        "evaluation_indices": {"type": "array", "items": {"$ref": "#/$defs/index"}, "description": "One-based actual evaluation numbers of the retained display points. After block aggregation the array position is NOT the evaluation number."},
+        "x": {"$ref": "#/$defs/vector"}, "mean": {"$ref": "#/$defs/vector"}, "lower": {"$ref": "#/$defs/vector"}, "upper": {"$ref": "#/$defs/vector"},
+        "geometry": {"enum": ["line", "point"]},
+        "band_visible": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "historyPlot": {
+      "type": "object",
+      "required": ["id", "kind", "problem_id", "channel", "mode", "status", "fidelity", "observation_scope", "series", "x_transform", "y_scale", "y_shift", "display_limit", "display_note", "nonfinite_policy", "aggregation", "aggregation_trigger", "padded_length", "errorbar_type", "n_runs", "std_ddof"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1}, "kind": {"const": "history"},
+        "problem_id": {"type": "string", "minLength": 1},
+        "channel": {"enum": ["objective", "constraint", "merit"]}, "mode": {"enum": ["raw", "cummin"]},
+        "status": {"const": "numeric_prepared"}, "fidelity": {"const": "exact_rendered_data"},
+        "observation_scope": {"enum": ["rendering_inputs", "retained_scoring_observations"]},
+        "series": {"type": "array", "items": {"$ref": "#/$defs/historySeries"}},
+        "x_transform": {"const": "evaluation_index/(dimension+1)"},
+        "y_scale": {"enum": ["linear", "log"]},
+        "y_shift": {"$ref": "#/$defs/value"},
+        "display_limit": {"const": 1e100},
+        "display_note": {"type": ["string", "null"]},
+        "nonfinite_policy": {"const": "per_run_above_finite_range_with_initial_fallback"},
+        "aggregation": {"enum": ["min", "mean", "max"]},
+        "aggregation_trigger": {"const": "padded_history_length_above_1002"},
+        "padded_length": {"$ref": "#/$defs/count", "description": "max_eval = ceil(max_eval_factor*dimension): the padded length that decides whether interior points are block-aggregated to about 1000."},
+        "errorbar_type": {"enum": ["minmax", "meanstd"]},
+        "n_runs": {"$ref": "#/$defs/index"},
+        "std_ddof": {"enum": [0, 1], "description": "0 in Python (population), 1 in MATLAB for more than one run (sample), 0 in MATLAB for a single run."},
+        "renderer_variants_ref": {"const": "history"}
+      },
+      "additionalProperties": false
+    },
+    "profileSeries": {
+      "type": "object",
+      "required": ["solver_index", "x", "mean", "lower", "upper", "geometry", "band_visible"],
+      "properties": {
+        "solver_index": {"$ref": "#/$defs/index"},
+        "x": {"$ref": "#/$defs/vector"}, "mean": {"$ref": "#/$defs/vector"}, "lower": {"$ref": "#/$defs/vector"}, "upper": {"$ref": "#/$defs/vector"},
+        "geometry": {"const": "step"},
+        "band_visible": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "profilePlot": {
+      "type": "object",
+      "required": ["id", "kind", "tolerance_index", "history_or_output", "status", "fidelity", "observation_scope", "target_work_ref", "series", "x_transform", "ratio_max", "failure_placeholder", "x_limits", "y_limits", "errorbar_type", "std_ddof", "n_runs"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1}, "kind": {"enum": ["performance", "data"]},
+        "tolerance_index": {"$ref": "#/$defs/index"}, "history_or_output": {"enum": ["history", "output"]},
+        "status": {"const": "numeric_prepared"}, "fidelity": {"const": "exact_rendered_data"},
+        "observation_scope": {"const": "scoring_profile_work"},
+        "target_work_ref": {"type": "string", "minLength": 1},
+        "series": {"type": "array", "items": {"$ref": "#/$defs/profileSeries"}},
+        "x_transform": {"enum": ["work/best_work", "log2(work/best_work)", "work/(dimension+1)", "log2(1+work/(dimension+1))"]},
+        "ratio_max": {"$ref": "#/$defs/value"},
+        "failure_placeholder": {"$ref": "#/$defs/value", "description": "1.1*ratio_max: unreached work is placed here for display and is not a target hit."},
+        "x_limits": {"$ref": "#/$defs/pair"}, "y_limits": {"const": [0, 1]},
+        "errorbar_type": {"enum": ["minmax", "meanstd"]},
+        "std_ddof": {"enum": [0, 1]},
+        "n_runs": {"$ref": "#/$defs/index"},
+        "renderer_variants_ref": {"const": "performance_data"}
+      },
+      "additionalProperties": false
+    },
+    "barGroup": {
+      "type": "object",
+      "required": ["start_index", "end_index", "solver_index", "opacity"],
+      "properties": {"start_index": {"$ref": "#/$defs/index"}, "end_index": {"$ref": "#/$defs/index"}, "solver_index": {"enum": [1, 2]}, "opacity": {"enum": [0.5, 1]}},
+      "additionalProperties": false
+    },
+    "logRatioSeries": {
+      "type": "object",
+      "required": ["geometry", "x", "y", "visible", "opacity", "solver_index_by_sign"],
+      "properties": {
+        "geometry": {"const": "bar"},
         "x": {"$ref": "#/$defs/vector"}, "y": {"$ref": "#/$defs/vector"},
-        "mean": {"$ref": "#/$defs/vector"}, "lower": {"$ref": "#/$defs/vector"}, "upper": {"$ref": "#/$defs/vector"},
-        "evaluation_indices": {"type": "array", "items": {"$ref": "#/$defs/index"}}
-      }
+        "visible": {"type": "array", "items": {"type": "boolean"}},
+        "opacity": {"type": "array", "items": {"enum": [0.5, 1]}},
+        "solver_index_by_sign": {"type": "object", "required": ["negative", "positive"], "properties": {"negative": {"const": 1}, "positive": {"const": 2}}, "additionalProperties": false}
+      },
+      "additionalProperties": false
+    },
+    "barSources": {
+      "type": "object",
+      "required": ["problem_index", "run_index", "solver1_failed", "solver2_failed", "tie"],
+      "properties": {
+        "problem_index": {"type": "array", "items": {"$ref": "#/$defs/index"}},
+        "run_index": {"type": "array", "items": {"$ref": "#/$defs/index"}},
+        "solver1_failed": {"type": "array", "items": {"type": "boolean"}},
+        "solver2_failed": {"type": "array", "items": {"type": "boolean"}},
+        "tie": {"type": "array", "items": {"type": "boolean"}}
+      },
+      "additionalProperties": false,
+      "description": "MATLAB only: identity of each sorted bar (problem index into target_work axis order, run index, failure and tie flags). Python's legacy renderer sorts anonymously and therefore reports problem_mapping null."
+    },
+    "logRatioPlot": {
+      "type": "object",
+      "required": ["id", "kind", "tolerance_index", "history_or_output", "status", "fidelity", "observation_scope", "target_work_ref", "series", "bar_groups", "ratio_max", "failure_placeholder", "x_transform", "y_transform", "x_limits", "y_limits", "both_failed_pairs", "tie_pairs", "problem_mapping"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1}, "kind": {"const": "log_ratio"},
+        "tolerance_index": {"$ref": "#/$defs/index"}, "history_or_output": {"enum": ["history", "output"]},
+        "status": {"const": "numeric_prepared"}, "fidelity": {"const": "exact_rendered_data"},
+        "observation_scope": {"const": "scoring_profile_work"},
+        "target_work_ref": {"type": "string", "minLength": 1},
+        "series": {"type": "array", "minItems": 1, "maxItems": 1, "items": {"$ref": "#/$defs/logRatioSeries"}},
+        "bar_groups": {"type": "array", "items": {"$ref": "#/$defs/barGroup"}, "description": "The bar() calls of the renderer in drawing order: half-opacity both-failed groups, then solver-1 negative and solver-2 positive groups. Zero-height ties are inside no group."},
+        "ratio_max": {"$ref": "#/$defs/value"},
+        "failure_placeholder": {"$ref": "#/$defs/value"},
+        "x_transform": {"const": "sorted_bar_position"},
+        "y_transform": {"const": "log2(work_solver_1/work_solver_2)"},
+        "x_limits": {"$ref": "#/$defs/pair"}, "y_limits": {"$ref": "#/$defs/pair"},
+        "both_failed_pairs": {"$ref": "#/$defs/count"}, "tie_pairs": {"$ref": "#/$defs/count"},
+        "problem_mapping": {"enum": [null, "bar_sources"]},
+        "problem_mapping_reason": {"const": "legacy_bar_sort_does_not_retain_identity"},
+        "bar_sources": {"$ref": "#/$defs/barSources"},
+        "renderer_variants_ref": {"const": "log_ratio"}
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {"if": {"properties": {"problem_mapping": {"const": "bar_sources"}}}, "then": {"required": ["bar_sources"]}},
+        {"if": {"properties": {"problem_mapping": {"type": "null"}}}, "then": {"required": ["problem_mapping_reason"]}}
+      ]
+    },
+    "plot": {
+      "oneOf": [{"$ref": "#/$defs/historyPlot"}, {"$ref": "#/$defs/profilePlot"}, {"$ref": "#/$defs/logRatioPlot"}],
+      "description": "Complete prepared numeric presentation from the renderer's shared numeric functions. History display may clip/replace nonfinite values, shift, aggregate runs, form cumulative views and aggregate blocks. Profile axes may be transformed. These semantics are explicit; do not infer raw values or solver convergence from display placeholders."
     },
     "workTensor": {"type": "array", "items": {"type": "array", "items": {"$ref": "#/$defs/vector"}}},
     "targetWork": {
@@ -87,21 +232,11 @@
       "properties": {
         "id": {"type": "string", "minLength": 1}, "tolerance_index": {"$ref": "#/$defs/index"}, "tolerance": {"$ref": "#/$defs/value"},
         "axes": {"const": ["problem", "solver", "run"]},
-        "axis_values": {"type": "object", "required": ["problem", "solver", "run"], "properties": {"problem": {"type": "array", "items": {"type": "string", "minLength": 1}}, "solver": {"type": "array", "items": {"$ref": "#/$defs/index"}}, "run": {"type": "array", "items": {"$ref": "#/$defs/index"}}}},
+        "axis_values": {"type": "object", "required": ["problem", "solver", "run"], "properties": {"problem": {"type": "array", "items": {"type": "string", "minLength": 1}}, "solver": {"type": "array", "items": {"$ref": "#/$defs/index"}}, "run": {"type": "array", "items": {"$ref": "#/$defs/index"}}}, "additionalProperties": false},
         "history": {"$ref": "#/$defs/workTensor"}, "output": {"$ref": "#/$defs/workTensor"}
       },
+      "additionalProperties": false,
       "description": "Original work arrays from the existing profile construction, in explicit merged-primary problem order. Nonhit NaN is not a solver-failure diagnosis. Repeated deterministic run slots retain the execution meaning of their referenced main-report runs."
-    },
-    "plot": {
-      "type": "object", "required": ["id", "kind", "series"],
-      "properties": {
-        "id": {"type": "string", "minLength": 1}, "kind": {"type": "string", "minLength": 1},
-        "problem_id": {"type": "string", "minLength": 1}, "tolerance_index": {"$ref": "#/$defs/index"},
-        "history_or_output": {"enum": ["history", "output"]},
-        "fidelity": {"const": "exact_rendered_data"},
-        "series": {"type": "array", "items": {"$ref": "#/$defs/series"}}
-      },
-      "description": "Complete prepared numeric presentation from the renderer's shared numeric functions. History display may clip/replace nonfinite values, shift, aggregate runs, form cumulative views and aggregate blocks. Profile axes may be transformed. These semantics must be explicit; do not infer raw values or solver convergence from display placeholders."
     }
   }
 }

@@ -684,6 +684,11 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
     end
     if is_load && isempty(results_plibs)
         % If we cannot load any valid results, we stop the execution.
+        if ~isempty(eval_report)
+            eval_report.addResults({});
+            eval_report.setStage('numerical', 'not_applicable', 'no_retained_problems');
+            eval_report.setStage('scoring', 'not_applicable', 'no_retained_problems');
+        end
         solver_scores = [];
         profile_scores = [];
         curves = [];
@@ -955,7 +960,7 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
         end
         result = solveOneProblem(solvers, problem, feature, problem.name, length(problem.name), profile_options_problem, true, path_hist_plots, ~isempty(eval_report));
         if ~isempty(eval_report)
-            eval_report.addProblem(result, 'single', 'primary');
+            eval_report.addProblem(result, 'user', 'primary');
             eval_report.completeNumerical();
             eval_report.setStage('scoring', 'running');
         end
@@ -1000,9 +1005,16 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
             if ~isempty(eval_report)
                 result.merit_history = merit_history;
                 result.merit_inits = merit_inits;
-                eval_report.addProblem(result, 'single', 'primary');
+                eval_report.addProblem(result, 'user', 'primary');
                 eval_report.setStage('numerical', 'completed');
                 eval_report.setProfiles(curves, solver_scores, profile_scores, solver_names, true);
+                % Same precedence as Python: score_only already explains a
+                % not-requested rendering; only a plotting run with history
+                % plots disabled needs the more specific reason.
+                if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value) && ...
+                        strcmpi(profile_options.(ProfileOptionKey.DRAW_HIST_PLOTS.value), 'none')
+                    eval_report.setStage('rendering', 'not_requested', 'single_problem_history_plots_disabled');
+                end
             end
         else
             solver_scores = zeros(n_solvers, 1);
@@ -1940,7 +1952,7 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
             atomicReplaceFile(fullfile(path_staging, 'summary.pdf'), fullfile(path_out, 'summary.pdf'));
         catch ME
             % Missing output is actionable even in silent mode. Preserve full
-            if ~isempty(eval_report), eval_report.recordRendering('failed', struct('scope', 'summary_pdf_merge')); end
+            if ~isempty(eval_report), eval_report.recordRendering('failed', struct('scope', 'summary_pdf_merge'), 'summary_pdf_merge_failed'); end
             % backend diagnostics and provide a visible current-run fallback.
             printOptiProfilerMessage('WARNING', sprintf('Could not merge the summary PDFs: %s', ME.message));
             if isfile(fullfile(path_staging, 'summary.pdf'))

@@ -2,6 +2,8 @@ function panels = prepareEvalReportHistory(result, options)
 %PREPAREEVALREPORTHISTORY Numeric history panels without graphics or callbacks.
 %   Reuse the renderer's pure display/shift/aggregation pipeline. Do not
 %   recompute merit: the collector can only use values the engine retained.
+%   The panel vocabulary is shared with Python prepare_history_panels and
+%   pinned by plot_data.schema.json.
     panels = {};
     channels = {'objective', 'constraint', 'merit'};
     fields = {'fun_history', 'maxcv_history', 'merit_history'};
@@ -27,12 +29,27 @@ function panels = prepareEvalReportHistory(result, options)
             % drawFunMaxcvMeritHist (a varying nonzero curve enables log).
             scale = 'linear';
             if any(cellfun(@(v) any(v) && any(diff(v)), center)), scale = 'log'; end
+            display_note = note; if isempty(note), display_note = optiprofiler_internal_null(); end
+            % Block aggregation is keyed on the PADDED length size(display,3)
+            % = ceil(max_eval_factor*dimension): above 1002 the renderer keeps
+            % about 1000 interior points, so an array position in the series
+            % is not an evaluation number; readers must use evaluation_indices.
             panels{end+1} = struct('kind', 'history', 'channel', channels{c}, 'mode', view, ...
                 'status', 'numeric_prepared', 'fidelity', 'exact_rendered_data', 'series', {series}, ...
                 'x_transform', 'evaluation_index/(dimension+1)', 'y_scale', scale, ...
-                'y_shift', shift, 'display_limit', 1e100, 'display_note', note, ...
-                'aggregation', options.hist_aggregation, 'errorbar_type', options.errorbar_type, ...
+                'y_shift', shift, 'display_limit', 1e100, 'display_note', display_note, ...
+                'nonfinite_policy', 'per_run_above_finite_range_with_initial_fallback', ...
+                'aggregation', options.hist_aggregation, ...
+                'aggregation_trigger', 'padded_history_length_above_1002', ...
+                'padded_length', size(display, 3), ...
+                'errorbar_type', options.errorbar_type, ...
                 'n_runs', n_runs, 'std_ddof', double(n_runs > 1));
         end
     end
+end
+
+function value = optiprofiler_internal_null()
+    % The collector's JSON-null sentinel (see EvalReport.null); kept local so
+    % this private helper does not depend on a private static method.
+    value = struct('eval_report_null', true);
 end

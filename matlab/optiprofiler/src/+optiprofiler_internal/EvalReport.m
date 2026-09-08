@@ -1,6 +1,12 @@
 classdef EvalReport < handle
 %EVALREPORT Controller-private, observational JSON collector. Not a public API.
 % Numeric completion is not convergence; recorded history excludes padding.
+% The emitted vocabulary is shared with the Python collector
+% (python/optiprofiler/eval_report.py) and pinned by
+% doc/source/_static/eval_report.schema.json and plot_data.schema.json:
+% identical concepts use identical keys; genuine MATLAB conventions (sample
+% standard deviation, 1-based seed rule, retained log-ratio bar identity,
+% native/portable renderer variants) are explicit fields, not renamed ones.
     properties (Access = private)
         path
         document
@@ -20,6 +26,13 @@ classdef EvalReport < handle
         historyPreparation
         profileOptions
         capturedRenderIds = {}
+        % id -> position maps keep problem/history/plot upserts O(1) while
+        % the documents themselves stay ordered cell arrays (insertion order
+        % is the selection/merge order readers rely on).
+        problemPositions
+        plotPositions
+        historyPositions
+        permissionsApplied
     end
     methods
         function self = EvalReport(path, request, replaceFile)
@@ -45,35 +58,47 @@ classdef EvalReport < handle
                 error('OptiProfiler:EvalReportExists', 'The plot-data target already exists or cannot be reserved.');
             end
             self.plotIdentity = optiprofiler_internal.EvalReport.fileIdentity(self.plotPath);
+            self.problemPositions = containers.Map('KeyType', 'char', 'ValueType', 'double');
+            self.plotPositions = containers.Map('KeyType', 'char', 'ValueType', 'double');
+            self.historyPositions = containers.Map('KeyType', 'char', 'ValueType', 'double');
+            self.permissionsApplied = optiprofiler_internal.EvalReport.null();
             self.started = tic;
+            null = optiprofiler_internal.EvalReport.null();
             stage = struct('status', 'unknown');
             self.document = struct('schema', 'optiprofiler.eval_report/1', ...
                 'evaluation_id', optiprofiler_internal.EvalReport.identifier(), ...
                 'operation', 'benchmark', 'status', 'running', ...
-                'producer', struct('language', 'matlab', 'version', 'unknown', ...
-                    'revision', optiprofiler_internal.EvalReport.null(), 'revision_reason', 'not_available'), ...
+                'producer', struct('language', 'matlab', 'version', null, 'revision', null, ...
+                    'revision_reason', 'not_available', 'scope', 'current_invocation_not_original_archive_producer'), ...
                 'configuration', struct(), 'stages', struct('numerical', stage, 'scoring', stage, 'persistence', stage, 'rendering', stage), ...
                 'coverage', struct('selected', 0, 'loaded', 0, 'completed', 0, 'load_failed', 0, ...
                     'scope', 'live_selection', 'original_selection_known', true), ...
-                'problems', {{}}, 'scores', optiprofiler_internal.EvalReport.null(), ...
+                'problems', {{}}, 'scores', null, ...
                 'profiles', struct('plot_refs', {{}}, 'convergence', {{}}, ...
-                    'work_summary', optiprofiler_internal.EvalReport.null(), 'work_summary_reason', 'not_supplied'), ...
-                'artifact_root', '.', 'artifacts', {{}}, 'diagnostics', {{}}, ...
-                'plot_data', optiprofiler_internal.EvalReport.null(), ...
-                'source', optiprofiler_internal.EvalReport.null(), 'timing', struct());
+                    'work_summary', null, 'work_summary_reason', 'not_supplied'), ...
+                'artifact_root', null, 'artifacts', {{}}, 'diagnostics', {{}}, ...
+                'plot_data', null, 'source', null, 'report_files', null, ...
+                'timing', struct('started_at', optiprofiler_internal.EvalReport.timestamp(), 'finished_at', null, 'elapsed_seconds', null));
+            % Shared main-report semantics keys (see eval_report.schema.json);
+            % the prose describes THIS producer.
             self.document.semantics = struct('index_base', 1, ...
-                'best', 'componentwise_minimum_ignoring_nan; earliest retained evaluation attaining it', ...
-                'budget', 'Reaching the cap does not identify the termination cause.', ...
-                'convergence', 'Not inferred from solver return; target_work observes the existing profile construction.', ...
-                'paths', 'artifacts.path is relative to artifact_root; artifact_root, plot_data.path and source.path are relative to the report parent.', ...
-                'privacy', 'Controller-private facts; consumers must construct an allowlisted public feedback view.');
+                'metric_best', 'componentwise_minimum_ignoring_nan;first_tie_index;not_necessarily_a_jointly_attained_point', ...
+                'budget', 'problems[].budget applies to every run unless runs[].budget overrides it; budget_reached is a per-run comparison and reaching the cap does not identify the termination cause.', ...
+                'convergence', 'Never inferred from solver return values; there is no per-run convergence field. target_work in the companion observes the existing profile construction.', ...
+                'run_defaults', 'evaluations, budget_reached, abnormal_termination, output_fallback, execution, oracle_seed and elapsed_seconds are per-run facts. An absent *_reason key means the observation was available; an absent first_invalid_evaluation_index means no invalid evaluation was observed and invalid_evaluations is then the integer 0.', ...
+                'configuration', 'configuration.request lists user-supplied options; configuration.effective lists the resolved options of this invocation. In a load operation they describe reanalysis/rendering, not the archived execution.', ...
+                'paths', struct('artifacts', 'relative_to_artifact_root', 'artifact_root', 'relative_to_main_report_parent', ...
+                    'plot_data', 'relative_to_main_report_parent', 'source', 'relative_to_main_report_parent'), ...
+                'privacy', 'controller_private;not_an_allowlisted_agent_prompt;consumers_build_an_allowlisted_feedback_view');
             self.plotDocument = struct('schema', 'optiprofiler.plot_data/1', ...
                 'evaluation_id', self.document.evaluation_id, ...
-                'semantics', struct('index_base', 1, 'histories', ...
-                    'Up to 64 observations are exact_samples. Longer histories use lossy bins: at most 32 contiguous bins with exact endpoints, finite extrema/earliest indices and nonfinite counts, but no internal order. Never use bins as scoring inputs.', ...
-                    'plots', 'Exact shared prepared numeric representation, not raw history or proof of a rendered file. score_only creates no figures. Resolve each renderer_variants_ref below before interpreting native PDF versus portable SVG styling.', ...
-                    'error_bands', 'MATLAB meanstd uses sample standard deviation (ddof=1 for N>1, zero for N=1).', ...
-                    'target_work', 'Existing complete work arrays; history is first qualifying evaluation, output is total evaluations at a qualifying returned point.'), ...
+                'semantics', struct('index_base', 1, ...
+                    'history_bins', 'exact_samples_up_to_64;otherwise_lossy_max_32_contiguous_bins_with_exact_endpoints_finite_extrema_first_tie_indices_and_nonfinite_counts;internal_order_not_retained_in_bins;excludes_padding;not_a_scoring_input', ...
+                    'history_plots', 'display_copy_only;across_run_band_then_shift_then_cummin_then_block_aggregation;block_aggregation_applies_when_padded_length_exceeds_1002_and_keeps_about_1000_points;array_position_is_not_an_evaluation_index_use_evaluation_indices;resolve_renderer_variants_ref_before_interpreting_native_versus_portable_styling', ...
+                    'profile_plots', 'full_step_vertices_and_across_run_bands;band_clamped_to_0_1;unreached_work_shown_at_failure_placeholder_not_counted_as_hit;log_ratio_zero_height_ties_retained_in_numeric_data_but_not_drawn;log_ratio_bar_sources_retain_problem_and_run_identity', ...
+                    'error_bands', 'matlab_sample_std_ddof_1_for_more_than_one_run_and_0_for_a_single_run', ...
+                    'target_work', 'existing_profile_work_arrays;history_first_actual_hit;output_total_evaluations_at_passing_returned_output;nan_is_nonhit_not_solver_diagnosis', ...
+                    'privacy', 'controller_private;not_an_allowlisted_agent_prompt'), ...
                 'histories', {{}}, 'plots', {{}}, 'target_work', {{}}, 'diagnostics', {{}});
             % Shared variant descriptions avoid repeating the same display
             % policy on every panel. They describe existing renderers; they
@@ -103,25 +128,33 @@ classdef EvalReport < handle
         function configure(self, problem_options, profile_options, feature_value, historyPreparation)
             self.historyPreparation = historyPreparation;
             self.profileOptions = profile_options;
-            self.document.configuration = struct('problem_options', optiprofiler_internal.EvalReport.configuration(problem_options), ...
+            % request = what the caller supplied (kept from the constructor);
+            % effective = resolved options, stated once, never per run.
+            feature = struct('name', feature_value.name, 'options', optiprofiler_internal.EvalReport.configuration(feature_value.options));
+            self.document.configuration.effective = struct( ...
+                'problem_options', optiprofiler_internal.EvalReport.configuration(problem_options), ...
                 'profile_options', optiprofiler_internal.EvalReport.configuration(profile_options), ...
-                'feature', struct('name', feature_value.name, 'options', optiprofiler_internal.EvalReport.configuration(feature_value.options)));
+                'feature', feature);
             self.maxEvalFactor = profile_options.max_eval_factor;
             if strcmp(self.document.operation, 'load')
                 self.document.configuration.scope = 'current_load_selection_reanalysis_and_rendering';
                 self.document.configuration.solver_execution_requested = false;
                 self.document.configuration.original_execution_configuration = optiprofiler_internal.EvalReport.null();
-                self.document.configuration.original_execution_reason = 'not_retained_in_mat_archive';
-                self.document.configuration.feature = struct('name', optiprofiler_internal.EvalReport.null(), ...
-                    'options', optiprofiler_internal.EvalReport.null(), 'scope', 'original_execution_unknown', ...
+                self.document.configuration.original_execution_configuration_reason = 'not_fully_retained_by_archive';
+                self.document.configuration.effective.feature = struct('name', optiprofiler_internal.EvalReport.null(), ...
+                    'options', optiprofiler_internal.EvalReport.null(), 'scope', 'current_load_context_not_original_execution_feature', ...
                     'reason', 'default_load_feature_is_not_original_execution_provenance');
+            else
+                self.document.configuration.scope = 'current_benchmark_execution';
+                self.document.configuration.solver_execution_requested = true;
+                self.document.configuration.effective.feature.scope = 'current_execution_feature';
             end
             if profile_options.score_only
                 self.setStage('rendering', 'not_requested', 'score_only');
                 self.setStage('persistence', 'not_requested', 'score_only');
             else
-                self.setStage('rendering', 'unknown', 'requested_not_started');
-                self.setStage('persistence', 'unknown', 'requested_not_started');
+                self.setStage('rendering', 'unknown', 'requested_not_yet_observed');
+                self.setStage('persistence', 'unknown', 'requested_not_yet_observed');
             end
             self.write();
         end
@@ -150,10 +183,23 @@ classdef EvalReport < handle
             id = jsonencode({library, result.problem_name, role});
             ordinal = self.problemIndex(id);
             if isempty(ordinal), ordinal = numel(self.document.problems) + 1; end
+            unknown = optiprofiler_internal.EvalReport.null();
+            metadata = struct();
+            if isfield(result, 'eval_report_metadata'), metadata = result.eval_report_metadata; end
+            % The cap is a per-problem fact of this invocation. Load cannot
+            % infer the archived budget from today's max_eval_factor.
+            if strcmp(self.document.operation, 'load')
+                budget = unknown;
+                budget_record = struct('evaluations', unknown, 'reason', 'original_execution_budget_not_retained');
+            else
+                budget = ceil(self.maxEvalFactor * result.problem_dim);
+                budget_record = struct('evaluations', budget, 'rule', 'ceil(max_eval_factor*dimension)');
+            end
             entry = struct('id', id, ...
                 'library', library, 'name', result.problem_name, 'role', role, ...
                 'dimension', result.problem_dim, 'type', result.problem_type, ...
-                'selection_status', 'selected', 'load_status', 'loaded', 'status', 'completed', 'availability', 'retained', 'runs', {{}}, 'plot_refs', {{}});
+                'selection_status', 'selected', 'load_status', 'loaded', 'status', 'completed', ...
+                'budget', budget_record, 'runs', {{}}, 'plot_refs', {{}});
             for solver = 1:size(result.n_eval, 1)
                 for run = 1:size(result.n_eval, 2)
                     count = result.n_eval(solver, run);
@@ -162,45 +208,46 @@ classdef EvalReport < handle
                     constraints = reshape(result.maxcv_history(solver, run, 1:min(count,size(result.maxcv_history,3))), 1, []);
                     merits = [];
                     if isfield(result, 'merit_history'), merits = reshape(result.merit_history(solver, run, 1:min(count,size(result.merit_history,3))), 1, []); end
-                    budget = ceil(self.maxEvalFactor * result.problem_dim);
-                    unknown = optiprofiler_internal.EvalReport.null();
+                    budget_reached = unknown;
+                    if ~isstruct(budget), budget_reached = count >= budget; end
+                    elapsed = unknown;
+                    if isfield(result, 'computation_time'), elapsed = result.computation_time(solver, run); end
                     item = struct('solver_index', solver, 'run_index', run, 'evaluations', count, ...
-                        'budget', budget, 'budget_reached', count >= budget, ...
-                        'objective', optiprofiler_internal.EvalReport.metric(values, result.fun_out(solver, run), result.fun_inits(run)), ...
-                        'constraint', optiprofiler_internal.EvalReport.metric(constraints, result.maxcv_out(solver, run), result.maxcv_inits(run)), ...
-                        'merit', struct('output', unknown, 'initial', unknown, 'best', unknown, ...
-                            'best_evaluation_index', unknown, 'first_invalid_evaluation_index', unknown, ...
-                            'invalid_evaluations', unknown, 'availability', 'not_retained'), ...
+                        'budget_reached', budget_reached, ...
+                        'objective', optiprofiler_internal.EvalReport.metric(values, count, result.fun_out(solver, run), result.fun_inits(run)), ...
+                        'constraint', optiprofiler_internal.EvalReport.metric(constraints, count, result.maxcv_out(solver, run), result.maxcv_inits(run)), ...
+                        'merit', optiprofiler_internal.EvalReport.metric([], unknown, unknown, unknown), ...
                         'abnormal_termination', result.solver_abnormal_termination(solver, run), ...
                         'output_fallback', result.solver_output_fallback(solver, run), ...
-                        'execution', struct('kind', 'unknown', 'source_run_index', unknown), ...
-                        'history_ref', sprintf('history-%d-%d-%d', ordinal, solver, run));
-                    if isfield(result, 'eval_report_metadata') && isfield(result.eval_report_metadata, 'real_n_runs')
-                        item.execution.kind = 'actual';
-                        item.execution.source_run_index = run;
-                        if run > result.eval_report_metadata.real_n_runs(solver)
-                            item.execution.kind = 'repeated';
-                            item.execution.source_run_index = 1;
+                        'execution', struct('kind', 'unknown', 'source_run_index', unknown, 'reason', 'execution_metadata_not_retained'), ...
+                        'history_ref', sprintf('history-%d-%d-%d', ordinal, solver, run), ...
+                        'oracle_seed', unknown, 'elapsed_seconds', elapsed);
+                    if isfield(metadata, 'real_n_runs')
+                        item.execution = struct('kind', 'actual', 'source_run_index', unknown);
+                        if run > metadata.real_n_runs(solver)
+                            item.execution = struct('kind', 'repeated', 'source_run_index', 1);
                         end
                     end
                     if isfield(result, 'merit_history')
-                        item.merit = optiprofiler_internal.EvalReport.metric(merits, unknown, result.merit_inits(run));
-                        item.merit.output_availability = 'not_retained';
-                        if isfield(result, 'merit_out'), item.merit.output = result.merit_out(solver, run); item.merit.output_availability = 'retained'; end
+                        merit_out = unknown;
+                        if isfield(result, 'merit_out'), merit_out = result.merit_out(solver, run); end
+                        item.merit = optiprofiler_internal.EvalReport.metric(merits, count, merit_out, result.merit_inits(run));
                     end
-                    item.budget_reason = unknown;
-                    item.convergence = unknown;
-                    item.convergence_reason = 'not_inferred_from_solver_return';
-                    item.termination_metadata_reason = unknown;
                     if isstruct(item.abnormal_termination) || isstruct(item.output_fallback)
                         item.termination_metadata_reason = 'solver_termination_metadata_not_retained';
                     end
-                    if strcmp(self.document.operation, 'load')
-                        item.budget = unknown; item.budget_reached = unknown;
-                        item.budget_reason = 'original_execution_budget_not_retained';
+                    % Actual seed of the featured problem under MATLAB's own
+                    % 1-based rule; a repeated slot copies run 1's seed.
+                    if isfield(metadata, 'oracle_seeds')
+                        if strcmp(item.execution.kind, 'repeated')
+                            item.oracle_seed = metadata.oracle_seeds(1);
+                            item.oracle_seed_reason = 'copied_from_source_run';
+                        else
+                            item.oracle_seed = metadata.oracle_seeds(run);
+                        end
+                    else
+                        item.oracle_seed_reason = 'execution_metadata_not_retained';
                     end
-                    if strcmp(item.execution.kind, 'actual'), item.execution.source_run_index = unknown; end
-                    if strcmp(item.execution.kind, 'unknown'), item.execution.reason = 'execution_metadata_not_retained'; end
                     entry.runs{end+1} = item;
                     channels = struct('objective', optiprofiler_internal.EvalReport.binned(values, count, true), ...
                         'constraint', optiprofiler_internal.EvalReport.binned(constraints, count, true), ...
@@ -211,25 +258,38 @@ classdef EvalReport < handle
             end
             index = self.problemIndex(entry.id);
             if strcmp(self.document.operation, 'load'), entry.selection_status = 'retained'; end
-            if isfield(result, 'eval_report_metadata') && isfield(result.eval_report_metadata, 'render_status') && ...
-                    (isempty(index) || isempty(self.document.problems{index}.runs))
-                self.recordRendering(result.eval_report_metadata.render_status, struct('library', library, 'name', result.problem_name));
+            if isfield(metadata, 'render_status')
+                entry.rendering = struct('status', metadata.render_status);
+                if isempty(index) || isempty(self.document.problems{index}.runs)
+                    self.recordRendering(metadata.render_status, struct('library', library, 'problem', result.problem_name));
+                end
             end
             if isempty(index)
                 self.document.problems{end+1} = entry;
+                self.problemPositions(entry.id) = numel(self.document.problems);
             else
                 old = self.document.problems{index};
-                if isfield(old,'plot_refs'), entry.plot_refs = old.plot_refs; end
+                if isfield(old, 'plot_refs'), entry.plot_refs = old.plot_refs; end
+                if isfield(old, 'provider'), entry.provider = old.provider; end
+                if isfield(old, 'rendering') && ~isfield(entry, 'rendering'), entry.rendering = old.rendering; end
                 if ~isfield(result, 'eval_report_metadata') && numel(old.runs) == numel(entry.runs)
-                    for k = 1:numel(entry.runs), entry.runs{k}.execution = old.runs{k}.execution; end
+                    for k = 1:numel(entry.runs)
+                        entry.runs{k}.execution = old.runs{k}.execution;
+                        entry.runs{k}.oracle_seed = old.runs{k}.oracle_seed;
+                        if isfield(old.runs{k}, 'oracle_seed_reason')
+                            entry.runs{k}.oracle_seed_reason = old.runs{k}.oracle_seed_reason;
+                        elseif isfield(entry.runs{k}, 'oracle_seed_reason')
+                            entry.runs{k} = rmfield(entry.runs{k}, 'oracle_seed_reason');
+                        end
+                    end
                 end
                 self.document.problems{index} = entry;
             end
             self.recount();
             % Shared preparation consumes retained arrays only. It never
             % evaluates an oracle, feature, solver or custom merit callback.
-            if isfield(result, 'eval_report_metadata') && isfield(result.eval_report_metadata, 'plot_presentation')
-                self.captureHistoryPresentation(result.eval_report_metadata.plot_presentation, library, result.problem_name, role);
+            if isfield(metadata, 'plot_presentation')
+                self.captureHistoryPresentation(metadata.plot_presentation, library, result.problem_name, role);
             end
             if ~isempty(self.historyPreparation) && ~ismember(id, self.capturedRenderIds)
                 try
@@ -255,24 +315,29 @@ classdef EvalReport < handle
             if ~ismember(id,self.capturedRenderIds), self.capturedRenderIds{end+1} = id; end
         end
 
-        function selection(self, library, names, role)
+        function selection(self, library, names, role, provider)
             for k = 1:numel(names)
                 id = jsonencode({library, names{k}, role});
                 if isempty(self.problemIndex(id))
-                    self.document.problems{end+1} = struct('id', id, 'library', library, 'name', names{k}, 'role', role, ...
+                    entry = struct('id', id, 'library', library, 'name', names{k}, 'role', role, ...
                         'dimension', optiprofiler_internal.EvalReport.null(), 'type', optiprofiler_internal.EvalReport.null(), ...
-                        'selection_status', 'selected', 'load_status', 'pending', 'status', 'running', ...
-                        'availability', 'not_loaded', 'runs', {{}}, 'plot_refs', {{}});
+                        'selection_status', 'selected', 'load_status', 'pending', 'status', 'pending', ...
+                        'budget', optiprofiler_internal.EvalReport.null(), 'runs', {{}}, 'plot_refs', {{}});
+                    if nargin > 4 && ~isempty(provider), entry.provider = optiprofiler_internal.EvalReport.configuration(provider); end
+                    self.document.problems{end+1} = entry;
+                    self.problemPositions(id) = numel(self.document.problems);
                 end
             end
             self.recount();
         end
 
-        function loadFailed(self, library, name, role)
+        function loadFailed(self, library, name, role, exception_type)
             index = self.problemIndex(jsonencode({library, name, role}));
             self.document.problems{index}.load_status = 'failed';
             self.document.problems{index}.status = 'failed';
-            self.addDiagnostic('problem_load_failed', 'numerical', struct('library', library, 'name', name, 'role', role));
+            scope = struct('library', library, 'problem', name, 'role', role);
+            if nargin > 4 && ~isempty(exception_type), scope.exception_type = exception_type; end
+            self.addDiagnostic('problem_load_failed', 'numerical', scope);
             self.recount();
         end
 
@@ -280,7 +345,7 @@ classdef EvalReport < handle
             if self.document.coverage.load_failed > 0 && self.document.coverage.loaded == 0
                 self.setStage('numerical', 'failed', 'all_selected_problem_loads_failed');
             elseif self.document.coverage.load_failed > 0
-                self.setStage('numerical', 'partial', 'problem_load_failed');
+                self.setStage('numerical', 'partial', 'selected_problem_load_failures');
             elseif self.document.coverage.loaded > 0
                 self.setStage('numerical', 'completed');
             else
@@ -299,7 +364,7 @@ classdef EvalReport < handle
                         'problem_type', value.problem_types{p});
                     mappings = {'fun_histories','fun_history'; 'maxcv_histories','maxcv_history'; ...
                         'merit_histories','merit_history'; 'fun_outs','fun_out'; 'maxcv_outs','maxcv_out'; ...
-                        'merit_outs','merit_out'; 'n_evals','n_eval'; ...
+                        'merit_outs','merit_out'; 'n_evals','n_eval'; 'computation_times','computation_time'; ...
                         'solver_abnormal_terminations','solver_abnormal_termination'; ...
                         'solver_output_fallbacks','solver_output_fallback'};
                     for k = 1:size(mappings, 1)
@@ -352,7 +417,9 @@ classdef EvalReport < handle
                 item.renderer_variants_ref = 'performance_data';
                 if strcmp(item.kind,'log_ratio'), item.renderer_variants_ref = 'log_ratio'; end
                 self.upsert('plots', item);
-                self.document.profiles.plot_refs{end+1} = item.id;
+                if ~ismember(item.id, self.document.profiles.plot_refs)
+                    self.document.profiles.plot_refs{end+1} = item.id;
+                end
             end
         end
 
@@ -408,17 +475,20 @@ classdef EvalReport < handle
             self.write();
         end
 
-        function recordRendering(self, status, scope)
+        function recordRendering(self, status, scope, code)
+            % CODE names the failed export the same way Python's diagnostics
+            % do (history_render_failed, summary_pdf_merge_failed).
+            if nargin < 4, code = 'history_render_failed'; end
             if strcmp(status, 'failed')
                 self.renderingFailure = true;
-                self.addDiagnostic('render_failed', 'rendering', scope);
+                self.addDiagnostic(code, 'rendering', scope);
             elseif strcmp(status, 'completed')
                 self.renderingSuccess = true;
             end
             if self.renderingFailure
                 state = 'failed';
                 if self.renderingSuccess, state = 'partial'; end
-                self.setStage('rendering', state, 'requested_render_failed');
+                self.setStage('rendering', state, code);
             elseif self.renderingSuccess
                 self.setStage('rendering', 'completed');
             end
@@ -432,7 +502,7 @@ classdef EvalReport < handle
                     if self.renderingFailure
                         state = 'failed';
                         if self.renderingSuccess, state = 'partial'; end
-                        self.setStage('rendering', state, 'requested_render_failed');
+                        self.setStage('rendering', state, 'history_render_failed');
                     elseif self.renderingSuccess
                         self.setStage('rendering', 'completed');
                     elseif ~failed
@@ -444,10 +514,10 @@ classdef EvalReport < handle
                     stages = fieldnames(self.document.stages);
                     for k = 1:numel(stages)
                         if strcmp(self.document.stages.(stages{k}).status, 'running')
-                            self.setStage(stages{k}, 'failed', 'benchmark_exception');
+                            self.setStage(stages{k}, 'failed', 'interrupted_by_exception');
                         end
                     end
-                    self.addDiagnostic('benchmark_exception', 'controller', struct('exception_type', cause.identifier));
+                    self.addDiagnostic('benchmark_exception', 'runtime', struct('exception_type', cause.identifier));
                 elseif self.document.coverage.load_failed > 0 && self.document.coverage.loaded == 0
                     self.document.status = 'failed';
                     self.completeNumerical();
@@ -473,8 +543,10 @@ classdef EvalReport < handle
                 self.harvest();
                 if ~failed && isstruct(self.document.scores) && isfield(self.document.scores, 'semantics') && ...
                         startsWith(self.document.scores.semantics, 'single_problem') && ...
-                        ~ismember(self.document.stages.persistence.status, {'failed','partial','not_requested'})
-                    self.setStage('persistence', 'not_applicable', 'single_problem_raw_archive_not_produced');
+                        ~ismember(self.document.stages.persistence.status, {'failed','partial'})
+                    % A direct problem never produces a reloadable archive,
+                    % whether or not score_only was requested (same as Python).
+                    self.setStage('persistence', 'not_applicable', 'single_problem_has_no_reload_archive');
                 end
                 if ~failed && strcmp(self.document.status, 'completed')
                     stages = fieldnames(self.document.stages);
@@ -485,6 +557,7 @@ classdef EvalReport < handle
                     end
                 end
                 self.document.timing.elapsed_seconds = toc(self.started);
+                self.document.timing.finished_at = optiprofiler_internal.EvalReport.timestamp();
                 self.write();
             catch write_error
                 if nargin < 2, rethrow(write_error); end
@@ -554,13 +627,21 @@ classdef EvalReport < handle
         end
 
         function index = problemIndex(self, id)
-            index = find(cellfun(@(value) strcmp(value.id, id), self.document.problems), 1);
+            index = [];
+            if isKey(self.problemPositions, id), index = self.problemPositions(id); end
         end
 
         function upsert(self, collection, item)
+            % Insert or replace by id; positions are tracked in a map so
+            % large whole-library reports do not rescan every record.
+            if strcmp(collection, 'plots'), positions = self.plotPositions; else, positions = self.historyPositions; end
             entries = self.plotDocument.(collection);
-            index = find(cellfun(@(entry) strcmp(entry.id, item.id), entries), 1);
-            if isempty(index), entries{end+1} = item; else, entries{index} = item; end
+            if isKey(positions, item.id)
+                entries{positions(item.id)} = item;
+            else
+                entries{end+1} = item;
+                positions(item.id) = numel(entries);
+            end
             self.plotDocument.(collection) = entries;
         end
 
@@ -593,31 +674,34 @@ classdef EvalReport < handle
             self.checkOwnership();
             self.checkPlotOwnership();
             self.publish(self.plotDocument, self.plotPath, true);
-            receipt_status = 'completed'; reason = optiprofiler_internal.EvalReport.null();
+            receipt = struct('schema', 'optiprofiler.plot_data/1', 'path', self.relative(self.plotPath));
             try
-                [bytes, hash] = optiprofiler_internal.EvalReport.digest(self.plotPath);
+                [receipt.bytes, receipt.sha256] = optiprofiler_internal.EvalReport.digest(self.plotPath);
+                receipt.status = 'completed';
             catch cause
                 if ~strcmp(cause.identifier,'OptiProfiler:EvalReportHash'), rethrow(cause); end
                 % Missing system hashing tools must not suppress numerical
                 % facts in -nojvm. This is explicitly NOT a verified pair;
                 % consumers must reject the missing hash as such.
-                bytes = optiprofiler_internal.EvalReport.null(); hash = bytes;
-                receipt_status = 'partial'; reason = 'companion_sha256_unavailable';
+                receipt.bytes = optiprofiler_internal.EvalReport.null(); receipt.sha256 = receipt.bytes;
+                receipt.status = 'partial'; receipt.reason = 'companion_sha256_unavailable';
                 if ~any(cellfun(@(d) strcmp(d.code,'companion_sha256_unavailable'),self.document.diagnostics))
-                    self.addDiagnostic('companion_sha256_unavailable','report');
+                    self.addDiagnostic('companion_sha256_unavailable','reporting');
                     warning('OptiProfiler:EvalReportHash', '%s', cause.message);
                 end
                 if strcmp(self.document.status,'completed'), self.document.status = 'partial'; end
             end
             self.checkPlotOwnership();
-            self.document.plot_data = struct('schema', 'optiprofiler.plot_data/1', ...
-                'path', self.relative(self.plotPath), 'bytes', bytes, 'sha256', hash, ...
-                'status', receipt_status, 'reason', reason, 'history_count', numel(self.plotDocument.histories), ...
-                'plot_count', numel(self.plotDocument.plots));
+            receipt.history_count = numel(self.plotDocument.histories);
+            receipt.plot_count = numel(self.plotDocument.plots);
+            self.document.plot_data = receipt;
+            self.document.report_files = struct('permission_policy', 'owner_read_write_only_best_effort', ...
+                'permissions_applied', self.permissionsApplied, ...
+                'platform_note', 'unix_chmod_600_after_each_publish;not_enforced_on_windows;directory_privacy_is_the_caller_responsibility');
             snapshot = self.document;
             if strcmp(snapshot.operation, 'load')
                 snapshot.coverage.load_failed = optiprofiler_internal.EvalReport.null();
-                snapshot.coverage.load_failed_reason = 'original_selection_failures_not_retained';
+                snapshot.coverage.reason = 'original_selection_and_load_failures_not_retained';
             end
             self.publish(snapshot, self.path, false);
         end
@@ -645,6 +729,30 @@ classdef EvalReport < handle
             self.replaceFile(stage, target);
             identity = optiprofiler_internal.EvalReport.fileIdentity(target);
             if is_plot, self.plotIdentity = identity; else, self.ownedIdentity = identity; end
+            self.restrictPermissions(target);
+        end
+
+        function restrictPermissions(self, target)
+            % Best effort owner-only mode, mirroring Python's 0600 files. The
+            % staging file inherits the umask, so restrict after every
+            % publish; a failure is recorded, never fatal for the numbers.
+            applied = optiprofiler_internal.EvalReport.null();
+            if isunix
+                applied = false;
+                try
+                    % chmod works identically with and without the JVM and on
+                    % macOS; the outcome is verified, never assumed.
+                    [status, ~] = system(['chmod 600 ', optiprofiler_internal.EvalReport.quote(target)]);
+                    [ok, info] = fileattrib(target);
+                    applied = status == 0 && ok && ~info.GroupRead && ~info.GroupWrite && ~info.OtherRead && ~info.OtherWrite;
+                catch
+                end
+            end
+            if isstruct(self.permissionsApplied) || isstruct(applied)
+                self.permissionsApplied = applied;
+            else
+                self.permissionsApplied = self.permissionsApplied && applied;
+            end
         end
 
         function checkOwnership(self)
@@ -664,6 +772,10 @@ classdef EvalReport < handle
     methods (Static, Access = private)
         function yes = isAbsolute(path)
             yes = startsWith(path, filesep) || ~isempty(regexp(path, '^[A-Za-z]:[\\/]', 'once')) || startsWith(path, '\\');
+        end
+
+        function text = timestamp()
+            text = char(datetime('now', 'TimeZone', 'UTC', 'Format', 'yyyy-MM-dd''T''HH:mm:ss.SSSSSS''+00:00'''));
         end
 
         function value = fileIdentity(path)
@@ -784,21 +896,37 @@ classdef EvalReport < handle
             text = ['''', strrep(value, '''', '''"''"'''), ''''];
         end
 
-        function value = metric(history, output, initial)
-            best = optiprofiler_internal.EvalReport.null();
-            best_index = optiprofiler_internal.EvalReport.null();
+        function value = metric(history, count, output, initial)
+            % Same record as Python eval_report._metric: absent
+            % availability_reason means every observation was available;
+            % absent first_invalid_evaluation_index means none was observed
+            % and invalid_evaluations is then the integer 0.
+            null = optiprofiler_internal.EvalReport.null();
+            value = struct('output', output, 'initial', initial, 'best', null, ...
+                'best_evaluation_index', null, 'invalid_evaluations', null);
+            if isstruct(count)
+                value.availability_reason = 'history_or_evaluation_count_unavailable';
+                return;
+            end
             if ~isempty(history)
-                best = min(history, [], 'omitnan');
-                if ~isnan(best), best_index = find(history == best, 1); end
+                value.best = min(history, [], 'omitnan');
+                if ~isnan(value.best), value.best_evaluation_index = find(history == value.best, 1); end
             end
             invalid_index = find(~isfinite(history), 1);
-            if isempty(invalid_index), invalid_index = optiprofiler_internal.EvalReport.null(); end
-            value = struct('output', output, 'initial', initial, 'best', best, ...
-                'best_evaluation_index', best_index, 'first_invalid_evaluation_index', invalid_index, ...
-                'invalid_evaluations', struct('nan', sum(isnan(history)), 'positive_infinity', sum(history == Inf), ...
-                    'negative_infinity', sum(history == -Inf), 'observed_evaluations', numel(history)), ...
-                'history_reason', optiprofiler_internal.EvalReport.null());
-            if isempty(history), value.history_reason = 'no_evaluations'; end
+            if isempty(invalid_index) && numel(history) == count
+                value.invalid_evaluations = 0;
+            else
+                value.invalid_evaluations = struct('nan', sum(isnan(history)), 'positive_infinity', sum(history == Inf), ...
+                    'negative_infinity', sum(history == -Inf), 'observed_evaluations', numel(history));
+            end
+            if ~isempty(invalid_index), value.first_invalid_evaluation_index = invalid_index; end
+            if numel(history) < count
+                value.availability_reason = 'history_shorter_than_evaluation_count';
+            elseif count == 0
+                value.availability_reason = 'no_evaluations';
+            elseif isstruct(output) || isstruct(initial)
+                value.availability_reason = 'output_or_initial_unavailable';
+            end
         end
 
         function value = binned(history, count, available)
@@ -806,7 +934,7 @@ classdef EvalReport < handle
                 'count', numel(history), 'total_evaluations', count, ...
                 'representation', 'exact_samples', 'values', {num2cell(history)}, 'bins', {{}});
             if ~available
-                value.status = 'unavailable'; value.reason = 'not_retained';
+                value.status = 'unavailable'; value.reason = 'history_or_evaluation_count_unavailable';
                 value.representation = optiprofiler_internal.EvalReport.null();
                 value.values = optiprofiler_internal.EvalReport.null(); return;
             end
@@ -817,6 +945,9 @@ classdef EvalReport < handle
             end
             if numel(history) <= 64, return; end
             value.representation = 'bin_extrema'; value.values = optiprofiler_internal.EvalReport.null();
+            % n_bins is always 32 here (numel > 64), so linspace steps are
+            % multiples of n/32, an exact binary fraction: floor() yields the
+            % same integer edges as Python's i*n//32 for every n.
             edges = floor(linspace(0, numel(history), min(32,numel(history))+1));
             for k = 1:numel(edges)-1
                 start = edges(k)+1; stop = edges(k+1); part = history(start:stop);

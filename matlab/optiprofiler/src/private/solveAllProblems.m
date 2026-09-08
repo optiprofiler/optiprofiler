@@ -54,7 +54,14 @@ function results = solveAllProblems(solvers, library, feature, problem_options, 
         throw(addCause(failure, cause));
     end
 
-    if ~isempty(eval_report), eval_report.selection(plib, problem_names, role); end
+    if ~isempty(eval_report)
+        % Provider identity without machine paths: registry metadata only.
+        provider = struct('name', plib, 'source', 'matlab_problem_library_registry');
+        for key = {'select_function', 'load_function', 'api_version'}
+            if isfield(library, key{1}), provider.(key{1}) = library.(key{1}); end
+        end
+        eval_report.selection(plib, problem_names, role, provider);
+    end
     if isempty(problem_names)
         if ~profile_options.(ProfileOptionKey.SILENT.value)
             fprintf('\n');
@@ -71,6 +78,7 @@ function results = solveAllProblems(solvers, library, feature, problem_options, 
     profile_options_log.solver_log_names = getSolverLogNames(profile_options.(ProfileOptionKey.SOLVER_NAMES.value), len_problem_names);
     max_eval_factor = profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value);
     tmp_results = cell(1, n_problems);
+    load_failure_ids = cell(1, n_problems);
     capture_presentation = ~isempty(eval_report);
     if ~profile_options.(ProfileOptionKey.SILENT.value)
         fprintf('\n');
@@ -88,6 +96,7 @@ function results = solveAllProblems(solvers, library, feature, problem_options, 
     if seqential_mode
         for i_problem = 1:n_problems
             problem_name = problem_names{i_problem};
+            load_failure_ids{i_problem} = '';
             % Load the problem.
             try
                 if ~profile_options.(ProfileOptionKey.SILENT.value)
@@ -95,13 +104,16 @@ function results = solveAllProblems(solvers, library, feature, problem_options, 
                     printOptiProfilerMessage('INFO', sprintf(loading_info, problem_name, plib));
                 end
                 problem = load(problem_name);
-            catch
+            catch load_error
                 if ~profile_options.(ProfileOptionKey.SILENT.value)
                     fprintf('\n');
                     fail_load_info = sprintf('Failed to load    %%-%ds from \"%%s\".', len_problem_names);
                     printOptiProfilerMessage('INFO', sprintf(fail_load_info, problem_name, plib));
                 end
                 tmp_results{i_problem} = struct();
+                % Bookkeeping only (report diagnostics); the legacy empty
+                % struct sentinel and control flow are unchanged.
+                load_failure_ids{i_problem} = loadFailureIdentifier(load_error);
                 continue;
             end
             result = solveOneProblem(solvers, problem, feature, problem_name, len_problem_names, profile_options_log, is_plot, path_hist_plots, capture_presentation);
@@ -110,6 +122,7 @@ function results = solveAllProblems(solvers, library, feature, problem_options, 
     else
         parfor (i_problem = 1:n_problems, profile_options.(ProfileOptionKey.N_JOBS.value))
             problem_name = problem_names{i_problem};
+            load_failure_ids{i_problem} = '';
             % Load the problem.
             try
                 if ~profile_options.(ProfileOptionKey.SILENT.value)
@@ -117,13 +130,16 @@ function results = solveAllProblems(solvers, library, feature, problem_options, 
                     printOptiProfilerMessage('INFO', sprintf(loading_info, problem_name, plib));
                 end
                 problem = load(problem_name);
-            catch
+            catch load_error
                 if ~profile_options.(ProfileOptionKey.SILENT.value)
                     fprintf('\n');
                     fail_load_info = sprintf('Failed to load    %%-%ds from \"%%s\".', len_problem_names);
                     printOptiProfilerMessage('INFO', sprintf(fail_load_info, problem_name, plib));
                 end
                 tmp_results{i_problem} = struct();
+                % Bookkeeping only (report diagnostics); the legacy empty
+                % struct sentinel and control flow are unchanged.
+                load_failure_ids{i_problem} = loadFailureIdentifier(load_error);
                 continue;
             end
             result = solveOneProblem(solvers, problem, feature, problem_name, len_problem_names, profile_options_log, is_plot, path_hist_plots, capture_presentation);
@@ -136,7 +152,7 @@ function results = solveAllProblems(solvers, library, feature, problem_options, 
     if ~isempty(eval_report)
         for i_problem = 1:numel(tmp_results)
             if isempty(fieldnames(tmp_results{i_problem}))
-                eval_report.loadFailed(plib, problem_names{i_problem}, role);
+                eval_report.loadFailed(plib, problem_names{i_problem}, role, load_failure_ids{i_problem});
             else
                 eval_report.addProblem(tmp_results{i_problem}, plib, role);
             end
@@ -249,4 +265,9 @@ function results = solveAllProblems(solvers, library, feature, problem_options, 
     results.solvers_successes = solvers_successes;
     results.solver_abnormal_terminations = solver_abnormal_terminations;
     results.solver_output_fallbacks = solver_output_fallbacks;
+end
+
+function identifier = loadFailureIdentifier(load_error)
+    identifier = load_error.identifier;
+    if isempty(identifier), identifier = 'unidentified_load_error'; end
 end

@@ -74,21 +74,24 @@ def draw_profiles(work, problem_dimensions, solver_names, tolerance_latex, i_tol
     if _plot_sink is not None:
         # Observe the exact arrays already used below, including full bands
         # and the zero/failure bars absent from the scoring-curve subsets.
+        # Field names and x_transform labels are shared with MATLAB
+        # drawProfiles.m/profilePresentation and pinned by plot_data.schema.json.
+        semilogx = profile_options[ProfileOption.SEMILOGX]
         _plot_sink('performance', {
             'series': prepare_profile_plot_data(x_perf, y_perf, profile_options),
-            'ratio_max': ratio_max_perf,
-            'x_limits': [0.0 if profile_options[ProfileOption.SEMILOGX] else 1.0,
+            'ratio_max': ratio_max_perf, 'failure_placeholder': 1.1 * ratio_max_perf,
+            'n_runs': int(y_perf.shape[2]),
+            'x_limits': [0.0 if semilogx else 1.0,
                          1.1 * (ratio_max_perf if np.isfinite(ratio_max_perf) else np.finfo(float).eps)],
             'y_limits': [0.0, 1.0],
-            'nonhit_display_policy': 'unreached_work_at_extended_axis_endpoint;not_counted_as_target_hit',
-            'x_transform': 'log2(work/best_work)' if profile_options[ProfileOption.SEMILOGX] else 'work/best_work'})
+            'x_transform': 'log2(work/best_work)' if semilogx else 'work/best_work'})
         _plot_sink('data', {
             'series': prepare_profile_plot_data(x_data, y_data, profile_options),
-            'ratio_max': ratio_max_data,
+            'ratio_max': ratio_max_data, 'failure_placeholder': 1.1 * ratio_max_data,
+            'n_runs': int(y_data.shape[2]),
             'x_limits': [0.0, 1.1 * (ratio_max_data if np.isfinite(ratio_max_data) else np.finfo(float).eps)],
             'y_limits': [0.0, 1.0],
-            'nonhit_display_policy': 'unreached_work_at_extended_axis_endpoint;not_counted_as_target_hit',
-            'x_transform': 'log2(1+work/(dimension+1))' if profile_options[ProfileOption.SEMILOGX] else 'work/(dimension+1)'})
+            'x_transform': 'log2(1+work/(dimension+1))' if semilogx else 'work/(dimension+1)'})
         if n_solvers == 2:
             _plot_sink('log_ratio', prepare_log_ratio_plot_data(
                 x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail))
@@ -213,7 +216,7 @@ def prepare_profile_plot_data(x, y, profile_options):
              'lower': np.repeat(y_lower[:, i], 2)[:-1],
              'upper': np.repeat(y_upper[:, i], 2)[:-1],
              'band_visible': y.shape[2] > 1,
-             'geometry': 'step_vertices'} for i in range(n_solvers)]
+             'geometry': 'step'} for i in range(n_solvers)]
 
 
 def _draw_performance_data_profiles(ax, x, y, solver_names, profile_options):
@@ -273,18 +276,22 @@ def prepare_log_ratio_plot_data(x, y, ratio_max, n_solvers_equal):
     if n_above > 0:
         groups.append({'start_index': len(x) - int(n_solvers_equal) - n_above + 1,
                        'end_index': len(x) - int(n_solvers_equal), 'solver_index': 2, 'opacity': 1.0})
+    # Shared log-ratio record vocabulary (MATLAB drawProfiles.m emits the same
+    # keys). MATLAB retains bar identity (problem_mapping='bar_sources');
+    # this renderer sorts anonymously, so problem_mapping is null with a
+    # reason rather than an identity guessed from sorted values.
     return {'series': [{'geometry': 'bar', 'x': x, 'y': y,
                         'visible': y != 0, 'opacity': opacity,
                         'solver_index_by_sign': {'negative': 1, 'positive': 2}}],
             'bar_groups': groups,
-            'ratio_max': ratio_max, 'x_transform': 'sorted_anonymous_bar_position',
+            'ratio_max': ratio_max, 'x_transform': 'sorted_bar_position',
             'x_limits': [0.5, len(x) + 0.5],
             'y_limits': [-1.1 * ratio_max, 1.1 * ratio_max],
             'y_transform': 'log2(work_solver_1/work_solver_2)',
             'problem_mapping': None, 'problem_mapping_reason': 'legacy_bar_sort_does_not_retain_identity',
             'both_failed_pairs': int(n_solvers_equal),
             'tie_pairs': int(np.count_nonzero(y == 0)),
-            'failure_placeholder': 'single_failure_at_signed_1.1*ratio_max;both_failures_at_both_extremes_with_half_opacity'}
+            'failure_placeholder': 1.1 * ratio_max}
 
 def _draw_log_ratio_profiles(ax, x, y, ratio_max, n_solvers_equal, solver_names, profile_options):
     profile_context = set_profile_context(profile_options)
@@ -1004,14 +1011,23 @@ def prepare_history_panels(histories, initials, ptype, problem_n, n_eval, profil
                        'geometry': 'point' if len(indices[solver]) == 1 else 'line',
                        'band_visible': shown.shape[1] > 1 and len(indices[solver]) > 1}
                       for solver in range(shown.shape[0])]
+            # Same panel vocabulary as MATLAB prepareEvalReportHistory.m.
+            # Block aggregation is keyed on the PADDED history length
+            # (max_eval = ceil(max_eval_factor*dimension)): above 1002 the
+            # renderer keeps about 1000 interior points, so an array position
+            # in these series is not an evaluation number; readers must use
+            # evaluation_indices.
             panels.append({'kind': 'history', 'channel': channel, 'mode': mode,
-                           'series': series, 'x_transform': 'evaluation/(dimension+1)',
+                           'series': series, 'x_transform': 'evaluation_index/(dimension+1)',
                            'y_scale': 'log' if any(np.any(m) and np.any(np.diff(m)) for m in means) else 'linear',
-                           'y_shift': shift, 'display_clip': _HISTORY_DISPLAY_LIMIT,
+                           'y_shift': shift, 'display_limit': _HISTORY_DISPLAY_LIMIT,
                            'display_note': note or None,
                            'nonfinite_policy': 'per_run_above_finite_range_with_initial_fallback',
                            'aggregation': profile_options[ProfileOption.HIST_AGGREGATION],
-                           'errorbar_type': profile_options[ProfileOption.ERRORBAR_TYPE], 'std_ddof': 0})
+                           'aggregation_trigger': 'padded_history_length_above_1002',
+                           'padded_length': int(shown.shape[2]),
+                           'errorbar_type': profile_options[ProfileOption.ERRORBAR_TYPE],
+                           'n_runs': int(shown.shape[1]), 'std_ddof': 0})
     return panels
 
 

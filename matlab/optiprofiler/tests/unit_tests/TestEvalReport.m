@@ -26,6 +26,7 @@ classdef TestEvalReport < matlab.unittest.TestCase
         function coverageAndNoOverwrite(testCase), testCase.runCase('coverage'); end
         function nonfiniteAndScoringFailure(testCase), testCase.runCase('semantics'); end
         function compactExactExtremaAndCompanion(testCase), testCase.runCase('compact'); end
+        function paddedLengthAggregationBoundary(testCase), testCase.runCase('aggregation'); end
         function statefulRendererMeritObserved(testCase), testCase.runCase('stateful_render'); end
         function renderingFailureSeparate(testCase), testCase.runCase('render'); end
         function archiveProvenanceAndArtifacts(testCase), testCase.runCase('archive'); end

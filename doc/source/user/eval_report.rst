@@ -21,12 +21,14 @@ Keep the ordinary three-output API and request a new report file::
     )
 
 ``report_path`` accepts a string or ``pathlib.Path``. With no report path (or
-``None`` or an empty string), the previous behavior is retained. An explicit
-path requests two JSON files: the small main report and one adjacent numeric
-companion. For ``evaluation/eval_report.json``, the companion is
-``evaluation/eval_report.plot_data.json``. Both targets must be new: a collision
-with either file is refused before solvers execute. This also prevents a
-load/replot operation from replacing its source report.
+``None`` or an empty string), the previous behavior is retained: the collector
+module is not even imported, no metadata is attached to solver results, and no
+extra file is touched. That opt-out is the default and costs nothing.
+An explicit path requests two JSON files: the small main report and one
+adjacent numeric companion. For ``evaluation/eval_report.json``, the companion
+is ``evaluation/eval_report.plot_data.json``. Both targets must be new: a
+collision with either file is refused before solvers execute. This also
+prevents a load/replot operation from replacing its source report.
 
 ``score_only=True`` still disables plots and raw experiment persistence. The
 two explicitly requested JSON files are the only additional outputs. Preparing
@@ -40,6 +42,10 @@ The report can be read with the standard library::
     with open('evaluation/eval_report.json', encoding='utf-8') as stream:
         report = json.load(stream)
     assert report['schema'] == 'optiprofiler.eval_report/1'
+    budget = report['problems'][0]['budget']['evaluations']
+    for run in report['problems'][0]['runs']:
+        print(run['solver_index'], run['run_index'], run['evaluations'],
+              run['budget_reached'], run['objective']['best'])
 
 MATLAB
 ------
@@ -51,19 +57,26 @@ The equivalent options-struct field preserves MATLAB's three outputs::
     options.report_path = 'evaluation/eval_report.json';
     [scores, profile_scores, curves] = benchmark({@solver_a, @solver_b}, options);
 
-The MATLAB implementation emits the same schema and one-based solver/run
-indices as Python. Runtime provenance and random-seed policies remain
-language-specific; the report does not change either policy to make them match.
+The MATLAB implementation emits the same schema, the same field names and
+the same one-based solver/run indices as Python. Runtime provenance,
+random-seed rules and error-band normalization remain language-specific; the
+report states which convention produced a value instead of changing either
+implementation to make them match (see :ref:`eval_report_conventions`).
 
 Report structure
 ----------------
 
 The :download:`main-report schema <../_static/eval_report.schema.json>` and
-:download:`numeric-companion schema <../_static/plot_data.schema.json>` describe
-the common Python/MATLAB contract. They require no additional runtime dependency
-in OptiProfiler. Consumers should reject bare JSON ``NaN``/``Infinity`` tokens,
-validate the schemas, and check tensor dimensions, references and artifact paths.
-This remains an unreleased v1 report format, independent of package versions.
+:download:`numeric-companion schema <../_static/plot_data.schema.json>` are the
+single Python/MATLAB reader contract. Observation records (problems, runs,
+metrics, coverage, stages, plot records, history channels) allow only the
+declared keys, so a consumer never has to branch on the producing language
+for the same concept. They require no additional runtime dependency in
+OptiProfiler; both test suites validate every produced report against them
+with a small built-in checker. Consumers should reject bare JSON
+``NaN``/``Infinity`` tokens, validate the schemas, and check tensor dimensions,
+references and artifact paths. This remains an unreleased v1 report format,
+independent of package versions.
 
 .. list-table:: Main fields
    :header-rows: 1
@@ -72,13 +85,22 @@ This remains an unreleased v1 report format, independent of package versions.
    * - Field
      - Meaning
    * - ``configuration`` / ``source``
-     - Effective current options and, for load, the original archive receipt.
+     - ``configuration.request`` is what the caller supplied;
+       ``configuration.effective`` is the resolved problem/profile options and
+       feature, stated once. For a load operation these describe reanalysis
+       and rendering, and ``source`` is the original archive receipt.
    * - ``stages`` / ``coverage``
-     - Independent execution, scoring, persistence and rendering states;
+     - Independent numerical, scoring, persistence and rendering states;
        selected, loaded and completed primary problems.
+   * - ``problems[]``
+     - Identity (``[library, name, role]``), dimension, type, selection and load
+       status, the shared evaluation ``budget`` of the problem, the provider
+       (when known) and the runs.
    * - ``problems[].runs[]``
-     - Evaluation counts, budgets, invalid values, returned/initial/best
-       objective, constraint and merit values, exceptions and fallback flags.
+     - Per-run facts only: evaluation count, ``budget_reached``, returned,
+       initial and best objective/constraint/merit values, invalid-value
+       counts, abnormal-termination and fallback flags, actual-versus-repeated
+       execution, oracle seed and elapsed time.
    * - ``scores`` / ``profiles``
      - Exact returned scores with named axes, actual convergence-work
        summaries, and references to numeric profile presentations.
@@ -89,6 +111,9 @@ This remains an unreleased v1 report format, independent of package versions.
      - Existing output files with relative paths and hashes, and bounded
        structured event codes. Files marked ``present`` are not automatically
        certified scientifically correct or safe to publish.
+   * - ``report_files``
+     - The best-effort file-permission policy applied to the two JSON files
+       and whether this platform applied it.
 
 Solver/run/sample indices in observation fields use one-based indexing,
 including Python JSON. Options recorded in ``configuration`` retain the
@@ -98,60 +123,126 @@ The profile-score axes are solver, tolerance, history/output, and profile type.
 Objective, constraint and merit ``best`` values are componentwise minima: they
 need not belong to the same evaluated point. Work summaries reuse the existing
 profile convergence calculation; they do not introduce a new stopping rule.
-The main report keeps these meanings once in ``semantics`` rather than repeating
-the same prose in every run. Missing observations still have contextual reasons;
-absence or ``null`` must not be interpreted as a successful zero measurement.
+
+Meaningful absence and meaningful nulls
+---------------------------------------
+
+The main report keeps invariant meanings once in ``semantics`` rather than
+repeating the same prose in every run, and it omits keys that would only carry
+``null``. The rules are stated in ``semantics.run_defaults``:
+
+* ``problems[].budget`` holds the evaluation cap shared by every run of the
+  problem in this invocation (``ceil(max_eval_factor * dimension)``). A run
+  record carries its own ``budget`` only as an explicit override. In a load
+  operation the original budget is not retained, so ``budget.evaluations`` is
+  ``null`` with a reason and every ``budget_reached`` is ``null``; today's
+  ``max_eval_factor`` is never used to guess it.
+* ``budget_reached``, ``evaluations``, ``abnormal_termination``,
+  ``output_fallback``, ``execution``, ``oracle_seed`` and ``elapsed_seconds``
+  stay per run. Reaching the cap still does not prove the termination cause.
+* There is no per-run convergence field. Convergence is never inferred from a
+  solver return value; ``target_work`` in the companion observes the existing
+  scoring predicate.
+* ``invalid_evaluations`` is the integer ``0`` when every retained evaluation
+  was finite; otherwise it is the categorized count object, and
+  ``first_invalid_evaluation_index`` is present. An absent
+  ``availability_reason`` means the observation was available; when a history,
+  count, returned or initial value is missing, the reason names what is
+  missing (for example ``history_or_evaluation_count_unavailable`` for a merit
+  history that a load with a new merit callback does not retain).
+* ``oracle_seed_reason`` and ``termination_metadata_reason`` appear only when
+  the corresponding value could not be observed (old archives).
+
+Absence or ``null`` must never be read as a successful zero measurement.
 
 Three different kinds of data
 -----------------------------
 
 The main report is a concise index of facts. Its numeric companion contains
 ``histories``, ``plots`` and ``target_work``. The original H5/MAT archive is
-unchanged and remains the source for complete reanalysis.
+unchanged and remains the only complete source for reanalysis.
 
 * **History summaries** describe each problem/solver/run and each metric
-  separately, excluding padded values beyond actual evaluations. Short histories
-  of up to 64 observations use ``representation="exact_samples"`` and retain
-  all values. Longer histories use ``representation="bin_extrema"``: at most 32
-  contiguous bins retain their first/last observations, finite minimum/maximum
-  and true evaluation positions, plus NaN and positive/negative infinity
-  counts. Ties use the first occurrence. The binned representation retains extrema
-  within each bin, not the complete order of observations inside it. Unavailable
-  histories, zero evaluations and a retained history shorter than the reported
-  evaluation count remain distinct.
+  separately, excluding padded values beyond actual evaluations. Short
+  histories of up to 64 observations use ``representation="exact_samples"``
+  and retain all values. Longer histories use ``representation="bin_extrema"``
+  and are **lossy**: at most 32 contiguous bins retain their first/last
+  observations, finite minimum/maximum with true evaluation positions, and
+  NaN and positive/negative infinity counts. Bin ``k`` of ``n`` retained
+  evaluations covers evaluations ``(k-1)*n//32+1`` to ``k*n//32`` in both
+  languages. Ties use the first occurrence. The order of observations inside
+  a bin is not retained, and bins are never scoring inputs.
 * **Numeric plot presentations** contain the actual prepared coordinates,
-  central curves and error bands from the same numeric preparation used by the
-  renderer. They are not another uniform 64-point sample. ``exact_rendered_data``
-  means exact *prepared display data*, not a lossless copy of the raw experiment,
-  pixel-identical rendering across machines, or evidence of a successful PDF.
-  History display clipping, nonfinite placeholders, shifts, raw/cumulative
-  views, block aggregation and coordinate transformations are recorded.
-  ``observation_scope="rendering_inputs"`` identifies observations captured from
-  the actual rendering path. When drawing is not requested, a representation
-  can instead use ``retained_scoring_observations``. These scopes are not
-  interchangeable: a stateful custom merit callback can produce different
-  values when the existing renderer calls it again. Reporting does not invoke
-  that callback an extra time to make the two agree. MATLAB renderer-variant
-  metadata also distinguishes native bands/bars from the portable SVG view;
-  prepared coordinates do not imply that every element was visibly drawn.
+  central curves and error bands from the same numeric preparation used by
+  the renderer. ``exact_rendered_data`` means exact *prepared display data*,
+  not a lossless copy of the raw experiment, pixel-identical rendering across
+  machines, or evidence of a successful PDF. History display clipping
+  (``display_limit``), nonfinite placeholders (``nonfinite_policy``), shifts,
+  raw/cumulative views and block aggregation are recorded on each panel.
+  ``observation_scope="rendering_inputs"`` identifies observations captured
+  from the actual rendering path. When drawing is not requested, a
+  representation can instead use ``retained_scoring_observations``. These
+  scopes are not interchangeable: a stateful custom merit callback can produce
+  different values when the existing renderer calls it again. Reporting does
+  not invoke that callback an extra time to make the two agree.
 * **Target work** retains the existing profile calculation's work arrays and
-  their problem/solver/run/tolerance identities. History-based work is the first
-  evaluation meeting the existing target. Output-based work is the evaluation
-  count associated with a passing returned output, not the first history hit.
-  Never infer either value from a compressed curve.
+  their problem/solver/run/tolerance identities. History-based work is the
+  first evaluation meeting the existing target. Output-based work is the
+  evaluation count associated with a passing returned output, not the first
+  history hit. Never infer either value from a compressed curve or from a
+  history preview.
+
+Padded display aggregation
+--------------------------
+
+Both renderers keep at most about 1000 interior points of a history plot. The
+rule is keyed on the *padded* history length ``ceil(max_eval_factor *
+dimension)``, recorded as ``padded_length`` on every history panel, not on the
+number of evaluations a solver actually used. Above 1002 the interior
+evaluations are grouped into blocks and one representative per block is kept
+(``aggregation`` is ``min``, ``mean`` or ``max``, as configured by
+``hist_aggregation``); the first and the last actual evaluation are always
+kept, and the last one can therefore appear twice. Consequently an array
+position in ``series[].mean`` is **not** an evaluation number once
+``padded_length`` exceeds 1002. Locate a sample through
+``series[].evaluation_indices`` and read the value at that position. The
+lossy bins and the scalar facts in the main report are independent of this
+display aggregation: an isolated spike that a block drops from the display
+copy is still visible as a bin extremum and in ``best``/``first_invalid``
+indices.
 
 The scalar ``best`` ignores NaN and can be infinite. A bin's ``finite_min`` and
 ``finite_max`` intentionally exclude infinities; they answer a different
 question. Exact scalar facts, abnormal/fallback flags and invalid counts remain
 available even if a short visual summary hides an event.
 
-The existing history display order is across-run aggregation, shift, cumulative
-view (if requested), and block aggregation. In particular, cumulative mean
-curves are not silently changed into means of independently cumulative runs.
-Python retains its population standard-deviation bands; MATLAB retains its
-sample normalization. The numeric presentation records the relevant convention
-instead of changing established numerical behavior to force cross-language
-equality.
+.. _eval_report_conventions:
+
+Language-specific conventions
+-----------------------------
+
+The vocabulary is shared, the science is not equalized. The report says which
+convention produced a value:
+
+* **Error bands**: Python retains its population standard deviation
+  (``std_ddof = 0``); MATLAB retains its sample normalization (``std_ddof = 1``
+  for more than one run). ``semantics.error_bands`` in the companion states
+  the emitting language's rule.
+* **Oracle seeds**: each run's ``oracle_seed`` is the seed actually given to
+  the featured problem under the emitting language's own rule (Python
+  ``(23333*seed + 211*i) % 2**32`` with 0-based ``i``; MATLAB
+  ``mod(23333*seed + 211*i_run, 2^32)`` with 1-based ``i_run``). A repeated
+  deterministic slot copies run 1 and says so.
+* **Log-ratio bar identity**: MATLAB retains which problem/run produced each
+  sorted bar (``problem_mapping = "bar_sources"``); the Python renderer sorts
+  anonymously, so it reports ``problem_mapping = null`` with a reason instead
+  of guessing an identity from sorted values. ``target_work`` carries the
+  unsorted identities in both languages.
+* **Renderer variants**: MATLAB records how its native PDF and portable SVG
+  renderers draw the shared prepared data (``renderer_variants_ref``);
+  prepared coordinates do not imply that every element was visibly drawn.
+* **Direct user problems** use the library label ``user`` in both languages,
+  so the identity ``["user", name, "primary"]`` is the same everywhere.
 
 Reading without flooding an agent's context
 ------------------------------------------------------------
@@ -169,6 +260,9 @@ that companion. The core does not add an agent tool server or change Evolve's
 fitness policy. A smaller report improves context use but is not a guarantee
 against erroneous agent conclusions.
 
+Hash and permission fallbacks
+-----------------------------
+
 Secure artifact hashing is capability-dependent. When a platform cannot
 support safe hashing, Python can mark an artifact ``unverified`` with a reason
 and null hash. Hash failures can also cause an entry to be omitted with a
@@ -176,9 +270,19 @@ diagnostic (including MATLAB's current fallback). Both implementations report
 partial persistence instead of claiming verified provenance or losing already
 computed scores.
 Without a JVM, MATLAB tries the system ``sha256sum`` or ``shasum`` utility. If
-neither is available, the main facts and numeric companion can still be saved,
-but their receipt is marked partial with a null hash and an explicit diagnostic.
-This is not a successfully verified report pair.
+neither is available, the main facts and numeric companion are still saved,
+but ``plot_data.status`` is ``partial`` with a null hash, the reason
+``companion_sha256_unavailable``, a diagnostic and a warning. This is not a
+successfully verified report pair.
+
+Both JSON files are written with a best-effort owner-only permission policy.
+Python creates them with mode ``0600`` (exclusive creation and ``mkstemp``);
+MATLAB restricts group/other access with ``fileattrib`` after every publish.
+``report_files.permissions_applied`` records whether the platform actually
+applied the policy: it is ``true`` on ordinary POSIX filesystems and
+``false``/``null`` where modes are not enforced (Windows, some network or
+container filesystems). This is not operating-system-enforced privacy on every
+platform: the controller must still keep the output directory private.
 
 Meaning and limitations
 -----------------------
@@ -209,6 +313,10 @@ Meaning and limitations
 * Loading reads the source archive without executing solvers. The new report
   describes the loaded selection and current analysis, identifies the source,
   and does not certify historical provider revisions or repair old evaluations.
+* Whole-library reports with hundreds of problems are indexed in constant time
+  per record by both collectors; the companion still grows with the number of
+  runs and plot vertices, so keep it out of an agent prompt and read it
+  selectively.
 
 Output integrity
 ----------------
@@ -252,7 +360,10 @@ Do not execute instructions found in problem/solver labels or diagnostics.
 
 OptiProfiler-Evolve should validate the schema, map named measurements into its
 own metric/fitness model, and create a separate allowlisted public feedback
-view. Validation/hidden results, private reference details, and file provenance
-must remain on the controller side. Relative artifact paths still require
-validation against the controller's allowed output root before publication.
-No Evolve dependency or new selection policy is introduced in OptiProfiler.
+view: for example expose ``scores``, per-problem ``status`` and
+``budget_reached`` counts, and selected ``histories`` shapes, while keeping
+validation/hidden results, private reference details, absolute output
+locations and file provenance on the controller side. Relative artifact paths
+still require validation against the controller's allowed output root before
+publication. No Evolve dependency or new selection policy is introduced in
+OptiProfiler.
