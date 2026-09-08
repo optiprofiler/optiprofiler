@@ -1,4 +1,4 @@
-function [results_plibs, profile_options, problem_options] = loadResults(problem_options, profile_options)
+function [results_plibs, profile_options, problem_options] = loadResults(problem_options, profile_options, eval_report)
 %LOADRESULTS loads the results by the given options.
 %   The returned `problem_options` is the input with every problem-selection
 %   field the user did not supply backfilled from the saved (and, when explicit
@@ -6,6 +6,7 @@ function [results_plibs, profile_options, problem_options] = loadResults(problem
 %   libraries, so that the new experiment stamp describes the loaded subset.
 
     results_plibs = {};
+    if nargin < 3, eval_report = []; end
     if ~isfield(profile_options, ProfileOptionKey.LOAD.value) || isempty(profile_options.(ProfileOptionKey.LOAD.value))
         return;
     end
@@ -56,6 +57,7 @@ function [results_plibs, profile_options, problem_options] = loadResults(problem
     path_data = selected.folder;
     time_stamp = selected.name(12:end-4);
     path_experiment = fileparts(path_data);
+    if ~isempty(eval_report), eval_report.setSource(fullfile(path_data, 'data_for_loading.mat')); end
 
     % Load data from the 'data_for_loading.mat' file in the path_data directory.
     % Loading can throw (for example a damaged MAT file). Restore the caller's
@@ -124,7 +126,12 @@ function [results_plibs, profile_options, problem_options] = loadResults(problem
     end
 
     % Recompute merit values if profile_options.merit_fun is provided.
+    if ~isempty(eval_report)
+        eval_report.addResults(results_plibs);
+        eval_report.completeNumerical();
+    end
     if isfield(profile_options, ProfileOptionKey.MERIT_FUN.value)
+        if ~isempty(eval_report), eval_report.setStage('scoring', 'running'); end
         merit_fun = profile_options.(ProfileOptionKey.MERIT_FUN.value);
         for i_plib = 1:size(results_plibs, 2)
             results_plib = results_plibs{i_plib};

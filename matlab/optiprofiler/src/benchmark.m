@@ -161,6 +161,13 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         Saving without the Java Virtual Machine (JVM) is supported on
 %         macOS/Linux. If native figures are unavailable, SVG charts and an
 %         HTML summary replace PDF/FIG output. Windows saving requires the JVM.
+%       - report_path: optional char/string path for an EvalReport v1 JSON.
+%         Also writes <report-stem>.plot_data.json next to the main report.
+%         Empty means no report. Neither target is ever overwritten by a new
+%         invocation. Reporting in score_only prepares numeric plot data but
+%         does not enable figures or raw-data saving. The main report hashes
+%         its companion; without JVM, SHA256 uses sha256sum or shasum. If no
+%         hash tool is available, the pair is marked partial (unverified).
 %       - score_fun: the scoring function to calculate the scores of the
 %         solvers. It should be a function handle as follows:
 %               ``profile_scores -> solver_scores``,
@@ -496,6 +503,34 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %
 %   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+    % The collector is controller-private: no report path reaches a solver or
+    % parallel worker, and the established three outputs remain unchanged.
+    eval_report = [];
+    option_index = 0;
+    if nargin == 1 && isstruct(varargin{1}), option_index = 1; end
+    if nargin == 2 && isstruct(varargin{2}), option_index = 2; end
+    if option_index > 0 && isfield(varargin{option_index}, 'report_path')
+        report_path = varargin{option_index}.report_path;
+        varargin{option_index} = rmfield(varargin{option_index}, 'report_path');
+        if ~isempty(report_path) && ~(isstring(report_path) && isscalar(report_path) && strlength(report_path) == 0)
+            eval_report = optiprofiler_internal.EvalReport(report_path, varargin{option_index}, @atomicReplaceFile);
+        end
+    end
+    try
+        [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, varargin{:});
+    catch cause
+        try
+            if ~isempty(eval_report), eval_report.finish(cause); end
+        catch
+            % Even warning-as-error settings cannot mask the original cause.
+        end
+        rethrow(cause);
+    end
+    if ~isempty(eval_report), eval_report.finish(); end
+end
+
+function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, varargin)
+    n_inputs = numel(varargin);
     % Apply self-restoring workarounds for known MATLAB bugs (no-op on
     % unaffected environments). The guard MUST be a local variable so
     % that its onCleanup destructor fires when this function returns.
@@ -505,9 +540,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Process the input arguments. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    if nargin == 0
+    if n_inputs == 0
         error("MATLAB:benchmark:solverMustBeProvided", "At least a cell of function handles (callable solvers) or a struct of options must be provided to `benchmark`.");
-    elseif nargin == 1
+    elseif n_inputs == 1
         if isstruct(varargin{1})
             % When input contains one argument and the first argument is a struct, we assume the
             % user chooses benchmark(options).
@@ -531,7 +566,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             feature_name = 'plain';
             options = struct();
         end
-    elseif nargin == 2
+    elseif n_inputs == 2
         if isstruct(varargin{2})
             % When input contains two arguments and the second argument is a struct, we assume the
             % user chooses benchmark(solvers, options).
@@ -641,7 +676,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     %%%%%%%%%%%%%%%%%%%%%%% Process the 'load' option if it is provided. %%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    [results_plibs, profile_options, problem_options] = loadResults(problem_options, profile_options);
+    [results_plibs, profile_options, problem_options] = loadResults(problem_options, profile_options, eval_report);
     if is_load
         for i_plib = 1:numel(results_plibs)
             results_plibs{i_plib} = maskInvalidMerits(results_plibs{i_plib});
@@ -685,6 +720,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     % Set default values for the unspecified options.
     problem_options = getDefaultProblemOptions(problem_options);
     profile_options = getDefaultProfileOptions(solvers, feature, profile_options);
+    if ~isempty(eval_report), eval_report.configure(problem_options, profile_options, feature, @prepareEvalReportHistory); end
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Initialize output variables. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -749,6 +785,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     end
 
     path_stamp = fullfile(path_out, stamp);
+    if ~isempty(eval_report) && ~profile_options.score_only, eval_report.setOutputDirectory(path_stamp); end
     path_log = fullfile(path_stamp, 'test_log');
     path_report = fullfile(path_log, 'report.txt');
 
@@ -834,7 +871,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
         % We try to copy the script or function that calls the benchmark function to the log directory.
         try
-            calling_script = dbstack(1, '-completenames');
+            % Skip benchmarkImpl and the public wrapper, retaining the same
+            % immediate caller as before reporting was introduced.
+            calling_script = dbstack(2, '-completenames');
             if ~isempty(calling_script)
                 % Preserve the immediate caller, not every ancestor in the stack.
                 calling_script = calling_script(1);
@@ -914,7 +953,12 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         if ~profile_options.(ProfileOptionKey.SILENT.value)
             printSolverLogAliases(solver_names, profile_options_problem.solver_log_names);
         end
-        result = solveOneProblem(solvers, problem, feature, problem.name, length(problem.name), profile_options_problem, true, path_hist_plots);
+        result = solveOneProblem(solvers, problem, feature, problem.name, length(problem.name), profile_options_problem, true, path_hist_plots, ~isempty(eval_report));
+        if ~isempty(eval_report)
+            eval_report.addProblem(result, 'single', 'primary');
+            eval_report.completeNumerical();
+            eval_report.setStage('scoring', 'running');
+        end
         if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
             % We move the history plots to the feature directory.
             try
@@ -953,6 +997,13 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             end
             % We set the score of a solver to be the mean score over all runs.
             solver_scores = mean(solver_scores_runs, 2);
+            if ~isempty(eval_report)
+                result.merit_history = merit_history;
+                result.merit_inits = merit_inits;
+                eval_report.addProblem(result, 'single', 'primary');
+                eval_report.setStage('numerical', 'completed');
+                eval_report.setProfiles(curves, solver_scores, profile_scores, solver_names, true);
+            end
         else
             solver_scores = zeros(n_solvers, 1);
         end
@@ -1039,7 +1090,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 
             % Solve all the problems from the current problem library with the specified options and
             % get the computation results.
-            results_plib = solveAllProblems(solvers, library, feature, problem_options, profile_options, true, path_hist_plots_plib);
+            results_plib = solveAllProblems(solvers, library, feature, problem_options, profile_options, true, path_hist_plots_plib, eval_report);
 
             % If there are no problems selected or solved, skip the rest of the code, print a message,
             % and continue to the next library.
@@ -1049,6 +1100,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             end
 
             % Compute merit values.
+            if ~isempty(eval_report), eval_report.setStage('scoring', 'running'); end
             merit_fun = profile_options.(ProfileOptionKey.MERIT_FUN.value);
             try
                 merit_histories = meritFunCompute(merit_fun, results_plib.fun_histories, results_plib.maxcv_histories, results_plib.maxcv_inits, 'multiple');
@@ -1068,7 +1120,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                     fprintf('\n');
                     printOptiProfilerMessage('INFO', sprintf('Start testing problems from the problem library "%s" with "plain" feature.', plib));
                 end
-                results_plib_plain = solveAllProblems(solvers, library, feature_plain, problem_options, profile_options, false, {});
+                results_plib_plain = solveAllProblems(solvers, library, feature_plain, problem_options, profile_options, false, {}, eval_report, 'plain_reference');
                 if isempty(results_plib_plain) || isempty(results_plib_plain.problem_names)
                     if ~profile_options.(ProfileOptionKey.SILENT.value)
                         printOptiProfilerMessage('WARNING', sprintf('No plain baseline was obtained from "%s"; keeping the featured results without a plain reference.', plib));
@@ -1087,6 +1139,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             end
             
             results_plibs{i_plib} = results_plib;
+            if ~isempty(eval_report), eval_report.addResults({results_plib}); end
 
             if strcmp(profile_options.(ProfileOptionKey.DRAW_HIST_PLOTS.value), 'parallel')    
                 % Merge the history plots for each problem library to a single pdf file.
@@ -1122,10 +1175,16 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         end
     end
 
+    if ~isempty(eval_report)
+        if is_load, eval_report.addResults(results_plibs); end
+        eval_report.completeNumerical();
+    end
     % Persist the numerical result BEFORE sequential rendering. A graphics
     % crash or forced interruption must not discard a completed experiment.
     if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
+        if ~isempty(eval_report), eval_report.setStage('persistence', 'running'); end
         saveResultsForLoading(results_plibs, path_log, time_stamp, path_readme_log);
+        if ~isempty(eval_report), eval_report.setStage('persistence', 'completed'); end
     end
     writeReport(profile_options, results_plibs, path_report, path_readme_log);
     if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
@@ -1166,7 +1225,13 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
                 fun_inits = results_plib.fun_inits(i_problem, :);
                 maxcv_inits = results_plib.maxcv_inits(i_problem, :);
                 n_eval = sliceDim(results_plib.n_evals, 1, i_problem);
-                exportHist(problem_name, problem_type, problem_dim, solver_names, solvers_success, fun_history, maxcv_history, fun_inits, maxcv_inits, n_eval, profile_options, path_hist_plots_plib);
+                if isempty(eval_report)
+                    exportHist(problem_name, problem_type, problem_dim, solver_names, solvers_success, fun_history, maxcv_history, fun_inits, maxcv_inits, n_eval, profile_options, path_hist_plots_plib);
+                else
+                    [render_status,presentation] = exportHist(problem_name, problem_type, problem_dim, solver_names, solvers_success, fun_history, maxcv_history, fun_inits, maxcv_inits, n_eval, profile_options, path_hist_plots_plib);
+                    eval_report.captureHistoryPresentation(presentation, results_plib.plib, problem_name, 'primary');
+                    eval_report.recordRendering(render_status, struct('library', results_plib.plib, 'name', problem_name));
+                end
             end
 
             if ~profile_options.(ProfileOptionKey.SILENT.value)
@@ -1197,7 +1262,11 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     % Process the results from all the problem libraries.
-    [merit_histories_merged, merit_outs_merged, merit_inits_merged, merit_mins_merged, n_evals_merged, problem_names_merged, problem_dims_merged] = processResults(results_plibs, profile_options);
+    if isempty(eval_report)
+        [merit_histories_merged, merit_outs_merged, merit_inits_merged, merit_mins_merged, n_evals_merged, problem_names_merged, problem_dims_merged] = processResults(results_plibs, profile_options);
+    else
+        [merit_histories_merged, merit_outs_merged, merit_inits_merged, merit_mins_merged, n_evals_merged, problem_names_merged, problem_dims_merged, report_problem_ids] = processResults(results_plibs, profile_options);
+    end
 
     [n_problems, n_solvers, n_runs, ~] = size(merit_histories_merged);
 
@@ -1389,6 +1458,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         end
 
         % Draw the profiles.
+        if ~isempty(eval_report), eval_report.addConvergence(tolerance, work_hist, work_out, report_problem_ids); end
         cell_axs_summary_out = {};
         if is_perf && is_data && is_log_ratio
             cell_axs_summary_hist = {axs_summary(i_tol), axs_summary(i_tol + max_tol_order), ...
@@ -1415,10 +1485,20 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 
         hist_graphics_ok = true; out_graphics_ok = true;
         if is_hist_drawable
-            [fig_perf_hist, fig_data_hist, fig_log_ratio_hist, curves{i_tol}.hist, hist_graphics_ok] = drawProfiles(work_hist, problem_dims_merged, solver_names, tolerance_latex, cell_axs_summary_hist, true, is_perf, is_data, is_log_ratio, drawing_options, curves{i_tol}.hist);
+            if isempty(eval_report)
+                [fig_perf_hist, fig_data_hist, fig_log_ratio_hist, curves{i_tol}.hist, hist_graphics_ok] = drawProfiles(work_hist, problem_dims_merged, solver_names, tolerance_latex, cell_axs_summary_hist, true, is_perf, is_data, is_log_ratio, drawing_options, curves{i_tol}.hist);
+            else
+                [fig_perf_hist, fig_data_hist, fig_log_ratio_hist, curves{i_tol}.hist, hist_graphics_ok, presentation] = drawProfiles(work_hist, problem_dims_merged, solver_names, tolerance_latex, cell_axs_summary_hist, true, is_perf, is_data, is_log_ratio, drawing_options, curves{i_tol}.hist);
+                eval_report.addProfilePresentation(presentation, i_tol, 'history');
+            end
         end
         if is_out_drawable
-            [fig_perf_out, fig_data_out, fig_log_ratio_out, curves{i_tol}.out, out_graphics_ok] = drawProfiles(work_out, problem_dims_merged, solver_names, tolerance_latex, cell_axs_summary_out, is_output_based, is_perf, is_data, is_log_ratio, drawing_options, curves{i_tol}.out);
+            if isempty(eval_report)
+                [fig_perf_out, fig_data_out, fig_log_ratio_out, curves{i_tol}.out, out_graphics_ok] = drawProfiles(work_out, problem_dims_merged, solver_names, tolerance_latex, cell_axs_summary_out, is_output_based, is_perf, is_data, is_log_ratio, drawing_options, curves{i_tol}.out);
+            else
+                [fig_perf_out, fig_data_out, fig_log_ratio_out, curves{i_tol}.out, out_graphics_ok, presentation] = drawProfiles(work_out, problem_dims_merged, solver_names, tolerance_latex, cell_axs_summary_out, is_output_based, is_perf, is_data, is_log_ratio, drawing_options, curves{i_tol}.out);
+                eval_report.addProfilePresentation(presentation, i_tol, 'output');
+            end
         end
 
         if ~hist_graphics_ok || ~out_graphics_ok
@@ -1743,10 +1823,16 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         end
     end
 
+    % Per-profile rendering already happened. A later scoring callback failure
+    % must not relabel those completed exports as a graphics failure.
+    if ~isempty(eval_report) && ~profile_options.score_only
+        eval_report.recordRendering('completed', struct('scope', 'individual_profiles'));
+    end
     % Compute the `solver_scores`.
     profile_scores = computeScores(curves, profile_options);
     score_fun = profile_options.(ProfileOptionKey.SCORE_FUN.value);
     solver_scores = score_fun(profile_scores);
+    if ~isempty(eval_report), eval_report.setProfiles(curves, solver_scores, profile_scores, solver_names, false); end
     if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
         save(fullfile(path_log, 'profile_scores.mat'), 'profile_scores');
         try
@@ -1777,6 +1863,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         end
     end
 
+    if ~isempty(eval_report) && ~profile_options.score_only
+        eval_report.setStage('rendering', 'running', 'summary_export');
+    end
     if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value) && ~native_graphics
         exportPortableProfiles(curves, solver_names, profile_options, path_stamp);
     end
@@ -1851,6 +1940,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             atomicReplaceFile(fullfile(path_staging, 'summary.pdf'), fullfile(path_out, 'summary.pdf'));
         catch ME
             % Missing output is actionable even in silent mode. Preserve full
+            if ~isempty(eval_report), eval_report.recordRendering('failed', struct('scope', 'summary_pdf_merge')); end
             % backend diagnostics and provide a visible current-run fallback.
             printOptiProfilerMessage('WARNING', sprintf('Could not merge the summary PDFs: %s', ME.message));
             if isfile(fullfile(path_staging, 'summary.pdf'))
@@ -1870,6 +1960,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
         addToReadme(path_readme_feature, 'summary.html', 'File, fallback plot summary/index linking the available SVG or PDF charts.');
     end
     clear warning_cleanup;
+    if ~isempty(eval_report) && ~profile_options.score_only
+        eval_report.recordRendering('completed', struct('scope', 'profiles'));
+    end
 
     % Close the figures.
     if n_rows > 0

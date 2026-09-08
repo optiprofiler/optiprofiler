@@ -416,7 +416,7 @@ def _backfill_problem_options_from_loaded(problem_options: Dict[str, Any], resul
     return problem_options
 
 
-def load_results(problem_options: Dict[str, Any], profile_options: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+def load_results(problem_options: Dict[str, Any], profile_options: Dict[str, Any], *, _report=None) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     """
     Load the results by the given options.
     
@@ -486,6 +486,10 @@ def load_results(problem_options: Dict[str, Any], profile_options: Dict[str, Any
     
     # Load data from the 'data_for_loading.h5' file
     data_file_path = os.path.join(path_data, 'data_for_loading.h5')
+    if _report is not None:
+        # Provenance refers to the exact source selected by load, not today's
+        # provider configuration or a second independent "latest" search.
+        _report.set_source(data_file_path)
     
     try:
         results_plibs = load_results_from_h5(data_file_path)
@@ -543,6 +547,20 @@ def load_results(problem_options: Dict[str, Any], profile_options: Dict[str, Any
         if 'results_plib_plain' in results_plib:
             results_plibs[i]['results_plib_plain'] = truncate_problems(results_plib['results_plib_plain'], problem_options)
     
+    if _report is not None:
+        # Reading/filtering succeeded even if a new merit callback later fails.
+        # Do not attribute cached merits to that not-yet-executed callback.
+        def raw_observations(value):
+            observed = {k: v for k, v in value.items() if not k.startswith('merit_')}
+            if 'results_plib_plain' in observed:
+                observed['results_plib_plain'] = raw_observations(observed['results_plib_plain'])
+            return observed
+        observed = ([raw_observations(r) for r in results_plibs]
+                    if ProfileOption.MERIT_FUN.value in profile_options else results_plibs)
+        _report.add_results(observed, operation='load')
+        _report.set_stage('numerical', 'completed')
+        _report.set_stage('scoring', 'running')
+
     # Recompute merit values if profile_options.merit_fun is provided
     if ProfileOption.MERIT_FUN.value in profile_options:
         merit_fun = profile_options[ProfileOption.MERIT_FUN.value]

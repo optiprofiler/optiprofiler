@@ -59,7 +59,7 @@ def format_profile_text(text, profile_context):
     return str(text)
 
 
-def draw_profiles(work, problem_dimensions, solver_names, tolerance_latex, i_tol, ax_summary_perf, ax_summary_data, ax_summary_log_ratio, is_summary, is_perf, is_data, is_log_ratio, profile_options, curves):
+def draw_profiles(work, problem_dimensions, solver_names, tolerance_latex, i_tol, ax_summary_perf, ax_summary_data, ax_summary_log_ratio, is_summary, is_perf, is_data, is_log_ratio, profile_options, curves, *, _plot_sink=None):
     # Escaping is a LaTeX concern: without usetex the escapes would show up as
     # literal backslashes in the legends (e.g. 'scipy\_nelder\_mead').
     profile_context = set_profile_context(profile_options)
@@ -70,6 +70,28 @@ def draw_profiles(work, problem_dimensions, solver_names, tolerance_latex, i_tol
     x_perf, y_perf, ratio_max_perf, x_data, y_data, ratio_max_data, curves = _get_extended_performances_data_profile_axes(work, problem_dimensions, profile_options, curves)
     if n_solvers == 2:
         x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, curves = _get_log_ratio_profile_axes(work, curves)
+
+    if _plot_sink is not None:
+        # Observe the exact arrays already used below, including full bands
+        # and the zero/failure bars absent from the scoring-curve subsets.
+        _plot_sink('performance', {
+            'series': prepare_profile_plot_data(x_perf, y_perf, profile_options),
+            'ratio_max': ratio_max_perf,
+            'x_limits': [0.0 if profile_options[ProfileOption.SEMILOGX] else 1.0,
+                         1.1 * (ratio_max_perf if np.isfinite(ratio_max_perf) else np.finfo(float).eps)],
+            'y_limits': [0.0, 1.0],
+            'nonhit_display_policy': 'unreached_work_at_extended_axis_endpoint;not_counted_as_target_hit',
+            'x_transform': 'log2(work/best_work)' if profile_options[ProfileOption.SEMILOGX] else 'work/best_work'})
+        _plot_sink('data', {
+            'series': prepare_profile_plot_data(x_data, y_data, profile_options),
+            'ratio_max': ratio_max_data,
+            'x_limits': [0.0, 1.1 * (ratio_max_data if np.isfinite(ratio_max_data) else np.finfo(float).eps)],
+            'y_limits': [0.0, 1.0],
+            'nonhit_display_policy': 'unreached_work_at_extended_axis_endpoint;not_counted_as_target_hit',
+            'x_transform': 'log2(1+work/(dimension+1))' if profile_options[ProfileOption.SEMILOGX] else 'work/(dimension+1)'})
+        if n_solvers == 2:
+            _plot_sink('log_ratio', prepare_log_ratio_plot_data(
+                x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail))
     
     if profile_options[ProfileOption.SCORE_ONLY]:
         return None, None, None, curves
@@ -170,14 +192,9 @@ def _draw_log_ratio_detail(ax_log_ratio, x_log_ratio, y_log_ratio, ratio_max_log
 
 
 
-def _draw_performance_data_profiles(ax, x, y, solver_names, profile_options):
-    handles = []
-    profile_context = set_profile_context(profile_options)
-    line_colors = profile_options[ProfileOption.LINE_COLORS]
-    line_styles = profile_options[ProfileOption.LINE_STYLES]
-    line_widths = profile_options[ProfileOption.LINE_WIDTHS]
+def prepare_profile_plot_data(x, y, profile_options):
+    """Full step vertices and across-run bands shared by report and renderer."""
     n_solvers = x.shape[1]
-    n_runs = y.shape[2]
     y_mean = np.mean(y, 2)
 
     if profile_options[ProfileOption.ERRORBAR_TYPE] == 'minmax':
@@ -190,19 +207,34 @@ def _draw_performance_data_profiles(ax, x, y, solver_names, profile_options):
     else:
         raise ValueError("Unknown {ProfileOption.ERRORBAR_TYPE.value}: {profile_options[ProfileOption.ERRORBAR_TYPE]}")
 
+    return [{'solver_index': i + 1,
+             'x': np.repeat(x[:, i], 2)[1:],
+             'mean': np.repeat(y_mean[:, i], 2)[:-1],
+             'lower': np.repeat(y_lower[:, i], 2)[:-1],
+             'upper': np.repeat(y_upper[:, i], 2)[:-1],
+             'band_visible': y.shape[2] > 1,
+             'geometry': 'step_vertices'} for i in range(n_solvers)]
+
+
+def _draw_performance_data_profiles(ax, x, y, solver_names, profile_options):
+    handles = []
+    profile_context = set_profile_context(profile_options)
+    line_colors = profile_options[ProfileOption.LINE_COLORS]
+    line_styles = profile_options[ProfileOption.LINE_STYLES]
+    line_widths = profile_options[ProfileOption.LINE_WIDTHS]
+    series = prepare_profile_plot_data(x, y, profile_options)
+
     with matplotlib.rc_context(profile_context):
-        for i_solver in range(n_solvers):
-            x_stairs = np.repeat(x[:, i_solver], 2)[1:]
-            y_mean_stairs = np.repeat(y_mean[:, i_solver], 2)[:-1]
-            y_lower_stairs = np.repeat(y_lower[:, i_solver], 2)[:-1]
-            y_upper_stairs = np.repeat(y_upper[:, i_solver], 2)[:-1]
+        for i_solver, item in enumerate(series):
+            x_stairs, y_mean_stairs = item['x'], item['mean']
+            y_lower_stairs, y_upper_stairs = item['lower'], item['upper']
 
             color = line_colors[i_solver % len(line_colors)]
             line_style = line_styles[i_solver % len(line_styles)]
             line_width = line_widths[i_solver % len(line_widths)]
 
             handles.extend(ax.plot(x_stairs, y_mean_stairs, label=solver_names[i_solver], color=color, linestyle=line_style, linewidth=line_width))
-            if n_runs > 1:
+            if item['band_visible']:
                 ax.fill_between(x_stairs, y_lower_stairs, y_upper_stairs, color=color, alpha=0.2)
         
         # Set Y-axis ticks to match MATLAB style: major ticks at 0, 0.2, 0.4, 0.6, 0.8, 1.0
@@ -218,27 +250,55 @@ def _draw_performance_data_profiles(ax, x, y, solver_names, profile_options):
         ax.tick_params(axis='y', which='both', labelleft=True, labelright=False)
     return handles
 
+
+def prepare_log_ratio_plot_data(x, y, ratio_max, n_solvers_equal):
+    """Describe all sorted bar positions, including invisible ties and sentinels.
+
+    The historic renderer has no problem identity after sorting. Do not assign
+    anonymous bars to problems; target_work retains the unsorted identities.
+    """
+    opacity = np.ones(len(x))
+    if n_solvers_equal:
+        opacity[:n_solvers_equal] = 0.5
+        opacity[-n_solvers_equal:] = 0.5
+    n_below = int(np.sum(y < 0) - n_solvers_equal)
+    n_above = int(np.sum(y > 0) - n_solvers_equal)
+    groups = []
+    if n_solvers_equal > 0:
+        groups.extend([{'start_index': 1, 'end_index': int(n_solvers_equal), 'solver_index': 1, 'opacity': 0.5},
+                       {'start_index': len(x) - int(n_solvers_equal) + 1, 'end_index': len(x), 'solver_index': 2, 'opacity': 0.5}])
+    if n_below > 0:
+        groups.append({'start_index': int(n_solvers_equal) + 1, 'end_index': int(n_solvers_equal) + n_below,
+                       'solver_index': 1, 'opacity': 1.0})
+    if n_above > 0:
+        groups.append({'start_index': len(x) - int(n_solvers_equal) - n_above + 1,
+                       'end_index': len(x) - int(n_solvers_equal), 'solver_index': 2, 'opacity': 1.0})
+    return {'series': [{'geometry': 'bar', 'x': x, 'y': y,
+                        'visible': y != 0, 'opacity': opacity,
+                        'solver_index_by_sign': {'negative': 1, 'positive': 2}}],
+            'bar_groups': groups,
+            'ratio_max': ratio_max, 'x_transform': 'sorted_anonymous_bar_position',
+            'x_limits': [0.5, len(x) + 0.5],
+            'y_limits': [-1.1 * ratio_max, 1.1 * ratio_max],
+            'y_transform': 'log2(work_solver_1/work_solver_2)',
+            'problem_mapping': None, 'problem_mapping_reason': 'legacy_bar_sort_does_not_retain_identity',
+            'both_failed_pairs': int(n_solvers_equal),
+            'tie_pairs': int(np.count_nonzero(y == 0)),
+            'failure_placeholder': 'single_failure_at_signed_1.1*ratio_max;both_failures_at_both_extremes_with_half_opacity'}
+
 def _draw_log_ratio_profiles(ax, x, y, ratio_max, n_solvers_equal, solver_names, profile_options):
     profile_context = set_profile_context(profile_options)
     n_problems = x.shape[0]
     if not np.isfinite(ratio_max) or ratio_max <= 0:
         ratio_max = np.finfo(float).eps
-    n_below = np.sum(y < 0) - n_solvers_equal
-    n_above = np.sum(y > 0) - n_solvers_equal
+    presentation = prepare_log_ratio_plot_data(x, y, ratio_max, n_solvers_equal)
 
     with matplotlib.rc_context(profile_context):
         bar_colors = profile_options[ProfileOption.BAR_COLORS][:2]
-        if n_solvers_equal > 0:
-            ax.bar(x[:n_solvers_equal], y[:n_solvers_equal], color=bar_colors[0], alpha=0.5)
-            ax.bar(x[-n_solvers_equal:], y[-n_solvers_equal:], color=bar_colors[1], alpha=0.5)
-        if n_below > 0:
-            ax.bar(x[n_solvers_equal:n_solvers_equal + n_below], y[n_solvers_equal:n_solvers_equal + n_below], color=bar_colors[0])
-        if n_above > 0:
-            # When n_solvers_equal == 0, x[-n_above:0] returns empty array, so we need special handling
-            if n_solvers_equal > 0:
-                ax.bar(x[-(n_solvers_equal + n_above):-n_solvers_equal], y[-(n_solvers_equal + n_above):-n_solvers_equal], color=bar_colors[1])
-            else:
-                ax.bar(x[-n_above:], y[-n_above:], color=bar_colors[1])
+        for group in presentation['bar_groups']:
+            selection = slice(group['start_index'] - 1, group['end_index'])
+            opacity = {'alpha': 0.5} if group['opacity'] == 0.5 else {}
+            ax.bar(x[selection], y[selection], color=bar_colors[group['solver_index'] - 1], **opacity)
 
         # Remove x-axis ticks (matching MATLAB's xticks([]))
         ax.set_xticks([])
@@ -765,34 +825,13 @@ def process_hist_y_axes(value_histories, value_inits, return_note=False):
     return (processed, note) if return_note else processed
 
 
-def draw_fun_maxcv_merit_hist(ax, y, solver_names, is_cum, problem_n, y_shift, n_eval, profile_options, show_xlabel=True):
+def prepare_history_plot_data(y, is_cum, y_shift, n_eval, profile_options):
+    """Prepare indices, mean, lower and upper for each solver without axes.
+
+    ``y`` is the processed display copy shaped (solver, run, evaluation).
+    Returned indices are 1-based actual evaluation numbers, not array offsets.
+    All arithmetic below preserves the historic renderer's operation order.
     """
-    Draws figures of histories of function values, maximum constraint violation, or merit function values.
-    
-    Parameters:
-    -----------
-    ax : matplotlib.axes.Axes
-        The axes to draw on
-    y : numpy.ndarray
-        The history data with shape (n_solvers, n_runs, n_evals)
-    solver_names : list
-        Names of solvers
-    is_cum : bool
-        Whether to use cumulative minimum
-    problem_n : int
-        Problem dimension
-    y_shift : float
-        Shift for y-axis values
-    n_eval : numpy.ndarray
-        Number of evaluations for each solver and run
-    profile_options : dict
-        Options for plotting
-    """
-    
-    profile_context = set_profile_context(profile_options)
-    line_colors = profile_options[ProfileOption.LINE_COLORS]
-    line_styles = profile_options[ProfileOption.LINE_STYLES]
-    line_widths = profile_options[ProfileOption.LINE_WIDTHS]
     
     n_solvers = y.shape[0]
     n_runs = y.shape[1]
@@ -933,6 +972,58 @@ def draw_fun_maxcv_merit_hist(ax, y, solver_names, is_cum, problem_n, y_shift, n
                 y_values_l[i_solver].append(y_lower[i_solver, i_eval - 1])
                 y_values_u[i_solver].append(y_upper[i_solver, i_eval - 1])
 
+    # This is the single numerical preparation used by both the renderer and
+    # EvalReport. Keep aggregation/translation/cummin/block order unchanged;
+    # these arrays are a display representation, never new scoring inputs.
+    return x_indices, y_values_m, y_values_l, y_values_u
+
+
+def prepare_history_panels(histories, initials, ptype, problem_n, n_eval, profile_options):
+    """Numeric history panels for the same observed inputs given to draw_hist.
+
+    No solver/merit callback runs here. The renderer can supply its own already
+    computed merit values, which matters when a user callback is stateful and
+    the earlier scoring-time merit observations are not identical.
+    """
+    panels = []
+    for channel in ('objective', 'constraint', 'merit'):
+        if ptype == 'u' and channel != 'objective':
+            continue
+        values, initial = histories.get(channel), initials.get(channel)
+        if not isinstance(values, np.ndarray) or initial is None or not values.size:
+            continue
+        shown, note = process_hist_y_axes(values, initial, return_note=True)
+        shift = compute_y_shift(shown, profile_options)
+        for mode in ('raw', 'cummin'):
+            indices, means, lower, upper = prepare_history_plot_data(
+                shown, mode == 'cummin', shift, n_eval, profile_options)
+            series = [{'solver_index': solver + 1,
+                       'evaluation_indices': indices[solver],
+                       'x': np.asarray(indices[solver]) / (problem_n + 1),
+                       'mean': means[solver], 'lower': lower[solver], 'upper': upper[solver],
+                       'geometry': 'point' if len(indices[solver]) == 1 else 'line',
+                       'band_visible': shown.shape[1] > 1 and len(indices[solver]) > 1}
+                      for solver in range(shown.shape[0])]
+            panels.append({'kind': 'history', 'channel': channel, 'mode': mode,
+                           'series': series, 'x_transform': 'evaluation/(dimension+1)',
+                           'y_scale': 'log' if any(np.any(m) and np.any(np.diff(m)) for m in means) else 'linear',
+                           'y_shift': shift, 'display_clip': _HISTORY_DISPLAY_LIMIT,
+                           'display_note': note or None,
+                           'nonfinite_policy': 'per_run_above_finite_range_with_initial_fallback',
+                           'aggregation': profile_options[ProfileOption.HIST_AGGREGATION],
+                           'errorbar_type': profile_options[ProfileOption.ERRORBAR_TYPE], 'std_ddof': 0})
+    return panels
+
+
+def draw_fun_maxcv_merit_hist(ax, y, solver_names, is_cum, problem_n, y_shift, n_eval, profile_options, show_xlabel=True):
+    """Render the shared, pure history preparation without changing its data."""
+    profile_context = set_profile_context(profile_options)
+    line_colors = profile_options[ProfileOption.LINE_COLORS]
+    line_styles = profile_options[ProfileOption.LINE_STYLES]
+    line_widths = profile_options[ProfileOption.LINE_WIDTHS]
+    n_solvers, n_runs = y.shape[:2]
+    x_indices, y_values_m, y_values_l, y_values_u = prepare_history_plot_data(
+        y, is_cum, y_shift, n_eval, profile_options)
     xl_lim = 1 / (problem_n + 1)
     xr_lim = 1 / (problem_n + 1)
     is_log_scale = False

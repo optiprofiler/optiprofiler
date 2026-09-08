@@ -1,4 +1,6 @@
-function exportHist(problem_name, problem_type, problem_dim, solver_names, solvers_success, fun_history, maxcv_history, fun_inits, maxcv_inits, n_eval, profile_options, path_hist_plots)
+function [status, presentation] = exportHist(problem_name, problem_type, problem_dim, solver_names, solvers_success, fun_history, maxcv_history, fun_inits, maxcv_inits, n_eval, profile_options, path_hist_plots)
+    status = 'not_applicable';
+    presentation = {};
     if profile_options.(ProfileOptionKey.SCORE_ONLY.value) || all(~solvers_success(:))
         return;
     end
@@ -10,6 +12,19 @@ function exportHist(problem_name, problem_type, problem_dim, solver_names, solve
             merit_inits = meritFunCompute(merit_fun, fun_inits, maxcv_inits, maxcv_inits);
         catch
             error("MATLAB:solveOneProblem:merit_fun_error", "Error occurred while calculating the merit values. Please check the merit function.");
+        end
+        if nargout > 1
+            % The original plotting path evaluates custom merit independently
+            % of scoring. Observe THESE values: calling merit again, or using
+            % scoring's values, would be wrong for a stateful callback.
+            retained = struct('problem_type',problem_type,'problem_dim',problem_dim, ...
+                'fun_history',fun_history,'maxcv_history',maxcv_history,'merit_history',merit_history, ...
+                'fun_inits',fun_inits,'maxcv_inits',maxcv_inits,'merit_inits',merit_inits,'n_eval',n_eval);
+            try
+                presentation = prepareEvalReportHistory(retained,profile_options);
+            catch cause
+                presentation = {struct('preparation_error',cause.identifier)};
+            end
         end
 
         warning_state = warning;
@@ -63,7 +78,9 @@ function exportHist(problem_name, problem_type, problem_dim, solver_names, solve
                 solver_names,histories,inits,n_eval,labels,profile_options);
         end
         clear warning_cleanup;
+        status = 'completed';
     catch Exception
+        status = 'failed';
         % A failed fallback is still a missing artifact. Silent mode suppresses
         % progress, not this actionable failure (including merit diagnostics).
         printOptiProfilerMessage('WARNING', sprintf('An error occurred while plotting the history plots of the problem %s: %s', problem_name, shortenMessageForLog(Exception.message)));

@@ -1,4 +1,4 @@
-function [fig_perf, fig_data, fig_log_ratio, curves, graphics_ok] = drawProfiles(work, problem_dimensions, solver_names, tolerance_latex, cell_axs_summary, is_summary, is_perf, is_data, is_log_ratio, profile_options, curves)
+function [fig_perf, fig_data, fig_log_ratio, curves, graphics_ok, presentation] = drawProfiles(work, problem_dimensions, solver_names, tolerance_latex, cell_axs_summary, is_summary, is_perf, is_data, is_log_ratio, profile_options, curves)
 %DRAWPROFILES draws the performance, data, and log-ratio profiles.
 
     solver_names = cellfun(@escapeLatexText, solver_names, 'UniformOutput', false);
@@ -9,7 +9,38 @@ function [fig_perf, fig_data, fig_log_ratio, curves, graphics_ok] = drawProfiles
     fig_perf = []; fig_data = []; fig_log_ratio = []; graphics_ok = true;
     [x_perf, y_perf, ratio_max_perf, x_data, y_data, ratio_max_data, curves] = getExtendedPerformancesDataProfileAxes(work, problem_dimensions, profile_options, curves);
     if n_solvers == 2
-        [x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, curves] = getLogRatioProfileAxes(work, curves);
+        if nargout > 5
+            [x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, curves, bar_sources] = getLogRatioProfileAxes(work, curves);
+        else
+            [x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, curves] = getLogRatioProfileAxes(work, curves);
+        end
+    end
+    presentation = {};
+    if nargout > 5
+      try
+        % Preparing a report must not allocate a figure. These are precisely
+        % the shared arrays consumed by the native renderer below.
+        presentation = [profilePresentation(x_perf,y_perf,ratio_max_perf,'performance',profile_options), ...
+            profilePresentation(x_data,y_data,ratio_max_data,'data',profile_options)];
+        if n_solvers == 2
+            opacity = ones(size(y_log_ratio)); opacity(bar_sources.solver1_failed & bar_sources.solver2_failed) = 0.5;
+            for field = fieldnames(bar_sources)'
+                values = bar_sources.(field{1});
+                bar_sources.(field{1}) = num2cell(values(:)');
+            end
+            presentation{end+1} = struct('kind', 'log_ratio', 'status', 'numeric_prepared', ...
+                'fidelity', 'exact_rendered_data', 'series', {{struct('x', {num2cell(x_log_ratio(:)')}, ...
+                    'y', {num2cell(y_log_ratio(:)')}, 'geometry', 'bar', 'visible', {num2cell(y_log_ratio(:)'~=0)}, ...
+                    'opacity', {num2cell(opacity(:)')})}}, 'ratio_max', ratio_max_log_ratio, ...
+                'both_failed_count', n_solvers_fail, 'solver_indices', {{1,2}}, 'y_transform', 'log2(work_solver1/work_solver2)', ...
+                'failure_placeholder', 1.1*ratio_max_log_ratio, 'bar_sources', bar_sources, ...
+                'tie_policy', 'zero_height_retained_in_numeric_data_not_drawn_by_bar_calls');
+        end
+      catch cause
+        % A secondary numeric-presentation failure is report evidence, not
+        % permission to abort the original scoring/rendering execution.
+        presentation = {struct('preparation_error', cause.identifier)};
+      end
     end
     if profile_options.(ProfileOptionKey.SCORE_ONLY.value)
         return;
@@ -77,6 +108,27 @@ function [fig_perf, fig_data, fig_log_ratio, curves, graphics_ok] = drawProfiles
         fig_perf = []; fig_data = []; fig_log_ratio = [];
         printOptiProfilerMessage('WARNING', sprintf('Native profile rendering failed; using SVG fallback: %s',cause.message));
     end
+end
+
+function panels = profilePresentation(x,y,maximum,kind,options)
+    [xs,means,lower,upper,n_runs] = prepareProfilePlotData(x,y,options);
+    transform = 'ratio';
+    if strcmp(kind,'data'), transform = 'evaluations/(dimension+1)'; end
+    if options.semilogx
+        transform = 'log2(ratio)';
+        if strcmp(kind,'data'), transform = 'log2(1+evaluations/(dimension+1))'; end
+    end
+    series = cell(1,numel(xs));
+    for solver = 1:numel(xs)
+        series{solver} = struct('solver_index', solver, ...
+            'x', {num2cell(xs{solver}(:)')}, 'mean', {num2cell(means{solver}(:)')}, ...
+            'lower', {num2cell(lower{solver}(:)')}, 'upper', {num2cell(upper{solver}(:)')}, ...
+            'geometry', 'step', 'band_visible', n_runs>1);
+    end
+    panels = {struct('kind', kind, 'status', 'numeric_prepared', ...
+        'fidelity', 'exact_rendered_data', 'series', {series}, ...
+        'x_transform', transform, 'ratio_max', maximum, 'failure_placeholder', 1.1*maximum, ...
+        'errorbar_type', options.errorbar_type, 'std_ddof', double(n_runs>1), 'n_runs', n_runs)};
 end
 
 function drawPerfDetail(ax_perf, x_perf, y_perf, ratio_max_perf, solver_names, profile_options, tolerance_latex)

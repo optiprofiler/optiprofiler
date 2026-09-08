@@ -1,8 +1,10 @@
-function results = solveAllProblems(solvers, library, feature, problem_options, profile_options, is_plot, path_hist_plots)
+function results = solveAllProblems(solvers, library, feature, problem_options, profile_options, is_plot, path_hist_plots, eval_report, role)
 %SOLVEALLPROBLEMS solves all problems from a resolved problem library.
 
     results = struct();
     plib = library.name;
+    if nargin < 8, eval_report = []; end
+    if nargin < 9, role = 'primary'; end
 
     % Get satisfied problem names.
     option_select = problem_options;
@@ -52,6 +54,7 @@ function results = solveAllProblems(solvers, library, feature, problem_options, 
         throw(addCause(failure, cause));
     end
 
+    if ~isempty(eval_report), eval_report.selection(plib, problem_names, role); end
     if isempty(problem_names)
         if ~profile_options.(ProfileOptionKey.SILENT.value)
             fprintf('\n');
@@ -68,6 +71,7 @@ function results = solveAllProblems(solvers, library, feature, problem_options, 
     profile_options_log.solver_log_names = getSolverLogNames(profile_options.(ProfileOptionKey.SOLVER_NAMES.value), len_problem_names);
     max_eval_factor = profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value);
     tmp_results = cell(1, n_problems);
+    capture_presentation = ~isempty(eval_report);
     if ~profile_options.(ProfileOptionKey.SILENT.value)
         fprintf('\n');
         printOptiProfilerMessage('INFO', sprintf('There are %d problems from "%s" to test.', n_problems, plib));
@@ -100,7 +104,7 @@ function results = solveAllProblems(solvers, library, feature, problem_options, 
                 tmp_results{i_problem} = struct();
                 continue;
             end
-            result = solveOneProblem(solvers, problem, feature, problem_name, len_problem_names, profile_options_log, is_plot, path_hist_plots);
+            result = solveOneProblem(solvers, problem, feature, problem_name, len_problem_names, profile_options_log, is_plot, path_hist_plots, capture_presentation);
             tmp_results{i_problem} = result;
         end
     else
@@ -122,11 +126,22 @@ function results = solveAllProblems(solvers, library, feature, problem_options, 
                 tmp_results{i_problem} = struct();
                 continue;
             end
-            result = solveOneProblem(solvers, problem, feature, problem_name, len_problem_names, profile_options_log, is_plot, path_hist_plots);
+            result = solveOneProblem(solvers, problem, feature, problem_name, len_problem_names, profile_options_log, is_plot, path_hist_plots, capture_presentation);
             tmp_results{i_problem} = result;
         end
     end
 
+    % Only the controller collects reporting metadata. The handle is never
+    % referenced by the parfor body or included in numerical worker options.
+    if ~isempty(eval_report)
+        for i_problem = 1:numel(tmp_results)
+            if isempty(fieldnames(tmp_results{i_problem}))
+                eval_report.loadFailed(plib, problem_names{i_problem}, role);
+            else
+                eval_report.addProblem(tmp_results{i_problem}, plib, role);
+            end
+        end
+    end
     % Delete empty elements (struct) in tmp_results.
     tmp_results = tmp_results(~cellfun(@(x) isempty(fieldnames(x)), tmp_results));
     n_problems = length(tmp_results);

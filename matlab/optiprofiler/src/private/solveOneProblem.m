@@ -1,6 +1,7 @@
-function result = solveOneProblem(solvers, problem, feature, problem_name, len_problem_names, profile_options, is_plot, path_hist_plots)
+function result = solveOneProblem(solvers, problem, feature, problem_name, len_problem_names, profile_options, is_plot, path_hist_plots, capture_presentation)
 %SOLVEONEPROBLEM solves one problem with all the solvers in solvers list.
 %   Note that the input `problem` is a FeaturedProblem object when we call this function in `benchmark`.
+    if nargin < 9, capture_presentation = false; end
 
     solver_names = profile_options.(ProfileOptionKey.SOLVER_NAMES.value);
     solver_names = cellfun(@(s) strrep(s, '\_', '_'), solver_names, 'UniformOutput', false);    % Remove backslash from the solver names.
@@ -299,12 +300,18 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
     result.solvers_success = solvers_success;
     result.solver_abnormal_termination = solver_abnormal_terminations;
     result.solver_output_fallback = solver_output_fallbacks;
+    % Transient controller metadata, intentionally not aggregated into MAT.
+    result.eval_report_metadata = struct('real_n_runs', real_n_runs, 'render_status', 'not_requested');
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%% History plots of the computation %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     if is_plot && strcmp(profile_options.(ProfileOptionKey.DRAW_HIST_PLOTS.value), 'parallel')
-        exportHist(problem_name, problem_type, problem_dim, solver_names, solvers_success, fun_history, maxcv_history, fun_inits, maxcv_inits, n_eval, profile_options, path_hist_plots)
+        if capture_presentation
+            [result.eval_report_metadata.render_status, result.eval_report_metadata.plot_presentation] = exportHist(problem_name, problem_type, problem_dim, solver_names, solvers_success, fun_history, maxcv_history, fun_inits, maxcv_inits, n_eval, profile_options, path_hist_plots);
+        else
+            result.eval_report_metadata.render_status = exportHist(problem_name, problem_type, problem_dim, solver_names, solvers_success, fun_history, maxcv_history, fun_inits, maxcv_inits, n_eval, profile_options, path_hist_plots);
+        end
     end
 end

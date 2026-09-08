@@ -1,0 +1,531 @@
+"""The opt-in report is a public file contract, not another execution mode."""
+import json
+import hashlib
+import os
+from pathlib import Path
+
+import numpy as np
+import pytest
+
+from optiprofiler import Problem, benchmark
+
+
+def stay(fun, x0):
+    fun(x0)
+    return np.asarray(x0)
+
+
+def zero(fun, x0):
+    x = np.zeros_like(x0)
+    fun(x)
+    return x
+
+
+def crash(fun, x0):
+    fun(x0)
+    raise RuntimeError('deliberate solver failure')
+
+
+def long_walk(fun, x0):
+    for value in [-1, -2] + list(range(1, 129)):
+        fun(np.full_like(x0, value))
+    return np.asarray(x0)
+
+
+def spike_walk(fun, x0):
+    for value in range(1, 1001):
+        fun(np.full_like(x0, value))
+    return np.asarray(x0)
+
+
+def bound_stay(fun, x0, *constraints):
+    return stay(fun, x0)
+
+
+def bound_zero(fun, x0, *constraints):
+    return zero(fun, x0)
+
+
+def worker_only(fun, x0):
+    from multiprocessing import current_process
+    assert current_process().name != 'MainProcess', 'solver did not execute on worker'
+    fun(x0)
+    return np.asarray(x0)
+
+
+def _read(path):
+    return json.loads(path.read_text(), parse_constant=lambda token: (_ for _ in ()).throw(ValueError(token)))
+
+
+def _plot_data(path, report):
+    companion_path = path.parent / report['plot_data']['path']
+    raw = companion_path.read_bytes()
+    assert len(raw) == report['plot_data']['bytes']
+    assert hashlib.sha256(raw).hexdigest() == report['plot_data']['sha256']
+    companion = _read(companion_path)
+    assert companion['evaluation_id'] == report['evaluation_id']
+    assert companion['schema'] == 'optiprofiler.plot_data/1'
+    return companion
+
+
+def test_saved_experiment_load_has_compact_main_and_complete_numeric_detail(tmp_path, monkeypatch):
+    fixture = os.environ.get('OPTIPROFILER_REPORT_ARCHIVE')
+    if not fixture:
+        pytest.skip('set OPTIPROFILER_REPORT_ARCHIVE to an immutable saved experiment directory')
+    fixture = Path(fixture).resolve()
+    before = {p: hashlib.sha256(p.read_bytes()).hexdigest()
+              for p in fixture.rglob('*') if p.is_file()}
+    monkeypatch.chdir(fixture)
+    options = dict(load='latest', benchmark_id='.', savepath=str(tmp_path),
+                   score_only=True, draw_hist_plots='none', silent=True,
+                   ptype='u', mindim=1, maxdim=3, max_tol_order=3)
+    expected = benchmark(None, **options)
+    target = tmp_path / 'compact.json'
+    actual = benchmark(None, report_path=target, **options)
+    np.testing.assert_equal(actual[:2], expected[:2])
+    report = _read(target)
+    detail = _plot_data(target, report)
+    assert report['artifacts'] == []
+    assert 'previews' not in report['profiles']
+    ids = {h['id'] for h in detail['histories']}
+    assert ids
+    for problem in report['problems']:
+        for run in problem['runs']:
+            assert run['history_ref'] in ids
+            assert 'history_preview' not in run
+            assert 'budget_note' not in run
+            assert 'best_semantics' not in run['objective']
+    plots = {plot['id']: plot for plot in detail['plots']}
+    assert all(ref in plots for ref in report['profiles']['plot_refs'])
+    assert any(plot['kind'] == 'history' for plot in plots.values())
+    assert any(plot['kind'] == 'log_ratio' for plot in plots.values())
+    assert len(detail['target_work']) == 3
+    assert all(hashlib.sha256(p.read_bytes()).hexdigest() == digest for p, digest in before.items())
+    assert set(p.name for p in tmp_path.iterdir()) == {'compact.json', 'compact.plot_data.json'}
+
+
+def _library(root, name, problems):
+    """An actual developer-path provider; discovery/loading/workers stay real."""
+    directory = root / name
+    directory.mkdir(parents=True)
+    (directory / f'{name}_tools.py').write_text(
+        'from optiprofiler import Problem\n'
+        f'def {name}_select(options):\n    return {problems!r}\n'
+        f'def {name}_load(name):\n'
+        "    if name == 'BROKEN': raise ValueError('deliberate load failure')\n"
+        "    return Problem(lambda x: float(x @ x), [1.0, 2.0], name=name)\n")
+
+
+def _options(tmp_path, names):
+    return dict(plibs=names, custom_problem_libs_path=tmp_path / 'libraries',
+                ptype='u', mindim=1, maxdim=10, score_only=True,
+                draw_hist_plots='none', silent=True, savepath=str(tmp_path),
+                solver_names=['stay', 'zero'], n_runs=3, seed=17,
+                n_jobs=1, max_eval_factor=5, max_tol_order=2)
+
+
+def test_report_only_preserves_single_problem_scores_and_creates_no_plots(tmp_path):
+    options = dict(problem=Problem(lambda x: float(x @ x), [1.0], name='QUAD'),
+                   score_only=True, draw_hist_plots='none', silent=True,
+                   savepath=str(tmp_path), n_runs=1)
+    expected = benchmark([stay, zero], **options)
+    target = tmp_path / 'eval_report.json'
+    actual = benchmark([stay, zero], report_path=target, **options)
+    np.testing.assert_array_equal(actual[0], expected[0])
+    np.testing.assert_array_equal(actual[0], [0.0, 1.0])
+    assert actual[1:] == expected[1:] == (None, None)
+    report = json.loads(target.read_text(), parse_constant=lambda token: (_ for _ in ()).throw(ValueError(token)))
+    assert report['schema'] == 'optiprofiler.eval_report/1'
+    assert report['status'] == 'completed'
+    assert report['stages']['rendering']['status'] == 'not_requested'
+    assert report['coverage']['completed'] == 1
+    assert report['scores']['solver_scores'] == [0.0, 1.0]
+    assert not list(tmp_path.rglob('*.pdf'))
+    assert not list(tmp_path.rglob('*.h5'))
+    detail = _plot_data(target, report)
+    assert len(detail['histories']) == 2
+    assert len(detail['plots']) == 2  # Raw/cummin objective panels, no constraints.
+
+
+def test_empty_path_disables_report(tmp_path):
+    result = benchmark([stay, zero], problem=Problem(lambda x: float(x @ x), [1.0]),
+                       score_only=True, silent=True, report_path='', savepath=str(tmp_path))
+    np.testing.assert_array_equal(result[0], [0, 1])
+    assert not list(tmp_path.iterdir())
+
+
+def test_whole_libraries_preserve_identity_partial_coverage_and_actual_runs(tmp_path):
+    _library(tmp_path / 'libraries', 'evaltoy_a', ['SAME', 'BROKEN'])
+    _library(tmp_path / 'libraries', 'evaltoy_b', ['SAME'])
+    options = _options(tmp_path, ['evaltoy_a', 'evaltoy_b'])
+    expected = benchmark([stay, zero], **options)
+    target = tmp_path / 'whole.json'
+    actual = benchmark([stay, zero], report_path=target, **options)
+    np.testing.assert_array_equal(actual[0], expected[0])
+    np.testing.assert_array_equal(actual[1], expected[1])
+    report = _read(target)
+    assert report['status'] == 'partial'
+    assert report['coverage']['selected'] == 3
+    assert report['coverage']['completed'] == 2
+    assert report['coverage']['load_failed'] == 1
+    solved = [p for p in report['problems'] if p['status'] == 'completed']
+    detail = _plot_data(target, report)
+    histories = {h['id']: h for h in detail['histories']}
+    assert len({p['id'] for p in solved}) == 2
+    for problem in solved:
+        assert problem['provider']['source'] == 'custom'
+        assert len(problem['runs']) == 6
+        for run in problem['runs']:
+            assert run['evaluations'] == 1
+            assert run['budget'] == 10
+            assert run['objective']['invalid_evaluations']['nan'] == 0
+            assert histories[run['history_ref']]['channels']['objective']['count'] == 1
+            assert run['execution']['kind'] == ('actual' if run['run_index'] == 1 else 'repeated')
+            assert run['oracle_seed'] == 23333 * 17
+    assert report['scores']['profile_scores'] == actual[1].tolist()
+    assert len(report['profiles']['convergence']) == 2
+    assert report['profiles']['convergence'][0]['history'][1]['hits'] == 6
+    assert report['stages']['scoring']['status'] == 'completed'
+    assert any(d['code'] == 'problem_load_failed' for d in report['diagnostics'])
+
+
+def test_empty_and_all_failed_selection_are_not_success(tmp_path):
+    _library(tmp_path / 'libraries', 'evalempty', [])
+    _library(tmp_path / 'libraries', 'evalfailed', ['BROKEN'])
+    for library, status in [('evalempty', 'empty'), ('evalfailed', 'failed')]:
+        target = tmp_path / (library + '.json')
+        benchmark([stay, zero], report_path=target, **_options(tmp_path, [library]))
+        report = _read(target)
+        assert report['status'] == status
+        assert report['coverage']['completed'] == 0
+
+
+def test_collision_refuses_before_calling_solver_and_preserves_bytes(tmp_path):
+    target = tmp_path / 'existing.json'
+    target.write_text('owned by another evaluation')
+    before = target.read_bytes()
+    with pytest.raises(FileExistsError):
+        benchmark([stay, zero], report_path=target,
+                  problem=Problem(lambda x: float(x @ x), [1.0]), score_only=True)
+    assert target.read_bytes() == before
+
+
+def test_companion_collision_refuses_before_execution_and_leaves_main_absent(tmp_path):
+    target = tmp_path / 'evaluation.json'
+    companion = tmp_path / 'evaluation.plot_data.json'
+    companion.write_bytes(b'owned by another evaluation')
+    with pytest.raises(FileExistsError):
+        # Invalid solver/configuration would fail if preflight did not reject
+        # the companion first; no numerical work is needed for this contract.
+        benchmark(None, report_path=target, nonexistent_option=True)
+    assert companion.read_bytes() == b'owned by another evaluation'
+    assert not target.exists()
+
+
+def test_fatal_configuration_failure_leaves_strict_failed_report(tmp_path):
+    target = tmp_path / 'failed.json'
+    with pytest.raises(ValueError, match='Unknown option'):
+        benchmark([stay, zero], report_path=target, nonexistent_option=True)
+    report = _read(target)
+    assert report['status'] == 'failed'
+    assert report['coverage']['completed'] == 0
+    assert report['diagnostics'][-1]['code'] == 'benchmark_exception'
+
+
+def test_solver_abnormality_is_observed_without_reclassifying_numerical_completion(tmp_path):
+    _library(tmp_path / 'libraries', 'evalcrash', ['QUAD'])
+    target = tmp_path / 'solver.json'
+    benchmark([crash, zero], report_path=target, **_options(tmp_path, ['evalcrash']))
+    report = _read(target)
+    assert report['stages']['numerical']['status'] == 'completed'
+    run = report['problems'][0]['runs'][0]
+    assert run['abnormal_termination'] is True
+    assert run['output_fallback'] is True
+    assert run['evaluations'] == 1
+    assert run['convergence'] is None
+
+
+def test_merit_failure_preserves_completed_raw_measurements(tmp_path):
+    def bad_merit(f, cv, cv0):
+        raise ArithmeticError('deliberate merit failure')
+    target = tmp_path / 'merit.json'
+    with pytest.raises(ArithmeticError, match='deliberate merit failure'):
+        benchmark([stay, zero], problem=Problem(lambda x: float(x @ x), [1.0]),
+                  merit_fun=bad_merit, score_only=True, silent=True, report_path=target)
+    report = _read(target)
+    assert report['stages']['numerical']['status'] == 'completed'
+    assert report['stages']['scoring']['status'] == 'failed'
+    assert report['coverage']['completed'] == 1
+    assert report['problems'][0]['runs'][1]['objective']['output'] == 0
+
+
+def test_reporting_does_not_call_user_callbacks_or_consume_numpy_rng(tmp_path):
+    calls = []
+    def merit(f, cv, cv0):
+        calls.append((f, cv, cv0))
+        return float(f) + float(cv)
+    problem = Problem(lambda x: float(x @ x), [1.0], name='QUAD')
+    options = dict(problem=problem, score_only=True, silent=True, merit_fun=merit,
+                   solver_isrand=[True, True], n_runs=3, seed=42)
+    np.random.seed(734)
+    without = benchmark([stay, zero], **options)
+    count_without = len(calls)
+    state_without = np.random.get_state()
+    calls.clear()
+    np.random.seed(734)
+    with_report = benchmark([stay, zero], report_path=tmp_path / 'rng.json', **options)
+    assert len(calls) == count_without
+    state_after = np.random.get_state()
+    assert state_after[0] == state_without[0]
+    np.testing.assert_array_equal(state_after[1], state_without[1])
+    assert state_after[2:] == state_without[2:]
+    np.testing.assert_array_equal(with_report[0], without[0])
+
+
+def test_save_load_records_source_and_artifacts_without_reexecuting_provider(tmp_path, monkeypatch):
+    _library(tmp_path / 'libraries', 'evalsaved', ['QUAD'])
+    options = _options(tmp_path, ['evalsaved'])
+    options.update(score_only=False, n_jobs=2, n_runs=1, max_tol_order=1,
+                   benchmark_id='saved', draw_hist_plots='sequential')
+    saved_path = tmp_path / 'saved.json'
+    original = benchmark([stay, zero], report_path=saved_path, **options)
+    saved_report = _read(saved_path)
+    assert saved_report['status'] == 'completed'
+    artifacts = saved_report['artifacts']
+    assert any(a['path'].endswith('data_for_loading.h5') for a in artifacts)
+    assert any('summary_' in a['path'] and a['path'].endswith('.pdf') for a in artifacts)
+    for artifact in artifacts:
+        path = saved_path.parent / saved_report['artifact_root'] / artifact['path']
+        assert path.stat().st_size == artifact['bytes']
+        assert hashlib.sha256(path.read_bytes()).hexdigest() == artifact['sha256']
+    before = {p: hashlib.sha256(p.read_bytes()).hexdigest()
+              for p in (tmp_path / 'saved').rglob('*') if p.is_file()}
+    # Public load must work with no solver functions and no provider tree.
+    (tmp_path / 'libraries').rename(tmp_path / 'removed_libraries')
+    monkeypatch.chdir(tmp_path)
+    target = tmp_path / 'loaded.json'
+    loaded = benchmark(None, load='latest', benchmark_id='saved', savepath=str(tmp_path),
+                       score_only=True, silent=True, max_tol_order=1, report_path=target)
+    np.testing.assert_array_equal(loaded[0], original[0])
+    np.testing.assert_array_equal(loaded[1], original[1])
+    report = _read(target)
+    assert report['operation'] == 'load'
+    assert report['status'] == 'completed'
+    assert report['coverage']['scope'] == 'retained_archive'
+    assert report['coverage']['load_failed'] is None
+    assert report['source']['sha256'] == next(v for p, v in before.items() if p.name == 'data_for_loading.h5')
+    assert report['artifacts'] == []
+    assert all(hashlib.sha256(p.read_bytes()).hexdigest() == value for p, value in before.items())
+    assert report['problems'][0]['runs'][0]['budget'] is None
+
+    def invalid_merit(f, cv, cv0):
+        raise ArithmeticError('invalid reload merit')
+    failed_path = tmp_path / 'loaded-failed-merit.json'
+    with pytest.raises(ValueError, match='invalid reload merit'):
+        benchmark(None, load='latest', benchmark_id='saved', savepath=str(tmp_path),
+                  score_only=True, silent=True, merit_fun=invalid_merit, report_path=failed_path)
+    failed = _read(failed_path)
+    assert failed['stages']['numerical']['status'] == 'completed'
+    assert failed['stages']['scoring']['status'] == 'failed'
+    assert failed['coverage']['completed'] == 1
+    assert failed['problems'][0]['runs'][0]['objective']['initial'] == 5.0
+    assert failed['problems'][0]['runs'][0]['merit']['best'] is None
+    assert all(hashlib.sha256(p.read_bytes()).hexdigest() == value for p, value in before.items())
+
+
+def test_export_failure_is_not_a_numerical_failure(tmp_path, monkeypatch):
+    from matplotlib.figure import Figure
+    _library(tmp_path / 'libraries', 'evalrender', ['QUAD'])
+    def failed_export(self, *args, **kwargs):
+        raise OSError('deliberate file export failure')
+    monkeypatch.setattr(Figure, 'savefig', failed_export)  # Real renderer's I/O boundary only.
+    options = _options(tmp_path, ['evalrender'])
+    options.update(score_only=False, n_runs=1, max_tol_order=1)
+    target = tmp_path / 'render.json'
+    with pytest.raises(OSError, match='deliberate file export failure'):
+        benchmark([stay, zero], report_path=target, **options)
+    report = _read(target)
+    assert report['stages']['numerical']['status'] == 'completed'
+    assert report['stages']['persistence']['status'] == 'completed'
+    assert report['stages']['rendering']['status'] == 'failed'
+    assert report['stages']['scoring']['status'] == 'unknown'
+    assert any(d['code'] == 'profile_export_failed' for d in report['diagnostics'])
+
+
+def test_lossy_bins_preserve_extrema_indices_and_all_nonfinite_counts(tmp_path):
+    def objective(x):
+        if x[0] == -1:
+            return np.nan
+        if x[0] == -2:
+            return np.inf
+        return float(x @ x)
+    target = tmp_path / 'preview.json'
+    benchmark([long_walk, zero], problem=Problem(objective, [1.0]),
+              score_only=True, silent=True, max_eval_factor=200, report_path=target)
+    report = _read(target)
+    run = report['problems'][0]['runs'][0]
+    assert run['evaluations'] == 130
+    assert run['objective']['invalid_evaluations'] == dict(
+        nan=1, positive_infinity=1, negative_infinity=0, observed_evaluations=130)
+    detail = _plot_data(target, report)
+    history = next(h for h in detail['histories'] if h['id'] == run['history_ref'])
+    channel = history['channels']['objective']
+    assert len(channel['bins']) == 32
+    assert channel['bins'][0]['start_index'] == 1
+    assert channel['bins'][-1]['end_index'] == 130
+    assert channel['bins'][0]['first'] == {'value': None, 'reason': 'nan'}
+    assert channel['bins'][-1]['finite_max'] == {'value': 16384.0, 'evaluation_index': 130}
+    assert run['objective']['first_invalid_evaluation_index'] == 1
+    assert run['objective']['best_evaluation_index'] == 3
+
+
+def test_compact_bins_keep_spike_missed_by_uniform_preview_and_full_plot_vertices(tmp_path):
+    def objective(x):
+        return 1e6 if x[0] == 17 else float(x[0])
+    target = tmp_path / 'spike.json'
+    benchmark([spike_walk, zero], problem=Problem(objective, [1.0]),
+              max_eval_factor=1100, n_runs=1, score_only=True, silent=True,
+              report_path=target)
+    report = _read(target)
+    detail = _plot_data(target, report)
+    run = report['problems'][0]['runs'][0]
+    history = next(h for h in detail['histories'] if h['id'] == run['history_ref'])
+    bins = history['channels']['objective']['bins']
+    assert len(bins) == 32
+    assert bins[0]['finite_max'] == {'value': 1e6, 'evaluation_index': 17}
+    raw = next(p for p in detail['plots'] if p['kind'] == 'history' and p['mode'] == 'raw')
+    series = raw['series'][0]
+    assert series['evaluation_indices'][16] == 17
+    assert series['mean'][16] == 1e6
+    assert len(series['x']) > 256  # Complete arrays, not metadata truncation.
+    assert len(series['mean']) == len(series['lower']) == len(series['upper'])
+
+
+def test_report_captures_rendering_merit_without_extra_stateful_callback_calls(tmp_path, monkeypatch):
+    from matplotlib.figure import Figure
+    calls = []
+    def stateful_merit(f, cv, cv0):
+        calls.append(1)
+        return float(f) + float(cv) + len(calls) / 100
+    problem = Problem(lambda x: float(x @ x), [1.0], xl=[-2.0], xu=[2.0], name='BOUND')
+    options = dict(problem=problem, merit_fun=stateful_merit, n_runs=1,
+                   silent=True, savepath=str(tmp_path), solver_names=['stay', 'zero'])
+    benchmark([bound_stay, bound_zero], **options)
+    expected_calls = len(calls)
+    calls.clear()
+    captured = {}
+    original_savefig = Figure.savefig
+    def capture(self, *args, **kwargs):
+        for ax in self.axes:
+            if 'merit function' in ax.get_ylabel().lower():
+                mode = 'cummin' if 'cummin' in ax.get_ylabel().lower() else 'raw'
+                captured[mode] = [line.get_ydata().tolist() for line in ax.lines]
+        return original_savefig(self, *args, **kwargs)
+    monkeypatch.setattr(Figure, 'savefig', capture)  # Export I/O observation only.
+    target = tmp_path / 'stateful.json'
+    benchmark([bound_stay, bound_zero], report_path=target, **options)
+    assert len(calls) == expected_calls
+    detail = _plot_data(target, _read(target))
+    for plot in detail['plots']:
+        if plot.get('channel') == 'merit':
+            assert plot['observation_scope'] == 'rendering_inputs'
+            assert [s['mean'] for s in plot['series']] == captured[plot['mode']]
+
+
+def test_exact_large_score_tensor_and_many_solver_axis(tmp_path):
+    _library(tmp_path / 'libraries', 'evalscores', ['QUAD'])
+    options = _options(tmp_path, ['evalscores'])
+    options.update(solver_names=['stay', 'zero', 'zero2', 'zero3', 'zero4'],
+                   n_runs=1, max_tol_order=16)
+    target = tmp_path / 'scores.json'
+    _, profile_scores, _ = benchmark([stay, zero, zero, zero, zero], report_path=target, **options)
+    assert profile_scores.size > 256
+    report = _read(target)
+    np.testing.assert_array_equal(report['scores']['profile_scores'], profile_scores)
+    assert report['scores']['axis_values']['profile_type'] == ['performance', 'data']
+
+
+def test_secondary_full_disk_reporting_error_preserves_original_save_error(tmp_path, monkeypatch):
+    import os
+    _library(tmp_path / 'libraries', 'evaldisk', ['QUAD'])
+    real_replace = os.replace
+    archive_failed = False
+    def full_disk(source, destination, *args, **kwargs):
+        nonlocal archive_failed
+        if str(destination).endswith('data_for_loading.h5'):
+            archive_failed = True
+            raise OSError('original archive full disk')
+        if archive_failed:
+            raise OSError('secondary report full disk')
+        return real_replace(source, destination, *args, **kwargs)
+    monkeypatch.setattr(os, 'replace', full_disk)  # Filesystem atomic-rename boundary.
+    options = _options(tmp_path, ['evaldisk'])
+    options.update(score_only=False, n_runs=1)
+    with pytest.raises(RuntimeError, match='Failed to save the experiment') as failure:
+        benchmark([stay, zero], report_path=tmp_path / 'disk.json', **options)
+    assert str(failure.value.__cause__.__cause__) == 'original archive full disk'
+
+
+def test_score_callback_failure_does_not_blame_completed_rendering(tmp_path):
+    _library(tmp_path / 'libraries', 'evalscorefailure', ['QUAD'])
+    options = _options(tmp_path, ['evalscorefailure'])
+    options.update(score_only=False, n_runs=1, max_tol_order=1)
+    def failed_score(values):
+        raise ArithmeticError('deliberate score callback failure')
+    target = tmp_path / 'score-failure.json'
+    with pytest.raises(ArithmeticError, match='deliberate score callback failure'):
+        benchmark([stay, zero], score_fun=failed_score, report_path=target, **options)
+    report = _read(target)
+    assert report['stages']['scoring']['status'] == 'failed'
+    assert report['stages']['rendering']['status'] == 'completed'
+    assert report['stages']['numerical']['status'] == 'completed'
+
+
+def test_failed_requested_plain_reference_keeps_primary_counts_but_is_partial(tmp_path):
+    _library(tmp_path / 'libraries', 'evalplainpartial', ['QUAD'])
+    tools = tmp_path / 'libraries' / 'evalplainpartial' / 'evalplainpartial_tools.py'
+    source = tools.read_text().replace(
+        "    if name == 'BROKEN':",
+        "    from pathlib import Path\n"
+        "    marker = Path(__file__).with_suffix('.loaded')\n"
+        "    if marker.exists(): raise ValueError('plain reference load failed')\n"
+        "    marker.touch()\n"
+        "    if name == 'BROKEN':")
+    tools.write_text(source)
+    options = _options(tmp_path, ['evalplainpartial'])
+    options.update(feature_name='noisy', n_runs=1, run_plain=True)
+    target = tmp_path / 'plain-partial.json'
+    benchmark([stay, zero], report_path=target, **options)
+    report = _read(target)
+    assert report['coverage']['selected'] == report['coverage']['completed'] == 1
+    assert report['coverage']['load_failed'] == 0
+    assert report['status'] == 'partial'
+    assert report['stages']['numerical']['reason'] == 'requested_plain_reference_incomplete'
+    assert report['stages']['scoring']['status'] == 'completed'
+
+
+def test_parallel_report_collects_actual_worker_results(tmp_path):
+    _library(tmp_path / 'libraries', 'evalworkers', ['FIRST', 'SECOND'])
+    options = _options(tmp_path, ['evalworkers'])
+    options.update(n_jobs=2, n_runs=1)
+    target = tmp_path / 'workers.json'
+    benchmark([worker_only, zero], report_path=target, **options)
+    report = _read(target)
+    assert report['coverage']['completed'] == 2
+    for problem in report['problems']:
+        run = problem['runs'][0]
+        assert run['abnormal_termination'] is False
+        assert run['output_fallback'] is False
+        assert run['evaluations'] == 1
+
+
+def test_unicode_identity_is_preserved_and_sensitive_unknown_option_is_redacted(tmp_path):
+    target = tmp_path / 'unicode.json'
+    benchmark([stay, zero], problem=Problem(lambda x: float(x @ x), [1.0], name='测试_é'),
+              score_only=True, silent=True, report_path=target)
+    assert _read(target)['problems'][0]['name'] == '测试_é'
+    secret_path = tmp_path / 'secret.json'
+    with pytest.raises(ValueError, match='Unknown option'):
+        benchmark([stay, zero], report_path=secret_path, auth_token='do-not-copy-this-secret')
+    assert 'do-not-copy-this-secret' not in secret_path.read_text()
+    assert _read(secret_path)['configuration']['request']['auth_token']['reason'] == 'redacted_sensitive_option'

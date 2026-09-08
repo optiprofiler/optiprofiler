@@ -1,4 +1,4 @@
-function [merit_histories_merged, merit_outs_merged, merit_inits_merged, merit_mins_merged, n_evals_merged, problem_names_merged, problem_dims_merged] = processResults(results_plibs, profile_options)
+function [merit_histories_merged, merit_outs_merged, merit_inits_merged, merit_mins_merged, n_evals_merged, problem_names_merged, problem_dims_merged, problem_ids_merged] = processResults(results_plibs, profile_options)
 %PROCESSRESULTS processes results from results_plibs.
 
     merit_histories_merged = [];
@@ -7,6 +7,7 @@ function [merit_histories_merged, merit_outs_merged, merit_inits_merged, merit_m
     n_evals_merged = [];
     problem_names_merged = [];
     problem_dims_merged = [];
+    problem_ids_merged = {};
     % Old saved custom-merit arrays may predate raw-NaN validation.
     for i_plib = 1:numel(results_plibs)
         results_plibs{i_plib} = maskInvalidMerits(results_plibs{i_plib});
@@ -22,6 +23,13 @@ function [merit_histories_merged, merit_outs_merged, merit_inits_merged, merit_m
         n_evals_merged = cat(1, n_evals_merged, results_plib.n_evals);
         problem_dims_merged = cat(1, problem_dims_merged, results_plib.problem_dims);
         problem_names_merged = [problem_names_merged, results_plib.problem_names];
+        if nargout > 7
+            % Capture identities at the actual concatenation, including load
+            % subset order; plain-reference rows are not this profile cohort.
+            for p = 1:numel(results_plib.problem_names)
+                problem_ids_merged{end+1} = jsonencode({results_plib.plib, results_plib.problem_names{p}, 'primary'});
+            end
+        end
     end
     % Find the least merit value for each problem in each run.
     merit_mins_merged = min(min(merit_histories_merged, [], 4, 'omitnan'), [], 2, 'omitnan');

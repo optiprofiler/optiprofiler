@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:optiprofiler:plot_data:1",
+  "title": "OptiProfiler numeric plot data v1",
+  "description": "Controller-private companion to an evaluation report. Binned histories are explicitly lossy summaries. Exact numeric plot presentations reproduce the renderer's prepared coordinates, not unmodified scientific observations, and do not imply successful rendering. Neither representation introduces a new score or convergence rule.",
+  "$comment": "Reject bare JSON NaN/Infinity before schema validation. Also verify the main-report hash and evaluation_id, unique IDs, references, bin contiguity/counts/extrema indices, equal coordinate lengths, and target-work tensor shape and problem order. Schema validation does not authorize publication or filesystem access.",
+  "type": "object",
+  "required": ["schema", "evaluation_id", "semantics", "histories", "plots", "target_work", "diagnostics"],
+  "properties": {
+    "schema": {"const": "optiprofiler.plot_data/1"},
+    "evaluation_id": {"type": "string", "minLength": 1},
+    "semantics": {"type": "object"},
+    "histories": {"type": "array", "items": {"$ref": "#/$defs/history"}},
+    "plots": {"type": "array", "items": {"$ref": "#/$defs/plot"}},
+    "target_work": {"type": "array", "items": {"$ref": "#/$defs/targetWork"}},
+    "diagnostics": {"type": "array", "items": {"type": "object"}}
+  },
+  "$defs": {
+    "count": {"type": "integer", "minimum": 0},
+    "index": {"type": "integer", "minimum": 1},
+    "nullableCount": {"anyOf": [{"$ref": "#/$defs/count"}, {"type": "null"}]},
+    "value": {
+      "anyOf": [
+        {"type": ["number", "null"]},
+        {"type": "object", "required": ["value", "reason"], "properties": {"value": {"type": "null"}, "reason": {"enum": ["nan", "positive_infinity", "negative_infinity"]}}, "additionalProperties": false}
+      ]
+    },
+    "vector": {"type": "array", "items": {"$ref": "#/$defs/value"}},
+    "extremum": {
+      "anyOf": [
+        {"type": "null"},
+        {"type": "object", "required": ["value", "evaluation_index"], "properties": {"value": {"type": "number"}, "evaluation_index": {"$ref": "#/$defs/index"}}, "additionalProperties": false}
+      ],
+      "description": "Finite extremum in the bin; first occurrence wins ties. Null means no finite value in the bin, not zero."
+    },
+    "nonfiniteCounts": {
+      "type": "object", "required": ["nan", "positive_infinity", "negative_infinity"],
+      "properties": {"nan": {"$ref": "#/$defs/count"}, "positive_infinity": {"$ref": "#/$defs/count"}, "negative_infinity": {"$ref": "#/$defs/count"}},
+      "additionalProperties": false
+    },
+    "bin": {
+      "type": "object", "required": ["start_index", "end_index", "first", "last", "finite_min", "finite_max", "nonfinite"],
+      "properties": {
+        "start_index": {"$ref": "#/$defs/index"}, "end_index": {"$ref": "#/$defs/index"},
+        "first": {"$ref": "#/$defs/value"}, "last": {"$ref": "#/$defs/value"},
+        "finite_min": {"$ref": "#/$defs/extremum"}, "finite_max": {"$ref": "#/$defs/extremum"},
+        "nonfinite": {"$ref": "#/$defs/nonfiniteCounts"}
+      },
+      "description": "Inclusive, one-based actual-evaluation interval, excluding padding. The summary retains endpoints, finite extrema/positions and nonfinite counts, not the complete internal order."
+    },
+    "channel": {
+      "type": "object", "required": ["status", "reason", "count", "total_evaluations", "representation", "bins"],
+      "properties": {
+        "status": {"enum": ["available", "unavailable"]}, "reason": {"type": ["string", "null"]},
+        "count": {"$ref": "#/$defs/count"}, "total_evaluations": {"$ref": "#/$defs/nullableCount"},
+        "representation": {"enum": ["exact_samples", "bin_extrema", null]},
+        "values": {"anyOf": [{"type": "null"}, {"type": "array", "maxItems": 64, "items": {"$ref": "#/$defs/value"}}]},
+        "bins": {"type": "array", "maxItems": 32, "items": {"$ref": "#/$defs/bin"}}
+      },
+      "allOf": [
+        {"if": {"properties": {"representation": {"const": "exact_samples"}}}, "then": {"required": ["values"], "properties": {"count": {"maximum": 64}, "values": {"type": "array"}, "bins": {"maxItems": 0}}}},
+        {"if": {"properties": {"representation": {"const": "bin_extrema"}}}, "then": {"properties": {"count": {"minimum": 65}, "values": {"type": "null"}}}},
+        {"if": {"properties": {"status": {"const": "unavailable"}}}, "then": {"properties": {"representation": {"type": "null"}, "count": {"const": 0}, "bins": {"maxItems": 0}}}}
+      ],
+      "description": "Each channel uses its own observed length. Up to 64 observations are kept exactly as a compact values array; longer histories use at most 32 extrema bins. Unavailable observations, zero evaluations, and truncated retained history remain distinguishable."
+    },
+    "history": {
+      "type": "object", "required": ["id", "problem_id", "solver_index", "run_index", "channels"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1}, "problem_id": {"type": "string", "minLength": 1},
+        "solver_index": {"$ref": "#/$defs/index"}, "run_index": {"$ref": "#/$defs/index"},
+        "channels": {"type": "object", "required": ["objective", "constraint", "merit"], "properties": {"objective": {"$ref": "#/$defs/channel"}, "constraint": {"$ref": "#/$defs/channel"}, "merit": {"$ref": "#/$defs/channel"}}, "additionalProperties": false}
+      }
+    },
+    "series": {
+      "type": "object",
+      "properties": {
+        "solver_index": {"$ref": "#/$defs/index"},
+        "x": {"$ref": "#/$defs/vector"}, "y": {"$ref": "#/$defs/vector"},
+        "mean": {"$ref": "#/$defs/vector"}, "lower": {"$ref": "#/$defs/vector"}, "upper": {"$ref": "#/$defs/vector"},
+        "evaluation_indices": {"type": "array", "items": {"$ref": "#/$defs/index"}}
+      }
+    },
+    "workTensor": {"type": "array", "items": {"type": "array", "items": {"$ref": "#/$defs/vector"}}},
+    "targetWork": {
+      "type": "object", "required": ["id", "tolerance_index", "tolerance", "axes", "axis_values", "history", "output"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1}, "tolerance_index": {"$ref": "#/$defs/index"}, "tolerance": {"$ref": "#/$defs/value"},
+        "axes": {"const": ["problem", "solver", "run"]},
+        "axis_values": {"type": "object", "required": ["problem", "solver", "run"], "properties": {"problem": {"type": "array", "items": {"type": "string", "minLength": 1}}, "solver": {"type": "array", "items": {"$ref": "#/$defs/index"}}, "run": {"type": "array", "items": {"$ref": "#/$defs/index"}}}},
+        "history": {"$ref": "#/$defs/workTensor"}, "output": {"$ref": "#/$defs/workTensor"}
+      },
+      "description": "Original work arrays from the existing profile construction, in explicit merged-primary problem order. Nonhit NaN is not a solver-failure diagnosis. Repeated deterministic run slots retain the execution meaning of their referenced main-report runs."
+    },
+    "plot": {
+      "type": "object", "required": ["id", "kind", "series"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1}, "kind": {"type": "string", "minLength": 1},
+        "problem_id": {"type": "string", "minLength": 1}, "tolerance_index": {"$ref": "#/$defs/index"},
+        "history_or_output": {"enum": ["history", "output"]},
+        "fidelity": {"const": "exact_rendered_data"},
+        "series": {"type": "array", "items": {"$ref": "#/$defs/series"}}
+      },
+      "description": "Complete prepared numeric presentation from the renderer's shared numeric functions. History display may clip/replace nonfinite values, shift, aggregate runs, form cumulative views and aggregate blocks. Profile axes may be transformed. These semantics must be explicit; do not infer raw values or solver convergence from display placeholders."
+    }
+  }
+}

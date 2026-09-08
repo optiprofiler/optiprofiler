@@ -17,6 +17,7 @@ details, see the :ref:`Python API reference <pythonapi>` or the
     installation
     usage_python
     usage
+    eval_report
 
 .. toctree::
     :caption: Problem libraries

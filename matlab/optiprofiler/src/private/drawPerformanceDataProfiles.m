@@ -6,27 +6,13 @@ function drawPerformanceDataProfiles(ax, x, y, solver_names, profile_options)
     line_widths = profile_options.(ProfileOptionKey.LINE_WIDTHS.value);
 
     n_solvers = size(x, 2);
-    n_runs = size(y, 3);
-    y_mean = squeeze(mean(y, 3));
-
-    switch profile_options.(ProfileOptionKey.ERRORBAR_TYPE.value)
-        case 'minmax'
-            y_lower = squeeze(min(y, [], 3));
-            y_upper = squeeze(max(y, [], 3));
-        case 'meanstd'
-            y_std = squeeze(std(y, [], 3));
-            y_lower = max(y_mean - y_std, 0);
-            y_upper = min(y_mean + y_std, 1);
-        otherwise
-            error("Unknown `errorbar_type`: %s", profile_options.(ProfileOptionKey.ERRORBAR_TYPE.value));
-    end
+    [x_steps, mean_steps, lower_steps, upper_steps, n_runs] = prepareProfilePlotData(x, y, profile_options);
 
     hold(ax, 'on');
 
     for i_solver = 1:n_solvers
-        [x_stairs, y_mean_stairs] = stairs(x(:, i_solver), y_mean(:, i_solver));
-        [~, y_lower_stairs] = stairs(x(:, i_solver), y_lower(:, i_solver));
-        [~, y_upper_stairs] = stairs(x(:, i_solver), y_upper(:, i_solver));
+        x_stairs = x_steps{i_solver}; y_mean_stairs = mean_steps{i_solver};
+        y_lower_stairs = lower_steps{i_solver}; y_upper_stairs = upper_steps{i_solver};
 
         % Get the color and the line style MATLAB will use for the next plot command in the axes 'ax'.
         color = line_colors(mod(i_solver - 1, size(line_colors, 1)) + 1, :);
