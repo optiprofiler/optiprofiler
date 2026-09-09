@@ -401,6 +401,44 @@ def test_export_failure_is_not_a_numerical_failure(tmp_path, monkeypatch):
     _assert_artifacts_verified(target, report)
 
 
+def test_report_finishes_after_the_log_listener_is_closed(tmp_path, monkeypatch):
+    """The log.txt artifact receipt must describe the flushed final file.
+
+    The benchmark log is written by a listener thread; harvesting while it is
+    still attached produced a stale 0-byte receipt on Windows. The collector
+    must therefore finish only after the listener has been stopped, on the
+    success path and on the exception path alike.
+    """
+    import logging
+    from optiprofiler import eval_report as module
+    observed = []
+    original = module.EvalReport.finish
+
+    def finish(self, error=None):
+        observed.append(any(getattr(h, 'queue', None) is not None for h in logging.getLogger().handlers))
+        return original(self, error=error)
+    monkeypatch.setattr(module.EvalReport, 'finish', finish)
+    _library(tmp_path / 'libraries', 'evallog', ['QUAD'])
+    options = _options(tmp_path, ['evallog'])
+    options.update(score_only=False, n_runs=1, max_tol_order=1)
+    target = tmp_path / 'log-success.json'
+    benchmark([stay, zero], report_path=target, **options)
+    report = _read(target)
+    log = next(a for a in report['artifacts'] if a['path'].endswith('test_log/log.txt'))
+    path = target.parent / report['artifact_root'] / log['path']
+    # A silent run may leave the log empty; the receipt must match the final file.
+    assert log['bytes'] == path.stat().st_size
+    assert hashlib.sha256(path.read_bytes()).hexdigest() == log['sha256']
+
+    def failing_score(values):
+        raise ArithmeticError('deliberate score failure')
+    failed_target = tmp_path / 'log-failure.json'
+    with pytest.raises(ArithmeticError):
+        benchmark([stay, zero], score_fun=failing_score, report_path=failed_target,
+                  **dict(options, benchmark_id='failed'))
+    assert observed == [False, False]  # no queue handler attached when finish ran
+
+
 def _saved_run(tmp_path, name):
     _library(tmp_path / 'libraries', name, ['QUAD'])
     options = _options(tmp_path, [name])

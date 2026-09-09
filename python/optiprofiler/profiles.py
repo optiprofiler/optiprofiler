@@ -2034,6 +2034,12 @@ def benchmark(
             **({'_eval_report': report} if report is not None else {}),
             **kwargs,
         )
+        # Stop the log listener thread before the report harvests artifacts:
+        # the receipt of test_log/log.txt must describe the flushed final file,
+        # not one the listener is still writing (a stale 0-byte receipt was
+        # observed on Windows). Closing is idempotent; the finally clause is
+        # the safety net for every other exit.
+        _close_logging_resources(logging_resources)
         if report is not None:
             report.finish()
         return result
@@ -2041,6 +2047,10 @@ def benchmark(
         if report is not None:
             # A full disk or failed atomic rename during diagnostics must not
             # replace the original numerical/configuration exception.
+            try:
+                _close_logging_resources(logging_resources)
+            except BaseException:
+                pass
             try:
                 report.finish(error=exc)
             except BaseException:
