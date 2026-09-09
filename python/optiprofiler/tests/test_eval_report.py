@@ -534,7 +534,8 @@ def test_junctions_inside_the_owned_tree_are_not_harvested(tmp_path):
     assert completed.returncode == 0, completed.stdout + completed.stderr
     assert module._reparse_point(os.lstat(str(planted))) and not planted.is_symlink()
     assert not module._reparse_point(os.lstat(str(beyond)))
-    assert not module._reparse_point(os.lstat(str(root / 'data_for_loading.h5')))
+    archive = next(root / a['path'] for a in report['artifacts'] if a['path'].endswith('data_for_loading.h5'))
+    assert not module._reparse_point(os.lstat(str(archive)))
     collector = module.EvalReport(tmp_path / 'junction' / 'again.json', {})
     collector.configure({}, {'score_only': False}, object(), output_dir=root)
     collector._initial_artifacts = set()
