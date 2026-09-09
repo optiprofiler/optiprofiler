@@ -1,5 +1,5 @@
 function run_matlab_eval_report_ci(repository_root, output_root, parallel_case)
-%RUN_MATLAB_EVAL_REPORT_CI Run TestEvalReport on a platform with a strict gate.
+%RUN_MATLAB_EVAL_REPORT_CI Run TestEvalReport and TestProfileBands on a platform with a strict gate.
 % Unlike the general full-unit entry point, an Incomplete (filtered) case is a
 % failure here: the selected platform cases (UTF-8 labels, owner-only
 % permissions where applicable, hash receipts, either-target collision, load
@@ -104,6 +104,29 @@ function run_matlab_eval_report_ci(repository_root, output_root, parallel_case)
             '%d test(s) were filtered/incomplete; every selected EvalReport case is mandatory on this platform.', nincomplete);
         assert(all([results.Passed]), 'OptiProfiler:EvalReportTestsNotPassed', 'Every selected case must be Passed.');
         appendLog(log_file, sprintf('TestEvalReport completed with Failed=0 and Incomplete=0 for %d selected of %d expected cases.', numel(selected_cases), numel(expected_cases)));
+        % Second, serial gate on every row: the rendered profile-band regression (TestProfileBands runs its fixtures
+        % with n_jobs = 1 and never requests a pool). Its exact case set, Failed=0, Incomplete=0 and all-Passed are
+        % required on every platform and release; its own receipt and JUnit file are persisted before the gate.
+        stage = 'TestProfileBands';
+        band_cases = {'TestProfileBands/identicalRunsMeanStdPaintNothing', 'TestProfileBands/identicalRunsMinMaxPaintNothing', ...
+            'TestProfileBands/singleRunDrawsNoBand', 'TestProfileBands/unequalRunsKeepTheirBand', ...
+            'TestProfileBands/helperGeometryOnStairsArrays', 'TestProfileBands/adjacentFacesShowNoSeam'};
+        band_suite = testsuite(fullfile(pwd, 'tests', 'unit_tests', 'TestProfileBands.m'));
+        assert(isequal(sort({band_suite.Name}), sort(band_cases)), 'OptiProfiler:UnexpectedBandSuite', ...
+            'Discovered TestProfileBands cases differ from the expected %d cases: %s', numel(band_cases), strjoin({band_suite.Name}, ', '));
+        band_runner = matlab.unittest.TestRunner.withTextOutput('OutputDetail', matlab.unittest.Verbosity.Detailed);
+        band_runner.addPlugin(matlab.unittest.plugins.XMLPlugin.producingJUnitFormat(fullfile(output_root, 'profile-bands-junit.xml')));
+        band_results = band_runner.run(band_suite);
+        appendLog(log_file, sprintf('TestProfileBands: Tests=%d Failed=%d Incomplete=%d', numel(band_results), nnz([band_results.Failed]), nnz([band_results.Incomplete])));
+        for k = 1:numel(band_results)
+            appendLog(log_file, sprintf('  %s passed=%d failed=%d incomplete=%d duration=%.2fs', ...
+                band_results(k).Name, band_results(k).Passed, band_results(k).Failed, band_results(k).Incomplete, band_results(k).Duration));
+        end
+        writeBandReceipt(fullfile(output_root, 'profile-bands-receipt.json'), band_results, band_cases);
+        assert(isequal(sort({band_results.Name}), sort(band_cases)), 'OptiProfiler:BandResultSetMismatch', 'TestProfileBands results do not match the expected cases.');
+        assert(nnz([band_results.Failed]) == 0 && nnz([band_results.Incomplete]) == 0 && all([band_results.Passed]), ...
+            'OptiProfiler:BandTestsNotPassed', 'TestProfileBands: %d failed, %d incomplete.', nnz([band_results.Failed]), nnz([band_results.Incomplete]));
+        appendLog(log_file, sprintf('TestProfileBands completed with Failed=0 and Incomplete=0 for %d of %d cases (serial, n_jobs=1).', numel(band_results), numel(band_cases)));
     catch cause
         try
             appendLog(log_file, sprintf('Failed during %s [%s]:\n%s', stage, cause.identifier, ...
@@ -121,6 +144,19 @@ function writeReceipt(filename, results, pool_check, parallel_case, selected_cas
         'tests', numel(results), 'failed', nnz([results.Failed]), 'incomplete', nnz([results.Incomplete]), ...
         'passed', nnz([results.Passed]), 'names', {names}, 'durations', [results.Duration], 'parpool_precheck', pool_check, ...
         'parallel_case', parallel_case, 'selected_cases', {selected_cases}, 'omitted_cases', omitted);
+    fid = fopen(filename, 'w');
+    assert(fid >= 0, 'OptiProfiler:CiReceiptUnavailable', 'Cannot write %s', filename);
+    guard = onCleanup(@() fclose(fid));
+    fwrite(fid, unicode2native(jsonencode(receipt), 'UTF-8'), 'uint8');
+end
+
+function writeBandReceipt(filename, band_results, band_cases)
+% The rendered profile-band regression (serial, n_jobs = 1) is reported in its own receipt, persisted before any of
+% its gates can fail, so the TestEvalReport receipt.json and its 10/11-case checks keep their exact meaning.
+    receipt = struct('matlab', version, 'platform', computer, 'suite', 'TestProfileBands', 'serial', true, ...
+        'expected_cases', {band_cases}, 'tests', numel(band_results), 'passed', nnz([band_results.Passed]), ...
+        'failed', nnz([band_results.Failed]), 'incomplete', nnz([band_results.Incomplete]), ...
+        'names', {{band_results.Name}}, 'durations', [band_results.Duration]);
     fid = fopen(filename, 'w');
     assert(fid >= 0, 'OptiProfiler:CiReceiptUnavailable', 'Cannot write %s', filename);
     guard = onCleanup(@() fclose(fid));

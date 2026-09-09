@@ -9,6 +9,10 @@
 #   Parallel Computing Toolbox workers. Every row gates on Failed=0 AND
 #   Incomplete=0 with the exact expected case set, so a filtered or missing
 #   case cannot pass silently. The supported product floor stays R2021b.
+# - Every row additionally runs the serial rendered-profile-band regression
+#   (TestProfileBands, n_jobs = 1, no pool) with its own exact case set and
+#   gate, reported in its own profile-bands-receipt.json and
+#   profile-bands-junit.xml next to the unchanged receipt.json/junit.xml.
 
 name: MATLAB EvalReport platforms
 
@@ -98,7 +102,7 @@ jobs:
           cache: true
           products: Parallel_Computing_Toolbox
 
-      - name: Run TestEvalReport with an Incomplete=0 gate
+      - name: Run TestEvalReport and the serial TestProfileBands gate (Incomplete=0)
         uses: matlab-actions/run-command@v2.1.1
         with:
           command: |
