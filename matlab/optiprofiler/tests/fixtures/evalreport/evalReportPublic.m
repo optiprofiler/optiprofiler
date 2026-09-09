@@ -341,10 +341,20 @@ function evalReportPublic(source_root, output_root, slice)
         assert(~optiprofiler_internal.EvalReport.isLink(fullfile(output_root, 'beyond_link_target')) ...
             && ~optiprofiler_internal.EvalReport.isLink(fullfile(planted, 'beyond_link.txt')), ...
             'A plain directory and a file beneath a link are not links themselves.');
-        empty_logs = fresh.artifacts(endsWith({fresh.artifacts.path}, 'test_log/log.txt'));
-        assert(numel(empty_logs) == 1 && empty_logs.bytes == 0, 'Empty log artifact was omitted.');
-        assert(strcmp(empty_logs.sha256, 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'), ...
-            'Empty file must have the standard SHA256 digest.');
+        log_artifacts = fresh.artifacts(endsWith({fresh.artifacts.path}, 'test_log/log.txt'));
+        assert(numel(log_artifacts) == 1, 'The run log must be enumerated exactly once.');
+        log_path = fullfile(output_root, fresh.artifact_root, log_artifacts.path);
+        if merge_failed
+            % Without a merge backend the run log carries the warnings, so it
+            % is not empty; the receipt must still describe the final file.
+            log_info = dir(log_path);
+            assert(log_artifacts.bytes > 0 && log_artifacts.bytes == log_info.bytes && strcmp(log_artifacts.sha256, hashFile(log_path)), ...
+                'The non-empty run log must be enumerated with its final size and digest.');
+        else
+            assert(log_artifacts.bytes == 0, 'Empty log artifact was omitted.');
+            assert(strcmp(log_artifacts.sha256, 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'), ...
+                'Empty file must have the standard SHA256 digest.');
+        end
         blocks = fresh.artifacts(endsWith({fresh.artifacts.path}, 'hash-block.bin'));
         assert(numel(blocks) == 1 && blocks.bytes == 1048576);
         assert(strcmp(blocks.sha256, '30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58'), ...
