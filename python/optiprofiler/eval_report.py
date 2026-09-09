@@ -314,11 +314,25 @@ def _metric(history, count, output, initial):
     return record
 
 
+# IsReparseTagNameSurrogate: set on the reparse tags that redirect a name
+# (symbolic links, junctions/mount points), clear on those that keep it
+# (cloud-file placeholders, compressed or deduplicated files).
+_NAME_SURROGATE = 0x20000000
+
+
 def _reparse_point(status):
-    """A symlink, or on Windows any reparse point (junction, mount point)."""
-    return stat.S_ISLNK(status.st_mode) or bool(
-        getattr(status, 'st_file_attributes', 0)
-        & getattr(stat, 'FILE_ATTRIBUTE_REPARSE_POINT', 0))
+    """A symlink, or on Windows a junction or other name-redirecting reparse point."""
+    if stat.S_ISLNK(status.st_mode):
+        return True
+    return bool(getattr(status, 'st_reparse_tag', 0) & _NAME_SURROGATE)
+
+
+def _link_like(path):
+    """True for a link (see ``_reparse_point``) or an entry that cannot be inspected."""
+    try:
+        return _reparse_point(os.lstat(str(path)))
+    except OSError:
+        return True
 
 
 def _digest(path, directory=None):
@@ -1015,11 +1029,12 @@ class EvalReport:
     def _artifact_paths(self, directory):
         count = 0
         for root, directories, files in os.walk(str(directory), followlinks=False):
+            # Junctions are not symlinks to os.walk; prune every link kind.
             directories[:] = sorted(name for name in directories
-                                    if not (Path(root) / name).is_symlink())
+                                    if not _link_like(Path(root) / name))
             for name in sorted(files):
                 path = Path(root) / name
-                if not path.is_symlink() and path.is_file():
+                if not _link_like(path) and path.is_file():
                     yield path
                     count += 1
                     if count >= _MAX_ARTIFACTS:

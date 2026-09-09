@@ -1643,133 +1643,147 @@ def _benchmark(
                 pdf_log_ratio_hist_summary = backend_pdf.PdfPages(path_log_ratio_hist_summary)
                 pdf_log_ratio_out_summary = backend_pdf.PdfPages(path_log_ratio_out_summary)
 
-        for i_tol, tolerance in enumerate(tolerances):
-            hist = {
-                'perf': [[None for _ in range(n_runs + 1)] for _ in range(n_solvers)],
-                'data': [[None for _ in range(n_runs + 1)] for _ in range(n_solvers)],
-            }
-            if n_solvers == 2:
-                hist['log_ratio'] = [None, None]
-            # IMPORTANT: ``curve['hist']`` and ``curve['out']`` must be fully
-            # independent containers. ``draw_profiles`` mutates the inner
-            # ``perf`` / ``data`` / ``log_ratio`` lists in place when storing
-            # the computed curves, and ``compute_scores`` later reads the two
-            # branches separately to integrate history-based and output-based
-            # profiles. A shallow copy (e.g. ``hist.copy()``) would leave the
-            # nested lists shared between the two branches; the second
-            # ``draw_profiles`` call would then overwrite the curves stored by
-            # the first, so the history-based and output-based scores would be
-            # silently identical. Use ``copy.deepcopy`` to break the sharing.
-            curve = {
-                'hist': hist,
-                'out': copy.deepcopy(hist),
-            }
-            tolerance_str, tolerance_latex = format_float_scientific_latex(tolerance)
-            if not profile_options[ProfileOption.SILENT]:
-                logger.info(f'Creating profiles for tolerance {tolerance_str}')
-
-            # Compute the number of function evaluations used by each
-            # solver on each problem at each run to achieve convergence.
-            work_hist = np.full((n_problems, n_solvers, n_runs), np.nan)
-            work_out = np.full((n_problems, n_solvers, n_runs), np.nan)
-            for i_problem in range(n_problems):
-                for i_solver in range(n_solvers):
-                    for i_run in range(n_runs):
-                        if invalid_initial[i_problem, i_run]:
-                            continue
-                        if merit_init_inf_mask[i_problem, i_run]:
-                            # Preserve the Inf-initial convention, but only
-                            # for actual evaluations without raw NaN values.
-                            threshold = np.inf
-                        elif np.isfinite(merit_mins_per_run[i_problem, i_run]):
-                            threshold = max(tolerance * merit_inits_per_run[i_problem, i_run] + (1.0 - tolerance) * merit_mins_per_run[i_problem, i_run], merit_mins_per_run[i_problem, i_run])
-                        else:
-                            # Unreachable under the merit_min <=
-                            # merit_init invariant established in
-                            # ``process_results`` (since
-                            # merit_inits_per_run is finite here). Kept
-                            # defensively to preserve the previous
-                            # "no convergence" behaviour.
-                            threshold = -np.inf
-                        passing = valid_histories[i_problem, i_solver, i_run] & (merit_histories_merged[i_problem, i_solver, i_run] <= threshold)
-                        if np.any(passing):
-                            work_hist[i_problem, i_solver, i_run] = np.flatnonzero(passing)[0] + 1
-                        if valid_outs[i_problem, i_solver, i_run] and merit_outs_merged[i_problem, i_solver, i_run] <= threshold:
-                            work_out[i_problem, i_solver, i_run] = n_evals_merged[i_problem, i_solver, i_run]
-
-            if report is not None:
-                # Reuse exactly the work arrays used for these profiles. The
-                # report must not invent another convergence/merit calculation.
-                problem_ids = [(r['plib'], name) for r in results_plibs
-                               for name in r['problem_names']]
-                report.add_convergence(tolerance, work_hist, work_out, problem_ids)
-
-            for i_problem in range(n_problems):
-                for i_run in range(n_runs):
-                    solvers_all_diverge_hist[i_problem, i_run, i_tol] = np.all(np.isnan(work_hist[i_problem, :, i_run]))
-                    solvers_all_diverge_out[i_problem, i_run, i_tol] = np.all(np.isnan(work_out[i_problem, :, i_run]))
-
-            # Log if all solvers failed to meet convergence test.
-            is_hist_drawable = np.any(~np.isnan(work_hist))
-            is_out_drawable = np.any(~np.isnan(work_out))
-            if not is_hist_drawable and not profile_options[ProfileOption.SILENT]:
-                logger.info(f'All solvers failed to meet the convergence test for tolerance {tolerance_str} in history-based profiles.')
-            if not is_out_drawable and not profile_options[ProfileOption.SILENT]:
-                logger.info(f'All solvers failed to meet the convergence test for tolerance {tolerance_str} in output-based profiles.')
-
-            # Draw the profiles.
-            fig_perf_hist, fig_data_hist, fig_log_ratio_hist, curve['hist'] = draw_profiles(work_hist, problem_dims_merged, solver_names, tolerance_latex, i_tol, ax_summary_perf_hist, ax_summary_data_hist, ax_summary_log_ratio_hist, True, is_perf, is_data, is_log_ratio, profile_options, curve['hist'],
-                **({'_plot_sink': lambda kind, data: report.add_profile_plot(kind, data, i_tol + 1, 'history')} if report is not None else {}))
-            fig_perf_out, fig_data_out, fig_log_ratio_out, curve['out'] = draw_profiles(work_out, problem_dims_merged, solver_names, tolerance_latex, i_tol, ax_summary_perf_out, ax_summary_data_out, ax_summary_log_ratio_out, is_output_based, is_perf, is_data, is_log_ratio, profile_options, curve['out'],
-                **({'_plot_sink': lambda kind, data: report.add_profile_plot(kind, data, i_tol + 1, 'output')} if report is not None else {}))
-            curves.append(curve)
-
-            # Save the profiles to files.
-            if is_saving:
-                if is_hist_drawable:
-                    pdf_perf_hist = path_perf_hist / f'perf_hist_{i_tol + 1}.pdf'
-                    _report_export(report, fig_perf_hist.savefig, pdf_perf_hist, bbox_inches='tight')
-                    _report_export(report, pdf_perf_hist_summary.savefig, fig_perf_hist, bbox_inches='tight')
-
-                    pdf_data_hist = path_data_hist / f'data_hist_{i_tol + 1}.pdf'
-                    _report_export(report, fig_data_hist.savefig, pdf_data_hist, bbox_inches='tight')
-                    _report_export(report, pdf_data_hist_summary.savefig, fig_data_hist, bbox_inches='tight')
-
-                if is_out_drawable:
-                    pdf_perf_out = path_perf_out / f'perf_out_{i_tol + 1}.pdf'
-                    _report_export(report, fig_perf_out.savefig, pdf_perf_out, bbox_inches='tight')
-                    _report_export(report, pdf_perf_out_summary.savefig, fig_perf_out, bbox_inches='tight')
-
-                    pdf_data_out = path_data_out / f'data_out_{i_tol + 1}.pdf'
-                    _report_export(report, fig_data_out.savefig, pdf_data_out, bbox_inches='tight')
-                    _report_export(report, pdf_data_out_summary.savefig, fig_data_out, bbox_inches='tight')
-
-                if n_solvers == 2:
-                    if is_hist_drawable and fig_log_ratio_hist is not None:
-                        pdf_log_ratio_hist = path_log_ratio_hist / f'log-ratio_hist_{i_tol + 1}.pdf'
-                        _report_export(report, fig_log_ratio_hist.savefig, pdf_log_ratio_hist, bbox_inches='tight')
-                        _report_export(report, pdf_log_ratio_hist_summary.savefig, fig_log_ratio_hist, bbox_inches='tight')
-                    
-                    if is_out_drawable and fig_log_ratio_out is not None:
-                        pdf_log_ratio_out = path_log_ratio_out / f'log-ratio_out_{i_tol + 1}.pdf'
-                        _report_export(report, fig_log_ratio_out.savefig, pdf_log_ratio_out, bbox_inches='tight')
-                        _report_export(report, pdf_log_ratio_out_summary.savefig, fig_log_ratio_out, bbox_inches='tight')
-                
-            # These file-only figures are not registered with pyplot.
-            for figure in (fig_perf_hist, fig_perf_out, fig_data_hist, fig_data_out,
-                           fig_log_ratio_hist, fig_log_ratio_out):
-                if figure is not None:
-                    figure.clear()
-            
-        # Close the summary pdf files.
+        # Every summary writer must be closed before a failure propagates: the
+        # exception's traceback keeps this frame, and with it the writers,
+        # alive, so an unclosed PdfPages would be finalized only at garbage
+        # collection, after the report harvested the file's size and hash.
+        summary_writers = []
         if is_saving:
-            _report_export(report, pdf_perf_hist_summary.close)
-            _report_export(report, pdf_perf_out_summary.close)
-            _report_export(report, pdf_data_hist_summary.close)
-            _report_export(report, pdf_data_out_summary.close)
+            summary_writers = [pdf_perf_hist_summary, pdf_perf_out_summary,
+                               pdf_data_hist_summary, pdf_data_out_summary]
             if n_solvers == 2:
-                _report_export(report, pdf_log_ratio_hist_summary.close)
-                _report_export(report, pdf_log_ratio_out_summary.close)
+                summary_writers += [pdf_log_ratio_hist_summary, pdf_log_ratio_out_summary]
+        try:
+            for i_tol, tolerance in enumerate(tolerances):
+                hist = {
+                    'perf': [[None for _ in range(n_runs + 1)] for _ in range(n_solvers)],
+                    'data': [[None for _ in range(n_runs + 1)] for _ in range(n_solvers)],
+                }
+                if n_solvers == 2:
+                    hist['log_ratio'] = [None, None]
+                # IMPORTANT: ``curve['hist']`` and ``curve['out']`` must be fully
+                # independent containers. ``draw_profiles`` mutates the inner
+                # ``perf`` / ``data`` / ``log_ratio`` lists in place when storing
+                # the computed curves, and ``compute_scores`` later reads the two
+                # branches separately to integrate history-based and output-based
+                # profiles. A shallow copy (e.g. ``hist.copy()``) would leave the
+                # nested lists shared between the two branches; the second
+                # ``draw_profiles`` call would then overwrite the curves stored by
+                # the first, so the history-based and output-based scores would be
+                # silently identical. Use ``copy.deepcopy`` to break the sharing.
+                curve = {
+                    'hist': hist,
+                    'out': copy.deepcopy(hist),
+                }
+                tolerance_str, tolerance_latex = format_float_scientific_latex(tolerance)
+                if not profile_options[ProfileOption.SILENT]:
+                    logger.info(f'Creating profiles for tolerance {tolerance_str}')
+
+                # Compute the number of function evaluations used by each
+                # solver on each problem at each run to achieve convergence.
+                work_hist = np.full((n_problems, n_solvers, n_runs), np.nan)
+                work_out = np.full((n_problems, n_solvers, n_runs), np.nan)
+                for i_problem in range(n_problems):
+                    for i_solver in range(n_solvers):
+                        for i_run in range(n_runs):
+                            if invalid_initial[i_problem, i_run]:
+                                continue
+                            if merit_init_inf_mask[i_problem, i_run]:
+                                # Preserve the Inf-initial convention, but only
+                                # for actual evaluations without raw NaN values.
+                                threshold = np.inf
+                            elif np.isfinite(merit_mins_per_run[i_problem, i_run]):
+                                threshold = max(tolerance * merit_inits_per_run[i_problem, i_run] + (1.0 - tolerance) * merit_mins_per_run[i_problem, i_run], merit_mins_per_run[i_problem, i_run])
+                            else:
+                                # Unreachable under the merit_min <=
+                                # merit_init invariant established in
+                                # ``process_results`` (since
+                                # merit_inits_per_run is finite here). Kept
+                                # defensively to preserve the previous
+                                # "no convergence" behaviour.
+                                threshold = -np.inf
+                            passing = valid_histories[i_problem, i_solver, i_run] & (merit_histories_merged[i_problem, i_solver, i_run] <= threshold)
+                            if np.any(passing):
+                                work_hist[i_problem, i_solver, i_run] = np.flatnonzero(passing)[0] + 1
+                            if valid_outs[i_problem, i_solver, i_run] and merit_outs_merged[i_problem, i_solver, i_run] <= threshold:
+                                work_out[i_problem, i_solver, i_run] = n_evals_merged[i_problem, i_solver, i_run]
+
+                if report is not None:
+                    # Reuse exactly the work arrays used for these profiles. The
+                    # report must not invent another convergence/merit calculation.
+                    problem_ids = [(r['plib'], name) for r in results_plibs
+                                   for name in r['problem_names']]
+                    report.add_convergence(tolerance, work_hist, work_out, problem_ids)
+
+                for i_problem in range(n_problems):
+                    for i_run in range(n_runs):
+                        solvers_all_diverge_hist[i_problem, i_run, i_tol] = np.all(np.isnan(work_hist[i_problem, :, i_run]))
+                        solvers_all_diverge_out[i_problem, i_run, i_tol] = np.all(np.isnan(work_out[i_problem, :, i_run]))
+
+                # Log if all solvers failed to meet convergence test.
+                is_hist_drawable = np.any(~np.isnan(work_hist))
+                is_out_drawable = np.any(~np.isnan(work_out))
+                if not is_hist_drawable and not profile_options[ProfileOption.SILENT]:
+                    logger.info(f'All solvers failed to meet the convergence test for tolerance {tolerance_str} in history-based profiles.')
+                if not is_out_drawable and not profile_options[ProfileOption.SILENT]:
+                    logger.info(f'All solvers failed to meet the convergence test for tolerance {tolerance_str} in output-based profiles.')
+
+                # Draw the profiles.
+                fig_perf_hist, fig_data_hist, fig_log_ratio_hist, curve['hist'] = draw_profiles(work_hist, problem_dims_merged, solver_names, tolerance_latex, i_tol, ax_summary_perf_hist, ax_summary_data_hist, ax_summary_log_ratio_hist, True, is_perf, is_data, is_log_ratio, profile_options, curve['hist'],
+                    **({'_plot_sink': lambda kind, data: report.add_profile_plot(kind, data, i_tol + 1, 'history')} if report is not None else {}))
+                fig_perf_out, fig_data_out, fig_log_ratio_out, curve['out'] = draw_profiles(work_out, problem_dims_merged, solver_names, tolerance_latex, i_tol, ax_summary_perf_out, ax_summary_data_out, ax_summary_log_ratio_out, is_output_based, is_perf, is_data, is_log_ratio, profile_options, curve['out'],
+                    **({'_plot_sink': lambda kind, data: report.add_profile_plot(kind, data, i_tol + 1, 'output')} if report is not None else {}))
+                curves.append(curve)
+
+                # Save the profiles to files.
+                if is_saving:
+                    if is_hist_drawable:
+                        pdf_perf_hist = path_perf_hist / f'perf_hist_{i_tol + 1}.pdf'
+                        _report_export(report, fig_perf_hist.savefig, pdf_perf_hist, bbox_inches='tight')
+                        _report_export(report, pdf_perf_hist_summary.savefig, fig_perf_hist, bbox_inches='tight')
+
+                        pdf_data_hist = path_data_hist / f'data_hist_{i_tol + 1}.pdf'
+                        _report_export(report, fig_data_hist.savefig, pdf_data_hist, bbox_inches='tight')
+                        _report_export(report, pdf_data_hist_summary.savefig, fig_data_hist, bbox_inches='tight')
+
+                    if is_out_drawable:
+                        pdf_perf_out = path_perf_out / f'perf_out_{i_tol + 1}.pdf'
+                        _report_export(report, fig_perf_out.savefig, pdf_perf_out, bbox_inches='tight')
+                        _report_export(report, pdf_perf_out_summary.savefig, fig_perf_out, bbox_inches='tight')
+
+                        pdf_data_out = path_data_out / f'data_out_{i_tol + 1}.pdf'
+                        _report_export(report, fig_data_out.savefig, pdf_data_out, bbox_inches='tight')
+                        _report_export(report, pdf_data_out_summary.savefig, fig_data_out, bbox_inches='tight')
+
+                    if n_solvers == 2:
+                        if is_hist_drawable and fig_log_ratio_hist is not None:
+                            pdf_log_ratio_hist = path_log_ratio_hist / f'log-ratio_hist_{i_tol + 1}.pdf'
+                            _report_export(report, fig_log_ratio_hist.savefig, pdf_log_ratio_hist, bbox_inches='tight')
+                            _report_export(report, pdf_log_ratio_hist_summary.savefig, fig_log_ratio_hist, bbox_inches='tight')
+                    
+                        if is_out_drawable and fig_log_ratio_out is not None:
+                            pdf_log_ratio_out = path_log_ratio_out / f'log-ratio_out_{i_tol + 1}.pdf'
+                            _report_export(report, fig_log_ratio_out.savefig, pdf_log_ratio_out, bbox_inches='tight')
+                            _report_export(report, pdf_log_ratio_out_summary.savefig, fig_log_ratio_out, bbox_inches='tight')
+                
+                # These file-only figures are not registered with pyplot.
+                for figure in (fig_perf_hist, fig_perf_out, fig_data_hist, fig_data_out,
+                               fig_log_ratio_hist, fig_log_ratio_out):
+                    if figure is not None:
+                        figure.clear()
+            
+            # Close the summary pdf files.
+            if is_saving:
+                for writer in list(summary_writers):
+                    _report_export(report, writer.close)
+                    summary_writers.remove(writer)
+        except BaseException:
+            for writer in summary_writers:
+                try:
+                    writer.close()
+                except Exception:
+                    pass
+            raise
         
         if is_saving:
             try:

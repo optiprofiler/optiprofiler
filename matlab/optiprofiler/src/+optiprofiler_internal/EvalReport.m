@@ -770,6 +770,23 @@ classdef EvalReport < handle
             end
         end
     end
+    methods (Static)
+        function yes = isLink(path)
+        %ISLINK True for a symbolic link and, on Windows, for a junction or any
+        % other reparse point that redirects the name. Reparse points that keep
+        % the name (cloud-file placeholders, compressed or deduplicated files)
+        % are ordinary entries. Public so the platform tests can exercise it.
+            if usejava('jvm')
+                target = java.io.File(path).toPath();
+                yes = java.nio.file.Files.isSymbolicLink(target);
+                if ~yes && ispc
+                    yes = optiprofiler_internal.EvalReport.isNameSurrogate(target);
+                end
+            else
+                [status, ~] = system(['test -L ', optiprofiler_internal.EvalReport.quote(path)]); yes = status == 0;
+            end
+        end
+    end
     methods (Static, Access = private)
         function yes = isAbsolute(path)
             yes = startsWith(path, filesep) || ~isempty(regexp(path, '^[A-Za-z]:[\\/]', 'once')) || startsWith(path, '\\');
@@ -841,20 +858,27 @@ classdef EvalReport < handle
             value = sprintf('matlab-%s-%d-%d', char(datetime('now','Format','yyyyMMddHHmmssSSS')), feature('getpid'), sequence);
         end
 
-        function yes = isLink(path)
-            if usejava('jvm')
-                file = java.io.File(path); target = file.toPath();
-                yes = java.nio.file.Files.isSymbolicLink(target);
-                if ~yes && ispc && java.nio.file.Files.exists(target)
-                    % Junctions and other reparse points are neither regular
-                    % files nor directories to Java's basic view ("other").
-                    options = javaArray('java.nio.file.LinkOption',1);
-                    options(1) = java.nio.file.LinkOption.NOFOLLOW_LINKS;
-                    attributes = java.nio.file.Files.readAttributes(target, 'basic:isOther', options);
-                    yes = logical(attributes.get('isOther'));
-                end
-            else
-                [status, ~] = system(['test -L ', optiprofiler_internal.EvalReport.quote(path)]); yes = status == 0;
+        function yes = isNameSurrogate(target)
+            % Java exposes no reparse tag. An entry redirects the name when its
+            % resolved real path differs from the resolved path of its parent
+            % joined with the entry's own canonical name; an entry that exists
+            % but cannot be resolved (a dangling junction) is a link as well.
+            % java.nio methods taking LinkOption varargs bind from MATLAB only
+            % with an explicit, possibly empty, LinkOption[] argument.
+            follow = javaArray('java.nio.file.LinkOption', 0);
+            nofollow = javaArray('java.nio.file.LinkOption', 1);
+            nofollow(1) = java.nio.file.LinkOption.NOFOLLOW_LINKS;
+            yes = false;
+            if ~java.nio.file.Files.exists(target, nofollow), return; end
+            parent = target.toAbsolutePath().getParent();
+            if isempty(parent), return; end
+            try
+                resolved = target.toRealPath(follow);
+                canonical = target.toRealPath(nofollow);
+                yes = ~parent.toRealPath(follow).resolve(canonical.getFileName()).equals(resolved);
+            catch
+                attributes = java.nio.file.Files.readAttributes(target, 'basic:isOther', nofollow);
+                yes = logical(attributes.get('isOther'));
             end
         end
 

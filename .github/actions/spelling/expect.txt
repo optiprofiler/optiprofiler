@@ -80,6 +80,7 @@ mathrm
 maxcv
 maxdepth
 mindepth
+mklink
 modifyitems
 nanmax
 nanmin

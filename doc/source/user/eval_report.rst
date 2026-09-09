@@ -277,8 +277,10 @@ Artifact hashing never reads a file through a path it cannot vouch for.
 On POSIX, Python opens every component below the benchmark-owned output tree
 relative to a directory descriptor with ``O_NOFOLLOW``, so a symlink or a
 directory swapped during traversal is refused. Windows has no ``openat``: there
-Python inspects each component with ``lstat`` (symlinks and junctions are
-refused), opens the file, and requires the opened handle's identity (volume
+Python inspects each component with ``lstat`` (symlinks, junctions and any
+other reparse point that redirects the name are refused; cloud-file
+placeholders and compressed or deduplicated files are ordinary files), opens
+the file, and requires the opened handle's identity (volume
 serial number and file index) to equal the identity recorded before the open,
 so the hashed bytes are provably the inspected file. This matches the
 guarantee level of the MATLAB collector, which checks for links before
@@ -302,8 +304,12 @@ The MATLAB collector identifies its two files through Java's file key on
 POSIX systems. Windows exposes no file index to Java, so there the identity is
 the creation time, size and modification time of the file: a replaced or
 rewritten file between two publishes is still detected, forged timestamps are
-outside the model, and ``report_files.platform_note`` says so. Junctions are
-treated like symbolic links.
+outside the model, and ``report_files.platform_note`` says so. Junctions and
+other name-redirecting reparse points are treated like symbolic links: Java
+exposes no reparse tag, so the collector compares the resolved real path of an
+entry with the resolved path of its parent joined with the entry's canonical
+name, and an entry that exists but cannot be resolved (a dangling junction) is
+a link as well.
 
 Both JSON files are written with a best-effort owner-only permission policy.
 Python creates them with mode ``0600`` (exclusive creation and ``mkstemp``);

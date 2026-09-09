@@ -382,8 +382,17 @@ def test_save_load_records_source_and_artifacts_without_reexecuting_provider(tmp
 def test_export_failure_is_not_a_numerical_failure(tmp_path, monkeypatch):
     from matplotlib.figure import Figure
     _library(tmp_path / 'libraries', 'evalrender', ['QUAD'])
+    original_export = Figure.savefig
+    exports = []
     def failed_export(self, *args, **kwargs):
-        raise OSError('deliberate file export failure')
+        # The third export fails: by then the first summary PdfPages holds a
+        # written page, so on every matplotlib version (eager or lazy file
+        # creation) a writer left open by the failure would be harvested
+        # unfinished and finalized later, giving a stale receipt.
+        exports.append(1)
+        if len(exports) > 2:
+            raise OSError('deliberate file export failure')
+        return original_export(self, *args, **kwargs)
     monkeypatch.setattr(Figure, 'savefig', failed_export)  # Real renderer's I/O boundary only.
     options = _options(tmp_path, ['evalrender'])
     options.update(score_only=False, n_runs=1, max_tol_order=1)
@@ -398,6 +407,9 @@ def test_export_failure_is_not_a_numerical_failure(tmp_path, monkeypatch):
     assert report['stages']['scoring']['status'] == 'unknown'
     assert any(d['code'] == 'profile_export_failed' for d in report['diagnostics'])
     assert any(a['path'].endswith('data_for_loading.h5') for a in report['artifacts'])
+    # The summary PDF with its one written page was closed before the report
+    # harvested it, so its receipt describes the final file.
+    assert any(a['path'] == 'perf_hist.pdf' and a['bytes'] > 0 for a in report['artifacts'])
     _assert_artifacts_verified(target, report)
 
 
@@ -504,6 +516,33 @@ def test_identity_checked_hashing_matches_openat_and_refuses_symlinks(tmp_path, 
     collector._harvest()
     names = {a['path'].split('/')[-1] for a in collector.document['artifacts']}
     assert 'planted_link.txt' not in names and 'data_for_loading.h5' in names
+
+
+@pytest.mark.skipif(os.name != 'nt', reason='junctions exist only on Windows')
+def test_junctions_inside_the_owned_tree_are_not_harvested(tmp_path):
+    """Windows only: a junction needs no privilege and is not a symlink to os.walk."""
+    import subprocess
+    from optiprofiler import eval_report as module
+    target, report, _ = _saved_run(tmp_path / 'junction', 'evaljunction')
+    root = target.parent / report['artifact_root']
+    beyond = tmp_path / 'beyond'
+    beyond.mkdir()
+    (beyond / 'beyond.txt').write_bytes(b'not an artifact')
+    planted = root / 'planted_junction'
+    completed = subprocess.run(['cmd', '/c', 'mklink', '/J', str(planted), str(beyond)],
+                               capture_output=True, text=True)
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    assert module._reparse_point(os.lstat(str(planted))) and not planted.is_symlink()
+    assert not module._reparse_point(os.lstat(str(beyond)))
+    assert not module._reparse_point(os.lstat(str(root / 'data_for_loading.h5')))
+    collector = module.EvalReport(tmp_path / 'junction' / 'again.json', {})
+    collector.configure({}, {'score_only': False}, object(), output_dir=root)
+    collector._initial_artifacts = set()
+    collector._harvest()
+    names = {a['path'].split('/')[-1] for a in collector.document['artifacts']}
+    assert 'beyond.txt' not in names and 'data_for_loading.h5' in names
+    with pytest.raises(OSError):
+        module._digest(planted / 'beyond.txt', directory=root)
 
 
 def test_schemas_are_package_resources_shared_by_installed_tests_and_docs():

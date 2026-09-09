@@ -306,6 +306,16 @@ function evalReportPublic(source_root, output_root, slice)
         end
         assert(strcmp(fresh.stages.persistence.status, 'completed'), 'Persistence must be complete regardless of PDF merge backends.');
         assert(~isempty(fresh.artifacts), 'Existing produced artifacts must be enumerated.');
+        artifact_paths = {fresh.artifacts.path};
+        assert(~any(contains(artifact_paths, 'beyond_link')) && ~any(contains(artifact_paths, 'planted_link')), ...
+            'A directory link inside the owned tree must not be harvested.');
+        run_directories = dir(fullfile(output_root, options.benchmark_id));
+        run_directories = run_directories([run_directories.isdir] & ~ismember({run_directories.name}, {'.', '..'}));
+        planted = fullfile(run_directories(1).folder, run_directories(1).name, 'planted_link');
+        assert(optiprofiler_internal.EvalReport.isLink(planted), 'The planted directory link must be recognized as a link.');
+        assert(~optiprofiler_internal.EvalReport.isLink(fullfile(output_root, 'beyond_link_target')) ...
+            && ~optiprofiler_internal.EvalReport.isLink(fullfile(planted, 'beyond_link.txt')), ...
+            'A plain directory and a file beneath a link are not links themselves.');
         empty_logs = fresh.artifacts(endsWith({fresh.artifacts.path}, 'test_log/log.txt'));
         assert(numel(empty_logs) == 1 && empty_logs.bytes == 0, 'Empty log artifact was omitted.');
         assert(strcmp(empty_logs.sha256, 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'), ...
@@ -462,9 +472,24 @@ function x = stayWithHashBoundary(fun, x0)
     folders = dir(fullfile(getenv('EVAL_REPORT_HASH_FIXTURE_ROOT'), '*'));
     folders = folders([folders.isdir] & ~ismember({folders.name}, {'.', '..'}));
     assert(numel(folders) == 1, 'Expected the current benchmark output directory.');
-    target = fullfile(folders.folder, folders.name, 'hash-block.bin');
+    run_directory = fullfile(folders.folder, folders.name);
+    target = fullfile(run_directory, 'hash-block.bin');
     fid = fopen(target, 'wb'); guard = onCleanup(@() fclose(fid));
     fwrite(fid, zeros(1048576, 1, 'uint8'), 'uint8');
+    % A directory link planted inside the owned tree (a junction on Windows,
+    % which needs no privilege; a symlink elsewhere) exposes a file that is
+    % not a benchmark artifact and must not be harvested.
+    beyond = fullfile(fileparts(getenv('EVAL_REPORT_HASH_FIXTURE_ROOT')), 'beyond_link_target');
+    if ~isfolder(beyond), mkdir(beyond); end
+    fid_beyond = fopen(fullfile(beyond, 'beyond_link.txt'), 'wb'); fwrite(fid_beyond, 'not an artifact'); fclose(fid_beyond);
+    planted = fullfile(run_directory, 'planted_link');
+    if isfolder(planted) || isfile(planted), return; end
+    if ispc
+        [status, output] = system(sprintf('cmd /c mklink /J "%s" "%s"', planted, beyond));
+    else
+        [status, output] = system(sprintf('ln -s "%s" "%s"', beyond, planted));
+    end
+    assert(status == 0, 'Could not plant the directory link: %s', output);
 end
 
 function value = undefinedObjective(x)
