@@ -21,6 +21,18 @@ function run_matlab_eval_report_ci(repository_root, output_root)
     try
         assert(~isempty(ver('parallel')), 'OptiProfiler:ParallelToolboxRequired', ...
             'Parallel Computing Toolbox must be installed: the worker-equivalence case is mandatory here.');
+        % Classify the runner before the suite: a pool that cannot start for a
+        % reason inside the toolbox itself is an infrastructure limitation of
+        % this runner image, distinct from a product failure. The suite still
+        % runs and its worker case still fails, so the gate stays honest.
+        pool_check = 'ok';
+        try
+            pool = parpool(2);
+            delete(pool);
+        catch pool_error
+            pool_check = sprintf('parpool failed [%s]: %s', pool_error.identifier, pool_error.message);
+        end
+        appendLog(log_file, ['parpool precheck: ', pool_check]);
         cd(fullfile(repository_root, 'matlab', 'optiprofiler'));
         suite = testsuite(fullfile(pwd, 'tests', 'unit_tests', 'TestEvalReport.m'));
         assert(~isempty(suite), 'OptiProfiler:EmptyCiSuite', 'TestEvalReport was not found.');
@@ -37,7 +49,7 @@ function run_matlab_eval_report_ci(repository_root, output_root)
             appendLog(log_file, sprintf('  %s passed=%d failed=%d incomplete=%d duration=%.2fs', ...
                 results(k).Name, results(k).Passed, results(k).Failed, results(k).Incomplete, results(k).Duration));
         end
-        writeReceipt(fullfile(output_root, 'receipt.json'), results);
+        writeReceipt(fullfile(output_root, 'receipt.json'), results, pool_check);
         assert(nfailed == 0, 'OptiProfiler:EvalReportTestsFailed', '%d test(s) failed.', nfailed);
         assert(nincomplete == 0, 'OptiProfiler:EvalReportTestsFiltered', ...
             '%d test(s) were filtered/incomplete; every EvalReport case is mandatory on this platform.', nincomplete);
@@ -53,11 +65,11 @@ function run_matlab_eval_report_ci(repository_root, output_root)
     end
 end
 
-function writeReceipt(filename, results)
+function writeReceipt(filename, results, pool_check)
     names = {results.Name};
     receipt = struct('matlab', version, 'platform', computer, 'jvm', usejava('jvm'), ...
         'tests', numel(results), 'failed', nnz([results.Failed]), 'incomplete', nnz([results.Incomplete]), ...
-        'names', {names}, 'durations', [results.Duration]);
+        'names', {names}, 'durations', [results.Duration], 'parpool_precheck', pool_check);
     fid = fopen(filename, 'w');
     assert(fid >= 0, 'OptiProfiler:CiReceiptUnavailable', 'Cannot write %s', filename);
     guard = onCleanup(@() fclose(fid));

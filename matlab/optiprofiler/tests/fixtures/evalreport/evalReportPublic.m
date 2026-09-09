@@ -291,7 +291,20 @@ function evalReportPublic(source_root, output_root, slice)
         setenv('EVAL_REPORT_HASH_FIXTURE_ROOT', fullfile(output_root, options.benchmark_id));
         [fresh_scores, ~, ~] = benchmark({@stayWithHashBoundary, @zero}, options);
         fresh = readReport(options.report_path);
-        assert(strcmp(fresh.status, 'completed'), 'Ordinary empty log files must not make persistence partial.');
+        % A machine without any PDF merge backend (MATLAB's bundled PDFBox
+        % API mismatch and no qpdf/pdfunite/gs) cannot produce summary.pdf;
+        % the truthful report is then a partial rendering stage with exactly
+        % that reason, while persistence and every artifact hash stay complete.
+        merge_failed = ~isempty(fresh.diagnostics) && any(strcmp({fresh.diagnostics.code}, 'summary_pdf_merge_failed'));
+        if merge_failed
+            fprintf('NOTE archive: no summary PDF merge backend on this machine; verifying the partial receipt instead of a merged summary.\n');
+            assert(strcmp(fresh.status, 'partial') && strcmp(fresh.stages.rendering.status, 'partial') ...
+                && strcmp(fresh.stages.rendering.reason, 'summary_pdf_merge_failed'), 'A missing merge backend must be reported as a partial rendering stage with its reason.');
+        else
+            assert(strcmp(fresh.status, 'completed'), 'Ordinary empty log files must not make persistence partial.');
+            assert(any(~cellfun(@isempty, regexp({fresh.artifacts.path}, '^summary_.*\.pdf$', 'once'))), 'The merged summary PDF (summary_<stamp>.pdf at the artifact root) must be an enumerated artifact.');
+        end
+        assert(strcmp(fresh.stages.persistence.status, 'completed'), 'Persistence must be complete regardless of PDF merge backends.');
         assert(~isempty(fresh.artifacts), 'Existing produced artifacts must be enumerated.');
         empty_logs = fresh.artifacts(endsWith({fresh.artifacts.path}, 'test_log/log.txt'));
         assert(numel(empty_logs) == 1 && empty_logs.bytes == 0, 'Empty log artifact was omitted.');

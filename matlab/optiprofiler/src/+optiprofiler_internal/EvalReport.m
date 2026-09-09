@@ -698,7 +698,7 @@ classdef EvalReport < handle
             self.document.plot_data = receipt;
             self.document.report_files = struct('permission_policy', 'owner_read_write_only_best_effort', ...
                 'permissions_applied', self.permissionsApplied, ...
-                'platform_note', 'unix_chmod_600_after_each_publish;not_enforced_on_windows;directory_privacy_is_the_caller_responsibility');
+                'platform_note', 'unix_chmod_600_after_each_publish;not_enforced_on_windows;windows_file_identity_is_creation_time_size_and_mtime_not_a_file_index;directory_privacy_is_the_caller_responsibility');
             snapshot = self.document;
             if strcmp(snapshot.operation, 'load')
                 snapshot.coverage.load_failed = optiprofiler_internal.EvalReport.null();
@@ -784,8 +784,23 @@ classdef EvalReport < handle
                 file = java.io.File(path);
                 options = javaArray('java.nio.file.LinkOption',1);
                 options(1) = java.nio.file.LinkOption.NOFOLLOW_LINKS;
-                attributes = java.nio.file.Files.readAttributes(file.toPath(), 'basic:fileKey', options);
-                key = attributes.get('fileKey'); value = char(key.toString());
+                attributes = java.nio.file.Files.readAttributes(file.toPath(), ...
+                    'basic:fileKey,creationTime,lastModifiedTime,size', options);
+                key = attributes.get('fileKey');
+                if ~isempty(key)
+                    value = char(key.toString());
+                else
+                    % Windows: Java exposes no file index (fileKey is null).
+                    % Creation time (100 ns NTFS resolution), size and
+                    % modification time identify a replaced or rewritten file.
+                    % Every publish creates a fresh file and records its new
+                    % identity, so a foreign move or in-place write between
+                    % publishes is detected. This is weaker than an inode or
+                    % fileKey (forged timestamps are outside this model) and is
+                    % stated in report_files.platform_note.
+                    value = sprintf('windows:%s|%s|%d', char(attributes.get('creationTime').toString()), ...
+                        char(attributes.get('lastModifiedTime').toString()), double(attributes.get('size')));
+                end
             else
                 format = 'stat -c ''%d:%i'' ';
                 if ismac, format = 'stat -f ''%d:%i'' '; end
@@ -828,7 +843,16 @@ classdef EvalReport < handle
 
         function yes = isLink(path)
             if usejava('jvm')
-                file = java.io.File(path); yes = java.nio.file.Files.isSymbolicLink(file.toPath());
+                file = java.io.File(path); target = file.toPath();
+                yes = java.nio.file.Files.isSymbolicLink(target);
+                if ~yes && ispc && java.nio.file.Files.exists(target)
+                    % Junctions and other reparse points are neither regular
+                    % files nor directories to Java's basic view ("other").
+                    options = javaArray('java.nio.file.LinkOption',1);
+                    options(1) = java.nio.file.LinkOption.NOFOLLOW_LINKS;
+                    attributes = java.nio.file.Files.readAttributes(target, 'basic:isOther', options);
+                    yes = logical(attributes.get('isOther'));
+                end
             else
                 [status, ~] = system(['test -L ', optiprofiler_internal.EvalReport.quote(path)]); yes = status == 0;
             end

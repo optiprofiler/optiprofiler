@@ -298,6 +298,13 @@ but ``plot_data.status`` is ``partial`` with a null hash, the reason
 ``companion_sha256_unavailable``, a diagnostic and a warning. This is not a
 successfully verified report pair.
 
+The MATLAB collector identifies its two files through Java's file key on
+POSIX systems. Windows exposes no file index to Java, so there the identity is
+the creation time, size and modification time of the file: a replaced or
+rewritten file between two publishes is still detected, forged timestamps are
+outside the model, and ``report_files.platform_note`` says so. Junctions are
+treated like symbolic links.
+
 Both JSON files are written with a best-effort owner-only permission policy.
 Python creates them with mode ``0600`` (exclusive creation and ``mkstemp``);
 MATLAB restricts group/other access with ``fileattrib`` after every publish.
