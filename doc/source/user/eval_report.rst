@@ -304,7 +304,9 @@ The MATLAB collector identifies its two files through Java's file key on
 POSIX systems. Windows exposes no file index to Java, so there the identity is
 the creation time, size and modification time of the file: a replaced or
 rewritten file between two publishes is still detected, forged timestamps are
-outside the model, and ``report_files.platform_note`` says so. Junctions and
+outside the model, and ``report_files.platform_note`` says so. For the artifact
+directory only the creation time is used, because a directory's modification
+time changes whenever the benchmark writes another file into it. Junctions and
 other name-redirecting reparse points are treated like symbolic links: Java
 exposes no reparse tag, so the collector compares the resolved real path of an
 entry with the resolved path of its parent joined with the entry's canonical

@@ -295,7 +295,14 @@ function evalReportPublic(source_root, output_root, slice)
         % API mismatch and no qpdf/pdfunite/gs) cannot produce summary.pdf;
         % the truthful report is then a partial rendering stage with exactly
         % that reason, while persistence and every artifact hash stay complete.
-        merge_failed = ~isempty(fresh.diagnostics) && any(strcmp({fresh.diagnostics.code}, 'summary_pdf_merge_failed'));
+        codes = {};
+        if ~isempty(fresh.diagnostics), codes = {fresh.diagnostics.code}; end
+        % The benchmark keeps adding files to its own output directory; that
+        % must never read as a replaced directory (Windows identity is the
+        % creation time, never the modification time, for directories).
+        assert(~any(strcmp(codes, 'artifact_directory_ownership_changed')), ...
+            'Adding files to the output directory must not change its identity.');
+        merge_failed = any(strcmp(codes, 'summary_pdf_merge_failed'));
         if merge_failed
             fprintf('NOTE archive: no summary PDF merge backend on this machine; verifying the partial receipt instead of a merged summary.\n');
             assert(strcmp(fresh.status, 'partial') && strcmp(fresh.stages.rendering.status, 'partial') ...
