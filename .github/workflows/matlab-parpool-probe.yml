@@ -1,0 +1,97 @@
+# Minimal red-capable reproducer for the parallel-pool failure seen in the
+# EvalReport platform matrix on R2021b ("Undefined function
+# 'pCurrentTaskIsPartOfAPool'"). It runs parpool(2) in a clean MATLAB process
+# with NO repository content (no checkout, no repository path) on the minimum
+# release, the two following releases and the first release for which
+# MathWorks states that parallel pools work under batch licensing, and repeats
+# the probe with the isolated preferences directory used by the platform
+# workflow. It is triggered only when this file changes.
+
+name: MATLAB parpool probe
+
+on:
+  push:
+    branches: [codex/eval-report]
+    paths: ['.github/workflows/matlab-parpool-probe.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: parpool probe on MATLAB ${{ matrix.matlab }} / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: ubuntu-latest, matlab: R2021b}
+          - {os: ubuntu-latest, matlab: R2022a}
+          - {os: ubuntu-latest, matlab: R2022b}
+          - {os: ubuntu-latest, matlab: R2023a}
+          - {os: windows-latest, matlab: R2023a}
+          - {os: macOS-latest, matlab: R2023a}
+    steps:
+      - name: Set up MATLAB with parallel computing toolbox
+        uses: matlab-actions/setup-matlab@v2
+        with:
+          release: ${{ matrix.matlab }}
+          products: Parallel_Computing_Toolbox
+
+      - name: Pool probe in a clean process (no repository, default preferences)
+        uses: matlab-actions/run-command@v2.1.1
+        with:
+          command: |
+            cd(tempdir);
+            fprintf('PROBE default-prefdir\nMATLAB %s on %s\n', version, computer);
+            v = ver('parallel'); fprintf('PCT %s %s\n', v.Version, v.Release);
+            fprintf('license test PCT: %d\n', license('test', 'Distrib_Computing_Toolbox'));
+            fprintf('MLM_LICENSE_TOKEN set: %d\n', ~isempty(getenv('MLM_LICENSE_TOKEN')));
+            fprintf('MATLAB_PREFDIR env: %s\nprefdir: %s\n', getenv('MATLAB_PREFDIR'), prefdir);
+            fprintf('parpool: %s\n', strjoin(cellstr(which('parpool', '-all')), ' | '));
+            fprintf('Job.m present: %d\n', isfile(fullfile(matlabroot, 'toolbox', 'parallel', 'cluster', '+parallel', '@Job', 'Job.m')));
+            classes = {'org.apache.pdfbox.multipdf.PDFMergerUtility', 'org.apache.pdfbox.io.MemoryUsageSetting', 'org.apache.pdfbox.util.PDFMergerUtility', 'org.apache.pdfbox.io.IOUtils'};
+            for k = 1:numel(classes)
+                try
+                    c = java.lang.Class.forName(classes{k}); fprintf('class %s: present (%s)\n', classes{k}, char(c.getPackage().getImplementationVersion()));
+                catch
+                    fprintf('class %s: absent\n', classes{k});
+                end
+            end
+            storage = fullfile(tempdir, ['pool_', char(java.util.UUID.randomUUID())]); mkdir(storage);
+            try
+                c = parcluster('local'); c.JobStorageLocation = storage;
+                fprintf('cluster %s NumWorkers=%d\n', class(c), c.NumWorkers);
+                pool = parpool(c, 2);
+                fprintf('POOL OK: %d workers (%s)\n', pool.NumWorkers, class(pool));
+                ids = zeros(1, 2); parfor k = 1:2, t = getCurrentTask(); ids(k) = t.ID; end
+                fprintf('WORKER IDS: %s\n', mat2str(ids)); delete(pool); fprintf('POOL RESULT: ok\n');
+            catch err
+                fprintf('POOL RESULT: failed [%s]\n', err.identifier); disp(getReport(err, 'extended', 'hyperlinks', 'off'));
+                d = dir(fullfile(storage, '**', '*.log'));
+                for k = 1:min(numel(d), 4), fprintf('--- worker log %s\n', fullfile(d(k).folder, d(k).name)); type(fullfile(d(k).folder, d(k).name)); end
+            end
+
+      - name: Pool probe with the isolated preferences directory of the platform workflow
+        env:
+          MATLAB_PREFDIR: ${{ runner.temp }}/isolated-prefdir
+        shell: bash
+        run: mkdir -p "$MATLAB_PREFDIR"
+
+      - name: Pool probe (isolated preferences)
+        uses: matlab-actions/run-command@v2.1.1
+        env:
+          MATLAB_PREFDIR: ${{ runner.temp }}/isolated-prefdir
+        with:
+          command: |
+            cd(tempdir);
+            fprintf('PROBE isolated-prefdir\nMATLAB %s on %s\nMATLAB_PREFDIR env: %s\nprefdir: %s\n', version, computer, getenv('MATLAB_PREFDIR'), prefdir);
+            storage = fullfile(tempdir, ['pool_', char(java.util.UUID.randomUUID())]); mkdir(storage);
+            try
+                c = parcluster('local'); c.JobStorageLocation = storage;
+                pool = parpool(c, 2); fprintf('POOL OK: %d workers\n', pool.NumWorkers); delete(pool); fprintf('POOL RESULT: ok\n');
+            catch err
+                fprintf('POOL RESULT: failed [%s]\n', err.identifier); disp(getReport(err, 'extended', 'hyperlinks', 'off'));
+            end

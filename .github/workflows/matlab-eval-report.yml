@@ -12,6 +12,8 @@ on:
     # default branch, so acceptance runs of this new workflow are triggered by
     # pushes to the candidate branch; that entry can be dropped at integration.
     branches: [main, matlab, codex/eval-report]
+    # Probe-only and documentation-only pushes do not need the full matrix.
+    paths-ignore: ['.github/workflows/matlab-parpool-probe.yml', 'doc/**']
   workflow_dispatch:
 
 permissions:
