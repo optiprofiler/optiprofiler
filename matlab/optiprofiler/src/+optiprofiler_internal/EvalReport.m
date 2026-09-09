@@ -16,6 +16,7 @@ classdef EvalReport < handle
         maxEvalFactor = NaN
         replaceFile
         renderingFailure = false
+        renderingFailureCode = ''
         renderingSuccess = false
         sourcePath = ''
         convergence = {}
@@ -478,10 +479,14 @@ classdef EvalReport < handle
 
         function recordRendering(self, status, scope, code)
             % CODE names the failed export the same way Python's diagnostics
-            % do (history_render_failed, summary_pdf_merge_failed).
+            % do (history_render_failed, summary_pdf_merge_failed,
+            % history_merge_failed). The stage reason is the most recent
+            % failure code, as in Python; a later 'completed' call must not
+            % replace it with the default code.
             if nargin < 4, code = 'history_render_failed'; end
             if strcmp(status, 'failed')
                 self.renderingFailure = true;
+                self.renderingFailureCode = code;
                 self.addDiagnostic(code, 'rendering', scope);
             elseif strcmp(status, 'completed')
                 self.renderingSuccess = true;
@@ -489,7 +494,7 @@ classdef EvalReport < handle
             if self.renderingFailure
                 state = 'failed';
                 if self.renderingSuccess, state = 'partial'; end
-                self.setStage('rendering', state, code);
+                self.setStage('rendering', state, self.renderingFailureCode);
             elseif self.renderingSuccess
                 self.setStage('rendering', 'completed');
             end
@@ -890,6 +895,11 @@ classdef EvalReport < handle
         end
 
         function [bytes, hash] = digest(path)
+            % Best-effort checks for a directory assumed private to the caller:
+            % links are refused before the open and size/modification time are
+            % compared after hashing; the opened handle's identity is not
+            % compared, so this detects ordinary concurrent changes, not a
+            % hostile redirection timed between the checks.
             if optiprofiler_internal.EvalReport.isLink(path), error('OptiProfiler:EvalReportSymlink', 'Symlinks are not report artifacts.'); end
             before = dir(path);
             if numel(before) ~= 1 || before.isdir, error('OptiProfiler:EvalReportHash', 'Expected a regular file.'); end

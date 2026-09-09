@@ -303,13 +303,31 @@ function evalReportPublic(source_root, output_root, slice)
         assert(~any(strcmp(codes, 'artifact_directory_ownership_changed')), ...
             'Adding files to the output directory must not change its identity.');
         merge_failed = any(strcmp(codes, 'summary_pdf_merge_failed'));
+        backend = pdfMergeBackend();
         if merge_failed
+            % Only a machine without any merge backend may report the partial
+            % receipt; with a backend present a merge failure is a defect.
+            assert(isempty(backend), 'The summary merge failed although a PDF merge backend is available (%s).', backend);
             fprintf('NOTE archive: no summary PDF merge backend on this machine; verifying the partial receipt instead of a merged summary.\n');
             assert(strcmp(fresh.status, 'partial') && strcmp(fresh.stages.rendering.status, 'partial') ...
                 && strcmp(fresh.stages.rendering.reason, 'summary_pdf_merge_failed'), 'A missing merge backend must be reported as a partial rendering stage with its reason.');
         else
             assert(strcmp(fresh.status, 'completed'), 'Ordinary empty log files must not make persistence partial.');
             assert(any(~cellfun(@isempty, regexp({fresh.artifacts.path}, '^summary_.*\.pdf$', 'once'))), 'The merged summary PDF (summary_<stamp>.pdf at the artifact root) must be an enumerated artifact.');
+            % The cross-run aggregate is one merged document whose pages are
+            % exactly the pages of its sources, in source order.
+            merged_summary = fullfile(output_root, options.benchmark_id, 'summary.pdf');
+            assert(isfile(merged_summary), 'The merged cross-run summary.pdf must exist when a backend is available.');
+            sources = dir(fullfile(output_root, options.benchmark_id, '*', 'summary_*.pdf'));
+            source_pages = arrayfun(@(s) pdfPageCount(fullfile(s.folder, s.name)), sources);
+            merged_pages = pdfPageCount(merged_summary);
+            if all(isfinite(source_pages)) && isfinite(merged_pages)
+                assert(merged_pages == sum(source_pages) && merged_pages > 0, ...
+                    'Merged summary has %d pages, sources have %d.', merged_pages, sum(source_pages));
+                fprintf('PASS archive: merged summary.pdf has %d pages = sum of %d source summaries (backend %s)\n', merged_pages, numel(sources), backend);
+            else
+                fprintf('NOTE archive: PDF page counts could not be read on this machine (no pdfinfo, object streams present); merge verified by existence only.\n');
+            end
         end
         assert(strcmp(fresh.stages.persistence.status, 'completed'), 'Persistence must be complete regardless of PDF merge backends.');
         assert(~isempty(fresh.artifacts), 'Existing produced artifacts must be enumerated.');
@@ -603,6 +621,42 @@ function document = readValidated(path, schema_path)
     errors = evalReportSchemaCheck(path, schema_path);
     assert(isempty(errors), 'Schema violations in %s:\n%s', path, strjoin(errors(1:min(20, numel(errors))), newline));
     document = normalizeCells(jsondecode(readUtf8(path)));
+end
+
+function name = pdfMergeBackend()
+    % The first merge backend the collector could use on this machine, or ''.
+    name = '';
+    if usejava('jvm')
+        % Capability, not class-path names: a bundled jar and a jar added
+        % with javaaddpath are both usable.
+        try
+            org.apache.pdfbox.io.MemoryUsageSetting.setupMainMemoryOnly();
+            org.apache.pdfbox.multipdf.PDFMergerUtility();
+            name = 'pdfbox'; return;
+        catch
+        end
+    end
+    tools = {'qpdf --version', 'pdfunite -v', 'gs -v'};
+    names = {'qpdf', 'pdfunite', 'gs'};
+    if ispc, tools{3} = 'gswin64c -v'; names{3} = 'gswin64c'; end
+    for k = 1:numel(tools)
+        [status, ~] = system(tools{k});
+        if status == 0, name = names{k}; return; end
+    end
+end
+
+function pages = pdfPageCount(path)
+    % Page count through poppler's pdfinfo when present; otherwise from the
+    % page dictionaries of an uncompressed object table; NaN when unreadable.
+    pages = NaN;
+    [status, output] = system(['pdfinfo "', path, '"']);
+    if status == 0
+        token = regexp(output, 'Pages:\s+(\d+)', 'tokens', 'once');
+        if ~isempty(token), pages = str2double(token{1}); return; end
+    end
+    fid = fopen(path, 'rb'); bytes = fread(fid, inf, 'uint8=>char')'; fclose(fid);
+    if contains(bytes, '/ObjStm'), return; end
+    pages = numel(regexp(bytes, '/Type\s*/Page(?![s\w])', 'match'));
 end
 
 function text = readUtf8(path)

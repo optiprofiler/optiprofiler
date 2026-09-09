@@ -1634,26 +1634,32 @@ def _benchmark(
         solver_abnormal_terminations_merged = _collect_flag('solver_abnormal_terminations')
         solver_output_fallbacks_merged = _collect_flag('solver_output_fallbacks')
 
-        if is_saving:
-            pdf_perf_hist_summary = backend_pdf.PdfPages(path_perf_hist_summary)
-            pdf_perf_out_summary = backend_pdf.PdfPages(path_perf_out_summary)
-            pdf_data_hist_summary = backend_pdf.PdfPages(path_data_hist_summary)
-            pdf_data_out_summary = backend_pdf.PdfPages(path_data_out_summary)
-            if n_solvers == 2:
-                pdf_log_ratio_hist_summary = backend_pdf.PdfPages(path_log_ratio_hist_summary)
-                pdf_log_ratio_out_summary = backend_pdf.PdfPages(path_log_ratio_out_summary)
-
         # Every summary writer must be closed before a failure propagates: the
         # exception's traceback keeps this frame, and with it the writers,
         # alive, so an unclosed PdfPages would be finalized only at garbage
         # collection, after the report harvested the file's size and hash.
+        # Writers are therefore created inside the guarded region and
+        # registered one by one: when a later constructor fails (its file
+        # cannot be created), the earlier writers already exist and must be
+        # closed too, and that failure is an export failure of the rendering
+        # stage, not a scoring failure.
         summary_writers = []
-        if is_saving:
-            summary_writers = [pdf_perf_hist_summary, pdf_perf_out_summary,
-                               pdf_data_hist_summary, pdf_data_out_summary]
-            if n_solvers == 2:
-                summary_writers += [pdf_log_ratio_hist_summary, pdf_log_ratio_out_summary]
+
+        def _open_summary(path):
+            writer = _report_export(report, backend_pdf.PdfPages, path)
+            summary_writers.append(writer)
+            return writer
+
         try:
+            if is_saving:
+                pdf_perf_hist_summary = _open_summary(path_perf_hist_summary)
+                pdf_perf_out_summary = _open_summary(path_perf_out_summary)
+                pdf_data_hist_summary = _open_summary(path_data_hist_summary)
+                pdf_data_out_summary = _open_summary(path_data_out_summary)
+                if n_solvers == 2:
+                    pdf_log_ratio_hist_summary = _open_summary(path_log_ratio_hist_summary)
+                    pdf_log_ratio_out_summary = _open_summary(path_log_ratio_out_summary)
+
             for i_tol, tolerance in enumerate(tolerances):
                 hist = {
                     'perf': [[None for _ in range(n_runs + 1)] for _ in range(n_solvers)],
@@ -1778,6 +1784,8 @@ def _benchmark(
                     _report_export(report, writer.close)
                     summary_writers.remove(writer)
         except BaseException:
+            # Closing is cleanup only: a failure here must never replace the
+            # original exception, and every registered writer gets its turn.
             for writer in summary_writers:
                 try:
                     writer.close()

@@ -1163,6 +1163,10 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
                     try
                         mergePdfs(path_hist_plots_plib, [plib '_history_plots_summary.pdf'], path_hist_plots);
                     catch ME
+                        % A requested per-library aggregate that could not be
+                        % produced is reported (rendering partial, the code
+                        % Python uses), not only printed when not silent.
+                        if ~isempty(eval_report), eval_report.recordRendering('failed', struct('scope', 'history_pdf_merge', 'library', plib), 'history_merge_failed'); end
                         if ~profile_options.(ProfileOptionKey.SILENT.value)
                             printOptiProfilerMessage('INFO', 'Failed to merge the history plots to a single PDF file.');
                             printOptiProfilerMessage('INFO', sprintf('Error message: %s', shortenMessageForLog(ME.message)));
@@ -1259,6 +1263,8 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
                 try
                     mergePdfs(path_hist_plots_plib, [results_plib.plib '_history_plots_summary.pdf'], path_hist_plots);
                 catch ME
+                    % Same report visibility as the fresh-run merge above.
+                    if ~isempty(eval_report), eval_report.recordRendering('failed', struct('scope', 'history_pdf_merge', 'library', results_plib.plib), 'history_merge_failed'); end
                     if ~profile_options.(ProfileOptionKey.SILENT.value)
                         printOptiProfilerMessage('INFO', 'Failed to merge the history plots to a single PDF file.');
                         printOptiProfilerMessage('INFO', sprintf('Error message: %s', shortenMessageForLog(ME.message)));
@@ -2045,18 +2051,39 @@ end
 function [merged, failure_messages] = mergePdfsWithPdfbox(fileNames, output_file)
     merged = false;
     failure_messages = strings(0);
+    % R2024b and R2025a (the releases inspected) bundle Apache PDFBox 2.0.24;
+    % R2026a removed it (MathWorks Support), and a user may add a PDFBox 2.x
+    % jar with javaaddpath. The guarded
+    % call below is therefore the only capability test (no class-path name
+    % heuristics); an unresolved org.apache.pdfbox name is reported as the
+    % absent dependency it is, so pdf_merge_failure.txt and the report stay
+    % actionable.
+    if ~usejava('jvm')
+        failure_messages(end + 1) = "PDFBox: unavailable without a JVM";
+        return;
+    end
     temp_output = [tempname(fileparts(output_file)), '.pdf'];
     cleanup_temp_output = onCleanup(@() deleteFileIfExists(temp_output));
     try
         memSet = org.apache.pdfbox.io.MemoryUsageSetting.setupMainMemoryOnly();
         merger = org.apache.pdfbox.multipdf.PDFMergerUtility;
-        cellfun(@(f) merger.addSource(f), fileNames);
+        % The page order of the merged document is the order of the
+        % addSource calls; a plain loop makes that order explicit (cellfun
+        % does not promise an evaluation order).
+        for i_file = 1:numel(fileNames)
+            merger.addSource(fileNames{i_file});
+        end
         merger.setDestinationFileName(temp_output);
         merger.mergeDocuments(memSet);
         movefile(temp_output, output_file, 'f');
         merged = true;
     catch ME
-        failure_messages(end + 1) = "PDFBox: " + string(ME.message);
+        message = string(ME.message);
+        if contains(message, "org.apache.pdfbox") && (contains(message, "Unable to resolve") || contains(message, "Undefined"))
+            message = "the org.apache.pdfbox 2.x classes are not on the Java class path (MATLAB R2026a and later do not bundle PDFBox; " + ...
+                "add a PDFBox 2.x jar with javaaddpath or install qpdf, pdfunite or Ghostscript): " + message;
+        end
+        failure_messages(end + 1) = "PDFBox: " + message;
     end
 end
 

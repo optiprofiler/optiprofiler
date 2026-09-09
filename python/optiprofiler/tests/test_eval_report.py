@@ -413,6 +413,60 @@ def test_export_failure_is_not_a_numerical_failure(tmp_path, monkeypatch):
     _assert_artifacts_verified(target, report)
 
 
+def test_summary_writer_open_failure_is_a_rendering_failure(tmp_path, monkeypatch):
+    """A summary PdfPages that cannot be opened after a real first writer.
+
+    The failure must be classified like any export failure (rendering failed,
+    scoring unknown, numerical completed), the writer opened before it must be
+    closed before the report harvests, and every receipt must still match its
+    file once the exception has been released and garbage collected.
+    """
+    import gc
+    from matplotlib.backends import backend_pdf
+    from optiprofiler import eval_report as module
+    _library(tmp_path / 'libraries', 'evalctor', ['QUAD'])
+    original_init = backend_pdf.PdfPages.__init__
+    original_close = backend_pdf.PdfPages.close
+    original_finish = module.EvalReport.finish
+    events = []
+    def failing_init(self, filename, *args, **kwargs):
+        events.append(('open', str(filename)))
+        if sum(1 for kind, _ in events if kind == 'open') == 2:
+            raise OSError('deliberate summary writer open failure')
+        return original_init(self, filename, *args, **kwargs)
+    def recording_close(self):
+        # A lazily opened writer has no file yet, so the hash check alone
+        # cannot see whether it was closed: record the call itself.
+        events.append(('close', str(self._filename) if hasattr(self, '_filename') else ''))
+        original_close(self)
+        raise RuntimeError('deliberate cleanup failure that must not replace the open failure')
+    def recording_finish(self, error=None):
+        events.append(('finish', type(error).__name__ if error is not None else ''))
+        return original_finish(self, error)
+    monkeypatch.setattr(backend_pdf.PdfPages, '__init__', failing_init)
+    monkeypatch.setattr(backend_pdf.PdfPages, 'close', recording_close)
+    monkeypatch.setattr(module.EvalReport, 'finish', recording_finish)
+    options = _options(tmp_path, ['evalctor'])
+    options.update(score_only=False, n_runs=1, max_tol_order=1)
+    target = tmp_path / 'ctor.json'
+    with pytest.raises(OSError, match='deliberate summary writer open failure'):
+        benchmark([stay, zero], report_path=target, **options)
+    gc.collect()
+    kinds = [kind for kind, _ in events]
+    assert kinds.count('open') == 2 and kinds.count('close') == 1 and kinds.count('finish') == 1
+    # The real first writer was closed before the report finished (and hence
+    # before it harvested), and the failing close did not mask the original.
+    assert kinds.index('close') < kinds.index('finish')
+    assert events[kinds.index('finish')][1] == 'OSError'
+    report = _read(target)
+    assert report['stages']['numerical']['status'] == 'completed'
+    assert report['stages']['persistence'] == {'status': 'completed'}
+    assert report['stages']['rendering']['status'] == 'failed'
+    assert report['stages']['scoring']['status'] == 'unknown'
+    assert any(d['code'] == 'profile_export_failed' for d in report['diagnostics'])
+    _assert_artifacts_verified(target, report)
+
+
 def test_report_finishes_after_the_log_listener_is_closed(tmp_path, monkeypatch):
     """The log.txt artifact receipt must describe the flushed final file.
 

@@ -75,11 +75,15 @@ def _hashing_capability():
     directory swaps during traversal are refused).
     ``'identity'``: Windows has no openat. Components are inspected with
     lstat (symlinks and junctions refused), the file is opened, and the
-    opened handle must have the identity (volume, file index) recorded before
-    the open, so the hashed bytes are provably the inspected file. This is the
-    same guarantee level as the MATLAB collector; a reparse point inserted
-    into the benchmark-owned tree between inspection and open is detected by
-    the identity mismatch, not prevented.
+    opened handle must have the identity (volume, file index) recorded by the
+    file's lstat. This is best-effort detection of concurrent changes under
+    the assumption that the output directory is private to the caller: the
+    ancestors are inspected before the file, so a redirection inserted between
+    the ancestor inspection and the file's lstat is observed by both the lstat
+    and the open and is not caught, and the post-hash ancestor check only
+    notices a redirection that is still present. It is not race-proof
+    isolation, and neither is the MATLAB collector's link-then-size/mtime
+    check.
     ``'unavailable'``: neither primitive; artifacts stay unverified with an
     explicit reason instead of a hash read through an unknown path.
     """
@@ -361,7 +365,9 @@ def _digest(path, directory=None):
                     os.close(handle)
                 raise
         elif capability == 'identity':
-            # Inspect, open, then prove the opened file is the inspected one.
+            # Inspect, open, then require the opened file to be the inspected
+            # one (best effort: see _hashing_capability for what this cannot
+            # catch).
             current = directory
             for name in parts[:-1]:
                 current = current / name
@@ -374,8 +380,8 @@ def _digest(path, directory=None):
                 raise OSError('artifact is not a plain regular file')
             fd = os.open(str(path), flags)
         else:
-            # Without openat or a verifiable identity there is no
-            # race-resistant ownership check here. A missing provenance hash
+            # Without openat or a verifiable identity there is not even a
+            # best-effort ownership check here. A missing provenance hash
             # is preferable to reading through a replaced/symlinked directory,
             # and must not abort scores.
             raise OSError('secure_artifact_hashing_unavailable')
@@ -393,7 +399,8 @@ def _digest(path, directory=None):
         if (before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns):
             raise OSError('file changed during hashing')
         for ancestor in ancestors:
-            # A reparse point that appeared meanwhile is reported, not trusted.
+            # A reparse point that is still present now is reported, not
+            # trusted; one removed in the meantime is not detectable here.
             if _reparse_point(os.lstat(str(ancestor))):
                 raise OSError('artifact path component changed during hashing')
         return {'bytes': before.st_size, 'sha256': digest.hexdigest()}

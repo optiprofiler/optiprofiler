@@ -273,21 +273,27 @@ against erroneous agent conclusions.
 Hash and permission fallbacks
 -----------------------------
 
-Artifact hashing never reads a file through a path it cannot vouch for.
-On POSIX, Python opens every component below the benchmark-owned output tree
-relative to a directory descriptor with ``O_NOFOLLOW``, so a symlink or a
-directory swapped during traversal is refused. Windows has no ``openat``: there
-Python inspects each component with ``lstat`` (symlinks, junctions and any
-other reparse point that redirects the name are refused; cloud-file
-placeholders and compressed or deduplicated files are ordinary files), opens
-the file, and requires the opened handle's identity (volume
-serial number and file index) to equal the identity recorded before the open,
-so the hashed bytes are provably the inspected file. This matches the
-guarantee level of the MATLAB collector, which checks for links before
-opening; a reparse point inserted into the owned tree between inspection and
-open is detected (the artifact is then omitted with an
-``artifact_hash_unavailable`` diagnostic), not prevented. On a platform with
-neither primitive, artifacts are listed as ``unverified`` with null hashes and
+Artifact hashing refuses paths it can see are not plain files of the owned
+tree, and it detects ordinary concurrent changes; it is not an isolation
+guarantee against a hostile writer in the output directory, which the
+collector assumes to be private to the caller. On POSIX, Python opens every
+component below the benchmark-owned output tree relative to a directory
+descriptor with ``O_NOFOLLOW``, so a symlink or a directory swapped during
+traversal is refused. Windows has no ``openat``: there Python inspects each
+component with ``lstat`` (symlinks, junctions and any other reparse point that
+redirects the name are refused; cloud-file placeholders and compressed or
+deduplicated files are ordinary files), opens the file, and requires the
+opened handle's identity (volume serial number and file index) to equal the
+identity recorded by that ``lstat``. These checks are best effort: the
+ancestors are inspected before the file, so a redirection inserted between
+the ancestor inspection and the file's ``lstat`` is seen by both the ``lstat``
+and the open and is not caught; the ancestors are inspected again after
+hashing, which notices a redirection that is still present, not one that was
+removed in between. The MATLAB collector checks for links before opening and
+compares size and modification time after hashing without comparing the
+opened handle's identity. When a check does trip, the artifact is omitted with
+an ``artifact_hash_unavailable`` diagnostic. On a platform with neither
+primitive, artifacts are listed as ``unverified`` with null hashes and
 the reason ``secure_artifact_hashing_unavailable_on_platform``, persistence
 becomes ``partial``, and the saved numerical archive remains loadable: a
 missing integrity receipt is not an assertion that the data is corrupt. Hash
