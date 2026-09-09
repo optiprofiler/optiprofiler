@@ -1,8 +1,14 @@
-# Targeted EvalReport (report_path) coverage on every supported OS and on the
-# minimum and latest supported MATLAB releases. The broad multi-OS workflow runs
-# the action tests, which never request a report; this workflow runs the
-# TestEvalReport class with real Parallel Computing Toolbox workers and gates on
-# Failed=0 AND Incomplete=0, so a filtered platform case cannot pass silently.
+# Targeted EvalReport (report_path) coverage on every supported OS. Intended
+# coverage (verified only by each row's own receipt, never assumed):
+# - R2021b rows: every serial contract case; the real-worker case is omitted
+#   because hosted runners license MATLAB through matlab-batch and
+#   batch-licensed parallel pools are unsupported before R2023a (MathWorks;
+#   reproduced by the parpool probe workflow). The omission is named in the
+#   job title and in receipt.json and is scoped to this partition.
+# - R2023a rows and latest rows: the full TestEvalReport class with real
+#   Parallel Computing Toolbox workers. Every row gates on Failed=0 AND
+#   Incomplete=0 with the exact expected case set, so a filtered or missing
+#   case cannot pass silently. The supported product floor stays R2021b.
 
 name: MATLAB EvalReport platforms
 
@@ -21,14 +27,18 @@ permissions:
 
 jobs:
   eval-report:
-    name: EvalReport on MATLAB ${{ matrix.matlab }} / ${{ matrix.os }}
+    name: EvalReport on MATLAB ${{ matrix.matlab }} / ${{ matrix.os }} (${{ matrix.parallel_case }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
-        matlab: [R2021b, latest]
+        matlab: [R2021b, R2023a, latest]
+        include:
+          - {matlab: R2021b, parallel_case: parallel-omitted-batch-licensing}
+          - {matlab: R2023a, parallel_case: real-workers}
+          - {matlab: latest, parallel_case: real-workers}
     env:
       # Isolate every persistent side channel: registry, path persistence and
       # preferences live under the workspace, never in the runner's MATLAB.
@@ -36,6 +46,9 @@ jobs:
       OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_PATHDEF: ${{ github.workspace }}/ci-state/pathdef.m
       OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_STARTUP: ${{ github.workspace }}/ci-state/startup.m
       MATLAB_PREFDIR: ${{ github.workspace }}/ci-state/matlab-prefdir
+      # Marks the hosted, batch-licensed environment for which the serial
+      # partition is approved; the runner refuses the omission without it.
+      OPTIPROFILER_CI_HOSTED_BATCH_LICENSING: '1'
 
     steps:
       - name: Check out requested revision with submodules
@@ -47,11 +60,12 @@ jobs:
         shell: bash
         run: mkdir -p ci-state/matlab-prefdir ci-output
 
-      # The summary-PDF merge needs an external backend on these runners
-      # (MATLAB's bundled PDFBox API differs on recent releases). Without one
-      # the report truthfully records a partial rendering stage; with one the
-      # merged summary becomes a verified artifact. Same tools as the
-      # full-unit workflow, with the clean loader path for Ubuntu's Poppler.
+      # The summary-PDF merge needs an external backend on the latest-release
+      # runners: R2026a bundles no Apache PDFBox (R2024b and R2025a bundle
+      # PDFBox 2.0.24). Without one the report truthfully records a partial
+      # rendering stage; with one the merged summary becomes a verified
+      # artifact. Same tools as the full-unit workflow, with the clean loader
+      # path for Ubuntu's Poppler.
       - name: Install a PDF merge backend (Ubuntu)
         if: runner.os == 'Linux'
         run: |
@@ -89,7 +103,7 @@ jobs:
         with:
           command: |
             addpath(fullfile(pwd, 'tools'));
-            run_matlab_eval_report_ci(pwd, fullfile(pwd, 'ci-output'));
+            run_matlab_eval_report_ci(pwd, fullfile(pwd, 'ci-output'), '${{ matrix.parallel_case }}');
 
       - name: Upload EvalReport results and sample reports
         if: always()
