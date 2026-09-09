@@ -26,6 +26,7 @@ import numpy as np
 
 
 _SCHEMA = 'optiprofiler.eval_report/1'
+_SCHEMA_NAMES = ('eval_report', 'plot_data')
 _STAGES = ('numerical', 'scoring', 'persistence', 'rendering')
 _STATUSES = {'not_requested', 'not_applicable', 'unknown', 'running',
              'completed', 'partial', 'failed'}
@@ -41,6 +42,52 @@ _ABS_IN_TEXT = re.compile(r'(?<![\w])(?:/(?:Users|home|private|tmp|var|mnt|opt)/
 
 def _now():
     return datetime.now(timezone.utc).isoformat()
+
+
+def schema_text(name):
+    """Return the packaged JSON Schema source for ``'eval_report'`` or ``'plot_data'``.
+
+    The schemas are package resources (``optiprofiler/schemas``), so an
+    installed distribution, its installed test suite and the documentation
+    build all read the same authoritative files. ``importlib.resources.files``
+    exists from Python 3.9; on Python 3.8 the package directory is used.
+    """
+    if name not in _SCHEMA_NAMES:
+        raise ValueError(f'Unknown EvalReport schema {name!r}; expected one of {_SCHEMA_NAMES}')
+    filename = f'{name}.schema.json'
+    try:
+        from importlib.resources import files
+    except ImportError:  # Python 3.8
+        return (Path(__file__).with_name('schemas') / filename).read_text(encoding='utf-8')
+    return (files('optiprofiler') / 'schemas' / filename).read_text(encoding='utf-8')
+
+
+def load_schema(name):
+    """Parse the packaged schema, rejecting non-standard NaN/Infinity tokens."""
+    return json.loads(schema_text(name),
+                      parse_constant=lambda token: (_ for _ in ()).throw(ValueError(token)))
+
+
+def _hashing_capability():
+    """How artifacts under the owned output tree can be hashed safely.
+
+    ``'openat'``: POSIX descriptor-relative opens with O_NOFOLLOW (strongest;
+    directory swaps during traversal are refused).
+    ``'identity'``: Windows has no openat. Components are inspected with
+    lstat (symlinks and junctions refused), the file is opened, and the
+    opened handle must have the identity (volume, file index) recorded before
+    the open, so the hashed bytes are provably the inspected file. This is the
+    same guarantee level as the MATLAB collector; a reparse point inserted
+    into the benchmark-owned tree between inspection and open is detected by
+    the identity mismatch, not prevented.
+    ``'unavailable'``: neither primitive; artifacts stay unverified with an
+    explicit reason instead of a hash read through an unknown path.
+    """
+    if os.open in getattr(os, 'supports_dir_fd', set()):
+        return 'openat'
+    if os.name == 'nt':
+        return 'identity'
+    return 'unavailable'
 
 
 def _text(value, limit=256):
@@ -267,36 +314,63 @@ def _metric(history, count, output, initial):
     return record
 
 
+def _reparse_point(status):
+    """A symlink, or on Windows any reparse point (junction, mount point)."""
+    return stat.S_ISLNK(status.st_mode) or bool(
+        getattr(status, 'st_file_attributes', 0)
+        & getattr(stat, 'FILE_ATTRIBUTE_REPARSE_POINT', 0))
+
+
 def _digest(path, directory=None):
-    flags = os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0)
+    flags = os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0) | getattr(os, 'O_BINARY', 0)
     handles = []
+    inspected = None
+    ancestors = []
     if directory is None:
         fd = os.open(str(path), flags)
     else:
-        if os.open not in getattr(os, 'supports_dir_fd', set()):
-            # Without openat there is no equivalent race-resistant ownership
-            # check here. A missing provenance hash is preferable to reading
-            # through a replaced/symlinked directory, and must not abort scores.
-            raise OSError('secure_artifact_hashing_unavailable')
-        # Resolve every component beneath the owned directory with openat,
-        # refusing symlinks even if a directory changes during traversal.
+        capability = _hashing_capability()
         parts = path.relative_to(directory).parts
-        directory_flags = flags | getattr(os, 'O_DIRECTORY', 0)
-        parent = os.open(str(directory), directory_flags)
-        handles.append(parent)
-        try:
+        if capability == 'openat':
+            # Resolve every component beneath the owned directory with openat,
+            # refusing symlinks even if a directory changes during traversal.
+            directory_flags = flags | getattr(os, 'O_DIRECTORY', 0)
+            parent = os.open(str(directory), directory_flags)
+            handles.append(parent)
+            try:
+                for name in parts[:-1]:
+                    parent = os.open(name, directory_flags, dir_fd=parent)
+                    handles.append(parent)
+                fd = os.open(parts[-1], flags, dir_fd=parent)
+            except BaseException:
+                for handle in reversed(handles):
+                    os.close(handle)
+                raise
+        elif capability == 'identity':
+            # Inspect, open, then prove the opened file is the inspected one.
+            current = directory
             for name in parts[:-1]:
-                parent = os.open(name, directory_flags, dir_fd=parent)
-                handles.append(parent)
-            fd = os.open(parts[-1], flags, dir_fd=parent)
-        except BaseException:
-            for handle in reversed(handles):
-                os.close(handle)
-            raise
+                current = current / name
+                status = os.lstat(str(current))
+                if _reparse_point(status) or not stat.S_ISDIR(status.st_mode):
+                    raise OSError('artifact path component is not a plain directory')
+                ancestors.append(current)
+            inspected = os.lstat(str(path))
+            if _reparse_point(inspected) or not stat.S_ISREG(inspected.st_mode):
+                raise OSError('artifact is not a plain regular file')
+            fd = os.open(str(path), flags)
+        else:
+            # Without openat or a verifiable identity there is no
+            # race-resistant ownership check here. A missing provenance hash
+            # is preferable to reading through a replaced/symlinked directory,
+            # and must not abort scores.
+            raise OSError('secure_artifact_hashing_unavailable')
     try:
         before = os.fstat(fd)
         if not stat.S_ISREG(before.st_mode):
             raise OSError('not a regular file')
+        if inspected is not None and (before.st_dev, before.st_ino) != (inspected.st_dev, inspected.st_ino):
+            raise OSError('artifact identity changed between inspection and open')
         digest = hashlib.sha256()
         with os.fdopen(fd, 'rb', closefd=False) as stream:
             for chunk in iter(lambda: stream.read(1024 * 1024), b''):
@@ -304,6 +378,10 @@ def _digest(path, directory=None):
         after = os.fstat(fd)
         if (before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns):
             raise OSError('file changed during hashing')
+        for ancestor in ancestors:
+            # A reparse point that appeared meanwhile is reported, not trusted.
+            if _reparse_point(os.lstat(str(ancestor))):
+                raise OSError('artifact path component changed during hashing')
         return {'bytes': before.st_size, 'sha256': digest.hexdigest()}
     finally:
         os.close(fd)
@@ -967,7 +1045,9 @@ class EvalReport:
                           'status': 'present'}
                 if record['path'] is None:
                     record['path_reason'] = 'cross_volume_relative_path_unavailable'
-                if os.open not in getattr(os, 'supports_dir_fd', set()):
+                if _hashing_capability() == 'unavailable':
+                    # The saved files still exist and may be numerically valid;
+                    # only their integrity receipt is missing, and it says so.
                     record.update(bytes=None, sha256=None, status='unverified',
                                   reason='secure_artifact_hashing_unavailable_on_platform')
                     self.add_diagnostic('artifact_hash_unavailable', 'persistence',

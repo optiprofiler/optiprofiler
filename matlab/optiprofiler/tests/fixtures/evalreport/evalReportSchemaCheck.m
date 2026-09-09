@@ -16,8 +16,10 @@ function errors = evalReportSchemaCheck(json_path, schema_path)
 %   the schema pins. A small tokenizer therefore builds a tagged tree:
 %   struct('kind', 'object'|'array'|'string'|'number'|'boolean'|'null',
 %   'value', ...), objects keep 'keys' (cellstr) and 'values' (cell).
-    document = parseJson(fileread(json_path));
-    schema = parseJson(fileread(schema_path));
+    % Both files are UTF-8 by contract; decode explicitly rather than with
+    % the platform default encoding (a Windows code page on Windows).
+    document = parseJson(readUtf8(json_path));
+    schema = parseJson(readUtf8(schema_path));
     errors = validate(document, schema, schema, '');
 end
 
@@ -247,4 +249,11 @@ function text = unescape(text)
     text = regexprep(text, '\\([\\"/])', '$1');
     text = strrep(strrep(strrep(text, '\n', newline), '\t', sprintf('\t')), '\r', sprintf('\r'));
     text = strrep(strrep(text, '\b', sprintf('\b')), '\f', sprintf('\f'));
+end
+
+function text = readUtf8(path)
+    fid = fopen(path, 'rb');
+    assert(fid >= 0, 'OptiProfiler:EvalReportSchemaCheck', 'Cannot open %s', path);
+    guard = onCleanup(@() fclose(fid));
+    text = native2unicode(reshape(fread(fid, '*uint8'), 1, []), 'UTF-8');
 end

@@ -79,6 +79,12 @@ where = ["python"]
 include = ["optiprofiler*"]
 
 [tool.setuptools.package-data]
+# The EvalReport JSON Schemas are runtime package resources (read through
+# optiprofiler.eval_report.load_schema); the installed tests and the docs both
+# use these single authoritative copies.
+"optiprofiler" = [
+    "schemas/*.schema.json",
+]
 "optiprofiler.problem_libs.s2mpj" = [
     "config.txt",
     "probinfo_python.csv",

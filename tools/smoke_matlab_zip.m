@@ -53,11 +53,79 @@ function smoke_matlab_zip(archive_root)
     assert(isequal(problem.x0, [1; 1]));
     assert(isfinite(problem.fun(problem.x0)));
     testOptiProfiler();
+    smoke_eval_report(problem);
 
     setup uninstall;
     archive_paths = strsplit(path, pathsep);
     assert(~any(startsWith(archive_paths, archive_root)), ...
         'setup uninstall did not remove the extracted engine path.');
+end
+
+
+function smoke_eval_report(problem)
+%SMOKE_EVAL_REPORT The opt-in report must work from the extracted ZIP alone.
+% The archive ships no tests and no schemas, so this checks the contract
+% facts directly: two JSON files, a completed status, a companion receipt
+% whose SHA256 matches the file, UTF-8 bytes, and no figure or archive output
+% in score_only mode.
+    report_root = tempname;
+    mkdir(report_root);
+    cleanup_report = onCleanup(@() remove_directory(report_root)); %#ok<NASGU>
+    options = struct('problem', problem, 'score_only', true, 'silent', true, ...
+        'n_runs', 1, 'max_eval_factor', 5, 'solver_names', {{'fminsearch_1', 'fminsearch_2'}}, ...
+        'report_path', fullfile(report_root, 'smoke.json'));
+    scores = evalc_benchmark(options);
+    assert(numel(scores) == 2 && all(isfinite(scores)), 'The report run must return two finite scores.');
+    produced = dir(fullfile(report_root, '*'));
+    produced = {produced(~[produced.isdir]).name};
+    assert(isequal(sort(produced), {'smoke.json', 'smoke.plot_data.json'}), ...
+        'score_only must produce exactly the two requested JSON files.');
+    report = jsondecode(read_utf8(fullfile(report_root, 'smoke.json')));
+    assert(strcmp(report.schema, 'optiprofiler.eval_report/1') && strcmp(report.status, 'completed'));
+    assert(strcmp(report.producer.language, 'matlab') && strcmp(report.problems.library, 'user'));
+    assert(strcmp(report.problems.name, 'BEALE') && numel(report.problems.runs) == 2);
+    companion = fullfile(report_root, report.plot_data.path);
+    assert(strcmp(report.plot_data.status, 'completed'), 'The companion receipt must be complete when hashing is available.');
+    assert(strcmp(report.plot_data.sha256, sha256_of(companion)), 'The companion SHA256 receipt must match the file.');
+    detail = jsondecode(read_utf8(companion));
+    assert(strcmp(detail.evaluation_id, report.evaluation_id) && numel(detail.histories) == 2);
+end
+
+
+function scores = evalc_benchmark(options)
+    % Keep the smoke log readable: the benchmark banner is not evidence here.
+    [~, scores] = evalc('benchmark({@smoke_solver_coarse, @smoke_solver_fine}, options)');
+end
+
+
+function x = smoke_solver_coarse(fun, x0)
+    x = fminsearch(fun, x0, optimset('MaxFunEvals', 20, 'Display', 'off'));
+end
+
+
+function x = smoke_solver_fine(fun, x0)
+    x = fminsearch(fun, x0, optimset('MaxFunEvals', 60, 'TolX', 1e-8, 'TolFun', 1e-8, 'Display', 'off'));
+end
+
+
+function text = read_utf8(path)
+    fid = fopen(path, 'rb');
+    assert(fid >= 0, 'Cannot open %s', path);
+    guard = onCleanup(@() fclose(fid)); %#ok<NASGU>
+    text = native2unicode(reshape(fread(fid, '*uint8'), 1, []), 'UTF-8');
+end
+
+
+function value = sha256_of(path)
+    digest = java.security.MessageDigest.getInstance('SHA-256');
+    fid = fopen(path, 'rb');
+    assert(fid >= 0, 'Cannot open %s', path);
+    guard = onCleanup(@() fclose(fid)); %#ok<NASGU>
+    while ~feof(fid)
+        block = fread(fid, 1048576, '*uint8');
+        if ~isempty(block), digest.update(block); end
+    end
+    value = lower(reshape(dec2hex(typecast(digest.digest(), 'uint8'), 2).', 1, []));
 end
 
 

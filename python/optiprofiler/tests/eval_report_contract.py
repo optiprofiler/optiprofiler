@@ -17,17 +17,17 @@ import re
 from pathlib import Path
 
 
-SCHEMA_DIR = Path(__file__).resolve().parents[3] / 'doc' / 'source' / '_static'
+from optiprofiler import eval_report as _eval_report
 
 
 def load_schema(name):
-    path = SCHEMA_DIR / name
-    if not path.is_file():
-        # The schemas are documentation assets of the repository, not package
-        # data: these tests run from a checkout, never from an installed wheel.
-        raise FileNotFoundError(f'{path} is missing; run the EvalReport tests from a repository checkout')
-    with path.open(encoding='utf-8') as stream:
-        return json.load(stream, parse_constant=lambda token: (_ for _ in ()).throw(ValueError(token)))
+    """Load ``eval_report.schema.json`` / ``plot_data.schema.json`` by file name.
+
+    The schemas are package resources, so this works identically from a
+    checkout and from an installed sdist/wheel (the build workflow runs the
+    installed test suite with ``pytest --pyargs optiprofiler.tests``).
+    """
+    return _eval_report.load_schema(name[:-len('.schema.json')] if name.endswith('.schema.json') else name)
 
 
 def _type_of(value):

@@ -7,15 +7,24 @@ function evalReportPublic(source_root, output_root, slice)
     options = struct('problem', problem, 'score_only', true, 'silent', true, ...
         'n_jobs', 1, 'max_eval_factor', 4, 'solver_names', {{'stay', 'zero'}});
     solvers = {@stay, @zero};
-    schema_root = fullfile(source_root, 'doc', 'source', '_static');
+    % The schemas are Python package resources (python/optiprofiler/schemas):
+    % one authoritative copy shared by the installed Python tests, the docs
+    % and this MATLAB fixture.
+    schema_root = fullfile(source_root, 'python', 'optiprofiler', 'schemas');
     % Every report a slice reads is validated against the shared schemas
     % first: the schemas are the Python/MATLAB reader contract, so a field
     % spelled differently by this emitter fails here.
     readReport = @(path) readValidated(path, fullfile(schema_root, 'eval_report.schema.json'));
     readDetail = @(path) readValidated(path, fullfile(schema_root, 'plot_data.schema.json'));
     if strcmp(slice, 'identity')
-        options.solver_names = {'保持', '归零'};
-        options.problem = Problem(struct('fun', @(x) sum(x.^2), 'x0', [1; 2], 'name', '中文二次'));
+        % English labels carrying non-ASCII mathematical symbols (Greek
+        % letters, built from code points so this source file stays ASCII).
+        % Repository content is English; user metadata is arbitrary Unicode and
+        % must survive the UTF-8 round trip byte for byte on every platform.
+        solver_alpha = ['stay_', char(945)]; solver_beta = ['zero_', char(946)];
+        problem_phi = ['quadratic_', char(966)];
+        options.solver_names = {solver_alpha, solver_beta};
+        options.problem = Problem(struct('fun', @(x) sum(x.^2), 'x0', [1; 2], 'name', problem_phi));
         rng(71); state_before = rng;
         [s0, p0, c0] = benchmark(solvers, options);
         state_without = rng;
@@ -42,10 +51,13 @@ function evalReportPublic(source_root, output_root, slice)
         assert(~isempty(detail.plots), 'score_only must retain numeric history presentations without figures.');
         assert(report.problems.runs(1).evaluations == 1);
         assert(report.problems.runs(2).objective.output == 0);
-        assert(strcmp(report.problems.name, '中文二次') && strcmp(report.scores.solver_names{1}, '保持'), 'UTF-8 labels were corrupted.');
+        assert(strcmp(report.problems.name, problem_phi) && strcmp(report.scores.solver_names{1}, solver_alpha), 'UTF-8 labels were corrupted.');
+        raw_bytes = readBytes(options.report_path);
+        assert(~isempty(strfind(raw_bytes, unicode2native(problem_phi, 'UTF-8'))), 'The report must be UTF-8 encoded bytes, not the platform code page.');
+        assert(isempty(strfind(char(raw_bytes), '\u03c6')), 'Non-ASCII labels must not be escaped to ASCII.');
         % Shared vocabulary with Python (pinned by the schemas).
         assert(strcmp(report.producer.language, 'matlab') && strcmp(report.problems.library, 'user'));
-        assert(strcmp(report.problems.id, '["user","中文二次","primary"]'), 'Direct problems use the user library label.');
+        assert(strcmp(report.problems.id, ['["user","', problem_phi, '","primary"]']), 'Direct problems use the user library label.');
         assert(isequal(sort(fieldnames(report.semantics)), sort({'index_base'; 'metric_best'; 'budget'; 'convergence'; 'run_defaults'; 'configuration'; 'paths'; 'privacy'})));
         assert(isequal(sort(fieldnames(detail.semantics)), sort({'index_base'; 'history_bins'; 'history_plots'; 'profile_plots'; 'error_bands'; 'target_work'; 'privacy'; 'renderer_variants'})));
         run = report.problems.runs(1);
@@ -100,14 +112,14 @@ function evalReportPublic(source_root, output_root, slice)
         assert(numel(good) == 2 && numel(good(1).runs) == 6);
         assert(strcmp(good(1).runs(2).execution.kind, 'repeated'));
         assert(good(1).runs(2).execution.source_run_index == 1);
-        before = fileread(options.report_path);
+        before = readUtf8(options.report_path);
         try
             benchmark(solvers, options);
             error('Expected existing-report rejection.');
         catch cause
             assert(strcmp(cause.identifier, 'OptiProfiler:EvalReportExists'));
         end
-        assert(strcmp(before, fileread(options.report_path)), 'Collision changed existing report.');
+        assert(strcmp(before, readUtf8(options.report_path)), 'Collision changed existing report.');
         options.report_path = fullfile(output_root, 'companion_collision.json');
         companion_path = fullfile(output_root, 'companion_collision.plot_data.json');
         fid = fopen(companion_path, 'w'); fprintf(fid, 'foreign companion'); fclose(fid);
@@ -117,7 +129,7 @@ function evalReportPublic(source_root, output_root, slice)
         catch cause
             assert(strcmp(cause.identifier, 'OptiProfiler:EvalReportExists'));
         end
-        assert(strcmp(fileread(companion_path), 'foreign companion'));
+        assert(strcmp(readUtf8(companion_path), 'foreign companion'));
         assert(~isfile(options.report_path), 'Failed pair reservation left an owned main-file shell.');
         options.problem_names = {'absent'};
         options.report_path = fullfile(output_root, 'empty.json');
@@ -358,7 +370,7 @@ function evalReportPublic(source_root, output_root, slice)
         catch cause
             assert(strcmp(cause.identifier, 'OptiProfiler:EvalReportOwnership'));
         end
-        assert(strcmp(fileread(options.report_path), 'external replacement'));
+        assert(strcmp(readUtf8(options.report_path), 'external replacement'));
         options.report_path = fullfile(output_root, 'companion-replaced.json');
         companion_path = fullfile(output_root, 'companion-replaced.plot_data.json');
         setenv('EVAL_REPORT_PUBLIC_REPLACE_TARGET', companion_path);
@@ -369,7 +381,7 @@ function evalReportPublic(source_root, output_root, slice)
         catch cause
             assert(strcmp(cause.identifier, 'OptiProfiler:EvalReportOwnership'));
         end
-        assert(strcmp(fileread(companion_path), 'external replacement'), 'Foreign companion was overwritten.');
+        assert(strcmp(readUtf8(companion_path), 'external replacement'), 'Foreign companion was overwritten.');
         options.report_path = fullfile(output_root, 'replaced-error.json');
         setenv('EVAL_REPORT_PUBLIC_REPLACE_TARGET', options.report_path);
         options.merit_fun = @replaceAndFail;
@@ -379,7 +391,7 @@ function evalReportPublic(source_root, output_root, slice)
         catch cause
             assert(strcmp(cause.identifier, 'MATLAB:benchmark:merit_fun_error'), 'Secondary report failure masked original exception.');
         end
-        assert(strcmp(fileread(options.report_path), 'external replacement'));
+        assert(strcmp(readUtf8(options.report_path), 'external replacement'));
         fprintf('PASS ownership: foreign replacement untouched, success write error visible, original failure preserved\n');
     elseif strcmp(slice, 'plain_reference')
         fixture_root = fileparts(mfilename('fullpath'));
@@ -545,7 +557,21 @@ end
 function document = readValidated(path, schema_path)
     errors = evalReportSchemaCheck(path, schema_path);
     assert(isempty(errors), 'Schema violations in %s:\n%s', path, strjoin(errors(1:min(20, numel(errors))), newline));
-    document = normalizeCells(jsondecode(fileread(path)));
+    document = normalizeCells(jsondecode(readUtf8(path)));
+end
+
+function text = readUtf8(path)
+% Reports are UTF-8 by contract. fileread without an encoding decodes with
+% the platform default (a Windows code page on Windows), which corrupts
+% non-ASCII labels; read the bytes and decode them explicitly instead.
+    text = native2unicode(readBytes(path), 'UTF-8');
+end
+
+function bytes = readBytes(path)
+    fid = fopen(path, 'rb');
+    assert(fid >= 0, 'Cannot open %s', path);
+    guard = onCleanup(@() fclose(fid));
+    bytes = reshape(fread(fid, '*uint8'), 1, []);
 end
 
 function value = normalizeCells(value)

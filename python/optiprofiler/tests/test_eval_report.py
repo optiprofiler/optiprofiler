@@ -31,7 +31,7 @@ def crash(fun, x0):
 
 
 def long_walk(fun, x0):
-    for value in [-1, -2] + list(range(1, 129)):
+    for value in [-1, -2, -3] + list(range(1, 129)):
         fun(np.full_like(x0, value))
     return np.asarray(x0)
 
@@ -62,8 +62,11 @@ def _read(path):
 
     The schema is the shared Python/MATLAB contract, so a key spelled
     differently by this emitter fails here (MATLAB's fixture does the same).
+    Reports are UTF-8 by contract: decode explicitly instead of trusting the
+    platform default (cp1252 on Windows runners turned UTF-8 into mojibake).
     """
-    report = json.loads(path.read_text(), parse_constant=lambda token: (_ for _ in ()).throw(ValueError(token)))
+    report = json.loads(path.read_text(encoding='utf-8'),
+                        parse_constant=lambda token: (_ for _ in ()).throw(ValueError(token)))
     if report.get('schema') == 'optiprofiler.eval_report/1':
         assert_valid(report, 'eval_report.schema.json')
     return report
@@ -115,6 +118,16 @@ def test_saved_experiment_load_has_compact_main_and_complete_numeric_detail(tmp_
     assert len(detail['target_work']) == 3
     assert all(hashlib.sha256(p.read_bytes()).hexdigest() == digest for p, digest in before.items())
     assert set(p.name for p in tmp_path.iterdir()) == {'compact.json', 'compact.plot_data.json'}
+
+
+def _assert_artifacts_verified(report_path, report):
+    """Every listed artifact is present with exact bytes and a matching SHA256."""
+    assert report['artifacts']
+    for artifact in report['artifacts']:
+        assert artifact['status'] == 'present' and 'reason' not in artifact
+        path = report_path.parent / report['artifact_root'] / artifact['path']
+        assert path.stat().st_size == artifact['bytes']
+        assert hashlib.sha256(path.read_bytes()).hexdigest() == artifact['sha256']
 
 
 def _library(root, name, problems):
@@ -315,14 +328,14 @@ def test_save_load_records_source_and_artifacts_without_reexecuting_provider(tmp
     saved_path = tmp_path / 'saved.json'
     original = benchmark([stay, zero], report_path=saved_path, **options)
     saved_report = _read(saved_path)
+    # Every supported platform has a secure hashing path (openat on POSIX,
+    # identity-checked opens on Windows), so a saved run is fully verified.
     assert saved_report['status'] == 'completed'
+    assert saved_report['stages']['persistence'] == {'status': 'completed'}
     artifacts = saved_report['artifacts']
     assert any(a['path'].endswith('data_for_loading.h5') for a in artifacts)
     assert any('summary_' in a['path'] and a['path'].endswith('.pdf') for a in artifacts)
-    for artifact in artifacts:
-        path = saved_path.parent / saved_report['artifact_root'] / artifact['path']
-        assert path.stat().st_size == artifact['bytes']
-        assert hashlib.sha256(path.read_bytes()).hexdigest() == artifact['sha256']
+    _assert_artifacts_verified(saved_path, saved_report)
     before = {p: hashlib.sha256(p.read_bytes()).hexdigest()
               for p in (tmp_path / 'saved').rglob('*') if p.is_file()}
     # Public load must work with no solver functions and no provider tree.
@@ -379,10 +392,92 @@ def test_export_failure_is_not_a_numerical_failure(tmp_path, monkeypatch):
         benchmark([stay, zero], report_path=target, **options)
     report = _read(target)
     assert report['stages']['numerical']['status'] == 'completed'
-    assert report['stages']['persistence']['status'] == 'completed'
+    # The archive was saved and hashed before the export failure.
+    assert report['stages']['persistence'] == {'status': 'completed'}
     assert report['stages']['rendering']['status'] == 'failed'
     assert report['stages']['scoring']['status'] == 'unknown'
     assert any(d['code'] == 'profile_export_failed' for d in report['diagnostics'])
+    assert any(a['path'].endswith('data_for_loading.h5') for a in report['artifacts'])
+    _assert_artifacts_verified(target, report)
+
+
+def _saved_run(tmp_path, name):
+    _library(tmp_path / 'libraries', name, ['QUAD'])
+    options = _options(tmp_path, [name])
+    options.update(score_only=False, n_runs=1, max_tol_order=1, benchmark_id=name)
+    target = tmp_path / f'{name}.json'
+    scores = benchmark([stay, zero], report_path=target, **options)
+    return target, _read(target), scores
+
+
+def test_hashing_unavailable_keeps_numerical_data_and_reports_unverified_artifacts(tmp_path, monkeypatch):
+    from optiprofiler import eval_report as module
+    monkeypatch.setattr(module, '_hashing_capability', lambda: 'unavailable')
+    target, report, scores = _saved_run(tmp_path, 'evalnohash')
+    # Integrity verification is missing; the saved numbers are not.
+    assert report['status'] == 'partial'
+    assert report['stages']['numerical'] == {'status': 'completed'}
+    assert report['stages']['scoring'] == {'status': 'completed'}
+    assert report['stages']['persistence'] == {'status': 'partial', 'reason': 'artifact_hash_unavailable'}
+    assert report['artifacts']
+    for artifact in report['artifacts']:
+        assert artifact['status'] == 'unverified'
+        assert artifact['bytes'] is None and artifact['sha256'] is None
+        assert artifact['reason'] == 'secure_artifact_hashing_unavailable_on_platform'
+        assert (target.parent / report['artifact_root'] / artifact['path']).is_file()
+    assert [d for d in report['diagnostics'] if d['code'] == 'artifact_hash_unavailable']
+    archive = next(a['path'] for a in report['artifacts'] if a['path'].endswith('data_for_loading.h5'))
+    assert (target.parent / report['artifact_root'] / archive).stat().st_size > 0
+    monkeypatch.chdir(tmp_path)
+    loaded = benchmark(None, load='latest', benchmark_id='evalnohash', savepath=str(tmp_path),
+                       score_only=True, silent=True, max_tol_order=1)
+    np.testing.assert_array_equal(loaded[0], scores[0])
+
+
+def test_identity_checked_hashing_matches_openat_and_refuses_symlinks(tmp_path, monkeypatch):
+    """The Windows hashing path, exercised on every platform.
+
+    It must produce the same receipts as the POSIX openat path and must not
+    hash through a symlink placed inside the benchmark-owned output tree.
+    """
+    from optiprofiler import eval_report as module
+    if module._hashing_capability() == 'unavailable':
+        pytest.skip('no secure hashing primitive on this platform')
+    reference_target, reference, _ = _saved_run(tmp_path, 'evalopenat')
+    reference_root = reference_target.parent / reference['artifact_root']
+    monkeypatch.setattr(module, '_hashing_capability', lambda: 'identity')
+    # Both methods must produce the same receipt for the same files.
+    for artifact in reference['artifacts']:
+        receipt = module._digest(reference_root / artifact['path'], directory=reference_root)
+        assert receipt == {'bytes': artifact['bytes'], 'sha256': artifact['sha256']}
+    target, report, _ = _saved_run(tmp_path / 'identity', 'evalidentity')
+    assert report['status'] == 'completed'
+    _assert_artifacts_verified(target, report)
+    root = target.parent / report['artifact_root']
+    outside = tmp_path / 'outside.txt'
+    outside.write_bytes(b'not an artifact')
+    try:
+        os.symlink(outside, root / 'planted_link.txt')
+    except (OSError, NotImplementedError):
+        pytest.skip('symlink creation is not permitted for this user')
+    collector = module.EvalReport(tmp_path / 'identity' / 'again.json', {})
+    collector.configure({}, {'score_only': False}, object(), output_dir=root)
+    collector._initial_artifacts = set()
+    collector._harvest()
+    names = {a['path'].split('/')[-1] for a in collector.document['artifacts']}
+    assert 'planted_link.txt' not in names and 'data_for_loading.h5' in names
+
+
+def test_schemas_are_package_resources_shared_by_installed_tests_and_docs():
+    from optiprofiler import eval_report as module
+    for name, identifier in (('eval_report', 'urn:optiprofiler:eval_report:1'), ('plot_data', 'urn:optiprofiler:plot_data:1')):
+        schema = module.load_schema(name)
+        assert schema['$id'] == identifier
+        assert schema['$schema'] == 'https://json-schema.org/draft/2020-12/schema'
+        # The text is the resource itself (no doc copy to drift from).
+        assert json.loads(module.schema_text(name)) == schema
+    with pytest.raises(ValueError, match='Unknown EvalReport schema'):
+        module.schema_text('agent_report')
 
 
 def test_lossy_bins_preserve_extrema_indices_and_all_nonfinite_counts(tmp_path):
@@ -391,27 +486,33 @@ def test_lossy_bins_preserve_extrema_indices_and_all_nonfinite_counts(tmp_path):
             return np.nan
         if x[0] == -2:
             return np.inf
+        if x[0] == -3:
+            return -np.inf
         return float(x @ x)
     target = tmp_path / 'preview.json'
     benchmark([long_walk, zero], problem=Problem(objective, [1.0]),
               score_only=True, silent=True, max_eval_factor=200, report_path=target)
     report = _read(target)
     run = report['problems'][0]['runs'][0]
-    assert run['evaluations'] == 130
+    assert run['evaluations'] == 131
     assert run['objective']['invalid_evaluations'] == dict(
-        nan=1, positive_infinity=1, negative_infinity=0, observed_evaluations=130)
+        nan=1, positive_infinity=1, negative_infinity=1, observed_evaluations=131)
     detail = _plot_data(target, report)
     history = next(h for h in detail['histories'] if h['id'] == run['history_ref'])
     channel = history['channels']['objective']
     assert len(channel['bins']) == 32
     assert channel['bins'][0]['start_index'] == 1
-    assert channel['bins'][-1]['end_index'] == 130
+    assert channel['bins'][-1]['end_index'] == 131
     # Exact integer edges shared with MATLAB: bin k covers (k-1)*n//32+1..k*n//32.
     assert [(b['start_index'], b['end_index']) for b in channel['bins']] == \
-        [(k * 130 // 32 + 1, (k + 1) * 130 // 32) for k in range(32)]
+        [(k * 131 // 32 + 1, (k + 1) * 131 // 32) for k in range(32)]
     assert channel['bins'][0]['first'] == {'value': None, 'reason': 'nan'}
-    assert channel['bins'][-1]['finite_max'] == {'value': 16384.0, 'evaluation_index': 130}
+    assert channel['bins'][0]['nonfinite'] == {'nan': 1, 'positive_infinity': 1, 'negative_infinity': 1}
+    # Finite extrema exclude infinities; the scalar best does not and can be -inf.
+    assert channel['bins'][0]['finite_min'] == {'value': 1.0, 'evaluation_index': 4}
+    assert channel['bins'][-1]['finite_max'] == {'value': 16384.0, 'evaluation_index': 131}
     assert run['objective']['first_invalid_evaluation_index'] == 1
+    assert run['objective']['best'] == {'value': None, 'reason': 'negative_infinity'}
     assert run['objective']['best_evaluation_index'] == 3
 
 
@@ -574,14 +675,14 @@ def test_score_callback_failure_does_not_blame_completed_rendering(tmp_path):
 def test_failed_requested_plain_reference_keeps_primary_counts_but_is_partial(tmp_path):
     _library(tmp_path / 'libraries', 'evalplainpartial', ['QUAD'])
     tools = tmp_path / 'libraries' / 'evalplainpartial' / 'evalplainpartial_tools.py'
-    source = tools.read_text().replace(
+    source = tools.read_text(encoding='utf-8').replace(
         "    if name == 'BROKEN':",
         "    from pathlib import Path\n"
         "    marker = Path(__file__).with_suffix('.loaded')\n"
         "    if marker.exists(): raise ValueError('plain reference load failed')\n"
         "    marker.touch()\n"
         "    if name == 'BROKEN':")
-    tools.write_text(source)
+    tools.write_text(source, encoding='utf-8')
     options = _options(tmp_path, ['evalplainpartial'])
     options.update(feature_name='noisy', n_runs=1, run_plain=True)
     target = tmp_path / 'plain-partial.json'
@@ -683,12 +784,19 @@ def test_profile_plots_share_the_cross_language_vocabulary(tmp_path):
 
 
 def test_unicode_identity_is_preserved_and_sensitive_unknown_option_is_redacted(tmp_path):
+    # English label with a non-ASCII mathematical symbol: the repository
+    # content is English, but user metadata is arbitrary Unicode and must
+    # survive the UTF-8 round trip byte for byte on every platform.
+    name = 'quadratic_\u03c6'  # Greek small phi, escaped so the source file stays ASCII
     target = tmp_path / 'unicode.json'
-    benchmark([stay, zero], problem=Problem(lambda x: float(x @ x), [1.0], name='测试_é'),
+    benchmark([stay, zero], problem=Problem(lambda x: float(x @ x), [1.0], name=name),
               score_only=True, silent=True, report_path=target)
-    assert _read(target)['problems'][0]['name'] == '测试_é'
+    raw = target.read_bytes()
+    assert name.encode('utf-8') in raw and b'\\u03c6' not in raw  # written as UTF-8, not escaped ASCII
+    assert _read(target)['problems'][0]['name'] == name
+    assert _read(target)['problems'][0]['id'] == f'["user","{name}","primary"]'
     secret_path = tmp_path / 'secret.json'
     with pytest.raises(ValueError, match='Unknown option'):
         benchmark([stay, zero], report_path=secret_path, auth_token='do-not-copy-this-secret')
-    assert 'do-not-copy-this-secret' not in secret_path.read_text()
+    assert 'do-not-copy-this-secret' not in secret_path.read_text(encoding='utf-8')
     assert _read(secret_path)['configuration']['request']['auth_token']['reason'] == 'redacted_sensitive_option'

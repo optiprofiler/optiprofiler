@@ -2,6 +2,9 @@
 include LICENSE
 include README.rst
 
+# Include the EvalReport JSON Schemas (runtime package resources)
+recursive-include python/optiprofiler/schemas *.schema.json
+
 # Include problem libraries data files
 recursive-include python/optiprofiler/problem_libs *.py *.txt *.csv *.md
 include python/optiprofiler/problem_libs/s2mpj/src/list_of_python_problems

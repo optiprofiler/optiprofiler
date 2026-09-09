@@ -1,0 +1,65 @@
+# Targeted EvalReport (report_path) coverage on every supported OS and on the
+# minimum and latest supported MATLAB releases. The broad multi-OS workflow runs
+# the action tests, which never request a report; this workflow runs the
+# TestEvalReport class with real Parallel Computing Toolbox workers and gates on
+# Failed=0 AND Incomplete=0, so a filtered platform case cannot pass silently.
+
+name: MATLAB EvalReport platforms
+
+on:
+  push:
+    branches: [main, matlab]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  eval-report:
+    name: EvalReport on MATLAB ${{ matrix.matlab }} / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+        matlab: [R2021b, latest]
+    env:
+      # Isolate every persistent side channel: registry, path persistence and
+      # preferences live under the workspace, never in the runner's MATLAB.
+      OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_REGISTRY: ${{ github.workspace }}/ci-state/problem_libraries.mat
+      OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_PATHDEF: ${{ github.workspace }}/ci-state/pathdef.m
+      OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_STARTUP: ${{ github.workspace }}/ci-state/startup.m
+      MATLAB_PREFDIR: ${{ github.workspace }}/ci-state/matlab-prefdir
+
+    steps:
+      - name: Check out requested revision with submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Create isolated MATLAB state directories
+        shell: bash
+        run: mkdir -p ci-state/matlab-prefdir ci-output
+
+      - name: Set up MATLAB with parallel computing toolbox
+        uses: matlab-actions/setup-matlab@v2
+        with:
+          release: ${{ matrix.matlab }}
+          cache: true
+          products: Parallel_Computing_Toolbox
+
+      - name: Run TestEvalReport with an Incomplete=0 gate
+        uses: matlab-actions/run-command@v2.1.1
+        with:
+          command: |
+            addpath(fullfile(pwd, 'tools'));
+            run_matlab_eval_report_ci(pwd, fullfile(pwd, 'ci-output'));
+
+      - name: Upload EvalReport results and sample reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-report-${{ matrix.os }}-${{ matrix.matlab }}-${{ github.sha }}
+          path: ci-output/
+          if-no-files-found: error

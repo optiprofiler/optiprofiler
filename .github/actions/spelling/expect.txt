@@ -50,6 +50,7 @@ flatnonzero
 followlinks
 fontsize
 footbibliography
+fstat
 getoption
 hessp
 hmmss
@@ -73,6 +74,7 @@ linspace
 localtoy
 logspace
 lossy
+lstat
 lstsq
 mathrm
 maxcv
@@ -91,17 +93,20 @@ nonhit
 nullable
 numpydoc
 objname
+openat
 Opti
 Optim
 otherproblems
 papersize
 plt
+prefdir
 prepareevalreporthistory
 prepareprofileplotdata
 pyplot
 reexecuting
 regexpi
 reloadable
+reparse
 rng
 rosen
 rst

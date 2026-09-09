@@ -66,17 +66,27 @@ implementation to make them match (see :ref:`eval_report_conventions`).
 Report structure
 ----------------
 
-The :download:`main-report schema <../_static/eval_report.schema.json>` and
-:download:`numeric-companion schema <../_static/plot_data.schema.json>` are the
-single Python/MATLAB reader contract. Observation records (problems, runs,
-metrics, coverage, stages, plot records, history channels) allow only the
+The :download:`main-report schema <../../../python/optiprofiler/schemas/eval_report.schema.json>`
+and :download:`numeric-companion schema <../../../python/optiprofiler/schemas/plot_data.schema.json>`
+are the single Python/MATLAB reader contract. Observation records (problems,
+runs, metrics, coverage, stages, plot records, history channels) allow only the
 declared keys, so a consumer never has to branch on the producing language
-for the same concept. They require no additional runtime dependency in
-OptiProfiler; both test suites validate every produced report against them
-with a small built-in checker. Consumers should reject bare JSON
-``NaN``/``Infinity`` tokens, validate the schemas, and check tensor dimensions,
-references and artifact paths. This remains an unreleased v1 report format,
-independent of package versions.
+for the same concept. The two files are package resources of the Python
+distribution (``optiprofiler/schemas/``) and can be read at run time::
+
+    from optiprofiler.eval_report import load_schema, schema_text
+    main_schema = load_schema('eval_report')      # parsed dict
+    companion_text = schema_text('plot_data')     # exact JSON text, for hashing/pinning
+
+There is exactly one authoritative copy of each schema: the documentation
+downloads above, the installed Python test suite, the MATLAB test fixtures and
+external consumers all read the same files, so a consumer that pins a schema by
+its SHA256 compares against the packaged text. They require no additional
+runtime dependency in OptiProfiler; both test suites validate every produced
+report against them with a small built-in checker. Consumers should reject bare
+JSON ``NaN``/``Infinity`` tokens, validate the schemas, and check tensor
+dimensions, references and artifact paths. This remains an unreleased v1 report
+format, independent of package versions.
 
 .. list-table:: Main fields
    :header-rows: 1
@@ -263,12 +273,25 @@ against erroneous agent conclusions.
 Hash and permission fallbacks
 -----------------------------
 
-Secure artifact hashing is capability-dependent. When a platform cannot
-support safe hashing, Python can mark an artifact ``unverified`` with a reason
-and null hash. Hash failures can also cause an entry to be omitted with a
-diagnostic (including MATLAB's current fallback). Both implementations report
-partial persistence instead of claiming verified provenance or losing already
-computed scores.
+Artifact hashing never reads a file through a path it cannot vouch for.
+On POSIX, Python opens every component below the benchmark-owned output tree
+relative to a directory descriptor with ``O_NOFOLLOW``, so a symlink or a
+directory swapped during traversal is refused. Windows has no ``openat``: there
+Python inspects each component with ``lstat`` (symlinks and junctions are
+refused), opens the file, and requires the opened handle's identity (volume
+serial number and file index) to equal the identity recorded before the open,
+so the hashed bytes are provably the inspected file. This matches the
+guarantee level of the MATLAB collector, which checks for links before
+opening; a reparse point inserted into the owned tree between inspection and
+open is detected (the artifact is then omitted with an
+``artifact_hash_unavailable`` diagnostic), not prevented. On a platform with
+neither primitive, artifacts are listed as ``unverified`` with null hashes and
+the reason ``secure_artifact_hashing_unavailable_on_platform``, persistence
+becomes ``partial``, and the saved numerical archive remains loadable: a
+missing integrity receipt is not an assertion that the data is corrupt. Hash
+failures can also cause an entry to be omitted with a diagnostic. Neither
+implementation claims verified provenance it did not compute, and already
+computed scores are never lost.
 Without a JVM, MATLAB tries the system ``sha256sum`` or ``shasum`` utility. If
 neither is available, the main facts and numeric companion are still saved,
 but ``plot_data.status`` is ``partial`` with a null hash, the reason
