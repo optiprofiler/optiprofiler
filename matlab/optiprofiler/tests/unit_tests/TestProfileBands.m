@@ -71,7 +71,7 @@ classdef TestProfileBands < matlab.unittest.TestCase
                 [ax, patches] = testCase.openBands(figs{k});
                 series = companionSeries(companion, figs{k});
                 lines = findobj(ax, 'Type', 'line');
-                expected_patches = 0; figure_area = 0; box_area = diff(ax.XLim) * diff(ax.YLim);
+                expected_patches = 0; figure_area = 0; box_area = diff(ax.XLim) * diff(ax.YLim); union_shape = polyshape();
                 for s = 1:numel(series)
                     [expected_vertices, expected_faces] = expectedFaces(series{s});
                     if isempty(expected_faces)
@@ -79,6 +79,7 @@ classdef TestProfileBands < matlab.unittest.TestCase
                     end
                     expected_patches = expected_patches + 1;
                     figure_area = figure_area + facesArea(expected_vertices, expected_faces);
+                    union_shape = union(union_shape, facesShape(expected_vertices, expected_faces));
                     line = lines(strcmp({lines.DisplayName}, solverName(series{s}.solver_index)));
                     testCase.assertNumElements(line, 1, 'One mean line per solver.');
                     testCase.assertGreaterThanOrEqual(numel(patches), expected_patches, sprintf('%s: band patch of solver %d missing', figs{k}, s));
@@ -89,23 +90,53 @@ classdef TestProfileBands < matlab.unittest.TestCase
                     testCase.verifyEqual(actual.FaceAlpha, 0.2); testCase.verifyEqual(actual.EdgeColor, 'none');
                     testCase.verifyEqual(actual.HandleVisibility, 'off');
                 end
+                % Union of the expected rectangles (overlapping solver bands count once), clipped to the axes box.
+                figure_union_area = area(intersect(union_shape, polyshape(ax.XLim([1 2 2 1]), ax.YLim([1 1 2 2]))));
                 testCase.verifyNumElements(patches, expected_patches, sprintf('%s: one patch per nonempty band, none otherwise', figs{k}));
-                fraction_on = coloredInteriorFraction(ax, fullfile(testCase.OutputRoot, sprintf('unequal-%d-on.png', k)));
-                delete(patches);   % in-memory control: the same axes without its band patches
-                fraction_off = coloredInteriorFraction(ax, fullfile(testCase.OutputRoot, sprintf('unequal-%d-off.png', k)));
-                share = figure_area / box_area;
+                % Paired captures on one frozen canvas: axes limits and legend are frozen, the whole figure is printed
+                % at a fixed size (no tight recrop), and the three images must have identical dimensions before any
+                % subtraction. Band pixels are the pixels that change when the band patches are removed (ON minus OFF),
+                % which counts translucent overlap of two solver colours as well (it blends to near-gray); the same
+                % OFF-derived exclusion mask and denominator apply to the calibration control (BOX minus OFF).
+                fig = ancestor(ax, 'figure'); ax.XLim = ax.XLim; ax.YLim = ax.YLim;   % manual limit modes
+                lg = findobj(fig, 'Type', 'Legend'); if ~isempty(lg), set(lg, 'AutoUpdate', 'off'); end
+                % The first print of a freshly opened figure settles its layout (text measurement moves the axes by a
+                % few 1e-5 of normalized height); the reference layout is therefore taken after a settle capture, and
+                % ON, OFF and BOX must then keep it exactly.
+                captureCanvas(fig, fullfile(testCase.OutputRoot, sprintf('unequal-%d-settle.png', k)));
+                layout = {ax.Position, ax.XLim, ax.YLim};
+                image_on = captureCanvas(fig, fullfile(testCase.OutputRoot, sprintf('unequal-%d-on.png', k)));
+                testCase.assertEqual({ax.Position, ax.XLim, ax.YLim}, layout, sprintf('%s: axes layout changed at the ON capture after settling', figs{k}));
+                delete(patches);   % the band-deleted image: an entirely missing band makes ON and OFF identical
+                image_off = captureCanvas(fig, fullfile(testCase.OutputRoot, sprintf('unequal-%d-off.png', k)));
+                testCase.assertEqual({ax.Position, ax.XLim, ax.YLim}, layout, sprintf('%s: axes layout changed at the OFF capture', figs{k}));
+                box_patch = patch(ax, ax.XLim([1 2 2 1]), ax.YLim([1 1 2 2]), [0 0.447 0.741], 'FaceAlpha', 0.2, 'EdgeColor', 'none', ...
+                    'HandleVisibility', 'off');   % hidden from the legend, so its footprint does not change
+                uistack(box_patch, 'bottom');     % below the lines, so the same line/text pixels are excluded as for the bands
+                image_box = captureCanvas(fig, fullfile(testCase.OutputRoot, sprintf('unequal-%d-box.png', k)));
+                testCase.assertEqual({ax.Position, ax.XLim, ax.YLim}, layout, sprintf('%s: axes layout changed at the BOX capture', figs{k}));
+                delete(box_patch);
+                testCase.assertEqual(size(image_off), size(image_on), sprintf('%s: ON and OFF captures differ in size', figs{k}));
+                testCase.assertEqual(size(image_box), size(image_on), sprintf('%s: BOX and ON captures differ in size', figs{k}));
+                excluded = nearDark(image_off);
+                fraction_bands = changedFraction(image_on, image_off, excluded);
+                fraction_box = changedFraction(image_box, image_off, excluded);
+                fraction_off = coloredInteriorFractionOfImage(image_off);
+                union_share = figure_union_area / box_area;   % clipped union: overlap counted once, nothing outside the view
                 testCase.verifyLessThan(fraction_off, 1e-4, sprintf('%s: without band patches nothing may be painted', figs{k}));
                 if figure_area > 0
                     figures_with_area = figures_with_area + 1;
                     % The fixture must give broad bands wherever it gives a band (at least 1 % of the axes box), so
-                    % that the rendered evidence stays sensitive to an entirely missing band: the patches must paint
-                    % at least a quarter of their geometric share (the exported image is the box plus margins,
-                    % and pixels near lines, text and legend are excluded) and not grossly beyond it.
-                    testCase.verifyGreaterThanOrEqual(share, 0.01, sprintf('%s: fixture band area %.4f of a %.4f box is too thin for rendered evidence', figs{k}, figure_area, box_area));
-                    testCase.verifyGreaterThan(fraction_on - fraction_off, 0.25 * share, sprintf('%s: band patches paint %.4f of the image for a geometric share of %.4f', figs{k}, fraction_on - fraction_off, share));
-                    testCase.verifyLessThan(fraction_on, 2 * share + 1e-3, sprintf('%s: band painted beyond its geometry', figs{k}));
+                    % that the rendered evidence stays sensitive to an entirely missing band: the band patches must
+                    % change at least half of what their union share of the calibrated box changes, and not more
+                    % than that share plus a small allowance.
+                    testCase.verifyGreaterThan(fraction_box, 0.1, sprintf('%s: the calibration box control must be visible', figs{k}));
+                    testCase.verifyGreaterThanOrEqual(union_share, 0.01, sprintf('%s: fixture band area %.4f of a %.4f box is too thin for rendered evidence', figs{k}, figure_union_area, box_area));
+                    testCase.verifyGreaterThan(fraction_bands, 0.5 * union_share * fraction_box, ...
+                        sprintf('%s: band patches change %.4f of the canvas for a union share of %.4f of a box that changes %.4f', figs{k}, fraction_bands, union_share, fraction_box));
+                    testCase.verifyLessThan(fraction_bands, 1.2 * union_share * fraction_box + 0.01, sprintf('%s: band painted beyond its geometry', figs{k}));
                 else
-                    testCase.verifyLessThan(fraction_on, 1e-4, sprintf('%s: no band area, nothing may be painted', figs{k}));
+                    testCase.verifyLessThan(fraction_bands, 1e-4, sprintf('%s: no band area, the band patches may change nothing', figs{k}));
                 end
             end
             testCase.verifyGreaterThan(figures_with_area, 0, 'The unequal-run fixture must produce at least one band with positive area.');
@@ -239,6 +270,13 @@ function a = facesArea(V, F)
     end
 end
 
+function shape = facesShape(V, F)
+    shape = polyshape();
+    for k = 1:size(F, 1)
+        q = V(F(k, :), :); shape = union(shape, polyshape(q(:, 1), q(:, 2)));
+    end
+end
+
 function spans = faceSpans(p)
     spans = zeros(size(p.Faces, 1), 2);
     for k = 1:size(p.Faces, 1)
@@ -251,10 +289,32 @@ function fraction = coloredInteriorFraction(ax, png)
 % neighbourhoods of mean lines, axes, tick labels and the legend are excluded so that anti-aliased line edges
 % cannot masquerade as band interior.
     exportgraphics(ax, png, 'Resolution', 100);
-    image = double(imread(png)); mx = max(image, [], 3); mn = min(image, [], 3);
-    near_dark = conv2(double(mn < 130), ones(9), 'same') > 0;
-    colored = (mx - mn > 10) & (mn > 130) & (mx > 200) & ~near_dark;
+    fraction = coloredInteriorFractionOfImage(double(imread(png)));
+end
+
+function fraction = coloredInteriorFractionOfImage(image)
+    mx = max(image, [], 3); mn = min(image, [], 3);
+    colored = (mx - mn > 10) & (mn > 130) & (mx > 200) & ~nearDark(image);
     fraction = nnz(colored) / numel(colored);
+end
+
+function mask = nearDark(image)
+% 9x9 neighbourhoods of dark pixels (lines, axes, tick labels, legend text and samples).
+    mask = conv2(double(min(image, [], 3) < 130), ones(9), 'same') > 0;
+end
+
+function image = captureCanvas(fig, png)
+% Whole-figure raster at a fixed size: print does not recrop to the content, so paired captures of one figure share
+% one canvas and one registration.
+    print(fig, png, '-dpng', '-r100');
+    image = double(imread(png));
+end
+
+function fraction = changedFraction(image, reference, excluded)
+% Pixels whose colour differs from the reference by more than a small noise tolerance in any channel, outside the
+% excluded neighbourhoods; both images must already have the same size.
+    changed = any(abs(image - reference) > 8, 3) & ~excluded;
+    fraction = nnz(changed) / numel(changed);
 end
 
 function value = readJson(path)
