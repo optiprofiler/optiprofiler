@@ -291,8 +291,8 @@ function evalReportPublic(source_root, output_root, slice)
         setenv('EVAL_REPORT_HASH_FIXTURE_ROOT', fullfile(output_root, options.benchmark_id));
         [fresh_scores, ~, ~] = benchmark({@stayWithHashBoundary, @zero}, options);
         fresh = readReport(options.report_path);
-        % A machine without any PDF merge backend (MATLAB's bundled PDFBox
-        % API mismatch and no qpdf/pdfunite/gs) cannot produce summary.pdf;
+        % A machine without any PDF merge backend (R2026a and later bundle no
+        % PDFBox, and no qpdf/pdfunite/gs is installed) cannot produce summary.pdf;
         % the truthful report is then a partial rendering stage with exactly
         % that reason, while persistence and every artifact hash stay complete.
         codes = {};
