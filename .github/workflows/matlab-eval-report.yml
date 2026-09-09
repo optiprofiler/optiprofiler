@@ -8,7 +8,10 @@ name: MATLAB EvalReport platforms
 
 on:
   push:
-    branches: [main, matlab]
+    # workflow_dispatch can only target workflows that already exist on the
+    # default branch, so acceptance runs of this new workflow are triggered by
+    # pushes to the candidate branch; that entry can be dropped at integration.
+    branches: [main, matlab, codex/eval-report]
   workflow_dispatch:
 
 permissions:
