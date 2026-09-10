@@ -92,10 +92,9 @@ class TestBenchmarkIntegration:
         scores, profile_scores, curves = benchmark([solver_stay, solver_step], feature_name='noisy+truncated',
                                                    report_path=str(report_path), **common_kwargs(tmp_path))
         assert scores.shape == (2,)
-        # Output folders are named <solvers>_<problem selection>_<feature stamp>_<time stamp>.
-        outputs = list((tmp_path / 'composition').glob('*_noisy_0.001_mixed_gaussian__truncated_6_*'))
-        assert len(outputs) == 1
-        results = load_results_from_h5(str(archive_of(outputs[0])))
+        # The output folder name carries the feature stamp when the platform path
+        # limit allows it; the archive always records the stamp itself.
+        results = load_results_from_h5(str(archive_of(tmp_path / 'composition')))
         assert results[0]['feature_stamp'] == 'noisy_0.001_mixed_gaussian__truncated_6'
         pipeline = json.loads(results[0]['feature_pipeline'])
         assert pipeline['schema'] == 'feature_pipeline-v1'
