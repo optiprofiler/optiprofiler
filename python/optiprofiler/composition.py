@@ -761,9 +761,20 @@ def _normalized_custom_feature(feature, predecessor, stage):
 
 
 def _pair(result, stage, key):
-    if not isinstance(result, (tuple, list)) or len(result) != 2:
-        raise ValueError(f'The callback `{key}` of {_stage_label(stage)} must return a pair of arrays.')
-    return result
+    """Fixed-arity unpacking of a callback result, exactly as the legacy modifiers unpack it."""
+    try:
+        first, second = result
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f'The callback `{key}` of {_stage_label(stage)} must return a pair of arrays.') from exc
+    return first, second
+
+
+def _triple(result, stage, key, what):
+    try:
+        first, second, third = result
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f'The callback `{key}` of {_stage_label(stage)} must return {what}.') from exc
+    return first, second, third
 
 
 class _ScalarCallback:
@@ -835,10 +846,7 @@ class _AffineCallback:
         self.user, self.n, self.stage = user, n, stage
 
     def __call__(self, rng, problem):
-        result = self.user(rng, problem)
-        if not isinstance(result, (tuple, list)) or len(result) != 3:
-            raise ValueError(f'The callback `mod_affine` of {_stage_label(self.stage)} must return a matrix, '
-                             f'a vector and an inverse matrix.')
+        result = _triple(self.user(rng, problem), self.stage, 'mod_affine', 'a matrix, a vector and an inverse matrix')
         return (_custom_matrix(result[0], (self.n, self.n), self.stage, 'mod_affine'),
                 _custom_vector(result[1], self.n, self.stage, 'mod_affine', 'a translation vector'),
                 _custom_matrix(result[2], (self.n, self.n), self.stage, 'mod_affine', 'an inverse matrix'))
@@ -848,8 +856,11 @@ class CustomView(AffineView):
     """
     User-supplied modifiers at any position of a composition. The callbacks
     receive the immediate predecessor view as their ``problem`` argument, so
-    ``problem.fun(x)`` is a genuine observed query of that predecessor, and a
-    stochastic predecessor draws a fresh sample for each probe. As in the
+    ``problem.fun(x)`` is a genuine observed query of that predecessor: a
+    predecessor with per-query randomness (such as ``noisy`` or
+    ``random_nan``) draws a fresh sample for each probe, whereas randomness
+    fixed when the problem is built (``perturbed_x0``, ``permuted``,
+    ``linearly_transformed``) is the same on every probe. As in the
     single-feature implementation, the objective and constraint callbacks
     only change observations, ``mod_affine`` transports both channels, and
     the stream handed to a value callback depends on the value read first.

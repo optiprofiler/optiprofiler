@@ -167,6 +167,45 @@ class TestConstructionOutputs:
         np.testing.assert_array_equal(featured.xl, [-2.0, -2.0, -2.0])
         assert featured.fun(np.array([0.5, 0.0, 0.0])) == quadratic([1.0, 0.0, 0.0])
 
+    def test_array_pairs_and_triples_are_accepted_as_before(self):
+        # The legacy modifiers tuple-unpack whatever a callback returns, so a
+        # (2, n) array of bounds or a list of linear constraint parts is valid.
+        def mod_bounds(rng, prob):
+            return np.array([[-2.0, -2.0, -2.0], [2.0, 2.0, 2.0]])
+
+        def mod_linear_ub(rng, prob):
+            return [np.array([[1.0, 1.0, 0.0]]), np.array([5.0])]
+
+        def mod_affine(rng, prob):
+            return (np.diag([2.0, 1.0, 1.0]), np.zeros(3), np.diag([0.5, 1.0, 1.0]))
+
+        feature = Feature('custom+truncated', mod_bounds=mod_bounds, mod_linear_ub=mod_linear_ub, mod_affine=mod_affine,
+                          significant_digits=12)
+        featured = FeaturedProblem(problem(), feature, 10, 0)
+        np.testing.assert_array_equal(featured.xl, [-2.0, -2.0, -2.0])
+        np.testing.assert_array_equal(featured.xu, [2.0, 2.0, 2.0])
+        # A custom linear-constraint callback replaces the constraints verbatim, as in the single feature.
+        np.testing.assert_array_equal(featured.aub, [[1.0, 1.0, 0.0]])
+        np.testing.assert_array_equal(featured.bub, [5.0])
+        assert featured.fun(np.array([0.5, 0.0, 0.0])) == quadratic([1.0, 0.0, 0.0])
+
+    def test_generators_unpack_like_the_legacy_modifiers(self):
+        def mod_bounds(rng, prob):
+            return (np.full(3, value) for value in (-2.0, 2.0))
+
+        def mod_affine(rng, prob):
+            return iter((np.eye(3), np.zeros(3), np.eye(3)))
+
+        featured = FeaturedProblem(problem(), Feature('custom+truncated', mod_bounds=mod_bounds, mod_affine=mod_affine), 10, 0)
+        np.testing.assert_array_equal(featured.xl, [-2.0, -2.0, -2.0])
+        np.testing.assert_array_equal(featured.xu, [2.0, 2.0, 2.0])
+
+        def three_parts(rng, prob):
+            return (np.zeros(3) for _ in range(3))
+
+        with pytest.raises(ValueError, match="`mod_bounds` of stage 1 'custom' \\(occurrence 1\\) must return a pair"):
+            FeaturedProblem(problem(), Feature('custom+truncated', mod_bounds=three_parts), 10, 0)
+
     @pytest.mark.parametrize('key, bad, fragment', [
         ('mod_x0', lambda rng, prob: [0.1, 0.2], 'size 3'),
         ('mod_x0', lambda rng, prob: np.array([1.0 + 1.0j, 0.0, 0.0]), 'complex'),

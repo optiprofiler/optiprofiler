@@ -172,9 +172,12 @@ The rules are:
   contain NaN never close the gate, as for the single feature.
 - Custom callbacks of a ``'custom'`` stage receive the problem produced by the
   preceding stages, so ``problem.fun(x)`` inside a callback is a genuine query
-  of that problem. Each call is a separately served query: a stochastic
-  predecessor draws its own sample for it, a deterministic predecessor returns
-  the same value again. Callback outputs are validated at the custom stage
+  of that problem. Each call is a separately served query: a predecessor whose
+  observations are randomized per query (such as ``noisy`` or ``random_nan``)
+  draws its own sample for it, while randomness fixed when the problem is
+  built (``perturbed_x0``, ``permuted``, ``linearly_transformed``) and a
+  deterministic predecessor return the same value again. Callback outputs are
+  validated at the custom stage
   (objective values follow the ``Problem.fun`` scalar policy and are recorded
   as NaN with a logged warning when they are not real scalars; constraint
   outputs must be real one-dimensional arrays of the predecessor's size,
