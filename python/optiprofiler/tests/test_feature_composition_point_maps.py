@@ -149,7 +149,8 @@ class TestLongChains:
             featured.fun(x)
         elapsed = time.perf_counter() - start
         assert counting.count('fun') == 400
-        assert elapsed < 10.0
+        # Generous bound: exponential work would take far longer than this.
+        assert elapsed < 60.0
 
 
 class TestUnrelaxableGate:

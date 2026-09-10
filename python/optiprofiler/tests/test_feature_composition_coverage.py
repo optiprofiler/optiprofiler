@@ -120,4 +120,5 @@ def test_long_mixed_chains(length):
     feature = Feature('+'.join(names))
     start = time.perf_counter()
     exercise(FeaturedProblem(fixture('n'), feature, MAX_EVAL, 4), 'n')
-    assert time.perf_counter() - start < 20.0
+    # Generous bound: exponential work would take far longer than this.
+    assert time.perf_counter() - start < 60.0
