@@ -128,8 +128,18 @@ Order matters for features that move the query point as well. With
 ``feature_name='quantized+linearly_transformed+quantized'`` a solver point ``x``
 is first snapped to the mesh by the last stage, then mapped through the linear
 transformation, and snapped again by the first stage before the original
-objective is evaluated: the original function is called once per query, at
-``snap(A @ snap(x))``, however many stages the chain has.
+objective is evaluated. For this chain, an objective query reads the original
+objective once at ``snap(A @ snap(x))`` for the value the solver observes and
+once more for the scoring reference recorded in the history; each constraint
+channel behaves the same way. That count is a property of this chain of lazy
+point maps and linear transport, not a general promise. The general rule is
+only that a composition performs no unused or exponentially repeated reads:
+each stage reads its predecessor exactly as its operation requires, so chains
+of point maps stay linear in length. Additional reads of the original problem
+are legitimate wherever a stage asks for them: a ``custom`` callback that
+probes its predecessor, the ``unrelaxable_constraints`` gate reading the
+predecessor's constraints during an objective query, and the reference reads
+for the initial point, the histories and the final scoring.
 
 The rules are:
 
@@ -162,12 +172,28 @@ The rules are:
   contain NaN never close the gate, as for the single feature.
 - Custom callbacks of a ``'custom'`` stage receive the problem produced by the
   preceding stages, so ``problem.fun(x)`` inside a callback is a genuine query
-  of that problem, with fresh noise on every call.
+  of that problem. Each call is a separately served query: a stochastic
+  predecessor draws its own sample for it, a deterministic predecessor returns
+  the same value again. Callback outputs are validated at the custom stage
+  (objective values follow the ``Problem.fun`` scalar policy and are recorded
+  as NaN with a logged warning when they are not real scalars; constraint
+  outputs must be real one-dimensional arrays of the predecessor's size,
+  otherwise an error names the stage and callback).
 - A name whose only effective stage is a single feature, such as
   ``'plain+noisy'``, behaves exactly like that feature, including its random
-  streams and its output folder name. A genuine composition seeds every stage
-  separately from the run seed, so inserting ``'plain'`` never changes another
-  stage's stream and repeated stages draw different samples.
+  streams and its output folder name. A genuine composition seeds every
+  channel of every stage separately from the run seed (policy
+  ``seedsequence-v2``): the seed is the first 32-bit word of
+  ``numpy.random.SeedSequence(run_seed, spawn_key=(code, occurrence, tag))``
+  with a frozen numeric code per feature, the occurrence index among stages of
+  the same name, and the tags ``fun=0``, ``cub=1``, ``ceq=2`` and
+  ``construction=3`` (draws made when the problem is built). Inserting
+  ``'plain'`` therefore does not change the derivation identity of any other
+  stage, and distinct identities remove the structural alias that omitting the
+  channel tag would cause between the objective and constraint channels. This
+  is not an independence proof of the generator, and 32-bit seeds can still
+  coincide. Archives record the policy identifier; archives written under an
+  earlier policy keep their own identifier when loaded.
 - The output folder name joins the stamps of the stages with ``__`` and is
   shortened with a digest for long chains. The archive and the structured
   report record the declared name, the effective stages with their options and

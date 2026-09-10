@@ -12,7 +12,12 @@ linear and nonlinear constraints) together with two evaluation channels.
   predecessor for the value it needs and then modifies it; a point map such
   as ``quantized`` first moves the point and then queries its predecessor
   once at the moved point. No stage evaluates the original problem itself,
-  so the number of original callbacks does not grow with the chain length.
+  and each stage reads its predecessor exactly as its operation requires, so
+  a chain performs no unused or exponentially repeated reads. There is no
+  universal count of original reads per query: ``custom`` probes, the
+  ``unrelaxable_constraints`` gate's constraint queries, and the recorder's
+  reference reads for the initial point, the histories and the final scoring
+  add reads legitimately.
 - The *reference* channel is the scoring truth. Value transforms (``noisy``,
   ``truncated``, ``random_nan``, ``nonquantifiable_constraints``) leave the
   inherited reference untouched; coordinate transforms transport it; and
