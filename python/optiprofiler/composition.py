@@ -138,6 +138,75 @@ class StageContext:
         return index
 
 
+def _json_safe(value):
+    """Convert an option value into JSON-serializable data without executing callables."""
+    if isinstance(value, bool) or value is None or isinstance(value, (int, float, str)):
+        return value
+    if isinstance(value, np.generic):
+        return value.item()
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    if callable(value):
+        return {'kind': 'callback', 'name': getattr(value, '__qualname__', None) or repr(value)[:256]}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(item) for item in value]
+    if isinstance(value, dict):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    return {'kind': 'object', 'repr': repr(value)[:256]}
+
+
+def _stored_state(obj):
+    """The instance dictionary of ``obj`` without invoking any property or descriptor."""
+    try:
+        return object.__getattribute__(obj, '__dict__')
+    except (AttributeError, TypeError):
+        return {}
+
+
+def describe_pipeline(feature, feature_stamp=None, full_feature_stamp=None):
+    """
+    Describe the ordered pipeline of a feature as plain, JSON-serializable data.
+
+    Only stored state is read (no property, modifier or callback is invoked),
+    so the description is safe for reports written during a benchmark. A
+    single feature is described as a one-stage pipeline with the legacy seed
+    policy; a composition lists its effective stages with their identities
+    and effective options.
+    """
+    state = _stored_state(feature)
+    stages = state.get('_stages')
+    if stages:
+        entries = [{
+            'position': stage.position,
+            'name': stage.name,
+            'code': stage.code,
+            'occurrence': stage.occurrence,
+            'identity': stage.identity,
+            'options': _json_safe(_stored_state(stage.feature).get('_options', {})),
+        } for stage in stages]
+        seed_policy = SEED_POLICY
+    else:
+        name = state.get('_name')
+        entries = [{
+            'position': 0,
+            'name': name,
+            'code': STAGE_CODES.get(name),
+            'occurrence': 0,
+            'identity': f'{name}#0',
+            'options': _json_safe(state.get('_options', {})),
+        }]
+        seed_policy = 'legacy-run-seed'
+    return {
+        'schema': 'feature_pipeline-v1',
+        'declared_name': state.get('_declared_name', state.get('_name')),
+        'effective_name': state.get('_name'),
+        'seed_policy': seed_policy,
+        'feature_stamp': feature_stamp,
+        'full_feature_stamp': full_feature_stamp,
+        'stages': entries,
+    }
+
+
 class ComposedFeature(Feature):
     """
     A feature with at least two effective stages.

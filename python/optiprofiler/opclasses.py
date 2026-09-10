@@ -77,7 +77,10 @@ class Feature:
     Parameters
     ----------
     name : str
-        Name of the feature. Must be one of the following:
+        Name of the feature, or several feature names joined with ``+`` to
+        apply them in order: ``'noisy+truncated'`` adds noise to each value
+        first and truncates the noisy value afterwards. Each name must be one
+        of the following:
 
         1. ``'plain'`` : do nothing to the optimization problem.
         2. ``'perturbed_x0'`` : perturb the initial guess ``x0``.

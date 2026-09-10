@@ -102,6 +102,77 @@ By default, ``n_jobs`` is set conservatively to about half of the available
 workers instead of all workers. For the most reproducible timing experiments,
 set ``n_jobs`` explicitly, for example ``n_jobs=1`` for sequential runs.
 
+.. _py_composing_features:
+
+Composing features
+^^^^^^^^^^^^^^^^^^
+
+Several features can be applied in order by joining their names with ``+``.
+The first name is applied to the original problem first: ``'noisy+truncated'``
+adds noise to every objective value and then truncates the noisy value to
+``significant_digits`` digits, whereas ``'truncated+noisy'`` truncates first and
+adds noise afterwards. Any number of stages is allowed, names may repeat, and
+``'plain'`` is an identity that can appear anywhere.
+
+.. code-block:: python
+
+    scores = benchmark(
+        [solver1, solver2],
+        feature_name='perturbed_x0+noisy+truncated',
+        perturbation_level=1e-2,
+        noise_level=1e-4,
+        significant_digits=4,
+    )
+
+Order matters for features that move the query point as well. With
+``feature_name='quantized+linearly_transformed+quantized'`` a solver point ``x``
+is first snapped to the mesh by the last stage, then mapped through the linear
+transformation, and snapped again by the first stage before the original
+objective is evaluated: the original function is called once per query, at
+``snap(A @ snap(x))``, however many stages the chain has.
+
+The rules are:
+
+- Every supplied feature option is passed to every stage that accepts it, and
+  each stage validates it with its own rules. ``feature_name='noisy+perturbed_x0'``
+  therefore uses Gaussian noise and a spherical perturbation by default,
+  ``distribution='gaussian'`` configures both stages, and
+  ``distribution='uniform'`` is rejected with an error naming the
+  ``perturbed_x0`` stage. Options accepted by no stage are rejected. Repeated
+  stages share the supplied options; configuring two occurrences of the same
+  feature differently is not expressible through the flat option list.
+- ``n_runs`` is global. Unless given explicitly (or set by ``solver_isrand``),
+  it is the largest default of the stages, so ``'noisy+truncated'`` uses five
+  runs and ``'truncated+quantized'`` uses one. The composition counts as
+  stochastic when any stage is stochastic.
+- Value changes (``noisy``, ``truncated``, ``random_nan``,
+  ``nonquantifiable_constraints``) affect what solvers observe, never the
+  scoring reference recorded in the histories. ``permuted`` and
+  ``linearly_transformed`` transport both. ``perturbed_x0`` only moves the
+  initial point. ``quantized`` with ``ground_truth=False`` snaps observations
+  only; with ``ground_truth=True`` the inherited reference objective and
+  nonlinear constraints are read at the snapped point as well, while bounds and
+  linear constraints are always checked at the unsnapped point.
+- ``unrelaxable_constraints`` makes the objective infinite where the
+  constraints of the problem it wraps are violated, as that problem observes
+  them: after ``'noisy+unrelaxable_constraints'`` the gate reads noisy
+  constraint samples, after ``'unrelaxable_constraints+noisy'`` it reads the
+  original constraints. After a rotation, former bounds are linear constraints
+  of the wrapped problem and belong to the linear category. Violations that
+  contain NaN never close the gate, as for the single feature.
+- Custom callbacks of a ``'custom'`` stage receive the problem produced by the
+  preceding stages, so ``problem.fun(x)`` inside a callback is a genuine query
+  of that problem, with fresh noise on every call.
+- A name whose only effective stage is a single feature, such as
+  ``'plain+noisy'``, behaves exactly like that feature, including its random
+  streams and its output folder name. A genuine composition seeds every stage
+  separately from the run seed, so inserting ``'plain'`` never changes another
+  stage's stream and repeated stages draw different samples.
+- The output folder name joins the stamps of the stages with ``__`` and is
+  shortened with a digest for long chains. The archive and the structured
+  report record the declared name, the effective stages with their options and
+  the seed policy. Derivatives of a composed problem are not provided.
+
 .. _py_example3:
 
 Example 3: useful option **load**

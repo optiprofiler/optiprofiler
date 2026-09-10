@@ -23,6 +23,7 @@ from datetime import datetime, timezone
 from enum import Enum
 
 import numpy as np
+from .composition import describe_pipeline
 
 
 _SCHEMA = 'optiprofiler.eval_report/1'
@@ -623,6 +624,12 @@ class EvalReport:
             state = {}
         feature_data = {'name': _safe(state.get('_name')),
                         'options': _safe(state.get('_options', {}))}
+        # Ordered stage provenance for composed features (one legacy stage
+        # otherwise); read from stored state only, callables are described.
+        pipeline = describe_pipeline(feature)
+        feature_data['declared_name'] = _safe(pipeline['declared_name'])
+        feature_data['seed_policy'] = _safe(pipeline['seed_policy'])
+        feature_data['stages'] = _safe(pipeline['stages'])
         # request = what the caller supplied; effective = the resolved options
         # of this invocation. Stated once here, never repeated per run.
         self.document['configuration']['effective'] = {
@@ -905,8 +912,19 @@ class EvalReport:
                 return
             if self.document['operation'] == 'load':
                 retained = self.document['configuration'].setdefault('retained_result_metadata', [])
+                pipeline = result.get('feature_pipeline')
+                if isinstance(pipeline, str):
+                    try:
+                        pipeline = json.loads(pipeline)
+                    except ValueError:
+                        pipeline = {'value': None, 'reason': 'unparsable_feature_pipeline'}
+                else:
+                    # Archives written before compositions existed carry no
+                    # stage provenance; nothing is invented for them.
+                    pipeline = None
                 metadata = {'library': _safe(result.get('plib')), 'role': role,
                             'feature_stamp': _safe(result.get('feature_stamp')),
+                            'feature_pipeline': _safe(pipeline),
                             'solver_names': _safe(result.get('solver_names')),
                             'library_options': _safe(result.get('plib_options')),
                             'scope': 'retained_result_after_load_filtering_not_complete_original_configuration'}

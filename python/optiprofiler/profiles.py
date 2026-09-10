@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import copy
 import os
 import sys
@@ -33,7 +34,8 @@ from .problem_libraries import _copy_problem_library_options, _normalize_selecte
 from .utils import DEFAULT_LOG_LINE_WIDTH, FeatureName, ProfileOption, FeatureOption, ProblemOption, get_logger, print_log_message, setup_main_process_logging, setup_worker_logging, shorten_log_message, format_log_prefix
 from .loader import load_results, save_results_to_h5, save_options
 from .profile_utils import check_validity_problem_options, check_validity_profile_options, check_post_load_profile_options, get_default_problem_options, get_default_profile_options, compute_merit_values, create_stamp, merge_pdfs_with_pypdf, write_report, process_results, init_readme, add_to_readme, compute_scores
-from .profile_utils import _mask_invalid_merits
+from .profile_utils import _mask_invalid_merits, _get_default_feature_stamp
+from .composition import describe_pipeline, parse_feature_name
 from .plotting import draw_hist, set_profile_context, format_float_scientific_latex, draw_profiles, summary_legend_extra_width, latex_escape_text, format_profile_text
 
 
@@ -88,12 +90,24 @@ def _append_quantized_truth_note(feature, is_load, results_plibs, path_report, p
                 'Replotting does not repair historical evaluations or certify '
                 'their truth convention; older quantized archives may contain '
                 'mixed truth channels.')
-    elif feature.name == FeatureName.QUANTIZED:
-        truth = bool(feature.options[FeatureOption.GROUND_TRUTH])
-        note = (f"Quantized truth: {'featured' if truth else 'original'}, "
-                f"ground_truth={str(truth).lower()}; the returned point is unchanged.")
     else:
-        return
+        stages = getattr(feature, '_stages', None)
+        if stages is None:
+            if feature.name != FeatureName.QUANTIZED:
+                return
+            quantized = [(None, feature)]
+        else:
+            # One note per quantized stage of a composition, named by identity.
+            quantized = [(stage, stage.feature) for stage in stages if stage.name == FeatureName.QUANTIZED]
+            if not quantized:
+                return
+        lines = []
+        for stage, child in quantized:
+            truth = bool(child.options[FeatureOption.GROUND_TRUTH])
+            label = '' if stage is None else f" (stage {stage.position + 1} '{stage.identity}')"
+            lines.append(f"Quantized truth{label}: {'featured' if truth else 'original'}, "
+                         f"ground_truth={str(truth).lower()}; the returned point is unchanged.")
+        note = '\n'.join(lines)
     for path in (path_report, path_readme):
         with open(path, 'a', encoding='utf-8') as stream:
             stream.write('\n' + note + '\n')
@@ -243,7 +257,12 @@ def _benchmark(
         'plain', 'perturbed_x0', 'noisy', 'truncated', 'permuted',
         'linearly_transformed', 'random_nan', 'unrelaxable_constraints',
         'nonquantifiable_constraints', 'quantized', and 'custom'. Default is
-        'plain'.
+        'plain'. Several features can be composed by joining their names
+        with '+', for example 'noisy+truncated': the first name is applied
+        to the original problem first, so each objective value is made noisy
+        and the noisy value is then truncated. Supplied feature options are
+        passed to every stage that accepts them, 'n_runs' is global, and
+        'plain' stages are identities. See the user guide for the rules.
     n_runs : int, optional
         The number of runs of the experiments with the given feature.
         Default is 5 for stochastic features and 1 for deterministic
@@ -883,8 +902,11 @@ def _benchmark(
         feature_name = kwargs.pop('feature_name')
     else:
         feature_name = FeatureName.PLAIN.value
-    if feature_name not in FeatureName.__members__.values():
+    if not isinstance(feature_name, str):
         raise ValueError(f'Unknown feature name: {feature_name}.')
+    # A "+"-separated name declares an ordered composition. Empty or unknown
+    # tokens are rejected here, before any output directory is created.
+    parse_feature_name(feature_name)
 
     # Process the problem if provided.
     if 'problem' in kwargs and kwargs['problem'] is not None:
@@ -2322,6 +2344,11 @@ def _solve_all_problems(solvers, plib, feature, problem_options, profile_options
     results['problem_names_options'] = problem_options[ProblemOption.PROBLEM_NAMES]
     results['excludelist'] = problem_options[ProblemOption.EXCLUDELIST]
     results['feature_stamp'] = profile_options[ProfileOption.FEATURE_STAMP]
+    # Ordered stage provenance of the feature (JSON text, callables described,
+    # never executed). Archives written before compositions existed lack it.
+    results['feature_pipeline'] = json.dumps(describe_pipeline(
+        feature, feature_stamp=profile_options[ProfileOption.FEATURE_STAMP],
+        full_feature_stamp=_get_default_feature_stamp(feature, bounded=False)), sort_keys=True)
     results['fun_histories'] = fun_histories
     results['maxcv_histories'] = maxcv_histories
     results['fun_outs'] = fun_outs

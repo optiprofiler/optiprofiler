@@ -1,3 +1,4 @@
+import hashlib
 import os
 import re
 import textwrap
@@ -892,10 +893,32 @@ def create_stamp(solver_names, problem_options, feature_stamp, time_stamp, path_
     return stamp
 
 
-def _get_default_feature_stamp(feature):
+# Longest default feature stamp used as a path component. Longer composite
+# stamps are cut and qualified with a digest of the full stamp, which stays
+# in the archive and report metadata.
+_FEATURE_STAMP_LIMIT = 64
+
+
+def _bounded_feature_stamp(stamp):
+    """Bound a stamp for use as a path component, keeping it collision-safe."""
+    if len(stamp) <= _FEATURE_STAMP_LIMIT:
+        return stamp
+    digest = hashlib.sha256(stamp.encode('utf-8')).hexdigest()[:8]
+    return f"{stamp[:_FEATURE_STAMP_LIMIT - 9].rstrip('_')}_{digest}"
+
+
+def _get_default_feature_stamp(feature, bounded=True):
     """
     Get the default feature stamp.
+
+    A composed feature joins the default stamps of its effective stages, in
+    order, with a double underscore. With ``bounded=True`` (the default) a
+    long composite stamp is cut and digest-qualified for use in paths.
     """
+    stages = getattr(feature, '_stages', None)
+    if stages:
+        feature_stamp = '__'.join(_get_default_feature_stamp(stage.feature) for stage in stages)
+        return _bounded_feature_stamp(feature_stamp) if bounded else feature_stamp
     name = feature.name
     if name == FeatureName.PERTURBED_X0:
         # feature_name + perturbation_level + (distribution if it is gaussian or spherical)
