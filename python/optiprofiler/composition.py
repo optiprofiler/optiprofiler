@@ -1,0 +1,576 @@
+"""
+Ordered composition of features as lightweight problem views.
+
+A composed feature is written as ``feature_name='a+b+c'``. Stage ``a`` is
+applied to the original problem first, then ``b``, then ``c``, so the problem
+handed to a solver is ``c(b(a(P)))``. Each stage is a lazy *view* of its
+predecessor: it exposes the structure of a problem (initial point, bounds,
+linear and nonlinear constraints) together with two evaluation channels.
+
+- The *observed* channel is what a solver sees. A query made to the final
+  view descends outer-to-inner: an outer value transform first asks its
+  predecessor for the value it needs and then modifies it; a point map such
+  as ``quantized`` first moves the point and then queries its predecessor
+  once at the moved point. No stage evaluates the original problem itself,
+  so the number of original callbacks does not grow with the chain length.
+- The *reference* channel is the scoring truth. Value transforms (``noisy``,
+  ``truncated``, ``random_nan``, ``nonquantifiable_constraints``) leave the
+  inherited reference untouched; coordinate transforms transport it; and
+  ``quantized`` with ``ground_truth=True`` snaps the inherited reference
+  queries as well. Reference reads never advance any random stream.
+
+Exactly one recorder, :class:`ComposedFeaturedProblem`, owns the evaluation
+budget, the histories, the cached last values and the termination rule. The
+views own no accounting at all. A feature name whose effective pipeline has
+at most one stage (``plain`` tokens are removed) does not use this module:
+it runs through the established single-feature path of
+:class:`optiprofiler.opclasses.FeaturedProblem`, including its seeds, its
+callback pattern and its stamp.
+
+Random streams. Every stage of a composition receives its own seed derived
+from the run seed with :class:`numpy.random.SeedSequence` and a spawn key
+made of the stage's frozen numeric code (:data:`STAGE_CODES`) and its
+occurrence index among stages of the same name. Inserting or removing
+``plain`` therefore never shifts another stage's stream, and repeated
+stages have distinct streams. Within a stage, the served-query counter of
+each channel (``fun``, ``cub``, ``ceq``) plays the role that the outer
+history length plays for a single feature: it advances on every observed
+query the stage serves, including probes made by a later ``custom`` or
+``unrelaxable_constraints`` stage, and it is separate from the solver
+budget kept by the recorder.
+"""
+
+import numpy as np
+
+from .opclasses import (Feature, FeatureName, FeatureOption, FeaturedProblem, Problem,
+                        _process_1d_array, _validate_max_eval, _validate_seed)
+
+# Frozen numeric stage codes used in seed derivation. Never renumber; append
+# new features with new codes. ``plain`` has no code because it never forms a
+# stage of an effective pipeline.
+STAGE_CODES = {
+    'perturbed_x0': 1,
+    'noisy': 2,
+    'truncated': 3,
+    'permuted': 4,
+    'linearly_transformed': 5,
+    'random_nan': 6,
+    'unrelaxable_constraints': 7,
+    'nonquantifiable_constraints': 8,
+    'quantized': 9,
+    'custom': 10,
+}
+
+# Identifier of the stage seed derivation recorded in archives and reports.
+SEED_POLICY = 'seedsequence-v1'
+
+CHANNELS = ('fun', 'cub', 'ceq')
+
+_DERIVATIVE_MESSAGE = ('Derivatives of a composed feature are not provided: the composed problem '
+                       'is not the original problem and its derivatives are not those of the '
+                       'original callbacks.')
+
+
+def parse_feature_name(name):
+    """
+    Parse a feature name into its declared form and its effective stages.
+
+    Tokens are separated by ``+``, lowercased and stripped of surrounding
+    whitespace. Empty or unknown tokens are rejected. ``plain`` tokens are
+    kept in the declared name but removed from the effective stage list.
+
+    Returns
+    -------
+    str
+        The normalized declared name, e.g. ``'noisy+plain+truncated'``.
+    list of str
+        The effective stage names in order, e.g. ``['noisy', 'truncated']``.
+    """
+    if not isinstance(name, str):
+        raise TypeError('The first input argument for `Feature` must be a string.')
+    tokens = [token.strip().lower() for token in name.split('+')]
+    if any(token == '' for token in tokens):
+        raise ValueError(f'Invalid feature name {name!r}: empty stage token in a "+"-separated composition.')
+    for token in tokens:
+        if token not in FeatureName.__members__.values():
+            raise ValueError(f'Unknown feature: {token}.')
+    declared = '+'.join(tokens)
+    effective = [token for token in tokens if token != FeatureName.PLAIN.value]
+    return declared, effective
+
+
+class Stage:
+    """One effective stage of a composition: identity plus its validated child feature."""
+
+    __slots__ = ('position', 'name', 'code', 'occurrence', 'feature')
+
+    def __init__(self, position, name, occurrence, feature):
+        self.position = position
+        self.name = name
+        self.code = STAGE_CODES[name]
+        self.occurrence = occurrence
+        self.feature = feature
+
+    @property
+    def identity(self):
+        return f'{self.name}#{self.occurrence}'
+
+
+def stage_seed(run_seed, stage):
+    """Derive the 32-bit seed of a stage from the run seed and the stage identity."""
+    entropy = 0 if run_seed is None else int(run_seed)
+    sequence = np.random.SeedSequence(entropy, spawn_key=(stage.code, stage.occurrence))
+    return int(sequence.generate_state(1, dtype=np.uint32)[0])
+
+
+class StageContext:
+    """Private per-run context of one stage: its seed and served-query counters."""
+
+    __slots__ = ('seed', 'served')
+
+    def __init__(self, seed):
+        self.seed = seed
+        self.served = {channel: 0 for channel in CHANNELS}
+
+    def next_index(self, channel):
+        index = self.served[channel]
+        self.served[channel] = index + 1
+        return index
+
+
+class ComposedFeature(Feature):
+    """
+    A feature with at least two effective stages.
+
+    Instances are created by ``Feature('a+b+c', **options)``; the base class
+    dispatches here from ``Feature.__new__``. Supplied options are routed to
+    every stage that owns the key, and each stage validates and defaults its
+    options independently. ``n_runs`` is global.
+    """
+
+    def __init__(self, name, **feature_options):
+        # The legacy single-feature constructor is deliberately not called.
+        declared, effective = parse_feature_name(name)
+        self._declared_name = declared
+        self._name = '+'.join(effective)
+        options = {key.lower(): value for key, value in feature_options.items()}
+        for key in options:
+            if key not in FeatureOption.__members__.values():
+                raise ValueError(f'Unknown option for feature: {key}.')
+        n_runs = options.pop(FeatureOption.N_RUNS.value, None)
+        stages = []
+        occurrences = {}
+        for position, stage_name in enumerate(effective):
+            occurrence = occurrences.get(stage_name, 0)
+            occurrences[stage_name] = occurrence + 1
+            owned = Feature._known_options(stage_name)
+            routed = {key: value for key, value in options.items() if key in owned}
+            try:
+                child = Feature(stage_name, **routed)
+            except (TypeError, ValueError) as err:
+                raise type(err)(f"Invalid options for stage {position + 1} '{stage_name}' (occurrence "
+                                f"{occurrence + 1}) of feature '{self._name}': {err}") from err
+            stages.append(Stage(position, stage_name, occurrence, child))
+        for key in options:
+            if not any(key in Feature._known_options(stage.name) for stage in stages):
+                raise ValueError(f"Option `{key}` is not valid for feature '{self._name}'.")
+        if n_runs is None:
+            n_runs = max(stage.feature.options[FeatureOption.N_RUNS] for stage in stages)
+        else:
+            n_runs = Feature._validate_n_runs(n_runs)
+        self._options = dict(options)
+        self._options[FeatureOption.N_RUNS.value] = n_runs
+        self._stages = tuple(stages)
+
+    @property
+    def is_stochastic(self):
+        return any(stage.feature.is_stochastic for stage in self._stages)
+
+    def _unsupported_modifier(self, *args, **kwargs):
+        raise NotImplementedError('The modifier methods of a composed feature are not available; '
+                                  'apply the composition through `FeaturedProblem(problem, feature, max_eval, seed)`.')
+
+    modifier_x0 = modifier_affine = modifier_bounds = modifier_linear_ub = modifier_linear_eq = _unsupported_modifier
+    modifier_fun = modifier_cub = modifier_ceq = _unsupported_modifier
+
+
+def _structural_violation(view, x):
+    """Bound and linear violations of ``view``'s own structure at ``x`` (legacy formulas)."""
+    xl, xu = view.xl, view.xu
+    cv_bounds = 0.0
+    if np.any(np.isfinite(xl)):
+        cv_bounds = np.max(xl - x, initial=0.0)
+    if np.any(np.isfinite(xu)):
+        cv_bounds = np.max(x - xu, initial=cv_bounds)
+    aub, bub, aeq, beq = view.aub, view.bub, view.aeq, view.beq
+    cv_linear = 0.0
+    if aub.size > 0:
+        cv_linear = np.max(aub @ x - bub, initial=0.0)
+    if aeq.size > 0:
+        cv_linear = np.max(np.abs(aeq @ x - beq), initial=cv_linear)
+    return cv_bounds, cv_linear
+
+
+def _nonlinear_violation(cub, ceq, m_ub, m_eq, x):
+    """Nonlinear violation from the given constraint evaluators (legacy formulas)."""
+    cv_nonlinear = 0.0
+    if m_ub > 0:
+        cv_nonlinear = np.max(cub(x), initial=0.0)
+    if m_eq > 0:
+        cv_nonlinear = np.max(np.abs(ceq(x)), initial=cv_nonlinear)
+    return cv_nonlinear
+
+
+class ProblemView(Problem):
+    """
+    Lazy view of a predecessor problem.
+
+    The base view is the identity: structure and both channels are delegated
+    to the predecessor. Subclasses override only what their stage changes.
+    ``Problem.__init__`` is deliberately not called: it probes the nonlinear
+    constraints at ``x0``, which would be a hidden query. The Problem-facing
+    methods ``fun``, ``cub``, ``ceq`` and ``maxcv`` expose the observed
+    channel, which is what a custom callback handed this view should see.
+    """
+
+    def __init__(self, predecessor, stage=None, context=None):
+        self._predecessor = predecessor
+        self._stage = stage
+        self._feature = stage.feature if stage is not None else None
+        self._context = context
+        self._name = predecessor._name
+        self._x0 = predecessor.x0
+        self._xl = predecessor.xl
+        self._xu = predecessor.xu
+        self._aub = predecessor.aub
+        self._bub = predecessor.bub
+        self._aeq = predecessor.aeq
+        self._beq = predecessor.beq
+        self._m_nonlinear_ub = predecessor.m_nonlinear_ub
+        self._m_nonlinear_eq = predecessor.m_nonlinear_eq
+        self._fun = self._cub = self._ceq = None
+        self._grad = self._hess = self._jcub = self._jceq = self._hcub = self._hceq = None
+
+    # Problem-facing API: the observed channel.
+    def fun(self, x):
+        return self.observed_fun(x)
+
+    def cub(self, x):
+        return self.observed_cub(x)
+
+    def ceq(self, x):
+        return self.observed_ceq(x)
+
+    def maxcv(self, x):
+        return self.observed_maxcv_detailed(x)[0]
+
+    def _maxcv(self, x):
+        return self.observed_maxcv_detailed(x)
+
+    def _no_derivatives(self, x):
+        raise NotImplementedError(_DERIVATIVE_MESSAGE)
+
+    grad = hess = jcub = jceq = hcub = hceq = _no_derivatives
+
+    # Observed channel (identity by default).
+    def observed_fun(self, x):
+        return self._predecessor.observed_fun(x)
+
+    def observed_cub(self, x):
+        return self._predecessor.observed_cub(x)
+
+    def observed_ceq(self, x):
+        return self._predecessor.observed_ceq(x)
+
+    def observed_violation_structural(self, x):
+        return _structural_violation(self, x)
+
+    def observed_violation_nonlinear(self, x):
+        return _nonlinear_violation(self.observed_cub, self.observed_ceq, self.m_nonlinear_ub, self.m_nonlinear_eq, x)
+
+    def observed_maxcv_detailed(self, x):
+        cv_bounds, cv_linear = self.observed_violation_structural(x)
+        cv_nonlinear = self.observed_violation_nonlinear(x)
+        return np.max([cv_bounds, cv_linear, cv_nonlinear]), cv_bounds, cv_linear, cv_nonlinear
+
+    # Reference channel (inherited by default).
+    def reference_fun(self, x):
+        return self._predecessor.reference_fun(x)
+
+    def reference_cub(self, x):
+        return self._predecessor.reference_cub(x)
+
+    def reference_ceq(self, x):
+        return self._predecessor.reference_ceq(x)
+
+    def reference_violation_structural(self, x):
+        return self._predecessor.reference_violation_structural(x)
+
+    def reference_violation_nonlinear(self, x):
+        return self._predecessor.reference_violation_nonlinear(x)
+
+    def reference_maxcv_detailed(self, x):
+        cv_bounds, cv_linear = self.reference_violation_structural(x)
+        cv_nonlinear = self.reference_violation_nonlinear(x)
+        return np.max([cv_bounds, cv_linear, cv_nonlinear]), cv_bounds, cv_linear, cv_nonlinear
+
+    def reference_maxcv(self, x):
+        return self.reference_maxcv_detailed(x)[0]
+
+
+class RootView(ProblemView):
+    """The original problem seen as a view: both channels are its own callbacks."""
+
+    def __init__(self, problem):
+        self._problem = problem
+        self._predecessor = None
+        self._stage = None
+        self._feature = None
+        self._context = None
+        self._name = problem._name
+        self._x0 = problem.x0
+        self._xl = problem.xl
+        self._xu = problem.xu
+        self._aub = problem.aub
+        self._bub = problem.bub
+        self._aeq = problem.aeq
+        self._beq = problem.beq
+        self._m_nonlinear_ub = problem.m_nonlinear_ub
+        self._m_nonlinear_eq = problem.m_nonlinear_eq
+        self._fun = self._cub = self._ceq = None
+        self._grad = self._hess = self._jcub = self._jceq = self._hcub = self._hceq = None
+
+    def observed_fun(self, x):
+        return self._problem.fun(x)
+
+    def observed_cub(self, x):
+        return self._problem.cub(x)
+
+    def observed_ceq(self, x):
+        return self._problem.ceq(x)
+
+    reference_fun = observed_fun
+    reference_cub = observed_cub
+    reference_ceq = observed_ceq
+
+    def reference_violation_structural(self, x):
+        return _structural_violation(self, x)
+
+    def reference_violation_nonlinear(self, x):
+        return _nonlinear_violation(self._problem.cub, self._problem.ceq, self.m_nonlinear_ub, self.m_nonlinear_eq, x)
+
+
+class NoisyView(ProblemView):
+    """Additive/relative/mixed noise on the observed values; reference inherited."""
+
+    def observed_fun(self, x):
+        f = self._predecessor.observed_fun(x)
+        index = self._context.next_index('fun')
+        noise = self._feature._compute_noise(x, self._context.seed, index, f)
+        return self._feature._apply_noise(f, noise)
+
+    def _observed_vector(self, channel, values, x):
+        index = self._context.next_index(channel)
+        if values.size == 0:
+            return values
+        noise = self._feature._compute_noise(x, self._context.seed, index, values, values.size)
+        return self._feature._apply_noise(values, noise)
+
+    def observed_cub(self, x):
+        return self._observed_vector('cub', self._predecessor.observed_cub(x), x)
+
+    def observed_ceq(self, x):
+        return self._observed_vector('ceq', self._predecessor.observed_ceq(x), x)
+
+
+class TruncatedView(ProblemView):
+    """Rounding of the observed values to significant digits; reference inherited."""
+
+    def observed_fun(self, x):
+        f = self._predecessor.observed_fun(x)
+        index = self._context.next_index('fun')
+        return self._feature._truncate_scalar(f, x, self._context.seed, index)
+
+    def _observed_vector(self, channel, values, x):
+        index = self._context.next_index(channel)
+        if values.size == 0:
+            return values
+        return self._feature._truncate_vector(np.array(values, dtype=float), x, self._context.seed, index)
+
+    def observed_cub(self, x):
+        return self._observed_vector('cub', self._predecessor.observed_cub(x), x)
+
+    def observed_ceq(self, x):
+        return self._observed_vector('ceq', self._predecessor.observed_ceq(x), x)
+
+
+class RandomNanView(ProblemView):
+    """Observed values replaced by NaN at the configured rate; reference inherited."""
+
+    def observed_fun(self, x):
+        f = self._predecessor.observed_fun(x)
+        index = self._context.next_index('fun')
+        return self._feature._random_nan_scalar(f, x, self._context.seed, index)
+
+    def _observed_vector(self, channel, values, x):
+        index = self._context.next_index(channel)
+        if values.size == 0:
+            return values
+        return self._feature._random_nan_vector(np.array(values, dtype=float), x, self._context.seed, index)
+
+    def observed_cub(self, x):
+        return self._observed_vector('cub', self._predecessor.observed_cub(x), x)
+
+    def observed_ceq(self, x):
+        return self._observed_vector('ceq', self._predecessor.observed_ceq(x), x)
+
+
+class NonquantifiableView(ProblemView):
+    """Observed nonlinear constraints reduced to violated/satisfied flags; reference inherited."""
+
+    def observed_cub(self, x):
+        values = self._predecessor.observed_cub(x)
+        self._context.next_index('cub')
+        if values.size == 0:
+            return values
+        return self._feature._nonquantifiable_cub(np.array(values, dtype=float))
+
+    def observed_ceq(self, x):
+        values = self._predecessor.observed_ceq(x)
+        self._context.next_index('ceq')
+        if values.size == 0:
+            return values
+        return self._feature._nonquantifiable_ceq(np.array(values, dtype=float))
+
+
+_VIEW_CLASSES = {
+    'noisy': NoisyView,
+    'truncated': TruncatedView,
+    'random_nan': RandomNanView,
+    'nonquantifiable_constraints': NonquantifiableView,
+}
+
+
+def build_view(predecessor, stage, context):
+    """Create the view of ``stage`` over ``predecessor``."""
+    try:
+        view_class = _VIEW_CLASSES[stage.name]
+    except KeyError:
+        raise NotImplementedError(f"Stage '{stage.name}' is not yet supported in a composition.") from None
+    return view_class(predecessor, stage, context)
+
+
+class ComposedFeaturedProblem(FeaturedProblem):
+    """
+    The single recorder around the final view of a composition.
+
+    Created by ``FeaturedProblem(problem, feature, max_eval, seed)`` when the
+    feature has at least two effective stages. Budget, histories, cached last
+    values and termination follow the single-feature wrapper exactly; the
+    observed value comes from the final view's observed channel and the
+    recorded history from its reference channel. No original callback is
+    stored on the recorder, so nothing can bypass an earlier stage.
+    """
+
+    def __init__(self, problem, feature, max_eval, seed=None):
+        # The legacy wrapper constructor is deliberately not called.
+        self._problem = problem
+        self._feature = feature
+        self._max_eval = _validate_max_eval(max_eval)
+        self._seed = _validate_seed(seed)
+        self._real_n_eval_fun = 0
+        self._real_n_eval_cub = 0
+        self._real_n_eval_ceq = 0
+        self._fun_hist = []
+        self._cub_hist = []
+        self._ceq_hist = []
+        self._maxcv_hist = []
+        self._last_fun = np.nan
+        self._last_cub = np.nan
+        self._last_ceq = np.nan
+
+        self._contexts = tuple(StageContext(stage_seed(self._seed, stage)) for stage in feature._stages)
+        view = RootView(problem)
+        views = []
+        for stage, context in zip(feature._stages, self._contexts):
+            view = build_view(view, stage, context)
+            views.append(view)
+        self._views = tuple(views)
+        self._final = view
+
+        # Structure of the final view, in solver coordinates.
+        self._name = view._name
+        self._x0 = view.x0
+        self._xl = view.xl
+        self._xu = view.xu
+        self._aub = view.aub
+        self._bub = view.bub
+        self._aeq = view.aeq
+        self._beq = view.beq
+        self._m_nonlinear_ub = view.m_nonlinear_ub
+        self._m_nonlinear_eq = view.m_nonlinear_eq
+        self._fun = self._cub = self._ceq = None
+        self._grad = self._hess = self._jcub = self._jceq = self._hcub = self._hceq = None
+
+        self._fun_init, self._maxcv_init = self._evaluate_truth(self._x0)
+
+    def _point(self, x, method):
+        x = _process_1d_array(x, f'The argument `x` for method `{method}` in problem must be a one-dimensional array.')
+        if x.size != self.n:
+            raise ValueError(f'The argument `x` for method `{method}` in problem must have size {self.n}.')
+        return x
+
+    def _evaluate_truth(self, x):
+        """Scoring reference at solver coordinates, without an observed query."""
+        x = self._point(x, 'fun')
+        return self._final.reference_fun(x), self._final.reference_maxcv(x)
+
+    def fun(self, x):
+        if self._real_n_eval_fun >= 2 * self._max_eval:
+            raise StopIteration(f'The number of the objective function evaluations has reached {2 * self._max_eval} (two times the maximum function evaluations).')
+        self._real_n_eval_fun += 1
+        if self.n_eval_fun >= self._max_eval:
+            return self._last_fun
+        x = self._point(x, 'fun')
+        f = self._final.observed_fun(x)
+        self._last_fun = f
+        self._fun_hist.append(self._final.reference_fun(x))
+        try:
+            self._maxcv_hist.append(self._final.reference_maxcv(x))
+        except Exception:
+            self._maxcv_hist.append(np.nan)
+        return f
+
+    def cub(self, x, record_hist=True):
+        if self._real_n_eval_cub >= 2 * self._max_eval:
+            raise StopIteration(f'The number of the nonlinear inequality constraint evaluations has reached {2 * self._max_eval} (two times the maximum function evaluations).')
+        self._real_n_eval_cub += 1
+        if self.n_eval_cub >= self._max_eval:
+            return self._last_cub
+        x = self._point(x, 'cub')
+        c = self._final.observed_cub(x)
+        self._last_cub = c
+        if record_hist:
+            self._cub_hist.append(self._final.reference_cub(x))
+        return c
+
+    def ceq(self, x, record_hist=True):
+        if self._real_n_eval_ceq >= 2 * self._max_eval:
+            raise StopIteration(f'The number of the nonlinear equality constraint evaluations has reached {2 * self._max_eval} (two times the maximum function evaluations).')
+        self._real_n_eval_ceq += 1
+        if self.n_eval_ceq >= self._max_eval:
+            return self._last_ceq
+        x = self._point(x, 'ceq')
+        c = self._final.observed_ceq(x)
+        self._last_ceq = c
+        if record_hist:
+            self._ceq_hist.append(self._final.reference_ceq(x))
+        return c
+
+    def maxcv(self, x):
+        return self._final.reference_maxcv(self._point(x, 'maxcv'))
+
+    def _no_derivatives(self, x):
+        raise NotImplementedError(_DERIVATIVE_MESSAGE)
+
+    grad = hess = jcub = jceq = hcub = hceq = _no_derivatives

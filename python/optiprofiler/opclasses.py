@@ -265,6 +265,17 @@ class Feature:
         print(feature.options)
     """
 
+    def __new__(cls, name=None, **feature_options):
+        # Single dispatch boundary between the established single-feature
+        # implementation and ordered compositions: a name with at least two
+        # effective stages builds a ``ComposedFeature``. ``name`` is optional
+        # only so that unpickling can call ``__new__`` without arguments.
+        if cls is Feature and isinstance(name, str):
+            from .composition import ComposedFeature, parse_feature_name
+            if len(parse_feature_name(name)[1]) > 1:
+                return object.__new__(ComposedFeature)
+        return object.__new__(cls)
+
     def __init__(self, name, **feature_options):
         """
         Initialize a feature.
@@ -300,13 +311,20 @@ class Feature:
         ValueError
             If the arguments are inconsistent.
         """
-        # Preprocess the feature name.
+        # Preprocess the feature name. A "+"-separated name declares an ordered
+        # composition; ``plain`` tokens are dropped from the effective pipeline.
+        # Names with at least two effective stages are dispatched by ``__new__``
+        # to ``optiprofiler.composition.ComposedFeature`` and never reach this
+        # constructor, so what follows is the single-feature path.
         self._name = name
         if not isinstance(self._name, str):
             raise TypeError('The first input argument for `Feature` must be a string.')
-        self._name = self._name.lower()
+        from .composition import parse_feature_name
+        self._declared_name, effective_stages = parse_feature_name(self._name)
+        self._name = effective_stages[0] if effective_stages else FeatureName.PLAIN.value
         if self._name not in FeatureName.__members__.values():
             raise ValueError(f'Unknown feature: {self._name}.')
+        self._stages = None
 
         # Preprocess the feature options.
         self._options = {k.lower(): v for k, v in feature_options.items()}
@@ -316,38 +334,13 @@ class Feature:
                 raise ValueError(f'Unknown option for feature: {key}.')
 
             # Check whether the options are valid for the feature.
-            known_options = [FeatureOption.N_RUNS]
-            if self._name == FeatureName.CUSTOM:
-                known_options.extend([FeatureOption.MOD_X0, FeatureOption.MOD_BOUNDS, FeatureOption.MOD_LINEAR_UB, FeatureOption.MOD_LINEAR_EQ, FeatureOption.MOD_AFFINE, FeatureOption.MOD_FUN, FeatureOption.MOD_CUB, FeatureOption.MOD_CEQ])
-            elif self._name == FeatureName.NOISY:
-                known_options.extend([FeatureOption.DISTRIBUTION, FeatureOption.NOISE_LEVEL, FeatureOption.NOISE_TYPE, FeatureOption.NOISE_MODE, FeatureOption.NOISE_MAP])
-            elif self._name == FeatureName.PERTURBED_X0:
-                known_options.extend([FeatureOption.DISTRIBUTION, FeatureOption.PERTURBATION_LEVEL])
-            elif self._name == FeatureName.RANDOM_NAN:
-                known_options.extend([FeatureOption.NAN_RATE])
-            elif self._name == FeatureName.TRUNCATED:
-                known_options.extend([FeatureOption.PERTURBED_TRAILING_DIGITS, FeatureOption.SIGNIFICANT_DIGITS])
-            elif self._name == FeatureName.UNRELAXABLE_CONSTRAINTS:
-                known_options.extend([FeatureOption.UNRELAXABLE_BOUNDS, FeatureOption.UNRELAXABLE_LINEAR_CONSTRAINTS, FeatureOption.UNRELAXABLE_NONLINEAR_CONSTRAINTS])
-            elif self._name == FeatureName.LINEARLY_TRANSFORMED:
-                known_options.extend([FeatureOption.ROTATED, FeatureOption.CONDITION_FACTOR])
-            elif self._name == FeatureName.QUANTIZED:
-                known_options.extend([FeatureOption.MESH_SIZE, FeatureOption.MESH_TYPE, FeatureOption.GROUND_TRUTH])
-            elif self._name not in [FeatureName.PERMUTED, FeatureName.NONQUANTIFIABLE_CONSTRAINTS, FeatureName.PLAIN]:
-                raise NotImplementedError(f'Unknown feature: {self._name}.')
+            known_options = self._known_options(self._name)
             if key not in known_options:
                 raise ValueError(f"Option `{key}` is not valid for feature '{self._name}'.")
 
             # Check whether the options are valid.
             if key == FeatureOption.N_RUNS:
-                if isinstance(self._options[key], (float, np.floating)) and float(self._options[key]).is_integer():
-                    self._options[key] = int(self._options[key])
-                if isinstance(self._options[key], np.integer):
-                    self._options[key] = int(self._options[key])
-                if not isinstance(self._options[key], int):
-                    raise TypeError(f'Option `{key}` must be an integer.')
-                if self._options[key] <= 0:
-                    raise ValueError(f'Option `{key}` must be positive.')
+                self._options[key] = self._validate_n_runs(self._options[key])
             elif key == FeatureOption.DISTRIBUTION:
                 if isinstance(self._options[key], str):
                     if self._name == FeatureName.NOISY and self._options[key] not in ['gaussian', 'uniform']:
@@ -413,6 +406,43 @@ class Feature:
 
         # Set default options for the unspecified options.
         self._set_default_options()
+
+    @staticmethod
+    def _known_options(name):
+        """Options accepted by the feature ``name`` (``n_runs`` is accepted by every feature)."""
+        known_options = [FeatureOption.N_RUNS]
+        if name == FeatureName.CUSTOM:
+            known_options.extend([FeatureOption.MOD_X0, FeatureOption.MOD_BOUNDS, FeatureOption.MOD_LINEAR_UB, FeatureOption.MOD_LINEAR_EQ, FeatureOption.MOD_AFFINE, FeatureOption.MOD_FUN, FeatureOption.MOD_CUB, FeatureOption.MOD_CEQ])
+        elif name == FeatureName.NOISY:
+            known_options.extend([FeatureOption.DISTRIBUTION, FeatureOption.NOISE_LEVEL, FeatureOption.NOISE_TYPE, FeatureOption.NOISE_MODE, FeatureOption.NOISE_MAP])
+        elif name == FeatureName.PERTURBED_X0:
+            known_options.extend([FeatureOption.DISTRIBUTION, FeatureOption.PERTURBATION_LEVEL])
+        elif name == FeatureName.RANDOM_NAN:
+            known_options.extend([FeatureOption.NAN_RATE])
+        elif name == FeatureName.TRUNCATED:
+            known_options.extend([FeatureOption.PERTURBED_TRAILING_DIGITS, FeatureOption.SIGNIFICANT_DIGITS])
+        elif name == FeatureName.UNRELAXABLE_CONSTRAINTS:
+            known_options.extend([FeatureOption.UNRELAXABLE_BOUNDS, FeatureOption.UNRELAXABLE_LINEAR_CONSTRAINTS, FeatureOption.UNRELAXABLE_NONLINEAR_CONSTRAINTS])
+        elif name == FeatureName.LINEARLY_TRANSFORMED:
+            known_options.extend([FeatureOption.ROTATED, FeatureOption.CONDITION_FACTOR])
+        elif name == FeatureName.QUANTIZED:
+            known_options.extend([FeatureOption.MESH_SIZE, FeatureOption.MESH_TYPE, FeatureOption.GROUND_TRUTH])
+        elif name not in [FeatureName.PERMUTED, FeatureName.NONQUANTIFIABLE_CONSTRAINTS, FeatureName.PLAIN]:
+            raise NotImplementedError(f'Unknown feature: {name}.')
+        return known_options
+
+    @staticmethod
+    def _validate_n_runs(value):
+        """Validate ``n_runs`` and return it as an ``int``."""
+        if isinstance(value, (float, np.floating)) and float(value).is_integer():
+            value = int(value)
+        if isinstance(value, np.integer):
+            value = int(value)
+        if not isinstance(value, int):
+            raise TypeError(f'Option `{FeatureOption.N_RUNS}` must be an integer.')
+        if value <= 0:
+            raise ValueError(f'Option `{FeatureOption.N_RUNS}` must be positive.')
+        return value
 
     @property
     def name(self):
@@ -824,31 +854,9 @@ class Feature:
             noise = self._compute_noise(x, seed, n_eval, f)
             return self._apply_noise(f, noise)
         elif self._name == FeatureName.RANDOM_NAN:
-            rng_random_nan = self.get_default_rng(seed, f, *x, n_eval)
-            if rng_random_nan.random() < self._options[FeatureOption.NAN_RATE]:
-                return np.nan
-            else:
-                return f
+            return self._random_nan_scalar(f, x, seed, n_eval)
         elif self._name == FeatureName.TRUNCATED:
-            if np.isnan(f) or np.isinf(f):
-                # If f is NaN or Inf, we do not need to truncate it.
-                # Note that if f is NaN or Inf, digits will be set to NaN or Inf respectively, which will lead
-                # to an error when calling 'round(f, digits)'.
-                return f
-            rng_truncated = self.get_default_rng(seed, f, *x, n_eval)
-            if f == 0.0:
-                digits = self._options[FeatureOption.SIGNIFICANT_DIGITS] - 1
-            else:
-                # Floor matters below one: int would truncate a negative logarithm toward zero.
-                digits = self._options[FeatureOption.SIGNIFICANT_DIGITS] - int(np.floor(np.log10(np.abs(f)))) - 1
-            f = _round_truncated(f, digits)
-            # Round f to the desired number of significant digits.
-            if self._options[FeatureOption.PERTURBED_TRAILING_DIGITS]:
-                if f >= 0.0:
-                    f += rng_truncated.uniform(0.0, 10.0 ** (-digits))
-                else:
-                    f -= rng_truncated.uniform(0.0, 10.0 ** (-digits))
-            return f
+            return self._truncate_scalar(f, x, seed, n_eval)
         elif self._name == FeatureName.UNRELAXABLE_CONSTRAINTS:
             _, maxcv_bounds, maxcv_linear, maxcv_nonlinear = problem._maxcv(x)
             if self._options[FeatureOption.UNRELAXABLE_BOUNDS] and maxcv_bounds > 0.0:
@@ -860,11 +868,7 @@ class Feature:
             else:
                 return f
         elif self._name == FeatureName.QUANTIZED:
-            mesh_size = self._options[FeatureOption.MESH_SIZE]
-            if self._options[FeatureOption.MESH_TYPE] == 'relative':
-                mesh_size *= np.maximum(1, np.abs(x))
-            x = mesh_size * np.round(x / mesh_size)
-            return problem.fun(x)
+            return problem.fun(self._quantize_point(x))
         else:
             return f
 
@@ -907,40 +911,15 @@ class Feature:
             return self._apply_noise(cub, noise)
         elif self._name == FeatureName.RANDOM_NAN:
             # Similar to the case in the modifier_fun method.
-            rng_random_nan = self.get_default_rng(seed, *cub, *x, n_eval_cub)
-            cub[rng_random_nan.random(cub.size) < self._options[FeatureOption.NAN_RATE]] = np.nan
-            return cub
+            return self._random_nan_vector(cub, x, seed, n_eval_cub)
         elif self._name == FeatureName.TRUNCATED:
             # Similar to the case in the modifier_fun method.
-            rng_truncated = self.get_default_rng(seed, *cub, *x, n_eval_cub)
-            digits = np.zeros(cub.size, dtype=int)
-            finite = np.isfinite(cub)
-            nonzero = finite & (cub != 0.0)
-            digits[cub == 0.0] = self._options[FeatureOption.SIGNIFICANT_DIGITS] - 1
-            # Do not cast NaN/Inf exponents to integers or perturb them.
-            digits[nonzero] = self._options[FeatureOption.SIGNIFICANT_DIGITS] - np.floor(np.log10(np.abs(cub[nonzero]))).astype(int) - 1
-            for i in range(cub.size):
-                if not np.isnan(cub[i]) and not np.isinf(cub[i]):
-                    cub[i] = _round_truncated(cub[i], digits[i])
-            if self._options[FeatureOption.PERTURBED_TRAILING_DIGITS]:
-                positive = finite & (cub >= 0.0)
-                negative = finite & (cub < 0.0)
-                cub[positive] += rng_truncated.uniform(0.0, 10.0 ** (-digits[positive]))
-                cub[negative] -= rng_truncated.uniform(0.0, 10.0 ** (-digits[negative]))
-            return cub
+            return self._truncate_vector(cub, x, seed, n_eval_cub)
         elif self._name == FeatureName.NONQUANTIFIABLE_CONSTRAINTS:
-            # Set the elements whose value are less than or equal to 0 to 0.
-            cub[cub <= 0.0] = 0.0
-            # Set the rest to 1.
-            cub[cub > 0.0] = 1.0
-            return cub
+            return self._nonquantifiable_cub(cub)
         elif self._name == FeatureName.QUANTIZED:
             # Similar to the case in the modifier_fun method.
-            mesh_size = self._options[FeatureOption.MESH_SIZE]
-            if self._options[FeatureOption.MESH_TYPE] == 'relative':
-                mesh_size *= np.maximum(1, np.abs(x))
-            x = mesh_size * np.round(x / mesh_size)
-            return problem.cub(x)
+            return problem.cub(self._quantize_point(x))
         else:
             return cub
 
@@ -983,41 +962,95 @@ class Feature:
             return self._apply_noise(ceq, noise)
         elif self._name == FeatureName.RANDOM_NAN:
             # Similar to the case in the modifier_fun method.
-            rng_random_nan = self.get_default_rng(seed, *ceq, *x, n_eval_ceq)
-            ceq[rng_random_nan.random(ceq.size) < self._options[FeatureOption.NAN_RATE]] = np.nan
-            return ceq
+            return self._random_nan_vector(ceq, x, seed, n_eval_ceq)
         elif self._name == FeatureName.TRUNCATED:
             # Similar to the case in the modifier_fun method.
-            rng_truncated = self.get_default_rng(seed, *ceq, *x, n_eval_ceq)
-            digits = np.zeros(ceq.size, dtype=int)
-            finite = np.isfinite(ceq)
-            nonzero = finite & (ceq != 0.0)
-            digits[ceq == 0.0] = self._options[FeatureOption.SIGNIFICANT_DIGITS] - 1
-            digits[nonzero] = self._options[FeatureOption.SIGNIFICANT_DIGITS] - np.floor(np.log10(np.abs(ceq[nonzero]))).astype(int) - 1
-            for i in range(ceq.size):
-                if not np.isnan(ceq[i]) and not np.isinf(ceq[i]):
-                    ceq[i] = _round_truncated(ceq[i], digits[i])
-            if self._options[FeatureOption.PERTURBED_TRAILING_DIGITS]:
-                positive = finite & (ceq >= 0.0)
-                negative = finite & (ceq < 0.0)
-                ceq[positive] += rng_truncated.uniform(0.0, 10.0 ** (-digits[positive]))
-                ceq[negative] -= rng_truncated.uniform(0.0, 10.0 ** (-digits[negative]))
-            return ceq
+            return self._truncate_vector(ceq, x, seed, n_eval_ceq)
         elif self._name == FeatureName.NONQUANTIFIABLE_CONSTRAINTS:
-            # Set the elements whose absolute value are less than or equal to 10^(-6) to 0.
-            ceq[np.abs(ceq) <= 1e-6] = 0.0
-            # Set the rest to 1.
-            ceq[np.abs(ceq) > 1e-6] = 1.0
-            return ceq
+            return self._nonquantifiable_ceq(ceq)
         elif self._name == FeatureName.QUANTIZED:
             # Similar to the case in the modifier_fun method.
-            mesh_size = self._options[FeatureOption.MESH_SIZE]
-            if self._options[FeatureOption.MESH_TYPE] == 'relative':
-                mesh_size *= np.maximum(1, np.abs(x))
-            x = mesh_size * np.round(x / mesh_size)
-            return problem.ceq(x)
+            return problem.ceq(self._quantize_point(x))
         else:
             return ceq
+
+    # The value helpers below hold the arithmetic of the value features. The
+    # modifiers above apply them to a value they evaluated themselves; the
+    # views of ``optiprofiler.composition`` apply them to the value served by
+    # a predecessor. Vector helpers modify their argument in place.
+
+    def _random_nan_scalar(self, f, x, seed, n_eval):
+        rng_random_nan = self.get_default_rng(seed, f, *x, n_eval)
+        if rng_random_nan.random() < self._options[FeatureOption.NAN_RATE]:
+            return np.nan
+        else:
+            return f
+
+    def _random_nan_vector(self, values, x, seed, n_eval):
+        rng_random_nan = self.get_default_rng(seed, *values, *x, n_eval)
+        values[rng_random_nan.random(values.size) < self._options[FeatureOption.NAN_RATE]] = np.nan
+        return values
+
+    def _truncate_scalar(self, f, x, seed, n_eval):
+        if np.isnan(f) or np.isinf(f):
+            # If f is NaN or Inf, we do not need to truncate it.
+            # Note that if f is NaN or Inf, digits will be set to NaN or Inf respectively, which will lead
+            # to an error when calling 'round(f, digits)'.
+            return f
+        rng_truncated = self.get_default_rng(seed, f, *x, n_eval)
+        if f == 0.0:
+            digits = self._options[FeatureOption.SIGNIFICANT_DIGITS] - 1
+        else:
+            # Floor matters below one: int would truncate a negative logarithm toward zero.
+            digits = self._options[FeatureOption.SIGNIFICANT_DIGITS] - int(np.floor(np.log10(np.abs(f)))) - 1
+        f = _round_truncated(f, digits)
+        # Round f to the desired number of significant digits.
+        if self._options[FeatureOption.PERTURBED_TRAILING_DIGITS]:
+            if f >= 0.0:
+                f += rng_truncated.uniform(0.0, 10.0 ** (-digits))
+            else:
+                f -= rng_truncated.uniform(0.0, 10.0 ** (-digits))
+        return f
+
+    def _truncate_vector(self, values, x, seed, n_eval):
+        rng_truncated = self.get_default_rng(seed, *values, *x, n_eval)
+        digits = np.zeros(values.size, dtype=int)
+        finite = np.isfinite(values)
+        nonzero = finite & (values != 0.0)
+        digits[values == 0.0] = self._options[FeatureOption.SIGNIFICANT_DIGITS] - 1
+        # Do not cast NaN/Inf exponents to integers or perturb them.
+        digits[nonzero] = self._options[FeatureOption.SIGNIFICANT_DIGITS] - np.floor(np.log10(np.abs(values[nonzero]))).astype(int) - 1
+        for i in range(values.size):
+            if not np.isnan(values[i]) and not np.isinf(values[i]):
+                values[i] = _round_truncated(values[i], digits[i])
+        if self._options[FeatureOption.PERTURBED_TRAILING_DIGITS]:
+            positive = finite & (values >= 0.0)
+            negative = finite & (values < 0.0)
+            values[positive] += rng_truncated.uniform(0.0, 10.0 ** (-digits[positive]))
+            values[negative] -= rng_truncated.uniform(0.0, 10.0 ** (-digits[negative]))
+        return values
+
+    @staticmethod
+    def _nonquantifiable_cub(values):
+        # Set the elements whose value are less than or equal to 0 to 0.
+        values[values <= 0.0] = 0.0
+        # Set the rest to 1.
+        values[values > 0.0] = 1.0
+        return values
+
+    @staticmethod
+    def _nonquantifiable_ceq(values):
+        # Set the elements whose absolute value are less than or equal to 10^(-6) to 0.
+        values[np.abs(values) <= 1e-6] = 0.0
+        # Set the rest to 1.
+        values[np.abs(values) > 1e-6] = 1.0
+        return values
+
+    def _quantize_point(self, x):
+        mesh_size = self._options[FeatureOption.MESH_SIZE]
+        if self._options[FeatureOption.MESH_TYPE] == 'relative':
+            mesh_size *= np.maximum(1, np.abs(x))
+        return mesh_size * np.round(x / mesh_size)
 
     def _compute_noise(self, x, seed, n_eval, base_values, noise_size=None):
         if self._options[FeatureOption.NOISE_MODE] == 'deterministic':
@@ -2395,28 +2428,11 @@ class FeaturedProblem(Problem):
             raise TypeError('The argument `feature` for featured problem must be an instance of the class Feature.')
 
         # Preprocess the maximum number of function evaluations.
-        self._max_eval = max_eval
-        if isinstance(self._max_eval, (float, np.floating)) and float(self._max_eval).is_integer():
-            self._max_eval = int(self._max_eval)
-        if isinstance(self._max_eval, np.integer):
-            self._max_eval = int(self._max_eval)
-        if not isinstance(self._max_eval, int):
-            raise TypeError('The argument `max_eval` for featured problem must be an integer.')
-        if self._max_eval < 1:
-            raise ValueError('The argument `max_eval` for featured problem must be positive.')
+        self._max_eval = _validate_max_eval(max_eval)
 
         # Preprocess the seed.
-        self._seed = seed
-        if self._seed is not None:
-            if isinstance(self._seed, (float, np.floating)) and float(self._seed).is_integer():
-                self._seed = int(self._seed)
-            if isinstance(self._seed, np.integer):
-                self._seed = int(self._seed)
-            if not isinstance(self._seed, int):
-                raise TypeError('The argument seed must be an integer.')
-            if self._seed < 0:
-                raise ValueError('The argument seed must be nonnegative.')
-            
+        self._seed = _validate_seed(seed)
+
         # Record the real evaluation numbers.
         self._real_n_eval_fun = 0
         self._real_n_eval_cub = 0
@@ -2460,6 +2476,13 @@ class FeaturedProblem(Problem):
         # Preprocess the problem.
         if not isinstance(problem, Problem):
             raise TypeError('The argument `problem` for featured problem must be an instance of the class Problem.')
+
+        # Single dispatch boundary: a feature with at least two effective
+        # stages is applied through lazy problem views and the recorder of
+        # ``optiprofiler.composition``; everything else keeps this class.
+        if cls is FeaturedProblem and getattr(feature, '_stages', None) is not None:
+            from .composition import ComposedFeaturedProblem
+            return object.__new__(ComposedFeaturedProblem)
 
         # Create a new instance of the class `FeaturedProblem` by copying the
         # attributes of the problem passed to the __init__ method.
@@ -2805,6 +2828,33 @@ class FeaturedProblem(Problem):
             return self._problem.maxcv(A @ x + b)
         
     # Note: We need to add methods `grad`, `hess`, `jcub`, and `jceq` to the FeaturedProblem class in the future.
+
+def _validate_max_eval(max_eval):
+    """Validate the evaluation budget of a featured problem and return it as an ``int``."""
+    if isinstance(max_eval, (float, np.floating)) and float(max_eval).is_integer():
+        max_eval = int(max_eval)
+    if isinstance(max_eval, np.integer):
+        max_eval = int(max_eval)
+    if not isinstance(max_eval, int):
+        raise TypeError('The argument `max_eval` for featured problem must be an integer.')
+    if max_eval < 1:
+        raise ValueError('The argument `max_eval` for featured problem must be positive.')
+    return max_eval
+
+
+def _validate_seed(seed):
+    """Validate the seed of a featured problem (``None`` is allowed) and return it as an ``int``."""
+    if seed is not None:
+        if isinstance(seed, (float, np.floating)) and float(seed).is_integer():
+            seed = int(seed)
+        if isinstance(seed, np.integer):
+            seed = int(seed)
+        if not isinstance(seed, int):
+            raise TypeError('The argument seed must be an integer.')
+        if seed < 0:
+            raise ValueError('The argument seed must be nonnegative.')
+    return seed
+
 
 def _process_1d_array(x, message):
     """
