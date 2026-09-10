@@ -443,11 +443,180 @@ class NonquantifiableView(ProblemView):
         return self._feature._nonquantifiable_ceq(np.array(values, dtype=float))
 
 
+class PerturbedX0View(ProblemView):
+    """A perturbed initial point; objective, constraints and reference are inherited."""
+
+    def __init__(self, predecessor, stage, context):
+        super().__init__(predecessor, stage, context)
+        self._x0 = self._feature.modifier_x0(context.seed, predecessor)
+
+
+class AffineView(ProblemView):
+    """
+    A change of variables ``x_predecessor = A @ x + b`` (``permuted`` and
+    ``linearly_transformed``).
+
+    Both channels are evaluated at the mapped point, and the structure is
+    transported with the feature's own modifiers: the initial point is pulled
+    back through the inverse, finite bounds become linear constraints when
+    ``A`` is not diagonal, and linear constraints are composed with ``A``.
+    The observed structure is the transported one, which is what a solver
+    is handed; the reference violation is measured by the predecessor at the
+    mapped point, so scoring stays in the predecessor's coordinates.
+    """
+
+    def __init__(self, predecessor, stage, context):
+        super().__init__(predecessor, stage, context)
+        feature, seed = self._feature, context.seed
+        self._A, self._b, self._inv = feature.modifier_affine(seed, predecessor)
+        self._x0 = feature.modifier_x0(seed, predecessor)
+        self._xl, self._xu = feature.modifier_bounds(seed, predecessor)
+        self._aub, self._bub = feature.modifier_linear_ub(seed, predecessor)
+        self._aeq, self._beq = feature.modifier_linear_eq(seed, predecessor)
+
+    def _map(self, x):
+        return self._A @ x + self._b
+
+    def observed_fun(self, x):
+        return self._predecessor.observed_fun(self._map(x))
+
+    def observed_cub(self, x):
+        return self._predecessor.observed_cub(self._map(x))
+
+    def observed_ceq(self, x):
+        return self._predecessor.observed_ceq(self._map(x))
+
+    def reference_fun(self, x):
+        return self._predecessor.reference_fun(self._map(x))
+
+    def reference_cub(self, x):
+        return self._predecessor.reference_cub(self._map(x))
+
+    def reference_ceq(self, x):
+        return self._predecessor.reference_ceq(self._map(x))
+
+    def reference_violation_structural(self, x):
+        return self._predecessor.reference_violation_structural(self._map(x))
+
+    def reference_violation_nonlinear(self, x):
+        return self._predecessor.reference_violation_nonlinear(self._map(x))
+
+
+class QuantizedView(ProblemView):
+    """
+    Evaluation on a mesh: every observed query is served by the predecessor
+    at the snapped point, once per channel. With ``ground_truth=False`` the
+    inherited reference is unchanged; with ``ground_truth=True`` the
+    reference objective and nonlinear constraints are also read at the
+    snapped point. Bound and linear violations are always measured at the
+    unsnapped point, and the solver's coordinates are never snapped.
+    """
+
+    def __init__(self, predecessor, stage, context):
+        super().__init__(predecessor, stage, context)
+        self._ground_truth = bool(self._feature.options[FeatureOption.GROUND_TRUTH])
+
+    def _snap(self, x):
+        return self._feature._quantize_point(x)
+
+    def _reference_point(self, x):
+        return self._snap(x) if self._ground_truth else x
+
+    def observed_fun(self, x):
+        return self._predecessor.observed_fun(self._snap(x))
+
+    def observed_cub(self, x):
+        return self._predecessor.observed_cub(self._snap(x))
+
+    def observed_ceq(self, x):
+        return self._predecessor.observed_ceq(self._snap(x))
+
+    def reference_fun(self, x):
+        return self._predecessor.reference_fun(self._reference_point(x))
+
+    def reference_cub(self, x):
+        return self._predecessor.reference_cub(self._reference_point(x))
+
+    def reference_ceq(self, x):
+        return self._predecessor.reference_ceq(self._reference_point(x))
+
+    def reference_violation_nonlinear(self, x):
+        return self._predecessor.reference_violation_nonlinear(self._reference_point(x))
+
+
+class UnrelaxableView(ProblemView):
+    """
+    The objective becomes infinite where the immediate predecessor's observed
+    constraints of an enabled category are violated. Categories refer to the
+    predecessor's own representation: after a rotation, former bounds are
+    linear constraints. Violations containing NaN compare as not violated,
+    exactly as in the single-feature implementation. Constraint samples drawn
+    by the gate are genuine observed queries of the predecessor; they never
+    touch the recorder's constraint budget or histories.
+    """
+
+    def observed_fun(self, x):
+        f = self._predecessor.observed_fun(x)
+        options = self._feature.options
+        cv_bounds, cv_linear = self._predecessor.observed_violation_structural(x)
+        if options[FeatureOption.UNRELAXABLE_BOUNDS] and cv_bounds > 0.0:
+            return np.inf
+        elif options[FeatureOption.UNRELAXABLE_LINEAR_CONSTRAINTS] and cv_linear > 0.0:
+            return np.inf
+        elif options[FeatureOption.UNRELAXABLE_NONLINEAR_CONSTRAINTS] \
+                and self._predecessor.observed_violation_nonlinear(x) > 0.0:
+            return np.inf
+        return f
+
+
+class CustomView(AffineView):
+    """
+    User-supplied modifiers at any position of a composition. The callbacks
+    receive the immediate predecessor view as their ``problem`` argument, so
+    ``problem.fun(x)`` is a genuine observed query of that predecessor. As in
+    the single-feature implementation, the objective and constraint callbacks
+    only change observations, ``mod_affine`` transports both channels, and the
+    stream handed to a value callback depends on the value read first.
+    """
+
+    def observed_fun(self, x):
+        xm = self._map(x)
+        f = self._predecessor.observed_fun(xm)
+        index = self._context.next_index('fun')
+        options = self._feature.options
+        if FeatureOption.MOD_FUN in options:
+            rng_custom = Feature.get_default_rng(self._context.seed, f, *xm, index)
+            return options[FeatureOption.MOD_FUN](xm, rng_custom, self._predecessor)
+        return f
+
+    def _observed_vector(self, channel, key, x):
+        xm = self._map(x)
+        values = getattr(self._predecessor, f'observed_{channel}')(xm)
+        index = self._context.next_index(channel)
+        options = self._feature.options
+        if values.size == 0 or key not in options:
+            return values
+        rng_custom = Feature.get_default_rng(self._context.seed, *values, *xm, index)
+        return options[key](xm, rng_custom, self._predecessor)
+
+    def observed_cub(self, x):
+        return self._observed_vector('cub', FeatureOption.MOD_CUB, x)
+
+    def observed_ceq(self, x):
+        return self._observed_vector('ceq', FeatureOption.MOD_CEQ, x)
+
+
 _VIEW_CLASSES = {
+    'perturbed_x0': PerturbedX0View,
     'noisy': NoisyView,
     'truncated': TruncatedView,
+    'permuted': AffineView,
+    'linearly_transformed': AffineView,
     'random_nan': RandomNanView,
+    'unrelaxable_constraints': UnrelaxableView,
     'nonquantifiable_constraints': NonquantifiableView,
+    'quantized': QuantizedView,
+    'custom': CustomView,
 }
 
 
