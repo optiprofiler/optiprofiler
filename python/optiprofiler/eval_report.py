@@ -24,6 +24,9 @@ from enum import Enum
 
 import numpy as np
 from .composition import describe_pipeline
+# The metadata encoder is shared with the feature provenance and lives in a
+# dependency-neutral module; the private names below are kept for this file.
+from .metadata import _ABS_IN_TEXT, _SECRET_KEY, bounded_text as _text, describe_callback as _callback, safe_metadata as _safe
 
 
 _SCHEMA = 'optiprofiler.eval_report/1'
@@ -34,13 +37,6 @@ _STATUSES = {'not_requested', 'not_applicable', 'unknown', 'running',
 _MAX_BINS = 32
 _MAX_DIAGNOSTICS = 128
 _MAX_ARTIFACTS = 2048
-_SECRET_KEY = re.compile(
-    r'password|passwd|secret|credential|authorization|api[_-]?key|'
-    r'(?:^|[_-])token(?:$|[_-])|access[_-]?token|refresh[_-]?token|'
-    r'private[_-]?key|cookie', re.I)
-_ABS_IN_TEXT = re.compile(r'(?<![\w])(?:/(?:Users|home|private|tmp|var|mnt|opt)/\S+|[A-Za-z]:[\\/][^\s]+)')
-
-
 def _now():
     return datetime.now(timezone.utc).isoformat()
 
@@ -93,85 +89,6 @@ def _hashing_capability():
     if os.name == 'nt':
         return 'identity'
     return 'unavailable'
-
-
-def _text(value, limit=256):
-    """Bound known text without invoking object representations."""
-    if isinstance(value, Enum):
-        value = value.value
-    if not isinstance(value, str):
-        return None
-    value = ''.join(c if c >= ' ' else ' ' for c in value)
-    if value.startswith(('http://', 'https://')):
-        return '[redacted_url]'
-    if os.path.isabs(value) or PureWindowsPath(value).is_absolute():
-        return '[redacted_absolute_path]'
-    return _ABS_IN_TEXT.sub('[redacted_absolute_path]', value)[:limit]
-
-
-def _callback(value):
-    """Read function metadata only; do not inspect descriptors or source."""
-    if isinstance(value, (types.FunctionType, types.BuiltinFunctionType,
-                          types.MethodType)):
-        return {'kind': 'callback', 'module': _text(value.__module__),
-                'name': _text(value.__qualname__)}
-    cls = type(value)
-    return {'kind': 'callback', 'module': _text(cls.__module__),
-            'name': _text(cls.__qualname__), 'instance_state': 'not_recorded'}
-
-
-def _safe(value, depth=0, key=None):
-    """A deliberately limited metadata encoder, not a general serializer."""
-    if key and _SECRET_KEY.search(key):
-        return {'value': None, 'reason': 'redacted_sensitive_option'}
-    if depth > 10:
-        return {'value': None, 'reason': 'metadata_depth_limit'}
-    if value is None:
-        return None
-    if isinstance(value, Enum):
-        return _safe(value.value, depth, key)
-    if isinstance(value, (bool, np.bool_)):
-        return bool(value)
-    if isinstance(value, (int, np.integer)):
-        return int(value)
-    if isinstance(value, (float, np.floating)):
-        value = float(value)
-        if math.isnan(value):
-            return {'value': None, 'reason': 'nan'}
-        if math.isinf(value):
-            return {'value': None, 'reason': 'positive_infinity' if value > 0
-                    else 'negative_infinity'}
-        return value
-    if isinstance(value, str):
-        return _text(value)
-    if isinstance(value, (Path, PureWindowsPath)):
-        return {'name': _text(value.name), 'path': None,
-                'reason': 'machine_path_not_recorded'}
-    if callable(value):
-        return _callback(value)
-    if type(value) is dict:
-        answer = {}
-        for i, (k, v) in enumerate(value.items()):
-            if i >= 256:
-                answer['_omission'] = {'reason': 'metadata_item_limit',
-                                       'total_items': len(value)}
-                break
-            k = _text(k)
-            if k is not None:
-                answer[k] = _safe(v, depth + 1, k)
-        return answer
-    if type(value) in (list, tuple):
-        if len(value) > 256:
-            return {'values': [_safe(v, depth + 1) for v in value[:256]],
-                    'total_items': len(value), 'reason': 'metadata_item_limit'}
-        return [_safe(v, depth + 1) for v in value]
-    if type(value) is np.ndarray:
-        if value.size <= 256:
-            return _safe(value.tolist(), depth + 1, key)
-        return {'shape': list(value.shape), 'value': None,
-                'reason': 'raw_array_not_embedded'}
-    return {'value': None, 'reason': 'unsupported_metadata_type',
-            'type': _text(type(value).__name__)}
 
 
 def _history_bins(history, count):
