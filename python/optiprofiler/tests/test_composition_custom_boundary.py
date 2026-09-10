@@ -189,6 +189,36 @@ class TestConstructionOutputs:
         np.testing.assert_array_equal(featured.bub, [5.0])
         assert featured.fun(np.array([0.5, 0.0, 0.0])) == quadratic([1.0, 0.0, 0.0])
 
+    @pytest.mark.parametrize('key', ['mod_bounds', 'mod_linear_ub', 'mod_linear_eq', 'mod_affine'])
+    def test_ndarray_containers_are_accepted_for_every_construction_callback(self, key):
+        # Valid components packed in ndarray containers (a (2, n) float array for the
+        # bounds, object arrays for the others), as the legacy modifiers unpack them.
+        def container(*parts):
+            packed = np.empty(len(parts), dtype=object)
+            for i, part in enumerate(parts):
+                packed[i] = part
+            return packed
+
+        callbacks = {
+            'mod_bounds': lambda rng, prob: np.array([[-2.0, -2.0, -2.0], [2.0, 2.0, 2.0]]),
+            'mod_linear_ub': lambda rng, prob: container(np.array([[1.0, 1.0, 0.0]]), np.array([5.0])),
+            'mod_linear_eq': lambda rng, prob: container(np.array([[0.0, 1.0, -1.0]]), np.array([-0.5])),
+            'mod_affine': lambda rng, prob: container(np.diag([2.0, 1.0, 1.0]), np.zeros(3), np.diag([0.5, 1.0, 1.0])),
+        }
+        featured = FeaturedProblem(problem(), Feature('custom+noisy', noise_level=0.0, **{key: callbacks[key]}), 10, 0)
+        if key == 'mod_bounds':
+            np.testing.assert_array_equal(featured.xl, [-2.0, -2.0, -2.0])
+            np.testing.assert_array_equal(featured.xu, [2.0, 2.0, 2.0])
+        elif key == 'mod_linear_ub':
+            np.testing.assert_array_equal(featured.aub, [[1.0, 1.0, 0.0]])
+            np.testing.assert_array_equal(featured.bub, [5.0])
+        elif key == 'mod_linear_eq':
+            np.testing.assert_array_equal(featured.aeq, [[0.0, 1.0, -1.0]])
+            np.testing.assert_array_equal(featured.beq, [-0.5])
+        else:
+            assert featured.fun(np.array([0.5, 0.0, 0.0])) == quadratic([1.0, 0.0, 0.0])
+            np.testing.assert_array_equal(featured.x0, X0 / np.array([2.0, 1.0, 1.0]))
+
     def test_generators_unpack_like_the_legacy_modifiers(self):
         def mod_bounds(rng, prob):
             return (np.full(3, value) for value in (-2.0, 2.0))
