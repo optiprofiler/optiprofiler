@@ -48,8 +48,9 @@ When upgrading MATLAB, recheck the native exporter at the 61/62-byte boundary
 and with unset versus set-empty ``TMPDIR`` before extending this release guard.
 
 The SVG axes explicitly label any logarithmic coordinate transformation.
-The display-only history limit and nonfinite replacements described above
-are annotated; raw saved values and scores are never clipped for rendering.
+The display-only history limit and nonfinite replacements are documented in
+the reports, without in-panel notes; raw saved values and scores are never
+clipped for rendering.
 ``score_only=true`` neither allocates figures nor writes fallback artifacts,
 even if summary options are enabled.
 

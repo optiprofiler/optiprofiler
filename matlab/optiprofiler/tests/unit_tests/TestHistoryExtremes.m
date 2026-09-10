@@ -5,6 +5,7 @@ classdef TestHistoryExtremes < matlab.unittest.TestCase
         DrawHistory
         PrepareHistory
         ComputeShift
+        ExportPortableHistory
         WorkDir
         SavedPath
     end
@@ -20,6 +21,7 @@ classdef TestHistoryExtremes < matlab.unittest.TestCase
             testCase.DrawHistory = @drawHist;
             testCase.PrepareHistory = @prepareHistoryPlotData;
             testCase.ComputeShift = @computeHistoryYShift;
+            testCase.ExportPortableHistory = @exportPortableHistory;
             testCase.WorkDir = tempname;
             mkdir(testCase.WorkDir);
         end
@@ -50,11 +52,69 @@ classdef TestHistoryExtremes < matlab.unittest.TestCase
                 testCase.verifyTrue(isequaln(original, before));
             end
         end
-        function annotationsStateDisplayLimitAndCount(testCase)
+        function metadataRetainsDisplayLimitAndCount(testCase)
             original = reshape([1e300, NaN, 2], 1,1,[]);
             [~, note] = testCase.ProcessHistory(original, 1);
             testCase.verifySubstring(note, 'Display clipped at +/-1e100: 1 entries');
             testCase.verifySubstring(note, 'Nonfinite placeholders: 1 entries');
+        end
+        function nativeHistoryOmitsDisplayNotes(testCase)
+            % All three channels must keep legends/labels while suppressing
+            % clipping and nonfinite notes, for raw and cumulative histories.
+            original = repmat(reshape([1e300,NaN,2],1,1,[]),2,2,1);
+            invalid = NaN(size(original));
+            before = original;
+            fig = figure('Visible','off');
+            cleanup = onCleanup(@() close(fig));
+            options = struct('errorbar_type','minmax','hist_aggregation','min', ...
+                'line_colors',[0,0.4,0.7;0.9,0.4,0], 'line_styles',{{'-','--'}}, ...
+                'line_widths',[1,1], 'xlabel_data_profile','Evaluations / (n+1)');
+            names = {'solver one','solver two'};
+            for is_cum = [false,true]
+                clf(fig);
+                axes_list = arrayfun(@(k) subplot(1,3,k,'Parent',fig),1:3, ...
+                    'UniformOutput',false);
+                testCase.DrawHistory(original, original, invalid, [1;1], [1;1], ...
+                    [NaN;NaN], names, axes_list, is_cum, 'n', 2, ...
+                    3*ones(2,2), options, 500);
+                for k = 1:3
+                    ax = axes_list{k};
+                    testCase.verifyNotEmpty(ax.YLabel.String);
+                    testCase.verifyEqual(ax.Legend.String, names);
+                    labels = findall(ax,'Type','text');
+                    for j = 1:numel(labels)
+                        testCase.verifyFalse(any(contains(string(labels(j).String), ...
+                            ["Display clipped", "Nonfinite placeholders", "No finite reference"])));
+                    end
+                    lines = findall(ax,'Type','line');
+                    testCase.verifyNotEmpty(lines);
+                    for j = 1:numel(lines)
+                        testCase.verifyTrue(all(isfinite(lines(j).YData)));
+                    end
+                end
+            end
+            testCase.verifyTrue(isequaln(original,before));
+        end
+        function portableHistoryOmitsDisplayNotes(testCase)
+            original = repmat(reshape([1e300,NaN,2],1,1,[]),2,2,1);
+            invalid = NaN(size(original));
+            before = original;
+            options = struct('errorbar_type','minmax','hist_aggregation','min');
+            for mode = {'raw','cummin','combined'}
+                file = fullfile(testCase.WorkDir,[mode{1},'.svg']);
+                testCase.ExportPortableHistory(file,mode{1},'test problem',2, ...
+                    {'solver one','solver two'},{original,original,invalid}, ...
+                    {[1;1],[1;1],[NaN;NaN]},3*ones(2,2), ...
+                    {'Function','Violation','Merit'},options);
+                svg = fileread(file);
+                testCase.verifyFalse(any(contains(svg, ...
+                    {'Display clipped','Nonfinite placeholders','No finite reference'})));
+                testCase.verifyTrue(contains(svg,'<polyline'));
+                testCase.verifyTrue(contains(svg,'solver one'));
+                testCase.verifyTrue(contains(svg,'solver two'));
+                testCase.verifyTrue(contains(svg,'Evaluations/(dimension+1)'));
+                testCase.verifyTrue(isequaln(original,before));
+            end
         end
         function extremeHistoriesExportAndStayInView(testCase)
             cases = {[1,1e290,2], [-1e308,0,1e308], [NaN,Inf,-Inf], ...

@@ -73,9 +73,33 @@ def test_extreme_histories_export_and_remain_in_view(values, cum, errorbar, monk
         shown = np.asarray(line.get_ydata())
         assert np.isfinite(shown).all()
         assert np.all((shown >= low) & (shown <= high)), (shown, (low, high))
-    if np.any(np.isfinite(history) & (np.abs(history) > 1e100)):
-        assert any('display' in text.get_text().lower() for text in ax.texts)
+    # Extreme-value protection must not add a text box over the curves/legend.
+    assert not ax.texts
+    assert [text.get_text() for text in ax.get_legend().get_texts()] == ['a', 'b']
     np.testing.assert_array_equal(history, before)
+
+
+@pytest.mark.parametrize('cum', [False, True])
+def test_constrained_history_panels_keep_diagnostics_outside_plot(cum, monkeypatch):
+    monkeypatch.setattr(plotting, 'set_profile_context', lambda _: {'text.usetex': False})
+    histories = [np.tile(values, (2, 2, 1)).astype(float) for values in (
+        [1, 1e308, np.inf], [np.nan, np.inf, -np.inf], [-1e308, 2, np.nan])]
+    before = [values.copy() for values in histories]
+    figure = Figure(figsize=(9, 4))
+    axes = figure.subplots(1, 3)
+    plotting.draw_hist(*histories, [1, 1], [np.nan, np.nan], [-1e308, -1e308],
+                       ['a', 'b'], axes, cum, 'n', 2,
+                       np.full((2, 2), 3), options(), 4)
+    for ax, original, saved in zip(axes, histories, before):
+        assert not ax.texts
+        assert ax.get_ylabel()
+        assert [text.get_text() for text in ax.get_legend().get_texts()] == ['a', 'b']
+        assert all(np.isfinite(line.get_ydata()).all() for line in ax.lines)
+        np.testing.assert_array_equal(original, saved)
+    # Retain the optional metadata path used by eval_report, unchanged.
+    _, note = plotting.process_hist_y_axes(histories[0], [1, 1], return_note=True)
+    assert 'Display clipped' in note and 'Nonfinite placeholders' in note
+    figure.savefig(io.BytesIO(), format='pdf')
 
 
 @pytest.mark.parametrize('n_solvers,n_evals', [(1, 3), (2, 1), (1, 1)])

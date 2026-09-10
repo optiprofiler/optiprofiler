@@ -5,8 +5,9 @@ function [processed, display_note] = processHistYaxes(value_histories, value_ini
 %   and axis margins. This leaves ample double-precision arithmetic headroom.
 %   NaN/Inf are displayed above their run's finite range, including its finite
 %   initial value; with no finite reference they are displayed at 1.
-%   Callers must show DISPLAY_NOTE when nonempty. This limit is not used by
-%   oracle evaluations, saved histories, merit functions or profile scores.
+%   DISPLAY_NOTE is available for report metadata, not an in-panel annotation.
+%   This limit is not used by oracle evaluations, saved histories, merit
+%   functions or profile scores.
 
     display_limit = 1e100;
     processed = max(-display_limit, min(display_limit, value_histories));

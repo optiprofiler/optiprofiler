@@ -688,9 +688,11 @@ def draw_hist(fun_histories, maxcv_histories, merit_histories, fun_init, maxcv_i
         Default height for sizing
     """
     
-    fun_histories, fun_note = process_hist_y_axes(fun_histories, fun_init, return_note=True)
-    maxcv_histories, maxcv_note = process_hist_y_axes(maxcv_histories, maxcv_init, return_note=True)
-    merit_histories, merit_note = process_hist_y_axes(merit_histories, merit_init, return_note=True)
+    # Keep display protection, but leave clipping diagnostics in the reports:
+    # in-panel notes compete with the solver legend and obscure the curves.
+    fun_histories = process_hist_y_axes(fun_histories, fun_init)
+    maxcv_histories = process_hist_y_axes(maxcv_histories, maxcv_init)
+    merit_histories = process_hist_y_axes(merit_histories, merit_init)
     
     # Convert default_height from inches to pixels for fontsize calculation.
     # MATLAB uses pixels directly, while matplotlib uses inches.
@@ -714,7 +716,6 @@ def draw_hist(fun_histories, maxcv_histories, merit_histories, fun_init, maxcv_i
     _, formatted_fun_shift = format_float_scientific_latex(y_shift_fun)
     base_label_fun = "Cummin of function values" if is_cum else "Function values"
     set_hist_ylabel(list_axs_summary[0], base_label_fun, y_shift_fun, formatted_fun_shift)
-    _annotate_history_display(list_axs_summary[0], fun_note)
     
     # Return early for unconstrained problems.
     if ptype == 'u':
@@ -728,20 +729,11 @@ def draw_hist(fun_histories, maxcv_histories, merit_histories, fun_init, maxcv_i
     _, formatted_maxcv_shift = format_float_scientific_latex(y_shift_maxcv)
     base_label_maxcv = "Cummin of maximum constraint violations" if is_cum else "Maximum constraint violations"
     set_hist_ylabel(list_axs_summary[1], base_label_maxcv, y_shift_maxcv, formatted_maxcv_shift)
-    _annotate_history_display(list_axs_summary[1], maxcv_note)
     
     draw_fun_maxcv_merit_hist(list_axs_summary[2], merit_histories, solver_names, is_cum, problem_n, y_shift_merit, n_eval, profile_options, show_xlabel)
     _, formatted_merit_shift = format_float_scientific_latex(y_shift_merit)
     base_label_merit = "Cummin of merit function values" if is_cum else "Merit function values"
     set_hist_ylabel(list_axs_summary[2], base_label_merit, y_shift_merit, formatted_merit_shift)
-    _annotate_history_display(list_axs_summary[2], merit_note)
-
-
-def _annotate_history_display(ax, note):
-    if note:
-        ax.text(0.01, 0.01, note, transform=ax.transAxes, fontsize=7,
-                ha='left', va='bottom', usetex=False,
-                bbox={'facecolor': 'white', 'alpha': 0.85, 'edgecolor': 'none'})
 
 
 def compute_y_shift(history, profile_options):
@@ -789,7 +781,8 @@ def process_hist_y_axes(value_histories, value_inits, return_note=False):
     Only the returned display copy is clipped to +/-1e100
     before statistics/axis arithmetic. Non-finite entries are shown above the
     matching run's finite range; absent finite data and initial value, use 1.
-    The optional note must be displayed whenever this transformation occurs.
+    The optional note records this transformation for report metadata, not
+    for an annotation inside the plot.
     Raw histories, solver evaluations and scores are never changed here.
     """
     original = np.asarray(value_histories, dtype=float)

@@ -8,8 +8,9 @@ large plotting limit leaves room for squared deviations, translations and
 axis margins without floating-point overflow. It is not an assumption that
 all valid objective values lie in that interval.
 
-Each affected panel states the display limit and the number of clipped input
-history entries. NaN and Inf entries are counted separately and displayed
+Clipping diagnostics remain available in the experiment report and structured
+plot data, but are not drawn inside history panels. NaN and Inf entries are
+counted separately and displayed
 above the finite range of the corresponding run (including its finite
 initial value). If that run has no finite history or initial value, their
 display placeholder is 1. A constant finite range gets a small positive gap

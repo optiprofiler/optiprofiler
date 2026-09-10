@@ -1016,7 +1016,7 @@ def _write_history_display_note(stream, results_plibs):
 
     stream.write(
         f"History display only: finite magnitudes above {_HISTORY_DISPLAY_LIMIT:.0e} "
-        "are clipped before plotting; NaN/Inf use labelled placeholders.\n"
+        "are clipped before plotting; NaN/Inf use finite display placeholders.\n"
         "Raw data, oracle values and scores are not clipped. Counts below refer "
         "to stored history entries, including padded tails.\n"
     )

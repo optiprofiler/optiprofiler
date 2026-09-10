@@ -5,16 +5,17 @@ function drawHist(fun_histories, maxcv_histories, merit_histories, fun_inits, ma
         show_xlabel = true;
     end
 
-    [fun_histories, fun_note] = processHistYaxes(fun_histories, fun_inits);
-    [maxcv_histories, maxcv_note] = processHistYaxes(maxcv_histories, maxcv_inits);
-    [merit_histories, merit_note] = processHistYaxes(merit_histories, merit_inits);
+    % Keep display protection, but leave its diagnostics in report metadata
+    % rather than placing text over history curves and solver legends.
+    fun_histories = processHistYaxes(fun_histories, fun_inits);
+    maxcv_histories = processHistYaxes(maxcv_histories, maxcv_inits);
+    merit_histories = processHistYaxes(merit_histories, merit_inits);
     
     % Define the shift of the y-axis. Shift the y-axis if there is value that is too close to zero.
     y_shift_fun = computeHistoryYShift(fun_histories, profile_options);
 
     % First, draw the histories of function values.
     drawFunMaxcvMeritHist(cell_axs_summary{1}, fun_histories, solver_names, is_cum, problem_n, y_shift_fun, n_eval, profile_options, show_xlabel);
-    annotateDisplay(cell_axs_summary{1}, fun_note);
     [~, formatted_fun_shift] = formatFloatScientificLatex(y_shift_fun, 3);
 
     maxlength_fun = length(['Cummin of function values shifted above by $', formatted_fun_shift, '$']);
@@ -47,10 +48,8 @@ function drawHist(fun_histories, maxcv_histories, merit_histories, fun_inits, ma
 
     % Second, draw the histories of maximum constraint violations and merit function values.
     drawFunMaxcvMeritHist(cell_axs_summary{2}, maxcv_histories, solver_names, is_cum, problem_n, y_shift_maxcv, n_eval, profile_options, show_xlabel);
-    annotateDisplay(cell_axs_summary{2}, maxcv_note);
     [~, formatted_maxcv_shift] = formatFloatScientificLatex(y_shift_maxcv, 3);
     drawFunMaxcvMeritHist(cell_axs_summary{3}, merit_histories, solver_names, is_cum, problem_n, y_shift_merit, n_eval, profile_options, show_xlabel);
-    annotateDisplay(cell_axs_summary{3}, merit_note);
     [~, formatted_merit_shift] = formatFloatScientificLatex(y_shift_merit, 3);
 
     maxlength_maxcv = length(['Cummin of maximum constraint violations shifted above by $', formatted_maxcv_shift, '$']);
@@ -85,11 +84,4 @@ function drawHist(fun_histories, maxcv_histories, merit_histories, fun_inits, ma
         end
     end
 
-end
-
-function annotateDisplay(ax, note)
-    if ~isempty(note)
-        text(ax, 0.01, 0.01, note, 'Units', 'normalized', 'Interpreter', 'none', ...
-            'FontSize', 7, 'VerticalAlignment', 'bottom', 'BackgroundColor', 'white');
-    end
 end

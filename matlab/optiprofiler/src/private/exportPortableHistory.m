@@ -1,11 +1,13 @@
 function exportPortableHistory(file, mode, problem_name, problem_dim, solver_names, histories, inits, n_eval, labels, options)
 %EXPORTPORTABLEHISTORY The native mean/errorband curves without graphics.
-    panels=struct('title',{},'xlabel',{},'ylabel',{},'curves',{},'labels',{},'note',{});
+    panels=struct('title',{},'xlabel',{},'ylabel',{},'curves',{},'labels',{});
     rows = false;
     if strcmp(mode,'cummin'), rows=true; elseif strcmp(mode,'combined'), rows=[false,true]; end
     for cumulative=rows
         for channel=1:numel(histories)
-            [values,note]=processHistYaxes(histories{channel},inits{channel});
+            % Match native histories: retain numerical display protection,
+            % without drawing its report-only diagnostics on the chart.
+            values=processHistYaxes(histories{channel},inits{channel});
             shift=computeHistoryYShift(values,options);
             [x,means,lower,upper,n_runs]=prepareHistoryPlotData(values,cumulative,shift,n_eval,options);
             is_log=false;
@@ -33,7 +35,7 @@ function exportPortableHistory(file, mode, problem_name, problem_dim, solver_nam
             ylabel=sprintf('Value + shift %.4g',shift);
             if is_log, ylabel=sprintf('log10(value + shift %.4g)',shift); end
             panels(end+1)=struct('title',title,'xlabel','Evaluations/(dimension+1)', ...
-                'ylabel',ylabel,'curves',{lines},'labels',{names},'note',note); %#ok<AGROW>
+                'ylabel',ylabel,'curves',{lines},'labels',{names}); %#ok<AGROW>
         end
     end
     writeCurveSvg(file,panels,problem_name);
