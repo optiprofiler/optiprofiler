@@ -10,6 +10,25 @@ from scipy import __version__ as _SCIPY_VERSION
 
 from .utils import FeatureName, FeatureOption, get_logger, shorten_log_message
 
+# Options owned by the experiment rather than by a feature stage. A standalone
+# feature stores them with its local options, as it always has; a stage of a
+# composition never owns them (see ``Feature._stage``).
+COMMON_FEATURE_OPTIONS = frozenset({FeatureOption.N_RUNS.value})
+
+
+def _declared_spec_from_name(declared_name, supplied):
+    """
+    The declared specification of a shorthand feature: one entry per declared
+    token (``plain`` retained) with the supplied local options that token
+    owns, as given and before defaults. Common options never appear. This is
+    captured when a feature is built; it is never inferred from stored
+    effective options, so objects stored by earlier versions report no
+    declaration rather than a fabricated one.
+    """
+    return [{'name': token, 'options': {key: value for key, value in supplied.items()
+                                        if key in Feature._local_options(token)}}
+            for token in declared_name.split('+')]
+
 
 def _round_truncated(value, digits):
     """Round decimal ties using MATLAB's default away-from-zero direction."""
@@ -111,8 +130,19 @@ class Feature:
         the chosen ``name``:
 
         - **n_runs** (*int*) -- Number of runs of the experiment under the
-          given feature. Default is ``5`` for stochastic features and ``1``
-          for deterministic features. Valid for all features.
+          given feature. This option belongs to the experiment, not to a
+          stage: a composition stores it once and its stages never carry a
+          run count of their own. Its default is the established default of
+          the feature: ``5`` for ``'perturbed_x0'``, ``'noisy'`` (``1`` when
+          ``noise_mode='deterministic'``), ``'permuted'``,
+          ``'linearly_transformed'`` (also when ``rotated=False``),
+          ``'random_nan'`` and ``'truncated'`` with
+          ``perturbed_trailing_digits=True``; ``1`` for ``'plain'``,
+          ``'truncated'``, ``'unrelaxable_constraints'``,
+          ``'nonquantifiable_constraints'``, ``'quantized'`` and
+          ``'custom'`` (although ``'custom'`` counts as stochastic). A
+          composition defaults to the largest default of its effective
+          stages. Valid for all features.
         - **distribution** (*str or callable*) -- Distribution of
           perturbation (``'perturbed_x0'``) or noise (``'noisy'``). For
           ``'perturbed_x0'``, it should be ``'spherical'`` (default) or
@@ -217,8 +247,13 @@ class Feature:
 
     Notes
     -----
-    Different feature names accept different subsets of options. The valid
-    options for each feature name are:
+    Different feature names accept different subsets of options. ``n_runs``
+    is the only experiment-wide option; every other option is owned by the
+    stage named below. With a structured specification (a mapping or a
+    list/tuple of ``{'name': ..., 'options': {...}}`` entries, see
+    ``optiprofiler.benchmark``), each stage receives its own options and only
+    ``n_runs`` may be given as a keyword. The valid options for each feature
+    name are:
 
     1. ``'plain'`` : ``n_runs``.
     2. ``'perturbed_x0'`` : ``n_runs``, ``distribution``,
@@ -273,10 +308,16 @@ class Feature:
         # implementation and ordered compositions: a name with at least two
         # effective stages builds a ``ComposedFeature``. ``name`` is optional
         # only so that unpickling can call ``__new__`` without arguments.
-        if cls is Feature and isinstance(name, str):
-            from .composition import ComposedFeature, parse_feature_name
-            if len(parse_feature_name(name)[1]) > 1:
-                return object.__new__(ComposedFeature)
+        if cls is Feature:
+            from .composition import ComposedFeature, parse_feature_name, parse_feature_spec
+            if isinstance(name, str):
+                if len(parse_feature_name(name)[1]) > 1:
+                    return object.__new__(ComposedFeature)
+            elif name is not None:
+                # A structured specification (mapping or list/tuple of stage
+                # entries); anything else is rejected by the parser.
+                if len(parse_feature_spec(name)[1]) > 1:
+                    return object.__new__(ComposedFeature)
         return object.__new__(cls)
 
     def __init__(self, name, **feature_options):
@@ -285,27 +326,40 @@ class Feature:
 
         Parameters
         ----------
-        name : str
-            Name of the feature.
+        name : str, dict, or list of dict or str
+            Name of the feature. A ``'+'``-separated name declares an ordered
+            composition whose supplied options are broadcast to the stages
+            owning them. A structured specification, one stage entry
+            ``{'name': ..., 'options': {...}}`` or an ordered list/tuple of
+            entries (bare names allowed), gives each stage its own options;
+            with it, the only accepted keyword is the experiment-wide ``n_runs``.
 
         Other Parameters
         ----------------
-        distribution : callable, optional
-            Distribution used by the 'noisy' and 'randomize_x0' feature.
-        modifier : callable, optional
-            Custom modifier used by the 'custom' feature.
         n_runs : int, optional
-            Number of runs for all features.
-        rate_nan : int or float, optional
-            Rate of NaNs used by the 'tough' feature.
-        significant_digits : int, optional
-            Number of significant digits used by the 'truncated' feature.
-        noise_type : str, optional
-            Type of the noise used by the 'noisy' feature.
-        noise_mode : str, optional
-            Mode of the noise used by the 'noisy' feature.
-        noise_map : str or callable, optional
-            Deterministic scalar map used by the 'noisy' feature.
+            Number of runs of the experiment. This is the only experiment-wide
+            option; see the class documentation for the established defaults.
+        distribution : str or callable, optional
+            Distribution used by the 'noisy' feature ('gaussian' or 'uniform')
+            and the 'perturbed_x0' feature ('spherical' or 'gaussian'), or a
+            callable ``distribution(rng, size)``.
+        noise_level, noise_type, noise_mode, noise_map : optional
+            Options of the 'noisy' feature; ``noise_map`` is 'chebyshev' or a
+            callable deterministic scalar map.
+        perturbation_level : float, optional
+            Option of the 'perturbed_x0' feature.
+        significant_digits, perturbed_trailing_digits : optional
+            Options of the 'truncated' feature.
+        nan_rate : int or float, optional
+            Rate of NaNs used by the 'random_nan' feature.
+        rotated, condition_factor : optional
+            Options of the 'linearly_transformed' feature.
+        unrelaxable_bounds, unrelaxable_linear_constraints, unrelaxable_nonlinear_constraints : bool, optional
+            Options of the 'unrelaxable_constraints' feature.
+        mesh_size, mesh_type, ground_truth : optional
+            Options of the 'quantized' feature.
+        mod_x0, mod_affine, mod_bounds, mod_linear_ub, mod_linear_eq, mod_fun, mod_cub, mod_ceq : callable, optional
+            Callbacks of the 'custom' feature.
 
         Raises
         ------
@@ -319,120 +373,172 @@ class Feature:
         # Names with at least two effective stages are dispatched by ``__new__``
         # to ``optiprofiler.composition.ComposedFeature`` and never reach this
         # constructor, so what follows is the single-feature path.
-        self._name = name
-        if not isinstance(self._name, str):
-            raise TypeError('The first input argument for `Feature` must be a string.')
-        from .composition import parse_feature_name
-        self._declared_name, effective_stages = parse_feature_name(self._name)
-        self._name = effective_stages[0] if effective_stages else FeatureName.PLAIN.value
+        if isinstance(name, str):
+            from .composition import parse_feature_name
+            self._declared_name, effective_stages = parse_feature_name(name)
+            self._name = effective_stages[0] if effective_stages else FeatureName.PLAIN.value
+            self._declared_spec = _declared_spec_from_name(
+                self._declared_name,
+                {key.lower(): value for key, value in feature_options.items() if key.lower() not in COMMON_FEATURE_OPTIONS})
+        else:
+            # Structured specification with at most one effective stage: the
+            # established single-feature path runs with that stage's local
+            # options. The declared entries are kept for provenance.
+            from .composition import parse_feature_spec, reject_flat_stage_options
+            declared, effective_entries = parse_feature_spec(name)
+            reject_flat_stage_options({key.lower() for key in feature_options})
+            self._declared_spec = declared
+            self._route = 'feature'
+            self._declared_name = '+'.join(entry['name'] for entry in declared)
+            stage_entry = effective_entries[0] if effective_entries else None
+            self._name = stage_entry['name'] if stage_entry else FeatureName.PLAIN.value
+            feature_options = {**(stage_entry['options'] if stage_entry else {}), **feature_options}
         if self._name not in FeatureName.__members__.values():
             raise ValueError(f'Unknown feature: {self._name}.')
         self._stages = None
 
-        # Preprocess the feature options.
+        # Preprocess the feature options. A standalone feature owns its local
+        # options and the experiment-wide ``n_runs``; the validators and local
+        # defaults are shared with the modifier-only stages of a composition.
         self._options = {k.lower(): v for k, v in feature_options.items()}
         for key in self._options:
-            # Check whether the option is known.
-            if key not in FeatureOption.__members__.values():
-                raise ValueError(f'Unknown option for feature: {key}.')
-
-            # Check whether the options are valid for the feature.
-            known_options = self._known_options(self._name)
-            if key not in known_options:
-                raise ValueError(f"Option `{key}` is not valid for feature '{self._name}'.")
-
-            # Check whether the options are valid.
-            if key == FeatureOption.N_RUNS:
-                self._options[key] = self._validate_n_runs(self._options[key])
-            elif key == FeatureOption.DISTRIBUTION:
-                if isinstance(self._options[key], str):
-                    if self._name == FeatureName.NOISY and self._options[key] not in ['gaussian', 'uniform']:
-                        raise ValueError(f'Option `{key}` for feature `{self._name}` must be either "gaussian" or "uniform" when specified as a string.')
-                    elif self._name == FeatureName.PERTURBED_X0 and self._options[key] not in ['gaussian', 'spherical']:
-                        raise ValueError(f'Option `{key}` for feature `{self._name}` must be either "gaussian" or "spherical" when specified as a string.')
-                elif not callable(self._options[key]):
-                    raise TypeError(f'Option `{key}` must be a string or it must be callable.')
-            elif key == FeatureOption.NAN_RATE:
-                if not isinstance(self._options[key], (int, float)):
-                    raise TypeError(f'Option `{key}` must be a number.')
-                if not (0.0 <= self._options[key] <= 1.0):
-                    raise ValueError(f'Option `{key}` must be between 0 and 1.')
-            elif key == FeatureOption.SIGNIFICANT_DIGITS:
-                if isinstance(self._options[key], (float, np.floating)) and float(self._options[key]).is_integer():
-                    self._options[key] = int(self._options[key])
-                if isinstance(self._options[key], np.integer):
-                    self._options[key] = int(self._options[key])
-                if not isinstance(self._options[key], int):
-                    raise TypeError(f'Option `{key}` must be an integer.')
-                if self._options[key] <= 0:
-                    raise ValueError(f'Option `{key}` must be positive.')
-            elif key in [FeatureOption.NOISE_LEVEL, FeatureOption.CONDITION_FACTOR]:
-                if not isinstance(self._options[key], (int, float)):
-                    raise TypeError(f'Option `{key}` must be a number.')
-                if self._options[key] < 0.0:
-                    raise ValueError(f'Option `{key}` must be nonnegative.')
-            elif key == FeatureOption.NOISE_TYPE:
-                if not isinstance(self._options[key], str):
-                    raise TypeError(f'Option {key} must be a string.')
-                if self._options[key].lower() not in ['absolute', 'relative', 'mixed']:
-                    raise ValueError(f"Option `{key}` must be one of 'absolute', 'relative', or 'mixed'.")
-                self._options[key] = self._options[key].lower()
-            elif key == FeatureOption.NOISE_MODE:
-                if not isinstance(self._options[key], str):
-                    raise TypeError(f'Option {key} must be a string.')
-                if self._options[key].lower() not in ['random', 'deterministic']:
-                    raise ValueError(f"Option `{key}` must be either 'random' or 'deterministic'.")
-                self._options[key] = self._options[key].lower()
-            elif key == FeatureOption.NOISE_MAP:
-                if isinstance(self._options[key], str):
-                    if self._options[key].lower() != 'chebyshev':
-                        raise ValueError(f'Option `{key}` must be "chebyshev" when specified as a string.')
-                    self._options[key] = self._options[key].lower()
-                elif not callable(self._options[key]):
-                    raise TypeError(f'Option `{key}` must be a string or it must be callable.')
-            elif key in [FeatureOption.PERTURBED_TRAILING_DIGITS, FeatureOption.ROTATED, FeatureOption.UNRELAXABLE_BOUNDS, FeatureOption.UNRELAXABLE_LINEAR_CONSTRAINTS, FeatureOption.UNRELAXABLE_NONLINEAR_CONSTRAINTS, FeatureOption.GROUND_TRUTH]:
-                if not isinstance(self._options[key], bool):
-                    raise TypeError(f'Option `{key}` must be a boolean.')
-            elif key == FeatureOption.MESH_SIZE:
-                if not isinstance(self._options[key], (int, float)):
-                    raise TypeError(f'Option `{key}` must be a number.')
-                if self._options[key] <= 0.0:
-                    raise ValueError(f'Option `{key}` must be positive.')
-            elif key == FeatureOption.MESH_TYPE:
-                if not isinstance(self._options[key], str):
-                    raise TypeError(f'Option `{key}` must be a string.')
-                if self._options[key].lower() not in ['absolute', 'relative']:
-                    raise ValueError(f"Option `{key}` must be 'absolute' or 'relative'.")
-            elif key in [FeatureOption.MOD_X0, FeatureOption.MOD_BOUNDS, FeatureOption.MOD_LINEAR_UB, FeatureOption.MOD_LINEAR_EQ, FeatureOption.MOD_AFFINE, FeatureOption.MOD_FUN, FeatureOption.MOD_CUB, FeatureOption.MOD_CEQ]:
-                if not callable(self._options[key]):
-                    raise TypeError(f'Option `{key}` must be callable.')
+            self._check_option_known(self._name, key, local_only=False)
+            self._options[key] = self._validate_option(self._name, key, self._options[key])
 
         # Set default options for the unspecified options.
-        self._set_default_options()
+        self._set_default_local_options()
+        self._options.setdefault(FeatureOption.N_RUNS.value, self._default_n_runs())
+
+    @staticmethod
+    def _local_options(name):
+        """Options owned by the stage ``name`` itself (``n_runs`` is not among them)."""
+        local_options = []
+        if name == FeatureName.CUSTOM:
+            local_options.extend([FeatureOption.MOD_X0, FeatureOption.MOD_BOUNDS, FeatureOption.MOD_LINEAR_UB, FeatureOption.MOD_LINEAR_EQ, FeatureOption.MOD_AFFINE, FeatureOption.MOD_FUN, FeatureOption.MOD_CUB, FeatureOption.MOD_CEQ])
+        elif name == FeatureName.NOISY:
+            local_options.extend([FeatureOption.DISTRIBUTION, FeatureOption.NOISE_LEVEL, FeatureOption.NOISE_TYPE, FeatureOption.NOISE_MODE, FeatureOption.NOISE_MAP])
+        elif name == FeatureName.PERTURBED_X0:
+            local_options.extend([FeatureOption.DISTRIBUTION, FeatureOption.PERTURBATION_LEVEL])
+        elif name == FeatureName.RANDOM_NAN:
+            local_options.extend([FeatureOption.NAN_RATE])
+        elif name == FeatureName.TRUNCATED:
+            local_options.extend([FeatureOption.PERTURBED_TRAILING_DIGITS, FeatureOption.SIGNIFICANT_DIGITS])
+        elif name == FeatureName.UNRELAXABLE_CONSTRAINTS:
+            local_options.extend([FeatureOption.UNRELAXABLE_BOUNDS, FeatureOption.UNRELAXABLE_LINEAR_CONSTRAINTS, FeatureOption.UNRELAXABLE_NONLINEAR_CONSTRAINTS])
+        elif name == FeatureName.LINEARLY_TRANSFORMED:
+            local_options.extend([FeatureOption.ROTATED, FeatureOption.CONDITION_FACTOR])
+        elif name == FeatureName.QUANTIZED:
+            local_options.extend([FeatureOption.MESH_SIZE, FeatureOption.MESH_TYPE, FeatureOption.GROUND_TRUTH])
+        elif name not in [FeatureName.PERMUTED, FeatureName.NONQUANTIFIABLE_CONSTRAINTS, FeatureName.PLAIN]:
+            raise NotImplementedError(f'Unknown feature: {name}.')
+        return local_options
 
     @staticmethod
     def _known_options(name):
-        """Options accepted by the feature ``name`` (``n_runs`` is accepted by every feature)."""
-        known_options = [FeatureOption.N_RUNS]
-        if name == FeatureName.CUSTOM:
-            known_options.extend([FeatureOption.MOD_X0, FeatureOption.MOD_BOUNDS, FeatureOption.MOD_LINEAR_UB, FeatureOption.MOD_LINEAR_EQ, FeatureOption.MOD_AFFINE, FeatureOption.MOD_FUN, FeatureOption.MOD_CUB, FeatureOption.MOD_CEQ])
-        elif name == FeatureName.NOISY:
-            known_options.extend([FeatureOption.DISTRIBUTION, FeatureOption.NOISE_LEVEL, FeatureOption.NOISE_TYPE, FeatureOption.NOISE_MODE, FeatureOption.NOISE_MAP])
-        elif name == FeatureName.PERTURBED_X0:
-            known_options.extend([FeatureOption.DISTRIBUTION, FeatureOption.PERTURBATION_LEVEL])
-        elif name == FeatureName.RANDOM_NAN:
-            known_options.extend([FeatureOption.NAN_RATE])
-        elif name == FeatureName.TRUNCATED:
-            known_options.extend([FeatureOption.PERTURBED_TRAILING_DIGITS, FeatureOption.SIGNIFICANT_DIGITS])
-        elif name == FeatureName.UNRELAXABLE_CONSTRAINTS:
-            known_options.extend([FeatureOption.UNRELAXABLE_BOUNDS, FeatureOption.UNRELAXABLE_LINEAR_CONSTRAINTS, FeatureOption.UNRELAXABLE_NONLINEAR_CONSTRAINTS])
-        elif name == FeatureName.LINEARLY_TRANSFORMED:
-            known_options.extend([FeatureOption.ROTATED, FeatureOption.CONDITION_FACTOR])
-        elif name == FeatureName.QUANTIZED:
-            known_options.extend([FeatureOption.MESH_SIZE, FeatureOption.MESH_TYPE, FeatureOption.GROUND_TRUTH])
-        elif name not in [FeatureName.PERMUTED, FeatureName.NONQUANTIFIABLE_CONSTRAINTS, FeatureName.PLAIN]:
-            raise NotImplementedError(f'Unknown feature: {name}.')
-        return known_options
+        """Options accepted by a standalone feature ``name``: the common options plus its local options."""
+        return [FeatureOption(key) for key in sorted(COMMON_FEATURE_OPTIONS)] + Feature._local_options(name)
+
+    @staticmethod
+    def _check_option_known(name, key, local_only):
+        """Reject an unknown option or one that ``name`` does not own."""
+        if key not in FeatureOption.__members__.values():
+            raise ValueError(f'Unknown option for feature: {key}.')
+        owned = Feature._local_options(name) if local_only else Feature._known_options(name)
+        if key not in owned:
+            raise ValueError(f"Option `{key}` is not valid for feature '{name}'.")
+
+    @staticmethod
+    def _validate_option(name, key, value):
+        """Validate one option of feature ``name`` and return its normalized value."""
+        if key == FeatureOption.N_RUNS:
+            return Feature._validate_n_runs(value)
+        elif key == FeatureOption.DISTRIBUTION:
+            if isinstance(value, str):
+                if name == FeatureName.NOISY and value not in ['gaussian', 'uniform']:
+                    raise ValueError(f'Option `{key}` for feature `{name}` must be either "gaussian" or "uniform" when specified as a string.')
+                elif name == FeatureName.PERTURBED_X0 and value not in ['gaussian', 'spherical']:
+                    raise ValueError(f'Option `{key}` for feature `{name}` must be either "gaussian" or "spherical" when specified as a string.')
+            elif not callable(value):
+                raise TypeError(f'Option `{key}` must be a string or it must be callable.')
+        elif key == FeatureOption.NAN_RATE:
+            if not isinstance(value, (int, float)):
+                raise TypeError(f'Option `{key}` must be a number.')
+            if not (0.0 <= value <= 1.0):
+                raise ValueError(f'Option `{key}` must be between 0 and 1.')
+        elif key == FeatureOption.SIGNIFICANT_DIGITS:
+            if isinstance(value, (float, np.floating)) and float(value).is_integer():
+                value = int(value)
+            if isinstance(value, np.integer):
+                value = int(value)
+            if not isinstance(value, int):
+                raise TypeError(f'Option `{key}` must be an integer.')
+            if value <= 0:
+                raise ValueError(f'Option `{key}` must be positive.')
+        elif key in [FeatureOption.NOISE_LEVEL, FeatureOption.CONDITION_FACTOR]:
+            if not isinstance(value, (int, float)):
+                raise TypeError(f'Option `{key}` must be a number.')
+            if value < 0.0:
+                raise ValueError(f'Option `{key}` must be nonnegative.')
+        elif key == FeatureOption.NOISE_TYPE:
+            if not isinstance(value, str):
+                raise TypeError(f'Option {key} must be a string.')
+            if value.lower() not in ['absolute', 'relative', 'mixed']:
+                raise ValueError(f"Option `{key}` must be one of 'absolute', 'relative', or 'mixed'.")
+            value = value.lower()
+        elif key == FeatureOption.NOISE_MODE:
+            if not isinstance(value, str):
+                raise TypeError(f'Option {key} must be a string.')
+            if value.lower() not in ['random', 'deterministic']:
+                raise ValueError(f"Option `{key}` must be either 'random' or 'deterministic'.")
+            value = value.lower()
+        elif key == FeatureOption.NOISE_MAP:
+            if isinstance(value, str):
+                if value.lower() != 'chebyshev':
+                    raise ValueError(f'Option `{key}` must be "chebyshev" when specified as a string.')
+                value = value.lower()
+            elif not callable(value):
+                raise TypeError(f'Option `{key}` must be a string or it must be callable.')
+        elif key in [FeatureOption.PERTURBED_TRAILING_DIGITS, FeatureOption.ROTATED, FeatureOption.UNRELAXABLE_BOUNDS, FeatureOption.UNRELAXABLE_LINEAR_CONSTRAINTS, FeatureOption.UNRELAXABLE_NONLINEAR_CONSTRAINTS, FeatureOption.GROUND_TRUTH]:
+            if not isinstance(value, bool):
+                raise TypeError(f'Option `{key}` must be a boolean.')
+        elif key == FeatureOption.MESH_SIZE:
+            if not isinstance(value, (int, float)):
+                raise TypeError(f'Option `{key}` must be a number.')
+            if value <= 0.0:
+                raise ValueError(f'Option `{key}` must be positive.')
+        elif key == FeatureOption.MESH_TYPE:
+            if not isinstance(value, str):
+                raise TypeError(f'Option `{key}` must be a string.')
+            if value.lower() not in ['absolute', 'relative']:
+                raise ValueError(f"Option `{key}` must be 'absolute' or 'relative'.")
+        elif key in [FeatureOption.MOD_X0, FeatureOption.MOD_BOUNDS, FeatureOption.MOD_LINEAR_UB, FeatureOption.MOD_LINEAR_EQ, FeatureOption.MOD_AFFINE, FeatureOption.MOD_FUN, FeatureOption.MOD_CUB, FeatureOption.MOD_CEQ]:
+            if not callable(value):
+                raise TypeError(f'Option `{key}` must be callable.')
+        return value
+
+    @classmethod
+    def _stage(cls, name, **options):
+        """
+        A modifier-only feature for one stage of a composition.
+
+        The stage validates and defaults its local options with the same
+        rules as a standalone feature, but it never owns a run count: the
+        composition that contains it stores the experiment-wide ``n_runs``
+        once. A common option supplied here is rejected.
+        """
+        stage = object.__new__(Feature)
+        stage._name = name
+        stage._declared_name = name
+        stage._stages = None
+        stage._options = {key.lower(): value for key, value in options.items()}
+        for key in stage._options:
+            if key in COMMON_FEATURE_OPTIONS:
+                raise ValueError(f'Option `{key}` is experiment-wide and is not a stage option; '
+                                 f'give it at the top level, not inside a stage.')
+            cls._check_option_known(name, key, local_only=True)
+            stage._options[key] = cls._validate_option(name, key, stage._options[key])
+        stage._set_default_local_options()
+        return stage
 
     @staticmethod
     def _validate_n_runs(value):
@@ -1113,56 +1219,67 @@ class Feature:
             raise ValueError('The output of `noise_map` must be a real scalar.')
         return float(noise)
 
-    def _set_default_options(self):
+    def _set_default_local_options(self):
         """
-        Set default options.
+        Set default values for the unspecified local options.
 
         Notes
         -----
-        The default distribution are defined as static methods of the class and
-        not using lambda functions because the latter are not picklable.
+        Defaults are stored as plain values (strings, numbers, booleans); the
+        named distributions and noise maps they refer to are resolved by the
+        modifiers, so a feature with default options stays picklable.
         """
 
-        if self._name in [FeatureName.PLAIN, FeatureName.CUSTOM, FeatureName.NONQUANTIFIABLE_CONSTRAINTS]:
-            self._options.setdefault(FeatureOption.N_RUNS.value, 1)
+        if self._name in [FeatureName.PLAIN, FeatureName.CUSTOM, FeatureName.NONQUANTIFIABLE_CONSTRAINTS, FeatureName.PERMUTED]:
+            pass
         elif self._name == FeatureName.NOISY:
             self._options.setdefault(FeatureOption.NOISE_MODE.value, 'random')
             self._options.setdefault(FeatureOption.DISTRIBUTION.value, 'gaussian')
             self._options.setdefault(FeatureOption.NOISE_MAP.value, 'chebyshev')
-            if FeatureOption.N_RUNS.value not in self._options:
-                self._options[FeatureOption.N_RUNS.value] = 1 if self._options[FeatureOption.NOISE_MODE] == 'deterministic' else 5
             self._options.setdefault(FeatureOption.NOISE_LEVEL.value, 1e-3)
             self._options.setdefault(FeatureOption.NOISE_TYPE.value, 'mixed')
-        elif self._name == FeatureName.PERMUTED:
-            self._options.setdefault(FeatureOption.N_RUNS.value, 5)
         elif self._name == FeatureName.LINEARLY_TRANSFORMED:
             self._options.setdefault(FeatureOption.ROTATED.value, True)
             self._options.setdefault(FeatureOption.CONDITION_FACTOR.value, 0)
-            self._options.setdefault(FeatureOption.N_RUNS.value, 5)
         elif self._name == FeatureName.PERTURBED_X0:
             self._options.setdefault(FeatureOption.DISTRIBUTION.value, 'spherical')
             self._options.setdefault(FeatureOption.PERTURBATION_LEVEL.value, 1e-3)
-            self._options.setdefault(FeatureOption.N_RUNS.value, 5)
         elif self._name == FeatureName.RANDOM_NAN:
-            self._options.setdefault(FeatureOption.N_RUNS.value, 5)
             self._options.setdefault(FeatureOption.NAN_RATE.value, 0.05)
         elif self._name == FeatureName.TRUNCATED:
             self._options.setdefault(FeatureOption.PERTURBED_TRAILING_DIGITS.value, False)
-            if self._options[FeatureOption.PERTURBED_TRAILING_DIGITS]:
-                self._options.setdefault(FeatureOption.N_RUNS.value, 5)
-            else:
-                self._options.setdefault(FeatureOption.N_RUNS.value, 1)
             self._options.setdefault(FeatureOption.SIGNIFICANT_DIGITS.value, 6)
         elif self._name == FeatureName.UNRELAXABLE_CONSTRAINTS:
-            self._options.setdefault(FeatureOption.N_RUNS.value, 1)
             self._options.setdefault(FeatureOption.UNRELAXABLE_BOUNDS.value, True)
             self._options.setdefault(FeatureOption.UNRELAXABLE_LINEAR_CONSTRAINTS.value, False)
             self._options.setdefault(FeatureOption.UNRELAXABLE_NONLINEAR_CONSTRAINTS.value, False)
         elif self._name == FeatureName.QUANTIZED:
-            self._options.setdefault(FeatureOption.N_RUNS.value, 1)
             self._options.setdefault(FeatureOption.MESH_SIZE.value, 1e-3)
             self._options.setdefault(FeatureOption.MESH_TYPE.value, 'absolute')
             self._options.setdefault(FeatureOption.GROUND_TRUTH.value, True)
+        else:
+            raise NotImplementedError(f'Unknown feature: {self._name}.')
+
+    def _default_n_runs(self):
+        """
+        The established default run count of this feature, from its validated
+        local options.
+
+        This is a literal table, not a function of ``is_stochastic``: ``custom``
+        defaults to one run although it is stochastic, and an unrotated
+        ``linearly_transformed`` defaults to five although it is deterministic.
+        A composition resolves the experiment-wide count once as the largest
+        default of its effective stages and stores it on the root only.
+        """
+        if self._name in [FeatureName.PLAIN, FeatureName.CUSTOM, FeatureName.NONQUANTIFIABLE_CONSTRAINTS,
+                          FeatureName.UNRELAXABLE_CONSTRAINTS, FeatureName.QUANTIZED]:
+            return 1
+        elif self._name == FeatureName.NOISY:
+            return 1 if self._options[FeatureOption.NOISE_MODE] == 'deterministic' else 5
+        elif self._name == FeatureName.TRUNCATED:
+            return 5 if self._options[FeatureOption.PERTURBED_TRAILING_DIGITS] else 1
+        elif self._name in [FeatureName.PERMUTED, FeatureName.LINEARLY_TRANSFORMED, FeatureName.PERTURBED_X0, FeatureName.RANDOM_NAN]:
+            return 5
         else:
             raise NotImplementedError(f'Unknown feature: {self._name}.')
 

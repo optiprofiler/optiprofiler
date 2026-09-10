@@ -545,7 +545,11 @@ class EvalReport:
         # otherwise); read from stored state only, callables are described.
         pipeline = describe_pipeline(feature)
         feature_data['declared_name'] = _safe(pipeline['declared_name'])
+        feature_data['route'] = _safe(pipeline['route'])
+        feature_data['declared_spec'] = _safe(pipeline['declared_spec'])
         feature_data['seed_policy'] = _safe(pipeline['seed_policy'])
+        # The experiment-wide options are stated once; stages list local options only.
+        feature_data['common_options'] = _safe(pipeline['common_options'])
         feature_data['stages'] = _safe(pipeline['stages'])
         # request = what the caller supplied; effective = the resolved options
         # of this invocation. Stated once here, never repeated per run.

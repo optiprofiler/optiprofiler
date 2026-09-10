@@ -151,10 +151,18 @@ The rules are:
   ``perturbed_x0`` stage. Options accepted by no stage are rejected. Repeated
   stages share the supplied options; configuring two occurrences of the same
   feature differently is not expressible through the flat option list.
-- ``n_runs`` is global. Unless given explicitly (or set by ``solver_isrand``),
-  it is the largest default of the stages, so ``'noisy+truncated'`` uses five
-  runs and ``'truncated+quantized'`` uses one. The composition counts as
-  stochastic when any stage is stochastic.
+- ``n_runs`` is experiment-wide: a composition stores it once, and its
+  stages never carry a run count of their own. Unless given explicitly (or
+  set by ``solver_isrand``), it is the largest established default of the
+  effective stages. Those defaults are the ones of the single features: five
+  for ``perturbed_x0``, ``noisy`` (one with ``noise_mode='deterministic'``),
+  ``permuted``, ``linearly_transformed`` (also with ``rotated=False``,
+  although that variant is deterministic), ``random_nan`` and ``truncated``
+  with ``perturbed_trailing_digits=True``; one for ``plain``, ``truncated``,
+  ``unrelaxable_constraints``, ``nonquantifiable_constraints``,
+  ``quantized`` and ``custom`` (although ``custom`` counts as stochastic).
+  So ``'noisy+truncated'`` uses five runs and ``'truncated+quantized'`` uses
+  one. The composition counts as stochastic when any stage is stochastic.
 - Value changes (``noisy``, ``truncated``, ``random_nan``,
   ``nonquantifiable_constraints``) affect what solvers observe, never the
   scoring reference recorded in the histories. ``permuted`` and
@@ -199,8 +207,99 @@ The rules are:
   earlier policy keep their own identifier when loaded.
 - The output folder name joins the stamps of the stages with ``__`` and is
   shortened with a digest for long chains. The archive and the structured
-  report record the declared name, the effective stages with their options and
-  the seed policy. Derivatives of a composed problem are not provided.
+  report record the declared name, the experiment-wide options once, the
+  effective stages with their local options and the seed policy (see
+  :ref:`py_structured_feature` for the payload). Derivatives of a composed
+  problem are not provided.
+
+.. _py_structured_feature:
+
+Structured feature specification
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``feature_name`` shorthand broadcasts every supplied option to all stages
+that accept it, so two occurrences of the same feature, or a shared key such
+as ``distribution`` for ``noisy`` and ``perturbed_x0``, cannot be configured
+differently. The ``feature`` option gives each stage its own options. It is
+one stage entry ``{'name': ..., 'options': {...}}`` or an ordered list (or
+tuple) of entries; a bare name is a stage with default options, ``options``
+may be omitted, and ``'plain'`` entries are identities.
+
+.. code-block:: python
+
+    scores, profile_scores, curves = benchmark(
+        [solver1, solver2],
+        n_runs=3,
+        feature=[
+            {'name': 'noisy', 'options': {'distribution': 'uniform', 'noise_level': 1e-2}},
+            {'name': 'perturbed_x0', 'options': {'distribution': 'gaussian'}},
+            {'name': 'noisy', 'options': {'noise_level': 1e-4, 'noise_type': 'absolute'}},
+        ],
+    )
+
+    # The same experiment as feature_name='noisy', noise_level=1e-2:
+    scores, _, _ = benchmark([solver1, solver2], feature={'name': 'noisy', 'options': {'noise_level': 1e-2}})
+
+The rules are:
+
+- Option ownership is explicit. ``n_runs`` belongs to the experiment and is
+  given at the top level; inside an entry it is rejected. Every other option
+  belongs to the stage named in its entry and is validated with that stage's
+  rules, so ``{'name': 'perturbed_x0', 'options': {'noise_level': 1e-2}}`` is
+  an error naming the entry and the stage. Profile options such as ``seed``
+  or ``max_eval_factor`` are never stage options.
+- One route per call. ``feature`` and ``feature_name`` cannot both be given
+  (an explicit ``feature_name='plain'`` counts as given), ``feature=None``
+  and an empty specification are errors, a string belongs to
+  ``feature_name``, and with ``feature`` every flat stage option is rejected:
+  there is no override hierarchy. These errors are raised before any output
+  directory is created; a requested ``report_path`` still records the failure.
+- Every entry, ``'plain'`` ones included, is validated before ``'plain'``
+  entries are removed, so an invalid option on an identity stage is never
+  dropped silently. Names are stripped and lowercased, and stage names are
+  atomic (``{'name': 'noisy+truncated'}`` is an error). A specification with
+  one effective stage runs the established single-feature path, with its
+  seeds and folder name.
+- Equal settings give equal numbers. ``feature=[{'name': 'noisy', 'options':
+  {'noise_level': 1e-2}}, 'truncated']`` and ``feature_name='noisy+truncated',
+  noise_level=1e-2`` produce the same histories, outputs, folder stamp and
+  scores for the same seed. Stage identities stay name plus occurrence, so
+  differently configured repeats keep their seeds and differ only by the
+  configured amounts.
+- ``feature`` cannot be combined with ``load``. A specification means
+  transformations to execute, and loading keeps the archived pipeline of the
+  saved experiment. Experiments created with ``feature`` load like any other,
+  with their archived pipeline retained; ``feature_name`` keeps labelling a
+  load as before.
+
+Provenance and replay. The archive entry ``feature_pipeline`` (payload
+``feature_pipeline-v2``) records the route, the declared name and the
+declared specification (the structured input as given, or for the shorthand
+route its projection from the declared tokens and the supplied broadcast
+options; callables are described by name, never executed), the
+experiment-wide options once under ``common_options`` and, for every
+effective stage, its identity and its local options. The structured report
+shows the same data under ``configuration.effective.feature``. Archives
+written by earlier versions keep their own payload when loaded. The file
+``test_log/options_refined.pkl`` stores ``feature_route``, ``feature_name``
+(the declared name), ``n_runs`` and ``feature_specification``: the ordered
+effective stages with their validated options as native Python values,
+callables included. That entry is valid ``feature`` input, so
+``scores, _, _ = benchmark(feature=refined['feature_specification'], n_runs=refined['n_runs'], ...)``
+reproduces the effective experiment for both routes; forwarding the whole
+refined dictionary is not a supported call. Only load pickle files from
+trusted sources: unpickling can execute code. The callback descriptions in
+the archive and the report are one-way informational metadata (a class or
+function name), never a recipe for reconstructing an executable callable.
+The shorthand route keeps its flat option keys there for compatibility, and
+``Feature.options`` of a composition remains that broadcast projection plus
+``n_runs``.
+
+MATLAB mapping. The MATLAB implementation has no composition engine yet. The
+intended data mapping is ``options.feature`` as a cell array of structs
+(``struct('name', 'noisy', 'options', struct('noise_level', 1e-3))``) or
+names, ``options.n_runs`` at the top level and the same ``feature_pipeline-v2``
+fields; ``options.feature_name`` keeps its current meaning.
 
 .. _py_example3:
 

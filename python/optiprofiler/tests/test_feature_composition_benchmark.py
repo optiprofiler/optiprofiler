@@ -97,12 +97,15 @@ class TestBenchmarkIntegration:
         results = load_results_from_h5(str(archive_of(tmp_path / 'composition')))
         assert results[0]['feature_stamp'] == 'noisy_0.001_mixed_gaussian__truncated_6'
         pipeline = json.loads(results[0]['feature_pipeline'])
-        assert pipeline['schema'] == 'feature_pipeline-v1'
+        assert pipeline['schema'] == 'feature_pipeline-v2'
+        assert pipeline['route'] == 'feature_name'
         assert pipeline['declared_name'] == 'noisy+truncated' and pipeline['effective_name'] == 'noisy+truncated'
         assert pipeline['seed_policy'] == 'seedsequence-v2'
         assert [stage['identity'] for stage in pipeline['stages']] == ['noisy#0', 'truncated#0']
         assert pipeline['stages'][0]['options']['distribution'] == 'gaussian'
-        assert pipeline['stages'][0]['options']['n_runs'] == 5
+        # The run count is experiment-wide: stated once, never inside a stage.
+        assert pipeline['common_options'] == {'n_runs': 5}
+        assert all('n_runs' not in stage['options'] for stage in pipeline['stages'])
         assert pipeline['stages'][1]['options']['significant_digits'] == 6
         assert pipeline['full_feature_stamp'] == 'noisy_0.001_mixed_gaussian__truncated_6'
         with open(report_path, encoding='utf-8') as stream:

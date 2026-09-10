@@ -35,7 +35,8 @@ from .utils import DEFAULT_LOG_LINE_WIDTH, FeatureName, ProfileOption, FeatureOp
 from .loader import load_results, save_results_to_h5, save_options
 from .profile_utils import check_validity_problem_options, check_validity_profile_options, check_post_load_profile_options, get_default_problem_options, get_default_profile_options, compute_merit_values, create_stamp, merge_pdfs_with_pypdf, write_report, process_results, init_readme, add_to_readme, compute_scores
 from .profile_utils import _mask_invalid_merits, _get_default_feature_stamp
-from .composition import describe_pipeline, parse_feature_name
+from .composition import (_effective_specification, describe_pipeline, parse_feature_name, parse_feature_spec,
+                          reject_flat_stage_options)
 from .plotting import draw_hist, set_profile_context, format_float_scientific_latex, draw_profiles, summary_legend_extra_width, latex_escape_text, format_profile_text
 
 
@@ -263,10 +264,27 @@ def _benchmark(
         and the noisy value is then truncated. Supplied feature options are
         passed to every stage that accepts them, 'n_runs' is global, and
         'plain' stages are identities. See the user guide for the rules.
+    feature : dict or list, optional
+        Structured specification of the feature: one stage entry
+        ``{'name': ..., 'options': {...}}`` or an ordered list/tuple of entries
+        (bare names allowed). Each stage owns the options inside its entry, so
+        repeated stages and different values of a shared key are expressible;
+        ``n_runs`` stays a top-level option. ``feature`` and ``feature_name``
+        cannot both be given, flat stage options are rejected with ``feature``,
+        and ``feature`` cannot be combined with ``load``.
     n_runs : int, optional
-        The number of runs of the experiments with the given feature.
-        Default is 5 for stochastic features and 1 for deterministic
-        features.
+        The number of runs of the experiments with the given feature. This is
+        an experiment-wide option: a composition stores it once, and stages
+        never carry a run count of their own (it is rejected inside a
+        ``feature`` entry). Unless given, it is 5 when ``solver_isrand``
+        marks a randomized solver, and otherwise the established default of
+        the feature: 5 for 'perturbed_x0', 'noisy' (1 when
+        ``noise_mode='deterministic'``), 'permuted', 'linearly_transformed'
+        (also when ``rotated=False``), 'random_nan' and 'truncated' with
+        ``perturbed_trailing_digits=True``; 1 for 'plain', 'truncated',
+        'unrelaxable_constraints', 'nonquantifiable_constraints', 'quantized'
+        and 'custom' (although 'custom' counts as stochastic). A composition
+        defaults to the largest default of its effective stages.
     distribution : str or callable, optional
         The distribution of perturbation in 'perturbed_x0'
         feature or random noise in 'noisy' feature. It should be either a
@@ -897,7 +915,23 @@ def _benchmark(
     # Save the original keyword arguments for future use.
     options_user = kwargs.copy()
 
-    # Process the feature name.
+    # Process the feature: the ``feature_name`` shorthand or the structured
+    # ``feature`` specification, never both. Everything here is validated
+    # before any output directory is created.
+    feature_route = 'feature_name'
+    feature_spec = None
+    if 'feature' in kwargs:
+        feature_route = 'feature'
+        feature_spec = kwargs.pop('feature')
+        if 'feature_name' in kwargs:
+            raise ValueError('Options `feature_name` and `feature` cannot both be given; use one route per call.')
+        if feature_spec is None:
+            raise ValueError('Option `feature` cannot be None; omit it to run the default (plain) feature.')
+        if isinstance(feature_spec, str):
+            raise ValueError('Option `feature` must be a structured specification (a mapping or a list/tuple of '
+                             'stage entries); a feature name string belongs to `feature_name`.')
+        # Every entry, plain ones included, is validated now.
+        parse_feature_spec(feature_spec)
     if 'feature_name' in kwargs:
         feature_name = kwargs.pop('feature_name')
     else:
@@ -925,6 +959,15 @@ def _benchmark(
             profile_options[key] = value
         else:
             raise ValueError(f'Unknown option: {key}.')
+    if feature_route == 'feature':
+        # Stage options belong inside the entries; only the common ``n_runs``
+        # may be a keyword. A specification means transformations to execute,
+        # so it is refused with ``load``, which keeps the archived pipeline.
+        reject_flat_stage_options(feature_options)
+        load_request = profile_options.get(ProfileOption.LOAD)
+        if load_request is not None and load_request != '':
+            raise ValueError('Option `feature` cannot be used with `load`: loading keeps the archived pipeline of '
+                             'the saved experiment; only `feature_name` labels a load.')
 
     # Check profile options first so loading saved results can validate library
     # names structurally without requiring those providers to remain installed.
@@ -978,8 +1021,12 @@ def _benchmark(
         # 'solvers_to_load' selection has been applied by `load_results`.
         profile_options = check_post_load_profile_options(results_plibs[0]['fun_histories'].shape[1], profile_options)
 
-    # Build feature.
-    feature = Feature(feature_name, **feature_options)
+    # Build the feature from the chosen route. Both routes produce the same
+    # objects; the run count is stored once on the feature that runs.
+    if feature_route == 'feature':
+        feature = Feature(feature_spec, **feature_options)
+    else:
+        feature = Feature(feature_name, **feature_options)
     feature_options = feature.options
     
     # Set default values for the unspecified options.
@@ -1101,6 +1148,14 @@ def _benchmark(
                 options_refined[key] = feature_options[key]
             for key in problem_options_keys:
                 options_refined[key] = problem_options[key]
+            # The route, the declared name and the ordered effective stage
+            # configuration (native values, callables included) for both
+            # routes. Replay with ``feature=refined['feature_specification']``
+            # and ``n_runs=refined['n_runs']``; the flat keys above are the
+            # shorthand's broadcast values and stay for compatibility.
+            options_refined['feature_route'] = feature_route
+            options_refined['feature_name'] = feature._declared_name
+            options_refined['feature_specification'] = _effective_specification(feature)
             
             save_options(options_refined, path_log / 'options_refined.pkl')
             add_to_readme(path_readme_log, 'options_refined.pkl', 'File, storing the options refined by OptiProfiler for the current experiment.')
