@@ -99,7 +99,7 @@ class TestBenchmarkIntegration:
         pipeline = json.loads(results[0]['feature_pipeline'])
         assert pipeline['schema'] == 'feature_pipeline-v1'
         assert pipeline['declared_name'] == 'noisy+truncated' and pipeline['effective_name'] == 'noisy+truncated'
-        assert pipeline['seed_policy'] == 'seedsequence-v1'
+        assert pipeline['seed_policy'] == 'seedsequence-v2'
         assert [stage['identity'] for stage in pipeline['stages']] == ['noisy#0', 'truncated#0']
         assert pipeline['stages'][0]['options']['distribution'] == 'gaussian'
         assert pipeline['stages'][0]['options']['n_runs'] == 5
@@ -110,7 +110,7 @@ class TestBenchmarkIntegration:
         feature = report['configuration']['effective']['feature']
         assert feature['name'] == 'noisy+truncated'
         assert feature['declared_name'] == 'noisy+truncated'
-        assert feature['seed_policy'] == 'seedsequence-v1'
+        assert feature['seed_policy'] == 'seedsequence-v2'
         assert [stage['identity'] for stage in feature['stages']] == ['noisy#0', 'truncated#0']
         assert feature['options'] == {'n_runs': 5}
 

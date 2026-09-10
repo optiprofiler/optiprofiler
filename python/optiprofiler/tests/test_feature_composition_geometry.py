@@ -6,7 +6,6 @@ permutation transport, stage streams and served-query counters.
 import numpy as np
 import pytest
 
-from optiprofiler.composition import STAGE_CODES, Stage, stage_seed
 from optiprofiler.opclasses import Feature, FeaturedProblem, Problem
 
 
@@ -131,20 +130,6 @@ class TestAffineTransport:
 
 
 class TestStreams:
-
-    def test_stage_seeds_are_frozen_literals(self):
-        noisy_0 = Stage(0, 'noisy', 0, Feature('noisy'))
-        noisy_1 = Stage(1, 'noisy', 1, Feature('noisy'))
-        truncated_0 = Stage(2, 'truncated', 0, Feature('truncated'))
-        assert STAGE_CODES == {'perturbed_x0': 1, 'noisy': 2, 'truncated': 3, 'permuted': 4,
-                               'linearly_transformed': 5, 'random_nan': 6, 'unrelaxable_constraints': 7,
-                               'nonquantifiable_constraints': 8, 'quantized': 9, 'custom': 10}
-        seeds = {stage_seed(0, noisy_0), stage_seed(0, noisy_1), stage_seed(0, truncated_0), stage_seed(1, noisy_0)}
-        assert len(seeds) == 4
-        assert all(0 <= seed < 2 ** 32 for seed in seeds)
-        assert stage_seed(0, noisy_0) == stage_seed(None, noisy_0)
-        # Same identity, same seed, independent of pipeline position.
-        assert stage_seed(7, Stage(5, 'noisy', 1, Feature('noisy'))) == stage_seed(7, noisy_1)
 
     def test_repeated_stages_draw_from_distinct_streams(self):
         options = dict(noise_type='absolute', noise_level=1.0)

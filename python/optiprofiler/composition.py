@@ -27,17 +27,29 @@ it runs through the established single-feature path of
 :class:`optiprofiler.opclasses.FeaturedProblem`, including its seeds, its
 callback pattern and its stamp.
 
-Random streams. Every stage of a composition receives its own seed derived
-from the run seed with :class:`numpy.random.SeedSequence` and a spawn key
-made of the stage's frozen numeric code (:data:`STAGE_CODES`) and its
-occurrence index among stages of the same name. Inserting or removing
-``plain`` therefore never shifts another stage's stream, and repeated
-stages have distinct streams. Within a stage, the served-query counter of
-each channel (``fun``, ``cub``, ``ceq``) plays the role that the outer
-history length plays for a single feature: it advances on every observed
-query the stage serves, including probes made by a later ``custom`` or
-``unrelaxable_constraints`` stage, and it is separate from the solver
-budget kept by the recorder.
+Random streams (policy ``seedsequence-v2``). Every channel of every stage
+of a composition receives its own 32-bit seed: the first word of
+``SeedSequence(run_seed, spawn_key=(code, occurrence, tag)).generate_state(1)``
+where ``code`` is the stage's frozen numeric code (:data:`STAGE_CODES`),
+``occurrence`` its index among stages of the same name, and ``tag`` the
+frozen channel tag (:data:`CHANNEL_TAGS`: ``fun`` 0, ``cub`` 1, ``ceq`` 2,
+``construction`` 3). A run seed of ``None`` counts as 0. Inserting or
+removing ``plain`` therefore does not change the derivation identity of any
+other stage, repeated stages have distinct identities, and the objective and
+constraint channels of one stage have distinct identities even when they see
+equal values at equal points with equal counters: the distinct identities
+remove the structural alias that omitting the channel tag would cause. The
+identity is reduced to a 32-bit seed, so generator outputs can still
+coincide by chance. The ``construction`` channel seeds draws made
+when the problem is built (initial point perturbations, permutations,
+rotations and custom structure callbacks). Within a stage, the served-query
+counter of each channel plays the role that the outer history length plays
+for a single feature: it advances on every observed query the stage serves,
+including probes made by a later ``custom`` or ``unrelaxable_constraints``
+stage, and it is separate from the solver budget kept by the recorder.
+Reference reads never advance any counter. None of this is a statistical
+independence proof of the generator. Single and effective-single features
+keep the legacy run-seed streams.
 """
 
 import copy
@@ -65,8 +77,12 @@ STAGE_CODES = {
     'custom': 10,
 }
 
-# Identifier of the stage seed derivation recorded in archives and reports.
-SEED_POLICY = 'seedsequence-v1'
+# Frozen channel tags of the seed derivation. Never renumber.
+CHANNEL_TAGS = {'fun': 0, 'cub': 1, 'ceq': 2, 'construction': 3}
+
+# Identifier of the seed derivation recorded in archives and reports. Archives
+# written under an earlier policy keep their recorded identifier when loaded.
+SEED_POLICY = 'seedsequence-v2'
 
 CHANNELS = ('fun', 'cub', 'ceq')
 
@@ -120,21 +136,30 @@ class Stage:
         return f'{self.name}#{self.occurrence}'
 
 
-def stage_seed(run_seed, stage):
-    """Derive the 32-bit seed of a stage from the run seed and the stage identity."""
+def stage_seed(run_seed, stage, channel):
+    """
+    Derive the 32-bit seed of one channel of a stage (policy ``seedsequence-v2``).
+
+    The spawn key is ``(stage code, occurrence, channel tag)``; a run seed of
+    ``None`` counts as 0. The result is the first unsigned 32-bit word of the
+    sequence state.
+    """
     entropy = 0 if run_seed is None else int(run_seed)
-    sequence = np.random.SeedSequence(entropy, spawn_key=(stage.code, stage.occurrence))
+    sequence = np.random.SeedSequence(entropy, spawn_key=(stage.code, stage.occurrence, CHANNEL_TAGS[channel]))
     return int(sequence.generate_state(1, dtype=np.uint32)[0])
 
 
 class StageContext:
-    """Private per-run context of one stage: its seed and served-query counters."""
+    """Private per-run context of one stage: its channel seeds and served-query counters."""
 
-    __slots__ = ('seed', 'served')
+    __slots__ = ('seeds', 'served')
 
-    def __init__(self, seed):
-        self.seed = seed
+    def __init__(self, seeds):
+        self.seeds = dict(seeds)
         self.served = {channel: 0 for channel in CHANNELS}
+
+    def seed_for(self, channel):
+        return self.seeds[channel]
 
     def next_index(self, channel):
         index = self.served[channel]
@@ -432,14 +457,14 @@ class NoisyView(ProblemView):
     def observed_fun(self, x):
         f = self._predecessor.observed_fun(x)
         index = self._context.next_index('fun')
-        noise = self._feature._compute_noise(x, self._context.seed, index, f)
+        noise = self._feature._compute_noise(x, self._context.seed_for('fun'), index, f)
         return self._feature._apply_noise(f, noise)
 
     def _observed_vector(self, channel, values, x):
         index = self._context.next_index(channel)
         if values.size == 0:
             return values
-        noise = self._feature._compute_noise(x, self._context.seed, index, values, values.size)
+        noise = self._feature._compute_noise(x, self._context.seed_for(channel), index, values, values.size)
         return self._feature._apply_noise(values, noise)
 
     def observed_cub(self, x):
@@ -455,13 +480,13 @@ class TruncatedView(ProblemView):
     def observed_fun(self, x):
         f = self._predecessor.observed_fun(x)
         index = self._context.next_index('fun')
-        return self._feature._truncate_scalar(f, x, self._context.seed, index)
+        return self._feature._truncate_scalar(f, x, self._context.seed_for('fun'), index)
 
     def _observed_vector(self, channel, values, x):
         index = self._context.next_index(channel)
         if values.size == 0:
             return values
-        return self._feature._truncate_vector(np.array(values, dtype=float), x, self._context.seed, index)
+        return self._feature._truncate_vector(np.array(values, dtype=float), x, self._context.seed_for(channel), index)
 
     def observed_cub(self, x):
         return self._observed_vector('cub', self._predecessor.observed_cub(x), x)
@@ -476,13 +501,13 @@ class RandomNanView(ProblemView):
     def observed_fun(self, x):
         f = self._predecessor.observed_fun(x)
         index = self._context.next_index('fun')
-        return self._feature._random_nan_scalar(f, x, self._context.seed, index)
+        return self._feature._random_nan_scalar(f, x, self._context.seed_for('fun'), index)
 
     def _observed_vector(self, channel, values, x):
         index = self._context.next_index(channel)
         if values.size == 0:
             return values
-        return self._feature._random_nan_vector(np.array(values, dtype=float), x, self._context.seed, index)
+        return self._feature._random_nan_vector(np.array(values, dtype=float), x, self._context.seed_for(channel), index)
 
     def observed_cub(self, x):
         return self._observed_vector('cub', self._predecessor.observed_cub(x), x)
@@ -514,7 +539,7 @@ class PerturbedX0View(ProblemView):
 
     def __init__(self, predecessor, stage, context):
         super().__init__(predecessor, stage, context)
-        self._x0 = self._feature.modifier_x0(context.seed, predecessor)
+        self._x0 = self._feature.modifier_x0(context.seed_for('construction'), predecessor)
 
 
 class AffineView(ProblemView):
@@ -533,7 +558,7 @@ class AffineView(ProblemView):
 
     def __init__(self, predecessor, stage, context):
         super().__init__(predecessor, stage, context)
-        feature, seed = self._feature, context.seed
+        feature, seed = self._feature, context.seed_for('construction')
         self._A, self._b, self._inv = feature.modifier_affine(seed, predecessor)
         self._x0 = feature.modifier_x0(seed, predecessor)
         self._xl, self._xu = feature.modifier_bounds(seed, predecessor)
@@ -845,7 +870,7 @@ class CustomView(AffineView):
         index = self._context.next_index('fun')
         options = self._feature.options
         if FeatureOption.MOD_FUN in options:
-            rng_custom = Feature.get_default_rng(self._context.seed, f, *xm, index)
+            rng_custom = Feature.get_default_rng(self._context.seed_for('fun'), f, *xm, index)
             return options[FeatureOption.MOD_FUN](xm, rng_custom, self._predecessor)
         return f
 
@@ -856,7 +881,7 @@ class CustomView(AffineView):
         options = self._feature.options
         if values.size == 0 or key not in options:
             return values
-        rng_custom = Feature.get_default_rng(self._context.seed, *values, *xm, index)
+        rng_custom = Feature.get_default_rng(self._context.seed_for(channel), *values, *xm, index)
         return options[key](xm, rng_custom, self._predecessor)
 
     def observed_cub(self, x):
@@ -918,7 +943,8 @@ class ComposedFeaturedProblem(FeaturedProblem):
         self._last_cub = np.nan
         self._last_ceq = np.nan
 
-        self._contexts = tuple(StageContext(stage_seed(self._seed, stage)) for stage in feature._stages)
+        self._contexts = tuple(StageContext({channel: stage_seed(self._seed, stage, channel) for channel in CHANNEL_TAGS})
+                               for stage in feature._stages)
         view = RootView(problem)
         views = []
         for stage, context in zip(feature._stages, self._contexts):
@@ -944,9 +970,12 @@ class ComposedFeaturedProblem(FeaturedProblem):
         self._fun_init, self._maxcv_init = self._evaluate_truth(self._x0)
 
     def __getnewargs__(self):
-        # Pickling support: ``FeaturedProblem.__new__`` requires the constructor
-        # arguments, so hand them to the unpickler; the instance state (views,
-        # contexts, histories) is then restored from the instance dictionary.
+        # Pickling support for compositions only: ``FeaturedProblem.__new__``
+        # requires the constructor arguments, so hand them to the unpickler;
+        # the instance state (views, contexts, histories) is then restored
+        # from the instance dictionary. The single-feature wrapper itself is
+        # not picklable, on the base commit as on this branch, and that
+        # existing boundary is deliberately left unchanged.
         return self._problem, self._feature, self._max_eval, self._seed
 
     def _point(self, x, method):
