@@ -40,11 +40,14 @@ query the stage serves, including probes made by a later ``custom`` or
 budget kept by the recorder.
 """
 
+import copy
+
 import numpy as np
 
 from .metadata import safe_metadata
 from .opclasses import (Feature, FeatureName, FeatureOption, FeaturedProblem, Problem,
                         _process_1d_array, _validate_max_eval, _validate_seed)
+from .utils import get_logger, shorten_log_message
 
 # Frozen numeric stage codes used in seed derivation. Never renumber; append
 # new features with new codes. ``plain`` has no code because it never forms a
@@ -632,15 +635,209 @@ class UnrelaxableView(ProblemView):
         return f
 
 
+def _stage_label(stage):
+    return f"stage {stage.position + 1} '{stage.name}' (occurrence {stage.occurrence + 1})"
+
+
+def _custom_scalar(value, stage, key):
+    """
+    ``Problem.fun`` scalar policy for a custom objective output: a real
+    scalar or a one-element real array converts to ``float``; anything else,
+    including complex values, is logged and recorded as NaN.
+    """
+    try:
+        if isinstance(value, np.ndarray):
+            if value.size != 1:
+                raise TypeError(f'an array of shape {value.shape} is not a scalar')
+            value = value.reshape(-1)[0]
+        if isinstance(value, (str, bytes)) or np.iscomplexobj(value):
+            raise TypeError(f'{type(value).__name__} is not a real scalar')
+        return float(value)
+    except Exception as exc:
+        get_logger(__name__).warning(
+            f'The callback `{key}` of {_stage_label(stage)} returned a value that is not a real scalar '
+            f'({shorten_log_message(exc)}); the observed objective value is recorded as NaN.')
+        return np.nan
+
+
+def _custom_vector(value, size, stage, key, what='an array'):
+    """A custom callback output as a fresh real one-dimensional float array of the required size."""
+    prefix = f'The callback `{key}` of {_stage_label(stage)} returned'
+    requirement = f'a real one-dimensional array of size {size} is required'
+    try:
+        array = np.empty(0) if value is None else np.asarray(value)
+    except Exception as exc:
+        raise ValueError(f'{prefix} {what} that is not array-like; {requirement}.') from exc
+    if np.iscomplexobj(array):
+        raise ValueError(f'{prefix} complex values; {requirement}.')
+    try:
+        array = np.array(array, dtype=float)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f'{prefix} values that cannot be converted to real numbers; {requirement}.') from exc
+    array = np.atleast_1d(np.squeeze(array))
+    if array.ndim != 1:
+        raise ValueError(f'{prefix} {what} of shape {tuple(np.shape(value))}; {requirement}.')
+    if array.size != size:
+        raise ValueError(f'{prefix} {what} of size {array.size}; {requirement}.')
+    return array
+
+
+def _custom_matrix(value, shape, stage, key, what='a matrix'):
+    """A custom callback output as a fresh real two-dimensional float array of the required shape."""
+    prefix = f'The callback `{key}` of {_stage_label(stage)} returned'
+    requirement = f'a real matrix of shape {shape} is required'
+    try:
+        array = np.asarray(value)
+    except Exception as exc:
+        raise ValueError(f'{prefix} {what} that is not array-like; {requirement}.') from exc
+    if np.iscomplexobj(array):
+        raise ValueError(f'{prefix} complex values; {requirement}.')
+    try:
+        array = np.atleast_2d(np.array(array, dtype=float))
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f'{prefix} values that cannot be converted to real numbers; {requirement}.') from exc
+    if array.shape != tuple(shape):
+        raise ValueError(f'{prefix} {what} of shape {array.shape}; {requirement}.')
+    return array
+
+
+def _normalized_custom_feature(feature, predecessor, stage):
+    """
+    A copy of a custom child feature whose user callbacks are wrapped so that
+    every output crosses the composition boundary as validated numeric data.
+    The legacy modifiers then run unchanged on this copy; the original child
+    feature (and its provenance) is untouched. The wrappers are small
+    picklable callables, so a composed problem with top-level callbacks can
+    still be pickled.
+    """
+    n = predecessor.n
+    options = dict(feature._options)
+    wrappers = {
+        FeatureOption.MOD_FUN: lambda user: _ScalarCallback(user, stage),
+        FeatureOption.MOD_CUB: lambda user: _VectorCallback(user, predecessor.m_nonlinear_ub, stage, 'mod_cub'),
+        FeatureOption.MOD_CEQ: lambda user: _VectorCallback(user, predecessor.m_nonlinear_eq, stage, 'mod_ceq'),
+        FeatureOption.MOD_X0: lambda user: _InitialPointCallback(user, n, stage),
+        FeatureOption.MOD_BOUNDS: lambda user: _BoundsCallback(user, n, stage),
+        FeatureOption.MOD_LINEAR_UB: lambda user: _LinearCallback(user, n, stage, 'mod_linear_ub'),
+        FeatureOption.MOD_LINEAR_EQ: lambda user: _LinearCallback(user, n, stage, 'mod_linear_eq'),
+        FeatureOption.MOD_AFFINE: lambda user: _AffineCallback(user, n, stage),
+    }
+    for key, wrap in wrappers.items():
+        if key in options:
+            options[key.value] = wrap(options[key])
+    normalized = copy.copy(feature)
+    normalized._options = options
+    return normalized
+
+
+def _pair(result, stage, key):
+    if not isinstance(result, (tuple, list)) or len(result) != 2:
+        raise ValueError(f'The callback `{key}` of {_stage_label(stage)} must return a pair of arrays.')
+    return result
+
+
+class _ScalarCallback:
+    """``mod_fun`` wrapper applying the scalar policy."""
+
+    def __init__(self, user, stage):
+        self.user, self.stage = user, stage
+
+    def __call__(self, x, rng, problem):
+        return _custom_scalar(self.user(x, rng, problem), self.stage, 'mod_fun')
+
+
+class _VectorCallback:
+    """``mod_cub``/``mod_ceq`` wrapper requiring the predecessor's channel size."""
+
+    def __init__(self, user, size, stage, key):
+        self.user, self.size, self.stage, self.key = user, size, stage, key
+
+    def __call__(self, x, rng, problem):
+        return _custom_vector(self.user(x, rng, problem), self.size, self.stage, self.key)
+
+
+class _InitialPointCallback:
+
+    def __init__(self, user, n, stage):
+        self.user, self.n, self.stage = user, n, stage
+
+    def __call__(self, rng, problem):
+        return _custom_vector(self.user(rng, problem), self.n, self.stage, 'mod_x0', 'an initial point')
+
+
+class _BoundsCallback:
+
+    def __init__(self, user, n, stage):
+        self.user, self.n, self.stage = user, n, stage
+
+    def __call__(self, rng, problem):
+        xl, xu = _pair(self.user(rng, problem), self.stage, 'mod_bounds')
+        return (_custom_vector(xl, self.n, self.stage, 'mod_bounds', 'lower bounds'),
+                _custom_vector(xu, self.n, self.stage, 'mod_bounds', 'upper bounds'))
+
+
+class _LinearCallback:
+    """``mod_linear_ub``/``mod_linear_eq`` wrapper: a real (m, n) matrix and a size-m right-hand side."""
+
+    def __init__(self, user, n, stage, key):
+        self.user, self.n, self.stage, self.key = user, n, stage, key
+
+    def __call__(self, rng, problem):
+        matrix, rhs = _pair(self.user(rng, problem), self.stage, self.key)
+        prefix = f'The callback `{self.key}` of {_stage_label(self.stage)} returned'
+        try:
+            probe = np.asarray(matrix, dtype=float)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f'{prefix} a coefficient matrix whose values cannot be converted to real numbers; '
+                             f'a real matrix with {self.n} columns is required.') from exc
+        rows = 0 if probe.size == 0 else np.atleast_2d(probe).shape[0]
+        if rows == 0:
+            matrix = np.empty((0, self.n))
+        else:
+            matrix = _custom_matrix(matrix, (rows, self.n), self.stage, self.key, 'a coefficient matrix')
+        rhs = _custom_vector(rhs, rows, self.stage, self.key, 'a right-hand side')
+        return matrix, rhs
+
+
+class _AffineCallback:
+
+    def __init__(self, user, n, stage):
+        self.user, self.n, self.stage = user, n, stage
+
+    def __call__(self, rng, problem):
+        result = self.user(rng, problem)
+        if not isinstance(result, (tuple, list)) or len(result) != 3:
+            raise ValueError(f'The callback `mod_affine` of {_stage_label(self.stage)} must return a matrix, '
+                             f'a vector and an inverse matrix.')
+        return (_custom_matrix(result[0], (self.n, self.n), self.stage, 'mod_affine'),
+                _custom_vector(result[1], self.n, self.stage, 'mod_affine', 'a translation vector'),
+                _custom_matrix(result[2], (self.n, self.n), self.stage, 'mod_affine', 'an inverse matrix'))
+
+
 class CustomView(AffineView):
     """
     User-supplied modifiers at any position of a composition. The callbacks
     receive the immediate predecessor view as their ``problem`` argument, so
-    ``problem.fun(x)`` is a genuine observed query of that predecessor. As in
-    the single-feature implementation, the objective and constraint callbacks
-    only change observations, ``mod_affine`` transports both channels, and the
-    stream handed to a value callback depends on the value read first.
+    ``problem.fun(x)`` is a genuine observed query of that predecessor, and a
+    stochastic predecessor draws a fresh sample for each probe. As in the
+    single-feature implementation, the objective and constraint callbacks
+    only change observations, ``mod_affine`` transports both channels, and
+    the stream handed to a value callback depends on the value read first.
+
+    Callback outputs are the only untrusted values entering a composition,
+    so they are normalized here, once: the objective follows the
+    ``Problem.fun`` scalar policy (NaN with a logged warning when the output
+    is not a real scalar), nonlinear constraint outputs must be real
+    one-dimensional arrays of the predecessor's channel size, and
+    construction outputs must have the shapes the problem structure requires.
+    Violations raise ``ValueError`` naming the stage, occurrence and callback.
     """
+
+    def __init__(self, predecessor, stage, context):
+        stage_with_normalized_feature = copy.copy(stage)
+        stage_with_normalized_feature.feature = _normalized_custom_feature(stage.feature, predecessor, stage)
+        super().__init__(predecessor, stage_with_normalized_feature, context)
+        self._stage = stage
 
     def observed_fun(self, x):
         xm = self._map(x)
@@ -745,6 +942,12 @@ class ComposedFeaturedProblem(FeaturedProblem):
         self._grad = self._hess = self._jcub = self._jceq = self._hcub = self._hceq = None
 
         self._fun_init, self._maxcv_init = self._evaluate_truth(self._x0)
+
+    def __getnewargs__(self):
+        # Pickling support: ``FeaturedProblem.__new__`` requires the constructor
+        # arguments, so hand them to the unpickler; the instance state (views,
+        # contexts, histories) is then restored from the instance dictionary.
+        return self._problem, self._feature, self._max_eval, self._seed
 
     def _point(self, x, method):
         x = _process_1d_array(x, f'The argument `x` for method `{method}` in problem must be a one-dimensional array.')
