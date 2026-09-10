@@ -95,11 +95,15 @@ class Feature:
 
     Parameters
     ----------
-    name : str
+    name : str or mapping or list or tuple
         Name of the feature, or several feature names joined with ``+`` to
         apply them in order: ``'noisy+truncated'`` adds noise to each value
-        first and truncates the noisy value afterwards. Each name must be one
-        of the following:
+        first and truncates the noisy value afterwards. Alternatively a
+        structured specification: one stage entry ``{'name': ..., 'options':
+        {...}}`` or an ordered list/tuple of such entries (bare names allowed),
+        each stage owning the options inside its entry; only the
+        experiment-wide ``n_runs`` may then be given as a keyword. Each name
+        must be one of the following:
 
         1. ``'plain'`` : do nothing to the optimization problem.
         2. ``'perturbed_x0'`` : perturb the initial guess ``x0``.
