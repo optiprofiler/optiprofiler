@@ -85,6 +85,10 @@ include = ["optiprofiler*"]
 "optiprofiler" = [
     "schemas/*.schema.json",
 ]
+# Golden fixtures pin single-feature behaviour; the installed tests read them.
+"optiprofiler.tests" = [
+    "fixtures/composition/*.json",
+]
 "optiprofiler.problem_libs.s2mpj" = [
     "config.txt",
     "probinfo_python.csv",

@@ -16,3 +16,4 @@ global-exclude __pycache__
 global-exclude *.pyc
 global-exclude *.pyo
 prune python/optiprofiler/problem_libs/*/.github
+recursive-include python/optiprofiler/tests/fixtures *.json
