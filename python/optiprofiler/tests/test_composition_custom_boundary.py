@@ -105,6 +105,8 @@ class TestConstraintOutputs:
         (lambda x, rng, prob: [0.5], 'size 2'),
         (lambda x, rng, prob: np.zeros((2, 2)), 'one-dimensional'),
         (lambda x, rng, prob: np.array([1.0 + 1.0j, 2.0]), 'complex'),
+        (lambda x, rng, prob: np.array([np.complex128(1.0 + 1.0j), 2.0], dtype=object), 'complex'),
+        (lambda x, rng, prob: [np.complex128(1.0 + 1.0j), 2.0], 'complex'),
         (lambda x, rng, prob: ['a', 'b'], 'real'),
         (lambda x, rng, prob: None, 'size 2'),
     ])
@@ -219,6 +221,23 @@ class TestConstructionOutputs:
             assert featured.fun(np.array([0.5, 0.0, 0.0])) == quadratic([1.0, 0.0, 0.0])
             np.testing.assert_array_equal(featured.x0, X0 / np.array([2.0, 1.0, 1.0]))
 
+    @pytest.mark.parametrize('matrix', [
+        np.array([[1.0 + 1.0j, 0.0, 0.0]]),
+        np.array([[np.complex128(1.0 + 1.0j), 0.0, 0.0]], dtype=object),
+    ])
+    def test_complex_coefficient_matrices_are_rejected_without_a_lossy_cast(self, matrix):
+        import warnings
+
+        def mod_linear_ub(rng, prob):
+            return matrix, np.array([1.0])
+
+        feature = Feature('custom+truncated', mod_linear_ub=mod_linear_ub)
+        # No ComplexWarning may be emitted before the validated rejection.
+        with warnings.catch_warnings():
+            warnings.simplefilter('error')
+            with pytest.raises(ValueError, match="`mod_linear_ub` of stage 1 'custom' \\(occurrence 1\\) returned complex"):
+                FeaturedProblem(problem(), feature, 10, 0)
+
     def test_generators_unpack_like_the_legacy_modifiers(self):
         def mod_bounds(rng, prob):
             return (np.full(3, value) for value in (-2.0, 2.0))
@@ -239,6 +258,8 @@ class TestConstructionOutputs:
     @pytest.mark.parametrize('key, bad, fragment', [
         ('mod_x0', lambda rng, prob: [0.1, 0.2], 'size 3'),
         ('mod_x0', lambda rng, prob: np.array([1.0 + 1.0j, 0.0, 0.0]), 'complex'),
+        ('mod_x0', lambda rng, prob: np.array([np.complex128(1.0 + 1.0j), 0.0, 0.0], dtype=object), 'complex'),
+        ('mod_affine', lambda rng, prob: (np.array([[np.complex128(1.0)] * 3] * 3, dtype=object), np.zeros(3), np.eye(3)), 'complex'),
         ('mod_bounds', lambda rng, prob: ([0.0, 0.0], [1.0, 1.0, 1.0]), 'size 3'),
         ('mod_linear_ub', lambda rng, prob: (np.ones((2, 3)), np.ones(3)), 'size 2'),
         ('mod_linear_ub', lambda rng, prob: ([[1.0, 2.0, 3.0], [1.0]], np.ones(2)), 'real'),

@@ -690,6 +690,15 @@ def _custom_scalar(value, stage, key):
         return np.nan
 
 
+def _has_complex(array):
+    """Whether an array holds complex values, including numpy complex scalars inside an object array."""
+    if np.iscomplexobj(array):
+        return True
+    if array.dtype == object:
+        return any(np.iscomplexobj(item) for item in array.ravel())
+    return False
+
+
 def _custom_vector(value, size, stage, key, what='an array'):
     """A custom callback output as a fresh real one-dimensional float array of the required size."""
     prefix = f'The callback `{key}` of {_stage_label(stage)} returned'
@@ -698,7 +707,7 @@ def _custom_vector(value, size, stage, key, what='an array'):
         array = np.empty(0) if value is None else np.asarray(value)
     except Exception as exc:
         raise ValueError(f'{prefix} {what} that is not array-like; {requirement}.') from exc
-    if np.iscomplexobj(array):
+    if _has_complex(array):
         raise ValueError(f'{prefix} complex values; {requirement}.')
     try:
         array = np.array(array, dtype=float)
@@ -720,7 +729,7 @@ def _custom_matrix(value, shape, stage, key, what='a matrix'):
         array = np.asarray(value)
     except Exception as exc:
         raise ValueError(f'{prefix} {what} that is not array-like; {requirement}.') from exc
-    if np.iscomplexobj(array):
+    if _has_complex(array):
         raise ValueError(f'{prefix} complex values; {requirement}.')
     try:
         array = np.atleast_2d(np.array(array, dtype=float))
@@ -826,10 +835,12 @@ class _LinearCallback:
     def __call__(self, rng, problem):
         matrix, rhs = _pair(self.user(rng, problem), self.stage, self.key)
         prefix = f'The callback `{self.key}` of {_stage_label(self.stage)} returned'
+        # Shape probe only: no conversion here, so a complex matrix reaches the
+        # validated helper intact and is rejected there instead of being cast.
         try:
-            probe = np.asarray(matrix, dtype=float)
+            probe = np.asarray(matrix)
         except (TypeError, ValueError) as exc:
-            raise ValueError(f'{prefix} a coefficient matrix whose values cannot be converted to real numbers; '
+            raise ValueError(f'{prefix} a coefficient matrix that is not array-like; '
                              f'a real matrix with {self.n} columns is required.') from exc
         rows = 0 if probe.size == 0 else np.atleast_2d(probe).shape[0]
         if rows == 0:
