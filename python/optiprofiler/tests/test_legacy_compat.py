@@ -70,7 +70,27 @@ B93_SINGLE = (
     'X2RlY2xhcmVkX25hbWWUaAaMB19zdGFnZXOUTowIX29wdGlvbnOUfZQojAZuX3J1bnOUSwKMC25vaXNlX2xldmVslEc/4AAA'
     'AAAAAIwKbm9pc2VfbW9kZZSMBnJhbmRvbZSMDGRpc3RyaWJ1dGlvbpSMCGdhdXNzaWFulIwJbm9pc2VfbWFwlIwJY2hlYnlz'
     'aGV2lIwKbm9pc2VfdHlwZZSMBW1peGVklHV1Yi4=')
+# Genuine ac4 identity declarations (``Feature(name, n_runs=2)`` for the three
+# names below, pickled by the clean ac4a67e source on syu; captured by the
+# controller, digests pinned).
+AC4_IDENTITY_PLAIN = (
+    'gASVqAAAAAAAAACMFm9wdGlwcm9maWxlci5vcGNsYXNzZXOUjAdGZWF0dXJllJOUKYGUfZQojA5fZGVjbGFyZWRfbmFtZZSM'
+    'BXBsYWlulIwFX25hbWWUjAVwbGFpbpSMDl9kZWNsYXJlZF9zcGVjlF2UfZQojARuYW1llGgGjAdvcHRpb25zlH2UdWGMB19z'
+    'dGFnZXOUTowIX29wdGlvbnOUfZSMBm5fcnVuc5RLAnN1Yi4=')
+AC4_IDENTITY_PLAIN_PLAIN = (
+    'gASVxwAAAAAAAACMFm9wdGlwcm9maWxlci5vcGNsYXNzZXOUjAdGZWF0dXJllJOUKYGUfZQojA5fZGVjbGFyZWRfbmFtZZSM'
+    'C3BsYWluK3BsYWlulIwFX25hbWWUjAVwbGFpbpSMDl9kZWNsYXJlZF9zcGVjlF2UKH2UKIwEbmFtZZSMBXBsYWlulIwHb3B0'
+    'aW9uc5R9lHV9lChoDIwFcGxhaW6UaA59lHVljAdfc3RhZ2VzlE6MCF9vcHRpb25zlH2UjAZuX3J1bnOUSwJzdWIu')
+AC4_PLAIN_NOISY_PLAIN = (
+    'gASVVAEAAAAAAACMFm9wdGlwcm9maWxlci5vcGNsYXNzZXOUjAdGZWF0dXJllJOUKYGUfZQojA5fZGVjbGFyZWRfbmFtZZSM'
+    'EXBsYWluK25vaXN5K3BsYWlulIwFX25hbWWUjAVub2lzeZSMDl9kZWNsYXJlZF9zcGVjlF2UKH2UKIwEbmFtZZSMBXBsYWlu'
+    'lIwHb3B0aW9uc5R9lHV9lChoDIwFbm9pc3mUaA59lHV9lChoDIwFcGxhaW6UaA59lHVljAdfc3RhZ2VzlE6MCF9vcHRpb25z'
+    'lH2UKIwGbl9ydW5zlEsCjApub2lzZV9tb2RllIwGcmFuZG9tlIwMZGlzdHJpYnV0aW9ulIwIZ2F1c3NpYW6UjAlub2lzZV9t'
+    'YXCUjAljaGVieXNoZXaUjAtub2lzZV9sZXZlbJRHP1BiTdLxqfyMCm5vaXNlX3R5cGWUjAVtaXhlZJR1dWIu')
 DIGESTS = {
+    'AC4_IDENTITY_PLAIN': '1c90257ab73d2b996a802fe43bc193cb5944c9765bf1a98e71106613e521dd69',
+    'AC4_IDENTITY_PLAIN_PLAIN': 'd517c05a36b2fdfdf59528c994838627a25f5526f7edcb0b87163cf3aee3cc9a',
+    'AC4_PLAIN_NOISY_PLAIN': '8985459e5b64512fda8c5466d9c29e552a946007513a08cc51aedce7f4d2ee04',
     'AC4_ENUM_KEY_AND_VALUE': 'be4aa8b7cfc0bd2823a0420c1813ed98e0db9b2348a4f6334a8b5dab5a521ffe',
     'AC4_SINGLE': 'e2e82ea875ac56308396c1d968207c19c8ec2495a975255ce39eb8d81c8d1ad0',
     'AC4_COMPOSITE': 'ccc3afc05e4490c0262efeaa46e5338c9ab8ccf915fdf4eee8849909d5da1cf2',
@@ -239,6 +259,37 @@ class TestHistoricalFeatureImport:
             import_legacy_feature(container)
         container.__setstate__({'_name': 'noisy', '_options': {'noise_level': 0.5}, '_declared_spec': 'noisy'})
         with pytest.raises(LegacyConfigurationError, match='not a list'):
+            import_legacy_feature(container)
+
+    @pytest.mark.parametrize('name, effective', [
+        ('AC4_IDENTITY_PLAIN', []), ('AC4_IDENTITY_PLAIN_PLAIN', []), ('AC4_PLAIN_NOISY_PLAIN', ['noisy'])])
+    def test_genuine_identity_declarations_survive_import(self, name, effective):
+        imported = import_legacy_feature(loads_trusted(fixture(name)))
+        assert imported.n_runs == 2
+        feature = pickle.loads(pickle.dumps(imported.feature, protocol=4))
+        assert isinstance(feature, Feature)
+        assert [stage.name for stage in feature.stages] == effective
+        assert feature.is_identity == (not effective)
+        declared_name = imported.declared_name
+        assert feature.declared.route == 'feature_name' and feature.declared_name == declared_name
+        assert [stage for stage, _ in feature.declared.entries] == declared_name.split('+')
+        assert all(not dict(options) for _, options in feature.declared.entries)
+        assert describe_feature(feature)['declared'] == [{'name': token, 'options': {}} for token in declared_name.split('+')]
+
+    def test_identity_object_options_are_validated_not_ignored(self):
+        container = LegacyFeature()
+        container.__setstate__({'_name': 'plain', '_options': {'n_runs': 2, 'noise_level': 0.5},
+                                '_declared_name': 'plain', '_declared_spec': [{'name': 'plain', 'options': {}}]})
+        with pytest.raises(LegacyConfigurationError, match="stage 'plain'"):
+            import_legacy_feature(container)
+        container.__setstate__({'_name': 'noisy', '_options': {'n_runs': 2, 'noise_level': 0.5},
+                                '_declared_name': 'plain+noisy',
+                                '_declared_spec': [{'name': 'plain', 'options': {'noise_level': 0.5}}, {'name': 'noisy', 'options': {}}]})
+        with pytest.raises(LegacyConfigurationError, match="stage 'plain'"):
+            import_legacy_feature(container)
+        container.__setstate__({'_name': 'noisy', '_options': {'n_runs': 2},
+                                '_declared_spec': [{'name': 'plain', 'options': {}}, {'name': 'noisy', 'options': {'noise_level': -1}}]})
+        with pytest.raises(LegacyConfigurationError, match="stage 'noisy'"):
             import_legacy_feature(container)
 
     def test_pre_pipeline_layout_without_declaration(self):

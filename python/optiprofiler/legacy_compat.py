@@ -38,7 +38,7 @@ from enum import Enum
 from pathlib import Path
 
 from . import utils as _utils
-from .feature_definitions import EXPERIMENT_OPTIONS
+from .feature_definitions import EXPERIMENT_OPTIONS, STAGE_NAMES, validated_local_options
 from .utils import FeatureOption, ProblemOption
 
 REFINED_SCHEMA = 'options_refined-v2'
@@ -245,7 +245,17 @@ def import_legacy_feature(container):
             raise LegacyConfigurationError(f'Unsupported {container.class_path} layout: expected `_name` and `_options`, '
                                            f'found {sorted(map(str, state))}.')
         local, count = _split_count(state['_options'])
-        entries = [{'name': state['_name'], 'options': local}]
+        name = state['_name']
+        if not isinstance(name, str):
+            raise LegacyConfigurationError(f'{container.class_path}: `_name` must be a string, got {type(name).__name__}.')
+        name = name.strip().lower()
+        if name == 'plain':
+            # The 1.x identity object: no effective stage. Its local options must
+            # still be valid for `plain` (none are accepted), never ignored.
+            _validate_recorded_options('plain', local, container.class_path)
+            entries = []
+        else:
+            entries = [{'name': name, 'options': local}]
     else:
         raise TypeError(f'{type(container).__name__} ({container.class_path}) is not a historical Feature container.')
     # The imported Feature is built in its native form: the effective stages
@@ -270,12 +280,24 @@ def import_legacy_feature(container):
     return LegacyFeatureImport(feature, count, state.get('_declared_name'), declared_spec, container.class_path)
 
 
+def _validate_recorded_options(name, options, class_path):
+    """Validate recorded stage options with the 2.0 definitions of that stage (``plain`` accepts none)."""
+    if name not in STAGE_NAMES:
+        raise LegacyConfigurationError(f'{class_path}: unknown recorded stage {name!r}.')
+    try:
+        validated_local_options(name, options)
+    except (TypeError, ValueError) as err:
+        raise LegacyConfigurationError(f'{class_path}: recorded options of stage {name!r} are invalid: {err}') from err
+
+
 def _recorded_declaration(declared_spec, entries, class_path):
     """
     The declaration entries recorded by a 1.x bridge object, checked against
-    the effective stages it carried: a list of ``{'name', 'options'}`` mappings
-    whose non-plain names, in order, are the effective stage names. A recorded
-    declaration that does not describe the object is an error, never repaired.
+    the effective stages it carried: a list of ``{'name', 'options'}`` mappings,
+    ``plain`` entries included and kept, every entry's options valid for its
+    stage, and the non-plain names, in order, equal to the effective stage
+    names. A recorded declaration that does not describe the object is an
+    error, never repaired or ignored.
     """
     if not isinstance(declared_spec, (list, tuple)):
         raise LegacyConfigurationError(f'{class_path}: the recorded declaration is not a list of stage entries.')
@@ -286,7 +308,10 @@ def _recorded_declaration(declared_spec, entries, class_path):
         options = entry.get('options', {})
         if not isinstance(options, Mapping) or any(not isinstance(key, str) for key in options):
             raise LegacyConfigurationError(f'{class_path}: malformed recorded declaration options for {entry["name"]!r}.')
-        recorded.append((entry['name'].strip().lower(), {key.lower(): value for key, value in options.items()}))
+        name = entry['name'].strip().lower()
+        options = {key.lower(): value for key, value in options.items()}
+        _validate_recorded_options(name, options, class_path)
+        recorded.append((name, options))
     effective_names = [name for name, _ in recorded if name != 'plain']
     if effective_names != [entry['name'] for entry in entries]:
         raise LegacyConfigurationError(f'{class_path}: the recorded declaration {effective_names} does not describe the '

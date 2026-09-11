@@ -290,8 +290,10 @@ numbers. The declaration route (``'feature_name'`` for the shorthand string,
 keeps its declaration and its receipt. The provenance records that route as
 ``declaration_route`` and, separately, the benchmark keyword that carried the
 specification as ``route``. A specification imported from a historical object
-that recorded no declaration has declaration route ``None``, no declared
-entries and no declared name; its effective stages are complete. Each trial builds fresh
+keeps the declaration that object recorded (``plain`` entries included); one
+imported from an object that recorded no declaration has declaration route
+``None``, no declared entries and no declared name. In both cases its
+effective stages are complete. Each trial builds fresh
 runtime state from the records, so reusing
 one ``Feature`` object across benchmarks gives the same numbers as building it
 again. Pickling a ``Feature`` transports its declaration and normalizes it
