@@ -22,7 +22,7 @@ classdef FeatureKernel < handle
                 Seed used to generate random numbers.
             problem : Problem
                 Problem for which the initial point is modified.
-            
+
             Returns
             -------
             x0 : double, size (n,)
@@ -217,7 +217,7 @@ classdef FeatureKernel < handle
                     xu = max(xl_tmp, xu_tmp);
                 otherwise
                     xl = problem.xl;
-                    xu = problem.xu;    
+                    xu = problem.xu;
             end
         end
 
@@ -240,7 +240,7 @@ classdef FeatureKernel < handle
                 Modified right-hand side vector of linear inequality
                 constraints.
             %}
-            
+
             switch obj.name
                 case FeatureName.CUSTOM.value
                     % If the user specifies a custom modifier for the linear inequality constraints,
@@ -279,7 +279,7 @@ classdef FeatureKernel < handle
                     turn out to be
                     (aub * A) * x <= bub - aub * b
                     %}
-                    
+
                     % Pick out the indices of lower bounds who are not -Inf and upper bounds who are
                     % not Inf since later we will not transform them into linear inequality constraints.
                     idx_lb = ~isinf(problem.xl);
@@ -347,7 +347,7 @@ classdef FeatureKernel < handle
             beq : double, size (m_linear_eq,)
                 Modified right-hand side vector of linear equality constraints.
             %}
-            
+
             switch obj.name
                 case FeatureName.CUSTOM.value
                     % If the user specifies a custom modifier for the linear equality constraints, use it.
@@ -443,7 +443,7 @@ classdef FeatureKernel < handle
                 Modified objective function value.
             %}
 
-            % Convert x into a cell array. We will later use it to generate 
+            % Convert x into a cell array. We will later use it to generate
             % random streams so that randomness of each point is independent.
             xCell = num2cell(x);
 
@@ -528,14 +528,14 @@ classdef FeatureKernel < handle
                 (We will use it to generate random streams so that evaluating
                 the same point multiple times will not lead to the same
                 random numbers.)
-            
+
             Returns
             -------
             cub_ : double, size (m_nonlinear_ub,)
                 Modified values of the nonlinear inequality constraints.
             %}
-            
-            % Convert x into a cell array. We will later use it to generate 
+
+            % Convert x into a cell array. We will later use it to generate
             % random streams so that randomness of each point is independent.
             xCell = num2cell(x);
 
@@ -612,7 +612,7 @@ classdef FeatureKernel < handle
                 (We will use it to generate random streams so that evaluating
                 the same point multiple times will not lead to the same
                 random numbers.)
-            
+
             Returns
             -------
             ceq_ : double, size (m_nonlinear_eq,)
@@ -788,4 +788,3 @@ function tf = isrealscalar(x)
 % Same predicate as src/private/isrealscalar, without package path coupling.
     tf = isnumeric(x) && isreal(x) && isscalar(x);
 end
-

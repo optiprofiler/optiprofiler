@@ -1,0 +1,89 @@
+classdef TestFeatureSeedV2 < matlab.unittest.TestCase
+% Versioned MATLAB input seeds, not statistical independence assertions.
+    methods (Test)
+        function arithmeticMatchesIndependentUint64Reduction(testCase)
+            cases=[0,1,0,0;17,2,0,0;42,10,64,3;2^32-1,10,2^32-1,3];
+            for k=1:size(cases,1)
+                row=num2cell(cases(k,:));
+                actual=optiprofiler_internal.deriveFeatureStageSeed(row{:});
+                expected=TestFeatureSeedV2.integerReference(cases(k,:));
+                testCase.verifyEqual(actual,expected);
+            end
+            values=zeros(10*65*4,1); i=0;
+            for code=1:10
+                for occurrence=0:64
+                    for channel=0:3
+                        i=i+1;
+                        values(i)=optiprofiler_internal.deriveFeatureStageSeed(17,code,occurrence,channel);
+                    end
+                end
+            end
+            testCase.verifyEqual(numel(unique(values)),numel(values));
+            % Documented finite-space alias is allowed, not hidden by a cap.
+            testCase.verifyEqual(optiprofiler_internal.deriveFeatureStageSeed(17,2,65599,0), ...
+                optiprofiler_internal.deriveFeatureStageSeed(17,3,0,0));
+            for bad={NaN,Inf,-1,.5,2^32,true,'17',[1,2],1+1i}
+                testCase.verifyError(@()optiprofiler_internal.deriveFeatureStageSeed(bad{1},2,0,0), ...
+                    'MATLAB:Feature:InvalidSeedWord');
+            end
+            testCase.verifyError(@()optiprofiler_internal.deriveFeatureStageSeed(17,0,0,0), ...
+                'MATLAB:Feature:InvalidSeedIdentity');
+            testCase.verifyError(@()optiprofiler_internal.deriveFeatureStageSeed(17,2,0,4), ...
+                'MATLAB:Feature:InvalidSeedIdentity');
+        end
+        function identitiesSurvivePlainAndUnrelatedInsertion(testCase)
+            p=Problem(struct('fun',@(x)x(1)^2,'x0',.375));
+            a=FeaturedProblem(p,Feature('noisy+noisy'),4,17);
+            b=FeaturedProblem(p,Feature('plain+noisy+plain+noisy'),4,17);
+            c=FeaturedProblem(p,Feature('noisy+truncated+noisy'),4,17);
+            d=FeaturedProblem(p,Feature('noisy+noisy+noisy'),4,17);
+            ra=a.runtimeReceipt(); rb=b.runtimeReceipt(); rc=c.runtimeReceipt(); rd=d.runtimeReceipt();
+            testCase.verifyEqual(ra.stages,rb.stages);
+            testCase.verifyEqual(ra.stages{1}.seeds,rc.stages{1}.seeds);
+            testCase.verifyEqual(ra.stages{2}.seeds,rc.stages{3}.seeds);
+            testCase.verifyEqual([rd.stages{1}.occurrence,rd.stages{2}.occurrence,rd.stages{3}.occurrence],[0,1,2]);
+            testCase.verifyNotEqual(rd.stages{2}.seeds,rd.stages{3}.seeds);
+            testCase.verifyEqual(ra.seed_policy,'matlab-stage-horner32-v1');
+            testCase.verifyEqual(ra.execution_strategy,'composed-views');
+        end
+        function freshContextsAndReferenceReadsDoNotConsumeServedQueries(testCase)
+            original=rng;
+            p=Problem(struct('fun',@(x)sum(x.^2),'x0',[.375;.625], ...
+                'cub',@(x)[x(1)-1;x(2)-1],'ceq',@(x)sum(x)-1));
+            spec=Feature('perturbed_x0+noisy+noisy'); state=spec.saveobj();
+            a=FeaturedProblem(p,spec,6,17); b=FeaturedProblem(p,spec,6,17);
+            testCase.verifyEqual(a.x0,b.x0); testCase.verifyEqual(a.runtimeReceipt(),b.runtimeReceipt());
+            x=[.375;.625]; first=a.fun(x); a.cub(x); a.ceq(x);
+            before=a.runtimeReceipt(); a.evaluateTruth(x); a.maxcv(x,true);
+            testCase.verifyEqual(a.runtimeReceipt(),before);
+            a.cub(x,false); after=a.runtimeReceipt();
+            testCase.verifyEqual(after.stages{2}.served.cub,2);
+            testCase.verifyEqual(a.n_eval_cub,1);
+            testCase.verifyEqual(b.fun(x),first);
+            testCase.verifyEqual(b.n_eval_fun,1);
+            testCase.verifyEqual(spec.saveobj(),state);
+            testCase.verifyEqual(rng,original);
+        end
+        function sixtyFiveStagesAreNotAnImplementationLimit(testCase)
+            entry=struct('name','noisy','options',struct('noise_level',0));
+            spec=Feature(repmat({entry},1,65));
+            p=Problem(struct('fun',@(x)x(1)^2,'x0',.5));
+            fp=FeaturedProblem(p,spec,2,17);
+            testCase.verifyEqual(fp.fun(.5),.25);
+            receipt=fp.runtimeReceipt();
+            testCase.verifyEqual(numel(receipt.stages),65);
+            testCase.verifyEqual(receipt.stages{65}.occurrence,64);
+        end
+    end
+    methods (Static)
+        function value=integerReference(words)
+            % Independent exact arithmetic: uint64 products stay below 2^49;
+            % explicit low-bit reduction avoids MATLAB saturating overflow.
+            value=uint64(words(1)); mask=uint64(2^32-1);
+            for word=[1,words(2:4)]
+                value=bitand(value*uint64(65599)+uint64(word),mask);
+            end
+            value=double(value);
+        end
+    end
+end

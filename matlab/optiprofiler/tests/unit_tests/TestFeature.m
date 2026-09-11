@@ -74,9 +74,10 @@ classdef TestFeature < matlab.unittest.TestCase
         function testStruct(testCase)
             % Test the case where the second input is a struct.
 
-            ft = Feature('plain', struct('n_runs', 3));
-            testCase.verifyEqual(ft.name, 'plain');
-            testCase.verifyEqual(ft.options, struct('n_runs', 3));
+            ft = Feature('noisy', struct('noise_level', 3e-3));
+            testCase.verifyEqual(ft.name, 'noisy');
+            testCase.verifyEqual(ft.options.noise_level, 3e-3);
+            testCase.verifyFalse(isfield(ft.options, 'n_runs'));
         end
 
         function testPlain(testCase)
@@ -84,12 +85,14 @@ classdef TestFeature < matlab.unittest.TestCase
 
             ft = Feature('plain');
             testCase.verifyEqual(ft.name, 'plain');
-            testCase.verifyEqual(ft.options, struct('n_runs', 1));
+            testCase.verifyEqual(ft.options, struct());
+            testCase.verifyEmpty(ft.stages);
 
-            options.n_runs = 5;
+            options = struct();
             ft = Feature('plain', options);
             testCase.verifyEqual(ft.name, 'plain');
-            testCase.verifyEqual(ft.options, struct('n_runs', 5));
+            testCase.verifyEqual(ft.options, struct());
+            testCase.verifyTrue(ft.is_identity);
         end
 
         function testPerturbed_x0(testCase)
@@ -97,16 +100,16 @@ classdef TestFeature < matlab.unittest.TestCase
 
             ft = Feature('perturbed_x0');
             testCase.verifyEqual(ft.name, 'perturbed_x0');
-            testCase.verifyEqual(ft.options.n_runs, 5);
+            testCase.verifyFalse(isfield(ft.options, 'n_runs'));
             testCase.verifyEqual(ft.options.perturbation_level, 1e-3);
             testCase.verifyEqual(ft.options.distribution, 'spherical');
 
-            options.n_runs = 5;
+            options = struct();
             options.perturbation_level = 1e-2;
             options.distribution = 'gaussian';
             ft = Feature('perturbed_x0', options);
             testCase.verifyEqual(ft.name, 'perturbed_x0');
-            testCase.verifyEqual(ft.options.n_runs, 5);
+            testCase.verifyFalse(isfield(ft.options, 'n_runs'));
             testCase.verifyEqual(ft.options.perturbation_level, 1e-2);
             testCase.verifyEqual(ft.options.distribution, 'gaussian');
         end
@@ -116,7 +119,7 @@ classdef TestFeature < matlab.unittest.TestCase
         
             ft = Feature('noisy');
             testCase.verifyEqual(ft.name, 'noisy');
-            testCase.verifyEqual(ft.options.n_runs, 5);
+            testCase.verifyFalse(isfield(ft.options, 'n_runs'));
             testCase.verifyEqual(ft.options.distribution, 'gaussian');
             testCase.verifyEqual(ft.options.noise_type, 'mixed');
             testCase.verifyEqual(ft.options.noise_level, 1e-3);
@@ -124,13 +127,13 @@ classdef TestFeature < matlab.unittest.TestCase
             testCase.verifyEqual(ft.options.noise_map, 'chebyshev');
             testCase.verifyTrue(ft.is_stochastic());
 
-            options.n_runs = 5;
+            options = struct();
             options.noise_type = 'absolute';
             options.noise_level = 1e-2;
             options.distribution = @TestFeature.custom_distribution;
             ft = Feature('noisy', options);
             testCase.verifyEqual(ft.name, 'noisy');
-            testCase.verifyEqual(ft.options.n_runs, 5);
+            testCase.verifyFalse(isfield(ft.options, 'n_runs'));
             testCase.verifyEqual(ft.options.noise_type, 'absolute');
             testCase.verifyEqual(ft.options.noise_level, 1e-2);
             testCase.verifyEqual(ft.options.distribution, @TestFeature.custom_distribution);
@@ -141,15 +144,14 @@ classdef TestFeature < matlab.unittest.TestCase
             options.noise_mode = 'deterministic';
             ft = Feature('noisy', options);
             testCase.verifyEqual(ft.name, 'noisy');
-            testCase.verifyEqual(ft.options.n_runs, 1);
+            testCase.verifyFalse(isfield(ft.options, 'n_runs'));
             testCase.verifyEqual(ft.options.noise_mode, 'deterministic');
             testCase.verifyEqual(ft.options.noise_map, 'chebyshev');
             testCase.verifyFalse(ft.is_stochastic());
 
-            options.n_runs = 3;
             options.noise_map = @TestFeature.custom_noise_map;
             ft = Feature('noisy', options);
-            testCase.verifyEqual(ft.options.n_runs, 3);
+            testCase.verifyFalse(isfield(ft.options, 'n_runs'));
             testCase.verifyEqual(ft.options.noise_map, @TestFeature.custom_noise_map);
         end
 
@@ -158,16 +160,16 @@ classdef TestFeature < matlab.unittest.TestCase
 
             ft = Feature('truncated');
             testCase.verifyEqual(ft.name, 'truncated');
-            testCase.verifyEqual(ft.options.n_runs, 1);
+            testCase.verifyFalse(isfield(ft.options, 'n_runs'));
             testCase.verifyEqual(ft.options.significant_digits, 6);
             testCase.verifyEqual(ft.options.perturbed_trailing_digits, false);
 
-            options.n_runs = 5;
+            options = struct();
             options.significant_digits = 2;
             options.perturbed_trailing_digits = false;
             ft = Feature('truncated', options);
             testCase.verifyEqual(ft.name, 'truncated');
-            testCase.verifyEqual(ft.options.n_runs, 5);
+            testCase.verifyFalse(isfield(ft.options, 'n_runs'));
             testCase.verifyEqual(ft.options.significant_digits, 2);
             testCase.verifyEqual(ft.options.perturbed_trailing_digits, false);
         end
@@ -177,12 +179,12 @@ classdef TestFeature < matlab.unittest.TestCase
 
             ft = Feature('permuted');
             testCase.verifyEqual(ft.name, 'permuted');
-            testCase.verifyEqual(ft.options.n_runs, 5);
+            testCase.verifyFalse(isfield(ft.options, 'n_runs'));
             
-            options.n_runs = 5;
+            options = struct();
             ft = Feature('permuted', options);
             testCase.verifyEqual(ft.name, 'permuted');
-            testCase.verifyEqual(ft.options.n_runs, 5);
+            testCase.verifyFalse(isfield(ft.options, 'n_runs'));
         end
 
         function testLinealy_transformed(testCase)
@@ -190,16 +192,16 @@ classdef TestFeature < matlab.unittest.TestCase
 
             ft = Feature('linearly_transformed');
             testCase.verifyEqual(ft.name, 'linearly_transformed');
-            testCase.verifyEqual(ft.options.n_runs, 5);
+            testCase.verifyFalse(isfield(ft.options, 'n_runs'));
             testCase.verifyEqual(ft.options.rotated, true);
             testCase.verifyEqual(ft.options.condition_factor, 0);
 
-            options.n_runs = 5;
+            options = struct();
             options.rotated = false;
             options.condition_factor = 1e3;
             ft = Feature('linearly_transformed', options);
             testCase.verifyEqual(ft.name, 'linearly_transformed');
-            testCase.verifyEqual(ft.options.n_runs, 5);
+            testCase.verifyFalse(isfield(ft.options, 'n_runs'));
             testCase.verifyEqual(ft.options.rotated, false);
             testCase.verifyEqual(ft.options.condition_factor, 1e3);
         end
@@ -209,14 +211,14 @@ classdef TestFeature < matlab.unittest.TestCase
             
             ft = Feature('random_nan');
             testCase.verifyEqual(ft.name, 'random_nan');
-            testCase.verifyEqual(ft.options.n_runs, 5);
+            testCase.verifyFalse(isfield(ft.options, 'n_runs'));
             testCase.verifyEqual(ft.options.nan_rate, 0.05);
 
-            options.n_runs = 5;
+            options = struct();
             options.nan_rate = 0.1;
             ft = Feature('random_nan', options);
             testCase.verifyEqual(ft.name, 'random_nan');
-            testCase.verifyEqual(ft.options.n_runs, 5);
+            testCase.verifyFalse(isfield(ft.options, 'n_runs'));
             testCase.verifyEqual(ft.options.nan_rate, 0.1);
         end
 
@@ -225,18 +227,18 @@ classdef TestFeature < matlab.unittest.TestCase
             
             ft = Feature('unrelaxable_constraints');
             testCase.verifyEqual(ft.name, 'unrelaxable_constraints');
-            testCase.verifyEqual(ft.options.n_runs, 1);
+            testCase.verifyFalse(isfield(ft.options, 'n_runs'));
             testCase.verifyEqual(ft.options.unrelaxable_bounds, true);
             testCase.verifyEqual(ft.options.unrelaxable_linear_constraints, false);
             testCase.verifyEqual(ft.options.unrelaxable_nonlinear_constraints, false);
 
-            options.n_runs = 5;
+            options = struct();
             options.unrelaxable_bounds = true;
             options.unrelaxable_linear_constraints = true;
             options.unrelaxable_nonlinear_constraints = true;
             ft = Feature('unrelaxable_constraints', options);
             testCase.verifyEqual(ft.name, 'unrelaxable_constraints');
-            testCase.verifyEqual(ft.options.n_runs, 5);
+            testCase.verifyFalse(isfield(ft.options, 'n_runs'));
             testCase.verifyEqual(ft.options.unrelaxable_bounds, true);
             testCase.verifyEqual(ft.options.unrelaxable_linear_constraints, true);
             testCase.verifyEqual(ft.options.unrelaxable_nonlinear_constraints, true);
@@ -247,12 +249,12 @@ classdef TestFeature < matlab.unittest.TestCase
             
             ft = Feature('nonquantifiable_constraints');
             testCase.verifyEqual(ft.name, 'nonquantifiable_constraints');
-            testCase.verifyEqual(ft.options.n_runs, 1);
+            testCase.verifyFalse(isfield(ft.options, 'n_runs'));
             
-            options.n_runs = 5;
+            options = struct();
             ft = Feature('nonquantifiable_constraints', options);
             testCase.verifyEqual(ft.name, 'nonquantifiable_constraints');
-            testCase.verifyEqual(ft.options.n_runs, 5);
+            testCase.verifyFalse(isfield(ft.options, 'n_runs'));
         end
 
         function testQuantized(testCase)
@@ -260,16 +262,16 @@ classdef TestFeature < matlab.unittest.TestCase
             
             ft = Feature('quantized');
             testCase.verifyEqual(ft.name, 'quantized');
-            testCase.verifyEqual(ft.options.n_runs, 1);
+            testCase.verifyFalse(isfield(ft.options, 'n_runs'));
             testCase.verifyEqual(ft.options.mesh_size, 1e-3);
             testCase.verifyEqual(ft.options.ground_truth, true);
             
-            options.n_runs = 5;
+            options = struct();
             options.mesh_size = 1e-2;
             options.ground_truth = false;
             ft = Feature('quantized', options);
             testCase.verifyEqual(ft.name, 'quantized');
-            testCase.verifyEqual(ft.options.n_runs, 5);
+            testCase.verifyFalse(isfield(ft.options, 'n_runs'));
             testCase.verifyEqual(ft.options.mesh_size, 1e-2);
             testCase.verifyEqual(ft.options.ground_truth, false);
         end
@@ -279,9 +281,9 @@ classdef TestFeature < matlab.unittest.TestCase
             
             ft = Feature('custom');
             testCase.verifyEqual(ft.name, 'custom');
-            testCase.verifyEqual(ft.options.n_runs, 1);
+            testCase.verifyFalse(isfield(ft.options, 'n_runs'));
 
-            options.n_runs = 5;
+            options = struct();
             options.mod_x0 = @TestFeature.custom_mod_x0;
             options.mod_affine = @TestFeature.custom_mod_affine;
             options.mod_bounds = @TestFeature.custom_mod_bounds;
@@ -292,7 +294,7 @@ classdef TestFeature < matlab.unittest.TestCase
             options.mod_ceq = @TestFeature.custom_mod_ceq;
             ft = Feature('custom', options);
             testCase.verifyEqual(ft.name, 'custom');
-            testCase.verifyEqual(ft.options.n_runs, 5);
+            testCase.verifyFalse(isfield(ft.options, 'n_runs'));
             testCase.verifyEqual(ft.options.mod_x0, @TestFeature.custom_mod_x0);
             testCase.verifyEqual(ft.options.mod_affine, @TestFeature.custom_mod_affine);
             testCase.verifyEqual(ft.options.mod_bounds, @TestFeature.custom_mod_bounds);
@@ -312,11 +314,11 @@ classdef TestFeature < matlab.unittest.TestCase
 
             testCase.verifyError(@() Feature('unknown'), "MATLAB:Feature:UnknownFeature")
 
-            testCase.verifyError(@() Feature('plain', struct('n_runs', 1, 'unknown', 1)), "MATLAB:Feature:UnknownOption")
+            testCase.verifyError(@() Feature('plain', struct('unknown', 1)), "MATLAB:Feature:UnknownOption")
 
-            testCase.verifyError(@() Feature('plain', struct('n_runs', 1, 'noise_level', '1e-3')), "MATLAB:Feature:InvalidOptionForFeature")
+            testCase.verifyError(@() Feature('plain', struct('noise_level', '1e-3')), "MATLAB:Feature:InvalidOptionForFeature")
 
-            testCase.verifyError(@() Feature('plain', struct('n_runs', 1.1)), "MATLAB:Feature:n_runs_NotPositiveInteger")
+            testCase.verifyError(@() Feature('plain', struct('n_runs', 1.1)), "MATLAB:Feature:ExperimentOption")
 
             testCase.verifyError(@() Feature('noisy', struct('distribution', 1)), "MATLAB:Feature:distribution_NotFunctionHandle")
 
