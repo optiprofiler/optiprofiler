@@ -191,6 +191,12 @@ reports omit repeated per-stage runtime details. Long or private feature text
 may be omitted from JSON with explicit UTF-8 byte counts and reasons; complete
 native stamps remain available in native archives/settings.
 
+Report feature declarations and effective stage lists longer than 256 entries
+use a bounded object with ``values`` (the first 256 entries), ``total_items``,
+and ``reason='metadata_item_limit'``. This is a report projection, not a limit
+on feature execution or on the complete native Feature. Ordinary numerical
+and problem-result arrays are not truncated by this feature-metadata rule.
+
 Long generated display labels use a bounded prefix and CRC-32 suffix in MATLAB;
 Python uses SHA-256 for that display suffix. These labels do not change seeds,
 scientific feature identity, or output-directory uniqueness. Equal shortened

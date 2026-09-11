@@ -61,7 +61,9 @@ function evalReportPublic(source_root, output_root, slice)
         assert(isequal(sort(fieldnames(report.semantics)), sort({'index_base'; 'metric_best'; 'budget'; 'convergence'; 'run_defaults'; 'configuration'; 'paths'; 'privacy'})));
         assert(isequal(sort(fieldnames(detail.semantics)), sort({'index_base'; 'history_bins'; 'history_plots'; 'profile_plots'; 'error_bands'; 'target_work'; 'privacy'; 'renderer_variants'})));
         run = report.problems.runs(1);
-        assert(isequal(sort(fieldnames(run)), sort({'solver_index'; 'run_index'; 'evaluations'; 'budget_reached'; 'objective'; 'constraint'; 'merit'; 'abnormal_termination'; 'output_fallback'; 'execution'; 'history_ref'; 'oracle_seed'; 'elapsed_seconds'})), 'Run record keys differ from the shared contract.');
+        assert(isequal(sort(fieldnames(run)), sort({'solver_index'; 'run_index'; 'evaluations'; 'budget_reached'; 'objective'; 'constraint'; 'merit'; 'abnormal_termination'; 'output_fallback'; 'execution'; 'history_ref'; 'oracle_seed'; 'elapsed_seconds'; 'runtime'})), 'Run record keys differ from the shared contract.');
+        assert(isequal(sort(fieldnames(run.runtime)), sort({'language'; 'execution_strategy'; 'runtime_policy'; 'seed_policy'})), ...
+            'Actual runtime uses only the four shared policy fields, not repeated per-stage state.');
         seed = report.configuration.effective.profile_options.seed;
         assert(run.oracle_seed == mod(23333 * seed + 211 * 1, 2^32), 'Actual MATLAB seed rule (1-based) must be recorded, not Python''s.');
         assert(isequal(run.objective.invalid_evaluations, 0) && ~isfield(run.objective, 'first_invalid_evaluation_index'));

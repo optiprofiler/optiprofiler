@@ -1118,6 +1118,16 @@ classdef EvalReport < handle
                     key = names{k};
                     if ~isempty(regexpi(key, 'path|token|secret|password|credential|api_key')) || strcmp(key, 'problem')
                         value = rmfield(value, key);
+                    elseif feature_block && ismember(key, {'declared', 'stages'}) ...
+                            && (iscell(value.(key)) || isstruct(value.(key))) && numel(value.(key)) > 256
+                        % A long composition remains complete in the native
+                        % Feature. Only this safe metadata projection is bounded;
+                        % an explicit count/reason prevents a prefix masquerading
+                        % as the complete declaration or effective pipeline.
+                        entries = value.(key);
+                        prefix = optiprofiler_internal.EvalReport.configuration(entries(1:256));
+                        value.(key) = struct('values', {prefix}, 'total_items', numel(entries), ...
+                            'reason', 'metadata_item_limit');
                     elseif (strcmp(key, 'full_feature_stamp') || (feature_block && ismember(key, ...
                             {'feature_stamp', 'effective_name', 'declared_name', 'name'}))) ...
                             && (ischar(value.(key)) || (isstring(value.(key)) && isscalar(value.(key))))
