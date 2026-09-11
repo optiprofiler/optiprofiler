@@ -203,7 +203,8 @@ function validateNativeDeclaration(declared,declared_name,stages)
         end
         names{k} = entry.name;
     end
-    effective = names(~strcmp(names,'plain'));
+    % Filtering one plain entry yields 0-by-0; compare canonical row sequences.
+    effective = reshape(names(~strcmp(names,'plain')),1,[]);
     expected = reshape(cellfun(@(s) s.name,stages,'UniformOutput',false),1,[]);
     if ~strcmp(strjoin(names,'+'),declared_name) || ~isequal(effective,expected)
         invalidNative('The retained declaration is inconsistent with the effective stage order.');
