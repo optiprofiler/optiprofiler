@@ -198,6 +198,39 @@ class TestProducedReports:
         assert len(feature['feature_stamp']) <= 64 and 'feature_stamp_reason' not in feature
         assert not any(isinstance(value, str) and len(value) == 256 for value in feature.values())
 
+    @pytest.mark.parametrize('length, bounded', [(256, False), (257, True)])
+    def test_long_declarations_and_pipelines_project_to_the_bounded_list(self, tmp_path, length, bounded):
+        # The shared metadata encoder bounds lists at 256 items. The report then
+        # carries the encoder's bounded projection (first entries, true count,
+        # reason) instead of a silent truncation; the archive payload is complete.
+        target = tmp_path / 'identity.json'
+        benchmark([stay, zero], report_path=target, problem=quad(), score_only=True, draw_hist_plots='none',
+                  silent=True, savepath=str(tmp_path), feature_name='+'.join(['plain'] * length))
+        report = read(target)
+        assert_valid(report, 'eval_report-v2.schema.json')
+        feature = report['configuration']['effective']['feature']
+        assert feature['stages'] == [] and feature['effective_name'] == 'plain'
+        if bounded:
+            assert set(feature['declared']) == {'values', 'total_items', 'reason'}
+            assert feature['declared']['total_items'] == length and feature['declared']['reason'] == 'metadata_item_limit'
+            assert feature['declared']['values'] == [{'name': 'plain', 'options': {}}] * 256
+            assert feature['declared_name'] is None and feature['declared_name_bytes'] == len('+'.join(['plain'] * length))
+        else:
+            assert feature['declared'] == [{'name': 'plain', 'options': {}}] * length
+        target = tmp_path / 'chain.json'
+        benchmark([stay, zero], report_path=target, problem=quad(), score_only=True, draw_hist_plots='none',
+                  silent=True, savepath=str(tmp_path), feature_name='+'.join(['noisy'] * length), n_runs=1,
+                  max_eval_factor=1)
+        report = read(target)
+        assert_valid(report, 'eval_report-v2.schema.json')
+        feature = report['configuration']['effective']['feature']
+        if bounded:
+            assert feature['stages']['total_items'] == length and feature['stages']['reason'] == 'metadata_item_limit'
+            assert [stage['identity'] for stage in feature['stages']['values']] == [f'noisy#{i}' for i in range(256)]
+        else:
+            assert [stage['identity'] for stage in feature['stages']] == [f'noisy#{i}' for i in range(length)]
+        assert report['status'] == 'completed'
+
     def test_failed_report_before_configuration_selects_the_current_schema(self, tmp_path):
         target = tmp_path / 'failed.json'
         with pytest.raises(ValueError, match='at least one stage entry'):

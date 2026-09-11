@@ -1435,10 +1435,18 @@
           "const": "omitted_from_bounded_metadata_projection"
         },
         "declared": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/declaredEntry"
-          }
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/declaredEntry"
+              }
+            },
+            {
+              "$ref": "#/$defs/boundedDeclared"
+            }
+          ],
+          "description": "The declared entries, or the bounded projection when the declaration has more entries than the shared metadata item bound (the archive payload keeps the complete list)."
         },
         "effective_name": {
           "$ref": "#/$defs/nullableText",
@@ -1486,10 +1494,18 @@
           "const": "omitted_from_bounded_metadata_projection"
         },
         "stages": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/stageRecord"
-          }
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/stageRecord"
+              }
+            },
+            {
+              "$ref": "#/$defs/boundedStages"
+            }
+          ],
+          "description": "The effective stage records, or the bounded projection when the pipeline has more stages than the shared metadata item bound (the archive payload keeps the complete list)."
         },
         "name": {
           "$ref": "#/$defs/nullableText",
@@ -1607,6 +1623,58 @@
       },
       "additionalProperties": false,
       "description": "Optional per-run receipt of the runtime that executed the run, for producers that observe these facts per run (MATLAB). Never synthesized for copied slots; the run seed is oracle_seed, stage identities live in effective.feature. Python states the same facts once per role (experiment.<role>.runtime_policy, execution_strategy; feature.seed_policy) and emits no per-run receipt."
+    },
+    "boundedDeclared": {
+      "type": "object",
+      "required": [
+        "values",
+        "total_items",
+        "reason"
+      ],
+      "properties": {
+        "values": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/declaredEntry"
+          }
+        },
+        "total_items": {
+          "type": "integer",
+          "minimum": 257
+        },
+        "reason": {
+          "const": "metadata_item_limit"
+        }
+      },
+      "additionalProperties": false,
+      "description": "The shared metadata encoder's bounded list: the first 256 declared entries with the true count and the reason; never a silent truncation."
+    },
+    "boundedStages": {
+      "type": "object",
+      "required": [
+        "values",
+        "total_items",
+        "reason"
+      ],
+      "properties": {
+        "values": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/stageRecord"
+          }
+        },
+        "total_items": {
+          "type": "integer",
+          "minimum": 257
+        },
+        "reason": {
+          "const": "metadata_item_limit"
+        }
+      },
+      "additionalProperties": false,
+      "description": "The shared metadata encoder's bounded list: the first 256 stage records with the true count and the reason; never a silent truncation."
     }
   }
 }

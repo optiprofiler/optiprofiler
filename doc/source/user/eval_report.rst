@@ -126,7 +126,13 @@ main report ``optiprofiler.eval_report/2`` (Python and MATLAB) and ``/1``
        block longer than the shared bound (or containing redacted content) are
        omitted, not clipped: the field is ``null`` and ``<field>_bytes`` /
        ``<field>_reason`` say why; the complete text stays in the archive and
-       the refined options.
+       the refined options. The lists ``declared`` and ``stages`` longer than
+       the shared item bound (256) are the encoder's bounded object
+       ``{values, total_items, reason}``: the first 256 entries, the true
+       count and the reason ``metadata_item_limit``; a consumer accepts either
+       the complete array or that object, takes ``total_items`` as the count,
+       and reads the complete lists from the archive payload. No stage count
+       is capped and nothing is truncated silently.
    * - ``stages`` / ``coverage``
      - Independent numerical, scoring, persistence and rendering states;
        selected, loaded and completed primary problems.
