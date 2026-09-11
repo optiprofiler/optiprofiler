@@ -39,6 +39,11 @@ classdef TestFeatureReportV2 < matlab.unittest.TestCase
             testCase.verifyEqual(options.seed, 17);
             testCase.verifyFalse(any(isfield(options, {'schema', 'feature_name', 'feature_specification', 'load', 'solvers_to_load', 'report_path', 'savepath'})));
             testCase.verifyEqual(receipt.source_schema, 'options_refined-v2');
+            native.feature = Feature('plain+plain');
+            native.feature_specification = {struct('name', 'noisy', 'options', struct())};
+            testCase.verifyError(@() loadBenchmarkOptions(native), 'OptiProfiler:InconsistentNativeFeature');
+            native.feature = struct('name', 'plain');
+            testCase.verifyError(@() loadBenchmarkOptions(native), 'OptiProfiler:InvalidNativeFeature');
         end
 
         function legacyReplayRequiresIdentityAndPreservesNativeValues(testCase)
@@ -52,6 +57,39 @@ classdef TestFeatureReportV2 < matlab.unittest.TestCase
             testCase.verifyEqual(receipt.current_legacy_feature_name_override, 'noisy');
             bad = old; bad.schema = 'options_refined-v999';
             testCase.verifyError(@() loadBenchmarkOptions(bad), 'OptiProfiler:UnsupportedNativeOptionsVersion');
+        end
+
+        function nativeProvenanceAndBoundedProjectionNeverRunCallbacks(testCase)
+            fixture = fullfile(fileparts(mfilename('fullpath')), '..', 'fixtures', ...
+                'feature-v2', 'native-legacy-enum-feature.mat');
+            before = readBytes(fixture); loaded = load(fixture);
+            [options, receipt] = loadBenchmarkOptions(struct('feature', loaded.legacy_feature, 'n_runs', 4));
+            testCase.verifyEqual(options.n_runs, 4);
+            testCase.verifyEqual(receipt.feature_import.n_runs, 3);
+            testCase.verifyEmpty(options.feature.declared);
+            testCase.verifyEqual(readBytes(fixture), before);
+            native_feature = options.feature;
+            output = tempname(getenv('OP_ARTIFACTS')); mkdir(output);
+            file = fullfile(output, 'canonical.mat');
+            save(file, 'native_feature', '-v7'); restored = load(file);
+            testCase.verifyEqual(restored.native_feature.stages, native_feature.stages);
+            testCase.verifyEmpty(restored.native_feature.declared);
+
+            calls = 0; text = repmat(char(955), 1, 300);
+            value = struct('effective_name', repmat('noisy+', 1, 60), 'name', '/private/name', ...
+                'full_feature_stamp', text, 'stages', {{struct('options', struct('noise_map', @forbidden))}});
+            projected = jsondecode(optiprofiler_internal.EvalReport.encodeMetadata(value));
+            testCase.verifyEqual(calls, 0);
+            testCase.verifyEmpty(projected.full_feature_stamp);
+            testCase.verifyEqual(projected.full_feature_stamp_bytes, 600);
+            testCase.verifyEqual(projected.full_feature_stamp_reason, 'omitted_from_bounded_metadata_projection');
+            testCase.verifyEmpty(projected.effective_name);
+            testCase.verifyEmpty(projected.name);
+            testCase.verifyEqual(projected.stages.options.noise_map.kind, 'callback');
+            function out = forbidden(varargin) %#ok<INUSD,STOUT>
+                calls = calls + 1;
+                error('OptiProfiler:MetadataExecutedCallback', 'Metadata must never call a callback.');
+            end
         end
 
         function wholeLibraryRolesNativeReplayAndFilteredLoad(testCase)
@@ -136,6 +174,48 @@ classdef TestFeatureReportV2 < matlab.unittest.TestCase
             kinds = kinds(:);
             testCase.verifyEqual(kinds(1:3), {'actual'; 'actual'; 'actual'});
             testCase.verifyEqual(kinds(4:6), {'actual'; 'repeated'; 'repeated'});
+            for j = 1:numel(runs)
+                if strcmp(runs{j}.execution.kind, 'actual')
+                    testCase.verifyEqual(sort(fieldnames(runs{j}.runtime)), ...
+                        sort({'language'; 'execution_strategy'; 'runtime_policy'; 'seed_policy'}));
+                else
+                    testCase.verifyFalse(isfield(runs{j}, 'runtime'));
+                end
+            end
+            % These copies are explicit metadata-negative fixtures, not claimed
+            % to be genuine historical producers. The genuine source remains
+            % unchanged and the numerical channels are never regenerated.
+            payloads = {[], '{not-json', struct('schema', 'feature_pipeline-v999', 'retained_marker', 71), ...
+                struct('schema', 'feature_pipeline-v1', 'retained_marker', 72, 'options', struct('n_runs', 5))};
+            statuses = {'absent', 'malformed', 'unsupported', 'known'};
+            for variant = 1:numel(payloads)
+                variant_root = fullfile(output, sprintf('metadata-fixture-%d', variant));
+                mkdir(variant_root);
+                copyfile(files(1).folder, fullfile(variant_root, 'test_log'));
+                results_plibs = loaded.results_plibs;
+                if variant == 1
+                    results_plibs{1} = rmfield(results_plibs{1}, 'feature_pipeline');
+                elseif variant == 2
+                    results_plibs{1}.feature_pipeline = payloads{variant};
+                else
+                    results_plibs{1}.feature_pipeline = jsonencode(payloads{variant});
+                end
+                variant_source = fullfile(variant_root, 'test_log', 'data_for_loading.mat');
+                save(variant_source, 'results_plibs', '-v7.3');
+                variant_before = readBytes(variant_source);
+                cd(variant_root); calls = [0 0 0];
+                load_options.report_path = fullfile(output, sprintf('metadata-load-%d.json', variant));
+                benchmark({@forbidden, @forbidden}, load_options);
+                testCase.verifyEqual(calls, [0 0 0]);
+                testCase.verifyEqual(readBytes(variant_source), variant_before);
+                variant_report = jsondecode(fileread(load_options.report_path));
+                records = variant_report.configuration.retained_result_metadata;
+                record = records(strcmp({records.role}, 'primary'));
+                testCase.verifyEqual(record.feature_pipeline_interpretation.status, statuses{variant});
+                if variant > 2, testCase.verifyEqual(record.feature_pipeline, payloads{variant}); end
+                testCase.verifyEmpty(fieldnames(variant_report.configuration.effective.experiment));
+            end
+            testCase.verifyEqual(readBytes(source_path), bytes_before);
 
             function x = probe(index, fun, x0)
                 calls(index) = calls(index) + 1; fun(x0);
