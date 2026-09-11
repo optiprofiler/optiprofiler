@@ -125,11 +125,94 @@ classdef TestFeatureExperimentPlan < matlab.unittest.TestCase
                 testCase.verifyFalse(isfolder(output));
             end
         end
+
+        function libraryReferenceHasItsOwnOneRunPlan(testCase)
+            output = tempname;
+            mkdir(output);
+            original_path = path;
+            original_registry = getenv('OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_REGISTRY');
+            cleanup = onCleanup(@() restoreRegistry(original_path, original_registry, output)); %#ok<NASGU>
+            registry = fullfile(output, 'registry.mat');
+            setenv('OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_REGISTRY', registry);
+            fixture = fullfile(fileparts(mfilename('fullpath')), '..', 'fixtures', 'featureplan');
+            library = registerProblemLibrary(struct('name', 'featureplan', 'root', fixture, ...
+                'select_function', 'plan_select', 'load_function', 'plan_load'));
+            testCase.verifyEqual(library.name, 'featureplan');
+            testCase.verifyTrue(isfile(registry));
+            calls = [0, 0];
+            feature = Feature('plain');
+            options = struct('feature', feature, 'n_runs', 3, 'run_plain', true, ...
+                'plibs', {{'featureplan'}}, 'ptype', 'u', 'mindim', 2, 'maxdim', 2, ...
+                'solver_isrand', [false, true], 'solver_names', {{'deterministic', 'randomized'}}, ...
+                'n_jobs', 1, 'max_eval_factor', 2, 'seed', 17, 'score_only', true, ...
+                'draw_hist_plots', 'none', 'silent', true, 'savepath', output);
+            scores = benchmark({@(fun, x0) probe(1, fun, x0), ...
+                @(fun, x0) probe(2, fun, x0)}, options);
+            % One selected problem: primary actual [1,3], plus independent
+            % reference [1,1]. Inheriting primary count for randomized plain
+            % would wrongly yield six calls for the second solver.
+            testCase.verifyEqual(calls, [2, 4]);
+            testCase.verifySize(scores, [2, 1]);
+            testCase.verifyTrue(feature.is_identity);
+
+            function x = probe(index, fun, x0)
+                calls(index) = calls(index) + 1;
+                fun(x0); x = 0.5 * x0; fun(x);
+            end
+        end
+
+        function retainedAxesSeparateActualAndCopiedSlots(testCase)
+            original = pwd;
+            cleanup = onCleanup(@() cd(original)); %#ok<NASGU>
+            cd(fullfile(fileparts(mfilename('fullpath')), '..', '..', 'src', 'private'));
+            get_defaults = @getDefaultProfileOptions;
+            solve = @solveOneProblem;
+            cd(original);
+            feature = Feature('plain');
+            problem = Problem(struct('fun', @(x) sum(x.^2), 'x0', [2; 1], 'name', 'AXIS_PROBE'));
+            options = struct('n_runs', 3, 'solver_isrand', [false, true], ...
+                'solver_names', {{'deterministic', 'randomized'}}, 'n_jobs', 1, ...
+                'max_eval_factor', 2, 'seed', 17, 'score_only', true, 'silent', true);
+            solvers = {@axisProbe, @axisProbe};
+            options = get_defaults(solvers, feature, options);
+            plan = optiprofiler_internal.resolveFeatureExperiment(feature, options, 'primary');
+            result = solve(solvers, problem, feature, problem.name, length(problem.name), ...
+                options, false, '', false, plan);
+            testCase.verifySize(result.fun_history, [2, 3, 4]);
+            testCase.verifyEqual(result.eval_report_metadata.real_n_runs, [1; 3]);
+            testCase.verifyEqual(result.n_eval, 2 * ones(2, 3));
+            testCase.verifyEqual(result.fun_out, 1.25 * ones(2, 3));
+            testCase.verifyEqual(result.fun_history(1, 1, :), result.fun_history(1, 3, :));
+            receipts = result.eval_report_metadata.runtime_receipts;
+            testCase.verifySize(receipts, [2, 3]);
+            testCase.verifyTrue(all(cellfun(@isempty, receipts(1, 2:3))));
+            for i = 1:3
+                testCase.verifyEqual(receipts{2, i}.run_seed, mod(23333 * 17 + 211 * i, 2^32));
+            end
+            reference = optiprofiler_internal.resolveFeatureExperiment(feature, options, 'plain_reference');
+            result = solve(solvers, problem, feature, problem.name, length(problem.name), ...
+                options, false, '', false, reference);
+            testCase.verifySize(result.fun_history, [2, 1, 4]);
+            testCase.verifyEqual(result.eval_report_metadata.real_n_runs, [1; 1]);
+            testCase.verifyEqual(size(result.fun_inits, 1), 1);
+        end
     end
 end
 
 function x = forbiddenSolver(varargin) %#ok<STOUT,INUSD>
     error('TestFeatureExperimentPlan:UnexpectedSolver', 'Validation must not invoke a solver.');
+end
+
+function x = axisProbe(fun, x0)
+    fun(x0); x = 0.5 * x0; fun(x);
+end
+
+function restoreRegistry(original_path, original_registry, output)
+    % The registry is wholly test-owned; avoid unregister's persisted startup
+    % cleanup path. Restore the path/env and delete only our temporary folder.
+    path(original_path);
+    setenv('OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_REGISTRY', original_registry);
+    if isfolder(output), rmdir(output, 's'); end
 end
 
 function [calls, traces] = runPublicProbe(feature, extra)
