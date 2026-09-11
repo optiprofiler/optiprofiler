@@ -353,13 +353,24 @@ class StageRecord:
 
 
 class Declaration:
-    """The specification as the user declared it: the input route and the entries as given."""
+    """
+    The specification as the user declared it: the input route (``'feature_name'``
+    for the shorthand string, ``'feature'`` for structured entries) and the
+    entries as given. A specification imported from a historical object that
+    recorded no declaration has ``route`` ``None`` and no entries: its effective
+    stages are known, its declaration is unknown and never fabricated.
+    """
 
     __slots__ = ('_route', '_entries')
 
     def __init__(self, route, entries):
+        if route not in ('feature_name', 'feature', None):
+            raise ValueError(f'Unknown declaration route {route!r}.')
+        entries = tuple((name, dict(options)) for name, options in entries)
+        if route is None and entries:
+            raise ValueError('An unknown declaration carries no entries.')
         object.__setattr__(self, '_route', route)
-        object.__setattr__(self, '_entries', tuple((name, dict(options)) for name, options in entries))
+        object.__setattr__(self, '_entries', entries)
 
     def __setattr__(self, key, value):
         raise AttributeError('Declaration is immutable.')
@@ -382,7 +393,14 @@ class Declaration:
 
     @property
     def name(self):
+        """The declared name (``plain`` tokens included), or ``None`` when the declaration is unknown."""
+        if self._route is None:
+            return None
         return '+'.join(name for name, _ in self._entries)
+
+    @property
+    def is_known(self):
+        return self._route is not None
 
     def __repr__(self):
         return f'Declaration({self._route!r}, {self.name!r})'

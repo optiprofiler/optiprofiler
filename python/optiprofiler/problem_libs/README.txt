@@ -116,9 +116,12 @@ The precedence is per-run `plib_options`, process-level `set_plib_config`
 overrides, library-owned environment or package configuration, then library
 defaults. The raw and effective mappings are stored in `options_user.pkl` and
 `options_refined.pkl`; the effective mapping is also stored as one
-type-preserving serialized value in `data_for_loading.h5`. `plib_options` is
-rejected with `problem` and `load`, because those modes do not call a library
-adapter.
+type-preserving serialized value in `data_for_loading.h5`. Those serialized
+values are read back through the trusted compatibility decoder
+(`optiprofiler.legacy_compat`), which also decodes enumeration members written
+by earlier versions; they are trusted input, not a safe parser for untrusted
+uploads. `plib_options` is rejected with `problem` and `load`, because those
+modes do not call a library adapter.
 
 Runtime installation details such as external executable paths, licenses, and
 caches belong in `check_available`, not in experiment options.

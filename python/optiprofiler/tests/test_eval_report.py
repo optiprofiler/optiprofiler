@@ -14,6 +14,7 @@ from optiprofiler import Problem, benchmark
 from optiprofiler.plotting import prepare_history_plot_data
 from optiprofiler.utils import ProfileOption
 from optiprofiler.tests.eval_report_contract import assert_valid
+from optiprofiler.eval_report import schema_for_document, schema_resource
 
 
 def stay(fun, x0):
@@ -69,8 +70,11 @@ def _read(path):
     """
     report = json.loads(path.read_text(encoding='utf-8'),
                         parse_constant=lambda token: (_ for _ in ()).throw(ValueError(token)))
-    if report.get('schema') == 'optiprofiler.eval_report/1':
-        assert_valid(report, 'eval_report.schema.json')
+    # Explicit schema selection by document identity: a document whose
+    # identifier this version does not know fails here instead of passing
+    # unvalidated (schema_for_document raises ValueError).
+    name, version = schema_for_document(report)
+    assert_valid(report, schema_resource(name, version))
     return report
 
 
@@ -163,7 +167,7 @@ def test_report_only_preserves_single_problem_scores_and_creates_no_plots(tmp_pa
     np.testing.assert_array_equal(actual[0], [0.0, 1.0])
     assert actual[1:] == expected[1:] == (None, None)
     report = _read(target)
-    assert report['schema'] == 'optiprofiler.eval_report/1'
+    assert report['schema'] == 'optiprofiler.eval_report/2'
     assert report['status'] == 'completed'
     assert report['stages']['rendering']['status'] == 'not_requested'
     assert report['coverage']['completed'] == 1
@@ -604,12 +608,14 @@ def test_junctions_inside_the_owned_tree_are_not_harvested(tmp_path):
 
 def test_schemas_are_package_resources_shared_by_installed_tests_and_docs():
     from optiprofiler import eval_report as module
-    for name, identifier in (('eval_report', 'urn:optiprofiler:eval_report:1'), ('plot_data', 'urn:optiprofiler:plot_data:1')):
-        schema = module.load_schema(name)
+    for name, version, identifier in (('eval_report', None, 'urn:optiprofiler:eval_report:2'),
+                                      ('eval_report', 1, 'urn:optiprofiler:eval_report:1'),
+                                      ('plot_data', None, 'urn:optiprofiler:plot_data:1')):
+        schema = module.load_schema(name, version)
         assert schema['$id'] == identifier
         assert schema['$schema'] == 'https://json-schema.org/draft/2020-12/schema'
         # The text is the resource itself (no doc copy to drift from).
-        assert json.loads(module.schema_text(name)) == schema
+        assert json.loads(module.schema_text(name, version)) == schema
     with pytest.raises(ValueError, match='Unknown EvalReport schema'):
         module.schema_text('agent_report')
 

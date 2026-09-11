@@ -72,7 +72,8 @@ class TestConstruction:
         assert structured.declared.route == 'feature' and shorthand.declared.route == 'feature_name'
         assert declared_entries(structured) == declared_entries(shorthand) == [('noisy', {'noise_level': 0.01})]
         description = describe_feature(structured)
-        assert description['route'] == 'feature' and description['seed_policy'] == 'legacy-run-seed'
+        assert description['declaration_route'] == 'feature' and description['seed_policy'] == 'legacy-run-seed'
+        assert description['route'] is None  # no invocation is described
         assert description['declared'] == [{'name': 'noisy', 'options': {'noise_level': 0.01}}]
 
     def test_sequence_builds_the_same_composition_as_the_shorthand(self):

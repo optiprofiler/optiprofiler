@@ -5,6 +5,8 @@ import datetime
 import numpy as np
 import h5py
 import pickle
+
+from optiprofiler.legacy_compat import loads_trusted
 import stat
 import uuid
 from typing import Dict, List, Any, Tuple, Optional, Union, Callable
@@ -314,7 +316,7 @@ def load_results_from_h5(file_path: str) -> List[Dict[str, Any]]:
                     # Check if it is a pickled dataset
                     if key.endswith('_pickled'):
                         data_void = plib_group[key][...]
-                        data = pickle.loads(data_void.tobytes())
+                        data = loads_trusted(data_void.tobytes())
                         real_key = key[:-8]
                         plib_data[real_key] = data
                         continue
@@ -336,7 +338,7 @@ def load_results_from_h5(file_path: str) -> List[Dict[str, Any]]:
                     for nested_key in plib_group[key].keys():
                         if nested_key.endswith('_pickled'):
                             data_void = plib_group[key][nested_key][...]
-                            data = pickle.loads(data_void.tobytes())
+                            data = loads_trusted(data_void.tobytes())
                             real_nested_key = nested_key[:-8]
                             nested_data[real_nested_key] = data
                             continue

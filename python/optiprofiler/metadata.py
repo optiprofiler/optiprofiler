@@ -25,8 +25,11 @@ _SECRET_KEY = re.compile(
 _ABS_IN_TEXT = re.compile(r'(?<![\w])(?:/(?:Users|home|private|tmp|var|mnt|opt)/\S+|[A-Za-z]:[\\/][^\s]+)')
 
 
-def bounded_text(value, limit=256):
-    """Bound known text without invoking object representations."""
+TEXT_LIMIT = 256
+
+
+def bounded_text(value, limit=TEXT_LIMIT):
+    """Bound known text without invoking object representations (``limit=None``: sanitize only)."""
     if isinstance(value, Enum):
         value = value.value
     if not isinstance(value, str):
@@ -36,7 +39,9 @@ def bounded_text(value, limit=256):
         return '[redacted_url]'
     if os.path.isabs(value) or PureWindowsPath(value).is_absolute():
         return '[redacted_absolute_path]'
-    return _ABS_IN_TEXT.sub('[redacted_absolute_path]', value)[:limit]
+    value = _ABS_IN_TEXT.sub('[redacted_absolute_path]', value)
+    return value if limit is None else value[:limit]
+
 
 
 def describe_callback(value):

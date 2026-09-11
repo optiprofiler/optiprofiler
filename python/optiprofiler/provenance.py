@@ -33,6 +33,18 @@ def seed_policy(feature):
     return SEED_POLICY_COMPOSED if len(feature.stages) > 1 else SEED_POLICY_SINGLE
 
 
+def full_feature_stamp(feature):
+    """
+    The complete stamp of ``feature``: the stamps of its effective stages
+    joined with ``__`` in order (a one-stage feature keeps its established
+    stamp; the identity is ``'plain'``). Never shortened: the bounded stamp
+    used in paths is derived from it by ``profile_utils``.
+    """
+    if not feature.stages:
+        return 'plain'
+    return '__'.join(stage.stamp for stage in feature.stages)
+
+
 def effective_specification(feature):
     """
     The ordered effective specification of ``feature`` as native data: one
@@ -47,15 +59,34 @@ def effective_specification(feature):
     return [{'name': stage.name, 'options': dict(stage.options)} for stage in feature.stages]
 
 
-def describe_feature(feature, feature_stamp=None, full_feature_stamp=None):
-    """The feature block of the provenance payload (plain, JSON-serializable data)."""
+def describe_feature(feature, feature_stamp=None, full_feature_stamp=None, input_route=None,
+                     feature_stamp_origin=None):
+    """
+    The feature block of the provenance payload (plain, JSON-serializable data).
+
+    ``route`` is the benchmark keyword that carried the specification in the
+    described invocation (``'feature_name'``, ``'feature'``, or ``None`` when
+    neither was given or no invocation is described). ``declaration_route`` is
+    the declaration route of the specification itself: ``'feature_name'`` when
+    it was declared by the shorthand string, ``'feature'`` when it was declared
+    by structured entries, ``None`` (with ``declared`` empty and
+    ``declared_name`` ``None``) when the specification was imported from a
+    historical object that recorded no declaration. The declaration is a
+    property of the specification and does not change with the keyword that
+    carried it: a ``Feature`` declared once and passed as
+    ``benchmark(feature=obj)`` keeps its declaration and its receipt.
+    ``feature_stamp_origin`` says whether ``feature_stamp`` was given explicitly
+    or generated (``None`` when no invocation is described).
+    """
     return {
-        'route': feature.declared.route,
+        'route': input_route,
+        'declaration_route': feature.declared.route,
         'declared_name': feature.declared_name,
         'declared': [{'name': name, 'options': _describe(dict(options))} for name, options in feature.declared.entries],
         'effective_name': feature.name,
         'seed_policy': seed_policy(feature),
         'feature_stamp': feature_stamp,
+        'feature_stamp_origin': feature_stamp_origin,
         'full_feature_stamp': full_feature_stamp,
         'stages': [{
             'position': stage.position,
@@ -73,18 +104,21 @@ def describe_plan(plan):
     return None if plan is None else plan.describe()
 
 
-def feature_pipeline_payload(feature, plan, feature_stamp=None, full_feature_stamp=None):
+def feature_pipeline_payload(feature, plan, feature_stamp=None, full_feature_stamp=None, input_route=None,
+                             feature_stamp_origin=None):
     """The ``feature_pipeline-v3`` payload written into archives and reports."""
     return {
         'schema': FEATURE_PIPELINE_SCHEMA,
-        'feature': describe_feature(feature, feature_stamp, full_feature_stamp),
+        'feature': describe_feature(feature, feature_stamp, full_feature_stamp, input_route, feature_stamp_origin),
         'experiment': describe_plan(plan),
     }
 
 
-def feature_pipeline_text(feature, plan, feature_stamp=None, full_feature_stamp=None):
+def feature_pipeline_text(feature, plan, feature_stamp=None, full_feature_stamp=None, input_route=None,
+                          feature_stamp_origin=None):
     """The payload as sorted JSON text (the archive stores text)."""
-    return json.dumps(feature_pipeline_payload(feature, plan, feature_stamp, full_feature_stamp), sort_keys=True)
+    return json.dumps(feature_pipeline_payload(feature, plan, feature_stamp, full_feature_stamp, input_route,
+                                               feature_stamp_origin), sort_keys=True)
 
 
 def read_feature_pipeline(value):

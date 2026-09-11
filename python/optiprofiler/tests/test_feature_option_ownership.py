@@ -48,7 +48,7 @@ class TestStageLocalOwnership:
         feature = Feature('noisy', noise_level=0.5)
         description = describe_feature(feature)
         assert description['seed_policy'] == 'legacy-run-seed'
-        assert description['effective_name'] == 'noisy' and description['route'] == 'feature_name'
+        assert description['effective_name'] == 'noisy' and description['declaration_route'] == 'feature_name'
         assert description['declared'] == [{'name': 'noisy', 'options': {'noise_level': 0.5}}]
         assert stage_options(feature) == [{**NOISY_DEFAULTS, 'noise_level': 0.5}]
 
@@ -144,6 +144,7 @@ class TestExperimentPlans:
         clone = pickle.loads(pickle.dumps(plan))
         assert clone.describe() == plan.describe() == {'role': 'primary', 'n_runs': 4, 'origin': 'explicit',
                                                         'run_policy': 'legacy-hints-v1',
-                                                        'execution_strategy': 'legacy-single'}
+                                                        'execution_strategy': 'legacy-single',
+                                                        'runtime_policy': 'python-featured-problem-v1'}
         with pytest.raises(AttributeError):
             clone.n_runs = 2

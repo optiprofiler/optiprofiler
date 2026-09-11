@@ -85,7 +85,8 @@ class TestStructuredRoute:
         assert pipeline['declared'] == [{'name': 'noisy', 'options': {'noise_level': 0.01}},
                                         {'name': 'truncated', 'options': {}}]
         assert payload['experiment'] == {'role': 'primary', 'n_runs': 5, 'origin': 'stage_hints',
-                                         'run_policy': 'legacy-hints-v1', 'execution_strategy': 'composed-views'}
+                                         'run_policy': 'legacy-hints-v1', 'execution_strategy': 'composed-views',
+                                         'runtime_policy': 'python-featured-problem-v1'}
         assert pipeline['stages'][0]['options'] == NOISY_EFFECTIVE
         assert all('n_runs' not in stage['options'] for stage in pipeline['stages'])
         refined = refined_options_of(tmp_path / 'composition')
@@ -150,7 +151,9 @@ class TestStructuredRoute:
         assert_same_numbers(first, second)
         assert first['feature_stamp'] == second['feature_stamp']
         pipelines = [json.loads(result['feature_pipeline']) for result in (first, second)]
+        # The invocation keyword and the declaration route differ by construction.
         assert [pipeline['feature'].pop('route') for pipeline in pipelines] == ['feature', 'feature_name']
+        assert [pipeline['feature'].pop('declaration_route') for pipeline in pipelines] == ['feature', 'feature_name']
         # Everything else, the declared specification and the plan included, is identical.
         assert pipelines[0] == pipelines[1]
 
@@ -234,7 +237,8 @@ class TestLoad:
         assert all('n_runs' not in stage['options'] for stage in retained['feature']['stages'])
         effective = report['configuration']['effective']['feature']
         assert effective['scope'] == 'current_load_context_not_original_execution_feature'
-        assert effective['name'] == 'plain' and effective['route'] == 'feature_name'
+        assert effective['name'] == 'plain' and effective['declaration_route'] == 'feature_name'
+        assert effective['route'] is None  # a load names no feature keyword
 
     def test_feature_name_still_labels_a_load(self, tmp_path, monkeypatch):
         scores, _, _ = benchmark([solver_stay, solver_step], feature=SPEC, **common_kwargs(tmp_path, 'reload'))
