@@ -30,5 +30,129 @@ classdef TestFeatureExperimentPlan < matlab.unittest.TestCase
                 fun(x);
             end
         end
+
+        function reusableRepeatedStagesKeepIndependentExperimentCounts(testCase)
+            feature = Feature({struct('name', 'noisy', 'options', ...
+                struct('noise_level', 0.01, 'distribution', 'gaussian')), ...
+                struct('name', 'noisy', 'options', ...
+                struct('noise_level', 0.1, 'distribution', 'uniform'))});
+            before_stages = feature.stages;
+            before_declared = feature.declared;
+            [three_calls, three_traces] = runPublicProbe(feature, struct('n_runs', 3));
+            [one_calls, one_traces] = runPublicProbe(feature, struct('n_runs', 1));
+            testCase.verifyEqual(three_calls, [3, 3]);
+            testCase.verifyEqual(one_calls, [1, 1]);
+            % Fresh runtimes must restart at the same legacy run seed. Reusing
+            % immutable configuration must not continue a previous run stream.
+            for solver = 1:2
+                testCase.verifyEqual(three_traces{solver}{1}, one_traces{solver}{1});
+            end
+            testCase.verifyEqual(feature.stages, before_stages);
+            testCase.verifyEqual(feature.declared, before_declared);
+            for stage = feature.stages
+                testCase.verifyFalse(isfield(stage{1}.options, 'n_runs'));
+            end
+        end
+
+        function literalHintsAreNotStochasticPredicates(testCase)
+            % Affine without rotation is deterministic but keeps literal hint
+            % 5; custom is classified stochastic but its historical hint is 1.
+            cases = {Feature('plain'), Feature('custom'), ...
+                Feature('linearly_transformed', struct('rotated', false)), ...
+                Feature('noisy', struct('noise_mode', 'deterministic')), ...
+                Feature('noisy'), Feature('truncated'), ...
+                Feature('truncated', struct('perturbed_trailing_digits', true))};
+            hints = [1, 1, 5, 1, 5, 1, 5];
+            actual = [1, 1, 1, 1, 5, 1, 5];
+            for i = 1:numel(cases)
+                plan = optiprofiler_internal.resolveFeatureExperiment(cases{i}, ...
+                    struct('solver_isrand', [false, false]), 'primary');
+                testCase.verifyEqual(plan.n_runs, hints(i));
+                testCase.verifyFalse(plan.request_present);
+                testCase.verifyEqual(plan.origin, 'stage_hints');
+                testCase.verifyEqual(runPublicProbe(cases{i}, struct()), [actual(i), actual(i)]);
+            end
+            % The solver rule has priority over stage hints, but an explicit
+            % experiment count still wins. Assertions use real solver calls.
+            testCase.verifyEqual(runPublicProbe(Feature('custom'), ...
+                struct('solver_isrand', [false, true])), [5, 5]);
+            testCase.verifyEqual(runPublicProbe(Feature('custom'), ...
+                struct('solver_isrand', [false, true], 'n_runs', 2)), [2, 2]);
+        end
+
+        function invalidCountsFailBeforeOutputsOrSolvers(testCase)
+            routes = {struct('feature_name', 'plain'), ...
+                struct('feature_name', 'noisy+truncated'), ...
+                struct('feature', struct('name', 'noisy')), ...
+                struct('feature', {{'noisy', 'truncated'}}), ...
+                struct('feature', Feature('plain'))};
+            invalid = {[], NaN, Inf, 0, -1, 1.5, true, '3'};
+            problem = Problem(struct('fun', @(x) sum(x.^2), 'x0', [2; 1]));
+            for route = 1:numel(routes)
+                for randomized = [false, true]
+                    for value = 1:numel(invalid)
+                        output = tempname;  % Must not be created by validation.
+                        options = routes{route};
+                        options.n_runs = invalid{value};
+                        options.problem = problem;
+                        options.solver_isrand = [false, randomized];
+                        options.savepath = output;
+                        options.score_only = true;
+                        options.silent = true;
+                        testCase.verifyError(@() benchmark({@forbiddenSolver, @forbiddenSolver}, options), ...
+                            'MATLAB:checkValidityProfileOptions:n_runsNotValid');
+                        testCase.verifyFalse(isfolder(output));
+                    end
+                end
+            end
+        end
+
+        function entryAmbiguitiesFailBeforeOutputs(testCase)
+            cases = {struct('feature', Feature('plain'), 'feature_name', 'plain'), ...
+                struct('feature', 'noisy'), ...
+                struct('feature', Feature('plain'), 'noise_level', 0.1), ...
+                struct('feature', Feature('plain'), 'load', 'NO_ARCHIVE')};
+            errors = {'MATLAB:benchmark:ConflictingFeatureInputs', ...
+                'MATLAB:benchmark:InvalidFeatureInput', ...
+                'MATLAB:benchmark:FeatureLocalOverride', 'MATLAB:benchmark:FeatureWithLoad'};
+            for i = 1:numel(cases)
+                output = tempname;
+                options = cases{i};
+                options.savepath = output;
+                options.score_only = true;
+                options.silent = true;
+                testCase.verifyError(@() benchmark({@forbiddenSolver, @forbiddenSolver}, options), errors{i});
+                testCase.verifyFalse(isfolder(output));
+            end
+        end
+    end
+end
+
+function x = forbiddenSolver(varargin) %#ok<STOUT,INUSD>
+    error('TestFeatureExperimentPlan:UnexpectedSolver', 'Validation must not invoke a solver.');
+end
+
+function [calls, traces] = runPublicProbe(feature, extra)
+    output = tempname;
+    mkdir(output);
+    cleanup = onCleanup(@() rmdir(output, 's')); %#ok<NASGU>
+    calls = [0, 0];
+    traces = {{}, {}};
+    problem = Problem(struct('fun', @(x) sum(x.^2), 'x0', [2; 1], 'name', 'PLAN_PROBE'));
+    options = struct('feature', feature, 'problem', problem, ...
+        'solver_isrand', [false, false], 'solver_names', {{'first', 'second'}}, ...
+        'n_jobs', 1, 'max_eval_factor', 2, 'seed', 17, 'score_only', true, ...
+        'draw_hist_plots', 'none', 'silent', true, 'savepath', output);
+    for key = fieldnames(extra)'
+        options.(key{1}) = extra.(key{1});
+    end
+    benchmark({@(fun, x0) probe(1, fun, x0), @(fun, x0) probe(2, fun, x0)}, options);
+
+    function x = probe(index, fun, x0)
+        calls(index) = calls(index) + 1;
+        first = fun(x0);
+        x = 0.5 * x0;
+        second = fun(x);
+        traces{index}{end + 1} = [first, second];
     end
 end

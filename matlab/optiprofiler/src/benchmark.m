@@ -637,7 +637,7 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
         end
         feature_input = options.feature;
         options = rmfield(options, 'feature');
-        if ~(isa(feature_input, 'Feature') || isstruct(feature_input) || iscell(feature_input))
+        if ~((isa(feature_input, 'Feature') && isscalar(feature_input)) || isstruct(feature_input) || iscell(feature_input))
             error('MATLAB:benchmark:InvalidFeatureInput', 'The option `feature` must be a Feature, a scalar stage struct, or a nonempty cell of stages. Use `feature_name` for shorthand strings.');
         end
         if isfield(options, ProfileOptionKey.LOAD.value) && ~isempty(options.(ProfileOptionKey.LOAD.value))
