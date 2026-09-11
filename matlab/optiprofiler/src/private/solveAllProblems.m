@@ -259,6 +259,7 @@ function results = solveAllProblems(solvers, library, feature, problem_options, 
     results.excludelist = problem_options.(ProblemOptionKey.EXCLUDELIST.value);
     results.feature_stamp = profile_options.(ProfileOptionKey.FEATURE_STAMP.value);
     results.feature_pipeline = pipeline;
+    if isfield(feature_context, 'full_feature_stamp'), results.full_feature_stamp = feature_context.full_feature_stamp; end
     results.execution_metadata = optiprofiler_internal.retainedExecutionMetadata(tmp_results);
     results.fun_histories = fun_histories;
     results.maxcv_histories = maxcv_histories;
