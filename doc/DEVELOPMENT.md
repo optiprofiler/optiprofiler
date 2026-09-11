@@ -107,7 +107,10 @@ specification and the solver metadata. Every built-in stage composes with every
 other in any order and any number of times; a single effective stage keeps the
 established single-feature execution and seeds, and a genuine composition is
 executed by one recorder over lazily composed views with per-stage, per-channel
-seeds (`seedsequence-v2`). Counters, budgets, truth evaluation and histories
+seeds derived by a language-local policy over the same stage identities
+(Python `seedsequence-v2`; MATLAB `matlab-stage-horner32-v1`, an exact 32-bit
+Horner fold feeding the unchanged legacy stream kernel; neither language
+promises the other's samples). Counters, budgets, truth evaluation and histories
 live in the recorder only; stages are never wrapped recursively. Spatial
 transformations carry bounds, constraints, truth and derivative semantics
 through the same view protocol.
@@ -155,8 +158,12 @@ provenance before Arena use; ordinary trusted-data reload remains supported.
   reproducibility metadata. S2MPJ's existing BSD-3-Clause text must be retained;
   it is no longer an upstream-missing-license item.
 
-Implement in small accepted slices: close remaining documentation/provider
-issues; prepare installation/release checks alongside the run-record design;
-validate the record with Evolve; add feature combinations; then run the offline
+Delivered on the development line, in small accepted slices: the provider
+split, the versioned evaluation report (`optiprofiler.eval_report/2` with the
+immutable version 1 and the `plot_data/1` companion), the ordered feature
+composition with the 2.0 `Feature` contract, the experiment plans and
+provenance, and the trusted boundary for configurations written by earlier
+versions. Still future work: installation/release checks, validation of the
+record by Evolve as an external integration gate, and the offline
 reference/scoring pilot. A future 2.0.0 release need not wait for every research
 item. Do not publish or change the version as a side effect of this roadmap.
