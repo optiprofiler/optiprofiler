@@ -71,8 +71,8 @@ necessary, generate it automatically from the release commit.
 ## Machine-Readable Experiment Records and Evolve Feedback
 
 The record is the opt-in `eval_report` (`report_path=`): a versioned main
-report (`optiprofiler.eval_report/2`; version 1 stays immutable for reports
-already written and for the MATLAB producer) with a numeric companion
+report (`optiprofiler.eval_report/2`, emitted by both languages; version 1
+stays immutable as the contract of reports written before it) with a numeric companion
 (`optiprofiler.plot_data/1`), both pinned by packaged JSON Schemas and selected
 by the document's schema identifier. Core records experiment facts: run
 identity, actual problem/provider identity, the canonical feature specification
@@ -158,12 +158,14 @@ provenance before Arena use; ordinary trusted-data reload remains supported.
   reproducibility metadata. S2MPJ's existing BSD-3-Clause text must be retained;
   it is no longer an upstream-missing-license item.
 
-Delivered on the development line, in small accepted slices: the provider
-split, the versioned evaluation report (`optiprofiler.eval_report/2` with the
-immutable version 1 and the `plot_data/1` companion), the ordered feature
-composition with the 2.0 `Feature` contract, the experiment plans and
-provenance, and the trusted boundary for configurations written by earlier
-versions. Still future work: installation/release checks, validation of the
+Implemented in small accepted slices on isolated candidate branches (the
+provider split is integrated on the development line; the versioned
+evaluation report `optiprofiler.eval_report/2` with the immutable version 1
+and the `plot_data/1` companion, the ordered feature composition with the 2.0
+`Feature` contract, the experiment plans and provenance, and the trusted
+boundary for configurations written by earlier versions are candidate
+implementations awaiting integration into the maintained branch after
+independent review). Still future work: installation/release checks, validation of the
 record by Evolve as an external integration gate, and the offline
 reference/scoring pilot. A future 2.0.0 release need not wait for every research
 item. Do not publish or change the version as a side effect of this roadmap.

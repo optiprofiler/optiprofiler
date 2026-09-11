@@ -268,14 +268,77 @@ def stamp(name, options):
     return text
 
 
+def own_value(value):
+    """
+    Defensive copy of an option value at ingress: exact built-in containers
+    (``list``, ``tuple``, ``dict``) are copied recursively and exact
+    ``numpy.ndarray`` values become read-only owned copies (an object-dtype
+    array is copied, its elements are not), so a specification never aliases
+    user-owned ordinary data. Callables are checked first and always keep
+    their identity (a callable container subclass stays the opaque callback it
+    is); scalars, strings, subclasses of the containers and any other object
+    keep their identity too. No copy, iteration or reduction hook of a user
+    object is invoked.
+    """
+    if callable(value):
+        return value
+    kind = type(value)
+    if kind is np.ndarray:
+        copied = np.array(value, copy=True, subok=False)
+        copied.setflags(write=False)
+        return copied
+    if kind is list:
+        return [own_value(item) for item in value]
+    if kind is tuple:
+        return tuple(own_value(item) for item in value)
+    if kind is dict:
+        return {key: own_value(item) for key, item in value.items()}
+    return value
+
+
+def view_value(value):
+    """
+    Isolated read-only view of a stored option value: exact ``numpy.ndarray``
+    values are returned as fresh read-only copies (the stored array is never
+    exposed, so re-enabling writes on the returned object cannot reach the
+    specification), exact lists and tuples as fresh copies, exact dictionaries
+    as read-only mappings over fresh copies; callables and everything else as
+    they are.
+    """
+    if callable(value):
+        return value
+    kind = type(value)
+    if kind is np.ndarray:
+        copied = np.array(value, copy=True, subok=False)
+        copied.setflags(write=False)
+        return copied
+    if kind is list:
+        return [view_value(item) for item in value]
+    if kind is tuple:
+        return tuple(view_value(item) for item in value)
+    if kind is dict:
+        return MappingProxyType({key: view_value(item) for key, item in value.items()})
+    return value
+
+
+def own_options(options):
+    """A private, owned copy of an option mapping (see ``own_value``)."""
+    return {key: own_value(value) for key, value in dict(options).items()}
+
+
+def view_options(options):
+    """A read-only view of an owned option mapping (see ``view_value``)."""
+    return MappingProxyType({key: view_value(value) for key, value in options.items()})
+
+
 def validated_local_options(name, options):
-    """Validate and default a copy of the stage-local ``options`` of kind ``name``."""
+    """Validate and default an owned copy of the stage-local ``options`` of kind ``name``."""
     if any(not isinstance(key, str) for key in options):
         raise TypeError('option names must be strings.')
     validated = {}
     for key, value in options.items():
         key = key.lower()
-        validated[key] = validate_option(name, key, value)
+        validated[key] = own_value(validate_option(name, key, value))
     return apply_local_defaults(name, validated)
 
 
@@ -292,7 +355,7 @@ class StageRecord:
     def __init__(self, name, occurrence, options, position=0):
         object.__setattr__(self, '_name', name)
         object.__setattr__(self, '_occurrence', occurrence)
-        object.__setattr__(self, '_options', dict(options))
+        object.__setattr__(self, '_options', own_options(options))
         object.__setattr__(self, '_position', position)
 
     def __setattr__(self, key, value):
@@ -308,7 +371,7 @@ class StageRecord:
         name, occurrence, options, position = state
         object.__setattr__(self, '_name', name)
         object.__setattr__(self, '_occurrence', occurrence)
-        object.__setattr__(self, '_options', dict(options))
+        object.__setattr__(self, '_options', own_options(options))
         object.__setattr__(self, '_position', position)
 
     @property
@@ -334,7 +397,12 @@ class StageRecord:
 
     @property
     def options(self):
-        return MappingProxyType(self._options)
+        """Read-only view of the validated stage-local options (arrays read-only, containers copied)."""
+        return view_options(self._options)
+
+    def native_options(self):
+        """An owned plain copy of the validated stage-local options (native values, for transport and replay)."""
+        return own_options(self._options)
 
     @property
     def is_stochastic(self):
@@ -366,7 +434,7 @@ class Declaration:
     def __init__(self, route, entries):
         if route not in ('feature_name', 'feature', None):
             raise ValueError(f'Unknown declaration route {route!r}.')
-        entries = tuple((name, dict(options)) for name, options in entries)
+        entries = tuple((name, own_options(options)) for name, options in entries)
         if route is None and entries:
             raise ValueError('An unknown declaration carries no entries.')
         object.__setattr__(self, '_route', route)
@@ -381,7 +449,7 @@ class Declaration:
     def __setstate__(self, state):
         route, entries = state
         object.__setattr__(self, '_route', route)
-        object.__setattr__(self, '_entries', tuple((name, dict(options)) for name, options in entries))
+        object.__setattr__(self, '_entries', tuple((name, own_options(options)) for name, options in entries))
 
     @property
     def route(self):
@@ -389,7 +457,12 @@ class Declaration:
 
     @property
     def entries(self):
-        return tuple((name, MappingProxyType(options)) for name, options in self._entries)
+        """The entries as given, as read-only views (arrays read-only, containers copied)."""
+        return tuple((name, view_options(options)) for name, options in self._entries)
+
+    def native_entries(self):
+        """Owned plain copies of the entries (native values, for transport)."""
+        return tuple((name, own_options(options)) for name, options in self._entries)
 
     @property
     def name(self):

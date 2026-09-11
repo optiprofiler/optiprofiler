@@ -56,7 +56,7 @@ def effective_specification(feature):
     """
     if not feature.stages:
         return [{'name': 'plain', 'options': {}}]
-    return [{'name': stage.name, 'options': dict(stage.options)} for stage in feature.stages]
+    return [{'name': stage.name, 'options': stage.native_options()} for stage in feature.stages]
 
 
 def describe_feature(feature, feature_stamp=None, full_feature_stamp=None, input_route=None,
@@ -82,7 +82,7 @@ def describe_feature(feature, feature_stamp=None, full_feature_stamp=None, input
         'route': input_route,
         'declaration_route': feature.declared.route,
         'declared_name': feature.declared_name,
-        'declared': [{'name': name, 'options': _describe(dict(options))} for name, options in feature.declared.entries],
+        'declared': [{'name': name, 'options': _describe(options)} for name, options in feature.declared.native_entries()],
         'effective_name': feature.name,
         'seed_policy': seed_policy(feature),
         'feature_stamp': feature_stamp,
@@ -94,7 +94,7 @@ def describe_feature(feature, feature_stamp=None, full_feature_stamp=None, input
             'code': stage.code,
             'occurrence': stage.occurrence,
             'identity': stage.identity,
-            'options': _describe(dict(stage.options)),
+            'options': _describe(stage.native_options()),
         } for stage in feature.stages],
     }
 

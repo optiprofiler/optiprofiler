@@ -869,6 +869,17 @@ class Feature:
     conveniences only; the benchmark, the recorder, the archives and the
     reports use ``stages``.
 
+    Ownership of option values: exact built-in data containers (``list``,
+    ``tuple``, ``dict``) and exact ``numpy.ndarray`` values are copied at
+    construction (arrays as read-only copies) and the inspection views hand
+    out isolated read-only array copies, fresh container copies and read-only
+    mappings, so changing such a container or array after construction, or
+    changing what a view returned, never changes the specification. Opaque
+    values are retained by identity and are not copied: callables, container
+    subclasses, any other object and the elements of object-dtype arrays; the
+    specification never mutates them, but their own state stays the caller's.
+    No copy, iteration or reduction hook of a user object is invoked.
+
     Examples
     --------
     .. code-block:: python
@@ -920,8 +931,8 @@ class Feature:
         # The native form is versioned: the canonical effective stages with all
         # validated local options explicit, plus the declaration as provenance.
         # No run count and no runtime state; unpickling validates again.
-        effective = tuple((stage.name, dict(stage.options)) for stage in self._stages)
-        return _rebuild_feature, (FEATURE_NATIVE_VERSION, self._declared.route, self._declared._entries, effective)
+        effective = tuple((stage.name, stage.native_options()) for stage in self._stages)
+        return _rebuild_feature, (FEATURE_NATIVE_VERSION, self._declared.route, self._declared.native_entries(), effective)
 
     def __repr__(self):
         return f'Feature({self.name!r})'
