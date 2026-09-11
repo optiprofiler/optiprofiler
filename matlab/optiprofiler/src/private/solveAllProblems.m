@@ -1,4 +1,4 @@
-function results = solveAllProblems(solvers, library, feature, problem_options, profile_options, is_plot, path_hist_plots, eval_report, role)
+function results = solveAllProblems(solvers, library, feature, problem_options, profile_options, is_plot, path_hist_plots, eval_report, role, experiment_plan)
 %SOLVEALLPROBLEMS solves all problems from a resolved problem library.
 
     results = struct();
@@ -116,7 +116,7 @@ function results = solveAllProblems(solvers, library, feature, problem_options, 
                 load_failure_ids{i_problem} = loadFailureIdentifier(load_error);
                 continue;
             end
-            result = solveOneProblem(solvers, problem, feature, problem_name, len_problem_names, profile_options_log, is_plot, path_hist_plots, capture_presentation);
+            result = solveOneProblem(solvers, problem, feature, problem_name, len_problem_names, profile_options_log, is_plot, path_hist_plots, capture_presentation, experiment_plan);
             tmp_results{i_problem} = result;
         end
     else
@@ -142,7 +142,7 @@ function results = solveAllProblems(solvers, library, feature, problem_options, 
                 load_failure_ids{i_problem} = loadFailureIdentifier(load_error);
                 continue;
             end
-            result = solveOneProblem(solvers, problem, feature, problem_name, len_problem_names, profile_options_log, is_plot, path_hist_plots, capture_presentation);
+            result = solveOneProblem(solvers, problem, feature, problem_name, len_problem_names, profile_options_log, is_plot, path_hist_plots, capture_presentation, experiment_plan);
             tmp_results{i_problem} = result;
         end
     end
@@ -170,7 +170,7 @@ function results = solveAllProblems(solvers, library, feature, problem_options, 
     else
         % Process results.
         n_solvers = length(solvers);
-        n_runs = feature.options.(FeatureOptionKey.N_RUNS.value);
+        n_runs = experiment_plan.n_runs;
         problem_types = cell(n_problems, 1);
         problem_dims = NaN(n_problems, 1);
         problem_mbs = NaN(n_problems, 1);

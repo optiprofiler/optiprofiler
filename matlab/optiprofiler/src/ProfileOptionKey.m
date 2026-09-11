@@ -2,6 +2,7 @@ classdef ProfileOptionKey
 %PROFILEOPTIONKEY enumerates options for creating profiles
     
     enumeration
+        N_RUNS ('n_runs')
         N_JOBS ('n_jobs')
         SEED ('seed')
         BENCHMARK_ID ('benchmark_id')

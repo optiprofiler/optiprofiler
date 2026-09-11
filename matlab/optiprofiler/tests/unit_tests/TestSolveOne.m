@@ -39,7 +39,7 @@ classdef TestSolveOne < matlab.unittest.TestCase
             problem_name = 'ALLINITU';
             problem = s2mpj_load(problem_name);
             solvers = {@fminsearch_test1, @fminsearch_test2};
-            feature = Feature('permuted', 'n_runs', 1);
+            feature = Feature('permuted');
             len_problem_names = length('ALLINITU');
             profile_options.solver_names = {'fminsearch', 'fminunc'};
             profile_options.solver_isrand = [false, false];
@@ -49,12 +49,14 @@ classdef TestSolveOne < matlab.unittest.TestCase
             profile_options.seed = 1;
             profile_options.solver_verbose = 1;
             profile_options.score_only = false;
+            profile_options.n_runs = 1;
             get_default_profile_options = testCase.GetDefaultProfileOptions;
             profile_options = get_default_profile_options(solvers, feature, profile_options);
+            experiment_plan = optiprofiler_internal.resolveFeatureExperiment(feature, profile_options, 'primary');
 
             solve_one_problem = testCase.SolveOneProblem;
             result = solve_one_problem( ...
-                solvers, problem, feature, problem_name, len_problem_names, profile_options, true, '');
+                solvers, problem, feature, problem_name, len_problem_names, profile_options, true, '', false, experiment_plan);
             testCase.verifyNotEmpty(result);
             testCase.verifyNotEmpty(result.fun_history);
             testCase.verifyNotEmpty(result.maxcv_history);
@@ -77,7 +79,7 @@ classdef TestSolveOne < matlab.unittest.TestCase
             len_problem_names = length('BT1');
             profile_options.solver_names = {'sqp', 'interior-point'};
             result = solve_one_problem( ...
-                solvers, problem, feature, problem_name, len_problem_names, profile_options, true, '');
+                solvers, problem, feature, problem_name, len_problem_names, profile_options, true, '', false, experiment_plan);
             testCase.verifyNotEmpty(result);
             testCase.verifyNotEmpty(result.fun_history);
             testCase.verifyNotEmpty(result.maxcv_history);

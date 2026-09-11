@@ -1,6 +1,14 @@
 function profile_options = checkValidityProfileOptions(solvers, profile_options)
 %CHECKVALIDITYPROFILEOPTIONS Check the validity of the options in profile_options
 
+    % Repetitions belong to the experiment, not to Feature. Validate before the
+    % savepath check can create a directory; []/NaN/Inf are explicit errors.
+    if isfield(profile_options, ProfileOptionKey.N_RUNS.value)
+        if ~isintegerscalar(profile_options.(ProfileOptionKey.N_RUNS.value)) || profile_options.(ProfileOptionKey.N_RUNS.value) <= 0
+            error('MATLAB:checkValidityProfileOptions:n_runsNotValid', 'The option `n_runs` must be a positive integer.');
+        end
+    end
+
     % Judge whether profile_options.n_jobs is a integer greater than or equal to 1. If it is smaller than 1, set it to 1 and print a message.
     if isfield(profile_options, ProfileOptionKey.N_JOBS.value)
         if ~isintegerscalar(profile_options.(ProfileOptionKey.N_JOBS.value))

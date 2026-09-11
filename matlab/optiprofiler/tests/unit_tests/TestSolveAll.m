@@ -51,10 +51,11 @@ classdef TestSolveAll < matlab.unittest.TestCase
             profile_options.n_jobs = 1;
             get_default_profile_options = testCase.GetDefaultProfileOptions;
             profile_options = get_default_profile_options(solvers, feature, profile_options);
+            experiment_plan = optiprofiler_internal.resolveFeatureExperiment(feature, profile_options, 'primary');
             
             solve_all_problems = testCase.SolveAllProblems;
             results = solve_all_problems( ...
-                solvers, library, feature, problem_options, profile_options, false, '');
+                solvers, library, feature, problem_options, profile_options, false, '', [], 'primary', experiment_plan);
             testCase.verifyNotEmpty(results);
             testCase.verifyNotEmpty(results.plib);
             testCase.verifyNotEmpty(results.solver_names);

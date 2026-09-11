@@ -1,4 +1,4 @@
-function profile_options = getDefaultProfileOptions(solvers, feature, profile_options)
+function [profile_options, full_feature_stamp] = getDefaultProfileOptions(solvers, feature, profile_options)
 
     if exist('parcluster', 'file') == 2 % Check if Parallel Computing Toolbox is available
         if isempty(gcp('nocreate'))
@@ -30,7 +30,9 @@ function profile_options = getDefaultProfileOptions(solvers, feature, profile_op
         profile_options.(ProfileOptionKey.SOLVER_ISRAND.value) = false(1, numel(solvers));
     end
     if ~isfield(profile_options, ProfileOptionKey.FEATURE_STAMP.value)
-        profile_options.(ProfileOptionKey.FEATURE_STAMP.value) = getDefaultFeatureStamp(feature);
+        [profile_options.(ProfileOptionKey.FEATURE_STAMP.value), full_feature_stamp] = getDefaultFeatureStamp(feature);
+    else
+        full_feature_stamp = profile_options.(ProfileOptionKey.FEATURE_STAMP.value);
     end
     if ~isfield(profile_options, ProfileOptionKey.ERRORBAR_TYPE.value)
         profile_options.(ProfileOptionKey.ERRORBAR_TYPE.value) = 'minmax';
@@ -166,64 +168,91 @@ function profile_options = getDefaultProfileOptions(solvers, feature, profile_op
     end
 end
 
-function feature_stamp = getDefaultFeatureStamp(feature)
+function [feature_stamp, full_feature_stamp] = getDefaultFeatureStamp(feature)
+    % Each stamp reads one canonical stage, not the deprecated single-stage
+    % Feature.options projection. Atomic formatting stays byte-for-byte
+    % compatible; compositions retain application order, including repeats.
+    stages = feature.stages;
+    if isempty(stages)
+        feature_stamp = 'plain';
+        full_feature_stamp = feature_stamp;
+        return;
+    end
+    stamps = cell(1, numel(stages));
+    for i = 1:numel(stages)
+        stamps{i} = getDefaultStageStamp(stages{i});
+    end
+    feature_stamp = strjoin(stamps, '__');
+    full_feature_stamp = feature_stamp;
+    if numel(stages) > 1 && length(feature_stamp) > 64
+        % Bound generated path components without changing atomic legacy names.
+        % CRC-32/ISO-HDLC is only a compact display-label checksum: collisions
+        % are possible, so full_feature_stamp is retained and the existing
+        % unique directory allocator still owns experiment identity. This is
+        % deliberately unrelated to oracle seeds and needs no JVM or tools.
+        suffix = optiprofiler_internal.featureLabelChecksum(full_feature_stamp);
+        feature_stamp = [feature_stamp(1:55), '_', suffix];
+    end
+end
+
+function feature_stamp = getDefaultStageStamp(stage)
     % Generate a feature stamp to represent the feature with its options.
 
-    switch feature.name
+    switch stage.name
         case FeatureName.PERTURBED_X0.value
             % feature_name + perturbation_level + (distribution if it is gaussian or spherical)
-            feature_stamp = sprintf('%s_%g', feature.name, feature.options.(FeatureOptionKey.PERTURBATION_LEVEL.value));
-            if ischarstr(feature.options.(FeatureOptionKey.DISTRIBUTION.value)) && ismember(feature.options.(FeatureOptionKey.DISTRIBUTION.value), {'gaussian', 'spherical'})
-                feature_stamp = sprintf('%s_%s', feature_stamp, feature.options.(FeatureOptionKey.DISTRIBUTION.value));
+            feature_stamp = sprintf('%s_%g', stage.name, stage.options.(FeatureOptionKey.PERTURBATION_LEVEL.value));
+            if ischarstr(stage.options.(FeatureOptionKey.DISTRIBUTION.value)) && ismember(stage.options.(FeatureOptionKey.DISTRIBUTION.value), {'gaussian', 'spherical'})
+                feature_stamp = sprintf('%s_%s', feature_stamp, stage.options.(FeatureOptionKey.DISTRIBUTION.value));
             end
         case FeatureName.NOISY.value
             % feature_name + noise_level + noise_type + (distribution if it is gaussian or uniform)
-            feature_stamp = sprintf('%s_%g_%s', feature.name, feature.options.(FeatureOptionKey.NOISE_LEVEL.value), feature.options.(FeatureOptionKey.NOISE_TYPE.value));
-            if strcmp(feature.options.(FeatureOptionKey.NOISE_MODE.value), 'deterministic')
+            feature_stamp = sprintf('%s_%g_%s', stage.name, stage.options.(FeatureOptionKey.NOISE_LEVEL.value), stage.options.(FeatureOptionKey.NOISE_TYPE.value));
+            if strcmp(stage.options.(FeatureOptionKey.NOISE_MODE.value), 'deterministic')
                 feature_stamp = sprintf('%s_deterministic', feature_stamp);
-                if ischarstr(feature.options.(FeatureOptionKey.NOISE_MAP.value)) && strcmp(feature.options.(FeatureOptionKey.NOISE_MAP.value), 'chebyshev')
-                    feature_stamp = sprintf('%s_%s', feature_stamp, feature.options.(FeatureOptionKey.NOISE_MAP.value));
+                if ischarstr(stage.options.(FeatureOptionKey.NOISE_MAP.value)) && strcmp(stage.options.(FeatureOptionKey.NOISE_MAP.value), 'chebyshev')
+                    feature_stamp = sprintf('%s_%s', feature_stamp, stage.options.(FeatureOptionKey.NOISE_MAP.value));
                 end
-            elseif ischarstr(feature.options.(FeatureOptionKey.DISTRIBUTION.value)) && ismember(feature.options.(FeatureOptionKey.DISTRIBUTION.value), {'gaussian', 'uniform'})
-                feature_stamp = sprintf('%s_%s', feature_stamp, feature.options.(FeatureOptionKey.DISTRIBUTION.value));
+            elseif ischarstr(stage.options.(FeatureOptionKey.DISTRIBUTION.value)) && ismember(stage.options.(FeatureOptionKey.DISTRIBUTION.value), {'gaussian', 'uniform'})
+                feature_stamp = sprintf('%s_%s', feature_stamp, stage.options.(FeatureOptionKey.DISTRIBUTION.value));
             end
         case FeatureName.TRUNCATED.value
             % feature_name + significant_digits + (perturbed_trailing_digits if it is true)
-            feature_stamp = sprintf('%s_%d', feature.name, feature.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value));
-            if feature.options.(FeatureOptionKey.PERTURBED_TRAILING_DIGITS.value)
+            feature_stamp = sprintf('%s_%d', stage.name, stage.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value));
+            if stage.options.(FeatureOptionKey.PERTURBED_TRAILING_DIGITS.value)
                 feature_stamp = sprintf('%s_perturbed_trailing_digits', feature_stamp);
             end
         case FeatureName.LINEARLY_TRANSFORMED.value
             % feature_name + (rotated if it is true) + (condition_factor if it is not 0)
-            feature_stamp = feature.name;
-            if feature.options.(FeatureOptionKey.ROTATED.value)
+            feature_stamp = stage.name;
+            if stage.options.(FeatureOptionKey.ROTATED.value)
                 feature_stamp = sprintf('%s_rotated', feature_stamp);
             end
-            if feature.options.(FeatureOptionKey.CONDITION_FACTOR.value) ~= 0
-                feature_stamp = sprintf('%s_%g', feature_stamp, feature.options.(FeatureOptionKey.CONDITION_FACTOR.value));
+            if stage.options.(FeatureOptionKey.CONDITION_FACTOR.value) ~= 0
+                feature_stamp = sprintf('%s_%g', feature_stamp, stage.options.(FeatureOptionKey.CONDITION_FACTOR.value));
             end
         case FeatureName.RANDOM_NAN.value
             % feature_name + nan_rate
-            feature_stamp = sprintf('%s_%g', feature.name, feature.options.(FeatureOptionKey.NAN_RATE.value));
+            feature_stamp = sprintf('%s_%g', stage.name, stage.options.(FeatureOptionKey.NAN_RATE.value));
         case FeatureName.UNRELAXABLE_CONSTRAINTS.value
             % feature_name + (bounds if it is true) + (linear if it is true) + (nonlinear if it is true)
-            feature_stamp = feature.name;
-            if feature.options.(FeatureOptionKey.UNRELAXABLE_BOUNDS.value)
+            feature_stamp = stage.name;
+            if stage.options.(FeatureOptionKey.UNRELAXABLE_BOUNDS.value)
                 feature_stamp = sprintf('%s_bounds', feature_stamp);
             end
-            if feature.options.(FeatureOptionKey.UNRELAXABLE_LINEAR_CONSTRAINTS.value)
+            if stage.options.(FeatureOptionKey.UNRELAXABLE_LINEAR_CONSTRAINTS.value)
                 feature_stamp = sprintf('%s_linear', feature_stamp);
             end
-            if feature.options.(FeatureOptionKey.UNRELAXABLE_NONLINEAR_CONSTRAINTS.value)
+            if stage.options.(FeatureOptionKey.UNRELAXABLE_NONLINEAR_CONSTRAINTS.value)
                 feature_stamp = sprintf('%s_nonlinear', feature_stamp);
             end
         case FeatureName.QUANTIZED.value
             % feature_name + mesh_size + (ground_truth if is_true it is true)
-            feature_stamp = sprintf('%s_%g', feature.name, feature.options.(FeatureOptionKey.MESH_SIZE.value));
-            if feature.options.(FeatureOptionKey.GROUND_TRUTH.value)
+            feature_stamp = sprintf('%s_%g', stage.name, stage.options.(FeatureOptionKey.MESH_SIZE.value));
+            if stage.options.(FeatureOptionKey.GROUND_TRUTH.value)
                 feature_stamp = sprintf('%s_ground_truth', feature_stamp);
             end
         otherwise
-            feature_stamp = feature.name;
+            feature_stamp = stage.name;
     end
 end

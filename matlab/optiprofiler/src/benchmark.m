@@ -69,7 +69,18 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %   Options should be specified in a struct. The following are the available
 %   fields of the struct:
 %
-%       1. Options for profiles and plots:
+%       1. Options for experiments, profiles, and plots:
+%
+%       - n_runs: a positive integer giving the retained run-axis width for
+%         the primary experiment. It belongs to benchmark, not Feature or an
+%         individual stage. Explicit []/NaN/Inf/zero are invalid. If omitted,
+%         any randomized solver selects 5; otherwise the maximum literal
+%         feature hint is used (identity 1). Perturbed_x0, permuted,
+%         linearly_transformed (including rotated=false), random_nan and
+%         stochastic noisy/truncated have hint 5; the other cases, including
+%         custom, have hint 1. A deterministic solver on a deterministic
+%         feature runs once and its results are copied to the retained slots.
+%         The optional run_plain reference always has one run per solver.
 %
 %       - bar_colors: two different colors for the bars of two solvers in the
 %         log-ratio profiles. It can be a cell array of short names of colors
@@ -242,14 +253,21 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %
 %       2. Options for features:
 %
-%       - feature_name: the name of the feature. The available features are
+%       - feature_name: shorthand for one or more features, for example
+%         'noisy+perturbed_x0'. Stages apply left to right and may repeat;
+%         plain entries are validated before being removed. The atomic names are
 %         'plain', 'perturbed_x0', 'noisy', 'truncated', 'permuted',
 %         'linearly_transformed', 'random_nan', 'unrelaxable_constraints',
 %         'nonquantifiable_constraints', 'quantized', and 'custom'. Default is
-%         'plain'.
-%       - n_runs: the number of runs of the experiments with the given feature.
-%         Default is 5 for stochastic features and 1 for deterministic
-%         features.
+%         'plain'. Flat local options below broadcast to matching stages.
+%       - feature: a reusable Feature, a scalar stage struct with fields name
+%         and options, or a nonempty cell of atomic names/stage structs. This
+%         route supports independent options for each occurrence. It cannot
+%         be combined with feature_name, flat local options, or load. A bare
+%         shorthand string belongs in feature_name, not feature. Example:
+%           opts.feature = {struct('name','noisy','options',struct('noise_level',0.01)), ...
+%                           struct('name','noisy','options',struct('noise_level',0.1))};
+%           opts.n_runs = 3;
 %       - distribution: the distribution of perturbation in 'perturbed_x0'
 %         feature or random noise in 'noisy' feature. It should be either a
 %         string (or char), or a function handle
@@ -268,7 +286,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         be either 'absolute', 'relative', or 'mixed'. Default is 'mixed'.
 %       - noise_mode: the mode of the noise in the 'noisy' feature. It should
 %         be either 'random' or 'deterministic'. Default is 'random'. When it
-%         is 'deterministic' and n_runs is not specified, n_runs defaults to 1.
+%         is 'deterministic', its run-count hint is 1; the experiment-level
+%         n_runs precedence still applies to all stages and solvers.
 %       - noise_map: the deterministic scalar noise map in the 'noisy' feature.
 %         It should be either 'chebyshev' or a function handle
 %               ``x -> noise``,
@@ -609,15 +628,23 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
         end
     end
 
-    % Process the feature_name.
-    if ~ischarstr(feature_name)
-        % feature_name must be a char or string.
-        error("MATLAB:benchmark:feature_nameNotcharstr", "`feature_name` provided for `benchmark` must be a char or string.");
-    end
-    feature_name = char(lower(feature_name));
-    valid_feature_names = cellfun(@(x) x.value, num2cell(enumeration('FeatureName')), 'UniformOutput', false);
-    if ~ismember(feature_name, valid_feature_names)
-        error("MATLAB:benchmark:feature_nameNotValid", "`feature_name` provided for `benchmark` must be one of the valid feature names: %s.", strjoin(valid_feature_names, ', '));
+    % A canonical Feature is reusable configuration, never experiment state.
+    % Presence matters: an explicitly empty/invalid entry is not an omission.
+    structured_feature = isfield(options, 'feature');
+    if structured_feature
+        if exist('options_user', 'var') && isfield(options_user, 'feature_name')
+            error('MATLAB:benchmark:ConflictingFeatureInputs', 'Provide either `feature` or `feature_name`, not both.');
+        end
+        feature_input = options.feature;
+        options = rmfield(options, 'feature');
+        if ~(isa(feature_input, 'Feature') || isstruct(feature_input) || iscell(feature_input))
+            error('MATLAB:benchmark:InvalidFeatureInput', 'The option `feature` must be a Feature, a scalar stage struct, or a nonempty cell of stages. Use `feature_name` for shorthand strings.');
+        end
+        if isfield(options, ProfileOptionKey.LOAD.value) && ~isempty(options.(ProfileOptionKey.LOAD.value))
+            error('MATLAB:benchmark:FeatureWithLoad', 'Do not provide a new `feature` when loading saved results.');
+        end
+    elseif ~ischarstr(feature_name)
+        error('MATLAB:benchmark:feature_nameNotcharstr', '`feature_name` provided for `benchmark` must be a char or string.');
     end
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -628,23 +655,32 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
     problem_options = struct();
     profile_options = struct();
 
+    % Active local keys come from the same definitions as Feature. In
+    % particular the legacy N_RUNS enum remains importable, but is not a local
+    % feature option and cannot steal the top-level experiment request.
+    validFeatureOptionKeys = {};
+    valid_feature_names = cellfun(@(x) x.value, num2cell(enumeration('FeatureName')), 'UniformOutput', false);
+    for i_name = 1:numel(valid_feature_names)
+        definition = optiprofiler_internal.featureDefinitions(valid_feature_names{i_name});
+        validFeatureOptionKeys = union(validFeatureOptionKeys, definition.local_keys);
+    end
+    validProblemOptionKeys = cellfun(@(x) x.value, num2cell(enumeration('ProblemOptionKey')), 'UniformOutput', false);
+    validProfileOptionKeys = cellfun(@(x) x.value, num2cell(enumeration('ProfileOptionKey')), 'UniformOutput', false);
+
     fieldNames = fieldnames(options);
     for i_field = 1:numel(fieldNames)
         key = fieldNames{i_field};
         value = options.(key);
 
-        % We can also use: validFeatureOptionKeys = {enumeration('FeatureOptionKey').value};  
-        % However, it only works for MATLAB R2021b or later.
-        validFeatureOptionKeys = cellfun(@(x) x.value, num2cell(enumeration('FeatureOptionKey')), 'UniformOutput', false);
-        validProblemOptionKeys = cellfun(@(x) x.value, num2cell(enumeration('ProblemOptionKey')), 'UniformOutput', false);
-        validProfileOptionKeys = cellfun(@(x) x.value, num2cell(enumeration('ProfileOptionKey')), 'UniformOutput', false);
-
-        if ismember(key, validFeatureOptionKeys)
+        if ismember(key, validProfileOptionKeys)
+            profile_options.(key) = value;
+        elseif ismember(key, validFeatureOptionKeys)
+            if structured_feature
+                error('MATLAB:benchmark:FeatureLocalOverride', 'Put `%s` inside its stage in `feature`; flat local overrides cannot be combined with `feature`.', key);
+            end
             feature_options.(key) = value;
         elseif ismember(key, validProblemOptionKeys)
             problem_options.(key) = value;
-        elseif ismember(key, validProfileOptionKeys)
-            profile_options.(key) = value;
         else
             error("MATLAB:benchmark:UnknownOptions", "Unknown option for `benchmark`: %s", key);
         end
@@ -654,23 +690,23 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Check validity of options %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    % Note: the validity of the feature options has been checked in the Feature constructor, so we
-    % do not need to check it here.
+    % Normalize exactly once, before profile validation can create savepath.
+    % The constructor owns shorthand broadcasting and per-stage validation.
+    if structured_feature
+        if isa(feature_input, 'Feature')
+            feature = feature_input;
+        else
+            feature = Feature(feature_input);
+        end
+    else
+        feature = Feature(feature_name, feature_options);
+    end
+    feature_name = feature.name;
     problem_options = checkValidityProblemOptions(problem_options, profile_options);
     profile_options = checkValidityProfileOptions(solvers, profile_options);
 
     % Whether to load the existing results.
     is_load = isfield(profile_options, ProfileOptionKey.LOAD.value) && ~isempty(profile_options.(ProfileOptionKey.LOAD.value));
-
-    % If `n_runs` is not specified, we set it to 5 if at least one solver is randomized.
-    any_solver_isrand = isfield(profile_options, ProfileOptionKey.SOLVER_ISRAND.value) && any(profile_options.(ProfileOptionKey.SOLVER_ISRAND.value));
-    if ~isfield(feature_options, FeatureOptionKey.N_RUNS.value) && any_solver_isrand && ~is_load
-        if ~isfield(profile_options, ProfileOptionKey.SILENT.value) || ~profile_options.(ProfileOptionKey.SILENT.value)
-            fprintf('\n');
-            printOptiProfilerMessage('INFO', 'We set `n_runs` to 5 since it is not specified and at least one solver is randomized.');
-        end
-        feature_options.(FeatureOptionKey.N_RUNS.value) = 5;
-    end
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%% Process the 'load' option if it is provided. %%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -718,13 +754,22 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Get default options %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    % Build feature.
-    feature = Feature(feature_name, feature_options);
-    feature_options = feature.options;
-
     % Set default values for the unspecified options.
     problem_options = getDefaultProblemOptions(problem_options);
-    profile_options = getDefaultProfileOptions(solvers, feature, profile_options);
+    [profile_options, full_feature_stamp] = getDefaultProfileOptions(solvers, feature, profile_options);
+    primary_plan = [];
+    reference_plan = [];
+    if ~is_load
+        primary_plan = optiprofiler_internal.resolveFeatureExperiment(feature, profile_options, 'primary');
+        profile_options.(ProfileOptionKey.N_RUNS.value) = primary_plan.n_runs;
+        if strcmp(primary_plan.origin, 'randomized_solvers') && ~profile_options.(ProfileOptionKey.SILENT.value)
+            printOptiProfilerMessage('INFO', 'We set `n_runs` to 5 since it is not specified and at least one solver is randomized.');
+        end
+        if profile_options.(ProfileOptionKey.RUN_PLAIN.value)
+            feature_plain = Feature(FeatureName.PLAIN.value);
+            reference_plan = optiprofiler_internal.resolveFeatureExperiment(feature_plain, profile_options, 'plain_reference');
+        end
+    end
     if ~isempty(eval_report), eval_report.configure(problem_options, profile_options, feature, @prepareEvalReportHistory); end
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -958,7 +1003,7 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
         if ~profile_options.(ProfileOptionKey.SILENT.value)
             printSolverLogAliases(solver_names, profile_options_problem.solver_log_names);
         end
-        result = solveOneProblem(solvers, problem, feature, problem.name, length(problem.name), profile_options_problem, true, path_hist_plots, ~isempty(eval_report));
+        result = solveOneProblem(solvers, problem, feature, problem.name, length(problem.name), profile_options_problem, true, path_hist_plots, ~isempty(eval_report), primary_plan);
         if ~isempty(eval_report)
             eval_report.addProblem(result, 'user', 'primary');
             eval_report.completeNumerical();
@@ -1102,7 +1147,7 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
 
             % Solve all the problems from the current problem library with the specified options and
             % get the computation results.
-            results_plib = solveAllProblems(solvers, library, feature, problem_options, profile_options, true, path_hist_plots_plib, eval_report);
+            results_plib = solveAllProblems(solvers, library, feature, problem_options, profile_options, true, path_hist_plots_plib, eval_report, 'primary', primary_plan);
 
             % If there are no problems selected or solved, skip the rest of the code, print a message,
             % and continue to the next library.
@@ -1127,12 +1172,11 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
 
             % Run the 'plain' feature if run_plain is true.
             if profile_options.(ProfileOptionKey.RUN_PLAIN.value)
-                feature_plain = Feature(FeatureName.PLAIN.value);
                 if ~profile_options.(ProfileOptionKey.SILENT.value)
                     fprintf('\n');
                     printOptiProfilerMessage('INFO', sprintf('Start testing problems from the problem library "%s" with "plain" feature.', plib));
                 end
-                results_plib_plain = solveAllProblems(solvers, library, feature_plain, problem_options, profile_options, false, {}, eval_report, 'plain_reference');
+                results_plib_plain = solveAllProblems(solvers, library, feature_plain, problem_options, profile_options, false, {}, eval_report, 'plain_reference', reference_plan);
                 if isempty(results_plib_plain) || isempty(results_plib_plain.problem_names)
                     if ~profile_options.(ProfileOptionKey.SILENT.value)
                         printOptiProfilerMessage('WARNING', sprintf('No plain baseline was obtained from "%s"; keeping the featured results without a plain reference.', plib));
