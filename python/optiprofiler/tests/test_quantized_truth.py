@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 
 from optiprofiler import Feature, FeaturedProblem, Problem
+from optiprofiler.experiment import resolve_plan
 from optiprofiler.profile_utils import get_default_profile_options
 from optiprofiler.profiles import _solve_one_problem
 
@@ -39,8 +40,7 @@ def expected_truth(problem, kind, truth, mesh_type):
 @pytest.mark.parametrize('mesh_type,x0', [('absolute', 0.49), ('absolute', -1.49), ('relative', 1.49)])
 def test_initial_history_and_actual_solver_output_agree(truth, kind, mesh_type, x0):
     problem = make_problem(kind, x0)
-    feature = Feature('quantized', mesh_size=1.0, mesh_type=mesh_type,
-                      ground_truth=truth, n_runs=1)
+    feature = Feature('quantized', mesh_size=1.0, mesh_type=mesh_type, ground_truth=truth)
     expected_f, expected_cv = expected_truth(problem, kind, truth, mesh_type)
 
     def solver(fun, x, *constraints):
@@ -56,7 +56,8 @@ def test_initial_history_and_actual_solver_output_agree(truth, kind, mesh_type, 
         solver_names=['stay'], solver_isrand=[False], project_x0=False,
         max_eval_factor=1, silent=True, solver_verbose=2, score_only=True,
         draw_hist_plots='none', seed=17))
-    result = _solve_one_problem([solver], problem, feature, problem.name,
+    plan = resolve_plan(feature, requested=1, solver_isrand=[False])
+    result = _solve_one_problem([solver], problem, feature, plan, problem.name,
                                 len(problem.name), options, False, None)
     for field in ('fun_init', 'fun_history', 'fun_out'):
         np.testing.assert_allclose(result[field], expected_f)

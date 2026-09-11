@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 
+from optiprofiler.experiment import resolve_plan
 from optiprofiler.opclasses import Feature, Problem, FeaturedProblem
 
 
@@ -45,7 +46,8 @@ class TestFeature:
         """Test the plain feature."""
         feature = Feature('plain')
         assert feature.name == 'plain'
-        assert feature.options == {'n_runs': 1}
+        assert feature.stages == () and feature.is_identity
+        assert resolve_plan(feature).n_runs == 1
         assert not feature.is_stochastic
 
         # Test with a problem
@@ -62,19 +64,20 @@ class TestFeature:
         feature = Feature('noisy')
         assert feature.name == 'noisy'
         assert 'noise_level' in feature.options
-        assert feature.options['n_runs'] == 5  # Default is 5
-        assert feature.options['distribution'] == 'gaussian'
-        assert feature.options['noise_type'] == 'mixed'
-        assert feature.options['noise_mode'] == 'random'
-        assert feature.options['noise_map'] == 'chebyshev'
+        assert resolve_plan(feature).n_runs == 5  # Default is 5
+        options = feature.stages[0].options
+        assert options['distribution'] == 'gaussian'
+        assert options['noise_type'] == 'mixed'
+        assert options['noise_mode'] == 'random'
+        assert options['noise_map'] == 'chebyshev'
         assert feature.is_stochastic
 
         # Noisy feature with custom options
-        feature = Feature('noisy', noise_level=0.01, noise_type='relative', n_runs=5)
+        feature = Feature('noisy', noise_level=0.01, noise_type='relative')
         assert feature.name == 'noisy'
-        assert feature.options['noise_level'] == 0.01
-        assert feature.options['noise_type'] == 'relative'
-        assert feature.options['n_runs'] == 5
+        assert feature.stages[0].options['noise_level'] == 0.01
+        assert feature.stages[0].options['noise_type'] == 'relative'
+        assert resolve_plan(feature, requested=5).n_runs == 5
 
         # Test with a problem
         x0 = np.zeros(n)
@@ -117,8 +120,8 @@ class TestFeature:
 
         # Deterministic noisy feature defaults to one run and is repeatable at the same point.
         feature = Feature('noisy', noise_mode='deterministic')
-        assert feature.options['n_runs'] == 1
-        assert feature.options['noise_map'] == 'chebyshev'
+        assert resolve_plan(feature).n_runs == 1
+        assert feature.stages[0].options['noise_map'] == 'chebyshev'
         assert not feature.is_stochastic
         featured_problem = FeaturedProblem(problem, feature, 500)
         assert featured_problem.fun(problem.x0) == featured_problem.fun(problem.x0)
@@ -156,7 +159,7 @@ class TestFeature:
         
         # Test with custom options
         feature = Feature('truncated', significant_digits=4)
-        assert feature.options['significant_digits'] == 4
+        assert feature.stages[0].options['significant_digits'] == 4
 
         # Test with a problem
         x0 = np.ones(n)
@@ -177,7 +180,7 @@ class TestFeature:
 
         # Test with custom nan rate
         feature = Feature('random_nan', nan_rate=0.5)
-        assert feature.options['nan_rate'] == 0.5
+        assert feature.stages[0].options['nan_rate'] == 0.5
 
     @pytest.mark.parametrize('n', [2, 10])
     def test_perturbed_x0(self, n):
@@ -200,7 +203,7 @@ class TestFeature:
         
         # Test with rotation
         feature = Feature('linearly_transformed', rotated=True)
-        assert feature.options['rotated'] is True
+        assert feature.stages[0].options['rotated'] is True
         assert feature.is_stochastic
 
     def test_permuted(self):
@@ -216,7 +219,7 @@ class TestFeature:
         
         # Test with custom mesh size
         feature = Feature('quantized', mesh_size=0.01)
-        assert feature.options['mesh_size'] == 0.01
+        assert feature.stages[0].options['mesh_size'] == 0.01
 
     def test_custom(self):
         """Test the custom feature."""
@@ -252,12 +255,10 @@ class TestFeature:
         with pytest.raises(ValueError):
             Feature('plain', noise_level=0.1)
         
-        # Invalid n_runs type
-        with pytest.raises(TypeError):
+        # n_runs is an experiment option: a Feature refuses it and names the replacement
+        with pytest.raises(ValueError, match='benchmark'):
             Feature('noisy', n_runs=1.5)
-        
-        # Invalid n_runs value
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match='benchmark'):
             Feature('noisy', n_runs=-1)
         
         # Invalid nan_rate type
@@ -299,7 +300,7 @@ class TestFeature:
     def test_catch(self):
         """Test edge cases that should work."""
         # n_runs can be a float if it's an integer value
-        Feature('noisy', n_runs=2.0)
+        assert resolve_plan(Feature('noisy'), requested=2.0).n_runs == 2
 
         # significant_digits can be a float if it's an integer value
         Feature('truncated', significant_digits=2.0)

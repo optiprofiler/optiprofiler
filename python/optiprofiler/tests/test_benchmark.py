@@ -16,6 +16,7 @@ import pytest
 import optiprofiler.profiles as profiles_module
 import optiprofiler.profile_utils as profile_utils_module
 from optiprofiler import benchmark
+from optiprofiler.experiment import resolve_plan
 from optiprofiler.opclasses import Feature, FeaturedProblem, Problem
 from optiprofiler.problem_libraries import ProblemLibraryPlugin
 from optiprofiler import plib_config, problem_libraries
@@ -464,6 +465,7 @@ class TestBenchmarkBasic:
             solvers,
             'solar',
             feature,
+            resolve_plan(feature),
             problem_options,
             profile_options,
             False,
@@ -533,6 +535,7 @@ class TestBenchmarkBasic:
             solvers,
             'configtoy',
             feature,
+            resolve_plan(feature),
             problem_options,
             profile_options,
             False,
@@ -565,6 +568,7 @@ class TestBenchmarkBasic:
             solvers,
             'externaltoy',
             feature,
+            resolve_plan(feature),
             problem_options,
             profile_options,
             False,
@@ -666,6 +670,7 @@ class TestBenchmarkBasic:
             [simple_solver_1, simple_solver_zero_no_eval],
             library_name,
             Feature('plain'),
+            resolve_plan(Feature('plain')),
             problem_options,
             profile_options,
             False,
@@ -708,6 +713,7 @@ class TestBenchmarkBasic:
             solvers,
             'externaltoy',
             feature,
+            resolve_plan(feature),
             problem_options,
             profile_options,
             False,
@@ -751,6 +757,7 @@ class TestBenchmarkBasic:
                 solvers,
                 'externaltoy',
                 feature,
+                resolve_plan(feature),
                 problem_options,
                 profile_options,
                 False,
@@ -797,6 +804,7 @@ class TestBenchmarkBasic:
                 solvers,
                 'externaltoy',
                 feature,
+                resolve_plan(feature),
                 problem_options,
                 profile_options,
                 False,

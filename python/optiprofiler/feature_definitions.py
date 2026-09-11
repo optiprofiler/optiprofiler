@@ -287,12 +287,13 @@ class StageRecord:
     view of a private copy, so the record pickles and is never shared state.
     """
 
-    __slots__ = ('_name', '_occurrence', '_options')
+    __slots__ = ('_name', '_occurrence', '_options', '_position')
 
-    def __init__(self, name, occurrence, options):
+    def __init__(self, name, occurrence, options, position=0):
         object.__setattr__(self, '_name', name)
         object.__setattr__(self, '_occurrence', occurrence)
         object.__setattr__(self, '_options', dict(options))
+        object.__setattr__(self, '_position', position)
 
     def __setattr__(self, key, value):
         raise AttributeError('StageRecord is immutable.')
@@ -301,17 +302,23 @@ class StageRecord:
         raise AttributeError('StageRecord is immutable.')
 
     def __getstate__(self):
-        return (self._name, self._occurrence, self._options)
+        return (self._name, self._occurrence, self._options, self._position)
 
     def __setstate__(self, state):
-        name, occurrence, options = state
+        name, occurrence, options, position = state
         object.__setattr__(self, '_name', name)
         object.__setattr__(self, '_occurrence', occurrence)
         object.__setattr__(self, '_options', dict(options))
+        object.__setattr__(self, '_position', position)
 
     @property
     def name(self):
         return self._name
+
+    @property
+    def position(self):
+        """Index of the stage among the effective stages of its pipeline."""
+        return self._position
 
     @property
     def occurrence(self):
@@ -425,10 +432,10 @@ def reject_flat_stage_options(options):
 def _stage_records(effective_entries):
     records = []
     occurrences = {}
-    for name, options in effective_entries:
+    for position, (name, options) in enumerate(effective_entries):
         occurrence = occurrences.get(name, 0)
         occurrences[name] = occurrence + 1
-        records.append(StageRecord(name, occurrence, options))
+        records.append(StageRecord(name, occurrence, options, position))
     return tuple(records)
 
 

@@ -559,7 +559,7 @@ class TestFeaturedProblemConstraints(BaseTestProblem):
 
     def test_noisy_cub_ceq(self):
         problem = self._make_constrained_problem()
-        feature = Feature('noisy', noise_level=0.01, n_runs=1)
+        feature = Feature('noisy', noise_level=0.01)
         fp = FeaturedProblem(problem, feature, 100, seed=42)
         cub_val = fp.cub(fp.x0)
         ceq_val = fp.ceq(fp.x0)

@@ -77,15 +77,19 @@ class TestStructuredRoute:
         assert scores.shape == (2,)
         results = load_results_from_h5(str(archive_of(tmp_path / 'composition')))
         assert results[0]['feature_stamp'] == 'noisy_0.01_mixed_gaussian__truncated_6'
-        pipeline = json.loads(results[0]['feature_pipeline'])
-        assert pipeline['schema'] == 'feature_pipeline-v2' and pipeline['route'] == 'feature'
+        payload = json.loads(results[0]['feature_pipeline'])
+        assert payload['schema'] == 'feature_pipeline-v3'
+        pipeline = payload['feature']
+        assert pipeline['route'] == 'feature'
         assert pipeline['declared_name'] == 'noisy+truncated'
-        assert pipeline['declared_spec'] == [{'name': 'noisy', 'options': {'noise_level': 0.01}},
-                                             {'name': 'truncated', 'options': {}}]
-        assert pipeline['common_options'] == {'n_runs': 5}
+        assert pipeline['declared'] == [{'name': 'noisy', 'options': {'noise_level': 0.01}},
+                                        {'name': 'truncated', 'options': {}}]
+        assert payload['experiment'] == {'role': 'primary', 'n_runs': 5, 'origin': 'stage_hints',
+                                         'run_policy': 'legacy-hints-v1', 'execution_strategy': 'composed-views'}
         assert pipeline['stages'][0]['options'] == NOISY_EFFECTIVE
         assert all('n_runs' not in stage['options'] for stage in pipeline['stages'])
         refined = refined_options_of(tmp_path / 'composition')
+        assert refined['schema'] == 'options_refined-v2'
         assert refined['feature_route'] == 'feature'
         assert refined['feature_name'] == 'noisy+truncated'
         assert refined['n_runs'] == 5
@@ -97,8 +101,8 @@ class TestStructuredRoute:
             report = json.load(stream)
         feature = report['configuration']['effective']['feature']
         assert feature['name'] == 'noisy+truncated' and feature['route'] == 'feature'
-        assert feature['common_options'] == {'n_runs': 5}
-        assert [entry['name'] for entry in feature['declared_spec']] == ['noisy', 'truncated']
+        assert 'common_options' not in feature and 'options' not in feature
+        assert [entry['name'] for entry in feature['declared']] == ['noisy', 'truncated']
         assert all('n_runs' not in stage['options'] for stage in feature['stages'])
         assert report['configuration']['request']['feature'] == [{'name': 'noisy', 'options': {'noise_level': 0.01}},
                                                                  'truncated']
@@ -109,15 +113,17 @@ class TestStructuredRoute:
         refined = refined_options_of(tmp_path / 'shorthand')
         assert refined['feature_route'] == 'feature_name'
         assert refined['feature_name'] == 'noisy+truncated'
-        assert refined['n_runs'] == 5 and refined['noise_level'] == 0.01
+        assert refined['n_runs'] == 5
+        # No flat stage-option projection in the refined configuration.
+        assert 'noise_level' not in refined
         assert refined['feature_specification'] == [{'name': 'noisy', 'options': NOISY_EFFECTIVE},
                                                     {'name': 'truncated', 'options': TRUNCATED_EFFECTIVE}]
-        pipeline = json.loads(load_results_from_h5(str(archive_of(tmp_path / 'shorthand')))[0]['feature_pipeline'])
-        assert pipeline['route'] == 'feature_name'
-        # Projected from the declared tokens and the supplied broadcast options.
-        assert pipeline['declared_spec'] == [{'name': 'noisy', 'options': {'noise_level': 0.01}},
-                                             {'name': 'truncated', 'options': {}}]
-        assert pipeline['common_options'] == {'n_runs': 5}
+        payload = json.loads(load_results_from_h5(str(archive_of(tmp_path / 'shorthand')))[0]['feature_pipeline'])
+        assert payload['feature']['route'] == 'feature_name'
+        # The declaration keeps the supplied broadcast options per owning token.
+        assert payload['feature']['declared'] == [{'name': 'noisy', 'options': {'noise_level': 0.01}},
+                                                  {'name': 'truncated', 'options': {}}]
+        assert payload['experiment']['n_runs'] == 5 and payload['experiment']['origin'] == 'stage_hints'
 
     def test_single_stage_specification_records_the_legacy_pipeline(self, tmp_path):
         benchmark([solver_stay, solver_step], feature={'name': 'noisy', 'options': {'noise_level': 1e-2}}, n_runs=2,
@@ -126,10 +132,10 @@ class TestStructuredRoute:
         assert results[0]['feature_stamp'] == 'noisy_0.01_mixed_gaussian'
         # Histories are (problems, solvers, runs, evaluations).
         assert results[0]['fun_histories'].shape[2] == 2
-        pipeline = json.loads(results[0]['feature_pipeline'])
-        assert pipeline['route'] == 'feature' and pipeline['seed_policy'] == 'legacy-run-seed'
-        assert pipeline['common_options'] == {'n_runs': 2}
-        assert pipeline['stages'][0]['options'] == NOISY_EFFECTIVE
+        payload = json.loads(results[0]['feature_pipeline'])
+        assert payload['feature']['route'] == 'feature' and payload['feature']['seed_policy'] == 'legacy-run-seed'
+        assert payload['experiment']['n_runs'] == 2 and payload['experiment']['origin'] == 'explicit'
+        assert payload['feature']['stages'][0]['options'] == NOISY_EFFECTIVE
         refined = refined_options_of(tmp_path / 'single')
         assert refined['feature_specification'] == [{'name': 'noisy', 'options': NOISY_EFFECTIVE}]
         assert refined['n_runs'] == 2 and refined['feature_name'] == 'noisy'
@@ -144,8 +150,8 @@ class TestStructuredRoute:
         assert_same_numbers(first, second)
         assert first['feature_stamp'] == second['feature_stamp']
         pipelines = [json.loads(result['feature_pipeline']) for result in (first, second)]
-        assert [pipeline.pop('route') for pipeline in pipelines] == ['feature', 'feature_name']
-        # Everything else, the declared specification included, is identical.
+        assert [pipeline['feature'].pop('route') for pipeline in pipelines] == ['feature', 'feature_name']
+        # Everything else, the declared specification and the plan included, is identical.
         assert pipelines[0] == pipelines[1]
 
     def test_refined_specification_replays_the_experiment(self, tmp_path):
@@ -162,7 +168,7 @@ class TestStructuredRoute:
                   **common_kwargs(tmp_path, 'isrand'))
         results = load_results_from_h5(str(archive_of(tmp_path / 'isrand')))
         assert results[0]['fun_histories'].shape[2] == 5
-        assert json.loads(results[0]['feature_pipeline'])['common_options'] == {'n_runs': 5}
+        assert json.loads(results[0]['feature_pipeline'])['experiment']['origin'] == 'randomized_solvers'
 
 
 class TestErrorsBeforeOutput:
@@ -172,7 +178,7 @@ class TestErrorsBeforeOutput:
         (dict(feature_name='plain', feature=['noisy']), 'cannot both be given'),
         (dict(feature=None), 'cannot be None'),
         (dict(feature=[]), 'at least one stage entry'),
-        (dict(feature=['noisy'], noise_level=1e-2), r"only `n_runs` may be given as a keyword.*\['noise_level'\]"),
+        (dict(feature=['noisy'], noise_level=1e-2), r"Unexpected keyword\(s\): \['noise_level'\]"),
         (dict(feature=[{'name': 'noisy', 'options': {'n_runs': 3}}]), 'experiment-wide'),
         (dict(feature='noisy+truncated'), 'belongs to `feature_name`'),
         (dict(feature=[{'name': 'perturbed_x0', 'options': {'noise_level': 1e-2}}]),
@@ -222,10 +228,10 @@ class TestLoad:
         with open(report_path, encoding='utf-8') as stream:
             report = json.load(stream)
         retained = report['configuration']['retained_result_metadata'][0]['feature_pipeline']
-        assert retained['schema'] == 'feature_pipeline-v2' and retained['route'] == 'feature'
-        assert retained['common_options'] == {'n_runs': 5}
-        assert [stage['identity'] for stage in retained['stages']] == ['noisy#0', 'truncated#0']
-        assert all('n_runs' not in stage['options'] for stage in retained['stages'])
+        assert retained['schema'] == 'feature_pipeline-v3' and retained['feature']['route'] == 'feature'
+        assert retained['experiment']['n_runs'] == 5 and retained['experiment']['role'] == 'primary'
+        assert [stage['identity'] for stage in retained['feature']['stages']] == ['noisy#0', 'truncated#0']
+        assert all('n_runs' not in stage['options'] for stage in retained['feature']['stages'])
         effective = report['configuration']['effective']['feature']
         assert effective['scope'] == 'current_load_context_not_original_execution_feature'
         assert effective['name'] == 'plain' and effective['route'] == 'feature_name'
@@ -241,7 +247,7 @@ class TestLoad:
         with open(report_path, encoding='utf-8') as stream:
             report = json.load(stream)
         assert report['configuration']['effective']['feature']['name'] == 'noisy'
-        assert report['configuration']['retained_result_metadata'][0]['feature_pipeline']['route'] == 'feature'
+        assert report['configuration']['retained_result_metadata'][0]['feature_pipeline']['feature']['route'] == 'feature'
 
     def test_feature_is_rejected_in_load_mode_before_loading(self, tmp_path, monkeypatch):
         benchmark([solver_stay, solver_step], feature=SPEC, **common_kwargs(tmp_path, 'reload'))

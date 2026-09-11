@@ -17,7 +17,7 @@ import pytest
 matplotlib.use('Agg')
 
 from optiprofiler import benchmark
-from optiprofiler.composition import describe_pipeline
+from optiprofiler.provenance import describe_feature
 from optiprofiler.loader import load_results_from_h5
 from optiprofiler.opclasses import Feature, Problem
 
@@ -102,7 +102,7 @@ class TestBenchmarkNeverExecutesOptionRepresentations:
         assert scores.shape == (2,)
         with open(report_path, encoding='utf-8') as stream:
             feature = json.load(stream)['configuration']['effective']['feature']
-        assert callback_record(feature['options']['noise_map']) == 'HostileNoiseMap'
+        assert 'options' not in feature
         assert callback_record(feature['stages'][0]['options']['noise_map']) == 'HostileNoiseMap'
 
     def test_library_single_feature_score_only_without_report(self, tmp_path):
@@ -117,7 +117,7 @@ class TestBenchmarkNeverExecutesOptionRepresentations:
         assert scores.shape == (2,)
         archives = list((tmp_path / 'meta').rglob('data_for_loading.h5'))
         assert len(archives) == 1
-        pipeline = json.loads(load_results_from_h5(str(archives[0]))[0]['feature_pipeline'])
+        pipeline = json.loads(load_results_from_h5(str(archives[0]))[0]['feature_pipeline'])['feature']
         assert callback_record(pipeline['stages'][0]['options']['noise_map']) == 'HostileNoiseMap'
         assert pipeline['stages'][1]['options']['significant_digits'] == 6
         with open(report_path, encoding='utf-8') as stream:
@@ -150,7 +150,7 @@ class TestDescribePipeline:
 
         feature = Feature('noisy+custom', noise_mode='deterministic', noise_map=HostileNoiseMap(),
                           mod_fun=HostileModFun(), mod_x0=plain_function)
-        pipeline = describe_pipeline(feature)
+        pipeline = describe_feature(feature)
         options = pipeline['stages'][0]['options']
         assert callback_record(options['noise_map']) == 'HostileNoiseMap'
         custom = pipeline['stages'][1]['options']
@@ -160,7 +160,7 @@ class TestDescribePipeline:
         assert 'instance_state' not in record
 
     def test_non_finite_values_become_reason_records(self):
-        pipeline = describe_pipeline(Feature('noisy+truncated', noise_level=float('nan')))
+        pipeline = describe_feature(Feature('noisy+truncated', noise_level=float('nan')))
         assert pipeline['stages'][0]['options']['noise_level'] == {'value': None, 'reason': 'nan'}
 
     def test_report_and_pipeline_share_one_encoder(self):
@@ -182,13 +182,13 @@ class TestStructuredRouteProvenance:
         assert scores.shape == (2,)
         assert stateful.representations == 0
         results = load_results_from_h5(str(next((tmp_path / 'meta').rglob('data_for_loading.h5'))))
-        pipeline = json.loads(results[0]['feature_pipeline'])
+        pipeline = json.loads(results[0]['feature_pipeline'])['feature']
         assert pipeline['route'] == 'feature'
-        assert callback_record(pipeline['declared_spec'][0]['options']['noise_map']) == 'StatefulNoiseMap'
+        assert callback_record(pipeline['declared'][0]['options']['noise_map']) == 'StatefulNoiseMap'
         assert callback_record(pipeline['stages'][0]['options']['noise_map']) == 'StatefulNoiseMap'
         with open(report_path, encoding='utf-8') as stream:
             feature = json.load(stream)['configuration']['effective']['feature']
-        assert callback_record(feature['declared_spec'][0]['options']['noise_map']) == 'StatefulNoiseMap'
+        assert callback_record(feature['declared'][0]['options']['noise_map']) == 'StatefulNoiseMap'
         with open(next((tmp_path / 'meta').rglob('options_refined.pkl')), 'rb') as stream:
             refined = pickle.load(stream)
         # The refined configuration keeps the callable itself, not a description.
@@ -206,7 +206,7 @@ class TestStructuredRouteProvenance:
         assert scores.shape == (2,)
         with open(report_path, encoding='utf-8') as stream:
             feature = json.load(stream)['configuration']['effective']['feature']
-        assert callback_record(feature['declared_spec'][0]['options']['noise_map']) == 'HostileNoiseMap'
-        assert callback_record(feature['declared_spec'][1]['options']['mod_fun']) == 'HostileModFun'
+        assert callback_record(feature['declared'][0]['options']['noise_map']) == 'HostileNoiseMap'
+        assert callback_record(feature['declared'][1]['options']['mod_fun']) == 'HostileModFun'
         assert callback_record(feature['stages'][1]['options']['mod_fun']) == 'HostileModFun'
-        assert feature['common_options'] == {'n_runs': 1}
+        assert all('n_runs' not in stage['options'] for stage in feature['stages'])

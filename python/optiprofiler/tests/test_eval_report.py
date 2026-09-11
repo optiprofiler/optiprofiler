@@ -8,6 +8,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from optiprofiler.opclasses import Feature
+
 from optiprofiler import Problem, benchmark
 from optiprofiler.plotting import prepare_history_plot_data
 from optiprofiler.utils import ProfileOption
@@ -565,7 +567,7 @@ def test_identity_checked_hashing_matches_openat_and_refuses_symlinks(tmp_path, 
     except (OSError, NotImplementedError):
         pytest.skip('symlink creation is not permitted for this user')
     collector = module.EvalReport(tmp_path / 'identity' / 'again.json', {})
-    collector.configure({}, {'score_only': False}, object(), output_dir=root)
+    collector.configure({}, {'score_only': False}, Feature('plain'), output_dir=root)
     collector._initial_artifacts = set()
     collector._harvest()
     names = {a['path'].split('/')[-1] for a in collector.document['artifacts']}
@@ -591,7 +593,7 @@ def test_junctions_inside_the_owned_tree_are_not_harvested(tmp_path):
     archive = next(root / a['path'] for a in report['artifacts'] if a['path'].endswith('data_for_loading.h5'))
     assert not module._reparse_point(os.lstat(str(archive)))
     collector = module.EvalReport(tmp_path / 'junction' / 'again.json', {})
-    collector.configure({}, {'score_only': False}, object(), output_dir=root)
+    collector.configure({}, {'score_only': False}, Feature('plain'), output_dir=root)
     collector._initial_artifacts = set()
     collector._harvest()
     names = {a['path'].split('/')[-1] for a in collector.document['artifacts']}

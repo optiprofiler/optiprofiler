@@ -58,13 +58,13 @@ def describe_feature(feature, feature_stamp=None, full_feature_stamp=None):
         'feature_stamp': feature_stamp,
         'full_feature_stamp': full_feature_stamp,
         'stages': [{
-            'position': position,
+            'position': stage.position,
             'name': stage.name,
             'code': stage.code,
             'occurrence': stage.occurrence,
             'identity': stage.identity,
             'options': _describe(dict(stage.options)),
-        } for position, stage in enumerate(feature.stages)],
+        } for stage in feature.stages],
     }
 
 
