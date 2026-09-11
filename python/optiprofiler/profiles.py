@@ -259,27 +259,30 @@ def _benchmark(
         and the noisy value is then truncated. Supplied feature options are
         passed to every stage that accepts them, 'n_runs' is global, and
         'plain' stages are identities. See the user guide for the rules.
-    feature : dict or list, optional
+    feature : dict, list, tuple or Feature, optional
         Structured specification of the feature: one stage entry
-        ``{'name': ..., 'options': {...}}`` or an ordered list/tuple of entries
-        (bare names allowed). Each stage owns the options inside its entry, so
+        ``{'name': ..., 'options': {...}}``, an ordered list/tuple of entries
+        (bare names allowed) or an already built ``Feature`` (used as it is,
+        without reparsing). Each stage owns the options inside its entry, so
         repeated stages and different values of a shared key are expressible;
         ``n_runs`` stays a top-level option. ``feature`` and ``feature_name``
         cannot both be given, flat stage options are rejected with ``feature``,
         and ``feature`` cannot be combined with ``load``.
     n_runs : int, optional
         The number of runs of the experiments with the given feature. This is
-        an experiment-wide option: a composition stores it once, and stages
-        never carry a run count of their own (it is rejected inside a
-        ``feature`` entry). Unless given, it is 5 when ``solver_isrand``
-        marks a randomized solver, and otherwise the established default of
-        the feature: 5 for 'perturbed_x0', 'noisy' (1 when
-        ``noise_mode='deterministic'``), 'permuted', 'linearly_transformed'
-        (also when ``rotated=False``), 'random_nan' and 'truncated' with
-        ``perturbed_trailing_digits=True``; 1 for 'plain', 'truncated',
-        'unrelaxable_constraints', 'nonquantifiable_constraints', 'quantized'
-        and 'custom' (although 'custom' counts as stochastic). A composition
-        defaults to the largest default of its effective stages.
+        an experiment option, never a feature option: the experiment plan
+        records it once, no stage carries a run count (it is rejected inside a
+        ``feature`` entry and by ``Feature(..., n_runs=...)``), and the plain
+        reference of ``run_plain`` always uses one run. Unless given, it is 5
+        when ``solver_isrand`` marks a randomized solver (not in a load), and
+        otherwise the established default of the feature: 5 for
+        'perturbed_x0', 'noisy' (1 when ``noise_mode='deterministic'``),
+        'permuted', 'linearly_transformed' (also when ``rotated=False``),
+        'random_nan' and 'truncated' with ``perturbed_trailing_digits=True``;
+        1 for 'plain', 'truncated', 'unrelaxable_constraints',
+        'nonquantifiable_constraints', 'quantized' and 'custom' (although
+        'custom' counts as stochastic). A composition defaults to the largest
+        default of its effective stages. A present ``None`` is invalid.
     distribution : str or callable, optional
         The distribution of perturbation in 'perturbed_x0'
         feature or random noise in 'noisy' feature. It should be either a
@@ -915,6 +918,11 @@ def _benchmark(
     # specification is normalized once, below, before any output exists.
     feature_route = 'feature_name'
     feature_spec = None
+    # The benchmark keyword that carried the specification (None when neither
+    # was given); recorded in the provenance separately from the declaration
+    # route of the specification itself.
+    feature_input = 'feature' if 'feature' in kwargs else ('feature_name' if 'feature_name' in kwargs else None)
+    feature_stamp_origin = 'explicit' if 'feature_stamp' in kwargs else 'generated'
     if 'feature' in kwargs:
         feature_route = 'feature'
         feature_spec = kwargs.pop('feature')
@@ -1075,7 +1083,8 @@ def _benchmark(
 
     if report is not None:
         report.configure(problem_options, profile_options, feature, plan=primary_plan,
-                         output_dir=None if profile_options[ProfileOption.SCORE_ONLY] else path_stamp)
+                         output_dir=None if profile_options[ProfileOption.SCORE_ONLY] else path_stamp,
+                         input_route=feature_input, feature_stamp_origin=feature_stamp_origin)
         report.set_stage('numerical', 'running')
 
     # Create directory to store history plots based on draw_hist_plots option.
@@ -1137,7 +1146,7 @@ def _benchmark(
             # feature=refined['feature_specification'] and n_runs=refined['n_runs'].
             options_refined['schema'] = 'options_refined-v2'
             options_refined[ProfileOption.N_RUNS.value] = primary_plan.n_runs
-            options_refined['feature_route'] = feature.declared.route
+            options_refined['feature_route'] = feature_input
             options_refined['feature_name'] = feature.declared_name
             options_refined['feature_specification'] = effective_specification(feature)
             
@@ -1354,7 +1363,7 @@ def _benchmark(
             is_plot_parallel = profile_options[ProfileOption.DRAW_HIST_PLOTS] == 'parallel'
 
             # Solve all the problems from the current problem library with the specified options and get the computation results.
-            results_plib = _solve_all_problems(solvers, plib, feature, primary_plan, problem_options, profile_options, is_plot_parallel, path_hist_plots_plib, log_queue=log_queue,
+            results_plib = _solve_all_problems(solvers, plib, feature, primary_plan, problem_options, profile_options, is_plot_parallel, path_hist_plots_plib, log_queue=log_queue, input_route=feature_input, feature_stamp_origin=feature_stamp_origin,
                                               **({'_report': report} if report is not None else {}))
 
             # If there are no problems selected or solved, skip the rest of the code, and continue to the next library.
@@ -1382,6 +1391,8 @@ def _benchmark(
                 # The plain reference has its own plan: one stored and one actual
                 # run per solver, never the primary count.
                 plan_plain = resolve_plan(feature_plain, PLAIN_REFERENCE)
+                if report is not None:
+                    report.add_plan(plan_plain)
                 if not profile_options[ProfileOption.SILENT]:
                     logger.info('')
                     logger.info(f'Start testing problems from the problem library "{plib}" with "plain" feature.')
@@ -2170,7 +2181,7 @@ def _resolve_benchmark_plib_options(problem_options):
     }
 
 
-def _solve_all_problems(solvers, plib, feature, plan, problem_options, profile_options, is_plot, path_hist_plots, log_queue=None, _report=None, _report_role='primary'):
+def _solve_all_problems(solvers, plib, feature, plan, problem_options, profile_options, is_plot, path_hist_plots, log_queue=None, _report=None, _report_role='primary', input_route=None, feature_stamp_origin=None):
     """
     Solve all problems in plib satisfying problem_options using solvers in the solvers and stores the computing results.
     """
@@ -2390,7 +2401,8 @@ def _solve_all_problems(solvers, plib, feature, plan, problem_options, profile_o
     # never executed). Archives written before compositions existed lack it.
     results['feature_pipeline'] = feature_pipeline_text(
         feature, plan, feature_stamp=profile_options[ProfileOption.FEATURE_STAMP],
-        full_feature_stamp=_get_default_feature_stamp(feature, bounded=False))
+        full_feature_stamp=_get_default_feature_stamp(feature, bounded=False), input_route=input_route,
+        feature_stamp_origin=feature_stamp_origin)
     results['fun_histories'] = fun_histories
     results['maxcv_histories'] = maxcv_histories
     results['fun_outs'] = fun_outs

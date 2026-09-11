@@ -78,7 +78,8 @@ class TestPickling:
     def test_composed_feature_survives_pickling(self):
         feature = Feature('noisy+quantized', noise_level=0.01, mesh_size=0.5)
         clone = pickle.loads(pickle.dumps(feature))
-        assert clone.name == feature.name and clone.options == feature.options
+        assert clone.name == feature.name
+        assert [dict(stage.options) for stage in clone.stages] == [dict(stage.options) for stage in feature.stages]
         assert clone.is_stochastic is True
         problem = Problem(lambda x: float(x @ x), np.array([1.0, -2.0]))
         x = np.array([0.4, 0.6])
@@ -97,14 +98,15 @@ class TestBenchmarkIntegration:
         results = load_results_from_h5(str(archive_of(tmp_path / 'composition')))
         assert results[0]['feature_stamp'] == 'noisy_0.001_mixed_gaussian__truncated_6'
         pipeline = json.loads(results[0]['feature_pipeline'])
-        assert pipeline['schema'] == 'feature_pipeline-v2'
+        assert pipeline['schema'] == 'feature_pipeline-v3'
+        experiment, pipeline = pipeline['experiment'], pipeline['feature']
         assert pipeline['route'] == 'feature_name'
         assert pipeline['declared_name'] == 'noisy+truncated' and pipeline['effective_name'] == 'noisy+truncated'
         assert pipeline['seed_policy'] == 'seedsequence-v2'
         assert [stage['identity'] for stage in pipeline['stages']] == ['noisy#0', 'truncated#0']
         assert pipeline['stages'][0]['options']['distribution'] == 'gaussian'
         # The run count is experiment-wide: stated once, never inside a stage.
-        assert pipeline['common_options'] == {'n_runs': 5}
+        assert experiment['n_runs'] == 5 and experiment['role'] == 'primary' and experiment['origin'] == 'stage_hints'
         assert all('n_runs' not in stage['options'] for stage in pipeline['stages'])
         assert pipeline['stages'][1]['options']['significant_digits'] == 6
         assert pipeline['full_feature_stamp'] == 'noisy_0.001_mixed_gaussian__truncated_6'
@@ -115,13 +117,14 @@ class TestBenchmarkIntegration:
         assert feature['declared_name'] == 'noisy+truncated'
         assert feature['seed_policy'] == 'seedsequence-v2'
         assert [stage['identity'] for stage in feature['stages']] == ['noisy#0', 'truncated#0']
-        assert feature['options'] == {'n_runs': 5}
+        # No root options and no run count live in the feature block; the plan is a separate fact.
+        assert 'options' not in feature and all('n_runs' not in stage['options'] for stage in feature['stages'])
 
     def test_single_feature_archive_records_a_legacy_pipeline(self, tmp_path):
         benchmark([solver_stay, solver_step], feature_name='plain+noisy', **common_kwargs(tmp_path, 'single'))
         results = load_results_from_h5(str(archive_of(tmp_path / 'single')))
         assert results[0]['feature_stamp'] == 'noisy_0.001_mixed_gaussian'
-        pipeline = json.loads(results[0]['feature_pipeline'])
+        pipeline = json.loads(results[0]['feature_pipeline'])['feature']
         assert pipeline['declared_name'] == 'plain+noisy' and pipeline['effective_name'] == 'noisy'
         assert pipeline['seed_policy'] == 'legacy-run-seed'
         assert [stage['identity'] for stage in pipeline['stages']] == ['noisy#0']
@@ -150,7 +153,7 @@ class TestBenchmarkIntegration:
             report = json.load(stream)
         retained = report['configuration']['retained_result_metadata']
         assert retained[0]['feature_stamp'] == 'quantized_0.001_ground_truth__noisy_0.001_mixed_gaussian'
-        assert [stage['identity'] for stage in retained[0]['feature_pipeline']['stages']] == ['quantized#0', 'noisy#0']
+        assert [stage['identity'] for stage in retained[0]['feature_pipeline']['feature']['stages']] == ['quantized#0', 'noisy#0']
         # An archive written before compositions existed carries no pipeline entry.
         with h5py.File(archive_of(tmp_path / 'reload'), 'r+') as archive:
             for group in archive.values():

@@ -1,10 +1,12 @@
 # Development Plan
 
 This document records the development roadmap, not a list of released APIs.
-The provider split is implemented on the development line. The running-record,
-feature-composition, and reference/scoring work below is still planned; names
-and file formats are provisional until implementation and consumer tests agree.
-The paper maintenance line receives applicable fixes, not these new features.
+The provider split, the machine-readable evaluation report and the ordered
+feature composition are implemented on the development line (their current
+contracts are documented in the user guide); the reference/scoring work below
+is still planned, and its names and file formats are provisional until
+implementation and consumer tests agree. The paper maintenance line receives
+applicable fixes, not these new features.
 
 ## Separate Problem Libraries from the Engine
 
@@ -68,12 +70,17 @@ necessary, generate it automatically from the release commit.
 
 ## Machine-Readable Experiment Records and Evolve Feedback
 
-Start with a small, provisional `run_record` consumed by a real evaluator.
-Core records experiment facts: run identity, actual problem/provider identity,
-feature and randomness policies, budgets, solver identities, status and errors,
-score definitions, and references to saved numerical data with axes and units.
-Keep numerical arrays in the existing data files; JSON uses standard types and
-an explicit representation for unavailable or non-finite values.
+The record is the opt-in `eval_report` (`report_path=`): a versioned main
+report (`optiprofiler.eval_report/2`; version 1 stays immutable for reports
+already written and for the MATLAB producer) with a numeric companion
+(`optiprofiler.plot_data/1`), both pinned by packaged JSON Schemas and selected
+by the document's schema identifier. Core records experiment facts: run
+identity, actual problem/provider identity, the canonical feature specification
+and the experiment plans (run counts by role), randomness policies, budgets,
+solver identities, status and errors, score definitions, and references to
+saved numerical data with axes and units. Numerical arrays stay in the existing
+data files; JSON uses standard types and an explicit representation for
+unavailable or non-finite values.
 
 Distinguish experiment completion from solver failures and rendering failures.
 Publish required data before a completed record; a surviving `running` record
@@ -89,18 +96,28 @@ candidate is not the contract for this work.
 
 ## Ordered Feature Composition
 
-Design `FeaturePipeline` as an ordered list of stages with explicit identities
-and per-stage options. A spelling such as `noisy+perturbed_x0` may be shorthand,
-not the canonical saved identity. Compile the stages into one FeaturedProblem;
-do not recursively wrap counters, budgets, truth evaluation, or histories.
+`Feature` is the canonical pipeline specification: an ordered list of stages
+with explicit identities (`name#occurrence`, frozen literal seed codes) and
+stage-local options, built once from the `feature_name` shorthand or the
+structured `feature` entries and never reparsed. The identity pipeline has
+zero effective stages and the name `plain`; empty or malformed input is an
+error. Experiment settings such as `n_runs` are not feature options: the
+experiment layer resolves one plan per role (primary, plain reference) from the
+specification and the solver metadata. Every built-in stage composes with every
+other in any order and any number of times; a single effective stage keeps the
+established single-feature execution and seeds, and a genuine composition is
+executed by one recorder over lazily composed views with per-stage, per-channel
+seeds (`seedsequence-v2`). Counters, budgets, truth evaluation and histories
+live in the recorder only; stages are never wrapped recursively. Spatial
+transformations carry bounds, constraints, truth and derivative semantics
+through the same view protocol.
 
-Start with a small supported whitelist: `noisy` with `perturbed_x0`, followed
-by order-sensitive `noisy` / `truncated` combinations. Distinguish conflicting
-combinations from valid but not yet supported ones. Spatial transformations
-require equivalent bounds, constraints, truth, and derivative semantics before
-their combinations are enabled. Python and MATLAB must agree on the contract
-and each support language-local replay; matching random samples across the two
-languages is not promised.
+Provenance is explicit (`feature_pipeline-v3`: feature block plus experiment
+block; `options_refined-v2` for native replay), historical payloads are kept
+verbatim, and historical serialized configurations enter only through the
+trusted compatibility boundary (`optiprofiler.legacy_compat`). Python and
+MATLAB agree on the contract and each support language-local replay and seed
+policies; matching random samples across the two languages is not promised.
 
 ## Reference Facts and an Independent Arena Scorer
 

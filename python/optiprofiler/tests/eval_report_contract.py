@@ -21,13 +21,18 @@ from optiprofiler import eval_report as _eval_report
 
 
 def load_schema(name):
-    """Load ``eval_report.schema.json`` / ``plot_data.schema.json`` by file name.
+    """Load a packaged schema by resource file name or schema reference.
 
-    The schemas are package resources, so this works identically from a
-    checkout and from an installed sdist/wheel (the build workflow runs the
-    installed test suite with ``pytest --pyargs optiprofiler.tests``).
+    ``eval_report.schema.json`` is the immutable version 1 of the main report,
+    ``eval_report-v2.schema.json`` the current version and
+    ``plot_data.schema.json`` the numeric companion; a bare name selects the
+    current version and ``optiprofiler.<name>/<version>`` identifiers are
+    accepted as well. The schemas are package resources, so this works
+    identically from a checkout and from an installed sdist/wheel (the build
+    workflow runs the installed test suite with ``pytest --pyargs
+    optiprofiler.tests``).
     """
-    return _eval_report.load_schema(name[:-len('.schema.json')] if name.endswith('.schema.json') else name)
+    return _eval_report.load_schema(name)
 
 
 def _type_of(value):

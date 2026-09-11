@@ -9,6 +9,7 @@ or an independent literal oracle, never a recreation of the implementation.
 import numpy as np
 import pytest
 
+from optiprofiler.experiment import resolve_plan
 from optiprofiler.opclasses import Feature, FeaturedProblem, Problem
 
 
@@ -81,10 +82,12 @@ class TestCompositeConstruction:
 class TestOptionRouting:
 
     def test_supplied_options_are_broadcast_only_to_owners(self):
-        assert Feature('noisy+perturbed_x0').options == {'n_runs': 5}
+        defaults = Feature('noisy+perturbed_x0')
+        assert [stage.options['distribution'] for stage in defaults.stages] == ['gaussian', 'spherical']
         feature = Feature('noisy+perturbed_x0', distribution='gaussian', noise_level=0.2)
-        assert feature.options == {'distribution': 'gaussian', 'noise_level': 0.2, 'n_runs': 5}
-        assert Feature('noisy+noisy', noise_level=0.2).options == {'noise_level': 0.2, 'n_runs': 5}
+        assert [stage.options['distribution'] for stage in feature.stages] == ['gaussian', 'gaussian']
+        assert feature.stages[0].options['noise_level'] == 0.2 and 'noise_level' not in feature.stages[1].options
+        assert [stage.options['noise_level'] for stage in Feature('noisy+noisy', noise_level=0.2).stages] == [0.2, 0.2]
 
     def test_stage_specific_validation_error(self):
         with pytest.raises(ValueError) as excinfo:
@@ -102,14 +105,14 @@ class TestOptionRouting:
 class TestGlobalRuns:
 
     def test_default_is_maximum_of_child_legacy_defaults(self):
-        assert Feature('noisy+truncated').options['n_runs'] == 5
-        assert Feature('truncated+quantized').options['n_runs'] == 1
-        assert Feature('noisy+truncated', noise_mode='deterministic').options['n_runs'] == 1
-        assert Feature('noisy+perturbed_x0', noise_mode='deterministic').options['n_runs'] == 5
+        assert resolve_plan(Feature('noisy+truncated')).n_runs == 5
+        assert resolve_plan(Feature('truncated+quantized')).n_runs == 1
+        assert resolve_plan(Feature('noisy+truncated', noise_mode='deterministic')).n_runs == 1
+        assert resolve_plan(Feature('noisy+perturbed_x0', noise_mode='deterministic')).n_runs == 5
 
     def test_legacy_default_not_actual_stochasticity(self):
         feature = Feature('linearly_transformed+truncated', rotated=False)
-        assert feature.options['n_runs'] == 5
+        assert resolve_plan(feature).n_runs == 5
         assert feature.is_stochastic is False
 
     def test_stochasticity_is_or_of_children(self):
@@ -118,12 +121,16 @@ class TestGlobalRuns:
         assert Feature('noisy+truncated', noise_mode='deterministic').is_stochastic is False
 
     def test_explicit_n_runs_is_global_and_validated(self):
-        assert Feature('noisy+perturbed_x0', n_runs=3).options['n_runs'] == 3
-        assert Feature('noisy+perturbed_x0', n_runs=2.0).options['n_runs'] == 2
+        feature = Feature('noisy+perturbed_x0')
+        assert resolve_plan(feature, requested=3).n_runs == 3
+        assert resolve_plan(feature, requested=2.0).n_runs == 2
         with pytest.raises(TypeError):
-            Feature('noisy+perturbed_x0', n_runs=1.5)
+            resolve_plan(feature, requested=1.5)
         with pytest.raises(ValueError):
-            Feature('noisy+perturbed_x0', n_runs=0)
+            resolve_plan(feature, requested=0)
+        # The specification never carries the count: it is a benchmark option.
+        with pytest.raises(ValueError, match='benchmark'):
+            Feature('noisy+perturbed_x0', n_runs=3)
 
 
 class TestOrderedValueComposition:

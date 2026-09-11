@@ -10,10 +10,11 @@ from scipy import __version__ as _SCIPY_VERSION
 
 import warnings
 from .utils import FeatureName, FeatureOption, get_logger, shorten_log_message
-from .feature_definitions import (_SPEC_TYPE_MESSAGE, StageRecord, normalize_entries, normalize_shorthand,
+from .feature_definitions import (_SPEC_TYPE_MESSAGE, Declaration, StageRecord, normalize_entries, normalize_shorthand,
                                   reject_experiment_options, reject_flat_stage_options)
 from .feature_definitions import is_stochastic as _stage_is_stochastic
 from .experiment import STRATEGY_COMPOSED, select_execution_strategy
+from .legacy_compat import LegacyObject
 
 def _round_truncated(value, digits):
     """Round decimal ties using MATLAB's default away-from-zero direction."""
@@ -766,6 +767,29 @@ class _StageRuntime:
         return np.random.default_rng(new_seed)
 
 
+FEATURE_NATIVE_VERSION = 1
+
+
+def _rebuild_feature(version, route, declared_entries, effective_entries):
+    """
+    Rebuild a pickled ``Feature`` from its native form: the canonical effective
+    stages (every validated local option explicit, so the defaults of the
+    loading version cannot change the numbers) and, separately, the declaration
+    as provenance. The effective entries are validated again; an identity
+    pipeline has none.
+    """
+    if version != FEATURE_NATIVE_VERSION:
+        raise ValueError(f'Unsupported native Feature form version {version!r} (this version reads {FEATURE_NATIVE_VERSION}).')
+    if effective_entries:
+        _, stages = normalize_entries([{'name': name, 'options': dict(options)} for name, options in effective_entries])
+    else:
+        stages = ()
+    feature = Feature.__new__(Feature)
+    object.__setattr__(feature, '_declared', Declaration(route, declared_entries))
+    object.__setattr__(feature, '_stages', stages)
+    return feature
+
+
 class Feature:
     """
     Specification of the feature applied to the benchmarked problems: an
@@ -824,8 +848,11 @@ class Feature:
         of its validated, defaulted stage-local options.
     name : str
         Effective name (``'noisy+truncated'``; ``'plain'`` for the identity).
-    declared_name, declared : str, Declaration
-        The declaration as given (input route and entries before defaults).
+    declared_name, declared : str or None, Declaration
+        The declaration as given (declaration route and entries before
+        defaults). A specification imported from a historical object that
+        recorded no declaration has route ``None``, no entries and
+        ``declared_name`` ``None``; its effective stages are complete.
     is_stochastic, is_identity : bool
 
     Raises
@@ -868,6 +895,10 @@ class Feature:
             reject_experiment_options(lowered)
             reject_flat_stage_options(lowered)
             declared, stages = name._declared, name._stages
+        elif isinstance(name, LegacyObject):
+            raise TypeError(f'{type(name).__name__} is a historical feature object decoded by the trusted loader; '
+                            'convert it with optiprofiler.legacy_compat.import_legacy_feature(...) and pass the '
+                            'returned feature and n_runs to benchmark.')
         elif isinstance(name, str):
             declared, stages = normalize_shorthand(name, lowered)
         elif name is None:
@@ -885,12 +916,12 @@ class Feature:
     def __delattr__(self, key):
         raise AttributeError('Feature is immutable; build a new Feature instead.')
 
-    def __getstate__(self):
-        return {'_declared': self._declared, '_stages': self._stages}
-
-    def __setstate__(self, state):
-        object.__setattr__(self, '_declared', state['_declared'])
-        object.__setattr__(self, '_stages', state['_stages'])
+    def __reduce__(self):
+        # The native form is versioned: the canonical effective stages with all
+        # validated local options explicit, plus the declaration as provenance.
+        # No run count and no runtime state; unpickling validates again.
+        effective = tuple((stage.name, dict(stage.options)) for stage in self._stages)
+        return _rebuild_feature, (FEATURE_NATIVE_VERSION, self._declared.route, self._declared._entries, effective)
 
     def __repr__(self):
         return f'Feature({self.name!r})'

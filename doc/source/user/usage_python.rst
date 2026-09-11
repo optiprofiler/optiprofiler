@@ -151,10 +151,13 @@ The rules are:
   ``perturbed_x0`` stage. Options accepted by no stage are rejected. Repeated
   stages share the supplied options; configuring two occurrences of the same
   feature differently is not expressible through the flat option list.
-- ``n_runs`` is experiment-wide: a composition stores it once, and its
-  stages never carry a run count of their own. Unless given explicitly (or
-  set by ``solver_isrand``), it is the largest established default of the
-  effective stages. Those defaults are the ones of the single features: five
+- ``n_runs`` is an experiment option, never a feature option:
+  ``benchmark(..., n_runs=N)`` sets it, the experiment plan records it once,
+  and no stage carries a run count (``Feature(..., n_runs=N)`` is an error
+  naming the benchmark option). Unless given explicitly, it is 5 when
+  ``solver_isrand`` marks a randomized solver (not in a load) and otherwise
+  the largest established default of the effective stages. Those defaults
+  are the ones of the single features: five
   for ``perturbed_x0``, ``noisy`` (one with ``noise_mode='deterministic'``),
   ``permuted``, ``linearly_transformed`` (also with ``rotated=False``,
   although that variant is deterministic), ``random_nan`` and ``truncated``
@@ -207,8 +210,8 @@ The rules are:
   earlier policy keep their own identifier when loaded.
 - The output folder name joins the stamps of the stages with ``__`` and is
   shortened with a digest for long chains. The archive and the structured
-  report record the declared name, the experiment-wide options once, the
-  effective stages with their local options and the seed policy (see
+  report record the declared specification, the effective stages with their
+  local options and the seed policy, and separately the experiment plan (see
   :ref:`py_structured_feature` for the payload). Derivatives of a composed
   problem are not provided.
 
@@ -272,34 +275,74 @@ The rules are:
   with their archived pipeline retained; ``feature_name`` keeps labelling a
   load as before.
 
+Feature objects. ``benchmark(feature=...)`` also accepts an already built
+:class:`~optiprofiler.Feature`, and both routes build one. A ``Feature`` is an
+immutable pipeline specification: ``feature.stages`` is the tuple of effective
+stage records, each with ``name``, ``occurrence``, ``identity``
+(``'noisy#0'``), ``code`` (the frozen seed code), ``position`` and ``options``
+(a read-only view of the validated stage-local options after defaults);
+``feature.name`` is the effective name (``'plain'`` for the identity, which
+has no stage), ``feature.declared`` the declaration as given (route and entries
+before defaults) and ``feature.is_stochastic`` whether any stage draws random
+numbers. The declaration route (``'feature_name'`` for the shorthand string,
+``'feature'`` for structured entries) is a property of the specification: a
+``Feature`` declared by shorthand and passed as ``benchmark(feature=obj)``
+keeps its declaration and its receipt. The provenance records that route as
+``declaration_route`` and, separately, the benchmark keyword that carried the
+specification as ``route``. A specification imported from a historical object
+that recorded no declaration has declaration route ``None``, no declared
+entries and no declared name; its effective stages are complete. Each trial builds fresh
+runtime state from the records, so reusing
+one ``Feature`` object across benchmarks gives the same numbers as building it
+again. Pickling a ``Feature`` transports its declaration and normalizes it
+again on load, callables included as the native objects. ``Feature.options``
+and the ``modifier_*`` methods remain as deprecated one-stage conveniences
+(``DeprecationWarning``; an error on a composition) and are used by nothing
+in the engine, the archives or the reports.
+
 Provenance and replay. The archive entry ``feature_pipeline`` (payload
-``feature_pipeline-v2``) records the route, the declared name and the
-declared specification (the structured input as given, or for the shorthand
-route its projection from the declared tokens and the supplied broadcast
-options; callables are described by name, never executed), the
-experiment-wide options once under ``common_options`` and, for every
-effective stage, its identity and its local options. The structured report
-shows the same data under ``configuration.effective.feature``. Archives
-written by earlier versions keep their own payload when loaded. The file
-``test_log/options_refined.pkl`` stores ``feature_route``, ``feature_name``
-(the declared name), ``n_runs`` and ``feature_specification``: the ordered
-effective stages with their validated options as native Python values,
-callables included. That entry is valid ``feature`` input, so
+``feature_pipeline-v3``) has two blocks. The ``feature`` block records the
+benchmark keyword that carried the specification (``route``), the declaration
+route of the specification (``declaration_route``), the declared name, the
+declared entries with the options as supplied, the effective name, the seed
+policy, the stamps with their origin (explicit or generated) and, for every effective
+stage, its position, name, code, occurrence, identity and local options
+(callables are described by name, never executed). The ``experiment`` block
+records the resolved plan of the primary role: ``n_runs`` and where it came
+from (``explicit``, ``randomized_solvers`` or ``stage_hints``), the run
+policy, the execution strategy and the language-local runtime identifier; run
+counts appear there and nowhere inside a stage. The structured report shows the same feature block under
+``configuration.effective.feature`` and the plans of every executing role
+under ``configuration.effective.experiment``. Archives written by earlier
+versions (``feature_pipeline-v1`` and ``-v2``, or none at all) keep their own
+payload verbatim when loaded; nothing is migrated or relabelled. The file
+``test_log/options_refined.pkl`` (``schema`` ``options_refined-v2``) stores
+``feature_route``, ``feature_name`` (the declared name), ``n_runs`` and
+``feature_specification``: the ordered effective stages with their validated
+options as native Python values, callables included, and no flat stage keys.
+That entry is valid ``feature`` input, so
 ``scores, _, _ = benchmark(feature=refined['feature_specification'], n_runs=refined['n_runs'], ...)``
 reproduces the effective experiment for both routes; forwarding the whole
-refined dictionary is not a supported call. Only load pickle files from
-trusted sources: unpickling can execute code. The callback descriptions in
-the archive and the report are one-way informational metadata (a class or
-function name), never a recipe for reconstructing an executable callable.
-The shorthand route keeps its flat option keys there for compatibility, and
-``Feature.options`` of a composition remains that broadcast projection plus
-``n_runs``.
+refined dictionary is not a supported call. ``optiprofiler.legacy_compat``
+is the trusted boundary for files written by earlier versions:
+``load_options`` decodes historical enumeration members (including the former
+``n_runs`` feature option), ``replay_arguments`` maps the supported layouts to
+``feature`` and ``n_runs`` (a flat 1.x file records no feature identity and
+needs an explicit ``feature_name``), and ``import_legacy_feature`` converts a
+1.x pickled ``Feature`` into a canonical ``Feature`` plus its retained run
+count, which is passed to ``benchmark`` separately. Only load pickle and H5
+files from trusted sources: unpickling can execute code, and these readers
+offer no safety for untrusted payloads. The callback descriptions in the
+archive and the report are one-way informational metadata (a class or function
+name), never a recipe for reconstructing an executable callable.
 
-MATLAB mapping. The MATLAB implementation has no composition engine yet. The
-intended data mapping is ``options.feature`` as a cell array of structs
+MATLAB mapping. The MATLAB implementation is being brought to the same
+contract in a separate lane: ``options.feature`` as a cell array of structs
 (``struct('name', 'noisy', 'options', struct('noise_level', 1e-3))``) or
-names, ``options.n_runs`` at the top level and the same ``feature_pipeline-v2``
-fields; ``options.feature_name`` keeps its current meaning.
+names, ``options.n_runs`` at the top level, the same ``feature_pipeline-v3``
+fields, and a language-local seed policy for compositions; random samples
+are not matched across the two languages. ``options.feature_name`` keeps its
+current meaning.
 
 .. _py_example3:
 

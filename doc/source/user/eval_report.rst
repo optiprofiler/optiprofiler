@@ -41,7 +41,7 @@ The report can be read with the standard library::
     import json
     with open('evaluation/eval_report.json', encoding='utf-8') as stream:
         report = json.load(stream)
-    assert report['schema'] == 'optiprofiler.eval_report/1'
+    assert report['schema'] == 'optiprofiler.eval_report/2'
     budget = report['problems'][0]['budget']['evaluations']
     for run in report['problems'][0]['runs']:
         print(run['solver_index'], run['run_index'], run['evaluations'],
@@ -57,26 +57,35 @@ The equivalent options-struct field preserves MATLAB's three outputs::
     options.report_path = 'evaluation/eval_report.json';
     [scores, profile_scores, curves] = benchmark({@solver_a, @solver_b}, options);
 
-The MATLAB implementation emits the same schema, the same field names and
-the same one-based solver/run indices as Python. Runtime provenance,
-random-seed rules and error-band normalization remain language-specific; the
-report states which convention produced a value instead of changing either
-implementation to make them match (see :ref:`eval_report_conventions`).
+The MATLAB implementation emits version 1 of the same contract
+(``optiprofiler.eval_report/1``, the immutable ``eval_report.schema.json``)
+with the same field names and the same one-based solver/run indices; Python
+emits version 2, which adds the canonical feature specification and the
+experiment plans to ``configuration.effective``. A reader selects the schema
+from the document's ``schema`` identifier and rejects identifiers it does not
+know; MATLAB's move to version 2 is a separate, later mapping. Runtime
+provenance, random-seed rules and error-band normalization remain
+language-specific; the report states which convention produced a value instead
+of changing either implementation to make them match (see
+:ref:`eval_report_conventions`).
 
 Report structure
 ----------------
 
-The :download:`main-report schema <../../../python/optiprofiler/schemas/eval_report.schema.json>`
-and :download:`numeric-companion schema <../../../python/optiprofiler/schemas/plot_data.schema.json>`
+The :download:`main-report schema, version 2 <../../../python/optiprofiler/schemas/eval_report-v2.schema.json>`,
+the :download:`main-report schema, version 1 <../../../python/optiprofiler/schemas/eval_report.schema.json>`
+and the :download:`numeric-companion schema <../../../python/optiprofiler/schemas/plot_data.schema.json>`
 are the single Python/MATLAB reader contract. Observation records (problems,
 runs, metrics, coverage, stages, plot records, history channels) allow only the
 declared keys, so a consumer never has to branch on the producing language
-for the same concept. The two files are package resources of the Python
+for the same concept. The files are package resources of the Python
 distribution (``optiprofiler/schemas/``) and can be read at run time::
 
-    from optiprofiler.eval_report import load_schema, schema_text
-    main_schema = load_schema('eval_report')      # parsed dict
-    companion_text = schema_text('plot_data')     # exact JSON text, for hashing/pinning
+    from optiprofiler.eval_report import load_schema, schema_for_document, schema_text
+    main_schema = load_schema('eval_report')          # current version (2), parsed dict
+    legacy_schema = load_schema('eval_report', 1)     # immutable version 1 (MATLAB, older reports)
+    companion_text = schema_text('plot_data')         # exact JSON text, for hashing/pinning
+    name, version = schema_for_document(report)       # from report['schema']; unknown versions raise
 
 There is exactly one authoritative copy of each schema: the documentation
 downloads above, the installed Python test suite, the MATLAB test fixtures and
@@ -84,9 +93,13 @@ external consumers all read the same files, so a consumer that pins a schema by
 its SHA256 compares against the packaged text. They require no additional
 runtime dependency in OptiProfiler; both test suites validate every produced
 report against them with a small built-in checker. Consumers should reject bare
-JSON ``NaN``/``Infinity`` tokens, validate the schemas, and check tensor
-dimensions, references and artifact paths. This remains an unreleased v1 report
-format, independent of package versions.
+JSON ``NaN``/``Infinity`` tokens, select the schema by the document identifier,
+validate, and check tensor dimensions, references and artifact paths. The
+versions are independent of the package version and are listed separately:
+main report ``optiprofiler.eval_report/2`` (Python) and ``/1`` (MATLAB, and
+reports written before version 2; immutable), numeric companion
+``optiprofiler.plot_data/1`` (unchanged), archive entry ``feature_pipeline-v3``
+(``-v1``/``-v2`` retained verbatim on load) and ``options_refined-v2``.
 
 .. list-table:: Main fields
    :header-rows: 1
@@ -96,9 +109,23 @@ format, independent of package versions.
      - Meaning
    * - ``configuration`` / ``source``
      - ``configuration.request`` is what the caller supplied;
-       ``configuration.effective`` is the resolved problem/profile options and
-       feature, stated once. For a load operation these describe reanalysis
-       and rendering, and ``source`` is the original archive receipt.
+       ``configuration.effective`` is the resolved problem/profile options, the
+       canonical ``feature`` specification (stage-local options only) and the
+       ``experiment`` plans (run counts by role), stated once. For a load
+       operation these describe reanalysis and rendering (``experiment`` is
+       empty), ``source`` is the receipt of the unchanged archive bytes
+       (``sha256``) and ``configuration.retained_result_metadata`` is a
+       sanitized copy of the archived metadata, not those bytes. Runtime facts
+       of an executed role (execution strategy, ``runtime_policy``) are stated
+       once per role in ``experiment``; the seed policy and the stage
+       identities once in ``feature``. A producer that observes these facts
+       per run may add an optional ``runs[].runtime`` receipt (language,
+       execution strategy, runtime and seed policy); Python emits none, and no
+       receipt is ever synthesized for a copied run. Text fields of the feature
+       block longer than the shared bound (or containing redacted content) are
+       omitted, not clipped: the field is ``null`` and ``<field>_bytes`` /
+       ``<field>_reason`` say why; the complete text stays in the archive and
+       the refined options.
    * - ``stages`` / ``coverage``
      - Independent numerical, scoring, persistence and rendering states;
        selected, loaded and completed primary problems.
@@ -410,4 +437,6 @@ validation/hidden results, private reference details, absolute output
 locations and file provenance on the controller side. Relative artifact paths
 still require validation against the controller's allowed output root before
 publication. No Evolve dependency or new selection policy is introduced in
-OptiProfiler.
+OptiProfiler. An external consumer must check the report version it supports;
+support for version 2 in Evolve is a separate integration gate, not something
+this document establishes.

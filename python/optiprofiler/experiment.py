@@ -19,6 +19,9 @@ from .feature_definitions import EXPERIMENT_OPTIONS  # noqa: F401  (re-exported 
 
 #: Identifier of the literal 1.x default-run policy implemented by ``resolve_plan``.
 RUN_POLICY = 'legacy-hints-v1'
+# Language-local identifier of the runtime that executes the plans of this
+# producer (MATLAB records its own); stated once per role, never per run.
+RUNTIME_POLICY = 'python-featured-problem-v1'
 
 #: Roles of an experiment execution.
 PRIMARY = 'primary'
@@ -95,7 +98,8 @@ class ExperimentPlan:
     def describe(self):
         """Plain data for provenance."""
         return {'role': self._role, 'n_runs': self._n_runs, 'origin': self._origin,
-                'run_policy': RUN_POLICY, 'execution_strategy': self._execution_strategy}
+                'run_policy': RUN_POLICY, 'execution_strategy': self._execution_strategy,
+                'runtime_policy': RUNTIME_POLICY}
 
     def __repr__(self):
         return f'ExperimentPlan({self._role!r}, n_runs={self._n_runs}, origin={self._origin!r})'

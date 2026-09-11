@@ -102,7 +102,9 @@ class TestProblemOption:
 class TestFeatureOption:
 
     def test_enumeration_values(self):
-        assert FeatureOption.N_RUNS == 'n_runs'
+        # ``n_runs`` is an experiment option (ProfileOption) in 2.0, not a feature option.
+        assert not hasattr(FeatureOption, 'N_RUNS')
+        assert ProfileOption.N_RUNS == 'n_runs'
         assert FeatureOption.DISTRIBUTION == 'distribution'
         assert FeatureOption.PERTURBATION_LEVEL == 'perturbation_level'
         assert FeatureOption.NOISE_LEVEL == 'noise_level'
@@ -121,7 +123,10 @@ class TestFeatureOption:
         assert FeatureOption.MOD_X0 == 'mod_x0'
 
     def test_constructor(self):
-        assert FeatureOption('n_runs') == FeatureOption.N_RUNS
+        assert FeatureOption('noise_level') == FeatureOption.NOISE_LEVEL
+        assert ProfileOption('n_runs') == ProfileOption.N_RUNS
+        with pytest.raises(ValueError):
+            FeatureOption('n_runs')
         with pytest.raises(ValueError):
             FeatureOption('invalid')
 

@@ -1,0 +1,1612 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:optiprofiler:eval_report:2",
+  "title": "OptiProfiler evaluation report v2",
+  "description": "The full report is controller-private evidence, not an automatically safe agent prompt or public artifact. It describes one benchmark or load invocation without changing numerical execution. Validation does not establish reproducibility, comparability, convergence, or permission to publish data. Consumers must construct an independently allowlisted public feedback view. Python and MATLAB emit this single contract: shared concepts use one spelling (pinned below with additionalProperties=false on observation records); genuine language differences are explicit optional fields or documented value conventions, never silently different names. Version 2 (optiprofiler.eval_report/2) adds the canonical feature specification (configuration.effective.feature: stage-local options only) and the experiment plans (configuration.effective.experiment: the run counts live here, never inside a stage). Version 1 (eval_report.schema.json, urn:optiprofiler:eval_report:1) stays immutable for reports already written and for the MATLAB producer; readers select the schema by the document schema identifier and reject identifiers they do not know.",
+  "$comment": "Parse strict standard JSON before validation: bare NaN and Infinity tokens are not JSON. Validate cross-field invariants separately, including score-axis lengths, rectangular tensors, companion integrity and reference resolution, coverage consistency, unique problem identities, and artifact containment within controller-authorized roots. Absent optional keys have the meaning stated in semantics.run_defaults; they are never a successful zero measurement.",
+  "type": "object",
+  "required": [
+    "schema",
+    "evaluation_id",
+    "operation",
+    "status",
+    "producer",
+    "configuration",
+    "semantics",
+    "stages",
+    "coverage",
+    "problems",
+    "scores",
+    "profiles",
+    "artifact_root",
+    "artifacts",
+    "plot_data",
+    "diagnostics",
+    "source",
+    "report_files",
+    "timing"
+  ],
+  "properties": {
+    "schema": {
+      "const": "optiprofiler.eval_report/2"
+    },
+    "evaluation_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Invocation identity, not a scientific random seed."
+    },
+    "operation": {
+      "enum": [
+        "benchmark",
+        "load"
+      ]
+    },
+    "status": {
+      "enum": [
+        "running",
+        "completed",
+        "partial",
+        "failed",
+        "empty"
+      ]
+    },
+    "producer": {
+      "$ref": "#/$defs/producer"
+    },
+    "configuration": {
+      "$ref": "#/$defs/configuration"
+    },
+    "semantics": {
+      "$ref": "#/$defs/semantics"
+    },
+    "stages": {
+      "$ref": "#/$defs/stages"
+    },
+    "coverage": {
+      "$ref": "#/$defs/coverage"
+    },
+    "problems": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/problem"
+      }
+    },
+    "scores": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/scores"
+        }
+      ]
+    },
+    "profiles": {
+      "$ref": "#/$defs/profiles"
+    },
+    "artifacts": {
+      "type": "array",
+      "maxItems": 2048,
+      "items": {
+        "$ref": "#/$defs/artifact"
+      }
+    },
+    "artifact_root": {
+      "$ref": "#/$defs/relativePath"
+    },
+    "plot_data": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/plotDataReference"
+        }
+      ]
+    },
+    "diagnostics": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "$ref": "#/$defs/diagnostic"
+      }
+    },
+    "diagnostics_omitted": {
+      "$ref": "#/$defs/count"
+    },
+    "source": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/source"
+        }
+      ]
+    },
+    "report_files": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/reportFiles"
+        }
+      ]
+    },
+    "timing": {
+      "$ref": "#/$defs/timing"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "nonfinite": {
+      "type": "object",
+      "required": [
+        "value",
+        "reason"
+      ],
+      "properties": {
+        "value": {
+          "type": "null"
+        },
+        "reason": {
+          "enum": [
+            "nan",
+            "positive_infinity",
+            "negative_infinity"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "description": "An observed nonfinite scientific value. Ordinary unknown/unretained values use null with a contextual availability or reason field instead."
+    },
+    "scientificValue": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/nonfinite"
+        }
+      ]
+    },
+    "count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "nullableCount": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/count"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "oneBasedIndex": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "nullableIndex": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/oneBasedIndex"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "nullableText": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "nullableBoolean": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "metadataValue": {
+      "anyOf": [
+        {
+          "type": [
+            "null",
+            "boolean",
+            "string",
+            "number"
+          ]
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/metadataValue"
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/metadataValue"
+          }
+        }
+      ],
+      "description": "Non-executable metadata only. Callback descriptors are labels, not callback source, captured state, or executable instructions. Sensitive values and absolute machine paths must be omitted/redacted by the producer."
+    },
+    "producer": {
+      "type": "object",
+      "required": [
+        "language",
+        "version",
+        "revision"
+      ],
+      "properties": {
+        "language": {
+          "enum": [
+            "python",
+            "matlab"
+          ]
+        },
+        "version": {
+          "$ref": "#/$defs/nullableText"
+        },
+        "revision": {
+          "$ref": "#/$defs/nullableText"
+        },
+        "dirty": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "exact_revision": {
+          "type": "boolean"
+        },
+        "revision_reason": {
+          "$ref": "#/$defs/nullableText"
+        },
+        "scope": {
+          "type": "string"
+        },
+        "version_kind": {
+          "type": "string"
+        },
+        "revision_kind": {
+          "type": "string"
+        },
+        "identity_note": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "description": "Current invocation producer, not necessarily the source archive producer. A version string or checkout HEAD alone does not identify modified source. Unknown revision/dirty state must not be represented as a verified clean source."
+    },
+    "configuration": {
+      "type": "object",
+      "required": [
+        "request"
+      ],
+      "properties": {
+        "request": {
+          "$ref": "#/$defs/metadataValue",
+          "description": "Options supplied by the caller, sanitized. Absent after a fatal option error only if the request itself could not be recorded."
+        },
+        "effective": {
+          "type": "object",
+          "required": [
+            "problem_options",
+            "profile_options",
+            "feature",
+            "experiment"
+          ],
+          "properties": {
+            "problem_options": {
+              "$ref": "#/$defs/metadataValue"
+            },
+            "profile_options": {
+              "$ref": "#/$defs/metadataValue"
+            },
+            "feature": {
+              "$ref": "#/$defs/featureBlock"
+            },
+            "experiment": {
+              "$ref": "#/$defs/experimentPlans"
+            }
+          },
+          "additionalProperties": false,
+          "description": "Resolved options of this invocation, stated once. Missing when the invocation failed before options were resolved. feature is the canonical pipeline specification; experiment holds the plan of every role that executes (empty in a load operation)."
+        },
+        "scope": {
+          "enum": [
+            "current_benchmark_execution",
+            "current_load_selection_reanalysis_and_rendering"
+          ]
+        },
+        "solver_execution_requested": {
+          "type": "boolean"
+        },
+        "original_execution_configuration": {
+          "$ref": "#/$defs/metadataValue"
+        },
+        "original_execution_configuration_reason": {
+          "$ref": "#/$defs/nullableText"
+        },
+        "retained_result_metadata": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/metadataValue"
+          },
+          "description": "Sanitized copies of the metadata retained from the loaded archive after filtering (feature_pipeline payloads of any version verbatim in content, callables described by name, text bounded). Not byte-identical to the archive: source.sha256 identifies the unchanged archive bytes."
+        },
+        "retained_result_metadata_encoding": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "description": "In a load operation the effective options describe selection/reanalysis/rendering, not original solver execution. Historical feature, budget, seed, repetitions, and provider identity remain unknown unless explicitly retained."
+    },
+    "semantics": {
+      "type": "object",
+      "required": [
+        "index_base",
+        "metric_best",
+        "budget",
+        "convergence",
+        "run_defaults",
+        "configuration",
+        "paths",
+        "privacy"
+      ],
+      "properties": {
+        "index_base": {
+          "const": 1
+        },
+        "metric_best": {
+          "type": "string",
+          "minLength": 1
+        },
+        "budget": {
+          "type": "string",
+          "minLength": 1
+        },
+        "convergence": {
+          "type": "string",
+          "minLength": 1
+        },
+        "run_defaults": {
+          "type": "string",
+          "minLength": 1
+        },
+        "configuration": {
+          "type": "string",
+          "minLength": 1
+        },
+        "paths": {
+          "type": "object",
+          "required": [
+            "artifacts",
+            "artifact_root",
+            "plot_data",
+            "source"
+          ],
+          "properties": {
+            "artifacts": {
+              "const": "relative_to_artifact_root"
+            },
+            "artifact_root": {
+              "const": "relative_to_main_report_parent"
+            },
+            "plot_data": {
+              "const": "relative_to_main_report_parent"
+            },
+            "source": {
+              "const": "relative_to_main_report_parent"
+            }
+          },
+          "additionalProperties": false
+        },
+        "privacy": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "description": "Shared observation, indexing and path meanings, stated once instead of repeated in every measurement. Keys are identical in Python and MATLAB; the prose describes the emitting language."
+    },
+    "stageStatus": {
+      "enum": [
+        "not_requested",
+        "not_applicable",
+        "unknown",
+        "running",
+        "completed",
+        "partial",
+        "failed"
+      ]
+    },
+    "stage": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/stageStatus"
+        },
+        "reason": {
+          "$ref": "#/$defs/nullableText"
+        }
+      },
+      "additionalProperties": false
+    },
+    "stages": {
+      "type": "object",
+      "required": [
+        "numerical",
+        "scoring",
+        "persistence",
+        "rendering"
+      ],
+      "properties": {
+        "numerical": {
+          "$ref": "#/$defs/stage"
+        },
+        "scoring": {
+          "$ref": "#/$defs/stage"
+        },
+        "persistence": {
+          "$ref": "#/$defs/stage"
+        },
+        "rendering": {
+          "$ref": "#/$defs/stage"
+        }
+      },
+      "additionalProperties": false,
+      "description": "Numerical completion is not convergence. Rendering failure does not invalidate already computed scores. A not-yet-observed stage is not a completed operation."
+    },
+    "coverage": {
+      "type": "object",
+      "required": [
+        "selected",
+        "loaded",
+        "completed",
+        "load_failed",
+        "scope",
+        "original_selection_known"
+      ],
+      "properties": {
+        "selected": {
+          "$ref": "#/$defs/nullableCount"
+        },
+        "loaded": {
+          "$ref": "#/$defs/count"
+        },
+        "completed": {
+          "$ref": "#/$defs/count"
+        },
+        "load_failed": {
+          "$ref": "#/$defs/nullableCount"
+        },
+        "scope": {
+          "enum": [
+            "live_selection",
+            "retained_archive"
+          ]
+        },
+        "original_selection_known": {
+          "type": "boolean"
+        },
+        "reason": {
+          "$ref": "#/$defs/nullableText"
+        }
+      },
+      "additionalProperties": false,
+      "description": "Primary experiment only; plain-reference observations do not increase these counts. A loaded archive certifies retained/replayed coverage only. Missing original selection failures are unknown, not zero."
+    },
+    "budget": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "required": [
+            "evaluations"
+          ],
+          "properties": {
+            "evaluations": {
+              "$ref": "#/$defs/nullableCount"
+            },
+            "rule": {
+              "type": "string"
+            },
+            "reason": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      ],
+      "description": "Evaluation cap shared by every run of the problem in this invocation (runs[].budget may override it). Null before observations arrive; evaluations null with a reason when the original budget is not retained. Reaching the cap never identifies the termination cause."
+    },
+    "problem": {
+      "type": "object",
+      "required": [
+        "id",
+        "library",
+        "name",
+        "role",
+        "dimension",
+        "type",
+        "selection_status",
+        "load_status",
+        "status",
+        "budget",
+        "runs"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "library": {
+          "$ref": "#/$defs/nullableText"
+        },
+        "name": {
+          "$ref": "#/$defs/nullableText"
+        },
+        "role": {
+          "enum": [
+            "primary",
+            "plain_reference"
+          ]
+        },
+        "dimension": {
+          "$ref": "#/$defs/nullableCount"
+        },
+        "type": {
+          "$ref": "#/$defs/nullableText"
+        },
+        "selection_status": {
+          "enum": [
+            "selected",
+            "retained",
+            "observed_without_selection",
+            "unknown"
+          ]
+        },
+        "load_status": {
+          "enum": [
+            "pending",
+            "loaded",
+            "failed",
+            "unknown"
+          ]
+        },
+        "status": {
+          "enum": [
+            "pending",
+            "completed",
+            "failed",
+            "unknown"
+          ]
+        },
+        "budget": {
+          "$ref": "#/$defs/budget"
+        },
+        "runs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/run"
+          }
+        },
+        "plot_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "provider": {
+          "$ref": "#/$defs/metadataValue"
+        },
+        "rendering": {
+          "type": "object",
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "$ref": "#/$defs/stageStatus"
+            }
+          },
+          "additionalProperties": false
+        },
+        "reason": {
+          "$ref": "#/$defs/nullableText"
+        }
+      },
+      "additionalProperties": false,
+      "description": "Identity includes library, full problem name, and observation role; sanitized/truncated display names must not collapse distinct identities. Direct user problems use library 'user' in both languages."
+    },
+    "execution": {
+      "type": "object",
+      "required": [
+        "kind",
+        "source_run_index"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "actual",
+            "repeated",
+            "unknown"
+          ]
+        },
+        "source_run_index": {
+          "$ref": "#/$defs/nullableIndex"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "run": {
+      "type": "object",
+      "required": [
+        "solver_index",
+        "run_index",
+        "evaluations",
+        "budget_reached",
+        "objective",
+        "constraint",
+        "merit",
+        "abnormal_termination",
+        "output_fallback",
+        "execution",
+        "history_ref",
+        "oracle_seed",
+        "elapsed_seconds"
+      ],
+      "properties": {
+        "solver_index": {
+          "$ref": "#/$defs/oneBasedIndex"
+        },
+        "run_index": {
+          "$ref": "#/$defs/oneBasedIndex"
+        },
+        "evaluations": {
+          "$ref": "#/$defs/nullableCount"
+        },
+        "budget": {
+          "$ref": "#/$defs/count",
+          "description": "Per-run override of problems[].budget.evaluations; absent means the problem budget applies."
+        },
+        "budget_reached": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "objective": {
+          "$ref": "#/$defs/metric"
+        },
+        "constraint": {
+          "$ref": "#/$defs/metric"
+        },
+        "merit": {
+          "$ref": "#/$defs/metric"
+        },
+        "abnormal_termination": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "output_fallback": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "termination_metadata_reason": {
+          "type": "string"
+        },
+        "execution": {
+          "$ref": "#/$defs/execution"
+        },
+        "history_ref": {
+          "$ref": "#/$defs/nullableText"
+        },
+        "oracle_seed": {
+          "$ref": "#/$defs/nullableCount",
+          "description": "Actual seed given to the featured problem for this run under the emitting language's own rule (Python: (23333*seed+211*i)%2^32 with 0-based i; MATLAB: mod(23333*seed+211*i_run,2^32) with 1-based i_run). The rules are deliberately not equalized."
+        },
+        "oracle_seed_reason": {
+          "enum": [
+            "execution_metadata_not_retained",
+            "copied_from_source_run"
+          ]
+        },
+        "elapsed_seconds": {
+          "$ref": "#/$defs/scientificValue"
+        },
+        "runtime": {
+          "$ref": "#/$defs/runtimeReceipt"
+        }
+      },
+      "additionalProperties": false,
+      "description": "Observed run data, without callback reevaluation. Budget reached is a comparison, not an asserted termination cause. A copied deterministic result is not an independent execution. There is no per-run convergence field: convergence is never inferred."
+    },
+    "invalidCounts": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "const": 0
+        },
+        {
+          "type": "object",
+          "required": [
+            "nan",
+            "positive_infinity",
+            "negative_infinity",
+            "observed_evaluations"
+          ],
+          "properties": {
+            "nan": {
+              "$ref": "#/$defs/count"
+            },
+            "positive_infinity": {
+              "$ref": "#/$defs/count"
+            },
+            "negative_infinity": {
+              "$ref": "#/$defs/count"
+            },
+            "observed_evaluations": {
+              "$ref": "#/$defs/count"
+            }
+          },
+          "additionalProperties": false
+        }
+      ],
+      "description": "Categorized counts over actual evaluations only, never padded histories. The integer 0 means no invalid value was observed and every retained evaluation was inspected. Null means the needed observations were not retained."
+    },
+    "metric": {
+      "type": "object",
+      "required": [
+        "output",
+        "initial",
+        "best",
+        "best_evaluation_index",
+        "invalid_evaluations"
+      ],
+      "properties": {
+        "output": {
+          "$ref": "#/$defs/scientificValue"
+        },
+        "initial": {
+          "$ref": "#/$defs/scientificValue"
+        },
+        "best": {
+          "$ref": "#/$defs/scientificValue"
+        },
+        "best_evaluation_index": {
+          "$ref": "#/$defs/nullableIndex"
+        },
+        "first_invalid_evaluation_index": {
+          "$ref": "#/$defs/oneBasedIndex",
+          "description": "Present only when an invalid evaluation was observed."
+        },
+        "invalid_evaluations": {
+          "$ref": "#/$defs/invalidCounts"
+        },
+        "availability_reason": {
+          "enum": [
+            "history_or_evaluation_count_unavailable",
+            "history_shorter_than_evaluation_count",
+            "no_evaluations",
+            "output_or_initial_unavailable"
+          ],
+          "description": "Present only when an observation is missing."
+        }
+      },
+      "additionalProperties": false,
+      "description": "Objective, constraint violation, or existing merit observations. A componentwise best objective/constraint value does not imply that both came from one feasible point. No new merit function is evaluated for the report."
+    },
+    "scoreVector": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/scientificValue"
+      }
+    },
+    "profileScoreTensor": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 3,
+            "items": {
+              "$ref": "#/$defs/scientificValue"
+            }
+          }
+        }
+      },
+      "description": "Exact four-dimensional returned score tensor in solver/tolerance/history-or-output/profile-type order. It is not a preview, flattened array, shape-only placeholder, or new score formula."
+    },
+    "scores": {
+      "type": "object",
+      "required": [
+        "solver_names",
+        "solver_scores",
+        "profile_scores",
+        "profile_axes",
+        "axis_values",
+        "semantics",
+        "direction"
+      ],
+      "properties": {
+        "solver_names": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "solver_scores": {
+          "$ref": "#/$defs/scoreVector"
+        },
+        "profile_scores": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "array",
+              "maxItems": 0
+            },
+            {
+              "$ref": "#/$defs/profileScoreTensor"
+            }
+          ]
+        },
+        "profile_axes": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "prefixItems": [
+            {
+              "const": "solver"
+            },
+            {
+              "const": "tolerance"
+            },
+            {
+              "const": "history_or_output"
+            },
+            {
+              "const": "profile_type"
+            }
+          ]
+        },
+        "axis_values": {
+          "type": "object",
+          "required": [
+            "history_or_output",
+            "profile_type",
+            "tolerance"
+          ],
+          "properties": {
+            "history_or_output": {
+              "const": [
+                "history",
+                "output"
+              ]
+            },
+            "profile_type": {
+              "type": "array",
+              "maxItems": 3,
+              "items": {
+                "enum": [
+                  "performance",
+                  "data",
+                  "log_ratio"
+                ]
+              }
+            },
+            "tolerance": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/scientificValue"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "semantics": {
+          "enum": [
+            "cohort_relative",
+            "single_problem_relative_decrease_averaged_over_runs"
+          ]
+        },
+        "direction": {
+          "type": "string",
+          "minLength": 1
+        },
+        "comparability_note": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "description": "Preserves existing cohort-relative profile scoring or single-problem relative-decrease semantics. Custom callbacks may define their own score direction. Compare only under an independently justified evaluation protocol."
+    },
+    "convergence": {
+      "type": "object",
+      "required": [
+        "tolerance_index",
+        "tolerance",
+        "semantics",
+        "denominator",
+        "problem_count",
+        "history_work_semantics",
+        "output_work_semantics",
+        "history",
+        "output"
+      ],
+      "properties": {
+        "tolerance_index": {
+          "$ref": "#/$defs/oneBasedIndex"
+        },
+        "tolerance": {
+          "$ref": "#/$defs/scientificValue"
+        },
+        "semantics": {
+          "type": "string"
+        },
+        "denominator": {
+          "type": "string"
+        },
+        "invalid_initial_separation": {
+          "type": "null"
+        },
+        "invalid_initial_reason": {
+          "type": "string"
+        },
+        "problem_count": {
+          "$ref": "#/$defs/nullableCount"
+        },
+        "history_work_semantics": {
+          "type": "string"
+        },
+        "output_work_semantics": {
+          "type": "string"
+        },
+        "history": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/workSummary"
+          }
+        },
+        "output": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/workSummary"
+          }
+        },
+        "history_reason": {
+          "type": "string"
+        },
+        "output_reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "workSummary": {
+      "type": "object",
+      "required": [
+        "solver_index",
+        "hits",
+        "total",
+        "not_hit",
+        "nonfinite_other",
+        "work_evaluations_min",
+        "work_evaluations_max"
+      ],
+      "properties": {
+        "solver_index": {
+          "$ref": "#/$defs/oneBasedIndex"
+        },
+        "hits": {
+          "$ref": "#/$defs/count"
+        },
+        "total": {
+          "$ref": "#/$defs/count"
+        },
+        "not_hit": {
+          "$ref": "#/$defs/count"
+        },
+        "nonfinite_other": {
+          "$ref": "#/$defs/count"
+        },
+        "work_evaluations_min": {
+          "$ref": "#/$defs/scientificValue"
+        },
+        "work_evaluations_max": {
+          "$ref": "#/$defs/scientificValue"
+        }
+      },
+      "additionalProperties": false
+    },
+    "profiles": {
+      "type": "object",
+      "required": [
+        "plot_refs",
+        "convergence",
+        "work_summary",
+        "work_summary_reason"
+      ],
+      "properties": {
+        "plot_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "convergence": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/convergence"
+          }
+        },
+        "work_summary": {
+          "enum": [
+            null,
+            "see_convergence"
+          ]
+        },
+        "work_summary_reason": {
+          "enum": [
+            null,
+            "not_supplied"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "description": "References to full numeric plot presentations in the companion and compact existing-work summaries. History work is first target hit; output work is total evaluations at a passing returned output, not first hit. Exact target-work arrays belong in the companion. No target or score is recomputed here."
+    },
+    "relativePath": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?![/\\\\])(?![A-Za-z]:)(?![A-Za-z][A-Za-z0-9+.-]*://).+"
+        }
+      ],
+      "description": "Relative path: artifact_root, plot_data.path and source.path are based at the main report parent; artifacts[].path is based at artifact_root. Null plus a reason is allowed when a cross-volume relative path is unavailable. Relative paths may contain .. and still require containment/authorization checks by the private controller; schema validation is not an access-control boundary."
+    },
+    "sha256": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[a-fA-F0-9]{64}$"
+        }
+      ]
+    },
+    "artifact": {
+      "type": "object",
+      "required": [
+        "path",
+        "media_type",
+        "bytes",
+        "sha256",
+        "kind",
+        "status"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "media_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "bytes": {
+          "$ref": "#/$defs/nullableCount"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "kind": {
+          "enum": [
+            "plot",
+            "raw_data",
+            "supporting_file"
+          ]
+        },
+        "status": {
+          "enum": [
+            "present",
+            "unverified",
+            "unavailable",
+            "failed"
+          ]
+        },
+        "reason": {
+          "$ref": "#/$defs/nullableText"
+        },
+        "path_reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "description": "Only existing produced files in the invocation-owned output tree, addressed relative to artifact_root; symlinks and external trees are excluded. Unverified entries require a contextual reason; hashes are provenance, not guarantees of reproducibility or comparability."
+    },
+    "plotDataReference": {
+      "type": "object",
+      "required": [
+        "schema",
+        "path",
+        "status",
+        "bytes",
+        "sha256",
+        "history_count",
+        "plot_count"
+      ],
+      "properties": {
+        "schema": {
+          "const": "optiprofiler.plot_data/1"
+        },
+        "path": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "bytes": {
+          "$ref": "#/$defs/nullableCount"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "status": {
+          "enum": [
+            "running",
+            "completed",
+            "partial",
+            "failed",
+            "unavailable"
+          ]
+        },
+        "history_count": {
+          "$ref": "#/$defs/count"
+        },
+        "plot_count": {
+          "$ref": "#/$defs/count"
+        },
+        "reason": {
+          "$ref": "#/$defs/nullableText",
+          "description": "Present when status is not completed, e.g. companion_sha256_unavailable without a hash backend."
+        }
+      },
+      "additionalProperties": false,
+      "description": "One adjacent numeric companion, relative to the main report parent, not artifact_root. Verify its hash and matching evaluation_id before resolving history_ref/plot_refs. Atomically written files are not an atomic two-file transaction. A prepared numeric presentation is not proof of a rendered PDF."
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "kind",
+        "name",
+        "path",
+        "status",
+        "bytes",
+        "sha256"
+      ],
+      "properties": {
+        "kind": {
+          "const": "archive"
+        },
+        "name": {
+          "$ref": "#/$defs/nullableText"
+        },
+        "path": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "bytes": {
+          "$ref": "#/$defs/nullableCount"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "status": {
+          "enum": [
+            "unknown",
+            "captured_before_filtering",
+            "unavailable"
+          ]
+        },
+        "coverage_note": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "path_reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "description": "Original load archive path/name/hash captured before selection/filtering when available. The source archive and prior report remain unchanged. This does not certify the archive's original execution configuration or producer."
+    },
+    "diagnostic": {
+      "type": "object",
+      "required": [
+        "code",
+        "stage",
+        "scope"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "stage": {
+          "enum": [
+            "numerical",
+            "scoring",
+            "persistence",
+            "rendering",
+            "reporting",
+            "runtime"
+          ]
+        },
+        "scope": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/metadataValue"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "description": "Bounded structured observations, not unbounded exception text or executable instructions. A secondary report-write error must not mask an original benchmark exception. Scope keys shared by both languages: library, problem, role, exception_type."
+    },
+    "reportFiles": {
+      "type": "object",
+      "required": [
+        "permission_policy",
+        "permissions_applied",
+        "platform_note"
+      ],
+      "properties": {
+        "permission_policy": {
+          "const": "owner_read_write_only_best_effort"
+        },
+        "permissions_applied": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "platform_note": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "description": "Best-effort owner-only file modes for the two JSON files. True means the producer observed owner-only modes on this platform; false/null means the platform or filesystem did not apply them. Never OS-enforced privacy on every platform: the output directory must itself be private."
+    },
+    "timing": {
+      "type": "object",
+      "required": [
+        "started_at",
+        "finished_at",
+        "elapsed_seconds"
+      ],
+      "properties": {
+        "started_at": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "finished_at": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "elapsed_seconds": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "declaredEntry": {
+      "type": "object",
+      "required": [
+        "name",
+        "options"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "options": {
+          "$ref": "#/$defs/metadataValue"
+        }
+      },
+      "additionalProperties": false,
+      "description": "One declared stage entry with the options as supplied (before defaults); plain entries are retained."
+    },
+    "stageRecord": {
+      "type": "object",
+      "required": [
+        "position",
+        "name",
+        "code",
+        "occurrence",
+        "identity",
+        "options"
+      ],
+      "properties": {
+        "position": {
+          "$ref": "#/$defs/count"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "code": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "occurrence": {
+          "$ref": "#/$defs/count"
+        },
+        "identity": {
+          "type": "string",
+          "minLength": 1
+        },
+        "options": {
+          "$ref": "#/$defs/metadataValue"
+        }
+      },
+      "additionalProperties": false,
+      "description": "One effective stage: kind, frozen literal seed code, occurrence among stages of the same kind, identity name#occurrence and the validated stage-local options (never a run count)."
+    },
+    "featureBlock": {
+      "type": "object",
+      "required": [
+        "route",
+        "declaration_route",
+        "declared_name",
+        "declared",
+        "effective_name",
+        "seed_policy",
+        "feature_stamp",
+        "feature_stamp_origin",
+        "full_feature_stamp",
+        "stages",
+        "name",
+        "scope"
+      ],
+      "properties": {
+        "route": {
+          "enum": [
+            "feature_name",
+            "feature",
+            null
+          ],
+          "description": "The benchmark keyword that carried the specification in this invocation; null when neither was given (default plain feature)."
+        },
+        "declaration_route": {
+          "enum": [
+            "feature_name",
+            "feature",
+            null
+          ],
+          "description": "How the specification itself was declared (shorthand string or structured entries); a property of the specification, unchanged when a Feature object is reused. null when imported from a historical object that recorded no declaration (declared is then empty and declared_name null)."
+        },
+        "declared_name": {
+          "$ref": "#/$defs/nullableText",
+          "description": "null with declared_name_bytes and declared_name_reason when the native text exceeds the shared text bound or contains redacted content; the complete text stays in the native archive/refined options."
+        },
+        "declared_name_bytes": {
+          "$ref": "#/$defs/count",
+          "description": "UTF-8 length of the omitted native text."
+        },
+        "declared_name_reason": {
+          "const": "omitted_from_bounded_metadata_projection"
+        },
+        "declared": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/declaredEntry"
+          }
+        },
+        "effective_name": {
+          "$ref": "#/$defs/nullableText",
+          "description": "null with effective_name_bytes and effective_name_reason when the native text exceeds the shared text bound or contains redacted content; the complete text stays in the native archive/refined options."
+        },
+        "effective_name_bytes": {
+          "$ref": "#/$defs/count",
+          "description": "UTF-8 length of the omitted native text."
+        },
+        "effective_name_reason": {
+          "const": "omitted_from_bounded_metadata_projection"
+        },
+        "seed_policy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "feature_stamp": {
+          "$ref": "#/$defs/nullableText",
+          "description": "null with feature_stamp_bytes and feature_stamp_reason when the native text exceeds the shared text bound or contains redacted content; the complete text stays in the native archive/refined options."
+        },
+        "feature_stamp_bytes": {
+          "$ref": "#/$defs/count",
+          "description": "UTF-8 length of the omitted native text."
+        },
+        "feature_stamp_reason": {
+          "const": "omitted_from_bounded_metadata_projection"
+        },
+        "feature_stamp_origin": {
+          "enum": [
+            "explicit",
+            "generated",
+            null
+          ],
+          "description": "Whether feature_stamp was supplied by the caller or generated from the specification."
+        },
+        "full_feature_stamp": {
+          "$ref": "#/$defs/nullableText",
+          "description": "null with full_feature_stamp_bytes and full_feature_stamp_reason when the native text exceeds the shared text bound or contains redacted content; the complete text stays in the native archive/refined options."
+        },
+        "full_feature_stamp_bytes": {
+          "$ref": "#/$defs/count",
+          "description": "UTF-8 length of the omitted native text."
+        },
+        "full_feature_stamp_reason": {
+          "const": "omitted_from_bounded_metadata_projection"
+        },
+        "stages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/stageRecord"
+          }
+        },
+        "name": {
+          "$ref": "#/$defs/nullableText",
+          "description": "null with name_bytes and name_reason when the native text exceeds the shared text bound or contains redacted content; the complete text stays in the native archive/refined options."
+        },
+        "name_bytes": {
+          "$ref": "#/$defs/count",
+          "description": "UTF-8 length of the omitted native text."
+        },
+        "name_reason": {
+          "const": "omitted_from_bounded_metadata_projection"
+        },
+        "scope": {
+          "enum": [
+            "current_execution_feature",
+            "current_load_context_not_original_execution_feature"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "description": "The canonical feature specification of this invocation (the feature block of feature_pipeline-v3). Identity input has no stage and the effective name plain. No experiment setting appears here; the declaration (declaration_route, declared, declared_name) is provenance and may be unknown for imported specifications."
+    },
+    "experimentPlan": {
+      "type": "object",
+      "required": [
+        "role",
+        "n_runs",
+        "origin",
+        "run_policy",
+        "execution_strategy",
+        "runtime_policy"
+      ],
+      "properties": {
+        "role": {
+          "enum": [
+            "primary",
+            "plain_reference"
+          ]
+        },
+        "n_runs": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "origin": {
+          "enum": [
+            "explicit",
+            "randomized_solvers",
+            "stage_hints",
+            "reference_policy"
+          ]
+        },
+        "run_policy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "execution_strategy": {
+          "enum": [
+            "identity",
+            "legacy-single",
+            "composed-views"
+          ]
+        },
+        "runtime_policy": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Language-local identifier of the runtime implementation that executes this role (Python: python-featured-problem-v1). Per-run facts stay in runs[] (execution, oracle_seed); stage identities and the seed policy are stated once in effective.feature."
+        }
+      },
+      "additionalProperties": false,
+      "description": "The resolved plan of one role: stored run slots (n_runs), where the count came from, the execution strategy and the runtime identifier. Per-solver actual executions are per-run facts of the problems."
+    },
+    "experimentPlans": {
+      "type": "object",
+      "properties": {
+        "primary": {
+          "$ref": "#/$defs/experimentPlan"
+        },
+        "plain_reference": {
+          "$ref": "#/$defs/experimentPlan"
+        }
+      },
+      "additionalProperties": false,
+      "description": "Plans by role of this invocation. Empty in a load operation: nothing is executed and the archived experiment is described by retained_result_metadata."
+    },
+    "runtimeReceipt": {
+      "type": "object",
+      "required": [
+        "language",
+        "execution_strategy",
+        "runtime_policy",
+        "seed_policy"
+      ],
+      "properties": {
+        "language": {
+          "enum": [
+            "python",
+            "matlab"
+          ]
+        },
+        "execution_strategy": {
+          "enum": [
+            "identity",
+            "legacy-single",
+            "composed-views"
+          ]
+        },
+        "runtime_policy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "seed_policy": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "description": "Optional per-run receipt of the runtime that executed the run, for producers that observe these facts per run (MATLAB). Never synthesized for copied slots; the run seed is oracle_seed, stage identities live in effective.feature. Python states the same facts once per role (experiment.<role>.runtime_policy, execution_strategy; feature.seed_policy) and emits no per-run receipt."
+    }
+  }
+}

@@ -15,6 +15,7 @@ import time
 import numpy as np
 import pytest
 
+from optiprofiler.experiment import resolve_plan
 from optiprofiler.opclasses import Feature, FeaturedProblem, Problem
 
 BUILTINS = ['plain', 'perturbed_x0', 'noisy', 'truncated', 'permuted', 'linearly_transformed', 'random_nan',
@@ -91,7 +92,7 @@ def exercise(featured, kind):
 def test_every_ordered_pair(first, second, kind):
     feature = Feature(f'{first}+{second}')
     assert isinstance(feature.is_stochastic, bool)
-    assert feature.options['n_runs'] in (1, 5)
+    assert resolve_plan(feature).n_runs in (1, 5)
     exercise(FeaturedProblem(fixture(kind), feature, MAX_EVAL, 1), kind)
 
 
@@ -105,7 +106,7 @@ def test_all_ten_in_several_orders(order, kind):
         random.Random(2026).shuffle(names)
     feature = Feature('+'.join(names))
     assert feature.name == '+'.join(name for name in names if name != 'plain')
-    assert feature.is_stochastic is True and feature.options['n_runs'] == 5
+    assert feature.is_stochastic is True and resolve_plan(feature).n_runs == 5
     exercise(FeaturedProblem(fixture(kind), feature, MAX_EVAL, 2), kind)
 
 

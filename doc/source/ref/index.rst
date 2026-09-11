@@ -56,6 +56,41 @@ Other tools
 
     show_versions
 
+Evaluation report schemas
+-------------------------
+
+.. currentmodule:: optiprofiler.eval_report
+
+.. autosummary::
+    :toctree: generated/
+
+    load_schema
+    schema_text
+    schema_resource
+    schema_identifier
+    schema_for_document
+    load_schema_for
+
+Trusted import of earlier configurations
+----------------------------------------
+
+Readers for archives and configuration files written by OptiProfiler 1.x
+(trusted input only; see :ref:`py_structured_feature`).
+
+.. currentmodule:: optiprofiler.legacy_compat
+
+.. autosummary::
+    :toctree: generated/
+
+    loads_trusted
+    load_trusted
+    load_options
+    replay_arguments
+    import_legacy_feature
+    LegacyFeatureImport
+    LegacyEnumValue
+    LegacyConfigurationError
+
 .. currentmodule:: optiprofiler.problem_libs.s2mpj
 
 .. autosummary::

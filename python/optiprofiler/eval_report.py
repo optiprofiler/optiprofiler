@@ -1,4 +1,4 @@
-"""Private, observation-only collector for ``optiprofiler.eval_report/1``.
+"""Private, observation-only collector for ``optiprofiler.eval_report/2``.
 
 This module does not call a solver, merit function, feature modifier, or other
 user callback. Array values are observations supplied by the benchmark. Compact
@@ -23,14 +23,26 @@ from datetime import datetime, timezone
 from enum import Enum
 
 import numpy as np
-from .provenance import describe_feature, describe_plan, read_feature_pipeline
+from .provenance import describe_feature, describe_plan, full_feature_stamp, read_feature_pipeline
 # The metadata encoder is shared with the feature provenance and lives in a
 # dependency-neutral module; the private names below are kept for this file.
-from .metadata import _ABS_IN_TEXT, _SECRET_KEY, bounded_text as _text, describe_callback as _callback, safe_metadata as _safe
+from .metadata import _ABS_IN_TEXT, _SECRET_KEY, TEXT_LIMIT, bounded_text as _text, describe_callback as _callback, safe_metadata as _safe
 
 
-_SCHEMA = 'optiprofiler.eval_report/1'
+_SCHEMA = 'optiprofiler.eval_report/2'
 _SCHEMA_NAMES = ('eval_report', 'plot_data')
+# Versioned schema resources (``optiprofiler/schemas``). Version 1 of the main
+# report is immutable: it is the contract of reports already written and of the
+# MATLAB producer. Version 2 adds the canonical feature specification and the
+# experiment plans. Readers select the resource from the document identifier
+# (``schema_for_document``) and reject identifiers they do not know.
+_SCHEMA_RESOURCES = {
+    ('eval_report', 1): 'eval_report.schema.json',
+    ('eval_report', 2): 'eval_report-v2.schema.json',
+    ('plot_data', 1): 'plot_data.schema.json',
+}
+_CURRENT_VERSIONS = {'eval_report': 2, 'plot_data': 1}
+_RESOURCE_KEYS = {filename: key for key, filename in _SCHEMA_RESOURCES.items()}
 _STAGES = ('numerical', 'scoring', 'persistence', 'rendering')
 _STATUSES = {'not_requested', 'not_applicable', 'unknown', 'running',
              'completed', 'partial', 'failed'}
@@ -41,17 +53,70 @@ def _now():
     return datetime.now(timezone.utc).isoformat()
 
 
-def schema_text(name):
-    """Return the packaged JSON Schema source for ``'eval_report'`` or ``'plot_data'``.
+def _resolve_schema(name, version=None):
+    """
+    Resolve a schema reference to its ``(name, version)`` key.
+
+    Accepted: a schema name (``'eval_report'``, ``'plot_data'``; the current
+    version unless ``version`` is given), a versioned name (``'eval_report-v2'``),
+    a document identifier (``'optiprofiler.eval_report/2'``) or a resource file
+    name (``'eval_report.schema.json'``, ``'eval_report-v2.schema.json'``).
+    Anything else, including an unknown version, raises ``ValueError``.
+    """
+    if not isinstance(name, str):
+        raise TypeError(f'EvalReport schema names are strings, not {type(name).__name__}.')
+    if name in _RESOURCE_KEYS:
+        key = _RESOURCE_KEYS[name]
+        if version is not None and int(version) != key[1]:
+            raise ValueError(f'Unknown EvalReport schema: {name!r} is version {key[1]}, not {version}.')
+        return key
+    base, found = name, None
+    if base.startswith('optiprofiler.') and '/' in base:
+        base, _, suffix = base[len('optiprofiler.'):].partition('/')
+        if not suffix.isdigit():
+            raise ValueError(f'Unknown EvalReport schema {name!r}; expected one of {_SCHEMA_NAMES}')
+        found = int(suffix)
+    else:
+        match = re.fullmatch(r'([a-z_]+)-v(\d+)', base)
+        if match:
+            base, found = match.group(1), int(match.group(2))
+    if base not in _SCHEMA_NAMES:
+        raise ValueError(f'Unknown EvalReport schema {name!r}; expected one of {_SCHEMA_NAMES}')
+    if version is not None:
+        if found is not None and int(version) != found:
+            raise ValueError(f'Unknown EvalReport schema: {name!r} names version {found}, not {version}.')
+        found = int(version)
+    if found is None:
+        found = _CURRENT_VERSIONS[base]
+    if (base, found) not in _SCHEMA_RESOURCES:
+        known = sorted(v for n, v in _SCHEMA_RESOURCES if n == base)
+        raise ValueError(f'Unknown EvalReport schema version {found} for {base!r}; known versions: {known}')
+    return base, found
+
+
+def schema_identifier(name, version=None):
+    """The document identifier of a schema, e.g. ``'optiprofiler.eval_report/2'``."""
+    base, found = _resolve_schema(name, version)
+    return f'optiprofiler.{base}/{found}'
+
+
+def schema_resource(name, version=None):
+    """The packaged resource file name of a schema (see ``_resolve_schema`` for accepted names)."""
+    return _SCHEMA_RESOURCES[_resolve_schema(name, version)]
+
+
+def schema_text(name, version=None):
+    """Return the packaged JSON Schema source of ``'eval_report'`` or ``'plot_data'``.
 
     The schemas are package resources (``optiprofiler/schemas``), so an
     installed distribution, its installed test suite and the documentation
-    build all read the same authoritative files. ``importlib.resources.files``
-    exists from Python 3.9; on Python 3.8 the package directory is used.
+    build all read the same authoritative files. Without ``version`` the
+    current producer version is returned (``eval_report`` 2, ``plot_data`` 1);
+    version 1 of the main report is the immutable ``eval_report.schema.json``.
+    ``importlib.resources.files`` exists from Python 3.9; on Python 3.8 the
+    package directory is used.
     """
-    if name not in _SCHEMA_NAMES:
-        raise ValueError(f'Unknown EvalReport schema {name!r}; expected one of {_SCHEMA_NAMES}')
-    filename = f'{name}.schema.json'
+    filename = schema_resource(name, version)
     try:
         from importlib.resources import files
     except ImportError:  # Python 3.8
@@ -59,10 +124,28 @@ def schema_text(name):
     return (files('optiprofiler') / 'schemas' / filename).read_text(encoding='utf-8')
 
 
-def load_schema(name):
+def load_schema(name, version=None):
     """Parse the packaged schema, rejecting non-standard NaN/Infinity tokens."""
-    return json.loads(schema_text(name),
+    return json.loads(schema_text(name, version),
                       parse_constant=lambda token: (_ for _ in ()).throw(ValueError(token)))
+
+
+def schema_for_document(document):
+    """
+    The ``(name, version)`` of a report or companion document, read from its
+    ``schema`` identifier. A document without an identifier or with an
+    identifier this version does not know raises ``ValueError``; nothing is
+    guessed from the other fields.
+    """
+    identifier = document.get('schema') if isinstance(document, dict) else None
+    if not isinstance(identifier, str) or not identifier.startswith('optiprofiler.'):
+        raise ValueError(f'The document carries no known schema identifier: {identifier!r}.')
+    return _resolve_schema(identifier)
+
+
+def load_schema_for(document):
+    """Parse the packaged schema selected by the document's ``schema`` identifier."""
+    return load_schema(*schema_for_document(document))
 
 
 def _hashing_capability():
@@ -328,6 +411,30 @@ def _digest(path, directory=None):
             os.close(handle)
 
 
+_LONG_TEXT_FIELDS = ('name', 'effective_name', 'declared_name', 'feature_stamp', 'full_feature_stamp')
+_OMITTED_TEXT = 'omitted_from_bounded_metadata_projection'
+
+
+def _project_long_text(projected, original, fields=_LONG_TEXT_FIELDS):
+    """
+    Bounded projection of the text fields of a feature block. A native text
+    that exceeds the shared text bound, or that the privacy sanitizer changed,
+    is omitted (``null``) with its UTF-8 byte length and a reason instead of
+    being passed off as the complete text; the complete text stays in the
+    native archive and refined options. Nothing is relaxed in the encoder.
+    """
+    for field in fields:
+        value = original.get(field) if isinstance(original, dict) else None
+        if not isinstance(value, str) or field not in projected:
+            continue
+        sanitized = _text(value, None)
+        if sanitized != value or len(sanitized) > TEXT_LIMIT:
+            projected[field] = None
+            projected[f'{field}_bytes'] = len(value.encode('utf-8'))
+            projected[f'{field}_reason'] = _OMITTED_TEXT
+    return projected
+
+
 def _producer():
     source = Path(__file__).resolve()
     result = {'language': 'python', 'version': None, 'revision': None,
@@ -386,6 +493,7 @@ class EvalReport:
         self._problems = {}
         self._metadata = {}
         self._options = {}
+        self._configured = False
         self._output_dir = None
         self._output_identity = None
         self._initial_artifacts = set()
@@ -423,8 +531,8 @@ class EvalReport:
                 'metric_best': 'componentwise_minimum_ignoring_nan;first_tie_index;not_necessarily_a_jointly_attained_point',
                 'budget': 'problems[].budget applies to every run unless runs[].budget overrides it; budget_reached is a per-run comparison and reaching the cap does not identify the termination cause.',
                 'convergence': 'Never inferred from solver return values; there is no per-run convergence field. target_work in the companion observes the existing scoring predicate.',
-                'run_defaults': 'evaluations, budget_reached, abnormal_termination, output_fallback, execution, oracle_seed and elapsed_seconds are per-run facts. An absent *_reason key means the observation was available; an absent first_invalid_evaluation_index means no invalid evaluation was observed and invalid_evaluations is then the integer 0.',
-                'configuration': 'configuration.request lists user-supplied options; configuration.effective lists the resolved options of this invocation. In a load operation they describe reanalysis/rendering, not the archived execution.',
+                'run_defaults': 'evaluations, budget_reached, abnormal_termination, output_fallback, execution, oracle_seed and elapsed_seconds are per-run facts. An absent *_reason key means the observation was available; an absent first_invalid_evaluation_index means no invalid evaluation was observed and invalid_evaluations is then the integer 0. Runtime facts of an executed role (strategy, runtime and seed policy) are stated once in configuration.effective (experiment and feature), never per run.',
+                'configuration': 'configuration.request lists user-supplied options; configuration.effective lists the resolved options of this invocation: feature is the canonical pipeline specification (stage-local options only) and experiment the plan of every executing role (the run counts live there). In a load operation they describe reanalysis/rendering, not the archived execution: experiment is empty, retained_result_metadata is a sanitized copy of the archived metadata and source.sha256 identifies the unchanged archive bytes.',
                 'paths': {'artifacts': 'relative_to_artifact_root', 'artifact_root': 'relative_to_main_report_parent',
                           'plot_data': 'relative_to_main_report_parent', 'source': 'relative_to_main_report_parent'},
                 'privacy': 'controller_private;not_an_allowlisted_agent_prompt;consumers_build_an_allowlisted_feedback_view',
@@ -531,33 +639,45 @@ class EvalReport:
             except FileNotFoundError:
                 pass
 
-    def configure(self, problem_options, profile_options, feature, output_dir=None, plan=None):
+    def configure(self, problem_options, profile_options, feature, output_dir=None, plan=None, input_route=None,
+                  feature_stamp_origin=None):
         self._options = dict(profile_options) if type(profile_options) is dict else {}
+        self._configured = True
         # Feature is an internal validated object. Read stored data without
         # invoking properties, __repr__, or custom modifier callbacks.
         # The feature block is the one-way provenance of the explicit
         # specification (stage-local options only; callables described by
-        # name); the experiment plan is a separate fact of the invocation.
-        feature_data = _safe(describe_feature(feature))
-        feature_data['name'] = _safe(feature.name)
-        self._plan_data = _safe(describe_plan(plan))
+        # name; the declaration route and the benchmark keyword that carried
+        # the specification are recorded separately); the experiment plan is
+        # a separate fact of the invocation.
+        stamp = self._options.get('feature_stamp')
+        described = describe_feature(feature, feature_stamp=stamp if isinstance(stamp, str) else None,
+                                     full_feature_stamp=full_feature_stamp(feature), input_route=input_route,
+                                     feature_stamp_origin=feature_stamp_origin)
+        described['name'] = feature.name
+        feature_data = _project_long_text(_safe(described), described)
         # request = what the caller supplied; effective = the resolved options
-        # of this invocation. Stated once here, never repeated per run.
+        # of this invocation. Stated once here, never repeated per run. The
+        # experiment block holds the plan of every role that executes; it is
+        # filled by add_plan and stays empty in a load operation.
         self.document['configuration']['effective'] = {
             'problem_options': _safe(problem_options),
-            'profile_options': _safe(profile_options), 'feature': feature_data}
+            'profile_options': _safe(profile_options), 'feature': feature_data,
+            'experiment': {}}
         if self.document['operation'] == 'load':
             self.document['configuration'].update({
                 'scope': 'current_load_selection_reanalysis_and_rendering',
                 'solver_execution_requested': False,
                 'original_execution_configuration': None,
                 'original_execution_configuration_reason': 'not_fully_retained_by_archive',
+                'retained_result_metadata_encoding': 'sanitized_metadata_copy;not_byte_identical;archive_bytes_identified_by_source.sha256',
             })
             feature_data['scope'] = 'current_load_context_not_original_execution_feature'
         else:
             self.document['configuration'].update({
                 'scope': 'current_benchmark_execution', 'solver_execution_requested': True})
             feature_data['scope'] = 'current_execution_feature'
+            self.add_plan(plan, write=False)
         score_only = bool(self._options.get('score_only', False))
         for stage in ('persistence', 'rendering'):
             if self.document['stages'][stage]['status'] == 'unknown':
@@ -577,6 +697,15 @@ class EvalReport:
                     # owned output directory are eligible as new artifacts.
                     self._initial_artifacts = {str(p) for p in self._artifact_paths(path)}
         self._write()
+
+    def add_plan(self, plan, write=True):
+        """Record the resolved plan of one role (``primary`` or ``plain_reference``) of a benchmark."""
+        effective = self.document['configuration'].get('effective')
+        if plan is None or effective is None or self.document['operation'] == 'load':
+            return
+        effective['experiment'][str(plan.role)] = _safe(describe_plan(plan))
+        if write:
+            self._write()
 
     def _problem(self, plib, name, role):
         raw = tuple(value.value if isinstance(value, Enum) else value
@@ -754,6 +883,12 @@ class EvalReport:
         dim, counts = _integer(result.get('problem_dim')), result.get('n_eval')
         if dim is None or type(counts) is not np.ndarray:
             return
+        if not self._configured:
+            # Display facts need the resolved display options. A load records
+            # its raw observations before the options are resolved and adds the
+            # same results again afterwards; diagnosing the first pass would
+            # leave stale 'unavailable' entries next to prepared plots.
+            return
         metadata = self._metadata.get(problem['id'], {})
         panels = metadata.get('rendered_history_plots')
         scope = 'rendering_inputs' if panels is not None else 'retained_scoring_observations'
@@ -826,9 +961,18 @@ class EvalReport:
                 # Archived provenance is retained verbatim, whatever its version;
                 # archives written before compositions existed carry none.
                 pipeline, _ = read_feature_pipeline(result.get('feature_pipeline'))
+                projected = _safe(pipeline)
+                # Sanitized projection of the archived payload: long or
+                # redacted text fields of its feature block are omitted with
+                # their byte length and a reason; the archive keeps the text.
+                if isinstance(projected, dict) and isinstance(pipeline, dict):
+                    block = pipeline.get('feature') if isinstance(pipeline.get('feature'), dict) else pipeline
+                    target = projected.get('feature') if 'feature' in projected and isinstance(projected.get('feature'), dict) else projected
+                    _project_long_text(target, block)
                 metadata = {'library': _safe(result.get('plib')), 'role': role,
-                            'feature_stamp': _safe(result.get('feature_stamp')),
-                            'feature_pipeline': _safe(pipeline),
+                            **_project_long_text({'feature_stamp': _safe(result.get('feature_stamp'))},
+                                                 {'feature_stamp': result.get('feature_stamp')}),
+                            'feature_pipeline': projected,
                             'solver_names': _safe(result.get('solver_names')),
                             'library_options': _safe(result.get('plib_options')),
                             'scope': 'retained_result_after_load_filtering_not_complete_original_configuration'}

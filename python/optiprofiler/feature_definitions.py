@@ -287,12 +287,13 @@ class StageRecord:
     view of a private copy, so the record pickles and is never shared state.
     """
 
-    __slots__ = ('_name', '_occurrence', '_options')
+    __slots__ = ('_name', '_occurrence', '_options', '_position')
 
-    def __init__(self, name, occurrence, options):
+    def __init__(self, name, occurrence, options, position=0):
         object.__setattr__(self, '_name', name)
         object.__setattr__(self, '_occurrence', occurrence)
         object.__setattr__(self, '_options', dict(options))
+        object.__setattr__(self, '_position', position)
 
     def __setattr__(self, key, value):
         raise AttributeError('StageRecord is immutable.')
@@ -301,17 +302,23 @@ class StageRecord:
         raise AttributeError('StageRecord is immutable.')
 
     def __getstate__(self):
-        return (self._name, self._occurrence, self._options)
+        return (self._name, self._occurrence, self._options, self._position)
 
     def __setstate__(self, state):
-        name, occurrence, options = state
+        name, occurrence, options, position = state
         object.__setattr__(self, '_name', name)
         object.__setattr__(self, '_occurrence', occurrence)
         object.__setattr__(self, '_options', dict(options))
+        object.__setattr__(self, '_position', position)
 
     @property
     def name(self):
         return self._name
+
+    @property
+    def position(self):
+        """Index of the stage among the effective stages of its pipeline."""
+        return self._position
 
     @property
     def occurrence(self):
@@ -346,13 +353,24 @@ class StageRecord:
 
 
 class Declaration:
-    """The specification as the user declared it: the input route and the entries as given."""
+    """
+    The specification as the user declared it: the input route (``'feature_name'``
+    for the shorthand string, ``'feature'`` for structured entries) and the
+    entries as given. A specification imported from a historical object that
+    recorded no declaration has ``route`` ``None`` and no entries: its effective
+    stages are known, its declaration is unknown and never fabricated.
+    """
 
     __slots__ = ('_route', '_entries')
 
     def __init__(self, route, entries):
+        if route not in ('feature_name', 'feature', None):
+            raise ValueError(f'Unknown declaration route {route!r}.')
+        entries = tuple((name, dict(options)) for name, options in entries)
+        if route is None and entries:
+            raise ValueError('An unknown declaration carries no entries.')
         object.__setattr__(self, '_route', route)
-        object.__setattr__(self, '_entries', tuple((name, dict(options)) for name, options in entries))
+        object.__setattr__(self, '_entries', entries)
 
     def __setattr__(self, key, value):
         raise AttributeError('Declaration is immutable.')
@@ -375,7 +393,14 @@ class Declaration:
 
     @property
     def name(self):
+        """The declared name (``plain`` tokens included), or ``None`` when the declaration is unknown."""
+        if self._route is None:
+            return None
         return '+'.join(name for name, _ in self._entries)
+
+    @property
+    def is_known(self):
+        return self._route is not None
 
     def __repr__(self):
         return f'Declaration({self._route!r}, {self.name!r})'
@@ -425,10 +450,10 @@ def reject_flat_stage_options(options):
 def _stage_records(effective_entries):
     records = []
     occurrences = {}
-    for name, options in effective_entries:
+    for position, (name, options) in enumerate(effective_entries):
         occurrence = occurrences.get(name, 0)
         occurrences[name] = occurrence + 1
-        records.append(StageRecord(name, occurrence, options))
+        records.append(StageRecord(name, occurrence, options, position))
     return tuple(records)
 
 

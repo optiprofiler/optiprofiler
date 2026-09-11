@@ -1,12 +1,13 @@
 """
-The structured feature specification: ``Feature(spec, n_runs=...)`` where
-``spec`` is a stage mapping ``{'name': ..., 'options': {...}}`` or an ordered
-list/tuple of such mappings and bare names.
+The structured feature specification: ``Feature(spec)`` where ``spec`` is a
+stage mapping ``{'name': ..., 'options': {...}}`` or an ordered list/tuple of
+such mappings and bare names.
 
-Stage options live inside each entry; the run count stays experiment-wide.
-A specification and the ``'a+b+c'`` shorthand with equal settings build the
-same feature and produce the same numbers. Every expectation is a worked
-value or a literal comparison with the established shorthand.
+Stage options live inside each entry; the run count is a benchmark option and
+never part of a specification. A specification and the ``'a+b+c'`` shorthand
+with equal settings build the same stage records and produce the same
+numbers. Every expectation is a worked value or a literal comparison with the
+established shorthand.
 """
 
 import json
@@ -15,8 +16,9 @@ import pickle
 import numpy as np
 import pytest
 
-from optiprofiler.composition import ComposedFeature, describe_pipeline
+from optiprofiler.experiment import resolve_plan
 from optiprofiler.opclasses import Feature, FeaturedProblem, Problem
+from optiprofiler.provenance import describe_feature
 
 ALL_TEN = ['plain', 'perturbed_x0', 'noisy', 'truncated', 'permuted', 'linearly_transformed', 'random_nan',
            'unrelaxable_constraints', 'nonquantifiable_constraints', 'quantized']
@@ -51,79 +53,70 @@ def constrained_problem():
                    cub=cub_offset, ceq=ceq_sum)
 
 
-def stage_options(feature):
-    return [stage['options'] for stage in describe_pipeline(feature)['stages']]
+def stage_views(feature):
+    return [(stage.identity, dict(stage.options)) for stage in feature.stages]
+
+
+def declared_entries(feature):
+    return [(name, dict(options)) for name, options in feature.declared.entries]
 
 
 class TestConstruction:
 
-    def test_single_stage_mapping_builds_the_legacy_feature(self):
+    def test_single_stage_mapping_builds_the_same_record_as_the_shorthand(self):
         structured = Feature({'name': 'noisy', 'options': {'noise_level': 1e-2}})
         shorthand = Feature('noisy', noise_level=1e-2)
         assert type(structured) is Feature and structured.name == 'noisy'
-        assert structured.options == shorthand.options
+        assert stage_views(structured) == stage_views(shorthand)
         assert structured.is_stochastic is True
-        pipeline = describe_pipeline(structured)
-        assert pipeline['route'] == 'feature'
-        assert pipeline['seed_policy'] == 'legacy-run-seed'
-        assert pipeline['declared_name'] == 'noisy'
-        assert pipeline['declared_spec'] == [{'name': 'noisy', 'options': {'noise_level': 0.01}}]
-        assert pipeline['common_options'] == {'n_runs': 5}
+        assert structured.declared.route == 'feature' and shorthand.declared.route == 'feature_name'
+        assert declared_entries(structured) == declared_entries(shorthand) == [('noisy', {'noise_level': 0.01})]
+        description = describe_feature(structured)
+        assert description['declaration_route'] == 'feature' and description['seed_policy'] == 'legacy-run-seed'
+        assert description['route'] is None  # no invocation is described
+        assert description['declared'] == [{'name': 'noisy', 'options': {'noise_level': 0.01}}]
 
     def test_sequence_builds_the_same_composition_as_the_shorthand(self):
         structured = Feature(['noisy', 'truncated'])
         shorthand = Feature('noisy+truncated')
-        assert isinstance(structured, ComposedFeature)
         assert structured.name == shorthand.name == 'noisy+truncated'
-        assert structured.options == shorthand.options == {'n_runs': 5}
-        assert stage_options(structured) == stage_options(shorthand)
-        pipeline = describe_pipeline(structured)
-        assert pipeline['route'] == 'feature' and pipeline['seed_policy'] == 'seedsequence-v2'
-        assert pipeline['declared_spec'] == [{'name': 'noisy', 'options': {}}, {'name': 'truncated', 'options': {}}]
-        # The shorthand's declared specification is projected from its tokens
-        # and the supplied broadcast options (none here).
-        assert describe_pipeline(shorthand)['route'] == 'feature_name'
-        assert describe_pipeline(shorthand)['declared_spec'] == pipeline['declared_spec']
+        assert stage_views(structured) == stage_views(shorthand)
+        assert describe_feature(structured)['seed_policy'] == 'seedsequence-v2'
+        assert declared_entries(structured) == declared_entries(shorthand) == [('noisy', {}), ('truncated', {})]
 
-    def test_shorthand_declared_specification_projects_supplied_options_to_owning_tokens(self):
-        composite = Feature('noisy+plain+perturbed_x0', distribution='gaussian', noise_level=0.5, n_runs=2)
-        assert describe_pipeline(composite)['declared_spec'] == [
-            {'name': 'noisy', 'options': {'distribution': 'gaussian', 'noise_level': 0.5}},
-            {'name': 'plain', 'options': {}},
-            {'name': 'perturbed_x0', 'options': {'distribution': 'gaussian'}}]
-        # Declared options are the supplied ones, before defaults; the
-        # effective options of the stage carry the defaults.
+    def test_declared_entries_keep_supplied_values_before_defaults(self):
+        composite = Feature('noisy+plain+perturbed_x0', distribution='gaussian', noise_level=0.5)
+        assert declared_entries(composite) == [('noisy', {'distribution': 'gaussian', 'noise_level': 0.5}),
+                                               ('plain', {}), ('perturbed_x0', {'distribution': 'gaussian'})]
         single = Feature('plain+truncated', significant_digits=4)
-        pipeline = describe_pipeline(single)
-        assert pipeline['declared_spec'] == [{'name': 'plain', 'options': {}},
-                                             {'name': 'truncated', 'options': {'significant_digits': 4}}]
-        assert pipeline['stages'][0]['options'] == {'perturbed_trailing_digits': False, 'significant_digits': 4}
-        assert describe_pipeline(Feature('noisy'))['declared_spec'] == [{'name': 'noisy', 'options': {}}]
-        assert describe_pipeline(Feature('noisy', n_runs=2))['declared_spec'] == [{'name': 'noisy', 'options': {}}]
-        assert describe_pipeline(Feature('plain'))['declared_spec'] == [{'name': 'plain', 'options': {}}]
+        assert declared_entries(single) == [('plain', {}), ('truncated', {'significant_digits': 4})]
+        assert dict(single.stages[0].options) == {'perturbed_trailing_digits': False, 'significant_digits': 4}
+        assert declared_entries(Feature('noisy')) == [('noisy', {})]
+        assert declared_entries(Feature('plain')) == [('plain', {})]
+        raw = Feature([{'name': 'noisy', 'options': {'noise_type': 'ABSOLUTE'}}])
+        assert declared_entries(raw) == [('noisy', {'noise_type': 'ABSOLUTE'})]
+        assert raw.stages[0].options['noise_type'] == 'absolute'
 
     def test_names_are_normalized_and_tuples_are_accepted(self):
         feature = Feature(({'name': ' Noisy '}, 'TRUNCATED'))
         assert feature.name == 'noisy+truncated'
-        assert [stage['identity'] for stage in describe_pipeline(feature)['stages']] == ['noisy#0', 'truncated#0']
+        assert [stage.identity for stage in feature.stages] == ['noisy#0', 'truncated#0']
 
     def test_plain_entries_are_validated_then_removed(self):
         feature = Feature(['plain', {'name': 'truncated', 'options': {'significant_digits': 4}}, 'plain'])
         assert type(feature) is Feature and feature.name == 'truncated'
-        assert feature.options == Feature('truncated', significant_digits=4).options
-        pipeline = describe_pipeline(feature)
-        assert pipeline['declared_name'] == 'plain+truncated+plain'
-        assert pipeline['effective_name'] == 'truncated'
-        assert pipeline['seed_policy'] == 'legacy-run-seed'
-        assert [entry['name'] for entry in pipeline['declared_spec']] == ['plain', 'truncated', 'plain']
+        assert stage_views(feature) == stage_views(Feature('truncated', significant_digits=4))
+        assert feature.declared_name == 'plain+truncated+plain'
+        assert describe_feature(feature)['seed_policy'] == 'legacy-run-seed'
+        assert [name for name, _ in feature.declared.entries] == ['plain', 'truncated', 'plain']
         assert Feature(['plain', 'plain']).name == 'plain'
-        assert Feature({'name': 'plain'}).options == {'n_runs': 1}
+        assert Feature({'name': 'plain'}).stages == ()
 
     def test_repeated_stages_own_independent_options(self):
         feature = Feature([{'name': 'noisy', 'options': {'noise_level': 1e-3, 'noise_type': 'absolute', 'distribution': ones_distribution}},
                            {'name': 'noisy', 'options': {'noise_level': 1e-1, 'noise_type': 'absolute', 'distribution': ones_distribution}}])
-        assert [stage['identity'] for stage in describe_pipeline(feature)['stages']] == ['noisy#0', 'noisy#1']
-        assert [options['noise_level'] for options in stage_options(feature)] == [1e-3, 1e-1]
+        assert [stage.identity for stage in feature.stages] == ['noisy#0', 'noisy#1']
+        assert [stage.options['noise_level'] for stage in feature.stages] == [1e-3, 1e-1]
         problem = Problem(constant_five, np.array([1.0, 2.0]), cub=lambda x: np.array([1.0, 2.0]))
         featured = FeaturedProblem(problem, feature, 10, seed=0)
         # Stage noisy#0 adds 1e-3 * 1, then noisy#1 adds 1e-1 * 1, in this order.
@@ -133,30 +126,32 @@ class TestConstruction:
     def test_shared_key_can_differ_between_stages(self):
         feature = Feature([{'name': 'noisy', 'options': {'distribution': 'uniform'}},
                            {'name': 'perturbed_x0', 'options': {'distribution': 'gaussian'}}])
-        assert [options['distribution'] for options in stage_options(feature)] == ['uniform', 'gaussian']
-        assert feature.options == {'n_runs': 5}
+        assert [stage.options['distribution'] for stage in feature.stages] == ['uniform', 'gaussian']
         with pytest.raises(ValueError, match='perturbed_x0'):
             Feature('noisy+perturbed_x0', distribution='uniform')
 
-    def test_run_count_is_experiment_wide(self):
-        assert Feature(['noisy', 'truncated'], n_runs=3).options == {'n_runs': 3}
-        assert Feature(['truncated', 'noisy']).options['n_runs'] == 5
-        assert Feature([{'name': 'custom', 'options': {'mod_fun': mod_fun_plus_one}}, 'truncated']).options['n_runs'] == 1
-        assert Feature([{'name': 'linearly_transformed', 'options': {'rotated': False}}, 'quantized']).options['n_runs'] == 5
-        assert Feature({'name': 'noisy'}, n_runs=2).options['n_runs'] == 2
-        assert Feature(['noisy', 'truncated'], n_runs=2.0).options['n_runs'] == 2
-        for stage in describe_pipeline(Feature(['noisy', 'truncated'], n_runs=3))['stages']:
-            assert 'n_runs' not in stage['options']
+    def test_run_count_is_an_experiment_option(self):
+        assert resolve_plan(Feature(['truncated', 'noisy'])).n_runs == 5
+        assert resolve_plan(Feature([{'name': 'custom', 'options': {'mod_fun': mod_fun_plus_one}}, 'truncated'])).n_runs == 1
+        assert resolve_plan(Feature([{'name': 'linearly_transformed', 'options': {'rotated': False}}, 'quantized'])).n_runs == 5
+        assert resolve_plan(Feature({'name': 'noisy'}), requested=2).n_runs == 2
+        for stage in Feature(['noisy', 'truncated']).stages:
+            assert 'n_runs' not in stage.options
+        with pytest.raises(ValueError, match=r'benchmark\(.*n_runs=3'):
+            Feature(['noisy', 'truncated'], n_runs=3)
+        with pytest.raises(ValueError, match=r'benchmark\(.*n_runs=2'):
+            Feature({'name': 'noisy'}, n_runs=2)
 
     def test_pickle_round_trip(self):
         problem = Problem(sphere, np.array([1.0, -2.0]))
         x = np.array([0.4, 0.6])
         for spec in (['noisy', {'name': 'quantized', 'options': {'mesh_size': 0.5}}],
                      ['plain', {'name': 'noisy', 'options': {'noise_level': 0.25}}]):
-            feature = Feature(spec, n_runs=2)
+            feature = Feature(spec)
             clone = pickle.loads(pickle.dumps(feature))
-            assert clone.name == feature.name and clone.options == feature.options
-            assert describe_pipeline(clone) == describe_pipeline(feature)
+            assert clone.name == feature.name and stage_views(clone) == stage_views(feature)
+            assert declared_entries(clone) == declared_entries(feature)
+            assert describe_feature(clone) == describe_feature(feature)
             assert FeaturedProblem(problem, clone, 5, 3).fun(x) == FeaturedProblem(problem, feature, 5, 3).fun(x)
         # A composed recorder built from a specification pickles like one built from the shorthand.
         featured = FeaturedProblem(problem, Feature(['noisy', {'name': 'quantized', 'options': {'mesh_size': 0.5}}]), 5, 3)
@@ -165,10 +160,11 @@ class TestConstruction:
 
     def test_provenance_is_json_serializable_with_callables_described(self):
         feature = Feature([{'name': 'noisy', 'options': {'distribution': ones_distribution}}, 'truncated'])
-        pipeline = describe_pipeline(feature)
-        text = json.dumps(pipeline, sort_keys=True)
+        description = describe_feature(feature)
+        text = json.dumps(description, sort_keys=True)
         assert 'ones_distribution' in text
-        assert pipeline['declared_spec'][0]['options']['distribution'] != ones_distribution
+        assert description['declared'][0]['options']['distribution'] != ones_distribution
+        assert description['stages'][0]['options']['distribution'] != ones_distribution
 
 
 class TestEquivalenceWithShorthand:
@@ -189,15 +185,12 @@ class TestEquivalenceWithShorthand:
     def test_same_settings_give_the_same_numbers(self, spec, name, flat, seed):
         structured = Feature(spec)
         shorthand = Feature(name, **flat)
-        assert type(structured) is type(shorthand)
         assert structured.name == shorthand.name
-        # ``.options`` of a composition is the shorthand's broadcast projection
-        # plus the common count; the structured route has nothing to broadcast,
-        # so only the common count and the per-stage options are compared.
-        assert structured.options['n_runs'] == shorthand.options['n_runs']
         assert structured.is_stochastic == shorthand.is_stochastic
-        assert stage_options(structured) == stage_options(shorthand)
+        assert stage_views(structured) == stage_views(shorthand)
+        assert resolve_plan(structured).n_runs == resolve_plan(shorthand).n_runs
         problems = [FeaturedProblem(constrained_problem(), feature, 12, seed) for feature in (structured, shorthand)]
+        assert problems[0].execution_strategy == problems[1].execution_strategy
         np.testing.assert_array_equal(problems[0].x0, problems[1].x0)
         for x in (problems[0].x0, problems[0].x0 + 0.3, np.zeros(3)):
             assert_same_observation(problems[0], problems[1], x)
@@ -272,33 +265,27 @@ class TestErrors:
         assert HostileKey.hooks == 0
 
     def test_flat_stage_options_are_rejected_with_a_specification(self):
-        with pytest.raises(ValueError, match=r"only `n_runs` may be given as a keyword.*\['noise_level'\]"):
+        with pytest.raises(ValueError, match=r"Unexpected keyword\(s\): \['noise_level'\]"):
             Feature(['noisy', 'truncated'], noise_level=1e-2)
-        with pytest.raises(ValueError, match=r"only `n_runs` may be given as a keyword"):
+        with pytest.raises(ValueError, match=r"Unexpected keyword\(s\)"):
             Feature({'name': 'noisy'}, noise_level=1e-2)
-
-    def test_invalid_run_count_with_a_specification(self):
-        with pytest.raises(TypeError):
-            Feature(['noisy', 'truncated'], n_runs=1.5)
-        with pytest.raises(ValueError):
-            Feature(['noisy', 'truncated'], n_runs=0)
+        with pytest.raises(ValueError, match=r"Unexpected keyword\(s\)"):
+            Feature(Feature('noisy'), noise_level=1e-2)
 
     @pytest.mark.parametrize('build', [
         lambda **common: Feature('truncated', **common),
         lambda **common: Feature({'name': 'truncated'}, **common),
         lambda **common: Feature('truncated+quantized', **common),
         lambda **common: Feature(['truncated', 'quantized'], **common),
+        lambda **common: Feature(Feature('truncated+quantized'), **common),
     ])
-    def test_explicit_none_run_count_is_rejected_on_every_route(self, build):
-        # An explicitly supplied ``n_runs=None`` is a value, not an omission: it
-        # must fail the same validation everywhere instead of silently taking
-        # the default on the composed routes.
-        with pytest.raises(TypeError, match='must be an integer'):
-            build(n_runs=None)
-        with pytest.raises(ValueError, match='must be positive'):
-            build(n_runs=0)
-        assert build(n_runs=3).options['n_runs'] == 3
-        assert build().options['n_runs'] == 1
+    def test_run_count_is_rejected_on_every_route(self, build):
+        # The specification never carries the count, whatever the value: the
+        # experiment layer validates it (a present None is invalid there).
+        for value in (None, 0, 3):
+            with pytest.raises(ValueError, match=r'benchmark\(.*n_runs='):
+                build(n_runs=value)
+        assert 'n_runs' not in build().stages[0].options
 
     def test_none_and_other_types_are_rejected(self):
         with pytest.raises(TypeError):

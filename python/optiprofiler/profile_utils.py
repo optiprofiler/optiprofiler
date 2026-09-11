@@ -12,6 +12,7 @@ from pypdf import PdfWriter
 
 from .problem_libraries import list_problem_libraries, resolve_problem_library
 from .experiment import validate_n_runs
+from .provenance import full_feature_stamp
 from .utils import FeatureName, ProfileOption, FeatureOption, ProblemOption, get_logger, print_log_message, shorten_log_message
 
 
@@ -918,12 +919,9 @@ def _get_default_feature_stamp(feature, bounded=True):
     with ``bounded=True`` (the default), a long composite stamp is cut and
     digest-qualified for use in paths. The identity feature is ``'plain'``.
     """
-    stages = feature.stages
-    if not stages:
-        return FeatureName.PLAIN.value
-    if len(stages) == 1:
-        return stages[0].stamp
-    feature_stamp = '__'.join(stage.stamp for stage in stages)
+    feature_stamp = full_feature_stamp(feature)
+    if len(feature.stages) <= 1:
+        return feature_stamp
     return _bounded_feature_stamp(feature_stamp) if bounded else feature_stamp
 
 

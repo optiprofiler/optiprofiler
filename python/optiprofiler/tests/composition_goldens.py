@@ -27,6 +27,7 @@ from pathlib import Path
 
 import numpy as np
 
+from optiprofiler.experiment import resolve_plan
 from optiprofiler.opclasses import Feature, FeaturedProblem, Problem
 
 FIXTURE_VERSION = 1
@@ -156,7 +157,12 @@ def run_scenario(kind, name, options, seed):
     featured = FeaturedProblem(problem, feature, MAX_EVAL, seed)
     record = {
         'is_stochastic': bool(feature.is_stochastic),
-        'options': {k: getattr(v, '__name__', v) for k, v in feature.options.items()},
+        # The base recorded ``Feature.options`` including the run count; in 2.0
+        # the count is resolved by the experiment layer, so the same mapping is
+        # rebuilt from the stage-local options and the resolved default.
+        'options': {k: getattr(v, '__name__', v)
+                    for k, v in {**(dict(feature.stages[0].options) if feature.stages else {}),
+                                 'n_runs': resolve_plan(feature).n_runs}.items()},
         'n': int(featured.n),
         'ptype': featured.ptype,
         'm_nonlinear_ub': int(featured.m_nonlinear_ub),

@@ -21,7 +21,8 @@ import pytest
 matplotlib.use('Agg')
 
 from optiprofiler import benchmark
-from optiprofiler.composition import CHANNEL_TAGS, SEED_POLICY, STAGE_CODES, Stage, stage_seed
+from optiprofiler.composition import CHANNEL_TAGS, SEED_POLICY, STAGE_CODES, stage_seed
+from optiprofiler.feature_definitions import StageRecord
 from optiprofiler.loader import load_results_from_h5
 from optiprofiler.opclasses import Feature, FeaturedProblem, Problem
 
@@ -63,27 +64,27 @@ class TestSeedDerivation:
         for run_seed in (None, 0, 1, 2 ** 31):
             for name, code in STAGE_CODES.items():
                 for occurrence in (0, 1, 3):
-                    stage = Stage(occurrence, name, occurrence, Feature(name) if name != 'custom' else Feature('custom'))
+                    stage = StageRecord(name, occurrence, {})
                     for channel, tag in CHANNEL_TAGS.items():
                         assert stage_seed(run_seed, stage, channel) == sequence_seed(run_seed, code, occurrence, tag)
 
     def test_frozen_literal_seeds(self):
-        noisy = Stage(0, 'noisy', 0, Feature('noisy'))
+        noisy = StageRecord('noisy', 0, {})
         literals = {channel: stage_seed(0, noisy, channel) for channel in CHANNEL_TAGS}
         # Frozen values, identical on NumPy 1.26.4 and 2.2.6 (SeedSequence is version-stable).
         assert literals == {'fun': 2103646603, 'cub': 3629157004, 'ceq': 2370119283, 'construction': 1055300565}
-        assert stage_seed(12345, Stage(2, 'quantized', 1, Feature('quantized')), 'cub') == 1036917780
+        assert stage_seed(12345, StageRecord('quantized', 1, {}), 'cub') == 1036917780
 
     def test_identities_are_distinct_and_position_independent(self):
         seeds = set()
         for name, code in STAGE_CODES.items():
             for occurrence in (0, 1):
-                stage = Stage(0, name, occurrence, Feature(name))
+                stage = StageRecord(name, occurrence, {})
                 for channel in CHANNEL_TAGS:
                     seeds.add(stage_seed(0, stage, channel))
         assert len(seeds) == len(STAGE_CODES) * 2 * len(CHANNEL_TAGS)
-        early = Stage(1, 'noisy', 1, Feature('noisy'))
-        late = Stage(6, 'noisy', 1, Feature('noisy'))
+        early = Feature(['noisy', 'noisy']).stages[1]
+        late = Feature(['plain', 'noisy', 'truncated', 'plain', 'noisy']).stages[2]
         assert all(stage_seed(7, early, channel) == stage_seed(7, late, channel) for channel in CHANNEL_TAGS)
         assert stage_seed(0, early, 'fun') == stage_seed(None, early, 'fun')
 
@@ -112,7 +113,7 @@ class TestChannelsDoNotAlias:
     def test_construction_channel_drives_initialization(self):
         feature = Feature('perturbed_x0+noisy', perturbation_level=0.25, noise_level=0.0)
         featured = FeaturedProblem(constant_channels(), feature, 10, 9)
-        stage = Stage(0, 'perturbed_x0', 0, Feature('perturbed_x0', perturbation_level=0.25))
+        stage = Feature('perturbed_x0', perturbation_level=0.25).stages[0]
         rng = Feature.get_default_rng(stage_seed(9, stage, 'construction'))
         direction = rng.standard_normal(2)
         expected = X0 + 0.25 * max(1.0, np.linalg.norm(X0)) * direction / np.linalg.norm(direction)
@@ -131,7 +132,7 @@ class TestPolicyProvenance:
         fun(x0 + 0.1)
         return x0 + 0.1
 
-    def test_serial_and_parallel_runs_agree_and_record_v2(self, tmp_path):
+    def test_serial_and_parallel_runs_agree_and_record_the_policy(self, tmp_path):
         archives = []
         for n_jobs in (1, 2):
             benchmark([self.stay, self.step], feature_name='noisy+perturbed_x0', plibs=['s2mpj'], ptype='u', mindim=2,
@@ -142,4 +143,4 @@ class TestPolicyProvenance:
             archives.append(load_results_from_h5(str(archive[0]))[0])
         for key in ('fun_histories', 'maxcv_histories', 'fun_outs', 'fun_inits'):
             np.testing.assert_array_equal(np.asarray(archives[0][key], dtype=float), np.asarray(archives[1][key], dtype=float))
-        assert json.loads(archives[0]['feature_pipeline'])['seed_policy'] == 'seedsequence-v2'
+        assert json.loads(archives[0]['feature_pipeline'])['feature']['seed_policy'] == 'seedsequence-v2'
