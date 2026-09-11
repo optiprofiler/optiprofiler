@@ -90,9 +90,14 @@ classdef TestFeatureCustomV2 < matlab.unittest.TestCase
             fp=FeaturedProblem(p,Feature({'noisy',custom}),3,17);
             testCase.verifyEqual(fp.xl,[0;0]); testCase.verifyEqual(fp.xu,[1;1]);
             testCase.verifyEqual(fp.aub,[1,1]); testCase.verifyEqual(fp.bub,2);
-            custom.options=struct('mod_fun',@(x,s,p)error('AB:UserCallback','User failure stays visible.'));
+            custom.options=struct('mod_fun',@TestFeatureCustomV2.raiseUserError);
             fp=FeaturedProblem(p,Feature({'noisy',custom}),3,17);
             testCase.verifyError(@()fp.fun([.5;.5]),'AB:UserCallback');
+        end
+    end
+    methods (Static)
+        function value=raiseUserError(~,~,~) %#ok<STOUT>
+            error('AB:UserCallback','User failure stays visible.');
         end
     end
 end
