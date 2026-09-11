@@ -5,8 +5,7 @@ classdef Feature < handle
 %   Each effective stage has its own validated local options. FeaturedProblem
 %   builds fresh execution state from the specification for each trial.
 %
-%   Construction
-%   ------------
+%   .. rubric:: Construction
 %
 %   F = Feature(NAME) accepts an atomic char/string name or names joined with
 %   '+'. The first name is applied first: 'noisy+truncated' adds noise and then
@@ -39,8 +38,7 @@ classdef Feature < handle
 %           'plain', ...
 %           struct('name','noisy','options',struct('noise_level',1e-4))});
 %
-%   Experiment options
-%   ------------------
+%   .. rubric:: Experiment options
 %
 %   n_runs is never a Feature option, including inside a stage. Supply it to
 %   benchmark instead, for example::
@@ -55,8 +53,7 @@ classdef Feature < handle
 %   plain-reference role; stochastic classification alone does not determine
 %   the run count. Experiment-wide controls such as seed are not stage options.
 %
-%   Built-in stages and all local options
-%   -------------------------------------
+%   .. rubric:: Built-in stages and all local options
 %
 %   The following defaults are local to one stage. A missing local OPTIONS
 %   struct uses these defaults. No stage stores n_runs.
@@ -120,8 +117,7 @@ classdef Feature < handle
 %   observation callback, querying problem.fun/cub/ceq serves that predecessor
 %   again; these calls are not silently treated as reference reads.
 %
-%   Inspection, transport and compatibility
-%   ---------------------------------------
+%   .. rubric:: Inspection, transport and compatibility
 %
 %   Read-only properties are 'stages', 'declared', 'name', 'declared_name',
 %   'is_stochastic', 'is_identity' and 'specification_version'. 'stages' is a

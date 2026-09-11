@@ -13,8 +13,7 @@ classdef FeaturedProblem < Problem
 %   use the scoring reference described below, not necessarily those observed
 %   values.
 %
-%   Execution strategy
-%   ------------------
+%   .. rubric:: Execution strategy
 %
 %   Zero effective stages use execution_strategy='identity'; one uses
 %   'legacy-single'. Both retain runtime_policy='matlab-legacy-single-v1' and
@@ -33,8 +32,7 @@ classdef FeaturedProblem < Problem
 %   raise UnsupportedCompositeDerivative; the legacy derivative behavior is
 %   retained for identity/single execution.
 %
-%   Observations, reference values and histories
-%   --------------------------------------------
+%   .. rubric:: Observations, reference values and histories
 %
 %   Observation-only value changes such as noise do not change the reference
 %   used for scoring. Spatial transformations transport both observation and
@@ -72,8 +70,7 @@ classdef FeaturedProblem < Problem
 %   depend on the number of constraint components, not just recorded calls.
 %   These accessors are not general counts of user callbacks or solver calls.
 %
-%   Cache and hard stop
-%   -------------------
+%   .. rubric:: Cache and hard stop
 %
 %   Each channel checks its history-based n_eval accessor against MAX_EVAL.
 %   Once that accessor is at least MAX_EVAL, a call returns the last observed
