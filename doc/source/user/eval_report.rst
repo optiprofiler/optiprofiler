@@ -57,13 +57,14 @@ The equivalent options-struct field preserves MATLAB's three outputs::
     options.report_path = 'evaluation/eval_report.json';
     [scores, profile_scores, curves] = benchmark({@solver_a, @solver_b}, options);
 
-The MATLAB implementation emits version 1 of the same contract
-(``optiprofiler.eval_report/1``, the immutable ``eval_report.schema.json``)
-with the same field names and the same one-based solver/run indices; Python
-emits version 2, which adds the canonical feature specification and the
-experiment plans to ``configuration.effective``. A reader selects the schema
-from the document's ``schema`` identifier and rejects identifiers it does not
-know; MATLAB's move to version 2 is a separate, later mapping. Runtime
+Both implementations emit version 2 of the same contract
+(``optiprofiler.eval_report/2``, ``eval_report-v2.schema.json``) with the same
+field names and the same one-based solver/run indices: version 2 adds the
+canonical feature specification and the experiment plans to
+``configuration.effective``. Version 1 (``optiprofiler.eval_report/1``, the
+immutable ``eval_report.schema.json``) remains the contract of reports written
+before version 2, and a reader selects the schema from the document's
+``schema`` identifier and rejects identifiers it does not know. Runtime
 provenance, random-seed rules and error-band normalization remain
 language-specific; the report states which convention produced a value instead
 of changing either implementation to make them match (see
@@ -83,7 +84,7 @@ distribution (``optiprofiler/schemas/``) and can be read at run time::
 
     from optiprofiler.eval_report import load_schema, schema_for_document, schema_text
     main_schema = load_schema('eval_report')          # current version (2), parsed dict
-    legacy_schema = load_schema('eval_report', 1)     # immutable version 1 (MATLAB, older reports)
+    legacy_schema = load_schema('eval_report', 1)     # immutable version 1 (reports written before version 2)
     companion_text = schema_text('plot_data')         # exact JSON text, for hashing/pinning
     name, version = schema_for_document(report)       # from report['schema']; unknown versions raise
 
@@ -96,8 +97,8 @@ report against them with a small built-in checker. Consumers should reject bare
 JSON ``NaN``/``Infinity`` tokens, select the schema by the document identifier,
 validate, and check tensor dimensions, references and artifact paths. The
 versions are independent of the package version and are listed separately:
-main report ``optiprofiler.eval_report/2`` (Python) and ``/1`` (MATLAB, and
-reports written before version 2; immutable), numeric companion
+main report ``optiprofiler.eval_report/2`` (Python and MATLAB) and ``/1``
+(reports written before version 2; immutable), numeric companion
 ``optiprofiler.plot_data/1`` (unchanged), archive entry ``feature_pipeline-v3``
 (``-v1``/``-v2`` retained verbatim on load) and ``options_refined-v2``.
 
@@ -125,7 +126,13 @@ reports written before version 2; immutable), numeric companion
        block longer than the shared bound (or containing redacted content) are
        omitted, not clipped: the field is ``null`` and ``<field>_bytes`` /
        ``<field>_reason`` say why; the complete text stays in the archive and
-       the refined options.
+       the refined options. The lists ``declared`` and ``stages`` longer than
+       the shared item bound (256) are the encoder's bounded object
+       ``{values, total_items, reason}``: the first 256 entries, the true
+       count and the reason ``metadata_item_limit``; a consumer accepts either
+       the complete array or that object, takes ``total_items`` as the count,
+       and reads the complete lists from the archive payload. No stage count
+       is capped and nothing is truncated silently.
    * - ``stages`` / ``coverage``
      - Independent numerical, scoring, persistence and rendering states;
        selected, loaded and completed primary problems.
