@@ -119,6 +119,78 @@ OptiProfiler provides a practically useful option named **load**. This option al
 This will directly draw the profiles for the **solver1** and **solver3** with the ``'noisy'`` feature and all the unconstrained problems with dimension between 7 and 9 selected from the previous run. The results will also be saved under the current directory with a new subfolder named ``noisy_<timestamp>`` with the new timestamp.
 
 
+Reusable features, replay, and retained results
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+A ``Feature`` is a reusable specification, not an experiment or a random-stream
+checkpoint. Its effective stages contain only feature-local options. For example:
+
+.. code-block:: matlab
+
+    stages = { ...
+        struct('name', 'noisy', 'options', struct('noise_level', 1e-3)), ...
+        struct('name', 'perturbed_x0', 'options', struct('perturbation_level', 1e-3))};
+    options = struct('feature', Feature(stages), 'n_runs', 3, 'n_jobs', 1);
+    scores = benchmark({@solver1, @solver2}, options);
+
+Pass either ``feature`` or ``feature_name``, not both. ``n_runs`` belongs to the
+benchmark options, not to a stage. Reusing the same Feature in another benchmark
+does not reuse its previous runtime state. Identity stages such as ``plain`` are
+normalized away. Repeated nonidentity stages retain their order and separate
+options. With ``run_plain=true``, the primary experiment uses its own run count;
+the plain-reference role retains the independent one-run policy. A saved run
+axis is not a count of actual solver calls: deterministic runs can have copied
+slots, which reports identify separately from actual executions.
+
+There are two different ways to use an existing experiment:
+
+* ``benchmark`` with ``load`` reanalyses saved numerical histories without
+  executing solvers or loading the original provider problems. Current filters
+  describe this selection; they are not a recovered original experiment plan.
+  MATLAB keeps its existing sorted-unique ``solvers_to_load`` selection rule.
+* ``loadBenchmarkOptions`` imports trusted native settings for a **new**
+  benchmark. The caller supplies its solvers and output destination explicitly:
+
+  .. code-block:: matlab
+
+      [options, receipt] = loadBenchmarkOptions('test_log/options_refined.mat');
+      options.benchmark_id = 'fresh-replay';
+      options.savepath = pwd;
+      scores = benchmark({@solver1, @solver2}, options);
+
+New ``options_refined-v2`` files retain the canonical native Feature and a
+separate ``n_runs``. The effective ``feature_specification`` is inspection-only
+when the native Feature is present; inconsistent duplicates are rejected.
+Canonical native state preserves resolved options and a separately retained
+declaration, including an unknown declaration after a supported legacy import.
+It does not reconstruct an original invocation route or resume a live runtime.
+Saved output paths, load selectors and envelope fields are not forwarded by the
+replay helper. Specification-only v2 structs are accepted as explicit new replay
+inputs, not evidence of the original declaration.
+
+Old flat native options sometimes omitted feature identity. Such a file requires
+an explicit second argument, for example ``loadBenchmarkOptions(path, 'noisy')``;
+neither folder names nor stamps are used to guess it. The receipt records this
+as a present replay override, not a recovered historical request. Native MAT
+files are trusted inputs and require their original callback/class dependencies;
+they can execute code during loading. JSON callback descriptions cannot be used
+to reconstruct executable functions.
+
+New evaluation reports use ``optiprofiler.eval_report/2`` and archive provenance
+uses ``feature_pipeline-v3``. Effective feature settings and per-role experiment
+plans are separate. Historical payloads retain their original version and
+unknown facts; a load report does not turn today's defaults into old execution
+facts. Complete observed runtime receipts stay in native archives, while compact
+reports omit repeated per-stage runtime details. Long or private feature text
+may be omitted from JSON with explicit UTF-8 byte counts and reasons; complete
+native stamps remain available in native archives/settings.
+
+Long generated display labels use a bounded prefix and CRC-32 suffix in MATLAB;
+Python uses SHA-256 for that display suffix. These labels do not change seeds,
+scientific feature identity, or output-directory uniqueness. Equal shortened
+folder names across languages are not promised.
+
+
 Example 4: testing parametrized solvers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 (See also the file in the repository: ``matlab/examples/example4.m``)

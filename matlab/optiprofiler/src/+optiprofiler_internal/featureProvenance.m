@@ -6,7 +6,7 @@ function payload = featureProvenance(feature, plan, context)
     if nargin < 3, context = struct(); end
     unknown = struct('eval_report_null', true);
     declaration = feature.declared;
-    declared = unknown;
+    declared = {};
     declaration_route = unknown;
     declared_name = unknown;
     if ~isempty(declaration)
@@ -42,6 +42,7 @@ function payload = featureProvenance(feature, plan, context)
         experiment = struct('role', plan.role, 'n_runs', plan.n_runs, ...
             'origin', plan.origin, 'run_policy', plan.run_policy, ...
             'execution_strategy', plan.execution_strategy);
+        if isfield(plan, 'runtime_policy'), experiment.runtime_policy = plan.runtime_policy; end
     end
     payload = struct('schema', 'feature_pipeline-v3', ...
         'feature', feature_record, 'experiment', experiment);

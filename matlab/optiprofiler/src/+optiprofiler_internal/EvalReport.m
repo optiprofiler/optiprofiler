@@ -1098,20 +1098,24 @@ classdef EvalReport < handle
                     return;
                 end
                 names = fieldnames(value);
+                feature_block = isfield(value, 'effective_name') && isfield(value, 'stages');
                 for k = 1:numel(names)
                     key = names{k};
                     if ~isempty(regexpi(key, 'path|token|secret|password|credential|api_key')) || strcmp(key, 'problem')
                         value = rmfield(value, key);
-                    elseif strcmp(key, 'full_feature_stamp') && (ischar(value.(key)) || (isstring(value.(key)) && isscalar(value.(key))))
+                    elseif (strcmp(key, 'full_feature_stamp') || (feature_block && ismember(key, ...
+                            {'feature_stamp', 'effective_name', 'declared_name', 'name'}))) ...
+                            && (ischar(value.(key)) || (isstring(value.(key)) && isscalar(value.(key))))
                         stamp = char(value.(key));
-                        sensitive = startsWith(stamp, '/') || ~isempty(regexp(stamp, '^[A-Za-z]:[\\/]', 'once'));
+                        sensitive = startsWith(stamp, '/') || startsWith(stamp, '@(') ...
+                            || ~isempty(regexp(stamp, '^[A-Za-z]:[\\/]', 'once'));
                         if numel(stamp) > 256 || sensitive
                             % Never label clipped text as the complete stamp.
                             % Full native authority is retained separately by
                             % refined settings and the numerical result group.
                             value.(key) = optiprofiler_internal.EvalReport.null();
-                            value.full_feature_stamp_bytes = numel(unicode2native(stamp, 'UTF-8'));
-                            value.full_feature_stamp_reason = 'omitted_from_bounded_metadata_projection';
+                            value.([key, '_bytes']) = numel(unicode2native(stamp, 'UTF-8'));
+                            value.([key, '_reason']) = 'omitted_from_bounded_metadata_projection';
                         else
                             value.(key) = stamp;
                         end

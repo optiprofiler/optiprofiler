@@ -69,19 +69,19 @@ classdef TestFeatureReportV2 < matlab.unittest.TestCase
             setenv('OP_FEATURE_D_FORBID_PROVIDER', '0');
             registerProblemLibrary(struct('name', 'report_v2', 'root', fixture, ...
                 'select_function', 'feature_report_select', 'load_function', 'feature_report_load'));
-            calls = [0 0];
-            solvers = {@(fun, x0) probe(1, fun, x0), @(fun, x0) probe(2, fun, x0)};
+            calls = [0 0 0];
+            solvers = {@(fun, x0) probe(1, fun, x0), @(fun, x0) probe(2, fun, x0), @(fun, x0) probe(3, fun, x0)};
             specification = {struct('name', 'noisy', 'options', struct('noise_level', 0, 'noise_mode', 'deterministic')), ...
                 struct('name', 'truncated', 'options', struct('significant_digits', 5))};
             options = struct('feature', Feature(specification), 'plibs', {{'report_v2'}}, ...
                 'ptype', 'u', 'mindim', 1, 'maxdim', 3, 'n_runs', 3, 'run_plain', true, ...
-                'solver_isrand', [false true], 'solver_names', {{'stay', 'half'}}, ...
+                'solver_isrand', [false true false], 'solver_names', {{'stay', 'half', 'stay_again'}}, ...
                 'n_jobs', 1, 'max_eval_factor', 2, 'max_tol_order', 1, 'seed', 17, ...
                 'score_only', false, 'draw_hist_plots', 'none', 'silent', true, ...
                 'benchmark_id', 'fresh', 'savepath', output, ...
                 'report_path', fullfile(output, 'fresh.json'));
             [scores, profiles, curves] = benchmark(solvers, options);
-            testCase.verifyEqual(calls, [4 8]);
+            testCase.verifyEqual(calls, [4 8 4]);
             report = jsondecode(fileread(options.report_path));
             testCase.verifyEqual(report.configuration.effective.experiment.primary.n_runs, 3);
             testCase.verifyEqual(report.configuration.effective.experiment.plain_reference.n_runs, 1);
@@ -93,8 +93,8 @@ classdef TestFeatureReportV2 < matlab.unittest.TestCase
             group = loaded.results_plibs{1};
             testCase.verifyEqual(size(group.fun_histories, 3), 3);
             testCase.verifyEqual(size(group.results_plib_plain.fun_histories, 3), 1);
-            testCase.verifyEqual(group.execution_metadata{1}.real_n_runs(:)', [1 3]);
-            testCase.verifyEqual(group.results_plib_plain.execution_metadata{1}.real_n_runs(:)', [1 1]);
+            testCase.verifyEqual(group.execution_metadata{1}.real_n_runs(:)', [1 3 1]);
+            testCase.verifyEqual(group.results_plib_plain.execution_metadata{1}.real_n_runs(:)', [1 1 1]);
             pipeline = jsondecode(group.feature_pipeline);
             testCase.verifyEqual(pipeline.schema, 'feature_pipeline-v3');
             testCase.verifyEqual({pipeline.feature.stages.identity}, {'noisy#0', 'truncated#0'});
@@ -102,21 +102,21 @@ classdef TestFeatureReportV2 < matlab.unittest.TestCase
             [replay, import_receipt] = loadBenchmarkOptions(fullfile(files(1).folder, 'options_refined.mat'));
             testCase.verifyEqual(import_receipt.source_schema, 'options_refined-v2');
             replay.score_only = false; replay.savepath = output; replay.benchmark_id = 'replay';
-            replay.report_path = fullfile(output, 'replay.json'); calls = [0 0];
+            replay.report_path = fullfile(output, 'replay.json'); calls = [0 0 0];
             [scores2, profiles2, curves2] = benchmark(solvers, replay);
-            testCase.verifyEqual(calls, [4 8]);
+            testCase.verifyEqual(calls, [4 8 4]);
             testCase.verifyEqual(scores2, scores); testCase.verifyEqual(profiles2, profiles);
             testCase.verifyTrue(isequaln(curves2, curves));
             markers = dir(fullfile(files(1).folder, 'time_stamp_*.txt'));
             testCase.assertNumElements(markers, 1);
             stamp = markers(1).name(12:end-4);
             cd(fileparts(files(1).folder));
-            setenv('OP_FEATURE_D_FORBID_PROVIDER', '1'); calls = [0 0];
+            setenv('OP_FEATURE_D_FORBID_PROVIDER', '1'); calls = [0 0 0];
             load_options = struct('load', stamp, 'benchmark_id', '.', 'score_only', true, ...
                 'silent', true, 'n_jobs', 1, 'mindim', 3, 'maxdim', 3, 'max_tol_order', 1, ...
-                'solvers_to_load', [2 1], 'report_path', fullfile(output, 'load.json'));
+                'solvers_to_load', [3 2], 'report_path', fullfile(output, 'load.json'));
             benchmark({@forbidden, @forbidden}, load_options);
-            testCase.verifyEqual(calls, [0 0]);
+            testCase.verifyEqual(calls, [0 0 0]);
             testCase.verifyEqual(readBytes(source_path), bytes_before);
             reloaded = jsondecode(fileread(load_options.report_path));
             testCase.verifyEmpty(fieldnames(reloaded.configuration.effective.experiment));
@@ -125,7 +125,9 @@ classdef TestFeatureReportV2 < matlab.unittest.TestCase
             primary = retained(strcmp({retained.role}, 'primary'));
             testCase.verifyEqual(primary.feature_pipeline, pipeline);
             testCase.verifyEqual(primary.retained_problem_indices, 2);
-            testCase.verifyEqual(primary.retained_solver_indices(:)', [2 1]);
+            % Existing MATLAB validation sorts unique solver indices. Check a
+            % genuine subset and align retained metadata with that public rule.
+            testCase.verifyEqual(primary.retained_solver_indices(:)', [2 3]);
             record = reloaded.problems(strcmp({reloaded.problems.role}, 'primary'));
             testCase.verifyEqual(record.name, 'WIDE');
             runs = record.runs;
