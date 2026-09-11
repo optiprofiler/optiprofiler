@@ -354,13 +354,14 @@ offer no safety for untrusted payloads. The callback descriptions in the
 archive and the report are one-way informational metadata (a class or function
 name), never a recipe for reconstructing an executable callable.
 
-MATLAB mapping. The MATLAB implementation is being brought to the same
-contract in a separate lane: ``options.feature`` as a cell array of structs
+MATLAB mapping. The MATLAB implementation follows the same contract:
+``options.feature`` as a cell array of structs
 (``struct('name', 'noisy', 'options', struct('noise_level', 1e-3))``) or
 names, ``options.n_runs`` at the top level, the same ``feature_pipeline-v3``
-fields, and a language-local seed policy for compositions; random samples
-are not matched across the two languages. ``options.feature_name`` keeps its
-current meaning.
+fields and report version, and a language-local seed policy for compositions
+(``matlab-stage-horner32-v1``); random samples are not matched across the two
+languages. ``options.feature_name`` keeps its current meaning. See the MATLAB
+user guide for the native replay helper ``loadBenchmarkOptions``.
 
 .. _py_example3:
 
