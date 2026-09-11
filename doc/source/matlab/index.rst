@@ -38,6 +38,9 @@ Main classes
 Other tools
 -----------
 
+:doc:`matlab_generated/loadBenchmarkOptions`
+    Function to import trusted native settings for a fresh benchmark execution.
+
 :doc:`matlab_generated/registerProblemLibrary`
     Function to register an external or custom problem library.
 
@@ -69,6 +72,7 @@ Other tools
     :hidden:
 
     matlab_generated/registerProblemLibrary
+    matlab_generated/loadBenchmarkOptions
     matlab_generated/resolveProblemLibrary
     matlab_generated/unregisterProblemLibrary
     matlab_generated/s2mpj_load

@@ -141,6 +141,8 @@ classdef EvalReport < handle
             experiment = struct();
             if ~strcmp(self.document.operation, 'load')
                 payload = optiprofiler_internal.featureProvenance(feature_value, primary_plan, context);
+                payload.feature.name = feature_value.name;
+                payload.feature.scope = 'current_execution_feature';
                 feature = optiprofiler_internal.EvalReport.configuration(payload.feature);
                 if ~isempty(primary_plan), experiment.primary = payload.experiment; end
                 if ~isempty(reference_plan)
@@ -158,8 +160,21 @@ classdef EvalReport < handle
                 self.document.configuration.solver_execution_requested = false;
                 self.document.configuration.original_execution_configuration = optiprofiler_internal.EvalReport.null();
                 self.document.configuration.original_execution_configuration_reason = 'not_fully_retained_by_archive';
-                self.document.configuration.effective.feature = struct('scope', 'current_load_context_not_original_execution_feature', ...
-                    'reason', 'default_load_feature_is_not_original_execution_provenance');
+                self.document.configuration.retained_result_metadata_encoding = ...
+                    'sanitized_metadata_copy;not_byte_identical;archive_bytes_identified_by_source.sha256';
+                % There is no executing Feature in a load invocation. Fill the
+                % containing contract's required shape without relabelling the
+                % scratch plain object as original execution provenance. The
+                % archived payload, if any, is retained separately by addResults.
+                unknown = optiprofiler_internal.EvalReport.null();
+                self.document.configuration.effective.feature = struct( ...
+                    'route', unknown, 'declaration_route', unknown, ...
+                    'declared_name', unknown, 'declared', {{}}, ...
+                    'effective_name', unknown, 'name', unknown, 'stages', {{}}, ...
+                    'seed_policy', 'not_applicable_no_solver_execution', ...
+                    'feature_stamp', unknown, 'feature_stamp_origin', unknown, ...
+                    'full_feature_stamp', unknown, ...
+                    'scope', 'current_load_context_not_original_execution_feature');
             else
                 self.document.configuration.scope = 'current_benchmark_execution';
                 self.document.configuration.solver_execution_requested = true;

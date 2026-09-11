@@ -171,7 +171,9 @@ classdef TestFeatureReportV2 < matlab.unittest.TestCase
             testCase.verifyEqual(readBytes(source_path), bytes_before);
             reloaded = jsondecode(fileread(load_options.report_path));
             testCase.verifyEmpty(fieldnames(reloaded.configuration.effective.experiment));
-            testCase.verifyFalse(isfield(reloaded.configuration.effective.feature, 'stages'));
+            testCase.verifyEmpty(reloaded.configuration.effective.feature.stages);
+            testCase.verifyEmpty(reloaded.configuration.effective.feature.name);
+            testCase.verifyEqual(reloaded.configuration.effective.feature.seed_policy, 'not_applicable_no_solver_execution');
             retained = reloaded.configuration.retained_result_metadata;
             primary = retained(strcmp({retained.role}, 'primary'));
             testCase.verifyEqual(primary.feature_pipeline, pipeline);

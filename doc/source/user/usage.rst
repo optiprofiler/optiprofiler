@@ -180,7 +180,9 @@ New evaluation reports use ``optiprofiler.eval_report/2`` and archive provenance
 uses ``feature_pipeline-v3``. Effective feature settings and per-role experiment
 plans are separate. Historical payloads retain their original version and
 unknown facts; a load report does not turn today's defaults into old execution
-facts. Complete observed runtime receipts stay in native archives, while compact
+facts. JSON stage positions and same-kind occurrence numbers are zero-based;
+MATLAB numerical solver/run indexes remain one-based as recorded by the report.
+Complete observed runtime receipts stay in native archives, while compact
 reports omit repeated per-stage runtime details. Long or private feature text
 may be omitted from JSON with explicit UTF-8 byte counts and reasons; complete
 native stamps remain available in native archives/settings.

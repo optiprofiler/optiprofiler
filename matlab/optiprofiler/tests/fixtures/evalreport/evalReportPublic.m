@@ -14,7 +14,7 @@ function evalReportPublic(source_root, output_root, slice)
     % Every report a slice reads is validated against the shared schemas
     % first: the schemas are the Python/MATLAB reader contract, so a field
     % spelled differently by this emitter fails here.
-    readReport = @(path) readValidated(path, fullfile(schema_root, 'eval_report.schema.json'));
+    readReport = @(path) readVersionedReport(path, schema_root);
     readDetail = @(path) readValidated(path, fullfile(schema_root, 'plot_data.schema.json'));
     if strcmp(slice, 'identity')
         % English labels carrying non-ASCII mathematical symbols (Greek
@@ -34,7 +34,7 @@ function evalReportPublic(source_root, output_root, slice)
         assert(isequaln(s0, s1) && isequaln(p0, p1) && isequaln(c0, c1), 'Report changed benchmark outputs.');
         assert(isequal(state_without, rng), 'Report consumed scientific RNG state.');
         report = readReport(options.report_path);
-        assert(strcmp(report.schema, 'optiprofiler.eval_report/1'));
+        assert(strcmp(report.schema, 'optiprofiler.eval_report/2'));
         assert(strcmp(report.status, 'completed'));
         assert(strcmp(report.stages.numerical.status, 'completed'));
         assert(strcmp(report.stages.rendering.status, 'not_requested'));
@@ -391,8 +391,12 @@ function evalReportPublic(source_root, output_root, slice)
         assert(~loaded.coverage.original_selection_known && strcmp(loaded.coverage.scope, 'retained_archive'));
         assert(isempty(loaded.coverage.load_failed), 'Archive coverage must not certify zero historical failed loads.');
         assert(isempty(loaded.problems.budget.evaluations) && strcmp(loaded.problems.budget.reason, 'original_execution_budget_not_retained'), 'Current defaults are not original archive budgets.');
-        assert(isempty(loaded.problems.runs(1).budget_reached) && isempty(loaded.problems.runs(1).oracle_seed), 'Load cannot infer budgets or seeds.');
-        assert(strcmp(loaded.problems.runs(1).oracle_seed_reason, 'execution_metadata_not_retained'));
+        assert(isempty(loaded.problems.runs(1).budget_reached), 'Load cannot infer the original budget.');
+        % This archive was just produced by V2 and retains actual execution
+        % metadata. Old pre-pipeline archives have a separate unknown-facts gate.
+        assert(isequal(loaded.problems.runs(1).oracle_seed, fresh.problems.runs(1).oracle_seed));
+        assert(strcmp(loaded.problems.runs(1).execution.kind, 'actual'));
+        assert(isequal(loaded.problems.runs(1).runtime, fresh.problems.runs(1).runtime));
         assert(isempty(loaded.configuration.effective.feature.name), 'Default load feature is not original execution provenance.');
         assert(strcmp(loaded.coverage.reason, 'original_selection_and_load_failures_not_retained'));
         options.score_only = true; options.problem_names = {'unloadable'};
@@ -625,6 +629,19 @@ end
 function x = zeroOnWorker(fun, x0)
     assert(~isempty(getCurrentTask()), 'Expected actual MATLAB worker execution.');
     x = zero(fun, x0);
+end
+
+function document = readVersionedReport(path, schema_root)
+    raw = jsondecode(readUtf8(path));
+    switch raw.schema
+        case 'optiprofiler.eval_report/1'
+            schema_name = 'eval_report.schema.json';
+        case 'optiprofiler.eval_report/2'
+            schema_name = 'eval_report-v2.schema.json';
+        otherwise
+            error('OptiProfiler:UnsupportedReportVersion', 'Unsupported report schema: %s.', raw.schema);
+    end
+    document = readValidated(path, fullfile(schema_root, schema_name));
 end
 
 function document = readValidated(path, schema_path)
