@@ -10,6 +10,9 @@ function [options, receipt] = loadBenchmarkOptions(source, legacy_feature_name)
 % explicitly; missing identity is never guessed from paths or option values.
 % Native MAT loading is trusted input and can execute user code. Callback names
 % in JSON reports are descriptions, not recipes for reconstructing functions.
+% The inspection duplicate is checked for ordinary values/structure and callback
+% positions/types only; callback identity or semantics is not certified. Only
+% the canonical native Feature supplies callbacks to the returned replay.
     if nargin < 2, legacy_feature_name = []; end
     if ischar(source) || (isstring(source) && isscalar(source))
         try
@@ -43,16 +46,27 @@ function [options, receipt] = loadBenchmarkOptions(source, legacy_feature_name)
                 error('OptiProfiler:InvalidNativeFeature', 'The retained v2 feature must be a genuine scalar Feature object.');
             end
             feature = source.feature;
-            stages = feature.stages;
+            try
+                stages = feature.stages;
+            catch cause
+                % MATLAB can warn on loadobj failure and return an object of
+                % the right class with unusable state. Class identity alone
+                % therefore cannot certify a canonical replay object.
+                failure = MException('OptiProfiler:InvalidNativeFeature', ...
+                    'The retained Feature could not restore its canonical state. Check the MAT load warnings and restore compatible Feature/callback dependencies: %s', cause.message);
+                throwAsCaller(addCause(failure, cause));
+            end
             inspection = cell(1, numel(stages));
             for i = 1:numel(stages)
                 inspection{i} = struct('name', stages{i}.name, 'options', stages{i}.options);
             end
             if isempty(inspection), inspection = {struct('name', 'plain', 'options', struct())}; end
-            if ~isequaln(source.feature_specification, inspection)
+            if ~sameInspection(source.feature_specification, inspection)
                 error('OptiProfiler:InconsistentNativeFeature', ...
                     'feature_specification is inspection-only and disagrees with the canonical native Feature.');
             end
+            receipt.feature_specification_comparison = 'ordinary_structure_and_values_callback_positions_only';
+            receipt.callback_comparison = 'opaque_native_handles_not_identity_or_semantics';
         else
             % A specification-only v2 input is an explicit new replay request;
             % it does not recover a historical declaration or invocation route.
@@ -104,5 +118,43 @@ function [options, receipt] = loadBenchmarkOptions(source, legacy_feature_name)
     if isfield(source, 'n_runs')
         options.n_runs = source.n_runs;
         receipt.retained_n_runs = source.n_runs;
+    end
+end
+
+function same = sameInspection(left, right)
+% Anonymous/closure handles restored from the two native copies need not be
+% isequal even when saved together. Compare ordinary fields exactly, but only
+% require callback positions/types to agree. Never inspect a callback closure
+% or execute it to guess semantic equality; only canonical Feature is replayed.
+    if isa(left, 'function_handle') || isa(right, 'function_handle')
+        same = isa(left, 'function_handle') && isa(right, 'function_handle') ...
+            && isequal(size(left), size(right));
+        return;
+    end
+    if ~strcmp(class(left), class(right)) || ~isequal(size(left), size(right))
+        same = false; return;
+    end
+    if iscell(left)
+        same = true;
+        for k = 1:numel(left)
+            if ~sameInspection(left{k}, right{k}), same = false; return; end
+        end
+    elseif isstruct(left)
+        keys = fieldnames(left);
+        same = isequal(sort(keys), sort(fieldnames(right)));
+        if ~same, return; end
+        for k = 1:numel(left)
+            for j = 1:numel(keys)
+                if ~sameInspection(left(k).(keys{j}), right(k).(keys{j}))
+                    same = false; return;
+                end
+            end
+        end
+    elseif isnumeric(left) || islogical(left) || ischar(left) || isstring(left)
+        same = isequaln(left, right);
+    else
+        % Feature options have ordinary data or callback leaves. Unsupported
+        % objects must not run overloaded equality during metadata checking.
+        same = false;
     end
 end

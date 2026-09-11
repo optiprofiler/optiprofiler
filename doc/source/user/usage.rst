@@ -160,7 +160,11 @@ There are two different ways to use an existing experiment:
 
 New ``options_refined-v2`` files retain the canonical native Feature and a
 separate ``n_runs``. The effective ``feature_specification`` is inspection-only
-when the native Feature is present; inconsistent duplicates are rejected.
+when the native Feature is present; inconsistent ordinary values, structure,
+or callback positions/types are rejected. Native anonymous functions and
+closures need not compare equal after a MAT round trip, so callback identity
+and semantics are not compared. The returned receipt explicitly records this
+limit, and only the canonical Feature supplies executable callbacks.
 Canonical native state preserves resolved options and a separately retained
 declaration, including an unknown declaration after a supported legacy import.
 It does not reconstruct an original invocation route or resume a live runtime.
