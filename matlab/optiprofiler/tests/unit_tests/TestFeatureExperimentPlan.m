@@ -54,6 +54,45 @@ classdef TestFeatureExperimentPlan < matlab.unittest.TestCase
             end
         end
 
+        function reportedPlanMatchesObservedRuntimePolicy(testCase)
+            % A plan declares implementation policy; the runtime independently
+            % records what actually ran. Verify agreement at the public report
+            % boundary for identity, effective single and composed execution.
+            features = {Feature('plain+plain'), ...
+                Feature('noisy', struct('noise_level', 0, 'noise_mode', 'deterministic')), ...
+                Feature('noisy+truncated', struct('noise_level', 0, 'noise_mode', 'deterministic'))};
+            expected = {'matlab-legacy-single-v1', 'matlab-legacy-single-v1', ...
+                'matlab-composed-views-v1'};
+            problem = Problem(struct('fun', @(x) sum(x.^2), 'x0', [2; 1], 'name', 'POLICY_PROBE'));
+            output = tempname;
+            mkdir(output);
+            testCase.addTeardown(@() rmdir(output, 's'));
+            for i = 1:numel(features)
+                report_path = fullfile(output, sprintf('policy-%d.json', i));
+                options = struct('feature', features{i}, 'n_runs', 1, 'problem', problem, ...
+                    'solver_names', {{'first', 'second'}}, 'solver_isrand', [false, false], ...
+                    'n_jobs', 1, 'max_eval_factor', 2, 'seed', 17, 'score_only', true, ...
+                    'draw_hist_plots', 'none', 'silent', true, 'savepath', output, ...
+                    'report_path', report_path);
+                benchmark({@axisProbe, @axisProbe}, options);
+                report = jsondecode(fileread(report_path));
+                testCase.verifyEqual(report.status, 'completed');
+                plan = report.configuration.effective.experiment.primary;
+                testCase.assertTrue(isfield(plan, 'runtime_policy'), ...
+                    'The report must retain the controller-owned implementation policy.');
+                testCase.verifyEqual(plan.runtime_policy, expected{i});
+                runs = report.problems(1).runs;
+                testCase.assertNumElements(runs, 2);
+                for run = 1:numel(runs)
+                    item = runs(run);
+                    if iscell(runs), item = runs{run}; end
+                    testCase.verifyEqual(item.execution.kind, 'executed');
+                    testCase.verifyEqual(item.runtime.runtime_policy, expected{i});
+                    testCase.verifyEqual(item.runtime.runtime_policy, plan.runtime_policy);
+                end
+            end
+        end
+
         function literalHintsAreNotStochasticPredicates(testCase)
             % Affine without rotation is deterministic but keeps literal hint
             % 5; custom is classified stochastic but its historical hint is 1.
