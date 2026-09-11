@@ -1,8 +1,11 @@
 classdef FeatureOptionKey
-%FEATUREOPTIONKEY enumerates options for defining features.
-    
-    enumeration
+%FEATUREOPTIONKEY Active local option names and a native-archive legacy symbol.
+    enumeration (Hidden)
+        % Keep this name for native MAT enum deserialization only. It is not
+        % an active feature option and must never drive runtime count policy.
         N_RUNS ('n_runs')
+    end
+    enumeration
         DISTRIBUTION ('distribution')
         PERTURBATION_LEVEL ('perturbation_level')
         NOISE_LEVEL ('noise_level')

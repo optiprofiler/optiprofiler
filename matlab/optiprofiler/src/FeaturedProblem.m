@@ -71,6 +71,7 @@ classdef FeaturedProblem < Problem
         fun_init
         maxcv_init
         execution_strategy
+        runtime_policy
         seed_policy
     end
 
@@ -173,10 +174,13 @@ classdef FeaturedProblem < Problem
             obj.kernel = kernel;
             obj.final_view = view;
             if isempty(view)
-                obj.execution_strategy = 'matlab-legacy-single-v1';
+                if isempty(stages), obj.execution_strategy = 'identity';
+                else, obj.execution_strategy = 'legacy-single'; end
+                obj.runtime_policy = 'matlab-legacy-single-v1';
                 obj.seed_policy = 'legacy-run-seed';
             else
-                obj.execution_strategy = 'matlab-composed-views-v1';
+                obj.execution_strategy = 'composed-views';
+                obj.runtime_policy = 'matlab-composed-views-v1';
                 obj.seed_policy = 'matlab-stage-horner32-v1';
             end
             obj.problem = problem;
@@ -627,7 +631,8 @@ classdef FeaturedProblem < Problem
             stages = {};
             if ~isempty(obj.final_view), stages = obj.final_view.runtimeStages(); end
             receipt = struct('language','matlab','execution_strategy',obj.execution_strategy, ...
-                'seed_policy',obj.seed_policy,'run_seed',obj.seed,'stages',{stages});
+                'runtime_policy',obj.runtime_policy,'seed_policy',obj.seed_policy, ...
+                'run_seed',obj.seed,'stages',{stages});
         end
         function [f, cv] = evaluateTruth(obj, x)
             if ~isempty(obj.final_view)

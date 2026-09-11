@@ -9,6 +9,9 @@ classdef FeatureProblemView < Problem
         kernel
         dimensions
         seeds
+        affine_matrix
+        affine_shift
+        is_affine = false
         served = struct('fun',0,'cub',0,'ceq',0)
     end
     methods
@@ -19,19 +22,34 @@ classdef FeatureProblemView < Problem
                 'aub',predecessor.aub,'bub',predecessor.bub, ...
                 'aeq',predecessor.aeq,'beq',predecessor.beq,'fun',@(x) NaN);
             dimensions=[predecessor.m_nonlinear_ub,predecessor.m_nonlinear_eq];
+            kernel=[]; seeds=[];
+            A=eye(predecessor.n); b=zeros(predecessor.n,1);
+            affine=false;
+            if ~isempty(stage)
+                kernel=optiprofiler_internal.FeatureKernel(stage.name,stage.options);
+                channels={'fun','cub','ceq','construction'};
+                seeds=struct();
+                for k=1:4
+                    seeds.(channels{k})=optiprofiler_internal.deriveFeatureStageSeed( ...
+                        run_seed,stage.code,stage.occurrence,k-1);
+                end
+                affine=ismember(stage.name,{'permuted','linearly_transformed','custom'});
+                if affine
+                    [A,b]=kernel.modifier_affine(seeds.construction,predecessor);
+                    structure.x0=kernel.modifier_x0(seeds.construction,predecessor);
+                    [structure.xl,structure.xu]=kernel.modifier_bounds(seeds.construction,predecessor);
+                    [structure.aub,structure.bub]=kernel.modifier_linear_ub(seeds.construction,predecessor);
+                    [structure.aeq,structure.beq]=kernel.modifier_linear_eq(seeds.construction,predecessor);
+                elseif strcmp(stage.name,'perturbed_x0')
+                    structure.x0=kernel.modifier_x0(seeds.construction,predecessor);
+                end
+            end
             obj@Problem(structure);
             obj.predecessor=predecessor;
             obj.stage=stage;
             obj.dimensions=dimensions;
-            if ~isempty(stage)
-                obj.kernel=optiprofiler_internal.FeatureKernel(stage.name,stage.options);
-                channels={'fun','cub','ceq','construction'};
-                obj.seeds=struct();
-                for k=1:4
-                    obj.seeds.(channels{k})=optiprofiler_internal.deriveFeatureStageSeed( ...
-                        run_seed,stage.code,stage.occurrence,k-1);
-                end
-            end
+            obj.kernel=kernel; obj.seeds=seeds;
+            obj.affine_matrix=A; obj.affine_shift=b; obj.is_affine=affine;
         end
         function value=fun(obj,x), value=obj.observed('fun',x); end
         function value=cub(obj,x), value=obj.observed('cub',x); end
@@ -41,6 +59,7 @@ classdef FeatureProblemView < Problem
             if isempty(obj.stage)
                 value=obj.predecessor.(channel)(x);
             else
+                x=obj.map(x);
                 if strcmp(obj.stage.name,'quantized') && obj.stage.options.ground_truth
                     x=obj.quantize(x);
                 end
@@ -79,7 +98,7 @@ classdef FeatureProblemView < Problem
             if isempty(obj.stage)
                 [bounds,linear]=obj.observedStructural(x);
             else
-                [bounds,linear]=obj.predecessor.referenceStructural(x);
+                [bounds,linear]=obj.predecessor.referenceStructural(obj.map(x));
             end
         end
         function value=referenceNonlinear(obj,x)
@@ -88,6 +107,7 @@ classdef FeatureProblemView < Problem
                 if obj.dimensions(1)>0, value=max([obj.reference('cub',x);0],[],'includenan'); end
                 if obj.dimensions(2)>0, value=max([abs(obj.reference('ceq',x));value],[],'includenan'); end
             else
+                x=obj.map(x);
                 if strcmp(obj.stage.name,'quantized') && obj.stage.options.ground_truth
                     x=obj.quantize(x);
                 end
@@ -96,7 +116,7 @@ classdef FeatureProblemView < Problem
         end
         function x=toOriginalCoordinates(obj,x)
             x=obj.point(x);
-            if ~isempty(obj.stage), x=obj.predecessor.toOriginalCoordinates(x); end
+            if ~isempty(obj.stage), x=obj.predecessor.toOriginalCoordinates(obj.map(x)); end
         end
         function records=runtimeStages(obj)
             if isempty(obj.stage), records={}; return; end
@@ -126,6 +146,7 @@ classdef FeatureProblemView < Problem
             end
             index=obj.served.(channel);
             obj.served.(channel)=index+1;
+            x=obj.map(x);
             if strcmp(obj.stage.name,'quantized')
                 % A local mesh reads its predecessor once. It is not the
                 % legacy kernel's eager unsnapped pre-read plus snapped read.
@@ -140,6 +161,9 @@ classdef FeatureProblemView < Problem
             mesh=obj.stage.options.mesh_size;
             if strcmp(obj.stage.options.mesh_type,'relative'), mesh=mesh.*max(1,abs(x)); end
             x=mesh.*round(x./mesh);
+        end
+        function x=map(obj,x)
+            if obj.is_affine, x=obj.affine_matrix*x+obj.affine_shift; end
         end
         function x=point(obj,x)
             if ~(isnumeric(x) && isreal(x) && isvector(x) && numel(x)==obj.n)
