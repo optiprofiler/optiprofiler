@@ -86,7 +86,7 @@ classdef TestFeatureExperimentPlan < matlab.unittest.TestCase
                 for run = 1:numel(runs)
                     item = runs(run);
                     if iscell(runs), item = runs{run}; end
-                    testCase.verifyEqual(item.execution.kind, 'executed');
+                    testCase.verifyEqual(item.execution.kind, 'actual');
                     testCase.verifyEqual(item.runtime.runtime_policy, expected{i});
                     testCase.verifyEqual(item.runtime.runtime_policy, plan.runtime_policy);
                 end
