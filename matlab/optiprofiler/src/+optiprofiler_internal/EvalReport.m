@@ -3,8 +3,9 @@ classdef EvalReport < handle
 % Numeric completion is not convergence; recorded history excludes padding.
 % The emitted vocabulary is shared with the Python collector
 % (python/optiprofiler/eval_report.py) and pinned by
-% python/optiprofiler/schemas/eval_report.schema.json and plot_data.schema.json
+% python/optiprofiler/schemas/eval_report-v2.schema.json and plot_data.schema.json
 % (Python package resources, also downloadable from the documentation):
+% eval_report.schema.json remains the immutable historical v1 contract.
 % identical concepts use identical keys; genuine MATLAB conventions (sample
 % standard deviation, 1-based seed rule, retained log-ratio bar identity,
 % native/portable renderer variants) are explicit fields, not renamed ones.
