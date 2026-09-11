@@ -53,7 +53,7 @@ classdef Feature < handle
 %   shorthand string, and cannot be combined with flat local options or load.
 %   The experiment layer resolves repetition defaults and the independent
 %   plain-reference role; stochastic classification alone does not determine
-%   the run count. Profile options such as seed are not stage options.
+%   the run count. Experiment-wide controls such as seed are not stage options.
 %
 %   Built-in stages and all local options
 %   -------------------------------------
