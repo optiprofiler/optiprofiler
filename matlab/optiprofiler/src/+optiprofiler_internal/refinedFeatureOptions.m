@@ -10,7 +10,8 @@ function options = refinedFeatureOptions(feature, plan, problem_options, profile
     % Reconstructing from its display spelling would lose unknown declaration
     % provenance and could reapply changed defaults to already-resolved stages.
     options.feature = feature;
-    options.feature_route = context.route;
+    options.feature_route = [];
+    if isfield(context, 'route'), options.feature_route = context.route; end
     options.feature_name = feature.name;
     stages = feature.stages;
     specification = cell(1, numel(stages));

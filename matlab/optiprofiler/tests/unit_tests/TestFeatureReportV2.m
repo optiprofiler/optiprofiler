@@ -46,6 +46,19 @@ classdef TestFeatureReportV2 < matlab.unittest.TestCase
             testCase.verifyError(@() loadBenchmarkOptions(native), 'OptiProfiler:InvalidNativeFeature');
         end
 
+        function defaultPlainDoesNotInventAnInputKeyword(testCase)
+            output = tempname(getenv('OP_ARTIFACTS')); mkdir(output);
+            problem = Problem(struct('fun', @(x) sum(x.^2), 'x0', [2; 1], 'name', 'REPORT_V2_DEFAULT'));
+            options = struct('problem', problem, 'n_runs', 1, 'n_jobs', 1, ...
+                'solver_names', {{'stay', 'half'}}, 'max_eval_factor', 2, 'seed', 17, ...
+                'score_only', true, 'silent', true, 'report_path', fullfile(output, 'default.json'));
+            benchmark({@stay, @half}, options);
+            report = jsondecode(fileread(options.report_path));
+            testCase.verifyEmpty(report.configuration.effective.feature.route);
+            testCase.verifyEqual(report.configuration.effective.feature.effective_name, 'plain');
+            testCase.verifyEqual(report.configuration.effective.experiment.primary.n_runs, 1);
+        end
+
         function legacyReplayRequiresIdentityAndPreservesNativeValues(testCase)
             old = struct('n_runs', 3, 'noise_level', 0, 'noise_map', @sin, 'noise_mode', 'deterministic');
             testCase.verifyError(@() loadBenchmarkOptions(old), 'OptiProfiler:LegacyFeatureIdentityMissing');
