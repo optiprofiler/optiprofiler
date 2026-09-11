@@ -110,10 +110,12 @@ executed by one recorder over lazily composed views with per-stage, per-channel
 seeds derived by a language-local policy over the same stage identities
 (Python `seedsequence-v2`; MATLAB `matlab-stage-horner32-v1`, an exact 32-bit
 Horner fold feeding the unchanged legacy stream kernel; neither language
-promises the other's samples). Counters, budgets, truth evaluation and histories
-live in the recorder only; stages are never wrapped recursively. Spatial
-transformations carry bounds, constraints, truth and derivative semantics
-through the same view protocol.
+promises the other's samples). One outer recorder owns solver budgets, public
+call counters and histories; stage views own local served-query state and
+transform observation and reference paths. Public recorders are not nested.
+Spatial views transport bounds and constraints; composed derivative methods
+explicitly reject unsupported calls (Python raises `NotImplementedError`,
+MATLAB errors).
 
 Provenance is explicit (`feature_pipeline-v3`: feature block plus experiment
 block; `options_refined-v2` for native replay), historical payloads are kept
