@@ -1,8 +1,161 @@
 classdef Feature < handle
-%FEATURE Reusable, locally configured ordered problem transformations.
-% STAGES and DECLARED return value copies; user function handles remain native
-% references and are not invoked during normalization. Experiment repetitions
-% belong to benchmark options, never to this specification.
+%FEATURE Reusable specification of ordered problem transformations.
+%
+%   A Feature owns configuration, not an experiment or a live random stream.
+%   Each effective stage has its own validated local options. FeaturedProblem
+%   builds fresh execution state from the specification for each trial.
+%
+%   .. rubric:: Construction
+%
+%   F = Feature(NAME) accepts an atomic char/string name or names joined with
+%   '+'. The first name is applied first: 'noisy+truncated' adds noise and then
+%   truncates the observed value. Names are trimmed and lowercased.
+%
+%   F = Feature(NAME, OPTIONS) accepts a scalar struct of local options.
+%   F = Feature(NAME, KEY, VALUE, ...) accepts the same options as name/value
+%   pairs. A supplied option is broadcast to every declared stage that accepts
+%   it; each stage validates it separately. An option accepted by no stage is
+%   an error. Repeated stages share these flat supplied values.
+%
+%   F = Feature(STAGE) accepts a scalar struct with fields 'name' and optional
+%   'options' (a scalar struct). F = Feature(STAGES) accepts a nonempty cell
+%   array of atomic names or such structs, in order. This form gives repeated
+%   stages independent options. Extra flat options, struct arrays, internal
+%   stage records, and empty specifications are not accepted. Stage names in
+%   structured input must be atomic, not joined with '+'.
+%
+%   F = Feature(EXISTING_FEATURE) returns the existing canonical Feature
+%   without normalizing it again. No extra options are accepted in this form.
+%   Feature() without a specification is an error; use Feature('plain').
+%
+%   'plain' entries are validated before being removed. An all-plain
+%   declaration has zero effective stages, while the declaration remains
+%   available for inspection. Any number of stages is allowed and names may
+%   repeat. For example::
+%
+%       F = Feature({ ...
+%           struct('name','noisy','options',struct('noise_level',1e-2)), ...
+%           'plain', ...
+%           struct('name','noisy','options',struct('noise_level',1e-4))});
+%
+%   .. rubric:: Experiment options
+%
+%   n_runs is never a Feature option, including inside a stage. Supply it to
+%   benchmark instead, for example::
+%
+%       options = struct('feature', F, 'n_runs', 3);
+%       scores = benchmark({@solver1, @solver2}, options);
+%
+%   At the benchmark boundary, 'feature' and 'feature_name' are mutually
+%   exclusive. 'feature' accepts a Feature or structured stages, not a bare
+%   shorthand string, and cannot be combined with flat local options or load.
+%   The experiment layer resolves repetition defaults and the independent
+%   plain-reference role; stochastic classification alone does not determine
+%   the run count. Experiment-wide controls such as seed are not stage options.
+%
+%   .. rubric:: Built-in stages and all local options
+%
+%   The following defaults are local to one stage. A missing local OPTIONS
+%   struct uses these defaults. No stage stores n_runs.
+%
+%   - 'plain': the identity; no local options.
+%   - 'perturbed_x0': perturb the initial point. 'distribution' defaults to
+%     'spherical'; alternatives are 'gaussian' or a function handle accepting
+%     (random_stream, dimension) and returning a perturbation vector.
+%     'perturbation_level' is the magnitude factor (default 1e-3), scaled by
+%     max(1, norm(problem.x0)).
+%   - 'noisy': modify observed objective and nonlinear-constraint values.
+%     'distribution' defaults to 'gaussian'; alternatives are 'uniform' or a
+%     function handle accepting (random_stream, output_size).
+%     'noise_level' defaults to 1e-3. 'noise_type' is 'absolute', 'relative',
+%     or 'mixed' (default 'mixed'). 'noise_mode' is 'random' (default) or
+%     'deterministic'. In deterministic mode, 'noise_map' is 'chebyshev'
+%     (default) or a function handle x -> real scalar. The named noise map is
+%     not used in random mode.
+%   - 'truncated': truncate observed objective and nonlinear-constraint values.
+%     'significant_digits' is the retained number of significant digits
+%     (default 6). 'perturbed_trailing_digits' controls randomization of the
+%     trailing digits (default false).
+%   - 'permuted': randomly permute variables and transport the initial point,
+%     bounds and constraints consistently; no local options.
+%   - 'linearly_transformed': apply an invertible linear coordinate change.
+%     'rotated' controls random rotation (default true). 'condition_factor'
+%     defaults to 0; the existing transformation has condition number
+%     2 ^ sqrt(condition_factor * n / 2) for dimension n >= 2, and 1 for n = 1.
+%   - 'random_nan': replace observed objective and nonlinear-constraint values
+%     by NaN with probability 'nan_rate' (default 0.05).
+%   - 'unrelaxable_constraints': set the observed objective to Inf when a
+%     selected category of predecessor constraints is violated.
+%     'unrelaxable_bounds' defaults to true;
+%     'unrelaxable_linear_constraints' and
+%     'unrelaxable_nonlinear_constraints' default to false.
+%   - 'nonquantifiable_constraints': return 0 when cub <= 0 or abs(ceq) <= 1e-6,
+%     and 1 otherwise, retaining undefined values as NaN; no local options.
+%   - 'quantized': evaluate at a point snapped to a mesh. 'mesh_size' defaults
+%     to 1e-3; 'mesh_type' is 'absolute' (default) or 'relative'. 'ground_truth'
+%     defaults to true: the local reference objective and nonlinear
+%     constraints also use the snapped point. With false, only observations
+%     are snapped. Bounds and linear constraints are assessed at the unsnapped
+%     point in that stage's coordinate system.
+%   - 'custom': user-supplied modifier function handles, listed below. Omitted
+%     modifiers use the runtime's default behavior; a supplied mod_affine still
+%     changes coordinates and transports omitted structural components.
+%
+%   Custom local options have these signatures; random_stream is supplied by
+%   the runtime, and problem is the stage's immediate predecessor Problem::
+%
+%       mod_x0:        (random_stream, problem) -> modified_x0
+%       mod_affine:    (random_stream, problem) -> (A, b, inverse_A)
+%       mod_bounds:    (random_stream, problem) -> (modified_xl, modified_xu)
+%       mod_linear_ub: (random_stream, problem) -> (modified_aub, modified_bub)
+%       mod_linear_eq: (random_stream, problem) -> (modified_aeq, modified_beq)
+%       mod_fun:       (x, random_stream, problem) -> modified_fun
+%       mod_cub:       (x, random_stream, problem) -> modified_cub
+%       mod_ceq:       (x, random_stream, problem) -> modified_ceq
+%
+%   mod_affine uses the coordinate map A*x+b and its inverse. Within an
+%   observation callback, querying problem.fun/cub/ceq serves that predecessor
+%   again; these calls are not silently treated as reference reads.
+%
+%   .. rubric:: Inspection, transport and compatibility
+%
+%   Read-only properties are 'stages', 'declared', 'name', 'declared_name',
+%   'is_stochastic', 'is_identity' and 'specification_version'. 'stages' is a
+%   cell array of effective records with name, occurrence (same-kind zero-based
+%   index), identity (for example 'noisy#0'), literal code and normalized local
+%   options. The effective 'name' joins those stages, or is 'plain' for identity.
+%   'is_identity' tests for zero effective stages. 'is_stochastic' reports the
+%   stages' established classification (custom is classified as stochastic),
+%   not the number of actual executions or a guarantee of independent draws.
+%
+%   'declared' retains a route ('feature_name' or 'feature') and entries with
+%   supplied name/options before defaults, including plain entries;
+%   'declared_name' joins those declared names. An imported historical Feature
+%   with no recorded declaration has declared=[] and declared_name=''. The
+%   specification's declaration route is distinct from the benchmark keyword
+%   through which an existing Feature is later supplied.
+%
+%   Returned records and option structs are value copies. Native function
+%   handles and handle-valued user state remain references; Feature does not
+%   promise deep immutability of a callback's captured state. Normalization
+%   does not invoke callbacks; their outputs are checked during execution.
+%
+%   Current native save/load transports versioned, resolved effective options
+%   and the separately retained declaration, not runtime counters or streams.
+%   The known old stored name/options layout loads into a LegacyFeatureEnvelope.
+%   optiprofiler_internal.importLegacyFeature converts that envelope to a clean
+%   Feature plus a separate retained experiment request; an old resolved count
+%   is not proof that the old caller requested it explicitly. For saved options,
+%   loadBenchmarkOptions prepares a fresh benchmark rather than replotting or
+%   resuming a live runtime. Native MAT loading is trusted input and can execute
+%   code; original callback/class dependencies must be available. JSON callback
+%   descriptions are not executable reconstruction recipes.
+%
+%   'options' and modifier_x0/affine/bounds/linear_ub/linear_eq/fun/cub/ceq are
+%   deprecated identity/single-effective-stage conveniences. They warn, and
+%   accessing them for multiple effective stages is an error. Each modifier
+%   call creates a fresh numerical kernel; the engine does not use these
+%   conveniences to execute a pipeline. Use FeaturedProblem for execution.
     properties (Access = private)
         specification_
     end

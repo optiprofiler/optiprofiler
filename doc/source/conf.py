@@ -41,6 +41,24 @@ release = optiprofiler.__version__
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
+# Both autodoc extensions emit the same docstring event. MATLAB-domain objects
+# already carry reStructuredText help, but numpydoc expects Python classes and
+# rejects MatClass instances. Wrap only that handler before extension setup;
+# every non-MATLAB object retains numpydoc's original arguments and behavior.
+from numpydoc import numpydoc as _numpydoc_extension
+from sphinxcontrib.mat_types import MatObject as _MatObject
+
+if not getattr(_numpydoc_extension.mangle_docstrings, '_optiprofiler_matlab_guard', False):
+    def _mangle_python_docstrings(app, what, name, obj, options, lines,
+                                 _original=_numpydoc_extension.mangle_docstrings,
+                                 _mat_object_type=_MatObject):
+        if isinstance(obj, _mat_object_type):
+            return
+        return _original(app, what, name, obj, options, lines)
+
+    _mangle_python_docstrings._optiprofiler_matlab_guard = True
+    _numpydoc_extension.mangle_docstrings = _mangle_python_docstrings
+
 extensions = [
     'sphinx.ext.doctest',
     'sphinx.ext.intersphinx',

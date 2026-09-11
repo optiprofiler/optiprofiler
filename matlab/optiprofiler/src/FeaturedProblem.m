@@ -1,61 +1,90 @@
 classdef FeaturedProblem < Problem
-%FEATUREDPROBLEM is a subclass of Problem class and defines an optimization problem
-%   with a specific feature.
+%FEATUREDPROBLEM Problem interface and recorder for one featured trial.
 %
-%   Problem and its subclass FEATUREDPROBLEM describe the following
-%   optimization problem:
+%   FP = FeaturedProblem(P, F, MAX_EVAL, SEED) builds a fresh runtime for the
+%   original Problem P and canonical Feature F. MAX_EVAL is a positive integer;
+%   SEED is a nonnegative integer less than 2^32. There is no fifth
+%   termination_eval argument. Reusing F does not reuse this trial's histories,
+%   counters or random streams. Repetition policy belongs to benchmark, not FP.
 %
-%       min fun(x)
-%       s.t. xl <= x <= xu,
-%            aub * x <= bub,
-%            aeq * x = beq,
-%            cub(x) <= 0,
-%            ceq(x) = 0,
-%       with initial point x0.
+%   FP is a Problem subclass with an initial point x0 and the usual objective,
+%   bounds, linear constraints and nonlinear constraints. fun, cub and ceq
+%   return the values observed by the solver. maxcv and the stored histories
+%   use the scoring reference described below, not necessarily those observed
+%   values.
 %
-%   FEATUREDPROBLEM should be initialized by the following signature:
+%   .. rubric:: Execution strategy
 %
-%       FP = FEATUREDPROBLEM(P, F, MAX_EVAL, SEED);
+%   Zero effective stages use execution_strategy='identity'; one uses
+%   'legacy-single'. Both retain runtime_policy='matlab-legacy-single-v1' and
+%   seed_policy='legacy-run-seed', including the established MATLAB numerical
+%   kernels, payload-dependent random streams and history-counter behavior.
+%   Plain entries do not create extra stages or change these strategies.
 %
-%   where the return FP is an instance of FEATUREDPROBLEM, the input P is an
-%   instance of Problem, the input F is an instance of Feature, the input
-%   MAX_EVAL is a positive integer, and the input SEED is a nonnegative integer
-%   seed less than 2^32.
+%   Two or more effective stages use execution_strategy='composed-views',
+%   runtime_policy='matlab-composed-views-v1' and
+%   seed_policy='matlab-stage-horner32-v1'. One outer recorder owns the public
+%   histories and budget; stage views own local execution state and receive
+%   the immediate predecessor. A stage or custom callback may legitimately
+%   query its predecessor more than once. This is not a promise of one original
+%   callback per public query, statistical independence, or matching random
+%   samples across MATLAB and Python. Composite derivative methods explicitly
+%   raise UnsupportedCompositeDerivative; the legacy derivative behavior is
+%   retained for identity/single execution.
 %
-%   The output FP contains the following properties:
+%   .. rubric:: Observations, reference values and histories
 %
-%       - problem: the original optimization problem.
-%       - feature: the feature applied to the optimization problem.
-%       - max_eval: the maximum number of function evaluations.
-%       - seed: the seed for the random number generator.
-%       - fun_hist: the history of the evaluated objective function values.
-%       - cub_hist: the history of the evaluated nonlinear inequality
-%         constraints.
-%       - ceq_hist: the history of the evaluated nonlinear equality
-%         constraints.
-%       - maxcv_hist: the history of the maximum constraint violation.
-%       - n_eval_fun: the minimum between the number of objective function
-%         evaluations and max_eval.
-%       - n_eval_cub: the minimum between the number of nonlinear inequality
-%         constraint evaluations and max_eval.
-%       - n_eval_ceq: the minimum between the number of nonlinear equality
-%         constraint evaluations and max_eval.
-%       - fun_init: the objective function value at the initial point.
-%       - maxcv_init: the maximum constraint violation at the initial point.
+%   Observation-only value changes such as noise do not change the reference
+%   used for scoring. Spatial transformations transport both observation and
+%   reference coordinates. A quantized stage with ground_truth=true also
+%   snaps its local reference objective and nonlinear constraints; with false
+%   it snaps observations only. Its bounds and linear constraints are checked
+%   at the unsnapped point in that stage's coordinates. Reference values are
+%   therefore not universally the original untransformed callback values.
 %
-%   The output FP contains all the methods of Problem, but the methods `fun`,
-%   `cub`, `ceq`, and `maxcv` are modified by the input Feature.
+%   Reference reads for initialization, history, maxcv and final scoring do
+%   not consume the public fun/cub/ceq call budget or advance served-query
+%   counters. They may still evaluate user callbacks. Observation-side custom
+%   probes and constraint-gate probes are served predecessor queries and may
+%   consume that predecessor's local samples without becoming extra outer
+%   recorder entries.
 %
-%   Note the following two points.
+%   Public read-only properties include:
 %
-%   1. When the number of function evaluations reaches the input MAX_EVAL, the
-%   methods `fun`, `cub`, and `ceq` will return the values of the objective
-%   function and constraints at the point where the maximum number of function
-%   evaluations is reached, respectively.
+%   - problem, feature: the original P and reusable F.
+%   - max_eval, seed: this trial's budget and seed.
+%   - execution_strategy, runtime_policy, seed_policy: the policies above.
+%   - fun_hist: reference objective values recorded at admitted fresh objective
+%     evaluations.
+%   - cub_hist, ceq_hist: reference nonlinear-constraint histories, with one
+%     column per recorded fresh evaluation. The optional record_hist=false
+%     argument suppresses storage, not the public call counter or evaluation.
+%   - maxcv_hist: reference maximum violations at recorded objective points,
+%     not a separate sequence of constraint calls; unavailable evaluations are
+%     recorded as NaN.
+%   - fun_init, maxcv_init: reference values at the featured initial point.
 %
-%   2. When the number of function evaluations reaches two times the input
-%   MAX_EVAL, the methods `fun`, `cub`, and `ceq` will raise an error
-%   to terminate the optimization process.
+%   n_eval_fun is the length of fun_hist. For composed views, n_eval_cub and
+%   n_eval_ceq count history columns. For identity/legacy-single execution,
+%   they deliberately retain length(cub_hist) and length(ceq_hist): these can
+%   depend on the number of constraint components, not just recorded calls.
+%   These accessors are not general counts of user callbacks or solver calls.
+%
+%   .. rubric:: Cache and hard stop
+%
+%   Each channel checks its history-based n_eval accessor against MAX_EVAL.
+%   Once that accessor is at least MAX_EVAL, a call returns the last observed
+%   value cached for that channel, irrespective of the new point, and appends
+%   no history. The legacy constraint-length caveat above also applies to this
+%   cache condition; this interface does not revise that numerical policy.
+%
+%   A separate public-call counter is maintained for each of fun, cub and ceq.
+%   Calls served from cache still count. Before accepting a call, the channel
+%   raises its ExceedTerminationEval error if its counter is already at least
+%   2*MAX_EVAL. Thus, after 2*MAX_EVAL accepted public call attempts on one
+%   channel, its next attempt raises before evaluating or returning the cache.
+%   An evaluation that later errors can already have advanced this counter;
+%   a history length is not evidence that the same number of calls succeeded.
 %
 
     properties (GetAccess = public, SetAccess = private)
