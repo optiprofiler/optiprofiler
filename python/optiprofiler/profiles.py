@@ -35,8 +35,9 @@ from .utils import DEFAULT_LOG_LINE_WIDTH, FeatureName, ProfileOption, FeatureOp
 from .loader import load_results, save_results_to_h5, save_options
 from .profile_utils import check_validity_problem_options, check_validity_profile_options, check_post_load_profile_options, get_default_problem_options, get_default_profile_options, compute_merit_values, create_stamp, merge_pdfs_with_pypdf, write_report, process_results, init_readme, add_to_readme, compute_scores
 from .profile_utils import _mask_invalid_merits, _get_default_feature_stamp
-from .composition import (_effective_specification, describe_pipeline, parse_feature_name, parse_feature_spec,
-                          reject_flat_stage_options)
+from .experiment import ABSENT, PLAIN_REFERENCE, PRIMARY, resolve_plan
+from .feature_definitions import reject_flat_stage_options
+from .provenance import effective_specification, feature_pipeline_text
 from .plotting import draw_hist, set_profile_context, format_float_scientific_latex, draw_profiles, summary_legend_extra_width, latex_escape_text, format_profile_text
 
 
@@ -92,20 +93,14 @@ def _append_quantized_truth_note(feature, is_load, results_plibs, path_report, p
                 'their truth convention; older quantized archives may contain '
                 'mixed truth channels.')
     else:
-        stages = getattr(feature, '_stages', None)
-        if stages is None:
-            if feature.name != FeatureName.QUANTIZED:
-                return
-            quantized = [(None, feature)]
-        else:
-            # One note per quantized stage of a composition, named by identity.
-            quantized = [(stage, stage.feature) for stage in stages if stage.name == FeatureName.QUANTIZED]
-            if not quantized:
-                return
+        # One note per quantized stage, named by identity in a composition.
+        quantized = [(position, stage) for position, stage in enumerate(feature.stages) if stage.name == FeatureName.QUANTIZED]
+        if not quantized:
+            return
         lines = []
-        for stage, child in quantized:
-            truth = bool(child.options[FeatureOption.GROUND_TRUTH])
-            label = '' if stage is None else f" (stage {stage.position + 1} '{stage.identity}')"
+        for position, stage in quantized:
+            truth = bool(stage.options[FeatureOption.GROUND_TRUTH])
+            label = '' if len(feature.stages) == 1 else f" (stage {position + 1} '{stage.identity}')"
             lines.append(f"Quantized truth{label}: {'featured' if truth else 'original'}, "
                          f"ground_truth={str(truth).lower()}; the returned point is unchanged.")
         note = '\n'.join(lines)
@@ -916,8 +911,8 @@ def _benchmark(
     options_user = kwargs.copy()
 
     # Process the feature: the ``feature_name`` shorthand or the structured
-    # ``feature`` specification, never both. Everything here is validated
-    # before any output directory is created.
+    # ``feature`` specification (entries or a Feature object), never both. The
+    # specification is normalized once, below, before any output exists.
     feature_route = 'feature_name'
     feature_spec = None
     if 'feature' in kwargs:
@@ -928,19 +923,14 @@ def _benchmark(
         if feature_spec is None:
             raise ValueError('Option `feature` cannot be None; omit it to run the default (plain) feature.')
         if isinstance(feature_spec, str):
-            raise ValueError('Option `feature` must be a structured specification (a mapping or a list/tuple of '
-                             'stage entries); a feature name string belongs to `feature_name`.')
-        # Every entry, plain ones included, is validated now.
-        parse_feature_spec(feature_spec)
+            raise ValueError('Option `feature` must be a structured specification (a mapping, a list/tuple of '
+                             'stage entries or a Feature); a feature name string belongs to `feature_name`.')
     if 'feature_name' in kwargs:
         feature_name = kwargs.pop('feature_name')
     else:
         feature_name = FeatureName.PLAIN.value
     if not isinstance(feature_name, str):
         raise ValueError(f'Unknown feature name: {feature_name}.')
-    # A "+"-separated name declares an ordered composition. Empty or unknown
-    # tokens are rejected here, before any output directory is created.
-    parse_feature_name(feature_name)
 
     # Process the problem if provided.
     if 'problem' in kwargs and kwargs['problem'] is not None:
@@ -960,14 +950,17 @@ def _benchmark(
         else:
             raise ValueError(f'Unknown option: {key}.')
     if feature_route == 'feature':
-        # Stage options belong inside the entries; only the common ``n_runs``
-        # may be a keyword. A specification means transformations to execute,
-        # so it is refused with ``load``, which keeps the archived pipeline.
+        # Stage options belong inside the entries. A specification means
+        # transformations to execute, so it is refused with ``load``, which
+        # keeps the archived pipeline.
         reject_flat_stage_options(feature_options)
         load_request = profile_options.get(ProfileOption.LOAD)
         if load_request is not None and load_request != '':
             raise ValueError('Option `feature` cannot be used with `load`: loading keeps the archived pipeline of '
                              'the saved experiment; only `feature_name` labels a load.')
+        feature = Feature(feature_spec)
+    else:
+        feature = Feature(feature_name, **feature_options)
 
     # Check profile options first so loading saved results can validate library
     # names structurally without requiring those providers to remain installed.
@@ -992,13 +985,6 @@ def _benchmark(
             'option because a saved experiment is not reloaded from its problem library.'
         )
 
-    # If `n_runs` is not specified, set it to 5 if at least one solver is randomized.
-    any_solver_isrand = ProfileOption.SOLVER_ISRAND in profile_options and any(profile_options[ProfileOption.SOLVER_ISRAND])
-    if FeatureOption.N_RUNS not in feature_options and any_solver_isrand and not is_load:
-        if ProfileOption.SILENT not in profile_options or not profile_options[ProfileOption.SILENT]:
-            print_log_message('INFO', f'We set {FeatureOption.N_RUNS} to 5 since it is not specified and at least one solver is randomized.')
-        feature_options[FeatureOption.N_RUNS] = 5
-
     # Load the existing results if needed.
     # If 'load' is specified, we skip the solving phase and restore the results from disk.
     if is_load:
@@ -1021,13 +1007,14 @@ def _benchmark(
         # 'solvers_to_load' selection has been applied by `load_results`.
         profile_options = check_post_load_profile_options(results_plibs[0]['fun_histories'].shape[1], profile_options)
 
-    # Build the feature from the chosen route. Both routes produce the same
-    # objects; the run count is stored once on the feature that runs.
-    if feature_route == 'feature':
-        feature = Feature(feature_spec, **feature_options)
-    else:
-        feature = Feature(feature_name, **feature_options)
-    feature_options = feature.options
+    # Resolve the primary experiment plan once the solver metadata is known:
+    # explicit ``n_runs``, else five runs with a randomized solver (not on
+    # load), else the largest replicate hint of the effective stages.
+    requested_n_runs = profile_options[ProfileOption.N_RUNS] if ProfileOption.N_RUNS in profile_options else ABSENT
+    primary_plan = resolve_plan(feature, PRIMARY, requested=requested_n_runs,
+                                solver_isrand=profile_options.get(ProfileOption.SOLVER_ISRAND), is_load=is_load)
+    if primary_plan.origin == 'randomized_solvers' and (ProfileOption.SILENT not in profile_options or not profile_options[ProfileOption.SILENT]):
+        print_log_message('INFO', f'We set {ProfileOption.N_RUNS} to 5 since it is not specified and at least one solver is randomized.')
     
     # Set default values for the unspecified options.
     problem_options = get_default_problem_options(problem_options)
@@ -1087,7 +1074,7 @@ def _benchmark(
     path_report = path_log / 'report.txt'
 
     if report is not None:
-        report.configure(problem_options, profile_options, feature,
+        report.configure(problem_options, profile_options, feature, plan=primary_plan,
                          output_dir=None if profile_options[ProfileOption.SCORE_ONLY] else path_stamp)
         report.set_stage('numerical', 'running')
 
@@ -1142,20 +1129,17 @@ def _benchmark(
 
             # Save the refined options (including defaults and internal settings).
             options_refined = profile_options.copy()
-            feature_options_keys = list(feature_options.keys())
-            problem_options_keys = list(problem_options.keys())
-            for key in feature_options_keys:
-                options_refined[key] = feature_options[key]
-            for key in problem_options_keys:
+            for key in list(problem_options.keys()):
                 options_refined[key] = problem_options[key]
-            # The route, the declared name and the ordered effective stage
-            # configuration (native values, callables included) for both
-            # routes. Replay with ``feature=refined['feature_specification']``
-            # and ``n_runs=refined['n_runs']``; the flat keys above are the
-            # shorthand's broadcast values and stay for compatibility.
-            options_refined['feature_route'] = feature_route
-            options_refined['feature_name'] = feature._declared_name
-            options_refined['feature_specification'] = _effective_specification(feature)
+            # Versioned refined configuration: the resolved primary run count and
+            # the ordered effective stage specification (native values, callables
+            # included), never a flat stage-option projection. Replay with
+            # feature=refined['feature_specification'] and n_runs=refined['n_runs'].
+            options_refined['schema'] = 'options_refined-v2'
+            options_refined[ProfileOption.N_RUNS.value] = primary_plan.n_runs
+            options_refined['feature_route'] = feature.declared.route
+            options_refined['feature_name'] = feature.declared_name
+            options_refined['feature_specification'] = effective_specification(feature)
             
             save_options(options_refined, path_log / 'options_refined.pkl')
             add_to_readme(path_readme_log, 'options_refined.pkl', 'File, storing the options refined by OptiProfiler for the current experiment.')
@@ -1243,7 +1227,7 @@ def _benchmark(
             profile_options_log['_eval_report_enabled'] = True
         if not profile_options[ProfileOption.SILENT]:
             _log_solver_aliases(logger, solver_names, profile_options_log[_SOLVER_LOG_NAMES_KEY])
-        result = _solve_one_problem(solvers, problem, feature, problem.name, len(problem.name), profile_options_log, True, path_hist_plots)
+        result = _solve_one_problem(solvers, problem, feature, primary_plan, problem.name, len(problem.name), profile_options_log, True, path_hist_plots)
         if report is not None:
             # Retain completed raw observations even if a user merit callback
             # subsequently fails. Scoring failure is not solver failure.
@@ -1370,7 +1354,7 @@ def _benchmark(
             is_plot_parallel = profile_options[ProfileOption.DRAW_HIST_PLOTS] == 'parallel'
 
             # Solve all the problems from the current problem library with the specified options and get the computation results.
-            results_plib = _solve_all_problems(solvers, plib, feature, problem_options, profile_options, is_plot_parallel, path_hist_plots_plib, log_queue=log_queue,
+            results_plib = _solve_all_problems(solvers, plib, feature, primary_plan, problem_options, profile_options, is_plot_parallel, path_hist_plots_plib, log_queue=log_queue,
                                               **({'_report': report} if report is not None else {}))
 
             # If there are no problems selected or solved, skip the rest of the code, and continue to the next library.
@@ -1395,10 +1379,13 @@ def _benchmark(
             # Run the 'plain' feature if run_plain is true.
             if profile_options[ProfileOption.RUN_PLAIN]:
                 feature_plain = Feature(FeatureName.PLAIN.value)
+                # The plain reference has its own plan: one stored and one actual
+                # run per solver, never the primary count.
+                plan_plain = resolve_plan(feature_plain, PLAIN_REFERENCE)
                 if not profile_options[ProfileOption.SILENT]:
                     logger.info('')
                     logger.info(f'Start testing problems from the problem library "{plib}" with "plain" feature.')
-                results_plib_plain = _solve_all_problems(solvers, plib, feature_plain, problem_options, profile_options, False, None, log_queue=log_queue,
+                results_plib_plain = _solve_all_problems(solvers, plib, feature_plain, plan_plain, problem_options, profile_options, False, None, log_queue=log_queue,
                                                         **({'_report': report, '_report_role': 'plain_reference'} if report is not None else {}))
                 if not results_plib_plain or len(results_plib_plain['problem_names']) == 0:
                     if not profile_options[ProfileOption.SILENT]:
@@ -2183,7 +2170,7 @@ def _resolve_benchmark_plib_options(problem_options):
     }
 
 
-def _solve_all_problems(solvers, plib, feature, problem_options, profile_options, is_plot, path_hist_plots, log_queue=None, _report=None, _report_role='primary'):
+def _solve_all_problems(solvers, plib, feature, plan, problem_options, profile_options, is_plot, path_hist_plots, log_queue=None, _report=None, _report_role='primary'):
     """
     Solve all problems in plib satisfying problem_options using solvers in the solvers and stores the computing results.
     """
@@ -2300,7 +2287,7 @@ def _solve_all_problems(solvers, plib, feature, problem_options, profile_options
             )
 
     # Solve all problems.
-    args = [(solvers, feature, problem_name, len_problem_names, profile_options_log, is_plot, path_hist_plots, library_ref, library_options) for problem_name in problem_names]
+    args = [(solvers, feature, plan, problem_name, len_problem_names, profile_options_log, is_plot, path_hist_plots, library_ref, library_options) for problem_name in problem_names]
     if sequential_mode:
         results = map(lambda arg: _solve_one_problem_wrapper(*arg), args)
     else:
@@ -2335,7 +2322,7 @@ def _solve_all_problems(solvers, plib, feature, problem_options, profile_options
 
     # Process the results.
     n_solvers = len(solvers)
-    n_runs = feature.options[FeatureOption.N_RUNS]
+    n_runs = plan.n_runs
     
     problem_types = [r['problem_type'] for r in results]
     problem_dims = np.array([r['problem_dim'] for r in results])
@@ -2401,9 +2388,9 @@ def _solve_all_problems(solvers, plib, feature, problem_options, profile_options
     results['feature_stamp'] = profile_options[ProfileOption.FEATURE_STAMP]
     # Ordered stage provenance of the feature (JSON text, callables described,
     # never executed). Archives written before compositions existed lack it.
-    results['feature_pipeline'] = json.dumps(describe_pipeline(
-        feature, feature_stamp=profile_options[ProfileOption.FEATURE_STAMP],
-        full_feature_stamp=_get_default_feature_stamp(feature, bounded=False)), sort_keys=True)
+    results['feature_pipeline'] = feature_pipeline_text(
+        feature, plan, feature_stamp=profile_options[ProfileOption.FEATURE_STAMP],
+        full_feature_stamp=_get_default_feature_stamp(feature, bounded=False))
     results['fun_histories'] = fun_histories
     results['maxcv_histories'] = maxcv_histories
     results['fun_outs'] = fun_outs
@@ -2426,7 +2413,7 @@ def _solve_all_problems(solvers, plib, feature, problem_options, profile_options
     return results
 
 
-def _solve_one_problem_wrapper(solvers, feature, problem_name, len_problem_names, profile_options, is_plot, path_hist_plots, library_ref, library_options):
+def _solve_one_problem_wrapper(solvers, feature, plan, problem_name, len_problem_names, profile_options, is_plot, path_hist_plots, library_ref, library_options):
     logger = get_logger(__name__)
     plib = library_ref.name
 
@@ -2452,7 +2439,7 @@ def _solve_one_problem_wrapper(solvers, feature, problem_name, len_problem_names
             return {'_eval_report_failure': {'problem': problem_name,
                                             'exception_type': type(exc).__name__}}
         return None
-    result = _solve_one_problem(solvers, problem, feature, problem_name, len_problem_names, profile_options, is_plot, path_hist_plots)
+    result = _solve_one_problem(solvers, problem, feature, plan, problem_name, len_problem_names, profile_options, is_plot, path_hist_plots)
     return result
 
 
@@ -2571,7 +2558,7 @@ def _export_problem_history_plots(problem_name, problem_type, problem_dim, solve
         )
 
 
-def _solve_one_problem(solvers, problem, feature, problem_name, len_problem_names, profile_options, is_plot, path_hist_plots):
+def _solve_one_problem(solvers, problem, feature, plan, problem_name, len_problem_names, profile_options, is_plot, path_hist_plots):
     """
     Solve a given problem.
     """
@@ -2589,7 +2576,7 @@ def _solve_one_problem(solvers, problem, feature, problem_name, len_problem_name
 
     # Solve the problem with each solver.
     n_solvers = len(solvers)
-    n_runs = feature.options[FeatureOption.N_RUNS]
+    n_runs = plan.n_runs
     max_eval = profile_options[ProfileOption.MAX_EVAL_FACTOR] * problem.n
     max_eval = int(np.ceil(max_eval))
     n_eval = np.zeros((n_solvers, n_runs), dtype=int)
@@ -2624,10 +2611,7 @@ def _solve_one_problem(solvers, problem, feature, problem_name, len_problem_name
     solver_output_fallbacks = np.full((n_solvers, n_runs), False)
 
     # The number of real runs for each solver, which is determined by feature and solver_isrand.
-    real_n_runs = np.array([
-        n_runs if feature.is_stochastic or (solver_isrand is not None and solver_isrand[i_solver]) else 1
-        for i_solver in range(n_solvers)
-    ], dtype=int)
+    real_n_runs = plan.actual_runs(feature, solver_isrand, n_solvers)
     
     len_solver_log_names = max(len(name) for name in solver_log_names)
 

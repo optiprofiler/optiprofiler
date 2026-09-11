@@ -58,172 +58,29 @@ keep the legacy run-seed streams.
 """
 
 import copy
-from collections.abc import Mapping
 
 import numpy as np
 
-from .metadata import safe_metadata
-from .opclasses import (COMMON_FEATURE_OPTIONS, Feature, FeatureName, FeatureOption, FeaturedProblem, Problem,
-                        _declared_spec_from_name,
+from .experiment import STRATEGY_COMPOSED
+from .feature_definitions import STAGE_CODES
+from .feature_definitions import SEED_POLICY_COMPOSED as SEED_POLICY
+from .opclasses import (Feature, FeatureName, FeatureOption, FeaturedProblem, Problem, _StageRuntime,
                         _process_1d_array, _validate_max_eval, _validate_seed)
 from .utils import get_logger, shorten_log_message
 
 # Frozen numeric stage codes used in seed derivation. Never renumber; append
 # new features with new codes. ``plain`` has no code because it never forms a
 # stage of an effective pipeline.
-STAGE_CODES = {
-    'perturbed_x0': 1,
-    'noisy': 2,
-    'truncated': 3,
-    'permuted': 4,
-    'linearly_transformed': 5,
-    'random_nan': 6,
-    'unrelaxable_constraints': 7,
-    'nonquantifiable_constraints': 8,
-    'quantized': 9,
-    'custom': 10,
-}
-
 # Frozen channel tags of the seed derivation. Never renumber.
 CHANNEL_TAGS = {'fun': 0, 'cub': 1, 'ceq': 2, 'construction': 3}
 
 # Identifier of the seed derivation recorded in archives and reports. Archives
 # written under an earlier policy keep their recorded identifier when loaded.
-SEED_POLICY = 'seedsequence-v2'
-
 CHANNELS = ('fun', 'cub', 'ceq')
 
 _DERIVATIVE_MESSAGE = ('Derivatives of a composed feature are not provided: the composed problem '
                        'is not the original problem and its derivatives are not those of the '
                        'original callbacks.')
-
-
-def parse_feature_name(name):
-    """
-    Parse a feature name into its declared form and its effective stages.
-
-    Tokens are separated by ``+``, lowercased and stripped of surrounding
-    whitespace. Empty or unknown tokens are rejected. ``plain`` tokens are
-    kept in the declared name but removed from the effective stage list.
-
-    Returns
-    -------
-    str
-        The normalized declared name, e.g. ``'noisy+plain+truncated'``.
-    list of str
-        The effective stage names in order, e.g. ``['noisy', 'truncated']``.
-    """
-    if not isinstance(name, str):
-        raise TypeError('The first input argument for `Feature` must be a string.')
-    tokens = [token.strip().lower() for token in name.split('+')]
-    if any(token == '' for token in tokens):
-        raise ValueError(f'Invalid feature name {name!r}: empty stage token in a "+"-separated composition.')
-    for token in tokens:
-        if token not in FeatureName.__members__.values():
-            raise ValueError(f'Unknown feature: {token}.')
-    declared = '+'.join(tokens)
-    effective = [token for token in tokens if token != FeatureName.PLAIN.value]
-    return declared, effective
-
-
-_SPEC_TYPE_MESSAGE = ('The first input argument for `Feature` must be a feature name string or a structured '
-                      'specification (a mapping or a list/tuple of stage entries).')
-
-
-def parse_feature_spec(spec):
-    """
-    Normalize and validate a structured feature specification.
-
-    ``spec`` is one stage entry or an ordered list/tuple of entries. An entry
-    is a mapping ``{'name': <feature name>, 'options': {<local options>}}``
-    (``options`` optional) or a bare feature name string. Names are stripped
-    and lowercased; every entry, including ``plain`` ones, is validated with
-    the stage's own rules before ``plain`` entries are removed from the
-    effective list, so an invalid option never vanishes with an identity
-    stage. Common options (``n_runs``) are rejected inside an entry.
-
-    Returns
-    -------
-    list of dict
-        The declared entries in order, each ``{'name': str, 'options': dict}``
-        with native option values (callables kept as they are).
-    list of dict
-        The effective entries: the declared ones without ``plain``.
-    """
-    if isinstance(spec, Mapping):
-        entries = [spec]
-    elif isinstance(spec, (list, tuple)):
-        entries = list(spec)
-    else:
-        raise TypeError(_SPEC_TYPE_MESSAGE)
-    if not entries:
-        raise ValueError('A structured feature specification must contain at least one stage entry.')
-    declared = []
-    for position, entry in enumerate(entries, start=1):
-        label = f'entry {position} of the feature specification'
-        if isinstance(entry, str):
-            name, options = entry, {}
-        elif isinstance(entry, Mapping):
-            # Keys are checked for type before they are compared or formatted, so
-            # a hostile key object never has its comparison or representation run.
-            if any(not isinstance(key, str) for key in entry):
-                raise TypeError(f'{label}: entry keys must be strings ("name" and "options").')
-            unknown = sorted(key for key in entry if key not in ('name', 'options'))
-            if unknown:
-                raise ValueError(f'{label}: unknown key(s) {unknown}; a stage entry accepts only "name" and "options".')
-            if 'name' not in entry:
-                raise ValueError(f'{label}: missing "name".')
-            name = entry['name']
-            options = entry.get('options', {})
-            if not isinstance(options, Mapping):
-                raise TypeError(f'{label}: "options" must be a mapping of stage options.')
-        else:
-            raise TypeError(f'{label}: a stage entry must be a mapping with "name" and optional "options", '
-                            f'or a feature name string.')
-        if not isinstance(name, str):
-            raise TypeError(f'{label}: "name" must be a string.')
-        token = name.strip().lower()
-        if '+' in token:
-            raise ValueError(f'{label}: stage names are atomic; {name!r} declares a composition, '
-                             f'give one entry per stage.')
-        if token not in FeatureName.__members__.values():
-            raise ValueError(f'{label}: unknown feature {name!r}.')
-        if any(not isinstance(key, str) for key in options):
-            raise TypeError(f"{label} (stage '{token}'): option names must be strings.")
-        local = {key.lower(): value for key, value in options.items()}
-        try:
-            Feature._stage(token, **local)
-        except (TypeError, ValueError) as err:
-            raise type(err)(f"{label} (stage '{token}'): {err}") from err
-        declared.append({'name': token, 'options': local})
-    effective = [entry for entry in declared if entry['name'] != FeatureName.PLAIN.value]
-    return declared, effective
-
-
-def reject_flat_stage_options(options):
-    """With a structured specification, only common options may be keywords."""
-    extra = sorted(key for key in options if key not in COMMON_FEATURE_OPTIONS)
-    if extra:
-        common = ', '.join(f'`{key}`' for key in sorted(COMMON_FEATURE_OPTIONS))
-        raise ValueError('With a structured feature specification, stage options belong inside each entry\'s '
-                         f'"options"; only {common} may be given as a keyword. Unexpected keyword(s): {extra}.')
-
-
-class Stage:
-    """One effective stage of a composition: identity plus its validated child feature."""
-
-    __slots__ = ('position', 'name', 'code', 'occurrence', 'feature')
-
-    def __init__(self, position, name, occurrence, feature):
-        self.position = position
-        self.name = name
-        self.code = STAGE_CODES[name]
-        self.occurrence = occurrence
-        self.feature = feature
-
-    @property
-    def identity(self):
-        return f'{self.name}#{self.occurrence}'
 
 
 def stage_seed(run_seed, stage, channel):
@@ -255,204 +112,6 @@ class StageContext:
         index = self.served[channel]
         self.served[channel] = index + 1
         return index
-
-
-def _common_part(options):
-    """The experiment-wide part of a stored option mapping (``n_runs``)."""
-    return {key: value for key, value in options.items() if key in COMMON_FEATURE_OPTIONS}
-
-
-def _local_part(options):
-    """The stage-local part of a stored option mapping.
-
-    Stage dictionaries written by earlier candidates carried their own legacy
-    run count; it is filtered here when the stage is described afresh, so a
-    stored object stays executable while its description shows local options only.
-    """
-    return {key: value for key, value in options.items() if key not in COMMON_FEATURE_OPTIONS}
-
-
-def _describe_value(value):
-    """Encode a value with the shared metadata encoder; never raise."""
-    try:
-        return safe_metadata(value)
-    except Exception as exc:  # defensive: the encoder itself must not abort a benchmark
-        return {'value': None, 'reason': 'options_not_described', 'error_type': type(exc).__name__}
-
-
-def _describe_options(options):
-    """Encode effective options without executing user code; never raise."""
-    return _describe_value(dict(options))
-
-
-def _stored_state(obj):
-    """The instance dictionary of ``obj`` without invoking any property or descriptor."""
-    try:
-        return object.__getattribute__(obj, '__dict__')
-    except (AttributeError, TypeError):
-        return {}
-
-
-def _effective_specification(feature):
-    """
-    The ordered effective specification of ``feature`` as native data.
-
-    One mapping ``{'name', 'options'}`` per effective stage, with the
-    validated local options after defaults and callables kept as the objects
-    they are. A plain feature is ``[{'name': 'plain', 'options': {}}]``. The
-    result is valid ``feature`` input: together with the experiment-wide
-    ``n_runs`` it reproduces the effective experiment. Only stored state is
-    read; nothing is executed or described here (see ``describe_pipeline``
-    for the one-way safe description). Internal helper: users replay the
-    ``feature_specification`` entry saved in ``options_refined.pkl``.
-    """
-    state = _stored_state(feature)
-    stages = state.get('_stages')
-    if stages:
-        return [{'name': stage.name, 'options': _local_part(_stored_state(stage.feature).get('_options', {}))}
-                for stage in stages]
-    return [{'name': state.get('_name'), 'options': _local_part(state.get('_options', {}))}]
-
-
-def describe_pipeline(feature, feature_stamp=None, full_feature_stamp=None):
-    """
-    Describe the ordered pipeline of a feature as plain, JSON-serializable data
-    (payload ``feature_pipeline-v2``).
-
-    Only stored state is read (no property, modifier or callback is invoked),
-    and option values are encoded with the shared metadata encoder, which
-    describes callables by name only and never invokes user representations.
-    The experiment-wide options (``n_runs``) appear once, in
-    ``common_options``; every stage lists its local options only. The
-    declared specification is the structured input as given, or for the
-    shorthand route the declared tokens with the supplied local options each
-    token owns (captured before defaults); it is ``None`` for objects stored
-    before it was recorded. A single
-    feature is described as a one-stage pipeline with the legacy seed policy;
-    a composition lists its effective stages with their identities. An option
-    set that cannot be encoded is recorded as an explicit reason record rather
-    than aborting the benchmark. Payloads of earlier candidates
-    (``feature_pipeline-v1``, run counts inside stage options) are retained
-    verbatim when an archive is loaded; they are never rewritten.
-    """
-    state = _stored_state(feature)
-    stages = state.get('_stages')
-    route = state.get('_route', 'feature_name')
-    declared_name = state.get('_declared_name', state.get('_name'))
-    # Captured at construction for both routes; objects stored by earlier
-    # versions carry no declaration, which is reported as None, never inferred.
-    declared_spec = list(state['_declared_spec']) if '_declared_spec' in state else None
-    if stages:
-        entries = [{
-            'position': stage.position,
-            'name': stage.name,
-            'code': stage.code,
-            'occurrence': stage.occurrence,
-            'identity': stage.identity,
-            'options': _describe_options(_local_part(_stored_state(stage.feature).get('_options', {}))),
-        } for stage in stages]
-        seed_policy = SEED_POLICY
-    else:
-        name = state.get('_name')
-        entries = [{
-            'position': 0,
-            'name': name,
-            'code': STAGE_CODES.get(name),
-            'occurrence': 0,
-            'identity': f'{name}#0',
-            'options': _describe_options(_local_part(state.get('_options', {}))),
-        }]
-        seed_policy = 'legacy-run-seed'
-    return {
-        'schema': 'feature_pipeline-v2',
-        'route': route,
-        'declared_name': declared_name,
-        'effective_name': state.get('_name'),
-        'declared_spec': _describe_value(declared_spec) if declared_spec is not None else None,
-        'seed_policy': seed_policy,
-        'feature_stamp': feature_stamp,
-        'full_feature_stamp': full_feature_stamp,
-        'common_options': _describe_options(_common_part(state.get('_options', {}))),
-        'stages': entries,
-    }
-
-
-class ComposedFeature(Feature):
-    """
-    A feature with at least two effective stages.
-
-    Instances are created by ``Feature('a+b+c', **options)`` or by
-    ``Feature(spec, n_runs=...)`` with a structured specification of at least
-    two effective stages; the base class dispatches here from
-    ``Feature.__new__``. Shorthand options are routed to every stage that owns
-    the key; structured entries carry their own local options. Every stage is
-    a modifier-only feature (``Feature._stage``) that validates and defaults
-    its local options independently, and the experiment-wide ``n_runs`` is
-    stored once, here.
-    """
-
-    def __init__(self, name, **feature_options):
-        # The legacy single-feature constructor is deliberately not called.
-        options = {key.lower(): value for key, value in feature_options.items()}
-        for key in options:
-            if key not in FeatureOption.__members__.values():
-                raise ValueError(f'Unknown option for feature: {key}.')
-        # The experiment-wide count is owned by this root only. A supplied
-        # value, ``None`` included, is validated; the default applies only
-        # when the option is absent.
-        n_runs_given = FeatureOption.N_RUNS.value in options
-        n_runs = options.pop(FeatureOption.N_RUNS.value, None)
-        if isinstance(name, str):
-            # Shorthand route: every other supplied option is broadcast to the
-            # stages that own it.
-            declared, effective = parse_feature_name(name)
-            self._declared_name = declared
-            self._name = '+'.join(effective)
-            self._declared_spec = _declared_spec_from_name(declared, options)
-            plan = [(stage_name, {key: value for key, value in options.items() if key in Feature._local_options(stage_name)})
-                    for stage_name in effective]
-        else:
-            # Structured route: each entry carries its own local options.
-            declared, effective = parse_feature_spec(name)
-            reject_flat_stage_options(options)
-            self._declared_spec = declared
-            self._route = 'feature'
-            self._declared_name = '+'.join(entry['name'] for entry in declared)
-            self._name = '+'.join(entry['name'] for entry in effective)
-            plan = [(entry['name'], dict(entry['options'])) for entry in effective]
-        stages = []
-        occurrences = {}
-        for position, (stage_name, routed) in enumerate(plan):
-            occurrence = occurrences.get(stage_name, 0)
-            occurrences[stage_name] = occurrence + 1
-            try:
-                child = Feature._stage(stage_name, **routed)
-            except (TypeError, ValueError) as err:
-                raise type(err)(f"Invalid options for stage {position + 1} '{stage_name}' (occurrence "
-                                f"{occurrence + 1}) of feature '{self._name}': {err}") from err
-            stages.append(Stage(position, stage_name, occurrence, child))
-        for key in options:
-            if not any(key in Feature._local_options(stage.name) for stage in stages):
-                raise ValueError(f"Option `{key}` is not valid for feature '{self._name}'.")
-        if n_runs_given:
-            n_runs = Feature._validate_n_runs(n_runs)
-        else:
-            # Legacy default-run hints of the stages, resolved once and discarded.
-            n_runs = max(stage.feature._default_n_runs() for stage in stages)
-        self._options = dict(options)
-        self._options[FeatureOption.N_RUNS.value] = n_runs
-        self._stages = tuple(stages)
-
-    @property
-    def is_stochastic(self):
-        return any(stage.feature.is_stochastic for stage in self._stages)
-
-    def _unsupported_modifier(self, *args, **kwargs):
-        raise NotImplementedError('The modifier methods of a composed feature are not available; '
-                                  'apply the composition through `FeaturedProblem(problem, feature, max_eval, seed)`.')
-
-    modifier_x0 = modifier_affine = modifier_bounds = modifier_linear_ub = modifier_linear_eq = _unsupported_modifier
-    modifier_fun = modifier_cub = modifier_ceq = _unsupported_modifier
 
 
 def _structural_violation(view, x):
@@ -494,10 +153,10 @@ class ProblemView(Problem):
     channel, which is what a custom callback handed this view should see.
     """
 
-    def __init__(self, predecessor, stage=None, context=None):
+    def __init__(self, predecessor, stage=None, context=None, runtime=None):
         self._predecessor = predecessor
         self._stage = stage
-        self._feature = stage.feature if stage is not None else None
+        self._runtime = runtime
         self._context = context
         self._name = predecessor._name
         self._x0 = predecessor.x0
@@ -586,7 +245,7 @@ class RootView(ProblemView):
         self._problem = problem
         self._predecessor = None
         self._stage = None
-        self._feature = None
+        self._runtime = None
         self._context = None
         self._name = problem._name
         self._x0 = problem.x0
@@ -627,15 +286,15 @@ class NoisyView(ProblemView):
     def observed_fun(self, x):
         f = self._predecessor.observed_fun(x)
         index = self._context.next_index('fun')
-        noise = self._feature._compute_noise(x, self._context.seed_for('fun'), index, f)
-        return self._feature._apply_noise(f, noise)
+        noise = self._runtime._compute_noise(x, self._context.seed_for('fun'), index, f)
+        return self._runtime._apply_noise(f, noise)
 
     def _observed_vector(self, channel, values, x):
         index = self._context.next_index(channel)
         if values.size == 0:
             return values
-        noise = self._feature._compute_noise(x, self._context.seed_for(channel), index, values, values.size)
-        return self._feature._apply_noise(values, noise)
+        noise = self._runtime._compute_noise(x, self._context.seed_for(channel), index, values, values.size)
+        return self._runtime._apply_noise(values, noise)
 
     def observed_cub(self, x):
         return self._observed_vector('cub', self._predecessor.observed_cub(x), x)
@@ -650,13 +309,13 @@ class TruncatedView(ProblemView):
     def observed_fun(self, x):
         f = self._predecessor.observed_fun(x)
         index = self._context.next_index('fun')
-        return self._feature._truncate_scalar(f, x, self._context.seed_for('fun'), index)
+        return self._runtime._truncate_scalar(f, x, self._context.seed_for('fun'), index)
 
     def _observed_vector(self, channel, values, x):
         index = self._context.next_index(channel)
         if values.size == 0:
             return values
-        return self._feature._truncate_vector(np.array(values, dtype=float), x, self._context.seed_for(channel), index)
+        return self._runtime._truncate_vector(np.array(values, dtype=float), x, self._context.seed_for(channel), index)
 
     def observed_cub(self, x):
         return self._observed_vector('cub', self._predecessor.observed_cub(x), x)
@@ -671,13 +330,13 @@ class RandomNanView(ProblemView):
     def observed_fun(self, x):
         f = self._predecessor.observed_fun(x)
         index = self._context.next_index('fun')
-        return self._feature._random_nan_scalar(f, x, self._context.seed_for('fun'), index)
+        return self._runtime._random_nan_scalar(f, x, self._context.seed_for('fun'), index)
 
     def _observed_vector(self, channel, values, x):
         index = self._context.next_index(channel)
         if values.size == 0:
             return values
-        return self._feature._random_nan_vector(np.array(values, dtype=float), x, self._context.seed_for(channel), index)
+        return self._runtime._random_nan_vector(np.array(values, dtype=float), x, self._context.seed_for(channel), index)
 
     def observed_cub(self, x):
         return self._observed_vector('cub', self._predecessor.observed_cub(x), x)
@@ -694,22 +353,22 @@ class NonquantifiableView(ProblemView):
         self._context.next_index('cub')
         if values.size == 0:
             return values
-        return self._feature._nonquantifiable_cub(np.array(values, dtype=float))
+        return self._runtime._nonquantifiable_cub(np.array(values, dtype=float))
 
     def observed_ceq(self, x):
         values = self._predecessor.observed_ceq(x)
         self._context.next_index('ceq')
         if values.size == 0:
             return values
-        return self._feature._nonquantifiable_ceq(np.array(values, dtype=float))
+        return self._runtime._nonquantifiable_ceq(np.array(values, dtype=float))
 
 
 class PerturbedX0View(ProblemView):
     """A perturbed initial point; objective, constraints and reference are inherited."""
 
-    def __init__(self, predecessor, stage, context):
-        super().__init__(predecessor, stage, context)
-        self._x0 = self._feature.modifier_x0(context.seed_for('construction'), predecessor)
+    def __init__(self, predecessor, stage, context, runtime):
+        super().__init__(predecessor, stage, context, runtime)
+        self._x0 = self._runtime.modifier_x0(context.seed_for('construction'), predecessor)
 
 
 class AffineView(ProblemView):
@@ -726,9 +385,9 @@ class AffineView(ProblemView):
     mapped point, so scoring stays in the predecessor's coordinates.
     """
 
-    def __init__(self, predecessor, stage, context):
-        super().__init__(predecessor, stage, context)
-        feature, seed = self._feature, context.seed_for('construction')
+    def __init__(self, predecessor, stage, context, runtime):
+        super().__init__(predecessor, stage, context, runtime)
+        feature, seed = self._runtime, context.seed_for('construction')
         self._A, self._b, self._inv = feature.modifier_affine(seed, predecessor)
         self._x0 = feature.modifier_x0(seed, predecessor)
         self._xl, self._xu = feature.modifier_bounds(seed, predecessor)
@@ -773,12 +432,12 @@ class QuantizedView(ProblemView):
     unsnapped point, and the solver's coordinates are never snapped.
     """
 
-    def __init__(self, predecessor, stage, context):
-        super().__init__(predecessor, stage, context)
-        self._ground_truth = bool(self._feature.options[FeatureOption.GROUND_TRUTH])
+    def __init__(self, predecessor, stage, context, runtime):
+        super().__init__(predecessor, stage, context, runtime)
+        self._ground_truth = bool(self._runtime.options[FeatureOption.GROUND_TRUTH])
 
     def _snap(self, x):
-        return self._feature._quantize_point(x)
+        return self._runtime._quantize_point(x)
 
     def _reference_point(self, x):
         return self._snap(x) if self._ground_truth else x
@@ -818,7 +477,7 @@ class UnrelaxableView(ProblemView):
 
     def observed_fun(self, x):
         f = self._predecessor.observed_fun(x)
-        options = self._feature.options
+        options = self._runtime.options
         cv_bounds, cv_linear = self._predecessor.observed_violation_structural(x)
         if options[FeatureOption.UNRELAXABLE_BOUNDS] and cv_bounds > 0.0:
             return np.inf
@@ -1050,17 +709,14 @@ class CustomView(AffineView):
     Violations raise ``ValueError`` naming the stage, occurrence and callback.
     """
 
-    def __init__(self, predecessor, stage, context):
-        stage_with_normalized_feature = copy.copy(stage)
-        stage_with_normalized_feature.feature = _normalized_custom_feature(stage.feature, predecessor, stage)
-        super().__init__(predecessor, stage_with_normalized_feature, context)
-        self._stage = stage
+    def __init__(self, predecessor, stage, context, runtime):
+        super().__init__(predecessor, stage, context, _normalized_custom_feature(runtime, predecessor, stage))
 
     def observed_fun(self, x):
         xm = self._map(x)
         f = self._predecessor.observed_fun(xm)
         index = self._context.next_index('fun')
-        options = self._feature.options
+        options = self._runtime.options
         if FeatureOption.MOD_FUN in options:
             rng_custom = Feature.get_default_rng(self._context.seed_for('fun'), f, *xm, index)
             return options[FeatureOption.MOD_FUN](xm, rng_custom, self._predecessor)
@@ -1070,7 +726,7 @@ class CustomView(AffineView):
         xm = self._map(x)
         values = getattr(self._predecessor, f'observed_{channel}')(xm)
         index = self._context.next_index(channel)
-        options = self._feature.options
+        options = self._runtime.options
         if values.size == 0 or key not in options:
             return values
         rng_custom = Feature.get_default_rng(self._context.seed_for(channel), *values, *xm, index)
@@ -1097,13 +753,13 @@ _VIEW_CLASSES = {
 }
 
 
-def build_view(predecessor, stage, context):
-    """Create the view of ``stage`` over ``predecessor``."""
+def build_view(predecessor, stage, context, runtime):
+    """Create the view of ``stage`` over ``predecessor`` with a fresh stage ``runtime``."""
     try:
         view_class = _VIEW_CLASSES[stage.name]
     except KeyError:
         raise NotImplementedError(f"Stage '{stage.name}' is not yet supported in a composition.") from None
-    return view_class(predecessor, stage, context)
+    return view_class(predecessor, stage, context, runtime)
 
 
 class ComposedFeaturedProblem(FeaturedProblem):
@@ -1121,7 +777,7 @@ class ComposedFeaturedProblem(FeaturedProblem):
     def __init__(self, problem, feature, max_eval, seed=None):
         # The legacy wrapper constructor is deliberately not called.
         self._problem = problem
-        self._feature = feature
+        self._runtime = feature
         self._max_eval = _validate_max_eval(max_eval)
         self._seed = _validate_seed(seed)
         self._real_n_eval_fun = 0
@@ -1135,12 +791,13 @@ class ComposedFeaturedProblem(FeaturedProblem):
         self._last_cub = np.nan
         self._last_ceq = np.nan
 
+        self.execution_strategy = STRATEGY_COMPOSED
         self._contexts = tuple(StageContext({channel: stage_seed(self._seed, stage, channel) for channel in CHANNEL_TAGS})
-                               for stage in feature._stages)
+                               for stage in feature.stages)
         view = RootView(problem)
         views = []
-        for stage, context in zip(feature._stages, self._contexts):
-            view = build_view(view, stage, context)
+        for stage, context in zip(feature.stages, self._contexts):
+            view = build_view(view, stage, context, _StageRuntime(stage.name, stage.options))
             views.append(view)
         self._views = tuple(views)
         self._final = view
@@ -1168,7 +825,7 @@ class ComposedFeaturedProblem(FeaturedProblem):
         # from the instance dictionary. The single-feature wrapper itself is
         # not picklable, on the base commit as on this branch, and that
         # existing boundary is deliberately left unchanged.
-        return self._problem, self._feature, self._max_eval, self._seed
+        return self._problem, self._runtime, self._max_eval, self._seed
 
     def _point(self, x, method):
         x = _process_1d_array(x, f'The argument `x` for method `{method}` in problem must be a one-dimensional array.')

@@ -11,6 +11,7 @@ from pypdf import PdfWriter
 
 
 from .problem_libraries import list_problem_libraries, resolve_problem_library
+from .experiment import validate_n_runs
 from .utils import FeatureName, ProfileOption, FeatureOption, ProblemOption, get_logger, print_log_message, shorten_log_message
 
 
@@ -307,6 +308,8 @@ def check_validity_profile_options(solvers, profile_options):
     """
     Check the validity of the profile options.
     """
+    if ProfileOption.N_RUNS in profile_options:
+        profile_options[ProfileOption.N_RUNS] = validate_n_runs(profile_options[ProfileOption.N_RUNS])
     if ProfileOption.N_JOBS in profile_options:
         if isinstance(profile_options[ProfileOption.N_JOBS], (float, np.floating)) and float(profile_options[ProfileOption.N_JOBS]).is_integer():
             profile_options[ProfileOption.N_JOBS] = int(profile_options[ProfileOption.N_JOBS])
@@ -909,68 +912,19 @@ def _bounded_feature_stamp(stamp):
 
 def _get_default_feature_stamp(feature, bounded=True):
     """
-    Get the default feature stamp.
-
-    A composed feature joins the default stamps of its effective stages, in
-    order, with a double underscore. With ``bounded=True`` (the default) a
-    long composite stamp is cut and digest-qualified for use in paths.
+    Get the default feature stamp of a specification.
+    A one-stage feature keeps its established stamp; a composition joins the
+    stamps of its effective stages, in order, with a double underscore and,
+    with ``bounded=True`` (the default), a long composite stamp is cut and
+    digest-qualified for use in paths. The identity feature is ``'plain'``.
     """
-    stages = getattr(feature, '_stages', None)
-    if stages:
-        feature_stamp = '__'.join(_get_default_feature_stamp(stage.feature) for stage in stages)
-        return _bounded_feature_stamp(feature_stamp) if bounded else feature_stamp
-    name = feature.name
-    if name == FeatureName.PERTURBED_X0:
-        # feature_name + perturbation_level + (distribution if it is gaussian or spherical)
-        feature_stamp = f"{feature.name}_{feature.options[FeatureOption.PERTURBATION_LEVEL]}"
-        dist = feature.options.get(FeatureOption.DISTRIBUTION.value)
-        if isinstance(dist, str) and dist in ('gaussian', 'spherical'):
-            feature_stamp = f"{feature_stamp}_{dist}"
-    elif name == FeatureName.NOISY:
-        # feature_name + noise_level + noise_type + (distribution if it is gaussian or uniform)
-        feature_stamp = f"{feature.name}_{feature.options[FeatureOption.NOISE_LEVEL]}_{feature.options[FeatureOption.NOISE_TYPE]}"
-        if feature.options[FeatureOption.NOISE_MODE] == 'deterministic':
-            feature_stamp = f"{feature_stamp}_deterministic"
-            noise_map = feature.options.get(FeatureOption.NOISE_MAP.value)
-            if isinstance(noise_map, str) and noise_map == 'chebyshev':
-                feature_stamp = f"{feature_stamp}_{noise_map}"
-        else:
-            dist = feature.options.get(FeatureOption.DISTRIBUTION.value)
-            if isinstance(dist, str) and dist in ('gaussian', 'uniform'):
-                feature_stamp = f"{feature_stamp}_{dist}"
-    elif name == FeatureName.TRUNCATED:
-        # feature_name + significant_digits + (perturbed_trailing_digits if it is true)
-        feature_stamp = f"{feature.name}_{feature.options[FeatureOption.SIGNIFICANT_DIGITS]}"
-        if feature.options[FeatureOption.PERTURBED_TRAILING_DIGITS]:
-            feature_stamp = f"{feature_stamp}_perturbed_trailing_digits"
-    elif name == FeatureName.LINEARLY_TRANSFORMED:
-        # feature_name + (rotated if it is true) + (condition_factor if it is not 0)
-        feature_stamp = feature.name
-        if feature.options[FeatureOption.ROTATED]:
-            feature_stamp = f"{feature_stamp}_rotated"
-        if feature.options[FeatureOption.CONDITION_FACTOR] != 0:
-            feature_stamp = f"{feature_stamp}_cond{feature.options[FeatureOption.CONDITION_FACTOR]}"
-    elif name == FeatureName.RANDOM_NAN:
-        # feature_name + nan_rate
-        feature_stamp = f"{feature.name}_{feature.options[FeatureOption.NAN_RATE]}"
-    elif name == FeatureName.UNRELAXABLE_CONSTRAINTS:
-        # feature_name + (bounds if it is true) + (linear if it is true) + (nonlinear if it is true)
-        feature_stamp = feature.name
-        if feature.options[FeatureOption.UNRELAXABLE_BOUNDS]:
-            feature_stamp = f"{feature_stamp}_bounds"
-        if feature.options[FeatureOption.UNRELAXABLE_LINEAR_CONSTRAINTS]:
-            feature_stamp = f"{feature_stamp}_linear"
-        if feature.options[FeatureOption.UNRELAXABLE_NONLINEAR_CONSTRAINTS]:
-            feature_stamp = f"{feature_stamp}_nonlinear"
-    elif name == FeatureName.QUANTIZED:
-        # feature_name + mesh_size + (ground_truth if is_true it is true)
-        feature_stamp = f"{feature.name}_{feature.options[FeatureOption.MESH_SIZE]}"
-        if feature.options[FeatureOption.GROUND_TRUTH]:
-            feature_stamp = f"{feature_stamp}_ground_truth"
-    else:
-        feature_stamp = feature.name
-
-    return feature_stamp
+    stages = feature.stages
+    if not stages:
+        return FeatureName.PLAIN.value
+    if len(stages) == 1:
+        return stages[0].stamp
+    feature_stamp = '__'.join(stage.stamp for stage in stages)
+    return _bounded_feature_stamp(feature_stamp) if bounded else feature_stamp
 
 
 def _default_merit(fun_value, maxcv_value, maxcv_init):

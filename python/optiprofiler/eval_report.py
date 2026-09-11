@@ -23,7 +23,7 @@ from datetime import datetime, timezone
 from enum import Enum
 
 import numpy as np
-from .composition import describe_pipeline
+from .provenance import describe_feature, describe_plan, read_feature_pipeline
 # The metadata encoder is shared with the feature provenance and lives in a
 # dependency-neutral module; the private names below are kept for this file.
 from .metadata import _ABS_IN_TEXT, _SECRET_KEY, bounded_text as _text, describe_callback as _callback, safe_metadata as _safe
@@ -531,26 +531,16 @@ class EvalReport:
             except FileNotFoundError:
                 pass
 
-    def configure(self, problem_options, profile_options, feature, output_dir=None):
+    def configure(self, problem_options, profile_options, feature, output_dir=None, plan=None):
         self._options = dict(profile_options) if type(profile_options) is dict else {}
         # Feature is an internal validated object. Read stored data without
         # invoking properties, __repr__, or custom modifier callbacks.
-        try:
-            state = object.__getattribute__(feature, '__dict__')
-        except (AttributeError, TypeError):
-            state = {}
-        feature_data = {'name': _safe(state.get('_name')),
-                        'options': _safe(state.get('_options', {}))}
-        # Ordered stage provenance for composed features (one legacy stage
-        # otherwise); read from stored state only, callables are described.
-        pipeline = describe_pipeline(feature)
-        feature_data['declared_name'] = _safe(pipeline['declared_name'])
-        feature_data['route'] = _safe(pipeline['route'])
-        feature_data['declared_spec'] = _safe(pipeline['declared_spec'])
-        feature_data['seed_policy'] = _safe(pipeline['seed_policy'])
-        # The experiment-wide options are stated once; stages list local options only.
-        feature_data['common_options'] = _safe(pipeline['common_options'])
-        feature_data['stages'] = _safe(pipeline['stages'])
+        # The feature block is the one-way provenance of the explicit
+        # specification (stage-local options only; callables described by
+        # name); the experiment plan is a separate fact of the invocation.
+        feature_data = _safe(describe_feature(feature))
+        feature_data['name'] = _safe(feature.name)
+        self._plan_data = _safe(describe_plan(plan))
         # request = what the caller supplied; effective = the resolved options
         # of this invocation. Stated once here, never repeated per run.
         self.document['configuration']['effective'] = {
@@ -833,16 +823,9 @@ class EvalReport:
                 return
             if self.document['operation'] == 'load':
                 retained = self.document['configuration'].setdefault('retained_result_metadata', [])
-                pipeline = result.get('feature_pipeline')
-                if isinstance(pipeline, str):
-                    try:
-                        pipeline = json.loads(pipeline)
-                    except ValueError:
-                        pipeline = {'value': None, 'reason': 'unparsable_feature_pipeline'}
-                else:
-                    # Archives written before compositions existed carry no
-                    # stage provenance; nothing is invented for them.
-                    pipeline = None
+                # Archived provenance is retained verbatim, whatever its version;
+                # archives written before compositions existed carry none.
+                pipeline, _ = read_feature_pipeline(result.get('feature_pipeline'))
                 metadata = {'library': _safe(result.get('plib')), 'role': role,
                             'feature_stamp': _safe(result.get('feature_stamp')),
                             'feature_pipeline': _safe(pipeline),

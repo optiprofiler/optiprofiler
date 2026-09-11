@@ -33,6 +33,7 @@ class ProfileOption(str, Enum):
     """
     N_JOBS = 'n_jobs'
     SEED = 'seed'
+    N_RUNS = 'n_runs'
     BENCHMARK_ID = 'benchmark_id'
     SOLVER_NAMES = 'solver_names'
     SOLVER_ISRAND = 'solver_isrand'
@@ -97,7 +98,6 @@ class FeatureOption(str, Enum):
     """
     Feature's options.
     """
-    N_RUNS = 'n_runs'
     DISTRIBUTION = 'distribution'
     PERTURBATION_LEVEL = 'perturbation_level'
     NOISE_LEVEL = 'noise_level'

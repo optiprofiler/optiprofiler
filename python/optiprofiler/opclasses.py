@@ -8,27 +8,12 @@ from numpy.linalg import lstsq
 from scipy.optimize import Bounds, LinearConstraint, NonlinearConstraint, minimize
 from scipy import __version__ as _SCIPY_VERSION
 
+import warnings
 from .utils import FeatureName, FeatureOption, get_logger, shorten_log_message
-
-# Options owned by the experiment rather than by a feature stage. A standalone
-# feature stores them with its local options, as it always has; a stage of a
-# composition never owns them (see ``Feature._stage``).
-COMMON_FEATURE_OPTIONS = frozenset({FeatureOption.N_RUNS.value})
-
-
-def _declared_spec_from_name(declared_name, supplied):
-    """
-    The declared specification of a shorthand feature: one entry per declared
-    token (``plain`` retained) with the supplied local options that token
-    owns, as given and before defaults. Common options never appear. This is
-    captured when a feature is built; it is never inferred from stored
-    effective options, so objects stored by earlier versions report no
-    declaration rather than a fabricated one.
-    """
-    return [{'name': token, 'options': {key: value for key, value in supplied.items()
-                                        if key in Feature._local_options(token)}}
-            for token in declared_name.split('+')]
-
+from .feature_definitions import (_SPEC_TYPE_MESSAGE, StageRecord, normalize_entries, normalize_shorthand,
+                                  reject_experiment_options, reject_flat_stage_options)
+from .feature_definitions import is_stochastic as _stage_is_stochastic
+from .experiment import STRATEGY_COMPOSED, select_execution_strategy
 
 def _round_truncated(value, digits):
     """Round decimal ties using MATLAB's default away-from-zero direction."""
@@ -57,505 +42,19 @@ def _scipy_version_less_than(major, minor):
     return (scipy_major, scipy_minor) < (major, minor)
 
 
-class Feature:
-    r"""
-    Mapping from an optimization problem to a new one with specified features.
+class _StageRuntime:
+    """
+    Runtime implementation of one stage kind (private).
 
-    We are interested in testing solvers on problems with different features.
-    For example, we may want to test the performance of solvers when the
-    objective function is noisy. For this purpose, we define the ``Feature``
-    class.
-
-    Suppose we have an optimization problem
-
-    .. math::
-
-        \min \quad & \mathrm{fun}(x) \\
-        \text{s.t.} \quad & x_l \le x \le x_u, \\
-        & A_{\mathrm{ub}} x \le b_{\mathrm{ub}}, \\
-        & A_{\mathrm{eq}} x = b_{\mathrm{eq}}, \\
-        & c_{\mathrm{ub}}(x) \le 0, \\
-        & c_{\mathrm{eq}}(x) = 0, \\
-        & \text{with initial point } x_0.
-
-    Then ``Feature`` maps the above problem to the following one:
-
-    .. math::
-
-        \min \quad & \mathrm{fun\_mod}(Ax + b) \\
-        \text{s.t.} \quad & x_{l,\mathrm{mod}} \le Ax + b \le x_{u,\mathrm{mod}}, \\
-        & A_{\mathrm{ub,mod}} (Ax + b) \le b_{\mathrm{ub,mod}}, \\
-        & A_{\mathrm{eq,mod}} (Ax + b) = b_{\mathrm{eq,mod}}, \\
-        & c_{\mathrm{ub,mod}}(Ax + b) \le 0, \\
-        & c_{\mathrm{eq,mod}}(Ax + b) = 0, \\
-        & \text{with initial guess } x_{0,\mathrm{mod}},
-
-    where the modified quantities are determined by the chosen feature name
-    and options.
-
-    Parameters
-    ----------
-    name : str or mapping or list or tuple
-        Name of the feature, or several feature names joined with ``+`` to
-        apply them in order: ``'noisy+truncated'`` adds noise to each value
-        first and truncates the noisy value afterwards. Alternatively a
-        structured specification: one stage entry ``{'name': ..., 'options':
-        {...}}`` or an ordered list/tuple of such entries (bare names allowed),
-        each stage owning the options inside its entry; only the
-        experiment-wide ``n_runs`` may then be given as a keyword. Each name
-        must be one of the following:
-
-        1. ``'plain'`` : do nothing to the optimization problem.
-        2. ``'perturbed_x0'`` : perturb the initial guess ``x0``.
-        3. ``'noisy'`` : add noise to the objective function and nonlinear
-           constraints.
-        4. ``'truncated'`` : truncate values of the objective function and
-           nonlinear constraints to a given number of significant digits.
-        5. ``'permuted'`` : randomly permute the variables. The bounds and
-           linear constraints are modified accordingly so that the new
-           problem is mathematically equivalent to the original one.
-        6. ``'linearly_transformed'`` : apply an invertible linear
-           transformation ``D @ Q'`` (with ``D`` diagonal and ``Q``
-           orthogonal) to the variables. Bounds and linear constraints are
-           modified accordingly.
-        7. ``'random_nan'`` : randomly replace values of the objective
-           function and nonlinear constraints with ``NaN``.
-        8. ``'unrelaxable_constraints'`` : set the objective function to
-           ``Inf`` outside the feasible region.
-        9. ``'nonquantifiable_constraints'`` : replace values of nonlinear
-           constraints with either ``0`` (satisfied) or ``1`` (violated).
-           Undefined values remain ``NaN``.
-        10. ``'quantized'`` : quantize the objective function and nonlinear
-            constraints.
-        11. ``'custom'`` : user-defined feature.
-
-    feature_options : dict
-        Keyword arguments passed after ``name``. The available options depend on
-        the chosen ``name``:
-
-        - **n_runs** (*int*) -- Number of runs of the experiment under the
-          given feature. This option belongs to the experiment, not to a
-          stage: a composition stores it once and its stages never carry a
-          run count of their own. Its default is the established default of
-          the feature: ``5`` for ``'perturbed_x0'``, ``'noisy'`` (``1`` when
-          ``noise_mode='deterministic'``), ``'permuted'``,
-          ``'linearly_transformed'`` (also when ``rotated=False``),
-          ``'random_nan'`` and ``'truncated'`` with
-          ``perturbed_trailing_digits=True``; ``1`` for ``'plain'``,
-          ``'truncated'``, ``'unrelaxable_constraints'``,
-          ``'nonquantifiable_constraints'``, ``'quantized'`` and
-          ``'custom'`` (although ``'custom'`` counts as stochastic). A
-          composition defaults to the largest default of its effective
-          stages. Valid for all features.
-        - **distribution** (*str or callable*) -- Distribution of
-          perturbation (``'perturbed_x0'``) or noise (``'noisy'``). For
-          ``'perturbed_x0'``, it should be ``'spherical'`` (default) or
-          ``'gaussian'``. For ``'noisy'``, it should be ``'gaussian'``
-          (default) or ``'uniform'``. It can also be a callable
-          ``(rng, dimension) -> array``.
-        - **perturbation_level** (*float*) -- Magnitude of the perturbation
-          in ``'perturbed_x0'``. Default is ``1e-3``.
-        - **noise_level** (*float*) -- Magnitude of the noise in
-          ``'noisy'``. Default is ``1e-3``.
-        - **noise_type** (*str*) -- Type of the noise in ``'noisy'``. Must
-          be ``'absolute'``, ``'relative'``, or ``'mixed'`` (default).
-        - **noise_mode** (*str*) -- Mode of the noise in ``'noisy'``. Must
-          be ``'random'`` (default) or ``'deterministic'``.
-        - **noise_map** (*str or callable*) -- Deterministic scalar noise
-          map in ``'noisy'``. It should be ``'chebyshev'`` (default) or a
-          callable ``x -> noise`` returning a real scalar. It is used only
-          when ``noise_mode`` is ``'deterministic'``. The built-in
-          ``'chebyshev'`` map follows the deterministic noise model in Moré
-          and Wild, "Benchmarking derivative-free optimization algorithms"
-          (2009).
-        - **significant_digits** (*int*) -- Number of significant digits in
-          ``'truncated'``. Default is ``6``.
-        - **perturbed_trailing_digits** (*bool*) -- Whether to randomize
-          the trailing digits in ``'truncated'``. Default is ``False``.
-        - **rotated** (*bool*) -- Whether to use a random rotation matrix
-          in ``'linearly_transformed'``. Default is ``True``.
-        - **condition_factor** (*float*) -- Scaling factor of the condition
-          number of the linear transformation in
-          ``'linearly_transformed'``. The condition number will be
-          ``2**sqrt(condition_factor * n / 2)`` for dimension ``n >= 2``
-          (and ``1`` for ``n = 1``). Default is ``0``.
-        - **nan_rate** (*float*) -- Probability that an evaluation returns
-          ``NaN`` in ``'random_nan'``. Default is ``0.05``.
-        - **unrelaxable_bounds** (*bool*) -- Whether bound constraints are
-          unrelaxable in ``'unrelaxable_constraints'``. Default is ``True``.
-        - **unrelaxable_linear_constraints** (*bool*) -- Whether linear
-          constraints are unrelaxable. Default is ``False``.
-        - **unrelaxable_nonlinear_constraints** (*bool*) -- Whether
-          nonlinear constraints are unrelaxable. Default is ``False``.
-        - **mesh_size** (*float*) -- Size of the mesh in ``'quantized'``.
-          Default is ``1e-3``.
-        - **mesh_type** (*str*) -- Type of the mesh in ``'quantized'``.
-          Must be ``'absolute'`` (default) or ``'relative'``.
-        - **ground_truth** (*bool*) -- Whether the featured problem is the
-          ground truth in ``'quantized'``. Default is ``True``. If true,
-          initialization, histories, and output evaluation use the quantized
-          objective and nonlinear constraints; if false, they use the original
-          problem. Bounds and linear constraints are not quantized. The
-          solver's returned point is never rounded by this option.
-        - **mod_x0** (*callable*) -- Modifier for the initial guess in
-          ``'custom'``: ``(rng, problem) -> modified_x0``.
-        - **mod_affine** (*callable*) -- Modifier for the affine
-          transformation in ``'custom'``:
-          ``(rng, problem) -> (A, b, inv)``.
-        - **mod_bounds** (*callable*) -- Modifier for the bounds in
-          ``'custom'``: ``(rng, problem) -> (xl, xu)``.
-        - **mod_linear_ub** (*callable*) -- Modifier for the linear
-          inequality constraints in ``'custom'``:
-          ``(rng, problem) -> (aub, bub)``.
-        - **mod_linear_eq** (*callable*) -- Modifier for the linear
-          equality constraints in ``'custom'``:
-          ``(rng, problem) -> (aeq, beq)``.
-        - **mod_fun** (*callable*) -- Modifier for the objective function
-          in ``'custom'``: ``(x, rng, problem) -> modified_fun``.
-        - **mod_cub** (*callable*) -- Modifier for the nonlinear inequality
-          constraints in ``'custom'``:
-          ``(x, rng, problem) -> modified_cub``.
-        - **mod_ceq** (*callable*) -- Modifier for the nonlinear equality
-          constraints in ``'custom'``:
-          ``(x, rng, problem) -> modified_ceq``.
-
-    Attributes
-    ----------
-    name : str
-        Name of the feature.
-    options : dict
-        Options of the feature.
-    is_stochastic : bool
-        Whether the feature is stochastic.
-
-    Methods
-    -------
-    modifier_x0(seed, problem)
-        Modify the initial guess.
-    modifier_affine(seed, problem)
-        Generate an invertible matrix ``A``, a vector ``b``, and the
-        inverse of ``A`` for the affine transformation applied to the
-        variables.
-    modifier_bounds(seed, problem)
-        Modify the lower and upper bounds.
-    modifier_linear_ub(seed, problem)
-        Modify the linear inequality constraints.
-    modifier_linear_eq(seed, problem)
-        Modify the linear equality constraints.
-    modifier_fun(x, seed, problem, n_eval)
-        Modify the objective function value.
-    modifier_cub(x, seed, problem, n_eval_cub)
-        Modify the values of the nonlinear inequality constraints.
-    modifier_ceq(x, seed, problem, n_eval_ceq)
-        Modify the values of the nonlinear equality constraints.
-
-    Notes
-    -----
-    Different feature names accept different subsets of options. ``n_runs``
-    is the only experiment-wide option; every other option is owned by the
-    stage named below. With a structured specification (a mapping or a
-    list/tuple of ``{'name': ..., 'options': {...}}`` entries, see
-    ``optiprofiler.benchmark``), each stage receives its own options and only
-    ``n_runs`` may be given as a keyword. The valid options for each feature
-    name are:
-
-    1. ``'plain'`` : ``n_runs``.
-    2. ``'perturbed_x0'`` : ``n_runs``, ``distribution``,
-       ``perturbation_level``.
-    3. ``'noisy'`` : ``n_runs``, ``distribution``, ``noise_level``,
-       ``noise_type``, ``noise_mode``, ``noise_map``.
-    4. ``'truncated'`` : ``n_runs``, ``significant_digits``,
-       ``perturbed_trailing_digits``.
-    5. ``'permuted'`` : ``n_runs``.
-    6. ``'linearly_transformed'`` : ``n_runs``, ``rotated``,
-       ``condition_factor``.
-    7. ``'random_nan'`` : ``n_runs``, ``nan_rate``.
-    8. ``'unrelaxable_constraints'`` : ``n_runs``,
-       ``unrelaxable_bounds``, ``unrelaxable_linear_constraints``,
-       ``unrelaxable_nonlinear_constraints``.
-    9. ``'nonquantifiable_constraints'`` : ``n_runs``.
-    10. ``'quantized'`` : ``n_runs``, ``mesh_size``, ``mesh_type``,
-        ``ground_truth``.
-    11. ``'custom'`` : ``n_runs``, ``mod_x0``, ``mod_affine``,
-        ``mod_bounds``, ``mod_linear_ub``, ``mod_linear_eq``,
-        ``mod_fun``, ``mod_cub``, ``mod_ceq``.
-
-    See Also
-    --------
-    Problem : Optimization problem.
-    FeaturedProblem : Problem equipped with a specific feature.
-    benchmark : Main benchmarking function.
-
-    Examples
-    --------
-    Create a plain feature (no modification to problems):
-
-    .. code-block:: python
-
-        from optiprofiler import Feature
-
-        feature = Feature('plain')
-        print(feature.name)           # 'plain'
-        print(feature.is_stochastic)  # False
-
-    Create a noisy feature with custom noise level:
-
-    .. code-block:: python
-
-        feature = Feature('noisy', noise_level=1e-2, noise_type='relative')
-        print(feature.is_stochastic)  # True
-        print(feature.options)
+    Holds the validated stage-local options of one stage and implements the
+    numerical modifiers the recorder and the composition views call. It is
+    created fresh for every trial from a stage record of a ``Feature``
+    specification; it never owns experiment state and is never a public type.
     """
 
-    def __new__(cls, name=None, **feature_options):
-        # Single dispatch boundary between the established single-feature
-        # implementation and ordered compositions: a name with at least two
-        # effective stages builds a ``ComposedFeature``. ``name`` is optional
-        # only so that unpickling can call ``__new__`` without arguments.
-        if cls is Feature:
-            from .composition import ComposedFeature, parse_feature_name, parse_feature_spec
-            if isinstance(name, str):
-                if len(parse_feature_name(name)[1]) > 1:
-                    return object.__new__(ComposedFeature)
-            elif name is not None:
-                # A structured specification (mapping or list/tuple of stage
-                # entries); anything else is rejected by the parser.
-                if len(parse_feature_spec(name)[1]) > 1:
-                    return object.__new__(ComposedFeature)
-        return object.__new__(cls)
-
-    def __init__(self, name, **feature_options):
-        """
-        Initialize a feature.
-
-        Parameters
-        ----------
-        name : str, dict, or list of dict or str
-            Name of the feature. A ``'+'``-separated name declares an ordered
-            composition whose supplied options are broadcast to the stages
-            owning them. A structured specification, one stage entry
-            ``{'name': ..., 'options': {...}}`` or an ordered list/tuple of
-            entries (bare names allowed), gives each stage its own options;
-            with it, the only accepted keyword is the experiment-wide ``n_runs``.
-
-        Other Parameters
-        ----------------
-        n_runs : int, optional
-            Number of runs of the experiment. This is the only experiment-wide
-            option; see the class documentation for the established defaults.
-        distribution : str or callable, optional
-            Distribution used by the 'noisy' feature ('gaussian' or 'uniform')
-            and the 'perturbed_x0' feature ('spherical' or 'gaussian'), or a
-            callable ``distribution(rng, size)``.
-        noise_level, noise_type, noise_mode, noise_map : optional
-            Options of the 'noisy' feature; ``noise_map`` is 'chebyshev' or a
-            callable deterministic scalar map.
-        perturbation_level : float, optional
-            Option of the 'perturbed_x0' feature.
-        significant_digits, perturbed_trailing_digits : optional
-            Options of the 'truncated' feature.
-        nan_rate : int or float, optional
-            Rate of NaNs used by the 'random_nan' feature.
-        rotated, condition_factor : optional
-            Options of the 'linearly_transformed' feature.
-        unrelaxable_bounds, unrelaxable_linear_constraints, unrelaxable_nonlinear_constraints : bool, optional
-            Options of the 'unrelaxable_constraints' feature.
-        mesh_size, mesh_type, ground_truth : optional
-            Options of the 'quantized' feature.
-        mod_x0, mod_affine, mod_bounds, mod_linear_ub, mod_linear_eq, mod_fun, mod_cub, mod_ceq : callable, optional
-            Callbacks of the 'custom' feature.
-
-        Raises
-        ------
-        TypeError
-            If an argument received an invalid value.
-        ValueError
-            If the arguments are inconsistent.
-        """
-        # Preprocess the feature name. A "+"-separated name declares an ordered
-        # composition; ``plain`` tokens are dropped from the effective pipeline.
-        # Names with at least two effective stages are dispatched by ``__new__``
-        # to ``optiprofiler.composition.ComposedFeature`` and never reach this
-        # constructor, so what follows is the single-feature path.
-        if isinstance(name, str):
-            from .composition import parse_feature_name
-            self._declared_name, effective_stages = parse_feature_name(name)
-            self._name = effective_stages[0] if effective_stages else FeatureName.PLAIN.value
-            self._declared_spec = _declared_spec_from_name(
-                self._declared_name,
-                {key.lower(): value for key, value in feature_options.items() if key.lower() not in COMMON_FEATURE_OPTIONS})
-        else:
-            # Structured specification with at most one effective stage: the
-            # established single-feature path runs with that stage's local
-            # options. The declared entries are kept for provenance.
-            from .composition import parse_feature_spec, reject_flat_stage_options
-            declared, effective_entries = parse_feature_spec(name)
-            reject_flat_stage_options({key.lower() for key in feature_options})
-            self._declared_spec = declared
-            self._route = 'feature'
-            self._declared_name = '+'.join(entry['name'] for entry in declared)
-            stage_entry = effective_entries[0] if effective_entries else None
-            self._name = stage_entry['name'] if stage_entry else FeatureName.PLAIN.value
-            feature_options = {**(stage_entry['options'] if stage_entry else {}), **feature_options}
-        if self._name not in FeatureName.__members__.values():
-            raise ValueError(f'Unknown feature: {self._name}.')
-        self._stages = None
-
-        # Preprocess the feature options. A standalone feature owns its local
-        # options and the experiment-wide ``n_runs``; the validators and local
-        # defaults are shared with the modifier-only stages of a composition.
-        self._options = {k.lower(): v for k, v in feature_options.items()}
-        for key in self._options:
-            self._check_option_known(self._name, key, local_only=False)
-            self._options[key] = self._validate_option(self._name, key, self._options[key])
-
-        # Set default options for the unspecified options.
-        self._set_default_local_options()
-        self._options.setdefault(FeatureOption.N_RUNS.value, self._default_n_runs())
-
-    @staticmethod
-    def _local_options(name):
-        """Options owned by the stage ``name`` itself (``n_runs`` is not among them)."""
-        local_options = []
-        if name == FeatureName.CUSTOM:
-            local_options.extend([FeatureOption.MOD_X0, FeatureOption.MOD_BOUNDS, FeatureOption.MOD_LINEAR_UB, FeatureOption.MOD_LINEAR_EQ, FeatureOption.MOD_AFFINE, FeatureOption.MOD_FUN, FeatureOption.MOD_CUB, FeatureOption.MOD_CEQ])
-        elif name == FeatureName.NOISY:
-            local_options.extend([FeatureOption.DISTRIBUTION, FeatureOption.NOISE_LEVEL, FeatureOption.NOISE_TYPE, FeatureOption.NOISE_MODE, FeatureOption.NOISE_MAP])
-        elif name == FeatureName.PERTURBED_X0:
-            local_options.extend([FeatureOption.DISTRIBUTION, FeatureOption.PERTURBATION_LEVEL])
-        elif name == FeatureName.RANDOM_NAN:
-            local_options.extend([FeatureOption.NAN_RATE])
-        elif name == FeatureName.TRUNCATED:
-            local_options.extend([FeatureOption.PERTURBED_TRAILING_DIGITS, FeatureOption.SIGNIFICANT_DIGITS])
-        elif name == FeatureName.UNRELAXABLE_CONSTRAINTS:
-            local_options.extend([FeatureOption.UNRELAXABLE_BOUNDS, FeatureOption.UNRELAXABLE_LINEAR_CONSTRAINTS, FeatureOption.UNRELAXABLE_NONLINEAR_CONSTRAINTS])
-        elif name == FeatureName.LINEARLY_TRANSFORMED:
-            local_options.extend([FeatureOption.ROTATED, FeatureOption.CONDITION_FACTOR])
-        elif name == FeatureName.QUANTIZED:
-            local_options.extend([FeatureOption.MESH_SIZE, FeatureOption.MESH_TYPE, FeatureOption.GROUND_TRUTH])
-        elif name not in [FeatureName.PERMUTED, FeatureName.NONQUANTIFIABLE_CONSTRAINTS, FeatureName.PLAIN]:
-            raise NotImplementedError(f'Unknown feature: {name}.')
-        return local_options
-
-    @staticmethod
-    def _known_options(name):
-        """Options accepted by a standalone feature ``name``: the common options plus its local options."""
-        return [FeatureOption(key) for key in sorted(COMMON_FEATURE_OPTIONS)] + Feature._local_options(name)
-
-    @staticmethod
-    def _check_option_known(name, key, local_only):
-        """Reject an unknown option or one that ``name`` does not own."""
-        if key not in FeatureOption.__members__.values():
-            raise ValueError(f'Unknown option for feature: {key}.')
-        owned = Feature._local_options(name) if local_only else Feature._known_options(name)
-        if key not in owned:
-            raise ValueError(f"Option `{key}` is not valid for feature '{name}'.")
-
-    @staticmethod
-    def _validate_option(name, key, value):
-        """Validate one option of feature ``name`` and return its normalized value."""
-        if key == FeatureOption.N_RUNS:
-            return Feature._validate_n_runs(value)
-        elif key == FeatureOption.DISTRIBUTION:
-            if isinstance(value, str):
-                if name == FeatureName.NOISY and value not in ['gaussian', 'uniform']:
-                    raise ValueError(f'Option `{key}` for feature `{name}` must be either "gaussian" or "uniform" when specified as a string.')
-                elif name == FeatureName.PERTURBED_X0 and value not in ['gaussian', 'spherical']:
-                    raise ValueError(f'Option `{key}` for feature `{name}` must be either "gaussian" or "spherical" when specified as a string.')
-            elif not callable(value):
-                raise TypeError(f'Option `{key}` must be a string or it must be callable.')
-        elif key == FeatureOption.NAN_RATE:
-            if not isinstance(value, (int, float)):
-                raise TypeError(f'Option `{key}` must be a number.')
-            if not (0.0 <= value <= 1.0):
-                raise ValueError(f'Option `{key}` must be between 0 and 1.')
-        elif key == FeatureOption.SIGNIFICANT_DIGITS:
-            if isinstance(value, (float, np.floating)) and float(value).is_integer():
-                value = int(value)
-            if isinstance(value, np.integer):
-                value = int(value)
-            if not isinstance(value, int):
-                raise TypeError(f'Option `{key}` must be an integer.')
-            if value <= 0:
-                raise ValueError(f'Option `{key}` must be positive.')
-        elif key in [FeatureOption.NOISE_LEVEL, FeatureOption.CONDITION_FACTOR]:
-            if not isinstance(value, (int, float)):
-                raise TypeError(f'Option `{key}` must be a number.')
-            if value < 0.0:
-                raise ValueError(f'Option `{key}` must be nonnegative.')
-        elif key == FeatureOption.NOISE_TYPE:
-            if not isinstance(value, str):
-                raise TypeError(f'Option {key} must be a string.')
-            if value.lower() not in ['absolute', 'relative', 'mixed']:
-                raise ValueError(f"Option `{key}` must be one of 'absolute', 'relative', or 'mixed'.")
-            value = value.lower()
-        elif key == FeatureOption.NOISE_MODE:
-            if not isinstance(value, str):
-                raise TypeError(f'Option {key} must be a string.')
-            if value.lower() not in ['random', 'deterministic']:
-                raise ValueError(f"Option `{key}` must be either 'random' or 'deterministic'.")
-            value = value.lower()
-        elif key == FeatureOption.NOISE_MAP:
-            if isinstance(value, str):
-                if value.lower() != 'chebyshev':
-                    raise ValueError(f'Option `{key}` must be "chebyshev" when specified as a string.')
-                value = value.lower()
-            elif not callable(value):
-                raise TypeError(f'Option `{key}` must be a string or it must be callable.')
-        elif key in [FeatureOption.PERTURBED_TRAILING_DIGITS, FeatureOption.ROTATED, FeatureOption.UNRELAXABLE_BOUNDS, FeatureOption.UNRELAXABLE_LINEAR_CONSTRAINTS, FeatureOption.UNRELAXABLE_NONLINEAR_CONSTRAINTS, FeatureOption.GROUND_TRUTH]:
-            if not isinstance(value, bool):
-                raise TypeError(f'Option `{key}` must be a boolean.')
-        elif key == FeatureOption.MESH_SIZE:
-            if not isinstance(value, (int, float)):
-                raise TypeError(f'Option `{key}` must be a number.')
-            if value <= 0.0:
-                raise ValueError(f'Option `{key}` must be positive.')
-        elif key == FeatureOption.MESH_TYPE:
-            if not isinstance(value, str):
-                raise TypeError(f'Option `{key}` must be a string.')
-            if value.lower() not in ['absolute', 'relative']:
-                raise ValueError(f"Option `{key}` must be 'absolute' or 'relative'.")
-        elif key in [FeatureOption.MOD_X0, FeatureOption.MOD_BOUNDS, FeatureOption.MOD_LINEAR_UB, FeatureOption.MOD_LINEAR_EQ, FeatureOption.MOD_AFFINE, FeatureOption.MOD_FUN, FeatureOption.MOD_CUB, FeatureOption.MOD_CEQ]:
-            if not callable(value):
-                raise TypeError(f'Option `{key}` must be callable.')
-        return value
-
-    @classmethod
-    def _stage(cls, name, **options):
-        """
-        A modifier-only feature for one stage of a composition.
-
-        The stage validates and defaults its local options with the same
-        rules as a standalone feature, but it never owns a run count: the
-        composition that contains it stores the experiment-wide ``n_runs``
-        once. A common option supplied here is rejected.
-        """
-        stage = object.__new__(Feature)
-        stage._name = name
-        stage._declared_name = name
-        stage._stages = None
-        stage._options = {key.lower(): value for key, value in options.items()}
-        for key in stage._options:
-            if key in COMMON_FEATURE_OPTIONS:
-                raise ValueError(f'Option `{key}` is experiment-wide and is not a stage option; '
-                                 f'give it at the top level, not inside a stage.')
-            cls._check_option_known(name, key, local_only=True)
-            stage._options[key] = cls._validate_option(name, key, stage._options[key])
-        stage._set_default_local_options()
-        return stage
-
-    @staticmethod
-    def _validate_n_runs(value):
-        """Validate ``n_runs`` and return it as an ``int``."""
-        if isinstance(value, (float, np.floating)) and float(value).is_integer():
-            value = int(value)
-        if isinstance(value, np.integer):
-            value = int(value)
-        if not isinstance(value, int):
-            raise TypeError(f'Option `{FeatureOption.N_RUNS}` must be an integer.')
-        if value <= 0:
-            raise ValueError(f'Option `{FeatureOption.N_RUNS}` must be positive.')
-        return value
+    def __init__(self, name, options):
+        self._name = name
+        self._options = dict(options)
 
     @property
     def name(self):
@@ -583,24 +82,7 @@ class Feature:
 
     @property
     def is_stochastic(self):
-        """
-        Whether the feature is stochastic.
-
-        Returns
-        -------
-        bool
-            Whether the feature is stochastic.
-        """
-        if self._name == FeatureName.NOISY:
-            return self._options[FeatureOption.NOISE_MODE] == 'random'
-        elif self._name in [FeatureName.PERTURBED_X0, FeatureName.PERMUTED, FeatureName.RANDOM_NAN, FeatureName.CUSTOM]:
-            return True
-        elif self._name == FeatureName.TRUNCATED:
-            return self._options[FeatureOption.PERTURBED_TRAILING_DIGITS]
-        elif self._name == FeatureName.LINEARLY_TRANSFORMED:
-            return self._options[FeatureOption.ROTATED]
-        else:
-            return False
+        return _stage_is_stochastic(self._name, self._options)
 
     def modifier_x0(self, seed, problem):
         """
@@ -1223,70 +705,6 @@ class Feature:
             raise ValueError('The output of `noise_map` must be a real scalar.')
         return float(noise)
 
-    def _set_default_local_options(self):
-        """
-        Set default values for the unspecified local options.
-
-        Notes
-        -----
-        Defaults are stored as plain values (strings, numbers, booleans); the
-        named distributions and noise maps they refer to are resolved by the
-        modifiers, so a feature with default options stays picklable.
-        """
-
-        if self._name in [FeatureName.PLAIN, FeatureName.CUSTOM, FeatureName.NONQUANTIFIABLE_CONSTRAINTS, FeatureName.PERMUTED]:
-            pass
-        elif self._name == FeatureName.NOISY:
-            self._options.setdefault(FeatureOption.NOISE_MODE.value, 'random')
-            self._options.setdefault(FeatureOption.DISTRIBUTION.value, 'gaussian')
-            self._options.setdefault(FeatureOption.NOISE_MAP.value, 'chebyshev')
-            self._options.setdefault(FeatureOption.NOISE_LEVEL.value, 1e-3)
-            self._options.setdefault(FeatureOption.NOISE_TYPE.value, 'mixed')
-        elif self._name == FeatureName.LINEARLY_TRANSFORMED:
-            self._options.setdefault(FeatureOption.ROTATED.value, True)
-            self._options.setdefault(FeatureOption.CONDITION_FACTOR.value, 0)
-        elif self._name == FeatureName.PERTURBED_X0:
-            self._options.setdefault(FeatureOption.DISTRIBUTION.value, 'spherical')
-            self._options.setdefault(FeatureOption.PERTURBATION_LEVEL.value, 1e-3)
-        elif self._name == FeatureName.RANDOM_NAN:
-            self._options.setdefault(FeatureOption.NAN_RATE.value, 0.05)
-        elif self._name == FeatureName.TRUNCATED:
-            self._options.setdefault(FeatureOption.PERTURBED_TRAILING_DIGITS.value, False)
-            self._options.setdefault(FeatureOption.SIGNIFICANT_DIGITS.value, 6)
-        elif self._name == FeatureName.UNRELAXABLE_CONSTRAINTS:
-            self._options.setdefault(FeatureOption.UNRELAXABLE_BOUNDS.value, True)
-            self._options.setdefault(FeatureOption.UNRELAXABLE_LINEAR_CONSTRAINTS.value, False)
-            self._options.setdefault(FeatureOption.UNRELAXABLE_NONLINEAR_CONSTRAINTS.value, False)
-        elif self._name == FeatureName.QUANTIZED:
-            self._options.setdefault(FeatureOption.MESH_SIZE.value, 1e-3)
-            self._options.setdefault(FeatureOption.MESH_TYPE.value, 'absolute')
-            self._options.setdefault(FeatureOption.GROUND_TRUTH.value, True)
-        else:
-            raise NotImplementedError(f'Unknown feature: {self._name}.')
-
-    def _default_n_runs(self):
-        """
-        The established default run count of this feature, from its validated
-        local options.
-
-        This is a literal table, not a function of ``is_stochastic``: ``custom``
-        defaults to one run although it is stochastic, and an unrotated
-        ``linearly_transformed`` defaults to five although it is deterministic.
-        A composition resolves the experiment-wide count once as the largest
-        default of its effective stages and stores it on the root only.
-        """
-        if self._name in [FeatureName.PLAIN, FeatureName.CUSTOM, FeatureName.NONQUANTIFIABLE_CONSTRAINTS,
-                          FeatureName.UNRELAXABLE_CONSTRAINTS, FeatureName.QUANTIZED]:
-            return 1
-        elif self._name == FeatureName.NOISY:
-            return 1 if self._options[FeatureOption.NOISE_MODE] == 'deterministic' else 5
-        elif self._name == FeatureName.TRUNCATED:
-            return 5 if self._options[FeatureOption.PERTURBED_TRAILING_DIGITS] else 1
-        elif self._name in [FeatureName.PERMUTED, FeatureName.LINEARLY_TRANSFORMED, FeatureName.PERTURBED_X0, FeatureName.RANDOM_NAN]:
-            return 5
-        else:
-            raise NotImplementedError(f'Unknown feature: {self._name}.')
-
     @staticmethod
     def chebyshev_noise_map(x):
         # Deterministic noise map from Moré and Wild, "Benchmarking
@@ -1346,6 +764,226 @@ class Feature:
             new_seed = 42
 
         return np.random.default_rng(new_seed)
+
+
+class Feature:
+    """
+    Specification of the feature applied to the benchmarked problems: an
+    ordered pipeline of stages, each with its own validated stage-local options.
+
+    A single feature is a one-stage pipeline; ``'plain'`` is the identity with
+    no effective stage. The specification is immutable and carries no experiment
+    state: the number of runs belongs to ``benchmark(..., n_runs=N)``, and every
+    trial builds fresh runtime state from the records.
+
+    Parameters
+    ----------
+    name : str, dict, list, tuple or Feature
+        Either a feature name, several names joined with ``+`` to apply them in
+        order (``'noisy+truncated'`` adds noise first and truncates the noisy
+        value afterwards; keyword options are broadcast to every stage that
+        accepts them), or a structured specification: one stage entry
+        ``{'name': ..., 'options': {...}}`` or an ordered list/tuple of such
+        entries and bare names, each stage owning the options inside its entry
+        (no keyword option is accepted then). An existing ``Feature`` is
+        accepted as it is, without reparsing. The available stage names are
+        ``'plain'``, ``'perturbed_x0'``, ``'noisy'``, ``'truncated'``,
+        ``'permuted'``, ``'linearly_transformed'``, ``'random_nan'``,
+        ``'unrelaxable_constraints'``, ``'nonquantifiable_constraints'``,
+        ``'quantized'`` and ``'custom'``.
+
+    Other Parameters
+    ----------------
+    distribution : str or callable, optional
+        Distribution used by the 'noisy' feature ('gaussian' or 'uniform')
+        and the 'perturbed_x0' feature ('spherical' or 'gaussian'), or a
+        callable ``distribution(rng, size)``.
+    noise_level, noise_type, noise_mode, noise_map : optional
+        Options of the 'noisy' feature; ``noise_map`` is 'chebyshev' or a
+        callable deterministic scalar map.
+    perturbation_level : float, optional
+        Option of the 'perturbed_x0' feature.
+    significant_digits, perturbed_trailing_digits : optional
+        Options of the 'truncated' feature.
+    nan_rate : int or float, optional
+        Rate of NaNs used by the 'random_nan' feature.
+    rotated, condition_factor : optional
+        Options of the 'linearly_transformed' feature.
+    unrelaxable_bounds, unrelaxable_linear_constraints, unrelaxable_nonlinear_constraints : bool, optional
+        Options of the 'unrelaxable_constraints' feature.
+    mesh_size, mesh_type, ground_truth : optional
+        Options of the 'quantized' feature.
+    mod_x0, mod_affine, mod_bounds, mod_linear_ub, mod_linear_eq, mod_fun, mod_cub, mod_ceq : callable, optional
+        Callbacks of the 'custom' feature.
+
+    Attributes
+    ----------
+    stages : tuple
+        The effective stages in order. Each record has ``name``, ``occurrence``,
+        ``identity`` (``'noisy#0'``), ``code`` and a read-only ``options`` view
+        of its validated, defaulted stage-local options.
+    name : str
+        Effective name (``'noisy+truncated'``; ``'plain'`` for the identity).
+    declared_name, declared : str, Declaration
+        The declaration as given (input route and entries before defaults).
+    is_stochastic, is_identity : bool
+
+    Raises
+    ------
+    TypeError
+        If an argument received an invalid value.
+    ValueError
+        If the arguments are inconsistent, or if an experiment option such as
+        ``n_runs`` is given here instead of to ``benchmark``.
+
+    Notes
+    -----
+    ``options`` and the ``modifier_*`` methods remain as deprecated one-stage
+    conveniences only; the benchmark, the recorder, the archives and the
+    reports use ``stages``.
+
+    Examples
+    --------
+    .. code-block:: python
+
+        from optiprofiler import Feature
+
+        feature = Feature('noisy', noise_level=1e-2)
+        feature.stages[0].options['noise_level']   # 0.01
+
+        pipeline = Feature([
+            {'name': 'noisy', 'options': {'distribution': 'uniform'}},
+            {'name': 'perturbed_x0', 'options': {'distribution': 'gaussian'}},
+        ])
+        [stage.identity for stage in pipeline.stages]   # ['noisy#0', 'perturbed_x0#0']
+    """
+
+    def __init__(self, name, **options):
+        lowered = {}
+        for key, value in options.items():
+            if not isinstance(key, str):
+                raise TypeError('Option names must be strings.')
+            lowered[key.lower()] = value
+        if isinstance(name, Feature):
+            reject_experiment_options(lowered)
+            reject_flat_stage_options(lowered)
+            declared, stages = name._declared, name._stages
+        elif isinstance(name, str):
+            declared, stages = normalize_shorthand(name, lowered)
+        elif name is None:
+            raise TypeError(_SPEC_TYPE_MESSAGE)
+        else:
+            reject_experiment_options(lowered)
+            reject_flat_stage_options(lowered)
+            declared, stages = normalize_entries(name)
+        object.__setattr__(self, '_declared', declared)
+        object.__setattr__(self, '_stages', stages)
+
+    def __setattr__(self, key, value):
+        raise AttributeError('Feature is immutable; build a new Feature instead.')
+
+    def __delattr__(self, key):
+        raise AttributeError('Feature is immutable; build a new Feature instead.')
+
+    def __getstate__(self):
+        return {'_declared': self._declared, '_stages': self._stages}
+
+    def __setstate__(self, state):
+        object.__setattr__(self, '_declared', state['_declared'])
+        object.__setattr__(self, '_stages', state['_stages'])
+
+    def __repr__(self):
+        return f'Feature({self.name!r})'
+
+    @property
+    def stages(self):
+        """The effective stages, in order (empty for the identity)."""
+        return self._stages
+
+    @property
+    def name(self):
+        """The effective name; ``'plain'`` for the identity."""
+        return '+'.join(stage.name for stage in self._stages) or FeatureName.PLAIN.value
+
+    @property
+    def declared_name(self):
+        """The declared name, ``plain`` tokens included."""
+        return self._declared.name
+
+    @property
+    def declared(self):
+        """The declaration as given: input route and entries before defaults."""
+        return self._declared
+
+    @property
+    def is_identity(self):
+        return not self._stages
+
+    @property
+    def is_stochastic(self):
+        """Whether any stage draws random numbers."""
+        return any(stage.is_stochastic for stage in self._stages)
+
+    def _single_stage_runtime(self):
+        """Fresh runtime of the only stage (identity: a plain runtime); compositions have none."""
+        if len(self._stages) > 1:
+            raise ValueError('This feature has several stages; use `stages` (a composition has no single modifier).')
+        if self._stages:
+            return _StageRuntime(self._stages[0].name, self._stages[0].options)
+        return _StageRuntime(FeatureName.PLAIN.value, {})
+
+    def _deprecated_runtime(self, what):
+        if len(self._stages) > 1:
+            raise ValueError(f'`Feature.{what}` is available for one-stage features only; use `stages` for a composition.')
+        warnings.warn(f'`Feature.{what}` is a deprecated single-stage convenience; the specification is `Feature.stages` '
+                      f'(OptiProfiler 2.0).', DeprecationWarning, stacklevel=3)
+        return self._single_stage_runtime()
+
+    @property
+    def options(self):
+        """
+        Deprecated: the stage-local options of a one-stage feature (``{}`` for
+        the identity). Use ``stages``; a composition raises ``ValueError``.
+        """
+        runtime = self._deprecated_runtime('options')
+        return dict(runtime._options)
+
+    def modifier_x0(self, seed, problem):
+        """Deprecated one-stage convenience; see ``stages``."""
+        return self._deprecated_runtime('modifier_x0').modifier_x0(seed, problem)
+
+    def modifier_affine(self, seed, problem):
+        """Deprecated one-stage convenience; see ``stages``."""
+        return self._deprecated_runtime('modifier_affine').modifier_affine(seed, problem)
+
+    def modifier_bounds(self, seed, problem):
+        """Deprecated one-stage convenience; see ``stages``."""
+        return self._deprecated_runtime('modifier_bounds').modifier_bounds(seed, problem)
+
+    def modifier_linear_ub(self, seed, problem):
+        """Deprecated one-stage convenience; see ``stages``."""
+        return self._deprecated_runtime('modifier_linear_ub').modifier_linear_ub(seed, problem)
+
+    def modifier_linear_eq(self, seed, problem):
+        """Deprecated one-stage convenience; see ``stages``."""
+        return self._deprecated_runtime('modifier_linear_eq').modifier_linear_eq(seed, problem)
+
+    def modifier_fun(self, x, seed, problem, n_eval):
+        """Deprecated one-stage convenience; see ``stages``."""
+        return self._deprecated_runtime('modifier_fun').modifier_fun(x, seed, problem, n_eval)
+
+    def modifier_cub(self, x, seed, problem, n_eval_cub):
+        """Deprecated one-stage convenience; see ``stages``."""
+        return self._deprecated_runtime('modifier_cub').modifier_cub(x, seed, problem, n_eval_cub)
+
+    def modifier_ceq(self, x, seed, problem, n_eval_ceq):
+        """Deprecated one-stage convenience; see ``stages``."""
+        return self._deprecated_runtime('modifier_ceq').modifier_ceq(x, seed, problem, n_eval_ceq)
+
+    # Shared numerical utilities of the stage kinds (stateless).
+    chebyshev_noise_map = staticmethod(_StageRuntime.chebyshev_noise_map)
+    get_default_rng = staticmethod(_StageRuntime.get_default_rng)
+
 
 class Problem:
     r"""
@@ -2550,6 +2188,11 @@ class FeaturedProblem(Problem):
         self._feature = feature
         if not isinstance(self._feature, Feature):
             raise TypeError('The argument `feature` for featured problem must be an instance of the class Feature.')
+        # Explicit execution strategy (recorded in provenance) and a fresh
+        # runtime of the only stage for this trial; the specification itself
+        # never carries runtime state.
+        self.execution_strategy = select_execution_strategy(feature)
+        self._runtime = feature._single_stage_runtime()
 
         # Preprocess the maximum number of function evaluations.
         self._max_eval = _validate_max_eval(max_eval)
@@ -2563,10 +2206,10 @@ class FeaturedProblem(Problem):
         self._real_n_eval_ceq = 0
 
         # Modify the problem according to the feature.
-        self._x0 = self._feature.modifier_x0(self._seed, self._problem)
-        self._xl, self._xu = self._feature.modifier_bounds(self._seed, self._problem)
-        self._aub, self._bub = self._feature.modifier_linear_ub(self._seed, self._problem)
-        self._aeq, self._beq = self._feature.modifier_linear_eq(self._seed, self._problem)
+        self._x0 = self._runtime.modifier_x0(self._seed, self._problem)
+        self._xl, self._xu = self._runtime.modifier_bounds(self._seed, self._problem)
+        self._aub, self._bub = self._runtime.modifier_linear_ub(self._seed, self._problem)
+        self._aeq, self._beq = self._runtime.modifier_linear_eq(self._seed, self._problem)
 
         # Store the histories of the objective function values, nonlinear
         # constraints, and maximum constraint violations.
@@ -2582,13 +2225,13 @@ class FeaturedProblem(Problem):
 
     def _evaluate_truth(self, x):
         """Evaluate scoring truth at solver coordinates, without recording an oracle call."""
-        A, b = self._feature.modifier_affine(self._seed, self._problem)[:2]
+        A, b = self._runtime.modifier_affine(self._seed, self._problem)[:2]
         # True means the quantized problem itself is the ground truth. False
         # (and all other features) keeps base truth. Never snap the returned
         # solver point or call self.fun here: bookkeeping must not consume its
         # budget, append a synthetic history entry, or update last-value caches.
-        if self._feature.name == 'quantized' and self._feature.options[FeatureOption.GROUND_TRUTH]:
-            f = self._feature.modifier_fun(A @ x + b, self._seed, self._problem, self.n_eval_fun)
+        if self._runtime.name == 'quantized' and self._runtime.options[FeatureOption.GROUND_TRUTH]:
+            f = self._runtime.modifier_fun(A @ x + b, self._seed, self._problem, self.n_eval_fun)
             cv = self.maxcv(x)
         else:
             f = self._problem.fun(A @ x + b)
@@ -2604,7 +2247,7 @@ class FeaturedProblem(Problem):
         # Single dispatch boundary: a feature with at least two effective
         # stages is applied through lazy problem views and the recorder of
         # ``optiprofiler.composition``; everything else keeps this class.
-        if cls is FeaturedProblem and getattr(feature, '_stages', None) is not None:
+        if cls is FeaturedProblem and isinstance(feature, Feature) and select_execution_strategy(feature) == STRATEGY_COMPOSED:
             from .composition import ComposedFeaturedProblem
             return object.__new__(ComposedFeaturedProblem)
 
@@ -2755,11 +2398,11 @@ class FeaturedProblem(Problem):
             return self._last_fun
 
         # Generate the affine transformation.
-        A, b = self._feature.modifier_affine(self._seed, self._problem)[:2]
+        A, b = self._runtime.modifier_affine(self._seed, self._problem)[:2]
 
         # Evaluate the modified the objective function value according to the feature and return the
         # modified value.
-        f = self._feature.modifier_fun(A @ x + b, self._seed, self._problem, self.n_eval_fun)
+        f = self._runtime.modifier_fun(A @ x + b, self._seed, self._problem, self.n_eval_fun)
         self._last_fun = f
 
         # Evaluate the objective function and store the results.
@@ -2767,7 +2410,7 @@ class FeaturedProblem(Problem):
 
         # If the feature is 'quantized' and the option ``ground_truth'' is set to true, we should
         # set f_true to f.
-        if self._feature.name == 'quantized' and self._feature.options[FeatureOption.GROUND_TRUTH]:
+        if self._runtime.name == 'quantized' and self._runtime.options[FeatureOption.GROUND_TRUTH]:
             f_true = f
 
         # We should not store the modified value because the performance of an optimization solver
@@ -2813,10 +2456,10 @@ class FeaturedProblem(Problem):
             return self._last_cub
 
         # Generate the affine transformation.
-        A, b = self._feature.modifier_affine(self._seed, self._problem)[:2]
+        A, b = self._runtime.modifier_affine(self._seed, self._problem)[:2]
 
         # Evaluate the modified nonlinear inequality constraints and store the results.
-        c = self._feature.modifier_cub(A @ x + b, self._seed, self._problem, len(self._cub_hist))
+        c = self._runtime.modifier_cub(A @ x + b, self._seed, self._problem, len(self._cub_hist))
         self._last_cub = c
 
         # Evaluate the nonlinear inequality constraints and store the results.
@@ -2824,7 +2467,7 @@ class FeaturedProblem(Problem):
 
         # If the feature is 'quantized' and the option ``ground_truth'' is set to true, we should
         # set c_true to c.
-        if self._feature.name == 'quantized' and self._feature.options[FeatureOption.GROUND_TRUTH]:
+        if self._runtime.name == 'quantized' and self._runtime.options[FeatureOption.GROUND_TRUTH]:
             c_true = c
 
         # Record the history of the nonlinear inequality constraints only when `record_hist` is true.
@@ -2866,10 +2509,10 @@ class FeaturedProblem(Problem):
             return self._last_ceq
 
         # Generate the affine transformation.
-        A, b = self._feature.modifier_affine(self._seed, self._problem)[:2]
+        A, b = self._runtime.modifier_affine(self._seed, self._problem)[:2]
 
         # Evaluate the modified nonlinear equality constraints and store the results.
-        c = self._feature.modifier_ceq(A @ x + b, self._seed, self._problem, len(self._ceq_hist))
+        c = self._runtime.modifier_ceq(A @ x + b, self._seed, self._problem, len(self._ceq_hist))
         self._last_ceq = c
 
         # Evaluate the nonlinear equality constraints and store the results.
@@ -2877,7 +2520,7 @@ class FeaturedProblem(Problem):
 
         # If the feature is 'quantized' and the option ``ground_truth'' is set to true, we should
         # set c_true to c.
-        if self._feature.name == 'quantized' and self._feature.options[FeatureOption.GROUND_TRUTH]:
+        if self._runtime.name == 'quantized' and self._runtime.options[FeatureOption.GROUND_TRUTH]:
             c_true = c
         
         # Record the history of the nonlinear equality constraints only when `record_hist` is true.
@@ -2908,7 +2551,7 @@ class FeaturedProblem(Problem):
 
         # If the Feature is ``quantized'' and the option ``ground_truth'' is set to true, we should
         # use the modified constraint violation.
-        if self._feature.name == 'quantized' and self._feature.options[FeatureOption.GROUND_TRUTH]:
+        if self._runtime.name == 'quantized' and self._runtime.options[FeatureOption.GROUND_TRUTH]:
             if self.ptype == 'u':
                 cv = 0.0
                 return cv
@@ -2937,18 +2580,18 @@ class FeaturedProblem(Problem):
             # oracle even with record_hist=False would still consume its real
             # evaluation budget and may reuse a cached last value after exhaustion.
             if self.m_nonlinear_ub > 0:
-                cub = self._feature.modifier_cub(x, self._seed, self._problem, self.n_eval_cub)
+                cub = self._runtime.modifier_cub(x, self._seed, self._problem, self.n_eval_cub)
                 cv_nonlinear = np.max(cub, initial=0.0)
             else:
                 cv_nonlinear = 0.0
             if self.m_nonlinear_eq > 0:
-                ceq = self._feature.modifier_ceq(x, self._seed, self._problem, self.n_eval_ceq)
+                ceq = self._runtime.modifier_ceq(x, self._seed, self._problem, self.n_eval_ceq)
                 cv_nonlinear = np.max(np.abs(ceq), initial=cv_nonlinear)
             cv = np.max([cv_bounds, cv_linear, cv_nonlinear])
             return cv
         else:
             # Generate the affine transformation.
-            A, b = self._feature.modifier_affine(self._seed, self._problem)[:2]
+            A, b = self._runtime.modifier_affine(self._seed, self._problem)[:2]
             return self._problem.maxcv(A @ x + b)
         
     # Note: We need to add methods `grad`, `hess`, `jcub`, and `jceq` to the FeaturedProblem class in the future.
