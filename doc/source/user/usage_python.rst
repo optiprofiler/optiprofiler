@@ -296,8 +296,14 @@ imported from an object that recorded no declaration has declaration route
 effective stages are complete. Each trial builds fresh
 runtime state from the records, so reusing
 one ``Feature`` object across benchmarks gives the same numbers as building it
-again. Pickling a ``Feature`` transports its declaration and normalizes it
-again on load, callables included as the native objects. ``Feature.options``
+again. Pickling a ``Feature`` writes its versioned native form: the effective
+stages with every validated local option explicit (so the defaults of the
+version that loads it cannot change the numbers) and, separately, the
+declaration as provenance; loading validates the effective options again,
+callables included as the native objects, and rejects a native form version
+it does not know. Objects pickled by OptiProfiler 1.x are read only through
+the trusted decoder described below; pickles of other layouts or from other
+versions are not a supported input. ``Feature.options``
 and the ``modifier_*`` methods remain as deprecated one-stage conveniences
 (``DeprecationWarning``; an error on a composition) and are used by nothing
 in the engine, the archives or the reports.
