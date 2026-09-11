@@ -26,7 +26,11 @@ classdef FeatureProblemView < Problem
             A=eye(predecessor.n); b=zeros(predecessor.n,1);
             affine=false;
             if ~isempty(stage)
-                kernel=optiprofiler_internal.FeatureKernel(stage.name,stage.options);
+                options=stage.options;
+                if strcmp(stage.name,'custom')
+                    options=optiprofiler_internal.customRuntimeOptions(stage,predecessor);
+                end
+                kernel=optiprofiler_internal.FeatureKernel(stage.name,options);
                 channels={'fun','cub','ceq','construction'};
                 seeds=struct();
                 for k=1:4
@@ -58,6 +62,7 @@ classdef FeatureProblemView < Problem
             x=obj.point(x);
             if isempty(obj.stage)
                 value=obj.predecessor.(channel)(x);
+                if ~strcmp(channel,'fun'), value=value(:); end
             else
                 x=obj.map(x);
                 if strcmp(obj.stage.name,'quantized') && obj.stage.options.ground_truth
@@ -142,6 +147,7 @@ classdef FeatureProblemView < Problem
             x=obj.point(x);
             if isempty(obj.stage)
                 value=obj.predecessor.(channel)(x);
+                if ~strcmp(channel,'fun'), value=value(:); end
                 return
             end
             index=obj.served.(channel);
@@ -151,6 +157,18 @@ classdef FeatureProblemView < Problem
                 % A local mesh reads its predecessor once. It is not the
                 % legacy kernel's eager unsnapped pre-read plus snapped read.
                 value=obj.predecessor.(channel)(obj.quantize(x));
+                return
+            end
+            if strcmp(obj.stage.name,'unrelaxable_constraints') && strcmp(channel,'fun')
+                value=obj.predecessor.fun(x);
+                [bounds,linear]=obj.predecessor.observedStructural(x);
+                options=obj.stage.options;
+                if (options.unrelaxable_bounds && bounds>0) || ...
+                        (options.unrelaxable_linear_constraints && linear>0)
+                    value=Inf;
+                elseif options.unrelaxable_nonlinear_constraints && obj.predecessor.observedNonlinear(x)>0
+                    value=Inf;
+                end
                 return
             end
             method=['modifier_',channel];

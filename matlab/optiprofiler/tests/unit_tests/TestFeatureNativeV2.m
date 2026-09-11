@@ -39,6 +39,31 @@ classdef TestFeatureNativeV2 < matlab.unittest.TestCase
             testCase.verifyError(@() Feature.loadobj(struct('schema','unsupported')), ...
                 'MATLAB:Feature:InvalidNativeState');
         end
+
+        function nestedEnumsAndIdentityUnknownDeclarationRoundtrip(testCase)
+            here = fileparts(mfilename('fullpath'));
+            fixture = fullfile(here,'..','fixtures','feature-v2','native-legacy-enum-feature.mat');
+            restored = load(fixture);
+            testCase.verifyClass(restored.enum_as_key_record.key,'FeatureOptionKey');
+            testCase.verifyEqual(restored.enum_as_key_record.key.value,'n_runs');
+            testCase.verifyEqual(restored.enum_as_key_record.value,3);
+            testCase.verifyClass(restored.enum_as_value_record.value,'FeatureOptionKey');
+            testCase.verifyEqual(restored.enum_as_value_record.value.value,'n_runs');
+            identity = Feature({'plain','plain'});
+            [imported, request] = optiprofiler_internal.importLegacyFeature(restored.legacy_feature);
+            file = [tempname,'.mat']; cleanup = onCleanup(@() deleteIfPresent(file));
+            save(file,'identity','imported','-v7');
+            roundtrip = load(file);
+            testCase.verifyTrue(roundtrip.identity.is_identity);
+            testCase.verifyEmpty(roundtrip.identity.stages);
+            testCase.verifyEqual(roundtrip.identity.declared,identity.declared);
+            testCase.verifyEqual(roundtrip.identity.declared_name,'plain+plain');
+            testCase.verifyEqual(roundtrip.imported.stages,imported.stages);
+            testCase.verifyEmpty(roundtrip.imported.declared);
+            testCase.verifyEmpty(roundtrip.imported.declared_name);
+            testCase.verifyFalse(isfield(roundtrip.imported.stages{1}.options,'n_runs'));
+            testCase.verifyEqual(request.n_runs,3);
+        end
     end
 end
 
