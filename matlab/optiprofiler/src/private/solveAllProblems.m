@@ -1,10 +1,11 @@
-function results = solveAllProblems(solvers, library, feature, problem_options, profile_options, is_plot, path_hist_plots, eval_report, role, experiment_plan)
+function results = solveAllProblems(solvers, library, feature, problem_options, profile_options, is_plot, path_hist_plots, eval_report, role, experiment_plan, feature_context)
 %SOLVEALLPROBLEMS solves all problems from a resolved problem library.
 
     results = struct();
     plib = library.name;
     if nargin < 8, eval_report = []; end
     if nargin < 9, role = 'primary'; end
+    if nargin < 11, feature_context = struct(); end
 
     % Get satisfied problem names.
     option_select = problem_options;
@@ -71,6 +72,11 @@ function results = solveAllProblems(solvers, library, feature, problem_options, 
     end
 
     % Start solving problems.
+    % Metadata belongs to the successfully selected numerical path. Building it
+    % earlier would change selector-error/empty-selection behavior and could
+    % access a plan absent from legacy private negative-test calls.
+    pipeline = optiprofiler_internal.EvalReport.encodeMetadata( ...
+        optiprofiler_internal.featureProvenance(feature, experiment_plan, feature_context));
     load = library.load;
     n_problems = length(problem_names);
     len_problem_names = max(cellfun(@length, problem_names));
@@ -149,6 +155,11 @@ function results = solveAllProblems(solvers, library, feature, problem_options, 
 
     % Only the controller collects reporting metadata. The handle is never
     % referenced by the parfor body or included in numerical worker options.
+    for i_problem = 1:numel(tmp_results)
+        if ~isempty(fieldnames(tmp_results{i_problem}))
+            tmp_results{i_problem}.feature_pipeline = pipeline;
+        end
+    end
     if ~isempty(eval_report)
         for i_problem = 1:numel(tmp_results)
             if isempty(fieldnames(tmp_results{i_problem}))
@@ -247,6 +258,8 @@ function results = solveAllProblems(solvers, library, feature, problem_options, 
     results.problem_names_options = problem_options.(ProblemOptionKey.PROBLEM_NAMES.value);
     results.excludelist = problem_options.(ProblemOptionKey.EXCLUDELIST.value);
     results.feature_stamp = profile_options.(ProfileOptionKey.FEATURE_STAMP.value);
+    results.feature_pipeline = pipeline;
+    results.execution_metadata = optiprofiler_internal.retainedExecutionMetadata(tmp_results);
     results.fun_histories = fun_histories;
     results.maxcv_histories = maxcv_histories;
     results.fun_outs = fun_outs;
