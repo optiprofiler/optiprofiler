@@ -275,6 +275,24 @@ end
 
 function results_plib = truncate_solvers(results_plib, solvers_to_load)
     % Truncate the loaded data by the 'solvers_to_load' field.
+    original_count = numel(results_plib.solver_names);
+    if ~isfield(results_plib, 'retained_solver_indices')
+        results_plib.retained_solver_indices = 1:original_count;
+    end
+    results_plib.retained_solver_indices = results_plib.retained_solver_indices(solvers_to_load);
+    if isfield(results_plib, 'execution_metadata') && iscell(results_plib.execution_metadata)
+        for p = 1:numel(results_plib.execution_metadata)
+            record = results_plib.execution_metadata{p};
+            if ~isstruct(record) || ~isscalar(record), continue; end
+            if isfield(record, 'real_n_runs') && numel(record.real_n_runs) == original_count
+                record.real_n_runs = record.real_n_runs(solvers_to_load);
+            end
+            if isfield(record, 'runtime_receipts') && size(record.runtime_receipts, 1) == original_count
+                record.runtime_receipts = record.runtime_receipts(solvers_to_load, :);
+            end
+            results_plib.execution_metadata{p} = record;
+        end
+    end
     results_plib.solver_names = results_plib.solver_names(solvers_to_load);
     results_plib.fun_histories = results_plib.fun_histories(:, solvers_to_load, :, :);
     results_plib.maxcv_histories = results_plib.maxcv_histories(:, solvers_to_load, :, :);
@@ -424,6 +442,14 @@ function results_plib = truncate_problems(results_plib, problem_options)
     end
 
     % Truncate the loaded data.
+    if ~isfield(results_plib, 'retained_problem_indices')
+        results_plib.retained_problem_indices = 1:numel(p_to_load);
+    end
+    results_plib.retained_problem_indices = results_plib.retained_problem_indices(p_to_load);
+    if isfield(results_plib, 'execution_metadata') && iscell(results_plib.execution_metadata) ...
+            && numel(results_plib.execution_metadata) == numel(p_to_load)
+        results_plib.execution_metadata = results_plib.execution_metadata(p_to_load);
+    end
     results_plib.fun_histories = results_plib.fun_histories(p_to_load, :, :, :);
     results_plib.maxcv_histories = results_plib.maxcv_histories(p_to_load, :, :, :);
     results_plib.fun_outs = results_plib.fun_outs(p_to_load, :, :);

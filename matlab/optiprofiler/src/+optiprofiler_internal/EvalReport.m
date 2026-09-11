@@ -67,7 +67,7 @@ classdef EvalReport < handle
             self.started = tic;
             null = optiprofiler_internal.EvalReport.null();
             stage = struct('status', 'unknown');
-            self.document = struct('schema', 'optiprofiler.eval_report/1', ...
+            self.document = struct('schema', 'optiprofiler.eval_report/2', ...
                 'evaluation_id', optiprofiler_internal.EvalReport.identifier(), ...
                 'operation', 'benchmark', 'status', 'running', ...
                 'producer', struct('language', 'matlab', 'version', null, 'revision', null, ...
@@ -127,29 +127,42 @@ classdef EvalReport < handle
             self.write();
         end
 
-        function configure(self, problem_options, profile_options, feature_value, historyPreparation)
+        function configure(self, problem_options, profile_options, feature_value, historyPreparation, primary_plan, reference_plan, context)
             self.historyPreparation = historyPreparation;
             self.profileOptions = profile_options;
             % request = what the caller supplied (kept from the constructor);
             % effective = resolved options, stated once, never per run.
-            feature = struct('name', feature_value.name, 'options', optiprofiler_internal.EvalReport.configuration(feature_value.options));
+            if nargin < 6, primary_plan = []; end
+            if nargin < 7, reference_plan = []; end
+            if nargin < 8, context = struct(); end
+            % The caller supplies the actual role plans. Reconstructing them
+            % here from defaults would turn reporting into execution policy.
+            feature = optiprofiler_internal.EvalReport.null();
+            experiment = struct();
+            if ~strcmp(self.document.operation, 'load')
+                payload = optiprofiler_internal.featureProvenance(feature_value, primary_plan, context);
+                feature = optiprofiler_internal.EvalReport.configuration(payload.feature);
+                if ~isempty(primary_plan), experiment.primary = payload.experiment; end
+                if ~isempty(reference_plan)
+                    reference = optiprofiler_internal.featureProvenance(feature_value, reference_plan, context);
+                    experiment.plain_reference = reference.experiment;
+                end
+            end
             self.document.configuration.effective = struct( ...
                 'problem_options', optiprofiler_internal.EvalReport.configuration(problem_options), ...
                 'profile_options', optiprofiler_internal.EvalReport.configuration(profile_options), ...
-                'feature', feature);
+                'feature', feature, 'experiment', experiment);
             self.maxEvalFactor = profile_options.max_eval_factor;
             if strcmp(self.document.operation, 'load')
                 self.document.configuration.scope = 'current_load_selection_reanalysis_and_rendering';
                 self.document.configuration.solver_execution_requested = false;
                 self.document.configuration.original_execution_configuration = optiprofiler_internal.EvalReport.null();
                 self.document.configuration.original_execution_configuration_reason = 'not_fully_retained_by_archive';
-                self.document.configuration.effective.feature = struct('name', optiprofiler_internal.EvalReport.null(), ...
-                    'options', optiprofiler_internal.EvalReport.null(), 'scope', 'current_load_context_not_original_execution_feature', ...
+                self.document.configuration.effective.feature = struct('scope', 'current_load_context_not_original_execution_feature', ...
                     'reason', 'default_load_feature_is_not_original_execution_provenance');
             else
                 self.document.configuration.scope = 'current_benchmark_execution';
                 self.document.configuration.solver_execution_requested = true;
-                self.document.configuration.effective.feature.scope = 'current_execution_feature';
             end
             if profile_options.score_only
                 self.setStage('rendering', 'not_requested', 'score_only');
@@ -249,6 +262,23 @@ classdef EvalReport < handle
                         end
                     else
                         item.oracle_seed_reason = 'execution_metadata_not_retained';
+                    end
+                    if isfield(metadata, 'runtime_receipts') && iscell(metadata.runtime_receipts) ...
+                            && size(metadata.runtime_receipts, 1) >= solver ...
+                            && size(metadata.runtime_receipts, 2) >= run ...
+                            && ~isempty(metadata.runtime_receipts{solver, run})
+                        % A copied slot has no runtime of its own. Only attach
+                        % the actual recorder snapshot captured after execution.
+                        observed_runtime = metadata.runtime_receipts{solver, run};
+                        item.runtime = struct();
+                        for key = {'language', 'execution_strategy', 'runtime_policy', 'seed_policy'}
+                            if isfield(observed_runtime, key{1}), item.runtime.(key{1}) = observed_runtime.(key{1}); end
+                        end
+                        % Detailed per-stage seeds/counters are retained in the
+                        % native archive, not repeated across the compact JSON.
+                        if isfield(observed_runtime, 'run_seed')
+                            item.oracle_seed = observed_runtime.run_seed;
+                        end
                     end
                     entry.runs{end+1} = item;
                     channels = struct('objective', optiprofiler_internal.EvalReport.binned(values, count, true), ...
@@ -360,6 +390,27 @@ classdef EvalReport < handle
             if nargin < 3, role = 'primary'; end
             for group = 1:numel(groups)
                 value = groups{group};
+                if strcmp(self.document.operation, 'load')
+                    if isfield(value, 'feature_pipeline')
+                        [pipeline, interpretation] = optiprofiler_internal.readFeatureProvenance(value.feature_pipeline);
+                    else
+                        [pipeline, interpretation] = optiprofiler_internal.readFeatureProvenance();
+                    end
+                    retained = struct('library', value.plib, 'role', role, ...
+                        'feature_pipeline', optiprofiler_internal.EvalReport.configuration(pipeline), ...
+                        'feature_pipeline_interpretation', interpretation);
+                    for key = {'retained_problem_indices', 'retained_solver_indices'}
+                        if isfield(value, key{1}), retained.(key{1}) = value.(key{1}); end
+                    end
+                    if ~isfield(self.document.configuration, 'retained_result_metadata')
+                        self.document.configuration.retained_result_metadata = {};
+                    end
+                    records = self.document.configuration.retained_result_metadata;
+                    index = find(cellfun(@(x) strcmp(x.library, value.plib) && strcmp(x.role, role), records), 1);
+                    if isempty(index), index = numel(records) + 1; end
+                    records{index} = retained;
+                    self.document.configuration.retained_result_metadata = records;
+                end
                 for p = 1:numel(value.problem_names)
                     ns = size(value.fun_histories, 2); nr = size(value.fun_histories, 3);
                     item = struct('problem_name', value.problem_names{p}, 'problem_dim', value.problem_dims(p), ...
@@ -381,6 +432,10 @@ classdef EvalReport < handle
                     end
                     for key = {'solver_abnormal_termination', 'solver_output_fallback'}
                         if ~isfield(item, key{1}), item.(key{1}) = repmat(optiprofiler_internal.EvalReport.null(), ns, nr); end
+                    end
+                    if isfield(value, 'execution_metadata') && iscell(value.execution_metadata) ...
+                            && numel(value.execution_metadata) == numel(value.problem_names)
+                        item.eval_report_metadata = value.execution_metadata{p};
                     end
                     self.addProblem(item, value.plib, role);
                 end
@@ -776,6 +831,12 @@ classdef EvalReport < handle
         end
     end
     methods (Static)
+        function text = encodeMetadata(value)
+        %ENCODEMETADATA One safe JSON projection for report/archive metadata.
+        % This does not serialize callback code or native execution state.
+            value = optiprofiler_internal.EvalReport.configuration(value);
+            text = jsonencode(optiprofiler_internal.EvalReport.safe(value));
+        end
         function yes = isLink(path)
         %ISLINK True for a symbolic link and, on Windows, for a junction or any
         % other reparse point that redirects the name. Reparse points that keep
@@ -1032,11 +1093,28 @@ classdef EvalReport < handle
 
         function value = configuration(value)
             if isstruct(value)
+                if ~isscalar(value)
+                    value = arrayfun(@optiprofiler_internal.EvalReport.configuration, value, 'UniformOutput', false);
+                    return;
+                end
                 names = fieldnames(value);
                 for k = 1:numel(names)
                     key = names{k};
                     if ~isempty(regexpi(key, 'path|token|secret|password|credential|api_key')) || strcmp(key, 'problem')
                         value = rmfield(value, key);
+                    elseif strcmp(key, 'full_feature_stamp') && (ischar(value.(key)) || (isstring(value.(key)) && isscalar(value.(key))))
+                        stamp = char(value.(key));
+                        sensitive = startsWith(stamp, '/') || ~isempty(regexp(stamp, '^[A-Za-z]:[\\/]', 'once'));
+                        if numel(stamp) > 256 || sensitive
+                            % Never label clipped text as the complete stamp.
+                            % Full native authority is retained separately by
+                            % refined settings and the numerical result group.
+                            value.(key) = optiprofiler_internal.EvalReport.null();
+                            value.full_feature_stamp_bytes = numel(unicode2native(stamp, 'UTF-8'));
+                            value.full_feature_stamp_reason = 'omitted_from_bounded_metadata_projection';
+                        else
+                            value.(key) = stamp;
+                        end
                     else
                         value.(key) = optiprofiler_internal.EvalReport.configuration(value.(key));
                     end
