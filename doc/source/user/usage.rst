@@ -120,7 +120,7 @@ This will directly draw the profiles for the **solver1** and **solver3** with th
 
 
 Reusable features, replay, and retained results
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 A ``Feature`` is a reusable specification, not an experiment or a random-stream
 checkpoint. Its effective stages contain only feature-local options. For example:

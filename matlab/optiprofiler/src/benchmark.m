@@ -38,22 +38,30 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %   1. Each solver in SOLVERS should accept corresponding signature(s)
 %      depending on the test suite you choose:
 %
-%       - for an unconstrained problem,
+%       - for an unconstrained problem::
+%
 %           x = solver(fun, x0),
+%
 %         where `fun` is a function handle of the objective function accepting
 %         a column vector and returning a real number, and `x0` is the initial
 %         guess which is a column vector;
-%       - for a bound-constrained problem,
+%       - for a bound-constrained problem::
+%
 %           x = solver(fun, x0, xl, xu),
+%
 %         where `xl` and `xu` are the lower and upper bounds of the variables
 %         which are column vectors (they can contain Inf or -Inf);
-%       - for a linearly constrained problem,
+%       - for a linearly constrained problem::
+%
 %           x = solver(fun, x0, xl, xu, aub, bub, aeq, beq);
+%
 %         where `aub` and `aeq` are the matrices of the linear inequality and
 %         equality constraints, and `bub` and `beq` are the vectors of the
 %         linear inequality and equality constraints;
-%       - for a nonlinearly constrained problem,
+%       - for a nonlinearly constrained problem::
+%
 %           x = solver(fun, x0, xl, xu, aub, bub, aeq, beq, cub, ceq),
+%
 %         where `cub` and `ceq` are the functions of the nonlinear inequality
 %         and equality constraints accepting a column vector and returning a
 %         column vector.
@@ -141,15 +149,17 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %       - merit_fun: the merit function to measure the quality of a point using
 %         the objective function value and the maximum constraint violation.
 %         It should be a function handle as follows:
-%               ``(fun_value, maxcv_value, maxcv_init) -> merit_value``,
+%         ``(fun_value, maxcv_value, maxcv_init) -> merit_value``,
 %         where `fun_value` is the objective function value, `maxcv_value` is
 %         the maximum constraint violation, and `maxcv_init` is the maximum
 %         constraint violation at the initial guess. The default merit function
 %         varphi(x) is defined by the objective function f(x) and the maximum
-%         constraint violation v(x) as
+%         constraint violation v(x) as::
+%
 %           varphi(x) = f(x)                        if v(x) <= v1
 %           varphi(x) = f(x) + 1e5 * (v(x) - v1)    if v1 < v(x) <= v2
 %           varphi(x) = Inf                         if v(x) > v2
+%
 %         where v1 = min(0.01, 1e-10 * max(1, v0)), v2 = max(0.1, 2 * v0),
 %         and v0 is the maximum constraint violation at the initial guess.
 %         NaN objective or constraint values are invalid evaluations, even
@@ -181,7 +191,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         hash tool is available, the pair is marked partial (unverified).
 %       - score_fun: the scoring function to calculate the scores of the
 %         solvers. It should be a function handle as follows:
-%               ``profile_scores -> solver_scores``,
+%         ``profile_scores -> solver_scores``,
 %         where `profile_scores` is a 4D tensor containing scores for all
 %         profiles. The first dimension of `profile_scores` corresponds to the
 %         index of the solver, the second corresponds to the index of tolerance
@@ -264,14 +274,16 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         and options, or a nonempty cell of atomic names/stage structs. This
 %         route supports independent options for each occurrence. It cannot
 %         be combined with feature_name, flat local options, or load. A bare
-%         shorthand string belongs in feature_name, not feature. Example:
+%         shorthand string belongs in feature_name, not feature. Example::
+%
 %           opts.feature = {struct('name','noisy','options',struct('noise_level',0.01)), ...
 %                           struct('name','noisy','options',struct('noise_level',0.1))};
 %           opts.n_runs = 3;
+%
 %       - distribution: the distribution of perturbation in 'perturbed_x0'
 %         feature or random noise in 'noisy' feature. It should be either a
 %         string (or char), or a function handle
-%               ``(random_stream, dimension) -> random vector``,
+%         ``(random_stream, dimension) -> random vector``,
 %         accepting a random_stream and the dimension of a problem and
 %         returning a random vector with the given dimension. In 'perturbed_x0'
 %         case, the char should be either 'spherical' or 'gaussian' (default is
@@ -290,7 +302,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         n_runs precedence still applies to all stages and solvers.
 %       - noise_map: the deterministic scalar noise map in the 'noisy' feature.
 %         It should be either 'chebyshev' or a function handle
-%               ``x -> noise``,
+%         ``x -> noise``,
 %         accepting the evaluation point and returning a real scalar. It is
 %         used only when noise_mode is 'deterministic'. Default is 'chebyshev'.
 %         The built-in 'chebyshev' map follows the deterministic noise model
@@ -328,26 +340,26 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         in the 'quantized' feature. Default is true.
 %       - mod_x0: the modifier function to modify the inital guess in the 
 %         'custom' feature. It should be a function handle as follows:
-%               ``(random_stream, problem) -> modified_x0``,
+%         ``(random_stream, problem) -> modified_x0``,
 %         where `problem` is an instance of the class Problem, and
 %         `modified_x0` is the modified initial guess. No default.
 %       - mod_affine: the modifier function to generate the affine
 %         transformation applied to the variables in the 'custom' feature. It
 %         should be a function handle as follows:
-%               ``(random_stream, problem) -> (A, b, inv)``,
+%         ``(random_stream, problem) -> (A, b, inv)``,
 %         where `problem` is an instance of the class Problem, `A` is the
 %         matrix of the affine transformation, `b` is the vector of the affine
 %         transformation, and `inv` is the inverse of matrix `A`. No default.
 %       - mod_bounds: the modifier function to modify the bound constraints in
 %         the 'custom' feature. It should be a function handle as follows:
-%               ``(random_stream, problem) -> (modified_xl, modified_xu)``,
+%         ``(random_stream, problem) -> (modified_xl, modified_xu)``,
 %         where `problem` is an instance of the class Problem, `modified_xl` is
 %         the modified lower bound, and `modified_xu` is the modified upper
 %         bound. No default.
 %       - mod_linear_ub: the modifier function to modify the linear inequality
 %         constraints in the 'custom' feature. It should be a function handle
 %         as follows:
-%               ``(random_stream, problem) -> (modified_aub, modified_bub)``,
+%         ``(random_stream, problem) -> (modified_aub, modified_bub)``,
 %         where `problem` is an instance of the class Problem, `modified_aub`
 %         is the modified matrix of the linear inequality constraints, and
 %         `modified_bub` is the modified vector of the linear inequality
@@ -355,28 +367,28 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %       - mod_linear_eq: the modifier function to modify the linear equality
 %         constraints in the 'custom' feature. It should be a function handle
 %         as follows:
-%               ``(random_stream, problem) -> (modified_aeq, modified_beq)``,
+%         ``(random_stream, problem) -> (modified_aeq, modified_beq)``,
 %         where `problem` is an instance of the class Problem, `modified_aeq`
 %         is the modified matrix of the linear equality constraints, and
 %         `modified_beq` is the modified vector of the linear equality
 %         constraints. No default.
 %       - mod_fun: the modifier function to modify the objective function in
 %         the 'custom' feature. It should be a function handle as follows:
-%               ``(x, random_stream, problem) -> modified_fun``,
+%         ``(x, random_stream, problem) -> modified_fun``,
 %         where `x` is the evaluation point, `problem` is an instance of the
 %         class Problem, and `modified_fun` is the modified objective function
 %         value. No default.
 %       - mod_cub: the modifier function to modify the nonlinear inequality
 %         constraints in the 'custom' feature. It should be a function handle
 %         as follows:
-%               ``(x, random_stream, problem) -> modified_cub``,
+%         ``(x, random_stream, problem) -> modified_cub``,
 %         where x is the evaluation point, `problem` is an instance of the
 %         class Problem, and `modified_cub` is the modified vector of the
 %         nonlinear inequality constraints. No default.
 %       - mod_ceq: the modifier function to modify the nonlinear equality
 %         constraints in the 'custom' feature. It should be a function handle
 %         as follows:
-%               ``(x, random_stream, problem) -> modified_ceq``,
+%         ``(x, random_stream, problem) -> modified_ceq``,
 %         where x is the evaluation point, `problem` is an instance of the
 %         class Problem, and `modified_ceq` is the modified vector of the
 %         nonlinear equality constraints. No default.
@@ -447,9 +459,11 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %
 %   1. Information about built-in problem libraries is available in the
 %      following links:
-%           S2MPJ (see [3]_) <https://github.com/GrattonToint/S2MPJ>
-%           MatCUTEst <https://github.com/matcutest>
-%           SOLAR (see [7]_) <https://github.com/bbopt/solar>
+%
+%       - S2MPJ (see [3]_) <https://github.com/GrattonToint/S2MPJ>
+%       - MatCUTEst <https://github.com/matcutest>
+%       - SOLAR (see [7]_) <https://github.com/bbopt/solar>
+%
 %      The SOLAR MATLAB adapter vendors a slim SOLAR runtime under LGPL-2.1;
 %      see its README and runtime manifest for license and provenance details.
 %
@@ -462,6 +476,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %   4. If the `load` option is provided, we will use the provided options to
 %      select data from the specified experiment for plotting the profiles.
 %      Available options are:
+%
 %      - Options for profiles and plots: `benchmark_id`, `solver_names`,
 %        `feature_stamp`, `errorbar_type`, `savepath`, `max_tol_order`,
 %        `merit_fun`, `run_plain`, `score_only`,
@@ -520,7 +535,6 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %               Department of Mathematics,
 %               Sun Yat-sen University
 %
-%   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     % The collector is controller-private: no report path reaches a solver or
     % parallel worker, and the established three outputs remain unchanged.
