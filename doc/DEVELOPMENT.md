@@ -1,12 +1,15 @@
 # Development Plan
 
 This document records the development roadmap, not a list of released APIs.
-The provider split, the machine-readable evaluation report and the ordered
-feature composition are implemented on the development line (their current
-contracts are documented in the user guide); the reference/scoring work below
-is still planned, and its names and file formats are provisional until
-implementation and consumer tests agree. The paper maintenance line receives
-applicable fixes, not these new features.
+Integrated on the development line: the provider split and version 1 of the
+machine-readable evaluation report. Implemented but not merged (an isolated
+candidate branch under independent review): the 2.0 `Feature` contract with
+ordered feature composition, experiment plans and provenance, the trusted
+boundary for earlier configurations, and version 2 of the report; their
+contracts are documented in the user guide as of that candidate. The
+reference/scoring work below is still planned, and its names and file formats
+are provisional until implementation and consumer tests agree. The paper
+maintenance line receives applicable fixes, not these new features.
 
 ## Separate Problem Libraries from the Engine
 
@@ -71,8 +74,9 @@ necessary, generate it automatically from the release commit.
 ## Machine-Readable Experiment Records and Evolve Feedback
 
 The record is the opt-in `eval_report` (`report_path=`): a versioned main
-report (`optiprofiler.eval_report/2`, emitted by both languages; version 1
-stays immutable as the contract of reports written before it) with a numeric companion
+report (`optiprofiler.eval_report/2` in the unmerged candidate, emitted by both
+languages there; version 1, the integrated contract, stays immutable as the
+contract of reports written before it) with a numeric companion
 (`optiprofiler.plot_data/1`), both pinned by packaged JSON Schemas and selected
 by the document's schema identifier. Core records experiment facts: run
 identity, actual problem/provider identity, the canonical feature specification
@@ -118,8 +122,10 @@ explicitly reject unsupported calls (Python raises `NotImplementedError`,
 MATLAB errors).
 
 Provenance is explicit (`feature_pipeline-v3`: feature block plus experiment
-block; `options_refined-v2` for native replay), historical payloads are kept
-verbatim, and historical serialized configurations enter only through the
+block; `options_refined-v2` for native replay). Source historical archives are
+never modified and their payloads are read without upgrading; the metadata a
+new report retains from a loaded archive is a sanitized, bounded copy, never a
+verbatim copy. Historical serialized configurations enter only through the
 trusted compatibility boundary (`optiprofiler.legacy_compat`). Python and
 MATLAB agree on the contract and each support language-local replay and seed
 policies; matching random samples across the two languages is not promised.
