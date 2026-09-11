@@ -13,6 +13,11 @@ function plan = resolveFeatureExperiment(feature, profile_options, role)
     else
         strategy = 'composed-views';
     end
+    % The generic strategy and its language-specific implementation version
+    % are distinct provenance facts. Match the actual FeaturedProblem policy
+    % without constructing a runtime or changing any legacy numerical stream.
+    runtime_policy = 'matlab-legacy-single-v1';
+    if strcmp(strategy, 'composed-views'), runtime_policy = 'matlab-composed-views-v1'; end
     requested = isfield(profile_options, 'n_runs');
     count = [];
     if requested, count = profile_options.n_runs; end
@@ -46,6 +51,7 @@ function plan = resolveFeatureExperiment(feature, profile_options, role)
     end
     plan = struct('role', role, 'n_runs', n_runs, 'origin', origin, ...
         'run_policy', 'legacy-hints-v1', 'execution_strategy', strategy, ...
+        'runtime_policy', runtime_policy, ...
         'request_present', requested, 'requested_n_runs', count, ...
         'planned_runs', planned_runs);
 end
