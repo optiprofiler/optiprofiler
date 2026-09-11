@@ -32,10 +32,11 @@ from .metadata import _ABS_IN_TEXT, _SECRET_KEY, TEXT_LIMIT, bounded_text as _te
 _SCHEMA = 'optiprofiler.eval_report/2'
 _SCHEMA_NAMES = ('eval_report', 'plot_data')
 # Versioned schema resources (``optiprofiler/schemas``). Version 1 of the main
-# report is immutable: it is the contract of reports already written and of the
-# MATLAB producer. Version 2 adds the canonical feature specification and the
-# experiment plans. Readers select the resource from the document identifier
-# (``schema_for_document``) and reject identifiers they do not know.
+# report is immutable: it is the contract of reports already written, by either
+# language, before version 2. Version 2 adds the canonical feature specification
+# and the experiment plans and is what both producers emit now. Readers select
+# the resource from the document identifier (``schema_for_document``) and reject
+# identifiers they do not know.
 _SCHEMA_RESOURCES = {
     ('eval_report', 1): 'eval_report.schema.json',
     ('eval_report', 2): 'eval_report-v2.schema.json',
@@ -112,7 +113,8 @@ def schema_text(name, version=None):
     installed distribution, its installed test suite and the documentation
     build all read the same authoritative files. Without ``version`` the
     current producer version is returned (``eval_report`` 2, ``plot_data`` 1);
-    version 1 of the main report is the immutable ``eval_report.schema.json``.
+    version 1 of the main report is the immutable ``eval_report.schema.json``
+    of reports written before version 2.
     ``importlib.resources.files`` exists from Python 3.9; on Python 3.8 the
     package directory is used.
     """

@@ -280,11 +280,21 @@ Feature objects. ``benchmark(feature=...)`` also accepts an already built
 immutable pipeline specification: ``feature.stages`` is the tuple of effective
 stage records, each with ``name``, ``occurrence``, ``identity``
 (``'noisy#0'``), ``code`` (the frozen seed code), ``position`` and ``options``
-(a read-only view of the validated stage-local options after defaults);
+(a read-only view of the validated stage-local options after defaults:
+arrays come back as isolated read-only copies and lists/tuples as fresh
+copies, while callables and other opaque values keep their identity);
 ``feature.name`` is the effective name (``'plain'`` for the identity, which
 has no stage), ``feature.declared`` the declaration as given (route and entries
-before defaults) and ``feature.is_stochastic`` whether any stage draws random
-numbers. The declaration route (``'feature_name'`` for the shorthand string,
+before defaults, with the same ownership rule) and ``feature.is_stochastic``
+whether any stage draws random numbers. Ownership of option values is
+explicit: exact built-in data containers (``list``, ``tuple``, ``dict``) and
+NumPy arrays are copied when the specification is built and the views return
+isolated copies, so changing such a value afterwards, or what a view returned,
+does not change the specification. Opaque values are kept by identity and are
+not copied: callables, container subclasses, other objects and the elements
+of object-dtype arrays; the specification never mutates them, but their own
+state remains yours to keep unchanged. No copy, iteration or reduction hook
+of your objects is ever invoked. The declaration route (``'feature_name'`` for the shorthand string,
 ``'feature'`` for structured entries) is a property of the specification: a
 ``Feature`` declared by shorthand and passed as ``benchmark(feature=obj)``
 keeps its declaration and its receipt. The provenance records that route as

@@ -21,7 +21,7 @@ from optiprofiler.opclasses import Problem
 from optiprofiler.tests.eval_report_contract import assert_valid
 
 # eval_report.schema.json is version 1 of the main report: the contract of the
-# reports already written and of the MATLAB producer. It never changes.
+# reports written, by either language, before version 2. It never changes.
 V1_SHA256 = '9b8f76fd9b2d3eff323304b758ff61c5c456d35b1d81fcf05d3ab9d64453a8a3'
 PLOT_DATA_SHA256 = '76f83e1b7922a1479d8770888bd417c86fe5f837a450789891618960582d323c'
 
