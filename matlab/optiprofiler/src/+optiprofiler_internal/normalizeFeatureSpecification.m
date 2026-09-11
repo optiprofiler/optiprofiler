@@ -5,14 +5,18 @@ function specification = normalizeFeatureSpecification(input, varargin)
     flat = parseFlatOptions(varargin);
     if isText(input)
         tokens = strsplit(char(input),'+','CollapseDelimiters',false);
-        entries = cell(1,numel(tokens)); route = 'feature_name'; accepted = {};
+        entries = cell(1,numel(tokens));
+        route = 'feature_name';
+        accepted = {};
         for k = 1:numel(tokens)
             name = atomicName(tokens{k});
             definition = optiprofiler_internal.featureDefinitions(name);
-            routed = struct(); fields = fieldnames(flat);
+            routed = struct();
+            fields = fieldnames(flat);
             for j = 1:numel(fields)
                 if ismember(fields{j},definition.local_keys)
-                    routed.(fields{j}) = flat.(fields{j}); accepted{end+1} = fields{j};
+                    routed.(fields{j}) = flat.(fields{j});
+                    accepted{end+1} = fields{j};
                 end
             end
             entries{k} = struct('name',name,'options',routed);
@@ -21,9 +25,11 @@ function specification = normalizeFeatureSpecification(input, varargin)
             error('MATLAB:Feature:InvalidOptionForFeature', 'A supplied option is not accepted by any declared stage.');
         end
     elseif isa(input,'struct') && isscalar(input)
-        entries = {input}; route = 'feature';
+        entries = {input};
+        route = 'feature';
     elseif isa(input,'cell') && ~isempty(input)
-        entries = reshape(input,1,[]); route = 'feature';
+        entries = reshape(input,1,[]);
+        route = 'feature';
     else
         error('MATLAB:Feature:FeaturenameNotString', ...
             'Feature requires a name, scalar stage struct, nonempty cell array or canonical Feature.');
@@ -31,12 +37,19 @@ function specification = normalizeFeatureSpecification(input, varargin)
     if strcmp(route,'feature') && ~isempty(fieldnames(flat))
         error('MATLAB:Feature:StructuredOverrides', 'Structured input keeps local options inside each stage, not as extra arguments.');
     end
-    stages = {}; declared_entries = {}; occurrences = struct(); names = {}; stochastic = false;
+    stages = {};
+    declared_entries = {};
+    occurrences = struct();
+    names = {};
+    stochastic = false;
     for k = 1:numel(entries)
-        entry = entries{k}; supplied = struct();
+        entry = entries{k};
+        supplied = struct();
         if isa(entry,'struct') && isscalar(entry) && isfield(entry,'name')
             name = entry.name;
-            if isfield(entry,'options'), supplied = entry.options; end
+            if isfield(entry,'options')
+                supplied = entry.options;
+            end
             if ~all(ismember(fieldnames(entry),{'name','options'}))
                 error('MATLAB:Feature:InvalidStage', 'A stage accepts only name and options.');
             end
@@ -47,7 +60,9 @@ function specification = normalizeFeatureSpecification(input, varargin)
         end
         name = atomicName(name);
         definition = optiprofiler_internal.featureDefinitions(name);
-        supplied = optionStruct(supplied); options = definition.defaults; fields = fieldnames(supplied);
+        supplied = optionStruct(supplied);
+        options = definition.defaults;
+        fields = fieldnames(supplied);
         for j = 1:numel(fields)
             key = fields{j};
             if ~ismember(key,definition.local_keys)
@@ -55,17 +70,25 @@ function specification = normalizeFeatureSpecification(input, varargin)
             end
             options.(key) = validateOption(name,key,supplied.(key));
         end
-        declared_entries{end+1} = struct('name',name,'options',supplied); names{end+1} = name;
-        if strcmp(name,'plain'), continue; end
-        if ~isfield(occurrences,name), occurrences.(name) = 0; end
-        occurrence = occurrences.(name); occurrences.(name) = occurrence+1;
+        declared_entries{end+1} = struct('name',name,'options',supplied);
+        names{end+1} = name;
+        if strcmp(name,'plain')
+            continue;
+        end
+        if ~isfield(occurrences,name)
+            occurrences.(name) = 0;
+        end
+        occurrence = occurrences.(name);
+        occurrences.(name) = occurrence+1;
         stages{end+1} = struct('name',name,'occurrence',occurrence, ...
             'identity',sprintf('%s#%d',name,occurrence),'code',definition.code,'options',options);
         definition = optiprofiler_internal.featureDefinitions(name,options);
         stochastic = stochastic || definition.is_stochastic;
     end
     effective_name = 'plain';
-    if ~isempty(stages), effective_name = strjoin(cellfun(@(s) s.name,stages,'UniformOutput',false),'+'); end
+    if ~isempty(stages)
+        effective_name = strjoin(cellfun(@(s) s.name,stages,'UniformOutput',false),'+');
+    end
     declaration = struct('route',route,'entries',{declared_entries});
     specification = struct('stages',{stages},'declared',declaration,'name',effective_name, ...
         'declared_name',strjoin(names,'+'),'is_stochastic',stochastic,'is_identity',isempty(stages), ...
@@ -73,8 +96,14 @@ function specification = normalizeFeatureSpecification(input, varargin)
 end
 
 function flat = parseFlatOptions(values)
-    if isempty(values), flat = struct(); return; end
-    if numel(values)==1 && isa(values{1},'struct'), flat = optionStruct(values{1}); return; end
+    if isempty(values)
+        flat = struct();
+        return;
+    end
+    if numel(values)==1 && isa(values{1},'struct')
+        flat = optionStruct(values{1});
+        return;
+    end
     if mod(numel(values),2)~=0
         error('MATLAB:Feature:InvalidNumberOfArguments', 'Feature options must be a scalar struct or name/value pairs.');
     end
@@ -93,8 +122,10 @@ function output = optionStruct(input)
     if ~isa(input,'struct') || ~isscalar(input)
         error('MATLAB:Feature:InvalidStage', 'Stage options must be a scalar struct.');
     end
-    output = struct(); fields = fieldnames(input);
-    definitions = optiprofiler_internal.featureDefinitions(); known = [definitions.local_keys];
+    output = struct();
+    fields = fieldnames(input);
+    definitions = optiprofiler_internal.featureDefinitions();
+    known = [definitions.local_keys];
     for k = 1:numel(fields)
         key = lower(fields{k});
         if strcmp(key,'n_runs')
@@ -107,7 +138,9 @@ function output = optionStruct(input)
 end
 
 function name = atomicName(value)
-    if ~isText(value), error('MATLAB:Feature:InvalidStage', 'Stage names must be scalar text.'); end
+    if ~isText(value)
+        error('MATLAB:Feature:InvalidStage', 'Stage names must be scalar text.');
+    end
     name = lower(strtrim(char(value)));
     if isempty(name) || contains(name,'+')
         error('MATLAB:Feature:InvalidStage', 'Stage names must be nonempty and atomic; use one entry per stage.');
@@ -117,7 +150,9 @@ end
 function value = validateOption(name,key,value)
     switch key
         case 'distribution'
-            if ~isa(value,'function_handle') && ~isText(value), fail('distribution_NotFunctionHandle','distribution must be text or a function handle.'); end
+            if ~isa(value,'function_handle') && ~isText(value)
+                fail('distribution_NotFunctionHandle','distribution must be text or a function handle.');
+            end
             if isText(value)
                 value = char(value);
                 if strcmp(name,'noisy') && ~ismember(value,{'gaussian','uniform'})
@@ -127,34 +162,58 @@ function value = validateOption(name,key,value)
                 end
             end
         case 'nan_rate'
-            if ~realScalar(value) || value<0 || value>1, fail('nan_rate_NotBetween_0_1','nan_rate must be between zero and one.'); end
+            if ~realScalar(value) || value<0 || value>1
+                fail('nan_rate_NotBetween_0_1','nan_rate must be between zero and one.');
+            end
         case 'significant_digits'
-            if ~realScalar(value) || rem(value,1)~=0 || value<=0, fail('significant_digits_NotPositiveInteger','significant_digits must be a positive integer.'); end
+            if ~realScalar(value) || rem(value,1)~=0 || value<=0
+                fail('significant_digits_NotPositiveInteger','significant_digits must be a positive integer.');
+            end
         case 'noise_level'
-            if ~realScalar(value) || value<0, fail('noise_level_NotPositive','noise_level must be nonnegative.'); end
+            if ~realScalar(value) || value<0
+                fail('noise_level_NotPositive','noise_level must be nonnegative.');
+            end
         case 'condition_factor'
-            if ~(realScalar(value) && value>=0), fail('condition_factor_InvalidInput','condition_factor must be nonnegative.'); end
+            if ~(realScalar(value) && value>=0)
+                fail('condition_factor_InvalidInput','condition_factor must be nonnegative.');
+            end
         case 'mesh_size'
-            if ~realScalar(value) || value<=0, fail('mesh_size_NotPositive','mesh_size must be positive.'); end
+            if ~realScalar(value) || value<=0
+                fail('mesh_size_NotPositive','mesh_size must be positive.');
+            end
         case 'noise_type'
-            if ~isText(value) || ~ismember(char(value),{'absolute','relative','mixed'}), fail('noise_type_InvalidInput','noise_type must be absolute, relative or mixed.'); end
+            if ~isText(value) || ~ismember(char(value),{'absolute','relative','mixed'})
+                fail('noise_type_InvalidInput','noise_type must be absolute, relative or mixed.');
+            end
             value = char(value);
         case 'noise_mode'
-            if ~isText(value) || ~ismember(char(value),{'random','deterministic'}), fail('noise_mode_InvalidInput','noise_mode must be random or deterministic.'); end
+            if ~isText(value) || ~ismember(char(value),{'random','deterministic'})
+                fail('noise_mode_InvalidInput','noise_mode must be random or deterministic.');
+            end
             value = char(value);
         case 'mesh_type'
-            if ~isText(value) || ~ismember(char(value),{'absolute','relative'}), fail('mesh_type_InvalidInput','mesh_type must be absolute or relative.'); end
+            if ~isText(value) || ~ismember(char(value),{'absolute','relative'})
+                fail('mesh_type_InvalidInput','mesh_type must be absolute or relative.');
+            end
             value = char(value);
         case 'noise_map'
-            if ~isa(value,'function_handle') && ~isText(value), fail('noise_map_NotFunctionHandle','noise_map must be text or a function handle.'); end
+            if ~isa(value,'function_handle') && ~isText(value)
+                fail('noise_map_NotFunctionHandle','noise_map must be text or a function handle.');
+            end
             if isText(value)
                 value = char(value);
-                if ~strcmp(value,'chebyshev'), fail('noise_map_InvalidInput','The named noise_map must be chebyshev.'); end
+                if ~strcmp(value,'chebyshev')
+                    fail('noise_map_InvalidInput','The named noise_map must be chebyshev.');
+                end
             end
         case {'perturbed_trailing_digits','rotated','unrelaxable_bounds','unrelaxable_linear_constraints','unrelaxable_nonlinear_constraints','ground_truth'}
-            if ~logicalScalar(value), fail([key,'_NotLogical'],'The option must be a logical scalar or numeric zero/one.'); end
+            if ~logicalScalar(value)
+                fail([key,'_NotLogical'],'The option must be a logical scalar or numeric zero/one.');
+            end
         case {'mod_x0','mod_bounds','mod_linear_ub','mod_linear_eq','mod_affine','mod_fun','mod_cub','mod_ceq'}
-            if ~isa(value,'function_handle'), fail([key,'_NotFunctionHandle'],'The modifier must be a function handle.'); end
+            if ~isa(value,'function_handle')
+                fail([key,'_NotFunctionHandle'],'The modifier must be a function handle.');
+            end
         case 'perturbation_level'
             % Preserve the historical absence of an extra value validator.
     end

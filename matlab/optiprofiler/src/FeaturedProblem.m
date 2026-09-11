@@ -146,26 +146,26 @@ classdef FeaturedProblem < Problem
                 else
                     kernel = optiprofiler_internal.FeatureKernel(stages{1}.name,stages{1}.options);
                 end
-            pb_struct = struct();
-            pb_struct.name = problem.name;
-            % Modify the initial point.
-            pb_struct.x0 = kernel.modifier_x0(seed, problem);
-            % Modify the bounds.
-            [pb_struct.xl, pb_struct.xu] = kernel.modifier_bounds(seed, problem);
-            % Modify the linear inequality constraints.
-            [pb_struct.aub, pb_struct.bub] = kernel.modifier_linear_ub(seed, problem);
-            % Modify the linear equality constraints.
-            [pb_struct.aeq, pb_struct.beq] = kernel.modifier_linear_eq(seed, problem);
-            % First inherit some properties from the original problem.
-            pb_struct.fun = problem.fun_;
-            pb_struct.grad = problem.grad_;
-            pb_struct.hess = problem.hess_;
-            pb_struct.cub = problem.cub_;
-            pb_struct.ceq = problem.ceq_;
-            pb_struct.jcub = problem.jcub_;
-            pb_struct.jceq = problem.jceq_;
-            pb_struct.hcub = problem.hcub_;
-            pb_struct.hceq = problem.hceq_;
+                pb_struct = struct();
+                pb_struct.name = problem.name;
+                % Modify the initial point.
+                pb_struct.x0 = kernel.modifier_x0(seed, problem);
+                % Modify the bounds.
+                [pb_struct.xl, pb_struct.xu] = kernel.modifier_bounds(seed, problem);
+                % Modify the linear inequality constraints.
+                [pb_struct.aub, pb_struct.bub] = kernel.modifier_linear_ub(seed, problem);
+                % Modify the linear equality constraints.
+                [pb_struct.aeq, pb_struct.beq] = kernel.modifier_linear_eq(seed, problem);
+                % First inherit some properties from the original problem.
+                pb_struct.fun = problem.fun_;
+                pb_struct.grad = problem.grad_;
+                pb_struct.hess = problem.hess_;
+                pb_struct.cub = problem.cub_;
+                pb_struct.ceq = problem.ceq_;
+                pb_struct.jcub = problem.jcub_;
+                pb_struct.jceq = problem.jceq_;
+                pb_struct.hcub = problem.hcub_;
+                pb_struct.hceq = problem.hceq_;
 
             end
 
