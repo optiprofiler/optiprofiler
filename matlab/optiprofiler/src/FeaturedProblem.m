@@ -70,6 +70,8 @@ classdef FeaturedProblem < Problem
         maxcv_hist
         fun_init
         maxcv_init
+        execution_strategy
+        seed_policy
     end
 
     properties (GetAccess = private, SetAccess = private)
@@ -80,6 +82,8 @@ classdef FeaturedProblem < Problem
         last_fun
         last_cub
         last_ceq
+        kernel
+        final_view
     end
 
     properties (Dependent)
@@ -125,16 +129,32 @@ classdef FeaturedProblem < Problem
                 error("MATLAB:FeaturedProblem:seedNotNonnegativeInteger", "The argument `seed` of `FeaturedProblem` must be a nonnegative integer seed less than 2^32");
             end
 
+            stages = feature.stages;
+            kernel = [];
+            view = [];
+            if numel(stages) > 1
+                view = optiprofiler_internal.FeatureProblemView(problem);
+                for i_stage = 1:numel(stages)
+                    view = optiprofiler_internal.FeatureProblemView(view, stages{i_stage}, seed);
+                end
+                pb_struct = struct('name',view.name,'x0',view.x0,'xl',view.xl,'xu',view.xu, ...
+                    'aub',view.aub,'bub',view.bub,'aeq',view.aeq,'beq',view.beq,'fun',@(x) NaN);
+            else
+                if isempty(stages)
+                    kernel = optiprofiler_internal.FeatureKernel('plain',struct());
+                else
+                    kernel = optiprofiler_internal.FeatureKernel(stages{1}.name,stages{1}.options);
+                end
             pb_struct = struct();
             pb_struct.name = problem.name;
             % Modify the initial point.
-            pb_struct.x0 = feature.modifier_x0(seed, problem);
+            pb_struct.x0 = kernel.modifier_x0(seed, problem);
             % Modify the bounds.
-            [pb_struct.xl, pb_struct.xu] = feature.modifier_bounds(seed, problem);
+            [pb_struct.xl, pb_struct.xu] = kernel.modifier_bounds(seed, problem);
             % Modify the linear inequality constraints.
-            [pb_struct.aub, pb_struct.bub] = feature.modifier_linear_ub(seed, problem);
+            [pb_struct.aub, pb_struct.bub] = kernel.modifier_linear_ub(seed, problem);
             % Modify the linear equality constraints.
-            [pb_struct.aeq, pb_struct.beq] = feature.modifier_linear_eq(seed, problem);
+            [pb_struct.aeq, pb_struct.beq] = kernel.modifier_linear_eq(seed, problem);
             % First inherit some properties from the original problem.
             pb_struct.fun = problem.fun_;
             pb_struct.grad = problem.grad_;
@@ -146,8 +166,19 @@ classdef FeaturedProblem < Problem
             pb_struct.hcub = problem.hcub_;
             pb_struct.hceq = problem.hceq_;
 
+            end
+
             % Initialize the FeaturedProblem object.
             obj@Problem(pb_struct);
+            obj.kernel = kernel;
+            obj.final_view = view;
+            if isempty(view)
+                obj.execution_strategy = 'matlab-legacy-single-v1';
+                obj.seed_policy = 'legacy-run-seed';
+            else
+                obj.execution_strategy = 'matlab-composed-views-v1';
+                obj.seed_policy = 'matlab-stage-horner32-v1';
+            end
             obj.problem = problem;
             obj.feature = feature;
             obj.max_eval = max_eval;
@@ -168,6 +199,11 @@ classdef FeaturedProblem < Problem
             obj.last_cub = NaN;
             obj.last_ceq = NaN;
 
+            if ~isempty(obj.final_view)
+                [obj.fun_init,obj.maxcv_init] = obj.evaluateTruth(obj.x0);
+                return
+            end
+
             % Evaluate the objective function and the maximum constraint violation at the initial point.
             % Pay attention to the case when the feature is 'quantized' and the option ``ground_truth'' is set to true.
             % Note: For some problems (e.g., 'NOZZLEfp' from S2MPJ), the evaluation of the objective function or
@@ -177,11 +213,11 @@ classdef FeaturedProblem < Problem
             % precision) introduced by the affine transformation. A specific example of this was observed during
             % a random test with seed 2632 on problem 'NOZZLEfp'. To handle this, we check whether the evaluation
             % returns an empty value and, if so, attempt to use the evaluation at the original initial point.
-            [A, b] = obj.feature.modifier_affine(obj.seed, obj.problem);
-            if strcmp(obj.feature.name, FeatureName.QUANTIZED.value) && obj.feature.options.(FeatureOptionKey.GROUND_TRUTH.value)
-                val = obj.feature.modifier_fun(A * obj.x0 + b, obj.seed, obj.problem, obj.n_eval_fun);
+            [A, b] = obj.kernel.modifier_affine(obj.seed, obj.problem);
+            if strcmp(obj.kernel.name, FeatureName.QUANTIZED.value) && obj.kernel.options.(FeatureOptionKey.GROUND_TRUTH.value)
+                val = obj.kernel.modifier_fun(A * obj.x0 + b, obj.seed, obj.problem, obj.n_eval_fun);
                 if isempty(val)
-                    val = obj.feature.modifier_fun(obj.problem.x0, obj.seed, obj.problem, obj.n_eval_fun);
+                    val = obj.kernel.modifier_fun(obj.problem.x0, obj.seed, obj.problem, obj.n_eval_fun);
                     if isempty(val)
                         val = NaN;
                     end
@@ -202,7 +238,7 @@ classdef FeaturedProblem < Problem
             % Similar check for maxcv_init.
             % The initial violation must use the same truth as histories;
             % maxcv does not consume any solver constraint evaluations.
-            if strcmp(obj.feature.name, FeatureName.QUANTIZED.value) && obj.feature.options.(FeatureOptionKey.GROUND_TRUTH.value)
+            if strcmp(obj.kernel.name, FeatureName.QUANTIZED.value) && obj.kernel.options.(FeatureOptionKey.GROUND_TRUTH.value)
                 val = obj.maxcv(obj.x0);
             else
                 val = obj.problem.maxcv(A * obj.x0 + b);
@@ -226,13 +262,21 @@ classdef FeaturedProblem < Problem
         function value = get.n_eval_cub(obj)
             % Return number of nonlinear inequality constraint evaluations.
 
-            value = length(obj.cub_hist);
+            if isempty(obj.final_view)
+                value = length(obj.cub_hist); % Frozen legacy dimension-dependent behavior.
+            else
+                value = size(obj.cub_hist,2);
+            end
         end
 
         function value = get.n_eval_ceq(obj)
             % Return number of nonlinear equality constraint evaluations.
 
-            value = length(obj.ceq_hist);
+            if isempty(obj.final_view)
+                value = length(obj.ceq_hist); % Frozen legacy dimension-dependent behavior.
+            else
+                value = size(obj.ceq_hist,2);
+            end
         end
 
         function value = get.fun_hist(obj)
@@ -278,13 +322,25 @@ classdef FeaturedProblem < Problem
                 return
             end
 
+            if ~isempty(obj.final_view)
+                f = obj.final_view.fun(x);
+                obj.last_fun = f;
+                obj.fun_hist = [obj.fun_hist,obj.final_view.reference('fun',x)];
+                try
+                    obj.maxcv_hist = [obj.maxcv_hist,obj.final_view.referenceMaxcv(x)];
+                catch
+                    obj.maxcv_hist = [obj.maxcv_hist,NaN];
+                end
+                return
+            end
+
             % Generate the affine transformation.
-            [A, b] = obj.feature.modifier_affine(obj.seed, obj.problem);
+            [A, b] = obj.kernel.modifier_affine(obj.seed, obj.problem);
 
             % Evaluate the modified the objective function value according to the feature and return the
             % modified value. We should not store the modified value because the performance 
             % of an optimization solver should be measured using the original objective function.
-            f = obj.feature.modifier_fun(A * x + b, obj.seed, obj.problem, obj.n_eval_fun);
+            f = obj.kernel.modifier_fun(A * x + b, obj.seed, obj.problem, obj.n_eval_fun);
             obj.last_fun = f;
 
             % Evaluate the objective function and store the results.
@@ -292,7 +348,7 @@ classdef FeaturedProblem < Problem
 
             % If the feature is 'quantized' and the option ``ground_truth'' is set to true, we should
             % set f_true to f.
-            if strcmp(obj.feature.name, FeatureName.QUANTIZED.value) && obj.feature.options.(FeatureOptionKey.GROUND_TRUTH.value)
+            if strcmp(obj.kernel.name, FeatureName.QUANTIZED.value) && obj.kernel.options.(FeatureOptionKey.GROUND_TRUTH.value)
                 f_true = f;
             end
             obj.fun_hist = [obj.fun_hist, f_true];
@@ -330,11 +386,21 @@ classdef FeaturedProblem < Problem
                 return
             end
 
+            if ~isempty(obj.final_view)
+                cub_ = obj.final_view.cub(x);
+                obj.last_cub = cub_;
+                reference_value = obj.final_view.reference('cub',x);
+                if nargin < 3 || record_hist
+                    obj.cub_hist = [obj.cub_hist,reference_value];
+                end
+                return
+            end
+
             % Generate the affine transformation.
-            [A, b] = obj.feature.modifier_affine(obj.seed, obj.problem);
+            [A, b] = obj.kernel.modifier_affine(obj.seed, obj.problem);
 
             % Evaluate the nonlinear inequality constraints and store the results.
-            cub_ = obj.feature.modifier_cub(A * x + b, obj.seed, obj.problem, obj.n_eval_cub);
+            cub_ = obj.kernel.modifier_cub(A * x + b, obj.seed, obj.problem, obj.n_eval_cub);
             obj.last_cub = cub_;
             
             % Evaluate the nonlinear inequality constraints and store the results.
@@ -342,7 +408,7 @@ classdef FeaturedProblem < Problem
 
             % If the feature is 'quantized' and the option ``ground_truth'' is set to true, we should
             % use the modified constraint violation.
-            if strcmp(obj.feature.name, FeatureName.QUANTIZED.value) && obj.feature.options.(FeatureOptionKey.GROUND_TRUTH.value)
+            if strcmp(obj.kernel.name, FeatureName.QUANTIZED.value) && obj.kernel.options.(FeatureOptionKey.GROUND_TRUTH.value)
                 cub_true = cub_;
             end
 
@@ -379,11 +445,21 @@ classdef FeaturedProblem < Problem
                 return
             end
 
+            if ~isempty(obj.final_view)
+                ceq_ = obj.final_view.ceq(x);
+                obj.last_ceq = ceq_;
+                reference_value = obj.final_view.reference('ceq',x);
+                if nargin < 3 || record_hist
+                    obj.ceq_hist = [obj.ceq_hist,reference_value];
+                end
+                return
+            end
+
             % Generate the affine transformation.
-            [A, b] = obj.feature.modifier_affine(obj.seed, obj.problem);
+            [A, b] = obj.kernel.modifier_affine(obj.seed, obj.problem);
 
             % Evaluate the nonlinear equality constraints and store the results.
-            ceq_ = obj.feature.modifier_ceq(A * x + b, obj.seed, obj.problem, obj.n_eval_ceq);
+            ceq_ = obj.kernel.modifier_ceq(A * x + b, obj.seed, obj.problem, obj.n_eval_ceq);
             obj.last_ceq = ceq_;
 
             % Evaluate the nonlinear equality constraints and store the results.
@@ -391,7 +467,7 @@ classdef FeaturedProblem < Problem
 
             % If the Feature is ``quantized'' and the option ``ground_truth'' is set to true, we should
             % use the modified constraint violation.
-            if strcmp(obj.feature.name, FeatureName.QUANTIZED.value) && obj.feature.options.(FeatureOptionKey.GROUND_TRUTH.value)
+            if strcmp(obj.kernel.name, FeatureName.QUANTIZED.value) && obj.kernel.options.(FeatureOptionKey.GROUND_TRUTH.value)
                 ceq_true = ceq_;
             end
 
@@ -401,7 +477,28 @@ classdef FeaturedProblem < Problem
             end
         end
 
-        function cv = maxcv(obj, x)
+        function varargout = maxcv(obj, x, detailed)
+            if nargin < 3, detailed = false; end
+            if ~isempty(obj.final_view)
+                [varargout{1:nargout}] = obj.final_view.referenceMaxcv(x,detailed);
+                return
+            end
+            % Preserve the scalar legacy path; detailed reference reads are new.
+            if detailed
+                [A,b] = obj.kernel.modifier_affine(obj.seed,obj.problem);
+                if ~strcmp(obj.kernel.name,'quantized') || ~obj.kernel.options.ground_truth
+                    [varargout{1:nargout}] = obj.problem.maxcv(A*x+b,true);
+                else
+                    error('MATLAB:FeaturedProblem:LegacyDetailedViolationUnsupported', ...
+                        'Detailed quantized violation is not part of the legacy recorder interface.');
+                end
+                return
+            end
+            cv = obj.legacyMaxcv(x);
+            varargout{1} = cv;
+        end
+
+        function cv = legacyMaxcv(obj, x)
             %{
             Evaluate the maximum constraint violation.
 
@@ -418,7 +515,7 @@ classdef FeaturedProblem < Problem
 
             % If the Feature is ``quantized'' and the option ``ground_truth'' is set to true, we should
             % use the modified constraint violation.
-            if strcmp(obj.feature.name, FeatureName.QUANTIZED.value) && obj.feature.options.(FeatureOptionKey.GROUND_TRUTH.value)
+            if strcmp(obj.kernel.name, FeatureName.QUANTIZED.value) && obj.kernel.options.(FeatureOptionKey.GROUND_TRUTH.value)
                 if strcmp(obj.ptype, 'u')
                     cv = 0;
                     return
@@ -453,7 +550,7 @@ classdef FeaturedProblem < Problem
                 if ~isempty(obj.cub_)
                     % Do not call the public oracle even with record_hist=false:
                     % it consumes the real budget and may return a cached value.
-                    cub_val = obj.feature.modifier_cub(x, obj.seed, obj.problem, obj.n_eval_cub);
+                    cub_val = obj.kernel.modifier_cub(x, obj.seed, obj.problem, obj.n_eval_cub);
                     if ~isempty(cub_val)
                         cv_nonlinear = max([cub_val(:); 0], [], 'includenan');
                     else
@@ -463,7 +560,7 @@ classdef FeaturedProblem < Problem
                     cv_nonlinear = 0;
                 end
                 if ~isempty(obj.ceq_)
-                    ceq_val = obj.feature.modifier_ceq(x, obj.seed, obj.problem, obj.n_eval_ceq);
+                    ceq_val = obj.kernel.modifier_ceq(x, obj.seed, obj.problem, obj.n_eval_ceq);
                     if ~isempty(ceq_val)
                         cv_nonlinear = max([abs(ceq_val(:)); cv_nonlinear], [], 'includenan');
                     end
@@ -472,17 +569,43 @@ classdef FeaturedProblem < Problem
                 cv = max([cv_bounds; cv_linear; cv_nonlinear], [], 'includenan');
             else
                 % Generate the affine transformation.
-                [A, b] = obj.feature.modifier_affine(obj.seed, obj.problem);
+                [A, b] = obj.kernel.modifier_affine(obj.seed, obj.problem);
                 cv = obj.problem.maxcv(A * x + b);
             end
         end
 
 
-        % Note: We need to add methods `grad`, `hess`, `jcub`, and `jceq` to the FeaturedProblem class in the future.
+        function value=grad(obj,x)
+            if isempty(obj.final_view), value=grad@Problem(obj,x); else, value=obj.final_view.grad(x); end
+        end
+        function value=hess(obj,x)
+            if isempty(obj.final_view), value=hess@Problem(obj,x); else, value=obj.final_view.hess(x); end
+        end
+        function value=jcub(obj,x)
+            if isempty(obj.final_view), value=jcub@Problem(obj,x); else, value=obj.final_view.jcub(x); end
+        end
+        function value=jceq(obj,x)
+            if isempty(obj.final_view), value=jceq@Problem(obj,x); else, value=obj.final_view.jceq(x); end
+        end
+        function value=hcub(obj,x)
+            if isempty(obj.final_view), value=hcub@Problem(obj,x); else, value=obj.final_view.hcub(x); end
+        end
+        function value=hceq(obj,x)
+            if isempty(obj.final_view), value=hceq@Problem(obj,x); else, value=obj.final_view.hceq(x); end
+        end
 
     end
 
     methods (Access = protected)
+        function value = constraintDimension(obj,channel)
+            if isempty(obj.final_view)
+                value = constraintDimension@Problem(obj,channel);
+            elseif strcmp(channel,'cub')
+                value = obj.final_view.m_nonlinear_ub;
+            else
+                value = obj.final_view.m_nonlinear_eq;
+            end
+        end
         function x = constraintProbePoint(obj)
             % Inherited cub_/ceq_ are base callbacks, while obj.x0 is in solver
             % coordinates. Probe dimensions at the original problem's point,
@@ -492,14 +615,33 @@ classdef FeaturedProblem < Problem
     end
 
     methods (Hidden)
+        function x = toOriginalCoordinates(obj,x)
+            if isempty(obj.final_view)
+                [A,b] = obj.kernel.modifier_affine(obj.seed,obj.problem);
+                x = A*x+b;
+            else
+                x = obj.final_view.toOriginalCoordinates(x);
+            end
+        end
+        function receipt = runtimeReceipt(obj)
+            stages = {};
+            if ~isempty(obj.final_view), stages = obj.final_view.runtimeStages(); end
+            receipt = struct('language','matlab','execution_strategy',obj.execution_strategy, ...
+                'seed_policy',obj.seed_policy,'run_seed',obj.seed,'stages',{stages});
+        end
         function [f, cv] = evaluateTruth(obj, x)
+            if ~isempty(obj.final_view)
+                f = obj.final_view.reference('fun',x);
+                cv = obj.final_view.referenceMaxcv(x);
+                return
+            end
             % Internal scoring at solver coordinates, without an oracle call.
             % True uses the quantized problem itself; False and other features
             % retain base truth. Never snap the returned point, append history,
             % consume budget, or overwrite the last oracle value here.
-            [A, b] = obj.feature.modifier_affine(obj.seed, obj.problem);
-            if strcmp(obj.feature.name, FeatureName.QUANTIZED.value) && obj.feature.options.(FeatureOptionKey.GROUND_TRUTH.value)
-                f = obj.feature.modifier_fun(A * x + b, obj.seed, obj.problem, obj.n_eval_fun);
+            [A, b] = obj.kernel.modifier_affine(obj.seed, obj.problem);
+            if strcmp(obj.kernel.name, FeatureName.QUANTIZED.value) && obj.kernel.options.(FeatureOptionKey.GROUND_TRUTH.value)
+                f = obj.kernel.modifier_fun(A * x + b, obj.seed, obj.problem, obj.n_eval_fun);
                 cv = obj.maxcv(x);
             else
                 f = obj.problem.fun(A * x + b);

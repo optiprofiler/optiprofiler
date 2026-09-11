@@ -432,25 +432,11 @@ classdef Problem < handle
         end
 
         function value = get.m_nonlinear_ub(obj)
-            % Absence or a successfully empty result means no constraints.
-            % A failed probe must propagate, not silently classify the problem
-            % as unconstrained. Do not cache: x0 and callbacks can be changed.
-            if isempty(obj.cub_)
-                value = 0;
-            else
-                cub = obj.cub_(obj.constraintProbePoint());
-                value = numel(cub);
-            end
+            value = obj.constraintDimension('cub');
         end
 
         function value = get.m_nonlinear_eq(obj)
-            % Match the inequality count policy, including empty callbacks.
-            if isempty(obj.ceq_)
-                value = 0;
-            else
-                ceq = obj.ceq_(obj.constraintProbePoint());
-                value = numel(ceq);
-            end
+            value = obj.constraintDimension('ceq');
         end
 
         function value = get.mlcon(obj)
@@ -990,9 +976,33 @@ classdef Problem < handle
     end
 
     methods (Access = protected)
+        function value = constraintDimension(obj,channel)
+            % Ordinary Problem dimensions remain live. Composable views override
+            % only this metadata boundary, never observed callbacks.
+            if strcmp(channel,'cub')
+            % Absence or a successfully empty result means no constraints.
+            % A failed probe must propagate, not silently classify the problem
+            % as unconstrained. Do not cache: x0 and callbacks can be changed.
+            if isempty(obj.cub_)
+                value = 0;
+            else
+                cub = obj.cub_(obj.constraintProbePoint());
+                value = numel(cub);
+            end
+            else
+            % Match the inequality count policy, including empty callbacks.
+            if isempty(obj.ceq_)
+                value = 0;
+            else
+                ceq = obj.ceq_(obj.constraintProbePoint());
+                value = numel(ceq);
+            end
+            end
+        end
         function x = constraintProbePoint(obj)
             % Dependent dimensions remain live when x0/callbacks are changed.
             x = obj.x0;
         end
     end
 end
+
