@@ -75,6 +75,11 @@ tracker = "https://github.com/optiprofiler/optiprofiler/issues"
 [tool.setuptools.dynamic]
 version = {attr = "optiprofiler.__version__"}
 
+[tool.setuptools]
+# Keep the Python-3.8-compatible metadata form. These distinct filenames also
+# avoid old setuptools flattening several upstream LICENSE files onto one.
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md", "licenses/*.txt"]
+
 [tool.setuptools.packages.find]
 where = ["python"]
 include = ["optiprofiler*"]
@@ -84,6 +89,8 @@ include = ["optiprofiler*"]
     "config.txt",
     "probinfo_python.csv",
     "README.md",
+    "LICENCE.txt",
+    "THIRD_PARTY_NOTICES.md",
 ]
 "optiprofiler.problem_libs.s2mpj.src" = [
     "*.py",

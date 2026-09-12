@@ -1,6 +1,9 @@
 # Include license and readme
 include LICENSE
 include README.rst
+include THIRD_PARTY_NOTICES.md
+recursive-include licenses *.txt
+include doc/release-notes/1.3.5.md
 
 # Include problem libraries data files
 recursive-include python/optiprofiler/problem_libs *.py *.txt *.csv *.md

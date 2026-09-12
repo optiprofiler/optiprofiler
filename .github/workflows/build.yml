@@ -10,6 +10,19 @@ on:
   pull_request:
     branches: [main, python]
   workflow_dispatch:
+    inputs:
+      publish_pypi:
+        description: 'Publish the verified maintenance artifacts to PyPI only'
+        type: boolean
+        default: false
+      expected_sha:
+        description: 'Approved full commit SHA (required only for publication)'
+        type: string
+        default: ''
+      expected_version:
+        description: 'Approved 1.x package version (required only for publication)'
+        type: string
+        default: ''
 
 jobs:
   build_package:
@@ -20,6 +33,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.sha }}
           submodules: recursive
 
       - name: Setup Python
@@ -27,11 +41,36 @@ jobs:
         with:
           python-version: '3.10'
 
+      - name: Admit explicit maintenance publication
+        if: github.event_name == 'workflow_dispatch' && inputs.publish_pypi
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          EXPECTED_VERSION: ${{ inputs.expected_version }}
+        run: python .github/actions/build/check_manual_release.py admit
+
       - name: Build source and binary distributions
         run: bash .github/actions/build/build_package.sh
 
       - name: Test source and binary distributions
         run: bash .github/actions/build/test_package.sh
+
+      - name: Record approved maintenance artifact hashes
+        if: github.event_name == 'workflow_dispatch' && inputs.publish_pypi
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          EXPECTED_VERSION: ${{ inputs.expected_version }}
+        run: |
+          python -m pip install --progress-bar=off twine
+          python -m twine check --strict dist/*
+          python .github/actions/build/check_manual_release.py record
+
+      - name: Store maintenance release proof
+        if: github.event_name == 'workflow_dispatch' && inputs.publish_pypi
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-maintenance-release-proof
+          path: release-proof.json
+          if-no-files-found: error
 
       - name: Store artifacts
         uses: actions/upload-artifact@v4
@@ -68,18 +107,38 @@ jobs:
   upload_pypi:
     name: Upload to PyPI
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    if: (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || (github.event_name == 'workflow_dispatch' && inputs.publish_pypi)
     needs: [build_package]
 
     steps:
+      - name: Checkout approved maintenance source
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          submodules: recursive
+
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
           name: python-package-distributions
           path: dist
 
+      - name: Download maintenance release proof
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/download-artifact@v4
+        with:
+          name: python-maintenance-release-proof
+
+      - name: Verify maintenance source and artifacts before publication
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          EXPECTED_VERSION: ${{ inputs.expected_version }}
+        run: python .github/actions/build/check_manual_release.py verify
+
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_TOKEN }}
-          skip-existing: true
+          skip-existing: false
