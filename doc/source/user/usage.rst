@@ -213,9 +213,10 @@ are stored as logical. Text choices such as ``mesh_type`` are lowercase and
 case-sensitive. Earlier versions accepted some values that could not describe a
 valid experiment: NaN or infinite magnitudes, any ``perturbation_level``
 (including negative, text or vector values), and integer or single classes that
-then computed in integer or single arithmetic. A saved Feature holding such a
-value is rejected with an explicit error when it is executed again, including
-through ``loadBenchmarkOptions``. ``benchmark`` with ``load`` still reanalyses
+then computed in integer or single arithmetic. Saved Features are revalidated
+when executed again, including through ``loadBenchmarkOptions``. Invalid values
+are rejected explicitly; supported integer and single scalars are instead
+canonicalized to double, just like fresh input. ``benchmark`` with ``load`` still reanalyses
 the saved histories, because it does not execute the saved Feature.
 
 On the identity and single-stage strategies, ``FeaturedProblem`` now counts
