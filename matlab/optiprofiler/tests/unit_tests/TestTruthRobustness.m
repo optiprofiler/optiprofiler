@@ -26,7 +26,9 @@ classdef TestTruthRobustness < matlab.unittest.TestCase
                             'solver_isrand', false, 'project_x0', false, 'max_eval_factor', 1, ...
                             'silent', true, 'seed', 17, 'solver_verbose', 2, 'n_runs', 1, ...
                             'score_only', true, 'draw_hist_plots', 'none'));
-                        result = solveOne(solvers, p, feature, p.name, length(p.name), options, false, '');
+                        % 2.0: the controller resolves the role plan once and passes it in.
+                        plan = optiprofiler_internal.resolveFeatureExperiment(feature, options, 'primary');
+                        result = solveOne(solvers, p, feature, p.name, length(p.name), options, false, '', false, plan);
                         for field = {'fun_inits', 'fun_history', 'fun_out'}
                             testCase.verifyEqual(result.(field{1}), q, 'AbsTol', 1e-15);
                         end
