@@ -86,11 +86,20 @@ classdef TestRuntimePolicyRetention < matlab.unittest.TestCase
             unknown_report = jsondecode(fileread(load_options.report_path));
             problems = unknown_report.problems;
             if ~iscell(problems), problems = num2cell(problems); end
+            fresh_problems = fresh.problems;
+            if ~iscell(fresh_problems), fresh_problems = num2cell(fresh_problems); end
+            % A report that drops all/some runs must not pass the checks below
+            % vacuously. Reanalysis preserves the fresh problem/run inventory.
+            testCase.assertNotEmpty(fresh_problems);
+            testCase.assertNumElements(problems, numel(fresh_problems));
             for i = 1:numel(problems)
+                testCase.verifyEqual(problems{i}.name, fresh_problems{i}.name);
                 testCase.verifyEmpty(problems{i}.budget.evaluations);
                 testCase.verifyEqual(problems{i}.budget.reason, 'original_execution_budget_not_retained');
                 runs = problems{i}.runs;
                 if ~iscell(runs), runs = num2cell(runs); end
+                testCase.assertNotEmpty(fresh_problems{i}.runs);
+                testCase.assertNumElements(runs, numel(fresh_problems{i}.runs));
                 for j = 1:numel(runs)
                     testCase.verifyEqual(runs{j}.execution.kind, 'unknown');
                     testCase.verifyEqual(runs{j}.execution.reason, 'execution_metadata_not_retained');

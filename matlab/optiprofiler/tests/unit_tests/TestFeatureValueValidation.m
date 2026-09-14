@@ -171,9 +171,9 @@ classdef TestFeatureValueValidation < matlab.unittest.TestCase
                 'truncated', 'significant_digits', 'significant_digits_NotPositiveInteger'};
             for i = 1:size(options, 1)
                 for value = {intmax('int64'), intmax('uint64')}
-                    for route = {'shorthand', 'structured'}
+                    for input_route = {'shorthand', 'structured'}
                         testCase.verifyError(@() TestFeatureValueValidation.make( ...
-                            options{i, 1}, options{i, 2}, value{1}, route{1}), ...
+                            options{i, 1}, options{i, 2}, value{1}, input_route{1}), ...
                             ['MATLAB:Feature:', options{i, 3}]);
                     end
                 end
