@@ -16,10 +16,12 @@ classdef FeaturedProblem < Problem
 %   .. rubric:: Execution strategy
 %
 %   Zero effective stages use execution_strategy='identity'; one uses
-%   'legacy-single'. Both retain runtime_policy='matlab-legacy-single-v1' and
-%   seed_policy='legacy-run-seed', including the established MATLAB numerical
-%   kernels and payload-dependent random streams. Their constraint counters
-%   count recorded queries, as described below.
+%   'legacy-single'. Both record runtime_policy='matlab-legacy-single-v2' and
+%   seed_policy='legacy-run-seed': the established MATLAB numerical kernels
+%   and payload-dependent random streams, with constraint counters that count
+%   recorded queries (described below). Version 1 of this runtime policy used
+%   length()-based constraint counters; archives written by it keep their
+%   recorded policy string.
 %   Plain entries do not create extra stages or change these strategies.
 %
 %   Two or more effective stages use execution_strategy='composed-views',
@@ -215,7 +217,7 @@ classdef FeaturedProblem < Problem
             if isempty(view)
                 if isempty(stages), obj.execution_strategy = 'identity';
                 else, obj.execution_strategy = 'legacy-single'; end
-                obj.runtime_policy = 'matlab-legacy-single-v1';
+                obj.runtime_policy = 'matlab-legacy-single-v2';
                 obj.seed_policy = 'legacy-run-seed';
             else
                 obj.execution_strategy = 'composed-views';

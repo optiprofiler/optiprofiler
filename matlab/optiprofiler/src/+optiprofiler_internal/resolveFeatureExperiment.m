@@ -16,7 +16,9 @@ function plan = resolveFeatureExperiment(feature, profile_options, role)
     % The generic strategy and its language-specific implementation version
     % are distinct provenance facts. Match the actual FeaturedProblem policy
     % without constructing a runtime or changing any legacy numerical stream.
-    runtime_policy = 'matlab-legacy-single-v1';
+    % Version 2: per-query constraint counters. Version 1 counted length() of
+    % m-by-k histories; archives keep the policy string they recorded.
+    runtime_policy = 'matlab-legacy-single-v2';
     if strcmp(strategy, 'composed-views'), runtime_policy = 'matlab-composed-views-v1'; end
     requested = isfield(profile_options, 'n_runs');
     count = [];
