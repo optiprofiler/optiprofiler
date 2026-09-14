@@ -14,7 +14,7 @@ from .feature_definitions import (_SPEC_TYPE_MESSAGE, Declaration, StageRecord, 
                                   reject_experiment_options, reject_flat_stage_options)
 from .feature_definitions import is_stochastic as _stage_is_stochastic
 from .experiment import STRATEGY_COMPOSED, select_execution_strategy
-from .legacy_compat import LegacyObject
+from .legacy_compat import LegacyObject, historical_effective_options
 
 def _round_truncated(value, digits):
     """Round decimal ties using MATLAB's default away-from-zero direction."""
@@ -118,7 +118,15 @@ class _StageRuntime:
         elif self._name == FeatureName.PERTURBED_X0:
             # Use max(1, norm(x0)) to avoid no perturbation when x0 is zero.
             rng_perturbed_x0 = self.get_default_rng(seed)
-            perturbation_level = self._options[FeatureOption.PERTURBATION_LEVEL] * max(1, np.linalg.norm(problem.x0))
+            level = self._options[FeatureOption.PERTURBATION_LEVEL]
+            # NumPy vectors historically give coordinatewise amplitudes. Keep
+            # that behavior, validate their dimension here (unknown in Feature),
+            # and make finite list/tuple vectors work like their array form.
+            if isinstance(level, (list, tuple, np.ndarray)):
+                level = np.asarray(level)
+                if level.ndim == 1 and level.size not in (1, problem.n):
+                    raise ValueError('Option `perturbation_level` must have length 1 or problem.n.')
+            perturbation_level = level * max(1, np.linalg.norm(problem.x0))
             if self._options[FeatureOption.DISTRIBUTION] == 'gaussian':
                 return problem.x0 + perturbation_level * rng_perturbed_x0.standard_normal(problem.n)
             elif self._options[FeatureOption.DISTRIBUTION] == 'spherical':
@@ -781,7 +789,9 @@ def _rebuild_feature(version, route, declared_entries, effective_entries):
     if version != FEATURE_NATIVE_VERSION:
         raise ValueError(f'Unsupported native Feature form version {version!r} (this version reads {FEATURE_NATIVE_VERSION}).')
     if effective_entries:
-        _, stages = normalize_entries([{'name': name, 'options': dict(options)} for name, options in effective_entries])
+        _, stages = normalize_entries([
+            {'name': name, 'options': historical_effective_options(name, options)}
+            for name, options in effective_entries])
     else:
         stages = ()
     feature = Feature.__new__(Feature)
@@ -824,19 +834,27 @@ class Feature:
         callable ``distribution(rng, size)``.
     noise_level, noise_type, noise_mode, noise_map : optional
         Options of the 'noisy' feature; ``noise_map`` is 'chebyshev' or a
-        callable deterministic scalar map.
-    perturbation_level : float, optional
-        Option of the 'perturbed_x0' feature.
+        callable deterministic scalar map. ``noise_level`` is a finite,
+        nonnegative real scalar.
+    perturbation_level : float or array_like, optional
+        Finite, nonnegative amplitude for 'perturbed_x0': a scalar or a
+        one-dimensional vector of length 1 or problem.n (coordinatewise).
+        Zero leaves the initial point unchanged; NaN and infinity are invalid.
     significant_digits, perturbed_trailing_digits : optional
         Options of the 'truncated' feature.
     nan_rate : int or float, optional
-        Rate of NaNs used by the 'random_nan' feature.
+        Finite real scalar in [0, 1] for the 'random_nan' feature.
     rotated, condition_factor : optional
-        Options of the 'linearly_transformed' feature.
+        Options of 'linearly_transformed'; ``condition_factor`` is a finite,
+        nonnegative real scalar.
     unrelaxable_bounds, unrelaxable_linear_constraints, unrelaxable_nonlinear_constraints : bool, optional
         Options of the 'unrelaxable_constraints' feature.
     mesh_size, mesh_type, ground_truth : optional
-        Options of the 'quantized' feature.
+        Options of 'quantized'. ``mesh_size`` is a finite, positive real scalar;
+        ``mesh_type`` is 'absolute' or 'relative' (case-insensitive, stored in
+        lowercase). Booleans are not numeric magnitude/count options. NumPy
+        real scalar magnitudes are accepted. Only ``perturbation_level`` also
+        accepts vectors; other magnitude options must be scalars.
     mod_x0, mod_affine, mod_bounds, mod_linear_ub, mod_linear_eq, mod_fun, mod_cub, mod_ceq : callable, optional
         Callbacks of the 'custom' feature.
 

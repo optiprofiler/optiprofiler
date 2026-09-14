@@ -1132,7 +1132,10 @@ def _benchmark(
             # Save the user-provided options.
             # We use pickle because options may contain function handles or other non-serializable objects.
             if 'options_user' in locals() and options_user is not None:
-                save_options(options_user, path_log / 'options_user.pkl')
+                # Preserve raw input, but identify its writer semantics: unlike
+                # old flat archives, fresh mixed-case mesh input is normalized.
+                from .legacy_compat import USER_SCHEMA
+                save_options({**options_user, 'schema': USER_SCHEMA}, path_log / 'options_user.pkl')
 
                 add_to_readme(path_readme_log, 'options_user.pkl', 'File, storing the options provided by the user for the current experiment.')
 

@@ -354,6 +354,15 @@ offer no safety for untrusted payloads. The callback descriptions in the
 archive and the report are one-way informational metadata (a class or function
 name), never a recipe for reconstructing an executable callable.
 
+New ``options_user.pkl`` files retain the original input values and add
+``schema='options_user-v2'``. Replay them with ``replay_arguments`` rather than
+forwarding the entire dictionary to ``benchmark``. The marker distinguishes
+fresh input from historical effective settings: fresh ``mesh_type='RELATIVE'``
+means relative quantization, whereas older Python versions actually executed
+the absolute grid for that accepted spelling. Historical replay preserves the
+grid that ran. Prefer ``options_refined.pkl`` when the resolved defaults and
+run count must also be preserved.
+
 MATLAB mapping. The MATLAB implementation follows the same contract:
 ``options.feature`` as a cell array of structs
 (``struct('name', 'noisy', 'options', struct('noise_level', 1e-3))``) or

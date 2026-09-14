@@ -42,10 +42,39 @@ from .feature_definitions import EXPERIMENT_OPTIONS, STAGE_NAMES, validated_loca
 from .utils import FeatureOption, ProblemOption
 
 REFINED_SCHEMA = 'options_refined-v2'
+USER_SCHEMA = 'options_user-v2'
 
 
 class LegacyConfigurationError(ValueError):
     """A historical configuration cannot be represented as a 2.0 specification."""
+
+
+def historical_effective_options(name, options):
+    """Preserve the grid actually used by old native/refined configurations."""
+    options = dict(options)
+    mesh = options.get('mesh_type')
+    if (name == 'quantized' and isinstance(mesh, str)
+            and mesh.lower() in ('absolute', 'relative') and mesh != mesh.lower()):
+        # Before the validator fix, any accepted non-lowercase spelling took
+        # the absolute runtime branch. Reinterpreting it as fresh input would
+        # silently change a saved experiment. Only effective options change;
+        # the historical declaration/provenance remains untouched.
+        options['mesh_type'] = 'absolute'
+    return options
+
+
+def _historical_specification(specification):
+    """Copy saved structured input without modifying the caller's archive data."""
+    if isinstance(specification, Mapping):
+        entry = dict(specification)
+        name, options = entry.get('name'), entry.get('options', {})
+        if isinstance(name, str) and isinstance(options, Mapping) and 'options' in entry:
+            entry['options'] = historical_effective_options(name.strip().lower(), options)
+        return entry
+    if isinstance(specification, (list, tuple)):
+        entries = [_historical_specification(entry) for entry in specification]
+        return tuple(entries) if isinstance(specification, tuple) else entries
+    return specification
 
 
 class LegacyEnumValue(str):
@@ -323,7 +352,8 @@ def replay_arguments(options, feature_name=None):
     """
     Map a trusted options dictionary to ``benchmark`` inputs.
 
-    Supported layouts: ``options_refined-v2`` (native ``feature_specification``
+    Supported layouts: ``options_user-v2`` (raw current input),
+    ``options_refined-v2`` (native ``feature_specification``
     and top-level ``n_runs``); the 1.x bridge layout (``feature_specification``
     without a schema, run count among the flat keys); and the flat 1.x merge of
     profile, feature and problem options, which does not record the feature
@@ -344,11 +374,32 @@ def replay_arguments(options, feature_name=None):
     problem_keys = {member.value for member in ProblemOption}
     problem_options = {key: value for key, value in plain.items() if key in problem_keys}
     schema = plain.get('schema')
+    if schema == USER_SCHEMA:
+        # Raw user input is not a historical effective configuration. The
+        # writer marker distinguishes fresh case-insensitive mesh input from
+        # old unmarked files whose mixed-case grid actually ran as absolute.
+        from .opclasses import Feature
+        from .provenance import effective_specification
+        stage_options = {key: value for key, value in plain.items()
+                         if key in FeatureOption.__members__.values() and key not in EXPERIMENT_OPTIONS}
+        try:
+            if 'feature' in plain:
+                if 'feature_name' in plain or stage_options:
+                    raise ValueError('Structured feature input cannot be mixed with flat feature options.')
+                feature = Feature(plain['feature'])
+            else:
+                name = feature_name if feature_name is not None else plain.get('feature_name', 'plain')
+                feature = Feature(name, **stage_options)
+        except (TypeError, ValueError) as err:
+            raise LegacyConfigurationError(f'The saved user options are not valid: {err}') from err
+        return {'feature': effective_specification(feature), 'n_runs': plain.get('n_runs'),
+                'problem_options': problem_options}
     if schema == REFINED_SCHEMA or (schema is None and 'feature_specification' in plain):
         specification = plain['feature_specification']
         if not isinstance(specification, (list, tuple, Mapping)):
             raise LegacyConfigurationError('`feature_specification` must be a mapping or a list/tuple of stage entries.')
-        return {'feature': specification, 'n_runs': plain.get('n_runs'), 'problem_options': problem_options}
+        return {'feature': _historical_specification(specification), 'n_runs': plain.get('n_runs'),
+                'problem_options': problem_options}
     if schema is not None:
         raise LegacyConfigurationError(f'Unknown refined options schema {schema!r}.')
     name = feature_name if feature_name is not None else plain.get('feature_name')
@@ -357,6 +408,8 @@ def replay_arguments(options, feature_name=None):
                                        'feature_name=... to replay it (the flat stage options are broadcast to it).')
     stage_options = {key: value for key, value in plain.items()
                      if key in FeatureOption.__members__.values() and key not in EXPERIMENT_OPTIONS}
+    if isinstance(name, str) and 'quantized' in [part.strip().lower() for part in name.split('+')]:
+        stage_options = historical_effective_options('quantized', stage_options)
     from .opclasses import Feature
     from .provenance import effective_specification
     try:

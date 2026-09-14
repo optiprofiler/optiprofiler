@@ -160,8 +160,14 @@ class TestDescribePipeline:
         assert 'instance_state' not in record
 
     def test_non_finite_values_become_reason_records(self):
-        pipeline = describe_feature(Feature('noisy+truncated', noise_level=float('nan')))
-        assert pipeline['stages'][0]['options']['noise_level'] == {'value': None, 'reason': 'nan'}
+        from optiprofiler.metadata import safe_metadata
+
+        # Non-finite experimental metadata still needs a JSON-safe record;
+        # executable feature options must reject it before oracle evaluation.
+        record = safe_metadata({'noise_level': float('nan')})
+        assert record['noise_level'] == {'value': None, 'reason': 'nan'}
+        with pytest.raises(ValueError, match='finite'):
+            Feature('noisy+truncated', noise_level=float('nan'))
 
     def test_report_and_pipeline_share_one_encoder(self):
         import optiprofiler.eval_report as eval_report

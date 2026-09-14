@@ -14,6 +14,7 @@ stage and belong to ``optiprofiler.experiment``.
 """
 
 from collections.abc import Mapping
+import math
 from types import MappingProxyType
 
 import numpy as np
@@ -78,6 +79,39 @@ def local_options(name):
         raise ValueError(f'Unknown feature: {name}.') from None
 
 
+def _validate_finite_scalar(key, value):
+    """Reject bad configuration before it can corrupt an oracle or initial point."""
+    # Booleans are integers in Python, but are not magnitude parameters. Keep
+    # NumPy scalar types valid; a one-element array is not a scalar option.
+    if isinstance(value, (bool, np.bool_)) or not isinstance(value, (int, float, np.integer, np.floating)):
+        raise TypeError(f'Option `{key}` must be a finite real scalar.')
+    try:
+        finite = math.isfinite(value)
+    except OverflowError:
+        finite = False
+    if not finite:
+        raise ValueError(f'Option `{key}` must be a finite real scalar.')
+
+
+def _validate_perturbation_level(value):
+    """Retain coordinatewise amplitudes without accepting arbitrary objects."""
+    key = FeatureOption.PERTURBATION_LEVEL
+    if type(value) is np.ndarray:
+        if value.ndim > 1 or value.size == 0 or value.dtype.kind not in 'fiu':
+            raise TypeError(f'Option `{key}` must be a finite real scalar or nonempty vector.')
+        values = value.ravel()
+    elif type(value) in (list, tuple):
+        if not value:
+            raise ValueError(f'Option `{key}` must be a nonempty vector.')
+        values = value
+    else:
+        values = (value,)
+    for item in values:
+        _validate_finite_scalar(key, item)
+        if item < 0:
+            raise ValueError(f'Option `{key}` must be nonnegative.')
+
+
 def validate_option(name, key, value):
     """Validate one stage-local option of kind ``name`` and return its normalized value."""
     if key in EXPERIMENT_OPTIONS:
@@ -96,11 +130,12 @@ def validate_option(name, key, value):
         elif not callable(value):
             raise TypeError(f'Option `{key}` must be a string or it must be callable.')
     elif key == FeatureOption.NAN_RATE:
-        if not isinstance(value, (int, float)):
-            raise TypeError(f'Option `{key}` must be a number.')
+        _validate_finite_scalar(key, value)
         if not (0.0 <= value <= 1.0):
             raise ValueError(f'Option `{key}` must be between 0 and 1.')
     elif key == FeatureOption.SIGNIFICANT_DIGITS:
+        if isinstance(value, (bool, np.bool_)):
+            raise TypeError(f'Option `{key}` must be an integer, not a boolean.')
         if isinstance(value, (float, np.floating)) and float(value).is_integer():
             value = int(value)
         if isinstance(value, np.integer):
@@ -109,9 +144,10 @@ def validate_option(name, key, value):
             raise TypeError(f'Option `{key}` must be an integer.')
         if value <= 0:
             raise ValueError(f'Option `{key}` must be positive.')
+    elif key == FeatureOption.PERTURBATION_LEVEL:
+        _validate_perturbation_level(value)
     elif key in [FeatureOption.NOISE_LEVEL, FeatureOption.CONDITION_FACTOR]:
-        if not isinstance(value, (int, float)):
-            raise TypeError(f'Option `{key}` must be a number.')
+        _validate_finite_scalar(key, value)
         if value < 0.0:
             raise ValueError(f'Option `{key}` must be nonnegative.')
     elif key == FeatureOption.NOISE_TYPE:
@@ -139,8 +175,7 @@ def validate_option(name, key, value):
         if not isinstance(value, bool):
             raise TypeError(f'Option `{key}` must be a boolean.')
     elif key == FeatureOption.MESH_SIZE:
-        if not isinstance(value, (int, float)):
-            raise TypeError(f'Option `{key}` must be a number.')
+        _validate_finite_scalar(key, value)
         if value <= 0.0:
             raise ValueError(f'Option `{key}` must be positive.')
     elif key == FeatureOption.MESH_TYPE:
@@ -148,6 +183,10 @@ def validate_option(name, key, value):
             raise TypeError(f'Option `{key}` must be a string.')
         if value.lower() not in ['absolute', 'relative']:
             raise ValueError(f"Option `{key}` must be 'absolute' or 'relative'.")
+        # Runtime mesh selection and saved effective options use this exact
+        # spelling. Validating lower() without storing it silently chose the
+        # absolute mesh for an accepted 'RELATIVE' input.
+        value = value.lower()
     elif key in _CUSTOM_CALLBACKS:
         if not callable(value):
             raise TypeError(f'Option `{key}` must be callable.')
