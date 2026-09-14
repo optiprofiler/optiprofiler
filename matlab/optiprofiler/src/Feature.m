@@ -57,7 +57,8 @@ classdef Feature < handle
 %
 %   The following defaults are local to one stage. A missing local OPTIONS
 %   struct uses these defaults. No stage stores n_runs. Numeric options must
-%   be finite real scalars and are stored as double. Logical options accept
+%   be finite real scalars and are stored as double; integer-class values must
+%   be exactly representable as double. Logical options accept
 %   true/false or numeric 0/1 and are stored as logical. Text choices are
 %   lowercase and case-sensitive.
 %

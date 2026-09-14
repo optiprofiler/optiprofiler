@@ -247,7 +247,10 @@ function value = realScalar(input)
     value = builtin('isnumeric',input) && isreal(input) && isscalar(input);
 end
 function value = finiteRealScalar(input)
-    value = realScalar(input) && isfinite(input);
+    % Also require an exact double: an integer class beyond flintmax would
+    % silently round when stored. Every single value is exact in double.
+    value = realScalar(input) && isfinite(input) && ...
+        (~isinteger(input) || cast(double(input), class(input)) == input);
 end
 function value = logicalScalar(input)
     value = (isa(input,'logical') && isscalar(input)) || (realScalar(input) && (input==0 || input==1));

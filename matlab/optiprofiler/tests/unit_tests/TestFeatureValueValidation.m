@@ -148,6 +148,18 @@ classdef TestFeatureValueValidation < matlab.unittest.TestCase
             testCase.verifyClass(feature.stages{1}.options.rotated, 'logical');
             testCase.verifyTrue(feature.stages{1}.options.rotated);
         end
+
+        function integerValuesMustBeExactDoubles(testCase)
+            % Storing as double must not round an integer-class input.
+            testCase.verifyError(@() Feature('noisy', 'noise_level', int64(2)^53 + 1), ...
+                'MATLAB:Feature:noise_level_NotPositive');
+            testCase.verifyError(@() Feature('truncated', 'significant_digits', uint64(2)^60 + 1), ...
+                'MATLAB:Feature:significant_digits_NotPositiveInteger');
+            feature = Feature('noisy', 'noise_level', int64(2)^53);
+            testCase.verifyEqual(feature.stages{1}.options.noise_level, 2^53);
+            feature = Feature('noisy', 'noise_level', single(0.1));
+            testCase.verifyEqual(feature.stages{1}.options.noise_level, double(single(0.1)));
+        end
     end
 
     methods (Static)
