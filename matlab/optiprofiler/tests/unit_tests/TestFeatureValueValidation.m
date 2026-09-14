@@ -160,6 +160,32 @@ classdef TestFeatureValueValidation < matlab.unittest.TestCase
             feature = Feature('noisy', 'noise_level', single(0.1));
             testCase.verifyEqual(feature.stages{1}.options.noise_level, double(single(0.1)));
         end
+
+        function saturatingIntegerCastsAreNotExact(testCase)
+            % intmax rounds up when converted to double, then saturates back
+            % on the reverse cast. That round trip is not proof of exactness.
+            options = {'noisy', 'noise_level', 'noise_level_NotPositive'; ...
+                'perturbed_x0', 'perturbation_level', 'perturbation_level_InvalidInput'; ...
+                'quantized', 'mesh_size', 'mesh_size_NotPositive'; ...
+                'linearly_transformed', 'condition_factor', 'condition_factor_InvalidInput'; ...
+                'truncated', 'significant_digits', 'significant_digits_NotPositiveInteger'};
+            for i = 1:size(options, 1)
+                for value = {intmax('int64'), intmax('uint64')}
+                    for route = {'shorthand', 'structured'}
+                        testCase.verifyError(@() TestFeatureValueValidation.make( ...
+                            options{i, 1}, options{i, 2}, value{1}, route{1}), ...
+                            ['MATLAB:Feature:', options{i, 3}]);
+                    end
+                end
+            end
+            % Exact integers above flintmax remain valid; do not impose a
+            % blanket flintmax ceiling to work around the saturating cast.
+            for value = {int64(2)^53, uint64(2)^63, ...
+                    intmax('int64')-int64(1023), intmax('uint64')-uint64(2047), intmax('uint32')}
+                feature = Feature('noisy', 'noise_level', value{1});
+                testCase.verifyEqual(feature.stages{1}.options.noise_level, double(value{1}));
+            end
+        end
     end
 
     methods (Static)

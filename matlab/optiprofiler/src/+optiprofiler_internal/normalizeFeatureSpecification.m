@@ -249,8 +249,14 @@ end
 function value = finiteRealScalar(input)
     % Also require an exact double: an integer class beyond flintmax would
     % silently round when stored. Every single value is exact in double.
-    value = realScalar(input) && isfinite(input) && ...
-        (~isinteger(input) || cast(double(input), class(input)) == input);
+    value = realScalar(input) && isfinite(input);
+    if value && isinteger(input)
+        converted = double(input);
+        % A reverse cast saturates at intmax. In particular, int64/uint64
+        % intmax round up to 2^63/2^64 and would falsely pass a round trip.
+        value = cast(converted, class(input)) == input && ...
+            ~(input == intmax(class(input)) && converted > flintmax);
+    end
 end
 function value = logicalScalar(input)
     value = (isa(input,'logical') && isscalar(input)) || (realScalar(input) && (input==0 || input==1));

@@ -4,7 +4,8 @@ classdef TestRuntimePolicyRetention < matlab.unittest.TestCase
 % receipts it retained, verbatim: an archive written under version 1 keeps
 % 'matlab-legacy-single-v1'. The version-1 copy below is an explicit metadata
 % fixture derived from a genuine run, not a claimed historical producer; its
-% numerical channels are never regenerated.
+% numerical channels are never regenerated. A second metadata-only fixture
+% removes execution facts to pin the honest unknowns reported for old archives.
 
     methods (Test)
         function reloadedArchiveKeepsRecordedPolicy(testCase)
@@ -32,7 +33,7 @@ classdef TestRuntimePolicyRetention < matlab.unittest.TestCase
                 'n_jobs', 1, 'max_eval_factor', 2, 'max_tol_order', 1, 'seed', 17, 'score_only', false, ...
                 'draw_hist_plots', 'none', 'silent', true, 'benchmark_id', 'fresh', 'savepath', output, ...
                 'report_path', fullfile(output, 'fresh.json'));
-            benchmark({@stayAtStart, @halfStep}, options);
+            fresh_scores = benchmark({@stayAtStart, @halfStep}, options);
             fresh = jsondecode(fileread(options.report_path));
             testCase.verifyEqual(unique(TestRuntimePolicyRetention.policies(fresh)), {'matlab-legacy-single-v2'}, ...
                 'New identity and single-stage executions record version 2.');
@@ -64,6 +65,41 @@ classdef TestRuntimePolicyRetention < matlab.unittest.TestCase
             reloaded = jsondecode(fileread(load_options.report_path));
             testCase.verifyEqual(unique(TestRuntimePolicyRetention.policies(reloaded)), {'matlab-legacy-single-v1'}, ...
                 'A reloaded archive must keep the policy string it recorded.');
+
+            % Older archives have no execution metadata. Never invent seeds,
+            % budgets or an execution policy while reanalysing their histories.
+            unknown_root = fullfile(output, 'unknown-execution-fixture');
+            mkdir(unknown_root);
+            copyfile(files(1).folder, fullfile(unknown_root, 'test_log'));
+            results_plibs = loaded.results_plibs;
+            results_plibs{1} = rmfield(results_plibs{1}, 'execution_metadata');
+            if isfield(results_plibs{1}, 'results_plib_plain')
+                results_plibs{1}.results_plib_plain = rmfield(results_plibs{1}.results_plib_plain, 'execution_metadata');
+            end
+            unknown_file = fullfile(unknown_root, 'test_log', 'data_for_loading.mat');
+            save(unknown_file, 'results_plibs', '-v7.3');
+            unknown_bytes = TestRuntimePolicyRetention.readBytes(unknown_file);
+            cd(unknown_root);
+            load_options.report_path = fullfile(output, 'load-unknown.json');
+            unknown_scores = benchmark({@forbiddenSolver, @forbiddenSolver}, load_options);
+            testCase.verifyEqual(unknown_scores, fresh_scores);
+            unknown_report = jsondecode(fileread(load_options.report_path));
+            problems = unknown_report.problems;
+            if ~iscell(problems), problems = num2cell(problems); end
+            for i = 1:numel(problems)
+                testCase.verifyEmpty(problems{i}.budget.evaluations);
+                testCase.verifyEqual(problems{i}.budget.reason, 'original_execution_budget_not_retained');
+                runs = problems{i}.runs;
+                if ~iscell(runs), runs = num2cell(runs); end
+                for j = 1:numel(runs)
+                    testCase.verifyEqual(runs{j}.execution.kind, 'unknown');
+                    testCase.verifyEqual(runs{j}.execution.reason, 'execution_metadata_not_retained');
+                    testCase.verifyEqual(runs{j}.oracle_seed_reason, 'execution_metadata_not_retained');
+                    testCase.verifyEmpty(runs{j}.oracle_seed);
+                    testCase.verifyFalse(isfield(runs{j}, 'runtime'));
+                end
+            end
+            testCase.verifyEqual(TestRuntimePolicyRetention.readBytes(unknown_file), unknown_bytes);
 
             % Control: the unmodified archive reloads with the policy it recorded.
             cd(fileparts(files(1).folder));
