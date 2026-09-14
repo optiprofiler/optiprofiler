@@ -202,6 +202,33 @@ Python uses SHA-256 for that display suffix. These labels do not change seeds,
 scientific feature identity, or output-directory uniqueness. Equal shortened
 folder names across languages are not promised.
 
+Feature option values are checked when a ``Feature`` is built. The numeric
+options ``perturbation_level``, ``noise_level``, ``condition_factor``,
+``mesh_size``, ``nan_rate`` and ``significant_digits`` must be finite real
+scalars within their documented bounds; MATLAB stores them as double, and an
+integer-class value must be exactly representable as double.
+``perturbation_level`` is a nonnegative scalar: MATLAB has no coordinatewise
+vector amplitudes. Logical options accept ``true``/``false`` or numeric 0/1 and
+are stored as logical. Text choices such as ``mesh_type`` are lowercase and
+case-sensitive. Earlier versions accepted some values that could not describe a
+valid experiment: NaN or infinite magnitudes, any ``perturbation_level``
+(including negative, text or vector values), and integer or single classes that
+then computed in integer or single arithmetic. A saved Feature holding such a
+value is rejected with an explicit error when it is executed again, including
+through ``loadBenchmarkOptions``. ``benchmark`` with ``load`` still reanalyses
+the saved histories, because it does not execute the saved Feature.
+
+On the identity and single-stage strategies, ``FeaturedProblem`` now counts
+nonlinear-constraint evaluations once per recorded query, as the composed
+strategy and the Python package already did. Earlier versions reported the
+number of constraint components while fewer queries had been recorded. They
+could therefore serve stale constraint values once that number reached the
+evaluation budget, and they passed repeated indices to stochastic constraint
+modifiers. New executions record ``runtime_policy='matlab-legacy-single-v2'``.
+Archives written under ``matlab-legacy-single-v1`` keep their recorded policy
+when they are loaded. Numerical results are unchanged for constraint channels
+with at most one component.
+
 
 Example 4: testing parametrized solvers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
