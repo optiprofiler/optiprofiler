@@ -56,34 +56,43 @@ classdef Feature < handle
 %   .. rubric:: Built-in stages and all local options
 %
 %   The following defaults are local to one stage. A missing local OPTIONS
-%   struct uses these defaults. No stage stores n_runs.
+%   struct uses these defaults. No stage stores n_runs. Numeric options must
+%   be finite real scalars and are stored as double. Logical options accept
+%   true/false or numeric 0/1 and are stored as logical. Text choices are
+%   lowercase and case-sensitive.
 %
 %   - 'plain': the identity; no local options.
 %   - 'perturbed_x0': perturb the initial point. 'distribution' defaults to
 %     'spherical'; alternatives are 'gaussian' or a function handle accepting
 %     (random_stream, dimension) and returning a perturbation vector.
-%     'perturbation_level' is the magnitude factor (default 1e-3), scaled by
-%     max(1, norm(problem.x0)).
+%     'perturbation_level' is a finite, nonnegative scalar magnitude factor
+%     (default 1e-3), scaled by max(1, norm(problem.x0)). MATLAB accepts no
+%     vector amplitudes.
 %   - 'noisy': modify observed objective and nonlinear-constraint values.
 %     'distribution' defaults to 'gaussian'; alternatives are 'uniform' or a
 %     function handle accepting (random_stream, output_size).
-%     'noise_level' defaults to 1e-3. 'noise_type' is 'absolute', 'relative',
-%     or 'mixed' (default 'mixed'). 'noise_mode' is 'random' (default) or
+%     'noise_level' is a finite, nonnegative scalar (default 1e-3).
+%     'noise_type' is 'absolute', 'relative', or 'mixed' (default 'mixed').
+%     'noise_mode' is 'random' (default) or
 %     'deterministic'. In deterministic mode, 'noise_map' is 'chebyshev'
 %     (default) or a function handle x -> real scalar. The named noise map is
 %     not used in random mode.
 %   - 'truncated': truncate observed objective and nonlinear-constraint values.
-%     'significant_digits' is the retained number of significant digits
-%     (default 6). 'perturbed_trailing_digits' controls randomization of the
+%     'significant_digits' is the retained number of significant digits, a
+%     positive integer (default 6). 'perturbed_trailing_digits' controls
+%     randomization of the
 %     trailing digits (default false).
 %   - 'permuted': randomly permute variables and transport the initial point,
 %     bounds and constraints consistently; no local options.
 %   - 'linearly_transformed': apply an invertible linear coordinate change.
 %     'rotated' controls random rotation (default true). 'condition_factor'
-%     defaults to 0; the existing transformation has condition number
+%     is a finite, nonnegative scalar (default 0); the existing
+%     transformation has condition number
 %     2 ^ sqrt(condition_factor * n / 2) for dimension n >= 2, and 1 for n = 1.
 %   - 'random_nan': replace observed objective and nonlinear-constraint values
-%     by NaN with probability 'nan_rate' (default 0.05).
+%     by NaN with probability 'nan_rate', a finite value in [0, 1] (default
+%     0.05). These NaN observations are the feature's output; a NaN option
+%     value is a configuration error.
 %   - 'unrelaxable_constraints': set the observed objective to Inf when a
 %     selected category of predecessor constraints is violated.
 %     'unrelaxable_bounds' defaults to true;
@@ -91,8 +100,9 @@ classdef Feature < handle
 %     'unrelaxable_nonlinear_constraints' default to false.
 %   - 'nonquantifiable_constraints': return 0 when cub <= 0 or abs(ceq) <= 1e-6,
 %     and 1 otherwise, retaining undefined values as NaN; no local options.
-%   - 'quantized': evaluate at a point snapped to a mesh. 'mesh_size' defaults
-%     to 1e-3; 'mesh_type' is 'absolute' (default) or 'relative'. 'ground_truth'
+%   - 'quantized': evaluate at a point snapped to a mesh. 'mesh_size' is a
+%     finite, positive scalar (default 1e-3); 'mesh_type' is 'absolute'
+%     (default) or 'relative'. 'ground_truth'
 %     defaults to true: the local reference objective and nonlinear
 %     constraints also use the snapped point. With false, only observations
 %     are snapped. Bounds and linear constraints are assessed at the unsnapped

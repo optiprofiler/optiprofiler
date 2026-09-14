@@ -1,7 +1,10 @@
 function specification = normalizeFeatureSpecification(input, varargin)
 %NORMALIZEFEATURESPECIFICATION One pure, callback-free normalization boundary.
-% Preserve inherited numeric 0/1 logicals, selected NaN/Inf acceptance, and the
-% absence of perturbation-level validation; a policy change is separate work.
+% Numeric options must be finite real scalars and are stored as double, so an
+% integer or single input never reaches the numerical kernels. Logical options
+% accept logical values or the inherited numeric 0/1 and are stored as logical.
+% Enumerated text stays lowercase and case-sensitive. Configuration errors
+% therefore surface here, before any runtime state is built.
     flat = parseFlatOptions(varargin);
     if isText(input)
         tokens = strsplit(char(input),'+','CollapseDelimiters',false);
@@ -162,25 +165,33 @@ function value = validateOption(name,key,value)
                 end
             end
         case 'nan_rate'
-            if ~realScalar(value) || value<0 || value>1
-                fail('nan_rate_NotBetween_0_1','nan_rate must be between zero and one.');
+            % A NaN rate is a configuration error; NaN observations are the
+            % feature's output. NaN<0 and NaN>1 are both false, so test finiteness.
+            if ~finiteRealScalar(value) || value<0 || value>1
+                fail('nan_rate_NotBetween_0_1','nan_rate must be a finite real scalar between zero and one.');
             end
+            value = double(value);
         case 'significant_digits'
-            if ~realScalar(value) || rem(value,1)~=0 || value<=0
+            if ~finiteRealScalar(value) || rem(value,1)~=0 || value<=0
                 fail('significant_digits_NotPositiveInteger','significant_digits must be a positive integer.');
             end
+            % An integer class would make 10^(-digits) an integer power.
+            value = double(value);
         case 'noise_level'
-            if ~realScalar(value) || value<0
-                fail('noise_level_NotPositive','noise_level must be nonnegative.');
+            if ~finiteRealScalar(value) || value<0
+                fail('noise_level_NotPositive','noise_level must be a finite, nonnegative real scalar.');
             end
+            value = double(value);
         case 'condition_factor'
-            if ~(realScalar(value) && value>=0)
-                fail('condition_factor_InvalidInput','condition_factor must be nonnegative.');
+            if ~(finiteRealScalar(value) && value>=0)
+                fail('condition_factor_InvalidInput','condition_factor must be a finite, nonnegative real scalar.');
             end
+            value = double(value);
         case 'mesh_size'
-            if ~realScalar(value) || value<=0
-                fail('mesh_size_NotPositive','mesh_size must be positive.');
+            if ~finiteRealScalar(value) || value<=0
+                fail('mesh_size_NotPositive','mesh_size must be a finite, positive real scalar.');
             end
+            value = double(value);
         case 'noise_type'
             if ~isText(value) || ~ismember(char(value),{'absolute','relative','mixed'})
                 fail('noise_type_InvalidInput','noise_type must be absolute, relative or mixed.');
@@ -210,12 +221,21 @@ function value = validateOption(name,key,value)
             if ~logicalScalar(value)
                 fail([key,'_NotLogical'],'The option must be a logical scalar or numeric zero/one.');
             end
+            % Store one canonical type: numeric 1 and true describe the same stage.
+            value = logical(value);
         case {'mod_x0','mod_bounds','mod_linear_ub','mod_linear_eq','mod_affine','mod_fun','mod_cub','mod_ceq'}
             if ~isa(value,'function_handle')
                 fail([key,'_NotFunctionHandle'],'The modifier must be a function handle.');
             end
         case 'perturbation_level'
-            % Preserve the historical absence of an extra value validator.
+            % A scalar magnitude factor. The kernel applies it with matrix
+            % multiplication, so a MATLAB row vector would add one inner-product
+            % value to every coordinate and a column vector would fail at run
+            % time. Coordinatewise amplitudes are a Python-only extension.
+            if ~finiteRealScalar(value) || value<0
+                fail('perturbation_level_InvalidInput','perturbation_level must be a finite, nonnegative real scalar.');
+            end
+            value = double(value);
     end
 end
 
@@ -225,6 +245,9 @@ function value = isText(input)
 end
 function value = realScalar(input)
     value = builtin('isnumeric',input) && isreal(input) && isscalar(input);
+end
+function value = finiteRealScalar(input)
+    value = realScalar(input) && isfinite(input);
 end
 function value = logicalScalar(input)
     value = (isa(input,'logical') && isscalar(input)) || (realScalar(input) && (input==0 || input==1));
