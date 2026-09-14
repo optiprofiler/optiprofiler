@@ -713,7 +713,21 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
             feature = Feature(feature_input);
         end
     else
-        feature = Feature(feature_name, feature_options);
+        try
+            feature = Feature(feature_name, feature_options);
+        catch cause
+            % Keep the established benchmark identifier for an unknown or
+            % malformed shorthand name. Option errors keep their own Feature
+            % identifiers, and the Feature error is retained as the cause.
+            if ismember(cause.identifier, {'MATLAB:Feature:UnknownFeature', 'MATLAB:Feature:InvalidStage'})
+                valid_feature_names = cellfun(@(x) x.value, num2cell(enumeration('FeatureName')), 'UniformOutput', false);
+                failure = MException('MATLAB:benchmark:feature_nameNotValid', ...
+                    '`feature_name` provided for `benchmark` must be one of the valid feature names, or several joined with ''+'': %s.', ...
+                    strjoin(valid_feature_names, ', '));
+                throw(addCause(failure, cause));
+            end
+            rethrow(cause);
+        end
     end
     feature_name = feature.name;
     problem_options = checkValidityProblemOptions(problem_options, profile_options);
