@@ -5,7 +5,7 @@ classdef TestNativeBenchmarkReplay < matlab.unittest.TestCase
     end
     methods (Test)
         function nativeCallbackRoundTrip(testCase, callback_kind)
-            output = tempname(getenv('OP_ARTIFACTS')); mkdir(output);
+            output = tempname(artifactRoot()); mkdir(output);
             global OP_NATIVE_REPLAY_CALLBACK_CALLS
             OP_NATIVE_REPLAY_CALLBACK_CALLS = 0;
             testCase.addTeardown(@() clearCount());
@@ -56,7 +56,7 @@ classdef TestNativeBenchmarkReplay < matlab.unittest.TestCase
         end
 
         function malformedRetainedNativeFeatureHasActionableError(testCase)
-            output = tempname(getenv('OP_ARTIFACTS')); mkdir(output);
+            output = tempname(artifactRoot()); mkdir(output);
             options_refined = nativeOptions(Feature('noisy'));
             options_refined.feature = Feature.empty;
             file = fullfile(output, 'malformed-options.mat');
@@ -93,4 +93,11 @@ end
 function value = fileBytes(file)
     fid = fopen(file, 'rb'); cleanup = onCleanup(@() fclose(fid)); %#ok<NASGU>
     value = fread(fid, Inf, '*uint8');
+end
+
+function root = artifactRoot()
+% CI may collect artifacts from OP_ARTIFACTS. Without it, use the system temp
+% folder: tempname('') is an error in R2026a (MATLAB:tempname:MustBeString).
+    root = getenv('OP_ARTIFACTS');
+    if isempty(root), root = tempdir; end
 end

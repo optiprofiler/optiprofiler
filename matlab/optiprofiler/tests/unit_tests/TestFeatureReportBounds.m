@@ -41,7 +41,7 @@ classdef TestFeatureReportBounds < matlab.unittest.TestCase
 end
 
 function report = runReport(feature, count)
-    output = tempname(getenv('OP_ARTIFACTS')); mkdir(output);
+    output = tempname(artifactRoot()); mkdir(output);
     problem = Problem(struct('fun', @(x) sum(x.^2), 'x0', 1, 'name', 'BOUNDED_FEATURE'));
     options = struct('problem', problem, 'feature', feature, 'n_runs', 1, ...
         'n_jobs', 1, 'max_eval_factor', 1, 'max_tol_order', 1, 'seed', 17, ...
@@ -57,4 +57,11 @@ end
 
 function x = zero(fun, x0)
     x = zeros(size(x0)); fun(x);
+end
+
+function root = artifactRoot()
+% CI may collect artifacts from OP_ARTIFACTS. Without it, use the system temp
+% folder: tempname('') is an error in R2026a (MATLAB:tempname:MustBeString).
+    root = getenv('OP_ARTIFACTS');
+    if isempty(root), root = tempdir; end
 end

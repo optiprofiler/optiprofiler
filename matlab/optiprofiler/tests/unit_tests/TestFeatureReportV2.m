@@ -2,7 +2,7 @@ classdef TestFeatureReportV2 < matlab.unittest.TestCase
 % Public benchmark receipt contract; runtime tests execute only on syu-ubuntu.
     methods (Test)
         function identityReportSeparatesSpecificationAndExperiment(testCase)
-            output = tempname(getenv('OP_ARTIFACTS'));
+            output = tempname(artifactRoot());
             mkdir(output);
             feature = Feature('plain+plain');
             problem = Problem(struct('fun', @(x) sum(x.^2), 'x0', [2; 1], 'name', 'REPORT_V2_IDENTITY'));
@@ -47,7 +47,7 @@ classdef TestFeatureReportV2 < matlab.unittest.TestCase
         end
 
         function defaultPlainDoesNotInventAnInputKeyword(testCase)
-            output = tempname(getenv('OP_ARTIFACTS')); mkdir(output);
+            output = tempname(artifactRoot()); mkdir(output);
             problem = Problem(struct('fun', @(x) sum(x.^2), 'x0', [2; 1], 'name', 'REPORT_V2_DEFAULT'));
             options = struct('problem', problem, 'n_runs', 1, 'n_jobs', 1, ...
                 'solver_names', {{'stay', 'half'}}, 'max_eval_factor', 2, 'seed', 17, ...
@@ -82,7 +82,7 @@ classdef TestFeatureReportV2 < matlab.unittest.TestCase
             testCase.verifyEmpty(options.feature.declared);
             testCase.verifyEqual(readBytes(fixture), before);
             native_feature = options.feature;
-            output = tempname(getenv('OP_ARTIFACTS')); mkdir(output);
+            output = tempname(artifactRoot()); mkdir(output);
             file = fullfile(output, 'canonical.mat');
             save(file, 'native_feature', '-v7'); restored = load(file);
             testCase.verifyEqual(restored.native_feature.stages, native_feature.stages);
@@ -106,7 +106,7 @@ classdef TestFeatureReportV2 < matlab.unittest.TestCase
         end
 
         function wholeLibraryRolesNativeReplayAndFilteredLoad(testCase)
-            output = tempname(getenv('OP_ARTIFACTS')); mkdir(output);
+            output = tempname(artifactRoot()); mkdir(output);
             fixture = fullfile(fileparts(mfilename('fullpath')), '..', 'fixtures', 'feature-report-v2');
             old_path = path; old_cwd = pwd;
             old_registry = getenv('OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_REGISTRY');
@@ -257,4 +257,11 @@ end
 function value = readBytes(path)
     fid = fopen(path, 'rb'); cleanup = onCleanup(@() fclose(fid)); %#ok<NASGU>
     value = fread(fid, Inf, '*uint8');
+end
+
+function root = artifactRoot()
+% CI may collect artifacts from OP_ARTIFACTS. Without it, use the system temp
+% folder: tempname('') is an error in R2026a (MATLAB:tempname:MustBeString).
+    root = getenv('OP_ARTIFACTS');
+    if isempty(root), root = tempdir; end
 end
