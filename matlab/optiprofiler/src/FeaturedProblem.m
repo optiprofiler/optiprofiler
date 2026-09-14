@@ -18,7 +18,8 @@ classdef FeaturedProblem < Problem
 %   Zero effective stages use execution_strategy='identity'; one uses
 %   'legacy-single'. Both retain runtime_policy='matlab-legacy-single-v1' and
 %   seed_policy='legacy-run-seed', including the established MATLAB numerical
-%   kernels, payload-dependent random streams and history-counter behavior.
+%   kernels and payload-dependent random streams. Their constraint counters
+%   count recorded queries, as described below.
 %   Plain entries do not create extra stages or change these strategies.
 %
 %   Two or more effective stages use execution_strategy='composed-views',
@@ -57,26 +58,35 @@ classdef FeaturedProblem < Problem
 %   - fun_hist: reference objective values recorded at admitted fresh objective
 %     evaluations.
 %   - cub_hist, ceq_hist: reference nonlinear-constraint histories, with one
-%     column per recorded fresh evaluation. The optional record_hist=false
-%     argument suppresses storage, not the public call counter or evaluation.
+%     column per recorded fresh evaluation (m-by-k; 0-by-k without nonlinear
+%     constraints). Row and empty callback results are stored as one column.
+%     The optional record_hist=false argument suppresses storage, not the
+%     public call counter or evaluation.
 %   - maxcv_hist: reference maximum violations at recorded objective points,
 %     not a separate sequence of constraint calls; unavailable evaluations are
 %     recorded as NaN.
 %   - fun_init, maxcv_init: reference values at the featured initial point.
 %
-%   n_eval_fun is the length of fun_hist. For composed views, n_eval_cub and
-%   n_eval_ceq count history columns. For identity/legacy-single execution,
-%   they deliberately retain length(cub_hist) and length(ceq_hist): these can
-%   depend on the number of constraint components, not just recorded calls.
-%   These accessors are not general counts of user callbacks or solver calls.
+%   n_eval_fun is the length of fun_hist. On every execution strategy,
+%   n_eval_cub and n_eval_ceq count recorded constraint queries, i.e. history
+%   columns, independent of the number of constraint components and of the
+%   orientation of the callback result. Earlier identity/legacy-single
+%   versions returned length(cub_hist) and length(ceq_hist), which reported
+%   the component count m while fewer than m queries were recorded, cached
+%   stale values once m reached MAX_EVAL, counted m*k for row results and 0
+%   without constraints. This is an intentional correctness change of the
+%   inherited behavior. These accessors are not general counts of user
+%   callbacks or solver calls.
 %
 %   .. rubric:: Cache and hard stop
 %
 %   Each channel checks its history-based n_eval accessor against MAX_EVAL.
 %   Once that accessor is at least MAX_EVAL, a call returns the last observed
 %   value cached for that channel, irrespective of the new point, and appends
-%   no history. The legacy constraint-length caveat above also applies to this
-%   cache condition; this interface does not revise that numerical policy.
+%   no history. On the identity/legacy-single strategies, the same per-query
+%   counter is the served index passed to stochastic constraint modifiers
+%   (noise, random NaN, perturbed trailing digits, custom callbacks), so
+%   repeated queries at one point receive distinct indices.
 %
 %   A separate public-call counter is maintained for each of fun, cub and ceq.
 %   Calls served from cache still count. Before accepting a call, the channel
@@ -293,23 +303,18 @@ classdef FeaturedProblem < Problem
         end
 
         function value = get.n_eval_cub(obj)
-            % Return number of nonlinear inequality constraint evaluations.
+            % Number of recorded nonlinear inequality constraint queries: one
+            % history column per query on every strategy (not length(), which
+            % returned the component count for m-by-k histories).
 
-            if isempty(obj.final_view)
-                value = length(obj.cub_hist); % Frozen legacy dimension-dependent behavior.
-            else
-                value = size(obj.cub_hist,2);
-            end
+            value = size(obj.cub_hist, 2);
         end
 
         function value = get.n_eval_ceq(obj)
-            % Return number of nonlinear equality constraint evaluations.
+            % Number of recorded nonlinear equality constraint queries: one
+            % history column per query on every strategy.
 
-            if isempty(obj.final_view)
-                value = length(obj.ceq_hist); % Frozen legacy dimension-dependent behavior.
-            else
-                value = size(obj.ceq_hist,2);
-            end
+            value = size(obj.ceq_hist, 2);
         end
 
         function value = get.fun_hist(obj)
@@ -446,8 +451,9 @@ classdef FeaturedProblem < Problem
             end
 
             % Record the history of the nonlinear inequality constraints only when `record_hist` is true.
+            % One column per recorded query: row and empty results become one column.
             if nargin < 3 || record_hist
-                obj.cub_hist = [obj.cub_hist, cub_true];
+                obj.cub_hist = [obj.cub_hist, cub_true(:)];
             end
         end
 
@@ -505,8 +511,9 @@ classdef FeaturedProblem < Problem
             end
 
             % Record the history of the nonlinear equality constraints only when `record_hist` is true.
+            % One column per recorded query: row and empty results become one column.
             if nargin < 3 || record_hist
-                obj.ceq_hist = [obj.ceq_hist, ceq_true];
+                obj.ceq_hist = [obj.ceq_hist, ceq_true(:)];
             end
         end
 
