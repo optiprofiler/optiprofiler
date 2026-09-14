@@ -13,8 +13,9 @@ classdef TestTruthRobustness < matlab.unittest.TestCase
                 for kind = {'u', 'cub', 'ceq', 'mixed', 'linear'}
                     for mesh = {'absolute', 'relative'}
                         p = TestTruthRobustness.makeProblem(kind{1}, .49);
+                        % n_runs is an experiment option in 2.0, never a stage option.
                         feature = Feature('quantized', struct('mesh_size', 1, ...
-                            'mesh_type', mesh{1}, 'ground_truth', truth, 'n_runs', 1));
+                            'mesh_type', mesh{1}, 'ground_truth', truth));
                         q = .49 * ~truth;
                         cv = 0;
                         if ismember(kind{1}, {'cub', 'mixed'}), cv = max(cv, q^2 - .25^2); end
@@ -23,7 +24,7 @@ classdef TestTruthRobustness < matlab.unittest.TestCase
                         solvers = {@TestTruthRobustness.stay};
                         options = defaults(solvers, feature, struct('solver_names', {{'stay'}}, ...
                             'solver_isrand', false, 'project_x0', false, 'max_eval_factor', 1, ...
-                            'silent', true, 'seed', 17, 'solver_verbose', 2, ...
+                            'silent', true, 'seed', 17, 'solver_verbose', 2, 'n_runs', 1, ...
                             'score_only', true, 'draw_hist_plots', 'none'));
                         result = solveOne(solvers, p, feature, p.name, length(p.name), options, false, '');
                         for field = {'fun_inits', 'fun_history', 'fun_out'}
