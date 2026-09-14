@@ -126,6 +126,6 @@ function x = halfStep(fun, x0)
     fun(x);
 end
 
-function x = forbiddenSolver(varargin) %#ok<STOUT,INUSD>
+function x = forbiddenSolver(varargin) %#ok<INUSD>
     error('OptiProfiler:ForbiddenSolver', 'Saved-result load executed a solver.');
 end
