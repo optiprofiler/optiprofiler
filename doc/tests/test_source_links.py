@@ -59,8 +59,20 @@ class SourceLinksTest(unittest.TestCase):
             if key.startswith('OPTIPROFILER_DOCS_') or key == 'PYTHONPATH':
                 env.pop(key)
         env.update(env_delta or {})
-        script = f'''import importlib, json, runpy, sys
+        # conf.py installs a numpydoc/MATLAB event guard before Sphinx loads
+        # extensions. These source-link fixtures do not build documentation;
+        # stub only those unrelated renderer imports, keeping the real config,
+        # Git discovery, source ownership and every link assertion in use.
+        script = f'''import importlib, json, runpy, sys, types
 {'import optiprofiler' if preload else ''}
+numpydoc = types.ModuleType('numpydoc')
+numpydoc.numpydoc = types.ModuleType('numpydoc.numpydoc')
+numpydoc.numpydoc.mangle_docstrings = lambda *args: None
+sys.modules['numpydoc'] = numpydoc
+sys.modules['numpydoc.numpydoc'] = numpydoc.numpydoc
+mat_types = types.ModuleType('sphinxcontrib.mat_types')
+mat_types.MatObject = type('MatObject', (), {{}})
+sys.modules['sphinxcontrib.mat_types'] = mat_types
 conf = runpy.run_path({str(root / 'doc' / 'source' / 'conf.py')!r})
 import optiprofiler
 importlib.import_module('optiprofiler.core')
