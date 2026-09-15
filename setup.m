@@ -8,7 +8,7 @@ function setup(varargin)
 %   This script can be called in the following ways.
 %
 %   setup  % Add the paths needed to use the package
-%   Setup borrows pre-existing paths and records only its own additions.
+%   Setup borrows existing paths and records only its own additions.
 %   Uninstall without an ownership record preserves legacy paths; it never
 %   guesses ownership from directory prefixes or startup-file comments.
 %   An interrupted cross-file update may leave an unowned startup entry;
@@ -131,7 +131,7 @@ function setup(varargin)
         fprintf('\n--- Setting up MatCUTEst ---\n\n');
         
         % The locked S2MPJ loader uses these exact runtime directories.
-        % Record them before evaluation, preserving any pre-existing paths.
+        % Record them before evaluation, preserving any existing paths.
         s2mpj_paths = {s2mpj_dir, fullfile(s2mpj_dir, 'src'), ...
             fullfile(s2mpj_dir, 'src', 'matlab_problems')};
         s2mpj_paths = s2mpj_paths(cellfun(@isfolder, s2mpj_paths));

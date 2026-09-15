@@ -39,6 +39,7 @@ ignore$
 \.lib$
 \.lock$
 \.map$
+\.mat$
 \.min\..
 \.mod$
 \.mp[34]$
@@ -65,3 +66,4 @@ ignore$
 ^\.github/actions/spelling/
 ^\Q.github/workflows/spelling.yml\E$
 /tests/__init__.py$
+^python/optiprofiler/problem_libs/__init__\.py$

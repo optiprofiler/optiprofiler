@@ -179,7 +179,7 @@ classdef TestFeatureValueValidation < matlab.unittest.TestCase
                 end
             end
             % Exact integers above flintmax remain valid; do not impose a
-            % blanket flintmax ceiling to work around the saturating cast.
+            % blanket flintmax ceiling to compensate for the saturating cast.
             for value = {int64(2)^53, uint64(2)^63, ...
                     intmax('int64')-int64(1023), intmax('uint64')-uint64(2047), intmax('uint32')}
                 feature = Feature('noisy', 'noise_level', value{1});
