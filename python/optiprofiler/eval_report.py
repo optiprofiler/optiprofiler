@@ -624,10 +624,10 @@ class EvalReport:
 
     @staticmethod
     def _stat_identity(value):
-        # Device and inode alone are an ABA hole: a foreign in-place rewrite
-        # keeps the inode, and after a foreign replace-over-target the file
-        # system hands the freed inode back (ext4 alternates between two
-        # inodes, so every second replacement restores the recorded one).
+        # Device and inode alone are a stale-identity hole: a foreign in-place
+        # rewrite keeps the inode, and after a foreign replace-over-target the
+        # file system hands the freed inode back (ext4 alternates between two
+        # inode numbers, so every second replacement restores the recorded one).
         # Size and nanosecond modification time complete a regular file's
         # identity; a directory keeps device and inode only, because its
         # modification time changes with every entry the benchmark writes.

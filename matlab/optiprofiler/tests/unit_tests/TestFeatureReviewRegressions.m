@@ -159,7 +159,7 @@ classdef TestFeatureReviewRegressions < matlab.unittest.TestCase
             % back; an identity made of the file key alone treated both as
             % owned (observed once in the EvalReport CI gate on syu-ubuntu).
             % Runs with and without the JVM (Java file key, or stat).
-            target = fullfile(testCase.Work, 'inplace.json');
+            target = fullfile(testCase.Work, 'rewritten.json');
             report = optiprofiler_internal.EvalReport(target, struct(), @reviewReplace);
             fid = fopen(target, 'w'); fwrite(fid, 'external in-place rewrite', 'char'); fclose(fid);
             testCase.verifyError(@() report.finish(), 'OptiProfiler:EvalReportOwnership');

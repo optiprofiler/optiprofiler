@@ -343,7 +343,7 @@ successfully verified report pair.
 Both collectors identify their two files by more than a file key. A device
 and inode alone would not notice a foreign in-place rewrite (the inode stays),
 and after a foreign replace-over-target the file system may hand the freed
-inode back (ext4 alternates between two inodes, so every second replacement
+inode back (ext4 alternates between two inode numbers, so every second replacement
 restores the recorded one). The Python collector therefore records device,
 inode, size and nanosecond modification time; the MATLAB collector records
 Java's file key together with the size and modification time on POSIX systems

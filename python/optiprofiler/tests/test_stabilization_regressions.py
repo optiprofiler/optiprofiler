@@ -218,7 +218,7 @@ def test_foreign_in_place_rewrite_and_inode_reuse_are_detected(tmp_path):
     # A foreign in-place rewrite keeps the inode, and after two foreign
     # replace-over-target operations ext4 hands the recorded inode back; an
     # identity made of device and inode alone would treat both as owned.
-    target = tmp_path / 'inplace.json'
+    target = tmp_path / 'rewritten.json'
     report = EvalReport(target, {})
     inode = target.lstat().st_ino
     target.write_text('external in-place rewrite', encoding='utf-8')
@@ -558,13 +558,13 @@ def test_recovered_recipe_requires_matching_stage_options():
     assert stale['replay_reason'] == 'archive_feature_pipeline_disagrees_with_source_options'
     assert stale['archived_experiment']['detail'] == 'stage_option:noise_level'
     assert stale['feature_specification'] is None and stale['n_runs'] is None
-    # The cross-check decides replayability itself: a candidate without a
+    # The cross-check decides whether a candidate is replayable: one without a
     # ``replayable`` flag is judged on the facts, and the stated reason is the
     # option mismatch, not the missing flag.
     candidate = {key: value for key, value in _native_for(Feature('noisy', noise_level=0.2)).items() if key != 'replayable'}
-    unflagged = _recipe_from_archived(candidate, [_archive_for(actual)])
-    assert unflagged['replay_reason'] == 'archive_feature_pipeline_disagrees_with_source_options'
-    assert unflagged['archived_experiment']['detail'] == 'stage_option:noise_level'
+    without_flag = _recipe_from_archived(candidate, [_archive_for(actual)])
+    assert without_flag['replay_reason'] == 'archive_feature_pipeline_disagrees_with_source_options'
+    assert without_flag['archived_experiment']['detail'] == 'stage_option:noise_level'
     # The archive disagreement is the primary fact: it is reported even when the
     # candidate is also incomplete; completeness is asked of a candidate that agrees.
     partial = {key: value for key, value in candidate.items() if key != 'problem_options'}

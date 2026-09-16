@@ -1063,11 +1063,11 @@ classdef EvalReport < handle
 
         function value = fileIdentity(path)
         %FILEIDENTITY Identity of a report target or directory for the ownership checks.
-        % A file key (device and inode) alone is an ABA hole: a foreign
-        % in-place rewrite keeps the inode, and after a foreign
+        % A file key (device and inode) alone is a stale-identity hole: a
+        % foreign in-place rewrite keeps the inode, and after a foreign
         % replace-over-target the file system hands the freed inode back
-        % (ext4 alternates between two inodes, so every second replacement
-        % restores the recorded one). Size and modification time complete a
+        % (ext4 alternates between two inode numbers, so every second
+        % replacement restores the recorded one). Size and modification time complete a
         % regular file's identity; a directory keeps its key only, because
         % its modification time changes with every entry the benchmark writes.
             if usejava('jvm')

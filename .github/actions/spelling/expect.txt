@@ -53,6 +53,7 @@ ENCODEMETADATA
 endblock
 endfor
 entryconfigtoy
+eof
 eps
 errorband
 evalcrash
@@ -93,6 +94,7 @@ footbibliography
 fsencode
 fstat
 fwrite
+getappdata
 getfilesystemencoding
 getnewargs
 getoption
@@ -227,7 +229,9 @@ reparsed
 reparsing
 repelem
 replayable
+resolvable
 rint
+rmappdata
 rng
 roadmap
 rosen
@@ -236,6 +240,7 @@ savefig
 saveobj
 scipy
 seedsequence
+setappdata
 setcounter
 setflags
 setuptools
