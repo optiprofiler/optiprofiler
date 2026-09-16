@@ -36,19 +36,28 @@ classdef EvalReport < handle
         plotPositions
         historyPositions
         permissionsApplied
+        % Diagnostics are de-duplicated and capped at 128 entries; the number
+        % of dropped entries is published as diagnostics_omitted (as in Python).
+        diagnosticKeys
+        droppedDiagnostics = 0
     end
     methods
         function self = EvalReport(path, request, replaceFile)
             if ~(ischar(path) && isrow(path)) && ~(isstring(path) && isscalar(path))
                 error('OptiProfiler:EvalReportPath', 'report_path must be a scalar char/string path.');
             end
-            self.path = char(path);
-            if ~optiprofiler_internal.EvalReport.isAbsolute(self.path), self.path = fullfile(pwd, self.path); end
+            % Canonical location (absolute, no '.'/'..', symlinks resolved for
+            % the part that exists) so that every relative reference is
+            % computed between physical locations, with and without the JVM.
+            self.path = optiprofiler_internal.EvalReport.canonical(char(path));
             self.replaceFile = replaceFile;
             parent = fileparts(self.path);
-            if isempty(parent), self.path = fullfile(pwd, self.path); parent = pwd; end
             [~, stem] = fileparts(self.path);
             self.plotPath = fullfile(parent, [stem, '.plot_data.json']);
+            % Encode the request before reserving any file: a request value
+            % the projection cannot handle must not leave reserved targets
+            % behind that block the next attempt.
+            request_projection = optiprofiler_internal.EvalReport.configuration(request);
             if ~isfolder(parent), mkdir(parent); end
             if ~optiprofiler_internal.EvalReport.reserve(self.path)
                 error('OptiProfiler:EvalReportExists', 'The report target already exists or cannot be reserved.');
@@ -57,10 +66,25 @@ classdef EvalReport < handle
             % Both paths are owned before any solver call. On a companion
             % collision, remove only our still-identical empty main shell.
             if ~optiprofiler_internal.EvalReport.reserve(self.plotPath)
-                self.checkOwnership(); delete(self.path);
+                self.rollbackReservations();
                 error('OptiProfiler:EvalReportExists', 'The plot-data target already exists or cannot be reserved.');
             end
             self.plotIdentity = optiprofiler_internal.EvalReport.fileIdentity(self.plotPath);
+            try
+                self.initializeDocuments(request, request_projection);
+            catch cause
+                % A failed first write must not block a retry: remove both
+                % targets while each still carries the identity this
+                % constructor created or last published (a file another writer
+                % put there is preserved), then rethrow the original error.
+                self.rollbackReservations();
+                rethrow(cause);
+            end
+        end
+    end
+    methods (Access = private)
+        function initializeDocuments(self, request, request_projection)
+            self.diagnosticKeys = containers.Map('KeyType', 'char', 'ValueType', 'logical');
             self.problemPositions = containers.Map('KeyType', 'char', 'ValueType', 'double');
             self.plotPositions = containers.Map('KeyType', 'char', 'ValueType', 'double');
             self.historyPositions = containers.Map('KeyType', 'char', 'ValueType', 'double');
@@ -123,11 +147,29 @@ classdef EvalReport < handle
                 self.document.coverage.scope = 'retained_archive';
                 self.document.coverage.original_selection_known = false;
             end
-            self.document.configuration.request = optiprofiler_internal.EvalReport.configuration(request);
+            self.document.configuration.request = request_projection;
             self.setStage('numerical', 'running');
             self.write();
         end
 
+        function rollbackReservations(self)
+            % Delete a reserved target only while it is still ours: its current
+            % identity equals the one recorded at reservation or at the last
+            % publish. Foreign files (a concurrent writer, a pre-existing
+            % companion) are never touched.
+            targets = {self.path, self.ownedIdentity; self.plotPath, self.plotIdentity};
+            for k = 1:size(targets, 1)
+                target = targets{k, 1}; identity = targets{k, 2};
+                if isempty(identity) || ~isfile(target), continue; end
+                try
+                    if optiprofiler_internal.EvalReport.isLink(target), continue; end
+                    if strcmp(identity, optiprofiler_internal.EvalReport.fileIdentity(target)), delete(target); end
+                catch
+                end
+            end
+        end
+    end
+    methods
         function configure(self, problem_options, profile_options, feature_value, historyPreparation, primary_plan, reference_plan, context)
             self.historyPreparation = historyPreparation;
             self.profileOptions = profile_options;
@@ -191,9 +233,17 @@ classdef EvalReport < handle
         end
 
         function setOutputDirectory(self, path)
-            self.outputDirectory = path;
-            self.outputIdentity = optiprofiler_internal.EvalReport.fileIdentity(path);
-            self.document.artifact_root = self.relative(path);
+            self.outputDirectory = optiprofiler_internal.EvalReport.canonical(path);
+            self.outputIdentity = optiprofiler_internal.EvalReport.fileIdentity(self.outputDirectory);
+            [self.document.artifact_root, reason] = self.relative(self.outputDirectory);
+            if isempty(reason)
+                if isfield(self.document, 'artifact_root_reason')
+                    self.document = rmfield(self.document, 'artifact_root_reason');
+                end
+            else
+                self.document.artifact_root_reason = reason;
+                self.addDiagnostic('artifact_root_unavailable', 'persistence', struct('reason', reason));
+            end
         end
 
         function setStage(self, stage, status, reason)
@@ -204,8 +254,20 @@ classdef EvalReport < handle
 
         function addDiagnostic(self, code, stage, scope)
             if nargin < 4, scope = struct(); end
+            entry = struct('code', code, 'stage', stage, 'scope', scope);
+            try
+                key = jsonencode(optiprofiler_internal.EvalReport.safe(entry));
+            catch
+                key = [char(code), '|', char(stage)];
+            end
+            if isKey(self.diagnosticKeys, key), return; end
+            % Every distinct diagnostic is remembered, kept or not, so the
+            % omitted count is a count of distinct dropped entries.
+            self.diagnosticKeys(key) = true;
             if numel(self.document.diagnostics) < 128
-                self.document.diagnostics{end+1} = struct('code', code, 'stage', stage, 'scope', scope);
+                self.document.diagnostics{end+1} = entry;
+            else
+                self.droppedDiagnostics = self.droppedDiagnostics + 1;
             end
         end
 
@@ -532,11 +594,14 @@ classdef EvalReport < handle
         end
 
         function setSource(self, path)
-            self.sourcePath = path;
-            [~, name, ext] = fileparts(path);
+            self.sourcePath = optiprofiler_internal.EvalReport.canonical(path);
+            [~, name, ext] = fileparts(self.sourcePath);
+            [reference, reason] = self.relative(self.sourcePath);
             record = struct('kind', 'archive', 'name', [name, ext], ...
-                'path', self.relative(path), 'status', 'captured_before_filtering', ...
+                'path', reference, 'status', 'captured_before_filtering', ...
                 'coverage_note', 'Only retained/replayed coverage is certified.');
+            if ~isempty(reason), record.path_reason = reason; end
+            path = self.sourcePath;
             try
                 [record.bytes, record.sha256] = optiprofiler_internal.EvalReport.digest(path);
             catch
@@ -642,23 +707,35 @@ classdef EvalReport < handle
         end
     end
     methods (Access = private)
-        function path = relative(self, path, base)
-            % Relative paths may include '..'; never expose machine roots.
-            if ~optiprofiler_internal.EvalReport.isAbsolute(path), path = fullfile(pwd, path); end
+        function [path, reason] = relative(self, path, base)
+            % Relative reference from BASE (default: the report parent) to
+            % PATH, computed between canonical physical locations so that the
+            % join resolves through the filesystem with and without the JVM.
+            % Relative paths may include '..'; a machine root is never
+            % exposed: when no relative path exists (another drive/volume) the
+            % result is null and REASON says why.
+            reason = '';
             if nargin < 3, base = fileparts(self.path); end
+            path = optiprofiler_internal.EvalReport.canonical(path);
+            base = optiprofiler_internal.EvalReport.canonical(base);
             if usejava('jvm')
                 try
-                    from = java.io.File(base); to = java.io.File(path);
-                    path = char(from.toPath().normalize().relativize(to.toPath().normalize()).toString());
+                    from = java.io.File(base).toPath(); to = java.io.File(path).toPath();
+                    path = char(from.relativize(to).toString());
                     path = strrep(path, filesep, '/');
+                    if isempty(path), path = '.'; end
                 catch
                     path = optiprofiler_internal.EvalReport.null();
+                    reason = 'cross_volume_relative_path_unavailable';
                 end
                 return;
             end
-            a = strsplit(base, filesep); b = strsplit(path, filesep); common = 0;
+            a = regexp(base, '[\\/]', 'split'); b = regexp(path, '[\\/]', 'split');
+            a = a(~cellfun(@isempty, a)); b = b(~cellfun(@isempty, b));
+            common = 0;
             while common < min(numel(a),numel(b)) && strcmp(a{common+1}, b{common+1}), common = common+1; end
             path = strjoin([repmat({'..'},1,numel(a)-common), b(common+1:end)], '/');
+            if isempty(path), path = '.'; end
         end
 
         function harvest(self)
@@ -669,7 +746,11 @@ classdef EvalReport < handle
                 self.setStage('persistence', 'partial', 'artifact_directory_ownership_changed');
                 return;
             end
-            pending = {self.outputDirectory}; artifacts = {};
+            % The output directory may have been empty (and, without the JVM,
+            % unresolved) when it was registered; its physical location is
+            % the base of every artifact reference.
+            base = optiprofiler_internal.EvalReport.canonical(self.outputDirectory);
+            pending = {base}; artifacts = {};
             while ~isempty(pending) && numel(artifacts) < 2048
                 directory = pending{1}; pending(1) = [];
                 if optiprofiler_internal.EvalReport.isLink(directory), continue; end
@@ -689,8 +770,14 @@ classdef EvalReport < handle
                     elseif ismember(ext,{'.txt','.m'}), media = 'text/plain'; end
                     try
                         [bytes, hash] = optiprofiler_internal.EvalReport.digest(path);
-                        artifacts{end+1} = struct('path', self.relative(path, self.outputDirectory), 'media_type', media, ...
+                        [reference, reason] = self.relative(path, base);
+                        entry = struct('path', reference, 'media_type', media, ...
                             'kind', kind, 'status', 'present', 'bytes', bytes, 'sha256', hash);
+                        if ~isempty(reason)
+                            entry.path_reason = reason;
+                            self.addDiagnostic('artifact_path_unavailable', 'persistence', struct('reason', reason));
+                        end
+                        artifacts{end+1} = entry;
                     catch
                         self.addDiagnostic('artifact_hash_unavailable', 'persistence');
                         self.setStage('persistence', 'partial', 'artifact_hash_unavailable');
@@ -776,6 +863,7 @@ classdef EvalReport < handle
                 'permissions_applied', self.permissionsApplied, ...
                 'platform_note', 'unix_chmod_600_after_each_publish;not_enforced_on_windows;windows_file_identity_is_creation_time_size_and_mtime_not_a_file_index;windows_directory_identity_is_creation_time_only;directory_privacy_is_the_caller_responsibility');
             snapshot = self.document;
+            if self.droppedDiagnostics > 0, snapshot.diagnostics_omitted = self.droppedDiagnostics; end
             if strcmp(snapshot.operation, 'load')
                 snapshot.coverage.load_failed = optiprofiler_internal.EvalReport.null();
                 snapshot.coverage.reason = 'original_selection_and_load_failures_not_retained';
@@ -790,6 +878,13 @@ classdef EvalReport < handle
             if usejava('jvm')
                 parent = java.io.File(fileparts(self.path));
                 file = java.io.File.createTempFile('op-eval-report-', '.json', parent);
+                % Owner-only before any byte is written (mkstemp semantics):
+                % createTempFile applies the umask, which may leave the
+                % controller-private document group/world readable until the
+                % post-publish chmod. Best effort; outcomes are verified after
+                % publication by restrictPermissions.
+                file.setReadable(false, false); file.setReadable(true, true);
+                file.setWritable(false, false); file.setWritable(true, true);
                 stage = char(file.getPath());
             else
                 [status, stage] = system(['/usr/bin/mktemp ', optiprofiler_internal.EvalReport.quote(fullfile(fileparts(self.path), '.op-eval-report.XXXXXXXX'))]);
@@ -803,7 +898,12 @@ classdef EvalReport < handle
             clear guard;
             if written ~= numel(encoded), error('OptiProfiler:EvalReportWrite', 'Incomplete report write.'); end
             if is_plot, self.checkPlotOwnership(); else, self.checkOwnership(); end
-            self.replaceFile(stage, target);
+            try
+                self.replaceFile(stage, target);
+            catch cause
+                if isfile(stage), delete(stage); end
+                rethrow(cause);
+            end
             identity = optiprofiler_internal.EvalReport.fileIdentity(target);
             if is_plot, self.plotIdentity = identity; else, self.ownedIdentity = identity; end
             self.restrictPermissions(target);
@@ -872,6 +972,76 @@ classdef EvalReport < handle
     methods (Static, Access = private)
         function yes = isAbsolute(path)
             yes = startsWith(path, filesep) || ~isempty(regexp(path, '^[A-Za-z]:[\\/]', 'once')) || startsWith(path, '\\');
+        end
+
+        function path = canonical(path)
+            % Absolute, without '.' or '..' components, and physical (symlinks
+            % resolved) for the part that exists. With the JVM this is Java's
+            % canonical path. Without it (Unix only: exclusive reservation
+            % needs the JVM on Windows), the deepest existing ancestor is
+            % resolved by realpath when available, otherwise through the
+            % physical directory that fileattrib reports for one of its
+            % entries (fileattrib and dir report a queried directory itself as
+            % given, but its entries under their physical directory); the
+            % remaining components are appended. An empty symlinked directory
+            % on a system without realpath stays at its given name, which the
+            % operating system still resolves.
+            path = char(path);
+            if ~optiprofiler_internal.EvalReport.isAbsolute(path), path = fullfile(pwd, path); end
+            if usejava('jvm')
+                try
+                    path = char(java.io.File(path).getCanonicalPath());
+                    return;
+                catch
+                end
+            end
+            path = optiprofiler_internal.EvalReport.normalizeLexically(path);
+            remainder = {};
+            probe = path;
+            while ~isfolder(probe)
+                [parent, name, ext] = fileparts(probe);
+                if isempty(parent) || strcmp(parent, probe), break; end
+                remainder = [{[name, ext]}, remainder]; %#ok<AGROW>
+                probe = parent;
+            end
+            if isfolder(probe)
+                resolved = '';
+                if isunix
+                    [status, out] = system(['realpath ', optiprofiler_internal.EvalReport.quote(probe), ' 2>/dev/null']);
+                    out = strtrim(out);
+                    if status == 0 && ~isempty(out) && isfolder(out), resolved = out; end
+                end
+                if isempty(resolved)
+                    entries = dir(probe);
+                    entries = entries(~ismember({entries.name}, {'.', '..'}));
+                    if ~isempty(entries)
+                        [ok, info] = fileattrib(fullfile(probe, entries(1).name));
+                        if ok && isstruct(info) && isfield(info, 'Name'), resolved = fileparts(info.Name); end
+                    end
+                end
+                if ~isempty(resolved), probe = resolved; end
+            end
+            path = fullfile(probe, remainder{:});
+        end
+
+        function path = normalizeLexically(path)
+            % Resolve '.' and '..' components of an absolute path textually.
+            parts = regexp(path, '[\\/]', 'split');
+            root = filesep;
+            if ~isempty(parts) && ~isempty(regexp(parts{1}, '^[A-Za-z]:$', 'once'))
+                root = [parts{1}, filesep];
+            end
+            kept = {};
+            for k = 1:numel(parts)
+                part = parts{k};
+                if isempty(part) || strcmp(part, '.') || ~isempty(regexp(part, '^[A-Za-z]:$', 'once')), continue; end
+                if strcmp(part, '..')
+                    if ~isempty(kept), kept(end) = []; end
+                    continue;
+                end
+                kept{end+1} = part; %#ok<AGROW>
+            end
+            path = [root, strjoin(kept, filesep)];
         end
 
         function text = timestamp()
@@ -1154,6 +1324,16 @@ classdef EvalReport < handle
                 value = struct('kind', 'callback', 'description', 'function_handle');
             elseif iscell(value)
                 value = cellfun(@optiprofiler_internal.EvalReport.configuration, value, 'UniformOutput', false);
+            elseif isstring(value) && ~isscalar(value)
+                % A string array (a legal option value such as a name list or a
+                % two-line axis label) is a list of texts, whatever its shape.
+                value = arrayfun(@optiprofiler_internal.EvalReport.configuration, reshape(value, 1, []), 'UniformOutput', false);
+            elseif ischar(value) && ~isempty(value) && ~isrow(value)
+                % A multi-row (or N-D) char array is the list of its rows.
+                value = cellfun(@optiprofiler_internal.EvalReport.configuration, ...
+                    cellstr(reshape(value, size(value, 1), [])), 'UniformOutput', false);
+            elseif isstring(value) && ismissing(value)
+                value = optiprofiler_internal.EvalReport.null();
             elseif ischar(value) || isstring(value)
                 value = char(value);
                 if startsWith(value, '/') || ~isempty(regexp(value, '^[A-Za-z]:[\\/]', 'once'))
@@ -1182,8 +1362,17 @@ classdef EvalReport < handle
                     reason = 'nan';
                     if value == Inf, reason = 'positive_infinity'; elseif value == -Inf, reason = 'negative_infinity'; end
                     value = struct('value', NaN, 'reason', reason);
-                else
+                elseif isvector(value)
                     value = cellfun(@optiprofiler_internal.EvalReport.safe, num2cell(value), 'UniformOutput', false);
+                else
+                    % A matrix keeps its rows (nested lists, as the Python
+                    % encoder and jsonencode of a finite matrix do) instead of
+                    % a flat column-major list that loses the shape.
+                    rows = cell(1, size(value, 1));
+                    for i = 1:size(value, 1)
+                        rows{i} = optiprofiler_internal.EvalReport.safe(reshape(value(i, :, :), size(value, 2), []));
+                    end
+                    value = rows;
                 end
             end
         end

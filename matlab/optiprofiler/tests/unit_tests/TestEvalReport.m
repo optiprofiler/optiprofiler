@@ -39,6 +39,7 @@ classdef TestEvalReport < matlab.unittest.TestCase
         end
         function writeFailureAndOwnership(testCase), testCase.runCase('ownership'); end
         function optionalPlainReferenceStatus(testCase), testCase.runCase('plain_reference'); end
+        function relativePathsAndStringArrayOptions(testCase), testCase.runCase('paths'); end
     end
     methods (Access = private)
         function runCase(testCase, name)

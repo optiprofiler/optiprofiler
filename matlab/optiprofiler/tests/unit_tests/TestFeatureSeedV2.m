@@ -47,7 +47,7 @@ classdef TestFeatureSeedV2 < matlab.unittest.TestCase
             testCase.verifyEqual(ra.stages{2}.seeds,rc.stages{3}.seeds);
             testCase.verifyEqual([rd.stages{1}.occurrence,rd.stages{2}.occurrence,rd.stages{3}.occurrence],[0,1,2]);
             testCase.verifyNotEqual(rd.stages{2}.seeds,rd.stages{3}.seeds);
-            testCase.verifyEqual(ra.seed_policy,'matlab-stage-horner32-v1');
+            testCase.verifyEqual(ra.seed_policy,'matlab-stage-horner32-v2');
             testCase.verifyEqual(ra.execution_strategy,'composed-views');
         end
         function freshContextsAndReferenceReadsDoNotConsumeServedQueries(testCase)

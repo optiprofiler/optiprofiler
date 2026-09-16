@@ -182,7 +182,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         Saving without the Java Virtual Machine (JVM) is supported on
 %         macOS/Linux. If native figures are unavailable, SVG charts and an
 %         HTML summary replace PDF/FIG output. Windows saving requires the JVM.
-%       - report_path: optional char/string path for an EvalReport v1 JSON.
+%       - report_path: optional char/string path for the machine-readable
+%         evaluation report (schema identifier optiprofiler.eval_report/2, with
+%         its plot_data companion beside it).
 %         Also writes <report-stem>.plot_data.json next to the main report.
 %         Empty means no report. Neither target is ever overwritten by a new
 %         invocation. Reporting in score_only prepares numeric plot data but

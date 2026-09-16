@@ -26,7 +26,7 @@ classdef FeaturedProblem < Problem
 %
 %   Two or more effective stages use execution_strategy='composed-views',
 %   runtime_policy='matlab-composed-views-v1' and
-%   seed_policy='matlab-stage-horner32-v1'. One outer recorder owns the public
+%   seed_policy='matlab-stage-horner32-v2'. One outer recorder owns the public
 %   histories and budget; stage views own local execution state and receive
 %   the immediate predecessor. A stage or custom callback may legitimately
 %   query its predecessor more than once. This is not a promise of one original
@@ -34,6 +34,18 @@ classdef FeaturedProblem < Problem
 %   samples across MATLAB and Python. Composite derivative methods explicitly
 %   raise UnsupportedCompositeDerivative; the legacy derivative behavior is
 %   retained for identity/single execution.
+%
+%   Seed policy matlab-stage-horner32-v2 derives the per-stage, per-channel
+%   seeds exactly as version 1 did (an exact 32-bit Horner fold over the run
+%   seed and the stage identity) and seeds every per-query stream of a composed
+%   view by folding the IEEE-754 words of the observed payload (values, point,
+%   served index) with the same rule. Version 1 handed that payload to the
+%   legacy product mixer, so a zero coordinate, a zero value or a zero counter
+%   removed the dependence on the rest of the payload; archives written under
+%   version 1 keep their recorded policy string. The identity and single-stage
+%   strategies (seed_policy legacy-run-seed) are unchanged and keep their
+%   established streams. The fold is a finite 32-bit hash, not a statistical
+%   independence guarantee.
 %
 %   .. rubric:: Observations, reference values and histories
 %
@@ -222,7 +234,7 @@ classdef FeaturedProblem < Problem
             else
                 obj.execution_strategy = 'composed-views';
                 obj.runtime_policy = 'matlab-composed-views-v1';
-                obj.seed_policy = 'matlab-stage-horner32-v1';
+                obj.seed_policy = 'matlab-stage-horner32-v2';
             end
             obj.problem = problem;
             obj.feature = feature;
@@ -653,6 +665,41 @@ classdef FeaturedProblem < Problem
             % coordinates. Probe dimensions at the original problem's point,
             % or an affine map can falsely make a valid callback unavailable.
             x = obj.problem.x0;
+        end
+    end
+
+    methods (Static)
+        function obj = loadobj(saved)
+            % A FeaturedProblem saved by OptiProfiler 1.x has no kernel or
+            % view and carries its Feature as a LegacyFeatureEnvelope. Rebuild
+            % the single-feature runtime through the trusted import so that the
+            % trial continues with its recorded seed and histories, or fail
+            % with a clear identifier instead of an opaque error on the first
+            % evaluation. Constraint counters of a rebuilt trial follow the
+            % current per-query rule (runtime_policy matlab-legacy-single-v2).
+            obj = saved;
+            if ~(isa(obj, 'FeaturedProblem') && isscalar(obj)), return; end
+            if ~isempty(obj.kernel) || ~isempty(obj.final_view), return; end
+            feature = obj.feature;
+            if isa(feature, 'optiprofiler_internal.LegacyFeatureEnvelope')
+                feature = optiprofiler_internal.importLegacyFeature(feature);
+            end
+            if ~(isa(feature, 'Feature') && isscalar(feature)) || numel(feature.stages) > 1
+                error('MATLAB:FeaturedProblem:UnsupportedNativeState', ...
+                    ['This saved FeaturedProblem cannot be restored as a live runtime (unsupported feature state). ', ...
+                     'Rebuild it with FeaturedProblem(problem, feature, max_eval, seed).']);
+            end
+            stages = feature.stages;
+            if isempty(stages)
+                obj.kernel = optiprofiler_internal.FeatureKernel('plain', struct());
+                obj.execution_strategy = 'identity';
+            else
+                obj.kernel = optiprofiler_internal.FeatureKernel(stages{1}.name, stages{1}.options);
+                obj.execution_strategy = 'legacy-single';
+            end
+            obj.feature = feature;
+            obj.runtime_policy = 'matlab-legacy-single-v2';
+            obj.seed_policy = 'legacy-run-seed';
         end
     end
 

@@ -25,7 +25,7 @@ function payload = featureProvenance(feature, plan, context)
             'identity', stage.identity, 'options', stage.options);
     end
     if numel(stages) > 1
-        seed_policy = 'matlab-stage-horner32-v1';
+        seed_policy = 'matlab-stage-horner32-v2';
     else
         seed_policy = 'legacy-run-seed';
     end

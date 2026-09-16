@@ -1,7 +1,10 @@
 function seed = deriveFeatureStageSeed(run_seed, stage_code, occurrence, channel_tag)
-%DERIVEFEATURESTAGESEED matlab-stage-horner32-v1, for true multistage only.
-% This exact finite identity mixer is not an independence or unrestricted
-% collision-free guarantee. Keep the legacy MATLAB numerical RNG kernel.
+%DERIVEFEATURESTAGESEED Stage/channel seeds of matlab-stage-horner32-v2.
+% For true multistage only. The stage-identity fold below is unchanged since
+% matlab-stage-horner32-v1; version 2 changed only the per-query payload mixer
+% of the composed views (FeatureKernel.horner32_payload_rng). This exact finite
+% identity mixer is not an independence or unrestricted collision-free
+% guarantee. The legacy MATLAB numerical kernels themselves are unchanged.
     words = {run_seed,stage_code,occurrence,channel_tag};
     for k=1:numel(words)
         w=words{k};

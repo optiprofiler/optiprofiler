@@ -3,14 +3,31 @@ classdef FeatureKernel < handle
 % Input is an already-normalized atomic stage; no specification or experiment
 % validation/defaulting occurs here. The numerical methods are extracted from
 % ac4a67e Feature unchanged, including legacy read order and RNG mixing.
+%
+% PAYLOAD_MIXER selects how the per-query random stream is seeded from the
+% run/stage seed and the observed payload (values, point, served index):
+%   'legacy-product' (default): the established default_rng mixer of the
+%       identity and single-feature strategies (seed_policy legacy-run-seed).
+%       It multiplies the payload, so any zero element removes the payload.
+%   'horner32-words': the composed-views mixer of seed_policy
+%       matlab-stage-horner32-v2 (see horner32_payload_rng).
+% Construction streams (initial point, permutation, rotation, custom
+% structure) take no payload and use default_rng under both settings.
     properties (SetAccess = private)
         name
         options
+        payload_mixer = 'legacy-product'
     end
     methods
-        function obj = FeatureKernel(name, options)
+        function obj = FeatureKernel(name, options, payload_mixer)
             obj.name = name;
             obj.options = options;
+            if nargin > 2
+                if ~ismember(payload_mixer, {'legacy-product', 'horner32-words'})
+                    error('MATLAB:Feature:UnknownPayloadMixer', 'Unknown payload mixer: %s.', payload_mixer);
+                end
+                obj.payload_mixer = payload_mixer;
+            end
         end
         function x0 = modifier_x0(obj, seed, problem)
             %{
@@ -452,7 +469,7 @@ classdef FeatureKernel < handle
             switch obj.name
                 case FeatureName.CUSTOM.value
                     if isfield(obj.options, FeatureOptionKey.MOD_FUN.value)
-                        rand_stream_custom = obj.default_rng(seed, f, xCell{:}, n_eval);
+                        rand_stream_custom = obj.payloadStream(seed, f, xCell{:}, n_eval);
                         f = obj.options.(FeatureOptionKey.MOD_FUN.value)(x, rand_stream_custom, problem);
                         return;
                     end
@@ -460,7 +477,7 @@ classdef FeatureKernel < handle
                     noise = obj.computeNoise(x, seed, n_eval, f, 1);
                     f = obj.applyNoise(f, noise);
                 case FeatureName.RANDOM_NAN.value
-                    rand_stream_random_nan = obj.default_rng(seed, f, xCell{:}, n_eval);
+                    rand_stream_random_nan = obj.payloadStream(seed, f, xCell{:}, n_eval);
                     if rand_stream_random_nan.rand() < obj.options.(FeatureOptionKey.NAN_RATE.value)
                         f = NaN;
                     end
@@ -471,7 +488,7 @@ classdef FeatureKernel < handle
                         % to an error when calling 'round(f, digits)'.
                         return;
                     end
-                    rand_stream_truncated = obj.default_rng(seed, f, xCell{:}, n_eval);
+                    rand_stream_truncated = obj.payloadStream(seed, f, xCell{:}, n_eval);
                     if f == 0
                         digits = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - 1;
                     else
@@ -549,7 +566,7 @@ classdef FeatureKernel < handle
             switch obj.name
                 case FeatureName.CUSTOM.value
                     if isfield(obj.options, FeatureOptionKey.MOD_CUB.value)
-                        rand_stream_custom = obj.default_rng(seed, cubCell{:}, xCell{:}, n_eval_cub);
+                        rand_stream_custom = obj.payloadStream(seed, cubCell{:}, xCell{:}, n_eval_cub);
                         cub_ = obj.options.(FeatureOptionKey.MOD_CUB.value)(x, rand_stream_custom, problem);
                         return;
                     end
@@ -559,11 +576,11 @@ classdef FeatureKernel < handle
                     cub_ = obj.applyNoise(cub_, noise);
                 case FeatureName.RANDOM_NAN.value
                     % Similar to the case in the modifier_fun method.
-                    rand_stream_random_nan = obj.default_rng(seed, cubCell{:}, xCell{:}, n_eval_cub);
+                    rand_stream_random_nan = obj.payloadStream(seed, cubCell{:}, xCell{:}, n_eval_cub);
                     cub_(rand_stream_random_nan.rand(size(cub_)) < obj.options.(FeatureOptionKey.NAN_RATE.value)) = NaN;
                 case FeatureName.TRUNCATED.value
                     % Similar to the case in the modifier_fun method.
-                    rand_stream_truncated = obj.default_rng(seed, cubCell{:}, xCell{:}, n_eval_cub);
+                    rand_stream_truncated = obj.payloadStream(seed, cubCell{:}, xCell{:}, n_eval_cub);
                     digits = zeros(size(cub_));
                     digits(cub_ == 0) = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - 1;
                     digits(cub_ ~= 0) = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - floor(log10(abs(cub_(cub_ ~= 0)))) - 1;
@@ -633,7 +650,7 @@ classdef FeatureKernel < handle
             switch obj.name
                 case FeatureName.CUSTOM.value
                     if isfield(obj.options, FeatureOptionKey.MOD_CEQ.value)
-                        rand_stream_custom = obj.default_rng(seed, ceqCell{:}, xCell{:}, n_eval_ceq);
+                        rand_stream_custom = obj.payloadStream(seed, ceqCell{:}, xCell{:}, n_eval_ceq);
                         ceq_ = obj.options.(FeatureOptionKey.MOD_CEQ.value)(x, rand_stream_custom, problem);
                         return;
                     end
@@ -643,11 +660,11 @@ classdef FeatureKernel < handle
                     ceq_ = obj.applyNoise(ceq_, noise);
                 case FeatureName.RANDOM_NAN.value
                     % Similar to the case in the modifier_fun method.
-                    rand_stream_random_nan = obj.default_rng(seed, ceqCell{:}, xCell{:}, n_eval_ceq);
+                    rand_stream_random_nan = obj.payloadStream(seed, ceqCell{:}, xCell{:}, n_eval_ceq);
                     ceq_(rand_stream_random_nan.rand(size(ceq_)) < obj.options.(FeatureOptionKey.NAN_RATE.value)) = NaN;
                 case FeatureName.TRUNCATED.value
                     % Similar to the case in the modifier_fun method.
-                    rand_stream_truncated = obj.default_rng(seed, ceqCell{:}, xCell{:}, n_eval_ceq);
+                    rand_stream_truncated = obj.payloadStream(seed, ceqCell{:}, xCell{:}, n_eval_ceq);
                     digits = zeros(size(ceq_));
                     digits(ceq_ == 0) = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - 1;
                     digits(ceq_ ~= 0) = obj.options.(FeatureOptionKey.SIGNIFICANT_DIGITS.value) - floor(log10(abs(ceq_(ceq_ ~= 0)))) - 1;
@@ -692,7 +709,7 @@ classdef FeatureKernel < handle
             else
                 baseCell = num2cell(base_values);
             end
-            rand_stream_noisy = obj.default_rng(seed, baseCell{:}, xCell{:}, n_eval);
+            rand_stream_noisy = obj.payloadStream(seed, baseCell{:}, xCell{:}, n_eval);
             if strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'gaussian')
                 noise = randn(rand_stream_noisy, noise_size);
             elseif strcmp(obj.options.(FeatureOptionKey.DISTRIBUTION.value), 'uniform')
@@ -728,9 +745,51 @@ classdef FeatureKernel < handle
             noise = double(noise);
         end
 
+
+        function rand_stream = payloadStream(obj, seed, varargin)
+            % Per-query stream seeded by the run/stage seed and the observed
+            % payload (values, point, served index). The legacy product mixer
+            % is kept unchanged for the identity/single strategies; composed
+            % views use the word fold of matlab-stage-horner32-v2.
+            if strcmp(obj.payload_mixer, 'horner32-words')
+                rand_stream = optiprofiler_internal.FeatureKernel.horner32_payload_rng(seed, varargin{:});
+            else
+                rand_stream = obj.default_rng(seed, varargin{:});
+            end
+        end
     end
 
     methods (Static)
+        function rand_stream = horner32_payload_rng(seed, varargin)
+            % Composed-views payload mixer (seed_policy matlab-stage-horner32-v2).
+            % Starting from the 32-bit stage/channel seed, fold the IEEE-754
+            % words (two uint32 per double, native byte order) of every payload
+            % element in argument order with the exact 32-bit Horner rule
+            % state = mod(65599 * state + word, 2^32), the same fold that
+            % deriveFeatureStageSeed applies to stage identities. Each element
+            % contributes at its own position, so a zero coordinate, a zero
+            % value or a zero counter no longer removes the dependence on the
+            % other elements as the legacy product mixer does. Negative zero
+            % is folded as zero and every NaN as one canonical pattern. This is
+            % a finite 32-bit hash: distinct payloads can collide, and it makes
+            % no claim of statistical independence between streams.
+            if ~(isnumeric(seed) && isreal(seed) && isscalar(seed)) || ~isfinite(seed)
+                seed = 0;
+            end
+            state = mod(floor(double(seed)), 2^32);
+            for k = 1:numel(varargin)
+                values = double(varargin{k});
+                values = reshape(values, 1, []);
+                values(values == 0) = 0;
+                values(isnan(values)) = NaN;
+                words = double(typecast(values, 'uint32'));
+                for word = words
+                    state = mod(65599 * state + word, 2^32);
+                end
+            end
+            rand_stream = RandStream('mt19937ar', 'Seed', state);
+        end
+
         function noise = chebyshevNoiseMap(x)
             % Deterministic noise map from Moré and Wild, "Benchmarking
             % derivative-free optimization algorithms" (2009).

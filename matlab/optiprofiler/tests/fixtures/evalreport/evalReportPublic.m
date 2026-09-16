@@ -493,6 +493,49 @@ function evalReportPublic(source_root, output_root, slice)
         assert(strcmp(report.stages.numerical.reason, 'requested_plain_reference_incomplete'));
         assert(strcmp(report.stages.scoring.status, 'completed'));
         fprintf('PASS plain reference: returned scoring preserved with truthful partial protocol status\n');
+    elseif strcmp(slice, 'paths')
+        % Public report through relative user paths and string-array options.
+        % Every artifact reference must resolve through the filesystem from
+        % the report's own parent, never expose a machine root, and legal
+        % string-array option values must not abort a run with a report.
+        previous = pwd; cleanup = onCleanup(@() cd(previous)); %#ok<NASGU>
+        cd(output_root);
+        mkdir(fullfile('rel', 'reports'));
+        options.score_only = false; options.draw_hist_plots = 'none';
+        options.savepath = fullfile('rel', 'out');
+        options.benchmark_id = 'relative_paths';
+        options.excludelist = ["alpha", "beta"];
+        options.xlabel_performance_profile = ["Performance ratio", "(two-line label)"];
+        options.report_path = fullfile('rel', 'reports', '..', 'reports', 'paths.json');
+        [scores, ~, ~] = benchmark(solvers, options);
+        assert(all(isfinite(scores)));
+        report = readReport(options.report_path);
+        assert(strcmp(report.status, 'completed'), 'Report status: %s', report.status);
+        assert(~isempty(report.artifacts), 'A saving run must enumerate its artifacts.');
+        assert(~isfield(report, 'artifact_root_reason') && ischar(report.artifact_root));
+        parent = fileparts(options.report_path);
+        for k = 1:numel(report.artifacts)
+            artifact = report.artifacts(k);
+            assert(ischar(artifact.path) && ~isfield(artifact, 'path_reason'), 'Every artifact of a same-volume run has a relative path.');
+            assert(~startsWith(artifact.path, '/') && ~startsWith(artifact.path, '\\') && isempty(regexp(artifact.path, '^[A-Za-z]:', 'once')), ...
+                'Artifact paths must be relative: %s', artifact.path);
+            assert(~contains(artifact.path, output_root) && ~contains(report.artifact_root, output_root), 'Machine paths leaked into the report.');
+            resolved = fullfile(parent, report.artifact_root, artifact.path);
+            assert(isfile(resolved), 'Artifact reference does not resolve from the report parent: %s', resolved);
+            info = dir(resolved);
+            assert(info.bytes == artifact.bytes, 'Artifact size mismatch for %s', artifact.path);
+        end
+        % A direct problem produces no reload archive; its log and README are
+        % the produced files that must be enumerated and resolvable.
+        assert(any(endsWith({report.artifacts.path}, 'test_log/log.txt')), 'The run log must be an enumerated artifact.');
+        assert(strcmp(report.stages.persistence.reason, 'single_problem_has_no_reload_archive'));
+        assert(isequal(report.configuration.request.excludelist, {'alpha'; 'beta'}), 'String-array options must be recorded as lists of text.');
+        assert(isequal(report.configuration.request.xlabel_performance_profile, {'Performance ratio'; '(two-line label)'}));
+        % The same request without a report keeps its legacy outcome.
+        legacy = rmfield(options, 'report_path'); legacy.benchmark_id = 'relative_paths_legacy';
+        [legacy_scores, ~, ~] = benchmark(solvers, legacy);
+        assert(isequaln(legacy_scores, scores), 'Reporting changed the scores of a string-array run.');
+        fprintf('PASS paths: relative user paths resolve on disk, no machine roots, string-array options run with a report\n');
     else
         error('Unknown slice.');
     end

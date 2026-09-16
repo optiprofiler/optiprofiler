@@ -111,12 +111,18 @@ function flat = parseFlatOptions(values)
         error('MATLAB:Feature:InvalidNumberOfArguments', 'Feature options must be a scalar struct or name/value pairs.');
     end
     flat = struct();
+    spellings = struct();
     for k = 1:2:numel(values)
         key = values{k};
         if ~isText(key) || ~isvarname(char(key))
             error('MATLAB:Feature:UnknownOption', 'Option names must be scalar text naming a valid field.');
         end
-        flat.(lower(char(key))) = values{k+1};
+        folded = lower(char(key));
+        if isfield(flat, folded)
+            duplicateOption(folded, spellings.(folded), char(key));
+        end
+        flat.(folded) = values{k+1};
+        spellings.(folded) = char(key);
     end
     flat = optionStruct(flat);
 end
@@ -126,6 +132,7 @@ function output = optionStruct(input)
         error('MATLAB:Feature:InvalidStage', 'Stage options must be a scalar struct.');
     end
     output = struct();
+    spellings = struct();
     fields = fieldnames(input);
     definitions = optiprofiler_internal.featureDefinitions();
     known = [definitions.local_keys];
@@ -136,8 +143,21 @@ function output = optionStruct(input)
                 'n_runs is an experiment option. Use benchmark(solvers, struct(''n_runs'', N, ...)), not Feature(..., ''n_runs'', N).');
         end
         if ~ismember(key,known), error('MATLAB:Feature:UnknownOption', 'Unknown option for feature: %s.',key); end
+        % Names are case-insensitive: two spellings of one option would make
+        % the configuration ambiguous, so they are rejected before either value
+        % could silently win.
+        if isfield(output, key)
+            duplicateOption(key, spellings.(key), fields{k});
+        end
         output.(key) = input.(fields{k});
+        spellings.(key) = fields{k};
     end
+end
+
+function duplicateOption(name, first, second)
+    error('MATLAB:Feature:DuplicateOption', ...
+        'Duplicate option %s: ''%s'' and ''%s'' name the same option after case folding, which is ambiguous; give it once.', ...
+        name, first, second);
 end
 
 function name = atomicName(value)

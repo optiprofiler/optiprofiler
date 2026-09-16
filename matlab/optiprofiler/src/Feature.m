@@ -15,7 +15,10 @@ classdef Feature < handle
 %   F = Feature(NAME, KEY, VALUE, ...) accepts the same options as name/value
 %   pairs. A supplied option is broadcast to every declared stage that accepts
 %   it; each stage validates it separately. An option accepted by no stage is
-%   an error. Repeated stages share these flat supplied values.
+%   an error. Repeated stages share these flat supplied values. Option names
+%   are case-insensitive; two spellings of one name in the same struct or
+%   name/value list are rejected as a duplicate (the configuration would be
+%   ambiguous).
 %
 %   F = Feature(STAGE) accepts a scalar struct with fields 'name' and optional
 %   'options' (a scalar struct). F = Feature(STAGES) accepts a nonempty cell

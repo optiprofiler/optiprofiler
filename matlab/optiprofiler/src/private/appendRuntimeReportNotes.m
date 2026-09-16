@@ -18,17 +18,34 @@ function appendRuntimeReportNotes(results, feature, is_load, report, readme)
         % archived oracle. Do not infer past truth semantics from their text.
         heading='Saved truth channels';
         note='Stored initial/history/output channels are retained. Replotting does not reevaluate points, repair old evaluations, or certify the original truth convention. Older quantized archives may contain inconsistent initial/output channels.';
-    elseif strcmp(feature.name,'quantized')
-        heading='Quantized truth';
-        truth=feature.options.(FeatureOptionKey.GROUND_TRUTH.value);
-        definition='original problem';
-        if truth, definition='featured problem'; end
-        note=sprintf('ground_truth=%d scores the %s consistently at initial/history/output points. Returned solver points are not rounded. Post-solver truth evaluation does not consume the solver budget.',truth,definition);
-    else
+        fprintf(fid,'\n## %s\n\n%s\n',heading,note);
+        addToReadme(readme,heading,note);
         return;
     end
-    fprintf(fid,'\n## %s\n\n%s\n',heading,note);
-    addToReadme(readme,heading,note);
+    % One note per quantized stage, read from the effective stage records
+    % (never through the deprecated Feature.options accessor); a composed
+    % feature names the stage.
+    stages=feature.stages;
+    for k=1:numel(stages)
+        if ~strcmp(stages{k}.name,'quantized'), continue; end
+        truth=stages{k}.options.(FeatureOptionKey.GROUND_TRUTH.value);
+        if isscalar(stages)
+            heading='Quantized truth';
+            definition='original problem';
+            if truth, definition='featured problem'; end
+            note=sprintf('ground_truth=%d scores the %s consistently at initial/history/output points. Returned solver points are not rounded. Post-solver truth evaluation does not consume the solver budget.',truth,definition);
+        else
+            heading=sprintf('Quantized truth (stage %d, %s)',k,stages{k}.identity);
+            if truth
+                definition='the stage reads its scoring reference (objective and nonlinear constraints) at the snapped point';
+            else
+                definition='only the observations of the stage are snapped; its scoring reference is inherited unsnapped';
+            end
+            note=sprintf('ground_truth=%d: %s. Returned solver points are not rounded. Post-solver truth evaluation does not consume the solver budget.',truth,definition);
+        end
+        fprintf(fid,'\n## %s\n\n%s\n',heading,note);
+        addToReadme(readme,heading,note);
+    end
 end
 
 function [clipped,nonfinite]=countDisplayEntries(values)

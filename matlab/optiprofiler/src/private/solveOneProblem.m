@@ -301,7 +301,9 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
     result.solvers_success = solvers_success;
     result.solver_abnormal_termination = solver_abnormal_terminations;
     result.solver_output_fallback = solver_output_fallbacks;
-    % Transient controller metadata, intentionally not aggregated into MAT.
+    % Controller metadata. retainedExecutionMetadata keeps real_n_runs,
+    % oracle_seeds and runtime_receipts in the numerical archive (see
+    % solveAllProblems); presentation caches stay transient.
     % oracle_seeds are the actual FeaturedProblem seeds of runs 1..n_runs
     % under MATLAB's 1-based rule (see real_seed above); repeated slots
     % reuse run 1. Python records its own 0-based rule; neither is changed.

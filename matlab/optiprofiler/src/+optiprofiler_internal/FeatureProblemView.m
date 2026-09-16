@@ -34,7 +34,9 @@ classdef FeatureProblemView < Problem
                 if strcmp(stage.name,'custom')
                     options = optiprofiler_internal.customRuntimeOptions(stage,predecessor);
                 end
-                kernel = optiprofiler_internal.FeatureKernel(stage.name,options);
+                % Composed views mix the per-query payload with the word fold
+                % of matlab-stage-horner32-v2; construction streams are unchanged.
+                kernel = optiprofiler_internal.FeatureKernel(stage.name,options,'horner32-words');
                 channels = {'fun','cub','ceq','construction'};
                 seeds = struct();
                 for k = 1:4
