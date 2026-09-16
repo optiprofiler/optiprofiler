@@ -422,6 +422,20 @@ hashes. The experiment directory prefix appears once as ``artifact_root``:
 * ``plot_data.path`` and ``source.path`` are relative to the main report's parent,
   not to ``artifact_root``.
 
+Relative references are computed between physical locations (symbolic links in
+the report path or the output path are resolved first, in both languages), so
+joining the report's parent directory with ``artifact_root`` and an artifact
+``path`` resolves through the filesystem, not only lexically, and a copied
+physical tree keeps working. When no relative path exists (another drive or
+volume) or an artifact name cannot be written as UTF-8, the ``path`` is ``null``
+and a ``path_reason`` is required next to it (``artifact_root_reason`` when the
+output directory itself cannot be addressed and artifacts were produced); a
+``persistence`` diagnostic names the same reason. A machine root is never
+emitted as a fallback. Text metadata containing a lone Unicode surrogate (an
+undecodable file name read with ``surrogateescape``) is written with the
+replacement character; the identity of such a problem is a hash of the private
+text.
+
 This changes only report structure, not the existing experiment filenames or
 directories. The two report JSON files are excluded from the ordinary artifact
 manifest, preventing recursive self-hashes. Not-requested artifacts are not

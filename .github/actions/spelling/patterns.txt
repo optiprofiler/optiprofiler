@@ -31,8 +31,12 @@
 # Note that there's a high false positive rate, remove the `?=` and search for the regex to see if the matches seem like reasonable strings
 (?<!')\b(?:B|BR|Br|F|FR|Fr|R|RB|RF|Rb|Rf|U|UR|Ur|b|bR|br|f|fR|fr|r|rB|rF|rb|rf|u|uR|ur)'(?:[A-Z]{3,}|[A-Z][a-z]{2,}|[a-z]{3,})
 
-# Serialized compatibility fixtures are split over quoted Base64 chunks.
-(?<=[\'"])[A-Za-z0-9+/]{40,}={0,2}(?=[\'"])
+# Serialized compatibility fixtures are split over quoted Base64 chunks: a
+# whole line holding one quoted chunk (optionally closing a call). Quoted
+# identifiers inside longer expressions stay checked.
+^\s*[\'"][A-Za-z0-9+/]{40,}={0,2}[\'"]\)?,?\s*$
+# SHA-256 / git digests quoted inside source and fixtures
+(?<=[\'"])[0-9a-f]{40,64}(?=[\'"])
 
 # Python unary negative float calls are not compiler flags.
 -float(?=\()

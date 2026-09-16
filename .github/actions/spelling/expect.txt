@@ -25,11 +25,13 @@ bitxor
 biuf
 BUILDDIR
 callability
+canonicalizes
 caplog
 cbf
 clf
 closefd
 cls
+composedstreams
 configtoy
 conftest
 coordinatewise
@@ -46,6 +48,7 @@ dtype
 EDB
 Emax
 Emin
+encodable
 ENCODEMETADATA
 endblock
 endfor
@@ -87,8 +90,10 @@ fmin
 followlinks
 fontsize
 footbibliography
+fsencode
 fstat
 fwrite
+getfilesystemencoding
 getnewargs
 getoption
 getpid
@@ -132,6 +137,7 @@ labelpad
 lastwarn
 legacytoy
 levelname
+lexically
 libpoppler
 libstdc
 linalg
@@ -220,6 +226,7 @@ reparse
 reparsed
 reparsing
 repelem
+replayable
 rint
 rng
 roadmap
@@ -248,11 +255,14 @@ structs
 subok
 suptitle
 supylabel
+surrogateescape
+surrogatepass
 swapaxes
 syu
 tocdepth
 toctree
 uistack
+undecodable
 unloadable
 unmatch
 unparsable

@@ -81,7 +81,18 @@ function smoke_eval_report(problem)
     assert(isequal(sort(produced), {'smoke.json', 'smoke.plot_data.json'}), ...
         'score_only must produce exactly the two requested JSON files.');
     report = jsondecode(read_utf8(fullfile(report_root, 'smoke.json')));
-    assert(strcmp(report.schema, 'optiprofiler.eval_report/1') && strcmp(report.status, 'completed'));
+    % The schema identifier versions the machine-readable format (version 2:
+    % canonical feature specification and experiment plans); it is independent
+    % of the report file name and of the package version. Version 1 documents
+    % written earlier stay valid against their own immutable schema.
+    assert(strcmp(report.schema, 'optiprofiler.eval_report/2'), 'The packaged producer must write eval_report/2, found %s.', report.schema);
+    assert(strcmp(report.status, 'completed'));
+    effective = report.configuration.effective;
+    assert(isfield(effective, 'feature') && isfield(effective.feature, 'stages') && strcmp(effective.feature.effective_name, 'plain'), ...
+        'A version 2 report states the canonical feature specification once.');
+    assert(isfield(effective, 'experiment') && isfield(effective.experiment, 'primary') && effective.experiment.primary.n_runs == 1, ...
+        'A version 2 report states the primary experiment plan once.');
+    assert(strcmp(effective.experiment.primary.execution_strategy, 'identity'));
     assert(strcmp(report.producer.language, 'matlab') && strcmp(report.problems.library, 'user'));
     assert(strcmp(report.problems.name, 'BEALE') && numel(report.problems.runs) == 2);
     companion = fullfile(report_root, report.plot_data.path);

@@ -150,11 +150,15 @@ The rules are:
   ``distribution='uniform'`` is rejected with an error naming the
   ``perturbed_x0`` stage. Options accepted by no stage are rejected. Repeated
   stages share the supplied options; configuring two occurrences of the same
-  feature differently is not expressible through the flat option list.
+  feature differently is not expressible through the flat option list. Option
+  names are case-insensitive, and two spellings of one name (``noise_level``
+  and ``NOISE_LEVEL``) in one call or one stage entry are rejected as a
+  duplicate: the configuration would be ambiguous.
 - ``n_runs`` is an experiment option, never a feature option:
   ``benchmark(..., n_runs=N)`` sets it, the experiment plan records it once,
   and no stage carries a run count (``Feature(..., n_runs=N)`` is an error
-  naming the benchmark option). Unless given explicitly, it is 5 when
+  naming the benchmark option); a boolean is not a count and is rejected.
+  Unless given explicitly, it is 5 when
   ``solver_isrand`` marks a randomized solver (not in a load) and otherwise
   the largest established default of the effective stages. Those defaults
   are the ones of the single features: five
@@ -341,12 +345,26 @@ options as native Python values, callables included, and no flat stage keys.
 That entry is valid ``feature`` input, so
 ``scores, _, _ = benchmark(feature=refined['feature_specification'], n_runs=refined['n_runs'], ...)``
 reproduces the effective experiment for both routes; forwarding the whole
-refined dictionary is not a supported call. ``optiprofiler.legacy_compat``
+refined dictionary is not a supported call. The file written by a ``load``
+(re-plot) invocation additionally records ``operation='load'`` and describes
+the archived experiment, never the load label: its ``feature_specification``
+and ``n_runs`` are recovered from the source experiment's own native
+``options_refined.pkl`` (exact values, callables included) and cross-checked
+against the archive, with the archived seed, ``run_plain``, the fixed
+plain-reference count and the archived problem options under
+``archived_experiment``; when that file is missing, a flat 1.x file without
+feature identity, or in disagreement with the archive, the recipe fails
+closed (``replayable=False``, ``feature_specification=None``, ``n_runs=None``
+and a ``replay_reason``) instead of inventing defaults. The report's JSON
+callback descriptions are never used as a recipe. ``optiprofiler.legacy_compat``
 is the trusted boundary for files written by earlier versions:
 ``load_options`` decodes historical enumeration members (including the former
 ``n_runs`` feature option), ``replay_arguments`` maps the supported layouts to
 ``feature`` and ``n_runs`` (a flat 1.x file records no feature identity and
-needs an explicit ``feature_name``), and ``import_legacy_feature`` converts a
+needs an explicit ``feature_name``; the ``n_runs`` key is present only when
+the file records a run count; a load-written file replays only through its
+recovered ``archived_experiment`` and raises ``LegacyConfigurationError``
+otherwise), and ``import_legacy_feature`` converts a
 1.x pickled ``Feature`` into a canonical ``Feature`` plus its retained run
 count, which is passed to ``benchmark`` separately. Only load pickle and H5
 files from trusted sources: unpickling can execute code, and these readers
@@ -368,7 +386,7 @@ MATLAB mapping. The MATLAB implementation follows the same contract:
 (``struct('name', 'noisy', 'options', struct('noise_level', 1e-3))``) or
 names, ``options.n_runs`` at the top level, the same ``feature_pipeline-v3``
 fields and report version, and a language-local seed policy for compositions
-(``matlab-stage-horner32-v1``); random samples are not matched across the two
+(``matlab-stage-horner32-v2``); random samples are not matched across the two
 languages. ``options.feature_name`` keeps its current meaning. See the MATLAB
 user guide for the native replay helper ``loadBenchmarkOptions``.
 

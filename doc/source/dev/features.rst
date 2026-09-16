@@ -23,6 +23,11 @@ zero and one. Python accepts NumPy real scalars, but not booleans or arrays for
 scalar settings. These checks reject an invalid configuration, not the
 intentional nonfinite observations produced by a feature such as ``random_nan``.
 
+Option names are case-insensitive; two spellings of one name in one call or
+one stage entry are rejected as a duplicate in both languages (legacy archives
+store canonical names and are unaffected). A boolean ``n_runs`` is rejected
+like a boolean magnitude.
+
 Execution or replay of an old invalid configuration now fails explicitly. This
 includes boolean magnitudes (formerly accepted as integers), negative
 ``perturbation_level`` and nonfinite magnitudes; no replacement value is guessed.

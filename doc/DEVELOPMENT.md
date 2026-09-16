@@ -112,9 +112,11 @@ other in any order and any number of times; a single effective stage keeps the
 established single-feature execution and seeds, and a genuine composition is
 executed by one recorder over lazily composed views with per-stage, per-channel
 seeds derived by a language-local policy over the same stage identities
-(Python `seedsequence-v2`; MATLAB `matlab-stage-horner32-v1`, an exact 32-bit
-Horner fold feeding the unchanged legacy stream kernel; neither language
-promises the other's samples). One outer recorder owns solver budgets, public
+(Python `seedsequence-v2`; MATLAB `matlab-stage-horner32-v2`, an exact 32-bit
+Horner fold over the stage identity and, per query, over the IEEE-754 words of
+the observed payload, feeding the unchanged legacy stream kernel; version 1
+handed the payload to the legacy product mixer, which collapsed whenever any
+payload element was zero; neither language promises the other's samples). One outer recorder owns solver budgets, public
 call counters and histories; stage views own local served-query state and
 transform observation and reference paths. Public recorders are not nested.
 Spatial views transport bounds and constraints; composed derivative methods

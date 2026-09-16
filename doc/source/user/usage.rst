@@ -172,6 +172,13 @@ Saved output paths, load selectors and envelope fields are not forwarded by the
 replay helper. Specification-only v2 structs are accepted as explicit new replay
 inputs, not evidence of the original declaration.
 
+Options saved by a ``load`` (re-plot) invocation describe that re-plot, not the
+archived execution: ``benchmark`` writes no ``options_refined.mat`` for a load,
+and ``loadBenchmarkOptions`` rejects a source with a nonempty ``load`` field
+(``OptiProfiler:LoadInvocationNotReplayable``) instead of turning the load label
+into a replay. Replay the source experiment from its own
+``test_log/options_refined.mat``.
+
 Old flat native options sometimes omitted feature identity. Such a file requires
 an explicit second argument, for example ``loadBenchmarkOptions(path, 'noisy')``;
 neither folder names nor stamps are used to guess it. The receipt records this
@@ -210,7 +217,10 @@ integer-class value must be exactly representable as double.
 ``perturbation_level`` is a nonnegative scalar: MATLAB has no coordinatewise
 vector amplitudes. Logical options accept ``true``/``false`` or numeric 0/1 and
 are stored as logical. Text choices such as ``mesh_type`` are lowercase and
-case-sensitive. Earlier versions accepted some values that could not describe a
+case-sensitive. Option names are case-insensitive; two spellings of one name
+(``noise_level`` and ``NOISE_LEVEL``) in one struct or name/value list are
+rejected (``MATLAB:Feature:DuplicateOption``) because the configuration would
+be ambiguous. Earlier versions accepted some values that could not describe a
 valid experiment: NaN or infinite magnitudes, any ``perturbation_level``
 (including negative, text or vector values), and integer or single classes that
 then computed in integer or single arithmetic. Saved Features are revalidated
@@ -229,6 +239,24 @@ modifiers. New executions record ``runtime_policy='matlab-legacy-single-v2'``.
 Archives written under ``matlab-legacy-single-v1`` keep their recorded policy
 when they are loaded. Numerical results are unchanged for constraint channels
 with at most one component.
+
+Composed features (two or more effective stages) record
+``seed_policy='matlab-stage-horner32-v2'``. The per-stage, per-channel seeds
+are derived exactly as under version 1 (an exact 32-bit Horner fold over the
+run seed and the stage identity); version 2 seeds every per-query stream of a
+composed view by folding the IEEE-754 words of the observed payload (values,
+point, served index) with the same rule. Version 1 handed that payload to the
+legacy product mixer, so a zero coordinate, a zero value or a zero counter
+removed the dependence on the rest of the payload. Archives written under
+version 1 keep their recorded policy string. The identity and single-stage
+strategies are unchanged and keep their established legacy streams. The fold
+is a finite 32-bit hash: it is not a statistical independence guarantee and
+distinct payloads can still collide.
+
+Migration note: ``is_stochastic`` is a read-only property of ``Feature`` (as
+are ``name``, ``stages`` and ``declared``); the earlier method call syntax
+``is_stochastic(F)`` is no longer available because MATLAB cannot expose one
+name as both a property and a method. Use ``F.is_stochastic``.
 
 
 Example 4: testing parametrized solvers
