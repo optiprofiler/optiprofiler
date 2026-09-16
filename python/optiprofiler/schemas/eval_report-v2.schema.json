@@ -94,6 +94,10 @@
     "artifact_root": {
       "$ref": "#/$defs/relativePath"
     },
+    "artifact_root_reason": {
+      "type": "string",
+      "description": "Required when artifact_root is null: why the output directory could not be addressed relative to the main report parent (cross_volume_relative_path_unavailable)."
+    },
     "plot_data": {
       "anyOf": [
         {
@@ -1149,11 +1153,27 @@
           "$ref": "#/$defs/nullableText"
         },
         "path_reason": {
-          "type": "string"
+          "type": "string",
+          "description": "Required when path is null: why no relative path could be recorded (for example cross_volume_relative_path_unavailable or artifact_name_not_utf8)."
         }
       },
       "additionalProperties": false,
-      "description": "Only existing produced files in the invocation-owned output tree, addressed relative to artifact_root; symlinks and external trees are excluded. Unverified entries require a contextual reason; hashes are provenance, not guarantees of reproducibility or comparability."
+      "description": "Only existing produced files in the invocation-owned output tree, addressed relative to artifact_root; symlinks and external trees are excluded. Unverified entries require a contextual reason; hashes are provenance, not guarantees of reproducibility or comparability.",
+      "if": {
+        "properties": {
+          "path": {
+            "type": "null"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "then": {
+        "required": [
+          "path_reason"
+        ]
+      }
     },
     "plotDataReference": {
       "type": "object",
@@ -1242,11 +1262,27 @@
           "type": "string"
         },
         "path_reason": {
-          "type": "string"
+          "type": "string",
+          "description": "Required when path is null: why no relative path could be recorded (for example cross_volume_relative_path_unavailable or artifact_name_not_utf8)."
         }
       },
       "additionalProperties": false,
-      "description": "Original load archive path/name/hash captured before selection/filtering when available. The source archive and prior report remain unchanged. This does not certify the archive's original execution configuration or producer."
+      "description": "Original load archive path/name/hash captured before selection/filtering when available. The source archive and prior report remain unchanged. This does not certify the archive's original execution configuration or producer.",
+      "if": {
+        "properties": {
+          "path": {
+            "type": "null"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "then": {
+        "required": [
+          "path_reason"
+        ]
+      }
     },
     "diagnostic": {
       "type": "object",
@@ -1676,5 +1712,31 @@
       "additionalProperties": false,
       "description": "The shared metadata encoder's bounded list: the first 256 stage records with the true count and the reason; never a silent truncation."
     }
+  },
+  "if": {
+    "properties": {
+      "artifact_root": {
+        "type": "null"
+      }
+    },
+    "required": [
+      "artifact_root"
+    ]
+  },
+  "then": {
+    "anyOf": [
+      {
+        "required": [
+          "artifact_root_reason"
+        ]
+      },
+      {
+        "properties": {
+          "artifacts": {
+            "maxItems": 0
+          }
+        }
+      }
+    ]
   }
 }

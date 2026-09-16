@@ -195,8 +195,20 @@ def load_trusted(path):
 
 
 def load_options(path):
-    """Read a trusted ``options_user.pkl`` or ``options_refined.pkl`` file as a dictionary."""
-    options = load_trusted(path)
+    """
+    Read a trusted ``options_user.pkl`` or ``options_refined.pkl`` file as a
+    dictionary. A file that is not a readable OptiProfiler pickle (truncated,
+    empty, foreign bytes, missing classes) raises
+    :class:`LegacyConfigurationError` naming the underlying error; a missing
+    file raises the usual ``OSError``.
+    """
+    try:
+        options = load_trusted(path)
+    except LegacyConfigurationError:
+        raise
+    except (pickle.UnpicklingError, EOFError, AttributeError, ImportError, IndexError, TypeError, ValueError) as err:
+        raise LegacyConfigurationError(f'{path} is not a readable OptiProfiler options pickle '
+                                       f'({type(err).__name__}: {err}).') from err
     if not isinstance(options, dict):
         raise LegacyConfigurationError(f'{path} does not contain an options dictionary ({type(options).__name__}).')
     return options
@@ -348,6 +360,37 @@ def _recorded_declaration(declared_spec, entries, class_path):
     return tuple(recorded)
 
 
+def _is_load_invocation(options):
+    """Whether an options mapping was written by a ``benchmark(load=...)`` invocation."""
+    load_request = options.get('load')
+    return options.get('operation') == 'load' or (isinstance(load_request, str) and load_request != '')
+
+
+def _with_run_count(result, count):
+    """Add ``n_runs`` to a replay result only when the file records one."""
+    if count is not None:
+        result['n_runs'] = count
+    return result
+
+
+def _load_invocation_replay(plain):
+    """A file written by a load (re-plot) invocation replays only its recovered archived recipe."""
+    archived = plain.get('archived_experiment')
+    if isinstance(archived, Mapping) and archived.get('replayable') is True:
+        specification = archived.get('feature_specification')
+        problem_options = archived.get('problem_options')
+        if not isinstance(specification, (list, tuple, Mapping)) or not isinstance(problem_options, Mapping):
+            raise LegacyConfigurationError('The archived recipe of this load-written options file is incomplete '
+                                           '(feature specification or problem options missing).')
+        return _with_run_count({'feature': _historical_specification(specification),
+                                'problem_options': dict(problem_options)}, archived.get('n_runs'))
+    reason = plain.get('replay_reason') if isinstance(plain.get('replay_reason'), str) else 'no_archived_recipe_recorded'
+    raise LegacyConfigurationError(
+        'This options file was written by a load (re-plot) invocation and records no replayable archived '
+        f'experiment ({reason}); it describes the load, not the archived execution. Replay the source '
+        'experiment from its own test_log/options_refined.pkl instead.')
+
+
 def replay_arguments(options, feature_name=None):
     """
     Map a trusted options dictionary to ``benchmark`` inputs.
@@ -359,9 +402,18 @@ def replay_arguments(options, feature_name=None):
     profile, feature and problem options, which does not record the feature
     identity and is replayed only with an explicit ``feature_name`` (the flat
     stage options are then broadcast to that name). Returns ``{'feature',
-    'n_runs', 'problem_options'}``; the caller supplies solvers and any profile
+    'problem_options'}`` plus ``'n_runs'`` when the file records a run count
+    (a user file written without ``n_runs`` records none, and ``None`` is not a
+    valid ``benchmark`` value); the caller supplies solvers and any profile
     options. Callback values stay the native objects stored in the file; nothing
     is reconstructed from JSON descriptions.
+
+    A file written by a ``load`` (re-plot) invocation describes that load, not
+    the archived execution. It replays only when it carries the archived recipe
+    recovered by :func:`archived_replay_recipe` (``archived_experiment`` with
+    ``replayable`` true); otherwise :class:`LegacyConfigurationError` names the
+    reason. Case-variant duplicates of one option name in a flat 1.x file are
+    rejected the same way (the configuration is ambiguous).
     """
     if not isinstance(options, Mapping):
         raise TypeError(f'replay_arguments expects an options mapping, not {type(options).__name__}.')
@@ -371,6 +423,8 @@ def replay_arguments(options, feature_name=None):
         if not isinstance(key, str):
             raise LegacyConfigurationError(f'Option names must be strings, got {type(key).__name__}.')
         plain[key] = value
+    if _is_load_invocation(plain):
+        return _load_invocation_replay(plain)
     problem_keys = {member.value for member in ProblemOption}
     problem_options = {key: value for key, value in plain.items() if key in problem_keys}
     schema = plain.get('schema')
@@ -392,14 +446,17 @@ def replay_arguments(options, feature_name=None):
                 feature = Feature(name, **stage_options)
         except (TypeError, ValueError) as err:
             raise LegacyConfigurationError(f'The saved user options are not valid: {err}') from err
-        return {'feature': effective_specification(feature), 'n_runs': plain.get('n_runs'),
-                'problem_options': problem_options}
+        return _with_run_count({'feature': effective_specification(feature), 'problem_options': problem_options},
+                               plain.get('n_runs'))
     if schema == REFINED_SCHEMA or (schema is None and 'feature_specification' in plain):
+        if 'feature_specification' not in plain:
+            raise LegacyConfigurationError(f'An {REFINED_SCHEMA} options file must record `feature_specification`; '
+                                           'this one does not.')
         specification = plain['feature_specification']
         if not isinstance(specification, (list, tuple, Mapping)):
             raise LegacyConfigurationError('`feature_specification` must be a mapping or a list/tuple of stage entries.')
-        return {'feature': _historical_specification(specification), 'n_runs': plain.get('n_runs'),
-                'problem_options': problem_options}
+        return _with_run_count({'feature': _historical_specification(specification), 'problem_options': problem_options},
+                               plain.get('n_runs'))
     if schema is not None:
         raise LegacyConfigurationError(f'Unknown refined options schema {schema!r}.')
     name = feature_name if feature_name is not None else plain.get('feature_name')
@@ -416,4 +473,105 @@ def replay_arguments(options, feature_name=None):
         feature = Feature(name, **stage_options)
     except (TypeError, ValueError) as err:
         raise LegacyConfigurationError(f'The flat options are not valid for feature {name!r}: {err}') from err
-    return {'feature': effective_specification(feature), 'n_runs': plain.get('n_runs'), 'problem_options': problem_options}
+    return _with_run_count({'feature': effective_specification(feature), 'problem_options': problem_options},
+                           plain.get('n_runs'))
+
+
+def _closed_recipe(reason, **details):
+    """The recipe of a load whose archived experiment could not be recovered exactly."""
+    return {'operation': 'load', 'replayable': False, 'replay_reason': reason,
+            'feature_route': None, 'feature_name': None, 'feature_specification': None, 'n_runs': None,
+            'archived_experiment': {'replayable': False, 'reason': reason, **details}}
+
+
+def _recipe_from_archived(archived, results_plibs):
+    """Cross-check a recovered archived experiment against the loaded archive and produce the recipe."""
+    from .opclasses import Feature
+    from .provenance import read_feature_pipeline
+    try:
+        feature = Feature(archived['feature_specification'])
+    except (TypeError, ValueError) as err:
+        return _closed_recipe('source_feature_specification_invalid', detail=str(err)[:200])
+    n_runs = archived['n_runs']
+    if archived.get('seed') is None:
+        return _closed_recipe('source_seed_not_recorded')
+    stage_names = [stage.name for stage in feature.stages]
+    for result in results_plibs or []:
+        if not isinstance(result, Mapping):
+            continue
+        histories = result.get('fun_histories')
+        if getattr(histories, 'ndim', 0) == 4 and int(histories.shape[2]) != n_runs:
+            return _closed_recipe('archive_run_axis_disagrees_with_source_options',
+                                  archive_runs=int(histories.shape[2]), source_n_runs=n_runs)
+        stamp = result.get('feature_stamp')
+        if isinstance(stamp, str) and isinstance(archived.get('feature_stamp'), str) and stamp != archived['feature_stamp']:
+            return _closed_recipe('archive_feature_stamp_disagrees_with_source_options')
+        payload, schema = read_feature_pipeline(result.get('feature_pipeline'))
+        if isinstance(payload, Mapping) and schema == 'feature_pipeline-v3':
+            block = payload.get('feature') if isinstance(payload.get('feature'), Mapping) else {}
+            experiment = payload.get('experiment') if isinstance(payload.get('experiment'), Mapping) else {}
+            recorded = [stage.get('name') for stage in block.get('stages', []) if isinstance(stage, Mapping)]
+            if recorded != stage_names or experiment.get('n_runs') not in (None, n_runs):
+                return _closed_recipe('archive_feature_pipeline_disagrees_with_source_options')
+        if isinstance(result.get('results_plib_plain'), Mapping) != bool(archived['run_plain']):
+            return _closed_recipe('archive_plain_reference_disagrees_with_source_options')
+    return {'operation': 'load', 'replayable': True, 'replay_reason': None, 'feature_route': None,
+            'feature_name': feature.declared_name, 'feature_specification': archived['feature_specification'],
+            'n_runs': n_runs, 'archived_experiment': dict(archived)}
+
+
+def archived_replay_recipe(source_options_path, results_plibs):
+    """
+    The replay recipe of a loaded experiment, recovered from the source
+    experiment's own native ``test_log/options_refined.pkl`` (exact native
+    values, callables included) and cross-checked against the archive that was
+    loaded. The report's JSON callback descriptions are never used.
+
+    Returns the fields that ``benchmark(load=...)`` writes into its own
+    ``options_refined.pkl``: ``operation='load'``, ``replayable``,
+    ``replay_reason`` (``None`` when replayable), the top-level recipe
+    (``feature_specification``, ``n_runs`` of the primary role, ``feature_name``,
+    ``feature_route=None``) and ``archived_experiment`` (the recovered
+    specification, primary ``n_runs``, ``seed``, ``run_plain`` with the fixed
+    ``plain_reference_n_runs`` of the reference role, the archived problem
+    options, the feature stamp and the source options schema). When the source
+    file is missing, unreadable, a flat 1.x file without feature identity, itself
+    a load without a recipe, or disagrees with the archive (run axis, feature
+    stamp, ``feature_pipeline-v3`` stages or run count, plain reference), the
+    recipe fails closed: ``feature_specification`` and ``n_runs`` are ``None``
+    and ``replay_reason`` says why. Nothing is inferred from the load label.
+    """
+    from .experiment import validate_n_runs
+    path = Path(source_options_path) if source_options_path is not None else None
+    if path is None or not path.is_file():
+        return _closed_recipe('source_options_refined_missing')
+    try:
+        source = load_options(path)
+    except LegacyConfigurationError as err:
+        cause = err.__cause__ if err.__cause__ is not None else err
+        return _closed_recipe('source_options_unreadable', error_type=type(cause).__name__)
+    except OSError as err:
+        return _closed_recipe('source_options_unreadable', error_type=type(err).__name__)
+    if _is_load_invocation(source):
+        nested = source.get('archived_experiment')
+        if isinstance(nested, Mapping) and nested.get('replayable') is True:
+            return _recipe_from_archived(dict(nested), results_plibs)
+        return _closed_recipe('source_is_a_load_invocation_without_recipe')
+    try:
+        replay = replay_arguments(source)
+    except LegacyConfigurationError as err:
+        return _closed_recipe('source_options_not_replayable', detail=str(err)[:200])
+    try:
+        n_runs = validate_n_runs(replay['n_runs']) if 'n_runs' in replay else None
+    except (TypeError, ValueError):
+        n_runs = None
+    if n_runs is None:
+        return _closed_recipe('source_run_count_not_recorded')
+    run_plain = bool(source.get('run_plain', False))
+    archived = {'replayable': True, 'reason': None,
+                'source_options_schema': source.get('schema') if isinstance(source.get('schema'), str) else 'unversioned',
+                'feature_specification': replay['feature'], 'n_runs': n_runs, 'seed': source.get('seed'),
+                'run_plain': run_plain, 'plain_reference_n_runs': 1 if run_plain else None,
+                'problem_options': replay['problem_options'],
+                'feature_stamp': source.get('feature_stamp') if isinstance(source.get('feature_stamp'), str) else None}
+    return _recipe_from_archived(archived, results_plibs)

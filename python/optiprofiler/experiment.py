@@ -39,6 +39,10 @@ ABSENT = _ABSENT
 
 def validate_n_runs(value):
     """Validate an explicitly supplied run count (a present ``None`` is a value, not an omission)."""
+    # Booleans are integers in Python but are not counts (the same rule as for
+    # the stage options).
+    if isinstance(value, (bool, np.bool_)):
+        raise TypeError('Option `n_runs` must be an integer, not a boolean.')
     if isinstance(value, (float, np.floating)) and float(value).is_integer():
         value = int(value)
     if isinstance(value, np.integer):

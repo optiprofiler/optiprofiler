@@ -995,9 +995,10 @@ def _benchmark(
 
     # Load the existing results if needed.
     # If 'load' is specified, we skip the solving phase and restore the results from disk.
+    load_source = {}
     if is_load:
         results_plibs, profile_options = load_results(
-            problem_options, profile_options,
+            problem_options, profile_options, _source=load_source,
             **({'_report': report} if report is not None else {}))
         for result in results_plibs:
             _mask_invalid_merits(result)
@@ -1148,10 +1149,21 @@ def _benchmark(
             # included), never a flat stage-option projection. Replay with
             # feature=refined['feature_specification'] and n_runs=refined['n_runs'].
             options_refined['schema'] = 'options_refined-v2'
-            options_refined[ProfileOption.N_RUNS.value] = primary_plan.n_runs
-            options_refined['feature_route'] = feature_input
-            options_refined['feature_name'] = feature.declared_name
-            options_refined['feature_specification'] = effective_specification(feature)
+            if is_load:
+                # A load executes no solver. Its recipe is the archived
+                # experiment, recovered only from the source experiment's own
+                # native options file and cross-checked against the archive;
+                # it is never the load label's plan. When it cannot be
+                # recovered exactly the recipe fails closed with a reason.
+                from .legacy_compat import archived_replay_recipe
+                source_options = load_source.get('path_data')
+                options_refined.update(archived_replay_recipe(
+                    None if source_options is None else Path(source_options) / 'options_refined.pkl', results_plibs))
+            else:
+                options_refined[ProfileOption.N_RUNS.value] = primary_plan.n_runs
+                options_refined['feature_route'] = feature_input
+                options_refined['feature_name'] = feature.declared_name
+                options_refined['feature_specification'] = effective_specification(feature)
             
             save_options(options_refined, path_log / 'options_refined.pkl')
             add_to_readme(path_readme_log, 'options_refined.pkl', 'File, storing the options refined by OptiProfiler for the current experiment.')
@@ -2239,8 +2251,9 @@ def _solve_all_problems(solvers, plib, feature, plan, problem_options, profile_o
             problem_names = selected_problem_names
         else:
             # Take an intersection of problem_names and selected_problem_names.
-            problem_names = [name for name in problem_names if name in selected_problem_names]
-            problem_names = list(set(problem_names))
+            # Keep the caller's order (a set would make the archive, report and
+            # history identities depend on the process hash seed).
+            problem_names = list(dict.fromkeys(name for name in problem_names if name in selected_problem_names))
         if exclude_list:
             problem_names = [name for name in problem_names if name not in exclude_list]
     except Exception as exc:

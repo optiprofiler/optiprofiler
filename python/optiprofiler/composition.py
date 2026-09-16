@@ -141,6 +141,14 @@ def _nonlinear_violation(cub, ceq, m_ub, m_eq, x):
     return cv_nonlinear
 
 
+def _point_of(view, x, method):
+    """``Problem``'s input contract for a view method: a one-dimensional float array of size ``view.n``."""
+    x = _process_1d_array(x, f'The argument `x` for method `{method}` in problem must be a one-dimensional array.')
+    if x.size != view.n:
+        raise ValueError(f'The argument `x` for method `{method}` in problem must have size {view.n}.')
+    return x
+
+
 class ProblemView(Problem):
     """
     Lazy view of a predecessor problem.
@@ -171,18 +179,20 @@ class ProblemView(Problem):
         self._fun = self._cub = self._ceq = None
         self._grad = self._hess = self._jcub = self._jceq = self._hcub = self._hceq = None
 
-    # Problem-facing API: the observed channel.
+    # Problem-facing API: the observed channel. Input is normalized exactly
+    # as ``Problem.fun`` does (a list is a legal point for a Problem), so a
+    # custom callback probing its predecessor never hands a list to a stage.
     def fun(self, x):
-        return self.observed_fun(x)
+        return self.observed_fun(_point_of(self, x, 'fun'))
 
     def cub(self, x):
-        return self.observed_cub(x)
+        return self.observed_cub(_point_of(self, x, 'cub'))
 
     def ceq(self, x):
-        return self.observed_ceq(x)
+        return self.observed_ceq(_point_of(self, x, 'ceq'))
 
     def maxcv(self, x):
-        return self.observed_maxcv_detailed(x)[0]
+        return self.observed_maxcv_detailed(_point_of(self, x, 'maxcv'))[0]
 
     def _maxcv(self, x):
         return self.observed_maxcv_detailed(x)
@@ -828,10 +838,7 @@ class ComposedFeaturedProblem(FeaturedProblem):
         return self._problem, self._runtime, self._max_eval, self._seed
 
     def _point(self, x, method):
-        x = _process_1d_array(x, f'The argument `x` for method `{method}` in problem must be a one-dimensional array.')
-        if x.size != self.n:
-            raise ValueError(f'The argument `x` for method `{method}` in problem must have size {self.n}.')
-        return x
+        return _point_of(self, x, method)
 
     def _evaluate_truth(self, x):
         """Scoring reference at solver coordinates, without an observed query."""

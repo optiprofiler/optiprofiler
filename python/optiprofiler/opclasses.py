@@ -10,8 +10,8 @@ from scipy import __version__ as _SCIPY_VERSION
 
 import warnings
 from .utils import FeatureName, FeatureOption, get_logger, shorten_log_message
-from .feature_definitions import (_SPEC_TYPE_MESSAGE, Declaration, StageRecord, normalize_entries, normalize_shorthand,
-                                  reject_experiment_options, reject_flat_stage_options)
+from .feature_definitions import (_SPEC_TYPE_MESSAGE, Declaration, StageRecord, fold_option_names, normalize_entries,
+                                  normalize_shorthand, reject_experiment_options, reject_flat_stage_options)
 from .feature_definitions import is_stochastic as _stage_is_stochastic
 from .experiment import STRATEGY_COMPOSED, select_execution_strategy
 from .legacy_compat import LegacyObject, historical_effective_options
@@ -854,7 +854,9 @@ class Feature:
         ``mesh_type`` is 'absolute' or 'relative' (case-insensitive, stored in
         lowercase). Booleans are not numeric magnitude/count options. NumPy
         real scalar magnitudes are accepted. Only ``perturbation_level`` also
-        accepts vectors; other magnitude options must be scalars.
+        accepts vectors; other magnitude options must be scalars. Option names
+        are case-insensitive; two spellings of one name in the same call or
+        stage entry are rejected as a duplicate.
     mod_x0, mod_affine, mod_bounds, mod_linear_ub, mod_linear_eq, mod_fun, mod_cub, mod_ceq : callable, optional
         Callbacks of the 'custom' feature.
 
@@ -915,11 +917,7 @@ class Feature:
     """
 
     def __init__(self, name, **options):
-        lowered = {}
-        for key, value in options.items():
-            if not isinstance(key, str):
-                raise TypeError('Option names must be strings.')
-            lowered[key.lower()] = value
+        lowered = fold_option_names(options, 'Feature options')
         if isinstance(name, Feature):
             reject_experiment_options(lowered)
             reject_flat_stage_options(lowered)
@@ -951,6 +949,15 @@ class Feature:
         # No run count and no runtime state; unpickling validates again.
         effective = tuple((stage.name, stage.native_options()) for stage in self._stages)
         return _rebuild_feature, (FEATURE_NATIVE_VERSION, self._declared.route, self._declared.native_entries(), effective)
+
+    def __setstate__(self, state):
+        # Current pickles rebuild through ``__reduce__`` and never carry a
+        # state dictionary; one only arrives when plain pickle restores an
+        # OptiProfiler 1.x layout. Refuse it here instead of returning a
+        # half-built object whose first attribute access fails.
+        raise TypeError('This pickle holds an OptiProfiler 1.x Feature layout, which plain pickle cannot restore; read '
+                        'it with optiprofiler.legacy_compat.load_trusted (or loads_trusted) and convert it with '
+                        'optiprofiler.legacy_compat.import_legacy_feature.')
 
     def __repr__(self):
         return f'Feature({self.name!r})'

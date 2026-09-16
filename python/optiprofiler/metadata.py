@@ -23,6 +23,10 @@ _SECRET_KEY = re.compile(
     r'(?:^|[_-])token(?:$|[_-])|access[_-]?token|refresh[_-]?token|'
     r'private[_-]?key|cookie', re.I)
 _ABS_IN_TEXT = re.compile(r'(?<![\w])(?:/(?:Users|home|private|tmp|var|mnt|opt)/\S+|[A-Za-z]:[\\/][^\s]+)')
+# A surrogate code point in a ``str`` (typically from ``surrogateescape``
+# decoding of an undecodable file name) has no UTF-8 encoding; the report is
+# UTF-8 bytes, so such code points become the replacement character.
+_LONE_SURROGATE = re.compile('[\ud800-\udfff]')
 
 
 TEXT_LIMIT = 256
@@ -35,6 +39,7 @@ def bounded_text(value, limit=TEXT_LIMIT):
     if not isinstance(value, str):
         return None
     value = ''.join(c if c >= ' ' else ' ' for c in value)
+    value = _LONE_SURROGATE.sub('\ufffd', value)
     if value.startswith(('http://', 'https://')):
         return '[redacted_url]'
     if os.path.isabs(value) or PureWindowsPath(value).is_absolute():

@@ -418,7 +418,8 @@ def _backfill_problem_options_from_loaded(problem_options: Dict[str, Any], resul
     return problem_options
 
 
-def load_results(problem_options: Dict[str, Any], profile_options: Dict[str, Any], *, _report=None) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+def load_results(problem_options: Dict[str, Any], profile_options: Dict[str, Any], *, _report=None,
+                 _source: Optional[Dict[str, Any]] = None) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     """
     Load the results by the given options.
     
@@ -485,6 +486,10 @@ def load_results(problem_options: Dict[str, Any], profile_options: Dict[str, Any
     _, path_data, time_stamp = max(candidates)
     
     path_experiment = os.path.dirname(path_data)
+    if _source is not None:
+        # The exact source selected by this load (private to the benchmark):
+        # its own native options file is the only exact replay recipe.
+        _source.update(path_data=path_data, path_experiment=path_experiment, time_stamp=time_stamp)
     
     # Load data from the 'data_for_loading.h5' file
     data_file_path = os.path.join(path_data, 'data_for_loading.h5')
@@ -712,6 +717,12 @@ def _write_results_to_h5(results_plibs, file_path):
                             else:
                                 nested_group.create_dataset(nested_key, data=nested_value, compression='gzip')
                         elif isinstance(nested_value, list) and all(isinstance(item, str) for item in nested_value):
+                            string_dt = h5py.special_dtype(vlen=str)
+                            nested_group.create_dataset(nested_key, data=np.array(nested_value, dtype=string_dt))
+                        elif isinstance(nested_value, str):
+                            # Same encoding as a top-level text value (for
+                            # example the plain reference's feature_pipeline),
+                            # not a pickled blob that only Python can read.
                             string_dt = h5py.special_dtype(vlen=str)
                             nested_group.create_dataset(nested_key, data=np.array(nested_value, dtype=string_dt))
                         else:

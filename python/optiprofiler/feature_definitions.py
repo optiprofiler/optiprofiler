@@ -79,8 +79,32 @@ def local_options(name):
         raise ValueError(f'Unknown feature: {name}.') from None
 
 
+def fold_option_names(options, where='the feature options'):
+    """
+    Lower-case the option names of the mapping ``options`` and reject names
+    that collide once case is folded (``noise_level`` and ``NOISE_LEVEL`` name
+    the same option; keeping one of the two values silently would make the
+    configuration ambiguous). Non-string names raise ``TypeError``.
+    """
+    folded = {}
+    spellings = {}
+    for key, value in options.items():
+        if not isinstance(key, str):
+            raise TypeError(f'{where}: option names must be strings.')
+        name = key.lower()
+        if name in folded:
+            raise ValueError(f'{where}: duplicate option `{name}` (given as `{spellings[name]}` and `{key}`); '
+                             f'option names are case-insensitive and the configuration is ambiguous, give it once.')
+        folded[name] = value
+        spellings[name] = key
+    return folded
+
+
 def _validate_finite_scalar(key, value):
     """Reject bad configuration before it can corrupt an oracle or initial point."""
+    # Messages name the public option spelling, never an enumeration member
+    # (Python 3.11 formats mixed-in string enumerations as ``Class.MEMBER``).
+    key = getattr(key, 'value', key)
     # Booleans are integers in Python, but are not magnitude parameters. Keep
     # NumPy scalar types valid; a one-element array is not a scalar option.
     if isinstance(value, (bool, np.bool_)) or not isinstance(value, (int, float, np.integer, np.floating)):
@@ -95,7 +119,7 @@ def _validate_finite_scalar(key, value):
 
 def _validate_perturbation_level(value):
     """Retain coordinatewise amplitudes without accepting arbitrary objects."""
-    key = FeatureOption.PERTURBATION_LEVEL
+    key = FeatureOption.PERTURBATION_LEVEL.value
     if type(value) is np.ndarray:
         if value.ndim > 1 or value.size == 0 or value.dtype.kind not in 'fiu':
             raise TypeError(f'Option `{key}` must be a finite real scalar or nonempty vector.')
@@ -372,11 +396,8 @@ def view_options(options):
 
 def validated_local_options(name, options):
     """Validate and default an owned copy of the stage-local ``options`` of kind ``name``."""
-    if any(not isinstance(key, str) for key in options):
-        raise TypeError('option names must be strings.')
     validated = {}
-    for key, value in options.items():
-        key = key.lower()
+    for key, value in fold_option_names(options, f"stage '{name}'").items():
         validated[key] = own_value(validate_option(name, key, value))
     return apply_local_defaults(name, validated)
 
@@ -579,8 +600,7 @@ def normalize_shorthand(name, broadcast):
     """
     declared_tokens, effective_tokens = parse_feature_name(name)
     supplied = {}
-    for key, value in broadcast.items():
-        key = key.lower()
+    for key, value in fold_option_names(broadcast, f'the options of feature {name!r}').items():
         if key not in FeatureOption.__members__.values() and key not in EXPERIMENT_OPTIONS:
             raise ValueError(f'Unknown option for feature: {key}.')
         supplied[key] = value
@@ -652,9 +672,7 @@ def normalize_entries(spec):
                              f'give one entry per stage.')
         if token not in FeatureName.__members__.values():
             raise ValueError(f'{label}: unknown feature {name!r}.')
-        if any(not isinstance(key, str) for key in options):
-            raise TypeError(f"{label} (stage '{token}'): option names must be strings.")
-        supplied = {key.lower(): value for key, value in options.items()}
+        supplied = fold_option_names(options, f"{label} (stage '{token}')")
         try:
             validated = validated_local_options(token, supplied)
         except (TypeError, ValueError) as err:

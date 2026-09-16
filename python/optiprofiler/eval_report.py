@@ -232,9 +232,24 @@ def _numeric_payload(value):
     return _score_values(value)
 
 
-def _relative_path(path, base):
+def _utf8_encodable(text):
     try:
-        return Path(os.path.relpath(path, base)).as_posix()
+        text.encode('utf-8')
+    except UnicodeEncodeError:
+        return False
+    return True
+
+
+def _relative_path(path, base):
+    """
+    ``path`` relative to ``base``, both taken as physical paths (symlinks in
+    either resolved), so that joining the report parent with the result
+    resolves through the filesystem and not only lexically: the report parent
+    may sit behind a symlink of a different depth than the output tree (macOS
+    ``/tmp``, symlinked home directories).
+    """
+    try:
+        return Path(os.path.relpath(os.path.realpath(path), os.path.realpath(base))).as_posix()
     except ValueError:
         # Windows cannot express a path on another drive relatively. Never
         # fall back to exposing an absolute machine path in the report.
@@ -587,7 +602,25 @@ class EvalReport:
             'permission_policy': 'owner_read_write_only_best_effort',
             'permissions_applied': applied,
             'platform_note': 'posix_mode_0600_via_exclusive_create_and_mkstemp;not_enforced_on_windows;directory_privacy_is_the_caller_responsibility'}
-        self._write()
+        try:
+            self._write()
+        except BaseException:
+            # The first write can fail (an unwritable directory, an injected
+            # fault). Leave nothing behind that would block a retry: remove
+            # both targets, but only while each is still the file this
+            # constructor created or last replaced (its current identity), so
+            # a file another writer put there is preserved.
+            self._rollback_reservations()
+            raise
+
+    def _rollback_reservations(self):
+        for target, identity in ((self.path, self._owned_identity), (self.plot_path, self._plot_identity)):
+            try:
+                if target.is_symlink() or self._identity(target) != identity:
+                    continue
+                target.unlink()
+            except OSError:
+                pass
 
     @staticmethod
     def _stat_identity(value):
@@ -687,13 +720,22 @@ class EvalReport:
                     'status': 'not_requested' if score_only else 'unknown',
                     'reason': 'score_only' if score_only else 'requested_not_yet_observed'}
         if output_dir is not None:
-            path = Path(output_dir).absolute()
+            given = Path(output_dir).absolute()
+            # Artifacts are harvested from the physical directory so that every
+            # recorded reference resolves through the filesystem.
+            path = Path(os.path.realpath(given))
             if path != self._output_dir:
-                if path.is_symlink():
+                if given.is_symlink():
                     self.add_diagnostic('artifact_directory_symlink_skipped', 'persistence')
                 elif path.is_dir():
                     self._output_dir = path
                     self.document['artifact_root'] = _relative_path(path, self.path.parent)
+                    if self.document['artifact_root'] is None:
+                        self.document['artifact_root_reason'] = 'cross_volume_relative_path_unavailable'
+                        self.add_diagnostic('artifact_root_unavailable', 'persistence',
+                                            reason='cross_volume_relative_path_unavailable')
+                    else:
+                        self.document.pop('artifact_root_reason', None)
                     self._output_identity = self._identity(path)
                     # Only files created after the benchmark establishes its
                     # owned output directory are eligible as new artifacts.
@@ -718,7 +760,8 @@ class EvalReport:
             identity = json.dumps([library, name, role], ensure_ascii=False, separators=(',', ':'))
             if raw != (library, name, role):
                 private_identity = json.dumps(raw, ensure_ascii=False, separators=(',', ':'))
-                identity = 'sha256:' + hashlib.sha256(private_identity.encode('utf-8')).hexdigest()
+                # Hashed, never emitted: surrogate-escaped names are allowed here.
+                identity = 'sha256:' + hashlib.sha256(private_identity.encode('utf-8', 'surrogatepass')).hexdigest()
             self._problems[key] = {
                 'id': identity,
                 'library': library, 'name': name, 'role': role,
@@ -757,8 +800,10 @@ class EvalReport:
         identity = json.dumps(entry, allow_nan=False, sort_keys=True, ensure_ascii=False)
         if identity in self._diagnostic_keys:
             return
+        # Every distinct diagnostic is remembered, kept or not, so the omitted
+        # count is a count of distinct dropped entries.
+        self._diagnostic_keys.add(identity)
         if len(self.document['diagnostics']) < _MAX_DIAGNOSTICS:
-            self._diagnostic_keys.add(identity)
             self.document['diagnostics'].append(entry)
         else:
             self._dropped_diagnostics += 1
@@ -1101,7 +1146,7 @@ class EvalReport:
         self.document['profiles']['work_summary_reason'] = None
         self.document['profiles']['work_summary'] = 'see_convergence'
 
-    def _artifact_paths(self, directory):
+    def _artifact_paths(self, directory, exclude=frozenset()):
         count = 0
         for root, directories, files in os.walk(str(directory), followlinks=False):
             # Junctions are not symlinks to os.walk; prune every link kind.
@@ -1109,6 +1154,11 @@ class EvalReport:
                                     if not _link_like(Path(root) / name))
             for name in sorted(files):
                 path = Path(root) / name
+                if str(path) in exclude:
+                    # The report files, the load source and files that existed
+                    # before the run are not artifacts and do not consume the
+                    # manifest cap.
+                    continue
                 if not _link_like(path) and path.is_file():
                     yield path
                     count += 1
@@ -1123,9 +1173,10 @@ class EvalReport:
             self.add_diagnostic('artifact_directory_ownership_changed', 'persistence')
             return
         artifacts = []
-        for path in self._artifact_paths(self._output_dir):
-            if path in (self.path, self.plot_path, self._source_path) or str(path) in self._initial_artifacts:
-                continue
+        excluded = {os.path.realpath(self.path), os.path.realpath(self.plot_path)} | set(self._initial_artifacts)
+        if self._source_path is not None:
+            excluded.add(os.path.realpath(self._source_path))
+        for path in self._artifact_paths(self._output_dir, excluded):
             try:
                 media_type = mimetypes.guess_type(path.name)[0] or 'application/octet-stream'
                 record = {'path': _relative_path(path, self._output_dir),
@@ -1135,6 +1186,13 @@ class EvalReport:
                           'status': 'present'}
                 if record['path'] is None:
                     record['path_reason'] = 'cross_volume_relative_path_unavailable'
+                elif not _utf8_encodable(record['path']):
+                    # An undecodable (surrogate-escaped) file name cannot be
+                    # written as UTF-8; size and hash are still recorded.
+                    record['path'] = None
+                    record['path_reason'] = 'artifact_name_not_utf8'
+                if record['path'] is None:
+                    self.add_diagnostic('artifact_path_unavailable', 'persistence', reason=record['path_reason'])
                 if _hashing_capability() == 'unavailable':
                     # The saved files still exist and may be numerically valid;
                     # only their integrity receipt is missing, and it says so.

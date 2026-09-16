@@ -105,5 +105,5 @@ if __name__ == '__main__':
         [cobyqa, newuoa],
         solver_names=['COBYQA', 'NEWUOA'],
         problem_names=['ROSENBR'],
-        feature_name=['plain', 'permuted'],
+        feature_name='permuted',
     )
