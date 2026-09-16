@@ -521,6 +521,13 @@ def test_recovered_recipe_requires_matching_stage_options():
     assert stale['replay_reason'] == 'archive_feature_pipeline_disagrees_with_source_options'
     assert stale['archived_experiment']['detail'] == 'stage_option:noise_level'
     assert stale['feature_specification'] is None and stale['n_runs'] is None
+    # The cross-check decides replayability itself: a candidate without a
+    # ``replayable`` flag is judged on the facts, and the stated reason is the
+    # option mismatch, not the missing flag.
+    candidate = {key: value for key, value in _native_for(Feature('noisy', noise_level=0.2)).items() if key != 'replayable'}
+    unflagged = _recipe_from_archived(candidate, [_archive_for(actual)])
+    assert unflagged['replay_reason'] == 'archive_feature_pipeline_disagrees_with_source_options'
+    assert unflagged['archived_experiment']['detail'] == 'stage_option:noise_level'
     same = _recipe_from_archived(_native_for(actual), [_archive_for(actual)])
     assert same['replayable'] is True
     assert same['archived_experiment']['archive_comparison'].endswith('feature_pipeline_v3_stages_and_options')

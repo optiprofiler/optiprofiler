@@ -373,17 +373,19 @@ def _with_run_count(result, count):
     return result
 
 
-def _validated_archived(archived):
+def _validated_archived(archived, require_flag=True):
     """
     A recovered ``archived_experiment`` record with every field a replay needs,
     or ``(None, reason)`` when it is missing or malformed (a stray key, a
     missing count, a non-boolean ``run_plain``): malformed records fail closed
-    instead of surfacing bare exceptions.
+    instead of surfacing bare exceptions. A *stored* record (a load-written
+    file read back) must also say ``replayable`` is true; a candidate handed
+    to the cross-check is judged by the cross-check itself.
     """
     from .experiment import validate_n_runs
     if not isinstance(archived, Mapping):
         return None, 'source_recipe_malformed:not_a_mapping'
-    if archived.get('replayable') is not True:
+    if require_flag and archived.get('replayable') is not True:
         return None, 'source_recipe_not_replayable'
     if not isinstance(archived.get('feature_specification'), (list, tuple, Mapping)):
         return None, 'source_recipe_malformed:feature_specification'
@@ -600,7 +602,7 @@ def _recipe_from_archived(archived, results_plibs):
     """
     from .opclasses import Feature
     from .provenance import read_feature_pipeline
-    archived, problem = _validated_archived(archived)
+    archived, problem = _validated_archived(archived, require_flag=False)
     if archived is None:
         return _closed_recipe(problem)
     try:
