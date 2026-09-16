@@ -8,8 +8,12 @@ function [options, receipt] = loadBenchmarkOptions(source, legacy_feature_name)
 % Versioned options_refined-v2 stores effective stages and native callbacks.
 % Old flat files must retain feature_name/feature or supply LEGACY_FEATURE_NAME
 % explicitly; missing identity is never guessed from paths or option values.
-% Options saved by a load (re-plot) invocation (a nonempty load field) are
-% rejected: they describe the re-plot, not the archived execution.
+% Unversioned options with a nonempty load field (the options_user of a load,
+% or a flat options_refined that older versions wrote for a load) are rejected:
+% they describe the re-plot and their feature label is not evidence of the
+% archived execution. A versioned options_refined-v2 record carries its own
+% effective feature identity (benchmark never writes one for a load), and its
+% obsolete load/solvers_to_load selectors are simply not forwarded.
 % Native MAT loading is trusted input and can execute user code. Callback names
 % in JSON reports are descriptions, not recipes for reconstructing functions.
 % The inspection duplicate is checked for ordinary values/structure and callback
@@ -32,11 +36,14 @@ function [options, receipt] = loadBenchmarkOptions(source, legacy_feature_name)
     if ~isstruct(source) || ~isscalar(source)
         error('OptiProfiler:InvalidNativeOptions', 'Expected a scalar native options struct or a trusted options_refined MAT file.');
     end
-    if isfield(source, 'load') && ~isempty(source.load) && ...
-            ~(isstring(source.load) && isscalar(source.load) && strlength(source.load) == 0)
-        % Options recorded by benchmark(load=...) describe that re-plot, not
-        % the archived execution: the label and its defaults are not evidence
-        % of the archived experiment, so they are never turned into a replay.
+    has_load = isfield(source, 'load') && ~isempty(source.load) && ...
+        ~(isstring(source.load) && isscalar(source.load) && strlength(source.load) == 0);
+    if has_load && ~isfield(source, 'schema')
+        % Unversioned options recorded by benchmark(load=...) describe that
+        % re-plot, not the archived execution: the label and its defaults are
+        % not evidence of the archived experiment, so they are never turned
+        % into a replay. (A versioned record is validated below; it carries
+        % its own effective feature identity and drops the selector.)
         error('OptiProfiler:LoadInvocationNotReplayable', ...
             ['These options were written by a load (re-plot) invocation and describe that load, not the archived ', ...
              'execution. Replay the source experiment from its own test_log/options_refined.mat.']);

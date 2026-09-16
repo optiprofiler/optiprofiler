@@ -69,20 +69,30 @@ classdef TestFeatureReviewRegressions < matlab.unittest.TestCase
         end
 
         function loadInvocationOptionsAreNotReplayable(testCase)
-            source = struct('schema', 'options_refined-v2', 'n_runs', 1, 'load', '20200101_000000', ...
-                'feature_specification', {{struct('name', 'plain', 'options', struct())}});
-            testCase.verifyError(@() loadBenchmarkOptions(source), 'OptiProfiler:LoadInvocationNotReplayable');
+            % Unversioned options with a nonempty load selector (the
+            % options_user of any load, or a flat options_refined that older
+            % versions wrote for a load) describe the re-plot: their feature
+            % label is not evidence of the archived execution.
             user = struct('feature_name', 'noisy', 'load', 'latest', 'n_runs', 2);
             testCase.verifyError(@() loadBenchmarkOptions(user), 'OptiProfiler:LoadInvocationNotReplayable');
-            options_refined = source;
+            options_refined = struct('feature_name', 'plain', 'n_runs', 1, 'load', '20200101_000000', 'noise_level', 1e-3);
             file = fullfile(testCase.Work, 'load-options.mat');
             save(file, 'options_refined', '-v7');
             testCase.verifyError(@() loadBenchmarkOptions(file), 'OptiProfiler:LoadInvocationNotReplayable');
             % An empty load selector is an absent one.
-            source.load = '';
-            options = loadBenchmarkOptions(source);
-            testCase.verifyEqual(options.feature.name, 'plain');
+            user.load = '';
+            options = loadBenchmarkOptions(user);
+            testCase.verifyEqual(options.feature.name, 'noisy');
             testCase.verifyFalse(isfield(options, 'load'));
+            % A versioned record carries its own effective feature identity;
+            % benchmark never writes one for a load, and an explicit v2 replay
+            % input drops the obsolete selectors (the TestFeatureReportV2
+            % contract), so it is not a load-invocation record.
+            versioned = struct('schema', 'options_refined-v2', 'n_runs', 1, 'load', 'latest', 'solvers_to_load', [2 1], ...
+                'feature_specification', {{struct('name', 'plain', 'options', struct())}});
+            options = loadBenchmarkOptions(versioned);
+            testCase.verifyEqual(options.feature.name, 'plain');
+            testCase.verifyFalse(any(isfield(options, {'load', 'solvers_to_load'})));
         end
 
         function reportDiagnosticsAreDeduplicatedAndCappedWithACount(testCase)

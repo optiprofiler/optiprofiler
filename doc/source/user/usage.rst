@@ -174,10 +174,14 @@ inputs, not evidence of the original declaration.
 
 Options saved by a ``load`` (re-plot) invocation describe that re-plot, not the
 archived execution: ``benchmark`` writes no ``options_refined.mat`` for a load,
-and ``loadBenchmarkOptions`` rejects a source with a nonempty ``load`` field
-(``OptiProfiler:LoadInvocationNotReplayable``) instead of turning the load label
-into a replay. Replay the source experiment from its own
-``test_log/options_refined.mat``.
+and ``loadBenchmarkOptions`` rejects an unversioned source with a nonempty
+``load`` field (the ``options_user.mat`` of a load, or a flat
+``options_refined.mat`` that older versions wrote for a load) with
+``OptiProfiler:LoadInvocationNotReplayable`` instead of turning the load label
+into a replay. A versioned ``options_refined-v2`` record carries its own
+effective feature identity, so it is accepted as an explicit replay input and
+its obsolete ``load``/``solvers_to_load`` selectors are simply not forwarded.
+Replay the source experiment from its own ``test_log/options_refined.mat``.
 
 Old flat native options sometimes omitted feature identity. Such a file requires
 an explicit second argument, for example ``loadBenchmarkOptions(path, 'noisy')``;
