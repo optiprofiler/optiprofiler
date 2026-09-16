@@ -975,17 +975,13 @@ classdef EvalReport < handle
         end
 
         function path = canonical(path)
-            % Absolute, without '.' or '..' components, and physical (symlinks
-            % resolved) for the part that exists. With the JVM this is Java's
-            % canonical path. Without it (Unix only: exclusive reservation
-            % needs the JVM on Windows), the deepest existing ancestor is
-            % resolved by realpath when available, otherwise through the
-            % physical directory that fileattrib reports for one of its
-            % entries (fileattrib and dir report a queried directory itself as
-            % given, but its entries under their physical directory); the
-            % remaining components are appended. An empty symlinked directory
-            % on a system without realpath stays at its given name, which the
-            % operating system still resolves.
+            % Absolute, physical (symbolic links resolved) for the part that
+            % exists, and without '.' or '..' in the remainder. With the JVM
+            % this is Java's canonical path. Without it (Unix only: exclusive
+            % reservation needs the JVM on Windows) the longest existing prefix
+            % is resolved by the operating system, so a '..' that follows a
+            % symbolic link is taken from the link target as the file system
+            % does; only the non-existing remainder is folded lexically.
             path = char(path);
             if ~optiprofiler_internal.EvalReport.isAbsolute(path), path = fullfile(pwd, path); end
             if usejava('jvm')
@@ -995,33 +991,50 @@ classdef EvalReport < handle
                 catch
                 end
             end
-            path = optiprofiler_internal.EvalReport.normalizeLexically(path);
-            remainder = {};
-            probe = path;
-            while ~isfolder(probe)
-                [parent, name, ext] = fileparts(probe);
-                if isempty(parent) || strcmp(parent, probe), break; end
-                remainder = [{[name, ext]}, remainder]; %#ok<AGROW>
-                probe = parent;
+            parts = regexp(path, '[\\/]', 'split');
+            root = filesep;
+            if ~isempty(parts) && ~isempty(regexp(parts{1}, '^[A-Za-z]:$', 'once'))
+                root = [parts{1}, filesep];
+                parts = parts(2:end);
             end
-            if isfolder(probe)
-                resolved = '';
-                if isunix
-                    [status, out] = system(['realpath ', optiprofiler_internal.EvalReport.quote(probe), ' 2>/dev/null']);
-                    out = strtrim(out);
-                    if status == 0 && ~isempty(out) && isfolder(out), resolved = out; end
+            parts = parts(~cellfun(@isempty, parts));
+            resolved = '';
+            k = numel(parts);
+            while k >= 1
+                prefix = [root, strjoin(parts(1:k), filesep)];
+                if isfolder(prefix) || isfile(prefix)
+                    resolved = optiprofiler_internal.EvalReport.physicalPath(prefix);
+                    break;
                 end
-                if isempty(resolved)
-                    entries = dir(probe);
-                    entries = entries(~ismember({entries.name}, {'.', '..'}));
-                    if ~isempty(entries)
-                        [ok, info] = fileattrib(fullfile(probe, entries(1).name));
-                        if ok && isstruct(info) && isfield(info, 'Name'), resolved = fileparts(info.Name); end
-                    end
-                end
-                if ~isempty(resolved), probe = resolved; end
+                k = k - 1;
             end
-            path = fullfile(probe, remainder{:});
+            if isempty(resolved), resolved = root; end
+            path = optiprofiler_internal.EvalReport.normalizeLexically(fullfile(resolved, parts{k+1:end}));
+        end
+
+        function path = physicalPath(existing)
+            % Physical location of an existing path without the JVM: realpath
+            % resolves links and any '..' after them; otherwise fileattrib
+            % reports the physical directory of a file or of a directory entry;
+            % the lexical form is the last resort (an empty symbolic-link
+            % directory on a system without realpath).
+            if isunix
+                [status, out] = system(['realpath ', optiprofiler_internal.EvalReport.quote(existing), ' 2>/dev/null']);
+                out = strtrim(out);
+                if status == 0 && ~isempty(out) && (isfolder(out) || isfile(out)), path = out; return; end
+            end
+            if isfile(existing)
+                [ok, info] = fileattrib(existing);
+                if ok && isstruct(info) && isfield(info, 'Name'), path = info.Name; return; end
+            elseif isfolder(existing)
+                entries = dir(existing);
+                entries = entries(~ismember({entries.name}, {'.', '..'}));
+                if ~isempty(entries)
+                    [ok, info] = fileattrib(fullfile(existing, entries(1).name));
+                    if ok && isstruct(info) && isfield(info, 'Name'), path = fileparts(info.Name); return; end
+                end
+            end
+            path = optiprofiler_internal.EvalReport.normalizeLexically(existing);
         end
 
         function path = normalizeLexically(path)

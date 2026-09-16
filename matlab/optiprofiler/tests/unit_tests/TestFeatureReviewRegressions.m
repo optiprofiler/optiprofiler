@@ -194,6 +194,36 @@ classdef TestFeatureReviewRegressions < matlab.unittest.TestCase
             testCase.verifyEqual(fileread(resolved), 'linked');
         end
 
+        function parentComponentAfterASymlinkFollowsTheFileSystem(testCase)
+            % 'alias/../report.json' means '<target parent>/report.json' to the
+            % operating system; folding the '..' lexically would silently write
+            % to '<root>/report.json' instead (observed without the JVM).
+            if ~isunix, return; end
+            root = testCase.Work;
+            target = fullfile(root, 'physical', 'deep', 'target');
+            mkdir(target);
+            [status, ~] = system(sprintf('ln -s ''%s'' ''%s''', target, fullfile(root, 'alias')));
+            if status ~= 0, return; end
+            requested = fullfile(root, 'alias', '..', 'report.json');
+            report = optiprofiler_internal.EvalReport(requested, struct(), @reviewReplace);
+            report.finish();
+            testCase.verifyTrue(isfile(requested), 'The report must exist at the requested location.');
+            testCase.verifyTrue(isfile(fullfile(root, 'physical', 'deep', 'report.json')), 'The OS location of alias/.. is the link target parent.');
+            testCase.verifyFalse(isfile(fullfile(root, 'report.json')), 'The report must not be written to the lexical location.');
+            % Missing final directories after the same construct are created under the physical parent.
+            nested = fullfile(root, 'alias', '..', 'missing', 'sub', 'nested.json');
+            report = optiprofiler_internal.EvalReport(nested, struct(), @reviewReplace);
+            report.finish();
+            testCase.verifyTrue(isfile(nested));
+            testCase.verifyTrue(isfile(fullfile(root, 'physical', 'deep', 'missing', 'sub', 'nested.json')));
+            testCase.verifyFalse(isfolder(fullfile(root, 'missing')));
+            % An ordinary path with '.' and '..' components is unaffected.
+            plain = fullfile(root, 'ordinary', '.', 'x', '..', 'plain.json');
+            report = optiprofiler_internal.EvalReport(plain, struct(), @reviewReplace);
+            report.finish();
+            testCase.verifyTrue(isfile(fullfile(root, 'ordinary', 'plain.json')));
+        end
+
         function stringArrayOptionsRunWithAReport(testCase)
             problem = Problem(struct('fun', @(x) sum(x.^2), 'x0', [1; 2]));
             options = struct('problem', problem, 'score_only', true, 'silent', true, 'n_runs', 1, ...

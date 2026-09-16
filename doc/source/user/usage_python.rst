@@ -350,9 +350,11 @@ refined dictionary is not a supported call. The file written by a ``load``
 the archived experiment, never the load label: its ``feature_specification``
 and ``n_runs`` are recovered from the source experiment's own native
 ``options_refined.pkl`` (exact values, callables included) and cross-checked
-against the archive, with the archived seed, ``run_plain``, the fixed
-plain-reference count and the archived problem options under
-``archived_experiment``; when that file is missing, a flat 1.x file without
+against the archive (run axis, feature stamp, plain reference and, for a
+``feature_pipeline-v3`` payload, every stage record including its options;
+callbacks compare by descriptor module and name only, which the record says),
+with the archived seed, ``run_plain``, the fixed plain-reference count and the
+archived problem options under ``archived_experiment``; when that file is missing, a flat 1.x file without
 feature identity, or in disagreement with the archive, the recipe fails
 closed (``replayable=False``, ``feature_specification=None``, ``n_runs=None``
 and a ``replay_reason``) instead of inventing defaults. The report's JSON

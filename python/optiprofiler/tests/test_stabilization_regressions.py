@@ -489,6 +489,93 @@ def test_load_recipe_fails_closed_when_the_source_cannot_be_recovered(tmp_path, 
     assert archived_replay_recipe(None, [])['replay_reason'] == 'source_options_refined_missing'
 
 
+def custom_probe_a(x, rng, problem):
+    return problem.fun(x)
+
+
+def custom_probe_b(x, rng, problem):
+    return problem.fun(x) + 1.0
+
+
+def _archive_for(feature, n_runs=2, stamp='same-explicit-label'):
+    from optiprofiler.experiment import resolve_plan
+    from optiprofiler.provenance import feature_pipeline_text
+    return {'fun_histories': np.zeros((1, 2, n_runs, 3)), 'feature_stamp': stamp,
+            'feature_pipeline': feature_pipeline_text(feature, resolve_plan(feature, requested=n_runs), feature_stamp=stamp)}
+
+
+def _native_for(feature, n_runs=2, stamp='same-explicit-label', **extra):
+    from optiprofiler.provenance import effective_specification
+    record = dict(replayable=True, feature_specification=effective_specification(feature), n_runs=n_runs, seed=7,
+                  run_plain=False, feature_stamp=stamp, problem_options={'ptype': 'u'})
+    record.update(extra)
+    return record
+
+
+def test_recovered_recipe_requires_matching_stage_options():
+    from optiprofiler.legacy_compat import _recipe_from_archived
+    actual = Feature('noisy', noise_level=0.1)
+    # Same stage name, count and label, different option: not the archived experiment.
+    stale = _recipe_from_archived(_native_for(Feature('noisy', noise_level=0.2)), [_archive_for(actual)])
+    assert stale['replayable'] is False
+    assert stale['replay_reason'] == 'archive_feature_pipeline_disagrees_with_source_options'
+    assert stale['archived_experiment']['detail'] == 'stage_option:noise_level'
+    assert stale['feature_specification'] is None and stale['n_runs'] is None
+    same = _recipe_from_archived(_native_for(actual), [_archive_for(actual)])
+    assert same['replayable'] is True
+    assert same['archived_experiment']['archive_comparison'].endswith('feature_pipeline_v3_stages_and_options')
+    assert same['archived_experiment']['callback_comparison'] == 'not_applicable'
+    # A different composition of the same names, and a different count, are rejected too.
+    reordered = _recipe_from_archived(_native_for(Feature('noisy+truncated')), [_archive_for(Feature('truncated+noisy'))])
+    assert reordered['replay_reason'] == 'archive_feature_pipeline_disagrees_with_source_options'
+    count = _recipe_from_archived(_native_for(actual, n_runs=3), [_archive_for(actual, n_runs=3)])
+    assert count['replayable'] is True
+    # Callbacks are compared by descriptor (module and name) only, and the record says so.
+    with_a = Feature('custom', mod_fun=custom_probe_a)
+    described = _recipe_from_archived(_native_for(with_a), [_archive_for(with_a)])
+    assert described['replayable'] is True
+    assert described['archived_experiment']['callback_comparison'] == 'descriptor_module_and_name_only_not_identity_or_semantics'
+    other = _recipe_from_archived(_native_for(Feature('custom', mod_fun=custom_probe_b)), [_archive_for(with_a)])
+    assert other['replay_reason'] == 'archive_feature_pipeline_disagrees_with_source_options'
+    assert other['archived_experiment']['detail'] == 'stage_option:mod_fun'
+    # Malformed recovered records fail closed with a reason, never with a bare exception.
+    for broken, reason in (({'replayable': True}, 'source_recipe_malformed:feature_specification'),
+                           ({**_native_for(actual), 'n_runs': None}, 'source_recipe_malformed:n_runs'),
+                           ({**_native_for(actual), 'seed': True}, 'source_recipe_malformed:seed'),
+                           ({**_native_for(actual), 'run_plain': 'yes'}, 'source_recipe_malformed:run_plain'),
+                           ({**_native_for(actual), 'problem_options': None}, 'source_recipe_malformed:problem_options')):
+        assert _recipe_from_archived(broken, [_archive_for(actual)])['replay_reason'] == reason
+    with pytest.raises(LegacyConfigurationError, match='malformed'):
+        replay_arguments({'operation': 'load', 'archived_experiment': {'replayable': True}})
+
+
+def test_load_recipe_fails_closed_when_source_options_disagree_with_the_archive(tmp_path, monkeypatch):
+    # An explicit label keeps the feature stamp identical, so only the
+    # pipeline's stage options can reveal the disagreement.
+    _source_experiment(tmp_path, 'stale', feature_name='noisy', noise_level=0.3, n_runs=2, feature_stamp='label')
+    source_path, source = _source_recipe(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    tampered = dict(source)
+    tampered['feature_specification'] = [{'name': 'noisy', 'options': {**source['feature_specification'][0]['options'],
+                                                                        'noise_level': 0.2}}]
+    source_path.write_bytes(pickle.dumps(tampered))
+    _load_experiment(tmp_path)
+    _, refined = _load_recipe(tmp_path)
+    assert refined['replayable'] is False
+    assert refined['replay_reason'] == 'archive_feature_pipeline_disagrees_with_source_options'
+    assert refined['archived_experiment']['detail'] == 'stage_option:noise_level'
+    assert refined['feature_specification'] is None and refined['n_runs'] is None
+    with pytest.raises(LegacyConfigurationError, match='load'):
+        replay_arguments(refined)
+    # A malformed nested recipe in a load-written source also fails closed.
+    stamp = _time_stamp_of(source_path)
+    source_path.write_bytes(pickle.dumps({'operation': 'load', 'load': stamp,
+                                          'archived_experiment': {'replayable': True, 'n_runs': 2}}))
+    _load_experiment(tmp_path, load=stamp)
+    _, refined = _load_recipe(tmp_path)
+    assert refined['replay_reason'] == 'source_recipe_malformed:feature_specification'
+
+
 def test_load_of_a_load_adopts_the_recovered_recipe(tmp_path, monkeypatch):
     _source_experiment(tmp_path, 'nested', feature_name='noisy', noise_level=0.3, n_runs=2)
     monkeypatch.chdir(tmp_path)

@@ -373,17 +373,46 @@ def _with_run_count(result, count):
     return result
 
 
+def _validated_archived(archived):
+    """
+    A recovered ``archived_experiment`` record with every field a replay needs,
+    or ``(None, reason)`` when it is missing or malformed (a stray key, a
+    missing count, a non-boolean ``run_plain``): malformed records fail closed
+    instead of surfacing bare exceptions.
+    """
+    from .experiment import validate_n_runs
+    if not isinstance(archived, Mapping):
+        return None, 'source_recipe_malformed:not_a_mapping'
+    if archived.get('replayable') is not True:
+        return None, 'source_recipe_not_replayable'
+    if not isinstance(archived.get('feature_specification'), (list, tuple, Mapping)):
+        return None, 'source_recipe_malformed:feature_specification'
+    try:
+        n_runs = validate_n_runs(archived.get('n_runs'))
+    except (TypeError, ValueError):
+        return None, 'source_recipe_malformed:n_runs'
+    seed = archived.get('seed')
+    if isinstance(seed, bool) or not isinstance(seed, int) or seed < 0:
+        return None, 'source_recipe_malformed:seed'
+    if not isinstance(archived.get('run_plain'), bool):
+        return None, 'source_recipe_malformed:run_plain'
+    if not isinstance(archived.get('problem_options'), Mapping):
+        return None, 'source_recipe_malformed:problem_options'
+    validated = dict(archived)
+    validated['n_runs'] = n_runs
+    validated['problem_options'] = dict(archived['problem_options'])
+    return validated, None
+
+
 def _load_invocation_replay(plain):
     """A file written by a load (re-plot) invocation replays only its recovered archived recipe."""
-    archived = plain.get('archived_experiment')
-    if isinstance(archived, Mapping) and archived.get('replayable') is True:
-        specification = archived.get('feature_specification')
-        problem_options = archived.get('problem_options')
-        if not isinstance(specification, (list, tuple, Mapping)) or not isinstance(problem_options, Mapping):
-            raise LegacyConfigurationError('The archived recipe of this load-written options file is incomplete '
-                                           '(feature specification or problem options missing).')
-        return _with_run_count({'feature': _historical_specification(specification),
-                                'problem_options': dict(problem_options)}, archived.get('n_runs'))
+    archived, problem = _validated_archived(plain.get('archived_experiment'))
+    if archived is not None:
+        return _with_run_count({'feature': _historical_specification(archived['feature_specification']),
+                                'problem_options': archived['problem_options']}, archived['n_runs'])
+    if problem != 'source_recipe_not_replayable' and problem != 'source_recipe_malformed:not_a_mapping':
+        raise LegacyConfigurationError(f'The archived recipe of this load-written options file is malformed ({problem}); '
+                                       'replay the source experiment from its own test_log/options_refined.pkl instead.')
     reason = plain.get('replay_reason') if isinstance(plain.get('replay_reason'), str) else 'no_archived_recipe_recorded'
     raise LegacyConfigurationError(
         'This options file was written by a load (re-plot) invocation and records no replayable archived '
@@ -484,18 +513,103 @@ def _closed_recipe(reason, **details):
             'archived_experiment': {'replayable': False, 'reason': reason, **details}}
 
 
+def _is_callback_descriptor(value):
+    return isinstance(value, Mapping) and value.get('kind') == 'callback'
+
+
+def _projection_equal(archived, current):
+    """
+    Equality of two safe-metadata projections of a stage option. Numbers
+    compare by value, containers element-wise. Two callback descriptors compare
+    by module and name only: the archive keeps no executable callback, so the
+    descriptor is the only fact available and it is not a semantic identity.
+    Returns ``(equal, callbacks_compared)``.
+    """
+    if _is_callback_descriptor(archived) or _is_callback_descriptor(current):
+        if not (_is_callback_descriptor(archived) and _is_callback_descriptor(current)):
+            return False, True
+        same = archived.get('module') == current.get('module') and archived.get('name') == current.get('name')
+        return same, True
+    if isinstance(archived, bool) or isinstance(current, bool):
+        return type(archived) is type(current) and archived == current, False
+    if isinstance(archived, (int, float)) and isinstance(current, (int, float)):
+        return archived == current, False
+    if isinstance(archived, list) and isinstance(current, list):
+        if len(archived) != len(current):
+            return False, False
+        callbacks = False
+        for left, right in zip(archived, current):
+            same, seen = _projection_equal(left, right)
+            callbacks = callbacks or seen
+            if not same:
+                return False, callbacks
+        return True, callbacks
+    if isinstance(archived, Mapping) and isinstance(current, Mapping):
+        if set(archived) != set(current):
+            return False, False
+        callbacks = False
+        for key in archived:
+            same, seen = _projection_equal(archived[key], current[key])
+            callbacks = callbacks or seen
+            if not same:
+                return False, callbacks
+        return True, callbacks
+    return type(archived) is type(current) and archived == current, False
+
+
+def _stages_disagreement(recorded, feature):
+    """
+    Compare the stage records of an archived ``feature_pipeline-v3`` block with
+    the recovered specification, projected by the same metadata encoder:
+    stage count, name, occurrence, identity, code, position and every
+    stage-local option. Returns ``(detail, callbacks_compared)`` where
+    ``detail`` names the first disagreement or is ``None``.
+    """
+    from .provenance import describe_feature
+    described = describe_feature(feature)['stages']
+    if not isinstance(recorded, list) or len(recorded) != len(described):
+        return 'stage_count', False
+    callbacks = False
+    for archived, current in zip(recorded, described):
+        if not isinstance(archived, Mapping):
+            return 'stage_record', callbacks
+        for key in ('name', 'occurrence', 'identity', 'code', 'position'):
+            if key in archived and archived[key] != current[key]:
+                return f'stage_{key}', callbacks
+        options = archived.get('options')
+        if not isinstance(options, Mapping):
+            return 'stage_options', callbacks
+        if set(options) != set(current['options']):
+            return 'stage_option_keys', callbacks
+        for name in options:
+            same, seen = _projection_equal(options[name], current['options'][name])
+            callbacks = callbacks or seen
+            if not same:
+                return f'stage_option:{name}', callbacks
+    return None, callbacks
+
+
 def _recipe_from_archived(archived, results_plibs):
-    """Cross-check a recovered archived experiment against the loaded archive and produce the recipe."""
+    """
+    Cross-check a recovered archived experiment against the loaded archive and
+    produce the recipe. Agreement is required on every fact the archive
+    retains: run axis, feature stamp, and for a ``feature_pipeline-v3`` payload
+    the stage records including their options (callbacks by descriptor module
+    and name only, which is recorded as such) and the experiment run count
+    and effective name; the plain reference must match ``run_plain``.
+    """
     from .opclasses import Feature
     from .provenance import read_feature_pipeline
+    archived, problem = _validated_archived(archived)
+    if archived is None:
+        return _closed_recipe(problem)
     try:
         feature = Feature(archived['feature_specification'])
     except (TypeError, ValueError) as err:
         return _closed_recipe('source_feature_specification_invalid', detail=str(err)[:200])
     n_runs = archived['n_runs']
-    if archived.get('seed') is None:
-        return _closed_recipe('source_seed_not_recorded')
-    stage_names = [stage.name for stage in feature.stages]
+    comparison = {'archive_comparison': 'run_axis;feature_stamp;plain_reference',
+                  'callback_comparison': 'not_applicable'}
     for result in results_plibs or []:
         if not isinstance(result, Mapping):
             continue
@@ -510,14 +624,21 @@ def _recipe_from_archived(archived, results_plibs):
         if isinstance(payload, Mapping) and schema == 'feature_pipeline-v3':
             block = payload.get('feature') if isinstance(payload.get('feature'), Mapping) else {}
             experiment = payload.get('experiment') if isinstance(payload.get('experiment'), Mapping) else {}
-            recorded = [stage.get('name') for stage in block.get('stages', []) if isinstance(stage, Mapping)]
-            if recorded != stage_names or experiment.get('n_runs') not in (None, n_runs):
-                return _closed_recipe('archive_feature_pipeline_disagrees_with_source_options')
+            detail, callbacks = _stages_disagreement(block.get('stages'), feature)
+            if detail is None and experiment.get('n_runs') not in (None, n_runs):
+                detail = 'experiment_n_runs'
+            if detail is None and block.get('effective_name') not in (None, feature.name):
+                detail = 'effective_name'
+            if detail is not None:
+                return _closed_recipe('archive_feature_pipeline_disagrees_with_source_options', detail=detail)
+            comparison['archive_comparison'] = 'run_axis;feature_stamp;plain_reference;feature_pipeline_v3_stages_and_options'
+            if callbacks:
+                comparison['callback_comparison'] = 'descriptor_module_and_name_only_not_identity_or_semantics'
         if isinstance(result.get('results_plib_plain'), Mapping) != bool(archived['run_plain']):
             return _closed_recipe('archive_plain_reference_disagrees_with_source_options')
     return {'operation': 'load', 'replayable': True, 'replay_reason': None, 'feature_route': None,
             'feature_name': feature.declared_name, 'feature_specification': archived['feature_specification'],
-            'n_runs': n_runs, 'archived_experiment': dict(archived)}
+            'n_runs': n_runs, 'archived_experiment': {**dict(archived), **comparison}}
 
 
 def archived_replay_recipe(source_options_path, results_plibs):
@@ -553,10 +674,12 @@ def archived_replay_recipe(source_options_path, results_plibs):
     except OSError as err:
         return _closed_recipe('source_options_unreadable', error_type=type(err).__name__)
     if _is_load_invocation(source):
-        nested = source.get('archived_experiment')
-        if isinstance(nested, Mapping) and nested.get('replayable') is True:
-            return _recipe_from_archived(dict(nested), results_plibs)
-        return _closed_recipe('source_is_a_load_invocation_without_recipe')
+        nested, problem = _validated_archived(source.get('archived_experiment'))
+        if nested is not None:
+            return _recipe_from_archived(nested, results_plibs)
+        if problem in ('source_recipe_not_replayable', 'source_recipe_malformed:not_a_mapping'):
+            return _closed_recipe('source_is_a_load_invocation_without_recipe')
+        return _closed_recipe(problem)
     try:
         replay = replay_arguments(source)
     except LegacyConfigurationError as err:
