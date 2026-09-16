@@ -594,29 +594,39 @@ def _stages_disagreement(recorded, feature):
 def _recipe_from_archived(archived, results_plibs):
     """
     Cross-check a recovered archived experiment against the loaded archive and
-    produce the recipe. Agreement is required on every fact the archive
-    retains: run axis, feature stamp, and for a ``feature_pipeline-v3`` payload
-    the stage records including their options (callbacks by descriptor module
-    and name only, which is recorded as such) and the experiment run count
-    and effective name; the plain reference must match ``run_plain``.
+    produce the recipe. The primary question comes first: does the source
+    describe the archived experiment? Agreement is required on every fact the
+    archive retains: run axis, feature stamp, and for a ``feature_pipeline-v3``
+    payload the stage records including their options (callbacks by descriptor
+    module and name only, which is recorded as such) and the experiment run
+    count and effective name; the plain reference must match ``run_plain``.
+    Only a candidate that agrees is then required to be complete enough to
+    replay (``source_recipe_malformed:<field>`` otherwise); a malformed field
+    the cross-check itself needs is skipped there and reported here.
     """
+    from .experiment import validate_n_runs
     from .opclasses import Feature
     from .provenance import read_feature_pipeline
-    archived, problem = _validated_archived(archived, require_flag=False)
-    if archived is None:
-        return _closed_recipe(problem)
+    if not isinstance(archived, Mapping):
+        return _closed_recipe('source_recipe_malformed:not_a_mapping')
+    if not isinstance(archived.get('feature_specification'), (list, tuple, Mapping)):
+        return _closed_recipe('source_recipe_malformed:feature_specification')
     try:
         feature = Feature(archived['feature_specification'])
     except (TypeError, ValueError) as err:
         return _closed_recipe('source_feature_specification_invalid', detail=str(err)[:200])
-    n_runs = archived['n_runs']
+    try:
+        n_runs = validate_n_runs(archived.get('n_runs'))
+    except (TypeError, ValueError):
+        n_runs = None
+    run_plain = archived.get('run_plain') if isinstance(archived.get('run_plain'), bool) else None
     comparison = {'archive_comparison': 'run_axis;feature_stamp;plain_reference',
                   'callback_comparison': 'not_applicable'}
     for result in results_plibs or []:
         if not isinstance(result, Mapping):
             continue
         histories = result.get('fun_histories')
-        if getattr(histories, 'ndim', 0) == 4 and int(histories.shape[2]) != n_runs:
+        if n_runs is not None and getattr(histories, 'ndim', 0) == 4 and int(histories.shape[2]) != n_runs:
             return _closed_recipe('archive_run_axis_disagrees_with_source_options',
                                   archive_runs=int(histories.shape[2]), source_n_runs=n_runs)
         stamp = result.get('feature_stamp')
@@ -627,7 +637,7 @@ def _recipe_from_archived(archived, results_plibs):
             block = payload.get('feature') if isinstance(payload.get('feature'), Mapping) else {}
             experiment = payload.get('experiment') if isinstance(payload.get('experiment'), Mapping) else {}
             detail, callbacks = _stages_disagreement(block.get('stages'), feature)
-            if detail is None and experiment.get('n_runs') not in (None, n_runs):
+            if detail is None and n_runs is not None and experiment.get('n_runs') not in (None, n_runs):
                 detail = 'experiment_n_runs'
             if detail is None and block.get('effective_name') not in (None, feature.name):
                 detail = 'effective_name'
@@ -636,11 +646,14 @@ def _recipe_from_archived(archived, results_plibs):
             comparison['archive_comparison'] = 'run_axis;feature_stamp;plain_reference;feature_pipeline_v3_stages_and_options'
             if callbacks:
                 comparison['callback_comparison'] = 'descriptor_module_and_name_only_not_identity_or_semantics'
-        if isinstance(result.get('results_plib_plain'), Mapping) != bool(archived['run_plain']):
+        if run_plain is not None and isinstance(result.get('results_plib_plain'), Mapping) != run_plain:
             return _closed_recipe('archive_plain_reference_disagrees_with_source_options')
+    archived, problem = _validated_archived(archived, require_flag=False)
+    if archived is None:
+        return _closed_recipe(problem)
     return {'operation': 'load', 'replayable': True, 'replay_reason': None, 'feature_route': None,
             'feature_name': feature.declared_name, 'feature_specification': archived['feature_specification'],
-            'n_runs': n_runs, 'archived_experiment': {**dict(archived), **comparison}}
+            'n_runs': archived['n_runs'], 'archived_experiment': {**dict(archived), **comparison}}
 
 
 def archived_replay_recipe(source_options_path, results_plibs):

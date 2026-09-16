@@ -528,6 +528,12 @@ def test_recovered_recipe_requires_matching_stage_options():
     unflagged = _recipe_from_archived(candidate, [_archive_for(actual)])
     assert unflagged['replay_reason'] == 'archive_feature_pipeline_disagrees_with_source_options'
     assert unflagged['archived_experiment']['detail'] == 'stage_option:noise_level'
+    # The archive disagreement is the primary fact: it is reported even when the
+    # candidate is also incomplete; completeness is asked of a candidate that agrees.
+    partial = {key: value for key, value in candidate.items() if key != 'problem_options'}
+    assert _recipe_from_archived(partial, [_archive_for(actual)])['archived_experiment']['detail'] == 'stage_option:noise_level'
+    agreeing = {key: value for key, value in _native_for(actual).items() if key != 'problem_options'}
+    assert _recipe_from_archived(agreeing, [_archive_for(actual)])['replay_reason'] == 'source_recipe_malformed:problem_options'
     same = _recipe_from_archived(_native_for(actual), [_archive_for(actual)])
     assert same['replayable'] is True
     assert same['archived_experiment']['archive_comparison'].endswith('feature_pipeline_v3_stages_and_options')
