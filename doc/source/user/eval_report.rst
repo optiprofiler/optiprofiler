@@ -340,13 +340,21 @@ but ``plot_data.status`` is ``partial`` with a null hash, the reason
 ``companion_sha256_unavailable``, a diagnostic and a warning. This is not a
 successfully verified report pair.
 
-The MATLAB collector identifies its two files through Java's file key on
-POSIX systems. Windows exposes no file index to Java, so there the identity is
-the creation time, size and modification time of the file: a replaced or
-rewritten file between two publishes is still detected, forged timestamps are
-outside the model, and ``report_files.platform_note`` says so. For the artifact
-directory only the creation time is used, because a directory's modification
-time changes whenever the benchmark writes another file into it. Junctions and
+Both collectors identify their two files by more than a file key. A device
+and inode alone would not notice a foreign in-place rewrite (the inode stays),
+and after a foreign replace-over-target the file system may hand the freed
+inode back (ext4 alternates between two inodes, so every second replacement
+restores the recorded one). The Python collector therefore records device,
+inode, size and nanosecond modification time; the MATLAB collector records
+Java's file key together with the size and modification time on POSIX systems
+(without a JVM, ``stat`` supplies the same facts, with whole seconds on macOS).
+Windows exposes no file index to Java, so there the identity is the creation
+time, size and modification time of the file. A replaced or rewritten file
+between two publishes is detected in every case, forged timestamps are outside
+the model, and ``report_files.platform_note`` says so. For directories (the
+report's parent, the artifact directory) only the file key, or the creation
+time on Windows, is used, because a directory's modification time changes
+whenever the benchmark writes another file into it. Junctions and
 other name-redirecting reparse points are treated like symbolic links: Java
 exposes no reparse tag, so the collector compares the resolved real path of an
 entry with the resolved path of its parent joined with the entry's canonical

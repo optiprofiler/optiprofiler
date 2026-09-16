@@ -214,6 +214,43 @@ def test_first_write_failure_rolls_back_only_owned_files(tmp_path, monkeypatch):
     assert companion.read_bytes() == b'owner-sentinel' and not (tmp_path / 'kept.json').exists()
 
 
+def test_foreign_in_place_rewrite_and_inode_reuse_are_detected(tmp_path):
+    # A foreign in-place rewrite keeps the inode, and after two foreign
+    # replace-over-target operations ext4 hands the recorded inode back; an
+    # identity made of device and inode alone would treat both as owned.
+    target = tmp_path / 'inplace.json'
+    report = EvalReport(target, {})
+    inode = target.lstat().st_ino
+    target.write_text('external in-place rewrite', encoding='utf-8')
+    assert target.lstat().st_ino == inode
+    with pytest.raises(FileExistsError, match='ownership'):
+        report._write()
+    assert target.read_text(encoding='utf-8') == 'external in-place rewrite'
+    companion_owner = tmp_path / 'companion.json'
+    companion = tmp_path / 'companion.plot_data.json'
+    report = EvalReport(companion_owner, {})
+    companion.write_text('external companion rewrite', encoding='utf-8')
+    with pytest.raises(FileExistsError, match='ownership'):
+        report._write()
+    assert companion.read_text(encoding='utf-8') == 'external companion rewrite'
+    replaced = tmp_path / 'replaced.json'
+    report = EvalReport(replaced, {})
+    recorded = replaced.lstat().st_ino
+    for k in (1, 2):
+        stage = replaced.with_name('replaced.json.replacement')
+        stage.write_text(f'external replacement {k}', encoding='utf-8')
+        os.replace(stage, replaced)
+    reused = replaced.lstat().st_ino == recorded  # true on ext4; the check must not depend on it
+    with pytest.raises(FileExistsError, match='ownership'):
+        report._write()
+    assert replaced.read_text(encoding='utf-8') == 'external replacement 2'
+    assert isinstance(reused, bool)
+    # A publish of an untouched report still succeeds afterwards.
+    fresh = EvalReport(tmp_path / 'fresh.json', {})
+    fresh._write()
+    assert json.loads((tmp_path / 'fresh.json').read_text(encoding='utf-8'))['status'] == 'running'
+
+
 @pytest.mark.skipif(os.name == 'nt', reason='symbolic links need privileges on Windows')
 def test_symlinked_report_parent_and_output_resolve_physically(tmp_path, monkeypatch):
     physical = tmp_path / 'physical'

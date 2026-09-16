@@ -578,9 +578,9 @@ class EvalReport:
         try:
             for target in (self.path, self.plot_path):
                 fd = os.open(str(target), flags, 0o600)
-                identity = self._stat_identity(os.fstat(fd))
+                created = os.fstat(fd)
                 os.close(fd)
-                reserved.append((target, identity))
+                reserved.append((target, self._settled_identity(target, created)))
         except BaseException:
             for target, identity in reserved:
                 if not target.is_symlink() and self._identity(target) == identity:
@@ -601,7 +601,7 @@ class EvalReport:
         self.document['report_files'] = {
             'permission_policy': 'owner_read_write_only_best_effort',
             'permissions_applied': applied,
-            'platform_note': 'posix_mode_0600_via_exclusive_create_and_mkstemp;not_enforced_on_windows;directory_privacy_is_the_caller_responsibility'}
+            'platform_note': 'posix_mode_0600_via_exclusive_create_and_mkstemp;not_enforced_on_windows;file_identity_is_device_inode_size_and_mtime_ns;directory_identity_is_device_and_inode;directory_privacy_is_the_caller_responsibility'}
         try:
             self._write()
         except BaseException:
@@ -624,11 +624,31 @@ class EvalReport:
 
     @staticmethod
     def _stat_identity(value):
-        return value.st_dev, value.st_ino
+        # Device and inode alone are an ABA hole: a foreign in-place rewrite
+        # keeps the inode, and after a foreign replace-over-target the file
+        # system hands the freed inode back (ext4 alternates between two
+        # inodes, so every second replacement restores the recorded one).
+        # Size and nanosecond modification time complete a regular file's
+        # identity; a directory keeps device and inode only, because its
+        # modification time changes with every entry the benchmark writes.
+        if stat.S_ISDIR(value.st_mode):
+            return value.st_dev, value.st_ino
+        return value.st_dev, value.st_ino, value.st_size, value.st_mtime_ns
 
     @classmethod
     def _identity(cls, path):
         return cls._stat_identity(path.lstat())
+
+    @classmethod
+    def _settled_identity(cls, target, written):
+        # The identity later checks compare against comes from the same lstat
+        # view they use (a network file system may round the timestamps the
+        # open descriptor reported); the descriptor's device and inode still
+        # prove the entry is the file this invocation just created.
+        current = target.lstat()
+        if (current.st_dev, current.st_ino) != (written.st_dev, written.st_ino):
+            raise FileExistsError('EvalReport target ownership changed')
+        return cls._stat_identity(current)
 
     def _write(self):
         self._coverage()
@@ -662,12 +682,12 @@ class EvalReport:
                 stream.write('\n')
                 stream.flush()
                 os.fsync(stream.fileno())
-                identity = self._stat_identity(os.fstat(stream.fileno()))
+                written = os.fstat(stream.fileno())
             if (target.is_symlink() or self._identity(target) != owned_identity
                     or self._identity(target.parent) != self._parent_identity):
                 raise FileExistsError('EvalReport target ownership changed')
             os.replace(temp, target)
-            return identity
+            return self._settled_identity(target, written)
         finally:
             try:
                 os.unlink(temp)

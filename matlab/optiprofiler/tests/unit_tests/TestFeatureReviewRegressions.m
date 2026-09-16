@@ -153,6 +153,40 @@ classdef TestFeatureReviewRegressions < matlab.unittest.TestCase
             testCase.verifyFalse(isfile(fullfile(testCase.Work, 'foreign.plot_data.json')));
         end
 
+        function foreignInPlaceRewriteAndInodeReuseAreDetected(testCase)
+            % A foreign in-place rewrite keeps the inode, and after two foreign
+            % replace-over-target operations ext4 hands the recorded inode
+            % back; an identity made of the file key alone treated both as
+            % owned (observed once in the EvalReport CI gate on syu-ubuntu).
+            % Runs with and without the JVM (Java file key, or stat).
+            target = fullfile(testCase.Work, 'inplace.json');
+            report = optiprofiler_internal.EvalReport(target, struct(), @reviewReplace);
+            fid = fopen(target, 'w'); fwrite(fid, 'external in-place rewrite', 'char'); fclose(fid);
+            testCase.verifyError(@() report.finish(), 'OptiProfiler:EvalReportOwnership');
+            testCase.verifyEqual(fileread(target), 'external in-place rewrite');
+            owner = fullfile(testCase.Work, 'companion.json');
+            companion = fullfile(testCase.Work, 'companion.plot_data.json');
+            report = optiprofiler_internal.EvalReport(owner, struct(), @reviewReplace);
+            fid = fopen(companion, 'w'); fwrite(fid, 'external companion rewrite', 'char'); fclose(fid);
+            testCase.verifyError(@() report.finish(), 'OptiProfiler:EvalReportOwnership');
+            testCase.verifyEqual(fileread(companion), 'external companion rewrite');
+            replaced = fullfile(testCase.Work, 'replaced.json');
+            report = optiprofiler_internal.EvalReport(replaced, struct(), @reviewReplace);
+            for k = 1:2
+                stage = [replaced, '.replacement'];
+                fid = fopen(stage, 'w'); fwrite(fid, sprintf('external replacement %d', k), 'char'); fclose(fid);
+                [ok, message] = movefile(stage, replaced, 'f'); assert(ok, message);
+            end
+            testCase.verifyError(@() report.finish(), 'OptiProfiler:EvalReportOwnership');
+            testCase.verifyEqual(fileread(replaced), 'external replacement 2');
+            % An untouched report still publishes afterwards.
+            fresh = fullfile(testCase.Work, 'fresh.json');
+            report = optiprofiler_internal.EvalReport(fresh, struct(), @reviewReplace);
+            report.finish();
+            document = jsondecode(fileread(fresh));
+            testCase.verifyEqual(document.status, 'empty');
+        end
+
         function relativeAndSymlinkedReportPathsResolveOnDisk(testCase)
             cd(testCase.Work);
             mkdir(fullfile('relative', 'reports'));

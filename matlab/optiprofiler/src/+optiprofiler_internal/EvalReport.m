@@ -861,7 +861,7 @@ classdef EvalReport < handle
             self.document.plot_data = receipt;
             self.document.report_files = struct('permission_policy', 'owner_read_write_only_best_effort', ...
                 'permissions_applied', self.permissionsApplied, ...
-                'platform_note', 'unix_chmod_600_after_each_publish;not_enforced_on_windows;windows_file_identity_is_creation_time_size_and_mtime_not_a_file_index;windows_directory_identity_is_creation_time_only;directory_privacy_is_the_caller_responsibility');
+                'platform_note', 'unix_chmod_600_after_each_publish;not_enforced_on_windows;unix_file_identity_is_file_key_size_and_mtime;unix_directory_identity_is_file_key_only;windows_file_identity_is_creation_time_size_and_mtime_not_a_file_index;windows_directory_identity_is_creation_time_only;directory_privacy_is_the_caller_responsibility');
             snapshot = self.document;
             if self.droppedDiagnostics > 0, snapshot.diagnostics_omitted = self.droppedDiagnostics; end
             if strcmp(snapshot.operation, 'load')
@@ -1062,6 +1062,14 @@ classdef EvalReport < handle
         end
 
         function value = fileIdentity(path)
+        %FILEIDENTITY Identity of a report target or directory for the ownership checks.
+        % A file key (device and inode) alone is an ABA hole: a foreign
+        % in-place rewrite keeps the inode, and after a foreign
+        % replace-over-target the file system hands the freed inode back
+        % (ext4 alternates between two inodes, so every second replacement
+        % restores the recorded one). Size and modification time complete a
+        % regular file's identity; a directory keeps its key only, because
+        % its modification time changes with every entry the benchmark writes.
             if usejava('jvm')
                 file = java.io.File(path);
                 options = javaArray('java.nio.file.LinkOption',1);
@@ -1069,8 +1077,11 @@ classdef EvalReport < handle
                 attributes = java.nio.file.Files.readAttributes(file.toPath(), ...
                     'basic:fileKey,creationTime,lastModifiedTime,size,isDirectory', options);
                 key = attributes.get('fileKey');
-                if ~isempty(key)
+                if ~isempty(key) && logical(attributes.get('isDirectory'))
                     value = char(key.toString());
+                elseif ~isempty(key)
+                    value = sprintf('%s|%s|%d', char(key.toString()), ...
+                        char(attributes.get('lastModifiedTime').toString()), double(attributes.get('size')));
                 elseif logical(attributes.get('isDirectory'))
                     % Windows directory: its modification time changes whenever
                     % an entry is added or removed (the benchmark keeps writing
@@ -1091,8 +1102,16 @@ classdef EvalReport < handle
                         char(attributes.get('lastModifiedTime').toString()), double(attributes.get('size')));
                 end
             else
-                format = 'stat -c ''%d:%i'' ';
-                if ismac, format = 'stat -f ''%d:%i'' '; end
+                % Without the JVM: GNU stat gives the modification time with
+                % nanoseconds (%.9Y); BSD stat on macOS gives whole seconds
+                % (%m), so there the size carries most of the distinction.
+                if isfolder(path)
+                    format = 'stat -c ''%d:%i'' ';
+                    if ismac, format = 'stat -f ''%d:%i'' '; end
+                else
+                    format = 'stat -c ''%d:%i|%s|%.9Y'' ';
+                    if ismac, format = 'stat -f ''%d:%i|%z|%m'' '; end
+                end
                 [status,value] = system([format,optiprofiler_internal.EvalReport.quote(path)]);
                 if status ~= 0, error('OptiProfiler:EvalReportOwnership', 'File identity is unavailable.'); end
                 value = strtrim(value);
