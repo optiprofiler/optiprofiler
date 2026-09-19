@@ -9,6 +9,17 @@ define a selector and loader with stable MATLAB function names:
 * ``myproblems_select(options)`` returns the matching problem names;
 * ``myproblems_load(name)`` returns a :ref:`Problem <matproblem>`.
 
+A loader may attach a feasible reference fact to the problem it returns
+through the optional ``reference`` field of the :ref:`Problem <matproblem>`
+input struct: a struct with exactly the fields ``merit``, ``kind``, ``source``
+and ``mapping`` (the token ``'feasible_objective/1'``), for example a known
+optimal value read from an offline catalog.  The record is validated when the
+problem is built and nothing is evaluated or solved during the load; a
+malformed record, including one with the superseded fields ``fun``, ``maxcv``
+or ``point`` or with an unknown mapping, makes the load fail and is never
+repaired.  Problems without a reference load as before, with an unknown
+reference.
+
 Register the root and canonical functions once:
 
 .. code-block:: matlab

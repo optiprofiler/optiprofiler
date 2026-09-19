@@ -35,6 +35,7 @@ import itertools
 import logging
 import pickle
 import warnings
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -201,7 +202,7 @@ class TestRecordShape:
                                                                                  'mapping']
         for name in ('_propagate_reference', '_reference_scalar'):
             assert not hasattr(opclasses, name), name
-        assert 'with_point' not in inspect.getsource(optiprofiler.composition)
+        assert 'with_point' not in Path(optiprofiler.composition.__file__).read_text(encoding='utf-8')
         with pytest.raises(TypeError):
             ProblemReference(0.0, 'optimum', 'author', MAPPING, point=[1.0, 2.0])
         with pytest.raises(TypeError):
@@ -858,10 +859,10 @@ def nonnegative(x):
 def sphere(x):
     return float(np.sum((x - 1.0) ** 2))
 
-def refinv_select(options):
+def reference_invariance_select(options):
     return ['STEEP', 'SPHERE']
 
-def refinv_load(name):
+def reference_invariance_load(name):
     if name == 'STEEP':
         reference = dict(merit=0.0, kind='optimum', source='analytic', mapping=MAPPING)
         return Problem(steep_line, [1.0], cub=nonnegative, name=name, reference=reference if WITH_REFERENCE else None)
@@ -898,10 +899,10 @@ class TestBenchmarkInvariance:
         outputs = {}
         for with_reference in (True, False):
             root = tmp_path / ('with' if with_reference else 'without')
-            (root / 'libraries' / 'refinv').mkdir(parents=True)
-            (root / 'libraries' / 'refinv' / 'refinv_tools.py').write_text(
+            (root / 'libraries' / 'reference_invariance').mkdir(parents=True)
+            (root / 'libraries' / 'reference_invariance' / 'reference_invariance_tools.py').write_text(
                 LIBRARY_SOURCE.format(with_reference=with_reference), encoding='utf-8')
-            result = benchmark([dive_then_descend, stay], plibs=['refinv'],
+            result = benchmark([dive_then_descend, stay], plibs=['reference_invariance'],
                                custom_problem_libs_path=str(root / 'libraries'), ptype='un', mindim=1, maxdim=2,
                                feature_name=feature, n_runs=2, seed=5, n_jobs=1, max_eval_factor=8, max_tol_order=2,
                                score_only=False, draw_hist_plots='none', silent=True, solver_names=['dive', 'stay'],
@@ -940,9 +941,11 @@ def legacy_newobj_stream(state):
     assembled by hand because the pickler refuses to emit ``NEWOBJ`` for an
     object of another class.
     """
+    header = pickle.PROTO + bytes([2])
     body = pickle.dumps(state, 2)
-    assert body[:2] == b'\x80\x02' and body[-1:] == b'.'
-    return b'\x80\x02coptiprofiler.opclasses\nProblemReference\n)\x81' + body[2:-1] + b'b.'
+    assert body.startswith(header) and body.endswith(pickle.STOP)
+    return (header + pickle.GLOBAL + b'optiprofiler.opclasses\nProblemReference\n' + pickle.EMPTY_TUPLE + pickle.NEWOBJ
+            + body[len(header):-len(pickle.STOP)] + pickle.BUILD + pickle.STOP)
 
 
 class LegacyLayoutStream:
@@ -1057,23 +1060,23 @@ class TestLegacyAndProviderLoad:
         assert problem.reference == ProblemReference(0.0, 'optimum', 'author', MAPPING)
 
     def test_provider_load_preserves_the_reference_without_executing_anything(self, tmp_path, monkeypatch, caplog):
-        library_dir = tmp_path / 'reftoy'
+        library_dir = tmp_path / 'reference_toy'
         library_dir.mkdir()
-        (library_dir / 'reftoy_tools.py').write_text('\n'.join([
+        (library_dir / 'reference_toy_tools.py').write_text('\n'.join([
             'from optiprofiler import Problem',
             '',
             'def never_evaluated(x):',
             "    raise RuntimeError('the objective was evaluated while loading')",
             '',
-            'def reftoy_select(options):',
+            'def reference_toy_select(options):',
             "    return ['REF', 'PLAIN', 'NAN', 'LEGACY', 'FUTURE', 'CALLBACK', 'NAKED']",
             '',
-            'def reftoy_load(problem_name):',
-            "    good = {'merit': 0.0, 'kind': 'optimum', 'source': 'catalog:reftoy', 'mapping': 'feasible_objective/1'}",
+            'def reference_toy_load(problem_name):',
+            "    good = {'merit': 0.0, 'kind': 'optimum', 'source': 'catalog:reference_toy', 'mapping': 'feasible_objective/1'}",
             "    reference = {'REF': good,",
             "                 'PLAIN': None,",
             "                 'NAN': dict(good, merit=float('nan')),",
-            "                 'LEGACY': {'fun': 0.0, 'kind': 'optimum', 'source': 'catalog:reftoy', 'point': [1.0, 2.0]},",
+            "                 'LEGACY': {'fun': 0.0, 'kind': 'optimum', 'source': 'catalog:reference_toy', 'point': [1.0, 2.0]},",
             "                 'FUTURE': dict(good, mapping='feasible_objective/2'),",
             "                 'CALLBACK': dict(good, mapping=never_evaluated),",
             "                 'NAKED': 0.0}[problem_name]",
@@ -1084,11 +1087,11 @@ class TestLegacyAndProviderLoad:
             raise AssertionError('a solver was executed while loading a problem')
 
         monkeypatch.setattr(optiprofiler.profiles, '_solve_one_problem', no_solver)
-        plugin = load_problem_library(resolve_problem_library('reftoy', tmp_path))
+        plugin = load_problem_library(resolve_problem_library('reference_toy', tmp_path))
         problem = plugin.load('REF', {})
         assert type(problem) is Problem
-        assert problem.reference == ProblemReference(0.0, 'optimum', 'catalog:reftoy', MAPPING)
-        assert problem.reference.source == 'catalog:reftoy'  # provenance survives the load
+        assert problem.reference == ProblemReference(0.0, 'optimum', 'catalog:reference_toy', MAPPING)
+        assert problem.reference.source == 'catalog:reference_toy'  # provenance survives the load
         assert plugin.load('PLAIN', {}).reference is None
         # A malformed record makes the load fail; the provider is never
         # "helped" by a repaired or reinterpreted record.

@@ -64,11 +64,17 @@ Optional fields:
 
     - **hceq**: the Hessian of the nonlinearly equality constraints ``hceq(x) -> cell array of float matrices``. The i-th element of ``hceq(x)`` should be the Hessian of the i-th function in ``ceq``. By default, ``hceq(x)`` will return an empty cell.
 
+    - **reference**: an optional feasible reference fact of the problem, stated by its author or provider: a struct with exactly the fields ``merit`` (a finite real scalar), ``kind`` (one of ``'lower_bound'``, ``'optimum'``, ``'best_known'``, ``'target'``), ``source`` (non-empty provenance text) and ``mapping`` (a token of the closed registry ``{'feasible_objective/1'}``). Every kind is a claim over the *feasible* points of the problem: a bound on the objective over them, its exact optimal value over them, the objective value of a known feasible point, or a target level chosen for them. With the mapping ``'feasible_objective/1'``, ``merit`` is an objective value over feasible points, so it equals the merit of a feasible point under every merit function with the feasible identity ``merit_fun(f, 0, maxcv_init) == f`` for every ``maxcv_init`` (the default merit function has it). A mapping is never a function handle and users cannot register one. A naked scalar, a record with other fields (including the superseded fields ``fun``, ``maxcv`` and ``point``), a non-finite merit and an unknown mapping are rejected; nothing is repaired or guessed. Omitted means unknown. The record is validated structurally without evaluating the objective, so building or loading a problem with a reference executes nothing. See :ref:`FeaturedProblem <matfeaturedproblem>` for which features retain it.
+
+      The reference is **not** a run-history minimum and **not** the dynamic cohort minimum of a benchmark: the profile baseline is the least merit observed over the selected solver histories, changes with the solver cohort and is never stored in a ``Problem``. It is **not** a floor for run merits either: on a constrained problem the merit of a run may be below the reference, because a merit function tolerates or penalizes small violations, and such values are never clamped. Before a consumer compares run merits with the record under a custom merit function, that function must be known to preserve the feasible identity above.
+
 The output **P** contains following properties:
 
 Properties inherited from the input struct:
 
-    **name**, **x0**, **xl**, **xu**, **aub**, **bub**, **aeq**, **beq**
+    **name**, **x0**, **xl**, **xu**, **aub**, **bub**, **aeq**, **beq**, **reference**
+
+    (``reference`` is ``[]`` when unknown, otherwise a struct with the fields ``merit``, ``kind``, ``source``, ``mapping``. It is set at construction only and cannot be assigned. A stored record that the contract rejects, for example one loaded from a file written for another record layout, reads as ``[]`` with a warning and is never reinterpreted.)
 
 Properties dependent on the input struct:
 

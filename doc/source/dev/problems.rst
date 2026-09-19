@@ -9,4 +9,5 @@ Optimization problems
     :toctree: generated/
 
     Problem
+    ProblemReference
     FeaturedProblem

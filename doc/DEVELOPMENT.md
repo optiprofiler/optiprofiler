@@ -141,6 +141,36 @@ and applicability; classify how each feature preserves, transforms, or invalidat
 those facts. Missing reference facts remain unknown, not a claimed lower bound
 at the initial point.
 
+The in-memory carrier of one such fact is implemented on the candidate branch
+`codex/reference-facts-scalar` (see its `REFERENCE_CONTRACT.md`; it supersedes
+the point-carrying record of `codex/reference-facts`). `Problem.reference` is
+an optional record of exactly four fields: a finite real scalar `merit`, a
+`kind` (`lower_bound`, `optimum`, `best_known`, `target`; every kind is a claim
+over feasible points), a non-empty `source` and a `mapping` token of a closed
+registry whose only member is `feasible_objective/1`. It is still not a public
+scalar property: a naked scalar is rejected, and the scalar is never read
+without its kind, provenance and mapping. There is no reference point, no
+callback and no user-defined mapping. The record is validated fail-closed
+without evaluating the objective; a serialized record that the running version
+does not accept reads as unknown or raises and is never reinterpreted.
+`FeaturedProblem` either retains the record unchanged or reports it as unknown:
+observation-only stages, `perturbed_x0`, `permuted` and `linearly_transformed`
+retain it, `custom` only when its options are a subset of `mod_x0` and
+`mod_affine`, `quantized` with `ground_truth=true` never, and a composition only
+if every stage does; the rule is the same for every kind.
+
+The fact is a feasible reference, not a run-history minimum and not the dynamic
+cohort minimum of the profiles, and nothing derives it from solver output. It
+is not a floor either: on a constrained problem a run merit may be below it,
+because the merit function tolerates or penalizes small violations, and such
+merits are never clamped. No profile formula, archive or report reads it yet.
+A future consumer must first establish that the merit function in use
+preserves the feasible identity `merit_fun(f, 0, maxcv_init) == f` (the default
+one does, for every `maxcv_init` including NaN); otherwise run merits and the
+record are not in the same space. The offline catalog, the scoring manifest and
+the independent scorer remain future work; the catalog can fill the record at
+load time through a provider.
+
 The manifest fixes the target, per-problem feasibility tolerance, budget axis,
 weights, and policy version. Feasibility-only tasks need a separate interpretation.
 Provider updates must not silently change a signed-off scoring standard.

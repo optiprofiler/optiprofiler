@@ -116,6 +116,7 @@ includenan
 ino
 intersphinx
 intmax
+intmin
 INUSD
 INVALIDZERO
 iscellstr
