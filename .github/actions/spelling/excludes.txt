@@ -67,3 +67,6 @@ ignore$
 ^\Q.github/workflows/spelling.yml\E$
 /tests/__init__.py$
 ^python/optiprofiler/problem_libs/__init__\.py$
+# Audit documents of the reference-contract candidate: they list tool names and log paths, not prose.
+^\QIMPLEMENTATION_REPORT.md\E$
+^\QEVIDENCE_INDEX.md\E$
