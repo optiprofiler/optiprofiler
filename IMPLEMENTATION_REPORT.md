@@ -340,6 +340,8 @@ to `249cda5`, with no failure logged in the 346 tests it had completed.
   (`evidence/refscalar/probes/probe_diag.py`). The scoring truth still measures
   the violation with the original problem, so the reference rule does not
   depend on this defect. It needs its own fix and tests.
+  *Note added 2026-09-20: fixed by the affine safeguard commit that follows
+  this report on the branch; see `REFERENCE_CONTRACT.md`, section 7.*
 
 ## 13. Platform limitations
 

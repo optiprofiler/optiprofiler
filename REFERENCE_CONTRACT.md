@@ -190,18 +190,43 @@ method of the stage views is named `referenceValue`, because `reference` is the
 - No change to solver calls, seeds, random streams, histories, profile
   formulas, archives, the report schema, providers, locks, gitlinks, versions
   or paper references.
-- **The bounds-versus-linear diagonal-check tolerance issue is not fixed
-  here.** For `linearly_transformed` and for `custom` with `mod_affine`, the
-  bounds modifier decides with an exact test on the *inverse* whether the map
-  is diagonal (`modifier_bounds`; MATLAB `isdiag(inv)`), while the linear
-  modifiers decide with an exact test on the *matrix*
-  (`modifier_linear_ub`, `modifier_linear_eq`; MATLAB `isdiag(A)`). The two
-  tests have no tolerance and can disagree. With `A = diag(2, 4)` and a
-  user-supplied inverse that carries off-diagonal entries of size `1e-17`, the
-  bounds modifier returns infinite bounds and the linear modifiers add no bound
-  rows, so the bounds vanish from the structure handed to the solver. The
-  scoring truth is not affected: the violation is measured by the original
-  problem at the mapped point (it reports 19 at a point mapped far outside the
-  box in that example). The reference rule rests on the truth channel, so it is
-  independent of this defect. It is a separate issue with its own fix and
-  tests.
+
+## 7. The posed problem is the scored problem (affine safeguard)
+
+This section was "out of scope" when the contract was written and is fixed by
+the affine safeguard commit that follows it on this branch.
+
+The defect. For `linearly_transformed` and for `custom` with `mod_affine`, the
+bounds modifier decided with an exact test on the *inverse* whether the map is
+diagonal (MATLAB `isdiag(inv)`), while the linear modifiers decided with an
+exact test on the *matrix* (`isdiag(A)`). With `A = diag(2, 4)` and a supplied
+inverse carrying off-diagonal entries of size `1e-17`, the bounds became
+infinite and no bound row was added: the bounds left the problem handed to the
+solver, while the truth went on scoring them (it reported a violation of 19 at
+a point mapped far outside the box). A retained reference then described a
+problem that the solver had not been given.
+
+The rule now, the same in both languages. The pair is validated before any
+simplification: real, finite arrays of matching sizes;
+`norm(abs(inv) * abs(A), inf) < 1 / eps`, a condition number that scaling the
+rows of `A` cannot change, so that an exact but badly scaled transformation is
+not refused; and, for a supplied inverse,
+`norm(A * inv - I, 'fro') <= 1e-8 * n`. One decision is then made from both
+matrices and read by the bounds and by both kinds of linear constraints: an
+off-diagonal entry is negligible if
+`abs(M(i, j)) <= n * eps * min(abs(M(i, i)), abs(M(j, j)))`, for `M = A` and for
+`M = inv`. If both are diagonal in this sense the bounds stay bounds, scaled by
+`diag(inv)`; otherwise every finite bound is posed as a linear row of `A`,
+which needs `A` only and is valid for every invertible `A`. The tolerance
+therefore chooses a representation and can never decide whether a bound is
+posed. A finite bound that would overflow when scaled raises instead of
+becoming infinite. So does a supplied `mod_linear_ub` or `mod_linear_eq` under a
+`mod_affine` that is not diagonal, without `mod_bounds`, if the problem has
+bounds that the framework would pose as those rows: a supplied linear modifier
+replaces the rows verbatim, so the bounds would have nowhere left to go.
+
+Consequence for this contract. `linearly_transformed` and `custom` within
+`{mod_x0, mod_affine}` retain the reference (section 4). That is a claim about
+the problem handed to the solver, and it holds because that problem is now
+always the scored one in new coordinates: a transform that cannot be
+represented raises, so no featured problem, and no reference, exists for it.

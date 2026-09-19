@@ -582,18 +582,33 @@ class TestCustomKeySubsets:
     SUBSETS = [keys for size in range(len(CUSTOM_CALLBACKS) + 1)
                for keys in itertools.combinations(sorted(CUSTOM_CALLBACKS), size)]
 
+    @staticmethod
+    def refused(keys):
+        # ``mod_affine`` here is dense, so the bounds of the problem are posed
+        # as linear rows, and ``mod_linear_ub`` replaces the linear rows: unless
+        # ``mod_bounds`` takes over the bounds, they would leave the posed
+        # problem silently. The affine safeguard refuses to build that.
+        return {'mod_affine', 'mod_linear_ub'} <= set(keys) and 'mod_bounds' not in keys
+
     def check(self, build):
         assert len(self.SUBSETS) == 256
         problem = constrained_problem(record(kind='best_known', merit=0.5))
         mismatches, retained = [], []
         for keys in self.SUBSETS:
             expected = set(keys) <= SAFE_CUSTOM_KEYS
+            if self.refused(keys):
+                # No featured problem, so nothing that could carry a claim; none was expected either.
+                assert not expected
+                with pytest.raises(ValueError, match='would be dropped silently'):
+                    build(problem, keys)
+                continue
             reference = build(problem, keys).reference
             if (reference == problem.reference) != expected or (reference is None) == expected:
                 mismatches.append(keys)
             if reference is not None:
                 retained.append(set(keys))
         assert not mismatches
+        assert sum(map(self.refused, self.SUBSETS)) == 32
         # Exactly the four subsets of {mod_x0, mod_affine} retain the record.
         assert sorted(retained, key=sorted) == sorted([set(), {'mod_x0'}, {'mod_affine'}, {'mod_x0', 'mod_affine'}],
                                                       key=sorted)

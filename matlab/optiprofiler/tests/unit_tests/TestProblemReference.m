@@ -638,10 +638,27 @@ classdef TestProblemReference < matlab.unittest.TestCase
             for b = 1:numel(builders)
                 mismatches = {};
                 retained = {};
+                refused = 0;
                 for mask = 0:(2^numel(keys) - 1)
                     subset = keys(dec2bin(mask, numel(keys)) == '1');
                     expected = all(ismember(subset, TestProblemReference.SafeCustomKeys));
                     stage = TestProblemReference.customStage(subset);
+                    rule = optiprofiler_internal.propagateProblemReference(record, 'custom', stage.options);
+                    testCase.assertEqual(~isempty(rule), expected, strjoin(subset, ','));
+                    if all(ismember({'mod_affine', 'mod_linear_ub'}, subset)) && ~ismember('mod_bounds', subset)
+                        % mod_affine here is dense, so the bounds of the problem
+                        % are posed as linear rows, and mod_linear_ub replaces
+                        % the linear rows: unless mod_bounds takes over the
+                        % bounds, they would leave the posed problem silently.
+                        % The affine safeguard refuses to build that, so there
+                        % is no featured problem that could carry a claim; none
+                        % was expected either.
+                        refused = refused + 1;
+                        testCase.assertFalse(expected, strjoin(subset, ','));
+                        testCase.verifyError(@() FeaturedProblem(problem, builders{b}(stage), 10, 3), ...
+                            'MATLAB:Feature:AffineBoundsNotRepresentable', strjoin(subset, ','));
+                        continue;
+                    end
                     reference = FeaturedProblem(problem, builders{b}(stage), 10, 3).reference;
                     if expected ~= isequal(reference, record) || expected == isempty(reference)
                         mismatches{end + 1} = strjoin(subset, ','); %#ok<AGROW>
@@ -649,10 +666,9 @@ classdef TestProblemReference < matlab.unittest.TestCase
                     if ~isempty(reference)
                         retained{end + 1} = strjoin(sort(subset), ','); %#ok<AGROW>
                     end
-                    rule = optiprofiler_internal.propagateProblemReference(record, 'custom', stage.options);
-                    testCase.assertEqual(~isempty(rule), expected, strjoin(subset, ','));
                 end
                 testCase.verifyEmpty(mismatches, sprintf('builder %d', b));
+                testCase.verifyEqual(refused, 32, sprintf('builder %d', b));
                 % Exactly the four subsets of {mod_x0, mod_affine} retain the record.
                 testCase.verifyEqual(sort(retained), sort({'', 'mod_x0', 'mod_affine', 'mod_affine,mod_x0'}), ...
                     sprintf('builder %d', b));

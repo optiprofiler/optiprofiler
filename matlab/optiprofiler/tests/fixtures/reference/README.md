@@ -5,10 +5,11 @@
 The file holds two live objects saved by the MATLAB implementation of the
 superseded candidate branch `codex/reference-facts` at source
 `0aea026f52b9d96603054178a2044b88acce27b3`, MATLAB R2026a on syu-ubuntu,
-2026-09-19, format `-v7`:
+format `-v7`, regenerated on 2026-09-20:
 
-- `problem`: `Problem(struct('name', 'LEGACY', 'fun', @(x) sum((x(:) - [1;
-  2]).^2), 'x0', [0; 0], 'reference', record))`;
+- `problem`: `Problem(struct('name', 'LEGACY', 'fun', objective, 'x0', [0; 0],
+  'reference', record))` with `objective = str2func('@(x) sum((x(:) - [1;
+  2]).^2)')`;
 - `featured`: `FeaturedProblem(problem, Feature('plain'), 5, 0)`;
 
 where `record = struct('fun', 0, 'kind', 'optimum', 'source',
@@ -23,10 +24,21 @@ load as objects of their classes, their objectives still evaluate, and their
 `MATLAB:Problem:reference_StoredRecordRejected`. The legacy `fun` is never read
 as a `merit`.
 
+The objective must come from `str2func`. The first version of this file
+(2026-09-19) wrote the anonymous function inside a generator function file, so
+MATLAB stored that file's path, in a scratch directory under `/tmp`, in the MAT
+file. Loading it warned
+`MATLAB:dispatcher:UnresolvedFunctionHandle` wherever that scratch file did
+not exist, which is every machine but the one that wrote it, and that one only
+until the scratch directory was cleaned. The test that loads this fixture
+requires a load without warnings, so it passed only there and then. A handle
+from `str2func` has no parent file; the regenerated file was verified to load
+without a warning after its generator had been deleted.
+
 SHA-256:
 
 - `legacy-point-record.mat`
-  `ef4d3da28f1b1a655113b56d4f5ea7cf6b25900df24c0b0dd10619d41e778d6a`
+  `9425143f238085f34aacc57b0c29003f654085043656fdb90cb079bdb1c05089`
 
 ## `RawReferenceProblem.m`: a stored record that skips validation
 

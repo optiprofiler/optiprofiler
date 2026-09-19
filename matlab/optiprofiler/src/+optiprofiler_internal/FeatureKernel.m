@@ -121,10 +121,9 @@ classdef FeatureKernel < handle
                     if isfield(obj.options, FeatureOptionKey.MOD_AFFINE.value)
                         rand_stream_custom = obj.default_rng(seed);
                         [A, b, inv] = obj.options.(FeatureOptionKey.MOD_AFFINE.value)(rand_stream_custom, problem);
-                    end
-                    % Check whether A * inv is an identity matrix.
-                    if norm(A * inv - eye(problem.n)) > 1e-8 * problem.n
-                        error("MATLAB:Feature:AffineTransformationNotInvertible", "The multiplication of the affine transformation matrix and its inverse is not an identity matrix.")
+                        % The inverse is supplied by user code: validate the
+                        % triple, including that A * inv is an identity matrix.
+                        [A, b, inv] = checkedAffine(A, b, inv, problem.n, true);
                     end
                 case FeatureName.PERMUTED.value
                     % Generate a random permutation matrix.
@@ -161,6 +160,10 @@ classdef FeatureKernel < handle
                     power = linspace(-log_condition_number/2, log_condition_number/2, problem.n);
                     A = diag(2.^power) * Q';
                     inv = Q * diag(2.^-power);
+                    % Built here, so consistent by construction; a huge
+                    % condition factor can still overflow or be singular to
+                    % working precision.
+                    [A, b, inv] = checkedAffine(A, b, inv, problem.n, false);
                 otherwise
                     % Do nothing
             end
@@ -200,18 +203,17 @@ classdef FeatureKernel < handle
                     end
                     % If the user does not specify a custom modifier for the bounds but specifies a
                     % custom affine transformation, we need to specially handle the bounds.
-                    [~, b, inv] = obj.modifier_affine(seed, problem);
-                    if ~isdiag(inv)
+                    [A, b, inv] = obj.modifier_affine(seed, problem);
+                    if ~affineIsDiagonal(A, inv)
+                        % Generic representation: the bounds are posed as
+                        % linear rows (see modifier_linear_ub and
+                        % modifier_linear_eq, which read the same decision).
                         xl = -Inf(problem.n, 1);
                         xu = Inf(problem.n, 1);
                         return;
                     end
-                    % If the inverse of the affine transformation is diagonal, we can apply it to get
-                    % the modified bounds.
-                    xl_tmp = diag(inv) .* (problem.xl - b);
-                    xu_tmp = diag(inv) .* (problem.xu - b);
-                    xl = min(xl_tmp, xu_tmp);
-                    xu = max(xl_tmp, xu_tmp);
+                    % Diagonal shortcut: the bounds stay bounds, scaled by the inverse.
+                    [xl, xu] = scaledBounds(diag(inv), problem.xl - b, problem.xu - b);
                 case FeatureName.PERMUTED.value
                     % Note that we need to apply the reverse permutation to the bounds so that the new
                     % problem is mathematically equivalent to the original one.
@@ -222,16 +224,13 @@ classdef FeatureKernel < handle
                     xu = problem.xu(reverse_permutation);
                 case FeatureName.LINEARLY_TRANSFORMED.value
                     % Apply the inverse of the affine transformation to the bounds.
-                    [~, ~, inv] = obj.modifier_affine(seed, problem);
-                    if ~isdiag(inv)
+                    [A, ~, inv] = obj.modifier_affine(seed, problem);
+                    if ~affineIsDiagonal(A, inv)
                         xl = -Inf(problem.n, 1);
                         xu = Inf(problem.n, 1);
                         return;
                     end
-                    xl_tmp = diag(inv) .* problem.xl;
-                    xu_tmp = diag(inv) .* problem.xu;
-                    xl = min(xl_tmp, xu_tmp);
-                    xu = max(xl_tmp, xu_tmp);
+                    [xl, xu] = scaledBounds(diag(inv), problem.xl, problem.xu);
                 otherwise
                     xl = problem.xl;
                     xu = problem.xu;
@@ -263,6 +262,7 @@ classdef FeatureKernel < handle
                     % If the user specifies a custom modifier for the linear inequality constraints,
                     % use it.
                     if isfield(obj.options, FeatureOptionKey.MOD_LINEAR_UB.value)
+                        refuseToReplaceBoundRows(obj, seed, problem, 'mod_linear_ub', false);
                         rand_stream_custom = obj.default_rng(seed);
                         [aub, bub] = obj.options.(FeatureOptionKey.MOD_LINEAR_UB.value)(rand_stream_custom, problem);
                         return;
@@ -275,8 +275,8 @@ classdef FeatureKernel < handle
                     % If the user does not specify a custom modifier for the linear inequality
                     % constraints but specifies a custom affine transformation, we need to specially
                     % handle the linear inequality constraints.
-                    [A, b] = obj.modifier_affine(seed, problem);
-                    if isdiag(A)
+                    [A, b, inv] = obj.modifier_affine(seed, problem);
+                    if affineIsDiagonal(A, inv)  % the bounds stayed bounds (modifier_bounds read the same decision)
                         aub = problem.aub * A;
                         bub = problem.bub - problem.aub * b;
                         return;
@@ -322,8 +322,8 @@ classdef FeatureKernel < handle
                 case FeatureName.LINEARLY_TRANSFORMED.value
                     % Similar to the case in the custom feature where a custom affine transformation
                     % is specified.
-                    A = obj.modifier_affine(seed, problem);
-                    if isdiag(A)
+                    [A, ~, inv] = obj.modifier_affine(seed, problem);
+                    if affineIsDiagonal(A, inv)
                         aub = problem.aub * A;
                         bub = problem.bub;
                         return;
@@ -369,6 +369,7 @@ classdef FeatureKernel < handle
                 case FeatureName.CUSTOM.value
                     % If the user specifies a custom modifier for the linear equality constraints, use it.
                     if isfield(obj.options, FeatureOptionKey.MOD_LINEAR_EQ.value)
+                        refuseToReplaceBoundRows(obj, seed, problem, 'mod_linear_eq', true);
                         rand_stream_custom = obj.default_rng(seed);
                         [aeq, beq] = obj.options.(FeatureOptionKey.MOD_LINEAR_EQ.value)(rand_stream_custom, problem);
                         return;
@@ -379,8 +380,8 @@ classdef FeatureKernel < handle
                         return;
                     end
                     % If the user does not specify a custom modifier for the linear equality constraints but specifies a custom affine transformation, we need to specially handle the linear equality constraints.
-                    [A, b] = obj.modifier_affine(seed, problem);
-                    if isdiag(A)
+                    [A, b, inv] = obj.modifier_affine(seed, problem);
+                    if affineIsDiagonal(A, inv)  % the bounds stayed bounds (modifier_bounds read the same decision)
                         aeq = problem.aeq * A;
                         beq = problem.beq - problem.aeq * b;
                         return;
@@ -416,8 +417,8 @@ classdef FeatureKernel < handle
                     beq = problem.beq;
                 case FeatureName.LINEARLY_TRANSFORMED.value
                     % Similar to the case in the custom feature where a custom affine transformation is specified.
-                    A = obj.modifier_affine(seed, problem);
-                    if isdiag(A)
+                    [A, ~, inv] = obj.modifier_affine(seed, problem);
+                    if affineIsDiagonal(A, inv)
                         aeq = problem.aeq * A;
                         beq = problem.beq;
                         return;
@@ -846,4 +847,140 @@ end
 function tf = isrealscalar(x)
 % Same predicate as src/private/isrealscalar, without package path coupling.
     tf = isnumeric(x) && isreal(x) && isscalar(x);
+end
+
+% Affine changes of variables x = A * y + b (linearly_transformed and custom
+% with mod_affine).
+%
+% The bounds of the transformed problem have two representations. If A is
+% diagonal they stay bounds, scaled by diag(inv) (the diagonal shortcut). For
+% every invertible A they can be posed as linear rows of A (the generic
+% representation), which needs A only. The shortcut reads BOTH matrices: the
+% bounds are scaled by inv and the linear constraints are composed with A. The
+% bounds used to be classified by isdiag(inv) and the linear rows by isdiag(A),
+% both exact. A diagonal A with one roundoff-sized off-diagonal entry in inv
+% then made the bounds infinite while no bound row was added: the bounds left
+% the posed problem without a word, and the truth went on scoring them. Hence:
+%
+% - one decision, made once from both matrices and read by the bounds and by
+%   both kinds of linear constraints (affineIsDiagonal);
+% - the shortcut only if both matrices are diagonal to roundoff, otherwise the
+%   generic representation, so that no tolerance can ever lose a constraint:
+%   the tolerance chooses a representation, never whether a bound is posed;
+% - everything the decision rests on is validated first, and what cannot be
+%   represented raises instead of being approximated (checkedAffine,
+%   scaledBounds, refuseToReplaceBoundRows). Failing closed matters here
+%   because the loss is silent: the solver is handed an easier problem and is
+%   then scored on the original.
+
+function [A, b, inv] = checkedAffine(A, b, inv, n, supplied)
+% The change of variables x = A * y + b as validated full double arrays.
+% Checked in this order, each with its own message: real arrays of sizes
+% n-by-n, n and n-by-n; finite entries (NaN fails no inequality, so it has to
+% be asked for); numerical invertibility,
+% norm(abs(inv) * abs(A), inf) < 1 / eps; and, if inv was SUPPLIED by user
+% code, consistency, norm(A * inv - I, 'fro') <= 1e-8 * n.
+%
+% This condition number does not change when the rows of A (the units of the
+% original variables) are scaled, and 1 / eps is where a matrix is singular to
+% working precision. The usual norm(A) * norm(inv) would refuse exact
+% transformations that are merely badly scaled: here a diagonal scaling has
+% condition number 1 whatever its entries, and the scaled rotation of
+% linearly_transformed at most n. The framework's own inverse of a rotation is
+% exact up to roundoff times the usual condition number and is not held to the
+% residual test.
+%
+% Identifiers: AffineTransformationInvalid when A or b is not usable data;
+% AffineTransformationNotInvertible whenever inv cannot be the inverse of A
+% (wrong size or type, not finite, numerically singular, inconsistent).
+    usable = @(value) (isnumeric(value) || islogical(value)) && isreal(value);
+    if ~(usable(A) && isequal(size(A), [n, n]))
+        error("MATLAB:Feature:AffineTransformationInvalid", "The affine transformation matrix must be a real matrix of size %d-by-%d.", n, n);
+    end
+    if ~(usable(b) && numel(b) == n && (isvector(b) || n == 0))
+        error("MATLAB:Feature:AffineTransformationInvalid", "The affine transformation vector must be a real vector of size %d.", n);
+    end
+    if ~(usable(inv) && isequal(size(inv), [n, n]))
+        error("MATLAB:Feature:AffineTransformationNotInvertible", "The inverse of the affine transformation matrix must be a real matrix of size %d-by-%d.", n, n);
+    end
+    A = full(double(A));
+    b = full(double(b(:)));
+    inv = full(double(inv));
+    if ~(all(isfinite(A(:))) && all(isfinite(b)))
+        error("MATLAB:Feature:AffineTransformationInvalid", "The affine transformation matrix and vector must be finite.");
+    end
+    if ~all(isfinite(inv(:)))
+        error("MATLAB:Feature:AffineTransformationNotInvertible", "The inverse of the affine transformation matrix must be finite.");
+    end
+    % Finite entries can still overflow in a product. Both tests are written so
+    % that an infinite or NaN result fails them.
+    condition = norm(abs(inv) * abs(A), inf);
+    if ~(condition * eps < 1)
+        error("MATLAB:Feature:AffineTransformationNotInvertible", "The affine transformation is numerically singular: norm(abs(inv) * abs(A), inf) is %.3g, not below 1 / eps.", condition);
+    end
+    if supplied && ~(norm(A * inv - eye(n), 'fro') <= 1e-8 * n)
+        error("MATLAB:Feature:AffineTransformationNotInvertible", "The multiplication of the affine transformation matrix and its inverse is not an identity matrix.");
+    end
+end
+
+function tf = affineIsDiagonal(A, inv)
+% The one structural decision: whether A AND inv are diagonal to roundoff.
+% An off-diagonal entry M(i, j) is negligible if
+% abs(M(i, j)) <= n * eps * min(abs(M(i, i)), abs(M(j, j))). n * eps is the
+% rounding level of an n-term inner product, the convention by which rank
+% decisions call a quantity numerically zero. The scale is that of the entry's
+% own row and column and not a norm of the matrix, so a badly scaled
+% transformation cannot hide a material coupling behind a large entry
+% elsewhere. Anything above that is a coupling, and the generic representation
+% poses it exactly.
+    tolerance = size(A, 1) * eps;
+    matrices = {A, inv};
+    tf = true;
+    for k = 1:2
+        M = matrices{k};
+        scale = abs(diag(M));
+        off_diagonal = abs(M - diag(diag(M)));
+        if any(any(off_diagonal > tolerance * min(scale, scale')))
+            tf = false;
+            return;
+        end
+    end
+end
+
+function refuseToReplaceBoundRows(kernel, seed, problem, key, fixed)
+% A supplied linear modifier replaces the linear constraints verbatim. Under a
+% custom affine map that is not diagonal, and without mod_bounds, the framework
+% poses the bounds as exactly those constraints (FIXED variables as
+% equalities, the other finite bounds as inequalities), so replacing them would
+% drop the bounds silently. There is then no representation left for them.
+    if ~isfield(kernel.options, FeatureOptionKey.MOD_AFFINE.value) || isfield(kernel.options, FeatureOptionKey.MOD_BOUNDS.value)
+        return;
+    end
+    [A, ~, inv] = kernel.modifier_affine(seed, problem);
+    if affineIsDiagonal(A, inv)
+        return;  % the bounds stay bounds
+    end
+    is_fixed = problem.xl == problem.xu;
+    if fixed
+        at_stake = is_fixed;
+    else
+        at_stake = (isfinite(problem.xl) | isfinite(problem.xu)) & ~is_fixed;
+    end
+    if any(at_stake)
+        error("MATLAB:Feature:AffineBoundsNotRepresentable", "The affine transformation is not diagonal, so the finite bounds of the problem are posed as linear constraints, which %s replaces: the bounds would be dropped silently. Supply mod_bounds as well, or a diagonal transformation.", key);
+    end
+end
+
+function [xl, xu] = scaledBounds(scale, lower, upper)
+% Bounds of the diagonal shortcut, scale .* [lower, upper], swapped where the
+% scale is negative.
+    scaled_lower = scale .* lower;
+    scaled_upper = scale .* upper;
+    % A finite bound times a finite scale can overflow. It would then be posed
+    % as "no bound", which is the silent loss this file rules out.
+    if any(isfinite(lower) & ~isfinite(scaled_lower)) || any(isfinite(upper) & ~isfinite(scaled_upper))
+        error("MATLAB:Feature:AffineBoundsNotRepresentable", "A finite bound is not representable after the affine transformation: it overflows, and posing it as infinite would drop it silently.");
+    end
+    xl = min(scaled_lower, scaled_upper);
+    xu = max(scaled_lower, scaled_upper);
 end
