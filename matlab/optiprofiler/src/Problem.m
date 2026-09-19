@@ -77,12 +77,50 @@ classdef Problem < handle
 %         ``hceq(x) -> cell array of float matrices``. The i-th element of
 %         `hceq(x)` should be the Hessian of the i-th function in `ceq`. By
 %         default, `hceq(x)` will return an empty cell.
+%       - reference: an optional feasible reference fact of the problem,
+%         stated by its author or provider: a struct with exactly the fields
+%         `merit` (a finite real scalar), `kind` (one of 'lower_bound',
+%         'optimum', 'best_known', 'target'), `source` (non-empty provenance
+%         text) and `mapping` (a token of the closed registry
+%         {'feasible_objective/1'}). Every kind is a claim over the FEASIBLE
+%         points of the problem: a bound on the objective over them, its exact
+%         optimal value over them, the objective value of a known feasible
+%         point, or a target level chosen for them. With the mapping
+%         'feasible_objective/1', `merit` is an objective value over feasible
+%         points, so it equals the merit of a feasible point under every merit
+%         function with the feasible identity merit_fun(f, 0, maxcv_init) == f
+%         for every maxcv_init (the default merit function has it). A mapping
+%         is never a function handle and users cannot register one. A naked
+%         scalar, a record with other fields (including the superseded fields
+%         `fun`, `maxcv` and `point`), a non-finite merit and an unknown
+%         mapping are rejected; nothing is repaired or guessed. Omitted means
+%         unknown. The record is validated structurally without evaluating
+%         the objective, so building or loading a problem with a reference
+%         executes nothing. See also FeaturedProblem for which features
+%         retain it.
+%
+%         The reference is NOT a run-history minimum and NOT the dynamic
+%         cohort minimum of a benchmark: the profile baseline is the least
+%         merit observed over the selected solver histories, changes with the
+%         solver cohort and is never stored in a Problem. It is NOT a floor
+%         for run merits either: on a constrained problem the merit of a run
+%         may be below the reference, because a merit function tolerates or
+%         penalizes small violations, and such values are never clamped.
+%         Before a consumer compares run merits with the record under a custom
+%         merit function, that function must be known to preserve the feasible
+%         identity above.
 %
 %   The output P contains following properties:
 %
 %       1. properties inherited from the input struct:
 %
-%       name, x0, xl, xu, aub, bub, aeq, beq
+%       name, x0, xl, xu, aub, bub, aeq, beq, reference
+%
+%       (`reference` is [] when unknown, otherwise a struct with the fields
+%       `merit`, `kind`, `source`, `mapping`. It is set at construction only
+%       and cannot be assigned. A stored record that the contract rejects, for
+%       example one loaded from a file written for another record layout,
+%       reads as [] with a warning and is never reinterpreted.)
 %
 %       2. properties dependent on the input struct:
 %
@@ -152,6 +190,17 @@ classdef Problem < handle
 
     end
 
+    properties (Dependent, GetAccess = public, SetAccess = protected)
+
+        % Feasible reference fact of the problem ([] when unknown). A
+        % validated view of the stored record `reference_`: every read goes
+        % through the validator, so whatever a file left in the object, a
+        % caller sees a valid four-field record or []. Callers cannot assign
+        % it; see `set.reference` for why a protected set method exists.
+        reference
+
+    end
+
     properties (Access = protected)
 
         fun_
@@ -163,6 +212,15 @@ classdef Problem < handle
         jceq_
         hcub_
         hceq_
+
+        % Stored reference record. The constructor stores only a validated
+        % record, and the subclasses that build a featured trial
+        % (FeaturedProblem and its stage views) store only the record
+        % propagated from a validated predecessor. Storing never validates
+        % and never raises, so loading a file cannot fail here; `get.reference`
+        % decides what a caller may see. Never the cohort minimum of a
+        % benchmark.
+        reference_ = []
 
     end
 
@@ -225,6 +283,14 @@ classdef Problem < handle
                         obj.(expected_fields{i}) = s.(expected_fields{i});
                     end
                 end
+
+                % Optional feasible reference fact. The check is structural
+                % (four fields, a finite scalar, a registry token): the
+                % objective and the constraints are never evaluated here, so
+                % building or loading a problem executes nothing.
+                if isfield(s, 'reference')
+                    obj.reference_ = normalizeProblemReference(s.reference);
+                end
             else
                 error("MATLAB:Problem:NotStruct", "Invalid input for `Problem`. A struct argument is expected.")
             end
@@ -260,6 +326,37 @@ classdef Problem < handle
             if ~isrealmatrix(obj.aeq) || ~isequal(size(obj.aeq), [obj.m_linear_eq, obj.n])
                 error("MATLAB:Problem:aeq_m_linear_eq_n_NotConsistent", "The argument `aeq` for `Problem` must have shape (%d, %d).", obj.m_linear_eq, obj.n);
             end
+        end
+
+        % Getter of the reference fact: the stored record if the contract
+        % accepts it, and [] (unknown) otherwise. A rejected stored record can
+        % only come from a file written for another record layout or mapping
+        % registry. It is reported and read as unknown; it is never repaired
+        % or reinterpreted (no field is ever read as the merit of another).
+        function value = get.reference(obj)
+            value = [];
+            if isempty(obj.reference_)
+                return
+            end
+            try
+                value = normalizeProblemReference(obj.reference_);
+            catch cause
+                warning("MATLAB:Problem:reference_StoredRecordRejected", ...
+                    "The stored reference of the problem is not valid under the reference contract and is read as unknown; it is not reinterpreted (%s)", ...
+                    cause.message);
+            end
+        end
+
+        % Protected setter of the reference fact: stores the value as is.
+        % It exists for loading. A file written for the superseded record
+        % layout holds a value for `reference`; without a set method MATLAB
+        % cannot assign it, hands a struct to loadobj and warns that the
+        % constructor must preserve the class. With this method the value is
+        % stored raw and `get.reference` rejects it on every read, so such a
+        % file loads as an object whose reference is unknown. Validation on
+        % construction is done by the constructor, not here.
+        function set.reference(obj, value)
+            obj.reference_ = value;
         end
 
         % Setter functions.

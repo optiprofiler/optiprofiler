@@ -3,6 +3,7 @@ from scipy.linalg import qr
 import re
 import sys
 import warnings
+from collections.abc import Mapping
 from decimal import Context, Decimal, InvalidOperation, ROUND_HALF_UP
 from numpy.linalg import lstsq
 from scipy.optimize import Bounds, LinearConstraint, NonlinearConstraint, minimize
@@ -13,6 +14,7 @@ from .utils import FeatureName, FeatureOption, get_logger, shorten_log_message
 from .feature_definitions import (_SPEC_TYPE_MESSAGE, Declaration, StageRecord, fold_option_names, normalize_entries,
                                   normalize_shorthand, reject_experiment_options, reject_flat_stage_options)
 from .feature_definitions import is_stochastic as _stage_is_stochastic
+from .feature_definitions import retains_reference as _stage_retains_reference
 from .experiment import STRATEGY_COMPOSED, select_execution_strategy
 from .legacy_compat import LegacyObject, historical_effective_options
 
@@ -1052,6 +1054,264 @@ class Feature:
     get_default_rng = staticmethod(_StageRuntime.get_default_rng)
 
 
+def _reference_merit(value):
+    """
+    The ``merit`` of a reference record as a finite ``float``.
+
+    Booleans, strings, arrays with a dimension, complex and object values are
+    rejected with ``TypeError``; NaN, infinities and numbers that a float
+    cannot hold exactly are rejected with ``ValueError``. The stored scalar is
+    therefore exactly the scalar that was given: nothing is rounded, clipped
+    or replaced.
+    """
+    message = 'The field `merit` of a problem reference must be a real scalar.'
+    if isinstance(value, (bool, np.bool_, str, bytes)):
+        raise TypeError(message)
+    try:
+        array = np.asarray(value)
+    except Exception as exc:
+        raise TypeError(message) from exc
+    if array.ndim != 0 or array.dtype.kind not in 'iuf':
+        raise TypeError(message)
+    merit = float(array)
+    if not np.isfinite(merit):
+        raise ValueError('The field `merit` of a problem reference must be finite.')
+    # An integer beyond 2**53 or an extended-precision value would be stored
+    # as a different number; that is a silent reinterpretation, so reject it.
+    exact = int(array) == int(merit) if array.dtype.kind in 'iu' else bool(array.dtype.type(merit) == array)
+    if not exact:
+        raise ValueError('The field `merit` of a problem reference cannot be represented exactly as a float.')
+    return merit
+
+
+def _restore_problem_reference(record):
+    """
+    Rebuild a serialized `ProblemReference` (the callable named by its pickle).
+
+    The record is validated again under the contract of the running version.
+    A record this version does not accept (an unknown mapping token written by
+    another version, a non-finite merit, a foreign field) is read as *unknown*:
+    ``None`` is returned with a ``RuntimeWarning``. It is never reinterpreted,
+    for example by guessing a mapping or by reading another field as the merit.
+    """
+    try:
+        if not isinstance(record, Mapping):
+            raise TypeError('the serialized record is not a mapping')
+        return ProblemReference.from_record(record)
+    except (TypeError, ValueError) as exc:
+        warnings.warn('A serialized problem reference is not valid under the reference contract of this version; it is '
+                      f'read as unknown and is not reinterpreted ({exc}).', RuntimeWarning, stacklevel=2)
+        return None
+
+
+class ProblemReference:
+    """
+    Feasible reference fact of a `Problem`: one scalar stated by the author
+    or provider of the problem, with its kind, its provenance and the mapping
+    that fixes how the scalar is read.
+
+    The record has exactly four fields and holds no point, no callable and no
+    constraint violation.
+
+    Parameters
+    ----------
+    merit : float
+        The reference value. Must be a finite real scalar.
+    kind : {'lower_bound', 'optimum', 'best_known', 'target'}
+        The claim carried by ``merit``. Every kind is a claim over the
+        *feasible* points of the problem:
+
+        - ``'lower_bound'``: ``f(x) >= merit`` for every feasible ``x``.
+        - ``'optimum'``: ``merit`` is the exact optimal value of the objective
+          over the feasible set (an attained lower bound).
+        - ``'best_known'``: ``merit`` is the objective value of a known
+          feasible point, hence an upper bound on the optimum.
+        - ``'target'``: ``merit`` is a level of the objective that the author
+          chose as a target for feasible points; no mathematical claim.
+    source : str
+        Non-empty provenance of the fact (for example ``'author'`` or a
+        citation). A reference without provenance is rejected.
+    mapping : str
+        Token of the closed registry `ProblemReference.MAPPINGS` that fixes
+        how ``merit`` is read. The only token is ``'feasible_objective/1'``:
+        ``merit`` is an objective value over feasible points, so it equals the
+        merit of a feasible point under every merit function with the
+        *feasible identity* ``merit_fun(f, 0, maxcv_init) == f`` for every
+        ``maxcv_init``. The default merit function has this identity. A
+        mapping is never a callable and users cannot register one; an unknown
+        token is rejected, not guessed.
+
+    Notes
+    -----
+    What the record is not:
+
+    - It is not a run-history minimum and not the dynamic cohort minimum of a
+      benchmark. The profile baseline is the least merit observed over the
+      selected solvers, runs and evaluations; it changes with the cohort, is
+      recomputed on every load and is never stored in a problem. Nothing
+      derives a reference from solver output.
+    - It is not a floor for run merits. On a constrained problem the merit of
+      a run may be *below* the reference, because a merit function tolerates
+      or penalizes small violations: an infeasible point can have a lower
+      objective value than every feasible point. Such values are legitimate
+      and are never clamped to the reference.
+    - It is stated for feasible points only. Before a consumer compares run
+      merits with the record under a custom ``merit_fun``, that function must
+      be known to preserve the feasible identity above; otherwise the scalar
+      and the run merits are not in the same space.
+
+    The record is immutable and validated structurally; validation never
+    evaluates the objective or the constraints, so building or loading a
+    problem with a reference executes nothing. An omitted reference means
+    unknown, not a bound at the initial point.
+
+    See Also
+    --------
+    Problem : Optimization problem carrying an optional reference.
+    FeaturedProblem : Which features retain the reference.
+    """
+
+    #: The four kinds; each is a claim over feasible points.
+    KINDS = ('lower_bound', 'optimum', 'best_known', 'target')
+    #: Closed registry of mapping tokens. A token names one fixed, versioned
+    #: reading of ``merit``; a changed reading gets a new token, never a new
+    #: meaning for an old one.
+    MAPPINGS = ('feasible_objective/1',)
+    #: The fields of the record, in order.
+    FIELDS = ('merit', 'kind', 'source', 'mapping')
+    # Fields of the superseded record layout (objective value, violation and
+    # point). They are named so that the rejection can say why.
+    _LEGACY_FIELDS = ('fun', 'maxcv', 'point')
+
+    __slots__ = ('_merit', '_kind', '_source', '_mapping')
+
+    def __init__(self, merit, kind, source, mapping):
+        merit = _reference_merit(merit)
+        if not isinstance(kind, str):
+            raise TypeError('The field `kind` of a problem reference must be a string.')
+        if kind not in self.KINDS:
+            raise ValueError(f'The field `kind` of a problem reference must be one of {self.KINDS}, not {str(kind)!r}.')
+        if not isinstance(source, str):
+            raise TypeError('The field `source` of a problem reference must be a string.')
+        if not source.strip():
+            raise ValueError('The field `source` of a problem reference must be a non-empty provenance string.')
+        if callable(mapping):
+            raise TypeError('The field `mapping` of a problem reference must be a token of the closed registry '
+                            f'{self.MAPPINGS}; callables and user-defined mappings are not accepted.')
+        if not isinstance(mapping, str):
+            raise TypeError('The field `mapping` of a problem reference must be a string token of the closed registry '
+                            f'{self.MAPPINGS}.')
+        if mapping not in self.MAPPINGS:
+            raise ValueError(f'Unknown problem reference mapping {str(mapping)!r}; the closed registry is {self.MAPPINGS}. '
+                             'An unknown mapping is rejected, never guessed.')
+        object.__setattr__(self, '_merit', merit)
+        object.__setattr__(self, '_kind', str(kind))
+        object.__setattr__(self, '_source', str(source))
+        object.__setattr__(self, '_mapping', str(mapping))
+
+    @classmethod
+    def from_record(cls, value):
+        """
+        Normalize a constructor input: a `ProblemReference` is returned as is
+        and a mapping with exactly the four fields is converted. Anything
+        else is rejected: a naked scalar (it has no kind, provenance or
+        mapping), a record with a missing or unknown field, and a record of
+        the superseded layout (``fun``, ``maxcv``, ``point``), which is never
+        reinterpreted as a merit.
+        """
+        if isinstance(value, cls):
+            return value
+        if not isinstance(value, Mapping):
+            raise TypeError('The argument `reference` for problem must be a ProblemReference or a mapping with the '
+                            f'fields {cls.FIELDS}; a naked scalar has no kind, provenance or mapping and is rejected.')
+        legacy = [key for key in cls._LEGACY_FIELDS if key in value]
+        if legacy:
+            raise ValueError(f'The problem reference field(s) {legacy} belong to a superseded record layout. Such a '
+                             f'record is rejected and never reinterpreted; state the fields {cls.FIELDS}.')
+        unknown = [key for key in value if key not in cls.FIELDS]
+        if unknown:
+            raise ValueError(f'Unknown problem reference field(s) {unknown!r}; the fields are {cls.FIELDS}.')
+        missing = [key for key in cls.FIELDS if key not in value]
+        if missing:
+            raise ValueError(f'The problem reference is missing the required field(s) {missing}; all of {cls.FIELDS} '
+                             'are required.')
+        return cls(value['merit'], value['kind'], value['source'], value['mapping'])
+
+    def __setattr__(self, key, value):
+        raise AttributeError('ProblemReference is immutable.')
+
+    def __delattr__(self, key):
+        raise AttributeError('ProblemReference is immutable.')
+
+    def __reduce__(self):
+        # Serialized as the four native fields. Loading validates them again
+        # and yields unknown (``None``) for a record this version rejects.
+        return _restore_problem_reference, (self.as_dict(),)
+
+    def __setstate__(self, state):
+        # Never reached by a stream this class writes (see ``__reduce__``). A
+        # stream that restores instance state directly was written for another
+        # record layout, so its content is not read at all.
+        raise TypeError('This serialized ProblemReference uses a superseded record layout; it is rejected and never '
+                        f'reinterpreted. Build the record again with the fields {self.FIELDS}.')
+
+    def __eq__(self, other):
+        if not isinstance(other, ProblemReference):
+            return NotImplemented
+        return self._key() == other._key()
+
+    def __ne__(self, other):
+        result = self.__eq__(other)
+        return result if result is NotImplemented else not result
+
+    def __hash__(self):
+        return hash(self._key())
+
+    def __repr__(self):
+        return (f'ProblemReference(merit={self._merit!r}, kind={self._kind!r}, source={self._source!r}, '
+                f'mapping={self._mapping!r})')
+
+    def _key(self):
+        return self._merit, self._kind, self._source, self._mapping
+
+    @property
+    def merit(self):
+        """The reference value, read as stated by ``mapping``."""
+        return self._merit
+
+    @property
+    def kind(self):
+        """The claim carried by ``merit``; always a claim over feasible points."""
+        return self._kind
+
+    @property
+    def source(self):
+        """Provenance of the record."""
+        return self._source
+
+    @property
+    def mapping(self):
+        """Registry token that fixes how ``merit`` is read."""
+        return self._mapping
+
+    def as_dict(self):
+        """Native copy of the record: the four fields, in order."""
+        return {'merit': self._merit, 'kind': self._kind, 'source': self._source, 'mapping': self._mapping}
+
+
+def _propagated_reference(reference, stages):
+    """
+    The reference fact behind ``stages``, given as ``(name, options)`` pairs in
+    order: ``reference`` itself if every stage retains it, otherwise ``None``.
+    One stage that may change values, constraints, bounds or the truth makes
+    the fact unknown for the whole pipeline; see
+    `optiprofiler.feature_definitions.retains_reference`.
+    """
+    if reference is None or not all(_stage_retains_reference(name, options) for name, options in stages):
+        return None
+    return reference
+
+
 class Problem:
     r"""
     Optimization problem to be used in the benchmarking.
@@ -1136,6 +1396,14 @@ class Problem:
         Hessians of the nonlinear equality constraints:
         ``hceq(x) -> list of arrays, each shape (n, n)``. Default returns
         an empty list.
+    reference : ProblemReference or dict, optional
+        Optional feasible reference fact of the problem, stated by its author
+        or provider: a `ProblemReference` or a dict with exactly the fields
+        ``merit``, ``kind``, ``source`` and ``mapping``. A naked scalar, a
+        record with other fields and an unknown mapping are rejected. Omitted
+        means unknown. The record is validated structurally without
+        evaluating the objective, so building or loading a problem with a
+        reference executes nothing.
 
     Attributes
     ----------
@@ -1178,6 +1446,13 @@ class Problem:
         (``m_nonlinear_ub + m_nonlinear_eq``).
     mcon : int
         Total number of constraints (``mlcon + mnlcon``).
+    reference : ProblemReference or None
+        Feasible reference fact of the problem, or ``None`` when unknown. It
+        is author/provider metadata about the problem itself. It is not the
+        profile baseline, which is the least merit observed over the selected
+        solver histories, changes with the solver cohort and is never stored
+        here; and it is not a floor for run merits, which may fall below it
+        on a constrained problem (see `ProblemReference`).
 
     Methods
     -------
@@ -1269,7 +1544,7 @@ class Problem:
     equality constraints can be specified in a similar way using ``ceq``.
     """
 
-    def __init__(self, fun, x0, name=None, xl=None, xu=None, aub=None, bub=None, aeq=None, beq=None, cub=None, ceq=None, grad=None, hess=None, jcub=None, jceq=None, hcub=None, hceq=None):
+    def __init__(self, fun, x0, name=None, xl=None, xu=None, aub=None, bub=None, aeq=None, beq=None, cub=None, ceq=None, grad=None, hess=None, jcub=None, jceq=None, hcub=None, hceq=None, reference=None):
         """
         Initialize an optimization problem.
 
@@ -1416,6 +1691,12 @@ class Problem:
             raise ValueError(f'The argument `bub` for problem must have size {self.m_linear_ub}.')
         if self.beq.size != self.m_linear_eq:
             raise ValueError(f'The argument `beq` for problem must have size {self.m_linear_eq}.')
+
+        # Preprocess the optional feasible reference fact. The check is purely
+        # structural (four fields, a finite scalar, a registry token): the
+        # objective and the constraints are never evaluated here, so building
+        # or loading a problem executes nothing.
+        self._reference = None if reference is None else ProblemReference.from_record(reference)
 
     @property
     def n(self):
@@ -1642,6 +1923,24 @@ class Problem:
             Right-hand side of the linear equality constraints.
         """
         return np.copy(self._beq) if self._beq is not None else np.empty(0)
+
+    @property
+    def reference(self):
+        """
+        Feasible reference fact of the problem.
+
+        Returns
+        -------
+        `ProblemReference` or None
+            The author/provider record, or ``None`` when unknown. An object
+            serialized before the record existed, or holding anything that is
+            not a validated record, reads as unknown.
+        """
+        # Only a validated, immutable record is ever handed out: whatever a
+        # foreign or older serialization left in the instance reads as
+        # unknown and is never reinterpreted.
+        reference = getattr(self, '_reference', None)
+        return reference if isinstance(reference, ProblemReference) else None
 
     def fun(self, x):
         """
@@ -2182,6 +2481,22 @@ class FeaturedProblem(Problem):
         Objective function value at the initial point.
     maxcv_init : float
         Maximum constraint violation at the initial point.
+    reference : ProblemReference or None
+        The original problem's feasible reference fact if the feature retains
+        it, otherwise ``None`` (unknown). The record is retained unchanged or
+        dropped; nothing is transported or derived, and the rule is the same
+        for every kind. Retaining stages: those that change only observations
+        (``noisy``, ``truncated``, ``random_nan``,
+        ``nonquantifiable_constraints``, ``unrelaxable_constraints``, and
+        ``quantized`` with ``ground_truth=False``), ``perturbed_x0``,
+        ``permuted`` and ``linearly_transformed``. ``custom`` retains it only
+        if its options are a subset of ``mod_x0`` and ``mod_affine``; any
+        other custom option (``mod_fun``, ``mod_cub``, ``mod_ceq``,
+        ``mod_bounds``, ``mod_linear_ub``, ``mod_linear_eq``) may change
+        values, constraints or bounds and makes it unknown. ``quantized`` with
+        ``ground_truth=True`` (the default) makes it unknown, because the
+        truth is then the mesh problem. A composition retains the record only
+        if every stage does.
 
     Notes
     -----
@@ -2277,6 +2592,12 @@ class FeaturedProblem(Problem):
         self._xl, self._xu = self._runtime.modifier_bounds(self._seed, self._problem)
         self._aub, self._bub = self._runtime.modifier_linear_ub(self._seed, self._problem)
         self._aeq, self._beq = self._runtime.modifier_linear_eq(self._seed, self._problem)
+
+        # The reference fact is never copied blindly (``__new__`` copied the
+        # original problem's attributes): the stage either retains the record
+        # unchanged or makes it unknown. Only the stage name and its option
+        # names are read, so no callback is called for this.
+        self._reference = _propagated_reference(self._problem.reference, [(self._runtime.name, self._runtime._options)])
 
         # Store the histories of the objective function values, nonlinear
         # constraints, and maximum constraint violations.

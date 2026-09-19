@@ -63,6 +63,18 @@ classdef FeatureProblemView < Problem
             obj.affine_matrix = A;
             obj.affine_shift = b;
             obj.is_affine = affine;
+            % Reference fact of the problem after this stage: the root view
+            % carries the original problem's record, and a stage view inherits
+            % its predecessor's record only if the stage retains it. Once a
+            % view reports unknown, every later view does, so a composition is
+            % safe exactly when every stage is. The original stage options are
+            % used (their names only); no callback is called.
+            if isempty(stage)
+                obj.reference_ = predecessor.reference;
+            else
+                obj.reference_ = optiprofiler_internal.propagateProblemReference( ...
+                    predecessor.reference, stage.name, stage.options);
+            end
         end
         function value = fun(obj,x)
             value = obj.observed('fun',x);
@@ -73,7 +85,10 @@ classdef FeatureProblemView < Problem
         function value = ceq(obj,x)
             value = obj.observed('ceq',x);
         end
-        function value = reference(obj,channel,x)
+        function value = referenceValue(obj,channel,x)
+            % Scoring-truth value of CHANNEL at x. Formerly named `reference`;
+            % renamed because `reference` is now the Problem property holding
+            % the reference fact. The scoring channel itself is unchanged.
             x = obj.point(x);
             if isempty(obj.stage)
                 value = obj.predecessor.(channel)(x);
@@ -85,7 +100,7 @@ classdef FeatureProblemView < Problem
                 if strcmp(obj.stage.name,'quantized') && obj.stage.options.ground_truth
                     x = obj.quantize(x);
                 end
-                value = obj.predecessor.reference(channel,x);
+                value = obj.predecessor.referenceValue(channel,x);
             end
         end
         function varargout = maxcv(obj,x,detailed)
@@ -152,10 +167,10 @@ classdef FeatureProblemView < Problem
             if isempty(obj.stage)
                 value = 0;
                 if obj.dimensions(1)>0
-                    value = max([obj.reference('cub',x);0],[],'includenan');
+                    value = max([obj.referenceValue('cub',x);0],[],'includenan');
                 end
                 if obj.dimensions(2)>0
-                    value = max([abs(obj.reference('ceq',x));value],[],'includenan');
+                    value = max([abs(obj.referenceValue('ceq',x));value],[],'includenan');
                 end
             else
                 x = obj.map(x);

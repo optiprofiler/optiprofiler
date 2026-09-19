@@ -80,6 +80,23 @@ classdef FeaturedProblem < Problem
 %     not a separate sequence of constraint calls; unavailable evaluations are
 %     recorded as NaN.
 %   - fun_init, maxcv_init: reference values at the featured initial point.
+%   - reference: the original problem's feasible reference FACT (see Problem)
+%     if the feature retains it, otherwise [] (unknown). This is author or
+%     provider metadata and is unrelated to the "reference values" above,
+%     which are the scoring truth of this trial. The record is retained
+%     unchanged or dropped; nothing is transported or derived, and the rule is
+%     the same for every kind. Retaining stages: those that change only
+%     observations (noisy, truncated, random_nan, nonquantifiable_constraints,
+%     unrelaxable_constraints, and quantized with ground_truth=false),
+%     perturbed_x0, permuted and linearly_transformed. custom retains it only
+%     if its options are a subset of mod_x0 and mod_affine; any other custom
+%     option (mod_fun, mod_cub, mod_ceq, mod_bounds, mod_linear_ub,
+%     mod_linear_eq) may change values, constraints or bounds and makes it
+%     unknown. quantized with ground_truth=true (the default) makes it
+%     unknown, because the truth is then the mesh problem. A composition
+%     retains the record only if every stage does. The record is never the
+%     cohort minimum of a benchmark, and the recorded merits of a constrained
+%     trial may fall below it; they are never clamped.
 %
 %   n_eval_fun is the length of fun_hist. On every execution strategy,
 %   n_eval_cub and n_eval_ceq count recorded constraint queries, i.e. history
@@ -226,6 +243,17 @@ classdef FeaturedProblem < Problem
             obj@Problem(pb_struct);
             obj.kernel = kernel;
             obj.final_view = view;
+            % The reference fact is never copied blindly from the original
+            % problem: each stage either retains the record unchanged or makes
+            % it unknown. Only stage names and option names are read, so no
+            % callback is called for this. A composition takes the record that
+            % survived every stage view.
+            if isempty(view)
+                obj.reference_ = optiprofiler_internal.propagateProblemReference( ...
+                    problem.reference, kernel.name, kernel.options);
+            else
+                obj.reference_ = view.reference;
+            end
             if isempty(view)
                 if isempty(stages), obj.execution_strategy = 'identity';
                 else, obj.execution_strategy = 'legacy-single'; end
@@ -377,7 +405,7 @@ classdef FeaturedProblem < Problem
             if ~isempty(obj.final_view)
                 f = obj.final_view.fun(x);
                 obj.last_fun = f;
-                obj.fun_hist = [obj.fun_hist,obj.final_view.reference('fun',x)];
+                obj.fun_hist = [obj.fun_hist,obj.final_view.referenceValue('fun',x)];
                 try
                     obj.maxcv_hist = [obj.maxcv_hist,obj.final_view.referenceMaxcv(x)];
                 catch
@@ -441,7 +469,7 @@ classdef FeaturedProblem < Problem
             if ~isempty(obj.final_view)
                 cub_ = obj.final_view.cub(x);
                 obj.last_cub = cub_;
-                reference_value = obj.final_view.reference('cub',x);
+                reference_value = obj.final_view.referenceValue('cub',x);
                 if nargin < 3 || record_hist
                     obj.cub_hist = [obj.cub_hist,reference_value];
                 end
@@ -501,7 +529,7 @@ classdef FeaturedProblem < Problem
             if ~isempty(obj.final_view)
                 ceq_ = obj.final_view.ceq(x);
                 obj.last_ceq = ceq_;
-                reference_value = obj.final_view.reference('ceq',x);
+                reference_value = obj.final_view.referenceValue('ceq',x);
                 if nargin < 3 || record_hist
                     obj.ceq_hist = [obj.ceq_hist,reference_value];
                 end
@@ -721,7 +749,7 @@ classdef FeaturedProblem < Problem
         end
         function [f, cv] = evaluateTruth(obj, x)
             if ~isempty(obj.final_view)
-                f = obj.final_view.reference('fun',x);
+                f = obj.final_view.referenceValue('fun',x);
                 cv = obj.final_view.referenceMaxcv(x);
                 return
             end

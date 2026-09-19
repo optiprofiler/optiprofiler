@@ -284,6 +284,70 @@ def is_stochastic(name, options):
     return False
 
 
+#: Stage kinds that keep a problem's feasible reference fact whatever their
+#: options are. The first group changes only what a solver observes; the truth
+#: recorded in the histories is the original problem's. ``perturbed_x0`` moves
+#: only the initial point. ``permuted`` and ``linearly_transformed`` are
+#: invertible changes of variables built by the framework, so the feasible set
+#: and the objective values over it are the original ones in new coordinates.
+_REFERENCE_RETAINING_STAGES = frozenset({
+    FeatureName.PLAIN.value,
+    FeatureName.NOISY.value, FeatureName.TRUNCATED.value, FeatureName.RANDOM_NAN.value,
+    FeatureName.NONQUANTIFIABLE_CONSTRAINTS.value, FeatureName.UNRELAXABLE_CONSTRAINTS.value,
+    FeatureName.PERTURBED_X0.value,
+    FeatureName.PERMUTED.value, FeatureName.LINEARLY_TRANSFORMED.value,
+})
+
+#: The only ``custom`` options under which the reference fact is retained.
+#: ``mod_x0`` moves the initial point and ``mod_affine`` is a change of
+#: variables whose inverse is checked when the problem is built
+#: (``A @ inv == I``), so it is a valid affine coordinate change. This is a
+#: whitelist on purpose: ``mod_fun``, ``mod_cub``, ``mod_ceq``, ``mod_bounds``,
+#: ``mod_linear_ub``, ``mod_linear_eq`` and any option added later are
+#: arbitrary user code that may change values, constraints or bounds, and the
+#: framework cannot prove that the feasible reference survives them.
+REFERENCE_SAFE_CUSTOM_OPTIONS = frozenset({FeatureOption.MOD_X0.value, FeatureOption.MOD_AFFINE.value})
+
+
+def retains_reference(name, options):
+    """
+    Whether one stage of kind ``name`` with the stage-local ``options`` keeps
+    a problem's feasible reference fact (``Problem.reference``).
+
+    The answer is the same for every reference kind (``lower_bound``,
+    ``optimum``, ``best_known``, ``target``): each is a claim over the
+    feasible points of the problem, so it survives exactly the stages that
+    leave the feasible points and the objective values over them unchanged up
+    to a change of variables. A stage that does not retain the fact makes it
+    unknown; nothing is derived or transported, because the record holds no
+    point. A composition retains the fact only if every stage does.
+
+    - Observation-only stages, ``perturbed_x0``, ``permuted`` and
+      ``linearly_transformed``: retained.
+    - ``quantized``: retained with ``ground_truth=False`` (the mesh is then an
+      observation and the truth stays the original problem). With
+      ``ground_truth=True`` the truth becomes the mesh problem, whose feasible
+      values are not those of the continuous problem; no proof that the same
+      feasible reference holds is available, so the fact is unknown.
+    - ``custom``: retained only if the option names are a subset of
+      :data:`REFERENCE_SAFE_CUSTOM_OPTIONS`.
+    - Any other name: unknown (fail closed).
+
+    Only the option *names* of a custom stage are read and no callback is
+    called, so applying the rule never evaluates anything.
+    """
+    name = getattr(name, 'value', name)
+    if name in _REFERENCE_RETAINING_STAGES:
+        return True
+    if name == FeatureName.QUANTIZED.value:
+        # Retained only for an explicit ``False``; a missing or non-boolean
+        # value counts as ground truth.
+        return options.get(FeatureOption.GROUND_TRUTH.value, True) is False
+    if name == FeatureName.CUSTOM.value:
+        return {getattr(key, 'value', key) for key in options} <= REFERENCE_SAFE_CUSTOM_OPTIONS
+    return False
+
+
 def stamp(name, options):
     """The folder-name stamp of one stage kind (the established 1.x conventions)."""
     if name == FeatureName.PERTURBED_X0:

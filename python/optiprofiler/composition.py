@@ -24,6 +24,13 @@ linear and nonlinear constraints) together with two evaluation channels.
   ``quantized`` with ``ground_truth=True`` snaps the inherited reference
   queries as well. Reference reads never advance any random stream.
 
+The *reference channel* above is the scoring truth of the run and must not be
+confused with the problem's *reference fact* (``Problem.reference``), which is
+author/provider metadata. Every view carries that fact forward only if its
+stage retains it (:func:`optiprofiler.feature_definitions.retains_reference`);
+otherwise the view, and everything after it, reports it as unknown. The fact
+is retained unchanged or dropped: it holds no point, so nothing is transported.
+
 Exactly one recorder, :class:`ComposedFeaturedProblem`, owns the evaluation
 budget, the histories, the cached last values and the termination rule. The
 views own no accounting at all. A feature name whose effective pipeline has
@@ -62,7 +69,7 @@ import copy
 import numpy as np
 
 from .experiment import STRATEGY_COMPOSED
-from .feature_definitions import STAGE_CODES
+from .feature_definitions import STAGE_CODES, retains_reference
 from .feature_definitions import SEED_POLICY_COMPOSED as SEED_POLICY
 from .opclasses import (Feature, FeatureName, FeatureOption, FeaturedProblem, Problem, _StageRuntime,
                         _process_1d_array, _validate_max_eval, _validate_seed)
@@ -178,6 +185,14 @@ class ProblemView(Problem):
         self._m_nonlinear_eq = predecessor.m_nonlinear_eq
         self._fun = self._cub = self._ceq = None
         self._grad = self._hess = self._jcub = self._jceq = self._hcub = self._hceq = None
+        # Reference fact of the problem: inherited only if this stage retains
+        # it, otherwise unknown from here on. Once a predecessor reports
+        # unknown no later stage can restore it, so a composition is safe
+        # exactly when every stage is. Only the stage name and its option
+        # names are read; no callback runs for this.
+        self._reference = None
+        if stage is None or retains_reference(stage.name, stage.options):
+            self._reference = predecessor.reference
 
     # Problem-facing API: the observed channel. Input is normalized exactly
     # as ``Problem.fun`` does (a list is a legal point for a Problem), so a
@@ -269,6 +284,7 @@ class RootView(ProblemView):
         self._m_nonlinear_eq = problem.m_nonlinear_eq
         self._fun = self._cub = self._ceq = None
         self._grad = self._hess = self._jcub = self._jceq = self._hcub = self._hceq = None
+        self._reference = problem.reference
 
     def observed_fun(self, x):
         return self._problem.fun(x)
@@ -825,6 +841,8 @@ class ComposedFeaturedProblem(FeaturedProblem):
         self._m_nonlinear_eq = view.m_nonlinear_eq
         self._fun = self._cub = self._ceq = None
         self._grad = self._hess = self._jcub = self._jceq = self._hcub = self._hceq = None
+        # The reference fact that survived every stage, or None (unknown).
+        self._reference = view.reference
 
         self._fun_init, self._maxcv_init = self._evaluate_truth(self._x0)
 
