@@ -395,6 +395,32 @@ class TestFiniteValidation:
         assert calls == baseline + baseline
 
 
+    def test_malformed_record_is_rejected_before_any_callback_is_touched(self):
+        # The Python constructor probes the constraint callbacks at x0 for
+        # their dimensions. The reference is validated before that, so a
+        # malformed record never causes a callback of the problem to run.
+        calls = []
+
+        def counted(x):
+            calls.append('fun')
+            return shifted_sphere(x)
+
+        def counted_cub(x):
+            calls.append('cub')
+            return cub_first_coordinate(x)
+
+        malformed = [record(merit=np.nan), record(mapping='feasible_objective/2'), record(mapping=counted),
+                     record(kind='bogus'), record(source=''), dict(record(), point=[1.0, 2.0]),
+                     {'fun': 0.0, 'kind': 'optimum', 'source': 'author'}, 0.0]
+        for reference in malformed:
+            with pytest.raises((TypeError, ValueError)):
+                constrained_problem(reference=reference, fun=counted, cub=counted_cub)
+        assert calls == []
+        # Control: a valid record lets the constructor go on to its usual probe.
+        constrained_problem(reference=record(), fun=counted, cub=counted_cub)
+        assert 'cub' in calls and 'fun' not in calls
+
+
 class TestPropagationRule:
     """The pure rule ``retains_reference(name, options)``; nothing is built or evaluated."""
 

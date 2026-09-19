@@ -95,8 +95,8 @@ classdef Problem < handle
 %         `fun`, `maxcv` and `point`), a non-finite merit and an unknown
 %         mapping are rejected; nothing is repaired or guessed. Omitted means
 %         unknown. The record is validated structurally without evaluating
-%         the objective, so building or loading a problem with a reference
-%         executes nothing. See also FeaturedProblem for which features
+%         anything, so a reference adds no callback call to building or
+%         loading a problem. See also FeaturedProblem for which features
 %         retain it.
 %
 %         The reference is NOT a run-history minimum and NOT the dynamic
@@ -241,6 +241,17 @@ classdef Problem < handle
                 if ~isfield(s, 'fun') || ~isfield(s, 'x0')
                     error("MATLAB:Problem:MissingFields", "The fields `fun` and `x0` for `Problem` are required.")
                 end
+
+                % Optional feasible reference fact, before anything else. The
+                % check is structural (four fields, a finite scalar, a
+                % registry token) and evaluates nothing, so a malformed record
+                % is rejected before any callback of the problem is touched
+                % and a reference adds no callback call to building or loading
+                % a problem.
+                if isfield(s, 'reference')
+                    obj.reference_ = normalizeProblemReference(s.reference);
+                end
+
                 obj.fun_ = s.fun;
 
                 % Check if the struct contains `grad` and `hess` fields
@@ -282,14 +293,6 @@ classdef Problem < handle
                     elseif ismember(expected_fields{i}, fields)
                         obj.(expected_fields{i}) = s.(expected_fields{i});
                     end
-                end
-
-                % Optional feasible reference fact. The check is structural
-                % (four fields, a finite scalar, a registry token): the
-                % objective and the constraints are never evaluated here, so
-                % building or loading a problem executes nothing.
-                if isfield(s, 'reference')
-                    obj.reference_ = normalizeProblemReference(s.reference);
                 end
             else
                 error("MATLAB:Problem:NotStruct", "Invalid input for `Problem`. A struct argument is expected.")

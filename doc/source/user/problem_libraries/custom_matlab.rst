@@ -14,11 +14,11 @@ through the optional ``reference`` field of the :ref:`Problem <matproblem>`
 input struct: a struct with exactly the fields ``merit``, ``kind``, ``source``
 and ``mapping`` (the token ``'feasible_objective/1'``), for example a known
 optimal value read from an offline catalog.  The record is validated when the
-problem is built and nothing is evaluated or solved during the load; a
-malformed record, including one with the superseded fields ``fun``, ``maxcv``
-or ``point`` or with an unknown mapping, makes the load fail and is never
-repaired.  Problems without a reference load as before, with an unknown
-reference.
+problem is built; validating it evaluates nothing, so it adds no callback call
+to the load, and no solver runs.  A malformed record, including one with the
+superseded fields ``fun``, ``maxcv`` or ``point`` or with an unknown mapping,
+makes the load fail and is never repaired.  Problems without a reference load
+as before, with an unknown reference.
 
 Register the root and canonical functions once:
 

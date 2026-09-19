@@ -451,6 +451,26 @@ classdef TestProblemReference < matlab.unittest.TestCase
             testCase.verifyWarning(@() raising.fun([0; 0]), 'TestProblemReference:evaluated');
         end
 
+        function malformedRecordIsRejectedBeforeAnyCallbackIsTouched(testCase)
+            % The reference is validated before anything else in the
+            % constructor, so a malformed record never causes a callback of
+            % the problem to run.
+            counter = TestProblemReference.newCounter();
+            record = @TestProblemReference.record;  % record(name, value) adds or overrides a field
+            malformed = {record('merit', NaN), record('mapping', 'feasible_objective/2'), record('mapping', @sin), ...
+                record('kind', 'bogus'), record('source', ''), record('point', [1; 2]), ...
+                struct('fun', 0, 'kind', 'optimum', 'source', 'author'), 0};
+            for k = 1:numel(malformed)
+                try
+                    TestProblemReference.countedProblem(counter, malformed{k});
+                    testCase.verifyFail(sprintf('malformed case %d was accepted', k));
+                catch cause
+                    testCase.verifySubstring(cause.identifier, 'MATLAB:Problem:reference_', sprintf('malformed case %d', k));
+                end
+            end
+            testCase.verifyEqual(cell2mat(values(counter)), zeros(1, counter.Count));
+        end
+
         % -------------------------------------------------------- propagation rule
 
         function ruleMatchesTheTable(testCase)

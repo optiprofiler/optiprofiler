@@ -26,11 +26,12 @@ through the optional ``reference`` argument of :class:`~optiprofiler.Problem`:
 a :class:`~optiprofiler.ProblemReference` or a dict with exactly the fields
 ``merit``, ``kind``, ``source`` and ``mapping`` (the token
 ``'feasible_objective/1'``), for example a known optimal value read from an
-offline catalog.  The record is validated when the problem is built and
-nothing is evaluated or solved during the load; a malformed record, including
-one with the superseded fields ``fun``, ``maxcv`` or ``point`` or with an
-unknown mapping, makes the load fail and is never repaired.  Problems without
-a reference load as before, with an unknown reference.
+offline catalog.  The record is validated when the problem is built;
+validating it evaluates nothing, so it adds no callback call to the load, and
+no solver runs.  A malformed record, including one with the superseded fields
+``fun``, ``maxcv`` or ``point`` or with an unknown mapping, makes the load
+fail and is never repaired.  Problems without a reference load as before, with
+an unknown reference.
 
 To accept library-specific ``plib_options``, also define both
 ``myproblems_get_default_options()`` and

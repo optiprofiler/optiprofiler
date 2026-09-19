@@ -98,8 +98,11 @@ documented for the first one, and the tests contain the probe it has to make.
 
 ## 3. Validation and deserialization
 
-Validation is structural and never evaluates the objective or the constraints,
-so building or loading a problem with a reference executes nothing.
+Validation is structural and evaluates nothing, so a reference adds no callback
+call to building or loading a problem. (The Python constructor probes the
+constraint callbacks at `x0` for their dimensions, with or without a reference;
+the reference is validated before that, so a malformed record is rejected
+before any callback of the problem is touched.)
 
 Rejected at construction, in both languages: a non-finite, non-real or
 non-scalar `merit` (logical values, text and one-element containers included);

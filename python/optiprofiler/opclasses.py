@@ -1160,10 +1160,11 @@ class ProblemReference:
       be known to preserve the feasible identity above; otherwise the scalar
       and the run merits are not in the same space.
 
-    The record is immutable and validated structurally; validation never
-    evaluates the objective or the constraints, so building or loading a
-    problem with a reference executes nothing. An omitted reference means
-    unknown, not a bound at the initial point.
+    The record is immutable and validated structurally. Validation never
+    evaluates the objective or the constraints, so a reference adds no
+    callback call to building or loading a problem, and a malformed record is
+    rejected before any callback of the problem is touched. An omitted
+    reference means unknown, not a bound at the initial point.
 
     See Also
     --------
@@ -1401,9 +1402,9 @@ class Problem:
         or provider: a `ProblemReference` or a dict with exactly the fields
         ``merit``, ``kind``, ``source`` and ``mapping``. A naked scalar, a
         record with other fields and an unknown mapping are rejected. Omitted
-        means unknown. The record is validated structurally without
-        evaluating the objective, so building or loading a problem with a
-        reference executes nothing.
+        means unknown. The record is validated structurally, first of all the
+        arguments and without evaluating anything, so a reference adds no
+        callback call to building or loading a problem.
 
     Attributes
     ----------
@@ -1591,6 +1592,15 @@ class Problem:
             If the arguments are inconsistent.
         """
 
+        # Preprocess the optional feasible reference fact, before anything
+        # else: the check is purely structural (four fields, a finite scalar,
+        # a registry token) and evaluates nothing, so a malformed record is
+        # rejected before any callback of the problem is touched. The
+        # constraint callbacks are probed at `x0` further below, for their
+        # dimensions; that happens with or without a reference, which
+        # therefore adds no callback call.
+        self._reference = None if reference is None else ProblemReference.from_record(reference)
+
         # Preprocess the objective function.
         self._fun = fun
         if not callable(self._fun):
@@ -1691,12 +1701,6 @@ class Problem:
             raise ValueError(f'The argument `bub` for problem must have size {self.m_linear_ub}.')
         if self.beq.size != self.m_linear_eq:
             raise ValueError(f'The argument `beq` for problem must have size {self.m_linear_eq}.')
-
-        # Preprocess the optional feasible reference fact. The check is purely
-        # structural (four fields, a finite scalar, a registry token): the
-        # objective and the constraints are never evaluated here, so building
-        # or loading a problem executes nothing.
-        self._reference = None if reference is None else ProblemReference.from_record(reference)
 
     @property
     def n(self):

@@ -39,8 +39,8 @@ function reference = normalizeProblemReference(reference)
 %   run merits with the record under a custom merit function, that function
 %   must be known to preserve the feasible identity above.
 %
-%   Validation is structural and evaluates nothing, so building or loading a
-%   problem with a reference never executes the objective or the constraints.
+%   Validation is structural and evaluates nothing, so a reference adds no
+%   callback call to building or loading a problem.
 
     if isempty(reference)
         reference = [];
