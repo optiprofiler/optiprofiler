@@ -52,7 +52,11 @@ The default merit function has this identity for every initial violation,
 including `NaN`. The tests pin it for `maxcv_init` in `{0, 0.2, 50, NaN}`.
 
 The registry is closed. It is a literal list in each language with no
-registration entry point. A mapping is never a callable or a function handle.
+registration entry point. In Python the record class cannot be subclassed and
+validation reads a module-private literal, so neither a subclass nor an
+assignment to the informational attribute `ProblemReference.MAPPINGS` extends
+it; in MATLAB the list is a literal inside the private validator. A mapping is
+never a callable or a function handle.
 An unknown token is rejected; it is matched exactly, so another version
 (`feasible_objective/2`), another case or surrounding blanks are different
 tokens and not spellings of the known one. A changed reading of the scalar

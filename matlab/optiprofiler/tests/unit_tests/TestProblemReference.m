@@ -419,12 +419,13 @@ classdef TestProblemReference < matlab.unittest.TestCase
 
         function finiteRealScalarsAreStoredExactlyAsDouble(testCase)
             values = {0, -3, int64(2)^53, int64(2)^60, intmin('int64'), -0, 1e308, -1e308, 5e-324, ...
-                single(0.5), int8(-7), uint16(9), realmax, -realmax};
-            stored = [0, -3, 2^53, 2^60, -2^63, 0, 1e308, -1e308, 5e-324, 0.5, -7, 9, realmax, -realmax];
+                single(0.5), int8(-7), uint16(9), realmax, -realmax, sparse(2.5)};
+            stored = [0, -3, 2^53, 2^60, -2^63, 0, 1e308, -1e308, 5e-324, 0.5, -7, 9, realmax, -realmax, 2.5];
             for k = 1:numel(values)
                 reference = TestProblemReference.constrainedProblem( ...
                     TestProblemReference.record('merit', values{k}, 'kind', 'target')).reference;
                 testCase.verifyClass(reference.merit, 'double');
+                testCase.verifyFalse(issparse(reference.merit), sprintf('case %d', k));  % one storage form
                 testCase.verifyEqual(reference.merit, stored(k), sprintf('case %d', k));
             end
         end

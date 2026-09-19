@@ -1054,6 +1054,28 @@ class Feature:
     get_default_rng = staticmethod(_StageRuntime.get_default_rng)
 
 
+# The kinds and the closed mapping registry of a reference record. Validation
+# reads these module-private literals, never an attribute of the class or of
+# an instance, so neither a subclass nor an assignment to
+# ``ProblemReference.MAPPINGS`` can add a mapping. A changed reading of the
+# scalar gets a new token here, never a new meaning for an old one.
+_REFERENCE_KINDS = ('lower_bound', 'optimum', 'best_known', 'target')
+_REFERENCE_MAPPINGS = ('feasible_objective/1',)
+
+
+def _reference_text(value, key):
+    """
+    A text field of a reference record as an exact ``str``.
+
+    The content of a ``str`` subclass is copied with ``str.__str__``, so an
+    overridden ``__eq__``, ``__hash__`` or ``__str__`` can neither pass the
+    registry check nor change what is stored.
+    """
+    if not isinstance(value, str):
+        raise TypeError(f'The field `{key}` of a problem reference must be a string.')
+    return value if type(value) is str else str.__str__(value)
+
+
 def _reference_merit(value):
     """
     The ``merit`` of a reference record as a finite ``float``.
@@ -1138,8 +1160,9 @@ class ProblemReference:
         merit of a feasible point under every merit function with the
         *feasible identity* ``merit_fun(f, 0, maxcv_init) == f`` for every
         ``maxcv_init``. The default merit function has this identity. A
-        mapping is never a callable and users cannot register one; an unknown
-        token is rejected, not guessed.
+        mapping is never a callable and users cannot register one: the class
+        cannot be subclassed and validation reads a private literal. An
+        unknown token is rejected, not guessed.
 
     Notes
     -----
@@ -1173,11 +1196,11 @@ class ProblemReference:
     """
 
     #: The four kinds; each is a claim over feasible points.
-    KINDS = ('lower_bound', 'optimum', 'best_known', 'target')
-    #: Closed registry of mapping tokens. A token names one fixed, versioned
-    #: reading of ``merit``; a changed reading gets a new token, never a new
-    #: meaning for an old one.
-    MAPPINGS = ('feasible_objective/1',)
+    KINDS = _REFERENCE_KINDS
+    #: Closed registry of mapping tokens, for information. A token names one
+    #: fixed, versioned reading of ``merit``. Validation does not read this
+    #: attribute, so assigning to it does not extend the registry.
+    MAPPINGS = _REFERENCE_MAPPINGS
     #: The fields of the record, in order.
     FIELDS = ('merit', 'kind', 'source', 'mapping')
     # Fields of the superseded record layout (objective value, violation and
@@ -1186,29 +1209,33 @@ class ProblemReference:
 
     __slots__ = ('_merit', '_kind', '_source', '_mapping')
 
+    def __init_subclass__(cls, **kwargs):
+        # A subclass could redefine the registry, a property or the
+        # validation, which would be a user-defined mapping by another name.
+        raise TypeError('ProblemReference cannot be subclassed: the record and its mapping registry are closed.')
+
     def __init__(self, merit, kind, source, mapping):
         merit = _reference_merit(merit)
-        if not isinstance(kind, str):
-            raise TypeError('The field `kind` of a problem reference must be a string.')
-        if kind not in self.KINDS:
-            raise ValueError(f'The field `kind` of a problem reference must be one of {self.KINDS}, not {str(kind)!r}.')
-        if not isinstance(source, str):
-            raise TypeError('The field `source` of a problem reference must be a string.')
+        kind = _reference_text(kind, 'kind')
+        if kind not in _REFERENCE_KINDS:
+            raise ValueError(f'The field `kind` of a problem reference must be one of {_REFERENCE_KINDS}, not {kind!r}.')
+        source = _reference_text(source, 'source')
         if not source.strip():
             raise ValueError('The field `source` of a problem reference must be a non-empty provenance string.')
         if callable(mapping):
             raise TypeError('The field `mapping` of a problem reference must be a token of the closed registry '
-                            f'{self.MAPPINGS}; callables and user-defined mappings are not accepted.')
+                            f'{_REFERENCE_MAPPINGS}; callables and user-defined mappings are not accepted.')
         if not isinstance(mapping, str):
             raise TypeError('The field `mapping` of a problem reference must be a string token of the closed registry '
-                            f'{self.MAPPINGS}.')
-        if mapping not in self.MAPPINGS:
-            raise ValueError(f'Unknown problem reference mapping {str(mapping)!r}; the closed registry is {self.MAPPINGS}. '
-                             'An unknown mapping is rejected, never guessed.')
+                            f'{_REFERENCE_MAPPINGS}.')
+        mapping = _reference_text(mapping, 'mapping')
+        if mapping not in _REFERENCE_MAPPINGS:
+            raise ValueError(f'Unknown problem reference mapping {mapping!r}; the closed registry is '
+                             f'{_REFERENCE_MAPPINGS}. An unknown mapping is rejected, never guessed.')
         object.__setattr__(self, '_merit', merit)
-        object.__setattr__(self, '_kind', str(kind))
-        object.__setattr__(self, '_source', str(source))
-        object.__setattr__(self, '_mapping', str(mapping))
+        object.__setattr__(self, '_kind', kind)
+        object.__setattr__(self, '_source', source)
+        object.__setattr__(self, '_mapping', mapping)
 
     @classmethod
     def from_record(cls, value):

@@ -110,7 +110,7 @@ function merit = referenceMerit(value)
         error("MATLAB:Problem:reference_merit_NotRealScalar", ...
             "The field `merit` of a problem reference must be a real scalar.");
     end
-    merit = double(value);
+    merit = full(double(value));  % a sparse scalar is stored as a full double, like every other merit
     if ~isfinite(merit)
         error("MATLAB:Problem:reference_merit_NotFinite", ...
             "The field `merit` of a problem reference must be finite.");

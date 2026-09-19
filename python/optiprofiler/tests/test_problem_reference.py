@@ -311,6 +311,50 @@ class TestMappingRegistry:
         for owner in (ProblemReference, opclasses, optiprofiler):
             assert not [name for name in dir(owner) if 'register' in name.lower() and 'mapping' in name.lower()]
 
+    def test_registry_cannot_be_extended(self, monkeypatch):
+        # A subclass could redefine the registry, a property or the
+        # validation: a user-defined mapping by another name. It is refused.
+        with pytest.raises(TypeError, match='cannot be subclassed'):
+            class Extended(ProblemReference):  # noqa: F841
+                MAPPINGS = ProblemReference.MAPPINGS + ('user_mapping/1',)
+        # The class attributes are informational. Validation reads private
+        # literals, so assigning to the attributes adds neither a mapping nor a kind.
+        monkeypatch.setattr(ProblemReference, 'MAPPINGS', ProblemReference.MAPPINGS + ('user_mapping/1',))
+        monkeypatch.setattr(ProblemReference, 'KINDS', ProblemReference.KINDS + ('user_kind',))
+        with pytest.raises(ValueError, match='closed registry'):
+            ProblemReference(0.0, 'optimum', 'author', 'user_mapping/1')
+        with pytest.raises(ValueError, match='must be one of'):
+            ProblemReference(0.0, 'user_kind', 'author', MAPPING)
+        with pytest.warns(RuntimeWarning, match='read as unknown'):
+            assert opclasses._restore_problem_reference(record(mapping='user_mapping/1')) is None
+        assert ProblemReference(0.0, 'optimum', 'author', MAPPING).mapping == MAPPING
+
+    def test_text_subclasses_cannot_pass_the_registry_or_change_what_is_stored(self):
+        class Chameleon(str):
+            """Text that claims to equal everything and prints as something else."""
+
+            def __eq__(self, other):
+                return True
+
+            def __hash__(self):
+                return hash('feasible_objective/1')
+
+            def __str__(self):
+                return 'user_mapping/1'
+
+        # Judged by its content, 'user_mapping/1' is unknown, whatever it claims to equal.
+        with pytest.raises(ValueError, match='closed registry'):
+            ProblemReference(0.0, 'optimum', 'author', Chameleon('user_mapping/1'))
+        with pytest.raises(ValueError, match='must be one of'):
+            ProblemReference(0.0, Chameleon('user_kind'), 'author', MAPPING)
+        # A subclass with valid content is accepted and stored as exact text.
+        reference = ProblemReference(0.0, Chameleon('optimum'), Chameleon('author'), Chameleon(MAPPING))
+        assert [type(value) for value in (reference.kind, reference.source, reference.mapping)] == [str, str, str]
+        assert reference.as_dict() == record()
+        assert reference == ProblemReference.from_record(record())
+        numpy_text = ProblemReference(0.0, np.str_('optimum'), np.str_('author'), np.str_(MAPPING))
+        assert type(numpy_text.kind) is str and numpy_text == reference
+
     @pytest.mark.parametrize('mapping', ['feasible_objective/2', 'feasible_objective/0', 'feasible_objective',
                                          'feasible_objective/1 ', ' feasible_objective/1', 'Feasible_Objective/1',
                                          'FEASIBLE_OBJECTIVE/1', 'feasible_objective/1.0', 'feasible_objective/01',
