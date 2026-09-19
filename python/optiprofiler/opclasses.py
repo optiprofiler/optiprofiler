@@ -1583,6 +1583,10 @@ class Problem:
                 ``ceq(x) -> array_like, shape (m_nonlinear_eq,)``
 
             where ``x`` is an array with shape (n,).
+        reference : `optiprofiler.opclasses.ProblemReference` or dict, optional
+            Feasible reference fact of the problem: exactly the fields
+            ``merit``, ``kind``, ``source`` and ``mapping``. Omitted means
+            unknown. See the class documentation.
 
         Raises
         ------
