@@ -818,7 +818,7 @@ class TestCompositionAndPersistence:
         restored = pickle.loads(pickle.dumps(featured))
         assert isinstance(restored, FeaturedProblem)
         assert callback.calls == 1  # unpickling must not call the user's callback
-        restored_callback = restored._runtime._options[FeatureOption.MOD_AFFINE]
+        restored_callback = restored._runtime._options['mod_affine']
         assert restored_callback.calls == 1
         for key in ('x0', 'xl', 'xu', 'aub', 'bub', 'aeq', 'beq', 'fun_hist', 'maxcv_hist'):
             np.testing.assert_array_equal(getattr(restored, key), getattr(featured, key), err_msg=key)
