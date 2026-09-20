@@ -818,10 +818,16 @@ class TestCompositionAndPersistence:
         restored = pickle.loads(pickle.dumps(featured))
         assert isinstance(restored, FeaturedProblem)
         assert callback.calls == 1  # unpickling must not call the user's callback
+        restored_callback = restored._runtime._options[FeatureOption.MOD_AFFINE]
+        assert restored_callback.calls == 1
         for key in ('x0', 'xl', 'xu', 'aub', 'bub', 'aeq', 'beq', 'fun_hist', 'maxcv_hist'):
             np.testing.assert_array_equal(getattr(restored, key), getattr(featured, key), err_msg=key)
-        assert restored._runtime.modifier_affine(restored._seed, problem)[0].tolist() == \
-               featured._runtime.modifier_affine(featured._seed, problem)[0].tolist()
+        restored_affine = restored._runtime.modifier_affine(restored._seed, restored._problem)
+        original_affine = featured._runtime.modifier_affine(featured._seed, featured._problem)
+        for actual, expected in zip(restored_affine, original_affine):
+            np.testing.assert_array_equal(actual, expected)
+        assert restored._runtime._kept_affine[1] == restored._seed
+        assert restored_callback.calls == 1
 
     @pytest.mark.parametrize('transform', [nan_in_matrix, wrong_inverse_shape, materially_wrong_inverse,
                                            numerically_singular], ids=lambda f: f.__name__)
