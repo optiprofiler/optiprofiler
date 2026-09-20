@@ -33,8 +33,7 @@ def _restore_featured_problem(cls, state):
     instance = object.__new__(cls)
     if not isinstance(state, dict):
         raise TypeError('The featured-problem pickle does not contain an instance state dictionary.')
-    instance.__dict__.update(state)
-    _restore_cached_affine_flags(instance)
+    instance.__setstate__(state)
     return instance
 
 
@@ -62,13 +61,15 @@ def _restore_cached_affine_flags(value, seen=None):
         for item in value:
             _restore_cached_affine_flags(item, seen)
         return
-    cached = getattr(value, '_kept_affine', None)
-    if isinstance(cached, tuple) and len(cached) == 3:
-        triple = cached[2]
-        if isinstance(triple, tuple) and len(triple) == 3:
-            for array in triple:
-                if isinstance(array, np.ndarray):
-                    array.setflags(write=False)
+    if (type(value).__name__ == '_StageRuntime'
+            and type(value).__module__ == __name__):
+        cached = getattr(value, '_kept_affine', None)
+        if isinstance(cached, tuple) and len(cached) == 3:
+            triple = cached[2]
+            if isinstance(triple, tuple) and len(triple) == 3:
+                for array in triple:
+                    if isinstance(array, np.ndarray):
+                        array.setflags(write=False)
     attributes = getattr(value, '__dict__', None)
     if isinstance(attributes, dict):
         for item in attributes.values():
@@ -3113,6 +3114,13 @@ class FeaturedProblem(Problem):
         existing Feature and ProblemReference pickle paths.
         """
         return _restore_featured_problem, (type(self), self.__dict__)
+
+    def __setstate__(self, state):
+        """Restore state from current and legacy pickles without resampling."""
+        if not isinstance(state, dict):
+            raise TypeError('The featured-problem pickle does not contain an instance state dictionary.')
+        self.__dict__.update(state)
+        _restore_cached_affine_flags(self)
 
     @property
     def fun_init(self):
