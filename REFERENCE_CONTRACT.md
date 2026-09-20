@@ -368,16 +368,14 @@ Decisions made explicit (each pinned by a test in both languages):
   be changed in place while a featured problem is built on it. The deprecated
   `Feature.modifier_*` conveniences build a runtime per call and therefore
   keep nothing: a callback with a state can give two of them two maps.
-- `mod_bounds` replaces the bounds and nothing else. A supplied modifier
-  replaces its own component verbatim. Under a `mod_affine` for which the
-  bounds stay bounds, the bounds of the problem live in that component and are
-  replaced; under any other one they are linear rows of the framework, which
-  `mod_bounds` does not touch, so they stay posed next to the supplied bounds.
-  That the representation decides this is a wart of an established rule. It was
-  kept on purpose: either repair changes what users of `mod_bounds` get today
-  (one drops rows they are given, the other stops replacing verbatim), the rule
-  never poses fewer constraints than before, and the reference is unknown
-  after any `mod_bounds`, so nothing is claimed about that posed problem.
+- `mod_bounds` replaces the logical original box, regardless of how an affine
+  stage represents that box internally. Under a non-diagonal `mod_affine`, the
+  framework therefore does not add the original box again as generated linear
+  rows; original explicit linear/equality constraints are still transported.
+  This makes replacement independent of the structural representation and
+  avoids silently constraining the solver with a box the user explicitly
+  replaced. The reference is unknown after any `mod_bounds`, so nothing is
+  claimed about the resulting custom problem.
 - Integers beyond `2^53` (and extended precision in Python) in the triple are
   rounded to the nearest double, as every decimal literal is, in both
   languages and in both execution paths. The rounded triple is the one that is

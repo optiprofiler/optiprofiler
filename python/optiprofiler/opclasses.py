@@ -34,7 +34,45 @@ def _restore_featured_problem(cls, state):
     if not isinstance(state, dict):
         raise TypeError('The featured-problem pickle does not contain an instance state dictionary.')
     instance.__dict__.update(state)
+    _restore_cached_affine_flags(instance)
     return instance
+
+
+def _restore_cached_affine_flags(value, seen=None):
+    """Reapply the runtime cache's read-only contract after unpickling.
+
+    NumPy does not preserve an ndarray's ``WRITEABLE=False`` flag through a
+    pickle round trip.  The affine cache is shared by bounds, rows, initial
+    points and truth evaluation, so letting a restored caller mutate it would
+    reintroduce the very structure/truth split that the cache prevents.
+    Walk only the restored object graph and freeze cached affine triples; the
+    user's ordinary problem arrays retain their historical mutability.
+    """
+    if seen is None:
+        seen = set()
+    marker = id(value)
+    if marker in seen or value is None:
+        return
+    seen.add(marker)
+    if isinstance(value, dict):
+        for item in value.values():
+            _restore_cached_affine_flags(item, seen)
+        return
+    if isinstance(value, (tuple, list, set, frozenset)):
+        for item in value:
+            _restore_cached_affine_flags(item, seen)
+        return
+    cached = getattr(value, '_kept_affine', None)
+    if isinstance(cached, tuple) and len(cached) == 3:
+        triple = cached[2]
+        if isinstance(triple, tuple) and len(triple) == 3:
+            for array in triple:
+                if isinstance(array, np.ndarray):
+                    array.setflags(write=False)
+    attributes = getattr(value, '__dict__', None)
+    if isinstance(attributes, dict):
+        for item in attributes.values():
+            _restore_cached_affine_flags(item, seen)
 
 def _round_truncated(value, digits):
     """Round decimal ties using MATLAB's default away-from-zero direction."""
@@ -643,6 +681,12 @@ class _StageRuntime:
             # handle the linear inequality constraints.
             A, b, _, diagonal = self._affine_pair(seed, problem)
             aub, bub = _composed_rows(problem.aub, problem.bub, A, b)
+            if FeatureOption.MOD_BOUNDS in self._options:
+                # ``mod_bounds`` owns the logical original box.  Do not add
+                # that box again as affine rows merely because this map is
+                # non-diagonal; doing so made the meaning of a replacement
+                # depend on the chosen structural representation.
+                return aub, bub
             if diagonal:  # the bounds stayed bounds (modifier_bounds read the same decision)
                 return aub, bub
             """
@@ -732,6 +776,9 @@ class _StageRuntime:
             # handle the linear equality constraints.
             A, b, _, diagonal = self._affine_pair(seed, problem)
             aeq, beq = _composed_rows(problem.aeq, problem.beq, A, b)
+            if FeatureOption.MOD_BOUNDS in self._options:
+                # Fixed original bounds are part of the replaced box too.
+                return aeq, beq
             if diagonal:  # the bounds stayed bounds (modifier_bounds read the same decision)
                 return aeq, beq
             """

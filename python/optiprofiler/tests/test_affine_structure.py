@@ -47,7 +47,7 @@ derivatives of the original callbacks at the solver's point), and a composition
 still provides none. The consistency of a supplied inverse allows the rounding
 of its products and nothing more. And three decisions are pinned as they are:
 what the deprecated conveniences keep (nothing), what ``mod_bounds`` replaces
-(the bounds, not the framework's rows), and how an integer beyond ``2**53`` is
+(the original bounds in every representation), and how an integer beyond ``2**53`` is
 converted (rounded, as every number is).
 """
 
@@ -826,6 +826,9 @@ class TestCompositionAndPersistence:
         original_affine = featured._runtime.modifier_affine(featured._seed, featured._problem)
         for actual, expected in zip(restored_affine, original_affine):
             np.testing.assert_array_equal(actual, expected)
+            assert not actual.flags.writeable
+            with pytest.raises(ValueError):
+                actual.flat[0] = actual.flat[0]
         assert restored._runtime._kept_affine[1] == restored._seed
         assert restored_callback.calls == 1
 
@@ -1486,27 +1489,24 @@ class TestExplicitDecisions:
 
     @COMPOSED
     def test_mod_bounds_replaces_the_bounds_and_nothing_else(self, composed):
-        # A supplied modifier replaces its own component, verbatim. The bounds
-        # of the problem live in the bounds if the map keeps them there, and
-        # then mod_bounds replaces them; under any other map they are linear
-        # rows of the framework, which mod_bounds does not touch. Never fewer
-        # constraints than before; the reference is unknown either way.
+        # Replacement owns the logical original bounds, even when an affine
+        # map would otherwise turn them into linear rows. The original linear
+        # constraints must still be transported, including fixed-bound cases.
         def box(rng, problem):
             return np.full(3, -9.0), np.full(3, 9.0)
 
-        problem = linear_problem()
-        featured = build(problem, exact_diagonal, composed, mod_bounds=box)
-        np.testing.assert_array_equal(featured.xl, np.full(3, -9.0))
-        np.testing.assert_array_equal(featured.xu, np.full(3, 9.0))
-        np.testing.assert_array_equal(featured.aub, problem.aub @ np.diag(D))  # no row of a bound
-        assert featured.reference is None
-        featured = build(problem, dense, composed, mod_bounds=box)
-        np.testing.assert_array_equal(featured.xl, np.full(3, -9.0))
-        np.testing.assert_array_equal(featured.xu, np.full(3, 9.0))
-        expected = expected_generic_structure(problem, DENSE, B)
-        np.testing.assert_array_equal(featured.aub, expected['aub'])  # the bounds of the problem, as rows
-        np.testing.assert_array_equal(featured.bub, expected['bub'])
-        assert featured.reference is None
+        for transform in (exact_diagonal, dense, roundoff_matrix):
+            problem = linear_problem()
+            problem._xu[0] = problem._xl[0]  # a fixed bound would become an equality row
+            featured = build(problem, transform, composed, mod_bounds=box)
+            A, b, _ = transform(None, problem)
+            np.testing.assert_array_equal(featured.xl, np.full(3, -9.0))
+            np.testing.assert_array_equal(featured.xu, np.full(3, 9.0))
+            np.testing.assert_array_equal(featured.aub, problem.aub @ A)
+            np.testing.assert_array_equal(featured.bub, problem.bub - problem.aub @ b)
+            np.testing.assert_array_equal(featured.aeq, problem.aeq @ A)
+            np.testing.assert_array_equal(featured.beq, problem.beq - problem.aeq @ b)
+            assert featured.reference is None
 
     @COMPOSED
     def test_an_integer_beyond_2_53_is_rounded_as_every_number_is(self, composed):

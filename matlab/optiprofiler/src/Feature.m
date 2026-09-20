@@ -152,8 +152,8 @@ classdef Feature < handle
 %   raises an error if the problem has such bounds, unless mod_bounds is
 %   supplied as well. mod_bounds replaces the bounds and nothing else: under an
 %   A for which the bounds stay bounds the bounds of the problem are replaced,
-%   under any other A they are linear constraints of the framework and stay
-%   posed next to the supplied bounds. The derivative methods of a featured
+%   under any other A they are not re-added as generated rows; explicit linear
+%   constraints are still transported. The derivative methods of a featured
 %   problem follow the same transformation by the chain rule (see
 %   FeaturedProblem). Within an
 %   observation callback, querying problem.fun/cub/ceq serves that predecessor

@@ -1453,12 +1453,10 @@ classdef TestAffineStructure < matlab.unittest.TestCase
         end
 
         function modBoundsReplacesTheBoundsAndNothingElse(testCase)
-            % A supplied modifier replaces its own component, verbatim. The
-            % bounds of the problem live in the bounds if the map keeps them
-            % there, and then mod_bounds replaces them; under any other map they
-            % are linear rows of the framework, which mod_bounds does not touch.
-            % Never fewer constraints than before; the reference is unknown
-            % either way.
+            % Replacement owns the logical original box, even when an affine
+            % map would otherwise turn it into linear rows. Explicit linear
+            % constraints remain transported and fixed original bounds are
+            % not re-added as equalities.
             box = @(s, p) deal(-9 * ones(3, 1), 9 * ones(3, 1));
             problem = TestAffineStructure.makeProblem('linear');
             for composed = [false, true]
@@ -1472,11 +1470,12 @@ classdef TestAffineStructure < matlab.unittest.TestCase
                 testCase.verifyEqual(featured.aub, problem.aub * diag(TestAffineStructure.D), label);  % no row of a bound
                 testCase.verifyEmpty(featured.reference, label);
                 featured = build(@TestAffineStructure.dense);
-                expected = TestAffineStructure.expectedGeneric(problem, TestAffineStructure.Dense, TestAffineStructure.B);
                 testCase.verifyEqual(featured.xl, -9 * ones(3, 1), label);
                 testCase.verifyEqual(featured.xu, 9 * ones(3, 1), label);
-                testCase.verifyEqual(featured.aub, expected.aub, label);  % the bounds of the problem, as rows
-                testCase.verifyEqual(featured.bub, expected.bub, label);
+                testCase.verifyEqual(featured.aub, problem.aub * TestAffineStructure.Dense, label);
+                testCase.verifyEqual(featured.bub, problem.bub - problem.aub * TestAffineStructure.B, label);
+                testCase.verifyEqual(featured.aeq, problem.aeq * TestAffineStructure.Dense, label);
+                testCase.verifyEqual(featured.beq, problem.beq - problem.aeq * TestAffineStructure.B, label);
                 testCase.verifyEmpty(featured.reference, label);
             end
         end

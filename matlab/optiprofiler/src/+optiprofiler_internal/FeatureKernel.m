@@ -318,6 +318,12 @@ classdef FeatureKernel < handle
                     % handle the linear inequality constraints.
                     [A, b, inv] = obj.modifier_affine(seed, problem);
                     [aub, bub] = composedRows(problem.aub, problem.bub, A, b);
+                    if isfield(obj.options, FeatureOptionKey.MOD_BOUNDS.value)
+                        % mod_bounds owns the logical original box. Do not
+                        % add that box again as affine rows merely because
+                        % this map is non-diagonal.
+                        return;
+                    end
                     if affineIsDiagonal(A, inv)  % the bounds stayed bounds (modifier_bounds read the same decision)
                         return;
                     end
@@ -423,6 +429,11 @@ classdef FeatureKernel < handle
                     % If the user does not specify a custom modifier for the linear equality constraints but specifies a custom affine transformation, we need to specially handle the linear equality constraints.
                     [A, b, inv] = obj.modifier_affine(seed, problem);
                     [aeq, beq] = composedRows(problem.aeq, problem.beq, A, b);
+                    if isfield(obj.options, FeatureOptionKey.MOD_BOUNDS.value)
+                        % Fixed original bounds are part of the replaced box
+                        % too, so they must not be re-added as equalities.
+                        return;
+                    end
                     if affineIsDiagonal(A, inv)  % the bounds stayed bounds (modifier_bounds read the same decision)
                         return;
                     end

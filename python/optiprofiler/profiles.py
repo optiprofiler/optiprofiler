@@ -407,12 +407,10 @@ def _benchmark(
         where problem is an instance of the class Problem, modified_xl is
         the modified lower bound, and modified_xu is the modified upper
         bound. No default. A supplied modifier replaces its own component
-        verbatim, and ``mod_bounds`` replaces the bounds. Together with a
-        ``mod_affine`` under which the bounds stay bounds, the bounds of the
-        problem are therefore replaced; under any other ``mod_affine`` they
-        are linear constraints of the framework, which ``mod_bounds`` does not
-        touch, so they stay posed next to the supplied bounds (supply
-        ``mod_linear_ub`` and ``mod_linear_eq`` as well to replace those).
+        verbatim, and ``mod_bounds`` owns the logical original box in every
+        representation. Under a non-diagonal ``mod_affine`` the framework
+        therefore does not add that original box again as generated linear
+        rows; explicit linear constraints are still transported.
         The truth always scores the bounds of the problem, and the reference
         of the problem is unknown after any ``mod_bounds``.
     mod_linear_ub : callable, optional

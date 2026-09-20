@@ -393,9 +393,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         verbatim, and `mod_bounds` replaces the bounds. Together with a
 %         `mod_affine` under which the bounds stay bounds, the bounds of the
 %         problem are therefore replaced; under any other `mod_affine` they
-%         are linear constraints of the framework, which `mod_bounds` does not
-%         touch, so they stay posed next to the supplied bounds (supply
-%         `mod_linear_ub` and `mod_linear_eq` as well to replace those). The
+%         are not re-added as generated rows. Explicit linear constraints are
+%         still transported. The
 %         truth always scores the bounds of the problem, and the reference of
 %         the problem is unknown after any `mod_bounds`.
 %       - mod_linear_ub: the modifier function to modify the linear inequality
