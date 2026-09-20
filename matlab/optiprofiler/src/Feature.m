@@ -132,17 +132,30 @@ classdef Feature < handle
 %   constraints and every evaluation use that one answer. The triple is
 %   validated when the problem is built: real, finite arrays of matching sizes,
 %   norm(abs(inverse_A)*abs(A),inf) < 1/eps, and inverse_A inverts A from both
-%   sides, norm((A*inverse_A-eye(n))./max(1,abs(A)*abs(inverse_A)),'fro') <=
-%   1e-8*n and the same for inverse_A*A (where the terms are below 1 this is
-%   norm(A*inverse_A-eye(n),'fro') <= 1e-8*n); otherwise an error is raised.
-%   If A is exactly diagonal and diag(inverse_A) is its reciprocal to roundoff,
-%   the bounds stay bounds; otherwise every finite bound is posed as a linear
+%   sides, norm(max(abs(A*inverse_A-eye(n)) -
+%   64*n*eps*abs(A)*abs(inverse_A),0),'fro') <= 1e-8*n and the same for
+%   inverse_A*A (each entry is forgiven the rounding of the products it is
+%   summed from, and nothing more); otherwise an error is raised. Integer and
+%   single precision arrays are converted to double precision, which rounds to
+%   nearest; the rounded triple is the one that is validated and used. If A is
+%   exactly diagonal and diag(inverse_A) is its reciprocal to roundoff, the
+%   bounds stay bounds; otherwise every finite bound is posed as a linear
 %   constraint, so an off-diagonal entry of A is never ignored, however small.
-%   A bound is never dropped: a finite bound, right-hand side, coefficient or
-%   initial point that overflows in the transformation raises an error, and
-%   since mod_linear_ub and mod_linear_eq replace the linear constraints,
-%   supplying one of them with an A that is not diagonal raises an error if
-%   the problem has such bounds, unless mod_bounds is supplied as well. Within an
+%   Nothing finite is lost: a bound, coefficient or right-hand side that
+%   overflows, or that underflows (a nonzero bound below realmin, or an entry
+%   of a transported row or right-hand side whose terms are all below it),
+%   raises an error. The initial point is inverse_A*(x0-b) only if A maps it
+%   back to x0 to the rounding of that evaluation, in every component;
+%   otherwise A*y = x0-b is solved, and an error is raised if that point is not
+%   mapped back either. Since mod_linear_ub and mod_linear_eq replace the
+%   linear constraints, supplying one of them with an A that is not diagonal
+%   raises an error if the problem has such bounds, unless mod_bounds is
+%   supplied as well. mod_bounds replaces the bounds and nothing else: under an
+%   A for which the bounds stay bounds the bounds of the problem are replaced,
+%   under any other A they are linear constraints of the framework and stay
+%   posed next to the supplied bounds. The derivative methods of a featured
+%   problem follow the same transformation by the chain rule (see
+%   FeaturedProblem). Within an
 %   observation callback, querying problem.fun/cub/ceq serves that predecessor
 %   again; these calls are not silently treated as reference reads.
 %
@@ -184,7 +197,12 @@ classdef Feature < handle
 %   deprecated identity/single-effective-stage conveniences. They warn, and
 %   accessing them for multiple effective stages is an error. Each modifier
 %   call creates a fresh numerical kernel; the engine does not use these
-%   conveniences to execute a pipeline. Use FeaturedProblem for execution.
+%   conveniences to execute a pipeline. Use FeaturedProblem for execution. In
+%   particular, a kernel keeps the transformation of mod_affine for one problem
+%   and seed, so that the initial point, the bounds, the linear constraints,
+%   the derivatives and every evaluation of a FeaturedProblem share one map,
+%   whereas each of these conveniences asks mod_affine again: a callback with
+%   a state can give two of them two different maps.
     properties (Access = private)
         specification_
     end

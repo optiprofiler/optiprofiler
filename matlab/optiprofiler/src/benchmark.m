@@ -358,24 +358,46 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         and an error is raised unless the arrays are real, finite and of
 %         matching sizes, ``norm(abs(inv) * abs(A), inf) < 1 / eps``, and
 %         `inv` inverts `A` from both sides:
-%         ``norm((A * inv - eye(n)) ./ max(1, abs(A) * abs(inv)), 'fro') <= 1e-8 * n``
-%         and the same for ``inv * A`` (where the terms are below 1 this is
-%         ``norm(A * inv - eye(n), 'fro') <= 1e-8 * n``). If `A` is exactly
-%         diagonal and ``diag(inv)`` is its reciprocal to roundoff, the bounds
-%         stay bounds; otherwise every finite bound is posed as a linear
-%         constraint, so an off-diagonal entry of `A` is never ignored,
-%         however small. A bound is never dropped: a finite bound, right-hand
-%         side, coefficient or initial point that overflows in the
-%         transformation raises an error, and since `mod_linear_ub` and
+%         ``norm(max(abs(A * inv - eye(n)) - 64 * n * eps * abs(A) * abs(inv), 0), 'fro') <= 1e-8 * n``
+%         and the same for ``inv * A``: each entry is forgiven the rounding of
+%         the products it is summed from, and nothing more, so that neither
+%         the units of the variables nor the condition number decide, and an
+%         error of `inv` that is not rounding is refused. Integer and single
+%         precision arrays are converted to double precision, which rounds to
+%         nearest as every decimal literal is rounded; the rounded triple is
+%         the one that is validated and used. If `A` is exactly diagonal and
+%         ``diag(inv)`` is its reciprocal to roundoff, the bounds stay bounds;
+%         otherwise every finite bound is posed as a linear constraint, so an
+%         off-diagonal entry of `A` is never ignored, however small. Nothing
+%         finite is lost: a bound, coefficient or right-hand side that
+%         overflows, or that underflows (a nonzero bound below the smallest
+%         normal number, ``realmin``, or an entry of a transported row or
+%         right-hand side whose terms are all below it), raises an error
+%         instead of being posed as infinite or as zero. The initial point is
+%         ``inv * (x0 - b)`` only if `A` maps it back to `x0` to the rounding
+%         of that evaluation, in every component; otherwise
+%         ``A * y = x0 - b`` is solved, and if that point is not mapped back
+%         either (overflow, underflow), an error is raised: no tolerance on
+%         `inv` bounds an error at a point. Since `mod_linear_ub` and
 %         `mod_linear_eq` replace the linear constraints, supplying one of
 %         them with a transformation that is not diagonal raises an error if
-%         the problem has such bounds, unless `mod_bounds` is supplied as well.
+%         the problem has such bounds, unless `mod_bounds` is supplied as
+%         well. The derivative methods of a featured problem follow the same
+%         transformation by the chain rule (see FeaturedProblem).
 %       - mod_bounds: the modifier function to modify the bound constraints in
 %         the 'custom' feature. It should be a function handle as follows:
 %         ``(random_stream, problem) -> (modified_xl, modified_xu)``,
 %         where `problem` is an instance of the class Problem, `modified_xl` is
 %         the modified lower bound, and `modified_xu` is the modified upper
-%         bound. No default.
+%         bound. No default. A supplied modifier replaces its own component
+%         verbatim, and `mod_bounds` replaces the bounds. Together with a
+%         `mod_affine` under which the bounds stay bounds, the bounds of the
+%         problem are therefore replaced; under any other `mod_affine` they
+%         are linear constraints of the framework, which `mod_bounds` does not
+%         touch, so they stay posed next to the supplied bounds (supply
+%         `mod_linear_ub` and `mod_linear_eq` as well to replace those). The
+%         truth always scores the bounds of the problem, and the reference of
+%         the problem is unknown after any `mod_bounds`.
 %       - mod_linear_ub: the modifier function to modify the linear inequality
 %         constraints in the 'custom' feature. It should be a function handle
 %         as follows:

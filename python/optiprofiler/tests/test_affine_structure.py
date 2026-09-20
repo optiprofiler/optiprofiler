@@ -34,6 +34,21 @@ inverse has to invert ``A`` from both sides, measured so that the units of
 neither set of variables matter. And every finite quantity that is transported
 (shifted bounds, right-hand sides, composed rows, the initial point) raises if
 it leaves the floating-point range, instead of being posed as "no constraint".
+
+The second follow-up. The range has two ends: a nonzero bound that falls below
+the smallest normal number, or a transported entry whose terms all do, raises
+as well (``1e-200 * [1e-200, 2e-200]`` was posed as the point ``[0, 0]``). The
+initial point is verified where it is used, because no tolerance on the
+matrices bounds an error at a point: ``inv @ (x0 - b)`` has to be mapped back
+to ``x0`` by ``A`` to the rounding of that evaluation, or the equation is solved
+from ``A``, or construction raises. The derivative methods of a single-feature
+problem follow the change of variables by the chain rule (they returned the
+derivatives of the original callbacks at the solver's point), and a composition
+still provides none. The consistency of a supplied inverse allows the rounding
+of its products and nothing more. And three decisions are pinned as they are:
+what the deprecated conveniences keep (nothing), what ``mod_bounds`` replaces
+(the bounds, not the framework's rows), and how an integer beyond ``2**53`` is
+converted (rounded, as every number is).
 """
 
 import pickle
@@ -43,7 +58,7 @@ import pytest
 
 from optiprofiler import Feature, FeaturedProblem, Problem
 from optiprofiler.composition import AffineView, ComposedFeaturedProblem
-from optiprofiler.opclasses import _StageRuntime, _affine_is_diagonal, _checked_affine
+from optiprofiler.opclasses import _StageRuntime, _affine_is_diagonal, _checked_affine, _pulled_back
 
 
 EPS = np.finfo(float).eps
@@ -1139,3 +1154,451 @@ class TestCallbackNumbers:
         for key in ('x0', 'xl', 'xu', 'aub', 'bub', 'aeq', 'beq'):
             assert getattr(integers, key).dtype == float, key
             np.testing.assert_array_equal(getattr(integers, key), getattr(floats, key), err_msg=key)
+
+
+# ---------------------------------------------------------------- second follow-up: nothing finite is lost to underflow
+
+TINY = np.finfo(float).tiny  # the smallest normal number, 2**-1022: the documented boundary
+
+
+def power_scaling(exponent):
+    """``x = 2**exponent * y`` in the first variable, with its exact inverse (powers of two: nothing is rounded)."""
+    def transform(rng, problem):
+        return np.diag([2.0 ** exponent, 1.0, 1.0]), np.zeros(3), np.diag([2.0 ** -exponent, 1.0, 1.0])
+    return transform
+
+
+class TestTransportUnderflow:
+
+    @COMPOSED
+    def test_a_nonempty_interval_never_collapses_to_a_point(self, composed):
+        # The finding: xl = 1e-200, xu = 2e-200, A = 1e200, inv = 1e-200. Both
+        # scaled bounds are 1e-400 and 2e-400, which round to 0: the base posed
+        # the single point y = 0, which is mapped to x = 0, outside the interval.
+        def huge(rng, problem):
+            return np.array([[1e200]]), np.zeros(1), np.array([[1e-200]])
+
+        stages = [custom_stage(huge)] + (['noisy'] if composed else [])
+        with pytest.raises(ValueError, match='finite bound.*underflow'):
+            # (x0 = 0 is pulled back exactly, so that the bounds are what is refused.)
+            FeaturedProblem(Problem(sphere, [0.0], xl=[1e-200], xu=[2e-200]), Feature(stages), 10, 3)
+        # From inside the interval the initial point is lost in the same way,
+        # and it is asked for first: refused as well, for that reason.
+        with pytest.raises(ValueError, match='initial point.*underflow'):
+            FeaturedProblem(Problem(sphere, [1.5e-200], xl=[1e-200], xu=[2e-200]), Feature(stages), 10, 3)
+
+    @COMPOSED
+    @pytest.mark.parametrize('exponent, representable', [(1022 - 500, True), (1023 - 500, False), (1050 - 500, False), (1100 - 500, False)],
+                             ids=['realmin', 'half-realmin', 'subnormal', 'zero'])
+    def test_the_boundary_is_the_smallest_normal_number(self, exponent, representable, composed):
+        # The bound 2**-500 scaled by 2**-exponent: exactly realmin is posed,
+        # anything below it (a subnormal number, whose spacing is absolute, or
+        # zero) is refused. Powers of two, so that nothing else is rounded.
+        problem = Problem(sphere, [0.0, 0.0, 0.0], xl=[2.0 ** -500, -1.0, -1.0], xu=[1.0, 1.0, 1.0])
+        if representable:
+            featured = build(problem, power_scaling(exponent), composed)
+            assert featured.xl[0] == TINY == 2.0 ** -500 * 2.0 ** -exponent
+        else:
+            with pytest.raises(ValueError, match='finite bound.*underflow'):
+                build(problem, power_scaling(exponent), composed)
+
+    @COMPOSED
+    def test_a_zero_bound_is_zero_whatever_the_scale(self, composed):
+        # 0 times anything is 0 exactly: nothing is lost, so nothing is refused.
+        problem = Problem(sphere, [0.0, 0.0, 0.0], xl=[0.0, -1.0, -1.0], xu=[np.inf, 1.0, 1.0])
+        featured = build(problem, power_scaling(900), composed)
+        np.testing.assert_array_equal(featured.xl, [0.0, -1.0, -1.0])
+
+    @COMPOSED
+    @pytest.mark.parametrize('kind', ['ub', 'eq'])
+    def test_a_coefficient_row_never_vanishes(self, kind, composed):
+        # aub @ A with 2**-600 * 2**-600: on the base the row [0, 0, 0], which
+        # is no constraint for bub >= 0 and satisfied nowhere for bub < 0.
+        rows = {'aub': [[2.0 ** -600, 0.0, 0.0]], 'bub': [1.0]} if kind == 'ub' else {'aeq': [[2.0 ** -600, 0.0, 0.0]], 'beq': [0.0]}
+        with pytest.raises(ValueError, match='linear constraint.*underflow'):
+            build(Problem(sphere, [0.0, 0.0, 0.0], **rows), power_scaling(-600), composed)
+
+    @COMPOSED
+    @pytest.mark.parametrize('kind', ['ub', 'eq'])
+    def test_a_right_hand_side_never_vanishes(self, kind, composed):
+        # bub - aub @ b with bub = 0 and aub @ b = 2**-1200: the right-hand
+        # side is -2**-1200 and the base posed 0.
+        def shifted(rng, problem):
+            return np.eye(3), np.array([2.0 ** -600, 0.0, 0.0]), np.eye(3)
+
+        rows = {'aub': [[2.0 ** -600, 0.0, 0.0]], 'bub': [0.0]} if kind == 'ub' else {'aeq': [[2.0 ** -600, 0.0, 0.0]], 'beq': [0.0]}
+        with pytest.raises(ValueError, match='linear constraint.*underflow'):
+            build(Problem(sphere, [0.0, 0.0, 0.0], **rows), shifted, composed)
+        # Next to a right-hand side that is a normal number the same shift is
+        # below its rounding, and the posed right-hand side is the exact one rounded.
+        rows['bub' if kind == 'ub' else 'beq'] = [5.0]
+        featured = build(Problem(sphere, [0.0, 0.0, 0.0], **rows), shifted, composed)
+        assert (featured.bub if kind == 'ub' else featured.beq)[-1] == 5.0
+
+    @COMPOSED
+    def test_the_initial_point_never_vanishes(self, composed):
+        # inv @ (x0 - b) with 2**-600 * 2**-600: the base started at 0, where
+        # this objective is -inf, for a problem whose fun(x0) is finite.
+        def log_objective(x):
+            return float(np.log(x[0]) + x[1] ** 2 + x[2] ** 2)
+
+        problem = Problem(log_objective, [2.0 ** -600, 1.0, 1.0])
+        assert np.isfinite(problem.fun(problem.x0))
+        with pytest.raises(ValueError, match='initial point.*underflow'):
+            build(problem, power_scaling(600), composed)
+
+    def test_the_scaling_feature_is_guarded_as_well(self):
+        # diag(inv) reaches 2**-47 for this condition factor: 1e-300 becomes a subnormal number.
+        feature = Feature('linearly_transformed', rotated=False, condition_factor=6000.0)
+        with pytest.raises(ValueError, match='finite bound.*underflow'):
+            FeaturedProblem(Problem(sphere, [0.0, 0.0, 0.0], xl=[-1.0, -1.0, 1e-300], xu=[1.0, 1.0, 1.0]), feature, 10, 3)
+        with pytest.raises(ValueError, match='linear constraint.*underflow'):
+            FeaturedProblem(Problem(sphere, [0.0, 0.0, 0.0], aub=[[1e-300, 0.0, 0.0]], bub=[1.0]), feature, 10, 3)
+
+    @COMPOSED
+    def test_cancellation_is_not_underflow(self, composed):
+        # An entry that is zero because its terms cancel has lost nothing: the
+        # terms are normal numbers. Only an entry whose terms are all lost is refused.
+        def mixing(rng, problem):
+            A = np.array([[2.0, 1.0, 0.0], [1.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
+            return A, np.array([1.0, 1.0, 0.0]), np.linalg.inv(A)
+
+        problem = Problem(sphere, [1.0, 1.0, 0.0], aub=[[1.0, -1.0, 0.0]], bub=[0.0], aeq=[[1.0, -2.0, 0.0]], beq=[-1.0])
+        featured = build(problem, mixing, composed)
+        np.testing.assert_array_equal(featured.aub, [[1.0, 0.0, 0.0]])  # 1 * 1 - 1 * 1 in the second entry
+        np.testing.assert_array_equal(featured.bub, [0.0])  # 0 - (1 * 1 - 1 * 1)
+        np.testing.assert_array_equal(featured.aeq, [[0.0, -1.0, 0.0]])
+        np.testing.assert_array_equal(featured.beq, [0.0])  # -1 - (1 - 2)
+        np.testing.assert_array_equal(featured.x0, [0.0, 0.0, 0.0])  # inv @ (x0 - b) with x0 = b
+
+
+# ---------------------------------------------------------------- second follow-up: derivatives in the solver's variables
+
+def smooth(x):
+    return float(np.sum(x ** 4) + x[0] * x[1] + np.sin(x[2]))
+
+
+def smooth_grad(x):
+    return 4.0 * x ** 3 + np.array([x[1], x[0], np.cos(x[2])])
+
+
+def smooth_hess(x):
+    H = np.diag(12.0 * x ** 2)
+    H[0, 1] = H[1, 0] = 1.0
+    H[2, 2] -= np.sin(x[2])
+    return H
+
+
+def smooth_cub(x):
+    return np.array([x[0] ** 2 + x[1] * x[2] - 1.0, np.exp(x[0]) - x[2]])
+
+
+def smooth_jcub(x):
+    return np.array([[2.0 * x[0], x[2], x[1]], [np.exp(x[0]), 0.0, -1.0]])
+
+
+def smooth_hcub(x):
+    first = np.zeros((3, 3))
+    first[0, 0], first[1, 2], first[2, 1] = 2.0, 1.0, 1.0
+    second = np.zeros((3, 3))
+    second[0, 0] = np.exp(x[0])
+    return [first, second]
+
+
+def smooth_ceq(x):
+    return np.array([x[0] * x[1] * x[2] - 0.5])
+
+
+def smooth_jceq(x):
+    return np.array([[x[1] * x[2], x[0] * x[2], x[0] * x[1]]])
+
+
+def smooth_hceq(x):
+    return [np.array([[0.0, x[2], x[1]], [x[2], 0.0, x[0]], [x[1], x[0], 0.0]])]
+
+
+def smooth_problem(**without):
+    callbacks = dict(grad=smooth_grad, hess=smooth_hess, cub=smooth_cub, jcub=smooth_jcub, hcub=smooth_hcub,
+                     ceq=smooth_ceq, jceq=smooth_jceq, hceq=smooth_hceq)
+    for name in without:
+        del callbacks[name]
+    return Problem(smooth, [0.3, -0.4, 0.5], xl=[-2.0, -2.0, -2.0], xu=[2.0, 2.0, 2.0], **callbacks)
+
+
+def central_differences(function, y, h=1e-5):
+    columns = [(np.atleast_1d(function(y + h * e)) - np.atleast_1d(function(y - h * e))) / (2.0 * h) for e in np.eye(y.size)]
+    return np.array(columns).T  # one row per output, one column per variable
+
+
+def dense_with_shift(rng, problem):
+    return DENSE.copy(), B.copy(), np.linalg.inv(DENSE)
+
+
+VARIABLE_CHANGES = {
+    'custom-dense': lambda: Feature('custom', mod_affine=dense_with_shift),
+    'custom-diagonal': lambda: Feature('custom', mod_affine=exact_diagonal),
+    'linearly_transformed': lambda: Feature('linearly_transformed', rotated=True, condition_factor=4),
+    'permuted': lambda: Feature('permuted'),
+}
+Y = np.array([0.2, -0.3, 0.4])
+
+
+class TestDerivativesInSolverVariables:
+
+    def test_the_gradient_of_the_finding(self):
+        # f(x) = ||x||**2, A = diag(2, 1), y = (1, 1): the function the solver
+        # sees is 4 * y1**2 + y2**2 with gradient (8, 2). The base returned
+        # grad(y) = (2, 2), the gradient of another function at another point.
+        def scaling(rng, problem):
+            return np.diag([2.0, 1.0]), np.zeros(2), np.diag([0.5, 1.0])
+
+        problem = Problem(sphere, [1.0, 1.0], grad=lambda x: 2.0 * np.asarray(x, dtype=float), hess=lambda x: 2.0 * np.eye(2))
+        featured = FeaturedProblem(problem, Feature('custom', mod_affine=scaling), 100, 3)
+        y = np.array([1.0, 1.0])
+        np.testing.assert_array_equal(featured.grad(y), [8.0, 2.0])
+        np.testing.assert_array_equal(featured.hess(y), [[8.0, 0.0], [0.0, 2.0]])
+        np.testing.assert_allclose(featured.grad(y), central_differences(featured.fun, y)[0], rtol=1e-6)
+
+    @pytest.mark.parametrize('name', sorted(VARIABLE_CHANGES))
+    def test_every_derivative_follows_the_chain_rule(self, name):
+        problem = smooth_problem()
+        featured = FeaturedProblem(problem, VARIABLE_CHANGES[name](), 10000, 5)
+        A, b, _ = featured._runtime.modifier_affine(featured._seed, problem)
+        assert np.count_nonzero(A - np.eye(3)) > 0, 'the change of variables of this seed is the identity'
+        x = A @ Y + b
+        # Exactly the chain rule of x = A @ y + b ...
+        np.testing.assert_allclose(featured.grad(Y), A.T @ smooth_grad(x), rtol=1e-13, atol=1e-13)
+        np.testing.assert_allclose(featured.hess(Y), A.T @ smooth_hess(x) @ A, rtol=1e-13, atol=1e-13)
+        np.testing.assert_allclose(featured.jcub(Y), smooth_jcub(x) @ A, rtol=1e-13, atol=1e-13)
+        np.testing.assert_allclose(featured.jceq(Y), smooth_jceq(x) @ A, rtol=1e-13, atol=1e-13)
+        for returned, original in ((featured.hcub(Y), smooth_hcub(x)), (featured.hceq(Y), smooth_hceq(x))):
+            assert len(returned) == len(original)
+            for kept, H in zip(returned, original):
+                np.testing.assert_allclose(kept, A.T @ H @ A, rtol=1e-13, atol=1e-13)
+        # ... which is what the functions the solver evaluates vary by.
+        np.testing.assert_allclose(featured.grad(Y), central_differences(featured.fun, Y)[0], rtol=1e-6, atol=1e-7)
+        np.testing.assert_allclose(featured.hess(Y), central_differences(featured.grad, Y), rtol=1e-6, atol=1e-6)
+        np.testing.assert_allclose(featured.jcub(Y), central_differences(featured.cub, Y), rtol=1e-6, atol=1e-7)
+        np.testing.assert_allclose(featured.jceq(Y), central_differences(featured.ceq, Y), rtol=1e-6, atol=1e-7)
+        for i, H in enumerate(featured.hcub(Y)):
+            np.testing.assert_allclose(H, central_differences(lambda y: featured.jcub(y)[i], Y), rtol=1e-6, atol=1e-6)
+        for i, H in enumerate(featured.hceq(Y)):
+            np.testing.assert_allclose(H, central_differences(lambda y: featured.jceq(y)[i], Y), rtol=1e-6, atol=1e-6)
+
+    def test_derivatives_cost_nothing_and_read_the_kept_transformation(self):
+        callback = Counting()
+        featured = FeaturedProblem(smooth_problem(), Feature('custom', mod_affine=callback), 10, 3)
+        for method in ('grad', 'hess', 'jcub', 'jceq', 'hcub', 'hceq'):
+            getattr(featured, method)(Y)
+        assert callback.calls == 1
+        assert (featured.n_eval_fun, featured.n_eval_cub, featured.n_eval_ceq) == (0, 0, 0)
+        assert featured.fun_hist.size == 0 and featured.maxcv_hist.size == 0
+
+    @pytest.mark.parametrize('name', sorted(VARIABLE_CHANGES))
+    def test_an_absent_derivative_stays_absent(self, name):
+        problem = Problem(smooth, [0.3, -0.4, 0.5], cub=smooth_cub, ceq=smooth_ceq)
+        featured = FeaturedProblem(problem, VARIABLE_CHANGES[name](), 10, 5)
+        for method in ('grad', 'hess', 'jcub', 'jceq'):
+            assert getattr(featured, method)(Y).size == 0 == getattr(problem, method)(Y).size, method
+        assert featured.hcub(Y) == [] == problem.hcub(Y) and featured.hceq(Y) == []
+
+    @pytest.mark.parametrize('name', sorted(VARIABLE_CHANGES))
+    def test_the_point_is_checked_as_before(self, name):
+        featured = FeaturedProblem(smooth_problem(), VARIABLE_CHANGES[name](), 10, 5)
+        for method in ('grad', 'hess', 'jcub', 'jceq', 'hcub', 'hceq'):
+            with pytest.raises(ValueError, match=f'`x` for method `{method}` in problem must have size 3'):
+                getattr(featured, method)([0.1, 0.2])
+
+    @pytest.mark.parametrize('feature', ['plain', 'noisy', 'truncated', 'perturbed_x0', 'random_nan', 'quantized',
+                                         'unrelaxable_constraints', 'nonquantifiable_constraints'])
+    def test_without_a_change_of_variables_the_derivatives_are_those_of_the_problem(self, feature):
+        # The established passthrough: these features change values or the
+        # initial point, never the variables, and the derivative methods
+        # describe the callbacks of the problem, not the observed values.
+        problem = smooth_problem()
+        featured = FeaturedProblem(problem, Feature(feature), 10, 5)
+        for method in ('grad', 'hess', 'jcub', 'jceq'):
+            np.testing.assert_array_equal(getattr(featured, method)(Y), getattr(problem, method)(Y), err_msg=method)
+        for method in ('hcub', 'hceq'):
+            for kept, original in zip(getattr(featured, method)(Y), getattr(problem, method)(Y)):
+                np.testing.assert_array_equal(kept, original, err_msg=method)
+
+    def test_a_composition_still_provides_no_derivative(self):
+        featured = FeaturedProblem(smooth_problem(), Feature([custom_stage(dense_with_shift), 'noisy']), 10, 3)
+        for method in ('grad', 'hess', 'jcub', 'jceq', 'hcub', 'hceq'):
+            with pytest.raises(NotImplementedError, match='composed feature'):
+                getattr(featured, method)(Y)
+
+
+# ---------------------------------------------------------------- second follow-up: decisions made explicit
+
+class TestExplicitDecisions:
+
+    def test_consistency_allows_the_rounding_of_the_products_and_nothing_more(self):
+        # 330805f measured each residual against max(1, terms), which allowed
+        # 1e-8 OF THE TERMS. For this matrix the terms are 2e15, and an inverse
+        # with one entry off by 1e-9 of its size was accepted: the initial point
+        # was pulled back to a point that is mapped 1e6 away from x0. 3a43a19
+        # refused it. What the terms justify is the rounding of the products.
+        A = np.array([[1.0, 1e15], [0.0, 1.0]])
+        exact, sloppy = np.array([[1.0, -1e15], [0.0, 1.0]]), np.array([[1.0, -1e15 + 1e6], [0.0, 1.0]])
+        problem = Problem(sphere, [1.0, 1.0])
+        featured = FeaturedProblem(problem, Feature('custom', mod_affine=lambda rng, problem: (A, np.zeros(2), exact)), 10, 3)
+        np.testing.assert_array_equal(A @ featured.x0, problem.x0)
+        for pair in ((A, sloppy), (A.T, sloppy.T)):
+            with pytest.raises(ValueError, match='not an identity matrix'):
+                _checked_affine(pair[0], np.zeros(2), pair[1], 2, supplied=True)
+        with pytest.raises(ValueError, match='not an identity matrix'):
+            FeaturedProblem(problem, Feature('custom', mod_affine=lambda rng, problem: (A, np.zeros(2), sloppy)), 10, 3)
+
+    def test_a_pair_that_is_consistent_to_roundoff_is_accepted_at_any_condition_number(self):
+        # Built as linearly_transformed builds its own, D @ Q.T and Q @ D**-1,
+        # with a condition number of 1e12: each product misses the identity by
+        # 1e-5, which is a few units of rounding of its terms.
+        rng = np.random.default_rng(7)
+        Q, _ = np.linalg.qr(rng.standard_normal((3, 3)))
+        d = np.array([1e-6, 1.0, 1e6])
+        A, inv = np.diag(d) @ Q.T, Q @ np.diag(1.0 / d)
+        assert max(np.linalg.norm(A @ inv - np.eye(3)), np.linalg.norm(inv @ A - np.eye(3))) > 1e-8 * 3
+        kept = _checked_affine(A, np.zeros(3), inv, 3, supplied=True)
+        np.testing.assert_array_equal(kept[0], A)
+
+    @COMPOSED
+    def test_mod_bounds_replaces_the_bounds_and_nothing_else(self, composed):
+        # A supplied modifier replaces its own component, verbatim. The bounds
+        # of the problem live in the bounds if the map keeps them there, and
+        # then mod_bounds replaces them; under any other map they are linear
+        # rows of the framework, which mod_bounds does not touch. Never fewer
+        # constraints than before; the reference is unknown either way.
+        def box(rng, problem):
+            return np.full(3, -9.0), np.full(3, 9.0)
+
+        problem = linear_problem()
+        featured = build(problem, exact_diagonal, composed, mod_bounds=box)
+        np.testing.assert_array_equal(featured.xl, np.full(3, -9.0))
+        np.testing.assert_array_equal(featured.xu, np.full(3, 9.0))
+        np.testing.assert_array_equal(featured.aub, problem.aub @ np.diag(D))  # no row of a bound
+        assert featured.reference is None
+        featured = build(problem, dense, composed, mod_bounds=box)
+        np.testing.assert_array_equal(featured.xl, np.full(3, -9.0))
+        np.testing.assert_array_equal(featured.xu, np.full(3, 9.0))
+        expected = expected_generic_structure(problem, DENSE, B)
+        np.testing.assert_array_equal(featured.aub, expected['aub'])  # the bounds of the problem, as rows
+        np.testing.assert_array_equal(featured.bub, expected['bub'])
+        assert featured.reference is None
+
+    @COMPOSED
+    def test_an_integer_beyond_2_53_is_rounded_as_every_number_is(self, composed):
+        # Conversion to double precision is rounding to nearest, for an integer
+        # as for a decimal literal, the same in both paths and both languages.
+        # The rounded triple is the one that is validated, kept and used, by
+        # the structure and by the truth alike.
+        big = 2 ** 53 + 1
+        integers = (np.diag(np.array([big, 1, 1], dtype=np.int64)), np.zeros(3, dtype=np.int64), np.diag([1.0 / big, 1.0, 1.0]))
+        problem = bounded_problem()
+        featured = build(problem, lambda rng, problem: integers, composed)
+        rounded = build(problem, lambda rng, problem: (np.diag([2.0 ** 53, 1.0, 1.0]), np.zeros(3), np.diag([1.0 / big, 1.0, 1.0])), composed)
+        for key in ('x0', 'xl', 'xu', 'aub', 'bub', 'aeq', 'beq'):
+            np.testing.assert_array_equal(getattr(featured, key), getattr(rounded, key), err_msg=key)
+        y = np.array([5e-16, 0.5, 0.5])  # mapped to x1 = 4.5, which violates xu = 3 by 1.5
+        assert featured.maxcv(y) == rounded.maxcv(y) == problem.maxcv(np.array([2.0 ** 53 * 5e-16, 0.5, 0.5])) > 1.0
+
+    def test_the_deprecated_conveniences_keep_nothing(self):
+        # Each call of a deprecated Feature.modifier_* builds a runtime of its
+        # own, so a callback with a state is asked again by each of them: one
+        # transformation per problem is a property of FeaturedProblem.
+        callback = Counting()
+        feature = Feature('custom', mod_affine=callback)
+        with pytest.warns(DeprecationWarning):
+            feature.modifier_bounds(3, linear_problem())
+            feature.modifier_linear_ub(3, linear_problem())
+        assert callback.calls == 2
+
+
+# ---------------------------------------------------------------- second follow-up: the initial point
+
+def stray_inverse(rng, problem):
+    """``A = I``; the inverse is off by 1e-12 in one entry, far inside every matrix tolerance."""
+    return np.eye(2), np.zeros(2), np.array([[1.0, 1e-12], [0.0, 1.0]])
+
+
+def ill_conditioned(entry):
+    def transform(rng, problem):
+        return np.array([[1.0, 1e15], [0.0, 1.0]]), np.zeros(2), np.array([[1.0, entry], [0.0, 1.0]])
+    return transform
+
+
+class TestInitialPoint:
+
+    @COMPOSED
+    def test_the_point_is_found_from_the_matrix_not_from_the_supplied_inverse(self, composed):
+        # The base built x0 = (100, 1e14) for the feasible (0, 1e14): maxcv_init 99.
+        problem = Problem(sphere, [0.0, 1e14], xl=[-1.0, 0.0], xu=[1.0, 1e14])
+        featured = build(problem, stray_inverse, composed)
+        np.testing.assert_array_equal(featured.x0, [0.0, 1e14])
+        assert featured.maxcv_init == 0.0
+        assert featured.fun_init == sphere(problem.x0)
+
+    @pytest.mark.parametrize('name', sorted(PROBLEMS))
+    @pytest.mark.parametrize('transform', [exact_diagonal, dense, sloppy_inverse, badly_scaled_rotation,
+                                           row_scaled_rotation, column_scaled_rotation], ids=lambda f: f.__name__)
+    def test_the_point_is_mapped_back_to_the_original_one(self, transform, name):
+        problem = PROBLEMS[name]()
+        featured = build(problem, transform)
+        A, b, _ = transform(None, problem)
+        allowed = 64 * 3 * EPS * (np.abs(A) @ np.abs(featured.x0) + np.abs(b) + np.abs(problem.x0))
+        assert np.all(np.abs(A @ featured.x0 + b - problem.x0) <= allowed)
+
+    def test_an_inverse_that_is_good_at_the_point_gives_the_point_it_always_gave(self):
+        # Bitwise: the framework's own inverse (measured at most 3.1 units of
+        # the allowance of 64 over n up to 200 and condition factors up to
+        # 6000), and a supplied one that is an inverse to roundoff.
+        problem = linear_problem()
+        for options in (dict(rotated=False, condition_factor=4), dict(rotated=True, condition_factor=40),
+                        dict(rotated=True, condition_factor=6000.0)):
+            featured = FeaturedProblem(problem, Feature('linearly_transformed', **options), 10, 3)
+            _, _, inv = featured._runtime.modifier_affine(3, problem)
+            np.testing.assert_array_equal(featured.x0, inv @ problem.x0)
+        for transform in (exact_diagonal, dense, badly_scaled_rotation, row_scaled_rotation, column_scaled_rotation):
+            _, b, inv = transform(None, problem)
+            np.testing.assert_array_equal(build(problem, transform).x0, inv @ (problem.x0 - b), err_msg=transform.__name__)
+
+    def test_the_allowance_is_the_documented_one_and_is_taken_by_component(self):
+        from optiprofiler.opclasses import _ROUNDING  # (imported here: the module has to load on the sources before it)
+        assert _ROUNDING == 64
+        # By component: next to a component of 1e14 an error of 1e-3 in the
+        # other one is 1e-17 of the norm, and it is not excused.
+        A, x0 = np.eye(2), np.array([1.0, 1e14])
+        inv = np.array([[1.0, 1e-17], [0.0, 1.0]])  # moves the first component by 1e-3
+        assert (inv @ x0)[0] != 1.0
+        np.testing.assert_array_equal(_pulled_back(A, inv, x0), x0)  # solved from A instead
+        # Within the allowance the supplied inverse is believed: one unit in the last place.
+        nudged = np.array([[np.nextafter(1.0, 2.0), 0.0], [0.0, 1.0]])
+        np.testing.assert_array_equal(_pulled_back(A, nudged, x0), nudged @ x0)
+
+    def test_the_allowance_is_the_rounding_of_the_evaluation_at_that_point(self):
+        # x = (y1 + 1e15 * y2, y2): at x0 = (1/3, 1/7) the first component is
+        # evaluated as 1.4e14 - 1.4e14 + 1/3, which double precision resolves to
+        # 0.03, whatever y is. The exact inverse is therefore accepted, its
+        # point is mapped back within the allowance, and that allowance is NOT
+        # the rounding of x0: it is what the truth, which goes through the same
+        # map at every point, can resolve there. Measuring against x0 alone
+        # would refuse the rotations of linearly_transformed at ordinary
+        # condition factors. What is refused is a point that is lost: overflow
+        # (TestTransportOverflow) and underflow (TestTransportUnderflow).
+        A = np.array([[1.0, 1e15], [0.0, 1.0]])
+        inv = np.array([[1.0, -1e15], [0.0, 1.0]])
+        x0 = np.array([1.0 / 3.0, 1.0 / 7.0])
+        point = _pulled_back(A, inv, x0)
+        np.testing.assert_array_equal(point, inv @ x0)
+        error = np.abs(A @ point - x0)
+        assert np.all(error <= 64 * 2 * EPS * (np.abs(A) @ np.abs(point) + np.abs(x0)))
+        assert error[0] <= 0.0625 and 64 * 2 * EPS * abs(x0[0]) < 1e-14  # resolved to 2 ulp of 1.4e14, not to the rounding of 1/3
+
+    def test_a_sloppy_inverse_of_an_ill_conditioned_matrix_is_refused_again(self):
+        # 3a43a19 refused it; a tolerance of 1e-8 relative to the terms (2e15
+        # here) accepted it. The allowance is now the rounding of the products.
+        problem = Problem(sphere, [1.0, 1.0])
+        np.testing.assert_allclose(build(problem, ill_conditioned(-1e15)).x0, [1.0 - 1e15, 1.0])
+        with pytest.raises(ValueError, match='not an identity matrix'):
+            build(problem, ill_conditioned(-1e15 + 1e6))

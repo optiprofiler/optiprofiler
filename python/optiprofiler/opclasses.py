@@ -76,13 +76,39 @@ def _scipy_version_less_than(major, minor):
 #   `_shifted`, `_scaled_bounds`, `_composed_rows`, `_pulled_back`,
 #   `_refuse_to_replace_bound_rows`). Failing closed matters here because the
 #   loss is silent: the solver is handed an easier problem and is then scored
-#   on the original.
+#   on the original. Representable means both ends of the range. Overflow: a
+#   finite quantity has to stay finite. Underflow: a nonzero bound has to stay
+#   a normal number (at least `tiny`, 2.2e-308), and an entry of a transported
+#   row or right-hand side must not have all of its terms below `tiny`; below
+#   it the spacing of numbers is absolute, so digits are lost, and at zero an
+#   interval collapses to a point and a row to no constraint. An entry that is
+#   zero because normal terms cancel has lost nothing and is not refused;
+# - the initial point is verified where it is used: no tolerance on the
+#   matrices bounds an error at a point (`_pulled_back`);
+# - derivatives follow the same map. `FeaturedProblem.grad` and the other five
+#   are those of the original callbacks in the variables of the solver, by the
+#   chain rule of ``x = A @ y + b``; without a change of variables they are the
+#   established passthrough, and a composition provides none.
 
 _BOUND_OVERFLOW = ('A finite bound is not representable after the affine transformation: it overflows, '
                    'and posing it as infinite would drop it silently.')
 _LINEAR_OVERFLOW = ('A linear constraint is not representable after the affine transformation: it overflows, '
                     'and a coefficient or a right-hand side that is not finite is not the constraint.')
 _X0_OVERFLOW = 'The initial point is not representable after the affine transformation: it overflows.'
+_BOUND_UNDERFLOW = ('A finite bound is not representable after the affine transformation: it underflows (its magnitude '
+                    'falls below the smallest normal number), and posing it as zero would move it.')
+_LINEAR_UNDERFLOW = ('A linear constraint is not representable after the affine transformation: a coefficient or a '
+                     'right-hand side underflows (all of its terms fall below the smallest normal number).')
+_X0_MISMATCH = ('The initial point is not representable after the affine transformation: the point found in the new '
+                'variables is not mapped back to it to roundoff (it underflows, or the transformation is too ill '
+                'conditioned at that point).')
+# What counts as the rounding of a sum of products: this many times n * eps times
+# the sum of the absolute values of its terms. Measured over pairs that are
+# consistent to roundoff (built by formula as `linearly_transformed` builds its
+# own, or by LU, condition numbers up to 1e14, NumPy 1.24 to 2.5 and MATLAB
+# R2026a): at most 6.6 for the products of `_checked_affine` and 3.1 for the
+# point of `_pulled_back`. An inverse that is off by 1e-9 of an entry is at 4.5e6.
+_ROUNDING = 64
 
 
 def _checked_affine(A, b, inv, n, supplied):
@@ -105,15 +131,20 @@ def _checked_affine(A, b, inv, n, supplied):
     number and is not held to the residual test.
 
     Consistency: ``norm(E, 'fro') <= 1e-8 * n`` for
-    ``E = (A @ inv - I) / max(1, abs(A) @ abs(inv))`` and for
-    ``E = (inv @ A - I) / max(1, abs(inv) @ abs(A))``, entry by entry. Both
+    ``E = max(abs(A @ inv - I) - 64 * n * eps * abs(A) @ abs(inv), 0)`` and for
+    ``E = max(abs(inv @ A - I) - 64 * n * eps * abs(inv) @ abs(A), 0)``. Both
     products are needed: with ``A = diag(1e-8, 1e8)`` the first is an identity
     to 1e-16 for an ``inv`` with which the second misses it by 1. Each entry is
     measured against the terms it is summed from, which is what a change of
     units scales: a rotation with one variable in units of 1e13 misses the
     identity by 1e-3 in one of the products, new variable or original one, and
-    is consistent to roundoff. Where the terms are below 1 the rule is the
-    plain ``norm(A @ inv - I, 'fro') <= 1e-8 * n`` that it replaces.
+    is consistent to roundoff. The allowance is the rounding level of the
+    products themselves (see `_ROUNDING`), not a relative 1e-8: an inverse of
+    an ill-conditioned matrix with one entry off by 1e-9 of its size is
+    refused, as it was by the plain ``norm(A @ inv - I, 'fro') <= 1e-8 * n``,
+    which this rule is never stricter than. No rule on the matrices bounds an
+    error at a point, so the one point that ``inv`` is used for is verified
+    there (`_pulled_back`).
     """
     def real_array(value, what, shape):
         try:
@@ -132,10 +163,11 @@ def _checked_affine(A, b, inv, n, supplied):
         return array
 
     def residual(product, terms):
-        scale = np.maximum(1.0, terms)
-        if not np.all(np.isfinite(scale)):
+        # What rounding cannot explain: each entry is forgiven the rounding
+        # level of the products it is summed from, and nothing more.
+        if not np.all(np.isfinite(terms)):
             return np.nan
-        return np.linalg.norm((product - np.eye(n)) / scale)
+        return np.linalg.norm(np.maximum(np.abs(product - np.eye(n)) - _ROUNDING * n * np.finfo(float).eps * terms, 0.0))
 
     A = real_array(A, 'affine transformation matrix', (n, n))
     b = real_array(b, 'affine transformation vector', (n,))
@@ -187,13 +219,22 @@ def _shifted(values, b, message):
 
 
 def _scaled_bounds(scale, lower, upper):
-    """Bounds of the diagonal shortcut, ``scale * [lower, upper]``, swapped where the scale is negative."""
+    """
+    Bounds of the diagonal shortcut, ``scale * [lower, upper]``, swapped where
+    the scale is negative. A finite bound has to stay finite, and a nonzero one
+    a normal number: ``1e-200 * [1e-200, 2e-200]`` is ``[0, 0]``.
+    """
     with np.errstate(over='ignore'):  # an overflow is detected and raised just below
         scaled_lower, scaled_upper = scale * lower, scale * upper
     # A finite bound times a finite scale can overflow. It would then be
     # posed as "no bound", which is the silent loss this module rules out.
     if np.any(np.isfinite(lower) & ~np.isfinite(scaled_lower)) or np.any(np.isfinite(upper) & ~np.isfinite(scaled_upper)):
         raise ValueError(_BOUND_OVERFLOW)
+    # And it can underflow: a nonzero bound below the smallest normal number
+    # has lost its digits or is zero, and an interval can collapse to a point.
+    tiny = np.finfo(float).tiny
+    if np.any((lower != 0.0) & (np.abs(scaled_lower) < tiny)) or np.any((upper != 0.0) & (np.abs(scaled_upper) < tiny)):
+        raise ValueError(_BOUND_UNDERFLOW)
     return np.minimum(scaled_lower, scaled_upper), np.maximum(scaled_lower, scaled_upper)
 
 
@@ -203,7 +244,11 @@ def _composed_rows(matrix, rhs, A, b=None):
     ``rhs`` in the new variables: ``matrix @ A`` and ``rhs - matrix @ b``
     (``rhs`` itself if there is no shift). A row of finite data has to stay
     finite: an infinite right-hand side is counted as no constraint, a
-    negative one is satisfied nowhere, and NaN compares as satisfied.
+    negative one is satisfied nowhere, and NaN compares as satisfied. And no
+    entry may be lost to underflow: a coefficient or a right-hand side that
+    has a product of nonzero factors among its terms while the sum of the
+    absolute terms is below the smallest normal number (the right-hand side
+    itself counts as a term of the shifted one).
     """
     with np.errstate(over='ignore', invalid='ignore'):
         rows = matrix @ A
@@ -211,15 +256,63 @@ def _composed_rows(matrix, rhs, A, b=None):
     finite = np.all(np.isfinite(matrix), axis=1) & np.isfinite(rhs)
     if not (np.all(np.isfinite(rows[finite])) and np.all(np.isfinite(moved[finite]))):
         raise ValueError(_LINEAR_OVERFLOW)
+    # Underflow: an entry that has a product of nonzero factors among its
+    # terms while the sum of the absolute terms is below the smallest normal
+    # number is lost (a row of zeros is no constraint). Cancellation is not
+    # underflow: it leaves the absolute terms normal.
+    tiny = np.finfo(float).tiny
+    with np.errstate(under='ignore'):
+        nonzero = matrix[finite] != 0.0
+        lost = ((nonzero.astype(float) @ (A != 0.0).astype(float)) > 0.0) & (np.abs(matrix[finite]) @ np.abs(A) < tiny)
+        if b is not None:
+            terms = np.abs(rhs[finite]) + np.abs(matrix[finite]) @ np.abs(b)
+            lost_rhs = ((nonzero.astype(float) @ (b != 0.0).astype(float)) > 0.0) & (terms < tiny)
+        else:
+            lost_rhs = np.zeros(0, dtype=bool)
+    if np.any(lost) or np.any(lost_rhs):
+        raise ValueError(_LINEAR_UNDERFLOW)
     return rows, moved
 
 
-def _pulled_back(inv, x0, b=None):
-    """The initial point in the new variables, ``inv @ (x0 - b)``; a finite point has to stay finite."""
-    with np.errstate(over='ignore', invalid='ignore'):
+def _pulled_back(A, inv, x0, b=None):
+    """
+    The initial point in the new variables, and the proof that it is one.
+
+    ``inv @ (x0 - b)`` is the point if it is mapped back to ``x0`` to the
+    rounding of that evaluation, in every component:
+    ``abs(A @ y + b - x0) <= 64 * n * eps * (abs(A) @ abs(y) + abs(b) + abs(x0))``.
+    No tolerance on the matrices can stand in for this test: ``A = I`` with
+    ``inv[0, 1] = 1e-12`` is an identity to 1e-12 from both sides and moves
+    ``x0 = (0, 1e14)`` to ``(100, 1e14)``, 99 outside bounds of ``[-1, 1]``.
+    If the point fails the test, the equation ``A @ y = x0 - b`` is solved
+    instead, which needs ``A`` only; if that point fails it as well (the shift
+    or a product overflows, a component underflows, or ``A`` is too ill
+    conditioned at this point), construction raises. A point that passes is
+    kept bitwise, so an inverse that is good to roundoff at ``x0`` (the
+    framework's own, measured at most 3.1 units of the allowance; or a
+    supplied one) gives the point it always gave. The test is by component on
+    purpose: a norm would let a component of 1e14 excuse an error of 100 in
+    another one.
+    """
+    shift = np.zeros(x0.size) if b is None else b
+
+    def mapped_back(point):
+        error = np.abs(A @ point + shift - x0)
+        allowed = _ROUNDING * x0.size * np.finfo(float).eps * (np.abs(A) @ np.abs(point) + np.abs(shift) + np.abs(x0))
+        return bool(np.all(error <= allowed))  # False for NaN and for an infinite component
+
+    with np.errstate(over='ignore', invalid='ignore', under='ignore'):
         point = inv @ (x0 if b is None else x0 - b)
-    if np.all(np.isfinite(x0)) and not np.all(np.isfinite(point)):
-        raise ValueError(_X0_OVERFLOW)
+        if not np.all(np.isfinite(x0)) or mapped_back(point):
+            return point  # (a point that is not finite is the user's: it is transported as it is)
+        try:
+            point = np.linalg.solve(A, x0 - shift)
+        except np.linalg.LinAlgError as exc:
+            raise ValueError(_X0_MISMATCH) from exc
+        if not np.all(np.isfinite(point)):
+            raise ValueError(_X0_OVERFLOW)
+        if not mapped_back(point):
+            raise ValueError(_X0_MISMATCH)
     return point
 
 
@@ -266,6 +359,12 @@ class _StageRuntime:
     def is_stochastic(self):
         return _stage_is_stochastic(self._name, self._options)
 
+    @property
+    def changes_variables(self):
+        """Whether the stage is a change of variables ``x = A @ y + b`` other than the identity by construction."""
+        return self._name in (FeatureName.PERMUTED, FeatureName.LINEARLY_TRANSFORMED) or \
+            (self._name == FeatureName.CUSTOM and FeatureOption.MOD_AFFINE in self._options)
+
     def modifier_x0(self, seed, problem):
         """
         Modify the initial point.
@@ -292,8 +391,8 @@ class _StageRuntime:
             # a custom affine transformation, we need to apply the inverse of the affine
             # transformation to the initial point.
             if FeatureOption.MOD_AFFINE in self._options:
-                _, b, inv = self.modifier_affine(seed, problem)
-                return _pulled_back(inv, problem.x0, b)
+                A, b, inv = self.modifier_affine(seed, problem)
+                return _pulled_back(A, inv, problem.x0, b)
             else:
                 return problem.x0
         elif self._name == FeatureName.PERTURBED_X0:
@@ -324,8 +423,8 @@ class _StageRuntime:
             return problem.x0[reverse_permutation]
         elif self._name == FeatureName.LINEARLY_TRANSFORMED:
             # Apply the inverse of the affine transformation to the initial point.
-            _, __, inv = self.modifier_affine(seed, problem)
-            return _pulled_back(inv, problem.x0)
+            A, __, inv = self.modifier_affine(seed, problem)
+            return _pulled_back(A, inv, problem.x0)
         else:
             return problem.x0
 
@@ -1123,7 +1222,15 @@ class Feature:
     -----
     ``options`` and the ``modifier_*`` methods remain as deprecated one-stage
     conveniences only; the benchmark, the recorder, the archives and the
-    reports use ``stages``.
+    reports use ``stages``. Each call of such a method builds a runtime of its
+    own. A runtime keeps the transformation of ``mod_affine`` for one problem
+    and seed (one entry: asking it about another problem or seed replaces it),
+    so that the initial point, the bounds, the linear constraints, the
+    derivatives and every evaluation of a `FeaturedProblem` share one map,
+    whereas each of these conveniences asks ``mod_affine`` again: a callback
+    with a state can give two of them two different maps. The kept
+    transformation belongs to the problem object it was asked for; a problem
+    is not to be changed in place while a featured problem is built on it.
 
     Ownership of option values: exact built-in data containers (``list``,
     ``tuple``, ``dict``) and exact ``numpy.ndarray`` values are copied at
@@ -2780,6 +2887,21 @@ class FeaturedProblem(Problem):
        ``termination_eval`` (used internally by ``benchmark``), the
        methods ``fun``, ``cub``, and ``ceq`` will raise an error to
        terminate the optimization process.
+    3. The derivative methods ``grad``, ``hess``, ``jcub``, ``jceq``,
+       ``hcub`` and ``hceq`` return the derivatives of the callbacks of the
+       original problem with respect to the variables the solver works in.
+       A feature that changes the variables by ``x = A @ y + b``
+       (``permuted``, ``linearly_transformed``, ``custom`` with
+       ``mod_affine``) applies the chain rule at the point ``x``: ``grad``
+       is ``A.T @ grad(x)``, ``hess`` is ``A.T @ hess(x) @ A``, ``jcub`` and
+       ``jceq`` are ``J(x) @ A``, and every element of ``hcub`` and ``hceq``
+       is ``A.T @ H(x) @ A``. Every other single feature leaves them as they
+       are. They are never derivatives of the observed values: noise,
+       truncation, NaN, a mesh or a custom ``mod_fun``, ``mod_cub`` or
+       ``mod_ceq`` do not enter them. They cost no evaluation and record no
+       history, and a derivative the problem does not provide stays absent
+       (empty). A composition of features provides no derivatives
+       (``NotImplementedError``).
 
     .. note::
 
@@ -3251,7 +3373,61 @@ class FeaturedProblem(Problem):
             A, b = self._runtime.modifier_affine(self._seed, self._problem)[:2]
             return self._problem.maxcv(A @ x + b)
         
-    # Note: We need to add methods `grad`, `hess`, `jcub`, and `jceq` to the FeaturedProblem class in the future.
+    # Derivatives. They are those of the ORIGINAL callbacks in the variables
+    # the solver works in: with x = A @ y + b, grad is A.T @ grad(x), hess is
+    # A.T @ hess(x) @ A, jcub and jceq are J(x) @ A, hcub and hceq are
+    # A.T @ H_i(x) @ A. A feature that only changes values (noise, truncation,
+    # NaN, a mesh, custom mod_fun/mod_cub/mod_ceq) does not change them: they
+    # are never derivatives of the observed values. They cost no evaluation
+    # and record no history, an absent derivative stays absent (empty), and a
+    # composition provides none (`ComposedFeaturedProblem`).
+
+    def _original_point(self, x, method):
+        x = _process_1d_array(x, f'The argument `x` for method `{method}` in problem must be a one-dimensional array.')
+        if x.size != self.n:
+            raise ValueError(f'The argument `x` for method `{method}` in problem must have size {self.n}.')
+        A, b = self._runtime.modifier_affine(self._seed, self._problem)[:2]
+        return A, A @ x + b
+
+    def grad(self, x):
+        if not self._runtime.changes_variables:
+            return super().grad(x)
+        A, point = self._original_point(x, 'grad')
+        g = self._problem.grad(point)
+        return A.T @ g if g.size else g
+
+    def hess(self, x):
+        if not self._runtime.changes_variables:
+            return super().hess(x)
+        A, point = self._original_point(x, 'hess')
+        h = self._problem.hess(point)
+        return A.T @ h @ A if h.size else h
+
+    def jcub(self, x):
+        if not self._runtime.changes_variables:
+            return super().jcub(x)
+        A, point = self._original_point(x, 'jcub')
+        j = self._problem.jcub(point)
+        return j @ A if j.size else j
+
+    def jceq(self, x):
+        if not self._runtime.changes_variables:
+            return super().jceq(x)
+        A, point = self._original_point(x, 'jceq')
+        j = self._problem.jceq(point)
+        return j @ A if j.size else j
+
+    def hcub(self, x):
+        if not self._runtime.changes_variables:
+            return super().hcub(x)
+        A, point = self._original_point(x, 'hcub')
+        return [A.T @ h @ A if h.size else h for h in self._problem.hcub(point)]
+
+    def hceq(self, x):
+        if not self._runtime.changes_variables:
+            return super().hceq(x)
+        A, point = self._original_point(x, 'hceq')
+        return [A.T @ h @ A if h.size else h for h in self._problem.hceq(point)]
 
 def _validate_max_eval(max_eval):
     """Validate the evaluation budget of a featured problem and return it as an ``int``."""

@@ -404,7 +404,8 @@ class AffineView(ProblemView):
 
     Both channels are evaluated at the mapped point, and the structure is
     transported with the feature's own modifiers: the initial point is pulled
-    back through the inverse, finite bounds become linear constraints unless
+    back through the inverse and verified to be mapped back to the original
+    one (solved from ``A`` otherwise), finite bounds become linear constraints unless
     ``A`` is exactly diagonal and ``diag(inv)`` its reciprocal to roundoff (one
     decision, read by the bounds and by the linear constraints alike, so that
     a bound is never dropped), and linear constraints are composed with ``A``.

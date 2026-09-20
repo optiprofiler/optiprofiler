@@ -65,8 +65,8 @@ classdef FeatureKernel < handle
                     % a custom affine transformation, we need to apply the inverse of the affine
                     % transformation to the initial point.
                     if isfield(obj.options, FeatureOptionKey.MOD_AFFINE.value)
-                        [~, b, inv] = obj.modifier_affine(seed, problem);
-                        x0 = pulledBack(inv, problem.x0, b);
+                        [A, b, inv] = obj.modifier_affine(seed, problem);
+                        x0 = pulledBack(A, inv, problem.x0, b);
                     else
                         x0 = problem.x0;
                     end
@@ -91,11 +91,18 @@ classdef FeatureKernel < handle
                     x0 = problem.x0(reverse_permutation);
                 case FeatureName.LINEARLY_TRANSFORMED.value
                     % Apply the inverse of the affine transformation to the initial point.
-                    [~, ~, inv] = obj.modifier_affine(seed, problem);
-                    x0 = pulledBack(inv, problem.x0, []);
+                    [A, ~, inv] = obj.modifier_affine(seed, problem);
+                    x0 = pulledBack(A, inv, problem.x0, []);
                 otherwise
                     x0 = problem.x0;
             end
+        end
+
+        function tf = changesVariables(obj)
+            % Whether the stage is a change of variables x = A * y + b other
+            % than the identity by construction.
+            tf = ismember(obj.name, {FeatureName.PERMUTED.value, FeatureName.LINEARLY_TRANSFORMED.value}) || ...
+                (strcmp(obj.name, FeatureName.CUSTOM.value) && isfield(obj.options, FeatureOptionKey.MOD_AFFINE.value));
         end
 
         function [A, b, inv] = modifier_affine(obj, seed, problem)
@@ -911,7 +918,20 @@ end
 %   represented raises instead of being approximated (checkedAffine, shifted,
 %   scaledBounds, composedRows, pulledBack, refuseToReplaceBoundRows). Failing
 %   closed matters here because the loss is silent: the solver is handed an
-%   easier problem and is then scored on the original.
+%   easier problem and is then scored on the original. Representable means
+%   both ends of the range. Overflow: a finite quantity has to stay finite.
+%   Underflow: a nonzero bound has to stay a normal number (at least realmin,
+%   2.2e-308), and an entry of a transported row or right-hand side must not
+%   have all of its terms below realmin; below it the spacing of numbers is
+%   absolute, so digits are lost, and at zero an interval collapses to a point
+%   and a row to no constraint. An entry that is zero because normal terms
+%   cancel has lost nothing and is not refused;
+% - the initial point is verified where it is used: no tolerance on the
+%   matrices bounds an error at a point (pulledBack);
+% - derivatives follow the same map. FeaturedProblem.grad and the other five
+%   are those of the original callbacks in the variables of the solver, by the
+%   chain rule of x = A * y + b; without a change of variables they are the
+%   established passthrough, and a composition provides none.
 
 function [A, b, inv] = checkedAffine(A, b, inv, n, supplied)
 % The change of variables x = A * y + b as validated full double arrays.
@@ -931,15 +951,19 @@ function [A, b, inv] = checkedAffine(A, b, inv, n, supplied)
 % residual test.
 %
 % Consistency: norm(E, 'fro') <= 1e-8 * n for
-% E = (A * inv - I) ./ max(1, abs(A) * abs(inv)) and for
-% E = (inv * A - I) ./ max(1, abs(inv) * abs(A)). Both products are needed:
+% E = max(abs(A * inv - I) - 64 * n * eps * abs(A) * abs(inv), 0) and for
+% E = max(abs(inv * A - I) - 64 * n * eps * abs(inv) * abs(A), 0). Both products are needed:
 % with A = diag(1e-8, 1e8) the first is an identity to 1e-16 for an inv with
 % which the second misses it by 1. Each entry is measured against the terms it
 % is summed from, which is what a change of units scales: a rotation with one
 % variable in units of 1e13 misses the identity by 1e-3 in one of the products,
-% new variable or original one, and is consistent to roundoff. Where the terms
-% are below 1 the rule is the plain norm(A * inv - I, 'fro') <= 1e-8 * n that
-% it replaces.
+% new variable or original one, and is consistent to roundoff. The allowance is
+% the rounding level of the products themselves (see roundingAllowance), not a
+% relative 1e-8: an inverse of an ill-conditioned matrix with one entry off by
+% 1e-9 of its size is refused, as it was by the plain
+% norm(A * inv - I, 'fro') <= 1e-8 * n, which this rule is never stricter than.
+% No rule on the matrices bounds an error at a point, so the one point that inv
+% is used for is verified there (pulledBack).
 %
 % Identifiers: AffineTransformationInvalid when A or b is not usable data;
 % AffineTransformationNotInvertible whenever inv cannot be the inverse of A
@@ -976,13 +1000,13 @@ function [A, b, inv] = checkedAffine(A, b, inv, n, supplied)
 end
 
 function value = identityResidual(product, terms, n)
-% norm((product - I) ./ max(1, terms), 'fro'), and NaN if the terms overflowed.
-    scale = max(1, terms);
-    if ~all(isfinite(scale(:)))
+% What rounding cannot explain: each entry is forgiven the rounding level of
+% the products it is summed from, and nothing more. NaN if the terms overflowed.
+    if ~all(isfinite(terms(:)))
         value = NaN;
         return;
     end
-    value = norm((product - eye(n)) ./ scale, 'fro');
+    value = norm(max(abs(product - eye(n)) - roundingAllowance() * n * eps * terms, 0), 'fro');
 end
 
 function tf = affineIsDiagonal(A, inv)
@@ -1036,13 +1060,19 @@ end
 
 function [xl, xu] = scaledBounds(scale, lower, upper)
 % Bounds of the diagonal shortcut, scale .* [lower, upper], swapped where the
-% scale is negative.
+% scale is negative. A finite bound has to stay finite, and a nonzero one a
+% normal number: 1e-200 * [1e-200, 2e-200] is [0, 0].
     scaled_lower = scale .* lower;
     scaled_upper = scale .* upper;
     % A finite bound times a finite scale can overflow. It would then be posed
     % as "no bound", which is the silent loss this file rules out.
     if any(isfinite(lower) & ~isfinite(scaled_lower)) || any(isfinite(upper) & ~isfinite(scaled_upper))
         error("MATLAB:Feature:AffineBoundsNotRepresentable", "A finite bound is not representable after the affine transformation: it overflows, and posing it as infinite would drop it silently.");
+    end
+    % And it can underflow: a nonzero bound below the smallest normal number
+    % has lost its digits or is zero, and an interval can collapse to a point.
+    if any(lower ~= 0 & abs(scaled_lower) < realmin) || any(upper ~= 0 & abs(scaled_upper) < realmin)
+        error("MATLAB:Feature:AffineBoundsNotRepresentable", "A finite bound is not representable after the affine transformation: it underflows (its magnitude falls below the smallest normal number), and posing it as zero would move it.");
     end
     xl = min(scaled_lower, scaled_upper);
     xu = max(scaled_lower, scaled_upper);
@@ -1053,7 +1083,11 @@ function [rows, moved] = composedRows(matrix, rhs, A, b)
 % new variables: matrix * A and rhs - matrix * b (rhs itself if b is empty:
 % there is no shift). A row of finite data has to stay finite: an infinite
 % right-hand side is counted as no constraint, a negative one is satisfied
-% nowhere, and NaN compares as satisfied.
+% nowhere, and NaN compares as satisfied. And no entry may be lost to
+% underflow: a coefficient or a right-hand side that has a product of nonzero
+% factors among its terms while the sum of the absolute terms is below the
+% smallest normal number (the right-hand side itself counts as a term of the
+% shifted one).
     rows = matrix * A;
     moved = rhs;
     if ~isempty(b)
@@ -1063,17 +1097,65 @@ function [rows, moved] = composedRows(matrix, rhs, A, b)
     if ~(all(all(isfinite(rows(was_finite, :)))) && all(isfinite(moved(was_finite))))
         error("MATLAB:Feature:AffineLinearConstraintsNotRepresentable", "A linear constraint is not representable after the affine transformation: it overflows, and a coefficient or a right-hand side that is not finite is not the constraint.");
     end
+    % Underflow: an entry that has a product of nonzero factors among its terms
+    % while the sum of the absolute terms is below the smallest normal number
+    % is lost (a row of zeros is no constraint). Cancellation is not underflow:
+    % it leaves the absolute terms normal.
+    M = matrix(was_finite, :);
+    lost = (double(M ~= 0) * double(A ~= 0) > 0) & (abs(M) * abs(A) < realmin);
+    lost_rhs = false;
+    if ~isempty(b)
+        lost_rhs = (double(M ~= 0) * double(b ~= 0) > 0) & (abs(rhs(was_finite)) + abs(M) * abs(b) < realmin);
+    end
+    if any(lost(:)) || any(lost_rhs(:))
+        error("MATLAB:Feature:AffineLinearConstraintsNotRepresentable", "A linear constraint is not representable after the affine transformation: a coefficient or a right-hand side underflows (all of its terms fall below the smallest normal number).");
+    end
 end
 
-function point = pulledBack(inv, x0, b)
-% The initial point in the new variables, inv * (x0 - b) (inv * x0 if b is
-% empty: there is no shift); a finite point has to stay finite.
-    point = x0;
+function point = pulledBack(A, inv, x0, b)
+% The initial point in the new variables, and the proof that it is one.
+% inv * (x0 - b) is the point if it is mapped back to x0 to the rounding of that
+% evaluation, in every component:
+% abs(A * y + b - x0) <= 64 * n * eps * (abs(A) * abs(y) + abs(b) + abs(x0)).
+% No tolerance on the matrices can stand in for this test: A = I with
+% inv(1, 2) = 1e-12 is an identity to 1e-12 from both sides and moves
+% x0 = (0, 1e14) to (100, 1e14), 99 outside bounds of [-1, 1]. If the point
+% fails the test, the equation A * y = x0 - b is solved instead, which needs A
+% only; if that point fails it as well (the shift or a product overflows, a
+% component underflows, or A is too ill conditioned at this point),
+% construction raises. A point that passes is kept bitwise, so an inverse that
+% is good to roundoff at x0 (the framework's own, measured at most 3.1 units of
+% the allowance; or a supplied one) gives the point it always gave. The test is
+% by component on purpose: a norm would let a component of 1e14 excuse an error
+% of 100 in another one. b is empty if there is no shift.
+    n = numel(x0);
+    shift = zeros(n, 1);
+    point = inv * x0;
     if ~isempty(b)
-        point = x0 - b;
+        shift = b;
+        point = inv * (x0 - b);
     end
-    point = inv * point;
-    if all(isfinite(x0)) && ~all(isfinite(point))
+    mapped = @(y) all(abs(A * y + shift - x0) <= roundingAllowance() * n * eps * (abs(A) * abs(y) + abs(shift) + abs(x0)));  % false for NaN and for an infinite component
+    if ~all(isfinite(x0)) || mapped(point)
+        return;  % (a point that is not finite is the user's: it is transported as it is)
+    end
+    states = [warning('off', 'MATLAB:nearlySingularMatrix'), warning('off', 'MATLAB:singularMatrix')];
+    restore = onCleanup(@() warning(states));
+    point = A \ (x0 - shift);
+    if ~all(isfinite(point))
         error("MATLAB:Feature:AffineInitialPointNotRepresentable", "The initial point is not representable after the affine transformation: it overflows.");
     end
+    if ~mapped(point)
+        error("MATLAB:Feature:AffineInitialPointNotRepresentable", "The initial point is not representable after the affine transformation: the point found in the new variables is not mapped back to it to roundoff (it underflows, or the transformation is too ill conditioned at that point).");
+    end
+end
+
+function value = roundingAllowance()
+% What counts as the rounding of a sum of products: this many times n * eps
+% times the sum of the absolute values of its terms. Measured over pairs that
+% are consistent to roundoff (built by formula as linearly_transformed builds
+% its own, or by LU, condition numbers up to 1e14, NumPy 1.24 to 2.5 and MATLAB
+% R2026a): at most 6.6 for the products of checkedAffine and 3.1 for the point
+% of pulledBack. An inverse that is off by 1e-9 of an entry is at 4.5e6.
+    value = 64;
 end

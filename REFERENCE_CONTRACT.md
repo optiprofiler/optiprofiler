@@ -266,12 +266,17 @@ the previous one differ, this one holds.
   `E = (inv * A - I) ./ max(1, abs(inv) * abs(A))`. Where the terms are below 1
   this is the plain rule; it is never stricter than the plain rule on
   `A * inv`, and an error of the size of the terms is refused at every scale.
+  (Superseded by the second follow-up below: dividing by the terms allowed
+  `1e-8` *of the terms*, which is far more than their rounding. Both products
+  are still required; the allowance is now `64 * n * eps` times the terms.)
 - Nothing finite leaves the floating-point range unnoticed. `xu - b` with
   `1e308 + 1e308` is infinite before anything is scaled, so the scale guard saw
   "no bound"; as a row it had an infinite right-hand side, which counts as no
   constraint; `bub - aub * b` and `aub * A` gave `-Inf`, `NaN` and `Inf`. Every
   shifted bound, right-hand side, composed row and the pulled-back initial
   point is now checked, for `linearly_transformed` as well, and raises.
+  (The second follow-up below adds the other end of the range, underflow, and
+  replaces the check of the initial point by a verification at the point.)
 
 Two conversions were found on the way. MATLAB kept the data of a `Problem`
 (`x0`, `xl`, `xu`, `aub`, `bub`, `aeq`, `beq`) in the class they were given in,
@@ -281,6 +286,97 @@ posed the bounds `-1` and `2` for `-0.25` and `1.75`. The data are now double
 precision numbers, as in Python. In a Python composition, an integer beyond the
 range of a float returned by a custom callback raised `OverflowError` instead of
 the `ValueError` naming the stage.
+
+Second follow-up. An independent audit of the follow-up found three more ways
+in which the posed problem, or what a solver is told about it, could differ
+from the scored one; and one of the rules above was too loose. Where this
+paragraph and the previous ones differ, this one holds.
+
+- Nothing finite is lost to underflow either. With `xl = 1e-200`,
+  `xu = 2e-200`, `A = 1e200` and `inv = 1e-200` both scaled bounds are below the
+  smallest subnormal number and round to 0: a nonempty interval was posed as
+  the single point `y = 0`, which is mapped outside it. The same loss turned a
+  coefficient row into a row of zeros (no constraint), a right-hand side of
+  `-2^-1200` into 0, and an initial point into 0 where `log(x1)` is `-Inf` for a
+  finite `fun(x0)`. The boundary is the smallest normal number (`realmin`,
+  `2.2e-308`), below which the spacing of numbers is absolute: a nonzero bound
+  has to stay at least that large in magnitude, and an entry of a transported
+  row or right-hand side must not have a product of nonzero factors among its
+  terms while the sum of the absolute terms is below it (the right-hand side
+  itself counts as a term of the shifted one). A zero bound stays zero, and an
+  entry that is zero because normal terms cancel has lost nothing. What is
+  refused raises (`ValueError`; `AffineBoundsNotRepresentable`,
+  `AffineLinearConstraintsNotRepresentable`). Posing the bounds as rows of `A`
+  instead would be representable where the scaled bound is not; raising was
+  kept because an overflowing scaled bound raises since the safeguard, and one
+  policy for both ends of the range is easier to state.
+- The initial point is verified where it is used. `A = I` with
+  `inv = [1, 1e-12; 0, 1]` is an identity to `1e-12` from both sides, inside
+  every tolerance on the matrices, and it pulled the feasible
+  `x0 = (0, 1e14)` back to `(100, 1e14)`: `maxcv_init` 99 for a feasible start.
+  No tolerance on the matrices bounds an error at a point, because `x0` can be
+  of any size. `inv * (x0 - b)` is now the point only if `A` maps it back,
+  `abs(A * y + b - x0) <= 64 * n * eps * (abs(A) * abs(y) + abs(b) + abs(x0))`
+  in every component (a norm would let a component of `1e14` excuse an error of
+  100 in another one). Otherwise `A * y = x0 - b` is solved, which needs `A`
+  only, and if that point is not mapped back either (overflow, underflow),
+  construction raises (`AffineInitialPointNotRepresentable`). A point that
+  passes is kept bitwise: the framework's own inverse was measured at most 3.1
+  units of that allowance over `n` up to 200 and condition factors up to 6000.
+  The allowance is the rounding of the evaluation, not of `x0`: for
+  `A = [1, 1e15; 0, 1]` the map itself resolves the first component to 0.03 at
+  `x0 = (1/3, 1/7)`, for the truth as for the start, and measuring against `x0`
+  alone would refuse the rotations of `linearly_transformed` at ordinary
+  condition factors.
+- Derivatives follow the change of variables. The single-feature
+  `FeaturedProblem` handed out the callbacks of the original problem unchanged:
+  for `f(x) = ||x||^2`, `A = diag(2, 1)` and `y = (1, 1)`, `grad` returned
+  `(2, 2)` while the function the solver evaluates has the gradient `(8, 2)`.
+  `grad`, `hess`, `jcub`, `jceq`, `hcub` and `hceq` are now those of the
+  original callbacks in the variables of the solver: `A' * grad(x)`,
+  `A' * hess(x) * A`, `J(x) * A`, `A' * H_i(x) * A` at `x = A * y + b`, for
+  `permuted`, `linearly_transformed` and `custom` with `mod_affine`. Every
+  other single feature keeps the established passthrough. They are never
+  derivatives of observed values, cost no evaluation, record no history, read
+  the kept transformation, and leave an absent derivative absent. A
+  composition still provides none (`NotImplementedError`,
+  `UnsupportedCompositeDerivative`).
+- The consistency rule allows rounding, and only rounding. The first follow-up
+  divided each residual by `max(1, terms)`, which allowed `1e-8` *of the terms*:
+  for `A = [1, 1e15; 0, 1]` an inverse with one entry off by `1e-9` of its size
+  (`1e6`) was accepted and moved the start by `1e6`, which the safeguard had
+  refused. The rule is now `norm(max(abs(P - I) - 64 * n * eps * T, 0), 'fro')
+  <= 1e-8 * n` for `P = A * inv` and `P = inv * A`, with `T` the product of the
+  absolute values. Pairs that are consistent to roundoff were measured at most
+  6.6 units of `n * eps * T` (built by formula or by LU, condition numbers up
+  to `1e14`, NumPy 1.24 to 2.5 and MATLAB R2026a); the refused inverse is at
+  `4.5e6`. It is never stricter than the plain rule on `A * inv`, does not
+  depend on the units of either set of variables or on the kernel that
+  multiplies the matrices, and refuses what the plain rule refused.
+
+Decisions made explicit (each pinned by a test in both languages):
+
+- One transformation per runtime, problem and seed; one entry, keyed on the
+  identity of the problem object and the value of the seed. A problem is not to
+  be changed in place while a featured problem is built on it. The deprecated
+  `Feature.modifier_*` conveniences build a runtime per call and therefore
+  keep nothing: a callback with a state can give two of them two maps.
+- `mod_bounds` replaces the bounds and nothing else. A supplied modifier
+  replaces its own component verbatim. Under a `mod_affine` for which the
+  bounds stay bounds, the bounds of the problem live in that component and are
+  replaced; under any other one they are linear rows of the framework, which
+  `mod_bounds` does not touch, so they stay posed next to the supplied bounds.
+  That the representation decides this is a wart of an established rule. It was
+  kept on purpose: either repair changes what users of `mod_bounds` get today
+  (one drops rows they are given, the other stops replacing verbatim), the rule
+  never poses fewer constraints than before, and the reference is unknown
+  after any `mod_bounds`, so nothing is claimed about that posed problem.
+- Integers beyond `2^53` (and extended precision in Python) in the triple are
+  rounded to the nearest double, as every decimal literal is, in both
+  languages and in both execution paths. The rounded triple is the one that is
+  validated, kept and used, by structure, truth and derivatives alike. Exact
+  representability is required of recorded values (option values, the merit of
+  a reference), not of callback outputs.
 
 Consequence for this contract. `linearly_transformed` and `custom` within
 `{mod_x0, mod_affine}` retain the reference (section 4). That is a claim about

@@ -127,6 +127,21 @@ classdef FeaturedProblem < Problem
 %   An evaluation that later errors can already have advanced this counter;
 %   a history length is not evidence that the same number of calls succeeded.
 %
+%   .. rubric:: Derivatives
+%
+%   grad, hess, jcub, jceq, hcub and hceq return the derivatives of the
+%   callbacks of the original problem with respect to the variables the solver
+%   works in. A feature that changes the variables by x = A * y + b (permuted,
+%   linearly_transformed, custom with mod_affine) applies the chain rule at the
+%   point x: grad is A' * grad(x), hess is A' * hess(x) * A, jcub and jceq are
+%   J(x) * A, and every element of hcub and hceq is A' * H(x) * A. Every other
+%   single feature leaves them as they are. They are never derivatives of the
+%   observed values: noise, truncation, NaN, a mesh or a custom mod_fun,
+%   mod_cub or mod_ceq do not enter them. They cost no evaluation and record no
+%   history, and a derivative the problem does not provide stays absent
+%   (empty). A composition of features provides no derivatives
+%   (MATLAB:FeaturedProblem:UnsupportedCompositeDerivative).
+%
 
     properties (GetAccess = public, SetAccess = private)
 
@@ -657,25 +672,80 @@ classdef FeaturedProblem < Problem
         end
 
 
-        function value=grad(obj,x)
-            if isempty(obj.final_view), value=grad@Problem(obj,x); else, value=obj.final_view.grad(x); end
+        % Derivatives. They are those of the ORIGINAL callbacks in the variables
+        % the solver works in: with x = A * y + b, grad is A' * grad(x), hess is
+        % A' * hess(x) * A, jcub and jceq are J(x) * A, hcub and hceq are
+        % A' * H_i(x) * A. A feature that only changes values (noise,
+        % truncation, NaN, a mesh, custom mod_fun/mod_cub/mod_ceq) does not
+        % change them: they are never derivatives of the observed values. They
+        % cost no evaluation and record no history, an absent derivative stays
+        % absent (empty), and a composition provides none
+        % (MATLAB:FeaturedProblem:UnsupportedCompositeDerivative).
+        function value = grad(obj, x)
+            if ~isempty(obj.final_view), value = obj.final_view.grad(x); return; end
+            [A, point] = obj.originalPoint(x);
+            if isempty(A), value = grad@Problem(obj, x); return; end
+            value = obj.problem.grad(point);
+            if ~isempty(value), value = A' * value; end
         end
-        function value=hess(obj,x)
-            if isempty(obj.final_view), value=hess@Problem(obj,x); else, value=obj.final_view.hess(x); end
+        function value = hess(obj, x)
+            if ~isempty(obj.final_view), value = obj.final_view.hess(x); return; end
+            [A, point] = obj.originalPoint(x);
+            if isempty(A), value = hess@Problem(obj, x); return; end
+            value = obj.problem.hess(point);
+            if ~isempty(value), value = A' * value * A; end
         end
-        function value=jcub(obj,x)
-            if isempty(obj.final_view), value=jcub@Problem(obj,x); else, value=obj.final_view.jcub(x); end
+        function value = jcub(obj, x)
+            if ~isempty(obj.final_view), value = obj.final_view.jcub(x); return; end
+            [A, point] = obj.originalPoint(x);
+            if isempty(A), value = jcub@Problem(obj, x); return; end
+            value = obj.problem.jcub(point);
+            if ~isempty(value), value = value * A; end
         end
-        function value=jceq(obj,x)
-            if isempty(obj.final_view), value=jceq@Problem(obj,x); else, value=obj.final_view.jceq(x); end
+        function value = jceq(obj, x)
+            if ~isempty(obj.final_view), value = obj.final_view.jceq(x); return; end
+            [A, point] = obj.originalPoint(x);
+            if isempty(A), value = jceq@Problem(obj, x); return; end
+            value = obj.problem.jceq(point);
+            if ~isempty(value), value = value * A; end
         end
-        function value=hcub(obj,x)
-            if isempty(obj.final_view), value=hcub@Problem(obj,x); else, value=obj.final_view.hcub(x); end
+        function value = hcub(obj, x)
+            if ~isempty(obj.final_view), value = obj.final_view.hcub(x); return; end
+            [A, point] = obj.originalPoint(x);
+            if isempty(A), value = hcub@Problem(obj, x); return; end
+            value = obj.problem.hcub(point);
+            for k = 1:numel(value)
+                if ~isempty(value{k}), value{k} = A' * value{k} * A; end
+            end
         end
-        function value=hceq(obj,x)
-            if isempty(obj.final_view), value=hceq@Problem(obj,x); else, value=obj.final_view.hceq(x); end
+        function value = hceq(obj, x)
+            if ~isempty(obj.final_view), value = obj.final_view.hceq(x); return; end
+            [A, point] = obj.originalPoint(x);
+            if isempty(A), value = hceq@Problem(obj, x); return; end
+            value = obj.problem.hceq(point);
+            for k = 1:numel(value)
+                if ~isempty(value{k}), value{k} = A' * value{k} * A; end
+            end
         end
 
+    end
+
+    methods (Access = private)
+        function [A, point] = originalPoint(obj, x)
+            % The matrix A and the point A * x + b of the original problem, if
+            % the feature changes the variables and x is a point of this
+            % problem. A is empty otherwise, and the method of Problem serves
+            % the call: the established passthrough of a feature that leaves the
+            % variables alone, or the error of Problem for a wrong point. The
+            % transformation is the kept one (FeatureKernel.modifier_affine), so
+            % no callback is called for a derivative.
+            A = [];
+            point = [];
+            if obj.kernel.changesVariables() && isnumeric(x) && isreal(x) && isvector(x) && numel(x) == obj.n
+                [A, b] = obj.kernel.modifier_affine(obj.seed, obj.problem);
+                point = A * x(:) + b;
+            end
+        end
     end
 
     methods (Access = protected)

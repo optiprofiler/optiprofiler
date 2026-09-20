@@ -35,6 +35,21 @@ classdef TestAffineStructure < matlab.unittest.TestCase
 % floating-point range, instead of being posed as "no constraint". And the
 % data of a problem are double precision numbers whatever class they were
 % given in, so that none of this is computed in saturating integer arithmetic.
+%
+% The second follow-up. The range has two ends: a nonzero bound that falls
+% below the smallest normal number, or a transported entry whose terms all do,
+% raises as well (1e-200 * [1e-200, 2e-200] was posed as the point [0, 0]). The
+% initial point is verified where it is used, because no tolerance on the
+% matrices bounds an error at a point: inv * (x0 - b) has to be mapped back to
+% x0 by A to the rounding of that evaluation, or the equation is solved from A,
+% or construction raises. The derivative methods of a single-feature problem
+% follow the change of variables by the chain rule (they returned the
+% derivatives of the original callbacks at the solver's point), and a
+% composition still provides none. The consistency of a supplied inverse allows
+% the rounding of its products and nothing more. And three decisions are pinned
+% as they are: what the deprecated conveniences keep (nothing), what mod_bounds
+% replaces (the bounds, not the framework's rows), and how an integer beyond
+% 2^53 is converted (rounded, as every number is).
 
     properties (Constant)
         % A diagonal change of variables with a negative entry (bounds must
@@ -222,6 +237,56 @@ classdef TestAffineStructure < matlab.unittest.TestCase
             % Exactly consistent and perfectly conditioned; a coefficient of
             % 1e200 times 1e200 overflows.
             A = diag([1e200, 1, 1]); b = zeros(3, 1); inv = diag([1e-200, 1, 1]);
+        end
+
+        function transform = powerScaling(exponent)
+            % x = 2^exponent * y in the first variable, with its exact inverse
+            % (powers of two: nothing is rounded).
+            transform = @(s, p) deal(diag([2^exponent, 1, 1]), zeros(3, 1), diag([2^-exponent, 1, 1]));
+        end
+        function [A, b, inv] = denseWithShift(~, ~)
+            A = TestAffineStructure.Dense; b = TestAffineStructure.B; inv = A \ eye(3);
+        end
+        function problem = smoothProblem(derivatives)
+            % A smooth problem with every derivative (or with none of them).
+            s = struct('fun', @(x) sum(x.^4) + x(1) * x(2) + sin(x(3)), 'x0', [0.3; -0.4; 0.5], ...
+                'xl', [-2; -2; -2], 'xu', [2; 2; 2], ...
+                'cub', @(x) [x(1)^2 + x(2) * x(3) - 1; exp(x(1)) - x(3)], 'ceq', @(x) x(1) * x(2) * x(3) - 0.5);
+            if derivatives
+                s.grad = @(x) 4 * x(:).^3 + [x(2); x(1); cos(x(3))];
+                s.hess = @(x) diag(12 * x(:).^2) + [0, 1, 0; 1, 0, 0; 0, 0, -sin(x(3))];
+                s.jcub = @(x) [2 * x(1), x(3), x(2); exp(x(1)), 0, -1];
+                s.hcub = @(x) {[2, 0, 0; 0, 0, 1; 0, 1, 0]; [exp(x(1)), 0, 0; 0, 0, 0; 0, 0, 0]};
+                s.jceq = @(x) [x(2) * x(3), x(1) * x(3), x(1) * x(2)];
+                s.hceq = @(x) {[0, x(3), x(2); x(3), 0, x(1); x(2), x(1), 0]};
+            end
+            problem = Problem(s);
+        end
+        function features = variableChanges()
+            % Every single feature that changes the variables.
+            features = {Feature('custom', struct('mod_affine', @TestAffineStructure.denseWithShift)), ...
+                Feature('custom', struct('mod_affine', @TestAffineStructure.exactDiagonal)), ...
+                Feature('linearly_transformed', struct('rotated', true, 'condition_factor', 4)), ...
+                Feature('permuted')};
+        end
+        function [A, b, inv] = transformationOf(feature, seed, problem)
+            % The transformation that a featured problem of this single feature
+            % and seed is built with (a kernel of the same stage and seed).
+            stage = feature.stages{1};
+            kernel = optiprofiler_internal.FeatureKernel(stage.name, stage.options);
+            [A, b, inv] = kernel.modifier_affine(seed, problem);
+        end
+        function row = rowOf(matrix, i)
+            row = matrix(i, :);
+        end
+        function J = centralDifferences(f, y)
+            % One row per output, one column per variable.
+            h = 1e-5; J = [];
+            for k = 1:numel(y)
+                e = zeros(numel(y), 1); e(k) = h;
+                column = (f(y + e) - f(y - e)) / (2 * h);
+                J(:, k) = column(:); %#ok<AGROW>
+            end
         end
 
         function stage = customStage(transform)
@@ -1096,6 +1161,355 @@ classdef TestAffineStructure < matlab.unittest.TestCase
             featured = FeaturedProblem(problem, Feature('custom', struct('mod_affine', @(s, p) deal(3, 0.1, 1 / 3))), 10, 3);
             testCase.verifyClass(featured.xu, 'double');
             testCase.verifyEqual(featured.xu, (1 / 3) * (double(single(4.7)) - 0.1));
+        end
+
+        % ------------------------------------------------ second follow-up: nothing finite is lost to underflow
+
+        function nothingFiniteIsLostToUnderflow(testCase)
+            % The finding: xl = 1e-200, xu = 2e-200, A = 1e200, inv = 1e-200.
+            % Both scaled bounds are 1e-400 and 2e-400, which round to 0: the
+            % base posed the single point y = 0, which is mapped to x = 0,
+            % outside the interval. The same loss removed a coefficient row
+            % (aub * A with 2^-600 * 2^-600: a row of zeros is no constraint),
+            % a right-hand side (0 - 2^-1200) and the initial point (the base
+            % started at 0, where log(x1) is -Inf, for a finite fun(x0)).
+            bounds = 'MATLAB:Feature:AffineBoundsNotRepresentable';
+            rows = 'MATLAB:Feature:AffineLinearConstraintsNotRepresentable';
+            start = 'MATLAB:Feature:AffineInitialPointNotRepresentable';
+            sphere = @TestAffineStructure.sphere;
+            make = @(varargin) Problem(struct('fun', sphere, 'x0', zeros(3, 1), varargin{:}));
+            huge = @(s, p) deal(1e200, 0, 1e-200);
+            shift = @(s, p) deal(eye(3), [2^-600; 0; 0], eye(3));
+            logarithm = Problem(struct('fun', @(x) log(x(1)) + x(2)^2 + x(3)^2, 'x0', [2^-600; 1; 1]));
+            testCase.verifyTrue(isfinite(logarithm.fun(logarithm.x0)));
+            cases = { ...
+                Problem(struct('fun', sphere, 'x0', 0, 'xl', 1e-200, 'xu', 2e-200)), huge, bounds; ...         % the finding
+                Problem(struct('fun', sphere, 'x0', 1.5e-200, 'xl', 1e-200, 'xu', 2e-200)), huge, start; ...   % from inside the interval the point is lost first
+                make('xl', [2^-500; -1; -1], 'xu', [1; 1; 1]), TestAffineStructure.powerScaling(1023 - 500), bounds; ...   % half of realmin
+                make('xl', [2^-500; -1; -1], 'xu', [1; 1; 1]), TestAffineStructure.powerScaling(1050 - 500), bounds; ...   % a subnormal number
+                make('xl', [2^-500; -1; -1], 'xu', [1; 1; 1]), TestAffineStructure.powerScaling(1100 - 500), bounds; ...   % zero
+                make('aub', [2^-600, 0, 0], 'bub', 1), TestAffineStructure.powerScaling(-600), rows; ...
+                make('aeq', [2^-600, 0, 0], 'beq', 0), TestAffineStructure.powerScaling(-600), rows; ...
+                make('aub', [2^-600, 0, 0], 'bub', 0), shift, rows; ...
+                make('aeq', [2^-600, 0, 0], 'beq', 0), shift, rows; ...
+                logarithm, TestAffineStructure.powerScaling(600), start};
+            for c = 1:size(cases, 1)
+                for composed = [false, true]
+                    label = sprintf('case %d composed=%d', c, composed);
+                    feature = Feature(TestAffineStructure.pipeline(cases{c, 2}, composed));
+                    testCase.verifyError(@() FeaturedProblem(cases{c, 1}, feature, 10, 3), cases{c, 3}, label);
+                end
+            end
+            try
+                FeaturedProblem(cases{1, 1}, Feature(TestAffineStructure.pipeline(huge, false)), 10, 3);
+            catch exception
+                testCase.verifySubstring(exception.message, 'underflows');
+            end
+            % The scaling feature is guarded as well: diag(inv) reaches 2^-47
+            % for this condition factor, and 1e-300 becomes a subnormal number.
+            feature = Feature('linearly_transformed', struct('rotated', false, 'condition_factor', 6000));
+            testCase.verifyError(@() FeaturedProblem(make('xl', [-1; -1; 1e-300], 'xu', [1; 1; 1]), feature, 10, 3), bounds);
+            testCase.verifyError(@() FeaturedProblem(make('aub', [1e-300, 0, 0], 'bub', 1), feature, 10, 3), rows);
+        end
+
+        function underflowBoundaryAndWhatIsNotUnderflow(testCase)
+            sphere = @TestAffineStructure.sphere;
+            for composed = [false, true]
+                label = sprintf('composed=%d', composed);
+                % The boundary is the smallest normal number: 2^-500 scaled by
+                % 2^-522 is exactly realmin, and it is posed.
+                problem = Problem(struct('fun', sphere, 'x0', zeros(3, 1), 'xl', [2^-500; -1; -1], 'xu', [1; 1; 1]));
+                featured = FeaturedProblem(problem, Feature(TestAffineStructure.pipeline(TestAffineStructure.powerScaling(1022 - 500), composed)), 10, 3);
+                testCase.verifyEqual(featured.xl(1), realmin, label);
+                % 0 times anything is 0 exactly: nothing is lost, nothing refused.
+                problem = Problem(struct('fun', sphere, 'x0', zeros(3, 1), 'xl', [0; -1; -1], 'xu', [Inf; 1; 1]));
+                featured = FeaturedProblem(problem, Feature(TestAffineStructure.pipeline(TestAffineStructure.powerScaling(900), composed)), 10, 3);
+                testCase.verifyEqual(featured.xl, [0; -1; -1], label);
+                % Next to a right-hand side that is a normal number, a shift
+                % that underflows is below its rounding.
+                shift = @(s, p) deal(eye(3), [2^-600; 0; 0], eye(3));
+                problem = Problem(struct('fun', sphere, 'x0', zeros(3, 1), 'aub', [2^-600, 0, 0], 'bub', 5));
+                featured = FeaturedProblem(problem, Feature(TestAffineStructure.pipeline(shift, composed)), 10, 3);
+                testCase.verifyEqual(featured.bub, 5, label);
+                % Cancellation is not underflow: an entry that is zero because
+                % its terms cancel has lost nothing, its terms are normal.
+                A = [2, 1, 0; 1, 1, 0; 0, 0, 1];
+                mixing = @(s, p) deal(A, [1; 1; 0], A \ eye(3));
+                problem = Problem(struct('fun', sphere, 'x0', [1; 1; 0], 'aub', [1, -1, 0], 'bub', 0, 'aeq', [1, -2, 0], 'beq', -1));
+                featured = FeaturedProblem(problem, Feature(TestAffineStructure.pipeline(mixing, composed)), 10, 3);
+                testCase.verifyEqual(featured.aub, [1, 0, 0], label);
+                testCase.verifyEqual(featured.bub, 0, label);
+                testCase.verifyEqual(featured.aeq, [0, -1, 0], label);
+                testCase.verifyEqual(featured.beq, 0, label);
+                testCase.verifyEqual(featured.x0, zeros(3, 1), label);
+            end
+        end
+
+        % ------------------------------------------------ second follow-up: derivatives in the solver's variables
+
+        function gradientOfTheFinding(testCase)
+            % f(x) = ||x||^2, A = diag(2, 1), y = (1, 1): the function the
+            % solver sees is 4 * y1^2 + y2^2 with gradient (8, 2). The base
+            % returned grad(y) = (2, 2), the gradient of another function at
+            % another point.
+            problem = Problem(struct('fun', @TestAffineStructure.sphere, 'x0', [1; 1], 'grad', @(x) 2 * x(:), 'hess', @(x) 2 * eye(2)));
+            scaling = @(s, p) deal(diag([2, 1]), [0; 0], diag([0.5, 1]));
+            featured = FeaturedProblem(problem, Feature('custom', struct('mod_affine', scaling)), 100, 3);
+            testCase.verifyEqual(featured.grad([1; 1]), [8; 2]);
+            testCase.verifyEqual(featured.hess([1; 1]), [8, 0; 0, 2]);
+            testCase.verifyEqual(featured.grad([1; 1]), TestAffineStructure.centralDifferences(@(y) featured.fun(y), [1; 1])', 'RelTol', 1e-6);
+        end
+
+        function everyDerivativeFollowsTheChainRule(testCase)
+            problem = TestAffineStructure.smoothProblem(true);
+            features = TestAffineStructure.variableChanges();
+            Y = [0.2; -0.3; 0.4];
+            fd = @TestAffineStructure.centralDifferences;
+            close = {'RelTol', 1e-6, 'AbsTol', 1e-6};
+            exact = {'RelTol', 1e-13, 'AbsTol', 1e-13};
+            for k = 1:numel(features)
+                label = features{k}.name;
+                if k > 1 && strcmp(label, features{k - 1}.name), label = [label, ' (diagonal)']; end %#ok<AGROW>
+                seed = 5;
+                [A, b] = TestAffineStructure.transformationOf(features{k}, seed, problem);
+                while isequal(A, eye(3)), seed = seed + 1; [A, b] = TestAffineStructure.transformationOf(features{k}, seed, problem); end
+                featured = FeaturedProblem(problem, features{k}, 10000, seed);
+                x = A * Y + b;
+                % Exactly the chain rule of x = A * y + b ...
+                testCase.verifyEqual(featured.grad(Y), A' * problem.grad(x), exact{:}, label);
+                testCase.verifyEqual(featured.hess(Y), A' * problem.hess(x) * A, exact{:}, label);
+                testCase.verifyEqual(featured.jcub(Y), problem.jcub(x) * A, exact{:}, label);
+                testCase.verifyEqual(featured.jceq(Y), problem.jceq(x) * A, exact{:}, label);
+                returned = {featured.hcub(Y), featured.hceq(Y)}; original = {problem.hcub(x), problem.hceq(x)};
+                for c = 1:2
+                    testCase.verifyEqual(numel(returned{c}), numel(original{c}), label);
+                    for i = 1:numel(original{c})
+                        testCase.verifyEqual(returned{c}{i}, A' * original{c}{i} * A, exact{:}, label);
+                    end
+                end
+                % ... which is what the functions the solver evaluates vary by.
+                testCase.verifyEqual(featured.grad(Y), fd(@(y) featured.fun(y), Y)', close{:}, label);
+                testCase.verifyEqual(featured.hess(Y), fd(@(y) featured.grad(y), Y), close{:}, label);
+                testCase.verifyEqual(featured.jcub(Y), fd(@(y) featured.cub(y), Y), close{:}, label);
+                testCase.verifyEqual(featured.jceq(Y), fd(@(y) featured.ceq(y), Y), close{:}, label);
+                H = featured.hcub(Y);
+                for i = 1:numel(H)
+                    testCase.verifyEqual(H{i}, fd(@(y) TestAffineStructure.rowOf(featured.jcub(y), i), Y), close{:}, label);
+                end
+                H = featured.hceq(Y);
+                testCase.verifyEqual(H{1}, fd(@(y) featured.jceq(y), Y), close{:}, label);
+            end
+        end
+
+        function derivativesCostNothingStayAbsentAndCheckThePoint(testCase)
+            testCase.useAffineFixtures();
+            Y = [0.2; -0.3; 0.4];
+            names = {'grad', 'hess', 'jcub', 'jceq', 'hcub', 'hceq'};
+            % They cost nothing and read the kept transformation.
+            state = StatefulAffine('counting');
+            featured = FeaturedProblem(TestAffineStructure.smoothProblem(true), Feature('custom', struct('mod_affine', @(s, p) state.transform(s, p))), 10, 3);
+            for k = 1:numel(names), featured.(names{k})(Y); end
+            testCase.verifyEqual(state.calls, 1);
+            testCase.verifyEqual([featured.n_eval_fun, featured.n_eval_cub, featured.n_eval_ceq], [0, 0, 0]);
+            testCase.verifyEmpty(featured.fun_hist);
+            testCase.verifyEmpty(featured.maxcv_hist);
+            features = TestAffineStructure.variableChanges();
+            without = TestAffineStructure.smoothProblem(false);
+            with = TestAffineStructure.smoothProblem(true);
+            for f = 1:numel(features)
+                % An absent derivative stays absent.
+                featured = FeaturedProblem(without, features{f}, 10, 5);
+                for k = 1:numel(names)
+                    testCase.verifyEmpty(featured.(names{k})(Y), sprintf('%s %s', features{f}.name, names{k}));
+                end
+                % The point is checked as before, by Problem.
+                featured = FeaturedProblem(with, features{f}, 10, 5);
+                for k = 1:numel(names)
+                    testCase.verifyError(@() featured.(names{k})([0.1; 0.2]), ['MATLAB:Problem:WrongSizeInputFor', upper(names{k})], names{k});
+                end
+            end
+        end
+
+        function withoutAChangeOfVariablesDerivativesAreThoseOfTheProblemAndACompositionHasNone(testCase)
+            % The established passthrough: these features change values or the
+            % initial point, never the variables, and the derivative methods
+            % describe the callbacks of the problem, not the observed values.
+            problem = TestAffineStructure.smoothProblem(true);
+            Y = [0.2; -0.3; 0.4];
+            names = {'grad', 'hess', 'jcub', 'jceq', 'hcub', 'hceq'};
+            features = {'plain', 'noisy', 'truncated', 'perturbed_x0', 'random_nan', 'quantized', ...
+                'unrelaxable_constraints', 'nonquantifiable_constraints'};
+            for f = 1:numel(features)
+                featured = FeaturedProblem(problem, Feature(features{f}), 10, 5);
+                for k = 1:numel(names)
+                    testCase.verifyEqual(featured.(names{k})(Y), problem.(names{k})(Y), sprintf('%s %s', features{f}, names{k}));
+                end
+            end
+            featured = FeaturedProblem(problem, Feature({TestAffineStructure.customStage(@TestAffineStructure.denseWithShift), 'noisy'}), 10, 3);
+            for k = 1:numel(names)
+                testCase.verifyError(@() featured.(names{k})(Y), 'MATLAB:FeaturedProblem:UnsupportedCompositeDerivative', names{k});
+            end
+        end
+
+        % ------------------------------------------------ second follow-up: the initial point
+
+        function pointIsVerifiedWhereItIsUsed(testCase)
+            % A = I with inv(1, 2) = 1e-12 is an identity to 1e-12 from both
+            % sides, far inside every tolerance on the matrices, and it moves
+            % the feasible x0 = (0, 1e14) to (100, 1e14): the base started 99
+            % outside the bounds. No such tolerance bounds an error at a point.
+            sphere = @TestAffineStructure.sphere;
+            stray = @(s, p) deal(eye(2), [0; 0], [1, 1e-12; 0, 1]);
+            problem = Problem(struct('fun', sphere, 'x0', [0; 1e14], 'xl', [-1; 0], 'xu', [1; 1e14]));
+            for composed = [false, true]
+                featured = FeaturedProblem(problem, Feature(TestAffineStructure.pipeline(stray, composed)), 10, 3);
+                testCase.verifyEqual(featured.x0, [0; 1e14]);
+                testCase.verifyEqual(featured.maxcv_init, 0);
+                testCase.verifyEqual(featured.fun_init, sphere(problem.x0));
+            end
+            % The test is by component: next to a component of 1e14 an error of
+            % 1e-3 in the other one is 1e-17 of the norm, and it is not excused.
+            kernel = optiprofiler_internal.FeatureKernel('custom', struct('mod_affine', @(s, p) deal(eye(2), [0; 0], [1, 1e-17; 0, 1])));
+            start = Problem(struct('fun', sphere, 'x0', [1; 1e14]));
+            testCase.verifyEqual(kernel.modifier_x0(3, start), [1; 1e14]);
+            % Within the allowance the supplied inverse is believed: one unit in the last place.
+            nudged = [1 + eps, 0; 0, 1];
+            kernel = optiprofiler_internal.FeatureKernel('custom', struct('mod_affine', @(s, p) deal(eye(2), [0; 0], nudged)));
+            testCase.verifyEqual(kernel.modifier_x0(3, start), nudged * [1; 1e14]);
+        end
+
+        function goodInverseGivesThePointItAlwaysGaveAndEveryPointIsMappedBack(testCase)
+            % Bitwise: the framework's own inverse, and a supplied one that is
+            % an inverse to roundoff at the point.
+            problem = TestAffineStructure.makeProblem('linear');
+            options = {struct('rotated', false, 'condition_factor', 4), struct('rotated', true, 'condition_factor', 40), ...
+                struct('rotated', true, 'condition_factor', 6000)};
+            for k = 1:numel(options)
+                feature = Feature('linearly_transformed', options{k});
+                [~, ~, inv] = TestAffineStructure.transformationOf(feature, 3, problem);
+                featured = FeaturedProblem(problem, feature, 10, 3);
+                testCase.verifyEqual(featured.x0, inv * problem.x0, sprintf('scaling %d', k));
+            end
+            transforms = {@TestAffineStructure.exactDiagonal, @TestAffineStructure.dense, @TestAffineStructure.sloppyInverse, ...
+                @TestAffineStructure.badlyScaledRotation, @TestAffineStructure.rowScaledRotation, @TestAffineStructure.columnScaledRotation};
+            for t = 1:numel(transforms)
+                label = func2str(transforms{t});
+                [A, b, inv] = transforms{t}();
+                for k = 1:numel(TestAffineStructure.ProblemNames)
+                    problem = TestAffineStructure.makeProblem(TestAffineStructure.ProblemNames{k});
+                    featured = FeaturedProblem(problem, Feature('custom', struct('mod_affine', transforms{t})), 10, 3);
+                    allowed = 64 * 3 * eps * (abs(A) * abs(featured.x0) + abs(b) + abs(problem.x0));
+                    testCase.verifyTrue(all(abs(A * featured.x0 + b - problem.x0) <= allowed), label);
+                    if ~isequal(transforms{t}, @TestAffineStructure.sloppyInverse)
+                        testCase.verifyEqual(featured.x0, inv * (problem.x0 - b), label);
+                    end
+                end
+            end
+        end
+
+        function allowanceIsTheRoundingOfTheEvaluationAtThatPoint(testCase)
+            % x = (y1 + 1e15 * y2, y2): at x0 = (1/3, 1/7) the first component
+            % is evaluated as 1.4e14 - 1.4e14 + 1/3, which double precision
+            % resolves to 0.03, whatever y is. The exact inverse is therefore
+            % accepted and its point is mapped back within the allowance, which
+            % is NOT the rounding of x0: it is what the truth, which goes
+            % through the same map at every point, can resolve there.
+            A = [1, 1e15; 0, 1]; inv = [1, -1e15; 0, 1]; x0 = [1 / 3; 1 / 7];
+            kernel = optiprofiler_internal.FeatureKernel('custom', struct('mod_affine', @(s, p) deal(A, [0; 0], inv)));
+            point = kernel.modifier_x0(3, Problem(struct('fun', @TestAffineStructure.sphere, 'x0', x0)));
+            testCase.verifyEqual(point, inv * x0);
+            error_ = abs(A * point - x0);
+            testCase.verifyTrue(all(error_ <= 64 * 2 * eps * (abs(A) * abs(point) + abs(x0))));
+            testCase.verifyLessThanOrEqual(error_(1), 0.0625);
+        end
+
+        % ------------------------------------------------ second follow-up: decisions made explicit
+
+        function consistencyAllowsTheRoundingOfTheProductsAndNothingMore(testCase)
+            % 330805f measured each residual against max(1, terms), which
+            % allowed 1e-8 OF THE TERMS. For this matrix the terms are 2e15, and
+            % an inverse with one entry off by 1e-9 of its size was accepted:
+            % the initial point was pulled back to a point that is mapped 1e6
+            % away from x0. 3a43a19 refused it. What the terms justify is the
+            % rounding of the products.
+            not_invertible = 'MATLAB:Feature:AffineTransformationNotInvertible';
+            problem = Problem(struct('fun', @TestAffineStructure.sphere, 'x0', [1; 1]));
+            A = [1, 1e15; 0, 1]; exact = [1, -1e15; 0, 1]; sloppy = [1, -1e15 + 1e6; 0, 1];
+            featured = FeaturedProblem(problem, Feature('custom', struct('mod_affine', @(s, p) deal(A, [0; 0], exact))), 10, 3);
+            testCase.verifyEqual(A * featured.x0, problem.x0);
+            testCase.verifyError(@() FeaturedProblem(problem, Feature('custom', struct('mod_affine', @(s, p) deal(A, [0; 0], sloppy))), 10, 3), not_invertible);
+            testCase.verifyError(@() FeaturedProblem(problem, Feature('custom', struct('mod_affine', @(s, p) deal(A', [0; 0], sloppy'))), 10, 3), not_invertible);
+            % A pair that is consistent to roundoff is accepted at any condition
+            % number: built as linearly_transformed builds its own, D * Q' and
+            % Q * D^-1, with a condition number of 1e12, each product misses the
+            % identity by 1e-5, a few units of rounding of its terms.
+            [Q, ~] = qr(randn(RandStream('mt19937ar', 'Seed', 7), 3));
+            d = [1e-6; 1; 1e6];
+            matrix = diag(d) * Q'; inverse = Q * diag(1 ./ d);
+            testCase.verifyGreaterThan(max(norm(matrix * inverse - eye(3), 'fro'), norm(inverse * matrix - eye(3), 'fro')), 1e-8 * 3);
+            kernel = optiprofiler_internal.FeatureKernel('custom', struct('mod_affine', @(s, p) deal(matrix, zeros(3, 1), inverse)));
+            kept = kernel.modifier_affine(3, TestAffineStructure.makeProblem('bounded'));
+            testCase.verifyEqual(kept, matrix);
+        end
+
+        function modBoundsReplacesTheBoundsAndNothingElse(testCase)
+            % A supplied modifier replaces its own component, verbatim. The
+            % bounds of the problem live in the bounds if the map keeps them
+            % there, and then mod_bounds replaces them; under any other map they
+            % are linear rows of the framework, which mod_bounds does not touch.
+            % Never fewer constraints than before; the reference is unknown
+            % either way.
+            box = @(s, p) deal(-9 * ones(3, 1), 9 * ones(3, 1));
+            problem = TestAffineStructure.makeProblem('linear');
+            for composed = [false, true]
+                label = sprintf('composed=%d', composed);
+                tail = {}; if composed, tail = {'noisy'}; end
+                build = @(transform) FeaturedProblem(problem, Feature([{struct('name', 'custom', 'options', ...
+                    struct('mod_affine', transform, 'mod_bounds', box))}, tail]), 10, 3);
+                featured = build(@TestAffineStructure.exactDiagonal);
+                testCase.verifyEqual(featured.xl, -9 * ones(3, 1), label);
+                testCase.verifyEqual(featured.xu, 9 * ones(3, 1), label);
+                testCase.verifyEqual(featured.aub, problem.aub * diag(TestAffineStructure.D), label);  % no row of a bound
+                testCase.verifyEmpty(featured.reference, label);
+                featured = build(@TestAffineStructure.dense);
+                expected = TestAffineStructure.expectedGeneric(problem, TestAffineStructure.Dense, TestAffineStructure.B);
+                testCase.verifyEqual(featured.xl, -9 * ones(3, 1), label);
+                testCase.verifyEqual(featured.xu, 9 * ones(3, 1), label);
+                testCase.verifyEqual(featured.aub, expected.aub, label);  % the bounds of the problem, as rows
+                testCase.verifyEqual(featured.bub, expected.bub, label);
+                testCase.verifyEmpty(featured.reference, label);
+            end
+        end
+
+        function integerBeyond2To53IsRoundedAndDeprecatedConveniencesKeepNothing(testCase)
+            % Conversion to double precision is rounding to nearest, for an
+            % integer as for a decimal literal, the same in both paths and both
+            % languages. The rounded triple is the one that is validated, kept
+            % and used, by the structure and by the truth alike.
+            testCase.useAffineFixtures();
+            big = int64(2)^53 + 1;
+            A = int64(eye(3)); A(1, 1) = big;
+            inverse = diag([1 / double(big), 1, 1]);
+            problem = TestAffineStructure.makeProblem('bounded');
+            y = [5e-16; 0.5; 0.5];  % mapped to x1 = 4.5, which violates xu = 3 by 1.5
+            for composed = [false, true]
+                label = sprintf('composed=%d', composed);
+                integers = FeaturedProblem(problem, Feature(TestAffineStructure.pipeline(@(s, p) deal(A, zeros(3, 1, 'int64'), inverse), composed)), 10, 3);
+                rounded = FeaturedProblem(problem, Feature(TestAffineStructure.pipeline(@(s, p) deal(diag([2^53, 1, 1]), zeros(3, 1), inverse), composed)), 10, 3);
+                testCase.verifyEqual(TestAffineStructure.posedOf(integers), TestAffineStructure.posedOf(rounded), label);
+                testCase.verifyEqual(integers.x0, rounded.x0, label);
+                testCase.verifyEqual(integers.maxcv(y), problem.maxcv([2^53 * 5e-16; 0.5; 0.5]), label);
+                testCase.verifyGreaterThan(integers.maxcv(y), 1, label);
+            end
+            % Each call of a deprecated Feature.modifier_* builds a kernel of
+            % its own, so a callback with a state is asked again by each of
+            % them: one transformation per problem is a property of
+            % FeaturedProblem.
+            state = StatefulAffine('counting');
+            feature = Feature('custom', struct('mod_affine', @(s, p) state.transform(s, p)));
+            testCase.verifyWarning(@() feature.modifier_bounds(3, problem), 'MATLAB:Feature:DeprecatedModifier');
+            testCase.verifyWarning(@() feature.modifier_linear_ub(3, problem), 'MATLAB:Feature:DeprecatedModifier');
+            testCase.verifyEqual(state.calls, 2);
         end
     end
 end
