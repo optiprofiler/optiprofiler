@@ -808,6 +808,21 @@ class TestCompositionAndPersistence:
                 np.testing.assert_array_equal(getattr(restored, key), getattr(featured, key), err_msg=key)
             assert_posed_problem_is_the_scored_problem(restored, problem)
 
+    def test_single_feature_survives_pickling_without_resampling_affine(self):
+        """A saved single-stage trial must keep its validated transform and history."""
+        problem = linear_problem()
+        callback = Drifting()
+        featured = FeaturedProblem(problem, Feature('custom', mod_affine=callback), 10, 3)
+        assert callback.calls == 1
+        featured.fun(np.array([0.2, 0.3, 0.4]))
+        restored = pickle.loads(pickle.dumps(featured))
+        assert isinstance(restored, FeaturedProblem)
+        assert callback.calls == 1  # unpickling must not call the user's callback
+        for key in ('x0', 'xl', 'xu', 'aub', 'bub', 'aeq', 'beq', 'fun_hist', 'maxcv_hist'):
+            np.testing.assert_array_equal(getattr(restored, key), getattr(featured, key), err_msg=key)
+        assert restored._runtime.modifier_affine(restored._seed, problem)[0].tolist() == \
+               featured._runtime.modifier_affine(featured._seed, problem)[0].tolist()
+
     @pytest.mark.parametrize('transform', [nan_in_matrix, wrong_inverse_shape, materially_wrong_inverse,
                                            numerically_singular], ids=lambda f: f.__name__)
     def test_saved_invalid_transform_still_fails_closed_after_loading(self, transform):

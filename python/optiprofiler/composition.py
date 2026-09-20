@@ -853,12 +853,10 @@ class ComposedFeaturedProblem(FeaturedProblem):
         self._fun_init, self._maxcv_init = self._evaluate_truth(self._x0)
 
     def __getnewargs__(self):
-        # Pickling support for compositions only: ``FeaturedProblem.__new__``
-        # requires the constructor arguments, so hand them to the unpickler;
-        # the instance state (views, contexts, histories) is then restored
-        # from the instance dictionary. The single-feature wrapper itself is
-        # not picklable, on the base commit as on this branch, and that
-        # existing boundary is deliberately left unchanged.
+        # Legacy constructor arguments for Python pickle protocols that do not
+        # use ``FeaturedProblem.__reduce__``.  The explicit reducer now covers
+        # both single-stage and composed objects and restores the validated
+        # runtime state without re-running user callbacks.
         return self._problem, self._runtime, self._max_eval, self._seed
 
     def _point(self, x, method):

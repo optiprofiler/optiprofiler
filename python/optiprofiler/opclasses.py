@@ -18,6 +18,24 @@ from .feature_definitions import retains_reference as _stage_retains_reference
 from .experiment import STRATEGY_COMPOSED, select_execution_strategy
 from .legacy_compat import LegacyObject, historical_effective_options
 
+
+def _restore_featured_problem(cls, state):
+    """Restore a trusted featured-problem pickle without rebuilding its oracle.
+
+    Building a ``FeaturedProblem`` normally evaluates every feature modifier.
+    Re-running those callbacks while unpickling would be wrong for a stateful
+    ``mod_affine`` callback: the saved bounds and truth could be paired with a
+    different transformation.  The state was already validated when the
+    object was constructed, so the trusted pickle path restores that exact
+    state directly.  As with every Python pickle, the input must not be
+    treated as untrusted data.
+    """
+    instance = object.__new__(cls)
+    if not isinstance(state, dict):
+        raise TypeError('The featured-problem pickle does not contain an instance state dictionary.')
+    instance.__dict__.update(state)
+    return instance
+
 def _round_truncated(value, digits):
     """Round decimal ties using MATLAB's default away-from-zero direction."""
     # Use the decimal representation rather than scaling a binary float:
@@ -3036,6 +3054,18 @@ class FeaturedProblem(Problem):
         for k, v in problem.__dict__.items():
             instance.__dict__[k] = v
         return instance
+
+    def __reduce__(self):
+        """Serialize the built featured problem without re-running callbacks.
+
+        The affine safeguard deliberately snapshots a user callback once per
+        trial.  Reconstructing through ``FeaturedProblem.__init__`` during
+        unpickling would call that callback again and could produce a different
+        feasible set.  Persist the already validated runtime and histories
+        instead.  This is a trusted-pickle compatibility path, just like the
+        existing Feature and ProblemReference pickle paths.
+        """
+        return _restore_featured_problem, (type(self), self.__dict__)
 
     @property
     def fun_init(self):

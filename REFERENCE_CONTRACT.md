@@ -136,6 +136,13 @@ superseded layout, hands a struct to `loadobj` and warns that the constructor
 must preserve the class. Every read goes through the validator, so a caller
 sees a valid four-field record or `[]`, whatever a file left in the object.
 
+Python featured-problem pickles. A built `FeaturedProblem` is restored from its
+validated instance state rather than reconstructed through its constructor.
+This applies to both a single stage and a composition, so loading a trusted
+pickle does not call a stateful `mod_affine` callback again or generate a
+different feasible set. The state-restoring reducer is intentionally for
+trusted pickle input only; it does not make pickle a safe interchange format.
+
 ## 4. Propagation (`FeaturedProblem.reference`)
 
 The record is retained unchanged or reported as unknown. Nothing is
