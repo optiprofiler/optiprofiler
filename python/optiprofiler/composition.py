@@ -405,9 +405,12 @@ class AffineView(ProblemView):
     Both channels are evaluated at the mapped point, and the structure is
     transported with the feature's own modifiers: the initial point is pulled
     back through the inverse, finite bounds become linear constraints unless
-    ``A`` and its inverse are both diagonal to roundoff (one decision, read by
-    the bounds and by the linear constraints alike, so that a bound is never
-    dropped), and linear constraints are composed with ``A``.
+    ``A`` is exactly diagonal and ``diag(inv)`` its reciprocal to roundoff (one
+    decision, read by the bounds and by the linear constraints alike, so that
+    a bound is never dropped), and linear constraints are composed with ``A``.
+    The stage runtime produces the transformation once and every modifier
+    reads that one, so that a ``mod_affine`` with a state cannot give the
+    structure two maps and the evaluations a third.
     The observed structure is the transported one, which is what a solver
     is handed; the reference violation is measured by the predecessor at the
     mapped point, so scoring stays in the predecessor's coordinates.
@@ -563,7 +566,7 @@ def _custom_vector(value, size, stage, key, what='an array'):
         raise ValueError(f'{prefix} complex values; {requirement}.')
     try:
         array = np.array(array, dtype=float)
-    except (TypeError, ValueError) as exc:
+    except (TypeError, ValueError, OverflowError) as exc:  # OverflowError: an integer beyond the range of a float
         raise ValueError(f'{prefix} values that cannot be converted to real numbers; {requirement}.') from exc
     array = np.atleast_1d(np.squeeze(array))
     if array.ndim != 1:
@@ -585,7 +588,7 @@ def _custom_matrix(value, shape, stage, key, what='a matrix'):
         raise ValueError(f'{prefix} complex values; {requirement}.')
     try:
         array = np.atleast_2d(np.array(array, dtype=float))
-    except (TypeError, ValueError) as exc:
+    except (TypeError, ValueError, OverflowError) as exc:  # OverflowError: an integer beyond the range of a float
         raise ValueError(f'{prefix} values that cannot be converted to real numbers; {requirement}.') from exc
     if array.shape != tuple(shape):
         raise ValueError(f'{prefix} {what} of shape {array.shape}; {requirement}.')

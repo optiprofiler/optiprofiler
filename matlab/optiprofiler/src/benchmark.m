@@ -352,16 +352,24 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         where `problem` is an instance of the class Problem, `A` is the
 %         matrix of the affine transformation, `b` is the vector of the affine
 %         transformation, and `inv` is the inverse of matrix `A`. No default.
-%         The triple is validated when the problem is built, and an error is
-%         raised unless the arrays are real, finite and of matching sizes,
-%         ``norm(abs(inv) * abs(A), inf) < 1 / eps``, and
-%         ``norm(A * inv - eye(n), 'fro') <= 1e-8 * n``. If `A` and
-%         `inv` are both diagonal to roundoff, the bounds stay bounds;
-%         otherwise every finite bound is posed as a linear constraint. A
-%         bound is never dropped: since `mod_linear_ub` and `mod_linear_eq`
-%         replace the linear constraints, supplying one of them with a
-%         transformation that is not diagonal raises an error if the problem
-%         has such bounds, unless `mod_bounds` is supplied as well.
+%         The function is asked once per problem and seed, and the initial
+%         point, the bounds, the linear constraints and every evaluation use
+%         that one answer. The triple is validated when the problem is built,
+%         and an error is raised unless the arrays are real, finite and of
+%         matching sizes, ``norm(abs(inv) * abs(A), inf) < 1 / eps``, and
+%         `inv` inverts `A` from both sides:
+%         ``norm((A * inv - eye(n)) ./ max(1, abs(A) * abs(inv)), 'fro') <= 1e-8 * n``
+%         and the same for ``inv * A`` (where the terms are below 1 this is
+%         ``norm(A * inv - eye(n), 'fro') <= 1e-8 * n``). If `A` is exactly
+%         diagonal and ``diag(inv)`` is its reciprocal to roundoff, the bounds
+%         stay bounds; otherwise every finite bound is posed as a linear
+%         constraint, so an off-diagonal entry of `A` is never ignored,
+%         however small. A bound is never dropped: a finite bound, right-hand
+%         side, coefficient or initial point that overflows in the
+%         transformation raises an error, and since `mod_linear_ub` and
+%         `mod_linear_eq` replace the linear constraints, supplying one of
+%         them with a transformation that is not diagonal raises an error if
+%         the problem has such bounds, unless `mod_bounds` is supplied as well.
 %       - mod_bounds: the modifier function to modify the bound constraints in
 %         the 'custom' feature. It should be a function handle as follows:
 %         ``(random_stream, problem) -> (modified_xl, modified_xu)``,

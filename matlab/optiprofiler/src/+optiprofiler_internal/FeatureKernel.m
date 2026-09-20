@@ -18,6 +18,13 @@ classdef FeatureKernel < handle
         options
         payload_mixer = 'legacy-product'
     end
+    properties (Access = private)
+        % The affine transformation of this runtime, produced once: a struct
+        % with the fields problem, seed, A, b and inv (see modifier_affine). It
+        % is saved with the kernel, so that a loaded featured problem goes on
+        % with the map its structure was built with.
+        kept_affine = []
+    end
     methods
         function obj = FeatureKernel(name, options, payload_mixer)
             obj.name = name;
@@ -59,7 +66,7 @@ classdef FeatureKernel < handle
                     % transformation to the initial point.
                     if isfield(obj.options, FeatureOptionKey.MOD_AFFINE.value)
                         [~, b, inv] = obj.modifier_affine(seed, problem);
-                        x0 = inv * (problem.x0 - b);
+                        x0 = pulledBack(inv, problem.x0, b);
                     else
                         x0 = problem.x0;
                     end
@@ -85,7 +92,7 @@ classdef FeatureKernel < handle
                 case FeatureName.LINEARLY_TRANSFORMED.value
                     % Apply the inverse of the affine transformation to the initial point.
                     [~, ~, inv] = obj.modifier_affine(seed, problem);
-                    x0 = inv * problem.x0;
+                    x0 = pulledBack(inv, problem.x0, []);
                 otherwise
                     x0 = problem.x0;
             end
@@ -109,7 +116,32 @@ classdef FeatureKernel < handle
                 Vector of the affine transformation.
             inv : double, size (n, n)
                 Inverse of the matrix A.
+
+            The triple is produced once per problem and seed and kept: the
+            initial point, the bounds, both kinds of linear constraints and
+            every evaluation read the same one. A mod_affine with a state (a
+            counter, the global random stream) may answer differently when
+            asked again, and the bounds of one map with the linear constraints
+            of another are the structure of no problem. A specification keeps
+            nothing: a kernel serves one trial.
             %}
+
+            kept = obj.kept_affine;
+            if ~isempty(kept) && kept.problem == problem && isequal(kept.seed, seed)
+                A = kept.A;
+                b = kept.b;
+                inv = kept.inv;
+                return;
+            end
+            [A, b, inv] = obj.generateAffine(seed, problem);
+            obj.kept_affine = struct('problem', problem, 'seed', seed, 'A', A, 'b', b, 'inv', inv);
+        end
+    end
+
+    methods (Access = private)
+        function [A, b, inv] = generateAffine(obj, seed, problem)
+            % The triple of modifier_affine, produced anew: the only place
+            % that calls mod_affine.
 
             % Default values
             A = eye(problem.n);
@@ -168,7 +200,9 @@ classdef FeatureKernel < handle
                     % Do nothing
             end
         end
+    end
 
+    methods
         function [xl, xu] = modifier_bounds(obj, seed, problem)
             %{
             Modify the bounds.
@@ -213,7 +247,7 @@ classdef FeatureKernel < handle
                         return;
                     end
                     % Diagonal shortcut: the bounds stay bounds, scaled by the inverse.
-                    [xl, xu] = scaledBounds(diag(inv), problem.xl - b, problem.xu - b);
+                    [xl, xu] = scaledBounds(diag(inv), shifted(problem.xl, b), shifted(problem.xu, b));
                 case FeatureName.PERMUTED.value
                     % Note that we need to apply the reverse permutation to the bounds so that the new
                     % problem is mathematically equivalent to the original one.
@@ -276,9 +310,8 @@ classdef FeatureKernel < handle
                     % constraints but specifies a custom affine transformation, we need to specially
                     % handle the linear inequality constraints.
                     [A, b, inv] = obj.modifier_affine(seed, problem);
+                    [aub, bub] = composedRows(problem.aub, problem.bub, A, b);
                     if affineIsDiagonal(A, inv)  % the bounds stayed bounds (modifier_bounds read the same decision)
-                        aub = problem.aub * A;
-                        bub = problem.bub - problem.aub * b;
                         return;
                     end
                     %{
@@ -306,13 +339,15 @@ classdef FeatureKernel < handle
                     idx_eq = find(problem.xl == problem.xu);
                     idx_lb(idx_eq) = false;
                     idx_ub(idx_eq) = false;
+                    upper = shifted(problem.xu, b);
+                    lower = shifted(problem.xl, b);
                     if isempty(problem.aub)
                         aub = [A(idx_ub, :); -A(idx_lb, :)];
-                        bub = [problem.xu(idx_ub) - b(idx_ub); -(problem.xl(idx_lb) - b(idx_lb))];
+                        bub = [upper(idx_ub); -lower(idx_lb)];
                         return;
                     end
-                    aub = [A(idx_ub, :); -A(idx_lb, :); problem.aub * A];
-                    bub = [problem.xu(idx_ub) - b(idx_ub); -(problem.xl(idx_lb) - b(idx_lb)); problem.bub - problem.aub * b];
+                    aub = [A(idx_ub, :); -A(idx_lb, :); aub];
+                    bub = [upper(idx_ub); -lower(idx_lb); bub];
                 case FeatureName.PERMUTED.value
                     rand_stream_permuted = obj.default_rng(seed);
                     permutation = rand_stream_permuted.randperm(problem.n);
@@ -323,9 +358,8 @@ classdef FeatureKernel < handle
                     % Similar to the case in the custom feature where a custom affine transformation
                     % is specified.
                     [A, ~, inv] = obj.modifier_affine(seed, problem);
+                    [aub, bub] = composedRows(problem.aub, problem.bub, A, []);
                     if affineIsDiagonal(A, inv)
-                        aub = problem.aub * A;
-                        bub = problem.bub;
                         return;
                     end
                     idx_lb = ~isinf(problem.xl);
@@ -338,8 +372,8 @@ classdef FeatureKernel < handle
                         bub = [problem.xu(idx_ub); -problem.xl(idx_lb)];
                         return;
                     end
-                    aub = [A(idx_ub, :); -A(idx_lb, :); problem.aub * A];
-                    bub = [problem.xu(idx_ub); -problem.xl(idx_lb); problem.bub];
+                    aub = [A(idx_ub, :); -A(idx_lb, :); aub];
+                    bub = [problem.xu(idx_ub); -problem.xl(idx_lb); bub];
                 otherwise
                     aub = problem.aub;
                     bub = problem.bub;
@@ -381,9 +415,8 @@ classdef FeatureKernel < handle
                     end
                     % If the user does not specify a custom modifier for the linear equality constraints but specifies a custom affine transformation, we need to specially handle the linear equality constraints.
                     [A, b, inv] = obj.modifier_affine(seed, problem);
+                    [aeq, beq] = composedRows(problem.aeq, problem.beq, A, b);
                     if affineIsDiagonal(A, inv)  % the bounds stayed bounds (modifier_bounds read the same decision)
-                        aeq = problem.aeq * A;
-                        beq = problem.beq - problem.aeq * b;
                         return;
                     end
                     %{
@@ -402,13 +435,14 @@ classdef FeatureKernel < handle
 
                     % Pick out the indices, of which the lower and upper bound are equal.
                     idx_eq = find(problem.xl == problem.xu);
+                    fixed = shifted(problem.xu, b);
                     if isempty(problem.aeq)
                         aeq = A(idx_eq, :);
-                        beq = problem.xu(idx_eq) - b(idx_eq);
+                        beq = fixed(idx_eq);
                         return;
                     end
-                    aeq = [A(idx_eq, :); problem.aeq * A];
-                    beq = [problem.xu(idx_eq) - b(idx_eq); problem.beq - problem.aeq * b];
+                    aeq = [A(idx_eq, :); aeq];
+                    beq = [fixed(idx_eq); beq];
                 case FeatureName.PERMUTED.value
                     rand_stream_permuted = obj.default_rng(seed);
                     permutation = rand_stream_permuted.randperm(problem.n);
@@ -418,9 +452,8 @@ classdef FeatureKernel < handle
                 case FeatureName.LINEARLY_TRANSFORMED.value
                     % Similar to the case in the custom feature where a custom affine transformation is specified.
                     [A, ~, inv] = obj.modifier_affine(seed, problem);
+                    [aeq, beq] = composedRows(problem.aeq, problem.beq, A, []);
                     if affineIsDiagonal(A, inv)
-                        aeq = problem.aeq * A;
-                        beq = problem.beq;
                         return;
                     end
                     idx_eq = find(problem.xl == problem.xu);
@@ -429,8 +462,8 @@ classdef FeatureKernel < handle
                         beq = problem.xu(idx_eq);
                         return;
                     end
-                    aeq = [A(idx_eq, :); problem.aeq * A];
-                    beq = [problem.xu(idx_eq); problem.beq];
+                    aeq = [A(idx_eq, :); aeq];
+                    beq = [problem.xu(idx_eq); beq];
                 otherwise
                     aeq = problem.aeq;
                     beq = problem.beq;
@@ -855,23 +888,30 @@ end
 % The bounds of the transformed problem have two representations. If A is
 % diagonal they stay bounds, scaled by diag(inv) (the diagonal shortcut). For
 % every invertible A they can be posed as linear rows of A (the generic
-% representation), which needs A only. The shortcut reads BOTH matrices: the
-% bounds are scaled by inv and the linear constraints are composed with A. The
-% bounds used to be classified by isdiag(inv) and the linear rows by isdiag(A),
-% both exact. A diagonal A with one roundoff-sized off-diagonal entry in inv
-% then made the bounds infinite while no bound row was added: the bounds left
-% the posed problem without a word, and the truth went on scoring them. Hence:
+% representation), which needs A only. The bounds used to be classified by
+% isdiag(inv) and the linear rows by isdiag(A). A diagonal A with one
+% roundoff-sized off-diagonal entry in inv then made the bounds infinite while
+% no bound row was added: the bounds left the posed problem without a word, and
+% the truth went on scoring them. Hence:
 %
-% - one decision, made once from both matrices and read by the bounds and by
-%   both kinds of linear constraints (affineIsDiagonal);
-% - the shortcut only if both matrices are diagonal to roundoff, otherwise the
-%   generic representation, so that no tolerance can ever lose a constraint:
-%   the tolerance chooses a representation, never whether a bound is posed;
+% - one transformation per problem and seed, produced and validated once and
+%   read by the initial point, the bounds, both kinds of linear constraints and
+%   every evaluation (modifier_affine). User code may have a state, and a
+%   second answer may be another map;
+% - one decision, read by the bounds and by both kinds of linear constraints
+%   (affineIsDiagonal). It is exact. The feasible set is a box exactly when A
+%   is diagonal; an off-diagonal entry couples two variables, and what it moves
+%   depends on the size of the other variable, which no tolerance on the entry
+%   knows (4e-16 next to bounds of 1e16 moves the set by 4). inv cannot change
+%   the set and decides nothing, except that the shortcut scales by diag(inv)
+%   and so requires it to be the reciprocal of diag(A) to roundoff. Whatever
+%   is not the shortcut is the generic representation, so the decision chooses
+%   a representation and never whether a bound is posed;
 % - everything the decision rests on is validated first, and what cannot be
-%   represented raises instead of being approximated (checkedAffine,
-%   scaledBounds, refuseToReplaceBoundRows). Failing closed matters here
-%   because the loss is silent: the solver is handed an easier problem and is
-%   then scored on the original.
+%   represented raises instead of being approximated (checkedAffine, shifted,
+%   scaledBounds, composedRows, pulledBack, refuseToReplaceBoundRows). Failing
+%   closed matters here because the loss is silent: the solver is handed an
+%   easier problem and is then scored on the original.
 
 function [A, b, inv] = checkedAffine(A, b, inv, n, supplied)
 % The change of variables x = A * y + b as validated full double arrays.
@@ -879,7 +919,7 @@ function [A, b, inv] = checkedAffine(A, b, inv, n, supplied)
 % n-by-n, n and n-by-n; finite entries (NaN fails no inequality, so it has to
 % be asked for); numerical invertibility,
 % norm(abs(inv) * abs(A), inf) < 1 / eps; and, if inv was SUPPLIED by user
-% code, consistency, norm(A * inv - I, 'fro') <= 1e-8 * n.
+% code, consistency from both sides (see below).
 %
 % This condition number does not change when the rows of A (the units of the
 % original variables) are scaled, and 1 / eps is where a matrix is singular to
@@ -889,6 +929,17 @@ function [A, b, inv] = checkedAffine(A, b, inv, n, supplied)
 % linearly_transformed at most n. The framework's own inverse of a rotation is
 % exact up to roundoff times the usual condition number and is not held to the
 % residual test.
+%
+% Consistency: norm(E, 'fro') <= 1e-8 * n for
+% E = (A * inv - I) ./ max(1, abs(A) * abs(inv)) and for
+% E = (inv * A - I) ./ max(1, abs(inv) * abs(A)). Both products are needed:
+% with A = diag(1e-8, 1e8) the first is an identity to 1e-16 for an inv with
+% which the second misses it by 1. Each entry is measured against the terms it
+% is summed from, which is what a change of units scales: a rotation with one
+% variable in units of 1e13 misses the identity by 1e-3 in one of the products,
+% new variable or original one, and is consistent to roundoff. Where the terms
+% are below 1 the rule is the plain norm(A * inv - I, 'fro') <= 1e-8 * n that
+% it replaces.
 %
 % Identifiers: AffineTransformationInvalid when A or b is not usable data;
 % AffineTransformationNotInvertible whenever inv cannot be the inverse of A
@@ -912,39 +963,41 @@ function [A, b, inv] = checkedAffine(A, b, inv, n, supplied)
     if ~all(isfinite(inv(:)))
         error("MATLAB:Feature:AffineTransformationNotInvertible", "The inverse of the affine transformation matrix must be finite.");
     end
-    % Finite entries can still overflow in a product. Both tests are written so
+    % Finite entries can still overflow in a product. All tests are written so
     % that an infinite or NaN result fails them.
-    condition = norm(abs(inv) * abs(A), inf);
+    terms = abs(inv) * abs(A);
+    condition = norm(terms, inf);
     if ~(condition * eps < 1)
         error("MATLAB:Feature:AffineTransformationNotInvertible", "The affine transformation is numerically singular: norm(abs(inv) * abs(A), inf) is %.3g, not below 1 / eps.", condition);
     end
-    if supplied && ~(norm(A * inv - eye(n), 'fro') <= 1e-8 * n)
+    if supplied && ~(identityResidual(A * inv, abs(A) * abs(inv), n) <= 1e-8 * n && identityResidual(inv * A, terms, n) <= 1e-8 * n)
         error("MATLAB:Feature:AffineTransformationNotInvertible", "The multiplication of the affine transformation matrix and its inverse is not an identity matrix.");
     end
 end
 
-function tf = affineIsDiagonal(A, inv)
-% The one structural decision: whether A AND inv are diagonal to roundoff.
-% An off-diagonal entry M(i, j) is negligible if
-% abs(M(i, j)) <= n * eps * min(abs(M(i, i)), abs(M(j, j))). n * eps is the
-% rounding level of an n-term inner product, the convention by which rank
-% decisions call a quantity numerically zero. The scale is that of the entry's
-% own row and column and not a norm of the matrix, so a badly scaled
-% transformation cannot hide a material coupling behind a large entry
-% elsewhere. Anything above that is a coupling, and the generic representation
-% poses it exactly.
-    tolerance = size(A, 1) * eps;
-    matrices = {A, inv};
-    tf = true;
-    for k = 1:2
-        M = matrices{k};
-        scale = abs(diag(M));
-        off_diagonal = abs(M - diag(diag(M)));
-        if any(any(off_diagonal > tolerance * min(scale, scale')))
-            tf = false;
-            return;
-        end
+function value = identityResidual(product, terms, n)
+% norm((product - I) ./ max(1, terms), 'fro'), and NaN if the terms overflowed.
+    scale = max(1, terms);
+    if ~all(isfinite(scale(:)))
+        value = NaN;
+        return;
     end
+    value = norm((product - eye(n)) ./ scale, 'fro');
+end
+
+function tf = affineIsDiagonal(A, inv)
+% The one structural decision: whether the bounds stay bounds.
+% They do if A is diagonal, exactly, and diag(inv) is the reciprocal of diag(A)
+% to roundoff, abs(inv(i, i) * A(i, i) - 1) <= 8 * eps. The first is what makes
+% the feasible set a box. The second is what makes diag(inv) times a bound that
+% bound in the new variables: two factors that are each rounded to within two
+% units in the last place differ from exact reciprocals by less than 5 * eps
+% (the pair that linearly_transformed builds is within 1.5 * eps), whereas a
+% supplied inverse is only held to 1e-8, and a bound may be of any size.
+% Off-diagonal entries of inv change no feasible set and are not read.
+% Everything else takes the generic representation, which poses the bounds
+% exactly whatever inv is.
+    tf = isdiag(A) && all(abs(diag(inv) .* diag(A) - 1) <= 8 * eps);
 end
 
 function refuseToReplaceBoundRows(kernel, seed, problem, key, fixed)
@@ -967,7 +1020,17 @@ function refuseToReplaceBoundRows(kernel, seed, problem, key, fixed)
         at_stake = (isfinite(problem.xl) | isfinite(problem.xu)) & ~is_fixed;
     end
     if any(at_stake)
-        error("MATLAB:Feature:AffineBoundsNotRepresentable", "The affine transformation is not diagonal, so the finite bounds of the problem are posed as linear constraints, which %s replaces: the bounds would be dropped silently. Supply mod_bounds as well, or a diagonal transformation.", key);
+        error("MATLAB:Feature:AffineBoundsNotRepresentable", "The affine transformation is not diagonal (or the diagonal of its inverse is not the reciprocal of its diagonal to roundoff), so the finite bounds of the problem are posed as linear constraints, which %s replaces: the bounds would be dropped silently. Supply mod_bounds as well, or a diagonal transformation with its exact inverse.", key);
+    end
+end
+
+function values = shifted(values, b)
+% values - b for bounds, where an infinite entry means "none"; a finite entry
+% has to stay finite.
+    was_finite = isfinite(values);
+    values = values - b;
+    if any(was_finite & ~isfinite(values))
+        error("MATLAB:Feature:AffineBoundsNotRepresentable", "A finite bound is not representable after the affine transformation: it overflows, and posing it as infinite would drop it silently.");
     end
 end
 
@@ -983,4 +1046,34 @@ function [xl, xu] = scaledBounds(scale, lower, upper)
     end
     xl = min(scaled_lower, scaled_upper);
     xu = max(scaled_lower, scaled_upper);
+end
+
+function [rows, moved] = composedRows(matrix, rhs, A, b)
+% The linear constraints with coefficients MATRIX and right-hand side RHS in the
+% new variables: matrix * A and rhs - matrix * b (rhs itself if b is empty:
+% there is no shift). A row of finite data has to stay finite: an infinite
+% right-hand side is counted as no constraint, a negative one is satisfied
+% nowhere, and NaN compares as satisfied.
+    rows = matrix * A;
+    moved = rhs;
+    if ~isempty(b)
+        moved = rhs - matrix * b;
+    end
+    was_finite = all(isfinite(matrix), 2) & isfinite(rhs);
+    if ~(all(all(isfinite(rows(was_finite, :)))) && all(isfinite(moved(was_finite))))
+        error("MATLAB:Feature:AffineLinearConstraintsNotRepresentable", "A linear constraint is not representable after the affine transformation: it overflows, and a coefficient or a right-hand side that is not finite is not the constraint.");
+    end
+end
+
+function point = pulledBack(inv, x0, b)
+% The initial point in the new variables, inv * (x0 - b) (inv * x0 if b is
+% empty: there is no shift); a finite point has to stay finite.
+    point = x0;
+    if ~isempty(b)
+        point = x0 - b;
+    end
+    point = inv * point;
+    if all(isfinite(x0)) && ~all(isfinite(point))
+        error("MATLAB:Feature:AffineInitialPointNotRepresentable", "The initial point is not representable after the affine transformation: it overflows.");
+    end
 end

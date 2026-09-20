@@ -225,6 +225,63 @@ becoming infinite. So does a supplied `mod_linear_ub` or `mod_linear_eq` under a
 bounds that the framework would pose as those rows: a supplied linear modifier
 replaces the rows verbatim, so the bounds would have nowhere left to go.
 
+Follow-up (the hardening commit after the safeguard). An independent audit of
+the rule above found four ways in which the posed problem could still differ
+from the scored one, and the rule is now as follows; where this paragraph and
+the previous one differ, this one holds.
+
+- The decision is exact. `abs(M(i, j)) <= n * eps * min(...)` called an entry of
+  `4e-16` next to a diagonal of 1 negligible. With bounds of `1e16` that entry
+  moves the feasible set by 4: `y = (-4, 1e16)` is mapped to the vertex
+  `(0, 1e16)` of the original box, and the box posed in the new variables
+  rejected it. What an off-diagonal entry of `A` moves depends on the size of
+  the other variable, which no tolerance on the entry knows. The bounds stay
+  bounds only if `A` is exactly diagonal (then the set is a box) and
+  `abs(inv(i, i) * A(i, i) - 1) <= 8 * eps` (then `diag(inv)` times a bound is
+  that bound to roundoff; a supplied inverse is otherwise only held to `1e-8`).
+  Off-diagonal entries of `inv` change no feasible set and are not read. The
+  pair that `linearly_transformed` builds without rotation is exactly diagonal
+  and reciprocal to `1.5 * eps`, so its bounds are bitwise what they were.
+- One transformation per problem and seed. The modifiers and every evaluation
+  of the single-feature path each called `mod_affine` again. User code with a
+  state (a counter, the global random stream instead of the stream it is
+  handed) then gave the bounds one map and the linear rows another: with a
+  diagonal and a dense answer in turn, the bounds became infinite and no bound
+  row was added. The runtime now produces and validates the triple once, keeps
+  it (read-only in Python; saved with the kernel in MATLAB, so that a loaded
+  featured problem goes on with the map its structure was built with), and
+  every reader gets that one. A specification keeps nothing.
+- `inv` has to invert `A` from both sides, and neither set of units matters.
+  With `A = diag(1e-8, 1e8)` and `inv = [1e8, 1e-8; 0, 1e-8]`, `A * inv` is the
+  identity to `1e-16` while `inv * A` misses it by 1. Requiring
+  `norm(inv * A - I, 'fro') <= 1e-8 * n` as well would refuse a rotation with
+  one new variable in units of `1e13`, which is consistent to roundoff. The
+  plain rule on `A * inv` already refused the same rotation with one original
+  variable in those units; and for a rotation whose products happen to cancel
+  exactly in plain arithmetic (entries `t` and `2 * t`) NumPy, whose kernels
+  are fused, refused it while MATLAB accepted it. Each entry is therefore
+  measured against the terms
+  it is summed from: `norm(E, 'fro') <= 1e-8 * n` for
+  `E = (A * inv - I) ./ max(1, abs(A) * abs(inv))` and for
+  `E = (inv * A - I) ./ max(1, abs(inv) * abs(A))`. Where the terms are below 1
+  this is the plain rule; it is never stricter than the plain rule on
+  `A * inv`, and an error of the size of the terms is refused at every scale.
+- Nothing finite leaves the floating-point range unnoticed. `xu - b` with
+  `1e308 + 1e308` is infinite before anything is scaled, so the scale guard saw
+  "no bound"; as a row it had an infinite right-hand side, which counts as no
+  constraint; `bub - aub * b` and `aub * A` gave `-Inf`, `NaN` and `Inf`. Every
+  shifted bound, right-hand side, composed row and the pulled-back initial
+  point is now checked, for `linearly_transformed` as well, and raises.
+
+Two conversions were found on the way. MATLAB kept the data of a `Problem`
+(`x0`, `xl`, `xu`, `aub`, `bub`, `aeq`, `beq`) in the class they were given in,
+and combines an integer with a scalar double in integer arithmetic: with `int32`
+data the truth called `x = 4.3` feasible for `xu = 4`, and a change of variables
+posed the bounds `-1` and `2` for `-0.25` and `1.75`. The data are now double
+precision numbers, as in Python. In a Python composition, an integer beyond the
+range of a float returned by a custom callback raised `OverflowError` instead of
+the `ValueError` naming the stage.
+
 Consequence for this contract. `linearly_transformed` and `custom` within
 `{mod_x0, mod_affine}` retain the reference (section 4). That is a claim about
 the problem handed to the solver, and it holds because that problem is now

@@ -127,16 +127,22 @@ classdef Feature < handle
 %       mod_cub:       (x, random_stream, problem) -> modified_cub
 %       mod_ceq:       (x, random_stream, problem) -> modified_ceq
 %
-%   mod_affine uses the coordinate map A*x+b and its inverse. The triple is
+%   mod_affine uses the coordinate map A*x+b and its inverse. It is asked once
+%   per problem and seed, and the initial point, the bounds, the linear
+%   constraints and every evaluation use that one answer. The triple is
 %   validated when the problem is built: real, finite arrays of matching sizes,
-%   norm(abs(inverse_A)*abs(A),inf) < 1/eps, and
-%   norm(A*inverse_A-eye(n),'fro') <= 1e-8*n; otherwise an error is
-%   raised. If A and inverse_A are both diagonal to roundoff, the bounds stay
-%   bounds; otherwise every finite bound is posed as a linear constraint. A
-%   bound is never dropped: since mod_linear_ub and mod_linear_eq replace the
-%   linear constraints, supplying one of them with an A that is not diagonal
-%   raises an error if the problem has such bounds, unless mod_bounds is
-%   supplied as well. Within an
+%   norm(abs(inverse_A)*abs(A),inf) < 1/eps, and inverse_A inverts A from both
+%   sides, norm((A*inverse_A-eye(n))./max(1,abs(A)*abs(inverse_A)),'fro') <=
+%   1e-8*n and the same for inverse_A*A (where the terms are below 1 this is
+%   norm(A*inverse_A-eye(n),'fro') <= 1e-8*n); otherwise an error is raised.
+%   If A is exactly diagonal and diag(inverse_A) is its reciprocal to roundoff,
+%   the bounds stay bounds; otherwise every finite bound is posed as a linear
+%   constraint, so an off-diagonal entry of A is never ignored, however small.
+%   A bound is never dropped: a finite bound, right-hand side, coefficient or
+%   initial point that overflows in the transformation raises an error, and
+%   since mod_linear_ub and mod_linear_eq replace the linear constraints,
+%   supplying one of them with an A that is not diagonal raises an error if
+%   the problem has such bounds, unless mod_bounds is supplied as well. Within an
 %   observation callback, querying problem.fun/cub/ceq serves that predecessor
 %   again; these calls are not silently treated as reference reads.
 %

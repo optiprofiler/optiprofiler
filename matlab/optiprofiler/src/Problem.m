@@ -99,6 +99,11 @@ classdef Problem < handle
 %         loading a problem. See also FeaturedProblem for which features
 %         retain it.
 %
+%   The numeric data `x0`, `xl`, `xu`, `aub`, `bub`, `aeq` and `beq` are kept as
+%   double precision numbers whatever numeric class they are given in (an
+%   integer class would make MATLAB compute violations and transformed bounds
+%   in rounded, saturated integer arithmetic).
+%
 %         The reference is NOT a run-history minimum and NOT the dynamic
 %         cohort minimum of a benchmark: the profile baseline is the least
 %         merit observed over the selected solver histories, changes with the
@@ -362,14 +367,16 @@ classdef Problem < handle
             obj.reference_ = value;
         end
 
-        % Setter functions.
+        % Setter functions. The data of a problem (x0, xl, xu, aub, bub, aeq,
+        % beq) are kept in double precision whatever numeric class they were
+        % given in (see realAsDouble below).
 
         % Preprocess the initial guess.
         function set.x0(obj, value)
             if ~isvector(value)
                 error("MATLAB:Problem:x0_NotVector", "The argument `x0` for `Problem` must be a vector.")
             end
-            obj.x0 = reshape(value, [], 1);
+            obj.x0 = reshape(realAsDouble(value), [], 1);
         end
 
         % Preprocess the objective function.
@@ -392,7 +399,7 @@ classdef Problem < handle
                 if ~isvector(xl)
                     error("MATLAB:Problem:xl_NotVector", "The argument `xl` for `Problem` must be a vector.")
                 end
-                obj.xl = reshape(xl, [], 1);
+                obj.xl = reshape(realAsDouble(xl), [], 1);
             else
                 obj.xl = [];
             end
@@ -403,7 +410,7 @@ classdef Problem < handle
                 if ~isvector(xu)
                     error("MATLAB:Problem:xu_NotVector", "The argument `xu` for `Problem` must be a vector.")
                 end
-                obj.xu = reshape(xu, [], 1);
+                obj.xu = reshape(realAsDouble(xu), [], 1);
             else
                 obj.xu = [];
             end
@@ -415,7 +422,7 @@ classdef Problem < handle
                 if ~ismatrix(aub)
                     error("MATLAB:Problem:aub_NotMatrix", "The argument `aub` for `Problem` must be a matrix.")
                 end
-                obj.aub = aub;
+                obj.aub = realAsDouble(aub);
             else
                 obj.aub = [];
             end
@@ -426,7 +433,7 @@ classdef Problem < handle
                 if ~isvector(bub)
                     error("MATLAB:Problem:bub_NotVector", "The argument `bub` for `Problem` must be a vector.")
                 end
-                obj.bub = reshape(bub, [], 1);
+                obj.bub = reshape(realAsDouble(bub), [], 1);
             else
                 obj.bub = [];
             end
@@ -437,7 +444,7 @@ classdef Problem < handle
                 if ~ismatrix(aeq)
                     error("MATLAB:Problem:aeq_NotMatrix", "The argument `aeq` for `Problem` must be a matrix.")
                 end
-                obj.aeq = aeq;
+                obj.aeq = realAsDouble(aeq);
             else
                 obj.aeq = [];
             end
@@ -448,7 +455,7 @@ classdef Problem < handle
                 if ~isvector(beq)
                     error("MATLAB:Problem:beq_NotVector", "The argument `beq` for `Problem` must be a vector.")
                 end
-                obj.beq = reshape(beq, [], 1);
+                obj.beq = reshape(realAsDouble(beq), [], 1);
             else
                 obj.beq = [];
             end
@@ -1103,5 +1110,19 @@ classdef Problem < handle
             % Dependent dimensions remain live when x0/callbacks are changed.
             x = obj.x0;
         end
+    end
+end
+
+function value = realAsDouble(value)
+% Real numeric data as double precision numbers; anything else is returned as
+% it is and rejected by the checks of the constructor. MATLAB combines an
+% integer with a SCALAR double in integer arithmetic, rounded and saturated,
+% and refuses to combine it with an array: with int32 data, xl - x was 0 for
+% xl = 0 and x = -0.3, a feature that moves the variables posed the bounds
+% -1 and 2 for -0.25 and 1.75, and problems of several variables failed with
+% MATLAB:mixedClasses. Single precision data were transported in single
+% precision. The Python implementation converts the same data to float.
+    if isnumeric(value) && isreal(value) && ~isa(value, 'double')
+        value = double(value);
     end
 end

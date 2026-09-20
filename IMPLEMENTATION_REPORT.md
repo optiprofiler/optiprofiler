@@ -341,7 +341,9 @@ to `249cda5`, with no failure logged in the 346 tests it had completed.
   the violation with the original problem, so the reference rule does not
   depend on this defect. It needs its own fix and tests.
   *Note added 2026-09-20: fixed by the affine safeguard commit that follows
-  this report on the branch; see `REFERENCE_CONTRACT.md`, section 7.*
+  this report on the branch, and hardened by the follow-up commit after it
+  (exact structural decision, one transformation per problem, two-sided
+  inverse, overflow guards); see `REFERENCE_CONTRACT.md`, section 7.*
 
 ## 13. Platform limitations
 

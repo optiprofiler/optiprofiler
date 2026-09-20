@@ -21,6 +21,19 @@ What is asserted here is the structure the solver receives (``xl``, ``xu``,
 ``aub``, ``bub``, ``aeq``, ``beq``), not merely that construction returns, and
 that a point satisfies that structure exactly when the truth channel calls it
 feasible.
+
+The follow-up these tests also pin. The feasible set ``xl <= A @ y + b <= xu``
+is a box exactly when ``A`` is diagonal, so the decision reads ``A`` exactly: an
+entry of ``4e-16`` next to bounds of ``1e16`` moves the set by 4, and a
+tolerance on the entries called it roundoff. The inverse cannot change the set
+and decides nothing, except that the shortcut scales by ``diag(inv)`` and
+therefore requires it to be the reciprocal of ``diag(A)`` to roundoff. One
+transformation is produced per problem and seed, so that user code with a state
+cannot hand the bounds one map and the linear constraints another. A supplied
+inverse has to invert ``A`` from both sides, measured so that the units of
+neither set of variables matter. And every finite quantity that is transported
+(shifted bounds, right-hand sides, composed rows, the initial point) raises if
+it leaves the floating-point range, instead of being posed as "no constraint".
 """
 
 import pickle
@@ -30,7 +43,7 @@ import pytest
 
 from optiprofiler import Feature, FeaturedProblem, Problem
 from optiprofiler.composition import AffineView, ComposedFeaturedProblem
-from optiprofiler.opclasses import _StageRuntime
+from optiprofiler.opclasses import _StageRuntime, _affine_is_diagonal, _checked_affine
 
 
 EPS = np.finfo(float).eps
@@ -209,6 +222,123 @@ def overflowing_scale(rng, problem):
     return np.diag([2.0 ** -1023] * 3), np.zeros(3), np.diag([2.0 ** 1023] * 3)
 
 
+def rounding_level_coupling(rng, problem):
+    """
+    ``A`` differs from the identity by one entry of 4e-16, which is below
+    ``n * eps``, and the inverse is exact. With bounds of 1e16 that entry moves
+    the feasible set by 4: it is a coupling, however small it looks.
+    """
+    return np.array([[1.0, 4e-16], [0.0, 1.0]]), np.zeros(2), np.array([[1.0, -4e-16], [0.0, 1.0]])
+
+
+def inaccurate_diagonal_inverse(rng, problem):
+    """
+    Exactly diagonal, and consistent to 1e-9, which the contract accepts (1e-8).
+    Bounds scaled by this ``diag(inv)`` would be off by 1e-9 of their size.
+    """
+    return np.diag(D), B.copy(), np.diag((1.0 + 1e-9) / D)
+
+
+def one_sided_inverse(rng, problem):
+    """``A @ inv`` is the identity to 1e-16, and ``inv @ A`` misses it by 1: ``inv @ (A @ y)`` is not ``y``."""
+    inv = np.diag([1e8, 1e-8, 1.0])
+    inv[0, 1] = 1e-8
+    return np.diag([1e-8, 1e8, 1.0]), np.zeros(3), inv
+
+
+def one_sided_inverse_mirror(rng, problem):
+    """The same with the large and the small scale exchanged, so that the stray entry sits below the diagonal."""
+    inv = np.diag([1e-8, 1e8, 1.0])
+    inv[1, 0] = 1e-8
+    return np.diag([1e8, 1e-8, 1.0]), np.zeros(3), inv
+
+
+def generic_rotation():
+    """
+    A rotation that is orthogonal to roundoff only. The entries of ``ROTATION``
+    are ``t`` and ``2 * t``, so that its products cancel exactly in plain
+    floating-point arithmetic and not in fused arithmetic: whether the base
+    accepted a scaled ``ROTATION`` depended on the kernel that multiplied it.
+    """
+    c1, s1, c2, s2 = np.cos(0.3), np.sin(0.3), np.cos(0.5), np.sin(0.5)
+    return np.array([[c1, -s1, 0.0], [s1, c1, 0.0], [0.0, 0.0, 1.0]]) @ np.array([[1.0, 0.0, 0.0], [0.0, c2, -s2], [0.0, s2, c2]])
+
+
+def row_scaled_rotation(rng, problem):
+    """
+    The mirror of ``badly_scaled_rotation``: one ORIGINAL variable is in units
+    of 1e13 (a row of ``A``). Consistent to roundoff and well conditioned in
+    the sense that is checked, so it is to be accepted as well.
+    """
+    rotation, scale = generic_rotation(), np.array([1.0, 1e13, 1.0])
+    return rotation * scale[:, None], np.zeros(3), rotation.T / scale
+
+
+def column_scaled_rotation(rng, problem):
+    """The same rotation with one NEW variable in units of 1e13 (a column of ``A``)."""
+    rotation, scale = generic_rotation(), np.array([1.0, 1e13, 1.0])
+    return rotation * scale, np.zeros(3), (rotation / scale).T
+
+
+def shifted_out_of_range(rng, problem):
+    return np.eye(3), np.full(3, -1e308), np.eye(3)
+
+
+def dense_shifted_out_of_range(rng, problem):
+    return DENSE.copy(), np.full(3, -1e308), np.linalg.inv(DENSE)
+
+
+def shifted_the_other_way(rng, problem):
+    return np.eye(3), np.full(3, 1e308), np.eye(3)
+
+
+def huge_scaling(rng, problem):
+    """Exactly consistent and perfectly conditioned; a coefficient of 1e200 times 1e200 overflows."""
+    return np.diag([1e200, 1.0, 1.0]), np.zeros(3), np.diag([1e-200, 1.0, 1.0])
+
+
+class Alternating:
+    """User code with a state: a valid diagonal transform and a valid dense one in turn."""
+
+    def __init__(self, calls=0):
+        self.calls = calls
+
+    def __call__(self, rng, problem):
+        self.calls += 1
+        return exact_diagonal(rng, problem) if self.calls % 2 == 1 else dense(rng, problem)
+
+
+class Drifting:
+    """
+    Another valid rotation on every call, as when user code draws from a
+    global generator instead of the stream it is handed.
+    """
+
+    def __init__(self):
+        self.calls = 0
+
+    def __call__(self, rng, problem):
+        self.calls += 1
+        return self.rotation(self.calls)
+
+    @staticmethod
+    def rotation(call):
+        c, s = np.cos(0.3 * call), np.sin(0.3 * call)
+        Q = np.array([[c, -s, 0.0], [s, c, 0.0], [0.0, 0.0, 1.0]])
+        return Q, B.copy(), Q.T
+
+
+class Counting:
+    """A pure transform that counts how often it is asked."""
+
+    def __init__(self):
+        self.calls = 0
+
+    def __call__(self, rng, problem):
+        self.calls += 1
+        return dense(rng, problem)
+
+
 def custom_stage(transform):
     return {'name': 'custom', 'options': {'mod_affine': transform}}
 
@@ -328,11 +458,14 @@ class TestCustomAffine:
         np.testing.assert_allclose(np.diag(D) @ featured.x0 + B, problem.x0, atol=1e-15)
 
     @pytest.mark.parametrize('name', sorted(PROBLEMS))
-    @pytest.mark.parametrize('transform', [roundoff_inverse, roundoff_matrix], ids=lambda f: f.__name__)
-    def test_roundoff_in_either_matrix_keeps_bounds_as_bounds(self, transform, name):
-        # The defect. With roundoff in the inverse the bounds became infinite
-        # and no bound row was added: the bounds were gone. With roundoff in
-        # the matrix the bounds stayed AND were added again as rows.
+    @pytest.mark.parametrize('transform', [roundoff_inverse, sloppy_inverse, coupling_hidden_by_scale],
+                             ids=lambda f: f.__name__)
+    def test_stray_entries_of_the_inverse_keep_bounds_as_bounds(self, transform, name):
+        # The original defect: with a stray entry in the inverse the bounds
+        # became infinite and no bound row was added, so the bounds were gone.
+        # ``A`` is exactly diagonal in all three, so the feasible set is a box
+        # whatever the inverse carries off its diagonal, at roundoff level or
+        # above it: the inverse cannot change the set and decides nothing.
         problem = PROBLEMS[name]()
         featured = FeaturedProblem(problem, Feature('custom', mod_affine=transform), 10, 3)
         A, b, inv = transform(None, problem)
@@ -346,13 +479,13 @@ class TestCustomAffine:
         assert featured.reference == problem.reference
 
     @pytest.mark.parametrize('name', sorted(PROBLEMS))
-    @pytest.mark.parametrize('transform', [sloppy_inverse, sloppy_matrix, coupling_hidden_by_scale],
-                             ids=lambda f: f.__name__)
-    def test_pair_that_is_not_diagonal_to_roundoff_takes_the_generic_path(self, transform, name):
-        # Not roundoff, not inconsistent: the two matrices do not tell the same
-        # structural story, so the representation that needs only A is used.
-        # On the base a coupling in the inverse lost every bound, and one in
-        # the matrix posed every bound twice.
+    @pytest.mark.parametrize('transform', [roundoff_matrix, sloppy_matrix], ids=lambda f: f.__name__)
+    def test_any_coupling_in_the_matrix_takes_the_generic_path(self, transform, name):
+        # An off-diagonal entry of ``A`` couples two variables, so the feasible
+        # set is no box, and how far it is from one depends on the size of the
+        # other variable, which no tolerance on the entry knows. It is posed,
+        # exactly, by the representation that needs only ``A``. On the base a
+        # coupling in the matrix posed every bound twice.
         problem = PROBLEMS[name]()
         featured = FeaturedProblem(problem, Feature('custom', mod_affine=transform), 10, 3)
         A, b, _ = transform(None, problem)
@@ -375,6 +508,15 @@ class TestCustomAffine:
         assert_no_bound_is_lost_or_doubled(featured, problem)
         featured = FeaturedProblem(problem, Feature('custom', mod_affine=badly_scaled_rotation), 10, 3)
         A, b, _ = badly_scaled_rotation(None, problem)
+        assert_structure(featured, expected_generic_structure(problem, A, b))
+        assert_no_bound_is_lost_or_doubled(featured, problem)
+        # The units of the ORIGINAL variables matter as little as those of the
+        # new ones. ``A @ inv`` misses the identity by 5e-4 here, roundoff
+        # times the ratio of the units, and the base called that inconsistent
+        # although the condition number it checks is 2.8.
+        featured = FeaturedProblem(problem, Feature('custom', mod_affine=row_scaled_rotation), 10, 3)
+        A, b, inv = row_scaled_rotation(None, problem)
+        assert np.linalg.norm(A @ inv - np.eye(3)) > 1e-8 * 3
         assert_structure(featured, expected_generic_structure(problem, A, b))
         assert_no_bound_is_lost_or_doubled(featured, problem)
 
@@ -410,6 +552,8 @@ class TestCustomAffine:
         (wrong_shift_size, 'size 3'),
         (complex_matrix, 'real'),
         (numerically_singular, 'numerically singular'),
+        (one_sided_inverse, 'not an identity matrix'),
+        (one_sided_inverse_mirror, 'not an identity matrix'),
     ], ids=lambda value: value.__name__ if callable(value) else None)
     @pytest.mark.parametrize('composed', [False, True], ids=['single', 'composed'])
     def test_invalid_transforms_fail_closed(self, transform, message, composed):
@@ -451,6 +595,10 @@ class TestCustomAffine:
             build(bounded_problem(), mod_affine=dense, mod_linear_ub=rows)
         with pytest.raises(ValueError, match='would be dropped silently'):
             build(fixed_variable_problem(), mod_affine=dense, mod_linear_eq=equalities)
+        # The same decision is read here: a diagonal map whose inverse is not
+        # good enough for the shortcut poses the bounds as rows as well.
+        with pytest.raises(ValueError, match='would be dropped silently'):
+            build(bounded_problem(), mod_affine=inaccurate_diagonal_inverse, mod_linear_ub=rows)
 
         # Nothing fixed, so replacing the equalities loses nothing: the bounds are inequality rows.
         featured = build(bounded_problem(), mod_affine=dense, mod_linear_eq=equalities)
@@ -521,36 +669,41 @@ class TestLinearlyTransformed:
         assert_posed_problem_is_the_scored_problem(featured, problem)
 
     @pytest.mark.parametrize('name', sorted(PROBLEMS))
-    @pytest.mark.parametrize('where', ['inverse', 'matrix'])
-    def test_roundoff_in_either_matrix_keeps_bounds_as_bounds(self, monkeypatch, where, name):
+    @pytest.mark.parametrize('size', [0.25 * EPS, 1e-12], ids=['roundoff', 'sloppy'])
+    def test_a_stray_entry_of_the_inverse_keeps_bounds_as_bounds(self, monkeypatch, size, name):
+        # The matrix stays exactly diagonal, so the set is a box whatever the
+        # inverse carries off its diagonal.
         def perturb(A, inv):
-            target = inv if where == 'inverse' else A
-            target[0, 1] = 0.25 * EPS * min(abs(target[0, 0]), abs(target[1, 1]))
+            inv[0, 1] = size * min(abs(inv[0, 0]), abs(inv[1, 1]))
             return A, inv
 
         perturb_linearly_transformed(monkeypatch, perturb)
         problem = PROBLEMS[name]()
         featured = FeaturedProblem(problem, Feature('linearly_transformed', **self.UNROTATED), 10, 3)
         A, b, inv = featured._runtime.modifier_affine(3, problem)
-        assert (inv if where == 'inverse' else A)[0, 1] != 0.0  # the perturbation is in place
+        assert inv[0, 1] != 0.0  # the perturbation is in place
         assert_structure(featured, expected_diagonal_structure(problem, A, b, inv))
         assert_no_bound_is_lost_or_doubled(featured, problem)
         assert_posed_problem_is_the_scored_problem(featured, problem)
         assert featured.reference == problem.reference
 
     @pytest.mark.parametrize('name', sorted(PROBLEMS))
-    def test_inverse_that_is_not_diagonal_to_roundoff_takes_the_generic_path(self, monkeypatch, name):
+    def test_roundoff_in_the_matrix_takes_the_generic_path(self, monkeypatch, name):
+        # A quarter of a unit in the last place of the diagonal is still a
+        # coupling of two variables: it is posed, not ignored.
         def perturb(A, inv):
-            inv[0, 1] = 1e-12 * abs(inv[0, 0])
+            A[0, 1] = 0.25 * EPS * min(abs(A[0, 0]), abs(A[1, 1]))
             return A, inv
 
         perturb_linearly_transformed(monkeypatch, perturb)
         problem = PROBLEMS[name]()
         featured = FeaturedProblem(problem, Feature('linearly_transformed', **self.UNROTATED), 10, 3)
         A, b, _ = featured._runtime.modifier_affine(3, problem)
+        assert A[0, 1] != 0.0  # the perturbation is in place
         assert_structure(featured, expected_generic_structure(problem, A, b))
         assert_no_bound_is_lost_or_doubled(featured, problem)
         assert_posed_problem_is_the_scored_problem(featured, problem)
+        assert featured.reference == problem.reference
 
     @pytest.mark.parametrize('name', sorted(PROBLEMS))
     def test_rotated_is_the_dense_case(self, name):
@@ -614,11 +767,11 @@ class TestCompositionAndPersistence:
 
     @pytest.mark.parametrize('stages, bounds_kept', [
         ([custom_stage(roundoff_inverse), 'noisy'], True),
-        (['perturbed_x0', custom_stage(roundoff_matrix), 'truncated'], True),
+        (['perturbed_x0', custom_stage(roundoff_matrix), 'truncated'], False),  # a coupling in A is posed
         ([{'name': 'linearly_transformed', 'options': {'rotated': False, 'condition_factor': 4}},
           custom_stage(roundoff_inverse)], True),
         (['permuted', custom_stage(exact_diagonal)], True),
-        ([custom_stage(sloppy_inverse), 'noisy'], False),
+        ([custom_stage(sloppy_inverse), 'noisy'], True),  # A is exactly diagonal: the set is a box
         ([custom_stage(dense), {'name': 'linearly_transformed', 'options': {'rotated': False}}], False),
     ], ids=['roundoff-inverse+noisy', 'x0+roundoff-matrix+truncated', 'scaling+roundoff-inverse',
             'permuted+exact', 'sloppy+noisy', 'dense+scaling'])
@@ -659,3 +812,330 @@ class TestCompositionAndPersistence:
             after = FeaturedProblem(problem, pickle.loads(pickle.dumps(feature)), 10, 3)
             for key in ('x0', 'xl', 'xu', 'aub', 'bub', 'aeq', 'beq'):
                 np.testing.assert_array_equal(getattr(after, key), getattr(before, key), err_msg=key)
+
+
+# ---------------------------------------------------------------- follow-up: the decision is exact
+
+def wide_box():
+    """Two variables between 0 and 1e16: next to bounds that large, an entry of 4e-16 is worth 4."""
+    return Problem(sphere, [1.0, 1.0], xl=[0.0, 0.0], xu=[1e16, 1e16], reference=REFERENCE)
+
+
+def build(problem, transform, composed=False, **options):
+    stages = [{'name': 'custom', 'options': dict(options, mod_affine=transform)}] + (['noisy'] if composed else [])
+    return FeaturedProblem(problem, Feature(stages), 20, 3)
+
+
+COMPOSED = pytest.mark.parametrize('composed', [False, True], ids=['single', 'composed'])
+
+
+class TestExactStructuralDecision:
+
+    @COMPOSED
+    def test_a_coupling_below_every_tolerance_is_posed_not_ignored(self, composed):
+        # The base called 4e-16 negligible next to a diagonal of 1 (n * eps is
+        # 4.4e-16) and posed the box [0, 1e16]**2 in the new variables.
+        problem = wide_box()
+        featured = build(problem, rounding_level_coupling, composed)
+        A, b, _ = rounding_level_coupling(None, problem)
+        assert_structure(featured, expected_generic_structure(problem, A, b))
+        assert_no_bound_is_lost_or_doubled(featured, problem)
+        # y = (-4, 1e16) is mapped to x = (0, 1e16), a vertex of the original
+        # box, and that box in the new variables rejected it by 4; it accepted
+        # (1e16, 1e16), which is mapped 4 outside.
+        for y, violation in (([-4.0, 1e16], 0.0), ([1e16, 1e16], 4.0), ([0.0, 0.0], 0.0), ([3.0, 5e15], 0.0)):
+            y = np.array(y)
+            assert featured.maxcv(y) == pytest.approx(violation, abs=1e-9), y
+            assert posed_violation(featured, y) == pytest.approx(violation, abs=1e-9), y
+        assert featured.reference == problem.reference
+
+    def test_the_decision_reads_the_matrix_exactly_and_the_inverse_for_its_scale_only(self):
+        A, _, inv = rounding_level_coupling(None, None)
+        assert _affine_is_diagonal(A, inv) is False
+        assert _affine_is_diagonal(A.T, inv.T) is False
+        for transform, diagonal in ((exact_diagonal, True), (roundoff_inverse, True), (sloppy_inverse, True),
+                                    (coupling_hidden_by_scale, True), (extreme_diagonal, True),
+                                    (overflowing_scale, True), (roundoff_matrix, False), (sloppy_matrix, False),
+                                    (dense, False), (badly_scaled_rotation, False),
+                                    (inaccurate_diagonal_inverse, False)):
+            A, _, inv = transform(None, None)
+            assert _affine_is_diagonal(A, inv) is diagonal, transform.__name__
+        assert _affine_is_diagonal(np.zeros((0, 0)), np.zeros((0, 0))) is True
+        # The reciprocal to roundoff, whichever way it was rounded, and no further.
+        d = np.array([3.0, -7.0, 0.1, 1e-150, 2.0 ** 0.37, 1e150])
+        assert _affine_is_diagonal(np.diag(d), np.diag(1.0 / d)) is True
+        assert _affine_is_diagonal(np.diag(d), np.diag(np.nextafter(1.0 / d, np.inf))) is True
+        assert _affine_is_diagonal(np.diag(d), np.diag(np.nextafter(1.0 / d, -np.inf))) is True
+        assert _affine_is_diagonal(np.diag(d), np.diag((1.0 + 1e-13) / d)) is False
+
+    @COMPOSED
+    @pytest.mark.parametrize('name', sorted(PROBLEMS))
+    def test_a_diagonal_inverse_that_is_not_the_reciprocal_is_not_used_for_the_bounds(self, name, composed):
+        # The pair is accepted: it is consistent to 1e-9 and the contract asks
+        # for 1e-8. The shortcut would scale the bounds by that inverse; the
+        # rows of A are exact whatever the inverse is.
+        problem = PROBLEMS[name]()
+        featured = build(problem, inaccurate_diagonal_inverse, composed)
+        A, b, _ = inaccurate_diagonal_inverse(None, problem)
+        assert_structure(featured, expected_generic_structure(problem, A, b))
+        assert_no_bound_is_lost_or_doubled(featured, problem)
+        assert_posed_problem_is_the_scored_problem(featured, problem)
+
+    def test_bounds_of_any_size_are_posed_to_roundoff(self):
+        problem = Problem(sphere, [1.0, 1.0, 1.0], xl=[0.0] * 3, xu=[1e16] * 3)
+        featured = build(problem, inaccurate_diagonal_inverse)
+        _, b, inv = inaccurate_diagonal_inverse(None, problem)
+        # The upper bounds that diag(inv) gives: on the base the corner of the
+        # posed box, and 1e7 outside the original one.
+        scale = np.diagonal(inv)
+        y = np.maximum(scale * (problem.xl - b), scale * (problem.xu - b))
+        assert featured.maxcv(y) > 1e6
+        assert posed_violation(featured, y) == pytest.approx(featured.maxcv(y), rel=1e-5)
+
+
+# ---------------------------------------------------------------- follow-up: one transform per problem
+
+class TestOneTransformPerProblem:
+
+    @pytest.mark.parametrize('calls', [0, 1], ids=['diagonal-first', 'dense-first'])
+    @COMPOSED
+    @pytest.mark.parametrize('name', sorted(PROBLEMS))
+    def test_a_callback_with_a_state_cannot_mix_two_transforms(self, name, composed, calls):
+        # On the base every modifier asked the callback again. With the dense
+        # answer for the bounds and the diagonal one for the rows, the bounds
+        # became infinite and no bound row was added: every finite bound was
+        # lost. The other way round every bound was posed twice.
+        problem = PROBLEMS[name]()
+        callback = Alternating(calls)
+        featured = build(problem, callback, composed)
+        assert callback.calls == calls + 1  # asked once
+        if calls == 0:
+            assert_structure(featured, expected_diagonal_structure(problem, np.diag(D), B, np.diag(1.0 / D)))
+        else:
+            assert_structure(featured, expected_generic_structure(problem, DENSE, B))
+        assert_no_bound_is_lost_or_doubled(featured, problem)
+        assert_posed_problem_is_the_scored_problem(featured, problem)
+        assert callback.calls == calls + 1  # and not again, 400 truth reads later
+        assert featured.reference == problem.reference
+
+    @COMPOSED
+    def test_evaluations_use_the_transform_the_structure_was_built_with(self, composed):
+        problem = linear_problem()
+        callback = Drifting()
+        featured = build(problem, callback, composed)
+        A, b, _ = Drifting.rotation(1)  # the first answer, and the only one that may be used
+        assert_structure(featured, expected_generic_structure(problem, A, b))
+        np.testing.assert_allclose(A @ featured.x0 + b, problem.x0, atol=1e-14)
+        assert featured.fun_init == pytest.approx(sphere(problem.x0), rel=1e-13)
+        for y in np.random.default_rng(1).uniform(-2.0, 2.0, size=(6, 3)):
+            featured.fun(y)
+            assert featured.fun_hist[-1] == pytest.approx(sphere(A @ y + b), rel=1e-13)
+            assert featured.maxcv_hist[-1] == pytest.approx(problem.maxcv(A @ y + b), rel=1e-13, abs=1e-13)
+            assert featured.maxcv(y) == pytest.approx(problem.maxcv(A @ y + b), rel=1e-13, abs=1e-13)
+        assert callback.calls == 1
+
+    def test_the_transform_is_kept_per_seed_and_per_problem(self):
+        first, second = linear_problem(), bounded_problem()
+        callback = Counting()
+        runtime = _StageRuntime('custom', {'mod_affine': callback})
+        for _ in range(3):
+            runtime.modifier_x0(3, first)
+            runtime.modifier_bounds(3, first)
+            runtime.modifier_linear_ub(3, first)
+            runtime.modifier_linear_eq(3, first)
+            runtime.modifier_affine(3, first)
+        assert callback.calls == 1
+        runtime.modifier_affine(4, first)
+        assert callback.calls == 2  # another seed is another stream for the callback
+        runtime.modifier_bounds(4, second)
+        assert callback.calls == 3  # and another problem another question
+        runtime.modifier_linear_ub(4, second)
+        assert callback.calls == 3
+        # A specification keeps no such state: every featured problem asks afresh.
+        feature = Feature('custom', mod_affine=callback)
+        FeaturedProblem(first, feature, 10, 3)
+        FeaturedProblem(first, feature, 10, 3)
+        assert callback.calls == 5
+
+    def test_the_kept_transform_cannot_be_changed_from_outside(self):
+        problem = linear_problem()
+        for runtime in (_StageRuntime('custom', {'mod_affine': dense}),
+                        _StageRuntime('linearly_transformed', {'rotated': True, 'condition_factor': 4}),
+                        _StageRuntime('permuted', {})):
+            for array in runtime.modifier_affine(3, problem):
+                with pytest.raises(ValueError, match='read-only'):
+                    array[...] = 0.0
+        # What the callback returned is still the user's to change, without changing the kept transform.
+        own = (DENSE.copy(), B.copy(), np.linalg.inv(DENSE))
+        runtime = _StageRuntime('custom', {'mod_affine': lambda rng, problem: own})
+        runtime.modifier_affine(3, problem)
+        own[0][0, 0] = 5.0
+        assert runtime.modifier_affine(3, problem)[0][0, 0] == 2.0
+
+    def test_a_pickled_composition_keeps_the_transform_it_was_built_with(self):
+        problem = linear_problem()
+        featured = build(problem, Drifting(), composed=True)
+        restored = pickle.loads(pickle.dumps(featured))
+        A, b, _ = Drifting.rotation(1)
+        assert_structure(restored, expected_generic_structure(problem, A, b))
+        for y in np.random.default_rng(2).uniform(-2.0, 2.0, size=(4, 3)):
+            featured.fun(y)
+            restored.fun(y)
+            assert restored.fun_hist[-1] == pytest.approx(sphere(A @ y + b), rel=1e-13)
+        np.testing.assert_array_equal(restored.fun_hist, featured.fun_hist)
+        np.testing.assert_array_equal(restored.maxcv_hist, featured.maxcv_hist)
+
+
+# ---------------------------------------------------------------- follow-up: the inverse, from both sides
+
+class TestTwoSidedInverse:
+
+    @pytest.mark.parametrize('transform', [one_sided_inverse, one_sided_inverse_mirror], ids=lambda f: f.__name__)
+    def test_the_inverse_has_to_invert_from_both_sides(self, transform):
+        # Badly scaled, so that one product is the identity to 1e-16 while the
+        # other misses it by 1: the base looked at the first only.
+        A, b, inv = transform(None, None)
+        assert np.linalg.norm(A @ inv - np.eye(3)) <= 1e-8 * 3 < 0.9 < np.linalg.norm(inv @ A - np.eye(3))
+        y = np.array([0.0, 1.0, 0.0]) if transform is one_sided_inverse else np.array([1.0, 0.0, 0.0])
+        assert np.max(np.abs(inv @ (A @ y) - y)) == pytest.approx(1.0)
+        with pytest.raises(ValueError, match='not an identity matrix'):
+            _checked_affine(A, b, inv, 3, supplied=True)
+        # The transposed pairs fail on the other side, as they did before.
+        with pytest.raises(ValueError, match='not an identity matrix'):
+            _checked_affine(A.T, b, inv.T, 3, supplied=True)
+
+    def test_neither_set_of_units_makes_a_consistent_pair_inconsistent(self):
+        # A rotation with one variable in units of 1e13: new variable
+        # (columns of A) or original one (rows). Roundoff times the ratio of
+        # the units, 1e-3, is in one product or in the other; measured against
+        # the terms the entries are summed from, both are roundoff.
+        for transform, large in ((column_scaled_rotation, 1), (row_scaled_rotation, 0)):
+            A, b, inv = transform(None, None)
+            residuals = np.linalg.norm(A @ inv - np.eye(3)), np.linalg.norm(inv @ A - np.eye(3))
+            assert residuals[large] > 1e-8 * 3 > 1e-12 > residuals[1 - large], transform.__name__  # the plain rule refuses one side
+            checked = _checked_affine(A, b, inv, 3, supplied=True)
+            for kept, given in zip(checked, (A, b, inv)):
+                np.testing.assert_array_equal(kept, given)
+
+    def test_what_was_inconsistent_stays_inconsistent(self):
+        # The scale of the terms never excuses an error of the size of the terms.
+        for transform in (singular, identity_as_inverse, materially_wrong_inverse):
+            A, b, inv = transform(None, None)
+            for pair in ((A, inv), (A.T, inv.T)):
+                with pytest.raises(ValueError, match='not an identity matrix'):
+                    _checked_affine(pair[0], b, pair[1], 3, supplied=True)
+        A, b, wrong = row_scaled_rotation(None, None)
+        wrong[0, 1] *= 1.0 + 1e-6  # one entry of the inverse off by 1e-6 of its size
+        with pytest.raises(ValueError, match='not an identity matrix'):
+            _checked_affine(A, b, wrong, 3, supplied=True)
+
+
+# ---------------------------------------------------------------- follow-up: nothing finite leaves the range
+
+def far_box():
+    return Problem(sphere, [0.0, 0.0, 0.0], xl=[0.0] * 3, xu=[1e308] * 3)
+
+
+class TestTransportOverflow:
+
+    @COMPOSED
+    @pytest.mark.parametrize('transform', [shifted_out_of_range, dense_shifted_out_of_range], ids=lambda f: f.__name__)
+    def test_a_finite_bound_never_becomes_infinite_in_the_shift(self, transform, composed):
+        # xu - b is 1e308 + 1e308. The scale guard of the base looked at the
+        # product only, and an infinite factor is "no bound" to it: the upper
+        # bounds were posed as infinite, or as rows with an infinite right-hand
+        # side, which count as no constraint.
+        with pytest.raises(ValueError, match='finite bound'):
+            build(far_box(), transform, composed)
+
+    @COMPOSED
+    def test_a_fixed_variable_never_loses_its_equality_in_the_shift(self, composed):
+        problem = Problem(sphere, [0.0, 0.0, 0.0], xl=[1e308, 0.0, 0.0], xu=[1e308, 1.0, 1.0])
+        with pytest.raises(ValueError, match='finite bound'):
+            build(problem, dense_shifted_out_of_range, composed)
+
+    @COMPOSED
+    def test_a_fixed_variable_is_guarded_where_its_equality_is_posed(self, composed):
+        # With supplied inequality rows the inequality modifier of the
+        # framework does not run (and nothing of its is replaced here: the only
+        # finite bounds are those of the fixed variable). The equality of that
+        # variable is still posed by the framework, and has its own guard.
+        def rows(rng, problem):
+            return np.array([[1.0, 1.0, 0.0]]), np.array([5.0])
+
+        problem = Problem(sphere, [0.0, 0.0, 0.0], xl=[1e308, -np.inf, -np.inf], xu=[1e308, np.inf, np.inf])
+        with pytest.raises(ValueError, match='finite bound'):
+            build(problem, dense_shifted_out_of_range, composed, mod_linear_ub=rows)
+
+    @COMPOSED
+    @pytest.mark.parametrize('kind', ['ub', 'eq'])
+    def test_a_right_hand_side_never_leaves_the_range(self, kind, composed):
+        # bub - aub @ b with aub @ b = 2e318: on the base a right-hand side of
+        # -inf (no point satisfies the row) or NaN.
+        rows = {'aub': [[1e10, 1e10, 0.0]], 'bub': [1.0]} if kind == 'ub' else {'aeq': [[1e10, -3e10, 0.0]], 'beq': [2.0]}
+        with pytest.raises(ValueError, match='linear constraint'):
+            build(Problem(sphere, [0.0, 0.0, 0.0], **rows), shifted_the_other_way, composed)
+
+    @COMPOSED
+    @pytest.mark.parametrize('kind', ['ub', 'eq'])
+    def test_a_composed_row_never_leaves_the_range(self, kind, composed):
+        # aub @ A with 1e200 * 1e200: on the base a coefficient of inf.
+        rows = {'aub': [[1e200, 1.0, 0.0]], 'bub': [1.0]} if kind == 'ub' else {'aeq': [[1e200, 0.0, 1.0]], 'beq': [0.0]}
+        with pytest.raises(ValueError, match='linear constraint'):
+            build(Problem(sphere, [0.0, 0.0, 0.0], **rows), huge_scaling, composed)
+
+    @COMPOSED
+    def test_the_initial_point_never_leaves_the_range(self, composed):
+        with pytest.raises(ValueError, match='initial point'):
+            build(Problem(sphere, [1e308, 1e308, 1e308]), shifted_out_of_range, composed)
+
+    def test_the_scaling_feature_is_guarded_as_well(self):
+        # diag(A) reaches 2**47 for this condition factor.
+        feature = Feature('linearly_transformed', rotated=False, condition_factor=6000.0)
+        with pytest.raises(ValueError, match='linear constraint'):
+            FeaturedProblem(Problem(sphere, [0.0, 0.0, 0.0], aub=[[1e300, 0.0, 1e300]], bub=[1.0]), feature, 10, 3)
+        with pytest.raises(ValueError, match='initial point'):
+            FeaturedProblem(Problem(sphere, [1e300, 0.0, 0.0]), feature, 10, 3)
+
+    @COMPOSED
+    @pytest.mark.parametrize('transform', [exact_diagonal, dense], ids=lambda f: f.__name__)
+    def test_a_bound_that_is_infinite_already_stays_as_it_is(self, transform, composed):
+        # An infinite bound is no bound: nothing finite is lost, so nothing is
+        # refused, however large the finite data next to it. (A `Problem` does
+        # not accept an infinite right-hand side, so an infinite one in a
+        # featured problem can only be an overflow.)
+        problem = Problem(sphere, [0.5, 0.5, 0.5], xl=[-np.inf, -1e300, -np.inf], xu=[np.inf, np.inf, 1e300],
+                          aub=[[1.0, 1.0, 0.0]], bub=[1e300])
+        featured = build(problem, transform, composed)
+        A, b, inv = transform(None, problem)
+        expected = expected_diagonal_structure(problem, A, b, inv) if transform is exact_diagonal \
+            else expected_generic_structure(problem, A, b)
+        assert_structure(featured, expected)
+        assert np.all(np.isfinite(featured.bub)) and np.all(np.isfinite(featured.aub))
+        assert np.isfinite(featured.xl).sum() + np.isfinite(featured.xu).sum() == (2 if transform is exact_diagonal else 0)
+
+
+# ---------------------------------------------------------------- follow-up: numbers from a callback
+
+class TestCallbackNumbers:
+
+    @COMPOSED
+    @pytest.mark.parametrize('where', ['matrix', 'shift', 'inverse'])
+    def test_an_integer_beyond_the_float_range_is_refused_as_every_other_invalid_output(self, where, composed):
+        # In a composition the base let the OverflowError of the conversion
+        # through; the contract of a custom stage is a ValueError that names it.
+        huge, ones = 10 ** 400, [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+        triple = {'matrix': ([[huge, 0, 0], [0, 1, 0], [0, 0, 1]], [0, 0, 0], ones),
+                  'shift': (ones, [huge, 0, 0], ones),
+                  'inverse': (ones, [0, 0, 0], [[huge, 0, 0], [0, 1, 0], [0, 0, 1]])}[where]
+        with pytest.raises(ValueError, match='mod_affine' if composed else 'must be a real array'):
+            build(bounded_problem(), lambda rng, problem: triple, composed)
+
+    @COMPOSED
+    def test_integers_are_numbers(self, composed):
+        problem = linear_problem()
+        integers = build(problem, lambda rng, problem: (np.diag([2, -4, 1]), np.array([1, -1, 2]), np.diag([0.5, -0.25, 1.0])), composed)
+        floats = build(problem, lambda rng, problem: (np.diag([2.0, -4.0, 1.0]), np.array([1.0, -1.0, 2.0]), np.diag([0.5, -0.25, 1.0])), composed)
+        for key in ('x0', 'xl', 'xu', 'aub', 'bub', 'aeq', 'beq'):
+            assert getattr(integers, key).dtype == float, key
+            np.testing.assert_array_equal(getattr(integers, key), getattr(floats, key), err_msg=key)

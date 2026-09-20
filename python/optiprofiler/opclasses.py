@@ -51,24 +51,39 @@ def _scipy_version_less_than(major, minor):
 # The bounds of the transformed problem have two representations. If ``A`` is
 # diagonal they stay bounds, scaled by ``diag(inv)`` (the diagonal shortcut).
 # For every invertible ``A`` they can be posed as linear rows of ``A`` (the
-# generic representation), which needs ``A`` only. The shortcut reads BOTH
-# matrices: the bounds are scaled by ``inv`` and the linear constraints are
-# composed with ``A``. The bounds used to be classified by an exact test on
-# ``inv`` and the linear rows by an exact test on ``A``. A diagonal ``A`` with
-# one roundoff-sized off-diagonal entry in ``inv`` then made the bounds infinite
-# while no bound row was added: the bounds left the posed problem without a
-# word, and the truth channel went on scoring them. Hence:
+# generic representation), which needs ``A`` only. The bounds used to be
+# classified by an exact test on ``inv`` and the linear rows by an exact test on
+# ``A``. A diagonal ``A`` with one roundoff-sized off-diagonal entry in ``inv``
+# then made the bounds infinite while no bound row was added: the bounds left
+# the posed problem without a word, and the truth channel went on scoring them.
+# Hence:
 #
-# - one decision, made once from both matrices and read by the bounds and by
-#   both kinds of linear constraints (`_affine_is_diagonal`);
-# - the shortcut only if both matrices are diagonal to roundoff, otherwise the
-#   generic representation, so that no tolerance can ever lose a constraint:
-#   the tolerance chooses a representation, never whether a bound is posed;
+# - one transformation per problem and seed, produced and validated once and
+#   read by the initial point, the bounds, both kinds of linear constraints and
+#   every evaluation (`modifier_affine`). User code may have a state, and a
+#   second answer may be another map;
+# - one decision, read by the bounds and by both kinds of linear constraints
+#   (`_affine_is_diagonal`). It is exact. The feasible set is a box exactly when
+#   ``A`` is diagonal; an off-diagonal entry couples two variables, and what it
+#   moves depends on the size of the other variable, which no tolerance on the
+#   entry knows (4e-16 next to bounds of 1e16 moves the set by 4). ``inv``
+#   cannot change the set and decides nothing, except that the shortcut scales
+#   by ``diag(inv)`` and so requires it to be the reciprocal of ``diag(A)`` to
+#   roundoff. Whatever is not the shortcut is the generic representation, so
+#   the decision chooses a representation and never whether a bound is posed;
 # - everything the decision rests on is validated first, and what cannot be
 #   represented raises instead of being approximated (`_checked_affine`,
-#   `_scaled_bounds`, `_refuse_to_replace_bound_rows`). Failing closed matters
-#   here because the loss is silent: the solver is handed an easier problem and
-#   is then scored on the original.
+#   `_shifted`, `_scaled_bounds`, `_composed_rows`, `_pulled_back`,
+#   `_refuse_to_replace_bound_rows`). Failing closed matters here because the
+#   loss is silent: the solver is handed an easier problem and is then scored
+#   on the original.
+
+_BOUND_OVERFLOW = ('A finite bound is not representable after the affine transformation: it overflows, '
+                   'and posing it as infinite would drop it silently.')
+_LINEAR_OVERFLOW = ('A linear constraint is not representable after the affine transformation: it overflows, '
+                    'and a coefficient or a right-hand side that is not finite is not the constraint.')
+_X0_OVERFLOW = 'The initial point is not representable after the affine transformation: it overflows.'
+
 
 def _checked_affine(A, b, inv, n, supplied):
     """
@@ -78,8 +93,7 @@ def _checked_affine(A, b, inv, n, supplied):
     ``(n, n)``, ``(n,)`` and ``(n, n)``; finite entries (NaN fails no
     inequality, so it has to be asked for); numerical invertibility,
     ``norm(abs(inv) @ abs(A), inf) < 1 / eps``; and, if ``inv`` was
-    ``supplied`` by user code, consistency,
-    ``norm(A @ inv - I, 'fro') <= 1e-8 * n``.
+    ``supplied`` by user code, consistency from both sides (see below).
 
     This condition number does not change when the rows of ``A`` (the units of
     the original variables) are scaled, and ``1 / eps`` is where a matrix is
@@ -89,6 +103,17 @@ def _checked_affine(A, b, inv, n, supplied):
     rotation of ``linearly_transformed`` at most ``n``. The framework's own
     inverse of a rotation is exact up to roundoff times the usual condition
     number and is not held to the residual test.
+
+    Consistency: ``norm(E, 'fro') <= 1e-8 * n`` for
+    ``E = (A @ inv - I) / max(1, abs(A) @ abs(inv))`` and for
+    ``E = (inv @ A - I) / max(1, abs(inv) @ abs(A))``, entry by entry. Both
+    products are needed: with ``A = diag(1e-8, 1e8)`` the first is an identity
+    to 1e-16 for an ``inv`` with which the second misses it by 1. Each entry is
+    measured against the terms it is summed from, which is what a change of
+    units scales: a rotation with one variable in units of 1e13 misses the
+    identity by 1e-3 in one of the products, new variable or original one, and
+    is consistent to roundoff. Where the terms are below 1 the rule is the
+    plain ``norm(A @ inv - I, 'fro') <= 1e-8 * n`` that it replaces.
     """
     def real_array(value, what, shape):
         try:
@@ -106,42 +131,59 @@ def _checked_affine(A, b, inv, n, supplied):
             raise ValueError(f'The {what} must be finite.')
         return array
 
+    def residual(product, terms):
+        scale = np.maximum(1.0, terms)
+        if not np.all(np.isfinite(scale)):
+            return np.nan
+        return np.linalg.norm((product - np.eye(n)) / scale)
+
     A = real_array(A, 'affine transformation matrix', (n, n))
     b = real_array(b, 'affine transformation vector', (n,))
     inv = real_array(inv, 'inverse of the affine transformation matrix', (n, n))
-    # Finite entries can still overflow in a product. Both tests are written
-    # so that an infinite or NaN result fails them.
+    # Finite entries can still overflow in a product. All tests are written so
+    # that an infinite or NaN result fails them.
     with np.errstate(over='ignore', invalid='ignore'):
-        condition = np.max(np.sum(np.abs(inv) @ np.abs(A), axis=1), initial=0.0)  # the infinity norm, 0 if n is 0
-        residual = np.linalg.norm(A @ inv - np.eye(n)) if supplied else 0.0
+        terms = np.abs(inv) @ np.abs(A)
+        condition = np.max(np.sum(terms, axis=1), initial=0.0)  # the infinity norm, 0 if n is 0
+        residuals = (residual(A @ inv, np.abs(A) @ np.abs(inv)), residual(inv @ A, terms)) if supplied else (0.0, 0.0)
     if not condition * np.finfo(float).eps < 1.0:
         raise ValueError(f'The affine transformation is numerically singular: norm(abs(inv) @ abs(A), inf) is '
                          f'{condition:.3g}, not below 1 / eps.')
-    if not residual <= 1e-8 * n:
+    if not (residuals[0] <= 1e-8 * n and residuals[1] <= 1e-8 * n):
         raise ValueError('The multiplication of the affine transformation matrix and its inverse is not an identity matrix.')
     return A, b, inv
 
 
 def _affine_is_diagonal(A, inv):
     """
-    The one structural decision: whether ``A`` AND ``inv`` are diagonal to roundoff.
+    The one structural decision: whether the bounds stay bounds.
 
-    An off-diagonal entry ``M[i, j]`` is negligible if
-    ``abs(M[i, j]) <= n * eps * min(abs(M[i, i]), abs(M[j, j]))``. ``n * eps`` is
-    the rounding level of an ``n``-term inner product, the convention by which
-    rank decisions call a quantity numerically zero. The scale is that of the
-    entry's own row and column and not a norm of the matrix, so a badly scaled
-    transformation cannot hide a material coupling behind a large entry
-    elsewhere. Anything above that is a coupling, and the generic
-    representation poses it exactly.
+    They do if ``A`` is diagonal, exactly, and ``diag(inv)`` is the reciprocal
+    of ``diag(A)`` to roundoff, ``abs(inv[i, i] * A[i, i] - 1) <= 8 * eps``.
+    The first is what makes the feasible set a box. The second is what makes
+    ``diag(inv)`` times a bound that bound in the new variables: two factors
+    that are each rounded to within two units in the last place differ from
+    exact reciprocals by less than ``5 * eps`` (the pair that
+    ``linearly_transformed`` builds is within ``1.5 * eps``), whereas a supplied
+    inverse is only held to 1e-8, and a bound may be of any size. Off-diagonal
+    entries of ``inv`` change no feasible set and are not read. Everything else
+    takes the generic representation, which poses the bounds exactly whatever
+    ``inv`` is.
     """
-    tolerance = A.shape[0] * np.finfo(float).eps
-    for matrix in (A, inv):
-        scale = np.abs(np.diagonal(matrix))
-        off_diagonal = np.abs(matrix - np.diag(np.diagonal(matrix)))
-        if np.any(off_diagonal > tolerance * np.minimum.outer(scale, scale)):
-            return False
-    return True
+    if np.count_nonzero(A - np.diag(np.diagonal(A))) > 0:
+        return False
+    with np.errstate(over='ignore', invalid='ignore'):
+        reciprocal = np.abs(np.diagonal(inv) * np.diagonal(A) - 1.0)
+    return bool(np.all(reciprocal <= 8.0 * np.finfo(float).eps))
+
+
+def _shifted(values, b, message):
+    """``values - b`` for bounds, where an infinite entry means "none"; a finite entry has to stay finite."""
+    with np.errstate(over='ignore', invalid='ignore'):
+        shifted = values - b
+    if np.any(np.isfinite(values) & ~np.isfinite(shifted)):
+        raise ValueError(message)
+    return shifted
 
 
 def _scaled_bounds(scale, lower, upper):
@@ -151,9 +193,34 @@ def _scaled_bounds(scale, lower, upper):
     # A finite bound times a finite scale can overflow. It would then be
     # posed as "no bound", which is the silent loss this module rules out.
     if np.any(np.isfinite(lower) & ~np.isfinite(scaled_lower)) or np.any(np.isfinite(upper) & ~np.isfinite(scaled_upper)):
-        raise ValueError('A finite bound is not representable after the affine transformation: it overflows, '
-                         'and posing it as infinite would drop it silently.')
+        raise ValueError(_BOUND_OVERFLOW)
     return np.minimum(scaled_lower, scaled_upper), np.maximum(scaled_lower, scaled_upper)
+
+
+def _composed_rows(matrix, rhs, A, b=None):
+    """
+    The linear constraints with coefficients ``matrix`` and right-hand side
+    ``rhs`` in the new variables: ``matrix @ A`` and ``rhs - matrix @ b``
+    (``rhs`` itself if there is no shift). A row of finite data has to stay
+    finite: an infinite right-hand side is counted as no constraint, a
+    negative one is satisfied nowhere, and NaN compares as satisfied.
+    """
+    with np.errstate(over='ignore', invalid='ignore'):
+        rows = matrix @ A
+        moved = rhs if b is None else rhs - matrix @ b
+    finite = np.all(np.isfinite(matrix), axis=1) & np.isfinite(rhs)
+    if not (np.all(np.isfinite(rows[finite])) and np.all(np.isfinite(moved[finite]))):
+        raise ValueError(_LINEAR_OVERFLOW)
+    return rows, moved
+
+
+def _pulled_back(inv, x0, b=None):
+    """The initial point in the new variables, ``inv @ (x0 - b)``; a finite point has to stay finite."""
+    with np.errstate(over='ignore', invalid='ignore'):
+        point = inv @ (x0 if b is None else x0 - b)
+    if np.all(np.isfinite(x0)) and not np.all(np.isfinite(point)):
+        raise ValueError(_X0_OVERFLOW)
+    return point
 
 
 class _StageRuntime:
@@ -169,6 +236,7 @@ class _StageRuntime:
     def __init__(self, name, options):
         self._name = name
         self._options = dict(options)
+        self._kept_affine = None  # (problem, seed, (A, b, inv)): see modifier_affine
 
     @property
     def name(self):
@@ -225,7 +293,7 @@ class _StageRuntime:
             # transformation to the initial point.
             if FeatureOption.MOD_AFFINE in self._options:
                 _, b, inv = self.modifier_affine(seed, problem)
-                return inv @ (problem.x0 - b)
+                return _pulled_back(inv, problem.x0, b)
             else:
                 return problem.x0
         elif self._name == FeatureName.PERTURBED_X0:
@@ -257,7 +325,7 @@ class _StageRuntime:
         elif self._name == FeatureName.LINEARLY_TRANSFORMED:
             # Apply the inverse of the affine transformation to the initial point.
             _, __, inv = self.modifier_affine(seed, problem)
-            return inv @ problem.x0
+            return _pulled_back(inv, problem.x0)
         else:
             return problem.x0
 
@@ -275,9 +343,29 @@ class _StageRuntime:
         Returns
         -------
         `numpy.ndarray`, `numpy.ndarray`, `numpy.ndarray`
-            Matrix A, vector b, and inverse of the matrix A.
-        """
+            Matrix A, vector b, and inverse of the matrix A, as read-only arrays.
 
+        Notes
+        -----
+        The triple is produced once per problem and seed and kept: the initial
+        point, the bounds, both kinds of linear constraints and every
+        evaluation read the same one. A ``mod_affine`` with a state (a counter,
+        a generator of its own) may answer differently when asked again, and
+        the bounds of one map with the linear constraints of another are the
+        structure of no problem. A specification keeps nothing: a runtime
+        serves one trial.
+        """
+        kept = getattr(self, '_kept_affine', None)  # a runtime pickled by an earlier version has none
+        if kept is not None and kept[0] is problem and kept[1] == seed:
+            return kept[2]
+        triple = self._generate_affine(seed, problem)
+        for array in triple:
+            array.setflags(write=False)  # it is shared from here on
+        self._kept_affine = (problem, seed, triple)
+        return triple
+
+    def _generate_affine(self, seed, problem):
+        """The triple of `modifier_affine`, produced anew: the only place that calls ``mod_affine``."""
         # Default values
         A = np.eye(problem.n)
         b = np.zeros(problem.n)
@@ -351,9 +439,10 @@ class _StageRuntime:
         is_fixed = problem.xl == problem.xu
         at_stake = is_fixed if fixed else (np.isfinite(problem.xl) | np.isfinite(problem.xu)) & ~is_fixed
         if np.any(at_stake):
-            raise ValueError(f'The affine transformation is not diagonal, so the finite bounds of the problem are posed '
+            raise ValueError(f'The affine transformation is not diagonal (or the diagonal of its inverse is not the '
+                             f'reciprocal of its diagonal to roundoff), so the finite bounds of the problem are posed '
                              f'as linear constraints, which `{key}` replaces: the bounds would be dropped silently. '
-                             f'Supply `mod_bounds` as well, or a diagonal transformation.')
+                             f'Supply `mod_bounds` as well, or a diagonal transformation with its exact inverse.')
 
     def modifier_bounds(self, seed, problem):
         """
@@ -388,7 +477,8 @@ class _StageRuntime:
                 # the same decision).
                 return np.full(problem.n, -np.inf), np.full(problem.n, np.inf)
             # Diagonal shortcut: the bounds stay bounds, scaled by the inverse.
-            return _scaled_bounds(np.diag(inv), problem.xl - b, problem.xu - b)
+            return _scaled_bounds(np.diag(inv), _shifted(problem.xl, b, _BOUND_OVERFLOW),
+                                  _shifted(problem.xu, b, _BOUND_OVERFLOW))
         elif self._name == FeatureName.PERMUTED:
             # Note that we need to apply the reverse permutation to the bounds so that the new
             # problem is mathematically equivalent to the original one.
@@ -401,7 +491,8 @@ class _StageRuntime:
             _, b, inv, diagonal = self._affine_pair(seed, problem)
             if not diagonal:
                 return np.full(problem.n, -np.inf), np.full(problem.n, np.inf)
-            return _scaled_bounds(np.diag(inv), problem.xl - b, problem.xu - b)
+            return _scaled_bounds(np.diag(inv), _shifted(problem.xl, b, _BOUND_OVERFLOW),
+                                  _shifted(problem.xu, b, _BOUND_OVERFLOW))
         else:
             return problem.xl, problem.xu
 
@@ -434,8 +525,9 @@ class _StageRuntime:
             # constraints but specifies a custom affine transformation, we need to specially
             # handle the linear inequality constraints.
             A, b, _, diagonal = self._affine_pair(seed, problem)
+            aub, bub = _composed_rows(problem.aub, problem.bub, A, b)
             if diagonal:  # the bounds stayed bounds (modifier_bounds read the same decision)
-                return problem.aub @ A, problem.bub - problem.aub @ b
+                return aub, bub
             """
             We need to specially handle bound constraints and linear inequality constraints.
 
@@ -461,12 +553,12 @@ class _StageRuntime:
             idx_eq = np.where(problem.xl == problem.xu)[0]
             idx_lb[idx_eq] = False
             idx_ub[idx_eq] = False
+            upper = _shifted(problem.xu, b, _BOUND_OVERFLOW)[idx_ub]
+            lower = _shifted(problem.xl, b, _BOUND_OVERFLOW)[idx_lb]
             if problem.aub.size == 0:
-                return np.vstack([A[idx_ub, :], -A[idx_lb, :]]), \
-                       np.concatenate([problem.xu[idx_ub] - b[idx_ub], -(problem.xl[idx_lb] - b[idx_lb])])
+                return np.vstack([A[idx_ub, :], -A[idx_lb, :]]), np.concatenate([upper, -lower])
             else:
-                return np.vstack([A[idx_ub, :], -A[idx_lb, :], problem.aub @ A]), \
-                       np.concatenate([problem.xu[idx_ub] - b[idx_ub], -(problem.xl[idx_lb] - b[idx_lb]), problem.bub - problem.aub @ b])
+                return np.vstack([A[idx_ub, :], -A[idx_lb, :], aub]), np.concatenate([upper, -lower, bub])
         elif self._name == FeatureName.PERMUTED:
             rng_permuted = self.get_default_rng(seed)
             permutation = rng_permuted.permutation(problem.n)
@@ -476,8 +568,9 @@ class _StageRuntime:
             # Similar to the case in the custom feature where a custom affine transformation
             # is specified.
             A, _, __, diagonal = self._affine_pair(seed, problem)
+            aub, bub = _composed_rows(problem.aub, problem.bub, A)
             if diagonal:
-                return problem.aub @ A, problem.bub
+                return aub, bub
             idx_lb = ~np.isinf(problem.xl)
             idx_ub = ~np.isinf(problem.xu)
             idx_eq = np.where(problem.xl == problem.xu)[0]
@@ -487,8 +580,8 @@ class _StageRuntime:
                 return np.vstack([A[idx_ub, :], -A[idx_lb, :]]), \
                        np.concatenate([problem.xu[idx_ub], -problem.xl[idx_lb]])
             else:
-                return np.vstack([A[idx_ub, :], -A[idx_lb, :], problem.aub @ A]), \
-                       np.concatenate([problem.xu[idx_ub], -problem.xl[idx_lb], problem.bub])
+                return np.vstack([A[idx_ub, :], -A[idx_lb, :], aub]), \
+                       np.concatenate([problem.xu[idx_ub], -problem.xl[idx_lb], bub])
         else:
             return problem.aub, problem.bub
 
@@ -521,8 +614,9 @@ class _StageRuntime:
             # constraints but specifies a custom affine transformation, we need to specially
             # handle the linear equality constraints.
             A, b, _, diagonal = self._affine_pair(seed, problem)
+            aeq, beq = _composed_rows(problem.aeq, problem.beq, A, b)
             if diagonal:  # the bounds stayed bounds (modifier_bounds read the same decision)
-                return problem.aeq @ A, problem.beq - problem.aeq @ b
+                return aeq, beq
             """
             We need to specially handle bound constraints and linear equality constraints.
 
@@ -539,11 +633,11 @@ class _StageRuntime:
 
             # Pick out the indices, of which the lower and upper bound are equal.
             idx_eq = np.where(problem.xl == problem.xu)[0]
+            fixed = _shifted(problem.xu, b, _BOUND_OVERFLOW)[idx_eq]
             if problem.aeq.size == 0:
-                return A[idx_eq, :], problem.xu[idx_eq] - b[idx_eq]
+                return A[idx_eq, :], fixed
             else:
-                return np.vstack([A[idx_eq, :], problem.aeq @ A]), \
-                       np.concatenate([problem.xu[idx_eq] - b[idx_eq], problem.beq - problem.aeq @ b])
+                return np.vstack([A[idx_eq, :], aeq]), np.concatenate([fixed, beq])
         elif self._name == FeatureName.PERMUTED:
             rng_permuted = self.get_default_rng(seed)
             permutation = rng_permuted.permutation(problem.n)
@@ -553,14 +647,15 @@ class _StageRuntime:
             # Similar to the case in the custom feature where a custom affine transformation
             # is specified.
             A, _, __, diagonal = self._affine_pair(seed, problem)
+            aeq, beq = _composed_rows(problem.aeq, problem.beq, A)
             if diagonal:
-                return problem.aeq @ A, problem.beq
+                return aeq, beq
             idx_eq = np.where(problem.xl == problem.xu)[0]
             if problem.aeq.size == 0:
                 return A[idx_eq, :], problem.xu[idx_eq]
             else:
-                return np.vstack([A[idx_eq, :], problem.aeq @ A]), \
-                       np.concatenate([problem.xu[idx_eq], problem.beq])
+                return np.vstack([A[idx_eq, :], aeq]), \
+                       np.concatenate([problem.xu[idx_eq], beq])
         else:
             return problem.aeq, problem.beq
 
