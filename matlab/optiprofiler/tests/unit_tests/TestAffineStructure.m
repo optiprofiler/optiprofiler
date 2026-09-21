@@ -76,6 +76,9 @@ classdef TestAffineStructure < matlab.unittest.TestCase
                     s.aub = [1, 1, 0]; s.bub = 5; s.aeq = [1, 0, -1]; s.beq = 0.25;
                 case 'fixed'     % the first variable is fixed: the generic path must pose an equality row
                     s.x0 = [1; 0.5; 0.5]; s.xl(1) = 1; s.xu(1) = 1; s.aub = [1, 1, 0]; s.bub = 5;
+                case 'fixedlinear'  % a fixed variable next to one linear inequality and one linear equality
+                    s.x0 = [1; 0.5; 0.5]; s.xl(1) = 1; s.xu(1) = 1;
+                    s.aub = [1, 1, 0]; s.bub = 5; s.aeq = [1, 0, -1]; s.beq = 0.25;
             end
             problem = Problem(s);
         end
@@ -1458,25 +1461,26 @@ classdef TestAffineStructure < matlab.unittest.TestCase
             % constraints remain transported and fixed original bounds are
             % not re-added as equalities.
             box = @(s, p) deal(-9 * ones(3, 1), 9 * ones(3, 1));
-            problem = TestAffineStructure.makeProblem('linear');
+            % The first variable is fixed: without mod_bounds a map that is not
+            % diagonal poses it as an equality row, and the other finite bounds
+            % as inequality rows. Neither may come back next to the supplied box.
+            problem = TestAffineStructure.makeProblem('fixedlinear');
+            transforms = {@TestAffineStructure.exactDiagonal, @TestAffineStructure.dense, @TestAffineStructure.roundoffMatrix};
             for composed = [false, true]
-                label = sprintf('composed=%d', composed);
                 tail = {}; if composed, tail = {'noisy'}; end
-                build = @(transform) FeaturedProblem(problem, Feature([{struct('name', 'custom', 'options', ...
-                    struct('mod_affine', transform, 'mod_bounds', box))}, tail]), 10, 3);
-                featured = build(@TestAffineStructure.exactDiagonal);
-                testCase.verifyEqual(featured.xl, -9 * ones(3, 1), label);
-                testCase.verifyEqual(featured.xu, 9 * ones(3, 1), label);
-                testCase.verifyEqual(featured.aub, problem.aub * diag(TestAffineStructure.D), label);  % no row of a bound
-                testCase.verifyEmpty(featured.reference, label);
-                featured = build(@TestAffineStructure.dense);
-                testCase.verifyEqual(featured.xl, -9 * ones(3, 1), label);
-                testCase.verifyEqual(featured.xu, 9 * ones(3, 1), label);
-                testCase.verifyEqual(featured.aub, problem.aub * TestAffineStructure.Dense, label);
-                testCase.verifyEqual(featured.bub, problem.bub - problem.aub * TestAffineStructure.B, label);
-                testCase.verifyEqual(featured.aeq, problem.aeq * TestAffineStructure.Dense, label);
-                testCase.verifyEqual(featured.beq, problem.beq - problem.aeq * TestAffineStructure.B, label);
-                testCase.verifyEmpty(featured.reference, label);
+                for k = 1:numel(transforms)
+                    label = sprintf('composed=%d, %s', composed, func2str(transforms{k}));
+                    [A, b] = transforms{k}([], problem);
+                    featured = FeaturedProblem(problem, Feature([{struct('name', 'custom', 'options', ...
+                        struct('mod_affine', transforms{k}, 'mod_bounds', box))}, tail]), 10, 3);
+                    testCase.verifyEqual(featured.xl, -9 * ones(3, 1), label);
+                    testCase.verifyEqual(featured.xu, 9 * ones(3, 1), label);
+                    testCase.verifyEqual(featured.aub, problem.aub * A, label);  % no row of a bound
+                    testCase.verifyEqual(featured.bub, problem.bub - problem.aub * b, label);
+                    testCase.verifyEqual(featured.aeq, problem.aeq * A, label);  % no row of the fixed variable
+                    testCase.verifyEqual(featured.beq, problem.beq - problem.aeq * b, label);
+                    testCase.verifyEmpty(featured.reference, label);
+                end
             end
         end
 

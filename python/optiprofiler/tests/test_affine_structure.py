@@ -1569,9 +1569,12 @@ class TestExplicitDecisions:
         def box(rng, problem):
             return np.full(3, -9.0), np.full(3, 9.0)
 
+        # The first variable is fixed: without ``mod_bounds`` a map that is not
+        # diagonal poses it as an equality row and the other finite bounds as
+        # inequality rows. Neither may come back next to the supplied box.
+        problem = Problem(sphere, [1.0, 0.5, 0.5], xl=[1.0, -2.0, -np.inf], xu=[1.0, np.inf, 4.0],
+                          aub=[[1.0, 1.0, 0.0]], bub=[5.0], aeq=[[1.0, 0.0, -1.0]], beq=[0.25], reference=REFERENCE)
         for transform in (exact_diagonal, dense, roundoff_matrix):
-            problem = linear_problem()
-            problem._xu[0] = problem._xl[0]  # a fixed bound would become an equality row
             featured = build(problem, transform, composed, mod_bounds=box)
             A, b, _ = transform(None, problem)
             np.testing.assert_array_equal(featured.xl, np.full(3, -9.0))
