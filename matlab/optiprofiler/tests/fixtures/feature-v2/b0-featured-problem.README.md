@@ -43,7 +43,8 @@ Two captures, both by the unmodified `1c4b7d9` tree with an isolated path
    continuation file above. The two callbacks were anonymous functions written
    in the generator. MATLAB records the absolute path of the file an anonymous
    function is written in, here
-   `/home/huangcunxin/audits/op-feature-report-stabilization-20260917/evidence/gen_b0_fixture.m`,
+   `~/audits/op-feature-report-stabilization-20260917/evidence/gen_b0_fixture.m`
+   under the home directory of the account that ran it,
    and warns `MATLAB:dispatcher:UnresolvedFunctionHandle` when the file is
    loaded on a machine without that path. The tests that require a silent load
    therefore passed on syu-ubuntu and failed on every clean machine (GitHub run

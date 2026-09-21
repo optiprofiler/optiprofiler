@@ -1,6 +1,7 @@
 addinivalue
 addoption
 allclose
+APFS
 APositive
 arange
 argmax
@@ -46,6 +47,8 @@ dotfile
 dpng
 dtype
 EDB
+EILSEQ
+EINVAL
 Emax
 Emin
 encodable
@@ -85,6 +88,7 @@ figsize
 filesystems
 finfo
 fiu
+fixedlinear
 flatnonzero
 flintmax
 fmin
@@ -265,6 +269,7 @@ surrogateescape
 surrogatepass
 swapaxes
 syu
+tmpfs
 tocdepth
 toctree
 uistack
