@@ -9,6 +9,7 @@ replay recipe written by a ``load`` invocation.
 """
 
 import base64
+import errno
 import hashlib
 import json
 import os
@@ -289,18 +290,8 @@ def test_symlinked_report_parent_and_output_resolve_physically(tmp_path, monkeyp
     assert loaded['source']['sha256'] == hashlib.sha256(archive.read_bytes()).hexdigest()
 
 
-@pytest.mark.skipif(os.name == 'nt' or sys.getfilesystemencoding().lower().replace('-', '') != 'utf8',
-                    reason='needs a POSIX UTF-8 filesystem encoding to create an undecodable name')
-def test_undecodable_artifact_name_is_recorded_with_a_reason(tmp_path):
-    output = tmp_path / 'out'
-    output.mkdir()
-    report = EvalReport(tmp_path / 'r.json', {})
-    report.configure({}, {}, Feature('plain'), output_dir=output)
-    with open(os.path.join(os.fsencode(str(output)), b'bad\xff.txt'), 'wb') as stream:
-        stream.write(b'x')
-    (output / 'good.txt').write_text('y')
-    report.finish()
-    document = json.loads((tmp_path / 'r.json').read_text(encoding='utf-8'))
+def _assert_the_undecodable_name_is_recorded_with_a_reason(report_path):
+    document = json.loads(report_path.read_text(encoding='utf-8'))
     bad = [a for a in document['artifacts'] if a['path'] is None]
     good = [a for a in document['artifacts'] if a['path'] == 'good.txt']
     assert len(bad) == 1 and len(good) == 1
@@ -308,6 +299,51 @@ def test_undecodable_artifact_name_is_recorded_with_a_reason(tmp_path):
     assert bad[0]['sha256'] == hashlib.sha256(b'x').hexdigest()
     assert any(d['code'] == 'artifact_path_unavailable' for d in document['diagnostics'])
     assert_valid(document, 'eval_report')
+
+
+@pytest.mark.skipif(os.name == 'nt' or sys.getfilesystemencoding().lower().replace('-', '') != 'utf8',
+                    reason='needs a POSIX UTF-8 filesystem encoding to create an undecodable name')
+def test_undecodable_artifact_name_is_recorded_with_a_reason(tmp_path):
+    output = tmp_path / 'out'
+    output.mkdir()
+    report = EvalReport(tmp_path / 'r.json', {})
+    report.configure({}, {}, Feature('plain'), output_dir=output)
+    try:
+        with open(os.path.join(os.fsencode(str(output)), b'bad\xff.txt'), 'wb') as stream:
+            stream.write(b'x')
+    except OSError as err:
+        # A UTF-8 filesystem encoding does not mean that the filesystem takes
+        # any bytes as a name: ext4 and tmpfs do, APFS refuses what is not
+        # UTF-8 (EILSEQ). Where such a file cannot exist there is nothing to
+        # harvest; the test below covers the recording on every platform.
+        if err.errno not in (errno.EILSEQ, errno.EINVAL):
+            raise
+        pytest.skip(f'this filesystem does not accept a file name that is not UTF-8: {err}')
+    (output / 'good.txt').write_text('y')
+    report.finish()
+    _assert_the_undecodable_name_is_recorded_with_a_reason(tmp_path / 'r.json')
+
+
+def test_undecodable_artifact_name_is_recorded_on_every_platform(tmp_path, monkeypatch):
+    # The same record, on the filesystems that cannot hold such a name too
+    # (APFS, NTFS): the name reaches the report as a surrogate-escaped string,
+    # which is how ``os.walk`` hands over bytes that are not UTF-8. The file
+    # that is sized and hashed is a real one.
+    output = tmp_path / 'out'
+    output.mkdir()
+    report = EvalReport(tmp_path / 'r.json', {})
+    report.configure({}, {}, Feature('plain'), output_dir=output)
+    (output / 'bad.txt').write_bytes(b'x')
+    (output / 'good.txt').write_text('y')
+    relative_path = eval_report_module._relative_path
+
+    def undecodable(path, base):
+        relative = relative_path(path, base)
+        return 'bad\udcff.txt' if relative == 'bad.txt' else relative  # b'bad\xff.txt' under surrogateescape
+
+    monkeypatch.setattr(eval_report_module, '_relative_path', undecodable)
+    report.finish()
+    _assert_the_undecodable_name_is_recorded_with_a_reason(tmp_path / 'r.json')
 
 
 def test_diagnostics_are_deduplicated_and_omissions_count_distinct_entries(tmp_path):
