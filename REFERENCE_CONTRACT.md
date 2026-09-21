@@ -136,24 +136,27 @@ superseded layout, hands a struct to `loadobj` and warns that the constructor
 must preserve the class. Every read goes through the validator, so a caller
 sees a valid four-field record or `[]`, whatever a file left in the object.
 
-Python featured-problem pickles. A built `FeaturedProblem` is restored from its
-validated instance state rather than reconstructed through its constructor.
-This applies to both a single stage and a composition, so loading a trusted
-pickle does not call a stateful `mod_affine` callback again or generate a
-different feasible set. The state-restoring reducer is intentionally for
-trusted pickle input only; it does not make pickle a safe interchange format.
-The state is the third item of the reduction, not an argument of the
-reconstructor: `pickle` and `copy` register an object before its state and
-after its arguments, so only in that place is a reference from the state back
-to the featured problem (a callback that keeps the problem it serves) restored
-as that problem; among the arguments it silently gave an object without any
-state. Read as well, without calling a callback: a pickle of the first
-reducer (state among the arguments) and a composition pickled before there was
-a reducer (constructor arguments and the instance dictionary). A single-stage
-featured problem pickled before there was a reducer could be written and
-never read (`FeaturedProblem.__new__` was given no arguments); it still raises
-that `TypeError`, on purpose: the oldest of those pickles hold no kept
-transformation, so reading them would ask a `mod_affine` with a state again.
+Python featured-problem pickles. A built `FeaturedProblem` is restored from
+its saved instance state, not through its constructor. Single stages and
+compositions therefore keep their sampled affine map without calling feature
+callbacks again. This is a compatibility path for trusted pickle input, not a
+safe interchange format.
+
+The reducer stores state in its third item, after the instance is registered,
+so callback-owner cycles refer to that same restored instance. Instance
+dictionaries and initialized subclass slots (including inherited and private
+slots) are preserved; uninitialized slots remain uninitialized. Each stage
+runtime restores the read-only flags of its own cached affine arrays. No
+general traversal of callback objects, closures or other user-owned state is
+performed.
+
+The first reducer's state-as-argument layout remains readable: its state
+dictionary is kept by identity because pickle may still be filling it when a
+callback-owner cycle calls the reconstructor. Compositions written before
+there was a reducer are also read without resampling. The oldest single-stage
+pickles, whose reconstruction lacks the required constructor arguments and a
+kept transformation, still raise `TypeError`; reading them must not silently
+call a stateful modifier again.
 
 ## 4. Propagation (`FeaturedProblem.reference`)
 
@@ -171,7 +174,7 @@ objective values over them unchanged up to a change of variables.
 | `perturbed_x0` | retained | only the initial point moves |
 | `permuted` | retained | coordinate permutation |
 | `linearly_transformed` | retained | invertible affine change of variables built by the framework |
-| `custom`, option names within `{mod_x0, mod_affine}` | retained | `mod_x0` moves the initial point; `mod_affine` is validated by `A * inv == I` when the problem is built, so it is a valid affine coordinate change |
+| `custom`, option names within `{mod_x0, mod_affine}` | retained | `mod_x0` moves the initial point; `mod_affine` must pass the numerical validation and transport checks of section 7 before the featured problem is built |
 | `custom`, any other option (`mod_fun`, `mod_cub`, `mod_ceq`, `mod_bounds`, `mod_linear_ub`, `mod_linear_eq`, or an option added later) | unknown | arbitrary user code that may change values, constraints or bounds; the framework cannot prove that the feasible reference survives |
 | `quantized`, `ground_truth=true` (the default) | unknown | the truth becomes the mesh problem; no proof that the same feasible reference holds is available |
 | any other stage name | unknown | fail closed |
@@ -210,193 +213,111 @@ method of the stage views is named `referenceValue`, because `reference` is the
   formulas, archives, the report schema, providers, locks, gitlinks, versions
   or paper references.
 
-## 7. The posed problem is the scored problem (affine safeguard)
+## 7. Affine validation and transport
 
-This section was "out of scope" when the contract was written and is fixed by
-the affine safeguard commit that follows it on this branch.
+An affine stage uses the change of variables `x = A * y + b`. Its structure,
+truth evaluations and supported derivatives must use the same validated
+triple `(A, b, inv)`. A failed check raises during construction rather than
+silently dropping a constraint or retaining a reference for a failed
+construction. These are floating-point safeguards, not exact rank
+certificates, proofs of the author's reference or guarantees of exact
+reversibility at every representable point.
 
-The defect. For `linearly_transformed` and for `custom` with `mod_affine`, the
-bounds modifier decided with an exact test on the *inverse* whether the map is
-diagonal (MATLAB `isdiag(inv)`), while the linear modifiers decided with an
-exact test on the *matrix* (`isdiag(A)`). With `A = diag(2, 4)` and a supplied
-inverse carrying off-diagonal entries of size `1e-17`, the bounds became
-infinite and no bound row was added: the bounds left the problem handed to the
-solver, while the truth went on scoring them (it reported a violation of 19 at
-a point mapped far outside the box). A retained reference then described a
-problem that the solver had not been given.
+### 7.1 Validate the matrix independently of its claimed inverse
 
-The rule now, the same in both languages. The pair is validated before any
-simplification: real, finite arrays of matching sizes;
-`norm(abs(inv) * abs(A), inf) < 1 / eps`, a condition number that scaling the
-rows of `A` cannot change, so that an exact but badly scaled transformation is
-not refused; and, for a supplied inverse,
-`norm(A * inv - I, 'fro') <= 1e-8 * n`. One decision is then made from both
-matrices and read by the bounds and by both kinds of linear constraints: an
-off-diagonal entry is negligible if
-`abs(M(i, j)) <= n * eps * min(abs(M(i, i)), abs(M(j, j)))`, for `M = A` and for
-`M = inv`. If both are diagonal in this sense the bounds stay bounds, scaled by
-`diag(inv)`; otherwise every finite bound is posed as a linear row of `A`,
-which needs `A` only and is valid for every invertible `A`. The tolerance
-therefore chooses a representation and can never decide whether a bound is
-posed. A finite bound that would overflow when scaled raises instead of
-becoming infinite. So does a supplied `mod_linear_ub` or `mod_linear_eq` under a
-`mod_affine` that is not diagonal, without `mod_bounds`, if the problem has
-bounds that the framework would pose as those rows: a supplied linear modifier
-replaces the rows verbatim, so the bounds would have nowhere left to go.
+The triple is converted to double precision, then checked for real finite
+entries and the required dimensions. Callback outputs, including integers
+beyond `2^53`, use the rounded double values consistently; unlike a recorded
+reference merit, they need not be exactly representable as doubles.
 
-Follow-up (the hardening commit after the safeguard). An independent audit of
-the rule above found four ways in which the posed problem could still differ
-from the scored one, and the rule is now as follows; where this paragraph and
-the previous one differ, this one holds.
+The established pair scale policy remains
+`norm(abs(inv) * abs(A), inf) < 1 / eps`. For a user-supplied inverse, both
+products must also satisfy
 
-- The decision is exact. `abs(M(i, j)) <= n * eps * min(...)` called an entry of
-  `4e-16` next to a diagonal of 1 negligible. With bounds of `1e16` that entry
-  moves the feasible set by 4: `y = (-4, 1e16)` is mapped to the vertex
-  `(0, 1e16)` of the original box, and the box posed in the new variables
-  rejected it. What an off-diagonal entry of `A` moves depends on the size of
-  the other variable, which no tolerance on the entry knows. The bounds stay
-  bounds only if `A` is exactly diagonal (then the set is a box) and
-  `abs(inv(i, i) * A(i, i) - 1) <= 8 * eps` (then `diag(inv)` times a bound is
-  that bound to roundoff; a supplied inverse is otherwise only held to `1e-8`).
-  Off-diagonal entries of `inv` change no feasible set and are not read. The
-  pair that `linearly_transformed` builds without rotation is exactly diagonal
-  and reciprocal to `1.5 * eps`, so its bounds are bitwise what they were.
-- One transformation per problem and seed. The modifiers and every evaluation
-  of the single-feature path each called `mod_affine` again. User code with a
-  state (a counter, the global random stream instead of the stream it is
-  handed) then gave the bounds one map and the linear rows another: with a
-  diagonal and a dense answer in turn, the bounds became infinite and no bound
-  row was added. The runtime now produces and validates the triple once, keeps
-  it (read-only in Python; saved with the kernel in MATLAB, so that a loaded
-  featured problem goes on with the map its structure was built with), and
-  every reader gets that one. A specification keeps nothing.
-- `inv` has to invert `A` from both sides, and neither set of units matters.
-  With `A = diag(1e-8, 1e8)` and `inv = [1e8, 1e-8; 0, 1e-8]`, `A * inv` is the
-  identity to `1e-16` while `inv * A` misses it by 1. Requiring
-  `norm(inv * A - I, 'fro') <= 1e-8 * n` as well would refuse a rotation with
-  one new variable in units of `1e13`, which is consistent to roundoff. The
-  plain rule on `A * inv` already refused the same rotation with one original
-  variable in those units; and for a rotation whose products happen to cancel
-  exactly in plain arithmetic (entries `t` and `2 * t`) NumPy, whose kernels
-  are fused, refused it while MATLAB accepted it. Each entry is therefore
-  measured against the terms
-  it is summed from: `norm(E, 'fro') <= 1e-8 * n` for
-  `E = (A * inv - I) ./ max(1, abs(A) * abs(inv))` and for
-  `E = (inv * A - I) ./ max(1, abs(inv) * abs(A))`. Where the terms are below 1
-  this is the plain rule; it is never stricter than the plain rule on
-  `A * inv`, and an error of the size of the terms is refused at every scale.
-  (Superseded by the second follow-up below: dividing by the terms allowed
-  `1e-8` *of the terms*, which is far more than their rounding. Both products
-  are still required; the allowance is now `64 * n * eps` times the terms.)
-- Nothing finite leaves the floating-point range unnoticed. `xu - b` with
-  `1e308 + 1e308` is infinite before anything is scaled, so the scale guard saw
-  "no bound"; as a row it had an infinite right-hand side, which counts as no
-  constraint; `bub - aub * b` and `aub * A` gave `-Inf`, `NaN` and `Inf`. Every
-  shifted bound, right-hand side, composed row and the pulled-back initial
-  point is now checked, for `linearly_transformed` as well, and raises.
-  (The second follow-up below adds the other end of the range, underflow, and
-  replaces the check of the initial point by a verification at the point.)
+    norm(max(abs(P - I) - 64 * n * eps * T, 0), 'fro') <= 1e-8 * n,
 
-Two conversions were found on the way. MATLAB kept the data of a `Problem`
-(`x0`, `xl`, `xu`, `aub`, `bub`, `aeq`, `beq`) in the class they were given in,
-and combines an integer with a scalar double in integer arithmetic: with `int32`
-data the truth called `x = 4.3` feasible for `xu = 4`, and a change of variables
-posed the bounds `-1` and `2` for `-0.25` and `1.75`. The data are now double
-precision numbers, as in Python. In a Python composition, an integer beyond the
-range of a float returned by a custom callback raised `OverflowError` instead of
-the `ValueError` naming the stage.
+where `(P, T)` is `(A * inv, abs(A) * abs(inv))` or
+`(inv * A, abs(inv) * abs(A))`. Non-finite test quantities fail. The allowance
+accounts for rounding of large cancelling terms; it does not independently
+establish that a claimed inverse is valid.
 
-Second follow-up. An independent audit of the follow-up found three more ways
-in which the posed problem, or what a solver is told about it, could differ
-from the scored one; and one of the rules above was too loose. Where this
-paragraph and the previous ones differ, this one holds.
+User-supplied matrices therefore have an additional check that uses `A`
+alone. Its rows and then columns are equilibrated by powers of two, using
+their largest absolute entries. Reversing each scaling must recover every
+entry exactly; a zero row or column, or any loss during scaling, refuses the
+transform. Python requires `cond(E, 1) < 1 / eps` for the equilibrated matrix;
+MATLAB requires `rcond(E) > eps`. These are independent numerical conditioning
+estimates, not mathematical certificates, and may differ near the cutoff.
+There is no extra factor `n` in this cutoff. The empty `0 x 0` matrix is
+accepted. Internally constructed rotations and nonzero diagonal scalings
+retain their existing checks without an additional cubic-cost factorization.
 
-- Nothing finite is lost to underflow either. With `xl = 1e-200`,
-  `xu = 2e-200`, `A = 1e200` and `inv = 1e-200` both scaled bounds are below the
-  smallest subnormal number and round to 0: a nonempty interval was posed as
-  the single point `y = 0`, which is mapped outside it. The same loss turned a
-  coefficient row into a row of zeros (no constraint), a right-hand side of
-  `-2^-1200` into 0, and an initial point into 0 where `log(x1)` is `-Inf` for a
-  finite `fun(x0)`. The boundary is the smallest normal number (`realmin`,
-  `2.2e-308`), below which the spacing of numbers is absolute: a nonzero bound
-  has to stay at least that large in magnitude, and an entry of a transported
-  row or right-hand side must not have a product of nonzero factors among its
-  terms while the sum of the absolute terms is below it (the right-hand side
-  itself counts as a term of the shifted one). A zero bound stays zero, and an
-  entry that is zero because normal terms cancel has lost nothing. What is
-  refused raises (`ValueError`; `AffineBoundsNotRepresentable`,
-  `AffineLinearConstraintsNotRepresentable`). Posing the bounds as rows of `A`
-  instead would be representable where the scaled bound is not; raising was
-  kept because an overflowing scaled bound raises since the safeguard, and one
-  policy for both ends of the range is easier to state.
-- The initial point is verified where it is used. `A = I` with
-  `inv = [1, 1e-12; 0, 1]` is an identity to `1e-12` from both sides, inside
-  every tolerance on the matrices, and it pulled the feasible
-  `x0 = (0, 1e14)` back to `(100, 1e14)`: `maxcv_init` 99 for a feasible start.
-  No tolerance on the matrices bounds an error at a point, because `x0` can be
-  of any size. `inv * (x0 - b)` is now the point only if `A` maps it back,
-  `abs(A * y + b - x0) <= 64 * n * eps * (abs(A) * abs(y) + abs(b) + abs(x0))`
-  in every component (a norm would let a component of `1e14` excuse an error of
-  100 in another one). Otherwise `A * y = x0 - b` is solved, which needs `A`
-  only, and if that point is not mapped back either (overflow, underflow),
-  construction raises (`AffineInitialPointNotRepresentable`). A point that
-  passes is kept bitwise: the framework's own inverse was measured at most 3.1
-  units of that allowance over `n` up to 200 and condition factors up to 6000.
-  The allowance is the rounding of the evaluation, not of `x0`: for
-  `A = [1, 1e15; 0, 1]` the map itself resolves the first component to 0.03 at
-  `x0 = (1/3, 1/7)`, for the truth as for the start, and measuring against `x0`
-  alone would refuse the rotations of `linearly_transformed` at ordinary
-  condition factors.
-- Derivatives follow the change of variables. The single-feature
-  `FeaturedProblem` handed out the callbacks of the original problem unchanged:
-  for `f(x) = ||x||^2`, `A = diag(2, 1)` and `y = (1, 1)`, `grad` returned
-  `(2, 2)` while the function the solver evaluates has the gradient `(8, 2)`.
-  `grad`, `hess`, `jcub`, `jceq`, `hcub` and `hceq` are now those of the
-  original callbacks in the variables of the solver: `A' * grad(x)`,
-  `A' * hess(x) * A`, `J(x) * A`, `A' * H_i(x) * A` at `x = A * y + b`, for
-  `permuted`, `linearly_transformed` and `custom` with `mod_affine`. Every
-  other single feature keeps the established passthrough. They are never
-  derivatives of observed values, cost no evaluation, record no history, read
-  the kept transformation, and leave an absent derivative absent. A
-  composition still provides none (`NotImplementedError`,
-  `UnsupportedCompositeDerivative`).
-- The consistency rule allows rounding, and only rounding. The first follow-up
-  divided each residual by `max(1, terms)`, which allowed `1e-8` *of the terms*:
-  for `A = [1, 1e15; 0, 1]` an inverse with one entry off by `1e-9` of its size
-  (`1e6`) was accepted and moved the start by `1e6`, which the safeguard had
-  refused. The rule is now `norm(max(abs(P - I) - 64 * n * eps * T, 0), 'fro')
-  <= 1e-8 * n` for `P = A * inv` and `P = inv * A`, with `T` the product of the
-  absolute values. Pairs that are consistent to roundoff were measured at most
-  6.6 units of `n * eps * T` (built by formula or by LU, condition numbers up
-  to `1e14`, NumPy 1.24 to 2.5 and MATLAB R2026a); the refused inverse is at
-  `4.5e6`. It is never stricter than the plain rule on `A * inv`, does not
-  depend on the units of either set of variables or on the kernel that
-  multiplies the matrices, and refuses what the plain rule refused.
+### 7.2 Preserve the box and explicit linear constraints
 
-Decisions made explicit (each pinned by a test in both languages):
+The diagonal shortcut is selected only when `A` is exactly diagonal and
+`abs(inv(i, i) * A(i, i) - 1) <= 8 * eps` in every component. Bounds are then
+scaled by `diag(inv)`, with endpoints exchanged for negative scales.
+Off-diagonal entries of a supplied inverse do not select the representation.
+Every other accepted map uses the generic representation: finite original
+bounds become linear rows of `A`, and fixed variables become equalities.
+Small nonzero entries of `A` are never discarded as a structural shortcut.
 
-- One transformation per runtime, problem and seed; one entry, keyed on the
-  identity of the problem object and the value of the seed. A problem is not to
-  be changed in place while a featured problem is built on it. The deprecated
-  `Feature.modifier_*` conveniences build a runtime per call and therefore
-  keep nothing: a callback with a state can give two of them two maps.
-- `mod_bounds` replaces the logical original box, regardless of how an affine
-  stage represents that box internally. Under a non-diagonal `mod_affine`, the
-  framework therefore does not add the original box again as generated linear
-  rows; original explicit linear/equality constraints are still transported.
-  This makes replacement independent of the structural representation and
-  avoids silently constraining the solver with a box the user explicitly
-  replaced. The reference is unknown after any `mod_bounds`, so nothing is
-  claimed about the resulting custom problem.
-- Integers beyond `2^53` (and extended precision in Python) in the triple are
-  rounded to the nearest double, as every decimal literal is, in both
-  languages and in both execution paths. The rounded triple is the one that is
-  validated, kept and used, by structure, truth and derivatives alike. Exact
-  representability is required of recorded values (option values, the merit of
-  a reference), not of callback outputs.
+`mod_bounds` replaces the logical original box, independently of whether an
+affine stage would represent it as bounds or generated rows. The replaced box
+is not added again; original explicit linear constraints are still
+transported. Without `mod_bounds`, a custom linear modifier is rejected when
+its verbatim replacement would discard generated bound rows of that type.
+Any `mod_bounds` makes the reference unknown, as in section 4.
 
-Consequence for this contract. `linearly_transformed` and `custom` within
-`{mod_x0, mod_affine}` retain the reference (section 4). That is a claim about
-the problem handed to the solver, and it holds because that problem is now
-always the scored one in new coordinates: a transform that cannot be
-represented raises, so no featured problem, and no reference, exists for it.
+### 7.3 Reject unrepresentable transport, allow ordinary rounding
+
+Finite shifted bounds, transported linear rows and right-hand sides must stay
+finite. A nonzero diagonally scaled bound must remain at least the smallest
+normal magnitude. A transported row or right-hand-side entry is refused when
+it has a product of nonzero factors but the sum of its absolute terms is below
+that magnitude; cancellation of normal terms is not classified as underflow.
+Both overflow and underflow raise rather than silently removing a constraint.
+
+Bounds are checked as a pair after translation and after diagonal scaling.
+If a strict original interval acquires equal floating-point endpoints,
+construction raises. The translation check also applies when the box becomes
+linear rows. A genuinely fixed original variable remains allowed.
+
+For finite original `x0`, the candidate `y = inv * (x0 - b)` is retained only
+if `y`, `A * y + b` and the componentwise rounding allowance are all finite,
+and
+
+    abs(A * y + b - x0) <= 64 * n * eps *
+                         (abs(A) * abs(y) + abs(b) + abs(x0)).
+
+The allowance's nonnegative terms are scaled before addition to avoid
+overflow in a valid large identity case. An overflowing absolute matrix
+product is still a failed check; `Inf <= Inf` is never accepted as evidence.
+If the candidate fails, the framework solves `A * y = x0 - b` and applies the
+same check; failure raises. A passing candidate is kept bitwise. The existing
+policy for an originally non-finite user `x0` is unchanged: it is transported
+as given. The allowance concerns evaluation rounding, not exact equality or
+an error bound relative only to the magnitude of `x0`.
+
+MATLAB stores ordinary problem data (`x0`, bounds and linear constraints) as
+doubles, as Python does, so integer arithmetic cannot change transported
+bounds or truth evaluations.
+
+### 7.4 Keep one runtime map and the established derivative semantics
+
+Each stage runtime caches one triple, keyed by problem identity and seed.
+Every structure, truth and derivative reader uses that triple; Python arrays
+are read-only and MATLAB saves the triple with the kernel. Specifications
+carry no sampled map. A problem must not be mutated in place while a featured
+problem uses it. Deprecated `Feature.modifier_*` conveniences create a new
+runtime per call and do not promise a shared map across separate calls.
+Python restoration is runtime-local as described in section 3.
+
+For a single `permuted`, `linearly_transformed` or custom affine stage, the
+existing derivative wrappers apply the chain rule at `x = A * y + b`:
+`A' * grad(x)`, `A' * hess(x) * A`, `J(x) * A` and
+`A' * H_i(x) * A`. They use original callbacks, not noisy or otherwise
+observed values; they consume no evaluation budget and record no history.
+Absent derivatives remain absent. Other single stages retain their existing
+passthrough behavior, and compositions still do not provide derivatives.
+The numerical safeguards do not change these derivative or cache contracts.

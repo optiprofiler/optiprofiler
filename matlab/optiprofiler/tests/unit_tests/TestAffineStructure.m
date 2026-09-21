@@ -1442,8 +1442,8 @@ classdef TestAffineStructure < matlab.unittest.TestCase
             testCase.verifyEqual(A * featured.x0, problem.x0);
             testCase.verifyError(@() FeaturedProblem(problem, Feature('custom', struct('mod_affine', @(s, p) deal(A, [0; 0], sloppy))), 10, 3), not_invertible);
             testCase.verifyError(@() FeaturedProblem(problem, Feature('custom', struct('mod_affine', @(s, p) deal(A', [0; 0], sloppy'))), 10, 3), not_invertible);
-            % A pair that is consistent to roundoff is accepted at any condition
-            % number: built as linearly_transformed builds its own, D * Q' and
+            % A roundoff-consistent row scaling remains accepted: built as
+            % linearly_transformed builds its own, D * Q' and
             % Q * D^-1, with a condition number of 1e12, each product misses the
             % identity by 1e-5, a few units of rounding of its terms.
             [Q, ~] = qr(randn(RandStream('mt19937ar', 'Seed', 7), 3));

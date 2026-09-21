@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.linalg import qr
+import copyreg
 import re
 import sys
 import warnings
@@ -37,47 +38,16 @@ def _restore_featured_problem(cls, state=None):
     """
     instance = object.__new__(cls)
     if state is not None:
-        instance.__setstate__(state)
+        if not isinstance(state, dict):
+            raise TypeError('The featured-problem pickle does not contain an instance state dictionary.')
+        # The first reducer put this dictionary among the arguments. With a
+        # callback-owner cycle pickle can still be filling that very dictionary
+        # when it calls us. Keep its identity: copying its current (possibly
+        # empty) contents loses the state that pickle writes afterwards. New
+        # reductions use the third-item state path and do not need this rule.
+        object.__setattr__(instance, '__dict__', state)
     return instance
 
-
-def _restore_cached_affine_flags(value, seen=None):
-    """Reapply the runtime cache's read-only contract after unpickling.
-
-    NumPy does not preserve an ndarray's ``WRITEABLE=False`` flag through a
-    pickle round trip.  The affine cache is shared by bounds, rows, initial
-    points and truth evaluation, so letting a restored caller mutate it would
-    reintroduce the very structure/truth split that the cache prevents.
-    Walk only the restored object graph and freeze cached affine triples; the
-    user's ordinary problem arrays retain their historical mutability.
-    """
-    if seen is None:
-        seen = set()
-    marker = id(value)
-    if marker in seen or value is None:
-        return
-    seen.add(marker)
-    if isinstance(value, dict):
-        for item in value.values():
-            _restore_cached_affine_flags(item, seen)
-        return
-    if isinstance(value, (tuple, list, set, frozenset)):
-        for item in value:
-            _restore_cached_affine_flags(item, seen)
-        return
-    if (type(value).__name__ == '_StageRuntime'
-            and type(value).__module__ == __name__):
-        cached = getattr(value, '_kept_affine', None)
-        if isinstance(cached, tuple) and len(cached) == 3:
-            triple = cached[2]
-            if isinstance(triple, tuple) and len(triple) == 3:
-                for array in triple:
-                    if isinstance(array, np.ndarray):
-                        array.setflags(write=False)
-    attributes = getattr(value, '__dict__', None)
-    if isinstance(attributes, dict):
-        for item in attributes.values():
-            _restore_cached_affine_flags(item, seen)
 
 def _round_truncated(value, digits):
     """Round decimal ties using MATLAB's default away-from-zero direction."""
@@ -172,19 +142,52 @@ _X0_MISMATCH = ('The initial point is not representable after the affine transfo
 _ROUNDING = 64
 
 
+def _equilibrated_affine_condition(A):
+    """Estimate conditioning from ``A`` itself, independently of a claimed inverse.
+
+    Remove row and column units by powers of two before the estimate. These
+    scalings are exact unless the exponent range loses information; the
+    reverse scaling checks that case explicitly. In particular, a valid
+    diagonal change of units need not have a small unscaled condition number.
+    This is a numerical singularity check, not an exact rank certificate.
+    """
+    if A.shape[0] == 0:
+        return 1.0
+    scaled = A
+    for axis in (1, 0):
+        largest = np.max(np.abs(scaled), axis=axis, keepdims=True)
+        if np.any(largest == 0.0):
+            return np.inf
+        _, powers = np.frexp(largest)
+        with np.errstate(under='ignore', over='ignore', invalid='ignore'):
+            normalized = np.ldexp(scaled, -powers)
+            restored = np.ldexp(normalized, powers)
+        if not np.array_equal(restored, scaled):
+            raise ValueError('The affine transformation cannot be checked for numerical invertibility without '
+                             'losing data during equilibration.')
+        scaled = normalized
+    try:
+        return np.linalg.cond(scaled, 1)
+    except np.linalg.LinAlgError:
+        return np.inf
+
+
 def _checked_affine(A, b, inv, n, supplied):
     """
     The change of variables ``x = A @ y + b`` as validated float arrays.
 
     Checked in this order, each with its own message: real arrays of shapes
     ``(n, n)``, ``(n,)`` and ``(n, n)``; finite entries (NaN fails no
-    inequality, so it has to be asked for); numerical invertibility,
+    inequality, so it has to be asked for); the scale check
     ``norm(abs(inv) @ abs(A), inf) < 1 / eps``; and, if ``inv`` was
-    ``supplied`` by user code, consistency from both sides (see below).
+    ``supplied`` by user code, consistency from both sides (see below) and an
+    independent condition estimate of the equilibrated matrix ``A``.
 
-    This condition number does not change when the rows of ``A`` (the units of
-    the original variables) are scaled, and ``1 / eps`` is where a matrix is
-    singular to working precision. The usual ``norm(A) * norm(inv)`` would
+    The scale check on the pair preserves the established policy. When
+    ``inv`` is a valid inverse, this componentwise condition estimate does not
+    change when the rows of ``A`` (the units of the original variables) are
+    scaled. It cannot by itself establish that a claimed inverse is valid.
+    The usual ``norm(A) * norm(inv)`` would
     refuse exact transformations that are merely badly scaled: here a diagonal
     scaling has condition number 1 whatever its entries, and the scaled
     rotation of ``linearly_transformed`` at most ``n``. The framework's own
@@ -244,6 +247,23 @@ def _checked_affine(A, b, inv, n, supplied):
                          f'{condition:.3g}, not below 1 / eps.')
     if not (residuals[0] <= 1e-8 * n and residuals[1] <= 1e-8 * n):
         raise ValueError('The multiplication of the affine transformation matrix and its inverse is not an identity matrix.')
+    if supplied:
+        # A claimed inverse cannot certify that A is invertible: a large
+        # matrix in the nullspace of a singular A makes both products zero,
+        # yet their rounding allowances can erase the identity residual.
+        # Check A independently, after the established checks so their error
+        # messages and scale policy remain unchanged. Internal rotations and
+        # nonzero diagonal scalings are invertible by construction and do not
+        # need another cubic-cost factorization.
+        independent_condition = _equilibrated_affine_condition(A)
+        # Working-precision cutoff for this independent condition estimate;
+        # this is not an SVD rank tolerance and carries no extra factor n.
+        # An n*eps cutoff would reject otherwise supported ill-conditioned
+        # maps merely when their dimension increases (covered through n=200).
+        if not independent_condition * np.finfo(float).eps < 1.0:
+            raise ValueError('The affine transformation is numerically singular after equilibration: '
+                             f'its independently estimated 1-norm condition number is {independent_condition:.3g}, '
+                             'not below 1 / eps.')
     return A, b, inv
 
 
@@ -279,6 +299,19 @@ def _shifted(values, b, message):
     return shifted
 
 
+def _shifted_bounds(problem, b):
+    """Transport the box as a pair, whether it becomes bounds or linear rows."""
+    lower = _shifted(problem.xl, b, _BOUND_OVERFLOW)
+    upper = _shifted(problem.xu, b, _BOUND_OVERFLOW)
+    # Individually finite endpoints are insufficient: [0, 1] - 1e16 is a
+    # single floating-point number. Do not silently turn an interval into an
+    # equality. A genuinely fixed original variable remains valid.
+    if np.any((problem.xl < problem.xu) & (lower == upper)):
+        raise ValueError('A finite bound interval collapses after the affine translation; its endpoints are not '
+                         'distinguishable in floating-point arithmetic.')
+    return lower, upper
+
+
 def _scaled_bounds(scale, lower, upper):
     """
     Bounds of the diagonal shortcut, ``scale * [lower, upper]``, swapped where
@@ -296,6 +329,9 @@ def _scaled_bounds(scale, lower, upper):
     tiny = np.finfo(float).tiny
     if np.any((lower != 0.0) & (np.abs(scaled_lower) < tiny)) or np.any((upper != 0.0) & (np.abs(scaled_upper) < tiny)):
         raise ValueError(_BOUND_UNDERFLOW)
+    if np.any((lower < upper) & (scaled_lower == scaled_upper)):
+        raise ValueError('A finite bound interval collapses after the affine scaling; its endpoints are not '
+                         'distinguishable in floating-point arithmetic.')
     return np.minimum(scaled_lower, scaled_upper), np.maximum(scaled_lower, scaled_upper)
 
 
@@ -358,9 +394,19 @@ def _pulled_back(A, inv, x0, b=None):
     shift = np.zeros(x0.size) if b is None else b
 
     def mapped_back(point):
-        error = np.abs(A @ point + shift - x0)
-        allowed = _ROUNDING * x0.size * np.finfo(float).eps * (np.abs(A) @ np.abs(point) + np.abs(shift) + np.abs(x0))
-        return bool(np.all(error <= allowed))  # False for NaN and for an infinite component
+        if not np.all(np.isfinite(point)):
+            return False
+        mapped = A @ point + shift
+        if not np.all(np.isfinite(mapped)):
+            return False
+        error = np.abs(mapped - x0)
+        alpha = _ROUNDING * x0.size * np.finfo(float).eps
+        # Scale each nonnegative term before adding: the valid identity at
+        # x0=1e308 otherwise overflows the unscaled sum. An overflowing
+        # absolute matrix product is still unverifiable, not evidence that
+        # the point maps back correctly. In particular Inf <= Inf is true.
+        allowed = alpha * (np.abs(A) @ np.abs(point)) + alpha * np.abs(shift) + alpha * np.abs(x0)
+        return bool(np.all(np.isfinite(allowed)) and np.all(error <= allowed))
 
     with np.errstate(over='ignore', invalid='ignore', under='ignore'):
         point = inv @ (x0 if b is None else x0 - b)
@@ -391,6 +437,17 @@ class _StageRuntime:
         self._name = name
         self._options = dict(options)
         self._kept_affine = None  # (problem, seed, (A, b, inv)): see modifier_affine
+
+    def __setstate__(self, state):
+        """Restore this runtime's cache without inspecting the user's objects."""
+        self.__dict__.update(state)
+        # NumPy pickle/deepcopy does not retain WRITEABLE=False. Restore only
+        # the cache we own, after its arrays have been loaded; a general object
+        # graph walk also visits callback metadata that pickle never saved.
+        cached = state.get('_kept_affine')  # older runtimes had no cache
+        if cached is not None:
+            for array in cached[2]:
+                array.setflags(write=False)
 
     @property
     def name(self):
@@ -637,8 +694,7 @@ class _StageRuntime:
                 # the same decision).
                 return np.full(problem.n, -np.inf), np.full(problem.n, np.inf)
             # Diagonal shortcut: the bounds stay bounds, scaled by the inverse.
-            return _scaled_bounds(np.diag(inv), _shifted(problem.xl, b, _BOUND_OVERFLOW),
-                                  _shifted(problem.xu, b, _BOUND_OVERFLOW))
+            return _scaled_bounds(np.diag(inv), *_shifted_bounds(problem, b))
         elif self._name == FeatureName.PERMUTED:
             # Note that we need to apply the reverse permutation to the bounds so that the new
             # problem is mathematically equivalent to the original one.
@@ -651,8 +707,7 @@ class _StageRuntime:
             _, b, inv, diagonal = self._affine_pair(seed, problem)
             if not diagonal:
                 return np.full(problem.n, -np.inf), np.full(problem.n, np.inf)
-            return _scaled_bounds(np.diag(inv), _shifted(problem.xl, b, _BOUND_OVERFLOW),
-                                  _shifted(problem.xu, b, _BOUND_OVERFLOW))
+            return _scaled_bounds(np.diag(inv), *_shifted_bounds(problem, b))
         else:
             return problem.xl, problem.xu
 
@@ -719,8 +774,8 @@ class _StageRuntime:
             idx_eq = np.where(problem.xl == problem.xu)[0]
             idx_lb[idx_eq] = False
             idx_ub[idx_eq] = False
-            upper = _shifted(problem.xu, b, _BOUND_OVERFLOW)[idx_ub]
-            lower = _shifted(problem.xl, b, _BOUND_OVERFLOW)[idx_lb]
+            lower, upper = _shifted_bounds(problem, b)
+            lower, upper = lower[idx_lb], upper[idx_ub]
             if problem.aub.size == 0:
                 return np.vstack([A[idx_ub, :], -A[idx_lb, :]]), np.concatenate([upper, -lower])
             else:
@@ -3107,6 +3162,19 @@ class FeaturedProblem(Problem):
             instance.__dict__[k] = v
         return instance
 
+    def __getstate__(self):
+        """Keep ordinary instance and inherited slot state, as default pickle does."""
+        # Use pickle's own slot-name collector: it includes every base class,
+        # mangles private names and omits __dict__/__weakref__. This also works
+        # on Python 3.8, before object.__getstate__ became public in Python 3.11.
+        slots = {}
+        for name in copyreg._slotnames(type(self)):
+            try:
+                slots[name] = getattr(self, name)
+            except AttributeError:
+                pass  # an uninitialized slot must stay uninitialized
+        return (self.__dict__, slots) if slots else self.__dict__
+
     def __reduce__(self):
         """Serialize the built featured problem without re-running callbacks.
 
@@ -3126,14 +3194,20 @@ class FeaturedProblem(Problem):
         ``pickle.loads`` return an object without any state, silently, and
         ``copy.deepcopy`` a copy whose callback kept a second, half-built one.
         """
-        return _restore_featured_problem, (type(self),), self.__dict__
+        return _restore_featured_problem, (type(self),), self.__getstate__()
 
     def __setstate__(self, state):
         """Restore state from current and legacy pickles without resampling."""
+        slots = {}
+        if isinstance(state, tuple) and len(state) == 2:
+            state, slots = state
         if not isinstance(state, dict):
             raise TypeError('The featured-problem pickle does not contain an instance state dictionary.')
+        if not isinstance(slots, dict):
+            raise TypeError('The featured-problem pickle does not contain a slot state dictionary.')
         self.__dict__.update(state)
-        _restore_cached_affine_flags(self)
+        for name, value in slots.items():
+            object.__setattr__(self, name, value)
 
     @property
     def fun_init(self):

@@ -254,7 +254,8 @@ classdef FeatureKernel < handle
                         return;
                     end
                     % Diagonal shortcut: the bounds stay bounds, scaled by the inverse.
-                    [xl, xu] = scaledBounds(diag(inv), shifted(problem.xl, b), shifted(problem.xu, b));
+                    [lower, upper] = shiftedBounds(problem, b);
+                    [xl, xu] = scaledBounds(diag(inv), lower, upper);
                 case FeatureName.PERMUTED.value
                     % Note that we need to apply the reverse permutation to the bounds so that the new
                     % problem is mathematically equivalent to the original one.
@@ -352,8 +353,7 @@ classdef FeatureKernel < handle
                     idx_eq = find(problem.xl == problem.xu);
                     idx_lb(idx_eq) = false;
                     idx_ub(idx_eq) = false;
-                    upper = shifted(problem.xu, b);
-                    lower = shifted(problem.xl, b);
+                    [lower, upper] = shiftedBounds(problem, b);
                     if isempty(problem.aub)
                         aub = [A(idx_ub, :); -A(idx_lb, :)];
                         bub = [upper(idx_ub); -lower(idx_lb)];
@@ -453,7 +453,7 @@ classdef FeatureKernel < handle
 
                     % Pick out the indices, of which the lower and upper bound are equal.
                     idx_eq = find(problem.xl == problem.xu);
-                    fixed = shifted(problem.xu, b);
+                    [~, fixed] = shiftedBounds(problem, b);
                     if isempty(problem.aeq)
                         aeq = A(idx_eq, :);
                         beq = fixed(idx_eq);
@@ -948,13 +948,16 @@ function [A, b, inv] = checkedAffine(A, b, inv, n, supplied)
 % The change of variables x = A * y + b as validated full double arrays.
 % Checked in this order, each with its own message: real arrays of sizes
 % n-by-n, n and n-by-n; finite entries (NaN fails no inequality, so it has to
-% be asked for); numerical invertibility,
+% be asked for); the established pair-scale restriction,
 % norm(abs(inv) * abs(A), inf) < 1 / eps; and, if inv was SUPPLIED by user
-% code, consistency from both sides (see below).
+% code, consistency from both sides and an independent numerical condition
+% check of A after row and column equilibration.
 %
-% This condition number does not change when the rows of A (the units of the
-% original variables) are scaled, and 1 / eps is where a matrix is singular to
-% working precision. The usual norm(A) * norm(inv) would refuse exact
+% When inv is an actual inverse, the pair scale is a componentwise condition
+% measure unchanged by scaling the rows of A (the units of the original
+% variables). An unverified supplied inv cannot establish that premise, so
+% the pair scale alone never certifies invertibility. It retains the earlier
+% acceptance policy. The usual norm(A) * norm(inv) would refuse exact
 % transformations that are merely badly scaled: here a diagonal scaling has
 % condition number 1 whatever its entries, and the scaled rotation of
 % linearly_transformed at most n. The framework's own inverse of a rotation is
@@ -1008,6 +1011,47 @@ function [A, b, inv] = checkedAffine(A, b, inv, n, supplied)
     if supplied && ~(identityResidual(A * inv, abs(A) * abs(inv), n) <= 1e-8 * n && identityResidual(inv * A, terms, n) <= 1e-8 * n)
         error("MATLAB:Feature:AffineTransformationNotInvertible", "The multiplication of the affine transformation matrix and its inverse is not an identity matrix.");
     end
+    % A supplied inverse is not independent evidence that A is invertible:
+    % for singular A, a fabricated inverse can make both absolute product
+    % sums huge while both signed products vanish. The residual allowance
+    % then hides the missing identity. Check A itself after removing simple
+    % changes of units, independently of everything the callback calls inv.
+    if supplied && ~matrixIsNumericallyInvertible(A)
+        error("MATLAB:Feature:AffineTransformationNotInvertible", "The affine transformation matrix is numerically singular after row and column equilibration.");
+    end
+end
+
+function tf = matrixIsNumericallyInvertible(A)
+% Independent numerical check, not an exact mathematical certificate. Scaling
+% by powers of two preserves representable entries exactly; a round trip
+% rejects an equilibration that loses an entry to underflow. This permits
+% extreme diagonal units without trusting the user's alleged inverse.
+    tf = true;
+    if isempty(A)
+        return;
+    end
+    row_max = max(abs(A), [], 2);
+    if any(row_max == 0)
+        tf = false;
+        return;
+    end
+    [~, row_exponents] = log2(row_max);
+    equilibrated = bsxfun(@pow2, A, -row_exponents);
+    if ~isequal(bsxfun(@pow2, equilibrated, row_exponents), A)
+        error("MATLAB:Feature:AffineTransformationNotInvertible", "The affine transformation's numerical invertibility cannot be verified without losing data during equilibration.");
+    end
+    column_max = max(abs(equilibrated), [], 1);
+    if any(column_max == 0)
+        tf = false;
+        return;
+    end
+    [~, column_exponents] = log2(column_max);
+    scaled = bsxfun(@pow2, equilibrated, -column_exponents);
+    if ~isequal(bsxfun(@pow2, scaled, column_exponents), equilibrated)
+        error("MATLAB:Feature:AffineTransformationNotInvertible", "The affine transformation's numerical invertibility cannot be verified without losing data during equilibration.");
+    end
+    reciprocal_condition = rcond(scaled);
+    tf = isfinite(reciprocal_condition) && reciprocal_condition > eps;
 end
 
 function value = identityResidual(product, terms, n)
@@ -1069,6 +1113,18 @@ function values = shifted(values, b)
     end
 end
 
+function [lower, upper] = shiftedBounds(problem, b)
+% A finite translation can erase a positive interval even when neither end
+% overflows: [0, 1] - 1e16 becomes [-1e16, -1e16]. Check the pair before it is
+% represented as either a box or two linear rows. Deliberate fixed variables
+% are valid; only a previously strict interval becoming a point is rejected.
+    lower = shifted(problem.xl, b);
+    upper = shifted(problem.xu, b);
+    if any(problem.xl < problem.xu & lower == upper)
+        error("MATLAB:Feature:AffineBoundsNotRepresentable", "A strict bound interval is not representable after the affine translation: its distinct endpoints collapse to the same floating-point number.");
+    end
+end
+
 function [xl, xu] = scaledBounds(scale, lower, upper)
 % Bounds of the diagonal shortcut, scale .* [lower, upper], swapped where the
 % scale is negative. A finite bound has to stay finite, and a nonzero one a
@@ -1084,6 +1140,9 @@ function [xl, xu] = scaledBounds(scale, lower, upper)
     % has lost its digits or is zero, and an interval can collapse to a point.
     if any(lower ~= 0 & abs(scaled_lower) < realmin) || any(upper ~= 0 & abs(scaled_upper) < realmin)
         error("MATLAB:Feature:AffineBoundsNotRepresentable", "A finite bound is not representable after the affine transformation: it underflows (its magnitude falls below the smallest normal number), and posing it as zero would move it.");
+    end
+    if any(lower < upper & scaled_lower == scaled_upper)
+        error("MATLAB:Feature:AffineBoundsNotRepresentable", "A strict bound interval is not representable after the affine scaling: its distinct endpoints collapse to the same floating-point number.");
     end
     xl = min(scaled_lower, scaled_upper);
     xu = max(scaled_lower, scaled_upper);
@@ -1146,8 +1205,7 @@ function point = pulledBack(A, inv, x0, b)
         shift = b;
         point = inv * (x0 - b);
     end
-    mapped = @(y) all(abs(A * y + shift - x0) <= roundingAllowance() * n * eps * (abs(A) * abs(y) + abs(shift) + abs(x0)));  % false for NaN and for an infinite component
-    if ~all(isfinite(x0)) || mapped(point)
+    if ~all(isfinite(x0)) || mappedBack(A, point, shift, x0)
         return;  % (a point that is not finite is the user's: it is transported as it is)
     end
     states = [warning('off', 'MATLAB:nearlySingularMatrix'), warning('off', 'MATLAB:singularMatrix')];
@@ -1156,8 +1214,28 @@ function point = pulledBack(A, inv, x0, b)
     if ~all(isfinite(point))
         error("MATLAB:Feature:AffineInitialPointNotRepresentable", "The initial point is not representable after the affine transformation: it overflows.");
     end
-    if ~mapped(point)
+    if ~mappedBack(A, point, shift, x0)
         error("MATLAB:Feature:AffineInitialPointNotRepresentable", "The initial point is not representable after the affine transformation: the point found in the new variables is not mapped back to it to roundoff (it underflows, or the transformation is too ill conditioned at that point).");
+    end
+end
+
+function tf = mappedBack(A, point, shift, original)
+% Inf <= Inf is true, so finiteness is a premise of this error test, not
+% something the inequality establishes. Scale each allowance term before
+% adding it: the valid identity map at x0=1e308 otherwise overflows only in
+% the allowance. An absolute matrix product that overflows remains unverified.
+    tf = false;
+    if ~all(isfinite(point))
+        return;
+    end
+    mapped = A * point + shift;
+    if ~all(isfinite(mapped))
+        return;
+    end
+    alpha = roundingAllowance() * numel(original) * eps;
+    allowance = alpha * (abs(A) * abs(point)) + alpha * abs(shift) + alpha * abs(original);
+    if all(isfinite(allowance))
+        tf = all(abs(mapped - original) <= allowance);
     end
 end
 

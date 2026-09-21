@@ -1549,7 +1549,7 @@ class TestExplicitDecisions:
         with pytest.raises(ValueError, match='not an identity matrix'):
             FeaturedProblem(problem, Feature('custom', mod_affine=lambda rng, problem: (A, np.zeros(2), sloppy)), 10, 3)
 
-    def test_a_pair_that_is_consistent_to_roundoff_is_accepted_at_any_condition_number(self):
+    def test_roundoff_consistent_row_scaling_at_condition_1e12_is_accepted(self):
         # Built as linearly_transformed builds its own, D @ Q.T and Q @ D**-1,
         # with a condition number of 1e12: each product misses the identity by
         # 1e-5, which is a few units of rounding of its terms.
