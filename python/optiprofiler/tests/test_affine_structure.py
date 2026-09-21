@@ -51,6 +51,9 @@ what the deprecated conveniences keep (nothing), what ``mod_bounds`` replaces
 converted (rounded, as every number is).
 """
 
+import copy
+import copyreg
+import io
 import pickle
 
 import numpy as np
@@ -58,7 +61,8 @@ import pytest
 
 from optiprofiler import Feature, FeaturedProblem, Problem
 from optiprofiler.composition import AffineView, ComposedFeaturedProblem
-from optiprofiler.opclasses import _StageRuntime, _affine_is_diagonal, _checked_affine, _pulled_back
+from optiprofiler.opclasses import (_StageRuntime, _affine_is_diagonal, _checked_affine, _pulled_back,
+                                    _restore_featured_problem)
 
 
 EPS = np.finfo(float).eps
@@ -866,6 +870,76 @@ def build(problem, transform, composed=False, **options):
 
 
 COMPOSED = pytest.mark.parametrize('composed', [False, True], ids=['single', 'composed'])
+
+
+def runtime_and_callback_of(featured):
+    """The runtime of the custom stage built by `build`, and the ``mod_affine`` of the user in it."""
+    runtime = featured._views[0]._runtime if isinstance(featured, ComposedFeaturedProblem) else featured._runtime
+    callback = runtime._options['mod_affine']
+    return runtime, getattr(callback, 'user', callback)  # a composition wraps the callbacks of a custom stage
+
+
+class EarlierLayout(pickle.Pickler):
+    """Writes a featured problem the way an earlier version of the package did."""
+
+    def __init__(self, stream, layout):
+        super().__init__(stream, protocol=4)
+        self.layout = layout
+
+    def reducer_override(self, obj):
+        if not isinstance(obj, FeaturedProblem):
+            return NotImplemented
+        if self.layout == 'state among the arguments':  # the first reducer of the class
+            return _restore_featured_problem, (type(obj), obj.__dict__)
+        # A composition before the class had a reducer: ``__getnewargs__`` and the instance dictionary.
+        return copyreg.__newobj__, (type(obj), obj._problem, obj._runtime, obj._max_eval, obj._seed), obj.__dict__
+
+
+class TestPicklingRestoresWhatWasBuilt:
+
+    @COMPOSED
+    @pytest.mark.parametrize('how', ['protocol 4', 'protocol 5', 'deepcopy'])
+    def test_a_callback_that_keeps_its_featured_problem_survives_pickling_and_copying(self, how, composed):
+        # A reference back to the object from within its own state. pickle and
+        # copy register an object after its reconstructor returned, so a state
+        # handed over among the arguments of the reconstructor is restored
+        # before the object exists: ``pickle.loads`` returned an object without
+        # a single attribute here, silently, and ``copy.deepcopy`` a copy whose
+        # callback kept another, half-built object.
+        callback = Drifting()
+        featured = build(linear_problem(), callback, composed)
+        featured.fun(np.array([0.2, 0.3, 0.4]))
+        callback.owner = featured
+        restored = copy.deepcopy(featured) if how == 'deepcopy' else pickle.loads(pickle.dumps(featured, protocol=int(how[-1])))
+        assert type(restored) is type(featured) and callback.calls == 1
+        for key in ('x0', 'xl', 'xu', 'aub', 'bub', 'aeq', 'beq', 'fun_hist', 'maxcv_hist'):
+            np.testing.assert_array_equal(getattr(restored, key), getattr(featured, key), err_msg=key)
+        runtime, kept_callback = runtime_and_callback_of(restored)
+        assert kept_callback.owner is restored and kept_callback.calls == 1
+        assert all(not array.flags.writeable for array in runtime._kept_affine[2])
+
+    @pytest.mark.parametrize('layout, composed', [('state among the arguments', False), ('state among the arguments', True),
+                                                  ('constructor arguments and a dictionary', True)],
+                             ids=['first reducer, single', 'first reducer, composed', 'before any reducer, composed'])
+    def test_pickles_of_the_earlier_layouts_are_still_read(self, layout, composed):
+        # Nothing of what is restored is produced again: the callback is not
+        # called, the kept transformation is read-only, and the restored trial
+        # continues as the live one does.
+        callback = Drifting()
+        featured = build(linear_problem(), callback, composed)
+        featured.fun(np.array([0.2, 0.3, 0.4]))
+        stream = io.BytesIO()
+        EarlierLayout(stream, layout).dump(featured)
+        restored = pickle.loads(stream.getvalue())
+        assert type(restored) is type(featured) and callback.calls == 1
+        for key in ('x0', 'xl', 'xu', 'aub', 'bub', 'aeq', 'beq', 'fun_hist', 'maxcv_hist'):
+            np.testing.assert_array_equal(getattr(restored, key), getattr(featured, key), err_msg=key)
+        runtime, kept_callback = runtime_and_callback_of(restored)
+        assert kept_callback.calls == 1
+        assert all(not array.flags.writeable for array in runtime._kept_affine[2])
+        point = np.array([0.1, -0.2, 0.3])
+        assert restored.fun(point) == featured.fun(point) and restored.maxcv(point) == featured.maxcv(point)
+        assert kept_callback.calls == 1 and callback.calls == 1
 
 
 class TestExactStructuralDecision:

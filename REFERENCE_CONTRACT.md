@@ -142,6 +142,18 @@ This applies to both a single stage and a composition, so loading a trusted
 pickle does not call a stateful `mod_affine` callback again or generate a
 different feasible set. The state-restoring reducer is intentionally for
 trusted pickle input only; it does not make pickle a safe interchange format.
+The state is the third item of the reduction, not an argument of the
+reconstructor: `pickle` and `copy` register an object before its state and
+after its arguments, so only in that place is a reference from the state back
+to the featured problem (a callback that keeps the problem it serves) restored
+as that problem; among the arguments it silently gave an object without any
+state. Read as well, without calling a callback: a pickle of the first
+reducer (state among the arguments) and a composition pickled before there was
+a reducer (constructor arguments and the instance dictionary). A single-stage
+featured problem pickled before there was a reducer could be written and
+never read (`FeaturedProblem.__new__` was given no arguments); it still raises
+that `TypeError`, on purpose: the oldest of those pickles hold no kept
+transformation, so reading them would ask a `mod_affine` with a state again.
 
 ## 4. Propagation (`FeaturedProblem.reference`)
 

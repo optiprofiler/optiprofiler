@@ -852,12 +852,11 @@ class ComposedFeaturedProblem(FeaturedProblem):
 
         self._fun_init, self._maxcv_init = self._evaluate_truth(self._x0)
 
-    def __getnewargs__(self):
-        # Legacy constructor arguments for Python pickle protocols that do not
-        # use ``FeaturedProblem.__reduce__``.  The explicit reducer now covers
-        # both single-stage and composed objects and restores the validated
-        # runtime state without re-running user callbacks.
-        return self._problem, self._runtime, self._max_eval, self._seed
+    # Pickling: ``FeaturedProblem.__reduce__`` serves single-stage and composed
+    # objects alike, in every protocol. A composition pickled before that
+    # reducer existed holds constructor arguments for ``FeaturedProblem.__new__``
+    # and its instance dictionary; it is still read, and nothing here is needed
+    # for that (the arguments are in the pickle).
 
     def _point(self, x, method):
         return _point_of(self, x, method)

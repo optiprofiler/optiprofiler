@@ -19,7 +19,7 @@ from .experiment import STRATEGY_COMPOSED, select_execution_strategy
 from .legacy_compat import LegacyObject, historical_effective_options
 
 
-def _restore_featured_problem(cls, state):
+def _restore_featured_problem(cls, state=None):
     """Restore a trusted featured-problem pickle without rebuilding its oracle.
 
     Building a ``FeaturedProblem`` normally evaluates every feature modifier.
@@ -29,11 +29,15 @@ def _restore_featured_problem(cls, state):
     object was constructed, so the trusted pickle path restores that exact
     state directly.  As with every Python pickle, the input must not be
     treated as untrusted data.
+
+    The instance is returned empty and pickle hands its state to
+    ``__setstate__`` afterwards (see ``FeaturedProblem.__reduce__``).  A
+    ``state`` argument is only found in a pickle written by the first version
+    of this reducer, which is still read.
     """
     instance = object.__new__(cls)
-    if not isinstance(state, dict):
-        raise TypeError('The featured-problem pickle does not contain an instance state dictionary.')
-    instance.__setstate__(state)
+    if state is not None:
+        instance.__setstate__(state)
     return instance
 
 
@@ -3112,8 +3116,17 @@ class FeaturedProblem(Problem):
         feasible set.  Persist the already validated runtime and histories
         instead.  This is a trusted-pickle compatibility path, just like the
         existing Feature and ProblemReference pickle paths.
+
+        The state is the third item, not an argument of the reconstructor.
+        ``pickle`` and ``copy`` register an object after its reconstructor
+        returned and before its state is restored, so a reference back to this
+        object from within its state (a callback that keeps the problem it
+        serves) is restored as this object.  Among the arguments, which are
+        restored before the object exists, such a reference made
+        ``pickle.loads`` return an object without any state, silently, and
+        ``copy.deepcopy`` a copy whose callback kept a second, half-built one.
         """
-        return _restore_featured_problem, (type(self), self.__dict__)
+        return _restore_featured_problem, (type(self),), self.__dict__
 
     def __setstate__(self, state):
         """Restore state from current and legacy pickles without resampling."""
