@@ -140,7 +140,9 @@ Python featured-problem pickles. A built `FeaturedProblem` is restored from
 its saved instance state, not through its constructor. Single stages and
 compositions therefore keep their sampled affine map without calling feature
 callbacks again. This is a compatibility path for trusted pickle input, not a
-safe interchange format.
+safe interchange format. New construction safeguards do not recompute stored
+initial points or histories in existing pickles or experiment archives; loading
+does not migrate or repair previously recorded results.
 
 The reducer stores state in its third item, after the instance is registered,
 so callback-owner cycles refer to that same restored instance. Instance
@@ -209,19 +211,21 @@ method of the stage views is named `referenceValue`, because `reference` is the
 - No consumer: no benchmark option, no score, no profile formula, archive or
   report reads the reference. The public `benchmark` signature is unchanged.
 - No offline catalog, scoring manifest or independent scorer.
-- No change to solver calls, seeds, random streams, histories, profile
-  formulas, archives, the report schema, providers, locks, gitlinks, versions
-  or paper references.
+- No change to solver interfaces, seeds, random streams, history or archive
+  layouts, profile formulas, the report schema, providers, locks, gitlinks,
+  versions or paper references. Section 7 describes the correction or refusal
+  of previously accepted affine initial points, not a new experiment format.
 
 ## 7. Affine validation and transport
 
 An affine stage uses the change of variables `x = A * y + b`. Its structure,
 truth evaluations and supported derivatives must use the same validated
-triple `(A, b, inv)`. A failed check raises during construction rather than
-silently dropping a constraint or retaining a reference for a failed
-construction. These are floating-point safeguards, not exact rank
-certificates, proofs of the author's reference or guarantees of exact
-reversibility at every representable point.
+triple `(A, b, inv)`, where `inv` is a candidate inverse. A failed check raises
+during construction rather than silently dropping a constraint or retaining a
+reference for a failed construction. These are floating-point safeguards, not
+exact rank certificates, proofs of the author's reference or guarantees of exact
+reversibility at every representable point. Here `eps` is double-precision
+machine epsilon, approximately `2.22e-16`.
 
 ### 7.1 Validate the matrix independently of its claimed inverse
 
@@ -283,21 +287,61 @@ If a strict original interval acquires equal floating-point endpoints,
 construction raises. The translation check also applies when the box becomes
 linear rows. A genuinely fixed original variable remains allowed.
 
-For finite original `x0`, the candidate `y = inv * (x0 - b)` is retained only
-if `y`, `A * y + b` and the componentwise rounding allowance are all finite,
-and
+For finite original `x0`, retaining any affine default candidate
+`y = inv * (x0 - b)` requires finite `y`, `A * y + b` and rounding allowance,
+and the established componentwise rounding test:
 
-    abs(A * y + b - x0) <= 64 * n * eps *
-                         (abs(A) * abs(y) + abs(b) + abs(x0)).
+    alpha = 64 * n * eps
+    abs(A * y + b - x0) <= alpha * (abs(A) * abs(y) + abs(b) + abs(x0)).
+
+Only a custom user-supplied inverse has the additional test below before its
+candidate can be retained unchanged:
+
+    abs(A * y + b - x0) <= sqrt(eps) * min(abs(x0), abs(x0 - b)).
+
+This extra threshold is about
+`1.49e-8 * min(abs(x0(i)), abs(x0(i) - b(i)))` per component. It
+determines whether to keep the inverse candidate unchanged or solve
+`A * y = x0 - b` independently. It is independent of the claimed inverse and
+of other coordinates: an inflated inverse or an unrelated large coordinate
+cannot relax it. This prevents retaining an inaccurate inverse candidate
+merely because its own large entries inflated the rounding allowance.
+The smaller of the original and centered coordinate magnitudes prevents a
+large coordinate origin from hiding error in a small `x0 - b`, or a large
+shift from excusing error in a small original coordinate. There is no absolute
+floor: any nonzero recovery error at a zero coordinate of either `x0` or
+`x0 - b` triggers an independent solve. An omitted shift is zero.
+
+The independently solved point is checked for finiteness and the established
+rounding allowance only, not against the extra local threshold. Failure
+raises an initial-point error. The threshold is a solve trigger, not a bound
+promised for the final forward error or a proof of exact feasibility. Even an
+honestly computed custom inverse can trigger a solve, and a well-conditioned rotation
+that mixes small and large coordinates may not recover every small coordinate
+within that threshold. Nor is small forward error guaranteed for arbitrary
+ill-conditioned maps. This policy removes reliance on the supplied inverse
+for a suspect start without imposing a new all-map forward-accuracy contract.
+Intrinsic conditioning or mixed coordinate scales can cause forward drift even
+after solving. `fun_init` and `maxcv_init` are evaluated at the posed start;
+they do not certify recovery of an originally feasible point.
+Internally generated `linearly_transformed` maps retain their existing
+finite/rounding-only policy; this custom-inverse solve trigger does not change
+their starts. Forward drift for extreme conditioning or mixed coordinate
+scales remains a limitation of that existing policy.
 
 The allowance's nonnegative terms are scaled before addition to avoid
 overflow in a valid large identity case. An overflowing absolute matrix
 product is still a failed check; `Inf <= Inf` is never accepted as evidence.
-If the candidate fails, the framework solves `A * y = x0 - b` and applies the
-same check; failure raises. A passing candidate is kept bitwise. The existing
-policy for an originally non-finite user `x0` is unchanged: it is transported
-as given. The allowance concerns evaluation rounding, not exact equality or
-an error bound relative only to the magnitude of `x0`.
+Custom inverse candidates passing both tests are kept bitwise; no such promise
+is made for all honestly computed custom inverses. Explicit `mod_x0` still
+overrides the affine default initial point and is not required to map back to
+the predecessor's `x0`. The existing policy for an originally non-finite user
+`x0` is unchanged: it is transported
+as given. These tests permit ordinary rounding, not exact equality.
+
+Transport checks are local to each stage. The strict-interval test protects
+the original box of that stage, not arbitrary intervals encoded as linear
+rows or a proof of lossless transport across a composition.
 
 MATLAB stores ordinary problem data (`x0`, bounds and linear constraints) as
 doubles, as Python does, so integer arithmetic cannot change transported

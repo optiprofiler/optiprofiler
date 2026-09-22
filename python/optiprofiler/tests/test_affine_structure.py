@@ -1647,19 +1647,34 @@ class TestInitialPoint:
         allowed = 64 * 3 * EPS * (np.abs(A) @ np.abs(featured.x0) + np.abs(b) + np.abs(problem.x0))
         assert np.all(np.abs(A @ featured.x0 + b - problem.x0) <= allowed)
 
-    def test_an_inverse_that_is_good_at_the_point_gives_the_point_it_always_gave(self):
-        # Bitwise: the framework's own inverse (measured at most 3.1 units of
-        # the allowance of 64 over n up to 200 and condition factors up to
-        # 6000), and a supplied one that is an inverse to roundoff.
+    def test_only_an_accurate_inverse_candidate_keeps_its_original_bits(self):
+        # Retain the established inverse product when accurate at this point.
+        # Large cancellation now requests a solve, even for an honest inverse;
+        # being consistent to rounding no longer pins that candidate's bits.
         problem = linear_problem()
+        retained, solved = 0, 0
+
+        def expected(A, b, inv):
+            nonlocal retained, solved
+            candidate = inv @ (problem.x0 - b)
+            scale = np.minimum(np.abs(problem.x0), np.abs(problem.x0 - b))
+            if np.all(np.abs(A @ candidate + b - problem.x0) <= np.sqrt(EPS) * scale):
+                retained += 1
+                return candidate
+            solved += 1
+            return np.linalg.solve(A, problem.x0 - b)
+
         for options in (dict(rotated=False, condition_factor=4), dict(rotated=True, condition_factor=40),
                         dict(rotated=True, condition_factor=6000.0)):
             featured = FeaturedProblem(problem, Feature('linearly_transformed', **options), 10, 3)
-            _, _, inv = featured._runtime.modifier_affine(3, problem)
+            A, b, inv = featured._runtime.modifier_affine(3, problem)
+            # The built-in inverse is generated with A, not supplied by user
+            # code, and keeps its existing finite/rounding-only policy.
             np.testing.assert_array_equal(featured.x0, inv @ problem.x0)
         for transform in (exact_diagonal, dense, badly_scaled_rotation, row_scaled_rotation, column_scaled_rotation):
-            _, b, inv = transform(None, problem)
-            np.testing.assert_array_equal(build(problem, transform).x0, inv @ (problem.x0 - b), err_msg=transform.__name__)
+            A, b, inv = transform(None, problem)
+            np.testing.assert_array_equal(build(problem, transform).x0, expected(A, b, inv), err_msg=transform.__name__)
+        assert retained > 0 and solved > 0
 
     def test_the_allowance_is_the_documented_one_and_is_taken_by_component(self):
         from optiprofiler.opclasses import _ROUNDING  # (imported here: the module has to load on the sources before it)
@@ -1676,19 +1691,16 @@ class TestInitialPoint:
 
     def test_the_allowance_is_the_rounding_of_the_evaluation_at_that_point(self):
         # x = (y1 + 1e15 * y2, y2): at x0 = (1/3, 1/7) the first component is
-        # evaluated as 1.4e14 - 1.4e14 + 1/3, which double precision resolves to
-        # 0.03, whatever y is. The exact inverse is therefore accepted, its
-        # point is mapped back within the allowance, and that allowance is NOT
-        # the rounding of x0: it is what the truth, which goes through the same
-        # map at every point, can resolve there. Measuring against x0 alone
-        # would refuse the rotations of linearly_transformed at ordinary
-        # condition factors. What is refused is a point that is lost: overflow
-        # (TestTransportOverflow) and underflow (TestTransportUnderflow).
+        # evaluated by cancellation on a grid much coarser than 1/3. The
+        # independent solve cannot remove that representability limit. Its
+        # verification keeps the evaluation-rounding policy, not a universal
+        # forward-error bound relative only to x0. The tighter local threshold
+        # selects the solve instead of trusting the inverse candidate.
         A = np.array([[1.0, 1e15], [0.0, 1.0]])
         inv = np.array([[1.0, -1e15], [0.0, 1.0]])
         x0 = np.array([1.0 / 3.0, 1.0 / 7.0])
         point = _pulled_back(A, inv, x0)
-        np.testing.assert_array_equal(point, inv @ x0)
+        np.testing.assert_array_equal(point, np.linalg.solve(A, x0))
         error = np.abs(A @ point - x0)
         assert np.all(error <= 64 * 2 * EPS * (np.abs(A) @ np.abs(point) + np.abs(x0)))
         assert error[0] <= 0.0625 and 64 * 2 * EPS * abs(x0[0]) < 1e-14  # resolved to 2 ulp of 1.4e14, not to the rounding of 1/3

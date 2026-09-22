@@ -1381,17 +1381,19 @@ classdef TestAffineStructure < matlab.unittest.TestCase
             testCase.verifyEqual(kernel.modifier_x0(3, start), nudged * [1; 1e14]);
         end
 
-        function goodInverseGivesThePointItAlwaysGaveAndEveryPointIsMappedBack(testCase)
-            % Bitwise: the framework's own inverse, and a supplied one that is
-            % an inverse to roundoff at the point.
+        function accurateInverseCandidateKeepsItsBitsAndEveryPointIsMappedBack(testCase)
+            % Large cancellation requests an independent solve even for an
+            % honest inverse; only accurate candidates keep their old bits.
             problem = TestAffineStructure.makeProblem('linear');
             options = {struct('rotated', false, 'condition_factor', 4), struct('rotated', true, 'condition_factor', 40), ...
                 struct('rotated', true, 'condition_factor', 6000)};
             for k = 1:numel(options)
                 feature = Feature('linearly_transformed', options{k});
-                [~, ~, inv] = TestAffineStructure.transformationOf(feature, 3, problem);
+                [A, b, inv] = TestAffineStructure.transformationOf(feature, 3, problem);
                 featured = FeaturedProblem(problem, feature, 10, 3);
-                testCase.verifyEqual(featured.x0, inv * problem.x0, sprintf('scaling %d', k));
+                % Generated inverses retain their established verification;
+                % the extra solve trigger is for custom callback output.
+                testCase.verifyEqual(featured.x0, inv * (problem.x0 - b), sprintf('scaling %d', k));
             end
             transforms = {@TestAffineStructure.exactDiagonal, @TestAffineStructure.dense, @TestAffineStructure.sloppyInverse, ...
                 @TestAffineStructure.badlyScaledRotation, @TestAffineStructure.rowScaledRotation, @TestAffineStructure.columnScaledRotation};
@@ -1404,7 +1406,11 @@ classdef TestAffineStructure < matlab.unittest.TestCase
                     allowed = 64 * 3 * eps * (abs(A) * abs(featured.x0) + abs(b) + abs(problem.x0));
                     testCase.verifyTrue(all(abs(A * featured.x0 + b - problem.x0) <= allowed), label);
                     if ~isequal(transforms{t}, @TestAffineStructure.sloppyInverse)
-                        testCase.verifyEqual(featured.x0, inv * (problem.x0 - b), label);
+                        expected = inv * (problem.x0 - b);
+                        if any(abs(A * expected + b - problem.x0) > sqrt(eps) * min(abs(problem.x0), abs(problem.x0 - b)))
+                            expected = A \ (problem.x0 - b);
+                        end
+                        testCase.verifyEqual(featured.x0, expected, label);
                     end
                 end
             end
@@ -1412,15 +1418,14 @@ classdef TestAffineStructure < matlab.unittest.TestCase
 
         function allowanceIsTheRoundingOfTheEvaluationAtThatPoint(testCase)
             % x = (y1 + 1e15 * y2, y2): at x0 = (1/3, 1/7) the first component
-            % is evaluated as 1.4e14 - 1.4e14 + 1/3, which double precision
-            % resolves to 0.03, whatever y is. The exact inverse is therefore
-            % accepted and its point is mapped back within the allowance, which
-            % is NOT the rounding of x0: it is what the truth, which goes
-            % through the same map at every point, can resolve there.
+            % is evaluated by cancellation on a grid coarser than 1/3. The
+            % local threshold requests an independent solve, whose verification
+            % retains evaluation rounding rather than promising a forward
+            % accuracy that even an honest map cannot attain at this point.
             A = [1, 1e15; 0, 1]; inv = [1, -1e15; 0, 1]; x0 = [1 / 3; 1 / 7];
             kernel = optiprofiler_internal.FeatureKernel('custom', struct('mod_affine', @(s, p) deal(A, [0; 0], inv)));
             point = kernel.modifier_x0(3, Problem(struct('fun', @TestAffineStructure.sphere, 'x0', x0)));
-            testCase.verifyEqual(point, inv * x0);
+            testCase.verifyEqual(point, A \ x0);
             error_ = abs(A * point - x0);
             testCase.verifyTrue(all(error_ <= 64 * 2 * eps * (abs(A) * abs(point) + abs(x0))));
             testCase.verifyLessThanOrEqual(error_(1), 0.0625);

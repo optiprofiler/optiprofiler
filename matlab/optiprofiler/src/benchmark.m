@@ -351,39 +351,56 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         ``(random_stream, problem) -> (A, b, inv)``,
 %         where `problem` is an instance of the class Problem, `A` is the
 %         matrix of the affine transformation, `b` is the vector of the affine
-%         transformation, and `inv` is the inverse of matrix `A`. No default.
+%         transformation, and `inv` is a candidate inverse of `A`. No default.
 %         The function is asked once per problem and seed, and the initial
 %         point, the bounds, the linear constraints and every evaluation use
 %         that one answer. The triple is validated when the problem is built,
 %         and an error is raised unless the arrays are real, finite and of
-%         matching sizes, ``norm(abs(inv) * abs(A), inf) < 1 / eps``, and
-%         `inv` inverts `A` from both sides:
+%         matching sizes, ``norm(abs(inv) * abs(A), inf) < 1 / eps``, and both
+%         inverse residuals pass the finite-precision check
 %         ``norm(max(abs(A * inv - eye(n)) - 64 * n * eps * abs(A) * abs(inv), 0), 'fro') <= 1e-8 * n``
-%         and the same for ``inv * A``: each entry is forgiven the rounding of
-%         the products it is summed from, and nothing more, so that neither
-%         the units of the variables nor the condition number decide, and an
-%         error of `inv` that is not rounding is refused. Integer and single
-%         precision arrays are converted to double precision, which rounds to
-%         nearest as every decimal literal is rounded; the rounded triple is
-%         the one that is validated and used. If `A` is exactly diagonal and
-%         ``diag(inv)`` is its reciprocal to roundoff, the bounds stay bounds;
-%         otherwise every finite bound is posed as a linear constraint, so an
-%         off-diagonal entry of `A` is never ignored, however small. Nothing
-%         finite is lost: a bound, coefficient or right-hand side that
-%         overflows, or that underflows (a nonzero bound below the smallest
-%         normal number, ``realmin``, or an entry of a transported row or
-%         right-hand side whose terms are all below it), raises an error
-%         instead of being posed as infinite or as zero. The initial point is
-%         ``inv * (x0 - b)`` only if `A` maps it back to `x0` to the rounding
-%         of that evaluation, in every component; otherwise
-%         ``A * y = x0 - b`` is solved, and if that point is not mapped back
-%         either (overflow, underflow), an error is raised: no tolerance on
-%         `inv` bounds an error at a point. Since `mod_linear_ub` and
-%         `mod_linear_eq` replace the linear constraints, supplying one of
-%         them with a transformation that is not diagonal raises an error if
-%         the problem has such bounds, unless `mod_bounds` is supplied as
-%         well. The derivative methods of a featured problem follow the same
-%         transformation by the chain rule (see FeaturedProblem).
+%         and the same for ``inv * A``. Here `eps` is double-precision machine
+%         epsilon; these matrix-test quantities must be finite. Independently,
+%         rows then columns of `A` are scaled by powers of two to form `E` without losing
+%         entries, and ``rcond(E) > eps`` is required. These numerical checks
+%         are not a proof that `inv` is an exact inverse. Inputs are converted
+%         to double precision before validation and use. If `A` is exactly
+%         diagonal and ``diag(inv)`` is its reciprocal to roundoff, the bounds
+%         stay bounds; otherwise every finite bound is posed as a linear
+%         constraint, so an off-diagonal entry of `A` is never ignored, however
+%         small. Transport
+%         rejects finite bounds, coefficients or right-hand sides becoming
+%         non-finite, nonzero scaled bounds below `realmin`, and row or
+%         right-hand-side entries whose sum of absolute nonzero product terms
+%         lies below it. A strict original bound interval must not collapse
+%         after translation or diagonal scaling.
+%         These are stage-local safeguards, not an exact transport certificate.
+%         Unless `mod_x0` is supplied, a finite original `x0` uses
+%         ``y = inv * (x0 - b)`` unchanged only if `y`, its mapped point and
+%         the rounding allowance are finite, and ``abs(A * y + b - x0)`` is
+%         at most both ``64 * n * eps * (abs(A) * abs(y) + abs(b) + abs(x0))``
+%         and ``sqrt(eps) * min(abs(x0), abs(x0 - b))``, componentwise.
+%         There is no absolute floor: an error at a zero coordinate of either
+%         `x0` or ``x0 - b`` triggers a solve. Both scales are checked so a
+%         large coordinate origin cannot hide error in a small centered value.
+%         If either check fails,
+%         ``A * y = x0 - b`` is solved independently and the solved point is
+%         checked for finiteness and the rounding allowance only; failure
+%         raises an initial-point error. The extra local threshold triggers a
+%         solve instead of trusting the inverse candidate; it is not a bound
+%         on the final forward error. Even an honestly computed inverse may
+%         trigger a solve, for example when a custom rotation mixes small and large
+%         coordinates.
+%         Intrinsic conditioning or mixed coordinate scales can cause forward
+%         drift even after solving. `fun_init` and `maxcv_init` describe the
+%         posed start, not guaranteed recovery of an originally feasible point.
+%         Since `mod_linear_ub` and
+%         `mod_linear_eq` replace linear constraints, they are refused if
+%         they would remove generated bound rows, unless `mod_bounds` also
+%         takes ownership of the bounds. Derivatives follow the same map by
+%         the chain rule (see FeaturedProblem). Construction checks do not
+%         recompute initial points or histories in previously saved experiments
+%         or built objects; loading is not a migration of old results.
 %       - mod_bounds: the modifier function to modify the bound constraints in
 %         the 'custom' feature. It should be a function handle as follows:
 %         ``(random_stream, problem) -> (modified_xl, modified_xu)``,

@@ -131,8 +131,8 @@ _BOUND_UNDERFLOW = ('A finite bound is not representable after the affine transf
 _LINEAR_UNDERFLOW = ('A linear constraint is not representable after the affine transformation: a coefficient or a '
                      'right-hand side underflows (all of its terms fall below the smallest normal number).')
 _X0_MISMATCH = ('The initial point is not representable after the affine transformation: the point found in the new '
-                'variables is not mapped back to it to roundoff (it underflows, or the transformation is too ill '
-                'conditioned at that point).')
+                'variables is not mapped back within the componentwise rounding allowance '
+                '(e.g. underflow or unresolved cancellation).')
 # What counts as the rounding of a sum of products: this many times n * eps times
 # the sum of the absolute values of its terms. Measured over pairs that are
 # consistent to roundoff (built by formula as `linearly_transformed` builds its
@@ -203,12 +203,10 @@ def _checked_affine(A, b, inv, n, supplied):
     units scales: a rotation with one variable in units of 1e13 misses the
     identity by 1e-3 in one of the products, new variable or original one, and
     is consistent to roundoff. The allowance is the rounding level of the
-    products themselves (see `_ROUNDING`), not a relative 1e-8: an inverse of
-    an ill-conditioned matrix with one entry off by 1e-9 of its size is
-    refused, as it was by the plain ``norm(A @ inv - I, 'fro') <= 1e-8 * n``,
-    which this rule is never stricter than. No rule on the matrices bounds an
-    error at a point, so the one point that ``inv`` is used for is verified
-    there (`_pulled_back`).
+    products themselves (see `_ROUNDING`), not a relative 1e-8 tolerance on
+    inverse entries. Cancellation in a nearly singular map can make this
+    allowance uninformative. The default initial point is checked separately
+    (`_pulled_back`); matrix acceptance is not an accuracy certificate.
     """
     def real_array(value, what, shape):
         try:
@@ -371,29 +369,37 @@ def _composed_rows(matrix, rhs, A, b=None):
     return rows, moved
 
 
-def _pulled_back(A, inv, x0, b=None):
+def _pulled_back(A, inv, x0, b=None, supplied_inverse=True):
     """
-    The initial point in the new variables, and the proof that it is one.
+    Recover the initial point without trusting an inaccurate inverse candidate.
 
-    ``inv @ (x0 - b)`` is the point if it is mapped back to ``x0`` to the
-    rounding of that evaluation, in every component:
+    A finite original point must be recovered within a rounding allowance:
     ``abs(A @ y + b - x0) <= 64 * n * eps * (abs(A) @ abs(y) + abs(b) + abs(x0))``.
-    No tolerance on the matrices can stand in for this test: ``A = I`` with
-    ``inv[0, 1] = 1e-12`` is an identity to 1e-12 from both sides and moves
-    ``x0 = (0, 1e14)`` to ``(100, 1e14)``, 99 outside bounds of ``[-1, 1]``.
-    If the point fails the test, the equation ``A @ y = x0 - b`` is solved
-    instead, which needs ``A`` only; if that point fails it as well (the shift
-    or a product overflows, a component underflows, or ``A`` is too ill
-    conditioned at this point), construction raises. A point that passes is
-    kept bitwise, so an inverse that is good to roundoff at ``x0`` (the
-    framework's own, measured at most 3.1 units of the allowance; or a
-    supplied one) gives the point it always gave. The test is by component on
-    purpose: a norm would let a component of 1e14 excuse an error of 100 in
-    another one.
+    That allowance alone is insufficient for a supplied candidate: an
+    inaccurate inverse can inflate both the candidate and its error budget.
+    Keep the candidate bitwise only if its image also differs from ``x0`` by
+    at most ``sqrt(eps) * min(abs(x0), abs(x0 - b))`` per coordinate. Otherwise solve
+    ``A @ y = x0 - b`` independently and verify the finite/rounding checks.
+    The local threshold depends neither on the claimed inverse nor on an
+    unrelated large coordinate, and is a solve trigger, not a promise about
+    the final forward error. Requiring it after the solve would also refuse
+    well-conditioned rotations that mix small and very large input entries.
+    There is no absolute floor: changing units must not hide an inaccurate
+    candidate. Check both the target and right-hand-side scales: a large
+    target must not mask error in a centering map, nor a large shift mask error
+    at a zero target. If either scale is zero, any nonzero error requests a solve.
+
+    The independently solved point is subject to the established evaluation
+    rounding policy: even an honest map may not represent the original point
+    exactly. Refuse nonfinite or unverifiable results; do not claim exact
+    feasibility or a universal forward-accuracy guarantee for such maps.
+    Internally generated rotations/scalings need no additional check of an
+    untrusted inverse: their caller disables only this solve trigger, keeping
+    all finite/rounding checks and the established built-in results.
     """
     shift = np.zeros(x0.size) if b is None else b
 
-    def mapped_back(point):
+    def mapped_back(point, check_accuracy=False):
         if not np.all(np.isfinite(point)):
             return False
         mapped = A @ point + shift
@@ -406,11 +412,14 @@ def _pulled_back(A, inv, x0, b=None):
         # absolute matrix product is still unverifiable, not evidence that
         # the point maps back correctly. In particular Inf <= Inf is true.
         allowed = alpha * (np.abs(A) @ np.abs(point)) + alpha * np.abs(shift) + alpha * np.abs(x0)
-        return bool(np.all(np.isfinite(allowed)) and np.all(error <= allowed))
+        if not (np.all(np.isfinite(allowed)) and np.all(error <= allowed)):
+            return False
+        accuracy = np.sqrt(np.finfo(float).eps) * np.minimum(np.abs(x0), np.abs(x0 - shift))
+        return not check_accuracy or bool(np.all(error <= accuracy))
 
     with np.errstate(over='ignore', invalid='ignore', under='ignore'):
         point = inv @ (x0 if b is None else x0 - b)
-        if not np.all(np.isfinite(x0)) or mapped_back(point):
+        if not np.all(np.isfinite(x0)) or mapped_back(point, check_accuracy=supplied_inverse):
             return point  # (a point that is not finite is the user's: it is transported as it is)
         try:
             point = np.linalg.solve(A, x0 - shift)
@@ -542,7 +551,10 @@ class _StageRuntime:
         elif self._name == FeatureName.LINEARLY_TRANSFORMED:
             # Apply the inverse of the affine transformation to the initial point.
             A, __, inv = self.modifier_affine(seed, problem)
-            return _pulled_back(A, inv, problem.x0)
+            # Unlike a custom callback's claimed inverse, this inverse was
+            # constructed with the map. Preserve its established start unless
+            # the finite/rounding verification itself calls for a solve.
+            return _pulled_back(A, inv, problem.x0, supplied_inverse=False)
         else:
             return problem.x0
 

@@ -127,37 +127,56 @@ classdef Feature < handle
 %       mod_cub:       (x, random_stream, problem) -> modified_cub
 %       mod_ceq:       (x, random_stream, problem) -> modified_ceq
 %
-%   mod_affine uses the coordinate map A*x+b and its inverse. It is asked once
-%   per problem and seed, and the initial point, the bounds, the linear
-%   constraints and every evaluation use that one answer. The triple is
+%   mod_affine supplies the coordinate map A*x+b and a candidate inverse. It is
+%   asked once per problem and seed, and the initial point, the bounds, the
+%   linear constraints and every evaluation use that one answer. The triple is
 %   validated when the problem is built: real, finite arrays of matching sizes,
-%   norm(abs(inverse_A)*abs(A),inf) < 1/eps, and inverse_A inverts A from both
-%   sides, norm(max(abs(A*inverse_A-eye(n)) -
+%   norm(abs(inverse_A)*abs(A),inf) < 1/eps, and the two inverse residual checks
+%   norm(max(abs(A*inverse_A-eye(n)) -
 %   64*n*eps*abs(A)*abs(inverse_A),0),'fro') <= 1e-8*n and the same for
-%   inverse_A*A (each entry is forgiven the rounding of the products it is
-%   summed from, and nothing more); otherwise an error is raised. Integer and
-%   single precision arrays are converted to double precision, which rounds to
-%   nearest; the rounded triple is the one that is validated and used. If A is
+%   inverse_A*A. These matrix-test quantities must be finite; eps is for double
+%   precision. Independently, rows then columns of A are scaled by powers of
+%   two to form E without losing entries, and rcond(E) > eps is required.
+%   These numerical checks are not a proof of an exact inverse. Inputs are
+%   converted to double precision before validation and use. If A is
 %   exactly diagonal and diag(inverse_A) is its reciprocal to roundoff, the
 %   bounds stay bounds; otherwise every finite bound is posed as a linear
 %   constraint, so an off-diagonal entry of A is never ignored, however small.
-%   Nothing finite is lost: a bound, coefficient or right-hand side that
-%   overflows, or that underflows (a nonzero bound below realmin, or an entry
-%   of a transported row or right-hand side whose terms are all below it),
-%   raises an error. The initial point is inverse_A*(x0-b) only if A maps it
-%   back to x0 to the rounding of that evaluation, in every component;
-%   otherwise A*y = x0-b is solved, and an error is raised if that point is not
-%   mapped back either. Since mod_linear_ub and mod_linear_eq replace the
-%   linear constraints, supplying one of them with an A that is not diagonal
-%   raises an error if the problem has such bounds, unless mod_bounds is
-%   supplied as well. mod_bounds replaces the bounds and nothing else: under an
-%   A for which the bounds stay bounds the bounds of the problem are replaced,
+%   Transport rejects finite bounds, coefficients or right-hand sides becoming
+%   non-finite, nonzero scaled bounds below realmin, and row or right-hand-side
+%   entries whose sum of absolute nonzero product terms lies below realmin.
+%   A strict original bound interval must not collapse after translation or
+%   diagonal scaling. These are stage-local safeguards, not an exact transport
+%   certificate.
+%   Unless mod_x0 is supplied, finite original x0 keeps y = inverse_A*(x0-b)
+%   unchanged only if y, its mapped point and the rounding allowance are finite,
+%   and abs(A*y+b-x0) is at most both
+%   64*n*eps*(abs(A)*abs(y)+abs(b)+abs(x0)) and
+%   sqrt(eps)*min(abs(x0),abs(x0-b)), componentwise, with no absolute floor.
+%   An error at a zero coordinate of either x0 or x0-b triggers a solve.
+%   Both scales are checked so a large coordinate origin cannot hide error
+%   in a small centered value. If either check fails,
+%   A*y = x0-b is solved independently and the solved
+%   point is checked for finiteness and the rounding allowance only; failure
+%   raises an initial-point error. The extra local threshold triggers a solve
+%   instead of trusting the inverse candidate; it is not a bound on the final
+%   forward error. Even an honestly computed inverse may trigger a solve, for
+%   example when a custom rotation mixes small and large coordinates.
+%   Intrinsic conditioning or mixed coordinate scales can cause forward drift
+%   even after solving. fun_init and maxcv_init describe the posed start, not
+%   guaranteed recovery of an originally feasible point. Since
+%   mod_linear_ub and mod_linear_eq replace linear constraints, they are
+%   refused if they would remove generated bound rows, unless mod_bounds also
+%   takes ownership of the bounds. mod_bounds replaces the bounds and nothing
+%   else: under an A for which the bounds stay bounds they are replaced,
 %   under any other A they are not re-added as generated rows; explicit linear
 %   constraints are still transported. The derivative methods of a featured
 %   problem follow the same transformation by the chain rule (see
-%   FeaturedProblem). Within an
-%   observation callback, querying problem.fun/cub/ceq serves that predecessor
-%   again; these calls are not silently treated as reference reads.
+%   FeaturedProblem). Construction checks do not recompute initial points or
+%   histories in previously saved experiments or built objects; loading is not
+%   a migration of old results. Within an observation callback, querying
+%   problem.fun/cub/ceq serves that predecessor again; these calls are not
+%   silently treated as reference reads.
 %
 %   .. rubric:: Inspection, transport and compatibility
 %

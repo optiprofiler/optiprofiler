@@ -66,7 +66,7 @@ classdef FeatureKernel < handle
                     % transformation to the initial point.
                     if isfield(obj.options, FeatureOptionKey.MOD_AFFINE.value)
                         [A, b, inv] = obj.modifier_affine(seed, problem);
-                        x0 = pulledBack(A, inv, problem.x0, b);
+                        x0 = pulledBack(A, inv, problem.x0, b, true);
                     else
                         x0 = problem.x0;
                     end
@@ -92,7 +92,7 @@ classdef FeatureKernel < handle
                 case FeatureName.LINEARLY_TRANSFORMED.value
                     % Apply the inverse of the affine transformation to the initial point.
                     [A, ~, inv] = obj.modifier_affine(seed, problem);
-                    x0 = pulledBack(A, inv, problem.x0, []);
+                    x0 = pulledBack(A, inv, problem.x0, [], false);
                 otherwise
                     x0 = problem.x0;
             end
@@ -973,11 +973,13 @@ function [A, b, inv] = checkedAffine(A, b, inv, n, supplied)
 % variable in units of 1e13 misses the identity by 1e-3 in one of the products,
 % new variable or original one, and is consistent to roundoff. The allowance is
 % the rounding level of the products themselves (see roundingAllowance), not a
-% relative 1e-8: an inverse of an ill-conditioned matrix with one entry off by
-% 1e-9 of its size is refused, as it was by the plain
-% norm(A * inv - I, 'fro') <= 1e-8 * n, which this rule is never stricter than.
-% No rule on the matrices bounds an error at a point, so the one point that inv
-% is used for is verified there (pulledBack).
+% relative 1e-8 tolerance on the inverse entries. In a nearly singular map,
+% cancellation can make this allowance too large to distinguish an inaccurate
+% inverse. The independent condition estimate is also a numerical safeguard,
+% not a certificate. The one point that inv is used for is therefore checked
+% against this rounding scale and a separate local-accuracy threshold. A
+% failed inverse-derived candidate is replaced by an independently solved
+% point, which must satisfy the finite/rounding checks (pulledBack).
 %
 % Identifiers: AffineTransformationInvalid when A or b is not usable data;
 % AffineTransformationNotInvertible whenever inv cannot be the inverse of A
@@ -1182,22 +1184,30 @@ function [rows, moved] = composedRows(matrix, rhs, A, b)
     end
 end
 
-function point = pulledBack(A, inv, x0, b)
-% The initial point in the new variables, and the proof that it is one.
-% inv * (x0 - b) is the point if it is mapped back to x0 to the rounding of that
-% evaluation, in every component:
-% abs(A * y + b - x0) <= 64 * n * eps * (abs(A) * abs(y) + abs(b) + abs(x0)).
-% No tolerance on the matrices can stand in for this test: A = I with
-% inv(1, 2) = 1e-12 is an identity to 1e-12 from both sides and moves
-% x0 = (0, 1e14) to (100, 1e14), 99 outside bounds of [-1, 1]. If the point
-% fails the test, the equation A * y = x0 - b is solved instead, which needs A
-% only; if that point fails it as well (the shift or a product overflows, a
-% component underflows, or A is too ill conditioned at this point),
-% construction raises. A point that passes is kept bitwise, so an inverse that
-% is good to roundoff at x0 (the framework's own, measured at most 3.1 units of
-% the allowance; or a supplied one) gives the point it always gave. The test is
-% by component on purpose: a norm would let a component of 1e14 excuse an error
-% of 100 in another one. b is empty if there is no shift.
+function point = pulledBack(A, inv, x0, b, supplied_inverse)
+% Recover the initial point without trusting an inaccurate inverse candidate.
+% A finite original point must be recovered within the rounding allowance:
+% abs(A*y+b-x0) <= 64*n*eps*(abs(A)*abs(y)+abs(b)+abs(x0)).
+% That alone is insufficient for a user-supplied inverse candidate: an inaccurate
+% inverse can inflate both the candidate and its permitted error. Keep it
+% bitwise only if abs(A*y+b-x0) <= sqrt(eps)*min(abs(x0),abs(x0-b)) by component too.
+% Otherwise solve A*y=x0-b independently and verify the finite/rounding tests.
+% The local threshold depends neither on the claimed inverse nor on an
+% unrelated large coordinate. It triggers a solve, not a promised final
+% forward accuracy: imposing it after the solve would reject ordinary
+% rotations that mix small and very large input coordinates.
+% There is no absolute unit floor: changing units must not hide a bad inverse.
+% Both the original and centered coordinate scales matter: a large offset b
+% must not hide an error relative to the small right-hand side x0-b. If either
+% scale is zero, any nonzero image residual triggers a solve.
+% Even an honest map may not represent x0 exactly. The independently solved
+% point retains the established evaluation-rounding policy; nonfinite or
+% unverifiable results are refused, without claiming exact feasibility or a
+% universal forward-accuracy guarantee. Built-in linearly_transformed has an
+% inverse constructed by the framework and retains its established checks;
+% the extra solve trigger follows the supplied-inverse trust boundary of
+% checkedAffine. This is an internal flag, not a feature option. b is empty
+% if there is no shift.
     n = numel(x0);
     shift = zeros(n, 1);
     point = inv * x0;
@@ -1205,7 +1215,7 @@ function point = pulledBack(A, inv, x0, b)
         shift = b;
         point = inv * (x0 - b);
     end
-    if ~all(isfinite(x0)) || mappedBack(A, point, shift, x0)
+    if ~all(isfinite(x0)) || mappedBack(A, point, shift, x0, supplied_inverse)
         return;  % (a point that is not finite is the user's: it is transported as it is)
     end
     states = [warning('off', 'MATLAB:nearlySingularMatrix'), warning('off', 'MATLAB:singularMatrix')];
@@ -1214,16 +1224,19 @@ function point = pulledBack(A, inv, x0, b)
     if ~all(isfinite(point))
         error("MATLAB:Feature:AffineInitialPointNotRepresentable", "The initial point is not representable after the affine transformation: it overflows.");
     end
-    if ~mappedBack(A, point, shift, x0)
-        error("MATLAB:Feature:AffineInitialPointNotRepresentable", "The initial point is not representable after the affine transformation: the point found in the new variables is not mapped back to it to roundoff (it underflows, or the transformation is too ill conditioned at that point).");
+    if ~mappedBack(A, point, shift, x0, false)
+        error("MATLAB:Feature:AffineInitialPointNotRepresentable", "The initial point is not representable after the affine transformation: the independently solved point does not map back within the evaluation rounding allowance (it underflows, or the transformation is too ill conditioned at that point).");
     end
 end
 
-function tf = mappedBack(A, point, shift, original)
+function tf = mappedBack(A, point, shift, original, verify_accuracy)
 % Inf <= Inf is true, so finiteness is a premise of this error test, not
 % something the inequality establishes. Scale each allowance term before
 % adding it: the valid identity map at x0=1e308 otherwise overflows only in
 % the allowance. An absolute matrix product that overflows remains unverified.
+% The inverse-candidate threshold is local to the original point: large
+% cancelling terms or another coordinate must not prevent an independent
+% solve. It is deliberately not a final forward-error requirement.
     tf = false;
     if ~all(isfinite(point))
         return;
@@ -1235,7 +1248,12 @@ function tf = mappedBack(A, point, shift, original)
     alpha = roundingAllowance() * numel(original) * eps;
     allowance = alpha * (abs(A) * abs(point)) + alpha * abs(shift) + alpha * abs(original);
     if all(isfinite(allowance))
-        tf = all(abs(mapped - original) <= allowance);
+        error_at_point = abs(mapped - original);
+        tf = all(error_at_point <= allowance);
+        if tf && verify_accuracy
+            accuracy = sqrt(eps) * min(abs(original), abs(original - shift));
+            tf = all(error_at_point <= accuracy);
+        end
     end
 end
 

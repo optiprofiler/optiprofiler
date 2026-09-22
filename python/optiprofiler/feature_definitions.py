@@ -300,9 +300,9 @@ _REFERENCE_RETAINING_STAGES = frozenset({
 
 #: The only ``custom`` options under which the reference fact is retained.
 #: ``mod_x0`` moves the initial point and ``mod_affine`` is a change of
-#: variables whose inverse is checked when the problem is built
-#: (``A @ inv == I``), so it is a valid affine coordinate change. This is a
-#: whitelist on purpose: ``mod_fun``, ``mod_cub``, ``mod_ceq``, ``mod_bounds``,
+#: variables subject to numerical matrix and transport checks when the
+#: problem is built, not an exact inverse or uniform accuracy certificate. The
+#: whitelist is deliberate: ``mod_fun``, ``mod_cub``, ``mod_ceq``, ``mod_bounds``,
 #: ``mod_linear_ub``, ``mod_linear_eq`` and any option added later are
 #: arbitrary user code that may change values, constraints or bounds, and the
 #: framework cannot prove that the feasible reference survives them.
