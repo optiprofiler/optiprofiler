@@ -280,33 +280,27 @@ classdef TestAffineAcceptance < matlab.unittest.TestCase
         function largeTranslationCannotMaskASmallOriginalCoordinate(testCase)
             % The symmetric centering case needs the original-point scale:
             % a large right-hand side must not hide a nonzero image of x0=0.
-            % These binary-exact shifts distinguish inverse multiplication
-            % from independent division without trigonometric fixtures.
+            % Use an exactly representable inverse perturbation with A=I.
+            % Depending on a backend's division-versus-multiplication rounding
+            % would make this a BLAS fixture test, not a policy regression.
+            A = 1;
+            inverse = 1 + 2^-50;
             x0 = 0;
-            b = 2^46 + 2^-6;
+            b = 2^46;
             problem = TestAffineAcceptance.makeProblem(x0);
-            exercised_solve = false;
-            for A = [3, 10]
-                inverse = 1 / A;
-                candidate = inverse * (x0 - b);
-                expected = A \ (x0 - b);
-                image_error = abs(A * candidate + b - x0);
-                testCase.assertLessThanOrEqual(image_error, sqrt(eps) * abs(x0 - b));
-                exercised_solve = exercised_solve || ...
-                    (image_error > 0 && candidate ~= expected);
-                for composed = [false, true]
-                    feature = TestAffineAcceptance.makeFeature(A, b, inverse, composed);
-                    featured = FeaturedProblem(problem, feature, 10, 3);
-                    if image_error > 0
-                        testCase.verifyEqual(featured.x0, expected);
-                    else
-                        testCase.verifyEqual(featured.x0, candidate);
-                    end
-                end
+            candidate = inverse * (x0 - b);
+            expected = A \ (x0 - b);
+            testCase.assertEqual(candidate, -b - 2^-4);
+            testCase.assertEqual(expected, -b);
+            testCase.assertEqual(A * candidate + b - x0, -2^-4);
+            testCase.assertLessThanOrEqual(abs(A * candidate + b - x0), ...
+                sqrt(eps) * abs(x0 - b));
+            for composed = [false, true]
+                feature = TestAffineAcceptance.makeFeature(A, b, inverse, composed);
+                featured = FeaturedProblem(problem, feature, 10, 3);
+                testCase.verifyEqual(featured.x0, expected);
+                testCase.verifyEqual(A * featured.x0 + b, x0);
             end
-            % The regression must kill an RHS-only tolerance mutation, not
-            % merely pass on a fixture whose two construction paths coincide.
-            testCase.verifyTrue(exercised_solve);
         end
 
         function nonfiniteAllowanceAloneCannotCertifyAFiniteCandidate(testCase)

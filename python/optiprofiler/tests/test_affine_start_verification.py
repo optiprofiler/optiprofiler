@@ -124,11 +124,14 @@ def test_centering_cannot_hide_an_error_in_the_pulled_back_right_hand_side(compo
 
 @pytest.mark.parametrize('composed', [False, True])
 def test_large_shift_cannot_relax_the_accuracy_of_a_zero_target(composed):
-    A, inverse = np.array([[3.]]), np.array([[1. / 3.]])
-    x0, shift = np.zeros(1), np.array([2. ** 46 + 2. ** -6])
+    A, inverse = np.ones((1, 1)), np.array([[1. + 2. ** -50]])
+    x0, shift = np.zeros(1), np.array([2. ** 46])
     # The target is zero but the right-hand side is large. Measuring accuracy
-    # only against x0-b would retain the multiply-by-inverse candidate whose
-    # image is 1/64, although direct division recovers zero on this example.
+    # only against x0-b would retain this slightly inaccurate inverse's image
+    # of -1/16. All quantities are exactly binary-representable and solving
+    # the identity recovers zero on every backend. An honest inverse of 3 is
+    # not a portable fixture: some LAPACK implementations solve it using the
+    # same rounded reciprocal as inverse multiplication, rather than division.
     featured = make_featured(A, inverse, x0, composed, shift=shift)
     np.testing.assert_array_equal(featured.x0, np.linalg.solve(A, x0 - shift))
     assert not np.array_equal(featured.x0, inverse @ (x0 - shift))
