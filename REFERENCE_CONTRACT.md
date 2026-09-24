@@ -1,7 +1,9 @@
 # Reference contract: the feasible reference fact of a problem
 
-Branch `codex/reference-facts-scalar`, based on
-`54d42bd550d0493db661711715f868518d433924`. This contract supersedes the
+This contract is implemented on the development line. It originated on
+`codex/reference-facts-scalar`, based on
+`54d42bd550d0493db661711715f868518d433924`, and was hardened on
+`codex/reference-facts-scalar-followup`. It supersedes the
 point-carrying record of the candidate branch `codex/reference-facts`
 (`0aea026f52b9d96603054178a2044b88acce27b3`), which is left untouched.
 
@@ -322,8 +324,10 @@ within that threshold. Nor is small forward error guaranteed for arbitrary
 ill-conditioned maps. This policy removes reliance on the supplied inverse
 for a suspect start without imposing a new all-map forward-accuracy contract.
 Intrinsic conditioning or mixed coordinate scales can cause forward drift even
-after solving. `fun_init` and `maxcv_init` are evaluated at the posed start;
-they do not certify recovery of an originally feasible point.
+after solving. Initial truth evaluation uses the posed start; the existing
+MATLAB single-stage fallback still retries the original initial point when
+an evaluation returns an empty result. Thus `fun_init` and `maxcv_init` do
+not certify recovery of an originally feasible point.
 Internally generated `linearly_transformed` maps retain their existing
 finite/rounding-only policy; this custom-inverse solve trigger does not change
 their starts. Forward drift for extreme conditioning or mixed coordinate

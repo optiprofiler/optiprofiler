@@ -1389,7 +1389,7 @@ classdef TestAffineStructure < matlab.unittest.TestCase
                 struct('rotated', true, 'condition_factor', 6000)};
             for k = 1:numel(options)
                 feature = Feature('linearly_transformed', options{k});
-                [A, b, inv] = TestAffineStructure.transformationOf(feature, 3, problem);
+                [~, b, inv] = TestAffineStructure.transformationOf(feature, 3, problem);
                 featured = FeaturedProblem(problem, feature, 10, 3);
                 % Generated inverses retain their established verification;
                 % the extra solve trigger is for custom callback output.

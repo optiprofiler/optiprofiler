@@ -392,8 +392,11 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         trigger a solve, for example when a custom rotation mixes small and large
 %         coordinates.
 %         Intrinsic conditioning or mixed coordinate scales can cause forward
-%         drift even after solving. `fun_init` and `maxcv_init` describe the
-%         posed start, not guaranteed recovery of an originally feasible point.
+%         drift even after solving. Initial truth evaluation uses the posed
+%         start; the existing single-stage fallback retries the original
+%         initial point when an evaluation returns an empty result. Thus
+%         `fun_init` and `maxcv_init` do not certify recovery of an originally
+%         feasible point.
 %         Since `mod_linear_ub` and
 %         `mod_linear_eq` replace linear constraints, they are refused if
 %         they would remove generated bound rows, unless `mod_bounds` also

@@ -1,14 +1,13 @@
 # Development Plan
 
 This document records the development roadmap, not a list of released APIs.
-Integrated on the development line: the provider split and version 1 of the
-machine-readable evaluation report. Implemented but not merged (an isolated
-candidate branch under independent review): the 2.0 `Feature` contract with
-ordered feature composition, experiment plans and provenance, the trusted
-boundary for earlier configurations, and version 2 of the report; their
-contracts are documented in the user guide as of that candidate. The
-reference/scoring work below is still planned, and its names and file formats
-are provisional until implementation and consumer tests agree. The paper
+Implemented on this development line: the provider split, the 2.0 `Feature`
+contract with ordered feature composition, experiment plans and provenance,
+the trusted boundary for earlier configurations, version 2 of the
+machine-readable evaluation report, and the optional feasible reference fact
+on `Problem` and `FeaturedProblem`. The offline reference catalog and Arena
+scorer remain future work; storing a reference does not change profile scores.
+These are development features, not a published 2.0.0 release. The paper
 maintenance line receives applicable fixes, not these new features.
 
 ## Separate Problem Libraries from the Engine
@@ -74,9 +73,8 @@ necessary, generate it automatically from the release commit.
 ## Machine-Readable Experiment Records and Evolve Feedback
 
 The record is the opt-in `eval_report` (`report_path=`): a versioned main
-report (`optiprofiler.eval_report/2` in the unmerged candidate, emitted by both
-languages there; version 1, the integrated contract, stays immutable as the
-contract of reports written before it) with a numeric companion
+report (`optiprofiler.eval_report/2`, emitted by both languages; version 1
+stays immutable as the contract of reports written before it) with a numeric companion
 (`optiprofiler.plot_data/1`), both pinned by packaged JSON Schemas and selected
 by the document's schema identifier. Core records experiment facts: run
 identity, actual problem/provider identity, the canonical feature specification
@@ -134,16 +132,16 @@ policies; matching random samples across the two languages is not promised.
 
 ## Reference Facts and an Independent Arena Scorer
 
-Begin with an offline reference catalog and a frozen scoring manifest, not a
-new public scalar `Problem` property. Distinguish a rigorous lower bound, exact
+Build the scorer around an offline reference catalog and a frozen scoring
+manifest, not a naked scalar `Problem` property. Distinguish a rigorous lower bound, exact
 optimum, best-known feasible value, and chosen scoring target. Record provenance
 and applicability; classify how each feature preserves, transforms, or invalidates
 those facts. Missing reference facts remain unknown, not a claimed lower bound
 at the initial point.
 
-The in-memory carrier of one such fact is implemented on the candidate branch
-`codex/reference-facts-scalar` (see its `REFERENCE_CONTRACT.md`; it supersedes
-the point-carrying record of `codex/reference-facts`). `Problem.reference` is
+The in-memory carrier of one such fact is implemented on this development
+line (see `REFERENCE_CONTRACT.md`; it supersedes the point-carrying record of
+the earlier `codex/reference-facts` candidate). `Problem.reference` is
 an optional record of exactly four fields: a finite real scalar `merit`, a
 `kind` (`lower_bound`, `optimum`, `best_known`, `target`; every kind is a claim
 over feasible points), a non-empty `source` and a `mapping` token of a closed
@@ -198,14 +196,11 @@ provenance before Arena use; ordinary trusted-data reload remains supported.
   reproducibility metadata. S2MPJ's existing BSD-3-Clause text must be retained;
   it is no longer an upstream-missing-license item.
 
-Implemented in small accepted slices on isolated candidate branches (the
-provider split is integrated on the development line; the versioned
-evaluation report `optiprofiler.eval_report/2` with the immutable version 1
-and the `plot_data/1` companion, the ordered feature composition with the 2.0
-`Feature` contract, the experiment plans and provenance, and the trusted
-boundary for configurations written by earlier versions are candidate
-implementations awaiting integration into the maintained branch after
-independent review). Still future work: installation/release checks, validation of the
-record by Evolve as an external integration gate, and the offline
-reference/scoring pilot. A future 2.0.0 release need not wait for every research
-item. Do not publish or change the version as a side effect of this roadmap.
+The provider split, evaluation report `optiprofiler.eval_report/2` with the
+immutable version 1 and the `plot_data/1` companion, ordered feature composition,
+experiment plans and provenance, trusted historical-configuration boundary,
+and feasible reference fact are implemented here. Still future work:
+installation/release checks, validation of the current report contract by
+Evolve as an external integration gate, and the offline reference/scoring
+pilot. A future 2.0.0 release need not wait for every research item. Do not
+publish or change the version as a side effect of this roadmap.
