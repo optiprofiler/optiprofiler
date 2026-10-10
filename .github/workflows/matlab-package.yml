@@ -61,7 +61,6 @@ jobs:
       OP_MATLAB_ARCHIVE_ROOT: ${{ github.workspace }}/extracted/optiprofiler-matlab
       OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_REGISTRY: ${{ github.workspace }}/ci-state/problem_libraries.mat
       MATLAB_PREFDIR: ${{ github.workspace }}/ci-state/matlab-prefdir
-      OP_MATLAB_SMOKE_OUTPUT: ${{ runner.temp }}/matlab-zip-acceptance
     steps:
       - name: Checkout core and bundled S2MPJ
         uses: actions/checkout@v4
@@ -90,6 +89,9 @@ jobs:
           release: latest
 
       - name: Test setup and default S2MPJ benchmark
+        env:
+          # runner is available in step env, not in job-level env.
+          OP_MATLAB_SMOKE_OUTPUT: ${{ runner.temp }}/matlab-zip-acceptance
         uses: matlab-actions/run-command@v2.1.1
         with:
           command: |
