@@ -19,7 +19,7 @@ V2 features and release metadata must not be backported to them.
 5. Install each Python artifact through normal dependency resolution, run
    `pip check`, and exercise `tools/smoke_python_distribution.py` outside the
    source checkout. CI tests wheel and sdist on Linux, macOS and Windows.
-   It checks actual solver evaluations, composed features, reference metadata,
+   It checks actual solver evaluations, composed features, reference scoring,
    parallel execution, readable PDFs and solver-free save/load with unchanged
    source data. These are headless Agg tests, not native GUI-backend tests.
 6. Require clean-extraction MATLAB ZIP tests on all supported platforms and
@@ -54,8 +54,16 @@ Preserve upstream licenses unchanged.
 
 ## Reference scoring boundary
 
-The current `Problem.reference` contract stores and propagates a reference
-fact. Standard profiles still derive the comparison minimum from solver
-histories (and the optional plain run). Enabling provider/user references as
-convergence targets is a separate scoring-policy decision; installation and
-metadata-propagation tests must not claim that this policy is implemented.
+V2 acceptance requires an explicit provider/user reference to define standard
+profile convergence targets, while an omitted reference keeps the V1
+solver-history minimum (including the optional plain run). Test both fresh
+execution and solver-free save/load; metadata propagation alone is not
+acceptance of this behavior.
+
+The candidate carrier stores raw `fun` and total `maxcv` rather than a cached
+merit or reference point. Convert with the current merit function and each
+run's initial violation. `lower_bound`/`optimum` require zero violation;
+`best_known`/`target` may be infeasible. General affine changes drop a nonzero
+violation reference because its residual magnitude need not be invariant.
+Require both language regression suites and final installed-artifact tests to
+pass before closing this gate; candidate code alone is not release acceptance.

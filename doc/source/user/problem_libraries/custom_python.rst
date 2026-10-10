@@ -21,17 +21,18 @@ returns an :class:`~optiprofiler.Problem`.  A basic local adapter uses the
 signatures ``myproblems_select(problem_options)`` and
 ``myproblems_load(problem_name)``.
 
-A loader may attach a feasible reference fact to the problem it returns
+A loader may attach a raw reference fact to the problem it returns
 through the optional ``reference`` argument of :class:`~optiprofiler.Problem`:
 a :class:`~optiprofiler.ProblemReference` or a dict with exactly the fields
-``merit``, ``kind``, ``source`` and ``mapping`` (the token
-``'feasible_objective/1'``), for example a known optimal value read from an
+``fun``, ``maxcv``, ``kind``, ``source`` and ``mapping`` (the token
+``'objective_violation/1'``), for example a known optimal value read from an
 offline catalog.  The record is validated when the problem is built;
 validating it evaluates nothing, so it adds no callback call to the load, and
-no solver runs.  A malformed record, including one with the superseded fields
-``fun``, ``maxcv`` or ``point`` or with an unknown mapping, makes the load
+no solver runs.  A malformed record, including one with a reference
+``point`` or with an unknown mapping, makes the load
 fail and is never repaired.  Problems without a reference load as before, with
-an unknown reference.
+an unknown reference. Profiles then use the V1 empirical target; explicit
+references use the current merit function as described in :doc:`../../dev/problems`.
 
 To accept library-specific ``plib_options``, also define both
 ``myproblems_get_default_options()`` and

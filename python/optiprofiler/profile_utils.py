@@ -1,4 +1,5 @@
 import hashlib
+import json
 import os
 import re
 import textwrap
@@ -1129,6 +1130,38 @@ def _mask_invalid_merits(results_plib):
     return results_plib
 
 
+def apply_reference_targets(result, minima, merit_fun):
+    """Replace only supplied targets, converting raw facts with current merit.
+
+    Store raw records, not converted merits: load may change merit_fun, and
+    perturbed starts give different maxcv_init in each run. Missing fields in
+    V1 archives mean the historical policy, never an assumed zero reference.
+    """
+    records = result.get('reference_records')
+    if records is None:
+        return minima
+    from .opclasses import ProblemReference
+    targets = np.array(minima, dtype=float, copy=True)
+    if len(records) != targets.shape[0]:
+        raise ValueError('Saved reference records do not match the problem rows.')
+    inits = np.asarray(result['maxcv_inits'])
+    for row, serialized in enumerate(records):
+        per_run = json.loads(serialized)
+        if not isinstance(per_run, list) or len(per_run) != targets.shape[1]:
+            raise ValueError('Saved reference records do not match the run count.')
+        for run, record in enumerate(per_run):
+            if record is None:
+                continue
+            reference = ProblemReference.from_record(record)
+            initial_violation = inits[row] if inits.ndim == 1 else inits[row, run]
+            value = merit_fun(reference.fun, reference.maxcv, initial_violation)
+            scalar = np.asarray(value)
+            if scalar.ndim != 0 or scalar.dtype.kind not in 'iuf' or not np.isfinite(scalar):
+                raise ValueError('The merit function must produce a finite real scalar for a supplied reference.')
+            targets[row, run] = float(scalar)
+    return targets
+
+
 def process_results(results_plibs, profile_options):
     """
     Processes results from results_plibs.
@@ -1242,6 +1275,16 @@ def process_results(results_plibs, profile_options):
                         merit_mins_merged[row, :], plain_mins[plain_indices[name]],
                     )
 
+    # An explicit target takes precedence over both the cohort and run_plain.
+    # Do not min() it with observed values: that would silently ignore a user
+    # target reached or beaten by a solver. Actual run merits remain untouched.
+    offset = 0
+    for result in results_plibs:
+        end = offset + len(result['problem_names'])
+        if 'reference_records' in result:
+            merit_mins_merged[offset:end] = apply_reference_targets(
+                result, merit_mins_merged[offset:end], profile_options[ProfileOption.MERIT_FUN])
+        offset = end
     return (merit_histories_merged, merit_outs_merged, merit_inits_merged, merit_mins_merged, n_evals_merged, problem_names_merged, problem_dims_merged)
 
 

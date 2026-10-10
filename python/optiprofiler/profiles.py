@@ -34,7 +34,7 @@ from .problem_libraries import _initialize_problem_library_worker, _problem_libr
 from .utils import DEFAULT_LOG_LINE_WIDTH, FeatureName, ProfileOption, FeatureOption, ProblemOption, get_logger, print_log_message, setup_main_process_logging, setup_worker_logging, shorten_log_message, format_log_prefix
 from .loader import load_results, save_results_to_h5, save_options
 from .profile_utils import check_validity_problem_options, check_validity_profile_options, check_post_load_profile_options, get_default_problem_options, get_default_profile_options, compute_merit_values, create_stamp, merge_pdfs_with_pypdf, write_report, process_results, init_readme, add_to_readme, compute_scores
-from .profile_utils import _mask_invalid_merits, _get_default_feature_stamp
+from .profile_utils import _mask_invalid_merits, _get_default_feature_stamp, apply_reference_targets
 from .experiment import ABSENT, PLAIN_REFERENCE, PRIMARY, resolve_plan
 from .feature_definitions import reject_flat_stage_options
 from .provenance import effective_specification, feature_pipeline_text
@@ -1354,15 +1354,24 @@ def _benchmark(
             for i_run in range(local_n_runs):
                 merit_mins[i_run] = np.nanmin(merit_history[:, i_run, :])
                 merit_mins[i_run] = np.nanmin([merit_mins[i_run], merit_init[i_run]])
+            merit_mins = apply_reference_targets(
+                {'reference_records': [result['reference_records']],
+                 'maxcv_inits': result['maxcv_init'][None, :]},
+                merit_mins[None, :], merit_fun)[0]
             # Since we will not compute the profiles, we set `solver_scores`
             # to be the relative decreases in the objective function value
             # (per run, then averaged across runs).
             solver_merit_mins = np.nanmin(merit_history, axis=2)  # (n_solvers, n_runs)
             solver_scores_runs = np.zeros((local_n_solvers, local_n_runs))
+            references = json.loads(result['reference_records'])
             for i_run in range(local_n_runs):
                 denom = max(merit_init[i_run] - merit_mins[i_run], np.finfo(float).eps)
                 solver_scores_runs[:, i_run] = (merit_init[i_run] - solver_merit_mins[:, i_run]) / denom
                 solver_scores_runs[:, i_run] = np.maximum(solver_scores_runs[:, i_run], 0)
+                if references[i_run] is not None:
+                    # A selected target can be exceeded; relative decrease is
+                    # then saturated, not an unbounded score above one.
+                    solver_scores_runs[:, i_run] = np.minimum(solver_scores_runs[:, i_run], 1)
             solver_scores = np.mean(solver_scores_runs, axis=1)
         else:
             solver_scores = np.zeros(n_solvers)
@@ -2540,6 +2549,7 @@ def _solve_all_problems(solvers, plib, feature, plan, problem_options, profile_o
     results['solvers_successes'] = solvers_successes
     results['solver_abnormal_terminations'] = solver_abnormal_terminations
     results['solver_output_fallbacks'] = solver_output_fallbacks
+    results['reference_records'] = [r['reference_records'] for r in completed_results]
 
     return results
 
@@ -2727,6 +2737,7 @@ def _solve_one_problem(solvers, problem, feature, plan, problem_name, len_proble
     # ``solveOneProblem.m`` (lines 29-30, 63-64).
     fun_inits = np.full(n_runs, np.nan)
     maxcv_inits = np.full(n_runs, np.nan)
+    reference_records = [None] * n_runs
     computation_time = np.full((n_solvers, n_runs), np.nan)
     solvers_success = np.full((n_solvers, n_runs), False)
     # ``solver_abnormal_terminations[i_solver, i_run]`` is True when the
@@ -2775,6 +2786,8 @@ def _solve_one_problem(solvers, problem, feature, plan, problem_name, len_proble
             # aligned with MATLAB's ``solveOneProblem.m``.
             fun_inits[i_run] = featured_problem.fun_init
             maxcv_inits[i_run] = featured_problem.maxcv_init
+            reference = featured_problem.reference
+            reference_records[i_run] = None if reference is None else reference.as_dict()
 
             # Define a function to call the solver.
             def call_solver():
@@ -2976,6 +2989,7 @@ def _solve_one_problem(solvers, problem, feature, plan, problem_name, len_proble
         for i_run in range(1, n_runs):
             fun_inits[i_run] = fun_inits[0]
             maxcv_inits[i_run] = maxcv_inits[0]
+            reference_records[i_run] = reference_records[0]
 
     # Return the result.
     result = {
@@ -2985,6 +2999,7 @@ def _solve_one_problem(solvers, problem, feature, plan, problem_name, len_proble
         'maxcv_out': maxcv_out,
         'fun_init': fun_inits,
         'maxcv_init': maxcv_inits,
+        'reference_records': json.dumps(reference_records, allow_nan=False),
         'n_eval': n_eval,
         'problem_name': problem_name,
         'problem_type': problem_type,

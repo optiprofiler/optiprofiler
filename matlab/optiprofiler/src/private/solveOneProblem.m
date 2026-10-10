@@ -35,6 +35,7 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
     maxcv_out = NaN(n_solvers, n_runs);
     fun_inits = NaN(n_runs, 1);
     maxcv_inits = NaN(n_runs, 1);
+    reference_records = cell(n_runs, 1);
     computation_time = NaN(n_solvers, n_runs);
     solvers_success = false(n_solvers, n_runs);
     % solver_abnormal_terminations(i_solver, i_run) is true when the
@@ -76,6 +77,7 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
             problem_mnlcon = featured_problem.mnlcon;
             problem_mcon = featured_problem.mcon;
             fun_inits(i_run) = featured_problem.fun_init;
+            reference_records{i_run} = featured_problem.reference;
             maxcv_inits(i_run) = featured_problem.maxcv_init;
 
             % Solve the problem with the solver.
@@ -291,6 +293,7 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
         for i_run = 2:n_runs
             fun_inits(i_run) = fun_inits(1);
             maxcv_inits(i_run) = maxcv_inits(1);
+            reference_records{i_run} = reference_records{1};
         end
     end
 
@@ -301,6 +304,7 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
     result.maxcv_out = maxcv_out;
     result.fun_inits = fun_inits;
     result.maxcv_inits = maxcv_inits;
+    result.reference_records = reference_records;
     result.n_eval = n_eval;
     result.problem_name = problem_name;
     result.problem_type = problem_type;

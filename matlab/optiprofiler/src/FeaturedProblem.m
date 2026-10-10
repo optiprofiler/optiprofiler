@@ -80,12 +80,12 @@ classdef FeaturedProblem < Problem
 %     not a separate sequence of constraint calls; unavailable evaluations are
 %     recorded as NaN.
 %   - fun_init, maxcv_init: reference values at the featured initial point.
-%   - reference: the original problem's feasible reference FACT (see Problem)
+%   - reference: the original problem's raw fun/maxcv reference FACT (see Problem)
 %     if the feature retains it, otherwise [] (unknown). This is author or
 %     provider metadata and is unrelated to the "reference values" above,
 %     which are the scoring truth of this trial. The record is retained
 %     unchanged or dropped; nothing is transported or derived, and the rule is
-%     the same for every kind. Retaining stages: those that change only
+%     the same for every kind at zero violation. Retaining stages: those that change only
 %     observations (noisy, truncated, random_nan, nonquantifiable_constraints,
 %     unrelaxable_constraints, and quantized with ground_truth=false),
 %     perturbed_x0, permuted and linearly_transformed. custom retains it only
@@ -94,9 +94,12 @@ classdef FeaturedProblem < Problem
 %     mod_linear_eq) may change values, constraints or bounds and makes it
 %     unknown. quantized with ground_truth=true (the default) makes it
 %     unknown, because the truth is then the mesh problem. A composition
-%     retains the record only if every stage does. The record is never the
-%     cohort minimum of a benchmark, and the recorded merits of a constrained
-%     trial may fall below it; they are never clamped.
+%     retains the record only if every stage does. A nonzero maxcv is dropped
+%     by linearly_transformed and custom mod_affine: residual magnitudes may
+%     change when bounds become linear rows, and no point is stored to
+%     recompute them. Standard profiles convert a retained record with the
+%     current merit_fun for each run; unknown keeps the V1 cohort minimum.
+%     Actual recorded merits are never clamped to this target.
 %
 %   n_eval_fun is the length of fun_hist. On every execution strategy,
 %   n_eval_cub and n_eval_ceq count recorded constraint queries, i.e. history

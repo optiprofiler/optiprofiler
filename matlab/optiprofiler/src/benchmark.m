@@ -1152,6 +1152,9 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
                 merit_mins(i_run) = min(merit_history(:, i_run, :), [], 'all', 'omitnan');
                 merit_mins(i_run) = min(merit_mins(i_run), merit_inits(i_run));
             end
+            reference_result = struct('reference_records', {result.reference_records(:)'}, ...
+                'maxcv_inits', result.maxcv_inits(:)');
+            merit_mins = applyReferenceTargets(reference_result, merit_mins(:)', merit_fun)';
             % Since we will not compute the profiles, we set `solver_scores` to be the relative decreases
             % in the objective function value.
             solver_merit_mins = squeeze(min(merit_history, [], 3, 'omitnan'));
@@ -1159,6 +1162,11 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
             for i_run = 1:n_runs
                 solver_scores_runs(:, i_run) = (merit_inits(i_run) - solver_merit_mins(:, i_run)) ./ max(merit_inits(i_run) - merit_mins(i_run), eps);
                 solver_scores_runs(:, i_run) = max(solver_scores_runs(:, i_run), 0);
+                if ~isempty(result.reference_records{i_run})
+                    % A selected target can be exceeded; keep relative scores
+                    % bounded without altering the measured merit histories.
+                    solver_scores_runs(:, i_run) = min(solver_scores_runs(:, i_run), 1);
+                end
             end
             % We set the score of a solver to be the mean score over all runs.
             solver_scores = mean(solver_scores_runs, 2);

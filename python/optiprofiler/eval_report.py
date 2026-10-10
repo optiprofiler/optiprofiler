@@ -855,6 +855,17 @@ class EvalReport:
         problem.update(dimension=_safe(result.get('problem_dim')),
                        type=_safe(result.get('problem_type')),
                        load_status='loaded', status='completed')
+        if 'reference_records' in result:
+            # Observe retained facts only. Reporting must not call merit_fun
+            # again (it may be stateful) or invent a reference for V1 archives.
+            from .opclasses import ProblemReference
+            try:
+                references = json.loads(result['reference_records'])
+                problem['reference_records'] = [None if record is None else
+                    _safe(ProblemReference.from_record(record).as_dict()) for record in references]
+            except (TypeError, ValueError):
+                self.add_diagnostic('reference_metadata_unavailable', 'reporting',
+                                    library=plib, problem=name, role=role)
         if problem['selection_status'] == 'unknown':
             problem['selection_status'] = ('retained' if self.document['operation'] == 'load'
                                            else 'observed_without_selection')
@@ -1018,6 +1029,7 @@ class EvalReport:
             'computation_time': 'computation_times',
             'solver_abnormal_termination': 'solver_abnormal_terminations',
             'solver_output_fallback': 'solver_output_fallbacks',
+            'reference_records': 'reference_records',
         }
 
         def add_library(result, role):
@@ -1103,7 +1115,7 @@ class EvalReport:
                             'tolerance': [item['tolerance'] for item in self.document['profiles']['convergence']]},
             'semantics': 'single_problem_relative_decrease_averaged_over_runs' if single else 'cohort_relative',
             'direction': 'higher_is_better_for_default_scoring; custom_callbacks_define_their_own_direction',
-            'comparability_note': 'Scores depend on the retained cohort, tolerances, options, and scoring callbacks.',
+            'comparability_note': 'Scores depend on references or the retained cohort, tolerances, options, and scoring callbacks.',
         }
         self.document['stages']['scoring'] = {'status': 'completed'}
         # score_only already explains a not-requested rendering (same

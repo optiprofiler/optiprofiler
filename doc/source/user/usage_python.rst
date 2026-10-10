@@ -178,16 +178,16 @@ The rules are:
   only; with ``ground_truth=True`` the inherited reference objective and
   nonlinear constraints are read at the snapped point as well, while bounds and
   linear constraints are always checked at the unsnapped point.
-- A problem may carry an optional *feasible reference fact*
+- A problem may carry an optional *raw reference fact*
   (``Problem.reference``, a :class:`~optiprofiler.ProblemReference`): one
-  finite scalar ``merit`` with its ``kind`` (``lower_bound``, ``optimum``,
-  ``best_known`` or ``target``, each a claim over the feasible points of the
-  problem), its ``source`` and the ``mapping`` token ``'feasible_objective/1'``
-  of a closed registry. It is author/provider metadata and must not be
-  confused with the scoring reference of the previous rule.
+  finite objective ``fun`` and finite nonnegative total violation ``maxcv``,
+  with ``kind``, ``source`` and ``mapping='objective_violation/1'``.
+  ``lower_bound``/``optimum`` require zero violation; ``best_known``/``target``
+  may describe a nonzero violation. It is author/provider metadata, distinct
+  from the feature's truth-evaluation path described above.
   ``FeaturedProblem.reference`` is that record, unchanged, if the feature
   retains it, and ``None`` (unknown) otherwise; the record holds no point, so
-  nothing is transported or derived, and the rule is the same for every kind.
+  nothing is transported or derived. The zero-violation rule is the same for every kind.
   Stages that change only observations (``noisy``, ``truncated``,
   ``random_nan``, ``nonquantifiable_constraints``,
   ``unrelaxable_constraints``, and ``quantized`` with ``ground_truth=False``),
@@ -198,20 +198,14 @@ The rules are:
   bounds and make it unknown, whatever the callbacks do. ``quantized`` with
   ``ground_truth=True``, the default, makes it unknown, because the truth is
   then the mesh problem. A composition retains the record only if every stage
-  does.
-- The reference fact is not a run-history minimum and not the profile
-  baseline: that baseline is the least merit observed over the selected solver
-  histories, changes with the solver cohort and is never stored in a problem;
-  nothing derives a reference from solver output, and no profile formula reads
-  the reference. It is not a floor for run merits either. On a constrained
-  problem the merit of a run may be *below* the reference, because a merit
-  function tolerates or penalizes small violations, so an infeasible point can
-  have a lower merit than every feasible one; such values are legitimate and
-  are never clamped. The scalar is an objective value over feasible points:
-  before a consumer compares run merits with it under a custom ``merit_fun``,
-  that function must be known to satisfy
-  ``merit_fun(f, 0, maxcv_init) == f`` for every ``maxcv_init`` (the default
-  merit function does).
+  does. General affine maps additionally drop a nonzero ``maxcv``, since
+  residual magnitude may change and no point is stored to recompute it.
+- A retained reference defines the profile target after conversion with
+  ``merit_fun(fun, maxcv, maxcv_init)`` for each run. Missing references keep
+  the V1 solver-history/initial/plain minimum, without claiming an optimum.
+  Raw merits are never clamped. Save/load retains raw reference facts and
+  recomputes their target using the current merit function. Custom callbacks
+  need not preserve objective lower-bound ordering. See :doc:`../dev/problems`.
 - ``unrelaxable_constraints`` makes the objective infinite where the
   constraints of the problem it wraps are violated, as that problem observes
   them: after ``'noisy+unrelaxable_constraints'`` the gate reads noisy

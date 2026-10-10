@@ -386,9 +386,13 @@ Meaning and limitations
   metadata they never recorded; unknown is not equivalent to false.
 * Problem identity includes the library and problem name. The optional plain
   reference experiment must not inflate the primary experiment's coverage.
-* Profile scores retain their existing cohort-relative meaning. A matched
-  configuration hash is not a guarantee of absolute comparability between
-  candidates, nor does it introduce an Arena/reference-based score.
+* Profile scores retain their cohort-relative meaning. An effective problem
+  reference now defines its convergence target; omitted references use the
+  V1 empirical solver/plain minimum. ``problems[].reference_records`` keeps
+  one raw fact or null per stored run, without recomputing a merit in the
+  reporter. An absent field means the facts were not retained. A matched
+  configuration hash alone is not a guarantee of comparability, nor does
+  this report introduce an independent Arena scoring rule.
 * Binned histories and plot presentations are not inputs to scoring. Original
   nonfinite observations are not silently converted to zero. JSON represents
   them with an object such as

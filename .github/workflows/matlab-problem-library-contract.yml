@@ -9,6 +9,9 @@ on:
       - setup.m
       - tools/check_matlab_problem_libraries_lock.py
       - matlab/optiprofiler/src/benchmark.m
+      - matlab/optiprofiler/src/Problem.m
+      - matlab/optiprofiler/src/FeaturedProblem.m
+      - matlab/optiprofiler/src/+optiprofiler_internal/**
       - matlab/optiprofiler/src/registerProblemLibrary.m
       - matlab/optiprofiler/src/unregisterProblemLibrary.m
       - matlab/optiprofiler/src/resolveProblemLibrary.m
@@ -16,6 +19,7 @@ on:
       - matlab/optiprofiler/tests/unit_tests/TestCheckValidityProblemOptions.m
       - matlab/optiprofiler/tests/unit_tests/TestProblemLibraryRegistry.m
       - matlab/optiprofiler/tests/unit_tests/TestSetupPersistenceIsolation.m
+      - matlab/optiprofiler/tests/unit_tests/TestReferenceScoring.m
       - .github/workflows/matlab-problem-library-contract.yml
   pull_request:
     paths:
@@ -24,6 +28,9 @@ on:
       - setup.m
       - tools/check_matlab_problem_libraries_lock.py
       - matlab/optiprofiler/src/benchmark.m
+      - matlab/optiprofiler/src/Problem.m
+      - matlab/optiprofiler/src/FeaturedProblem.m
+      - matlab/optiprofiler/src/+optiprofiler_internal/**
       - matlab/optiprofiler/src/registerProblemLibrary.m
       - matlab/optiprofiler/src/unregisterProblemLibrary.m
       - matlab/optiprofiler/src/resolveProblemLibrary.m
@@ -31,6 +38,7 @@ on:
       - matlab/optiprofiler/tests/unit_tests/TestCheckValidityProblemOptions.m
       - matlab/optiprofiler/tests/unit_tests/TestProblemLibraryRegistry.m
       - matlab/optiprofiler/tests/unit_tests/TestSetupPersistenceIsolation.m
+      - matlab/optiprofiler/tests/unit_tests/TestReferenceScoring.m
       - .github/workflows/matlab-problem-library-contract.yml
   workflow_dispatch:
 
@@ -94,7 +102,8 @@ jobs:
             suite = [ ...
                 testsuite(fullfile('tests', 'unit_tests', 'TestProblemLibraryRegistry.m')), ...
                 testsuite(fullfile('tests', 'unit_tests', 'TestCheckValidityProblemOptions.m')), ...
-                testsuite(fullfile('tests', 'unit_tests', 'TestSetupPersistenceIsolation.m'))];
+                testsuite(fullfile('tests', 'unit_tests', 'TestSetupPersistenceIsolation.m')), ...
+                testsuite(fullfile('tests', 'unit_tests', 'TestReferenceScoring.m'))];
             results = run(suite);
             assert(~any([results.Failed]), 'MATLAB problem-library contract tests failed.');
             assert(~any([results.Incomplete]), ...

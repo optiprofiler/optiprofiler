@@ -70,11 +70,11 @@ import numpy as np
 from .recording import reference_maxcv_or_nan
 
 from .experiment import STRATEGY_COMPOSED
-from .feature_definitions import STAGE_CODES, retains_reference
+from .feature_definitions import STAGE_CODES
 from .feature_definitions import SEED_POLICY_COMPOSED as SEED_POLICY
 from .opclasses import (Feature, FeatureOption, FeaturedProblem, Problem, _StageRuntime,
                         _begin_featured_query,
-                        _process_1d_array, _validate_max_eval, _validate_seed)
+                        _process_1d_array, _propagated_reference, _validate_max_eval, _validate_seed)
 from .utils import get_logger, shorten_log_message
 
 # Frozen numeric stage codes used in seed derivation. Never renumber; append
@@ -193,8 +193,10 @@ class ProblemView(Problem):
         # exactly when every stage is. Only the stage name and its option
         # names are read; no callback runs for this.
         self._reference = None
-        if stage is None or retains_reference(stage.name, stage.options):
+        if stage is None:
             self._reference = predecessor.reference
+        else:
+            self._reference = _propagated_reference(predecessor.reference, [(stage.name, stage.options)])
 
     # Problem-facing API: the observed channel. Input is normalized exactly
     # as ``Problem.fun`` does (a list is a legal point for a Problem), so a

@@ -293,6 +293,16 @@ classdef EvalReport < handle
                 'dimension', result.problem_dim, 'type', result.problem_type, ...
                 'selection_status', 'selected', 'load_status', 'loaded', 'status', 'completed', ...
                 'budget', budget_record, 'runs', {{}}, 'plot_refs', {{}});
+            if isfield(result, 'reference_records')
+                % Observe raw facts without re-evaluating a possibly stateful
+                % merit function. Older archives leave this field absent.
+                records = reshape(result.reference_records, 1, []);
+                for r = 1:numel(records)
+                    if isempty(records{r}), records{r} = unknown;
+                    else, records{r} = optiprofiler_internal.EvalReport.configuration(records{r}); end
+                end
+                entry.reference_records = records;
+            end
             for solver = 1:size(result.n_eval, 1)
                 for run = 1:size(result.n_eval, 2)
                     count = result.n_eval(solver, run);
@@ -517,6 +527,9 @@ classdef EvalReport < handle
                     for key = {'fun_inits', 'maxcv_inits', 'merit_inits'}
                         if isfield(value, key{1}), item.(key{1}) = value.(key{1})(p,:); end
                     end
+                    if isfield(value, 'reference_records')
+                        item.reference_records = value.reference_records(p, :);
+                    end
                     for key = {'solver_abnormal_termination', 'solver_output_fallback'}
                         if ~isfield(item, key{1}), item.(key{1}) = repmat(optiprofiler_internal.EvalReport.null(), ns, nr); end
                     end
@@ -541,7 +554,7 @@ classdef EvalReport < handle
                 'axis_values', struct('history_or_output', {{'history', 'output'}}, 'profile_type', {types(1:n_types)}, ...
                     'tolerance', {num2cell(10.^(-(1:numel(curves))))}), ...
                 'semantics', semantics, 'direction', 'higher_is_better_for_default_scoring; custom_callbacks_define_their_own_direction', ...
-                'comparability_note', 'Scores depend on the retained cohort, tolerances, options, and scoring callbacks.');
+                'comparability_note', 'Scores depend on references or the retained cohort, tolerances, options, and scoring callbacks.');
             self.setStage('scoring', 'completed');
         end
 

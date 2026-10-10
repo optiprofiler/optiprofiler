@@ -282,7 +282,7 @@ def is_stochastic(name, options):
     return False
 
 
-#: Stage kinds that keep a problem's feasible reference fact whatever their
+#: Stage kinds that keep a zero-violation reference fact whatever their
 #: options are. The first group changes only what a solver observes; the truth
 #: recorded in the histories is the original problem's. ``perturbed_x0`` moves
 #: only the initial point. ``permuted`` and ``linearly_transformed`` are
@@ -310,7 +310,7 @@ REFERENCE_SAFE_CUSTOM_OPTIONS = frozenset({FeatureOption.MOD_X0.value, FeatureOp
 def retains_reference(name, options):
     """
     Whether one stage of kind ``name`` with the stage-local ``options`` keeps
-    a problem's feasible reference fact (``Problem.reference``).
+    a problem's zero-violation reference fact (``Problem.reference``).
 
     The answer is the same for every reference kind (``lower_bound``,
     ``optimum``, ``best_known``, ``target``): each is a claim over the
@@ -333,6 +333,10 @@ def retains_reference(name, options):
 
     Only the option *names* of a custom stage are read and no callback is
     called, so applying the rule never evaluates anything.
+
+    This is the stage whitelist, not the full raw-record propagation rule.
+    The caller additionally drops a nonzero ``maxcv`` across general affine
+    changes, since preserving feasibility does not preserve residual scale.
     """
     name = getattr(name, 'value', name)
     if name in _REFERENCE_RETAINING_STAGES:
