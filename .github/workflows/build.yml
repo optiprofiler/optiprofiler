@@ -158,8 +158,17 @@ jobs:
           name: python-package-distributions
           path: dist
 
+      # The acceptance manifest is retained in the build artifact, but is not
+      # a Python distribution and must never be passed to Twine.
+      - name: Select distribution files for upload
+        shell: bash
+        run: |
+          mkdir upload
+          cp dist/*.whl dist/*.tar.gz upload/
+
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_TOKEN }}
+          packages-dir: upload/
           skip-existing: false

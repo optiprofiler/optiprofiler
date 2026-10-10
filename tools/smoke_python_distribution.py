@@ -38,6 +38,21 @@ def sphere(x):
     return float(x @ x)
 
 
+def halfway(fun, x0, *constraints):
+    x = x0 / 2
+    fun(x)
+    return x
+
+
+def unchanged(fun, x0, *constraints):
+    fun(x0)
+    return x0
+
+
+def linear_merit(fun, maxcv, initial_maxcv):
+    return fun + 2 * maxcv
+
+
 def sha256(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -82,9 +97,18 @@ def smoke(output, jobs):
     # No callables are supplied: a successful load cannot accidentally rerun
     # the solvers. Verify scores and immutable original artifacts, not a banner.
     loaded_path = root / 'loaded.json'
-    loaded = benchmark(None, load='latest', benchmark_id='installed', savepath=str(root),
-                       score_only=True, silent=True, draw_hist_plots='none',
-                       max_tol_order=2, report_path=loaded_path)
+    # load searches cwd/benchmark_id; savepath controls new output, not the
+    # input archive. Exercise the documented route rather than assuming that
+    # an output option also redirects archive discovery.
+    previous_cwd = Path.cwd()
+    try:
+        os.chdir(root)
+        loaded = benchmark(None, load='latest', benchmark_id='installed', savepath=str(root),
+                           score_only=True, silent=True, draw_hist_plots='none',
+                           max_tol_order=2, max_eval_factor=20, run_plain=True,
+                           report_path=loaded_path)
+    finally:
+        os.chdir(previous_cwd)
     np.testing.assert_array_equal(loaded[0], original[0])
     np.testing.assert_array_equal(loaded[1], original[1])
     loaded_report = read_report(loaded_path)
@@ -109,17 +133,28 @@ def main():
     output = args.output_dir.resolve()
     output.mkdir(parents=True)
     os.chdir(output)
-    # The public reference contract currently stores and propagates a fact;
-    # it does not replace the historical solver-derived profile minimum.
+    # Check scoring, not just metadata. The same measured step has relative
+    # decrease 1 under the empirical target and 3/4 under a supplied zero.
     reference = ProblemReference(0.0, 'optimum', 'analytic sphere', 'feasible_objective/1')
     problem = Problem(sphere, [1.0, 2.0], reference=reference)
     trial = FeaturedProblem(problem, Feature('noisy+permuted'), 10, 7)
     assert trial.reference == reference
     assert np.isfinite(trial.fun(trial.x0))
+    reference_options = dict(score_only=True, silent=True, n_jobs=1, max_eval_factor=2)
+    empirical = benchmark([halfway, unchanged], problem=Problem(sphere, [2.0]), **reference_options)
+    explicit = benchmark([halfway, unchanged], problem=Problem(sphere, [2.0], reference=reference),
+                         **reference_options)
+    np.testing.assert_array_equal(empirical[0], [1.0, 0.0])
+    np.testing.assert_array_equal(explicit[0], [0.75, 0.0])
+    violated = ProblemReference(fun=0.0, maxcv=0.5, kind='target', source='test target')
+    converted = benchmark([halfway, unchanged], problem=Problem(sphere, [2.0], xl=[0.5], reference=violated),
+                          merit_fun=linear_merit, **reference_options)
+    np.testing.assert_array_equal(converted[0], [1.0, 0.0])
     records = [smoke(output, jobs) for jobs in (1, 2)]
     receipt = {'status': 'PASS', 'version': args.expected_version, 'python': sys.version,
                'installed_package': str(installed), 'backend': 'Agg',
-               'reference_contract': 'metadata propagation', 'cases': records}
+               'reference_contract': 'raw objective/violation propagation and current-merit target scoring',
+               'cases': records}
     (output / 'receipt.json').write_text(json.dumps(receipt, indent=2) + '\n', encoding='utf-8')
     print(json.dumps(receipt, indent=2))
 
