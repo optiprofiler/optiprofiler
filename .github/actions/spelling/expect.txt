@@ -87,6 +87,7 @@ evallog
 evalnohash
 evalopenat
 evalplainpartial
+evalpreserved
 evalrender
 evalreport
 evalsaved
@@ -225,6 +226,8 @@ NTFS
 nullspace
 numpydoc
 objname
+oldpath
+oldrng
 openat
 openfig
 Opti

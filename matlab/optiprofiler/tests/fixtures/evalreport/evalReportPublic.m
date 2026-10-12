@@ -424,6 +424,11 @@ function evalReportPublic(source_root, output_root, slice)
         assert(all(~[completed.runs.abnormal_termination]), 'Parallel request fell back to controller execution.');
         fprintf('PASS parallel: parent-owned report, unchanged public numerical results\n');
     elseif strcmp(slice, 'archive_before_report_failure')
+        % A failed benchmark must release its experiment log, not leave a
+        % process-global diary holding log.txt open on Windows. Close only
+        % this test's diary on assertion failure so teardown stays diagnostic.
+        diary off;
+        diary_guard = onCleanup(@() diary('off')); %#ok<NASGU>
         fixture_root = fileparts(mfilename('fullpath'));
         setenv('OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_REGISTRY', fullfile(output_root, 'registry.mat'));
         registerProblemLibrary(struct('name', 'report_persistence', 'root', fixture_root, ...
@@ -443,6 +448,8 @@ function evalReportPublic(source_root, output_root, slice)
         catch cause
             assert(strcmp(cause.identifier, 'OptiProfiler:EvalReportOwnership'));
         end
+        assert(strcmp(get(0, 'Diary'), 'off'), ...
+            'OptiProfiler:DiaryLeak', 'Failed benchmark left its experiment diary open.');
         assert(strcmp(readUtf8(options.report_path), 'external replacement'));
         files = dir(fullfile(output_root, '**', 'data_for_loading.mat'));
         assert(numel(files) == 1, 'Final report failure discarded completed numerical data.');
@@ -453,6 +460,8 @@ function evalReportPublic(source_root, output_root, slice)
         benchmark(struct('load', 'latest', 'savepath', output_root, ...
             'benchmark_id', 'preserved-data', 'score_only', true, ...
             'draw_hist_plots', 'none', 'silent', true, 'max_tol_order', 1));
+        assert(strcmp(get(0, 'Diary'), 'off'), ...
+            'OptiProfiler:DiaryLeak', 'Score-only reload reopened the experiment diary.');
         fprintf('PASS archive_before_report_failure: completed raw data remains publicly reloadable\n');
     elseif strcmp(slice, 'complex_objective')
         options.problem = Problem(struct('fun', @(x) sqrt(x(1)), 'x0', 1, 'name', 'real_domain'));
