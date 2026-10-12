@@ -346,17 +346,16 @@ function evalReportPublic(source_root, output_root, slice)
         log_artifacts = fresh.artifacts(endsWith({fresh.artifacts.path}, 'test_log/log.txt'));
         assert(numel(log_artifacts) == 1, 'The run log must be enumerated exactly once.');
         log_path = fullfile(output_root, fresh.artifact_root, log_artifacts.path);
-        if merge_failed
-            % Without a merge backend the run log carries the warnings, so it
-            % is not empty; the receipt must still describe the final file.
-            log_info = dir(log_path);
-            assert(log_artifacts.bytes > 0 && log_artifacts.bytes == log_info.bytes && strcmp(log_artifacts.sha256, hashFile(log_path)), ...
-                'The non-empty run log must be enumerated with its final size and digest.');
-        else
-            assert(log_artifacts.bytes == 0, 'Empty log artifact was omitted.');
-            assert(strcmp(log_artifacts.sha256, 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'), ...
-                'Empty file must have the standard SHA256 digest.');
-        end
+        % A successful merge may still log a loader-isolation retry. Verify
+        % the actual final log, not an environment-dependent empty-log guess.
+        log_info = dir(log_path);
+        assert(log_artifacts.bytes == log_info.bytes && strcmp(log_artifacts.sha256, hashFile(log_path)), ...
+            'The run log must be enumerated with its final size and digest.');
+        % Keep explicit zero-byte coverage independent of backend diagnostics.
+        empty = fresh.artifacts(endsWith({fresh.artifacts.path}, 'hash-empty.bin'));
+        assert(numel(empty) == 1 && empty.bytes == 0, 'Empty artifact was omitted.');
+        assert(strcmp(empty.sha256, 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'), ...
+            'Empty file must have the standard SHA256 digest.');
         blocks = fresh.artifacts(endsWith({fresh.artifacts.path}, 'hash-block.bin'));
         assert(numel(blocks) == 1 && blocks.bytes == 1048576);
         assert(strcmp(blocks.sha256, '30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58'), ...
@@ -424,6 +423,48 @@ function evalReportPublic(source_root, output_root, slice)
         completed = report.problems(strcmp({report.problems.name}, 'shared'));
         assert(all(~[completed.runs.abnormal_termination]), 'Parallel request fell back to controller execution.');
         fprintf('PASS parallel: parent-owned report, unchanged public numerical results\n');
+    elseif strcmp(slice, 'archive_before_report_failure')
+        fixture_root = fileparts(mfilename('fullpath'));
+        setenv('OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_REGISTRY', fullfile(output_root, 'registry.mat'));
+        registerProblemLibrary(struct('name', 'report_persistence', 'root', fixture_root, ...
+            'select_function', 'eval_fixture_select', 'load_function', 'eval_fixture_load'));
+        options = rmfield(options, 'problem'); options.plibs = {'report_persistence'};
+        options.problem_names = {'shared'}; options.score_only = false;
+        options.draw_hist_plots = 'none'; options.max_tol_order = 1;
+        options.savepath = output_root; options.benchmark_id = 'preserved-data';
+        options.report_path = fullfile(output_root, 'replaced-after-solving.json');
+        previous_target = getenv('EVAL_REPORT_PUBLIC_REPLACE_TARGET');
+        guard = onCleanup(@() setenv('EVAL_REPORT_PUBLIC_REPLACE_TARGET', previous_target)); %#ok<NASGU>
+        setenv('EVAL_REPORT_PUBLIC_REPLACE_TARGET', options.report_path);
+        options.merit_fun = @replaceAndReturn;
+        try
+            benchmark(solvers, options);
+            error('Expected final report ownership failure.');
+        catch cause
+            assert(strcmp(cause.identifier, 'OptiProfiler:EvalReportOwnership'));
+        end
+        assert(strcmp(readUtf8(options.report_path), 'external replacement'));
+        files = dir(fullfile(output_root, '**', 'data_for_loading.mat'));
+        assert(numel(files) == 1, 'Final report failure discarded completed numerical data.');
+        % Verify the user-facing recovery route, not just the presence of a MAT file.
+        previous_directory = pwd;
+        directory_guard = onCleanup(@() cd(previous_directory)); %#ok<NASGU>
+        cd(output_root);
+        benchmark(struct('load', 'latest', 'savepath', output_root, ...
+            'benchmark_id', 'preserved-data', 'score_only', true, ...
+            'draw_hist_plots', 'none', 'silent', true, 'max_tol_order', 1));
+        fprintf('PASS archive_before_report_failure: completed raw data remains publicly reloadable\n');
+    elseif strcmp(slice, 'complex_objective')
+        options.problem = Problem(struct('fun', @(x) sqrt(x(1)), 'x0', 1, 'name', 'real_domain'));
+        value = options.problem.fun(-1);
+        assert(isreal(value) && isnan(value), 'A complex objective must not be treated as a valid real value.');
+        options.report_path = fullfile(output_root, 'complex-objective.json');
+        benchmark({@negative, @zero}, options);
+        report = readReport(options.report_path);
+        detail = readDetail(fullfile(output_root, report.plot_data.path));
+        assert(report.problems.runs(1).objective.invalid_evaluations.nan == 1);
+        assert(strcmp(detail.histories(1).channels.objective.values.reason, 'nan'));
+        fprintf('PASS complex_objective: invalid real-domain evaluation is recorded without JSON failure\n');
     elseif strcmp(slice, 'ownership')
         options.report_path = fullfile(output_root, 'replaced-success.json');
         setenv('EVAL_REPORT_PUBLIC_REPLACE_TARGET', options.report_path);
@@ -557,6 +598,8 @@ function x = stayWithHashBoundary(fun, x0)
     folders = folders([folders.isdir] & ~ismember({folders.name}, {'.', '..'}));
     assert(numel(folders) == 1, 'Expected the current benchmark output directory.');
     run_directory = fullfile(folders.folder, folders.name);
+    fid_empty = fopen(fullfile(run_directory, 'hash-empty.bin'), 'wb');
+    assert(fid_empty >= 0); fclose(fid_empty);
     target = fullfile(run_directory, 'hash-block.bin');
     fid = fopen(target, 'wb'); guard = onCleanup(@() fclose(fid));
     fwrite(fid, zeros(1048576, 1, 'uint8'), 'uint8');
@@ -650,6 +693,11 @@ end
 function x = mustNotRun(varargin)
     error('Audit:UnexpectedSolverCall', 'Load must not execute a solver.');
     x = []; %#ok<UNRCH>
+end
+
+function x = negative(fun, x0)
+    x = -ones(size(x0));
+    fun(x);
 end
 
 function value = replaceAndReturn(fun_value, varargin)

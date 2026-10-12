@@ -737,6 +737,16 @@ classdef Problem < handle
                 warning(ME.identifier, '%s', shortenMessageForLog(ME.message));
                 f = NaN;
             end
+            % Real-domain functions can return complex values without throwing
+            % (e.g., a negative base raised to a fractional power). Treat this
+            % as an invalid evaluation, never as a valid objective or its real
+            % part: histories, convergence tests and JSON all require scalars
+            % on the real line. NaN preserves the existing failed-oracle policy.
+            if ~isrealscalar(f)
+                warning('MATLAB:Problem:InvalidOutputForFUN', ...
+                    'The objective function must return a real scalar; recording NaN.');
+                f = NaN;
+            end
         end
 
         function g = grad(obj, x)

@@ -1149,6 +1149,11 @@ def _benchmark(
                          output_dir=None if profile_options[ProfileOption.SCORE_ONLY] else path_stamp,
                          input_route=feature_input, feature_stamp_origin=feature_stamp_origin)
         report.set_stage('numerical', 'running')
+        if not profile_options[ProfileOption.SCORE_ONLY] and not has_single_problem:
+            # Report collection is optional. Publish the initial request now,
+            # but defer numerical snapshots until the reload archive is closed:
+            # a JSON/ownership failure must not discard completed experiment data.
+            report.defer_publication()
 
     # Create directory to store history plots based on draw_hist_plots option.
     if profile_options[ProfileOption.DRAW_HIST_PLOTS] == 'none':
@@ -1536,7 +1541,8 @@ def _benchmark(
                 _close_logging_resources(logging_resources)
             return solver_scores, None, None
 
-    # Preserve completed numerical results before sequential history rendering.
+    # Preserve completed numerical results before report publication and
+    # sequential history rendering.
     # On load, these are the filtered/recomputed results for the new output,
     # not the original input file. Parallel history still runs during solving.
     if report is not None:
@@ -1569,6 +1575,11 @@ def _benchmark(
             raise RuntimeError(
                 f'Failed to save the experiment in {path_log}: {exc}'
             ) from exc
+
+    if report is not None:
+        # Kept outside the data-save handler: a report failure is not a failed
+        # HDF5 save, and the completed archive remains publicly reloadable.
+        report.resume_publication()
 
     # Draw history plots sequentially if draw_hist_plots is set to 'sequential'.
     # On the load path this loop is the only drawing mechanism (parallel drawing

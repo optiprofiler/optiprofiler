@@ -1361,16 +1361,17 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
         end
     end
 
-    if ~isempty(eval_report)
-        if is_load, eval_report.addResults(results_plibs); end
-        eval_report.completeNumerical();
-    end
-    % Persist the numerical result BEFORE sequential rendering. A graphics
-    % crash or forced interruption must not discard a completed experiment.
+    % Persist completed numerical data before final report serialization as
+    % well as rendering. An optional JSON write/ownership failure must leave
+    % the experiment recoverable through the public load entry point.
     if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
         if ~isempty(eval_report), eval_report.setStage('persistence', 'running'); end
         saveResultsForLoading(results_plibs, path_log, time_stamp, path_readme_log);
         if ~isempty(eval_report), eval_report.setStage('persistence', 'completed'); end
+    end
+    if ~isempty(eval_report)
+        if is_load, eval_report.addResults(results_plibs); end
+        eval_report.completeNumerical();
     end
     writeReport(profile_options, results_plibs, path_report, path_readme_log);
     if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)

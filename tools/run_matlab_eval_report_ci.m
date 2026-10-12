@@ -26,7 +26,8 @@ function run_matlab_eval_report_ci(repository_root, output_root, parallel_case)
         'TestEvalReport/paddedLengthAggregationBoundary', 'TestEvalReport/statefulRendererMeritObserved', ...
         'TestEvalReport/renderingFailureSeparate', 'TestEvalReport/archiveProvenanceAndArtifacts', ...
         'TestEvalReport/actualParallelEquivalence', 'TestEvalReport/writeFailureAndOwnership', ...
-        'TestEvalReport/optionalPlainReferenceStatus', 'TestEvalReport/relativePathsAndStringArrayOptions'};
+        'TestEvalReport/optionalPlainReferenceStatus', 'TestEvalReport/relativePathsAndStringArrayOptions', ...
+        'TestEvalReport/rawArchiveSurvivesFinalReportFailure', 'TestEvalReport/complexObjectiveIsInvalidEvaluation'};
     parallel_name = 'TestEvalReport/actualParallelEquivalence';
     old_directory = pwd;
     old_path = path;
@@ -127,6 +128,20 @@ function run_matlab_eval_report_ci(repository_root, output_root, parallel_case)
         assert(nnz([band_results.Failed]) == 0 && nnz([band_results.Incomplete]) == 0 && all([band_results.Passed]), ...
             'OptiProfiler:BandTestsNotPassed', 'TestProfileBands: %d failed, %d incomplete.', nnz([band_results.Failed]), nnz([band_results.Incomplete]));
         appendLog(log_file, sprintf('TestProfileBands completed with Failed=0 and Incomplete=0 for %d of %d cases (serial, n_jobs=1).', numel(band_results), numel(band_cases)));
+        % Exercise the native export boundary, including nested layouts and
+        % appending pages. Numerical tests alone cannot detect renderer stalls.
+        stage = 'TestProfileExport';
+        export_cases = {'TestProfileExport/publicBenchmarkExportsTiledSummaries'};
+        export_suite = testsuite(fullfile(pwd, 'tests', 'unit_tests', 'TestProfileExport.m'));
+        assert(isequal({export_suite.Name}, export_cases), 'OptiProfiler:UnexpectedExportSuite', ...
+            'The native export regression must be discovered exactly once.');
+        export_runner = matlab.unittest.TestRunner.withTextOutput;
+        export_runner.addPlugin(matlab.unittest.plugins.XMLPlugin.producingJUnitFormat(fullfile(output_root, 'profile-export-junit.xml')));
+        export_results = export_runner.run(export_suite);
+        writeReceipt(fullfile(output_root, 'profile-export-receipt.json'), export_results, ...
+            'not_requested', 'serial', export_cases, struct('name', {}, 'reason', {}));
+        assert(all([export_results.Passed]) && ~any([export_results.Incomplete]), ...
+            'OptiProfiler:ExportTestsNotPassed', 'The native export regression must pass without filtering.');
     catch cause
         try
             appendLog(log_file, sprintf('Failed during %s [%s]:\n%s', stage, cause.identifier, ...

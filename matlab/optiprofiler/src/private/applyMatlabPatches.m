@@ -54,8 +54,9 @@ function restorers = localPatchR2025bLinuxGraphics(restorers)
 % triggered by the desktop figure infrastructure itself, not by any
 % specific OptiProfiler call. Switching the default renderer to
 % 'painters' and rendering off-screen reduces the likelihood; it does
-% not eliminate it. The only guaranteed workaround is to run MATLAB
-% without the desktop GUI (e.g. via `matlab -batch ...`).
+% not eliminate it. Batch mode avoids desktop interaction, but is not a
+% guarantee: native PDF export has also stalled in headless Linux sessions.
+% Keep this best-effort mitigation distinct from export-failure containment.
 
     if ~isunix() || ismac()
         return;
@@ -102,8 +103,8 @@ function restorers = localPatchR2025bLinuxGraphics(restorers)
          'been temporarily set to ''painters'' and new figures forced to ' ...
          'invisible; the original defaults will be restored automatically ' ...
          'on exit. The mitigation reduces the likelihood but cannot ' ...
-         'eliminate it. The only guaranteed workaround is to run MATLAB ' ...
-         'without the desktop GUI, i.e. in headless / batch mode.']);
+         'eliminate it. Headless / batch mode avoids desktop interaction ' ...
+         'but does not guarantee that native graphics export will return.']);
 
     restorers{end + 1} = @() localRestoreGrootDefaults(saved);
 end

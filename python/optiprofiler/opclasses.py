@@ -2481,6 +2481,11 @@ class Problem:
             raise ValueError(f'The argument `x` for method `fun` in problem must have size {self.n}.')
         try:
             f = self._fun(x)
+            # NumPy complex scalars can be cast to float while silently
+            # discarding their imaginary component. A real-domain violation
+            # must remain an invalid evaluation, not a plausible real score.
+            if np.iscomplexobj(f):
+                raise ValueError('The objective function must return a real scalar.')
             f = float(f)
         except Exception as err:
             logger = get_logger(__name__)
@@ -3661,6 +3666,11 @@ def _process_1d_array(x, message):
         return np.empty(0)
     elif isinstance(x, np.ndarray) and x.size == 0:
         return x
+    # astype(float) otherwise drops imaginary components with only a warning.
+    # Reject them before conversion: changing a point, bound, or constraint
+    # to its real part would silently define a different optimization problem.
+    if np.iscomplexobj(x):
+        raise ValueError(message + ' Values must be real.')
     x = np.atleast_1d(np.squeeze(x)).astype(float)
     if x.ndim != 1:
         raise ValueError(message)
@@ -3691,6 +3701,10 @@ def _process_2d_array(x, message):
         return np.empty(0)
     elif isinstance(x, np.ndarray) and x.size == 0:
         return x
+    # Same real-valued contract as vector inputs, including derivatives and
+    # linear-constraint matrices; never discard an imaginary component.
+    if np.iscomplexobj(x):
+        raise ValueError(message + ' Values must be real.')
     x = np.atleast_2d(x).astype(float)
     if x.ndim != 2:
         raise ValueError(message)

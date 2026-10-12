@@ -30,6 +30,16 @@ is ``evaluation/eval_report.plot_data.json``. Both targets must be new: a
 collision with either file is refused before solvers execute. This also
 prevents a load/replot operation from replacing its source report.
 
+For a saved problem-library experiment, completed numerical data is persisted
+to H5/MAT before the final numerical report is published. Python collects its
+numerical report updates in memory during this phase; the initially published
+request remains visible. A later report-write failure still raises an error,
+but the completed experiment can be recovered through ``load``. Objective
+callbacks must return real scalars: complex values are invalid evaluations,
+recorded as NaN rather than silently reduced to their real components.
+Complex points, bounds, constraint values and derivative arrays are rejected
+as invalid real-optimization inputs; their imaginary parts are not discarded.
+
 ``score_only=True`` still disables plots and raw experiment persistence. The
 two explicitly requested JSON files are the only additional outputs. Preparing
 plot coordinates does not create figures, require a rendering backend, or
