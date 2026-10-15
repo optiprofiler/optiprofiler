@@ -50,5 +50,15 @@ These tests load the actual configuration against tiny disposable repositories.
 They require neither Sphinx nor numerical solvers and do not modify the project
 repository's commits or refs.
 
+Website color mode
+------------------
+
+The published website defaults to light mode, matching ``app.optprof.com``.
+``html_context['default_mode']`` sets the Sphinx theme's initial mode, and
+``_static/system-theme.js`` applies the same fallback before the page renders.
+The header button switches between light and dark. Explicit saved ``mode``
+choices in browser storage are retained; system preferences do not change the
+default. Invalid or unavailable storage falls back to light.
+
 See the `development roadmap <DEVELOPMENT.md>`_ for the current maintenance and
 next-version boundaries.

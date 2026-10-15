@@ -1,6 +1,5 @@
 (function () {
-    var migrationKey = "op_docs_theme_defaulted_to_dark_v1";
-    var defaultTheme = "dark";
+    var defaultTheme = "light";
 
     function applyDefaultTheme(updateStorage) {
         document.documentElement.dataset.mode = defaultTheme;
@@ -75,7 +74,6 @@
             document.documentElement.dataset.mode = storedMode;
             setTheme(storedMode, false);
         } else {
-            localStorage.setItem(migrationKey, "1");
             applyDefaultTheme(true);
         }
     } catch (error) {
