@@ -40,6 +40,7 @@ from pathlib import Path
 from . import utils as _utils
 from .feature_definitions import EXPERIMENT_OPTIONS, STAGE_NAMES, validated_local_options
 from .utils import FeatureOption, ProblemOption
+from .provenance import FEATURE_PIPELINE_SCHEMA
 
 REFINED_SCHEMA = 'options_refined-v2'
 USER_SCHEMA = 'options_user-v2'
@@ -620,20 +621,24 @@ def _recipe_from_archived(archived, results_plibs):
     except (TypeError, ValueError):
         n_runs = None
     run_plain = archived.get('run_plain') if isinstance(archived.get('run_plain'), bool) else None
-    comparison = {'archive_comparison': 'run_axis;feature_stamp;plain_reference',
-                  'callback_comparison': 'not_applicable'}
+    checked = set()
+    comparison = {'callback_comparison': 'not_applicable'}
     for result in results_plibs or []:
         if not isinstance(result, Mapping):
             continue
         histories = result.get('fun_histories')
-        if n_runs is not None and getattr(histories, 'ndim', 0) == 4 and int(histories.shape[2]) != n_runs:
-            return _closed_recipe('archive_run_axis_disagrees_with_source_options',
-                                  archive_runs=int(histories.shape[2]), source_n_runs=n_runs)
+        if n_runs is not None and getattr(histories, 'ndim', 0) == 4:
+            if int(histories.shape[2]) != n_runs:
+                return _closed_recipe('archive_run_axis_disagrees_with_source_options',
+                                      archive_runs=int(histories.shape[2]), source_n_runs=n_runs)
+            checked.add('run_axis')
         stamp = result.get('feature_stamp')
-        if isinstance(stamp, str) and isinstance(archived.get('feature_stamp'), str) and stamp != archived['feature_stamp']:
-            return _closed_recipe('archive_feature_stamp_disagrees_with_source_options')
+        if isinstance(stamp, str) and isinstance(archived.get('feature_stamp'), str):
+            if stamp != archived['feature_stamp']:
+                return _closed_recipe('archive_feature_stamp_disagrees_with_source_options')
+            checked.add('feature_stamp')
         payload, schema = read_feature_pipeline(result.get('feature_pipeline'))
-        if isinstance(payload, Mapping) and schema == 'feature_pipeline-v3':
+        if isinstance(payload, Mapping) and schema == FEATURE_PIPELINE_SCHEMA:
             block = payload.get('feature') if isinstance(payload.get('feature'), Mapping) else {}
             experiment = payload.get('experiment') if isinstance(payload.get('experiment'), Mapping) else {}
             detail, callbacks = _stages_disagreement(block.get('stages'), feature)
@@ -643,11 +648,18 @@ def _recipe_from_archived(archived, results_plibs):
                 detail = 'effective_name'
             if detail is not None:
                 return _closed_recipe('archive_feature_pipeline_disagrees_with_source_options', detail=detail)
-            comparison['archive_comparison'] = 'run_axis;feature_stamp;plain_reference;feature_pipeline_v3_stages_and_options'
+            checked.add('feature_pipeline_v3_stages_and_options')
             if callbacks:
                 comparison['callback_comparison'] = 'descriptor_module_and_name_only_not_identity_or_semantics'
-        if run_plain is not None and isinstance(result.get('results_plib_plain'), Mapping) != run_plain:
-            return _closed_recipe('archive_plain_reference_disagrees_with_source_options')
+        if run_plain is not None:
+            if isinstance(result.get('results_plib_plain'), Mapping) != run_plain:
+                return _closed_recipe('archive_plain_reference_disagrees_with_source_options')
+            if 'results_plib_plain' in result:
+                checked.add('plain_reference')
+    comparison['archive_comparison'] = ';'.join(
+        field for field in ('run_axis', 'feature_stamp', 'plain_reference',
+                            'feature_pipeline_v3_stages_and_options') if field in checked
+    ) or 'not_performed'
     archived, problem = _validated_archived(archived, require_flag=False)
     if archived is None:
         return _closed_recipe(problem)

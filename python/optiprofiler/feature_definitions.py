@@ -18,6 +18,7 @@ import math
 from types import MappingProxyType
 
 import numpy as np
+from .validation import normalize_integer
 
 from .utils import FeatureName, FeatureOption
 
@@ -160,10 +161,7 @@ def validate_option(name, key, value):
     elif key == FeatureOption.SIGNIFICANT_DIGITS:
         if isinstance(value, (bool, np.bool_)):
             raise TypeError(f'Option `{key}` must be an integer, not a boolean.')
-        if isinstance(value, (float, np.floating)) and float(value).is_integer():
-            value = int(value)
-        if isinstance(value, np.integer):
-            value = int(value)
+        value = normalize_integer(value)
         if not isinstance(value, int):
             raise TypeError(f'Option `{key}` must be an integer.')
         if value <= 0:
@@ -284,7 +282,7 @@ def is_stochastic(name, options):
     return False
 
 
-#: Stage kinds that keep a problem's feasible reference fact whatever their
+#: Stage kinds that keep a zero-violation reference fact whatever their
 #: options are. The first group changes only what a solver observes; the truth
 #: recorded in the histories is the original problem's. ``perturbed_x0`` moves
 #: only the initial point. ``permuted`` and ``linearly_transformed`` are
@@ -312,7 +310,7 @@ REFERENCE_SAFE_CUSTOM_OPTIONS = frozenset({FeatureOption.MOD_X0.value, FeatureOp
 def retains_reference(name, options):
     """
     Whether one stage of kind ``name`` with the stage-local ``options`` keeps
-    a problem's feasible reference fact (``Problem.reference``).
+    a problem's zero-violation reference fact (``Problem.reference``).
 
     The answer is the same for every reference kind (``lower_bound``,
     ``optimum``, ``best_known``, ``target``): each is a claim over the
@@ -335,6 +333,10 @@ def retains_reference(name, options):
 
     Only the option *names* of a custom stage are read and no callback is
     called, so applying the rule never evaluates anything.
+
+    This is the stage whitelist, not the full raw-record propagation rule.
+    The caller additionally drops a nonzero ``maxcv`` across general affine
+    changes, since preserving feasibility does not preserve residual scale.
     """
     name = getattr(name, 'value', name)
     if name in _REFERENCE_RETAINING_STAGES:
@@ -595,9 +597,6 @@ class Declaration:
             return None
         return '+'.join(name for name, _ in self._entries)
 
-    @property
-    def is_known(self):
-        return self._route is not None
 
     def __repr__(self):
         return f'Declaration({self._route!r}, {self.name!r})'

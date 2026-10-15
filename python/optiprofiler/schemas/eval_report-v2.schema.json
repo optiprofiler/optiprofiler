@@ -537,6 +537,24 @@
       ],
       "description": "Evaluation cap shared by every run of the problem in this invocation (runs[].budget may override it). Null before observations arrive; evaluations null with a reason when the original budget is not retained. Reaching the cap never identifies the termination cause."
     },
+    "problemReference": {
+      "type": "object",
+      "required": ["fun", "maxcv", "kind", "source", "mapping"],
+      "properties": {
+        "fun": {"type": "number"},
+        "maxcv": {"type": "number", "minimum": 0},
+        "kind": {"enum": ["lower_bound", "optimum", "best_known", "target"]},
+        "source": {"$ref": "#/$defs/nullableText"},
+        "mapping": {"enum": ["objective_violation/1", "feasible_objective/1"]}
+      },
+      "additionalProperties": false,
+      "if": {"anyOf": [
+        {"properties": {"kind": {"enum": ["lower_bound", "optimum"]}}},
+        {"properties": {"mapping": {"const": "feasible_objective/1"}}}
+      ]},
+      "then": {"properties": {"maxcv": {"const": 0}}},
+      "description": "Raw target facts, not cached merit. Provenance text uses the bounded report projection; the saved numerical archive retains the authoritative full record."
+    },
     "problem": {
       "type": "object",
       "required": [
@@ -614,6 +632,11 @@
             "type": "string",
             "minLength": 1
           }
+        },
+        "reference_records": {
+          "type": "array",
+          "items": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/problemReference"}]},
+          "description": "One effective featured reference per stored run. Null uses the empirical V1 cohort/plain target; absent means reference facts were not retained (including V1 archives). No merit callback is executed to produce this metadata."
         },
         "provider": {
           "$ref": "#/$defs/metadataValue"

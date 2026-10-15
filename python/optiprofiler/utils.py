@@ -6,7 +6,7 @@ import re
 import sys
 import textwrap
 from enum import Enum
-import multiprocessing as mp
+from ._parallel import worker_context
 from importlib.metadata import PackageNotFoundError, version
 
 
@@ -289,11 +289,12 @@ def setup_main_process_logging(log_file=None, level=logging.INFO):
     listener : `logging.handlers.QueueListener`
         Listener for the log queue.
     """
-    log_queue = mp.Queue(-1)
+    # A fork-context semaphore cannot be passed to a spawned worker. Match the
+    # executor context without modifying the application's process policy.
+    log_queue = worker_context().Queue(-1)
 
     root = logging.getLogger()
-    root.handlers[:] = []
-    root.setLevel(level)
+    original_handlers, original_level = list(root.handlers), root.level
 
     fmt = WrappedLogFormatter(line_width=DEFAULT_LOG_LINE_WIDTH, error_max_length=180)
     console = logging.StreamHandler(sys.stdout)
@@ -307,8 +308,10 @@ def setup_main_process_logging(log_file=None, level=logging.INFO):
     listener = QueueListener(log_queue, *handlers, respect_handler_level=True)
     listener.start()
 
+    listener._root_logging_state = (original_handlers, original_level)
     qh = QueueHandler(log_queue)
-    root.addHandler(qh)
+    root.handlers[:] = [qh]
+    root.setLevel(level)
 
     return log_queue, listener
 

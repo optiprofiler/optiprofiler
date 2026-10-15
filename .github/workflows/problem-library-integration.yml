@@ -132,7 +132,10 @@ jobs:
           python -m pip install --disable-pip-version-check build
           python -m pip install --disable-pip-version-check -e .
           python -m build --wheel --outdir external-dist external-library
-          python -m pip install --disable-pip-version-check --no-deps external-dist/*.whl
+          # The installed core must satisfy the provider's declared dependency.
+          # --no-deps would hide an incompatible or unavailable core requirement.
+          python -m pip install --disable-pip-version-check external-dist/*.whl
+          python -m pip check
 
       - name: Verify locked entry point and API v1 contract
         run: |

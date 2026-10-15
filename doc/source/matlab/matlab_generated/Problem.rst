@@ -46,11 +46,11 @@ Optional fields:
 
     - **aub**, **bub**: the coefficient matrix and right-hand side vector of the linear inequality constraints ``aub * x <= bub``. The default setting of ``aub`` and ``bub`` are empty matrix and vector.
 
-    - **aeq**, **beq**: the coefficient matrix and right-hand side vector of the linear equality constraints ``aeq * x <= beq``. The default setting of `aeq` and `beq` are empty matrix and vector.
+    - **aeq**, **beq**: the coefficient matrix and right-hand side vector of the linear equality constraints ``aeq * x = beq``. The default setting of `aeq` and `beq` are empty matrix and vector.
 
     - **cub**: the function of nonlinearly inequality constraints ``cub(x) <= 0``, where ``cub(x) -> float vector``. By default, ``cub(x)`` will return an empty vector.
 
-    - **ceq**: the function of nonlinearly equality constraints ``ceq(x) <= 0``, where ``ceq(x) -> float vector``. By default, ``ceq(x)`` will return an empty vector.
+    - **ceq**: the function of nonlinear equality constraints ``ceq(x) = 0``, where ``ceq(x) -> float vector``. By default, ``ceq(x)`` will return an empty vector.
 
     - **grad**: the gradient of the objective function ``grad(x) -> float vector``. By default, ``grad(x)`` will return an empty vector.
 
@@ -64,9 +64,9 @@ Optional fields:
 
     - **hceq**: the Hessian of the nonlinearly equality constraints ``hceq(x) -> cell array of float matrices``. The i-th element of ``hceq(x)`` should be the Hessian of the i-th function in ``ceq``. By default, ``hceq(x)`` will return an empty cell.
 
-    - **reference**: an optional feasible reference fact of the problem, stated by its author or provider: a struct with exactly the fields ``merit`` (a finite real scalar), ``kind`` (one of ``'lower_bound'``, ``'optimum'``, ``'best_known'``, ``'target'``), ``source`` (non-empty provenance text) and ``mapping`` (a token of the closed registry ``{'feasible_objective/1'}``). Every kind is a claim over the *feasible* points of the problem: a bound on the objective over them, its exact optimal value over them, the objective value of a known feasible point, or a target level chosen for them. With the mapping ``'feasible_objective/1'``, ``merit`` is an objective value over feasible points, so it equals the merit of a feasible point under every merit function with the feasible identity ``merit_fun(f, 0, maxcv_init) == f`` for every ``maxcv_init`` (the default merit function has it). A mapping is never a function handle and users cannot register one. A naked scalar, a record with other fields (including the superseded fields ``fun``, ``maxcv`` and ``point``), a non-finite merit and an unknown mapping are rejected; nothing is repaired or guessed. Omitted means unknown. The record is validated structurally without evaluating anything, so a reference adds no callback call to building or loading a problem. See :ref:`FeaturedProblem <matfeaturedproblem>` for which features retain it.
+    - **reference**: an optional author/provider fact with exactly five fields: ``fun`` (finite objective), ``maxcv`` (finite nonnegative total violation), ``kind``, ``source`` (non-empty provenance text), and ``mapping``. Kinds are ``'lower_bound'``, ``'optimum'``, ``'best_known'`` and ``'target'``. The first two require ``maxcv=0``; the latter two may describe an infeasible point or a chosen target. The canonical mapping token is ``'objective_violation/1'``. The earlier ``'feasible_objective/1'`` draft is accepted only as a zero-violation objective, including its four-field ``merit`` layout; newly saved records always use the five raw fields. Points and mapping callbacks are not stored. Validation evaluates no objective or constraint.
 
-      The reference is **not** a run-history minimum and **not** the dynamic cohort minimum of a benchmark: the profile baseline is the least merit observed over the selected solver histories, changes with the solver cohort and is never stored in a ``Problem``. It is **not** a floor for run merits either: on a constrained problem the merit of a run may be below the reference, because a merit function tolerates or penalizes small violations, and such values are never clamped. Before a consumer compares run merits with the record under a custom merit function, that function must be known to preserve the feasible identity above.
+      Standard profiles convert a retained featured reference using the current ``merit_fun(fun, maxcv, maxcv_init)`` separately for each run, including on load. This replaces the empirical scoring target, not the raw histories. Omitted or safely dropped reference keeps the V1 minimum over the selected solver histories, initial values and optional plain run. This default is not a ``best_known`` claim or a certified optimum. Custom merit functions need not preserve objective lower-bound ordering: ``kind`` describes the raw fact, not a theorem about arbitrary callbacks. Actual run merits are never clamped to the target. See :ref:`FeaturedProblem <matfeaturedproblem>` for feature propagation.
 
 The output **P** contains following properties:
 
@@ -74,7 +74,7 @@ Properties inherited from the input struct:
 
     **name**, **x0**, **xl**, **xu**, **aub**, **bub**, **aeq**, **beq**, **reference**
 
-    (``reference`` is ``[]`` when unknown, otherwise a struct with the fields ``merit``, ``kind``, ``source``, ``mapping``. It is set at construction only and cannot be assigned. A stored record that the contract rejects, for example one loaded from a file written for another record layout, reads as ``[]`` with a warning and is never reinterpreted.)
+    (``reference`` is ``[]`` when unknown, otherwise a struct with ``fun``, ``maxcv``, ``kind``, ``source``, ``mapping``. It is set at construction only and cannot be assigned. An invalid stored object record reads as ``[]`` with a warning; supported legacy zero-violation records are migrated explicitly.)
 
 Properties dependent on the input struct:
 

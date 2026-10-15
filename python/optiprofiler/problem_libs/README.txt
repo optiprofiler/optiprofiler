@@ -168,6 +168,9 @@ OptiProfiler allows benchmarking solvers using custom problem libraries. To use 
 2. A selection function that filters problems based on criteria (`*_select`)
 
 The `custom` library demonstrates one possible implementation approach.
+It remains a bundled toy library for compatibility, not a directory in which
+users should install or edit their own problems. Copy the complete directory
+to an external location if you want to adapt its example implementation.
 
 ### Problem-selection bound types
 
@@ -219,6 +222,21 @@ callbacks cannot accept `plib_options` or provider-scoped `set_plib_config`
 overrides; configure it externally or adopt the explicit callbacks.
 
 The internal implementation is flexible. The example in `custom_tools.py` demonstrates an approach where problem information is stored in a CSV file (`probinfo_python.csv`) for efficient filtering.
+
+The copied tools module must load its own problem files, not the installed
+OptiProfiler examples. The template uses a relative import for this purpose:
+
+```python
+problem_module = importlib.import_module(
+    f'.python_problems.{problem_name}', package=__package__
+)
+```
+
+OptiProfiler supplies an isolated package context for each external adapter,
+even without `__init__.py`. Use relative imports for sibling modules; do not
+insert the problem directory into `sys.path` or import through the fixed
+`optiprofiler.problem_libs.custom` package name. If you rename `custom`, rename
+the tools file, the callback prefixes, and related `__init__.py` imports too.
 
 ### 3. Create Problem Definitions
 
@@ -281,6 +299,20 @@ The `custom` folder provides a reference implementation that you can study and a
 2. How to implement the required functions
 
 You are encouraged to examine the files in the `custom` folder to understand the implementation details and adapt them to your specific needs.
+
+For example, copy the complete `custom` directory into
+`/path/to/problem_libs/custom`, then edit its `python_problems` files. Use
+`plibs=['custom']` together with
+`custom_problem_libs_path='/path/to/problem_libs'` to benchmark that external
+copy. Regenerate its `probinfo_python.csv` after adding or changing problems;
+from `/path/to/problem_libs`, run:
+
+```sh
+python -c "from custom.custom_tools import custom_get_info; custom_get_info()"
+```
+
+Both problem selection and loading then use the external copy. Omitting the
+explicit path continues to select the unchanged bundled examples.
 
 You may also want to view our website for more information on how to use OptiProfiler: www.optprof.com
 

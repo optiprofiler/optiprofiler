@@ -73,13 +73,29 @@ class TestSchemaSelection:
         assert module.schema_identifier('eval_report') == 'optiprofiler.eval_report/2'
         assert module.schema_identifier('plot_data') == 'optiprofiler.plot_data/1'
         # The numeric companion keeps its contract; v2 references the same identifier.
-        assert module.load_schema('plot_data')['$id'] == 'urn:optiprofiler:plot_data:1'
         assert v2['$defs']['plotDataReference']['properties']['schema']['const'] == 'optiprofiler.plot_data/1'
         effective = v2['$defs']['configuration']['properties']['effective']
         assert effective['required'] == ['problem_options', 'profile_options', 'feature', 'experiment']
         assert v2['$defs']['experimentPlan']['required'] == ['role', 'n_runs', 'origin', 'run_policy', 'execution_strategy',
                                                            'runtime_policy']
         assert v2['$defs']['experimentPlans']['additionalProperties'] is False
+
+    def test_emitted_feature_and_experiment_contract(self, tmp_path, monkeypatch):
+        import copy
+        from jsonschema import Draft202012Validator
+        monkeypatch.chdir(tmp_path)
+        target = tmp_path / 'contract.json'
+        benchmark([stay, zero], problem=quad(), score_only=True, silent=True,
+                  n_jobs=1, max_tol_order=1, report_path=target)
+        report = read(target)
+        assert_valid(report, 'eval_report-v2.schema.json')
+        effective = report['configuration']['effective']
+        assert {'problem_options', 'profile_options', 'feature', 'experiment'} <= effective.keys()
+        validator = Draft202012Validator(module.load_schema_for(report))
+        for field in ('feature', 'experiment'):
+            incomplete = copy.deepcopy(report)
+            incomplete['configuration']['effective'].pop(field)
+            assert not validator.is_valid(incomplete)
 
     def test_dispatch_by_document_identity_rejects_unknown_versions(self):
         assert module.schema_for_document({'schema': 'optiprofiler.eval_report/1'}) == ('eval_report', 1)

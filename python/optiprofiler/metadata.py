@@ -55,7 +55,7 @@ def describe_callback(value):
                           types.MethodType)):
         return {'kind': 'callback', 'module': bounded_text(value.__module__),
                 'name': bounded_text(value.__qualname__)}
-    cls = type(value)
+    cls = value if isinstance(value, type) else type(value)
     return {'kind': 'callback', 'module': bounded_text(cls.__module__),
             'name': bounded_text(cls.__qualname__), 'instance_state': 'not_recorded'}
 

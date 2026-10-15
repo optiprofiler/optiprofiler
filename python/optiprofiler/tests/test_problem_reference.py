@@ -1,31 +1,9 @@
 """
-Feasible reference fact of a problem (``Problem.reference``).
-
-The record has exactly four fields: a finite real scalar ``merit``, a ``kind``
-(``lower_bound``, ``optimum``, ``best_known`` or ``target``; every kind is a
-claim over the *feasible* points of the problem), a non-empty ``source`` and a
-``mapping`` token of a closed registry (only ``feasible_objective/1``). It
-holds no point, no callable and no constraint violation.
-
-What these tests pin:
-
-- the four-field shape, and the rejection of the superseded fields (``fun``,
-  ``maxcv``, ``point``), of unknown mappings and of non-finite scalars;
-- that a record this version does not accept deserializes as unknown or as an
-  error and is never reinterpreted;
-- the propagation table of the features, single and composed, including every
-  subset of the ``custom`` option names, uniformly over the four kinds;
-- that a reference changes nothing else: callback counts, histories and whole
-  benchmarks are identical with and without it;
-- what the scalar means: the default merit function returns the objective at
-  every feasible point whatever the initial violation is (the *feasible
-  identity*), and on a constrained problem the merit of a run may legitimately
-  be below the reference, which is never used as a clamp.
-
-The reference fact must not be confused with two things the code base also
-calls "reference": the *reference channel* of a featured problem (the scoring
-truth of a run) and the *plain reference* of the profiles (a run-history
-minimum). The fact is author/provider metadata and is neither.
+Reference raw facts, validation, conservative propagation and legacy loading.
+The five-field record stores no point. References may change convergence,
+but never raw objective/constraint histories or callback counts. Unknown
+references retain the V1 cohort minimum. Focused target tests live in
+test_reference_scoring.py.
 """
 
 import copy
@@ -52,12 +30,12 @@ from optiprofiler.profile_utils import _default_merit, compute_merit_values
 
 MAPPING = 'feasible_objective/1'
 KINDS = ('lower_bound', 'optimum', 'best_known', 'target')
-FIELDS = ('merit', 'kind', 'source', 'mapping')
+FIELDS = ('fun', 'maxcv', 'kind', 'source', 'mapping')
 CENTER = np.array([1.0, 2.0])
 
 
 def record(merit=0.0, kind='optimum', source='author', mapping=MAPPING):
-    return {'merit': merit, 'kind': kind, 'source': source, 'mapping': mapping}
+    return {'fun': merit, 'maxcv': 0.0, 'kind': kind, 'source': source, 'mapping': mapping}
 
 
 def shifted_sphere(x):
@@ -175,38 +153,37 @@ def solver_coordinates(featured, x):
 
 class TestRecordShape:
 
-    def test_record_has_exactly_four_fields(self):
+    def test_record_has_exactly_five_fields(self):
         reference = ProblemReference(2.5, 'best_known', 'DOI 10.0/example', MAPPING)
         assert ProblemReference.FIELDS == FIELDS
-        assert ProblemReference.__slots__ == ('_merit', '_kind', '_source', '_mapping')
+        assert ProblemReference.__slots__ == ('_fun', '_maxcv', '_kind', '_source', '_mapping')
         assert not hasattr(reference, '__dict__')  # nothing can be attached to a record
         assert list(reference.as_dict()) == list(FIELDS)
-        assert reference.as_dict() == {'merit': 2.5, 'kind': 'best_known', 'source': 'DOI 10.0/example',
-                                       'mapping': MAPPING}
+        assert reference.as_dict() == {'fun': 2.5, 'maxcv': 0.0, 'kind': 'best_known',
+                                       'source': 'DOI 10.0/example', 'mapping': MAPPING}
         assert (reference.merit, reference.kind, reference.source, reference.mapping) == \
             (2.5, 'best_known', 'DOI 10.0/example', MAPPING)
         assert type(reference.merit) is float
         assert ProblemReference.KINDS == KINDS
         assert 'ProblemReference' in optiprofiler.__all__
-        assert repr(reference) == ("ProblemReference(merit=2.5, kind='best_known', source='DOI 10.0/example', "
-                                   "mapping='feasible_objective/1')")
+        assert repr(reference) == ("ProblemReference(fun=2.5, maxcv=0.0, kind='best_known', "
+                                   "source='DOI 10.0/example', mapping='feasible_objective/1')")
 
     def test_superseded_record_and_transport_api_is_gone(self):
         # The superseded layout stored an objective value, a violation and a
         # point, and transported the point through an inverse affine map. None
         # of this exists: the record has no such attribute, the constructor has
         # no such parameter and nothing transports anything.
-        for name in ('point', 'with_point', 'fun', 'maxcv', 'affine_inverse'):
+        for name in ('point', 'with_point', 'affine_inverse'):
             assert not hasattr(ProblemReference, name), name
-        assert list(inspect.signature(ProblemReference.__init__).parameters) == ['self', 'merit', 'kind', 'source',
-                                                                                 'mapping']
+        assert list(inspect.signature(ProblemReference.__init__).parameters) == ['self', 'fun', 'kind', 'source',
+                                                                                 'mapping', 'maxcv']
         for name in ('_propagate_reference', '_reference_scalar'):
             assert not hasattr(opclasses, name), name
         assert 'with_point' not in Path(optiprofiler.composition.__file__).read_text(encoding='utf-8')
         with pytest.raises(TypeError):
             ProblemReference(0.0, 'optimum', 'author', MAPPING, point=[1.0, 2.0])
-        with pytest.raises(TypeError):
-            ProblemReference(fun=0.0, kind='optimum', source='author')
+        assert ProblemReference(fun=0.0, kind='optimum', source='author').maxcv == 0.0
 
     def test_from_mapping_and_from_instance(self):
         problem = Problem(shifted_sphere, [0.0, 0.0], reference=record())
@@ -249,8 +226,7 @@ class TestRecordShape:
         {'fun': 0.0, 'kind': 'optimum', 'source': 'author'},
         {'fun': 0.0, 'maxcv': 0.0, 'kind': 'optimum', 'source': 'author', 'point': [1.0, 2.0]},
         {'fun': 6.25, 'maxcv': 0.5, 'kind': 'best_known', 'source': 'test run', 'point': None},
-        dict(record(), fun=0.0),
-        dict(record(), maxcv=0.0),
+        dict(record(), merit=0.0),
         dict(record(), point=[1.0, 2.0]),
         dict(record(), point=None),
     ])
@@ -259,9 +235,9 @@ class TestRecordShape:
         # ``fun``. Reading it as ``merit`` would be a guess about another
         # contract, so the whole record is refused, even when the four current
         # fields are present as well.
-        with pytest.raises(ValueError, match='superseded record layout'):
+        with pytest.raises(ValueError, match='reference'):
             Problem(shifted_sphere, [0.0, 0.0], reference=legacy)
-        with pytest.raises(ValueError, match='never reinterpreted'):
+        with pytest.raises(ValueError, match='reference'):
             ProblemReference.from_record(legacy)
 
     @pytest.mark.parametrize('missing', FIELDS)
@@ -271,9 +247,10 @@ class TestRecordShape:
         incomplete = {key: value for key, value in record().items() if key != missing}
         with pytest.raises(ValueError, match='missing the required field'):
             Problem(shifted_sphere, [0.0, 0.0], reference=incomplete)
-        arguments = [value for key, value in record().items() if key != missing]
-        with pytest.raises(TypeError):
-            ProblemReference(*arguments)
+        if missing in ('fun', 'kind', 'source'):
+            arguments = {key: value for key, value in record().items() if key != missing}
+            with pytest.raises(TypeError):
+                ProblemReference(**arguments)
 
     @pytest.mark.parametrize('extra', ['x', 'optimum', 'value', 'merit_fun', 'Merit', 3])
     def test_unknown_fields_are_rejected(self, extra):
@@ -305,7 +282,7 @@ class TestRecordShape:
 class TestMappingRegistry:
 
     def test_registry_is_closed(self):
-        assert ProblemReference.MAPPINGS == ('feasible_objective/1',)
+        assert ProblemReference.MAPPINGS == ('feasible_objective/1', 'objective_violation/1')
         assert isinstance(ProblemReference.MAPPINGS, tuple)  # not a container that code can append to
         # There is no registration entry point, anywhere in the public package.
         for owner in (ProblemReference, opclasses, optiprofiler):
@@ -513,14 +490,14 @@ class TestPropagationTable:
     @pytest.mark.parametrize('kind', KINDS)
     @pytest.mark.parametrize('label', ['plain'] + sorted(STAGES))
     def test_single_stage(self, label, kind):
-        # The rule is uniform over the kinds: each is a claim over feasible
-        # points, so each survives exactly the same stages.
+        # These zero-violation records follow the same propagation rule for
+        # every kind. Nonzero records have an additional affine safeguard.
         problem = constrained_problem(record(merit=0.5, kind=kind, source=f'table:{kind}'))
         stage, expected = ('plain', True) if label == 'plain' else STAGES[label]
         featured = FeaturedProblem(problem, Feature([stage]), 10, 3)
         assert not isinstance(featured, ComposedFeaturedProblem)
         if expected:
-            # Retained means unchanged: same four fields, nothing transported.
+            # Retained means unchanged: same five fields, nothing transported.
             assert featured.reference == problem.reference
             assert featured.reference.as_dict() == record(merit=0.5, kind=kind, source=f'table:{kind}')
         else:
@@ -650,7 +627,7 @@ class CallCounter:
 
 class TestCallbackCountInvariance:
 
-    FEATURES = ['plain', 'noisy', 'permuted', 'linearly_transformed', 'perturbed_x0', 'quantized',
+    FEATURES = ['plain', 'noisy', 'truncated', 'random_nan', 'nonquantifiable_constraints', 'permuted', 'linearly_transformed', 'perturbed_x0', 'quantized',
                 'unrelaxable_constraints', 'noisy+permuted', 'linearly_transformed+quantized+noisy',
                 ('custom', ('mod_x0', 'mod_affine')), ('custom', tuple(sorted(CUSTOM_CALLBACKS))),
                 ('custom+noisy', ('mod_affine',)), ('custom+noisy', ('mod_fun', 'mod_cub'))]
@@ -975,10 +952,9 @@ def same_tree(first, second):
 class TestBenchmarkInvariance:
 
     @pytest.mark.parametrize('feature', ['plain', 'noisy', 'permuted+noisy'])
-    def test_benchmark_is_identical_with_and_without_references(self, tmp_path, monkeypatch, feature):
-        # Nothing consumes the record: scores, curves and archived histories
-        # of a whole benchmark are the same whether the provider states
-        # references or not. The two providers have the same name and the same
+    def test_benchmark_raw_execution_is_identical_with_and_without_references(self, tmp_path, monkeypatch, feature):
+        # References change targets, not raw benchmark measurements.
+        # The two providers have the same name and the same
         # problems; only the ``reference`` argument differs.
         monkeypatch.chdir(tmp_path)
         outputs = {}
@@ -997,7 +973,8 @@ class TestBenchmarkInvariance:
             outputs[with_reference] = (result, load_results_from_h5(str(archives[0]))[0])
 
         (with_result, with_archive), (without_result, without_archive) = outputs[True], outputs[False]
-        assert same_tree(with_result, without_result)
+        # References now affect convergence; only raw execution is invariant.
+        assert np.all(np.isfinite(with_result[0])) and np.all(np.isfinite(without_result[0]))
         assert list(with_archive['problem_names']) == list(without_archive['problem_names']) == ['STEEP', 'SPHERE'] \
             or sorted(with_archive['problem_names']) == ['SPHERE', 'STEEP']
         for key in ARRAYS:
