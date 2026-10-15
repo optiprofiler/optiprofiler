@@ -21,6 +21,9 @@ The initial native-graphics probe is cached for the MATLAB process, avoiding
 a new probe figure for every plot. A transient failure of that initial probe
 therefore keeps subsequent plots on the SVG route until MATLAB is restarted.
 
+The SVG fallback handles native-export exceptions. It is not a timeout
+mechanism for a native renderer that stops returning without raising an error.
+
 On Linux with MATLAB R2026a, a separate safety check avoids a reproducible
 native-export hang in the embedded Chromium renderer. Its observed temporary
 socket name adds 46 bytes to ``TMPDIR``, while a Linux Unix-domain socket path
@@ -90,7 +93,8 @@ outside disposable test fixtures. CI uploads these receipts even when a test
 fails; an empty upload is an error, not evidence of a successful test run.
 
 Completed experiment data is saved as a verified version-7.3 MAT file before
-sequential history rendering. A timestamp becomes loadable only after this
+final numerical JSON report publication and sequential history rendering.
+A timestamp becomes loadable only after this
 save succeeds. Requested saving failures are errors, including in silent
 mode; completed staging files are retained if final publication fails.
 This is final-result preservation, not a checkpoint/resume mechanism for an

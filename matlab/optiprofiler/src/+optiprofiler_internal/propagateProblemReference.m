@@ -7,17 +7,18 @@ function record = propagateProblemReference(record, name, options)
 %
 %   The record is retained unchanged or dropped. It holds no point, so nothing
 %   is transported, and nothing is derived from it. The rule is the same for
-%   every kind (lower_bound, optimum, best_known, target): each is a claim
-%   over the feasible points of the problem, so it survives exactly the stages
-%   that leave the feasible points and the objective values over them
-%   unchanged up to a change of variables.
+%   every kind (lower_bound, optimum, best_known, target) at zero violation.
+%   A nonzero maxcv in best_known/target also requires the residual magnitude
+%   to be invariant. General affine changes cannot guarantee this, so those
+%   records become unknown even when feasibility is preserved.
 %
 %   - plain, noisy, truncated, random_nan, nonquantifiable_constraints,
 %     unrelaxable_constraints: retained. They change only what a solver
 %     observes; the truth recorded in the histories is the original problem's.
 %   - perturbed_x0: retained. Only the initial point moves.
-%   - permuted, linearly_transformed: retained. They are invertible changes of
-%     variables built by the framework.
+%   - permuted: retained. It preserves component residual magnitudes.
+%   - linearly_transformed: retained only at maxcv=0. Bounds may become linear
+%     rows with a different residual scale under a general affine map.
 %   - quantized: retained with ground_truth=false, where the mesh is an
 %     observation. With ground_truth=true (the default) the truth becomes the
 %     mesh problem, whose feasible values are not those of the continuous
@@ -56,6 +57,15 @@ function record = propagateProblemReference(record, name, options)
                 && all(ismember(fieldnames(options), {'mod_x0', 'mod_affine'}));
         otherwise
             retained = false;
+    end
+    % Feasibility survives invertible maps, but a nonzero residual magnitude
+    % may change when bounds become linear rows. No point is stored, so it
+    % cannot safely be recomputed here.
+    if retained && isfield(record, 'maxcv') && record.maxcv ~= 0
+        if strcmp(char(name), 'linearly_transformed') ...
+                || (strcmp(char(name), 'custom') && isfield(options, 'mod_affine'))
+            retained = false;
+        end
     end
     if ~retained
         record = [];

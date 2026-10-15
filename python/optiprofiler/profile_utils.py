@@ -1,4 +1,5 @@
 import hashlib
+import json
 import os
 import re
 import textwrap
@@ -23,59 +24,6 @@ def _is_positive_infinity(value):
         and np.isinf(value)
         and value > 0
     )
-
-
-def _custom_problem_library_names(custom_libs_path):
-    """
-    Return custom problem library names available under ``custom_libs_path``.
-
-    ``custom_libs_path`` may be either a parent directory containing one or more
-    library subdirectories, or the directory of a single custom library. Each
-    library directory must contain ``<library_name>_tools.py``; OptiProfiler does
-    not infer the library name from other ``*_tools.py`` files.
-    """
-    custom_libs_path = Path(custom_libs_path)
-    if (custom_libs_path / f'{custom_libs_path.name}_tools.py').is_file():
-        return [custom_libs_path.name]
-
-    custom_libs_names = []
-    for p in custom_libs_path.iterdir():
-        if p.is_dir() and not p.name.startswith('.') and p.name != '__pycache__':
-            if (p / f'{p.name}_tools.py').is_file():
-                custom_libs_names.append(p.name)
-    return custom_libs_names
-
-
-def _custom_problem_library_dir(custom_libs_path, plib):
-    """
-    Return the explicit custom directory for ``plib`` if one is present.
-
-    ``custom_libs_path`` may point either to a parent directory containing a
-    ``plib`` subdirectory, or directly to the ``plib`` directory.  The function
-    deliberately does not inspect tools files; callers can use this to reject a
-    malformed custom directory before falling back to a built-in library with the
-    same name.
-    """
-    custom_libs_path = Path(custom_libs_path)
-    candidates = []
-    if custom_libs_path.name == plib and custom_libs_path.is_dir():
-        candidates.append(custom_libs_path)
-    parent_candidate = custom_libs_path / plib
-    if parent_candidate.is_dir():
-        candidates.append(parent_candidate)
-
-    resolved = []
-    for candidate in candidates:
-        candidate = candidate.resolve()
-        if candidate not in resolved:
-            resolved.append(candidate)
-    if len(resolved) > 1:
-        raise ValueError(
-            f'The option {ProblemOption.CUSTOM_PROBLEM_LIBS_PATH} is ambiguous for '
-            f'problem library "{plib}". It can point to either the parent directory '
-            f'containing "{plib}" or the "{plib}" directory itself, but not both.'
-        )
-    return resolved[0] if resolved else None
 
 
 def _get_conservative_default_n_jobs():
@@ -398,15 +346,15 @@ def check_validity_profile_options(solvers, profile_options):
         if isinstance(profile_options[ProfileOption.MAX_TOL_ORDER], np.integer):
             profile_options[ProfileOption.MAX_TOL_ORDER] = int(profile_options[ProfileOption.MAX_TOL_ORDER])
         if not isinstance(profile_options[ProfileOption.MAX_TOL_ORDER], int):
-            raise TypeError(f'Option {ProfileOption.MAX_TOL_ORDER} must be an integer.')
-        if profile_options[ProfileOption.MAX_TOL_ORDER] < 0 or profile_options[ProfileOption.MAX_TOL_ORDER] > 16:
-            raise ValueError(f'Option {ProfileOption.MAX_TOL_ORDER} must be a positive integer not larger than 16.')
+            raise TypeError(f'Option {ProfileOption.MAX_TOL_ORDER.value} must be an integer.')
+        if profile_options[ProfileOption.MAX_TOL_ORDER] <= 0 or profile_options[ProfileOption.MAX_TOL_ORDER] > 16:
+            raise ValueError(f'Option {ProfileOption.MAX_TOL_ORDER.value} must be a positive integer not larger than 16.')
 
     if ProfileOption.MAX_EVAL_FACTOR in profile_options:
-        if not isinstance(profile_options[ProfileOption.MAX_EVAL_FACTOR], (float, int)):
-            raise TypeError(f'Option {ProfileOption.MAX_EVAL_FACTOR} must be a float or an integer.')
-        if profile_options[ProfileOption.MAX_EVAL_FACTOR] <= 0:
-            raise ValueError(f'Option {ProfileOption.MAX_EVAL_FACTOR} must be positive.')
+        if isinstance(profile_options[ProfileOption.MAX_EVAL_FACTOR], bool) or not isinstance(profile_options[ProfileOption.MAX_EVAL_FACTOR], (float, int)):
+            raise TypeError(f'Option {ProfileOption.MAX_EVAL_FACTOR.value} must be a float or an integer.')
+        if not np.isfinite(profile_options[ProfileOption.MAX_EVAL_FACTOR]) or profile_options[ProfileOption.MAX_EVAL_FACTOR] <= 0:
+            raise ValueError(f'Option {ProfileOption.MAX_EVAL_FACTOR.value} must be finite and positive.')
 
     if ProfileOption.MERIT_FUN in profile_options:
         if not callable(profile_options[ProfileOption.MERIT_FUN]):
@@ -1182,6 +1130,38 @@ def _mask_invalid_merits(results_plib):
     return results_plib
 
 
+def apply_reference_targets(result, minima, merit_fun):
+    """Replace only supplied targets, converting raw facts with current merit.
+
+    Store raw records, not converted merits: load may change merit_fun, and
+    perturbed starts give different maxcv_init in each run. Missing fields in
+    V1 archives mean the historical policy, never an assumed zero reference.
+    """
+    records = result.get('reference_records')
+    if records is None:
+        return minima
+    from .opclasses import ProblemReference
+    targets = np.array(minima, dtype=float, copy=True)
+    if len(records) != targets.shape[0]:
+        raise ValueError('Saved reference records do not match the problem rows.')
+    inits = np.asarray(result['maxcv_inits'])
+    for row, serialized in enumerate(records):
+        per_run = json.loads(serialized)
+        if not isinstance(per_run, list) or len(per_run) != targets.shape[1]:
+            raise ValueError('Saved reference records do not match the run count.')
+        for run, record in enumerate(per_run):
+            if record is None:
+                continue
+            reference = ProblemReference.from_record(record)
+            initial_violation = inits[row] if inits.ndim == 1 else inits[row, run]
+            value = merit_fun(reference.fun, reference.maxcv, initial_violation)
+            scalar = np.asarray(value)
+            if scalar.ndim != 0 or scalar.dtype.kind not in 'iuf' or not np.isfinite(scalar):
+                raise ValueError('The merit function must produce a finite real scalar for a supplied reference.')
+            targets[row, run] = float(scalar)
+    return targets
+
+
 def process_results(results_plibs, profile_options):
     """
     Processes results from results_plibs.
@@ -1295,6 +1275,16 @@ def process_results(results_plibs, profile_options):
                         merit_mins_merged[row, :], plain_mins[plain_indices[name]],
                     )
 
+    # An explicit target takes precedence over both the cohort and run_plain.
+    # Do not min() it with observed values: that would silently ignore a user
+    # target reached or beaten by a solver. Actual run merits remain untouched.
+    offset = 0
+    for result in results_plibs:
+        end = offset + len(result['problem_names'])
+        if 'reference_records' in result:
+            merit_mins_merged[offset:end] = apply_reference_targets(
+                result, merit_mins_merged[offset:end], profile_options[ProfileOption.MERIT_FUN])
+        offset = end
     return (merit_histories_merged, merit_outs_merged, merit_inits_merged, merit_mins_merged, n_evals_merged, problem_names_merged, problem_dims_merged)
 
 

@@ -45,13 +45,13 @@ classdef Problem < handle
 %         linear inequality constraints ``aub * x <= bub``. The default setting
 %         of `aub` and `bub` are empty matrix and vector.
 %       - aeq, beq: the coefficient matrix and right-hand side vector of the
-%         linear equality constraints ``aeq * x <= beq``. The default setting
+%         linear equality constraints ``aeq * x = beq``. The default setting
 %         of `aeq` and `beq` are empty matrix and vector.
 %       - cub: the function of nonlinearly inequality constraints
 %         ``cub(x) <= 0``, where ``cub(x) -> float vector``. By default, 
 %         ``cub(x)`` will return an empty vector.
 %       - ceq: the function of nonlinearly equality constraints
-%         ``ceq(x) <= 0``, where ``ceq(x) -> float vector``. By default, 
+%         ``ceq(x) = 0``, where ``ceq(x) -> float vector``. By default,
 %         ``ceq(x)`` will return an empty vector.
 %       - grad: the gradient of the objective function
 %         ``grad(x) -> float vector``. By default, `grad(x)` will return an
@@ -77,43 +77,26 @@ classdef Problem < handle
 %         ``hceq(x) -> cell array of float matrices``. The i-th element of
 %         `hceq(x)` should be the Hessian of the i-th function in `ceq`. By
 %         default, `hceq(x)` will return an empty cell.
-%       - reference: an optional feasible reference fact of the problem,
-%         stated by its author or provider: a struct with exactly the fields
-%         `merit` (a finite real scalar), `kind` (one of 'lower_bound',
-%         'optimum', 'best_known', 'target'), `source` (non-empty provenance
-%         text) and `mapping` (a token of the closed registry
-%         {'feasible_objective/1'}). Every kind is a claim over the FEASIBLE
-%         points of the problem: a bound on the objective over them, its exact
-%         optimal value over them, the objective value of a known feasible
-%         point, or a target level chosen for them. With the mapping
-%         'feasible_objective/1', `merit` is an objective value over feasible
-%         points, so it equals the merit of a feasible point under every merit
-%         function with the feasible identity merit_fun(f, 0, maxcv_init) == f
-%         for every maxcv_init (the default merit function has it). A mapping
-%         is never a function handle and users cannot register one. A naked
-%         scalar, a record with other fields (including the superseded fields
-%         `fun`, `maxcv` and `point`), a non-finite merit and an unknown
-%         mapping are rejected; nothing is repaired or guessed. Omitted means
-%         unknown. The record is validated structurally without evaluating
-%         anything, so a reference adds no callback call to building or
-%         loading a problem. See also FeaturedProblem for which features
-%         retain it.
+%       - reference: an optional raw fact with fun (finite objective), maxcv
+%         (finite nonnegative total violation), kind, source and mapping.
+%         lower_bound/optimum require maxcv=0; best_known/target may specify
+%         nonzero violation. Canonical mapping is 'objective_violation/1';
+%         the earlier 'feasible_objective/1' draft is accepted only as a
+%         zero-violation objective. Points and callbacks are not stored.
+%         Validation evaluates no objective or constraint.
 %
 %   The numeric data `x0`, `xl`, `xu`, `aub`, `bub`, `aeq` and `beq` are kept as
 %   double precision numbers whatever numeric class they are given in (an
 %   integer class would make MATLAB compute violations and transformed bounds
 %   in rounded, saturated integer arithmetic).
 %
-%         The reference is NOT a run-history minimum and NOT the dynamic
-%         cohort minimum of a benchmark: the profile baseline is the least
-%         merit observed over the selected solver histories, changes with the
-%         solver cohort and is never stored in a Problem. It is NOT a floor
-%         for run merits either: on a constrained problem the merit of a run
-%         may be below the reference, because a merit function tolerates or
-%         penalizes small violations, and such values are never clamped.
-%         Before a consumer compares run merits with the record under a custom
-%         merit function, that function must be known to preserve the feasible
-%         identity above.
+%   Standard profiles convert the effective featured reference with the
+%   current merit_fun(fun,maxcv,maxcv_init), separately for each run and on
+%   load. No reference means the unchanged V1 cohort/plain minimum. A custom
+%   merit need not preserve lower-bound ordering: kind describes the raw
+%   fact, not a theorem about arbitrary callbacks. Actual run merits are not
+%   clamped to the reference. General affine maps drop a nonzero violation
+%   reference, because its residual scale need not remain invariant.
 %
 %   The output P contains following properties:
 %
@@ -122,7 +105,7 @@ classdef Problem < handle
 %       name, x0, xl, xu, aub, bub, aeq, beq, reference
 %
 %       (`reference` is [] when unknown, otherwise a struct with the fields
-%       `merit`, `kind`, `source`, `mapping`. It is set at construction only
+%       `fun`, `maxcv`, `kind`, `source`, `mapping`. It is set at construction only
 %       and cannot be assigned. A stored record that the contract rejects, for
 %       example one loaded from a file written for another record layout,
 %       reads as [] with a warning and is never reinterpreted.)
@@ -248,7 +231,7 @@ classdef Problem < handle
                 end
 
                 % Optional feasible reference fact, before anything else. The
-                % check is structural (four fields, a finite scalar, a
+                % check is structural (five fields, finite raw scalars, a
                 % registry token) and evaluates nothing, so a malformed record
                 % is rejected before any callback of the problem is touched
                 % and a reference adds no callback call to building or loading
@@ -752,6 +735,16 @@ classdef Problem < handle
             catch ME
                 % If an error occurred, issue a warning and set f to NaN.
                 warning(ME.identifier, '%s', shortenMessageForLog(ME.message));
+                f = NaN;
+            end
+            % Real-domain functions can return complex values without throwing
+            % (e.g., a negative base raised to a fractional power). Treat this
+            % as an invalid evaluation, never as a valid objective or its real
+            % part: histories, convergence tests and JSON all require scalars
+            % on the real line. NaN preserves the existing failed-oracle policy.
+            if ~isrealscalar(f)
+                warning('MATLAB:Problem:InvalidOutputForFUN', ...
+                    'The objective function must return a real scalar; recording NaN.');
                 f = NaN;
             end
         end

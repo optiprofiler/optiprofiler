@@ -4,9 +4,10 @@ This document records the development roadmap, not a list of released APIs.
 Implemented on this development line: the provider split, the 2.0 `Feature`
 contract with ordered feature composition, experiment plans and provenance,
 the trusted boundary for earlier configurations, version 2 of the
-machine-readable evaluation report, and the optional feasible reference fact
+machine-readable evaluation report, and the optional raw reference fact
 on `Problem` and `FeaturedProblem`. The offline reference catalog and Arena
-scorer remain future work; storing a reference does not change profile scores.
+scorer remain future work. Explicit references define profile convergence;
+without one, the V1 empirical target remains unchanged.
 These are development features, not a published 2.0.0 release. The paper
 maintenance line receives applicable fixes, not these new features.
 
@@ -142,11 +143,12 @@ at the initial point.
 The in-memory carrier of one such fact is implemented on this development
 line (see `REFERENCE_CONTRACT.md`; it supersedes the point-carrying record of
 the earlier `codex/reference-facts` candidate). `Problem.reference` is
-an optional record of exactly four fields: a finite real scalar `merit`, a
-`kind` (`lower_bound`, `optimum`, `best_known`, `target`; every kind is a claim
-over feasible points), a non-empty `source` and a `mapping` token of a closed
-registry whose only member is `feasible_objective/1`. It is still not a public
-scalar property: a naked scalar is rejected, and the scalar is never read
+an optional record of exactly five fields: finite raw objective `fun`, finite
+nonnegative total violation `maxcv`, `kind`, non-empty `source` and a `mapping`
+token. `lower_bound`/`optimum` require zero violation; `best_known`/`target`
+may describe infeasible records. The canonical token is `objective_violation/1`;
+the legacy `feasible_objective/1` token requires zero violation. A naked scalar
+is rejected, and the pair is never read
 without its kind, provenance and mapping. There is no reference point, no
 callback and no user-defined mapping. The record is validated fail-closed
 without evaluating the objective; a serialized record that the running version
@@ -155,17 +157,18 @@ does not accept reads as unknown or raises and is never reinterpreted.
 observation-only stages, `perturbed_x0`, `permuted` and `linearly_transformed`
 retain it, `custom` only when its options are a subset of `mod_x0` and
 `mod_affine`, `quantized` with `ground_truth=true` never, and a composition only
-if every stage does; the rule is the same for every kind.
+if every stage does. General affine changes additionally drop a nonzero
+violation, since an invertible map need not preserve residual magnitudes.
 
-The fact is a feasible reference, not a run-history minimum and not the dynamic
+The fact is an author/provider reference, not a run-history minimum or the dynamic
 cohort minimum of the profiles, and nothing derives it from solver output. It
 is not a floor either: on a constrained problem a run merit may be below it,
 because the merit function tolerates or penalizes small violations, and such
-merits are never clamped. No profile formula, archive or report reads it yet.
-A future consumer must first establish that the merit function in use
-preserves the feasible identity `merit_fun(f, 0, maxcv_init) == f` (the default
-one does, for every `maxcv_init` including NaN); otherwise run merits and the
-record are not in the same space. The offline catalog, the scoring manifest and
+merits are never clamped. Standard profiles convert it using the current
+`merit_fun(fun,maxcv,maxcv_init)` per run and on load, replacing the empirical
+target without taking a minimum with the cohort. Archives retain raw facts;
+reports observe them without extra callback calls. A custom merit need not
+preserve objective lower-bound ordering. The offline catalog, the scoring manifest and
 the independent scorer remain future work; the catalog can fill the record at
 load time through a provider.
 
@@ -199,8 +202,9 @@ provenance before Arena use; ordinary trusted-data reload remains supported.
 The provider split, evaluation report `optiprofiler.eval_report/2` with the
 immutable version 1 and the `plot_data/1` companion, ordered feature composition,
 experiment plans and provenance, trusted historical-configuration boundary,
-and feasible reference fact are implemented here. Still future work:
-installation/release checks, validation of the current report contract by
+and raw reference targets are implemented here. Release preparation adds
+installed-artifact and version-identity CI gates; their final exact-SHA
+acceptance remains required. Still future work: validation of the current report contract by
 Evolve as an external integration gate, and the offline reference/scoring
 pilot. A future 2.0.0 release need not wait for every research item. Do not
 publish or change the version as a side effect of this roadmap.

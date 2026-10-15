@@ -30,6 +30,16 @@ is ``evaluation/eval_report.plot_data.json``. Both targets must be new: a
 collision with either file is refused before solvers execute. This also
 prevents a load/replot operation from replacing its source report.
 
+For a saved problem-library experiment, completed numerical data is persisted
+to H5/MAT before the final numerical report is published. Python collects its
+numerical report updates in memory during this phase; the initially published
+request remains visible. A later report-write failure still raises an error,
+but the completed experiment can be recovered through ``load``. Objective
+callbacks must return real scalars: complex values are invalid evaluations,
+recorded as NaN rather than silently reduced to their real components.
+Complex points, bounds, constraint values and derivative arrays are rejected
+as invalid real-optimization inputs; their imaginary parts are not discarded.
+
 ``score_only=True`` still disables plots and raw experiment persistence. The
 two explicitly requested JSON files are the only additional outputs. Preparing
 plot coordinates does not create figures, require a rendering backend, or
@@ -386,9 +396,13 @@ Meaning and limitations
   metadata they never recorded; unknown is not equivalent to false.
 * Problem identity includes the library and problem name. The optional plain
   reference experiment must not inflate the primary experiment's coverage.
-* Profile scores retain their existing cohort-relative meaning. A matched
-  configuration hash is not a guarantee of absolute comparability between
-  candidates, nor does it introduce an Arena/reference-based score.
+* Profile scores retain their cohort-relative meaning. An effective problem
+  reference now defines its convergence target; omitted references use the
+  V1 empirical solver/plain minimum. ``problems[].reference_records`` keeps
+  one raw fact or null per stored run, without recomputing a merit in the
+  reporter. An absent field means the facts were not retained. A matched
+  configuration hash alone is not a guarantee of comparability, nor does
+  this report introduce an independent Arena scoring rule.
 * Binned histories and plot presentations are not inputs to scoring. Original
   nonfinite observations are not silently converted to zero. JSON represents
   them with an object such as

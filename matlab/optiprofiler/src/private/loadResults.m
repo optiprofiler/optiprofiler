@@ -456,6 +456,9 @@ function results_plib = truncate_problems(results_plib, problem_options)
     results_plib.maxcv_outs = results_plib.maxcv_outs(p_to_load, :, :);
     results_plib.fun_inits = results_plib.fun_inits(p_to_load, :);
     results_plib.maxcv_inits = results_plib.maxcv_inits(p_to_load, :);
+    if isfield(results_plib, 'reference_records')
+        results_plib.reference_records = results_plib.reference_records(p_to_load, :);
+    end
     results_plib.n_evals = results_plib.n_evals(p_to_load, :, :);
     results_plib.problem_names = results_plib.problem_names(p_to_load);
     results_plib.problem_types = results_plib.problem_types(p_to_load);

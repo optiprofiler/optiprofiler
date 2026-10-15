@@ -507,6 +507,7 @@ class EvalReport:
         self._parent_identity = self._identity(self.path.parent)
         self._started = time.monotonic()
         self._finished = False
+        self._publication_deferred = False
         self._problems = {}
         self._metadata = {}
         self._options = {}
@@ -651,6 +652,8 @@ class EvalReport:
         return cls._stat_identity(current)
 
     def _write(self):
+        if self._publication_deferred:
+            return
         self._coverage()
         self.document['problems'] = list(self._problems.values())
         self.document['timing']['elapsed_seconds'] = max(0.0, time.monotonic() - self._started)
@@ -828,6 +831,14 @@ class EvalReport:
         else:
             self._dropped_diagnostics += 1
 
+    def defer_publication(self):
+        """Collect in memory until completed numerical data is safely saved."""
+        self._publication_deferred = True
+
+    def resume_publication(self):
+        self._publication_deferred = False
+        self._write()
+
     def set_stage(self, stage, status, reason=None):
         if stage not in _STAGES or status not in _STATUSES:
             raise ValueError('Invalid EvalReport stage or status')
@@ -855,6 +866,17 @@ class EvalReport:
         problem.update(dimension=_safe(result.get('problem_dim')),
                        type=_safe(result.get('problem_type')),
                        load_status='loaded', status='completed')
+        if 'reference_records' in result:
+            # Observe retained facts only. Reporting must not call merit_fun
+            # again (it may be stateful) or invent a reference for V1 archives.
+            from .opclasses import ProblemReference
+            try:
+                references = json.loads(result['reference_records'])
+                problem['reference_records'] = [None if record is None else
+                    _safe(ProblemReference.from_record(record).as_dict()) for record in references]
+            except (TypeError, ValueError):
+                self.add_diagnostic('reference_metadata_unavailable', 'reporting',
+                                    library=plib, problem=name, role=role)
         if problem['selection_status'] == 'unknown':
             problem['selection_status'] = ('retained' if self.document['operation'] == 'load'
                                            else 'observed_without_selection')
@@ -1018,6 +1040,7 @@ class EvalReport:
             'computation_time': 'computation_times',
             'solver_abnormal_termination': 'solver_abnormal_terminations',
             'solver_output_fallback': 'solver_output_fallbacks',
+            'reference_records': 'reference_records',
         }
 
         def add_library(result, role):
@@ -1103,7 +1126,7 @@ class EvalReport:
                             'tolerance': [item['tolerance'] for item in self.document['profiles']['convergence']]},
             'semantics': 'single_problem_relative_decrease_averaged_over_runs' if single else 'cohort_relative',
             'direction': 'higher_is_better_for_default_scoring; custom_callbacks_define_their_own_direction',
-            'comparability_note': 'Scores depend on the retained cohort, tolerances, options, and scoring callbacks.',
+            'comparability_note': 'Scores depend on references or the retained cohort, tolerances, options, and scoring callbacks.',
         }
         self.document['stages']['scoring'] = {'status': 'completed'}
         # score_only already explains a not-requested rendering (same
@@ -1233,6 +1256,9 @@ class EvalReport:
         """Finalize once; secondary reporting errors never mask ``error``."""
         if self._finished:
             return
+        # Even a numerical failure must publish its final diagnosis. Deferral
+        # only prevents optional report writes from interrupting raw-data save.
+        self._publication_deferred = False
         try:
             self._coverage()
             if error is not None:

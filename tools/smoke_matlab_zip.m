@@ -54,11 +54,80 @@ function smoke_matlab_zip(archive_root)
     assert(isfinite(problem.fun(problem.x0)));
     testOptiProfiler();
     smoke_eval_report(problem);
+    smoke_reference_target();
+    smoke_saved_experiment();
 
     setup uninstall;
     archive_paths = strsplit(path, pathsep);
     assert(~any(startsWith(archive_paths, archive_root)), ...
         'setup uninstall did not remove the extracted engine path.');
+end
+
+
+function smoke_reference_target()
+% A known target must affect scoring, not merely survive in metadata.
+    options = struct('score_only', true, 'silent', true, 'n_jobs', 1, 'max_eval_factor', 2);
+    spec = struct('fun', @(x) sum(x.^2), 'x0', 2);
+    options.problem = Problem(spec);
+    empirical = benchmark({@smoke_halfway, @smoke_stay}, options);
+    spec.reference = struct('fun', 0, 'maxcv', 0, 'kind', 'optimum', ...
+        'source', 'analytic sphere', 'mapping', 'objective_violation/1');
+    options.problem = Problem(spec);
+    explicit = benchmark({@smoke_halfway, @smoke_stay}, options);
+    assert(isequal(empirical, [1; 0]) && isequal(explicit, [0.75; 0]), ...
+        'The extracted ZIP did not apply the raw reference to scoring.');
+end
+
+
+function smoke_saved_experiment()
+% Preserve original data while reloading a composed, real-solver experiment.
+    root = getenv('OP_MATLAB_SMOKE_OUTPUT');
+    if isempty(root)
+        root = tempname;
+        cleanup_output = onCleanup(@() remove_directory(root)); %#ok<NASGU>
+    end
+    if ~isfolder(root), mkdir(root); end
+    previous = pwd;
+    cleanup_directory = onCleanup(@() cd(previous)); %#ok<NASGU>
+    cd(root);
+    options = struct('plibs', {{'s2mpj'}}, 'problem_names', {{'BEALE'}}, ...
+        'ptype', 'u', 'mindim', 2, 'maxdim', 2, 'n_jobs', 1, 'n_runs', 2, ...
+        'feature', Feature('noisy+permuted'), 'max_eval_factor', 30, 'max_tol_order', 2, ...
+        'benchmark_id', 'zip-saved', 'draw_hist_plots', 'none', 'silent', true, ...
+        'run_plain', true, 'report_path', fullfile(root, 'saved-report.json'));
+    [scores, profiles] = benchmark({@smoke_solver_coarse, @smoke_solver_fine}, options);
+    archives = dir(fullfile(root, 'zip-saved', '**', 'data_for_loading.mat'));
+    assert(numel(archives) == 1, 'Expected one MAT archive from the clean ZIP.');
+    archive = fullfile(archives(1).folder, archives(1).name);
+    original_hash = sha256_of(archive);
+    options = struct('load', 'latest', 'benchmark_id', 'zip-saved', 'score_only', true, ...
+        'silent', true, 'max_eval_factor', 30, 'max_tol_order', 2, 'run_plain', true, ...
+        'report_path', fullfile(root, 'loaded-report.json'));
+    [loaded_scores, loaded_profiles] = benchmark({}, options);
+    assert(isequaln(loaded_scores, scores) && isequaln(loaded_profiles, profiles), ...
+        'Solver-free ZIP reload changed scores or profile arrays.');
+    assert(strcmp(sha256_of(archive), original_hash), 'ZIP reload modified the source archive.');
+    pdfs = dir(fullfile(root, 'zip-saved', '**', '*.pdf'));
+    assert(~isempty(pdfs), 'The clean ZIP produced no PDF profiles.');
+    for k = 1:numel(pdfs)
+        fid = fopen(fullfile(pdfs(k).folder, pdfs(k).name), 'rb');
+        assert(fid >= 0);
+        header = fread(fid, 5, '*char').';
+        fclose(fid);
+        assert(strcmp(header, '%PDF-') && pdfs(k).bytes > 128, 'Invalid profile PDF header.');
+    end
+end
+
+
+function x = smoke_halfway(fun, x0)
+    x = x0 / 2;
+    fun(x);
+end
+
+
+function x = smoke_stay(fun, x0)
+    fun(x0);
+    x = x0;
 end
 
 

@@ -89,11 +89,21 @@ jobs:
           release: latest
 
       - name: Test setup and default S2MPJ benchmark
+        env:
+          # runner is available in step env, not in job-level env.
+          OP_MATLAB_SMOKE_OUTPUT: ${{ runner.temp }}/matlab-zip-acceptance
         uses: matlab-actions/run-command@v2.1.1
         with:
           command: |
             addpath(fullfile(pwd, 'tools'));
             smoke_matlab_zip(getenv('OP_MATLAB_ARCHIVE_ROOT'));
+
+      - name: Retain ZIP runtime evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: matlab-zip-${{ matrix.os }}
+          path: ${{ runner.temp }}/matlab-zip-acceptance/
 
       # This workflow validates a candidate; publishing remains a separate,
       # approved release step. Bundled S2MPJ already includes its upstream

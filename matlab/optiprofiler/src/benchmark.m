@@ -1003,6 +1003,10 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
             end
         end
         log_file = fullfile(path_log, 'log.txt');
+        % The diary is process-global and holds log.txt open on Windows.
+        % Close it on errors too, so completed archives can be removed even
+        % when scoring, report writing, or figure export fails.
+        diary_cleanup = onCleanup(@() diary('off')); %#ok<NASGU>
         diary(log_file);
         addToReadme(path_readme_log, 'log.txt', 'File, the log file of the current experiment, recording printed information from MATLAB command window.');
     end
@@ -1111,6 +1115,9 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
             printSolverLogAliases(solver_names, profile_options_problem.solver_log_names);
         end
         result = solveOneProblem(solvers, problem, feature, problem.name, length(problem.name), profile_options_problem, true, path_hist_plots, ~isempty(eval_report), primary_plan);
+        if profile_options.(ProfileOptionKey.SILENT.value) && ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
+            appendReferenceHistoryDiagnostics(path_log, result, 'user', 'primary');
+        end
         % Metadata cannot turn a failed empty result into numerical success.
         if isstruct(result) && isfield(result, 'fun_history')
             result.feature_pipeline = optiprofiler_internal.EvalReport.encodeMetadata( ...
@@ -1149,6 +1156,9 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
                 merit_mins(i_run) = min(merit_history(:, i_run, :), [], 'all', 'omitnan');
                 merit_mins(i_run) = min(merit_mins(i_run), merit_inits(i_run));
             end
+            reference_result = struct('reference_records', {result.reference_records(:)'}, ...
+                'maxcv_inits', result.maxcv_inits(:)');
+            merit_mins = applyReferenceTargets(reference_result, merit_mins(:)', merit_fun)';
             % Since we will not compute the profiles, we set `solver_scores` to be the relative decreases
             % in the objective function value.
             solver_merit_mins = squeeze(min(merit_history, [], 3, 'omitnan'));
@@ -1156,6 +1166,11 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
             for i_run = 1:n_runs
                 solver_scores_runs(:, i_run) = (merit_inits(i_run) - solver_merit_mins(:, i_run)) ./ max(merit_inits(i_run) - merit_mins(i_run), eps);
                 solver_scores_runs(:, i_run) = max(solver_scores_runs(:, i_run), 0);
+                if ~isempty(result.reference_records{i_run})
+                    % A selected target can be exceeded; keep relative scores
+                    % bounded without altering the measured merit histories.
+                    solver_scores_runs(:, i_run) = min(solver_scores_runs(:, i_run), 1);
+                end
             end
             % We set the score of a solver to be the mean score over all runs.
             solver_scores = mean(solver_scores_runs, 2);
@@ -1307,6 +1322,9 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
             end
             
             results_plibs{i_plib} = results_plib;
+            if profile_options.(ProfileOptionKey.SILENT.value) && ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
+                appendReferenceHistoryDiagnostics(path_log, results_plib, plib, 'primary');
+            end
             if ~isempty(eval_report), eval_report.addResults({results_plib}); end
 
             if strcmp(profile_options.(ProfileOptionKey.DRAW_HIST_PLOTS.value), 'parallel')    
@@ -1347,16 +1365,17 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
         end
     end
 
-    if ~isempty(eval_report)
-        if is_load, eval_report.addResults(results_plibs); end
-        eval_report.completeNumerical();
-    end
-    % Persist the numerical result BEFORE sequential rendering. A graphics
-    % crash or forced interruption must not discard a completed experiment.
+    % Persist completed numerical data before final report serialization as
+    % well as rendering. An optional JSON write/ownership failure must leave
+    % the experiment recoverable through the public load entry point.
     if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
         if ~isempty(eval_report), eval_report.setStage('persistence', 'running'); end
         saveResultsForLoading(results_plibs, path_log, time_stamp, path_readme_log);
         if ~isempty(eval_report), eval_report.setStage('persistence', 'completed'); end
+    end
+    if ~isempty(eval_report)
+        if is_load, eval_report.addResults(results_plibs); end
+        eval_report.completeNumerical();
     end
     writeReport(profile_options, results_plibs, path_report, path_readme_log);
     if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)

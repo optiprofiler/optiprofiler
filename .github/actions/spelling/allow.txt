@@ -30,6 +30,7 @@ aub
 autofunction
 autouse
 axs
+backported
 backref
 bbopt
 BARDNE
@@ -545,6 +546,7 @@ readouterr
 rehash
 rescanning
 regexprep
+refscore
 REGISTERPROBLEMLIBRARY
 repmat
 RESOLVEPROBLEMLIBRARY
@@ -679,6 +681,7 @@ vlen
 WATSONNE
 WAYSEA
 website
+whl
 whos
 workaround
 workarounds

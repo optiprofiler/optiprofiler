@@ -214,6 +214,8 @@ def truncate_problems(results_plib: Dict[str, Any], problem_options: Dict[str, A
         results_plib['maxcv_inits'] = results_plib['maxcv_inits'][p_to_load, :]
     results_plib['n_evals'] = results_plib['n_evals'][p_to_load, :, :]
     results_plib['problem_names'] = [results_plib['problem_names'][i] for i in p_to_load]
+    if 'reference_records' in results_plib:
+        results_plib['reference_records'] = [results_plib['reference_records'][i] for i in p_to_load]
     results_plib['problem_types'] = [results_plib['problem_types'][i] for i in p_to_load]
     results_plib['problem_dims'] = results_plib['problem_dims'][p_to_load]
     results_plib['problem_mbs'] = results_plib['problem_mbs'][p_to_load]
