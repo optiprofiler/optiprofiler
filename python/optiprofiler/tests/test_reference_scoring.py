@@ -1,5 +1,6 @@
 """Reference facts must change scoring, not just survive construction."""
 import json
+import hashlib
 
 import numpy as np
 import pytest
@@ -12,9 +13,8 @@ from optiprofiler.eval_report import schema_resource
 from optiprofiler.tests.eval_report_contract import assert_valid
 
 
-def raw_reference(fun=0.0, maxcv=0.0, kind='optimum'):
-    return dict(fun=fun, maxcv=maxcv, kind=kind, source='analytic test',
-                mapping='objective_violation/1')
+def raw_reference(fun=0.0, maxcv=0.0, kind='feasible'):
+    return dict(fun=fun, maxcv=maxcv, kind=kind, source='analytic test')
 
 
 def results(reference=None, runs=1):
@@ -87,11 +87,11 @@ def test_default_merit_rejects_a_highly_infeasible_raw_target():
                         {ProfileOption.MERIT_FUN: _default_merit})
 
 
-def test_nonzero_violation_is_not_blindly_transported_through_affine():
+def test_nonzero_violation_survives_original_coordinate_scoring():
     reference = ProblemReference.from_record(raw_reference(maxcv=0.5, kind='best_known'))
     problem = Problem(lambda x: float(x @ x), [1.0, 2.0], reference=reference)
     assert FeaturedProblem(problem, Feature('noisy+permuted'), 10, 7).reference == reference
-    assert FeaturedProblem(problem, Feature('linearly_transformed'), 10, 7).reference is None
+    assert FeaturedProblem(problem, Feature('linearly_transformed'), 10, 7).reference == reference
     # Feasibility itself is invariant; a zero-violation bound still survives.
     problem = Problem(lambda x: float(x @ x), [1.0, 2.0], reference=raw_reference())
     assert FeaturedProblem(problem, Feature('linearly_transformed'), 10, 7).reference is not None
@@ -113,7 +113,8 @@ def square_merit(fun, maxcv, initial_maxcv):
 
 
 @pytest.mark.parametrize('jobs', [1, 2])
-def test_public_benchmark_save_load_uses_supplied_targets(tmp_path, monkeypatch, jobs):
+@pytest.mark.parametrize('feature_name', ['plain', 'custom+noisy', 'quantized+noisy'])
+def test_public_benchmark_save_load_uses_supplied_targets(tmp_path, monkeypatch, jobs, feature_name):
     monkeypatch.chdir(tmp_path)
     library = tmp_path / 'libraries' / 'reference_scoring'
     library.mkdir(parents=True)
@@ -128,6 +129,7 @@ def test_public_benchmark_save_load_uses_supplied_targets(tmp_path, monkeypatch,
     original = benchmark([finish, stay], plibs=['reference_scoring'],
                          custom_problem_libs_path=str(library.parent),
                          ptype='u', mindim=1, maxdim=1, n_jobs=jobs,
+                         feature_name=feature_name,
                          n_runs=1, max_eval_factor=2, max_tol_order=2,
                          draw_hist_plots='none', silent=True, run_plain=True,
                          benchmark_id='saved', seed=7,
@@ -136,16 +138,22 @@ def test_public_benchmark_save_load_uses_supplied_targets(tmp_path, monkeypatch,
     assert_valid(report, schema_resource('eval_report', 2))
     reported = {problem['name']: problem['reference_records'] for problem in report['problems']
                 if problem['role'] == 'primary'}
-    assert reported == {'REF': [raw_reference()], 'UNKNOWN': [None]}
+    effective = raw_reference() if feature_name == 'plain' else None
+    assert reported == {'REF': [effective], 'UNKNOWN': [None]}
+    expected_reason = {'plain': None, 'custom+noisy': 'custom_feature',
+                       'quantized+noisy': 'quantized_ground_truth'}[feature_name]
+    reasons = {p['name']: p['reference_fallback_reasons'] for p in report['problems'] if p['role']=='primary'}
+    assert reasons == {'REF': [expected_reason], 'UNKNOWN': [None]}
     archives = list((tmp_path / 'saved').rglob('data_for_loading.h5'))
     assert len(archives) == 1
+    source_hash = hashlib.sha256(archives[0].read_bytes()).hexdigest()
     archive = load_results_from_h5(str(archives[0]))[0]
     rows = dict(zip(archive['problem_names'], archive['reference_records']))
-    assert json.loads(rows['REF']) == [raw_reference()]
+    assert json.loads(rows['REF']) == [effective]
     assert json.loads(rows['UNKNOWN']) == [None]
     targets = process_results([archive], {ProfileOption.MERIT_FUN: lambda f, cv, init: f,
                                          ProfileOption.RUN_PLAIN: True})[3]
-    np.testing.assert_array_equal(targets[:, 0], [0.0 if name == 'REF' else 1.0
+    np.testing.assert_array_equal(targets[:, 0], [0.0 if name == 'REF' and feature_name == 'plain' else 1.0
                                                 for name in archive['problem_names']])
     # No solvers supplied and no provider reload: both scoring policies persist.
     loaded = benchmark(None, load='latest', benchmark_id='saved', silent=True,
@@ -154,10 +162,22 @@ def test_public_benchmark_save_load_uses_supplied_targets(tmp_path, monkeypatch,
     np.testing.assert_array_equal(loaded[1], original[1])
     nonlinear = benchmark(None, load='latest', benchmark_id='saved', silent=True,
                           score_only=True, max_tol_order=2, merit_fun=square_merit)
-    assert not np.array_equal(nonlinear[1], original[1])
+    if feature_name == 'plain':
+        assert not np.array_equal(nonlinear[1], original[1])
+    else:
+        # With an empirical target the best observed point remains an exact
+        # hit after a monotone square transform; an unchanged profile is correct.
+        np.testing.assert_array_equal(nonlinear[1], original[1])
     # Load filtering must retain the matching raw fact, not the adjacent row.
+    reload_report = tmp_path / 'reload.json'
     benchmark(None, load='latest', benchmark_id='saved', silent=True,
-              score_only=True, max_tol_order=2, problem_names=['REF'])
+              score_only=True, max_tol_order=2, problem_names=['REF'], report_path=reload_report)
+    retained = json.loads(reload_report.read_text())
+    assert_valid(retained, schema_resource('eval_report', 2))
+    primary = [p for p in retained['problems'] if p['role']=='primary']
+    assert len(primary)==1 and primary[0]['name']=='REF'
+    assert primary[0]['reference_fallback_reasons'] == [expected_reason]
+    assert hashlib.sha256(archives[0].read_bytes()).hexdigest() == source_hash
 
 
 def test_report_observes_reference_without_an_extra_merit_call(tmp_path):

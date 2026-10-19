@@ -78,11 +78,11 @@ classdef Problem < handle
 %         `hceq(x)` should be the Hessian of the i-th function in `ceq`. By
 %         default, `hceq(x)` will return an empty cell.
 %       - reference: an optional raw fact with fun (finite objective), maxcv
-%         (finite nonnegative total violation), kind, source and mapping.
-%         lower_bound/optimum require maxcv=0; best_known/target may specify
-%         nonzero violation. Canonical mapping is 'objective_violation/1';
-%         the earlier 'feasible_objective/1' draft is accepted only as a
-%         zero-violation objective. Points and callbacks are not stored.
+%         (finite nonnegative total violation), kind and source. feasible
+%         requires maxcv=0; merit may specify nonzero violation. Optional
+%         x_ref is source metadata in original problem coordinates; features
+%         never transform it or query its oracle. Old kinds and mapping tokens
+%         are compatibility inputs, not required fields of a new record.
 %         Validation evaluates no objective or constraint.
 %
 %   The numeric data `x0`, `xl`, `xu`, `aub`, `bub`, `aeq` and `beq` are kept as
@@ -95,8 +95,8 @@ classdef Problem < handle
 %   load. No reference means the unchanged V1 cohort/plain minimum. A custom
 %   merit need not preserve lower-bound ordering: kind describes the raw
 %   fact, not a theorem about arbitrary callbacks. Actual run merits are not
-%   clamped to the reference. General affine maps drop a nonzero violation
-%   reference, because its residual scale need not remain invariant.
+%   clamped to the reference. Built-in affine maps retain nonzero violation:
+%   scoring uses original-coordinate residuals, not the posed constraint scale.
 %
 %   The output P contains following properties:
 %
@@ -105,7 +105,7 @@ classdef Problem < handle
 %       name, x0, xl, xu, aub, bub, aeq, beq, reference
 %
 %       (`reference` is [] when unknown, otherwise a struct with the fields
-%       `fun`, `maxcv`, `kind`, `source`, `mapping`. It is set at construction only
+%       `fun`, `maxcv`, `kind`, `source` and optional `x_ref`. It is set at construction only
 %       and cannot be assigned. A stored record that the contract rejects, for
 %       example one loaded from a file written for another record layout,
 %       reads as [] with a warning and is never reinterpreted.)
@@ -209,6 +209,7 @@ classdef Problem < handle
         % decides what a caller may see. Never the cohort minimum of a
         % benchmark.
         reference_ = []
+        reference_fallback_reason_ = ''
 
     end
 
@@ -231,8 +232,8 @@ classdef Problem < handle
                 end
 
                 % Optional feasible reference fact, before anything else. The
-                % check is structural (five fields, finite raw scalars, a
-                % registry token) and evaluates nothing, so a malformed record
+                % check is structural (raw scalars, kind, provenance and an
+                % optional source point) and evaluates nothing, so a malformed record
                 % is rejected before any callback of the problem is touched
                 % and a reference adds no callback call to building or loading
                 % a problem.
@@ -291,6 +292,11 @@ classdef Problem < handle
             % Check that `x0` is a real vector.
             if ~isrealvector(obj.x0)
                 error("MATLAB:Problem:x0_NotRealVector", "The argument `x0` for `Problem` must be a real vector.")
+            end
+            if ~isempty(obj.reference_) && isfield(obj.reference_,'x_ref') ...
+                    && numel(obj.reference_.x_ref) ~= obj.n
+                error('MATLAB:Problem:reference_x_ref_Dimension', ...
+                    'The reference x_ref must have the same dimension as x0.');
             end
 
             % Check that `xl` is a real vector having the same size as `x0`.
@@ -1072,6 +1078,13 @@ classdef Problem < handle
                 catch
                 end
             end
+        end
+    end
+
+    methods (Hidden)
+        function reason = referenceFallbackReason(obj)
+            % Retained metadata for reports, not a user reference mode.
+            reason = obj.reference_fallback_reason_;
         end
     end
 

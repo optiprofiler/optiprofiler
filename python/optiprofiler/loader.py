@@ -214,8 +214,9 @@ def truncate_problems(results_plib: Dict[str, Any], problem_options: Dict[str, A
         results_plib['maxcv_inits'] = results_plib['maxcv_inits'][p_to_load, :]
     results_plib['n_evals'] = results_plib['n_evals'][p_to_load, :, :]
     results_plib['problem_names'] = [results_plib['problem_names'][i] for i in p_to_load]
-    if 'reference_records' in results_plib:
-        results_plib['reference_records'] = [results_plib['reference_records'][i] for i in p_to_load]
+    for key in ('reference_records', 'reference_fallback_reasons'):
+        if key in results_plib:
+            results_plib[key] = [results_plib[key][i] for i in p_to_load]
     results_plib['problem_types'] = [results_plib['problem_types'][i] for i in p_to_load]
     results_plib['problem_dims'] = results_plib['problem_dims'][p_to_load]
     results_plib['problem_mbs'] = results_plib['problem_mbs'][p_to_load]
@@ -456,7 +457,9 @@ def load_results(problem_options: Dict[str, Any], profile_options: Dict[str, Any
             raise ValueError("The option `load` should be 'latest' or a time stamp in the format "
                              "'yyyyMMdd_HHmmss', optionally followed by a suffix such as '_001'.") from exc
     
-    # Set the path to search for the data
+    # savepath is the output destination, not the source of a reload.
+    # Preserve the public cwd/benchmark_id search so saved experiments can
+    # be reanalysed into a different output directory.
     if ProfileOption.BENCHMARK_ID.value in profile_options:
         search_path = os.path.join(os.getcwd(), profile_options[ProfileOption.BENCHMARK_ID.value])
     else:

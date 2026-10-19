@@ -178,34 +178,25 @@ The rules are:
   only; with ``ground_truth=True`` the inherited reference objective and
   nonlinear constraints are read at the snapped point as well, while bounds and
   linear constraints are always checked at the unsnapped point.
-- A problem may carry an optional *raw reference fact*
-  (``Problem.reference``, a :class:`~optiprofiler.ProblemReference`): one
-  finite objective ``fun`` and finite nonnegative total violation ``maxcv``,
-  with ``kind``, ``source`` and ``mapping='objective_violation/1'``.
-  ``lower_bound``/``optimum`` require zero violation; ``best_known``/``target``
-  may describe a nonzero violation. It is author/provider metadata, distinct
-  from the feature's truth-evaluation path described above.
-  ``FeaturedProblem.reference`` is that record, unchanged, if the feature
-  retains it, and ``None`` (unknown) otherwise; the record holds no point, so
-  nothing is transported or derived. The zero-violation rule is the same for every kind.
-  Stages that change only observations (``noisy``, ``truncated``,
-  ``random_nan``, ``nonquantifiable_constraints``,
-  ``unrelaxable_constraints``, and ``quantized`` with ``ground_truth=False``),
-  ``perturbed_x0``, ``permuted`` and ``linearly_transformed`` retain it.
-  ``custom`` retains it only if its options are a subset of ``mod_x0`` and
-  ``mod_affine``; ``mod_fun``, ``mod_cub``, ``mod_ceq``, ``mod_bounds``,
-  ``mod_linear_ub`` and ``mod_linear_eq`` may change values, constraints or
-  bounds and make it unknown, whatever the callbacks do. ``quantized`` with
-  ``ground_truth=True``, the default, makes it unknown, because the truth is
-  then the mesh problem. A composition retains the record only if every stage
-  does. General affine maps additionally drop a nonzero ``maxcv``, since
-  residual magnitude may change and no point is stored to recompute it.
-- A retained reference defines the profile target after conversion with
-  ``merit_fun(fun, maxcv, maxcv_init)`` for each run. Missing references keep
-  the V1 solver-history/initial/plain minimum, without claiming an optimum.
-  Raw merits are never clamped. Save/load retains raw reference facts and
-  recomputes their target using the current merit function. Custom callbacks
-  need not preserve objective lower-bound ordering. See :doc:`../dev/problems`.
+- ``Problem.reference`` is an optional :class:`~optiprofiler.ProblemReference`
+  or record with ``fun``, ``maxcv``, ``kind`` and ``source``. The two kinds are
+  ``feasible`` (zero violation) and ``merit`` (possibly nonzero violation;
+  the user chooses the intended merit function). Optional ``x_ref`` is source
+  metadata in original problem coordinates, not a point in featured coordinates.
+  It is never eagerly transported or evaluated for metadata.
+  Observation-only built-ins, ``perturbed_x0``, ``permuted`` and
+  ``linearly_transformed`` retain reference values, including nonzero violation.
+  ``custom`` always falls back to the default target in this release.
+  ``quantized(ground_truth=True)`` also falls back, even with ``x_ref``;
+  ``ground_truth=False`` retains the reference. In a composition, an invalidated
+  reference cannot be restored by later stages. The first reason is retained
+  in the archive and report as ``reference_fallback_reasons``.
+- A retained reference supplies ``merit_fun(fun, maxcv, maxcv_init)`` for each
+  run. Missing references keep the V1 solver-history/initial/plain minimum.
+  No reference changes the recorded observations or clamps measured merits.
+  Save/load retains raw facts and recomputes targets with the current merit
+  function. Earlier kinds and known mapping tokens remain readable, but new
+  records need no mapping token. See :doc:`../dev/problems`.
 - ``unrelaxable_constraints`` makes the objective infinite where the
   constraints of the problem it wraps are violated, as that problem observes
   them: after ``'noisy+unrelaxable_constraints'`` the gate reads noisy

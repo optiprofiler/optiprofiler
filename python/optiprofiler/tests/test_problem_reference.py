@@ -1,6 +1,6 @@
 """
 Reference raw facts, validation, conservative propagation and legacy loading.
-The five-field record stores no point. References may change convergence,
+The four-field record may retain an original-coordinate point. References may change convergence,
 but never raw objective/constraint histories or callback counts. Unknown
 references retain the V1 cohort minimum. Focused target tests live in
 test_reference_scoring.py.
@@ -29,13 +29,16 @@ from optiprofiler.profile_utils import _default_merit, compute_merit_values
 
 
 MAPPING = 'feasible_objective/1'
-KINDS = ('lower_bound', 'optimum', 'best_known', 'target')
-FIELDS = ('fun', 'maxcv', 'kind', 'source', 'mapping')
+KINDS = ('feasible', 'merit')
+FIELDS = ('fun', 'maxcv', 'kind', 'source')
 CENTER = np.array([1.0, 2.0])
 
 
-def record(merit=0.0, kind='optimum', source='author', mapping=MAPPING):
-    return {'fun': merit, 'maxcv': 0.0, 'kind': kind, 'source': source, 'mapping': mapping}
+def record(merit=0.0, kind='feasible', source='author', mapping=None):
+    result = {'fun': merit, 'maxcv': 0.0, 'kind': kind, 'source': source}
+    if mapping is not None:
+        result['mapping'] = mapping
+    return result
 
 
 def shifted_sphere(x):
@@ -93,7 +96,7 @@ CUSTOM_CALLBACKS = {'mod_x0': mod_x0, 'mod_affine': mod_affine, 'mod_bounds': mo
                     'mod_linear_ub': mod_linear_ub, 'mod_linear_eq': mod_linear_eq, 'mod_fun': mod_fun,
                     'mod_cub': mod_cub, 'mod_ceq': mod_ceq}
 # Written out here, independently of the implementation's constant.
-SAFE_CUSTOM_KEYS = {'mod_x0', 'mod_affine'}
+SAFE_CUSTOM_KEYS = set()
 
 
 def custom_stage(keys):
@@ -120,10 +123,10 @@ STAGES = {
     'quantized_default': ('quantized', False),  # ground_truth defaults to True
     'quantized_ground_truth': ({'name': 'quantized', 'options': {'ground_truth': True}}, False),
     'quantized_observed': ({'name': 'quantized', 'options': {'ground_truth': False}}, True),
-    'custom_empty': (custom_stage([]), True),
-    'custom_x0': (custom_stage(['mod_x0']), True),
-    'custom_affine': (custom_stage(['mod_affine']), True),
-    'custom_x0_affine': (custom_stage(['mod_x0', 'mod_affine']), True),
+    'custom_empty': (custom_stage([]), False),
+    'custom_x0': (custom_stage(['mod_x0']), False),
+    'custom_affine': (custom_stage(['mod_affine']), False),
+    'custom_x0_affine': (custom_stage(['mod_x0', 'mod_affine']), False),
     'custom_fun': (custom_stage(['mod_fun']), False),
     'custom_cub': (custom_stage(['mod_cub']), False),
     'custom_ceq': (custom_stage(['mod_ceq']), False),
@@ -153,21 +156,21 @@ def solver_coordinates(featured, x):
 
 class TestRecordShape:
 
-    def test_record_has_exactly_five_fields(self):
+    def test_record_has_four_fields_and_an_optional_point(self):
         reference = ProblemReference(2.5, 'best_known', 'DOI 10.0/example', MAPPING)
         assert ProblemReference.FIELDS == FIELDS
-        assert ProblemReference.__slots__ == ('_fun', '_maxcv', '_kind', '_source', '_mapping')
+        assert ProblemReference.__slots__ == ('_fun', '_maxcv', '_kind', '_source', '_mapping', '_x_ref')
         assert not hasattr(reference, '__dict__')  # nothing can be attached to a record
         assert list(reference.as_dict()) == list(FIELDS)
-        assert reference.as_dict() == {'fun': 2.5, 'maxcv': 0.0, 'kind': 'best_known',
-                                       'source': 'DOI 10.0/example', 'mapping': MAPPING}
+        assert reference.as_dict() == {'fun': 2.5, 'maxcv': 0.0, 'kind': 'merit',
+                                       'source': 'DOI 10.0/example'}
         assert (reference.merit, reference.kind, reference.source, reference.mapping) == \
-            (2.5, 'best_known', 'DOI 10.0/example', MAPPING)
+            (2.5, 'merit', 'DOI 10.0/example', 'objective_violation/1')
         assert type(reference.merit) is float
         assert ProblemReference.KINDS == KINDS
         assert 'ProblemReference' in optiprofiler.__all__
-        assert repr(reference) == ("ProblemReference(fun=2.5, maxcv=0.0, kind='best_known', "
-                                   "source='DOI 10.0/example', mapping='feasible_objective/1')")
+        assert repr(reference) == ("ProblemReference(fun=2.5, maxcv=0.0, kind='merit', "
+                                   "source='DOI 10.0/example')")
 
     def test_superseded_record_and_transport_api_is_gone(self):
         # The superseded layout stored an objective value, a violation and a
@@ -177,7 +180,7 @@ class TestRecordShape:
         for name in ('point', 'with_point', 'affine_inverse'):
             assert not hasattr(ProblemReference, name), name
         assert list(inspect.signature(ProblemReference.__init__).parameters) == ['self', 'fun', 'kind', 'source',
-                                                                                 'mapping', 'maxcv']
+                                                                                 'mapping', 'maxcv', 'x_ref']
         for name in ('_propagate_reference', '_reference_scalar'):
             assert not hasattr(opclasses, name), name
         assert 'with_point' not in Path(optiprofiler.composition.__file__).read_text(encoding='utf-8')
@@ -190,7 +193,7 @@ class TestRecordShape:
         assert isinstance(problem.reference, ProblemReference)
         same = Problem(shifted_sphere, [0.0, 0.0], reference=ProblemReference(0.0, 'optimum', 'author', MAPPING))
         assert same.reference == problem.reference and hash(same.reference) == hash(problem.reference)
-        assert problem.reference != ProblemReference(0.0, 'lower_bound', 'author', MAPPING)
+        assert problem.reference == ProblemReference(0.0, 'lower_bound', 'author', MAPPING)
         assert problem.reference != ProblemReference(0.0, 'optimum', 'someone else', MAPPING)
         assert problem.reference != ProblemReference(1.0, 'optimum', 'author', MAPPING)
         assert problem.reference != record()  # a dict is not a record
@@ -304,7 +307,7 @@ class TestMappingRegistry:
             ProblemReference(0.0, 'user_kind', 'author', MAPPING)
         with pytest.warns(RuntimeWarning, match='read as unknown'):
             assert opclasses._restore_problem_reference(record(mapping='user_mapping/1')) is None
-        assert ProblemReference(0.0, 'optimum', 'author', MAPPING).mapping == MAPPING
+        assert ProblemReference(0.0, 'optimum', 'author', MAPPING).mapping == 'objective_violation/1'
 
     def test_text_subclasses_cannot_pass_the_registry_or_change_what_is_stored(self):
         class Chameleon(str):
@@ -352,7 +355,7 @@ class TestMappingRegistry:
         with pytest.raises(TypeError, match='callables and user-defined mappings are not accepted'):
             ProblemReference(0.0, 'optimum', 'author', mapping)
 
-    @pytest.mark.parametrize('mapping', [None, 1, 1.0, b'feasible_objective/1', ['feasible_objective/1'],
+    @pytest.mark.parametrize('mapping', [1, 1.0, b'feasible_objective/1', ['feasible_objective/1'],
                                          ('feasible_objective', 1), {'name': 'feasible_objective', 'version': 1}])
     def test_non_text_tokens_are_rejected(self, mapping):
         with pytest.raises(TypeError, match='string token'):
@@ -410,7 +413,7 @@ class TestFiniteValidation:
         # Construction makes exactly the calls it makes without a reference,
         # and none of them is an objective evaluation.
         assert calls == baseline + baseline and 'fun' not in calls
-        assert with_reference.reference.kind == 'optimum' and without.reference is None
+        assert with_reference.reference.kind == 'feasible' and without.reference is None
         for _ in range(50):
             with_reference.reference
         assert calls == baseline + baseline
@@ -481,7 +484,7 @@ class TestPropagationRule:
         def explode(*args):
             raise AssertionError('a custom callback was called to decide the propagation')
 
-        assert retains_reference('custom', {'mod_x0': explode, 'mod_affine': explode}) is True
+        assert retains_reference('custom', {'mod_x0': explode, 'mod_affine': explode}) is False
         assert retains_reference('custom', {'mod_fun': explode}) is False
 
 
@@ -497,7 +500,7 @@ class TestPropagationTable:
         featured = FeaturedProblem(problem, Feature([stage]), 10, 3)
         assert not isinstance(featured, ComposedFeaturedProblem)
         if expected:
-            # Retained means unchanged: same five fields, nothing transported.
+            # Retained raw facts are unchanged; source coordinates stay original.
             assert featured.reference == problem.reference
             assert featured.reference.as_dict() == record(merit=0.5, kind=kind, source=f'table:{kind}')
         else:
@@ -516,7 +519,7 @@ class TestPropagationTable:
     @pytest.mark.parametrize('kind', KINDS)
     @pytest.mark.parametrize('labels, expected', [
         (('perturbed_x0', 'noisy', 'permuted', 'linearly_transformed', 'truncated'), True),
-        (('custom_x0_affine', 'quantized_observed', 'unrelaxable_constraints', 'random_nan'), True),
+        (('custom_x0_affine', 'quantized_observed', 'unrelaxable_constraints', 'random_nan'), False),
         (('quantized_ground_truth', 'noisy', 'permuted'), False),   # unsafe first
         (('noisy', 'custom_bounds', 'permuted'), False),            # unsafe in the middle
         (('noisy', 'permuted', 'custom_fun'), False),               # unsafe last
@@ -544,7 +547,7 @@ class TestPropagationTable:
         assert FeaturedProblem(problem, Feature('quantized', ground_truth=False), 10, 3).reference == problem.reference
         assert FeaturedProblem(problem, Feature('quantized+noisy', ground_truth=False), 10, 3).reference == \
             problem.reference
-        assert FeaturedProblem(problem, Feature('custom', mod_affine=mod_affine), 10, 3).reference == problem.reference
+        assert FeaturedProblem(problem, Feature('custom', mod_affine=mod_affine), 10, 3).reference is None
         assert FeaturedProblem(problem, Feature('custom', mod_fun=mod_fun), 10, 3).reference is None
 
     def test_composed_recorder_pickles_with_its_reference(self):
@@ -554,7 +557,7 @@ class TestPropagationTable:
 
 
 class TestCustomKeySubsets:
-    """All 2**8 subsets of the custom option names: retained iff the subset is within {mod_x0, mod_affine}."""
+    """All 2**8 custom option subsets use the empirical target."""
 
     SUBSETS = [keys for size in range(len(CUSTOM_CALLBACKS) + 1)
                for keys in itertools.combinations(sorted(CUSTOM_CALLBACKS), size)]
@@ -572,7 +575,7 @@ class TestCustomKeySubsets:
         problem = constrained_problem(record(kind='best_known', merit=0.5))
         mismatches, retained = [], []
         for keys in self.SUBSETS:
-            expected = set(keys) <= SAFE_CUSTOM_KEYS
+            expected = False
             if self.refused(keys):
                 # No featured problem, so nothing that could carry a claim; none was expected either.
                 assert not expected
@@ -586,9 +589,7 @@ class TestCustomKeySubsets:
                 retained.append(set(keys))
         assert not mismatches
         assert sum(map(self.refused, self.SUBSETS)) == 32
-        # Exactly the four subsets of {mod_x0, mod_affine} retain the record.
-        assert sorted(retained, key=sorted) == sorted([set(), {'mod_x0'}, {'mod_affine'}, {'mod_x0', 'mod_affine'}],
-                                                      key=sorted)
+        assert retained == []  # No custom reference callback exists in this release.
 
     def test_single_custom_stage(self):
         self.check(lambda problem, keys: FeaturedProblem(problem, Feature([custom_stage(keys)]), 10, 3))
@@ -601,8 +602,7 @@ class TestCustomKeySubsets:
 
     def test_pure_rule(self):
         for keys in self.SUBSETS:
-            assert retains_reference('custom', {key: CUSTOM_CALLBACKS[key] for key in keys}) is \
-                (set(keys) <= SAFE_CUSTOM_KEYS), keys
+            assert retains_reference('custom', {key: CUSTOM_CALLBACKS[key] for key in keys}) is False, keys
 
 
 class CallCounter:
@@ -708,9 +708,13 @@ class TestSafeCoordinateChanges:
     @pytest.mark.parametrize('seed', [0, 3, 17])
     def test_retained_claim_is_true_for_the_featured_problem(self, stages, seed):
         problem = self.problem()
-        featured = FeaturedProblem(problem, Feature(stages), 50, seed)
-        assert featured.reference == problem.reference
-        assert featured.reference.as_dict() == record(merit=self.OPTIMUM, source='test-local derivation')
+        feature = Feature(stages)
+        featured = FeaturedProblem(problem, feature, 50, seed)
+        if any(stage.name == 'custom' for stage in feature.stages):
+            assert featured.reference is None
+        else:
+            assert featured.reference == problem.reference
+            assert featured.reference.as_dict() == record(merit=self.OPTIMUM, source='test-local derivation')
 
         # 1. The claimed value is attained at a feasible point of the featured
         #    problem: the image of x*, found here without any stored point.
@@ -1083,7 +1087,7 @@ class TestLegacyAndProviderLoad:
         record(source=''),
         LEGACY_STATE,
         dict(record(), point=[1.0, 2.0]),
-        {key: value for key, value in record().items() if key != 'mapping'},
+        {key: value for key, value in record().items() if key != 'fun'},
         0.0,
         None,
         ['merit', 0.0],

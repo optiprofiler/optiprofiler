@@ -88,16 +88,14 @@ classdef FeaturedProblem < Problem
 %     the same for every kind at zero violation. Retaining stages: those that change only
 %     observations (noisy, truncated, random_nan, nonquantifiable_constraints,
 %     unrelaxable_constraints, and quantized with ground_truth=false),
-%     perturbed_x0, permuted and linearly_transformed. custom retains it only
-%     if its options are a subset of mod_x0 and mod_affine; any other custom
-%     option (mod_fun, mod_cub, mod_ceq, mod_bounds, mod_linear_ub,
-%     mod_linear_eq) may change values, constraints or bounds and makes it
-%     unknown. quantized with ground_truth=true (the default) makes it
+%     perturbed_x0, permuted and linearly_transformed. Every custom stage
+%     uses the default target; this release has no reference-conversion
+%     callback. quantized with ground_truth=true (the default) makes it
 %     unknown, because the truth is then the mesh problem. A composition
-%     retains the record only if every stage does. A nonzero maxcv is dropped
-%     by linearly_transformed and custom mod_affine: residual magnitudes may
-%     change when bounds become linear rows, and no point is stored to
-%     recompute them. Standard profiles convert a retained record with the
+%     retains the record only if every stage does. Nonzero maxcv survives
+%     built-in affine maps because scoring retains original-coordinate
+%     residuals. Optional x_ref stays in original coordinates without
+%     transport or oracle calls. Standard profiles convert a retained record with the
 %     current merit_fun for each run; unknown keeps the V1 cohort minimum.
 %     Actual recorded merits are never clamped to this target.
 %
@@ -268,10 +266,11 @@ classdef FeaturedProblem < Problem
             % callback is called for this. A composition takes the record that
             % survived every stage view.
             if isempty(view)
-                obj.reference_ = optiprofiler_internal.propagateProblemReference( ...
+                [obj.reference_,obj.reference_fallback_reason_] = optiprofiler_internal.propagateProblemReference( ...
                     problem.reference, kernel.name, kernel.options);
             else
                 obj.reference_ = view.reference;
+                obj.reference_fallback_reason_ = view.referenceFallbackReason();
             end
             if isempty(view)
                 if isempty(stages), obj.execution_strategy = 'identity';

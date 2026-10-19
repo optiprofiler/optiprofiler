@@ -293,13 +293,37 @@ classdef EvalReport < handle
                 'dimension', result.problem_dim, 'type', result.problem_type, ...
                 'selection_status', 'selected', 'load_status', 'loaded', 'status', 'completed', ...
                 'budget', budget_record, 'runs', {{}}, 'plot_refs', {{}});
+            if isfield(result,'reference_fallback_reasons')
+                reasons = reshape(result.reference_fallback_reasons,1,[]);
+                for r = 1:numel(reasons)
+                    if isempty(reasons{r}), reasons{r} = unknown; end
+                end
+                entry.reference_fallback_reasons = reasons;
+            end
             if isfield(result, 'reference_records')
                 % Observe raw facts without re-evaluating a possibly stateful
                 % merit function. Older archives leave this field absent.
                 records = reshape(result.reference_records, 1, []);
                 for r = 1:numel(records)
                     if isempty(records{r}), records{r} = unknown;
-                    else, records{r} = optiprofiler_internal.EvalReport.configuration(records{r}); end
+                    else
+                        point = [];
+                        if isfield(records{r},'x_ref')
+                            point = records{r}.x_ref;
+                            records{r} = rmfield(records{r},'x_ref');
+                        end
+                        records{r} = optiprofiler_internal.EvalReport.configuration(records{r});
+                        % A one-dimensional witness is still an array in the
+                        % shared JSON schema, not a MATLAB scalar encoding.
+                        if ~isempty(point)
+                            if numel(point)<=256
+                                records{r}.x_ref = num2cell(reshape(point,1,[]));
+                            else
+                                records{r}.x_ref = struct('dimension',numel(point), ...
+                                    'reason','reference_point_not_embedded');
+                            end
+                        end
+                    end
                 end
                 entry.reference_records = records;
             end
@@ -529,6 +553,9 @@ classdef EvalReport < handle
                     end
                     if isfield(value, 'reference_records')
                         item.reference_records = value.reference_records(p, :);
+                    end
+                    if isfield(value,'reference_fallback_reasons')
+                        item.reference_fallback_reasons = value.reference_fallback_reasons(p,:);
                     end
                     for key = {'solver_abnormal_termination', 'solver_output_fallback'}
                         if ~isfield(item, key{1}), item.(key{1}) = repmat(optiprofiler_internal.EvalReport.null(), ns, nr); end

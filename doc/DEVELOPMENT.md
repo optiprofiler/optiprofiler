@@ -140,25 +140,27 @@ and applicability; classify how each feature preserves, transforms, or invalidat
 those facts. Missing reference facts remain unknown, not a claimed lower bound
 at the initial point.
 
-The in-memory carrier of one such fact is implemented on this development
-line (see `REFERENCE_CONTRACT.md`; it supersedes the point-carrying record of
-the earlier `codex/reference-facts` candidate). `Problem.reference` is
-an optional record of exactly five fields: finite raw objective `fun`, finite
-nonnegative total violation `maxcv`, `kind`, non-empty `source` and a `mapping`
-token. `lower_bound`/`optimum` require zero violation; `best_known`/`target`
-may describe infeasible records. The canonical token is `objective_violation/1`;
-the legacy `feasible_objective/1` token requires zero violation. A naked scalar
-is rejected, and the pair is never read
-without its kind, provenance and mapping. There is no reference point, no
-callback and no user-defined mapping. The record is validated fail-closed
-without evaluating the objective; a serialized record that the running version
-does not accept reads as unknown or raises and is never reinterpreted.
-`FeaturedProblem` either retains the record unchanged or reports it as unknown:
-observation-only stages, `perturbed_x0`, `permuted` and `linearly_transformed`
-retain it, `custom` only when its options are a subset of `mod_x0` and
-`mod_affine`, `quantized` with `ground_truth=true` never, and a composition only
-if every stage does. General affine changes additionally drop a nonzero
-violation, since an invertible map need not preserve residual magnitudes.
+The V2 in-memory carrier is `Problem.reference` (see `REFERENCE_CONTRACT.md`).
+It has four required fields: finite raw objective `fun`, finite nonnegative
+total violation `maxcv`, `kind`, and non-empty `source`. There are only two
+kinds: `feasible` requires zero violation; `merit` allows nonzero violation.
+The user owns the choice of merit function and reference target. The richer
+proof/provenance taxonomy above belongs to future offline Arena catalogs,
+not additional engine modes.
+
+Optional `x_ref` is stored in original problem coordinates. No feature eagerly
+transports it, and maintaining it evaluates no objective or constraint.
+Observation-only built-ins, `perturbed_x0`, `permuted`, and
+`linearly_transformed` retain raw values, including nonzero violation:
+scoring truth uses original-coordinate residuals. `custom` always falls back
+to the default target in this release. So does `quantized` with
+`ground_truth=true`, even when a point is present. A composition retains the
+record only if every stage retains it; the first fallback reason is saved.
+No custom reference callback or `transfer_x_ref` option is introduced.
+
+Earlier four kinds and known mapping tokens are read for provider/archive
+compatibility and normalized to the two kinds. New records need no mapping
+token. Invalid records are rejected rather than guessed.
 
 The fact is an author/provider reference, not a run-history minimum or the dynamic
 cohort minimum of the profiles, and nothing derives it from solver output. It

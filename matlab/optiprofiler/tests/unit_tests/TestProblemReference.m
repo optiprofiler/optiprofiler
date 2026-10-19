@@ -1,16 +1,16 @@
 classdef TestProblemReference < matlab.unittest.TestCase
 % Reference raw facts, validation, conservative propagation and legacy load.
 % References may change convergence, never raw histories or callback counts.
-% The five-field record stores no point. Target-specific tests are in
+% Optional points stay in original coordinates. Target-specific tests are in
 % TestReferenceScoring; zero-violation feature propagation is pinned here.
 
     properties (Constant)
         Mapping = 'feasible_objective/1'
-        Kinds = {'lower_bound', 'optimum', 'best_known', 'target'}
+        Kinds = {'feasible', 'merit'}
         CustomKeys = {'mod_affine', 'mod_bounds', 'mod_ceq', 'mod_cub', 'mod_fun', ...
             'mod_linear_eq', 'mod_linear_ub', 'mod_x0'}
         % Written out here, independently of the implementation.
-        SafeCustomKeys = {'mod_x0', 'mod_affine'}
+        SafeCustomKeys = {}
     end
 
     methods (Static)
@@ -28,10 +28,12 @@ classdef TestProblemReference < matlab.unittest.TestCase
 
         function r = record(varargin)
             % record('kind', 'target', ...) overrides fields of a valid record.
-            r = struct('fun', 0, 'maxcv', 0, 'kind', 'optimum', 'source', 'author', 'mapping', TestProblemReference.Mapping);
+            r = struct('fun', 0, 'maxcv', 0, 'kind', 'feasible', 'source', 'author');
             for k = 1:2:numel(varargin)
                 r.(varargin{k}) = varargin{k + 1};
             end
+            if ischar(r.kind) && ismember(r.kind,{'lower_bound','optimum'}), r.kind='feasible'; end
+            if ischar(r.kind) && ismember(r.kind,{'best_known','target'}), r.kind='merit'; end
         end
 
         function s = constrainedStruct()
@@ -99,10 +101,10 @@ classdef TestProblemReference < matlab.unittest.TestCase
                 'quantized_default', 'quantized', false; ...  % ground_truth defaults to true
                 'quantized_ground_truth', struct('name', 'quantized', 'options', struct('ground_truth', true)), false; ...
                 'quantized_observed', struct('name', 'quantized', 'options', struct('ground_truth', false)), true; ...
-                'custom_empty', custom({}), true; ...
-                'custom_x0', custom({'mod_x0'}), true; ...
-                'custom_affine', custom({'mod_affine'}), true; ...
-                'custom_x0_affine', custom({'mod_x0', 'mod_affine'}), true; ...
+                'custom_empty', custom({}), false; ...
+                'custom_x0', custom({'mod_x0'}), false; ...
+                'custom_affine', custom({'mod_affine'}), false; ...
+                'custom_x0_affine', custom({'mod_x0', 'mod_affine'}), false; ...
                 'custom_fun', custom({'mod_fun'}), false; ...
                 'custom_cub', custom({'mod_cub'}), false; ...
                 'custom_ceq', custom({'mod_ceq'}), false; ...
@@ -198,19 +200,18 @@ classdef TestProblemReference < matlab.unittest.TestCase
     methods (Test)
         % ------------------------------------------------------------ record shape
 
-        function recordHasExactlyFiveFields(testCase)
+        function recordHasFourRequiredFields(testCase)
             problem = Problem(struct('fun', @TestProblemReference.shiftedSphere, 'x0', [0; 0], 'reference', ...
                 struct('mapping', "feasible_objective/1", 'source', "DOI 10.0/example", 'kind', "best_known", 'fun', int8(3), 'maxcv', 0)));
             reference = problem.reference;
             % One canonical field order whatever order the input used, and
             % one canonical type per field.
-            testCase.verifyEqual(fieldnames(reference), {'fun'; 'maxcv'; 'kind'; 'source'; 'mapping'});
-            testCase.verifyEqual(reference, struct('fun', 3, 'maxcv', 0, 'kind', 'best_known', ...
-                'source', 'DOI 10.0/example', 'mapping', 'feasible_objective/1'));
+            testCase.verifyEqual(fieldnames(reference), {'fun'; 'maxcv'; 'kind'; 'source'});
+            testCase.verifyEqual(reference, struct('fun', 3, 'maxcv', 0, 'kind', 'merit', ...
+                'source', 'DOI 10.0/example'));
             testCase.verifyClass(reference.fun, 'double');
             testCase.verifyClass(reference.kind, 'char');
             testCase.verifyClass(reference.source, 'char');
-            testCase.verifyClass(reference.mapping, 'char');
         end
 
         function supersededRecordAndTransportApiIsGone(testCase)
@@ -232,7 +233,7 @@ classdef TestProblemReference < matlab.unittest.TestCase
                 kind = TestProblemReference.Kinds{k};
                 reference = TestProblemReference.constrainedProblem(TestProblemReference.record('kind', kind)).reference;
                 testCase.verifyEqual(reference.kind, kind);
-                testCase.verifyEqual(fieldnames(reference), {'fun'; 'maxcv'; 'kind'; 'source'; 'mapping'});
+                testCase.verifyEqual(fieldnames(reference), {'fun'; 'maxcv'; 'kind'; 'source'});
             end
         end
 
@@ -274,7 +275,7 @@ classdef TestProblemReference < matlab.unittest.TestCase
         function everyFieldIsRequired(testCase)
             % No field has a default. In particular an omitted mapping is not
             % read as 'feasible_objective/1': the author states how the scalar is read.
-            for name = {'fun', 'maxcv', 'kind', 'source', 'mapping'}
+            for name = {'fun', 'maxcv', 'kind', 'source'}
                 incomplete = rmfield(TestProblemReference.record(), name{1});
                 testCase.verifyError(@() TestProblemReference.constrainedProblem(incomplete), ...
                     'MATLAB:Problem:reference_MissingField', name{1});
@@ -418,7 +419,7 @@ classdef TestProblemReference < matlab.unittest.TestCase
             % reference, and none of them is an objective evaluation.
             testCase.verifyEqual([counter('fun'), counter('cub')], 2 * baseline);
             testCase.verifyEqual(counter('fun'), 0);
-            testCase.verifyEqual(with_reference.reference.kind, 'optimum');
+            testCase.verifyEqual(with_reference.reference.kind, 'feasible');
             testCase.verifyEmpty(without.reference);
             for k = 1:50
                 with_reference.reference;
@@ -504,8 +505,8 @@ classdef TestProblemReference < matlab.unittest.TestCase
             testCase.verifyEmpty(optiprofiler_internal.propagateProblemReference(record, 'custom', []));
             % The rule reads names only: callbacks that would raise are never called.
             explode = @(varargin) error('TestProblemReference:called', 'A custom callback was called.');
-            testCase.verifyEqual(optiprofiler_internal.propagateProblemReference(record, 'custom', ...
-                struct('mod_x0', explode, 'mod_affine', explode)), record);
+            testCase.verifyEmpty(optiprofiler_internal.propagateProblemReference(record, 'custom', ...
+                struct('mod_x0', explode, 'mod_affine', explode)));
             testCase.verifyEmpty(optiprofiler_internal.propagateProblemReference(record, 'custom', ...
                 struct('mod_fun', explode)));
         end
@@ -538,7 +539,7 @@ classdef TestProblemReference < matlab.unittest.TestCase
                     label = [table{k, 1}, ' ', kind];
                     testCase.verifyNotEqual(featured.execution_strategy, 'composed-views', label);
                     if table{k, 3}
-                        % Retained means unchanged: same five fields, nothing transported.
+                        % Retained facts stay unchanged in original coordinates.
                         testCase.verifyEqual(featured.reference, record, label);
                     else
                         testCase.verifyEmpty(featured.reference, label);
@@ -569,7 +570,7 @@ classdef TestProblemReference < matlab.unittest.TestCase
         function longerCompositions(testCase)
             cases = { ...
                 {'perturbed_x0', 'noisy', 'permuted', 'linearly_transformed', 'truncated'}, true; ...
-                {'custom_x0_affine', 'quantized_observed', 'unrelaxable_constraints', 'random_nan'}, true; ...
+                {'custom_x0_affine', 'quantized_observed', 'unrelaxable_constraints', 'random_nan'}, false; ...
                 {'quantized_ground_truth', 'noisy', 'permuted'}, false; ...   % unsafe first
                 {'noisy', 'custom_bounds', 'permuted'}, false; ...            % unsafe in the middle
                 {'noisy', 'permuted', 'custom_fun'}, false; ...               % unsafe last
@@ -599,7 +600,7 @@ classdef TestProblemReference < matlab.unittest.TestCase
             testCase.verifyEmpty(FeaturedProblem(problem, Feature('plain+quantized'), 10, 3).reference);
             testCase.verifyEqual(FeaturedProblem(problem, Feature('quantized', struct('ground_truth', false)), 10, 3).reference, record);
             testCase.verifyEqual(FeaturedProblem(problem, Feature('quantized+noisy', struct('ground_truth', false)), 10, 3).reference, record);
-            testCase.verifyEqual(FeaturedProblem(problem, Feature('custom', struct('mod_affine', callbacks.mod_affine)), 10, 3).reference, record);
+            testCase.verifyEmpty(FeaturedProblem(problem, Feature('custom', struct('mod_affine', callbacks.mod_affine)), 10, 3).reference);
             testCase.verifyEmpty(FeaturedProblem(problem, Feature('custom', struct('mod_fun', callbacks.mod_fun)), 10, 3).reference);
         end
 
@@ -620,7 +621,7 @@ classdef TestProblemReference < matlab.unittest.TestCase
                 refused = 0;
                 for mask = 0:(2^numel(keys) - 1)
                     subset = keys(dec2bin(mask, numel(keys)) == '1');
-                    expected = all(ismember(subset, TestProblemReference.SafeCustomKeys));
+                    expected = false;
                     stage = TestProblemReference.customStage(subset);
                     rule = optiprofiler_internal.propagateProblemReference(record, 'custom', stage.options);
                     testCase.assertEqual(~isempty(rule), expected, strjoin(subset, ','));
@@ -648,8 +649,8 @@ classdef TestProblemReference < matlab.unittest.TestCase
                 end
                 testCase.verifyEmpty(mismatches, sprintf('builder %d', b));
                 testCase.verifyEqual(refused, 32, sprintf('builder %d', b));
-                % Exactly the four subsets of {mod_x0, mod_affine} retain the record.
-                testCase.verifyEqual(sort(retained), sort({'', 'mod_x0', 'mod_affine', 'mod_affine,mod_x0'}), ...
+                % No custom stage inherits an explicit reference in this release.
+                testCase.verifyEqual(retained, {}, ...
                     sprintf('builder %d', b));
             end
         end
@@ -734,7 +735,12 @@ classdef TestProblemReference < matlab.unittest.TestCase
                 for seed = [0, 3, 17]
                     featured = FeaturedProblem(problem, Feature(pipelines{k}), 50, seed);
                     label = sprintf('pipeline %d seed %d', k, seed);
-                    testCase.verifyEqual(featured.reference, record, label);
+                    declared = Feature(pipelines{k});
+                    if any(cellfun(@(s)strcmp(s.name,'custom'),declared.stages))
+                        testCase.verifyEmpty(featured.reference,label);
+                    else
+                        testCase.verifyEqual(featured.reference, record, label);
+                    end
 
                     % 1. The claimed value is attained at a feasible point of
                     %    the featured problem: the image of x*, found here
@@ -927,7 +933,7 @@ classdef TestProblemReference < matlab.unittest.TestCase
             library = resolveProblemLibrary('reference_invariance');
             setenv('OPTIPROFILER_TEST_STATE_REFERENCES', '1');
             testCase.verifyEqual(library.load('STEEP').reference, TestProblemReference.record('source', 'analytic'));
-            testCase.verifyEqual(library.load('SPHERE').reference.kind, 'lower_bound');
+            testCase.verifyEqual(library.load('SPHERE').reference.kind, 'feasible');
             setenv('OPTIPROFILER_TEST_STATE_REFERENCES', '0');
             testCase.verifyEmpty(library.load('STEEP').reference);
 
@@ -1050,7 +1056,7 @@ classdef TestProblemReference < matlab.unittest.TestCase
                 record('fun', NaN), record('fun', Inf), ...
                 record('kind', 'certified_bound'), record('source', ''), ...
                 struct('fun', 0, 'maxcv', 0, 'kind', 'optimum', 'source', 'author', 'point', [1; 2]), ...
-                record('point', [1; 2]), rmfield(valid, 'mapping'), 0, 'optimum', {valid}};
+                record('point', [1; 2]), rmfield(valid, 'fun'), 0, 'optimum', {valid}};
             for k = 1:numel(stored)
                 problem = RawReferenceProblem(TestProblemReference.constrainedStruct(), stored{k});
                 label = sprintf('stored case %d', k);
@@ -1119,8 +1125,8 @@ classdef TestProblemReference < matlab.unittest.TestCase
             library = resolveProblemLibrary('reference_toy');
             problem = library.load('REF');
             testCase.verifyClass(problem, 'Problem');
-            testCase.verifyEqual(problem.reference, struct('fun', 0, 'maxcv', 0, 'kind', 'optimum', ...
-                'source', 'catalog:reference_toy', 'mapping', 'feasible_objective/1'));  % provenance survives the load
+            testCase.verifyEqual(problem.reference, struct('fun', 0, 'maxcv', 0, 'kind', 'feasible', ...
+                'source', 'catalog:reference_toy'));  % provenance survives the load
             testCase.verifyEmpty(library.load('PLAIN').reference);
             % A malformed record makes the load fail; the provider is never
             % "helped" by a repaired or reinterpreted record.

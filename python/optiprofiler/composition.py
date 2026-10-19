@@ -29,7 +29,8 @@ confused with the problem's *reference fact* (``Problem.reference``), which is
 author/provider metadata. Every view carries that fact forward only if its
 stage retains it (:func:`optiprofiler.feature_definitions.retains_reference`);
 otherwise the view, and everything after it, reports it as unknown. The fact
-is retained unchanged or dropped: it holds no point, so nothing is transported.
+is retained unchanged or dropped. Its optional x_ref always stays in the
+original problem's coordinates; scoring never needs to transport that metadata.
 
 Exactly one recorder, :class:`ComposedFeaturedProblem`, owns the evaluation
 budget, the histories, the cached last values and the termination rule. The
@@ -74,7 +75,8 @@ from .feature_definitions import STAGE_CODES
 from .feature_definitions import SEED_POLICY_COMPOSED as SEED_POLICY
 from .opclasses import (Feature, FeatureOption, FeaturedProblem, Problem, _StageRuntime,
                         _begin_featured_query,
-                        _process_1d_array, _propagated_reference, _validate_max_eval, _validate_seed)
+                        _process_1d_array, _propagated_reference,
+                        _validate_max_eval, _validate_seed)
 from .utils import get_logger, shorten_log_message
 
 # Frozen numeric stage codes used in seed derivation. Never renumber; append
@@ -193,10 +195,12 @@ class ProblemView(Problem):
         # exactly when every stage is. Only the stage name and its option
         # names are read; no callback runs for this.
         self._reference = None
+        self._reference_fallback_reason = getattr(predecessor, '_reference_fallback_reason', None)
         if stage is None:
             self._reference = predecessor.reference
         else:
-            self._reference = _propagated_reference(predecessor.reference, [(stage.name, stage.options)])
+            self._reference, self._reference_fallback_reason = _propagated_reference(
+                predecessor.reference, [(stage.name, stage.options)], self._reference_fallback_reason)
 
     # Problem-facing API: the observed channel. Input is normalized exactly
     # as ``Problem.fun`` does (a list is a legal point for a Problem), so a
@@ -289,6 +293,7 @@ class RootView(ProblemView):
         self._fun = self._cub = self._ceq = None
         self._grad = self._hess = self._jcub = self._jceq = self._hcub = self._hceq = None
         self._reference = problem.reference
+        self._reference_fallback_reason = getattr(problem, '_reference_fallback_reason', None)
 
     def observed_fun(self, x):
         return self._problem.fun(x)
@@ -854,6 +859,7 @@ class ComposedFeaturedProblem(FeaturedProblem):
         self._grad = self._hess = self._jcub = self._jceq = self._hcub = self._hceq = None
         # The reference fact that survived every stage, or None (unknown).
         self._reference = view.reference
+        self._reference_fallback_reason = view._reference_fallback_reason
 
         self._fun_init, self._maxcv_init = self._evaluate_truth(self._x0)
 

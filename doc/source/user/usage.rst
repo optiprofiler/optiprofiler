@@ -142,34 +142,27 @@ the plain-reference role retains the independent one-run policy. A saved run
 axis is not a count of actual solver calls: deterministic runs can have copied
 slots, which reports identify separately from actual executions.
 
-A :ref:`Problem <matproblem>` may carry an optional *raw reference fact*
-in its ``reference`` property: finite objective ``fun``, finite nonnegative
-total violation ``maxcv``, ``kind``, ``source`` and
-``mapping='objective_violation/1'``. ``lower_bound``/``optimum`` require zero
-violation; ``best_known``/``target`` may be infeasible. This author/provider
-record is distinct from the plain-reference experiment role above.
-The ``reference`` of a :ref:`FeaturedProblem <matfeaturedproblem>` is that
-record, unchanged, if the feature retains it, and ``[]`` (unknown) otherwise;
-the record holds no point, so nothing is transported or derived, and the rule
-is the same for every kind at zero violation. Stages that change only observations (``noisy``,
-``truncated``, ``random_nan``, ``nonquantifiable_constraints``,
-``unrelaxable_constraints``, and ``quantized`` with ``ground_truth=false``),
-``perturbed_x0``, ``permuted`` and ``linearly_transformed`` retain it.
-``custom`` retains it only if its options are a subset of ``mod_x0`` and
-``mod_affine``; ``mod_fun``, ``mod_cub``, ``mod_ceq``, ``mod_bounds``,
-``mod_linear_ub`` and ``mod_linear_eq`` may change values, constraints or
-bounds and make it unknown, whatever the callbacks do. ``quantized`` with
-``ground_truth=true``, the default, makes it unknown, because the truth is then
-the mesh problem. A composition retains the record only if every stage does.
-General affine maps additionally drop a nonzero ``maxcv`` because residual
-magnitude may change, and no point is stored to recompute it.
+A :ref:`Problem <matproblem>` may carry ``reference`` with four fields:
+``fun``, ``maxcv``, ``kind`` and ``source``. ``kind='feasible'`` requires zero
+violation; ``kind='merit'`` allows nonzero violation and leaves the merit
+function/target choice to the user. Optional ``x_ref`` is source metadata
+in original problem coordinates, never a point in featured coordinates.
+No metadata maintenance transports it or evaluates the problem.
 
-A retained reference defines profile convergence after conversion with
+Observation-only built-ins, ``perturbed_x0``, ``permuted`` and
+``linearly_transformed`` retain raw reference values, including nonzero
+violation. Every ``custom`` stage uses the default target in this release.
+``quantized`` with ``ground_truth=true`` also falls back, even with a point;
+``ground_truth=false`` retains the record. Once a composition invalidates a
+reference, later stages cannot restore it. Archives and reports retain the
+first reason in ``reference_fallback_reasons``.
+
+A retained reference defines convergence through
 ``merit_fun(fun,maxcv,maxcv_init)`` per run. Missing references keep the V1
-minimum over selected solver histories, initial values and optional plain run,
-without claiming a known optimum. Actual merits are never clamped. Save/load
-retains raw reference facts and recomputes their target with the current
-callback. A custom merit need not preserve objective lower-bound ordering.
+minimum over solver histories, initial values and the optional plain run.
+Actual observations are never clamped. Save/load retains raw facts and
+recomputes targets with the current merit callback. Earlier kinds and known
+mapping tokens remain readable; new records need no mapping token.
 See :doc:`../dev/problems`.
 
 There are two different ways to use an existing experiment:

@@ -64,9 +64,9 @@ Optional fields:
 
     - **hceq**: the Hessian of the nonlinearly equality constraints ``hceq(x) -> cell array of float matrices``. The i-th element of ``hceq(x)`` should be the Hessian of the i-th function in ``ceq``. By default, ``hceq(x)`` will return an empty cell.
 
-    - **reference**: an optional author/provider fact with exactly five fields: ``fun`` (finite objective), ``maxcv`` (finite nonnegative total violation), ``kind``, ``source`` (non-empty provenance text), and ``mapping``. Kinds are ``'lower_bound'``, ``'optimum'``, ``'best_known'`` and ``'target'``. The first two require ``maxcv=0``; the latter two may describe an infeasible point or a chosen target. The canonical mapping token is ``'objective_violation/1'``. The earlier ``'feasible_objective/1'`` draft is accepted only as a zero-violation objective, including its four-field ``merit`` layout; newly saved records always use the five raw fields. Points and mapping callbacks are not stored. Validation evaluates no objective or constraint.
+    - **reference**: an optional author/provider fact with four required fields: ``fun`` (finite objective), ``maxcv`` (finite nonnegative total violation), ``kind`` and ``source`` (non-empty provenance text). ``kind='feasible'`` requires ``maxcv=0``; ``kind='merit'`` permits nonzero violation, with the user responsible for the chosen merit function and target. Optional ``x_ref`` is source metadata in original problem coordinates. Features do not transport it or query the oracle to maintain it. Earlier kinds and known mapping tokens remain readable as compatibility inputs; new records need no mapping token. Validation evaluates no objective or constraint.
 
-      Standard profiles convert a retained featured reference using the current ``merit_fun(fun, maxcv, maxcv_init)`` separately for each run, including on load. This replaces the empirical scoring target, not the raw histories. Omitted or safely dropped reference keeps the V1 minimum over the selected solver histories, initial values and optional plain run. This default is not a ``best_known`` claim or a certified optimum. Custom merit functions need not preserve objective lower-bound ordering: ``kind`` describes the raw fact, not a theorem about arbitrary callbacks. Actual run merits are never clamped to the target. See :ref:`FeaturedProblem <matfeaturedproblem>` for feature propagation.
+      Standard profiles convert a retained reference using ``merit_fun(fun,maxcv,maxcv_init)`` for each run and on load. Missing or invalidated references keep the V1 minimum over selected solver histories, initial values and the optional plain run. This default is not a third kind or a certified optimum. Actual observations are never clamped. Every custom stage and ground-truth quantization uses the default target in this release. Other supported built-ins retain raw values, including nonzero violation under affine changes. See :ref:`FeaturedProblem <matfeaturedproblem>` for feature propagation.
 
 The output **P** contains following properties:
 
@@ -74,7 +74,7 @@ Properties inherited from the input struct:
 
     **name**, **x0**, **xl**, **xu**, **aub**, **bub**, **aeq**, **beq**, **reference**
 
-    (``reference`` is ``[]`` when unknown, otherwise a struct with ``fun``, ``maxcv``, ``kind``, ``source``, ``mapping``. It is set at construction only and cannot be assigned. An invalid stored object record reads as ``[]`` with a warning; supported legacy zero-violation records are migrated explicitly.)
+    (``reference`` is ``[]`` when unknown, otherwise a struct with ``fun``, ``maxcv``, ``kind``, ``source`` and optional original-coordinate ``x_ref``. It is set at construction only and cannot be assigned. Rejected stored records read as ``[]`` with a warning; supported legacy records are normalized explicitly.)
 
 Properties dependent on the input struct:
 

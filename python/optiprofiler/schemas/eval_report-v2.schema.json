@@ -539,19 +539,22 @@
     },
     "problemReference": {
       "type": "object",
-      "required": ["fun", "maxcv", "kind", "source", "mapping"],
+      "required": ["fun", "maxcv", "kind", "source"],
       "properties": {
         "fun": {"type": "number"},
         "maxcv": {"type": "number", "minimum": 0},
-        "kind": {"enum": ["lower_bound", "optimum", "best_known", "target"]},
+        "kind": {"enum": ["feasible", "merit"]},
         "source": {"$ref": "#/$defs/nullableText"},
-        "mapping": {"enum": ["objective_violation/1", "feasible_objective/1"]}
+        "x_ref": {"oneOf": [
+          {"type": "array", "items": {"type": "number"}, "minItems": 1, "maxItems": 256},
+          {"type": "object", "required": ["dimension", "reason"],
+           "properties": {"dimension": {"type": "integer", "minimum": 257},
+                          "reason": {"const": "reference_point_not_embedded"}},
+           "additionalProperties": false}
+        ]}
       },
       "additionalProperties": false,
-      "if": {"anyOf": [
-        {"properties": {"kind": {"enum": ["lower_bound", "optimum"]}}},
-        {"properties": {"mapping": {"const": "feasible_objective/1"}}}
-      ]},
+      "if": {"properties": {"kind": {"const": "feasible"}}},
       "then": {"properties": {"maxcv": {"const": 0}}},
       "description": "Raw target facts, not cached merit. Provenance text uses the bounded report projection; the saved numerical archive retains the authoritative full record."
     },
@@ -637,6 +640,11 @@
           "type": "array",
           "items": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/problemReference"}]},
           "description": "One effective featured reference per stored run. Null uses the empirical V1 cohort/plain target; absent means reference facts were not retained (including V1 archives). No merit callback is executed to produce this metadata."
+        },
+        "reference_fallback_reasons": {
+          "type": "array",
+          "items": {"type": ["string", "null"], "enum": [null, "custom_feature", "quantized_ground_truth", "unsupported_feature"]},
+          "description": "First feature that invalidated an explicit reference, per stored run. Null means no feature-triggered fallback. Reasons are retained on load; an absent field belongs to an older archive."
         },
         "provider": {
           "$ref": "#/$defs/metadataValue"

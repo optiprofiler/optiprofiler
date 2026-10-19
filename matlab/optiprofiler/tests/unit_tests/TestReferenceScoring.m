@@ -30,8 +30,10 @@ classdef TestReferenceScoring < matlab.unittest.TestCase
     end
     methods (Static)
         function record = reference(fun, maxcv, kind)
+            if ismember(kind,{'lower_bound','optimum'}), kind='feasible'; end
+            if ismember(kind,{'best_known','target'}), kind='merit'; end
             record = struct('fun', fun, 'maxcv', maxcv, 'kind', kind, ...
-                'source', 'analytic test', 'mapping', 'objective_violation/1');
+                'source', 'analytic test');
         end
         function block = results(record)
             block = struct('problem_names', {{'P'}}, 'problem_dims', 1, ...
@@ -93,11 +95,11 @@ classdef TestReferenceScoring < matlab.unittest.TestCase
             testCase.verifyError(@() processResults({block}, struct('merit_fun', @defaultMerit)), ...
                 'MATLAB:applyReferenceTargets:invalidMerit');
         end
-        function nonzeroViolationIsDroppedAcrossGeneralAffine(testCase)
+        function nonzeroViolationSurvivesOriginalCoordinateScoring(testCase)
             record = TestReferenceScoring.reference(0, 0.5, 'best_known');
             problem = Problem(struct('fun', @(x) sum(x.^2), 'x0', [1; 2], 'reference', record));
             testCase.verifyEqual(FeaturedProblem(problem, Feature('noisy+permuted'), 10, 7).reference, record);
-            testCase.verifyEmpty(FeaturedProblem(problem, Feature('linearly_transformed'), 10, 7).reference);
+            testCase.verifyEqual(FeaturedProblem(problem, Feature('linearly_transformed'), 10, 7).reference,record);
         end
         function directProblemScoreConsumesReference(testCase)
             solvers = {@TestReferenceScoring.finish, @TestReferenceScoring.stay};

@@ -1,8 +1,9 @@
 function reference = normalizeProblemReference(reference)
 %NORMALIZEPROBLEMREFERENCE Validate raw objective/violation reference facts.
-%   Canonical fields: fun, maxcv, kind, source, mapping. No point or callback
-%   is stored. lower_bound/optimum require maxcv=0; best_known/target may
-%   have a finite nonnegative violation. Scoring uses the current merit_fun.
+%   Required fields: fun, maxcv, kind, source. Optional x_ref is source
+%   metadata in the original problem's coordinates, never an oracle callback.
+%   feasible requires maxcv=0; merit may have finite nonnegative violation.
+%   Old kinds and mapping tokens are read for provider/archive compatibility.
 %   Empty means unknown. Validation evaluates no objective or constraint.
 %   The exact earlier four-field draft with feasible_objective/1 is accepted
 %   as (fun=merit,maxcv=0); no arbitrary precomputed merit is reinterpreted.
@@ -10,7 +11,7 @@ function reference = normalizeProblemReference(reference)
         reference = [];
         return
     end
-    required = {'fun', 'maxcv', 'kind', 'source', 'mapping'};
+    required = {'fun', 'maxcv', 'kind', 'source'};
     if ~(isstruct(reference) && isscalar(reference))
         error("MATLAB:Problem:reference_NotStruct", "The reference must be a scalar struct with fields %s.", strjoin(required, ', '));
     end
@@ -28,9 +29,9 @@ function reference = normalizeProblemReference(reference)
         fields = reshape(fieldnames(reference), 1, []);
     end
     if ismember('point', fields)
-        error("MATLAB:Problem:reference_LegacyField", "Reference points are not accepted or transported.");
+        error("MATLAB:Problem:reference_LegacyField", "The superseded point field is not accepted; use original-coordinate x_ref.");
     end
-    unknown = fields(~ismember(fields, required));
+    unknown = fields(~ismember(fields, [required, {'x_ref','mapping'}]));
     if ~isempty(unknown)
         error("MATLAB:Problem:reference_UnknownField", "Unknown problem reference fields: %s.", strjoin(unknown, ', '));
     end
@@ -44,24 +45,38 @@ function reference = normalizeProblemReference(reference)
         error("MATLAB:Problem:reference_maxcv_Negative", "The reference maxcv must be nonnegative.");
     end
     kind = referenceText(reference.kind, 'kind');
-    if ~ismember(kind, {'lower_bound', 'optimum', 'best_known', 'target'})
+    if ismember(kind, {'lower_bound','optimum'}), kind = 'feasible'; end
+    if ismember(kind, {'best_known','target'}), kind = 'merit'; end
+    if ~ismember(kind, {'feasible', 'merit'})
         error("MATLAB:Problem:reference_kind_Unknown", "Unknown reference kind '%s'.", kind);
     end
     source = referenceText(reference.source, 'source');
     if isempty(strtrim(source))
         error("MATLAB:Problem:reference_source_Empty", "The reference source must be non-empty provenance text.");
     end
-    if isa(reference.mapping, 'function_handle')
-        error("MATLAB:Problem:reference_mapping_NotToken", "Reference mapping must be a token, not a function handle.");
+    mapping = 'objective_violation/1';
+    if isfield(reference,'mapping')
+        if isa(reference.mapping, 'function_handle')
+            error("MATLAB:Problem:reference_mapping_NotToken", "Reference mapping must be a token, not a function handle.");
+        end
+        mapping = referenceText(reference.mapping, 'mapping');
     end
-    mapping = referenceText(reference.mapping, 'mapping');
     if ~ismember(mapping, {'feasible_objective/1', 'objective_violation/1'})
         error("MATLAB:Problem:reference_mapping_Unknown", "Unknown reference mapping '%s'.", mapping);
     end
-    if maxcv ~= 0 && (ismember(kind, {'lower_bound', 'optimum'}) || strcmp(mapping, 'feasible_objective/1'))
-        error("MATLAB:Problem:reference_maxcv_NotFeasible", "Reference maxcv must be zero for lower_bound/optimum and feasible_objective/1.");
+    if maxcv ~= 0 && (strcmp(kind,'feasible') || strcmp(mapping, 'feasible_objective/1'))
+        error("MATLAB:Problem:reference_maxcv_NotFeasible", "Reference maxcv must be zero for feasible and legacy feasible_objective/1 records.");
     end
-    reference = struct('fun', fun, 'maxcv', maxcv, 'kind', kind, 'source', source, 'mapping', mapping);
+    point = [];
+    if isfield(reference,'x_ref') && ~isempty(reference.x_ref)
+        point = reference.x_ref;
+        if ~(isnumeric(point) && isreal(point) && isvector(point) && all(isfinite(point)))
+            error('MATLAB:Problem:reference_x_ref_Invalid', 'The reference x_ref must be a finite real vector.');
+        end
+        point = full(double(point(:)));
+    end
+    reference = struct('fun', fun, 'maxcv', maxcv, 'kind', kind, 'source', source);
+    if ~isempty(point), reference.x_ref = point; end
 end
 
 function value = referenceScalar(input, field)

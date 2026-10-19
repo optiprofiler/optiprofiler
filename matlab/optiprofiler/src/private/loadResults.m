@@ -16,7 +16,8 @@ function [results_plibs, profile_options, problem_options] = loadResults(problem
         error("MATLAB:checkValidityProfileOptions:loadNotValid", "The option `load` should be 'latest' or a time stamp in the format 'yyyyMMdd_HHmmss', optionally followed by a suffix such as '_001'.");
     end
 
-    % Set the path to search for the data to load.
+    % savepath controls new output, not the archive being loaded. Preserve
+    % cwd/benchmark_id as the source so reanalysis can use another output root.
     if isfield(profile_options, ProfileOptionKey.BENCHMARK_ID.value)
         search_path = fullfile(pwd, profile_options.(ProfileOptionKey.BENCHMARK_ID.value));
     else
@@ -458,6 +459,14 @@ function results_plib = truncate_problems(results_plib, problem_options)
     results_plib.maxcv_inits = results_plib.maxcv_inits(p_to_load, :);
     if isfield(results_plib, 'reference_records')
         results_plib.reference_records = results_plib.reference_records(p_to_load, :);
+        % Normalize only the in-memory view. The original archive stays byte
+        % identical, while current reports consistently expose the two kinds.
+        for r = 1:numel(results_plib.reference_records)
+            results_plib.reference_records{r} = normalizeProblemReference(results_plib.reference_records{r});
+        end
+    end
+    if isfield(results_plib, 'reference_fallback_reasons')
+        results_plib.reference_fallback_reasons = results_plib.reference_fallback_reasons(p_to_load, :);
     end
     results_plib.n_evals = results_plib.n_evals(p_to_load, :, :);
     results_plib.problem_names = results_plib.problem_names(p_to_load);

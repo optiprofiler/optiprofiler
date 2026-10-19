@@ -277,6 +277,25 @@ def _integer(value):
     return None
 
 
+def _reference_fact_metadata(record):
+    """Keep the agent report bounded without truncating a witness silently.
+
+    The numerical archive owns the full vector. A report without a numerical
+    archive (for example score_only) still states honestly that it does not
+    embed a large point; it never invents an archive link or a partial point.
+    """
+    if record is None:
+        return None
+    from .opclasses import ProblemReference
+    raw = ProblemReference.from_record(record).as_dict()
+    point = raw.pop('x_ref', None)
+    result = _safe(raw)
+    if point is not None:
+        result['x_ref'] = point if len(point) <= 256 else {
+            'dimension': len(point), 'reason': 'reference_point_not_embedded'}
+    return result
+
+
 def _vector(value):
     if type(value) is np.ndarray and value.dtype.kind in 'biuf':
         return value.reshape(-1)
@@ -866,14 +885,14 @@ class EvalReport:
         problem.update(dimension=_safe(result.get('problem_dim')),
                        type=_safe(result.get('problem_type')),
                        load_status='loaded', status='completed')
+        if 'reference_fallback_reasons' in result:
+            problem['reference_fallback_reasons'] = json.loads(result['reference_fallback_reasons'])
         if 'reference_records' in result:
             # Observe retained facts only. Reporting must not call merit_fun
             # again (it may be stateful) or invent a reference for V1 archives.
-            from .opclasses import ProblemReference
             try:
                 references = json.loads(result['reference_records'])
-                problem['reference_records'] = [None if record is None else
-                    _safe(ProblemReference.from_record(record).as_dict()) for record in references]
+                problem['reference_records'] = [_reference_fact_metadata(record) for record in references]
             except (TypeError, ValueError):
                 self.add_diagnostic('reference_metadata_unavailable', 'reporting',
                                     library=plib, problem=name, role=role)
@@ -1041,6 +1060,7 @@ class EvalReport:
             'solver_abnormal_termination': 'solver_abnormal_terminations',
             'solver_output_fallback': 'solver_output_fallbacks',
             'reference_records': 'reference_records',
+            'reference_fallback_reasons': 'reference_fallback_reasons',
         }
 
         def add_library(result, role):

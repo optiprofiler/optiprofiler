@@ -135,18 +135,25 @@ def main():
     os.chdir(output)
     # Check scoring, not just metadata. The same measured step has relative
     # decrease 1 under the empirical target and 3/4 under a supplied zero.
-    reference = ProblemReference(0.0, 'optimum', 'analytic sphere', 'feasible_objective/1')
+    reference = ProblemReference(0.0, 'feasible', 'analytic sphere', x_ref=[0.0, 0.0])
     problem = Problem(sphere, [1.0, 2.0], reference=reference)
     trial = FeaturedProblem(problem, Feature('noisy+permuted'), 10, 7)
     assert trial.reference == reference
     assert np.isfinite(trial.fun(trial.x0))
+    assert FeaturedProblem(problem, Feature('custom'), 10, 7).reference is None
+    assert FeaturedProblem(problem, Feature('quantized+noisy'), 10, 7).reference is None
+    reference = ProblemReference(0.0, 'feasible', 'analytic sphere', x_ref=[0.0])
     reference_options = dict(score_only=True, silent=True, n_jobs=1, max_eval_factor=2)
     empirical = benchmark([halfway, unchanged], problem=Problem(sphere, [2.0]), **reference_options)
     explicit = benchmark([halfway, unchanged], problem=Problem(sphere, [2.0], reference=reference),
                          **reference_options)
     np.testing.assert_array_equal(empirical[0], [1.0, 0.0])
     np.testing.assert_array_equal(explicit[0], [0.75, 0.0])
-    violated = ProblemReference(fun=0.0, maxcv=0.5, kind='target', source='test target')
+    for feature_name in ('custom','quantized','quantized+noisy'):
+        fallback = benchmark([halfway, unchanged], problem=Problem(sphere, [2.0], reference=reference),
+                             feature_name=feature_name, **reference_options)
+        np.testing.assert_array_equal(fallback[0], [1.0, 0.0])
+    violated = ProblemReference(fun=0.0, maxcv=0.5, kind='merit', source='test target')
     converted = benchmark([halfway, unchanged], problem=Problem(sphere, [2.0], xl=[0.5], reference=violated),
                           merit_fun=linear_merit, **reference_options)
     np.testing.assert_array_equal(converted[0], [1.0, 0.0])

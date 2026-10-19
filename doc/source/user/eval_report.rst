@@ -400,7 +400,12 @@ Meaning and limitations
   reference now defines its convergence target; omitted references use the
   V1 empirical solver/plain minimum. ``problems[].reference_records`` keeps
   one raw fact or null per stored run, without recomputing a merit in the
-  reporter. An absent field means the facts were not retained. A matched
+  reporter. An absent field means the facts were not retained. An explicit
+  reference can include ``x_ref`` in original problem coordinates, never
+  featured coordinates. Points of up to 256 coordinates are embedded; larger
+  ones have an explicit omission descriptor, with the full point retained in
+  the numerical archive when one exists. ``reference_fallback_reasons``
+  records the first feature-triggered fallback for each stored run. A matched
   configuration hash alone is not a guarantee of comparability, nor does
   this report introduce an independent Arena scoring rule.
 * Binned histories and plot presentations are not inputs to scoring. Original

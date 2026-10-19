@@ -1535,7 +1535,12 @@ class Feature:
 # an instance, so neither a subclass nor an assignment to
 # ``ProblemReference.MAPPINGS`` can add a mapping. A changed reading of the
 # scalar gets a new token here, never a new meaning for an old one.
-_REFERENCE_KINDS = ('lower_bound', 'optimum', 'best_known', 'target')
+_REFERENCE_KINDS = ('feasible', 'merit')
+# Read earlier provider records and saved experiments without keeping their
+# four-way claim taxonomy in the convergence API. These aliases do not add
+# new scoring modes: every record still supplies raw objective/violation.
+_REFERENCE_KIND_ALIASES = {'lower_bound': 'feasible', 'optimum': 'feasible',
+                           'best_known': 'merit', 'target': 'merit'}
 _REFERENCE_MAPPINGS = ('feasible_objective/1', 'objective_violation/1')
 
 
@@ -1606,8 +1611,8 @@ class ProblemReference:
     """
     An author/provider reference consisting of raw objective and violation.
 
-    The record holds ``fun``, ``maxcv``, ``kind``, ``source`` and ``mapping``;
-    no point or callable is stored. Standard profiles use the effective
+    The record holds ``fun``, ``maxcv``, ``kind`` and ``source``;
+    an optional ``x_ref`` witness may accompany them. Standard profiles use the effective
     featured reference as their convergence target. If no reference survives
     the features, they keep the V1 solver-history minimum.
 
@@ -1617,25 +1622,27 @@ class ProblemReference:
         Finite raw objective value, not a precomputed custom merit.
     maxcv : float, optional
         Finite nonnegative total constraint violation; default is zero.
-    kind : {'lower_bound', 'optimum', 'best_known', 'target'}
-        ``lower_bound`` and ``optimum`` describe the feasible objective and
-        require ``maxcv=0``. ``best_known`` and ``target`` may specify nonzero
-        violation. An infeasible best-known record is not an upper bound on
-        the feasible optimum.
+    kind : {'feasible', 'merit'}
+        ``feasible`` supplies a feasible-objective target and requires
+        ``maxcv=0``. ``merit`` may specify nonzero violation; the user is
+        responsible for choosing a target appropriate to the current merit
+        function. Neither kind asks the engine to prove optimality.
     source : str
         Non-empty provenance of the fact (for example ``'author'`` or a
         citation). A reference without provenance is rejected.
-    mapping : str
-        ``objective_violation/1`` (default) names the raw pair. The earlier
-        ``feasible_objective/1`` token remains accepted only with zero
-        violation. Mapping tokens are closed, not arbitrary callbacks.
+    mapping : str, optional
+        Compatibility input for earlier records only. New records do not
+        require or emit a mapping token. This is not a feature callback.
+    x_ref : array_like, optional
+        Finite reference point in the original problem's coordinates. It is
+        source metadata: features never transport it or evaluate an oracle
+        merely to maintain it. It is not a featured initial point.
 
     Notes
     -----
     The target is recomputed as ``merit_fun(fun, maxcv, maxcv_init)`` for each
     run, including on load with a different merit function. A custom merit
-    need not preserve lower-bound ordering: ``kind`` describes the raw fact,
-    not a theorem about an arbitrary user callback. Run values below the
+    need not preserve objective ordering. Run values below the
     reference are never clamped. Validation calls no objective or constraint.
 
     See Also
@@ -1651,24 +1658,25 @@ class ProblemReference:
     #: attribute, so assigning to it does not extend the registry.
     MAPPINGS = _REFERENCE_MAPPINGS
     #: The fields of the record, in order.
-    FIELDS = ('fun', 'maxcv', 'kind', 'source', 'mapping')
+    FIELDS = ('fun', 'maxcv', 'kind', 'source')
     # The superseded draft stored a point. Name it for a clear rejection;
-    # retaining a point would make feature transport and storage nonlocal.
+    # its coordinate convention was not the original-coordinate x_ref contract.
     _LEGACY_FIELDS = ('point',)
 
-    __slots__ = ('_fun', '_maxcv', '_kind', '_source', '_mapping')
+    __slots__ = ('_fun', '_maxcv', '_kind', '_source', '_mapping', '_x_ref')
 
     def __init_subclass__(cls, **kwargs):
         # A subclass could redefine the registry, a property or the
         # validation, which would be a user-defined mapping by another name.
         raise TypeError('ProblemReference cannot be subclassed: the record and its mapping registry are closed.')
 
-    def __init__(self, fun, kind, source, mapping='objective_violation/1', *, maxcv=0.0):
+    def __init__(self, fun, kind, source, mapping=None, *, maxcv=0.0, x_ref=None):
         fun = _reference_merit(fun)
         maxcv = _reference_merit(maxcv, 'maxcv')
         if maxcv < 0:
             raise ValueError('The field `maxcv` of a problem reference must be nonnegative.')
         kind = _reference_text(kind, 'kind')
+        kind = _REFERENCE_KIND_ALIASES.get(kind, kind)
         if kind not in _REFERENCE_KINDS:
             raise ValueError(f'The field `kind` of a problem reference must be one of {_REFERENCE_KINDS}, not {kind!r}.')
         source = _reference_text(source, 'source')
@@ -1677,33 +1685,43 @@ class ProblemReference:
         if callable(mapping):
             raise TypeError('The field `mapping` of a problem reference must be a token of the closed registry '
                             f'{_REFERENCE_MAPPINGS}; callables and user-defined mappings are not accepted.')
-        if not isinstance(mapping, str):
+        if mapping is not None and not isinstance(mapping, str):
             raise TypeError('The field `mapping` of a problem reference must be a string token of the closed registry '
                             f'{_REFERENCE_MAPPINGS}.')
-        mapping = _reference_text(mapping, 'mapping')
+        mapping = 'objective_violation/1' if mapping is None else _reference_text(mapping, 'mapping')
         if mapping not in _REFERENCE_MAPPINGS:
             raise ValueError(f'Unknown problem reference mapping {mapping!r}; the closed registry is '
                              f'{_REFERENCE_MAPPINGS}. An unknown mapping is rejected, never guessed.')
-        if maxcv != 0 and (kind in ('lower_bound', 'optimum') or mapping == 'feasible_objective/1'):
-            raise ValueError('The field `maxcv` must be zero for lower_bound/optimum and feasible_objective/1 references.')
+        if maxcv != 0 and (kind == 'feasible' or mapping == 'feasible_objective/1'):
+            raise ValueError('The field `maxcv` must be zero for feasible references and legacy feasible_objective/1 records.')
         object.__setattr__(self, '_fun', fun)
         object.__setattr__(self, '_maxcv', maxcv)
         object.__setattr__(self, '_kind', kind)
         object.__setattr__(self, '_source', source)
-        object.__setattr__(self, '_mapping', mapping)
+        object.__setattr__(self, '_mapping', 'objective_violation/1')
+        if x_ref is not None:
+            point = _process_1d_array(x_ref, 'The reference `x_ref` must be a real one-dimensional array.')
+            if point.size == 0 or not np.all(np.isfinite(point)):
+                raise ValueError('The reference `x_ref` must be nonempty and finite.')
+            # A tuple owns the data and preserves the immutable/hashable fact
+            # contract. Public reads return a copy; provider buffers cannot
+            # mutate a target after the problem has been constructed.
+            x_ref = tuple(float(value) for value in point)
+        object.__setattr__(self, '_x_ref', x_ref)
 
     @classmethod
     def from_record(cls, value):
         """
-        Normalize a validated instance or a complete raw five-field record.
+        Normalize a validated instance or a complete raw four-field record.
         The exact earlier feasible-objective draft is migrated explicitly;
-        missing fields, unknown mappings and reference points are rejected.
+        missing required fields and unknown legacy mappings are rejected. ``x_ref``
+        is optional; the former ambiguous ``point`` layout is still rejected.
         """
         if isinstance(value, cls):
             return value
         if not isinstance(value, Mapping):
             raise TypeError('The argument `reference` for problem must be a ProblemReference or a mapping with the '
-                            f'fields {cls.FIELDS}; a naked scalar has no kind, provenance or mapping and is rejected.')
+                            f'fields {cls.FIELDS}; a naked scalar has no kind or provenance and is rejected.')
         # The earlier four-field draft has an unambiguous feasible-objective
         # token. Accept that exact layout as (fun=merit, maxcv=0), never an
         # arbitrary precomputed merit or a record containing a reference point.
@@ -1717,14 +1735,17 @@ class ProblemReference:
         if legacy:
             raise ValueError(f'The problem reference field(s) {legacy} belong to a superseded record layout. Such a '
                              f'record is rejected and never reinterpreted; state the fields {cls.FIELDS}.')
-        unknown = [key for key in value if key not in cls.FIELDS]
+        unknown = [key for key in value if key not in (*cls.FIELDS, 'x_ref', 'mapping')]
         if unknown:
             raise ValueError(f'Unknown problem reference field(s) {unknown!r}; the fields are {cls.FIELDS}.')
         missing = [key for key in cls.FIELDS if key not in value]
         if missing:
             raise ValueError(f'The problem reference is missing the required field(s) {missing}; all of {cls.FIELDS} '
                              'are required.')
-        return cls(value['fun'], value['kind'], value['source'], value['mapping'], maxcv=value['maxcv'])
+        if 'mapping' in value and value['mapping'] is None:
+            raise TypeError('A legacy reference mapping must be a string token, not None.')
+        return cls(value['fun'], value['kind'], value['source'], value.get('mapping'),
+                   maxcv=value['maxcv'], x_ref=value.get('x_ref'))
 
     def __setattr__(self, key, value):
         raise AttributeError('ProblemReference is immutable.')
@@ -1757,11 +1778,17 @@ class ProblemReference:
         return hash(self._key())
 
     def __repr__(self):
+        point = '' if self._x_ref is None else f', x_ref={self.x_ref!r}'
         return (f'ProblemReference(fun={self._fun!r}, maxcv={self._maxcv!r}, kind={self._kind!r}, '
-                f'source={self._source!r}, mapping={self._mapping!r})')
+                f'source={self._source!r}{point})')
 
     def _key(self):
-        return self._fun, self._maxcv, self._kind, self._source, self._mapping
+        return self._fun, self._maxcv, self._kind, self._source, self._x_ref
+
+    @property
+    def x_ref(self):
+        """Owned copy of the optional witness in the original coordinates."""
+        return None if self._x_ref is None else np.array(self._x_ref, dtype=float)
 
     @property
     def merit(self):
@@ -1790,34 +1817,38 @@ class ProblemReference:
 
     @property
     def mapping(self):
-        """Registry token describing the raw record."""
+        """Compatibility token for the raw pair; new records omit this field."""
         return self._mapping
 
     def as_dict(self):
-        """Native copy of the raw record, with no point or derived merit."""
-        return {'fun': self._fun, 'maxcv': self._maxcv, 'kind': self._kind,
-                'source': self._source, 'mapping': self._mapping}
+        """Native copy of the raw facts and optional witness, not cached merit."""
+        record = {'fun': self._fun, 'maxcv': self._maxcv, 'kind': self._kind,
+                  'source': self._source}
+        if self._x_ref is not None:
+            record['x_ref'] = list(self._x_ref)
+        return record
 
 
-def _propagated_reference(reference, stages):
+def _propagated_reference(reference, stages, reason=None):
     """
     The reference fact behind ``stages``, given as ``(name, options)`` pairs in
-    order: ``reference`` itself if every stage retains it, otherwise ``None``.
-    One stage that may change values, constraints, bounds or the truth makes
-    the fact unknown for the whole pipeline; see
+    order: return the retained reference and no reason, or None and the first
+    fallback reason. A later stage never restores an invalidated reference; see
     `optiprofiler.feature_definitions.retains_reference`.
     """
-    if reference is None or not all(_stage_retains_reference(name, options) for name, options in stages):
-        return None
-    # Feasibility survives invertible maps, but the magnitude of constraint
-    # violation need not: a transformed box may become linear inequalities
-    # with a different residual scale. Without a point we cannot recompute it.
-    if reference.maxcv != 0 and any(
-            name == FeatureName.LINEARLY_TRANSFORMED or
-            (name == FeatureName.CUSTOM and FeatureOption.MOD_AFFINE in options)
-            for name, options in stages):
-        return None
-    return reference
+    if reference is None:
+        return None, reason
+    for name, options in stages:
+        if not _stage_retains_reference(name, options):
+            reason = ('custom_feature' if name == FeatureName.CUSTOM else
+                      'quantized_ground_truth' if name == FeatureName.QUANTIZED else 'unsupported_feature')
+            return None, reason
+    # Scoring truth evaluates residuals in the predecessor/original
+    # coordinates, not the transformed constraints handed to a solver.
+    # Consequently even a nonzero reference maxcv survives a built-in
+    # change of variables. x_ref is source metadata in original coordinates;
+    # transporting it here adds work but cannot improve convergence targets.
+    return reference, None
 
 
 class Problem:
@@ -1907,8 +1938,9 @@ class Problem:
     reference : ProblemReference or dict, optional
         Optional raw reference fact of the problem, stated by its author
         or provider: a `ProblemReference` or a dict with exactly the fields
-        ``fun``, ``maxcv``, ``kind``, ``source`` and ``mapping``. A naked scalar, a
-        record with other fields and an unknown mapping are rejected. Omitted
+        ``fun``, ``maxcv``, ``kind`` and ``source``, with optional original-coordinate
+        ``x_ref``. New records need no mapping token. A naked scalar, a
+        record with unknown fields and an unknown legacy mapping are rejected. Omitted
         means unknown. The record is validated structurally, first of all the
         arguments and without evaluating anything, so a reference adds no
         callback call to building or loading a problem.
@@ -2089,8 +2121,8 @@ class Problem:
 
             where ``x`` is an array with shape (n,).
         reference : `optiprofiler.opclasses.ProblemReference` or dict, optional
-            Raw reference fact: exactly the fields ``fun``, ``maxcv``,
-            ``kind``, ``source`` and ``mapping``. Omitted means
+            Raw reference fact: fields ``fun``, ``maxcv``, ``kind``, ``source``
+            and optional original-coordinate ``x_ref``. Omitted means
             unknown. See the class documentation.
 
         Raises
@@ -2109,6 +2141,7 @@ class Problem:
         # dimensions; that happens with or without a reference, which
         # therefore adds no callback call.
         self._reference = None if reference is None else ProblemReference.from_record(reference)
+        self._reference_fallback_reason = None
 
         # Preprocess the objective function.
         self._fun = fun
@@ -2117,6 +2150,9 @@ class Problem:
 
         # Preprocess the initial guess.
         self._x0 = _process_1d_array(x0, 'The argument `x0` for problem must be a one-dimensional array.')
+        if self._reference is not None and self._reference.x_ref is not None \
+                and self._reference.x_ref.size != self._x0.size:
+            raise ValueError('The reference `x_ref` must have the same dimension as `x0`.')
 
         # Preprocess the name.
         self._name = name
@@ -3007,16 +3043,15 @@ class FeaturedProblem(Problem):
         (``noisy``, ``truncated``, ``random_nan``,
         ``nonquantifiable_constraints``, ``unrelaxable_constraints``, and
         ``quantized`` with ``ground_truth=False``), ``perturbed_x0``,
-        ``permuted`` and ``linearly_transformed``. ``custom`` retains it only
-        if its options are a subset of ``mod_x0`` and ``mod_affine``; any
-        other custom option (``mod_fun``, ``mod_cub``, ``mod_ceq``,
-        ``mod_bounds``, ``mod_linear_ub``, ``mod_linear_eq``) may change
-        values, constraints or bounds and makes it unknown. ``quantized`` with
+        ``permuted`` and ``linearly_transformed``. Every ``custom`` stage uses
+        the default target; this release has no reference-conversion callback.
+        ``quantized`` with
         ``ground_truth=True`` (the default) makes it unknown, because the
         truth is then the mesh problem. A composition retains the record only
-        if every stage does. A nonzero ``maxcv`` is additionally dropped by
-        general affine maps, since preserving feasibility does not preserve
-        residual magnitudes. Standard profiles use the current merit function
+        if every stage does. Nonzero ``maxcv`` survives built-in affine maps
+        because scoring keeps original-coordinate residuals. Optional ``x_ref``
+        always stays in original coordinates; it is not transported or queried.
+        Standard profiles use the current merit function
         to convert a retained record to a per-run target; unknown keeps the
         V1 empirical cohort minimum.
 
@@ -3134,8 +3169,8 @@ class FeaturedProblem(Problem):
         # original problem's attributes): the stage either retains the record
         # unchanged or makes it unknown. Only the stage name and its option
         # names are read, so no callback is called for this.
-        self._reference = _propagated_reference(self._problem.reference, [(self._runtime.name, self._runtime._options)])
-
+        self._reference, self._reference_fallback_reason = _propagated_reference(
+            self._problem.reference, [(self._runtime.name, self._runtime._options)])
         # Store the histories of the objective function values, nonlinear
         # constraints, and maximum constraint violations.
         self._fun_hist = []

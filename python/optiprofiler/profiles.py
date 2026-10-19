@@ -2561,6 +2561,7 @@ def _solve_all_problems(solvers, plib, feature, plan, problem_options, profile_o
     results['solver_abnormal_terminations'] = solver_abnormal_terminations
     results['solver_output_fallbacks'] = solver_output_fallbacks
     results['reference_records'] = [r['reference_records'] for r in completed_results]
+    results['reference_fallback_reasons'] = [r['reference_fallback_reasons'] for r in completed_results]
 
     return results
 
@@ -2749,6 +2750,7 @@ def _solve_one_problem(solvers, problem, feature, plan, problem_name, len_proble
     fun_inits = np.full(n_runs, np.nan)
     maxcv_inits = np.full(n_runs, np.nan)
     reference_records = [None] * n_runs
+    reference_fallback_reasons = [None] * n_runs
     computation_time = np.full((n_solvers, n_runs), np.nan)
     solvers_success = np.full((n_solvers, n_runs), False)
     # ``solver_abnormal_terminations[i_solver, i_run]`` is True when the
@@ -2799,6 +2801,7 @@ def _solve_one_problem(solvers, problem, feature, plan, problem_name, len_proble
             maxcv_inits[i_run] = featured_problem.maxcv_init
             reference = featured_problem.reference
             reference_records[i_run] = None if reference is None else reference.as_dict()
+            reference_fallback_reasons[i_run] = featured_problem._reference_fallback_reason
 
             # Define a function to call the solver.
             def call_solver():
@@ -3001,6 +3004,7 @@ def _solve_one_problem(solvers, problem, feature, plan, problem_name, len_proble
             fun_inits[i_run] = fun_inits[0]
             maxcv_inits[i_run] = maxcv_inits[0]
             reference_records[i_run] = reference_records[0]
+            reference_fallback_reasons[i_run] = reference_fallback_reasons[0]
 
     # Return the result.
     result = {
@@ -3011,6 +3015,7 @@ def _solve_one_problem(solvers, problem, feature, plan, problem_name, len_proble
         'fun_init': fun_inits,
         'maxcv_init': maxcv_inits,
         'reference_records': json.dumps(reference_records, allow_nan=False),
+        'reference_fallback_reasons': json.dumps(reference_fallback_reasons, allow_nan=False),
         'n_eval': n_eval,
         'problem_name': problem_name,
         'problem_type': problem_type,
