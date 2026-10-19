@@ -99,7 +99,7 @@ def test_load_can_restyle_without_solver_calls_or_archive_changes(tmp_path, monk
 
 
 @pytest.mark.parametrize('options', [
-    {'axess': {}}, {'axes': {'unknown_property': 1}}, {'xlabel': {'fontsize': 'invalid'}},
+    {'unknown_group': {}}, {'axes': {'unknown_property': 1}}, {'xlabel': {'fontsize': 'invalid'}},
     {'legend': {'unknown_property': 1}}, {'rc': {'backend': 'MacOSX'}},
     {'legend': {'handles': []}}, {'legend': {'labels': []}},
     {'figure': {'canvas': None}}, {'axes': []},

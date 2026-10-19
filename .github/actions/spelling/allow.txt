@@ -162,6 +162,7 @@ excludelist
 exmaple
 exportgraphics
 EXTROSNBNE
+facecolor
 fclose
 FEATUREDPROBLEM
 featurename
@@ -182,6 +183,7 @@ fmincon
 fminsearch
 fminunc
 FOLDTR
+fontproperties
 fopen
 FORMATOPTIPROFILERMESSAGE
 fprintf
@@ -329,6 +331,7 @@ keyframes
 KOEBHELBNE
 KOWOSBNE
 KSS
+labelcolor
 labelleft
 labelright
 labelsize
@@ -691,6 +694,7 @@ workarounds
 workflows
 WRITEREPORT
 XAxis
+xaxis
 xdata
 XDG
 xhist

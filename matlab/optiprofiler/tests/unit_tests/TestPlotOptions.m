@@ -81,7 +81,7 @@ classdef TestPlotOptions < matlab.unittest.TestCase
         function unknownGroupFailsBeforeExecution(testCase)
             problem = Problem(struct('fun',@(x)sum(x.^2),'x0',1));
             options = struct('problem',problem,'n_jobs',1,'score_only',true,'silent',true, ...
-                'plot_options',struct('axess',struct()));
+                'plot_options',struct('unknown_group',struct()));
             testCase.verifyError(@() benchmark({@TestReferencePoints.stay,@TestReferencePoints.zero},options), ...
                 'OptiProfiler:PlotOptions:UnknownGroup');
         end
