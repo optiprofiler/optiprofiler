@@ -64,6 +64,7 @@ class ProfileOption(str, Enum):
     LINE_STYLES = 'line_styles'
     LINE_WIDTHS = 'line_widths'
     BAR_COLORS = 'bar_colors'
+    PLOT_OPTIONS = 'plot_options'
     XLABEL_PERFORMANCE_PROFILE = 'xlabel_performance_profile'
     YLABEL_PERFORMANCE_PROFILE = 'ylabel_performance_profile'
     XLABEL_DATA_PROFILE = 'xlabel_data_profile'

@@ -459,7 +459,7 @@ def load_results(problem_options: Dict[str, Any], profile_options: Dict[str, Any
     
     # savepath is the output destination, not the source of a reload.
     # Preserve the public cwd/benchmark_id search so saved experiments can
-    # be reanalysed into a different output directory.
+    # be analyzed again into a different output directory.
     if ProfileOption.BENCHMARK_ID.value in profile_options:
         search_path = os.path.join(os.getcwd(), profile_options[ProfileOption.BENCHMARK_ID.value])
     else:

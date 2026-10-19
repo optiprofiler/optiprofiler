@@ -1,5 +1,12 @@
 classdef TestReferencePolicy < matlab.unittest.TestCase
 % Two public reference kinds, source coordinates, and empirical fallback.
+    methods (TestMethodSetup)
+        function useRepositorySources(testCase)
+            % Each suite owns its path; earlier CI fixtures restore theirs.
+            root = fileparts(mfilename('fullpath'));
+            testCase.applyFixture(matlab.unittest.fixtures.PathFixture(fullfile(root,'..','..','src')));
+        end
+    end
     methods (Test)
         function twoKindsNeedNoMapping(testCase)
             feasible = struct('fun',0,'maxcv',0,'kind','feasible','source','analytic');
@@ -18,7 +25,7 @@ classdef TestReferencePolicy < matlab.unittest.TestCase
                 testCase.verifyEqual(q.n_eval_fun,0);
             end
         end
-        function oldKindsNormalizeWithoutAMappingField(testCase)
+        function oldKindsNormalizeWithoutMappingField(testCase)
             old = {'lower_bound','optimum','best_known','target'};
             canonical = {'feasible','feasible','merit','merit'};
             for k=1:numel(old)
@@ -29,7 +36,7 @@ classdef TestReferencePolicy < matlab.unittest.TestCase
                 testCase.verifyFalse(isfield(p.reference,'mapping'));
             end
         end
-        function unsupportedStagesDoNotRestoreAReference(testCase)
+        function unsupportedStagesDoNotRestoreReference(testCase)
             record = struct('fun',0,'maxcv',0,'kind','feasible','source','author','x_ref',[0;0]);
             p = Problem(struct('fun',@(x)sum(x.^2),'x0',[3;4],'reference',record));
             for name = {'custom','noisy+custom','custom+permuted','quantized','quantized+noisy'}

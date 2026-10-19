@@ -23,16 +23,17 @@ signatures ``myproblems_select(problem_options)`` and
 
 A loader may attach a raw reference fact to the problem it returns
 through the optional ``reference`` argument of :class:`~optiprofiler.Problem`:
-a :class:`~optiprofiler.ProblemReference` or a dict with exactly the fields
-``fun``, ``maxcv``, ``kind``, ``source`` and ``mapping`` (the token
-``'objective_violation/1'``), for example a known optimal value read from an
+a :class:`~optiprofiler.ProblemReference` or a dict with the four required fields
+``fun``, ``maxcv``, ``kind`` and ``source``, plus optional original-coordinate
+``x_ref``, for example a known optimal value read from an
 offline catalog.  The record is validated when the problem is built;
 validating it evaluates nothing, so it adds no callback call to the load, and
 no solver runs.  A malformed record, including one with a reference
-``point`` or with an unknown mapping, makes the load
+``point`` or an unknown legacy mapping token, makes the load
 fail and is never repaired.  Problems without a reference load as before, with
 an unknown reference. Profiles then use the V1 empirical target; explicit
-references use the current merit function as described in :doc:`../../dev/problems`.
+references use the current merit function as described in :doc:`../reference_targets`.
+New records omit ``mapping``; known old tokens are compatibility inputs only.
 
 To accept library-specific ``plib_options``, also define both
 ``myproblems_get_default_options()`` and
@@ -53,7 +54,7 @@ An explicit filesystem adapter applies only to that benchmark run and takes
 precedence over an installed provider with the same public name.
 
 Adapting the bundled example
----------------------------
+----------------------------
 
 The bundled ``custom`` library contains four small examples and remains
 available as ``plibs=['custom']``.  Keep your own problems outside the installed

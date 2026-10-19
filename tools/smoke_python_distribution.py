@@ -72,7 +72,11 @@ def smoke(output, jobs):
                    mindim=2, maxdim=2, n_runs=2, n_jobs=jobs, max_eval_factor=20,
                    max_tol_order=2, benchmark_id='installed', savepath=str(root),
                    silent=True, draw_hist_plots='parallel' if jobs == 2 else 'sequential',
-                   run_plain=True, report_path=report_path)
+                   run_plain=True, report_path=report_path,
+                   xlabel_performance_profile='Installed style',
+                   plot_options={'text': {'fontsize': 10},
+                                 'xlabel': {'fontsize': 19}, 'legend': {'fontsize': 13},
+                                 'rc': {'text.usetex': False}})
     original = benchmark([powell, nelder_mead],
                          feature=Feature([{'name': 'noisy', 'options': {'noise_level': 0.001}},
                                           'permuted']), **options)
@@ -94,6 +98,11 @@ def smoke(output, jobs):
     assert any('summary' in path.name for path in pdfs), pdfs
     assert any('hist' in str(path).lower() for path in pdfs), pdfs
     assert all(len(PdfReader(str(path)).pages) > 0 for path in pdfs)
+    labels = []
+    page = PdfReader(next((root / 'installed').rglob('perf_hist_1.pdf'))).pages[0]
+    page.extract_text(visitor_text=lambda text, cm, tm, font, size: labels.append((text.strip(), size)))
+    assert ('Installed style', 19) in labels, labels
+    assert ('powell', 13) in labels, labels
     # No callables are supplied: a successful load cannot accidentally rerun
     # the solvers. Verify scores and immutable original artifacts, not a banner.
     loaded_path = root / 'loaded.json'
@@ -117,6 +126,7 @@ def smoke(output, jobs):
     assert all(path.is_file() and sha256(path) == value for path, value in preserved.items())
     return {'jobs': jobs, 'archive_sha256': preserved[archives[0]],
             'primary_runs': 4, 'plain_runs': 2, 'readable_pdfs': len(pdfs),
+            'native_plot_options': 'PASS',
             'solver_free_reload': 'PASS', 'source_artifacts_unchanged': True}
 
 

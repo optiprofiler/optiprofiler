@@ -74,6 +74,10 @@ function [status, presentation] = exportHist(problem_name, problem_type, problem
                     printOptiProfilerMessage('WARNING', sprintf('History rendering failed; using SVG fallback: %s',cause.message));
                 end
             end
+            if i == 1 && isfield(profile_options,'plot_options') && ~isempty(fieldnames(profile_options.plot_options))
+                printOptiProfilerMessage('WARNING', ...
+                    'Portable SVG histories use their own style; native plot_options were not applied.');
+            end
             exportPortableHistory(strrep(files{i},'.pdf','.svg'),modes{i},problem_name,problem_dim, ...
                 solver_names,histories,inits,n_eval,labels,profile_options);
         end
@@ -139,6 +143,7 @@ function exportHistoryFigure(pdf_file, mode, problem_name, problem_type, problem
     % Re-check at export so the caller can use its existing SVG fallback.
     assert(hasNativeGraphics(), 'OptiProfiler:NativeGraphicsUnavailable', ...
         'Native export is not safe in the current graphics environment.');
+    applyPlotOptions(fig_summary,profile_options);
     exportgraphics(fig_summary, pdf_file, 'ContentType', 'vector');
     clear fig_cleanup;
 end

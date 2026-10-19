@@ -15,6 +15,8 @@
 #   profile-bands-junit.xml next to the unchanged receipt.json/junit.xml.
 # - Native nested-layout PDF export and append have a separate required
 #   TestProfileExport regression, receipt and JUnit file on every row.
+# - Reference records and native plot_options/save-load have exact-case gates
+#   and separate receipts on every row, starting from the runner's clean path.
 
 name: MATLAB EvalReport platforms
 

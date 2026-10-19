@@ -1,5 +1,9 @@
 function exportPortableProfiles(curves, solver_names, options, path_stamp)
 %EXPORTPORTABLEPROFILES Show exactly the computed curves without figure/JVM.
+    if isfield(options,'plot_options') && ~isempty(fieldnames(options.plot_options))
+        printOptiProfilerMessage('WARNING', ...
+            'Portable SVG/HTML output uses its own style; native plot_options were not applied.');
+    end
     panels = struct('title', {}, 'xlabel', {}, 'ylabel', {}, 'curves', {}, 'labels', {}, 'note', {}, 'include_zero', {});
     names = {'perf','data','log_ratio'};
     labels = {'Performance profile','Data profile','Log-ratio profile'};

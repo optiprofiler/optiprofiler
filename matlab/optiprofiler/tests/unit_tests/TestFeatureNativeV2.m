@@ -5,7 +5,10 @@ classdef TestFeatureNativeV2 < matlab.unittest.TestCase
             here = fileparts(mfilename('fullpath'));
             fixture = fullfile(here,'..','fixtures','feature-v2','native-legacy-enum-feature.mat');
             before = readBytes(fixture);
-            restored = load(fixture);
+            % Only engine-owned historical fields are the import contract.
+            % A standalone built-in handle saved by a newer MATLAB can load
+            % as UNKNOWN on R2023b; the engine must not guess/rebind it.
+            restored = load(fixture,'enum_n_runs','legacy_feature');
             testCase.verifyClass(restored.enum_n_runs,'FeatureOptionKey');
             testCase.verifyEqual(restored.enum_n_runs.value,'n_runs');
             visible = enumeration('FeatureOptionKey');
@@ -21,7 +24,6 @@ classdef TestFeatureNativeV2 < matlab.unittest.TestCase
             testCase.verifyEqual(request.requested_origin,'unknown');
             testCase.verifyEmpty(feature.declared);
             testCase.verifyEmpty(feature.declared_name);
-            testCase.verifyEqual(restored.native_callback,@sin);
             testCase.verifyEqual(readBytes(fixture),before);
 
             feature = Feature({'plain',struct('name','noisy','options', ...
@@ -30,12 +32,14 @@ classdef TestFeatureNativeV2 < matlab.unittest.TestCase
             testCase.verifyEqual(native.schema,'matlab-feature-native-v2');
             testCase.verifyFalse(isfield(native.specification,'n_runs'));
             file = [tempname,'.mat']; cleanup = onCleanup(@() deleteIfPresent(file));
-            save(file,'feature','-v7');
+            native_callback = @sin;
+            save(file,'feature','native_callback','-v7');
             roundtrip = load(file);
             testCase.verifyClass(roundtrip.feature,'Feature');
             testCase.verifyEqual(roundtrip.feature.stages,feature.stages);
             testCase.verifyEqual(roundtrip.feature.declared,feature.declared);
             testCase.verifyEqual(roundtrip.feature.stages{1}.options.noise_map,@sum);
+            testCase.verifyEqual(roundtrip.native_callback,@sin);
             testCase.verifyError(@() Feature.loadobj(struct('schema','unsupported')), ...
                 'MATLAB:Feature:InvalidNativeState');
         end
@@ -43,7 +47,7 @@ classdef TestFeatureNativeV2 < matlab.unittest.TestCase
         function nestedEnumsAndIdentityUnknownDeclarationRoundtrip(testCase)
             here = fileparts(mfilename('fullpath'));
             fixture = fullfile(here,'..','fixtures','feature-v2','native-legacy-enum-feature.mat');
-            restored = load(fixture);
+            restored = load(fixture,'enum_as_key_record','enum_as_value_record','legacy_feature');
             testCase.verifyClass(restored.enum_as_key_record.key,'FeatureOptionKey');
             testCase.verifyEqual(restored.enum_as_key_record.key.value,'n_runs');
             testCase.verifyEqual(restored.enum_as_key_record.value,3);

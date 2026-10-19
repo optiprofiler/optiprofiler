@@ -1630,9 +1630,6 @@ class ProblemReference:
     source : str
         Non-empty provenance of the fact (for example ``'author'`` or a
         citation). A reference without provenance is rejected.
-    mapping : str, optional
-        Compatibility input for earlier records only. New records do not
-        require or emit a mapping token. This is not a feature callback.
     x_ref : array_like, optional
         Finite reference point in the original problem's coordinates. It is
         source metadata: features never transport it or evaluate an oracle
@@ -1645,6 +1642,15 @@ class ProblemReference:
     need not preserve objective ordering. Run values below the
     reference are never clamped. Validation calls no objective or constraint.
 
+    Compatibility: the optional fourth positional argument ``mapping``
+    accepts the earlier
+    ``feasible_objective/1`` and ``objective_violation/1`` tokens only. It is
+    not a feature callback or a new reference mode. New records omit it;
+    normalized records contain ``fun``, ``maxcv``, ``kind``, ``source`` and
+    optional ``x_ref``. Earlier kinds ``lower_bound``/``optimum`` normalize to
+    ``feasible``; ``best_known``/``target`` normalize to ``merit``. Unknown
+    tokens and callables are rejected rather than assigned a guessed meaning.
+
     See Also
     --------
     Problem : Optimization problem carrying an optional reference.
@@ -1653,9 +1659,8 @@ class ProblemReference:
 
     #: Kinds describing the raw fact, not the implicit cohort minimum.
     KINDS = _REFERENCE_KINDS
-    #: Closed registry of mapping tokens, for information. A token names one
-    #: fixed, versioned reading of the raw facts. Validation does not read this
-    #: attribute, so assigning to it does not extend the registry.
+    #: Legacy mapping tokens, retained only for compatibility. New records do
+    #: not emit them; assigning to this attribute does not extend validation.
     MAPPINGS = _REFERENCE_MAPPINGS
     #: The fields of the record, in order.
     FIELDS = ('fun', 'maxcv', 'kind', 'source')

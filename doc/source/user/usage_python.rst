@@ -196,7 +196,9 @@ The rules are:
   No reference changes the recorded observations or clamps measured merits.
   Save/load retains raw facts and recomputes targets with the current merit
   function. Earlier kinds and known mapping tokens remain readable, but new
-  records need no mapping token. See :doc:`../dev/problems`.
+  records need no mapping token. See :doc:`reference_targets`.
+- Use :doc:`plot_options` to customize native figure fonts, ticks, legends,
+  lines and layout without changing numerical results.
 - ``unrelaxable_constraints`` makes the objective infinite where the
   constraints of the problem it wraps are violated, as that problem observes
   them: after ``'noisy+unrelaxable_constraints'`` the gate reads noisy

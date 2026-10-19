@@ -40,6 +40,7 @@ from .feature_definitions import reject_flat_stage_options
 from .provenance import effective_specification, feature_pipeline_text
 from .legacy_compat import REFINED_SCHEMA
 from .plotting import draw_hist, set_profile_context, format_float_scientific_latex, draw_profiles, summary_legend_extra_width, latex_escape_text, format_profile_text
+from .plot_options import apply_plot_options
 
 
 def _shorten_log_message(message: object, max_length: int = 180) -> str:
@@ -601,6 +602,16 @@ def _benchmark(
     score_only : bool, optional
         Whether to only calculate the scores of the solvers
         without drawing the profiles and saving the data. Default is False.
+    plot_options : dict, optional
+        Native Matplotlib property mappings for ``figure``, ``axes``, ``xaxis``,
+        ``yaxis``, ``xlabel``, ``ylabel``, ``title``, ``text``, ``line`` and
+        ``legend``; also accepts ``tick_params`` and a local ``rc`` mapping.
+        For example, ``{'xlabel': {'fontsize': 18}, 'legend': {'fontsize': 14}}``.
+        Properties override package defaults for profiles, summaries and
+        histories, including on load, without changing scores or source data.
+        Legend entries remain solver-owned. Backend/interactive selection is
+        not a style setting. Values must support serialization for parallel
+        history rendering. Default is an empty mapping (existing style).
     report_path : str or pathlib.Path, optional
         Write a compact, controller-private ``eval_report`` JSON and an adjacent
         ``<report-stem>.plot_data.json`` numerical companion. Neither path may
@@ -2133,10 +2144,11 @@ def _build_profiles(
         # Save the summary for the current feature.
         # Use rc_context to ensure LaTeX rendering is applied to the title
         with matplotlib.rc_context(profile_context):
-            fig_summary_hist.supylabel('History-based profiles', fontsize='xx-large', horizontalalignment='right')
+            fig_summary_hist.supylabel('History-based profiles', fontsize='xx-large', horizontalalignment='right').set_gid('optiprofiler-ylabel')
             if fig_summary_out is not None:
-                fig_summary_out.supylabel('Output-based profiles', fontsize='xx-large', horizontalalignment='right')
-            fig_summary.suptitle(_format_feature_title(feature.name, profile_context), fontsize='xx-large', verticalalignment='bottom')
+                fig_summary_out.supylabel('Output-based profiles', fontsize='xx-large', horizontalalignment='right').set_gid('optiprofiler-ylabel')
+            fig_summary.suptitle(_format_feature_title(feature.name, profile_context), fontsize='xx-large', verticalalignment='bottom').set_gid('optiprofiler-title')
+            apply_plot_options(fig_summary, profile_options.get(ProfileOption.PLOT_OPTIONS, {}))
             path_summary = path_stamp / f'summary_{stamp}.pdf'
             _report_export(report, fig_summary.savefig, path_summary, bbox_inches='tight')
 
@@ -2641,7 +2653,7 @@ def _save_problem_history_pdf(pdf_path, mode, problem_name, problem_type, proble
             title_text = _format_problem_feature_title(problem_name, profile_options[ProfileOption.FEATURE_STAMP], profile_context)
             title_fontsize = _history_title_fontsize(title_text, default_width)
             if mode == 'combined':
-                fig_summary.suptitle(title_text, fontsize=title_fontsize)
+                fig_summary.suptitle(title_text, fontsize=title_fontsize).set_gid('optiprofiler-title')
 
             axs_summary = []
             for i_row in range(n_rows):
@@ -2658,11 +2670,16 @@ def _save_problem_history_pdf(pdf_path, mode, problem_name, problem_type, proble
                           solver_names, cell_axs_summary, is_cum, problem_type, problem_dim, n_eval,
                           profile_options, default_height, show_xlabel=i_row == n_rows - 1)
 
+            if mode != 'combined':
+                axs_summary[n_cols // 2].set_title(title_text, fontsize=title_fontsize, pad=8)
             if mode == 'combined':
                 fig_summary.tight_layout(rect=[0.055, 0.04, 0.98, 0.97], h_pad=2.0, w_pad=1.5)
             else:
-                axs_summary[n_cols // 2].set_title(title_text, fontsize=title_fontsize, pad=8)
                 fig_summary.tight_layout(rect=[0.055, 0.055, 0.98, 0.98], h_pad=1.2, w_pad=1.5)
+
+            # User geometry must win over the package's automatic layout,
+            # just as it does for single profiles and the combined summary.
+            apply_plot_options(fig_summary, profile_options.get(ProfileOption.PLOT_OPTIONS, {}))
 
             fig_summary.savefig(pdf_path, bbox_inches='tight')
         finally:

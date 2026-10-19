@@ -191,6 +191,16 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         does not enable figures or raw-data saving. The main report hashes
 %         its companion; without JVM, SHA256 uses sha256sum or shasum. If no
 %         hash tool is available, the pair is marked partial (unverified).
+%       - plot_options: scalar struct of native MATLAB graphics property
+%         structs, grouped by figure, axes, xaxis, yaxis, xlabel, ylabel,
+%         title, text, line, and legend. For example:
+%         struct('xlabel',struct('FontSize',18),'legend',struct('FontSize',14)).
+%         Properties override drawing defaults at export for profiles,
+%         summaries, and histories, including on load. Scores and source data
+%         are unchanged. Property names are checked before solvers execute;
+%         values use the installed MATLAB graphics API's validation at render
+%         time. Portable SVG/HTML fallback keeps its own style and does not
+%         apply native graphics properties. Default is an empty struct.
 %       - score_fun: the scoring function to calculate the scores of the
 %         solvers. It should be a function handle as follows:
 %         ``profile_scores -> solver_scores``,
@@ -1677,6 +1687,8 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
         end
 
         hist_graphics_ok = true; out_graphics_ok = true;
+        fig_perf_hist = []; fig_data_hist = []; fig_log_ratio_hist = [];
+        fig_perf_out = []; fig_data_out = []; fig_log_ratio_out = [];
         if is_hist_drawable
             if isempty(eval_report)
                 [fig_perf_hist, fig_data_hist, fig_log_ratio_hist, curves{i_tol}.hist, hist_graphics_ok] = drawProfiles(work_hist, problem_dims_merged, solver_names, tolerance_latex, cell_axs_summary_hist, true, is_perf, is_data, is_log_ratio, drawing_options, curves{i_tol}.hist);
@@ -1705,6 +1717,11 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
         clear work_out;
 
         if native_graphics
+          for native_figure = {fig_perf_hist,fig_data_hist,fig_log_ratio_hist,fig_perf_out,fig_data_out,fig_log_ratio_out}
+              if ~isempty(native_figure{1}) && isgraphics(native_figure{1})
+                  applyPlotOptions(native_figure{1},profile_options);
+              end
+          end
           try
             % User callbacks may change TMPDIR after the initial capability
             % query. Re-check before native export so the existing catch can
@@ -2074,6 +2091,7 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
                 fprintf('\n');
                 printOptiProfilerMessage('INFO', 'Start creating the summary PDF of all the profiles.');
             end
+            applyPlotOptions(fig_summary,profile_options);
             try
                 % score_fun runs after the per-tolerance exports and may have
                 % changed the environment; do not trust the earlier flag.

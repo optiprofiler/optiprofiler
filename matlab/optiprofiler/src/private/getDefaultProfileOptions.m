@@ -1,4 +1,7 @@
 function [profile_options, full_feature_stamp] = getDefaultProfileOptions(solvers, feature, profile_options)
+    if ~isfield(profile_options,ProfileOptionKey.PLOT_OPTIONS.value)
+        profile_options.(ProfileOptionKey.PLOT_OPTIONS.value) = struct();
+    end
 
     if exist('parcluster', 'file') == 2 % Check if Parallel Computing Toolbox is available
         if isempty(gcp('nocreate'))

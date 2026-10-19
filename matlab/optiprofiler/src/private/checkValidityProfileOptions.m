@@ -1,5 +1,9 @@
 function profile_options = checkValidityProfileOptions(solvers, profile_options)
 %CHECKVALIDITYPROFILEOPTIONS Check the validity of the options in profile_options
+    if isfield(profile_options,ProfileOptionKey.PLOT_OPTIONS.value)
+        profile_options.(ProfileOptionKey.PLOT_OPTIONS.value) = validatePlotOptions( ...
+            profile_options.(ProfileOptionKey.PLOT_OPTIONS.value));
+    end
 
     % Repetitions belong to the experiment, not to Feature. Validate before the
     % savepath check can create a directory; []/NaN/Inf are explicit errors.

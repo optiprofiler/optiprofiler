@@ -17,6 +17,8 @@ details, see the :ref:`Python API reference <pythonapi>` or the
     installation
     usage_python
     usage
+    reference_targets
+    plot_options
     eval_report
 
 .. toctree::

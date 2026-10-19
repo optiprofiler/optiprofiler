@@ -14,6 +14,7 @@ Andsolver
 Andsolvers
 aplly
 APPLYMATLABPATCHES
+APPLYPLOTOPTIONS
 ARGAUSS
 argins
 ARGLALE
@@ -224,6 +225,7 @@ gswin
 GULFNE
 HAHN
 handlelength
+hashable
 HATFLDANE
 HATFLDBNE
 HATFLDCNE
@@ -664,6 +666,7 @@ uobyqa
 userpath
 usr
 vals
+VALIDATEPLOTOPTIONS
 VANDERM
 varargin
 varargout

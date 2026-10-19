@@ -257,6 +257,9 @@ def check_validity_profile_options(solvers, profile_options):
     """
     Check the validity of the profile options.
     """
+    if ProfileOption.PLOT_OPTIONS in profile_options:
+        from .plot_options import normalize_plot_options
+        profile_options[ProfileOption.PLOT_OPTIONS] = normalize_plot_options(profile_options[ProfileOption.PLOT_OPTIONS])
     if ProfileOption.N_RUNS in profile_options:
         profile_options[ProfileOption.N_RUNS] = validate_n_runs(profile_options[ProfileOption.N_RUNS])
     if ProfileOption.N_JOBS in profile_options:
@@ -648,6 +651,7 @@ def get_default_profile_options(solvers, feature, profile_options):
     ])
     profile_options.setdefault(ProfileOption.LINE_WIDTHS.value, [1.5])
     profile_options.setdefault(ProfileOption.BAR_COLORS.value, profile_options[ProfileOption.LINE_COLORS])
+    profile_options.setdefault(ProfileOption.PLOT_OPTIONS.value, {})
     profile_options.setdefault(ProfileOption.XLABEL_PERFORMANCE_PROFILE.value, 'Performance ratio')
     profile_options.setdefault(ProfileOption.YLABEL_PERFORMANCE_PROFILE.value, 'Performance profiles ($\\mathrm{tol} = %s$)')
     profile_options.setdefault(ProfileOption.XLABEL_DATA_PROFILE.value, 'Number of simplex gradients')

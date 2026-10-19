@@ -163,7 +163,8 @@ minimum over solver histories, initial values and the optional plain run.
 Actual observations are never clamped. Save/load retains raw facts and
 recomputes targets with the current merit callback. Earlier kinds and known
 mapping tokens remain readable; new records need no mapping token.
-See :doc:`../dev/problems`.
+See :doc:`reference_targets`. Native figure styling is described in
+:doc:`plot_options`.
 
 There are two different ways to use an existing experiment:
 

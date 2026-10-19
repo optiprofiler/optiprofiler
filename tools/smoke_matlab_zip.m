@@ -94,7 +94,8 @@ function smoke_saved_experiment()
         'ptype', 'u', 'mindim', 2, 'maxdim', 2, 'n_jobs', 1, 'n_runs', 2, ...
         'feature', Feature('noisy+permuted'), 'max_eval_factor', 30, 'max_tol_order', 2, ...
         'benchmark_id', 'zip-saved', 'draw_hist_plots', 'none', 'silent', true, ...
-        'run_plain', true, 'report_path', fullfile(root, 'saved-report.json'));
+        'run_plain', true, 'report_path', fullfile(root, 'saved-report.json'), ...
+        'plot_options', struct('axes',struct('FontSize',14),'xlabel',struct('FontSize',19)));
     [scores, profiles] = benchmark({@smoke_solver_coarse, @smoke_solver_fine}, options);
     archives = dir(fullfile(root, 'zip-saved', '**', 'data_for_loading.mat'));
     assert(numel(archives) == 1, 'Expected one MAT archive from the clean ZIP.');
@@ -107,6 +108,13 @@ function smoke_saved_experiment()
     assert(isequaln(loaded_scores, scores) && isequaln(loaded_profiles, profiles), ...
         'Solver-free ZIP reload changed scores or profile arrays.');
     assert(strcmp(sha256_of(archive), original_hash), 'ZIP reload modified the source archive.');
+    figures = dir(fullfile(root,'zip-saved','**','perf_hist_1.fig'));
+    assert(numel(figures)==1,'Expected the styled profile figure from the clean ZIP.');
+    figure_handle = openfig(fullfile(figures.folder,figures.name),'invisible');
+    cleanup_figure = onCleanup(@() close(figure_handle)); %#ok<NASGU>
+    axes_handle = findall(figure_handle,'Type','axes');
+    assert(axes_handle.FontSize==14 && axes_handle.XLabel.FontSize==19, ...
+        'The clean ZIP did not apply native plot_options.');
     pdfs = dir(fullfile(root, 'zip-saved', '**', '*.pdf'));
     assert(~isempty(pdfs), 'The clean ZIP produced no PDF profiles.');
     for k = 1:numel(pdfs)
