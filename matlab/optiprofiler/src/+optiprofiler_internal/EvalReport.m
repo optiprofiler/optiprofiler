@@ -312,7 +312,15 @@ classdef EvalReport < handle
                             point = records{r}.x_ref;
                             records{r} = rmfield(records{r},'x_ref');
                         end
+                        source = [];
+                        if isfield(records{r}, 'source'), source = records{r}.source; end
                         records{r} = optiprofiler_internal.EvalReport.configuration(records{r});
+                        % Scientific provenance (often a DOI link) is kept without
+                        % credentials, query or fragment; a clipped source is
+                        % marked. The native archive keeps the complete record.
+                        if isfield(records{r}, 'source')
+                            records{r}.source = optiprofiler_internal.EvalReport.provenanceText(source);
+                        end
                         % A one-dimensional witness is still an array in the
                         % shared JSON schema, not a MATLAB scalar encoding.
                         if ~isempty(point)
@@ -1417,14 +1425,63 @@ classdef EvalReport < handle
                 value = optiprofiler_internal.EvalReport.null();
             elseif ischar(value) || isstring(value)
                 value = char(value);
-                if startsWith(value, '/') || ~isempty(regexp(value, '^[A-Za-z]:[\\/]', 'once'))
+                if startsWith(value, {'http://', 'https://'})
+                    % As in Python: a URL can carry credentials or tokens.
+                    value = '[redacted_url]';
+                elseif startsWith(value, '/') || ~isempty(regexp(value, '^[A-Za-z]:[\\/]', 'once'))
                     value = '[absolute_path_omitted]';
                 elseif startsWith(value, '@(')
                     value = '[anonymous_callback_source_omitted]';
                 end
-                value = value(1:min(numel(value),256));
+                value = optiprofiler_internal.EvalReport.bounded(value);
             elseif ~isnumeric(value) && ~islogical(value)
                 value = struct('kind', 'object', 'description', 'not_serialized');
+            end
+        end
+
+        function text = bounded(text)
+            % A clipped text must never read as the complete value (same
+            % marker and limit as Python's metadata.TRUNCATION_MARKER).
+            marker = '...[truncated]';
+            if numel(text) > 256
+                text = [text(1:256 - numel(marker)), marker];
+            end
+        end
+
+        function text = provenanceText(value)
+            % Bounded provenance text, as Python's metadata.provenance_text: a
+            % URL keeps scheme, host, port and path; user information, query
+            % and fragment can carry credentials and are removed; absolute
+            % local paths are redacted; a clipped text carries the marker.
+            if ~(ischar(value) || (isstring(value) && isscalar(value) && ~ismissing(value)))
+                text = optiprofiler_internal.EvalReport.null();
+                return
+            end
+            text = char(value);
+            text(text < ' ') = ' ';
+            [urls, starts, stops] = regexp(text, 'https?://[^\s]+', 'match', 'start', 'end', 'ignorecase');
+            for k = numel(urls):-1:1
+                text = [text(1:starts(k)-1), optiprofiler_internal.EvalReport.credentialFreeUrl(urls{k}), text(stops(k)+1:end)];
+            end
+            if startsWith(text, '/') || ~isempty(regexp(text, '^[A-Za-z]:[\\/]', 'once'))
+                text = '[redacted_absolute_path]';
+                return
+            end
+            text = regexprep(text, '(?<![\w])(?:/(?:Users|home|private|tmp|var|mnt|opt)/\S+|[A-Za-z]:[\\/][^\s]+)', ...
+                '[redacted_absolute_path]');
+            text = optiprofiler_internal.EvalReport.bounded(text);
+        end
+
+        function text = credentialFreeUrl(url)
+            parts = regexp(url, ['^(?<scheme>https?)://(?:(?<userinfo>[^@/?#]*)@)?(?<host>[^/?#:@]+)' ...
+                '(?<port>:\d+)?(?<path>[^?#]*)(?<rest>.*)$'], 'names', 'once', 'ignorecase');
+            if isempty(parts) || isempty(parts.host)
+                text = '[redacted_url]';
+                return
+            end
+            text = [lower(parts.scheme), '://', lower(parts.host), parts.port, parts.path];
+            if ~isempty(parts.userinfo) || ~isempty(parts.rest)
+                text = [text, ' [url parameters removed]'];
             end
         end
 

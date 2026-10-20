@@ -27,6 +27,7 @@ from .provenance import describe_feature, describe_plan, full_feature_stamp, rea
 # The metadata encoder is shared with the feature provenance and lives in a
 # dependency-neutral module; the private names below are kept for this file.
 from .metadata import _ABS_IN_TEXT, _SECRET_KEY, TEXT_LIMIT, bounded_text as _text, describe_callback as _callback, safe_metadata as _safe
+from .metadata import provenance_text
 
 
 _SCHEMA = 'optiprofiler.eval_report/2'
@@ -289,7 +290,11 @@ def _reference_fact_metadata(record):
     from .opclasses import ProblemReference
     raw = ProblemReference.from_record(record).as_dict()
     point = raw.pop('x_ref', None)
+    source = raw.pop('source', None)
     result = _safe(raw)
+    # Scientific provenance (often a DOI link) is kept without credentials,
+    # query or fragment; a clipped source is marked. The archive keeps it all.
+    result['source'] = provenance_text(source)
     if point is not None:
         result['x_ref'] = point if len(point) <= 256 else {
             'dimension': len(point), 'reason': 'reference_point_not_embedded'}
