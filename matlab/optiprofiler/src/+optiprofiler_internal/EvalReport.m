@@ -1473,14 +1473,26 @@ classdef EvalReport < handle
         end
 
         function text = credentialFreeUrl(url)
-            parts = regexp(url, ['^(?<scheme>https?)://(?:(?<userinfo>[^@/?#]*)@)?(?<host>[^/?#:@]+)' ...
-                '(?<port>:\d+)?(?<path>[^?#]*)(?<rest>.*)$'], 'names', 'once', 'ignorecase');
-            if isempty(parts) || isempty(parts.host)
+            % scheme://[userinfo@]host[:port][path][?query][#fragment]. A named
+            % token inside an optional group is absent from regexp's 'names'
+            % output, so the authority is split explicitly.
+            parts = regexp(url, '^(https?)://([^/?#]*)([^?#]*)(.*)$', 'tokens', 'once', 'ignorecase');
+            if isempty(parts)
                 text = '[redacted_url]';
                 return
             end
-            text = [lower(parts.scheme), '://', lower(parts.host), parts.port, parts.path];
-            if ~isempty(parts.userinfo) || ~isempty(parts.rest)
+            authority = parts{2};
+            at = find(authority == '@', 1, 'last');
+            if ~isempty(at)
+                authority = authority(at+1:end);
+            end
+            host_port = regexp(authority, '^([^:]+)(:\d+)?$', 'tokens', 'once');
+            if isempty(host_port)
+                text = '[redacted_url]';
+                return
+            end
+            text = [lower(parts{1}), '://', lower(host_port{1}), host_port{2}, parts{3}];
+            if ~isempty(at) || ~isempty(parts{4})
                 text = [text, ' [url parameters removed]'];
             end
         end

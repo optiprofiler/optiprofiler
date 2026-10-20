@@ -55,6 +55,14 @@ classdef TestReportTextSafety < matlab.unittest.TestCase
             reported = TestReportTextSafety.reportedSource(testCase.WorkDir, ...
                 'https://doi.org/10.1080/10556788.2025.2490640');
             testCase.verifyEqual(reported, 'https://doi.org/10.1080/10556788.2025.2490640');
+            % Same text as Python's provenance_text for several URLs, a port,
+            % letter case and a URL without a host.
+            reported = TestReportTextSafety.reportedSource(testCase.WorkDir, ...
+                'Data from HTTP://User@Example.ORG:8080/a/b?x=1 and https://doi.org/10.1/x');
+            testCase.verifyEqual(reported, ...
+                'Data from http://example.org:8080/a/b [url parameters removed] and https://doi.org/10.1/x');
+            reported = TestReportTextSafety.reportedSource(testCase.WorkDir, 'https://@/x');
+            testCase.verifyEqual(reported, '[redacted_url]');
         end
         function longReferenceSourceIsMarkedWhenClipped(testCase)
             reported = TestReportTextSafety.reportedSource(testCase.WorkDir, ...
