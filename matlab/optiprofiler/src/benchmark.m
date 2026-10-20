@@ -1842,19 +1842,12 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
           end
         end
 
-        % Close the figures.
-        if is_hist_drawable
-            close(fig_perf_hist);
-            close(fig_data_hist);
-            if n_solvers == 2 && ~isempty(fig_log_ratio_hist)
-                close(fig_log_ratio_hist);
-            end
-        end
-        if is_out_drawable
-            close(fig_perf_out);
-            close(fig_data_out);
-            if n_solvers == 2 && ~isempty(fig_log_ratio_out)
-                close(fig_log_ratio_out);
+        % Close the figures. A failed export may already have destroyed them
+        % (for example, when the graphics process exits), and closing an
+        % invalid figure would abort the SVG fallback below.
+        for native_figure = {fig_perf_hist,fig_data_hist,fig_log_ratio_hist,fig_perf_out,fig_data_out,fig_log_ratio_out}
+            if ~isempty(native_figure{1}) && isgraphics(native_figure{1})
+                close(native_figure{1});
             end
         end
     end
@@ -2027,7 +2020,7 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
         end
     end
 
-    if n_rows > 0 && ispc
+    if n_rows > 0 && ispc && isgraphics(fig_summary)
         % Check the operating system. If it is Windows, we will adjust the position, papersize, paperposition
         % of the summary figure! (MATLAB in Windows will adjust the figure size automatically when it is too large.)
         fig_summary.Position = profileFigurePosition(summary_width, summary_height);
@@ -2195,8 +2188,8 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
         eval_report.recordRendering('completed', struct('scope', 'profiles'));
     end
 
-    % Close the figures.
-    if n_rows > 0
+    % Close the figures (the summary figure may be gone after a failed export).
+    if n_rows > 0 && isgraphics(fig_summary)
         close(fig_summary);
     end
 

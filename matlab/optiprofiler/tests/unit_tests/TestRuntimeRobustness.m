@@ -126,6 +126,41 @@ classdef TestRuntimeRobustness < matlab.unittest.TestCase
             testCase.verifyTrue(failed,'Numerical curve errors must not become graphics fallbacks.');
         end
 
+        function exportFailureThatDestroysFiguresKeepsSvgFallback(testCase)
+            % When the graphics process exits during a native export, its
+            % figures are gone. Closing them must not abort the SVG fallback.
+            old=pwd; old_path=path; old_warnings=warning;
+            work=tempname; mkdir(work);
+            cleanup=onCleanup(@() restoreState(old,old_warnings,old_path,work));
+            addpath(fullfile(fileparts(mfilename('fullpath')),'..','..','src'));
+            doubles=fullfile(work,'doubles'); mkdir(doubles);
+            writeText(fullfile(doubles,'exportgraphics.m'),sprintf([ ...
+                'function exportgraphics(varargin)\n' ...
+                '%% Test double: the graphics process exits during an export.\n' ...
+                'state = getappdata(groot, ''TestRuntimeRobustnessExport'');\n' ...
+                'state.calls = state.calls + 1;\n' ...
+                'setappdata(groot, ''TestRuntimeRobustnessExport'', state);\n' ...
+                'figures = findall(groot, ''Type'', ''figure'');\n' ...
+                'for k = 1:numel(figures)\n' ...
+                '    if ~any(figures(k) == state.before), delete(figures(k)); end\n' ...
+                'end\n' ...
+                'error(''TestRuntimeRobustness:GraphicsExited'', ''Simulated exit of the graphics process.'');\n' ...
+                'end\n']));
+            before=findall(groot,'Type','figure');
+            setappdata(groot,'TestRuntimeRobustnessExport',struct('calls',0,'before',before));
+            state_cleanup=onCleanup(@() rmappdata(groot,'TestRuntimeRobustnessExport'));
+            addpath(doubles);
+            TestLoadReplot.makeExperiment(work,'bench',2,1); cd(work);
+            options=TestLoadReplot.loadOptions('savepath',work,'draw_hist_plots','none','max_tol_order',2);
+            output=evalc('scores=benchmark(options);');
+            state=getappdata(groot,'TestRuntimeRobustnessExport');
+            testCase.assumeGreaterThan(state.calls,0,'Native export is not attempted in this graphics environment.');
+            testCase.verifyNumElements(scores,2);
+            testCase.verifyTrue(contains(output,'Native profile export failed; using SVG fallback'));
+            testCase.verifyNotEmpty(dir(fullfile(work,'bench','**','summary.html')));
+            testCase.verifyEqual(findall(groot,'Type','figure'),before);
+        end
+
         function loadNotesDoNotInferTruthFromCustomStamps(testCase)
             old=pwd; work=tempname; mkdir(work);
             cleanup=onCleanup(@() restoreDirectory(old,work));
