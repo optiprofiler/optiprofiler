@@ -37,6 +37,7 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
     maxcv_inits = NaN(n_runs, 1);
     reference_records = cell(n_runs, 1);
     reference_fallback_reasons = cell(n_runs, 1);
+    preflighted = false(n_runs, 1);
     computation_time = NaN(n_solvers, n_runs);
     solvers_success = false(n_solvers, n_runs);
     % solver_abnormal_terminations(i_solver, i_run) is true when the
@@ -81,6 +82,15 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
             reference_records{i_run} = featured_problem.reference;
             reference_fallback_reasons{i_run} = featured_problem.referenceFallbackReason();
             maxcv_inits(i_run) = featured_problem.maxcv_init;
+            % Preflight: scoring converts each primary record with this merit
+            % and this run's maxcv_init, so a non-finite target is already
+            % certain here. Fail before the run's first solver call rather than
+            % after every solve. Plain-baseline records are never targets.
+            if strcmp(experiment_plan.role, 'primary') && ~isempty(reference_records{i_run}) && ~preflighted(i_run)
+                preflighted(i_run) = true;
+                referenceTarget(normalizeProblemReference(reference_records{i_run}), ...
+                    profile_options.(ProfileOptionKey.MERIT_FUN.value), maxcv_inits(i_run), problem_name, i_run);
+            end
 
             % Solve the problem with the solver.
             %

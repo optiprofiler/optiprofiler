@@ -32,8 +32,21 @@ back into `Problem.reference`.
 
 Initial violation may vary by run, so the converted merit is not cached as
 a problem fact. An invalid converted target raises; it is not silently
-replaced. Measurements below a supplied target are retained, never clamped.
-A feasible-objective reference need not bound merits at infeasible points.
+replaced. The record itself is valid; it is incompatible with the selected
+merit at that run's `maxcv_init`. Because both are known once the featured
+problem of a primary run is built, a benchmark reports this before that run's
+first solver call (plain-baseline records are never targets); a load with a
+different merit reports it when scoring. Measurements below a supplied target
+are retained, never clamped. A feasible-objective reference need not bound
+merits at infeasible points.
+
+A load uses one merit for every cached quantity and for the targets. With
+`merit_fun`, all cached merits are recomputed. Without it, an archive with
+explicit references is rescored entirely with the default merit (a warning
+and the report diagnostic `cached_merits_recomputed` state when the cached
+values change), and an archive without references keeps its cached merits
+(V1 behaviour). An archive saved after a merit failure has no cached merits
+and is scored with the merit of the load.
 
 ## 3. Features and original-coordinate points
 

@@ -15,12 +15,11 @@ function targets = applyReferenceTargets(result, targets, merit_fun)
                 continue
             end
             reference = normalizeProblemReference(records{p, r});
-            value = merit_fun(reference.fun, reference.maxcv, result.maxcv_inits(p, r));
-            if ~(isnumeric(value) && isreal(value) && isscalar(value) && isfinite(value))
-                error('MATLAB:applyReferenceTargets:invalidMerit', ...
-                    'The merit function must produce a finite real scalar for a supplied reference.');
+            name = '';
+            if isfield(result, 'problem_names') && numel(result.problem_names) >= p
+                name = result.problem_names{p};
             end
-            targets(p, r) = double(value);
+            targets(p, r) = referenceTarget(reference, merit_fun, result.maxcv_inits(p, r), name, r);
         end
     end
 end

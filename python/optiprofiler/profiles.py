@@ -34,7 +34,7 @@ from .problem_libraries import _initialize_problem_library_worker, _problem_libr
 from .utils import DEFAULT_LOG_LINE_WIDTH, FeatureName, ProfileOption, FeatureOption, ProblemOption, get_logger, print_log_message, setup_main_process_logging, setup_worker_logging, shorten_log_message, format_log_prefix
 from .loader import load_results, save_results_to_h5, save_options
 from .profile_utils import check_validity_problem_options, check_validity_profile_options, check_post_load_profile_options, get_default_problem_options, get_default_profile_options, compute_merit_values, create_stamp, merge_pdfs_with_pypdf, write_report, process_results, init_readme, add_to_readme, compute_scores
-from .profile_utils import _mask_invalid_merits, _get_default_feature_stamp, apply_reference_targets
+from .profile_utils import _mask_invalid_merits, _get_default_feature_stamp, apply_reference_targets, reference_target
 from .experiment import ABSENT, PLAIN_REFERENCE, PRIMARY, resolve_plan
 from .feature_definitions import reject_flat_stage_options
 from .provenance import effective_specification, feature_pipeline_text
@@ -1069,6 +1069,9 @@ def _benchmark(
     # Load the existing results if needed.
     # If 'load' is specified, we skip the solving phase and restore the results from disk.
     load_source = {}
+    # A user merit that fails after solving is re-raised only after the raw
+    # results are saved (see the solving loop below).
+    merit_failure = None
     if is_load:
         results_plibs, profile_options = load_results(
             problem_options, profile_options, _source=load_source,
@@ -1447,6 +1450,7 @@ def _benchmark(
         # We will solve all the problems from all the problem libraries that user specified in the `problem_options`.
         plibs = problem_options[ProblemOption.PLIBS]
         results_plibs = []
+        merit_failure = None
         for i, plib in enumerate(plibs):
             if not profile_options[ProfileOption.SILENT]:
                 logger.info('')
@@ -1482,7 +1486,14 @@ def _benchmark(
                 merit_inits = compute_merit_values(merit_fun, results_plib['fun_inits'], results_plib['maxcv_inits'], results_plib['maxcv_inits'])
             except Exception as exc:
                 logger.error(f'Error occurred while calculating the merit values. Please check the merit function. Error message: {shorten_log_message(exc)}')
-                raise exc
+                # The solver results are complete; only the user callback
+                # failed. Keep them (without cached merits) so the archive
+                # below can be reloaded with a corrected merit_fun, then
+                # re-raise the original error. Merits of an archive without
+                # cached merits are computed on load.
+                results_plibs.append(results_plib)
+                merit_failure = exc
+                break
             results_plib['merit_histories'] = merit_histories
             results_plib['merit_outs'] = merit_outs
             results_plib['merit_inits'] = merit_inits
@@ -1591,6 +1602,14 @@ def _benchmark(
         # Kept outside the data-save handler: a report failure is not a failed
         # HDF5 save, and the completed archive remains publicly reloadable.
         report.resume_publication()
+
+    if merit_failure is not None:
+        # The raw archive (if requested) is saved; no profile or score is
+        # produced from a failed merit. The benchmark wrapper records the
+        # original exception in the report.
+        if not profile_options[ProfileOption.SILENT] and not profile_options[ProfileOption.SCORE_ONLY]:
+            logger.error(f'The solver results were saved in {path_log}. Reload them with a corrected merit_fun.')
+        raise merit_failure
 
     # Draw history plots sequentially if draw_hist_plots is set to 'sequential'.
     # On the load path this loop is the only drawing mechanism (parallel drawing
@@ -2768,6 +2787,7 @@ def _solve_one_problem(solvers, problem, feature, plan, problem_name, len_proble
     maxcv_inits = np.full(n_runs, np.nan)
     reference_records = [None] * n_runs
     reference_fallback_reasons = [None] * n_runs
+    preflighted_runs = set()
     computation_time = np.full((n_solvers, n_runs), np.nan)
     solvers_success = np.full((n_solvers, n_runs), False)
     # ``solver_abnormal_terminations[i_solver, i_run]`` is True when the
@@ -2819,6 +2839,14 @@ def _solve_one_problem(solvers, problem, feature, plan, problem_name, len_proble
             reference = featured_problem.reference
             reference_records[i_run] = None if reference is None else reference.as_dict()
             reference_fallback_reasons[i_run] = featured_problem._reference_fallback_reason
+            # Preflight: scoring converts each primary record with this merit and
+            # this run's maxcv_init, so a non-finite target is already certain
+            # here. Fail before the run's first solver call rather than after
+            # every solve. Plain-baseline records are never targets.
+            if plan.role == PRIMARY and reference is not None and i_run not in preflighted_runs:
+                preflighted_runs.add(i_run)
+                reference_target(reference, profile_options[ProfileOption.MERIT_FUN],
+                                 maxcv_inits[i_run], problem_name, i_run + 1)
 
             # Define a function to call the solver.
             def call_solver():

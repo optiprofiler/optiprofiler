@@ -1134,6 +1134,29 @@ def _mask_invalid_merits(results_plib):
     return results_plib
 
 
+def reference_target(reference, merit_fun, maxcv_init, problem_name=None, run=None):
+    """Convert one validated raw reference fact into the current merit space.
+
+    The record itself was validated when it was constructed. A valid record can
+    still be incompatible with the selected merit: the default merit, for
+    example, is +Inf when the violation exceeds max(0.1, 2 * maxcv_init). Such a
+    target is reported as an error instead of being replaced by the empirical
+    target, which would silently change the scoring semantics.
+    """
+    value = merit_fun(reference.fun, reference.maxcv, maxcv_init)
+    scalar = np.asarray(value)
+    if scalar.ndim != 0 or scalar.dtype.kind not in 'iuf' or not np.isfinite(scalar):
+        where = '' if problem_name is None else f" of problem '{problem_name}'"
+        where += '' if run is None else f' (run {run})'
+        raise ValueError(
+            f'The supplied reference{where} is valid but incompatible with the selected merit function: '
+            f'the merit function must produce a finite real scalar for a supplied reference, and it returned '
+            f'{value!r} for kind={reference.kind!r}, fun={reference.fun!r}, maxcv={reference.maxcv!r} at '
+            f'maxcv_init={float(maxcv_init)!r}. The default merit is infinite when the violation exceeds '
+            'max(0.1, 2 * maxcv_init). Use a merit_fun that is finite at this reference, or exclude the problem.')
+    return float(scalar)
+
+
 def apply_reference_targets(result, minima, merit_fun):
     """Replace only supplied targets, converting raw facts with current merit.
 
@@ -1149,6 +1172,7 @@ def apply_reference_targets(result, minima, merit_fun):
     if len(records) != targets.shape[0]:
         raise ValueError('Saved reference records do not match the problem rows.')
     inits = np.asarray(result['maxcv_inits'])
+    names = result.get('problem_names')
     for row, serialized in enumerate(records):
         per_run = json.loads(serialized)
         if not isinstance(per_run, list) or len(per_run) != targets.shape[1]:
@@ -1158,12 +1182,21 @@ def apply_reference_targets(result, minima, merit_fun):
                 continue
             reference = ProblemReference.from_record(record)
             initial_violation = inits[row] if inits.ndim == 1 else inits[row, run]
-            value = merit_fun(reference.fun, reference.maxcv, initial_violation)
-            scalar = np.asarray(value)
-            if scalar.ndim != 0 or scalar.dtype.kind not in 'iuf' or not np.isfinite(scalar):
-                raise ValueError('The merit function must produce a finite real scalar for a supplied reference.')
-            targets[row, run] = float(scalar)
+            name = None if names is None or row >= len(names) else names[row]
+            targets[row, run] = reference_target(reference, merit_fun, initial_violation, name, run + 1)
     return targets
+
+
+def carries_reference_records(results_plib):
+    """Whether a library record contains at least one explicit reference fact."""
+    records = results_plib.get('reference_records') if results_plib else None
+    if records is None:
+        return False
+    for serialized in records:
+        per_run = json.loads(serialized) if isinstance(serialized, (str, bytes)) else serialized
+        if isinstance(per_run, list) and any(record is not None for record in per_run):
+            return True
+    return False
 
 
 def process_results(results_plibs, profile_options):

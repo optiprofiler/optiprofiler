@@ -806,6 +806,9 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
 
     % Whether to load the existing results.
     is_load = isfield(profile_options, ProfileOptionKey.LOAD.value) && ~isempty(profile_options.(ProfileOptionKey.LOAD.value));
+    % A user merit that fails after solving is raised only after the raw
+    % results are saved (see the solving loop below).
+    merit_failure = [];
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%% Process the 'load' option if it is provided. %%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1300,8 +1303,17 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
                 merit_histories = meritFunCompute(merit_fun, results_plib.fun_histories, results_plib.maxcv_histories, results_plib.maxcv_inits, 'multiple');
                 merit_outs = meritFunCompute(merit_fun, results_plib.fun_outs, results_plib.maxcv_outs, results_plib.maxcv_inits, 'multiple');
                 merit_inits = meritFunCompute(merit_fun, results_plib.fun_inits, results_plib.maxcv_inits, results_plib.maxcv_inits);
-            catch
-                error("MATLAB:benchmark:merit_fun_error", "Error occurred while calculating the merit values. Please check the merit function.");
+            catch merit_error
+                % The solver results are complete; only the user callback
+                % failed. Keep them (without cached merits) so the archive
+                % saved below can be reloaded with a corrected merit_fun, and
+                % raise the error after that save. loadResults computes the
+                % merits of an archive saved without them.
+                results_plibs{i_plib} = results_plib;
+                if ~isempty(eval_report), eval_report.addResults({results_plib}); end
+                merit_failure = MException("MATLAB:benchmark:merit_fun_error", "Error occurred while calculating the merit values. Please check the merit function.");
+                merit_failure = merit_failure.addCause(merit_error);
+                break;
             end
             results_plib.merit_histories = merit_histories;
             results_plib.merit_outs = merit_outs;
@@ -1382,6 +1394,14 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
         if ~isempty(eval_report), eval_report.setStage('persistence', 'running'); end
         saveResultsForLoading(results_plibs, path_log, time_stamp, path_readme_log);
         if ~isempty(eval_report), eval_report.setStage('persistence', 'completed'); end
+    end
+    if ~isempty(merit_failure)
+        % The raw archive (if requested) is saved; no profile or score is
+        % produced from a failed merit. The caller records the error.
+        if ~profile_options.(ProfileOptionKey.SILENT.value) && ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
+            printOptiProfilerMessage('ERROR', sprintf('The solver results were saved in %s. Reload them with a corrected merit_fun.', path_log));
+        end
+        throw(merit_failure);
     end
     if ~isempty(eval_report)
         if is_load, eval_report.addResults(results_plibs); end

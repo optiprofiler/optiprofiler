@@ -31,12 +31,22 @@ automatically certified lower bound for that callback.
 A converted target must be a finite real scalar. For example, the default
 merit may discard a highly infeasible raw record by returning infinity; the
 benchmark then reports an error instead of silently using a different target.
+The record is valid but incompatible with that merit, and the error names the
+problem and run. It is reported before that run's first solver call, so no
+expensive solve is wasted on a run that cannot be scored.
 
 Saved experiments retain the raw records. Solver-free load uses the current
 merit function, not a cached converted value, and problem/solver selection
-keeps each reference attached to its original problem. Old archives without
-reference records keep the V1 rule. To reproduce the same comparison, retain
-the same scoring options, including ``run_plain``.
+keeps each reference attached to its original problem. One merit is used for
+every quantity of a load. Without ``merit_fun``, an archive with explicit
+references is rescored with the default merit, including histories, initial
+values and the plain baseline; a warning and the report diagnostic
+``cached_merits_recomputed`` say so when the cached values change. To
+reproduce a custom-merit experiment, pass the same ``merit_fun`` again. Old
+archives without reference records keep the V1 rule and reuse their cached
+merits. To reproduce the same comparison, retain the same scoring options,
+including ``run_plain``. If a custom merit fails after solving, the raw results
+are still saved and can be reloaded with a corrected ``merit_fun``.
 
 The optional EvalReport includes one effective raw ``reference_records`` entry
 per stored run. A null entry means the empirical V1 target was used; an absent
