@@ -2504,7 +2504,7 @@ def _solve_all_problems(solvers, plib, feature, plan, problem_options, profile_o
     n_problems = len(results)
 
     if n_problems == 0:
-        logger.info('All problems from "{plib}" are not solved successfully.')
+        logger.info(f'All problems from "{plib}" are not solved successfully.')
         return None
 
     # Process the results.
