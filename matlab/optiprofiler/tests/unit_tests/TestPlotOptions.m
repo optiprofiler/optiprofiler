@@ -85,6 +85,28 @@ classdef TestPlotOptions < matlab.unittest.TestCase
             testCase.verifyError(@() benchmark({@TestReferencePoints.stay,@TestReferencePoints.zero},options), ...
                 'OptiProfiler:PlotOptions:UnknownGroup');
         end
+        function invalidValueFailsBeforeExecution(testCase)
+            % Values are checked on unparented native objects before any
+            % solver runs; no validation figure is created or left open.
+            setappdata(0, 'OptiProfilerPlotOptionsSolverCalls', 0);
+            testCase.addTeardown(@() rmappdata(0, 'OptiProfilerPlotOptionsSolverCalls'));
+            figures_before = numel(findall(groot, 'Type', 'figure'));
+            problem = Problem(struct('fun',@(x)sum(x.^2),'x0',1));
+            options = struct('problem',problem,'n_jobs',1,'score_only',true,'silent',true, ...
+                'plot_options',struct('xlabel',struct('FontSize','big')));
+            counted = @(fun, x0) countedStay(fun, x0);
+            testCase.verifyError(@() benchmark({counted, counted}, options), ...
+                'OptiProfiler:PlotOptions:InvalidProperty');
+            testCase.verifyEqual(getappdata(0, 'OptiProfilerPlotOptionsSolverCalls'), 0);
+            testCase.verifyEqual(numel(findall(groot, 'Type', 'figure')), figures_before);
+            % Valid values pass the same early check and still run.
+            options.plot_options = struct('xlabel',struct('FontSize',18),'legend',struct('Location','southeast'), ...
+                'line',struct('LineWidth',2),'axes',struct('XGrid','on'));
+            scores = benchmark({counted, counted}, options);
+            testCase.verifyEqual(numel(scores), 2);
+            testCase.verifyGreaterThan(getappdata(0, 'OptiProfilerPlotOptionsSolverCalls'), 0);
+            testCase.verifyEqual(numel(findall(groot, 'Type', 'figure')), figures_before);
+        end
         function unknownPropertyFailsBeforeExecution(testCase)
             problem = Problem(struct('fun',@(x)sum(x.^2),'x0',1));
             options = struct('problem',problem,'n_jobs',1,'score_only',true,'silent',true, ...
@@ -99,4 +121,10 @@ function cleanup(root,registry,oldpath)
     path(oldpath);
     setenv('OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_REGISTRY',registry);
     if isfolder(root), rmdir(root,'s'); end
+end
+
+function x = countedStay(fun, x0)
+    setappdata(0, 'OptiProfilerPlotOptionsSolverCalls', getappdata(0, 'OptiProfilerPlotOptionsSolverCalls') + 1);
+    fun(x0);
+    x = x0;
 end

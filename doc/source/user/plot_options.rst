@@ -45,8 +45,11 @@ MATLAB uses native graphics property names instead:
 
 MATLAB supports the same object groups except ``tick_params`` and ``rc``;
 use Axes or ruler properties for ticks. Names are checked before solver
-execution without creating figures; native property values are checked by
-MATLAB when applying them. Styling is applied after the package defaults to
+execution without creating figures. Values of every group except ``figure``
+are also checked before solver execution, by MATLAB itself on unparented
+objects of the same classes (no figure or window is created); ``figure``
+values and object-valued entries such as ``Parent`` are checked when they are
+applied. Styling is applied after the package defaults to
 single profiles, combined summaries, and history figures. Properties apply
 to every matching object, so a common explicit axis limit or position also
 applies to every panel. Portable SVG/HTML output, used when native graphics
