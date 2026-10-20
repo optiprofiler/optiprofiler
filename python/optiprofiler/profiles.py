@@ -1480,23 +1480,24 @@ def _benchmark(
             merit_fun = profile_options[ProfileOption.MERIT_FUN]
             if report is not None:
                 report.set_stage('scoring', 'running')
-            try:
-                merit_histories = compute_merit_values(merit_fun, results_plib['fun_histories'], results_plib['maxcv_histories'], results_plib['maxcv_inits'])
-                merit_outs = compute_merit_values(merit_fun, results_plib['fun_outs'], results_plib['maxcv_outs'], results_plib['maxcv_inits'])
-                merit_inits = compute_merit_values(merit_fun, results_plib['fun_inits'], results_plib['maxcv_inits'], results_plib['maxcv_inits'])
-            except Exception as exc:
-                logger.error(f'Error occurred while calculating the merit values. Please check the merit function. Error message: {shorten_log_message(exc)}')
-                # The solver results are complete; only the user callback
-                # failed. Keep them (without cached merits) so the archive
-                # below can be reloaded with a corrected merit_fun, then
-                # re-raise the original error. Merits of an archive without
-                # cached merits are computed on load.
-                results_plibs.append(results_plib)
-                merit_failure = exc
-                break
-            results_plib['merit_histories'] = merit_histories
-            results_plib['merit_outs'] = merit_outs
-            results_plib['merit_inits'] = merit_inits
+            # After a merit failure, the requested solves (the plain baseline
+            # and the remaining libraries) still finish without merits, and the
+            # complete raw archive below is saved before the original error is
+            # re-raised: a corrected merit_fun then scores the whole experiment
+            # on load. Merits of an archive without cached merits are computed
+            # on load.
+            if merit_failure is None:
+                try:
+                    merit_histories = compute_merit_values(merit_fun, results_plib['fun_histories'], results_plib['maxcv_histories'], results_plib['maxcv_inits'])
+                    merit_outs = compute_merit_values(merit_fun, results_plib['fun_outs'], results_plib['maxcv_outs'], results_plib['maxcv_inits'])
+                    merit_inits = compute_merit_values(merit_fun, results_plib['fun_inits'], results_plib['maxcv_inits'], results_plib['maxcv_inits'])
+                except Exception as exc:
+                    logger.error(f'Error occurred while calculating the merit values. Please check the merit function. Error message: {shorten_log_message(exc)}')
+                    merit_failure = exc
+                else:
+                    results_plib['merit_histories'] = merit_histories
+                    results_plib['merit_outs'] = merit_outs
+                    results_plib['merit_inits'] = merit_inits
 
             # Run the 'plain' feature if run_plain is true.
             if profile_options[ProfileOption.RUN_PLAIN]:
@@ -1515,13 +1516,18 @@ def _benchmark(
                     if not profile_options[ProfileOption.SILENT]:
                         logger.warning(f'No plain baseline was obtained from "{plib}"; keeping the featured results without a plain reference.')
                 else:
-                    try:
-                        results_plib_plain['merit_histories'] = compute_merit_values(merit_fun, results_plib_plain['fun_histories'], results_plib_plain['maxcv_histories'], results_plib_plain['maxcv_inits'])
-                        results_plib_plain['merit_outs'] = compute_merit_values(merit_fun, results_plib_plain['fun_outs'], results_plib_plain['maxcv_outs'], results_plib_plain['maxcv_inits'])
-                        results_plib_plain['merit_inits'] = compute_merit_values(merit_fun, results_plib_plain['fun_inits'], results_plib_plain['maxcv_inits'], results_plib_plain['maxcv_inits'])
-                    except Exception as exc:
-                        logger.error(f'Error occurred while calculating the merit values for the "plain" feature. Please check the merit function. Error message: {shorten_log_message(exc)}')
-                        raise exc
+                    if merit_failure is None:
+                        try:
+                            plain_merits = {
+                                'merit_histories': compute_merit_values(merit_fun, results_plib_plain['fun_histories'], results_plib_plain['maxcv_histories'], results_plib_plain['maxcv_inits']),
+                                'merit_outs': compute_merit_values(merit_fun, results_plib_plain['fun_outs'], results_plib_plain['maxcv_outs'], results_plib_plain['maxcv_inits']),
+                                'merit_inits': compute_merit_values(merit_fun, results_plib_plain['fun_inits'], results_plib_plain['maxcv_inits'], results_plib_plain['maxcv_inits']),
+                            }
+                        except Exception as exc:
+                            logger.error(f'Error occurred while calculating the merit values for the "plain" feature. Please check the merit function. Error message: {shorten_log_message(exc)}')
+                            merit_failure = exc
+                        else:
+                            results_plib_plain.update(plain_merits)
                     # Keep the optional baseline nested under its own library.
                     results_plib['results_plib_plain'] = results_plib_plain
 

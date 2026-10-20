@@ -184,6 +184,55 @@ def test_failing_merit_keeps_a_reloadable_raw_archive(tmp_path, monkeypatch):
     assert _archive_hash(tmp_path / 'failed') == source_hash
 
 
+def plain_failing_merit(fun, maxcv, initial_maxcv):
+    # Fails only on the unperturbed initial values f(x0) in {4, 9}, which only
+    # the plain baseline evaluates when the primary runs perturb x0.
+    if np.any(np.isin(np.asarray(fun, dtype=float), [4.0, 9.0])):
+        raise RuntimeError('deliberate plain merit failure')
+    return fun + maxcv
+
+
+def _second_library(libraries):
+    library = libraries / 'merit_second'
+    library.mkdir(parents=True, exist_ok=True)
+    (library / 'merit_second_tools.py').write_text(
+        "from optiprofiler import Problem\n"
+        "def objective(x): return float(x @ x)\n"
+        "def merit_second_select(options): return ['S1', 'S2']\n"
+        "def merit_second_load(name):\n"
+        "    return Problem(objective, [2.0] if name == 'S1' else [3.0], name=name)\n",
+        encoding='utf-8')
+
+
+def _rescued_roles(benchmark_id, tmp_path, **options):
+    report_path = tmp_path / f'{benchmark_id}-reload.json'
+    scores = _load(benchmark_id, report_path=str(report_path), **options)
+    report = json.loads(report_path.read_text(encoding='utf-8'))
+    assert_valid(report, schema_resource('eval_report', 2))
+    roles = {(problem['library'], problem['role']) for problem in report['problems']}
+    return scores, roles
+
+
+@pytest.mark.parametrize('failing', [failing_merit, plain_failing_merit])
+def test_failing_merit_still_saves_the_complete_requested_experiment(tmp_path, monkeypatch, failing):
+    # The error is raised only after the plain baselines and every requested
+    # library are solved and saved, so a corrected merit reproduces the
+    # complete experiment instead of silently scoring a partial one.
+    monkeypatch.chdir(tmp_path)
+    libraries = _library(tmp_path, None)
+    _second_library(libraries)
+    common = dict(plibs=['merit_reload', 'merit_second'], run_plain=True,
+                  feature_name='perturbed_x0', n_runs=2)
+    with pytest.raises(RuntimeError, match='deliberate'):
+        _run(libraries, 'failed', merit_fun=failing, **common)
+    fresh = _run(libraries, 'fresh', merit_fun=affine_merit, **common)
+    rescued, roles = _rescued_roles('failed', tmp_path, merit_fun=affine_merit)
+    assert roles == {(library, role) for library in ('merit_reload', 'merit_second')
+                     for role in ('primary', 'plain_reference')}
+    np.testing.assert_array_equal(rescued[0], fresh[0])
+    np.testing.assert_array_equal(rescued[1], fresh[1])
+
+
 INCOMPATIBLE = {'fun': -3.0, 'maxcv': 0.5, 'kind': 'merit', 'source': 'best known infeasible point'}
 
 

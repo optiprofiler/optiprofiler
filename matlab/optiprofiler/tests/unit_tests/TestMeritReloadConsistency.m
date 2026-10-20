@@ -62,6 +62,14 @@ classdef TestMeritReloadConsistency < matlab.unittest.TestCase
         function value = failingMerit(~, ~, ~) %#ok<STOUT>
             error('TestMeritReloadConsistency:deliberate', 'deliberate merit failure');
         end
+        function value = plainFailingMerit(f, v, ~)
+            % Fails only on the unperturbed initial values f(x0) in {4, 9},
+            % which only the plain baseline evaluates when primary runs perturb x0.
+            if any(ismember(f(:), [4, 9]))
+                error('TestMeritReloadConsistency:deliberate', 'deliberate plain merit failure');
+            end
+            value = f + v;
+        end
         function writeFile(file, code)
             fid = fopen(file, 'w');
             assert(fid >= 0);
@@ -94,6 +102,13 @@ classdef TestMeritReloadConsistency < matlab.unittest.TestCase
             fid = fopen(fullfile(files(1).folder, files(1).name), 'r');
             cleanup = onCleanup(@() fclose(fid)); %#ok<NASGU>
             bytes = fread(fid, Inf, '*uint8');
+        end
+        function pairs = libraryRoles(report_path)
+            % Sorted "library:role" pairs of the problems a report covers.
+            report = jsondecode(fileread(report_path));
+            problems = report.problems;
+            if isstruct(problems), problems = num2cell(problems); end
+            pairs = reshape(unique(cellfun(@(p) [p.library, ':', p.role], problems, 'UniformOutput', false)), 1, []);
         end
         function codes = diagnosticCodes(report_path)
             report = jsondecode(fileread(report_path));
@@ -204,6 +219,36 @@ classdef TestMeritReloadConsistency < matlab.unittest.TestCase
             testCase.verifyEqual(scores, default_scores);
             testCase.verifyEqual(profiles, default_profiles);
             testCase.verifyEqual(TestMeritReloadConsistency.archiveBytes(fullfile(testCase.WorkDir, 'failed')), source);
+        end
+        function failingMeritStillSavesCompleteExperiment(testCase)
+            % The error is raised only after the plain baselines and every
+            % requested library are solved and saved, so a corrected merit
+            % reproduces the complete experiment instead of a partial one.
+            code = 's = struct(''fun'', @(x) sum(x.^2), ''x0'', 2 + strcmp(name, ''P2''), ''name'', name);';
+            TestMeritReloadConsistency.library(fullfile(testCase.WorkDir, 'lib'), 'meritreload', code);
+            TestMeritReloadConsistency.library(fullfile(testCase.WorkDir, 'lib2'), 'meritsecond', code);
+            solvers = {@TestMeritReloadConsistency.finish, @TestMeritReloadConsistency.stay};
+            failing = {@TestMeritReloadConsistency.failingMerit, @TestMeritReloadConsistency.plainFailingMerit};
+            for k = 1:numel(failing)
+                options = TestMeritReloadConsistency.runOptions('meritreload', sprintf('failed%d', k), 'u');
+                options.plibs = {'meritreload', 'meritsecond'};
+                options.run_plain = true;
+                options.feature_name = 'perturbed_x0';
+                options.n_runs = 2;
+                options.merit_fun = failing{k};
+                testCase.verifyError(@() benchmark(solvers, options), 'MATLAB:benchmark:merit_fun_error');
+                options.merit_fun = @TestMeritReloadConsistency.affineMerit;
+                options.benchmark_id = sprintf('fresh%d', k);
+                [fresh_scores, fresh_profiles] = benchmark(solvers, options);
+                load_options = TestMeritReloadConsistency.loadOptions(sprintf('failed%d', k));
+                load_options.merit_fun = @TestMeritReloadConsistency.affineMerit;
+                load_options.report_path = fullfile(testCase.WorkDir, sprintf('reload%d.json', k));
+                [scores, profiles] = benchmark({}, load_options);
+                testCase.verifyEqual(TestMeritReloadConsistency.libraryRoles(load_options.report_path), ...
+                    {'meritreload:plain_reference', 'meritreload:primary', 'meritsecond:plain_reference', 'meritsecond:primary'});
+                testCase.verifyEqual(scores, fresh_scores);
+                testCase.verifyEqual(profiles, fresh_profiles);
+            end
         end
         function incompatibleReferenceFailsBeforeSolverCalls(testCase)
             TestMeritReloadConsistency.library(fullfile(testCase.WorkDir, 'lib'), 'meritbounded', ...

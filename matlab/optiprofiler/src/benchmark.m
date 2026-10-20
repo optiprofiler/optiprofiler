@@ -1299,25 +1299,23 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
             % Compute merit values.
             if ~isempty(eval_report), eval_report.setStage('scoring', 'running'); end
             merit_fun = profile_options.(ProfileOptionKey.MERIT_FUN.value);
-            try
-                merit_histories = meritFunCompute(merit_fun, results_plib.fun_histories, results_plib.maxcv_histories, results_plib.maxcv_inits, 'multiple');
-                merit_outs = meritFunCompute(merit_fun, results_plib.fun_outs, results_plib.maxcv_outs, results_plib.maxcv_inits, 'multiple');
-                merit_inits = meritFunCompute(merit_fun, results_plib.fun_inits, results_plib.maxcv_inits, results_plib.maxcv_inits);
-            catch merit_error
-                % The solver results are complete; only the user callback
-                % failed. Keep them (without cached merits) so the archive
-                % saved below can be reloaded with a corrected merit_fun, and
-                % raise the error after that save. loadResults computes the
-                % merits of an archive saved without them.
-                results_plibs{i_plib} = results_plib;
-                if ~isempty(eval_report), eval_report.addResults({results_plib}); end
-                merit_failure = MException("MATLAB:benchmark:merit_fun_error", "Error occurred while calculating the merit values. Please check the merit function.");
-                merit_failure = merit_failure.addCause(merit_error);
-                break;
+            % After a merit failure, the requested solves (the plain baseline
+            % and the remaining libraries) still finish without merits, and the
+            % complete raw archive below is saved before the error is raised:
+            % a corrected merit_fun then scores the whole experiment on load.
+            % loadResults computes the merits of an archive saved without them.
+            if isempty(merit_failure)
+                try
+                    merit_histories = meritFunCompute(merit_fun, results_plib.fun_histories, results_plib.maxcv_histories, results_plib.maxcv_inits, 'multiple');
+                    merit_outs = meritFunCompute(merit_fun, results_plib.fun_outs, results_plib.maxcv_outs, results_plib.maxcv_inits, 'multiple');
+                    merit_inits = meritFunCompute(merit_fun, results_plib.fun_inits, results_plib.maxcv_inits, results_plib.maxcv_inits);
+                    results_plib.merit_histories = merit_histories;
+                    results_plib.merit_outs = merit_outs;
+                    results_plib.merit_inits = merit_inits;
+                catch merit_error
+                    merit_failure = meritFailure(merit_error);
+                end
             end
-            results_plib.merit_histories = merit_histories;
-            results_plib.merit_outs = merit_outs;
-            results_plib.merit_inits = merit_inits;
 
             % Run the 'plain' feature if run_plain is true.
             if profile_options.(ProfileOptionKey.RUN_PLAIN.value)
@@ -1331,12 +1329,17 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
                         printOptiProfilerMessage('WARNING', sprintf('No plain baseline was obtained from "%s"; keeping the featured results without a plain reference.', plib));
                     end
                 else
-                    try
-                        results_plib_plain.merit_histories = meritFunCompute(merit_fun, results_plib_plain.fun_histories, results_plib_plain.maxcv_histories, results_plib_plain.maxcv_inits, 'multiple');
-                        results_plib_plain.merit_outs = meritFunCompute(merit_fun, results_plib_plain.fun_outs, results_plib_plain.maxcv_outs, results_plib_plain.maxcv_inits, 'multiple');
-                        results_plib_plain.merit_inits= meritFunCompute(merit_fun, results_plib_plain.fun_inits, results_plib_plain.maxcv_inits, results_plib_plain.maxcv_inits);
-                    catch
-                        error("MATLAB:benchmark:merit_fun_error", "Error occurred while calculating the merit values. Please check the merit function.");
+                    if isempty(merit_failure)
+                        try
+                            plain_merit_histories = meritFunCompute(merit_fun, results_plib_plain.fun_histories, results_plib_plain.maxcv_histories, results_plib_plain.maxcv_inits, 'multiple');
+                            plain_merit_outs = meritFunCompute(merit_fun, results_plib_plain.fun_outs, results_plib_plain.maxcv_outs, results_plib_plain.maxcv_inits, 'multiple');
+                            plain_merit_inits = meritFunCompute(merit_fun, results_plib_plain.fun_inits, results_plib_plain.maxcv_inits, results_plib_plain.maxcv_inits);
+                            results_plib_plain.merit_histories = plain_merit_histories;
+                            results_plib_plain.merit_outs = plain_merit_outs;
+                            results_plib_plain.merit_inits = plain_merit_inits;
+                        catch merit_error
+                            merit_failure = meritFailure(merit_error);
+                        end
                     end
                     % Keep the optional baseline nested under its own library.
                     results_plib.results_plib_plain = results_plib_plain;
@@ -2428,4 +2431,11 @@ function profile_scores = computeScores(curves, profile_options)
         max_scores(max_scores == 0) = 1;
         profile_scores = profile_scores ./ max_scores;
     end
+end
+
+function merit_failure = meritFailure(merit_error)
+    % The error raised after a merit callback failed on completed solver
+    % results; the callback's own error is kept as the cause.
+    merit_failure = MException("MATLAB:benchmark:merit_fun_error", "Error occurred while calculating the merit values. Please check the merit function.");
+    merit_failure = merit_failure.addCause(merit_error);
 end
