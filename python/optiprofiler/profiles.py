@@ -2618,7 +2618,10 @@ def _solve_one_problem_wrapper(solvers, feature, plan, problem_name, len_problem
         )
     except Exception as exc:
         if not profile_options[ProfileOption.SILENT]:
-            logger.warning(f'Failed to load    {problem_name:<{len_problem_names}} from "{plib}".')
+            # The shortened cause makes provider failures diagnosable from the
+            # log; the report keeps only the exception type (bounded schema).
+            logger.warning(f'Failed to load    {problem_name:<{len_problem_names}} from "{plib}". '
+                           f'Error message: {shorten_log_message(exc)}')
         if profile_options.get('_eval_report_enabled', False):
             return {'_eval_report_failure': {'problem': problem_name,
                                             'exception_type': type(exc).__name__}}

@@ -115,6 +115,9 @@ function results = solveAllProblems(solvers, library, feature, problem_options, 
                     fprintf('\n');
                     fail_load_info = sprintf('Failed to load    %%-%ds from \"%%s\".', len_problem_names);
                     printOptiProfilerMessage('INFO', sprintf(fail_load_info, problem_name, plib));
+                    % The shortened cause makes provider failures diagnosable from
+                    % the log; the report keeps only the exception identifier.
+                    printOptiProfilerMessage('INFO', sprintf('Error message: %s', shortenMessageForLog(load_error.message)));
                 end
                 tmp_results{i_problem} = struct();
                 % Bookkeeping only (report diagnostics); the legacy empty
@@ -141,6 +144,9 @@ function results = solveAllProblems(solvers, library, feature, problem_options, 
                     fprintf('\n');
                     fail_load_info = sprintf('Failed to load    %%-%ds from \"%%s\".', len_problem_names);
                     printOptiProfilerMessage('INFO', sprintf(fail_load_info, problem_name, plib));
+                    % The shortened cause makes provider failures diagnosable from
+                    % the log; the report keeps only the exception identifier.
+                    printOptiProfilerMessage('INFO', sprintf('Error message: %s', shortenMessageForLog(load_error.message)));
                 end
                 tmp_results{i_problem} = struct();
                 % Bookkeeping only (report diagnostics); the legacy empty
