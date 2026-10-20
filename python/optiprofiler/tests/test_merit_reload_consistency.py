@@ -209,17 +209,21 @@ def _run_bounded(libraries, benchmark_id, **options):
     return benchmark([finish, stay], **defaults)
 
 
-def test_reference_incompatible_with_merit_fails_before_any_solver_call(tmp_path, monkeypatch):
+@pytest.mark.parametrize('jobs', [1, 2])
+def test_reference_incompatible_with_merit_fails_before_any_solver_call(tmp_path, monkeypatch, jobs):
     monkeypatch.chdir(tmp_path)
     libraries = _bounded_library(tmp_path, INCOMPATIBLE, [0.5])
     SOLVER_CALLS.clear()
     with pytest.raises(ValueError, match='incompatible with the selected merit') as error:
-        _run_bounded(libraries, 'preflight')
+        _run_bounded(libraries, 'preflight', n_jobs=jobs)
     # The message distinguishes a valid record from an invalid one and keeps
-    # the established wording of the scoring-time check.
+    # the established wording of the scoring-time check; a spawned worker
+    # re-raises the same error in the parent.
     assert 'finite real scalar' in str(error.value)
     assert 'B1' in str(error.value)
-    assert SOLVER_CALLS == []
+    if jobs == 1:
+        # Solver calls are only observable in this process.
+        assert SOLVER_CALLS == []
     assert not list((tmp_path / 'preflight').rglob('data_for_loading.h5'))
 
 

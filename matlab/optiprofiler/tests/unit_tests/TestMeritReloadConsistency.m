@@ -228,6 +228,21 @@ classdef TestMeritReloadConsistency < matlab.unittest.TestCase
             options.merit_fun = @TestMeritReloadConsistency.affineMerit;
             scores = benchmark(solvers, options);
             testCase.verifyTrue(all(isfinite(scores)));
+
+            % Real process workers rethrow the same error on the client.
+            if ~isempty(ver('parallel'))
+                options = rmfield(options, 'merit_fun');
+                options.benchmark_id = 'preflight-parallel';
+                options.n_jobs = 2;
+                try
+                    benchmark(solvers, options);
+                    testCase.verifyFail('An incompatible reference must stop a parallel benchmark.');
+                catch error_info
+                    testCase.verifyEqual(error_info.identifier, 'MATLAB:applyReferenceTargets:invalidMerit');
+                    testCase.verifySubstring(regexprep(error_info.message, '\s+', ' '), 'incompatible with the selected merit');
+                end
+                testCase.verifyEmpty(dir(fullfile(testCase.WorkDir, 'preflight-parallel', '**', 'data_for_loading.mat')));
+            end
         end
         function plainBaselineNeverTriggersPreflight(testCase)
             % Primary runs start from a strongly infeasible perturbed point, where
