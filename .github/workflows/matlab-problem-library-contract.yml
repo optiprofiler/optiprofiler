@@ -20,6 +20,9 @@ on:
       - matlab/optiprofiler/tests/unit_tests/TestProblemLibraryRegistry.m
       - matlab/optiprofiler/tests/unit_tests/TestSetupPersistenceIsolation.m
       - matlab/optiprofiler/tests/unit_tests/TestReferenceScoring.m
+      - matlab/optiprofiler/tests/unit_tests/TestMeritReloadConsistency.m
+      - matlab/optiprofiler/tests/unit_tests/TestReportTextSafety.m
+      - matlab/optiprofiler/tests/unit_tests/TestDocumentedDefaults.m
       - .github/workflows/matlab-problem-library-contract.yml
   pull_request:
     paths:
@@ -39,6 +42,9 @@ on:
       - matlab/optiprofiler/tests/unit_tests/TestProblemLibraryRegistry.m
       - matlab/optiprofiler/tests/unit_tests/TestSetupPersistenceIsolation.m
       - matlab/optiprofiler/tests/unit_tests/TestReferenceScoring.m
+      - matlab/optiprofiler/tests/unit_tests/TestMeritReloadConsistency.m
+      - matlab/optiprofiler/tests/unit_tests/TestReportTextSafety.m
+      - matlab/optiprofiler/tests/unit_tests/TestDocumentedDefaults.m
       - .github/workflows/matlab-problem-library-contract.yml
   workflow_dispatch:
 
@@ -103,7 +109,10 @@ jobs:
                 testsuite(fullfile('tests', 'unit_tests', 'TestProblemLibraryRegistry.m')), ...
                 testsuite(fullfile('tests', 'unit_tests', 'TestCheckValidityProblemOptions.m')), ...
                 testsuite(fullfile('tests', 'unit_tests', 'TestSetupPersistenceIsolation.m')), ...
-                testsuite(fullfile('tests', 'unit_tests', 'TestReferenceScoring.m'))];
+                testsuite(fullfile('tests', 'unit_tests', 'TestReferenceScoring.m')), ...
+                testsuite(fullfile('tests', 'unit_tests', 'TestMeritReloadConsistency.m')), ...
+                testsuite(fullfile('tests', 'unit_tests', 'TestReportTextSafety.m')), ...
+                testsuite(fullfile('tests', 'unit_tests', 'TestDocumentedDefaults.m'))];
             results = run(suite);
             assert(~any([results.Failed]), 'MATLAB problem-library contract tests failed.');
             assert(~any([results.Incomplete]), ...
