@@ -52,6 +52,21 @@ by a technical test: licenses for independently owned adapter/glue files,
 MatCUTEst native redistribution materials, and the provider publication scope.
 Preserve upstream licenses unchanged.
 
+Before tagging, also settle these prerequisites:
+
+- Every locked provider commit (both lock files and both S2MPJ gitlinks) must
+  be reachable from a protected branch or a tag of its provider repository.
+  `setup.m` and `git submodule update` fetch these exact commits; a deleted or
+  rewritten branch would make the tagged release uninstallable from Git.
+- Until a provider is actually published on PyPI, the documentation must give
+  the exact-SHA source installation (see the Python problem-library guide) and
+  must not present `pip install optiprofiler-<provider>` as available.
+- The wheel and sdist ship the S2MPJ licence and notice with the bundled
+  subset, and the sdist also ships `THIRD_PARTY_NOTICES.md` and `licenses/`
+  (enforced by `tools/check_release.py`). The core package metadata lists only
+  the OptiProfiler `LICENSE`; PEP 639 `license-files` needs setuptools 77 or
+  later (Python 3.9 or later), so adopt it when Python 3.8 support ends.
+
 ## Reference scoring boundary
 
 V2 acceptance requires an explicit provider/user reference to define standard
@@ -60,10 +75,21 @@ solver-history minimum (including the optional plain run). Test both fresh
 execution and solver-free save/load; metadata propagation alone is not
 acceptance of this behavior.
 
-The candidate carrier stores raw `fun` and total `maxcv` rather than a cached
-merit or reference point. Convert with the current merit function and each
-run's initial violation. `lower_bound`/`optimum` require zero violation;
-`best_known`/`target` may be infeasible. General affine changes drop a nonzero
-violation reference because its residual magnitude need not be invariant.
-Require both language regression suites and final installed-artifact tests to
-pass before closing this gate; candidate code alone is not release acceptance.
+The record stores the raw `fun` and total `maxcv` with one of two kinds,
+`feasible` (`maxcv` is zero) and `merit` (nonnegative `maxcv`), rather than a
+cached merit; an optional `x_ref` is metadata only. Legacy kind aliases remain
+readable. Targets are converted with the current merit function and each run's
+initial violation. Built-in coordinate features keep the record, including a
+nonzero violation, because truth is evaluated in the original coordinates;
+custom stages and `quantized` with `ground_truth=True` fall back to the
+empirical target and persist the first fallback reason.
+
+A load converts targets with the merit of that load. A load without
+`merit_fun` of an archive with explicit references recomputes every cached
+merit (histories, initial values and the plain baseline) with the default
+merit and warns when they change; supply the original `merit_fun` to reproduce
+a custom-merit experiment. Archives without references keep reusing their
+cached merits, as in V1. A record that the selected merit maps to a non-finite
+target is reported before the problem is solved. Require both language
+regression suites and final installed-artifact tests to pass before closing
+this gate; candidate code alone is not release acceptance.

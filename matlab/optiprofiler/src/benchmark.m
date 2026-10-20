@@ -106,7 +106,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         plots after all the problems are solved. For each problem, the
 %         original combined history plot is saved as `PROBLEM.pdf`; raw-only
 %         and cumulative-minimum-only plots are saved under the `raw` and
-%         `cummin` subfolders. Default is 'sequential'.
+%         `cummin` subfolders. Default is 'parallel' (as in Python).
 %       - errorbar_type: the type of the uncertainty interval that can be
 %         either 'minmax' or 'meanstd'. When `n_runs` is greater than 1, we run
 %         several times of the experiments and get average curves and
