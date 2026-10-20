@@ -1751,65 +1751,65 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
             if is_hist_drawable
                 pdf_perf_hist = fullfile(path_perf_hist, ['perf_hist_', int2str(i_tol), '.pdf']);
                 figure_perf_hist = fullfile(path_figs, ['perf_hist_', int2str(i_tol), '.fig']);
-                exportgraphics(fig_perf_hist, pdf_perf_hist, 'ContentType', 'vector');
+                exportGraphicsBounded(fig_perf_hist, pdf_perf_hist, 'ContentType', 'vector');
                 savefig(fig_perf_hist, figure_perf_hist);
                 pdf_data_hist = fullfile(path_data_hist, ['data_hist_', int2str(i_tol), '.pdf']);
                 figure_data_hist = fullfile(path_figs, ['data_hist_', int2str(i_tol), '.fig']);
-                exportgraphics(fig_data_hist, pdf_data_hist, 'ContentType', 'vector');
+                exportGraphicsBounded(fig_data_hist, pdf_data_hist, 'ContentType', 'vector');
                 savefig(fig_data_hist, figure_data_hist);
             end
             if is_out_drawable
                 pdf_perf_out = fullfile(path_perf_out, ['perf_out_', int2str(i_tol), '.pdf']);
                 figure_perf_out = fullfile(path_figs, ['perf_out_', int2str(i_tol), '.fig']);
-                exportgraphics(fig_perf_out, pdf_perf_out, 'ContentType', 'vector');
+                exportGraphicsBounded(fig_perf_out, pdf_perf_out, 'ContentType', 'vector');
                 savefig(fig_perf_out, figure_perf_out);
                 pdf_data_out = fullfile(path_data_out, ['data_out_', int2str(i_tol), '.pdf']);
                 figure_data_out = fullfile(path_figs, ['data_out_', int2str(i_tol), '.fig']);
-                exportgraphics(fig_data_out, pdf_data_out, 'ContentType', 'vector');
+                exportGraphicsBounded(fig_data_out, pdf_data_out, 'ContentType', 'vector');
                 savefig(fig_data_out, figure_data_out);
             end
             if n_solvers == 2
                 if is_hist_drawable && ~isempty(fig_log_ratio_hist)
                     pdf_log_ratio_hist = fullfile(path_log_ratio_hist, ['log-ratio_hist_', int2str(i_tol), '.pdf']);
                     figure_log_ratio_hist = fullfile(path_figs, ['log-ratio_hist_', int2str(i_tol), '.fig']);
-                    exportgraphics(fig_log_ratio_hist, pdf_log_ratio_hist, 'ContentType', 'vector');
+                    exportGraphicsBounded(fig_log_ratio_hist, pdf_log_ratio_hist, 'ContentType', 'vector');
                     savefig(fig_log_ratio_hist, figure_log_ratio_hist);
                 end
                 if is_out_drawable && ~isempty(fig_log_ratio_out)
                     pdf_log_ratio_out = fullfile(path_log_ratio_out, ['log-ratio_out_', int2str(i_tol), '.pdf']);
                     figure_log_ratio_out = fullfile(path_figs, ['log-ratio_out_', int2str(i_tol), '.fig']);
-                    exportgraphics(fig_log_ratio_out, pdf_log_ratio_out, 'ContentType', 'vector');
+                    exportGraphicsBounded(fig_log_ratio_out, pdf_log_ratio_out, 'ContentType', 'vector');
                     savefig(fig_log_ratio_out, figure_log_ratio_out);
                 end
             end
             if i_tol == 1
                 if is_hist_drawable
-                    exportgraphics(fig_perf_hist, pdf_perf_hist_summary, 'ContentType', 'vector');
-                    exportgraphics(fig_data_hist, pdf_data_hist_summary, 'ContentType', 'vector');
+                    exportGraphicsBounded(fig_perf_hist, pdf_perf_hist_summary, 'ContentType', 'vector');
+                    exportGraphicsBounded(fig_data_hist, pdf_data_hist_summary, 'ContentType', 'vector');
                     if n_solvers == 2 && ~isempty(fig_log_ratio_hist)
-                        exportgraphics(fig_log_ratio_hist, pdf_log_ratio_hist_summary, 'ContentType', 'vector');
+                        exportGraphicsBounded(fig_log_ratio_hist, pdf_log_ratio_hist_summary, 'ContentType', 'vector');
                     end
                 end
                 if is_out_drawable
-                    exportgraphics(fig_perf_out, pdf_perf_out_summary, 'ContentType', 'vector');
-                    exportgraphics(fig_data_out, pdf_data_out_summary, 'ContentType', 'vector');
+                    exportGraphicsBounded(fig_perf_out, pdf_perf_out_summary, 'ContentType', 'vector');
+                    exportGraphicsBounded(fig_data_out, pdf_data_out_summary, 'ContentType', 'vector');
                     if n_solvers == 2 && ~isempty(fig_log_ratio_out)
-                        exportgraphics(fig_log_ratio_out, pdf_log_ratio_out_summary, 'ContentType', 'vector');
+                        exportGraphicsBounded(fig_log_ratio_out, pdf_log_ratio_out_summary, 'ContentType', 'vector');
                     end
                 end
             else
                 if is_hist_drawable
-                    exportgraphics(fig_perf_hist, pdf_perf_hist_summary, 'ContentType', 'vector', 'Append', true);
-                    exportgraphics(fig_data_hist, pdf_data_hist_summary, 'ContentType', 'vector', 'Append', true);
+                    exportGraphicsBounded(fig_perf_hist, pdf_perf_hist_summary, 'ContentType', 'vector', 'Append', true);
+                    exportGraphicsBounded(fig_data_hist, pdf_data_hist_summary, 'ContentType', 'vector', 'Append', true);
                     if n_solvers == 2 && ~isempty(fig_log_ratio_hist)
-                        exportgraphics(fig_log_ratio_hist, pdf_log_ratio_hist_summary, 'ContentType', 'vector', 'Append', true);
+                        exportGraphicsBounded(fig_log_ratio_hist, pdf_log_ratio_hist_summary, 'ContentType', 'vector', 'Append', true);
                     end
                 end
                 if is_out_drawable
-                    exportgraphics(fig_perf_out, pdf_perf_out_summary, 'ContentType', 'vector', 'Append', true);
-                    exportgraphics(fig_data_out, pdf_data_out_summary, 'ContentType', 'vector', 'Append', true);
+                    exportGraphicsBounded(fig_perf_out, pdf_perf_out_summary, 'ContentType', 'vector', 'Append', true);
+                    exportGraphicsBounded(fig_data_out, pdf_data_out_summary, 'ContentType', 'vector', 'Append', true);
                     if n_solvers == 2 && ~isempty(fig_log_ratio_out)
-                        exportgraphics(fig_log_ratio_out, pdf_log_ratio_out_summary, 'ContentType', 'vector', 'Append', true);
+                        exportGraphicsBounded(fig_log_ratio_out, pdf_log_ratio_out_summary, 'ContentType', 'vector', 'Append', true);
                     end
                 end
             end
@@ -2111,9 +2111,9 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
                 assert(hasNativeGraphics(), 'OptiProfiler:NativeGraphicsUnavailable', ...
                     'Native export is not safe in the current graphics environment.');
                 if ispc
-                    print(fig_summary, fullfile(path_stamp, [summary_name, '.pdf']), '-dpdf', '-vector');
+                    boundedFigureCall(fig_summary, @() print(fig_summary, fullfile(path_stamp, [summary_name, '.pdf']), '-dpdf', '-vector'));
                 else
-                    exportgraphics(fig_summary, fullfile(path_stamp, [summary_name, '.pdf']), 'ContentType', 'vector');
+                    exportGraphicsBounded(fig_summary, fullfile(path_stamp, [summary_name, '.pdf']), 'ContentType', 'vector');
                 end
                 savefig(fig_summary, fullfile(path_figs, [summary_name, '.fig']));
                 if ~profile_options.(ProfileOptionKey.SILENT.value)

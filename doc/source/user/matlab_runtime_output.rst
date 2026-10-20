@@ -21,8 +21,15 @@ The initial native-graphics probe is cached for the MATLAB process, avoiding
 a new probe figure for every plot. A transient failure of that initial probe
 therefore keeps subsequent plots on the SVG route until MATLAB is restarted.
 
-The SVG fallback handles native-export exceptions. It is not a timeout
-mechanism for a native renderer that stops returning without raising an error.
+The SVG fallback handles native-export exceptions. MATLAB's web-based graphics
+can also wait indefinitely for its renderer during an export, without raising
+an error; this was observed on Linux with R2025a and R2026a, also in plain
+MATLAB code without OptiProfiler. MATLAB keeps running timer callbacks during
+that wait, so every native export is bounded: if an export has not finished
+after 300 seconds (about a hundred times an ordinary export), OptiProfiler
+closes that figure, which ends the wait, and the affected plots use the SVG
+fallback with a warning. Computed curves, scores and saved data are not
+affected.
 
 On Linux with MATLAB R2026a, a separate safety check avoids a reproducible
 native-export hang in the embedded Chromium renderer. Its observed temporary
@@ -44,7 +51,8 @@ calling ``benchmark``. OptiProfiler does not change that environment variable
 or move experiment outputs itself. The path check is repeated on each graphics
 capability query, so correcting the temporary path does not permanently retain
 the unsafe-path fallback. The guard is specific to the tested Linux R2026a
-backend; it is not a general timeout for arbitrary native graphics failures.
+backend; the general safeguard against an export that never returns is the
+export bound described above.
 It also cannot help when an even longer temporary path prevents MATLAB itself
 from starting; shorten that path before launching MATLAB.
 When upgrading MATLAB, recheck the native exporter at the 61/62-byte boundary

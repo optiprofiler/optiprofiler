@@ -161,6 +161,42 @@ classdef TestRuntimeRobustness < matlab.unittest.TestCase
             testCase.verifyEqual(findall(groot,'Type','figure'),before);
         end
 
+        function stalledNativeExportIsBounded(testCase)
+            % A native export that waits for an event that never comes ends
+            % at the limit: the watchdog deletes the figure and the call fails
+            % with OptiProfiler:NativeExportTimeout. No timer is left behind.
+            old=pwd; cleanup=onCleanup(@() cd(old));
+            cd(fullfile(fileparts(mfilename('fullpath')),'..','..','src','private'));
+            fig=figure('Visible','off');
+            started=tic;
+            testCase.verifyError(@() boundedFigureCall(fig,@() waitfor(fig),1),'OptiProfiler:NativeExportTimeout');
+            testCase.verifyLessThan(toc(started),60);
+            testCase.verifyFalse(isgraphics(fig));
+            testCase.verifyEmpty(timerfindall('Tag','OptiProfilerNativeExportWatchdog'));
+            % A stalled exportgraphics fails once its figure is gone; the
+            % caller still sees the timeout, not that secondary error.
+            fig=figure('Visible','off');
+            testCase.verifyError(@() boundedFigureCall(fig,@() failWhenClosed(fig),1),'OptiProfiler:NativeExportTimeout');
+            testCase.verifyFalse(isgraphics(fig));
+            testCase.verifyEmpty(timerfindall('Tag','OptiProfilerNativeExportWatchdog'));
+        end
+
+        function boundedExportKeepsOrdinaryResultsAndErrors(testCase)
+            old=pwd; work=tempname; mkdir(work);
+            cleanup=onCleanup(@() restoreDirectory(old,work));
+            cd(fullfile(fileparts(mfilename('fullpath')),'..','..','src','private'));
+            fig=figure('Visible','off');
+            figure_cleanup=onCleanup(@() delete(fig(isgraphics(fig))));
+            plot(axes(fig),1:3);
+            file=fullfile(work,'bounded.pdf');
+            exportGraphicsBounded(fig,file,'ContentType','vector');
+            testCase.verifyTrue(isfile(file));
+            testCase.verifyTrue(isgraphics(fig));
+            testCase.verifyError(@() boundedFigureCall(fig,@() error('test:Export','Export failed.'),60),'test:Export');
+            testCase.verifyTrue(isgraphics(fig));
+            testCase.verifyEmpty(timerfindall('Tag','OptiProfilerNativeExportWatchdog'));
+        end
+
         function loadNotesDoNotInferTruthFromCustomStamps(testCase)
             old=pwd; work=tempname; mkdir(work);
             cleanup=onCleanup(@() restoreDirectory(old,work));
@@ -264,6 +300,13 @@ end
 
 function restoreDirectory(old,work)
     cd(old); rmdir(work,'s');
+end
+
+function failWhenClosed(fig)
+    % Like a stalled exportgraphics: wait for the renderer, then fail because
+    % the figure is gone.
+    waitfor(fig);
+    error('TestRuntimeRobustness:FigureClosed','The figure is invalid or has been closed.');
 end
 
 function writeText(file,text)

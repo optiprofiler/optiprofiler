@@ -108,7 +108,8 @@ function exportHistoryFigure(pdf_file, mode, problem_name, problem_type, problem
 
     n_rows = numel(is_cum_rows);
     fig_summary = figure('Units', 'pixels', 'Position', profileFigurePosition(n_cols * summary_profile_width, n_rows * default_height), 'visible', 'off');
-    fig_cleanup = onCleanup(@() close(fig_summary));
+    % The export watchdog may already have deleted the figure.
+    fig_cleanup = onCleanup(@() closeIfValid(fig_summary));
     T_summary = tiledlayout(fig_summary, n_rows, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
     F_title = escapeLatexText(profile_options.(ProfileOptionKey.FEATURE_STAMP.value));
     P_title = escapeLatexText(problem_name);
@@ -144,6 +145,12 @@ function exportHistoryFigure(pdf_file, mode, problem_name, problem_type, problem
     assert(hasNativeGraphics(), 'OptiProfiler:NativeGraphicsUnavailable', ...
         'Native export is not safe in the current graphics environment.');
     applyPlotOptions(fig_summary,profile_options);
-    exportgraphics(fig_summary, pdf_file, 'ContentType', 'vector');
+    exportGraphicsBounded(fig_summary, pdf_file, 'ContentType', 'vector');
     clear fig_cleanup;
+end
+
+function closeIfValid(fig)
+    if isgraphics(fig)
+        close(fig);
+    end
 end
