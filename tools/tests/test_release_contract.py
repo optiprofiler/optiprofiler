@@ -53,7 +53,7 @@ class ReleaseContractTests(unittest.TestCase):
             'optiprofiler/problem_libs/s2mpj/probinfo_python.csv': b'name,n\n',
         }
         if omitted:
-            files.pop(omitted)
+            files.pop(omitted, None)
         wheel = dist / ('optiprofiler-' + wheel_version + '-py3-none-any.whl')
         with zipfile.ZipFile(wheel, 'w') as archive:
             for name, value in files.items():
@@ -64,7 +64,11 @@ class ReleaseContractTests(unittest.TestCase):
         source = dist / ('optiprofiler-' + source_version + '.tar.gz')
         source_files = {'python/' + name: value for name, value in files.items()}
         source_files.update({'LICENSE': b'BSD', 'PKG-INFO':
-                             ('Name: optiprofiler\nVersion: ' + source_version + '\n').encode()})
+                             ('Name: optiprofiler\nVersion: ' + source_version + '\n').encode(),
+                             'THIRD_PARTY_NOTICES.md': b'notices',
+                             'licenses/S2MPJ-LICENSE.txt': b'upstream license'})
+        if omitted in source_files:
+            source_files.pop(omitted)
         with tarfile.open(source, 'w:gz') as archive:
             for name, value in source_files.items():
                 member = tarfile.TarInfo('optiprofiler-' + source_version + '/' + name)
@@ -91,6 +95,11 @@ class ReleaseContractTests(unittest.TestCase):
             omitted='optiprofiler/problem_libs/s2mpj/LICENCE.txt')))
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('LICENCE.txt', result.stderr)
+
+    def test_missing_source_notice_blocks_distribution(self):
+        result = self.check('--dist-dir', str(self.distributions(omitted='licenses/S2MPJ-LICENSE.txt')))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('S2MPJ-LICENSE.txt', result.stderr)
 
     def test_missing_schema_blocks_distribution(self):
         result = self.check('--dist-dir', str(self.distributions(

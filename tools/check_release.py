@@ -22,6 +22,13 @@ REQUIRED_PACKAGE_FILES = (
     'optiprofiler/problem_libs/s2mpj/probinfo_python.csv',
 )
 
+# Repository-level notices required in the sdist. The wheel carries the
+# bundled S2MPJ licence and notice through REQUIRED_PACKAGE_FILES.
+REQUIRED_SOURCE_FILES = (
+    'THIRD_PARTY_NOTICES.md',
+    'licenses/S2MPJ-LICENSE.txt',
+)
+
 
 def source_version(root):
     # Importing the package initializes plotting and numerical dependencies.
@@ -63,7 +70,8 @@ def check_distribution(path, version):
                      for member in members if member.isfile()}
         metadata_names = [prefix + 'PKG-INFO'] if prefix + 'PKG-INFO' in files else []
         license_names = [prefix + 'LICENSE'] if prefix + 'LICENSE' in files else []
-        required = tuple(prefix + 'python/' + name for name in REQUIRED_PACKAGE_FILES)
+        required = (tuple(prefix + 'python/' + name for name in REQUIRED_PACKAGE_FILES)
+                    + tuple(prefix + name for name in REQUIRED_SOURCE_FILES))
         init = prefix + 'python/optiprofiler/__init__.py'
         if path.name != 'optiprofiler-' + version + '.tar.gz':
             raise ValueError(f'{path.name} filename does not match source version {version}.')
