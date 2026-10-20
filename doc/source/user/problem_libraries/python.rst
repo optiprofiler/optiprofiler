@@ -32,7 +32,7 @@ resolves its other dependencies normally:
 .. code-block:: bash
 
     python -m pip install "optiprofiler-pycutest @ git+https://github.com/optiprofiler/pycutest@38119c384901f26e35eacca78ddd9d2ac3b47265"
-    python -m pip install "optiprofiler-solar @ git+https://github.com/optiprofiler/solar_python@2478fe964ce4b697cc5ef2129ed5e7102dc7136f"
+    python -m pip install "optiprofiler-solar @ git+https://github.com/optiprofiler/solar_python@39e4e5b2451968be659df823ad2769668b8a70f1"
     python -m pip install "optiprofiler-rs13 @ git+https://github.com/optiprofiler/rs13@ddc11ff94f1d1df128a4f2c999c5267b3ad1818b"
 
 Once a provider is published on PyPI, ``python -m pip install
