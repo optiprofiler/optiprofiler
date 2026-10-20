@@ -1705,6 +1705,17 @@ class ProblemReference:
         object.__setattr__(self, '_source', source)
         object.__setattr__(self, '_mapping', 'objective_violation/1')
         if x_ref is not None:
+            # Same type rule as the scalar fields (and as MATLAB): booleans,
+            # strings, complex and object values are not coordinates and are
+            # not coerced with astype(float).
+            if isinstance(x_ref, (str, bytes)):
+                raise TypeError('The reference `x_ref` must be a real one-dimensional array.')
+            try:
+                raw_point = np.asarray(x_ref)
+            except Exception as exc:
+                raise TypeError('The reference `x_ref` must be a real one-dimensional array.') from exc
+            if raw_point.dtype.kind not in 'iuf':
+                raise TypeError('The reference `x_ref` must be a real one-dimensional array.')
             point = _process_1d_array(x_ref, 'The reference `x_ref` must be a real one-dimensional array.')
             if point.size == 0 or not np.all(np.isfinite(point)):
                 raise ValueError('The reference `x_ref` must be nonempty and finite.')

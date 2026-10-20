@@ -55,6 +55,21 @@ def test_reference_point_rejects_invalid_coordinates(point):
         ProblemReference(0.0, 'optimum', 'analytic', x_ref=point)
 
 
+@pytest.mark.parametrize('point', [[True, False], np.array([True]), ['1', '2.5'], '12', b'1', [None, 1.0]])
+def test_reference_point_follows_the_scalar_field_type_rules(point):
+    # Scalar fields reject booleans and numeric strings with TypeError; the
+    # point must not silently coerce them (MATLAB rejects them as well).
+    with pytest.raises(TypeError, match='x_ref'):
+        ProblemReference(0.0, 'optimum', 'analytic', x_ref=point)
+    with pytest.raises(TypeError):
+        ProblemReference(True, 'optimum', 'analytic')
+
+
+def test_reference_point_accepts_integer_and_float_coordinates():
+    assert ProblemReference(0.0, 'optimum', 'analytic', x_ref=np.array([1, 2], dtype=np.int64)).x_ref.tolist() == [1.0, 2.0]
+    assert ProblemReference(0.0, 'optimum', 'analytic', x_ref=(0.5, np.float32(1.5))).x_ref.tolist() == [0.5, 1.5]
+
+
 def test_reference_point_dimension_is_checked_before_constraint_callbacks():
     calls = []
     with pytest.raises(ValueError, match='x_ref'):
