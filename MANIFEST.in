@@ -1,6 +1,10 @@
 # Include license and readme
 include LICENSE
 include README.rst
+# Third-party notices (the bundled S2MPJ licence text itself also travels with
+# the subset under python/optiprofiler/problem_libs/s2mpj in both artifacts).
+include THIRD_PARTY_NOTICES.md
+recursive-include licenses *.txt
 
 # Include the EvalReport JSON Schemas (runtime package resources)
 recursive-include python/optiprofiler/schemas *.schema.json

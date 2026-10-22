@@ -115,6 +115,9 @@ function results = solveAllProblems(solvers, library, feature, problem_options, 
                     fprintf('\n');
                     fail_load_info = sprintf('Failed to load    %%-%ds from \"%%s\".', len_problem_names);
                     printOptiProfilerMessage('INFO', sprintf(fail_load_info, problem_name, plib));
+                    % The shortened cause makes provider failures diagnosable from
+                    % the log; the report keeps only the exception identifier.
+                    printOptiProfilerMessage('INFO', sprintf('Error message: %s', shortenMessageForLog(load_error.message)));
                 end
                 tmp_results{i_problem} = struct();
                 % Bookkeeping only (report diagnostics); the legacy empty
@@ -141,6 +144,9 @@ function results = solveAllProblems(solvers, library, feature, problem_options, 
                     fprintf('\n');
                     fail_load_info = sprintf('Failed to load    %%-%ds from \"%%s\".', len_problem_names);
                     printOptiProfilerMessage('INFO', sprintf(fail_load_info, problem_name, plib));
+                    % The shortened cause makes provider failures diagnosable from
+                    % the log; the report keeps only the exception identifier.
+                    printOptiProfilerMessage('INFO', sprintf('Error message: %s', shortenMessageForLog(load_error.message)));
                 end
                 tmp_results{i_problem} = struct();
                 % Bookkeeping only (report diagnostics); the legacy empty
@@ -192,6 +198,8 @@ function results = solveAllProblems(solvers, library, feature, problem_options, 
         maxcv_outs = NaN(n_problems, n_solvers, n_runs);
         fun_inits = NaN(n_problems, n_runs);
         maxcv_inits = NaN(n_problems, n_runs);
+        reference_records = cell(n_problems, n_runs);
+        reference_fallback_reasons = cell(n_problems, n_runs);
         n_evals = NaN(n_problems, n_solvers, n_runs);
         problem_names = cell(1, n_problems);
         computation_times = NaN(n_problems, n_solvers, n_runs);
@@ -211,6 +219,8 @@ function results = solveAllProblems(solvers, library, feature, problem_options, 
             maxcv_outs(i_problem, :, :) = result.maxcv_out;
             fun_inits(i_problem, :) = result.fun_inits;
             maxcv_inits(i_problem, :) = result.maxcv_inits;
+            reference_records(i_problem, :) = result.reference_records(:)';
+            reference_fallback_reasons(i_problem, :) = result.reference_fallback_reasons(:)';
             n_evals(i_problem, :, :) = result.n_eval;
             problem_names{i_problem} = result.problem_name;
             computation_times(i_problem, :, :) = result.computation_time;
@@ -267,6 +277,8 @@ function results = solveAllProblems(solvers, library, feature, problem_options, 
     results.maxcv_outs = maxcv_outs;
     results.fun_inits = fun_inits;
     results.maxcv_inits = maxcv_inits;
+    results.reference_records = reference_records;
+    results.reference_fallback_reasons = reference_fallback_reasons;
     results.n_evals = n_evals;
     results.problem_names = problem_names;
     results.problem_types = problem_types;

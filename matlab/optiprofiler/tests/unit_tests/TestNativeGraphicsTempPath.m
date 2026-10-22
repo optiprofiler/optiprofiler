@@ -2,15 +2,27 @@ classdef TestNativeGraphicsTempPath < matlab.unittest.TestCase
 %TESTNATIVEGRAPHICSTEMPPATH Verified Linux renderer boundary, without globals.
     properties (Access=private)
         CheckPath
+        CheckGraphics
     end
     methods (TestMethodSetup)
         function findPrivatePolicy(testCase)
             old=pwd; cleanup=onCleanup(@() cd(old)); %#ok<NASGU>
             cd(fullfile(fileparts(mfilename('fullpath')),'..','..','src','private'));
             testCase.CheckPath=@nativeGraphicsTempPathIsUnsafe;
+            testCase.CheckGraphics=@hasNativeGraphics;
         end
     end
     methods (Test)
+        function actualEnvironmentReachesGraphicsPolicy(testCase)
+            testCase.assumeEqual(computer('arch'), 'glnxa64');
+            testCase.assumeEqual(version('-release'), '2026a');
+            original = getenv('TMPDIR');
+            testCase.addTeardown(@() setenv('TMPDIR', original));
+            unsafe = ['/tmp/', repmat('a', 1, 57)];
+            setenv('TMPDIR', unsafe);
+            testCase.verifyFalse(testCase.CheckGraphics());
+            testCase.verifyEqual(getenv('TMPDIR'), unsafe);
+        end
         function linuxR2026aByteBoundary(testCase)
             testCase.verifyFalse(testCase.CheckPath(['/tmp/',repmat('a',1,56)],'glnxa64','2026a'));
             testCase.verifyTrue(testCase.CheckPath(['/tmp/',repmat('a',1,57)],'glnxa64','2026a'));

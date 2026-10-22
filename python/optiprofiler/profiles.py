@@ -14,8 +14,6 @@ from contextlib import redirect_stderr, redirect_stdout
 from datetime import datetime
 from functools import wraps
 from inspect import signature
-from multiprocessing import Pool
-from multiprocessing.reduction import ForkingPickler
 from pathlib import Path
 from typing import Any, Callable
 
@@ -28,17 +26,21 @@ from matplotlib.lines import Line2D
 from matplotlib.backends import backend_pdf
 from matplotlib.ticker import MaxNLocator, FuncFormatter
 
+from ._parallel import run_tasks, worker_main_available, WorkerArgumentPickler
 from .opclasses import Feature, Problem, FeaturedProblem
 from .plib_config import _resolve_plib_options
 from .problem_libraries import _copy_problem_library_options, _normalize_selected_problem_names, load_problem_library, resolve_problem_library
+from .problem_libraries import _initialize_problem_library_worker, _problem_library_worker_package
 from .utils import DEFAULT_LOG_LINE_WIDTH, FeatureName, ProfileOption, FeatureOption, ProblemOption, get_logger, print_log_message, setup_main_process_logging, setup_worker_logging, shorten_log_message, format_log_prefix
 from .loader import load_results, save_results_to_h5, save_options
 from .profile_utils import check_validity_problem_options, check_validity_profile_options, check_post_load_profile_options, get_default_problem_options, get_default_profile_options, compute_merit_values, create_stamp, merge_pdfs_with_pypdf, write_report, process_results, init_readme, add_to_readme, compute_scores
-from .profile_utils import _mask_invalid_merits, _get_default_feature_stamp
+from .profile_utils import _mask_invalid_merits, _get_default_feature_stamp, apply_reference_targets, reference_target
 from .experiment import ABSENT, PLAIN_REFERENCE, PRIMARY, resolve_plan
 from .feature_definitions import reject_flat_stage_options
 from .provenance import effective_specification, feature_pipeline_text
+from .legacy_compat import REFINED_SCHEMA
 from .plotting import draw_hist, set_profile_context, format_float_scientific_latex, draw_profiles, summary_legend_extra_width, latex_escape_text, format_profile_text
+from .plot_options import apply_plot_options
 
 
 def _shorten_log_message(message: object, max_length: int = 180) -> str:
@@ -143,6 +145,11 @@ def _close_logging_resources(resources):
             log_queue.join_thread()
         except Exception as exc:
             cleanup_errors.append(exc)
+    if listener is not None and hasattr(listener, '_root_logging_state'):
+        handlers, level = listener._root_logging_state
+        root_logger = logging.getLogger()
+        root_logger.handlers[:] = handlers
+        root_logger.setLevel(level)
     if cleanup_errors and sys.exc_info()[0] is None:
         warnings.warn(
             f'Failed to close one or more benchmark logging resources: '
@@ -595,6 +602,16 @@ def _benchmark(
     score_only : bool, optional
         Whether to only calculate the scores of the solvers
         without drawing the profiles and saving the data. Default is False.
+    plot_options : dict, optional
+        Native Matplotlib property mappings for ``figure``, ``axes``, ``xaxis``,
+        ``yaxis``, ``xlabel``, ``ylabel``, ``title``, ``text``, ``line`` and
+        ``legend``; also accepts ``tick_params`` and a local ``rc`` mapping.
+        For example, ``{'xlabel': {'fontsize': 18}, 'legend': {'fontsize': 14}}``.
+        Properties override package defaults for profiles, summaries and
+        histories, including on load, without changing scores or source data.
+        Legend entries remain solver-owned. Backend/interactive selection is
+        not a style setting. Values must support serialization for parallel
+        history rendering. Default is an empty mapping (existing style).
     report_path : str or pathlib.Path, optional
         Write a compact, controller-private ``eval_report`` JSON and an adjacent
         ``<report-stem>.plot_data.json`` numerical companion. Neither path may
@@ -996,7 +1013,8 @@ def _benchmark(
         raise ValueError(f'Unknown feature name: {feature_name}.')
 
     # Process the problem if provided.
-    if 'problem' in kwargs and kwargs['problem'] is not None:
+    has_single_problem = kwargs.get('problem') is not None
+    if has_single_problem:
         problem = kwargs.pop('problem')
 
     # Get the different options from the keyword arguments.
@@ -1037,7 +1055,7 @@ def _benchmark(
     )
 
     explicit_plib_options = problem_options.get(ProblemOption.PLIB_OPTIONS, {})
-    if explicit_plib_options and 'problem' in locals():
+    if explicit_plib_options and has_single_problem:
         raise ValueError(
             f'Option {ProblemOption.PLIB_OPTIONS} cannot be used with the '
             '`problem` option because no problem library is selected or loaded.'
@@ -1051,6 +1069,9 @@ def _benchmark(
     # Load the existing results if needed.
     # If 'load' is specified, we skip the solving phase and restore the results from disk.
     load_source = {}
+    # A user merit that fails after solving is re-raised only after the raw
+    # results are saved (see the solving loop below).
+    merit_failure = None
     if is_load:
         results_plibs, profile_options = load_results(
             problem_options, profile_options, _source=load_source,
@@ -1087,7 +1108,7 @@ def _benchmark(
     # Resolve plugin-owned options before creating output directories or logging
     # resources. Configuration errors therefore fail without leaving a partial
     # experiment behind.
-    if not is_load and 'problem' not in locals():
+    if not is_load and not has_single_problem:
         problem_options[ProblemOption.PLIB_OPTIONS] = _resolve_benchmark_plib_options(
             problem_options
         )
@@ -1142,6 +1163,11 @@ def _benchmark(
                          output_dir=None if profile_options[ProfileOption.SCORE_ONLY] else path_stamp,
                          input_route=feature_input, feature_stamp_origin=feature_stamp_origin)
         report.set_stage('numerical', 'running')
+        if not profile_options[ProfileOption.SCORE_ONLY] and not has_single_problem:
+            # Report collection is optional. Publish the initial request now,
+            # but defer numerical snapshots until the reload archive is closed:
+            # a JSON/ownership failure must not discard completed experiment data.
+            report.defer_publication()
 
     # Create directory to store history plots based on draw_hist_plots option.
     if profile_options[ProfileOption.DRAW_HIST_PLOTS] == 'none':
@@ -1162,7 +1188,7 @@ def _benchmark(
     else:
         path_readme_log = None
 
-    if not profile_options[ProfileOption.SCORE_ONLY] and 'problem' not in locals():
+    if not profile_options[ProfileOption.SCORE_ONLY] and not has_single_problem:
         # path_figs = path_log / 'profile_figs'
         # path_figs.mkdir(parents=True, exist_ok=True)
         # try:
@@ -1203,7 +1229,7 @@ def _benchmark(
             # the ordered effective stage specification (native values, callables
             # included), never a flat stage-option projection. Replay with
             # feature=refined['feature_specification'] and n_runs=refined['n_runs'].
-            options_refined['schema'] = 'options_refined-v2'
+            options_refined['schema'] = REFINED_SCHEMA
             if is_load:
                 # A load executes no solver. Its recipe is the archived
                 # experiment, recovered only from the source experiment's own
@@ -1264,7 +1290,7 @@ def _benchmark(
                 logger.warning(f'Error message: {_shorten_log_message(exc)}')
 
     # Create the directories for the performance profiles, data profiles, and log-ratio profiles.
-    if not profile_options[ProfileOption.SCORE_ONLY] and 'problem' not in locals():
+    if not profile_options[ProfileOption.SCORE_ONLY] and not has_single_problem:
         path_perf_hist = path_stamp / 'detailed_profiles' / 'perf_history-based'
         path_data_hist = path_stamp / 'detailed_profiles' / 'data_history-based'
         path_log_ratio_hist = path_stamp / 'detailed_profiles' / 'log-ratio_history-based'
@@ -1299,7 +1325,7 @@ def _benchmark(
     path_log_ratio_out_summary = path_stamp / 'log-ratio_out.pdf'
 
     # If a specific problem is provided to `problem_options`, we only solve this problem and generate the history plots for it.
-    if 'problem' in locals():
+    if has_single_problem:
         profile_options_log, _ = _with_solver_log_names(profile_options, len(problem.name))
         if report is not None:
             report.selection('user', [problem.name])
@@ -1347,15 +1373,24 @@ def _benchmark(
             for i_run in range(local_n_runs):
                 merit_mins[i_run] = np.nanmin(merit_history[:, i_run, :])
                 merit_mins[i_run] = np.nanmin([merit_mins[i_run], merit_init[i_run]])
+            merit_mins = apply_reference_targets(
+                {'reference_records': [result['reference_records']],
+                 'maxcv_inits': result['maxcv_init'][None, :]},
+                merit_mins[None, :], merit_fun)[0]
             # Since we will not compute the profiles, we set `solver_scores`
             # to be the relative decreases in the objective function value
             # (per run, then averaged across runs).
             solver_merit_mins = np.nanmin(merit_history, axis=2)  # (n_solvers, n_runs)
             solver_scores_runs = np.zeros((local_n_solvers, local_n_runs))
+            references = json.loads(result['reference_records'])
             for i_run in range(local_n_runs):
                 denom = max(merit_init[i_run] - merit_mins[i_run], np.finfo(float).eps)
                 solver_scores_runs[:, i_run] = (merit_init[i_run] - solver_merit_mins[:, i_run]) / denom
                 solver_scores_runs[:, i_run] = np.maximum(solver_scores_runs[:, i_run], 0)
+                if references[i_run] is not None:
+                    # A selected target can be exceeded; relative decrease is
+                    # then saturated, not an unbounded score above one.
+                    solver_scores_runs[:, i_run] = np.minimum(solver_scores_runs[:, i_run], 1)
             solver_scores = np.mean(solver_scores_runs, axis=1)
         else:
             solver_scores = np.zeros(n_solvers)
@@ -1415,6 +1450,7 @@ def _benchmark(
         # We will solve all the problems from all the problem libraries that user specified in the `problem_options`.
         plibs = problem_options[ProblemOption.PLIBS]
         results_plibs = []
+        merit_failure = None
         for i, plib in enumerate(plibs):
             if not profile_options[ProfileOption.SILENT]:
                 logger.info('')
@@ -1444,16 +1480,24 @@ def _benchmark(
             merit_fun = profile_options[ProfileOption.MERIT_FUN]
             if report is not None:
                 report.set_stage('scoring', 'running')
-            try:
-                merit_histories = compute_merit_values(merit_fun, results_plib['fun_histories'], results_plib['maxcv_histories'], results_plib['maxcv_inits'])
-                merit_outs = compute_merit_values(merit_fun, results_plib['fun_outs'], results_plib['maxcv_outs'], results_plib['maxcv_inits'])
-                merit_inits = compute_merit_values(merit_fun, results_plib['fun_inits'], results_plib['maxcv_inits'], results_plib['maxcv_inits'])
-            except Exception as exc:
-                logger.error(f'Error occurred while calculating the merit values. Please check the merit function. Error message: {shorten_log_message(exc)}')
-                raise exc
-            results_plib['merit_histories'] = merit_histories
-            results_plib['merit_outs'] = merit_outs
-            results_plib['merit_inits'] = merit_inits
+            # After a merit failure, the requested solves (the plain baseline
+            # and the remaining libraries) still finish without merits, and the
+            # complete raw archive below is saved before the original error is
+            # re-raised: a corrected merit_fun then scores the whole experiment
+            # on load. Merits of an archive without cached merits are computed
+            # on load.
+            if merit_failure is None:
+                try:
+                    merit_histories = compute_merit_values(merit_fun, results_plib['fun_histories'], results_plib['maxcv_histories'], results_plib['maxcv_inits'])
+                    merit_outs = compute_merit_values(merit_fun, results_plib['fun_outs'], results_plib['maxcv_outs'], results_plib['maxcv_inits'])
+                    merit_inits = compute_merit_values(merit_fun, results_plib['fun_inits'], results_plib['maxcv_inits'], results_plib['maxcv_inits'])
+                except Exception as exc:
+                    logger.error(f'Error occurred while calculating the merit values. Please check the merit function. Error message: {shorten_log_message(exc)}')
+                    merit_failure = exc
+                else:
+                    results_plib['merit_histories'] = merit_histories
+                    results_plib['merit_outs'] = merit_outs
+                    results_plib['merit_inits'] = merit_inits
 
             # Run the 'plain' feature if run_plain is true.
             if profile_options[ProfileOption.RUN_PLAIN]:
@@ -1472,13 +1516,18 @@ def _benchmark(
                     if not profile_options[ProfileOption.SILENT]:
                         logger.warning(f'No plain baseline was obtained from "{plib}"; keeping the featured results without a plain reference.')
                 else:
-                    try:
-                        results_plib_plain['merit_histories'] = compute_merit_values(merit_fun, results_plib_plain['fun_histories'], results_plib_plain['maxcv_histories'], results_plib_plain['maxcv_inits'])
-                        results_plib_plain['merit_outs'] = compute_merit_values(merit_fun, results_plib_plain['fun_outs'], results_plib_plain['maxcv_outs'], results_plib_plain['maxcv_inits'])
-                        results_plib_plain['merit_inits'] = compute_merit_values(merit_fun, results_plib_plain['fun_inits'], results_plib_plain['maxcv_inits'], results_plib_plain['maxcv_inits'])
-                    except Exception as exc:
-                        logger.error(f'Error occurred while calculating the merit values for the "plain" feature. Please check the merit function. Error message: {shorten_log_message(exc)}')
-                        raise exc
+                    if merit_failure is None:
+                        try:
+                            plain_merits = {
+                                'merit_histories': compute_merit_values(merit_fun, results_plib_plain['fun_histories'], results_plib_plain['maxcv_histories'], results_plib_plain['maxcv_inits']),
+                                'merit_outs': compute_merit_values(merit_fun, results_plib_plain['fun_outs'], results_plib_plain['maxcv_outs'], results_plib_plain['maxcv_inits']),
+                                'merit_inits': compute_merit_values(merit_fun, results_plib_plain['fun_inits'], results_plib_plain['maxcv_inits'], results_plib_plain['maxcv_inits']),
+                            }
+                        except Exception as exc:
+                            logger.error(f'Error occurred while calculating the merit values for the "plain" feature. Please check the merit function. Error message: {shorten_log_message(exc)}')
+                            merit_failure = exc
+                        else:
+                            results_plib_plain.update(plain_merits)
                     # Keep the optional baseline nested under its own library.
                     results_plib['results_plib_plain'] = results_plib_plain
 
@@ -1520,7 +1569,8 @@ def _benchmark(
                 _close_logging_resources(logging_resources)
             return solver_scores, None, None
 
-    # Preserve completed numerical results before sequential history rendering.
+    # Preserve completed numerical results before report publication and
+    # sequential history rendering.
     # On load, these are the filtered/recomputed results for the new output,
     # not the original input file. Parallel history still runs during solving.
     if report is not None:
@@ -1553,6 +1603,19 @@ def _benchmark(
             raise RuntimeError(
                 f'Failed to save the experiment in {path_log}: {exc}'
             ) from exc
+
+    if report is not None:
+        # Kept outside the data-save handler: a report failure is not a failed
+        # HDF5 save, and the completed archive remains publicly reloadable.
+        report.resume_publication()
+
+    if merit_failure is not None:
+        # The raw archive (if requested) is saved; no profile or score is
+        # produced from a failed merit. The benchmark wrapper records the
+        # original exception in the report.
+        if not profile_options[ProfileOption.SILENT] and not profile_options[ProfileOption.SCORE_ONLY]:
+            logger.error(f'The solver results were saved in {path_log}. Reload them with a corrected merit_fun.')
+        raise merit_failure
 
     # Draw history plots sequentially if draw_hist_plots is set to 'sequential'.
     # On the load path this loop is the only drawing mechanism (parallel drawing
@@ -1624,6 +1687,39 @@ def _benchmark(
     if not profile_options[ProfileOption.SCORE_ONLY]:
         _append_quantized_truth_note(feature, is_load, results_plibs,
                                      path_report, path_readme_log)
+
+    solver_scores, profile_scores, curves = _build_profiles(
+        results_plibs, profile_options, profile_context, solver_names, feature,
+        report, logger, path_stamp, path_readme_log, stamp, curves,
+    )
+
+    # Close the listener of the logger.
+    if not profile_options[ProfileOption.SCORE_ONLY]:
+        _close_logging_resources(logging_resources)
+
+    return solver_scores, profile_scores, curves
+
+
+def _build_profiles(
+    results_plibs, profile_options, profile_context, solver_names, feature,
+    report, logger, path_stamp, path_readme_log, stamp, curves,
+):
+    """Score collected results and render their profile artifacts."""
+    path_log = path_stamp / 'test_log'
+    path_report = path_log / 'report.txt'
+    path_readme_feature = path_stamp / 'README.txt'
+    path_perf_hist = path_stamp / 'detailed_profiles' / 'perf_history-based'
+    path_perf_hist_summary = path_stamp / 'perf_hist.pdf'
+    path_perf_out = path_stamp / 'detailed_profiles' / 'perf_output-based'
+    path_perf_out_summary = path_stamp / 'perf_out.pdf'
+    path_data_hist = path_stamp / 'detailed_profiles' / 'data_history-based'
+    path_data_hist_summary = path_stamp / 'data_hist.pdf'
+    path_data_out = path_stamp / 'detailed_profiles' / 'data_output-based'
+    path_data_out_summary = path_stamp / 'data_out.pdf'
+    path_log_ratio_hist = path_stamp / 'detailed_profiles' / 'log-ratio_history-based'
+    path_log_ratio_hist_summary = path_stamp / 'log-ratio_hist.pdf'
+    path_log_ratio_out = path_stamp / 'detailed_profiles' / 'log-ratio_output-based'
+    path_log_ratio_out_summary = path_stamp / 'log-ratio_out.pdf'
 
     # Process the results from all the problem libraries.
     if report is not None:
@@ -2073,10 +2169,11 @@ def _benchmark(
         # Save the summary for the current feature.
         # Use rc_context to ensure LaTeX rendering is applied to the title
         with matplotlib.rc_context(profile_context):
-            fig_summary_hist.supylabel('History-based profiles', fontsize='xx-large', horizontalalignment='right')
+            fig_summary_hist.supylabel('History-based profiles', fontsize='xx-large', horizontalalignment='right').set_gid('optiprofiler-ylabel')
             if fig_summary_out is not None:
-                fig_summary_out.supylabel('Output-based profiles', fontsize='xx-large', horizontalalignment='right')
-            fig_summary.suptitle(_format_feature_title(feature.name, profile_context), fontsize='xx-large', verticalalignment='bottom')
+                fig_summary_out.supylabel('Output-based profiles', fontsize='xx-large', horizontalalignment='right').set_gid('optiprofiler-ylabel')
+            fig_summary.suptitle(_format_feature_title(feature.name, profile_context), fontsize='xx-large', verticalalignment='bottom').set_gid('optiprofiler-title')
+            apply_plot_options(fig_summary, profile_options.get(ProfileOption.PLOT_OPTIONS, {}))
             path_summary = path_stamp / f'summary_{stamp}.pdf'
             _report_export(report, fig_summary.savefig, path_summary, bbox_inches='tight')
 
@@ -2171,10 +2268,6 @@ def _benchmark(
             logger.info(f'{path_readme_feature}')
             logger.info('')
             logger.info('=' * 70)
-
-    # Close the listener of the logger.
-    if is_saving:
-        _close_logging_resources(logging_resources)
 
     return solver_scores, profile_scores, curves
 
@@ -2341,10 +2434,20 @@ def _solve_all_problems(solvers, plib, feature, plan, problem_options, profile_o
     # Determine whether to use sequential mode or parallel mode.
     sequential_mode = profile_options[ProfileOption.N_JOBS] == 1 or os.cpu_count() == 1
 
+    if not sequential_mode and not worker_main_available():
+        # Fresh processes cannot import notebook/REPL-local solver definitions.
+        # Decide before any task executes; never replay a failed parallel run.
+        sequential_mode = True
+        logger.info(
+            'Falling back to sequential mode because worker processes cannot '
+            'import this entry point. To run in parallel, use a '
+            'Python script with an if __name__ == "__main__" guard.'
+        )
+
     # Fall back to sequential mode if the arguments cannot be pickled (e.g.,
     # when the user passes lambda functions as solvers or feature modifiers).
-    # Use ForkingPickler (same as multiprocessing.Pool) — plain pickle.dumps can
-    # disagree and let unpicklable tasks reach starmap, which then crashes.
+    # Use the executor's ForkingPickler reducers, plus entry-point validation:
+    # plain pickle.dumps can accept globals that a fresh worker cannot import.
     if not sequential_mode:
         try:
             sample_arg = (
@@ -2358,14 +2461,14 @@ def _solve_all_problems(solvers, plib, feature, plan, problem_options, profile_o
                 library_ref,
                 library_options,
             )
-            ForkingPickler.dumps(sample_arg)
-        except Exception:
+            WorkerArgumentPickler.dumps(sample_arg)
+        except Exception as exc:
             sequential_mode = True
             logger.info(
                 'Falling back to sequential mode because worker processes cannot '
-                'serialize the benchmark arguments (e.g., lambda functions in '
-                'solvers, feature modifiers, or profile options). Use top-level '
-                'functions (def ...) instead of lambdas to enable parallel execution.'
+                'serialize or import the benchmark arguments: '
+                f'{shorten_log_message(exc)} Use top-level functions in an '
+                'importable module to enable parallel execution.'
             )
 
     # Solve all problems.
@@ -2374,9 +2477,11 @@ def _solve_all_problems(solvers, plib, feature, plan, problem_options, profile_o
         results = map(lambda arg: _solve_one_problem_wrapper(*arg), args)
     else:
         logger.info('Entering the parallel section.')
-        with Pool(profile_options[ProfileOption.N_JOBS], initializer=setup_worker_logging,
-        initargs=(log_queue,)) as p:
-            results = p.starmap(_solve_one_problem_wrapper, args)
+        results = run_tasks(_solve_one_problem_wrapper, args,
+                            profile_options[ProfileOption.N_JOBS],
+                            _initialize_problem_library_worker,
+                            (library_ref, setup_worker_logging, (log_queue,),
+                             _problem_library_worker_package(library_ref)))
         logger.info('Leaving the parallel section.')
 
     # Keep load failures observable before the legacy aggregate discards them.
@@ -2399,7 +2504,7 @@ def _solve_all_problems(solvers, plib, feature, plan, problem_options, profile_o
     n_problems = len(results)
 
     if n_problems == 0:
-        logger.info('All problems from "{plib}" are not solved successfully.')
+        logger.info(f'All problems from "{plib}" are not solved successfully.')
         return None
 
     # Process the results.
@@ -2492,6 +2597,8 @@ def _solve_all_problems(solvers, plib, feature, plan, problem_options, profile_o
     results['solvers_successes'] = solvers_successes
     results['solver_abnormal_terminations'] = solver_abnormal_terminations
     results['solver_output_fallbacks'] = solver_output_fallbacks
+    results['reference_records'] = [r['reference_records'] for r in completed_results]
+    results['reference_fallback_reasons'] = [r['reference_fallback_reasons'] for r in completed_results]
 
     return results
 
@@ -2515,9 +2622,12 @@ def _solve_one_problem_wrapper(solvers, feature, plan, problem_name, len_problem
             problem_name,
             _copy_problem_library_options(library_options),
         )
-    except BaseException as exc:
+    except Exception as exc:
         if not profile_options[ProfileOption.SILENT]:
-            logger.warning(f'Failed to load    {problem_name:<{len_problem_names}} from "{plib}".')
+            # The shortened cause makes provider failures diagnosable from the
+            # log; the report keeps only the exception type (bounded schema).
+            logger.warning(f'Failed to load    {problem_name:<{len_problem_names}} from "{plib}". '
+                           f'Error message: {shorten_log_message(exc)}')
         if profile_options.get('_eval_report_enabled', False):
             return {'_eval_report_failure': {'problem': problem_name,
                                             'exception_type': type(exc).__name__}}
@@ -2571,7 +2681,7 @@ def _save_problem_history_pdf(pdf_path, mode, problem_name, problem_type, proble
             title_text = _format_problem_feature_title(problem_name, profile_options[ProfileOption.FEATURE_STAMP], profile_context)
             title_fontsize = _history_title_fontsize(title_text, default_width)
             if mode == 'combined':
-                fig_summary.suptitle(title_text, fontsize=title_fontsize)
+                fig_summary.suptitle(title_text, fontsize=title_fontsize).set_gid('optiprofiler-title')
 
             axs_summary = []
             for i_row in range(n_rows):
@@ -2588,11 +2698,16 @@ def _save_problem_history_pdf(pdf_path, mode, problem_name, problem_type, proble
                           solver_names, cell_axs_summary, is_cum, problem_type, problem_dim, n_eval,
                           profile_options, default_height, show_xlabel=i_row == n_rows - 1)
 
+            if mode != 'combined':
+                axs_summary[n_cols // 2].set_title(title_text, fontsize=title_fontsize, pad=8)
             if mode == 'combined':
                 fig_summary.tight_layout(rect=[0.055, 0.04, 0.98, 0.97], h_pad=2.0, w_pad=1.5)
             else:
-                axs_summary[n_cols // 2].set_title(title_text, fontsize=title_fontsize, pad=8)
                 fig_summary.tight_layout(rect=[0.055, 0.055, 0.98, 0.98], h_pad=1.2, w_pad=1.5)
+
+            # User geometry must win over the package's automatic layout,
+            # just as it does for single profiles and the combined summary.
+            apply_plot_options(fig_summary, profile_options.get(ProfileOption.PLOT_OPTIONS, {}))
 
             fig_summary.savefig(pdf_path, bbox_inches='tight')
         finally:
@@ -2679,6 +2794,9 @@ def _solve_one_problem(solvers, problem, feature, plan, problem_name, len_proble
     # ``solveOneProblem.m`` (lines 29-30, 63-64).
     fun_inits = np.full(n_runs, np.nan)
     maxcv_inits = np.full(n_runs, np.nan)
+    reference_records = [None] * n_runs
+    reference_fallback_reasons = [None] * n_runs
+    preflighted_runs = set()
     computation_time = np.full((n_solvers, n_runs), np.nan)
     solvers_success = np.full((n_solvers, n_runs), False)
     # ``solver_abnormal_terminations[i_solver, i_run]`` is True when the
@@ -2727,6 +2845,17 @@ def _solve_one_problem(solvers, problem, feature, plan, problem_name, len_proble
             # aligned with MATLAB's ``solveOneProblem.m``.
             fun_inits[i_run] = featured_problem.fun_init
             maxcv_inits[i_run] = featured_problem.maxcv_init
+            reference = featured_problem.reference
+            reference_records[i_run] = None if reference is None else reference.as_dict()
+            reference_fallback_reasons[i_run] = featured_problem._reference_fallback_reason
+            # Preflight: scoring converts each primary record with this merit and
+            # this run's maxcv_init, so a non-finite target is already certain
+            # here. Fail before the run's first solver call rather than after
+            # every solve. Plain-baseline records are never targets.
+            if plan.role == PRIMARY and reference is not None and i_run not in preflighted_runs:
+                preflighted_runs.add(i_run)
+                reference_target(reference, profile_options[ProfileOption.MERIT_FUN],
+                                 maxcv_inits[i_run], problem_name, i_run + 1)
 
             # Define a function to call the solver.
             def call_solver():
@@ -2891,6 +3020,13 @@ def _solve_one_problem(solvers, problem, feature, plan, problem_name, len_proble
                             f'(run {i_run + 1}/{real_n_runs[i_solver]}): {_shorten_log_message(exc)}'
                         )
             n_eval[i_solver, i_run] = featured_problem.n_eval_fun
+            # A single misplaced constraint value can broadcast over several
+            # objective slots and falsely mark unavailable evaluations feasible.
+            # Histories describe paired observations; never pad or broadcast a
+            # malformed recorder result into the scoring arrays.
+            if (len(featured_problem.fun_hist) != n_eval[i_solver, i_run]
+                    or len(featured_problem.maxcv_hist) != n_eval[i_solver, i_run]):
+                raise RuntimeError('Objective and constraint histories are not aligned.')
             fun_history[i_solver, i_run, :n_eval[i_solver, i_run]] = featured_problem.fun_hist[:n_eval[i_solver, i_run]]
             maxcv_history[i_solver, i_run, :n_eval[i_solver, i_run]] = featured_problem.maxcv_hist[:n_eval[i_solver, i_run]]
             if n_eval[i_solver, i_run] > 0:
@@ -2921,6 +3057,8 @@ def _solve_one_problem(solvers, problem, feature, plan, problem_name, len_proble
         for i_run in range(1, n_runs):
             fun_inits[i_run] = fun_inits[0]
             maxcv_inits[i_run] = maxcv_inits[0]
+            reference_records[i_run] = reference_records[0]
+            reference_fallback_reasons[i_run] = reference_fallback_reasons[0]
 
     # Return the result.
     result = {
@@ -2930,6 +3068,8 @@ def _solve_one_problem(solvers, problem, feature, plan, problem_name, len_proble
         'maxcv_out': maxcv_out,
         'fun_init': fun_inits,
         'maxcv_init': maxcv_inits,
+        'reference_records': json.dumps(reference_records, allow_nan=False),
+        'reference_fallback_reasons': json.dumps(reference_fallback_reasons, allow_nan=False),
         'n_eval': n_eval,
         'problem_name': problem_name,
         'problem_type': problem_type,

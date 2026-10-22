@@ -11,3 +11,5 @@ Optimization problems
     Problem
     ProblemReference
     FeaturedProblem
+
+.. include:: ../user/reference_targets.rst

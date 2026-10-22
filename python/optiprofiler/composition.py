@@ -29,7 +29,8 @@ confused with the problem's *reference fact* (``Problem.reference``), which is
 author/provider metadata. Every view carries that fact forward only if its
 stage retains it (:func:`optiprofiler.feature_definitions.retains_reference`);
 otherwise the view, and everything after it, reports it as unknown. The fact
-is retained unchanged or dropped: it holds no point, so nothing is transported.
+is retained unchanged or dropped. Its optional x_ref always stays in the
+original problem's coordinates; scoring never needs to transport that metadata.
 
 Exactly one recorder, :class:`ComposedFeaturedProblem`, owns the evaluation
 budget, the histories, the cached last values and the termination rule. The
@@ -67,12 +68,15 @@ keep the legacy run-seed streams.
 import copy
 
 import numpy as np
+from .recording import reference_maxcv_or_nan
 
 from .experiment import STRATEGY_COMPOSED
-from .feature_definitions import STAGE_CODES, retains_reference
+from .feature_definitions import STAGE_CODES
 from .feature_definitions import SEED_POLICY_COMPOSED as SEED_POLICY
-from .opclasses import (Feature, FeatureName, FeatureOption, FeaturedProblem, Problem, _StageRuntime,
-                        _process_1d_array, _validate_max_eval, _validate_seed)
+from .opclasses import (Feature, FeatureOption, FeaturedProblem, Problem, _StageRuntime,
+                        _begin_featured_query,
+                        _process_1d_array, _propagated_reference,
+                        _validate_max_eval, _validate_seed)
 from .utils import get_logger, shorten_log_message
 
 # Frozen numeric stage codes used in seed derivation. Never renumber; append
@@ -191,8 +195,12 @@ class ProblemView(Problem):
         # exactly when every stage is. Only the stage name and its option
         # names are read; no callback runs for this.
         self._reference = None
-        if stage is None or retains_reference(stage.name, stage.options):
+        self._reference_fallback_reason = getattr(predecessor, '_reference_fallback_reason', None)
+        if stage is None:
             self._reference = predecessor.reference
+        else:
+            self._reference, self._reference_fallback_reason = _propagated_reference(
+                predecessor.reference, [(stage.name, stage.options)], self._reference_fallback_reason)
 
     # Problem-facing API: the observed channel. Input is normalized exactly
     # as ``Problem.fun`` does (a list is a legal point for a Problem), so a
@@ -285,6 +293,7 @@ class RootView(ProblemView):
         self._fun = self._cub = self._ceq = None
         self._grad = self._hess = self._jcub = self._jceq = self._hcub = self._hceq = None
         self._reference = problem.reference
+        self._reference_fallback_reason = getattr(problem, '_reference_fallback_reason', None)
 
     def observed_fun(self, x):
         return self._problem.fun(x)
@@ -819,6 +828,7 @@ class ComposedFeaturedProblem(FeaturedProblem):
         self._cub_hist = []
         self._ceq_hist = []
         self._maxcv_hist = []
+        self._reference_history_warned = False
         self._last_fun = np.nan
         self._last_cub = np.nan
         self._last_ceq = np.nan
@@ -849,6 +859,7 @@ class ComposedFeaturedProblem(FeaturedProblem):
         self._grad = self._hess = self._jcub = self._jceq = self._hcub = self._hceq = None
         # The reference fact that survived every stage, or None (unknown).
         self._reference = view.reference
+        self._reference_fallback_reason = view._reference_fallback_reason
 
         self._fun_init, self._maxcv_init = self._evaluate_truth(self._x0)
 
@@ -867,26 +878,19 @@ class ComposedFeaturedProblem(FeaturedProblem):
         return self._final.reference_fun(x), self._final.reference_maxcv(x)
 
     def fun(self, x):
-        if self._real_n_eval_fun >= 2 * self._max_eval:
-            raise StopIteration(f'The number of the objective function evaluations has reached {2 * self._max_eval} (two times the maximum function evaluations).')
-        self._real_n_eval_fun += 1
-        if self.n_eval_fun >= self._max_eval:
+        if not _begin_featured_query(self, 'fun'):
             return self._last_fun
         x = self._point(x, 'fun')
         f = self._final.observed_fun(x)
         self._last_fun = f
         self._fun_hist.append(self._final.reference_fun(x))
-        try:
-            self._maxcv_hist.append(self._final.reference_maxcv(x))
-        except Exception:
-            self._maxcv_hist.append(np.nan)
+        # Reserve the paired slot before a diagnostic can become an exception.
+        self._maxcv_hist.append(np.nan)
+        self._maxcv_hist[-1] = reference_maxcv_or_nan(self._final.reference_maxcv, x, self)
         return f
 
     def cub(self, x, record_hist=True):
-        if self._real_n_eval_cub >= 2 * self._max_eval:
-            raise StopIteration(f'The number of the nonlinear inequality constraint evaluations has reached {2 * self._max_eval} (two times the maximum function evaluations).')
-        self._real_n_eval_cub += 1
-        if self.n_eval_cub >= self._max_eval:
+        if not _begin_featured_query(self, 'cub'):
             return self._last_cub
         x = self._point(x, 'cub')
         c = self._final.observed_cub(x)
@@ -896,10 +900,7 @@ class ComposedFeaturedProblem(FeaturedProblem):
         return c
 
     def ceq(self, x, record_hist=True):
-        if self._real_n_eval_ceq >= 2 * self._max_eval:
-            raise StopIteration(f'The number of the nonlinear equality constraint evaluations has reached {2 * self._max_eval} (two times the maximum function evaluations).')
-        self._real_n_eval_ceq += 1
-        if self.n_eval_ceq >= self._max_eval:
+        if not _begin_featured_query(self, 'ceq'):
             return self._last_ceq
         x = self._point(x, 'ceq')
         c = self._final.observed_ceq(x)
@@ -907,6 +908,9 @@ class ComposedFeaturedProblem(FeaturedProblem):
         if record_hist:
             self._ceq_hist.append(self._final.reference_ceq(x))
         return c
+
+    def _maxcv(self, x):
+        return self._final.reference_maxcv_detailed(self._point(x, '_maxcv'))
 
     def maxcv(self, x):
         return self._final.reference_maxcv(self._point(x, 'maxcv'))

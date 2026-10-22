@@ -1,4 +1,6 @@
 import numpy as np
+from .recording import reference_maxcv_or_nan
+from .validation import normalize_integer
 from scipy.linalg import qr
 import copyreg
 import re
@@ -10,7 +12,6 @@ from numpy.linalg import lstsq
 from scipy.optimize import Bounds, LinearConstraint, NonlinearConstraint, minimize
 from scipy import __version__ as _SCIPY_VERSION
 
-import warnings
 from .utils import FeatureName, FeatureOption, get_logger, shorten_log_message
 from .feature_definitions import (_SPEC_TYPE_MESSAGE, Declaration, StageRecord, fold_option_names, normalize_entries,
                                   normalize_shorthand, reject_experiment_options, reject_flat_stage_options)
@@ -1214,10 +1215,7 @@ class _StageRuntime:
         if seed is not None:
             if np.isnan(seed) or np.isinf(seed):
                 seed = 0
-            if isinstance(seed, (float, np.floating)) and float(seed).is_integer():
-                seed = int(seed)
-            if isinstance(seed, np.integer):
-                seed = int(seed)
+            seed = normalize_integer(seed)
             if not isinstance(seed, int):
                 raise TypeError('The argument seed must be an integer.')
             if seed < 0:
@@ -1537,8 +1535,13 @@ class Feature:
 # an instance, so neither a subclass nor an assignment to
 # ``ProblemReference.MAPPINGS`` can add a mapping. A changed reading of the
 # scalar gets a new token here, never a new meaning for an old one.
-_REFERENCE_KINDS = ('lower_bound', 'optimum', 'best_known', 'target')
-_REFERENCE_MAPPINGS = ('feasible_objective/1',)
+_REFERENCE_KINDS = ('feasible', 'merit')
+# Read earlier provider records and saved experiments without keeping their
+# four-way claim taxonomy in the convergence API. These aliases do not add
+# new scoring modes: every record still supplies raw objective/violation.
+_REFERENCE_KIND_ALIASES = {'lower_bound': 'feasible', 'optimum': 'feasible',
+                           'best_known': 'merit', 'target': 'merit'}
+_REFERENCE_MAPPINGS = ('feasible_objective/1', 'objective_violation/1')
 
 
 def _reference_text(value, key):
@@ -1554,9 +1557,9 @@ def _reference_text(value, key):
     return value if type(value) is str else str.__str__(value)
 
 
-def _reference_merit(value):
+def _reference_merit(value, field='fun'):
     """
-    The ``merit`` of a reference record as a finite ``float``.
+    One raw scalar field of a reference record as a finite ``float``.
 
     Booleans, strings, arrays with a dimension, complex and object values are
     rejected with ``TypeError``; NaN, infinities and numbers that a float
@@ -1564,7 +1567,7 @@ def _reference_merit(value):
     therefore exactly the scalar that was given: nothing is rounded, clipped
     or replaced.
     """
-    message = 'The field `merit` of a problem reference must be a real scalar.'
+    message = f'The field `{field}` of a problem reference must be a real scalar.'
     if isinstance(value, (bool, np.bool_, str, bytes)):
         raise TypeError(message)
     try:
@@ -1575,12 +1578,12 @@ def _reference_merit(value):
         raise TypeError(message)
     merit = float(array)
     if not np.isfinite(merit):
-        raise ValueError('The field `merit` of a problem reference must be finite.')
+        raise ValueError(f'The field `{field}` of a problem reference must be finite.')
     # An integer beyond 2**53 or an extended-precision value would be stored
     # as a different number; that is a silent reinterpretation, so reject it.
     exact = int(array) == int(merit) if array.dtype.kind in 'iu' else bool(array.dtype.type(merit) == array)
     if not exact:
-        raise ValueError('The field `merit` of a problem reference cannot be represented exactly as a float.')
+        raise ValueError(f'The field `{field}` of a problem reference cannot be represented exactly as a float.')
     return merit
 
 
@@ -1606,66 +1609,47 @@ def _restore_problem_reference(record):
 
 class ProblemReference:
     """
-    Feasible reference fact of a `Problem`: one scalar stated by the author
-    or provider of the problem, with its kind, its provenance and the mapping
-    that fixes how the scalar is read.
+    An author/provider reference consisting of raw objective and violation.
 
-    The record has exactly four fields and holds no point, no callable and no
-    constraint violation.
+    The record holds ``fun``, ``maxcv``, ``kind`` and ``source``;
+    an optional ``x_ref`` witness may accompany them. Standard profiles use the effective
+    featured reference as their convergence target. If no reference survives
+    the features, they keep the V1 solver-history minimum.
 
     Parameters
     ----------
-    merit : float
-        The reference value. Must be a finite real scalar.
-    kind : {'lower_bound', 'optimum', 'best_known', 'target'}
-        The claim carried by ``merit``. Every kind is a claim over the
-        *feasible* points of the problem:
-
-        - ``'lower_bound'``: ``f(x) >= merit`` for every feasible ``x``.
-        - ``'optimum'``: ``merit`` is the exact optimal value of the objective
-          over the feasible set (an attained lower bound).
-        - ``'best_known'``: ``merit`` is the objective value of a known
-          feasible point, hence an upper bound on the optimum.
-        - ``'target'``: ``merit`` is a level of the objective that the author
-          chose as a target for feasible points; no mathematical claim.
+    fun : float
+        Finite raw objective value, not a precomputed custom merit.
+    maxcv : float, optional
+        Finite nonnegative total constraint violation; default is zero.
+    kind : {'feasible', 'merit'}
+        ``feasible`` supplies a feasible-objective target and requires
+        ``maxcv=0``. ``merit`` may specify nonzero violation; the user is
+        responsible for choosing a target appropriate to the current merit
+        function. Neither kind asks the engine to prove optimality.
     source : str
         Non-empty provenance of the fact (for example ``'author'`` or a
         citation). A reference without provenance is rejected.
-    mapping : str
-        Token of the closed registry `ProblemReference.MAPPINGS` that fixes
-        how ``merit`` is read. The only token is ``'feasible_objective/1'``:
-        ``merit`` is an objective value over feasible points, so it equals the
-        merit of a feasible point under every merit function with the
-        *feasible identity* ``merit_fun(f, 0, maxcv_init) == f`` for every
-        ``maxcv_init``. The default merit function has this identity. A
-        mapping is never a callable and users cannot register one: the class
-        cannot be subclassed and validation reads a private literal. An
-        unknown token is rejected, not guessed.
+    x_ref : array_like, optional
+        Finite reference point in the original problem's coordinates. It is
+        source metadata: features never transport it or evaluate an oracle
+        merely to maintain it. It is not a featured initial point.
 
     Notes
     -----
-    What the record is not:
+    The target is recomputed as ``merit_fun(fun, maxcv, maxcv_init)`` for each
+    run, including on load with a different merit function. A custom merit
+    need not preserve objective ordering. Run values below the
+    reference are never clamped. Validation calls no objective or constraint.
 
-    - It is not a run-history minimum and not the dynamic cohort minimum of a
-      benchmark. The profile baseline is the least merit observed over the
-      selected solvers, runs and evaluations; it changes with the cohort, is
-      recomputed on every load and is never stored in a problem. Nothing
-      derives a reference from solver output.
-    - It is not a floor for run merits. On a constrained problem the merit of
-      a run may be *below* the reference, because a merit function tolerates
-      or penalizes small violations: an infeasible point can have a lower
-      objective value than every feasible point. Such values are legitimate
-      and are never clamped to the reference.
-    - It is stated for feasible points only. Before a consumer compares run
-      merits with the record under a custom ``merit_fun``, that function must
-      be known to preserve the feasible identity above; otherwise the scalar
-      and the run merits are not in the same space.
-
-    The record is immutable and validated structurally. Validation never
-    evaluates the objective or the constraints, so a reference adds no
-    callback call to building or loading a problem, and a malformed record is
-    rejected before any callback of the problem is touched. An omitted
-    reference means unknown, not a bound at the initial point.
+    Compatibility: the optional fourth positional argument ``mapping``
+    accepts the earlier
+    ``feasible_objective/1`` and ``objective_violation/1`` tokens only. It is
+    not a feature callback or a new reference mode. New records omit it;
+    normalized records contain ``fun``, ``maxcv``, ``kind``, ``source`` and
+    optional ``x_ref``. Earlier kinds ``lower_bound``/``optimum`` normalize to
+    ``feasible``; ``best_known``/``target`` normalize to ``merit``. Unknown
+    tokens and callables are rejected rather than assigned a guessed meaning.
 
     See Also
     --------
@@ -1673,28 +1657,31 @@ class ProblemReference:
     FeaturedProblem : Which features retain the reference.
     """
 
-    #: The four kinds; each is a claim over feasible points.
+    #: Kinds describing the raw fact, not the implicit cohort minimum.
     KINDS = _REFERENCE_KINDS
-    #: Closed registry of mapping tokens, for information. A token names one
-    #: fixed, versioned reading of ``merit``. Validation does not read this
-    #: attribute, so assigning to it does not extend the registry.
+    #: Legacy mapping tokens, retained only for compatibility. New records do
+    #: not emit them; assigning to this attribute does not extend validation.
     MAPPINGS = _REFERENCE_MAPPINGS
     #: The fields of the record, in order.
-    FIELDS = ('merit', 'kind', 'source', 'mapping')
-    # Fields of the superseded record layout (objective value, violation and
-    # point). They are named so that the rejection can say why.
-    _LEGACY_FIELDS = ('fun', 'maxcv', 'point')
+    FIELDS = ('fun', 'maxcv', 'kind', 'source')
+    # The superseded draft stored a point. Name it for a clear rejection;
+    # its coordinate convention was not the original-coordinate x_ref contract.
+    _LEGACY_FIELDS = ('point',)
 
-    __slots__ = ('_merit', '_kind', '_source', '_mapping')
+    __slots__ = ('_fun', '_maxcv', '_kind', '_source', '_mapping', '_x_ref')
 
     def __init_subclass__(cls, **kwargs):
         # A subclass could redefine the registry, a property or the
         # validation, which would be a user-defined mapping by another name.
         raise TypeError('ProblemReference cannot be subclassed: the record and its mapping registry are closed.')
 
-    def __init__(self, merit, kind, source, mapping):
-        merit = _reference_merit(merit)
+    def __init__(self, fun, kind, source, mapping=None, *, maxcv=0.0, x_ref=None):
+        fun = _reference_merit(fun)
+        maxcv = _reference_merit(maxcv, 'maxcv')
+        if maxcv < 0:
+            raise ValueError('The field `maxcv` of a problem reference must be nonnegative.')
         kind = _reference_text(kind, 'kind')
+        kind = _REFERENCE_KIND_ALIASES.get(kind, kind)
         if kind not in _REFERENCE_KINDS:
             raise ValueError(f'The field `kind` of a problem reference must be one of {_REFERENCE_KINDS}, not {kind!r}.')
         source = _reference_text(source, 'source')
@@ -1703,45 +1690,78 @@ class ProblemReference:
         if callable(mapping):
             raise TypeError('The field `mapping` of a problem reference must be a token of the closed registry '
                             f'{_REFERENCE_MAPPINGS}; callables and user-defined mappings are not accepted.')
-        if not isinstance(mapping, str):
+        if mapping is not None and not isinstance(mapping, str):
             raise TypeError('The field `mapping` of a problem reference must be a string token of the closed registry '
                             f'{_REFERENCE_MAPPINGS}.')
-        mapping = _reference_text(mapping, 'mapping')
+        mapping = 'objective_violation/1' if mapping is None else _reference_text(mapping, 'mapping')
         if mapping not in _REFERENCE_MAPPINGS:
             raise ValueError(f'Unknown problem reference mapping {mapping!r}; the closed registry is '
                              f'{_REFERENCE_MAPPINGS}. An unknown mapping is rejected, never guessed.')
-        object.__setattr__(self, '_merit', merit)
+        if maxcv != 0 and (kind == 'feasible' or mapping == 'feasible_objective/1'):
+            raise ValueError('The field `maxcv` must be zero for feasible references and legacy feasible_objective/1 records.')
+        object.__setattr__(self, '_fun', fun)
+        object.__setattr__(self, '_maxcv', maxcv)
         object.__setattr__(self, '_kind', kind)
         object.__setattr__(self, '_source', source)
-        object.__setattr__(self, '_mapping', mapping)
+        object.__setattr__(self, '_mapping', 'objective_violation/1')
+        if x_ref is not None:
+            # Same type rule as the scalar fields (and as MATLAB): booleans,
+            # strings, complex and object values are not coordinates and are
+            # not coerced with astype(float).
+            if isinstance(x_ref, (str, bytes)):
+                raise TypeError('The reference `x_ref` must be a real one-dimensional array.')
+            try:
+                raw_point = np.asarray(x_ref)
+            except Exception as exc:
+                raise TypeError('The reference `x_ref` must be a real one-dimensional array.') from exc
+            if raw_point.dtype.kind not in 'iuf':
+                raise TypeError('The reference `x_ref` must be a real one-dimensional array.')
+            point = _process_1d_array(x_ref, 'The reference `x_ref` must be a real one-dimensional array.')
+            if point.size == 0 or not np.all(np.isfinite(point)):
+                raise ValueError('The reference `x_ref` must be nonempty and finite.')
+            # A tuple owns the data and preserves the immutable/hashable fact
+            # contract. Public reads return a copy; provider buffers cannot
+            # mutate a target after the problem has been constructed.
+            x_ref = tuple(float(value) for value in point)
+        object.__setattr__(self, '_x_ref', x_ref)
 
     @classmethod
     def from_record(cls, value):
         """
-        Normalize a constructor input: a `ProblemReference` is returned as is
-        and a mapping with exactly the four fields is converted. Anything
-        else is rejected: a naked scalar (it has no kind, provenance or
-        mapping), a record with a missing or unknown field, and a record of
-        the superseded layout (``fun``, ``maxcv``, ``point``), which is never
-        reinterpreted as a merit.
+        Normalize a validated instance or a complete raw four-field record.
+        The exact earlier feasible-objective draft is migrated explicitly;
+        missing required fields and unknown legacy mappings are rejected. ``x_ref``
+        is optional; the former ambiguous ``point`` layout is still rejected.
         """
         if isinstance(value, cls):
             return value
         if not isinstance(value, Mapping):
             raise TypeError('The argument `reference` for problem must be a ProblemReference or a mapping with the '
-                            f'fields {cls.FIELDS}; a naked scalar has no kind, provenance or mapping and is rejected.')
+                            f'fields {cls.FIELDS}; a naked scalar has no kind or provenance and is rejected.')
+        # The earlier four-field draft has an unambiguous feasible-objective
+        # token. Accept that exact layout as (fun=merit, maxcv=0), never an
+        # arbitrary precomputed merit or a record containing a reference point.
+        if set(value) == {'merit', 'kind', 'source', 'mapping'}:
+            if callable(value['mapping']):
+                raise TypeError('Reference mappings use a closed registry; callables and user-defined mappings are not accepted.')
+            if value['mapping'] != 'feasible_objective/1':
+                raise ValueError('The closed registry requires feasible_objective/1 for a legacy merit record; its meaning cannot be guessed.')
+            return cls(value['merit'], value['kind'], value['source'], value['mapping'])
         legacy = [key for key in cls._LEGACY_FIELDS if key in value]
         if legacy:
             raise ValueError(f'The problem reference field(s) {legacy} belong to a superseded record layout. Such a '
                              f'record is rejected and never reinterpreted; state the fields {cls.FIELDS}.')
-        unknown = [key for key in value if key not in cls.FIELDS]
+        unknown = [key for key in value if key not in (*cls.FIELDS, 'x_ref', 'mapping')]
         if unknown:
             raise ValueError(f'Unknown problem reference field(s) {unknown!r}; the fields are {cls.FIELDS}.')
         missing = [key for key in cls.FIELDS if key not in value]
         if missing:
             raise ValueError(f'The problem reference is missing the required field(s) {missing}; all of {cls.FIELDS} '
                              'are required.')
-        return cls(value['merit'], value['kind'], value['source'], value['mapping'])
+        if 'mapping' in value and value['mapping'] is None:
+            raise TypeError('A legacy reference mapping must be a string token, not None.')
+        return cls(value['fun'], value['kind'], value['source'], value.get('mapping'),
+                   maxcv=value['maxcv'], x_ref=value.get('x_ref'))
 
     def __setattr__(self, key, value):
         raise AttributeError('ProblemReference is immutable.')
@@ -1750,7 +1770,7 @@ class ProblemReference:
         raise AttributeError('ProblemReference is immutable.')
 
     def __reduce__(self):
-        # Serialized as the four native fields. Loading validates them again
+        # Serialized as raw native fields. Loading validates them again
         # and yields unknown (``None``) for a record this version rejects.
         return _restore_problem_reference, (self.as_dict(),)
 
@@ -1774,20 +1794,36 @@ class ProblemReference:
         return hash(self._key())
 
     def __repr__(self):
-        return (f'ProblemReference(merit={self._merit!r}, kind={self._kind!r}, source={self._source!r}, '
-                f'mapping={self._mapping!r})')
+        point = '' if self._x_ref is None else f', x_ref={self.x_ref!r}'
+        return (f'ProblemReference(fun={self._fun!r}, maxcv={self._maxcv!r}, kind={self._kind!r}, '
+                f'source={self._source!r}{point})')
 
     def _key(self):
-        return self._merit, self._kind, self._source, self._mapping
+        return self._fun, self._maxcv, self._kind, self._source, self._x_ref
+
+    @property
+    def x_ref(self):
+        """Owned copy of the optional witness in the original coordinates."""
+        return None if self._x_ref is None else np.array(self._x_ref, dtype=float)
 
     @property
     def merit(self):
-        """The reference value, read as stated by ``mapping``."""
-        return self._merit
+        """Earlier draft alias for ``fun``; this is NOT a computed merit."""
+        return self._fun
+
+    @property
+    def fun(self):
+        """Raw objective value at the reference, or a feasible objective bound."""
+        return self._fun
+
+    @property
+    def maxcv(self):
+        """Total constraint violation paired with ``fun``."""
+        return self._maxcv
 
     @property
     def kind(self):
-        """The claim carried by ``merit``; always a claim over feasible points."""
+        """The kind of the raw objective/violation fact."""
         return self._kind
 
     @property
@@ -1797,25 +1833,38 @@ class ProblemReference:
 
     @property
     def mapping(self):
-        """Registry token that fixes how ``merit`` is read."""
+        """Compatibility token for the raw pair; new records omit this field."""
         return self._mapping
 
     def as_dict(self):
-        """Native copy of the record: the four fields, in order."""
-        return {'merit': self._merit, 'kind': self._kind, 'source': self._source, 'mapping': self._mapping}
+        """Native copy of the raw facts and optional witness, not cached merit."""
+        record = {'fun': self._fun, 'maxcv': self._maxcv, 'kind': self._kind,
+                  'source': self._source}
+        if self._x_ref is not None:
+            record['x_ref'] = list(self._x_ref)
+        return record
 
 
-def _propagated_reference(reference, stages):
+def _propagated_reference(reference, stages, reason=None):
     """
     The reference fact behind ``stages``, given as ``(name, options)`` pairs in
-    order: ``reference`` itself if every stage retains it, otherwise ``None``.
-    One stage that may change values, constraints, bounds or the truth makes
-    the fact unknown for the whole pipeline; see
+    order: return the retained reference and no reason, or None and the first
+    fallback reason. A later stage never restores an invalidated reference; see
     `optiprofiler.feature_definitions.retains_reference`.
     """
-    if reference is None or not all(_stage_retains_reference(name, options) for name, options in stages):
-        return None
-    return reference
+    if reference is None:
+        return None, reason
+    for name, options in stages:
+        if not _stage_retains_reference(name, options):
+            reason = ('custom_feature' if name == FeatureName.CUSTOM else
+                      'quantized_ground_truth' if name == FeatureName.QUANTIZED else 'unsupported_feature')
+            return None, reason
+    # Scoring truth evaluates residuals in the predecessor/original
+    # coordinates, not the transformed constraints handed to a solver.
+    # Consequently even a nonzero reference maxcv survives a built-in
+    # change of variables. x_ref is source metadata in original coordinates;
+    # transporting it here adds work but cannot improve convergence targets.
+    return reference, None
 
 
 class Problem:
@@ -1903,10 +1952,11 @@ class Problem:
         ``hceq(x) -> list of arrays, each shape (n, n)``. Default returns
         an empty list.
     reference : ProblemReference or dict, optional
-        Optional feasible reference fact of the problem, stated by its author
+        Optional raw reference fact of the problem, stated by its author
         or provider: a `ProblemReference` or a dict with exactly the fields
-        ``merit``, ``kind``, ``source`` and ``mapping``. A naked scalar, a
-        record with other fields and an unknown mapping are rejected. Omitted
+        ``fun``, ``maxcv``, ``kind`` and ``source``, with optional original-coordinate
+        ``x_ref``. New records need no mapping token. A naked scalar, a
+        record with unknown fields and an unknown legacy mapping are rejected. Omitted
         means unknown. The record is validated structurally, first of all the
         arguments and without evaluating anything, so a reference adds no
         callback call to building or loading a problem.
@@ -1953,12 +2003,10 @@ class Problem:
     mcon : int
         Total number of constraints (``mlcon + mnlcon``).
     reference : ProblemReference or None
-        Feasible reference fact of the problem, or ``None`` when unknown. It
-        is author/provider metadata about the problem itself. It is not the
-        profile baseline, which is the least merit observed over the selected
-        solver histories, changes with the solver cohort and is never stored
-        here; and it is not a floor for run merits, which may fall below it
-        on a constrained problem (see `ProblemReference`).
+        Raw author/provider fact, or ``None`` when unknown. Standard profiles
+        convert the effective featured record with the current merit function.
+        Unknown references keep the V1 cohort minimum. It is not a floor:
+        measured run merits can fall below it and are never clamped.
 
     Methods
     -------
@@ -2089,8 +2137,8 @@ class Problem:
 
             where ``x`` is an array with shape (n,).
         reference : `optiprofiler.opclasses.ProblemReference` or dict, optional
-            Feasible reference fact of the problem: exactly the fields
-            ``merit``, ``kind``, ``source`` and ``mapping``. Omitted means
+            Raw reference fact: fields ``fun``, ``maxcv``, ``kind``, ``source``
+            and optional original-coordinate ``x_ref``. Omitted means
             unknown. See the class documentation.
 
         Raises
@@ -2101,14 +2149,15 @@ class Problem:
             If the arguments are inconsistent.
         """
 
-        # Preprocess the optional feasible reference fact, before anything
-        # else: the check is purely structural (four fields, a finite scalar,
+        # Preprocess the optional reference fact, before anything
+        # else: the check is purely structural (raw scalars, provenance,
         # a registry token) and evaluates nothing, so a malformed record is
         # rejected before any callback of the problem is touched. The
         # constraint callbacks are probed at `x0` further below, for their
         # dimensions; that happens with or without a reference, which
         # therefore adds no callback call.
         self._reference = None if reference is None else ProblemReference.from_record(reference)
+        self._reference_fallback_reason = None
 
         # Preprocess the objective function.
         self._fun = fun
@@ -2117,6 +2166,9 @@ class Problem:
 
         # Preprocess the initial guess.
         self._x0 = _process_1d_array(x0, 'The argument `x0` for problem must be a one-dimensional array.')
+        if self._reference is not None and self._reference.x_ref is not None \
+                and self._reference.x_ref.size != self._x0.size:
+            raise ValueError('The reference `x_ref` must have the same dimension as `x0`.')
 
         # Preprocess the name.
         self._name = name
@@ -2440,7 +2492,7 @@ class Problem:
     @property
     def reference(self):
         """
-        Feasible reference fact of the problem.
+        Raw objective/total-violation reference fact of the problem.
 
         Returns
         -------
@@ -2481,6 +2533,11 @@ class Problem:
             raise ValueError(f'The argument `x` for method `fun` in problem must have size {self.n}.')
         try:
             f = self._fun(x)
+            # NumPy complex scalars can be cast to float while silently
+            # discarding their imaginary component. A real-domain violation
+            # must remain an invalid evaluation, not a plausible real score.
+            if np.iscomplexobj(f):
+                raise ValueError('The objective function must return a real scalar.')
             f = float(f)
         except Exception as err:
             logger = get_logger(__name__)
@@ -2995,21 +3052,24 @@ class FeaturedProblem(Problem):
     maxcv_init : float
         Maximum constraint violation at the initial point.
     reference : ProblemReference or None
-        The original problem's feasible reference fact if the feature retains
+        The original problem's raw reference fact if the feature retains
         it, otherwise ``None`` (unknown). The record is retained unchanged or
         dropped; nothing is transported or derived, and the rule is the same
         for every kind. Retaining stages: those that change only observations
         (``noisy``, ``truncated``, ``random_nan``,
         ``nonquantifiable_constraints``, ``unrelaxable_constraints``, and
         ``quantized`` with ``ground_truth=False``), ``perturbed_x0``,
-        ``permuted`` and ``linearly_transformed``. ``custom`` retains it only
-        if its options are a subset of ``mod_x0`` and ``mod_affine``; any
-        other custom option (``mod_fun``, ``mod_cub``, ``mod_ceq``,
-        ``mod_bounds``, ``mod_linear_ub``, ``mod_linear_eq``) may change
-        values, constraints or bounds and makes it unknown. ``quantized`` with
+        ``permuted`` and ``linearly_transformed``. Every ``custom`` stage uses
+        the default target; this release has no reference-conversion callback.
+        ``quantized`` with
         ``ground_truth=True`` (the default) makes it unknown, because the
         truth is then the mesh problem. A composition retains the record only
-        if every stage does.
+        if every stage does. Nonzero ``maxcv`` survives built-in affine maps
+        because scoring keeps original-coordinate residuals. Optional ``x_ref``
+        always stays in original coordinates; it is not transported or queried.
+        Standard profiles use the current merit function
+        to convert a retained record to a per-run target; unknown keeps the
+        V1 empirical cohort minimum.
 
     Notes
     -----
@@ -3125,14 +3185,15 @@ class FeaturedProblem(Problem):
         # original problem's attributes): the stage either retains the record
         # unchanged or makes it unknown. Only the stage name and its option
         # names are read, so no callback is called for this.
-        self._reference = _propagated_reference(self._problem.reference, [(self._runtime.name, self._runtime._options)])
-
+        self._reference, self._reference_fallback_reason = _propagated_reference(
+            self._problem.reference, [(self._runtime.name, self._runtime._options)])
         # Store the histories of the objective function values, nonlinear
         # constraints, and maximum constraint violations.
         self._fun_hist = []
         self._cub_hist = []
         self._ceq_hist = []
         self._maxcv_hist = []
+        self._reference_history_warned = False
         self._last_fun = np.nan
         self._last_cub = np.nan
         self._last_ceq = np.nan
@@ -3351,11 +3412,7 @@ class FeaturedProblem(Problem):
         StopIteration
             If the number of the objective function evaluations has reached two times the maximum function evaluations.
         """
-        if self._real_n_eval_fun >= 2 * self._max_eval:
-            raise StopIteration(f'The number of the objective function evaluations has reached {2 * self._max_eval} (two times the maximum function evaluations).')
-        self._real_n_eval_fun += 1
-
-        if self.n_eval_fun >= self._max_eval:
+        if not _begin_featured_query(self, 'fun'):
             # If the maximum number of evaluations has been reached, return
             # the last evaluated objective function value.
             return self._last_fun
@@ -3379,10 +3436,10 @@ class FeaturedProblem(Problem):
         # We should not store the modified value because the performance of an optimization solver
         # should be measured using the original objective function.
         self._fun_hist.append(f_true)
-        try:
-            self._maxcv_hist.append(self.maxcv(x))
-        except Exception:
-            self._maxcv_hist.append(np.nan)
+        # Keep paired histories even if the caller escalates the diagnostic
+        # warning. The unavailable observation must retain its own NaN slot.
+        self._maxcv_hist.append(np.nan)
+        self._maxcv_hist[-1] = reference_maxcv_or_nan(self.maxcv, x, self)
 
         return f
 
@@ -3409,11 +3466,7 @@ class FeaturedProblem(Problem):
         StopIteration
             If the number of the nonlinear inequality constraint evaluations has reached two times the maximum function evaluations.
         """
-        if self._real_n_eval_cub >= 2 * self._max_eval:
-            raise StopIteration(f'The number of the nonlinear inequality constraint evaluations has reached {2 * self._max_eval} (two times the maximum function evaluations).')
-        self._real_n_eval_cub += 1
-
-        if self.n_eval_cub >= self._max_eval:
+        if not _begin_featured_query(self, 'cub'):
             # If the maximum number of evaluations has been reached, return
             # the last evaluated nonlinear inequality constraints.
             return self._last_cub
@@ -3425,16 +3478,15 @@ class FeaturedProblem(Problem):
         c = self._runtime.modifier_cub(A @ x + b, self._seed, self._problem, len(self._cub_hist))
         self._last_cub = c
 
-        # Evaluate the nonlinear inequality constraints and store the results.
-        c_true = super().cub(A @ x + b)
-
-        # If the feature is 'quantized' and the option ``ground_truth'' is set to true, we should
-        # set c_true to c.
-        if self._runtime.name == 'quantized' and self._runtime.options[FeatureOption.GROUND_TRUTH]:
-            c_true = c
-
         # Record the history of the nonlinear inequality constraints only when `record_hist` is true.
         if record_hist:
+            # Evaluate the nonlinear inequality constraints and store the results.
+            c_true = super().cub(A @ x + b)
+
+            # If the feature is 'quantized' and the option ``ground_truth'' is set to true, we should
+            # set c_true to c.
+            if self._runtime.name == 'quantized' and self._runtime.options[FeatureOption.GROUND_TRUTH]:
+                c_true = c
             self._cub_hist.append(c_true)
 
         return c
@@ -3462,11 +3514,7 @@ class FeaturedProblem(Problem):
         StopIteration
             If the number of the nonlinear equality constraint evaluations has reached two times the maximum function evaluations.
         """
-        if self._real_n_eval_ceq >= 2 * self._max_eval:
-            raise StopIteration(f'The number of the nonlinear equality constraint evaluations has reached {2 * self._max_eval} (two times the maximum function evaluations).')
-        self._real_n_eval_ceq += 1
-
-        if self.n_eval_ceq >= self._max_eval:
+        if not _begin_featured_query(self, 'ceq'):
             # If the maximum number of evaluations has been reached, return
             # the last evaluated nonlinear equality constraints.
             return self._last_ceq
@@ -3478,19 +3526,25 @@ class FeaturedProblem(Problem):
         c = self._runtime.modifier_ceq(A @ x + b, self._seed, self._problem, len(self._ceq_hist))
         self._last_ceq = c
 
-        # Evaluate the nonlinear equality constraints and store the results.
-        c_true = super().ceq(A @ x + b)
-
-        # If the feature is 'quantized' and the option ``ground_truth'' is set to true, we should
-        # set c_true to c.
-        if self._runtime.name == 'quantized' and self._runtime.options[FeatureOption.GROUND_TRUTH]:
-            c_true = c
-        
         # Record the history of the nonlinear equality constraints only when `record_hist` is true.
         if record_hist:
+            # Evaluate the nonlinear equality constraints and store the results.
+            c_true = super().ceq(A @ x + b)
+
+            # If the feature is 'quantized' and the option ``ground_truth'' is set to true, we should
+            # set c_true to c.
+            if self._runtime.name == 'quantized' and self._runtime.options[FeatureOption.GROUND_TRUTH]:
+                c_true = c
             self._ceq_hist.append(c_true)
 
         return c
+
+    def _maxcv(self, x):
+        """Detailed reference violation without consuming observed evaluations."""
+        if self._runtime.name == 'quantized' and self._runtime.options[FeatureOption.GROUND_TRUTH]:
+            raise NotImplementedError('Detailed quantized reference violation is unsupported by the legacy recorder.')
+        _, point = self._original_point(x, '_maxcv')
+        return self._problem._maxcv(point)
 
     def maxcv(self, x):
         """
@@ -3511,6 +3565,10 @@ class FeaturedProblem(Problem):
         ValueError
             If the argument `x` has an invalid shape.
         """
+
+        x = _process_1d_array(x, 'The argument `x` for method `maxcv` must be a one-dimensional array.')
+        if x.size != self.n:
+            raise ValueError(f'The argument `x` for method `maxcv` must have size {self.n}.')
 
         # If the Feature is ``quantized'' and the option ``ground_truth'' is set to true, we should
         # use the modified constraint violation.
@@ -3615,10 +3673,7 @@ class FeaturedProblem(Problem):
 
 def _validate_max_eval(max_eval):
     """Validate the evaluation budget of a featured problem and return it as an ``int``."""
-    if isinstance(max_eval, (float, np.floating)) and float(max_eval).is_integer():
-        max_eval = int(max_eval)
-    if isinstance(max_eval, np.integer):
-        max_eval = int(max_eval)
+    max_eval = normalize_integer(max_eval)
     if not isinstance(max_eval, int):
         raise TypeError('The argument `max_eval` for featured problem must be an integer.')
     if max_eval < 1:
@@ -3629,10 +3684,7 @@ def _validate_max_eval(max_eval):
 def _validate_seed(seed):
     """Validate the seed of a featured problem (``None`` is allowed) and return it as an ``int``."""
     if seed is not None:
-        if isinstance(seed, (float, np.floating)) and float(seed).is_integer():
-            seed = int(seed)
-        if isinstance(seed, np.integer):
-            seed = int(seed)
+        seed = normalize_integer(seed)
         if not isinstance(seed, int):
             raise TypeError('The argument seed must be an integer.')
         if seed < 0:
@@ -3665,6 +3717,11 @@ def _process_1d_array(x, message):
         return np.empty(0)
     elif isinstance(x, np.ndarray) and x.size == 0:
         return x
+    # astype(float) otherwise drops imaginary components with only a warning.
+    # Reject them before conversion: changing a point, bound, or constraint
+    # to its real part would silently define a different optimization problem.
+    if np.iscomplexobj(x):
+        raise ValueError(message + ' Values must be real.')
     x = np.atleast_1d(np.squeeze(x)).astype(float)
     if x.ndim != 1:
         raise ValueError(message)
@@ -3695,7 +3752,24 @@ def _process_2d_array(x, message):
         return np.empty(0)
     elif isinstance(x, np.ndarray) and x.size == 0:
         return x
+    # Same real-valued contract as vector inputs, including derivatives and
+    # linear-constraint matrices; never discard an imaginary component.
+    if np.iscomplexobj(x):
+        raise ValueError(message + ' Values must be real.')
     x = np.atleast_2d(x).astype(float)
     if x.ndim != 2:
         raise ValueError(message)
     return x
+
+
+def _begin_featured_query(owner, channel):
+    """Apply the shared observed-query budget before either recorder executes."""
+    real_count = '_real_n_eval_' + channel
+    if getattr(owner, real_count) >= 2 * owner._max_eval:
+        label = {'fun': 'objective function',
+                 'cub': 'nonlinear inequality constraint',
+                 'ceq': 'nonlinear equality constraint'}[channel]
+        raise StopIteration(f'The number of the {label} evaluations has reached '
+                            f'{2 * owner._max_eval} (two times the maximum function evaluations).')
+    setattr(owner, real_count, getattr(owner, real_count) + 1)
+    return getattr(owner, 'n_eval_' + channel) < owner._max_eval

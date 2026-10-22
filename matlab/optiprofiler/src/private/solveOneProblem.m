@@ -35,6 +35,9 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
     maxcv_out = NaN(n_solvers, n_runs);
     fun_inits = NaN(n_runs, 1);
     maxcv_inits = NaN(n_runs, 1);
+    reference_records = cell(n_runs, 1);
+    reference_fallback_reasons = cell(n_runs, 1);
+    preflighted = false(n_runs, 1);
     computation_time = NaN(n_solvers, n_runs);
     solvers_success = false(n_solvers, n_runs);
     % solver_abnormal_terminations(i_solver, i_run) is true when the
@@ -76,7 +79,18 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
             problem_mnlcon = featured_problem.mnlcon;
             problem_mcon = featured_problem.mcon;
             fun_inits(i_run) = featured_problem.fun_init;
+            reference_records{i_run} = featured_problem.reference;
+            reference_fallback_reasons{i_run} = featured_problem.referenceFallbackReason();
             maxcv_inits(i_run) = featured_problem.maxcv_init;
+            % Preflight: scoring converts each primary record with this merit
+            % and this run's maxcv_init, so a non-finite target is already
+            % certain here. Fail before the run's first solver call rather than
+            % after every solve. Plain-baseline records are never targets.
+            if strcmp(experiment_plan.role, 'primary') && ~isempty(reference_records{i_run}) && ~preflighted(i_run)
+                preflighted(i_run) = true;
+                referenceTarget(normalizeProblemReference(reference_records{i_run}), ...
+                    profile_options.(ProfileOptionKey.MERIT_FUN.value), maxcv_inits(i_run), problem_name, i_run);
+            end
 
             % Solve the problem with the solver.
             %
@@ -244,6 +258,12 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
                 clear x;
             end
             clear warning_cleanup;
+            failure = featured_problem.historyFailure();
+            if ~isempty(failure) && ~profile_options.(ProfileOptionKey.SILENT.value)
+                printOptiProfilerMessage('WARNING', sprintf( ...
+                    'Reference history unavailable for %s with %s (run %d): %s: %s', ...
+                    problem_name, solver_log_names{i_solver}, i_run, failure.identifier, failure.message));
+            end
             n_eval(i_solver, i_run) = featured_problem.n_eval_fun;
             fun_history(i_solver, i_run, 1:n_eval(i_solver, i_run)) = featured_problem.fun_hist(1:n_eval(i_solver, i_run));
             maxcv_history(i_solver, i_run, 1:n_eval(i_solver, i_run)) = featured_problem.maxcv_hist(1:n_eval(i_solver, i_run));
@@ -255,6 +275,12 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
             % Snapshot only after actual execution and non-recording output
             % scoring. Copied slots stay empty: they did not run an oracle.
             runtime_receipts{i_solver, i_run} = featured_problem.runtimeReceipt();
+            if ~isempty(failure)
+                % The native archive already retains actual runtime receipts.
+                % Keep the first bounded cause there even in silent mode;
+                % controller logging/reporting must not rely on live objects.
+                runtime_receipts{i_solver, i_run}.reference_history_failure = failure;
+            end
         end
         % If real_n_runs(i_solver) == 1 ~= n_runs, then we need to copy the result to the other runs.
         if real_n_runs(i_solver) == 1 && n_runs > 1
@@ -279,6 +305,8 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
         for i_run = 2:n_runs
             fun_inits(i_run) = fun_inits(1);
             maxcv_inits(i_run) = maxcv_inits(1);
+            reference_records{i_run} = reference_records{1};
+            reference_fallback_reasons{i_run} = reference_fallback_reasons{1};
         end
     end
 
@@ -289,6 +317,8 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
     result.maxcv_out = maxcv_out;
     result.fun_inits = fun_inits;
     result.maxcv_inits = maxcv_inits;
+    result.reference_records = reference_records;
+    result.reference_fallback_reasons = reference_fallback_reasons;
     result.n_eval = n_eval;
     result.problem_name = problem_name;
     result.problem_type = problem_type;

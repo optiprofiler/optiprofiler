@@ -1,5 +1,11 @@
 # Implementation report: revised reference contract (`codex/reference-facts-scalar`)
 
+> **Historical record.** This report describes the superseded
+> `codex/reference-facts-scalar` candidate. Its record kinds (`lower_bound`,
+> `optimum`, `best_known`, `target`) and paths are those of that candidate.
+> The current reference contract is `REFERENCE_CONTRACT.md` (kinds `feasible`
+> and `merit`); release prerequisites are in `RELEASING.md`.
+
 ## 1. Identity
 
 - Branch `codex/reference-facts-scalar`, created from

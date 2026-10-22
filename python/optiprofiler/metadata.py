@@ -30,6 +30,20 @@ _LONE_SURROGATE = re.compile('[\ud800-\udfff]')
 
 
 TEXT_LIMIT = 256
+# A clipped text must never read as the complete value (same marker in MATLAB).
+TRUNCATION_MARKER = '...[truncated]'
+_URL_IN_TEXT = re.compile(r'https?://[^\s]+', re.I)
+
+
+def _bounded(value, limit):
+    if limit is None or len(value) <= limit:
+        return value
+    return value[:max(limit - len(TRUNCATION_MARKER), 0)] + TRUNCATION_MARKER
+
+
+def _sanitized(value):
+    value = ''.join(c if c >= ' ' else ' ' for c in value)
+    return _LONE_SURROGATE.sub('\ufffd', value)
 
 
 def bounded_text(value, limit=TEXT_LIMIT):
@@ -38,14 +52,51 @@ def bounded_text(value, limit=TEXT_LIMIT):
         value = value.value
     if not isinstance(value, str):
         return None
-    value = ''.join(c if c >= ' ' else ' ' for c in value)
-    value = _LONE_SURROGATE.sub('\ufffd', value)
+    value = _sanitized(value)
     if value.startswith(('http://', 'https://')):
         return '[redacted_url]'
     if os.path.isabs(value) or PureWindowsPath(value).is_absolute():
         return '[redacted_absolute_path]'
     value = _ABS_IN_TEXT.sub('[redacted_absolute_path]', value)
-    return value if limit is None else value[:limit]
+    return _bounded(value, limit)
+
+
+def _credential_free_url(match):
+    """Keep scheme, host, port and path; user information, query and fragment can carry secrets."""
+    from urllib.parse import urlsplit
+    text = match.group(0)
+    try:
+        parts = urlsplit(text)
+        host = parts.hostname or ''
+        port = f':{parts.port}' if parts.port is not None else ''
+    except ValueError:
+        return '[redacted_url]'
+    if not host:
+        return '[redacted_url]'
+    kept = f'{parts.scheme}://{host}{port}{parts.path}'
+    if parts.username is not None or parts.password is not None or parts.query or parts.fragment:
+        kept += ' [url parameters removed]'
+    return kept
+
+
+def provenance_text(value, limit=TEXT_LIMIT):
+    """Bounded provenance text, such as the source of a reference record.
+
+    Unlike ``bounded_text``, a URL (for example a DOI link) is legitimate
+    scientific provenance and keeps its scheme, host and path; user
+    information, query and fragment are removed because they can carry
+    credentials or access tokens. Absolute local paths are redacted and a
+    clipped text carries ``TRUNCATION_MARKER``.
+    """
+    if isinstance(value, Enum):
+        value = value.value
+    if not isinstance(value, str):
+        return None
+    value = _URL_IN_TEXT.sub(_credential_free_url, _sanitized(value))
+    if os.path.isabs(value) or PureWindowsPath(value).is_absolute():
+        return '[redacted_absolute_path]'
+    value = _ABS_IN_TEXT.sub('[redacted_absolute_path]', value)
+    return _bounded(value, limit)
 
 
 
@@ -55,7 +106,7 @@ def describe_callback(value):
                           types.MethodType)):
         return {'kind': 'callback', 'module': bounded_text(value.__module__),
                 'name': bounded_text(value.__qualname__)}
-    cls = type(value)
+    cls = value if isinstance(value, type) else type(value)
     return {'kind': 'callback', 'module': bounded_text(cls.__module__),
             'name': bounded_text(cls.__qualname__), 'instance_state': 'not_recorded'}
 

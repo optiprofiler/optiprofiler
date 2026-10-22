@@ -461,8 +461,8 @@ classdef TestAffineStructure < matlab.unittest.TestCase
                     % Every finite bound is still a finite solver bound.
                     testCase.verifyEqual(nnz(isfinite(featured.xl)) + nnz(isfinite(featured.xu)), ...
                         nnz(isfinite(problem.xl)) + nnz(isfinite(problem.xu)), label);
-                    % The reference is retained, and rightly so: the posed problem is the scored one.
-                    testCase.verifyEqual(featured.reference, TestAffineStructure.Reference, label);
+                    % Even a safe custom map uses the conservative empirical-reference policy.
+                    testCase.verifyEmpty(featured.reference, label);
                 end
             end
         end
@@ -482,7 +482,7 @@ classdef TestAffineStructure < matlab.unittest.TestCase
                     problem = TestAffineStructure.makeProblem(name);
                     featured = FeaturedProblem(problem, Feature('custom', struct('mod_affine', transforms{t})), 10, 3);
                     testCase.verifyFeatured(featured, problem, TestAffineStructure.expectedGeneric(problem, A, b), label);
-                    testCase.verifyEqual(featured.reference, TestAffineStructure.Reference, label);
+                    testCase.verifyEmpty(featured.reference, label);
                 end
             end
         end
@@ -750,14 +750,17 @@ classdef TestAffineStructure < matlab.unittest.TestCase
                 end
             end
             % cond(A) = 2^40 for n = 3. Both factors are built directly
-            % (nothing is inverted), so each is accurate to roundoff, but their
-            % product misses the identity by roundoff times the condition
-            % number: more than a supplied inverse is allowed, and no
-            % inconsistency. The posed rows need A only.
+            % (nothing is inverted), so their product may miss the identity
+            % by roundoff times the condition number. Its exact error depends
+            % on the platform: a smaller residual is not a failure. Check the
+            % intended conditioning and an error bound, never a lower error
+            % floor. The posed rows need A only; custom-inverse rejection is
+            % covered separately by deliberately inconsistent inputs.
             kernel = optiprofiler_internal.FeatureKernel('linearly_transformed', ...
                 struct('rotated', true, 'condition_factor', 2 * 40^2 / 3));
             [A, b, inv] = kernel.modifier_affine(3, problem);
-            testCase.verifyGreaterThan(norm(A * inv - eye(3), 'fro'), 1e-8 * 3);
+            testCase.verifyGreaterThan(cond(A), 1e11);
+            testCase.verifyLessThanOrEqual(norm(A * inv - eye(3), 'fro'), 64 * eps * cond(A));
             posed = TestAffineStructure.posedByKernel(kernel, 3, problem);
             testCase.verifyStructure(posed, TestAffineStructure.expectedGeneric(problem, A, b), 'cond 2^40');
             testCase.verifyNoBoundIsLostOrDoubled(posed, problem, 'cond 2^40');
@@ -784,7 +787,7 @@ classdef TestAffineStructure < matlab.unittest.TestCase
                     testCase.verifyEqual(featured.execution_strategy, 'composed-views', label);
                     testCase.verifyEqual(any(isfinite(featured.xl)) || any(isfinite(featured.xu)), cases{c, 2}, label);
                     testCase.verifyFeatured(featured, problem, [], label);
-                    testCase.verifyEqual(featured.reference, TestAffineStructure.Reference, label);  % every stage here is a safe one
+                    testCase.verifyEmpty(featured.reference, label);  % Custom stages use the empirical reference.
                 end
             end
         end
@@ -850,7 +853,7 @@ classdef TestAffineStructure < matlab.unittest.TestCase
                     testCase.verifyEqual(scoredViolation(featured, y), violations(j), 'AbsTol', 1e-9, label);
                     testCase.verifyEqual(TestAffineStructure.posedViolation(posed, y), violations(j), 'AbsTol', 1e-9, label);
                 end
-                testCase.verifyEqual(featured.reference, TestAffineStructure.Reference, label);
+                testCase.verifyEmpty(featured.reference, label);
             end
         end
 
@@ -909,7 +912,7 @@ classdef TestAffineStructure < matlab.unittest.TestCase
                         end
                         testCase.verifyFeatured(featured, problem, expected, label);
                         testCase.verifyEqual(state.calls, calls + 1, [label, ' and not again, 400 truth reads later']);
-                        testCase.verifyEqual(featured.reference, TestAffineStructure.Reference, label);
+                        testCase.verifyEmpty(featured.reference, label);
                     end
                 end
             end

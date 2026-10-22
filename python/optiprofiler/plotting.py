@@ -20,6 +20,7 @@ from matplotlib.backends import backend_pdf
 from matplotlib.ticker import MaxNLocator, FuncFormatter, FixedLocator, NullLocator
 
 from .utils import ProfileOption
+from .plot_options import apply_plot_options
 
 
 _COMPACT_LEGEND_SOLVER_THRESHOLD = 10
@@ -125,6 +126,9 @@ def draw_profiles(work, problem_dimensions, solver_names, tolerance_latex, i_tol
         if is_log_ratio and ax_summary_log_ratio is not None:
             _draw_log_ratio_detail(ax_summary_log_ratio[i_tol], x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, solver_names, profile_options, tolerance_latex)
 
+    for figure in (fig_perf, fig_data, fig_log_ratio):
+        if figure is not None:
+            apply_plot_options(figure, profile_options.get(ProfileOption.PLOT_OPTIONS, {}))
     return fig_perf, fig_data, fig_log_ratio, curves
 
 
@@ -150,7 +154,8 @@ def _draw_perf_detail(ax_perf, x_perf, y_perf, ratio_max_perf, solver_names, pro
     if profile_options[ProfileOption.YLABEL_PERFORMANCE_PROFILE]:
         ylabel_str = profile_options[ProfileOption.YLABEL_PERFORMANCE_PROFILE] % tolerance_latex if '%s' in profile_options[ProfileOption.YLABEL_PERFORMANCE_PROFILE] else profile_options[ProfileOption.YLABEL_PERFORMANCE_PROFILE]
         ax_perf.set_ylabel(ylabel_str, fontsize=_PROFILE_LABELSIZE, labelpad=10)
-    _place_solver_legend(ax_perf, x_perf.shape[1], default_loc='lower right', handles=handles)
+    _place_solver_legend(ax_perf, x_perf.shape[1], default_loc='lower right', handles=handles,
+                         legend_options=profile_options.get(ProfileOption.PLOT_OPTIONS, {}).get('legend', {}))
 
 
 
@@ -174,7 +179,8 @@ def _draw_data_detail(ax_data, x_data, y_data, ratio_max_data, solver_names, pro
     if profile_options[ProfileOption.YLABEL_DATA_PROFILE]:
         ylabel_str = profile_options[ProfileOption.YLABEL_DATA_PROFILE] % tolerance_latex if '%s' in profile_options[ProfileOption.YLABEL_DATA_PROFILE] else profile_options[ProfileOption.YLABEL_DATA_PROFILE]
         ax_data.set_ylabel(ylabel_str, fontsize=_PROFILE_LABELSIZE, labelpad=10)
-    _place_solver_legend(ax_data, x_data.shape[1], default_loc='lower right', handles=handles)
+    _place_solver_legend(ax_data, x_data.shape[1], default_loc='lower right', handles=handles,
+                         legend_options=profile_options.get(ProfileOption.PLOT_OPTIONS, {}).get('legend', {}))
 
 
 
@@ -575,6 +581,7 @@ def set_profile_context(profile_options):
         'ytick.labelsize': 14,
         'text.usetex': True if shutil.which('latex') else False,
     }
+    profile_context.update(profile_options.get(ProfileOption.PLOT_OPTIONS, {}).get('rc', {}))
     return profile_context
 
 
@@ -1106,8 +1113,10 @@ def draw_fun_maxcv_merit_hist(ax, y, solver_names, is_cum, problem_n, y_shift, n
         ax.set_xlabel(profile_options[ProfileOption.XLABEL_DATA_PROFILE], fontsize=_HISTORY_LABELSIZE, labelpad=12)
     else:
         ax.set_xlabel('')
-    legend = _place_solver_legend(ax, n_solvers, default_loc='upper right', handles=handles)
-    if legend is not None:
+    legend_options = profile_options.get(ProfileOption.PLOT_OPTIONS, {}).get('legend', {})
+    legend = _place_solver_legend(ax, n_solvers, default_loc='upper right', handles=handles,
+                                  legend_options=legend_options)
+    if legend is not None and not any(key in legend_options for key in ('fontsize', 'prop')):
         for text in legend.get_texts():
             text.set_fontsize(_HISTORY_LEGEND_FONTSIZE)
 
@@ -1201,7 +1210,7 @@ def _choose_legend_location(ax, default_loc, handles=None):
     return min(targets, key=lambda loc: (scores[loc], loc != default_loc))
 
 
-def _place_solver_legend(ax, n_solvers, default_loc='lower right', handles=None):
+def _place_solver_legend(ax, n_solvers, default_loc='lower right', handles=None, legend_options=None):
     if handles is None:
         handles, _ = ax.get_legend_handles_labels()
     if not handles:
@@ -1212,19 +1221,14 @@ def _place_solver_legend(ax, n_solvers, default_loc='lower right', handles=None)
     # construct with neutral labels, then restore the exact visible names.
     legend_args = (handles, [str(index) for index in range(len(handles))])
     if n_solvers > _COMPACT_LEGEND_SOLVER_THRESHOLD:
-        legend = ax.legend(
-            *legend_args,
-            loc='center left',
-            bbox_to_anchor=(1.02, 0.5),
-            ncol=_legend_columns(n_solvers),
-            borderaxespad=0.0,
-            fontsize=_compact_legend_fontsize(n_solvers),
-            handlelength=2.0,
-            columnspacing=0.9,
-            labelspacing=0.35,
-        )
+        options = dict(loc='center left', bbox_to_anchor=(1.02, 0.5),
+                       ncol=_legend_columns(n_solvers), borderaxespad=0.0,
+                       fontsize=_compact_legend_fontsize(n_solvers), handlelength=2.0,
+                       columnspacing=0.9, labelspacing=0.35)
     else:
-        legend = ax.legend(*legend_args, loc=_choose_legend_location(ax, default_loc, handles))
+        options = dict(loc=_choose_legend_location(ax, default_loc, handles))
+    options.update(legend_options or {})
+    legend = ax.legend(*legend_args, **options)
     if legend is not None:
         for text, label in zip(legend.get_texts(), labels):
             text.set_text(label)

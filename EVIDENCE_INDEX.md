@@ -1,5 +1,9 @@
 # Evidence index: `codex/reference-facts-scalar`
 
+> **Historical record** of the superseded `codex/reference-facts-scalar`
+> candidate; the paths below belong to that audit. The current reference
+> contract is `REFERENCE_CONTRACT.md`.
+
 Tested SHA `249cda5e4d52185f46f7f4fb43c82c658ecb2b4f`, base
 `54d42bd550d0493db661711715f868518d433924`. See `IMPLEMENTATION_REPORT.md` for
 what the evidence shows; this file says where it is and how to reproduce it.

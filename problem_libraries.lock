@@ -23,7 +23,7 @@
       "name": "solar",
       "role": "external",
       "repository": "optiprofiler/solar_python",
-      "commit": "2478fe964ce4b697cc5ef2129ed5e7102dc7136f",
+      "commit": "39e4e5b2451968be659df823ad2769668b8a70f1",
       "api_version": 1,
       "distribution": "optiprofiler-solar",
       "entry_point": "optiprofiler_solar:get_problem_library"

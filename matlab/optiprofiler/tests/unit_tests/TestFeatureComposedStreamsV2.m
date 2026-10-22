@@ -50,12 +50,17 @@ classdef TestFeatureComposedStreamsV2 < matlab.unittest.TestCase
                 'Inequality-constraint draws collapsed across zero-coordinate points.');
             testCase.verifyEqual(numel(unique(ceq_draws(1:5))), 5, ...
                 'Equality-constraint draws collapsed across zero-coordinate points.');
-            % The draws are exactly the documented policy arithmetic: stage
-            % seed (identity fold) then the word fold over (values, point, index).
-            x = points{2};
-            stage_seed = optiprofiler_internal.deriveFeatureStageSeed(17, 2, 0, 0);
-            stream = optiprofiler_internal.FeatureKernel.horner32_payload_rng(stage_seed, 0, x(1), x(2), x(3), 0);
-            testCase.verifyEqual(draws(2), randn(stream), 'AbsTol', 0);
+            % Fixed word-fold vectors: run seed 17, stage code 2, occurrence 0,
+            % fun tag 0; payload [value=0, x(1:3), index=0]. The seeds below
+            % were computed with exact integer arithmetic from the documented
+            % IEEE-754 little-endian words, independently of the core helpers.
+            [~,~,endian] = computer;
+            testCase.assumeEqual(endian, 'L');
+            expected_seeds = [1758646738, 3233993170, 3099775442, 2965557714, 3635597778, 1758646738];
+            for k = 1:numel(points)
+                stream = RandStream('mt19937ar', 'Seed', expected_seeds(k));
+                testCase.verifyEqual(draws(k), randn(stream), 'AbsTol', 0);
+            end
             % Repeated queries at one point advance the served index and draw again.
             fp = FeaturedProblem(zero_valued, feature, 10, 17);
             first = fp.fun([0; 0; 0]); second = fp.fun([0; 0; 0]);

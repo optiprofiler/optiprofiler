@@ -71,9 +71,10 @@ classdef FeatureProblemView < Problem
             % used (their names only); no callback is called.
             if isempty(stage)
                 obj.reference_ = predecessor.reference;
+                obj.reference_fallback_reason_ = predecessor.referenceFallbackReason();
             else
-                obj.reference_ = optiprofiler_internal.propagateProblemReference( ...
-                    predecessor.reference, stage.name, stage.options);
+                [obj.reference_,obj.reference_fallback_reason_] = optiprofiler_internal.propagateProblemReference( ...
+                    predecessor.reference, stage.name, stage.options, predecessor.referenceFallbackReason());
             end
         end
         function value = fun(obj,x)

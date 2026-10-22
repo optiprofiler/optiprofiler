@@ -15,8 +15,7 @@ from datetime import datetime
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 
-from optiprofiler import benchmark
-from optiprofiler.action_tests.solvers import SOLVERS, SOLVER_NAMES
+from optiprofiler.action_tests.solvers import SOLVERS, SOLVER_NAMES, checked_benchmark
 
 
 def get_plibs():
@@ -51,7 +50,7 @@ def random_test(benchmark_id=None):
     }
     
     # Random solver selection (2 or 3 solvers)
-    num_solvers = rng.integers(2, 4)
+    num_solvers = rng.integers(2, len(SOLVERS) + 1)
     solver_indices = rng.permutation(len(SOLVERS))[:num_solvers].tolist()
     solvers = [SOLVERS[i] for i in solver_indices]
     options['solver_names'] = [SOLVER_NAMES[i] for i in solver_indices]
@@ -178,7 +177,7 @@ def random_test(benchmark_id=None):
     print()
     
     # Run benchmark
-    benchmark(solvers, **options)
+    checked_benchmark(solvers, **options)
 
 
 if __name__ == '__main__':

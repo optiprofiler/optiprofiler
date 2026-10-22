@@ -155,7 +155,7 @@ classdef EvalReport < handle
         function rollbackReservations(self)
             % Delete a reserved target only while it is still ours: its current
             % identity equals the one recorded at reservation or at the last
-            % publish. Foreign files (a concurrent writer, a pre-existing
+            % publish. Foreign files (a concurrent writer, a preexisting
             % companion) are never touched.
             targets = {self.path, self.ownedIdentity; self.plotPath, self.plotIdentity};
             for k = 1:size(targets, 1)
@@ -293,6 +293,48 @@ classdef EvalReport < handle
                 'dimension', result.problem_dim, 'type', result.problem_type, ...
                 'selection_status', 'selected', 'load_status', 'loaded', 'status', 'completed', ...
                 'budget', budget_record, 'runs', {{}}, 'plot_refs', {{}});
+            if isfield(result,'reference_fallback_reasons')
+                reasons = reshape(result.reference_fallback_reasons,1,[]);
+                for r = 1:numel(reasons)
+                    if isempty(reasons{r}), reasons{r} = unknown; end
+                end
+                entry.reference_fallback_reasons = reasons;
+            end
+            if isfield(result, 'reference_records')
+                % Observe raw facts without re-evaluating a possibly stateful
+                % merit function. Older archives leave this field absent.
+                records = reshape(result.reference_records, 1, []);
+                for r = 1:numel(records)
+                    if isempty(records{r}), records{r} = unknown;
+                    else
+                        point = [];
+                        if isfield(records{r},'x_ref')
+                            point = records{r}.x_ref;
+                            records{r} = rmfield(records{r},'x_ref');
+                        end
+                        source = [];
+                        if isfield(records{r}, 'source'), source = records{r}.source; end
+                        records{r} = optiprofiler_internal.EvalReport.configuration(records{r});
+                        % Scientific provenance (often a DOI link) is kept without
+                        % credentials, query or fragment; a clipped source is
+                        % marked. The native archive keeps the complete record.
+                        if isfield(records{r}, 'source')
+                            records{r}.source = optiprofiler_internal.EvalReport.provenanceText(source);
+                        end
+                        % A one-dimensional witness is still an array in the
+                        % shared JSON schema, not a MATLAB scalar encoding.
+                        if ~isempty(point)
+                            if numel(point)<=256
+                                records{r}.x_ref = num2cell(reshape(point,1,[]));
+                            else
+                                records{r}.x_ref = struct('dimension',numel(point), ...
+                                    'reason','reference_point_not_embedded');
+                            end
+                        end
+                    end
+                end
+                entry.reference_records = records;
+            end
             for solver = 1:size(result.n_eval, 1)
                 for run = 1:size(result.n_eval, 2)
                     count = result.n_eval(solver, run);
@@ -356,6 +398,15 @@ classdef EvalReport < handle
                         % native archive, not repeated across the compact JSON.
                         if isfield(observed_runtime, 'run_seed')
                             item.oracle_seed = observed_runtime.run_seed;
+                        end
+                        if isfield(observed_runtime, 'reference_history_failure')
+                            failure = observed_runtime.reference_history_failure;
+                            % Keep the bounded cause's identifier, not callback
+                            % inputs or arbitrary exception text, in compact JSON.
+                            self.addDiagnostic('reference_history_unavailable', 'numerical', ...
+                                struct('library', library, 'problem', result.problem_name, ...
+                                'role', role, 'solver_index', solver, 'run_index', run, ...
+                                'exception_type', failure.identifier));
                         end
                     end
                     entry.runs{end+1} = item;
@@ -508,6 +559,12 @@ classdef EvalReport < handle
                     for key = {'fun_inits', 'maxcv_inits', 'merit_inits'}
                         if isfield(value, key{1}), item.(key{1}) = value.(key{1})(p,:); end
                     end
+                    if isfield(value, 'reference_records')
+                        item.reference_records = value.reference_records(p, :);
+                    end
+                    if isfield(value,'reference_fallback_reasons')
+                        item.reference_fallback_reasons = value.reference_fallback_reasons(p,:);
+                    end
                     for key = {'solver_abnormal_termination', 'solver_output_fallback'}
                         if ~isfield(item, key{1}), item.(key{1}) = repmat(optiprofiler_internal.EvalReport.null(), ns, nr); end
                     end
@@ -532,7 +589,7 @@ classdef EvalReport < handle
                 'axis_values', struct('history_or_output', {{'history', 'output'}}, 'profile_type', {types(1:n_types)}, ...
                     'tolerance', {num2cell(10.^(-(1:numel(curves))))}), ...
                 'semantics', semantics, 'direction', 'higher_is_better_for_default_scoring; custom_callbacks_define_their_own_direction', ...
-                'comparability_note', 'Scores depend on the retained cohort, tolerances, options, and scoring callbacks.');
+                'comparability_note', 'Scores depend on references or the retained cohort, tolerances, options, and scoring callbacks.');
             self.setStage('scoring', 'completed');
         end
 
@@ -1368,14 +1425,75 @@ classdef EvalReport < handle
                 value = optiprofiler_internal.EvalReport.null();
             elseif ischar(value) || isstring(value)
                 value = char(value);
-                if startsWith(value, '/') || ~isempty(regexp(value, '^[A-Za-z]:[\\/]', 'once'))
+                if startsWith(value, {'http://', 'https://'})
+                    % As in Python: a URL can carry credentials or tokens.
+                    value = '[redacted_url]';
+                elseif startsWith(value, '/') || ~isempty(regexp(value, '^[A-Za-z]:[\\/]', 'once'))
                     value = '[absolute_path_omitted]';
                 elseif startsWith(value, '@(')
                     value = '[anonymous_callback_source_omitted]';
                 end
-                value = value(1:min(numel(value),256));
+                value = optiprofiler_internal.EvalReport.bounded(value);
             elseif ~isnumeric(value) && ~islogical(value)
                 value = struct('kind', 'object', 'description', 'not_serialized');
+            end
+        end
+
+        function text = bounded(text)
+            % A clipped text must never read as the complete value (same
+            % marker and limit as Python's metadata.TRUNCATION_MARKER).
+            marker = '...[truncated]';
+            if numel(text) > 256
+                text = [text(1:256 - numel(marker)), marker];
+            end
+        end
+
+        function text = provenanceText(value)
+            % Bounded provenance text, as Python's metadata.provenance_text: a
+            % URL keeps scheme, host, port and path; user information, query
+            % and fragment can carry credentials and are removed; absolute
+            % local paths are redacted; a clipped text carries the marker.
+            if ~(ischar(value) || (isstring(value) && isscalar(value) && ~ismissing(value)))
+                text = optiprofiler_internal.EvalReport.null();
+                return
+            end
+            text = char(value);
+            text(text < ' ') = ' ';
+            [urls, starts, stops] = regexp(text, 'https?://[^\s]+', 'match', 'start', 'end', 'ignorecase');
+            for k = numel(urls):-1:1
+                text = [text(1:starts(k)-1), optiprofiler_internal.EvalReport.credentialFreeUrl(urls{k}), text(stops(k)+1:end)];
+            end
+            if startsWith(text, '/') || ~isempty(regexp(text, '^[A-Za-z]:[\\/]', 'once'))
+                text = '[redacted_absolute_path]';
+                return
+            end
+            text = regexprep(text, '(?<![\w])(?:/(?:Users|home|private|tmp|var|mnt|opt)/\S+|[A-Za-z]:[\\/][^\s]+)', ...
+                '[redacted_absolute_path]');
+            text = optiprofiler_internal.EvalReport.bounded(text);
+        end
+
+        function text = credentialFreeUrl(url)
+            % scheme://[userinfo@]host[:port][path][?query][#fragment]. A named
+            % token inside an optional group is absent from regexp's 'names'
+            % output, so the authority is split explicitly.
+            parts = regexp(url, '^(https?)://([^/?#]*)([^?#]*)(.*)$', 'tokens', 'once', 'ignorecase');
+            if isempty(parts)
+                text = '[redacted_url]';
+                return
+            end
+            authority = parts{2};
+            at = find(authority == '@', 1, 'last');
+            if ~isempty(at)
+                authority = authority(at+1:end);
+            end
+            host_port = regexp(authority, '^([^:]+)(:\d+)?$', 'tokens', 'once');
+            if isempty(host_port)
+                text = '[redacted_url]';
+                return
+            end
+            text = [lower(parts{1}), '://', lower(host_port{1}), host_port{2}, parts{3}];
+            if ~isempty(at) || ~isempty(parts{4})
+                text = [text, ' [url parameters removed]'];
             end
         end
 
