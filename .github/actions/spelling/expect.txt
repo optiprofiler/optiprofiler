@@ -47,6 +47,7 @@ callability
 canceltoy
 caplog
 cbf
+cef
 clf
 closefd
 cls
@@ -65,6 +66,7 @@ dfbea
 diagnosable
 dotfile
 dpng
+drawnow
 dtype
 EDB
 EILSEQ
@@ -100,6 +102,7 @@ evalworkers
 excinfo
 existingtoy
 externaltoy
+Fcn
 featureplan
 ferror
 feval
@@ -269,6 +272,7 @@ realmin
 reanalysing
 redacts
 regexpi
+regexptranslate
 reloadable
 reparent
 reparse
@@ -299,6 +303,7 @@ sgn
 sharey
 SIGKILL
 slotnames
+snc
 sockaddr
 Softw
 sortrows
@@ -324,8 +329,12 @@ timerfindall
 tmpfs
 tocdepth
 toctree
+uifigure
+uifigureappjs
 uistack
+uitools
 ulp
+uninstallable
 unloadable
 unmatch
 unparented
@@ -343,9 +352,14 @@ varargs
 varient
 verticalalignment
 waitfor
+WEBFIGURERECOVERYSUPPORTED
+WEBFIGUREVIEWRECOVERY
+webwindow
+webwindowmanager
 workspaces
 worktree
 WRONLY
+XGrid
 xlabel
 xlim
 xmax
@@ -358,3 +372,4 @@ ymax
 ymin
 yml
 Yrc
+ZGVb
