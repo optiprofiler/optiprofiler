@@ -19,6 +19,8 @@ on:
       - tools/check_matlab_zip.py
       - tools/check_matlab_problem_libraries_lock.py
       - tools/smoke_matlab_zip.m
+      - tools/check_pdf_output.py
+      - tools/tests/test_pdf_output.py
       - .github/workflows/matlab-package.yml
   pull_request:
     branches: [main, matlab]
@@ -38,6 +40,8 @@ on:
       - tools/check_matlab_zip.py
       - tools/check_matlab_problem_libraries_lock.py
       - tools/smoke_matlab_zip.m
+      - tools/check_pdf_output.py
+      - tools/tests/test_pdf_output.py
       - .github/workflows/matlab-package.yml
   workflow_dispatch:
 
@@ -72,6 +76,13 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Install PDF acceptance reader
+        run: python -m pip install 'pypdf>=3.8.0'
+
+      - name: Test PDF acceptance failures
+        if: runner.os == 'Linux'
+        run: python -m unittest discover -s tools/tests -p test_pdf_output.py -v
+
       - name: Validate lock and build deterministic ZIP
         run: |
           python tools/check_matlab_problem_libraries_lock.py
@@ -97,6 +108,9 @@ jobs:
           command: |
             addpath(fullfile(pwd, 'tools'));
             smoke_matlab_zip(getenv('OP_MATLAB_ARCHIVE_ROOT'));
+
+      - name: Check readable PDF pages and typeset fixture labels
+        run: python tools/check_pdf_output.py "${{ runner.temp }}/matlab-zip-acceptance" --reject-raw-tex --report "${{ runner.temp }}/matlab-zip-acceptance/pdf-content.json"
 
       - name: Retain ZIP runtime evidence even on failure
         if: always()

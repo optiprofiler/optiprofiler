@@ -3,6 +3,8 @@ name: MATLAB runtime robustness (exact SHA)
 on:
   push:
     branches: [main, python, matlab, paper/v1.3.4-errata, release/v2.0.0-preparation]
+  pull_request:
+    branches: [main, matlab]
   workflow_dispatch:
 
 permissions:
@@ -63,4 +65,4 @@ jobs:
         with:
           name: matlab-runtime-${{ matrix.os }}-${{ matrix.release }}-${{ github.sha }}
           path: ${{ env.OP_RUNTIME_EVIDENCE }}
-          if-no-files-found: warn
+          if-no-files-found: error

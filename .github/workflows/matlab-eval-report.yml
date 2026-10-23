@@ -28,6 +28,8 @@ on:
     branches: [main, matlab, codex/eval-report, fix/2.0-review-fixes, release/v2.0.0-preparation]
     # Probe-only and documentation-only pushes do not need the full matrix.
     paths-ignore: ['.github/workflows/matlab-parpool-probe.yml', 'doc/**']
+  pull_request:
+    branches: [main, matlab]
   workflow_dispatch:
 
 permissions:
@@ -49,6 +51,7 @@ jobs:
           - {matlab: latest, parallel_case: real-workers}
           # Gate the reproduced Linux R2025a export issue separately from latest.
           - {os: ubuntu-latest, matlab: R2025a, parallel_case: real-workers}
+          - {os: ubuntu-latest, matlab: R2026a, parallel_case: real-workers}
     env:
       # Isolate every persistent side channel: registry, path persistence and
       # preferences live under the workspace, never in the runner's MATLAB.
