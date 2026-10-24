@@ -37,6 +37,7 @@ AValid
 bibfiles
 bitand
 bitcmp
+bitget
 bitshift
 bitxor
 biuf
