@@ -16,8 +16,7 @@ from datetime import datetime
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 
-from optiprofiler import benchmark
-from optiprofiler.action_tests.solvers import UNCONSTRAINED_SOLVERS, UNCONSTRAINED_SOLVER_NAMES
+from optiprofiler.action_tests.solvers import UNCONSTRAINED_SOLVERS, UNCONSTRAINED_SOLVER_NAMES, checked_benchmark
 
 
 DEFAULT_MAX_PROBLEMS_PER_PLIB = 1
@@ -108,7 +107,7 @@ def stress_test(benchmark_id=None):
         print()
 
         # Run benchmark
-        benchmark(UNCONSTRAINED_SOLVERS, **options)
+        checked_benchmark(UNCONSTRAINED_SOLVERS, **options)
 
 
 if __name__ == '__main__':

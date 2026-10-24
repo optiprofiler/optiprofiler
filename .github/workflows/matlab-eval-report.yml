@@ -13,6 +13,10 @@
 #   (TestProfileBands, n_jobs = 1, no pool) with its own exact case set and
 #   gate, reported in its own profile-bands-receipt.json and
 #   profile-bands-junit.xml next to the unchanged receipt.json/junit.xml.
+# - Native nested-layout PDF export and append have a separate required
+#   TestProfileExport regression, receipt and JUnit file on every row.
+# - Reference records and native plot_options/save-load have exact-case gates
+#   and separate receipts on every row, starting from the runner's clean path.
 
 name: MATLAB EvalReport platforms
 
@@ -21,9 +25,11 @@ on:
     # workflow_dispatch can only target workflows that already exist on the
     # default branch, so acceptance runs of this new workflow are triggered by
     # pushes to the candidate branch; that entry can be dropped at integration.
-    branches: [main, matlab, codex/eval-report]
+    branches: [main, matlab, codex/eval-report, fix/2.0-review-fixes, release/v2.0.0-preparation]
     # Probe-only and documentation-only pushes do not need the full matrix.
     paths-ignore: ['.github/workflows/matlab-parpool-probe.yml', 'doc/**']
+  pull_request:
+    branches: [main, matlab]
   workflow_dispatch:
 
 permissions:
@@ -43,6 +49,8 @@ jobs:
           - {matlab: R2021b, parallel_case: parallel-omitted-batch-licensing}
           - {matlab: R2023a, parallel_case: real-workers}
           - {matlab: latest, parallel_case: real-workers}
+          # Gate the reproduced Linux R2025a export issue separately from latest.
+          - {os: ubuntu-latest, matlab: R2025a, parallel_case: real-workers}
     env:
       # Isolate every persistent side channel: registry, path persistence and
       # preferences live under the workspace, never in the runner's MATLAB.
@@ -102,7 +110,7 @@ jobs:
           cache: true
           products: Parallel_Computing_Toolbox
 
-      - name: Run TestEvalReport and the serial TestProfileBands gate (Incomplete=0)
+      - name: Run report, profile-band and native-export gates (Incomplete=0)
         uses: matlab-actions/run-command@v2.1.1
         with:
           command: |

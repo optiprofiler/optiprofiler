@@ -80,23 +80,24 @@ classdef FeaturedProblem < Problem
 %     not a separate sequence of constraint calls; unavailable evaluations are
 %     recorded as NaN.
 %   - fun_init, maxcv_init: reference values at the featured initial point.
-%   - reference: the original problem's feasible reference FACT (see Problem)
+%   - reference: the original problem's raw fun/maxcv reference FACT (see Problem)
 %     if the feature retains it, otherwise [] (unknown). This is author or
 %     provider metadata and is unrelated to the "reference values" above,
 %     which are the scoring truth of this trial. The record is retained
 %     unchanged or dropped; nothing is transported or derived, and the rule is
-%     the same for every kind. Retaining stages: those that change only
+%     the same for every kind at zero violation. Retaining stages: those that change only
 %     observations (noisy, truncated, random_nan, nonquantifiable_constraints,
 %     unrelaxable_constraints, and quantized with ground_truth=false),
-%     perturbed_x0, permuted and linearly_transformed. custom retains it only
-%     if its options are a subset of mod_x0 and mod_affine; any other custom
-%     option (mod_fun, mod_cub, mod_ceq, mod_bounds, mod_linear_ub,
-%     mod_linear_eq) may change values, constraints or bounds and makes it
-%     unknown. quantized with ground_truth=true (the default) makes it
+%     perturbed_x0, permuted and linearly_transformed. Every custom stage
+%     uses the default target; this release has no reference-conversion
+%     callback. quantized with ground_truth=true (the default) makes it
 %     unknown, because the truth is then the mesh problem. A composition
-%     retains the record only if every stage does. The record is never the
-%     cohort minimum of a benchmark, and the recorded merits of a constrained
-%     trial may fall below it; they are never clamped.
+%     retains the record only if every stage does. Nonzero maxcv survives
+%     built-in affine maps because scoring retains original-coordinate
+%     residuals. Optional x_ref stays in original coordinates without
+%     transport or oracle calls. Standard profiles convert a retained record with the
+%     current merit_fun for each run; unknown keeps the V1 cohort minimum.
+%     Actual recorded merits are never clamped to this target.
 %
 %   n_eval_fun is the length of fun_hist. On every execution strategy,
 %   n_eval_cub and n_eval_ceq count recorded constraint queries, i.e. history
@@ -170,6 +171,7 @@ classdef FeaturedProblem < Problem
         last_ceq
         kernel
         final_view
+        reference_history_failure = []
     end
 
     properties (Dependent)
@@ -264,10 +266,11 @@ classdef FeaturedProblem < Problem
             % callback is called for this. A composition takes the record that
             % survived every stage view.
             if isempty(view)
-                obj.reference_ = optiprofiler_internal.propagateProblemReference( ...
+                [obj.reference_,obj.reference_fallback_reason_] = optiprofiler_internal.propagateProblemReference( ...
                     problem.reference, kernel.name, kernel.options);
             else
                 obj.reference_ = view.reference;
+                obj.reference_fallback_reason_ = view.referenceFallbackReason();
             end
             if isempty(view)
                 if isempty(stages), obj.execution_strategy = 'identity';
@@ -423,7 +426,8 @@ classdef FeaturedProblem < Problem
                 obj.fun_hist = [obj.fun_hist,obj.final_view.referenceValue('fun',x)];
                 try
                     obj.maxcv_hist = [obj.maxcv_hist,obj.final_view.referenceMaxcv(x)];
-                catch
+                catch err
+                    obj.recordHistoryFailure(err);
                     obj.maxcv_hist = [obj.maxcv_hist,NaN];
                 end
                 return
@@ -449,7 +453,8 @@ classdef FeaturedProblem < Problem
             obj.fun_hist = [obj.fun_hist, f_true];
             try
                 obj.maxcv_hist = [obj.maxcv_hist, obj.maxcv(x)];
-            catch
+            catch err
+                obj.recordHistoryFailure(err);
                 obj.maxcv_hist = [obj.maxcv_hist, NaN];
             end
         end
@@ -575,6 +580,10 @@ classdef FeaturedProblem < Problem
         end
 
         function varargout = maxcv(obj, x, detailed)
+            if ~isvector(x) || numel(x) ~= obj.n
+                error('MATLAB:FeaturedProblem:maxcvInvalidPoint', 'The point must be a vector with %d entries.', obj.n);
+            end
+            x = x(:);
             if nargin < 3, detailed = false; end
             if ~isempty(obj.final_view)
                 [varargout{1:nargout}] = obj.final_view.referenceMaxcv(x,detailed);
@@ -731,6 +740,16 @@ classdef FeaturedProblem < Problem
     end
 
     methods (Access = private)
+        function recordHistoryFailure(obj, err)
+            % Keep the first cause even when solver execution disables warnings.
+            if isempty(obj.reference_history_failure)
+                obj.reference_history_failure = struct('identifier', err.identifier, ...
+                    'message', shortenMessageForLog(err.message));
+                warning('OptiProfiler:FeaturedProblem:ReferenceHistoryUnavailable', ...
+                    'Reference constraint history unavailable: %s: %s', ...
+                    err.identifier, obj.reference_history_failure.message);
+            end
+        end
         function [A, point] = originalPoint(obj, x)
             % The matrix A and the point A * x + b of the original problem, if
             % the feature changes the variables and x is a point of this
@@ -802,6 +821,9 @@ classdef FeaturedProblem < Problem
     end
 
     methods (Hidden)
+        function failure = historyFailure(obj)
+            failure = obj.reference_history_failure;
+        end
         function x = toOriginalCoordinates(obj,x)
             if isempty(obj.final_view)
                 [A,b] = obj.kernel.modifier_affine(obj.seed,obj.problem);

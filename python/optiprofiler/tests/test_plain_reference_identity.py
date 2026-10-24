@@ -62,15 +62,23 @@ def test_reordered_and_missing_plain_rows_match_inside_the_library():
     np.testing.assert_array_equal(_mins([block]), [[1, 1], [20, 20], [3, 3]])
 
 
-def test_repeated_processing_does_not_pad_caller_result_arrays():
+@pytest.mark.parametrize('dtype', [np.float64, np.float32, np.int64])
+@pytest.mark.parametrize('equal_lengths', [False, True])
+def test_repeated_processing_does_not_pad_caller_result_arrays(dtype, equal_lengths):
     first = _block('library_a', ['DUP'], [5], n_evals=2)
     first['results_plib_plain'] = _block('library_a', ['DUP'], [1])
-    second = _block('library_b', ['DUP'], [20], n_evals=5)
+    second = _block('library_b', ['DUP'], [20], n_evals=2 if equal_lengths else 5)
     second['results_plib_plain'] = _block('library_b', ['DUP'], [15])
     blocks = [first, second]
+    for block in blocks:
+        block['merit_histories'] = block['merit_histories'].astype(dtype)
     original = deepcopy(blocks)
-    np.testing.assert_array_equal(_mins(blocks), [[1, 1], [15, 15]])
-    np.testing.assert_array_equal(_mins(blocks), [[1, 1], [15, 15]])
+    for _ in range(2):
+        merged = process_results(blocks, {ProfileOption.RUN_PLAIN: True})
+        np.testing.assert_array_equal(merged[3], [[1, 1], [15, 15]])
+        assert merged[0].dtype == np.float64
+        np.testing.assert_array_equal(merged[0][0], 5.)
+        np.testing.assert_array_equal(merged[0][1], 20.)
     for actual, before in zip(blocks, original):
         np.testing.assert_array_equal(actual['merit_histories'], before['merit_histories'])
         np.testing.assert_array_equal(actual['fun_histories'], before['fun_histories'])

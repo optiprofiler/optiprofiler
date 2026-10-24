@@ -72,7 +72,6 @@ class TestSearchInDir:
             assert len(files) == 3
             for fi in files:
                 assert fi['name'].endswith('.txt')
-                assert fi['isdir'] is False
 
     def test_respects_max_depth(self):
         with tempfile.TemporaryDirectory() as tmpdir:

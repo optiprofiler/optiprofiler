@@ -18,6 +18,7 @@ import math
 from types import MappingProxyType
 
 import numpy as np
+from .validation import normalize_integer
 
 from .utils import FeatureName, FeatureOption
 
@@ -26,6 +27,7 @@ EXPERIMENT_OPTIONS = frozenset({'n_runs'})
 
 #: Frozen literal seed codes of the stage kinds (policy ``seedsequence-v2``).
 #: Never derived from enumeration or table order; changing a code changes experiments.
+#: Never renumber; append new codes. ``plain`` has none because it is not an effective stage.
 STAGE_CODES = {
     FeatureName.PERTURBED_X0.value: 1,
     FeatureName.NOISY.value: 2,
@@ -40,6 +42,7 @@ STAGE_CODES = {
 }
 
 #: Seed policies recorded in provenance (values are frozen identifiers).
+#: Archives written under an earlier policy keep their recorded identifier when loaded.
 SEED_POLICY_SINGLE = 'legacy-run-seed'
 SEED_POLICY_COMPOSED = 'seedsequence-v2'
 
@@ -160,10 +163,7 @@ def validate_option(name, key, value):
     elif key == FeatureOption.SIGNIFICANT_DIGITS:
         if isinstance(value, (bool, np.bool_)):
             raise TypeError(f'Option `{key}` must be an integer, not a boolean.')
-        if isinstance(value, (float, np.floating)) and float(value).is_integer():
-            value = int(value)
-        if isinstance(value, np.integer):
-            value = int(value)
+        value = normalize_integer(value)
         if not isinstance(value, int):
             raise TypeError(f'Option `{key}` must be an integer.')
         if value <= 0:
@@ -284,7 +284,7 @@ def is_stochastic(name, options):
     return False
 
 
-#: Stage kinds that keep a problem's feasible reference fact whatever their
+#: Stage kinds that keep a raw reference fact whatever their
 #: options are. The first group changes only what a solver observes; the truth
 #: recorded in the histories is the original problem's. ``perturbed_x0`` moves
 #: only the initial point. ``permuted`` and ``linearly_transformed`` are
@@ -298,53 +298,24 @@ _REFERENCE_RETAINING_STAGES = frozenset({
     FeatureName.PERMUTED.value, FeatureName.LINEARLY_TRANSFORMED.value,
 })
 
-#: The only ``custom`` options under which the reference fact is retained.
-#: ``mod_x0`` moves the initial point and ``mod_affine`` is a change of
-#: variables subject to numerical matrix and transport checks when the
-#: problem is built, not an exact inverse or uniform accuracy certificate. The
-#: whitelist is deliberate: ``mod_fun``, ``mod_cub``, ``mod_ceq``, ``mod_bounds``,
-#: ``mod_linear_ub``, ``mod_linear_eq`` and any option added later are
-#: arbitrary user code that may change values, constraints or bounds, and the
-#: framework cannot prove that the feasible reference survives them.
-REFERENCE_SAFE_CUSTOM_OPTIONS = frozenset({FeatureOption.MOD_X0.value, FeatureOption.MOD_AFFINE.value})
+#: Compatibility name for callers of the earlier reference whitelist.
+#: No custom stage inherits an explicit reference in this release.
+REFERENCE_SAFE_CUSTOM_OPTIONS = frozenset()
 
 
 def retains_reference(name, options):
-    """
-    Whether one stage of kind ``name`` with the stage-local ``options`` keeps
-    a problem's feasible reference fact (``Problem.reference``).
+    """Whether a stage retains raw convergence-reference facts.
 
-    The answer is the same for every reference kind (``lower_bound``,
-    ``optimum``, ``best_known``, ``target``): each is a claim over the
-    feasible points of the problem, so it survives exactly the stages that
-    leave the feasible points and the objective values over them unchanged up
-    to a change of variables. A stage that does not retain the fact makes it
-    unknown; nothing is derived or transported, because the record holds no
-    point. A composition retains the fact only if every stage does.
-
-    - Observation-only stages, ``perturbed_x0``, ``permuted`` and
-      ``linearly_transformed``: retained.
-    - ``quantized``: retained with ``ground_truth=False`` (the mesh is then an
-      observation and the truth stays the original problem). With
-      ``ground_truth=True`` the truth becomes the mesh problem, whose feasible
-      values are not those of the continuous problem; no proof that the same
-      feasible reference holds is available, so the fact is unknown.
-    - ``custom``: retained only if the option names are a subset of
-      :data:`REFERENCE_SAFE_CUSTOM_OPTIONS`.
-    - Any other name: unknown (fail closed).
-
-    Only the option *names* of a custom stage are read and no callback is
-    called, so applying the rule never evaluates anything.
+    Retaining built-ins preserve scoring truth, including original-coordinate
+    residuals under affine changes. x_ref is original-coordinate metadata
+    and needs no transport. Ground-truth quantization, every custom stage,
+    and unknown stages invalidate the reference without evaluating callbacks.
     """
     name = getattr(name, 'value', name)
     if name in _REFERENCE_RETAINING_STAGES:
         return True
     if name == FeatureName.QUANTIZED.value:
-        # Retained only for an explicit ``False``; a missing or non-boolean
-        # value counts as ground truth.
         return options.get(FeatureOption.GROUND_TRUTH.value, True) is False
-    if name == FeatureName.CUSTOM.value:
-        return {getattr(key, 'value', key) for key in options} <= REFERENCE_SAFE_CUSTOM_OPTIONS
     return False
 
 
@@ -595,9 +566,6 @@ class Declaration:
             return None
         return '+'.join(name for name, _ in self._entries)
 
-    @property
-    def is_known(self):
-        return self._route is not None
 
     def __repr__(self):
         return f'Declaration({self._route!r}, {self.name!r})'

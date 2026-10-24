@@ -17,7 +17,6 @@ from .feature_definitions import SEED_POLICY_COMPOSED, SEED_POLICY_SINGLE
 from .metadata import safe_metadata
 
 FEATURE_PIPELINE_SCHEMA = 'feature_pipeline-v3'
-KNOWN_PIPELINE_SCHEMAS = ('feature_pipeline-v1', 'feature_pipeline-v2', FEATURE_PIPELINE_SCHEMA)
 
 
 def _describe(value):

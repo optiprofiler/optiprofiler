@@ -1,6 +1,13 @@
 """Solvers for action tests."""
+import json
+from pathlib import Path
+import tempfile
+
 import numpy as np
-from scipy.optimize import minimize, Bounds, LinearConstraint, NonlinearConstraint
+from scipy import __version__ as scipy_version
+from scipy.optimize import minimize, Bounds, LinearConstraint, NonlinearConstraint, show_options
+
+from optiprofiler import benchmark
 
 
 def scipy_cobyla(fun, x0, xl=None, xu=None, aub=None, bub=None, aeq=None, beq=None, cub=None, ceq=None):
@@ -86,10 +93,81 @@ def scipy_nelder_mead(fun, x0, xl=None, xu=None, aub=None, bub=None, aeq=None, b
     return result.x
 
 
-# Exported solvers for action tests
-SOLVERS = [scipy_cobyla, scipy_cobyqa, scipy_nelder_mead]
-SOLVER_NAMES = ['COBYLA', 'COBYQA', 'Nelder-Mead']
+def get_solver_configuration(unconstrained=False):
+    """Select methods provided by the installed SciPy, without solving at import."""
+    try:
+        show_options(solver='minimize', method='cobyqa', disp=False)
+    except ValueError:
+        # SciPy releases supporting older Python versions may lack COBYQA.
+        # Keep two real solvers instead of benchmarking an unknown method.
+        if unconstrained:
+            return [scipy_nelder_mead, scipy_cobyla], ['Nelder-Mead', 'COBYLA'], ['COBYQA']
+        return [scipy_cobyla, scipy_nelder_mead], ['COBYLA', 'Nelder-Mead'], ['COBYQA']
+    if unconstrained:
+        return [scipy_nelder_mead, scipy_cobyqa], ['Nelder-Mead', 'COBYQA'], []
+    return [scipy_cobyla, scipy_cobyqa, scipy_nelder_mead], ['COBYLA', 'COBYQA', 'Nelder-Mead'], []
+
+
+def verify_solver_support(solvers, solver_names):
+    """Fail before benchmark can catch a missing method as a solver failure."""
+    for solver, name in zip(solvers, solver_names):
+        evaluations = 0
+
+        def objective(x):
+            nonlocal evaluations
+            evaluations += 1
+            return float(np.dot(x, x))
+
+        try:
+            point = np.asarray(solver(objective, np.array([1., -1.])))
+            if not evaluations:
+                raise ValueError('no objective evaluations')
+            if point.shape != (2,) or not np.all(np.isfinite(point)):
+                raise ValueError('invalid returned point')
+        except Exception as exc:
+            raise RuntimeError(f'Action-test solver preflight failed for {name}: {exc}') from exc
+        print(f'Solver preflight {name}: {evaluations} objective evaluations.')
+
+
+def verify_benchmark_coverage(report, solver_names):
+    """Require measured primary work from every solver, not just a return code."""
+    runs = [run for problem in report['problems']
+            if problem['role'] == 'primary' and problem['status'] == 'completed'
+            for run in problem['runs']
+            if run.get('execution', {}).get('kind') != 'repeated']
+    for index, name in enumerate(solver_names, start=1):
+        measured = [run for run in runs if run['solver_index'] == index
+                    and (run['evaluations'] or 0) > 0]
+        if not measured:
+            raise RuntimeError(f'Action-test solver {name} has no recorded objective evaluations.')
+        abnormal = sum(run['abnormal_termination'] is True for run in measured)
+        # Budget exhaustion and deliberately difficult features can cause
+        # abnormal termination. Retain those facts rather than rejecting them
+        # or presenting them as normal solver returns.
+        print(f'Benchmark coverage {name}: {len(measured)} evaluated runs; '
+              f'{abnormal} abnormal terminations.')
+
+
+def checked_benchmark(solvers, **options):
+    """Run a benchmark with explicit solver capabilities and history coverage."""
+    names = options['solver_names']
+    if len(solvers) != len(names):
+        raise ValueError('Each action-test solver must have one solver name.')
+    for name in SKIPPED_SOLVERS:
+        print(f'SKIP {name}: SciPy {scipy_version} does not provide this minimize method.')
+    verify_solver_support(solvers, names)
+    if not options.get('report_path'):
+        report_root = Path('action_reports')
+        report_root.mkdir(exist_ok=True)
+        options['report_path'] = Path(tempfile.mkdtemp(dir=report_root, prefix='benchmark_')) / 'report.json'
+    result = benchmark(solvers, **options)
+    report = json.loads(Path(options['report_path']).read_text(encoding='utf-8'))
+    verify_benchmark_coverage(report, names)
+    return result
+
+
+# Exported selections remain available to all three action scripts.
+SOLVERS, SOLVER_NAMES, SKIPPED_SOLVERS = get_solver_configuration()
 
 # Unconstrained solvers
-UNCONSTRAINED_SOLVERS = [scipy_nelder_mead, scipy_cobyqa]
-UNCONSTRAINED_SOLVER_NAMES = ['Nelder-Mead', 'COBYQA']
+UNCONSTRAINED_SOLVERS, UNCONSTRAINED_SOLVER_NAMES, _ = get_solver_configuration(True)
