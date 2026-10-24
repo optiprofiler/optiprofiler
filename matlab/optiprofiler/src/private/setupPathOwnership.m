@@ -7,7 +7,6 @@ function result = setupPathOwnership(action, context, owner, requested)
 % Windows uses its existing ACL behavior, without a POSIX permission claim.
     filename = ownership_file();
     records = read_records(filename);
-    result = false;
     if strcmp(action, 'add')
         context = char(context);
         owner = char(owner);

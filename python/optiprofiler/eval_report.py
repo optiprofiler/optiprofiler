@@ -11,13 +11,12 @@ import json
 import math
 import mimetypes
 import os
-from pathlib import Path, PureWindowsPath
+from pathlib import Path
 import re
 import stat
 import subprocess
 import tempfile
 import time
-import types
 import uuid
 from datetime import datetime, timezone
 from enum import Enum
@@ -26,7 +25,9 @@ import numpy as np
 from .provenance import describe_feature, describe_plan, full_feature_stamp, read_feature_pipeline
 # The metadata encoder is shared with the feature provenance and lives in a
 # dependency-neutral module; the private names below are kept for this file.
-from .metadata import _ABS_IN_TEXT, _SECRET_KEY, TEXT_LIMIT, bounded_text as _text, describe_callback as _callback, safe_metadata as _safe
+from .metadata import TEXT_LIMIT, bounded_text as _text, safe_metadata as _safe
+# Retain this compatibility alias; actual encoding delegates to metadata.
+from .metadata import describe_callback as _callback  # noqa: F401
 from .metadata import provenance_text
 
 

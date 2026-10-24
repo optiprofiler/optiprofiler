@@ -71,8 +71,9 @@ import numpy as np
 from .recording import reference_maxcv_or_nan
 
 from .experiment import STRATEGY_COMPOSED
-from .feature_definitions import STAGE_CODES
-from .feature_definitions import SEED_POLICY_COMPOSED as SEED_POLICY
+# Keep the established module-level names for seed-policy readers.
+from .feature_definitions import STAGE_CODES as STAGE_CODES
+from .feature_definitions import SEED_POLICY_COMPOSED as SEED_POLICY  # noqa: F401 (compatibility export)
 from .opclasses import (Feature, FeatureOption, FeaturedProblem, Problem, _StageRuntime,
                         _begin_featured_query,
                         _process_1d_array, _propagated_reference,

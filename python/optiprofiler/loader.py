@@ -10,9 +10,8 @@ from optiprofiler.legacy_compat import loads_trusted
 import stat
 import uuid
 from typing import Dict, List, Any, Tuple, Optional, Union, Callable
-from enum import Enum
 from pathlib import Path
-from optiprofiler.utils import FeatureName, ProfileOption, FeatureOption, ProblemOption, ProblemError, print_log_message
+from optiprofiler.utils import ProfileOption, ProblemOption, print_log_message
 
 
 def _parse_experiment_time_stamp(value):
