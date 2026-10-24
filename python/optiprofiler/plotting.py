@@ -460,20 +460,6 @@ def _get_log_ratio_profile_axes(work, curves):
     return x_log_ratio, y_log_ratio_sorted, ratio_max, n_solvers_fail, curves
 
 
-def _perf_formatter(x, _):
-    if x.is_integer():
-        return str(int(2 ** x))
-    else:
-        return f'$2^{{{f"{x:.8f}".rstrip("0").rstrip(".")}}}$'
-
-
-def _data_formatter(x, _):
-    if x.is_integer():
-        return str(int(2 ** x - 1))
-    else:
-        return f'$2^{{{f"{x:.8f}".rstrip("0").rstrip(".")}}}-1$'
-
-
 def _format_tick_value(value):
     if np.isclose(value, round(value)):
         return str(int(round(value)))
