@@ -85,7 +85,7 @@ def _reserve_experiment_directory(path_out, solver_names, problem_options,
             return stamp, run_id
 
 
-def _append_quantized_truth_note(feature, is_load, results_plibs, path_report, path_readme):
+def _append_quantized_truth_note(feature, is_load, path_report, path_readme):
     """Do not certify old saved evaluation channels from today's options."""
     if is_load:
         # feature_stamp is user-settable, so it cannot identify the saved
@@ -1188,15 +1188,7 @@ def _benchmark(
     else:
         path_readme_log = None
 
-    if not profile_options[ProfileOption.SCORE_ONLY] and not has_single_problem:
-        # path_figs = path_log / 'profile_figs'
-        # path_figs.mkdir(parents=True, exist_ok=True)
-        # try:
-        #     with path_readme_log.open('a') as f:
-        #         f.write(f"'profile_figs': folder, containing all the FIG files of the profiles.\n")
-        # except:
-        #     pass
-        pass
+    # FIG profiles are not saved in test_log/profile_figs or listed in test_log/README.txt.
 
     # Save the options and record the log.
     # Initialize log_queue and listener to None for the case when score_only=True.
@@ -1213,13 +1205,12 @@ def _benchmark(
         try:
             # Save the user-provided options.
             # We use pickle because options may contain function handles or other non-serializable objects.
-            if 'options_user' in locals() and options_user is not None:
-                # Preserve raw input, but identify its writer semantics: unlike
-                # old flat archives, fresh mixed-case mesh input is normalized.
-                from .legacy_compat import USER_SCHEMA
-                save_options({**options_user, 'schema': USER_SCHEMA}, path_log / 'options_user.pkl')
+            # Preserve raw input, but identify its writer semantics: unlike
+            # old flat archives, fresh mixed-case mesh input is normalized.
+            from .legacy_compat import USER_SCHEMA
+            save_options({**options_user, 'schema': USER_SCHEMA}, path_log / 'options_user.pkl')
 
-                add_to_readme(path_readme_log, 'options_user.pkl', 'File, storing the options provided by the user for the current experiment.')
+            add_to_readme(path_readme_log, 'options_user.pkl', 'File, storing the options provided by the user for the current experiment.')
 
             # Save the refined options (including defaults and internal settings).
             options_refined = profile_options.copy()
@@ -1405,7 +1396,7 @@ def _benchmark(
                 report.add_problem(result, 'user')
             report.set_stage('numerical', 'completed')
             report.set_stage('persistence', 'not_applicable', 'single_problem_has_no_reload_archive')
-            report.set_profiles(None, solver_scores, None, solver_names, single=True)
+            report.set_scores(solver_scores, None, solver_names, single=True)
 
         if not profile_options[ProfileOption.SILENT]:
             logger.info('')
@@ -1685,7 +1676,7 @@ def _benchmark(
     # Write the report file.
     write_report(profile_options, results_plibs, path_report, path_readme_log)
     if not profile_options[ProfileOption.SCORE_ONLY]:
-        _append_quantized_truth_note(feature, is_load, results_plibs,
+        _append_quantized_truth_note(feature, is_load,
                                      path_report, path_readme_log)
 
     solver_scores, profile_scores, curves = _build_profiles(
@@ -1841,12 +1832,6 @@ def _build_profiles(
             )
         else:
             merit_inits_per_run = merit_inits_merged
-        if merit_mins_merged.ndim == 1:
-            merit_mins_per_run = np.broadcast_to(
-                merit_mins_merged[:, None], (n_problems, n_runs)
-            )
-        else:
-            merit_mins_per_run = merit_mins_merged
         merit_init_inf_mask = np.isinf(merit_inits_per_run) & ~invalid_initial
         if not profile_options[ProfileOption.SILENT] and np.any(merit_init_inf_mask):
             for i_problem in range(n_problems):
@@ -1939,15 +1924,11 @@ def _build_profiles(
                                 # Preserve the Inf-initial convention, but only
                                 # for actual evaluations without raw NaN values.
                                 threshold = np.inf
-                            elif np.isfinite(merit_mins_per_run[i_problem, i_run]):
-                                threshold = max(tolerance * merit_inits_per_run[i_problem, i_run] + (1.0 - tolerance) * merit_mins_per_run[i_problem, i_run], merit_mins_per_run[i_problem, i_run])
+                            elif np.isfinite(merit_mins_merged[i_problem, i_run]):
+                                threshold = max(tolerance * merit_inits_per_run[i_problem, i_run] + (1.0 - tolerance) * merit_mins_merged[i_problem, i_run], merit_mins_merged[i_problem, i_run])
                             else:
-                                # Unreachable under the merit_min <=
-                                # merit_init invariant established in
-                                # ``process_results`` (since
-                                # merit_inits_per_run is finite here). Kept
-                                # defensively to preserve the previous
-                                # "no convergence" behaviour.
+                                # A -Inf history minimum needs an exact -Inf hit;
+                                # an undefined minimum cannot establish a target.
                                 threshold = -np.inf
                             passing = valid_histories[i_problem, i_solver, i_run] & (merit_histories_merged[i_problem, i_solver, i_run] <= threshold)
                             if np.any(passing):
@@ -2219,7 +2200,7 @@ def _build_profiles(
     score_fun = profile_options[ProfileOption.SCORE_FUN]
     solver_scores = score_fun(profile_scores)
     if report is not None:
-        report.set_profiles(curves, solver_scores, profile_scores, solver_names)
+        report.set_scores(solver_scores, profile_scores, solver_names)
 
     # Append the solver scores to the experiment report file. Mirrors
     # MATLAB ``benchmark.m`` lines 1602-1612 so that the on-disk

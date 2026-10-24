@@ -90,6 +90,32 @@ classdef TestPlainReferenceIdentity < matlab.unittest.TestCase
             testCase.verifyEqual(reshape(mins, 1, []), [5, 5]);
         end
 
+        function paddingPreservesValuesTypesAndCallerData(testCase)
+            for type = {'double', 'single', 'int64'}
+                for second_length = [2, 3]
+                    blocks = {TestPlainReferenceIdentity.block('a', {'A'}, 5), ...
+                        TestPlainReferenceIdentity.block('b', {'B'}, 20)};
+                    lengths = [2, second_length];
+                    for k = 1:2
+                        for field = {'fun_histories', 'maxcv_histories', 'merit_histories'}
+                            blocks{k}.(field{1}) = blocks{k}.(field{1})(:, :, :, 1:lengths(k));
+                        end
+                        blocks{k}.merit_histories = cast(blocks{k}.merit_histories, type{1});
+                        blocks{k}.n_evals(:) = lengths(k);
+                    end
+                    before = blocks;
+                    for repeat = 1:2
+                        [histories, ~, ~, mins] = processResults(blocks, struct('run_plain', false));
+                        testCase.verifyClass(histories, 'double');
+                        testCase.verifyEqual(histories(1, :, :, :), 5 * ones(1, 3, 2, second_length));
+                        testCase.verifyEqual(histories(2, :, :, :), 20 * ones(1, 3, 2, second_length));
+                        testCase.verifyEqual(reshape(mins, 2, []), [5, 5; 20, 20]);
+                        testCase.verifyEqual(blocks, before);
+                    end
+                end
+            end
+        end
+
         function reportAcceptsPartialPlainResults(testCase)
             block = TestPlainReferenceIdentity.block('library_a', {'A', 'B'}, [10, 20]);
             block.results_plib_plain = TestPlainReferenceIdentity.block('library_a', {'B'}, 15);

@@ -76,6 +76,40 @@ classdef TestRuntimeRobustness < matlab.unittest.TestCase
             testCase.verifyNotEmpty(curves.perf{1, 1});
         end
 
+        function summaryProfilesKeepSelectedOrder(testCase)
+            old = pwd;
+            directory_guard = onCleanup(@() cd(old)); %#ok<NASGU>
+            cd(fullfile(fileparts(mfilename('fullpath')), '..', '..', 'src', 'private'));
+            options = getDefaultProfileOptions({@(varargin) [], @(varargin) []}, ...
+                Feature('plain'), struct('n_jobs', 1, 'silent', true));
+            options.ylabel_performance_profile = 'perf %s';
+            options.ylabel_data_profile = 'data %s';
+            options.ylabel_log_ratio_profile = 'ratio %s';
+            labels = {'perf 0.1', 'data 0.1', 'ratio 0.1'};
+            for mask = 0:7
+                enabled = logical(bitget(mask, 1:3));
+                summary = figure('Visible', 'off');
+                summary_guard = onCleanup(@() close(summary));
+                axs = cell(1, nnz(enabled));
+                for row = 1:numel(axs)
+                    axs{row} = subplot(numel(axs), 1, row, 'Parent', summary);
+                end
+                curve = struct('perf', {cell(2, 2)}, 'data', {cell(2, 2)}, ...
+                    'log_ratio', {cell(1, 2)});
+                [a, b, c, ~, ok] = drawProfiles([1, 2; 3, 4], [2; 3], ...
+                    {'one', 'two'}, '0.1', axs, any(enabled), enabled(1), ...
+                    enabled(2), enabled(3), options, curve);
+                figures_guard = onCleanup(@() close([a, b, c]));
+                testCase.verifyTrue(ok, sprintf('Summary selection %d failed.', mask));
+                selected_labels = labels(enabled);
+                for row = 1:numel(axs)
+                    testCase.verifyEqual(axs{row}.YLabel.String, selected_labels{row});
+                    testCase.verifyNotEmpty(axs{row}.Children);
+                end
+                clear figures_guard summary_guard;
+            end
+        end
+
         function exclusiveDirectoryNeverReusesExistingOutput(testCase)
             old=pwd; work=tempname; mkdir(work);
             cleanup=onCleanup(@() restoreDirectory(old,work));

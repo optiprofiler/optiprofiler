@@ -102,6 +102,10 @@ function results_plibs = unify_length(results_plibs, name)
     for i_plib = 1:size(results_plibs, 2)
         results_plib = results_plibs{i_plib};
         field = results_plib.(name);
+        if size(field, 4) == max_length
+            results_plibs{i_plib}.(name) = double(field);
+            continue;
+        end
         field_unified = NaN(size(field, 1), size(field, 2), size(field, 3), max_length);
         field_unified(:, :, :, 1:size(field, 4)) = field;
         field_unified(:, :, :, size(field, 4) + 1:end) = repmat(field(:, :, :, end), [1, 1, 1, max_length - size(field, 4)]);

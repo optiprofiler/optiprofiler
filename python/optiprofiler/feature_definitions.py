@@ -27,6 +27,7 @@ EXPERIMENT_OPTIONS = frozenset({'n_runs'})
 
 #: Frozen literal seed codes of the stage kinds (policy ``seedsequence-v2``).
 #: Never derived from enumeration or table order; changing a code changes experiments.
+#: Never renumber; append new codes. ``plain`` has none because it is not an effective stage.
 STAGE_CODES = {
     FeatureName.PERTURBED_X0.value: 1,
     FeatureName.NOISY.value: 2,
@@ -41,6 +42,7 @@ STAGE_CODES = {
 }
 
 #: Seed policies recorded in provenance (values are frozen identifiers).
+#: Archives written under an earlier policy keep their recorded identifier when loaded.
 SEED_POLICY_SINGLE = 'legacy-run-seed'
 SEED_POLICY_COMPOSED = 'seedsequence-v2'
 

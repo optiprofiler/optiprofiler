@@ -1210,12 +1210,14 @@ def process_results(results_plibs, profile_options):
         max_length = max(r[name].shape[3] for r in results_plibs)
         for r in results_plibs:
             field = r[name]
+            if field.shape[3] == max_length:
+                r[name] = np.asarray(field, dtype=float)
+                continue
             shape = list(field.shape)
             shape[3] = max_length
             field_unified = np.full(shape, np.nan)
             field_unified[:, :, :, :field.shape[3]] = field
-            if field.shape[3] < max_length:
-                field_unified[:, :, :, field.shape[3]:] = np.repeat(field[:, :, :, -1:], max_length - field.shape[3], axis=3)
+            field_unified[:, :, :, field.shape[3]:] = field[:, :, :, -1:]
             r[name] = field_unified
         return results_plibs
 

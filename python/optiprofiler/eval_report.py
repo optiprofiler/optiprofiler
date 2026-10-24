@@ -1140,7 +1140,7 @@ class EvalReport:
         self.document['source'] = record
         self._write()
 
-    def set_profiles(self, curves, solver_scores, profile_scores, solver_names, single=False):
+    def set_scores(self, solver_scores, profile_scores, solver_names, single=False):
         n_types = profile_scores.shape[-1] if type(profile_scores) is np.ndarray and profile_scores.ndim == 4 else 0
         self.document['scores'] = {
             'solver_names': _score_values(solver_names), 'solver_scores': _score_values(solver_scores),
