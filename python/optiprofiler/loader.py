@@ -39,10 +39,6 @@ def search_in_dir(current_path: str, pattern: str, max_depth: int, current_depth
             file_info = {
                 'name': os.path.basename(file_path),
                 'folder': os.path.dirname(file_path),
-                'date': datetime.datetime.fromtimestamp(os.path.getmtime(file_path)),
-                'bytes': os.path.getsize(file_path),
-                'isdir': False,
-                'datenum': os.path.getmtime(file_path)
             }
             files.append(file_info)
     

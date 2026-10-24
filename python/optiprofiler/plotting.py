@@ -1,23 +1,12 @@
-import os
 import re
 import shutil
-import inspect
-import time
 import warnings
-from contextlib import redirect_stderr, redirect_stdout
-from datetime import datetime
-from inspect import signature
-from multiprocessing import Pool
-from pathlib import Path
 
 import matplotlib
 import numpy as np
-from cycler import cycler
 from matplotlib.figure import Figure
-from matplotlib.colors import is_color_like
 from matplotlib.lines import Line2D
-from matplotlib.backends import backend_pdf
-from matplotlib.ticker import MaxNLocator, FuncFormatter, FixedLocator, NullLocator
+from matplotlib.ticker import FixedLocator, NullLocator
 
 from .utils import ProfileOption
 from .plot_options import apply_plot_options
@@ -841,7 +830,6 @@ def prepare_history_plot_data(y, is_cum, y_shift, n_eval, profile_options):
     """
     
     n_solvers = y.shape[0]
-    n_runs = y.shape[1]
     # Keep (solver, evaluation) even for one solver or one evaluation.
     y_mean = np.mean(y, axis=1)
 
