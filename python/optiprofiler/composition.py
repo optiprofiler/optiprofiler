@@ -68,7 +68,7 @@ keep the legacy run-seed streams.
 import copy
 
 import numpy as np
-from .recording import reference_maxcv_or_nan
+from .recording import initialize_histories, record_objective
 
 from .experiment import STRATEGY_COMPOSED
 from .feature_definitions import STAGE_CODES
@@ -820,14 +820,7 @@ class ComposedFeaturedProblem(FeaturedProblem):
         self._real_n_eval_fun = 0
         self._real_n_eval_cub = 0
         self._real_n_eval_ceq = 0
-        self._fun_hist = []
-        self._cub_hist = []
-        self._ceq_hist = []
-        self._maxcv_hist = []
-        self._reference_history_warned = False
-        self._last_fun = np.nan
-        self._last_cub = np.nan
-        self._last_ceq = np.nan
+        initialize_histories(self)
 
         self.execution_strategy = STRATEGY_COMPOSED
         self._contexts = tuple(StageContext({channel: stage_seed(self._seed, stage, channel) for channel in CHANNEL_TAGS})
@@ -879,10 +872,8 @@ class ComposedFeaturedProblem(FeaturedProblem):
         x = self._point(x, 'fun')
         f = self._final.observed_fun(x)
         self._last_fun = f
-        self._fun_hist.append(self._final.reference_fun(x))
         # Reserve the paired slot before a diagnostic can become an exception.
-        self._maxcv_hist.append(np.nan)
-        self._maxcv_hist[-1] = reference_maxcv_or_nan(self._final.reference_maxcv, x, self)
+        record_objective(self, self._final.reference_fun(x), self._final.reference_maxcv, x)
         return f
 
     def cub(self, x, record_hist=True):
