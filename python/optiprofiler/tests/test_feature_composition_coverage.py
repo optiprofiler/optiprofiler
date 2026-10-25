@@ -123,3 +123,11 @@ def test_long_mixed_chains(length):
     exercise(FeaturedProblem(fixture('n'), feature, MAX_EVAL, 4), 'n')
     # Generous bound: exponential work would take far longer than this.
     assert time.perf_counter() - start < 60.0
+
+
+def test_declared_stage_kinds_have_runtime_views_and_frozen_codes():
+    from optiprofiler.composition import _VIEW_CLASSES
+    from optiprofiler.feature_definitions import STAGE_NAMES, STAGE_CODES
+
+    effective_names = set(STAGE_NAMES) - {'plain'}
+    assert effective_names == set(_VIEW_CLASSES) == set(STAGE_CODES)

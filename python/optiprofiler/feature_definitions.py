@@ -5,7 +5,7 @@ plus the normalization of user input into the canonical stage records.
 
 This module imports nothing from the problem, view, benchmark or report code so
 that every layer (specification, experiment planning, execution, provenance,
-documentation and the MATLAB mapping) reads one table. Nothing here executes a
+documentation and the MATLAB mapping) reads shared declarations and frozen seed codes. Nothing here executes a
 user callback: callables are checked for callability only and stored by
 reference.
 
@@ -13,6 +13,7 @@ Experiment options (``n_runs``) are not stage options; they are rejected inside 
 stage and belong to ``optiprofiler.experiment``.
 """
 
+from collections import namedtuple
 from collections.abc import Mapping
 import math
 from types import MappingProxyType
@@ -50,27 +51,149 @@ _CUSTOM_CALLBACKS = (FeatureOption.MOD_X0, FeatureOption.MOD_BOUNDS, FeatureOpti
                      FeatureOption.MOD_LINEAR_EQ, FeatureOption.MOD_AFFINE, FeatureOption.MOD_FUN,
                      FeatureOption.MOD_CUB, FeatureOption.MOD_CEQ)
 
-#: Stage-local options accepted by each kind. ``noisy.distribution`` and
-#: ``perturbed_x0.distribution`` are distinct definitions that share a spelling.
-LOCAL_OPTIONS = {
-    FeatureName.PLAIN.value: (),
-    FeatureName.CUSTOM.value: tuple(option.value for option in _CUSTOM_CALLBACKS),
-    FeatureName.NOISY.value: (FeatureOption.DISTRIBUTION.value, FeatureOption.NOISE_LEVEL.value,
-                              FeatureOption.NOISE_TYPE.value, FeatureOption.NOISE_MODE.value,
-                              FeatureOption.NOISE_MAP.value),
-    FeatureName.PERTURBED_X0.value: (FeatureOption.DISTRIBUTION.value, FeatureOption.PERTURBATION_LEVEL.value),
-    FeatureName.RANDOM_NAN.value: (FeatureOption.NAN_RATE.value,),
-    FeatureName.TRUNCATED.value: (FeatureOption.PERTURBED_TRAILING_DIGITS.value, FeatureOption.SIGNIFICANT_DIGITS.value),
-    FeatureName.UNRELAXABLE_CONSTRAINTS.value: (FeatureOption.UNRELAXABLE_BOUNDS.value,
-                                                FeatureOption.UNRELAXABLE_LINEAR_CONSTRAINTS.value,
-                                                FeatureOption.UNRELAXABLE_NONLINEAR_CONSTRAINTS.value),
-    FeatureName.LINEARLY_TRANSFORMED.value: (FeatureOption.ROTATED.value, FeatureOption.CONDITION_FACTOR.value),
-    FeatureName.QUANTIZED.value: (FeatureOption.MESH_SIZE.value, FeatureOption.MESH_TYPE.value,
-                                  FeatureOption.GROUND_TRUTH.value),
-    FeatureName.PERMUTED.value: (),
-    FeatureName.NONQUANTIFIABLE_CONSTRAINTS.value: (),
+def _stamp_perturbed_x0(name, options):
+    text = f"{name}_{options[FeatureOption.PERTURBATION_LEVEL]}"
+    dist = options.get(FeatureOption.DISTRIBUTION.value)
+    if isinstance(dist, str) and dist in ('gaussian', 'spherical'):
+        text = f"{text}_{dist}"
+    return text
+
+
+def _stamp_noisy(name, options):
+    text = f"{name}_{options[FeatureOption.NOISE_LEVEL]}_{options[FeatureOption.NOISE_TYPE]}"
+    if options[FeatureOption.NOISE_MODE] == 'deterministic':
+        text = f"{text}_deterministic"
+        noise_map = options.get(FeatureOption.NOISE_MAP.value)
+        if isinstance(noise_map, str) and noise_map == 'chebyshev':
+            text = f"{text}_{noise_map}"
+    else:
+        dist = options.get(FeatureOption.DISTRIBUTION.value)
+        if isinstance(dist, str) and dist in ('gaussian', 'uniform'):
+            text = f"{text}_{dist}"
+    return text
+
+
+def _stamp_truncated(name, options):
+    text = f"{name}_{options[FeatureOption.SIGNIFICANT_DIGITS]}"
+    if options[FeatureOption.PERTURBED_TRAILING_DIGITS]:
+        text = f"{text}_perturbed_trailing_digits"
+    return text
+
+
+def _stamp_linearly_transformed(name, options):
+    text = str(name)
+    if options[FeatureOption.ROTATED]:
+        text = f"{text}_rotated"
+    if options[FeatureOption.CONDITION_FACTOR] != 0:
+        text = f"{text}_cond{options[FeatureOption.CONDITION_FACTOR]}"
+    return text
+
+
+def _stamp_random_nan(name, options):
+    return f"{name}_{options[FeatureOption.NAN_RATE]}"
+
+
+def _stamp_unrelaxable_constraints(name, options):
+    text = str(name)
+    if options[FeatureOption.UNRELAXABLE_BOUNDS]:
+        text = f"{text}_bounds"
+    if options[FeatureOption.UNRELAXABLE_LINEAR_CONSTRAINTS]:
+        text = f"{text}_linear"
+    if options[FeatureOption.UNRELAXABLE_NONLINEAR_CONSTRAINTS]:
+        text = f"{text}_nonlinear"
+    return text
+
+
+def _stamp_quantized(name, options):
+    text = f"{name}_{options[FeatureOption.MESH_SIZE]}"
+    if options[FeatureOption.GROUND_TRUTH]:
+        text = f"{text}_ground_truth"
+    return text
+
+
+# Literal defaults and option-dependent policies are declared together per kind.
+_StageDefinition = namedtuple('_StageDefinition', 'options defaults replicate_hint stochastic stamp')
+_STAGE_DEFINITIONS = {
+    FeatureName.PLAIN.value: _StageDefinition(
+        options=(),
+        defaults={},
+        replicate_hint=1,
+        stochastic=False,
+        stamp=None),
+    FeatureName.CUSTOM.value: _StageDefinition(
+        options=tuple(option.value for option in _CUSTOM_CALLBACKS),
+        defaults={},
+        replicate_hint=1,
+        stochastic=True,
+        stamp=None),
+    FeatureName.NOISY.value: _StageDefinition(
+        options=(FeatureOption.DISTRIBUTION.value, FeatureOption.NOISE_LEVEL.value,
+            FeatureOption.NOISE_TYPE.value, FeatureOption.NOISE_MODE.value,
+            FeatureOption.NOISE_MAP.value),
+        defaults={'noise_mode': 'random', 'distribution': 'gaussian', 'noise_map': 'chebyshev',
+            'noise_level': 1e-3, 'noise_type': 'mixed'},
+        replicate_hint=lambda options: 1 if options[FeatureOption.NOISE_MODE] == 'deterministic' else 5,
+        stochastic=lambda options: options[FeatureOption.NOISE_MODE] == 'random',
+        stamp=_stamp_noisy),
+    FeatureName.PERTURBED_X0.value: _StageDefinition(
+        options=(FeatureOption.DISTRIBUTION.value, FeatureOption.PERTURBATION_LEVEL.value),
+        defaults={'distribution': 'spherical', 'perturbation_level': 1e-3},
+        replicate_hint=5,
+        stochastic=True,
+        stamp=_stamp_perturbed_x0),
+    FeatureName.RANDOM_NAN.value: _StageDefinition(
+        options=(FeatureOption.NAN_RATE.value,),
+        defaults={'nan_rate': 0.05},
+        replicate_hint=5,
+        stochastic=True,
+        stamp=_stamp_random_nan),
+    FeatureName.TRUNCATED.value: _StageDefinition(
+        options=(FeatureOption.PERTURBED_TRAILING_DIGITS.value,
+            FeatureOption.SIGNIFICANT_DIGITS.value),
+        defaults={'perturbed_trailing_digits': False, 'significant_digits': 6},
+        replicate_hint=lambda options: 5 if options[FeatureOption.PERTURBED_TRAILING_DIGITS] else 1,
+        stochastic=lambda options: bool(options[FeatureOption.PERTURBED_TRAILING_DIGITS]),
+        stamp=_stamp_truncated),
+    FeatureName.UNRELAXABLE_CONSTRAINTS.value: _StageDefinition(
+        options=(FeatureOption.UNRELAXABLE_BOUNDS.value,
+            FeatureOption.UNRELAXABLE_LINEAR_CONSTRAINTS.value,
+            FeatureOption.UNRELAXABLE_NONLINEAR_CONSTRAINTS.value),
+        defaults={'unrelaxable_bounds': True, 'unrelaxable_linear_constraints': False,
+            'unrelaxable_nonlinear_constraints': False},
+        replicate_hint=1,
+        stochastic=False,
+        stamp=_stamp_unrelaxable_constraints),
+    FeatureName.LINEARLY_TRANSFORMED.value: _StageDefinition(
+        options=(FeatureOption.ROTATED.value, FeatureOption.CONDITION_FACTOR.value),
+        defaults={'rotated': True, 'condition_factor': 0},
+        replicate_hint=5,
+        stochastic=lambda options: bool(options[FeatureOption.ROTATED]),
+        stamp=_stamp_linearly_transformed),
+    FeatureName.QUANTIZED.value: _StageDefinition(
+        options=(FeatureOption.MESH_SIZE.value, FeatureOption.MESH_TYPE.value,
+            FeatureOption.GROUND_TRUTH.value),
+        defaults={'mesh_size': 1e-3, 'mesh_type': 'absolute', 'ground_truth': True},
+        replicate_hint=1,
+        stochastic=False,
+        stamp=_stamp_quantized),
+    FeatureName.PERMUTED.value: _StageDefinition(
+        options=(),
+        defaults={},
+        replicate_hint=5,
+        stochastic=True,
+        stamp=None),
+    FeatureName.NONQUANTIFIABLE_CONSTRAINTS.value: _StageDefinition(
+        options=(),
+        defaults={},
+        replicate_hint=1,
+        stochastic=False,
+        stamp=None),
 }
 
+#: Stage-local options accepted by each kind. ``noisy.distribution`` and
+#: ``perturbed_x0.distribution`` are distinct definitions that share a spelling.
+LOCAL_OPTIONS = {name: definition.options for name, definition in _STAGE_DEFINITIONS.items()}
+# Keep the established declaration order.
 STAGE_NAMES = tuple(LOCAL_OPTIONS)
 
 
@@ -219,35 +342,11 @@ def validate_option(name, key, value):
 
 def apply_local_defaults(name, options):
     """Fill the unspecified stage-local options of kind ``name`` in place (values are plain data)."""
-    if name in [FeatureName.PLAIN, FeatureName.CUSTOM, FeatureName.NONQUANTIFIABLE_CONSTRAINTS, FeatureName.PERMUTED]:
-        pass
-    elif name == FeatureName.NOISY:
-        options.setdefault(FeatureOption.NOISE_MODE.value, 'random')
-        options.setdefault(FeatureOption.DISTRIBUTION.value, 'gaussian')
-        options.setdefault(FeatureOption.NOISE_MAP.value, 'chebyshev')
-        options.setdefault(FeatureOption.NOISE_LEVEL.value, 1e-3)
-        options.setdefault(FeatureOption.NOISE_TYPE.value, 'mixed')
-    elif name == FeatureName.LINEARLY_TRANSFORMED:
-        options.setdefault(FeatureOption.ROTATED.value, True)
-        options.setdefault(FeatureOption.CONDITION_FACTOR.value, 0)
-    elif name == FeatureName.PERTURBED_X0:
-        options.setdefault(FeatureOption.DISTRIBUTION.value, 'spherical')
-        options.setdefault(FeatureOption.PERTURBATION_LEVEL.value, 1e-3)
-    elif name == FeatureName.RANDOM_NAN:
-        options.setdefault(FeatureOption.NAN_RATE.value, 0.05)
-    elif name == FeatureName.TRUNCATED:
-        options.setdefault(FeatureOption.PERTURBED_TRAILING_DIGITS.value, False)
-        options.setdefault(FeatureOption.SIGNIFICANT_DIGITS.value, 6)
-    elif name == FeatureName.UNRELAXABLE_CONSTRAINTS:
-        options.setdefault(FeatureOption.UNRELAXABLE_BOUNDS.value, True)
-        options.setdefault(FeatureOption.UNRELAXABLE_LINEAR_CONSTRAINTS.value, False)
-        options.setdefault(FeatureOption.UNRELAXABLE_NONLINEAR_CONSTRAINTS.value, False)
-    elif name == FeatureName.QUANTIZED:
-        options.setdefault(FeatureOption.MESH_SIZE.value, 1e-3)
-        options.setdefault(FeatureOption.MESH_TYPE.value, 'absolute')
-        options.setdefault(FeatureOption.GROUND_TRUTH.value, True)
-    else:
+    definition = _STAGE_DEFINITIONS.get(name)
+    if definition is None:
         raise NotImplementedError(f'Unknown feature: {name}.')
+    for key, value in definition.defaults.items():
+        options.setdefault(key, value)
     return options
 
 
@@ -259,29 +358,20 @@ def replicate_hint(name, options):
     hints five although it is deterministic. The experiment resolver combines the
     hints of the effective stages; a stage never stores a run count.
     """
-    if name in [FeatureName.PLAIN, FeatureName.CUSTOM, FeatureName.NONQUANTIFIABLE_CONSTRAINTS,
-                FeatureName.UNRELAXABLE_CONSTRAINTS, FeatureName.QUANTIZED]:
-        return 1
-    elif name == FeatureName.NOISY:
-        return 1 if options[FeatureOption.NOISE_MODE] == 'deterministic' else 5
-    elif name == FeatureName.TRUNCATED:
-        return 5 if options[FeatureOption.PERTURBED_TRAILING_DIGITS] else 1
-    elif name in [FeatureName.PERMUTED, FeatureName.LINEARLY_TRANSFORMED, FeatureName.PERTURBED_X0, FeatureName.RANDOM_NAN]:
-        return 5
-    raise NotImplementedError(f'Unknown feature: {name}.')
+    definition = _STAGE_DEFINITIONS.get(name)
+    if definition is None:
+        raise NotImplementedError(f'Unknown feature: {name}.')
+    policy = definition.replicate_hint
+    return policy(options) if callable(policy) else policy
 
 
 def is_stochastic(name, options):
     """Whether the stage kind ``name`` with these local options draws random numbers."""
-    if name == FeatureName.NOISY:
-        return options[FeatureOption.NOISE_MODE] == 'random'
-    elif name in [FeatureName.PERTURBED_X0, FeatureName.PERMUTED, FeatureName.RANDOM_NAN, FeatureName.CUSTOM]:
-        return True
-    elif name == FeatureName.TRUNCATED:
-        return bool(options[FeatureOption.PERTURBED_TRAILING_DIGITS])
-    elif name == FeatureName.LINEARLY_TRANSFORMED:
-        return bool(options[FeatureOption.ROTATED])
-    return False
+    definition = _STAGE_DEFINITIONS.get(name)
+    if definition is None:
+        return False
+    policy = definition.stochastic
+    return policy(options) if callable(policy) else policy
 
 
 #: Stage kinds that keep a raw reference fact whatever their
@@ -321,49 +411,10 @@ def retains_reference(name, options):
 
 def stamp(name, options):
     """The folder-name stamp of one stage kind (the established 1.x conventions)."""
-    if name == FeatureName.PERTURBED_X0:
-        text = f"{name}_{options[FeatureOption.PERTURBATION_LEVEL]}"
-        dist = options.get(FeatureOption.DISTRIBUTION.value)
-        if isinstance(dist, str) and dist in ('gaussian', 'spherical'):
-            text = f"{text}_{dist}"
-    elif name == FeatureName.NOISY:
-        text = f"{name}_{options[FeatureOption.NOISE_LEVEL]}_{options[FeatureOption.NOISE_TYPE]}"
-        if options[FeatureOption.NOISE_MODE] == 'deterministic':
-            text = f"{text}_deterministic"
-            noise_map = options.get(FeatureOption.NOISE_MAP.value)
-            if isinstance(noise_map, str) and noise_map == 'chebyshev':
-                text = f"{text}_{noise_map}"
-        else:
-            dist = options.get(FeatureOption.DISTRIBUTION.value)
-            if isinstance(dist, str) and dist in ('gaussian', 'uniform'):
-                text = f"{text}_{dist}"
-    elif name == FeatureName.TRUNCATED:
-        text = f"{name}_{options[FeatureOption.SIGNIFICANT_DIGITS]}"
-        if options[FeatureOption.PERTURBED_TRAILING_DIGITS]:
-            text = f"{text}_perturbed_trailing_digits"
-    elif name == FeatureName.LINEARLY_TRANSFORMED:
-        text = str(name)
-        if options[FeatureOption.ROTATED]:
-            text = f"{text}_rotated"
-        if options[FeatureOption.CONDITION_FACTOR] != 0:
-            text = f"{text}_cond{options[FeatureOption.CONDITION_FACTOR]}"
-    elif name == FeatureName.RANDOM_NAN:
-        text = f"{name}_{options[FeatureOption.NAN_RATE]}"
-    elif name == FeatureName.UNRELAXABLE_CONSTRAINTS:
-        text = str(name)
-        if options[FeatureOption.UNRELAXABLE_BOUNDS]:
-            text = f"{text}_bounds"
-        if options[FeatureOption.UNRELAXABLE_LINEAR_CONSTRAINTS]:
-            text = f"{text}_linear"
-        if options[FeatureOption.UNRELAXABLE_NONLINEAR_CONSTRAINTS]:
-            text = f"{text}_nonlinear"
-    elif name == FeatureName.QUANTIZED:
-        text = f"{name}_{options[FeatureOption.MESH_SIZE]}"
-        if options[FeatureOption.GROUND_TRUTH]:
-            text = f"{text}_ground_truth"
-    else:
-        text = str(name)
-    return text
+    definition = _STAGE_DEFINITIONS.get(name)
+    if definition is None or definition.stamp is None:
+        return str(name)
+    return definition.stamp(name, options)
 
 
 def own_value(value):
