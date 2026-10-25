@@ -14,6 +14,7 @@ single deterministic run (reported as repeated, never as actual).
 """
 
 import numpy as np
+from .validation import normalize_integer
 
 from .feature_definitions import EXPERIMENT_OPTIONS  # noqa: F401  (re-exported for the option partition)
 
@@ -43,10 +44,7 @@ def validate_n_runs(value):
     # the stage options).
     if isinstance(value, (bool, np.bool_)):
         raise TypeError('Option `n_runs` must be an integer, not a boolean.')
-    if isinstance(value, (float, np.floating)) and float(value).is_integer():
-        value = int(value)
-    if isinstance(value, np.integer):
-        value = int(value)
+    value = normalize_integer(value)
     if not isinstance(value, int):
         raise TypeError('Option `n_runs` must be an integer.')
     if value <= 0:

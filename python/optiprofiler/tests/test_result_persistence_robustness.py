@@ -79,7 +79,7 @@ def test_display_report_is_explicit_without_mutating_results():
 def test_new_quantized_truth_note_is_specific(tmp_path, truth):
     paths = [tmp_path / 'report.txt', tmp_path / 'README.txt']
     profiles._append_quantized_truth_note(
-        Feature('quantized', ground_truth=truth), False, [], *paths)
+        Feature('quantized', ground_truth=truth), False, *paths)
     for path in paths:
         text = path.read_text()
         assert f'ground_truth={str(truth).lower()}' in text
@@ -87,12 +87,11 @@ def test_new_quantized_truth_note_is_specific(tmp_path, truth):
         assert 'returned point is unchanged' in text
 
 
-@pytest.mark.parametrize('stamp', ['quantized_1_ground_truth', 'custom_label', None])
-def test_reload_does_not_claim_legacy_quantized_data_was_repaired(tmp_path, stamp):
+def test_reload_does_not_claim_legacy_quantized_data_was_repaired(tmp_path):
     paths = [tmp_path / 'report.txt', tmp_path / 'README.txt']
     # The caller's current feature options cannot certify old saved channels.
     profiles._append_quantized_truth_note(
-        Feature('plain'), True, [{'feature_stamp': stamp}], *paths)
+        Feature('plain'), True, *paths)
     for path in paths:
         text = path.read_text()
         assert 'older quantized archives may contain mixed truth channels' in text

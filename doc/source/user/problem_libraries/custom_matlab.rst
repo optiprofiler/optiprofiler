@@ -9,16 +9,18 @@ define a selector and loader with stable MATLAB function names:
 * ``myproblems_select(options)`` returns the matching problem names;
 * ``myproblems_load(name)`` returns a :ref:`Problem <matproblem>`.
 
-A loader may attach a feasible reference fact to the problem it returns
+A loader may attach a raw reference fact to the problem it returns
 through the optional ``reference`` field of the :ref:`Problem <matproblem>`
-input struct: a struct with exactly the fields ``merit``, ``kind``, ``source``
-and ``mapping`` (the token ``'feasible_objective/1'``), for example a known
+input struct: a struct with the four required fields ``fun``, ``maxcv``, ``kind``
+and ``source``, plus optional original-coordinate ``x_ref``, for example a known
 optimal value read from an offline catalog.  The record is validated when the
 problem is built; validating it evaluates nothing, so it adds no callback call
-to the load, and no solver runs.  A malformed record, including one with the
-superseded fields ``fun``, ``maxcv`` or ``point`` or with an unknown mapping,
+to the load, and no solver runs.  A malformed record, including one with a
+reference ``point`` or an unknown legacy mapping token,
 makes the load fail and is never repaired.  Problems without a reference load
-as before, with an unknown reference.
+as before, with an unknown reference and the V1 empirical target. Explicit
+references use the current merit function; see :doc:`../reference_targets`.
+New records omit ``mapping``; known old tokens are compatibility inputs only.
 
 Register the root and canonical functions once:
 

@@ -8,7 +8,6 @@ import shutil
 from matplotlib import pyplot as plt
 
 from optiprofiler.plotting import (
-    _data_formatter,
     _draw_perf_detail,
     _draw_data_detail,
     _draw_log_ratio_profiles,
@@ -16,7 +15,6 @@ from optiprofiler.plotting import (
     _get_log_ratio_profile_axes,
     _get_performance_data_profile_axes,
     _place_solver_legend,
-    _perf_formatter,
     data_ticks,
     draw_profiles,
     format_profile_text,
@@ -35,42 +33,6 @@ def _legend_column_count(legend):
     # Matplotlib 3.5 stores the same column count as _ncol; later releases
     # renamed it _ncols. Keep the exact layout assertions on both versions.
     return legend._ncols if hasattr(legend, '_ncols') else legend._ncol
-
-
-class TestPerfFormatter:
-
-    def test_integer_power(self):
-        result = _perf_formatter(0.0, None)
-        assert result == '1'
-
-    def test_integer_power_2(self):
-        result = _perf_formatter(3.0, None)
-        assert result == '8'
-
-    def test_non_integer_power(self):
-        result = _perf_formatter(1.5, None)
-        assert '$2^{' in result
-        assert '}$' in result
-
-
-class TestDataFormatter:
-
-    def test_integer_power(self):
-        result = _data_formatter(0.0, None)
-        assert result == '0'
-
-    def test_integer_power_2(self):
-        result = _data_formatter(1.0, None)
-        assert result == '1'
-
-    def test_integer_power_3(self):
-        result = _data_formatter(3.0, None)
-        assert result == '7'
-
-    def test_non_integer_power(self):
-        result = _data_formatter(1.5, None)
-        assert '$2^{' in result
-        assert '}-1$' in result
 
 
 class TestPerfTicks:

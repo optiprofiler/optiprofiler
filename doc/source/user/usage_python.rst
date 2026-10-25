@@ -178,40 +178,27 @@ The rules are:
   only; with ``ground_truth=True`` the inherited reference objective and
   nonlinear constraints are read at the snapped point as well, while bounds and
   linear constraints are always checked at the unsnapped point.
-- A problem may carry an optional *feasible reference fact*
-  (``Problem.reference``, a :class:`~optiprofiler.ProblemReference`): one
-  finite scalar ``merit`` with its ``kind`` (``lower_bound``, ``optimum``,
-  ``best_known`` or ``target``, each a claim over the feasible points of the
-  problem), its ``source`` and the ``mapping`` token ``'feasible_objective/1'``
-  of a closed registry. It is author/provider metadata and must not be
-  confused with the scoring reference of the previous rule.
-  ``FeaturedProblem.reference`` is that record, unchanged, if the feature
-  retains it, and ``None`` (unknown) otherwise; the record holds no point, so
-  nothing is transported or derived, and the rule is the same for every kind.
-  Stages that change only observations (``noisy``, ``truncated``,
-  ``random_nan``, ``nonquantifiable_constraints``,
-  ``unrelaxable_constraints``, and ``quantized`` with ``ground_truth=False``),
-  ``perturbed_x0``, ``permuted`` and ``linearly_transformed`` retain it.
-  ``custom`` retains it only if its options are a subset of ``mod_x0`` and
-  ``mod_affine``; ``mod_fun``, ``mod_cub``, ``mod_ceq``, ``mod_bounds``,
-  ``mod_linear_ub`` and ``mod_linear_eq`` may change values, constraints or
-  bounds and make it unknown, whatever the callbacks do. ``quantized`` with
-  ``ground_truth=True``, the default, makes it unknown, because the truth is
-  then the mesh problem. A composition retains the record only if every stage
-  does.
-- The reference fact is not a run-history minimum and not the profile
-  baseline: that baseline is the least merit observed over the selected solver
-  histories, changes with the solver cohort and is never stored in a problem;
-  nothing derives a reference from solver output, and no profile formula reads
-  the reference. It is not a floor for run merits either. On a constrained
-  problem the merit of a run may be *below* the reference, because a merit
-  function tolerates or penalizes small violations, so an infeasible point can
-  have a lower merit than every feasible one; such values are legitimate and
-  are never clamped. The scalar is an objective value over feasible points:
-  before a consumer compares run merits with it under a custom ``merit_fun``,
-  that function must be known to satisfy
-  ``merit_fun(f, 0, maxcv_init) == f`` for every ``maxcv_init`` (the default
-  merit function does).
+- ``Problem.reference`` is an optional :class:`~optiprofiler.ProblemReference`
+  or record with ``fun``, ``maxcv``, ``kind`` and ``source``. The two kinds are
+  ``feasible`` (zero violation) and ``merit`` (possibly nonzero violation;
+  the user chooses the intended merit function). Optional ``x_ref`` is source
+  metadata in original problem coordinates, not a point in featured coordinates.
+  It is never eagerly transported or evaluated for metadata.
+  Observation-only built-ins, ``perturbed_x0``, ``permuted`` and
+  ``linearly_transformed`` retain reference values, including nonzero violation.
+  ``custom`` always falls back to the default target in this release.
+  ``quantized(ground_truth=True)`` also falls back, even with ``x_ref``;
+  ``ground_truth=False`` retains the reference. In a composition, an invalidated
+  reference cannot be restored by later stages. The first reason is retained
+  in the archive and report as ``reference_fallback_reasons``.
+- A retained reference supplies ``merit_fun(fun, maxcv, maxcv_init)`` for each
+  run. Missing references keep the V1 solver-history/initial/plain minimum.
+  No reference changes the recorded observations or clamps measured merits.
+  Save/load retains raw facts and recomputes targets with the current merit
+  function. Earlier kinds and known mapping tokens remain readable, but new
+  records need no mapping token. See :doc:`reference_targets`.
+- Use :doc:`plot_options` to customize native figure fonts, ticks, legends,
+  lines and layout without changing numerical results.
 - ``unrelaxable_constraints`` makes the objective infinite where the
   constraints of the problem it wraps are violated, as that problem observes
   them: after ``'noisy+unrelaxable_constraints'`` the gate reads noisy
@@ -462,21 +449,19 @@ If you want to benchmark a solver with one variable parameter, you can define ca
 
 .. code-block:: python
 
+    from functools import partial
     from optiprofiler import benchmark
 
-    def make_solver(para):
-        def solver_wrapper(fun, x0):
-            return solver(fun, x0, para)
-        return solver_wrapper
-
-    solvers = [make_solver(i) for i in range(1, 4)]
+    solvers = [partial(solver, para=i) for i in range(1, 4)]
     solver_names = [f'solver{i}' for i in range(1, 4)]
-    scores = benchmark(solvers, solver_names=solver_names)
+    if __name__ == '__main__':
+        scores = benchmark(solvers, solver_names=solver_names)
 
 .. note::
 
-    We use named functions (``def``) instead of lambda expressions here so
-    that the benchmark can still run in parallel when ``n_jobs > 1``.
+    Define ``solver`` at module level. A partial of that function remains
+    picklable, unlike a factory returning a nested function, so the benchmark
+    can run in parallel when ``n_jobs > 1``.
     See :ref:`py_callable_picklability` for the full list of affected
     callables and the rationale.
 
@@ -686,7 +671,10 @@ Callable arguments must be picklable when running in parallel
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 When ``n_jobs > 1``, OptiProfiler dispatches problems to worker
-processes via :mod:`multiprocessing`. The following callable
+processes via :mod:`multiprocessing`. It uses fresh ``spawn`` workers and
+a matching logging queue, without changing the application's global start
+method. This avoids inheriting output locks from active logging threads.
+The following callable
 arguments are sent across process boundaries and must therefore be
 picklable:
 
@@ -698,11 +686,26 @@ picklable:
 
 **Lambda expressions and locally-defined nested functions are not
 picklable.** If any of the callables above is a lambda, OptiProfiler
-detects the failure when serializing the worker arguments and silently
+detects the failure when serializing the worker arguments, logs the reason, and
 falls back to sequential mode (``n_jobs = 1``), which can be much
 slower.
 
 To enable parallel execution, define these callables as module-level
-functions using ``def``. For parametrized solvers, use a closure
-factory (see :ref:`py_example4`) or :func:`functools.partial` instead
-of a lambda.
+functions using ``def``. For parametrized solvers, use
+:func:`functools.partial` with a module-level function. A factory that returns
+a nested function still requires sequential execution.
+
+Put the benchmark call in an importable script and protect its entry point:
+
+.. code-block:: python
+
+    if __name__ == '__main__':
+        benchmark(solvers, n_jobs=2)
+
+Notebooks, interactive consoles, and standard-input scripts have no importable
+entry point. OptiProfiler uses sequential execution in these cases and logs the
+reason. Python also skips rebuilding package ``__main__.py`` entry points in
+spawned workers. Callables defined there require sequential execution; functions
+imported from other modules can still run in parallel.
+This decision is made before any solver runs. It does not retry completed work
+after a parallel failure.

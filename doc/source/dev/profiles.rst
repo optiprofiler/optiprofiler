@@ -9,3 +9,5 @@ Profiles
     :toctree: generated/
 
     benchmark
+
+.. include:: ../user/plot_options.rst

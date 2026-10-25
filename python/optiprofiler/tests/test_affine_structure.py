@@ -494,8 +494,8 @@ class TestCustomAffine:
             np.isfinite(problem.xl).sum() + np.isfinite(problem.xu).sum()
         assert_no_bound_is_lost_or_doubled(featured, problem)
         assert_posed_problem_is_the_scored_problem(featured, problem)
-        # The reference is retained, and rightly so: the posed problem is the scored one.
-        assert featured.reference == problem.reference
+        # Even a safe custom map uses the conservative empirical-reference policy.
+        assert featured.reference is None
 
     @pytest.mark.parametrize('name', sorted(PROBLEMS))
     @pytest.mark.parametrize('transform', [roundoff_matrix, sloppy_matrix], ids=lambda f: f.__name__)
@@ -511,7 +511,7 @@ class TestCustomAffine:
         assert_structure(featured, expected_generic_structure(problem, A, b))
         assert_no_bound_is_lost_or_doubled(featured, problem)
         assert_posed_problem_is_the_scored_problem(featured, problem)
-        assert featured.reference == problem.reference
+        assert featured.reference is None  # Custom features use the empirical reference.
 
     @pytest.mark.parametrize('name', sorted(PROBLEMS))
     def test_badly_scaled_transformations_keep_working(self, name):
@@ -767,15 +767,16 @@ class TestLinearlyTransformed:
 
     def test_the_frameworks_own_inverse_is_not_held_to_the_residual_test(self):
         # cond(A) = 2**40 for n = 3. Both factors are built directly (nothing
-        # is inverted), so each is accurate to roundoff, but their product
-        # misses the identity by roundoff times the condition number: more
-        # than a supplied inverse is allowed, and no inconsistency. The posed
-        # rows need A only.
+        # is inverted), so their product may miss the identity by roundoff
+        # times the condition number. Its exact error is platform-dependent;
+        # a smaller residual must not fail this test. Custom-inverse rejection
+        # is tested separately with deliberately inconsistent inputs.
         problem = linear_problem()
         feature = Feature('linearly_transformed', rotated=True, condition_factor=2.0 * 40.0 ** 2 / 3.0)
         featured = FeaturedProblem(problem, feature, 10, 3)
         A, b, inv = featured._runtime.modifier_affine(featured._seed, featured._problem)
-        assert np.linalg.norm(A @ inv - np.eye(3)) > 1e-8 * 3
+        assert np.linalg.cond(A) > 1e11
+        assert np.linalg.norm(A @ inv - np.eye(3)) <= 64 * np.finfo(float).eps * np.linalg.cond(A)
         assert_structure(featured, expected_generic_structure(problem, A, b))
         assert_no_bound_is_lost_or_doubled(featured, problem)
 
@@ -801,7 +802,7 @@ class TestCompositionAndPersistence:
         assert isinstance(featured, ComposedFeaturedProblem)
         assert bool(np.isfinite(featured.xl).any() or np.isfinite(featured.xu).any()) is bounds_kept
         assert_posed_problem_is_the_scored_problem(featured, problem)
-        assert featured.reference == problem.reference  # every stage here is a safe one
+        assert featured.reference is None  # Custom features use the empirical reference.
 
     def test_composed_problem_survives_pickling_with_its_structure(self):
         problem = linear_problem()
@@ -960,7 +961,7 @@ class TestExactStructuralDecision:
             y = np.array(y)
             assert featured.maxcv(y) == pytest.approx(violation, abs=1e-9), y
             assert posed_violation(featured, y) == pytest.approx(violation, abs=1e-9), y
-        assert featured.reference == problem.reference
+        assert featured.reference is None  # Custom features use the empirical reference.
 
     def test_the_decision_reads_the_matrix_exactly_and_the_inverse_for_its_scale_only(self):
         A, _, inv = rounding_level_coupling(None, None)
@@ -1029,7 +1030,7 @@ class TestOneTransformPerProblem:
         assert_no_bound_is_lost_or_doubled(featured, problem)
         assert_posed_problem_is_the_scored_problem(featured, problem)
         assert callback.calls == calls + 1  # and not again, 400 truth reads later
-        assert featured.reference == problem.reference
+        assert featured.reference is None  # Custom features use the empirical reference.
 
     @COMPOSED
     def test_evaluations_use_the_transform_the_structure_was_built_with(self, composed):

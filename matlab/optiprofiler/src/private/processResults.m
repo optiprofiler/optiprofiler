@@ -76,6 +76,18 @@ function [merit_histories_merged, merit_outs_merged, merit_inits_merged, merit_m
             end
         end
     end
+    % Explicit targets override cohort and plain minima, not the raw merits.
+    % Taking min(target,observed) here would silently discard beaten targets.
+    offset = 0;
+    for i_plib = 1:numel(results_plibs)
+        record = results_plibs{i_plib};
+        rows = offset + (1:numel(record.problem_names));
+        if isfield(record, 'reference_records')
+            merit_mins_merged(rows, :) = applyReferenceTargets(record, ...
+                merit_mins_merged(rows, :), profile_options.(ProfileOptionKey.MERIT_FUN.value));
+        end
+        offset = offset + numel(rows);
+    end
 end
 
 function results_plibs = unify_length(results_plibs, name)
@@ -90,6 +102,10 @@ function results_plibs = unify_length(results_plibs, name)
     for i_plib = 1:size(results_plibs, 2)
         results_plib = results_plibs{i_plib};
         field = results_plib.(name);
+        if size(field, 4) == max_length
+            results_plibs{i_plib}.(name) = double(field);
+            continue;
+        end
         field_unified = NaN(size(field, 1), size(field, 2), size(field, 3), max_length);
         field_unified(:, :, :, 1:size(field, 4)) = field;
         field_unified(:, :, :, size(field, 4) + 1:end) = repmat(field(:, :, :, end), [1, 1, 1, max_length - size(field, 4)]);

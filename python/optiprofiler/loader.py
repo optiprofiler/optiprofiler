@@ -10,9 +10,8 @@ from optiprofiler.legacy_compat import loads_trusted
 import stat
 import uuid
 from typing import Dict, List, Any, Tuple, Optional, Union, Callable
-from enum import Enum
 from pathlib import Path
-from optiprofiler.utils import FeatureName, ProfileOption, FeatureOption, ProblemOption, ProblemError, print_log_message
+from optiprofiler.utils import ProfileOption, ProblemOption, print_log_message
 
 
 def _parse_experiment_time_stamp(value):
@@ -39,10 +38,6 @@ def search_in_dir(current_path: str, pattern: str, max_depth: int, current_depth
             file_info = {
                 'name': os.path.basename(file_path),
                 'folder': os.path.dirname(file_path),
-                'date': datetime.datetime.fromtimestamp(os.path.getmtime(file_path)),
-                'bytes': os.path.getsize(file_path),
-                'isdir': False,
-                'datenum': os.path.getmtime(file_path)
             }
             files.append(file_info)
     
@@ -71,8 +66,12 @@ def truncate_solvers(results_plib: Dict[str, Any], solvers_to_load: List[int]) -
     results_plib['n_evals'] = results_plib['n_evals'][:, solvers_to_load, :]
     results_plib['computation_times'] = results_plib['computation_times'][:, solvers_to_load, :]
     results_plib['solvers_successes'] = results_plib['solvers_successes'][:, solvers_to_load, :]
-    results_plib['merit_histories'] = results_plib['merit_histories'][:, solvers_to_load, :, :]
-    results_plib['merit_outs'] = results_plib['merit_outs'][:, solvers_to_load, :]
+    # Cached merits are absent when a merit callback failed after solving;
+    # load_results then recomputes them from the raw values.
+    if 'merit_histories' in results_plib:
+        results_plib['merit_histories'] = results_plib['merit_histories'][:, solvers_to_load, :, :]
+    if 'merit_outs' in results_plib:
+        results_plib['merit_outs'] = results_plib['merit_outs'][:, solvers_to_load, :]
     # Optional per-(problem, solver, run) diagnostic flags introduced
     # together with the §6 report sections; absent in legacy .h5 files.
     if 'solver_abnormal_terminations' in results_plib:
@@ -214,6 +213,9 @@ def truncate_problems(results_plib: Dict[str, Any], problem_options: Dict[str, A
         results_plib['maxcv_inits'] = results_plib['maxcv_inits'][p_to_load, :]
     results_plib['n_evals'] = results_plib['n_evals'][p_to_load, :, :]
     results_plib['problem_names'] = [results_plib['problem_names'][i] for i in p_to_load]
+    for key in ('reference_records', 'reference_fallback_reasons'):
+        if key in results_plib:
+            results_plib[key] = [results_plib[key][i] for i in p_to_load]
     results_plib['problem_types'] = [results_plib['problem_types'][i] for i in p_to_load]
     results_plib['problem_dims'] = results_plib['problem_dims'][p_to_load]
     results_plib['problem_mbs'] = results_plib['problem_mbs'][p_to_load]
@@ -222,12 +224,16 @@ def truncate_problems(results_plib: Dict[str, Any], problem_options: Dict[str, A
     results_plib['problem_mcons'] = results_plib['problem_mcons'][p_to_load]
     results_plib['computation_times'] = results_plib['computation_times'][p_to_load, :, :]
     results_plib['solvers_successes'] = results_plib['solvers_successes'][p_to_load, :, :]
-    results_plib['merit_histories'] = results_plib['merit_histories'][p_to_load, :, :, :]
-    results_plib['merit_outs'] = results_plib['merit_outs'][p_to_load, :, :]
-    if results_plib['merit_inits'].ndim == 1:
-        results_plib['merit_inits'] = results_plib['merit_inits'][p_to_load]
-    else:
-        results_plib['merit_inits'] = results_plib['merit_inits'][p_to_load, :]
+    # Cached merits are optional (see truncate_solvers).
+    if 'merit_histories' in results_plib:
+        results_plib['merit_histories'] = results_plib['merit_histories'][p_to_load, :, :, :]
+    if 'merit_outs' in results_plib:
+        results_plib['merit_outs'] = results_plib['merit_outs'][p_to_load, :, :]
+    if 'merit_inits' in results_plib:
+        if results_plib['merit_inits'].ndim == 1:
+            results_plib['merit_inits'] = results_plib['merit_inits'][p_to_load]
+        else:
+            results_plib['merit_inits'] = results_plib['merit_inits'][p_to_load, :]
     if 'solver_abnormal_terminations' in results_plib:
         results_plib['solver_abnormal_terminations'] = results_plib['solver_abnormal_terminations'][p_to_load, :, :]
     if 'solver_output_fallbacks' in results_plib:
@@ -250,6 +256,35 @@ def merit_fun_compute(merit_fun: Callable, fun_values: np.ndarray, maxcv_values:
     # Local import to avoid a circular import at module load time.
     from .profile_utils import compute_merit_values
     return compute_merit_values(merit_fun, fun_values, maxcv_values, maxcv_inits)
+
+
+_MERIT_KEYS = ('merit_histories', 'merit_outs', 'merit_inits')
+
+
+def _lacks_cached_merits(results_plib: Dict[str, Any]) -> bool:
+    """Whether a library record (or its plain baseline) was saved without merits."""
+    if any(key not in results_plib for key in _MERIT_KEYS):
+        return True
+    plain = results_plib.get('results_plib_plain')
+    return bool(plain) and any(key not in plain for key in _MERIT_KEYS)
+
+
+def _cached_merits(results_plib: Dict[str, Any]) -> list:
+    """The cached merit arrays of a library record and of its plain baseline."""
+    records = [results_plib] + ([results_plib['results_plib_plain']] if results_plib.get('results_plib_plain') else [])
+    return [results.get(key) for results in records for key in _MERIT_KEYS]
+
+
+def _same_merits(before: list, after: list) -> bool:
+    if len(before) != len(after):
+        return False
+    for old, new in zip(before, after):
+        if old is None or new is None:
+            return False
+        old, new = np.asarray(old, dtype=float), np.asarray(new, dtype=float)
+        if old.shape != new.shape or not np.array_equal(old, new, equal_nan=True):
+            return False
+    return True
 
 
 def recompute_merits(results_plib: Dict[str, Any], merit_fun: Callable) -> Dict[str, Any]:
@@ -454,7 +489,9 @@ def load_results(problem_options: Dict[str, Any], profile_options: Dict[str, Any
             raise ValueError("The option `load` should be 'latest' or a time stamp in the format "
                              "'yyyyMMdd_HHmmss', optionally followed by a suffix such as '_001'.") from exc
     
-    # Set the path to search for the data
+    # savepath is the output destination, not the source of a reload.
+    # Preserve the public cwd/benchmark_id search so saved experiments can
+    # be analyzed again into a different output directory.
     if ProfileOption.BENCHMARK_ID.value in profile_options:
         search_path = os.path.join(os.getcwd(), profile_options[ProfileOption.BENCHMARK_ID.value])
     else:
@@ -554,6 +591,28 @@ def load_results(problem_options: Dict[str, Any], profile_options: Dict[str, Any
         if 'results_plib_plain' in results_plib:
             results_plibs[i]['results_plib_plain'] = truncate_problems(results_plib['results_plib_plain'], problem_options)
     
+    # Resolve the effective load-time merit once for every cached quantity:
+    # histories, outputs, initial values and the optional plain baseline.
+    # * A supplied merit_fun always recomputes them.
+    # * Without merit_fun, explicit references are converted with the default
+    #   merit at scoring time, so cached merits from another (custom) merit
+    #   must not be compared with them: recompute everything with the default
+    #   merit. Archives saved after a merit failure have no cached merits and
+    #   are recomputed the same way.
+    # * Otherwise (V1 behaviour) the cached merits and the empirical targets
+    #   derived from them are already in one merit space and are reused.
+    # Local import: profile_utils imports this module at load time.
+    from .profile_utils import _default_merit, carries_reference_records
+    merit_fun = profile_options.get(ProfileOption.MERIT_FUN.value)
+    rescore_reason = None
+    if merit_fun is None:
+        if any(carries_reference_records(r) for r in results_plibs):
+            rescore_reason = 'explicit_references'
+        elif any(_lacks_cached_merits(r) for r in results_plibs):
+            rescore_reason = 'missing_cached_merits'
+        if rescore_reason is not None:
+            merit_fun = _default_merit
+
     if _report is not None:
         # Reading/filtering succeeded even if a new merit callback later fails.
         # Do not attribute cached merits to that not-yet-executed callback.
@@ -563,18 +622,28 @@ def load_results(problem_options: Dict[str, Any], profile_options: Dict[str, Any
                 observed['results_plib_plain'] = raw_observations(observed['results_plib_plain'])
             return observed
         observed = ([raw_observations(r) for r in results_plibs]
-                    if ProfileOption.MERIT_FUN.value in profile_options else results_plibs)
+                    if merit_fun is not None else results_plibs)
         _report.add_results(observed, operation='load')
         _report.set_stage('numerical', 'completed')
         _report.set_stage('scoring', 'running')
 
-    # Recompute merit values if profile_options.merit_fun is provided
-    if ProfileOption.MERIT_FUN.value in profile_options:
-        merit_fun = profile_options[ProfileOption.MERIT_FUN.value]
+    if merit_fun is not None:
+        cached = [_cached_merits(r) for r in results_plibs]
         for i, results_plib in enumerate(results_plibs):
             results_plibs[i] = recompute_merits(results_plib, merit_fun)
             if 'results_plib_plain' in results_plib:
                 results_plibs[i]['results_plib_plain'] = recompute_merits(results_plib['results_plib_plain'], merit_fun)
+        if rescore_reason is not None and (rescore_reason == 'missing_cached_merits' or any(
+                not _same_merits(before, _cached_merits(after)) for before, after in zip(cached, results_plibs))):
+            # Deliberate, documented rescoring: say so instead of silently
+            # reporting scores of a different merit than the archived one.
+            if not profile_options.get(ProfileOption.SILENT.value, False):
+                print_log_message('WARNING', 'The saved merit values were recomputed with the default merit '
+                                  f'({rescore_reason.replace("_", " ")}). Pass the original `merit_fun` to '
+                                  'reproduce the scores of an experiment run with a custom merit function.')
+            if _report is not None:
+                _report.add_diagnostic('cached_merits_recomputed', 'scoring', reason=rescore_reason,
+                                       merit='default')
     
     # Count the number of selected problems
     problem_nums = 0

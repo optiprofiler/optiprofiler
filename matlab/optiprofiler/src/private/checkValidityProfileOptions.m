@@ -1,5 +1,9 @@
 function profile_options = checkValidityProfileOptions(solvers, profile_options)
 %CHECKVALIDITYPROFILEOPTIONS Check the validity of the options in profile_options
+    if isfield(profile_options,ProfileOptionKey.PLOT_OPTIONS.value)
+        profile_options.(ProfileOptionKey.PLOT_OPTIONS.value) = validatePlotOptions( ...
+            profile_options.(ProfileOptionKey.PLOT_OPTIONS.value));
+    end
 
     % Repetitions belong to the experiment, not to Feature. Validate before the
     % savepath check can create a directory; []/NaN/Inf are explicit errors.
@@ -112,8 +116,8 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
 
     % Judge whether profile_options.max_eval_factor is a positive real number.
     if isfield(profile_options, ProfileOptionKey.MAX_EVAL_FACTOR.value)
-        if ~isrealscalar(profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value)) || profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value) <= 0
-            error("MATLAB:checkValidityProfileOptions:max_eval_factorNotValid", "The option `max_eval_factor` should be a positive real number.");
+        if ~isrealscalar(profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value)) || ~isfinite(profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value)) || profile_options.(ProfileOptionKey.MAX_EVAL_FACTOR.value) <= 0
+            error("MATLAB:checkValidityProfileOptions:max_eval_factorNotValid", "The option `max_eval_factor` should be a finite positive real number.");
         end
     end
 

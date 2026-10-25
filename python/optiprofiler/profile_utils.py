@@ -1,4 +1,5 @@
 import hashlib
+import json
 import os
 import re
 import textwrap
@@ -13,7 +14,7 @@ from pypdf import PdfWriter
 from .problem_libraries import list_problem_libraries, resolve_problem_library
 from .experiment import validate_n_runs
 from .provenance import full_feature_stamp
-from .utils import FeatureName, ProfileOption, FeatureOption, ProblemOption, get_logger, print_log_message, shorten_log_message
+from .utils import ProfileOption, ProblemOption, get_logger, print_log_message, shorten_log_message
 
 
 def _is_positive_infinity(value):
@@ -23,59 +24,6 @@ def _is_positive_infinity(value):
         and np.isinf(value)
         and value > 0
     )
-
-
-def _custom_problem_library_names(custom_libs_path):
-    """
-    Return custom problem library names available under ``custom_libs_path``.
-
-    ``custom_libs_path`` may be either a parent directory containing one or more
-    library subdirectories, or the directory of a single custom library. Each
-    library directory must contain ``<library_name>_tools.py``; OptiProfiler does
-    not infer the library name from other ``*_tools.py`` files.
-    """
-    custom_libs_path = Path(custom_libs_path)
-    if (custom_libs_path / f'{custom_libs_path.name}_tools.py').is_file():
-        return [custom_libs_path.name]
-
-    custom_libs_names = []
-    for p in custom_libs_path.iterdir():
-        if p.is_dir() and not p.name.startswith('.') and p.name != '__pycache__':
-            if (p / f'{p.name}_tools.py').is_file():
-                custom_libs_names.append(p.name)
-    return custom_libs_names
-
-
-def _custom_problem_library_dir(custom_libs_path, plib):
-    """
-    Return the explicit custom directory for ``plib`` if one is present.
-
-    ``custom_libs_path`` may point either to a parent directory containing a
-    ``plib`` subdirectory, or directly to the ``plib`` directory.  The function
-    deliberately does not inspect tools files; callers can use this to reject a
-    malformed custom directory before falling back to a built-in library with the
-    same name.
-    """
-    custom_libs_path = Path(custom_libs_path)
-    candidates = []
-    if custom_libs_path.name == plib and custom_libs_path.is_dir():
-        candidates.append(custom_libs_path)
-    parent_candidate = custom_libs_path / plib
-    if parent_candidate.is_dir():
-        candidates.append(parent_candidate)
-
-    resolved = []
-    for candidate in candidates:
-        candidate = candidate.resolve()
-        if candidate not in resolved:
-            resolved.append(candidate)
-    if len(resolved) > 1:
-        raise ValueError(
-            f'The option {ProblemOption.CUSTOM_PROBLEM_LIBS_PATH} is ambiguous for '
-            f'problem library "{plib}". It can point to either the parent directory '
-            f'containing "{plib}" or the "{plib}" directory itself, but not both.'
-        )
-    return resolved[0] if resolved else None
 
 
 def _get_conservative_default_n_jobs():
@@ -309,6 +257,9 @@ def check_validity_profile_options(solvers, profile_options):
     """
     Check the validity of the profile options.
     """
+    if ProfileOption.PLOT_OPTIONS in profile_options:
+        from .plot_options import normalize_plot_options
+        profile_options[ProfileOption.PLOT_OPTIONS] = normalize_plot_options(profile_options[ProfileOption.PLOT_OPTIONS])
     if ProfileOption.N_RUNS in profile_options:
         profile_options[ProfileOption.N_RUNS] = validate_n_runs(profile_options[ProfileOption.N_RUNS])
     if ProfileOption.N_JOBS in profile_options:
@@ -398,15 +349,15 @@ def check_validity_profile_options(solvers, profile_options):
         if isinstance(profile_options[ProfileOption.MAX_TOL_ORDER], np.integer):
             profile_options[ProfileOption.MAX_TOL_ORDER] = int(profile_options[ProfileOption.MAX_TOL_ORDER])
         if not isinstance(profile_options[ProfileOption.MAX_TOL_ORDER], int):
-            raise TypeError(f'Option {ProfileOption.MAX_TOL_ORDER} must be an integer.')
-        if profile_options[ProfileOption.MAX_TOL_ORDER] < 0 or profile_options[ProfileOption.MAX_TOL_ORDER] > 16:
-            raise ValueError(f'Option {ProfileOption.MAX_TOL_ORDER} must be a positive integer not larger than 16.')
+            raise TypeError(f'Option {ProfileOption.MAX_TOL_ORDER.value} must be an integer.')
+        if profile_options[ProfileOption.MAX_TOL_ORDER] <= 0 or profile_options[ProfileOption.MAX_TOL_ORDER] > 16:
+            raise ValueError(f'Option {ProfileOption.MAX_TOL_ORDER.value} must be a positive integer not larger than 16.')
 
     if ProfileOption.MAX_EVAL_FACTOR in profile_options:
-        if not isinstance(profile_options[ProfileOption.MAX_EVAL_FACTOR], (float, int)):
-            raise TypeError(f'Option {ProfileOption.MAX_EVAL_FACTOR} must be a float or an integer.')
-        if profile_options[ProfileOption.MAX_EVAL_FACTOR] <= 0:
-            raise ValueError(f'Option {ProfileOption.MAX_EVAL_FACTOR} must be positive.')
+        if isinstance(profile_options[ProfileOption.MAX_EVAL_FACTOR], bool) or not isinstance(profile_options[ProfileOption.MAX_EVAL_FACTOR], (float, int)):
+            raise TypeError(f'Option {ProfileOption.MAX_EVAL_FACTOR.value} must be a float or an integer.')
+        if not np.isfinite(profile_options[ProfileOption.MAX_EVAL_FACTOR]) or profile_options[ProfileOption.MAX_EVAL_FACTOR] <= 0:
+            raise ValueError(f'Option {ProfileOption.MAX_EVAL_FACTOR.value} must be finite and positive.')
 
     if ProfileOption.MERIT_FUN in profile_options:
         if not callable(profile_options[ProfileOption.MERIT_FUN]):
@@ -700,6 +651,7 @@ def get_default_profile_options(solvers, feature, profile_options):
     ])
     profile_options.setdefault(ProfileOption.LINE_WIDTHS.value, [1.5])
     profile_options.setdefault(ProfileOption.BAR_COLORS.value, profile_options[ProfileOption.LINE_COLORS])
+    profile_options.setdefault(ProfileOption.PLOT_OPTIONS.value, {})
     profile_options.setdefault(ProfileOption.XLABEL_PERFORMANCE_PROFILE.value, 'Performance ratio')
     profile_options.setdefault(ProfileOption.YLABEL_PERFORMANCE_PROFILE.value, 'Performance profiles ($\\mathrm{tol} = %s$)')
     profile_options.setdefault(ProfileOption.XLABEL_DATA_PROFILE.value, 'Number of simplex gradients')
@@ -1182,6 +1134,71 @@ def _mask_invalid_merits(results_plib):
     return results_plib
 
 
+def reference_target(reference, merit_fun, maxcv_init, problem_name=None, run=None):
+    """Convert one validated raw reference fact into the current merit space.
+
+    The record itself was validated when it was constructed. A valid record can
+    still be incompatible with the selected merit: the default merit, for
+    example, is +Inf when the violation exceeds max(0.1, 2 * maxcv_init). Such a
+    target is reported as an error instead of being replaced by the empirical
+    target, which would silently change the scoring semantics.
+    """
+    value = merit_fun(reference.fun, reference.maxcv, maxcv_init)
+    scalar = np.asarray(value)
+    if scalar.ndim != 0 or scalar.dtype.kind not in 'iuf' or not np.isfinite(scalar):
+        where = '' if problem_name is None else f" of problem '{problem_name}'"
+        where += '' if run is None else f' (run {run})'
+        raise ValueError(
+            f'The supplied reference{where} is valid but incompatible with the selected merit function: '
+            f'the merit function must produce a finite real scalar for a supplied reference, and it returned '
+            f'{value!r} for kind={reference.kind!r}, fun={reference.fun!r}, maxcv={reference.maxcv!r} at '
+            f'maxcv_init={float(maxcv_init)!r}. The default merit is infinite when the violation exceeds '
+            'max(0.1, 2 * maxcv_init). Use a merit_fun that is finite at this reference, or exclude the problem.')
+    return float(scalar)
+
+
+def apply_reference_targets(result, minima, merit_fun):
+    """Replace only supplied targets, converting raw facts with current merit.
+
+    Store raw records, not converted merits: load may change merit_fun, and
+    perturbed starts give different maxcv_init in each run. Missing fields in
+    V1 archives mean the historical policy, never an assumed zero reference.
+    """
+    records = result.get('reference_records')
+    if records is None:
+        return minima
+    from .opclasses import ProblemReference
+    targets = np.array(minima, dtype=float, copy=True)
+    if len(records) != targets.shape[0]:
+        raise ValueError('Saved reference records do not match the problem rows.')
+    inits = np.asarray(result['maxcv_inits'])
+    names = result.get('problem_names')
+    for row, serialized in enumerate(records):
+        per_run = json.loads(serialized)
+        if not isinstance(per_run, list) or len(per_run) != targets.shape[1]:
+            raise ValueError('Saved reference records do not match the run count.')
+        for run, record in enumerate(per_run):
+            if record is None:
+                continue
+            reference = ProblemReference.from_record(record)
+            initial_violation = inits[row] if inits.ndim == 1 else inits[row, run]
+            name = None if names is None or row >= len(names) else names[row]
+            targets[row, run] = reference_target(reference, merit_fun, initial_violation, name, run + 1)
+    return targets
+
+
+def carries_reference_records(results_plib):
+    """Whether a library record contains at least one explicit reference fact."""
+    records = results_plib.get('reference_records') if results_plib else None
+    if records is None:
+        return False
+    for serialized in records:
+        per_run = json.loads(serialized) if isinstance(serialized, (str, bytes)) else serialized
+        if isinstance(per_run, list) and any(record is not None for record in per_run):
+            return True
+    return False
+
+
 def process_results(results_plibs, profile_options):
     """
     Processes results from results_plibs.
@@ -1193,12 +1210,14 @@ def process_results(results_plibs, profile_options):
         max_length = max(r[name].shape[3] for r in results_plibs)
         for r in results_plibs:
             field = r[name]
+            if field.shape[3] == max_length:
+                r[name] = np.asarray(field, dtype=float)
+                continue
             shape = list(field.shape)
             shape[3] = max_length
             field_unified = np.full(shape, np.nan)
             field_unified[:, :, :, :field.shape[3]] = field
-            if field.shape[3] < max_length:
-                field_unified[:, :, :, field.shape[3]:] = np.repeat(field[:, :, :, -1:], max_length - field.shape[3], axis=3)
+            field_unified[:, :, :, field.shape[3]:] = field[:, :, :, -1:]
             r[name] = field_unified
         return results_plibs
 
@@ -1295,6 +1314,16 @@ def process_results(results_plibs, profile_options):
                         merit_mins_merged[row, :], plain_mins[plain_indices[name]],
                     )
 
+    # An explicit target takes precedence over both the cohort and run_plain.
+    # Do not min() it with observed values: that would silently ignore a user
+    # target reached or beaten by a solver. Actual run merits remain untouched.
+    offset = 0
+    for result in results_plibs:
+        end = offset + len(result['problem_names'])
+        if 'reference_records' in result:
+            merit_mins_merged[offset:end] = apply_reference_targets(
+                result, merit_mins_merged[offset:end], profile_options[ProfileOption.MERIT_FUN])
+        offset = end
     return (merit_histories_merged, merit_outs_merged, merit_inits_merged, merit_mins_merged, n_evals_merged, problem_names_merged, problem_dims_merged)
 
 

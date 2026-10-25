@@ -1,5 +1,4 @@
 import os
-import sys
 import importlib
 import pandas as pd
 import numpy as np
@@ -12,12 +11,9 @@ def custom_load(problem_name):
     """
     This is a toy example to show how to write a custom problem loader.
     """
-    # Add the path 'python_problems' to sys.path
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    problems_dir = os.path.join(current_dir, 'python_problems')
-    if problems_dir not in sys.path:
-        sys.path.append(problems_dir)
-    problem_module = importlib.import_module(f'{problem_name}')
+    problem_module = importlib.import_module(
+        f'.python_problems.{problem_name}', package=__package__
+    )
     problem_handle = getattr(problem_module, problem_name)
     p_dict = problem_handle()
     return Problem(**p_dict)

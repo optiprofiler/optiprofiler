@@ -5,18 +5,15 @@ Python problem libraries
 
 .. note::
 
-   This page describes the unreleased provider API on the development line.
-   The distribution names below describe the installation flow once compatible
-   releases are available; they do not mean that the published OptiProfiler
-   1.3.4 package already includes these external-provider interfaces.
-
-   When testing development sources, use an isolated environment and record
-   the exact core revision and the provider revisions listed in
-   ``problem_libraries.lock``, along with separately installed runtime versions.
-   The lock is a tested integration
-   manifest, not an automatic pin applied by ordinary ``pip install``. Installing
-   an adapter with ``--no-deps`` after preparing its prerequisites is a controlled
-   development check, not certification of the public dependency chain.
+   The external providers are separate distributions and are not yet published
+   on PyPI. Install them from their repositories at the commits recorded in
+   ``problem_libraries.lock``, as shown below; these are the revisions tested
+   with this core release. The lock is a tested integration manifest, not an
+   automatic pin applied by ordinary ``pip install``. Record the exact core and
+   provider revisions, and separately installed runtime versions, with your
+   results. Installing an adapter with ``--no-deps`` after preparing its
+   prerequisites is a controlled development check, not certification of the
+   public dependency chain.
 
 Install a provider
 ------------------
@@ -28,13 +25,18 @@ package:
 
     python -m pip install optiprofiler
 
-Install only the optional providers that an experiment needs:
+Install only the optional providers that an experiment needs, at the exact
+tested commits.  Each provider declares the compatible core version and pip
+resolves its other dependencies normally:
 
 .. code-block:: bash
 
-    python -m pip install optiprofiler-pycutest
-    python -m pip install optiprofiler-solar
-    python -m pip install optiprofiler-rs13
+    python -m pip install "optiprofiler-pycutest @ git+https://github.com/optiprofiler/pycutest@38119c384901f26e35eacca78ddd9d2ac3b47265"
+    python -m pip install "optiprofiler-solar @ git+https://github.com/optiprofiler/solar_python@39e4e5b2451968be659df823ad2769668b8a70f1"
+    python -m pip install "optiprofiler-rs13 @ git+https://github.com/optiprofiler/rs13@ddc11ff94f1d1df128a4f2c999c5267b3ad1818b"
+
+Once a provider is published on PyPI, ``python -m pip install
+optiprofiler-<name>`` installs its released version instead.
 
 These distributions provide OptiProfiler adapters.  PyCUTEst is the exception
 to a self-contained installation: its upstream PyCUTEst and CUTEst runtime must
@@ -82,18 +84,19 @@ concerns owned by the provider and are not benchmark options.
 Update providers
 ----------------
 
-Update the core and each independently installed adapter explicitly:
+Update the core and each independently installed adapter explicitly.  After
+upgrading the core, reinstall each adapter that is installed at the commit
+listed in the new release's ``problem_libraries.lock`` with the command shown
+in `Install a provider`_ (or, once published, ``python -m pip install
+--upgrade optiprofiler-<name>``):
 
 .. code-block:: bash
 
     python -m pip install --upgrade optiprofiler
-    python -m pip install --upgrade optiprofiler-pycutest
-    python -m pip install --upgrade optiprofiler-solar
-    python -m pip install --upgrade optiprofiler-rs13
 
-Only run the commands for distributions that are installed.  With normal
-dependency resolution, package metadata declares the compatible core versions;
-it does not verify a source commit or replace an installation test.
+With normal dependency resolution, package metadata declares the compatible
+core versions; it does not verify a source commit or replace an installation
+test.
 Upstream runtimes that are not owned by an adapter, such as CUTEst, follow
 their own update procedure.
 

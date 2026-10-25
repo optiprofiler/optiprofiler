@@ -11,13 +11,12 @@ import json
 import math
 import mimetypes
 import os
-from pathlib import Path, PureWindowsPath
+from pathlib import Path
 import re
 import stat
 import subprocess
 import tempfile
 import time
-import types
 import uuid
 from datetime import datetime, timezone
 from enum import Enum
@@ -26,7 +25,10 @@ import numpy as np
 from .provenance import describe_feature, describe_plan, full_feature_stamp, read_feature_pipeline
 # The metadata encoder is shared with the feature provenance and lives in a
 # dependency-neutral module; the private names below are kept for this file.
-from .metadata import _ABS_IN_TEXT, _SECRET_KEY, TEXT_LIMIT, bounded_text as _text, describe_callback as _callback, safe_metadata as _safe
+from .metadata import TEXT_LIMIT, bounded_text as _text, safe_metadata as _safe
+# Retain this compatibility alias; actual encoding delegates to metadata.
+from .metadata import describe_callback as _callback  # noqa: F401
+from .metadata import provenance_text
 
 
 _SCHEMA = 'optiprofiler.eval_report/2'
@@ -277,6 +279,29 @@ def _integer(value):
     return None
 
 
+def _reference_fact_metadata(record):
+    """Keep the agent report bounded without truncating a witness silently.
+
+    The numerical archive owns the full vector. A report without a numerical
+    archive (for example score_only) still states honestly that it does not
+    embed a large point; it never invents an archive link or a partial point.
+    """
+    if record is None:
+        return None
+    from .opclasses import ProblemReference
+    raw = ProblemReference.from_record(record).as_dict()
+    point = raw.pop('x_ref', None)
+    source = raw.pop('source', None)
+    result = _safe(raw)
+    # Scientific provenance (often a DOI link) is kept without credentials,
+    # query or fragment; a clipped source is marked. The archive keeps it all.
+    result['source'] = provenance_text(source)
+    if point is not None:
+        result['x_ref'] = point if len(point) <= 256 else {
+            'dimension': len(point), 'reason': 'reference_point_not_embedded'}
+    return result
+
+
 def _vector(value):
     if type(value) is np.ndarray and value.dtype.kind in 'biuf':
         return value.reshape(-1)
@@ -507,6 +532,7 @@ class EvalReport:
         self._parent_identity = self._identity(self.path.parent)
         self._started = time.monotonic()
         self._finished = False
+        self._publication_deferred = False
         self._problems = {}
         self._metadata = {}
         self._options = {}
@@ -651,6 +677,8 @@ class EvalReport:
         return cls._stat_identity(current)
 
     def _write(self):
+        if self._publication_deferred:
+            return
         self._coverage()
         self.document['problems'] = list(self._problems.values())
         self.document['timing']['elapsed_seconds'] = max(0.0, time.monotonic() - self._started)
@@ -828,6 +856,14 @@ class EvalReport:
         else:
             self._dropped_diagnostics += 1
 
+    def defer_publication(self):
+        """Collect in memory until completed numerical data is safely saved."""
+        self._publication_deferred = True
+
+    def resume_publication(self):
+        self._publication_deferred = False
+        self._write()
+
     def set_stage(self, stage, status, reason=None):
         if stage not in _STAGES or status not in _STATUSES:
             raise ValueError('Invalid EvalReport stage or status')
@@ -855,6 +891,17 @@ class EvalReport:
         problem.update(dimension=_safe(result.get('problem_dim')),
                        type=_safe(result.get('problem_type')),
                        load_status='loaded', status='completed')
+        if 'reference_fallback_reasons' in result:
+            problem['reference_fallback_reasons'] = json.loads(result['reference_fallback_reasons'])
+        if 'reference_records' in result:
+            # Observe retained facts only. Reporting must not call merit_fun
+            # again (it may be stateful) or invent a reference for V1 archives.
+            try:
+                references = json.loads(result['reference_records'])
+                problem['reference_records'] = [_reference_fact_metadata(record) for record in references]
+            except (TypeError, ValueError):
+                self.add_diagnostic('reference_metadata_unavailable', 'reporting',
+                                    library=plib, problem=name, role=role)
         if problem['selection_status'] == 'unknown':
             problem['selection_status'] = ('retained' if self.document['operation'] == 'load'
                                            else 'observed_without_selection')
@@ -1018,6 +1065,8 @@ class EvalReport:
             'computation_time': 'computation_times',
             'solver_abnormal_termination': 'solver_abnormal_terminations',
             'solver_output_fallback': 'solver_output_fallbacks',
+            'reference_records': 'reference_records',
+            'reference_fallback_reasons': 'reference_fallback_reasons',
         }
 
         def add_library(result, role):
@@ -1092,7 +1141,7 @@ class EvalReport:
         self.document['source'] = record
         self._write()
 
-    def set_profiles(self, curves, solver_scores, profile_scores, solver_names, single=False):
+    def set_scores(self, solver_scores, profile_scores, solver_names, single=False):
         n_types = profile_scores.shape[-1] if type(profile_scores) is np.ndarray and profile_scores.ndim == 4 else 0
         self.document['scores'] = {
             'solver_names': _score_values(solver_names), 'solver_scores': _score_values(solver_scores),
@@ -1103,7 +1152,7 @@ class EvalReport:
                             'tolerance': [item['tolerance'] for item in self.document['profiles']['convergence']]},
             'semantics': 'single_problem_relative_decrease_averaged_over_runs' if single else 'cohort_relative',
             'direction': 'higher_is_better_for_default_scoring; custom_callbacks_define_their_own_direction',
-            'comparability_note': 'Scores depend on the retained cohort, tolerances, options, and scoring callbacks.',
+            'comparability_note': 'Scores depend on references or the retained cohort, tolerances, options, and scoring callbacks.',
         }
         self.document['stages']['scoring'] = {'status': 'completed'}
         # score_only already explains a not-requested rendering (same
@@ -1233,6 +1282,9 @@ class EvalReport:
         """Finalize once; secondary reporting errors never mask ``error``."""
         if self._finished:
             return
+        # Even a numerical failure must publish its final diagnosis. Deferral
+        # only prevents optional report writes from interrupting raw-data save.
+        self._publication_deferred = False
         try:
             self._coverage()
             if error is not None:
