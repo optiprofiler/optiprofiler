@@ -853,13 +853,13 @@ class EvalReport:
 
     def record_rendering_failure(self, code, **scope):
         """Record a failed export without inferring status from its diagnostic name."""
-        self.document['stages']['rendering'] = {'status': 'failed', 'reason': code}
+        self._update_stage('rendering', 'failed', _text(code, 80))
         self.add_diagnostic(code, 'rendering', **scope)
 
     def record_persistence_failure(self, code, **scope):
         """Missing integrity evidence makes persistence partial unless it already failed."""
         if self.document['stages']['persistence']['status'] != 'failed':
-            self.document['stages']['persistence'] = {'status': 'partial', 'reason': code}
+            self._update_stage('persistence', 'partial', _text(code, 80))
         self.add_diagnostic(code, 'persistence', **scope)
 
     def defer_publication(self):
@@ -871,18 +871,21 @@ class EvalReport:
         self._write()
 
     def set_stage(self, stage, status, reason=None):
+        self._update_stage(stage, status, reason)
+        self._write()
+
+    def _update_stage(self, stage, status, reason=None):
+        """Update stage state without publishing an incomplete report snapshot."""
         if stage not in _STAGES or status not in _STATUSES:
             raise ValueError('Invalid EvalReport stage or status')
         if (stage in ('rendering', 'persistence') and status in ('running', 'completed')
                 and self.document['stages'][stage]['status'] in ('failed', 'partial')):
             # A later successful export cannot erase an earlier missing
             # requested artifact in this same invocation.
-            self._write()
             return
         self.document['stages'][stage] = {'status': status}
         if reason is not None:
             self.document['stages'][stage]['reason'] = _text(reason)
-        self._write()
 
     def add_problem(self, result, plib, role='primary'):
         if type(result) is not dict:
@@ -1274,7 +1277,7 @@ class EvalReport:
                     record.update(bytes=None, sha256=None, status='unverified',
                                   reason='secure_artifact_hashing_unavailable_on_platform')
                     self.record_persistence_failure('artifact_hash_unavailable',
-                                        reason='secure_artifact_hashing_unavailable_on_platform')
+                                                    reason='secure_artifact_hashing_unavailable_on_platform')
                 else:
                     record.update(_digest(path, directory=self._output_dir))
                 artifacts.append(record)

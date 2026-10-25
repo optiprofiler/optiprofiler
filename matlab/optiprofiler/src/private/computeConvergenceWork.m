@@ -4,7 +4,7 @@ function [work_hist, work_out] = computeConvergenceWork(merit_histories, merit_o
     n_problems = size(merit_histories, 1);
     n_solvers = size(merit_histories, 2);
     n_runs = size(merit_histories, 3);
-    merit_init_inf_mask = isinf(merit_inits);
+    initial_is_inf = isinf(merit_inits);
     work_hist = NaN(n_problems, n_solvers, n_runs);
     work_out = NaN(n_problems, n_solvers, n_runs);
     for i_problem = 1:n_problems
@@ -13,7 +13,7 @@ function [work_hist, work_out] = computeConvergenceWork(merit_histories, merit_o
                 if invalid_initial(i_problem, i_run)
                     continue;
                 end
-                if merit_init_inf_mask(i_problem, i_run)
+                if initial_is_inf(i_problem, i_run)
                     % Preserve the Inf-initial convention only for
                     % actual evaluations without raw NaN values.
                     threshold = Inf;

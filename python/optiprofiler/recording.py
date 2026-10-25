@@ -1,12 +1,12 @@
-"""Shared reference-history failure policy for feature recorders."""
+"""Shared history initialization, paired recording and reference-failure policy."""
 
 import logging
 import warnings
 import numpy as np
 
 
-def initialize_histories(owner):
-    """Initialize history buffers and cached observations for one featured trial."""
+def initialize_recording_state(owner):
+    """Initialize histories, cached observations and the trial's warning state."""
     owner._fun_hist = []
     owner._cub_hist = []
     owner._ceq_hist = []
@@ -17,7 +17,7 @@ def initialize_histories(owner):
     owner._last_ceq = np.nan
 
 
-def record_objective(owner, value, evaluate_maxcv, x):
+def record_fun_and_maxcv(owner, value, evaluate_maxcv, x):
     """Commit paired reference observations, including when diagnostics raise."""
     owner._fun_hist.append(value)
     # Reserve the paired slot before a warning can become an exception.
@@ -30,6 +30,8 @@ def reference_maxcv_or_nan(evaluate, x, owner=None, *, stacklevel=3):
 
     Recorders reserve a NaN history slot before calling: the diagnostic may
     raise under a warnings-as-errors filter, but histories must remain aligned.
+    The default stacklevel points past a direct recorder call to its caller;
+    paired recording adds a wrapper frame and passes 4 instead of 3.
     """
     try:
         return evaluate(x)

@@ -1207,7 +1207,7 @@ def compute_convergence_work(merit_histories, merit_outs, merit_inits, merit_min
     The initial-Inf convention and arithmetic order match profile scoring.
     """
     n_problems, n_solvers, n_runs = merit_histories.shape[:3]
-    merit_init_inf_mask = np.isinf(merit_inits)
+    initial_is_inf = np.isinf(merit_inits)
     # Compute the number of function evaluations used by each
     # solver on each problem at each run to achieve convergence.
     work_hist = np.full((n_problems, n_solvers, n_runs), np.nan)
@@ -1217,7 +1217,7 @@ def compute_convergence_work(merit_histories, merit_outs, merit_inits, merit_min
             for i_run in range(n_runs):
                 if invalid_initial[i_problem, i_run]:
                     continue
-                if merit_init_inf_mask[i_problem, i_run]:
+                if initial_is_inf[i_problem, i_run]:
                     # Preserve the Inf-initial convention, but only
                     # for actual evaluations without raw NaN values.
                     threshold = np.inf

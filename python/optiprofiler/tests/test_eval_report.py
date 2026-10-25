@@ -3,6 +3,7 @@ import json
 import hashlib
 import os
 import stat
+from copy import deepcopy
 from pathlib import Path
 
 import numpy as np
@@ -14,7 +15,7 @@ from optiprofiler import Problem, benchmark
 from optiprofiler.plotting import prepare_history_plot_data
 from optiprofiler.utils import ProfileOption
 from optiprofiler.tests.eval_report_contract import assert_valid
-from optiprofiler.eval_report import schema_for_document, schema_resource
+from optiprofiler.eval_report import EvalReport, schema_for_document, schema_resource
 
 
 def stay(fun, x0):
@@ -990,9 +991,6 @@ def test_unicode_identity_is_preserved_and_sensitive_unknown_option_is_redacted(
 
 
 def test_diagnostic_names_do_not_change_execution_state(tmp_path):
-    from copy import deepcopy
-    from optiprofiler.eval_report import EvalReport
-
     collector = EvalReport(tmp_path / 'diagnostics.json', {})
     stages = deepcopy(collector.document['stages'])
     collector.add_diagnostic('note_failed_comparison', 'rendering')
@@ -1003,9 +1001,28 @@ def test_diagnostic_names_do_not_change_execution_state(tmp_path):
     collector.finish()
 
 
-def test_explicit_failure_records_preserve_failed_stages(tmp_path):
-    from optiprofiler.eval_report import EvalReport
+@pytest.mark.parametrize('method,stage,status', [
+    ('record_rendering_failure', 'rendering', 'failed'),
+    ('record_persistence_failure', 'persistence', 'partial'),
+])
+@pytest.mark.parametrize('code', ['/home/secret/dir/plot.pdf', 'https://secret.example/plot.pdf'])
+def test_failure_reasons_are_redacted_without_early_publication(tmp_path, method, stage, status, code):
+    target = tmp_path / 'failures.json'
+    collector = EvalReport(target, {})
+    before = target.read_bytes()
 
+    getattr(collector, method)(code)
+
+    state = collector.document['stages'][stage]
+    assert state['status'] == status
+    assert state['reason'] == collector.document['diagnostics'][-1]['code']
+    assert 'secret' not in state['reason']
+    assert target.read_bytes() == before
+    collector.finish()
+    assert _read(target)['stages'][stage] == state
+
+
+def test_explicit_failure_records_preserve_failed_stages(tmp_path):
     collector = EvalReport(tmp_path / 'failures.json', {})
     collector.record_load_failure('toy', 'P', exception_type='ValueError')
     assert collector._problems[('toy', 'P', 'primary')]['load_status'] == 'failed'

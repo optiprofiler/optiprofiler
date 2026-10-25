@@ -5,9 +5,9 @@ plus the normalization of user input into the canonical stage records.
 
 This module imports nothing from the problem, view, benchmark or report code so
 that every layer (specification, experiment planning, execution, provenance,
-documentation and the MATLAB mapping) reads shared declarations and frozen seed codes. Nothing here executes a
-user callback: callables are checked for callability only and stored by
-reference.
+documentation and the MATLAB mapping) reads shared declarations and frozen
+seed codes. Nothing here executes a user callback: callables are checked for
+callability only and stored by reference.
 
 Experiment options (``n_runs``) are not stage options; they are rejected inside a
 stage and belong to ``optiprofiler.experiment``.
@@ -50,6 +50,11 @@ SEED_POLICY_COMPOSED = 'seedsequence-v2'
 _CUSTOM_CALLBACKS = (FeatureOption.MOD_X0, FeatureOption.MOD_BOUNDS, FeatureOption.MOD_LINEAR_UB,
                      FeatureOption.MOD_LINEAR_EQ, FeatureOption.MOD_AFFINE, FeatureOption.MOD_FUN,
                      FeatureOption.MOD_CUB, FeatureOption.MOD_CEQ)
+
+
+def _stamp_name(name, options):
+    return str(name)
+
 
 def _stamp_perturbed_x0(name, options):
     text = f"{name}_{options[FeatureOption.PERTURBATION_LEVEL]}"
@@ -117,77 +122,91 @@ _STAGE_DEFINITIONS = {
     FeatureName.PLAIN.value: _StageDefinition(
         options=(),
         defaults={},
-        replicate_hint=1,
-        stochastic=False,
-        stamp=None),
+        replicate_hint=lambda options: 1,
+        stochastic=lambda options: False,
+        stamp=_stamp_name),
     FeatureName.CUSTOM.value: _StageDefinition(
         options=tuple(option.value for option in _CUSTOM_CALLBACKS),
         defaults={},
-        replicate_hint=1,
-        stochastic=True,
-        stamp=None),
+        replicate_hint=lambda options: 1,
+        stochastic=lambda options: True,
+        stamp=_stamp_name),
     FeatureName.NOISY.value: _StageDefinition(
-        options=(FeatureOption.DISTRIBUTION.value, FeatureOption.NOISE_LEVEL.value,
-            FeatureOption.NOISE_TYPE.value, FeatureOption.NOISE_MODE.value,
-            FeatureOption.NOISE_MAP.value),
-        defaults={'noise_mode': 'random', 'distribution': 'gaussian', 'noise_map': 'chebyshev',
-            'noise_level': 1e-3, 'noise_type': 'mixed'},
+        options=(FeatureOption.DISTRIBUTION.value,
+                 FeatureOption.NOISE_LEVEL.value,
+                 FeatureOption.NOISE_TYPE.value,
+                 FeatureOption.NOISE_MODE.value,
+                 FeatureOption.NOISE_MAP.value),
+        defaults={FeatureOption.NOISE_MODE.value: 'random',
+                  FeatureOption.DISTRIBUTION.value: 'gaussian',
+                  FeatureOption.NOISE_MAP.value: 'chebyshev',
+                  FeatureOption.NOISE_LEVEL.value: 1e-3,
+                  FeatureOption.NOISE_TYPE.value: 'mixed'},
         replicate_hint=lambda options: 1 if options[FeatureOption.NOISE_MODE] == 'deterministic' else 5,
         stochastic=lambda options: options[FeatureOption.NOISE_MODE] == 'random',
         stamp=_stamp_noisy),
     FeatureName.PERTURBED_X0.value: _StageDefinition(
-        options=(FeatureOption.DISTRIBUTION.value, FeatureOption.PERTURBATION_LEVEL.value),
-        defaults={'distribution': 'spherical', 'perturbation_level': 1e-3},
-        replicate_hint=5,
-        stochastic=True,
+        options=(FeatureOption.DISTRIBUTION.value,
+                 FeatureOption.PERTURBATION_LEVEL.value),
+        defaults={FeatureOption.DISTRIBUTION.value: 'spherical',
+                  FeatureOption.PERTURBATION_LEVEL.value: 1e-3},
+        replicate_hint=lambda options: 5,
+        stochastic=lambda options: True,
         stamp=_stamp_perturbed_x0),
     FeatureName.RANDOM_NAN.value: _StageDefinition(
         options=(FeatureOption.NAN_RATE.value,),
-        defaults={'nan_rate': 0.05},
-        replicate_hint=5,
-        stochastic=True,
+        defaults={FeatureOption.NAN_RATE.value: 0.05},
+        replicate_hint=lambda options: 5,
+        stochastic=lambda options: True,
         stamp=_stamp_random_nan),
     FeatureName.TRUNCATED.value: _StageDefinition(
         options=(FeatureOption.PERTURBED_TRAILING_DIGITS.value,
-            FeatureOption.SIGNIFICANT_DIGITS.value),
-        defaults={'perturbed_trailing_digits': False, 'significant_digits': 6},
+                 FeatureOption.SIGNIFICANT_DIGITS.value),
+        defaults={FeatureOption.PERTURBED_TRAILING_DIGITS.value: False,
+                  FeatureOption.SIGNIFICANT_DIGITS.value: 6},
         replicate_hint=lambda options: 5 if options[FeatureOption.PERTURBED_TRAILING_DIGITS] else 1,
         stochastic=lambda options: bool(options[FeatureOption.PERTURBED_TRAILING_DIGITS]),
         stamp=_stamp_truncated),
     FeatureName.UNRELAXABLE_CONSTRAINTS.value: _StageDefinition(
         options=(FeatureOption.UNRELAXABLE_BOUNDS.value,
-            FeatureOption.UNRELAXABLE_LINEAR_CONSTRAINTS.value,
-            FeatureOption.UNRELAXABLE_NONLINEAR_CONSTRAINTS.value),
-        defaults={'unrelaxable_bounds': True, 'unrelaxable_linear_constraints': False,
-            'unrelaxable_nonlinear_constraints': False},
-        replicate_hint=1,
-        stochastic=False,
+                 FeatureOption.UNRELAXABLE_LINEAR_CONSTRAINTS.value,
+                 FeatureOption.UNRELAXABLE_NONLINEAR_CONSTRAINTS.value),
+        defaults={FeatureOption.UNRELAXABLE_BOUNDS.value: True,
+                  FeatureOption.UNRELAXABLE_LINEAR_CONSTRAINTS.value: False,
+                  FeatureOption.UNRELAXABLE_NONLINEAR_CONSTRAINTS.value: False},
+        replicate_hint=lambda options: 1,
+        stochastic=lambda options: False,
         stamp=_stamp_unrelaxable_constraints),
     FeatureName.LINEARLY_TRANSFORMED.value: _StageDefinition(
-        options=(FeatureOption.ROTATED.value, FeatureOption.CONDITION_FACTOR.value),
-        defaults={'rotated': True, 'condition_factor': 0},
-        replicate_hint=5,
+        options=(FeatureOption.ROTATED.value,
+                 FeatureOption.CONDITION_FACTOR.value),
+        defaults={FeatureOption.ROTATED.value: True,
+                  FeatureOption.CONDITION_FACTOR.value: 0},
+        replicate_hint=lambda options: 5,
         stochastic=lambda options: bool(options[FeatureOption.ROTATED]),
         stamp=_stamp_linearly_transformed),
     FeatureName.QUANTIZED.value: _StageDefinition(
-        options=(FeatureOption.MESH_SIZE.value, FeatureOption.MESH_TYPE.value,
-            FeatureOption.GROUND_TRUTH.value),
-        defaults={'mesh_size': 1e-3, 'mesh_type': 'absolute', 'ground_truth': True},
-        replicate_hint=1,
-        stochastic=False,
+        options=(FeatureOption.MESH_SIZE.value,
+                 FeatureOption.MESH_TYPE.value,
+                 FeatureOption.GROUND_TRUTH.value),
+        defaults={FeatureOption.MESH_SIZE.value: 1e-3,
+                  FeatureOption.MESH_TYPE.value: 'absolute',
+                  FeatureOption.GROUND_TRUTH.value: True},
+        replicate_hint=lambda options: 1,
+        stochastic=lambda options: False,
         stamp=_stamp_quantized),
     FeatureName.PERMUTED.value: _StageDefinition(
         options=(),
         defaults={},
-        replicate_hint=5,
-        stochastic=True,
-        stamp=None),
+        replicate_hint=lambda options: 5,
+        stochastic=lambda options: True,
+        stamp=_stamp_name),
     FeatureName.NONQUANTIFIABLE_CONSTRAINTS.value: _StageDefinition(
         options=(),
         defaults={},
-        replicate_hint=1,
-        stochastic=False,
-        stamp=None),
+        replicate_hint=lambda options: 1,
+        stochastic=lambda options: False,
+        stamp=_stamp_name),
 }
 
 #: Stage-local options accepted by each kind. ``noisy.distribution`` and
@@ -361,8 +380,7 @@ def replicate_hint(name, options):
     definition = _STAGE_DEFINITIONS.get(name)
     if definition is None:
         raise NotImplementedError(f'Unknown feature: {name}.')
-    policy = definition.replicate_hint
-    return policy(options) if callable(policy) else policy
+    return definition.replicate_hint(options)
 
 
 def is_stochastic(name, options):
@@ -370,8 +388,7 @@ def is_stochastic(name, options):
     definition = _STAGE_DEFINITIONS.get(name)
     if definition is None:
         return False
-    policy = definition.stochastic
-    return policy(options) if callable(policy) else policy
+    return definition.stochastic(options)
 
 
 #: Stage kinds that keep a raw reference fact whatever their
@@ -412,7 +429,7 @@ def retains_reference(name, options):
 def stamp(name, options):
     """The folder-name stamp of one stage kind (the established 1.x conventions)."""
     definition = _STAGE_DEFINITIONS.get(name)
-    if definition is None or definition.stamp is None:
+    if definition is None:
         return str(name)
     return definition.stamp(name, options)
 

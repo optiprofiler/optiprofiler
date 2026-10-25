@@ -74,11 +74,11 @@ def test_repeated_processing_does_not_pad_caller_result_arrays(dtype, equal_leng
         block['merit_histories'] = block['merit_histories'].astype(dtype)
     original = deepcopy(blocks)
     for _ in range(2):
-        merged = process_results(blocks, {ProfileOption.RUN_PLAIN: True})
-        np.testing.assert_array_equal(merged[3], [[1, 1], [15, 15]])
-        assert merged[0].dtype == np.float64
-        np.testing.assert_array_equal(merged[0][0], 5.)
-        np.testing.assert_array_equal(merged[0][1], 20.)
+        histories, _, _, mins, *_ = process_results(blocks, {ProfileOption.RUN_PLAIN: True})
+        np.testing.assert_array_equal(mins, [[1, 1], [15, 15]])
+        assert histories.dtype == np.float64
+        np.testing.assert_array_equal(histories[0], 5.)
+        np.testing.assert_array_equal(histories[1], 20.)
     for actual, before in zip(blocks, original):
         np.testing.assert_array_equal(actual['merit_histories'], before['merit_histories'])
         np.testing.assert_array_equal(actual['fun_histories'], before['fun_histories'])

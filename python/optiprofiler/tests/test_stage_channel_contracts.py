@@ -25,7 +25,7 @@ CASES = {
 
 def test_new_stage_requires_explicit_channel_classification():
     assert set(STAGE_NAMES) == set(CASES)
-    assert set(_VIEW_CLASSES) == set(STAGE_CODES)
+    assert set(STAGE_NAMES) - {'plain'} == set(_VIEW_CLASSES) == set(STAGE_CODES)
 
 
 @pytest.mark.parametrize('name', CASES)

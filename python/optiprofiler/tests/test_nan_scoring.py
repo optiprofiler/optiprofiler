@@ -8,6 +8,7 @@ import pytest
 
 from optiprofiler import benchmark
 from optiprofiler.loader import load_results_from_h5
+from optiprofiler.profile_utils import compute_convergence_work
 
 
 def visit_one(fun, x0, *constraints):
@@ -176,8 +177,6 @@ def test_mixed_legacy_initial_dimensions_on_load(nan_library, tmp_path,
 ])
 def test_convergence_work_obeys_validity_and_initial_conventions(
         initial, minimum, history, output, count, valid, invalid, output_valid, expected):
-    from optiprofiler.profile_utils import compute_convergence_work
-
     work = compute_convergence_work(
         np.array(history).reshape(1, 1, 1, 3), np.array([[[output]]]),
         np.array([[initial]]), np.array([[minimum]]), np.array([[[count]]]), .1,

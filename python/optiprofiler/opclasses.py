@@ -1,5 +1,5 @@
 import numpy as np
-from .recording import initialize_histories, record_objective
+from .recording import initialize_recording_state, record_fun_and_maxcv
 from .validation import normalize_integer
 from scipy.linalg import qr
 import copyreg
@@ -3189,7 +3189,7 @@ class FeaturedProblem(Problem):
             self._problem.reference, [(self._runtime.name, self._runtime._options)])
         # Store the histories of the objective function values, nonlinear
         # constraints, and maximum constraint violations.
-        initialize_histories(self)
+        initialize_recording_state(self)
 
         self._fun_init, self._maxcv_init = self._evaluate_truth(self._x0)
 
@@ -3428,9 +3428,7 @@ class FeaturedProblem(Problem):
 
         # We should not store the modified value because the performance of an optimization solver
         # should be measured using the original objective function.
-        # Keep paired histories even if the caller escalates the diagnostic
-        # warning. The unavailable observation must retain its own NaN slot.
-        record_objective(self, f_true, self.maxcv, x)
+        record_fun_and_maxcv(self, f_true, self.maxcv, x)
 
         return f
 

@@ -58,18 +58,21 @@ classdef TestReferenceScoring < matlab.unittest.TestCase
     end
     methods (Test)
         function convergenceWorkUsesOnlyValidEvaluations(testCase)
+            % Columns follow computeConvergenceWork's argument order, then the expected result.
+            % histories, outputs, initials, minima, counts, tolerance, invalid initial,
+            % valid histories, valid outputs, expected [history, output].
             cases = {
-                10, 0, [3, 1, 0], 0, 3, [true, true, false], false, true, [2, 3];
-                Inf, 0, [NaN, Inf, 5], Inf, 3, [false, true, true], false, true, [2, 3];
-                10, -Inf, [0, -Inf, -Inf], -Inf, 2, [true, true, false], false, true, [2, 2];
-                10, NaN, [NaN, NaN, NaN], NaN, 3, false(1, 3), false, false, [NaN, NaN];
-                10, 0, [3, 1, 0], 0, 3, true(1, 3), true, true, [NaN, NaN];
-                10, 0, [5, 3, 0], .5, 2, [true, true, false], false, false, [NaN, NaN]};
+                [3, 1, 0], 0, 10, 0, 3, .1, false, [true, true, false], true, [2, 3];
+                [NaN, Inf, 5], Inf, Inf, 0, 3, .1, false, [false, true, true], true, [2, 3];
+                [0, -Inf, -Inf], -Inf, 10, -Inf, 2, .1, false, [true, true, false], true, [2, 2];
+                [NaN, NaN, NaN], NaN, 10, NaN, 3, .1, false, false(1, 3), false, [NaN, NaN];
+                [3, 1, 0], 0, 10, 0, 3, .1, true, true(1, 3), true, [NaN, NaN];
+                [5, 3, 0], .5, 10, 0, 2, .1, false, [true, true, false], false, [NaN, NaN]};
             for k = 1:size(cases, 1)
                 c = cases(k, :);
-                [history, output] = computeConvergenceWork(reshape(c{3}, 1, 1, 1, []), ...
-                    c{4}, c{1}, c{2}, c{5}, .1, c{7}, reshape(c{6}, 1, 1, 1, []), c{8});
-                testCase.verifyEqual([history, output], c{9});
+                [history, output] = computeConvergenceWork(reshape(c{1}, 1, 1, 1, []), ...
+                    c{2}, c{3}, c{4}, c{5}, c{6}, c{7}, reshape(c{8}, 1, 1, 1, []), c{9});
+                testCase.verifyEqual([history, output], c{10});
             end
         end
 

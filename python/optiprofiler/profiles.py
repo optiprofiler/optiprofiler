@@ -65,7 +65,7 @@ def _report_export(report, export, *args, **kwargs):
     except Exception as exc:
         if report is not None:
             report.record_rendering_failure('profile_export_failed',
-                                  exception_type=type(exc).__name__)
+                                            exception_type=type(exc).__name__)
         raise
 
 
@@ -1155,6 +1155,7 @@ def _benchmark(
         stamp = create_stamp(solver_names, problem_options, feature_stamp, time_stamp, path_out)
 
     path_stamp = path_out / stamp
+    # FIG profiles are not saved in test_log/profile_figs or listed in test_log/README.txt.
     path_log = path_stamp / 'test_log'
     path_report = path_log / 'report.txt'
 
@@ -1187,8 +1188,6 @@ def _benchmark(
         init_readme(path_readme_log)
     else:
         path_readme_log = None
-
-    # FIG profiles are not saved in test_log/profile_figs or listed in test_log/README.txt.
 
     # Save the options and record the log.
     # Initialize log_queue and listener to None for the case when score_only=True.
@@ -1544,7 +1543,7 @@ def _benchmark(
                 except Exception as exc:
                     if report is not None:
                         report.record_rendering_failure('history_merge_failed',
-                                              library=plib, exception_type=type(exc).__name__)
+                                                        library=plib, exception_type=type(exc).__name__)
                     if not profile_options[ProfileOption.SILENT]:
                         logger.warning('Failed to merge the history plots to a single PDF file.')
                         logger.warning(f'Error message: {shorten_log_message(exc)}')
@@ -1654,7 +1653,7 @@ def _benchmark(
                                               problem=problem_name, exception_type=diagnostic['exception_type'])
                 if report is not None and history_error is not None:
                     report.record_rendering_failure('history_render_failed',
-                                          library=plib, problem=problem_name, **history_error)
+                                                    library=plib, problem=problem_name, **history_error)
 
             if not profile_options[ProfileOption.SILENT]:
                 logger.info(f'Finished drawing history plots for problems from the problem library "{plib}".')
@@ -1668,7 +1667,7 @@ def _benchmark(
                 except Exception as exc:
                     if report is not None:
                         report.record_rendering_failure('history_merge_failed',
-                                              library=plib, exception_type=type(exc).__name__)
+                                                        library=plib, exception_type=type(exc).__name__)
                     if not profile_options[ProfileOption.SILENT]:
                         logger.warning('Failed to merge the history plots to a single PDF file.')
                         logger.warning(f'Error message: {shorten_log_message(exc)}')
@@ -1912,9 +1911,11 @@ def _build_profiles(
                     logger.info(f'Creating profiles for tolerance {tolerance_str}')
 
                 work_hist, work_out = compute_convergence_work(
-                    merit_histories_merged, merit_outs_merged, merit_inits_per_run,
-                    merit_mins_merged, n_evals_merged, tolerance,
-                    invalid_initial, valid_histories, valid_outs)
+                    merit_histories=merit_histories_merged, merit_outs=merit_outs_merged,
+                    merit_inits=merit_inits_per_run, merit_mins=merit_mins_merged,
+                    n_evals=n_evals_merged, tolerance=tolerance,
+                    invalid_initial=invalid_initial, valid_histories=valid_histories,
+                    valid_outs=valid_outs)
 
                 if report is not None:
                     # Reuse exactly the work arrays used for these profiles. The
@@ -2455,7 +2456,7 @@ def _solve_all_problems(solvers, plib, feature, plan, problem_options, profile_o
         if '_eval_report_failure' in result:
             if _report is not None:
                 _report.record_load_failure(plib, role=_report_role,
-                                       **result['_eval_report_failure'])
+                                            **result['_eval_report_failure'])
             continue
         if _report is not None:
             _report.add_problem(result, plib, role=_report_role)
