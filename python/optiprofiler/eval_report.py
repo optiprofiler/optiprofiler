@@ -833,16 +833,6 @@ class EvalReport:
 
     def add_diagnostic(self, code, stage, **scope):
         code, stage = _text(code, 80), _text(stage, 40)
-        if code == 'problem_load_failed':
-            problem = self._problem(scope.get('library'), scope.get('problem'),
-                                    scope.get('role', 'primary'))
-            problem.update(load_status='failed', status='failed')
-        if stage == 'rendering' and code and ('failed' in code or 'failure' in code):
-            self.document['stages']['rendering'] = {'status': 'failed', 'reason': code}
-        if stage == 'persistence' and code in (
-                'artifact_hash_unavailable', 'artifact_directory_ownership_changed'):
-            if self.document['stages']['persistence']['status'] != 'failed':
-                self.document['stages']['persistence'] = {'status': 'partial', 'reason': code}
         entry = {'code': code, 'stage': stage, 'scope': _safe(scope)}
         identity = json.dumps(entry, allow_nan=False, sort_keys=True, ensure_ascii=False)
         if identity in self._diagnostic_keys:
@@ -854,6 +844,23 @@ class EvalReport:
             self.document['diagnostics'].append(entry)
         else:
             self._dropped_diagnostics += 1
+
+    def record_load_failure(self, library, problem, role='primary', **scope):
+        """Record an observed load failure and its diagnostic together."""
+        self._problem(library, problem, role).update(load_status='failed', status='failed')
+        self.add_diagnostic('problem_load_failed', 'numerical', library=library,
+                            problem=problem, role=role, **scope)
+
+    def record_rendering_failure(self, code, **scope):
+        """Record a failed export without inferring status from its diagnostic name."""
+        self.document['stages']['rendering'] = {'status': 'failed', 'reason': code}
+        self.add_diagnostic(code, 'rendering', **scope)
+
+    def record_persistence_failure(self, code, **scope):
+        """Missing integrity evidence makes persistence partial unless it already failed."""
+        if self.document['stages']['persistence']['status'] != 'failed':
+            self.document['stages']['persistence'] = {'status': 'partial', 'reason': code}
+        self.add_diagnostic(code, 'persistence', **scope)
 
     def defer_publication(self):
         """Collect in memory until completed numerical data is safely saved."""
@@ -1238,7 +1245,7 @@ class EvalReport:
             return
         if (self._output_dir.is_symlink() or not self._output_dir.is_dir()
                 or self._identity(self._output_dir) != self._output_identity):
-            self.add_diagnostic('artifact_directory_ownership_changed', 'persistence')
+            self.record_persistence_failure('artifact_directory_ownership_changed')
             return
         artifacts = []
         excluded = {os.path.realpath(self.path), os.path.realpath(self.plot_path)} | set(self._initial_artifacts)
@@ -1266,13 +1273,13 @@ class EvalReport:
                     # only their integrity receipt is missing, and it says so.
                     record.update(bytes=None, sha256=None, status='unverified',
                                   reason='secure_artifact_hashing_unavailable_on_platform')
-                    self.add_diagnostic('artifact_hash_unavailable', 'persistence',
+                    self.record_persistence_failure('artifact_hash_unavailable',
                                         reason='secure_artifact_hashing_unavailable_on_platform')
                 else:
                     record.update(_digest(path, directory=self._output_dir))
                 artifacts.append(record)
             except (OSError, NotImplementedError):
-                self.add_diagnostic('artifact_hash_unavailable', 'persistence', name=path.name)
+                self.record_persistence_failure('artifact_hash_unavailable', name=path.name)
         self.document['artifacts'] = artifacts
         if len(artifacts) >= _MAX_ARTIFACTS:
             self.add_diagnostic('artifact_manifest_limit_reached', 'persistence', limit=_MAX_ARTIFACTS)

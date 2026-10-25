@@ -987,3 +987,34 @@ def test_unicode_identity_is_preserved_and_sensitive_unknown_option_is_redacted(
         benchmark([stay, zero], report_path=secret_path, auth_token='do-not-copy-this-secret')
     assert 'do-not-copy-this-secret' not in secret_path.read_text(encoding='utf-8')
     assert _read(secret_path)['configuration']['request']['auth_token']['reason'] == 'redacted_sensitive_option'
+
+
+def test_diagnostic_names_do_not_change_execution_state(tmp_path):
+    from copy import deepcopy
+    from optiprofiler.eval_report import EvalReport
+
+    collector = EvalReport(tmp_path / 'diagnostics.json', {})
+    stages = deepcopy(collector.document['stages'])
+    collector.add_diagnostic('note_failed_comparison', 'rendering')
+    collector.add_diagnostic('problem_load_failed', 'numerical', library='toy', problem='P')
+    collector.add_diagnostic('artifact_hash_unavailable', 'persistence')
+    assert collector.document['stages'] == stages
+    assert not collector._problems
+    collector.finish()
+
+
+def test_explicit_failure_records_preserve_failed_stages(tmp_path):
+    from optiprofiler.eval_report import EvalReport
+
+    collector = EvalReport(tmp_path / 'failures.json', {})
+    collector.record_load_failure('toy', 'P', exception_type='ValueError')
+    assert collector._problems[('toy', 'P', 'primary')]['load_status'] == 'failed'
+    collector.record_rendering_failure('export_interrupted')
+    collector.set_stage('rendering', 'completed')
+    assert collector.document['stages']['rendering'] == {
+        'status': 'failed', 'reason': 'export_interrupted'}
+    collector.set_stage('persistence', 'failed', 'write_interrupted')
+    collector.record_persistence_failure('artifact_hash_unavailable')
+    assert collector.document['stages']['persistence'] == {
+        'status': 'failed', 'reason': 'write_interrupted'}
+    collector.finish()

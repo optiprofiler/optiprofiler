@@ -64,7 +64,7 @@ def _report_export(report, export, *args, **kwargs):
         return export(*args, **kwargs)
     except Exception as exc:
         if report is not None:
-            report.add_diagnostic('profile_export_failed', 'rendering',
+            report.record_rendering_failure('profile_export_failed',
                                   exception_type=type(exc).__name__)
         raise
 
@@ -1543,7 +1543,7 @@ def _benchmark(
                     merge_pdfs_with_pypdf(path_hist_plots_plib, path_hist_plots / f'{plib}_history_plots_summary.pdf')
                 except Exception as exc:
                     if report is not None:
-                        report.add_diagnostic('history_merge_failed', 'rendering',
+                        report.record_rendering_failure('history_merge_failed',
                                               library=plib, exception_type=type(exc).__name__)
                     if not profile_options[ProfileOption.SILENT]:
                         logger.warning('Failed to merge the history plots to a single PDF file.')
@@ -1653,7 +1653,7 @@ def _benchmark(
                         report.add_diagnostic(diagnostic['code'], diagnostic['stage'], library=plib,
                                               problem=problem_name, exception_type=diagnostic['exception_type'])
                 if report is not None and history_error is not None:
-                    report.add_diagnostic('history_render_failed', 'rendering',
+                    report.record_rendering_failure('history_render_failed',
                                           library=plib, problem=problem_name, **history_error)
 
             if not profile_options[ProfileOption.SILENT]:
@@ -1667,7 +1667,7 @@ def _benchmark(
                     merge_pdfs_with_pypdf(path_hist_plots_plib, path_hist_plots / f'{plib}_history_plots_summary.pdf')
                 except Exception as exc:
                     if report is not None:
-                        report.add_diagnostic('history_merge_failed', 'rendering',
+                        report.record_rendering_failure('history_merge_failed',
                                               library=plib, exception_type=type(exc).__name__)
                     if not profile_options[ProfileOption.SILENT]:
                         logger.warning('Failed to merge the history plots to a single PDF file.')
@@ -2474,8 +2474,7 @@ def _solve_all_problems(solvers, plib, feature, plan, problem_options, profile_o
             continue
         if '_eval_report_failure' in result:
             if _report is not None:
-                _report.add_diagnostic('problem_load_failed', 'numerical',
-                                       library=plib, role=_report_role,
+                _report.record_load_failure(plib, role=_report_role,
                                        **result['_eval_report_failure'])
             continue
         if _report is not None:
