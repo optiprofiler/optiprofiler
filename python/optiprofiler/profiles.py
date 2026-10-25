@@ -34,7 +34,7 @@ from .problem_libraries import _initialize_problem_library_worker, _problem_libr
 from .utils import DEFAULT_LOG_LINE_WIDTH, FeatureName, ProfileOption, FeatureOption, ProblemOption, get_logger, print_log_message, setup_main_process_logging, setup_worker_logging, shorten_log_message, format_log_prefix
 from .loader import load_results, save_results_to_h5, save_options
 from .profile_utils import check_validity_problem_options, check_validity_profile_options, check_post_load_profile_options, get_default_problem_options, get_default_profile_options, compute_merit_values, create_stamp, merge_pdfs_with_pypdf, write_report, process_results, init_readme, add_to_readme, compute_scores
-from .profile_utils import _mask_invalid_merits, _get_default_feature_stamp, apply_reference_targets, reference_target
+from .profile_utils import compute_convergence_work, _mask_invalid_merits, _get_default_feature_stamp, apply_reference_targets, reference_target
 from .experiment import ABSENT, PLAIN_REFERENCE, PRIMARY, resolve_plan
 from .feature_definitions import reject_flat_stage_options
 from .provenance import effective_specification, feature_pipeline_text
@@ -1911,30 +1911,10 @@ def _build_profiles(
                 if not profile_options[ProfileOption.SILENT]:
                     logger.info(f'Creating profiles for tolerance {tolerance_str}')
 
-                # Compute the number of function evaluations used by each
-                # solver on each problem at each run to achieve convergence.
-                work_hist = np.full((n_problems, n_solvers, n_runs), np.nan)
-                work_out = np.full((n_problems, n_solvers, n_runs), np.nan)
-                for i_problem in range(n_problems):
-                    for i_solver in range(n_solvers):
-                        for i_run in range(n_runs):
-                            if invalid_initial[i_problem, i_run]:
-                                continue
-                            if merit_init_inf_mask[i_problem, i_run]:
-                                # Preserve the Inf-initial convention, but only
-                                # for actual evaluations without raw NaN values.
-                                threshold = np.inf
-                            elif np.isfinite(merit_mins_merged[i_problem, i_run]):
-                                threshold = max(tolerance * merit_inits_per_run[i_problem, i_run] + (1.0 - tolerance) * merit_mins_merged[i_problem, i_run], merit_mins_merged[i_problem, i_run])
-                            else:
-                                # A -Inf history minimum needs an exact -Inf hit;
-                                # an undefined minimum cannot establish a target.
-                                threshold = -np.inf
-                            passing = valid_histories[i_problem, i_solver, i_run] & (merit_histories_merged[i_problem, i_solver, i_run] <= threshold)
-                            if np.any(passing):
-                                work_hist[i_problem, i_solver, i_run] = np.flatnonzero(passing)[0] + 1
-                            if valid_outs[i_problem, i_solver, i_run] and merit_outs_merged[i_problem, i_solver, i_run] <= threshold:
-                                work_out[i_problem, i_solver, i_run] = n_evals_merged[i_problem, i_solver, i_run]
+                work_hist, work_out = compute_convergence_work(
+                    merit_histories_merged, merit_outs_merged, merit_inits_per_run,
+                    merit_mins_merged, n_evals_merged, tolerance,
+                    invalid_initial, valid_histories, valid_outs)
 
                 if report is not None:
                     # Reuse exactly the work arrays used for these profiles. The

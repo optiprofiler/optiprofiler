@@ -1632,39 +1632,10 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
             printOptiProfilerMessage('INFO', sprintf('Creating profiles for tolerance %s.', tolerance_str));
         end
 
-        work_hist = NaN(n_problems, n_solvers, n_runs);
-        work_out = NaN(n_problems, n_solvers, n_runs);
-        for i_problem = 1:n_problems
-            for i_solver = 1:n_solvers
-                for i_run = 1:n_runs
-                    if invalid_initial(i_problem, i_run)
-                        continue;
-                    end
-                    if merit_init_inf_mask(i_problem, i_run)
-                        % Preserve the Inf-initial convention only for
-                        % actual evaluations without raw NaN values.
-                        threshold = Inf;
-                    elseif isfinite(merit_mins_merged(i_problem, i_run))
-                        threshold = max(tolerance * merit_inits_merged(i_problem, i_run) + (1 - tolerance) * merit_mins_merged(i_problem, i_run), merit_mins_merged(i_problem, i_run));
-                    else
-                        % Unreachable under the merit_min <= merit_init
-                        % invariant established in processResults.m
-                        % (since merit_inits_merged is finite here).
-                        % Kept defensively to preserve the previous
-                        % "no convergence" behaviour.
-                        threshold = -Inf;
-                    end
-                    passing = valid_histories(i_problem, i_solver, i_run, :) & ...
-                        (merit_histories_merged(i_problem, i_solver, i_run, :) <= threshold);
-                    if any(passing(:))
-                        work_hist(i_problem, i_solver, i_run) = find(passing, 1, 'first');
-                    end
-                    if valid_outs(i_problem, i_solver, i_run) && merit_outs_merged(i_problem, i_solver, i_run) <= threshold
-                        work_out(i_problem, i_solver, i_run) = n_evals_merged(i_problem, i_solver, i_run);
-                    end
-                end
-            end
-        end
+        [work_hist, work_out] = computeConvergenceWork( ...
+            merit_histories_merged, merit_outs_merged, merit_inits_merged, ...
+            merit_mins_merged, n_evals_merged, tolerance, ...
+            invalid_initial, valid_histories, valid_outs);
 
         for i_problem = 1:n_problems
             for i_run = 1:n_runs

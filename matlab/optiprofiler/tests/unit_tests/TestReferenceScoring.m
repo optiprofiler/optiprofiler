@@ -57,6 +57,22 @@ classdef TestReferenceScoring < matlab.unittest.TestCase
         end
     end
     methods (Test)
+        function convergenceWorkUsesOnlyValidEvaluations(testCase)
+            cases = {
+                10, 0, [3, 1, 0], 0, 3, [true, true, false], false, true, [2, 3];
+                Inf, 0, [NaN, Inf, 5], Inf, 3, [false, true, true], false, true, [2, 3];
+                10, -Inf, [0, -Inf, -Inf], -Inf, 2, [true, true, false], false, true, [2, 2];
+                10, NaN, [NaN, NaN, NaN], NaN, 3, false(1, 3), false, false, [NaN, NaN];
+                10, 0, [3, 1, 0], 0, 3, true(1, 3), true, true, [NaN, NaN];
+                10, 0, [5, 3, 0], .5, 2, [true, true, false], false, false, [NaN, NaN]};
+            for k = 1:size(cases, 1)
+                c = cases(k, :);
+                [history, output] = computeConvergenceWork(reshape(c{3}, 1, 1, 1, []), ...
+                    c{4}, c{1}, c{2}, c{5}, .1, c{7}, reshape(c{6}, 1, 1, 1, []), c{8});
+                testCase.verifyEqual([history, output], c{9});
+            end
+        end
+
         function rawValidation(testCase)
             for kind = {'lower_bound', 'optimum', 'best_known', 'target'}
                 record = TestReferenceScoring.reference(0, 0, kind{1});

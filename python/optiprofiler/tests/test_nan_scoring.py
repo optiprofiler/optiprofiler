@@ -164,3 +164,24 @@ def test_mixed_legacy_initial_dimensions_on_load(nan_library, tmp_path,
         assert passing_fraction(original, channel) == pytest.approx(expected)
         assert passing_fraction(loaded, channel) == pytest.approx(expected)
     assert hashlib.sha256(source.read_bytes()).hexdigest() == digest
+
+
+@pytest.mark.parametrize('initial,minimum,history,output,count,valid,invalid,output_valid,expected', [
+    (10., 0., [3., 1., 0.], 0., 3, [True, True, False], False, True, (2., 3.)),
+    (np.inf, 0., [np.nan, np.inf, 5.], np.inf, 3, [False, True, True], False, True, (2., 3.)),
+    (10., -np.inf, [0., -np.inf, -np.inf], -np.inf, 2, [True, True, False], False, True, (2., 2.)),
+    (10., np.nan, [np.nan] * 3, np.nan, 3, [False] * 3, False, False, (np.nan, np.nan)),
+    (10., 0., [3., 1., 0.], 0., 3, [True] * 3, True, True, (np.nan, np.nan)),
+    (10., 0., [5., 3., 0.], .5, 2, [True, True, False], False, False, (np.nan, np.nan)),
+])
+def test_convergence_work_obeys_validity_and_initial_conventions(
+        initial, minimum, history, output, count, valid, invalid, output_valid, expected):
+    from optiprofiler.profile_utils import compute_convergence_work
+
+    work = compute_convergence_work(
+        np.array(history).reshape(1, 1, 1, 3), np.array([[[output]]]),
+        np.array([[initial]]), np.array([[minimum]]), np.array([[[count]]]), .1,
+        np.array([[invalid]]), np.array(valid).reshape(1, 1, 1, 3),
+        np.array([[[output_valid]]]))
+    assert work[0].shape == work[1].shape == (1, 1, 1)
+    np.testing.assert_array_equal([work[0].item(), work[1].item()], expected)

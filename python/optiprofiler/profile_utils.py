@@ -1199,6 +1199,43 @@ def carries_reference_records(results_plib):
     return False
 
 
+def compute_convergence_work(merit_histories, merit_outs, merit_inits, merit_mins,
+                             n_evals, tolerance, invalid_initial, valid_histories, valid_outs):
+    """Return first passing evaluation indices and work at passing solver outputs.
+
+    Validity masks exclude raw NaN observations and padded history tails.
+    The initial-Inf convention and arithmetic order match profile scoring.
+    """
+    n_problems, n_solvers, n_runs = merit_histories.shape[:3]
+    merit_init_inf_mask = np.isinf(merit_inits)
+    # Compute the number of function evaluations used by each
+    # solver on each problem at each run to achieve convergence.
+    work_hist = np.full((n_problems, n_solvers, n_runs), np.nan)
+    work_out = np.full((n_problems, n_solvers, n_runs), np.nan)
+    for i_problem in range(n_problems):
+        for i_solver in range(n_solvers):
+            for i_run in range(n_runs):
+                if invalid_initial[i_problem, i_run]:
+                    continue
+                if merit_init_inf_mask[i_problem, i_run]:
+                    # Preserve the Inf-initial convention, but only
+                    # for actual evaluations without raw NaN values.
+                    threshold = np.inf
+                elif np.isfinite(merit_mins[i_problem, i_run]):
+                    threshold = max(tolerance * merit_inits[i_problem, i_run] + (1.0 - tolerance) * merit_mins[i_problem, i_run], merit_mins[i_problem, i_run])
+                else:
+                    # A -Inf history minimum needs an exact -Inf hit;
+                    # an undefined minimum cannot establish a target.
+                    threshold = -np.inf
+                passing = valid_histories[i_problem, i_solver, i_run] & (merit_histories[i_problem, i_solver, i_run] <= threshold)
+                if np.any(passing):
+                    work_hist[i_problem, i_solver, i_run] = np.flatnonzero(passing)[0] + 1
+                if valid_outs[i_problem, i_solver, i_run] and merit_outs[i_problem, i_solver, i_run] <= threshold:
+                    work_out[i_problem, i_solver, i_run] = n_evals[i_problem, i_solver, i_run]
+
+    return work_hist, work_out
+
+
 def process_results(results_plibs, profile_options):
     """
     Processes results from results_plibs.
