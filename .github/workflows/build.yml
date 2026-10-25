@@ -31,6 +31,11 @@ jobs:
         with:
           python-version: '3.10'
 
+      # Tool discovery also runs PDF acceptance tests, before the package's
+      # runtime dependencies are installed by the build steps below.
+      - name: Install acceptance-test dependencies
+        run: python -m pip install 'pypdf>=3.8.0'
+
       - name: Test release validation and reject mismatched tags
         shell: bash
         run: |

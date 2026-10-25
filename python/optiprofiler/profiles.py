@@ -13,18 +13,13 @@ import warnings
 from contextlib import redirect_stderr, redirect_stdout
 from datetime import datetime
 from functools import wraps
-from inspect import signature
 from pathlib import Path
 from typing import Any, Callable
 
 import matplotlib
 import numpy as np
-from cycler import cycler
 from matplotlib.figure import Figure
-from matplotlib.colors import is_color_like
-from matplotlib.lines import Line2D
 from matplotlib.backends import backend_pdf
-from matplotlib.ticker import MaxNLocator, FuncFormatter
 
 from ._parallel import run_tasks, worker_main_available, WorkerArgumentPickler
 from .opclasses import Feature, Problem, FeaturedProblem
@@ -39,7 +34,7 @@ from .experiment import ABSENT, PLAIN_REFERENCE, PRIMARY, resolve_plan
 from .feature_definitions import reject_flat_stage_options
 from .provenance import effective_specification, feature_pipeline_text
 from .legacy_compat import REFINED_SCHEMA
-from .plotting import draw_hist, set_profile_context, format_float_scientific_latex, draw_profiles, summary_legend_extra_width, latex_escape_text, format_profile_text
+from .plotting import draw_hist, set_profile_context, format_float_scientific_latex, draw_profiles, summary_legend_extra_width, format_profile_text
 from .plot_options import apply_plot_options
 
 
@@ -1272,11 +1267,11 @@ def _benchmark(
                 shutil.copy2(caller_path, path_log / os.path.basename(caller_path))
                 add_to_readme(path_readme_log, os.path.basename(caller_path), 'File, the script or function that calls the benchmark function.')
                 if not profile_options[ProfileOption.SILENT]:
-                    logger.info(f'The script or function that calls `benchmark` function is copied to:')
+                    logger.info('The script or function that calls `benchmark` function is copied to:')
                     logger.info(f'{path_log}')
         except Exception as exc:
             if not profile_options[ProfileOption.SILENT]:
-                logger.warning(f'Failed to copy the script or function that calls `benchmark` function to the log directory.')
+                logger.warning('Failed to copy the script or function that calls `benchmark` function to the log directory.')
                 logger.warning(f'Error message: {_shorten_log_message(exc)}')
 
     # Create the directories for the performance profiles, data profiles, and log-ratio profiles.
@@ -1415,7 +1410,7 @@ def _benchmark(
         # Print the information of the current experiment.
         if not profile_options[ProfileOption.SILENT]:
             logger.info('')
-            logger.info(f'Start testing with the following options:')
+            logger.info('Start testing with the following options:')
             logger.info(f'- Solvers: {", ".join(solver_names)}')
             logger.info(f'- Problem libraries: {", ".join(problem_options[ProblemOption.PLIBS])}')
             for plib, library_options in problem_options[ProblemOption.PLIB_OPTIONS].items():
@@ -2217,16 +2212,16 @@ def _build_profiles(
             logger.info('=' * 70)
             if is_summary:
                 logger.info('')
-                logger.info(f'Summary PDF of the profiles is saved as:')
+                logger.info('Summary PDF of the profiles is saved as:')
                 logger.info(f'{path_stamp / f"summary_{stamp}.pdf"}')
             logger.info('')
-            logger.info(f'Single profiles are stored in:')
+            logger.info('Single profiles are stored in:')
             logger.info(f'{path_stamp / "detailed_profiles"}')
             logger.info('')
-            logger.info(f'Report of the experiment is saved as:')
+            logger.info('Report of the experiment is saved as:')
             logger.info(f'{path_report}')
             logger.info('')
-            logger.info(f'Check the README file for more information about the experiment and the results:')
+            logger.info('Check the README file for more information about the experiment and the results:')
             logger.info(f'{path_readme_feature}')
             logger.info('')
             logger.info('=' * 70)

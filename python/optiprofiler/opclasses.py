@@ -13,7 +13,7 @@ from scipy.optimize import Bounds, LinearConstraint, NonlinearConstraint, minimi
 from scipy import __version__ as _SCIPY_VERSION
 
 from .utils import FeatureName, FeatureOption, get_logger, shorten_log_message
-from .feature_definitions import (_SPEC_TYPE_MESSAGE, Declaration, StageRecord, fold_option_names, normalize_entries,
+from .feature_definitions import (_SPEC_TYPE_MESSAGE, Declaration, fold_option_names, normalize_entries,
                                   normalize_shorthand, reject_experiment_options, reject_flat_stage_options)
 from .feature_definitions import is_stochastic as _stage_is_stochastic
 from .feature_definitions import retains_reference as _stage_retains_reference

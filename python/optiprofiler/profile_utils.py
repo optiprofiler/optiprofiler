@@ -14,7 +14,7 @@ from pypdf import PdfWriter
 from .problem_libraries import list_problem_libraries, resolve_problem_library
 from .experiment import validate_n_runs
 from .provenance import full_feature_stamp
-from .utils import FeatureName, ProfileOption, FeatureOption, ProblemOption, get_logger, print_log_message, shorten_log_message
+from .utils import ProfileOption, ProblemOption, get_logger, print_log_message, shorten_log_message
 
 
 def _is_positive_infinity(value):
