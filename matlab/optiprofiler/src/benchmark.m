@@ -546,7 +546,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %      load functions and call registerProblemLibrary with their root and
 %      canonical names. See 'optiprofiler/problem_libs/README.txt'.
 %
-%   3. The problem library MatCUTEst is only available when the OS is Linux.
+%   3. Each problem library declares the platforms it supports in
+%      matlab_problem_libraries.lock (MatCUTEst currently declares Linux only).
 %
 %   4. If the `load` option is provided, we will use the provided options to
 %      select data from the specified experiment for plotting the profiles.
