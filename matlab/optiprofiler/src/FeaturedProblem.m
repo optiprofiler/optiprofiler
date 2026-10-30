@@ -74,8 +74,9 @@ classdef FeaturedProblem < Problem
 %   - cub_hist, ceq_hist: reference nonlinear-constraint histories, with one
 %     column per recorded fresh evaluation (m-by-k; 0-by-k without nonlinear
 %     constraints). Row and empty callback results are stored as one column.
-%     The optional record_hist=false argument suppresses storage, not the
-%     public call counter or evaluation.
+%     The optional record_hist=false argument suppresses storage and the
+%     reference (truth) evaluation, not the solver-visible evaluation or the
+%     2*max_eval call limit.
 %   - maxcv_hist: reference maximum violations at recorded objective points,
 %     not a separate sequence of constraint calls; unavailable evaluations are
 %     recorded as NaN.
@@ -489,9 +490,8 @@ classdef FeaturedProblem < Problem
             if ~isempty(obj.final_view)
                 cub_ = obj.final_view.cub(x);
                 obj.last_cub = cub_;
-                reference_value = obj.final_view.referenceValue('cub',x);
                 if nargin < 3 || record_hist
-                    obj.cub_hist = [obj.cub_hist,reference_value];
+                    obj.cub_hist = [obj.cub_hist,obj.final_view.referenceValue('cub',x)];
                 end
                 return
             end
@@ -503,18 +503,17 @@ classdef FeaturedProblem < Problem
             cub_ = obj.kernel.modifier_cub(A * x + b, obj.seed, obj.problem, obj.n_eval_cub);
             obj.last_cub = cub_;
             
-            % Evaluate the nonlinear inequality constraints and store the results.
-            cub_true = obj.problem.cub(A * x + b);
-
-            % If the feature is 'quantized' and the option ``ground_truth'' is set to true, we should
-            % use the modified constraint violation.
-            if strcmp(obj.kernel.name, FeatureName.QUANTIZED.value) && obj.kernel.options.(FeatureOptionKey.GROUND_TRUTH.value)
-                cub_true = cub_;
-            end
-
             % Record the history of the nonlinear inequality constraints only when `record_hist` is true.
             % One column per recorded query: row and empty results become one column.
             if nargin < 3 || record_hist
+                % Evaluate the nonlinear inequality constraints and store the results.
+                cub_true = obj.problem.cub(A * x + b);
+
+                % If the feature is 'quantized' and the option ``ground_truth'' is set to true, we should
+                % use the modified constraint violation.
+                if strcmp(obj.kernel.name, FeatureName.QUANTIZED.value) && obj.kernel.options.(FeatureOptionKey.GROUND_TRUTH.value)
+                    cub_true = cub_;
+                end
                 obj.cub_hist = [obj.cub_hist, cub_true(:)];
             end
         end
@@ -549,9 +548,8 @@ classdef FeaturedProblem < Problem
             if ~isempty(obj.final_view)
                 ceq_ = obj.final_view.ceq(x);
                 obj.last_ceq = ceq_;
-                reference_value = obj.final_view.referenceValue('ceq',x);
                 if nargin < 3 || record_hist
-                    obj.ceq_hist = [obj.ceq_hist,reference_value];
+                    obj.ceq_hist = [obj.ceq_hist,obj.final_view.referenceValue('ceq',x)];
                 end
                 return
             end
@@ -563,18 +561,17 @@ classdef FeaturedProblem < Problem
             ceq_ = obj.kernel.modifier_ceq(A * x + b, obj.seed, obj.problem, obj.n_eval_ceq);
             obj.last_ceq = ceq_;
 
-            % Evaluate the nonlinear equality constraints and store the results.
-            ceq_true = obj.problem.ceq(A * x + b);
-
-            % If the Feature is ``quantized'' and the option ``ground_truth'' is set to true, we should
-            % use the modified constraint violation.
-            if strcmp(obj.kernel.name, FeatureName.QUANTIZED.value) && obj.kernel.options.(FeatureOptionKey.GROUND_TRUTH.value)
-                ceq_true = ceq_;
-            end
-
             % Record the history of the nonlinear equality constraints only when `record_hist` is true.
             % One column per recorded query: row and empty results become one column.
             if nargin < 3 || record_hist
+                % Evaluate the nonlinear equality constraints and store the results.
+                ceq_true = obj.problem.ceq(A * x + b);
+
+                % If the Feature is ``quantized'' and the option ``ground_truth'' is set to true, we should
+                % use the modified constraint violation.
+                if strcmp(obj.kernel.name, FeatureName.QUANTIZED.value) && obj.kernel.options.(FeatureOptionKey.GROUND_TRUTH.value)
+                    ceq_true = ceq_;
+                end
                 obj.ceq_hist = [obj.ceq_hist, ceq_true(:)];
             end
         end

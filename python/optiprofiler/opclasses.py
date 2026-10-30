@@ -3440,6 +3440,11 @@ class FeaturedProblem(Problem):
         ----------
         x : array_like, shape (n,)
             Point at which to evaluate the nonlinear inequality constraints.
+        record_hist : bool, optional
+            Whether to evaluate and record the reference (truth) value. False
+            skips that evaluation and the history entry; the solver-visible
+            value is still computed and the call still counts toward the
+            limit of two times the maximum function evaluations.
 
         Returns
         -------
@@ -3488,6 +3493,11 @@ class FeaturedProblem(Problem):
         ----------
         x : array_like, shape (n,)
             Point at which to evaluate the nonlinear equality constraints.
+        record_hist : bool, optional
+            Whether to evaluate and record the reference (truth) value. False
+            skips that evaluation and the history entry; the solver-visible
+            value is still computed and the call still counts toward the
+            limit of two times the maximum function evaluations.
 
         Returns
         -------

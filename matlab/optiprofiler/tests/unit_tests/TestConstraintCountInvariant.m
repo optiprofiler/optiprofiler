@@ -59,6 +59,25 @@ classdef TestConstraintCountInvariant < matlab.unittest.TestCase
             testCase.verifyError(@() fp.cub(2), 'MATLAB:FeaturedProblem:cubExceedTerminationEval');
         end
 
+        function unrecordedQueriesSkipReferenceReads(testCase, strategy)
+            % record_hist=false must not read the reference (truth) value:
+            % exactly one user call fewer than a recorded query, as in Python.
+            setappdata(0, 'TestConstraintCountInvariantCalls', 0);
+            cleanup = onCleanup(@() rmappdata(0, 'TestConstraintCountInvariantCalls')); %#ok<NASGU>
+            constraint = @(x) TestConstraintCountInvariant.countedConstraint(x);
+            p = Problem(struct('name', 'count', 'x0', 0, 'fun', @(x) x(1)^2, 'cub', constraint, 'ceq', constraint));
+            fp = FeaturedProblem(p, TestConstraintCountInvariant.feature(strategy), 10, 17);
+            for channel = {'cub', 'ceq'}
+                setappdata(0, 'TestConstraintCountInvariantCalls', 0);
+                fp.(channel{1})(1, false);
+                unrecorded = getappdata(0, 'TestConstraintCountInvariantCalls');
+                setappdata(0, 'TestConstraintCountInvariantCalls', 0);
+                fp.(channel{1})(1);
+                recorded = getappdata(0, 'TestConstraintCountInvariantCalls');
+                testCase.verifyEqual(recorded - unrecorded, 1, sprintf('%s: %d recorded vs %d unrecorded calls', channel{1}, recorded, unrecorded));
+            end
+        end
+
         function stochasticLegacyIndexIsPerQuery(testCase)
             % The served index of stochastic legacy constraint modifiers is the
             % number of earlier recorded queries, so repeated queries at one
@@ -115,6 +134,11 @@ classdef TestConstraintCountInvariant < matlab.unittest.TestCase
             p = Problem(s);
             cubTruth = @(x) reshape(x + (0:m-1)', [], 1);
             ceqTruth = @(x) reshape(x - (2:m+1)', [], 1);
+        end
+
+        function c = countedConstraint(x)
+            setappdata(0, 'TestConstraintCountInvariantCalls', getappdata(0, 'TestConstraintCountInvariantCalls') + 1);
+            c = x(1) - 2;
         end
 
         function f = feature(strategy)
