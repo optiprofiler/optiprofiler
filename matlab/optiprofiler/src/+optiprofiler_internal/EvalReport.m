@@ -477,6 +477,9 @@ classdef EvalReport < handle
         end
 
         function selection(self, library, names, role, provider)
+            if nargin > 4 && isstruct(provider) && isfield(provider, 'locked_revision') && isempty(provider.locked_revision)
+                provider.locked_revision = optiprofiler_internal.EvalReport.null();
+            end
             for k = 1:numel(names)
                 id = jsonencode({library, names{k}, role});
                 if isempty(self.problemIndex(id))

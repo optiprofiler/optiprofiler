@@ -62,9 +62,6 @@ function results = solveAllProblems(solvers, library, feature, problem_options, 
             if isfield(library, key{1}), provider.(key{1}) = library.(key{1}); end
         end
         provider.locked_revision = lockedProblemLibraryRevision(plib);
-        if isempty(provider.locked_revision)
-            provider.locked_revision = optiprofiler_internal.EvalReport.null();
-        end
         eval_report.selection(plib, problem_names, role, provider);
     end
     if isempty(problem_names)
