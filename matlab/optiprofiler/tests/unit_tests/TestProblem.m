@@ -225,6 +225,9 @@ classdef TestProblem < matlab.unittest.TestCase
             p = Problem(struct('fun', @(x) sum(x.^2), 'x0', [1; 2], ...
                 'cub', @TestProblem.countedConstraint, 'ceq', @TestProblem.countedConstraint));
             setappdata(0, 'TestProblemConstraintCalls', 0);
+            testCase.verifyEqual([p.m_nonlinear_ub, p.m_nonlinear_eq], [2, 2]);
+            testCase.verifyLessThanOrEqual(getappdata(0, 'TestProblemConstraintCalls'), 2);
+            setappdata(0, 'TestProblemConstraintCalls', 0);
             testCase.verifyEqual([p.m_nonlinear_ub, p.m_nonlinear_eq, p.mnlcon, p.mcon], [2, 2, 4, 4]);
             testCase.verifyEqual(getappdata(0, 'TestProblemConstraintCalls'), 0);
             p.cub([0; 0]);
