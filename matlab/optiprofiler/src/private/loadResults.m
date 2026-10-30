@@ -45,7 +45,7 @@ function [results_plibs, profile_options, problem_options] = loadResults(problem
     time_stamp_files = time_stamp_files(valid);
     keys = keys(valid, :);
     if isempty(time_stamp_files)
-        error("MATLAB:loadResults:NoTimeStamps", "No saved experiment matching '%s' was found in '%s'. The search is limited to 5 levels of subdirectories.", load_value, search_path);
+        error("MATLAB:loadResults:NoTimeStamps", "No saved experiment matching '%s' was found in '%s'. The search is limited to 5 levels of subdirectories. The search location is the current working directory joined with benchmark_id; savepath only sets where new results are written.", load_value, search_path);
     end
     if ~strcmp(load_value, 'latest') && numel(time_stamp_files) > 1
         error('OptiProfiler:AmbiguousTimeStamp', 'Time stamp ''%s'' matches multiple saved experiments. Change to the intended experiment directory and use benchmark_id=''.'' to disambiguate.', load_value);

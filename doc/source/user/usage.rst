@@ -118,6 +118,8 @@ OptiProfiler provides a practically useful option named **load**. This option al
 
 This will directly draw the profiles for the **solver1** and **solver3** with the ``'noisy'`` feature and all the unconstrained problems with dimension between 7 and 9 selected from the previous run. The results will also be saved under the current directory with a new subfolder named ``noisy_<timestamp>`` with the new timestamp.
 
+The saved experiment is searched for in the current working directory joined with ``benchmark_id`` (up to five levels of subdirectories). ``savepath`` does not change this search; it only sets where the new results are written. To reload an experiment saved under another ``savepath``, change to that directory first.
+
 
 Reusable features, replay, and retained results
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

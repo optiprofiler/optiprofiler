@@ -529,7 +529,9 @@ def _benchmark(
         in the format of 'yyyyMMdd_HHmmss', optionally followed by a collision
         suffix such as '_001'. No default. Note that if solvers is None,
         this key must be provided to load data from a previous experiment
-        and generate profiles.
+        and generate profiles. The experiment is searched for in the
+        current working directory joined with ``benchmark_id`` (up to five
+        levels of subdirectories), not in ``savepath``.
         Load only archives from trusted sources: saved Python options may
         contain pickle objects, whose deserialization can execute code.
     max_eval_factor : int, optional
@@ -582,7 +584,7 @@ def _benchmark(
         feature. Default is False.
     savepath : str, optional
         The path to store the results. Default is the current
-        working directory.
+        working directory. It does not affect where ``load`` searches.
     score_fun : callable, optional
         The scoring function to calculate the scores of the
         solvers. It should be a callable

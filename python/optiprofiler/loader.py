@@ -505,7 +505,8 @@ def load_results(problem_options: Dict[str, Any], profile_options: Dict[str, Any
     else:
         pattern = f'time_stamp_{load_value}.txt'
     candidates = []
-    for entry in search_in_dir(search_path, pattern, 5, 0, []):
+    entries = search_in_dir(search_path, pattern, 5, 0, []) if os.path.isdir(search_path) else []
+    for entry in entries:
         try:
             key = _parse_experiment_time_stamp(entry['name'][11:-4])
         except ValueError:
@@ -514,7 +515,8 @@ def load_results(problem_options: Dict[str, Any], profile_options: Dict[str, Any
             candidates.append((key, entry['folder'], entry['name'][11:-4]))
     if not candidates:
         raise FileNotFoundError(f"No saved experiment matching '{load_value}' was found in '{search_path}'. "
-                                "The search is limited to 5 levels of subdirectories.")
+                                "The search is limited to 5 levels of subdirectories. "
+                                "The search location is the current working directory joined with `benchmark_id`; `savepath` only sets where new results are written.")
     if load_value != 'latest' and len(candidates) > 1:
         raise ValueError(f"Time stamp '{load_value}' matches multiple saved experiments. "
                          "Change to the intended experiment directory and use `benchmark_id='.'` to disambiguate.")

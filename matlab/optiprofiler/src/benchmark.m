@@ -137,7 +137,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %       - load: loading the stored data from a completed experiment and draw
 %         profiles. It can be either 'latest' or a time stamp of an experiment
 %         in the format of 'yyyyMMdd_HHmmss', optionally followed by a
-%         collision suffix such as '_001'. No default.
+%         collision suffix such as '_001'. No default. The experiment is
+%         searched for in the current working directory joined with
+%         benchmark_id (up to five levels of subdirectories), not in savepath.
 %       - max_eval_factor: the factor multiplied to each problem's dimension to
 %         get the maximum number of evaluations for each problem. Default is
 %         500.
@@ -179,7 +181,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %       - run_plain: whether to run an extra experiment with the 'plain'
 %         feature. Default is false.
 %       - savepath: the path to store the results. Default is 'pwd', the
-%         current working directory.
+%         current working directory. It does not affect where load searches.
 %         Saving without the Java Virtual Machine (JVM) is supported on
 %         macOS/Linux. If native figures are unavailable, SVG charts and an
 %         HTML summary replace PDF/FIG output. Windows saving requires the JVM.

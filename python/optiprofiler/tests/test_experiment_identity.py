@@ -164,3 +164,9 @@ def test_same_second_benchmarks_preserve_previous_output(tmp_path, monkeypatch):
     assert sentinel.read_text(encoding='utf-8') == 'first experiment'
     assert len([path for path in root.iterdir() if path.is_dir()]) == 2
     np.testing.assert_equal(first_score, second_score)
+
+
+def test_load_reports_that_savepath_is_not_searched(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(FileNotFoundError, match='`savepath` only sets where new results are written'):
+        benchmark(None, load='latest', savepath=str(tmp_path / 'saved'), benchmark_id='exp')
