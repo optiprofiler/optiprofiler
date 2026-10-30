@@ -468,6 +468,11 @@ classdef FeaturedProblem < Problem
             ----------
             x : double, size (n,)
                 Decision variables.
+            record_hist : logical, optional
+                Whether to evaluate and record the reference (truth) value
+                (default true). False skips that evaluation and the history
+                entry; the solver-visible value is still computed and the
+                call still counts toward the limit of 2*max_eval calls.
 
             Returns
             -------
@@ -526,6 +531,11 @@ classdef FeaturedProblem < Problem
             ----------
             x : double, size (n,)
                 Decision variables.
+            record_hist : logical, optional
+                Whether to evaluate and record the reference (truth) value
+                (default true). False skips that evaluation and the history
+                entry; the solver-visible value is still computed and the
+                call still counts toward the limit of 2*max_eval calls.
 
             Returns
             -------
