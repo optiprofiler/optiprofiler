@@ -1380,7 +1380,11 @@ def _benchmark(
             # Since we will not compute the profiles, we set `solver_scores`
             # to be the relative decreases in the objective function value
             # (per run, then averaged across runs).
-            solver_merit_mins = np.nanmin(merit_history, axis=2)  # (n_solvers, n_runs)
+            # A solver without a valid evaluation has an all-NaN slice; it is
+            # scored 0 below, so numpy's warning about it is only noise.
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore', RuntimeWarning)
+                solver_merit_mins = np.nanmin(merit_history, axis=2)  # (n_solvers, n_runs)
             solver_scores_runs = np.zeros((local_n_solvers, local_n_runs))
             references = json.loads(result['reference_records'])
             for i_run in range(local_n_runs):
