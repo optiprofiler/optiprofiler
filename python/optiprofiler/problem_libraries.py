@@ -10,13 +10,19 @@ libraries does not import optional dependencies such as PyCUTEst.
 from dataclasses import dataclass
 from collections.abc import Mapping as MappingABC
 from collections.abc import Sequence as SequenceABC
+import hashlib
 import importlib.util
+import json
+import sys
+from threading import RLock
 from importlib import metadata
 from pathlib import Path
 import pickle
 import re
-from typing import Any, Callable, Mapping, Optional, Sequence
+from typing import Any, Callable, Mapping, Optional, Sequence, Tuple
 
+
+_TOOLS_IMPORT_LOCK = RLock()
 
 PROBLEM_LIBRARY_API_VERSION = 1
 PROBLEM_LIBRARY_ENTRY_POINT_GROUP = 'optiprofiler.problem_libraries'
@@ -84,12 +90,18 @@ class ProblemLibraryPlugin:
 
 @dataclass(frozen=True)
 class ProblemLibraryRef:
-    """Serializable identity of a resolved problem library."""
+    """Serializable identity of a resolved problem library.
+
+    ``shadows`` lists the providers of the same name that an explicit local
+    library replaces for this run: ``'bundled'`` and/or the distribution names
+    of installed entry points. It is empty for every other source.
+    """
 
     name: str
     source: str
     locator: str
     distribution: Optional[str] = None
+    shadows: Tuple[str, ...] = ()
 
     @property
     def is_builtin(self):
@@ -186,6 +198,38 @@ def _problem_library_entry_points():
     if hasattr(entry_points, 'select'):
         return list(entry_points.select(group=PROBLEM_LIBRARY_ENTRY_POINT_GROUP))
     return list(entry_points.get(PROBLEM_LIBRARY_ENTRY_POINT_GROUP, ()))
+
+
+def distribution_provenance(reference):
+    """Return ``(version, revision)`` of the distribution behind a library.
+
+    ``version`` is the installed distribution version; for a bundled library
+    it is the version of the imported OptiProfiler package that ships it, not
+    whichever ``optiprofiler`` metadata comes first on ``sys.path``.
+    ``revision`` is the VCS commit recorded by pip (PEP 610
+    ``direct_url.json``) for an installed plugin distribution; a bundled
+    library's own revision is not recorded in the installed package. Unknown
+    values are ``None``.
+    """
+    if reference.source == _BUILTIN_SOURCE:
+        return getattr(sys.modules.get(__package__), '__version__', None), None
+    if not reference.distribution:
+        return None, None
+    try:
+        distribution = metadata.distribution(reference.distribution)
+    except metadata.PackageNotFoundError:
+        return None, None
+    version = distribution.version
+    revision = None
+    if reference.source == _ENTRY_POINT_SOURCE:
+        try:
+            direct_url = json.loads(distribution.read_text('direct_url.json') or 'null')
+        except ValueError:
+            direct_url = None
+        vcs_info = direct_url.get('vcs_info') if isinstance(direct_url, dict) else None
+        if isinstance(vcs_info, dict) and isinstance(vcs_info.get('commit_id'), str):
+            revision = vcs_info['commit_id']
+    return version, revision
 
 
 def _entry_point_distribution(entry_point):
@@ -338,12 +382,19 @@ def _resolve_problem_library_options(plugin, overrides=None):
 def resolve_problem_library(name, custom_problem_libs_path=None):
     """Resolve a library name to a serializable reference without importing it.
 
-    An explicitly supplied local library takes precedence. Otherwise, a name
-    must have exactly one provider: either a bundled adapter or one installed
-    entry point. Ambiguous installed providers are rejected rather than chosen
+    An explicitly supplied local library takes precedence; the reference then
+    names the providers it replaces in ``shadows``. Otherwise, a name must have
+    exactly one provider: either a bundled adapter or one installed entry
+    point. Ambiguous installed providers are rejected rather than chosen
     according to environment-dependent entry-point ordering.
     """
     name = _validate_problem_library_name(name)
+
+    builtin_tools_file = _problem_libs_dir() / name / f'{name}_tools.py'
+    entry_points = [
+        entry_point for entry_point in _problem_library_entry_points()
+        if entry_point.name == name
+    ]
 
     if custom_problem_libs_path is not None:
         custom_dir = _custom_problem_library_dir(custom_problem_libs_path, name)
@@ -354,13 +405,11 @@ def resolve_problem_library(name, custom_problem_libs_path=None):
                     f'The custom problem library "{name}" at {custom_dir} must '
                     f'contain "{name}_tools.py".'
                 )
-            return ProblemLibraryRef(name, _CUSTOM_SOURCE, str(tools_file.resolve()))
-
-    builtin_tools_file = _problem_libs_dir() / name / f'{name}_tools.py'
-    entry_points = [
-        entry_point for entry_point in _problem_library_entry_points()
-        if entry_point.name == name
-    ]
+            shadows = (('bundled',) if builtin_tools_file.is_file() else ()) + tuple(sorted({
+                _entry_point_distribution(entry_point) or entry_point.value
+                for entry_point in entry_points
+            }))
+            return ProblemLibraryRef(name, _CUSTOM_SOURCE, str(tools_file.resolve()), shadows=shadows)
 
     if builtin_tools_file.is_file() and entry_points:
         distributions = sorted({
@@ -448,25 +497,164 @@ def _validate_plugin(plugin, expected_name):
     return plugin
 
 
-def _load_tools_module(reference):
-    module_path = Path(reference.locator)
-    if reference.is_builtin:
-        module_name = (
-            f'optiprofiler.problem_libs.{reference.name}.'
-            f'{reference.name}_tools'
-        )
-    else:
-        module_name = f'{reference.name}.{reference.name}_tools'
+def _package_spec_matches_directory(spec, directory):
+    """Whether a package specification identifies just this provider tree."""
+    if spec is None or spec.submodule_search_locations is None:
+        return False
+    locations = [Path(location).resolve() for location in spec.submodule_search_locations]
+    if locations != [directory]:
+        return False
+    init_path = directory / '__init__.py'
+    if init_path.is_file():
+        return spec.origin is not None and Path(spec.origin).resolve() == init_path.resolve()
+    return spec.origin is None
 
-    spec = importlib.util.spec_from_file_location(module_name, str(module_path))
-    if spec is None or spec.loader is None:
-        raise ImportError(
-            f'Cannot create an import specification for problem library '
-            f'"{reference.name}" at {module_path}.'
-        )
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+
+def _package_matches_directory(package, directory, package_name):
+    """Check live package paths as well as the original import specification."""
+    if getattr(package, '__name__', None) != package_name:
+        return False
+    if not _package_spec_matches_directory(getattr(package, '__spec__', None), directory):
+        return False
+    locations = [Path(location).resolve() for location in getattr(package, '__path__', ())]
+    return locations == [directory]
+
+
+def _tools_module_matches_path(module, module_path):
+    filename = getattr(module, '__file__', None)
+    return filename is not None and Path(filename).resolve() == module_path
+
+
+def _canonical_provider_package_matches(reference, module_path):
+    """Reuse a public import identity only when it belongs to this exact tree.
+
+    Looking up the top-level specification does not execute another provider's
+    package. In particular, an already imported same-name package takes
+    precedence over a newly changed ``sys.path`` and must never be replaced.
+    """
+    package_name = reference.name
+    if package_name in sys.modules:
+        if not _package_matches_directory(sys.modules[package_name], module_path.parent, package_name):
+            return False
+    else:
+        spec = importlib.machinery.PathFinder.find_spec(package_name)
+        if not _package_spec_matches_directory(spec, module_path.parent):
+            return False
+    module_name = f'{package_name}.{module_path.stem}'
+    return module_name not in sys.modules or _tools_module_matches_path(
+        sys.modules[module_name], module_path)
+
+
+def _load_tools_module(reference, *, package_name=None):
+    module_path = Path(reference.locator).resolve()
+    identity = hashlib.sha256(str(module_path).encode()).hexdigest()[:16]
+    isolated_package = f'_optiprofiler_provider_{reference.name}_{identity}'
+    builtin_package = f'optiprofiler.problem_libs.{reference.name}'
+
+    with _TOOLS_IMPORT_LOCK:
+        if package_name is not None:
+            allowed = {builtin_package} if reference.is_builtin else {
+                reference.name, isolated_package}
+            if package_name not in allowed:
+                raise ImportError(f'Invalid worker import identity for problem library "{reference.name}".')
+        elif reference.is_builtin:
+            package_name = builtin_package
+        elif f'{isolated_package}.{module_path.stem}' in sys.modules:
+            # Once loaded, a provider keeps its identity even if sys.path changes.
+            package_name = isolated_package
+        elif _canonical_provider_package_matches(reference, module_path):
+            package_name = reference.name
+        else:
+            package_name = isolated_package
+        module_name = f'{package_name}.{module_path.stem}'
+
+        if not reference.is_builtin and package_name in sys.modules:
+            if not _package_matches_directory(sys.modules[package_name], module_path.parent, package_name):
+                raise ImportError(
+                    f'Problem library "{reference.name}" import package "{package_name}" '
+                    f'does not identify the requested directory {module_path.parent}.')
+        if module_name in sys.modules:
+            module = sys.modules[module_name]
+            if not _tools_module_matches_path(module, module_path):
+                raise ImportError(
+                    f'Problem library "{reference.name}" import module "{module_name}" '
+                    f'does not identify the requested file {module_path}.')
+            return module
+        previous = set(sys.modules)
+        previous_attributes = {
+            name: dict(vars(module)) for name, module in list(sys.modules.items())
+            if (name == package_name or name.startswith(package_name + '.'))
+            and module is not None
+        }
+        try:
+            if not reference.is_builtin and package_name not in sys.modules:
+                init_path = module_path.parent / '__init__.py'
+                if init_path.is_file():
+                    package_spec = importlib.util.spec_from_file_location(
+                        package_name, str(init_path),
+                        submodule_search_locations=[str(module_path.parent)],
+                    )
+                else:
+                    package_spec = importlib.machinery.ModuleSpec(
+                        package_name, loader=None, is_package=True,
+                    )
+                    package_spec.submodule_search_locations = [str(module_path.parent)]
+                package = importlib.util.module_from_spec(package_spec)
+                sys.modules[package_name] = package
+                if package_spec.loader is not None:
+                    package_spec.loader.exec_module(package)
+            # Package initialization may already have imported its tools module.
+            if module_name in sys.modules:
+                module = sys.modules[module_name]
+                if not _tools_module_matches_path(module, module_path):
+                    raise ImportError(
+                        f'Problem library "{reference.name}" initialized a different tools file.')
+                return module
+            spec = importlib.util.spec_from_file_location(module_name, str(module_path))
+            if spec is None or spec.loader is None:
+                raise ImportError(f'Cannot load problem library "{reference.name}" at {module_path}.')
+            module = importlib.util.module_from_spec(spec)
+            # Decorators need the module registered before executing its body.
+            sys.modules[module_name] = module
+            spec.loader.exec_module(module)
+            if package_name in sys.modules:
+                setattr(sys.modules[package_name], module_path.stem, module)
+            return module
+        except BaseException:
+            # Roll back this provider's new registrations, including relative
+            # imports, without removing modules that belonged to the caller.
+            for name in list(sys.modules):
+                if name not in previous and (name == package_name or name.startswith(package_name + '.')):
+                    removed = sys.modules.pop(name, None)
+                    parent_name, _, attribute = name.rpartition('.')
+                    parent = sys.modules.get(parent_name)
+                    if parent is not None and vars(parent).get(attribute, object()) is removed:
+                        attributes = previous_attributes.get(parent_name, {})
+                        if attribute in attributes:
+                            setattr(parent, attribute, attributes[attribute])
+                        else:
+                            delattr(parent, attribute)
+            raise
+
+
+def _problem_library_worker_package(reference):
+    """Pin the parent's filesystem-provider namespace for fresh workers."""
+    if reference.source in {_BUILTIN_SOURCE, _CUSTOM_SOURCE}:
+        return _load_tools_module(reference).__package__
+    return None
+
+
+def _initialize_problem_library_worker(reference, initializer=None, initargs=(), package_name=None):
+    """Prepare provider types before the executor unpickles queued arguments.
+
+    Only module initialization occurs here. Defaults, option validation and
+    availability checks stay in the parent; each task receives its already
+    resolved effective mapping rather than rebuilding worker-local defaults.
+    """
+    if initializer is not None:
+        initializer(*initargs)
+    if reference.source in {_BUILTIN_SOURCE, _CUSTOM_SOURCE}:
+        _load_tools_module(reference, package_name=package_name)
 
 
 def _load_legacy_plugin(reference):

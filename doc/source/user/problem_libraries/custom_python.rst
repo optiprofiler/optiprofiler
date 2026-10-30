@@ -21,17 +21,19 @@ returns an :class:`~optiprofiler.Problem`.  A basic local adapter uses the
 signatures ``myproblems_select(problem_options)`` and
 ``myproblems_load(problem_name)``.
 
-A loader may attach a feasible reference fact to the problem it returns
+A loader may attach a raw reference fact to the problem it returns
 through the optional ``reference`` argument of :class:`~optiprofiler.Problem`:
-a :class:`~optiprofiler.ProblemReference` or a dict with exactly the fields
-``merit``, ``kind``, ``source`` and ``mapping`` (the token
-``'feasible_objective/1'``), for example a known optimal value read from an
+a :class:`~optiprofiler.ProblemReference` or a dict with the four required fields
+``fun``, ``maxcv``, ``kind`` and ``source``, plus optional original-coordinate
+``x_ref``, for example a known optimal value read from an
 offline catalog.  The record is validated when the problem is built;
 validating it evaluates nothing, so it adds no callback call to the load, and
-no solver runs.  A malformed record, including one with the superseded fields
-``fun``, ``maxcv`` or ``point`` or with an unknown mapping, makes the load
+no solver runs.  A malformed record, including one with a reference
+``point`` or an unknown legacy mapping token, makes the load
 fail and is never repaired.  Problems without a reference load as before, with
-an unknown reference.
+an unknown reference. Profiles then use the V1 empirical target; explicit
+references use the current merit function as described in :doc:`../reference_targets`.
+New records omit ``mapping``; known old tokens are compatibility inputs only.
 
 To accept library-specific ``plib_options``, also define both
 ``myproblems_get_default_options()`` and
@@ -49,7 +51,49 @@ parent directory or the library directory:
     )
 
 An explicit filesystem adapter applies only to that benchmark run and takes
-precedence over an installed provider with the same public name.
+precedence over a bundled or installed provider with the same public name.
+Such a replacement is not silent: the benchmark logs a warning, and a
+requested report adds the diagnostic ``problem_library_shadowed`` and lists
+the replaced providers in ``problems[].provider.shadows``. A copy of the
+bundled ``custom`` template (below) is the intended editing workflow; it is
+recorded in ``shadows`` without a warning.
+
+Adapting the bundled example
+----------------------------
+
+The bundled ``custom`` library contains four small examples and remains
+available as ``plibs=['custom']``.  Keep your own problems outside the installed
+package.  You can copy the complete
+``python/optiprofiler/problem_libs/custom`` directory to
+``/path/to/my-libraries/custom`` and edit that copy.  With
+``custom_problem_libs_path='/path/to/my-libraries'``, the external copy takes
+precedence, including its problem definitions and ``probinfo_python.csv``.
+
+The template loads problem modules relative to its own package:
+
+.. code-block:: python
+
+    problem_module = importlib.import_module(
+        f'.python_problems.{problem_name}', package=__package__
+    )
+
+Use relative imports for your own sibling modules too.  Do not import them
+through ``optiprofiler.problem_libs.custom``: that would load the installed
+examples instead of your external files.  The adapter loader provides an
+isolated package context, including when the directory has no ``__init__.py``;
+you do not need to modify ``sys.path`` or install the copied library.
+
+After adding or changing problems, regenerate ``probinfo_python.csv`` with the
+copied ``custom_get_info`` function.  For an unchanged directory name, run this
+from ``/path/to/my-libraries``:
+
+.. code-block:: console
+
+    python -c "from custom.custom_tools import custom_get_info; custom_get_info()"
+
+If you rename the library, also rename its tools file, its public callback
+prefixes, and any corresponding imports in ``__init__.py``.  The relative
+``python_problems`` import does not need the library name hard-coded into it.
 
 .. _problem_library_plugin_protocol:
 

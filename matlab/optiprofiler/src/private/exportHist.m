@@ -60,6 +60,7 @@ function [status, presentation] = exportHist(problem_name, problem_type, problem
         files={pdf_summary,fullfile(raw_path,pdf_hist_file_name),fullfile(cummin_path,pdf_hist_file_name)};
         modes={'combined','raw','cummin'};
         native_graphics=hasNativeGraphics();
+        used_fallback=false;
         for i=1:numel(modes)
             if native_graphics
                 try
@@ -74,11 +75,20 @@ function [status, presentation] = exportHist(problem_name, problem_type, problem
                     printOptiProfilerMessage('WARNING', sprintf('History rendering failed; using SVG fallback: %s',cause.message));
                 end
             end
+            used_fallback=true;
+            if i == 1 && isfield(profile_options,'plot_options') && ~isempty(fieldnames(profile_options.plot_options))
+                printOptiProfilerMessage('WARNING', ...
+                    'Portable SVG histories use their own style; native plot_options were not applied.');
+            end
             exportPortableHistory(strrep(files{i},'.pdf','.svg'),modes{i},problem_name,problem_dim, ...
                 solver_names,histories,inits,n_eval,labels,profile_options);
         end
         clear warning_cleanup;
-        status = 'completed';
+        if used_fallback
+            status = 'partial';
+        else
+            status = 'completed';
+        end
     catch Exception
         status = 'failed';
         % A failed fallback is still a missing artifact. Silent mode suppresses
@@ -104,7 +114,8 @@ function exportHistoryFigure(pdf_file, mode, problem_name, problem_type, problem
 
     n_rows = numel(is_cum_rows);
     fig_summary = figure('Units', 'pixels', 'Position', profileFigurePosition(n_cols * summary_profile_width, n_rows * default_height), 'visible', 'off');
-    fig_cleanup = onCleanup(@() close(fig_summary));
+    % The export watchdog may already have deleted the figure.
+    fig_cleanup = onCleanup(@() closeIfValid(fig_summary));
     T_summary = tiledlayout(fig_summary, n_rows, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
     F_title = escapeLatexText(profile_options.(ProfileOptionKey.FEATURE_STAMP.value));
     P_title = escapeLatexText(problem_name);
@@ -139,6 +150,13 @@ function exportHistoryFigure(pdf_file, mode, problem_name, problem_type, problem
     % Re-check at export so the caller can use its existing SVG fallback.
     assert(hasNativeGraphics(), 'OptiProfiler:NativeGraphicsUnavailable', ...
         'Native export is not safe in the current graphics environment.');
-    exportgraphics(fig_summary, pdf_file, 'ContentType', 'vector');
+    applyPlotOptions(fig_summary,profile_options);
+    exportGraphicsBounded(fig_summary, pdf_file, 'ContentType', 'vector');
     clear fig_cleanup;
+end
+
+function closeIfValid(fig)
+    if isgraphics(fig)
+        close(fig);
+    end
 end

@@ -3,6 +3,7 @@ import json
 import hashlib
 import os
 import stat
+from copy import deepcopy
 from pathlib import Path
 
 import numpy as np
@@ -14,7 +15,7 @@ from optiprofiler import Problem, benchmark
 from optiprofiler.plotting import prepare_history_plot_data
 from optiprofiler.utils import ProfileOption
 from optiprofiler.tests.eval_report_contract import assert_valid
-from optiprofiler.eval_report import schema_for_document, schema_resource
+from optiprofiler.eval_report import EvalReport, schema_for_document, schema_resource
 
 
 def stay(fun, x0):
@@ -31,6 +32,26 @@ def zero(fun, x0):
 def crash(fun, x0):
     fun(x0)
     raise RuntimeError('deliberate solver failure')
+
+
+@pytest.mark.parametrize('value', [complex(1, 2), np.complex128(1 + 2j)])
+def test_complex_objective_is_invalid_real_evaluation(tmp_path, value):
+    problem = Problem(fun=lambda x: value if x[0] < 0 else x[0] ** 2,
+                      x0=np.ones(1), name='real-domain')
+    assert np.isnan(problem.fun([-1])), 'Do not silently discard the imaginary component.'
+
+    def negative(fun, x0):
+        point = -np.ones_like(x0)
+        fun(point)
+        return point
+
+    target = tmp_path / 'complex.json'
+    benchmark([negative, zero], problem=problem, score_only=True,
+              n_jobs=1, n_runs=1, silent=True, report_path=target)
+    report = _read(target)
+    assert report['problems'][0]['runs'][0]['objective']['invalid_evaluations']['nan'] == 1
+    detail = _plot_data(target, report)
+    assert detail['histories'][0]['channels']['objective']['values'][0]['reason'] == 'nan'
 
 
 def long_walk(fun, x0):
@@ -90,10 +111,14 @@ def _plot_data(path, report):
     return companion
 
 
-def test_saved_experiment_load_has_compact_main_and_complete_numeric_detail(tmp_path, monkeypatch):
+def test_saved_experiment_load_has_compact_main_and_complete_numeric_detail(tmp_path, tmp_path_factory, monkeypatch):
     fixture = os.environ.get('OPTIPROFILER_REPORT_ARCHIVE')
     if not fixture:
-        pytest.skip('set OPTIPROFILER_REPORT_ARCHIVE to an immutable saved experiment directory')
+        generated = tmp_path_factory.mktemp('saved-report-source')
+        benchmark([stay, zero], plibs=['custom'], problem_names=['custom1'],
+                  n_jobs=1, silent=True, savepath=str(generated),
+                  draw_hist_plots='none', max_eval_factor=2, max_tol_order=3)
+        fixture = next(generated.rglob('data_for_loading.h5')).parent
     fixture = Path(fixture).resolve()
     before = {p: hashlib.sha256(p.read_bytes()).hexdigest()
               for p in fixture.rglob('*') if p.is_file()}
@@ -520,6 +545,29 @@ def _saved_run(tmp_path, name):
     return target, _read(target), scores
 
 
+def test_raw_archive_survives_final_report_ownership_failure(tmp_path, monkeypatch):
+    _library(tmp_path / 'libraries', 'evalpreserved', ['QUAD'])
+    options = _options(tmp_path, ['evalpreserved'])
+    options.update(score_only=False, n_runs=1, max_tol_order=1,
+                   benchmark_id='preserved', draw_hist_plots='none')
+    target = tmp_path / 'replaced-after-solving.json'
+
+    def replace_report(fun, *args):
+        replacement = target.with_suffix('.replacement')
+        replacement.write_text('external replacement', encoding='utf-8')
+        os.replace(replacement, target)
+        return fun
+
+    with pytest.raises(FileExistsError, match='ownership'):
+        benchmark([stay, zero], merit_fun=replace_report, report_path=target, **options)
+    assert target.read_text(encoding='utf-8') == 'external replacement'
+    archives = list(tmp_path.rglob('data_for_loading.h5'))
+    assert len(archives) == 1, 'Final report failure discarded completed numerical data.'
+    monkeypatch.chdir(tmp_path)
+    benchmark(None, load='latest', benchmark_id='preserved', savepath=str(tmp_path),
+              score_only=True, silent=True, max_tol_order=1)
+
+
 def test_hashing_unavailable_keeps_numerical_data_and_reports_unverified_artifacts(tmp_path, monkeypatch):
     from optiprofiler import eval_report as module
     monkeypatch.setattr(module, '_hashing_capability', lambda: 'unavailable')
@@ -940,3 +988,50 @@ def test_unicode_identity_is_preserved_and_sensitive_unknown_option_is_redacted(
         benchmark([stay, zero], report_path=secret_path, auth_token='do-not-copy-this-secret')
     assert 'do-not-copy-this-secret' not in secret_path.read_text(encoding='utf-8')
     assert _read(secret_path)['configuration']['request']['auth_token']['reason'] == 'redacted_sensitive_option'
+
+
+def test_diagnostic_names_do_not_change_execution_state(tmp_path):
+    collector = EvalReport(tmp_path / 'diagnostics.json', {})
+    stages = deepcopy(collector.document['stages'])
+    collector.add_diagnostic('note_failed_comparison', 'rendering')
+    collector.add_diagnostic('problem_load_failed', 'numerical', library='toy', problem='P')
+    collector.add_diagnostic('artifact_hash_unavailable', 'persistence')
+    assert collector.document['stages'] == stages
+    assert not collector._problems
+    collector.finish()
+
+
+@pytest.mark.parametrize('method,stage,status', [
+    ('record_rendering_failure', 'rendering', 'failed'),
+    ('record_persistence_failure', 'persistence', 'partial'),
+])
+@pytest.mark.parametrize('code', ['/home/secret/dir/plot.pdf', 'https://secret.example/plot.pdf'])
+def test_failure_reasons_are_redacted_without_early_publication(tmp_path, method, stage, status, code):
+    target = tmp_path / 'failures.json'
+    collector = EvalReport(target, {})
+    before = target.read_bytes()
+
+    getattr(collector, method)(code)
+
+    state = collector.document['stages'][stage]
+    assert state['status'] == status
+    assert state['reason'] == collector.document['diagnostics'][-1]['code']
+    assert 'secret' not in state['reason']
+    assert target.read_bytes() == before
+    collector.finish()
+    assert _read(target)['stages'][stage] == state
+
+
+def test_explicit_failure_records_preserve_failed_stages(tmp_path):
+    collector = EvalReport(tmp_path / 'failures.json', {})
+    collector.record_load_failure('toy', 'P', exception_type='ValueError')
+    assert collector._problems[('toy', 'P', 'primary')]['load_status'] == 'failed'
+    collector.record_rendering_failure('export_interrupted')
+    collector.set_stage('rendering', 'completed')
+    assert collector.document['stages']['rendering'] == {
+        'status': 'failed', 'reason': 'export_interrupted'}
+    collector.set_stage('persistence', 'failed', 'write_interrupted')
+    collector.record_persistence_failure('artifact_hash_unavailable')
+    assert collector.document['stages']['persistence'] == {
+        'status': 'failed', 'reason': 'write_interrupted'}
+    collector.finish()

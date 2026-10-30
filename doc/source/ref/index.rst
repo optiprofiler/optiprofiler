@@ -27,6 +27,7 @@ Main classes
     :toctree: generated/
 
     Problem
+    ProblemReference
     Feature
     FeaturedProblem
 

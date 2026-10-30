@@ -3,13 +3,13 @@
 The two schemas in ``doc/source/_static`` are the single Python/MATLAB reader
 contract. The MATLAB test fixture ``evalReportSchemaCheck.m`` implements the
 same subset, so a field spelled differently by either emitter fails that
-language's own suite. The subset covers exactly the keywords the schemas use:
+language's own suite. The subset handles these schema keywords:
 type, enum, const, required, properties, additionalProperties, items,
 prefixItems, minItems, maxItems, uniqueItems, minimum, maximum, minLength,
 maxLength, pattern, anyOf, oneOf, allOf, if/then and local ``$ref``.
 
-When ``jsonschema`` is importable the tests additionally validate with it;
-this module is the check that always runs.
+The tests extra requires ``jsonschema``; every contract check also validates
+with the complete packaged schema using its declared dialect.
 """
 import json
 import math
@@ -153,14 +153,11 @@ def validation_errors(document, schema):
 
 
 def assert_valid(document, schema_name):
-    """Validate with the built-in subset and, when available, with jsonschema."""
+    """Validate with the built-in subset and the complete packaged JSON Schema."""
     schema = load_schema(schema_name)
     errors = validation_errors(document, schema)
     assert not errors, '\n'.join(errors[:20])
-    try:
-        import jsonschema
-    except ImportError:  # pragma: no cover - optional cross-check only
-        return
+    import jsonschema
     validator = jsonschema.Draft202012Validator(schema)
     problems = [f'{list(error.absolute_path)}: {error.message}' for error in validator.iter_errors(document)]
     assert not problems, '\n'.join(problems[:20])

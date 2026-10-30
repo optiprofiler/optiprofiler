@@ -106,7 +106,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         plots after all the problems are solved. For each problem, the
 %         original combined history plot is saved as `PROBLEM.pdf`; raw-only
 %         and cumulative-minimum-only plots are saved under the `raw` and
-%         `cummin` subfolders. Default is 'sequential'.
+%         `cummin` subfolders. Default is 'parallel' (as in Python).
 %       - errorbar_type: the type of the uncertainty interval that can be
 %         either 'minmax' or 'meanstd'. When `n_runs` is greater than 1, we run
 %         several times of the experiments and get average curves and
@@ -137,7 +137,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %       - load: loading the stored data from a completed experiment and draw
 %         profiles. It can be either 'latest' or a time stamp of an experiment
 %         in the format of 'yyyyMMdd_HHmmss', optionally followed by a
-%         collision suffix such as '_001'. No default.
+%         collision suffix such as '_001'. No default. The experiment is
+%         searched for in the current working directory joined with
+%         benchmark_id (up to five levels of subdirectories), not in savepath.
 %       - max_eval_factor: the factor multiplied to each problem's dimension to
 %         get the maximum number of evaluations for each problem. Default is
 %         500.
@@ -164,7 +166,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         and v0 is the maximum constraint violation at the initial guess.
 %         NaN objective or constraint values are invalid evaluations, even
 %         if a custom merit returns a finite value. Runs with undefined initial
-%         values are not declared passing. Otherwise, if varphi(x_0) is Inf,
+%         values, including a merit value of NaN at the initial guess, are not
+%         declared passing. Otherwise, if varphi(x_0) is Inf,
 %         the existing degenerate-test convention accepts valid evaluations.
 %         Both cases are listed in test_log/report.txt.
 %       - n_jobs: the number of parallel jobs to run the test. Default is a
@@ -178,7 +181,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %       - run_plain: whether to run an extra experiment with the 'plain'
 %         feature. Default is false.
 %       - savepath: the path to store the results. Default is 'pwd', the
-%         current working directory.
+%         current working directory. It does not affect where load searches.
 %         Saving without the Java Virtual Machine (JVM) is supported on
 %         macOS/Linux. If native figures are unavailable, SVG charts and an
 %         HTML summary replace PDF/FIG output. Windows saving requires the JVM.
@@ -191,6 +194,16 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         does not enable figures or raw-data saving. The main report hashes
 %         its companion; without JVM, SHA256 uses sha256sum or shasum. If no
 %         hash tool is available, the pair is marked partial (unverified).
+%       - plot_options: scalar struct of native MATLAB graphics property
+%         structs, grouped by figure, axes, xaxis, yaxis, xlabel, ylabel,
+%         title, text, line, and legend. For example:
+%         struct('xlabel',struct('FontSize',18),'legend',struct('FontSize',14)).
+%         Properties override drawing defaults at export for profiles,
+%         summaries, and histories, including on load. Scores and source data
+%         are unchanged. Property names are checked before solvers execute;
+%         values use the installed MATLAB graphics API's validation at render
+%         time. Portable SVG/HTML fallback keeps its own style and does not
+%         apply native graphics properties. Default is an empty struct.
 %       - score_fun: the scoring function to calculate the scores of the
 %         solvers. It should be a function handle as follows:
 %         ``profile_scores -> solver_scores``,
@@ -525,14 +538,17 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %       - MatCUTEst <https://github.com/matcutest>
 %       - SOLAR (see [7]_) <https://github.com/bbopt/solar>
 %
-%      The SOLAR MATLAB adapter vendors a slim SOLAR runtime under LGPL-2.1;
-%      see its README and runtime manifest for license and provenance details.
+%      The SOLAR MATLAB adapter vendors a slim SOLAR runtime; see the
+%      adapter's README, notices and runtime manifest for license and
+%      provenance details.
 %
 %   2. If you want to use your own problem library, implement its select and
 %      load functions and call registerProblemLibrary with their root and
 %      canonical names. See 'optiprofiler/problem_libs/README.txt'.
 %
-%   3. The problem library MatCUTEst is only available when the OS is Linux.
+%   3. Each library in matlab_problem_libraries.lock declares the platforms it
+%      supports (MatCUTEst currently declares Linux only); libraries added
+%      with registerProblemLibrary default to all platforms.
 %
 %   4. If the `load` option is provided, we will use the provided options to
 %      select data from the specified experiment for plotting the profiles.
@@ -796,6 +812,9 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
 
     % Whether to load the existing results.
     is_load = isfield(profile_options, ProfileOptionKey.LOAD.value) && ~isempty(profile_options.(ProfileOptionKey.LOAD.value));
+    % A user merit that fails after solving is raised only after the raw
+    % results are saved (see the solving loop below).
+    merit_failure = [];
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%% Process the 'load' option if it is provided. %%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -903,6 +922,7 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
         native_graphics = hasNativeGraphics();
         if ~native_graphics
             printOptiProfilerMessage('WARNING', 'Native MATLAB graphics are unavailable. Saving portable SVG charts and an HTML summary instead of PDF/FIG; numeric results and scores are unchanged.');
+            if ~isempty(eval_report), eval_report.recordRendering('failed', struct('scope', 'profiles'), 'native_graphics_unavailable'); end
         end
     end
     drawing_options = profile_options;
@@ -1003,6 +1023,10 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
             end
         end
         log_file = fullfile(path_log, 'log.txt');
+        % The diary is process-global and holds log.txt open on Windows.
+        % Close it on errors too, so completed archives can be removed even
+        % when scoring, report writing, or figure export fails.
+        diary_cleanup = onCleanup(@() diary('off')); %#ok<NASGU>
         diary(log_file);
         addToReadme(path_readme_log, 'log.txt', 'File, the log file of the current experiment, recording printed information from MATLAB command window.');
     end
@@ -1111,6 +1135,9 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
             printSolverLogAliases(solver_names, profile_options_problem.solver_log_names);
         end
         result = solveOneProblem(solvers, problem, feature, problem.name, length(problem.name), profile_options_problem, true, path_hist_plots, ~isempty(eval_report), primary_plan);
+        if profile_options.(ProfileOptionKey.SILENT.value) && ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
+            appendReferenceHistoryDiagnostics(path_log, result, 'user', 'primary');
+        end
         % Metadata cannot turn a failed empty result into numerical success.
         if isstruct(result) && isfield(result, 'fun_history')
             result.feature_pipeline = optiprofiler_internal.EvalReport.encodeMetadata( ...
@@ -1149,16 +1176,33 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
                 merit_mins(i_run) = min(merit_history(:, i_run, :), [], 'all', 'omitnan');
                 merit_mins(i_run) = min(merit_mins(i_run), merit_inits(i_run));
             end
+            reference_result = struct('reference_records', {result.reference_records(:)'}, ...
+                'maxcv_inits', result.maxcv_inits(:)');
+            merit_mins = applyReferenceTargets(reference_result, merit_mins(:)', merit_fun)';
             % Since we will not compute the profiles, we set `solver_scores` to be the relative decreases
             % in the objective function value.
             solver_merit_mins = squeeze(min(merit_history, [], 3, 'omitnan'));
             solver_scores_runs = zeros(n_solvers, n_runs);
             for i_run = 1:n_runs
+                if ~isfinite(merit_inits(i_run))
+                    % A relative decrease from an undefined or infinite initial
+                    % merit is undefined; max() would turn its NaN into 0.
+                    solver_scores_runs(:, i_run) = NaN;
+                    continue;
+                end
                 solver_scores_runs(:, i_run) = (merit_inits(i_run) - solver_merit_mins(:, i_run)) ./ max(merit_inits(i_run) - merit_mins(i_run), eps);
                 solver_scores_runs(:, i_run) = max(solver_scores_runs(:, i_run), 0);
+                if ~isempty(result.reference_records{i_run})
+                    % A selected target can be exceeded; keep relative scores
+                    % bounded without altering the measured merit histories.
+                    solver_scores_runs(:, i_run) = min(solver_scores_runs(:, i_run), 1);
+                end
             end
             % We set the score of a solver to be the mean score over all runs.
             solver_scores = mean(solver_scores_runs, 2);
+            if ~profile_options.(ProfileOptionKey.SILENT.value) && ~all(isfinite(merit_inits))
+                printOptiProfilerMessage('WARNING', sprintf("Problem '%s': runs with an undefined or infinite initial merit cannot be scored; their single-problem scores are NaN.", problem.name));
+            end
             if ~isempty(eval_report)
                 result.merit_history = merit_history;
                 result.merit_inits = merit_inits;
@@ -1239,7 +1283,7 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
                 elseif strcmp(plib, 'solar')
                     fprintf('\n');
                     printOptiProfilerMessage('INFO', 'More information about the SOLAR problem library can be found at: https://github.com/bbopt/solar');
-                    printOptiProfilerMessage('INFO', 'SOLAR uses an LGPL-2.1 slim runtime and calls an external simulator; some problems can be slow.');
+                    printOptiProfilerMessage('INFO', 'SOLAR calls an external simulator; some problems can be slow. License terms are in the SOLAR adapter''s notices.');
                 end
             end
 
@@ -1271,16 +1315,23 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
             % Compute merit values.
             if ~isempty(eval_report), eval_report.setStage('scoring', 'running'); end
             merit_fun = profile_options.(ProfileOptionKey.MERIT_FUN.value);
-            try
-                merit_histories = meritFunCompute(merit_fun, results_plib.fun_histories, results_plib.maxcv_histories, results_plib.maxcv_inits, 'multiple');
-                merit_outs = meritFunCompute(merit_fun, results_plib.fun_outs, results_plib.maxcv_outs, results_plib.maxcv_inits, 'multiple');
-                merit_inits = meritFunCompute(merit_fun, results_plib.fun_inits, results_plib.maxcv_inits, results_plib.maxcv_inits);
-            catch
-                error("MATLAB:benchmark:merit_fun_error", "Error occurred while calculating the merit values. Please check the merit function.");
+            % After a merit failure, the requested solves (the plain baseline
+            % and the remaining libraries) still finish without merits, and the
+            % complete raw archive below is saved before the error is raised:
+            % a corrected merit_fun then scores the whole experiment on load.
+            % loadResults computes the merits of an archive saved without them.
+            if isempty(merit_failure)
+                try
+                    merit_histories = meritFunCompute(merit_fun, results_plib.fun_histories, results_plib.maxcv_histories, results_plib.maxcv_inits, 'multiple');
+                    merit_outs = meritFunCompute(merit_fun, results_plib.fun_outs, results_plib.maxcv_outs, results_plib.maxcv_inits, 'multiple');
+                    merit_inits = meritFunCompute(merit_fun, results_plib.fun_inits, results_plib.maxcv_inits, results_plib.maxcv_inits);
+                    results_plib.merit_histories = merit_histories;
+                    results_plib.merit_outs = merit_outs;
+                    results_plib.merit_inits = merit_inits;
+                catch merit_error
+                    merit_failure = meritFailure(merit_error);
+                end
             end
-            results_plib.merit_histories = merit_histories;
-            results_plib.merit_outs = merit_outs;
-            results_plib.merit_inits = merit_inits;
 
             % Run the 'plain' feature if run_plain is true.
             if profile_options.(ProfileOptionKey.RUN_PLAIN.value)
@@ -1294,12 +1345,17 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
                         printOptiProfilerMessage('WARNING', sprintf('No plain baseline was obtained from "%s"; keeping the featured results without a plain reference.', plib));
                     end
                 else
-                    try
-                        results_plib_plain.merit_histories = meritFunCompute(merit_fun, results_plib_plain.fun_histories, results_plib_plain.maxcv_histories, results_plib_plain.maxcv_inits, 'multiple');
-                        results_plib_plain.merit_outs = meritFunCompute(merit_fun, results_plib_plain.fun_outs, results_plib_plain.maxcv_outs, results_plib_plain.maxcv_inits, 'multiple');
-                        results_plib_plain.merit_inits= meritFunCompute(merit_fun, results_plib_plain.fun_inits, results_plib_plain.maxcv_inits, results_plib_plain.maxcv_inits);
-                    catch
-                        error("MATLAB:benchmark:merit_fun_error", "Error occurred while calculating the merit values. Please check the merit function.");
+                    if isempty(merit_failure)
+                        try
+                            plain_merit_histories = meritFunCompute(merit_fun, results_plib_plain.fun_histories, results_plib_plain.maxcv_histories, results_plib_plain.maxcv_inits, 'multiple');
+                            plain_merit_outs = meritFunCompute(merit_fun, results_plib_plain.fun_outs, results_plib_plain.maxcv_outs, results_plib_plain.maxcv_inits, 'multiple');
+                            plain_merit_inits = meritFunCompute(merit_fun, results_plib_plain.fun_inits, results_plib_plain.maxcv_inits, results_plib_plain.maxcv_inits);
+                            results_plib_plain.merit_histories = plain_merit_histories;
+                            results_plib_plain.merit_outs = plain_merit_outs;
+                            results_plib_plain.merit_inits = plain_merit_inits;
+                        catch merit_error
+                            merit_failure = meritFailure(merit_error);
+                        end
                     end
                     % Keep the optional baseline nested under its own library.
                     results_plib.results_plib_plain = results_plib_plain;
@@ -1307,6 +1363,9 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
             end
             
             results_plibs{i_plib} = results_plib;
+            if profile_options.(ProfileOptionKey.SILENT.value) && ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
+                appendReferenceHistoryDiagnostics(path_log, results_plib, plib, 'primary');
+            end
             if ~isempty(eval_report), eval_report.addResults({results_plib}); end
 
             if strcmp(profile_options.(ProfileOptionKey.DRAW_HIST_PLOTS.value), 'parallel')    
@@ -1347,16 +1406,25 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
         end
     end
 
-    if ~isempty(eval_report)
-        if is_load, eval_report.addResults(results_plibs); end
-        eval_report.completeNumerical();
-    end
-    % Persist the numerical result BEFORE sequential rendering. A graphics
-    % crash or forced interruption must not discard a completed experiment.
+    % Persist completed numerical data before final report serialization as
+    % well as rendering. An optional JSON write/ownership failure must leave
+    % the experiment recoverable through the public load entry point.
     if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
         if ~isempty(eval_report), eval_report.setStage('persistence', 'running'); end
         saveResultsForLoading(results_plibs, path_log, time_stamp, path_readme_log);
         if ~isempty(eval_report), eval_report.setStage('persistence', 'completed'); end
+    end
+    if ~isempty(merit_failure)
+        % The raw archive (if requested) is saved; no profile or score is
+        % produced from a failed merit. The caller records the error.
+        if ~profile_options.(ProfileOptionKey.SILENT.value) && ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
+            printOptiProfilerMessage('ERROR', sprintf('The solver results were saved in %s. Reload them with a corrected merit_fun.', path_log));
+        end
+        throw(merit_failure);
+    end
+    if ~isempty(eval_report)
+        if is_load, eval_report.addResults(results_plibs); end
+        eval_report.completeNumerical();
     end
     writeReport(profile_options, results_plibs, path_report, path_readme_log);
     if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
@@ -1512,6 +1580,7 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
             native_graphics = false;
             drawing_options.(ProfileOptionKey.SCORE_ONLY.value) = true;
             printOptiProfilerMessage('WARNING', sprintf('Native summary layout failed; using SVG fallback: %s',cause.message));
+            if ~isempty(eval_report), eval_report.recordRendering('failed', struct('scope', 'summary_layout', 'cause', cause.identifier), 'native_summary_layout_failed'); end
         end
     end
 
@@ -1551,6 +1620,8 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
         valid_outs(rows, :, :) = ~(isnan(result.fun_outs) | isnan(result.maxcv_outs));
         row_offset = row_offset + n_p;
     end
+    % A merit_fun that is NaN at x0 cannot establish a target either.
+    invalid_initial = invalid_initial | isnan(merit_inits_merged);
     merit_init_inf_mask = isinf(merit_inits_merged) & ~invalid_initial;
     if ~profile_options.(ProfileOptionKey.SILENT.value) && any(merit_init_inf_mask(:))
         for i_problem = 1:n_problems
@@ -1560,7 +1631,7 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
         end
     end
     if ~profile_options.(ProfileOptionKey.SILENT.value) && any(invalid_initial(:))
-        printOptiProfilerMessage('WARNING', 'Runs with an undefined initial objective or constraint cannot be assessed by the convergence test and are not declared passing.');
+        printOptiProfilerMessage('WARNING', 'Runs with an undefined initial objective, constraint or merit cannot be assessed by the convergence test and are not declared passing.');
     end
 
     for i_tol = 1:profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)
@@ -1580,39 +1651,10 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
             printOptiProfilerMessage('INFO', sprintf('Creating profiles for tolerance %s.', tolerance_str));
         end
 
-        work_hist = NaN(n_problems, n_solvers, n_runs);
-        work_out = NaN(n_problems, n_solvers, n_runs);
-        for i_problem = 1:n_problems
-            for i_solver = 1:n_solvers
-                for i_run = 1:n_runs
-                    if invalid_initial(i_problem, i_run)
-                        continue;
-                    end
-                    if merit_init_inf_mask(i_problem, i_run)
-                        % Preserve the Inf-initial convention only for
-                        % actual evaluations without raw NaN values.
-                        threshold = Inf;
-                    elseif isfinite(merit_mins_merged(i_problem, i_run))
-                        threshold = max(tolerance * merit_inits_merged(i_problem, i_run) + (1 - tolerance) * merit_mins_merged(i_problem, i_run), merit_mins_merged(i_problem, i_run));
-                    else
-                        % Unreachable under the merit_min <= merit_init
-                        % invariant established in processResults.m
-                        % (since merit_inits_merged is finite here).
-                        % Kept defensively to preserve the previous
-                        % "no convergence" behaviour.
-                        threshold = -Inf;
-                    end
-                    passing = valid_histories(i_problem, i_solver, i_run, :) & ...
-                        (merit_histories_merged(i_problem, i_solver, i_run, :) <= threshold);
-                    if any(passing(:))
-                        work_hist(i_problem, i_solver, i_run) = find(passing, 1, 'first');
-                    end
-                    if valid_outs(i_problem, i_solver, i_run) && merit_outs_merged(i_problem, i_solver, i_run) <= threshold
-                        work_out(i_problem, i_solver, i_run) = n_evals_merged(i_problem, i_solver, i_run);
-                    end
-                end
-            end
-        end
+        [work_hist, work_out] = computeConvergenceWork( ...
+            merit_histories_merged, merit_outs_merged, merit_inits_merged, ...
+            merit_mins_merged, n_evals_merged, tolerance, ...
+            invalid_initial, valid_histories, valid_outs);
 
         for i_problem = 1:n_problems
             for i_run = 1:n_runs
@@ -1658,6 +1700,8 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
         end
 
         hist_graphics_ok = true; out_graphics_ok = true;
+        fig_perf_hist = []; fig_data_hist = []; fig_log_ratio_hist = [];
+        fig_perf_out = []; fig_data_out = []; fig_log_ratio_out = [];
         if is_hist_drawable
             if isempty(eval_report)
                 [fig_perf_hist, fig_data_hist, fig_log_ratio_hist, curves{i_tol}.hist, hist_graphics_ok] = drawProfiles(work_hist, problem_dims_merged, solver_names, tolerance_latex, cell_axs_summary_hist, true, is_perf, is_data, is_log_ratio, drawing_options, curves{i_tol}.hist);
@@ -1679,6 +1723,7 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
             native_graphics = false;
             drawing_options.(ProfileOptionKey.SCORE_ONLY.value) = true;
             is_perf = false; is_data = false; is_log_ratio = false;
+            if ~isempty(eval_report), eval_report.recordRendering('failed', struct('scope', 'profiles', 'tolerance_index', i_tol), 'native_profile_render_failed'); end
         end
 
         % Clear working memory.
@@ -1686,6 +1731,11 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
         clear work_out;
 
         if native_graphics
+          for native_figure = {fig_perf_hist,fig_data_hist,fig_log_ratio_hist,fig_perf_out,fig_data_out,fig_log_ratio_out}
+              if ~isempty(native_figure{1}) && isgraphics(native_figure{1})
+                  applyPlotOptions(native_figure{1},profile_options);
+              end
+          end
           try
             % User callbacks may change TMPDIR after the initial capability
             % query. Re-check before native export so the existing catch can
@@ -1695,65 +1745,65 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
             if is_hist_drawable
                 pdf_perf_hist = fullfile(path_perf_hist, ['perf_hist_', int2str(i_tol), '.pdf']);
                 figure_perf_hist = fullfile(path_figs, ['perf_hist_', int2str(i_tol), '.fig']);
-                exportgraphics(fig_perf_hist, pdf_perf_hist, 'ContentType', 'vector');
+                exportGraphicsBounded(fig_perf_hist, pdf_perf_hist, 'ContentType', 'vector');
                 savefig(fig_perf_hist, figure_perf_hist);
                 pdf_data_hist = fullfile(path_data_hist, ['data_hist_', int2str(i_tol), '.pdf']);
                 figure_data_hist = fullfile(path_figs, ['data_hist_', int2str(i_tol), '.fig']);
-                exportgraphics(fig_data_hist, pdf_data_hist, 'ContentType', 'vector');
+                exportGraphicsBounded(fig_data_hist, pdf_data_hist, 'ContentType', 'vector');
                 savefig(fig_data_hist, figure_data_hist);
             end
             if is_out_drawable
                 pdf_perf_out = fullfile(path_perf_out, ['perf_out_', int2str(i_tol), '.pdf']);
                 figure_perf_out = fullfile(path_figs, ['perf_out_', int2str(i_tol), '.fig']);
-                exportgraphics(fig_perf_out, pdf_perf_out, 'ContentType', 'vector');
+                exportGraphicsBounded(fig_perf_out, pdf_perf_out, 'ContentType', 'vector');
                 savefig(fig_perf_out, figure_perf_out);
                 pdf_data_out = fullfile(path_data_out, ['data_out_', int2str(i_tol), '.pdf']);
                 figure_data_out = fullfile(path_figs, ['data_out_', int2str(i_tol), '.fig']);
-                exportgraphics(fig_data_out, pdf_data_out, 'ContentType', 'vector');
+                exportGraphicsBounded(fig_data_out, pdf_data_out, 'ContentType', 'vector');
                 savefig(fig_data_out, figure_data_out);
             end
             if n_solvers == 2
                 if is_hist_drawable && ~isempty(fig_log_ratio_hist)
                     pdf_log_ratio_hist = fullfile(path_log_ratio_hist, ['log-ratio_hist_', int2str(i_tol), '.pdf']);
                     figure_log_ratio_hist = fullfile(path_figs, ['log-ratio_hist_', int2str(i_tol), '.fig']);
-                    exportgraphics(fig_log_ratio_hist, pdf_log_ratio_hist, 'ContentType', 'vector');
+                    exportGraphicsBounded(fig_log_ratio_hist, pdf_log_ratio_hist, 'ContentType', 'vector');
                     savefig(fig_log_ratio_hist, figure_log_ratio_hist);
                 end
                 if is_out_drawable && ~isempty(fig_log_ratio_out)
                     pdf_log_ratio_out = fullfile(path_log_ratio_out, ['log-ratio_out_', int2str(i_tol), '.pdf']);
                     figure_log_ratio_out = fullfile(path_figs, ['log-ratio_out_', int2str(i_tol), '.fig']);
-                    exportgraphics(fig_log_ratio_out, pdf_log_ratio_out, 'ContentType', 'vector');
+                    exportGraphicsBounded(fig_log_ratio_out, pdf_log_ratio_out, 'ContentType', 'vector');
                     savefig(fig_log_ratio_out, figure_log_ratio_out);
                 end
             end
             if i_tol == 1
                 if is_hist_drawable
-                    exportgraphics(fig_perf_hist, pdf_perf_hist_summary, 'ContentType', 'vector');
-                    exportgraphics(fig_data_hist, pdf_data_hist_summary, 'ContentType', 'vector');
+                    exportGraphicsBounded(fig_perf_hist, pdf_perf_hist_summary, 'ContentType', 'vector');
+                    exportGraphicsBounded(fig_data_hist, pdf_data_hist_summary, 'ContentType', 'vector');
                     if n_solvers == 2 && ~isempty(fig_log_ratio_hist)
-                        exportgraphics(fig_log_ratio_hist, pdf_log_ratio_hist_summary, 'ContentType', 'vector');
+                        exportGraphicsBounded(fig_log_ratio_hist, pdf_log_ratio_hist_summary, 'ContentType', 'vector');
                     end
                 end
                 if is_out_drawable
-                    exportgraphics(fig_perf_out, pdf_perf_out_summary, 'ContentType', 'vector');
-                    exportgraphics(fig_data_out, pdf_data_out_summary, 'ContentType', 'vector');
+                    exportGraphicsBounded(fig_perf_out, pdf_perf_out_summary, 'ContentType', 'vector');
+                    exportGraphicsBounded(fig_data_out, pdf_data_out_summary, 'ContentType', 'vector');
                     if n_solvers == 2 && ~isempty(fig_log_ratio_out)
-                        exportgraphics(fig_log_ratio_out, pdf_log_ratio_out_summary, 'ContentType', 'vector');
+                        exportGraphicsBounded(fig_log_ratio_out, pdf_log_ratio_out_summary, 'ContentType', 'vector');
                     end
                 end
             else
                 if is_hist_drawable
-                    exportgraphics(fig_perf_hist, pdf_perf_hist_summary, 'ContentType', 'vector', 'Append', true);
-                    exportgraphics(fig_data_hist, pdf_data_hist_summary, 'ContentType', 'vector', 'Append', true);
+                    exportGraphicsBounded(fig_perf_hist, pdf_perf_hist_summary, 'ContentType', 'vector', 'Append', true);
+                    exportGraphicsBounded(fig_data_hist, pdf_data_hist_summary, 'ContentType', 'vector', 'Append', true);
                     if n_solvers == 2 && ~isempty(fig_log_ratio_hist)
-                        exportgraphics(fig_log_ratio_hist, pdf_log_ratio_hist_summary, 'ContentType', 'vector', 'Append', true);
+                        exportGraphicsBounded(fig_log_ratio_hist, pdf_log_ratio_hist_summary, 'ContentType', 'vector', 'Append', true);
                     end
                 end
                 if is_out_drawable
-                    exportgraphics(fig_perf_out, pdf_perf_out_summary, 'ContentType', 'vector', 'Append', true);
-                    exportgraphics(fig_data_out, pdf_data_out_summary, 'ContentType', 'vector', 'Append', true);
+                    exportGraphicsBounded(fig_perf_out, pdf_perf_out_summary, 'ContentType', 'vector', 'Append', true);
+                    exportGraphicsBounded(fig_data_out, pdf_data_out_summary, 'ContentType', 'vector', 'Append', true);
                     if n_solvers == 2 && ~isempty(fig_log_ratio_out)
-                        exportgraphics(fig_log_ratio_out, pdf_log_ratio_out_summary, 'ContentType', 'vector', 'Append', true);
+                        exportGraphicsBounded(fig_log_ratio_out, pdf_log_ratio_out_summary, 'ContentType', 'vector', 'Append', true);
                     end
                 end
             end
@@ -1783,22 +1833,16 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
             native_graphics = false;
             drawing_options.(ProfileOptionKey.SCORE_ONLY.value) = true;
             printOptiProfilerMessage('WARNING', sprintf('Native profile export failed; using SVG fallback: %s', cause.message));
+            if ~isempty(eval_report), eval_report.recordRendering('failed', struct('scope', 'profiles', 'tolerance_index', i_tol, 'cause', cause.identifier), 'native_profile_export_failed'); end
           end
         end
 
-        % Close the figures.
-        if is_hist_drawable
-            close(fig_perf_hist);
-            close(fig_data_hist);
-            if n_solvers == 2 && ~isempty(fig_log_ratio_hist)
-                close(fig_log_ratio_hist);
-            end
-        end
-        if is_out_drawable
-            close(fig_perf_out);
-            close(fig_data_out);
-            if n_solvers == 2 && ~isempty(fig_log_ratio_out)
-                close(fig_log_ratio_out);
+        % Close the figures. A failed export may already have destroyed them
+        % (for example, when the graphics process exits), and closing an
+        % invalid figure would abort the SVG fallback below.
+        for native_figure = {fig_perf_hist,fig_data_hist,fig_log_ratio_hist,fig_perf_out,fig_data_out,fig_log_ratio_out}
+            if ~isempty(native_figure{1}) && isgraphics(native_figure{1})
+                close(native_figure{1});
             end
         end
     end
@@ -1868,7 +1912,7 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
                 fprintf(fid, "This part is empty.\n");
             end
 
-            fprintf(fid, "\n## Problems with undefined initial objective or constraint (not assessable; not declared passing)\n");
+            fprintf(fid, "\n## Problems with undefined initial objective, constraint or merit (not assessable; not declared passing)\n");
             if any(invalid_initial(:))
                 for i_run = 1:n_runs
                     names = problem_names_merged(invalid_initial(:, i_run));
@@ -1971,7 +2015,7 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
         end
     end
 
-    if n_rows > 0 && ispc
+    if n_rows > 0 && ispc && isgraphics(fig_summary)
         % Check the operating system. If it is Windows, we will adjust the position, papersize, paperposition
         % of the summary figure! (MATLAB in Windows will adjust the figure size automatically when it is too large.)
         fig_summary.Position = profileFigurePosition(summary_width, summary_height);
@@ -2055,15 +2099,16 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
                 fprintf('\n');
                 printOptiProfilerMessage('INFO', 'Start creating the summary PDF of all the profiles.');
             end
+            applyPlotOptions(fig_summary,profile_options);
             try
                 % score_fun runs after the per-tolerance exports and may have
                 % changed the environment; do not trust the earlier flag.
                 assert(hasNativeGraphics(), 'OptiProfiler:NativeGraphicsUnavailable', ...
                     'Native export is not safe in the current graphics environment.');
                 if ispc
-                    print(fig_summary, fullfile(path_stamp, [summary_name, '.pdf']), '-dpdf', '-vector');
+                    boundedFigureCall(fig_summary, @() print(fig_summary, fullfile(path_stamp, [summary_name, '.pdf']), '-dpdf', '-vector'));
                 else
-                    exportgraphics(fig_summary, fullfile(path_stamp, [summary_name, '.pdf']), 'ContentType', 'vector');
+                    exportGraphicsBounded(fig_summary, fullfile(path_stamp, [summary_name, '.pdf']), 'ContentType', 'vector');
                 end
                 savefig(fig_summary, fullfile(path_figs, [summary_name, '.fig']));
                 if ~profile_options.(ProfileOptionKey.SILENT.value)
@@ -2071,6 +2116,7 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
                 end
             catch cause
                 printOptiProfilerMessage('WARNING', sprintf('Native summary export failed; using SVG fallback: %s', cause.message));
+                if ~isempty(eval_report), eval_report.recordRendering('failed', struct('scope', 'summary', 'cause', cause.identifier), 'native_summary_export_failed'); end
                 exportPortableProfiles(curves, solver_names, profile_options, path_stamp);
             end
         end
@@ -2138,8 +2184,8 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
         eval_report.recordRendering('completed', struct('scope', 'profiles'));
     end
 
-    % Close the figures.
-    if n_rows > 0
+    % Close the figures (the summary figure may be gone after a failed export).
+    if n_rows > 0 && isgraphics(fig_summary)
         close(fig_summary);
     end
 
@@ -2378,4 +2424,11 @@ function profile_scores = computeScores(curves, profile_options)
         max_scores(max_scores == 0) = 1;
         profile_scores = profile_scores ./ max_scores;
     end
+end
+
+function merit_failure = meritFailure(merit_error)
+    % The error raised after a merit callback failed on completed solver
+    % results; the callback's own error is kept as the cause.
+    merit_failure = MException("MATLAB:benchmark:merit_fun_error", "Error occurred while calculating the merit values. Please check the merit function.");
+    merit_failure = merit_failure.addCause(merit_error);
 end

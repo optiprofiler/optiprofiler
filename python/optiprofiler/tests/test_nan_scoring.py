@@ -6,8 +6,9 @@ import h5py
 import numpy as np
 import pytest
 
-from optiprofiler import benchmark
+from optiprofiler import Problem, benchmark
 from optiprofiler.loader import load_results_from_h5
+from optiprofiler.profile_utils import compute_convergence_work
 
 
 def visit_one(fun, x0, *constraints):
@@ -134,7 +135,7 @@ def test_saved_raw_nan_validity_survives_load(nan_library, tmp_path, legacy):
         assert passing_fraction(loaded_curves, channel) == pytest.approx(1 / 3)
     assert hashlib.sha256(source.read_bytes()).hexdigest() == digest
     report = next(source.parent.glob('*report*.txt')).read_text()
-    assert 'undefined initial objective or constraint' in report
+    assert 'undefined initial objective, constraint or merit' in report
 
 
 @pytest.mark.parametrize('legacy_field,bad_name', [
@@ -164,3 +165,86 @@ def test_mixed_legacy_initial_dimensions_on_load(nan_library, tmp_path,
         assert passing_fraction(original, channel) == pytest.approx(expected)
         assert passing_fraction(loaded, channel) == pytest.approx(expected)
     assert hashlib.sha256(source.read_bytes()).hexdigest() == digest
+
+
+@pytest.mark.parametrize('initial,minimum,history,output,count,valid,invalid,output_valid,expected', [
+    (10., 0., [3., 1., 0.], 0., 3, [True, True, False], False, True, (2., 3.)),
+    (np.inf, 0., [np.nan, np.inf, 5.], np.inf, 3, [False, True, True], False, True, (2., 3.)),
+    (10., -np.inf, [0., -np.inf, -np.inf], -np.inf, 2, [True, True, False], False, True, (2., 2.)),
+    (10., np.nan, [np.nan] * 3, np.nan, 3, [False] * 3, False, False, (np.nan, np.nan)),
+    (10., 0., [3., 1., 0.], 0., 3, [True] * 3, True, True, (np.nan, np.nan)),
+    (10., 0., [5., 3., 0.], .5, 2, [True, True, False], False, False, (np.nan, np.nan)),
+    (np.nan, 0., [3., 1., 0.], 0., 3, [True] * 3, False, True, (np.nan, np.nan)),
+])
+def test_convergence_work_obeys_validity_and_initial_conventions(
+        initial, minimum, history, output, count, valid, invalid, output_valid, expected):
+    work = compute_convergence_work(
+        np.array(history).reshape(1, 1, 1, 3), np.array([[[output]]]),
+        np.array([[initial]]), np.array([[minimum]]), np.array([[[count]]]), .1,
+        np.array([[invalid]]), np.array(valid).reshape(1, 1, 1, 3),
+        np.array([[[output_valid]]]))
+    assert work[0].shape == work[1].shape == (1, 1, 1)
+    np.testing.assert_array_equal([work[0].item(), work[1].item()], expected)
+
+
+def nan_at_initial_value(fun, cv, cv_init):
+    fun = np.asarray(fun, dtype=float)
+    return np.where(fun == 2.0, np.nan, fun)
+
+
+def test_nan_initial_merit_cannot_pass(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    root = tmp_path / 'nanmerit'
+    root.mkdir()
+    (root / 'nanmerit_tools.py').write_text('''
+import numpy as np
+from optiprofiler import Problem
+
+def nanmerit_select(options):
+    return ['QUAD']
+
+def nanmerit_load(name):
+    return Problem(lambda x: float(np.sum((x - 1.0) ** 2)), [0.0, 0.0], name=name)
+''')
+    _, _, curves = benchmark([visit_one, visit_one_again], plibs=['nanmerit'], custom_problem_libs_path=str(tmp_path),
+                             merit_fun=nan_at_initial_value, n_jobs=1, n_runs=1, max_eval_factor=3,
+                             max_tol_order=1, run_plain=False, score_only=True, silent=True)
+    for channel in ['hist', 'out']:
+        assert passing_fraction(curves, channel) == 0
+
+
+def inf_at_initial_value(fun, cv, cv_init):
+    fun = np.asarray(fun, dtype=float)
+    return np.where(fun == 2.0, np.inf, fun)
+
+
+@pytest.mark.parametrize('merit', [nan_at_initial_value, inf_at_initial_value])
+def test_nonfinite_initial_merit_single_problem_score_is_nan(merit, caplog):
+    problem = Problem(lambda x: float(np.sum((x - 1.0) ** 2)), [0.0, 0.0], name='QUAD')
+    scores = benchmark([visit_one, visit_one_again], problem=problem, merit_fun=merit,
+                       n_runs=1, max_eval_factor=3, score_only=True, silent=False)[0]
+    assert np.all(np.isnan(scores))
+    assert any(record.levelname == 'WARNING' and "Problem 'QUAD': runs with an undefined or infinite initial merit"
+               in record.getMessage() for record in caplog.records)
+    caplog.clear()
+    benchmark([visit_one, visit_one_again], problem=problem, merit_fun=merit,
+              n_runs=1, max_eval_factor=3, score_only=True, silent=True)
+    assert not any('cannot be scored' in record.getMessage() for record in caplog.records)
+
+
+def visit_half(fun, x0, *constraints):
+    x = np.full_like(x0, 0.5)
+    fun(x)
+    return x
+
+
+def nan_at_half(fun, cv, cv_init):
+    fun = np.asarray(fun, dtype=float)
+    return np.where(fun == 0.5, np.nan, fun)
+
+
+def test_single_problem_solver_without_valid_evaluation_scores_zero():
+    problem = Problem(lambda x: float(np.sum((x - 1.0) ** 2)), [0.0, 0.0], name='QUAD')
+    scores = benchmark([visit_one, visit_half], problem=problem, merit_fun=nan_at_half,
+                       n_runs=1, max_eval_factor=3, score_only=True, silent=True)[0]
+    np.testing.assert_array_equal(scores, [1.0, 0.0])

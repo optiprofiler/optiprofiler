@@ -54,16 +54,13 @@ classdef TestCheckValidityProblemOptions < matlab.unittest.TestCase
             options.plibs = 1;
             testCase.verifyError(@() checkValidityProblemOptions(options, profile_options), "MATLAB:checkValidityProblemOptions:plibsNotValid");
             if ~isunix || ismac
-                mydir = fileparts(mfilename('fullpath'));
-                problem_libs_dir = fullfile(mydir, '../../problem_libs');
-                matcutest_dir = fullfile(problem_libs_dir, 'matcutest');
-                created_matcutest_dir = exist(matcutest_dir, 'dir') ~= 7;
-                if created_matcutest_dir
-                    mkdir(matcutest_dir);
-                    testCase.addTeardown(@() rmdir(matcutest_dir));
-                end
                 options.plibs = {'matcutest'};
-                testCase.verifyError(@() checkValidityProblemOptions(options, profile_options), "MATLAB:checkValidityProblemOptions:plibsNotLinux");
+                testCase.verifyError(@() checkValidityProblemOptions(options, profile_options), "MATLAB:checkValidityProblemOptions:plibsNotValid");
+                try
+                    checkValidityProblemOptions(options, profile_options);
+                catch err
+                    testCase.verifySubstring(err.message, 'does not support MATLAB on');
+                end
             end
             options = rmfield(options, 'plibs');
 

@@ -16,7 +16,8 @@ function [results_plibs, profile_options, problem_options] = loadResults(problem
         error("MATLAB:checkValidityProfileOptions:loadNotValid", "The option `load` should be 'latest' or a time stamp in the format 'yyyyMMdd_HHmmss', optionally followed by a suffix such as '_001'.");
     end
 
-    % Set the path to search for the data to load.
+    % savepath controls new output, not the archive being loaded. Preserve
+    % cwd/benchmark_id as the source so reanalysis can use another output root.
     if isfield(profile_options, ProfileOptionKey.BENCHMARK_ID.value)
         search_path = fullfile(pwd, profile_options.(ProfileOptionKey.BENCHMARK_ID.value));
     else
@@ -44,7 +45,7 @@ function [results_plibs, profile_options, problem_options] = loadResults(problem
     time_stamp_files = time_stamp_files(valid);
     keys = keys(valid, :);
     if isempty(time_stamp_files)
-        error("MATLAB:loadResults:NoTimeStamps", "No saved experiment matching '%s' was found in '%s'. The search is limited to 5 levels of subdirectories.", load_value, search_path);
+        error("MATLAB:loadResults:NoTimeStamps", "No saved experiment matching '%s' was found in '%s'. The search is limited to 5 levels of subdirectories. The search location is the current working directory joined with benchmark_id; savepath only sets where new results are written.", load_value, search_path);
     end
     if ~strcmp(load_value, 'latest') && numel(time_stamp_files) > 1
         error('OptiProfiler:AmbiguousTimeStamp', 'Time stamp ''%s'' matches multiple saved experiments. Change to the intended experiment directory and use benchmark_id=''.'' to disambiguate.', load_value);
@@ -130,16 +131,54 @@ function [results_plibs, profile_options, problem_options] = loadResults(problem
         eval_report.addResults(results_plibs);
         eval_report.completeNumerical();
     end
+    % Resolve the effective load-time merit once for every cached quantity:
+    % histories, outputs, initial values and the optional plain baseline.
+    % - A supplied merit_fun always recomputes them.
+    % - Without merit_fun, explicit references are converted with the default
+    %   merit when scoring, so cached merits of another (custom) merit must
+    %   not be compared with them: recompute everything with the default
+    %   merit. Archives saved after a merit failure have no cached merits and
+    %   are recomputed the same way.
+    % - Otherwise (V1 behaviour) the cached merits and the empirical targets
+    %   derived from them are already in one merit space and are reused.
+    rescore_reason = '';
     if isfield(profile_options, ProfileOptionKey.MERIT_FUN.value)
-        if ~isempty(eval_report), eval_report.setStage('scoring', 'running'); end
         merit_fun = profile_options.(ProfileOptionKey.MERIT_FUN.value);
+    else
+        merit_fun = [];
+        if any(cellfun(@carries_reference_records, results_plibs))
+            rescore_reason = 'explicit_references';
+        elseif any(cellfun(@lacks_cached_merits, results_plibs))
+            rescore_reason = 'missing_cached_merits';
+        end
+        if ~isempty(rescore_reason)
+            merit_fun = @defaultMerit;
+        end
+    end
+    if ~isempty(merit_fun)
+        if ~isempty(eval_report), eval_report.setStage('scoring', 'running'); end
+        changed = strcmp(rescore_reason, 'missing_cached_merits');
         for i_plib = 1:size(results_plibs, 2)
             results_plib = results_plibs{i_plib};
+            cached = cached_merits(results_plib);
             results_plib = recompute_merits(results_plib, merit_fun);
             if isfield(results_plib, 'results_plib_plain')
                 results_plib.results_plib_plain = recompute_merits(results_plib.results_plib_plain, merit_fun);
             end
+            changed = changed || ~isequaln(cached, cached_merits(results_plib));
             results_plibs{i_plib} = results_plib;
+        end
+        if ~isempty(rescore_reason) && changed
+            % Deliberate, documented rescoring: say so instead of silently
+            % reporting scores of a different merit than the archived one.
+            if ~isfield(profile_options, ProfileOptionKey.SILENT.value) || ~profile_options.(ProfileOptionKey.SILENT.value)
+                printOptiProfilerMessage('WARNING', sprintf(['The saved merit values were recomputed with the default merit (%s). ' ...
+                    'Pass the original merit_fun to reproduce the scores of an experiment run with a custom merit function.'], ...
+                    strrep(rescore_reason, '_', ' ')));
+            end
+            if ~isempty(eval_report)
+                eval_report.addDiagnostic('cached_merits_recomputed', 'scoring', struct('reason', rescore_reason, 'merit', 'default'));
+            end
         end
     end
 
@@ -301,8 +340,14 @@ function results_plib = truncate_solvers(results_plib, solvers_to_load)
     results_plib.n_evals = results_plib.n_evals(:, solvers_to_load, :);
     results_plib.computation_times = results_plib.computation_times(:, solvers_to_load, :);
     results_plib.solvers_successes = results_plib.solvers_successes(:, solvers_to_load, :);
-    results_plib.merit_histories = results_plib.merit_histories(:, solvers_to_load, :, :);
-    results_plib.merit_outs = results_plib.merit_outs(:, solvers_to_load, :);
+    % Cached merits are absent when a merit callback failed after solving;
+    % loadResults then recomputes them from the raw values.
+    if isfield(results_plib, 'merit_histories')
+        results_plib.merit_histories = results_plib.merit_histories(:, solvers_to_load, :, :);
+    end
+    if isfield(results_plib, 'merit_outs')
+        results_plib.merit_outs = results_plib.merit_outs(:, solvers_to_load, :);
+    end
     % Optional per-(problem, solver, run) diagnostic flags introduced
     % together with the §6 report sections; absent in legacy saved data.
     if isfield(results_plib, 'solver_abnormal_terminations')
@@ -456,6 +501,17 @@ function results_plib = truncate_problems(results_plib, problem_options)
     results_plib.maxcv_outs = results_plib.maxcv_outs(p_to_load, :, :);
     results_plib.fun_inits = results_plib.fun_inits(p_to_load, :);
     results_plib.maxcv_inits = results_plib.maxcv_inits(p_to_load, :);
+    if isfield(results_plib, 'reference_records')
+        results_plib.reference_records = results_plib.reference_records(p_to_load, :);
+        % Normalize only the in-memory view. The original archive stays byte
+        % identical, while current reports consistently expose the two kinds.
+        for r = 1:numel(results_plib.reference_records)
+            results_plib.reference_records{r} = normalizeProblemReference(results_plib.reference_records{r});
+        end
+    end
+    if isfield(results_plib, 'reference_fallback_reasons')
+        results_plib.reference_fallback_reasons = results_plib.reference_fallback_reasons(p_to_load, :);
+    end
     results_plib.n_evals = results_plib.n_evals(p_to_load, :, :);
     results_plib.problem_names = results_plib.problem_names(p_to_load);
     results_plib.problem_types = results_plib.problem_types(p_to_load);
@@ -466,14 +522,60 @@ function results_plib = truncate_problems(results_plib, problem_options)
     results_plib.problem_mcons = results_plib.problem_mcons(p_to_load);
     results_plib.computation_times = results_plib.computation_times(p_to_load, :, :);
     results_plib.solvers_successes = results_plib.solvers_successes(p_to_load, :, :);
-    results_plib.merit_histories = results_plib.merit_histories(p_to_load, :, :, :);
-    results_plib.merit_outs = results_plib.merit_outs(p_to_load, :, :);
-    results_plib.merit_inits = results_plib.merit_inits(p_to_load, :);
+    % Cached merits are optional (see truncate_solvers).
+    if isfield(results_plib, 'merit_histories')
+        results_plib.merit_histories = results_plib.merit_histories(p_to_load, :, :, :);
+    end
+    if isfield(results_plib, 'merit_outs')
+        results_plib.merit_outs = results_plib.merit_outs(p_to_load, :, :);
+    end
+    if isfield(results_plib, 'merit_inits')
+        results_plib.merit_inits = results_plib.merit_inits(p_to_load, :);
+    end
     if isfield(results_plib, 'solver_abnormal_terminations')
         results_plib.solver_abnormal_terminations = results_plib.solver_abnormal_terminations(p_to_load, :, :);
     end
     if isfield(results_plib, 'solver_output_fallbacks')
         results_plib.solver_output_fallbacks = results_plib.solver_output_fallbacks(p_to_load, :, :);
+    end
+end
+
+function tf = carries_reference_records(results_plib)
+    % Whether a library record contains at least one explicit reference fact.
+    tf = isstruct(results_plib) && isfield(results_plib, 'reference_records') && ...
+        iscell(results_plib.reference_records) && ~all(cellfun(@isempty, results_plib.reference_records(:)));
+end
+
+function tf = lacks_cached_merits(results_plib)
+    % Whether a library record (or its plain baseline) was saved without merits.
+    tf = false;
+    if ~isstruct(results_plib) || isempty(fieldnames(results_plib))
+        return
+    end
+    keys = {'merit_histories', 'merit_outs', 'merit_inits'};
+    tf = ~all(isfield(results_plib, keys));
+    if isfield(results_plib, 'results_plib_plain') && isstruct(results_plib.results_plib_plain) && ...
+            ~isempty(fieldnames(results_plib.results_plib_plain))
+        tf = tf || ~all(isfield(results_plib.results_plib_plain, keys));
+    end
+end
+
+function merits = cached_merits(results_plib)
+    % The cached merit arrays of a library record and of its plain baseline.
+    keys = {'merit_histories', 'merit_outs', 'merit_inits'};
+    records = {results_plib};
+    if isfield(results_plib, 'results_plib_plain') && isstruct(results_plib.results_plib_plain)
+        records{end+1} = results_plib.results_plib_plain;
+    end
+    merits = {};
+    for i_record = 1:numel(records)
+        for i_key = 1:numel(keys)
+            if isfield(records{i_record}, keys{i_key})
+                merits{end+1} = records{i_record}.(keys{i_key}); %#ok<AGROW>
+            else
+                merits{end+1} = 'missing'; %#ok<AGROW>
+            end
+        end
     end
 end
 

@@ -49,7 +49,7 @@ The subfolder ``test_log`` contains diagnostic files for the experiment. In
 particular, ``test_log/report.txt`` records selected problem names, timing
 information, and special cases detected while building the profiles: problems
 where ``merit_init = phi(x_0) = Inf`` (valid evaluations pass by convention,
-but undefined objective or constraint values do not), solver runs that
+but undefined objective, constraint or merit values do not), solver runs that
 terminated abnormally, and solver outputs that
 were replaced by the initial point as an output-based penalty. The file
 ``test_log/log.txt`` contains the messages printed during the run.
@@ -118,6 +118,8 @@ OptiProfiler provides a practically useful option named **load**. This option al
 
 This will directly draw the profiles for the **solver1** and **solver3** with the ``'noisy'`` feature and all the unconstrained problems with dimension between 7 and 9 selected from the previous run. The results will also be saved under the current directory with a new subfolder named ``noisy_<timestamp>`` with the new timestamp.
 
+The saved experiment is searched for in the current working directory joined with ``benchmark_id`` (up to five levels of subdirectories). ``savepath`` does not change this search; it only sets where the new results are written. To reload an experiment saved under another ``savepath``, change to that directory first.
+
 
 Reusable features, replay, and retained results
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -142,38 +144,29 @@ the plain-reference role retains the independent one-run policy. A saved run
 axis is not a count of actual solver calls: deterministic runs can have copied
 slots, which reports identify separately from actual executions.
 
-A :ref:`Problem <matproblem>` may carry an optional *feasible reference fact*
-in its ``reference`` property: one finite scalar ``merit`` with its ``kind``
-(``'lower_bound'``, ``'optimum'``, ``'best_known'`` or ``'target'``, each a
-claim over the feasible points of the problem), its ``source`` and the
-``mapping`` token ``'feasible_objective/1'`` of a closed registry. It is author
-or provider metadata and is unrelated to the plain-reference role above.
-The ``reference`` of a :ref:`FeaturedProblem <matfeaturedproblem>` is that
-record, unchanged, if the feature retains it, and ``[]`` (unknown) otherwise;
-the record holds no point, so nothing is transported or derived, and the rule
-is the same for every kind. Stages that change only observations (``noisy``,
-``truncated``, ``random_nan``, ``nonquantifiable_constraints``,
-``unrelaxable_constraints``, and ``quantized`` with ``ground_truth=false``),
-``perturbed_x0``, ``permuted`` and ``linearly_transformed`` retain it.
-``custom`` retains it only if its options are a subset of ``mod_x0`` and
-``mod_affine``; ``mod_fun``, ``mod_cub``, ``mod_ceq``, ``mod_bounds``,
-``mod_linear_ub`` and ``mod_linear_eq`` may change values, constraints or
-bounds and make it unknown, whatever the callbacks do. ``quantized`` with
-``ground_truth=true``, the default, makes it unknown, because the truth is then
-the mesh problem. A composition retains the record only if every stage does.
+A :ref:`Problem <matproblem>` may carry ``reference`` with four fields:
+``fun``, ``maxcv``, ``kind`` and ``source``. ``kind='feasible'`` requires zero
+violation; ``kind='merit'`` allows nonzero violation and leaves the merit
+function/target choice to the user. Optional ``x_ref`` is source metadata
+in original problem coordinates, never a point in featured coordinates.
+No metadata maintenance transports it or evaluates the problem.
 
-The reference fact is not a run-history minimum and not the profile baseline:
-that baseline is the least merit observed over the selected solver histories,
-changes with the solver cohort and is never stored in a problem; nothing
-derives a reference from solver output, and no profile formula reads the
-reference. It is not a floor for run merits either. On a constrained problem
-the merit of a run may be *below* the reference, because a merit function
-tolerates or penalizes small violations, so an infeasible point can have a
-lower merit than every feasible one; such values are legitimate and are never
-clamped. The scalar is an objective value over feasible points: before a
-consumer compares run merits with it under a custom ``merit_fun``, that
-function must be known to satisfy ``merit_fun(f, 0, maxcv_init) == f`` for
-every ``maxcv_init`` (the default merit function does).
+Observation-only built-ins, ``perturbed_x0``, ``permuted`` and
+``linearly_transformed`` retain raw reference values, including nonzero
+violation. Every ``custom`` stage uses the default target in this release.
+``quantized`` with ``ground_truth=true`` also falls back, even with a point;
+``ground_truth=false`` retains the record. Once a composition invalidates a
+reference, later stages cannot restore it. Archives and reports retain the
+first reason in ``reference_fallback_reasons``.
+
+A retained reference defines convergence through
+``merit_fun(fun,maxcv,maxcv_init)`` per run. Missing references keep the V1
+minimum over solver histories, initial values and the optional plain run.
+Actual observations are never clamped. Save/load retains raw facts and
+recomputes targets with the current merit callback. Earlier kinds and known
+mapping tokens remain readable; new records need no mapping token.
+See :doc:`reference_targets`. Native figure styling is described in
+:doc:`plot_options`.
 
 There are two different ways to use an existing experiment:
 

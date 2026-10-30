@@ -127,6 +127,23 @@ classdef TestLoadReplot < matlab.unittest.TestCase
 
     methods (Test)
 
+        function loadSearchesTheWorkingDirectoryNotSavepath(testCase)
+            TestLoadReplot.makeExperiment(pwd, 'bench', 2, 1);
+            here = pwd;
+            elsewhere = fullfile(here, 'elsewhere');
+            mkdir(elsewhere);
+            cd(elsewhere);
+            restore = onCleanup(@() cd(here)); %#ok<NASGU>
+            options = TestLoadReplot.loadOptions('savepath', here);
+            try
+                benchmark(options);
+                testCase.verifyFail('A load must not search savepath.');
+            catch err
+                testCase.verifyEqual(err.identifier, 'MATLAB:loadResults:NoTimeStamps');
+                testCase.verifySubstring(err.message, 'savepath only sets where new results are written');
+            end
+        end
+
         function twoSolverLoadGeneratesLogRatio(testCase)
             TestLoadReplot.makeExperiment(pwd, 'bench', 2, 1);
             options = TestLoadReplot.loadOptions('summarize_log_ratio_profiles', true);
