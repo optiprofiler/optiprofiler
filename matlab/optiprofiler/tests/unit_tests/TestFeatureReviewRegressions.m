@@ -145,6 +145,13 @@ classdef TestFeatureReviewRegressions < matlab.unittest.TestCase
             report = optiprofiler_internal.EvalReport(target, struct(), @reviewReplace); %#ok<NASGU>
             document = jsondecode(fileread(target));
             testCase.verifyEqual(document.status, 'running');
+            testCase.verifyError(@() optiprofiler_internal.EvalReport(target, struct(), @reviewReplace), ...
+                'OptiProfiler:EvalReportExists');
+            try
+                optiprofiler_internal.EvalReport(target, struct(), @reviewReplace);
+            catch err
+                testCase.verifySubstring(err.message, target, 'The refusal must name the existing report.');
+            end
             % Negative control: a preexisting companion is refused and preserved.
             other = fullfile(testCase.Work, 'kept.json');
             other_companion = fullfile(testCase.Work, 'kept.plot_data.json');
