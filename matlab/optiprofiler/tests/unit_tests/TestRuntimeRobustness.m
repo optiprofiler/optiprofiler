@@ -186,6 +186,7 @@ classdef TestRuntimeRobustness < matlab.unittest.TestCase
             addpath(doubles);
             TestLoadReplot.makeExperiment(work,'bench',2,1); cd(work);
             options=TestLoadReplot.loadOptions('savepath',work,'draw_hist_plots','none','max_tol_order',2);
+            options.report_path=fullfile(work,'fallback.json');
             output=evalc('scores=benchmark(options);');
             state=getappdata(groot,'TestRuntimeRobustnessExport');
             testCase.assumeGreaterThan(state.calls,0,'Native export is not attempted in this graphics environment.');
@@ -193,6 +194,15 @@ classdef TestRuntimeRobustness < matlab.unittest.TestCase
             testCase.verifyTrue(contains(output,'Native profile export failed; using SVG fallback'));
             testCase.verifyNotEmpty(dir(fullfile(work,'bench','**','summary.html')));
             testCase.verifyEqual(findall(groot,'Type','figure'),before);
+            % The portable output is a degradation of the requested PDF/FIG
+            % output, so the report must not call the rendering complete.
+            report=jsondecode(fileread(options.report_path));
+            testCase.verifyEqual(report.stages.rendering.status,'partial');
+            testCase.verifyEqual(report.status,'partial');
+            diagnostics=report.diagnostics;
+            if isstruct(diagnostics), diagnostics=num2cell(diagnostics); end
+            codes=cellfun(@(d) d.code,diagnostics,'UniformOutput',false);
+            testCase.verifyTrue(any(strcmp(codes,'native_profile_export_failed')),strjoin(codes,', '));
         end
 
         function stalledNativeExportIsBounded(testCase)

@@ -916,6 +916,7 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
         native_graphics = hasNativeGraphics();
         if ~native_graphics
             printOptiProfilerMessage('WARNING', 'Native MATLAB graphics are unavailable. Saving portable SVG charts and an HTML summary instead of PDF/FIG; numeric results and scores are unchanged.');
+            if ~isempty(eval_report), eval_report.recordRendering('failed', struct('scope', 'profiles'), 'native_graphics_unavailable'); end
         end
     end
     drawing_options = profile_options;
@@ -1564,6 +1565,7 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
             native_graphics = false;
             drawing_options.(ProfileOptionKey.SCORE_ONLY.value) = true;
             printOptiProfilerMessage('WARNING', sprintf('Native summary layout failed; using SVG fallback: %s',cause.message));
+            if ~isempty(eval_report), eval_report.recordRendering('failed', struct('scope', 'summary_layout', 'cause', cause.identifier), 'native_summary_layout_failed'); end
         end
     end
 
@@ -1813,6 +1815,7 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
             native_graphics = false;
             drawing_options.(ProfileOptionKey.SCORE_ONLY.value) = true;
             printOptiProfilerMessage('WARNING', sprintf('Native profile export failed; using SVG fallback: %s', cause.message));
+            if ~isempty(eval_report), eval_report.recordRendering('failed', struct('scope', 'profiles', 'tolerance_index', i_tol, 'cause', cause.identifier), 'native_profile_export_failed'); end
           end
         end
 
@@ -2095,6 +2098,7 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
                 end
             catch cause
                 printOptiProfilerMessage('WARNING', sprintf('Native summary export failed; using SVG fallback: %s', cause.message));
+                if ~isempty(eval_report), eval_report.recordRendering('failed', struct('scope', 'summary', 'cause', cause.identifier), 'native_summary_export_failed'); end
                 exportPortableProfiles(curves, solver_names, profile_options, path_stamp);
             end
         end

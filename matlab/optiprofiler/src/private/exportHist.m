@@ -60,6 +60,7 @@ function [status, presentation] = exportHist(problem_name, problem_type, problem
         files={pdf_summary,fullfile(raw_path,pdf_hist_file_name),fullfile(cummin_path,pdf_hist_file_name)};
         modes={'combined','raw','cummin'};
         native_graphics=hasNativeGraphics();
+        used_fallback=false;
         for i=1:numel(modes)
             if native_graphics
                 try
@@ -74,6 +75,7 @@ function [status, presentation] = exportHist(problem_name, problem_type, problem
                     printOptiProfilerMessage('WARNING', sprintf('History rendering failed; using SVG fallback: %s',cause.message));
                 end
             end
+            used_fallback=true;
             if i == 1 && isfield(profile_options,'plot_options') && ~isempty(fieldnames(profile_options.plot_options))
                 printOptiProfilerMessage('WARNING', ...
                     'Portable SVG histories use their own style; native plot_options were not applied.');
@@ -82,7 +84,11 @@ function [status, presentation] = exportHist(problem_name, problem_type, problem
                 solver_names,histories,inits,n_eval,labels,profile_options);
         end
         clear warning_cleanup;
-        status = 'completed';
+        if used_fallback
+            status = 'partial';
+        else
+            status = 'completed';
+        end
     catch Exception
         status = 'failed';
         % A failed fallback is still a missing artifact. Silent mode suppresses

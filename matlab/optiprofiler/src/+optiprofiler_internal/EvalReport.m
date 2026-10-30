@@ -675,13 +675,17 @@ classdef EvalReport < handle
             % do (history_render_failed, summary_pdf_merge_failed,
             % history_merge_failed). The stage reason is the most recent
             % failure code, as in Python; a later 'completed' call must not
-            % replace it with the default code.
-            if nargin < 4, code = 'history_render_failed'; end
-            if strcmp(status, 'failed')
+            % replace it with the default code. 'partial' is an export that
+            % replaced native PDF/FIG output with the portable SVG fallback.
+            if nargin < 4
+                if strcmp(status, 'partial'), code = 'history_native_export_fallback'; else, code = 'history_render_failed'; end
+            end
+            if strcmp(status, 'failed') || strcmp(status, 'partial')
                 self.renderingFailure = true;
                 self.renderingFailureCode = code;
                 self.addDiagnostic(code, 'rendering', scope);
-            elseif strcmp(status, 'completed')
+            end
+            if strcmp(status, 'completed') || strcmp(status, 'partial')
                 self.renderingSuccess = true;
             end
             if self.renderingFailure
