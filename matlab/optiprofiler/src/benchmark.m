@@ -1712,6 +1712,7 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
             native_graphics = false;
             drawing_options.(ProfileOptionKey.SCORE_ONLY.value) = true;
             is_perf = false; is_data = false; is_log_ratio = false;
+            if ~isempty(eval_report), eval_report.recordRendering('failed', struct('scope', 'profiles', 'tolerance_index', i_tol), 'native_profile_render_failed'); end
         end
 
         % Clear working memory.

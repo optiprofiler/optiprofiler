@@ -18,9 +18,10 @@ On macOS and Linux, OptiProfiler also supports saving without a JVM:
   an HTML index and the complete backend diagnostics are saved.
 * With ``report_path``, every SVG fallback makes the report's rendering
   stage ``partial`` instead of ``completed`` and adds a ``rendering``
-  diagnostic: ``native_graphics_unavailable``, ``native_profile_export_failed``,
-  ``native_summary_layout_failed``, ``native_summary_export_failed`` or, for a
-  history plot, ``history_native_export_fallback``.
+  diagnostic: ``native_graphics_unavailable``, ``native_profile_render_failed``,
+  ``native_profile_export_failed``, ``native_summary_layout_failed``,
+  ``native_summary_export_failed`` or, for a history plot,
+  ``history_native_export_fallback``.
 
 The initial native-graphics probe is cached for the MATLAB process, avoiding
 a new probe figure for every plot. A transient failure of that initial probe

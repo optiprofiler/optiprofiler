@@ -205,6 +205,35 @@ classdef TestRuntimeRobustness < matlab.unittest.TestCase
             testCase.verifyTrue(any(strcmp(codes,'native_profile_export_failed')),strjoin(codes,', '));
         end
 
+        function drawingFailureFallbackIsReported(testCase)
+            % A native drawing error after a successful graphics probe also
+            % switches to SVG output; the report must say so.
+            old=pwd; old_path=path; old_warnings=warning;
+            work=tempname; mkdir(work);
+            cleanup=onCleanup(@() restoreState(old,old_warnings,old_path,work));
+            addpath(fullfile(fileparts(mfilename('fullpath')),'..','..','src'));
+            doubles=fullfile(work,'doubles'); mkdir(doubles);
+            writeText(fullfile(doubles,'legend.m'),sprintf([ ...
+                'function varargout = legend(varargin)\n' ...
+                '%% Test double: native drawing fails after the probe succeeded.\n' ...
+                'error(''TestRuntimeRobustness:DrawingFailed'', ''Simulated drawing failure.'');\n' ...
+                'end\n']));
+            addpath(doubles);
+            TestLoadReplot.makeExperiment(work,'bench',2,1); cd(work);
+            options=TestLoadReplot.loadOptions('savepath',work,'draw_hist_plots','none','max_tol_order',2);
+            options.report_path=fullfile(work,'drawfail.json');
+            output=evalc('scores=benchmark(options);');
+            testCase.assumeTrue(contains(output,'Native profile rendering failed; using SVG fallback'), ...
+                'Native drawing is not attempted in this graphics environment.');
+            testCase.verifyNumElements(scores,2);
+            report=jsondecode(fileread(options.report_path));
+            testCase.verifyEqual(report.stages.rendering.status,'partial');
+            diagnostics=report.diagnostics;
+            if isstruct(diagnostics), diagnostics=num2cell(diagnostics); end
+            codes=cellfun(@(d) d.code,diagnostics,'UniformOutput',false);
+            testCase.verifyTrue(any(strcmp(codes,'native_profile_render_failed')),strjoin(codes,', '));
+        end
+
         function stalledNativeExportIsBounded(testCase)
             % A native export that waits for an event that never comes ends
             % at the limit: the watchdog deletes the figure and the call fails
