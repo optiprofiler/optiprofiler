@@ -219,6 +219,7 @@ classdef TestRuntimeRobustness < matlab.unittest.TestCase
                 'error(''TestRuntimeRobustness:DrawingFailed'', ''Simulated drawing failure.'');\n' ...
                 'end\n']));
             addpath(doubles);
+            before=findall(groot,'Type','figure');
             TestLoadReplot.makeExperiment(work,'bench',2,1); cd(work);
             options=TestLoadReplot.loadOptions('savepath',work,'draw_hist_plots','none','max_tol_order',2);
             options.report_path=fullfile(work,'drawfail.json');
@@ -226,8 +227,10 @@ classdef TestRuntimeRobustness < matlab.unittest.TestCase
             testCase.assumeTrue(contains(output,'Native profile rendering failed; using SVG fallback'), ...
                 'Native drawing is not attempted in this graphics environment.');
             testCase.verifyNumElements(scores,2);
+            testCase.verifyEqual(findall(groot,'Type','figure'),before);
             report=jsondecode(fileread(options.report_path));
             testCase.verifyEqual(report.stages.rendering.status,'partial');
+            testCase.verifyEqual(report.status,'partial');
             diagnostics=report.diagnostics;
             if isstruct(diagnostics), diagnostics=num2cell(diagnostics); end
             codes=cellfun(@(d) d.code,diagnostics,'UniformOutput',false);
