@@ -60,14 +60,14 @@ classdef EvalReport < handle
             request_projection = optiprofiler_internal.EvalReport.configuration(request);
             if ~isfolder(parent), mkdir(parent); end
             if ~optiprofiler_internal.EvalReport.reserve(self.path)
-                error('OptiProfiler:EvalReportExists', 'The report target already exists or cannot be reserved.');
+                error('OptiProfiler:EvalReportExists', 'The report target ''%s'' already exists or cannot be reserved.', self.path);
             end
             self.ownedIdentity = optiprofiler_internal.EvalReport.fileIdentity(self.path);
             % Both paths are owned before any solver call. On a companion
             % collision, remove only our still-identical empty main shell.
             if ~optiprofiler_internal.EvalReport.reserve(self.plotPath)
                 self.rollbackReservations();
-                error('OptiProfiler:EvalReportExists', 'The plot-data target already exists or cannot be reserved.');
+                error('OptiProfiler:EvalReportExists', 'The plot-data target ''%s'' already exists or cannot be reserved.', self.plotPath);
             end
             self.plotIdentity = optiprofiler_internal.EvalReport.fileIdentity(self.plotPath);
             try

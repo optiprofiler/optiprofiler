@@ -151,6 +151,11 @@ classdef TestFeatureReviewRegressions < matlab.unittest.TestCase
             fid = fopen(other_companion, 'w'); fwrite(fid, 'owner-sentinel', 'char'); fclose(fid);
             testCase.verifyError(@() optiprofiler_internal.EvalReport(other, struct(), @reviewReplace), ...
                 'OptiProfiler:EvalReportExists');
+            try
+                optiprofiler_internal.EvalReport(other, struct(), @reviewReplace);
+            catch err
+                testCase.verifySubstring(err.message, other_companion, 'The refusal must name the blocking target.');
+            end
             testCase.verifyEqual(fileread(other_companion), 'owner-sentinel');
             testCase.verifyFalse(isfile(other));
             % Negative control: a file another writer put in place of the main
