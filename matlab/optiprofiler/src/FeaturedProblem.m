@@ -790,12 +790,6 @@ classdef FeaturedProblem < Problem
                 value = obj.final_view.m_nonlinear_eq;
             end
         end
-        function x = constraintProbePoint(obj)
-            % Inherited cub_/ceq_ are base callbacks, while obj.x0 is in solver
-            % coordinates. Probe dimensions at the original problem's point,
-            % or an affine map can falsely make a valid callback unavailable.
-            x = obj.problem.x0;
-        end
     end
 
     methods (Static)
