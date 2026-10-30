@@ -58,8 +58,12 @@ function results = solveAllProblems(solvers, library, feature, problem_options, 
     if ~isempty(eval_report)
         % Provider identity without machine paths: registry metadata only.
         provider = struct('name', plib, 'source', 'matlab_problem_library_registry');
-        for key = {'select_function', 'load_function', 'api_version'}
+        for key = {'select_function', 'load_function', 'api_version', 'role'}
             if isfield(library, key{1}), provider.(key{1}) = library.(key{1}); end
+        end
+        provider.locked_revision = lockedProblemLibraryRevision(plib);
+        if isempty(provider.locked_revision)
+            provider.locked_revision = optiprofiler_internal.EvalReport.null();
         end
         eval_report.selection(plib, problem_names, role, provider);
     end

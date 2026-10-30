@@ -12,6 +12,7 @@ from collections.abc import Mapping as MappingABC
 from collections.abc import Sequence as SequenceABC
 import hashlib
 import importlib.util
+import json
 import sys
 from threading import RLock
 from importlib import metadata
@@ -197,6 +198,34 @@ def _problem_library_entry_points():
     if hasattr(entry_points, 'select'):
         return list(entry_points.select(group=PROBLEM_LIBRARY_ENTRY_POINT_GROUP))
     return list(entry_points.get(PROBLEM_LIBRARY_ENTRY_POINT_GROUP, ()))
+
+
+def distribution_provenance(reference):
+    """Return ``(version, revision)`` of the distribution behind a library.
+
+    ``version`` is the installed distribution version (for a bundled library,
+    the OptiProfiler version that ships it). ``revision`` is the VCS commit
+    recorded by pip (PEP 610 ``direct_url.json``) for an installed plugin
+    distribution; a bundled library's own revision is not recorded in the
+    installed package. Unknown values are ``None``.
+    """
+    if not reference.distribution:
+        return None, None
+    try:
+        distribution = metadata.distribution(reference.distribution)
+    except metadata.PackageNotFoundError:
+        return None, None
+    version = distribution.version
+    revision = None
+    if reference.source == _ENTRY_POINT_SOURCE:
+        try:
+            direct_url = json.loads(distribution.read_text('direct_url.json') or 'null')
+        except ValueError:
+            direct_url = None
+        vcs_info = direct_url.get('vcs_info') if isinstance(direct_url, dict) else None
+        if isinstance(vcs_info, dict) and isinstance(vcs_info.get('commit_id'), str):
+            revision = vcs_info['commit_id']
+    return version, revision
 
 
 def _entry_point_distribution(entry_point):

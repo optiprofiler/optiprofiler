@@ -267,6 +267,34 @@ def test_explicit_custom_path_overrides_other_providers(tmp_path, monkeypatch):
     assert reference.shadows == ('bundled', 'test-distribution')
 
 
+def test_distribution_provenance_reads_version_and_vcs_commit(monkeypatch):
+    commit = 'a' * 40
+
+    class _Distribution:
+        version = '1.2.3'
+
+        def read_text(self, name):
+            if name == 'direct_url.json':
+                return json.dumps({'url': 'https://example.invalid/toy.git',
+                                   'vcs_info': {'vcs': 'git', 'commit_id': commit}})
+            return None
+
+    def distribution(name):
+        if name == 'missing-dist':
+            raise problem_libraries.metadata.PackageNotFoundError(name)
+        return _Distribution()
+
+    monkeypatch.setattr(problem_libraries.metadata, 'distribution', distribution)
+    provenance = problem_libraries.distribution_provenance
+
+    assert provenance(ProblemLibraryRef('toy', 'entry_point', 'toy:get', distribution='toy-dist')) == ('1.2.3', commit)
+    # A bundled library is identified by the shipping core version only; the
+    # core's own VCS commit is not the bundled library's revision.
+    assert provenance(ProblemLibraryRef('s2mpj', 'builtin', 'x', distribution='optiprofiler')) == ('1.2.3', None)
+    assert provenance(ProblemLibraryRef('local', 'custom', 'x')) == (None, None)
+    assert provenance(ProblemLibraryRef('toy', 'entry_point', 'toy:get', distribution='missing-dist')) == (None, None)
+
+
 def test_unique_custom_library_shadows_nothing(tmp_path):
     _write_legacy_library(tmp_path)
 
@@ -308,6 +336,7 @@ def test_benchmark_reports_a_local_library_that_replaces_a_provider(tmp_path, ca
     codes = [entry['code'] for entry in report['diagnostics']]
     assert {problem['provider']['source'] for problem in report['problems']} == {'custom'}
     assert {tuple(problem['provider']['shadows']) for problem in report['problems']} == {('bundled',)}
+    assert {(problem['provider']['version'], problem['provider']['revision']) for problem in report['problems']} == {(None, None)}
     warnings = [record.getMessage() for record in caplog.records
                 if record.levelname == 'WARNING' and 'replaces the provider' in record.getMessage()]
     assert len(warnings) == (1 if warned else 0)

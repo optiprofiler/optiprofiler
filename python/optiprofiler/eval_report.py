@@ -29,6 +29,7 @@ from .metadata import TEXT_LIMIT, bounded_text as _text, safe_metadata as _safe
 # Retain this compatibility alias; actual encoding delegates to metadata.
 from .metadata import describe_callback as _callback  # noqa: F401
 from .metadata import provenance_text
+from .problem_libraries import distribution_provenance
 
 
 _SCHEMA = 'optiprofiler.eval_report/2'
@@ -827,8 +828,10 @@ class EvalReport:
             if provider is not None:
                 if type(provider).__name__ == 'ProblemLibraryRef':
                     state = object.__getattribute__(provider, '__dict__')
+                    version, revision = distribution_provenance(provider)
                     provider = {key: state.get(key) for key in
                                 ('name', 'source', 'locator', 'distribution', 'shadows')}
+                    provider.update(version=version, revision=revision)
                 problem['provider'] = _safe(provider)
         self._write()
 
