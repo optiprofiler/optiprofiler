@@ -941,10 +941,11 @@ def _benchmark(
     Examples
     --------
     Benchmark two toy solvers that randomly sample around the initial point.
-    Save the following as a ``.py`` file and run it (the
-    ``if __name__ == '__main__'`` guard is required on every platform:
-    parallel workers are started with the ``spawn`` method, which imports
-    the script again in each worker):
+    Save the following as a ``.py`` file and run it. The
+    ``if __name__ == '__main__'`` guard is required on every platform when
+    ``n_jobs > 1`` (the default on a multi-core machine): parallel workers are
+    started with the ``spawn`` method, which imports the script again in each
+    worker.
 
     .. code-block:: python
 
