@@ -60,8 +60,9 @@ classdef TestConstraintCountInvariant < matlab.unittest.TestCase
         end
 
         function unrecordedQueriesSkipReferenceReads(testCase, strategy)
-            % record_hist=false must not read the reference (truth) value:
-            % exactly one user call fewer than a recorded query, as in Python.
+            % record_hist=false must not read the reference (truth) value: a
+            % recorded query costs exactly one more Problem-level constraint
+            % evaluation than an unrecorded one, as in Python.
             setappdata(0, 'TestConstraintCountInvariantCalls', 0);
             cleanup = onCleanup(@() rmappdata(0, 'TestConstraintCountInvariantCalls')); %#ok<NASGU>
             constraint = @(x) TestConstraintCountInvariant.countedConstraint(x);
@@ -69,12 +70,16 @@ classdef TestConstraintCountInvariant < matlab.unittest.TestCase
             fp = FeaturedProblem(p, TestConstraintCountInvariant.feature(strategy), 10, 17);
             for channel = {'cub', 'ceq'}
                 setappdata(0, 'TestConstraintCountInvariantCalls', 0);
+                p.(channel{1})(1);
+                one_evaluation = getappdata(0, 'TestConstraintCountInvariantCalls');
+                setappdata(0, 'TestConstraintCountInvariantCalls', 0);
                 fp.(channel{1})(1, false);
                 unrecorded = getappdata(0, 'TestConstraintCountInvariantCalls');
                 setappdata(0, 'TestConstraintCountInvariantCalls', 0);
                 fp.(channel{1})(1);
                 recorded = getappdata(0, 'TestConstraintCountInvariantCalls');
-                testCase.verifyEqual(recorded - unrecorded, 1, sprintf('%s: %d recorded vs %d unrecorded calls', channel{1}, recorded, unrecorded));
+                testCase.verifyEqual(recorded - unrecorded, one_evaluation, ...
+                    sprintf('%s: %d recorded vs %d unrecorded calls (%d per evaluation)', channel{1}, recorded, unrecorded, one_evaluation));
             end
         end
 
