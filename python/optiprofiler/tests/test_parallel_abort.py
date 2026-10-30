@@ -28,6 +28,10 @@ def broken_initializer(*args):
 def check_child(method, case, folder):
     saving = case.startswith('saved_')
     if saving: case = case[6:]
+    # A child started from a background shell inherits an ignored SIGINT, and
+    # Python then installs no KeyboardInterrupt handler; the interrupt cases
+    # model an interactive Ctrl-C.
+    signal.signal(signal.SIGINT, signal.default_int_handler)
     mp.set_start_method(method, force=True)
     from optiprofiler import benchmark
     import optiprofiler.profiles as profiles
