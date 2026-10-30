@@ -697,7 +697,10 @@ functions using ``def``. For parametrized solvers, use
 :func:`functools.partial` with a module-level function. A factory that returns
 a nested function still requires sequential execution.
 
-Put the benchmark call in an importable script and protect its entry point:
+Put the benchmark call in an importable script and protect its entry point.
+This is required on every platform, Linux included: OptiProfiler starts its
+workers with the ``spawn`` method, which imports the script again in each
+worker, so an unprotected call would run the benchmark again there.
 
 .. code-block:: python
 

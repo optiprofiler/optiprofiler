@@ -6,7 +6,9 @@ numerical safeguards for the feature transformations themselves.
 
 ## 1. The record
 
-`Problem.reference` is optional. New records have four required fields:
+`Problem.reference` is optional. A stored (serialized) record has four
+required fields; the Python `ProblemReference` constructor may omit `maxcv`,
+which then defaults to zero and is stored explicitly:
 
 | Field | Meaning |
 | --- | --- |
