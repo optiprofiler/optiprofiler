@@ -1184,9 +1184,9 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
             solver_merit_mins = squeeze(min(merit_history, [], 3, 'omitnan'));
             solver_scores_runs = zeros(n_solvers, n_runs);
             for i_run = 1:n_runs
-                if isnan(merit_inits(i_run))
-                    % An undefined initial merit cannot be scored; max() would
-                    % otherwise turn NaN into a score of 0.
+                if ~isfinite(merit_inits(i_run))
+                    % A relative decrease from an undefined or infinite initial
+                    % merit is undefined; max() would turn its NaN into 0.
                     solver_scores_runs(:, i_run) = NaN;
                     continue;
                 end
@@ -1200,6 +1200,9 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
             end
             % We set the score of a solver to be the mean score over all runs.
             solver_scores = mean(solver_scores_runs, 2);
+            if ~profile_options.(ProfileOptionKey.SILENT.value) && ~all(isfinite(merit_inits))
+                printOptiProfilerMessage('WARNING', sprintf("Problem '%s': runs with an undefined or infinite initial merit cannot be scored; their single-problem scores are NaN.", problem.name));
+            end
             if ~isempty(eval_report)
                 result.merit_history = merit_history;
                 result.merit_inits = merit_inits;

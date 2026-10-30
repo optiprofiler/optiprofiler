@@ -6,7 +6,7 @@ import h5py
 import numpy as np
 import pytest
 
-from optiprofiler import benchmark
+from optiprofiler import Problem, benchmark
 from optiprofiler.loader import load_results_from_h5
 from optiprofiler.profile_utils import compute_convergence_work
 
@@ -213,9 +213,16 @@ def nanmerit_load(name):
         assert passing_fraction(curves, channel) == 0
 
 
-def test_nan_initial_merit_single_problem_score_is_nan():
-    from optiprofiler import Problem
+def inf_at_initial_value(fun, cv, cv_init):
+    fun = np.asarray(fun, dtype=float)
+    return np.where(fun == 2.0, np.inf, fun)
+
+
+@pytest.mark.parametrize('merit', [nan_at_initial_value, inf_at_initial_value])
+def test_nonfinite_initial_merit_single_problem_score_is_nan(merit, caplog):
     problem = Problem(lambda x: float(np.sum((x - 1.0) ** 2)), [0.0, 0.0], name='QUAD')
-    scores = benchmark([visit_one, visit_one_again], problem=problem, merit_fun=nan_at_initial_value,
-                       n_runs=1, max_eval_factor=3, score_only=True, silent=True)[0]
+    scores = benchmark([visit_one, visit_one_again], problem=problem, merit_fun=merit,
+                       n_runs=1, max_eval_factor=3, score_only=True, silent=False)[0]
     assert np.all(np.isnan(scores))
+    assert any(record.levelname == 'WARNING' and "Problem 'QUAD': runs with an undefined or infinite initial merit"
+               in record.getMessage() for record in caplog.records)

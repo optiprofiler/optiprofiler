@@ -97,12 +97,16 @@ classdef TestNaNScoring < matlab.unittest.TestCase
             testCase.verifyEqual(TestNaNScoring.fraction(curves, 'out', 1), 0);
         end
 
-        function testNaNInitialMeritSingleProblemScoreIsNaN(testCase)
-            options = struct('problem', Problem(struct('fun', @(x) sum((x - 1).^2), 'x0', [0; 0], 'name', 'QUAD')), ...
-                'merit_fun', @TestNaNScoring.nanAtInitialValue, 'n_runs', 1, 'max_eval_factor', 3, ...
-                'score_only', true, 'silent', true);
-            scores = benchmark({@TestNaNScoring.visitOne, @TestNaNScoring.visitOneAgain}, options);
-            testCase.verifyTrue(all(isnan(scores)), mat2str(scores));
+        function testNonfiniteInitialMeritSingleProblemScoreIsNaN(testCase)
+            for merit = {@TestNaNScoring.nanAtInitialValue, @TestNaNScoring.infAtInitialValue}
+                options = struct('problem', Problem(struct('fun', @(x) sum((x - 1).^2), 'x0', [0; 0], 'name', 'QUAD')), ...
+                    'merit_fun', merit{1}, 'n_runs', 1, 'max_eval_factor', 3, ...
+                    'score_only', true, 'silent', false);
+                output = evalc('scores = benchmark({@TestNaNScoring.visitOne, @TestNaNScoring.visitOneAgain}, options);');
+                testCase.verifyTrue(all(isnan(scores)), mat2str(scores));
+                testCase.verifySubstring(strjoin(strsplit(output), ' '), ...
+                    'runs with an undefined or infinite initial merit cannot be scored');
+            end
         end
 
         function testSavedValiditySurvivesLoad(testCase)
@@ -129,6 +133,10 @@ classdef TestNaNScoring < matlab.unittest.TestCase
         function value = nanAtInitialValue(f, varargin)
             value = f;
             value(f == 2) = NaN;
+        end
+        function value = infAtInitialValue(f, varargin)
+            value = f;
+            value(f == 2) = Inf;
         end
         function x = visitOne(fun, x0, varargin)
             x = ones(size(x0));

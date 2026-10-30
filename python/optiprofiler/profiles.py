@@ -1384,8 +1384,9 @@ def _benchmark(
             solver_scores_runs = np.zeros((local_n_solvers, local_n_runs))
             references = json.loads(result['reference_records'])
             for i_run in range(local_n_runs):
-                if np.isnan(merit_init[i_run]):
-                    # An undefined initial merit cannot be scored; never 0.
+                if not np.isfinite(merit_init[i_run]):
+                    # A relative decrease from an undefined or infinite
+                    # initial merit is undefined; never report it as 0.
                     solver_scores_runs[:, i_run] = np.nan
                     continue
                 denom = max(merit_init[i_run] - merit_mins[i_run], np.finfo(float).eps)
@@ -1396,6 +1397,9 @@ def _benchmark(
                     # then saturated, not an unbounded score above one.
                     solver_scores_runs[:, i_run] = np.minimum(solver_scores_runs[:, i_run], 1)
             solver_scores = np.mean(solver_scores_runs, axis=1)
+            if not profile_options[ProfileOption.SILENT] and not np.all(np.isfinite(merit_init)):
+                logger.warning(f"Problem '{problem.name}': runs with an undefined or infinite initial merit "
+                               'cannot be scored; their single-problem scores are NaN.')
         else:
             solver_scores = np.zeros(n_solvers)
 
