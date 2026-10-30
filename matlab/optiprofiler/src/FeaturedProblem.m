@@ -767,7 +767,13 @@ classdef FeaturedProblem < Problem
     methods (Access = protected)
         function value = constraintDimension(obj,channel)
             if isempty(obj.final_view)
-                value = constraintDimension@Problem(obj,channel);
+                % Same callbacks and probe point as the original problem:
+                % reuse its measured dimension instead of probing again.
+                if strcmp(channel,'cub')
+                    value = obj.problem.m_nonlinear_ub;
+                else
+                    value = obj.problem.m_nonlinear_eq;
+                end
             elseif strcmp(channel,'cub')
                 value = obj.final_view.m_nonlinear_ub;
             else

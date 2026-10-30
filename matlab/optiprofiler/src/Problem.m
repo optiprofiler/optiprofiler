@@ -123,9 +123,9 @@ classdef Problem < handle
 %       - m_linear_eq: number of the linear equality constraints, which is the
 %         length of `beq`.
 %       - m_nonlinear_ub: number of the nonlinear inequality constraints, which
-%         is the length of `cub(x)`.
+%         is the length of `cub(x0)`, measured once per value of `x0`.
 %       - m_nonlinear_eq: number of the nonlinear equality constraints, which
-%         is the length of `ceq(x)`.
+%         is the length of `ceq(x0)`, measured once per value of `x0`.
 %       - mlcon: number of the linear constraints, which is the sum of
 %         `m_linear_ub` and `m_linear_eq`.
 %       - mnlcon: number of the nonlinear constraints, which is the sum of
@@ -144,7 +144,8 @@ classdef Problem < handle
 %       - maxcv: the maximum constraint violation ``maxcv(x) -> float``, which
 %         is defined as the maximum of the infinity norms of
 %         `max(xl - x, 0)`, `max(x - xu, 0)`, `max(aub * x - bub, 0)`,
-%         `aeq * x - beq`, `max(cub(x), 0)`, `ceq(x)`.
+%         `aeq * x - beq`, `max(cub(x), 0)`, `ceq(x)`. A row `x` is used as
+%         the column `x(:)`, also for the `cub`/`ceq` calls.
 %       - project_x0: trying to project the initial guess `x0` onto the
 %         feasible region if it is not feasible (but it may fail).
 %
