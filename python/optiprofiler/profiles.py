@@ -2349,7 +2349,8 @@ def _solve_all_problems(solvers, plib, feature, plan, problem_options, profile_o
     library_ref = resolve_problem_library(plib, custom_problem_libs_path)
     # Editing a copy of the bundled `custom` template is the documented
     # workflow; replacing any other provider changes the data behind a
-    # public library name and must not be silent.
+    # public library name and must not be silent, so `silent` does not
+    # suppress this warning.
     if library_ref.shadows and _report_role == 'primary' and not (plib == 'custom' and library_ref.shadows == ('bundled',)):
         logger.warning(
             f'The local problem library "{plib}" from {ProblemOption.CUSTOM_PROBLEM_LIBS_PATH.value} replaces the '
