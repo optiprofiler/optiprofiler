@@ -213,6 +213,14 @@ classdef Problem < handle
 
     end
 
+    properties (Access = private)
+
+        % Constraint dimensions per channel, valid for the probe point they
+        % were measured at. Callbacks are fixed at construction; x0 is not.
+        dimension_cache_ = struct('channel', {}, 'point', {}, 'value', {})
+
+    end
+
     methods
 
         % Initialize a PROBLEM.
@@ -631,6 +639,7 @@ classdef Problem < handle
             if numel(x) ~= obj.n
                 error("MATLAB:Problem:WrongSizeInputForMaxCV", "The input `x` for method `maxcv` in `Problem` must have size %d.", obj.n)
             end
+            x = x(:);
 
             if strcmp(obj.ptype, 'u')
                 cv = 0;
@@ -1090,26 +1099,32 @@ classdef Problem < handle
 
     methods (Access = protected)
         function value = constraintDimension(obj,channel)
-            % Ordinary Problem dimensions remain live. Composable views override
-            % only this metadata boundary, never observed callbacks.
+            % Ordinary Problem dimensions follow the current probe point (x0).
+            % Composable views override only this metadata boundary, never
+            % observed callbacks. Absence or a successfully empty result means
+            % no constraints. A failed probe must propagate, not silently
+            % classify the problem as unconstrained, and is not cached.
             if strcmp(channel,'cub')
-            % Absence or a successfully empty result means no constraints.
-            % A failed probe must propagate, not silently classify the problem
-            % as unconstrained. Do not cache: x0 and callbacks can be changed.
-            if isempty(obj.cub_)
-                value = 0;
+                callback = obj.cub_;
             else
-                cub = obj.cub_(obj.constraintProbePoint());
-                value = numel(cub);
+                callback = obj.ceq_;
             end
-            else
-            % Match the inequality count policy, including empty callbacks.
-            if isempty(obj.ceq_)
+            if isempty(callback)
                 value = 0;
-            else
-                ceq = obj.ceq_(obj.constraintProbePoint());
-                value = numel(ceq);
+                return
             end
+            point = obj.constraintProbePoint();
+            k = find(strcmp({obj.dimension_cache_.channel}, channel), 1);
+            if ~isempty(k) && isequaln(obj.dimension_cache_(k).point, point)
+                value = obj.dimension_cache_(k).value;
+                return
+            end
+            value = numel(callback(point));
+            entry = struct('channel', channel, 'point', point, 'value', value);
+            if isempty(k)
+                obj.dimension_cache_(end + 1) = entry;
+            else
+                obj.dimension_cache_(k) = entry;
             end
         end
         function x = constraintProbePoint(obj)
