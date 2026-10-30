@@ -2785,6 +2785,7 @@ def _solve_one_problem(solvers, problem, feature, plan, problem_name, len_proble
     # ``_solve_one_problem`` above.
     solver_abnormal_terminations = np.full((n_solvers, n_runs), False)
     solver_output_fallbacks = np.full((n_solvers, n_runs), False)
+    reference_history_failures = []
 
     # The number of real runs for each solver, which is determined by feature and solver_isrand.
     real_n_runs = plan.actual_runs(feature, solver_isrand, n_solvers)
@@ -2995,6 +2996,11 @@ def _solve_one_problem(solvers, problem, feature, plan, problem_name, len_proble
                             f'(run {i_run + 1}/{real_n_runs[i_solver]}): {_shorten_log_message(exc)}'
                         )
             n_eval[i_solver, i_run] = featured_problem.n_eval_fun
+            failure = getattr(featured_problem, '_reference_history_failure', None)
+            if failure is not None:
+                reference_history_failures.append({
+                    'code': 'reference_history_unavailable', 'stage': 'numerical',
+                    'solver_index': i_solver + 1, 'run_index': i_run + 1, 'exception_type': failure})
             # A single misplaced constraint value can broadcast over several
             # objective slots and falsely mark unavailable evaluations feasible.
             # Histories describe paired observations; never pad or broadcast a
@@ -3064,7 +3070,7 @@ def _solve_one_problem(solvers, problem, feature, plan, problem_name, len_proble
             'oracle_seeds': [(23333 * profile_options[ProfileOption.SEED] + 211 * i) % (2**32)
                              for i in range(n_runs)],
             'render_status': 'not_requested' if path_hist_plots is None or profile_options[ProfileOption.SCORE_ONLY] else 'unknown',
-            'diagnostics': [],
+            'diagnostics': list(reference_history_failures),
         }
 
     # Draw the history plots if required.

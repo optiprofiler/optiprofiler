@@ -1,5 +1,6 @@
 """Public and provider regressions for runtime contract boundaries."""
 
+import json
 import logging
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -316,3 +317,40 @@ def test_reference_history_diagnostic_is_bounded_per_trial(name, caplog):
     other = FeaturedProblem(root, Feature(name), 3, 17)
     with pytest.warns(RuntimeWarning, match='Reference constraint'):
         other.fun(np.array([1., 1.]))
+
+
+def _probe_size_mismatch(fun, x0, *constraints):
+    fun(np.ones(2))
+    fun(np.ones(2))
+    fun(np.full(2, 2.0))
+    return x0
+
+
+@pytest.mark.parametrize('n_jobs', [1, 2])
+@pytest.mark.parametrize('feature_name', ['plain', 'noisy+noisy'])
+def test_reference_history_failure_reaches_the_report(tmp_path, monkeypatch, n_jobs, feature_name):
+    monkeypatch.chdir(tmp_path)
+    library = tmp_path / 'reftoy'
+    library.mkdir()
+    (library / 'reftoy_tools.py').write_text(
+        'import numpy as np\n'
+        'from optiprofiler import Problem\n'
+        'def malformed(x):\n'
+        '    return [-1.0, -1.0] if np.all(np.asarray(x) == 1.0) else [-1.0]\n'
+        'def reftoy_select(options):\n'
+        "    return ['P']\n"
+        'def reftoy_load(name):\n'
+        '    return Problem(lambda x: float(np.sum((x - 1.0) ** 2)), [0.0, 0.0], cub=malformed, name=name)\n',
+        encoding='utf-8')
+    report_path = tmp_path / 'report.json'
+    benchmark([_probe_size_mismatch, _probe_size_mismatch], plibs=['reftoy'], custom_problem_libs_path=str(tmp_path),
+              feature_name=feature_name, n_jobs=n_jobs, n_runs=2, max_eval_factor=5, max_tol_order=1, run_plain=False,
+              score_only=True, silent=True, report_path=str(report_path))
+    report = json.loads(report_path.read_text(encoding='utf-8'))
+    failures = [entry for entry in report['diagnostics'] if entry['code'] == 'reference_history_unavailable']
+    # A deterministic feature executes one run per solver; later runs are copies.
+    runs = (1,) if feature_name == 'plain' else (1, 2)
+    assert {(entry['scope']['solver_index'], entry['scope']['run_index']) for entry in failures} == {
+        (solver, run) for solver in (1, 2) for run in runs}
+    assert all(entry['stage'] == 'numerical' and entry['scope']['exception_type'] == 'ValueError'
+               and entry['scope']['library'] == 'reftoy' and entry['scope']['problem'] == 'P' for entry in failures)

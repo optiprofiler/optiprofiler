@@ -1000,9 +1000,11 @@ class EvalReport:
                 self.document['stages']['rendering'] = {'status': 'completed'}
         for diagnostic in metadata.get('diagnostics', [])[:_MAX_DIAGNOSTICS]:
             if type(diagnostic) is dict:
+                scope = {key: value for key, value in diagnostic.items()
+                         if key in ('solver_index', 'run_index', 'exception_type')}
+                scope.setdefault('exception_type', None)
                 self.add_diagnostic(diagnostic.get('code'), diagnostic.get('stage'),
-                                    library=plib, problem=name, role=role,
-                                    exception_type=diagnostic.get('exception_type'))
+                                    library=plib, problem=name, role=role, **scope)
 
     def _add_history_plots(self, result, problem):
         """Prepare display facts only: no axes, user callbacks, or raw mutation."""

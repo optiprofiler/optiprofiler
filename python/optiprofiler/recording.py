@@ -12,6 +12,7 @@ def initialize_recording_state(owner):
     owner._ceq_hist = []
     owner._maxcv_hist = []
     owner._reference_history_warned = False
+    owner._reference_history_failure = None
     owner._last_fun = np.nan
     owner._last_cub = np.nan
     owner._last_ceq = np.nan
@@ -41,6 +42,7 @@ def reference_maxcv_or_nan(evaluate, x, owner=None, *, stacklevel=3):
             if owner._reference_history_warned:
                 return np.nan
             owner._reference_history_warned = True
+            owner._reference_history_failure = type(error).__name__
         message = (f'Reference constraint violation could not be recorded: '
                    f'{type(error).__name__}: {error}')
         # Solver execution suppresses Python warnings; its queue logger must
