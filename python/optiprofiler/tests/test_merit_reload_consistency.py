@@ -195,6 +195,8 @@ def test_failing_merit_log_keeps_the_reload_hint_and_the_path(tmp_path, monkeypa
     output = capsys.readouterr().out
     errors = [line for line in output.splitlines() if line.startswith('[ERROR')]
     assert any(line.endswith('Reload the saved results with a corrected merit_fun.') for line in errors)
+    assert not any(line.endswith('...') for line in errors)
+    assert 'Merit function error: deliberate merit failure' in ' '.join(output.split())
     saved = output[output.index('The solver results were saved in'):]
     assert benchmark_id in ''.join(saved.split())
 

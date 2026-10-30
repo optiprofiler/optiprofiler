@@ -38,6 +38,16 @@ from .plotting import draw_hist, set_profile_context, format_float_scientific_la
 from .plot_options import apply_plot_options
 
 
+def _log_merit_failure(logger, exc, which='the '):
+    """
+    Log a failed merit computation without losing its cause.
+    """
+    # ERROR records are shortened to one line; the cause goes in a WARNING
+    # record, which is wrapped instead.
+    logger.error(f'Error occurred while calculating {which}merit values. Please check the merit function.')
+    logger.warning(f'Merit function error: {shorten_log_message(exc)}')
+
+
 def _shorten_log_message(message: object, max_length: int = 180) -> str:
     """
     Shorten an exception message for log output.
@@ -1353,7 +1363,7 @@ def _benchmark(
                 merit_history = compute_merit_values(merit_fun, result['fun_history'], result['maxcv_history'], result['maxcv_init'])
                 merit_init = compute_merit_values(merit_fun, result['fun_init'], result['maxcv_init'], result['maxcv_init'])
             except Exception as exc:
-                logger.error(f'Error occurred while calculating the merit values. Please check the merit function. Error message: {shorten_log_message(exc)}')
+                _log_merit_failure(logger, exc)
                 raise exc
             merit_init = np.atleast_1d(np.asarray(merit_init))
             local_n_solvers, local_n_runs = merit_history.shape[:2]
@@ -1485,7 +1495,7 @@ def _benchmark(
                     merit_outs = compute_merit_values(merit_fun, results_plib['fun_outs'], results_plib['maxcv_outs'], results_plib['maxcv_inits'])
                     merit_inits = compute_merit_values(merit_fun, results_plib['fun_inits'], results_plib['maxcv_inits'], results_plib['maxcv_inits'])
                 except Exception as exc:
-                    logger.error(f'Error occurred while calculating the merit values. Please check the merit function. Error message: {shorten_log_message(exc)}')
+                    _log_merit_failure(logger, exc)
                     merit_failure = exc
                 else:
                     results_plib['merit_histories'] = merit_histories
@@ -1517,7 +1527,7 @@ def _benchmark(
                                 'merit_inits': compute_merit_values(merit_fun, results_plib_plain['fun_inits'], results_plib_plain['maxcv_inits'], results_plib_plain['maxcv_inits']),
                             }
                         except Exception as exc:
-                            logger.error(f'Error occurred while calculating the merit values for the "plain" feature. Please check the merit function. Error message: {shorten_log_message(exc)}')
+                            _log_merit_failure(logger, exc, 'the "plain" ')
                             merit_failure = exc
                         else:
                             results_plib_plain.update(plain_merits)
@@ -3090,7 +3100,7 @@ def _solve_one_problem(solvers, problem, feature, plan, problem_name, len_proble
             merit_history = compute_merit_values(merit_fun, fun_history, maxcv_history, maxcv_inits)
             merit_init = compute_merit_values(merit_fun, fun_inits, maxcv_inits, maxcv_inits)
         except Exception as exc:
-            logger.error(f'Error occurred while calculating the merit values. Please check the merit function. Error message: {shorten_log_message(exc)}')
+            _log_merit_failure(logger, exc)
             raise exc
 
         with warnings.catch_warnings():
@@ -3164,7 +3174,7 @@ def _draw_problem_history_plot(problem_name, problem_type, problem_dim, solver_n
             merit_history = compute_merit_values(merit_fun, fun_history, maxcv_history, maxcv_init)
             merit_init = compute_merit_values(merit_fun, fun_init, maxcv_init, maxcv_init)
         except Exception as exc:
-            logger.error(f'Error occurred while calculating the merit values. Please check the merit function. Error message: {shorten_log_message(exc)}')
+            _log_merit_failure(logger, exc)
             raise exc
 
         with warnings.catch_warnings():
