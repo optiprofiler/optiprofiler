@@ -1182,6 +1182,12 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
             solver_merit_mins = squeeze(min(merit_history, [], 3, 'omitnan'));
             solver_scores_runs = zeros(n_solvers, n_runs);
             for i_run = 1:n_runs
+                if isnan(merit_inits(i_run))
+                    % An undefined initial merit cannot be scored; max() would
+                    % otherwise turn NaN into a score of 0.
+                    solver_scores_runs(:, i_run) = NaN;
+                    continue;
+                end
                 solver_scores_runs(:, i_run) = (merit_inits(i_run) - solver_merit_mins(:, i_run)) ./ max(merit_inits(i_run) - merit_mins(i_run), eps);
                 solver_scores_runs(:, i_run) = max(solver_scores_runs(:, i_run), 0);
                 if ~isempty(result.reference_records{i_run})

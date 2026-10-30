@@ -49,7 +49,7 @@ The subfolder ``test_log`` contains diagnostic files for the experiment. In
 particular, ``test_log/report.txt`` records selected problem names, timing
 information, and special cases detected while building the profiles: problems
 where ``merit_init = phi(x_0) = Inf`` (valid evaluations pass by convention,
-but undefined objective or constraint values do not), solver runs that
+but undefined objective, constraint or merit values do not), solver runs that
 terminated abnormally, and solver outputs that
 were replaced by the initial point as an output-based penalty. The file
 ``test_log/log.txt`` contains the messages printed during the run.

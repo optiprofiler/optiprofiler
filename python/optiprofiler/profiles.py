@@ -1373,6 +1373,10 @@ def _benchmark(
             solver_scores_runs = np.zeros((local_n_solvers, local_n_runs))
             references = json.loads(result['reference_records'])
             for i_run in range(local_n_runs):
+                if np.isnan(merit_init[i_run]):
+                    # An undefined initial merit cannot be scored; never 0.
+                    solver_scores_runs[:, i_run] = np.nan
+                    continue
                 denom = max(merit_init[i_run] - merit_mins[i_run], np.finfo(float).eps)
                 solver_scores_runs[:, i_run] = (merit_init[i_run] - solver_merit_mins[:, i_run]) / denom
                 solver_scores_runs[:, i_run] = np.maximum(solver_scores_runs[:, i_run], 0)

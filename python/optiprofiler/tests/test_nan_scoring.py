@@ -211,3 +211,11 @@ def nanmerit_load(name):
                              max_tol_order=1, run_plain=False, score_only=True, silent=True)
     for channel in ['hist', 'out']:
         assert passing_fraction(curves, channel) == 0
+
+
+def test_nan_initial_merit_single_problem_score_is_nan():
+    from optiprofiler import Problem
+    problem = Problem(lambda x: float(np.sum((x - 1.0) ** 2)), [0.0, 0.0], name='QUAD')
+    scores = benchmark([visit_one, visit_one_again], problem=problem, merit_fun=nan_at_initial_value,
+                       n_runs=1, max_eval_factor=3, score_only=True, silent=True)[0]
+    assert np.all(np.isnan(scores))

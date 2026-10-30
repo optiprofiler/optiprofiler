@@ -97,6 +97,14 @@ classdef TestNaNScoring < matlab.unittest.TestCase
             testCase.verifyEqual(TestNaNScoring.fraction(curves, 'out', 1), 0);
         end
 
+        function testNaNInitialMeritSingleProblemScoreIsNaN(testCase)
+            options = struct('problem', Problem(struct('fun', @(x) sum((x - 1).^2), 'x0', [0; 0], 'name', 'QUAD')), ...
+                'merit_fun', @TestNaNScoring.nanAtInitialValue, 'n_runs', 1, 'max_eval_factor', 3, ...
+                'score_only', true, 'silent', true);
+            scores = benchmark({@TestNaNScoring.visitOne, @TestNaNScoring.visitOneAgain}, options);
+            testCase.verifyTrue(all(isnan(scores)), mat2str(scores));
+        end
+
         function testSavedValiditySurvivesLoad(testCase)
             options = testCase.Options;
             options.problem_names = {'FINITE', 'NAN_INIT_CV', 'INF_INIT_NAN_LATER'};
