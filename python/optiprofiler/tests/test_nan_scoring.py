@@ -135,7 +135,7 @@ def test_saved_raw_nan_validity_survives_load(nan_library, tmp_path, legacy):
         assert passing_fraction(loaded_curves, channel) == pytest.approx(1 / 3)
     assert hashlib.sha256(source.read_bytes()).hexdigest() == digest
     report = next(source.parent.glob('*report*.txt')).read_text()
-    assert 'undefined initial objective or constraint' in report
+    assert 'undefined initial objective, constraint or merit' in report
 
 
 @pytest.mark.parametrize('legacy_field,bad_name', [
@@ -174,6 +174,7 @@ def test_mixed_legacy_initial_dimensions_on_load(nan_library, tmp_path,
     (10., np.nan, [np.nan] * 3, np.nan, 3, [False] * 3, False, False, (np.nan, np.nan)),
     (10., 0., [3., 1., 0.], 0., 3, [True] * 3, True, True, (np.nan, np.nan)),
     (10., 0., [5., 3., 0.], .5, 2, [True, True, False], False, False, (np.nan, np.nan)),
+    (np.nan, 0., [3., 1., 0.], 0., 3, [True] * 3, False, True, (np.nan, np.nan)),
 ])
 def test_convergence_work_obeys_validity_and_initial_conventions(
         initial, minimum, history, output, count, valid, invalid, output_valid, expected):
@@ -184,3 +185,29 @@ def test_convergence_work_obeys_validity_and_initial_conventions(
         np.array([[[output_valid]]]))
     assert work[0].shape == work[1].shape == (1, 1, 1)
     np.testing.assert_array_equal([work[0].item(), work[1].item()], expected)
+
+
+def nan_at_initial_value(fun, cv, cv_init):
+    fun = np.asarray(fun, dtype=float)
+    return np.where(fun == 2.0, np.nan, fun)
+
+
+def test_nan_initial_merit_cannot_pass(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    root = tmp_path / 'nanmerit'
+    root.mkdir()
+    (root / 'nanmerit_tools.py').write_text('''
+import numpy as np
+from optiprofiler import Problem
+
+def nanmerit_select(options):
+    return ['QUAD']
+
+def nanmerit_load(name):
+    return Problem(lambda x: float(np.sum((x - 1.0) ** 2)), [0.0, 0.0], name=name)
+''')
+    _, _, curves = benchmark([visit_one, visit_one_again], plibs=['nanmerit'], custom_problem_libs_path=str(tmp_path),
+                             merit_fun=nan_at_initial_value, n_jobs=1, n_runs=1, max_eval_factor=3,
+                             max_tol_order=1, run_plain=False, score_only=True, silent=True)
+    for channel in ['hist', 'out']:
+        assert passing_fraction(curves, channel) == 0

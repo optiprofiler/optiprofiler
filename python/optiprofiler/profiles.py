@@ -562,7 +562,8 @@ def _benchmark(
         and v0 is the maximum constraint violation at the initial guess.
         NaN objective or constraint values are invalid evaluations, including
         when a custom merit function returns a finite value for them. A run
-        with an undefined initial value is not declared passing. Otherwise,
+        with an undefined initial value, including a merit function value of
+        NaN at the initial guess, is not declared passing. Otherwise,
         if varphi(x_0) is inf, the existing degenerate-test convention accepts
         valid evaluations. Both cases are listed in ``test_log/report.txt``.
     n_jobs : int, optional
@@ -1826,6 +1827,8 @@ def _build_profiles(
             )
         else:
             merit_inits_per_run = merit_inits_merged
+        # A merit_fun that is NaN at x0 cannot establish a target either.
+        invalid_initial = invalid_initial | np.isnan(merit_inits_per_run)
         merit_init_inf_mask = np.isinf(merit_inits_per_run) & ~invalid_initial
         if not profile_options[ProfileOption.SILENT] and np.any(merit_init_inf_mask):
             for i_problem in range(n_problems):
@@ -1835,7 +1838,7 @@ def _build_profiles(
                         f"By convention, valid evaluations pass the convergence test for this problem at those runs."
                     )
         if not profile_options[ProfileOption.SILENT] and np.any(invalid_initial):
-            logger.warning('Runs with an undefined initial objective or constraint cannot be assessed by the convergence test and are not declared passing.')
+            logger.warning('Runs with an undefined initial objective, constraint or merit cannot be assessed by the convergence test and are not declared passing.')
 
         # Merge per-(problem, solver, run) diagnostic flags across the
         # problem libraries so they share the same problem index space as
@@ -2052,7 +2055,7 @@ def _build_profiles(
                         fid.write('\n')
                         fid.write('This part is empty.\n')
 
-                    fid.write('\n## Problems with undefined initial objective or constraint (not assessable; not declared passing)\n')
+                    fid.write('\n## Problems with undefined initial objective, constraint or merit (not assessable; not declared passing)\n')
                     if np.any(invalid_initial):
                         for i_run in range(n_runs):
                             names = [problem_names_merged[i] for i in range(n_problems) if invalid_initial[i, i_run]]

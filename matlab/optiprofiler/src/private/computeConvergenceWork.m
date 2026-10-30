@@ -10,7 +10,7 @@ function [work_hist, work_out] = computeConvergenceWork(merit_histories, merit_o
     for i_problem = 1:n_problems
         for i_solver = 1:n_solvers
             for i_run = 1:n_runs
-                if invalid_initial(i_problem, i_run)
+                if invalid_initial(i_problem, i_run) || isnan(merit_inits(i_problem, i_run))
                     continue;
                 end
                 if initial_is_inf(i_problem, i_run)

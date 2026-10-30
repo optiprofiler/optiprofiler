@@ -1215,7 +1215,7 @@ def compute_convergence_work(merit_histories, merit_outs, merit_inits, merit_min
     for i_problem in range(n_problems):
         for i_solver in range(n_solvers):
             for i_run in range(n_runs):
-                if invalid_initial[i_problem, i_run]:
+                if invalid_initial[i_problem, i_run] or np.isnan(merit_inits[i_problem, i_run]):
                     continue
                 if initial_is_inf[i_problem, i_run]:
                     # Preserve the Inf-initial convention, but only

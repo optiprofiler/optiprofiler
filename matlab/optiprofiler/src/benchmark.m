@@ -164,7 +164,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         and v0 is the maximum constraint violation at the initial guess.
 %         NaN objective or constraint values are invalid evaluations, even
 %         if a custom merit returns a finite value. Runs with undefined initial
-%         values are not declared passing. Otherwise, if varphi(x_0) is Inf,
+%         values, including a merit value of NaN at the initial guess, are not
+%         declared passing. Otherwise, if varphi(x_0) is Inf,
 %         the existing degenerate-test convention accepts valid evaluations.
 %         Both cases are listed in test_log/report.txt.
 %       - n_jobs: the number of parallel jobs to run the test. Default is a
@@ -1605,6 +1606,8 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
         valid_outs(rows, :, :) = ~(isnan(result.fun_outs) | isnan(result.maxcv_outs));
         row_offset = row_offset + n_p;
     end
+    % A merit_fun that is NaN at x0 cannot establish a target either.
+    invalid_initial = invalid_initial | isnan(merit_inits_merged);
     merit_init_inf_mask = isinf(merit_inits_merged) & ~invalid_initial;
     if ~profile_options.(ProfileOptionKey.SILENT.value) && any(merit_init_inf_mask(:))
         for i_problem = 1:n_problems
@@ -1614,7 +1617,7 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
         end
     end
     if ~profile_options.(ProfileOptionKey.SILENT.value) && any(invalid_initial(:))
-        printOptiProfilerMessage('WARNING', 'Runs with an undefined initial objective or constraint cannot be assessed by the convergence test and are not declared passing.');
+        printOptiProfilerMessage('WARNING', 'Runs with an undefined initial objective, constraint or merit cannot be assessed by the convergence test and are not declared passing.');
     end
 
     for i_tol = 1:profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value)
@@ -1894,7 +1897,7 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
                 fprintf(fid, "This part is empty.\n");
             end
 
-            fprintf(fid, "\n## Problems with undefined initial objective or constraint (not assessable; not declared passing)\n");
+            fprintf(fid, "\n## Problems with undefined initial objective, constraint or merit (not assessable; not declared passing)\n");
             if any(invalid_initial(:))
                 for i_run = 1:n_runs
                     names = problem_names_merged(invalid_initial(:, i_run));

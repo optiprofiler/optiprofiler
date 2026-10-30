@@ -77,6 +77,26 @@ classdef TestNaNScoring < matlab.unittest.TestCase
             testCase.verifyEqual(curve(1, find(curve(2, :) > 0, 1)), 1);
         end
 
+        function testNaNInitialMeritCannotPass(testCase)
+            library = fullfile(testCase.Directory, 'nanmerit');
+            mkdir(library);
+            TestReferencePoints.write(fullfile(library, 'nanmerit_select.m'), sprintf( ...
+                'function names = nanmerit_select(~)\n names = {''QUAD''};\nend\n'));
+            TestReferencePoints.write(fullfile(library, 'nanmerit_load.m'), sprintf( ...
+                'function p = nanmerit_load(name, varargin)\n p = Problem(struct(''fun'', @(x) sum((x - 1).^2), ''x0'', [0; 0], ''name'', name));\nend\n'));
+            registerProblemLibrary(struct('name', 'nanmerit', 'root', library, ...
+                'select_function', 'nanmerit_select', 'load_function', 'nanmerit_load'));
+            options = testCase.Options;
+            options.plibs = {'nanmerit'};
+            options.ptype = 'u';
+            options.mindim = 2;
+            options.maxdim = 2;
+            options.merit_fun = @TestNaNScoring.nanAtInitialValue;
+            [~, ~, curves] = benchmark({@TestNaNScoring.visitOne, @TestNaNScoring.visitOneAgain}, options);
+            testCase.verifyEqual(TestNaNScoring.fraction(curves, 'hist', 1), 0);
+            testCase.verifyEqual(TestNaNScoring.fraction(curves, 'out', 1), 0);
+        end
+
         function testSavedValiditySurvivesLoad(testCase)
             options = testCase.Options;
             options.problem_names = {'FINITE', 'NAN_INIT_CV', 'INF_INIT_NAN_LATER'};
@@ -94,10 +114,14 @@ classdef TestNaNScoring < matlab.unittest.TestCase
             end
             testCase.verifyEqual(TestNaNScoring.bytes(source), before);
             report = fileread(fullfile(files(1).folder, 'report.txt'));
-            testCase.verifyTrue(contains(report, 'undefined initial objective or constraint'));
+            testCase.verifyTrue(contains(report, 'undefined initial objective, constraint or merit'));
         end
     end
     methods (Static)
+        function value = nanAtInitialValue(f, varargin)
+            value = f;
+            value(f == 2) = NaN;
+        end
         function x = visitOne(fun, x0, varargin)
             x = ones(size(x0));
             fun(x);
