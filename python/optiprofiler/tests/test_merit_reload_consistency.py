@@ -184,6 +184,21 @@ def test_failing_merit_keeps_a_reloadable_raw_archive(tmp_path, monkeypatch):
     assert _archive_hash(tmp_path / 'failed') == source_hash
 
 
+def test_failing_merit_log_keeps_the_reload_hint_and_the_path(tmp_path, monkeypatch, capsys):
+    # ERROR records are shortened by the console/log formatter; a long saved
+    # path must not cut off the hint, and the path must remain readable.
+    monkeypatch.chdir(tmp_path)
+    libraries = _library(tmp_path, None)
+    benchmark_id = 'failed_' + 'x' * 120
+    with pytest.raises(RuntimeError, match='deliberate merit failure'):
+        _run(libraries, benchmark_id, merit_fun=failing_merit, silent=False)
+    output = capsys.readouterr().out
+    errors = [line for line in output.splitlines() if line.startswith('[ERROR')]
+    assert any(line.endswith('Reload the saved results with a corrected merit_fun.') for line in errors)
+    saved = output[output.index('The solver results were saved in'):]
+    assert benchmark_id in ''.join(saved.split())
+
+
 def plain_failing_merit(fun, maxcv, initial_maxcv):
     # Fails only on the unperturbed initial values f(x0) in {4, 9}, which only
     # the plain baseline evaluates when the primary runs perturb x0.

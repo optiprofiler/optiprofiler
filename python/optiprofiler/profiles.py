@@ -1602,7 +1602,10 @@ def _benchmark(
         # produced from a failed merit. The benchmark wrapper records the
         # original exception in the report.
         if not profile_options[ProfileOption.SILENT] and not profile_options[ProfileOption.SCORE_ONLY]:
-            logger.error(f'The solver results were saved in {path_log}. Reload them with a corrected merit_fun.')
+            # ERROR records are shortened to one line; keep the path, which
+            # can be long, in a wrapped INFO record so the hint survives.
+            logger.error('The merit function failed. Reload the saved results with a corrected merit_fun.')
+            logger.info(f'The solver results were saved in {path_log}.')
         raise merit_failure
 
     # Draw history plots sequentially if draw_hist_plots is set to 'sequential'.
