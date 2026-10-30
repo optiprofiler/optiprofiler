@@ -1391,6 +1391,9 @@ def _benchmark(
                     continue
                 denom = max(merit_init[i_run] - merit_mins[i_run], np.finfo(float).eps)
                 solver_scores_runs[:, i_run] = (merit_init[i_run] - solver_merit_mins[:, i_run]) / denom
+                # Without a valid evaluation a solver made no decrease, exactly
+                # as a solver without any evaluation (and as in MATLAB).
+                solver_scores_runs[np.isnan(solver_merit_mins[:, i_run]), i_run] = 0
                 solver_scores_runs[:, i_run] = np.maximum(solver_scores_runs[:, i_run], 0)
                 if references[i_run] is not None:
                     # A selected target can be exceeded; relative decrease is

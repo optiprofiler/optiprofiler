@@ -109,6 +109,14 @@ classdef TestNaNScoring < matlab.unittest.TestCase
             end
         end
 
+        function testSingleProblemSolverWithoutValidEvaluationScoresZero(testCase)
+            options = struct('problem', Problem(struct('fun', @(x) sum((x - 1).^2), 'x0', [0; 0], 'name', 'QUAD')), ...
+                'merit_fun', @TestNaNScoring.nanAtHalf, 'n_runs', 1, 'max_eval_factor', 3, ...
+                'score_only', true, 'silent', true);
+            scores = benchmark({@TestNaNScoring.visitOne, @TestNaNScoring.visitHalf}, options);
+            testCase.verifyEqual(scores(:)', [1, 0]);
+        end
+
         function testSavedValiditySurvivesLoad(testCase)
             options = testCase.Options;
             options.problem_names = {'FINITE', 'NAN_INIT_CV', 'INF_INIT_NAN_LATER'};
@@ -137,6 +145,14 @@ classdef TestNaNScoring < matlab.unittest.TestCase
         function value = infAtInitialValue(f, varargin)
             value = f;
             value(f == 2) = Inf;
+        end
+        function value = nanAtHalf(f, varargin)
+            value = f;
+            value(f == 0.5) = NaN;
+        end
+        function x = visitHalf(fun, x0, varargin)
+            x = 0.5 * ones(size(x0));
+            fun(x);
         end
         function x = visitOne(fun, x0, varargin)
             x = ones(size(x0));
