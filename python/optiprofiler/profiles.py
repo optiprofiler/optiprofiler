@@ -1496,7 +1496,7 @@ def _benchmark(
                     logger.info('')
                     logger.info(f'Start testing problems from the problem library "{plib}" with "plain" feature.')
                 results_plib_plain = _solve_all_problems(solvers, plib, feature_plain, plan_plain, problem_options, profile_options, False, None, log_queue=log_queue,
-                                                        **({'_report': report, '_report_role': 'plain_reference'} if report is not None else {}))
+                                                        _report=report, _report_role='plain_reference')
                 if not results_plib_plain or len(results_plib_plain['problem_names']) == 0:
                     if not profile_options[ProfileOption.SILENT]:
                         logger.warning(f'No plain baseline was obtained from "{plib}"; keeping the featured results without a plain reference.')
@@ -2324,6 +2324,17 @@ def _solve_all_problems(solvers, plib, feature, plan, problem_options, profile_o
     # Resolve first without importing so the serializable reference can also be
     # used by worker processes.
     library_ref = resolve_problem_library(plib, custom_problem_libs_path)
+    # Editing a copy of the bundled `custom` template is the documented
+    # workflow; replacing any other provider changes the data behind a
+    # public library name and must not be silent.
+    if library_ref.shadows and _report_role == 'primary' and not (plib == 'custom' and library_ref.shadows == ('bundled',)):
+        logger.warning(
+            f'The local problem library "{plib}" from {ProblemOption.CUSTOM_PROBLEM_LIBS_PATH.value} replaces the '
+            f'provider(s) of the same name for this benchmark: {", ".join(library_ref.shadows)}.'
+        )
+        if _report is not None:
+            _report.add_diagnostic('problem_library_shadowed', 'numerical', library=plib,
+                                   shadows=list(library_ref.shadows))
     try:
         library = load_problem_library(library_ref)
         if library.check_available is not None:

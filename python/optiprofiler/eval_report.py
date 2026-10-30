@@ -828,7 +828,7 @@ class EvalReport:
                 if type(provider).__name__ == 'ProblemLibraryRef':
                     state = object.__getattribute__(provider, '__dict__')
                     provider = {key: state.get(key) for key in
-                                ('name', 'source', 'locator', 'distribution')}
+                                ('name', 'source', 'locator', 'distribution', 'shadows')}
                 problem['provider'] = _safe(provider)
         self._write()
 

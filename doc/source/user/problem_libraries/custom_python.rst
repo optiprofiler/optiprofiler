@@ -51,7 +51,12 @@ parent directory or the library directory:
     )
 
 An explicit filesystem adapter applies only to that benchmark run and takes
-precedence over an installed provider with the same public name.
+precedence over a bundled or installed provider with the same public name.
+Such a replacement is not silent: the benchmark logs a warning, and a
+requested report adds the diagnostic ``problem_library_shadowed`` and lists
+the replaced providers in ``problems[].provider.shadows``. A copy of the
+bundled ``custom`` template (below) is the intended editing workflow; it is
+recorded in ``shadows`` without a warning.
 
 Adapting the bundled example
 ----------------------------

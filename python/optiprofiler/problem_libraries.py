@@ -18,7 +18,7 @@ from importlib import metadata
 from pathlib import Path
 import pickle
 import re
-from typing import Any, Callable, Mapping, Optional, Sequence
+from typing import Any, Callable, Mapping, Optional, Sequence, Tuple
 
 
 _TOOLS_IMPORT_LOCK = RLock()
@@ -89,12 +89,18 @@ class ProblemLibraryPlugin:
 
 @dataclass(frozen=True)
 class ProblemLibraryRef:
-    """Serializable identity of a resolved problem library."""
+    """Serializable identity of a resolved problem library.
+
+    ``shadows`` lists the providers of the same name that an explicit local
+    library replaces for this run: ``'bundled'`` and/or the distribution names
+    of installed entry points. It is empty for every other source.
+    """
 
     name: str
     source: str
     locator: str
     distribution: Optional[str] = None
+    shadows: Tuple[str, ...] = ()
 
     @property
     def is_builtin(self):
@@ -343,12 +349,19 @@ def _resolve_problem_library_options(plugin, overrides=None):
 def resolve_problem_library(name, custom_problem_libs_path=None):
     """Resolve a library name to a serializable reference without importing it.
 
-    An explicitly supplied local library takes precedence. Otherwise, a name
-    must have exactly one provider: either a bundled adapter or one installed
-    entry point. Ambiguous installed providers are rejected rather than chosen
+    An explicitly supplied local library takes precedence; the reference then
+    names the providers it replaces in ``shadows``. Otherwise, a name must have
+    exactly one provider: either a bundled adapter or one installed entry
+    point. Ambiguous installed providers are rejected rather than chosen
     according to environment-dependent entry-point ordering.
     """
     name = _validate_problem_library_name(name)
+
+    builtin_tools_file = _problem_libs_dir() / name / f'{name}_tools.py'
+    entry_points = [
+        entry_point for entry_point in _problem_library_entry_points()
+        if entry_point.name == name
+    ]
 
     if custom_problem_libs_path is not None:
         custom_dir = _custom_problem_library_dir(custom_problem_libs_path, name)
@@ -359,13 +372,11 @@ def resolve_problem_library(name, custom_problem_libs_path=None):
                     f'The custom problem library "{name}" at {custom_dir} must '
                     f'contain "{name}_tools.py".'
                 )
-            return ProblemLibraryRef(name, _CUSTOM_SOURCE, str(tools_file.resolve()))
-
-    builtin_tools_file = _problem_libs_dir() / name / f'{name}_tools.py'
-    entry_points = [
-        entry_point for entry_point in _problem_library_entry_points()
-        if entry_point.name == name
-    ]
+            shadows = (('bundled',) if builtin_tools_file.is_file() else ()) + tuple(sorted({
+                _entry_point_distribution(entry_point) or entry_point.value
+                for entry_point in entry_points
+            }))
+            return ProblemLibraryRef(name, _CUSTOM_SOURCE, str(tools_file.resolve()), shadows=shadows)
 
     if builtin_tools_file.is_file() and entry_points:
         distributions = sorted({

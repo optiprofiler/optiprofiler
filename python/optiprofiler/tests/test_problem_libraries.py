@@ -1,5 +1,6 @@
 """Tests for problem-library discovery and protocol validation."""
 
+import json
 import pickle
 from pathlib import Path
 
@@ -263,6 +264,55 @@ def test_explicit_custom_path_overrides_other_providers(tmp_path, monkeypatch):
 
     assert reference.source == 'custom'
     assert Path(reference.locator) == tools_file.resolve()
+    assert reference.shadows == ('bundled', 'test-distribution')
+
+
+def test_unique_custom_library_shadows_nothing(tmp_path):
+    _write_legacy_library(tmp_path)
+
+    assert resolve_problem_library('localtoy', tmp_path).shadows == ()
+    assert resolve_problem_library('s2mpj').shadows == ()
+
+
+def _write_quadratic_library(root, name):
+    library_dir = root / name
+    library_dir.mkdir()
+    (library_dir / f'{name}_tools.py').write_text(
+        '\n'.join([
+            'import numpy as np',
+            'from optiprofiler import Problem',
+            f'def {name}_select(options):',
+            "    return ['LOCALQ']",
+            f'def {name}_load(problem_name):',
+            '    return Problem(lambda x: float(np.sum((x - 1.0) ** 2)), [0.0, 0.0], name=problem_name)',
+        ]),
+        encoding='utf-8',
+    )
+
+
+def _one_step_solver(fun, x0):
+    fun(x0)
+    return x0
+
+
+@pytest.mark.parametrize('name, warned', [('s2mpj', True), ('custom', False)])
+def test_benchmark_reports_a_local_library_that_replaces_a_provider(tmp_path, caplog, name, warned):
+    _write_quadratic_library(tmp_path, name)
+    report_path = tmp_path / 'report.json'
+
+    optiprofiler.benchmark([_one_step_solver, _one_step_solver], plibs=[name], custom_problem_libs_path=str(tmp_path),
+                           n_jobs=1, n_runs=1, max_eval_factor=2, max_tol_order=1, run_plain=True,
+                           score_only=True, silent=True, report_path=str(report_path))
+
+    report = json.loads(report_path.read_text(encoding='utf-8'))
+    codes = [entry['code'] for entry in report['diagnostics']]
+    assert {problem['provider']['source'] for problem in report['problems']} == {'custom'}
+    assert {tuple(problem['provider']['shadows']) for problem in report['problems']} == {('bundled',)}
+    warnings = [record.getMessage() for record in caplog.records
+                if record.levelname == 'WARNING' and 'replaces the provider' in record.getMessage()]
+    assert len(warnings) == (1 if warned else 0)
+    assert all('custom_problem_libs_path' in message and f'"{name}"' in message for message in warnings)
+    assert codes.count('problem_library_shadowed') == (1 if warned else 0)
 
 
 def test_load_legacy_custom_library_from_parent_and_direct_path(tmp_path):
