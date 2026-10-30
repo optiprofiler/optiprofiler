@@ -10,8 +10,9 @@ classdef TestReportProviderProvenance < matlab.unittest.TestCase
         function bundledLibraryReportsLockedRevision(testCase)
             root = tempname; mkdir(root);
             old = pwd;
-            testCase.addTeardown(@() cd(old));
+            % Teardowns run in reverse order: leave the directory before removing it.
             testCase.addTeardown(@() rmdir(root,'s'));
+            testCase.addTeardown(@() cd(old));
             cd(root);
             options = struct('plibs',{{'s2mpj'}},'problem_names',{{'ROSENBR'}},'mindim',2,'maxdim',2, ...
                 'n_jobs',1,'n_runs',1,'max_eval_factor',2,'max_tol_order',1,'run_plain',false, ...
@@ -30,10 +31,10 @@ classdef TestReportProviderProvenance < matlab.unittest.TestCase
             root = tempname; mkdir(root);
             registry = getenv('OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_REGISTRY');
             oldpath = path; old = pwd;
+            testCase.addTeardown(@() rmdir(root,'s'));
             testCase.addTeardown(@() path(oldpath));
             testCase.addTeardown(@() setenv('OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_REGISTRY',registry));
             testCase.addTeardown(@() cd(old));
-            testCase.addTeardown(@() rmdir(root,'s'));
             setenv('OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_REGISTRY',fullfile(root,'registry.mat'));
             library = fullfile(root,'library'); mkdir(library);
             TestReferencePoints.write(fullfile(library,'prov_probe_select.m'), sprintf( ...
@@ -51,6 +52,7 @@ classdef TestReportProviderProvenance < matlab.unittest.TestCase
             provider = firstProvider(report);
             testCase.verifyEqual(provider.role,'external');
             testCase.verifyEmpty(provider.locked_revision);
+            testCase.verifySubstring(fileread(options.report_path),'"locked_revision":null');
         end
     end
 end

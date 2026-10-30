@@ -288,9 +288,9 @@ def test_distribution_provenance_reads_version_and_vcs_commit(monkeypatch):
     provenance = problem_libraries.distribution_provenance
 
     assert provenance(ProblemLibraryRef('toy', 'entry_point', 'toy:get', distribution='toy-dist')) == ('1.2.3', commit)
-    # A bundled library is identified by the shipping core version only; the
-    # core's own VCS commit is not the bundled library's revision.
-    assert provenance(ProblemLibraryRef('s2mpj', 'builtin', 'x', distribution='optiprofiler')) == ('1.2.3', None)
+    # A bundled library is identified by the imported core's version only;
+    # the core's own VCS commit is not the bundled library's revision.
+    assert provenance(ProblemLibraryRef('s2mpj', 'builtin', 'x', distribution='optiprofiler')) == (optiprofiler.__version__, None)
     assert provenance(ProblemLibraryRef('local', 'custom', 'x')) == (None, None)
     assert provenance(ProblemLibraryRef('toy', 'entry_point', 'toy:get', distribution='missing-dist')) == (None, None)
 

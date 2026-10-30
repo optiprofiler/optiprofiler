@@ -203,12 +203,16 @@ def _problem_library_entry_points():
 def distribution_provenance(reference):
     """Return ``(version, revision)`` of the distribution behind a library.
 
-    ``version`` is the installed distribution version (for a bundled library,
-    the OptiProfiler version that ships it). ``revision`` is the VCS commit
-    recorded by pip (PEP 610 ``direct_url.json``) for an installed plugin
-    distribution; a bundled library's own revision is not recorded in the
-    installed package. Unknown values are ``None``.
+    ``version`` is the installed distribution version; for a bundled library
+    it is the version of the imported OptiProfiler package that ships it, not
+    whichever ``optiprofiler`` metadata comes first on ``sys.path``.
+    ``revision`` is the VCS commit recorded by pip (PEP 610
+    ``direct_url.json``) for an installed plugin distribution; a bundled
+    library's own revision is not recorded in the installed package. Unknown
+    values are ``None``.
     """
+    if reference.source == _BUILTIN_SOURCE:
+        return getattr(sys.modules.get(__package__), '__version__', None), None
     if not reference.distribution:
         return None, None
     try:
