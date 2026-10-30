@@ -538,8 +538,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %       - MatCUTEst <https://github.com/matcutest>
 %       - SOLAR (see [7]_) <https://github.com/bbopt/solar>
 %
-%      The SOLAR MATLAB adapter vendors a slim SOLAR runtime under LGPL-2.1;
-%      see its README and runtime manifest for license and provenance details.
+%      The SOLAR MATLAB adapter vendors a slim SOLAR runtime; see the
+%      adapter's README, notices and runtime manifest for license and
+%      provenance details.
 %
 %   2. If you want to use your own problem library, implement its select and
 %      load functions and call registerProblemLibrary with their root and
@@ -1271,7 +1272,7 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
                 elseif strcmp(plib, 'solar')
                     fprintf('\n');
                     printOptiProfilerMessage('INFO', 'More information about the SOLAR problem library can be found at: https://github.com/bbopt/solar');
-                    printOptiProfilerMessage('INFO', 'SOLAR uses an LGPL-2.1 slim runtime and calls an external simulator; some problems can be slow.');
+                    printOptiProfilerMessage('INFO', 'SOLAR calls an external simulator; some problems can be slow. License terms are in the SOLAR adapter''s notices.');
                 end
             end
 

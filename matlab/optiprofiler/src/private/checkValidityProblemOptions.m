@@ -24,16 +24,10 @@ function problem_options = checkValidityProblemOptions(problem_options, profile_
             problem_options.(ProblemOptionKey.PLIBS.value) = problem_options.(ProblemOptionKey.PLIBS.value)';
         end
 
+        % Saved results can be labeled by any known library on every OS;
+        % live resolution also checks the library's declared platforms.
         is_loading = isfield(profile_options, ProfileOptionKey.LOAD.value) && ...
             ~isempty(profile_options.(ProfileOptionKey.LOAD.value));
-        % MatCUTEst can label previously saved results on every OS, but live
-        % problem resolution remains Linux-only.
-        if (~isunix || ismac) && ...
-                any(ismember(problem_options.(ProblemOptionKey.PLIBS.value), 'matcutest')) && ...
-                ~is_loading
-            error("MATLAB:checkValidityProblemOptions:plibsNotLinux", ...
-                "The option `plibs` cannot contain 'matcutest' on non-Linux OS.");
-        end
 
         for i_plib = 1:numel(problem_options.(ProblemOptionKey.PLIBS.value))
             plib = problem_options.(ProblemOptionKey.PLIBS.value){i_plib};
