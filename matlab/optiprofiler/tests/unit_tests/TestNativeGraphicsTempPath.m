@@ -16,12 +16,29 @@ classdef TestNativeGraphicsTempPath < matlab.unittest.TestCase
         function actualEnvironmentReachesGraphicsPolicy(testCase)
             testCase.assumeEqual(computer('arch'), 'glnxa64');
             testCase.assumeEqual(version('-release'), '2026a');
+            % setenv(name, getenv(name)) would turn an unset TMPDIR into an
+            % explicitly empty one, which disables native export for the rest
+            % of the session.
+            was_set = isenv('TMPDIR');
             original = getenv('TMPDIR');
-            testCase.addTeardown(@() setenv('TMPDIR', original));
+            testCase.addTeardown(@() restoreTmpdir(was_set, original));
             unsafe = ['/tmp/', repmat('a', 1, 57)];
             setenv('TMPDIR', unsafe);
             testCase.verifyFalse(testCase.CheckGraphics());
             testCase.verifyEqual(getenv('TMPDIR'), unsafe);
+        end
+        function restoringAnUnsetTmpdirLeavesItUnset(testCase)
+            testCase.assumeTrue(exist('isenv') > 0 && exist('unsetenv') > 0, 'isenv/unsetenv need R2022b or later.'); %#ok<EXIST>
+            was_set = isenv('TMPDIR');
+            original = getenv('TMPDIR');
+            testCase.addTeardown(@() restoreTmpdir(was_set, original));
+            unsetenv('TMPDIR');
+            setenv('TMPDIR', '/tmp/x');
+            restoreTmpdir(false, '');
+            testCase.verifyFalse(isenv('TMPDIR'));
+            setenv('TMPDIR', '/tmp/x');
+            restoreTmpdir(true, '/tmp/y');
+            testCase.verifyEqual(getenv('TMPDIR'), '/tmp/y');
         end
         function linuxR2026aByteBoundary(testCase)
             testCase.verifyFalse(testCase.CheckPath(['/tmp/',repmat('a',1,56)],'glnxa64','2026a'));
@@ -80,5 +97,13 @@ classdef TestNativeGraphicsTempPath < matlab.unittest.TestCase
                 testCase.verifyFalse(testCase.CheckPath('',platform{1},'2026a',true));
             end
         end
+    end
+end
+
+function restoreTmpdir(was_set, value)
+    if was_set
+        setenv('TMPDIR', value);
+    else
+        unsetenv('TMPDIR');
     end
 end
