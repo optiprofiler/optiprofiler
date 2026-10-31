@@ -326,10 +326,7 @@ def _probe_size_mismatch(fun, x0, *constraints):
     return x0
 
 
-@pytest.mark.parametrize('n_jobs', [1, 2])
-@pytest.mark.parametrize('feature_name', ['plain', 'noisy+noisy'])
-def test_reference_history_failure_reaches_the_report(tmp_path, monkeypatch, n_jobs, feature_name):
-    monkeypatch.chdir(tmp_path)
+def _write_reftoy(tmp_path):
     library = tmp_path / 'reftoy'
     library.mkdir()
     (library / 'reftoy_tools.py').write_text(
@@ -342,6 +339,13 @@ def test_reference_history_failure_reaches_the_report(tmp_path, monkeypatch, n_j
         'def reftoy_load(name):\n'
         '    return Problem(lambda x: float(np.sum((x - 1.0) ** 2)), [0.0, 0.0], cub=malformed, name=name)\n',
         encoding='utf-8')
+
+
+@pytest.mark.parametrize('n_jobs', [1, 2])
+@pytest.mark.parametrize('feature_name', ['plain', 'noisy+noisy'])
+def test_reference_history_failure_reaches_the_report(tmp_path, monkeypatch, n_jobs, feature_name):
+    monkeypatch.chdir(tmp_path)
+    _write_reftoy(tmp_path)
     report_path = tmp_path / 'report.json'
     benchmark([_probe_size_mismatch, _probe_size_mismatch], plibs=['reftoy'], custom_problem_libs_path=str(tmp_path),
               feature_name=feature_name, n_jobs=n_jobs, n_runs=2, max_eval_factor=5, max_tol_order=1, run_plain=False,
@@ -354,3 +358,49 @@ def test_reference_history_failure_reaches_the_report(tmp_path, monkeypatch, n_j
         (solver, run) for solver in (1, 2) for run in runs}
     assert all(entry['stage'] == 'numerical' and entry['scope']['exception_type'] == 'ValueError'
                and entry['scope']['library'] == 'reftoy' and entry['scope']['problem'] == 'P' for entry in failures)
+
+
+def _probe_without_failure(fun, x0, *constraints):
+    fun(np.full(2, 2.0))
+    return x0
+
+
+def _reference_failures(report_path):
+    report = json.loads(report_path.read_text(encoding='utf-8'))
+    return sorted((entry['scope']['role'], entry['scope']['solver_index'], entry['scope']['run_index'],
+                   entry['scope']['exception_type'], entry['scope']['library'], entry['scope']['problem'])
+                  for entry in report['diagnostics'] if entry['code'] == 'reference_history_unavailable')
+
+
+@pytest.mark.parametrize('n_jobs', [1, 2])
+def test_load_replays_archived_reference_history_failures(tmp_path, monkeypatch, n_jobs):
+    import h5py
+    monkeypatch.chdir(tmp_path)
+    _write_reftoy(tmp_path)
+    benchmark([_probe_size_mismatch, _probe_without_failure, _probe_size_mismatch], plibs=['reftoy'],
+              custom_problem_libs_path=str(tmp_path), feature_name='noisy', n_jobs=n_jobs, n_runs=2,
+              max_eval_factor=5, max_tol_order=1, run_plain=True, silent=True, draw_hist_plots='none',
+              savepath=str(tmp_path), benchmark_id='saved', report_path=str(tmp_path / 'saved.json'))
+    saved = _reference_failures(tmp_path / 'saved.json')
+    # Stochastic primary runs are actual trials; the plain reference runs once.
+    assert saved == sorted([('primary', solver, run, 'ValueError', 'reftoy', 'P')
+                            for solver in (1, 3) for run in (1, 2)]
+                           + [('plain_reference', solver, 1, 'ValueError', 'reftoy', 'P') for solver in (1, 3)])
+
+    def load(name, **options):
+        benchmark(None, load='latest', benchmark_id='saved', savepath=str(tmp_path / 'out'), score_only=True,
+                  silent=True, draw_hist_plots='none', report_path=str(tmp_path / name), **options)
+        return _reference_failures(tmp_path / name)
+
+    assert load('loaded.json') == saved
+    # Retained solvers are renumbered: archived solver 3 is now solver 1.
+    assert load('subset.json', solvers_to_load=[2, 1]) == sorted(
+        [('primary', 1, run, 'ValueError', 'reftoy', 'P') for run in (1, 2)]
+        + [('plain_reference', 1, 1, 'ValueError', 'reftoy', 'P')])
+    # An archive written before the field existed still loads; its failures are unknown.
+    (archive,) = tmp_path.glob('saved/*/test_log/data_for_loading.h5')
+    with h5py.File(archive, 'r+') as stream:
+        for group in stream.values():
+            del group['reference_history_failures']
+            del group['results_plib_plain']['reference_history_failures']
+    assert load('legacy.json') == []

@@ -906,6 +906,24 @@ class EvalReport:
                        load_status='loaded', status='completed')
         if 'reference_fallback_reasons' in result:
             problem['reference_fallback_reasons'] = json.loads(result['reference_fallback_reasons'])
+        if self.document['operation'] == 'load' and 'reference_history_failures' in result:
+            # Replay the archived trial failures exactly as the benchmark
+            # reported them. Archives without the field stay silent (unknown).
+            try:
+                failures = json.loads(result['reference_history_failures'])
+                if type(failures) is not list:
+                    raise ValueError('not a list')
+            except (TypeError, ValueError):
+                failures = []
+                self.add_diagnostic('reference_metadata_unavailable', 'reporting',
+                                    library=plib, problem=name, role=role)
+            for failure in failures[:_MAX_DIAGNOSTICS]:
+                if type(failure) is dict:
+                    self.add_diagnostic('reference_history_unavailable', 'numerical',
+                                        library=plib, problem=name, role=role,
+                                        solver_index=failure.get('solver_index'),
+                                        run_index=failure.get('run_index'),
+                                        exception_type=failure.get('exception_type'))
         if 'reference_records' in result:
             # Observe retained facts only. Reporting must not call merit_fun
             # again (it may be stateful) or invent a reference for V1 archives.
@@ -1082,6 +1100,7 @@ class EvalReport:
             'solver_output_fallback': 'solver_output_fallbacks',
             'reference_records': 'reference_records',
             'reference_fallback_reasons': 'reference_fallback_reasons',
+            'reference_history_failures': 'reference_history_failures',
         }
 
         def add_library(result, role):

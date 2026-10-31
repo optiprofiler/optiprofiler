@@ -2,6 +2,7 @@ import os
 import re
 import glob
 import datetime
+import json
 import numpy as np
 import h5py
 import pickle
@@ -78,6 +79,13 @@ def truncate_solvers(results_plib: Dict[str, Any], solvers_to_load: List[int]) -
         results_plib['solver_abnormal_terminations'] = results_plib['solver_abnormal_terminations'][:, solvers_to_load, :]
     if 'solver_output_fallbacks' in results_plib:
         results_plib['solver_output_fallbacks'] = results_plib['solver_output_fallbacks'][:, solvers_to_load, :]
+    if 'reference_history_failures' in results_plib:
+        # One JSON list per problem; solver indices are one-based.
+        position = {solver + 1: index + 1 for index, solver in enumerate(solvers_to_load)}
+        results_plib['reference_history_failures'] = [
+            json.dumps([dict(failure, solver_index=position[failure['solver_index']])
+                        for failure in json.loads(failures) if failure['solver_index'] in position])
+            for failures in results_plib['reference_history_failures']]
     
     return results_plib
 
@@ -213,7 +221,7 @@ def truncate_problems(results_plib: Dict[str, Any], problem_options: Dict[str, A
         results_plib['maxcv_inits'] = results_plib['maxcv_inits'][p_to_load, :]
     results_plib['n_evals'] = results_plib['n_evals'][p_to_load, :, :]
     results_plib['problem_names'] = [results_plib['problem_names'][i] for i in p_to_load]
-    for key in ('reference_records', 'reference_fallback_reasons'):
+    for key in ('reference_records', 'reference_fallback_reasons', 'reference_history_failures'):
         if key in results_plib:
             results_plib[key] = [results_plib[key][i] for i in p_to_load]
     results_plib['problem_types'] = [results_plib['problem_types'][i] for i in p_to_load]

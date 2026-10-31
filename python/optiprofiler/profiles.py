@@ -2677,6 +2677,7 @@ def _solve_all_problems(solvers, plib, feature, plan, problem_options, profile_o
     results['solver_output_fallbacks'] = solver_output_fallbacks
     results['reference_records'] = [r['reference_records'] for r in completed_results]
     results['reference_fallback_reasons'] = [r['reference_fallback_reasons'] for r in completed_results]
+    results['reference_history_failures'] = [r['reference_history_failures'] for r in completed_results]
 
     return results
 
@@ -3154,6 +3155,10 @@ def _solve_one_problem(solvers, problem, feature, plan, problem_name, len_proble
         'maxcv_init': maxcv_inits,
         'reference_records': json.dumps(reference_records, allow_nan=False),
         'reference_fallback_reasons': json.dumps(reference_fallback_reasons, allow_nan=False),
+        # Archived for the report of a later load (actual trials only).
+        'reference_history_failures': json.dumps(
+            [{key: failure[key] for key in ('solver_index', 'run_index', 'exception_type')}
+             for failure in reference_history_failures]),
         'n_eval': n_eval,
         'problem_name': problem_name,
         'problem_type': problem_type,
