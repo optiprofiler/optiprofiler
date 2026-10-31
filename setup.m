@@ -18,6 +18,12 @@ function setup(varargin)
 %   setup(struct('problem_library_root', '/path/to/libraries'))  % Relocate optional libraries
 %   setup uninstall  % Remove setup-managed paths; preserve registrations and data
 %
+%   A git checkout of a problem library is brought to the commit locked in
+%   matlab_problem_libraries.lock. If that commit cannot be reached the library
+%   is not used as the locked one and setup reports an error. A checkout with
+%   local changes, or a directory that is not a git repository, is your own
+%   tree: setup leaves it as it is.
+%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 %   REMARKS:
@@ -190,7 +196,7 @@ function setup(varargin)
                     if ~skip_clone_msg
                          fprintf('MatCUTEst directory at %s seems populated. Skipping clone.\n', matcutest_dir);
                     end
-                    checkout_git_repository_commit_if_clean(matcutest_dir, matcutest_repo_url, matcutest_commit, 'MatCUTEst');
+                    pin_optional_problem_library(matcutest_dir, matcutest_repo_url, matcutest_commit, 'MatCUTEst');
                 else
                     fprintf('Cloning MatCUTEst repository (optiprofiler fork)...\n');
                     ensure_directory(optional_plib_dir, 'optional problem-library root');
@@ -199,7 +205,7 @@ function setup(varargin)
                     
                     if status == 0
                         fprintf('MatCUTEst cloned successfully.\n');
-                        checkout_git_repository_commit_if_clean(matcutest_dir, matcutest_repo_url, matcutest_commit, 'MatCUTEst');
+                        pin_optional_problem_library(matcutest_dir, matcutest_repo_url, matcutest_commit, 'MatCUTEst');
                     else
                         fprintf('WARNING: Failed to clone MatCUTEst repository.\n');
                     end
@@ -281,8 +287,7 @@ function setup(varargin)
         end
 
         if is_solar_dir_populated && proceed_with_solar
-            checkout_git_repository_commit_if_clean( ...
-                solar_dir, solar_repo_url, solar_commit, 'SOLAR MATLAB adapter');
+            pin_optional_problem_library(solar_dir, solar_repo_url, solar_commit, 'SOLAR MATLAB adapter');
             paths_to_add{end+1} = solar_dir;
             path_owners{end+1} = solar_dir;
             fprintf('SOLAR MATLAB adapter will be added to the MATLAB path.\n');
@@ -480,26 +485,32 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-function checkout_git_repository_commit_if_clean(repo_dir, repo_url, commit_hash, repo_name)
-    %CHECKOUT_GIT_REPOSITORY_COMMIT_IF_CLEAN pins an optional problem library checkout.
+function verified = checkout_git_repository_commit_if_clean(repo_dir, repo_url, commit_hash, repo_name)
+    %CHECKOUT_GIT_REPOSITORY_COMMIT_IF_CLEAN pins a problem library checkout.
+    %   Afterwards the checkout is at the pinned commit or it is a tree of the
+    %   user, left alone: a directory that is not a git repository, or one with
+    %   local changes. Otherwise this is an error, because a checkout at
+    %   another commit must not pass for the locked library. VERIFIED is false
+    %   if git cannot tell which of these the checkout is.
 
+    verified = true;
     git_dir = fullfile(repo_dir, '.git');
     if exist(git_dir, 'dir') ~= 7 && exist(git_dir, 'file') ~= 2
         fprintf('%s directory is not a git repository. Using it as-is.\n', repo_name);
         return
     end
 
-    head_cmd = sprintf('git -C "%s" rev-parse HEAD', repo_dir);
-    [status, head_output] = system(head_cmd);
+    git_cmd = sprintf('git -C "%s" ', repo_dir);
+    [status, head_output] = system([git_cmd, 'rev-parse HEAD']);
     if status == 0 && strcmp(strtrim(head_output), commit_hash)
         fprintf('%s repository is already at pinned commit %s.\n', repo_name, commit_hash);
         return
     end
 
-    status_cmd = sprintf('git -C "%s" status --porcelain', repo_dir);
-    [status, status_output] = system(status_cmd);
+    [status, status_output] = system([git_cmd, 'status --porcelain']);
     if status ~= 0
         fprintf('WARNING: Could not inspect %s repository status. Using it as-is.\n', repo_name);
+        verified = false;
         return
     end
 
@@ -508,35 +519,41 @@ function checkout_git_repository_commit_if_clean(repo_dir, repo_url, commit_hash
         return
     end
 
-    fetch_cmd = sprintf('git -C "%s" fetch --tags "%s"', repo_dir, repo_url);
-    status = system(fetch_cmd);
+    % Fetching without a refspec brings only what the default branch reaches,
+    % so ask for the commit itself. A checkout that already has it stays offline.
+    [status, output] = system([git_cmd, 'cat-file -e "', commit_hash, '^{commit}"']);
     if status ~= 0
-        fprintf('WARNING: Could not fetch %s repository. Using it as-is.\n', repo_name);
-        return
+        [status, output] = system([git_cmd, 'fetch "', repo_url, '" ', commit_hash]);
     end
-
-    checkout_cmd = sprintf('git -C "%s" checkout --detach %s', repo_dir, commit_hash);
-    status = system(checkout_cmd);
-    if status ~= 0
-        fprintf('WARNING: Could not checkout %s pinned commit %s. Using repository as-is.\n', repo_name, commit_hash);
-        return
+    if status == 0
+        [status, output] = system([git_cmd, 'checkout --detach ', commit_hash]);
     end
-
-    clean_cmd = sprintf('git -C "%s" reset --hard %s', repo_dir, commit_hash);
-    status = system(clean_cmd);
     if status ~= 0
-        fprintf('WARNING: Could not reset %s repository to pinned commit %s. Using repository as-is.\n', repo_name, commit_hash);
-        return
+        error('setup:PinnedCommitUnavailable', ...
+            'Cannot check out the pinned commit %s of %s from %s. The repository at %s stays at its current commit, which is not the locked library.\n%s', ...
+            commit_hash, repo_name, repo_url, repo_dir, strtrim(output));
     end
 
     fprintf('%s repository checked out at pinned commit %s.\n', repo_name, commit_hash);
 
-    return
-
 end
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+function pin_optional_problem_library(repo_dir, repo_url, commit_hash, repo_name)
+    %PIN_OPTIONAL_PROBLEM_LIBRARY pins a checkout that setup is going to register.
+
+    if ~checkout_git_repository_commit_if_clean(repo_dir, repo_url, commit_hash, repo_name)
+        error('setup:PinnedCommitUnverified', ...
+            'Cannot tell whether the %s repository at %s is at the pinned commit %s.', ...
+            repo_name, repo_dir, commit_hash);
+    end
+end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
 function [action, options, wrong_input] = parse_input(argin)
