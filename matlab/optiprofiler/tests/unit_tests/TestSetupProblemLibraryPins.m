@@ -49,7 +49,7 @@ classdef TestSetupProblemLibraryPins < matlab.unittest.TestCase
             testCase.verifyEqual(head(state, 'solar'), pin);
         end
 
-        function unreachablePinOfTheBundledLibraryIsAnError(testCase)
+        function unreachablePinOfTheBundledLibraryIsAnErrorAfterTheRest(testCase)
             state = sandbox(testCase);
             make_remote(state, 's2mpj_matlab', {'README.md', 'fixture'; ...
                 fullfile('src', 'matlab_problems', 'keep.txt'), 'fixture'});
@@ -57,19 +57,165 @@ classdef TestSetupProblemLibraryPins < matlab.unittest.TestCase
             rmdir(s2, 's');
             git(state.root, sprintf('clone -q "%s" "%s"', remote_path(state, 's2mpj_matlab'), s2));
             before = rev_parse(s2);
-            lock_commits(state, struct('s2mpj', unknown_commit()));
-            testCase.verifyError(@() run_setup(state, struct()), 'setup:PinnedCommitUnavailable');
+            pin = make_remote(state, 'solar_matlab', solar_files());
+            lock_commits(state, struct('s2mpj', unknown_commit(), 'solar', pin));
+            testCase.verifyError(@() run_setup(state, struct('install_solar', true)), 'setup:PinnedCommitUnavailable');
             testCase.verifyEqual(rev_parse(s2), before);
+            verify_core_configured(testCase, state);
+            testCase.verifyTrue(is_registered(state, 'solar'));
         end
 
-        function unreachablePinOfAnOptionalLibraryIsAnError(testCase)
+        function unreachablePinOfAnOptionalLibraryIsReportedAndNotRegistered(testCase)
             state = sandbox(testCase);
             base = make_remote(state, 'solar_matlab', solar_files());
             clone(state, 'solar_matlab', 'solar');
             lock_commits(state, struct('solar', unknown_commit()));
-            testCase.verifyError(@() run_setup(state, struct('install_solar', true)), 'setup:PinnedCommitUnavailable');
+            output = run_setup(state, struct('install_solar', true));
+            verify_core_configured(testCase, state);
+            verify_reported(testCase, output, 'SOLAR MATLAB adapter', 'Cannot check out the pinned commit');
             testCase.verifyEqual(head(state, 'solar'), base);
             testCase.verifyFalse(is_registered(state, 'solar'));
+            testCase.verifyFalse(on_path(fullfile(state.libraries, 'solar')));
+        end
+
+        function failedMatcutestCloneLeavesTheRestConfigured(testCase)
+            testCase.assumeFalse(ismac);
+            state = sandbox(testCase);
+            pin = make_remote(state, 'solar_matlab', solar_files());
+            lock_commits(state, struct('solar', pin));
+            output = run_setup(state, struct('install_matcutest', true, 'install_solar', true));
+            verify_core_configured(testCase, state);
+            verify_reported(testCase, output, 'MatCUTEst', 'Failed to clone');
+            testCase.verifyFalse(is_registered(state, 'matcutest'));
+            testCase.verifyFalse(on_path(fullfile(state.libraries, 'matcutest')));
+            testCase.verifyTrue(is_registered(state, 'solar'));
+            testCase.verifyTrue(on_path(fullfile(state.libraries, 'solar')));
+        end
+
+        function adapterWithoutManagedEntryPointIsReported(testCase)
+            testCase.assumeFalse(ismac);
+            state = sandbox(testCase);
+            files = matcutest_files('');
+            pin = make_remote(state, 'matcutest', files(1:2, :));
+            lock_commits(state, struct('matcutest', pin));
+            output = run_setup(state, struct('install_matcutest', true));
+            verify_core_configured(testCase, state);
+            verify_reported(testCase, output, 'MatCUTEst', 'no managed runtime entry point');
+            testCase.verifyFalse(is_registered(state, 'matcutest'));
+            testCase.verifyFalse(on_path(fullfile(state.libraries, 'matcutest')));
+            % The clone stays for the next attempt; it is simply not used.
+            testCase.verifyEqual(head(state, 'matcutest'), pin);
+        end
+
+        function failedManagedRuntimeIsReported(testCase)
+            testCase.assumeFalse(ismac);
+            state = sandbox(testCase);
+            pin = make_remote(state, 'matcutest', matcutest_files('error(''Fixture:Runtime'', ''no runtime here'');'));
+            lock_commits(state, struct('matcutest', pin));
+            output = run_setup(state, struct('install_matcutest', true));
+            verify_core_configured(testCase, state);
+            verify_reported(testCase, output, 'MatCUTEst', 'no runtime here');
+            testCase.verifyFalse(is_registered(state, 'matcutest'));
+        end
+
+        function workingMatcutestAdapterIsRegisteredWithItsRuntime(testCase)
+            testCase.assumeFalse(ismac);
+            state = sandbox(testCase);
+            pin = make_remote(state, 'matcutest', matcutest_files(''));
+            lock_commits(state, struct('matcutest', pin));
+            output = run_setup(state, struct('install_matcutest', true));
+            verify_core_configured(testCase, state);
+            testCase.verifyFalse(contains(output, 'is not set up'));
+            testCase.verifyEqual(head(state, 'matcutest'), pin);
+            testCase.verifyTrue(is_registered(state, 'matcutest'));
+            testCase.verifyTrue(on_path(fullfile(state.libraries, 'matcutest')));
+            testCase.verifyTrue(on_path(fullfile(state.libraries, 'runtime', 'matcutest', 'mtools', 'src')));
+        end
+
+        function failedSolarCloneIsReportedWithManualInstructions(testCase)
+            state = sandbox(testCase);
+            output = run_setup(state, struct('install_solar', true));
+            verify_core_configured(testCase, state);
+            verify_reported(testCase, output, 'SOLAR MATLAB adapter', 'Failed to clone');
+            testCase.verifySubstring(output, 'manually clone or download');
+            testCase.verifyFalse(is_registered(state, 'solar'));
+            testCase.verifyFalse(on_path(fullfile(state.libraries, 'solar')));
+        end
+
+        function unusableLibraryRootIsReported(testCase)
+            state = sandbox(testCase);
+            occupied = fullfile(state.root, 'a_file');
+            write_text(occupied, 'not a directory');
+            output = run_setup(state, struct('install_solar', true, ...
+                'problem_library_root', fullfile(occupied, 'libraries')));
+            verify_core_configured(testCase, state);
+            verify_reported(testCase, output, 'SOLAR MATLAB adapter', 'optional problem-library root');
+            testCase.verifyFalse(is_registered(state, 'solar'));
+        end
+
+        function failedRegistrationLeavesThePathsAndTheOtherRegistrationAlone(testCase)
+            state = sandbox(testCase);
+            pin = make_remote(state, 'solar_matlab', solar_files());
+            clone(state, 'solar_matlab', 'solar');
+            lock_commits(state, struct('solar', pin));
+            run_setup(state, struct('install_solar', true));
+            % A registration of the same name at another root is not replaced.
+            moved = fullfile(state.root, 'other_libraries');
+            mkdir(moved);
+            git(state.root, sprintf('clone -q "%s" "%s"', remote_path(state, 'solar_matlab'), fullfile(moved, 'solar')));
+            output = run_setup(state, struct('install_solar', true, 'problem_library_root', moved));
+            verify_core_configured(testCase, state);
+            verify_reported(testCase, output, 'SOLAR MATLAB adapter', 'already registered');
+            testCase.verifyFalse(on_path(fullfile(moved, 'solar')));
+            testCase.verifyFalse(contains(fileread(fullfile(state.root, 'pathdef.m')), fullfile(moved, 'solar')));
+            testCase.verifyTrue(is_registered(state, 'solar'));
+            data = load(state.registry);
+            testCase.verifyEqual(data.registrations.root, fullfile(state.libraries, 'solar'));
+        end
+
+        function libraryThatLeavesItsPinBehindIsWithdrawn(testCase)
+            state = sandbox(testCase);
+            pin = make_remote(state, 'solar_matlab', solar_files());
+            lock_commits(state, struct('solar', pin));
+            run_setup(state, struct('install_solar', true));
+            testCase.assertTrue(is_registered(state, 'solar'));
+            lock_commits(state, struct('solar', unknown_commit()));
+            output = run_setup(state, struct('install_solar', true));
+            verify_reported(testCase, output, 'SOLAR MATLAB adapter', 'Cannot check out the pinned commit');
+            verify_core_configured(testCase, state);
+            testCase.verifyFalse(is_registered(state, 'solar'));
+            testCase.verifyFalse(on_path(fullfile(state.libraries, 'solar')));
+            testCase.verifyFalse(contains(fileread(fullfile(state.root, 'pathdef.m')), fullfile(state.libraries, 'solar')));
+            % The checkout stays for a later setup.
+            testCase.verifyEqual(head(state, 'solar'), pin);
+        end
+
+        function relativeLibraryRootIsResolvedSoThatItsPathsCanBeWithdrawn(testCase)
+            state = sandbox(testCase);
+            pin = make_remote(state, 'solar_matlab', solar_files());
+            lock_commits(state, struct('solar', pin));
+            relative = struct('install_solar', true, 'problem_library_root', fullfile('..', 'libraries'));
+            run_setup(state, relative);
+            solar = fullfile(state.libraries, 'solar');
+            testCase.assertTrue(is_registered(state, 'solar'));
+            testCase.verifyTrue(on_path(solar));
+            lock_commits(state, struct('solar', unknown_commit()));
+            run_setup(state, relative);
+            testCase.verifyFalse(is_registered(state, 'solar'));
+            testCase.verifyFalse(on_path(solar));
+            testCase.verifyFalse(contains(fileread(fullfile(state.root, 'pathdef.m')), solar));
+        end
+
+        function setupRecoversOnceTheLibraryIsReachable(testCase)
+            state = sandbox(testCase);
+            run_setup(state, struct('install_solar', true));
+            testCase.verifyFalse(is_registered(state, 'solar'));
+            pin = make_remote(state, 'solar_matlab', solar_files());
+            lock_commits(state, struct('solar', pin));
+            output = run_setup(state, struct('install_solar', true));
+            testCase.verifyFalse(contains(output, 'is not set up'));
+            testCase.verifyEqual(head(state, 'solar'), pin);
+            testCase.verifyTrue(is_registered(state, 'solar'));
         end
 
         function localChangesAreLeftAlone(testCase)
@@ -180,6 +326,39 @@ function files = solar_files()
         'solar_select.m', sprintf('function names = solar_select(~)\nnames = {};\nend\n'); ...
         'solar_load.m', sprintf('function p = solar_load(~)\np = [];\nend\n'); ...
         'solar_collect_info.m', sprintf('function info = solar_collect_info()\ninfo = {};\nend\n')};
+end
+
+function files = matcutest_files(extra)
+    body = sprintf(['function r = matcutest_setup(parent)\n%s\n' ...
+        'if ~isfolder(parent), mkdir(parent); end\n' ...
+        '[~, a] = fileattrib(parent);\n' ...
+        'root = fullfile(a.Name, ''matcutest'');\n' ...
+        'tools = fullfile(root, ''mtools'', ''src'');\n' ...
+        'if ~isfolder(tools), mkdir(tools); end\n' ...
+        'r = struct(''schema_version'', 1, ''provider'', ''matcutest'', ' ...
+        '''runtime_root'', root, ''runtime_paths'', {{tools}});\nend\n'], extra);
+    files = { ...
+        'matcutest_select.m', sprintf('function names = matcutest_select(~)\nnames = {};\nend\n'); ...
+        'matcutest_load.m', sprintf('function p = matcutest_load(~)\np = [];\nend\n'); ...
+        'matcutest_setup.m', body};
+end
+
+function verify_core_configured(testCase, state)
+    src = fullfile(state.package, 'matlab', 'optiprofiler', 'src');
+    s2 = fullfile(state.package, 'matlab', 'optiprofiler', 'problem_libs', 's2mpj');
+    pathdef = fileread(fullfile(state.root, 'pathdef.m'));
+    for directory = {src, s2}
+        testCase.verifyTrue(on_path(directory{1}), directory{1});
+        testCase.verifySubstring(pathdef, directory{1});
+    end
+end
+
+function verify_reported(testCase, output, library, reason)
+    % MATLAB wraps the lines of a warning.
+    output = regexprep(output, '\s+', ' ');
+    testCase.verifySubstring(output, sprintf('The optional problem library %s is not set up', library));
+    testCase.verifySubstring(output, reason);
+    testCase.verifySubstring(output, 'The package is ready to use');
 end
 
 function path_name = remote_path(state, name)

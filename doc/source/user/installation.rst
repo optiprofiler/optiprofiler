@@ -48,6 +48,8 @@ The ``setup`` function performs the following tasks:
 
 Note that the installation of MatCUTEst and the SOLAR MATLAB adapter is optional. During the setup process, you will be asked whether you want to install them. By default, optional repositories are cloned under ``prefdir/optiprofiler/problem_libraries`` rather than into the OptiProfiler source tree. Passing ``install_solar=false`` or ``install_matcutest=false`` skips the corresponding adapter even when it is already present. Please be aware that MatCUTEst is only supported on Linux systems and is not available on macOS or Windows. The SOLAR adapter builds a local C++ executable from its slim SOLAR runtime when it is first used.
 
+A failure of an optional library does not stop the setup: the core package and S2MPJ are configured as usual, and the library is reported at the end and is neither on the path nor registered, even if an earlier setup had registered it from the same directory. Setup brings a Git checkout of a library to the commit in ``matlab_problem_libraries.lock``; a commit that cannot be reached is such a failure. For S2MPJ, setup configures everything and then ends with an error. A checkout with local changes, or a directory that is not a Git repository, is yours and is left as it is.
+
 For automated environments (e.g., CI/CD scripts) where interactive input is not possible, you can bypass the prompt by providing an additional option to the ``setup`` function:
 
 .. code-block:: matlab
