@@ -1417,6 +1417,17 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
         saveResultsForLoading(results_plibs, path_log, time_stamp, path_readme_log);
         if ~isempty(eval_report), eval_report.setStage('persistence', 'completed'); end
     end
+    % Every requested solve has finished, also after a merit failure: only
+    % the scoring stage, still running, fails with it.
+    if ~isempty(eval_report)
+        if is_load, eval_report.addResults(results_plibs); end
+        try
+            eval_report.completeNumerical();
+        catch report_error
+            % The caller still records the merit failure raised below.
+            if isempty(merit_failure), rethrow(report_error); end
+        end
+    end
     if ~isempty(merit_failure)
         % The raw archive (if requested) is saved; no profile or score is
         % produced from a failed merit. The caller records the error.
@@ -1424,10 +1435,6 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
             printOptiProfilerMessage('ERROR', sprintf('The solver results were saved in %s. Reload them with a corrected merit_fun.', path_log));
         end
         throw(merit_failure);
-    end
-    if ~isempty(eval_report)
-        if is_load, eval_report.addResults(results_plibs); end
-        eval_report.completeNumerical();
     end
     writeReport(profile_options, results_plibs, path_report, path_readme_log);
     if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
