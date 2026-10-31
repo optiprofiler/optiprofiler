@@ -3183,6 +3183,7 @@ def _solve_one_problem(solvers, problem, feature, plan, problem_name, len_proble
     if not is_plot or path_hist_plots is None or profile_options[ProfileOption.SCORE_ONLY] or all(not success for success in solvers_success.flatten()):
         return result
     
+    merit_failed = False
     try:
         merit_fun = profile_options[ProfileOption.MERIT_FUN]
         try:
@@ -3191,6 +3192,7 @@ def _solve_one_problem(solvers, problem, feature, plan, problem_name, len_proble
             merit_history = compute_merit_values(merit_fun, fun_history, maxcv_history, maxcv_inits)
             merit_init = compute_merit_values(merit_fun, fun_inits, maxcv_inits, maxcv_inits)
         except Exception as exc:
+            merit_failed = True
             _log_merit_failure(logger, exc)
             raise exc
 
@@ -3214,8 +3216,9 @@ def _solve_one_problem(solvers, problem, feature, plan, problem_name, len_proble
                  'exception_type': type(exc).__name__})
         if not profile_options[ProfileOption.SILENT]:
             logger.info(f'An error occurred while plotting the history plots of the problem {problem_name}.')
-            logger.info(f'Error message: {shorten_log_message(exc)}')
-        pass
+            # A merit failure has already logged its cause.
+            if not merit_failed:
+                logger.info(f'Error message: {shorten_log_message(exc)}')
     
     return result
 
@@ -3259,12 +3262,14 @@ def _draw_problem_history_plot(problem_name, problem_type, problem_dim, solver_n
     if path_hist_plots is None or all(not success for success in solvers_success.flatten()):
         return
     
+    merit_failed = False
     try:
         merit_fun = profile_options[ProfileOption.MERIT_FUN]
         try:
             merit_history = compute_merit_values(merit_fun, fun_history, maxcv_history, maxcv_init)
             merit_init = compute_merit_values(merit_fun, fun_init, maxcv_init, maxcv_init)
         except Exception as exc:
+            merit_failed = True
             _log_merit_failure(logger, exc)
             raise exc
 
@@ -3279,5 +3284,7 @@ def _draw_problem_history_plot(problem_name, problem_type, problem_dim, solver_n
     except Exception as exc:
         if not profile_options[ProfileOption.SILENT]:
             logger.info(f'An error occurred while plotting the history plots of the problem {problem_name}.')
-            logger.info(f'Error message: {shorten_log_message(exc)}')
+            # A merit failure has already logged its cause.
+            if not merit_failed:
+                logger.info(f'Error message: {shorten_log_message(exc)}')
         return {'exception_type': type(exc).__name__}

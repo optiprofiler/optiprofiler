@@ -201,6 +201,18 @@ def test_failing_merit_log_keeps_the_reload_hint_and_the_path(tmp_path, monkeypa
     assert benchmark_id in ''.join(saved.split())
 
 
+def test_failing_merit_in_history_plots_logs_its_cause_once(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    libraries = _library(tmp_path, None)
+    with pytest.raises(RuntimeError, match='deliberate merit failure'):
+        _run(libraries, 'history', merit_fun=failing_merit, silent=False, draw_hist_plots='parallel')
+    output = ' '.join(capsys.readouterr().out.split())
+    # One cause from each problem's history plot (P1, P2) and one from scoring.
+    assert output.count('An error occurred while plotting the history plots of the problem') == 2
+    assert output.count('Merit function error: deliberate merit failure') == 3
+    assert output.count('deliberate merit failure') == 3
+
+
 def plain_failing_merit(fun, maxcv, initial_maxcv):
     # Fails only on the unperturbed initial values f(x0) in {4, 9}, which only
     # the plain baseline evaluates when the primary runs perturb x0.
