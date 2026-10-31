@@ -19,6 +19,12 @@ Provenance recorded inside the fixture:
   edited fixture is detected; a regenerated fixture must record the hash of
   the generator that wrote it and the commit it ran against.
 
+The fixture stays the record of the base commit. Single-stage `quantized` has
+since lost the oracle reads that the base commit discarded, so
+`composition_goldens.assert_matches` lets its call sequences lose reads, in
+order, and compares everything else exactly; `test_quantized_reads.py` pins
+those sequences read by read.
+
 The fixture is a regression net, not the only evidence: independent
 base-versus-candidate differentials (522 end-to-end cases and 3,510
 low-level scenarios in the 2026-09 audits) confirmed the pinned behaviour.

@@ -55,7 +55,10 @@ classdef FeaturedProblem < Problem
 %   snaps its local reference objective and nonlinear constraints; with false
 %   it snaps observations only. Its bounds and linear constraints are checked
 %   at the unsnapped point in that stage's coordinates. Reference values are
-%   therefore not universally the original untransformed callback values.
+%   therefore not universally the original untransformed callback values. A
+%   single quantized stage reads the callback of a query once, at the snapped
+%   point, which is also the recorded reference with ground_truth=true; with
+%   false the reference takes one more read, at the unsnapped point.
 %
 %   Reference reads for initialization, history, maxcv and final scoring do
 %   not consume the public fun/cub/ceq call budget or advance served-query
@@ -446,13 +449,12 @@ classdef FeaturedProblem < Problem
             f = obj.kernel.modifier_fun(A * x + b, obj.seed, obj.problem, obj.n_eval_fun);
             obj.last_fun = f;
 
-            % Evaluate the objective function and store the results.
-            f_true = obj.problem.fun(A * x + b);
-
-            % If the feature is 'quantized' and the option ``ground_truth'' is set to true, we should
-            % set f_true to f.
+            % If the feature is 'quantized' and the option ``ground_truth'' is set to true, the
+            % truth is f. Otherwise, evaluate the objective function.
             if strcmp(obj.kernel.name, FeatureName.QUANTIZED.value) && obj.kernel.options.(FeatureOptionKey.GROUND_TRUTH.value)
                 f_true = f;
+            else
+                f_true = obj.problem.fun(A * x + b);
             end
             obj.fun_hist = [obj.fun_hist, f_true];
             try
@@ -514,13 +516,12 @@ classdef FeaturedProblem < Problem
             % Record the history of the nonlinear inequality constraints only when `record_hist` is true.
             % One column per recorded query: row and empty results become one column.
             if nargin < 3 || record_hist
-                % Evaluate the nonlinear inequality constraints and store the results.
-                cub_true = obj.problem.cub(A * x + b);
-
-                % If the feature is 'quantized' and the option ``ground_truth'' is set to true, we should
-                % use the modified constraint violation.
+                % If the feature is 'quantized' and the option ``ground_truth'' is set to true, the
+                % truth is cub_. Otherwise, evaluate the nonlinear inequality constraints.
                 if strcmp(obj.kernel.name, FeatureName.QUANTIZED.value) && obj.kernel.options.(FeatureOptionKey.GROUND_TRUTH.value)
                     cub_true = cub_;
+                else
+                    cub_true = obj.problem.cub(A * x + b);
                 end
                 obj.cub_hist = [obj.cub_hist, cub_true(:)];
             end
@@ -577,13 +578,12 @@ classdef FeaturedProblem < Problem
             % Record the history of the nonlinear equality constraints only when `record_hist` is true.
             % One column per recorded query: row and empty results become one column.
             if nargin < 3 || record_hist
-                % Evaluate the nonlinear equality constraints and store the results.
-                ceq_true = obj.problem.ceq(A * x + b);
-
-                % If the Feature is ``quantized'' and the option ``ground_truth'' is set to true, we should
-                % use the modified constraint violation.
+                % If the Feature is ``quantized'' and the option ``ground_truth'' is set to true, the
+                % truth is ceq_. Otherwise, evaluate the nonlinear equality constraints.
                 if strcmp(obj.kernel.name, FeatureName.QUANTIZED.value) && obj.kernel.options.(FeatureOptionKey.GROUND_TRUTH.value)
                     ceq_true = ceq_;
+                else
+                    ceq_true = obj.problem.ceq(A * x + b);
                 end
                 obj.ceq_hist = [obj.ceq_hist, ceq_true(:)];
             end

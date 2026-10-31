@@ -239,8 +239,7 @@ classdef FeatureProblemView < Problem
             obj.served.(channel) = index+1;
             x = obj.map(x);
             if strcmp(obj.stage.name,'quantized')
-                % A local mesh reads its predecessor once. It is not the
-                % legacy kernel's eager unsnapped pre-read plus snapped read.
+                % A local mesh reads its predecessor once.
                 value = obj.predecessor.(channel)(obj.quantize(x));
                 return
             end
@@ -260,12 +259,7 @@ classdef FeatureProblemView < Problem
             value = obj.kernel.(method)(x,obj.seeds.(channel),obj.predecessor,index);
         end
         function x = quantize(obj,x)
-            % Same MATLAB mesh formula as the retained one-stage kernel.
-            mesh = obj.stage.options.mesh_size;
-            if strcmp(obj.stage.options.mesh_type,'relative')
-                mesh = mesh.*max(1,abs(x));
-            end
-            x = mesh.*round(x./mesh);
+            x = obj.kernel.snapped(x);
         end
         function x = map(obj,x)
             if obj.is_affine

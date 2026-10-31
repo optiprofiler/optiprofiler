@@ -920,6 +920,8 @@ class _StageRuntime:
             Modified objective function value.
         """
 
+        if self._name == FeatureName.QUANTIZED:
+            return problem.fun(self._quantize_point(x))
         f = problem.fun(x)
         if self._name == FeatureName.CUSTOM:
             if FeatureOption.MOD_FUN in self._options:
@@ -944,8 +946,6 @@ class _StageRuntime:
                 return np.inf
             else:
                 return f
-        elif self._name == FeatureName.QUANTIZED:
-            return problem.fun(self._quantize_point(x))
         else:
             return f
 
@@ -973,6 +973,8 @@ class _StageRuntime:
             Modified values of the nonlinear inequality constraints.
         """
 
+        if self._name == FeatureName.QUANTIZED:
+            return problem.cub(self._quantize_point(x))
         cub = problem.cub(x)
         if cub.size == 0:
             return cub
@@ -994,9 +996,6 @@ class _StageRuntime:
             return self._truncate_vector(cub, x, seed, n_eval_cub)
         elif self._name == FeatureName.NONQUANTIFIABLE_CONSTRAINTS:
             return self._nonquantifiable_cub(cub)
-        elif self._name == FeatureName.QUANTIZED:
-            # Similar to the case in the modifier_fun method.
-            return problem.cub(self._quantize_point(x))
         else:
             return cub
 
@@ -1024,6 +1023,8 @@ class _StageRuntime:
             Modified values of the nonlinear equality constraints.
         """
 
+        if self._name == FeatureName.QUANTIZED:
+            return problem.ceq(self._quantize_point(x))
         ceq = problem.ceq(x)
         if ceq.size == 0:
             return ceq
@@ -1045,9 +1046,6 @@ class _StageRuntime:
             return self._truncate_vector(ceq, x, seed, n_eval_ceq)
         elif self._name == FeatureName.NONQUANTIFIABLE_CONSTRAINTS:
             return self._nonquantifiable_ceq(ceq)
-        elif self._name == FeatureName.QUANTIZED:
-            # Similar to the case in the modifier_fun method.
-            return problem.ceq(self._quantize_point(x))
         else:
             return ceq
 
@@ -3109,6 +3107,10 @@ class FeaturedProblem(Problem):
        history, and a derivative the problem does not provide stays absent
        (empty). A composition of features provides no derivatives
        (``NotImplementedError``).
+    4. A single ``quantized`` feature reads the callback of a query once,
+       at the snapped point, which is also the recorded truth with
+       ``ground_truth=True``. With ``ground_truth=False`` the truth takes
+       one more read, at the point of the solver.
 
     .. note::
 
@@ -3431,13 +3433,12 @@ class FeaturedProblem(Problem):
         f = self._runtime.modifier_fun(A @ x + b, self._seed, self._problem, self.n_eval_fun)
         self._last_fun = f
 
-        # Evaluate the objective function and store the results.
-        f_true = super().fun(A @ x + b)
-
-        # If the feature is 'quantized' and the option ``ground_truth'' is set to true, we should
-        # set f_true to f.
+        # If the feature is 'quantized' and the option ``ground_truth'' is set to true, the
+        # truth is f. Otherwise, evaluate the objective function.
         if self._runtime.name == 'quantized' and self._runtime.options[FeatureOption.GROUND_TRUTH]:
             f_true = f
+        else:
+            f_true = super().fun(A @ x + b)
 
         # We should not store the modified value because the performance of an optimization solver
         # should be measured using the original objective function.
@@ -3487,13 +3488,12 @@ class FeaturedProblem(Problem):
 
         # Record the history of the nonlinear inequality constraints only when `record_hist` is true.
         if record_hist:
-            # Evaluate the nonlinear inequality constraints and store the results.
-            c_true = super().cub(A @ x + b)
-
-            # If the feature is 'quantized' and the option ``ground_truth'' is set to true, we should
-            # set c_true to c.
+            # If the feature is 'quantized' and the option ``ground_truth'' is set to true, the
+            # truth is c. Otherwise, evaluate the nonlinear inequality constraints.
             if self._runtime.name == 'quantized' and self._runtime.options[FeatureOption.GROUND_TRUTH]:
                 c_true = c
+            else:
+                c_true = super().cub(A @ x + b)
             self._cub_hist.append(c_true)
 
         return c
@@ -3540,13 +3540,12 @@ class FeaturedProblem(Problem):
 
         # Record the history of the nonlinear equality constraints only when `record_hist` is true.
         if record_hist:
-            # Evaluate the nonlinear equality constraints and store the results.
-            c_true = super().ceq(A @ x + b)
-
-            # If the feature is 'quantized' and the option ``ground_truth'' is set to true, we should
-            # set c_true to c.
+            # If the feature is 'quantized' and the option ``ground_truth'' is set to true, the
+            # truth is c. Otherwise, evaluate the nonlinear equality constraints.
             if self._runtime.name == 'quantized' and self._runtime.options[FeatureOption.GROUND_TRUTH]:
                 c_true = c
+            else:
+                c_true = super().ceq(A @ x + b)
             self._ceq_hist.append(c_true)
 
         return c
