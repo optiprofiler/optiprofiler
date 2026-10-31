@@ -22,10 +22,15 @@ V2 features and release metadata must not be backported to them.
    It checks actual solver evaluations, composed features, reference scoring,
    parallel execution, readable PDFs and solver-free save/load with unchanged
    source data. These are headless Agg tests, not native GUI-backend tests.
-6. Require clean-extraction MATLAB ZIP tests on all supported platforms and
+6. Require `tools/check_minimum_dependencies.py` to pass on the declared
+   floors. It installs the lowest wheels that `pyproject.toml` allows in a clean
+   environment and runs the same smoke there; on Python 3.8 every dependency has
+   to be exactly its declared floor. The Python unit-test workflow runs it on
+   Python 3.8 and 3.12. Raise a floor rather than work around its absence.
+7. Require clean-extraction MATLAB ZIP tests on all supported platforms and
    S2MPJ coexistence, fresh-process restoration and real process-worker tests.
    A same-session load is not evidence of successful native-state restoration.
-7. Run the wider numerical and whole-library acceptance on syu-ubuntu using
+8. Run the wider numerical and whole-library acceptance on syu-ubuntu using
    the final SHA, record versions and budgets, and retain reports and figures.
    Earlier candidate results must not be relabeled as final release results.
 

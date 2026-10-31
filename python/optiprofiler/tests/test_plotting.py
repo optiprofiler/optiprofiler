@@ -4,6 +4,7 @@ matplotlib.use('Agg')
 
 import numpy as np
 import pytest
+import io
 import shutil
 from matplotlib import pyplot as plt
 
@@ -162,7 +163,8 @@ class TestLatexEscapeText:
             fig, ax = plt.subplots()
             ax.plot([0, 1], [0, 1], label=latex_escape_text(r'solver_b#1%'))
             ax.legend()
-            fig.canvas.draw()
+            # As the profiles are drawn: a raster canvas also needs dvipng on some Matplotlib versions.
+            fig.savefig(io.BytesIO(), format='pdf')
             plt.close(fig)
 
 
