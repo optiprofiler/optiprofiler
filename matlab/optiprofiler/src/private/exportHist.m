@@ -38,7 +38,9 @@ function [status, presentation] = exportHist(problem_name, problem_type, problem
         [~, default_width, default_height] = profileFigurePosition();
         summary_profile_width = default_width + summaryLegendExtraWidth(numel(solver_names), default_width, solver_names);
 
-        pdf_hist_file_name = [regexprep(regexprep(regexprep(strrep(problem_name,' ','_'),'[^a-zA-Z0-9\-_]',''),'[-_]+','_'),'^[-_]+',''), '.pdf'];
+        % A report lists these files: a credential in a name must not reach it through the path.
+        safe_name = optiprofiler_internal.EvalReport.credentialFreeUrls(char(problem_name));
+        pdf_hist_file_name = [regexprep(regexprep(regexprep(strrep(safe_name,' ','_'),'[^a-zA-Z0-9\-_]',''),'[-_]+','_'),'^[-_]+',''), '.pdf'];
         pdf_summary = fullfile(path_hist_plots, pdf_hist_file_name);
         processed_solver_names = cellfun(@escapeLatexText, solver_names, 'UniformOutput', false);
 

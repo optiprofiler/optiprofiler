@@ -254,6 +254,11 @@ classdef EvalReport < handle
 
         function addDiagnostic(self, code, stage, scope)
             if nargin < 4, scope = struct(); end
+            for key = {'problem', 'name'}
+                if isfield(scope, key{1})
+                    scope.(key{1}) = optiprofiler_internal.EvalReport.configuration(scope.(key{1}));
+                end
+            end
             entry = struct('code', code, 'stage', stage, 'scope', scope);
             try
                 key = jsonencode(optiprofiler_internal.EvalReport.safe(entry));
@@ -273,7 +278,7 @@ classdef EvalReport < handle
 
         function addProblem(self, result, library, role)
             if nargin < 4, role = 'primary'; end
-            id = jsonencode({library, result.problem_name, role});
+            id = optiprofiler_internal.EvalReport.problemId(library, result.problem_name, role);
             ordinal = self.problemIndex(id);
             if isempty(ordinal), ordinal = numel(self.document.problems) + 1; end
             unknown = optiprofiler_internal.EvalReport.null();
@@ -289,7 +294,7 @@ classdef EvalReport < handle
                 budget_record = struct('evaluations', budget, 'rule', 'ceil(max_eval_factor*dimension)');
             end
             entry = struct('id', id, ...
-                'library', library, 'name', result.problem_name, 'role', role, ...
+                'library', library, 'name', optiprofiler_internal.EvalReport.configuration(result.problem_name), 'role', role, ...
                 'dimension', result.problem_dim, 'type', result.problem_type, ...
                 'selection_status', 'selected', 'load_status', 'loaded', 'status', 'completed', ...
                 'budget', budget_record, 'runs', {{}}, 'plot_refs', {{}});
@@ -465,7 +470,7 @@ classdef EvalReport < handle
 
         function captureHistoryPresentation(self, panels, library, name, role)
             if isempty(panels), return; end
-            id = jsonencode({library,name,role}); ordinal = self.problemIndex(id);
+            id = optiprofiler_internal.EvalReport.problemId(library, name, role); ordinal = self.problemIndex(id);
             if isempty(ordinal), return; end
             if isfield(panels{1}, 'preparation_error')
                 self.plotDocument.diagnostics{end+1} = struct('code', 'render_input_presentation_unavailable', ...
@@ -481,9 +486,9 @@ classdef EvalReport < handle
                 provider.locked_revision = optiprofiler_internal.EvalReport.null();
             end
             for k = 1:numel(names)
-                id = jsonencode({library, names{k}, role});
+                id = optiprofiler_internal.EvalReport.problemId(library, names{k}, role);
                 if isempty(self.problemIndex(id))
-                    entry = struct('id', id, 'library', library, 'name', names{k}, 'role', role, ...
+                    entry = struct('id', id, 'library', library, 'name', optiprofiler_internal.EvalReport.configuration(names{k}), 'role', role, ...
                         'dimension', optiprofiler_internal.EvalReport.null(), 'type', optiprofiler_internal.EvalReport.null(), ...
                         'selection_status', 'selected', 'load_status', 'pending', 'status', 'pending', ...
                         'budget', optiprofiler_internal.EvalReport.null(), 'runs', {{}}, 'plot_refs', {{}});
@@ -496,7 +501,7 @@ classdef EvalReport < handle
         end
 
         function loadFailed(self, library, name, role, exception_type)
-            index = self.problemIndex(jsonencode({library, name, role}));
+            index = self.problemIndex(optiprofiler_internal.EvalReport.problemId(library, name, role));
             self.document.problems{index}.load_status = 'failed';
             self.document.problems{index}.status = 'failed';
             scope = struct('library', library, 'problem', name, 'role', role);
@@ -1011,6 +1016,23 @@ classdef EvalReport < handle
         end
     end
     methods (Static)
+        function id = problemId(library, name, role)
+        %PROBLEMID Identity of a problem in the report. As in Python, a name that
+        % the report does not show as it is goes in as a checksum, not the text:
+        % two such names must stay two problems.
+            if strcmp(optiprofiler_internal.EvalReport.configuration(name), name)
+                id = jsonencode({library, name, role});
+            else
+                id = ['crc32:', optiprofiler_internal.featureLabelChecksum(jsonencode({library, char(name), role}))];
+            end
+        end
+        function text = credentialFreeUrls(text)
+        %CREDENTIALFREEURLS TEXT with the user information, query and fragment of its URLs removed.
+            [urls, starts, stops] = regexp(text, optiprofiler_internal.EvalReport.urlPattern(), 'match', 'start', 'end');
+            for k = numel(urls):-1:1
+                text = [text(1:starts(k)-1), optiprofiler_internal.EvalReport.credentialFreeUrl(urls{k}), text(stops(k)+1:end)];
+            end
+        end
         function text = encodeMetadata(value)
         %ENCODEMETADATA One safe JSON projection for report/archive metadata.
         % This does not serialize callback code or native execution state.
@@ -1383,7 +1405,8 @@ classdef EvalReport < handle
                 feature_block = isfield(value, 'effective_name') && isfield(value, 'stages');
                 for k = 1:numel(names)
                     key = names{k};
-                    if ~isempty(regexpi(key, 'path|token|secret|password|credential|api_key')) || strcmp(key, 'problem')
+                    if ~isempty(regexpi(key, optiprofiler_internal.EvalReport.sensitiveKeyPattern(), 'once')) ...
+                            || contains(key, 'path', 'IgnoreCase', true) || strcmp(key, 'problem')
                         value = rmfield(value, key);
                     elseif feature_block && ismember(key, {'declared', 'stages'}) ...
                             && (iscell(value.(key)) || isstruct(value.(key))) && numel(value.(key)) > 256
@@ -1400,7 +1423,9 @@ classdef EvalReport < handle
                             && (ischar(value.(key)) || (isstring(value.(key)) && isscalar(value.(key))))
                         stamp = char(value.(key));
                         sensitive = startsWith(stamp, '/') || startsWith(stamp, '@(') ...
-                            || ~isempty(regexp(stamp, '^[A-Za-z]:[\\/]', 'once'));
+                            || ~isempty(regexp(stamp, '^[A-Za-z]:[\\/]', 'once')) ...
+                            || ~isempty(regexp(stamp, optiprofiler_internal.EvalReport.urlPattern(), 'once')) ...
+                            || ~isempty(regexp(stamp, optiprofiler_internal.EvalReport.embeddedPathPattern(), 'once'));
                         if numel(stamp) > 256 || sensitive
                             % Never label clipped text as the complete stamp.
                             % Full native authority is retained separately by
@@ -1432,18 +1457,44 @@ classdef EvalReport < handle
                 value = optiprofiler_internal.EvalReport.null();
             elseif ischar(value) || isstring(value)
                 value = char(value);
-                if startsWith(value, {'http://', 'https://'})
+                url = optiprofiler_internal.EvalReport.urlPattern();
+                if ~isempty(regexp(value, ['^', url], 'once'))
                     % As in Python: a URL can carry credentials or tokens.
                     value = '[redacted_url]';
                 elseif startsWith(value, '/') || ~isempty(regexp(value, '^[A-Za-z]:[\\/]', 'once'))
                     value = '[absolute_path_omitted]';
                 elseif startsWith(value, '@(')
                     value = '[anonymous_callback_source_omitted]';
+                else
+                    value = regexprep(value, url, '[redacted_url]');
+                    value = regexprep(value, optiprofiler_internal.EvalReport.embeddedPathPattern(), '[redacted_absolute_path]');
                 end
                 value = optiprofiler_internal.EvalReport.bounded(value);
             elseif ~isnumeric(value) && ~islogical(value)
                 value = struct('kind', 'object', 'description', 'not_serialized');
             end
+        end
+
+        function pattern = sensitiveKeyPattern()
+            % Option names whose values never enter a report, matched without
+            % regard to case: the literal SENSITIVE_KEY_PATTERN of Python's
+            % metadata.py. doc/source/user/eval_report.rst describes the list
+            % and tools/tests/test_report_redaction_contract.py keeps the three
+            % together.
+            pattern = ['password|passwd|passphrase|pwd(?:$|[_-])|secret|credential|', ...
+                'authorization|authentication|auth(?:$|[_-])|bearer|api[_-]?key|private[_-]?key|', ...
+                'cookie|token(?:$|[_-])'];
+        end
+
+        function pattern = urlPattern()
+            % A URL of any scheme, in any case: the literal URL_PATTERN of
+            % Python's metadata.py.
+            pattern = '[A-Za-z][A-Za-z0-9+.-]{1,63}://\S+';
+        end
+
+        function pattern = embeddedPathPattern()
+            % An absolute path inside a text: the rule of Python's metadata.py.
+            pattern = '(?<![\w])(?:/(?:Users|home|private|tmp|var|mnt|opt)/\S+|[A-Za-z]:[\\/][^\s]+)';
         end
 
         function text = bounded(text)
@@ -1466,16 +1517,12 @@ classdef EvalReport < handle
             end
             text = char(value);
             text(text < ' ') = ' ';
-            [urls, starts, stops] = regexp(text, 'https?://[^\s]+', 'match', 'start', 'end', 'ignorecase');
-            for k = numel(urls):-1:1
-                text = [text(1:starts(k)-1), optiprofiler_internal.EvalReport.credentialFreeUrl(urls{k}), text(stops(k)+1:end)];
-            end
+            text = optiprofiler_internal.EvalReport.credentialFreeUrls(text);
             if startsWith(text, '/') || ~isempty(regexp(text, '^[A-Za-z]:[\\/]', 'once'))
                 text = '[redacted_absolute_path]';
                 return
             end
-            text = regexprep(text, '(?<![\w])(?:/(?:Users|home|private|tmp|var|mnt|opt)/\S+|[A-Za-z]:[\\/][^\s]+)', ...
-                '[redacted_absolute_path]');
+            text = regexprep(text, optiprofiler_internal.EvalReport.embeddedPathPattern(), '[redacted_absolute_path]');
             text = optiprofiler_internal.EvalReport.bounded(text);
         end
 
@@ -1483,7 +1530,7 @@ classdef EvalReport < handle
             % scheme://[userinfo@]host[:port][path][?query][#fragment]. A named
             % token inside an optional group is absent from regexp's 'names'
             % output, so the authority is split explicitly.
-            parts = regexp(url, '^(https?)://([^/?#]*)([^?#]*)(.*)$', 'tokens', 'once', 'ignorecase');
+            parts = regexp(url, '^([^:]+)://([^/?#]*)([^?#]*)(.*)$', 'tokens', 'once');
             if isempty(parts)
                 text = '[redacted_url]';
                 return

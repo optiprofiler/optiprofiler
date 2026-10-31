@@ -27,7 +27,7 @@ function [merit_histories_merged, merit_outs_merged, merit_inits_merged, merit_m
             % Capture identities at the actual concatenation, including load
             % subset order; plain-reference rows are not this profile cohort.
             for p = 1:numel(results_plib.problem_names)
-                problem_ids_merged{end+1} = jsonencode({results_plib.plib, results_plib.problem_names{p}, 'primary'});
+                problem_ids_merged{end+1} = optiprofiler_internal.EvalReport.problemId(results_plib.plib, results_plib.problem_names{p}, 'primary');
             end
         end
     end

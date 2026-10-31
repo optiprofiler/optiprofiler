@@ -14,6 +14,7 @@ from pypdf import PdfWriter
 from .problem_libraries import list_problem_libraries, resolve_problem_library
 from .experiment import validate_n_runs
 from .provenance import full_feature_stamp
+from .metadata import credential_free_urls
 from .utils import ProfileOption, ProblemOption, get_logger, print_log_message, shorten_log_message
 
 
@@ -823,7 +824,7 @@ def create_stamp(solver_names, problem_options, feature_stamp, time_stamp, path_
 
 
     # Get the solver stamp: replace non-alphanumeric/underscore with '_'
-    solver_names_clean = [re.sub(r'[^a-zA-Z0-9_]', '_', name) for name in solver_names]
+    solver_names_clean = [re.sub(r'[^a-zA-Z0-9_]', '_', credential_free_urls(name)) for name in solver_names]
     solver_stamp = '_'.join(solver_names_clean)
 
     # Get the problem stamp

@@ -18,10 +18,16 @@ from pathlib import Path, PureWindowsPath
 
 import numpy as np
 
-_SECRET_KEY = re.compile(
-    r'password|passwd|secret|credential|authorization|api[_-]?key|'
-    r'(?:^|[_-])token(?:$|[_-])|access[_-]?token|refresh[_-]?token|'
-    r'private[_-]?key|cookie', re.I)
+# Option names whose values never enter a report, matched without regard to
+# case. `EvalReport.m` holds the same literal, doc/source/user/eval_report.rst
+# describes the list, and tools/tests/test_report_redaction_contract.py keeps
+# the three together. `pwd`, `auth` and `token` have to end the name or a part
+# of it, which leaves `author`, `max_tokens` and `tokenizer` alone.
+SENSITIVE_KEY_PATTERN = (
+    r'password|passwd|passphrase|pwd(?:$|[_-])|secret|credential|'
+    r'authorization|authentication|auth(?:$|[_-])|bearer|api[_-]?key|private[_-]?key|'
+    r'cookie|token(?:$|[_-])')
+_SECRET_KEY = re.compile(SENSITIVE_KEY_PATTERN, re.I)
 _ABS_IN_TEXT = re.compile(r'(?<![\w])(?:/(?:Users|home|private|tmp|var|mnt|opt)/\S+|[A-Za-z]:[\\/][^\s]+)')
 # A surrogate code point in a ``str`` (typically from ``surrogateescape``
 # decoding of an undecodable file name) has no UTF-8 encoding; the report is
@@ -32,7 +38,11 @@ _LONE_SURROGATE = re.compile('[\ud800-\udfff]')
 TEXT_LIMIT = 256
 # A clipped text must never read as the complete value (same marker in MATLAB).
 TRUNCATION_MARKER = '...[truncated]'
-_URL_IN_TEXT = re.compile(r'https?://[^\s]+', re.I)
+# A URL of any scheme (`HTTPS://`, `git+https://`, `ssh://`, ...), in any case;
+# the same literal as in `EvalReport.m`. Two letters at least: `C://x` is a path.
+# The bound on the scheme keeps the search linear in a long text without a URL.
+URL_PATTERN = r'[A-Za-z][A-Za-z0-9+.-]{1,63}://\S+'
+_URL_IN_TEXT = re.compile(URL_PATTERN)
 
 
 def _bounded(value, limit):
@@ -53,8 +63,9 @@ def bounded_text(value, limit=TEXT_LIMIT):
     if not isinstance(value, str):
         return None
     value = _sanitized(value)
-    if value.startswith(('http://', 'https://')):
+    if _URL_IN_TEXT.match(value):
         return '[redacted_url]'
+    value = _URL_IN_TEXT.sub('[redacted_url]', value)
     if os.path.isabs(value) or PureWindowsPath(value).is_absolute():
         return '[redacted_absolute_path]'
     value = _ABS_IN_TEXT.sub('[redacted_absolute_path]', value)
@@ -79,6 +90,11 @@ def _credential_free_url(match):
     return kept
 
 
+def credential_free_urls(value):
+    """``value`` with the user information, query and fragment of its URLs removed."""
+    return _URL_IN_TEXT.sub(_credential_free_url, value)
+
+
 def provenance_text(value, limit=TEXT_LIMIT):
     """Bounded provenance text, such as the source of a reference record.
 
@@ -92,7 +108,7 @@ def provenance_text(value, limit=TEXT_LIMIT):
         value = value.value
     if not isinstance(value, str):
         return None
-    value = _URL_IN_TEXT.sub(_credential_free_url, _sanitized(value))
+    value = credential_free_urls(_sanitized(value))
     if os.path.isabs(value) or PureWindowsPath(value).is_absolute():
         return '[redacted_absolute_path]'
     value = _ABS_IN_TEXT.sub('[redacted_absolute_path]', value)

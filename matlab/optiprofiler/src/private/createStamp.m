@@ -14,7 +14,7 @@ function stamp = createStamp(solver_names, problem_options, feature_stamp, time_
 
     % Get the solver stamp.
     for i = 1:length(solver_names)
-        solver_names{i} = regexprep(solver_names{i}, '[^a-zA-Z0-9_]', '_');
+        solver_names{i} = regexprep(optiprofiler_internal.EvalReport.credentialFreeUrls(char(solver_names{i})), '[^a-zA-Z0-9_]', '_');
     end
     solver_stamp = strjoin(solver_names, '_');
 

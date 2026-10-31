@@ -1,12 +1,13 @@
 """Report text is bounded honestly and provenance keeps no credentials."""
 import json
+import time
 
 import numpy as np
 import pytest
 
 from optiprofiler import Problem, ProblemReference, benchmark
 from optiprofiler.eval_report import schema_resource
-from optiprofiler.metadata import TEXT_LIMIT, TRUNCATION_MARKER, bounded_text, provenance_text
+from optiprofiler.metadata import TEXT_LIMIT, TRUNCATION_MARKER, bounded_text, provenance_text, safe_metadata
 from optiprofiler.tests.eval_report_contract import assert_valid
 
 
@@ -34,6 +35,70 @@ def test_general_metadata_still_redacts_urls():
     assert bounded_text('https://example.org/x?token=abc') == '[redacted_url]'
 
 
+CANARY = 'CANARYpw'
+CREDENTIAL_URLS = [f'{scheme}://user:{CANARY}@example.org/repo.git' for scheme in (
+    'https', 'HTTPS', 'Http', 'git+https', 'GIT+SSH', 'git+ssh', 'ssh', 'SSH', 'ftp', 's3', 'custom.scheme-1')]
+
+
+@pytest.mark.parametrize('url', CREDENTIAL_URLS)
+def test_url_is_redacted_in_any_scheme_and_letter_case(url):
+    assert bounded_text(url) == '[redacted_url]'
+    assert bounded_text(f'built from {url} (pinned)') == 'built from [redacted_url] (pinned)'
+
+
+@pytest.mark.parametrize('url', CREDENTIAL_URLS)
+def test_provenance_strips_embedded_credentials_of_any_scheme(url):
+    scheme = url.split('://')[0].lower()
+    assert provenance_text(url) == f'{scheme}://example.org/repo.git [url parameters removed]'
+    assert provenance_text(f'Data from {url} and more') == \
+        f'Data from {scheme}://example.org/repo.git [url parameters removed] and more'
+
+
+@pytest.mark.parametrize('text', ['C://Users/someone/x', 'not a url: a:b', 'mailto:someone@example.org'])
+def test_text_without_a_url_is_not_treated_as_one(text):
+    assert bounded_text(text) != '[redacted_url]'
+
+
+def test_redacted_url_keeps_text_bounded():
+    text = 'https://user:pw@example.org/' + 'x' * (2 * TEXT_LIMIT)
+    assert bounded_text(text) == '[redacted_url]'
+    clipped = bounded_text('a' * TEXT_LIMIT + ' ' + text)
+    assert 'pw' not in clipped and len(clipped) == TEXT_LIMIT
+
+
+def test_long_text_without_a_url_is_handled_in_linear_time():
+    text = 'a' * 200000
+    start = time.perf_counter()
+    assert bounded_text(text, None) == text
+    assert provenance_text(text, None) == text
+    assert time.perf_counter() - start < 5.0
+
+
+def test_url_after_a_long_run_of_scheme_characters_is_still_found():
+    assert 'pw' not in bounded_text('a' * 100 + '://user:pw@example.org/x')
+
+
+SENSITIVE_KEYS = ['password', 'PassWord', 'user_passwd', 'ssh_passphrase', 'pwd', 'db-pwd', 'userPwd', 'client_secret',
+                  'SECRET_KEY', 'aws_secret_access_key', 'credentials', 'Authorization', 'authentication', 'auth',
+                  'http_auth', 'basicAuth', 'oauth', 'auth_value', 'bearer', 'bearer_value', 'api_key', 'apikey',
+                  'API-KEY', 'x-api-key', 'private_key', 'privateKey', 'session_cookie', 'token', 'auth_token',
+                  'authToken', 'access_token', 'refresh-token', 'sessiontoken', 'token_value']
+BENIGN_KEYS = ['max_tokens', 'tokenizer', 'tokens', 'author', 'authors', 'authenticated', 'key', 'noise_level',
+               'savepath', 'keyword']
+
+
+@pytest.mark.parametrize('key', SENSITIVE_KEYS)
+def test_sensitive_option_names_are_redacted_at_any_depth(key):
+    secret = {'value': None, 'reason': 'redacted_sensitive_option'}
+    assert safe_metadata({key: 'do-not-copy'}) == {key: secret}
+    assert safe_metadata({'outer': [{'inner': {key: 'do-not-copy'}}]}) == {'outer': [{'inner': {key: secret}}]}
+
+
+@pytest.mark.parametrize('key', BENIGN_KEYS)
+def test_ordinary_option_names_are_kept(key):
+    assert safe_metadata({key: 3}) == {key: 3}
+
+
 def finish(fun, x0):
     x = np.ones_like(x0)
     fun(x)
@@ -43,6 +108,33 @@ def finish(fun, x0):
 def stay(fun, x0):
     fun(x0)
     return x0
+
+
+def test_report_files_hold_no_credential_of_any_url_scheme(tmp_path):
+    report_path = tmp_path / 'report.json'
+    names = [CREDENTIAL_URLS[1], CREDENTIAL_URLS[3]]
+    problem = Problem(lambda x: float(x @ x), [2.0], name=f'problem from {CREDENTIAL_URLS[6]}',
+                      reference=ProblemReference(0.0, 'feasible', CREDENTIAL_URLS[7]))
+    benchmark([finish, stay], problem=problem, solver_names=names, score_only=True, silent=True,
+              n_jobs=1, max_eval_factor=2, report_path=str(report_path))
+    files = [path for path in tmp_path.rglob('*') if path.is_file()]
+    assert report_path in files and len(files) >= 2
+    for path in files:
+        assert CANARY.encode() not in path.read_bytes(), path
+    assert_valid(json.loads(report_path.read_text(encoding='utf-8')), schema_resource('eval_report', 2))
+
+
+def test_saved_report_and_artifact_names_hold_no_credential(tmp_path):
+    report_path = tmp_path / 'report.json'
+    problem = Problem(lambda x: float(x @ x), [2.0], name=f'problem from {CREDENTIAL_URLS[6]}')
+    benchmark([finish, stay], problem=problem, solver_names=[f'ssh://u:{CANARY}@h', 'b'], silent=True, n_jobs=1,
+              max_eval_factor=2, draw_hist_plots='sequential', savepath=str(tmp_path / 'out'),
+              report_path=str(report_path))
+    names = [path.name for path in (tmp_path / 'out').rglob('*')]
+    assert any(name.endswith('.pdf') for name in names)
+    assert not any(CANARY in name for name in names), names
+    for path in (report_path, tmp_path / 'report.plot_data.json'):
+        assert CANARY.encode() not in path.read_bytes(), path
 
 
 def test_report_shows_credential_free_and_marked_reference_sources(tmp_path):

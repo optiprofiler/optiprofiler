@@ -320,6 +320,33 @@ that companion. The core does not add an agent tool server or change Evolve's
 fitness policy. A smaller report improves context use but is not a guarantee
 against erroneous agent conclusions.
 
+Redacted metadata
+-----------------
+
+Reports describe an experiment without copying secrets or machine paths. The
+rules are the same in Python and MATLAB:
+
+- An option whose name contains ``password``, ``passwd``, ``passphrase``,
+  ``secret``, ``credential``, ``authorization``, ``authentication``,
+  ``bearer``, ``api_key`` (also ``apikey`` and ``api-key``), ``private_key``
+  (also ``privatekey`` and ``private-key``) or ``cookie``, or whose name has
+  ``pwd``, ``auth`` or ``token`` at its end or before ``_`` or ``-``
+  (``auth_token``, ``basicAuth``, but not ``max_tokens`` or ``author``), is not
+  copied, in any letter case and at any depth. Python keeps the key with the
+  reason ``redacted_sensitive_option``; MATLAB omits the key.
+- A URL of any scheme and letter case (``HTTPS://``, ``git+https://``,
+  ``ssh://``) is replaced by ``[redacted_url]`` in metadata text. A text that
+  starts with a URL is replaced as a whole.
+- An absolute path is replaced too, in a whole text and inside a longer one.
+- The ``source`` of a reference record is scientific provenance: its URLs keep
+  scheme, host, port and path; user information, query and fragment are removed
+  and marked ``[url parameters removed]``. The file names of history plots
+  follow the same rule, because a report lists them.
+
+This is a safeguard for ordinary metadata, not a security boundary: a secret in
+a value that is neither a URL nor under a sensitive option name is not
+recognized.
+
 Hash and permission fallbacks
 -----------------------------
 
