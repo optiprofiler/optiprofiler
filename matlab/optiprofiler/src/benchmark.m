@@ -479,7 +479,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %       Following is the list of available options:
 %
 %       - plibs: the problem libraries to be used. It should be a cell array of
-%         strings or chars naming registered libraries. The bundled choices
+%         strings or chars, or a string array, naming registered libraries.
+%         The bundled choices
 %         are 's2mpj' and 'custom'; setup can register the optional
 %         'matcutest' and 'solar' adapters. Default setting is 's2mpj'.
 %       - ptype: the type of the problems to be selected. It should be a string
@@ -516,11 +517,13 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         problems to be selected. It must be an integer greater or equal to 0,
 %         or Inf. Inf means no upper constraint limit. Default is
 %         max(maxlcon, maxnlcon).
-%       - excludelist: the list of problems to be excluded. Default is not to
-%         exclude any problem.
+%       - excludelist: the list of problems to be excluded. It should be a
+%         cell array of strings or chars, or a string array. Default is not
+%         to exclude any problem.
 %       - problem_names: the names of the problems to be selected. It should
-%         be a cell array of strings or chars. Default is not to select any
-%         problem by name but by the options above.
+%         be a cell array of strings or chars, or a string array, whose
+%         elements are the names. Default is not to select any problem by
+%         name but by the options above.
 %
 %       You may also pass an instance of the class Problem by the option
 %

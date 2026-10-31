@@ -297,6 +297,56 @@ classdef TestFeatureReviewRegressions < matlab.unittest.TestCase
             testCase.verifyEqual(benchmark({@reviewStay, @reviewZero}, legacy), scores);
         end
 
+        function stringArrayNameListsSelectLibraryProblems(testCase)
+            % A string array is a list of names: it selects exactly what the
+            % equivalent cell array selects, in any orientation.
+            registerFixtureLibrary();
+            solvers = {@reviewStay, @reviewZero};
+            base = struct('mindim', 1, 'maxdim', 3, 'score_only', true, 'silent', true, ...
+                'n_jobs', 1, 'n_runs', 1, 'max_eval_factor', 3, 'max_tol_order', 1);
+            cells = base;
+            cells.plibs = {'composed_streams'};
+            cells.problem_names = {'zeros3', 'shift2'};
+            expected = benchmark(solvers, cells);
+            strings = base;
+            strings.plibs = "composed_streams";
+            for names = {["zeros3", "shift2"], ["zeros3"; "shift2"], {"zeros3", 'shift2'}}
+                strings.problem_names = names{1};
+                testCase.verifyEqual(benchmark(solvers, strings), expected);
+            end
+            % S2MPJ has neither name, so it adds no problem.
+            strings.plibs = ["composed_streams", "s2mpj"];
+            testCase.verifyEqual(benchmark(solvers, strings), expected);
+            cells = rmfield(cells, 'problem_names');
+            cells.excludelist = {'zeros3', 'missing'};
+            strings = rmfield(strings, 'problem_names');
+            strings.plibs = "composed_streams";
+            strings.excludelist = ["zeros3", "missing"];
+            testCase.verifyEqual(benchmark(solvers, strings), benchmark(solvers, cells));
+            % Shapes that are not a list of names fail during validation.
+            invalid = {['ab'; 'cd'], {["zeros3", "shift2"]}, string(missing), {'zeros3', 3}};
+            for k = 1:numel(invalid)
+                options = base;
+                options.plibs = {'composed_streams'};
+                options.problem_names = invalid{k};
+                testCase.verifyError(@() benchmark(solvers, options), ...
+                    'MATLAB:checkValidityProblemOptions:problem_namesNotCellOfcharstr');
+                options = rmfield(options, 'problem_names');
+                options.excludelist = invalid{k};
+                testCase.verifyError(@() benchmark(solvers, options), ...
+                    'MATLAB:checkValidityProblemOptions:excludelistNotCellOfcharstr');
+            end
+            options = base;
+            options.plibs = {["composed_streams", "s2mpj"]};
+            testCase.verifyError(@() benchmark(solvers, options), 'MATLAB:checkValidityProblemOptions:plibsNotValid');
+            options = rmfield(options, 'plibs');
+            options.solver_names = {["stay", "still"], "zero"};
+            testCase.verifyError(@() benchmark(solvers, options), 'MATLAB:checkValidityProfileOptions:solver_namesNotCellOfcharstr');
+            options = rmfield(options, 'solver_names');
+            options.line_styles = {["-", "--"]};
+            testCase.verifyError(@() benchmark(solvers, options), 'MATLAB:checkValidityProfileOptions:line_stylesNotValid');
+        end
+
         function legacyFeaturedProblemRestoresAndContinuesItsStream(testCase)
             fixture_root = fullfile(fileparts(mfilename('fullpath')), '..', 'fixtures', 'feature-v2');
             expected = load(fullfile(fixture_root, 'b0-featured-problem-continuation.mat'));

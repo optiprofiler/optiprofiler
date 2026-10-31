@@ -43,7 +43,7 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
 
     % Judge whether profile_options.solver_names is a cell of chars or strings.
     if isfield(profile_options, ProfileOptionKey.SOLVER_NAMES.value)
-        if ~iscell(profile_options.(ProfileOptionKey.SOLVER_NAMES.value)) || ~all(cellfun(@(l) ischarstr(l), profile_options.(ProfileOptionKey.SOLVER_NAMES.value)))
+        if ~iscell(profile_options.(ProfileOptionKey.SOLVER_NAMES.value)) || ~all(cellfun(@isScalarText, profile_options.(ProfileOptionKey.SOLVER_NAMES.value)))
             error("MATLAB:checkValidityProfileOptions:solver_namesNotCellOfcharstr", "The option `solver_names` of options must be a cell of chars or strings.");
         end
         if ~isempty(solvers) && numel(profile_options.(ProfileOptionKey.SOLVER_NAMES.value)) ~= 0 && numel(profile_options.(ProfileOptionKey.SOLVER_NAMES.value)) ~= numel(solvers)
@@ -296,7 +296,7 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
             if size(profile_options.(ProfileOptionKey.LINE_COLORS.value), 1) > 1
                 profile_options.(ProfileOptionKey.LINE_COLORS.value) = profile_options.(ProfileOptionKey.LINE_COLORS.value)';
             end
-            if ~all(cellfun(@(x) ischarstr(x) && ismember(x, {'r', 'g', 'b', 'c', 'm', 'y', 'k'}), profile_options.(ProfileOptionKey.LINE_COLORS.value)))
+            if ~all(cellfun(@(x) isScalarText(x) && ismember(x, {'r', 'g', 'b', 'c', 'm', 'y', 'k'}), profile_options.(ProfileOptionKey.LINE_COLORS.value)))
                 error("MATLAB:checkValidityProfileOptions:line_colorsCellNotValid", "The option `line_colors` can only contain 'r', 'g', 'b', 'c', 'm', 'y', 'k' when it is a cell array of strings.");
             end
             % Convert the cell array of strings to a matrix whose rows are RGB triplets.
@@ -323,7 +323,7 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
         ':', ':o', ':+', ':*', ':.', ':x', ':s', ':d', ':^', ':v', ':>', ':<', ':p', ':h', 'o:', '+:', '*:', '.:', 'x:', 's:', 'd:', '^:', 'v:', '>:', '<:', 'p:', 'h:',...
         '--', '--o', '--+', '--*', '--.', '--x', '--s', '--d', '--^', '--v', '-->', '--<', '--p', '--h', 'o--', '+--', '*--', '.--', 'x--', 's--', 'd--', '^--', 'v--', '>--', '<--', 'p--', 'h--'...
         };
-        if ~iscell(profile_options.(ProfileOptionKey.LINE_STYLES.value)) || ~all(cellfun(@(x) ischarstr(x) && ismember(x, valid_line_style_marker_combinations), profile_options.(ProfileOptionKey.LINE_STYLES.value)))
+        if ~iscell(profile_options.(ProfileOptionKey.LINE_STYLES.value)) || ~all(cellfun(@(x) isScalarText(x) && ismember(x, valid_line_style_marker_combinations), profile_options.(ProfileOptionKey.LINE_STYLES.value)))
             error("MATLAB:checkValidityProfileOptions:line_stylesNotValid", "The option `line_styles` should be a cell array of chars or strings that are the combinations of line styles ('-', '-.', ':', '--') and markers ('none', 'o', '+', '*', '.', 'x', 's', 'd', '^', 'v', '>', '<', 'p', 'h').");
         end
         % Convert it to a row cell array of strings.
@@ -349,7 +349,7 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
             if size(profile_options.(ProfileOptionKey.BAR_COLORS.value), 1) > 1
                 profile_options.(ProfileOptionKey.BAR_COLORS.value) = profile_options.(ProfileOptionKey.BAR_COLORS.value)';
             end
-            if ~all(cellfun(@(x) ischarstr(x) && ismember(x, {'r', 'g', 'b', 'c', 'm', 'y', 'k'}), profile_options.(ProfileOptionKey.BAR_COLORS.value)))
+            if ~all(cellfun(@(x) isScalarText(x) && ismember(x, {'r', 'g', 'b', 'c', 'm', 'y', 'k'}), profile_options.(ProfileOptionKey.BAR_COLORS.value)))
                 error("MATLAB:checkValidityProfileOptions:bar_colorsCellNotValid", "The option `bar_colors` can only contain 'r', 'g', 'b', 'c', 'm', 'y', 'k' when it is a cell array of strings.");
             end
             % Convert the cell array of strings to a matrix whose rows are RGB triplets.
@@ -419,4 +419,10 @@ function rgb = shortname2rgb(shortname)
         case 'k'
             rgb = [0, 0, 0];
     end
+end
+
+function valid = isScalarText(value)
+%ISSCALARTEXT One list element: a char row or a string scalar, not a string array.
+    valid = (ischar(value) && (isrow(value) || isempty(value))) || ...
+        (isstring(value) && isscalar(value) && ~ismissing(value));
 end
