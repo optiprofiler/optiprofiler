@@ -31,6 +31,13 @@ gitlinks and their sources are not included in core build artifacts.  RS13 is
 external and experimental and likewise exists only in the lock-driven
 integration matrix.
 
+Only the ``s2mpj`` and ``custom`` (example) trees under
+``python/optiprofiler/problem_libs`` are bundled providers.  Any other tree
+there, such as a ``pycutest`` or ``solar`` checkout left from V1.3.4, which
+tracked them as submodules, is ignored at runtime, so it can neither replace
+nor collide with an installed plugin.  ``tools/check_release.py`` rejects a
+wheel or sdist that contains such a tree.
+
 Each external library owns its build and runtime tests.  The core integration
 workflow checks only the cross-repository boundary: locked source identity,
 installed entry-point metadata, API compatibility, selection/loading adapter

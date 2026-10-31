@@ -2,6 +2,7 @@
 
 from pathlib import Path
 import io
+import shutil
 import subprocess
 import sys
 import tarfile
@@ -40,11 +41,15 @@ class ReleaseContractTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('does not match', result.stderr)
 
-    def distributions(self, wheel_version='2.0.0', source_version='2.0.0', omitted=None):
+    def distributions(self, wheel_version='2.0.0', source_version='2.0.0', omitted=None, extra=()):
         dist = self.root / 'dist'
         dist.mkdir()
         files = {
             'optiprofiler/__init__.py': b"__version__ = '2.0.0'\n",
+            'optiprofiler/problem_libraries.py': b"_BUNDLED_PROBLEM_LIBRARIES = ('custom', 's2mpj')\n",
+            'optiprofiler/problem_libs/__init__.py': b'',
+            'optiprofiler/problem_libs/README.txt': b'guide',
+            'optiprofiler/problem_libs/custom/custom_tools.py': b'',
             'optiprofiler/schemas/eval_report.schema.json': b'{}',
             'optiprofiler/schemas/eval_report-v2.schema.json': b'{}',
             'optiprofiler/schemas/plot_data.schema.json': b'{}',
@@ -54,6 +59,7 @@ class ReleaseContractTests(unittest.TestCase):
         }
         if omitted:
             files.pop(omitted, None)
+        files.update({name: b'stale' for name in extra})
         wheel = dist / ('optiprofiler-' + wheel_version + '-py3-none-any.whl')
         with zipfile.ZipFile(wheel, 'w') as archive:
             for name, value in files.items():
@@ -106,6 +112,17 @@ class ReleaseContractTests(unittest.TestCase):
             omitted='optiprofiler/schemas/eval_report-v2.schema.json')))
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('eval_report-v2.schema.json', result.stderr)
+
+    def test_stale_provider_tree_blocks_distribution(self):
+        # V1.3.4 tracked pycutest and solar submodules inside problem_libs.
+        for tree in ('pycutest', 'solar'):
+            with self.subTest(tree=tree):
+                result = self.check('--dist-dir', str(self.distributions(
+                    extra=['optiprofiler/problem_libs/' + tree + '/' + tree + '_tools.py'])))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn('outside the bundled set', result.stderr)
+                self.assertIn(repr(tree), result.stderr)
+                shutil.rmtree(self.root / 'dist')
 
     def test_empty_artifact_directory_is_rejected(self):
         dist = self.root / 'dist'

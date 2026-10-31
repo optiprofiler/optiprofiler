@@ -14,6 +14,7 @@ import zipfile
 
 REQUIRED_PACKAGE_FILES = (
     'optiprofiler/__init__.py',
+    'optiprofiler/problem_libraries.py',
     'optiprofiler/schemas/eval_report.schema.json',
     'optiprofiler/schemas/eval_report-v2.schema.json',
     'optiprofiler/schemas/plot_data.schema.json',
@@ -49,6 +50,31 @@ def literal_version(source):
     return values[0]
 
 
+def bundled_problem_libraries(source):
+    """Read the shipped problem-library names declared by the core, without importing it."""
+    values = [node.value for node in ast.parse(source).body
+              if isinstance(node, ast.Assign)
+              and any(isinstance(target, ast.Name) and target.id == '_BUNDLED_PROBLEM_LIBRARIES'
+                      for target in node.targets)]
+    names = ast.literal_eval(values[0]) if len(values) == 1 else None
+    if not isinstance(names, tuple) or not all(isinstance(name, str) for name in names):
+        raise ValueError('problem_libraries.py must declare _BUNDLED_PROBLEM_LIBRARIES once, '
+                         'as a literal tuple of names.')
+    return set(names)
+
+
+def check_problem_library_trees(path, files, package_prefix):
+    """Reject provider trees (e.g. a stale V1 checkout) outside the bundled set."""
+    shipped = bundled_problem_libraries(files[package_prefix + 'optiprofiler/problem_libraries.py'].decode('utf-8'))
+    libs = package_prefix + 'optiprofiler/problem_libs/'
+    trees = {name[len(libs):].split('/', 1)[0] for name in files
+             if name.startswith(libs) and '/' in name[len(libs):]}
+    extra = sorted(trees - shipped)
+    if extra:
+        raise ValueError(f'{path.name} ships problem-library trees outside the bundled set '
+                         f'{sorted(shipped)}: {extra}.')
+
+
 def check_distribution(path, version):
     if path.suffix == '.whl':
         with zipfile.ZipFile(path) as archive:
@@ -58,6 +84,7 @@ def check_distribution(path, version):
         license_names = [name for name in files if name.endswith('.dist-info/licenses/LICENSE')
                          or name.endswith('.dist-info/LICENSE')]
         required = REQUIRED_PACKAGE_FILES
+        package_prefix = ''
         init = 'optiprofiler/__init__.py'
         if not path.name.startswith('optiprofiler-' + version + '-'):
             raise ValueError(f'{path.name} filename does not match source version {version}.')
@@ -72,6 +99,7 @@ def check_distribution(path, version):
         license_names = [prefix + 'LICENSE'] if prefix + 'LICENSE' in files else []
         required = (tuple(prefix + 'python/' + name for name in REQUIRED_PACKAGE_FILES)
                     + tuple(prefix + name for name in REQUIRED_SOURCE_FILES))
+        package_prefix = prefix + 'python/'
         init = prefix + 'python/optiprofiler/__init__.py'
         if path.name != 'optiprofiler-' + version + '.tar.gz':
             raise ValueError(f'{path.name} filename does not match source version {version}.')
@@ -85,6 +113,7 @@ def check_distribution(path, version):
     for name in required:
         if not files.get(name):
             raise ValueError(f'{path.name} is missing required resource {name}.')
+    check_problem_library_trees(path, files, package_prefix)
     if len(license_names) != 1 or not files[license_names[0]]:
         raise ValueError(f'{path.name} is missing the core LICENSE.')
     if literal_version(files[init].decode('utf-8')) != version:

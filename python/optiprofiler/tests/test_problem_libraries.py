@@ -247,6 +247,32 @@ def test_bundled_and_installed_name_collision_is_rejected(monkeypatch):
         resolve_problem_library('s2mpj')
 
 
+def test_stale_tree_in_problem_libs_is_not_a_bundled_provider(tmp_path, monkeypatch):
+    # V1.3.4 tracked pycutest and solar submodules inside problem_libs; such a
+    # tree must neither shadow nor collide with the installed V2 plugin.
+    package_libs = tmp_path / 'problem_libs'
+    package_libs.mkdir()
+    for name in ('custom', 's2mpj', 'pycutest', 'solar'):
+        _write_legacy_library(package_libs, name)
+    monkeypatch.setattr(problem_libraries, '_problem_libs_dir', lambda: package_libs)
+    monkeypatch.setattr(problem_libraries, '_problem_library_entry_points', lambda: [])
+
+    assert list_problem_libraries() == ['custom', 's2mpj']
+    assert resolve_problem_library('custom').source == 'builtin'
+    with pytest.raises(ValueError, match='"pycutest" is not available'):
+        resolve_problem_library('pycutest')
+
+    entry_point = _FakeEntryPoint('pycutest', 'optiprofiler_pycutest:get_problem_library',
+                                  lambda: _plugin(name='pycutest'), 'optiprofiler-pycutest')
+    monkeypatch.setattr(problem_libraries, '_problem_library_entry_points', lambda: [entry_point])
+    reference = resolve_problem_library('pycutest')
+    assert (reference.source, reference.locator) == ('entry_point', entry_point.value)
+    other = tmp_path / 'local'
+    other.mkdir()
+    _write_legacy_library(other, 'pycutest')
+    assert resolve_problem_library('pycutest', other).shadows == ('optiprofiler-pycutest',)
+
+
 def test_explicit_custom_path_overrides_other_providers(tmp_path, monkeypatch):
     _, tools_file = _write_legacy_library(tmp_path, 's2mpj')
     entry_point = _FakeEntryPoint(
