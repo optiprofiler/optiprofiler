@@ -529,8 +529,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %
 %       - problem: a problem to be benchmarked. It should be an instance of the
 %         class Problem. If it is provided, we will only run the test on this
-%         problem with the given feature and draw the history plots. Default is
-%         not to set any problem.
+%         problem with the given feature and draw the history plots. It cannot
+%         be combined with `load`. Default is not to set any problem.
 %
 %   Several points to note:
 %
@@ -668,12 +668,10 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
             else
                 feature_name = 'plain';
             end
-            if isfield(options, 'problem')
-                options = rmfield(options, 'problem');
-            end
             if ~isfield(options, ProfileOptionKey.LOAD.value) || isempty(options.(ProfileOptionKey.LOAD.value))
                 error("MATLAB:benchmark:LoadFieldNotProvided", "The option `load` must be provided when the first argument for `benchmark` is a struct.");
             end
+            rejectProblemWithLoad(options);
         else
             solvers = varargin{1};
             feature_name = 'plain';
@@ -691,6 +689,9 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
                 options = rmfield(options, 'feature_name');
             else
                 feature_name = 'plain';
+            end
+            if isfield(options, ProfileOptionKey.LOAD.value) && ~isempty(options.(ProfileOptionKey.LOAD.value))
+                rejectProblemWithLoad(options);
             end
             if isfield(options, 'problem')
                 problem = options.problem;
@@ -2433,6 +2434,14 @@ function profile_scores = computeScores(curves, profile_options)
         max_scores = max(profile_scores, [], 1);
         max_scores(max_scores == 0) = 1;
         profile_scores = profile_scores ./ max_scores;
+    end
+end
+
+function rejectProblemWithLoad(options)
+    % A load reanalyses saved data and executes no solver. Refuse a problem
+    % before any output instead of ignoring it or solving it.
+    if isfield(options, 'problem')
+        error("MATLAB:benchmark:ProblemWithLoad", "The options `load` and `problem` cannot be combined: `load` reanalyses a saved experiment without solving any problem.");
     end
 end
 

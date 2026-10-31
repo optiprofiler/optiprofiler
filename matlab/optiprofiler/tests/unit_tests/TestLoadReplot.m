@@ -287,6 +287,35 @@ classdef TestLoadReplot < matlab.unittest.TestCase
             testCase.verifyError(@() benchmark(options), 'MATLAB:checkValidityProfileOptions:solvers_to_loadNotValid');
         end
 
+        function loadWithProblemIsRejectedBeforeAnyOutput(testCase)
+            % With or without solvers, and even an empty problem field, the
+            % contradictory request neither loads nor solves nor writes.
+            TestLoadReplot.makeExperiment(pwd, 'bench', 2, 1);
+            setappdata(0, 'OptiProfilerLoadReplotSolverCalls', 0);
+            testCase.addTeardown(@() rmappdata(0, 'OptiProfilerLoadReplotSolverCalls'));
+            problem = Problem(struct('fun', @(x) sum(x.^2), 'x0', [1; 2]));
+            before = dir(fullfile(pwd, '**'));
+            for value = {problem, []}
+                options = TestLoadReplot.loadOptions('problem', value{1});
+                testCase.verifyError(@() benchmark(options), 'MATLAB:benchmark:ProblemWithLoad');
+                testCase.verifyError(@() benchmark({@TestLoadReplot.countingSolver, @TestLoadReplot.countingSolver}, options), ...
+                    'MATLAB:benchmark:ProblemWithLoad');
+            end
+            testCase.verifyEqual(getappdata(0, 'OptiProfilerLoadReplotSolverCalls'), 0);
+            after = dir(fullfile(pwd, '**'));
+            testCase.verifyEqual(sort(fullfile({after.folder}, {after.name})), sort(fullfile({before.folder}, {before.name})));
+        end
+
+    end
+
+    methods (Static, Access = private)
+
+        function x = countingSolver(fun, x0)
+            setappdata(0, 'OptiProfilerLoadReplotSolverCalls', getappdata(0, 'OptiProfilerLoadReplotSolverCalls') + 1);
+            fun(x0);
+            x = x0;
+        end
+
     end
 
 end
