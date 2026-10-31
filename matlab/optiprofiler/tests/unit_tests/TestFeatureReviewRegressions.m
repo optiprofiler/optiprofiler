@@ -109,6 +109,19 @@ classdef TestFeatureReviewRegressions < matlab.unittest.TestCase
             testCase.verifyEqual(numel(unique(arrayfun(@(d) d.scope.index, document.diagnostics))), 128);
         end
 
+        function finishKeepsTheRecordedRenderingFailureCode(testCase)
+            % A rendering stage still running at finish takes the code of
+            % the failure recorded before, not a fixed history code.
+            target = fullfile(testCase.Work, 'rendering.json');
+            report = optiprofiler_internal.EvalReport(target, struct(), @reviewReplace);
+            report.recordRendering('failed', struct('scope', 'summary_pdf_merge'), 'summary_pdf_merge_failed');
+            report.recordRendering('completed', struct('scope', 'individual_profiles'));
+            report.setStage('rendering', 'running', 'summary_export');
+            report.finish();
+            document = jsondecode(fileread(target));
+            testCase.verifyEqual(document.stages.rendering, struct('status', 'partial', 'reason', 'summary_pdf_merge_failed'));
+        end
+
         function metadataMatricesKeepTheirShape(testCase)
             text = optiprofiler_internal.EvalReport.encodeMetadata(struct( ...
                 'finite', [1 2; 3 4], 'with_nan', [1 NaN; 3 4], 'vector', [1 Inf]));

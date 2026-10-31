@@ -708,7 +708,7 @@ classdef EvalReport < handle
                     if self.renderingFailure
                         state = 'failed';
                         if self.renderingSuccess, state = 'partial'; end
-                        self.setStage('rendering', state, 'history_render_failed');
+                        self.setStage('rendering', state, self.renderingFailureCode);
                     elseif self.renderingSuccess
                         self.setStage('rendering', 'completed');
                     elseif ~failed
