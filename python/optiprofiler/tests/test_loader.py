@@ -528,3 +528,33 @@ class TestBackfillProblemOptions:
     def test_empty_results_leave_options_untouched(self):
         options = _backfill_problem_options_from_loaded({}, [])
         assert options == {}
+
+
+def _visit_start(fun, x0):
+    fun(x0)
+    return x0
+
+
+def _visit_step(fun, x0):
+    fun(x0)
+    fun(x0 + 0.1)
+    return x0 + 0.1
+
+
+def test_load_searches_the_working_directory_not_savepath(tmp_path, monkeypatch):
+    from optiprofiler import benchmark
+    saved = tmp_path / 'saved'
+    saved.mkdir()
+    monkeypatch.chdir(saved)
+    options = dict(benchmark_id='bench', savepath=str(saved), max_tol_order=1, silent=True,
+                   draw_hist_plots='none')
+    expected = benchmark([_visit_start, _visit_step], plibs=['custom'], problem_names=['custom1'],
+                         n_jobs=1, max_eval_factor=2, **options)[0]
+    elsewhere = tmp_path / 'elsewhere'
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+    with pytest.raises(FileNotFoundError, match='`savepath` only sets where new results are written'):
+        benchmark(None, load='latest', score_only=True, **options)
+    assert not list(elsewhere.iterdir())
+    monkeypatch.chdir(saved)
+    np.testing.assert_array_equal(benchmark(None, load='latest', score_only=True, **options)[0], expected)
