@@ -38,15 +38,20 @@ classdef Problem < handle
 %       - name: the name of the problem. It should be a string or a char.
 %       Default is 'Unnamed Problem'.
 %       - xl: the lower bounds on the variable `x` in the form of ``xl <= x``.
-%         It should be a vector of the same size as `x`. Default is -Inf.
+%         It should be a vector of the same size as `x`. Default is -Inf,
+%         which means no bound. NaN and Inf are rejected.
 %       - xu: the upper bounds on the variable `x` in the form of ``xl >= x``.
-%         It should be a vector of the same size as `x`. Default is Inf.
+%         It should be a vector of the same size as `x`. Default is Inf,
+%         which means no bound. NaN and -Inf are rejected.
 %       - aub, bub: the coefficient matrix and right-hand side vector of the
 %         linear inequality constraints ``aub * x <= bub``. The default setting
-%         of `aub` and `bub` are empty matrix and vector.
+%         of `aub` and `bub` are empty matrix and vector. The entries of `aub`
+%         must be finite. An entry Inf of `bub` means that the row imposes no
+%         constraint; NaN and -Inf are rejected.
 %       - aeq, beq: the coefficient matrix and right-hand side vector of the
 %         linear equality constraints ``aeq * x = beq``. The default setting
-%         of `aeq` and `beq` are empty matrix and vector.
+%         of `aeq` and `beq` are empty matrix and vector. Their entries must
+%         be finite.
 %       - cub: the function of nonlinearly inequality constraints
 %         ``cub(x) <= 0``, where ``cub(x) -> float vector``. By default, 
 %         ``cub(x)`` will return an empty vector.
@@ -119,7 +124,8 @@ classdef Problem < handle
 %       - mb: number of the bound constraints, which is the length of finite
 %         elements in `xl` and `xu`.
 %       - m_linear_ub: number of the linear inequality constraints, which is
-%         the length of `bub`.
+%         the number of entries of `bub` that are not Inf. A row with the
+%         right-hand side Inf stays in `aub` and `bub`.
 %       - m_linear_eq: number of the linear equality constraints, which is the
 %         length of `beq`.
 %       - m_nonlinear_ub: number of the nonlinear inequality constraints, which
@@ -322,7 +328,7 @@ classdef Problem < handle
             end
             % Check that `aub` is a real matrix with shape (numel(obj.bub), n).
             if ~isrealmatrix(obj.aub) || ~isequal(size(obj.aub), [numel(obj.bub), obj.n])
-                error("MATLAB:Problem:aub_m_linear_ub_n_NotConsistent", "The argument `aub` for `Problem` must be a real matrix having shape (%d, %d).", obj.m_linear_ub, obj.n);
+                error("MATLAB:Problem:aub_m_linear_ub_n_NotConsistent", "The argument `aub` for `Problem` must be a real matrix having shape (%d, %d).", numel(obj.bub), obj.n);
             end
             % Check that `beq` is a real vector.
             if ~isrealvector(obj.beq)
@@ -332,6 +338,11 @@ classdef Problem < handle
             if ~isrealmatrix(obj.aeq) || ~isequal(size(obj.aeq), [obj.m_linear_eq, obj.n])
                 error("MATLAB:Problem:aeq_m_linear_eq_n_NotConsistent", "The argument `aeq` for `Problem` must have shape (%d, %d).", obj.m_linear_eq, obj.n);
             end
+            % Check that the constraint data have a meaning as constraints. This
+            % is not done in the setters: an object that a file left with such
+            % data would lose the property on load, without an error.
+            % FeaturedProblem repeats the check for such an object.
+            obj.checkConstraintData();
         end
 
         % Getter of the reference fact: the stored record if the contract
@@ -1092,6 +1103,13 @@ classdef Problem < handle
     end
 
     methods (Hidden)
+        function checkConstraintData(obj)
+            % Refuse constraint data that have no meaning as constraints.
+            for name = {'xl', 'xu', 'aub', 'bub', 'aeq', 'beq'}
+                refuseInvalidEntries(obj.(name{1}), name{1});
+            end
+        end
+
         function reason = referenceFallbackReason(obj)
             % Retained metadata for reports, not a user reference mode.
             reason = obj.reference_fallback_reason_;
@@ -1132,6 +1150,40 @@ classdef Problem < handle
             % Dependent dimensions remain live when x0/callbacks are changed.
             x = obj.x0;
         end
+    end
+end
+
+function refuseInvalidEntries(value, name)
+% Refuse entries that have no meaning as constraints. They used to be measured
+% as if they had one: xl = NaN counted as a bound that holds at every point,
+% xl = Inf as no bound, bub = -Inf as no constraint, and a coefficient of -Inf
+% satisfies its row at every positive point. Violations of finite data, such as
+% xl > xu, are measured and are not refused here.
+    entries = value(:);
+    if issparse(value)
+        entries = nonzeros(value);
+    end
+    switch name
+        case 'xl'
+            valid = isfinite(entries) | entries == -Inf;
+            rule = 'a lower bound must be finite, or -Inf for no bound';
+        case 'xu'
+            valid = isfinite(entries) | entries == Inf;
+            rule = 'an upper bound must be finite, or Inf for no bound';
+        case 'bub'
+            valid = isfinite(entries) | entries == Inf;
+            rule = 'a right-hand side must be finite, or Inf for no constraint';
+        case 'beq'
+            valid = isfinite(entries);
+            rule = 'an equality right-hand side must be finite';
+        otherwise
+            valid = isfinite(entries);
+            rule = 'a coefficient must be finite';
+    end
+    if ~all(valid)
+        invalid = entries(~valid);
+        error("MATLAB:Problem:" + name + "_InvalidValue", ...
+            "The argument `%s` for `Problem` has the invalid entry %g: %s.", name, invalid(1), rule);
     end
 end
 

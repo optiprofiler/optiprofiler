@@ -1903,22 +1903,29 @@ class Problem:
         Name of the problem. Default is ``'Unnamed Problem'``.
     xl : array_like, shape (n,), optional
         Lower bounds on the variables ``xl <= x``. Default is ``-numpy.inf``
-        for each component.
+        for each component, which means no bound. NaN and ``+inf`` are
+        rejected.
     xu : array_like, shape (n,), optional
         Upper bounds on the variables ``x <= xu``. Default is ``numpy.inf``
-        for each component.
-    aub : array_like, shape (m_linear_ub, n), optional
+        for each component, which means no bound. NaN and ``-inf`` are
+        rejected.
+    aub : array_like, shape (bub.size, n), optional
         Coefficient matrix of the linear inequality constraints
-        ``aub @ x <= bub``. Default is an empty matrix.
-    bub : array_like, shape (m_linear_ub,), optional
+        ``aub @ x <= bub``. Default is an empty matrix. Its entries must be
+        finite.
+    bub : array_like, optional
         Right-hand side of the linear inequality constraints
-        ``aub @ x <= bub``. Default is an empty vector.
+        ``aub @ x <= bub``. Default is an empty vector. ``+inf`` means that
+        the row imposes no constraint: it stays in ``aub`` and ``bub`` and
+        ``m_linear_ub`` does not count it. NaN and ``-inf`` are rejected.
     aeq : array_like, shape (m_linear_eq, n), optional
         Coefficient matrix of the linear equality constraints
-        ``aeq @ x == beq``. Default is an empty matrix.
+        ``aeq @ x == beq``. Default is an empty matrix. Its entries must be
+        finite.
     beq : array_like, shape (m_linear_eq,), optional
         Right-hand side of the linear equality constraints
-        ``aeq @ x == beq``. Default is an empty vector.
+        ``aeq @ x == beq``. Default is an empty vector. Its entries must be
+        finite.
     cub : callable, optional
         Nonlinear inequality constraints ``cub(x) <= 0``:
         ``cub(x) -> array_like, shape (m_nonlinear_ub,)``. Default returns
@@ -1971,9 +1978,9 @@ class Problem:
         Lower bounds on the variables.
     xu : numpy.ndarray, shape (n,)
         Upper bounds on the variables.
-    aub : numpy.ndarray, shape (m_linear_ub, n)
+    aub : numpy.ndarray, shape (bub.size, n)
         Coefficient matrix of the linear inequality constraints.
-    bub : numpy.ndarray, shape (m_linear_ub,)
+    bub : numpy.ndarray
         Right-hand side of the linear inequality constraints.
     aeq : numpy.ndarray, shape (m_linear_eq, n)
         Coefficient matrix of the linear equality constraints.
@@ -1988,7 +1995,8 @@ class Problem:
     mb : int
         Number of finite bound constraints.
     m_linear_ub : int
-        Number of linear inequality constraints.
+        Number of linear inequality constraints: the rows of ``aub`` whose
+        right-hand side is not ``+inf``.
     m_linear_eq : int
         Number of linear equality constraints.
     m_nonlinear_ub : int
@@ -2116,9 +2124,9 @@ class Problem:
             Lower bounds on the variables ``xl <= x``.
         xu : array_like, shape (n,), optional
             Upper bounds on the variables ``x <= xu``.
-        aub : array_like, shape (m_linear_ub, n), optional
+        aub : array_like, shape (bub.size, n), optional
             Coefficient matrix of the linear constraints ``aub @ x <= bub``.
-        bub : array_like, shape (m_linear_ub,), optional
+        bub : array_like, optional
             Right-hand side of the linear constraints ``aub @ x <= bub``.
         aeq : array_like, shape (m_linear_eq, n), optional
             Coefficient matrix of the linear constraints ``aeq @ x == beq``.
@@ -2196,6 +2204,9 @@ class Problem:
         self._beq = beq
         if self._beq is not None:
             self._beq = _process_1d_array(self._beq, 'The argument `beq` for problem must be a one-dimensional array.')
+        for key, value in (('xl', self._xl), ('xu', self._xu), ('aub', self._aub),
+                           ('bub', self._bub), ('aeq', self._aeq), ('beq', self._beq)):
+            _check_constraint_values(key, value, f'The argument `{key}` for problem')
 
         # Preprocess the nonlinear constraints.
         self._m_nonlinear_ub = 0
@@ -2254,14 +2265,10 @@ class Problem:
             raise ValueError(f'The argument `xl` for problem must have size {self.n}.')
         if self.xu.size != self.n:
             raise ValueError(f'The argument `xu` for problem must have size {self.n}.')
-        if self.aub.shape != (self.m_linear_ub, self.n):
-            raise ValueError(f'The argument `aub` for problem must have shape {(self.m_linear_ub, self.n)}.')
-        if self.aeq.shape != (self.m_linear_eq, self.n):
-            raise ValueError(f'The argument `aeq` for problem must have shape {(self.m_linear_eq, self.n)}.')
-        if self.bub.size != self.m_linear_ub:
-            raise ValueError(f'The argument `bub` for problem must have size {self.m_linear_ub}.')
-        if self.beq.size != self.m_linear_eq:
-            raise ValueError(f'The argument `beq` for problem must have size {self.m_linear_eq}.')
+        if self.aub.shape != (self.bub.size, self.n):
+            raise ValueError(f'The argument `aub` for problem must have shape {(self.bub.size, self.n)}.')
+        if self.aeq.shape != (self.beq.size, self.n):
+            raise ValueError(f'The argument `aeq` for problem must have shape {(self.beq.size, self.n)}.')
 
     @property
     def n(self):
@@ -2291,6 +2298,9 @@ class Problem:
     def m_linear_ub(self):
         """
         Number of linear inequality constraints.
+
+        A row whose right-hand side is ``+inf`` imposes no constraint and is
+        not counted.
 
         Returns
         -------
@@ -2448,7 +2458,7 @@ class Problem:
 
         Returns
         -------
-        `numpy.ndarray`, shape (m_linear_ub, n)
+        `numpy.ndarray`, shape (bub.size, n)
             Coefficient matrix of the linear inequality constraints.
         """
         return np.copy(self._aub) if self._aub is not None else np.empty((0, self.n))
@@ -2460,7 +2470,7 @@ class Problem:
 
         Returns
         -------
-        `numpy.ndarray`, shape (m_linear_ub,)
+        `numpy.ndarray`
             Right-hand side of the linear inequality constraints.
         """
         return np.copy(self._bub) if self._bub is not None else np.empty(0)
@@ -3154,6 +3164,7 @@ class FeaturedProblem(Problem):
         """
 
         self._problem = problem
+        _check_problem_constraints(problem)
         # Preprocess the feature.
         self._feature = feature
         if not isinstance(self._feature, Feature):
@@ -3180,6 +3191,8 @@ class FeaturedProblem(Problem):
         self._xl, self._xu = self._runtime.modifier_bounds(self._seed, self._problem)
         self._aub, self._bub = self._runtime.modifier_linear_ub(self._seed, self._problem)
         self._aeq, self._beq = self._runtime.modifier_linear_eq(self._seed, self._problem)
+        for key in ('xl', 'xu', 'aub', 'bub', 'aeq', 'beq'):
+            _check_constraint_values(key, getattr(self, key), f'The `{key}` posed by the feature `{self._runtime.name}`')
 
         # The reference fact is never copied blindly (``__new__`` copied the
         # original problem's attributes): the stage either retains the record
@@ -3689,6 +3702,46 @@ def _validate_seed(seed):
         if seed < 0:
             raise ValueError('The argument seed must be nonnegative.')
     return seed
+
+
+# What an entry of the static constraint data may be: the sentinel that means
+# "no constraint" (None if there is none) besides a finite number, and the rule
+# reported otherwise. Everything else has no meaning as a constraint and used to
+# be measured as if it had one: `xl = NaN` compares false and read as no bound,
+# `xl = +inf` as a bound that holds at every point, and a coefficient of `-inf`
+# satisfies its row at every positive point. Violations of finite data, such as
+# `xl > xu`, are measured and are not refused here.
+_CONSTRAINT_VALUES = {
+    'xl': (-np.inf, 'a lower bound must be finite, or -inf for no bound'),
+    'xu': (np.inf, 'an upper bound must be finite, or +inf for no bound'),
+    'aub': (None, 'a coefficient must be finite'),
+    'bub': (np.inf, 'a right-hand side must be finite, or +inf for no constraint'),
+    'aeq': (None, 'a coefficient must be finite'),
+    'beq': (None, 'an equality right-hand side must be finite'),
+}
+
+
+def _check_constraint_values(key, value, prefix):
+    """Raise ``ValueError`` if ``value`` holds an entry with no meaning as the constraint data ``key``."""
+    if value is None:
+        return
+    value = np.asarray(value, dtype=float)
+    sentinel, rule = _CONSTRAINT_VALUES[key]
+    valid = np.isfinite(value)
+    if sentinel is not None:
+        valid = valid | (value == sentinel)
+    if not np.all(valid):
+        raise ValueError(f'{prefix} has the invalid entry {value[~valid][0]}: {rule}.')
+
+
+def _check_problem_constraints(problem):
+    """
+    Refuse a problem that a file written before these checks left with malformed
+    data. A feature must not get to hide them: a rotation poses only finite
+    bounds, so ``xl = inf`` would disappear from the problem it hands on.
+    """
+    for key in _CONSTRAINT_VALUES:
+        _check_constraint_values(key, getattr(problem, key), f'The `{key}` of the problem')
 
 
 def _process_1d_array(x, message):

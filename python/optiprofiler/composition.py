@@ -75,7 +75,7 @@ from .experiment import STRATEGY_COMPOSED
 from .feature_definitions import STAGE_CODES as STAGE_CODES
 from .feature_definitions import SEED_POLICY_COMPOSED as SEED_POLICY  # noqa: F401 (compatibility export)
 from .opclasses import (Feature, FeatureOption, FeaturedProblem, Problem, _StageRuntime,
-                        _begin_featured_query,
+                        _begin_featured_query, _check_constraint_values, _check_problem_constraints,
                         _process_1d_array, _propagated_reference,
                         _validate_max_eval, _validate_seed)
 from .utils import get_logger, shorten_log_message
@@ -602,6 +602,11 @@ def _custom_matrix(value, shape, stage, key, what='a matrix'):
     return array
 
 
+def _checked_output(name, value, stage, key):
+    """Refuse a callback's static constraint data whose values have no meaning as constraints."""
+    _check_constraint_values(name, value, f'The `{name}` returned by the callback `{key}` of {_stage_label(stage)}')
+
+
 def _normalized_custom_feature(feature, predecessor, stage):
     """
     A copy of a custom child feature whose user callbacks are wrapped so that
@@ -684,8 +689,11 @@ class _BoundsCallback:
 
     def __call__(self, rng, problem):
         xl, xu = _pair(self.user(rng, problem), self.stage, 'mod_bounds')
-        return (_custom_vector(xl, self.n, self.stage, 'mod_bounds', 'lower bounds'),
-                _custom_vector(xu, self.n, self.stage, 'mod_bounds', 'upper bounds'))
+        xl = _custom_vector(xl, self.n, self.stage, 'mod_bounds', 'lower bounds')
+        xu = _custom_vector(xu, self.n, self.stage, 'mod_bounds', 'upper bounds')
+        _checked_output('xl', xl, self.stage, 'mod_bounds')
+        _checked_output('xu', xu, self.stage, 'mod_bounds')
+        return xl, xu
 
 
 class _LinearCallback:
@@ -710,6 +718,9 @@ class _LinearCallback:
         else:
             matrix = _custom_matrix(matrix, (rows, self.n), self.stage, self.key, 'a coefficient matrix')
         rhs = _custom_vector(rhs, rows, self.stage, self.key, 'a right-hand side')
+        names = ('aub', 'bub') if self.key == 'mod_linear_ub' else ('aeq', 'beq')
+        _checked_output(names[0], matrix, self.stage, self.key)
+        _checked_output(names[1], rhs, self.stage, self.key)
         return matrix, rhs
 
 
@@ -743,7 +754,8 @@ class CustomView(AffineView):
     ``Problem.fun`` scalar policy (NaN with a logged warning when the output
     is not a real scalar), nonlinear constraint outputs must be real
     one-dimensional arrays of the predecessor's channel size, and
-    construction outputs must have the shapes the problem structure requires.
+    construction outputs must have the shapes the problem structure requires
+    and, for bounds and linear constraints, the values ``Problem`` accepts.
     Violations raise ``ValueError`` naming the stage, occurrence and callback.
     """
 
@@ -815,6 +827,7 @@ class ComposedFeaturedProblem(FeaturedProblem):
     def __init__(self, problem, feature, max_eval, seed=None):
         # The legacy wrapper constructor is deliberately not called.
         self._problem = problem
+        _check_problem_constraints(problem)
         self._runtime = feature
         self._max_eval = _validate_max_eval(max_eval)
         self._seed = _validate_seed(seed)

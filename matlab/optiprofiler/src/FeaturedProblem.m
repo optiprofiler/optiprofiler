@@ -207,6 +207,9 @@ classdef FeaturedProblem < Problem
             if ~isa(feature, 'Feature')
                 error("MATLAB:FeaturedProblem:NotFeatureClass", "The second argument of `FeaturedProblem` must be an instance of the class Feature.");
             end
+            % A feature must not get to hide malformed data that a file or a later
+            % assignment left in the problem: a rotation poses only finite bounds.
+            problem.checkConstraintData();
 
             % Preprocess the maximum number of function evaluations.
             if ~(isintegerscalar(max_eval) && max_eval > 0)

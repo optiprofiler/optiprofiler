@@ -67,6 +67,9 @@ function [lower,upper] = boundsOutput(callback,stream,problem,n,identity)
     [lower,upper] = callback(stream,problem);
     lower = vectorOutput(lower,n,identity,'mod_bounds');
     upper = vectorOutput(upper,n,identity,'mod_bounds');
+    if ~all(isfinite(lower) | lower == -Inf) || ~all(isfinite(upper) | upper == Inf)
+        invalid(identity,'mod_bounds','bounds without NaN, a lower bound Inf or an upper bound -Inf');
+    end
 end
 function [matrix,rhs] = linearOutput(callback,stream,problem,n,identity,key)
     [matrix,rhs] = callback(stream,problem);
@@ -76,6 +79,16 @@ function [matrix,rhs] = linearOutput(callback,stream,problem,n,identity,key)
         matrix = matrixOutput(matrix,[size(matrix,1),n],identity,key);
     end
     rhs = vectorOutput(rhs,size(matrix,1),identity,key);
+    if strcmp(key,'mod_linear_ub')
+        valid = all(isfinite(rhs) | rhs == Inf);
+        expected = 'a finite matrix and a right-hand side without NaN or -Inf';
+    else
+        valid = all(isfinite(rhs));
+        expected = 'a finite matrix and a finite right-hand side';
+    end
+    if ~(valid && all(isfinite(nonzeros(matrix))))
+        invalid(identity,key,expected);
+    end
 end
 function [matrix,shift,inverse] = affineOutput(callback,stream,problem,n,identity)
     [matrix,shift,inverse] = callback(stream,problem);

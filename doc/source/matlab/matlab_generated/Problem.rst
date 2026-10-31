@@ -40,11 +40,11 @@ Optional fields:
 
     - **name**: the name of the problem. It should be a string or a char. Default is ``'Unnamed Problem'``.
     
-    - **xl**: the lower bounds on the variable ``x`` in the form of ``xl <= x``. It should be a vector of the same size as ``x``. Default is ``-Inf``.
+    - **xl**: the lower bounds on the variable ``x`` in the form of ``xl <= x``. It should be a vector of the same size as ``x``. Default is ``-Inf``, which means no bound. ``NaN`` and ``Inf`` are rejected.
 
-    - **xu**: the upper bounds on the variable ``x`` in the form of ``xl >= x``. It should be a vector of the same size as ``x``. Default is ``Inf``.
+    - **xu**: the upper bounds on the variable ``x`` in the form of ``xl >= x``. It should be a vector of the same size as ``x``. Default is ``Inf``, which means no bound. ``NaN`` and ``-Inf`` are rejected.
 
-    - **aub**, **bub**: the coefficient matrix and right-hand side vector of the linear inequality constraints ``aub * x <= bub``. The default setting of ``aub`` and ``bub`` are empty matrix and vector.
+    - **aub**, **bub**: the coefficient matrix and right-hand side vector of the linear inequality constraints ``aub * x <= bub``. The default setting of ``aub`` and ``bub`` are empty matrix and vector. The entries of ``aub`` must be finite. An entry ``Inf`` of ``bub`` means that the row imposes no constraint; ``NaN`` and ``-Inf`` are rejected.
 
     - **aeq**, **beq**: the coefficient matrix and right-hand side vector of the linear equality constraints ``aeq * x = beq``. The default setting of `aeq` and `beq` are empty matrix and vector.
 
@@ -84,7 +84,7 @@ Properties dependent on the input struct:
 
     - **mb**: number of the bound constraints, which is the length of finite elements in ``xl`` and ``xu``.
 
-    - **m_linear_ub**: number of the linear inequality constraints, which is the length of ``bub``.
+    - **m_linear_ub**: number of the linear inequality constraints, which is the number of entries of ``bub`` that are not ``Inf``. A row with the right-hand side ``Inf`` stays in ``aub`` and ``bub``.
 
     - **m_linear_eq**: number of the linear equality constraints, which is the length of ``beq``.
 

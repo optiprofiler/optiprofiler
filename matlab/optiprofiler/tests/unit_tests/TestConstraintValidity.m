@@ -35,9 +35,9 @@ classdef TestConstraintValidity < matlab.unittest.TestCase
         end
 
         function testNaNLinearConstraint(testCase)
-            problem = Problem(struct('fun', @(x) 7, 'x0', 0, ...
-                'xl', -1, 'xu', 1, 'aub', 1, 'bub', NaN));
-            testCase.verifyTrue(isnan(problem.maxcv(0)));
+            % Static data are refused at construction (TestConstraintMetadata).
+            testCase.verifyError(@() Problem(struct('fun', @(x) 7, 'x0', 0, ...
+                'xl', -1, 'xu', 1, 'aub', 1, 'bub', NaN)), 'MATLAB:Problem:bub_InvalidValue');
         end
 
         function testInitialValueAndHistory(testCase)
