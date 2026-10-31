@@ -908,22 +908,20 @@ class EvalReport:
             problem['reference_fallback_reasons'] = json.loads(result['reference_fallback_reasons'])
         if self.document['operation'] == 'load' and 'reference_history_failures' in result:
             # Replay the archived trial failures exactly as the benchmark
-            # reported them. Archives without the field stay silent (unknown).
-            try:
-                failures = json.loads(result['reference_history_failures'])
-                if type(failures) is not list:
-                    raise ValueError('not a list')
-            except (TypeError, ValueError):
+            # reported them. Archives without the field stay silent (unknown);
+            # a damaged entry (None after loading) is reported as unavailable.
+            from .loader import parse_reference_history_failures
+            failures = parse_reference_history_failures(result['reference_history_failures'])
+            if failures is None:
                 failures = []
                 self.add_diagnostic('reference_metadata_unavailable', 'reporting',
-                                    library=plib, problem=name, role=role)
+                                    library=plib, problem=name, role=role,
+                                    field='reference_history_failures')
             for failure in failures[:_MAX_DIAGNOSTICS]:
-                if type(failure) is dict:
-                    self.add_diagnostic('reference_history_unavailable', 'numerical',
-                                        library=plib, problem=name, role=role,
-                                        solver_index=failure.get('solver_index'),
-                                        run_index=failure.get('run_index'),
-                                        exception_type=failure.get('exception_type'))
+                self.add_diagnostic('reference_history_unavailable', 'numerical',
+                                    library=plib, problem=name, role=role,
+                                    solver_index=failure['solver_index'], run_index=failure['run_index'],
+                                    exception_type=failure['exception_type'])
         if 'reference_records' in result:
             # Observe retained facts only. Reporting must not call merit_fun
             # again (it may be stateful) or invent a reference for V1 archives.

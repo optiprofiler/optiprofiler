@@ -441,3 +441,39 @@ def test_load_replays_archived_reference_history_failures(tmp_path, monkeypatch,
             del group['reference_history_failures']
             del group['results_plib_plain']['reference_history_failures']
     assert load('legacy.json') == []
+
+
+@pytest.mark.parametrize('damage', ['not_json', 'wrong_keys', 'solver_out_of_range', 'not_one_entry_per_problem'])
+def test_load_tolerates_a_damaged_reference_history_field(tmp_path, monkeypatch, damage):
+    import h5py
+    from optiprofiler.eval_report import schema_for_document, schema_resource
+    from optiprofiler.tests.eval_report_contract import assert_valid
+    monkeypatch.chdir(tmp_path)
+    _write_reftoy(tmp_path)
+    benchmark([_probe_size_mismatch, _probe_size_mismatch], plibs=['reftoy'], custom_problem_libs_path=str(tmp_path),
+              n_jobs=1, n_runs=1, max_eval_factor=5, max_tol_order=1, run_plain=True, silent=True,
+              draw_hist_plots='none', savepath=str(tmp_path), benchmark_id='saved')
+    damaged = {'not_json': ['{broken'], 'wrong_keys': ['[{"solver": 1}]'],
+               'solver_out_of_range': ['[{"solver_index": 9, "run_index": 1, "exception_type": "ValueError"}]'],
+               'not_one_entry_per_problem': ['[]', '[]']}[damage]
+    (archive,) = tmp_path.glob('saved/*/test_log/data_for_loading.h5')
+    with h5py.File(archive, 'r+') as stream:
+        group = stream['plib_0']
+        del group['reference_history_failures']
+        group.create_dataset('reference_history_failures', data=np.array(damaged, dtype=h5py.special_dtype(vlen=str)))
+    report_path = tmp_path / 'loaded.json'
+    scores = benchmark(None, load='latest', benchmark_id='saved', savepath=str(tmp_path / 'out'), score_only=True,
+                       silent=True, draw_hist_plots='none', max_tol_order=1, solvers_to_load=[1, 0],
+                       report_path=str(report_path))[0]
+    assert np.shape(scores) == (2,)
+    report = json.loads(report_path.read_text(encoding='utf-8'))
+    assert_valid(report, schema_resource(*schema_for_document(report)))
+    entries = [entry for entry in report['diagnostics']
+               if entry['code'] in ('reference_history_unavailable', 'reference_metadata_unavailable')]
+    # The damaged primary field is reported as unavailable, not replayed;
+    # the intact plain-reference field is still replayed.
+    assert [entry['scope'] for entry in entries if entry['scope']['role'] == 'primary'] == [
+        {'library': 'reftoy', 'problem': 'P', 'role': 'primary', 'field': 'reference_history_failures'}]
+    assert entries[0]['code'] == 'reference_metadata_unavailable'
+    assert {(entry['scope']['solver_index'], entry['scope']['run_index']) for entry in entries
+            if entry['scope']['role'] == 'plain_reference'} == {(1, 1), (2, 1)}
