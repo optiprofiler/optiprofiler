@@ -184,13 +184,14 @@ classdef TestFeatureReviewRegressions < matlab.unittest.TestCase
             target = fullfile(testCase.Work, 'rewritten.json');
             report = optiprofiler_internal.EvalReport(target, struct(), @reviewReplace);
             fid = fopen(target, 'w'); fwrite(fid, 'external in-place rewrite', 'char'); fclose(fid);
-            testCase.verifyError(@() report.finish(), 'OptiProfiler:EvalReportOwnership');
+            % Each refusal names the file it refuses to touch.
+            verifyRefusalNamesPath(testCase, @() report.finish(), 'OptiProfiler:EvalReportOwnership', target);
             testCase.verifyEqual(fileread(target), 'external in-place rewrite');
             owner = fullfile(testCase.Work, 'companion.json');
             companion = fullfile(testCase.Work, 'companion.plot_data.json');
             report = optiprofiler_internal.EvalReport(owner, struct(), @reviewReplace);
             fid = fopen(companion, 'w'); fwrite(fid, 'external companion rewrite', 'char'); fclose(fid);
-            testCase.verifyError(@() report.finish(), 'OptiProfiler:EvalReportOwnership');
+            verifyRefusalNamesPath(testCase, @() report.finish(), 'OptiProfiler:EvalReportOwnership', companion);
             testCase.verifyEqual(fileread(companion), 'external companion rewrite');
             replaced = fullfile(testCase.Work, 'replaced.json');
             report = optiprofiler_internal.EvalReport(replaced, struct(), @reviewReplace);
@@ -199,7 +200,7 @@ classdef TestFeatureReviewRegressions < matlab.unittest.TestCase
                 fid = fopen(stage, 'w'); fwrite(fid, sprintf('external replacement %d', k), 'char'); fclose(fid);
                 [ok, message] = movefile(stage, replaced, 'f'); assert(ok, message);
             end
-            testCase.verifyError(@() report.finish(), 'OptiProfiler:EvalReportOwnership');
+            verifyRefusalNamesPath(testCase, @() report.finish(), 'OptiProfiler:EvalReportOwnership', replaced);
             testCase.verifyEqual(fileread(replaced), 'external replacement 2');
             % An untouched report still publishes afterwards.
             fresh = fullfile(testCase.Work, 'fresh.json');
@@ -405,6 +406,19 @@ end
 function x = reviewZero(fun, x0)
     x = zeros(size(x0));
     fun(x);
+end
+
+function verifyRefusalNamesPath(testCase, call, identifier, path)
+    try
+        call();
+        testCase.verifyFail(sprintf('Expected %s.', identifier));
+    catch err
+        testCase.verifyEqual(err.identifier, identifier);
+        % The message names the canonical path, whose folder may resolve a
+        % link of the test folder (macOS /tmp); compare from the file name.
+        [~, name, extension] = fileparts(path);
+        testCase.verifySubstring(err.message, [filesep, name, extension, '''']);
+    end
 end
 
 function reviewReplace(source, target)

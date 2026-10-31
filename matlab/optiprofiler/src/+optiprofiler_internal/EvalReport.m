@@ -952,15 +952,15 @@ classdef EvalReport < handle
                 stage = char(file.getPath());
             else
                 [status, stage] = system(['/usr/bin/mktemp ', optiprofiler_internal.EvalReport.quote(fullfile(fileparts(self.path), '.op-eval-report.XXXXXXXX'))]);
-                if status ~= 0, error('OptiProfiler:EvalReportWrite', 'Could not reserve report stage.'); end
+                if status ~= 0, error('OptiProfiler:EvalReportWrite', 'Could not reserve a report stage in ''%s''.', fileparts(self.path)); end
                 stage = strtrim(stage);
             end
             fid = fopen(stage, 'w');
-            if fid < 0, error('OptiProfiler:EvalReportWrite', 'Could not write report stage.'); end
+            if fid < 0, error('OptiProfiler:EvalReportWrite', 'Could not write the report stage ''%s'' for ''%s''.', stage, target); end
             guard = onCleanup(@() fclose(fid));
             written = fwrite(fid, encoded, 'uint8');
             clear guard;
-            if written ~= numel(encoded), error('OptiProfiler:EvalReportWrite', 'Incomplete report write.'); end
+            if written ~= numel(encoded), error('OptiProfiler:EvalReportWrite', 'Incomplete write of the report stage ''%s'' for ''%s''.', stage, target); end
             if is_plot, self.checkPlotOwnership(); else, self.checkOwnership(); end
             try
                 self.replaceFile(stage, target);
@@ -999,14 +999,14 @@ classdef EvalReport < handle
         function checkOwnership(self)
             if optiprofiler_internal.EvalReport.isLink(self.path) || ...
                     ~strcmp(self.ownedIdentity, optiprofiler_internal.EvalReport.fileIdentity(self.path))
-                error('OptiProfiler:EvalReportOwnership', 'The report target no longer belongs to this invocation.');
+                error('OptiProfiler:EvalReportOwnership', 'The report target ''%s'' no longer belongs to this invocation.', self.path);
             end
         end
 
         function checkPlotOwnership(self)
             if optiprofiler_internal.EvalReport.isLink(self.plotPath) || ...
                     ~strcmp(self.plotIdentity, optiprofiler_internal.EvalReport.fileIdentity(self.plotPath))
-                error('OptiProfiler:EvalReportOwnership', 'The plot-data target no longer belongs to this invocation.');
+                error('OptiProfiler:EvalReportOwnership', 'The plot-data target ''%s'' no longer belongs to this invocation.', self.plotPath);
             end
         end
     end
@@ -1177,7 +1177,7 @@ classdef EvalReport < handle
                     if ismac, format = 'stat -f ''%d:%i|%z|%m'' '; end
                 end
                 [status,value] = system([format,optiprofiler_internal.EvalReport.quote(path)]);
-                if status ~= 0, error('OptiProfiler:EvalReportOwnership', 'File identity is unavailable.'); end
+                if status ~= 0, error('OptiProfiler:EvalReportOwnership', 'The identity of ''%s'' is unavailable.', path); end
                 value = strtrim(value);
             end
         end
@@ -1243,14 +1243,14 @@ classdef EvalReport < handle
             % compared after hashing; the opened handle's identity is not
             % compared, so this detects ordinary concurrent changes, not a
             % hostile redirection timed between the checks.
-            if optiprofiler_internal.EvalReport.isLink(path), error('OptiProfiler:EvalReportSymlink', 'Symlinks are not report artifacts.'); end
+            if optiprofiler_internal.EvalReport.isLink(path), error('OptiProfiler:EvalReportSymlink', 'Symlinks are not report artifacts: ''%s''.', path); end
             before = dir(path);
-            if numel(before) ~= 1 || before.isdir, error('OptiProfiler:EvalReportHash', 'Expected a regular file.'); end
+            if numel(before) ~= 1 || before.isdir, error('OptiProfiler:EvalReportHash', 'Expected a regular file: ''%s''.', path); end
             bytes = before.bytes;
             if usejava('jvm')
                 digest = java.security.MessageDigest.getInstance('SHA-256');
                 fid = fopen(path, 'rb');
-                if fid < 0, error('OptiProfiler:EvalReportHash', 'File is unavailable.'); end
+                if fid < 0, error('OptiProfiler:EvalReportHash', 'The file ''%s'' is unavailable.', path); end
                 guard = onCleanup(@() fclose(fid));
                 while ~feof(fid)
                     block = fread(fid, 1048576, '*uint8');
@@ -1270,19 +1270,19 @@ classdef EvalReport < handle
                     [status, ~] = system('command -v shasum >/dev/null 2>&1');
                     if status ~= 0
                         error('OptiProfiler:EvalReportHash', ...
-                            'EvalReport SHA256 without JVM requires sha256sum or shasum on PATH.');
+                            'EvalReport SHA256 of ''%s'' without JVM requires sha256sum or shasum on PATH.', path);
                     end
                     command = 'shasum -a 256 ';
                 end
                 % Hash stdin so a backslash/newline in a valid filename does
                 % not trigger the command's escaped-filename output prefix.
                 [status, hash] = system([command, '< ', optiprofiler_internal.EvalReport.quote(path)]);
-                if status ~= 0, error('OptiProfiler:EvalReportHash', 'SHA256 tool could not read the report artifact.'); end
+                if status ~= 0, error('OptiProfiler:EvalReportHash', 'SHA256 tool could not read the report artifact ''%s''.', path); end
                 hash = hash(1:64);
             end
             after = dir(path);
             if numel(after) ~= 1 || before.bytes ~= after.bytes || before.datenum ~= after.datenum
-                error('OptiProfiler:EvalReportHash', 'File changed while hashing.');
+                error('OptiProfiler:EvalReportHash', 'The file ''%s'' changed while hashing.', path);
             end
         end
 
