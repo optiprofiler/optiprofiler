@@ -235,6 +235,9 @@ classdef TestRuntimeRobustness < matlab.unittest.TestCase
             if isstruct(diagnostics), diagnostics=num2cell(diagnostics); end
             codes=cellfun(@(d) d.code,diagnostics,'UniformOutput',false);
             testCase.verifyTrue(any(strcmp(codes,'native_profile_render_failed')),strjoin(codes,', '));
+            % Like the other native fallback codes, it names the error.
+            rendered=diagnostics(strcmp(codes,'native_profile_render_failed'));
+            testCase.verifyEqual(rendered{1}.scope.cause,'TestRuntimeRobustness:DrawingFailed');
         end
 
         function stalledNativeExportIsBounded(testCase)

@@ -1719,13 +1719,14 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
         end
 
         hist_graphics_ok = true; out_graphics_ok = true;
+        hist_graphics_cause = ''; out_graphics_cause = '';
         fig_perf_hist = []; fig_data_hist = []; fig_log_ratio_hist = [];
         fig_perf_out = []; fig_data_out = []; fig_log_ratio_out = [];
         if is_hist_drawable
             if isempty(eval_report)
                 [fig_perf_hist, fig_data_hist, fig_log_ratio_hist, curves{i_tol}.hist, hist_graphics_ok] = drawProfiles(work_hist, problem_dims_merged, solver_names, tolerance_latex, cell_axs_summary_hist, true, is_perf, is_data, is_log_ratio, drawing_options, curves{i_tol}.hist);
             else
-                [fig_perf_hist, fig_data_hist, fig_log_ratio_hist, curves{i_tol}.hist, hist_graphics_ok, presentation] = drawProfiles(work_hist, problem_dims_merged, solver_names, tolerance_latex, cell_axs_summary_hist, true, is_perf, is_data, is_log_ratio, drawing_options, curves{i_tol}.hist);
+                [fig_perf_hist, fig_data_hist, fig_log_ratio_hist, curves{i_tol}.hist, hist_graphics_ok, presentation, hist_graphics_cause] = drawProfiles(work_hist, problem_dims_merged, solver_names, tolerance_latex, cell_axs_summary_hist, true, is_perf, is_data, is_log_ratio, drawing_options, curves{i_tol}.hist);
                 eval_report.addProfilePresentation(presentation, i_tol, 'history');
             end
         end
@@ -1736,7 +1737,7 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
             if isempty(eval_report)
                 [fig_perf_out, fig_data_out, fig_log_ratio_out, curves{i_tol}.out, out_graphics_ok] = drawProfiles(work_out, problem_dims_merged, solver_names, tolerance_latex, cell_axs_summary_out, is_output_based, is_perf, is_data, is_log_ratio, drawing_options, curves{i_tol}.out);
             else
-                [fig_perf_out, fig_data_out, fig_log_ratio_out, curves{i_tol}.out, out_graphics_ok, presentation] = drawProfiles(work_out, problem_dims_merged, solver_names, tolerance_latex, cell_axs_summary_out, is_output_based, is_perf, is_data, is_log_ratio, drawing_options, curves{i_tol}.out);
+                [fig_perf_out, fig_data_out, fig_log_ratio_out, curves{i_tol}.out, out_graphics_ok, presentation, out_graphics_cause] = drawProfiles(work_out, problem_dims_merged, solver_names, tolerance_latex, cell_axs_summary_out, is_output_based, is_perf, is_data, is_log_ratio, drawing_options, curves{i_tol}.out);
                 eval_report.addProfilePresentation(presentation, i_tol, 'output');
             end
         end
@@ -1746,7 +1747,10 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
             native_graphics = false;
             drawing_options.(ProfileOptionKey.SCORE_ONLY.value) = true;
             is_perf = false; is_data = false; is_log_ratio = false;
-            if ~isempty(eval_report), eval_report.recordRendering('failed', struct('scope', 'profiles', 'tolerance_index', i_tol), 'native_profile_render_failed'); end
+            if ~isempty(eval_report)
+                if hist_graphics_ok, render_cause = out_graphics_cause; else, render_cause = hist_graphics_cause; end
+                eval_report.recordRendering('failed', struct('scope', 'profiles', 'tolerance_index', i_tol, 'cause', render_cause), 'native_profile_render_failed');
+            end
         end
 
         % Clear working memory.

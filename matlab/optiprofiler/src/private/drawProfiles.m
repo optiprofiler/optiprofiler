@@ -1,12 +1,14 @@
-function [fig_perf, fig_data, fig_log_ratio, curves, graphics_ok, presentation] = drawProfiles(work, problem_dimensions, solver_names, tolerance_latex, cell_axs_summary, is_summary, is_perf, is_data, is_log_ratio, profile_options, curves)
+function [fig_perf, fig_data, fig_log_ratio, curves, graphics_ok, presentation, graphics_cause] = drawProfiles(work, problem_dimensions, solver_names, tolerance_latex, cell_axs_summary, is_summary, is_perf, is_data, is_log_ratio, profile_options, curves)
 %DRAWPROFILES draws the performance, data, and log-ratio profiles.
+%   GRAPHICS_CAUSE is the identifier of the native drawing error that made
+%   GRAPHICS_OK false, and '' otherwise.
 
     solver_names = cellfun(@escapeLatexText, solver_names, 'UniformOutput', false);
     n_solvers = size(work, 2);
 
     % Numerical curves are also the scoring input. Compute them independently
     % of graphics so score_only and the no-graphics SVG fallback are identical.
-    fig_perf = []; fig_data = []; fig_log_ratio = []; graphics_ok = true;
+    fig_perf = []; fig_data = []; fig_log_ratio = []; graphics_ok = true; graphics_cause = '';
     [x_perf, y_perf, ratio_max_perf, x_data, y_data, ratio_max_data, curves] = getExtendedPerformancesDataProfileAxes(work, problem_dimensions, profile_options, curves);
     if n_solvers == 2
         if nargout > 5
@@ -115,6 +117,7 @@ function [fig_perf, fig_data, fig_log_ratio, curves, graphics_ok, presentation] 
         % retain their original failure semantics. The caller emits SVG from
         % the completed curves and does not retry or recompute solver data.
         graphics_ok = false;
+        graphics_cause = cause.identifier;
         for candidate = {fig_perf, fig_data, fig_log_ratio}
             if ~isempty(candidate{1}) && isgraphics(candidate{1}), close(candidate{1}); end
         end
