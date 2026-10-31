@@ -658,7 +658,9 @@ def _benchmark(
         tolerances.
     score_only : bool, optional
         Whether to only calculate the scores of the solvers
-        without drawing the profiles and saving the data. Default is False.
+        without drawing the profiles and saving the data. Messages are
+        printed to the console as in a saved run (subject to ``silent``),
+        but no log file is written. Default is False.
     plot_options : dict, optional
         Native Matplotlib property mappings for ``figure``, ``axes``, ``xaxis``,
         ``yaxis``, ``xlabel``, ``ylabel``, ``title``, ``text``, ``line`` and
@@ -1256,15 +1258,13 @@ def _benchmark(
     else:
         path_readme_log = None
 
-    # Save the options and record the log.
-    # Initialize log_queue and listener to None for the case when score_only=True.
-    log_queue = None
-    listener = None
-    if not profile_options[ProfileOption.SCORE_ONLY]:
-        log_file = path_log / 'log.txt'
-        log_queue, listener = setup_main_process_logging(log_file=log_file, level=logging.INFO)
-        logging_resources['log_queue'] = log_queue
-        logging_resources['listener'] = listener
+    # Save the options and record the log. A score_only run has the same
+    # console logging (also for workers), without a log file.
+    log_file = None if profile_options[ProfileOption.SCORE_ONLY] else path_log / 'log.txt'
+    log_queue, listener = setup_main_process_logging(log_file=log_file, level=logging.INFO)
+    logging_resources['log_queue'] = log_queue
+    logging_resources['listener'] = listener
+    if log_file is not None:
         add_to_readme(path_readme_log, 'log.txt', 'File, the log file of the current experiment, recording printed information from the screen.')
 
     if not profile_options[ProfileOption.SCORE_ONLY]:
@@ -1311,10 +1311,7 @@ def _benchmark(
                 print_log_message('WARNING', f'Error message: {shorten_log_message(exc)}')
 
     if many_solver_warning is not None:
-        if listener is not None:
-            logger.warning(many_solver_warning)
-        else:
-            print_log_message('WARNING', many_solver_warning)
+        logger.warning(many_solver_warning)
 
     # Create a README.txt file to explain the content of the folder `path_stamp`.
     if not profile_options[ProfileOption.SCORE_ONLY]:
@@ -1488,8 +1485,7 @@ def _benchmark(
                 logger.info(format_info_str.format(name, solver_scores[i]))
 
         # Close the listener of the logger before returning.
-        if not profile_options[ProfileOption.SCORE_ONLY]:
-            _close_logging_resources(logging_resources)
+        _close_logging_resources(logging_resources)
         return solver_scores, None, None
 
     # If 'load' option is not specified, we solve all the selected problems.
@@ -1637,8 +1633,7 @@ def _benchmark(
                 logger.info('')
                 logger.info('No problems are selected or solved from any problem library.')
             # Close the listener of the logger before returning.
-            if not profile_options[ProfileOption.SCORE_ONLY]:
-                _close_logging_resources(logging_resources)
+            _close_logging_resources(logging_resources)
             return solver_scores, None, None
 
     # Preserve completed numerical results before report publication and
@@ -1769,8 +1764,7 @@ def _benchmark(
     )
 
     # Close the listener of the logger.
-    if not profile_options[ProfileOption.SCORE_ONLY]:
-        _close_logging_resources(logging_resources)
+    _close_logging_resources(logging_resources)
 
     return solver_scores, profile_scores, curves
 

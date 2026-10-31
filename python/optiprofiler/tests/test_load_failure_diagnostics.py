@@ -33,7 +33,8 @@ def test_load_failure_log_names_the_cause(tmp_path, monkeypatch, caplog, capsys)
                   ptype='u', mindim=1, maxdim=1, n_jobs=1, max_eval_factor=2, score_only=True,
                   draw_hist_plots='none')
     captured = capsys.readouterr()
-    text = caplog.text + captured.out + captured.err
+    # The console handler wraps long lines.
+    text = ' '.join((caplog.text + captured.out + captured.err).split())
     assert 'Failed to load' in text and 'BROKEN' in text
     assert 'undefined symbol _ZGVbN2v_cos (simulated)' in text
 

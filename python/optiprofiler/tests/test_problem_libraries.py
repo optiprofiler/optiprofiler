@@ -360,7 +360,7 @@ def _one_step_solver(fun, x0):
 
 
 @pytest.mark.parametrize('name, warned', [('s2mpj', True), ('custom', False)])
-def test_benchmark_reports_a_local_library_that_replaces_a_provider(tmp_path, caplog, name, warned):
+def test_benchmark_reports_a_local_library_that_replaces_a_provider(tmp_path, capsys, name, warned):
     _write_quadratic_library(tmp_path, name)
     report_path = tmp_path / 'report.json'
 
@@ -373,10 +373,12 @@ def test_benchmark_reports_a_local_library_that_replaces_a_provider(tmp_path, ca
     assert {problem['provider']['source'] for problem in report['problems']} == {'custom'}
     assert {tuple(problem['provider']['shadows']) for problem in report['problems']} == {('bundled',)}
     assert {(problem['provider']['version'], problem['provider']['revision']) for problem in report['problems']} == {(None, None)}
-    warnings = [record.getMessage() for record in caplog.records
-                if record.levelname == 'WARNING' and 'replaces the provider' in record.getMessage()]
-    assert len(warnings) == (1 if warned else 0)
-    assert all('custom_problem_libs_path' in message and f'"{name}"' in message for message in warnings)
+    # score_only logs through the benchmark's console handler, which wraps lines.
+    output = ' '.join(capsys.readouterr().out.split())
+    assert output.count('replaces the provider') == (1 if warned else 0)
+    if warned:
+        assert (f'[WARNING] The local problem library "{name}" from custom_problem_libs_path replaces the '
+                'provider(s) of the same name') in output
     assert codes.count('problem_library_shadowed') == (1 if warned else 0)
 
 

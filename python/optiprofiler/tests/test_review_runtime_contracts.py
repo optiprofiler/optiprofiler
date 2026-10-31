@@ -173,8 +173,9 @@ def test_quantized_maxcv_accepts_array_like_and_validates_dimension(kwargs):
         fp.maxcv([1])
 
 
+@pytest.mark.parametrize('score_only', [False, True])
 @pytest.mark.parametrize('fail', [False, True])
-def test_public_saved_benchmark_restores_host_logging(tmp_path, monkeypatch, fail):
+def test_public_saved_benchmark_restores_host_logging(tmp_path, monkeypatch, fail, score_only):
     root = logging.getLogger()
     original_handlers, original_level = list(root.handlers), root.level
     sentinel = logging.NullHandler()
@@ -185,7 +186,7 @@ def test_public_saved_benchmark_restores_host_logging(tmp_path, monkeypatch, fai
             raise RuntimeError('failed after logging setup')
         monkeypatch.setattr(profiles, '_solve_all_problems', abort)
     try:
-        args = dict(plibs=['custom'], problem_names=['custom1'], n_jobs=1, silent=True,
+        args = dict(plibs=['custom'], problem_names=['custom1'], n_jobs=1, silent=True, score_only=score_only,
                     savepath=str(tmp_path), draw_hist_plots='none', max_tol_order=1, max_eval_factor=2)
         if fail:
             with pytest.raises(RuntimeError, match='failed after logging setup'):
@@ -198,6 +199,42 @@ def test_public_saved_benchmark_restores_host_logging(tmp_path, monkeypatch, fai
         root.handlers[:] = original_handlers
         root.setLevel(original_level)
         sentinel.close()
+
+
+def _infinite_initial_merit(fun, cv, cv_init):
+    fun = np.asarray(fun, dtype=float)
+    return np.where(fun == 2.0, np.inf, fun)
+
+
+@pytest.mark.parametrize('silent', [False, True])
+def test_score_only_logs_through_the_benchmark_console(tmp_path, monkeypatch, capfd, silent):
+    # A direct problem logs from this process; a library run from workers.
+    monkeypatch.chdir(tmp_path)
+    problem = Problem(lambda x: float(np.sum((x - 1.0) ** 2)), [0.0, 0.0], name='QUAD')
+    benchmark([initial_solver, initial_solver], problem=problem, merit_fun=_infinite_initial_merit,
+              n_runs=1, max_eval_factor=3, score_only=True, silent=silent)
+    library = tmp_path / 'libraries' / 'halfload'
+    library.mkdir(parents=True)
+    (library / 'halfload_tools.py').write_text(
+        'from optiprofiler import Problem\n'
+        "def halfload_select(options): return ['GOOD', 'BROKEN']\n"
+        'def halfload_load(name):\n'
+        "    if name == 'BROKEN': raise ImportError('simulated missing runtime')\n"
+        '    return Problem(lambda x: float(x @ x), [1.0, 2.0], name=name)\n', encoding='utf-8')
+    benchmark([initial_solver, initial_solver], plibs=['halfload'], custom_problem_libs_path=str(library.parent),
+              n_jobs=2, n_runs=1, max_eval_factor=2, max_tol_order=1, score_only=True, silent=silent,
+              draw_hist_plots='none')
+    out, err = capfd.readouterr()
+    assert not list(tmp_path.rglob('log.txt'))
+    if silent:
+        assert 'cannot be scored' not in out + err and 'Failed to load' not in out + err
+        assert 'Scores of the solvers' not in out
+    else:
+        assert "[WARNING] Problem 'QUAD': runs with an undefined or infinite initial merit" in out
+        assert '[WARNING] Failed to load    BROKEN from "halfload"' in out
+        assert '[INFO   ] Loading problem   GOOD   from "halfload".' in out
+        assert '[INFO   ] Scores of the solvers:' in out
+        assert 'cannot be scored' not in err and 'Failed to load' not in err
 
 
 def test_reference_history_diagnostic_survives_warning_suppression(caplog):

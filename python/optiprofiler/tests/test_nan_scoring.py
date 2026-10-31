@@ -219,17 +219,18 @@ def inf_at_initial_value(fun, cv, cv_init):
 
 
 @pytest.mark.parametrize('merit', [nan_at_initial_value, inf_at_initial_value])
-def test_nonfinite_initial_merit_single_problem_score_is_nan(merit, caplog):
+def test_nonfinite_initial_merit_single_problem_score_is_nan(merit, capsys):
     problem = Problem(lambda x: float(np.sum((x - 1.0) ** 2)), [0.0, 0.0], name='QUAD')
     scores = benchmark([visit_one, visit_one_again], problem=problem, merit_fun=merit,
                        n_runs=1, max_eval_factor=3, score_only=True, silent=False)[0]
     assert np.all(np.isnan(scores))
-    assert any(record.levelname == 'WARNING' and "Problem 'QUAD': runs with an undefined or infinite initial merit"
-               in record.getMessage() for record in caplog.records)
-    caplog.clear()
+    # score_only logs through the benchmark's console handler, which wraps lines.
+    assert ("[WARNING] Problem 'QUAD': runs with an undefined or infinite initial merit cannot be scored"
+            in ' '.join(capsys.readouterr().out.split()))
     benchmark([visit_one, visit_one_again], problem=problem, merit_fun=merit,
               n_runs=1, max_eval_factor=3, score_only=True, silent=True)
-    assert not any('cannot be scored' in record.getMessage() for record in caplog.records)
+    captured = capsys.readouterr()
+    assert 'cannot be scored' not in captured.out + captured.err
 
 
 def visit_half(fun, x0, *constraints):
