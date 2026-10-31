@@ -745,7 +745,10 @@ def _benchmark(
         The label of the y-axis of the data profiles.
         Default is 'Data profiles ($\\mathrm{tol} = %s$)', where '%s' will be
         replaced by the current tolerance in LaTeX format. You can also use
-        '%s' in your custom label, and it will be replaced accordingly. The
+        '%s' in your custom label, and it will be replaced accordingly.
+        Only '%s' is a placeholder: '%%' and any other '%' give a literal
+        percent sign, escaped automatically where LaTeX or a '$...$'
+        segment needs it (so '50% solved at $%s$' is a valid label). The
         same applies to the options 'ylabel_log_ratio_profile' and
         'ylabel_performance_profile'.
     ylabel_log_ratio_profile : str, optional

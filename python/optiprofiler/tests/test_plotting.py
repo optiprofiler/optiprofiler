@@ -357,6 +357,47 @@ class TestGetLogRatioProfileAxes:
         plt.close(fig)
 
 
+class TestFormatToleranceLabel:
+
+    @pytest.mark.parametrize('template, plain, latex', [
+        ('Data profiles ($\\mathrm{tol} = %s$)', 'Data profiles ($\\mathrm{tol} = T$)',
+         'Data profiles ($\\mathrm{tol} = T$)'),
+        ('50% solved at $%s$', '50% solved at $T$', '50\\% solved at $T$'),
+        ('100%% at $%s$', '100% at $T$', '100\\% at $T$'),
+        ('$50%$ at $%s$', '$50\\%$ at $T$', '$50\\%$ at $T$'),
+        ('kept \\% and \\$ at %s', 'kept \\% and \\$ at T', 'kept \\% and \\$ at T'),
+        ('Fraction (%) %d', 'Fraction (%) %d', 'Fraction (\\%) \\%d'),
+        ('no placeholder', 'no placeholder', 'no placeholder'),
+    ])
+    def test_only_the_placeholder_is_substituted(self, template, plain, latex):
+        from optiprofiler.plotting import format_tolerance_label
+        assert format_tolerance_label(template, 'T', False) == plain
+        assert format_tolerance_label(template, 'T', True) == latex
+
+    @pytest.mark.parametrize('usetex', [False, pytest.param(True, marks=pytest.mark.skipif(
+        not shutil.which('latex'), reason='LaTeX rendering needs a latex executable'))])
+    def test_formatted_labels_render(self, tmp_path, usetex):
+        from matplotlib.figure import Figure
+        from optiprofiler.plotting import format_tolerance_label
+        templates = ['50% solved at $%s$', '100%% at $%s$', '$50%$ at $%s$', 'Fraction (%)']
+        with matplotlib.rc_context({'text.usetex': usetex}):
+            for template in templates:
+                figure = Figure()
+                figure.subplots().set_ylabel(format_tolerance_label(template, '10^{-1}', usetex))
+                figure.savefig(tmp_path / 'label.pdf')
+
+
+def test_percent_in_ylabel_templates_reaches_the_saved_profiles(tmp_path):
+    from optiprofiler import benchmark
+    benchmark([_palette_first, _palette_second], plibs=['custom'], problem_names=['custom1'],
+              n_jobs=1, max_eval_factor=2, max_tol_order=1, savepath=str(tmp_path), silent=True,
+              draw_hist_plots='none', summarize_log_ratio_profiles=True,
+              ylabel_performance_profile='50% solved at $%s$',
+              ylabel_data_profile='Solved (%%) at $%s$', ylabel_log_ratio_profile='$100%$ ratio')
+    assert len(list(tmp_path.rglob('summary_*.pdf'))) == 1
+    assert len(list(tmp_path.rglob('perf_hist_1.pdf'))) == 1
+
+
 _PALETTE_LIBRARY = '''from optiprofiler import Problem
 def palette_select(options): return ['FIRST', 'SECOND']
 def palette_load(name):
