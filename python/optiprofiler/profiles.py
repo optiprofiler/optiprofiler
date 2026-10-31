@@ -649,7 +649,10 @@ def _benchmark(
         index of the solver, the second corresponds to the index of tolerance
         starting from 1, the third represents history-based or output-based
         profiles, and the fourth represents performance profiles, data
-        profiles, or log-ratio profiles. The default scoring function takes
+        profiles, or log-ratio profiles. It must return one real score per
+        solver: a vector of length n_solvers (a column or row array with
+        n_solvers entries is flattened to that vector; any other shape raises
+        an error). The default scoring function takes
         the average of the history-based performance profiles under all the
         tolerances.
     score_only : bool, optional
@@ -1768,6 +1771,21 @@ def _benchmark(
     return solver_scores, profile_scores, curves
 
 
+def _solver_score_vector(value, n_solvers):
+    """Check that a ``score_fun`` result holds exactly one real score per solver."""
+    scores = np.asarray(value)
+    if scores.dtype.kind not in 'iuf':
+        raise TypeError(f'Option {ProfileOption.SCORE_FUN.value} must return real numeric scores, '
+                        f'one per solver; it returned values of type {scores.dtype}.')
+    if scores.shape == (n_solvers,):
+        return value
+    if scores.size == n_solvers and sum(length != 1 for length in scores.shape) == 1:
+        # A column or row vector, such as the result of keepdims=True.
+        return scores.reshape(n_solvers)
+    raise ValueError(f'Option {ProfileOption.SCORE_FUN.value} must return one score per solver, '
+                     f'i.e. a vector of length {n_solvers}; it returned shape {scores.shape}.')
+
+
 def _build_profiles(
     results_plibs, profile_options, profile_context, solver_names, feature,
     report, logger, path_stamp, path_readme_log, stamp, curves,
@@ -2259,7 +2277,7 @@ def _build_profiles(
 
     # Compute solver_scores using score_fun.
     score_fun = profile_options[ProfileOption.SCORE_FUN]
-    solver_scores = score_fun(profile_scores)
+    solver_scores = _solver_score_vector(score_fun(profile_scores), n_solvers)
     if report is not None:
         report.set_scores(solver_scores, profile_scores, solver_names)
 
