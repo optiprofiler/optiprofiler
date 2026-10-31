@@ -167,9 +167,14 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         NaN objective or constraint values are invalid evaluations, even
 %         if a custom merit returns a finite value. Runs with undefined initial
 %         values, including a merit value of NaN at the initial guess, are not
-%         declared passing. Otherwise, if varphi(x_0) is Inf,
-%         the existing degenerate-test convention accepts valid evaluations.
-%         Both cases are listed in test_log/report.txt.
+%         declared passing. Otherwise, if varphi(x_0) is +Inf,
+%         the existing degenerate-test convention accepts valid evaluations;
+%         if it is -Inf, only a merit value of -Inf passes. Both cases are
+%         listed in test_log/report.txt. In output-based profiles, an output
+%         obtained without any evaluation counts as one evaluation. With
+%         problem, the score of a run whose initial merit is not finite is
+%         NaN (the relative decrease is undefined), whereas the profiles
+%         apply the +Inf convention.
 %       - n_jobs: the number of parallel jobs to run the test. Default is a
 %         conservative number of workers, chosen as about half of the
 %         available workers (at least 2 when more than one worker is
@@ -1622,7 +1627,7 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
     end
     % A merit_fun that is NaN at x0 cannot establish a target either.
     invalid_initial = invalid_initial | isnan(merit_inits_merged);
-    merit_init_inf_mask = isinf(merit_inits_merged) & ~invalid_initial;
+    merit_init_inf_mask = merit_inits_merged == Inf & ~invalid_initial;
     if ~profile_options.(ProfileOptionKey.SILENT.value) && any(merit_init_inf_mask(:))
         for i_problem = 1:n_problems
             if any(merit_init_inf_mask(i_problem, :))

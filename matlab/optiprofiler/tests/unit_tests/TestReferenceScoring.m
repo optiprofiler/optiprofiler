@@ -67,7 +67,10 @@ classdef TestReferenceScoring < matlab.unittest.TestCase
                 [0, -Inf, -Inf], -Inf, 10, -Inf, 2, .1, false, [true, true, false], true, [2, 2];
                 [NaN, NaN, NaN], NaN, 10, NaN, 3, .1, false, false(1, 3), false, [NaN, NaN];
                 [3, 1, 0], 0, 10, 0, 3, .1, true, true(1, 3), true, [NaN, NaN];
-                [5, 3, 0], .5, 10, 0, 2, .1, false, [true, true, false], false, [NaN, NaN]};
+                [5, 3, 0], .5, 10, 0, 2, .1, false, [true, true, false], false, [NaN, NaN];
+                [1, 1, 1], 1, -Inf, -Inf, 3, .1, false, true(1, 3), true, [NaN, NaN];
+                [1, -Inf, 1], -Inf, -Inf, -Inf, 3, .1, false, true(1, 3), true, [2, 3];
+                [NaN, NaN, NaN], 0, 10, 0, 0, .1, false, false(1, 3), true, [NaN, 1]};
             for k = 1:size(cases, 1)
                 c = cases(k, :);
                 [history, output] = computeConvergenceWork(reshape(c{1}, 1, 1, 1, []), ...

@@ -1,10 +1,12 @@
 function [work_hist, work_out] = computeConvergenceWork(merit_histories, merit_outs, merit_inits, merit_mins, n_evals, tolerance, invalid_initial, valid_histories, valid_outs)
 % Return first passing evaluation indices and work at passing solver outputs.
-% Validity masks exclude raw NaN observations and padded history tails.
+% Validity masks exclude raw NaN observations and padded history tails. An
+% output reached without any evaluation is charged one unit of work, so that
+% work stays positive in performance and data profile ratios.
     n_problems = size(merit_histories, 1);
     n_solvers = size(merit_histories, 2);
     n_runs = size(merit_histories, 3);
-    initial_is_inf = isinf(merit_inits);
+    initial_is_inf = merit_inits == Inf;
     work_hist = NaN(n_problems, n_solvers, n_runs);
     work_out = NaN(n_problems, n_solvers, n_runs);
     for i_problem = 1:n_problems
@@ -14,8 +16,9 @@ function [work_hist, work_out] = computeConvergenceWork(merit_histories, merit_o
                     continue;
                 end
                 if initial_is_inf(i_problem, i_run)
-                    % Preserve the Inf-initial convention only for
-                    % actual evaluations without raw NaN values.
+                    % Preserve the +Inf-initial convention only for
+                    % actual evaluations without raw NaN values. A -Inf
+                    % initial merit makes the minimum -Inf: exact hit below.
                     threshold = Inf;
                 elseif isfinite(merit_mins(i_problem, i_run))
                     threshold = max(tolerance * merit_inits(i_problem, i_run) + (1 - tolerance) * merit_mins(i_problem, i_run), merit_mins(i_problem, i_run));
@@ -30,7 +33,7 @@ function [work_hist, work_out] = computeConvergenceWork(merit_histories, merit_o
                     work_hist(i_problem, i_solver, i_run) = find(passing, 1, 'first');
                 end
                 if valid_outs(i_problem, i_solver, i_run) && merit_outs(i_problem, i_solver, i_run) <= threshold
-                    work_out(i_problem, i_solver, i_run) = n_evals(i_problem, i_solver, i_run);
+                    work_out(i_problem, i_solver, i_run) = max(n_evals(i_problem, i_solver, i_run), 1);
                 end
             end
         end

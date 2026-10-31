@@ -1204,10 +1204,12 @@ def compute_convergence_work(merit_histories, merit_outs, merit_inits, merit_min
     """Return first passing evaluation indices and work at passing solver outputs.
 
     Validity masks exclude raw NaN observations and padded history tails.
-    The initial-Inf convention and arithmetic order match profile scoring.
+    The +Inf-initial convention and arithmetic order match profile scoring.
+    An output reached without any evaluation is charged one unit of work, so
+    that work stays positive in performance and data profile ratios.
     """
     n_problems, n_solvers, n_runs = merit_histories.shape[:3]
-    initial_is_inf = np.isinf(merit_inits)
+    initial_is_inf = np.isposinf(merit_inits)
     # Compute the number of function evaluations used by each
     # solver on each problem at each run to achieve convergence.
     work_hist = np.full((n_problems, n_solvers, n_runs), np.nan)
@@ -1218,8 +1220,9 @@ def compute_convergence_work(merit_histories, merit_outs, merit_inits, merit_min
                 if invalid_initial[i_problem, i_run] or np.isnan(merit_inits[i_problem, i_run]):
                     continue
                 if initial_is_inf[i_problem, i_run]:
-                    # Preserve the Inf-initial convention, but only
-                    # for actual evaluations without raw NaN values.
+                    # Preserve the +Inf-initial convention, but only for
+                    # actual evaluations without raw NaN values. A -Inf
+                    # initial merit makes the minimum -Inf: exact hit below.
                     threshold = np.inf
                 elif np.isfinite(merit_mins[i_problem, i_run]):
                     threshold = max(tolerance * merit_inits[i_problem, i_run] + (1.0 - tolerance) * merit_mins[i_problem, i_run], merit_mins[i_problem, i_run])
@@ -1231,7 +1234,7 @@ def compute_convergence_work(merit_histories, merit_outs, merit_inits, merit_min
                 if np.any(passing):
                     work_hist[i_problem, i_solver, i_run] = np.flatnonzero(passing)[0] + 1
                 if valid_outs[i_problem, i_solver, i_run] and merit_outs[i_problem, i_solver, i_run] <= threshold:
-                    work_out[i_problem, i_solver, i_run] = n_evals[i_problem, i_solver, i_run]
+                    work_out[i_problem, i_solver, i_run] = max(n_evals[i_problem, i_solver, i_run], 1)
 
     return work_hist, work_out
 

@@ -175,6 +175,11 @@ def test_mixed_legacy_initial_dimensions_on_load(nan_library, tmp_path,
     (10., 0., [3., 1., 0.], 0., 3, [True] * 3, True, True, (np.nan, np.nan)),
     (10., 0., [5., 3., 0.], .5, 2, [True, True, False], False, False, (np.nan, np.nan)),
     (np.nan, 0., [3., 1., 0.], 0., 3, [True] * 3, False, True, (np.nan, np.nan)),
+    # -Inf initial merit: only an exact -Inf hit passes (not the +Inf convention).
+    (-np.inf, -np.inf, [1., 1., 1.], 1., 3, [True] * 3, False, True, (np.nan, np.nan)),
+    (-np.inf, -np.inf, [1., -np.inf, 1.], -np.inf, 3, [True] * 3, False, True, (2., 3.)),
+    # A valid output reached without any evaluation is charged one unit of work.
+    (10., 0., [np.nan] * 3, 0., 0, [False] * 3, False, True, (np.nan, 1.)),
 ])
 def test_convergence_work_obeys_validity_and_initial_conventions(
         initial, minimum, history, output, count, valid, invalid, output_valid, expected):
@@ -248,3 +253,61 @@ def test_single_problem_solver_without_valid_evaluation_scores_zero():
     scores = benchmark([visit_one, visit_half], problem=problem, merit_fun=nan_at_half,
                        n_runs=1, max_eval_factor=3, score_only=True, silent=True)[0]
     np.testing.assert_array_equal(scores, [1.0, 0.0])
+
+
+def leave_negative_initial(fun, x0):
+    point = np.ones_like(x0)
+    fun(point)
+    return point
+
+
+def keep_negative_initial(fun, x0):
+    fun(x0)
+    return x0
+
+
+def test_negative_infinite_initial_merit_needs_an_exact_hit(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    root = tmp_path / 'negative_initial'
+    root.mkdir()
+    (root / 'negative_initial_tools.py').write_text('''
+import numpy as np
+from optiprofiler import Problem
+
+def objective(x):
+    return -np.inf if x[0] == 0.0 else 1.0
+
+def negative_initial_select(options):
+    return ['NEGATIVE_INITIAL']
+
+def negative_initial_load(name):
+    return Problem(objective, [0.0], name=name)
+''')
+    scores = benchmark([leave_negative_initial, keep_negative_initial], plibs=['negative_initial'],
+                       custom_problem_libs_path=str(tmp_path), score_only=True, silent=True, n_jobs=1,
+                       max_tol_order=1, max_eval_factor=1)[0]
+    # Only the solver that observes the -Inf initial value reaches the target.
+    assert scores[0] == 0
+    assert scores[1] > 0
+
+
+def no_evaluation(fun, x0):
+    return np.ones_like(x0)
+
+
+def one_evaluation(fun, x0):
+    fun(x0)
+    return x0
+
+
+def test_output_without_evaluation_keeps_profiles_finite():
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter('error', RuntimeWarning)
+        _, _, curves = benchmark([one_evaluation, no_evaluation], plibs=['s2mpj'], problem_names=['ROSENBR'],
+                                 mindim=2, maxdim=2, score_only=True, silent=True, n_jobs=1, max_tol_order=1,
+                                 max_eval_factor=1)
+    for curve in curves[0]['out']['perf']:
+        for run_curve in curve:
+            if run_curve is not None:
+                assert np.all(np.isfinite(np.asarray(run_curve[0], dtype=float)))

@@ -576,8 +576,13 @@ def _benchmark(
         when a custom merit function returns a finite value for them. A run
         with an undefined initial value, including a merit function value of
         NaN at the initial guess, is not declared passing. Otherwise,
-        if varphi(x_0) is inf, the existing degenerate-test convention accepts
-        valid evaluations. Both cases are listed in ``test_log/report.txt``.
+        if varphi(x_0) is +inf, the existing degenerate-test convention accepts
+        valid evaluations; if it is -inf, only a merit value of -inf passes.
+        Both cases are listed in ``test_log/report.txt``. In output-based
+        profiles, an output obtained without any evaluation counts as one
+        evaluation. With ``problem``, the score of a run whose initial merit
+        is not finite is NaN (the relative decrease is undefined), whereas
+        the profiles above apply the +inf convention.
     n_jobs : int, optional
         The number of parallel jobs to run the test. Default is a
         conservative number of workers, chosen as about half of the
@@ -1861,7 +1866,7 @@ def _build_profiles(
             merit_inits_per_run = merit_inits_merged
         # A merit_fun that is NaN at x0 cannot establish a target either.
         invalid_initial = invalid_initial | np.isnan(merit_inits_per_run)
-        merit_init_inf_mask = np.isinf(merit_inits_per_run) & ~invalid_initial
+        merit_init_inf_mask = np.isposinf(merit_inits_per_run) & ~invalid_initial
         if not profile_options[ProfileOption.SILENT] and np.any(merit_init_inf_mask):
             for i_problem in range(n_problems):
                 if np.any(merit_init_inf_mask[i_problem, :]):
