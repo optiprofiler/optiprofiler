@@ -107,6 +107,85 @@ classdef TestPlotOptions < matlab.unittest.TestCase
             testCase.verifyGreaterThan(getappdata(0, 'OptiProfilerPlotOptionsSolverCalls'), 0);
             testCase.verifyEqual(numel(findall(groot, 'Type', 'figure')), figures_before);
         end
+        function cheapFigureValuesFailBeforeExecution(testCase)
+            % Previously the solvers ran and seven figures stayed open.
+            setappdata(0, 'OptiProfilerPlotOptionsSolverCalls', 0);
+            testCase.addTeardown(@() rmappdata(0, 'OptiProfilerPlotOptionsSolverCalls'));
+            root = tempname; mkdir(root);
+            testCase.addTeardown(@() rmdir(root, 's'));
+            figures_before = numel(findall(groot, 'Type', 'figure'));
+            problem = Problem(struct('fun',@(x)sum(x.^2),'x0',1));
+            counted = @(fun, x0) countedStay(fun, x0);
+            invalid = {'Position', [0 0 800]; 'Position', [NaN 0 1 1]; 'Position', [0 0 -1 1]; ...
+                'OuterPosition', 'abc'; 'InnerPosition', {0 0 1 1}; 'PaperPosition', [0 0 1]; ...
+                'PaperSize', [1 2 3]; 'PaperSize', [-1 2]; 'Color', 'not-a-color'; 'Color', [2 0 0]; 'Name', 123};
+            for k = 1:size(invalid, 1)
+                options = struct('problem',problem,'n_jobs',1,'silent',true,'savepath',root, ...
+                    'plot_options',struct('figure',struct(invalid{k, 1}, invalid(k, 2))));
+                testCase.verifyError(@() benchmark({counted, counted}, options), ...
+                    'OptiProfiler:PlotOptions:InvalidProperty', invalid{k, 1});
+            end
+            testCase.verifyEqual(getappdata(0, 'OptiProfilerPlotOptionsSolverCalls'), 0);
+            testCase.verifyEqual(numel(findall(groot, 'Type', 'figure')), figures_before);
+            entries = dir(root);
+            testCase.verifyEmpty(setdiff({entries.name}, {'.', '..'}));
+        end
+
+        function earlyFigureChecksRejectOnlyWhatMatlabRejects(testCase)
+            values = {'Position', [0 0 800]; 'Position', [0 0 800 600 1]; 'Position', 'abc'; ...
+                'Position', [NaN 0 1 1]; 'Position', [Inf 0 1 1]; 'Position', [0 0 -1 1]; 'Position', [0 0 0 0]; ...
+                'Position', int32([0 0 800 600]); 'Position', {0 0 800 600}; 'Position', [0; 0; 800; 600]; ...
+                'Position', true(1, 4); 'OuterPosition', [0 0 800]; 'OuterPosition', [10 10 800 600]; ...
+                'OuterPosition', [0 0 -1 1]; 'InnerPosition', [NaN 0 1 1]; 'PaperPosition', [0 0 1]; ...
+                'PaperPosition', [0 0 8 6]; 'PaperPosition', [0 0 -1 1]; 'PaperSize', [1 2 3]; ...
+                'PaperSize', [-1 2]; 'PaperSize', [8.5 11]; 'PaperSize', [NaN 2]; 'Color', 'r'; ...
+                'Color', '#ff0000'; 'Color', [1 0 0]; 'Color', [2 0 0]; 'Color', 'none'; 'Color', 'foo'; ...
+                'Color', [1 0]; 'Color', [1 0 0 0.5]; 'Color', {1 0 0}; 'Color', [NaN 0 0]; ...
+                'Color', uint8([255 0 0]); 'Color', [1; 0; 0]; 'Name', 123; 'Name', "abc"; 'Name', {'a'}; 'Name', 'x'};
+            old_directory = pwd;
+            testCase.addTeardown(@() cd(old_directory));
+            cd(fullfile(fileparts(mfilename('fullpath')), '..', '..', 'src', 'private'));
+            for k = 1:size(values, 1)
+                label = sprintf('%s=%s', values{k, 1}, strtrim(evalc('disp(values{k, 2})')));
+                try
+                    validatePlotOptions(struct('figure', struct(values{k, 1}, values(k, 2))));
+                    early = true;
+                catch cause
+                    testCase.verifyEqual(cause.identifier, 'OptiProfiler:PlotOptions:InvalidProperty', label);
+                    early = false;
+                end
+                figure_handle = figure('Visible', 'off');
+                try
+                    set(figure_handle, values{k, 1}, values{k, 2});
+                    native = true;
+                catch
+                    native = false;
+                end
+                close(figure_handle);
+                testCase.verifyTrue(early || ~native, ['Refused early although MATLAB accepts ', label]);
+            end
+        end
+
+        function styleErrorAtExportClosesTheFigures(testCase)
+            % A figure value checked only at export fails after the
+            % numerical stage; every figure of the call is closed.
+            root = tempname; mkdir(root);
+            old_directory = pwd;
+            testCase.addTeardown(@() rmdir(root, 's'));
+            testCase.addTeardown(@() cd(old_directory));
+            cd(root);
+            TestLoadReplot.makeExperiment(root, 'bench', 2, 1);
+            figures_before = numel(findall(groot, 'Type', 'figure'));
+            options = struct('load', '20200101_000000', 'benchmark_id', 'bench', 'max_tol_order', 2, ...
+                'silent', true, 'draw_hist_plots', 'none', 'report_path', fullfile(root, 'style.json'), ...
+                'plot_options', struct('figure', struct('Units', 'not-a-unit')));
+            testCase.verifyError(@() benchmark(options), 'OptiProfiler:PlotOptions:InvalidProperty');
+            testCase.verifyEqual(numel(findall(groot, 'Type', 'figure')), figures_before);
+            report = jsondecode(fileread(options.report_path));
+            testCase.verifyEqual(report.status, 'failed');
+            testCase.verifyEqual(report.stages.numerical.status, 'completed');
+        end
+
         function labelTemplatesSubstituteOnlyTheTolerance(testCase)
             % Labels were formatted by sprintf: \a, \b, \t, \n became control
             % characters and a single % ended the label.

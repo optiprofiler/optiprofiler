@@ -200,10 +200,14 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         struct('xlabel',struct('FontSize',18),'legend',struct('FontSize',14)).
 %         Properties override drawing defaults at export for profiles,
 %         summaries, and histories, including on load. Scores and source data
-%         are unchanged. Property names are checked before solvers execute;
-%         values use the installed MATLAB graphics API's validation at render
-%         time. Portable SVG/HTML fallback keeps its own style and does not
-%         apply native graphics properties. Default is an empty struct.
+%         are unchanged. Property names, the values of the non-figure groups
+%         and the figure Position, OuterPosition, InnerPosition,
+%         PaperPosition, PaperSize, Color and Name are checked before solvers
+%         execute; other figure values use the installed MATLAB graphics
+%         API's validation at render time, and an error there closes the
+%         figures of the call. Portable SVG/HTML fallback keeps its own style
+%         and does not apply native graphics properties. Default is an empty
+%         struct.
 %       - score_fun: the scoring function to calculate the scores of the
 %         solvers. It should be a function handle as follows:
 %         ``profile_scores -> solver_scores``,
@@ -1598,6 +1602,9 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
             if ~isempty(eval_report), eval_report.recordRendering('failed', struct('scope', 'summary_layout', 'cause', cause.identifier), 'native_summary_layout_failed'); end
         end
     end
+    % An error below (a plot_options value refused at export, score_fun)
+    % must not leave the figures of this call open.
+    summary_guard = onCleanup(@() closeFigures({fig_summary})); %#ok<NASGU>
 
     % Store the curves of the performance profiles, data profiles, and log-ratio profiles.
     curves = cell(1, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value));
@@ -1725,6 +1732,9 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
                 eval_report.addProfilePresentation(presentation, i_tol, 'history');
             end
         end
+        % Replacing a guard closes the (already closed) figures of the
+        % previous tolerance; an error closes those of this one.
+        hist_guard = onCleanup(@() closeFigures({fig_perf_hist, fig_data_hist, fig_log_ratio_hist})); %#ok<NASGU>
         if is_out_drawable
             if isempty(eval_report)
                 [fig_perf_out, fig_data_out, fig_log_ratio_out, curves{i_tol}.out, out_graphics_ok] = drawProfiles(work_out, problem_dims_merged, solver_names, tolerance_latex, cell_axs_summary_out, is_output_based, is_perf, is_data, is_log_ratio, drawing_options, curves{i_tol}.out);
@@ -1733,6 +1743,7 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
                 eval_report.addProfilePresentation(presentation, i_tol, 'output');
             end
         end
+        out_guard = onCleanup(@() closeFigures({fig_perf_out, fig_data_out, fig_log_ratio_out})); %#ok<NASGU>
 
         if ~hist_graphics_ok || ~out_graphics_ok
             native_graphics = false;
@@ -2438,6 +2449,18 @@ function profile_scores = computeScores(curves, profile_options)
         max_scores = max(profile_scores, [], 1);
         max_scores(max_scores == 0) = 1;
         profile_scores = profile_scores ./ max_scores;
+    end
+end
+
+function closeFigures(figures)
+    % Close the given figures of this call that are still open; never raise.
+    for k = 1:numel(figures)
+        try
+            if ~isempty(figures{k}) && isgraphics(figures{k})
+                close(figures{k});
+            end
+        catch
+        end
     end
 end
 

@@ -47,9 +47,14 @@ MATLAB supports the same object groups except ``tick_params`` and ``rc``;
 use Axes or ruler properties for ticks. Names are checked before solver
 execution without creating figures. Values of every group except ``figure``
 are also checked before solver execution, by MATLAB itself on unparented
-objects of the same classes (no figure or window is created); ``figure``
-values and object-valued entries such as ``Parent`` are checked when they are
-applied. Styling is applied after the package defaults to
+objects of the same classes (no figure or window is created). Creating a
+figure would open a window, so of the ``figure`` values only ``Position``,
+``OuterPosition``, ``InnerPosition``, ``PaperPosition``, ``PaperSize``,
+``Color`` and ``Name`` are checked before solver execution, against the rules
+MATLAB applies to them; the other ``figure`` values and object-valued entries
+such as ``Parent`` are checked when they are applied. If such a value is
+refused there, ``benchmark`` raises the error after closing every figure it
+opened; the saved numerical data remain loadable. Styling is applied after the package defaults to
 single profiles, combined summaries, and history figures. Properties apply
 to every matching object, so a common explicit axis limit or position also
 applies to every panel. Portable SVG/HTML output, used when native graphics

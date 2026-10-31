@@ -4,10 +4,14 @@ function options = validatePlotOptions(options)
 % 'figure' are also checked before solving, by setting them on an unparented
 % object of the same native class: no figure, window, renderer or
 % process-global default is created or changed, and the installed MATLAB
-% graphics API keeps its own validation. Figure properties (a figure object
-% would open a window) and handle-valued entries are checked when applied at
-% export. Where graphics objects cannot be constructed (for example without a
-% JVM), values are not checked here; portable output does not apply them.
+% graphics API keeps its own validation. A figure object would open a
+% window, so only the figure values whose rules need no figure are checked
+% here (Position, OuterPosition, InnerPosition, PaperPosition, PaperSize,
+% Color and Name), rejecting only values MATLAB rejects. Other figure values
+% and handle-valued entries are checked when applied at export, where an
+% error closes the figures of the call. Where graphics objects cannot be
+% constructed (for example without a JVM), values are not checked here;
+% portable output does not apply them.
     groups = {'figure','axes','xaxis','yaxis','xlabel','ylabel','title','text','line','legend'};
     classes = {'matlab.ui.Figure','matlab.graphics.axis.Axes', ...
         'matlab.graphics.axis.decorator.NumericRuler','matlab.graphics.axis.decorator.NumericRuler', ...
@@ -34,9 +38,63 @@ function options = validatePlotOptions(options)
                 error('OptiProfiler:PlotOptions:UnknownProperty','Unknown native property plot_options.%s.%s.',group,names{n});
             end
         end
-        if ~strcmp(group, 'figure') && ~isempty(names)
+        if strcmp(group, 'figure')
+            checkFigureValues(options.(group));
+        elseif ~isempty(names)
             checkValues(group, classes{index}, options.(group));
         end
+    end
+end
+
+function checkFigureValues(values)
+    names = fieldnames(values);
+    for k = 1:numel(names)
+        value = values.(names{k});
+        switch lower(names{k})
+            case 'position'
+                valid = isRectangle(value) && all(real(value(3:4)) >= 0);
+                rule = 'a vector of 4 finite numbers with nonnegative width and height';
+            case {'outerposition', 'innerposition', 'paperposition'}
+                valid = isRectangle(value);
+                rule = 'a vector of 4 finite numbers';
+            case 'papersize'
+                valid = isnumeric(value) && numel(value) == 2 && ~any(real(value(:)) < 0);
+                rule = 'a vector of 2 nonnegative numbers';
+            case 'color'
+                valid = isColor(value);
+                rule = 'a color name, a hexadecimal color code, an RGB triplet or ''none''';
+            case 'name'
+                valid = (ischar(value) && (isrow(value) || isempty(value))) || (isstring(value) && isscalar(value));
+                rule = 'a character vector or a string scalar';
+            otherwise
+                continue
+        end
+        if ~valid
+            error('OptiProfiler:PlotOptions:InvalidProperty', ...
+                'Invalid native plot_options.figure property: %s must be %s.', names{k}, rule);
+        end
+    end
+end
+
+function valid = isRectangle(value)
+    valid = isnumeric(value) && numel(value) == 4 && all(isfinite(value(:)));
+end
+
+function valid = isColor(value)
+    if (ischar(value) && isrow(value)) || (isstring(value) && isscalar(value))
+        valid = strcmpi(value, 'none');
+        if ~valid
+            try
+                validatecolor(value);
+                valid = true;
+            catch
+            end
+        end
+    elseif isfloat(value) && isreal(value) && ismember(numel(value), [3, 4])
+        valid = all(value(:) >= 0 & value(:) <= 1);
+    else
+        % Integer and other encodings are left to the figure.
+        valid = ~(isnumeric(value) && ~ismember(numel(value), [3, 4])) && ~iscell(value);
     end
 end
 
