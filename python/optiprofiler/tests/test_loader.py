@@ -583,3 +583,29 @@ def test_load_drops_a_library_left_without_selected_problems(tmp_path, monkeypat
     assert {(problem['library'], problem['name']) for problem in report['problems']} == {('libb', 'B1')}
     # With no problem left in any library, the load stops as an empty selection does.
     assert benchmark(None, problem_names=['NONE'], **load)[0].size == 0
+
+
+@pytest.mark.parametrize('silent', [True, False])
+def test_load_prints_progress_information_only_when_not_silent(tmp_path, monkeypatch, capsys, silent):
+    from optiprofiler import benchmark
+    monkeypatch.chdir(tmp_path)
+    saved = dict(benchmark_id='bench', savepath=str(tmp_path), max_tol_order=1)
+    benchmark([_visit_start, _visit_step], plibs=['custom'], problem_names=['custom1'], n_jobs=1,
+              max_eval_factor=2, silent=True, draw_hist_plots='none', **saved)
+    capsys.readouterr()
+    load = dict(saved, load='latest', silent=silent)
+    benchmark(None, score_only=True, **load)
+    benchmark(None, score_only=True, problem_names=['NONE'], **load)
+    benchmark(None, **load)
+    progress = capsys.readouterr().out
+    # A warning is printed whatever `silent` says, as in a benchmark run.
+    benchmark(None, score_only=True, draw_hist_plots='sequential', **load)
+    warning = ' '.join(capsys.readouterr().out.split())
+    assert '[WARNING] Since the option "score_only" is true, the requested "draw_hist_plots" mode' in warning
+    messages = ('Loaded experiment successfully.', 'No problem is selected to load',
+                'Since the option "score_only" is true, we will not draw',
+                'Since the option "load" is provided')
+    if silent:
+        assert '[INFO' not in progress, progress
+    else:
+        assert all(message in ' '.join(progress.split()) for message in messages), progress

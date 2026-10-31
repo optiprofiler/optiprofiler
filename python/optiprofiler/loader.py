@@ -701,10 +701,14 @@ def load_results(problem_options: Dict[str, Any], profile_options: Dict[str, Any
         if results_plib:
             problem_nums += results_plib['fun_histories'].shape[0]
     
+    # Progress information follows `silent`, as in a benchmark run; warnings do not.
+    silent = profile_options.get(ProfileOption.SILENT.value, False)
+
     # Check whether there is any problem to load
     if problem_nums == 0:
-        print()
-        print_log_message('INFO', 'No problem is selected to load by the given options. Please check your options and try again.')
+        if not silent:
+            print()
+            print_log_message('INFO', 'No problem is selected to load by the given options. Please check your options and try again.')
         return [], profile_options
     
     # Backfill the unspecified problem-selection options from the saved
@@ -712,15 +716,16 @@ def load_results(problem_options: Dict[str, Any], profile_options: Dict[str, Any
     problem_options = _backfill_problem_options_from_loaded(problem_options, results_plibs)
 
     # Print the information about the loaded experiment.
-    print_log_message('INFO', 'Loaded experiment successfully.')
-    print()
-    print_log_message('INFO', 'Information about the loaded experiment:')
-    print_log_message('INFO', f'- Time stamp: {time_stamp}')
-    print_log_message('INFO', f'- Path: {path_experiment}')
-    print_log_message('INFO', f'- Solvers: {", ".join(results_plibs[0]["solver_names"])}')
-    if 'feature_stamp' in results_plibs[0]:
-        print_log_message('INFO', f'- Feature stamp: {results_plibs[0]["feature_stamp"]}')
-    print_log_message('INFO', f'- Number of selected problems: {problem_nums}')
+    if not silent:
+        print_log_message('INFO', 'Loaded experiment successfully.')
+        print()
+        print_log_message('INFO', 'Information about the loaded experiment:')
+        print_log_message('INFO', f'- Time stamp: {time_stamp}')
+        print_log_message('INFO', f'- Path: {path_experiment}')
+        print_log_message('INFO', f'- Solvers: {", ".join(results_plibs[0]["solver_names"])}')
+        if 'feature_stamp' in results_plibs[0]:
+            print_log_message('INFO', f'- Feature stamp: {results_plibs[0]["feature_stamp"]}')
+        print_log_message('INFO', f'- Number of selected problems: {problem_nums}')
     
     return results_plibs, profile_options
 

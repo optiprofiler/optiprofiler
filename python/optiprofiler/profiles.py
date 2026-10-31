@@ -697,8 +697,9 @@ def _benchmark(
         are displayed in the original ``n_eval / (n + 1)`` units, typically
         ``0, 1, 2, 4, ...``. Default is True.
     silent : bool, optional
-        Whether to show the information of the progress. Default is
-        False.
+        Whether to show the information of the progress. With True, no
+        progress information is printed, also when loading saved results.
+        Default is False.
     solver_isrand : list of bool, optional
         Whether the solvers are randomized or not. Default is
         a list of bools of the same length as the number of solvers, where

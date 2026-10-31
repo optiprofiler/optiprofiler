@@ -671,7 +671,7 @@ def get_default_profile_options(solvers, feature, profile_options):
                 f'Since the option "score_only" is true, the requested "draw_hist_plots" mode '
                 f'"{user_draw_hist_plots}" is ignored and no history plots will be drawn.',
             )
-        else:
+        elif not profile_options[ProfileOption.SILENT.value]:
             print_log_message(
                 'INFO',
                 'Since the option "score_only" is true, we will not draw any history plots of the '
@@ -679,11 +679,12 @@ def get_default_profile_options(solvers, feature, profile_options):
             )
         profile_options[ProfileOption.DRAW_HIST_PLOTS.value] = 'none'
     elif user_draw_hist_plots is None and profile_options[ProfileOption.LOAD.value] is not None:
-        print_log_message(
-            'INFO',
-            'Since the option "load" is provided, we will draw history plots of the problems '
-            'after loading the results (the option "draw_hist_plots" is set to "sequential").',
-        )
+        if not profile_options[ProfileOption.SILENT.value]:
+            print_log_message(
+                'INFO',
+                'Since the option "load" is provided, we will draw history plots of the problems '
+                'after loading the results (the option "draw_hist_plots" is set to "sequential").',
+            )
         profile_options[ProfileOption.DRAW_HIST_PLOTS.value] = 'sequential'
 
     return profile_options
