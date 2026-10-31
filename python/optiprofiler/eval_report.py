@@ -417,36 +417,36 @@ def _digest(path, directory=None):
                 current = current / name
                 status = os.lstat(str(current))
                 if _reparse_point(status) or not stat.S_ISDIR(status.st_mode):
-                    raise OSError('artifact path component is not a plain directory')
+                    raise OSError(f"artifact path component '{current}' is not a plain directory")
                 ancestors.append(current)
             inspected = os.lstat(str(path))
             if _reparse_point(inspected) or not stat.S_ISREG(inspected.st_mode):
-                raise OSError('artifact is not a plain regular file')
+                raise OSError(f"artifact '{path}' is not a plain regular file")
             fd = os.open(str(path), flags)
         else:
             # Without openat or a verifiable identity there is not even a
             # best-effort ownership check here. A missing provenance hash
             # is preferable to reading through a replaced/symlinked directory,
             # and must not abort scores.
-            raise OSError('secure_artifact_hashing_unavailable')
+            raise OSError(f"secure_artifact_hashing_unavailable: '{path}'")
     try:
         before = os.fstat(fd)
         if not stat.S_ISREG(before.st_mode):
-            raise OSError('not a regular file')
+            raise OSError(f"expected a regular file: '{path}'")
         if inspected is not None and (before.st_dev, before.st_ino) != (inspected.st_dev, inspected.st_ino):
-            raise OSError('artifact identity changed between inspection and open')
+            raise OSError(f"artifact '{path}' changed identity between inspection and open")
         digest = hashlib.sha256()
         with os.fdopen(fd, 'rb', closefd=False) as stream:
             for chunk in iter(lambda: stream.read(1024 * 1024), b''):
                 digest.update(chunk)
         after = os.fstat(fd)
         if (before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns):
-            raise OSError('file changed during hashing')
+            raise OSError(f"the file '{path}' changed while hashing")
         for ancestor in ancestors:
             # A reparse point that is still present now is reported, not
             # trusted; one removed in the meantime is not detectable here.
             if _reparse_point(os.lstat(str(ancestor))):
-                raise OSError('artifact path component changed during hashing')
+                raise OSError(f"artifact path component '{ancestor}' changed while hashing")
         return {'bytes': before.st_size, 'sha256': digest.hexdigest()}
     finally:
         os.close(fd)
@@ -1165,7 +1165,7 @@ class EvalReport:
             record['path_reason'] = 'cross_volume_relative_path_unavailable'
         try:
             if source.is_symlink():
-                raise OSError('source is symlink')
+                raise OSError(f"the load source '{source}' is a symlink")
             record.update(_digest(source), status='captured_before_filtering')
         except OSError:
             record.update(bytes=None, sha256=None, status='unavailable', reason='archive_hash_unavailable')

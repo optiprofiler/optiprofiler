@@ -226,6 +226,48 @@ def test_ownership_refusals_name_the_affected_file(tmp_path):
         assert path.read_text(encoding='utf-8') == 'external rewrite'
 
 
+def test_hashing_refusals_name_the_affected_file(tmp_path, monkeypatch):
+    import optiprofiler.eval_report as eval_report
+    folder = tmp_path / 'not-a-file'
+    folder.mkdir()
+    with pytest.raises(OSError, match=re.escape(str(folder))):
+        eval_report._digest(folder)
+
+    # A companion that changes while it is hashed surfaces to the caller.
+    report = EvalReport(tmp_path / 'hashed.json', {})
+    real_sha256 = eval_report.hashlib.sha256
+
+    class Growing:
+        def __init__(self):
+            self.inner = real_sha256()
+            self.grown = False
+
+        def update(self, chunk):
+            if not self.grown:
+                self.grown = True
+                with open(report.plot_path, 'ab') as stream:
+                    stream.write(b' ')
+            self.inner.update(chunk)
+
+        def hexdigest(self):
+            return self.inner.hexdigest()
+
+    monkeypatch.setattr(eval_report.hashlib, 'sha256', Growing)
+    report._detail_dirty = True
+    with pytest.raises(OSError, match="the file '" + re.escape(str(report.plot_path)) + "' changed while hashing"):
+        report._write()
+    monkeypatch.setattr(eval_report.hashlib, 'sha256', real_sha256)
+
+    if os.name != 'nt':
+        # The best-effort identity route (Windows) refuses a linked component.
+        monkeypatch.setattr(eval_report, '_hashing_capability', lambda: 'identity')
+        (tmp_path / 'real').mkdir()
+        (tmp_path / 'real' / 'artifact.pdf').write_bytes(b'%PDF')
+        (tmp_path / 'linked').symlink_to(tmp_path / 'real', target_is_directory=True)
+        with pytest.raises(OSError, match=re.escape(str(tmp_path / 'linked'))):
+            eval_report._digest(tmp_path / 'linked' / 'artifact.pdf', directory=tmp_path)
+
+
 def test_foreign_in_place_rewrite_and_inode_reuse_are_detected(tmp_path):
     # A foreign in-place rewrite keeps the inode, and after two foreign
     # replace-over-target operations ext4 hands the recorded inode back; an
