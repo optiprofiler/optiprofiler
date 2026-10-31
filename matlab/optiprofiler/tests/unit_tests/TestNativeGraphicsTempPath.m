@@ -21,6 +21,9 @@ classdef TestNativeGraphicsTempPath < matlab.unittest.TestCase
             % of the session.
             was_set = isenv('TMPDIR');
             original = getenv('TMPDIR');
+            % Teardowns run in reverse order, so this check follows the restore.
+            testCase.addTeardown(@() testCase.verifyEqual({isenv('TMPDIR'), getenv('TMPDIR')}, {was_set, original}, ...
+                'The test did not restore the presence and value of TMPDIR.'));
             testCase.addTeardown(@() restoreTmpdir(was_set, original));
             unsafe = ['/tmp/', repmat('a', 1, 57)];
             setenv('TMPDIR', unsafe);
