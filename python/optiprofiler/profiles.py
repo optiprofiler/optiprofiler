@@ -532,7 +532,8 @@ def _benchmark(
         log-ratio profiles. It can be a list of short names of colors
         ('r', 'g', 'b', 'c', 'm', 'y', 'k') or a 2-by-3 array with each row
         being a RGB triplet. Default is set to the first two colors in the
-        'line_colors' option.
+        'line_colors' option. With a single color, both solvers' bars use
+        it.
     benchmark_id : str, optional
         The identifier of the test. It is used to create the
         specific directory to store the results. Default is 'out' if the

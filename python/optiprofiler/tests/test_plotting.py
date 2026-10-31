@@ -343,6 +343,57 @@ class TestGetLogRatioProfileAxes:
         assert np.all(np.isfinite(ylim))
         plt.close(fig)
 
+    def test_one_bar_color_serves_both_solvers(self):
+        # Problem 1 favours the first solver, problem 2 the second, and both
+        # fail problem 3, so every bar group is drawn.
+        work = np.array([[[1.0], [4.0]], [[4.0], [1.0]], [[np.nan], [np.nan]]])
+        x, y, ratio_max, n_solvers_fail, _ = _get_log_ratio_profile_axes(work, self._make_curves())
+        fig, ax = plt.subplots()
+        _draw_log_ratio_profiles(ax, x, y, ratio_max, n_solvers_fail, ['s1', 's2'],
+                                 {ProfileOption.BAR_COLORS: ['r']})
+        colors = {tuple(patch.get_facecolor()[:3]) for patch in ax.patches if patch.get_height() != 0}
+        assert colors == {(1.0, 0.0, 0.0)}
+        assert sum(1 for patch in ax.patches if patch.get_height() > 0) >= 1
+        plt.close(fig)
+
+
+_PALETTE_LIBRARY = '''from optiprofiler import Problem
+def palette_select(options): return ['FIRST', 'SECOND']
+def palette_load(name):
+    return Problem(lambda x: float(x @ x), [1.0, 1.0] if name == 'FIRST' else [-1.0, -1.0], name=name)
+'''
+
+
+def _palette_first(fun, x0):
+    fun(x0)
+    if x0[0] > 0:
+        fun(np.zeros_like(x0))
+        return np.zeros_like(x0)
+    return x0
+
+
+def _palette_second(fun, x0):
+    fun(x0)
+    if x0[0] < 0:
+        fun(np.zeros_like(x0))
+        return np.zeros_like(x0)
+    return x0
+
+
+@pytest.mark.parametrize('palette', [{'line_colors': ['k'], 'line_styles': ['-', '--']},
+                                     {'bar_colors': 'r'}])
+def test_one_colour_palette_draws_two_solver_log_ratio_profiles(tmp_path, palette):
+    from optiprofiler import benchmark
+    library = tmp_path / 'libraries' / 'palette'
+    library.mkdir(parents=True)
+    (library / 'palette_tools.py').write_text(_PALETTE_LIBRARY)
+    benchmark([_palette_first, _palette_second], plibs=['palette'],
+              custom_problem_libs_path=str(tmp_path / 'libraries'), n_jobs=1, max_eval_factor=2,
+              max_tol_order=1, savepath=str(tmp_path), silent=True, draw_hist_plots='none',
+              summarize_log_ratio_profiles=True, **palette)
+    assert len(list(tmp_path.rglob('log-ratio_hist_1.pdf'))) == 1
+    assert len(list(tmp_path.rglob('log-ratio_out_1.pdf'))) == 1
+
 
 class TestDrawProfiles:
 

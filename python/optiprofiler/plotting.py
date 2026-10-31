@@ -296,11 +296,13 @@ def _draw_log_ratio_profiles(ax, x, y, ratio_max, n_solvers_equal, solver_names,
     presentation = prepare_log_ratio_plot_data(x, y, ratio_max, n_solvers_equal)
 
     with matplotlib.rc_context(profile_context):
-        bar_colors = profile_options[ProfileOption.BAR_COLORS][:2]
+        # Cycle like the line properties (and MATLAB): one colour serves both bars.
+        bar_colors = profile_options[ProfileOption.BAR_COLORS]
         for group in presentation['bar_groups']:
             selection = slice(group['start_index'] - 1, group['end_index'])
             opacity = {'alpha': 0.5} if group['opacity'] == 0.5 else {}
-            ax.bar(x[selection], y[selection], color=bar_colors[group['solver_index'] - 1], **opacity)
+            color = bar_colors[(group['solver_index'] - 1) % len(bar_colors)]
+            ax.bar(x[selection], y[selection], color=color, **opacity)
 
         # Remove x-axis ticks (matching MATLAB's xticks([]))
         ax.set_xticks([])
