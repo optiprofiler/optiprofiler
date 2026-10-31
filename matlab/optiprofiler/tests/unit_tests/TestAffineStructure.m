@@ -1307,6 +1307,36 @@ classdef TestAffineStructure < matlab.unittest.TestCase
             end
         end
 
+        function rowAndColumnGradientsFollowTheChainRule(testCase)
+            % Problem accepts a row gradient; a change of variables returns
+            % the column A' * g(:) for either orientation, and a feature that
+            % keeps the variables returns what Problem returns.
+            Y = [0.2; -0.3; 0.4];
+            column = TestAffineStructure.smoothProblem(true);
+            s = struct('fun', @(x) sum(x.^4) + x(1) * x(2) + sin(x(3)), 'x0', [0.3; -0.4; 0.5], ...
+                'grad', @(x) (4 * x(:).^3 + [x(2); x(1); cos(x(3))])', 'hess', @(x) diag(12 * x(:).^2) + [0, 1, 0; 1, 0, 0; 0, 0, -sin(x(3))]);
+            row = Problem(s);
+            testCase.verifySize(row.grad(Y), [1, 3]);
+            features = TestAffineStructure.variableChanges();
+            for k = 1:numel(features)
+                label = sprintf('%s #%d', features{k}.name, k);
+                exact = {'RelTol', 1e-13, 'AbsTol', 1e-13, label};
+                [A, b] = TestAffineStructure.transformationOf(features{k}, 5, row);
+                x = A * Y + b;
+                from_row = FeaturedProblem(row, features{k}, 10, 5);
+                testCase.verifySize(from_row.grad(Y), [3, 1], label);
+                testCase.verifyEqual(from_row.grad(Y), A' * row.grad(x)', exact{:});
+                testCase.verifyEqual(from_row.hess(Y), A' * row.hess(x) * A, exact{:});
+                [A, b] = TestAffineStructure.transformationOf(features{k}, 5, column);
+                x = A * Y + b;
+                testCase.verifyEqual(FeaturedProblem(column, features{k}, 10, 5).grad(Y), A' * column.grad(x), exact{:});
+                testCase.verifyEmpty(FeaturedProblem(TestAffineStructure.smoothProblem(false), features{k}, 10, 5).grad(Y), label);
+            end
+            for name = {'plain', 'noisy', 'perturbed_x0'}
+                testCase.verifyEqual(FeaturedProblem(row, Feature(name{1}), 10, 5).grad(Y), row.grad(Y), name{1});
+            end
+        end
+
         function derivativesCostNothingStayAbsentAndCheckThePoint(testCase)
             testCase.useAffineFixtures();
             Y = [0.2; -0.3; 0.4];
