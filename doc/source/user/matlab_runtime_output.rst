@@ -145,7 +145,12 @@ unfinished solver run or a guarantee against abrupt machine/disk failure.
 
 Library-selection failures stop with their original diagnostic instead of
 being treated as an empty or unfiltered selection. OptiProfiler restores the
-caller's warning settings on success and exceptions, and borrows an existing
+caller's warning settings on success and exceptions. It also restores the
+caller's diary (its on/off state and ``DiaryFile``) after writing
+``test_log/log.txt``, the ``groot`` axes font defaults it sets while drawing
+(a default the caller had not set is removed again), and removes from the
+path the problem-library roots that it added; other path entries, for
+example those added by a solver, are kept. It borrows an existing
 parallel pool without deleting or resizing it. A smaller existing pool may
 use fewer workers than ``n_jobs``; this changes throughput, not the requested
 problems or evaluation budgets.

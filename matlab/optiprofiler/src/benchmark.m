@@ -648,6 +648,9 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
     % unaffected environments). The guard MUST be a local variable so
     % that its onCleanup destructor fires when this function returns.
     patchesGuard = applyMatlabPatches();  %#ok<NASGU>
+    % Restore the caller's diary, the root defaults set below and the path
+    % entries of the problem libraries resolved here, on return and on error.
+    sessionGuard = sessionStateGuard();  %#ok<NASGU>
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Process the input arguments. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1028,9 +1031,8 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
         end
         log_file = fullfile(path_log, 'log.txt');
         % The diary is process-global and holds log.txt open on Windows.
-        % Close it on errors too, so completed archives can be removed even
-        % when scoring, report writing, or figure export fails.
-        diary_cleanup = onCleanup(@() diary('off')); %#ok<NASGU>
+        % sessionGuard closes it on errors too, so completed archives can be
+        % removed even when scoring, report writing, or figure export fails.
         diary(log_file);
         addToReadme(path_readme_log, 'log.txt', 'File, the log file of the current experiment, recording printed information from MATLAB command window.');
     end
