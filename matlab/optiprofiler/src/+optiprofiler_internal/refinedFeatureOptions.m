@@ -1,10 +1,18 @@
-function options = refinedFeatureOptions(feature, plan, problem_options, profile_options, context)
+function options = refinedFeatureOptions(feature, plan, problem_options, profile_options, context, direct_problem)
 %REFINEDFEATUREOPTIONS Versioned native settings for an explicit fresh replay.
 % The exported effective stages retain native callback handles. Their JSON
 % report descriptions are deliberately not accepted as executable substitutes.
+% A directly supplied Problem is not stored: problem_route records that a
+% replay needs it, and the unused library selectors are omitted.
+    if nargin < 6, direct_problem = false; end
     options = profile_options;
-    names = fieldnames(problem_options);
-    for i = 1:numel(names), options.(names{i}) = problem_options.(names{i}); end
+    if direct_problem
+        options.problem_route = 'direct_problem';
+    else
+        names = fieldnames(problem_options);
+        for i = 1:numel(names), options.(names{i}) = problem_options.(names{i}); end
+        options.problem_route = 'library_selection';
+    end
     options.schema = 'options_refined-v2';
     % Preserve the canonical native state through Feature.saveobj/loadobj.
     % Reconstructing from its display spelling would lose unknown declaration

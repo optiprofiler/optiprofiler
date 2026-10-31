@@ -14,6 +14,13 @@ function [options, receipt] = loadBenchmarkOptions(source, legacy_feature_name)
 % archived execution. A versioned options_refined-v2 record carries its own
 % effective feature identity (benchmark never writes one for a load), and its
 % obsolete load/solvers_to_load selectors are simply not forwarded.
+% options_refined does not store a directly supplied Problem; its problem_route
+% field ('direct_problem' or 'library_selection') says whether the experiment
+% used one. A direct-problem record raises OptiProfiler:DirectProblemNotSaved
+% instead of becoming a library replay, unless the original Problem is set as
+% the problem field of the struct passed here. A source with a problem field
+% (such as options_user of a direct-problem run) replays that Problem, without
+% library selectors; RECEIPT.problem_route records the route.
 % Native MAT loading is trusted input and can execute user code. Callback names
 % in JSON reports are descriptions, not recipes for reconstructing functions.
 % The inspection duplicate is checked for ordinary values/structure and callback
@@ -51,6 +58,26 @@ function [options, receipt] = loadBenchmarkOptions(source, legacy_feature_name)
     receipt = struct('schema', 'matlab-benchmark-options-import-v1', ...
         'source_schema', 'legacy-flat-options', 'original_request_origin', 'unknown', ...
         'scope', 'fresh_replay_not_original_execution_or_live_resume');
+    has_problem = isfield(source, 'problem');
+    if has_problem && ~(isa(source.problem, 'Problem') && isscalar(source.problem))
+        error('OptiProfiler:InvalidNativeProblem', 'The problem field of the options must be a scalar Problem.');
+    end
+    receipt.problem_route = 'not_recorded';
+    if isfield(source, 'problem_route')
+        if ~(ischar(source.problem_route) || (isstring(source.problem_route) && isscalar(source.problem_route))) ...
+                || ~ismember(char(source.problem_route), {'direct_problem', 'library_selection'})
+            error('OptiProfiler:InvalidNativeOptions', 'problem_route must be ''direct_problem'' or ''library_selection''.');
+        end
+        receipt.problem_route = char(source.problem_route);
+    end
+    if strcmp(receipt.problem_route, 'direct_problem') && ~has_problem
+        error('OptiProfiler:DirectProblemNotSaved', ...
+            ['These options come from a benchmark of a directly supplied Problem, which options_refined does not store. ', ...
+             'A replay without it would benchmark a problem library instead. Set the original Problem as the problem ', ...
+             'field of the loaded struct, for example S = load(file); S.options_refined.problem = p; ', ...
+             'options = loadBenchmarkOptions(S.options_refined).']);
+    end
+    if has_problem, receipt.problem_route = 'direct_problem'; end
     if isfield(source, 'schema')
         if ~(ischar(source.schema) || (isstring(source.schema) && isscalar(source.schema))) ...
                 || ~strcmp(source.schema, 'options_refined-v2')
@@ -131,7 +158,10 @@ function [options, receipt] = loadBenchmarkOptions(source, legacy_feature_name)
         {'load'; 'solvers_to_load'; 'report_path'; 'savepath'; 'benchmark_id'; 'feature'; 'feature_name'});
     options = struct();
     keys = intersect(fieldnames(source), allowed);
+    if has_problem, keys = setdiff(keys, problem_keys); end
     for i = 1:numel(keys), options.(keys{i}) = source.(keys{i}); end
+    % A replay of a direct-problem experiment benchmarks the same Problem.
+    if has_problem, options.problem = source.problem; end
     options.feature = feature;
     if isfield(source, 'n_runs')
         options.n_runs = source.n_runs;

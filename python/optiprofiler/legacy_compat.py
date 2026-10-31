@@ -440,6 +440,15 @@ def replay_arguments(options, feature_name=None):
     options. Callback values stay the native objects stored in the file; nothing
     is reconstructed from JSON descriptions.
 
+    ``problem_options`` holds the keywords that choose the problems. For a
+    mapping with a ``problem`` (the ``options_user.pkl`` of a direct-Problem
+    run, or a record to which the caller added the original Problem) it is
+    ``{'problem': problem}``, without library selectors.
+    ``options_refined.pkl`` records ``problem_route`` but not the Problem
+    itself, so a ``'direct_problem'`` record without ``problem`` raises
+    :class:`LegacyConfigurationError` instead of returning the unused default
+    library selectors.
+
     A file written by a ``load`` (re-plot) invocation describes that load, not
     the archived execution. It replays only when it carries the archived recipe
     recovered by :func:`archived_replay_recipe` (``archived_experiment`` with
@@ -457,8 +466,23 @@ def replay_arguments(options, feature_name=None):
         plain[key] = value
     if _is_load_invocation(plain):
         return _load_invocation_replay(plain)
-    problem_keys = {member.value for member in ProblemOption}
-    problem_options = {key: value for key, value in plain.items() if key in problem_keys}
+    route = plain.get('problem_route')
+    if route not in (None, 'direct_problem', 'library_selection'):
+        raise LegacyConfigurationError(f"`problem_route` must be 'direct_problem' or 'library_selection', not {route!r}.")
+    if plain.get('problem') is not None:
+        from .opclasses import Problem
+        if not isinstance(plain['problem'], Problem):
+            raise LegacyConfigurationError(f'`problem` must be a Problem, not {type(plain["problem"]).__name__}.')
+        # The same Problem, never a library selection alongside it.
+        problem_options = {'problem': plain['problem']}
+    elif route == 'direct_problem':
+        raise LegacyConfigurationError(
+            'These options come from a benchmark of a directly supplied Problem, which options_refined.pkl '
+            'does not store; a replay without it would benchmark a problem library instead. Set the original '
+            "Problem first (options['problem'] = problem) and call replay_arguments again.")
+    else:
+        problem_keys = {member.value for member in ProblemOption}
+        problem_options = {key: value for key, value in plain.items() if key in problem_keys}
     schema = plain.get('schema')
     if schema == USER_SCHEMA:
         # Raw user input is not a historical effective configuration. The

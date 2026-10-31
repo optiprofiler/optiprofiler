@@ -359,22 +359,48 @@ class TestCurrentPickles:
 class TestRefinedOptionsReplay:
 
     def test_refined_v2_replays_the_experiment(self, tmp_path):
-        kwargs = dict(problem=Problem(sphere, np.array([1.0, -2.0]), name='SPHERE'), silent=True,
-                      draw_hist_plots='none', savepath=str(tmp_path), benchmark_id='refined', n_jobs=1)
+        problem = Problem(sphere, np.array([1.0, -2.0]), name='SPHERE')
+        kwargs = dict(silent=True, draw_hist_plots='none', savepath=str(tmp_path), n_jobs=1)
         spec = [{'name': 'noisy', 'options': {'noise_level': 0.5}}, {'name': 'truncated'}]
-        scores, _, _ = benchmark([solver_stay, solver_zero], feature=spec, n_runs=2, **kwargs)
+        scores, _, _ = benchmark([solver_stay, solver_zero], feature=spec, n_runs=2, problem=problem,
+                                 benchmark_id='refined', **kwargs)
         paths = list(tmp_path.rglob('options_refined.pkl'))
         assert len(paths) == 1
         refined = load_options(paths[0])
         assert refined['schema'] == 'options_refined-v2' and refined['n_runs'] == 2
-        replay = replay_arguments(refined)
-        assert replay['n_runs'] == 2
+        # The Problem is not stored, and the unused library selectors are not
+        # recorded: a replay of this record without the Problem is refused.
+        assert refined['problem_route'] == 'direct_problem'
+        assert 'problem' not in refined and 'plibs' not in refined and 'ptype' not in refined
+        with pytest.raises(LegacyConfigurationError, match='directly supplied Problem'):
+            replay_arguments(refined)
+        replay = replay_arguments({**refined, 'problem': problem})
+        assert replay['n_runs'] == 2 and replay['problem_options'] == {'problem': problem}
         assert [entry['name'] for entry in replay['feature']] == ['noisy', 'truncated']
         assert replay['feature'][0]['options']['noise_level'] == 0.5
         assert 'feature_name' not in replay and 'feature_route' not in replay
         again, _, _ = benchmark([solver_stay, solver_zero], feature=replay['feature'], n_runs=replay['n_runs'],
-                                **{**kwargs, 'benchmark_id': 'replay'})
+                                benchmark_id='replay', **replay['problem_options'], **kwargs)
         np.testing.assert_array_equal(again, scores)
+        # The raw input of the same run records the Problem itself.
+        replay = replay_arguments(load_options(paths[0].with_name('options_user.pkl')))
+        assert set(replay['problem_options']) == {'problem'}
+        again, _, _ = benchmark([solver_stay, solver_zero], feature=replay['feature'], n_runs=replay['n_runs'],
+                                benchmark_id='user', **replay['problem_options'], **kwargs)
+        np.testing.assert_array_equal(again, scores)
+
+    def test_library_route_is_recorded_and_keeps_its_selectors(self, tmp_path):
+        benchmark([solver_stay, solver_zero], problem_names=['ROSENBR'], ptype='u', mindim=2, maxdim=2,
+                  silent=True, draw_hist_plots='none', savepath=str(tmp_path), n_jobs=1, max_eval_factor=2,
+                  max_tol_order=1)
+        refined = load_options(next(tmp_path.rglob('options_refined.pkl')))
+        assert refined['problem_route'] == 'library_selection'
+        replay = replay_arguments(refined)
+        assert replay['problem_options']['problem_names'] == ['ROSENBR'] and 'problem' not in replay['problem_options']
+        with pytest.raises(LegacyConfigurationError, match='problem_route'):
+            replay_arguments({**refined, 'problem_route': 'elsewhere'})
+        with pytest.raises(LegacyConfigurationError, match='must be a Problem'):
+            replay_arguments({**refined, 'problem': 'ROSENBR'})
 
     def test_bridge_layout_with_specification_but_flat_count(self):
         options = {'feature_route': 'feature_name', 'feature_name': 'noisy', 'n_runs': 4, 'noise_level': 0.5,

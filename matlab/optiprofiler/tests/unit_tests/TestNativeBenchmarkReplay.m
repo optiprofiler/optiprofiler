@@ -55,6 +55,48 @@ classdef TestNativeBenchmarkReplay < matlab.unittest.TestCase
             testCase.verifyError(@() loadBenchmarkOptions(source), 'OptiProfiler:InconsistentNativeFeature');
         end
 
+        function directProblemReplayRequiresTheProblem(testCase)
+            % options_refined of a direct-Problem run does not store the
+            % Problem; it must not replay as a default-library experiment.
+            output = tempname(artifactRoot()); mkdir(output);
+            testCase.addTeardown(@() rmdir(output, 's'));
+            problem = Problem(struct('fun', @(x) sum((x - 1).^2), 'x0', [0; 0], 'name', 'replayquad'));
+            solvers = {@replayStay, @replayStep};
+            options = struct('problem', problem, 'feature_name', 'noisy', 'n_runs', 2, 'seed', 3, ...
+                'savepath', output, 'benchmark_id', 'direct', 'silent', true, 'draw_hist_plots', 'none', ...
+                'max_eval_factor', 5, 'max_tol_order', 2, 'n_jobs', 1);
+            scores = benchmark(solvers, options);
+            log = dir(fullfile(output, 'direct', '**', 'options_refined.mat'));
+            file = fullfile(log(1).folder, 'options_refined.mat');
+            S = load(file);
+            testCase.verifyEqual(S.options_refined.problem_route, 'direct_problem');
+            testCase.verifyFalse(any(isfield(S.options_refined, {'plibs', 'ptype', 'mindim', 'maxdim', 'problem_names'})));
+            testCase.verifyError(@() loadBenchmarkOptions(file), 'OptiProfiler:DirectProblemNotSaved');
+            S.options_refined.problem = problem;
+            [replay, receipt] = loadBenchmarkOptions(S.options_refined);
+            testCase.verifyEqual(receipt.problem_route, 'direct_problem');
+            testCase.verifySameHandle(replay.problem, problem);
+            replay.savepath = output; replay.benchmark_id = 'replayed';
+            testCase.verifyEqual(benchmark(solvers, replay), scores);
+            % The raw input of the same run records the Problem itself.
+            U = load(fullfile(log(1).folder, 'options_user.mat'));
+            [replay, receipt] = loadBenchmarkOptions(U.options_user);
+            testCase.verifyEqual(receipt.problem_route, 'direct_problem');
+            replay.savepath = output; replay.benchmark_id = 'user-replayed';
+            testCase.verifyEqual(benchmark(solvers, replay), scores);
+            % A library experiment records its route and keeps its selectors.
+            source = nativeOptions(Feature('noisy'));
+            source.problem_route = 'library_selection'; source.plibs = {'s2mpj'};
+            [replay, receipt] = loadBenchmarkOptions(source);
+            testCase.verifyEqual(receipt.problem_route, 'library_selection');
+            testCase.verifyEqual(replay.plibs, {'s2mpj'});
+            testCase.verifyFalse(isfield(replay, 'problem'));
+            source.problem_route = 'elsewhere';
+            testCase.verifyError(@() loadBenchmarkOptions(source), 'OptiProfiler:InvalidNativeOptions');
+            source.problem_route = 'direct_problem'; source.problem = 3;
+            testCase.verifyError(@() loadBenchmarkOptions(source), 'OptiProfiler:InvalidNativeProblem');
+        end
+
         function malformedRetainedNativeFeatureHasActionableError(testCase)
             output = tempname(artifactRoot()); mkdir(output);
             options_refined = nativeOptions(Feature('noisy'));
@@ -73,6 +115,17 @@ function source = nativeOptions(feature)
     end
     source = struct('schema', 'options_refined-v2', 'feature', feature, ...
         'feature_specification', {inspection}, 'n_runs', 3);
+end
+
+function x = replayStay(fun, x0)
+    fun(x0);
+    x = x0;
+end
+
+function x = replayStep(fun, x0)
+    fun(x0);
+    x = x0 + 0.5;
+    fun(x);
 end
 
 function callback = capturedCallback(offset)

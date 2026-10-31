@@ -198,6 +198,14 @@ Saved output paths, load selectors and envelope fields are not forwarded by the
 replay helper. Specification-only v2 structs are accepted as explicit new replay
 inputs, not evidence of the original declaration.
 
+``options_refined.mat`` records ``problem_route``. It does not store a Problem
+passed through ``options.problem``, so ``loadBenchmarkOptions`` raises
+``OptiProfiler:DirectProblemNotSaved`` for such a run instead of returning
+settings that would benchmark a problem library. Set the original Problem
+first, for example ``S = load(file); S.options_refined.problem = p;`` and then
+``loadBenchmarkOptions(S.options_refined)``; the run's ``options_user.mat``
+also records the Problem. The receipt's ``problem_route`` states the route.
+
 Options saved by a ``load`` (re-plot) invocation describe that re-plot, not the
 archived execution: ``benchmark`` writes no ``options_refined.mat`` for a load,
 and ``loadBenchmarkOptions`` rejects an unversioned source with a nonempty

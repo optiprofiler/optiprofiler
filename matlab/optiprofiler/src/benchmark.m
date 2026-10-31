@@ -1012,7 +1012,7 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
                 addToReadme(path_readme_log, 'options_user.mat', 'File, storing the options provided by the user for the current experiment.');
                 if ~is_load
                     options_refined = optiprofiler_internal.refinedFeatureOptions( ...
-                        feature, primary_plan, problem_options, profile_options, feature_context);
+                        feature, primary_plan, problem_options, profile_options, feature_context, exist('problem', 'var'));
                     save(fullfile(path_log, 'options_refined.mat'), 'options_refined');
                     addToReadme(path_readme_log, 'options_refined.mat', 'Versioned native effective settings; use loadBenchmarkOptions for trusted fresh replay.');
                 end
