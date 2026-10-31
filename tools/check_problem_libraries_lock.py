@@ -18,6 +18,8 @@ import sys
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_LOCK = REPOSITORY_ROOT / "problem_libraries.lock"
 CORE_PROTOCOL = REPOSITORY_ROOT / "python/optiprofiler/problem_libraries.py"
+BUNDLED_RECORD = REPOSITORY_ROOT / "python/optiprofiler/problem_libs/bundled_revisions.json"
+BUNDLED_RECORD_KEYS = ("name", "repository", "commit", "gitlink")
 
 SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 REPOSITORY_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
@@ -213,7 +215,29 @@ def validate_lock(path=DEFAULT_LOCK):
     bundled = [entry for entry in libraries if entry["role"] == "bundled-default"]
     if len(bundled) != 1:
         raise LockError("Exactly one bundled-default library is required.")
+    validate_bundled_record(data)
     return data
+
+
+def bundled_record_entries(data):
+    """Return the shipped revision record expected for a validated lock."""
+    return [
+        {key: entry[key] for key in BUNDLED_RECORD_KEYS}
+        for entry in data["libraries"]
+        if entry["role"] == "bundled-default"
+    ]
+
+
+def validate_bundled_record(data, path=BUNDLED_RECORD):
+    """Check the packaged revision record against the lock (and so the gitlink)."""
+    record = _load_json(Path(path))
+    if not isinstance(record, dict) or record.get("schema_version") != 1:
+        raise LockError(f"{path} must be an object with schema_version 1.")
+    if record.get("libraries") != bundled_record_entries(data):
+        raise LockError(
+            f"{path} does not match the bundled-default lock entry "
+            f"{bundled_record_entries(data)}; update it with the lock and gitlink."
+        )
 
 
 def external_matrix(data):

@@ -79,3 +79,16 @@ def test_problem_library_lock_rejects_external_source_in_core(tmp_path):
 
     assert result.returncode == 1
     assert "must not be tracked inside the core package" in result.stderr
+
+
+def test_shipped_revision_record_must_repeat_the_bundled_lock_entry(tmp_path):
+    data = json.loads(LOCK.read_text(encoding="utf-8"))
+    s2mpj = next(entry for entry in data["libraries"] if entry["role"] == "bundled-default")
+    s2mpj["repository"] = "optiprofiler/another_s2mpj"
+    invalid_lock = tmp_path / "problem_libraries.lock"
+    invalid_lock.write_text(json.dumps(data), encoding="utf-8")
+
+    result = _run_checker("--lock", invalid_lock)
+
+    assert result.returncode == 1
+    assert "bundled_revisions.json does not match the bundled-default lock entry" in result.stderr

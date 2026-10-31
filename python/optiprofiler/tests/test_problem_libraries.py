@@ -273,6 +273,16 @@ def test_stale_tree_in_problem_libs_is_not_a_bundled_provider(tmp_path, monkeypa
     assert resolve_problem_library('pycutest', other).shadows == ('optiprofiler-pycutest',)
 
 
+def test_package_records_the_bundled_s2mpj_revision():
+    # The wheel and sdist ship this record; tools/check_release.py ties it to
+    # the lock and the gitlink of the checkout that built them.
+    record = json.loads((Path(optiprofiler.__file__).parent / 'problem_libs' / 'bundled_revisions.json')
+                        .read_text(encoding='utf-8'))
+    (entry,) = record['libraries']
+    assert (entry['name'], entry['gitlink']) == ('s2mpj', 'python/optiprofiler/problem_libs/s2mpj')
+    assert len(entry['commit']) == 40
+
+
 def test_explicit_custom_path_overrides_other_providers(tmp_path, monkeypatch):
     _, tools_file = _write_legacy_library(tmp_path, 's2mpj')
     entry_point = _FakeEntryPoint(

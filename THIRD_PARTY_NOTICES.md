@@ -15,9 +15,11 @@ The Python and MATLAB distributions bundle pinned subsets from these repositorie
   <https://github.com/GrattonToint/S2MPJ>
 
 The exact adapter revisions are recorded in `problem_libraries.lock` and
-`matlab_problem_libraries.lock`, respectively. The bundled files include
-problem definitions, supporting routines, selection metadata, and the
-OptiProfiler adapters. Each subset's `THIRD_PARTY_NOTICES.md` records its
+`matlab_problem_libraries.lock`, respectively; the Python sdist and the MATLAB
+ZIP ship their lock, and the Python wheel and sdist also record the bundled
+S2MPJ revision in `optiprofiler/problem_libs/bundled_revisions.json`. The
+bundled files include problem definitions, supporting routines, selection
+metadata, and the OptiProfiler adapters. Each subset's `THIRD_PARTY_NOTICES.md` records its
 source provenance and retained local differences.
 
 Please cite:

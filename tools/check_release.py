@@ -7,14 +7,21 @@ from email.parser import BytesParser
 import hashlib
 import json
 from pathlib import Path
+import subprocess
 import sys
 import tarfile
 import zipfile
 
 
+# Revision of each bundled problem-library subset, shipped in both artifacts;
+# it repeats the bundled-default entries of the lock, which the sdist ships.
+BUNDLED_RECORD = 'optiprofiler/problem_libs/bundled_revisions.json'
+LOCK = 'problem_libraries.lock'
+
 REQUIRED_PACKAGE_FILES = (
     'optiprofiler/__init__.py',
     'optiprofiler/problem_libraries.py',
+    BUNDLED_RECORD,
     'optiprofiler/schemas/eval_report.schema.json',
     'optiprofiler/schemas/eval_report-v2.schema.json',
     'optiprofiler/schemas/plot_data.schema.json',
@@ -28,6 +35,7 @@ REQUIRED_PACKAGE_FILES = (
 REQUIRED_SOURCE_FILES = (
     'THIRD_PARTY_NOTICES.md',
     'licenses/S2MPJ-LICENSE.txt',
+    LOCK,
 )
 
 
@@ -48,6 +56,39 @@ def literal_version(source):
     if len(values) != 1:
         raise ValueError('Source must declare exactly one literal package version.')
     return values[0]
+
+
+def gitlink_commit(root, path):
+    result = subprocess.run(['git', 'ls-files', '--stage', '--', path], cwd=str(root),
+                            capture_output=True, text=True, check=False)
+    fields = result.stdout.partition('\t')[0].split()
+    if result.returncode != 0 or len(fields) != 3 or fields[0] != '160000':
+        raise ValueError(f'{path} is not a gitlink in the checkout {root}: '
+                         f'{result.stderr.strip() or result.stdout.strip() or "not tracked"}.')
+    return fields[1]
+
+
+def check_bundled_revisions(root):
+    """Check the shipped revision record against the lock and the gitlinks of ``root``.
+
+    Returns the checked source bytes that both artifacts must carry unchanged,
+    keyed by their source-relative names, and the recorded libraries.
+    """
+    lock = json.loads((root / LOCK).read_text(encoding='utf-8'))
+    record = json.loads((root / 'python' / BUNDLED_RECORD).read_text(encoding='utf-8'))
+    expected = [{key: entry.get(key) for key in ('name', 'repository', 'commit', 'gitlink')}
+                for entry in lock.get('libraries', []) if entry.get('role') == 'bundled-default']
+    if not expected or record.get('libraries') != expected:
+        raise ValueError(f'{BUNDLED_RECORD} does not repeat the bundled-default entries of {LOCK}: '
+                         f'{record.get("libraries")} != {expected}.')
+    for entry in expected:
+        commit = gitlink_commit(root, entry['gitlink'])
+        if commit != entry['commit']:
+            raise ValueError(f'The {entry["name"]} gitlink is {commit}, but {LOCK} and '
+                             f'{BUNDLED_RECORD} record {entry["commit"]}.')
+    source_files = {'python/' + BUNDLED_RECORD: (root / 'python' / BUNDLED_RECORD).read_bytes(),
+                    LOCK: (root / LOCK).read_bytes()}
+    return source_files, expected
 
 
 def bundled_problem_libraries(source):
@@ -75,7 +116,7 @@ def check_problem_library_trees(path, files, package_prefix):
                          f'{sorted(shipped)}: {extra}.')
 
 
-def check_distribution(path, version):
+def check_distribution(path, version, source_files=None):
     if path.suffix == '.whl':
         with zipfile.ZipFile(path) as archive:
             names = archive.namelist()
@@ -114,6 +155,15 @@ def check_distribution(path, version):
         if not files.get(name):
             raise ValueError(f'{path.name} is missing required resource {name}.')
     check_problem_library_trees(path, files, package_prefix)
+    for name, value in (source_files or {}).items():
+        if path.suffix == '.whl':
+            if not name.startswith('python/'):
+                continue
+            member = name[len('python/'):]
+        else:
+            member = prefix + name
+        if files.get(member) != value:
+            raise ValueError(f'{path.name} member {member} differs from the checked source file {name}.')
     if len(license_names) != 1 or not files[license_names[0]]:
         raise ValueError(f'{path.name} is missing the core LICENSE.')
     if literal_version(files[init].decode('utf-8')) != version:
@@ -132,21 +182,25 @@ def main():
         version = source_version(args.root)
         if args.tag is not None and args.tag != 'v' + version:
             raise ValueError(f'Tag {args.tag!r} does not match package version {version!r}.')
+        source_files, bundled = check_bundled_revisions(args.root)
         artifacts = []
         if args.dist_dir is not None:
             wheels = list(args.dist_dir.glob('*.whl'))
             sources = list(args.dist_dir.glob('*.tar.gz'))
             if len(wheels) != 1 or len(sources) != 1:
                 raise ValueError('Distribution directory must contain one wheel and one sdist.')
-            artifacts = [check_distribution(path, version) for path in wheels + sources]
+            artifacts = [check_distribution(path, version, source_files) for path in wheels + sources]
         if args.manifest is not None:
             args.manifest.write_text(json.dumps({'version': version, 'tag': args.tag,
+                                                'bundled_problem_libraries': bundled,
                                                 'artifacts': artifacts}, indent=2) + '\n',
                                      encoding='utf-8')
     except (OSError, SyntaxError, ValueError, tarfile.TarError, zipfile.BadZipFile) as exc:
         print(f'Release validation error: {exc}', file=sys.stderr)
         return 1
     print(f'Validated package version {version}.')
+    for entry in bundled:
+        print(f'Bundled {entry["name"]} revision {entry["commit"]} matches {LOCK} and its gitlink.')
     return 0
 
 

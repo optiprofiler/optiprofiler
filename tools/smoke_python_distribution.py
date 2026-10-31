@@ -12,6 +12,7 @@ from importlib import metadata
 import json
 import os
 from pathlib import Path
+import subprocess
 import sys
 
 os.environ['MPLBACKEND'] = 'Agg'
@@ -130,6 +131,16 @@ def smoke(output, jobs):
             'solver_free_reload': 'PASS', 'source_artifacts_unchanged': True}
 
 
+def bundled_revisions(installed, source):
+    """The installed revision record must name the checkout's bundled gitlink."""
+    record = json.loads((installed.parent / 'problem_libs' / 'bundled_revisions.json').read_text(encoding='utf-8'))
+    for entry in record['libraries']:
+        index = subprocess.run(['git', 'ls-files', '--stage', '--', entry['gitlink']], cwd=str(source),
+                               capture_output=True, text=True, check=True).stdout
+        assert index.split()[:2] == ['160000', entry['commit']], (entry, index)
+    return record['libraries']
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output-dir', type=Path, required=True)
@@ -140,6 +151,7 @@ def main():
     source = args.source_root.resolve()
     assert source not in installed.parents, 'The smoke imported the source checkout, not the installed artifact.'
     assert optiprofiler.__version__ == metadata.version('optiprofiler') == args.expected_version
+    bundled = bundled_revisions(installed, source)
     output = args.output_dir.resolve()
     output.mkdir(parents=True)
     os.chdir(output)
@@ -170,6 +182,7 @@ def main():
     records = [smoke(output, jobs) for jobs in (1, 2)]
     receipt = {'status': 'PASS', 'version': args.expected_version, 'python': sys.version,
                'installed_package': str(installed), 'backend': 'Agg',
+               'bundled_problem_libraries': bundled,
                'reference_contract': 'raw objective/violation propagation and current-merit target scoring',
                'cases': records}
     (output / 'receipt.json').write_text(json.dumps(receipt, indent=2) + '\n', encoding='utf-8')

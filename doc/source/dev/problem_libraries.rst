@@ -16,8 +16,12 @@ the validator after changing the protocol or any pinned library::
 
     python tools/check_problem_libraries_lock.py
 
-The validator checks the lock schema, the core API version, and the bundled
-S2MPJ gitlink.  The External Integration workflow derives its test matrix
+The validator checks the lock schema, the core API version, the bundled
+S2MPJ gitlink, and the shipped revision record
+``python/optiprofiler/problem_libs/bundled_revisions.json``, which repeats the
+lock's bundled entry; update the record together with the lock and the gitlink.
+``tools/check_release.py`` checks the same record in the wheel and the sdist.
+The External Integration workflow derives its test matrix
 directly from the lock, builds every external provider at the pinned commit,
 installs it without its optional runtime, and executes its API-v1 protocol
 tests.
