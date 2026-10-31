@@ -170,7 +170,7 @@ function drawPerfDetail(ax_perf, x_perf, y_perf, ratio_max_perf, solver_names, p
     end
     % Set y-axis labels.
     if ~isempty(profile_options.(ProfileOptionKey.YLABEL_PERFORMANCE_PROFILE.value))
-        ylabel_str = sprintf(profile_options.(ProfileOptionKey.YLABEL_PERFORMANCE_PROFILE.value), tolerance_latex);
+        ylabel_str = formatProfileLabel(profile_options.(ProfileOptionKey.YLABEL_PERFORMANCE_PROFILE.value), tolerance_latex);
         ylabel(ax_perf, ylabel_str, 'Interpreter', 'latex', 'FontSize', 11);
     end
     placeSolverLegend(ax_perf, size(x_perf, 2), 'southeast');
@@ -191,7 +191,7 @@ function drawDataDetail(ax_data, x_data, y_data, ratio_max_data, solver_names, p
     end
     % Set y-axis labels.
     if ~isempty(profile_options.(ProfileOptionKey.YLABEL_DATA_PROFILE.value))
-        ylabel_str = sprintf(profile_options.(ProfileOptionKey.YLABEL_DATA_PROFILE.value), tolerance_latex);
+        ylabel_str = formatProfileLabel(profile_options.(ProfileOptionKey.YLABEL_DATA_PROFILE.value), tolerance_latex);
         ylabel(ax_data, ylabel_str, 'Interpreter', 'latex', 'FontSize', 11);
     end
     placeSolverLegend(ax_data, size(x_data, 2), 'southeast');
@@ -207,7 +207,7 @@ function drawLogRatioDetail(ax_log_ratio, x_log_ratio, y_log_ratio, ratio_max_lo
     end
     % Set y-axis labels.
     if ~isempty(profile_options.(ProfileOptionKey.YLABEL_LOG_RATIO_PROFILE.value))
-        ylabel_str = sprintf(profile_options.(ProfileOptionKey.YLABEL_LOG_RATIO_PROFILE.value), tolerance_latex);
+        ylabel_str = formatProfileLabel(profile_options.(ProfileOptionKey.YLABEL_LOG_RATIO_PROFILE.value), tolerance_latex);
         y_label = ylabel(ax_log_ratio, ylabel_str, 'Interpreter', 'latex', 'FontSize', 11);
         set(y_label, 'Units', 'normalized');
         label_position = y_label.Position;

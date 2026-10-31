@@ -267,7 +267,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         replaced by the current tolerance in LaTeX format. You can also use
 %         `%s` in your custom label, and it will be replaced accordingly. The
 %         same applies to the options `ylabel_log_ratio_profile` and
-%         `ylabel_performance_profile`.
+%         `ylabel_performance_profile`. Only `%s` is replaced; as in earlier
+%         versions, `%%` gives `%` and `\\` gives `\`. Every other character
+%         is kept as written, for example `\alpha` or a single `%`.
 %       - ylabel_log_ratio_profile: the label of the y-axis of the log-ratio
 %         profiles. Default is 'Log-ratio profiles ($\\mathrm{tol} = %s$)',
 %         where `%s` will be replaced by the current tolerance in LaTeX format.

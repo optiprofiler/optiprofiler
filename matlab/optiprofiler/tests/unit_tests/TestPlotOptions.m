@@ -107,6 +107,33 @@ classdef TestPlotOptions < matlab.unittest.TestCase
             testCase.verifyGreaterThan(getappdata(0, 'OptiProfilerPlotOptionsSolverCalls'), 0);
             testCase.verifyEqual(numel(findall(groot, 'Type', 'figure')), figures_before);
         end
+        function labelTemplatesSubstituteOnlyTheTolerance(testCase)
+            % Labels were formatted by sprintf: \a, \b, \t, \n became control
+            % characters and a single % ended the label.
+            root = tempname; mkdir(root);
+            old_directory = pwd;
+            testCase.addTeardown(@() rmdir(root, 's'));
+            testCase.addTeardown(@() cd(old_directory));
+            cd(root);
+            TestLoadReplot.makeExperiment(root, 'bench', 2, 1);
+            options = struct('load', '20200101_000000', 'benchmark_id', 'bench', 'max_tol_order', 1, ...
+                'silent', true, 'draw_hist_plots', 'none', 'savepath', fullfile(root, 'latex'), ...
+                'ylabel_performance_profile', 'Solved $\alpha$ at $%s$, 100\%', ...
+                'ylabel_data_profile', 'Data $\\beta$ at $%s$ (100%%)');
+            benchmark(options);
+            testCase.verifyEqual(savedLabel(fullfile(root, 'latex'), 'perf_hist_1.fig'), 'Solved $\alpha$ at $10^{-1}$, 100\%');
+            testCase.verifyEqual(savedLabel(fullfile(root, 'latex'), 'data_hist_1.fig'), 'Data $\beta$ at $10^{-1}$ (100%)');
+            testCase.verifyEqual(savedLabel(fullfile(root, 'latex'), 'log-ratio_hist_1.fig'), 'Log-ratio profiles ($\mathrm{tol} = 10^{-1}$)');
+            % The same rule without the LaTeX interpreter.
+            options.savepath = fullfile(root, 'plain');
+            options.ylabel_performance_profile = 'C:\temp\new: 50% solved at %s';
+            options.ylabel_data_profile = "tol %s / %s";
+            options.plot_options = struct('ylabel', struct('Interpreter', 'none'));
+            benchmark(options);
+            testCase.verifyEqual(savedLabel(fullfile(root, 'plain'), 'perf_hist_1.fig'), 'C:\temp\new: 50% solved at 10^{-1}');
+            testCase.verifyEqual(savedLabel(fullfile(root, 'plain'), 'data_hist_1.fig'), 'tol 10^{-1} / 10^{-1}');
+        end
+
         function unknownPropertyFailsBeforeExecution(testCase)
             problem = Problem(struct('fun',@(x)sum(x.^2),'x0',1));
             options = struct('problem',problem,'n_jobs',1,'score_only',true,'silent',true, ...
@@ -121,6 +148,15 @@ function cleanup(root,registry,oldpath)
     path(oldpath);
     setenv('OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_REGISTRY',registry);
     if isfolder(root), rmdir(root,'s'); end
+end
+
+function label = savedLabel(root, name)
+    files = dir(fullfile(root, '**', name));
+    assert(isscalar(files), 'Expected one %s under %s.', name, root);
+    figure = openfig(fullfile(files(1).folder, files(1).name), 'invisible');
+    guard = onCleanup(@() close(figure)); %#ok<NASGU>
+    axes = findall(figure, 'Type', 'axes');
+    label = char(axes(1).YLabel.String);
 end
 
 function x = countedStay(fun, x0)
