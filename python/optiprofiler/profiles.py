@@ -1425,7 +1425,11 @@ def _benchmark(
             # Find the least merit value for each run.
             merit_mins = np.full(local_n_runs, np.nan)
             for i_run in range(local_n_runs):
-                merit_mins[i_run] = np.nanmin(merit_history[:, i_run, :])
+                # A run without any valid evaluation is scored 0 below, so
+                # numpy's all-NaN warning about it is only noise.
+                with warnings.catch_warnings():
+                    warnings.simplefilter('ignore', RuntimeWarning)
+                    merit_mins[i_run] = np.nanmin(merit_history[:, i_run, :])
                 merit_mins[i_run] = np.nanmin([merit_mins[i_run], merit_init[i_run]])
             merit_mins = apply_reference_targets(
                 {'reference_records': [result['reference_records']],
