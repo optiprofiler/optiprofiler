@@ -224,6 +224,10 @@ def wide_scores(profile_scores):
     return np.mean(profile_scores[:, :, 0, :], axis=1)
 
 
+def ragged_scores(profile_scores):
+    return [[1.0, 2.0], [3.0]]
+
+
 @pytest.mark.parametrize('score_fun', [column_scores, row_scores, list_scores])
 def test_custom_score_vector_shapes_keep_the_report_schema_valid(tmp_path, score_fun):
     _library(tmp_path / 'libraries', 'evalscores', ['QUAD', 'QUAD2'])
@@ -242,7 +246,7 @@ def test_custom_score_vector_shapes_keep_the_report_schema_valid(tmp_path, score
         assert np.asarray(scores).shape == (2,)
 
 
-@pytest.mark.parametrize('score_fun', [scalar_score, wide_scores])
+@pytest.mark.parametrize('score_fun', [scalar_score, wide_scores, ragged_scores])
 def test_custom_score_without_one_value_per_solver_is_rejected(tmp_path, score_fun):
     _library(tmp_path / 'libraries', 'evalscores', ['QUAD', 'QUAD2'])
     options = _options(tmp_path, ['evalscores'])
