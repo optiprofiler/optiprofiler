@@ -91,5 +91,65 @@ if __name__ == '__main__':
     assert 'ENTRY_POINT_FALLBACK_ONCE' in result.stdout
 
 
+BOOTSTRAP_SCRIPT = '''import os
+import sys
+import multiprocessing as mp
+from optiprofiler import benchmark
+
+def solver(fun, x0):
+    fun(x0)
+    return x0
+
+def run():
+    with open(os.path.join(sys.argv[1], 'entries.log'), 'a') as stream:
+        stream.write(__name__ + '\\n')
+    benchmark([solver, solver], plibs=['custom'], problem_names=['custom1', 'custom2'],
+              n_jobs=2, n_runs=1, max_eval_factor=1, max_tol_order=1, run_plain=False,
+              silent=True, draw_hist_plots='none', savepath=sys.argv[1], benchmark_id='entry')
+
+def owned_worker():
+    run()
+'''
+
+
+def _run_bootstrap_script(tmp_path, body):
+    script = tmp_path / 'entry_script.py'
+    script.write_text(BOOTSTRAP_SCRIPT + body)
+    output = tmp_path / 'output'
+    output.mkdir()
+    env = dict(os.environ, MPLBACKEND='Agg')
+    result = subprocess.run([sys.executable, str(script), str(output)], cwd=tmp_path, env=env,
+                            capture_output=True, text=True, timeout=120)
+    entries = (output / 'entries.log').read_text().split()
+    experiments = [path for path in (output / 'entry').iterdir() if path.is_dir()] if (output / 'entry').exists() else []
+    archives = list(output.rglob('data_for_loading.h5'))
+    return result, entries, experiments, archives
+
+
+def test_unguarded_script_fails_instead_of_rerunning_in_workers(tmp_path):
+    result, entries, experiments, archives = _run_bootstrap_script(tmp_path, 'run()\n')
+    output = result.stdout + result.stderr
+    assert result.returncode != 0, output
+    assert "Protect the call with `if __name__ == '__main__':`" in output
+    # Workers reach the call while importing the script; they stop there,
+    # before creating another experiment directory or archive.
+    assert entries[0] == '__main__' and set(entries[1:]) <= {'__mp_main__'}, entries
+    assert len(experiments) == 1 and not archives, (experiments, archives)
+
+
+@pytest.mark.parametrize('route', ['guarded', 'owned_worker'])
+def test_guarded_script_and_later_worker_call_still_run(route, tmp_path):
+    body = "if __name__ == '__main__':\n"
+    if route == 'guarded':
+        body += '    run()\n'
+    else:
+        body += ("    worker = mp.get_context('spawn').Process(target=owned_worker)\n"
+                 '    worker.start()\n    worker.join(100)\n    sys.exit(worker.exitcode)\n')
+    result, entries, experiments, archives = _run_bootstrap_script(tmp_path, body)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert entries == ['__main__' if route == 'guarded' else '__mp_main__']
+    assert len(experiments) == 1 and len(archives) == 1
+
+
 if __name__ == '__main__':
     saved_child(sys.argv[1], Path(sys.argv[2]))

@@ -21,7 +21,7 @@ import numpy as np
 from matplotlib.figure import Figure
 from matplotlib.backends import backend_pdf
 
-from ._parallel import run_tasks, worker_main_available, WorkerArgumentPickler
+from ._parallel import reject_worker_bootstrap_call, run_tasks, worker_main_available, WorkerArgumentPickler
 from .opclasses import Feature, Problem, FeaturedProblem
 from .plib_config import _resolve_plib_options
 from .problem_libraries import _copy_problem_library_options, _normalize_selected_problem_names, load_problem_library, resolve_problem_library
@@ -945,7 +945,8 @@ def _benchmark(
     ``if __name__ == '__main__'`` guard is required on every platform when
     ``n_jobs > 1`` (the default on a multi-core machine): parallel workers are
     started with the ``spawn`` method, which imports the script again in each
-    worker.
+    worker. A call reached while a worker imports the script raises a
+    ``RuntimeError`` instead of running the benchmark again.
 
     .. code-block:: python
 
@@ -2271,6 +2272,7 @@ def benchmark(
     **kwargs
 ) -> tuple[np.ndarray, np.ndarray | None, list[dict] | None]:
     """Run :func:`_benchmark` and always release its logging resources."""
+    reject_worker_bootstrap_call()
     logging_resources = {}
     report_path = kwargs.pop('report_path', None)
     report = None

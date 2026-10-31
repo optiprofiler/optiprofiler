@@ -701,7 +701,10 @@ Put the benchmark call in an importable script and protect its entry point.
 This is required on every platform, Linux included, whenever ``n_jobs > 1``:
 OptiProfiler starts its workers with the ``spawn`` method, which imports the
 script again in each worker, so an unprotected call would run the benchmark
-again there.
+again there. OptiProfiler detects such a call while a worker imports the
+script and raises a ``RuntimeError`` there, before the worker creates any
+output; the parallel benchmark then fails instead of saving duplicate
+experiments.
 
 .. code-block:: python
 
