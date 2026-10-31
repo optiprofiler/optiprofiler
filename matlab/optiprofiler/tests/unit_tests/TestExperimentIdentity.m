@@ -171,6 +171,37 @@ classdef TestExperimentIdentity < matlab.unittest.TestCase
             testCase.verifyEmpty(dir(fullfile('bench', '*', '.summary_merge')));
         end
 
+        function aggregateNeverReplacesAnUnrelatedSummary(testCase)
+            % A load with the default benchmark_id publishes the aggregate in
+            % the working directory, which may hold the user's own summary.pdf.
+            TestLoadReplot.makeExperiment(pwd, '.', 2, 1);
+            user_bytes = uint8('USER-OWNED-SUMMARY-BYTES');
+            TestExperimentIdentity.writeBytes('summary.pdf', user_bytes);
+            options = struct('load', '20200101_000000', 'max_tol_order', 1, 'silent', true, ...
+                'draw_hist_plots', 'none', 'summarize_data_profiles', false, ...
+                'report_path', fullfile(pwd, 'refused.json'));
+            text = evalc('benchmark(options);');
+            testCase.verifyEqual(TestExperimentIdentity.readBytes('summary.pdf'), user_bytes(:));
+            testCase.verifySubstring(text, 'left unchanged');
+            testCase.verifyNotEmpty(dir(fullfile('*', 'summary_*.pdf')));
+            report = fileread(options.report_path);
+            testCase.verifySubstring(report, '"code":"summary_pdf_not_owned"');
+            % Without that file, OptiProfiler writes, records and later
+            % replaces its own aggregate.
+            delete('summary.pdf');
+            options = rmfield(options, 'report_path');
+            benchmark(options);
+            first = TestExperimentIdentity.readBytes('summary.pdf');
+            testCase.verifyEqual(char(first(1:4)'), '%PDF');
+            testCase.verifyTrue(isfile('.summary.pdf.optiprofiler'));
+            benchmark(options);
+            testCase.verifyNotEqual(TestExperimentIdentity.readBytes('summary.pdf'), first);
+            % A user file put in its place is again left unchanged.
+            TestExperimentIdentity.writeBytes('summary.pdf', user_bytes);
+            benchmark(options);
+            testCase.verifyEqual(TestExperimentIdentity.readBytes('summary.pdf'), user_bytes(:));
+        end
+
         function failedAggregateMergePreservesPreviousPdf(testCase)
             TestLoadReplot.makeExperiment(pwd, 'bench', 2, 1);
             options = TestExperimentIdentity.options('summarize_performance_profiles', true);
@@ -206,6 +237,14 @@ classdef TestExperimentIdentity < matlab.unittest.TestCase
             else
                 exportgraphics(fig, file, 'ContentType', 'vector');
             end
+        end
+
+        function writeBytes(file, bytes)
+            fid = fopen(file, 'wb');
+            assert(fid >= 0, 'TestExperimentIdentity:UnwritableFixture', ...
+                'Test file cannot be written: %s', file);
+            cleanup = onCleanup(@() fclose(fid));
+            fwrite(fid, bytes, 'uint8');
         end
 
         function bytes = readBytes(file)

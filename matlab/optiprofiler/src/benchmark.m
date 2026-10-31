@@ -2118,7 +2118,7 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
         % Store the summary pdf. We will name the summary pdf as "summary_stamp.pdf" and store
         % it under path_stamp. We will also put a "summary.pdf" in the path_out directory, which will
         % be a merged pdf of latest 10 "summary_stamp.pdf" under path_out following descending order
-        % of their time stamps.
+        % of their time stamps, unless a summary.pdf that OptiProfiler did not write is there.
         summary_name = ['summary_', stamp];
         if n_rows > 0
             if ~profile_options.(ProfileOptionKey.SILENT.value)
@@ -2170,20 +2170,33 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
         summary_files = summary_files(idx);
         % Keep only the latest 10 summary PDF files.
         summary_files = summary_files(1:min(10, numel(summary_files)));
+        path_aggregate = fullfile(path_out, 'summary.pdf');
+        publish_aggregate = isManagedSummary(path_aggregate);
+        if ~publish_aggregate
+            % For example, a load from a working directory that holds the
+            % user's own summary.pdf. Leave that file untouched.
+            printOptiProfilerMessage('WARNING', sprintf(['%s was not written by OptiProfiler, so it is left unchanged and ', ...
+                'the combined summary of the latest runs is not updated. Move it away to let OptiProfiler maintain it. ', ...
+                'The summary of this run is in %s.'], path_aggregate, path_stamp));
+            if ~isempty(eval_report), eval_report.recordRendering('failed', struct('scope', 'summary_pdf_aggregate'), 'summary_pdf_not_owned'); end
+        end
         try
-            % Each run owns its staging directory. Concurrent benchmark calls
-            % must not stage or delete temporary PDFs in the shared path_out.
-            path_staging = fullfile(path_stamp, '.summary_merge');
-            mkdir(path_staging);
-            cleanup_summary = onCleanup(@() cleanupSummaryStaging(path_staging));
-            for i_file = 1:numel(summary_files)
-                copyfile(fullfile(summary_files(i_file).folder, summary_files(i_file).name), ...
-                    fullfile(path_staging, sprintf('%03d.pdf', i_file)));
+            if publish_aggregate
+                % Each run owns its staging directory. Concurrent benchmark calls
+                % must not stage or delete temporary PDFs in the shared path_out.
+                path_staging = fullfile(path_stamp, '.summary_merge');
+                mkdir(path_staging);
+                cleanup_summary = onCleanup(@() cleanupSummaryStaging(path_staging));
+                for i_file = 1:numel(summary_files)
+                    copyfile(fullfile(summary_files(i_file).folder, summary_files(i_file).name), ...
+                        fullfile(path_staging, sprintf('%03d.pdf', i_file)));
+                end
+                mergePdfs(path_staging, 'summary.pdf', path_staging);
+                % A same-filesystem atomic replacement preserves the old aggregate
+                % if merging/replacement fails and prevents readers seeing a gap.
+                atomicReplaceFile(fullfile(path_staging, 'summary.pdf'), path_aggregate);
+                recordManagedSummary(path_aggregate);
             end
-            mergePdfs(path_staging, 'summary.pdf', path_staging);
-            % A same-filesystem atomic replacement preserves the old aggregate
-            % if merging/replacement fails and prevents readers seeing a gap.
-            atomicReplaceFile(fullfile(path_staging, 'summary.pdf'), fullfile(path_out, 'summary.pdf'));
         catch ME
             % Missing output is actionable even in silent mode. Preserve full
             if ~isempty(eval_report), eval_report.recordRendering('failed', struct('scope', 'summary_pdf_merge'), 'summary_pdf_merge_failed'); end
@@ -2377,6 +2390,54 @@ function deleteFileIfExists(file)
     if isfile(file)
         delete(file);
     end
+end
+
+function managed = isManagedSummary(aggregate)
+    % The aggregate may be (re)written only if it is absent or is still the
+    % file that recordManagedSummary recorded when OptiProfiler published it.
+    % A file of that name without a matching record (a user's file, or one
+    % written by a version without records) is not OptiProfiler's to replace.
+    managed = ~isfile(aggregate) && ~isfolder(aggregate);
+    if managed
+        return
+    end
+    try
+        record = strsplit(strtrim(fileread(summaryRecordFile(aggregate))), newline);
+        info = dir(aggregate);
+        managed = isscalar(info) && ~info.isdir && numel(record) == 3 && ...
+            strcmp(record{1}, 'OptiProfiler summary.pdf aggregate') && ...
+            strcmp(record{2}, sprintf('bytes=%d', info.bytes)) && ...
+            strcmp(record{3}, sprintf('datenum=%.17g', info.datenum));
+    catch
+        managed = false;
+    end
+end
+
+function recordManagedSummary(aggregate)
+    % Record the identity of the aggregate just published. A missing record
+    % only makes the next run leave the aggregate unchanged.
+    record = summaryRecordFile(aggregate);
+    staging = [record, '.tmp'];
+    fid = -1;
+    try
+        info = dir(aggregate);
+        fid = fopen(staging, 'w');
+        assert(fid >= 0, 'OptiProfiler:SummaryRecord', 'Cannot write %s.', staging);
+        fprintf(fid, 'OptiProfiler summary.pdf aggregate\nbytes=%d\ndatenum=%.17g\n', info.bytes, info.datenum);
+        closed = fclose(fid);
+        fid = -1;
+        assert(closed == 0, 'OptiProfiler:SummaryRecord', 'Cannot close %s.', staging);
+        [ok, message] = movefile(staging, record, 'f');
+        assert(ok, 'OptiProfiler:SummaryRecord', '%s', message);
+    catch cause
+        if fid >= 0, fclose(fid); end
+        if isfile(staging), delete(staging); end
+        printOptiProfilerMessage('WARNING', sprintf('Could not record that OptiProfiler wrote %s; later runs will leave it unchanged: %s', aggregate, cause.message));
+    end
+end
+
+function record = summaryRecordFile(aggregate)
+    record = fullfile(fileparts(aggregate), '.summary.pdf.optiprofiler');
 end
 
 function cleanupSummaryStaging(folder)

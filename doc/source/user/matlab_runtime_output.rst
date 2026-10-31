@@ -16,6 +16,16 @@ On macOS and Linux, OptiProfiler also supports saving without a JVM:
 * A failing native PDF exporter can also use SVG as its last fallback. If
   only PDF merging fails, existing individual plots remain available through
   an HTML index and the complete backend diagnostics are saved.
+* The combined ``summary.pdf`` of the latest runs in ``savepath/benchmark_id``
+  (the working directory for a ``load`` with the default ``benchmark_id``)
+  is written only if no file of that name exists there or if the existing
+  one is still the file OptiProfiler wrote, which it records in the hidden
+  file ``.summary.pdf.optiprofiler`` beside it. Any other ``summary.pdf``,
+  including one written by an earlier version, is left unchanged with a
+  warning, and the report adds the ``rendering`` diagnostic
+  ``summary_pdf_not_owned``; the summary of each run remains in its own
+  experiment directory. Move such a file away to let OptiProfiler maintain
+  the combined summary again.
 * With ``report_path``, every SVG fallback makes the report's rendering
   stage ``partial`` instead of ``completed`` and adds a ``rendering``
   diagnostic: ``native_graphics_unavailable``, ``native_profile_render_failed``,
