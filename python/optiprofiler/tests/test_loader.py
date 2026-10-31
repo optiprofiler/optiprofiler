@@ -558,3 +558,28 @@ def test_load_searches_the_working_directory_not_savepath(tmp_path, monkeypatch)
     assert not list(elsewhere.iterdir())
     monkeypatch.chdir(saved)
     np.testing.assert_array_equal(benchmark(None, load='latest', score_only=True, **options)[0], expected)
+
+
+def test_load_drops_a_library_left_without_selected_problems(tmp_path, monkeypatch):
+    import json
+    from optiprofiler import benchmark
+    monkeypatch.chdir(tmp_path)
+    for name, problems in (('liba', ['A1']), ('libb', ['B1', 'B2'])):
+        library = tmp_path / 'libs' / name
+        library.mkdir(parents=True)
+        (library / f'{name}_tools.py').write_text(
+            'from optiprofiler import Problem\n'
+            f'def {name}_select(options): return {problems!r}\n'
+            f'def {name}_load(name): return Problem(lambda x: float(x @ x), [1.0, 2.0], name=name)\n')
+    options = dict(benchmark_id='bench', savepath=str(tmp_path), max_tol_order=1, silent=True,
+                   draw_hist_plots='none')
+    benchmark([_visit_start, _visit_step], plibs=['liba', 'libb'], custom_problem_libs_path=str(tmp_path / 'libs'),
+              n_jobs=1, max_eval_factor=2, run_plain=True, **options)
+    load = dict(options, load='latest', score_only=True)
+    expected = benchmark(None, plibs=['libb'], problem_names=['B1'], **load)[0]
+    scores = benchmark(None, problem_names=['B1'], report_path=str(tmp_path / 'loaded.json'), **load)[0]
+    np.testing.assert_array_equal(scores, expected)
+    report = json.loads((tmp_path / 'loaded.json').read_text(encoding='utf-8'))
+    assert {(problem['library'], problem['name']) for problem in report['problems']} == {('libb', 'B1')}
+    # With no problem left in any library, the load stops as an empty selection does.
+    assert benchmark(None, problem_names=['NONE'], **load)[0].size == 0

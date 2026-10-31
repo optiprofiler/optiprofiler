@@ -637,6 +637,9 @@ def load_results(problem_options: Dict[str, Any], profile_options: Dict[str, Any
         results_plibs[i] = truncate_problems(results_plib, problem_options)
         if 'results_plib_plain' in results_plib:
             results_plibs[i]['results_plib_plain'] = truncate_problems(results_plib['results_plib_plain'], problem_options)
+    # A library left without any selected problem is not part of the loaded
+    # selection; if none is left, the empty selection is handled below.
+    results_plibs = [results_plib for results_plib in results_plibs if len(results_plib['problem_names']) > 0]
     
     # Resolve the effective load-time merit once for every cached quantity:
     # histories, outputs, initial values and the optional plain baseline.
