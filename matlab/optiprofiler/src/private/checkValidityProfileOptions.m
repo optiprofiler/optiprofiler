@@ -46,6 +46,9 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
         if ~iscell(profile_options.(ProfileOptionKey.SOLVER_NAMES.value)) || ~all(cellfun(@isScalarText, profile_options.(ProfileOptionKey.SOLVER_NAMES.value)))
             error("MATLAB:checkValidityProfileOptions:solver_namesNotCellOfcharstr", "The option `solver_names` of options must be a cell of chars or strings.");
         end
+        % Stamps, logs and file names join the names as char.
+        profile_options.(ProfileOptionKey.SOLVER_NAMES.value) = cellfun(@char, ...
+            profile_options.(ProfileOptionKey.SOLVER_NAMES.value), 'UniformOutput', false);
         if ~isempty(solvers) && numel(profile_options.(ProfileOptionKey.SOLVER_NAMES.value)) ~= 0 && numel(profile_options.(ProfileOptionKey.SOLVER_NAMES.value)) ~= numel(solvers)
             error("MATLAB:checkValidityProfileOptions:solver_namesAndsolversLengthNotSame", "The number of elements in the option `solver_names` must equal the number of solvers.");
         end

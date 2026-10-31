@@ -297,6 +297,27 @@ classdef TestFeatureReviewRegressions < matlab.unittest.TestCase
             testCase.verifyEqual(benchmark({@reviewStay, @reviewZero}, legacy), scores);
         end
 
+        function stringProblemAndSolverNamesDrawDirectProblemHistories(testCase)
+            % A string Problem name made the history file name a 1-by-2 string
+            % array: the native export saw an extra input, the SVG fallback two
+            % file names, and no history plot was written. String solver
+            % names stopped the run while naming the experiment directory.
+            problem = Problem(struct('fun', @(x) sum(x.^2), 'x0', [1; 2], 'name', "string_quadratic"));
+            testCase.verifyClass(problem.name, 'char');
+            for names = {{'stay', 'zero'}, {"stay", "zero"}}
+                root = fullfile(testCase.Work, sprintf('histories%d', isstring(names{1}{1})));
+                options = struct('problem', problem, 'silent', true, 'n_jobs', 1, 'max_eval_factor', 4, ...
+                    'max_tol_order', 2, 'draw_hist_plots', 'parallel', 'savepath', root, ...
+                    'solver_names', {names{1}}, 'report_path', [root, '.json']);
+                text = evalc('benchmark({@reviewStay, @reviewZero}, options);');
+                testCase.verifyFalse(contains(text, 'History rendering failed'), text);
+                testCase.verifyFalse(contains(text, 'An error occurred while plotting'), text);
+                report = jsondecode(fileread(options.report_path));
+                testCase.verifyEqual(report.stages.rendering.status, 'completed');
+                testCase.verifyEqual(numel(dir(fullfile(root, '**', 'string_quadratic.*'))), 3);
+            end
+        end
+
         function stringArrayNameListsSelectLibraryProblems(testCase)
             % A string array is a list of names: it selects exactly what the
             % equivalent cell array selects, in any orientation.

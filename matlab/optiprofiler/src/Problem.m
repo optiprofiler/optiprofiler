@@ -459,6 +459,15 @@ classdef Problem < handle
             end
         end
 
+        % A string name would turn text built from it by concatenation, such
+        % as the history file names, into string arrays.
+        function set.name(obj, name)
+            if isstring(name) && isscalar(name) && ~ismissing(name)
+                name = char(name);
+            end
+            obj.name = name;
+        end
+
         % Preprocess the gradient and the Hessian of the objective function.
         function set.grad_(obj, grad_)
             if ~isa(grad_, 'function_handle') && ~isempty(grad_)
