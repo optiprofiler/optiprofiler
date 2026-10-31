@@ -1,7 +1,15 @@
 function receipt = prepareMatcutestRuntime(adapter_root, runtime_parent)
 %PREPAREMATCUTESTRUNTIME validates an adapter's exact runtime path receipt.
-    if ~isunix || ismac
-        error('OptiProfiler:MatcutestUnsupportedPlatform', 'MatCUTEst setup supports GNU/Linux only.');
+%   The supported platforms are those of the matcutest entry of the lock.
+    entry = lockedProblemLibraryEntry('matcutest');
+    platforms = {};
+    if isstruct(entry) && isfield(entry, 'platforms')
+        platforms = reshape(cellstr(entry.platforms), 1, []);
+    end
+    if ~ismember(matlabPlatformName(), platforms)
+        error('OptiProfiler:MatcutestUnsupportedPlatform', ...
+            'MatCUTEst setup supports only the platforms of its entry in matlab_problem_libraries.lock (%s), not %s.', ...
+            strjoin(platforms, ', '), matlabPlatformName());
     end
     entrypoint = fullfile(adapter_root, 'matcutest_setup.m');
     if ~isfile(entrypoint)

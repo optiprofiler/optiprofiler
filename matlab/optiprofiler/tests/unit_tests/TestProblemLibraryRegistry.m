@@ -97,6 +97,69 @@ classdef TestProblemLibraryRegistry < matlab.unittest.TestCase
                 "MATLAB:unregisterProblemLibrary:bundledProvider");
         end
 
+        function testBundledRolesAndMatcutestPlatformsComeFromTheLock(testCase)
+            % A copy of the core reads a lock that declares another bundled
+            % library, S2MPJ as external, and MatCUTEst on other platforms.
+            cleanup = isolateRegistry(testCase); %#ok<NASGU>
+            root = tempname;
+            mkdir(root);
+            testCase.addTeardown(@() removeDirectoryIfPresent(root));
+            old_directory = pwd;
+            testCase.addTeardown(@() cd(old_directory));
+            all_platforms = {'linux'; 'macos'; 'windows'};
+            if ispc, current = 'windows'; elseif ismac, current = 'macos'; else, current = 'linux'; end
+            others = setdiff(all_platforms, {current});
+            libraries = {struct('name', 'probebundle', 'role', 'bundled-default', 'platforms', {all_platforms}), ...
+                struct('name', 's2mpj', 'role', 'external', 'platforms', {all_platforms}), ...
+                struct('name', 'matcutest', 'role', 'external', 'platforms', {others})};
+            copy = lockedCopy(fullfile(root, 'other'), libraries);
+            cd(copy);
+            testCase.verifyError(@() unregisterProblemLibrary('probebundle'), "MATLAB:unregisterProblemLibrary:bundledProvider");
+            testCase.verifyError(@() unregisterProblemLibrary('custom'), "MATLAB:unregisterProblemLibrary:bundledProvider");
+            testCase.verifyError(@() unregisterProblemLibrary('s2mpj'), "MATLAB:unregisterProblemLibrary:notRegistered");
+            cd(fullfile(copy, 'private'));
+            try
+                prepareMatcutestRuntime(root, root);
+                testCase.verifyFail('MatCUTEst setup ran on a platform its lock entry does not declare.');
+            catch cause
+                testCase.verifyEqual(cause.identifier, 'OptiProfiler:MatcutestUnsupportedPlatform');
+                testCase.verifySubstring(cause.message, strjoin(others, ', '));
+            end
+            libraries{3}.platforms = {current};
+            copy = lockedCopy(fullfile(root, 'current'), libraries);
+            cd(fullfile(copy, 'private'));
+            % The platform check passes; the adapter entry point is checked next.
+            testCase.verifyError(@() prepareMatcutestRuntime(root, root), 'OptiProfiler:MatcutestReceiptRequired');
+        end
+
+        function testLibraryInformationLinkComesFromTheLock(testCase)
+            cleanup = isolateRegistry(testCase); %#ok<NASGU>
+            lock = jsondecode(fileread(fullfile(fileparts(mfilename('fullpath')), '..', '..', '..', '..', ...
+                'matlab_problem_libraries.lock')));
+            entries = lock.libraries;
+            if ~iscell(entries), entries = num2cell(entries); end
+            s2mpj = entries{cellfun(@(entry) strcmp(entry.name, 's2mpj'), entries)};
+            options = struct('plibs', {{'s2mpj'}}, 'problem_names', {{'ROSENBR'}}, 'mindim', 2, 'maxdim', 2, ...
+                'score_only', true, 'n_jobs', 1, 'max_eval_factor', 1, 'max_tol_order', 1);
+            text = evalc('benchmark({@registryStay, @registryZero}, options);');
+            % Long messages are wrapped onto indented lines.
+            testCase.verifySubstring(regexprep(text, '\s+', ' '), sprintf( ...
+                'More information about the problem library "s2mpj" can be found at: https://github.com/%s', s2mpj.repository));
+            % A registered library without lock metadata prints no link.
+            root = tempname;
+            mkdir(root);
+            testCase.addTeardown(@() removeDirectoryIfPresent(root));
+            writeText(fullfile(root, 'infoprobe_select.m'), sprintf('function names = infoprobe_select(~)\n names = {''Q''};\nend\n'));
+            writeText(fullfile(root, 'infoprobe_load.m'), sprintf( ...
+                'function p = infoprobe_load(name)\n p = Problem(struct(''fun'', @(x) x^2, ''x0'', 1, ''name'', name));\nend\n'));
+            registerProblemLibrary(providerRegistration('infoprobe', root));
+            options = struct('plibs', {{'infoprobe'}}, 'mindim', 1, 'maxdim', 1, 'score_only', true, ...
+                'n_jobs', 1, 'max_eval_factor', 1, 'max_tol_order', 1);
+            text = evalc('benchmark({@registryStay, @registryZero}, options);');
+            testCase.verifySubstring(text, 'Start testing problems from the problem library "infoprobe"');
+            testCase.verifyFalse(contains(text, 'More information about the problem library'));
+        end
+
         function testLockedExternalProviderCanBeUnregistered(testCase)
             cleanup = isolateRegistry(testCase); %#ok<NASGU>
             provider_root = createProvider(testCase, 'solar', true);
@@ -273,6 +336,35 @@ function root = createProvider(testCase, name, include_load)
     testCase.addTeardown(@() cleanupProvider(root));
 end
 
+
+function copy = lockedCopy(root, libraries)
+    % The private core functions and unregisterProblemLibrary under ROOT,
+    % reading LIBRARIES as the lock. Call them from inside the copy.
+    source = fullfile(fileparts(mfilename('fullpath')), '..', '..', 'src');
+    copy = fullfile(root, 'src');
+    mkdir(copy);
+    copyfile(fullfile(source, 'private'), fullfile(copy, 'private'));
+    copyfile(fullfile(source, 'unregisterProblemLibrary.m'), copy);
+    lock = struct('problem_library_api_version', 1, 'libraries', {libraries}); %#ok<NASGU>
+    save(fullfile(copy, 'private', 'lock.mat'), 'lock');
+    writeText(fullfile(copy, 'private', 'readMatlabProblemLibraryLock.m'), sprintf([ ...
+        'function [lock, repository_root] = readMatlabProblemLibraryLock()\n', ...
+        '    data = load(fullfile(fileparts(mfilename(''fullpath'')), ''lock.mat''));\n', ...
+        '    lock = data.lock;\n', ...
+        '    repository_root = ''%s'';\n', ...
+        'end\n'], root));
+    rehash;
+end
+
+function x = registryStay(fun, x0)
+    fun(x0);
+    x = x0;
+end
+
+function x = registryZero(fun, x0)
+    x = zeros(size(x0));
+    fun(x);
+end
 
 function registration = providerRegistration(name, root)
     registration = struct( ...

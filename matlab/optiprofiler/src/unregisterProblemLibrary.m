@@ -6,11 +6,12 @@ function registration = unregisterProblemLibrary(name)
 %   persisted MATLAB path. It does not delete source files, runtimes, caches,
 %   compiled artifacts, or other user data.
 %
-%   Bundled S2MPJ and the bundled custom example are part of OptiProfiler and
+%   Libraries whose role is bundled (bundled S2MPJ, as the integration lock
+%   declares, and the bundled custom example) are part of OptiProfiler and
 %   cannot be unregistered.
 
     name = normalizeName(name);
-    if ismember(name, {'s2mpj', 'custom'})
+    if isBundledProblemLibrary(name)
         error("MATLAB:unregisterProblemLibrary:bundledProvider", ...
             "The bundled problem library '%s' cannot be unregistered.", name);
     end

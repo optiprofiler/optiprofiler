@@ -1286,16 +1286,13 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
             if ~profile_options.(ProfileOptionKey.SILENT.value)
                 fprintf('\n');
                 printOptiProfilerMessage('INFO', sprintf('Start testing problems from the problem library "%s" with the "%s" feature.', plib, feature.name));
-                if strcmp(plib, 's2mpj')
+                % The locked adapter repository documents its library,
+                % upstream sources, licenses and runtime requirements.
+                locked_entry = lockedProblemLibraryEntry(plib);
+                if isstruct(locked_entry) && isfield(locked_entry, 'repository') && ~isempty(locked_entry.repository)
                     fprintf('\n');
-                    printOptiProfilerMessage('INFO', 'More information about the S2MPJ problem library can be found at: https://github.com/GrattonToint/S2MPJ');
-                elseif strcmp(plib, 'matcutest')
-                    fprintf('\n');
-                    printOptiProfilerMessage('INFO', 'More information about the MatCUTEst problem library can be found at: https://github.com/matcutest');
-                elseif strcmp(plib, 'solar')
-                    fprintf('\n');
-                    printOptiProfilerMessage('INFO', 'More information about the SOLAR problem library can be found at: https://github.com/bbopt/solar');
-                    printOptiProfilerMessage('INFO', 'SOLAR calls an external simulator; some problems can be slow. License terms are in the SOLAR adapter''s notices.');
+                    printOptiProfilerMessage('INFO', sprintf('More information about the problem library "%s" can be found at: https://github.com/%s', ...
+                        plib, char(locked_entry.repository)));
                 end
             end
 
