@@ -14,6 +14,7 @@ import hashlib
 import json
 import os
 import pickle
+import re
 import shutil
 import sys
 
@@ -213,6 +214,16 @@ def test_first_write_failure_rolls_back_only_owned_files(tmp_path, monkeypatch):
     with pytest.raises(FileExistsError):
         EvalReport(tmp_path / 'kept.json', {})
     assert companion.read_bytes() == b'owner-sentinel' and not (tmp_path / 'kept.json').exists()
+
+
+def test_ownership_refusals_name_the_affected_file(tmp_path):
+    for stem, changed in (('main', 'main.json'), ('detail', 'detail.plot_data.json')):
+        report = EvalReport(tmp_path / f'{stem}.json', {})
+        path = tmp_path / changed
+        path.write_text('external rewrite', encoding='utf-8')
+        with pytest.raises(FileExistsError, match='ownership changed: ' + re.escape(str(path))):
+            report._write()
+        assert path.read_text(encoding='utf-8') == 'external rewrite'
 
 
 def test_foreign_in_place_rewrite_and_inode_reuse_are_detected(tmp_path):

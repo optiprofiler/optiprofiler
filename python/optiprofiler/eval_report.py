@@ -674,7 +674,7 @@ class EvalReport:
         # prove the entry is the file this invocation just created.
         current = target.lstat()
         if (current.st_dev, current.st_ino) != (written.st_dev, written.st_ino):
-            raise FileExistsError('EvalReport target ownership changed')
+            raise FileExistsError(f'EvalReport target ownership changed: {target}')
         return cls._stat_identity(current)
 
     def _write(self):
@@ -695,13 +695,13 @@ class EvalReport:
                 'history_count': len(self._histories), 'plot_count': len(self._plots)}
             self._detail_dirty = False
         if self.plot_path.is_symlink() or self._identity(self.plot_path) != self._plot_identity:
-            raise FileExistsError('EvalReport companion ownership changed')
+            raise FileExistsError(f'EvalReport companion ownership changed: {self.plot_path}')
         self._owned_identity = self._write_owned(self.path, self.document, self._owned_identity)
 
     def _write_owned(self, target, document, owned_identity):
         if (target.is_symlink() or self._identity(target) != owned_identity
                 or self._identity(target.parent) != self._parent_identity):
-            raise FileExistsError('EvalReport target ownership changed')
+            raise FileExistsError(f'EvalReport target ownership changed: {target}')
         fd, temp = tempfile.mkstemp(prefix='.' + target.name + '.',
                                     suffix='.tmp', dir=str(target.parent))
         try:
@@ -714,7 +714,7 @@ class EvalReport:
                 written = os.fstat(stream.fileno())
             if (target.is_symlink() or self._identity(target) != owned_identity
                     or self._identity(target.parent) != self._parent_identity):
-                raise FileExistsError('EvalReport target ownership changed')
+                raise FileExistsError(f'EvalReport target ownership changed: {target}')
             os.replace(temp, target)
             return self._settled_identity(target, written)
         finally:
