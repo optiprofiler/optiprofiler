@@ -478,7 +478,10 @@ classdef FeaturedProblem < Problem
             Returns
             -------
             cub_ : double, size (m_nonlinear_ub,)
-                Modified nonlinear inequality constraints.    
+                Modified nonlinear inequality constraints. Once n_eval_cub
+                (recorded queries: a call with record_hist false is not one)
+                has reached max_eval, this is the value last returned by
+                cub, whatever x is, and nothing is evaluated or recorded.
             %}
 
             if obj.real_n_eval_cub >= 2 * obj.max_eval
@@ -541,7 +544,10 @@ classdef FeaturedProblem < Problem
             Returns
             -------
             ceq_ : double, size (m_nonlinear_eq,)
-                Modified nonlinear equality constraints.
+                Modified nonlinear equality constraints. Once n_eval_ceq
+                (recorded queries: a call with record_hist false is not one)
+                has reached max_eval, this is the value last returned by
+                ceq, whatever x is, and nothing is evaluated or recorded.
             %}
 
             if obj.real_n_eval_ceq >= 2 * obj.max_eval
