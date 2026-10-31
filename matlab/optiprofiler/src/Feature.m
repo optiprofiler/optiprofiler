@@ -216,7 +216,8 @@ classdef Feature < handle
 %
 %   'options' and modifier_x0/affine/bounds/linear_ub/linear_eq/fun/cub/ceq are
 %   deprecated identity/single-effective-stage conveniences. They warn, and
-%   accessing them for multiple effective stages is an error. Each modifier
+%   accessing them for multiple effective stages is an error. The hidden
+%   'options' property is not shown when a Feature is displayed. Each modifier
 %   call creates a fresh numerical kernel; the engine does not use these
 %   conveniences to execute a pipeline. Use FeaturedProblem for execution. In
 %   particular, a kernel keeps the transformation of mod_affine for one problem
@@ -235,6 +236,10 @@ classdef Feature < handle
         is_stochastic
         is_identity
         specification_version
+    end
+    properties (Dependent, SetAccess = private, Hidden)
+        % The object display reads every visible property, which would
+        % warn (or raise for a composition) on each display.
         options
     end
     methods
