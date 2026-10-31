@@ -858,8 +858,8 @@ def _benchmark(
     problem : Problem, optional
         A problem to be benchmarked. It should be an instance of the
         class Problem. If it is provided, we will only run the test on this
-        problem with the given feature and draw the history plots. Default is
-        not to set any problem.
+        problem with the given feature and draw the history plots. It cannot
+        be combined with ``load``. Default is not to set any problem.
 
     Returns
     -------
@@ -1105,6 +1105,10 @@ def _benchmark(
 
     # Whether to load the existing results.
     is_load = ProfileOption.LOAD in profile_options and profile_options[ProfileOption.LOAD] is not None
+    if is_load and has_single_problem:
+        raise ValueError('Options `load` and `problem` cannot be used together: `load` replots a saved '
+                         'experiment without running any solver, while `problem` runs the solvers on '
+                         'the given problem.')
     problem_options = check_validity_problem_options(
         problem_options,
         require_available=not is_load,

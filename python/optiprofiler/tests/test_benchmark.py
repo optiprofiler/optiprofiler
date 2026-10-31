@@ -376,6 +376,31 @@ class TestBenchmarkBasic:
             )
         assert not (tmp_path / 'load-options').exists()
 
+    def test_load_with_direct_problem_is_rejected_before_any_solver_call(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        benchmark([history_solver_1, history_solver_2], plibs=['custom'], problem_names=['custom1'],
+                  n_jobs=1, max_eval_factor=2, max_tol_order=1, savepath=str(tmp_path),
+                  benchmark_id='saved', silent=True, draw_hist_plots='none')
+        saved = sorted(path.name for path in (tmp_path / 'saved').iterdir())
+        calls = []
+
+        def counted(fun, x0):
+            calls.append(1)
+            return history_solver_1(fun, x0)
+
+        problem = Problem(lambda x: float(np.dot(x, x)), np.ones(2), name='TOY')
+        with pytest.raises(ValueError, match='`load` and `problem` cannot be used together'):
+            benchmark([counted, counted], load='latest', problem=problem, savepath=str(tmp_path),
+                      benchmark_id='saved', silent=True, n_jobs=1, draw_hist_plots='none',
+                      report_path=str(tmp_path / 'report.json'))
+        assert calls == []
+        assert sorted(path.name for path in (tmp_path / 'saved').iterdir()) == saved
+        import json
+        report = json.loads((tmp_path / 'report.json').read_text())
+        assert report['status'] == 'failed' and report['problems'] == []
+        assert {'code': 'benchmark_exception', 'stage': 'runtime',
+                'scope': {'exception_type': 'ValueError'}} in report['diagnostics']
+
     def test_returns_curves(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             scores, profile_scores, curves = benchmark(
