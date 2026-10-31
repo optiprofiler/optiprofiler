@@ -8,6 +8,7 @@ import re
 import shutil
 import inspect
 import logging
+import threading
 import time
 import warnings
 from contextlib import redirect_stderr, redirect_stdout
@@ -116,11 +117,36 @@ def _append_quantized_truth_note(feature, is_load, path_report, path_readme):
             stream.write('\n' + note + '\n')
 
 
-def _close_logging_resources(resources):
-    """Close benchmark logging resources once, including on exceptions."""
+_ABORT_LISTENER_TIMEOUT = 5.0
+
+
+def _stop_listener_within(listener, timeout):
+    """Stop a queue listener, giving up after ``timeout`` seconds."""
+    errors = []
+
+    def stop():
+        try:
+            listener.stop()
+        except Exception as exc:
+            errors.append(exc)
+
+    stopper = threading.Thread(target=stop, daemon=True)
+    stopper.start()
+    stopper.join(timeout)
+    return not stopper.is_alive(), errors
+
+
+def _close_logging_resources(resources, aborting=False):
+    """Close benchmark logging resources once, including on exceptions.
+
+    With ``aborting``, workers may have been terminated while holding the log
+    queue's write lock, so the listener sentinel can never be delivered. The
+    listener is then abandoned after a bounded wait instead of joined forever.
+    """
     listener = resources.pop('listener', None)
     log_queue = resources.pop('log_queue', None)
     cleanup_errors = []
+    listener_abandoned = False
     if log_queue is not None:
         root_logger = logging.getLogger()
         for handler in list(root_logger.handlers):
@@ -131,10 +157,15 @@ def _close_logging_resources(resources):
                 except Exception as exc:
                     cleanup_errors.append(exc)
     if listener is not None:
-        try:
-            listener.stop()
-        except Exception as exc:
-            cleanup_errors.append(exc)
+        if aborting:
+            stopped, errors = _stop_listener_within(listener, _ABORT_LISTENER_TIMEOUT)
+            listener_abandoned = not stopped
+            cleanup_errors.extend(errors)
+        else:
+            try:
+                listener.stop()
+            except Exception as exc:
+                cleanup_errors.append(exc)
         for handler in listener.handlers:
             if hasattr(handler, 'close'):
                 try:
@@ -142,6 +173,12 @@ def _close_logging_resources(resources):
                 except Exception as exc:
                     cleanup_errors.append(exc)
     if log_queue is not None:
+        if aborting and hasattr(log_queue, 'cancel_join_thread'):
+            # The feeder thread can be blocked on the same dead writer lock.
+            try:
+                log_queue.cancel_join_thread()
+            except Exception as exc:
+                cleanup_errors.append(exc)
         try:
             log_queue.close()
         except Exception as exc:
@@ -155,6 +192,14 @@ def _close_logging_resources(resources):
         root_logger = logging.getLogger()
         root_logger.handlers[:] = handlers
         root_logger.setLevel(level)
+    if listener_abandoned:
+        warnings.warn(
+            f'The benchmark log listener did not stop within {_ABORT_LISTENER_TIMEOUT:g} seconds after '
+            'the benchmark was interrupted (a terminated worker may have held the log queue); it was '
+            'abandoned, and log records still queued may be missing from the console and log.txt.',
+            RuntimeWarning,
+            stacklevel=2,
+        )
     if cleanup_errors and sys.exc_info()[0] is None:
         warnings.warn(
             f'Failed to close one or more benchmark logging resources: '
@@ -2298,13 +2343,15 @@ def benchmark(
             report.finish()
         return result
     except BaseException as exc:
+        # Cleanup must not replace the original exception or wait forever on a
+        # log queue left locked by a terminated worker.
+        try:
+            _close_logging_resources(logging_resources, aborting=True)
+        except BaseException:
+            pass
         if report is not None:
             # A full disk or failed atomic rename during diagnostics must not
             # replace the original numerical/configuration exception.
-            try:
-                _close_logging_resources(logging_resources)
-            except BaseException:
-                pass
             try:
                 report.finish(error=exc)
             except BaseException:
