@@ -203,6 +203,15 @@ classdef TestRuntimeRobustness < matlab.unittest.TestCase
             if isstruct(diagnostics), diagnostics=num2cell(diagnostics); end
             codes=cellfun(@(d) d.code,diagnostics,'UniformOutput',false);
             testCase.verifyTrue(any(strcmp(codes,'native_profile_export_failed')),strjoin(codes,', '));
+
+            % A fallback is not an export that ended the run: a later failure
+            % of score_fun is a failure of the scoring.
+            options.report_path=fullfile(work,'fallback_score.json');
+            options.score_fun=@failingScore;
+            testCase.verifyError(@() benchmark(options),'TestRuntimeRobustness:ScoreFailure');
+            report=jsondecode(fileread(options.report_path));
+            testCase.verifyEqual(report.stages.rendering.status,'partial');
+            testCase.verifyEqual(report.stages.scoring,struct('status','failed','reason','interrupted_by_exception'));
         end
 
         function drawingFailureFallbackIsReported(testCase)
@@ -505,6 +514,10 @@ end
 
 function scores=immediateLoadCaller(options)
     scores=benchmark(options);
+end
+
+function scores=failingScore(~) %#ok<STOUT>
+    error('TestRuntimeRobustness:ScoreFailure','deliberate score failure');
 end
 
 function restoreState(old, old_warnings, old_path, work)

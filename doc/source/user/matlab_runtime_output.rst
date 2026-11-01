@@ -35,6 +35,10 @@ On macOS and Linux, OptiProfiler also supports saving without a JVM:
   ``native_profile_export_failed``, ``native_summary_layout_failed``,
   ``native_summary_export_failed`` or, for a history plot,
   ``history_native_export_fallback``.
+* A ``plot_options`` value refused while a profile is exported has no
+  fallback. The run stops, the ``rendering`` stage is ``failed`` with the reason
+  ``profile_export_failed``, the report adds a diagnostic of that name, and
+  ``scoring`` stays ``unknown``, as in Python.
 
 The initial native-graphics probe is cached for the MATLAB process, avoiding
 a new probe figure for every plot. A transient failure of that initial probe

@@ -706,6 +706,13 @@ classdef EvalReport < handle
             end
         end
 
+        function recordExportFailure(self, cause)
+            % An export error ends the run, so the stage fails whatever was
+            % drawn before, as record_rendering_failure does in Python.
+            self.recordRendering('failed', struct('exception_type', cause.identifier), 'profile_export_failed');
+            self.setStage('rendering', 'failed', 'profile_export_failed');
+        end
+
         function finish(self, cause)
             % Reporting must never replace the original exception.
             try
@@ -725,7 +732,7 @@ classdef EvalReport < handle
                     self.document.status = 'failed';
                     % The scores come after the profile export: an error
                     % there fails rendering and leaves them unknown.
-                    if strcmp(self.document.stages.rendering.status, 'running') && ...
+                    if ismember(self.document.stages.rendering.status, {'running', 'failed'}) && ...
                             strcmp(self.document.stages.scoring.status, 'running')
                         self.setStage('scoring', 'unknown', 'interrupted_before_scores');
                     end

@@ -1785,7 +1785,12 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
         if native_graphics
           for native_figure = {fig_perf_hist,fig_data_hist,fig_log_ratio_hist,fig_perf_out,fig_data_out,fig_log_ratio_out}
               if ~isempty(native_figure{1}) && isgraphics(native_figure{1})
-                  applyPlotOptions(native_figure{1},profile_options);
+                  try
+                      applyPlotOptions(native_figure{1},profile_options);
+                  catch cause
+                      if ~isempty(eval_report), eval_report.recordExportFailure(cause); end
+                      rethrow(cause);
+                  end
               end
           end
           try

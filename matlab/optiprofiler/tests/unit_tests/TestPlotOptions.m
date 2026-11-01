@@ -198,8 +198,7 @@ classdef TestPlotOptions < matlab.unittest.TestCase
             report = jsondecode(fileread(options.report_path));
             testCase.verifyEqual(report.status, 'failed');
             testCase.verifyEqual(report.stages.numerical.status, 'completed');
-            testCase.verifyEqual(report.stages.rendering, struct('status', 'failed', 'reason', 'interrupted_by_exception'));
-            testCase.verifyEqual(report.stages.scoring, struct('status', 'unknown', 'reason', 'interrupted_before_scores'));
+            verifyExportFailureMatchesPython(testCase, report, {'benchmark_exception', 'profile_export_failed'});
         end
 
         function styleErrorAtExportFailsRenderingNotScoring(testCase)
@@ -218,16 +217,22 @@ classdef TestPlotOptions < matlab.unittest.TestCase
             registerProblemLibrary(struct('name', 'stylelib', 'root', library, ...
                 'select_function', 'stylelib_select', 'load_function', 'stylelib_load'));
             options = struct('plibs', {{'stylelib'}}, 'n_jobs', 1, 'max_eval_factor', 2, 'max_tol_order', 1, ...
-                'silent', true, 'draw_hist_plots', 'none', 'savepath', root, 'report_path', fullfile(root, 'style.json'), ...
-                'plot_options', struct('figure', struct('Units', 'not-a-unit')));
-            testCase.verifyError(@() benchmark({@TestReferencePoints.stay, @TestReferencePoints.zero}, options), ...
-                'OptiProfiler:PlotOptions:InvalidProperty');
-            report = jsondecode(fileread(options.report_path));
-            testCase.verifyEqual(report.status, 'failed');
-            testCase.verifyEqual(report.stages.numerical.status, 'completed');
-            testCase.verifyEqual(report.stages.persistence.status, 'completed');
-            testCase.verifyEqual(report.stages.rendering, struct('status', 'failed', 'reason', 'interrupted_by_exception'));
-            testCase.verifyEqual(report.stages.scoring, struct('status', 'unknown', 'reason', 'interrupted_before_scores'));
+                'silent', true, 'savepath', root, 'plot_options', struct('figure', struct('Units', 'not-a-unit')));
+            % History plots come first and fall back to SVG, so some of the
+            % rendering has succeeded when the export ends the run.
+            codes = {{'benchmark_exception', 'profile_export_failed'}, ...
+                {'benchmark_exception', 'history_native_export_fallback', 'profile_export_failed'}};
+            modes = {'none', 'sequential'};
+            for k = 1:numel(modes)
+                options.draw_hist_plots = modes{k};
+                options.report_path = fullfile(root, [modes{k}, '.json']);
+                testCase.verifyError(@() benchmark({@TestReferencePoints.stay, @TestReferencePoints.zero}, options), ...
+                    'OptiProfiler:PlotOptions:InvalidProperty');
+                report = jsondecode(fileread(options.report_path));
+                testCase.verifyEqual(report.stages.numerical.status, 'completed');
+                testCase.verifyEqual(report.stages.persistence.status, 'completed');
+                verifyExportFailureMatchesPython(testCase, report, codes{k});
+            end
         end
 
         function labelTemplatesSubstituteOnlyTheTolerance(testCase)
@@ -306,6 +311,20 @@ classdef TestPlotOptions < matlab.unittest.TestCase
                 'OptiProfiler:PlotOptions:UnknownProperty');
         end
     end
+end
+
+function verifyExportFailureMatchesPython(testCase, report, codes)
+    % Python's report of an export that raises, for a fresh run and a load.
+    testCase.verifyEqual(report.status, 'failed');
+    testCase.verifyEqual(report.stages.rendering, struct('status', 'failed', 'reason', 'profile_export_failed'));
+    testCase.verifyEqual(report.stages.scoring, struct('status', 'unknown', 'reason', 'interrupted_before_scores'));
+    diagnostics = report.diagnostics;
+    if isstruct(diagnostics), diagnostics = num2cell(diagnostics); end
+    found = cellfun(@(entry) entry.code, diagnostics, 'UniformOutput', false);
+    testCase.verifyEqual(unique(found(:)), sort(codes(:)));
+    exported = diagnostics{strcmp(found, 'profile_export_failed')};
+    testCase.verifyEqual(exported.stage, 'rendering');
+    testCase.verifyEqual(exported.scope, struct('exception_type', 'OptiProfiler:PlotOptions:InvalidProperty'));
 end
 
 function cleanup(root,registry,oldpath)
