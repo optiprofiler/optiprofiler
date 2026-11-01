@@ -122,6 +122,7 @@ classdef TestNativeBenchmarkReplay < matlab.unittest.TestCase
             % The options_user.mat next to the record settles it.
             save(file, 'options_refined');
             testCase.verifyError(@() loadBenchmarkOptions(file), 'OptiProfiler:DirectProblemNotSaved');
+            testCase.verifyError(@() loadBenchmarkOptions(file(1:end - 4)), 'OptiProfiler:DirectProblemNotSaved');
             library = fullfile(output, 'library');
             mkdir(library);
             save(fullfile(library, 'options_refined.mat'), 'options_refined');

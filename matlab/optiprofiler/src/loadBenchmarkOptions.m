@@ -188,7 +188,8 @@ function route = routeOfUserOptions(source_file)
 % options_user.mat beside a record holds what the caller passed to benchmark,
 % with a Problem if there was one, in every version that wrote such a record.
     route = 'not_recorded';
-    if ~isfile(source_file), return; end
+    % load also takes the path without its extension.
+    if isempty(source_file) || ~(isfile(source_file) || isfile([source_file, '.mat'])), return; end
     sibling = fullfile(fileparts(source_file), 'options_user.mat');
     if ~isfile(sibling), return; end
     try
