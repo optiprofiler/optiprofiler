@@ -28,6 +28,10 @@ replaces the empirical minimum, including when it is beaten; measured merits
 are never clamped. A custom merit need not preserve the ordering implied by
 a raw objective lower bound. Its converted value is a scoring target, not an
 automatically certified lower bound for that callback.
+A target that is not below the initial merit is met by the initial point
+itself, so a solver that returns ``x0`` passes the output-based test. A run whose
+solver raised an error or returned nothing has no output and does not pass it:
+the value recorded for that run is the one of ``x0``, as a penalty, not a result.
 A converted target must be a finite real scalar. For example, the default
 merit may discard a highly infeasible raw record by returning infinity; the
 benchmark then reports an error instead of silently using a different target.

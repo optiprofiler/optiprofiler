@@ -249,7 +249,8 @@ unchanged and remains the only complete source for reanalysis.
   their problem/solver/run/tolerance identities. History-based work is the
   first evaluation meeting the existing target. Output-based work is the
   evaluation count associated with a passing returned output, not the first
-  history hit. Never infer either value from a compressed curve or from a
+  history hit. A run flagged ``output_fallback`` returned no output and has no
+  output-based work. Never infer either value from a compressed curve or from a
   history preview.
 
 Padded display aggregation

@@ -40,7 +40,10 @@ problem of a primary run is built, a benchmark reports this before that run's
 first solver call (plain-baseline records are never targets); a load with a
 different merit reports it when scoring. Measurements below a supplied target
 are retained, never clamped. A feasible-objective reference need not bound
-merits at infeasible points.
+merits at infeasible points. A target that is not below the initial merit is
+met by `x0`: a solver that returns `x0` passes the output-based test, whereas a
+run whose solver raised or returned nothing has no output and never passes it,
+although the value of `x0` is recorded for that run.
 
 A load uses one merit for every cached quantity and for the targets. With
 `merit_fun`, all cached merits are recomputed. Without it, an archive with

@@ -1204,7 +1204,8 @@ def compute_convergence_work(merit_histories, merit_outs, merit_inits, merit_min
                              n_evals, tolerance, invalid_initial, valid_histories, valid_outs):
     """Return first passing evaluation indices and work at passing solver outputs.
 
-    Validity masks exclude raw NaN observations and padded history tails.
+    Validity masks exclude raw NaN observations, padded history tails and
+    output fallbacks (runs whose solver raised or returned nothing).
     The +Inf-initial convention and arithmetic order match profile scoring.
     An output reached without any evaluation is charged one unit of work, so
     that work stays positive in performance and data profile ratios.

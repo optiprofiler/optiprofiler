@@ -581,7 +581,12 @@ def _benchmark(
         valid evaluations; if it is -inf, only a merit value of -inf passes.
         Both cases are listed in ``test_log/report.txt``. In output-based
         profiles, an output obtained without any evaluation counts as one
-        evaluation. With ``problem``, the score of a run whose initial merit
+        evaluation. A run whose solver raised an exception or returned nothing
+        has no output: the initial point is recorded in its place, the run is
+        listed in ``test_log/report.txt`` and it never passes the output-based
+        test, whatever the target, while its history-based results stand. A
+        solver that returns the initial point itself is not such a run. With
+        ``problem``, the score of a run whose initial merit
         is not finite is NaN (the relative decrease is undefined), whereas
         the profiles above apply the +inf convention.
     n_jobs : int, optional
@@ -1854,6 +1859,12 @@ def _build_profiles(
             valid_histories[rows, :, :, :length] &= (
                 np.arange(length) < n_evals_merged[rows, :, :, None])
             valid_outs[rows] = ~(np.isnan(result['fun_outs']) | np.isnan(result['maxcv_outs']))
+            # A solver that raised or returned nothing has no output. The value
+            # recorded for it is that of x0, which can meet a target and, with
+            # the one unit of work of an output without evaluations, would then
+            # beat every solver that evaluated. Old archives have no flags.
+            if 'solver_output_fallbacks' in result:
+                valid_outs[rows] &= ~np.asarray(result['solver_output_fallbacks'], dtype=bool)
             row_offset += n_p
 
         # Backward-compat: ``merit_inits_merged`` may be 1-D for old
@@ -2107,11 +2118,11 @@ def _build_profiles(
                     # Note: the evaluation history collected before the
                     # crash IS preserved and used for history-based
                     # profiles; only the output-based profile is
-                    # affected (it falls back to the initial point as a
-                    # penalty -- see the next section).
+                    # affected (the run never passes it -- see the next
+                    # section).
                     solver_names_no_esc = [s.replace('\\_', '_') for s in profile_options[ProfileOption.SOLVER_NAMES]]
                     fid.write('\n')
-                    fid.write('## Solver runs that terminated abnormally (history is preserved; output uses x_0 as a penalty)\n')
+                    fid.write('## Solver runs that terminated abnormally (history is preserved; the output never passes the output-based test)\n')
                     if np.any(solver_abnormal_terminations_merged):
                         for i_solver in range(n_solvers):
                             for i_run in range(n_runs):
@@ -2132,10 +2143,11 @@ def _build_profiles(
                     # solver did not return a usable value (raised, or
                     # returned None / empty). This is an OUTPUT-BASED
                     # PENALTY, not a recovery of the best point from the
-                    # evaluation history. See ``_solve_one_problem`` for
+                    # evaluation history: such a run never passes the
+                    # output-based test. See ``_solve_one_problem`` for
                     # the design rationale.
                     fid.write('\n')
-                    fid.write('## Solver runs using the initial point as output fallback (output-based penalty)\n')
+                    fid.write('## Solver runs using the initial point as output fallback (never passes the output-based test)\n')
                     if np.any(solver_output_fallbacks_merged):
                         for i_solver in range(n_solvers):
                             for i_run in range(n_runs):
@@ -2891,8 +2903,9 @@ def _solve_one_problem(solvers, problem, feature, plan, problem_name, len_proble
             #   initial guess ``featured_problem.x0`` (assigned just below
             #   for exactly this reason). This fallback to ``x0`` is an
             #   intentional OUTPUT-BASED PENALTY for failed / crashed runs:
-            #   the output-based profile (and the corresponding score) is
-            #   then evaluated at the initial point, while the
+            #   the output value is recorded at the initial point and the
+            #   flagged run never passes the output-based test (the value
+            #   alone could, if it meets the target), while the
             #   history-based profile is unaffected because it is built
             #   from ``featured_problem.fun_hist`` /
             #   ``featured_problem.maxcv_hist`` which already record every

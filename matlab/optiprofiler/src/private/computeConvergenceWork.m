@@ -1,8 +1,9 @@
 function [work_hist, work_out] = computeConvergenceWork(merit_histories, merit_outs, merit_inits, merit_mins, n_evals, tolerance, invalid_initial, valid_histories, valid_outs)
 % Return first passing evaluation indices and work at passing solver outputs.
-% Validity masks exclude raw NaN observations and padded history tails. An
-% output reached without any evaluation is charged one unit of work, so that
-% work stays positive in performance and data profile ratios.
+% Validity masks exclude raw NaN observations, padded history tails and output
+% fallbacks (runs whose solver raised or returned nothing). An output reached
+% without any evaluation is charged one unit of work, so that work stays
+% positive in performance and data profile ratios.
     n_problems = size(merit_histories, 1);
     n_solvers = size(merit_histories, 2);
     n_runs = size(merit_histories, 3);

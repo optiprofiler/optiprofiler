@@ -171,7 +171,12 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         the existing degenerate-test convention accepts valid evaluations;
 %         if it is -Inf, only a merit value of -Inf passes. Both cases are
 %         listed in test_log/report.txt. In output-based profiles, an output
-%         obtained without any evaluation counts as one evaluation. With
+%         obtained without any evaluation counts as one evaluation. A run whose
+%         solver raised an error or returned nothing has no output: the initial
+%         point is recorded in its place, the run is listed in
+%         test_log/report.txt and it never passes the output-based test,
+%         whatever the target, while its history-based results stand. A solver
+%         that returns the initial point itself is not such a run. With
 %         problem, the score of a run whose initial merit is not finite is
 %         NaN (the relative decrease is undefined), whereas the profiles
 %         apply the +Inf convention.
@@ -1623,6 +1628,13 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
             valid_histories(rows, :, :, 1:n_history) & ...
             (reshape(1:n_history, 1, 1, 1, []) <= n_evals_merged(rows, :, :));
         valid_outs(rows, :, :) = ~(isnan(result.fun_outs) | isnan(result.maxcv_outs));
+        % A solver that raised or returned nothing has no output. The value
+        % recorded for it is that of x0, which can meet a target and, with the
+        % one unit of work of an output without evaluations, would then beat
+        % every solver that evaluated. Old archives have no flags.
+        if isfield(result, 'solver_output_fallbacks')
+            valid_outs(rows, :, :) = valid_outs(rows, :, :) & ~result.solver_output_fallbacks;
+        end
         row_offset = row_offset + n_p;
     end
     % A merit_fun that is NaN at x0 cannot establish a target either.
@@ -1958,10 +1970,9 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
             % raised an exception). The evaluation history collected
             % BEFORE the crash is preserved and used for the
             % history-based profiles; only the output-based profile is
-            % affected (it falls back to the initial point as a
-            % penalty -- see the next section).
+            % affected (the run never passes it -- see the next section).
             fprintf(fid, "\n");
-            fprintf(fid, "## Solver runs that terminated abnormally (history is preserved; output uses x_0 as a penalty)\n");
+            fprintf(fid, "## Solver runs that terminated abnormally (history is preserved; the output never passes the output-based test)\n");
             if any(solver_abnormal_terminations_merged(:))
                 for i_solver = 1:n_solvers
                     for i_run = 1:n_runs
@@ -1987,10 +1998,10 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
             % because the solver did not return a usable value (raised,
             % or returned an empty value). This is an OUTPUT-BASED
             % PENALTY, not a recovery of the best point from the
-            % evaluation history. See solveOneProblem.m for the design
-            % rationale.
+            % evaluation history: such a run never passes the output-based
+            % test. See solveOneProblem.m for the design rationale.
             fprintf(fid, "\n");
-            fprintf(fid, "## Solver runs using the initial point as output fallback (output-based penalty)\n");
+            fprintf(fid, "## Solver runs using the initial point as output fallback (never passes the output-based test)\n");
             if any(solver_output_fallbacks_merged(:))
                 for i_solver = 1:n_solvers
                     for i_run = 1:n_runs

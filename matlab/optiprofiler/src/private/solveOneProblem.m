@@ -98,10 +98,11 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
             % have a valid point at which to evaluate the output, even if
             % the solver crashes inside the inner try below (and therefore
             % never assigns x). This fallback to x0 is an INTENTIONAL
-            % output-based penalty for failed runs: the output-based
-            % profile / score is then computed at x0, while the
-            % history-based profile / score is unaffected because it is
-            % built from featured_problem.fun_hist /
+            % output-based penalty for failed runs: the output value is
+            % recorded at x0 and the flagged run never passes the
+            % output-based test (the value alone could, if it meets the
+            % target), while the history-based profile / score is
+            % unaffected because it is built from featured_problem.fun_hist /
             % featured_problem.maxcv_hist which already contain every
             % evaluation the solver actually performed before crashing. We
             % deliberately do NOT recover the best evaluated point from
@@ -177,7 +178,7 @@ function result = solveOneProblem(solvers, problem, feature, problem_name, len_p
                 % to the initial guess. This is the same OUTPUT-BASED
                 % PENALTY mechanism described above for the crash case:
                 % an empty return is treated as "no usable output", so
-                % the output-based score is evaluated at x0 while the
+                % the run never passes the output-based test while the
                 % history-based score keeps using featured_problem.*_hist.
                 if isempty(x)
                     x = featured_problem.x0;

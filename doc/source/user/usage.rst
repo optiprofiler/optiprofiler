@@ -51,7 +51,10 @@ information, and special cases detected while building the profiles: problems
 where ``merit_init = phi(x_0) = Inf`` (valid evaluations pass by convention,
 but undefined objective, constraint or merit values do not), solver runs that
 terminated abnormally, and solver outputs that
-were replaced by the initial point as an output-based penalty. The file
+were replaced by the initial point as an output-based penalty. A solver that
+raised an error or returned nothing has no output, so such a run never passes
+the output-based test, whatever the target; its history-based results stand, and
+a solver that returns the initial point itself is not such a run. The file
 ``test_log/log.txt`` contains the messages printed during the run.
 
 If history plots are enabled, each problem library has a subfolder under

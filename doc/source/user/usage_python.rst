@@ -49,9 +49,13 @@ Additionally, a PDF file named ``summary.pdf`` is generated, summarizing all the
 The subfolder ``test_log`` contains diagnostic files for the experiment. In
 particular, ``test_log/report.txt`` records selected problem names, timing
 information, and special cases detected while building the profiles: problems
-where ``merit_init = phi(x_0) = inf`` (all solvers are declared to pass that
-problem/run), solver runs that terminated abnormally, and solver outputs that
-were replaced by the initial point as an output-based penalty. The file
+where ``merit_init = phi(x_0) = inf`` (valid evaluations pass by convention,
+but undefined objective, constraint or merit values do not), solver runs that
+terminated abnormally, and solver outputs that
+were replaced by the initial point as an output-based penalty. A solver that
+raised an error or returned nothing has no output, so such a run never passes
+the output-based test, whatever the target; its history-based results stand, and
+a solver that returns the initial point itself is not such a run. The file
 ``test_log/log.txt`` contains the messages printed during the run.
 
 If history plots are enabled, each problem library has a subfolder under
