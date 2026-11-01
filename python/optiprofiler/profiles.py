@@ -698,8 +698,8 @@ def _benchmark(
         ``0, 1, 2, 4, ...``. Default is True.
     silent : bool, optional
         Whether to show the information of the progress. With True, no
-        progress information is printed, also when loading saved results.
-        Default is False.
+        progress information is printed, also when loading saved results,
+        and 'solver_verbose' is 0. Default is False.
     solver_isrand : list of bool, optional
         Whether the solvers are randomized or not. Default is
         a list of bools of the same length as the number of solvers, where
@@ -712,6 +712,9 @@ def _benchmark(
     solver_verbose : int, optional
         The level of the verbosity of the solvers. 0 means
         no verbosity, 1 means some verbosity, and 2 means full verbosity.
+        With 'silent' True the level is 0, so nothing of a solver is printed,
+        and a level of 1 or 2 is replaced with a warning; a failing solver
+        is still recorded in report.txt and the machine-readable report.
         Default is 1.
     solvers_to_load : list of int, optional
         The indices of the solvers to load when the 'load'

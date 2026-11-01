@@ -216,7 +216,7 @@ def test_messages_name_the_options_on_every_python_version(capsys):
     solvers = [lambda fun, x0: x0, lambda fun, x0: x0]
     check_validity_profile_options(solvers, {'silent': True, 'solver_verbose': 2})
     printed = ' '.join(capsys.readouterr().out.split())
-    assert 'Option solver_verbose is set to 1 because option silent is True.' in printed
+    assert 'The option `solver_verbose` will be set to 0 because silent is True.' in printed
     assert 'ProfileOption.' not in printed
     with pytest.raises(TypeError) as refused:
         check_validity_profile_options(solvers, {'silent': 'yes'})

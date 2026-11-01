@@ -387,7 +387,9 @@ is the trusted boundary for files written by earlier versions:
 needs an explicit ``feature_name``; the ``n_runs`` key is present only when
 the file records a run count; a load-written file replays only through its
 recovered ``archived_experiment`` and raises ``LegacyConfigurationError``
-otherwise), and ``import_legacy_feature`` converts a
+otherwise; the caller supplies the profile options, so a replay is silent only
+if the caller passes ``silent=True``, whatever the file records for ``silent``
+and ``solver_verbose``), and ``import_legacy_feature`` converts a
 1.x pickled ``Feature`` into a canonical ``Feature`` plus its retained run
 count, which is passed to ``benchmark`` separately. Only load pickle and H5
 files from trusted sources: unpickling can execute code, and these readers
