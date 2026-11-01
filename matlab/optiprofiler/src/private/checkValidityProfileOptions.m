@@ -426,9 +426,3 @@ function rgb = shortname2rgb(shortname)
             rgb = [0, 0, 0];
     end
 end
-
-function valid = isScalarText(value)
-%ISSCALARTEXT One list element: a char row or a string scalar, not a string array.
-    valid = (ischar(value) && (isrow(value) || isempty(value))) || ...
-        (isstring(value) && isscalar(value) && ~ismissing(value));
-end

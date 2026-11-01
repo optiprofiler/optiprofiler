@@ -101,7 +101,7 @@ function [results_plibs, profile_options, problem_options] = loadResults(problem
         valid_plib_names = cellfun(@(x) x.plib, results_plibs, 'UniformOutput', false);
         plibs = problem_options.(ProblemOptionKey.PLIBS.value);
         if ~all(cellfun(@ischarstr, plibs)) || ~all(ismember(plibs, valid_plib_names))
-            error("MATLAB:loadResults:plibNotValid", "When you use the option `load`, the option `plibs` should be a cell array of strings or chars, and each string or char should be one of the problem libraries in the loaded data ('%s').", strjoin(valid_plib_names, "', '"));
+            error("MATLAB:loadResults:plibNotValid", "When you use the option `load`, the option `plibs` should be a cell array of strings or chars, or a string array, and each name should be one of the problem libraries in the loaded data ('%s').", strjoin(valid_plib_names, "', '"));
         end
         % Select the problem libraries to load.
         results_plibs = results_plibs(cellfun(@(x) ismember(x.plib, plibs), results_plibs));
