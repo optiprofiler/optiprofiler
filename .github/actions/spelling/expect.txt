@@ -69,7 +69,7 @@ bsxfun
 BUILDDIR
 cacheinfo
 callability
-canar
+CANAR
 canceltoy
 capfd
 caplog
@@ -83,8 +83,8 @@ configtoy
 conftest
 coordinatewise
 copybutton
-credentialfreename
-credentialfreeurls
+CREDENTIALFREENAME
+CREDENTIALFREEURLS
 currentmodule
 cxxabi
 damagedtoy
@@ -93,7 +93,6 @@ dashdot
 datatoy
 delenv
 dfbea
-diagnosable
 dotfile
 dpng
 drawfail
@@ -180,7 +179,6 @@ httpexampleorga
 hyperlinks
 identitytoy
 idx
-ignorecase
 imread
 includenan
 infoprobe
@@ -190,8 +188,8 @@ intersphinx
 intmax
 intmin
 INUSD
-ipython
 INVALIDZERO
+ipython
 isappdata
 iscellstr
 iscomplexobj
@@ -199,14 +197,12 @@ isenv
 isfloat
 isfolder
 isgraphics
-isin
 isinteger
 ismissing
 isneginf
 isobject
 isposinf
 isrow
-issparse
 issubdtype
 isvarname
 iuf
@@ -218,7 +214,6 @@ jsonschema
 jvm
 killpg
 labelpad
-lambdas
 LAPACK
 lastwarn
 legacytoy
@@ -272,7 +267,6 @@ ndarray
 ndatenum
 ndim
 neighbourhoods
-netloc
 newaxis
 newobj
 nextafter
@@ -281,7 +275,6 @@ ninfo
 NInitial
 nio
 NLinear
-NLocator
 nnames
 NNonlinear
 nodesktop
@@ -294,7 +287,7 @@ nonsmooth
 nonzeros
 noplatforms
 normwise
-nosystem
+NOSYSTEM
 notproblem
 npool
 nproblem
@@ -327,7 +320,7 @@ poppler
 preflighted
 privatekey
 probebundle
-problemid
+PROBLEMID
 profilebands
 pyargs
 pyplot
@@ -342,7 +335,6 @@ RDWR
 realmax
 realmin
 reanalysing
-redacts
 refspec
 reftoy
 regexpi
@@ -355,26 +347,21 @@ reparsing
 repelem
 replayable
 replayquad
-rescore
-rescored
 rescores
-rescoring
 rethrown
 rint
-rjust
 rmappdata
 rng
 roadmap
 rosen
 rror
 rst
-rsync
 savefig
 saveobj
 scipy
 seedsequence
 sessionlib
-sessionstateguard
+SESSIONSTATEGUARD
 sessiontoken
 setappdata
 setcounter
@@ -382,7 +369,6 @@ setflags
 setuptools
 sgn
 sharey
-shasum
 SIGKILL
 SIGTERM
 slotnames
@@ -431,7 +417,6 @@ ulp
 uninstallable
 unloadable
 unmatch
-unparented
 unparsable
 unpickler
 unpickles
@@ -450,9 +435,8 @@ varient
 vcs
 verticalalignment
 visititems
-vunus
+VUNUS
 waitfor
-WEBFIGURERECOVERYSUPPORTED
 WEBFIGUREVIEWRECOVERY
 webwindow
 webwindowmanager
@@ -472,6 +456,6 @@ ylim
 ymax
 ymin
 yml
-ypw
+Ypw
 Yrc
 ZGVb
