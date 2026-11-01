@@ -120,3 +120,10 @@ def test_bundled_default_must_be_declared_by_the_core(tmp_path, monkeypatch, dec
 
     with pytest.raises(checker.LockError, match=message):
         checker.validate_lock()
+
+
+def test_integration_workflow_covers_the_shipped_revision_record():
+    workflow = REPOSITORY_ROOT / ".github/workflows/problem-library-integration.yml"
+    triggers = workflow.read_text(encoding="utf-8").split("workflow_dispatch:")[0]
+
+    assert triggers.count("- python/optiprofiler/problem_libs/bundled_revisions.json\n") == 2
