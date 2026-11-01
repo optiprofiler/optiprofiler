@@ -146,7 +146,10 @@ classdef TestPlotOptions < matlab.unittest.TestCase
                 'Position', "factory"; 'Position', 'Default'; 'Color', 'default'; 'Color', 'factory'; ...
                 'Color', "default"; 'Color', "factory"; 'PaperPosition', 'default'; 'PaperPosition', 'factory'; ...
                 'PaperSize', 'default'; 'PaperSize', 'factory'; 'OuterPosition', 'default'; 'InnerPosition', 'factory'; ...
-                'Name', ['ab'; 'cd']; 'Name', strings(0); 'Name', string(missing); 'Name', ["a", "b"]; 'Name', 'default'};
+                'Name', ['ab'; 'cd']; 'Name', strings(0); 'Name', string(missing); 'Name', ["a", "b"]; 'Name', 'default'; ...
+                'Position', ["a", "b"]; 'Color', ["r", "g"]; 'PaperSize', ['ab'; 'cd']; ...
+                'Position', ["default", "factory", "remove"]; 'PaperPosition', ["default", "factory", "remove"]; ...
+                'PaperSize', ["default", "factory", "remove"]};
             old_directory = pwd;
             testCase.addTeardown(@() cd(old_directory));
             cd(fullfile(fileparts(mfilename('fullpath')), '..', '..', 'src', 'private'));
@@ -168,6 +171,12 @@ classdef TestPlotOptions < matlab.unittest.TestCase
                 end
                 close(figure_handle);
                 testCase.verifyTrue(early || ~native, ['Refused early although MATLAB accepts ', label]);
+            end
+            % A string array is not a keyword, even if it holds the keywords.
+            for name = {'Position', 'PaperPosition', 'PaperSize'}
+                keywords = struct(name{1}, ["default", "factory", "remove"]);
+                testCase.verifyError(@() validatePlotOptions(struct('figure', keywords)), ...
+                    'OptiProfiler:PlotOptions:InvalidProperty');
             end
         end
 

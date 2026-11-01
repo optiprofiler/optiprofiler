@@ -53,7 +53,7 @@ function checkFigureValues(values)
         value = values.(names{k});
         % These properties also take the exact keywords of a settable default.
         if ismember(lower(names{k}), {'position', 'paperposition', 'papersize', 'color'}) && ...
-                ~iscell(value) && any(strcmp(value, {'default', 'factory', 'remove'}))
+                isScalarText(value) && any(strcmp(value, {'default', 'factory', 'remove'}))
             continue
         end
         switch lower(names{k})
