@@ -5,7 +5,7 @@
     {
       "name": "s2mpj",
       "repository": "optiprofiler/s2mpj_python",
-      "commit": "1c8a06fd2c2516c6138bf999a54f6d3dcdf6218f",
+      "commit": "ecfc37f95d90a320448c7f96eecb8d8020b4fe43",
       "gitlink": "python/optiprofiler/problem_libs/s2mpj"
     }
   ]

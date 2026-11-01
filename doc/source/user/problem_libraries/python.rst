@@ -31,9 +31,9 @@ resolves its other dependencies normally:
 
 .. code-block:: bash
 
-    python -m pip install "optiprofiler-pycutest @ git+https://github.com/optiprofiler/pycutest@38119c384901f26e35eacca78ddd9d2ac3b47265"
-    python -m pip install "optiprofiler-solar @ git+https://github.com/optiprofiler/solar_python@39e4e5b2451968be659df823ad2769668b8a70f1"
-    python -m pip install "optiprofiler-rs13 @ git+https://github.com/optiprofiler/rs13@ddc11ff94f1d1df128a4f2c999c5267b3ad1818b"
+    python -m pip install "optiprofiler-pycutest @ git+https://github.com/optiprofiler/pycutest@38f466683738a01cd0bfbfca434dcd784945608f"
+    python -m pip install "optiprofiler-solar @ git+https://github.com/optiprofiler/solar_python@0fa8991cbc465a659d5f85ebf7848ef2d0a01660"
+    python -m pip install "optiprofiler-rs13 @ git+https://github.com/optiprofiler/rs13@f2d22c7a21c8bfe242d54ec3ac0842d392b2a7e6"
 
 Once a provider is published on PyPI, ``python -m pip install
 optiprofiler-<name>`` installs its released version instead.
