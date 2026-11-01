@@ -73,7 +73,7 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
             error("MATLAB:checkValidityProfileOptions:feature_stampNotcharstr", "The option `feature_stamp` must be a char or string.");
         end
         is_valid_foldername = @(x) ischarstr(x) && strlength(string(x)) > 0 && all(ismember(char(x), ['a':'z', 'A':'Z', '0':'9', '_', '-', '.']));
-        if ~is_valid_foldername(profile_options.(ProfileOptionKey.FEATURE_STAMP.value))
+        if ~isScalarText(profile_options.(ProfileOptionKey.FEATURE_STAMP.value)) || ~is_valid_foldername(profile_options.(ProfileOptionKey.FEATURE_STAMP.value))
             error("MATLAB:checkValidityProfileOptions:feature_stampNotValid", "The option `feature_stamp` should be a char or a string satisfying the strict file name requirements (only containing letters, numbers, underscores, hyphens, and dots).");
         end
     end
