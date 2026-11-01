@@ -1033,6 +1033,16 @@ classdef EvalReport < handle
             pieces = [others; kept, {''}];
             text = [pieces{:}];
         end
+        function text = credentialFreeName(name)
+        %CREDENTIALFREENAME CREDENTIALFREEURLS(NAME), ending in a checksum of NAME if that changed it.
+        % Two names that differ only in what was removed stay two names, as the
+        % file names built from them must. The checksum is the CRC-32 of the
+        % UTF-8 text, as in Python's metadata.credential_free_name.
+            text = optiprofiler_internal.EvalReport.credentialFreeUrls(name);
+            if ~strcmp(text, name)
+                text = [text, ' ', optiprofiler_internal.featureLabelChecksum(name)];
+            end
+        end
         function text = encodeMetadata(value)
         %ENCODEMETADATA One safe JSON projection for report/archive metadata.
         % This does not serialize callback code or native execution state.

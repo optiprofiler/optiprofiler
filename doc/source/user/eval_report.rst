@@ -353,7 +353,9 @@ rules are the same in Python and MATLAB:
   and marked ``[url parameters removed]``. A URL with a further ``://`` in its
   host or path, such as a second URL glued to it, is replaced by
   ``[redacted_url]`` as a whole. The file names of history plots follow the
-  same rule, because a report lists them.
+  same rule, because a report lists them; a name that the rule changes ends in
+  a CRC-32 of the original name, so that names that differ only in what was
+  removed keep two files.
 
 This is a safeguard for ordinary metadata, not a security boundary: a secret in
 a value that is neither a URL nor under a sensitive option name is not

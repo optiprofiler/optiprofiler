@@ -201,10 +201,25 @@ classdef TestReportTextSafety < matlab.unittest.TestCase
             options.report_path = fullfile(testCase.WorkDir, 'report.json');
             benchmark({@TestReportTextSafety.finish, @TestReportTextSafety.stay}, options);
             files = dir(fullfile(options.savepath, '**', '*'));
-            testCase.verifyTrue(any(endsWith({files.name}, '.pdf')));
+            testCase.verifyTrue(any(strcmp({files.name}, optiprofiler_internal.historyPdfFileName(options.problem.name))));
             testCase.verifyFalse(any(contains({files.name}, canary)));
             for name = {'report.json', 'report.plot_data.json'}
                 testCase.verifyFalse(contains(fileread(fullfile(testCase.WorkDir, name{1})), canary), name{1});
+            end
+        end
+        function historyFileNameIsTheSameInBothLanguages(testCase)
+            % The same list as in test_report_text_safety.py;
+            % tools/tests/test_report_redaction_contract.py compares them.
+            names = { ...
+                'ssh://u:one@example.org/a', 'sshexampleorga_url_parameters_removed_6fe9788f.pdf'; ...
+                'ssh://u:two@example.org/a', 'sshexampleorga_url_parameters_removed_9161b8be.pdf'; ...
+                'https://example.org/x,https://u2:CANARYpw@example.org/y', 'redacted_url_babdbf0b.pdf'; ...
+                'HTTP://Example.ORG/a', 'httpexampleorga_c5e06604.pdf'; ...
+                'ROSENBR', 'ROSENBR.pdf'; ...
+                'a b', 'a_b.pdf';
+                };
+            for k = 1:size(names, 1)
+                testCase.verifyEqual(optiprofiler_internal.historyPdfFileName(names{k, 1}), names{k, 2});
             end
         end
         function failedRenderingScopeHoldsNoCredential(testCase)

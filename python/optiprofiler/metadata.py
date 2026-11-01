@@ -13,6 +13,7 @@ import math
 import os
 import re
 import types
+import zlib
 from enum import Enum
 from pathlib import Path, PureWindowsPath
 
@@ -95,6 +96,19 @@ def _credential_free_url(match):
 def credential_free_urls(value):
     """``value`` with the user information, query and fragment of its URLs removed."""
     return _URL_IN_TEXT.sub(_credential_free_url, value)
+
+
+def credential_free_name(value):
+    """``credential_free_urls(value)``, ending in a checksum of ``value`` if that changed it.
+
+    Two names that differ only in what was removed stay two names, as the file
+    names built from them must. The checksum is the CRC-32 of the UTF-8 text, as
+    in `EvalReport.m`.
+    """
+    name = credential_free_urls(value)
+    if name == value:
+        return name
+    return f"{name} {zlib.crc32(value.encode('utf-8', 'surrogatepass')):08x}"
 
 
 def provenance_text(value, limit=TEXT_LIMIT):

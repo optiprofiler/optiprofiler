@@ -22,7 +22,7 @@ from matplotlib.figure import Figure
 from matplotlib.backends import backend_pdf
 
 from ._parallel import run_tasks, worker_main_available, WorkerArgumentPickler
-from .metadata import credential_free_urls
+from .metadata import credential_free_name
 from .opclasses import Feature, Problem, FeaturedProblem
 from .plib_config import _resolve_plib_options
 from .problem_libraries import _copy_problem_library_options, _normalize_selected_problem_names, load_problem_library, resolve_problem_library
@@ -2657,7 +2657,7 @@ def _solve_one_problem_wrapper(solvers, feature, plan, problem_name, len_problem
 
 def _safe_history_pdf_file_name(problem_name):
     # A report lists these files: a credential in a name must not reach it through the path.
-    name = credential_free_urls(str(problem_name))
+    name = credential_free_name(str(problem_name))
     return re.sub(r'^[-_]+', '', re.sub(r'[-_]+', '_', re.sub(r'[^a-zA-Z0-9\-_]', '', name.replace(' ', '_')))) + '.pdf'
 
 

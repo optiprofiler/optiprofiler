@@ -44,6 +44,12 @@ class RedactionContractTests(unittest.TestCase):
         cell = re.search(r'glued = \{(.*?)\};', source, re.S).group(1)
         self.assertEqual(python_literal('GLUED_URLS', PYTHON_TESTS), re.findall(r"'([^']*)'", cell))
 
+    def test_both_languages_test_the_same_history_file_names(self):
+        source = MATLAB_TESTS.read_text(encoding='utf-8')
+        cell = re.search(r'names = \{ \.\.\.(.*?)\};\n\s*for k', source, re.S).group(1)
+        texts = re.findall(r"'([^']*)'", cell)
+        self.assertEqual([item for pair in python_literal('HISTORY_FILE_NAMES', PYTHON_TESTS) for item in pair], texts)
+
     def test_every_listed_key_is_documented_once(self):
         section = documented_rules()
         words = re.findall(r'[a-z]+(?:\[_-\]\?[a-z]+)?', python_literal('SENSITIVE_KEY_PATTERN'))

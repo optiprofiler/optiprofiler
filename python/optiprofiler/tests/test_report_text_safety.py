@@ -8,6 +8,7 @@ import pytest
 from optiprofiler import Problem, ProblemReference, benchmark
 from optiprofiler.eval_report import schema_resource
 from optiprofiler.metadata import TEXT_LIMIT, TRUNCATION_MARKER, bounded_text, provenance_text, safe_metadata
+from optiprofiler.profiles import _safe_history_pdf_file_name
 from optiprofiler.tests.eval_report_contract import assert_valid
 
 
@@ -158,6 +159,42 @@ def test_saved_report_and_artifact_names_hold_no_credential(tmp_path):
     assert not any(CANARY in name for name in names), names
     for path in (report_path, tmp_path / 'report.plot_data.json'):
         assert CANARY.encode() not in path.read_bytes(), path
+
+
+# The same list as in TestReportTextSafety.m; tools/tests/test_report_redaction_contract.py compares them.
+HISTORY_FILE_NAMES = [
+    ('ssh://u:one@example.org/a', 'sshexampleorga_url_parameters_removed_6fe9788f.pdf'),
+    ('ssh://u:two@example.org/a', 'sshexampleorga_url_parameters_removed_9161b8be.pdf'),
+    ('https://example.org/x,https://u2:CANARYpw@example.org/y', 'redacted_url_babdbf0b.pdf'),
+    ('HTTP://Example.ORG/a', 'httpexampleorga_c5e06604.pdf'),
+    ('ROSENBR', 'ROSENBR.pdf'),
+    ('a b', 'a_b.pdf'),
+]
+
+
+@pytest.mark.parametrize('name, file_name', HISTORY_FILE_NAMES)
+def test_history_file_name_is_the_same_in_both_languages(name, file_name):
+    assert _safe_history_pdf_file_name(name) == file_name
+
+
+def test_names_that_differ_only_in_what_was_removed_keep_two_history_plots(tmp_path):
+    names = [HISTORY_FILE_NAMES[0][0], HISTORY_FILE_NAMES[1][0]]
+    library = tmp_path / 'libraries' / 'twonames'
+    library.mkdir(parents=True)
+    (library / 'twonames_tools.py').write_text(
+        '\n'.join([
+            'from optiprofiler import Problem',
+            'def twonames_select(options):',
+            f'    return {names!r}',
+            'def twonames_load(name):',
+            '    return Problem(lambda x: float(x @ x), [2.0], name=name)',
+        ]),
+        encoding='utf-8',
+    )
+    benchmark([finish, stay], plibs=['twonames'], custom_problem_libs_path=str(tmp_path / 'libraries'), silent=True,
+              n_jobs=1, max_eval_factor=2, draw_hist_plots='sequential', savepath=str(tmp_path / 'out'))
+    plots = sorted(path.name for path in (tmp_path / 'out').rglob('*.pdf') if path.parent.name == 'twonames')
+    assert plots == sorted(file_name for _, file_name in HISTORY_FILE_NAMES[:2])
 
 
 def test_report_shows_credential_free_and_marked_reference_sources(tmp_path):
