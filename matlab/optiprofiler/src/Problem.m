@@ -470,15 +470,6 @@ classdef Problem < handle
             obj.name = name;
         end
 
-        % The name becomes file names and labels, so it must be one piece of
-        % text. This is not done in set.name: a setter that raises makes `load`
-        % reset the name of a saved object to the default, without a warning.
-        function checkName(obj)
-            if ~isScalarText(obj.name)
-                error("MATLAB:Problem:name_NotText", "The argument `name` for `Problem` must be a char row or a string scalar.")
-            end
-        end
-
         % Preprocess the gradient and the Hessian of the objective function.
         function set.grad_(obj, grad_)
             if ~isa(grad_, 'function_handle') && ~isempty(grad_)
@@ -1115,6 +1106,15 @@ classdef Problem < handle
         function reason = referenceFallbackReason(obj)
             % Retained metadata for reports, not a user reference mode.
             reason = obj.reference_fallback_reason_;
+        end
+
+        % The name becomes file names and labels, so it must be one piece of
+        % text. This is not done in set.name: a setter that raises makes `load`
+        % reset the name of a saved object to the default, without a warning.
+        function checkName(obj)
+            if ~isScalarText(obj.name)
+                error("MATLAB:Problem:name_NotText", "The argument `name` for `Problem` must be a char row or a string scalar.")
+            end
         end
     end
 

@@ -257,6 +257,7 @@ classdef TestProblem < matlab.unittest.TestCase
             options = base;
             options.name = "text";
             testCase.verifyEqual(Problem(options).name, 'text');
+            testCase.verifyFalse(ismember('checkName', methods('Problem')));
             % A setter that raises would make `load` reset a saved name to the
             % default, without a warning. The object keeps what the file holds,
             % and a FeaturedProblem refuses it, also in a composition.
