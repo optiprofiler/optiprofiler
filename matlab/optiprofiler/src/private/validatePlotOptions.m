@@ -10,8 +10,9 @@ function options = validatePlotOptions(options)
 % Color and Name), rejecting only values MATLAB rejects. Other figure values
 % and handle-valued entries are checked when applied at export, where an
 % error closes the figures of the call. Where graphics objects cannot be
-% constructed (for example without a JVM), values are not checked here;
-% portable output does not apply them.
+% constructed (for example without a JVM), the values of the other groups are
+% not checked here, while these figure values, which need no object, still
+% are; portable output does not apply them.
     groups = {'figure','axes','xaxis','yaxis','xlabel','ylabel','title','text','line','legend'};
     classes = {'matlab.ui.Figure','matlab.graphics.axis.Axes', ...
         'matlab.graphics.axis.decorator.NumericRuler','matlab.graphics.axis.decorator.NumericRuler', ...
@@ -50,6 +51,11 @@ function checkFigureValues(values)
     names = fieldnames(values);
     for k = 1:numel(names)
         value = values.(names{k});
+        % These properties also take the exact keywords of a settable default.
+        if ismember(lower(names{k}), {'position', 'paperposition', 'papersize', 'color'}) && ...
+                ~iscell(value) && any(strcmp(value, {'default', 'factory', 'remove'}))
+            continue
+        end
         switch lower(names{k})
             case 'position'
                 valid = isRectangle(value) && all(real(value(3:4)) >= 0);
@@ -64,8 +70,8 @@ function checkFigureValues(values)
                 valid = isColor(value);
                 rule = 'a color name, a hexadecimal color code, an RGB triplet or ''none''';
             case 'name'
-                valid = (ischar(value) && (isrow(value) || isempty(value))) || (isstring(value) && isscalar(value));
-                rule = 'a character vector or a string scalar';
+                valid = ischar(value) || (isstring(value) && numel(value) <= 1 && ~any(ismissing(value)));
+                rule = 'a character array or a string scalar';
             otherwise
                 continue
         end

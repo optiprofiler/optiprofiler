@@ -717,6 +717,12 @@ classdef EvalReport < handle
                 end
                 if failed
                     self.document.status = 'failed';
+                    % The scores come after the profile export: an error
+                    % there fails rendering and leaves them unknown.
+                    if strcmp(self.document.stages.rendering.status, 'running') && ...
+                            strcmp(self.document.stages.scoring.status, 'running')
+                        self.setStage('scoring', 'unknown', 'interrupted_before_scores');
+                    end
                     stages = fieldnames(self.document.stages);
                     for k = 1:numel(stages)
                         if strcmp(self.document.stages.(stages{k}).status, 'running')

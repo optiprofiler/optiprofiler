@@ -1613,6 +1613,10 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
     % An error below (a plot_options value refused at export, score_fun)
     % must not leave the figures of this call open.
     summary_guard = onCleanup(@() closeFigures({fig_summary})); %#ok<NASGU>
+    % A value refused at export fails rendering, before any score exists.
+    if ~isempty(eval_report) && ~profile_options.score_only
+        eval_report.setStage('rendering', 'running', 'profile_export');
+    end
 
     % Store the curves of the performance profiles, data profiles, and log-ratio profiles.
     curves = cell(1, profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value));

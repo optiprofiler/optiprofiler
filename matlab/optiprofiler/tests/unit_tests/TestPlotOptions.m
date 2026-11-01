@@ -141,7 +141,12 @@ classdef TestPlotOptions < matlab.unittest.TestCase
                 'PaperSize', [-1 2]; 'PaperSize', [8.5 11]; 'PaperSize', [NaN 2]; 'Color', 'r'; ...
                 'Color', '#ff0000'; 'Color', [1 0 0]; 'Color', [2 0 0]; 'Color', 'none'; 'Color', 'foo'; ...
                 'Color', [1 0]; 'Color', [1 0 0 0.5]; 'Color', {1 0 0}; 'Color', [NaN 0 0]; ...
-                'Color', uint8([255 0 0]); 'Color', [1; 0; 0]; 'Name', 123; 'Name', "abc"; 'Name', {'a'}; 'Name', 'x'};
+                'Color', uint8([255 0 0]); 'Color', [1; 0; 0]; 'Name', 123; 'Name', "abc"; 'Name', {'a'}; 'Name', 'x'; ...
+                'Position', 'default'; 'Position', 'factory'; 'Position', 'remove'; 'Position', "default"; ...
+                'Position', "factory"; 'Position', 'Default'; 'Color', 'default'; 'Color', 'factory'; ...
+                'Color', "default"; 'Color', "factory"; 'PaperPosition', 'default'; 'PaperPosition', 'factory'; ...
+                'PaperSize', 'default'; 'PaperSize', 'factory'; 'OuterPosition', 'default'; 'InnerPosition', 'factory'; ...
+                'Name', ['ab'; 'cd']; 'Name', strings(0); 'Name', string(missing); 'Name', ["a", "b"]; 'Name', 'default'};
             old_directory = pwd;
             testCase.addTeardown(@() cd(old_directory));
             cd(fullfile(fileparts(mfilename('fullpath')), '..', '..', 'src', 'private'));
@@ -184,6 +189,36 @@ classdef TestPlotOptions < matlab.unittest.TestCase
             report = jsondecode(fileread(options.report_path));
             testCase.verifyEqual(report.status, 'failed');
             testCase.verifyEqual(report.stages.numerical.status, 'completed');
+            testCase.verifyEqual(report.stages.rendering, struct('status', 'failed', 'reason', 'interrupted_by_exception'));
+            testCase.verifyEqual(report.stages.scoring.status, 'unknown');
+        end
+
+        function styleErrorAtExportFailsRenderingNotScoring(testCase)
+            % In a run that solves, scoring is running when the first profile
+            % is exported. Only the export failed; the scores do not exist yet.
+            root = tempname; mkdir(root);
+            registry = getenv('OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_REGISTRY');
+            oldpath = path;
+            testCase.addTeardown(@() cleanup(root, registry, oldpath));
+            setenv('OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_REGISTRY', fullfile(root, 'registry.mat'));
+            library = fullfile(root, 'stylelib');
+            mkdir(library);
+            TestReferencePoints.write(fullfile(library, 'stylelib_select.m'), sprintf('function names = stylelib_select(~)\n names = {''Q1'', ''Q2''};\nend\n'));
+            TestReferencePoints.write(fullfile(library, 'stylelib_load.m'), sprintf(['function p = stylelib_load(name)\n', ...
+                ' p = Problem(struct(''fun'', @(x) sum(x.^2), ''x0'', [1; 2], ''name'', name));\nend\n']));
+            registerProblemLibrary(struct('name', 'stylelib', 'root', library, ...
+                'select_function', 'stylelib_select', 'load_function', 'stylelib_load'));
+            options = struct('plibs', {{'stylelib'}}, 'n_jobs', 1, 'max_eval_factor', 2, 'max_tol_order', 1, ...
+                'silent', true, 'draw_hist_plots', 'none', 'savepath', root, 'report_path', fullfile(root, 'style.json'), ...
+                'plot_options', struct('figure', struct('Units', 'not-a-unit')));
+            testCase.verifyError(@() benchmark({@TestReferencePoints.stay, @TestReferencePoints.zero}, options), ...
+                'OptiProfiler:PlotOptions:InvalidProperty');
+            report = jsondecode(fileread(options.report_path));
+            testCase.verifyEqual(report.status, 'failed');
+            testCase.verifyEqual(report.stages.numerical.status, 'completed');
+            testCase.verifyEqual(report.stages.persistence.status, 'completed');
+            testCase.verifyEqual(report.stages.rendering, struct('status', 'failed', 'reason', 'interrupted_by_exception'));
+            testCase.verifyEqual(report.stages.scoring, struct('status', 'unknown', 'reason', 'interrupted_before_scores'));
         end
 
         function labelTemplatesSubstituteOnlyTheTolerance(testCase)

@@ -53,8 +53,11 @@ figure would open a window, so of the ``figure`` values only ``Position``,
 ``Color`` and ``Name`` are checked before solver execution, against the rules
 MATLAB applies to them; the other ``figure`` values and object-valued entries
 such as ``Parent`` are checked when they are applied. If such a value is
-refused there, ``benchmark`` raises the error after closing every figure it
-opened; the saved numerical data remain loadable. Styling is applied after the package defaults to
+refused while a profile is exported, ``benchmark`` raises the error after
+closing every figure it opened, the report's ``rendering`` stage fails, and the
+saved numerical data remain loadable. A history plot uses the SVG fallback
+instead of raising, so a direct Problem finishes with a ``partial`` report.
+Styling is applied after the package defaults to
 single profiles, combined summaries, and history figures. Properties apply
 to every matching object, so a common explicit axis limit or position also
 applies to every panel. Portable SVG/HTML output, used when native graphics
