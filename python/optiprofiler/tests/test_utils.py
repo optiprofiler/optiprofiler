@@ -1,10 +1,12 @@
 """Tests for the utils module."""
 import logging
 import multiprocessing as mp
+import pickle
 
 import numpy as np
 import pytest
 
+from optiprofiler.profile_utils import check_validity_problem_options, check_validity_profile_options
 from optiprofiler.utils import (
     FeatureName,
     FeatureOption,
@@ -196,3 +198,29 @@ class TestLogging:
         setup_worker_logging(log_queue, level=logging.DEBUG)
         root = logging.getLogger()
         assert root.level == logging.DEBUG
+
+
+@pytest.mark.parametrize('enumeration', [FeatureName, FeatureOption, ProblemOption, ProfileOption])
+def test_enumeration_members_print_as_their_values(enumeration):
+    # format() gave the value before Python 3.11 and the member's name after it,
+    # while str() and % gave the name on every version.
+    for member in enumeration:
+        assert f'{member}' == str(member) == '%s' % member == '{}'.format(member) == member.value
+        assert f'{member:>40}' == member.value.rjust(40)
+        # Options are dictionary keys, compared as their text.
+        assert member == member.value and {member: 1}[member.value] == 1
+        assert pickle.loads(pickle.dumps(member)) is member
+
+
+def test_messages_name_the_options_on_every_python_version(capsys):
+    solvers = [lambda fun, x0: x0, lambda fun, x0: x0]
+    check_validity_profile_options(solvers, {'silent': True, 'solver_verbose': 2})
+    printed = ' '.join(capsys.readouterr().out.split())
+    assert 'Option solver_verbose is set to 1 because option silent is True.' in printed
+    assert 'ProfileOption.' not in printed
+    with pytest.raises(TypeError) as refused:
+        check_validity_profile_options(solvers, {'silent': 'yes'})
+    assert str(refused.value) == 'Option silent must be a boolean.'
+    with pytest.raises(TypeError) as refused:
+        check_validity_problem_options({'ptype': 1})
+    assert str(refused.value) == 'Option ptype must be a string.'
