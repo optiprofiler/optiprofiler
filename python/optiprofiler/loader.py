@@ -2,6 +2,7 @@ import os
 import re
 import glob
 import datetime
+import json
 import numpy as np
 import h5py
 import pickle
@@ -52,10 +53,37 @@ def search_in_dir(current_path: str, pattern: str, max_depth: int, current_depth
     return files
 
 
+def parse_reference_history_failures(text, n_solvers=None, n_runs=None):
+    """Return the archived reference-history failures of one problem, or None if damaged.
+
+    A valid entry is the JSON text of a list of ``{'solver_index', 'run_index',
+    'exception_type'}`` mappings with one-based indices (within ``n_solvers``
+    and ``n_runs`` when given) and an exception type name or null.
+    """
+    try:
+        failures = json.loads(text)
+    except (TypeError, ValueError, RecursionError):
+        return None
+    if type(failures) is not list:
+        return None
+
+    def index_within(value, bound):
+        return type(value) is int and value >= 1 and (bound is None or value <= bound)
+
+    for failure in failures:
+        if (type(failure) is not dict or set(failure) != {'solver_index', 'run_index', 'exception_type'}
+                or not index_within(failure['solver_index'], n_solvers)
+                or not index_within(failure['run_index'], n_runs)
+                or not (failure['exception_type'] is None or type(failure['exception_type']) is str)):
+            return None
+    return failures
+
+
 def truncate_solvers(results_plib: Dict[str, Any], solvers_to_load: List[int]) -> Dict[str, Any]:
     """Truncate the loaded data by the 'solvers_to_load' field."""
     # Create a copy to avoid modifying the original
     results_plib = results_plib.copy()
+    n_archived_solvers, n_runs = results_plib['fun_histories'].shape[1:3]
     
     # Truncate solver-related fields
     results_plib['solver_names'] = [results_plib['solver_names'][i] for i in solvers_to_load]
@@ -78,6 +106,23 @@ def truncate_solvers(results_plib: Dict[str, Any], solvers_to_load: List[int]) -
         results_plib['solver_abnormal_terminations'] = results_plib['solver_abnormal_terminations'][:, solvers_to_load, :]
     if 'solver_output_fallbacks' in results_plib:
         results_plib['solver_output_fallbacks'] = results_plib['solver_output_fallbacks'][:, solvers_to_load, :]
+    if 'reference_history_failures' in results_plib:
+        # One JSON list per problem; solver indices are one-based. A damaged
+        # entry becomes None (unknown, reported as such) instead of aborting
+        # the load or being renumbered.
+        position = {solver + 1: index + 1 for index, solver in enumerate(solvers_to_load)}
+        archived = results_plib['reference_history_failures']
+        n_problems = len(results_plib['problem_names'])
+        if (not isinstance(archived, (list, tuple, np.ndarray))
+                or (isinstance(archived, np.ndarray) and archived.ndim != 1) or len(archived) != n_problems):
+            archived = [None] * n_problems
+        retained = []
+        for text in archived:
+            failures = parse_reference_history_failures(text, n_archived_solvers, n_runs)
+            retained.append(None if failures is None else json.dumps(
+                [dict(failure, solver_index=position[failure['solver_index']])
+                 for failure in failures if failure['solver_index'] in position]))
+        results_plib['reference_history_failures'] = retained
     
     return results_plib
 
@@ -213,7 +258,7 @@ def truncate_problems(results_plib: Dict[str, Any], problem_options: Dict[str, A
         results_plib['maxcv_inits'] = results_plib['maxcv_inits'][p_to_load, :]
     results_plib['n_evals'] = results_plib['n_evals'][p_to_load, :, :]
     results_plib['problem_names'] = [results_plib['problem_names'][i] for i in p_to_load]
-    for key in ('reference_records', 'reference_fallback_reasons'):
+    for key in ('reference_records', 'reference_fallback_reasons', 'reference_history_failures'):
         if key in results_plib:
             results_plib[key] = [results_plib[key][i] for i in p_to_load]
     results_plib['problem_types'] = [results_plib['problem_types'][i] for i in p_to_load]
@@ -592,6 +637,9 @@ def load_results(problem_options: Dict[str, Any], profile_options: Dict[str, Any
         results_plibs[i] = truncate_problems(results_plib, problem_options)
         if 'results_plib_plain' in results_plib:
             results_plibs[i]['results_plib_plain'] = truncate_problems(results_plib['results_plib_plain'], problem_options)
+    # A library left without any selected problem is not part of the loaded
+    # selection; if none is left, the empty selection is handled below.
+    results_plibs = [results_plib for results_plib in results_plibs if len(results_plib['problem_names']) > 0]
     
     # Resolve the effective load-time merit once for every cached quantity:
     # histories, outputs, initial values and the optional plain baseline.
@@ -653,10 +701,14 @@ def load_results(problem_options: Dict[str, Any], profile_options: Dict[str, Any
         if results_plib:
             problem_nums += results_plib['fun_histories'].shape[0]
     
+    # Progress information follows `silent`, as in a benchmark run; warnings do not.
+    silent = profile_options.get(ProfileOption.SILENT.value, False)
+
     # Check whether there is any problem to load
     if problem_nums == 0:
-        print()
-        print_log_message('INFO', 'No problem is selected to load by the given options. Please check your options and try again.')
+        if not silent:
+            print()
+            print_log_message('INFO', 'No problem is selected to load by the given options. Please check your options and try again.')
         return [], profile_options
     
     # Backfill the unspecified problem-selection options from the saved
@@ -664,15 +716,16 @@ def load_results(problem_options: Dict[str, Any], profile_options: Dict[str, Any
     problem_options = _backfill_problem_options_from_loaded(problem_options, results_plibs)
 
     # Print the information about the loaded experiment.
-    print_log_message('INFO', 'Loaded experiment successfully.')
-    print()
-    print_log_message('INFO', 'Information about the loaded experiment:')
-    print_log_message('INFO', f'- Time stamp: {time_stamp}')
-    print_log_message('INFO', f'- Path: {path_experiment}')
-    print_log_message('INFO', f'- Solvers: {", ".join(results_plibs[0]["solver_names"])}')
-    if 'feature_stamp' in results_plibs[0]:
-        print_log_message('INFO', f'- Feature stamp: {results_plibs[0]["feature_stamp"]}')
-    print_log_message('INFO', f'- Number of selected problems: {problem_nums}')
+    if not silent:
+        print_log_message('INFO', 'Loaded experiment successfully.')
+        print()
+        print_log_message('INFO', 'Information about the loaded experiment:')
+        print_log_message('INFO', f'- Time stamp: {time_stamp}')
+        print_log_message('INFO', f'- Path: {path_experiment}')
+        print_log_message('INFO', f'- Solvers: {", ".join(results_plibs[0]["solver_names"])}')
+        if 'feature_stamp' in results_plibs[0]:
+            print_log_message('INFO', f'- Feature stamp: {results_plibs[0]["feature_stamp"]}')
+        print_log_message('INFO', f'- Number of selected problems: {problem_nums}')
     
     return results_plibs, profile_options
 

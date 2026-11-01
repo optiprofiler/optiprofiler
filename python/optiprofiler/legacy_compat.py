@@ -437,8 +437,10 @@ def replay_arguments(options, feature_name=None):
     'problem_options'}`` plus ``'n_runs'`` when the file records a run count
     (a user file written without ``n_runs`` records none, and ``None`` is not a
     valid ``benchmark`` value); the caller supplies solvers and any profile
-    options. Callback values stay the native objects stored in the file; nothing
-    is reconstructed from JSON descriptions.
+    options, so a replay is silent only if the caller passes ``silent=True``,
+    whatever the file records for ``silent`` and ``solver_verbose``. Callback
+    values stay the native objects stored in the file; nothing is reconstructed
+    from JSON descriptions.
 
     A file written by a ``load`` (re-plot) invocation describes that load, not
     the archived execution. It replays only when it carries the archived recipe

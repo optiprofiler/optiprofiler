@@ -56,3 +56,25 @@ applies to every panel. Portable SVG/HTML output, used when native graphics
 are unavailable, retains its portable style and reports that native property
 maps were not applied. Property availability follows the installed plotting
 library/MATLAB version; the two languages do not translate property names.
+
+Axis label text
+---------------
+
+The text of ``xlabel_data_profile``, ``xlabel_log_ratio_profile`` and
+``xlabel_performance_profile`` is passed to the renderer verbatim, so write
+``\%`` for a percent sign under LaTeX. MATLAB uses its LaTeX interpreter unless
+the ``xlabel`` or ``text`` group sets another one: a bare ``%`` is invalid
+syntax there, and the figure shows the raw text, with no warning during
+``benchmark``. Python uses LaTeX when it is installed, unless the ``rc`` group
+sets ``text.usetex`` to false: under LaTeX a bare ``%`` starts a comment and
+cuts the label, and without LaTeX ``\%`` keeps its backslash. ``$50\%$`` works
+in both cases.
+
+In ``ylabel_data_profile``, ``ylabel_log_ratio_profile`` and
+``ylabel_performance_profile``, ``%s`` is replaced by the current tolerance.
+``%%`` and any other ``%`` give a literal percent sign, escaped automatically
+where the renderer needs it, so such a template, unlike an x-axis label, needs
+no ``\%``. Keep ``%s`` inside ``$...$``, as the defaults do, because the
+tolerance is LaTeX math. Outside math mode MATLAB shows the raw text, with no
+warning during ``benchmark``, and Python shows literal text such as ``10^{-1}``
+without LaTeX and raises a LaTeX error under LaTeX.

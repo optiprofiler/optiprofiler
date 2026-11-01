@@ -49,6 +49,41 @@ def format_profile_text(text, profile_context):
     return str(text)
 
 
+def format_tolerance_label(template, tolerance_latex, usetex):
+    """Substitute the tolerance placeholder ``%s`` of a y-axis label template.
+
+    ``%%`` and any other ``%`` give a literal percent sign. It is written as
+    ``\\%`` with LaTeX and inside a ``$...$`` segment, where TeX would start a
+    comment and Matplotlib mathtext cannot parse a bare ``%``. A backslash
+    escape such as ``\\%`` or ``\\$`` is copied as written.
+    """
+    pieces = []
+    in_math = False
+    i = 0
+    while i < len(template):
+        char = template[i]
+        if char == '\\' and i + 1 < len(template):
+            pieces.append(template[i:i + 2])
+            i += 2
+        elif char == '%' and template.startswith('%s', i):
+            pieces.append(tolerance_latex)
+            i += 2
+        elif char == '%':
+            pieces.append('\\%' if usetex or in_math else '%')
+            i += 2 if template.startswith('%%', i) else 1
+        else:
+            if char == '$':
+                in_math = not in_math
+            pieces.append(char)
+            i += 1
+    return ''.join(pieces)
+
+
+def _tolerance_label(profile_options, key, tolerance_latex):
+    usetex = set_profile_context(profile_options).get('text.usetex', False)
+    return format_tolerance_label(profile_options[key], tolerance_latex, usetex)
+
+
 def draw_profiles(work, problem_dimensions, solver_names, tolerance_latex, i_tol, ax_summary_perf, ax_summary_data, ax_summary_log_ratio, is_summary, is_perf, is_data, is_log_ratio, profile_options, curves, *, _plot_sink=None):
     # Escaping is a LaTeX concern: without usetex the escapes would show up as
     # literal backslashes in the legends (e.g. 'scipy\_nelder\_mead').
@@ -141,7 +176,7 @@ def _draw_perf_detail(ax_perf, x_perf, y_perf, ratio_max_perf, solver_names, pro
         ax_perf.set_xlabel(profile_options[ProfileOption.XLABEL_PERFORMANCE_PROFILE], fontsize=_PROFILE_LABELSIZE)
     # Set y-axis labels.
     if profile_options[ProfileOption.YLABEL_PERFORMANCE_PROFILE]:
-        ylabel_str = profile_options[ProfileOption.YLABEL_PERFORMANCE_PROFILE] % tolerance_latex if '%s' in profile_options[ProfileOption.YLABEL_PERFORMANCE_PROFILE] else profile_options[ProfileOption.YLABEL_PERFORMANCE_PROFILE]
+        ylabel_str = _tolerance_label(profile_options, ProfileOption.YLABEL_PERFORMANCE_PROFILE, tolerance_latex)
         ax_perf.set_ylabel(ylabel_str, fontsize=_PROFILE_LABELSIZE, labelpad=10)
     _place_solver_legend(ax_perf, x_perf.shape[1], default_loc='lower right', handles=handles,
                          legend_options=profile_options.get(ProfileOption.PLOT_OPTIONS, {}).get('legend', {}))
@@ -166,7 +201,7 @@ def _draw_data_detail(ax_data, x_data, y_data, ratio_max_data, solver_names, pro
         ax_data.set_xlabel(profile_options[ProfileOption.XLABEL_DATA_PROFILE], fontsize=_PROFILE_LABELSIZE)
     # Set y-axis labels.
     if profile_options[ProfileOption.YLABEL_DATA_PROFILE]:
-        ylabel_str = profile_options[ProfileOption.YLABEL_DATA_PROFILE] % tolerance_latex if '%s' in profile_options[ProfileOption.YLABEL_DATA_PROFILE] else profile_options[ProfileOption.YLABEL_DATA_PROFILE]
+        ylabel_str = _tolerance_label(profile_options, ProfileOption.YLABEL_DATA_PROFILE, tolerance_latex)
         ax_data.set_ylabel(ylabel_str, fontsize=_PROFILE_LABELSIZE, labelpad=10)
     _place_solver_legend(ax_data, x_data.shape[1], default_loc='lower right', handles=handles,
                          legend_options=profile_options.get(ProfileOption.PLOT_OPTIONS, {}).get('legend', {}))
@@ -181,7 +216,7 @@ def _draw_log_ratio_detail(ax_log_ratio, x_log_ratio, y_log_ratio, ratio_max_log
         ax_log_ratio.set_xlabel(profile_options[ProfileOption.XLABEL_LOG_RATIO_PROFILE], fontsize=_PROFILE_LABELSIZE)
     # Set y-axis labels.
     if profile_options[ProfileOption.YLABEL_LOG_RATIO_PROFILE]:
-        ylabel_str = profile_options[ProfileOption.YLABEL_LOG_RATIO_PROFILE] % tolerance_latex if '%s' in profile_options[ProfileOption.YLABEL_LOG_RATIO_PROFILE] else profile_options[ProfileOption.YLABEL_LOG_RATIO_PROFILE]
+        ylabel_str = _tolerance_label(profile_options, ProfileOption.YLABEL_LOG_RATIO_PROFILE, tolerance_latex)
         ax_log_ratio.set_ylabel(ylabel_str, fontsize=_PROFILE_LABELSIZE, labelpad=14)
 
 
@@ -296,11 +331,13 @@ def _draw_log_ratio_profiles(ax, x, y, ratio_max, n_solvers_equal, solver_names,
     presentation = prepare_log_ratio_plot_data(x, y, ratio_max, n_solvers_equal)
 
     with matplotlib.rc_context(profile_context):
-        bar_colors = profile_options[ProfileOption.BAR_COLORS][:2]
+        # Cycle like the line properties (and MATLAB): one colour serves both bars.
+        bar_colors = profile_options[ProfileOption.BAR_COLORS]
         for group in presentation['bar_groups']:
             selection = slice(group['start_index'] - 1, group['end_index'])
             opacity = {'alpha': 0.5} if group['opacity'] == 0.5 else {}
-            ax.bar(x[selection], y[selection], color=bar_colors[group['solver_index'] - 1], **opacity)
+            color = bar_colors[(group['solver_index'] - 1) % len(bar_colors)]
+            ax.bar(x[selection], y[selection], color=color, **opacity)
 
         # Remove x-axis ticks (matching MATLAB's xticks([]))
         ax.set_xticks([])

@@ -391,7 +391,9 @@ is the trusted boundary for files written by earlier versions:
 needs an explicit ``feature_name``; the ``n_runs`` key is present only when
 the file records a run count; a load-written file replays only through its
 recovered ``archived_experiment`` and raises ``LegacyConfigurationError``
-otherwise), and ``import_legacy_feature`` converts a
+otherwise; the caller supplies the profile options, so a replay is silent only
+if the caller passes ``silent=True``, whatever the file records for ``silent``
+and ``solver_verbose``), and ``import_legacy_feature`` converts a
 1.x pickled ``Feature`` into a canonical ``Feature`` plus its retained run
 count, which is passed to ``benchmark`` separately. Only load pickle and H5
 files from trusted sources: unpickling can execute code, and these readers
@@ -443,6 +445,8 @@ OptiProfiler provides a practically useful option named ``load``. This option al
     )
 
 This will directly draw the profiles for the **solver1** and **solver3** with the ``'noisy'`` feature and all the unconstrained problems with dimension between 7 and 9 selected from the previous run. The results will also be saved under the current directory with a new subfolder named ``noisy_<timestamp>`` with the new timestamp.
+
+A load runs no solver, so it cannot be combined with ``problem``, which runs the solvers on one problem; the combination is rejected before any solver runs or any experiment output is created.
 
 The saved experiment is searched for in the current working directory joined with ``benchmark_id`` (up to five levels of subdirectories). ``savepath`` does not change this search; it only sets where the new results are written. To reload an experiment saved under another ``savepath``, change to that directory first.
 
@@ -692,9 +696,9 @@ picklable:
 
 **Lambda expressions and locally-defined nested functions are not
 picklable.** If any of the callables above is a lambda, OptiProfiler
-detects the failure when serializing the worker arguments, logs the reason, and
-falls back to sequential mode (``n_jobs = 1``), which can be much
-slower.
+detects the failure when serializing the worker arguments, logs the reason
+(unless ``silent`` is true), and falls back to sequential mode (``n_jobs = 1``),
+which can be much slower.
 
 To enable parallel execution, define these callables as module-level
 functions using ``def``. For parametrized solvers, use
@@ -705,7 +709,10 @@ Put the benchmark call in an importable script and protect its entry point.
 This is required on every platform, Linux included, whenever ``n_jobs > 1``:
 OptiProfiler starts its workers with the ``spawn`` method, which imports the
 script again in each worker, so an unprotected call would run the benchmark
-again there.
+again there. OptiProfiler detects such a call while a worker imports the
+script and raises a ``RuntimeError`` there, before the worker creates any
+output; the parallel benchmark then fails instead of saving duplicate
+experiments.
 
 .. code-block:: python
 

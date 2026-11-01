@@ -1,5 +1,6 @@
 """A problem-load failure is logged with its (shortened) cause."""
 import numpy as np
+import pytest
 
 from optiprofiler import benchmark
 
@@ -33,12 +34,14 @@ def test_load_failure_log_names_the_cause(tmp_path, monkeypatch, caplog, capsys)
                   ptype='u', mindim=1, maxdim=1, n_jobs=1, max_eval_factor=2, score_only=True,
                   draw_hist_plots='none')
     captured = capsys.readouterr()
-    text = caplog.text + captured.out + captured.err
+    # The console handler wraps long lines.
+    text = ' '.join((caplog.text + captured.out + captured.err).split())
     assert 'Failed to load' in text and 'BROKEN' in text
     assert 'undefined symbol _ZGVbN2v_cos (simulated)' in text
 
 
-def test_library_without_loadable_problems_is_named(tmp_path, monkeypatch, caplog, capsys):
+@pytest.mark.parametrize('silent', [False, True])
+def test_library_without_loadable_problems_is_named(tmp_path, monkeypatch, caplog, capsys, silent):
     monkeypatch.chdir(tmp_path)
     library = tmp_path / 'libraries' / 'never_loads'
     library.mkdir(parents=True)
@@ -49,7 +52,7 @@ def test_library_without_loadable_problems_is_named(tmp_path, monkeypatch, caplo
     with caplog.at_level('INFO'):
         benchmark([finish, stay], plibs=['never_loads'], custom_problem_libs_path=str(library.parent),
                   ptype='u', mindim=1, maxdim=1, n_jobs=1, max_eval_factor=2, score_only=True,
-                  draw_hist_plots='none')
+                  draw_hist_plots='none', silent=silent)
     captured = capsys.readouterr()
     text = caplog.text + captured.out + captured.err
-    assert 'All problems from "never_loads" are not solved successfully.' in text
+    assert ('All problems from "never_loads" are not solved successfully.' in text) is not silent

@@ -425,6 +425,42 @@ def test_bundled_and_installed_name_collision_is_rejected(monkeypatch):
         resolve_problem_library('s2mpj')
 
 
+def test_stale_tree_in_problem_libs_is_not_a_bundled_provider(tmp_path, monkeypatch):
+    # V1.3.4 tracked pycutest and solar submodules inside problem_libs; such a
+    # tree must neither shadow nor collide with the installed V2 plugin.
+    package_libs = tmp_path / 'problem_libs'
+    package_libs.mkdir()
+    for name in ('custom', 's2mpj', 'pycutest', 'solar'):
+        _write_legacy_library(package_libs, name)
+    monkeypatch.setattr(problem_libraries, '_problem_libs_dir', lambda: package_libs)
+    monkeypatch.setattr(problem_libraries, '_problem_library_entry_points', lambda: [])
+
+    assert list_problem_libraries() == ['custom', 's2mpj']
+    assert resolve_problem_library('custom').source == 'builtin'
+    with pytest.raises(ValueError, match='"pycutest" is not available'):
+        resolve_problem_library('pycutest')
+
+    entry_point = _FakeEntryPoint('pycutest', 'optiprofiler_pycutest:get_problem_library',
+                                  lambda: _plugin(name='pycutest'), 'optiprofiler-pycutest')
+    monkeypatch.setattr(problem_libraries, '_problem_library_entry_points', lambda: [entry_point])
+    reference = resolve_problem_library('pycutest')
+    assert (reference.source, reference.locator) == ('entry_point', entry_point.value)
+    other = tmp_path / 'local'
+    other.mkdir()
+    _write_legacy_library(other, 'pycutest')
+    assert resolve_problem_library('pycutest', other).shadows == ('optiprofiler-pycutest',)
+
+
+def test_package_records_the_bundled_s2mpj_revision():
+    # The wheel and sdist ship this record; tools/check_release.py ties it to
+    # the lock and the gitlink of the checkout that built them.
+    record = json.loads((Path(optiprofiler.__file__).parent / 'problem_libs' / 'bundled_revisions.json')
+                        .read_text(encoding='utf-8'))
+    (entry,) = record['libraries']
+    assert (entry['name'], entry['gitlink']) == ('s2mpj', 'python/optiprofiler/problem_libs/s2mpj')
+    assert len(entry['commit']) == 40
+
+
 def test_explicit_custom_path_overrides_other_providers(tmp_path, monkeypatch):
     _, tools_file = _write_legacy_library(tmp_path, 's2mpj')
     entry_point = _FakeEntryPoint(
@@ -502,7 +538,7 @@ def _one_step_solver(fun, x0):
 
 
 @pytest.mark.parametrize('name, warned', [('s2mpj', True), ('custom', False)])
-def test_benchmark_reports_a_local_library_that_replaces_a_provider(tmp_path, caplog, name, warned):
+def test_benchmark_reports_a_local_library_that_replaces_a_provider(tmp_path, capsys, name, warned):
     _write_quadratic_library(tmp_path, name)
     report_path = tmp_path / 'report.json'
 
@@ -515,10 +551,12 @@ def test_benchmark_reports_a_local_library_that_replaces_a_provider(tmp_path, ca
     assert {problem['provider']['source'] for problem in report['problems']} == {'custom'}
     assert {tuple(problem['provider']['shadows']) for problem in report['problems']} == {('bundled',)}
     assert {(problem['provider']['version'], problem['provider']['revision']) for problem in report['problems']} == {(None, None)}
-    warnings = [record.getMessage() for record in caplog.records
-                if record.levelname == 'WARNING' and 'replaces the provider' in record.getMessage()]
-    assert len(warnings) == (1 if warned else 0)
-    assert all('custom_problem_libs_path' in message and f'"{name}"' in message for message in warnings)
+    # score_only logs through the benchmark's console handler, which wraps lines.
+    output = ' '.join(capsys.readouterr().out.split())
+    assert output.count('replaces the provider') == (1 if warned else 0)
+    if warned:
+        assert (f'[WARNING] The local problem library "{name}" from custom_problem_libs_path replaces the '
+                'provider(s) of the same name') in output
     assert codes.count('problem_library_shadowed') == (1 if warned else 0)
 
 

@@ -204,6 +204,70 @@ def test_report_only_preserves_single_problem_scores_and_creates_no_plots(tmp_pa
     assert len(detail['plots']) == 2  # Raw/cummin objective panels, no constraints.
 
 
+def column_scores(profile_scores):
+    return np.mean(profile_scores[:, :, 0, 0], axis=1, keepdims=True)
+
+
+def row_scores(profile_scores):
+    return np.mean(profile_scores[:, :, 0, 0], axis=1)[None, :]
+
+
+def list_scores(profile_scores):
+    return [float(value) for value in np.mean(profile_scores[:, :, 0, 0], axis=1)]
+
+
+def scalar_score(profile_scores):
+    return float(np.mean(profile_scores))
+
+
+def wide_scores(profile_scores):
+    return np.mean(profile_scores[:, :, 0, :], axis=1)
+
+
+def ragged_scores(profile_scores):
+    return [[1.0, 2.0], [3.0]]
+
+
+def ragged_rows_scores(profile_scores):
+    # What an older NumPy builds from a ragged list instead of refusing it.
+    return np.array([[1.0, 2.0], [3.0]], dtype=object)
+
+
+def ragged_inner_scores(profile_scores):
+    return np.array([[[1.0, 2.0], [3.0]], 4.0], dtype=object)
+
+
+@pytest.mark.parametrize('score_fun', [column_scores, row_scores, list_scores])
+def test_custom_score_vector_shapes_keep_the_report_schema_valid(tmp_path, score_fun):
+    _library(tmp_path / 'libraries', 'evalscores', ['QUAD', 'QUAD2'])
+    options = _options(tmp_path, ['evalscores'])
+    options.update(n_runs=1, max_tol_order=1)
+    expected = benchmark([stay, zero], **options)[0]
+    target = tmp_path / 'scores.json'
+    scores = benchmark([stay, zero], score_fun=score_fun, report_path=target, **options)[0]
+    report = _read(target)
+    assert report['status'] == 'completed'
+    assert report['scores']['solver_scores'] == [float(value) for value in expected]
+    np.testing.assert_array_equal(np.asarray(scores), expected)
+    if score_fun is list_scores:
+        assert type(scores) is list
+    else:
+        assert np.asarray(scores).shape == (2,)
+
+
+@pytest.mark.parametrize('score_fun', [scalar_score, wide_scores, ragged_scores, ragged_rows_scores,
+                                       ragged_inner_scores])
+def test_custom_score_without_one_value_per_solver_is_rejected(tmp_path, score_fun):
+    _library(tmp_path / 'libraries', 'evalscores', ['QUAD', 'QUAD2'])
+    options = _options(tmp_path, ['evalscores'])
+    options.update(n_runs=1, max_tol_order=1)
+    target = tmp_path / 'scores.json'
+    with pytest.raises(ValueError, match='must return one score per solver'):
+        benchmark([stay, zero], score_fun=score_fun, report_path=target, **options)
+    report = _read(target)
+    assert report['status'] == 'failed' and report['scores'] is None
+
+
 def test_empty_path_disables_report(tmp_path):
     result = benchmark([stay, zero], problem=Problem(lambda x: float(x @ x), [1.0]),
                        score_only=True, silent=True, report_path='', savepath=str(tmp_path))

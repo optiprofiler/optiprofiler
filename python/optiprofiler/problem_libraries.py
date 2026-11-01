@@ -32,6 +32,11 @@ _CUSTOM_SOURCE = 'custom'
 _ENTRY_POINT_SOURCE = 'entry_point'
 _PROBLEM_LIBRARY_NAME_PATTERN = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*$')
 
+# The trees shipped in problem_libs: the locked bundled default and the
+# example. Any other tree there (e.g. a V1 pycutest or solar checkout left in
+# a source tree) is not a provider; tools/check_release.py rejects it too.
+_BUNDLED_PROBLEM_LIBRARIES = ('custom', 's2mpj')
+
 
 @dataclass(frozen=True)
 class ProblemLibraryPlugin:
@@ -180,16 +185,17 @@ def _custom_problem_library_dir(custom_libs_path, name):
     return resolved[0] if resolved else None
 
 
+def _builtin_tools_file(name):
+    """Return the tools file of a shipped bundled library, or None."""
+    if name not in _BUNDLED_PROBLEM_LIBRARIES:
+        return None
+    tools_file = _problem_libs_dir() / name / f'{name}_tools.py'
+    return tools_file if tools_file.is_file() else None
+
+
 def _builtin_problem_library_names():
-    names = []
-    problem_dir = _problem_libs_dir()
-    if not problem_dir.is_dir():
-        return names
-    for path in problem_dir.iterdir():
-        if path.is_dir() and not path.name.startswith('.') and path.name != '__pycache__':
-            if (path / f'{path.name}_tools.py').is_file():
-                names.append(path.name)
-    return sorted(names)
+    return sorted(name for name in _BUNDLED_PROBLEM_LIBRARIES
+                  if _builtin_tools_file(name) is not None)
 
 
 def _problem_library_entry_points():
@@ -409,7 +415,7 @@ def resolve_problem_library(name, custom_problem_libs_path=None):
     """
     name = _validate_problem_library_name(name)
 
-    builtin_tools_file = _problem_libs_dir() / name / f'{name}_tools.py'
+    builtin_tools_file = _builtin_tools_file(name)
     entry_points = [
         entry_point for entry_point in _problem_library_entry_points()
         if entry_point.name == name
@@ -424,13 +430,13 @@ def resolve_problem_library(name, custom_problem_libs_path=None):
                     f'The custom problem library "{name}" at {custom_dir} must '
                     f'contain "{name}_tools.py".'
                 )
-            shadows = (('bundled',) if builtin_tools_file.is_file() else ()) + tuple(sorted({
+            shadows = (('bundled',) if builtin_tools_file is not None else ()) + tuple(sorted({
                 _entry_point_distribution(entry_point) or entry_point.value
                 for entry_point in entry_points
             }))
             return ProblemLibraryRef(name, _CUSTOM_SOURCE, str(tools_file.resolve()), shadows=shadows)
 
-    if builtin_tools_file.is_file() and entry_points:
+    if builtin_tools_file is not None and entry_points:
         distributions = sorted({
             _entry_point_distribution(entry_point) or entry_point.value
             for entry_point in entry_points
@@ -448,7 +454,7 @@ def resolve_problem_library(name, custom_problem_libs_path=None):
             f'Problem library "{name}" is provided by multiple installed '
             f'distributions: {distributions}. Keep exactly one provider.'
         )
-    if builtin_tools_file.is_file():
+    if builtin_tools_file is not None:
         return ProblemLibraryRef(
             name,
             _BUILTIN_SOURCE,

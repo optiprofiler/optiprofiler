@@ -10,7 +10,21 @@ from ._parallel import worker_context
 from importlib.metadata import PackageNotFoundError, version
 
 
-class FeatureName(str, Enum):
+class _TextEnum(str, Enum):
+    """
+    A string enumeration whose members print as their values.
+
+    Python 3.11 changed format() of a member of such an enumeration from its
+    value to ``ProfileOption.SILENT``, which str() has always given, so that
+    option names in messages depended on the interpreter. Keys and comparisons
+    use the string value and are not affected.
+    """
+
+    def __str__(self):
+        return self.value
+
+
+class FeatureName(_TextEnum):
     """
     Feature names.
     """
@@ -27,7 +41,7 @@ class FeatureName(str, Enum):
     CUSTOM = 'custom'
 
 
-class ProfileOption(str, Enum):
+class ProfileOption(_TextEnum):
     """
     Profile's options.
     """
@@ -73,7 +87,7 @@ class ProfileOption(str, Enum):
     YLABEL_LOG_RATIO_PROFILE = 'ylabel_log_ratio_profile'
 
 
-class ProblemOption(str, Enum):
+class ProblemOption(_TextEnum):
     """
     Options for selecting problems from problem libraries.
     """
@@ -95,7 +109,7 @@ class ProblemOption(str, Enum):
     PTYPE = 'ptype'
 
 
-class FeatureOption(str, Enum):
+class FeatureOption(_TextEnum):
     """
     Feature's options.
     """

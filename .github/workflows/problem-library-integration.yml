@@ -11,6 +11,7 @@ on:
       - python/optiprofiler/plib_config.py
       - python/optiprofiler/profiles.py
       - python/optiprofiler/problem_libs/s2mpj
+      - python/optiprofiler/problem_libs/bundled_revisions.json
       - python/optiprofiler/tests/test_problem_libraries_lock.py
       - pyproject.toml
       - .github/workflows/problem-library-integration.yml
@@ -24,6 +25,7 @@ on:
       - python/optiprofiler/plib_config.py
       - python/optiprofiler/profiles.py
       - python/optiprofiler/problem_libs/s2mpj
+      - python/optiprofiler/problem_libs/bundled_revisions.json
       - python/optiprofiler/tests/test_problem_libraries_lock.py
       - pyproject.toml
       - .github/workflows/problem-library-integration.yml

@@ -419,13 +419,10 @@ def check_validity_profile_options(solvers, profile_options):
             raise TypeError(f'Option {ProfileOption.SOLVER_VERBOSE} must be 0, 1, or 2.')
         if profile_options[ProfileOption.SOLVER_VERBOSE] < 0 or profile_options[ProfileOption.SOLVER_VERBOSE] > 2:
             raise ValueError(f'Option {ProfileOption.SOLVER_VERBOSE} must be 0, 1, or 2.')
-        if ProfileOption.SILENT in profile_options and profile_options[ProfileOption.SILENT]:
-            if profile_options[ProfileOption.SOLVER_VERBOSE] == 2:
-                print_log_message('WARNING', f'Option {ProfileOption.SOLVER_VERBOSE} is set to 1 because option {ProfileOption.SILENT} is True.')
-                profile_options[ProfileOption.SOLVER_VERBOSE] = 1
-            elif profile_options[ProfileOption.SOLVER_VERBOSE] == 1:
-                print_log_message('WARNING', f'Option {ProfileOption.SOLVER_VERBOSE} is set to 0 because option {ProfileOption.SILENT} is True.')
-                profile_options[ProfileOption.SOLVER_VERBOSE] = 0
+        if (ProfileOption.SILENT in profile_options and profile_options[ProfileOption.SILENT]
+                and profile_options[ProfileOption.SOLVER_VERBOSE] != 0):
+            print_log_message('WARNING', f'The option `{ProfileOption.SOLVER_VERBOSE}` will be set to 0 because {ProfileOption.SILENT} is True.')
+            profile_options[ProfileOption.SOLVER_VERBOSE] = 0
 
     if ProfileOption.SEMILOGX in profile_options:
         if not isinstance(profile_options[ProfileOption.SEMILOGX], bool):
@@ -630,6 +627,8 @@ def get_default_profile_options(solvers, feature, profile_options):
     profile_options.setdefault(ProfileOption.SUMMARIZE_OUTPUT_BASED_PROFILES.value, True)
     profile_options.setdefault(ProfileOption.SILENT.value, False)
     profile_options.setdefault(ProfileOption.SOLVER_VERBOSE.value, 1)
+    if profile_options[ProfileOption.SILENT.value]:
+        profile_options[ProfileOption.SOLVER_VERBOSE.value] = 0
     profile_options.setdefault(ProfileOption.SEMILOGX.value, True)
     profile_options.setdefault(ProfileOption.NORMALIZED_SCORES.value, True)
     profile_options.setdefault(ProfileOption.SCORE_WEIGHT_FUN.value, _default_score_weight_fun)
@@ -672,7 +671,7 @@ def get_default_profile_options(solvers, feature, profile_options):
                 f'Since the option "score_only" is true, the requested "draw_hist_plots" mode '
                 f'"{user_draw_hist_plots}" is ignored and no history plots will be drawn.',
             )
-        else:
+        elif not profile_options[ProfileOption.SILENT.value]:
             print_log_message(
                 'INFO',
                 'Since the option "score_only" is true, we will not draw any history plots of the '
@@ -680,11 +679,12 @@ def get_default_profile_options(solvers, feature, profile_options):
             )
         profile_options[ProfileOption.DRAW_HIST_PLOTS.value] = 'none'
     elif user_draw_hist_plots is None and profile_options[ProfileOption.LOAD.value] is not None:
-        print_log_message(
-            'INFO',
-            'Since the option "load" is provided, we will draw history plots of the problems '
-            'after loading the results (the option "draw_hist_plots" is set to "sequential").',
-        )
+        if not profile_options[ProfileOption.SILENT.value]:
+            print_log_message(
+                'INFO',
+                'Since the option "load" is provided, we will draw history plots of the problems '
+                'after loading the results (the option "draw_hist_plots" is set to "sequential").',
+            )
         profile_options[ProfileOption.DRAW_HIST_PLOTS.value] = 'sequential'
 
     return profile_options

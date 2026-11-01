@@ -417,36 +417,36 @@ def _digest(path, directory=None):
                 current = current / name
                 status = os.lstat(str(current))
                 if _reparse_point(status) or not stat.S_ISDIR(status.st_mode):
-                    raise OSError('artifact path component is not a plain directory')
+                    raise OSError(f"artifact path component '{current}' is not a plain directory")
                 ancestors.append(current)
             inspected = os.lstat(str(path))
             if _reparse_point(inspected) or not stat.S_ISREG(inspected.st_mode):
-                raise OSError('artifact is not a plain regular file')
+                raise OSError(f"artifact '{path}' is not a plain regular file")
             fd = os.open(str(path), flags)
         else:
             # Without openat or a verifiable identity there is not even a
             # best-effort ownership check here. A missing provenance hash
             # is preferable to reading through a replaced/symlinked directory,
             # and must not abort scores.
-            raise OSError('secure_artifact_hashing_unavailable')
+            raise OSError(f"secure_artifact_hashing_unavailable: '{path}'")
     try:
         before = os.fstat(fd)
         if not stat.S_ISREG(before.st_mode):
-            raise OSError('not a regular file')
+            raise OSError(f"expected a regular file: '{path}'")
         if inspected is not None and (before.st_dev, before.st_ino) != (inspected.st_dev, inspected.st_ino):
-            raise OSError('artifact identity changed between inspection and open')
+            raise OSError(f"artifact '{path}' changed identity between inspection and open")
         digest = hashlib.sha256()
         with os.fdopen(fd, 'rb', closefd=False) as stream:
             for chunk in iter(lambda: stream.read(1024 * 1024), b''):
                 digest.update(chunk)
         after = os.fstat(fd)
         if (before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns):
-            raise OSError('file changed during hashing')
+            raise OSError(f"the file '{path}' changed while hashing")
         for ancestor in ancestors:
             # A reparse point that is still present now is reported, not
             # trusted; one removed in the meantime is not detectable here.
             if _reparse_point(os.lstat(str(ancestor))):
-                raise OSError('artifact path component changed during hashing')
+                raise OSError(f"artifact path component '{ancestor}' changed while hashing")
         return {'bytes': before.st_size, 'sha256': digest.hexdigest()}
     finally:
         os.close(fd)
@@ -674,7 +674,7 @@ class EvalReport:
         # prove the entry is the file this invocation just created.
         current = target.lstat()
         if (current.st_dev, current.st_ino) != (written.st_dev, written.st_ino):
-            raise FileExistsError('EvalReport target ownership changed')
+            raise FileExistsError(f'EvalReport target ownership changed: {target}')
         return cls._stat_identity(current)
 
     def _write(self):
@@ -695,13 +695,13 @@ class EvalReport:
                 'history_count': len(self._histories), 'plot_count': len(self._plots)}
             self._detail_dirty = False
         if self.plot_path.is_symlink() or self._identity(self.plot_path) != self._plot_identity:
-            raise FileExistsError('EvalReport companion ownership changed')
+            raise FileExistsError(f'EvalReport companion ownership changed: {self.plot_path}')
         self._owned_identity = self._write_owned(self.path, self.document, self._owned_identity)
 
     def _write_owned(self, target, document, owned_identity):
         if (target.is_symlink() or self._identity(target) != owned_identity
                 or self._identity(target.parent) != self._parent_identity):
-            raise FileExistsError('EvalReport target ownership changed')
+            raise FileExistsError(f'EvalReport target ownership changed: {target}')
         fd, temp = tempfile.mkstemp(prefix='.' + target.name + '.',
                                     suffix='.tmp', dir=str(target.parent))
         try:
@@ -714,7 +714,7 @@ class EvalReport:
                 written = os.fstat(stream.fileno())
             if (target.is_symlink() or self._identity(target) != owned_identity
                     or self._identity(target.parent) != self._parent_identity):
-                raise FileExistsError('EvalReport target ownership changed')
+                raise FileExistsError(f'EvalReport target ownership changed: {target}')
             os.replace(temp, target)
             return self._settled_identity(target, written)
         finally:
@@ -906,6 +906,22 @@ class EvalReport:
                        load_status='loaded', status='completed')
         if 'reference_fallback_reasons' in result:
             problem['reference_fallback_reasons'] = json.loads(result['reference_fallback_reasons'])
+        if self.document['operation'] == 'load' and 'reference_history_failures' in result:
+            # Replay the archived trial failures exactly as the benchmark
+            # reported them. Archives without the field stay silent (unknown);
+            # a damaged entry (None after loading) is reported as unavailable.
+            from .loader import parse_reference_history_failures
+            failures = parse_reference_history_failures(result['reference_history_failures'])
+            if failures is None:
+                failures = []
+                self.add_diagnostic('reference_metadata_unavailable', 'reporting',
+                                    library=plib, problem=name, role=role,
+                                    field='reference_history_failures')
+            for failure in failures[:_MAX_DIAGNOSTICS]:
+                self.add_diagnostic('reference_history_unavailable', 'numerical',
+                                    library=plib, problem=name, role=role,
+                                    solver_index=failure['solver_index'], run_index=failure['run_index'],
+                                    exception_type=failure['exception_type'])
         if 'reference_records' in result:
             # Observe retained facts only. Reporting must not call merit_fun
             # again (it may be stateful) or invent a reference for V1 archives.
@@ -1082,6 +1098,7 @@ class EvalReport:
             'solver_output_fallback': 'solver_output_fallbacks',
             'reference_records': 'reference_records',
             'reference_fallback_reasons': 'reference_fallback_reasons',
+            'reference_history_failures': 'reference_history_failures',
         }
 
         def add_library(result, role):
@@ -1148,7 +1165,7 @@ class EvalReport:
             record['path_reason'] = 'cross_volume_relative_path_unavailable'
         try:
             if source.is_symlink():
-                raise OSError('source is symlink')
+                raise OSError(f"the load source '{source}' is a symlink")
             record.update(_digest(source), status='captured_before_filtering')
         except OSError:
             record.update(bytes=None, sha256=None, status='unavailable', reason='archive_hash_unavailable')

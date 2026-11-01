@@ -101,7 +101,7 @@ include = ["optiprofiler*"]
 ]
 "optiprofiler.problem_libs.s2mpj.src.python_problems" = ["*.py"]
 "optiprofiler.problem_libs.custom" = ["*.py", "README.txt"]
-"optiprofiler.problem_libs" = ["README.txt"]
+"optiprofiler.problem_libs" = ["README.txt", "bundled_revisions.json"]
 
 [tool.setuptools.exclude-package-data]
 "*" = [

@@ -528,3 +528,84 @@ class TestBackfillProblemOptions:
     def test_empty_results_leave_options_untouched(self):
         options = _backfill_problem_options_from_loaded({}, [])
         assert options == {}
+
+
+def _visit_start(fun, x0):
+    fun(x0)
+    return x0
+
+
+def _visit_step(fun, x0):
+    fun(x0)
+    fun(x0 + 0.1)
+    return x0 + 0.1
+
+
+def test_load_searches_the_working_directory_not_savepath(tmp_path, monkeypatch):
+    from optiprofiler import benchmark
+    saved = tmp_path / 'saved'
+    saved.mkdir()
+    monkeypatch.chdir(saved)
+    options = dict(benchmark_id='bench', savepath=str(saved), max_tol_order=1, silent=True,
+                   draw_hist_plots='none')
+    expected = benchmark([_visit_start, _visit_step], plibs=['custom'], problem_names=['custom1'],
+                         n_jobs=1, max_eval_factor=2, **options)[0]
+    elsewhere = tmp_path / 'elsewhere'
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+    with pytest.raises(FileNotFoundError, match='`savepath` only sets where new results are written'):
+        benchmark(None, load='latest', score_only=True, **options)
+    assert not list(elsewhere.iterdir())
+    monkeypatch.chdir(saved)
+    np.testing.assert_array_equal(benchmark(None, load='latest', score_only=True, **options)[0], expected)
+
+
+def test_load_drops_a_library_left_without_selected_problems(tmp_path, monkeypatch):
+    import json
+    from optiprofiler import benchmark
+    monkeypatch.chdir(tmp_path)
+    for name, problems in (('liba', ['A1']), ('libb', ['B1', 'B2'])):
+        library = tmp_path / 'libs' / name
+        library.mkdir(parents=True)
+        (library / f'{name}_tools.py').write_text(
+            'from optiprofiler import Problem\n'
+            f'def {name}_select(options): return {problems!r}\n'
+            f'def {name}_load(name): return Problem(lambda x: float(x @ x), [1.0, 2.0], name=name)\n')
+    options = dict(benchmark_id='bench', savepath=str(tmp_path), max_tol_order=1, silent=True,
+                   draw_hist_plots='none')
+    benchmark([_visit_start, _visit_step], plibs=['liba', 'libb'], custom_problem_libs_path=str(tmp_path / 'libs'),
+              n_jobs=1, max_eval_factor=2, run_plain=True, **options)
+    load = dict(options, load='latest', score_only=True)
+    expected = benchmark(None, plibs=['libb'], problem_names=['B1'], **load)[0]
+    scores = benchmark(None, problem_names=['B1'], report_path=str(tmp_path / 'loaded.json'), **load)[0]
+    np.testing.assert_array_equal(scores, expected)
+    report = json.loads((tmp_path / 'loaded.json').read_text(encoding='utf-8'))
+    assert {(problem['library'], problem['name']) for problem in report['problems']} == {('libb', 'B1')}
+    # With no problem left in any library, the load stops as an empty selection does.
+    assert benchmark(None, problem_names=['NONE'], **load)[0].size == 0
+
+
+@pytest.mark.parametrize('silent', [True, False])
+def test_load_prints_progress_information_only_when_not_silent(tmp_path, monkeypatch, capsys, silent):
+    from optiprofiler import benchmark
+    monkeypatch.chdir(tmp_path)
+    saved = dict(benchmark_id='bench', savepath=str(tmp_path), max_tol_order=1)
+    benchmark([_visit_start, _visit_step], plibs=['custom'], problem_names=['custom1'], n_jobs=1,
+              max_eval_factor=2, silent=True, draw_hist_plots='none', **saved)
+    capsys.readouterr()
+    load = dict(saved, load='latest', silent=silent)
+    benchmark(None, score_only=True, **load)
+    benchmark(None, score_only=True, problem_names=['NONE'], **load)
+    benchmark(None, **load)
+    progress = capsys.readouterr().out
+    # A warning is printed whatever `silent` says, as in a benchmark run.
+    benchmark(None, score_only=True, draw_hist_plots='sequential', **load)
+    warning = ' '.join(capsys.readouterr().out.split())
+    assert '[WARNING] Since the option "score_only" is true, the requested "draw_hist_plots" mode' in warning
+    messages = ('Loaded experiment successfully.', 'No problem is selected to load',
+                'Since the option "score_only" is true, we will not draw',
+                'Since the option "load" is provided')
+    if silent:
+        assert '[INFO' not in progress, progress
+    else:
+        assert all(message in ' '.join(progress.split()) for message in messages), progress

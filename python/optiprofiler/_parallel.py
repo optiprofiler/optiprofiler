@@ -18,6 +18,18 @@ def worker_context():
     return mp.get_context('spawn')
 
 
+def reject_worker_bootstrap_call():
+    """Refuse a benchmark started while a spawned worker imports ``__main__``."""
+    # CPython sets this flag while a spawn child prepares and imports the main
+    # module; it drives the interpreter's own refusal to start a process then.
+    if getattr(mp.current_process(), '_inheriting', False):
+        raise RuntimeError(
+            'benchmark was called while a worker process was importing the main script. Parallel '
+            'workers (n_jobs > 1) are started with the spawn method and import the script again, so '
+            'an unprotected call would rerun the whole benchmark in every worker. Protect the call '
+            "with `if __name__ == '__main__':`.")
+
+
 def worker_main_available():
     """Whether fresh workers can start from this entry point (unlike stdin)."""
     main = sys.modules.get('__main__')

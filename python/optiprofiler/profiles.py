@@ -8,6 +8,7 @@ import re
 import shutil
 import inspect
 import logging
+import threading
 import time
 import warnings
 from contextlib import redirect_stderr, redirect_stdout
@@ -21,7 +22,7 @@ import numpy as np
 from matplotlib.figure import Figure
 from matplotlib.backends import backend_pdf
 
-from ._parallel import run_tasks, worker_main_available, WorkerArgumentPickler
+from ._parallel import reject_worker_bootstrap_call, run_tasks, worker_main_available, WorkerArgumentPickler
 from .metadata import credential_free_name
 from .opclasses import Feature, Problem, FeaturedProblem
 from .plib_config import _resolve_plib_options
@@ -117,11 +118,36 @@ def _append_quantized_truth_note(feature, is_load, path_report, path_readme):
             stream.write('\n' + note + '\n')
 
 
-def _close_logging_resources(resources):
-    """Close benchmark logging resources once, including on exceptions."""
+_ABORT_LISTENER_TIMEOUT = 5.0
+
+
+def _stop_listener_within(listener, timeout):
+    """Stop a queue listener, giving up after ``timeout`` seconds."""
+    errors = []
+
+    def stop():
+        try:
+            listener.stop()
+        except Exception as exc:
+            errors.append(exc)
+
+    stopper = threading.Thread(target=stop, daemon=True)
+    stopper.start()
+    stopper.join(timeout)
+    return not stopper.is_alive(), errors
+
+
+def _close_logging_resources(resources, aborting=False):
+    """Close benchmark logging resources once, including on exceptions.
+
+    With ``aborting``, workers may have been terminated while holding the log
+    queue's write lock, so the listener sentinel can never be delivered. The
+    listener is then abandoned after a bounded wait instead of joined forever.
+    """
     listener = resources.pop('listener', None)
     log_queue = resources.pop('log_queue', None)
     cleanup_errors = []
+    listener_abandoned = False
     if log_queue is not None:
         root_logger = logging.getLogger()
         for handler in list(root_logger.handlers):
@@ -132,10 +158,15 @@ def _close_logging_resources(resources):
                 except Exception as exc:
                     cleanup_errors.append(exc)
     if listener is not None:
-        try:
-            listener.stop()
-        except Exception as exc:
-            cleanup_errors.append(exc)
+        if aborting:
+            stopped, errors = _stop_listener_within(listener, _ABORT_LISTENER_TIMEOUT)
+            listener_abandoned = not stopped
+            cleanup_errors.extend(errors)
+        else:
+            try:
+                listener.stop()
+            except Exception as exc:
+                cleanup_errors.append(exc)
         for handler in listener.handlers:
             if hasattr(handler, 'close'):
                 try:
@@ -143,6 +174,12 @@ def _close_logging_resources(resources):
                 except Exception as exc:
                     cleanup_errors.append(exc)
     if log_queue is not None:
+        if aborting and hasattr(log_queue, 'cancel_join_thread'):
+            # The feeder thread can be blocked on the same dead writer lock.
+            try:
+                log_queue.cancel_join_thread()
+            except Exception as exc:
+                cleanup_errors.append(exc)
         try:
             log_queue.close()
         except Exception as exc:
@@ -156,6 +193,14 @@ def _close_logging_resources(resources):
         root_logger = logging.getLogger()
         root_logger.handlers[:] = handlers
         root_logger.setLevel(level)
+    if listener_abandoned:
+        warnings.warn(
+            f'The benchmark log listener did not stop within {_ABORT_LISTENER_TIMEOUT:g} seconds after '
+            'the benchmark was interrupted (a terminated worker may have held the log queue); it was '
+            'abandoned, and log records still queued may be missing from the console and any log file.',
+            RuntimeWarning,
+            stacklevel=2,
+        )
     if cleanup_errors and sys.exc_info()[0] is None:
         warnings.warn(
             f'Failed to close one or more benchmark logging resources: '
@@ -487,8 +532,9 @@ def _benchmark(
         Two different colors for the bars of two solvers in the
         log-ratio profiles. It can be a list of short names of colors
         ('r', 'g', 'b', 'c', 'm', 'y', 'k') or a 2-by-3 array with each row
-        being a RGB triplet. Default is set to the first two colors in the
-        'line_colors' option.
+        being a RGB triplet. Default is set to the 'line_colors' option. The
+        bars cycle through the given colors, so with a single color both
+        solvers' bars use it.
     benchmark_id : str, optional
         The identifier of the test. It is used to create the
         specific directory to store the results. Default is 'out' if the
@@ -615,12 +661,17 @@ def _benchmark(
         index of the solver, the second corresponds to the index of tolerance
         starting from 1, the third represents history-based or output-based
         profiles, and the fourth represents performance profiles, data
-        profiles, or log-ratio profiles. The default scoring function takes
+        profiles, or log-ratio profiles. It must return one real score per
+        solver: a vector of length n_solvers (a column or row array with
+        n_solvers entries is flattened to that vector; any other shape raises
+        an error). The default scoring function takes
         the average of the history-based performance profiles under all the
         tolerances.
     score_only : bool, optional
         Whether to only calculate the scores of the solvers
-        without drawing the profiles and saving the data. Default is False.
+        without drawing the profiles and saving the data. Messages are
+        printed to the console as in a saved run (subject to ``silent``),
+        but no log file is written. Default is False.
     plot_options : dict, optional
         Native Matplotlib property mappings for ``figure``, ``axes``, ``xaxis``,
         ``yaxis``, ``xlabel``, ``ylabel``, ``title``, ``text``, ``line`` and
@@ -657,8 +708,9 @@ def _benchmark(
         are displayed in the original ``n_eval / (n + 1)`` units, typically
         ``0, 1, 2, 4, ...``. Default is True.
     silent : bool, optional
-        Whether to show the information of the progress. Default is
-        False.
+        Whether to show the information of the progress. With True, no
+        progress information is printed, also when loading saved results,
+        and 'solver_verbose' is 0. Default is False.
     solver_isrand : list of bool, optional
         Whether the solvers are randomized or not. Default is
         a list of bools of the same length as the number of solvers, where
@@ -671,6 +723,9 @@ def _benchmark(
     solver_verbose : int, optional
         The level of the verbosity of the solvers. 0 means
         no verbosity, 1 means some verbosity, and 2 means full verbosity.
+        With 'silent' True the level is 0, so nothing of a solver is printed,
+        and a level of 1 or 2 is replaced with a warning; a failing solver
+        is still recorded in report.txt and the machine-readable report.
         Default is 1.
     solvers_to_load : list of int, optional
         The indices of the solvers to load when the 'load'
@@ -696,7 +751,11 @@ def _benchmark(
         Note: LaTeX formatting is supported. The same applies to the options
         'xlabel_log_ratio_profile', 'xlabel_performance_profile',
         'ylabel_data_profile', 'ylabel_log_ratio_profile', and
-        'ylabel_performance_profile'.
+        'ylabel_performance_profile'. The text of the x-axis labels is passed
+        to the renderer verbatim. Under LaTeX, write '\\%' for a percent sign:
+        a bare '%' starts a LaTeX comment and cuts the label. Without LaTeX
+        (see 'text.usetex' in the 'rc' group of 'plot_options'), '\\%' keeps
+        its backslash; '$50\\%$' works in both cases.
     xlabel_log_ratio_profile : str, optional
         The label of the x-axis of the log-ratio
         profiles. Default is 'Problem'.
@@ -707,7 +766,13 @@ def _benchmark(
         The label of the y-axis of the data profiles.
         Default is 'Data profiles ($\\mathrm{tol} = %s$)', where '%s' will be
         replaced by the current tolerance in LaTeX format. You can also use
-        '%s' in your custom label, and it will be replaced accordingly. The
+        '%s' in your custom label, and it will be replaced accordingly. Keep
+        '%s' inside '$...$', as the defaults do, because the tolerance is
+        LaTeX math: outside math mode it is literal text such as '10^{-1}'
+        without LaTeX, and it raises a LaTeX error under LaTeX.
+        Only '%s' is a placeholder: '%%' and any other '%' give a literal
+        percent sign, escaped automatically where LaTeX or a '$...$'
+        segment needs it (so '50% solved at $%s$' is a valid label). The
         same applies to the options 'ylabel_log_ratio_profile' and
         'ylabel_performance_profile'.
     ylabel_log_ratio_profile : str, optional
@@ -826,8 +891,8 @@ def _benchmark(
     problem : Problem, optional
         A problem to be benchmarked. It should be an instance of the
         class Problem. If it is provided, we will only run the test on this
-        problem with the given feature and draw the history plots. Default is
-        not to set any problem.
+        problem with the given feature and draw the history plots. It cannot
+        be combined with ``load``. Default is not to set any problem.
 
     Returns
     -------
@@ -960,7 +1025,8 @@ def _benchmark(
     ``if __name__ == '__main__'`` guard is required on every platform when
     ``n_jobs > 1`` (the default on a multi-core machine): parallel workers are
     started with the ``spawn`` method, which imports the script again in each
-    worker.
+    worker. A call reached while a worker imports the script raises a
+    ``RuntimeError`` instead of running the benchmark again.
 
     .. code-block:: python
 
@@ -1074,6 +1140,10 @@ def _benchmark(
 
     # Whether to load the existing results.
     is_load = ProfileOption.LOAD in profile_options and profile_options[ProfileOption.LOAD] is not None
+    if is_load and has_single_problem:
+        raise ValueError('Options `load` and `problem` cannot be used together: `load` replots a saved '
+                         'experiment without running any solver, while `problem` runs the solvers on '
+                         'the given problem.')
     problem_options = check_validity_problem_options(
         problem_options,
         require_available=not is_load,
@@ -1214,15 +1284,13 @@ def _benchmark(
     else:
         path_readme_log = None
 
-    # Save the options and record the log.
-    # Initialize log_queue and listener to None for the case when score_only=True.
-    log_queue = None
-    listener = None
-    if not profile_options[ProfileOption.SCORE_ONLY]:
-        log_file = path_log / 'log.txt'
-        log_queue, listener = setup_main_process_logging(log_file=log_file, level=logging.INFO)
-        logging_resources['log_queue'] = log_queue
-        logging_resources['listener'] = listener
+    # Save the options and record the log. A score_only run has the same
+    # console logging (also for workers), without a log file.
+    log_file = None if profile_options[ProfileOption.SCORE_ONLY] else path_log / 'log.txt'
+    log_queue, listener = setup_main_process_logging(log_file=log_file, level=logging.INFO)
+    logging_resources['log_queue'] = log_queue
+    logging_resources['listener'] = listener
+    if log_file is not None:
         add_to_readme(path_readme_log, 'log.txt', 'File, the log file of the current experiment, recording printed information from the screen.')
 
     if not profile_options[ProfileOption.SCORE_ONLY]:
@@ -1269,10 +1337,7 @@ def _benchmark(
                 print_log_message('WARNING', f'Error message: {shorten_log_message(exc)}')
 
     if many_solver_warning is not None:
-        if listener is not None:
-            logger.warning(many_solver_warning)
-        else:
-            print_log_message('WARNING', many_solver_warning)
+        logger.warning(many_solver_warning)
 
     # Create a README.txt file to explain the content of the folder `path_stamp`.
     if not profile_options[ProfileOption.SCORE_ONLY]:
@@ -1386,7 +1451,11 @@ def _benchmark(
             # Find the least merit value for each run.
             merit_mins = np.full(local_n_runs, np.nan)
             for i_run in range(local_n_runs):
-                merit_mins[i_run] = np.nanmin(merit_history[:, i_run, :])
+                # A run without any valid evaluation is scored 0 below, so
+                # numpy's all-NaN warning about it is only noise.
+                with warnings.catch_warnings():
+                    warnings.simplefilter('ignore', RuntimeWarning)
+                    merit_mins[i_run] = np.nanmin(merit_history[:, i_run, :])
                 merit_mins[i_run] = np.nanmin([merit_mins[i_run], merit_init[i_run]])
             merit_mins = apply_reference_targets(
                 {'reference_records': [result['reference_records']],
@@ -1446,8 +1515,7 @@ def _benchmark(
                 logger.info(format_info_str.format(name, solver_scores[i]))
 
         # Close the listener of the logger before returning.
-        if not profile_options[ProfileOption.SCORE_ONLY]:
-            _close_logging_resources(logging_resources)
+        _close_logging_resources(logging_resources)
         return solver_scores, None, None
 
     # If 'load' option is not specified, we solve all the selected problems.
@@ -1595,8 +1663,7 @@ def _benchmark(
                 logger.info('')
                 logger.info('No problems are selected or solved from any problem library.')
             # Close the listener of the logger before returning.
-            if not profile_options[ProfileOption.SCORE_ONLY]:
-                _close_logging_resources(logging_resources)
+            _close_logging_resources(logging_resources)
             return solver_scores, None, None
 
     # Preserve completed numerical results before report publication and
@@ -1727,10 +1794,34 @@ def _benchmark(
     )
 
     # Close the listener of the logger.
-    if not profile_options[ProfileOption.SCORE_ONLY]:
-        _close_logging_resources(logging_resources)
+    _close_logging_resources(logging_resources)
 
     return solver_scores, profile_scores, curves
+
+
+def _solver_score_vector(value, n_solvers):
+    """Check that a ``score_fun`` result holds exactly one real score per solver."""
+    ragged = (f'Option {ProfileOption.SCORE_FUN.value} must return one score per solver, i.e. a vector '
+              f'of length {n_solvers}; it returned a nested sequence that is not a regular array.')
+    try:
+        # NumPy 1.24+ refuses ragged nested sequences such as [[1.0, 2.0], [3.0]],
+        # also inside an object array; older NumPy builds an object array of rows.
+        scores = np.asarray(value)
+        nested = scores.dtype.kind == 'O' and any(np.ndim(item) > 0 for item in scores.flat)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(ragged) from exc
+    if nested:
+        raise ValueError(ragged)
+    if scores.dtype.kind not in 'iuf':
+        raise TypeError(f'Option {ProfileOption.SCORE_FUN.value} must return real numeric scores, '
+                        f'one per solver; it returned values of type {scores.dtype}.')
+    if scores.shape == (n_solvers,):
+        return value
+    if scores.size == n_solvers and sum(length != 1 for length in scores.shape) == 1:
+        # A column or row vector, such as the result of keepdims=True.
+        return scores.reshape(n_solvers)
+    raise ValueError(f'Option {ProfileOption.SCORE_FUN.value} must return one score per solver, '
+                     f'i.e. a vector of length {n_solvers}; it returned shape {scores.shape}.')
 
 
 def _build_profiles(
@@ -2229,7 +2320,7 @@ def _build_profiles(
 
     # Compute solver_scores using score_fun.
     score_fun = profile_options[ProfileOption.SCORE_FUN]
-    solver_scores = score_fun(profile_scores)
+    solver_scores = _solver_score_vector(score_fun(profile_scores), n_solvers)
     if report is not None:
         report.set_scores(solver_scores, profile_scores, solver_names)
 
@@ -2291,6 +2382,7 @@ def benchmark(
     **kwargs
 ) -> tuple[np.ndarray, np.ndarray | None, list[dict] | None]:
     """Run :func:`_benchmark` and always release its logging resources."""
+    reject_worker_bootstrap_call()
     logging_resources = {}
     report_path = kwargs.pop('report_path', None)
     report = None
@@ -2316,13 +2408,15 @@ def benchmark(
             report.finish()
         return result
     except BaseException as exc:
+        # Cleanup must not replace the original exception or wait forever on a
+        # log queue left locked by a terminated worker.
+        try:
+            _close_logging_resources(logging_resources, aborting=True)
+        except BaseException:
+            pass
         if report is not None:
             # A full disk or failed atomic rename during diagnostics must not
             # replace the original numerical/configuration exception.
-            try:
-                _close_logging_resources(logging_resources)
-            except BaseException:
-                pass
             try:
                 report.finish(error=exc)
             except BaseException:
@@ -2462,11 +2556,12 @@ def _solve_all_problems(solvers, plib, feature, plan, problem_options, profile_o
         # Fresh processes cannot import notebook/REPL-local solver definitions.
         # Decide before any task executes; never replay a failed parallel run.
         sequential_mode = True
-        logger.info(
-            'Falling back to sequential mode because worker processes cannot '
-            'import this entry point. To run in parallel, use a '
-            'Python script with an if __name__ == "__main__" guard.'
-        )
+        if not profile_options[ProfileOption.SILENT]:
+            logger.info(
+                'Falling back to sequential mode because worker processes cannot '
+                'import this entry point. To run in parallel, use a '
+                'Python script with an if __name__ == "__main__" guard.'
+            )
 
     # Fall back to sequential mode if the arguments cannot be pickled (e.g.,
     # when the user passes lambda functions as solvers or feature modifiers).
@@ -2488,25 +2583,28 @@ def _solve_all_problems(solvers, plib, feature, plan, problem_options, profile_o
             WorkerArgumentPickler.dumps(sample_arg)
         except Exception as exc:
             sequential_mode = True
-            logger.info(
-                'Falling back to sequential mode because worker processes cannot '
-                'serialize or import the benchmark arguments: '
-                f'{shorten_log_message(exc)} Use top-level functions in an '
-                'importable module to enable parallel execution.'
-            )
+            if not profile_options[ProfileOption.SILENT]:
+                logger.info(
+                    'Falling back to sequential mode because worker processes cannot '
+                    'serialize or import the benchmark arguments: '
+                    f'{shorten_log_message(exc)} Use top-level functions in an '
+                    'importable module to enable parallel execution.'
+                )
 
     # Solve all problems.
     args = [(solvers, feature, plan, problem_name, len_problem_names, profile_options_log, is_plot, path_hist_plots, library_ref, library_options) for problem_name in problem_names]
     if sequential_mode:
         results = map(lambda arg: _solve_one_problem_wrapper(*arg), args)
     else:
-        logger.info('Entering the parallel section.')
+        if not profile_options[ProfileOption.SILENT]:
+            logger.info('Entering the parallel section.')
         results = run_tasks(_solve_one_problem_wrapper, args,
                             profile_options[ProfileOption.N_JOBS],
                             _initialize_problem_library_worker,
                             (library_ref, setup_worker_logging, (log_queue,),
                              _problem_library_worker_package(library_ref)))
-        logger.info('Leaving the parallel section.')
+        if not profile_options[ProfileOption.SILENT]:
+            logger.info('Leaving the parallel section.')
 
     # Keep load failures observable before the legacy aggregate discards them.
     # Scalar facts and bounded prepared plot arrays cross the process boundary,
@@ -2527,7 +2625,8 @@ def _solve_all_problems(solvers, plib, feature, plan, problem_options, profile_o
     n_problems = len(results)
 
     if n_problems == 0:
-        logger.info(f'All problems from "{plib}" are not solved successfully.')
+        if not profile_options[ProfileOption.SILENT]:
+            logger.info(f'All problems from "{plib}" are not solved successfully.')
         return None
 
     # Process the results.
@@ -2622,6 +2721,7 @@ def _solve_all_problems(solvers, plib, feature, plan, problem_options, profile_o
     results['solver_output_fallbacks'] = solver_output_fallbacks
     results['reference_records'] = [r['reference_records'] for r in completed_results]
     results['reference_fallback_reasons'] = [r['reference_fallback_reasons'] for r in completed_results]
+    results['reference_history_failures'] = [r['reference_history_failures'] for r in completed_results]
 
     return results
 
@@ -3102,6 +3202,10 @@ def _solve_one_problem(solvers, problem, feature, plan, problem_name, len_proble
         'maxcv_init': maxcv_inits,
         'reference_records': json.dumps(reference_records, allow_nan=False),
         'reference_fallback_reasons': json.dumps(reference_fallback_reasons, allow_nan=False),
+        # Archived for the report of a later load (actual trials only).
+        'reference_history_failures': json.dumps(
+            [{key: failure[key] for key in ('solver_index', 'run_index', 'exception_type')}
+             for failure in reference_history_failures]),
         'n_eval': n_eval,
         'problem_name': problem_name,
         'problem_type': problem_type,
@@ -3128,6 +3232,7 @@ def _solve_one_problem(solvers, problem, feature, plan, problem_name, len_proble
     if not is_plot or path_hist_plots is None or profile_options[ProfileOption.SCORE_ONLY] or all(not success for success in solvers_success.flatten()):
         return result
     
+    merit_failed = False
     try:
         merit_fun = profile_options[ProfileOption.MERIT_FUN]
         try:
@@ -3136,6 +3241,7 @@ def _solve_one_problem(solvers, problem, feature, plan, problem_name, len_proble
             merit_history = compute_merit_values(merit_fun, fun_history, maxcv_history, maxcv_inits)
             merit_init = compute_merit_values(merit_fun, fun_inits, maxcv_inits, maxcv_inits)
         except Exception as exc:
+            merit_failed = True
             _log_merit_failure(logger, exc)
             raise exc
 
@@ -3159,8 +3265,9 @@ def _solve_one_problem(solvers, problem, feature, plan, problem_name, len_proble
                  'exception_type': type(exc).__name__})
         if not profile_options[ProfileOption.SILENT]:
             logger.info(f'An error occurred while plotting the history plots of the problem {problem_name}.')
-            logger.info(f'Error message: {shorten_log_message(exc)}')
-        pass
+            # A merit failure has already logged its cause.
+            if not merit_failed:
+                logger.info(f'Error message: {shorten_log_message(exc)}')
     
     return result
 
@@ -3204,12 +3311,14 @@ def _draw_problem_history_plot(problem_name, problem_type, problem_dim, solver_n
     if path_hist_plots is None or all(not success for success in solvers_success.flatten()):
         return
     
+    merit_failed = False
     try:
         merit_fun = profile_options[ProfileOption.MERIT_FUN]
         try:
             merit_history = compute_merit_values(merit_fun, fun_history, maxcv_history, maxcv_init)
             merit_init = compute_merit_values(merit_fun, fun_init, maxcv_init, maxcv_init)
         except Exception as exc:
+            merit_failed = True
             _log_merit_failure(logger, exc)
             raise exc
 
@@ -3224,5 +3333,7 @@ def _draw_problem_history_plot(problem_name, problem_type, problem_dim, solver_n
     except Exception as exc:
         if not profile_options[ProfileOption.SILENT]:
             logger.info(f'An error occurred while plotting the history plots of the problem {problem_name}.')
-            logger.info(f'Error message: {shorten_log_message(exc)}')
+            # A merit failure has already logged its cause.
+            if not merit_failed:
+                logger.info(f'Error message: {shorten_log_message(exc)}')
         return {'exception_type': type(exc).__name__}

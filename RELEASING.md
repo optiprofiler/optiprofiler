@@ -73,8 +73,11 @@ Before tagging, also settle these prerequisites:
   the exact-SHA source installation (see the Python problem-library guide) and
   must not present `pip install optiprofiler-<provider>` as available.
 - The wheel and sdist ship the S2MPJ licence and notice with the bundled
-  subset, and the sdist also ships `THIRD_PARTY_NOTICES.md` and `licenses/`
-  (enforced by `tools/check_release.py`). The core package metadata lists only
+  subset, and the sdist also ships `THIRD_PARTY_NOTICES.md`, `licenses/` and
+  `problem_libraries.lock` (enforced by `tools/check_release.py`). Both
+  artifacts record the bundled S2MPJ revision in
+  `optiprofiler/problem_libs/bundled_revisions.json`; the checker requires it
+  to repeat the lock's bundled entry and the gitlink of the checkout. The core package metadata lists only
   the OptiProfiler `LICENSE`; PEP 639 `license-files` needs setuptools 77 or
   later (Python 3.9 or later), so adopt it when Python 3.8 support ends.
 

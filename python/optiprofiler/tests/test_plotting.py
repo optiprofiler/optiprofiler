@@ -30,6 +30,15 @@ from optiprofiler.plotting import (
 from optiprofiler.utils import ProfileOption
 
 
+def _missing_usetex_tools():
+    """The tools that the Agg backend needs to draw usetex text here and that are not installed."""
+    # Agg always rasterized TeX through dvipng before text.latex.engine existed.
+    tools = ['latex']
+    if matplotlib.rcParams.get('text.latex.engine', 'latex+dvipng') == 'latex+dvipng':
+        tools.append('dvipng')
+    return [tool for tool in tools if shutil.which(tool) is None]
+
+
 def _legend_column_count(legend):
     # Matplotlib 3.5 stores the same column count as _ncol; later releases
     # renamed it _ncols. Keep the exact layout assertions on both versions.
@@ -157,7 +166,9 @@ class TestLatexEscapeText:
         fig.canvas.draw()
         plt.close(fig)
 
-    @pytest.mark.skipif(shutil.which('latex') is None, reason='LaTeX is not installed')
+    @pytest.mark.skipif(bool(_missing_usetex_tools()),
+                        reason=f'Matplotlib {matplotlib.__version__} draws usetex text on Agg with tools that '
+                               f'are not installed: {", ".join(_missing_usetex_tools())}')
     def test_escaped_solver_label_can_be_drawn_with_usetex(self):
         with plt.rc_context({'text.usetex': True}):
             fig, ax = plt.subplots()
@@ -344,6 +355,98 @@ class TestGetLogRatioProfileAxes:
         ylim = ax.get_ylim()
         assert np.all(np.isfinite(ylim))
         plt.close(fig)
+
+    def test_one_bar_color_serves_both_solvers(self):
+        # Problem 1 favours the first solver, problem 2 the second, and both
+        # fail problem 3, so every bar group is drawn.
+        work = np.array([[[1.0], [4.0]], [[4.0], [1.0]], [[np.nan], [np.nan]]])
+        x, y, ratio_max, n_solvers_fail, _ = _get_log_ratio_profile_axes(work, self._make_curves())
+        fig, ax = plt.subplots()
+        _draw_log_ratio_profiles(ax, x, y, ratio_max, n_solvers_fail, ['s1', 's2'],
+                                 {ProfileOption.BAR_COLORS: ['r']})
+        colors = {tuple(patch.get_facecolor()[:3]) for patch in ax.patches if patch.get_height() != 0}
+        assert colors == {(1.0, 0.0, 0.0)}
+        assert sum(1 for patch in ax.patches if patch.get_height() > 0) >= 1
+        plt.close(fig)
+
+
+class TestFormatToleranceLabel:
+
+    @pytest.mark.parametrize('template, plain, latex', [
+        ('Data profiles ($\\mathrm{tol} = %s$)', 'Data profiles ($\\mathrm{tol} = T$)',
+         'Data profiles ($\\mathrm{tol} = T$)'),
+        ('50% solved at $%s$', '50% solved at $T$', '50\\% solved at $T$'),
+        ('100%% at $%s$', '100% at $T$', '100\\% at $T$'),
+        ('$50%$ at $%s$', '$50\\%$ at $T$', '$50\\%$ at $T$'),
+        ('kept \\% and \\$ at %s', 'kept \\% and \\$ at T', 'kept \\% and \\$ at T'),
+        ('Fraction (%) %d', 'Fraction (%) %d', 'Fraction (\\%) \\%d'),
+        ('no placeholder', 'no placeholder', 'no placeholder'),
+    ])
+    def test_only_the_placeholder_is_substituted(self, template, plain, latex):
+        from optiprofiler.plotting import format_tolerance_label
+        assert format_tolerance_label(template, 'T', False) == plain
+        assert format_tolerance_label(template, 'T', True) == latex
+
+    @pytest.mark.parametrize('usetex', [False, pytest.param(True, marks=pytest.mark.skipif(
+        not shutil.which('latex'), reason='LaTeX rendering needs a latex executable'))])
+    def test_formatted_labels_render(self, tmp_path, usetex):
+        from matplotlib.figure import Figure
+        from optiprofiler.plotting import format_tolerance_label
+        templates = ['50% solved at $%s$', '100%% at $%s$', '$50%$ at $%s$', 'Fraction (%)']
+        with matplotlib.rc_context({'text.usetex': usetex}):
+            for template in templates:
+                figure = Figure()
+                figure.subplots().set_ylabel(format_tolerance_label(template, '10^{-1}', usetex))
+                figure.savefig(tmp_path / 'label.pdf')
+
+
+def test_percent_in_ylabel_templates_reaches_the_saved_profiles(tmp_path):
+    from optiprofiler import benchmark
+    benchmark([_palette_first, _palette_second], plibs=['custom'], problem_names=['custom1'],
+              n_jobs=1, max_eval_factor=2, max_tol_order=1, savepath=str(tmp_path), silent=True,
+              draw_hist_plots='none', summarize_log_ratio_profiles=True,
+              ylabel_performance_profile='50% solved at $%s$',
+              ylabel_data_profile='Solved (%%) at $%s$', ylabel_log_ratio_profile='$100%$ ratio')
+    assert len(list(tmp_path.rglob('summary_*.pdf'))) == 1
+    assert len(list(tmp_path.rglob('perf_hist_1.pdf'))) == 1
+
+
+_PALETTE_LIBRARY = '''from optiprofiler import Problem
+def palette_select(options): return ['FIRST', 'SECOND']
+def palette_load(name):
+    return Problem(lambda x: float(x @ x), [1.0, 1.0] if name == 'FIRST' else [-1.0, -1.0], name=name)
+'''
+
+
+def _palette_first(fun, x0):
+    fun(x0)
+    if x0[0] > 0:
+        fun(np.zeros_like(x0))
+        return np.zeros_like(x0)
+    return x0
+
+
+def _palette_second(fun, x0):
+    fun(x0)
+    if x0[0] < 0:
+        fun(np.zeros_like(x0))
+        return np.zeros_like(x0)
+    return x0
+
+
+@pytest.mark.parametrize('palette', [{'line_colors': ['k'], 'line_styles': ['-', '--']},
+                                     {'bar_colors': 'r'}])
+def test_one_colour_palette_draws_two_solver_log_ratio_profiles(tmp_path, palette):
+    from optiprofiler import benchmark
+    library = tmp_path / 'libraries' / 'palette'
+    library.mkdir(parents=True)
+    (library / 'palette_tools.py').write_text(_PALETTE_LIBRARY)
+    benchmark([_palette_first, _palette_second], plibs=['palette'],
+              custom_problem_libs_path=str(tmp_path / 'libraries'), n_jobs=1, max_eval_factor=2,
+              max_tol_order=1, savepath=str(tmp_path), silent=True, draw_hist_plots='none',
+              summarize_log_ratio_profiles=True, **palette)
+    assert len(list(tmp_path.rglob('log-ratio_hist_1.pdf'))) == 1
+    assert len(list(tmp_path.rglob('log-ratio_out_1.pdf'))) == 1
 
 
 class TestDrawProfiles:
