@@ -37,7 +37,7 @@ There will be a new folder named ``out`` in the current working directory, which
    Figure 1: Screenshot of the subfolder containing detailed results of the benchmarking run.
 
 Additionally, a PDF file named ``summary.pdf`` is generated, summarizing all the performance profiles and data profiles.
-OptiProfiler never replaces a ``summary.pdf`` that it did not write there; see
+OptiProfiler never replaces a ``summary.pdf`` there without a matching record; see
 *MATLAB output robustness* below.
 
 .. figure:: images/mat_summary_pdf.jpg

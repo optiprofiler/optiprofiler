@@ -19,13 +19,16 @@ On macOS and Linux, OptiProfiler also supports saving without a JVM:
 * The combined ``summary.pdf`` of the latest runs in ``savepath/benchmark_id``
   (the working directory for a ``load`` with the default ``benchmark_id``)
   is written only if no file of that name exists there or if the existing
-  one is still the file OptiProfiler wrote, which it records in the hidden
-  file ``.summary.pdf.optiprofiler`` beside it. Any other ``summary.pdf``,
-  including one written by an earlier version, is left unchanged with a
-  warning, and the report adds the ``rendering`` diagnostic
+  one is still the file OptiProfiler wrote. The hidden file
+  ``.summary.pdf.optiprofiler`` beside it records a SHA-256 of that file, or
+  its size and modification time where no hash is available (no JVM and
+  neither ``sha256sum`` nor ``shasum``). Any other ``summary.pdf`` is left
+  unchanged with a warning, and the report adds the ``rendering`` diagnostic
   ``summary_pdf_not_owned``; the summary of each run remains in its own
-  experiment directory. Move such a file away to let OptiProfiler maintain
-  the combined summary again.
+  experiment directory. Move or delete such a file to let OptiProfiler
+  maintain the combined summary again.
+* Release note for 2.0: a ``summary.pdf`` written by an earlier version has no
+  such record, so it is left unchanged until you move or delete it.
 * With ``report_path``, every SVG fallback makes the report's rendering
   stage ``partial`` instead of ``completed`` and adds a ``rendering``
   diagnostic: ``native_graphics_unavailable``, ``native_profile_render_failed``,

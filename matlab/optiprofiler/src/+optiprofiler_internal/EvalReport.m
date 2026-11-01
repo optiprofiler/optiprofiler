@@ -1023,6 +1023,11 @@ classdef EvalReport < handle
             value = optiprofiler_internal.EvalReport.configuration(value);
             text = jsonencode(optiprofiler_internal.EvalReport.safe(value));
         end
+        function hash = sha256(path)
+        %SHA256 Hexadecimal SHA-256 of a regular file that is not a link. It
+        % raises where no hash is available: no JVM, sha256sum or shasum.
+            [~, hash] = optiprofiler_internal.EvalReport.digest(path);
+        end
         function yes = isLink(path)
         %ISLINK True for a symbolic link and, on Windows, for a junction or any
         % other reparse point that redirects the name. Reparse points that keep

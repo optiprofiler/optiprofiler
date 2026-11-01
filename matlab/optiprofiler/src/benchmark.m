@@ -2191,9 +2191,9 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
         if ~publish_aggregate
             % For example, a load from a working directory that holds the
             % user's own summary.pdf. Leave that file untouched.
-            printOptiProfilerMessage('WARNING', sprintf(['%s was not written by OptiProfiler, so it is left unchanged and ', ...
-                'the combined summary of the latest runs is not updated. Move it away to let OptiProfiler maintain it. ', ...
-                'The summary of this run is in %s.'], path_aggregate, path_stamp));
+            printOptiProfilerMessage('WARNING', sprintf(['%s has no matching OptiProfiler record and may be a user file, so ', ...
+                'it is left unchanged and the combined summary of the latest runs is not updated. Move or delete it to let ', ...
+                'OptiProfiler maintain it again. The summary of this run is in %s.'], path_aggregate, path_stamp));
             if ~isempty(eval_report), eval_report.recordRendering('failed', struct('scope', 'summary_pdf_aggregate'), 'summary_pdf_not_owned'); end
         end
         try
@@ -2420,12 +2420,21 @@ function managed = isManagedSummary(aggregate)
     try
         record = strsplit(strtrim(fileread(summaryRecordFile(aggregate))), newline);
         info = dir(aggregate);
-        managed = isscalar(info) && ~info.isdir && numel(record) == 3 && ...
-            strcmp(record{1}, 'OptiProfiler summary.pdf aggregate') && ...
-            strcmp(record{2}, sprintf('bytes=%d', info.bytes)) && ...
-            strcmp(record{3}, sprintf('datenum=%.17g', info.datenum));
+        managed = isscalar(info) && ~info.isdir && strcmp(record{1}, 'OptiProfiler summary.pdf aggregate') && ...
+            (isequal(record(2:end), {['sha256=', summaryHash(aggregate)]}) || ...
+            isequal(record(2:end), {sprintf('bytes=%d', info.bytes), sprintf('datenum=%.17g', info.datenum)}));
     catch
         managed = false;
+    end
+end
+
+function hash = summaryHash(aggregate)
+    % Empty where no hash is available. The record then holds the size and
+    % the modification time, as the records of earlier builds do.
+    try
+        hash = optiprofiler_internal.EvalReport.sha256(aggregate);
+    catch
+        hash = '';
     end
 end
 
@@ -2437,9 +2446,14 @@ function recordManagedSummary(aggregate)
     fid = -1;
     try
         info = dir(aggregate);
+        hash = summaryHash(aggregate);
         fid = fopen(staging, 'w');
         assert(fid >= 0, 'OptiProfiler:SummaryRecord', 'Cannot write %s.', staging);
-        fprintf(fid, 'OptiProfiler summary.pdf aggregate\nbytes=%d\ndatenum=%.17g\n', info.bytes, info.datenum);
+        if isempty(hash)
+            fprintf(fid, 'OptiProfiler summary.pdf aggregate\nbytes=%d\ndatenum=%.17g\n', info.bytes, info.datenum);
+        else
+            fprintf(fid, 'OptiProfiler summary.pdf aggregate\nsha256=%s\n', hash);
+        end
         closed = fclose(fid);
         fid = -1;
         assert(closed == 0, 'OptiProfiler:SummaryRecord', 'Cannot close %s.', staging);

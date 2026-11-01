@@ -202,6 +202,47 @@ classdef TestExperimentIdentity < matlab.unittest.TestCase
             testCase.verifyEqual(TestExperimentIdentity.readBytes('summary.pdf'), user_bytes(:));
         end
 
+        function aggregateRecordIdentifiesTheContent(testCase)
+            % The record held the size and the time, which a same-size file
+            % of the same second matches and touch, cp -r or rsync lose.
+            TestLoadReplot.makeExperiment(pwd, '.', 2, 1);
+            options = struct('load', '20200101_000000', 'max_tol_order', 1, 'silent', true, ...
+                'draw_hist_plots', 'none', 'summarize_data_profiles', false);
+            record_file = '.summary.pdf.optiprofiler';
+            benchmark(options);
+            record = strsplit(strtrim(fileread(record_file)), newline);
+            testCase.verifyEqual(numel(record), 2);
+            testCase.verifyMatches(record{2}, '^sha256=[0-9a-f]{64}$');
+            % The same content under a new time stays OptiProfiler's file.
+            published = TestExperimentIdentity.readBytes('summary.pdf');
+            pause(1.1);
+            TestExperimentIdentity.writeBytes('summary.pdf', published);
+            text = evalc('benchmark(options);');
+            testCase.verifyEmpty(strfind(text, 'no matching'));
+            testCase.verifyNotEqual(TestExperimentIdentity.readBytes('summary.pdf'), published);
+            % Other content of the same size in the same second does not.
+            published = TestExperimentIdentity.readBytes('summary.pdf');
+            info = dir('summary.pdf');
+            published(end) = bitxor(published(end), uint8(1));
+            TestExperimentIdentity.writeBytes('summary.pdf', published);
+            testCase.verifyEqual(dir('summary.pdf').bytes, info.bytes);
+            text = regexprep(evalc('benchmark(options);'), '\s+', ' ');
+            testCase.verifySubstring(text, 'has no matching OptiProfiler record and may be a user file');
+            testCase.verifySubstring(text, 'Move or delete it');
+            testCase.verifyEqual(TestExperimentIdentity.readBytes('summary.pdf'), published);
+            % A record of an earlier build is still read and is replaced.
+            delete('summary.pdf');
+            benchmark(options);
+            published = TestExperimentIdentity.readBytes('summary.pdf');
+            info = dir('summary.pdf');
+            fid = fopen(record_file, 'w');
+            fprintf(fid, 'OptiProfiler summary.pdf aggregate\nbytes=%d\ndatenum=%.17g\n', info.bytes, info.datenum);
+            fclose(fid);
+            benchmark(options);
+            testCase.verifyNotEqual(TestExperimentIdentity.readBytes('summary.pdf'), published);
+            testCase.verifySubstring(fileread(record_file), 'sha256=');
+        end
+
         function aggregateFollowsStringPathOptions(testCase)
             % A string savepath or benchmark_id reached the concatenation of
             % the record path, so the record was never written and the second
