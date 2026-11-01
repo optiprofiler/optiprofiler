@@ -108,6 +108,9 @@ def test_shipped_revision_record_must_repeat_the_bundled_lock_entry(tmp_path):
     "declaration, message",
     [
         ("_BUNDLED_PROBLEM_LIBRARIES = ('custom', 's2mpj_python')", "missing from _BUNDLED_PROBLEM_LIBRARIES"),
+        ("_BUNDLED_PROBLEM_LIBRARIES = (\n    'custom',\n    # 's2mpj',\n)", "missing from _BUNDLED_PROBLEM_LIBRARIES"),
+        ("_BUNDLED_PROBLEM_LIBRARIES = ['custom', 's2mpj']", "Cannot find _BUNDLED_PROBLEM_LIBRARIES"),
+        ("_BUNDLED_PROBLEM_LIBRARIES = tuple(['custom', 's2mpj'])", "Cannot find _BUNDLED_PROBLEM_LIBRARIES"),
         ("", "Cannot find _BUNDLED_PROBLEM_LIBRARIES"),
     ],
 )
@@ -120,6 +123,17 @@ def test_bundled_default_must_be_declared_by_the_core(tmp_path, monkeypatch, dec
 
     with pytest.raises(checker.LockError, match=message):
         checker.validate_lock()
+
+
+def test_a_comment_in_the_bundled_tuple_is_not_part_of_it(tmp_path, monkeypatch):
+    checker = _load_checker()
+    core = tmp_path / "problem_libraries.py"
+    declaration = "_BUNDLED_PROBLEM_LIBRARIES = (  # kept (in step) with the lock\n    'custom',\n    's2mpj',\n)"
+    source = checker.CORE_PROTOCOL.read_text(encoding="utf-8")
+    core.write_text(BUNDLED_DECLARATION.sub(declaration, source), encoding="utf-8")
+    monkeypatch.setattr(checker, "CORE_PROTOCOL", core)
+
+    checker.validate_lock()
 
 
 def test_integration_workflow_covers_the_shipped_revision_record():

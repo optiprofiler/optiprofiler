@@ -7,6 +7,7 @@ entry-point protocol rather than reading this file at runtime.
 """
 
 import argparse
+import ast
 from importlib import metadata
 import json
 from pathlib import Path
@@ -91,11 +92,25 @@ def _core_api_version():
 
 
 def _core_bundled_libraries():
-    source = _core_protocol_source()
-    match = re.search(r"^_BUNDLED_PROBLEM_LIBRARIES\s*=\s*\(([^)]*)\)", source, re.MULTILINE)
-    if match is None:
-        raise LockError(f"Cannot find _BUNDLED_PROBLEM_LIBRARIES in {CORE_PROTOCOL}.")
-    return set(re.findall(r"""['"]([^'"]+)['"]""", match.group(1)))
+    try:
+        tree = ast.parse(_core_protocol_source())
+        values = [
+            node.value
+            for node in tree.body
+            if isinstance(node, ast.Assign)
+            and any(
+                isinstance(target, ast.Name) and target.id == "_BUNDLED_PROBLEM_LIBRARIES"
+                for target in node.targets
+            )
+        ]
+        names = ast.literal_eval(values[0]) if len(values) == 1 else None
+    except (SyntaxError, ValueError):
+        names = None
+    if not isinstance(names, tuple) or not all(isinstance(name, str) for name in names):
+        raise LockError(
+            f"Cannot find _BUNDLED_PROBLEM_LIBRARIES in {CORE_PROTOCOL} as one literal tuple of names."
+        )
+    return set(names)
 
 
 def _index_gitlink(path):
