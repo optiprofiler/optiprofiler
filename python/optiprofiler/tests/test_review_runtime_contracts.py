@@ -445,7 +445,7 @@ def test_load_replays_archived_reference_history_failures(tmp_path, monkeypatch,
 
 
 @pytest.mark.parametrize('damage', ['not_json', 'wrong_keys', 'solver_out_of_range', 'not_one_entry_per_problem',
-                                    'deep_nesting', 'ragged_pickled_list'])
+                                    'deep_nesting', 'ragged_pickled_list', 'zero_dimensional_pickled_array'])
 def test_load_tolerates_a_damaged_reference_history_field(tmp_path, monkeypatch, damage):
     import h5py
     from optiprofiler.eval_report import schema_for_document, schema_resource
@@ -458,12 +458,12 @@ def test_load_tolerates_a_damaged_reference_history_field(tmp_path, monkeypatch,
     damaged = {'not_json': ['{broken'], 'wrong_keys': ['[{"solver": 1}]'],
                'solver_out_of_range': ['[{"solver_index": 9, "run_index": 1, "exception_type": "ValueError"}]'],
                'not_one_entry_per_problem': ['[]', '[]'], 'deep_nesting': ['[' * 200000],
-               'ragged_pickled_list': [['a', 'b'], ['c']]}[damage]
+               'ragged_pickled_list': [['a', 'b'], ['c']], 'zero_dimensional_pickled_array': np.array(5)}[damage]
     (archive,) = tmp_path.glob('saved/*/test_log/data_for_loading.h5')
     with h5py.File(archive, 'r+') as stream:
         group = stream['plib_0']
         del group['reference_history_failures']
-        if damage == 'ragged_pickled_list':
+        if 'pickled' in damage:
             group.create_dataset('reference_history_failures_pickled', data=np.void(pickle.dumps(damaged)))
         else:
             group.create_dataset('reference_history_failures', data=np.array(damaged, dtype=h5py.special_dtype(vlen=str)))
