@@ -155,6 +155,13 @@ classdef Problem < handle
 %       - project_x0: trying to project the initial guess `x0` onto the
 %         feasible region if it is not feasible (but it may fail).
 %
+%   The constructor refuses malformed constraint data. Data assigned to an
+%   existing object, as in `p.xl = [Inf; Inf]`, are not checked at the
+%   assignment, because a setter that raises would make `load` drop the data of
+%   a saved object without an error. They are checked when a trial is built:
+%   `benchmark` and `FeaturedProblem` refuse them. The object itself does not
+%   check them, so `p.maxcv(x)` measures what it holds and can return 0.
+%
 
 
     properties (GetAccess = public, SetAccess = public)

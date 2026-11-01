@@ -53,6 +53,13 @@ classdef TestConstraintMetadata < matlab.unittest.TestCase
             end
         end
 
+        function laterAssignmentIsNotCheckedByTheObjectItself(testCase)
+            % The help of Problem says so: nothing refuses this before a trial.
+            problem = Problem(struct('fun', testCase.Sphere, 'x0', [0; 0], 'xu', [1; 1]));
+            problem.xl = [Inf; Inf];
+            testCase.verifyEqual(problem.maxcv([0; 0]), 0);
+        end
+
         function malformedProblemInAFileLoadsAsItWasAndIsRefusedWhenUsed(testCase)
             % A setter that refused it would drop the property on load, and
             % the problem would come back without its bound.

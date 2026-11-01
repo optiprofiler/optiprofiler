@@ -109,3 +109,5 @@ Other methods:
     - **maxcv**: the maximum constraint violation ``maxcv(x) -> float``, which is defined as the maximum of the infinity norms of ``max(xl - x, 0)``, ``max(x - xu, 0)``, ``max(aub * x - bub, 0)``, ``aeq * x - beq``, ``max(cub(x), 0)``, ``ceq(x)``.
 
     - **project_x0**: trying to project the initial guess ``x0`` onto the feasible region if it is not feasible (but it may fail).
+
+The constructor refuses malformed constraint data. Data assigned to an existing object, as in ``p.xl = [Inf; Inf]``, are not checked at the assignment, because a setter that raises would make ``load`` drop the data of a saved object without an error. They are checked when a trial is built: ``benchmark`` and ``FeaturedProblem`` refuse them. The object itself does not check them, so ``p.maxcv(x)`` measures what it holds and can return 0.
