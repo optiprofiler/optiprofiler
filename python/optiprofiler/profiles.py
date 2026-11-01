@@ -196,7 +196,7 @@ def _close_logging_resources(resources, aborting=False):
         warnings.warn(
             f'The benchmark log listener did not stop within {_ABORT_LISTENER_TIMEOUT:g} seconds after '
             'the benchmark was interrupted (a terminated worker may have held the log queue); it was '
-            'abandoned, and log records still queued may be missing from the console and log.txt.',
+            'abandoned, and log records still queued may be missing from the console and any log file.',
             RuntimeWarning,
             stacklevel=2,
         )

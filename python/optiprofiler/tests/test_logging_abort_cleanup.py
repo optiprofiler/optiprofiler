@@ -57,6 +57,8 @@ def check_child(case, folder):
         if case == 'abort':
             assert elapsed < 15, elapsed
             assert any('did not stop within' in message for message in messages), messages
+            # A score_only run has no log file, so the warning must not name one.
+            assert not any('log.txt' in message for message in messages), messages
         else:
             # A healthy queue stops promptly: no abandoned listener.
             assert elapsed < 5 and not messages, (elapsed, messages)
