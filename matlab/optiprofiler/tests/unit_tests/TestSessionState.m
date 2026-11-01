@@ -150,11 +150,41 @@ classdef TestSessionState < matlab.unittest.TestCase
                 TestSessionState.runEither(solvers, options);
                 testCase.verifyFalse(TestSessionState.onPath(testCase.Root));
                 testCase.verifyTrue(TestSessionState.onPath(solver_folder));
-                % A root already on the caller's path stays there.
-                addpath(testCase.Root);
-                TestSessionState.runEither(solvers, options);
-                testCase.verifyTrue(TestSessionState.onPath(testCase.Root));
+                % A root already on the caller's path stays there, in its place.
+                addpath(testCase.Root, '-end');
+                before = path;
+                TestSessionState.runEither({@TestSessionState.step, @TestSessionState.step}, options);
+                testCase.verifyEqual(path, before);
             end
+        end
+
+        function foldersAddedUnderALibraryRootAreRemoved(testCase)
+            % An adapter may add folders of its own, as the bundled S2MPJ does.
+            root = fullfile(testCase.WorkDir, 'adapterlib');
+            folders = {fullfile(root, 'src'), fullfile(root, 'src', 'problems')};
+            mkdir(folders{2});
+            TestSessionState.writeFile(fullfile(root, 'adapterlib_select.m'), ...
+                sprintf('function names = adapterlib_select(~)\n names = {''Q1''};\nend\n'));
+            TestSessionState.writeFile(fullfile(root, 'adapterlib_load.m'), sprintf(['function p = adapterlib_load(name)\n', ...
+                ' addpath(fullfile(fileparts(mfilename(''fullpath'')), ''src''));\n', ...
+                ' addpath(fullfile(fileparts(mfilename(''fullpath'')), ''src'', ''problems''));\n', ...
+                ' p = Problem(struct(''fun'', @(x) sum(x.^2), ''x0'', 2, ''name'', name));\nend\n']));
+            registerProblemLibrary(struct('name', 'adapterlib', 'root', root, ...
+                'select_function', 'adapterlib_select', 'load_function', 'adapterlib_load'));
+            options = TestSessionState.runOptions('adapter', 'score_only', true);
+            options.plibs = {'adapterlib'};
+            if TestSessionState.onPath(root), rmpath(root); end
+            before = path;
+            for failing = [false, true]
+                if failing, options.merit_fun = @TestSessionState.failingMerit; end
+                TestSessionState.runEither({@TestSessionState.step, @TestSessionState.step}, options);
+                testCase.verifyEqual(path, before);
+            end
+            % With the root on the caller's path, only the adapter's folders go.
+            addpath(root, '-end');
+            before = path;
+            TestSessionState.runEither({@TestSessionState.step, @TestSessionState.step}, options);
+            testCase.verifyEqual(path, before);
         end
     end
 end

@@ -161,8 +161,9 @@ being treated as an empty or unfiltered selection. OptiProfiler restores the
 caller's warning settings on success and exceptions. It also restores the
 caller's diary (its on/off state and ``DiaryFile``) after writing
 ``test_log/log.txt``, the ``groot`` axes font defaults it sets while drawing
-(a default the caller had not set is removed again), and removes from the
-path the problem-library roots that it added; other path entries, for
+(a default the caller had not set is removed again), and the order of the
+caller's path. It removes from the path the problem-library roots that it
+added and the folders added under a library root; other path entries, for
 example those added by a solver, are kept. It borrows an existing
 parallel pool without deleting or resizing it. A smaller existing pool may
 use fewer workers than ``n_jobs``; this changes throughput, not the requested

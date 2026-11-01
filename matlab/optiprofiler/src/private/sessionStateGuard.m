@@ -4,10 +4,12 @@ function guard = sessionStateGuard()
 %   defaults that benchmark sets and the MATLAB path. When GUARD is destroyed
 %   (the caller returns or raises), it closes the experiment diary and
 %   restores the caller's diary, restores those root defaults (removing a
-%   default the caller had not set), and removes the problem-library roots
-%   that were added to the path in between. Other path entries added in
-%   between, for example by a solver, are kept. The guard MUST remain a local
-%   variable of the caller.
+%   default the caller had not set), removes the problem-library roots and the
+%   folders under a library root that were added to the path in between, and
+%   restores the order of the caller's entries, which adding a root that is
+%   already on the path changes. Other path entries added in between, for
+%   example by a solver, are kept. The guard MUST remain a local variable of
+%   the caller.
 
     state.diary = get(0, 'Diary');
     state.diary_file = get(0, 'DiaryFile');
@@ -46,16 +48,34 @@ function restore(state)
         end
     end
     try
-        added = setdiff(strsplit(path, pathsep), state.path);
-        if ~isempty(added)
-            definitions = getProblemLibraryDefinitions();
-            roots = {definitions.root};
-            roots = roots(~cellfun(@isempty, roots));
-            added = added(ismember(added, roots));
-            if ~isempty(added)
-                rmpath(added{:});
-            end
+        current = strsplit(path, pathsep);
+        added = ~ismember(current, state.path);
+        if any(added)
+            kept = current(~added | ~libraryFolder(current));
+        else
+            kept = current;
+        end
+        % Solvers' entries keep their places; the caller's entries fill theirs.
+        kept(ismember(kept, state.path)) = state.path(ismember(state.path, kept));
+        if ~isequal(kept, current)
+            path(strjoin(kept, pathsep));
         end
     catch
+    end
+end
+
+
+function inside = libraryFolder(folders)
+    % Whether each folder is a problem-library root or lies under one.
+    inside = false(size(folders));
+    try
+        definitions = getProblemLibraryDefinitions();
+    catch
+        return
+    end
+    roots = {definitions.root};
+    roots = roots(~cellfun(@isempty, roots));
+    for k = 1:numel(roots)
+        inside = inside | strcmp(folders, roots{k}) | startsWith(folders, [roots{k}, filesep]);
     end
 end
