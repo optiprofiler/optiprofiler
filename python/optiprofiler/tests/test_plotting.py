@@ -29,6 +29,15 @@ from optiprofiler.plotting import (
 from optiprofiler.utils import ProfileOption
 
 
+def _missing_usetex_tools():
+    """The tools that the Agg backend needs to draw usetex text here and that are not installed."""
+    # Agg always rasterized TeX through dvipng before text.latex.engine existed.
+    tools = ['latex']
+    if matplotlib.rcParams.get('text.latex.engine', 'latex+dvipng') == 'latex+dvipng':
+        tools.append('dvipng')
+    return [tool for tool in tools if shutil.which(tool) is None]
+
+
 def _legend_column_count(legend):
     # Matplotlib 3.5 stores the same column count as _ncol; later releases
     # renamed it _ncols. Keep the exact layout assertions on both versions.
@@ -156,7 +165,9 @@ class TestLatexEscapeText:
         fig.canvas.draw()
         plt.close(fig)
 
-    @pytest.mark.skipif(shutil.which('latex') is None, reason='LaTeX is not installed')
+    @pytest.mark.skipif(bool(_missing_usetex_tools()),
+                        reason=f'Matplotlib {matplotlib.__version__} draws usetex text on Agg with tools that '
+                               f'are not installed: {", ".join(_missing_usetex_tools())}')
     def test_escaped_solver_label_can_be_drawn_with_usetex(self):
         with plt.rc_context({'text.usetex': True}):
             fig, ax = plt.subplots()
