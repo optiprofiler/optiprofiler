@@ -28,6 +28,9 @@ classdef TestRuntimeRobustness < matlab.unittest.TestCase
             fprintf(fid, 'Intentionally not a MAT file.'); fclose(fid);
             addpath(fullfile(fileparts(mfilename('fullpath')), '..', '..', 'src'));
             cd(work);
+            % The first read of the graphics root in a session makes MATLAB
+            % turn off some of its own deprecation warnings; benchmark reads it.
+            get(groot, 'default');
             warning('on', 'all'); warning('off', 'test:PreserveDisabled');
             before = warning;
             failed = false;
