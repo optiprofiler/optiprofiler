@@ -139,4 +139,6 @@ their protocol version.
 
 The entry-point name, ``ProblemLibraryPlugin.name``, and the name used in
 ``plibs`` must be identical.  OptiProfiler rejects duplicate installed names
-and conflicts with bundled providers.
+and conflicts with bundled providers.  Python 3.8 and 3.9 cannot tell two
+distributions apart that declare the identical entry point, which therefore
+resolves.

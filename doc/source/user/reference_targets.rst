@@ -58,8 +58,9 @@ field means the archive did not retain these facts. Reporting observes these
 records without another merit-function call. Its provenance text is a bounded
 metadata projection: a URL keeps its scheme, host and path, while user
 information, query and fragment (which can carry credentials) are removed, and
-a clipped text ends with ``...[truncated]``. The numerical archive retains the
-full raw records.
+a clipped text ends with ``...[truncated]``. A URL with a further ``://`` in its
+host or path, such as an archive link, is replaced by ``[redacted_url]``. The
+numerical archive retains the full raw records.
 
 Feature propagation follows scoring truth, not the constraints as represented
 to a solver. Built-in coordinate changes retain raw values even for nonzero

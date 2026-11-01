@@ -346,8 +346,8 @@ rules are the same in Python and MATLAB:
   starts with a URL is replaced as a whole.
 - An absolute path is replaced too, in a whole text and inside a longer one.
   MATLAB also omits every option whose name contains ``path`` in any letter
-  case (``savepath``, ``report_path``); Python keeps such an option, with the
-  path in its value replaced.
+  case (``savepath``, ``report_path``). Python keeps ``savepath``, with an
+  absolute path in its value replaced, and does not record ``report_path``.
 - The ``source`` of a reference record is scientific provenance: its URLs keep
   scheme, host, port and path; user information, query and fragment are removed
   and marked ``[url parameters removed]``. A URL with a further ``://`` in its
@@ -355,7 +355,9 @@ rules are the same in Python and MATLAB:
   ``[redacted_url]`` as a whole. The file names of history plots follow the
   same rule, because a report lists them; a name that the rule changes ends in
   a CRC-32 of the original name, so that names that differ only in what was
-  removed keep two files.
+  removed keep two files. The checksum depends on the removed text, so a file
+  name, like the identity of such a problem in a report, can confirm a guessed
+  short password. Do not put credentials in problem names.
 
 This is a safeguard for ordinary metadata, not a security boundary: a secret in
 a value that is neither a URL nor under a sensitive option name is not

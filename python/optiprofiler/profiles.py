@@ -812,7 +812,9 @@ def _benchmark(
         users to use their own problem libraries without modifying the installed
         package. If an explicitly supplied custom library has the same name as
         another provider, the custom library is used for that run. Without an
-        explicit custom path, duplicate providers are rejected as ambiguous.
+        explicit custom path, duplicate providers are rejected as ambiguous,
+        except that Python 3.8 and 3.9 cannot tell two distributions apart that
+        declare the identical entry point, which therefore resolves.
         Default is None.
     excludelist : list, optional
         The list of problems to be excluded. Default is not to
@@ -885,7 +887,9 @@ def _benchmark(
        the ``custom_problem_libs_path`` option or the guide on our
        `website <https://www.optprof.com>`_. An explicitly supplied custom
        library overrides other providers with the same name for that run; all
-       other duplicate providers are rejected.
+       other duplicate providers are rejected, except that Python 3.8 and 3.9
+       cannot tell two distributions apart that declare the identical entry
+       point, which therefore resolves.
 
     2. Problem libraries may define different library-specific options. For a
        reproducible run, provide them through ``plib_options``. Package-owned
