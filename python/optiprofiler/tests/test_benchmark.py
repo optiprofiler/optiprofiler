@@ -1176,12 +1176,12 @@ class TestBenchmarkLoad:
         """Run a load call and return (scores, stamp dirs created by this call)."""
         bench_root = Path(tmpdir) / benchmark_id
         before = {p for p in bench_root.iterdir() if p.is_dir()}
+        load_kwargs.setdefault('silent', True)
         scores, _, _ = benchmark(
             None,
             load='latest',
             benchmark_id=benchmark_id,
             savepath=tmpdir,
-            silent=True,
             n_jobs=1,
             **load_kwargs,
         )
@@ -1322,7 +1322,7 @@ class TestBenchmarkLoadDrawHistPrecedence:
         monkeypatch.chdir(tmpdir)
         scores, new_dirs = TestBenchmarkLoad._load_and_diff(
             tmpdir, 'loadtest',
-            draw_hist_plots='none', max_tol_order=1,
+            draw_hist_plots='none', max_tol_order=1, silent=False,
         )
         assert scores.shape[0] == 2
         assert not self._history_pdfs(new_dirs), 'history plots were drawn despite an explicit draw_hist_plots="none"'
@@ -1333,7 +1333,7 @@ class TestBenchmarkLoadDrawHistPrecedence:
         monkeypatch.chdir(tmpdir)
         scores, new_dirs = TestBenchmarkLoad._load_and_diff(
             tmpdir, 'loadtest',
-            max_tol_order=1,
+            max_tol_order=1, silent=False,
         )
         assert scores.shape[0] == 2
         assert self._history_pdfs(new_dirs), 'history plots missing although draw_hist_plots was omitted on load'
