@@ -17,7 +17,8 @@ The SOLAR MATLAB adapter vendors a slim SOLAR runtime. Its C++ sources declare
 LGPL-3.0-or-later, and the upstream makefile and README follow the LGPL-2.1
 license file of the upstream repository. See the adapter's
 ``THIRD_PARTY_NOTICES.md`` for the complete inventory. The runtime keeps its
-upstream license, README, and manifest under ``runtime/solar/``. Some SOLAR problems call a comparatively expensive external
-C++ simulator; use small evaluation budgets when testing.
+upstream license, README, and manifest under ``runtime/solar/``. Some SOLAR
+problems call a comparatively expensive external C++ simulator; use small
+evaluation budgets when testing.
 
 You may use **solar_select** to get the problem names you want.

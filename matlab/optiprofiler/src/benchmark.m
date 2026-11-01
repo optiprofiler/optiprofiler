@@ -94,7 +94,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         log-ratio profiles. It can be a cell array of short names of colors
 %         ('r', 'g', 'b', 'c', 'm', 'y', 'k') or a 2-by-3 matrix with each row
 %         being a RGB triplet. Default is set to the first two colors in the
-%         `line_colors` option.
+%         `line_colors` option. The bars cycle through the given colors, so
+%         with a single color both solvers' bars use it.
 %       - benchmark_id: the identifier of the test. It is used to create the
 %         specific directory to store the results. Default is 'out' if the
 %         option `load` is not provided, otherwise default is '.'.

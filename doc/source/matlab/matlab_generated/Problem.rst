@@ -46,7 +46,7 @@ Optional fields:
 
     - **aub**, **bub**: the coefficient matrix and right-hand side vector of the linear inequality constraints ``aub * x <= bub``. The default setting of ``aub`` and ``bub`` are empty matrix and vector. The entries of ``aub`` must be finite. An entry ``Inf`` of ``bub`` means that the row imposes no constraint; ``NaN`` and ``-Inf`` are rejected.
 
-    - **aeq**, **beq**: the coefficient matrix and right-hand side vector of the linear equality constraints ``aeq * x = beq``. The default setting of `aeq` and `beq` are empty matrix and vector.
+    - **aeq**, **beq**: the coefficient matrix and right-hand side vector of the linear equality constraints ``aeq * x = beq``. The default setting of `aeq` and `beq` are empty matrix and vector. Their entries must be finite.
 
     - **cub**: the function of nonlinearly inequality constraints ``cub(x) <= 0``, where ``cub(x) -> float vector``. By default, ``cub(x)`` will return an empty vector.
 

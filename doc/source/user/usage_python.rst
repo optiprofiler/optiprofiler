@@ -37,7 +37,7 @@ There will be a new folder named ``out`` in the current working directory, which
 
    Figure 1: Screenshot of the subfolder containing detailed results of the benchmarking run.
 
-Additionally, a PDF file named ``summary.pdf`` is generated, summarizing all the performance profiles and data profiles.
+Additionally, a PDF file named ``summary_<stamp>.pdf`` is generated in the experiment directory, summarizing all the performance profiles and data profiles.
 
 .. figure:: images/py_summary_pdf.jpg
    :width: 90%

@@ -172,7 +172,12 @@ main report ``optiprofiler.eval_report/2`` (Python and MATLAB) and ``/1``
    * - ``artifacts`` / ``diagnostics``
      - Existing output files with relative paths and hashes, and bounded
        structured event codes. Files marked ``present`` are not automatically
-       certified scientifically correct or safe to publish.
+       certified scientifically correct or safe to publish. A profile export
+       that raises records the ``rendering`` diagnostic
+       ``profile_export_failed`` in both languages. MATLAB also records
+       ``summary_pdf_not_owned`` when it leaves a ``summary.pdf`` that it does
+       not own unchanged; see *MATLAB output robustness* in the MATLAB user
+       guide.
    * - ``report_files``
      - The best-effort file-permission policy applied to the two JSON files
        and whether this platform applied it.
