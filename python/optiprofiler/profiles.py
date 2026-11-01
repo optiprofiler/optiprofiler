@@ -1779,12 +1779,13 @@ def _solver_score_vector(value, n_solvers):
     ragged = (f'Option {ProfileOption.SCORE_FUN.value} must return one score per solver, i.e. a vector '
               f'of length {n_solvers}; it returned a nested sequence that is not a regular array.')
     try:
+        # NumPy 1.24+ refuses ragged nested sequences such as [[1.0, 2.0], [3.0]],
+        # also inside an object array; older NumPy builds an object array of rows.
         scores = np.asarray(value)
+        nested = scores.dtype.kind == 'O' and any(np.ndim(item) > 0 for item in scores.flat)
     except (TypeError, ValueError) as exc:
-        # NumPy 1.24+ refuses ragged nested sequences such as [[1.0, 2.0], [3.0]].
         raise ValueError(ragged) from exc
-    if scores.dtype.kind == 'O' and any(np.ndim(item) > 0 for item in scores.flat):
-        # Older NumPy builds an object array of the rows instead.
+    if nested:
         raise ValueError(ragged)
     if scores.dtype.kind not in 'iuf':
         raise TypeError(f'Option {ProfileOption.SCORE_FUN.value} must return real numeric scores, '
