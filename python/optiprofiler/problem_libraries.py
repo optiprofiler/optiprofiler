@@ -247,16 +247,21 @@ def distribution_provenance(reference):
 
 
 def _entry_point_distribution(entry_point):
+    """Return the name of an entry point's distribution, or None if it has none.
+
+    The listing asks this of every provider, so damaged metadata of one must
+    not stop the others. ``distribution.name`` reads the same header, but it
+    warns from Python 3.12 and raises from 3.15 where the header is missing.
+    """
     distribution = getattr(entry_point, 'dist', None)
     if distribution is None:
         return None
-    name = getattr(distribution, 'name', None)
-    if name:
-        return str(name)
     try:
-        return str(distribution.metadata['Name'])
-    except (AttributeError, KeyError, TypeError):
+        headers = getattr(distribution, 'metadata', None)
+        name = distribution.name if headers is None else headers.get('Name')
+    except (AttributeError, KeyError, OSError, TypeError):
         return None
+    return str(name) if name else None
 
 
 def list_problem_libraries(custom_problem_libs_path=None):

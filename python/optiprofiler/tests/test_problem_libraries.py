@@ -3,6 +3,7 @@
 import json
 import pickle
 from pathlib import Path
+import warnings
 
 import pytest
 
@@ -309,6 +310,47 @@ def test_one_value_from_two_distributions_stays_ambiguous(monkeypatch, selectabl
 
     with pytest.raises(ValueError, match=r"multiple installed distributions: \['package-a', 'package-b'\]"):
         resolve_problem_library('externaltoy')
+
+
+class _DistributionWithoutAName:
+    def __init__(self, error):
+        self.error = error
+
+    @property
+    def name(self):
+        raise self.error
+
+
+@pytest.mark.parametrize('error', [KeyError('Name'), FileNotFoundError('METADATA'), AttributeError('name'), TypeError('text')])
+def test_distribution_that_cannot_name_itself_stops_no_other_library(monkeypatch, error):
+    damaged = _FakeEntryPoint('damagedtoy', 'package_a:get_plugin', lambda: _plugin())
+    damaged.dist = _DistributionWithoutAName(error)
+    other = _FakeEntryPoint('externaltoy', 'package_b:get_plugin', lambda: _plugin(), 'package-b')
+    _discover(monkeypatch, [damaged, other], True)
+
+    assert {'damagedtoy', 'externaltoy', 's2mpj'} <= set(list_problem_libraries())
+    assert resolve_problem_library('externaltoy').distribution == 'package-b'
+    assert resolve_problem_library('s2mpj').source == 'builtin'
+    assert resolve_problem_library('damagedtoy') == ProblemLibraryRef('damagedtoy', 'entry_point', 'package_a:get_plugin')
+
+
+@pytest.mark.parametrize('headers', [None, 'Metadata-Version: 2.1\nVersion: 1.0\n'], ids=['no METADATA', 'no Name'])
+def test_damaged_metadata_of_a_provider_stops_no_other_library(tmp_path, monkeypatch, headers):
+    dist_info = tmp_path / 'damaged_provider-1.0.dist-info'
+    dist_info.mkdir()
+    (dist_info / 'entry_points.txt').write_text(
+        f'[{PROBLEM_LIBRARY_ENTRY_POINT_GROUP}]\ndamagedtoy = damaged_provider:factory\n',
+        encoding='utf-8',
+    )
+    if headers is not None:
+        (dist_info / 'METADATA').write_text(headers, encoding='utf-8')
+    monkeypatch.syspath_prepend(str(tmp_path))
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('error', DeprecationWarning)
+        assert 'damagedtoy' in list_problem_libraries()
+        assert resolve_problem_library('s2mpj').source == 'builtin'
+        assert resolve_problem_library('damagedtoy').distribution is None
 
 
 def test_provider_with_two_metadata_copies_runs_and_is_reported_once(tmp_path, monkeypatch):
