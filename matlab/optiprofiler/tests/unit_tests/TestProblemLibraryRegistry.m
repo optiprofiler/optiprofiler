@@ -132,6 +132,32 @@ classdef TestProblemLibraryRegistry < matlab.unittest.TestCase
             testCase.verifyError(@() prepareMatcutestRuntime(root, root), 'OptiProfiler:MatcutestReceiptRequired');
         end
 
+        function testUnreadableMatcutestLockDoesNotBlameThePlatform(testCase)
+            cleanup = isolateRegistry(testCase); %#ok<NASGU>
+            root = tempname;
+            mkdir(root);
+            testCase.addTeardown(@() removeDirectoryIfPresent(root));
+            old_directory = pwd;
+            testCase.addTeardown(@() cd(old_directory));
+            libraries = {struct('name', 'matcutest', 'role', 'external')};
+            copies = {lockedCopy(fullfile(root, 'noplatforms'), libraries), ...
+                lockedCopy(fullfile(root, 'noentry'), {struct('name', 's2mpj', 'role', 'external')}), ...
+                lockedCopy(fullfile(root, 'emptyplatforms'), {struct('name', 'matcutest', 'role', 'external', 'platforms', {{}})}), ...
+                lockedCopy(fullfile(root, 'missing'), libraries)};
+            delete(fullfile(copies{4}, 'private', 'lock.mat'));
+            for k = 1:numel(copies)
+                cd(fullfile(copies{k}, 'private'));
+                try
+                    prepareMatcutestRuntime(root, root);
+                    testCase.verifyFail('MatCUTEst setup ran without a readable platform list.');
+                catch cause
+                    testCase.verifyEqual(cause.identifier, 'OptiProfiler:MatcutestLockUnavailable');
+                    testCase.verifySubstring(cause.message, 'matlab_problem_libraries.lock');
+                    testCase.verifyEmpty(strfind(cause.message, sprintf('not %s', matlabPlatformName())));
+                end
+            end
+        end
+
         function testLibraryInformationLinkComesFromTheLock(testCase)
             cleanup = isolateRegistry(testCase); %#ok<NASGU>
             lock = jsondecode(fileread(fullfile(fileparts(mfilename('fullpath')), '..', '..', '..', '..', ...

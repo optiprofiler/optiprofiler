@@ -1,11 +1,7 @@
 function receipt = prepareMatcutestRuntime(adapter_root, runtime_parent)
 %PREPAREMATCUTESTRUNTIME validates an adapter's exact runtime path receipt.
 %   The supported platforms are those of the matcutest entry of the lock.
-    entry = lockedProblemLibraryEntry('matcutest');
-    platforms = {};
-    if isstruct(entry) && isfield(entry, 'platforms')
-        platforms = reshape(cellstr(entry.platforms), 1, []);
-    end
+    platforms = lockedPlatforms();
     if ~ismember(matlabPlatformName(), platforms)
         error('OptiProfiler:MatcutestUnsupportedPlatform', ...
             'MatCUTEst setup supports only the platforms of its entry in matlab_problem_libraries.lock (%s), not %s.', ...
@@ -39,6 +35,23 @@ function receipt = prepareMatcutestRuntime(adapter_root, runtime_parent)
         error('OptiProfiler:InvalidMatcutestReceipt', ...
             'MatCUTEst receipt must name only its canonical managed mtools/src directory.');
     end
+end
+
+function platforms = lockedPlatforms()
+    % A lock that cannot say which platforms are supported says nothing about
+    % this platform.
+    try
+        readMatlabProblemLibraryLock();
+    catch cause
+        error('OptiProfiler:MatcutestLockUnavailable', ...
+            'MatCUTEst setup reads its platforms from matlab_problem_libraries.lock, which cannot be read: %s', cause.message);
+    end
+    entry = lockedProblemLibraryEntry('matcutest');
+    if ~isstruct(entry) || ~isfield(entry, 'platforms') || isempty(entry.platforms)
+        error('OptiProfiler:MatcutestLockUnavailable', ...
+            'matlab_problem_libraries.lock lists no platforms for MatCUTEst, so MatCUTEst setup cannot check this platform.');
+    end
+    platforms = reshape(cellstr(entry.platforms), 1, []);
 end
 
 function directory = canonical_directory(directory)
