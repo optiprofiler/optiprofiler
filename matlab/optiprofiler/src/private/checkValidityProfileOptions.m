@@ -216,19 +216,15 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
     end
 
 
-    % Judge whether profile_options.solver_verbose is among 0, 1, and 2. If silent is true, solver_verbose should be 0 or 1 (only print errors). If it is 2, print a message saying that solver_verbose will be set to 1; if it is 1, print a message saying that solver_verbose will be set to 0.
+    % Judge whether profile_options.solver_verbose is among 0, 1, and 2. If silent is true, solver_verbose is set to 0 with a warning, which getDefaultProfileOptions also does when the option is omitted.
     if isfield(profile_options, ProfileOptionKey.SOLVER_VERBOSE.value)
         if ~isintegerscalar(profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value)) || ~ismember(profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value), [0, 1, 2])
             error("MATLAB:checkValidityProfileOptions:solver_verboseNotValid", "The option `solver_verbose` should be either 0, 1, or 2.");
         end
-        if isfield(profile_options, ProfileOptionKey.SILENT.value) && profile_options.(ProfileOptionKey.SILENT.value)
-            if profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) == 2
-                warning("MATLAB:checkValidityProfileOptions:solver_verboseSetToZero", "The option `solver_verbose` will be set to 1 because silent is true.");
-                profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) = 1;
-            elseif profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) == 1
-                warning("MATLAB:checkValidityProfileOptions:solver_verboseSetToZero", "The option `solver_verbose` will be set to 0 because silent is true.");
-                profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) = 0;
-            end
+        if isfield(profile_options, ProfileOptionKey.SILENT.value) && profile_options.(ProfileOptionKey.SILENT.value) ...
+                && profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) ~= 0
+            warning("MATLAB:checkValidityProfileOptions:solver_verboseSetToZero", "The option `solver_verbose` will be set to 0 because silent is true.");
+            profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) = 0;
         end
     end
 

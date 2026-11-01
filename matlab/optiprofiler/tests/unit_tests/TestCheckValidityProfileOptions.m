@@ -59,6 +59,21 @@ classdef TestCheckValidityProfileOptions < matlab.unittest.TestCase
             end
         end
 
+        function testSilentSetsSolverVerboseToZero(testCase)
+            % The warning said 1 for level 2, and the run then used 0.
+            for level = [1, 2]
+                options = struct('silent', true, 'solver_verbose', level);
+                lastwarn('', '');
+                checked = testCase.verifyWarning(@() checkValidityProfileOptions({}, options), ...
+                    'MATLAB:checkValidityProfileOptions:solver_verboseSetToZero');
+                testCase.verifyEqual(checked.solver_verbose, 0);
+                testCase.verifySubstring(lastwarn, 'will be set to 0');
+            end
+            options = struct('silent', true, 'solver_verbose', 0);
+            checked = testCase.verifyWarningFree(@() checkValidityProfileOptions({}, options));
+            testCase.verifyEqual(checked.solver_verbose, 0);
+        end
+
         function testConservativeDefaultNJobs(testCase)
             testCase.verifyEqual(getConservativeDefaultNJobs(1), 1);
             testCase.verifyEqual(getConservativeDefaultNJobs(2), 2);
