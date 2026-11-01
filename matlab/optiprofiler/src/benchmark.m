@@ -1157,6 +1157,7 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
         if ~profile_options.(ProfileOptionKey.SILENT.value)
             printSolverLogAliases(solver_names, profile_options_problem.solver_log_names);
         end
+        if ~isempty(eval_report), eval_report.startNumerical(); end
         result = solveOneProblem(solvers, problem, feature, problem.name, length(problem.name), profile_options_problem, true, path_hist_plots, ~isempty(eval_report), primary_plan);
         if profile_options.(ProfileOptionKey.SILENT.value) && ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
             appendReferenceHistoryDiagnostics(path_log, result, 'user', 'primary');
@@ -1170,6 +1171,9 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
             eval_report.addProblem(result, 'user', 'primary');
             eval_report.completeNumerical();
             eval_report.setStage('scoring', 'running');
+            % A direct problem never produces a reloadable archive, whether or
+            % not score_only was requested (same as Python).
+            eval_report.setStage('persistence', 'not_applicable', 'single_problem_has_no_reload_archive');
         end
         if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
             % We move the history plots to the feature directory.
@@ -1292,6 +1296,7 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
         % We will solve all the problems from all the problem libraries that user specified in the `problem_options`.
         plibs = problem_options.(ProblemOptionKey.PLIBS.value);
         results_plibs = cell(1, numel(plibs));
+        if ~isempty(eval_report), eval_report.startNumerical(); end
         for i_plib = 1:numel(plibs)
             plib = plibs{i_plib};
             if ~profile_options.(ProfileOptionKey.SILENT.value)

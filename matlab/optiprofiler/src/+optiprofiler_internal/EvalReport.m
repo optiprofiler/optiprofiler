@@ -148,7 +148,6 @@ classdef EvalReport < handle
                 self.document.coverage.original_selection_known = false;
             end
             self.document.configuration.request = request_projection;
-            self.setStage('numerical', 'running');
             self.write();
         end
 
@@ -244,6 +243,13 @@ classdef EvalReport < handle
                 self.document.artifact_root_reason = reason;
                 self.addDiagnostic('artifact_root_unavailable', 'persistence', struct('reason', reason));
             end
+        end
+
+        function startNumerical(self)
+            % The solvers start. An error before this point is not a numerical
+            % failure, and a load runs no solver.
+            self.setStage('numerical', 'running');
+            self.write();
         end
 
         function setStage(self, stage, status, reason)
@@ -753,13 +759,6 @@ classdef EvalReport < handle
                     end
                 end
                 self.harvest();
-                if ~failed && isstruct(self.document.scores) && isfield(self.document.scores, 'semantics') && ...
-                        startsWith(self.document.scores.semantics, 'single_problem') && ...
-                        ~ismember(self.document.stages.persistence.status, {'failed','partial'})
-                    % A direct problem never produces a reloadable archive,
-                    % whether or not score_only was requested (same as Python).
-                    self.setStage('persistence', 'not_applicable', 'single_problem_has_no_reload_archive');
-                end
                 if ~failed && strcmp(self.document.status, 'completed')
                     stages = fieldnames(self.document.stages);
                     for k = 1:numel(stages)

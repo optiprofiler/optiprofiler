@@ -43,6 +43,7 @@ classdef TestEvalReport < matlab.unittest.TestCase
         function optionalPlainReferenceStatus(testCase), testCase.runCase('plain_reference'); end
         function relativePathsAndStringArrayOptions(testCase), testCase.runCase('paths'); end
         function customScoreFunReturnsOneScorePerSolver(testCase), testCase.runCase('score_shape'); end
+        function stagesSayWhatHappened(testCase), testCase.runCase('stages'); end
     end
     methods (Access = private)
         function runCase(testCase, name)

@@ -674,6 +674,50 @@ function evalReportPublic(source_root, output_root, slice)
         reloaded = benchmark(struct('load', 'latest', 'benchmark_id', 'score_saved', 'score_only', true, 'silent', true, 'max_tol_order', 1));
         assert(max(abs(reloaded - expected)) < 1e-12, 'The saved experiment must stay loadable.');
         fprintf('PASS score_shape: one real score per solver, rows and columns kept, other results refused\n');
+    elseif strcmp(slice, 'stages')
+        % Before the first solver call, nothing numerical can have failed.
+        early = options;
+        early.report_path = fullfile(output_root, 'early.json');
+        early.plot_options = struct('figure', struct('Position', [0 0 -1 1]));
+        refused = struct('load', 'latest', 'problem', problem, 'report_path', fullfile(output_root, 'refused.json'));
+        calls = {@() benchmark(solvers, early), @() benchmark(refused)};
+        paths = {early.report_path, refused.report_path};
+        identifiers = {'OptiProfiler:PlotOptions:InvalidProperty', 'MATLAB:benchmark:ProblemWithLoad'};
+        for k = 1:numel(calls)
+            try
+                calls{k}();
+                error('Expected an early refusal.');
+            catch cause
+                assert(strcmp(cause.identifier, identifiers{k}), 'Unexpected error: %s %s', cause.identifier, cause.message);
+            end
+            report = readReport(paths{k});
+            assert(strcmp(report.status, 'failed'));
+            for stage = {'numerical', 'scoring', 'persistence', 'rendering'}
+                assert(strcmp(report.stages.(stage{1}).status, 'unknown'), 'Stage %s of an early refusal is %s.', stage{1}, report.stages.(stage{1}).status);
+            end
+        end
+        % A direct Problem has no reload archive, also when its scoring fails.
+        for score_only = [true, false]
+            failing = options;
+            failing.score_only = score_only;
+            failing.savepath = output_root;
+            failing.benchmark_id = sprintf('direct_merit_%d', score_only);
+            failing.draw_hist_plots = 'none';
+            failing.merit_fun = @fatalMerit;
+            failing.report_path = fullfile(output_root, sprintf('direct_merit_%d.json', score_only));
+            try
+                benchmark(solvers, failing);
+                error('Expected the merit failure.');
+            catch cause
+                assert(strcmp(cause.identifier, 'MATLAB:benchmark:merit_fun_error'), 'Unexpected error: %s %s', cause.identifier, cause.message);
+            end
+            report = readReport(failing.report_path);
+            assert(strcmp(report.status, 'failed') && strcmp(report.stages.numerical.status, 'completed'));
+            assert(strcmp(report.stages.scoring.status, 'failed'));
+            assert(strcmp(report.stages.persistence.status, 'not_applicable') && ...
+                strcmp(report.stages.persistence.reason, 'single_problem_has_no_reload_archive'));
+        end
+        fprintf('PASS stages: an early refusal fails no stage, a direct Problem has no archive to persist\n');
     else
         error('Unknown slice.');
     end
