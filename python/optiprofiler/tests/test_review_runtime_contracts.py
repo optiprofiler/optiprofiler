@@ -2,6 +2,7 @@
 
 import json
 import logging
+import pickle
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -443,7 +444,8 @@ def test_load_replays_archived_reference_history_failures(tmp_path, monkeypatch,
     assert load('legacy.json') == []
 
 
-@pytest.mark.parametrize('damage', ['not_json', 'wrong_keys', 'solver_out_of_range', 'not_one_entry_per_problem'])
+@pytest.mark.parametrize('damage', ['not_json', 'wrong_keys', 'solver_out_of_range', 'not_one_entry_per_problem',
+                                    'deep_nesting', 'ragged_pickled_list'])
 def test_load_tolerates_a_damaged_reference_history_field(tmp_path, monkeypatch, damage):
     import h5py
     from optiprofiler.eval_report import schema_for_document, schema_resource
@@ -455,12 +457,16 @@ def test_load_tolerates_a_damaged_reference_history_field(tmp_path, monkeypatch,
               draw_hist_plots='none', savepath=str(tmp_path), benchmark_id='saved')
     damaged = {'not_json': ['{broken'], 'wrong_keys': ['[{"solver": 1}]'],
                'solver_out_of_range': ['[{"solver_index": 9, "run_index": 1, "exception_type": "ValueError"}]'],
-               'not_one_entry_per_problem': ['[]', '[]']}[damage]
+               'not_one_entry_per_problem': ['[]', '[]'], 'deep_nesting': ['[' * 200000],
+               'ragged_pickled_list': [['a', 'b'], ['c']]}[damage]
     (archive,) = tmp_path.glob('saved/*/test_log/data_for_loading.h5')
     with h5py.File(archive, 'r+') as stream:
         group = stream['plib_0']
         del group['reference_history_failures']
-        group.create_dataset('reference_history_failures', data=np.array(damaged, dtype=h5py.special_dtype(vlen=str)))
+        if damage == 'ragged_pickled_list':
+            group.create_dataset('reference_history_failures_pickled', data=np.void(pickle.dumps(damaged)))
+        else:
+            group.create_dataset('reference_history_failures', data=np.array(damaged, dtype=h5py.special_dtype(vlen=str)))
     report_path = tmp_path / 'loaded.json'
     scores = benchmark(None, load='latest', benchmark_id='saved', savepath=str(tmp_path / 'out'), score_only=True,
                        silent=True, draw_hist_plots='none', max_tol_order=1, solvers_to_load=[1, 0],

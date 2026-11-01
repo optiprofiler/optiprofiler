@@ -62,7 +62,7 @@ def parse_reference_history_failures(text, n_solvers=None, n_runs=None):
     """
     try:
         failures = json.loads(text)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, RecursionError):
         return None
     if type(failures) is not list:
         return None
@@ -113,8 +113,8 @@ def truncate_solvers(results_plib: Dict[str, Any], solvers_to_load: List[int]) -
         position = {solver + 1: index + 1 for index, solver in enumerate(solvers_to_load)}
         archived = results_plib['reference_history_failures']
         n_problems = len(results_plib['problem_names'])
-        if not (isinstance(archived, (list, tuple, np.ndarray)) and np.ndim(archived) == 1
-                and len(archived) == n_problems):
+        if (not isinstance(archived, (list, tuple, np.ndarray)) or len(archived) != n_problems
+                or (isinstance(archived, np.ndarray) and archived.ndim != 1)):
             archived = [None] * n_problems
         retained = []
         for text in archived:
