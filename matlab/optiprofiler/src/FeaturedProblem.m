@@ -409,7 +409,9 @@ classdef FeaturedProblem < Problem
             Returns
             -------
             f : double
-                Modified objective function value.
+                Modified objective function value. Once n_eval_fun has reached
+                max_eval, this is the value last returned by fun, whatever x
+                is, and nothing is evaluated or recorded.
             %}
 
             if obj.real_n_eval_fun >= 2 * obj.max_eval
