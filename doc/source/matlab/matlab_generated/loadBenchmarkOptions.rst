@@ -27,6 +27,13 @@ the loader never infers identity from a path, stamp, or collection of options.
 The ``receipt`` records retained facts and any explicit present override,
 without claiming that an old resolved count was the original user request.
 
+``options_refined`` records ``problem_route`` and does not store a directly
+supplied Problem. Such a record raises ``OptiProfiler:DirectProblemNotSaved``
+unless the original Problem is set as the ``problem`` field of the structure
+passed here. A record older than ``problem_route`` warns with
+``OptiProfiler:ProblemRouteNotRecorded``, unless the ``options_user.mat`` beside
+it settles the route; ``receipt.problem_route`` states the route.
+
 This is **not** the ``benchmark`` ``load`` option: it prepares a fresh execution,
 not history reanalysis or a resumed random-stream/runtime checkpoint. Native
 MAT loading is for trusted inputs and may execute code. Original callback/class
