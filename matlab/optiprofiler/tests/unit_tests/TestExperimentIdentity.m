@@ -174,13 +174,19 @@ classdef TestExperimentIdentity < matlab.unittest.TestCase
         function aggregateNeverReplacesAnUnrelatedSummary(testCase)
             % A load with the default benchmark_id publishes the aggregate in
             % the working directory, which may hold the user's own summary.pdf.
+            % A warning names that directory and is wrapped. At this length, as
+            % in a temporary directory of macOS, a line break falls in the
+            % phrase checked below, so the whitespace is normalised first.
+            long_directory = fullfile(pwd, repmat('x', 1, max(1, 95 - numel(pwd))));
+            mkdir(long_directory);
+            cd(long_directory);
             TestLoadReplot.makeExperiment(pwd, '.', 2, 1);
             user_bytes = uint8('USER-OWNED-SUMMARY-BYTES');
             TestExperimentIdentity.writeBytes('summary.pdf', user_bytes);
             options = struct('load', '20200101_000000', 'max_tol_order', 1, 'silent', true, ...
                 'draw_hist_plots', 'none', 'summarize_data_profiles', false, ...
                 'report_path', fullfile(pwd, 'refused.json'));
-            text = evalc('benchmark(options);');
+            text = regexprep(evalc('benchmark(options);'), '\s+', ' ');
             testCase.verifyEqual(TestExperimentIdentity.readBytes('summary.pdf'), user_bytes(:));
             testCase.verifySubstring(text, 'left unchanged');
             testCase.verifyNotEmpty(dir(fullfile('*', 'summary_*.pdf')));
@@ -217,7 +223,7 @@ classdef TestExperimentIdentity < matlab.unittest.TestCase
             published = TestExperimentIdentity.readBytes('summary.pdf');
             pause(1.1);
             TestExperimentIdentity.writeBytes('summary.pdf', published);
-            text = evalc('benchmark(options);');
+            text = regexprep(evalc('benchmark(options);'), '\s+', ' ');
             testCase.verifyEmpty(strfind(text, 'no matching'));
             testCase.verifyNotEqual(TestExperimentIdentity.readBytes('summary.pdf'), published);
             % Other content of the same size in the same second does not.
