@@ -59,10 +59,35 @@ classdef TestSetupProblemLibraryPins < matlab.unittest.TestCase
             before = rev_parse(s2);
             pin = make_remote(state, 'solar_matlab', solar_files());
             lock_commits(state, struct('s2mpj', unknown_commit(), 'solar', pin));
-            testCase.verifyError(@() run_setup(state, struct('install_solar', true)), 'setup:PinnedCommitUnavailable');
+            [output, failure] = run_failing_setup(state, struct('install_solar', true));
+            testCase.verifyEqual(failure.identifier, 'setup:PinnedCommitUnavailable');
+            testCase.verifySubstring(output, ['WARNING: ', failure.identifier, ': ', failure.message]);
             testCase.verifyEqual(rev_parse(s2), before);
             verify_core_configured(testCase, state);
             testCase.verifyTrue(is_registered(state, 'solar'));
+        end
+
+        function otherFailureOfTheBundledLibraryIsNotCalledAPin(testCase)
+            state = sandbox(testCase);
+            make_remote(state, 's2mpj_matlab', {'README.md', 'fixture'; ...
+                fullfile('src', 'matlab_problems', 'keep.txt'), 'fixture'});
+            s2 = fullfile(state.package, 'matlab', 'optiprofiler', 'problem_libs', 's2mpj');
+            rmdir(s2, 's');
+            git(state.root, sprintf('clone -q "%s" "%s"', remote_path(state, 's2mpj_matlab'), s2));
+            % A function beside setup.m takes precedence over the built-in one.
+            testCase.applyFixture(matlab.unittest.fixtures.SuppressedWarningsFixture('MATLAB:dispatcher:nameConflict'));
+            write_text(fullfile(state.package, 'system.m'), sprintf([ ...
+                'function varargout = system(command)\n' ...
+                'if contains(command, ''s2mpj'') && contains(command, ''rev-parse'')\n' ...
+                '    error(''Fixture:Other'', ''a failure of another kind'');\n' ...
+                'end\n' ...
+                '[varargout{1:max(nargout, 1)}] = builtin(''system'', command);\n' ...
+                'end\n']));
+            [output, failure] = run_failing_setup(state, struct());
+            testCase.verifyEqual(failure.identifier, 'Fixture:Other');
+            testCase.verifySubstring(output, 'WARNING: Fixture:Other: a failure of another kind');
+            testCase.verifyFalse(contains(output, 'pinned commit'));
+            verify_core_configured(testCase, state);
         end
 
         function unreachablePinOfAnOptionalLibraryIsReportedAndNotRegistered(testCase)
@@ -319,6 +344,20 @@ function output = run_setup(state, options)
     cd(state.package);
     clear setup
     output = evalc('setup(defaults)');
+end
+
+function [output, failure] = run_failing_setup(state, options)
+% evalc keeps nothing of a call that raises.
+    defaults = struct('install_matcutest', false, 'install_solar', false, ...
+        'problem_library_root', state.libraries);
+    for field = reshape(fieldnames(options), 1, [])
+        defaults.(field{1}) = options.(field{1});
+    end
+    cd(state.package);
+    clear setup
+    failure = [];
+    output = evalc('try, setup(defaults); catch failure, end');
+    assert(~isempty(failure), 'setup did not raise.');
 end
 
 function files = solar_files()

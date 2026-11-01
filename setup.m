@@ -139,7 +139,7 @@ function setup(varargin)
                 s2mpj_dir, s2mpj_repo_url, s2mpj_commit, 'S2MPJ');
         catch failure
             s2mpj_failure = failure;
-            fprintf('WARNING: S2MPJ is not at its pinned commit.\n');
+            fprintf('WARNING: %s: %s\n', failure.identifier, failure.message);
         end
         
         
