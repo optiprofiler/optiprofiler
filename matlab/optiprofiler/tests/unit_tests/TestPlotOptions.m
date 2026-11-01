@@ -201,7 +201,7 @@ classdef TestPlotOptions < matlab.unittest.TestCase
                 'ylabel_data_profile', 'Data $\\beta$ at $%s$ (100%%)');
             benchmark(options);
             testCase.verifyEqual(savedLabel(fullfile(root, 'latex'), 'perf_hist_1.fig'), 'Solved $\alpha$ at $10^{-1}$, 100\%');
-            testCase.verifyEqual(savedLabel(fullfile(root, 'latex'), 'data_hist_1.fig'), 'Data $\beta$ at $10^{-1}$ (100%)');
+            testCase.verifyEqual(savedLabel(fullfile(root, 'latex'), 'data_hist_1.fig'), 'Data $\beta$ at $10^{-1}$ (100\%)');
             testCase.verifyEqual(savedLabel(fullfile(root, 'latex'), 'log-ratio_hist_1.fig'), 'Log-ratio profiles ($\mathrm{tol} = 10^{-1}$)');
             % The same rule without the LaTeX interpreter.
             options.savepath = fullfile(root, 'plain');
@@ -211,6 +211,47 @@ classdef TestPlotOptions < matlab.unittest.TestCase
             benchmark(options);
             testCase.verifyEqual(savedLabel(fullfile(root, 'plain'), 'perf_hist_1.fig'), 'C:\temp\new: 50% solved at 10^{-1}');
             testCase.verifyEqual(savedLabel(fullfile(root, 'plain'), 'data_hist_1.fig'), 'tol 10^{-1} / 10^{-1}');
+        end
+
+        function literalPercentSignsReachTheInterpreterEscaped(testCase)
+            % MATLAB's LaTeX interpreter refuses a bare %, inside and outside
+            % math mode, and draws the whole label as raw source. Warnings are
+            % off while benchmark draws, so nothing said so.
+            root = tempname; mkdir(root);
+            old_directory = pwd;
+            testCase.addTeardown(@() rmdir(root, 's'));
+            testCase.addTeardown(@() cd(old_directory));
+            cd(root);
+            TestLoadReplot.makeExperiment(root, 'bench', 2, 1);
+            options = struct('load', '20200101_000000', 'benchmark_id', 'bench', 'max_tol_order', 1, ...
+                'silent', true, 'draw_hist_plots', 'none', 'savepath', fullfile(root, 'latex'), ...
+                'ylabel_performance_profile', 'Solved $\alpha$ 50% at $%s$', ...
+                'ylabel_data_profile', '100%% of $50%$ at $%s$', ...
+                'ylabel_log_ratio_profile', '100\%solved at $%s$');
+            benchmark(options);
+            testCase.verifyEqual(savedLabel(fullfile(root, 'latex'), 'perf_hist_1.fig'), 'Solved $\alpha$ 50\% at $10^{-1}$');
+            testCase.verifyEqual(savedLabel(fullfile(root, 'latex'), 'data_hist_1.fig'), '100\% of $50\%$ at $10^{-1}$');
+            testCase.verifyEqual(savedLabel(fullfile(root, 'latex'), 'log-ratio_hist_1.fig'), '100\%solved at $10^{-1}$');
+            % The interpreter that counts is the one at export.
+            options.savepath = fullfile(root, 'text');
+            options.plot_options = struct('text', struct('Interpreter', 'tex'));
+            options.ylabel_performance_profile = '50% at %s';
+            benchmark(options);
+            testCase.verifyEqual(savedLabel(fullfile(root, 'text'), 'perf_hist_1.fig'), '50% at 10^{-1}');
+
+            cd(fullfile(fileparts(mfilename('fullpath')), '..', '..', 'src', 'private'));
+            cases = {'50% at $%s$', 'latex', '50\% at $T$'; '50%% at $%s$', 'latex', '50\% at $T$'; ...
+                '$50%$', 'latex', '$50\%$'; '\% kept', 'latex', '\% kept'; '\%s', 'latex', '\%s'; ...
+                '%d', 'latex', '\%d'; '\alpha %s', 'latex', '\alpha T'; ...
+                '\\%% written for sprintf', 'latex', '\% written for sprintf'; '\\% too', 'latex', '\% too'; ...
+                '\\%s', 'latex', '\T'; '\\mathrm{%s}', 'latex', '\mathrm{T}'; ...
+                '50% at %s', 'none', '50% at T'; '50%% at %s', 'none', '50% at T'; '\%s', 'none', '\%s'; ...
+                '\\%% at %s', 'none', '\% at T'; '50% at %s', 'tex', '50% at T'; '50% at %s', "latex", '50\% at T'};
+            for k = 1:size(cases, 1)
+                testCase.verifyEqual(formatProfileLabel(cases{k, 1}, 'T', cases{k, 2}), cases{k, 3}, ...
+                    sprintf('%s under %s', cases{k, 1}, cases{k, 2}));
+            end
+            testCase.verifyEqual(formatProfileLabel(["50%", "%s"], 'T', 'latex'), ["50\%", "T"]);
         end
 
         function unknownPropertyFailsBeforeExecution(testCase)
@@ -232,8 +273,16 @@ end
 function label = savedLabel(root, name)
     files = dir(fullfile(root, '**', name));
     assert(isscalar(files), 'Expected one %s under %s.', name, root);
+    % MATLAB reports a text its interpreter refuses when it draws the text.
+    refused = 'MATLAB:handle_graphics:exceptions:SceneNode';
+    state = warning('on', refused);
+    restore = onCleanup(@() warning(state)); %#ok<NASGU>
+    lastwarn('', '');
     figure = openfig(fullfile(files(1).folder, files(1).name), 'invisible');
     guard = onCleanup(@() close(figure)); %#ok<NASGU>
+    drawnow;
+    [~, identifier] = lastwarn;
+    assert(~strcmp(identifier, refused), 'The interpreter refuses a text of %s.', name);
     axes = findall(figure, 'Type', 'axes');
     label = char(axes(1).YLabel.String);
 end

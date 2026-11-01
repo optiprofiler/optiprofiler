@@ -67,16 +67,16 @@ Axis label text
 
 The text of ``xlabel_data_profile``, ``xlabel_log_ratio_profile`` and
 ``xlabel_performance_profile`` is passed to the renderer verbatim, so write
-``\%`` for a percent sign under LaTeX. MATLAB always uses its LaTeX
-interpreter: a bare ``%`` is invalid syntax there, and MATLAB warns and shows
-the raw text. Python uses LaTeX when it is installed, unless the ``rc`` group
-sets ``text.usetex`` to false: under LaTeX a bare ``%`` starts a comment and
-cuts the label, and without LaTeX ``\%`` keeps its backslash. ``$50\%$`` works
-in both cases.
+``\%`` for a percent sign under LaTeX. MATLAB uses its LaTeX interpreter
+unless the ``xlabel`` or ``text`` group sets another one: a bare ``%`` is
+invalid syntax there, and the label is drawn as raw text. Python uses LaTeX
+when it is installed, unless the ``rc`` group sets ``text.usetex`` to false:
+under LaTeX a bare ``%`` starts a comment and cuts the label, and without LaTeX
+``\%`` keeps its backslash. ``$50\%$`` works in both cases.
 
 In ``ylabel_data_profile``, ``ylabel_log_ratio_profile`` and
 ``ylabel_performance_profile``, ``%s`` is replaced by the current tolerance.
 Keep it inside ``$...$``, as the defaults do, because the tolerance is LaTeX
-math. Outside math mode MATLAB warns and shows the raw text, and Python shows
+math. Outside math mode MATLAB draws the label as raw text, and Python shows
 literal text such as ``10^{-1}`` without LaTeX and raises a LaTeX error under
 LaTeX.

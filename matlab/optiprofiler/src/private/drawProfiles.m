@@ -173,7 +173,7 @@ function drawPerfDetail(ax_perf, x_perf, y_perf, ratio_max_perf, solver_names, p
     end
     % Set y-axis labels.
     if ~isempty(profile_options.(ProfileOptionKey.YLABEL_PERFORMANCE_PROFILE.value))
-        ylabel_str = formatProfileLabel(profile_options.(ProfileOptionKey.YLABEL_PERFORMANCE_PROFILE.value), tolerance_latex);
+        ylabel_str = formatProfileLabel(profile_options.(ProfileOptionKey.YLABEL_PERFORMANCE_PROFILE.value), tolerance_latex, ylabelInterpreter(profile_options));
         ylabel(ax_perf, ylabel_str, 'Interpreter', 'latex', 'FontSize', 11);
     end
     placeSolverLegend(ax_perf, size(x_perf, 2), 'southeast');
@@ -194,7 +194,7 @@ function drawDataDetail(ax_data, x_data, y_data, ratio_max_data, solver_names, p
     end
     % Set y-axis labels.
     if ~isempty(profile_options.(ProfileOptionKey.YLABEL_DATA_PROFILE.value))
-        ylabel_str = formatProfileLabel(profile_options.(ProfileOptionKey.YLABEL_DATA_PROFILE.value), tolerance_latex);
+        ylabel_str = formatProfileLabel(profile_options.(ProfileOptionKey.YLABEL_DATA_PROFILE.value), tolerance_latex, ylabelInterpreter(profile_options));
         ylabel(ax_data, ylabel_str, 'Interpreter', 'latex', 'FontSize', 11);
     end
     placeSolverLegend(ax_data, size(x_data, 2), 'southeast');
@@ -210,12 +210,31 @@ function drawLogRatioDetail(ax_log_ratio, x_log_ratio, y_log_ratio, ratio_max_lo
     end
     % Set y-axis labels.
     if ~isempty(profile_options.(ProfileOptionKey.YLABEL_LOG_RATIO_PROFILE.value))
-        ylabel_str = formatProfileLabel(profile_options.(ProfileOptionKey.YLABEL_LOG_RATIO_PROFILE.value), tolerance_latex);
+        ylabel_str = formatProfileLabel(profile_options.(ProfileOptionKey.YLABEL_LOG_RATIO_PROFILE.value), tolerance_latex, ylabelInterpreter(profile_options));
         y_label = ylabel(ax_log_ratio, ylabel_str, 'Interpreter', 'latex', 'FontSize', 11);
         set(y_label, 'Units', 'normalized');
         label_position = y_label.Position;
         label_position(1) = -0.05;
         y_label.Position = label_position;
+    end
+end
+
+function interpreter = ylabelInterpreter(profile_options)
+    % The interpreter of a y-axis label at export: the ylabel group of
+    % plot_options wins over the text group, which wins over the default.
+    interpreter = 'latex';
+    if ~isfield(profile_options, 'plot_options')
+        return
+    end
+    for group = {'text', 'ylabel'}
+        if isfield(profile_options.plot_options, group{1})
+            values = profile_options.plot_options.(group{1});
+            names = fieldnames(values);
+            index = find(strcmpi(names, 'Interpreter'), 1, 'last');
+            if ~isempty(index)
+                interpreter = values.(names{index});
+            end
+        end
     end
 end
 
