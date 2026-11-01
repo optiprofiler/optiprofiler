@@ -65,7 +65,7 @@ def read_report(path):
     return report
 
 
-def smoke(output, jobs):
+def smoke(output, jobs, bundled):
     root = output / ('jobs-' + str(jobs))
     root.mkdir()
     report_path = root / 'saved.json'
@@ -85,6 +85,8 @@ def smoke(output, jobs):
     primary = [problem for problem in report['problems'] if problem['role'] == 'primary']
     plain = [problem for problem in report['problems'] if problem['role'] == 'plain_reference']
     assert len(primary) == len(plain) == 1, report['problems']
+    commit = next(entry['commit'] for entry in bundled if entry['name'] == 's2mpj')
+    assert {problem['provider']['revision'] for problem in report['problems']} == {commit}, report['problems']
     assert primary[0]['name'] == 'ROSENBR' and len(primary[0]['runs']) == 4
     assert len(plain[0]['runs']) == 2
     for problem in report['problems']:
@@ -179,7 +181,7 @@ def main():
     converted = benchmark([halfway, unchanged], problem=Problem(sphere, [2.0], xl=[0.5], reference=violated),
                           merit_fun=linear_merit, **reference_options)
     np.testing.assert_array_equal(converted[0], [1.0, 0.0])
-    records = [smoke(output, jobs) for jobs in (1, 2)]
+    records = [smoke(output, jobs, bundled) for jobs in (1, 2)]
     receipt = {'status': 'PASS', 'version': args.expected_version, 'python': sys.version,
                'installed_package': str(installed), 'backend': 'Agg',
                'bundled_problem_libraries': bundled,

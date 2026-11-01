@@ -151,11 +151,13 @@ main report ``optiprofiler.eval_report/2`` (Python and MATLAB) and ``/1``
        status, the shared evaluation ``budget`` of the problem, the provider
        (when known) and the runs. The Python provider record adds the
        distribution ``version`` (for a bundled library, the OptiProfiler
-       version that ships it) and, for a plugin installed from a VCS URL, the
-       ``revision`` that pip recorded. The MATLAB record adds the registry
-       ``role`` and ``locked_revision``, the commit named for the library in
-       ``matlab_problem_libraries.lock`` (the reviewed snapshot, not a check
-       of the installed checkout). ``null`` means unknown.
+       version that ships it) and the ``revision``: for a plugin installed
+       from a VCS URL, the commit that pip recorded; for a bundled library,
+       the commit in ``problem_libs/bundled_revisions.json`` (the reviewed
+       snapshot, not a check of the files). The MATLAB record adds the
+       registry ``role`` and ``locked_revision``, the commit named for the
+       library in ``matlab_problem_libraries.lock`` (the reviewed snapshot,
+       not a check of the installed checkout). ``null`` means unknown.
    * - ``problems[].runs[]``
      - Per-run facts only: evaluation count, ``budget_reached``, returned,
        initial and best objective/constraint/merit values, invalid-value

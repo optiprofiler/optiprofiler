@@ -31,6 +31,7 @@ _BUILTIN_SOURCE = 'builtin'
 _CUSTOM_SOURCE = 'custom'
 _ENTRY_POINT_SOURCE = 'entry_point'
 _PROBLEM_LIBRARY_NAME_PATTERN = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*$')
+_COMMIT_PATTERN = re.compile(r'[0-9a-f]{40}')
 
 # The trees shipped in problem_libs: the locked bundled default and the
 # example. Any other tree there (e.g. a V1 pycutest or solar checkout left in
@@ -220,19 +221,39 @@ def _problem_library_entry_points():
     return list(unique.values())
 
 
+def _bundled_revision(name):
+    """Return the commit that the package records for a bundled library, or None.
+
+    The record can be absent from a source tree or damaged in an installation;
+    neither may stop a report.
+    """
+    try:
+        record = json.loads((_problem_libs_dir() / 'bundled_revisions.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError, RecursionError):
+        return None
+    libraries = record.get('libraries') if isinstance(record, dict) else None
+    for entry in libraries if isinstance(libraries, list) else ():
+        if isinstance(entry, dict) and entry.get('name') == name:
+            commit = entry.get('commit')
+            return commit if isinstance(commit, str) and _COMMIT_PATTERN.fullmatch(commit) else None
+    return None
+
+
 def distribution_provenance(reference):
     """Return ``(version, revision)`` of the distribution behind a library.
 
     ``version`` is the installed distribution version; for a bundled library
     it is the version of the imported OptiProfiler package that ships it, not
     whichever ``optiprofiler`` metadata comes first on ``sys.path``.
-    ``revision`` is the VCS commit recorded by pip (PEP 610
-    ``direct_url.json``) for an installed plugin distribution; a bundled
-    library's own revision is not recorded in the installed package. Unknown
-    values are ``None``.
+    ``revision`` is a VCS commit of the library: the one recorded by pip
+    (PEP 610 ``direct_url.json``) for an installed plugin distribution, or
+    the one in ``problem_libs/bundled_revisions.json`` for a bundled library.
+    That record names the reviewed snapshot; it is not a check of the files.
+    Unknown values are ``None``.
     """
     if reference.source == _BUILTIN_SOURCE:
-        return getattr(sys.modules.get(__package__), '__version__', None), None
+        return (getattr(sys.modules.get(__package__), '__version__', None),
+                _bundled_revision(reference.name))
     if not reference.distribution:
         return None, None
     try:

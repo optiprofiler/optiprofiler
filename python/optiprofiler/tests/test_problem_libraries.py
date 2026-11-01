@@ -481,6 +481,48 @@ def test_explicit_custom_path_overrides_other_providers(tmp_path, monkeypatch):
     assert reference.shadows == ('bundled', 'test-distribution')
 
 
+def _recorded_s2mpj_commit():
+    record = json.loads((Path(optiprofiler.__file__).parent / 'problem_libs' / 'bundled_revisions.json')
+                        .read_text(encoding='utf-8'))
+    (entry,) = record['libraries']
+    return entry['commit']
+
+
+@pytest.mark.parametrize('content', [
+    b'{broken',
+    b'\xff\xfe',
+    b'[' * 200000,
+    b'[]',
+    b'{"libraries": 1}',
+    b'{"libraries": [1]}',
+    b'{"libraries": [{"name": "s2mpj"}]}',
+    b'{"libraries": [{"name": "s2mpj", "commit": 7}]}',
+    b'{"libraries": [{"name": "s2mpj", "commit": "not-a-commit"}]}',
+    b'{"libraries": [{"name": "other", "commit": "' + b'a' * 40 + b'"}]}',
+], ids=['not_json', 'not_utf8', 'deep_nesting', 'not_an_object', 'libraries_not_a_list', 'entry_not_an_object',
+        'no_commit', 'commit_not_text', 'commit_not_a_hash', 'no_entry_for_the_library'])
+def test_unreadable_bundled_record_gives_no_revision(tmp_path, monkeypatch, content):
+    (tmp_path / 'bundled_revisions.json').write_bytes(content)
+    monkeypatch.setattr(problem_libraries, '_problem_libs_dir', lambda: tmp_path)
+    reference = ProblemLibraryRef('s2mpj', 'builtin', 'x', distribution='optiprofiler')
+    assert problem_libraries.distribution_provenance(reference) == (optiprofiler.__version__, None)
+
+
+def test_missing_bundled_record_gives_no_revision(tmp_path, monkeypatch):
+    monkeypatch.setattr(problem_libraries, '_problem_libs_dir', lambda: tmp_path)
+    reference = ProblemLibraryRef('s2mpj', 'builtin', 'x', distribution='optiprofiler')
+    assert problem_libraries.distribution_provenance(reference) == (optiprofiler.__version__, None)
+
+
+def test_report_names_the_recorded_commit_of_a_bundled_library(tmp_path):
+    report_path = tmp_path / 'report.json'
+    optiprofiler.benchmark([_one_step_solver, _one_step_solver], plibs=['s2mpj'], problem_names=['ROSENBR'],
+                           mindim=2, maxdim=2, n_jobs=1, n_runs=1, max_eval_factor=1, max_tol_order=1,
+                           score_only=True, silent=True, run_plain=False, report_path=str(report_path))
+    (problem,) = json.loads(report_path.read_text(encoding='utf-8'))['problems']
+    assert (problem['provider']['source'], problem['provider']['revision']) == ('builtin', _recorded_s2mpj_commit())
+
+
 def test_distribution_provenance_reads_version_and_vcs_commit(monkeypatch):
     commit = 'a' * 40
 
@@ -502,9 +544,12 @@ def test_distribution_provenance_reads_version_and_vcs_commit(monkeypatch):
     provenance = problem_libraries.distribution_provenance
 
     assert provenance(ProblemLibraryRef('toy', 'entry_point', 'toy:get', distribution='toy-dist')) == ('1.2.3', commit)
-    # A bundled library is identified by the imported core's version only;
-    # the core's own VCS commit is not the bundled library's revision.
-    assert provenance(ProblemLibraryRef('s2mpj', 'builtin', 'x', distribution='optiprofiler')) == (optiprofiler.__version__, None)
+    # A bundled library names the commit the package records for it. The core's
+    # own VCS commit is not its revision, and `custom` is part of the core.
+    bundled = provenance(ProblemLibraryRef('s2mpj', 'builtin', 'x', distribution='optiprofiler'))
+    assert bundled == (optiprofiler.__version__, _recorded_s2mpj_commit())
+    assert provenance(ProblemLibraryRef('custom', 'builtin', 'x', distribution='optiprofiler')) == (
+        optiprofiler.__version__, None)
     assert provenance(ProblemLibraryRef('local', 'custom', 'x')) == (None, None)
     assert provenance(ProblemLibraryRef('toy', 'entry_point', 'toy:get', distribution='missing-dist')) == (None, None)
 
