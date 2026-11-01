@@ -216,9 +216,13 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         index of the solver, the second corresponds to the index of tolerance
 %         starting from 1, the third represents history-based or output-based
 %         profiles, and the fourth represents performance profiles, data
-%         profiles, or log-ratio profiles. The default scoring function takes
-%         the average of the history-based performance profiles under all the
-%         tolerances.
+%         profiles, or log-ratio profiles. It must return one real score per
+%         solver: a row or column vector of length n_solvers (an array whose
+%         n_solvers values lie along one dimension becomes a column). Any
+%         other size, or a non-numeric, logical or complex result, raises an
+%         error before any score is reported; the saved experiment remains
+%         loadable. The default scoring function takes the average of the
+%         history-based performance profiles under all the tolerances.
 %       - score_only: whether to only calculate the scores of the solvers
 %         without drawing the profiles and saving the data. Default is false.
 %       - score_weight_fun: the weight function to calculate the scores of the
@@ -2076,7 +2080,7 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
     % Compute the `solver_scores`.
     profile_scores = computeScores(curves, profile_options);
     score_fun = profile_options.(ProfileOptionKey.SCORE_FUN.value);
-    solver_scores = score_fun(profile_scores);
+    solver_scores = solverScoreVector(score_fun(profile_scores), n_solvers);
     if ~isempty(eval_report), eval_report.setProfiles(curves, solver_scores, profile_scores, solver_names, false); end
     if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
         save(fullfile(path_log, 'profile_scores.mat'), 'profile_scores');
@@ -2512,6 +2516,28 @@ function profile_scores = computeScores(curves, profile_options)
         max_scores(max_scores == 0) = 1;
         profile_scores = profile_scores ./ max_scores;
     end
+end
+
+function solver_scores = solverScoreVector(solver_scores, n_solvers)
+    % One real score per solver, checked before any score is reported,
+    % printed or saved. A row or a column is kept as returned; another array
+    % whose n_solvers values lie along one dimension becomes a column.
+    if ~(isnumeric(solver_scores) && isreal(solver_scores))
+        kind = class(solver_scores);
+        if isnumeric(solver_scores), kind = ['complex ', kind]; end
+        error("MATLAB:benchmark:score_funOutputNotReal", ...
+            "The option `score_fun` must return real numeric scores, one per solver; it returned a value of class %s.", kind);
+    end
+    if numel(solver_scores) ~= n_solvers || nnz(size(solver_scores) ~= 1) > 1
+        error("MATLAB:benchmark:score_funOutputWrongSize", ...
+            "The option `score_fun` must return one score per solver, i.e. a vector of length %d; it returned size %s.", ...
+            n_solvers, strjoin(arrayfun(@num2str, size(solver_scores), 'UniformOutput', false), 'x'));
+    end
+    if ~isvector(solver_scores)
+        solver_scores = solver_scores(:);
+    end
+    % A sparse vector is one score per solver, but the report cannot encode it.
+    solver_scores = full(solver_scores);
 end
 
 function closeFigures(figures)

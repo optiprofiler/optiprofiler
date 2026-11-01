@@ -586,6 +586,94 @@ function evalReportPublic(source_root, output_root, slice)
         [legacy_scores, ~, ~] = benchmark(solvers, legacy);
         assert(isequaln(legacy_scores, scores), 'Reporting changed the scores of a string-array run.');
         fprintf('PASS paths: relative user paths resolve on disk, no machine roots, string-array options run with a report\n');
+    elseif strcmp(slice, 'score_shape')
+        % A custom score_fun must return one real score per solver. Earlier
+        % a wrong length, a scalar or a matrix completed with scores misaligned
+        % with the solvers, a logical, cell or string result made the report
+        % schema-invalid, and a complex or sparse one left it running.
+        fixture_root = fileparts(mfilename('fullpath'));
+        setenv('OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_REGISTRY', fullfile(output_root, 'registry.mat'));
+        registerProblemLibrary(struct('name', 'report_scores', 'root', fixture_root, ...
+            'select_function', 'eval_fixture_select', 'load_function', 'eval_fixture_load'));
+        options = rmfield(options, 'problem');
+        options.plibs = {'report_scores'};
+        options.problem_names = {'shared'};
+        options.n_runs = 1;
+        options.max_tol_order = 1;
+        expected = benchmark(solvers, options);
+        assert(isequal(size(expected), [2, 1]));
+        % The default score_fun, returning the same values in other shapes.
+        mean_scores = @(x) mean(x(:, :, 1, 1), 2);
+        accepted = {mean_scores, @(x) mean_scores(x)', @(x) reshape(mean_scores(x), 1, 1, []), @(x) int32(round(mean_scores(x))), ...
+            @(x) sparse(mean_scores(x))};
+        returned_sizes = {[2, 1], [1, 2], [2, 1], [2, 1], [2, 1]};
+        expected_values = {expected, expected, expected, round(expected), expected};
+        for k = 1:numel(accepted)
+            options.score_fun = accepted{k};
+            options.report_path = fullfile(output_root, sprintf('score_accepted_%d.json', k));
+            scores = benchmark(solvers, options);
+            assert(isequal(size(scores), returned_sizes{k}) && ~issparse(scores), 'Accepted score vector %d changed shape.', k);
+            assert(isequal(double(scores(:)), expected_values{k}), 'Accepted score vector %d changed values.', k);
+            report = readReport(options.report_path);
+            assert(strcmp(report.status, 'completed'));
+            assert(max(abs(report.scores.solver_scores(:) - double(scores(:)))) < 1e-12, 'Reported scores differ from the returned ones.');
+        end
+        rejected = {@(x) mean(x(:)), @(x) [mean_scores(x); 0], @(x) squeeze(mean(x(:, :, 1, :), 2)), @(x) [], ...
+            @(x) mean_scores(x) > 0.5, @(x) complex(mean_scores(x), 1), @(x) num2cell(mean_scores(x)), @(x) "scores", @(x) struct('a', 1)};
+        identifiers = [repmat({'MATLAB:benchmark:score_funOutputWrongSize'}, 1, 4), ...
+            repmat({'MATLAB:benchmark:score_funOutputNotReal'}, 1, 5)];
+        named = {'size 1x1', 'size 3x1', 'size 2x3', 'size 0x0', 'class logical', 'class complex double', 'class cell', 'class string', 'class struct'};
+        for k = 1:numel(rejected)
+            options.score_fun = rejected{k};
+            options.report_path = fullfile(output_root, sprintf('score_rejected_%d.json', k));
+            try
+                benchmark(solvers, options);
+                error('Expected score_fun result %d to be rejected.', k);
+            catch cause
+                assert(strcmp(cause.identifier, identifiers{k}), 'Unexpected error for result %d: %s %s', k, cause.identifier, cause.message);
+                assert(contains(cause.message, named{k}), 'The refusal must name the returned %s: %s', named{k}, cause.message);
+            end
+            report = readReport(options.report_path);
+            assert(strcmp(report.status, 'failed') && isempty(report.scores), 'A rejected score_fun result must not be reported.');
+            assert(strcmp(report.stages.scoring.status, 'failed') && strcmp(report.stages.numerical.status, 'completed'));
+        end
+        % The right number of values in the wrong shape.
+        square = options;
+        square.solver_names = {'a', 'b', 'c', 'd'};
+        square.score_fun = @(x) reshape(mean_scores(x), 2, 2);
+        square.report_path = fullfile(output_root, 'score_square.json');
+        try
+            benchmark([solvers, solvers], square);
+            error('Expected the square score_fun result to be rejected.');
+        catch cause
+            assert(strcmp(cause.identifier, 'MATLAB:benchmark:score_funOutputWrongSize') && contains(cause.message, 'size 2x2'), ...
+                'Unexpected error: %s %s', cause.identifier, cause.message);
+        end
+        report = readReport(square.report_path);
+        assert(strcmp(report.status, 'failed') && isempty(report.scores));
+        % A saved run stops the same way, without leaving a figure open, and
+        % its experiment stays loadable.
+        saved = options;
+        saved.score_only = false;
+        saved.draw_hist_plots = 'none';
+        saved.benchmark_id = 'score_saved';
+        saved.savepath = output_root;
+        saved.score_fun = rejected{2};
+        saved.report_path = fullfile(output_root, 'score_saved.json');
+        open_figures = numel(findall(groot, 'Type', 'figure'));
+        try
+            benchmark(solvers, saved);
+            error('Expected the saved run to reject the score_fun result.');
+        catch cause
+            assert(strcmp(cause.identifier, 'MATLAB:benchmark:score_funOutputWrongSize'), 'Unexpected error: %s %s', cause.identifier, cause.message);
+        end
+        assert(numel(findall(groot, 'Type', 'figure')) == open_figures, 'A rejected score_fun result left a figure open.');
+        report = readReport(saved.report_path);
+        assert(strcmp(report.status, 'failed') && isempty(report.scores));
+        cd(output_root);
+        reloaded = benchmark(struct('load', 'latest', 'benchmark_id', 'score_saved', 'score_only', true, 'silent', true, 'max_tol_order', 1));
+        assert(max(abs(reloaded - expected)) < 1e-12, 'The saved experiment must stay loadable.');
+        fprintf('PASS score_shape: one real score per solver, rows and columns kept, other results refused\n');
     else
         error('Unknown slice.');
     end
