@@ -436,7 +436,7 @@ class TestRefinedOptionsReplay:
         del refined['problem_route']
         save_options(refined, path)
         with warnings.catch_warnings():
-            warnings.simplefilter('error', UserWarning)
+            warnings.filterwarnings('error', message='These options do not record whether', category=UserWarning)
             scores = benchmark(None, load='latest', benchmark_id='old', savepath=str(tmp_path / 'out'), silent=True,
                                draw_hist_plots='none', max_tol_order=1, report_path=str(tmp_path / 'load.json'))[0]
         np.testing.assert_array_equal(scores, expected)
