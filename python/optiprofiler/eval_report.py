@@ -1323,17 +1323,19 @@ class EvalReport:
                 self.add_diagnostic('benchmark_exception', 'runtime',
                                     exception_type=type(error).__name__)
                 scoring_interrupted = self.document['stages']['scoring']['status'] in ('running', 'failed')
+                # Of the rendering failures, only this one ends the run before
+                # the scores. After a failed history plot the scores are attempted.
+                export_failed = self.document['stages']['rendering'].get('reason') == 'profile_export_failed'
                 for stage in _STAGES:
                     if self.document['stages'][stage]['status'] == 'running':
-                        render_failure = self.document['stages']['rendering']['status'] in ('failed', 'partial')
                         if (stage == 'numerical' and scoring_interrupted
                                 and self.document['coverage']['completed'] > 0):
                             self.document['stages'][stage] = {
                                 'status': 'partial', 'reason': 'interrupted_before_all_libraries'}
                         else:
                             self.document['stages'][stage] = {
-                                'status': 'unknown' if stage == 'scoring' and render_failure else 'failed',
-                                'reason': 'interrupted_before_scores' if stage == 'scoring' and render_failure else 'interrupted_by_exception'}
+                                'status': 'unknown' if stage == 'scoring' and export_failed else 'failed',
+                                'reason': 'interrupted_before_scores' if stage == 'scoring' and export_failed else 'interrupted_by_exception'}
             else:
                 for stage in _STAGES:
                     if self.document['stages'][stage]['status'] == 'running':

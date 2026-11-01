@@ -474,6 +474,49 @@ def test_save_load_records_source_and_artifacts_without_reexecuting_provider(tmp
     assert all(hashlib.sha256(p.read_bytes()).hexdigest() == value for p, value in before.items())
 
 
+def _failed_history_plot(*args, **kwargs):
+    raise OSError('deliberate history failure')
+
+
+def _failed_score(profile_scores):
+    raise ValueError('deliberate score failure')
+
+
+def test_score_failure_after_a_failed_history_plot_fails_scoring(tmp_path, monkeypatch):
+    # A failed history plot does not stop the run, so the scores are attempted.
+    from optiprofiler import profiles
+    _library(tmp_path / 'libraries', 'evalrender', ['QUAD'])
+    monkeypatch.setattr(profiles, '_export_problem_history_plots', _failed_history_plot)
+    options = _options(tmp_path, ['evalrender'])
+    options.update(score_only=False, n_runs=1, max_tol_order=1, draw_hist_plots='sequential',
+                   score_fun=_failed_score)
+    target = tmp_path / 'score.json'
+    with pytest.raises(ValueError, match='deliberate score failure'):
+        benchmark([stay, zero], report_path=target, **options)
+    report = _read(target)
+    assert report['stages']['rendering']['status'] == 'failed'
+    assert report['stages']['scoring'] == {'status': 'failed', 'reason': 'interrupted_by_exception'}
+    assert any(d['code'] == 'history_render_failed' for d in report['diagnostics'])
+
+
+def test_export_failure_after_a_failed_history_plot_leaves_scoring_unknown(tmp_path, monkeypatch):
+    from matplotlib.figure import Figure
+    from optiprofiler import profiles
+    _library(tmp_path / 'libraries', 'evalrender', ['QUAD'])
+    monkeypatch.setattr(profiles, '_export_problem_history_plots', _failed_history_plot)
+    def failed_export(self, *args, **kwargs):
+        raise OSError('deliberate file export failure')
+    monkeypatch.setattr(Figure, 'savefig', failed_export)
+    options = _options(tmp_path, ['evalrender'])
+    options.update(score_only=False, n_runs=1, max_tol_order=1, draw_hist_plots='sequential')
+    target = tmp_path / 'export.json'
+    with pytest.raises(OSError, match='deliberate file export failure'):
+        benchmark([stay, zero], report_path=target, **options)
+    report = _read(target)
+    assert report['stages']['rendering'] == {'status': 'failed', 'reason': 'profile_export_failed'}
+    assert report['stages']['scoring'] == {'status': 'unknown', 'reason': 'interrupted_before_scores'}
+
+
 def test_export_failure_is_not_a_numerical_failure(tmp_path, monkeypatch):
     from matplotlib.figure import Figure
     _library(tmp_path / 'libraries', 'evalrender', ['QUAD'])
