@@ -212,6 +212,28 @@ classdef TestConstraintMetadata < matlab.unittest.TestCase
             end
         end
 
+        function composedCustomStageNamesTheEntryAndTheRule(testCase)
+            outputs = { ...
+                'mod_bounds', @(s, p) deal(NaN, p.xu), '`xl`', 'NaN', 'a lower bound must be finite, or -Inf for no bound'; ...
+                'mod_bounds', @(s, p) deal(p.xl, -Inf), '`xu`', '-Inf', 'an upper bound must be finite, or Inf for no bound'; ...
+                'mod_linear_ub', @(s, p) deal(1, -Inf), '`bub`', '-Inf', 'a right-hand side must be finite, or Inf for no constraint'; ...
+                'mod_linear_ub', @(s, p) deal(-Inf, 1), '`aub`', '-Inf', 'a coefficient must be finite'; ...
+                'mod_linear_eq', @(s, p) deal(1, Inf), '`beq`', 'Inf', 'an equality right-hand side must be finite'; ...
+                'mod_linear_eq', @(s, p) deal(NaN, 0), '`aeq`', 'NaN', 'a coefficient must be finite'};
+            problem = Problem(struct('fun', testCase.Sphere, 'x0', 0));
+            for k = 1:size(outputs, 1)
+                custom = struct('name', 'custom', 'options', struct(outputs{k, 1}, outputs{k, 2}));
+                expected = sprintf('The %s returned by the callback `%s` of stage custom#0 has the invalid entry %s: %s.', ...
+                    outputs{k, 3}, outputs{k, 1}, outputs{k, 4}, outputs{k, 5});
+                try
+                    FeaturedProblem(problem, Feature({custom, 'noisy'}), 10, 7);
+                    testCase.verifyFail('The output was accepted.');
+                catch err
+                    testCase.verifyEqual(err.message, expected);
+                end
+            end
+        end
+
         function customStageMayPoseTheLegalSentinels(testCase)
             custom = struct('name', 'custom', 'options', struct( ...
                 'mod_bounds', @(s, p) deal(-Inf, Inf), 'mod_linear_ub', @(s, p) deal(1, Inf)));
