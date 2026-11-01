@@ -165,20 +165,11 @@ function setup(varargin)
             proceed_with_matcutest = false;
             skip_clone_msg = false;
 
-            % 1. Check if MatCUTEst is already installed on the system (global/path)
-            is_matcutest_installed = false;
-            if exist('matcutest', 'file') == 2 || exist('matcutest', 'file') == 3
-                is_matcutest_installed = true;
-            else
-                try
-                    help_str = help('matcutest');
-                    if ~isempty(help_str)
-                        is_matcutest_installed = true;
-                    end
-                catch
-                end
-            end
-            
+            % 1. Check if MatCUTEst is already installed on the system (global/path):
+            % the adapter calls macup and secup. help cannot tell, because for an
+            % absent name it may return the help of a similarly spelled function.
+            is_matcutest_installed = exist('macup', 'file') == 2 && exist('secup', 'file') == 2;
+
             % 2. Check if the local MatCUTEst directory is populated
             is_matcutest_dir_populated = exist(matcutest_dir, 'dir') && length(dir(matcutest_dir)) > 2;
 

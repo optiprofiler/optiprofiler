@@ -7,6 +7,8 @@ classdef TestSetupProblemLibraryPins < matlab.unittest.TestCase
     properties (TestParameter)
         % A problem_library_root that is a symbolic link, or that lies below one.
         linked_root = {'itself', 'below'};
+        % The only function of a MatCUTEst of the user on the MATLAB path.
+        partial_runtime = {'matcutest', 'macup', 'secup'};
     end
 
     methods (TestClassSetup)
@@ -135,6 +137,46 @@ classdef TestSetupProblemLibraryPins < matlab.unittest.TestCase
             testCase.verifyFalse(on_path(fullfile(state.libraries, 'matcutest')));
             % The clone stays for the next attempt; it is simply not used.
             testCase.verifyEqual(head(state, 'matcutest'), pin);
+        end
+
+        function helpOfASimilarNameIsNotARuntime(testCase)
+            testCase.assumeFalse(ismac);
+            state = sandbox(testCase);
+            % What help('matcutest') returns where the Bioinformatics Toolbox
+            % is installed. A function beside setup.m takes precedence over help.
+            write_text(fullfile(state.package, 'help.m'), sprintf(['function text = help(~)\n' ...
+                'text = ''--- matcutest not found. Showing help for mattest instead. ---'';\nend\n']));
+            pin = make_remote(state, 'matcutest', matcutest_files(''));
+            lock_commits(state, struct('matcutest', pin));
+            output = run_setup(state, struct('install_matcutest', true));
+            testCase.verifyFalse(contains(output, 'user-managed'));
+            testCase.verifySubstring(output, 'MatCUTEst managed runtime prepared');
+            testCase.verifyTrue(on_path(fullfile(state.libraries, 'runtime', 'matcutest', 'mtools', 'src')));
+        end
+
+        function runtimeOnThePathIsUsedAndNotClaimed(testCase)
+            testCase.assumeFalse(ismac);
+            state = sandbox(testCase);
+            tools = user_runtime(state, {'macup', 'secup', 'matcutest'});
+            pin = make_remote(state, 'matcutest', matcutest_files(''));
+            lock_commits(state, struct('matcutest', pin));
+            output = run_setup(state, struct('install_matcutest', true));
+            testCase.verifySubstring(output, 'existing user-managed MatCUTEst runtime');
+            testCase.verifyTrue(is_registered(state, 'matcutest'));
+            testCase.verifyTrue(on_path(tools));
+            data = load([state.registry, '.setup-paths.mat']);
+            testCase.verifyFalse(any(contains([data.records.owned_paths], 'user_runtime')));
+        end
+
+        function runtimeWithoutItsEntryPointsIsNotUsed(testCase, partial_runtime)
+            testCase.assumeFalse(ismac);
+            state = sandbox(testCase);
+            user_runtime(state, {partial_runtime});
+            pin = make_remote(state, 'matcutest', matcutest_files(''));
+            lock_commits(state, struct('matcutest', pin));
+            output = run_setup(state, struct('install_matcutest', true));
+            testCase.verifyFalse(contains(output, 'user-managed'));
+            testCase.verifySubstring(output, 'MatCUTEst managed runtime prepared');
         end
 
         function failedManagedRuntimeIsReported(testCase)
@@ -487,6 +529,16 @@ function files = matcutest_files(extra)
         'matcutest_select.m', sprintf('function names = matcutest_select(~)\nnames = {};\nend\n'); ...
         'matcutest_load.m', sprintf('function p = matcutest_load(~)\np = [];\nend\n'); ...
         'matcutest_setup.m', body};
+end
+
+function tools = user_runtime(state, names)
+% A MatCUTEst of the user on the MATLAB path, with the functions NAMES.
+    tools = fullfile(state.root, 'user_runtime', 'mtools', 'src');
+    mkdir(tools);
+    for name = names
+        write_text(fullfile(tools, [name{1}, '.m']), sprintf('function %s\nend\n', name{1}));
+    end
+    addpath(tools);
 end
 
 function verify_core_configured(testCase, state)
