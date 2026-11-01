@@ -1028,10 +1028,10 @@ classdef EvalReport < handle
         end
         function text = credentialFreeUrls(text)
         %CREDENTIALFREEURLS TEXT with the user information, query and fragment of its URLs removed.
-            [urls, starts, stops] = regexp(text, optiprofiler_internal.EvalReport.urlPattern(), 'match', 'start', 'end');
-            for k = numel(urls):-1:1
-                text = [text(1:starts(k)-1), optiprofiler_internal.EvalReport.credentialFreeUrl(urls{k}), text(stops(k)+1:end)];
-            end
+            [urls, others] = regexp(text, optiprofiler_internal.EvalReport.urlPattern(), 'match', 'split');
+            kept = cellfun(@optiprofiler_internal.EvalReport.credentialFreeUrl, urls, 'UniformOutput', false);
+            pieces = [others; kept, {''}];
+            text = [pieces{:}];
         end
         function text = encodeMetadata(value)
         %ENCODEMETADATA One safe JSON projection for report/archive metadata.

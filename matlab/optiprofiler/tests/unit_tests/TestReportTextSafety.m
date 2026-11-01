@@ -117,6 +117,22 @@ classdef TestReportTextSafety < matlab.unittest.TestCase
             testCase.verifyEqual(numel(TestReportTextSafety.encoded(text)), 256);
             testCase.verifyLessThan(toc(start), 5);
         end
+        function manyUrlsAreHandledInLinearTime(testCase)
+            count = 100000;
+            text = repmat('https://h/x?a ', 1, count);
+            start = tic;
+            result = optiprofiler_internal.EvalReport.credentialFreeUrls(text);
+            testCase.verifyLessThan(toc(start), 20);
+            testCase.verifyEqual(result, repmat('https://h/x [url parameters removed] ', 1, count));
+        end
+        function textAroundUrlsIsKept(testCase)
+            encoded = @optiprofiler_internal.EvalReport.credentialFreeUrls;
+            testCase.verifyEqual(encoded(''), '');
+            testCase.verifyEqual(encoded('no address'), 'no address');
+            testCase.verifyEqual(encoded('https://h/x'), 'https://h/x');
+            testCase.verifyEqual(encoded('a https://h/x?q b ssh://u@h c'), ...
+                'a https://h/x [url parameters removed] b ssh://h [url parameters removed] c');
+        end
         function absolutePathInsideATextIsReplaced(testCase)
             testCase.verifyEqual(TestReportTextSafety.encoded('built in /home/someone/x today'), ...
                 'built in [redacted_absolute_path] today');
