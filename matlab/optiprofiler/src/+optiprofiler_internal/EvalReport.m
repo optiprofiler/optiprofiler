@@ -1536,6 +1536,12 @@ classdef EvalReport < handle
                 return
             end
             authority = parts{2};
+            % The pattern runs on through a second URL glued to this one, whose
+            % user information this split does not see.
+            if contains([authority, parts{3}], '://')
+                text = '[redacted_url]';
+                return
+            end
             at = find(authority == '@', 1, 'last');
             if ~isempty(at)
                 authority = authority(at+1:end);

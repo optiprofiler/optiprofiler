@@ -54,6 +54,29 @@ def test_provenance_strips_embedded_credentials_of_any_scheme(url):
         f'Data from {scheme}://example.org/repo.git [url parameters removed] and more'
 
 
+# The same list as in TestReportTextSafety.m; tools/tests/test_report_redaction_contract.py compares them.
+GLUED_URLS = [
+    'https://user:A@example.org/x,https://u2:CANARYpw@example.org/y',
+    'https://example.org/x,https://u2:CANARYpw@example.org/y',
+    'https://user:A@example.org,https://u2:CANARYpw@example.org/y',
+    'https://example.org,https://u2:CANARYpw@example.org/y',
+    'https://example.org/x;git+ssh://u2:CANARYpw@example.org/y',
+    'HTTPS://example.org/x,SSH://u2:CANARYpw@example.org/y',
+]
+
+
+@pytest.mark.parametrize('text', GLUED_URLS)
+def test_url_glued_to_another_keeps_no_user_information(text):
+    assert provenance_text(text) == '[redacted_url]'
+    assert provenance_text(f'Data from {text} and more') == 'Data from [redacted_url] and more'
+    assert bounded_text(text) == '[redacted_url]'
+
+
+def test_url_in_a_query_leaves_with_the_query():
+    assert provenance_text(f'https://example.org/x?next=https://u2:{CANARY}@example.org/y') == \
+        'https://example.org/x [url parameters removed]'
+
+
 @pytest.mark.parametrize('text', ['C://Users/someone/x', 'not a url: a:b', 'mailto:someone@example.org'])
 def test_text_without_a_url_is_not_treated_as_one(text):
     assert bounded_text(text) != '[redacted_url]'

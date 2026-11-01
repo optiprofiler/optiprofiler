@@ -87,6 +87,29 @@ classdef TestReportTextSafety < matlab.unittest.TestCase
                 testCase.verifyEqual(reported, ['Data from ', expected, ' and more']);
             end
         end
+        function urlGluedToAnotherKeepsNoUserInformation(testCase)
+            % The same list as in test_report_text_safety.py;
+            % tools/tests/test_report_redaction_contract.py compares them.
+            glued = {'https://user:A@example.org/x,https://u2:CANARYpw@example.org/y', ...
+                'https://example.org/x,https://u2:CANARYpw@example.org/y', ...
+                'https://user:A@example.org,https://u2:CANARYpw@example.org/y', ...
+                'https://example.org,https://u2:CANARYpw@example.org/y', ...
+                'https://example.org/x;git+ssh://u2:CANARYpw@example.org/y', ...
+                'HTTPS://example.org/x,SSH://u2:CANARYpw@example.org/y'};
+            for k = 1:numel(glued)
+                text = glued{k};
+                testCase.verifyEqual(optiprofiler_internal.EvalReport.credentialFreeUrls(text), '[redacted_url]');
+                testCase.verifyEqual(optiprofiler_internal.EvalReport.credentialFreeUrls(['Data from ', text, ' and more']), ...
+                    'Data from [redacted_url] and more');
+                testCase.verifyEqual(TestReportTextSafety.encoded(text), '[redacted_url]');
+            end
+            testCase.verifyEqual(TestReportTextSafety.reportedSource(testCase.WorkDir, glued{1}), '[redacted_url]');
+        end
+        function urlInAQueryLeavesWithTheQuery(testCase)
+            testCase.verifyEqual(optiprofiler_internal.EvalReport.credentialFreeUrls( ...
+                'https://example.org/x?next=https://u2:CANARYpw@example.org/y'), ...
+                'https://example.org/x [url parameters removed]');
+        end
         function longTextWithoutAUrlIsHandledInLinearTime(testCase)
             text = repmat('a', 1, 200000);
             start = tic;

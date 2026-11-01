@@ -82,7 +82,9 @@ def _credential_free_url(match):
         port = f':{parts.port}' if parts.port is not None else ''
     except ValueError:
         return '[redacted_url]'
-    if not host:
+    # `\S+` runs on through a second URL glued to this one, whose user
+    # information this split does not see. The first `://` is not in these parts.
+    if not host or '://' in parts.netloc + parts.path:
         return '[redacted_url]'
     kept = f'{parts.scheme}://{host}{port}{parts.path}'
     if parts.username is not None or parts.password is not None or parts.query or parts.fragment:

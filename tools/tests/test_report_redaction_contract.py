@@ -8,14 +8,16 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 METADATA = ROOT / 'python' / 'optiprofiler' / 'metadata.py'
 REPORT = ROOT / 'matlab' / 'optiprofiler' / 'src' / '+optiprofiler_internal' / 'EvalReport.m'
+PYTHON_TESTS = ROOT / 'python' / 'optiprofiler' / 'tests' / 'test_report_text_safety.py'
+MATLAB_TESTS = ROOT / 'matlab' / 'optiprofiler' / 'tests' / 'unit_tests' / 'TestReportTextSafety.m'
 DOCUMENT = ROOT / 'doc' / 'source' / 'user' / 'eval_report.rst'
 
 
-def python_literal(name):
-    for node in ast.parse(METADATA.read_text(encoding='utf-8')).body:
+def python_literal(name, source=METADATA):
+    for node in ast.parse(source.read_text(encoding='utf-8')).body:
         if isinstance(node, ast.Assign) and getattr(node.targets[0], 'id', None) == name:
             return ast.literal_eval(node.value)
-    raise AssertionError(f'{name} is not defined in metadata.py')
+    raise AssertionError(f'{name} is not defined in {source.name}')
 
 
 def matlab_literal(function):
@@ -36,6 +38,11 @@ class RedactionContractTests(unittest.TestCase):
 
     def test_both_languages_hold_the_same_url_pattern(self):
         self.assertEqual(python_literal('URL_PATTERN'), matlab_literal('urlPattern'))
+
+    def test_both_languages_test_the_same_glued_urls(self):
+        source = MATLAB_TESTS.read_text(encoding='utf-8')
+        cell = re.search(r'glued = \{(.*?)\};', source, re.S).group(1)
+        self.assertEqual(python_literal('GLUED_URLS', PYTHON_TESTS), re.findall(r"'([^']*)'", cell))
 
     def test_every_listed_key_is_documented_once(self):
         section = documented_rules()
