@@ -690,9 +690,9 @@ picklable:
 
 **Lambda expressions and locally-defined nested functions are not
 picklable.** If any of the callables above is a lambda, OptiProfiler
-detects the failure when serializing the worker arguments, logs the reason, and
-falls back to sequential mode (``n_jobs = 1``), which can be much
-slower.
+detects the failure when serializing the worker arguments, logs the reason
+(unless ``silent`` is true), and falls back to sequential mode (``n_jobs = 1``),
+which can be much slower.
 
 To enable parallel execution, define these callables as module-level
 functions using ``def``. For parametrized solvers, use
