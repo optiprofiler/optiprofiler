@@ -19,7 +19,7 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
             error("MATLAB:checkValidityProfileOptions:n_jobsNotValid", "The option `n_jobs` should be a integer.");
         elseif profile_options.(ProfileOptionKey.N_JOBS.value) < 1
             profile_options.(ProfileOptionKey.N_JOBS.value) = 1;
-            printOptiProfilerMessage('INFO', 'The option `n_jobs` is set to 1 because it cannot be smaller than 1.');
+            printOptiProfilerMessage('WARNING', 'The option `n_jobs` is set to 1 because it cannot be smaller than 1.');
         end
     end
 

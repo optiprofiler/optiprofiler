@@ -49,6 +49,16 @@ classdef TestCheckValidityProfileOptions < matlab.unittest.TestCase
             testCase.verifyEqual(options.n_jobs, expected_n_jobs);
         end
 
+        function testNJobsBelowOneIsAWarning(testCase)
+            % As in Python: a value that is replaced is not progress information.
+            for silent = [false, true]
+                options = struct('n_jobs', 0, 'silent', silent);
+                text = evalc('checked = checkValidityProfileOptions({}, options);');
+                testCase.verifySubstring(text, '[WARNING] The option `n_jobs` is set to 1');
+                testCase.verifyEqual(checked.n_jobs, 1);
+            end
+        end
+
         function testConservativeDefaultNJobs(testCase)
             testCase.verifyEqual(getConservativeDefaultNJobs(1), 1);
             testCase.verifyEqual(getConservativeDefaultNJobs(2), 2);

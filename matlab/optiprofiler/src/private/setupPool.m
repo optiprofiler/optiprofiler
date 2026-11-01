@@ -5,9 +5,9 @@ function success = setupPool(n_jobs, silent)
     if exist('parpool', 'file') ~= 2
         if ~silent
             printOptiProfilerMessage('INFO', 'Parallel Computing Toolbox is not available. We will not use parallel computing.');
+            fprintf("\n");
         end
         success = false;
-        fprintf("\n");
         return;
     end
 
@@ -42,15 +42,17 @@ function success = setupPool(n_jobs, silent)
             printOptiProfilerMessage('INFO', sprintf('Starting a parallel pool with %d workers...', n_jobs));
             fprintf('\n');
             parpool(n_jobs);
+            fprintf("\n");
         else
             evalc("parpool(n_jobs);");
         end
         success = true;
-        fprintf("\n");
     catch ME
-        fprintf('\n');
-        printOptiProfilerMessage('INFO', sprintf('Failed to open a parallel pool with %d workers.', n_jobs));
-        printOptiProfilerMessage('INFO', sprintf('Error message: %s', shortenMessageForLog(ME.message)));
+        if ~silent
+            fprintf('\n');
+            printOptiProfilerMessage('INFO', sprintf('Failed to open a parallel pool with %d workers.', n_jobs));
+            printOptiProfilerMessage('INFO', sprintf('Error message: %s', shortenMessageForLog(ME.message)));
+        end
         success = false;
     end
 end

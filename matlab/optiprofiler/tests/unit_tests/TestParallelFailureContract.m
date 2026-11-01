@@ -1,5 +1,42 @@
 classdef TestParallelFailureContract < matlab.unittest.TestCase
     methods (Test)
+        function poolSetupPrintsNothingWhenSilent(testCase)
+            % The toolbox functions are shadowed, so that the pool opens or
+            % fails on demand, whatever the licence and the pools of the session.
+            root = tempname; mkdir(root);
+            old_path = path;
+            old_directory = pwd;
+            testCase.addTeardown(@() rmdir(root, 's'));
+            testCase.addTeardown(@() path(old_path));
+            testCase.addTeardown(@() cd(old_directory));
+            testCase.addTeardown(@() rmappdata(0, 'OptiProfilerPoolFails'));
+            writeFile(fullfile(root, 'gcp.m'), sprintf('function pool=gcp(varargin)\npool=[];\nend\n'));
+            writeFile(fullfile(root, 'parcluster.m'), sprintf('function c=parcluster(varargin)\nc=struct(''NumWorkers'',4);\nend\n'));
+            writeFile(fullfile(root, 'parpool.m'), sprintf(['function parpool(varargin)\n', ...
+                'if getappdata(0,''OptiProfilerPoolFails''), error(''Probe:NoPool'',''no pool today''); end\nend\n']));
+            addpath(root);
+            cd(fullfile(fileparts(mfilename('fullpath')), '..', '..', 'src', 'private'));
+
+            setappdata(0, 'OptiProfilerPoolFails', false);
+            text = evalc('success = setupPool(2, true);');
+            testCase.verifyTrue(success);
+            testCase.verifyEmpty(text);
+            setappdata(0, 'OptiProfilerPoolFails', true);
+            text = evalc('success = setupPool(2, true);');
+            testCase.verifyFalse(success);
+            testCase.verifyEmpty(text);
+            text = evalc('success = setupPool(2, false);');
+            testCase.verifyFalse(success);
+            testCase.verifySubstring(text, 'Failed to open a parallel pool with 2 workers.');
+
+            % Without the toolbox.
+            rmpath(root);
+            toolbox = fileparts(which('parpool'));
+            if ~isempty(toolbox), rmpath(toolbox); end
+            text = evalc('success = setupPool(2, true);');
+            testCase.verifyFalse(success);
+            testCase.verifyEmpty(text);
+        end
         function ordinaryFailureAndTaskCancellationKeepBorrowedPool(testCase)
             testCase.assumeTrue(logical(license('test','Distrib_Computing_Toolbox')));
             root = tempname; mkdir(root);
