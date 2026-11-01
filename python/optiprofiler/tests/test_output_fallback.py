@@ -135,6 +135,27 @@ def test_only_the_flagged_run_loses_its_output(library, tmp_path):
     assert [run['output_fallback'] for run in runs] == [True, False, True, False]
 
 
+def test_report_states_what_a_flagged_run_has_and_lacks(library, tmp_path):
+    report_path = tmp_path / 'report.json'
+    benchmark([reaches_zero, crash_after_evaluating], score_only=True, report_path=str(report_path),
+              **library('loose_reference'))
+    report = json.loads(report_path.read_text(encoding='utf-8'))
+    detail = json.loads((tmp_path / 'report.plot_data.json').read_text(encoding='utf-8'))
+    convergence = report['profiles']['convergence'][0]
+    assert 'A run with output_fallback true returned no output' in report['semantics']['run_defaults']
+    assert 'output_fallback_run_has_no_output_work' in convergence['output_work_semantics']
+    assert 'output_fallback_run_has_no_output_work' in detail['semantics']['target_work']
+    # What the text says holds for the data beside it.
+    runs = [run for problem in report['problems'] for run in problem['runs'] if run['solver_index'] == 2]
+    assert all(run['output_fallback'] for run in runs)
+    assert all(run['objective']['output'] == run['objective']['initial'] for run in runs)
+    assert all(run['constraint']['output'] == run['constraint']['initial'] for run in runs)
+    for working, flagged in detail['target_work'][0]['output']:
+        assert all(isinstance(entry, (int, float)) for entry in working)
+        assert all(entry == {'value': None, 'reason': 'nan'} for entry in flagged)
+    assert [entry['hits'] for entry in convergence['output']] == [2, 0]
+
+
 def test_solver_free_load_reproduces_the_scores(library):
     options = library('loose_reference')
     scores, profiles, _ = benchmark([reaches_zero, crash_after_evaluating], benchmark_id='saved',

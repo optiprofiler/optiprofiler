@@ -200,6 +200,12 @@ repeating the same prose in every run, and it omits keys that would only carry
 * ``budget_reached``, ``evaluations``, ``abnormal_termination``,
   ``output_fallback``, ``execution``, ``oracle_seed`` and ``elapsed_seconds``
   stay per run. Reaching the cap still does not prove the termination cause.
+* A run with ``output_fallback`` true returned no output. Its
+  ``objective.output`` and ``constraint.output`` are the values at ``x0``, and
+  it has no output-based work: its entries of ``output`` in ``target_work``
+  have the value ``null`` and the output ``hits`` of ``convergence`` exclude
+  it. ``output_work_semantics`` and the ``target_work`` entry of the
+  companion's ``semantics`` say the same.
 * There is no per-run convergence field. Convergence is never inferred from a
   solver return value; ``target_work`` in the companion observes the existing
   scoring predicate.

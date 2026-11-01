@@ -575,7 +575,7 @@ class EvalReport:
                 'metric_best': 'componentwise_minimum_ignoring_nan;first_tie_index;not_necessarily_a_jointly_attained_point',
                 'budget': 'problems[].budget applies to every run unless runs[].budget overrides it; budget_reached is a per-run comparison and reaching the cap does not identify the termination cause.',
                 'convergence': 'Never inferred from solver return values; there is no per-run convergence field. target_work in the companion observes the existing scoring predicate.',
-                'run_defaults': 'evaluations, budget_reached, abnormal_termination, output_fallback, execution, oracle_seed and elapsed_seconds are per-run facts. An absent *_reason key means the observation was available; an absent first_invalid_evaluation_index means no invalid evaluation was observed and invalid_evaluations is then the integer 0. Runtime facts of an executed role (strategy, runtime and seed policy) are stated once in configuration.effective (experiment and feature), never per run.',
+                'run_defaults': 'evaluations, budget_reached, abnormal_termination, output_fallback, execution, oracle_seed and elapsed_seconds are per-run facts. A run with output_fallback true returned no output: objective.output and constraint.output are the values at x0, and it has no output-based work, so its output entries in target_work have the value null and the output hits of convergence exclude it. An absent *_reason key means the observation was available; an absent first_invalid_evaluation_index means no invalid evaluation was observed and invalid_evaluations is then the integer 0. Runtime facts of an executed role (strategy, runtime and seed policy) are stated once in configuration.effective (experiment and feature), never per run.',
                 'configuration': 'configuration.request lists user-supplied options; configuration.effective lists the resolved options of this invocation: feature is the canonical pipeline specification (stage-local options only) and experiment the plan of every executing role (the run counts live there). In a load operation they describe reanalysis/rendering, not the archived execution: experiment is empty, retained_result_metadata is a sanitized copy of the archived metadata and source.sha256 identifies the unchanged archive bytes.',
                 'paths': {'artifacts': 'relative_to_artifact_root', 'artifact_root': 'relative_to_main_report_parent',
                           'plot_data': 'relative_to_main_report_parent', 'source': 'relative_to_main_report_parent'},
@@ -592,7 +592,7 @@ class EvalReport:
                                   'history_plots': 'display_copy_only;across_run_band_then_shift_then_cummin_then_block_aggregation;block_aggregation_applies_when_padded_length_exceeds_1002_and_keeps_about_1000_points;array_position_is_not_an_evaluation_index_use_evaluation_indices',
                                   'profile_plots': 'full_step_vertices_and_across_run_bands;band_clamped_to_0_1;unreached_work_shown_at_failure_placeholder_not_counted_as_hit;log_ratio_zero_height_ties_retained_in_numeric_data_but_not_drawn',
                                   'error_bands': 'python_population_std_ddof_0_for_history_and_profile_bands',
-                                  'target_work': 'existing_profile_work_arrays;history_first_actual_hit;output_total_evaluations_at_passing_returned_output;nan_is_nonhit_not_solver_diagnosis',
+                                  'target_work': 'existing_profile_work_arrays;history_first_actual_hit;output_total_evaluations_at_passing_returned_output;output_fallback_run_has_no_output_work;nan_is_nonhit_not_solver_diagnosis',
                                   'privacy': 'controller_private;not_an_allowlisted_agent_prompt'},
                               'histories': [], 'plots': [], 'target_work': [], 'diagnostics': []}
         # Preflight both names before reserving either. O_EXCL also closes the
@@ -1198,7 +1198,7 @@ class EvalReport:
                  'invalid_initial_reason': 'not_separately_supplied',
                  'problem_count': len(problem_ids) if type(problem_ids) in (list, tuple) else None,
                  'history_work_semantics': 'first_actual_evaluation_meeting_existing_target',
-                 'output_work_semantics': 'total_evaluations_at_passing_returned_output_not_first_hit',
+                 'output_work_semantics': 'total_evaluations_at_passing_returned_output_not_first_hit;output_fallback_run_has_no_output_work',
                  'history': [], 'output': []}
         for label, work in (('history', work_hist), ('output', work_out)):
             if type(work) is not np.ndarray or work.ndim != 3 or work.dtype.kind not in 'biuf':

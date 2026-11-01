@@ -135,6 +135,33 @@ classdef TestOutputFallback < matlab.unittest.TestCase
             testCase.verifyEqual(flags, [true, false, true, false]);
         end
 
+        function reportStatesWhatAFlaggedRunHasAndLacks(testCase)
+            options = testCase.library('loose_reference');
+            options.score_only = true;
+            options.report_path = fullfile(testCase.WorkDir, 'report.json');
+            benchmark({@TestOutputFallback.reachesZero, @TestOutputFallback.crashAfter}, options);
+            report = jsondecode(fileread(options.report_path));
+            detail = jsondecode(fileread(fullfile(testCase.WorkDir, 'report.plot_data.json')));
+            convergence = report.profiles.convergence(1);
+            testCase.verifySubstring(report.semantics.run_defaults, 'A run with output_fallback true returned no output');
+            testCase.verifySubstring(convergence.output_work_semantics, 'output_fallback_run_has_no_output_work');
+            testCase.verifySubstring(detail.semantics.target_work, 'output_fallback_run_has_no_output_work');
+            % What the text says holds for the data beside it.
+            for p = 1:numel(report.problems)
+                runs = report.problems(p).runs;
+                run = runs([runs.solver_index] == 2);
+                testCase.verifyTrue(run.output_fallback);
+                testCase.verifyEqual(run.objective.output, run.objective.initial);
+                testCase.verifyEqual(run.constraint.output, run.constraint.initial);
+            end
+            work = detail.target_work(1).output;
+            for p = 1:numel(work)
+                testCase.verifyTrue(isnumeric(work{p}{1}) && ~isempty(work{p}{1}));
+                testCase.verifyEqual(work{p}{2}, struct('value', [], 'reason', 'nan'));
+            end
+            testCase.verifyEqual([convergence.output.hits], [2, 0]);
+        end
+
         function solverFreeLoadReproducesTheScores(testCase)
             options = testCase.library('loose_reference');
             options.benchmark_id = 'saved';
