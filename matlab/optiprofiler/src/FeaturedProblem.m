@@ -205,6 +205,8 @@ classdef FeaturedProblem < Problem
             if ~isa(problem, 'Problem')
                 error("MATLAB:FeaturedProblem:NotProblemClass", "The first argument of `FeaturedProblem` must be an instance of the class Problem.");
             end
+            % A saved object or a later assignment can hold any name.
+            problem.checkName();
             if ~isa(feature, 'Feature')
                 error("MATLAB:FeaturedProblem:NotFeatureClass", "The second argument of `FeaturedProblem` must be an instance of the class Feature.");
             end
