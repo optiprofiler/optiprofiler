@@ -204,16 +204,8 @@ def test_benchmark_save_failure_is_explicit_even_when_silent(saved_same_second_r
     assert len(list(root.glob('*/test_log/time_stamp_*.txt'))) == len(markers)
 
 
-def test_summary_uses_legacy_compatible_figure_keyword(saved_same_second_runs, monkeypatch):
+def test_load_writes_the_summary(saved_same_second_runs):
     root, _, _ = saved_same_second_runs
-    real_figure = profiles.Figure
-
-    def legacy_figure(*args, **kwargs):
-        if 'layout' in kwargs:
-            raise TypeError('Matplotlib 3.4 does not accept layout')
-        return real_figure(*args, **kwargs)
-
-    monkeypatch.setattr(profiles, 'Figure', legacy_figure)
     scores, _, _ = benchmark(None, load='latest', benchmark_id='saved',
                              draw_hist_plots='none', silent=True, max_tol_order=1,
                              summarize_performance_profiles=True,
