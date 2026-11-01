@@ -32,6 +32,7 @@ objects across versions.
 import copy
 import io
 import pickle
+import warnings
 from collections import namedtuple
 from collections.abc import Mapping
 from enum import Enum
@@ -423,7 +424,7 @@ def _load_invocation_replay(plain):
         'experiment from its own test_log/options_refined.pkl instead.')
 
 
-def replay_arguments(options, feature_name=None):
+def replay_arguments(options, feature_name=None, *, _warn_route=True):
     """
     Map a trusted options dictionary to ``benchmark`` inputs.
 
@@ -447,7 +448,9 @@ def replay_arguments(options, feature_name=None):
     ``options_refined.pkl`` records ``problem_route`` but not the Problem
     itself, so a ``'direct_problem'`` record without ``problem`` raises
     :class:`LegacyConfigurationError` instead of returning the unused default
-    library selectors.
+    library selectors. A record older than ``problem_route`` holds such
+    selectors whatever the experiment used, so its replay warns: a
+    direct-Problem experiment would run on them.
 
     A file written by a ``load`` (re-plot) invocation describes that load, not
     the archived execution. It replays only when it carries the archived recipe
@@ -483,6 +486,13 @@ def replay_arguments(options, feature_name=None):
     else:
         problem_keys = {member.value for member in ProblemOption}
         problem_options = {key: value for key, value in plain.items() if key in problem_keys}
+        # options_user files hold the Problem of a direct run themselves.
+        if _warn_route and route is None and plain.get('schema') != USER_SCHEMA:
+            warnings.warn(
+                'These options do not record whether the experiment selected its problems from a library or '
+                'used a directly supplied Problem. If it used a Problem, this replay would benchmark the recorded '
+                "library selectors instead: set the original Problem first (options['problem'] = problem).",
+                stacklevel=2)
     schema = plain.get('schema')
     if schema == USER_SCHEMA:
         # Raw user input is not a historical effective configuration. The
@@ -732,7 +742,8 @@ def archived_replay_recipe(source_options_path, results_plibs):
             return _closed_recipe('source_is_a_load_invocation_without_recipe')
         return _closed_recipe(problem)
     try:
-        replay = replay_arguments(source)
+        # A load replays nothing, and a direct Problem leaves no archive to load.
+        replay = replay_arguments(source, _warn_route=False)
     except LegacyConfigurationError as err:
         return _closed_recipe('source_options_not_replayable', detail=str(err)[:200])
     try:

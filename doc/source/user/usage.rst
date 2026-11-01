@@ -207,6 +207,11 @@ settings that would benchmark a problem library. Set the original Problem
 first, for example ``S = load(file); S.options_refined.problem = p;`` and then
 ``loadBenchmarkOptions(S.options_refined)``; the run's ``options_user.mat``
 also records the Problem. The receipt's ``problem_route`` states the route.
+A record older than this field has default library selectors whatever the
+experiment used. For a file, ``loadBenchmarkOptions`` reads the route from the
+``options_user.mat`` next to it; otherwise the receipt says ``not_recorded``
+and the replay warns with ``OptiProfiler:ProblemRouteNotRecorded``, because a
+direct-Problem experiment would run on those selectors.
 
 Options saved by a ``load`` (re-plot) invocation describe that re-plot, not the
 archived execution: ``benchmark`` writes no ``options_refined.mat`` for a load,

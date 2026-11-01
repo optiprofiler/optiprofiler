@@ -97,6 +97,46 @@ classdef TestNativeBenchmarkReplay < matlab.unittest.TestCase
             testCase.verifyError(@() loadBenchmarkOptions(source), 'OptiProfiler:InvalidNativeProblem');
         end
 
+        function recordWithoutProblemRouteIsNotReplayedSilently(testCase)
+            % A record older than problem_route holds default selectors even
+            % for a direct-Problem run, so a replay would run another experiment.
+            output = tempname(artifactRoot()); mkdir(output);
+            testCase.addTeardown(@() rmdir(output, 's'));
+            problem = Problem(struct('fun', @(x) sum((x - 1).^2), 'x0', [0; 0], 'name', 'replayquad'));
+            benchmark({@replayStay, @replayStep}, struct('problem', problem, 'savepath', output, 'benchmark_id', 'direct', ...
+                'silent', true, 'draw_hist_plots', 'none', 'max_eval_factor', 5, 'max_tol_order', 1, 'n_jobs', 1));
+            log = dir(fullfile(output, 'direct', '**', 'options_refined.mat'));
+            file = fullfile(log(1).folder, 'options_refined.mat');
+            S = load(file);
+            options_refined = rmfield(S.options_refined, 'problem_route');
+
+            % A struct says nothing about its route, and neither does a file alone.
+            [~, receipt] = testCase.verifyWarning(@() loadBenchmarkOptions(options_refined), ...
+                'OptiProfiler:ProblemRouteNotRecorded');
+            testCase.verifyEqual(receipt.problem_route, 'not_recorded');
+            alone = fullfile(output, 'options_refined.mat');
+            save(alone, 'options_refined');
+            [~, receipt] = testCase.verifyWarning(@() loadBenchmarkOptions(alone), 'OptiProfiler:ProblemRouteNotRecorded');
+            testCase.verifyEqual(receipt.problem_route, 'not_recorded');
+
+            % The options_user.mat next to the record settles it.
+            save(file, 'options_refined');
+            testCase.verifyError(@() loadBenchmarkOptions(file), 'OptiProfiler:DirectProblemNotSaved');
+            library = fullfile(output, 'library');
+            mkdir(library);
+            save(fullfile(library, 'options_refined.mat'), 'options_refined');
+            options_user = struct('plibs', {{'s2mpj'}});
+            save(fullfile(library, 'options_user.mat'), 'options_user');
+            [~, receipt] = testCase.verifyWarningFree(@() loadBenchmarkOptions(fullfile(library, 'options_refined.mat')));
+            testCase.verifyEqual(receipt.problem_route, 'library_selection');
+
+            % A record that a user completed needs no warning.
+            options_refined.problem = problem;
+            [replay, receipt] = testCase.verifyWarningFree(@() loadBenchmarkOptions(options_refined));
+            testCase.verifyEqual(receipt.problem_route, 'direct_problem');
+            testCase.verifySameHandle(replay.problem, problem);
+        end
+
         function malformedRetainedNativeFeatureHasActionableError(testCase)
             output = tempname(artifactRoot()); mkdir(output);
             options_refined = nativeOptions(Feature('noisy'));

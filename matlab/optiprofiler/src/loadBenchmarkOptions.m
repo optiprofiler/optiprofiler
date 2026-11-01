@@ -20,14 +20,21 @@ function [options, receipt] = loadBenchmarkOptions(source, legacy_feature_name)
 % instead of becoming a library replay, unless the original Problem is set as
 % the problem field of the struct passed here. A source with a problem field
 % (such as options_user of a direct-problem run) replays that Problem, without
-% library selectors; RECEIPT.problem_route records the route.
+% library selectors. RECEIPT.problem_route records the route: 'direct_problem',
+% 'library_selection', or 'not_recorded' for a record older than the field.
+% Such a record has default library selectors whatever the experiment used. For
+% a file, the options_user.mat next to it settles the route. Otherwise a replay
+% warns with OptiProfiler:ProblemRouteNotRecorded, because a direct-problem
+% experiment would run on those selectors.
 % Native MAT loading is trusted input and can execute user code. Callback names
 % in JSON reports are descriptions, not recipes for reconstructing functions.
 % The inspection duplicate is checked for ordinary values/structure and callback
 % positions/types only; callback identity or semantics is not certified. Only
 % the canonical native Feature supplies callbacks to the returned replay.
     if nargin < 2, legacy_feature_name = []; end
+    source_file = '';
     if ischar(source) || (isstring(source) && isscalar(source))
+        source_file = char(source);
         try
             loaded = load(char(source), 'options_refined');
         catch cause
@@ -69,6 +76,14 @@ function [options, receipt] = loadBenchmarkOptions(source, legacy_feature_name)
             error('OptiProfiler:InvalidNativeOptions', 'problem_route must be ''direct_problem'' or ''library_selection''.');
         end
         receipt.problem_route = char(source.problem_route);
+    elseif ~has_problem
+        receipt.problem_route = routeOfUserOptions(source_file);
+        if strcmp(receipt.problem_route, 'not_recorded')
+            warning('OptiProfiler:ProblemRouteNotRecorded', ...
+                ['These options do not record whether the experiment selected its problems from a library or used a ', ...
+                 'directly supplied Problem. If it used a Problem, this replay would benchmark the recorded library ', ...
+                 'selectors instead: set the original Problem as the problem field of the options.']);
+        end
     end
     if strcmp(receipt.problem_route, 'direct_problem') && ~has_problem
         error('OptiProfiler:DirectProblemNotSaved', ...
@@ -166,6 +181,28 @@ function [options, receipt] = loadBenchmarkOptions(source, legacy_feature_name)
     if isfield(source, 'n_runs')
         options.n_runs = source.n_runs;
         receipt.retained_n_runs = source.n_runs;
+    end
+end
+
+function route = routeOfUserOptions(source_file)
+% options_user.mat beside a record holds what the caller passed to benchmark,
+% with a Problem if there was one, in every version that wrote such a record.
+    route = 'not_recorded';
+    if ~isfile(source_file), return; end
+    sibling = fullfile(fileparts(source_file), 'options_user.mat');
+    if ~isfile(sibling), return; end
+    try
+        loaded = load(sibling, 'options_user');
+    catch
+        return
+    end
+    if ~isfield(loaded, 'options_user') || ~isstruct(loaded.options_user) || ~isscalar(loaded.options_user)
+        return
+    end
+    if ~isfield(loaded.options_user, 'problem')
+        route = 'library_selection';
+    elseif isa(loaded.options_user.problem, 'Problem')
+        route = 'direct_problem';
     end
 end
 
