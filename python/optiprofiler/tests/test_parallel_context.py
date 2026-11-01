@@ -91,6 +91,42 @@ if __name__ == '__main__':
     assert 'ENTRY_POINT_FALLBACK_ONCE' in result.stdout
 
 
+SILENT_RUN_SCRIPT = '''import sys
+from optiprofiler import benchmark
+
+def solver(fun, x0):
+    fun(x0)
+    return x0
+
+if __name__ == '__main__':
+    solvers = [solver, solver] if sys.argv[1] == 'importable' else [lambda fun, x0: solver(fun, x0)] * 2
+    options = dict(plibs=['custom'], problem_names=['custom1', 'custom2'], n_jobs=2, n_runs=1,
+                   max_eval_factor=1, max_tol_order=1, run_plain=False, draw_hist_plots='none',
+                   score_only=sys.argv[2] == 'score_only', savepath=sys.argv[3])
+    benchmark(solvers, silent=False, **options)
+    print('SILENT_RUN_STARTS', flush=True)
+    benchmark(solvers, silent=True, **options)
+'''
+
+
+@pytest.mark.parametrize('solvers, mode, notice', [
+    ('importable', 'score_only', 'Entering the parallel section.'),
+    ('importable', 'saved', 'Entering the parallel section.'),
+    ('lambdas', 'score_only', 'Falling back to sequential mode'),
+])
+def test_silent_parallel_run_prints_no_information(solvers, mode, notice, tmp_path):
+    script = tmp_path / 'silent_run.py'
+    script.write_text(SILENT_RUN_SCRIPT)
+    result = subprocess.run([sys.executable, str(script), solvers, mode, str(tmp_path)], cwd=tmp_path,
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=120,
+                            env=dict(os.environ, MPLBACKEND='Agg'))
+    assert result.returncode == 0, result.stdout
+    loud, silent = result.stdout.split('SILENT_RUN_STARTS')
+    # The first run proves that this route is the one whose notices are guarded.
+    assert notice in ' '.join(loud.split()), loud
+    assert '[INFO' not in silent, silent
+
+
 BOOTSTRAP_SCRIPT = '''import os
 import sys
 import multiprocessing as mp

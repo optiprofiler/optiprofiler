@@ -2526,11 +2526,12 @@ def _solve_all_problems(solvers, plib, feature, plan, problem_options, profile_o
         # Fresh processes cannot import notebook/REPL-local solver definitions.
         # Decide before any task executes; never replay a failed parallel run.
         sequential_mode = True
-        logger.info(
-            'Falling back to sequential mode because worker processes cannot '
-            'import this entry point. To run in parallel, use a '
-            'Python script with an if __name__ == "__main__" guard.'
-        )
+        if not profile_options[ProfileOption.SILENT]:
+            logger.info(
+                'Falling back to sequential mode because worker processes cannot '
+                'import this entry point. To run in parallel, use a '
+                'Python script with an if __name__ == "__main__" guard.'
+            )
 
     # Fall back to sequential mode if the arguments cannot be pickled (e.g.,
     # when the user passes lambda functions as solvers or feature modifiers).
@@ -2552,25 +2553,28 @@ def _solve_all_problems(solvers, plib, feature, plan, problem_options, profile_o
             WorkerArgumentPickler.dumps(sample_arg)
         except Exception as exc:
             sequential_mode = True
-            logger.info(
-                'Falling back to sequential mode because worker processes cannot '
-                'serialize or import the benchmark arguments: '
-                f'{shorten_log_message(exc)} Use top-level functions in an '
-                'importable module to enable parallel execution.'
-            )
+            if not profile_options[ProfileOption.SILENT]:
+                logger.info(
+                    'Falling back to sequential mode because worker processes cannot '
+                    'serialize or import the benchmark arguments: '
+                    f'{shorten_log_message(exc)} Use top-level functions in an '
+                    'importable module to enable parallel execution.'
+                )
 
     # Solve all problems.
     args = [(solvers, feature, plan, problem_name, len_problem_names, profile_options_log, is_plot, path_hist_plots, library_ref, library_options) for problem_name in problem_names]
     if sequential_mode:
         results = map(lambda arg: _solve_one_problem_wrapper(*arg), args)
     else:
-        logger.info('Entering the parallel section.')
+        if not profile_options[ProfileOption.SILENT]:
+            logger.info('Entering the parallel section.')
         results = run_tasks(_solve_one_problem_wrapper, args,
                             profile_options[ProfileOption.N_JOBS],
                             _initialize_problem_library_worker,
                             (library_ref, setup_worker_logging, (log_queue,),
                              _problem_library_worker_package(library_ref)))
-        logger.info('Leaving the parallel section.')
+        if not profile_options[ProfileOption.SILENT]:
+            logger.info('Leaving the parallel section.')
 
     # Keep load failures observable before the legacy aggregate discards them.
     # Scalar facts and bounded prepared plot arrays cross the process boundary,
@@ -2591,7 +2595,8 @@ def _solve_all_problems(solvers, plib, feature, plan, problem_options, profile_o
     n_problems = len(results)
 
     if n_problems == 0:
-        logger.info(f'All problems from "{plib}" are not solved successfully.')
+        if not profile_options[ProfileOption.SILENT]:
+            logger.info(f'All problems from "{plib}" are not solved successfully.')
         return None
 
     # Process the results.
