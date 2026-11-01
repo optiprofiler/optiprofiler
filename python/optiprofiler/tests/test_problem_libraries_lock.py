@@ -1,5 +1,7 @@
+import importlib.util
 import json
 from pathlib import Path
+import re
 import subprocess
 import sys
 
@@ -9,6 +11,7 @@ import pytest
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 CHECKER = REPOSITORY_ROOT / "tools/check_problem_libraries_lock.py"
 LOCK = REPOSITORY_ROOT / "problem_libraries.lock"
+BUNDLED_DECLARATION = re.compile(r"^_BUNDLED_PROBLEM_LIBRARIES\s*=.*$", re.MULTILINE)
 
 
 # The integration lock and its validator intentionally stay at repository
@@ -29,6 +32,13 @@ def _run_checker(*arguments):
         stderr=subprocess.PIPE,
         check=False,
     )
+
+
+def _load_checker():
+    spec = importlib.util.spec_from_file_location("check_problem_libraries_lock", CHECKER)
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+    return checker
 
 
 def test_problem_library_lock_matches_core_protocol_and_gitlinks():
@@ -92,3 +102,21 @@ def test_shipped_revision_record_must_repeat_the_bundled_lock_entry(tmp_path):
 
     assert result.returncode == 1
     assert "bundled_revisions.json does not match the bundled-default lock entry" in result.stderr
+
+
+@pytest.mark.parametrize(
+    "declaration, message",
+    [
+        ("_BUNDLED_PROBLEM_LIBRARIES = ('custom', 's2mpj_python')", "missing from _BUNDLED_PROBLEM_LIBRARIES"),
+        ("", "Cannot find _BUNDLED_PROBLEM_LIBRARIES"),
+    ],
+)
+def test_bundled_default_must_be_declared_by_the_core(tmp_path, monkeypatch, declaration, message):
+    checker = _load_checker()
+    core = tmp_path / "problem_libraries.py"
+    source = checker.CORE_PROTOCOL.read_text(encoding="utf-8")
+    core.write_text(BUNDLED_DECLARATION.sub(declaration, source), encoding="utf-8")
+    monkeypatch.setattr(checker, "CORE_PROTOCOL", core)
+
+    with pytest.raises(checker.LockError, match=message):
+        checker.validate_lock()

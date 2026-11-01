@@ -75,15 +75,27 @@ def _require_exact_keys(value, expected, context):
         raise LockError(f"{context} has invalid keys: {', '.join(details)}.")
 
 
-def _core_api_version():
+def _core_protocol_source():
     try:
-        source = CORE_PROTOCOL.read_text(encoding="utf-8")
+        return CORE_PROTOCOL.read_text(encoding="utf-8")
     except OSError as exc:
         raise LockError(f"Cannot read core problem-library protocol: {exc}") from exc
+
+
+def _core_api_version():
+    source = _core_protocol_source()
     match = re.search(r"^PROBLEM_LIBRARY_API_VERSION\s*=\s*(\d+)\s*$", source, re.MULTILINE)
     if match is None:
         raise LockError(f"Cannot find PROBLEM_LIBRARY_API_VERSION in {CORE_PROTOCOL}.")
     return int(match.group(1))
+
+
+def _core_bundled_libraries():
+    source = _core_protocol_source()
+    match = re.search(r"^_BUNDLED_PROBLEM_LIBRARIES\s*=\s*\(([^)]*)\)", source, re.MULTILINE)
+    if match is None:
+        raise LockError(f"Cannot find _BUNDLED_PROBLEM_LIBRARIES in {CORE_PROTOCOL}.")
+    return set(re.findall(r"""['"]([^'"]+)['"]""", match.group(1)))
 
 
 def _index_gitlink(path):
@@ -215,6 +227,12 @@ def validate_lock(path=DEFAULT_LOCK):
     bundled = [entry for entry in libraries if entry["role"] == "bundled-default"]
     if len(bundled) != 1:
         raise LockError("Exactly one bundled-default library is required.")
+    undeclared = sorted({entry["name"] for entry in bundled} - _core_bundled_libraries())
+    if undeclared:
+        raise LockError(
+            f"Bundled-default libraries {undeclared} are missing from "
+            f"_BUNDLED_PROBLEM_LIBRARIES in {CORE_PROTOCOL}."
+        )
     validate_bundled_record(data)
     return data
 
