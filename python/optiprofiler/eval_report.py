@@ -389,6 +389,10 @@ def _digest(path, directory=None):
     inspected = None
     ancestors = []
     if directory is None:
+        # Windows refuses to open a directory with a PermissionError, before
+        # the regular-file check below could name the path.
+        if os.path.isdir(str(path)):
+            raise OSError(f"expected a regular file: '{path}'")
         fd = os.open(str(path), flags)
     else:
         capability = _hashing_capability()
