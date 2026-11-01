@@ -26,6 +26,7 @@ REQUIRED_PACKAGE_FILES = (
     'optiprofiler/schemas/eval_report-v2.schema.json',
     'optiprofiler/schemas/plot_data.schema.json',
     'optiprofiler/problem_libs/s2mpj/LICENCE.txt',
+    'optiprofiler/problem_libs/s2mpj/LICENSE',
     'optiprofiler/problem_libs/s2mpj/THIRD_PARTY_NOTICES.md',
     'optiprofiler/problem_libs/s2mpj/probinfo_python.csv',
 )

@@ -107,6 +107,7 @@ class ReleaseContractTests(unittest.TestCase):
             'optiprofiler/schemas/eval_report-v2.schema.json': b'{}',
             'optiprofiler/schemas/plot_data.schema.json': b'{}',
             'optiprofiler/problem_libs/s2mpj/LICENCE.txt': b'upstream license',
+            'optiprofiler/problem_libs/s2mpj/LICENSE': b'adapter license',
             'optiprofiler/problem_libs/s2mpj/THIRD_PARTY_NOTICES.md': b'provenance',
             'optiprofiler/problem_libs/s2mpj/probinfo_python.csv': b'name,n\n',
         }

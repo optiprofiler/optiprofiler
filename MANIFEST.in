@@ -16,6 +16,8 @@ recursive-include python/optiprofiler/schemas *.schema.json
 recursive-include python/optiprofiler/problem_libs *.py *.txt *.csv *.md
 include python/optiprofiler/problem_libs/bundled_revisions.json
 include python/optiprofiler/problem_libs/s2mpj/src/list_of_python_problems
+# The adapter's own licence has no extension, so the glob above misses it.
+include python/optiprofiler/problem_libs/s2mpj/LICENSE
 
 # Exclude unnecessary files
 global-exclude .git*

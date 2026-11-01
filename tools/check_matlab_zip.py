@@ -23,6 +23,7 @@ REQUIRED_FILES = {
     ARCHIVE_ROOT / "matlab/optiprofiler/src/benchmark.m",
     ARCHIVE_ROOT / "matlab/optiprofiler/src/resolveProblemLibrary.m",
     ARCHIVE_ROOT / "matlab/optiprofiler/problem_libs/custom/custom_load.m",
+    ARCHIVE_ROOT / "matlab/optiprofiler/problem_libs/s2mpj/LICENSE",
     ARCHIVE_ROOT / "matlab/optiprofiler/problem_libs/s2mpj/README.md",
     ARCHIVE_ROOT / "matlab/optiprofiler/problem_libs/s2mpj/s2mpj_load.m",
     ARCHIVE_ROOT / "matlab/optiprofiler/problem_libs/s2mpj/s2mpj_select.m",

@@ -39,4 +39,5 @@ The SHA-256 of the license file is
 `a8636fc42ac474fc85fbf451c6a0316f6cbd9efa9031d549797dec6b43e9e5b4`.
 This revision identifies the license text, not a wholesale update of the
 bundled problem sources. The upstream license does not assign ownership of
-the independently maintained OptiProfiler adapters.
+the independently maintained OptiProfiler adapters, which are licensed under
+the BSD 3-Clause terms in the `LICENSE` file of each bundled subset.
