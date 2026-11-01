@@ -10,6 +10,8 @@ function [results_plibs, profile_options, problem_options] = loadResults(problem
     if ~isfield(profile_options, ProfileOptionKey.LOAD.value) || isempty(profile_options.(ProfileOptionKey.LOAD.value))
         return;
     end
+    % Progress information follows `silent`, as in a benchmark run.
+    silent = isfield(profile_options, ProfileOptionKey.SILENT.value) && profile_options.(ProfileOptionKey.SILENT.value);
 
     load_value = char(profile_options.(ProfileOptionKey.LOAD.value));
     if ~strcmp(load_value, 'latest') && any(isnan(parseExperimentTimeStamp(load_value)))
@@ -66,7 +68,9 @@ function [results_plibs, profile_options, problem_options] = loadResults(problem
     warning_state = warning;
     warning_cleanup = onCleanup(@() warning(warning_state));
     warning('off');
-    printOptiProfilerMessage('INFO', sprintf("Loading data from the directory '%s'...", path_data));
+    if ~silent
+        printOptiProfilerMessage('INFO', sprintf("Loading data from the directory '%s'...", path_data));
+    end
     load(fullfile(path_data, 'data_for_loading.mat'), 'results_plibs');
     clear warning_cleanup;
     if ~exist('results_plibs', 'var')
@@ -171,7 +175,7 @@ function [results_plibs, profile_options, problem_options] = loadResults(problem
         if ~isempty(rescore_reason) && changed
             % Deliberate, documented rescoring: say so instead of silently
             % reporting scores of a different merit than the archived one.
-            if ~isfield(profile_options, ProfileOptionKey.SILENT.value) || ~profile_options.(ProfileOptionKey.SILENT.value)
+            if ~silent
                 printOptiProfilerMessage('WARNING', sprintf(['The saved merit values were recomputed with the default merit (%s). ' ...
                     'Pass the original merit_fun to reproduce the scores of an experiment run with a custom merit function.'], ...
                     strrep(rescore_reason, '_', ' ')));
@@ -192,8 +196,10 @@ function [results_plibs, profile_options, problem_options] = loadResults(problem
 
     % Check whether there is any problem to load.
     if problem_nums == 0
-        fprintf('\n');
-        printOptiProfilerMessage('INFO', 'No problem is selected to load by the given options. Please check your options and try again.');
+        if ~silent
+            fprintf('\n');
+            printOptiProfilerMessage('INFO', 'No problem is selected to load by the given options. Please check your options and try again.');
+        end
         results_plibs = {};
         return;
     end
@@ -203,14 +209,16 @@ function [results_plibs, profile_options, problem_options] = loadResults(problem
     problem_options = backfill_problem_options(problem_options, results_plibs);
 
     % Print the information about the loaded experiment.
-    printOptiProfilerMessage('INFO', 'Loaded experiment successfully.');
-    fprintf('\n');
-    printOptiProfilerMessage('INFO', 'Information about the loaded experiment:');
-    printOptiProfilerMessage('INFO', sprintf('- Time stamp: %s', time_stamp));
-    printOptiProfilerMessage('INFO', sprintf('- Path: %s', path_experiment));
-    printOptiProfilerMessage('INFO', sprintf('- Solvers: %s', strjoin(results_plibs{1}.solver_names, ', ')));
-    printOptiProfilerMessage('INFO', sprintf('- Feature stamp: %s', results_plibs{1}.feature_stamp));
-    printOptiProfilerMessage('INFO', sprintf('- Number of selected problems: %d', problem_nums));
+    if ~silent
+        printOptiProfilerMessage('INFO', 'Loaded experiment successfully.');
+        fprintf('\n');
+        printOptiProfilerMessage('INFO', 'Information about the loaded experiment:');
+        printOptiProfilerMessage('INFO', sprintf('- Time stamp: %s', time_stamp));
+        printOptiProfilerMessage('INFO', sprintf('- Path: %s', path_experiment));
+        printOptiProfilerMessage('INFO', sprintf('- Solvers: %s', strjoin(results_plibs{1}.solver_names, ', ')));
+        printOptiProfilerMessage('INFO', sprintf('- Feature stamp: %s', results_plibs{1}.feature_stamp));
+        printOptiProfilerMessage('INFO', sprintf('- Number of selected problems: %d', problem_nums));
+    end
 end
 
 function problem_options = backfill_problem_options(problem_options, results_plibs)

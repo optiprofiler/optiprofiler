@@ -234,8 +234,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         plotted coordinate is `log2(1 + n_eval / (n + 1))` but tick labels
 %         are displayed in the original `n_eval / (n + 1)` units, typically
 %         `0, 1, 2, 4, ...`. Default is true.
-%       - silent: whether to show the information of the progress. Default is
-%         false.
+%       - silent: whether to show the information of the progress. With true,
+%         no progress information is printed, also when loading saved results.
+%         Default is false.
 %       - solver_isrand: whether the solvers are randomized or not. Default is
 %         a logical array of the same length as the number of solvers, where
 %         the value is true if the solver is randomized, and false otherwise.
