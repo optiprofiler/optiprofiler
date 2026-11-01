@@ -531,9 +531,9 @@ def _benchmark(
         Two different colors for the bars of two solvers in the
         log-ratio profiles. It can be a list of short names of colors
         ('r', 'g', 'b', 'c', 'm', 'y', 'k') or a 2-by-3 array with each row
-        being a RGB triplet. Default is set to the first two colors in the
-        'line_colors' option. With a single color, both solvers' bars use
-        it.
+        being a RGB triplet. Default is set to the 'line_colors' option. The
+        bars cycle through the given colors, so with a single color both
+        solvers' bars use it.
     benchmark_id : str, optional
         The identifier of the test. It is used to create the
         specific directory to store the results. Default is 'out' if the
@@ -737,7 +737,11 @@ def _benchmark(
         Note: LaTeX formatting is supported. The same applies to the options
         'xlabel_log_ratio_profile', 'xlabel_performance_profile',
         'ylabel_data_profile', 'ylabel_log_ratio_profile', and
-        'ylabel_performance_profile'.
+        'ylabel_performance_profile'. The text of the x-axis labels is passed
+        to the renderer verbatim. Under LaTeX, write '\\%' for a percent sign:
+        a bare '%' starts a LaTeX comment and cuts the label. Without LaTeX
+        (see 'text.usetex' in the 'rc' group of 'plot_options'), '\\%' keeps
+        its backslash; '$50\\%$' works in both cases.
     xlabel_log_ratio_profile : str, optional
         The label of the x-axis of the log-ratio
         profiles. Default is 'Problem'.
@@ -748,7 +752,10 @@ def _benchmark(
         The label of the y-axis of the data profiles.
         Default is 'Data profiles ($\\mathrm{tol} = %s$)', where '%s' will be
         replaced by the current tolerance in LaTeX format. You can also use
-        '%s' in your custom label, and it will be replaced accordingly.
+        '%s' in your custom label, and it will be replaced accordingly. Keep
+        '%s' inside '$...$', as the defaults do, because the tolerance is
+        LaTeX math: outside math mode it is literal text such as '10^{-1}'
+        without LaTeX, and it raises a LaTeX error under LaTeX.
         Only '%s' is a placeholder: '%%' and any other '%' give a literal
         percent sign, escaped automatically where LaTeX or a '$...$'
         segment needs it (so '50% solved at $%s$' is a valid label). The
