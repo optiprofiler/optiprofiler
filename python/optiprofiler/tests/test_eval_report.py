@@ -482,16 +482,26 @@ def _failed_score(profile_scores):
     raise ValueError('deliberate score failure')
 
 
-def test_score_failure_after_a_failed_history_plot_fails_scoring(tmp_path, monkeypatch):
+def _failed_merit(fun_value, maxcv_value, maxcv_init):
+    raise ValueError('deliberate merit failure')
+
+
+@pytest.mark.parametrize('callback', ['score_fun', 'merit_fun'])
+def test_score_failure_after_a_failed_history_plot_fails_scoring(tmp_path, monkeypatch, callback):
     # A failed history plot does not stop the run, so the scores are attempted.
+    # In the default mode the plots come with the solves and compute the merits,
+    # so a failing merit_fun has failed them all before the scoring fails.
     from optiprofiler import profiles
     _library(tmp_path / 'libraries', 'evalrender', ['QUAD'])
-    monkeypatch.setattr(profiles, '_export_problem_history_plots', _failed_history_plot)
     options = _options(tmp_path, ['evalrender'])
-    options.update(score_only=False, n_runs=1, max_tol_order=1, draw_hist_plots='sequential',
-                   score_fun=_failed_score)
+    options.update(score_only=False, n_runs=1, max_tol_order=1)
+    if callback == 'score_fun':
+        monkeypatch.setattr(profiles, '_export_problem_history_plots', _failed_history_plot)
+        options.update(draw_hist_plots='sequential', score_fun=_failed_score)
+    else:
+        options.update(draw_hist_plots='parallel', merit_fun=_failed_merit)
     target = tmp_path / 'score.json'
-    with pytest.raises(ValueError, match='deliberate score failure'):
+    with pytest.raises(Exception, match='deliberate (score|merit) failure'):
         benchmark([stay, zero], report_path=target, **options)
     report = _read(target)
     assert report['stages']['rendering']['status'] == 'failed'

@@ -736,8 +736,11 @@ classdef EvalReport < handle
                 if failed
                     self.document.status = 'failed';
                     % The scores come after the profile export: an error
-                    % there fails rendering and leaves them unknown.
-                    if ismember(self.document.stages.rendering.status, {'running', 'failed'}) && ...
+                    % there fails rendering and leaves them unknown. A failed
+                    % history plot does not stop the run, so it says nothing
+                    % about the scores.
+                    if (strcmp(self.document.stages.rendering.status, 'running') || ...
+                            strcmp(self.renderingFailureCode, 'profile_export_failed')) && ...
                             strcmp(self.document.stages.scoring.status, 'running')
                         self.setStage('scoring', 'unknown', 'interrupted_before_scores');
                     end

@@ -241,13 +241,25 @@ classdef TestMeritReloadConsistency < matlab.unittest.TestCase
                     testCase.verifyEqual(report.stages.persistence.status, 'completed');
                 end
             end
-            options = struct('problem', Problem(struct('fun', @(x) sum(x.^2), 'x0', 2)), 'score_only', true, ...
-                'silent', true, 'merit_fun', @TestMeritReloadConsistency.failingMerit, ...
-                'report_path', fullfile(testCase.WorkDir, 'single.json'));
+            % History plots are on by default and compute the merits first, so
+            % they have all failed when the scoring fails. They do not stop the
+            % run, so the scoring did run.
+            options = rmfield(TestMeritReloadConsistency.runOptions('meritreload', 'stageshist', 'u'), 'draw_hist_plots');
+            options.merit_fun = @TestMeritReloadConsistency.failingMerit;
+            options.report_path = fullfile(testCase.WorkDir, 'stageshist.json');
             testCase.verifyError(@() benchmark(solvers, options), 'MATLAB:benchmark:merit_fun_error');
             report = jsondecode(fileread(options.report_path));
-            testCase.verifyEqual(report.stages.numerical.status, 'completed');
-            testCase.verifyEqual(report.stages.scoring.status, 'failed');
+            testCase.verifyEqual(report.stages.rendering.status, 'failed');
+            testCase.verifyEqual(report.stages.scoring, struct('status', 'failed', 'reason', 'interrupted_by_exception'));
+            for score_only = [true, false]
+                options = struct('problem', Problem(struct('fun', @(x) sum(x.^2), 'x0', 2)), 'score_only', score_only, ...
+                    'silent', true, 'merit_fun', @TestMeritReloadConsistency.failingMerit, 'savepath', testCase.WorkDir, ...
+                    'report_path', fullfile(testCase.WorkDir, sprintf('single%d.json', score_only)));
+                testCase.verifyError(@() benchmark(solvers, options), 'MATLAB:benchmark:merit_fun_error');
+                report = jsondecode(fileread(options.report_path));
+                testCase.verifyEqual(report.stages.numerical.status, 'completed');
+                testCase.verifyEqual(report.stages.scoring, struct('status', 'failed', 'reason', 'interrupted_by_exception'));
+            end
         end
         function failingMeritStillSavesCompleteExperiment(testCase)
             % The error is raised only after the plain baselines and every
