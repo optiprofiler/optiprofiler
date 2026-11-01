@@ -34,7 +34,7 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
 
     % Judge whether profile_options.benchmark_id is a char or a string and satisfies the file name requirements.
     if isfield(profile_options, ProfileOptionKey.BENCHMARK_ID.value)
-        is_valid_foldername = @(x) ischarstr(x) && ~isempty(x) && all(ismember(char(x), ['a':'z', 'A':'Z', '0':'9', '_', '-', '.']));
+        is_valid_foldername = @(x) ischarstr(x) && strlength(string(x)) > 0 && all(ismember(char(x), ['a':'z', 'A':'Z', '0':'9', '_', '-', '.']));
         if ~isScalarText(profile_options.(ProfileOptionKey.BENCHMARK_ID.value)) || ~is_valid_foldername(profile_options.(ProfileOptionKey.BENCHMARK_ID.value))
             error("MATLAB:checkValidityProfileOptions:benchmark_idNotValid", "The option `benchmark_id` should be a char or a string satisfying the strict file name requirements (only containing letters, numbers, underscores, hyphens, and dots).");
         end
@@ -72,7 +72,7 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
         if ~ischarstr(profile_options.(ProfileOptionKey.FEATURE_STAMP.value))
             error("MATLAB:checkValidityProfileOptions:feature_stampNotcharstr", "The option `feature_stamp` must be a char or string.");
         end
-        is_valid_foldername = @(x) ischarstr(x) && ~isempty(x) && all(ismember(char(x), ['a':'z', 'A':'Z', '0':'9', '_', '-', '.']));
+        is_valid_foldername = @(x) ischarstr(x) && strlength(string(x)) > 0 && all(ismember(char(x), ['a':'z', 'A':'Z', '0':'9', '_', '-', '.']));
         if ~is_valid_foldername(profile_options.(ProfileOptionKey.FEATURE_STAMP.value))
             error("MATLAB:checkValidityProfileOptions:feature_stampNotValid", "The option `feature_stamp` should be a char or a string satisfying the strict file name requirements (only containing letters, numbers, underscores, hyphens, and dots).");
         end

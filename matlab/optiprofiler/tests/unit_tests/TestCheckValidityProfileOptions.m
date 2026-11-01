@@ -115,6 +115,10 @@ classdef TestCheckValidityProfileOptions < matlab.unittest.TestCase
 
             options.benchmark_id = 1;
             testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:benchmark_idNotValid");
+            options.benchmark_id = "";
+            testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:benchmark_idNotValid");
+            options.benchmark_id = '';
+            testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:benchmark_idNotValid");
             options.benchmark_id = ["a", "b"];
             testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:benchmark_idNotValid");
             options.benchmark_id = "a_string";
@@ -141,6 +145,10 @@ classdef TestCheckValidityProfileOptions < matlab.unittest.TestCase
             options = rmfield(options, 'feature_stamp');
 
 
+            options.feature_stamp = "";
+            testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:feature_stampNotValid");
+            options.feature_stamp = '';
+            testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:feature_stampNotValid");
             options.feature_stamp = 'abc$';
             testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:feature_stampNotValid");
             options = rmfield(options, 'feature_stamp');
