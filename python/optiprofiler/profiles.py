@@ -1788,8 +1788,6 @@ def _build_profiles(
 
     with matplotlib.rc_context(profile_context):
         if is_saving and is_summary:
-            # This spelling also works with our declared Matplotlib 3.4 floor;
-            # the newer layout= keyword is not available there.
             fig_summary = Figure(figsize=(summary_width, multiplier * n_rows * default_height), constrained_layout=True)
             if multiplier == 2:
                 fig_summary_hist, fig_summary_out = fig_summary.subfigures(2, 1)

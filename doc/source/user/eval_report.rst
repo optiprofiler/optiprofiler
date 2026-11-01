@@ -345,6 +345,9 @@ rules are the same in Python and MATLAB:
   ``ssh://``) is replaced by ``[redacted_url]`` in metadata text. A text that
   starts with a URL is replaced as a whole.
 - An absolute path is replaced too, in a whole text and inside a longer one.
+  MATLAB also omits every option whose name contains ``path`` in any letter
+  case (``savepath``, ``report_path``); Python keeps such an option, with the
+  path in its value replaced.
 - The ``source`` of a reference record is scientific provenance: its URLs keep
   scheme, host, port and path; user information, query and fragment are removed
   and marked ``[url parameters removed]``. The file names of history plots
