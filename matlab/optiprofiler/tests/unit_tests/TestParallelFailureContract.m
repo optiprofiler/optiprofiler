@@ -78,6 +78,32 @@ classdef TestParallelFailureContract < matlab.unittest.TestCase
             again = benchmark({@initialSolver,@initialSolver},options);
             testCase.verifyEqual(again,scores);
         end
+        function badNameSetAfterConstructionCostsOnlyThatProblem(testCase)
+            root = tempname; mkdir(root);
+            testCase.addTeardown(@() rmdir(root, 's'));
+            registerNameLibrary(testCase,root);
+            [scores,report] = runNameLibrary(root,'followname',1,'');
+            verifyOnlyBadNameFailed(testCase,scores,report);
+
+            % Anything but a Problem is still not a failure of one problem.
+            testCase.verifyError(@() runNameLibrary(root,'followtype',1,''),'MATLAB:solveOneProblem:invalid_problem');
+        end
+        function badNameInAWorkerCostsOnlyThatProblem(testCase)
+            testCase.assumeTrue(logical(license('test','Distrib_Computing_Toolbox')));
+            root = tempname; mkdir(root);
+            testCase.addTeardown(@() rmdir(root, 's'));
+            registerNameLibrary(testCase,root);
+            pool = gcp('nocreate');
+            if isempty(pool)
+                pool = parpool('local',2);
+                testCase.addTeardown(@() delete(pool));
+            end
+            testCase.assumeGreaterThanOrEqual(pool.NumWorkers,2);
+            where = fullfile(root,'solver_process.txt');
+            [scores,report] = runNameLibrary(root,'followname',2,where);
+            verifyOnlyBadNameFailed(testCase,scores,report);
+            testCase.verifyEqual(fileread(where),'1');
+        end
         function silentRunPrintsNothingOfAFailingSolver(testCase)
             root = tempname; mkdir(root);
             testCase.addTeardown(@() rmdir(root, 's'));
@@ -130,6 +156,57 @@ classdef TestParallelFailureContract < matlab.unittest.TestCase
 end
 function x=initialSolver(fun,x0)
     fun(x0); x=x0;
+end
+function x=recordingSolver(fun,x0,where)
+    if ~isempty(where), writeFile(where,sprintf('%d',~isempty(getCurrentTask()))); end
+    x=initialSolver(fun,x0);
+end
+function registerNameLibrary(testCase,root)
+    keys = {'OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_REGISTRY', ...
+        'OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_PATHDEF', ...
+        'OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_STARTUP'};
+    files = {'registry.mat','pathdef.m','startup.m'};
+    for k = 1:numel(keys)
+        old = getenv(keys{k});
+        testCase.addTeardown(@() setenv(keys{k},old));
+        setenv(keys{k},fullfile(root,files{k}));
+    end
+    writeFile(fullfile(root,'followname_select.m'), ...
+        sprintf('function n=followname_select(~)\nn={''bad'',''good''};\nend\n'));
+    writeFile(fullfile(root,'followname_load.m'),sprintf([ ...
+        'function p=followname_load(n)\n' ...
+        'p=Problem(struct(''fun'',@(x)sum(x.^2),''x0'',[1;2],''name'',n));\n' ...
+        'if strcmp(n,''bad''), p.name=123; end\nend\n']));
+    writeFile(fullfile(root,'followtype_select.m'), ...
+        sprintf('function n=followtype_select(~)\nn={''wrong''};\nend\n'));
+    writeFile(fullfile(root,'followtype_load.m'), ...
+        sprintf('function p=followtype_load(n)\np=struct(''name'',n);\nend\n'));
+    for name = {'followname','followtype'}
+        registerProblemLibrary(struct('name',name{1},'root',root, ...
+            'select_function',[name{1},'_select'],'load_function',[name{1},'_load']));
+    end
+    testCase.addTeardown(@() removeProviderPath(root));
+end
+function [scores,report]=runNameLibrary(root,library,n_jobs,where)
+    options=struct('plibs',{{library}},'n_jobs',n_jobs,'score_only',true,'silent',true,'run_plain',false, ...
+        'n_runs',1,'max_eval_factor',1,'max_tol_order',1,'solver_names',{{'recording','stay'}}, ...
+        'report_path',fullfile(root,sprintf('%s_%d.json',library,n_jobs)));
+    solvers={@(fun,x0)recordingSolver(fun,x0,where),@initialSolver};
+    scores=benchmark(solvers,options);
+    report=jsondecode(fileread(options.report_path));
+end
+function verifyOnlyBadNameFailed(testCase,scores,report)
+    testCase.verifyTrue(all(isfinite(scores)));
+    testCase.verifyEqual(report.status,'partial');
+    testCase.verifyEqual(report.stages.numerical,struct('status','partial','reason','selected_problem_load_failures'));
+    testCase.verifyEqual(report.coverage.load_failed,1);
+    testCase.verifyEqual(report.coverage.loaded,1);
+    diagnostics=report.diagnostics;
+    if isstruct(diagnostics), diagnostics=num2cell(diagnostics); end
+    found=cellfun(@(entry) entry.code,diagnostics,'UniformOutput',false);
+    failure=diagnostics{strcmp(found,'problem_load_failed')};
+    testCase.verifyEqual(failure.scope.problem,'bad');
+    testCase.verifyEqual(failure.scope.exception_type,'MATLAB:Problem:name_NotText');
 end
 function x=failingSolver(fun,x0,where) %#ok<STOUT>
     fun(x0);
