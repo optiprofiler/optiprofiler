@@ -90,6 +90,11 @@ classdef TestCheckValidityProfileOptions < matlab.unittest.TestCase
 
             options.benchmark_id = 1;
             testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:benchmark_idNotValid");
+            options.benchmark_id = ["a", "b"];
+            testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:benchmark_idNotValid");
+            options.benchmark_id = "a_string";
+            checked = checkValidityProfileOptions(solvers, options);
+            testCase.verifyEqual(checked.benchmark_id, 'a_string');
             options = rmfield(options, 'benchmark_id');
 
 
@@ -128,6 +133,11 @@ classdef TestCheckValidityProfileOptions < matlab.unittest.TestCase
 
             options.savepath = 1;
             testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:savepathNotValid");
+            options.savepath = [string(pwd), string(pwd)];
+            testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:savepathNotValid");
+            options.savepath = string(pwd);
+            checked = checkValidityProfileOptions(solvers, options);
+            testCase.verifyEqual(checked.savepath, pwd);
             options = rmfield(options, 'savepath');
 
 

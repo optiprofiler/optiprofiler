@@ -35,9 +35,10 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
     % Judge whether profile_options.benchmark_id is a char or a string and satisfies the file name requirements.
     if isfield(profile_options, ProfileOptionKey.BENCHMARK_ID.value)
         is_valid_foldername = @(x) ischarstr(x) && ~isempty(x) && all(ismember(char(x), ['a':'z', 'A':'Z', '0':'9', '_', '-', '.']));
-        if ~ischarstr(profile_options.(ProfileOptionKey.BENCHMARK_ID.value)) || ~is_valid_foldername(profile_options.(ProfileOptionKey.BENCHMARK_ID.value))
+        if ~isScalarText(profile_options.(ProfileOptionKey.BENCHMARK_ID.value)) || ~is_valid_foldername(profile_options.(ProfileOptionKey.BENCHMARK_ID.value))
             error("MATLAB:checkValidityProfileOptions:benchmark_idNotValid", "The option `benchmark_id` should be a char or a string satisfying the strict file name requirements (only containing letters, numbers, underscores, hyphens, and dots).");
         end
+        profile_options.(ProfileOptionKey.BENCHMARK_ID.value) = char(profile_options.(ProfileOptionKey.BENCHMARK_ID.value));
     end
 
 
@@ -98,9 +99,11 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
 
     % Judge whether profile_options.savepath is a string and exists. If not exists, create it.
     if isfield(profile_options, ProfileOptionKey.SAVEPATH.value)
-        if ~ischarstr(profile_options.(ProfileOptionKey.SAVEPATH.value))
+        if ~isScalarText(profile_options.(ProfileOptionKey.SAVEPATH.value))
             error("MATLAB:checkValidityProfileOptions:savepathNotValid", "The option `savepath` should be a char or a string.");
-        elseif ~exist(profile_options.(ProfileOptionKey.SAVEPATH.value), 'dir')
+        end
+        profile_options.(ProfileOptionKey.SAVEPATH.value) = char(profile_options.(ProfileOptionKey.SAVEPATH.value));
+        if ~exist(profile_options.(ProfileOptionKey.SAVEPATH.value), 'dir')
             status = mkdir(profile_options.(ProfileOptionKey.SAVEPATH.value));
             if ~status
                 error("MATLAB:checkValidityProfileOptions:savepathNotExist", "The option `savepath` does not exist and cannot be created.");

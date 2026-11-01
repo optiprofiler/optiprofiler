@@ -2428,7 +2428,7 @@ end
 function recordManagedSummary(aggregate)
     % Record the identity of the aggregate just published. A missing record
     % only makes the next run leave the aggregate unchanged.
-    record = summaryRecordFile(aggregate);
+    record = char(summaryRecordFile(aggregate));
     staging = [record, '.tmp'];
     fid = -1;
     try

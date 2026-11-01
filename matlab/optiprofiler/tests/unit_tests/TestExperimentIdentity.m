@@ -202,6 +202,27 @@ classdef TestExperimentIdentity < matlab.unittest.TestCase
             testCase.verifyEqual(TestExperimentIdentity.readBytes('summary.pdf'), user_bytes(:));
         end
 
+        function aggregateFollowsStringPathOptions(testCase)
+            % A string savepath or benchmark_id reached the concatenation of
+            % the record path, so the record was never written and the second
+            % run reported OptiProfiler's own aggregate as a foreign file.
+            TestLoadReplot.makeExperiment(pwd, 'bench', 2, 1);
+            options = struct('load', '20200101_000000', 'benchmark_id', "bench", 'savepath', string(pwd), ...
+                'max_tol_order', 1, 'silent', true, 'draw_hist_plots', 'none', 'summarize_data_profiles', false);
+            aggregate = fullfile('bench', 'summary.pdf');
+            previous = uint8([]);
+            for run = 1:3
+                options.report_path = fullfile(pwd, sprintf('run%d.json', run));
+                benchmark(options);
+                report = jsondecode(fileread(options.report_path));
+                testCase.verifyEqual(report.status, 'completed');
+                current = TestExperimentIdentity.readBytes(aggregate);
+                testCase.verifyNotEqual(current, previous);
+                previous = current;
+            end
+            testCase.verifyTrue(isfile(fullfile('bench', '.summary.pdf.optiprofiler')));
+        end
+
         function failedAggregateMergePreservesPreviousPdf(testCase)
             TestLoadReplot.makeExperiment(pwd, 'bench', 2, 1);
             options = TestExperimentIdentity.options('summarize_performance_profiles', true);
