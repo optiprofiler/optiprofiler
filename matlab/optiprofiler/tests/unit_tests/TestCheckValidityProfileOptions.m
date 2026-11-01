@@ -49,6 +49,31 @@ classdef TestCheckValidityProfileOptions < matlab.unittest.TestCase
             testCase.verifyEqual(options.n_jobs, expected_n_jobs);
         end
 
+        function testNJobsBelowOneIsAWarning(testCase)
+            % As in Python: a value that is replaced is not progress information.
+            for silent = [false, true]
+                options = struct('n_jobs', 0, 'silent', silent);
+                text = evalc('checked = checkValidityProfileOptions({}, options);');
+                testCase.verifySubstring(text, '[WARNING] The option `n_jobs` is set to 1');
+                testCase.verifyEqual(checked.n_jobs, 1);
+            end
+        end
+
+        function testSilentSetsSolverVerboseToZero(testCase)
+            % The warning said 1 for level 2, and the run then used 0.
+            for level = [1, 2]
+                options = struct('silent', true, 'solver_verbose', level);
+                lastwarn('', '');
+                checked = testCase.verifyWarning(@() checkValidityProfileOptions({}, options), ...
+                    'MATLAB:checkValidityProfileOptions:solver_verboseSetToZero');
+                testCase.verifyEqual(checked.solver_verbose, 0);
+                testCase.verifySubstring(lastwarn, 'will be set to 0');
+            end
+            options = struct('silent', true, 'solver_verbose', 0);
+            checked = testCase.verifyWarningFree(@() checkValidityProfileOptions({}, options));
+            testCase.verifyEqual(checked.solver_verbose, 0);
+        end
+
         function testConservativeDefaultNJobs(testCase)
             testCase.verifyEqual(getConservativeDefaultNJobs(1), 1);
             testCase.verifyEqual(getConservativeDefaultNJobs(2), 2);
@@ -90,6 +115,15 @@ classdef TestCheckValidityProfileOptions < matlab.unittest.TestCase
 
             options.benchmark_id = 1;
             testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:benchmark_idNotValid");
+            options.benchmark_id = "";
+            testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:benchmark_idNotValid");
+            options.benchmark_id = '';
+            testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:benchmark_idNotValid");
+            options.benchmark_id = ["a", "b"];
+            testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:benchmark_idNotValid");
+            options.benchmark_id = "a_string";
+            checked = checkValidityProfileOptions(solvers, options);
+            testCase.verifyEqual(checked.benchmark_id, 'a_string');
             options = rmfield(options, 'benchmark_id');
 
 
@@ -111,6 +145,10 @@ classdef TestCheckValidityProfileOptions < matlab.unittest.TestCase
             options = rmfield(options, 'feature_stamp');
 
 
+            options.feature_stamp = "";
+            testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:feature_stampNotValid");
+            options.feature_stamp = '';
+            testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:feature_stampNotValid");
             options.feature_stamp = 'abc$';
             testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:feature_stampNotValid");
             options = rmfield(options, 'feature_stamp');
@@ -128,6 +166,11 @@ classdef TestCheckValidityProfileOptions < matlab.unittest.TestCase
 
             options.savepath = 1;
             testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:savepathNotValid");
+            options.savepath = [string(pwd), string(pwd)];
+            testCase.verifyError(@() checkValidityProfileOptions(solvers, options), "MATLAB:checkValidityProfileOptions:savepathNotValid");
+            options.savepath = string(pwd);
+            checked = checkValidityProfileOptions(solvers, options);
+            testCase.verifyEqual(checked.savepath, pwd);
             options = rmfield(options, 'savepath');
 
 

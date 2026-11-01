@@ -35,7 +35,8 @@ classdef Problem < handle
 %
 %       2. optional fields:
 %
-%       - name: the name of the problem. It should be a string or a char.
+%       - name: the name of the problem. It should be a string scalar or a
+%       char row.
 %       Default is 'Unnamed Problem'.
 %       - xl: the lower bounds on the variable `x` in the form of ``xl <= x``.
 %         It should be a vector of the same size as `x`. Default is -Inf,
@@ -310,6 +311,7 @@ classdef Problem < handle
             end
 
             % Check that the arguments are legal and consistent.
+            obj.checkName();
 
             % Check that `x0` is a real vector.
             if ~isrealvector(obj.x0)
@@ -475,6 +477,15 @@ classdef Problem < handle
             else
                 obj.beq = [];
             end
+        end
+
+        % A string name would turn text built from it by concatenation, such
+        % as the history file names, into string arrays.
+        function set.name(obj, name)
+            if isstring(name) && isscalar(name) && ~ismissing(name)
+                name = char(name);
+            end
+            obj.name = name;
         end
 
         % Preprocess the gradient and the Hessian of the objective function.
@@ -1120,6 +1131,15 @@ classdef Problem < handle
         function reason = referenceFallbackReason(obj)
             % Retained metadata for reports, not a user reference mode.
             reason = obj.reference_fallback_reason_;
+        end
+
+        % The name becomes file names and labels, so it must be one piece of
+        % text. This is not done in set.name: a setter that raises makes `load`
+        % reset the name of a saved object to the default, without a warning.
+        function checkName(obj)
+            if ~isScalarText(obj.name)
+                error("MATLAB:Problem:name_NotText", "The argument `name` for `Problem` must be a char row or a string scalar.")
+            end
         end
     end
 

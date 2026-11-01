@@ -210,10 +210,14 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         struct('xlabel',struct('FontSize',18),'legend',struct('FontSize',14)).
 %         Properties override drawing defaults at export for profiles,
 %         summaries, and histories, including on load. Scores and source data
-%         are unchanged. Property names are checked before solvers execute;
-%         values use the installed MATLAB graphics API's validation at render
-%         time. Portable SVG/HTML fallback keeps its own style and does not
-%         apply native graphics properties. Default is an empty struct.
+%         are unchanged. Property names, the values of the non-figure groups
+%         and the figure Position, OuterPosition, InnerPosition,
+%         PaperPosition, PaperSize, Color and Name are checked before solvers
+%         execute; other figure values use the installed MATLAB graphics
+%         API's validation at render time, and an error there closes the
+%         figures of the call. Portable SVG/HTML fallback keeps its own style
+%         and does not apply native graphics properties. Default is an empty
+%         struct.
 %       - score_fun: the scoring function to calculate the scores of the
 %         solvers. It should be a function handle as follows:
 %         ``profile_scores -> solver_scores``,
@@ -222,9 +226,13 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         index of the solver, the second corresponds to the index of tolerance
 %         starting from 1, the third represents history-based or output-based
 %         profiles, and the fourth represents performance profiles, data
-%         profiles, or log-ratio profiles. The default scoring function takes
-%         the average of the history-based performance profiles under all the
-%         tolerances.
+%         profiles, or log-ratio profiles. It must return one real score per
+%         solver: a row or column vector of length n_solvers (an array whose
+%         n_solvers values lie along one dimension becomes a column). Any
+%         other size, or a non-numeric, logical or complex result, raises an
+%         error before any score is reported; the saved experiment remains
+%         loadable. The default scoring function takes the average of the
+%         history-based performance profiles under all the tolerances.
 %       - score_only: whether to only calculate the scores of the solvers
 %         without drawing the profiles and saving the data. Default is false.
 %       - score_weight_fun: the weight function to calculate the scores of the
@@ -236,8 +244,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         plotted coordinate is `log2(1 + n_eval / (n + 1))` but tick labels
 %         are displayed in the original `n_eval / (n + 1)` units, typically
 %         `0, 1, 2, 4, ...`. Default is true.
-%       - silent: whether to show the information of the progress. Default is
-%         false.
+%       - silent: whether to show the information of the progress. With true,
+%         no progress information is printed, also when loading saved results,
+%         and `solver_verbose` is 0. Default is false.
 %       - solver_isrand: whether the solvers are randomized or not. Default is
 %         a logical array of the same length as the number of solvers, where
 %         the value is true if the solver is randomized, and false otherwise.
@@ -247,6 +256,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         function handles in `solvers`.
 %       - solver_verbose: the level of the verbosity of the solvers. `0` means
 %         no verbosity, `1` means some verbosity, and `2` means full verbosity.
+%         With `silent` true the level is 0, so nothing of a solver is printed,
+%         and a level of 1 or 2 is replaced with a warning; a failing solver is
+%         still recorded in report.txt and the machine-readable report.
 %         Default is 1.
 %       - solvers_to_load: the indices of the solvers to load when the `load`
 %         option is provided. It can be a vector of different integers selected
@@ -267,7 +279,10 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         formatting is supported. The same applies to the options
 %         `xlabel_log_ratio_profile`, `xlabel_performance_profile`,
 %         `ylabel_data_profile`, `ylabel_log_ratio_profile`, and
-%         `ylabel_performance_profile`.
+%         `ylabel_performance_profile`. The text of the x-axis labels is passed
+%         to the LaTeX interpreter verbatim, so write `\%` for a percent sign:
+%         a bare `%` is invalid syntax, and the figure shows the raw text
+%         without a warning.
 %       - xlabel_log_ratio_profile: the label of the x-axis of the log-ratio
 %         profiles. Default is 'Problem'.
 %       - xlabel_performance_profile: the label of the x-axis of the
@@ -275,9 +290,15 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %       - ylabel_data_profile: the label of the y-axis of the data profiles.
 %         Default is 'Data profiles ($\\mathrm{tol} = %s$)', where `%s` will be
 %         replaced by the current tolerance in LaTeX format. You can also use
-%         `%s` in your custom label, and it will be replaced accordingly. The
-%         same applies to the options `ylabel_log_ratio_profile` and
-%         `ylabel_performance_profile`.
+%         `%s` in your custom label, and it will be replaced accordingly. Keep
+%         `%s` inside `$...$`, as the defaults do, because the tolerance is
+%         LaTeX math: outside math mode the figure shows the raw text without
+%         a warning. The same applies to the options
+%         `ylabel_log_ratio_profile` and `ylabel_performance_profile`. Only
+%         `%s` is a placeholder: `%%` and any other `%` give a literal percent
+%         sign, escaped automatically for the LaTeX interpreter, and `\%` is
+%         kept as written. As in earlier versions, `\\` gives `\`. Every other
+%         character is kept as written, for example `\alpha`.
 %       - ylabel_log_ratio_profile: the label of the y-axis of the log-ratio
 %         profiles. Default is 'Log-ratio profiles ($\\mathrm{tol} = %s$)',
 %         where `%s` will be replaced by the current tolerance in LaTeX format.
@@ -489,7 +510,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %       Following is the list of available options:
 %
 %       - plibs: the problem libraries to be used. It should be a cell array of
-%         strings or chars naming registered libraries. The bundled choices
+%         strings or chars, or a string array, naming registered libraries.
+%         The bundled choices
 %         are 's2mpj' and 'custom'; setup can register the optional
 %         'matcutest' and 'solar' adapters. Default setting is 's2mpj'.
 %       - ptype: the type of the problems to be selected. It should be a string
@@ -526,18 +548,20 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         problems to be selected. It must be an integer greater or equal to 0,
 %         or Inf. Inf means no upper constraint limit. Default is
 %         max(maxlcon, maxnlcon).
-%       - excludelist: the list of problems to be excluded. Default is not to
-%         exclude any problem.
+%       - excludelist: the list of problems to be excluded. It should be a
+%         cell array of strings or chars, or a string array. Default is not
+%         to exclude any problem.
 %       - problem_names: the names of the problems to be selected. It should
-%         be a cell array of strings or chars. Default is not to select any
-%         problem by name but by the options above.
+%         be a cell array of strings or chars, or a string array, whose
+%         elements are the names. Default is not to select any problem by
+%         name but by the options above.
 %
 %       You may also pass an instance of the class Problem by the option
 %
 %       - problem: a problem to be benchmarked. It should be an instance of the
 %         class Problem. If it is provided, we will only run the test on this
-%         problem with the given feature and draw the history plots. Default is
-%         not to set any problem.
+%         problem with the given feature and draw the history plots. It cannot
+%         be combined with `load`. Default is not to set any problem.
 %
 %   Several points to note:
 %
@@ -655,6 +679,9 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
     % unaffected environments). The guard MUST be a local variable so
     % that its onCleanup destructor fires when this function returns.
     patchesGuard = applyMatlabPatches();  %#ok<NASGU>
+    % Restore the caller's diary, the root defaults set below and the path
+    % entries of the problem libraries resolved here, on return and on error.
+    sessionGuard = sessionStateGuard();  %#ok<NASGU>
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Process the input arguments. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -675,12 +702,10 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
             else
                 feature_name = 'plain';
             end
-            if isfield(options, 'problem')
-                options = rmfield(options, 'problem');
-            end
             if ~isfield(options, ProfileOptionKey.LOAD.value) || isempty(options.(ProfileOptionKey.LOAD.value))
                 error("MATLAB:benchmark:LoadFieldNotProvided", "The option `load` must be provided when the first argument for `benchmark` is a struct.");
             end
+            rejectProblemWithLoad(options);
         else
             solvers = varargin{1};
             feature_name = 'plain';
@@ -698,6 +723,9 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
                 options = rmfield(options, 'feature_name');
             else
                 feature_name = 'plain';
+            end
+            if isfield(options, ProfileOptionKey.LOAD.value) && ~isempty(options.(ProfileOptionKey.LOAD.value))
+                rejectProblemWithLoad(options);
             end
             if isfield(options, 'problem')
                 problem = options.problem;
@@ -1018,7 +1046,7 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
                 addToReadme(path_readme_log, 'options_user.mat', 'File, storing the options provided by the user for the current experiment.');
                 if ~is_load
                     options_refined = optiprofiler_internal.refinedFeatureOptions( ...
-                        feature, primary_plan, problem_options, profile_options, feature_context);
+                        feature, primary_plan, problem_options, profile_options, feature_context, exist('problem', 'var'));
                     save(fullfile(path_log, 'options_refined.mat'), 'options_refined');
                     addToReadme(path_readme_log, 'options_refined.mat', 'Versioned native effective settings; use loadBenchmarkOptions for trusted fresh replay.');
                 end
@@ -1034,9 +1062,8 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
         end
         log_file = fullfile(path_log, 'log.txt');
         % The diary is process-global and holds log.txt open on Windows.
-        % Close it on errors too, so completed archives can be removed even
-        % when scoring, report writing, or figure export fails.
-        diary_cleanup = onCleanup(@() diary('off')); %#ok<NASGU>
+        % sessionGuard closes it on errors too, so completed archives can be
+        % removed even when scoring, report writing, or figure export fails.
         diary(log_file);
         addToReadme(path_readme_log, 'log.txt', 'File, the log file of the current experiment, recording printed information from MATLAB command window.');
     end
@@ -1144,6 +1171,7 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
         if ~profile_options.(ProfileOptionKey.SILENT.value)
             printSolverLogAliases(solver_names, profile_options_problem.solver_log_names);
         end
+        if ~isempty(eval_report), eval_report.startNumerical(); end
         result = solveOneProblem(solvers, problem, feature, problem.name, length(problem.name), profile_options_problem, true, path_hist_plots, ~isempty(eval_report), primary_plan);
         if profile_options.(ProfileOptionKey.SILENT.value) && ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
             appendReferenceHistoryDiagnostics(path_log, result, 'user', 'primary');
@@ -1157,6 +1185,9 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
             eval_report.addProblem(result, 'user', 'primary');
             eval_report.completeNumerical();
             eval_report.setStage('scoring', 'running');
+            % A direct problem never produces a reloadable archive, whether or
+            % not score_only was requested (same as Python).
+            eval_report.setStage('persistence', 'not_applicable', 'single_problem_has_no_reload_archive');
         end
         if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
             % We move the history plots to the feature directory.
@@ -1279,21 +1310,19 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
         % We will solve all the problems from all the problem libraries that user specified in the `problem_options`.
         plibs = problem_options.(ProblemOptionKey.PLIBS.value);
         results_plibs = cell(1, numel(plibs));
+        if ~isempty(eval_report), eval_report.startNumerical(); end
         for i_plib = 1:numel(plibs)
             plib = plibs{i_plib};
             if ~profile_options.(ProfileOptionKey.SILENT.value)
                 fprintf('\n');
                 printOptiProfilerMessage('INFO', sprintf('Start testing problems from the problem library "%s" with the "%s" feature.', plib, feature.name));
-                if strcmp(plib, 's2mpj')
+                % The locked adapter repository documents its library,
+                % upstream sources, licenses and runtime requirements.
+                locked_entry = lockedProblemLibraryEntry(plib);
+                if isstruct(locked_entry) && isfield(locked_entry, 'repository') && ~isempty(locked_entry.repository)
                     fprintf('\n');
-                    printOptiProfilerMessage('INFO', 'More information about the S2MPJ problem library can be found at: https://github.com/GrattonToint/S2MPJ');
-                elseif strcmp(plib, 'matcutest')
-                    fprintf('\n');
-                    printOptiProfilerMessage('INFO', 'More information about the MatCUTEst problem library can be found at: https://github.com/matcutest');
-                elseif strcmp(plib, 'solar')
-                    fprintf('\n');
-                    printOptiProfilerMessage('INFO', 'More information about the SOLAR problem library can be found at: https://github.com/bbopt/solar');
-                    printOptiProfilerMessage('INFO', 'SOLAR calls an external simulator; some problems can be slow. License terms are in the SOLAR adapter''s notices.');
+                    printOptiProfilerMessage('INFO', sprintf('More information about the problem library "%s" can be found at: https://github.com/%s', ...
+                        plib, char(locked_entry.repository)));
                 end
             end
 
@@ -1424,6 +1453,17 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
         saveResultsForLoading(results_plibs, path_log, time_stamp, path_readme_log);
         if ~isempty(eval_report), eval_report.setStage('persistence', 'completed'); end
     end
+    % Every requested solve has finished, also after a merit failure: only
+    % the scoring stage, still running, fails with it.
+    if ~isempty(eval_report)
+        if is_load, eval_report.addResults(results_plibs); end
+        try
+            eval_report.completeNumerical();
+        catch report_error
+            % The caller still records the merit failure raised below.
+            if isempty(merit_failure), rethrow(report_error); end
+        end
+    end
     if ~isempty(merit_failure)
         % The raw archive (if requested) is saved; no profile or score is
         % produced from a failed merit. The caller records the error.
@@ -1431,10 +1471,6 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
             printOptiProfilerMessage('ERROR', sprintf('The solver results were saved in %s. Reload them with a corrected merit_fun.', path_log));
         end
         throw(merit_failure);
-    end
-    if ~isempty(eval_report)
-        if is_load, eval_report.addResults(results_plibs); end
-        eval_report.completeNumerical();
     end
     writeReport(profile_options, results_plibs, path_report, path_readme_log);
     if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
@@ -1514,6 +1550,7 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     % Process the results from all the problem libraries.
+    if ~isempty(eval_report), eval_report.setStage('scoring', 'running'); end
     if isempty(eval_report)
         [merit_histories_merged, merit_outs_merged, merit_inits_merged, merit_mins_merged, n_evals_merged, problem_names_merged, problem_dims_merged] = processResults(results_plibs, profile_options);
     else
@@ -1592,6 +1629,13 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
             printOptiProfilerMessage('WARNING', sprintf('Native summary layout failed; using SVG fallback: %s',cause.message));
             if ~isempty(eval_report), eval_report.recordRendering('failed', struct('scope', 'summary_layout', 'cause', cause.identifier), 'native_summary_layout_failed'); end
         end
+    end
+    % An error below (a plot_options value refused at export, score_fun)
+    % must not leave the figures of this call open.
+    summary_guard = onCleanup(@() closeFigures({fig_summary})); %#ok<NASGU>
+    % A value refused at export fails rendering, before any score exists.
+    if ~isempty(eval_report) && ~profile_options.score_only
+        eval_report.setStage('rendering', 'running', 'profile_export');
     end
 
     % Store the curves of the performance profiles, data profiles, and log-ratio profiles.
@@ -1717,30 +1761,38 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
         end
 
         hist_graphics_ok = true; out_graphics_ok = true;
+        hist_graphics_cause = ''; out_graphics_cause = '';
         fig_perf_hist = []; fig_data_hist = []; fig_log_ratio_hist = [];
         fig_perf_out = []; fig_data_out = []; fig_log_ratio_out = [];
         if is_hist_drawable
             if isempty(eval_report)
                 [fig_perf_hist, fig_data_hist, fig_log_ratio_hist, curves{i_tol}.hist, hist_graphics_ok] = drawProfiles(work_hist, problem_dims_merged, solver_names, tolerance_latex, cell_axs_summary_hist, true, is_perf, is_data, is_log_ratio, drawing_options, curves{i_tol}.hist);
             else
-                [fig_perf_hist, fig_data_hist, fig_log_ratio_hist, curves{i_tol}.hist, hist_graphics_ok, presentation] = drawProfiles(work_hist, problem_dims_merged, solver_names, tolerance_latex, cell_axs_summary_hist, true, is_perf, is_data, is_log_ratio, drawing_options, curves{i_tol}.hist);
+                [fig_perf_hist, fig_data_hist, fig_log_ratio_hist, curves{i_tol}.hist, hist_graphics_ok, presentation, hist_graphics_cause] = drawProfiles(work_hist, problem_dims_merged, solver_names, tolerance_latex, cell_axs_summary_hist, true, is_perf, is_data, is_log_ratio, drawing_options, curves{i_tol}.hist);
                 eval_report.addProfilePresentation(presentation, i_tol, 'history');
             end
         end
+        % Replacing a guard closes the (already closed) figures of the
+        % previous tolerance; an error closes those of this one.
+        hist_guard = onCleanup(@() closeFigures({fig_perf_hist, fig_data_hist, fig_log_ratio_hist})); %#ok<NASGU>
         if is_out_drawable
             if isempty(eval_report)
                 [fig_perf_out, fig_data_out, fig_log_ratio_out, curves{i_tol}.out, out_graphics_ok] = drawProfiles(work_out, problem_dims_merged, solver_names, tolerance_latex, cell_axs_summary_out, is_output_based, is_perf, is_data, is_log_ratio, drawing_options, curves{i_tol}.out);
             else
-                [fig_perf_out, fig_data_out, fig_log_ratio_out, curves{i_tol}.out, out_graphics_ok, presentation] = drawProfiles(work_out, problem_dims_merged, solver_names, tolerance_latex, cell_axs_summary_out, is_output_based, is_perf, is_data, is_log_ratio, drawing_options, curves{i_tol}.out);
+                [fig_perf_out, fig_data_out, fig_log_ratio_out, curves{i_tol}.out, out_graphics_ok, presentation, out_graphics_cause] = drawProfiles(work_out, problem_dims_merged, solver_names, tolerance_latex, cell_axs_summary_out, is_output_based, is_perf, is_data, is_log_ratio, drawing_options, curves{i_tol}.out);
                 eval_report.addProfilePresentation(presentation, i_tol, 'output');
             end
         end
+        out_guard = onCleanup(@() closeFigures({fig_perf_out, fig_data_out, fig_log_ratio_out})); %#ok<NASGU>
 
         if ~hist_graphics_ok || ~out_graphics_ok
             native_graphics = false;
             drawing_options.(ProfileOptionKey.SCORE_ONLY.value) = true;
             is_perf = false; is_data = false; is_log_ratio = false;
-            if ~isempty(eval_report), eval_report.recordRendering('failed', struct('scope', 'profiles', 'tolerance_index', i_tol), 'native_profile_render_failed'); end
+            if ~isempty(eval_report)
+                if hist_graphics_ok, render_cause = out_graphics_cause; else, render_cause = hist_graphics_cause; end
+                eval_report.recordRendering('failed', struct('scope', 'profiles', 'tolerance_index', i_tol, 'cause', render_cause), 'native_profile_render_failed');
+            end
         end
 
         % Clear working memory.
@@ -1750,7 +1802,12 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
         if native_graphics
           for native_figure = {fig_perf_hist,fig_data_hist,fig_log_ratio_hist,fig_perf_out,fig_data_out,fig_log_ratio_out}
               if ~isempty(native_figure{1}) && isgraphics(native_figure{1})
-                  applyPlotOptions(native_figure{1},profile_options);
+                  try
+                      applyPlotOptions(native_figure{1},profile_options);
+                  catch cause
+                      if ~isempty(eval_report), eval_report.recordExportFailure(cause); end
+                      rethrow(cause);
+                  end
               end
           end
           try
@@ -2065,7 +2122,7 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
     % Compute the `solver_scores`.
     profile_scores = computeScores(curves, profile_options);
     score_fun = profile_options.(ProfileOptionKey.SCORE_FUN.value);
-    solver_scores = score_fun(profile_scores);
+    solver_scores = solverScoreVector(score_fun(profile_scores), n_solvers);
     if ~isempty(eval_report), eval_report.setProfiles(curves, solver_scores, profile_scores, solver_names, false); end
     if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
         save(fullfile(path_log, 'profile_scores.mat'), 'profile_scores');
@@ -2108,7 +2165,7 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
         % Store the summary pdf. We will name the summary pdf as "summary_stamp.pdf" and store
         % it under path_stamp. We will also put a "summary.pdf" in the path_out directory, which will
         % be a merged pdf of latest 10 "summary_stamp.pdf" under path_out following descending order
-        % of their time stamps.
+        % of their time stamps, unless a summary.pdf that OptiProfiler did not write is there.
         summary_name = ['summary_', stamp];
         if n_rows > 0
             if ~profile_options.(ProfileOptionKey.SILENT.value)
@@ -2160,20 +2217,33 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
         summary_files = summary_files(idx);
         % Keep only the latest 10 summary PDF files.
         summary_files = summary_files(1:min(10, numel(summary_files)));
+        path_aggregate = fullfile(path_out, 'summary.pdf');
+        publish_aggregate = isManagedSummary(path_aggregate);
+        if ~publish_aggregate
+            % For example, a load from a working directory that holds the
+            % user's own summary.pdf. Leave that file untouched.
+            printOptiProfilerMessage('WARNING', sprintf(['%s has no matching OptiProfiler record and may be a user file, so ', ...
+                'it is left unchanged and the combined summary of the latest runs is not updated. Move or delete it to let ', ...
+                'OptiProfiler maintain it again. The summary of this run is in %s.'], path_aggregate, path_stamp));
+            if ~isempty(eval_report), eval_report.recordRendering('failed', struct('scope', 'summary_pdf_aggregate'), 'summary_pdf_not_owned'); end
+        end
         try
-            % Each run owns its staging directory. Concurrent benchmark calls
-            % must not stage or delete temporary PDFs in the shared path_out.
-            path_staging = fullfile(path_stamp, '.summary_merge');
-            mkdir(path_staging);
-            cleanup_summary = onCleanup(@() cleanupSummaryStaging(path_staging));
-            for i_file = 1:numel(summary_files)
-                copyfile(fullfile(summary_files(i_file).folder, summary_files(i_file).name), ...
-                    fullfile(path_staging, sprintf('%03d.pdf', i_file)));
+            if publish_aggregate
+                % Each run owns its staging directory. Concurrent benchmark calls
+                % must not stage or delete temporary PDFs in the shared path_out.
+                path_staging = fullfile(path_stamp, '.summary_merge');
+                mkdir(path_staging);
+                cleanup_summary = onCleanup(@() cleanupSummaryStaging(path_staging));
+                for i_file = 1:numel(summary_files)
+                    copyfile(fullfile(summary_files(i_file).folder, summary_files(i_file).name), ...
+                        fullfile(path_staging, sprintf('%03d.pdf', i_file)));
+                end
+                mergePdfs(path_staging, 'summary.pdf', path_staging);
+                % A same-filesystem atomic replacement preserves the old aggregate
+                % if merging/replacement fails and prevents readers seeing a gap.
+                atomicReplaceFile(fullfile(path_staging, 'summary.pdf'), path_aggregate);
+                recordManagedSummary(path_aggregate);
             end
-            mergePdfs(path_staging, 'summary.pdf', path_staging);
-            % A same-filesystem atomic replacement preserves the old aggregate
-            % if merging/replacement fails and prevents readers seeing a gap.
-            atomicReplaceFile(fullfile(path_staging, 'summary.pdf'), fullfile(path_out, 'summary.pdf'));
         catch ME
             % Missing output is actionable even in silent mode. Preserve full
             if ~isempty(eval_report), eval_report.recordRendering('failed', struct('scope', 'summary_pdf_merge'), 'summary_pdf_merge_failed'); end
@@ -2369,6 +2439,68 @@ function deleteFileIfExists(file)
     end
 end
 
+function managed = isManagedSummary(aggregate)
+    % The aggregate may be (re)written only if it is absent or is still the
+    % file that recordManagedSummary recorded when OptiProfiler published it.
+    % A file of that name without a matching record (a user's file, or one
+    % written by a version without records) is not OptiProfiler's to replace.
+    managed = ~isfile(aggregate) && ~isfolder(aggregate);
+    if managed
+        return
+    end
+    try
+        record = strsplit(strtrim(fileread(summaryRecordFile(aggregate))), newline);
+        info = dir(aggregate);
+        managed = isscalar(info) && ~info.isdir && strcmp(record{1}, 'OptiProfiler summary.pdf aggregate') && ...
+            (isequal(record(2:end), {['sha256=', summaryHash(aggregate)]}) || ...
+            isequal(record(2:end), {sprintf('bytes=%d', info.bytes), sprintf('datenum=%.17g', info.datenum)}));
+    catch
+        managed = false;
+    end
+end
+
+function hash = summaryHash(aggregate)
+    % Empty where no hash is available. The record then holds the size and
+    % the modification time, as the records of earlier builds do.
+    try
+        hash = optiprofiler_internal.EvalReport.sha256(aggregate);
+    catch
+        hash = '';
+    end
+end
+
+function recordManagedSummary(aggregate)
+    % Record the identity of the aggregate just published. A missing record
+    % only makes the next run leave the aggregate unchanged.
+    record = char(summaryRecordFile(aggregate));
+    staging = [record, '.tmp'];
+    fid = -1;
+    try
+        info = dir(aggregate);
+        hash = summaryHash(aggregate);
+        fid = fopen(staging, 'w');
+        assert(fid >= 0, 'OptiProfiler:SummaryRecord', 'Cannot write %s.', staging);
+        if isempty(hash)
+            fprintf(fid, 'OptiProfiler summary.pdf aggregate\nbytes=%d\ndatenum=%.17g\n', info.bytes, info.datenum);
+        else
+            fprintf(fid, 'OptiProfiler summary.pdf aggregate\nsha256=%s\n', hash);
+        end
+        closed = fclose(fid);
+        fid = -1;
+        assert(closed == 0, 'OptiProfiler:SummaryRecord', 'Cannot close %s.', staging);
+        [ok, message] = movefile(staging, record, 'f');
+        assert(ok, 'OptiProfiler:SummaryRecord', '%s', message);
+    catch cause
+        if fid >= 0, fclose(fid); end
+        if isfile(staging), delete(staging); end
+        printOptiProfilerMessage('WARNING', sprintf('Could not record that OptiProfiler wrote %s; later runs will leave it unchanged: %s', aggregate, cause.message));
+    end
+end
+
+function record = summaryRecordFile(aggregate)
+    record = fullfile(fileparts(aggregate), '.summary.pdf.optiprofiler');
+end
+
 function cleanupSummaryStaging(folder)
     % Keep a completed merged file if final publication failed. Successful
     % atomic publication consumes it; incomplete backend work is disposable.
@@ -2439,6 +2571,48 @@ function profile_scores = computeScores(curves, profile_options)
         max_scores = max(profile_scores, [], 1);
         max_scores(max_scores == 0) = 1;
         profile_scores = profile_scores ./ max_scores;
+    end
+end
+
+function solver_scores = solverScoreVector(solver_scores, n_solvers)
+    % One real score per solver, checked before any score is reported,
+    % printed or saved. A row or a column is kept as returned; another array
+    % whose n_solvers values lie along one dimension becomes a column.
+    if ~(isnumeric(solver_scores) && isreal(solver_scores))
+        kind = class(solver_scores);
+        if isnumeric(solver_scores), kind = ['complex ', kind]; end
+        error("MATLAB:benchmark:score_funOutputNotReal", ...
+            "The option `score_fun` must return real numeric scores, one per solver; it returned a value of class %s.", kind);
+    end
+    if numel(solver_scores) ~= n_solvers || nnz(size(solver_scores) ~= 1) > 1
+        error("MATLAB:benchmark:score_funOutputWrongSize", ...
+            "The option `score_fun` must return one score per solver, i.e. a vector of length %d; it returned size %s.", ...
+            n_solvers, strjoin(arrayfun(@num2str, size(solver_scores), 'UniformOutput', false), 'x'));
+    end
+    if ~isvector(solver_scores)
+        solver_scores = solver_scores(:);
+    end
+    % A sparse vector is one score per solver, but the report cannot encode it.
+    solver_scores = full(solver_scores);
+end
+
+function closeFigures(figures)
+    % Close the given figures of this call that are still open; never raise.
+    for k = 1:numel(figures)
+        try
+            if ~isempty(figures{k}) && isgraphics(figures{k})
+                close(figures{k});
+            end
+        catch
+        end
+    end
+end
+
+function rejectProblemWithLoad(options)
+    % A load reanalyses saved data and executes no solver. Refuse a problem
+    % before any output instead of ignoring it or solving it.
+    if isfield(options, 'problem')
+        error("MATLAB:benchmark:ProblemWithLoad", "The options `load` and `problem` cannot be combined: `load` reanalyses a saved experiment without solving any problem.");
     end
 end
 

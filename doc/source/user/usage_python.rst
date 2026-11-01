@@ -410,6 +410,15 @@ the absolute grid for that accepted spelling. Historical replay preserves the
 grid that ran. Prefer ``options_refined.pkl`` when the resolved defaults and
 run count must also be preserved.
 
+``options_refined.pkl`` records ``problem_route``. It does not store a Problem
+passed through ``problem``, so ``replay_arguments`` raises
+``LegacyConfigurationError`` for such a run instead of returning settings that
+would benchmark a problem library. Set the original Problem first, with
+``options['problem'] = problem``, and call ``replay_arguments`` again; the run's
+``options_user.pkl`` also records the Problem. A record older than this field
+has default library selectors whatever the experiment used, so its replay warns:
+a direct-Problem experiment would run on those selectors.
+
 MATLAB mapping. The MATLAB implementation follows the same contract:
 ``options.feature`` as a cell array of structs
 (``struct('name', 'noisy', 'options', struct('noise_level', 1e-3))``) or

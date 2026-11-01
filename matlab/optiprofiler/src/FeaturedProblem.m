@@ -138,9 +138,10 @@ classdef FeaturedProblem < Problem
 %   callbacks of the original problem with respect to the variables the solver
 %   works in. A feature that changes the variables by x = A * y + b (permuted,
 %   linearly_transformed, custom with mod_affine) applies the chain rule at the
-%   point x: grad is A' * grad(x), hess is A' * hess(x) * A, jcub and jceq are
-%   J(x) * A, and every element of hcub and hceq is A' * H(x) * A. Every other
-%   single feature leaves them as they are. They are never derivatives of the
+%   point x: grad is the column A' * grad(x)(:) (Problem accepts a row or a
+%   column gradient), hess is A' * hess(x) * A, jcub and jceq are J(x) * A,
+%   and every element of hcub and hceq is A' * H(x) * A. Every other single
+%   feature leaves them as they are. They are never derivatives of the
 %   observed values: noise, truncation, NaN, a mesh or a custom mod_fun,
 %   mod_cub or mod_ceq do not enter them. They cost no evaluation and record no
 %   history, and a derivative the problem does not provide stays absent
@@ -207,6 +208,8 @@ classdef FeaturedProblem < Problem
             if ~isa(problem, 'Problem')
                 error("MATLAB:FeaturedProblem:NotProblemClass", "The first argument of `FeaturedProblem` must be an instance of the class Problem.");
             end
+            % A saved object or a later assignment can hold any name.
+            problem.checkName();
             if ~isa(feature, 'Feature')
                 error("MATLAB:FeaturedProblem:NotFeatureClass", "The second argument of `FeaturedProblem` must be an instance of the class Feature.");
             end
@@ -412,7 +415,9 @@ classdef FeaturedProblem < Problem
             Returns
             -------
             f : double
-                Modified objective function value.
+                Modified objective function value. Once n_eval_fun has reached
+                max_eval, this is the value last returned by fun, whatever x
+                is, and nothing is evaluated or recorded.
             %}
 
             if obj.real_n_eval_fun >= 2 * obj.max_eval
@@ -482,7 +487,10 @@ classdef FeaturedProblem < Problem
             Returns
             -------
             cub_ : double, size (m_nonlinear_ub,)
-                Modified nonlinear inequality constraints.    
+                Modified nonlinear inequality constraints. Once n_eval_cub
+                (recorded queries: a call with record_hist false is not one)
+                has reached max_eval, this is the value last returned by
+                cub, whatever x is, and nothing is evaluated or recorded.
             %}
 
             if obj.real_n_eval_cub >= 2 * obj.max_eval
@@ -544,7 +552,10 @@ classdef FeaturedProblem < Problem
             Returns
             -------
             ceq_ : double, size (m_nonlinear_eq,)
-                Modified nonlinear equality constraints.
+                Modified nonlinear equality constraints. Once n_eval_ceq
+                (recorded queries: a call with record_hist false is not one)
+                has reached max_eval, this is the value last returned by
+                ceq, whatever x is, and nothing is evaluated or recorded.
             %}
 
             if obj.real_n_eval_ceq >= 2 * obj.max_eval
@@ -705,7 +716,8 @@ classdef FeaturedProblem < Problem
             [A, point] = obj.originalPoint(x);
             if isempty(A), value = grad@Problem(obj, x); return; end
             value = obj.problem.grad(point);
-            if ~isempty(value), value = A' * value; end
+            % Problem accepts a row or a column gradient.
+            if ~isempty(value), value = A' * value(:); end
         end
         function value = hess(obj, x)
             if ~isempty(obj.final_view), value = obj.final_view.hess(x); return; end

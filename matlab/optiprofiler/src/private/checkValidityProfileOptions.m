@@ -19,7 +19,7 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
             error("MATLAB:checkValidityProfileOptions:n_jobsNotValid", "The option `n_jobs` should be a integer.");
         elseif profile_options.(ProfileOptionKey.N_JOBS.value) < 1
             profile_options.(ProfileOptionKey.N_JOBS.value) = 1;
-            printOptiProfilerMessage('INFO', 'The option `n_jobs` is set to 1 because it cannot be smaller than 1.');
+            printOptiProfilerMessage('WARNING', 'The option `n_jobs` is set to 1 because it cannot be smaller than 1.');
         end
     end
 
@@ -34,18 +34,22 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
 
     % Judge whether profile_options.benchmark_id is a char or a string and satisfies the file name requirements.
     if isfield(profile_options, ProfileOptionKey.BENCHMARK_ID.value)
-        is_valid_foldername = @(x) ischarstr(x) && ~isempty(x) && all(ismember(char(x), ['a':'z', 'A':'Z', '0':'9', '_', '-', '.']));
-        if ~ischarstr(profile_options.(ProfileOptionKey.BENCHMARK_ID.value)) || ~is_valid_foldername(profile_options.(ProfileOptionKey.BENCHMARK_ID.value))
+        is_valid_foldername = @(x) ischarstr(x) && strlength(string(x)) > 0 && all(ismember(char(x), ['a':'z', 'A':'Z', '0':'9', '_', '-', '.']));
+        if ~isScalarText(profile_options.(ProfileOptionKey.BENCHMARK_ID.value)) || ~is_valid_foldername(profile_options.(ProfileOptionKey.BENCHMARK_ID.value))
             error("MATLAB:checkValidityProfileOptions:benchmark_idNotValid", "The option `benchmark_id` should be a char or a string satisfying the strict file name requirements (only containing letters, numbers, underscores, hyphens, and dots).");
         end
+        profile_options.(ProfileOptionKey.BENCHMARK_ID.value) = char(profile_options.(ProfileOptionKey.BENCHMARK_ID.value));
     end
 
 
     % Judge whether profile_options.solver_names is a cell of chars or strings.
     if isfield(profile_options, ProfileOptionKey.SOLVER_NAMES.value)
-        if ~iscell(profile_options.(ProfileOptionKey.SOLVER_NAMES.value)) || ~all(cellfun(@(l) ischarstr(l), profile_options.(ProfileOptionKey.SOLVER_NAMES.value)))
+        if ~iscell(profile_options.(ProfileOptionKey.SOLVER_NAMES.value)) || ~all(cellfun(@isScalarText, profile_options.(ProfileOptionKey.SOLVER_NAMES.value)))
             error("MATLAB:checkValidityProfileOptions:solver_namesNotCellOfcharstr", "The option `solver_names` of options must be a cell of chars or strings.");
         end
+        % Stamps, logs and file names join the names as char.
+        profile_options.(ProfileOptionKey.SOLVER_NAMES.value) = cellfun(@char, ...
+            profile_options.(ProfileOptionKey.SOLVER_NAMES.value), 'UniformOutput', false);
         if ~isempty(solvers) && numel(profile_options.(ProfileOptionKey.SOLVER_NAMES.value)) ~= 0 && numel(profile_options.(ProfileOptionKey.SOLVER_NAMES.value)) ~= numel(solvers)
             error("MATLAB:checkValidityProfileOptions:solver_namesAndsolversLengthNotSame", "The number of elements in the option `solver_names` must equal the number of solvers.");
         end
@@ -68,7 +72,7 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
         if ~ischarstr(profile_options.(ProfileOptionKey.FEATURE_STAMP.value))
             error("MATLAB:checkValidityProfileOptions:feature_stampNotcharstr", "The option `feature_stamp` must be a char or string.");
         end
-        is_valid_foldername = @(x) ischarstr(x) && ~isempty(x) && all(ismember(char(x), ['a':'z', 'A':'Z', '0':'9', '_', '-', '.']));
+        is_valid_foldername = @(x) ischarstr(x) && strlength(string(x)) > 0 && all(ismember(char(x), ['a':'z', 'A':'Z', '0':'9', '_', '-', '.']));
         if ~is_valid_foldername(profile_options.(ProfileOptionKey.FEATURE_STAMP.value))
             error("MATLAB:checkValidityProfileOptions:feature_stampNotValid", "The option `feature_stamp` should be a char or a string satisfying the strict file name requirements (only containing letters, numbers, underscores, hyphens, and dots).");
         end
@@ -95,9 +99,11 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
 
     % Judge whether profile_options.savepath is a string and exists. If not exists, create it.
     if isfield(profile_options, ProfileOptionKey.SAVEPATH.value)
-        if ~ischarstr(profile_options.(ProfileOptionKey.SAVEPATH.value))
+        if ~isScalarText(profile_options.(ProfileOptionKey.SAVEPATH.value))
             error("MATLAB:checkValidityProfileOptions:savepathNotValid", "The option `savepath` should be a char or a string.");
-        elseif ~exist(profile_options.(ProfileOptionKey.SAVEPATH.value), 'dir')
+        end
+        profile_options.(ProfileOptionKey.SAVEPATH.value) = char(profile_options.(ProfileOptionKey.SAVEPATH.value));
+        if ~exist(profile_options.(ProfileOptionKey.SAVEPATH.value), 'dir')
             status = mkdir(profile_options.(ProfileOptionKey.SAVEPATH.value));
             if ~status
                 error("MATLAB:checkValidityProfileOptions:savepathNotExist", "The option `savepath` does not exist and cannot be created.");
@@ -210,19 +216,15 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
     end
 
 
-    % Judge whether profile_options.solver_verbose is among 0, 1, and 2. If silent is true, solver_verbose should be 0 or 1 (only print errors). If it is 2, print a message saying that solver_verbose will be set to 1; if it is 1, print a message saying that solver_verbose will be set to 0.
+    % Judge whether profile_options.solver_verbose is among 0, 1, and 2. If silent is true, solver_verbose is set to 0 with a warning, which getDefaultProfileOptions also does when the option is omitted.
     if isfield(profile_options, ProfileOptionKey.SOLVER_VERBOSE.value)
         if ~isintegerscalar(profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value)) || ~ismember(profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value), [0, 1, 2])
             error("MATLAB:checkValidityProfileOptions:solver_verboseNotValid", "The option `solver_verbose` should be either 0, 1, or 2.");
         end
-        if isfield(profile_options, ProfileOptionKey.SILENT.value) && profile_options.(ProfileOptionKey.SILENT.value)
-            if profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) == 2
-                warning("MATLAB:checkValidityProfileOptions:solver_verboseSetToZero", "The option `solver_verbose` will be set to 1 because silent is true.");
-                profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) = 1;
-            elseif profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) == 1
-                warning("MATLAB:checkValidityProfileOptions:solver_verboseSetToZero", "The option `solver_verbose` will be set to 0 because silent is true.");
-                profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) = 0;
-            end
+        if isfield(profile_options, ProfileOptionKey.SILENT.value) && profile_options.(ProfileOptionKey.SILENT.value) ...
+                && profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) ~= 0
+            warning("MATLAB:checkValidityProfileOptions:solver_verboseSetToZero", "The option `solver_verbose` will be set to 0 because silent is true.");
+            profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) = 0;
         end
     end
 
@@ -296,7 +298,7 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
             if size(profile_options.(ProfileOptionKey.LINE_COLORS.value), 1) > 1
                 profile_options.(ProfileOptionKey.LINE_COLORS.value) = profile_options.(ProfileOptionKey.LINE_COLORS.value)';
             end
-            if ~all(cellfun(@(x) ischarstr(x) && ismember(x, {'r', 'g', 'b', 'c', 'm', 'y', 'k'}), profile_options.(ProfileOptionKey.LINE_COLORS.value)))
+            if ~all(cellfun(@(x) isScalarText(x) && ismember(x, {'r', 'g', 'b', 'c', 'm', 'y', 'k'}), profile_options.(ProfileOptionKey.LINE_COLORS.value)))
                 error("MATLAB:checkValidityProfileOptions:line_colorsCellNotValid", "The option `line_colors` can only contain 'r', 'g', 'b', 'c', 'm', 'y', 'k' when it is a cell array of strings.");
             end
             % Convert the cell array of strings to a matrix whose rows are RGB triplets.
@@ -323,7 +325,7 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
         ':', ':o', ':+', ':*', ':.', ':x', ':s', ':d', ':^', ':v', ':>', ':<', ':p', ':h', 'o:', '+:', '*:', '.:', 'x:', 's:', 'd:', '^:', 'v:', '>:', '<:', 'p:', 'h:',...
         '--', '--o', '--+', '--*', '--.', '--x', '--s', '--d', '--^', '--v', '-->', '--<', '--p', '--h', 'o--', '+--', '*--', '.--', 'x--', 's--', 'd--', '^--', 'v--', '>--', '<--', 'p--', 'h--'...
         };
-        if ~iscell(profile_options.(ProfileOptionKey.LINE_STYLES.value)) || ~all(cellfun(@(x) ischarstr(x) && ismember(x, valid_line_style_marker_combinations), profile_options.(ProfileOptionKey.LINE_STYLES.value)))
+        if ~iscell(profile_options.(ProfileOptionKey.LINE_STYLES.value)) || ~all(cellfun(@(x) isScalarText(x) && ismember(x, valid_line_style_marker_combinations), profile_options.(ProfileOptionKey.LINE_STYLES.value)))
             error("MATLAB:checkValidityProfileOptions:line_stylesNotValid", "The option `line_styles` should be a cell array of chars or strings that are the combinations of line styles ('-', '-.', ':', '--') and markers ('none', 'o', '+', '*', '.', 'x', 's', 'd', '^', 'v', '>', '<', 'p', 'h').");
         end
         % Convert it to a row cell array of strings.
@@ -349,7 +351,7 @@ function profile_options = checkValidityProfileOptions(solvers, profile_options)
             if size(profile_options.(ProfileOptionKey.BAR_COLORS.value), 1) > 1
                 profile_options.(ProfileOptionKey.BAR_COLORS.value) = profile_options.(ProfileOptionKey.BAR_COLORS.value)';
             end
-            if ~all(cellfun(@(x) ischarstr(x) && ismember(x, {'r', 'g', 'b', 'c', 'm', 'y', 'k'}), profile_options.(ProfileOptionKey.BAR_COLORS.value)))
+            if ~all(cellfun(@(x) isScalarText(x) && ismember(x, {'r', 'g', 'b', 'c', 'm', 'y', 'k'}), profile_options.(ProfileOptionKey.BAR_COLORS.value)))
                 error("MATLAB:checkValidityProfileOptions:bar_colorsCellNotValid", "The option `bar_colors` can only contain 'r', 'g', 'b', 'c', 'm', 'y', 'k' when it is a cell array of strings.");
             end
             % Convert the cell array of strings to a matrix whose rows are RGB triplets.

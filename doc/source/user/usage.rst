@@ -37,6 +37,8 @@ There will be a new folder named ``out`` in the current working directory, which
    Figure 1: Screenshot of the subfolder containing detailed results of the benchmarking run.
 
 Additionally, a PDF file named ``summary.pdf`` is generated, summarizing all the performance profiles and data profiles.
+OptiProfiler never replaces a ``summary.pdf`` there without a matching record; see
+*MATLAB output robustness* below.
 
 .. figure:: images/mat_summary_pdf.jpg
    :width: 90%
@@ -200,6 +202,19 @@ It does not reconstruct an original invocation route or resume a live runtime.
 Saved output paths, load selectors and envelope fields are not forwarded by the
 replay helper. Specification-only v2 structs are accepted as explicit new replay
 inputs, not evidence of the original declaration.
+
+``options_refined.mat`` records ``problem_route``. It does not store a Problem
+passed through ``options.problem``, so ``loadBenchmarkOptions`` raises
+``OptiProfiler:DirectProblemNotSaved`` for such a run instead of returning
+settings that would benchmark a problem library. Set the original Problem
+first, for example ``S = load(file); S.options_refined.problem = p;`` and then
+``loadBenchmarkOptions(S.options_refined)``; the run's ``options_user.mat``
+also records the Problem. The receipt's ``problem_route`` states the route.
+A record older than this field has default library selectors whatever the
+experiment used. For a file, ``loadBenchmarkOptions`` reads the route from the
+``options_user.mat`` next to it; otherwise the receipt says ``not_recorded``
+and the replay warns with ``OptiProfiler:ProblemRouteNotRecorded``, because a
+direct-Problem experiment would run on those selectors.
 
 Options saved by a ``load`` (re-plot) invocation describe that re-plot, not the
 archived execution: ``benchmark`` writes no ``options_refined.mat`` for a load,

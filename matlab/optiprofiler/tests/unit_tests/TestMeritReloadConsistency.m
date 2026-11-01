@@ -220,6 +220,35 @@ classdef TestMeritReloadConsistency < matlab.unittest.TestCase
             testCase.verifyEqual(profiles, default_profiles);
             testCase.verifyEqual(TestMeritReloadConsistency.archiveBytes(fullfile(testCase.WorkDir, 'failed')), source);
         end
+        function failingMeritFailsOnlyTheScoringStage(testCase)
+            % Every solve completed before the merit failed, so the report
+            % fails the scoring stage only (as Python's report does).
+            TestMeritReloadConsistency.library(fullfile(testCase.WorkDir, 'lib'), 'meritreload', ...
+                's = struct(''fun'', @(x) sum(x.^2), ''x0'', 2 + strcmp(name, ''P2''), ''name'', name);');
+            solvers = {@TestMeritReloadConsistency.finish, @TestMeritReloadConsistency.stay};
+            for score_only = [false, true]
+                options = TestMeritReloadConsistency.runOptions('meritreload', sprintf('stages%d', score_only), 'u');
+                options.score_only = score_only;
+                options.merit_fun = @TestMeritReloadConsistency.failingMerit;
+                options.report_path = fullfile(testCase.WorkDir, sprintf('stages%d.json', score_only));
+                testCase.verifyError(@() benchmark(solvers, options), 'MATLAB:benchmark:merit_fun_error');
+                report = jsondecode(fileread(options.report_path));
+                testCase.verifyEqual(report.status, 'failed');
+                testCase.verifyEqual(report.stages.numerical.status, 'completed');
+                testCase.verifyEqual(report.stages.scoring, struct('status', 'failed', 'reason', 'interrupted_by_exception'));
+                testCase.verifyEqual(report.coverage.completed, 2);
+                if ~score_only
+                    testCase.verifyEqual(report.stages.persistence.status, 'completed');
+                end
+            end
+            options = struct('problem', Problem(struct('fun', @(x) sum(x.^2), 'x0', 2)), 'score_only', true, ...
+                'silent', true, 'merit_fun', @TestMeritReloadConsistency.failingMerit, ...
+                'report_path', fullfile(testCase.WorkDir, 'single.json'));
+            testCase.verifyError(@() benchmark(solvers, options), 'MATLAB:benchmark:merit_fun_error');
+            report = jsondecode(fileread(options.report_path));
+            testCase.verifyEqual(report.stages.numerical.status, 'completed');
+            testCase.verifyEqual(report.stages.scoring.status, 'failed');
+        end
         function failingMeritStillSavesCompleteExperiment(testCase)
             % The error is raised only after the plain baselines and every
             % requested library are solved and saved, so a corrected merit

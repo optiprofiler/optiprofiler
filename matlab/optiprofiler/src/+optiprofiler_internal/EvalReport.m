@@ -148,7 +148,6 @@ classdef EvalReport < handle
                 self.document.coverage.original_selection_known = false;
             end
             self.document.configuration.request = request_projection;
-            self.setStage('numerical', 'running');
             self.write();
         end
 
@@ -244,6 +243,13 @@ classdef EvalReport < handle
                 self.document.artifact_root_reason = reason;
                 self.addDiagnostic('artifact_root_unavailable', 'persistence', struct('reason', reason));
             end
+        end
+
+        function startNumerical(self)
+            % The solvers start. An error before this point is not a numerical
+            % failure, and a load runs no solver.
+            self.setStage('numerical', 'running');
+            self.write();
         end
 
         function setStage(self, stage, status, reason)
@@ -705,6 +711,13 @@ classdef EvalReport < handle
             end
         end
 
+        function recordExportFailure(self, cause)
+            % An export error ends the run, so the stage fails whatever was
+            % drawn before, as record_rendering_failure does in Python.
+            self.recordRendering('failed', struct('exception_type', cause.identifier), 'profile_export_failed');
+            self.setStage('rendering', 'failed', 'profile_export_failed');
+        end
+
         function finish(self, cause)
             % Reporting must never replace the original exception.
             try
@@ -713,7 +726,7 @@ classdef EvalReport < handle
                     if self.renderingFailure
                         state = 'failed';
                         if self.renderingSuccess, state = 'partial'; end
-                        self.setStage('rendering', state, 'history_render_failed');
+                        self.setStage('rendering', state, self.renderingFailureCode);
                     elseif self.renderingSuccess
                         self.setStage('rendering', 'completed');
                     elseif ~failed
@@ -722,6 +735,12 @@ classdef EvalReport < handle
                 end
                 if failed
                     self.document.status = 'failed';
+                    % The scores come after the profile export: an error
+                    % there fails rendering and leaves them unknown.
+                    if ismember(self.document.stages.rendering.status, {'running', 'failed'}) && ...
+                            strcmp(self.document.stages.scoring.status, 'running')
+                        self.setStage('scoring', 'unknown', 'interrupted_before_scores');
+                    end
                     stages = fieldnames(self.document.stages);
                     for k = 1:numel(stages)
                         if strcmp(self.document.stages.(stages{k}).status, 'running')
@@ -752,13 +771,6 @@ classdef EvalReport < handle
                     end
                 end
                 self.harvest();
-                if ~failed && isstruct(self.document.scores) && isfield(self.document.scores, 'semantics') && ...
-                        startsWith(self.document.scores.semantics, 'single_problem') && ...
-                        ~ismember(self.document.stages.persistence.status, {'failed','partial'})
-                    % A direct problem never produces a reloadable archive,
-                    % whether or not score_only was requested (same as Python).
-                    self.setStage('persistence', 'not_applicable', 'single_problem_has_no_reload_archive');
-                end
                 if ~failed && strcmp(self.document.status, 'completed')
                     stages = fieldnames(self.document.stages);
                     for k = 1:numel(stages)
@@ -957,15 +969,15 @@ classdef EvalReport < handle
                 stage = char(file.getPath());
             else
                 [status, stage] = system(['/usr/bin/mktemp ', optiprofiler_internal.EvalReport.quote(fullfile(fileparts(self.path), '.op-eval-report.XXXXXXXX'))]);
-                if status ~= 0, error('OptiProfiler:EvalReportWrite', 'Could not reserve report stage.'); end
+                if status ~= 0, error('OptiProfiler:EvalReportWrite', 'Could not reserve a report stage in ''%s''.', fileparts(self.path)); end
                 stage = strtrim(stage);
             end
             fid = fopen(stage, 'w');
-            if fid < 0, error('OptiProfiler:EvalReportWrite', 'Could not write report stage.'); end
+            if fid < 0, error('OptiProfiler:EvalReportWrite', 'Could not write the report stage ''%s'' for ''%s''.', stage, target); end
             guard = onCleanup(@() fclose(fid));
             written = fwrite(fid, encoded, 'uint8');
             clear guard;
-            if written ~= numel(encoded), error('OptiProfiler:EvalReportWrite', 'Incomplete report write.'); end
+            if written ~= numel(encoded), error('OptiProfiler:EvalReportWrite', 'Incomplete write of the report stage ''%s'' for ''%s''.', stage, target); end
             if is_plot, self.checkPlotOwnership(); else, self.checkOwnership(); end
             try
                 self.replaceFile(stage, target);
@@ -1004,14 +1016,14 @@ classdef EvalReport < handle
         function checkOwnership(self)
             if optiprofiler_internal.EvalReport.isLink(self.path) || ...
                     ~strcmp(self.ownedIdentity, optiprofiler_internal.EvalReport.fileIdentity(self.path))
-                error('OptiProfiler:EvalReportOwnership', 'The report target no longer belongs to this invocation.');
+                error('OptiProfiler:EvalReportOwnership', 'The report target ''%s'' no longer belongs to this invocation.', self.path);
             end
         end
 
         function checkPlotOwnership(self)
             if optiprofiler_internal.EvalReport.isLink(self.plotPath) || ...
                     ~strcmp(self.plotIdentity, optiprofiler_internal.EvalReport.fileIdentity(self.plotPath))
-                error('OptiProfiler:EvalReportOwnership', 'The plot-data target no longer belongs to this invocation.');
+                error('OptiProfiler:EvalReportOwnership', 'The plot-data target ''%s'' no longer belongs to this invocation.', self.plotPath);
             end
         end
     end
@@ -1048,6 +1060,11 @@ classdef EvalReport < handle
         % This does not serialize callback code or native execution state.
             value = optiprofiler_internal.EvalReport.configuration(value);
             text = jsonencode(optiprofiler_internal.EvalReport.safe(value));
+        end
+        function hash = sha256(path)
+        %SHA256 Hexadecimal SHA-256 of a regular file that is not a link. It
+        % raises where no hash is available: no JVM, sha256sum or shasum.
+            [~, hash] = optiprofiler_internal.EvalReport.digest(path);
         end
         function yes = isLink(path)
         %ISLINK True for a symbolic link and, on Windows, for a junction or any
@@ -1209,7 +1226,7 @@ classdef EvalReport < handle
                     if ismac, format = 'stat -f ''%d:%i|%z|%m'' '; end
                 end
                 [status,value] = system([format,optiprofiler_internal.EvalReport.quote(path)]);
-                if status ~= 0, error('OptiProfiler:EvalReportOwnership', 'File identity is unavailable.'); end
+                if status ~= 0, error('OptiProfiler:EvalReportOwnership', 'The identity of ''%s'' is unavailable.', path); end
                 value = strtrim(value);
             end
         end
@@ -1275,14 +1292,14 @@ classdef EvalReport < handle
             % compared after hashing; the opened handle's identity is not
             % compared, so this detects ordinary concurrent changes, not a
             % hostile redirection timed between the checks.
-            if optiprofiler_internal.EvalReport.isLink(path), error('OptiProfiler:EvalReportSymlink', 'Symlinks are not report artifacts.'); end
+            if optiprofiler_internal.EvalReport.isLink(path), error('OptiProfiler:EvalReportSymlink', 'Symlinks are not report artifacts: ''%s''.', path); end
             before = dir(path);
-            if numel(before) ~= 1 || before.isdir, error('OptiProfiler:EvalReportHash', 'Expected a regular file.'); end
+            if numel(before) ~= 1 || before.isdir, error('OptiProfiler:EvalReportHash', 'Expected a regular file: ''%s''.', path); end
             bytes = before.bytes;
             if usejava('jvm')
                 digest = java.security.MessageDigest.getInstance('SHA-256');
                 fid = fopen(path, 'rb');
-                if fid < 0, error('OptiProfiler:EvalReportHash', 'File is unavailable.'); end
+                if fid < 0, error('OptiProfiler:EvalReportHash', 'The file ''%s'' is unavailable.', path); end
                 guard = onCleanup(@() fclose(fid));
                 while ~feof(fid)
                     block = fread(fid, 1048576, '*uint8');
@@ -1302,19 +1319,19 @@ classdef EvalReport < handle
                     [status, ~] = system('command -v shasum >/dev/null 2>&1');
                     if status ~= 0
                         error('OptiProfiler:EvalReportHash', ...
-                            'EvalReport SHA256 without JVM requires sha256sum or shasum on PATH.');
+                            'EvalReport SHA256 of ''%s'' without JVM requires sha256sum or shasum on PATH.', path);
                     end
                     command = 'shasum -a 256 ';
                 end
                 % Hash stdin so a backslash/newline in a valid filename does
                 % not trigger the command's escaped-filename output prefix.
                 [status, hash] = system([command, '< ', optiprofiler_internal.EvalReport.quote(path)]);
-                if status ~= 0, error('OptiProfiler:EvalReportHash', 'SHA256 tool could not read the report artifact.'); end
+                if status ~= 0, error('OptiProfiler:EvalReportHash', 'SHA256 tool could not read the report artifact ''%s''.', path); end
                 hash = hash(1:64);
             end
             after = dir(path);
             if numel(after) ~= 1 || before.bytes ~= after.bytes || before.datenum ~= after.datenum
-                error('OptiProfiler:EvalReportHash', 'File changed while hashing.');
+                error('OptiProfiler:EvalReportHash', 'The file ''%s'' changed while hashing.', path);
             end
         end
 

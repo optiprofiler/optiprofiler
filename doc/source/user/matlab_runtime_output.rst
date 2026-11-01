@@ -16,12 +16,29 @@ On macOS and Linux, OptiProfiler also supports saving without a JVM:
 * A failing native PDF exporter can also use SVG as its last fallback. If
   only PDF merging fails, existing individual plots remain available through
   an HTML index and the complete backend diagnostics are saved.
+* The combined ``summary.pdf`` of the latest runs in ``savepath/benchmark_id``
+  (the working directory for a ``load`` with the default ``benchmark_id``)
+  is written only if no file of that name exists there or if the existing
+  one is still the file OptiProfiler wrote. The hidden file
+  ``.summary.pdf.optiprofiler`` beside it records a SHA-256 of that file, or
+  its size and modification time where no hash is available (no JVM and
+  neither ``sha256sum`` nor ``shasum``). Any other ``summary.pdf`` is left
+  unchanged with a warning, and the report adds the ``rendering`` diagnostic
+  ``summary_pdf_not_owned``; the summary of each run remains in its own
+  experiment directory. Move or delete such a file to let OptiProfiler
+  maintain the combined summary again.
+* Release note for 2.0: a ``summary.pdf`` written by an earlier version has no
+  such record, so it is left unchanged until you move or delete it.
 * With ``report_path``, every SVG fallback makes the report's rendering
   stage ``partial`` instead of ``completed`` and adds a ``rendering``
   diagnostic: ``native_graphics_unavailable``, ``native_profile_render_failed``,
   ``native_profile_export_failed``, ``native_summary_layout_failed``,
   ``native_summary_export_failed`` or, for a history plot,
   ``history_native_export_fallback``.
+* A ``plot_options`` value refused while a profile is exported has no
+  fallback. The run stops, the ``rendering`` stage is ``failed`` with the reason
+  ``profile_export_failed``, the report adds a diagnostic of that name, and
+  ``scoring`` stays ``unknown``, as in Python.
 
 The initial native-graphics probe is cached for the MATLAB process, avoiding
 a new probe figure for every plot. A transient failure of that initial probe
@@ -145,7 +162,13 @@ unfinished solver run or a guarantee against abrupt machine/disk failure.
 
 Library-selection failures stop with their original diagnostic instead of
 being treated as an empty or unfiltered selection. OptiProfiler restores the
-caller's warning settings on success and exceptions, and borrows an existing
+caller's warning settings on success and exceptions. It also restores the
+caller's diary (its on/off state and ``DiaryFile``) after writing
+``test_log/log.txt``, the ``groot`` axes font defaults it sets while drawing
+(a default the caller had not set is removed again), and the order of the
+caller's path. It removes from the path the problem-library roots that it
+added and the folders added under a library root; other path entries, for
+example those added by a solver, are kept. It borrows an existing
 parallel pool without deleting or resizing it. A smaller existing pool may
 use fewer workers than ``n_jobs``; this changes throughput, not the requested
 problems or evaluation budgets.

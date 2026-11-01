@@ -3,26 +3,12 @@ function problem_options = checkValidityProblemOptions(problem_options, profile_
 
     % Validate problem_options.plibs through the explicit MATLAB registry.
     if isfield(problem_options, ProblemOptionKey.PLIBS.value)
-        if ~iscell(problem_options.(ProblemOptionKey.PLIBS.value))
-            problem_options.(ProblemOptionKey.PLIBS.value) = {problem_options.(ProblemOptionKey.PLIBS.value)};
-        end
-        valid_name_types = cellfun( ...
-            @(name) ischarstr(name) && isscalar(string(name)), ...
-            problem_options.(ProblemOptionKey.PLIBS.value));
-        if isempty(problem_options.(ProblemOptionKey.PLIBS.value)) || ...
-                ~all(valid_name_types)
+        [problem_options.(ProblemOptionKey.PLIBS.value), valid] = nameList(problem_options.(ProblemOptionKey.PLIBS.value));
+        if ~valid || isempty(problem_options.(ProblemOptionKey.PLIBS.value))
             error("MATLAB:checkValidityProblemOptions:plibsNotValid", ...
-                "The option `plibs` should be a nonempty cell array of strings or chars.");
+                "The option `plibs` should be a nonempty cell array of strings or chars, or a string array.");
         end
-        % Convert to cell array of chars.
-        problem_options.(ProblemOptionKey.PLIBS.value) = cellfun( ...
-            @(name) lower(char(name)), ...
-            problem_options.(ProblemOptionKey.PLIBS.value), ...
-            'UniformOutput', false);
-        % Convert to a row vector if not.
-        if size(problem_options.(ProblemOptionKey.PLIBS.value), 1) > 1
-            problem_options.(ProblemOptionKey.PLIBS.value) = problem_options.(ProblemOptionKey.PLIBS.value)';
-        end
+        problem_options.(ProblemOptionKey.PLIBS.value) = lower(problem_options.(ProblemOptionKey.PLIBS.value));
 
         % Saved results can be labeled by any known library on every OS;
         % live resolution also checks the library's declared platforms.
@@ -169,36 +155,42 @@ function problem_options = checkValidityProblemOptions(problem_options, profile_
     end
 
 
-    % Judge whether problem_options.excludelist is a cell array of strings or chars.
+    % Judge whether problem_options.excludelist is a cell array of strings or chars, or a string array.
     if isfield(problem_options, ProblemOptionKey.EXCLUDELIST.value)
-        if ischarstr(problem_options.(ProblemOptionKey.EXCLUDELIST.value))
-            problem_options.(ProblemOptionKey.EXCLUDELIST.value) = {problem_options.(ProblemOptionKey.EXCLUDELIST.value)};
-        end
-        if ~iscell(problem_options.(ProblemOptionKey.EXCLUDELIST.value)) || ~all(cellfun(@ischarstr, problem_options.(ProblemOptionKey.EXCLUDELIST.value)))
-            error("MATLAB:checkValidityProblemOptions:excludelistNotCellOfcharstr", "The option `excludelist` should be a cell array of strings or chars.");
-        end
-        % Convert to cell array of chars.
-        problem_options.(ProblemOptionKey.EXCLUDELIST.value) = cellfun(@char, problem_options.(ProblemOptionKey.EXCLUDELIST.value), 'UniformOutput', false);
-        % Convert to a row vector if not.
-        if size(problem_options.(ProblemOptionKey.EXCLUDELIST.value), 1) > 1
-            problem_options.(ProblemOptionKey.EXCLUDELIST.value) = problem_options.(ProblemOptionKey.EXCLUDELIST.value)';
+        [problem_options.(ProblemOptionKey.EXCLUDELIST.value), valid] = nameList(problem_options.(ProblemOptionKey.EXCLUDELIST.value));
+        if ~valid
+            error("MATLAB:checkValidityProblemOptions:excludelistNotCellOfcharstr", "The option `excludelist` should be a cell array of strings or chars, or a string array.");
         end
     end
 
 
-    % Judge whether problem_options.problem_names is a cell array of strings or chars.
+    % Judge whether problem_options.problem_names is a cell array of strings or chars, or a string array.
     if isfield(problem_options, ProblemOptionKey.PROBLEM_NAMES.value)
-        if ischarstr(problem_options.(ProblemOptionKey.PROBLEM_NAMES.value))
-            problem_options.(ProblemOptionKey.PROBLEM_NAMES.value) = {problem_options.(ProblemOptionKey.PROBLEM_NAMES.value)};
+        [problem_options.(ProblemOptionKey.PROBLEM_NAMES.value), valid] = nameList(problem_options.(ProblemOptionKey.PROBLEM_NAMES.value));
+        if ~valid
+            error("MATLAB:checkValidityProblemOptions:problem_namesNotCellOfcharstr", "The option `problem_names` should be a cell array of strings or chars, or a string array.");
         end
-        if ~iscell(problem_options.(ProblemOptionKey.PROBLEM_NAMES.value)) || ~all(cellfun(@ischarstr, problem_options.(ProblemOptionKey.PROBLEM_NAMES.value)))
-            error("MATLAB:checkValidityProblemOptions:problem_namesNotCellOfcharstr", "The option `problem_names` should be a cell array of strings or chars.");
-        end
-        % Convert to cell array of chars.
-        problem_options.(ProblemOptionKey.PROBLEM_NAMES.value) = cellfun(@char, problem_options.(ProblemOptionKey.PROBLEM_NAMES.value), 'UniformOutput', false);
-        % Convert to a row vector if not.
-        if size(problem_options.(ProblemOptionKey.PROBLEM_NAMES.value), 1) > 1
-            problem_options.(ProblemOptionKey.PROBLEM_NAMES.value) = problem_options.(ProblemOptionKey.PROBLEM_NAMES.value)';
-        end
+    end
+end
+
+
+function [names, valid] = nameList(names)
+    % A row cell of char names from a char row, a string array or a cell of
+    % char rows and string scalars, as a row or a column. A string array is a
+    % list of names, not one name; a multi-row char matrix is not a name, and
+    % a 2-D array is not a list, as a nested list is not in Python.
+    if ischar(names)
+        names = {names};
+    end
+    valid = (iscell(names) || isstring(names)) && (isempty(names) || isvector(names));
+    if ~valid
+        return
+    end
+    if isstring(names)
+        names = num2cell(names(:)');
+    end
+    valid = all(cellfun(@isScalarText, names(:)));
+    if valid && ~isempty(names)
+        names = cellfun(@char, reshape(names, 1, []), 'UniformOutput', false);
     end
 end

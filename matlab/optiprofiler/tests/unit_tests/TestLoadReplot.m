@@ -287,6 +287,62 @@ classdef TestLoadReplot < matlab.unittest.TestCase
             testCase.verifyError(@() benchmark(options), 'MATLAB:checkValidityProfileOptions:solvers_to_loadNotValid');
         end
 
+        function loadWithProblemIsRejectedBeforeAnyOutput(testCase)
+            % With or without solvers, and even an empty problem field, the
+            % contradictory request neither loads nor solves nor writes.
+            TestLoadReplot.makeExperiment(pwd, 'bench', 2, 1);
+            setappdata(0, 'OptiProfilerLoadReplotSolverCalls', 0);
+            testCase.addTeardown(@() rmappdata(0, 'OptiProfilerLoadReplotSolverCalls'));
+            problem = Problem(struct('fun', @(x) sum(x.^2), 'x0', [1; 2]));
+            before = dir(fullfile(pwd, '**'));
+            for value = {problem, []}
+                options = TestLoadReplot.loadOptions('problem', value{1});
+                testCase.verifyError(@() benchmark(options), 'MATLAB:benchmark:ProblemWithLoad');
+                testCase.verifyError(@() benchmark({@TestLoadReplot.countingSolver, @TestLoadReplot.countingSolver}, options), ...
+                    'MATLAB:benchmark:ProblemWithLoad');
+            end
+            testCase.verifyEqual(getappdata(0, 'OptiProfilerLoadReplotSolverCalls'), 0);
+            after = dir(fullfile(pwd, '**'));
+            testCase.verifyEqual(sort(fullfile({after.folder}, {after.name})), sort(fullfile({before.folder}, {before.name})));
+        end
+
+        function notesFollowSilent(testCase)
+            % The notes of a load and of the option defaults are progress
+            % information, as in Python. Warnings stay: see
+            % scoreOnlyWithExplicitDrawingWarns.
+            TestLoadReplot.makeExperiment(pwd, 'bench', 2, 1);
+            routes = {{'score_only', true}, {'score_only', true, 'problem_names', {'NONE'}}, {}};
+            notes = {'Loading data from the directory', 'Loaded experiment successfully.', ...
+                'No problem is selected to load', 'Since the option "score_only" is true, we will not draw', ...
+                'Since the option "load" is provided'};
+            for silent = [true, false]
+                printed = '';
+                for route = routes
+                    options = TestLoadReplot.loadOptions('silent', silent, route{1}{:}); %#ok<NASGU>
+                    printed = [printed, evalc('benchmark(options);')]; %#ok<AGROW>
+                end
+                if silent
+                    testCase.verifyEmpty(strtrim(printed));
+                else
+                    printed = regexprep(printed, '\s+', ' ');
+                    testCase.verifyTrue(all(cellfun(@(note) contains(printed, note), notes)), printed);
+                end
+            end
+            options = struct('problem', Problem(struct('fun', @(x) sum(x.^2), 'x0', [1; 2])), 'score_only', true, ...
+                'silent', true, 'n_jobs', 1, 'max_eval_factor', 2); %#ok<NASGU>
+            testCase.verifyEmpty(strtrim(evalc('benchmark({@(fun, x0) x0, @(fun, x0) x0}, options);')));
+        end
+
+    end
+
+    methods (Static, Access = private)
+
+        function x = countingSolver(fun, x0)
+            setappdata(0, 'OptiProfilerLoadReplotSolverCalls', getappdata(0, 'OptiProfilerLoadReplotSolverCalls') + 1);
+            fun(x0);
+            x = x0;
+        end
+
     end
 
 end

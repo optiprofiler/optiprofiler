@@ -1306,8 +1306,15 @@ def _benchmark(
 
             # Save the refined options (including defaults and internal settings).
             options_refined = profile_options.copy()
-            for key in list(problem_options.keys()):
-                options_refined[key] = problem_options[key]
+            if has_single_problem:
+                # The Problem is not stored here, and the library selectors
+                # were not used: replay_arguments refuses this record unless
+                # the original Problem is supplied again.
+                options_refined['problem_route'] = 'direct_problem'
+            else:
+                for key in list(problem_options.keys()):
+                    options_refined[key] = problem_options[key]
+                options_refined['problem_route'] = 'library_selection'
             # Versioned refined configuration: the resolved primary run count and
             # the ordered effective stage specification (native values, callables
             # included), never a flat stage-option projection. Replay with

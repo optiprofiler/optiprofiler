@@ -156,17 +156,18 @@ function [profile_options, full_feature_stamp] = getDefaultProfileOptions(solver
     if profile_options.(ProfileOptionKey.SCORE_ONLY.value)
         if user_provided_draw_hist_plots && ~strcmp(profile_options.(ProfileOptionKey.DRAW_HIST_PLOTS.value), 'none')
             warning("MATLAB:getDefaultProfileOptions:draw_hist_plotsIgnoredWithScoreOnly", 'Since the option "score_only" is true, the requested "draw_hist_plots" mode "%s" is ignored and no history plots will be drawn.', profile_options.(ProfileOptionKey.DRAW_HIST_PLOTS.value));
-        else
+        elseif ~profile_options.(ProfileOptionKey.SILENT.value)
             printOptiProfilerMessage('INFO', 'Since the option "score_only" is true, we will not draw any history plots of the problems (the option "draw_hist_plots" is set to "none").');
         end
         profile_options.(ProfileOptionKey.DRAW_HIST_PLOTS.value) = 'none';
     elseif ~user_provided_draw_hist_plots && ~isempty(profile_options.(ProfileOptionKey.LOAD.value))
-        printOptiProfilerMessage('INFO', 'Since the option "load" is provided, we will draw history plots of the problems after loading the results (the option "draw_hist_plots" is set to "sequential").');
+        if ~profile_options.(ProfileOptionKey.SILENT.value)
+            printOptiProfilerMessage('INFO', 'Since the option "load" is provided, we will draw history plots of the problems after loading the results (the option "draw_hist_plots" is set to "sequential").');
+        end
         profile_options.(ProfileOptionKey.DRAW_HIST_PLOTS.value) = 'sequential';
     end
 
     if profile_options.(ProfileOptionKey.SILENT.value)
-        printOptiProfilerMessage('INFO', 'Since the option "silent" is true, we will not print any information during the benchmarking (the option "solver_verbose" is set to 0).');
         profile_options.(ProfileOptionKey.SOLVER_VERBOSE.value) = 0;
     end
 end

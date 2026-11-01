@@ -1,5 +1,30 @@
 classdef TestCheckValidityProblemOptions < matlab.unittest.TestCase
     methods (Test)
+        function nameListsAreVectorsAndTheMessageSaysSo(testCase)
+            % A 2-D list is refused, as a nested list is in Python. Rows and
+            % columns of a cell or of a string array are lists of names.
+            original_dir = pwd;
+            testCase.addTeardown(@() cd(original_dir));
+            cd(fullfile(fileparts(mfilename('fullpath')), '../../src/private'));
+            rows = {{'custom'}, "custom", ["custom"; "custom"], {'custom'; "custom"}, strings(0), {}};
+            for k = 1:numel(rows)
+                options = checkValidityProblemOptions(struct('problem_names', {rows{k}}), struct());
+                testCase.verifyTrue(iscellstr(options.problem_names));
+            end
+            for bad = {["Q1", "Q2"; "Q3", "Q4"], {'Q1', 'Q2'; 'Q3', 'Q4'}}
+                for option = {'plibs', 'excludelist', 'problem_names'}
+                    identifier = "MATLAB:checkValidityProblemOptions:" + option{1} + "NotCellOfcharstr";
+                    if strcmp(option{1}, 'plibs'), identifier = "MATLAB:checkValidityProblemOptions:plibsNotValid"; end
+                    problem_options = struct(option{1}, {bad{1}});
+                    testCase.verifyError(@() checkValidityProblemOptions(problem_options, struct()), identifier);
+                    try
+                        checkValidityProblemOptions(problem_options, struct());
+                    catch cause
+                        testCase.verifySubstring(cause.message, 'or a string array');
+                    end
+                end
+            end
+        end
 
         function testInfinityBounds(testCase)
 

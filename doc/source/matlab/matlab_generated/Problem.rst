@@ -38,7 +38,7 @@ Compulsory fields:
 
 Optional fields:
 
-    - **name**: the name of the problem. It should be a string or a char. Default is ``'Unnamed Problem'``.
+    - **name**: the name of the problem. It should be a string scalar or a char row. Default is ``'Unnamed Problem'``.
     
     - **xl**: the lower bounds on the variable ``x`` in the form of ``xl <= x``. It should be a vector of the same size as ``x``. Default is ``-Inf``, which means no bound. ``NaN`` and ``Inf`` are rejected.
 

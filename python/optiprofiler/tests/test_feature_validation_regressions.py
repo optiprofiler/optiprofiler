@@ -8,7 +8,8 @@ import pytest
 from optiprofiler import Feature, FeaturedProblem, Problem, benchmark
 from optiprofiler.provenance import describe_feature
 from optiprofiler.opclasses import _rebuild_feature
-from optiprofiler.legacy_compat import LegacyFeature, import_legacy_feature, load_options, replay_arguments
+from optiprofiler.legacy_compat import (LegacyConfigurationError, LegacyFeature, import_legacy_feature, load_options,
+                                        replay_arguments)
 
 
 def identity_objective(x):
@@ -147,7 +148,14 @@ def test_current_user_and_refined_archives_replay_the_current_grid(route, tmp_pa
         assert len(paths) == 1
         saved = load_options(paths[0])
         before = pickle.dumps(saved)
-        replay = replay_arguments(saved)
+        if filename == 'options_refined.pkl':
+            # The refined record of a direct-Problem run needs the Problem again.
+            with pytest.raises(LegacyConfigurationError, match='directly supplied Problem'):
+                replay_arguments(saved)
+            replay = replay_arguments({**saved, 'problem': Problem(identity_objective, [2.6])})
+        else:
+            replay = replay_arguments(saved)
+        assert set(replay['problem_options']) == {'problem'}
         feature = Feature(replay['feature'])
         fp = FeaturedProblem(Problem(identity_objective, [2.6]), feature, 5, 17)
         assert fp.fun(np.array([2.6])) == pytest.approx(2.6)

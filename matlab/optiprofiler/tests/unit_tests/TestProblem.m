@@ -246,6 +246,32 @@ classdef TestProblem < matlab.unittest.TestCase
             testCase.verifyEqual(p.maxcv([2, 3]), p.maxcv([2; 3]));
             testCase.verifyEqual(p.maxcv([2, 3]), 4);
         end
+
+        function nameIsOnePieceOfText(testCase)
+            base = struct('fun', @(x) sum(x.^2), 'x0', [1; 2]);
+            for name = {["a", "b"], string(missing), 123, ['ab'; 'cd'], {'a'}, true}
+                options = base;
+                options.name = name{1};
+                testCase.verifyError(@() Problem(options), 'MATLAB:Problem:name_NotText');
+            end
+            options = base;
+            options.name = "text";
+            testCase.verifyEqual(Problem(options).name, 'text');
+            testCase.verifyFalse(ismember('checkName', methods('Problem')));
+            % A setter that raises would make `load` reset a saved name to the
+            % default, without a warning. The object keeps what the file holds,
+            % and a FeaturedProblem refuses it, also in a composition.
+            problem = Problem(base);
+            problem.name = 123;
+            file = [tempname, '.mat'];
+            testCase.addTeardown(@() delete(file));
+            save(file, 'problem');
+            loaded = load(file);
+            testCase.verifyEqual(loaded.problem.name, 123);
+            testCase.verifyError(@() FeaturedProblem(loaded.problem, Feature('plain'), 10, 0), 'MATLAB:Problem:name_NotText');
+            problem.name = {'a', 'b'};
+            testCase.verifyError(@() FeaturedProblem(problem, Feature({'noisy', 'perturbed_x0'}), 10, 0), 'MATLAB:Problem:name_NotText');
+        end
     end
 
     methods (Static)
