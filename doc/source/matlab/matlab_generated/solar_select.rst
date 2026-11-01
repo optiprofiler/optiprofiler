@@ -31,7 +31,9 @@ OptiProfiler selector. SOLAR 11 is disabled for now because the upstream
 runtime returns an empty output at the documented initial point in the current
 recorded revision.
 
-The SOLAR MATLAB adapter vendors a slim SOLAR runtime under LGPL-2.1. The
-runtime keeps its upstream license, README, and manifest under
-``runtime/solar/``. Some SOLAR problems call a comparatively expensive external
+The SOLAR MATLAB adapter vendors a slim SOLAR runtime. Its C++ sources declare
+LGPL-3.0-or-later, and the upstream makefile and README follow the LGPL-2.1
+license file of the upstream repository. See the adapter's
+``THIRD_PARTY_NOTICES.md`` for the complete inventory. The runtime keeps its
+upstream license, README, and manifest under ``runtime/solar/``. Some SOLAR problems call a comparatively expensive external
 C++ simulator; use small evaluation budgets when testing.
