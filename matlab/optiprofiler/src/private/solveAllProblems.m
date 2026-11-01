@@ -111,8 +111,11 @@ function results = solveAllProblems(solvers, library, feature, problem_options, 
                     printOptiProfilerMessage('INFO', sprintf(loading_info, problem_name, plib));
                 end
                 problem = load(problem_name);
-                % A name set after construction costs this problem, not the run.
-                if isa(problem, 'Problem'), problem.checkName(); end
+                % Data set after construction cost this problem, not the run.
+                if isa(problem, 'Problem')
+                    problem.checkName();
+                    problem.checkConstraintData();
+                end
             catch load_error
                 if ~profile_options.(ProfileOptionKey.SILENT.value)
                     fprintf('\n');
@@ -142,8 +145,11 @@ function results = solveAllProblems(solvers, library, feature, problem_options, 
                     printOptiProfilerMessage('INFO', sprintf(loading_info, problem_name, plib));
                 end
                 problem = load(problem_name);
-                % A name set after construction costs this problem, not the run.
-                if isa(problem, 'Problem'), problem.checkName(); end
+                % Data set after construction cost this problem, not the run.
+                if isa(problem, 'Problem')
+                    problem.checkName();
+                    problem.checkConstraintData();
+                end
             catch load_error
                 if ~profile_options.(ProfileOptionKey.SILENT.value)
                     fprintf('\n');

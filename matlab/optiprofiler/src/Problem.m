@@ -160,8 +160,10 @@ classdef Problem < handle
 %   existing object, as in `p.xl = [Inf; Inf]`, are not checked at the
 %   assignment, because a setter that raises would make `load` drop the data of
 %   a saved object without an error. They are checked when a trial is built:
-%   `benchmark` and `FeaturedProblem` refuse them. The object itself does not
-%   check them, so `p.maxcv(x)` measures what it holds and can return 0.
+%   `benchmark` and `FeaturedProblem` refuse them. In a library run this costs
+%   only that problem, which the report lists as `problem_load_failed`. The
+%   object itself does not check them, so `p.maxcv(x)` measures what it holds
+%   and can return 0.
 %
 
 
