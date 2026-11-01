@@ -6,6 +6,7 @@ import pickle
 import numpy as np
 import pytest
 
+from optiprofiler.profiles import _close_logging_resources
 from optiprofiler.profile_utils import check_validity_problem_options, check_validity_profile_options
 from optiprofiler.utils import (
     FeatureName,
@@ -174,6 +175,15 @@ class TestShowVersions:
 
 class TestLogging:
 
+    @pytest.fixture(autouse=True)
+    def root_logger_stays_as_it_was(self):
+        # A queue left on the root logger fills its pipe once nothing reads it,
+        # and the exit of the process then waits for that pipe.
+        root = logging.getLogger()
+        before = (list(root.handlers), root.level)
+        yield
+        assert (list(root.handlers), root.level) == before
+
     def test_get_logger(self):
         logger = get_logger('test_logger')
         assert isinstance(logger, logging.Logger)
@@ -187,17 +197,26 @@ class TestLogging:
 
     def test_setup_main_process_logging(self):
         log_queue, listener = setup_main_process_logging()
-        assert isinstance(log_queue, mp.queues.Queue)
-        listener.stop()
+        try:
+            assert isinstance(log_queue, mp.queues.Queue)
+        finally:
+            _close_logging_resources({'listener': listener, 'log_queue': log_queue})
 
     def test_setup_worker_logging_none(self):
         setup_worker_logging(None)
 
     def test_setup_worker_logging(self):
-        log_queue = mp.Queue(-1)
-        setup_worker_logging(log_queue, level=logging.DEBUG)
         root = logging.getLogger()
-        assert root.level == logging.DEBUG
+        handlers, level = list(root.handlers), root.level
+        log_queue = mp.Queue(-1)
+        try:
+            setup_worker_logging(log_queue, level=logging.DEBUG)
+            assert root.level == logging.DEBUG
+        finally:
+            root.handlers[:] = handlers
+            root.setLevel(level)
+            log_queue.close()
+            log_queue.join_thread()
 
 
 @pytest.mark.parametrize('enumeration', [FeatureName, FeatureOption, ProblemOption, ProfileOption])
