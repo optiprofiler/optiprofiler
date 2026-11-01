@@ -235,8 +235,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         are displayed in the original `n_eval / (n + 1)` units, typically
 %         `0, 1, 2, 4, ...`. Default is true.
 %       - silent: whether to show the information of the progress. With true,
-%         no progress information is printed, also when loading saved results.
-%         Default is false.
+%         no progress information is printed, also when loading saved results,
+%         and `solver_verbose` is 0. Default is false.
 %       - solver_isrand: whether the solvers are randomized or not. Default is
 %         a logical array of the same length as the number of solvers, where
 %         the value is true if the solver is randomized, and false otherwise.
@@ -246,6 +246,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         function handles in `solvers`.
 %       - solver_verbose: the level of the verbosity of the solvers. `0` means
 %         no verbosity, `1` means some verbosity, and `2` means full verbosity.
+%         With `silent` true the level is 0, so nothing of a solver is printed,
+%         and a level of 1 or 2 is replaced with a warning; a failing solver is
+%         still recorded in report.txt and the machine-readable report.
 %         Default is 1.
 %       - solvers_to_load: the indices of the solvers to load when the `load`
 %         option is provided. It can be a vector of different integers selected
