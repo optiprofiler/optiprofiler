@@ -4,6 +4,11 @@ classdef TestSetupProblemLibraryPins < matlab.unittest.TestCase
 % fixture repositories that stand in for GitHub, a private home and an isolated
 % registry, pathdef and startup file. There is no network access, and the real
 % MATLAB path and startup files are not touched.
+    properties (TestParameter)
+        % A problem_library_root that is a symbolic link, or that lies below one.
+        linked_root = {'itself', 'below'};
+    end
+
     methods (TestClassSetup)
         function requireGit(testCase)
             testCase.assumeTrue(isunix);
@@ -231,6 +236,63 @@ classdef TestSetupProblemLibraryPins < matlab.unittest.TestCase
             testCase.verifyFalse(contains(fileread(fullfile(state.root, 'pathdef.m')), solar));
         end
 
+        function linkedRootIsRecordedUnderItsResolvedName(testCase, linked_root)
+            state = throughALinkedRoot(testCase, linked_root, sandbox(testCase));
+            run_setup(state, state.options);
+            solar = fullfile(state.libraries, 'solar');
+            testCase.verifyTrue(on_path(solar));
+            data = load([state.registry, '.setup-paths.mat']);
+            testCase.verifyTrue(any(strcmp({data.records.owner}, solar)));
+            testCase.verifyFalse(any(strcmp({data.records.owner}, fullfile(state.link, 'solar'))));
+            lock_commits(state, struct('solar', unknown_commit()));
+            run_setup(state, state.options);
+            testCase.verifyFalse(is_registered(state, 'solar'));
+            verify_not_on_path(testCase, state);
+        end
+
+        function recordThroughALinkedRootIsWithdrawn(testCase, linked_root)
+            state = recordedThroughALinkedRoot(testCase, linked_root);
+            lock_commits(state, struct('solar', unknown_commit()));
+            output = run_setup(state, state.options);
+            verify_reported(testCase, output, 'SOLAR MATLAB adapter', 'Cannot check out the pinned commit');
+            testCase.verifyFalse(is_registered(state, 'solar'));
+            verify_not_on_path(testCase, state);
+            data = load([state.registry, '.setup-paths.mat']);
+            record = data.records(strcmp({data.records.owner}, fullfile(state.link, 'solar')));
+            testCase.verifyEmpty(record.owned_paths);
+        end
+
+        function unregisteredRecordThroughALinkedRootIsWithdrawn(testCase, linked_root)
+            state = recordedThroughALinkedRoot(testCase, linked_root);
+            delete(state.registry);
+            lock_commits(state, struct('solar', unknown_commit()));
+            output = run_setup(state, state.options);
+            verify_reported(testCase, output, 'SOLAR MATLAB adapter', 'Cannot check out the pinned commit');
+            verify_not_on_path(testCase, state);
+        end
+
+        function startupLineThroughALinkedRootIsWithdrawn(testCase, linked_root)
+            state = sandbox(testCase);
+            setenv('OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_PATHDEF', fullfile(state.root, 'no_directory', 'pathdef.m'));
+            state = recordedThroughALinkedRoot(testCase, linked_root, state);
+            startup = fullfile(state.root, 'startup.m');
+            testCase.assertSubstring(fileread(startup), fullfile(state.link, 'solar'));
+            lock_commits(state, struct('solar', unknown_commit()));
+            run_setup(state, state.options);
+            testCase.verifyFalse(contains(fileread(startup), fullfile(state.link, 'solar')));
+            testCase.verifyFalse(on_path(fullfile(state.libraries, 'solar')));
+        end
+
+        function libraryKeptThroughALinkedRootCanBeUnregistered(testCase, linked_root)
+            state = recordedThroughALinkedRoot(testCase, linked_root);
+            output = run_setup(state, state.options);
+            testCase.verifyFalse(contains(output, 'is not set up'));
+            testCase.assertTrue(is_registered(state, 'solar'));
+            unregisterProblemLibrary('solar');
+            testCase.verifyFalse(is_registered(state, 'solar'));
+            verify_not_on_path(testCase, state);
+        end
+
         function setupRecoversOnceTheLibraryIsReachable(testCase)
             state = sandbox(testCase);
             run_setup(state, struct('install_solar', true));
@@ -274,6 +336,51 @@ classdef TestSetupProblemLibraryPins < matlab.unittest.TestCase
     end
 end
 
+
+function state = throughALinkedRoot(testCase, form, state)
+% The library at its pin, with options that reach its root through a symbolic link.
+    pin = make_remote(state, 'solar_matlab', solar_files());
+    lock_commits(state, struct('solar', pin));
+    if strcmp(form, 'itself')
+        target = state.libraries;
+        link = fullfile(state.root, 'linked_libraries');
+        state.link = link;
+    else
+        target = fullfile(state.root, 'real');
+        state.libraries = fullfile(target, 'libraries');
+        mkdir(state.libraries);
+        link = fullfile(state.root, 'link');
+        state.link = fullfile(link, 'libraries');
+    end
+    [status, output] = system(sprintf('ln -s "%s" "%s"', target, link));
+    testCase.assertEqual(status, 0, output);
+    state.options = struct('install_solar', true, 'problem_library_root', state.link);
+end
+
+function state = recordedThroughALinkedRoot(testCase, form, state)
+% The state that a setup leaves that does not resolve problem_library_root: the
+% MATLAB path and the registry hold the resolved name, and the ownership record
+% holds the name as it was given.
+    if nargin < 3
+        state = sandbox(testCase);
+    end
+    state = throughALinkedRoot(testCase, form, state);
+    setup_file = fullfile(state.package, 'setup.m');
+    current = fileread(setup_file);
+    unresolved = regexprep(current, 'root = resolve\w*\(root\);', '');
+    testCase.assertNotEqual(unresolved, current);
+    write_text(setup_file, unresolved);
+    run_setup(state, state.options);
+    write_text(setup_file, current);
+    data = load([state.registry, '.setup-paths.mat']);
+    testCase.assertTrue(any(strcmp({data.records.owner}, fullfile(state.link, 'solar'))));
+    testCase.assertTrue(on_path(fullfile(state.libraries, 'solar')));
+end
+
+function verify_not_on_path(testCase, state)
+    testCase.verifyFalse(on_path(fullfile(state.libraries, 'solar')));
+    testCase.verifyFalse(contains(fileread(fullfile(state.root, 'pathdef.m')), 'solar'));
+end
 
 function state = sandbox(testCase)
     state.root = tempname;

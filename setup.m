@@ -480,15 +480,11 @@ function message = withdraw_optional_problem_library(message, name, root)
     %   and stays. MESSAGE is extended if the removal fails.
 
     try
-        [manage_paths, ~, read_registry, registry_file] = setup_helpers();
+        [manage_paths, ~, read_registry, registry_file, resolve] = setup_helpers();
         registrations = read_registry(registry_file());
-        [status, attributes] = fileattrib(root);
-        if status
-            root_name = attributes.Name;
-        else
-            root_name = root;
-        end
-        if any(strcmp({registrations.name}, name) & strcmp({registrations.root}, root_name))
+        roots = {registrations.root};
+        here = strcmp(roots, root) | strcmp(cellfun(resolve, roots, 'UniformOutput', false), resolve(root));
+        if any(strcmp({registrations.name}, name) & here)
             unregisterProblemLibrary(name);
         else
             manage_paths('remove-owner', root);
@@ -514,7 +510,7 @@ function paths_saved = add_save_path(path_strings, owners)
     end
 end
 
-function [manage_paths, prepare_runtime, read_registry, registry_file] = setup_helpers()
+function [manage_paths, prepare_runtime, read_registry, registry_file, resolve] = setup_helpers()
     % Bind private helpers without adding a private directory to MATLAB path.
     original = pwd;
     cleanup = onCleanup(@() cd(original)); %#ok<NASGU>
@@ -525,6 +521,7 @@ function [manage_paths, prepare_runtime, read_registry, registry_file] = setup_h
     prepare_runtime = @prepareMatcutestRuntime;
     read_registry = @readProblemLibraryRegistry;
     registry_file = @getProblemLibraryRegistryFile;
+    resolve = @resolvedDirectory;
 end
 
 function pathdef_file = get_setup_pathdef_file()
@@ -785,31 +782,8 @@ function root = get_optional_problem_library_root(options)
     if ~is_absolute_path(root)
         root = fullfile(pwd, root);
     end
-    root = resolved_directory(root);
-end
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
-function directory = resolved_directory(directory)
-    %RESOLVED_DIRECTORY returns the name that the MATLAB path holds for a directory.
-    %   Ownership records compare names exactly, and the directory may not exist yet.
-
-    missing = {};
-    existing = directory;
-    while ~isfolder(existing)
-        [parent, name, extension] = fileparts(existing);
-        if strcmp(parent, existing) || isempty(parent)
-            return
-        end
-        missing = [{[name, extension]}, missing];
-        existing = parent;
-    end
-    [status, attributes] = fileattrib(existing);
-    if status
-        directory = fullfile(attributes.Name, missing{:});
-    end
+    [~, ~, ~, ~, resolve] = setup_helpers();
+    root = resolve(root);
 end
 
 
