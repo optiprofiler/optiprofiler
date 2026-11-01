@@ -268,7 +268,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         `ylabel_data_profile`, `ylabel_log_ratio_profile`, and
 %         `ylabel_performance_profile`. The text of the x-axis labels is passed
 %         to the LaTeX interpreter verbatim, so write `\%` for a percent sign:
-%         a bare `%` is invalid syntax, and the label is drawn as raw text.
+%         a bare `%` is invalid syntax, and the figure shows the raw text
+%         without a warning.
 %       - xlabel_log_ratio_profile: the label of the x-axis of the log-ratio
 %         profiles. Default is 'Problem'.
 %       - xlabel_performance_profile: the label of the x-axis of the
@@ -278,13 +279,13 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         replaced by the current tolerance in LaTeX format. You can also use
 %         `%s` in your custom label, and it will be replaced accordingly. Keep
 %         `%s` inside `$...$`, as the defaults do, because the tolerance is
-%         LaTeX math: outside math mode the label is drawn as raw text. The
-%         same applies to the options `ylabel_log_ratio_profile` and
-%         `ylabel_performance_profile`. Only `%s` is a placeholder: `%%` and
-%         any other `%` give a literal percent sign, escaped automatically
-%         for the LaTeX interpreter, and `\%` is kept as written. As in
-%         earlier versions, `\\` gives `\`. Every other character is kept as
-%         written, for example `\alpha`.
+%         LaTeX math: outside math mode the figure shows the raw text without
+%         a warning. The same applies to the options
+%         `ylabel_log_ratio_profile` and `ylabel_performance_profile`. Only
+%         `%s` is a placeholder: `%%` and any other `%` give a literal percent
+%         sign, escaped automatically for the LaTeX interpreter, and `\%` is
+%         kept as written. As in earlier versions, `\\` gives `\`. Every other
+%         character is kept as written, for example `\alpha`.
 %       - ylabel_log_ratio_profile: the label of the y-axis of the log-ratio
 %         profiles. Default is 'Log-ratio profiles ($\\mathrm{tol} = %s$)',
 %         where `%s` will be replaced by the current tolerance in LaTeX format.
