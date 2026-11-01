@@ -190,7 +190,7 @@ classdef TestPlotOptions < matlab.unittest.TestCase
             testCase.verifyEqual(report.status, 'failed');
             testCase.verifyEqual(report.stages.numerical.status, 'completed');
             testCase.verifyEqual(report.stages.rendering, struct('status', 'failed', 'reason', 'interrupted_by_exception'));
-            testCase.verifyEqual(report.stages.scoring.status, 'unknown');
+            testCase.verifyEqual(report.stages.scoring, struct('status', 'unknown', 'reason', 'interrupted_before_scores'));
         end
 
         function styleErrorAtExportFailsRenderingNotScoring(testCase)

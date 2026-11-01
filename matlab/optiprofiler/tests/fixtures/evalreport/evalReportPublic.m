@@ -673,6 +673,20 @@ function evalReportPublic(source_root, output_root, slice)
         cd(output_root);
         reloaded = benchmark(struct('load', 'latest', 'benchmark_id', 'score_saved', 'score_only', true, 'silent', true, 'max_tol_order', 1));
         assert(max(abs(reloaded - expected)) < 1e-12, 'The saved experiment must stay loadable.');
+        % A load refuses the same result, and its scoring stage says so.
+        refused = struct('load', 'latest', 'benchmark_id', 'score_saved', 'score_only', true, 'silent', true, ...
+            'max_tol_order', 1, 'score_fun', rejected{2}, 'report_path', fullfile(output_root, 'score_load.json'));
+        try
+            benchmark(refused);
+            error('Expected the load to reject the score_fun result.');
+        catch cause
+            assert(strcmp(cause.identifier, 'MATLAB:benchmark:score_funOutputWrongSize'), 'Unexpected error: %s %s', cause.identifier, cause.message);
+        end
+        report = readReport(refused.report_path);
+        assert(strcmp(report.operation, 'load') && strcmp(report.status, 'failed') && isempty(report.scores));
+        assert(strcmp(report.stages.numerical.status, 'completed'));
+        assert(strcmp(report.stages.scoring.status, 'failed') && strcmp(report.stages.scoring.reason, 'interrupted_by_exception'), ...
+            'A rejected score on a load left scoring %s.', report.stages.scoring.status);
         fprintf('PASS score_shape: one real score per solver, rows and columns kept, other results refused\n');
     elseif strcmp(slice, 'stages')
         % Before the first solver call, nothing numerical can have failed.

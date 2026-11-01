@@ -1537,6 +1537,7 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     % Process the results from all the problem libraries.
+    if ~isempty(eval_report), eval_report.setStage('scoring', 'running'); end
     if isempty(eval_report)
         [merit_histories_merged, merit_outs_merged, merit_inits_merged, merit_mins_merged, n_evals_merged, problem_names_merged, problem_dims_merged] = processResults(results_plibs, profile_options);
     else
