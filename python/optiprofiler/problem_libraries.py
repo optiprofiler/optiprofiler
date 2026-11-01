@@ -193,11 +193,25 @@ def _builtin_problem_library_names():
 
 
 def _problem_library_entry_points():
-    """Return entry points for all installed OptiProfiler problem libraries."""
+    """Return entry points for all installed OptiProfiler problem libraries.
+
+    Before Python 3.10, ``importlib.metadata`` repeats a distribution for each
+    copy of its metadata on ``sys.path``, such as an ``.egg-info`` that a build
+    left in the current directory. These copies are one provider, so identical
+    entry points are listed once. Those versions do not tell which distribution
+    an entry point came from; where that is known, the same value from two
+    distributions remains two providers.
+    """
     entry_points = metadata.entry_points()
     if hasattr(entry_points, 'select'):
-        return list(entry_points.select(group=PROBLEM_LIBRARY_ENTRY_POINT_GROUP))
-    return list(entry_points.get(PROBLEM_LIBRARY_ENTRY_POINT_GROUP, ()))
+        entry_points = entry_points.select(group=PROBLEM_LIBRARY_ENTRY_POINT_GROUP)
+    else:
+        entry_points = entry_points.get(PROBLEM_LIBRARY_ENTRY_POINT_GROUP, ())
+    unique = {}
+    for entry_point in entry_points:
+        key = (entry_point.name, entry_point.value, _entry_point_distribution(entry_point))
+        unique.setdefault(key, entry_point)
+    return list(unique.values())
 
 
 def distribution_provenance(reference):

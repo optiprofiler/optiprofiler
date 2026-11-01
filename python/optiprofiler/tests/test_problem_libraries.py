@@ -231,6 +231,142 @@ def test_duplicate_entry_points_are_rejected(monkeypatch):
         resolve_problem_library('externaltoy')
 
 
+class _SelectableEntryPoints:
+    def __init__(self, entry_points):
+        self.entry_points = entry_points
+
+    def select(self, group):
+        assert group == PROBLEM_LIBRARY_ENTRY_POINT_GROUP
+        return self.entry_points
+
+
+def _discover(monkeypatch, entry_points, selectable):
+    # Both shapes of ``metadata.entry_points()``, on any interpreter: a mapping
+    # before Python 3.10 and a selectable collection from then on.
+    found = _SelectableEntryPoints(tuple(entry_points)) if selectable else {
+        PROBLEM_LIBRARY_ENTRY_POINT_GROUP: tuple(entry_points),
+    }
+    monkeypatch.setattr(problem_libraries.metadata, 'entry_points', lambda: found)
+
+
+def _entry_point_without_distribution(name, value):
+    return problem_libraries.metadata.EntryPoint(name, value, PROBLEM_LIBRARY_ENTRY_POINT_GROUP)
+
+
+@pytest.mark.parametrize('selectable', [False, True])
+def test_identical_entry_points_are_one_provider(monkeypatch, selectable):
+    value = 'optiprofiler_externaltoy:get_problem_library'
+    other = _entry_point_without_distribution('existingtoy', 'optiprofiler_existingtoy:get_problem_library')
+    _discover(monkeypatch, [
+        _entry_point_without_distribution('externaltoy', value),
+        other,
+        _entry_point_without_distribution('externaltoy', value),
+    ], selectable)
+
+    listed = problem_libraries._problem_library_entry_points()
+
+    assert [(entry_point.name, entry_point.value) for entry_point in listed] == [
+        ('externaltoy', value),
+        ('existingtoy', other.value),
+    ]
+    assert resolve_problem_library('externaltoy') == ProblemLibraryRef('externaltoy', 'entry_point', value)
+    assert resolve_problem_library('existingtoy').locator == other.value
+
+
+@pytest.mark.parametrize('selectable', [False, True])
+def test_one_distribution_found_twice_is_one_provider(monkeypatch, selectable):
+    value = 'optiprofiler_externaltoy:get_problem_library'
+    _discover(monkeypatch, [
+        _FakeEntryPoint('externaltoy', value, lambda: _plugin(), 'package-a'),
+        _FakeEntryPoint('externaltoy', value, lambda: _plugin(), 'package-a'),
+    ], selectable)
+
+    reference = resolve_problem_library('externaltoy')
+
+    assert (reference.locator, reference.distribution) == (value, 'package-a')
+
+
+@pytest.mark.parametrize('selectable', [False, True])
+def test_different_values_for_one_name_stay_ambiguous(monkeypatch, selectable):
+    _discover(monkeypatch, [
+        _entry_point_without_distribution('externaltoy', 'package_a:get_plugin'),
+        _entry_point_without_distribution('externaltoy', 'package_b:get_plugin'),
+        _entry_point_without_distribution('externaltoy', 'package_a:get_plugin'),
+    ], selectable)
+
+    with pytest.raises(ValueError, match=(r"multiple installed distributions: "
+                                          r"\['package_a:get_plugin', 'package_b:get_plugin'\]")):
+        resolve_problem_library('externaltoy')
+
+
+@pytest.mark.parametrize('selectable', [False, True])
+def test_one_value_from_two_distributions_stays_ambiguous(monkeypatch, selectable):
+    value = 'optiprofiler_externaltoy:get_problem_library'
+    _discover(monkeypatch, [
+        _FakeEntryPoint('externaltoy', value, lambda: _plugin(), 'package-a'),
+        _FakeEntryPoint('externaltoy', value, lambda: _plugin(), 'package-b'),
+    ], selectable)
+
+    with pytest.raises(ValueError, match=r"multiple installed distributions: \['package-a', 'package-b'\]"):
+        resolve_problem_library('externaltoy')
+
+
+def test_provider_with_two_metadata_copies_runs_and_is_reported_once(tmp_path, monkeypatch):
+    # The installed ``.dist-info`` and the ``.egg-info`` that a build leaves in a
+    # checkout. Python 3.8 and 3.9 list both; later versions drop the second.
+    name = 'copied_provider'
+    module = f'optiprofiler_{name}'
+    distribution = module.replace('_', '-')
+    value = f'{module}:get_problem_library'
+    entry_points = f'[{PROBLEM_LIBRARY_ENTRY_POINT_GROUP}]\n{name} = {value}\n'
+    headers = f'Metadata-Version: 2.1\nName: {distribution}\nVersion: 1.0\n'
+    site_packages, checkout = tmp_path / 'site-packages', tmp_path / 'checkout'
+    copies = ((site_packages / f'{module}-1.0.dist-info', 'METADATA'), (checkout / f'{module}.egg-info', 'PKG-INFO'))
+    for directory, headers_file in copies:
+        directory.mkdir(parents=True)
+        (directory / headers_file).write_text(headers, encoding='utf-8')
+        (directory / 'entry_points.txt').write_text(entry_points, encoding='utf-8')
+    (site_packages / f'{module}.py').write_text(
+        '\n'.join([
+            'import numpy as np',
+            'from optiprofiler import Problem, ProblemLibraryPlugin',
+            '',
+            'def select(problem_options, library_options):',
+            "    return ['COPIED_PROVIDER']",
+            '',
+            'def load(problem_name, library_options):',
+            '    return Problem(lambda x: float(np.sum((x - 1.0) ** 2)), [0.0, 0.0], name=problem_name)',
+            '',
+            'def get_problem_library():',
+            f"    return ProblemLibraryPlugin(name='{name}', api_version=1, select=select, load=load)",
+        ]),
+        encoding='utf-8',
+    )
+    monkeypatch.syspath_prepend(str(site_packages))
+    monkeypatch.syspath_prepend(str(checkout))
+    report_path = tmp_path / 'report.json'
+
+    optiprofiler.benchmark([_one_step_solver, _one_step_solver], plibs=[name], n_jobs=1, n_runs=1, max_eval_factor=2,
+                           max_tol_order=1, score_only=True, silent=True, report_path=str(report_path))
+
+    (problem,) = json.loads(report_path.read_text(encoding='utf-8'))['problems']
+    # An entry point names its distribution from Python 3.10 on.
+    named = hasattr(problem_libraries.metadata.EntryPoint, 'dist')
+    assert problem['provider'] == {
+        'name': name,
+        'source': 'entry_point',
+        'locator': value,
+        'distribution': distribution if named else None,
+        'shadows': [],
+        'version': '1.0' if named else None,
+        'revision': None,
+    }
+    local = tmp_path / 'local'
+    local.mkdir()
+    _write_quadratic_library(local, name)
+    assert resolve_problem_library(name, local).shadows == (distribution if named else value,)
+
+
 def test_bundled_and_installed_name_collision_is_rejected(monkeypatch):
     entry_point = _FakeEntryPoint(
         's2mpj',
