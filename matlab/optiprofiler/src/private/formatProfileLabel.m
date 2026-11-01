@@ -5,16 +5,14 @@ function label = formatProfileLabel(template, tolerance, interpreter)
 %   and outside math mode, and copied as % otherwise. \% is copied as written,
 %   also before s. Templates written for the earlier sprintf formatting keep
 %   their meaning: \\ gives \, so \\%% gives \%. Every other character is
-%   literal, including a LaTeX command such as \alpha. A string array or a cell
-%   of chars is formatted elementwise.
+%   literal, including a LaTeX command such as \alpha. A string array is
+%   formatted elementwise.
 
     if isstring(template)
         label = template;
         for k = 1:numel(template)
             label(k) = string(substitute(char(template(k)), tolerance, interpreter));
         end
-    elseif iscell(template)
-        label = cellfun(@(text) substitute(char(text), tolerance, interpreter), template, 'UniformOutput', false);
     else
         label = substitute(template, tolerance, interpreter);
     end
