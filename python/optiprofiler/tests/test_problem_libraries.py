@@ -1,8 +1,11 @@
 """Tests for problem-library discovery and protocol validation."""
 
 import json
+import os
 import pickle
 from pathlib import Path
+import subprocess
+import sys
 import warnings
 
 import pytest
@@ -559,6 +562,79 @@ def test_unique_custom_library_shadows_nothing(tmp_path):
 
     assert resolve_problem_library('localtoy', tmp_path).shadows == ()
     assert resolve_problem_library('s2mpj').shadows == ()
+
+
+BAD_DATA_RUN = '''import multiprocessing
+import os
+from pathlib import Path
+import sys
+import numpy as np
+from optiprofiler import benchmark
+
+def stay(fun, x0):
+    Path(os.environ['SOLVER_PROCESS_FILE']).write_text(multiprocessing.current_process().name)
+    fun(x0)
+    return x0
+
+if __name__ == '__main__':
+    scores = benchmark([stay, stay], plibs=['baddata'], custom_problem_libs_path=sys.argv[1], ptype='u', mindim=1,
+                       maxdim=10, n_jobs=int(sys.argv[2]), n_runs=1, max_eval_factor=1, max_tol_order=1,
+                       run_plain=False, score_only=True, silent=True, report_path=sys.argv[3])[0]
+    assert np.all(np.isfinite(scores)), scores
+'''
+
+
+def _write_bad_data_library(root, route):
+    directory = root / 'baddata'
+    directory.mkdir(parents=True)
+    pickled = '        problem = pickle.loads(pickle.dumps(problem))\n' if route == 'pickled_object' else ''
+    (directory / 'baddata_tools.py').write_text(
+        'import pickle\n'
+        'import numpy as np\n'
+        'from optiprofiler import Problem\n'
+        'def sphere(x):\n    return float(x @ x)\n'
+        'def baddata_select(options):\n    return ["fine", "wrong"]\n'
+        'def baddata_load(name):\n'
+        '    problem = Problem(sphere, [1.0, 2.0], name=name)\n'
+        '    if name == "wrong":\n'
+        '        problem._xl = np.array([np.inf, np.inf])\n'
+        + pickled +
+        '    return problem\n', encoding='utf-8')
+
+
+@pytest.mark.parametrize('n_jobs', [1, 2])
+@pytest.mark.parametrize('route', ['private_attribute', 'pickled_object'])
+def test_bad_data_left_in_a_problem_costs_only_that_problem(route, n_jobs, tmp_path):
+    _write_bad_data_library(tmp_path / 'libraries', route)
+    script = tmp_path / 'bad_data_run.py'
+    script.write_text(BAD_DATA_RUN, encoding='utf-8')
+    report_path = tmp_path / 'report.json'
+    process_file = tmp_path / 'solver_process.txt'
+    result = subprocess.run([sys.executable, str(script), str(tmp_path / 'libraries'), str(n_jobs), str(report_path)],
+                            cwd=tmp_path, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True,
+                            timeout=120, env=dict(os.environ, MPLBACKEND='Agg',
+                                                  SOLVER_PROCESS_FILE=str(process_file)))
+    report = json.loads(report_path.read_text(encoding='utf-8'))
+    assert result.returncode == 0, result.stdout
+    assert report['status'] == 'partial'
+    assert report['stages']['numerical'] == {'status': 'partial', 'reason': 'selected_problem_load_failures'}
+    assert (report['coverage']['loaded'], report['coverage']['load_failed']) == (1, 1)
+    (failure,) = [entry for entry in report['diagnostics'] if entry['code'] == 'problem_load_failed']
+    assert (failure['scope']['problem'], failure['scope']['exception_type']) == ('wrong', 'ValueError')
+    # A run falls back to the main process without a word under `silent`.
+    assert (process_file.read_text() != 'MainProcess') == (n_jobs > 1 and os.cpu_count() > 1)
+
+
+def test_anything_but_a_problem_still_stops_the_run(tmp_path):
+    directory = tmp_path / 'notproblem'
+    directory.mkdir()
+    (directory / 'notproblem_tools.py').write_text(
+        'def notproblem_select(options):\n    return ["fine", "wrong"]\n'
+        'def notproblem_load(name):\n    return {"name": name}\n', encoding='utf-8')
+    with pytest.raises(TypeError, match='not a valid Problem object'):
+        optiprofiler.benchmark([_one_step_solver, _one_step_solver], plibs=['notproblem'],
+                               custom_problem_libs_path=str(tmp_path), n_jobs=1, n_runs=1, max_eval_factor=1,
+                               max_tol_order=1, score_only=True, silent=True, run_plain=False)
 
 
 def _write_quadratic_library(root, name):

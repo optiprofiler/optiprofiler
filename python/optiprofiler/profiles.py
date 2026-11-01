@@ -24,7 +24,7 @@ from matplotlib.backends import backend_pdf
 
 from ._parallel import reject_worker_bootstrap_call, run_tasks, worker_main_available, WorkerArgumentPickler
 from .metadata import credential_free_name
-from .opclasses import Feature, Problem, FeaturedProblem
+from .opclasses import Feature, Problem, FeaturedProblem, _check_problem_constraints
 from .plib_config import _resolve_plib_options
 from .problem_libraries import _copy_problem_library_options, _normalize_selected_problem_names, load_problem_library, resolve_problem_library
 from .problem_libraries import _initialize_problem_library_worker, _problem_library_worker_package
@@ -2752,6 +2752,10 @@ def _solve_one_problem_wrapper(solvers, feature, plan, problem_name, len_problem
             problem_name,
             _copy_problem_library_options(library_options),
         )
+        # Data that a file or a private attribute left in a problem cost this
+        # problem, not the run. Anything but a Problem still stops the run.
+        if type(problem) is Problem:
+            _check_problem_constraints(problem)
     except Exception as exc:
         if not profile_options[ProfileOption.SILENT]:
             # The shortened cause makes provider failures diagnosable from the
