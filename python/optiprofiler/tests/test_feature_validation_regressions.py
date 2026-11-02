@@ -8,8 +8,10 @@ import pytest
 from optiprofiler import Feature, FeaturedProblem, Problem, benchmark
 from optiprofiler.provenance import describe_feature
 from optiprofiler.opclasses import _rebuild_feature
-from optiprofiler.legacy_compat import (LegacyConfigurationError, LegacyFeature, import_legacy_feature, load_options,
-                                        replay_arguments)
+from optiprofiler.legacy_compat import (LegacyConfigurationError, LegacyFeature,
+                                        import_legacy_feature)
+from optiprofiler.benchmark_options import _read_options
+from optiprofiler import load_benchmark_options
 
 
 def identity_objective(x):
@@ -125,7 +127,7 @@ def test_saved_options_replay_preserves_mesh_without_mutating_source(layout):
         if layout == 'refined':
             saved['schema'] = 'options_refined-v2'
     original = pickle.dumps(saved)
-    replay = replay_arguments(saved)
+    replay = load_benchmark_options(saved)
     feature = Feature(replay['feature'])
     assert pickle.dumps(saved) == original
     assert options['mesh_type'] == 'RELATIVE'
@@ -146,16 +148,16 @@ def test_current_user_and_refined_archives_replay_the_current_grid(route, tmp_pa
     for filename in ('options_user.pkl', 'options_refined.pkl'):
         paths = list(tmp_path.rglob(filename))
         assert len(paths) == 1
-        saved = load_options(paths[0])
+        saved = _read_options(paths[0])
         before = pickle.dumps(saved)
         if filename == 'options_refined.pkl':
             # The refined record of a direct-Problem run needs the Problem again.
             with pytest.raises(LegacyConfigurationError, match='directly supplied Problem'):
-                replay_arguments(saved)
-            replay = replay_arguments({**saved, 'problem': Problem(identity_objective, [2.6])})
+                load_benchmark_options(saved)
+            replay = load_benchmark_options({**saved, 'problem': Problem(identity_objective, [2.6])})
         else:
-            replay = replay_arguments(saved)
-        assert set(replay['problem_options']) == {'problem'}
+            replay = load_benchmark_options(saved)
+        assert isinstance(replay['problem'], Problem) and 'plibs' not in replay
         feature = Feature(replay['feature'])
         fp = FeaturedProblem(Problem(identity_objective, [2.6]), feature, 5, 17)
         assert fp.fun(np.array([2.6])) == pytest.approx(2.6)
@@ -170,19 +172,19 @@ def test_marked_user_options_keep_stage_local_repeated_options():
         {'name': 'noisy', 'options': {'noise_level': 0.1, 'distribution': 'uniform'}},
         {'name': 'noisy', 'options': {'noise_level': 0.2, 'distribution': 'gaussian'}}],
         'n_runs': 3, 'mindim': 2, 'maxdim': 8}
-    replay = replay_arguments(saved)
+    replay = load_benchmark_options(saved)
     stages = Feature(replay['feature']).stages
     assert [s.options['noise_level'] for s in stages] == [0.1, 0.2]
     assert [s.options['distribution'] for s in stages] == ['uniform', 'gaussian']
     assert replay['n_runs'] == 3
-    assert replay['problem_options'] == {'mindim': 2, 'maxdim': 8}
+    assert replay['mindim'] == 2 and replay['maxdim'] == 8
 
 
 def test_marked_user_options_without_explicit_feature_replay_as_plain():
-    assert Feature(replay_arguments({'schema': 'options_user-v2'})['feature']).is_identity
+    assert Feature(load_benchmark_options({'schema': 'options_user-v2'})['feature']).is_identity
 
 
 @pytest.mark.parametrize('extra', [{'feature_name': 'noisy'}, {'noise_level': 0.1}])
 def test_marked_user_options_reject_mixed_routes(extra):
     with pytest.raises(ValueError, match='cannot be mixed'):
-        replay_arguments({'schema': 'options_user-v2', 'feature': 'noisy', **extra})
+        load_benchmark_options({'schema': 'options_user-v2', 'feature': 'noisy', **extra})

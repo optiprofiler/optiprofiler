@@ -12,7 +12,7 @@ import numpy as np
 import pytest
 
 from optiprofiler import Feature, FeaturedProblem, Problem, benchmark
-from optiprofiler.legacy_compat import _recipe_from_archived
+from optiprofiler.benchmark_options import _recipe_from_archived
 from optiprofiler.metadata import describe_callback
 from optiprofiler.problem_libraries import load_problem_library, resolve_problem_library
 from optiprofiler.profile_utils import check_validity_profile_options

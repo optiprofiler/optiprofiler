@@ -23,9 +23,11 @@ import pytest
 
 from optiprofiler import benchmark
 from optiprofiler.feature_definitions import StageRecord
-from optiprofiler.legacy_compat import (LegacyComposedFeature, LegacyConfigurationError, LegacyEnumValue,
-                                        LegacyFeature, LegacyStage, import_legacy_feature, load_options,
-                                        loads_trusted, replay_arguments)
+from optiprofiler.legacy_compat import (LegacyComposedFeature, LegacyConfigurationError,
+                                        LegacyEnumValue, LegacyFeature, LegacyStage,
+                                        import_legacy_feature, loads_trusted)
+from optiprofiler.benchmark_options import _read_options
+from optiprofiler import load_benchmark_options
 from optiprofiler.loader import save_options
 from optiprofiler.opclasses import Feature, FeaturedProblem, Problem
 from optiprofiler.provenance import describe_feature
@@ -368,41 +370,41 @@ class TestRefinedOptionsReplay:
                                  benchmark_id='refined', **kwargs)
         paths = list(tmp_path.rglob('options_refined.pkl'))
         assert len(paths) == 1
-        refined = load_options(paths[0])
+        refined = _read_options(paths[0])
         assert refined['schema'] == 'options_refined-v2' and refined['n_runs'] == 2
         # The Problem is not stored, and the unused library selectors are not
         # recorded: a replay of this record without the Problem is refused.
         assert refined['problem_route'] == 'direct_problem'
         assert 'problem' not in refined and 'plibs' not in refined and 'ptype' not in refined
         with pytest.raises(LegacyConfigurationError, match='directly supplied Problem'):
-            replay_arguments(refined)
-        replay = replay_arguments({**refined, 'problem': problem})
-        assert replay['n_runs'] == 2 and replay['problem_options'] == {'problem': problem}
+            load_benchmark_options(refined)
+        replay = load_benchmark_options({**refined, 'problem': problem})
+        assert replay['n_runs'] == 2 and replay['problem'] is problem and 'plibs' not in replay
         assert [entry['name'] for entry in replay['feature']] == ['noisy', 'truncated']
         assert replay['feature'][0]['options']['noise_level'] == 0.5
         assert 'feature_name' not in replay and 'feature_route' not in replay
-        again, _, _ = benchmark([solver_stay, solver_zero], feature=replay['feature'], n_runs=replay['n_runs'],
-                                benchmark_id='replay', **replay['problem_options'], **kwargs)
+        again, _, _ = benchmark([solver_stay, solver_zero],
+                                benchmark_id='replay', **replay, **kwargs)
         np.testing.assert_array_equal(again, scores)
         # The raw input of the same run records the Problem itself.
-        replay = replay_arguments(load_options(paths[0].with_name('options_user.pkl')))
-        assert set(replay['problem_options']) == {'problem'}
-        again, _, _ = benchmark([solver_stay, solver_zero], feature=replay['feature'], n_runs=replay['n_runs'],
-                                benchmark_id='user', **replay['problem_options'], **kwargs)
+        replay = load_benchmark_options(_read_options(paths[0].with_name('options_user.pkl')))
+        assert isinstance(replay['problem'], Problem) and 'plibs' not in replay
+        again, _, _ = benchmark([solver_stay, solver_zero],
+                                benchmark_id='user', **replay, **kwargs)
         np.testing.assert_array_equal(again, scores)
 
     def test_library_route_is_recorded_and_keeps_its_selectors(self, tmp_path):
         benchmark([solver_stay, solver_zero], problem_names=['ROSENBR'], ptype='u', mindim=2, maxdim=2,
                   silent=True, draw_hist_plots='none', savepath=str(tmp_path), n_jobs=1, max_eval_factor=2,
                   max_tol_order=1)
-        refined = load_options(next(tmp_path.rglob('options_refined.pkl')))
+        refined = _read_options(next(tmp_path.rglob('options_refined.pkl')))
         assert refined['problem_route'] == 'library_selection'
-        replay = replay_arguments(refined)
-        assert replay['problem_options']['problem_names'] == ['ROSENBR'] and 'problem' not in replay['problem_options']
+        replay = load_benchmark_options(refined)
+        assert replay['problem_names'] == ['ROSENBR'] and 'problem' not in replay
         with pytest.raises(LegacyConfigurationError, match='problem_route'):
-            replay_arguments({**refined, 'problem_route': 'elsewhere'})
+            load_benchmark_options({**refined, 'problem_route': 'elsewhere'})
         with pytest.raises(LegacyConfigurationError, match='must be a Problem'):
-            replay_arguments({**refined, 'problem': 'ROSENBR'})
+            load_benchmark_options({**refined, 'problem': 'ROSENBR'})
 
     def test_record_without_a_route_warns_on_replay(self, tmp_path):
         # A record older than problem_route holds default selectors even for a
@@ -411,20 +413,20 @@ class TestRefinedOptionsReplay:
         benchmark([solver_stay, solver_zero], problem=problem, silent=True, draw_hist_plots='none',
                   savepath=str(tmp_path), n_jobs=1, max_eval_factor=2, max_tol_order=1)
         path = next(tmp_path.rglob('options_refined.pkl'))
-        refined = load_options(path)
+        refined = _read_options(path)
         del refined['problem_route']
         refined.update(ptype='u', mindim=1, maxdim=2)
         with pytest.warns(UserWarning, match='directly supplied Problem'):
-            replay = replay_arguments(refined)
-        assert replay['problem_options'] == {'ptype': 'u', 'mindim': 1, 'maxdim': 2}
+            replay = load_benchmark_options(refined)
+        assert {key: replay[key] for key in ('ptype', 'mindim', 'maxdim')} == {'ptype': 'u', 'mindim': 1, 'maxdim': 2}
         with pytest.warns(UserWarning, match='directly supplied Problem'):
-            replay_arguments({'n_runs': 5, 'ptype': 'u'}, feature_name='noisy')
+            load_benchmark_options({'n_runs': 5, 'ptype': 'u'}, feature_name='noisy')
         with warnings.catch_warnings():
             warnings.simplefilter('error')
             # A Problem, a recorded route and the raw user input leave no doubt.
-            assert replay_arguments({**refined, 'problem': problem})['problem_options'] == {'problem': problem}
-            replay_arguments({**refined, 'problem_route': 'library_selection'})
-            replay_arguments({'schema': 'options_user-v2', 'feature_name': 'plain'})
+            assert load_benchmark_options({**refined, 'problem': problem})['problem'] is problem
+            load_benchmark_options({**refined, 'problem_route': 'library_selection'})
+            load_benchmark_options({'schema': 'options_user-v2', 'feature_name': 'plain'})
 
     def test_load_of_a_record_without_a_route_does_not_warn(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
@@ -432,7 +434,7 @@ class TestRefinedOptionsReplay:
                        max_eval_factor=2, max_tol_order=1, benchmark_id='old')
         expected = benchmark([solver_stay, solver_zero], **options)[0]
         path = next(tmp_path.rglob('options_refined.pkl'))
-        refined = load_options(path)
+        refined = _read_options(path)
         del refined['problem_route']
         save_options(refined, path)
         with warnings.catch_warnings():
@@ -441,27 +443,27 @@ class TestRefinedOptionsReplay:
                                draw_hist_plots='none', max_tol_order=1, report_path=str(tmp_path / 'load.json'))[0]
         np.testing.assert_array_equal(scores, expected)
         # The load did read that record: it is the recipe of the new one.
-        written = load_options(next((tmp_path / 'out').rglob('options_refined.pkl')))
+        written = _read_options(next((tmp_path / 'out').rglob('options_refined.pkl')))
         assert written['archived_experiment']['replayable'] is True, written
 
     def test_bridge_layout_with_specification_but_flat_count(self):
         options = {'feature_route': 'feature_name', 'feature_name': 'noisy', 'n_runs': 4, 'noise_level': 0.5,
                    'feature_specification': [{'name': 'noisy', 'options': {'noise_level': 0.5}}], 'ptype': 'u'}
-        replay = replay_arguments(options)
+        replay = load_benchmark_options(options)
         assert replay == {'feature': [{'name': 'noisy', 'options': {'noise_level': 0.5}}], 'n_runs': 4,
-                          'problem_options': {'ptype': 'u'}}
+                          'ptype': 'u'}
 
     def test_flat_layout_needs_an_explicit_identity(self):
         flat = {'n_runs': 5, 'noise_level': 0.5, 'ptype': 'u', 'mindim': 2}
         with pytest.raises(LegacyConfigurationError, match='feature identity'):
-            replay_arguments(flat)
-        replay = replay_arguments(flat, feature_name='noisy')
-        assert replay['n_runs'] == 5 and replay['problem_options'] == {'ptype': 'u', 'mindim': 2}
+            load_benchmark_options(flat)
+        replay = load_benchmark_options(flat, feature_name='noisy')
+        assert replay['n_runs'] == 5 and replay['ptype'] == 'u' and replay['mindim'] == 2
         assert Feature(replay['feature']).stages[0].options['noise_level'] == 0.5
         assert 'n_runs' not in replay['feature'][0]['options']
 
     def test_enum_keyed_options_decode(self, tmp_path):
         path = tmp_path / 'options_user.pkl'
         path.write_bytes(fixture('AC4_ENUM_KEY_AND_VALUE'))
-        options = load_options(path)
+        options = _read_options(path)
         assert options['n_runs'] == 3

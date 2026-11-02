@@ -46,6 +46,6 @@ absolute grid that was originally evaluated.
 
 New ``options_user.pkl`` dictionaries carry ``schema='options_user-v2'`` in
 addition to the original input. This distinguishes raw current input from old
-unmarked flat archives when using ``legacy_compat.replay_arguments``; both the
+unmarked flat archives when using ``load_benchmark_options``; both the
 ``feature_name`` shorthand and structured ``feature`` route are supported.
 Use ``options_refined.pkl`` to replay the resolved defaults and run count.

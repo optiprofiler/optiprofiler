@@ -35,7 +35,7 @@ from .profile_utils import compute_convergence_work, _mask_invalid_merits, _get_
 from .experiment import ABSENT, PLAIN_REFERENCE, PRIMARY, resolve_plan
 from .feature_definitions import reject_flat_stage_options
 from .provenance import effective_specification, feature_pipeline_text
-from .legacy_compat import REFINED_SCHEMA
+from .benchmark_options import REFINED_SCHEMA
 from .plotting import draw_hist, set_profile_context, format_float_scientific_latex, draw_profiles, summary_legend_extra_width, format_profile_text
 from .plot_options import apply_plot_options
 
@@ -1299,7 +1299,7 @@ def _benchmark(
             # We use pickle because options may contain function handles or other non-serializable objects.
             # Preserve raw input, but identify its writer semantics: unlike
             # old flat archives, fresh mixed-case mesh input is normalized.
-            from .legacy_compat import USER_SCHEMA
+            from .benchmark_options import USER_SCHEMA
             save_options({**options_user, 'schema': USER_SCHEMA}, path_log / 'options_user.pkl')
 
             add_to_readme(path_readme_log, 'options_user.pkl', 'File, storing the options provided by the user for the current experiment.')
@@ -1308,7 +1308,7 @@ def _benchmark(
             options_refined = profile_options.copy()
             if has_single_problem:
                 # The Problem is not stored here, and the library selectors
-                # were not used: replay_arguments refuses this record unless
+                # were not used: load_benchmark_options refuses this record unless
                 # the original Problem is supplied again.
                 options_refined['problem_route'] = 'direct_problem'
             else:
@@ -1326,7 +1326,7 @@ def _benchmark(
                 # native options file and cross-checked against the archive;
                 # it is never the load label's plan. When it cannot be
                 # recovered exactly the recipe fails closed with a reason.
-                from .legacy_compat import archived_replay_recipe
+                from .benchmark_options import archived_replay_recipe
                 source_options = load_source.get('path_data')
                 options_refined.update(archived_replay_recipe(
                     None if source_options is None else Path(source_options) / 'options_refined.pkl', results_plibs))

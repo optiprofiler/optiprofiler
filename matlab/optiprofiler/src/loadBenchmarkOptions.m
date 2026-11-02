@@ -134,35 +134,13 @@ function [options, receipt] = loadBenchmarkOptions(source, legacy_feature_name)
         end
         receipt.source_schema = 'options_refined-v2';
         if isfield(source, 'feature_provenance'), receipt.retained_feature_provenance = source.feature_provenance; end
-    elseif isfield(source, 'feature')
-        if isa(source.feature, 'optiprofiler_internal.LegacyFeatureEnvelope')
-            [feature, request] = optiprofiler_internal.importLegacyFeature(source.feature);
-            if ~isfield(source, 'n_runs') && request.n_runs_present, source.n_runs = request.n_runs; end
-            receipt.feature_import = request;
-        else
-            feature = Feature(source.feature);
-        end
     else
-        if isfield(source, 'feature_name')
-            name = source.feature_name;
-        elseif ~isempty(legacy_feature_name)
-            name = legacy_feature_name;
-        else
-            error('OptiProfiler:LegacyFeatureIdentityMissing', ...
-                'This old flat options file did not retain feature identity. Supply legacy_feature_name explicitly; stamps and folders are not evidence.');
-        end
-        definitions = optiprofiler_internal.featureDefinitions();
-        local_keys = {};
-        for i = 1:numel(definitions), local_keys = [local_keys, definitions(i).local_keys]; end %#ok<AGROW>
-        local_options = struct();
-        keys = intersect(fieldnames(source), unique(local_keys));
-        for i = 1:numel(keys), local_options.(keys{i}) = source.(keys{i}); end
-        saved = struct('name', name, 'options', local_options);
-        if isfield(source, 'n_runs'), saved.options.n_runs = source.n_runs; end
-        [feature, request] = optiprofiler_internal.importLegacyFeature(optiprofiler_internal.LegacyFeatureEnvelope(saved));
-        receipt.feature_import = request;
-        if ~isempty(legacy_feature_name) && ~isfield(source, 'feature_name')
-            receipt.current_legacy_feature_name_override = legacy_feature_name;
+        [feature, legacy_receipt] = optiprofiler_internal.importLegacyBenchmarkOptions(source, legacy_feature_name);
+        keys = fieldnames(legacy_receipt);
+        for i = 1:numel(keys), receipt.(keys{i}) = legacy_receipt.(keys{i}); end
+        if isfield(legacy_receipt, 'feature_import')
+            request = legacy_receipt.feature_import;
+            if ~isfield(source, 'n_runs') && request.n_runs_present, source.n_runs = request.n_runs; end
         end
     end
     % Never forward envelope facts or saved output targets to benchmark.

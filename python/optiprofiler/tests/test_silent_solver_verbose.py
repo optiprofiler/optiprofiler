@@ -8,7 +8,8 @@ import sys
 import pytest
 
 from optiprofiler import Feature, benchmark
-from optiprofiler.legacy_compat import load_options, replay_arguments
+from optiprofiler.benchmark_options import _read_options
+from optiprofiler import load_benchmark_options
 from optiprofiler.loader import save_options
 from optiprofiler.profile_utils import check_validity_profile_options, get_default_profile_options
 from optiprofiler.utils import ProfileOption
@@ -105,16 +106,17 @@ def test_a_silent_record_replays_and_loads_without_printing(tmp_path, monkeypatc
     options = dict(n_jobs=1, max_eval_factor=1, max_tol_order=1, run_plain=False, draw_hist_plots='none', silent=True)
     benchmark([failing, stay], plibs=['custom'], problem_names=['custom1'], n_runs=1, benchmark_id='old', **options)
     path = next(Path(tmp_path).rglob('options_refined.pkl'))
-    record = load_options(path)
+    record = _read_options(path)
     assert record['silent'] is True and record['solver_verbose'] == 0
     record['solver_verbose'] = 1
     save_options(record, path)
     capfd.readouterr()
 
-    replay = replay_arguments(load_options(path))
-    assert set(replay) == {'feature', 'problem_options', 'n_runs'}
-    benchmark([failing, stay], feature=replay['feature'], n_runs=replay['n_runs'], benchmark_id='replay',
-              **replay['problem_options'], **options)
+    replay = load_benchmark_options(_read_options(path))
+    assert {'feature', 'n_runs', 'plibs', 'problem_names'} <= set(replay)
+    assert 'problem_options' not in replay and 'silent' not in replay
+    benchmark([failing, stay],  benchmark_id='replay',
+              **replay, **options)
     benchmark(None, load='latest', benchmark_id='old', score_only=True, max_tol_order=1, silent=True,
               draw_hist_plots='none')
     captured = capfd.readouterr()

@@ -383,26 +383,29 @@ archived problem options under ``archived_experiment``; when that file is missin
 feature identity, or in disagreement with the archive, the recipe fails
 closed (``replayable=False``, ``feature_specification=None``, ``n_runs=None``
 and a ``replay_reason``) instead of inventing defaults. The report's JSON
-callback descriptions are never used as a recipe. ``optiprofiler.legacy_compat``
-is the trusted boundary for files written by earlier versions:
-``load_options`` decodes historical enumeration members (including the former
-``n_runs`` feature option), ``replay_arguments`` maps the supported layouts to
-``feature`` and ``n_runs`` (a flat 1.x file records no feature identity and
-needs an explicit ``feature_name``; the ``n_runs`` key is present only when
-the file records a run count; a load-written file replays only through its
-recovered ``archived_experiment`` and raises ``LegacyConfigurationError``
-otherwise; the caller supplies the profile options, so a replay is silent only
-if the caller passes ``silent=True``, whatever the file records for ``silent``
-and ``solver_verbose``), and ``import_legacy_feature`` converts a
-1.x pickled ``Feature`` into a canonical ``Feature`` plus its retained run
-count, which is passed to ``benchmark`` separately. Only load pickle and H5
-files from trusted sources: unpickling can execute code, and these readers
-offer no safety for untrusted payloads. The callback descriptions in the
-archive and the report are one-way informational metadata (a class or function
-name), never a recipe for reconstructing an executable callable.
+callback descriptions are never used as a recipe. ``optiprofiler.load_benchmark_options`` reads trusted native files or already-loaded
+mappings and returns keyword arguments for a fresh benchmark. It handles current
+user/refined settings and supported earlier layouts, separating the retained
+run count from the Feature. Solvers and profile options are supplied by the
+caller; in particular, seed, merit and silent settings are not forwarded from
+the saved file. A flat 1.x file without feature identity requires an explicit
+``feature_name``. A load-written file replays only through its recovered
+``archived_experiment``; otherwise ``LegacyConfigurationError`` explains why.
+
+.. code-block:: python
+
+    from optiprofiler import benchmark, load_benchmark_options
+
+    options = load_benchmark_options("test_log/options_refined.pkl")
+    scores, _, _ = benchmark(solvers, **options, silent=True)
+
+``optiprofiler.legacy_compat`` retains the historical object decoder and
+``import_legacy_feature`` for separately saved 1.x Features. Only load pickle
+and H5 files from trusted sources: unpickling can execute code. Callback
+metadata in reports is informational, never a reconstruction recipe.
 
 New ``options_user.pkl`` files retain the original input values and add
-``schema='options_user-v2'``. Replay them with ``replay_arguments`` rather than
+``schema='options_user-v2'``. Replay them with ``load_benchmark_options`` rather than
 forwarding the entire dictionary to ``benchmark``. The marker distinguishes
 fresh input from historical effective settings: fresh ``mesh_type='RELATIVE'``
 means relative quantization, whereas older Python versions actually executed
@@ -411,10 +414,10 @@ grid that ran. Prefer ``options_refined.pkl`` when the resolved defaults and
 run count must also be preserved.
 
 ``options_refined.pkl`` records ``problem_route``. It does not store a Problem
-passed through ``problem``, so ``replay_arguments`` raises
+passed through ``problem``, so ``load_benchmark_options`` raises
 ``LegacyConfigurationError`` for such a run instead of returning settings that
 would benchmark a problem library. Set the original Problem first, with
-``options['problem'] = problem``, and call ``replay_arguments`` again; the run's
+``options['problem'] = problem``, and call ``load_benchmark_options`` again; the run's
 ``options_user.pkl`` also records the Problem. A record older than this field
 has default library selectors whatever the experiment used, so its replay warns:
 a direct-Problem experiment would run on those selectors.

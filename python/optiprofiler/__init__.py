@@ -18,6 +18,7 @@ __version__ = '2.0.0'
 from .opclasses import Feature, Problem, ProblemReference, FeaturedProblem
 from .problem_libraries import ProblemLibraryPlugin, list_problem_libraries
 from .profiles import benchmark
+from .benchmark_options import load_benchmark_options
 from .utils import show_versions
 from .plib_config import get_plib_config, set_plib_config
 
@@ -28,6 +29,7 @@ __all__ = [
     'FeaturedProblem',
     'ProblemLibraryPlugin',
     'benchmark',
+    'load_benchmark_options',
     'list_problem_libraries',
     'show_versions',
     'get_plib_config',
