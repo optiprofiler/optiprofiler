@@ -7,7 +7,7 @@ import pytest
 
 from optiprofiler import Feature, FeaturedProblem, Problem, ProblemReference, benchmark
 from optiprofiler.loader import load_results_from_h5
-from optiprofiler.profile_utils import process_results, _default_merit
+from optiprofiler.scoring import process_results, _default_merit
 from optiprofiler.utils import ProfileOption
 from optiprofiler.eval_report import schema_resource
 from optiprofiler.tests.eval_report_contract import assert_valid

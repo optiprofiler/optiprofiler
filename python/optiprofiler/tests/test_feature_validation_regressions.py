@@ -5,13 +5,12 @@ import pickle
 import numpy as np
 import pytest
 
-from optiprofiler import Feature, FeaturedProblem, Problem, benchmark
+from optiprofiler import Feature, FeaturedProblem, Problem, benchmark, load_benchmark_options
 from optiprofiler.provenance import describe_feature
 from optiprofiler.opclasses import _rebuild_feature
 from optiprofiler.legacy_compat import (LegacyConfigurationError, LegacyFeature,
                                         import_legacy_feature)
 from optiprofiler.benchmark_options import _read_options
-from optiprofiler import load_benchmark_options
 
 
 def identity_objective(x):

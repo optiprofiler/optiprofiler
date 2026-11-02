@@ -131,6 +131,34 @@ trusted compatibility boundary (`optiprofiler.legacy_compat`). Python and
 MATLAB agree on the contract and each support language-local replay and seed
 policies; matching random samples across the two languages is not promised.
 
+## Implementation Boundaries in Python and MATLAB
+
+The implementations share responsibilities, rather than a forced one-to-one
+file layout. Python modules group related functions; MATLAB keeps classes and
+private functions in separate files.
+
+| Responsibility | Python | MATLAB |
+| --- | --- | --- |
+| Problem and feature state | Existing public classes and runtime views | Public classes, FeatureKernel and FeatureProblemView |
+| Experiment repetitions and seeds | experiment and composition | resolveFeatureExperiment and deriveFeatureStageSeed |
+| Fresh native replay | load_benchmark_options in benchmark_options | loadBenchmarkOptions |
+| Historical decoding/conversion | legacy_compat | LegacyFeatureEnvelope, importLegacyFeature and importLegacyBenchmarkOptions |
+| Merit, targets, convergence and scores | scoring | Private merit/target/convergence helpers, integrate and computeScores |
+| Provider resolution | problem_libraries and plib_config | Registry, resolveProblemLibrary and library-owned options |
+| Numerical persistence | loader | loadResults and saveResultsForLoading |
+| Observational records | eval_report, provenance and metadata | EvalReport and feature provenance helpers |
+| Presentation | plotting and plot_options | Private plot preparation, drawing and style helpers |
+
+Replay starts a new benchmark; result load executes no solver. Python returns
+flat replay keywords and leaves profile settings to the caller, while MATLAB
+retains its existing profile-option selection and optional receipt. Native
+callbacks are restored from trusted files, never reconstructed from JSON.
+Serialized class paths remain stable. Earlier Python default score/merit
+callback paths are decoded at the trusted compatibility boundary after their
+implementation moves to scoring. Current callback metadata names that module.
+Neither this organization nor shared report keys imply identical random
+samples, graphical backends or native serialization across languages.
+
 ## Reference Facts and an Independent Arena Scorer
 
 Build the scorer around an offline reference catalog and a frozen scoring

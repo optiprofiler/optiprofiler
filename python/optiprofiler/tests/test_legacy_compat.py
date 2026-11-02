@@ -21,13 +21,12 @@ import warnings
 import numpy as np
 import pytest
 
-from optiprofiler import benchmark
+from optiprofiler import benchmark, load_benchmark_options
 from optiprofiler.feature_definitions import StageRecord
 from optiprofiler.legacy_compat import (LegacyComposedFeature, LegacyConfigurationError,
                                         LegacyEnumValue, LegacyFeature, LegacyStage,
                                         import_legacy_feature, loads_trusted)
 from optiprofiler.benchmark_options import _read_options
-from optiprofiler import load_benchmark_options
 from optiprofiler.loader import save_options
 from optiprofiler.opclasses import Feature, FeaturedProblem, Problem
 from optiprofiler.provenance import describe_feature

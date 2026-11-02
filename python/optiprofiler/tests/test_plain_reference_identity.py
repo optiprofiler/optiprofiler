@@ -7,7 +7,8 @@ import numpy as np
 import pytest
 
 from optiprofiler.loader import load_results, load_results_from_h5, save_results_to_h5
-from optiprofiler.profile_utils import process_results, write_report
+from optiprofiler.profile_utils import write_report
+from optiprofiler.scoring import process_results
 from optiprofiler.utils import ProfileOption
 
 

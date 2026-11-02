@@ -9,7 +9,7 @@ import pytest
 
 from optiprofiler import Problem, benchmark
 from optiprofiler.loader import load_results_from_h5
-from optiprofiler.profile_utils import compute_convergence_work
+from optiprofiler.scoring import compute_convergence_work
 
 
 def visit_one(fun, x0, *constraints):

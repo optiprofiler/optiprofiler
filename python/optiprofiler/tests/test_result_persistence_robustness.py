@@ -13,7 +13,8 @@ import pytest
 import optiprofiler.loader as loader
 import optiprofiler.profiles as profiles
 from optiprofiler import Feature, benchmark
-from optiprofiler.profile_utils import process_results, _write_history_display_note
+from optiprofiler.profile_utils import _write_history_display_note
+from optiprofiler.scoring import process_results
 from .test_plain_reference_identity import _block
 from .test_experiment_identity import saved_same_second_runs
 

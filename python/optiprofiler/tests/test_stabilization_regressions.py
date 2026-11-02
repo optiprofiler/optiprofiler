@@ -25,13 +25,12 @@ import pytest
 
 matplotlib.use('Agg')
 
-from optiprofiler import Feature, FeaturedProblem, Problem, benchmark
-from optiprofiler import eval_report as eval_report_module
+from optiprofiler import (Feature, FeaturedProblem, Problem, benchmark, eval_report as
+                          eval_report_module, load_benchmark_options)
 from optiprofiler.eval_report import EvalReport
 from optiprofiler.experiment import validate_n_runs
 from optiprofiler.legacy_compat import LegacyConfigurationError
 from optiprofiler.benchmark_options import archived_replay_recipe, _read_options
-from optiprofiler import load_benchmark_options
 from optiprofiler.loader import load_results_from_h5
 from optiprofiler.tests.eval_report_contract import assert_valid, load_schema, validation_errors
 from optiprofiler.tests.test_legacy_compat import AC4_SINGLE

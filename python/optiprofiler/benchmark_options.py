@@ -56,12 +56,10 @@ def _read_options(path):
     return options
 
 
-
 def _is_load_invocation(options):
     """Whether an options mapping was written by a ``benchmark(load=...)`` invocation."""
     load_request = options.get('load')
     return options.get('operation') == 'load' or (isinstance(load_request, str) and load_request != '')
-
 
 
 def _with_run_count(result, count):
@@ -69,7 +67,6 @@ def _with_run_count(result, count):
     if count is not None:
         result['n_runs'] = count
     return result
-
 
 
 def _validated_archived(archived, require_flag=True):
@@ -105,7 +102,6 @@ def _validated_archived(archived, require_flag=True):
     return validated, None
 
 
-
 def _load_invocation_replay(plain):
     """A file written by a load (re-plot) invocation replays only its recovered archived recipe."""
     archived, problem = _validated_archived(plain.get('archived_experiment'))
@@ -120,7 +116,6 @@ def _load_invocation_replay(plain):
         'This options file was written by a load (re-plot) invocation and records no replayable archived '
         f'experiment ({reason}); it describes the load, not the archived execution. Replay the source '
         'experiment from its own test_log/options_refined.pkl instead.')
-
 
 
 def _replay_options(options, feature_name=None, *, _warn_route=True):
@@ -237,10 +232,8 @@ def _closed_recipe(reason, **details):
             'archived_experiment': {'replayable': False, 'reason': reason, **details}}
 
 
-
 def _is_callback_descriptor(value):
     return isinstance(value, Mapping) and value.get('kind') == 'callback'
-
 
 
 def _projection_equal(archived, current):
@@ -283,7 +276,6 @@ def _projection_equal(archived, current):
     return type(archived) is type(current) and archived == current, False
 
 
-
 def _stages_disagreement(recorded, feature):
     """
     Compare the stage records of an archived ``feature_pipeline-v3`` block with
@@ -314,7 +306,6 @@ def _stages_disagreement(recorded, feature):
             if not same:
                 return f'stage_option:{name}', callbacks
     return None, callbacks
-
 
 
 def _recipe_from_archived(archived, results_plibs):
@@ -393,7 +384,6 @@ def _recipe_from_archived(archived, results_plibs):
             'n_runs': archived['n_runs'], 'archived_experiment': {**dict(archived), **comparison}}
 
 
-
 def archived_replay_recipe(source_options_path, results_plibs):
     """
     The replay recipe of a loaded experiment, recovered from the source
@@ -453,4 +443,3 @@ def archived_replay_recipe(source_options_path, results_plibs):
                                     if key in {member.value for member in ProblemOption}},
                 'feature_stamp': source.get('feature_stamp') if isinstance(source.get('feature_stamp'), str) else None}
     return _recipe_from_archived(archived, results_plibs)
-

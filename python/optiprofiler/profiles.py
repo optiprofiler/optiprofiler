@@ -30,8 +30,13 @@ from .problem_libraries import _copy_problem_library_options, _normalize_selecte
 from .problem_libraries import _initialize_problem_library_worker, _problem_library_worker_package
 from .utils import DEFAULT_LOG_LINE_WIDTH, FeatureName, ProfileOption, FeatureOption, ProblemOption, get_logger, print_log_message, setup_main_process_logging, setup_worker_logging, shorten_log_message, format_log_prefix
 from .loader import load_results, save_results_to_h5, save_options
-from .profile_utils import check_validity_problem_options, check_validity_profile_options, check_post_load_profile_options, get_default_problem_options, get_default_profile_options, compute_merit_values, create_stamp, merge_pdfs_with_pypdf, write_report, process_results, init_readme, add_to_readme, compute_scores
-from .profile_utils import compute_convergence_work, _mask_invalid_merits, _get_default_feature_stamp, apply_reference_targets, reference_target
+from .profile_utils import (check_validity_problem_options, check_validity_profile_options,
+                            check_post_load_profile_options, get_default_problem_options,
+                            get_default_profile_options, create_stamp, merge_pdfs_with_pypdf,
+                            write_report, init_readme, add_to_readme, _get_default_feature_stamp)
+from .scoring import (compute_merit_values, process_results, compute_scores,
+                      compute_convergence_work, _mask_invalid_merits, apply_reference_targets,
+                      reference_target)
 from .experiment import ABSENT, PLAIN_REFERENCE, PRIMARY, resolve_plan
 from .feature_definitions import reject_flat_stage_options
 from .provenance import effective_specification, feature_pipeline_text

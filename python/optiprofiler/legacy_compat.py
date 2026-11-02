@@ -169,6 +169,12 @@ class TrustedUnpickler(pickle.Unpickler):
     """Unpickler mapping historical OptiProfiler class paths to compatibility values."""
 
     def find_class(self, module, name):
+        # Native settings saved before scoring was separated retain these
+        # default callbacks by their former module path.
+        if module == 'optiprofiler.profile_utils' and name in {
+                '_default_merit', '_default_score_fun', '_default_score_weight_fun'}:
+            from . import scoring
+            return getattr(scoring, name)
         key = (module, name)
         if key in _LEGACY_CLASSES:
             return _LEGACY_CLASSES[key]

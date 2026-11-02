@@ -8,6 +8,7 @@ import h5py
 import pickle
 
 from optiprofiler.legacy_compat import loads_trusted
+from optiprofiler.scoring import _default_merit, carries_reference_records, compute_merit_values
 import stat
 import uuid
 from typing import Dict, List, Any, Tuple, Optional, Union, Callable
@@ -290,7 +291,7 @@ def truncate_problems(results_plib: Dict[str, Any], problem_options: Dict[str, A
 def merit_fun_compute(merit_fun: Callable, fun_values: np.ndarray, maxcv_values: np.ndarray, maxcv_inits: np.ndarray) -> np.ndarray:
     """Compute merit values from function values and constraint violations.
 
-    Delegates to ``profile_utils.compute_merit_values`` so that the
+    Delegates to ``scoring.compute_merit_values`` so that the
     shape-broadcasting logic stays in a single place. The previous
     implementation called ``merit_fun`` directly with whole arrays,
     which silently produced wrong results when ``maxcv_inits`` did not
@@ -298,8 +299,6 @@ def merit_fun_compute(merit_fun: Callable, fun_values: np.ndarray, maxcv_values:
     is per-(problem, run) but ``fun_values`` is per-(problem, solver,
     run, eval)).
     """
-    # Local import to avoid a circular import at module load time.
-    from .profile_utils import compute_merit_values
     return compute_merit_values(merit_fun, fun_values, maxcv_values, maxcv_inits)
 
 
@@ -651,8 +650,6 @@ def load_results(problem_options: Dict[str, Any], profile_options: Dict[str, Any
     #   are recomputed the same way.
     # * Otherwise (V1 behaviour) the cached merits and the empirical targets
     #   derived from them are already in one merit space and are reused.
-    # Local import: profile_utils imports this module at load time.
-    from .profile_utils import _default_merit, carries_reference_records
     merit_fun = profile_options.get(ProfileOption.MERIT_FUN.value)
     rescore_reason = None
     if merit_fun is None:

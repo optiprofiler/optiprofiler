@@ -18,7 +18,7 @@ from optiprofiler.loader import (
     truncate_problems,
     truncate_solvers,
 )
-from optiprofiler.profile_utils import _default_merit, compute_merit_values
+from optiprofiler.scoring import _default_merit, compute_merit_values
 from optiprofiler.utils import ProblemOption
 
 

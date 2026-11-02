@@ -5,8 +5,7 @@ import pickle
 import numpy as np
 import pytest
 
-from optiprofiler import Problem, benchmark, load_benchmark_options
-from optiprofiler import legacy_compat
+from optiprofiler import Problem, benchmark, load_benchmark_options, legacy_compat
 
 
 def objective(x):

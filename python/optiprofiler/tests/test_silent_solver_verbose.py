@@ -7,9 +7,8 @@ import sys
 
 import pytest
 
-from optiprofiler import Feature, benchmark
+from optiprofiler import Feature, benchmark, load_benchmark_options
 from optiprofiler.benchmark_options import _read_options
-from optiprofiler import load_benchmark_options
 from optiprofiler.loader import save_options
 from optiprofiler.profile_utils import check_validity_profile_options, get_default_profile_options
 from optiprofiler.utils import ProfileOption

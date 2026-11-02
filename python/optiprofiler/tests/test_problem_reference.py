@@ -25,7 +25,7 @@ from optiprofiler.composition import AffineView, ComposedFeaturedProblem
 from optiprofiler.feature_definitions import LOCAL_OPTIONS, REFERENCE_SAFE_CUSTOM_OPTIONS, STAGE_NAMES, retains_reference
 from optiprofiler.loader import load_results_from_h5
 from optiprofiler.problem_libraries import load_problem_library, resolve_problem_library
-from optiprofiler.profile_utils import _default_merit, compute_merit_values
+from optiprofiler.scoring import _default_merit, compute_merit_values
 
 
 MAPPING = 'feasible_objective/1'

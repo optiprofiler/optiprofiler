@@ -9,26 +9,14 @@ import pytest
 
 from optiprofiler.opclasses import Feature
 from optiprofiler.problem_libraries import resolve_problem_library
-from optiprofiler.profile_utils import (
-    _default_merit,
-    _default_score_fun,
-    _default_score_weight_fun,
-    _get_conservative_default_n_jobs,
-    _get_default_feature_stamp,
-    add_to_readme,
-    check_validity_problem_options,
-    check_validity_profile_options,
-    check_post_load_profile_options,
-    compute_merit_values,
-    create_stamp,
-    get_default_problem_options,
-    get_default_profile_options,
-    init_readme,
-    integrate,
-    merge_pdfs_with_pypdf,
-    write_report,
-)
-from optiprofiler.utils import DEFAULT_LOG_LINE_WIDTH, FeatureOption, ProblemOption, ProfileOption, WrappedLogFormatter, format_log_prefix
+from optiprofiler.profile_utils import (_get_conservative_default_n_jobs,
+                                        _get_default_feature_stamp, add_to_readme,
+                                        check_validity_problem_options,
+                                        check_validity_profile_options,
+                                        check_post_load_profile_options, create_stamp,
+                                        get_default_problem_options, get_default_profile_options,
+                                        init_readme, merge_pdfs_with_pypdf, write_report)
+from optiprofiler.utils import DEFAULT_LOG_LINE_WIDTH, ProblemOption, ProfileOption, WrappedLogFormatter, format_log_prefix
 from optiprofiler.profiles import _get_solver_log_names, _standard_constrained_result_log_length
 
 
@@ -811,65 +799,6 @@ class TestWriteReport:
         assert 'Wall-clock time spent by all the solvers: 7.00 secs' in path_report.read_text()
 
 
-class TestDefaultMerit:
-
-    def test_feasible(self):
-        assert _default_merit(1.0, 0.0, 0.0) == 1.0
-
-    def test_nan_fun(self):
-        assert np.isinf(_default_merit(np.nan, 0.0, 0.0))
-
-    def test_nan_maxcv(self):
-        assert np.isinf(_default_merit(1.0, np.nan, 0.0))
-
-    def test_small_violation(self):
-        result = _default_merit(1.0, 0.005, 0.0)
-        assert result > 1.0
-
-    def test_large_violation(self):
-        result = _default_merit(1.0, 1.0, 0.0)
-        assert np.isinf(result)
-
-    def test_with_nonzero_maxcv_init(self):
-        result = _default_merit(1.0, 0.0, 1.0)
-        assert result == 1.0
-
-
-class TestDefaultScoreFunctions:
-
-    def test_default_score_weight_fun(self):
-        assert _default_score_weight_fun(0) == 1
-        assert _default_score_weight_fun(100) == 1
-
-    def test_default_score_fun(self):
-        x = np.random.rand(3, 5, 2, 2)
-        result = _default_score_fun(x)
-        expected = np.mean(x[:, :, 0, 0], axis=1)
-        np.testing.assert_array_equal(result, expected)
-
-
-class TestComputeMeritValues:
-
-    def test_scalar_maxcv_init(self):
-        fun_values = np.array([1.0, 2.0, 3.0])
-        maxcv_values = np.array([0.0, 0.0, 0.0])
-        result = compute_merit_values(_default_merit, fun_values, maxcv_values, 0.0)
-        np.testing.assert_array_equal(result, fun_values)
-
-    def test_array_maxcv_init(self):
-        fun_values = np.array([[1.0, 2.0], [3.0, 4.0]])
-        maxcv_values = np.array([[0.0, 0.0], [0.0, 0.0]])
-        maxcv_init = np.array([0.0, 0.0])
-        result = compute_merit_values(_default_merit, fun_values, maxcv_values, maxcv_init)
-        np.testing.assert_array_equal(result, fun_values)
-
-    def test_nan_returns_inf(self):
-        fun_values = np.array([np.nan])
-        maxcv_values = np.array([0.0])
-        result = compute_merit_values(_default_merit, fun_values, maxcv_values, 0.0)
-        assert np.isinf(result[0])
-
-
 class TestCreateStamp:
 
     def test_basic(self):
@@ -979,71 +908,6 @@ class TestGetDefaultFeatureStamp:
         assert stamp == 'custom'
 
 
-class TestIntegrate:
-
-    def test_none_curve(self):
-        assert integrate(None, 'perf', {}) == 0.0
-
-    def test_empty_tuple(self):
-        assert integrate((), 'perf', {}) == 0.0
-
-    def test_empty_arrays(self):
-        assert integrate((np.array([]), np.array([])), 'perf', {}) == 0.0
-
-    def test_perf_step_function(self):
-        x = np.array([1.0, 2.0, 3.0])
-        y = np.array([0.5, 0.8, 1.0])
-        result = integrate((x, y), 'perf', {})
-        expected = 0.5 * 1.0 + 0.8 * 1.0
-        np.testing.assert_allclose(result, expected)
-
-    def test_data_step_function(self):
-        x = np.array([0.0, 1.0, 2.0])
-        y = np.array([0.0, 0.5, 1.0])
-        result = integrate((x, y), 'data', {})
-        expected = 0.0 * 1.0 + 0.5 * 1.0
-        np.testing.assert_allclose(result, expected)
-
-    def test_log_ratio(self):
-        x = np.array([1, 2, 3])
-        y = np.array([0.5, -0.3, 0.2])
-        result = integrate((x, y), 'log_ratio', {})
-        expected = np.sum(np.abs(y))
-        np.testing.assert_allclose(result, expected)
-
-    def test_nonfinite_segments_are_ignored(self):
-        result = integrate((np.array([1.0, np.inf]), np.array([0.0, 1.0])), 'perf', {})
-        assert result == 0.0
-        result = integrate((np.array([1.0]), np.array([np.inf])), 'log_ratio', {})
-        assert result == 0.0
-
-    def test_ndarray_input(self):
-        curve = np.array([[1.0, 2.0, 3.0], [0.5, 0.8, 1.0]])
-        result = integrate(curve, 'perf', {})
-        expected = 0.5 * 1.0 + 0.8 * 1.0
-        np.testing.assert_allclose(result, expected)
-
-    def test_single_point(self):
-        x = np.array([1.0])
-        y = np.array([0.5])
-        result = integrate((x, y), 'perf', {})
-        assert result == 0.0
-
-    def test_custom_weight_fun(self):
-        x = np.array([1.0, 2.0, 3.0])
-        y = np.array([0.5, 0.8, 1.0])
-        opts = {ProfileOption.SCORE_WEIGHT_FUN: lambda t: 2.0}
-        result = integrate((x, y), 'perf', opts)
-        expected = 2.0 * (0.5 * 1.0 + 0.8 * 1.0)
-        np.testing.assert_allclose(result, expected)
-
-    def test_unknown_type_returns_zero(self):
-        x = np.array([1.0, 2.0])
-        y = np.array([0.5, 0.8])
-        result = integrate((x, y), 'unknown', {})
-        assert result == 0.0
-
-
 class TestInitReadme:
 
     def test_creates_file(self):
@@ -1145,25 +1009,3 @@ class TestPostLoadProfileOptions:
     def test_post_load_accepts_matching_lengths(self):
         opts = check_post_load_profile_options(2, {ProfileOption.SOLVER_NAMES: ['a', 'b'], ProfileOption.SOLVER_ISRAND: [True, False]})
         assert opts[ProfileOption.SOLVER_NAMES] == ['a', 'b']
-
-
-class TestComputeMeritValuesShapeParity:
-    """Cross-language parity: the single-problem loaded-history case takes
-    (n_solvers, n_runs, n_evals) values with an (n_runs,) init vector, which is
-    the shape the load path slices out of the saved per-problem arrays."""
-
-    def test_single_problem_history_with_run_vector(self):
-        fun_values = np.zeros((2, 5, 6))
-        maxcv_values = np.zeros_like(fun_values)
-        inits = np.arange(1.0, 6.0)
-        merits = compute_merit_values(lambda f, cv, cv_init: f + cv + cv_init, fun_values, maxcv_values, inits)
-        assert merits.shape == (2, 5, 6)
-        np.testing.assert_array_equal(merits[0, :, 0], inits)
-
-    def test_single_problem_out_with_run_vector(self):
-        fun_values = np.zeros((2, 5))
-        maxcv_values = np.zeros_like(fun_values)
-        inits = np.arange(1.0, 6.0)
-        merits = compute_merit_values(lambda f, cv, cv_init: f + cv + cv_init, fun_values, maxcv_values, inits)
-        assert merits.shape == (2, 5)
-        np.testing.assert_array_equal(merits[1, :], inits)
