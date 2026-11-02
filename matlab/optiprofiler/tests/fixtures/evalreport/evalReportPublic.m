@@ -670,6 +670,7 @@ function evalReportPublic(source_root, output_root, slice)
         assert(numel(findall(groot, 'Type', 'figure')) == open_figures, 'A rejected score_fun result left a figure open.');
         report = readReport(saved.report_path);
         assert(strcmp(report.status, 'failed') && isempty(report.scores));
+        previous = pwd; directory_guard = onCleanup(@() cd(previous)); %#ok<NASGU>
         cd(output_root);
         reloaded = benchmark(struct('load', 'latest', 'benchmark_id', 'score_saved', 'score_only', true, 'silent', true, 'max_tol_order', 1));
         assert(max(abs(reloaded - expected)) < 1e-12, 'The saved experiment must stay loadable.');
