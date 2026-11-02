@@ -26,7 +26,7 @@ V2 features and release metadata must not be backported to them.
    floors. It installs the lowest wheels that `pyproject.toml` allows in a clean
    environment and runs the same smoke there; on Python 3.8 every dependency has
    to be exactly its declared floor. The Python unit-test workflow runs it on
-   Python 3.8 and 3.12. Raise a floor rather than work around its absence.
+   Python 3.8 and 3.12. Raise a floor rather than code around its absence.
 7. Require clean-extraction MATLAB ZIP tests on all supported platforms and
    S2MPJ coexistence, fresh-process restoration and real process-worker tests.
    A same-session load is not evidence of successful native-state restoration.
