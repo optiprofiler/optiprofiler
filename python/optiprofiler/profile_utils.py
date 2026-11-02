@@ -12,7 +12,7 @@ from pypdf import PdfWriter
 
 from .problem_libraries import list_problem_libraries, resolve_problem_library
 from .experiment import validate_n_runs
-from .scoring import _default_merit, _default_score_fun, _default_score_weight_fun
+from . import scoring
 from .provenance import full_feature_stamp
 from .metadata import credential_free_urls
 from .utils import ProfileOption, ProblemOption, get_logger, print_log_message, shorten_log_message
@@ -610,7 +610,7 @@ def get_default_profile_options(solvers, feature, profile_options):
     profile_options.setdefault(ProfileOption.SAVEPATH.value, str(Path('.').expanduser().resolve()))
     profile_options.setdefault(ProfileOption.MAX_TOL_ORDER.value, 10)
     profile_options.setdefault(ProfileOption.MAX_EVAL_FACTOR.value, 500)
-    profile_options.setdefault(ProfileOption.MERIT_FUN.value, _default_merit)
+    profile_options.setdefault(ProfileOption.MERIT_FUN.value, scoring._default_merit)
     profile_options.setdefault(ProfileOption.PROJECT_X0.value, False)
     profile_options.setdefault(ProfileOption.RUN_PLAIN.value, False)
     profile_options.setdefault(ProfileOption.SCORE_ONLY.value, False)
@@ -625,8 +625,8 @@ def get_default_profile_options(solvers, feature, profile_options):
         profile_options[ProfileOption.SOLVER_VERBOSE.value] = 0
     profile_options.setdefault(ProfileOption.SEMILOGX.value, True)
     profile_options.setdefault(ProfileOption.NORMALIZED_SCORES.value, True)
-    profile_options.setdefault(ProfileOption.SCORE_WEIGHT_FUN.value, _default_score_weight_fun)
-    profile_options.setdefault(ProfileOption.SCORE_FUN.value, _default_score_fun)
+    profile_options.setdefault(ProfileOption.SCORE_WEIGHT_FUN.value, scoring._default_score_weight_fun)
+    profile_options.setdefault(ProfileOption.SCORE_FUN.value, scoring._default_score_fun)
     profile_options.setdefault(ProfileOption.LOAD.value, None)
     profile_options.setdefault(ProfileOption.LINE_COLORS.value, [
         '#1f77b4',

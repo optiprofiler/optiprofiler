@@ -288,20 +288,6 @@ def truncate_problems(results_plib: Dict[str, Any], problem_options: Dict[str, A
     return results_plib
 
 
-def merit_fun_compute(merit_fun: Callable, fun_values: np.ndarray, maxcv_values: np.ndarray, maxcv_inits: np.ndarray) -> np.ndarray:
-    """Compute merit values from function values and constraint violations.
-
-    Delegates to ``scoring.compute_merit_values`` so that the
-    shape-broadcasting logic stays in a single place. The previous
-    implementation called ``merit_fun`` directly with whole arrays,
-    which silently produced wrong results when ``maxcv_inits`` did not
-    already match the shape of ``fun_values`` (e.g. when ``maxcv_inits``
-    is per-(problem, run) but ``fun_values`` is per-(problem, solver,
-    run, eval)).
-    """
-    return compute_merit_values(merit_fun, fun_values, maxcv_values, maxcv_inits)
-
-
 _MERIT_KEYS = ('merit_histories', 'merit_outs', 'merit_inits')
 
 
@@ -337,19 +323,19 @@ def recompute_merits(results_plib: Dict[str, Any], merit_fun: Callable) -> Dict[
     results_plib = results_plib.copy()
     
     try:
-        results_plib['merit_histories'] = merit_fun_compute(
+        results_plib['merit_histories'] = compute_merit_values(
             merit_fun, 
             results_plib['fun_histories'], 
             results_plib['maxcv_histories'], 
             results_plib['maxcv_inits']
         )
-        results_plib['merit_outs'] = merit_fun_compute(
+        results_plib['merit_outs'] = compute_merit_values(
             merit_fun, 
             results_plib['fun_outs'], 
             results_plib['maxcv_outs'], 
             results_plib['maxcv_inits']
         )
-        results_plib['merit_inits'] = merit_fun_compute(
+        results_plib['merit_inits'] = compute_merit_values(
             merit_fun, 
             results_plib['fun_inits'], 
             results_plib['maxcv_inits'], 

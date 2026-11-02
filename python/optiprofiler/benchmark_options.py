@@ -17,20 +17,32 @@ from .provenance import FEATURE_PIPELINE_SCHEMA
 
 REFINED_SCHEMA = 'options_refined-v2'
 USER_SCHEMA = 'options_user-v2'
+_PROBLEM_OPTION_KEYS = frozenset(member.value for member in ProblemOption)
 
 
 def load_benchmark_options(source, feature_name=None):
-    """Read trusted native settings into keyword arguments for a fresh benchmark.
+    """Read trusted native settings into keywords for a fresh benchmark.
 
-    ``source`` is an options pickle path or an already-loaded mapping. Current
-    user/refined records and known older layouts are accepted. A flat 1.x file
-    without feature identity requires ``feature_name`` explicitly.
+    ``source`` is an options pickle path or an already-loaded mapping. Supports
+    ``options_user-v2``, ``options_refined-v2``, the unversioned structured
+    bridge and flat 1.x settings. Flat records without feature identity require
+    ``feature_name``; stage options use the shorthand's broadcast rules.
+    Prefer refined settings to retain resolved defaults and run counts.
 
-    The returned dictionary contains ``feature``, problem-selection keywords
-    (or the original ``problem``), and ``n_runs`` only when recorded. Supply
-    solvers and profile options, including seed/merit/silent, explicitly.
-    Pickle inputs must be trusted: decoding can execute user code. Prefer
-    refined settings when resolved defaults and run counts must be retained.
+    Returns ``feature``, problem-selection keywords (or the original
+    ``problem``), and ``n_runs`` only when recorded. Supply solvers and profile
+    options, including seed/merit/silent, explicitly. Native callbacks are kept
+    as saved objects, never reconstructed from JSON descriptions.
+
+    A direct-Problem refined record needs the original ``problem`` supplied in
+    the mapping; otherwise LegacyConfigurationError is raised rather than
+    selecting a library. Records predating ``problem_route`` warn when their
+    problem source cannot be established. A load-written record replays only
+    through its recovered ``archived_experiment`` recipe, not its load label.
+
+    Pickle files must be trusted: decoding can execute user code. Unreadable
+    configurations raise LegacyConfigurationError; filesystem errors remain
+    OSError. Replay runs a new experiment, not a live-state resume or replot.
     """
     options = source if isinstance(source, Mapping) else _read_options(source)
     return _replay_options(options, feature_name)
@@ -119,44 +131,7 @@ def _load_invocation_replay(plain):
 
 
 def _replay_options(options, feature_name=None, *, _warn_route=True):
-    """
-    Map a trusted options dictionary to ``benchmark`` inputs.
-
-    Supported layouts: ``options_user-v2`` (raw current input),
-    ``options_refined-v2`` (native ``feature_specification``
-    and top-level ``n_runs``); the 1.x bridge layout (``feature_specification``
-    without a schema, run count among the flat keys); and the flat 1.x merge of
-    profile, feature and problem options, which does not record the feature
-    identity and is replayed only with an explicit ``feature_name`` (the flat
-    stage options are then broadcast to that name). Returns feature and problem-selection
-    keywords plus ``'n_runs'`` when the file records a run count
-    (a user file written without ``n_runs`` records none, and ``None`` is not a
-    valid ``benchmark`` value); the caller supplies solvers and any profile
-    options, so a replay is silent only if the caller passes ``silent=True``,
-    whatever the file records for ``silent`` and ``solver_verbose``. Callback
-    values stay the native objects stored in the file; nothing is reconstructed
-    from JSON descriptions.
-
-    The result includes the keywords that choose the problems. For a
-    mapping with a ``problem`` (the ``options_user.pkl`` of a direct-Problem
-    run, or a record to which the caller added the original Problem),
-    ``problem`` is returned without library selectors.
-    ``options_refined.pkl`` records ``problem_route`` but not the Problem
-    itself, so a ``'direct_problem'`` record without ``problem`` raises
-    :class:`LegacyConfigurationError` instead of returning the unused default
-    library selectors. A record older than ``problem_route`` holds such
-    selectors whatever the experiment used, so its replay warns: a
-    direct-Problem experiment would run on them.
-
-    A file written by a ``load`` (re-plot) invocation describes that load, not
-    the archived execution. It replays only when it carries the archived recipe
-    recovered by :func:`archived_replay_recipe` (``archived_experiment`` with
-    ``replayable`` true); otherwise :class:`LegacyConfigurationError` names the
-    reason. Case-variant duplicates of one option name in a flat 1.x file are
-    rejected the same way (the configuration is ambiguous).
-    """
-    if not isinstance(options, Mapping):
-        raise TypeError(f'Expected an options mapping, not {type(options).__name__}.')
+    """Map a decoded native configuration to fresh benchmark keywords."""
     plain = {}
     for key, value in options.items():
         key = _option_key(key)
@@ -180,8 +155,7 @@ def _replay_options(options, feature_name=None, *, _warn_route=True):
             'does not store; a replay without it would benchmark a problem library instead. Set the original '
             "Problem first (options['problem'] = problem) and call load_benchmark_options again.")
     else:
-        problem_keys = {member.value for member in ProblemOption}
-        problem_options = {key: value for key, value in plain.items() if key in problem_keys}
+        problem_options = {key: value for key, value in plain.items() if key in _PROBLEM_OPTION_KEYS}
         # options_user files hold the Problem of a direct run themselves.
         if _warn_route and route is None and plain.get('schema') != USER_SCHEMA:
             warnings.warn(
@@ -440,6 +414,6 @@ def archived_replay_recipe(source_options_path, results_plibs):
                 'feature_specification': replay['feature'], 'n_runs': n_runs, 'seed': source.get('seed'),
                 'run_plain': run_plain, 'plain_reference_n_runs': 1 if run_plain else None,
                 'problem_options': {key: value for key, value in replay.items()
-                                    if key in {member.value for member in ProblemOption}},
+                                    if key in _PROBLEM_OPTION_KEYS},
                 'feature_stamp': source.get('feature_stamp') if isinstance(source.get('feature_stamp'), str) else None}
     return _recipe_from_archived(archived, results_plibs)

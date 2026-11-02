@@ -50,6 +50,15 @@ class TestDefaultScoreFunctions:
 
 class TestComputeMeritValues:
 
+    def test_custom_merit(self):
+        def my_merit(f, v, v0):
+            return f + v
+        fun_values = np.array([1.0, 2.0])
+        maxcv_values = np.array([0.1, 0.2])
+        maxcv_inits = np.array([0.0, 0.0])
+        result = compute_merit_values(my_merit, fun_values, maxcv_values, maxcv_inits)
+        np.testing.assert_array_almost_equal(result, [1.1, 2.2])
+
     def test_scalar_maxcv_init(self):
         fun_values = np.array([1.0, 2.0, 3.0])
         maxcv_values = np.array([0.0, 0.0, 0.0])

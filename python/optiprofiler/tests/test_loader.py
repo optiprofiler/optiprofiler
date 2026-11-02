@@ -3,14 +3,12 @@ import os
 import pickle
 import tempfile
 
-import h5py
 import numpy as np
 import pytest
 
 from optiprofiler.loader import (
     _backfill_problem_options_from_loaded,
     load_results_from_h5,
-    merit_fun_compute,
     recompute_merits,
     save_options,
     save_results_to_h5,
@@ -18,7 +16,6 @@ from optiprofiler.loader import (
     truncate_problems,
     truncate_solvers,
 )
-from optiprofiler.scoring import _default_merit, compute_merit_values
 from optiprofiler.utils import ProblemOption
 
 
@@ -225,18 +222,6 @@ class TestTruncateProblems:
         assert results['problem_names'] == original_names
 
 
-class TestMeritFunCompute:
-
-    def test_basic(self):
-        def my_merit(f, v, v0):
-            return f + v
-        fun_values = np.array([1.0, 2.0])
-        maxcv_values = np.array([0.1, 0.2])
-        maxcv_inits = np.array([0.0, 0.0])
-        result = merit_fun_compute(my_merit, fun_values, maxcv_values, maxcv_inits)
-        np.testing.assert_array_almost_equal(result, [1.1, 2.2])
-
-
 class TestRecomputeMerits:
 
     def test_basic(self):
@@ -367,7 +352,7 @@ class TestLoadResults:
 
     def test_load_latest(self):
         from optiprofiler.loader import load_results
-        from optiprofiler.utils import ProfileOption, ProblemOption
+        from optiprofiler.utils import ProfileOption
         with tempfile.TemporaryDirectory() as tmpdir:
             benchmark_dir, ts = self._create_experiment(tmpdir)
             profile_options = {
@@ -386,7 +371,7 @@ class TestLoadResults:
 
     def test_load_specific_timestamp(self):
         from optiprofiler.loader import load_results
-        from optiprofiler.utils import ProfileOption, ProblemOption
+        from optiprofiler.utils import ProfileOption
         with tempfile.TemporaryDirectory() as tmpdir:
             benchmark_dir, ts = self._create_experiment(tmpdir)
             profile_options = {
@@ -410,12 +395,11 @@ class TestLoadResults:
     def test_load_invalid_timestamp(self):
         from optiprofiler.loader import load_results
         from optiprofiler.utils import ProfileOption
-        with tempfile.TemporaryDirectory() as tmpdir:
-            profile_options = {
-                ProfileOption.LOAD.value: 'invalid_format',
-            }
-            with pytest.raises(ValueError):
-                load_results({}, profile_options)
+        profile_options = {
+            ProfileOption.LOAD.value: 'invalid_format',
+        }
+        with pytest.raises(ValueError):
+            load_results({}, profile_options)
 
     def test_load_not_found(self):
         from optiprofiler.loader import load_results

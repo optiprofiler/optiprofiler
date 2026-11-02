@@ -15,11 +15,7 @@ function integral = integrate(curve, profile_type, profile_options)
             integral = integral + sum(contribution(isfinite(contribution)));
         case 'log_ratio'
             % We do not modify the integral of log_ratio even a score_weight_fun is provided.
-            if isempty(curve)
-                integral = 0;
-            else
-                contribution = abs(curve(2, :));
-                integral = integral + sum(contribution(isfinite(contribution)));
-            end
+            contribution = abs(curve(2, :));
+            integral = integral + sum(contribution(isfinite(contribution)));
     end
 end
