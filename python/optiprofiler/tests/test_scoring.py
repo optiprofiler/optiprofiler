@@ -180,5 +180,7 @@ def test_saved_default_callbacks_resolve_to_the_numerical_implementation(name):
 def test_plain_pickle_of_an_old_options_file_finds_the_default_callbacks(name):
     # 1.x and early 2.0 option pickles name the callbacks under profile_utils,
     # and users read them with plain pickle as well as through OptiProfiler.
-    historical = b'(dVmerit_fun\ncoptiprofiler.profile_utils\n' + name.encode('ascii') + b'\ns.'
+    # Protocol 0: MARK and DICT, the key, GLOBAL module and name, SETITEM and STOP.
+    historical = b''.join([b'(d', b'V' b'merit_fun\n', b'c' b'optiprofiler.profile_utils\n',
+                           name.encode('ascii') + b'\n', b's.'])
     assert pickle.loads(historical)['merit_fun'] is globals()[name]
