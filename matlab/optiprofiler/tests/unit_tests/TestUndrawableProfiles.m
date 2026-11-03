@@ -72,9 +72,15 @@ classdef TestUndrawableProfiles < matlab.unittest.TestCase
             % Both solvers reach 9 % and 6 % of f(x0) against the reference 0,
             % so only the loosest tolerance, 1e-1, has a solver that meets the test.
             options = testCase.library();
-            [~, profiles] = benchmark({@TestUndrawableProfiles.toThreeTenths, @TestUndrawableProfiles.toAQuarter}, options);
+            [~, profiles, curves] = benchmark({@TestUndrawableProfiles.toThreeTenths, @TestUndrawableProfiles.toAQuarter}, options);
             testCase.verifyTrue(all(profiles(:, 1, 1, 1:2) > 0, 'all'));
             testCase.verifyEqual(profiles(:, 2:3, :, :), zeros(2, 2, 2, 3));
+            for i_tol = 2:3
+                for branch = {'hist', 'out'}
+                    curve = curves{i_tol}.(branch{1});
+                    testCase.verifyTrue(all(cellfun(@isempty, [curve.perf(:); curve.data(:); curve.log_ratio(:)])));
+                end
+            end
             refs = plotRefs(options.report_path);
             testCase.verifyNotEmpty(refs);
             testCase.verifyTrue(all(startsWith(refs, 'profile-1-')));

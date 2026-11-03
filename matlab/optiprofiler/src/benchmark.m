@@ -29,7 +29,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %   'Options' part for more details.
 %
 %   [SOLVER_SCORES, PROFILE_SCORES, CURVES] = BENCHMARK(...) returns a cell
-%   array CURVES containing the curves of all the profiles.
+%   array CURVES containing the curves of all the profiles. A profile at a
+%   tolerance no solver meets keeps empty cells in place of its curves.
 %
 %   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %

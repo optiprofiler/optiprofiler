@@ -62,6 +62,8 @@ def test_tolerances_no_solver_reaches_score_zero_in_every_profile(options):
     np.testing.assert_array_equal(profiles[:, 1:], 0.0)
     for curve in curves[1:]:
         for branch in ('hist', 'out'):
+            for kind in ('perf', 'data'):
+                assert all(c is None for row in curve[branch][kind] for c in row)
             assert curve[branch]['log_ratio'] == [None, None]
     report = json.loads(open(options['report_path'], encoding='utf-8').read())
     assert_valid(report, 'eval_report-v2.schema.json')
@@ -75,3 +77,20 @@ def test_solvers_that_all_crash_score_zero_in_every_profile(options):
     report = json.loads(open(options['report_path'], encoding='utf-8').read())
     assert_valid(report, 'eval_report-v2.schema.json')
     assert report['profiles']['plot_refs'] == []
+
+
+@pytest.mark.parametrize('solvers, has_summaries', [((to_three_tenths, to_a_quarter), True),
+                                                    ((crash_before_evaluating, crash_before_evaluating), False)])
+def test_a_summary_pdf_exists_and_is_listed_only_with_a_profile_in_it(options, tmp_path, solvers, has_summaries):
+    # In the first case only the first of the three tolerances has profiles.
+    options.update(score_only=False, draw_hist_plots='none', savepath=str(tmp_path / 'out'))
+    benchmark(list(solvers), **options)
+    stamp = next((tmp_path / 'out').rglob('test_log')).parent
+    readme = (stamp / 'README.txt').read_text(encoding='utf-8')
+    report = json.loads(open(options['report_path'], encoding='utf-8').read())
+    artifacts = {artifact['path'].split('/')[-1] for artifact in report['artifacts']}
+    for name in ('perf_hist.pdf', 'data_hist.pdf', 'log-ratio_hist.pdf',
+                 'perf_out.pdf', 'data_out.pdf', 'log-ratio_out.pdf'):
+        assert (stamp / name).is_file() == has_summaries, name
+        assert (name in readme) == has_summaries, name
+        assert (name in artifacts) == has_summaries, name
