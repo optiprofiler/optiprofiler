@@ -13,6 +13,9 @@ from pypdf import PdfWriter
 from .problem_libraries import list_problem_libraries, resolve_problem_library
 from .experiment import validate_n_runs
 from . import scoring
+# Option pickles written by 1.x and by 2.0 builds before scoring.py reference
+# the default callbacks under this module.
+from .scoring import _default_merit, _default_score_fun, _default_score_weight_fun  # noqa: F401
 from .provenance import full_feature_stamp
 from .metadata import credential_free_urls
 from .utils import ProfileOption, ProblemOption, get_logger, print_log_message, shorten_log_message

@@ -174,3 +174,11 @@ def test_saved_default_callbacks_resolve_to_the_numerical_implementation(name):
     expected = globals()[name]
     assert loads_trusted(historical) is expected
     assert pickle.loads(pickle.dumps(expected)) is expected
+
+
+@pytest.mark.parametrize('name', ['_default_merit', '_default_score_fun', '_default_score_weight_fun'])
+def test_plain_pickle_of_an_old_options_file_finds_the_default_callbacks(name):
+    # 1.x and early 2.0 option pickles name the callbacks under profile_utils,
+    # and users read them with plain pickle as well as through OptiProfiler.
+    historical = b'(dVmerit_fun\ncoptiprofiler.profile_utils\n' + name.encode('ascii') + b'\ns.'
+    assert pickle.loads(historical)['merit_fun'] is globals()[name]
