@@ -1,7 +1,9 @@
 """A profile branch in which no solver meets the convergence test scores 0, as in MATLAB."""
 
 import json
+from pathlib import Path
 
+import matplotlib
 import numpy as np
 import pytest
 
@@ -96,3 +98,26 @@ def test_a_summary_pdf_exists_and_is_listed_only_with_a_profile_in_it(options, t
         assert (name in readme) == has_summaries, name
         assert (name in artifacts) == has_summaries, name
     assert next(stamp.glob('summary_*.pdf')).name in readme
+
+
+def test_a_summary_pdf_that_cannot_be_deleted_is_left_in_place(options, tmp_path, monkeypatch):
+    refused = ('perf_hist.pdf', 'data_hist.pdf', 'perf_out.pdf', 'data_out.pdf')
+    unlink = Path.unlink
+
+    def refuse_summaries(path, *args, **kwargs):
+        if path.name in refused:
+            raise PermissionError(path)
+        return unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, 'unlink', refuse_summaries)
+    options.update(score_only=False, draw_hist_plots='none', savepath=str(tmp_path / 'out'))
+    _, profiles, _ = benchmark([crash_before_evaluating, crash_before_evaluating], **options)
+    np.testing.assert_array_equal(profiles, 0.0)
+    report = json.loads(open(options['report_path'], encoding='utf-8').read())
+    assert report['status'] == 'completed'
+    stamp = next((tmp_path / 'out').rglob('test_log')).parent
+    readme = ''.join(line[:33].strip() for line in (stamp / 'README.txt').read_text(encoding='utf-8').splitlines())
+    for name in refused:
+        assert name not in readme
+        # Matplotlib 3.10+ creates no file for a writer without pages.
+        assert (stamp / name).is_file() == (matplotlib.__version_info__ < (3, 10))

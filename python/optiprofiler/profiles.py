@@ -2154,7 +2154,7 @@ def _build_profiles(
                     _report_export(report, writer.close)
                     summary_writers.remove(writer)
                 # Matplotlib before 3.10 writes a PDF without pages for a writer
-                # that received no figure.
+                # that received no figure. Failing to delete one only leaves it.
                 for path, has_pages in ((path_perf_hist_summary, has_hist_summary),
                                         (path_data_hist_summary, has_hist_summary),
                                         (path_perf_out_summary, has_out_summary),
@@ -2162,7 +2162,10 @@ def _build_profiles(
                                         (path_log_ratio_hist_summary, has_log_ratio_hist_summary),
                                         (path_log_ratio_out_summary, has_log_ratio_out_summary)):
                     if not has_pages:
-                        _report_export(report, path.unlink, missing_ok=True)
+                        try:
+                            path.unlink(missing_ok=True)
+                        except OSError:
+                            pass
         except BaseException:
             # Closing is cleanup only: a failure here must never replace the
             # original exception, and every registered writer gets its turn.
