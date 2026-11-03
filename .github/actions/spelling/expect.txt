@@ -156,6 +156,7 @@ followname
 followtype
 fontsize
 footbibliography
+fspath
 fstat
 fwrite
 geomspace

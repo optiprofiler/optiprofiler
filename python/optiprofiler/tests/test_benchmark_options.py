@@ -45,10 +45,21 @@ def test_file_and_mapping_replay_directly_into_benchmark(tmp_path, schema, path_
     assert path.read_bytes() == original
 
 
-@pytest.mark.parametrize('source', [[('feature_name', 'plain')], None, 42, pickle.dumps({'feature_name': 'plain'})])
+class BytesPath:
+    def __fspath__(self):
+        return b'options.pkl'
+
+
+@pytest.mark.parametrize('source', [[('feature_name', 'plain')], None, 42, pickle.dumps({'feature_name': 'plain'}),
+                                    BytesPath()])
 def test_a_source_that_is_neither_a_mapping_nor_a_path_is_a_type_error(source):
     with pytest.raises(TypeError, match='options mapping or the path of an options pickle'):
         load_benchmark_options(source)
+
+
+def test_the_error_for_a_path_object_names_its_bytes_path():
+    with pytest.raises(TypeError, match='not BytesPath with a bytes path'):
+        load_benchmark_options(BytesPath())
 
 
 def test_old_replay_entry_points_are_not_retained():

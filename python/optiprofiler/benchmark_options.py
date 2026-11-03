@@ -43,13 +43,15 @@ def load_benchmark_options(source, feature_name=None):
 
     Pickle files must be trusted: decoding can execute user code. Unreadable
     configurations raise LegacyConfigurationError; filesystem errors remain
-    OSError; a source that is neither a mapping nor a path raises TypeError.
-    Replay runs a new experiment, not a live-state resume or replot.
+    OSError; a source that is neither a mapping nor a text path raises
+    TypeError. Replay runs a new experiment, not a live-state resume or replot.
     """
-    if not isinstance(source, (Mapping, str, os.PathLike)):
+    path = os.fspath(source) if isinstance(source, os.PathLike) else source
+    if not isinstance(source, Mapping) and not isinstance(path, str):
+        detail = ' with a bytes path' if isinstance(path, bytes) and path is not source else ''
         raise TypeError('load_benchmark_options expects an options mapping or the path of an options pickle, '
-                        f'not {type(source).__name__}.')
-    options = source if isinstance(source, Mapping) else _read_options(source)
+                        f'not {type(source).__name__}{detail}.')
+    options = source if isinstance(source, Mapping) else _read_options(path)
     return _replay_options(options, feature_name)
 
 
