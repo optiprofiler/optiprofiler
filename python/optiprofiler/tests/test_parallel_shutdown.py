@@ -63,6 +63,51 @@ def test_a_manager_thread_that_finishes_is_shut_down_normally(monkeypatch):
     assert executor.shutdowns == [True]
 
 
+def test_the_parent_pipe_ends_are_closed_before_the_shutdown():
+    events = []
+
+    class End:
+        def __init__(self, name):
+            self.name = name
+
+        def close(self):
+            events.append(self.name)
+
+    class ResultQueue:
+        _writer = End('result writer closed')
+
+    class CallQueue:
+        _reader = End('call reader closed')
+
+    class Executor:
+        _result_queue = ResultQueue()
+        _call_queue = CallQueue()
+
+        def shutdown(self, wait=True):
+            events.append(('shutdown', wait))
+
+    _parallel.shutdown_after_failure(Executor())
+    assert events == ['result writer closed', 'call reader closed', ('shutdown', True)]
+
+
+def test_a_pipe_end_closed_by_several_threads_is_closed_once():
+    closes = []
+
+    class Connection:
+        def _close(self):
+            closes.append(threading.current_thread().name)
+            time.sleep(0.05)
+
+    connection = Connection()
+    _parallel.close_once(connection)
+    threads = [threading.Thread(target=connection._close) for _ in range(4)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert len(closes) == 1
+
+
 def test_an_executor_without_that_thread_is_shut_down_normally():
     class Executor:
         def __init__(self):

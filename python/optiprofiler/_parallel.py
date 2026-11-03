@@ -6,6 +6,7 @@ from multiprocessing.reduction import ForkingPickler
 from pathlib import Path
 import pickle
 import sys
+import threading
 import time
 
 
@@ -58,12 +59,41 @@ class WorkerArgumentPickler(ForkingPickler):
 MANAGER_STOP_SECONDS = 5
 
 
+def close_once(connection):
+    """Let several threads close one pipe end: only the first closes it."""
+    lock = threading.Lock()
+    close = connection._close
+    closed = []
+
+    def close_first():
+        with lock:
+            if not closed:
+                closed.append(True)
+                close()
+    connection._close = close_first
+
+
 def shutdown_after_failure(executor):
     """Shut down an executor whose workers were already terminated."""
-    # Python 3.8's daemon manager thread can block forever reading the result
-    # pipe after its workers are killed (seen on Windows), and interpreter exit
-    # joins every registered manager thread. Bound the wait, and abandon a
-    # thread that cannot finish rather than leave benchmark hanging.
+    # A worker killed while writing its result leaves part of a message in the
+    # result pipe, and the manager thread then waits in recv() for the rest.
+    # Once the workers are dead, closing the parent's write end turns that wait
+    # into EOF (unless another process still holds a copy). Only this thread
+    # closes that end, here and in shutdown().
+    result_queue = getattr(executor, '_result_queue', None)
+    if result_queue is not None:
+        result_queue._writer.close()
+    # Closing the parent's read end of the call queue makes a feeder thread
+    # blocked on a full call pipe fail; Python 3.9 and 3.10 would otherwise
+    # hang in the manager's broken-pool exit (gh-94777). CPython also closes
+    # this end from the manager or the feeder thread, so run_tasks made the
+    # close single-shot.
+    call_queue = getattr(executor, '_call_queue', None)
+    if call_queue is not None:
+        call_queue._reader.close()
+    # Python 3.8's manager is a daemon thread that interpreter exit joins: if
+    # it still cannot finish, abandon it rather than leave benchmark hanging.
+    # Python 3.9+ cannot abandon its non-daemon manager, so shutdown waits.
     thread = getattr(executor, '_queue_management_thread', None)
     if thread is not None:
         with executor._shutdown_lock:
@@ -86,6 +116,9 @@ def run_tasks(function, args, n_jobs, initializer, initargs):
     # task can kill a newly spawned worker. Python 3.8 already starts eagerly.
     if hasattr(executor, '_safe_to_dynamically_spawn_children'):
         executor._safe_to_dynamically_spawn_children = False
+    # Before any thread can close it; Connection.close is not safe against a
+    # concurrent close, which could hit a reused descriptor.
+    close_once(executor._call_queue._reader)
     futures = {}
     owned = set()
     results = [None] * len(args)
