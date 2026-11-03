@@ -4,6 +4,7 @@ Replay runs new solvers. It neither resumes runtime state nor reconstructs
 callbacks from report metadata. Historical decoding stays in legacy_compat.
 """
 
+import os
 import pickle
 import warnings
 from collections.abc import Mapping
@@ -42,8 +43,12 @@ def load_benchmark_options(source, feature_name=None):
 
     Pickle files must be trusted: decoding can execute user code. Unreadable
     configurations raise LegacyConfigurationError; filesystem errors remain
-    OSError. Replay runs a new experiment, not a live-state resume or replot.
+    OSError; a source that is neither a mapping nor a path raises TypeError.
+    Replay runs a new experiment, not a live-state resume or replot.
     """
+    if not isinstance(source, (Mapping, str, os.PathLike)):
+        raise TypeError('load_benchmark_options expects an options mapping or the path of an options pickle, '
+                        f'not {type(source).__name__}.')
     options = source if isinstance(source, Mapping) else _read_options(source)
     return _replay_options(options, feature_name)
 

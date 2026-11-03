@@ -45,6 +45,12 @@ def test_file_and_mapping_replay_directly_into_benchmark(tmp_path, schema, path_
     assert path.read_bytes() == original
 
 
+@pytest.mark.parametrize('source', [[('feature_name', 'plain')], None, 42, pickle.dumps({'feature_name': 'plain'})])
+def test_a_source_that_is_neither_a_mapping_nor_a_path_is_a_type_error(source):
+    with pytest.raises(TypeError, match='options mapping or the path of an options pickle'):
+        load_benchmark_options(source)
+
+
 def test_old_replay_entry_points_are_not_retained():
     assert not hasattr(legacy_compat, 'load_options')
     assert not hasattr(legacy_compat, 'replay_arguments')
