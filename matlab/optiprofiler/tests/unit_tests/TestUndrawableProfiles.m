@@ -91,6 +91,24 @@ classdef TestUndrawableProfiles < matlab.unittest.TestCase
             testCase.verifyEqual(profiles, zeros(2, 3, 2, 3));
             testCase.verifyEmpty(plotRefs(options.report_path));
         end
+        function readmeListsTheSummaryPdfs(testCase)
+            % Only the first of the three tolerances has profiles.
+            options = testCase.library();
+            options.score_only = false;
+            options.draw_hist_plots = 'none';
+            options.savepath = fullfile(testCase.WorkDir, 'out');
+            benchmark({@TestUndrawableProfiles.toThreeTenths, @TestUndrawableProfiles.toAQuarter}, options);
+            summary = dir(fullfile(options.savepath, '**', 'summary_*.pdf'));
+            testCase.assertNumElements(summary, 1);
+            % README.txt wraps a long name over the first 33 columns of its following lines.
+            lines = splitlines(fileread(fullfile(summary.folder, 'README.txt')));
+            readme = strjoin(cellfun(@(line) strtrim(line(1:min(33, end))), lines, 'UniformOutput', false), '');
+            testCase.verifySubstring(readme, summary.name);
+            for name = {'perf_hist.pdf', 'data_hist.pdf', 'log-ratio_hist.pdf', 'perf_out.pdf', 'data_out.pdf', 'log-ratio_out.pdf'}
+                testCase.verifyTrue(isfile(fullfile(summary.folder, name{1})), name{1});
+                testCase.verifySubstring(readme, name{1});
+            end
+        end
     end
 end
 

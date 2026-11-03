@@ -86,7 +86,8 @@ def test_a_summary_pdf_exists_and_is_listed_only_with_a_profile_in_it(options, t
     options.update(score_only=False, draw_hist_plots='none', savepath=str(tmp_path / 'out'))
     benchmark(list(solvers), **options)
     stamp = next((tmp_path / 'out').rglob('test_log')).parent
-    readme = (stamp / 'README.txt').read_text(encoding='utf-8')
+    # README.txt wraps a long name over the first 33 columns of its following lines.
+    readme = ''.join(line[:33].strip() for line in (stamp / 'README.txt').read_text(encoding='utf-8').splitlines())
     report = json.loads(open(options['report_path'], encoding='utf-8').read())
     artifacts = {artifact['path'].split('/')[-1] for artifact in report['artifacts']}
     for name in ('perf_hist.pdf', 'data_hist.pdf', 'log-ratio_hist.pdf',
@@ -94,3 +95,4 @@ def test_a_summary_pdf_exists_and_is_listed_only_with_a_profile_in_it(options, t
         assert (stamp / name).is_file() == has_summaries, name
         assert (name in readme) == has_summaries, name
         assert (name in artifacts) == has_summaries, name
+    assert next(stamp.glob('summary_*.pdf')).name in readme

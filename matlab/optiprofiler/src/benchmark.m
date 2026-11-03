@@ -2200,7 +2200,7 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
 
         try
             if isfile(fullfile(path_stamp, [summary_name, '.pdf']))
-                addToReadme(path_readme_feature, summary_name, sprintf('File, the summary PDF of all the profiles for the feature ''%s''.', feature_name));
+                addToReadme(path_readme_feature, [summary_name, '.pdf'], sprintf('File, the summary PDF of all the profiles for the feature ''%s''.', feature_name));
             end
         catch
         end

@@ -2316,6 +2316,10 @@ def _build_profiles(
             apply_plot_options(fig_summary, profile_options.get(ProfileOption.PLOT_OPTIONS, {}))
             path_summary = path_stamp / f'summary_{stamp}.pdf'
             _report_export(report, fig_summary.savefig, path_summary, bbox_inches='tight')
+        try:
+            add_to_readme(path_readme_feature, path_summary.name, f"File, the summary PDF of all the profiles for the feature '{feature.name}'.")
+        except Exception:
+            pass
 
         if not profile_options[ProfileOption.SILENT]:
             logger.info('The summary PDF of all the profiles is created.')
