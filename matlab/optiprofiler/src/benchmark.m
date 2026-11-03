@@ -227,7 +227,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         index of the solver, the second corresponds to the index of tolerance
 %         starting from 1, the third represents history-based or output-based
 %         profiles, and the fourth represents performance profiles, data
-%         profiles, or log-ratio profiles. It must return one real score per
+%         profiles, or log-ratio profiles. A history-based or output-based
+%         profile at a tolerance no solver meets has no curve and scores 0 for
+%         every solver. It must return one real score per
 %         solver: a row or column vector of length n_solvers (an array whose
 %         n_solvers values lie along one dimension becomes a column). Any
 %         other size, or a non-numeric, logical or complex result, raises an

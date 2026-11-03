@@ -666,7 +666,9 @@ def _benchmark(
         index of the solver, the second corresponds to the index of tolerance
         starting from 1, the third represents history-based or output-based
         profiles, and the fourth represents performance profiles, data
-        profiles, or log-ratio profiles. It must return one real score per
+        profiles, or log-ratio profiles. A history-based or output-based
+        profile at a tolerance no solver meets has no curve and scores 0 for
+        every solver. It must return one real score per
         solver: a vector of length n_solvers (a column or row array with
         n_solvers entries is flattened to that vector; any other shape raises
         an error). The default scoring function takes
@@ -908,9 +910,11 @@ def _benchmark(
         A 4D array containing scores for all profiles. The first dimension corresponds to the
         index of the solver, the second to the index of tolerance starting from 1, the third
         represents history-based or output-based profiles, and the fourth represents
-        performance profiles, data profiles, or log-ratio profiles.
+        performance profiles, data profiles, or log-ratio profiles. A profile at a
+        tolerance no solver meets scores 0.
     curves : list of dict or None
-        A list containing the curves of all the profiles.
+        A list containing the curves of all the profiles. A profile at a tolerance
+        no solver meets keeps None in place of its curves.
 
     Raises
     ------
@@ -2089,11 +2093,16 @@ def _build_profiles(
                 if not is_out_drawable and not profile_options[ProfileOption.SILENT]:
                     logger.info(f'All solvers failed to meet the convergence test for tolerance {tolerance_str} in output-based profiles.')
 
-                # Draw the profiles.
-                fig_perf_hist, fig_data_hist, fig_log_ratio_hist, curve['hist'] = draw_profiles(work_hist, problem_dims_merged, solver_names, tolerance_latex, i_tol, ax_summary_perf_hist, ax_summary_data_hist, ax_summary_log_ratio_hist, True, is_perf, is_data, is_log_ratio, profile_options, curve['hist'],
-                    **({'_plot_sink': lambda kind, data: report.add_profile_plot(kind, data, i_tol + 1, 'history')} if report is not None else {}))
-                fig_perf_out, fig_data_out, fig_log_ratio_out, curve['out'] = draw_profiles(work_out, problem_dims_merged, solver_names, tolerance_latex, i_tol, ax_summary_perf_out, ax_summary_data_out, ax_summary_log_ratio_out, is_output_based, is_perf, is_data, is_log_ratio, profile_options, curve['out'],
-                    **({'_plot_sink': lambda kind, data: report.add_profile_plot(kind, data, i_tol + 1, 'output')} if report is not None else {}))
+                # Draw the profiles. As in MATLAB, a branch in which no solver meets
+                # the convergence test keeps its empty curves, so it scores 0.
+                fig_perf_hist = fig_data_hist = fig_log_ratio_hist = None
+                fig_perf_out = fig_data_out = fig_log_ratio_out = None
+                if is_hist_drawable:
+                    fig_perf_hist, fig_data_hist, fig_log_ratio_hist, curve['hist'] = draw_profiles(work_hist, problem_dims_merged, solver_names, tolerance_latex, i_tol, ax_summary_perf_hist, ax_summary_data_hist, ax_summary_log_ratio_hist, True, is_perf, is_data, is_log_ratio, profile_options, curve['hist'],
+                        **({'_plot_sink': lambda kind, data: report.add_profile_plot(kind, data, i_tol + 1, 'history')} if report is not None else {}))
+                if is_out_drawable:
+                    fig_perf_out, fig_data_out, fig_log_ratio_out, curve['out'] = draw_profiles(work_out, problem_dims_merged, solver_names, tolerance_latex, i_tol, ax_summary_perf_out, ax_summary_data_out, ax_summary_log_ratio_out, is_output_based, is_perf, is_data, is_log_ratio, profile_options, curve['out'],
+                        **({'_plot_sink': lambda kind, data: report.add_profile_plot(kind, data, i_tol + 1, 'output')} if report is not None else {}))
                 curves.append(curve)
 
                 # Save the profiles to files.
