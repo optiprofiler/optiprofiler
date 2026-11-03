@@ -1,5 +1,6 @@
 """Ordered benchmark tasks with explicit worker-loss and abort cleanup."""
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import process as futures_process
 import multiprocessing as mp
 from multiprocessing.reduction import ForkingPickler
 from pathlib import Path
@@ -54,6 +55,27 @@ class WorkerArgumentPickler(ForkingPickler):
         return None
 
 
+MANAGER_STOP_SECONDS = 5
+
+
+def shutdown_after_failure(executor):
+    """Shut down an executor whose workers were already terminated."""
+    # Python 3.8's daemon manager thread can block forever reading the result
+    # pipe after its workers are killed (seen on Windows), and interpreter exit
+    # joins every registered manager thread. Bound the wait, and abandon a
+    # thread that cannot finish rather than leave benchmark hanging.
+    thread = getattr(executor, '_queue_management_thread', None)
+    if thread is not None:
+        with executor._shutdown_lock:
+            executor._shutdown_thread = True
+        executor._queue_management_thread_wakeup.wakeup()
+        thread.join(MANAGER_STOP_SECONDS)
+        if thread.is_alive():
+            futures_process._threads_wakeups.pop(thread, None)
+            return
+    executor.shutdown(wait=True)
+
+
 def run_tasks(function, args, n_jobs, initializer, initargs):
     if not args:
         return []
@@ -77,21 +99,23 @@ def run_tasks(function, args, n_jobs, initializer, initargs):
         for future in as_completed(futures):
             results[futures[future]] = future.result()
     except BaseException:
-        owned.update((executor._processes or {}).values())
-        for future in futures:
-            future.cancel()
-        # shutdown(wait=True) alone waits for running tasks after cancellation.
-        # Terminate our workers first; never enumerate caller-owned children.
-        for process in owned:
-            if process.is_alive():
-                process.terminate()
-        deadline = time.monotonic() + 5
-        for process in owned:
-            process.join(max(0, deadline - time.monotonic()))
-        for process in owned:
-            if process.is_alive():
-                process.kill()
+        try:
+            owned.update((executor._processes or {}).values())
+            for future in futures:
+                future.cancel()
+            # shutdown(wait=True) alone waits for running tasks after cancellation.
+            # Terminate our workers first; never enumerate caller-owned children.
+            for process in owned:
+                if process.is_alive():
+                    process.terminate()
+            deadline = time.monotonic() + 5
+            for process in owned:
+                process.join(max(0, deadline - time.monotonic()))
+            for process in owned:
+                if process.is_alive():
+                    process.kill()
+        finally:
+            shutdown_after_failure(executor)
         raise
-    finally:
-        executor.shutdown(wait=True)
+    executor.shutdown(wait=True)
     return results
