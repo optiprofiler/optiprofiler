@@ -437,6 +437,7 @@ verticalalignment
 visititems
 VUNUS
 waitfor
+wakeups
 WEBFIGUREVIEWRECOVERY
 webwindow
 webwindowmanager
