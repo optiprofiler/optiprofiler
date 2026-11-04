@@ -2025,12 +2025,11 @@ def _build_profiles(
         # closed too, and that failure is an export failure of the rendering
         # stage, not a scoring failure.
         summary_writers = []
-        has_hist_summary = has_out_summary = False
-        has_log_ratio_hist_summary = has_log_ratio_out_summary = False
+        summaries_with_pages = set()
 
         def _open_summary(path):
             writer = _report_export(report, backend_pdf.PdfPages, path)
-            summary_writers.append(writer)
+            summary_writers.append((path, writer))
             return writer
 
         try:
@@ -2117,7 +2116,6 @@ def _build_profiles(
                         pdf_data_hist = path_data_hist / f'data_hist_{i_tol + 1}.pdf'
                         _report_export(report, fig_data_hist.savefig, pdf_data_hist, bbox_inches='tight')
                         _report_export(report, pdf_data_hist_summary.savefig, fig_data_hist, bbox_inches='tight')
-                        has_hist_summary = True
 
                     if is_out_drawable:
                         pdf_perf_out = path_perf_out / f'perf_out_{i_tol + 1}.pdf'
@@ -2127,20 +2125,17 @@ def _build_profiles(
                         pdf_data_out = path_data_out / f'data_out_{i_tol + 1}.pdf'
                         _report_export(report, fig_data_out.savefig, pdf_data_out, bbox_inches='tight')
                         _report_export(report, pdf_data_out_summary.savefig, fig_data_out, bbox_inches='tight')
-                        has_out_summary = True
 
                     if n_solvers == 2:
                         if is_hist_drawable and fig_log_ratio_hist is not None:
                             pdf_log_ratio_hist = path_log_ratio_hist / f'log-ratio_hist_{i_tol + 1}.pdf'
                             _report_export(report, fig_log_ratio_hist.savefig, pdf_log_ratio_hist, bbox_inches='tight')
                             _report_export(report, pdf_log_ratio_hist_summary.savefig, fig_log_ratio_hist, bbox_inches='tight')
-                            has_log_ratio_hist_summary = True
                     
                         if is_out_drawable and fig_log_ratio_out is not None:
                             pdf_log_ratio_out = path_log_ratio_out / f'log-ratio_out_{i_tol + 1}.pdf'
                             _report_export(report, fig_log_ratio_out.savefig, pdf_log_ratio_out, bbox_inches='tight')
                             _report_export(report, pdf_log_ratio_out_summary.savefig, fig_log_ratio_out, bbox_inches='tight')
-                            has_log_ratio_out_summary = True
                 
                 # These file-only figures are not registered with pyplot.
                 for figure in (fig_perf_hist, fig_perf_out, fig_data_hist, fig_data_out,
@@ -2150,18 +2145,16 @@ def _build_profiles(
             
             # Close the summary pdf files.
             if is_saving:
-                for writer in list(summary_writers):
+                for path, writer in list(summary_writers):
+                    # get_pagecount() opens an untouched lazy writer in newer Matplotlib.
+                    has_pages = writer._file is not None and writer.get_pagecount() > 0
                     _report_export(report, writer.close)
-                    summary_writers.remove(writer)
-                # Matplotlib before 3.10 writes a PDF without pages for a writer
-                # that received no figure. Failing to delete one only leaves it.
-                for path, has_pages in ((path_perf_hist_summary, has_hist_summary),
-                                        (path_data_hist_summary, has_hist_summary),
-                                        (path_perf_out_summary, has_out_summary),
-                                        (path_data_out_summary, has_out_summary),
-                                        (path_log_ratio_hist_summary, has_log_ratio_hist_summary),
-                                        (path_log_ratio_out_summary, has_log_ratio_out_summary)):
-                    if not has_pages:
+                    summary_writers.remove((path, writer))
+                    if has_pages:
+                        summaries_with_pages.add(path)
+                    else:
+                        # Matplotlib before 3.10 writes a PDF without pages for a writer
+                        # that received no figure. Failing to delete one only leaves it.
                         try:
                             path.unlink(missing_ok=True)
                         except OSError:
@@ -2169,7 +2162,7 @@ def _build_profiles(
         except BaseException:
             # Closing is cleanup only: a failure here must never replace the
             # original exception, and every registered writer gets its turn.
-            for writer in summary_writers:
+            for _, writer in summary_writers:
                 try:
                     writer.close()
                 except Exception:
@@ -2178,16 +2171,16 @@ def _build_profiles(
         
         if is_saving:
             try:
-                if has_hist_summary:
-                    add_to_readme(path_readme_feature, 'perf_hist.pdf', 'File, the summary PDF of history-based performance profiles for all tolerances.')
-                    add_to_readme(path_readme_feature, 'data_hist.pdf', 'File, the summary PDF of history-based data profiles for all tolerances.')
-                if has_log_ratio_hist_summary:
-                    add_to_readme(path_readme_feature, 'log-ratio_hist.pdf', 'File, the summary PDF of history-based log-ratio profiles for all tolerances.')
-                if has_out_summary:
-                    add_to_readme(path_readme_feature, 'perf_out.pdf', 'File, the summary PDF of output-based performance profiles for all tolerances.')
-                    add_to_readme(path_readme_feature, 'data_out.pdf', 'File, the summary PDF of output-based data profiles for all tolerances.')
-                if has_log_ratio_out_summary:
-                    add_to_readme(path_readme_feature, 'log-ratio_out.pdf', 'File, the summary PDF of output-based log-ratio profiles for all tolerances.')
+                for path, description in (
+                    (path_perf_hist_summary, 'File, the summary PDF of history-based performance profiles for all tolerances.'),
+                    (path_data_hist_summary, 'File, the summary PDF of history-based data profiles for all tolerances.'),
+                    (path_log_ratio_hist_summary, 'File, the summary PDF of history-based log-ratio profiles for all tolerances.'),
+                    (path_perf_out_summary, 'File, the summary PDF of output-based performance profiles for all tolerances.'),
+                    (path_data_out_summary, 'File, the summary PDF of output-based data profiles for all tolerances.'),
+                    (path_log_ratio_out_summary, 'File, the summary PDF of output-based log-ratio profiles for all tolerances.'),
+                ):
+                    if path in summaries_with_pages:
+                        add_to_readme(path_readme_feature, path.name, description)
             except Exception:
                 pass
         

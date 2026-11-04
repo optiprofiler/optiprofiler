@@ -3,6 +3,8 @@
 import threading
 import time
 from concurrent.futures import process as futures_process
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 from optiprofiler import _parallel
 
@@ -15,18 +17,25 @@ class Wakeup:
         self.event.set()
 
 
-class Python38Executor:
-    """The executor attributes shutdown_after_failure relies on in Python 3.8."""
-
-    def __init__(self, thread, wakeup):
-        self._queue_management_thread = thread
-        self._queue_management_thread_wakeup = wakeup
-        self._shutdown_lock = threading.Lock()
-        self._shutdown_thread = False
+class Executor:
+    def __init__(self):
+        self._result_queue = SimpleNamespace(_writer=Mock())
+        self._call_queue = SimpleNamespace(_reader=Mock())
         self.shutdowns = []
 
     def shutdown(self, wait=True):
         self.shutdowns.append(wait)
+
+
+class Python38Executor(Executor):
+    """The executor attributes shutdown_after_failure relies on in Python 3.8."""
+
+    def __init__(self, thread, wakeup):
+        super().__init__()
+        self._queue_management_thread = thread
+        self._queue_management_thread_wakeup = wakeup
+        self._shutdown_lock = threading.Lock()
+        self._shutdown_thread = False
 
 
 def started(target):
@@ -99,7 +108,8 @@ def test_a_pipe_end_closed_by_several_threads_is_closed_once():
             time.sleep(0.05)
 
     connection = Connection()
-    _parallel.close_once(connection)
+    _parallel.install_close_once(connection)
+    assert closes == []
     threads = [threading.Thread(target=connection._close) for _ in range(4)]
     for thread in threads:
         thread.start()
@@ -109,13 +119,6 @@ def test_a_pipe_end_closed_by_several_threads_is_closed_once():
 
 
 def test_an_executor_without_that_thread_is_shut_down_normally():
-    class Executor:
-        def __init__(self):
-            self.shutdowns = []
-
-        def shutdown(self, wait=True):
-            self.shutdowns.append(wait)
-
     executor = Executor()
     _parallel.shutdown_after_failure(executor)
     assert executor.shutdowns == [True]
