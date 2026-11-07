@@ -308,6 +308,7 @@ Optim
 otherproblems
 otypes
 outerposition
+pagecount
 papersize
 passphrase
 passthrough
