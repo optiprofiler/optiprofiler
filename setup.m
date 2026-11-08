@@ -18,6 +18,16 @@ function setup(varargin)
 %   setup(struct('problem_library_root', '/path/to/libraries'))  % Relocate optional libraries
 %   setup uninstall  % Remove setup-managed paths; preserve registrations and data
 %
+%   A git checkout of a problem library is brought to the commit locked in
+%   matlab_problem_libraries.lock. If that commit cannot be reached the library
+%   is not used as the locked one. An optional library that fails in any way is
+%   reported at the end, left out of the paths and not registered, also if an
+%   earlier setup had registered it; the core and S2MPJ paths are configured
+%   whatever happens to it. For S2MPJ, whose paths are configured in any case,
+%   setup ends with an error after the rest is done. A checkout with local
+%   changes, or a directory that is not a git repository, is your own tree:
+%   setup leaves it as it is.
+%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 %   REMARKS:
@@ -121,8 +131,16 @@ function setup(varargin)
                 return; % Stop setup if cloning fails
             end
         end
-        checkout_git_repository_commit_if_clean( ...
-            s2mpj_dir, s2mpj_repo_url, s2mpj_commit, 'S2MPJ');
+        % The core and S2MPJ paths are always configured; an S2MPJ checkout
+        % that cannot reach its pin is an error once setup has done the rest.
+        s2mpj_failure = [];
+        try
+            checkout_git_repository_commit_if_clean( ...
+                s2mpj_dir, s2mpj_repo_url, s2mpj_commit, 'S2MPJ');
+        catch failure
+            s2mpj_failure = failure;
+            fprintf('WARNING: %s: %s\n', failure.identifier, failure.message);
+        end
         
         
         % =================================================================
@@ -138,25 +156,20 @@ function setup(varargin)
         paths_to_add = [{src_dir}, s2mpj_paths];
         path_owners = repmat({setup_dir}, size(paths_to_add));
         register_matcutest = false;
+        register_solar = false;
+        % An optional library that fails is reported at the end and left out of
+        % the paths and the registry. The core and S2MPJ do not depend on it.
+        failed_libraries = cell(0, 4);
         if isunix() && ~ismac()
             % Local variable to track if we should proceed with MatCUTEst actions
             proceed_with_matcutest = false;
             skip_clone_msg = false;
 
-            % 1. Check if MatCUTEst is already installed on the system (global/path)
-            is_matcutest_installed = false;
-            if exist('matcutest', 'file') == 2 || exist('matcutest', 'file') == 3
-                is_matcutest_installed = true;
-            else
-                try
-                    help_str = help('matcutest');
-                    if ~isempty(help_str)
-                        is_matcutest_installed = true;
-                    end
-                catch
-                end
-            end
-            
+            % 1. Check if MatCUTEst is already installed on the system (global/path):
+            % the adapter calls macup and secup. help cannot tell, because for an
+            % absent name it may return the help of a similarly spelled function.
+            is_matcutest_installed = exist('macup', 'file') == 2 && exist('secup', 'file') == 2;
+
             % 2. Check if the local MatCUTEst directory is populated
             is_matcutest_dir_populated = exist(matcutest_dir, 'dir') && length(dir(matcutest_dir)) > 2;
 
@@ -185,44 +198,41 @@ function setup(varargin)
             end
             
             if proceed_with_matcutest
-                % 4. Clone MatCUTEst repository if needed
-                if exist(matcutest_dir, 'dir') && length(dir(matcutest_dir)) > 2
-                    if ~skip_clone_msg
-                         fprintf('MatCUTEst directory at %s seems populated. Skipping clone.\n', matcutest_dir);
-                    end
-                    checkout_git_repository_commit_if_clean(matcutest_dir, matcutest_repo_url, matcutest_commit, 'MatCUTEst');
-                else
-                    fprintf('Cloning MatCUTEst repository (optiprofiler fork)...\n');
-                    ensure_directory(optional_plib_dir, 'optional problem-library root');
-                    clone_cmd = sprintf('git clone "%s" "%s"', matcutest_repo_url, matcutest_dir);
-                    status = system(clone_cmd);
-                    
-                    if status == 0
-                        fprintf('MatCUTEst cloned successfully.\n');
-                        checkout_git_repository_commit_if_clean(matcutest_dir, matcutest_repo_url, matcutest_commit, 'MatCUTEst');
+                try
+                    % 4. Clone MatCUTEst repository if needed
+                    if exist(matcutest_dir, 'dir') && length(dir(matcutest_dir)) > 2
+                        if ~skip_clone_msg
+                             fprintf('MatCUTEst directory at %s seems populated. Skipping clone.\n', matcutest_dir);
+                        end
                     else
-                        fprintf('WARNING: Failed to clone MatCUTEst repository.\n');
+                        fprintf('Cloning MatCUTEst repository (optiprofiler fork)...\n');
+                        clone_optional_problem_library(matcutest_repo_url, matcutest_dir, optional_plib_dir, 'MatCUTEst');
+                        fprintf('MatCUTEst cloned successfully.\n');
                     end
-                end
-                
-                % 5. Add the MatCUTEst directory to the path list
-                paths_to_add{end+1} = matcutest_dir;
-                path_owners{end+1} = matcutest_dir;
-                register_matcutest = is_populated_directory(matcutest_dir);
-                
-                % Use only the managed adapter entry point, never native setup.
-                runtime_parent = matcutest_runtime_root;
-                expected_tools = fullfile(runtime_parent, 'matcutest', 'mtools', 'src');
-                user_runtime = is_matcutest_installed && ...
-                    ~strcmp(fileparts(which('macup')), expected_tools);
-                if user_runtime
-                    fprintf('Using the existing user-managed MatCUTEst runtime; no paths are claimed.\n');
-                else
-                    [~, prepare_runtime] = setup_helpers();
-                    receipt = prepare_runtime(matcutest_dir, runtime_parent);
-                    paths_to_add = [paths_to_add, receipt.runtime_paths];
-                    path_owners = [path_owners, repmat({matcutest_dir}, size(receipt.runtime_paths))];
-                    fprintf('MatCUTEst managed runtime prepared at %s.\n', receipt.runtime_root);
+                    pin_optional_problem_library(matcutest_dir, matcutest_repo_url, matcutest_commit, 'MatCUTEst');
+
+                    % 5. Use only the managed adapter entry point, never native setup.
+                    matcutest_paths = {matcutest_dir};
+                    runtime_parent = matcutest_runtime_root;
+                    expected_tools = fullfile(runtime_parent, 'matcutest', 'mtools', 'src');
+                    user_runtime = is_matcutest_installed && ...
+                        ~strcmp(fileparts(which('macup')), expected_tools);
+                    if user_runtime
+                        fprintf('Using the existing user-managed MatCUTEst runtime; no paths are claimed.\n');
+                    else
+                        [~, prepare_runtime] = setup_helpers();
+                        receipt = prepare_runtime(matcutest_dir, runtime_parent);
+                        matcutest_paths = [matcutest_paths, receipt.runtime_paths];
+                        fprintf('MatCUTEst managed runtime prepared at %s.\n', receipt.runtime_root);
+                    end
+
+                    % 6. Add the MatCUTEst directories to the path list
+                    paths_to_add = [paths_to_add, matcutest_paths];
+                    path_owners = [path_owners, repmat({matcutest_dir}, size(matcutest_paths))];
+                    register_matcutest = true;
+                catch failure
+                    failed_libraries(end + 1, :) = {'MatCUTEst', failure.message, 'matcutest', matcutest_dir};
+                    fprintf('WARNING: MatCUTEst is not set up.\n');
                 end
             else
                 fprintf('Skipping MatCUTEst setup.\n');
@@ -261,35 +271,34 @@ function setup(varargin)
             end
         end
 
-        if proceed_with_solar && ~is_solar_dir_populated
-            fprintf('Cloning SOLAR MATLAB adapter (optiprofiler fork)...\n');
-            ensure_directory(optional_plib_dir, 'optional problem-library root');
-            clone_cmd = sprintf('git clone "%s" "%s"', solar_repo_url, solar_dir);
-            status = system(clone_cmd);
-            if status == 0
-                fprintf('SOLAR MATLAB adapter cloned successfully.\n');
-                is_solar_dir_populated = true;
-            else
-                fprintf('WARNING: Failed to clone SOLAR MATLAB adapter repository.\n');
-                fprintf('You can manually clone or download "solar_matlab" from:\n');
-                fprintf('  https://github.com/%s\n', char(solar_spec.repository));
-                fprintf('Then rename the folder from "solar_matlab" to "solar" and place it at:\n');
-                fprintf('  %s\n', optional_plib_dir);
+        if proceed_with_solar
+            try
+                if ~is_solar_dir_populated
+                    fprintf('Cloning SOLAR MATLAB adapter (optiprofiler fork)...\n');
+                    clone_optional_problem_library(solar_repo_url, solar_dir, optional_plib_dir, 'SOLAR MATLAB adapter');
+                    fprintf('SOLAR MATLAB adapter cloned successfully.\n');
+                end
+                pin_optional_problem_library(solar_dir, solar_repo_url, solar_commit, 'SOLAR MATLAB adapter');
+                paths_to_add{end+1} = solar_dir;
+                path_owners{end+1} = solar_dir;
+                register_solar = true;
+                fprintf('SOLAR MATLAB adapter will be added to the MATLAB path.\n');
+                fprintf('The adapter vendors a slim SOLAR runtime; see its README, license files, and runtime manifest for details.\n');
+            catch failure
+                failed_libraries(end + 1, :) = {'SOLAR MATLAB adapter', failure.message, 'solar', solar_dir};
+                fprintf('WARNING: The SOLAR MATLAB adapter is not set up.\n');
+                if strcmp(failure.identifier, 'setup:ProblemLibraryClone')
+                    fprintf('You can manually clone or download "solar_matlab" from:\n');
+                    fprintf('  https://github.com/%s\n', char(solar_spec.repository));
+                    fprintf('Then rename the folder from "solar_matlab" to "solar" and place it at:\n');
+                    fprintf('  %s\n', optional_plib_dir);
+                end
             end
-        elseif ~proceed_with_solar
+        else
             fprintf('Skipping SOLAR MATLAB adapter setup.\n');
         end
 
-        if is_solar_dir_populated && proceed_with_solar
-            checkout_git_repository_commit_if_clean( ...
-                solar_dir, solar_repo_url, solar_commit, 'SOLAR MATLAB adapter');
-            paths_to_add{end+1} = solar_dir;
-            path_owners{end+1} = solar_dir;
-            fprintf('SOLAR MATLAB adapter will be added to the MATLAB path.\n');
-            fprintf('The adapter vendors a slim SOLAR runtime; see its README, license files, and runtime manifest for details.\n');
-        end
-        
-        
+
         % =================================================================
         % 4. Path Configuration & Persistence
         % =================================================================
@@ -301,20 +310,29 @@ function setup(varargin)
         % directory is available on the MATLAB path. Bundled S2MPJ is
         % resolved directly from its locked gitlink.
         if register_matcutest
-            register_locked_problem_library(matcutest_spec, matcutest_dir);
+            failed_libraries = register_optional_problem_library( ...
+                matcutest_spec, matcutest_dir, 'MatCUTEst', failed_libraries);
         end
-        if is_solar_dir_populated && proceed_with_solar
-            register_locked_problem_library(solar_spec, solar_dir);
+        if register_solar
+            failed_libraries = register_optional_problem_library( ...
+                solar_spec, solar_dir, 'SOLAR MATLAB adapter', failed_libraries);
         end
 
-        if all(paths_saved)
+        % A library that failed leaves nothing behind that claims it is usable,
+        % including what an earlier setup registered for this directory.
+        for i = 1:size(failed_libraries, 1)
+            failed_libraries{i, 2} = withdraw_optional_problem_library(failed_libraries{i, 2:4});
+        end
+        paths_to_add = paths_to_add(~ismember(path_owners, failed_libraries(:, 4)));
+
+        if all(paths_saved) && isempty(s2mpj_failure)
             fprintf('\nThe package is ready to use.\n');
             fprintf('\nYou may now try ''help optiprofiler'' for information on the usage of the package.\n');
             fprintf('\nYou may also run ''testOptiProfiler'' to test the package.\n');
             fprintf('\nA few examples showing how to use the package are provided in the directory:\n\n');
             ex_dir = fullfile(mat_dir, 'examples');
             fprintf('    %s\n\n', ex_dir);
-        else
+        elseif ~all(paths_saved)
             fprintf('\nPaths are available in this MATLAB session, but setup could not persist all required paths.\n');
             fprintf('\n***** To use the package in other MATLAB sessions, append the following lines to your startup script. *****\n');
             fprintf('\n  (see https://www.mathworks.com/help/matlab/ref/startup.html for information):\n');
@@ -324,6 +342,13 @@ function setup(varargin)
         end
 
         fprintf('\n');
+        for i = 1:size(failed_libraries, 1)
+            warning('setup:OptionalProblemLibraryFailed', ...
+                'The optional problem library %s is not set up: %s', failed_libraries{i, 1:2});
+        end
+        if ~isempty(s2mpj_failure)
+            rethrow(s2mpj_failure);
+        end
         return
 
     end
@@ -426,6 +451,44 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
+function failed_libraries = register_optional_problem_library(entry, root, description, failed_libraries)
+    %REGISTER_OPTIONAL_PROBLEM_LIBRARY reports a registration that fails instead of raising.
+
+    try
+        register_locked_problem_library(entry, root);
+    catch failure
+        failed_libraries(end + 1, :) = {description, failure.message, char(entry.name), root};
+    end
+end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+function message = withdraw_optional_problem_library(message, name, root)
+    %WITHDRAW_OPTIONAL_PROBLEM_LIBRARY removes a failed library at ROOT from the registry and the paths.
+    %   A registration of the same name at another root is not this library
+    %   and stays. MESSAGE is extended if the removal fails.
+
+    try
+        [manage_paths, ~, read_registry, registry_file, resolve] = setup_helpers();
+        registrations = read_registry(registry_file());
+        roots = {registrations.root};
+        here = strcmp(roots, root) | strcmp(cellfun(resolve, roots, 'UniformOutput', false), resolve(root));
+        if any(strcmp({registrations.name}, name) & here)
+            unregisterProblemLibrary(name);
+        else
+            manage_paths('remove-owner', root);
+        end
+    catch failure
+        message = sprintf('%s It could not be removed from the path or the registry: %s', message, failure.message);
+    end
+end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
 function paths_saved = add_save_path(path_strings, owners)
     % Only explicit additions are recorded; existing caller paths are borrowed.
     [manage_paths, ~] = setup_helpers();
@@ -438,7 +501,7 @@ function paths_saved = add_save_path(path_strings, owners)
     end
 end
 
-function [manage_paths, prepare_runtime] = setup_helpers()
+function [manage_paths, prepare_runtime, read_registry, registry_file, resolve] = setup_helpers()
     % Bind private helpers without adding a private directory to MATLAB path.
     original = pwd;
     cleanup = onCleanup(@() cd(original)); %#ok<NASGU>
@@ -447,6 +510,9 @@ function [manage_paths, prepare_runtime] = setup_helpers()
     cd(private_dir);
     manage_paths = @setupPathOwnership;
     prepare_runtime = @prepareMatcutestRuntime;
+    read_registry = @readProblemLibraryRegistry;
+    registry_file = @getProblemLibraryRegistryFile;
+    resolve = @resolvedDirectory;
 end
 
 function pathdef_file = get_setup_pathdef_file()
@@ -480,26 +546,32 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-function checkout_git_repository_commit_if_clean(repo_dir, repo_url, commit_hash, repo_name)
-    %CHECKOUT_GIT_REPOSITORY_COMMIT_IF_CLEAN pins an optional problem library checkout.
+function verified = checkout_git_repository_commit_if_clean(repo_dir, repo_url, commit_hash, repo_name)
+    %CHECKOUT_GIT_REPOSITORY_COMMIT_IF_CLEAN pins a problem library checkout.
+    %   Afterwards the checkout is at the pinned commit or it is a tree of the
+    %   user, left alone: a directory that is not a git repository, or one with
+    %   local changes. Otherwise this is an error, because a checkout at
+    %   another commit must not pass for the locked library. VERIFIED is false
+    %   if git cannot tell which of these the checkout is.
 
+    verified = true;
     git_dir = fullfile(repo_dir, '.git');
     if exist(git_dir, 'dir') ~= 7 && exist(git_dir, 'file') ~= 2
         fprintf('%s directory is not a git repository. Using it as-is.\n', repo_name);
         return
     end
 
-    head_cmd = sprintf('git -C "%s" rev-parse HEAD', repo_dir);
-    [status, head_output] = system(head_cmd);
+    git_cmd = sprintf('git -C "%s" ', repo_dir);
+    [status, head_output] = system([git_cmd, 'rev-parse HEAD']);
     if status == 0 && strcmp(strtrim(head_output), commit_hash)
         fprintf('%s repository is already at pinned commit %s.\n', repo_name, commit_hash);
         return
     end
 
-    status_cmd = sprintf('git -C "%s" status --porcelain', repo_dir);
-    [status, status_output] = system(status_cmd);
+    [status, status_output] = system([git_cmd, 'status --porcelain']);
     if status ~= 0
         fprintf('WARNING: Could not inspect %s repository status. Using it as-is.\n', repo_name);
+        verified = false;
         return
     end
 
@@ -508,35 +580,55 @@ function checkout_git_repository_commit_if_clean(repo_dir, repo_url, commit_hash
         return
     end
 
-    fetch_cmd = sprintf('git -C "%s" fetch --tags "%s"', repo_dir, repo_url);
-    status = system(fetch_cmd);
+    % Fetching without a refspec brings only what the default branch reaches,
+    % so ask for the commit itself. A checkout that already has it stays offline.
+    [status, output] = system([git_cmd, 'cat-file -e "', commit_hash, '^{commit}"']);
     if status ~= 0
-        fprintf('WARNING: Could not fetch %s repository. Using it as-is.\n', repo_name);
-        return
+        [status, output] = system([git_cmd, 'fetch "', repo_url, '" ', commit_hash]);
     end
-
-    checkout_cmd = sprintf('git -C "%s" checkout --detach %s', repo_dir, commit_hash);
-    status = system(checkout_cmd);
-    if status ~= 0
-        fprintf('WARNING: Could not checkout %s pinned commit %s. Using repository as-is.\n', repo_name, commit_hash);
-        return
+    if status == 0
+        [status, output] = system([git_cmd, 'checkout --detach ', commit_hash]);
     end
-
-    clean_cmd = sprintf('git -C "%s" reset --hard %s', repo_dir, commit_hash);
-    status = system(clean_cmd);
     if status ~= 0
-        fprintf('WARNING: Could not reset %s repository to pinned commit %s. Using repository as-is.\n', repo_name, commit_hash);
-        return
+        error('setup:PinnedCommitUnavailable', ...
+            'Cannot check out the pinned commit %s of %s from %s. The repository at %s stays at its current commit, which is not the locked library.\n%s', ...
+            commit_hash, repo_name, repo_url, repo_dir, strtrim(output));
     end
 
     fprintf('%s repository checked out at pinned commit %s.\n', repo_name, commit_hash);
 
-    return
-
 end
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+function clone_optional_problem_library(repo_url, repo_dir, library_root, repo_name)
+    %CLONE_OPTIONAL_PROBLEM_LIBRARY clones one optional library under its root.
+
+    ensure_directory(library_root, 'optional problem-library root');
+    status = system(sprintf('git clone "%s" "%s"', repo_url, repo_dir));
+    if status ~= 0
+        error('setup:ProblemLibraryClone', 'Failed to clone the %s repository from %s.', repo_name, repo_url);
+    end
+end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+function pin_optional_problem_library(repo_dir, repo_url, commit_hash, repo_name)
+    %PIN_OPTIONAL_PROBLEM_LIBRARY pins a checkout that setup is going to register.
+
+    if ~checkout_git_repository_commit_if_clean(repo_dir, repo_url, commit_hash, repo_name)
+        error('setup:PinnedCommitUnverified', ...
+            'Cannot tell whether the %s repository at %s is at the pinned commit %s.', ...
+            repo_name, repo_dir, commit_hash);
+    end
+end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
 function [action, options, wrong_input] = parse_input(argin)
@@ -681,6 +773,8 @@ function root = get_optional_problem_library_root(options)
     if ~is_absolute_path(root)
         root = fullfile(pwd, root);
     end
+    [~, ~, ~, ~, resolve] = setup_helpers();
+    root = resolve(root);
 end
 
 

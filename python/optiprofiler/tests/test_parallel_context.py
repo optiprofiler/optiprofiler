@@ -1,0 +1,191 @@
+"""Saved benchmarks must not fork a parent's active logging threads."""
+
+import json
+import multiprocessing as mp
+import os
+from pathlib import Path
+import signal
+import subprocess
+import sys
+
+import pytest
+
+
+def context_solver(fun, x0):
+    receipt = Path(os.environ['OP_WORKER_RECEIPTS']) / f'{os.getpid()}.json'
+    receipt.write_text(json.dumps({'pid': os.getpid(), 'method': mp.get_start_method()}))
+    fun(x0)
+    return x0
+
+
+def saved_child(method, folder):
+    mp.set_start_method(method, force=True)
+    from optiprofiler import benchmark
+
+    receipts = folder / 'workers'
+    receipts.mkdir()
+    os.environ['OP_WORKER_RECEIPTS'] = str(receipts)
+    # Keep stdout buffered: logging starts before workers, which used to make
+    # forked workers wait forever for an inherited output lock during exit.
+    for _ in range(3):
+        benchmark([context_solver, context_solver], plibs=['custom'],
+                  problem_names=['custom1'], n_jobs=2, n_runs=1,
+                  max_eval_factor=1, max_tol_order=1, run_plain=False,
+                  silent=True, draw_hist_plots='parallel', savepath=str(folder))
+    workers = [json.loads(path.read_text()) for path in receipts.glob('*.json')]
+    assert workers and all(item['pid'] != os.getpid() for item in workers)
+    assert all(item['method'] == 'spawn' for item in workers), workers
+    assert mp.get_start_method() == method, 'benchmark changed caller process policy'
+    assert len(list(folder.rglob('data_for_loading.h5'))) == 3
+    assert not mp.active_children(), 'benchmark leaked workers'
+    print('SAVED_WORKERS_CLEAN', flush=True)
+
+
+@pytest.mark.parametrize('method', mp.get_all_start_methods())
+def test_saved_workers_use_safe_context_without_changing_caller(method, tmp_path):
+    command = [sys.executable, str(Path(__file__).resolve()), method, str(tmp_path)]
+    env = dict(os.environ, MPLBACKEND='Agg')
+    env.pop('PYTHONUNBUFFERED', None)
+    proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                            text=True, env=env, start_new_session=(os.name != 'nt'))
+    try:
+        output, _ = proc.communicate(timeout=60)
+    except subprocess.TimeoutExpired:
+        if os.name != 'nt':
+            os.killpg(proc.pid, signal.SIGKILL)
+        else:
+            subprocess.run(['taskkill', '/PID', str(proc.pid), '/T', '/F'], capture_output=True)
+        output, _ = proc.communicate()
+        pytest.fail('saved parallel benchmark did not finish:\n' + output)
+    assert proc.returncode == 0, output
+    assert 'SAVED_WORKERS_CLEAN' in output
+
+
+@pytest.mark.parametrize('entry', ['stdin', 'package'])
+def test_unavailable_entry_point_falls_back_before_executing_solvers(entry, tmp_path):
+    source = '''import os
+from optiprofiler import benchmark
+calls = []
+def solver(fun, x0):
+    calls.append(os.getpid())
+    fun(x0)
+    return x0
+if __name__ == '__main__':
+    benchmark([solver, solver], plibs=['custom'], problem_names=['custom1'],
+              n_jobs=2, score_only=True, silent=True, run_plain=False,
+              max_eval_factor=1, max_tol_order=1)
+    assert calls == [os.getpid(), os.getpid()], calls
+    print('ENTRY_POINT_FALLBACK_ONCE')
+'''
+    if entry == 'package':
+        package = tmp_path / 'entry_fixture'
+        package.mkdir()
+        (package / '__init__.py').write_text('')
+        (package / '__main__.py').write_text(source)
+        command, input_text = [sys.executable, '-m', 'entry_fixture'], None
+    else:
+        command, input_text = [sys.executable, '-'], source
+    result = subprocess.run(command, input=input_text, cwd=tmp_path,
+                            capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert 'ENTRY_POINT_FALLBACK_ONCE' in result.stdout
+
+
+SILENT_RUN_SCRIPT = '''import sys
+from optiprofiler import benchmark
+
+def solver(fun, x0):
+    fun(x0)
+    return x0
+
+if __name__ == '__main__':
+    solvers = [solver, solver] if sys.argv[1] == 'importable' else [lambda fun, x0: solver(fun, x0)] * 2
+    options = dict(plibs=['custom'], problem_names=['custom1', 'custom2'], n_jobs=2, n_runs=1,
+                   max_eval_factor=1, max_tol_order=1, run_plain=False, draw_hist_plots='none',
+                   score_only=sys.argv[2] == 'score_only', savepath=sys.argv[3])
+    benchmark(solvers, silent=False, **options)
+    print('SILENT_RUN_STARTS', flush=True)
+    benchmark(solvers, silent=True, **options)
+'''
+
+
+@pytest.mark.parametrize('solvers, mode, notice', [
+    ('importable', 'score_only', 'Entering the parallel section.'),
+    ('importable', 'saved', 'Entering the parallel section.'),
+    ('lambdas', 'score_only', 'Falling back to sequential mode'),
+])
+def test_silent_parallel_run_prints_no_information(solvers, mode, notice, tmp_path):
+    script = tmp_path / 'silent_run.py'
+    script.write_text(SILENT_RUN_SCRIPT)
+    result = subprocess.run([sys.executable, str(script), solvers, mode, str(tmp_path)], cwd=tmp_path,
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=120,
+                            env=dict(os.environ, MPLBACKEND='Agg'))
+    assert result.returncode == 0, result.stdout
+    loud, silent = result.stdout.split('SILENT_RUN_STARTS')
+    # The first run proves that this route is the one whose notices are guarded.
+    assert notice in ' '.join(loud.split()), loud
+    assert '[INFO' not in silent, silent
+
+
+BOOTSTRAP_SCRIPT = '''import os
+import sys
+import multiprocessing as mp
+from optiprofiler import benchmark
+
+def solver(fun, x0):
+    fun(x0)
+    return x0
+
+def run():
+    with open(os.path.join(sys.argv[1], 'entries.log'), 'a') as stream:
+        stream.write(__name__ + '\\n')
+    benchmark([solver, solver], plibs=['custom'], problem_names=['custom1', 'custom2'],
+              n_jobs=2, n_runs=1, max_eval_factor=1, max_tol_order=1, run_plain=False,
+              silent=True, draw_hist_plots='none', savepath=sys.argv[1], benchmark_id='entry')
+
+def owned_worker():
+    run()
+'''
+
+
+def _run_bootstrap_script(tmp_path, body):
+    script = tmp_path / 'entry_script.py'
+    script.write_text(BOOTSTRAP_SCRIPT + body)
+    output = tmp_path / 'output'
+    output.mkdir()
+    env = dict(os.environ, MPLBACKEND='Agg')
+    result = subprocess.run([sys.executable, str(script), str(output)], cwd=tmp_path, env=env,
+                            capture_output=True, text=True, timeout=120)
+    entries = (output / 'entries.log').read_text().split()
+    experiments = [path for path in (output / 'entry').iterdir() if path.is_dir()] if (output / 'entry').exists() else []
+    archives = list(output.rglob('data_for_loading.h5'))
+    return result, entries, experiments, archives
+
+
+def test_unguarded_script_fails_instead_of_rerunning_in_workers(tmp_path):
+    result, entries, experiments, archives = _run_bootstrap_script(tmp_path, 'run()\n')
+    output = result.stdout + result.stderr
+    assert result.returncode != 0, output
+    assert "Protect the call with `if __name__ == '__main__':`" in output
+    # Workers reach the call while importing the script; they stop there,
+    # before creating another experiment directory or archive.
+    assert entries[0] == '__main__' and set(entries[1:]) <= {'__mp_main__'}, entries
+    assert len(experiments) == 1 and not archives, (experiments, archives)
+
+
+@pytest.mark.parametrize('route', ['guarded', 'owned_worker'])
+def test_guarded_script_and_later_worker_call_still_run(route, tmp_path):
+    body = "if __name__ == '__main__':\n"
+    if route == 'guarded':
+        body += '    run()\n'
+    else:
+        body += ("    worker = mp.get_context('spawn').Process(target=owned_worker)\n"
+                 '    worker.start()\n    worker.join(100)\n    sys.exit(worker.exitcode)\n')
+    result, entries, experiments, archives = _run_bootstrap_script(tmp_path, body)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert entries == ['__main__' if route == 'guarded' else '__mp_main__']
+    assert len(experiments) == 1 and len(archives) == 1
+
+
+if __name__ == '__main__':
+    saved_child(sys.argv[1], Path(sys.argv[2]))

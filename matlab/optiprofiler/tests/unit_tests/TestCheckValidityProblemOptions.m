@@ -1,5 +1,30 @@
 classdef TestCheckValidityProblemOptions < matlab.unittest.TestCase
     methods (Test)
+        function nameListsAreVectorsAndTheMessageSaysSo(testCase)
+            % A 2-D list is refused, as a nested list is in Python. Rows and
+            % columns of a cell or of a string array are lists of names.
+            original_dir = pwd;
+            testCase.addTeardown(@() cd(original_dir));
+            cd(fullfile(fileparts(mfilename('fullpath')), '../../src/private'));
+            rows = {{'custom'}, "custom", ["custom"; "custom"], {'custom'; "custom"}, strings(0), {}};
+            for k = 1:numel(rows)
+                options = checkValidityProblemOptions(struct('problem_names', {rows{k}}), struct());
+                testCase.verifyTrue(iscellstr(options.problem_names));
+            end
+            for bad = {["Q1", "Q2"; "Q3", "Q4"], {'Q1', 'Q2'; 'Q3', 'Q4'}}
+                for option = {'plibs', 'excludelist', 'problem_names'}
+                    identifier = "MATLAB:checkValidityProblemOptions:" + option{1} + "NotCellOfcharstr";
+                    if strcmp(option{1}, 'plibs'), identifier = "MATLAB:checkValidityProblemOptions:plibsNotValid"; end
+                    problem_options = struct(option{1}, {bad{1}});
+                    testCase.verifyError(@() checkValidityProblemOptions(problem_options, struct()), identifier);
+                    try
+                        checkValidityProblemOptions(problem_options, struct());
+                    catch cause
+                        testCase.verifySubstring(cause.message, 'or a string array');
+                    end
+                end
+            end
+        end
 
         function testInfinityBounds(testCase)
 
@@ -54,16 +79,13 @@ classdef TestCheckValidityProblemOptions < matlab.unittest.TestCase
             options.plibs = 1;
             testCase.verifyError(@() checkValidityProblemOptions(options, profile_options), "MATLAB:checkValidityProblemOptions:plibsNotValid");
             if ~isunix || ismac
-                mydir = fileparts(mfilename('fullpath'));
-                problem_libs_dir = fullfile(mydir, '../../problem_libs');
-                matcutest_dir = fullfile(problem_libs_dir, 'matcutest');
-                created_matcutest_dir = exist(matcutest_dir, 'dir') ~= 7;
-                if created_matcutest_dir
-                    mkdir(matcutest_dir);
-                    testCase.addTeardown(@() rmdir(matcutest_dir));
-                end
                 options.plibs = {'matcutest'};
-                testCase.verifyError(@() checkValidityProblemOptions(options, profile_options), "MATLAB:checkValidityProblemOptions:plibsNotLinux");
+                testCase.verifyError(@() checkValidityProblemOptions(options, profile_options), "MATLAB:checkValidityProblemOptions:plibsNotValid");
+                try
+                    checkValidityProblemOptions(options, profile_options);
+                catch err
+                    testCase.verifySubstring(err.message, 'does not support MATLAB on');
+                end
             end
             options = rmfield(options, 'plibs');
 

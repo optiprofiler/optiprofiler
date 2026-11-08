@@ -18,6 +18,53 @@ classdef TestSetupPathOwnership < matlab.unittest.TestCase
             testCase.verifyTrue(isfolder(owned));
         end
 
+        function testResolvedDirectoryFollowsEveryLink(testCase)
+            testCase.assumeTrue(isunix);
+            state = isolate(testCase);
+            [~, attributes] = fileattrib(state.root);
+            root = attributes.Name;
+            real = fullfile(root, 'real');
+            mkdir(fullfile(real, 'sub'));
+            [status, output] = system(sprintf('ln -s "%s" "%s"', real, fullfile(root, 'link')));
+            testCase.assertEqual(status, 0, output);
+            [status, output] = system(sprintf('ln -s "%s" "%s"', fullfile(root, 'gone'), fullfile(root, 'dangling')));
+            testCase.assertEqual(status, 0, output);
+            testCase.verifyEqual(resolvedDirectory(real), real);
+            testCase.verifyEqual(resolvedDirectory(fullfile(root, 'link')), real);
+            testCase.verifyEqual(resolvedDirectory(fullfile(root, 'link', 'sub')), fullfile(real, 'sub'));
+            testCase.verifyEqual(resolvedDirectory(fullfile(root, 'link', 'new', 'deep')), fullfile(real, 'new', 'deep'));
+            testCase.verifyEqual(resolvedDirectory(fullfile(root, 'dangling', 'x')), fullfile(root, 'dangling', 'x'));
+        end
+
+        function testOwnerNamedThroughALinkIsTheSameOwner(testCase)
+            testCase.assumeTrue(isunix);
+            state = isolate(testCase);
+            provider = fullfile(state.root, 'real', 'provider');
+            mkdir(provider);
+            [~, attributes] = fileattrib(provider);
+            provider = attributes.Name;
+            linked = fullfile(fileparts(fileparts(provider)), 'link');
+            [status, output] = system(sprintf('ln -s "%s" "%s"', fileparts(provider), linked));
+            testCase.assertEqual(status, 0, output);
+            through_link = fullfile(linked, 'provider');
+            setupPathOwnership('add', state.root, through_link, {through_link});
+            testCase.assertTrue(on_path(provider));
+            testCase.verifyTrue(setupPathOwnership('remove-owner', provider));
+            testCase.verifyFalse(on_path(provider));
+            data = load([state.registry, '.setup-paths.mat']);
+            testCase.verifyEmpty(data.records.owned_paths);
+            testCase.verifyFalse(contains(fileread(fullfile(state.root, 'pathdef.m')), provider));
+
+            % The other way round, and a link that leads nowhere any more.
+            setupPathOwnership('add', state.root, provider, {provider});
+            testCase.assertTrue(on_path(provider));
+            testCase.verifyTrue(setupPathOwnership('remove-owner', through_link));
+            testCase.verifyFalse(on_path(provider));
+            delete(linked);
+            testCase.verifyTrue(setupPathOwnership('remove-owner', through_link));
+            testCase.verifyFalse(setupPathOwnership('remove-owner', fullfile(state.root, 'other')));
+        end
+
         function testFallbackPreservesUnrelatedStartupBytes(testCase)
             state = isolate(testCase);
             setenv('OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_PATHDEF', ...

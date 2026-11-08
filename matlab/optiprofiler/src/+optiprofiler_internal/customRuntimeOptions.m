@@ -67,6 +67,8 @@ function [lower,upper] = boundsOutput(callback,stream,problem,n,identity)
     [lower,upper] = callback(stream,problem);
     lower = vectorOutput(lower,n,identity,'mod_bounds');
     upper = vectorOutput(upper,n,identity,'mod_bounds');
+    refuseEntries(lower,'xl',identity,'mod_bounds');
+    refuseEntries(upper,'xu',identity,'mod_bounds');
 end
 function [matrix,rhs] = linearOutput(callback,stream,problem,n,identity,key)
     [matrix,rhs] = callback(stream,problem);
@@ -76,12 +78,27 @@ function [matrix,rhs] = linearOutput(callback,stream,problem,n,identity,key)
         matrix = matrixOutput(matrix,[size(matrix,1),n],identity,key);
     end
     rhs = vectorOutput(rhs,size(matrix,1),identity,key);
+    if strcmp(key,'mod_linear_ub')
+        names = {'aub','bub'};
+    else
+        names = {'aeq','beq'};
+    end
+    refuseEntries(matrix,names{1},identity,key);
+    refuseEntries(rhs,names{2},identity,key);
 end
 function [matrix,shift,inverse] = affineOutput(callback,stream,problem,n,identity)
     [matrix,shift,inverse] = callback(stream,problem);
     matrix = matrixOutput(matrix,[n,n],identity,'mod_affine');
     shift = vectorOutput(shift,n,identity,'mod_affine');
     inverse = matrixOutput(inverse,[n,n],identity,'mod_affine');
+end
+function refuseEntries(value,name,identity,key)
+    [entry,rule] = optiprofiler_internal.invalidConstraintEntry(value,name);
+    if ~isempty(entry)
+        error('MATLAB:Feature:InvalidCustomOutput', ...
+            'The `%s` returned by the callback `%s` of stage %s has the invalid entry %g: %s.', ...
+            name,key,identity,entry,rule);
+    end
 end
 function invalid(identity,key,expected)
     error('MATLAB:Feature:InvalidCustomOutput', ...

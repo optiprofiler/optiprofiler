@@ -59,6 +59,30 @@ classdef TestConstraintCountInvariant < matlab.unittest.TestCase
             testCase.verifyError(@() fp.cub(2), 'MATLAB:FeaturedProblem:cubExceedTerminationEval');
         end
 
+        function unrecordedQueriesSkipReferenceReads(testCase, strategy)
+            % record_hist=false must not read the reference (truth) value: a
+            % recorded query costs exactly one more Problem-level constraint
+            % evaluation than an unrecorded one, as in Python.
+            setappdata(0, 'TestConstraintCountInvariantCalls', 0);
+            cleanup = onCleanup(@() rmappdata(0, 'TestConstraintCountInvariantCalls')); %#ok<NASGU>
+            constraint = @(x) TestConstraintCountInvariant.countedConstraint(x);
+            p = Problem(struct('name', 'count', 'x0', 0, 'fun', @(x) x(1)^2, 'cub', constraint, 'ceq', constraint));
+            fp = FeaturedProblem(p, TestConstraintCountInvariant.feature(strategy), 10, 17);
+            for channel = {'cub', 'ceq'}
+                setappdata(0, 'TestConstraintCountInvariantCalls', 0);
+                p.(channel{1})(1);
+                one_evaluation = getappdata(0, 'TestConstraintCountInvariantCalls');
+                setappdata(0, 'TestConstraintCountInvariantCalls', 0);
+                fp.(channel{1})(1, false);
+                unrecorded = getappdata(0, 'TestConstraintCountInvariantCalls');
+                setappdata(0, 'TestConstraintCountInvariantCalls', 0);
+                fp.(channel{1})(1);
+                recorded = getappdata(0, 'TestConstraintCountInvariantCalls');
+                testCase.verifyEqual(recorded - unrecorded, one_evaluation, ...
+                    sprintf('%s: %d recorded vs %d unrecorded calls (%d per evaluation)', channel{1}, recorded, unrecorded, one_evaluation));
+            end
+        end
+
         function stochasticLegacyIndexIsPerQuery(testCase)
             % The served index of stochastic legacy constraint modifiers is the
             % number of earlier recorded queries, so repeated queries at one
@@ -115,6 +139,11 @@ classdef TestConstraintCountInvariant < matlab.unittest.TestCase
             p = Problem(s);
             cubTruth = @(x) reshape(x + (0:m-1)', [], 1);
             ceqTruth = @(x) reshape(x - (2:m+1)', [], 1);
+        end
+
+        function c = countedConstraint(x)
+            setappdata(0, 'TestConstraintCountInvariantCalls', getappdata(0, 'TestConstraintCountInvariantCalls') + 1);
+            c = x(1) - 2;
         end
 
         function f = feature(strategy)

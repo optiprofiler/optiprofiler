@@ -14,8 +14,7 @@ matplotlib.use('Agg')
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 
-from optiprofiler import benchmark
-from optiprofiler.action_tests.solvers import SOLVERS, SOLVER_NAMES, UNCONSTRAINED_SOLVERS, UNCONSTRAINED_SOLVER_NAMES
+from optiprofiler.action_tests.solvers import SOLVERS, SOLVER_NAMES, checked_benchmark
 
 
 def get_plibs():
@@ -57,7 +56,7 @@ def run_feature_test(feature_name, benchmark_id=None):
     print(f"{'='*60}\n")
     
     start_time = time.time()
-    benchmark(SOLVERS, **options)
+    checked_benchmark(SOLVERS, **options)
     elapsed = time.time() - start_time
     print(f"\nTime for {feature_name} test: {elapsed:.2f} seconds\n")
 

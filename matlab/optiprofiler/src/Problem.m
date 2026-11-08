@@ -35,23 +35,29 @@ classdef Problem < handle
 %
 %       2. optional fields:
 %
-%       - name: the name of the problem. It should be a string or a char.
+%       - name: the name of the problem. It should be a string scalar or a
+%       char row.
 %       Default is 'Unnamed Problem'.
 %       - xl: the lower bounds on the variable `x` in the form of ``xl <= x``.
-%         It should be a vector of the same size as `x`. Default is -Inf.
+%         It should be a vector of the same size as `x`. Default is -Inf,
+%         which means no bound. NaN and Inf are rejected.
 %       - xu: the upper bounds on the variable `x` in the form of ``xl >= x``.
-%         It should be a vector of the same size as `x`. Default is Inf.
+%         It should be a vector of the same size as `x`. Default is Inf,
+%         which means no bound. NaN and -Inf are rejected.
 %       - aub, bub: the coefficient matrix and right-hand side vector of the
 %         linear inequality constraints ``aub * x <= bub``. The default setting
-%         of `aub` and `bub` are empty matrix and vector.
+%         of `aub` and `bub` are empty matrix and vector. The entries of `aub`
+%         must be finite. An entry Inf of `bub` means that the row imposes no
+%         constraint; NaN and -Inf are rejected.
 %       - aeq, beq: the coefficient matrix and right-hand side vector of the
-%         linear equality constraints ``aeq * x <= beq``. The default setting
-%         of `aeq` and `beq` are empty matrix and vector.
+%         linear equality constraints ``aeq * x = beq``. The default setting
+%         of `aeq` and `beq` are empty matrix and vector. Their entries must
+%         be finite.
 %       - cub: the function of nonlinearly inequality constraints
 %         ``cub(x) <= 0``, where ``cub(x) -> float vector``. By default, 
 %         ``cub(x)`` will return an empty vector.
 %       - ceq: the function of nonlinearly equality constraints
-%         ``ceq(x) <= 0``, where ``ceq(x) -> float vector``. By default, 
+%         ``ceq(x) = 0``, where ``ceq(x) -> float vector``. By default,
 %         ``ceq(x)`` will return an empty vector.
 %       - grad: the gradient of the objective function
 %         ``grad(x) -> float vector``. By default, `grad(x)` will return an
@@ -77,43 +83,26 @@ classdef Problem < handle
 %         ``hceq(x) -> cell array of float matrices``. The i-th element of
 %         `hceq(x)` should be the Hessian of the i-th function in `ceq`. By
 %         default, `hceq(x)` will return an empty cell.
-%       - reference: an optional feasible reference fact of the problem,
-%         stated by its author or provider: a struct with exactly the fields
-%         `merit` (a finite real scalar), `kind` (one of 'lower_bound',
-%         'optimum', 'best_known', 'target'), `source` (non-empty provenance
-%         text) and `mapping` (a token of the closed registry
-%         {'feasible_objective/1'}). Every kind is a claim over the FEASIBLE
-%         points of the problem: a bound on the objective over them, its exact
-%         optimal value over them, the objective value of a known feasible
-%         point, or a target level chosen for them. With the mapping
-%         'feasible_objective/1', `merit` is an objective value over feasible
-%         points, so it equals the merit of a feasible point under every merit
-%         function with the feasible identity merit_fun(f, 0, maxcv_init) == f
-%         for every maxcv_init (the default merit function has it). A mapping
-%         is never a function handle and users cannot register one. A naked
-%         scalar, a record with other fields (including the superseded fields
-%         `fun`, `maxcv` and `point`), a non-finite merit and an unknown
-%         mapping are rejected; nothing is repaired or guessed. Omitted means
-%         unknown. The record is validated structurally without evaluating
-%         anything, so a reference adds no callback call to building or
-%         loading a problem. See also FeaturedProblem for which features
-%         retain it.
+%       - reference: an optional raw fact with fun (finite objective), maxcv
+%         (finite nonnegative total violation), kind and source. feasible
+%         requires maxcv=0; merit may specify nonzero violation. Optional
+%         x_ref is source metadata in original problem coordinates; features
+%         never transform it or query its oracle. Old kinds and mapping tokens
+%         are compatibility inputs, not required fields of a new record.
+%         Validation evaluates no objective or constraint.
 %
 %   The numeric data `x0`, `xl`, `xu`, `aub`, `bub`, `aeq` and `beq` are kept as
 %   double precision numbers whatever numeric class they are given in (an
 %   integer class would make MATLAB compute violations and transformed bounds
 %   in rounded, saturated integer arithmetic).
 %
-%         The reference is NOT a run-history minimum and NOT the dynamic
-%         cohort minimum of a benchmark: the profile baseline is the least
-%         merit observed over the selected solver histories, changes with the
-%         solver cohort and is never stored in a Problem. It is NOT a floor
-%         for run merits either: on a constrained problem the merit of a run
-%         may be below the reference, because a merit function tolerates or
-%         penalizes small violations, and such values are never clamped.
-%         Before a consumer compares run merits with the record under a custom
-%         merit function, that function must be known to preserve the feasible
-%         identity above.
+%   Standard profiles convert the effective featured reference with the
+%   current merit_fun(fun,maxcv,maxcv_init), separately for each run and on
+%   load. No reference means the unchanged V1 cohort/plain minimum. A custom
+%   merit need not preserve lower-bound ordering: kind describes the raw
+%   fact, not a theorem about arbitrary callbacks. Actual run merits are not
+%   clamped to the reference. Built-in affine maps retain nonzero violation:
+%   scoring uses original-coordinate residuals, not the posed constraint scale.
 %
 %   The output P contains following properties:
 %
@@ -122,7 +111,7 @@ classdef Problem < handle
 %       name, x0, xl, xu, aub, bub, aeq, beq, reference
 %
 %       (`reference` is [] when unknown, otherwise a struct with the fields
-%       `merit`, `kind`, `source`, `mapping`. It is set at construction only
+%       `fun`, `maxcv`, `kind`, `source` and optional `x_ref`. It is set at construction only
 %       and cannot be assigned. A stored record that the contract rejects, for
 %       example one loaded from a file written for another record layout,
 %       reads as [] with a warning and is never reinterpreted.)
@@ -136,13 +125,14 @@ classdef Problem < handle
 %       - mb: number of the bound constraints, which is the length of finite
 %         elements in `xl` and `xu`.
 %       - m_linear_ub: number of the linear inequality constraints, which is
-%         the length of `bub`.
+%         the number of entries of `bub` that are not Inf. A row with the
+%         right-hand side Inf stays in `aub` and `bub`.
 %       - m_linear_eq: number of the linear equality constraints, which is the
 %         length of `beq`.
 %       - m_nonlinear_ub: number of the nonlinear inequality constraints, which
-%         is the length of `cub(x)`.
+%         is the length of `cub(x0)`, measured once per value of `x0`.
 %       - m_nonlinear_eq: number of the nonlinear equality constraints, which
-%         is the length of `ceq(x)`.
+%         is the length of `ceq(x0)`, measured once per value of `x0`.
 %       - mlcon: number of the linear constraints, which is the sum of
 %         `m_linear_ub` and `m_linear_eq`.
 %       - mnlcon: number of the nonlinear constraints, which is the sum of
@@ -161,9 +151,19 @@ classdef Problem < handle
 %       - maxcv: the maximum constraint violation ``maxcv(x) -> float``, which
 %         is defined as the maximum of the infinity norms of
 %         `max(xl - x, 0)`, `max(x - xu, 0)`, `max(aub * x - bub, 0)`,
-%         `aeq * x - beq`, `max(cub(x), 0)`, `ceq(x)`.
+%         `aeq * x - beq`, `max(cub(x), 0)`, `ceq(x)`. A row `x` is used as
+%         the column `x(:)`, also for the `cub`/`ceq` calls.
 %       - project_x0: trying to project the initial guess `x0` onto the
 %         feasible region if it is not feasible (but it may fail).
+%
+%   The constructor refuses malformed constraint data. Data assigned to an
+%   existing object, as in `p.xl = [Inf; Inf]`, are not checked at the
+%   assignment, because a setter that raises would make `load` drop the data of
+%   a saved object without an error. They are checked when a trial is built:
+%   `benchmark` and `FeaturedProblem` refuse them. In a library run this costs
+%   only that problem, which the report lists as `problem_load_failed`. The
+%   object itself does not check them, so `p.maxcv(x)` measures what it holds
+%   and can return 0.
 %
 
 
@@ -226,6 +226,15 @@ classdef Problem < handle
         % decides what a caller may see. Never the cohort minimum of a
         % benchmark.
         reference_ = []
+        reference_fallback_reason_ = ''
+
+    end
+
+    properties (Access = private)
+
+        % Constraint dimensions per channel, valid for the probe point they
+        % were measured at. Callbacks are fixed at construction; x0 is not.
+        dimension_cache_ = struct('channel', {}, 'point', {}, 'value', {})
 
     end
 
@@ -248,8 +257,8 @@ classdef Problem < handle
                 end
 
                 % Optional feasible reference fact, before anything else. The
-                % check is structural (four fields, a finite scalar, a
-                % registry token) and evaluates nothing, so a malformed record
+                % check is structural (raw scalars, kind, provenance and an
+                % optional source point) and evaluates nothing, so a malformed record
                 % is rejected before any callback of the problem is touched
                 % and a reference adds no callback call to building or loading
                 % a problem.
@@ -304,10 +313,16 @@ classdef Problem < handle
             end
 
             % Check that the arguments are legal and consistent.
+            obj.checkName();
 
             % Check that `x0` is a real vector.
             if ~isrealvector(obj.x0)
                 error("MATLAB:Problem:x0_NotRealVector", "The argument `x0` for `Problem` must be a real vector.")
+            end
+            if ~isempty(obj.reference_) && isfield(obj.reference_,'x_ref') ...
+                    && numel(obj.reference_.x_ref) ~= obj.n
+                error('MATLAB:Problem:reference_x_ref_Dimension', ...
+                    'The reference x_ref must have the same dimension as x0.');
             end
 
             % Check that `xl` is a real vector having the same size as `x0`.
@@ -324,7 +339,7 @@ classdef Problem < handle
             end
             % Check that `aub` is a real matrix with shape (numel(obj.bub), n).
             if ~isrealmatrix(obj.aub) || ~isequal(size(obj.aub), [numel(obj.bub), obj.n])
-                error("MATLAB:Problem:aub_m_linear_ub_n_NotConsistent", "The argument `aub` for `Problem` must be a real matrix having shape (%d, %d).", obj.m_linear_ub, obj.n);
+                error("MATLAB:Problem:aub_m_linear_ub_n_NotConsistent", "The argument `aub` for `Problem` must be a real matrix having shape (%d, %d).", numel(obj.bub), obj.n);
             end
             % Check that `beq` is a real vector.
             if ~isrealvector(obj.beq)
@@ -334,6 +349,11 @@ classdef Problem < handle
             if ~isrealmatrix(obj.aeq) || ~isequal(size(obj.aeq), [obj.m_linear_eq, obj.n])
                 error("MATLAB:Problem:aeq_m_linear_eq_n_NotConsistent", "The argument `aeq` for `Problem` must have shape (%d, %d).", obj.m_linear_eq, obj.n);
             end
+            % Check that the constraint data have a meaning as constraints. This
+            % is not done in the setters: an object that a file left with such
+            % data would lose the property on load, without an error.
+            % FeaturedProblem repeats the check for such an object.
+            obj.checkConstraintData();
         end
 
         % Getter of the reference fact: the stored record if the contract
@@ -459,6 +479,15 @@ classdef Problem < handle
             else
                 obj.beq = [];
             end
+        end
+
+        % A string name would turn text built from it by concatenation, such
+        % as the history file names, into string arrays.
+        function set.name(obj, name)
+            if isstring(name) && isscalar(name) && ~ismissing(name)
+                name = char(name);
+            end
+            obj.name = name;
         end
 
         % Preprocess the gradient and the Hessian of the objective function.
@@ -642,6 +671,7 @@ classdef Problem < handle
             if numel(x) ~= obj.n
                 error("MATLAB:Problem:WrongSizeInputForMaxCV", "The input `x` for method `maxcv` in `Problem` must have size %d.", obj.n)
             end
+            x = x(:);
 
             if strcmp(obj.ptype, 'u')
                 cv = 0;
@@ -752,6 +782,16 @@ classdef Problem < handle
             catch ME
                 % If an error occurred, issue a warning and set f to NaN.
                 warning(ME.identifier, '%s', shortenMessageForLog(ME.message));
+                f = NaN;
+            end
+            % Real-domain functions can return complex values without throwing
+            % (e.g., a negative base raised to a fractional power). Treat this
+            % as an invalid evaluation, never as a valid objective or its real
+            % part: histories, convergence tests and JSON all require scalars
+            % on the real line. NaN preserves the existing failed-oracle policy.
+            if ~isrealscalar(f)
+                warning('MATLAB:Problem:InvalidOutputForFUN', ...
+                    'The objective function must return a real scalar; recording NaN.');
                 f = NaN;
             end
         end
@@ -1082,34 +1122,71 @@ classdef Problem < handle
         end
     end
 
+    methods (Hidden)
+        function checkConstraintData(obj)
+            % Refuse constraint data that have no meaning as constraints.
+            for name = {'xl', 'xu', 'aub', 'bub', 'aeq', 'beq'}
+                refuseInvalidEntries(obj.(name{1}), name{1});
+            end
+        end
+
+        function reason = referenceFallbackReason(obj)
+            % Retained metadata for reports, not a user reference mode.
+            reason = obj.reference_fallback_reason_;
+        end
+
+        % The name becomes file names and labels, so it must be one piece of
+        % text. This is not done in set.name: a setter that raises makes `load`
+        % reset the name of a saved object to the default, without a warning.
+        function checkName(obj)
+            if ~isScalarText(obj.name)
+                error("MATLAB:Problem:name_NotText", "The argument `name` for `Problem` must be a char row or a string scalar.")
+            end
+        end
+    end
+
     methods (Access = protected)
         function value = constraintDimension(obj,channel)
-            % Ordinary Problem dimensions remain live. Composable views override
-            % only this metadata boundary, never observed callbacks.
+            % Ordinary Problem dimensions follow the current probe point (x0).
+            % Composable views override only this metadata boundary, never
+            % observed callbacks. Absence or a successfully empty result means
+            % no constraints. A failed probe must propagate, not silently
+            % classify the problem as unconstrained, and is not cached.
             if strcmp(channel,'cub')
-            % Absence or a successfully empty result means no constraints.
-            % A failed probe must propagate, not silently classify the problem
-            % as unconstrained. Do not cache: x0 and callbacks can be changed.
-            if isempty(obj.cub_)
-                value = 0;
+                callback = obj.cub_;
             else
-                cub = obj.cub_(obj.constraintProbePoint());
-                value = numel(cub);
+                callback = obj.ceq_;
             end
-            else
-            % Match the inequality count policy, including empty callbacks.
-            if isempty(obj.ceq_)
+            if isempty(callback)
                 value = 0;
-            else
-                ceq = obj.ceq_(obj.constraintProbePoint());
-                value = numel(ceq);
+                return
             end
+            point = obj.constraintProbePoint();
+            k = find(strcmp({obj.dimension_cache_.channel}, channel), 1);
+            if ~isempty(k) && isequaln(obj.dimension_cache_(k).point, point)
+                value = obj.dimension_cache_(k).value;
+                return
+            end
+            value = numel(callback(point));
+            entry = struct('channel', channel, 'point', point, 'value', value);
+            if isempty(k)
+                obj.dimension_cache_(end + 1) = entry;
+            else
+                obj.dimension_cache_(k) = entry;
             end
         end
         function x = constraintProbePoint(obj)
             % Dependent dimensions remain live when x0/callbacks are changed.
             x = obj.x0;
         end
+    end
+end
+
+function refuseInvalidEntries(value, name)
+    [entry, rule] = optiprofiler_internal.invalidConstraintEntry(value, name);
+    if ~isempty(entry)
+        error("MATLAB:Problem:" + name + "_InvalidValue", ...
+            "The argument `%s` for `Problem` has the invalid entry %g: %s.", name, entry, rule);
     end
 end
 

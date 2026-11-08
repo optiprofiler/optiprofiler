@@ -11,13 +11,12 @@ import json
 import math
 import mimetypes
 import os
-from pathlib import Path, PureWindowsPath
+from pathlib import Path
 import re
 import stat
 import subprocess
 import tempfile
 import time
-import types
 import uuid
 from datetime import datetime, timezone
 from enum import Enum
@@ -26,7 +25,11 @@ import numpy as np
 from .provenance import describe_feature, describe_plan, full_feature_stamp, read_feature_pipeline
 # The metadata encoder is shared with the feature provenance and lives in a
 # dependency-neutral module; the private names below are kept for this file.
-from .metadata import _ABS_IN_TEXT, _SECRET_KEY, TEXT_LIMIT, bounded_text as _text, describe_callback as _callback, safe_metadata as _safe
+from .metadata import TEXT_LIMIT, bounded_text as _text, safe_metadata as _safe
+# Retain this compatibility alias; actual encoding delegates to metadata.
+from .metadata import describe_callback as _callback  # noqa: F401
+from .metadata import provenance_text
+from .problem_libraries import distribution_provenance
 
 
 _SCHEMA = 'optiprofiler.eval_report/2'
@@ -277,6 +280,29 @@ def _integer(value):
     return None
 
 
+def _reference_fact_metadata(record):
+    """Keep the agent report bounded without truncating a witness silently.
+
+    The numerical archive owns the full vector. A report without a numerical
+    archive (for example score_only) still states honestly that it does not
+    embed a large point; it never invents an archive link or a partial point.
+    """
+    if record is None:
+        return None
+    from .opclasses import ProblemReference
+    raw = ProblemReference.from_record(record).as_dict()
+    point = raw.pop('x_ref', None)
+    source = raw.pop('source', None)
+    result = _safe(raw)
+    # Scientific provenance (often a DOI link) is kept without credentials,
+    # query or fragment; a clipped source is marked. The archive keeps it all.
+    result['source'] = provenance_text(source)
+    if point is not None:
+        result['x_ref'] = point if len(point) <= 256 else {
+            'dimension': len(point), 'reason': 'reference_point_not_embedded'}
+    return result
+
+
 def _vector(value):
     if type(value) is np.ndarray and value.dtype.kind in 'biuf':
         return value.reshape(-1)
@@ -363,6 +389,10 @@ def _digest(path, directory=None):
     inspected = None
     ancestors = []
     if directory is None:
+        # Windows refuses to open a directory with a PermissionError, before
+        # the regular-file check below could name the path.
+        if os.path.isdir(str(path)):
+            raise OSError(f"expected a regular file: '{path}'")
         fd = os.open(str(path), flags)
     else:
         capability = _hashing_capability()
@@ -391,36 +421,36 @@ def _digest(path, directory=None):
                 current = current / name
                 status = os.lstat(str(current))
                 if _reparse_point(status) or not stat.S_ISDIR(status.st_mode):
-                    raise OSError('artifact path component is not a plain directory')
+                    raise OSError(f"artifact path component '{current}' is not a plain directory")
                 ancestors.append(current)
             inspected = os.lstat(str(path))
             if _reparse_point(inspected) or not stat.S_ISREG(inspected.st_mode):
-                raise OSError('artifact is not a plain regular file')
+                raise OSError(f"artifact '{path}' is not a plain regular file")
             fd = os.open(str(path), flags)
         else:
             # Without openat or a verifiable identity there is not even a
             # best-effort ownership check here. A missing provenance hash
             # is preferable to reading through a replaced/symlinked directory,
             # and must not abort scores.
-            raise OSError('secure_artifact_hashing_unavailable')
+            raise OSError(f"secure_artifact_hashing_unavailable: '{path}'")
     try:
         before = os.fstat(fd)
         if not stat.S_ISREG(before.st_mode):
-            raise OSError('not a regular file')
+            raise OSError(f"expected a regular file: '{path}'")
         if inspected is not None and (before.st_dev, before.st_ino) != (inspected.st_dev, inspected.st_ino):
-            raise OSError('artifact identity changed between inspection and open')
+            raise OSError(f"artifact '{path}' changed identity between inspection and open")
         digest = hashlib.sha256()
         with os.fdopen(fd, 'rb', closefd=False) as stream:
             for chunk in iter(lambda: stream.read(1024 * 1024), b''):
                 digest.update(chunk)
         after = os.fstat(fd)
         if (before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns):
-            raise OSError('file changed during hashing')
+            raise OSError(f"the file '{path}' changed while hashing")
         for ancestor in ancestors:
             # A reparse point that is still present now is reported, not
             # trusted; one removed in the meantime is not detectable here.
             if _reparse_point(os.lstat(str(ancestor))):
-                raise OSError('artifact path component changed during hashing')
+                raise OSError(f"artifact path component '{ancestor}' changed while hashing")
         return {'bytes': before.st_size, 'sha256': digest.hexdigest()}
     finally:
         os.close(fd)
@@ -507,6 +537,7 @@ class EvalReport:
         self._parent_identity = self._identity(self.path.parent)
         self._started = time.monotonic()
         self._finished = False
+        self._publication_deferred = False
         self._problems = {}
         self._metadata = {}
         self._options = {}
@@ -548,7 +579,7 @@ class EvalReport:
                 'metric_best': 'componentwise_minimum_ignoring_nan;first_tie_index;not_necessarily_a_jointly_attained_point',
                 'budget': 'problems[].budget applies to every run unless runs[].budget overrides it; budget_reached is a per-run comparison and reaching the cap does not identify the termination cause.',
                 'convergence': 'Never inferred from solver return values; there is no per-run convergence field. target_work in the companion observes the existing scoring predicate.',
-                'run_defaults': 'evaluations, budget_reached, abnormal_termination, output_fallback, execution, oracle_seed and elapsed_seconds are per-run facts. An absent *_reason key means the observation was available; an absent first_invalid_evaluation_index means no invalid evaluation was observed and invalid_evaluations is then the integer 0. Runtime facts of an executed role (strategy, runtime and seed policy) are stated once in configuration.effective (experiment and feature), never per run.',
+                'run_defaults': 'evaluations, budget_reached, abnormal_termination, output_fallback, execution, oracle_seed and elapsed_seconds are per-run facts. A run with output_fallback true returned no output: objective.output and constraint.output are the values at x0, and it has no output-based work, so its output entries in target_work have the value null and the output hits of convergence exclude it. An absent *_reason key means the observation was available; an absent first_invalid_evaluation_index means no invalid evaluation was observed and invalid_evaluations is then the integer 0. Runtime facts of an executed role (strategy, runtime and seed policy) are stated once in configuration.effective (experiment and feature), never per run.',
                 'configuration': 'configuration.request lists user-supplied options; configuration.effective lists the resolved options of this invocation: feature is the canonical pipeline specification (stage-local options only) and experiment the plan of every executing role (the run counts live there). In a load operation they describe reanalysis/rendering, not the archived execution: experiment is empty, retained_result_metadata is a sanitized copy of the archived metadata and source.sha256 identifies the unchanged archive bytes.',
                 'paths': {'artifacts': 'relative_to_artifact_root', 'artifact_root': 'relative_to_main_report_parent',
                           'plot_data': 'relative_to_main_report_parent', 'source': 'relative_to_main_report_parent'},
@@ -565,7 +596,7 @@ class EvalReport:
                                   'history_plots': 'display_copy_only;across_run_band_then_shift_then_cummin_then_block_aggregation;block_aggregation_applies_when_padded_length_exceeds_1002_and_keeps_about_1000_points;array_position_is_not_an_evaluation_index_use_evaluation_indices',
                                   'profile_plots': 'full_step_vertices_and_across_run_bands;band_clamped_to_0_1;unreached_work_shown_at_failure_placeholder_not_counted_as_hit;log_ratio_zero_height_ties_retained_in_numeric_data_but_not_drawn',
                                   'error_bands': 'python_population_std_ddof_0_for_history_and_profile_bands',
-                                  'target_work': 'existing_profile_work_arrays;history_first_actual_hit;output_total_evaluations_at_passing_returned_output;nan_is_nonhit_not_solver_diagnosis',
+                                  'target_work': 'existing_profile_work_arrays;history_first_actual_hit;output_total_evaluations_at_passing_returned_output;output_fallback_run_has_no_output_work;nan_is_nonhit_not_solver_diagnosis',
                                   'privacy': 'controller_private;not_an_allowlisted_agent_prompt'},
                               'histories': [], 'plots': [], 'target_work': [], 'diagnostics': []}
         # Preflight both names before reserving either. O_EXCL also closes the
@@ -647,10 +678,12 @@ class EvalReport:
         # prove the entry is the file this invocation just created.
         current = target.lstat()
         if (current.st_dev, current.st_ino) != (written.st_dev, written.st_ino):
-            raise FileExistsError('EvalReport target ownership changed')
+            raise FileExistsError(f'EvalReport target ownership changed: {target}')
         return cls._stat_identity(current)
 
     def _write(self):
+        if self._publication_deferred:
+            return
         self._coverage()
         self.document['problems'] = list(self._problems.values())
         self.document['timing']['elapsed_seconds'] = max(0.0, time.monotonic() - self._started)
@@ -666,13 +699,13 @@ class EvalReport:
                 'history_count': len(self._histories), 'plot_count': len(self._plots)}
             self._detail_dirty = False
         if self.plot_path.is_symlink() or self._identity(self.plot_path) != self._plot_identity:
-            raise FileExistsError('EvalReport companion ownership changed')
+            raise FileExistsError(f'EvalReport companion ownership changed: {self.plot_path}')
         self._owned_identity = self._write_owned(self.path, self.document, self._owned_identity)
 
     def _write_owned(self, target, document, owned_identity):
         if (target.is_symlink() or self._identity(target) != owned_identity
                 or self._identity(target.parent) != self._parent_identity):
-            raise FileExistsError('EvalReport target ownership changed')
+            raise FileExistsError(f'EvalReport target ownership changed: {target}')
         fd, temp = tempfile.mkstemp(prefix='.' + target.name + '.',
                                     suffix='.tmp', dir=str(target.parent))
         try:
@@ -685,7 +718,7 @@ class EvalReport:
                 written = os.fstat(stream.fileno())
             if (target.is_symlink() or self._identity(target) != owned_identity
                     or self._identity(target.parent) != self._parent_identity):
-                raise FileExistsError('EvalReport target ownership changed')
+                raise FileExistsError(f'EvalReport target ownership changed: {target}')
             os.replace(temp, target)
             return self._settled_identity(target, written)
         finally:
@@ -799,23 +832,15 @@ class EvalReport:
             if provider is not None:
                 if type(provider).__name__ == 'ProblemLibraryRef':
                     state = object.__getattribute__(provider, '__dict__')
+                    version, revision = distribution_provenance(provider)
                     provider = {key: state.get(key) for key in
-                                ('name', 'source', 'locator', 'distribution')}
+                                ('name', 'source', 'locator', 'distribution', 'shadows')}
+                    provider.update(version=version, revision=revision)
                 problem['provider'] = _safe(provider)
         self._write()
 
     def add_diagnostic(self, code, stage, **scope):
         code, stage = _text(code, 80), _text(stage, 40)
-        if code == 'problem_load_failed':
-            problem = self._problem(scope.get('library'), scope.get('problem'),
-                                    scope.get('role', 'primary'))
-            problem.update(load_status='failed', status='failed')
-        if stage == 'rendering' and code and ('failed' in code or 'failure' in code):
-            self.document['stages']['rendering'] = {'status': 'failed', 'reason': code}
-        if stage == 'persistence' and code in (
-                'artifact_hash_unavailable', 'artifact_directory_ownership_changed'):
-            if self.document['stages']['persistence']['status'] != 'failed':
-                self.document['stages']['persistence'] = {'status': 'partial', 'reason': code}
         entry = {'code': code, 'stage': stage, 'scope': _safe(scope)}
         identity = json.dumps(entry, allow_nan=False, sort_keys=True, ensure_ascii=False)
         if identity in self._diagnostic_keys:
@@ -828,19 +853,47 @@ class EvalReport:
         else:
             self._dropped_diagnostics += 1
 
+    def record_load_failure(self, library, problem, role='primary', **scope):
+        """Record an observed load failure and its diagnostic together."""
+        self._problem(library, problem, role).update(load_status='failed', status='failed')
+        self.add_diagnostic('problem_load_failed', 'numerical', library=library,
+                            problem=problem, role=role, **scope)
+
+    def record_rendering_failure(self, code, **scope):
+        """Record a failed export without inferring status from its diagnostic name."""
+        self._update_stage('rendering', 'failed', _text(code, 80))
+        self.add_diagnostic(code, 'rendering', **scope)
+
+    def record_persistence_failure(self, code, **scope):
+        """Missing integrity evidence makes persistence partial unless it already failed."""
+        if self.document['stages']['persistence']['status'] != 'failed':
+            self._update_stage('persistence', 'partial', _text(code, 80))
+        self.add_diagnostic(code, 'persistence', **scope)
+
+    def defer_publication(self):
+        """Collect in memory until completed numerical data is safely saved."""
+        self._publication_deferred = True
+
+    def resume_publication(self):
+        self._publication_deferred = False
+        self._write()
+
     def set_stage(self, stage, status, reason=None):
+        self._update_stage(stage, status, reason)
+        self._write()
+
+    def _update_stage(self, stage, status, reason=None):
+        """Update stage state without publishing an incomplete report snapshot."""
         if stage not in _STAGES or status not in _STATUSES:
             raise ValueError('Invalid EvalReport stage or status')
         if (stage in ('rendering', 'persistence') and status in ('running', 'completed')
                 and self.document['stages'][stage]['status'] in ('failed', 'partial')):
             # A later successful export cannot erase an earlier missing
             # requested artifact in this same invocation.
-            self._write()
             return
         self.document['stages'][stage] = {'status': status}
         if reason is not None:
             self.document['stages'][stage]['reason'] = _text(reason)
-        self._write()
 
     def add_problem(self, result, plib, role='primary'):
         if type(result) is not dict:
@@ -855,6 +908,33 @@ class EvalReport:
         problem.update(dimension=_safe(result.get('problem_dim')),
                        type=_safe(result.get('problem_type')),
                        load_status='loaded', status='completed')
+        if 'reference_fallback_reasons' in result:
+            problem['reference_fallback_reasons'] = json.loads(result['reference_fallback_reasons'])
+        if self.document['operation'] == 'load' and 'reference_history_failures' in result:
+            # Replay the archived trial failures exactly as the benchmark
+            # reported them. Archives without the field stay silent (unknown);
+            # a damaged entry (None after loading) is reported as unavailable.
+            from .loader import parse_reference_history_failures
+            failures = parse_reference_history_failures(result['reference_history_failures'])
+            if failures is None:
+                failures = []
+                self.add_diagnostic('reference_metadata_unavailable', 'reporting',
+                                    library=plib, problem=name, role=role,
+                                    field='reference_history_failures')
+            for failure in failures[:_MAX_DIAGNOSTICS]:
+                self.add_diagnostic('reference_history_unavailable', 'numerical',
+                                    library=plib, problem=name, role=role,
+                                    solver_index=failure['solver_index'], run_index=failure['run_index'],
+                                    exception_type=failure['exception_type'])
+        if 'reference_records' in result:
+            # Observe retained facts only. Reporting must not call merit_fun
+            # again (it may be stateful) or invent a reference for V1 archives.
+            try:
+                references = json.loads(result['reference_records'])
+                problem['reference_records'] = [_reference_fact_metadata(record) for record in references]
+            except (TypeError, ValueError):
+                self.add_diagnostic('reference_metadata_unavailable', 'reporting',
+                                    library=plib, problem=name, role=role)
         if problem['selection_status'] == 'unknown':
             problem['selection_status'] = ('retained' if self.document['operation'] == 'load'
                                            else 'observed_without_selection')
@@ -940,9 +1020,11 @@ class EvalReport:
                 self.document['stages']['rendering'] = {'status': 'completed'}
         for diagnostic in metadata.get('diagnostics', [])[:_MAX_DIAGNOSTICS]:
             if type(diagnostic) is dict:
+                scope = {key: value for key, value in diagnostic.items()
+                         if key in ('solver_index', 'run_index', 'exception_type')}
+                scope.setdefault('exception_type', None)
                 self.add_diagnostic(diagnostic.get('code'), diagnostic.get('stage'),
-                                    library=plib, problem=name, role=role,
-                                    exception_type=diagnostic.get('exception_type'))
+                                    library=plib, problem=name, role=role, **scope)
 
     def _add_history_plots(self, result, problem):
         """Prepare display facts only: no axes, user callbacks, or raw mutation."""
@@ -1018,6 +1100,9 @@ class EvalReport:
             'computation_time': 'computation_times',
             'solver_abnormal_termination': 'solver_abnormal_terminations',
             'solver_output_fallback': 'solver_output_fallbacks',
+            'reference_records': 'reference_records',
+            'reference_fallback_reasons': 'reference_fallback_reasons',
+            'reference_history_failures': 'reference_history_failures',
         }
 
         def add_library(result, role):
@@ -1084,7 +1169,7 @@ class EvalReport:
             record['path_reason'] = 'cross_volume_relative_path_unavailable'
         try:
             if source.is_symlink():
-                raise OSError('source is symlink')
+                raise OSError(f"the load source '{source}' is a symlink")
             record.update(_digest(source), status='captured_before_filtering')
         except OSError:
             record.update(bytes=None, sha256=None, status='unavailable', reason='archive_hash_unavailable')
@@ -1092,7 +1177,7 @@ class EvalReport:
         self.document['source'] = record
         self._write()
 
-    def set_profiles(self, curves, solver_scores, profile_scores, solver_names, single=False):
+    def set_scores(self, solver_scores, profile_scores, solver_names, single=False):
         n_types = profile_scores.shape[-1] if type(profile_scores) is np.ndarray and profile_scores.ndim == 4 else 0
         self.document['scores'] = {
             'solver_names': _score_values(solver_names), 'solver_scores': _score_values(solver_scores),
@@ -1103,7 +1188,7 @@ class EvalReport:
                             'tolerance': [item['tolerance'] for item in self.document['profiles']['convergence']]},
             'semantics': 'single_problem_relative_decrease_averaged_over_runs' if single else 'cohort_relative',
             'direction': 'higher_is_better_for_default_scoring; custom_callbacks_define_their_own_direction',
-            'comparability_note': 'Scores depend on the retained cohort, tolerances, options, and scoring callbacks.',
+            'comparability_note': 'Scores depend on references or the retained cohort, tolerances, options, and scoring callbacks.',
         }
         self.document['stages']['scoring'] = {'status': 'completed'}
         # score_only already explains a not-requested rendering (same
@@ -1134,7 +1219,7 @@ class EvalReport:
                  'invalid_initial_reason': 'not_separately_supplied',
                  'problem_count': len(problem_ids) if type(problem_ids) in (list, tuple) else None,
                  'history_work_semantics': 'first_actual_evaluation_meeting_existing_target',
-                 'output_work_semantics': 'total_evaluations_at_passing_returned_output_not_first_hit',
+                 'output_work_semantics': 'total_evaluations_at_passing_returned_output_not_first_hit;output_fallback_run_has_no_output_work',
                  'history': [], 'output': []}
         for label, work in (('history', work_hist), ('output', work_out)):
             if type(work) is not np.ndarray or work.ndim != 3 or work.dtype.kind not in 'biuf':
@@ -1190,7 +1275,7 @@ class EvalReport:
             return
         if (self._output_dir.is_symlink() or not self._output_dir.is_dir()
                 or self._identity(self._output_dir) != self._output_identity):
-            self.add_diagnostic('artifact_directory_ownership_changed', 'persistence')
+            self.record_persistence_failure('artifact_directory_ownership_changed')
             return
         artifacts = []
         excluded = {os.path.realpath(self.path), os.path.realpath(self.plot_path)} | set(self._initial_artifacts)
@@ -1218,13 +1303,13 @@ class EvalReport:
                     # only their integrity receipt is missing, and it says so.
                     record.update(bytes=None, sha256=None, status='unverified',
                                   reason='secure_artifact_hashing_unavailable_on_platform')
-                    self.add_diagnostic('artifact_hash_unavailable', 'persistence',
-                                        reason='secure_artifact_hashing_unavailable_on_platform')
+                    self.record_persistence_failure('artifact_hash_unavailable',
+                                                    reason='secure_artifact_hashing_unavailable_on_platform')
                 else:
                     record.update(_digest(path, directory=self._output_dir))
                 artifacts.append(record)
             except (OSError, NotImplementedError):
-                self.add_diagnostic('artifact_hash_unavailable', 'persistence', name=path.name)
+                self.record_persistence_failure('artifact_hash_unavailable', name=path.name)
         self.document['artifacts'] = artifacts
         if len(artifacts) >= _MAX_ARTIFACTS:
             self.add_diagnostic('artifact_manifest_limit_reached', 'persistence', limit=_MAX_ARTIFACTS)
@@ -1233,23 +1318,28 @@ class EvalReport:
         """Finalize once; secondary reporting errors never mask ``error``."""
         if self._finished:
             return
+        # Even a numerical failure must publish its final diagnosis. Deferral
+        # only prevents optional report writes from interrupting raw-data save.
+        self._publication_deferred = False
         try:
             self._coverage()
             if error is not None:
                 self.add_diagnostic('benchmark_exception', 'runtime',
                                     exception_type=type(error).__name__)
                 scoring_interrupted = self.document['stages']['scoring']['status'] in ('running', 'failed')
+                # Of the rendering failures, only this one ends the run before
+                # the scores. After a failed history plot the scores are attempted.
+                export_failed = self.document['stages']['rendering'].get('reason') == 'profile_export_failed'
                 for stage in _STAGES:
                     if self.document['stages'][stage]['status'] == 'running':
-                        render_failure = self.document['stages']['rendering']['status'] in ('failed', 'partial')
                         if (stage == 'numerical' and scoring_interrupted
                                 and self.document['coverage']['completed'] > 0):
                             self.document['stages'][stage] = {
                                 'status': 'partial', 'reason': 'interrupted_before_all_libraries'}
                         else:
                             self.document['stages'][stage] = {
-                                'status': 'unknown' if stage == 'scoring' and render_failure else 'failed',
-                                'reason': 'interrupted_before_scores' if stage == 'scoring' and render_failure else 'interrupted_by_exception'}
+                                'status': 'unknown' if stage == 'scoring' and export_failed else 'failed',
+                                'reason': 'interrupted_before_scores' if stage == 'scoring' and export_failed else 'interrupted_by_exception'}
             else:
                 for stage in _STAGES:
                     if self.document['stages'][stage]['status'] == 'running':

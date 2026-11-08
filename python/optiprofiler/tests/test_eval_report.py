@@ -3,6 +3,7 @@ import json
 import hashlib
 import os
 import stat
+from copy import deepcopy
 from pathlib import Path
 
 import numpy as np
@@ -14,7 +15,7 @@ from optiprofiler import Problem, benchmark
 from optiprofiler.plotting import prepare_history_plot_data
 from optiprofiler.utils import ProfileOption
 from optiprofiler.tests.eval_report_contract import assert_valid
-from optiprofiler.eval_report import schema_for_document, schema_resource
+from optiprofiler.eval_report import EvalReport, schema_for_document, schema_resource
 
 
 def stay(fun, x0):
@@ -31,6 +32,26 @@ def zero(fun, x0):
 def crash(fun, x0):
     fun(x0)
     raise RuntimeError('deliberate solver failure')
+
+
+@pytest.mark.parametrize('value', [complex(1, 2), np.complex128(1 + 2j)])
+def test_complex_objective_is_invalid_real_evaluation(tmp_path, value):
+    problem = Problem(fun=lambda x: value if x[0] < 0 else x[0] ** 2,
+                      x0=np.ones(1), name='real-domain')
+    assert np.isnan(problem.fun([-1])), 'Do not silently discard the imaginary component.'
+
+    def negative(fun, x0):
+        point = -np.ones_like(x0)
+        fun(point)
+        return point
+
+    target = tmp_path / 'complex.json'
+    benchmark([negative, zero], problem=problem, score_only=True,
+              n_jobs=1, n_runs=1, silent=True, report_path=target)
+    report = _read(target)
+    assert report['problems'][0]['runs'][0]['objective']['invalid_evaluations']['nan'] == 1
+    detail = _plot_data(target, report)
+    assert detail['histories'][0]['channels']['objective']['values'][0]['reason'] == 'nan'
 
 
 def long_walk(fun, x0):
@@ -90,10 +111,14 @@ def _plot_data(path, report):
     return companion
 
 
-def test_saved_experiment_load_has_compact_main_and_complete_numeric_detail(tmp_path, monkeypatch):
+def test_saved_experiment_load_has_compact_main_and_complete_numeric_detail(tmp_path, tmp_path_factory, monkeypatch):
     fixture = os.environ.get('OPTIPROFILER_REPORT_ARCHIVE')
     if not fixture:
-        pytest.skip('set OPTIPROFILER_REPORT_ARCHIVE to an immutable saved experiment directory')
+        generated = tmp_path_factory.mktemp('saved-report-source')
+        benchmark([stay, zero], plibs=['custom'], problem_names=['custom1'],
+                  n_jobs=1, silent=True, savepath=str(generated),
+                  draw_hist_plots='none', max_eval_factor=2, max_tol_order=3)
+        fixture = next(generated.rglob('data_for_loading.h5')).parent
     fixture = Path(fixture).resolve()
     before = {p: hashlib.sha256(p.read_bytes()).hexdigest()
               for p in fixture.rglob('*') if p.is_file()}
@@ -177,6 +202,70 @@ def test_report_only_preserves_single_problem_scores_and_creates_no_plots(tmp_pa
     detail = _plot_data(target, report)
     assert len(detail['histories']) == 2
     assert len(detail['plots']) == 2  # Raw/cummin objective panels, no constraints.
+
+
+def column_scores(profile_scores):
+    return np.mean(profile_scores[:, :, 0, 0], axis=1, keepdims=True)
+
+
+def row_scores(profile_scores):
+    return np.mean(profile_scores[:, :, 0, 0], axis=1)[None, :]
+
+
+def list_scores(profile_scores):
+    return [float(value) for value in np.mean(profile_scores[:, :, 0, 0], axis=1)]
+
+
+def scalar_score(profile_scores):
+    return float(np.mean(profile_scores))
+
+
+def wide_scores(profile_scores):
+    return np.mean(profile_scores[:, :, 0, :], axis=1)
+
+
+def ragged_scores(profile_scores):
+    return [[1.0, 2.0], [3.0]]
+
+
+def ragged_rows_scores(profile_scores):
+    # What an older NumPy builds from a ragged list instead of refusing it.
+    return np.array([[1.0, 2.0], [3.0]], dtype=object)
+
+
+def ragged_inner_scores(profile_scores):
+    return np.array([[[1.0, 2.0], [3.0]], 4.0], dtype=object)
+
+
+@pytest.mark.parametrize('score_fun', [column_scores, row_scores, list_scores])
+def test_custom_score_vector_shapes_keep_the_report_schema_valid(tmp_path, score_fun):
+    _library(tmp_path / 'libraries', 'evalscores', ['QUAD', 'QUAD2'])
+    options = _options(tmp_path, ['evalscores'])
+    options.update(n_runs=1, max_tol_order=1)
+    expected = benchmark([stay, zero], **options)[0]
+    target = tmp_path / 'scores.json'
+    scores = benchmark([stay, zero], score_fun=score_fun, report_path=target, **options)[0]
+    report = _read(target)
+    assert report['status'] == 'completed'
+    assert report['scores']['solver_scores'] == [float(value) for value in expected]
+    np.testing.assert_array_equal(np.asarray(scores), expected)
+    if score_fun is list_scores:
+        assert type(scores) is list
+    else:
+        assert np.asarray(scores).shape == (2,)
+
+
+@pytest.mark.parametrize('score_fun', [scalar_score, wide_scores, ragged_scores, ragged_rows_scores,
+                                       ragged_inner_scores])
+def test_custom_score_without_one_value_per_solver_is_rejected(tmp_path, score_fun):
+    _library(tmp_path / 'libraries', 'evalscores', ['QUAD', 'QUAD2'])
+    options = _options(tmp_path, ['evalscores'])
+    options.update(n_runs=1, max_tol_order=1)
+    target = tmp_path / 'scores.json'
+    with pytest.raises(ValueError, match='must return one score per solver'):
+        benchmark([stay, zero], score_fun=score_fun, report_path=target, **options)
+    report = _read(target)
+    assert report['status'] == 'failed' and report['scores'] is None
 
 
 def test_empty_path_disables_report(tmp_path):
@@ -385,6 +474,59 @@ def test_save_load_records_source_and_artifacts_without_reexecuting_provider(tmp
     assert all(hashlib.sha256(p.read_bytes()).hexdigest() == value for p, value in before.items())
 
 
+def _failed_history_plot(*args, **kwargs):
+    raise OSError('deliberate history failure')
+
+
+def _failed_score(profile_scores):
+    raise ValueError('deliberate score failure')
+
+
+def _failed_merit(fun_value, maxcv_value, maxcv_init):
+    raise ValueError('deliberate merit failure')
+
+
+@pytest.mark.parametrize('callback', ['score_fun', 'merit_fun'])
+def test_score_failure_after_a_failed_history_plot_fails_scoring(tmp_path, monkeypatch, callback):
+    # A failed history plot does not stop the run, so the scores are attempted.
+    # In the default mode the plots come with the solves and compute the merits,
+    # so a failing merit_fun has failed them all before the scoring fails.
+    from optiprofiler import profiles
+    _library(tmp_path / 'libraries', 'evalrender', ['QUAD'])
+    options = _options(tmp_path, ['evalrender'])
+    options.update(score_only=False, n_runs=1, max_tol_order=1)
+    if callback == 'score_fun':
+        monkeypatch.setattr(profiles, '_export_problem_history_plots', _failed_history_plot)
+        options.update(draw_hist_plots='sequential', score_fun=_failed_score)
+    else:
+        options.update(draw_hist_plots='parallel', merit_fun=_failed_merit)
+    target = tmp_path / 'score.json'
+    with pytest.raises(Exception, match='deliberate (score|merit) failure'):
+        benchmark([stay, zero], report_path=target, **options)
+    report = _read(target)
+    assert report['stages']['rendering']['status'] == 'failed'
+    assert report['stages']['scoring'] == {'status': 'failed', 'reason': 'interrupted_by_exception'}
+    assert any(d['code'] == 'history_render_failed' for d in report['diagnostics'])
+
+
+def test_export_failure_after_a_failed_history_plot_leaves_scoring_unknown(tmp_path, monkeypatch):
+    from matplotlib.figure import Figure
+    from optiprofiler import profiles
+    _library(tmp_path / 'libraries', 'evalrender', ['QUAD'])
+    monkeypatch.setattr(profiles, '_export_problem_history_plots', _failed_history_plot)
+    def failed_export(self, *args, **kwargs):
+        raise OSError('deliberate file export failure')
+    monkeypatch.setattr(Figure, 'savefig', failed_export)
+    options = _options(tmp_path, ['evalrender'])
+    options.update(score_only=False, n_runs=1, max_tol_order=1, draw_hist_plots='sequential')
+    target = tmp_path / 'export.json'
+    with pytest.raises(OSError, match='deliberate file export failure'):
+        benchmark([stay, zero], report_path=target, **options)
+    report = _read(target)
+    assert report['stages']['rendering'] == {'status': 'failed', 'reason': 'profile_export_failed'}
+    assert report['stages']['scoring'] == {'status': 'unknown', 'reason': 'interrupted_before_scores'}
+
+
 def test_export_failure_is_not_a_numerical_failure(tmp_path, monkeypatch):
     from matplotlib.figure import Figure
     _library(tmp_path / 'libraries', 'evalrender', ['QUAD'])
@@ -518,6 +660,29 @@ def _saved_run(tmp_path, name):
     target = tmp_path / f'{name}.json'
     scores = benchmark([stay, zero], report_path=target, **options)
     return target, _read(target), scores
+
+
+def test_raw_archive_survives_final_report_ownership_failure(tmp_path, monkeypatch):
+    _library(tmp_path / 'libraries', 'evalpreserved', ['QUAD'])
+    options = _options(tmp_path, ['evalpreserved'])
+    options.update(score_only=False, n_runs=1, max_tol_order=1,
+                   benchmark_id='preserved', draw_hist_plots='none')
+    target = tmp_path / 'replaced-after-solving.json'
+
+    def replace_report(fun, *args):
+        replacement = target.with_suffix('.replacement')
+        replacement.write_text('external replacement', encoding='utf-8')
+        os.replace(replacement, target)
+        return fun
+
+    with pytest.raises(FileExistsError, match='ownership'):
+        benchmark([stay, zero], merit_fun=replace_report, report_path=target, **options)
+    assert target.read_text(encoding='utf-8') == 'external replacement'
+    archives = list(tmp_path.rglob('data_for_loading.h5'))
+    assert len(archives) == 1, 'Final report failure discarded completed numerical data.'
+    monkeypatch.chdir(tmp_path)
+    benchmark(None, load='latest', benchmark_id='preserved', savepath=str(tmp_path),
+              score_only=True, silent=True, max_tol_order=1)
 
 
 def test_hashing_unavailable_keeps_numerical_data_and_reports_unverified_artifacts(tmp_path, monkeypatch):
@@ -940,3 +1105,50 @@ def test_unicode_identity_is_preserved_and_sensitive_unknown_option_is_redacted(
         benchmark([stay, zero], report_path=secret_path, auth_token='do-not-copy-this-secret')
     assert 'do-not-copy-this-secret' not in secret_path.read_text(encoding='utf-8')
     assert _read(secret_path)['configuration']['request']['auth_token']['reason'] == 'redacted_sensitive_option'
+
+
+def test_diagnostic_names_do_not_change_execution_state(tmp_path):
+    collector = EvalReport(tmp_path / 'diagnostics.json', {})
+    stages = deepcopy(collector.document['stages'])
+    collector.add_diagnostic('note_failed_comparison', 'rendering')
+    collector.add_diagnostic('problem_load_failed', 'numerical', library='toy', problem='P')
+    collector.add_diagnostic('artifact_hash_unavailable', 'persistence')
+    assert collector.document['stages'] == stages
+    assert not collector._problems
+    collector.finish()
+
+
+@pytest.mark.parametrize('method,stage,status', [
+    ('record_rendering_failure', 'rendering', 'failed'),
+    ('record_persistence_failure', 'persistence', 'partial'),
+])
+@pytest.mark.parametrize('code', ['/home/secret/dir/plot.pdf', 'https://secret.example/plot.pdf'])
+def test_failure_reasons_are_redacted_without_early_publication(tmp_path, method, stage, status, code):
+    target = tmp_path / 'failures.json'
+    collector = EvalReport(target, {})
+    before = target.read_bytes()
+
+    getattr(collector, method)(code)
+
+    state = collector.document['stages'][stage]
+    assert state['status'] == status
+    assert state['reason'] == collector.document['diagnostics'][-1]['code']
+    assert 'secret' not in state['reason']
+    assert target.read_bytes() == before
+    collector.finish()
+    assert _read(target)['stages'][stage] == state
+
+
+def test_explicit_failure_records_preserve_failed_stages(tmp_path):
+    collector = EvalReport(tmp_path / 'failures.json', {})
+    collector.record_load_failure('toy', 'P', exception_type='ValueError')
+    assert collector._problems[('toy', 'P', 'primary')]['load_status'] == 'failed'
+    collector.record_rendering_failure('export_interrupted')
+    collector.set_stage('rendering', 'completed')
+    assert collector.document['stages']['rendering'] == {
+        'status': 'failed', 'reason': 'export_interrupted'}
+    collector.set_stage('persistence', 'failed', 'write_interrupted')
+    collector.record_persistence_failure('artifact_hash_unavailable')
+    assert collector.document['stages']['persistence'] == {
+        'status': 'failed', 'reason': 'write_interrupted'}
+    collector.finish()

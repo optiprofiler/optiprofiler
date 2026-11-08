@@ -55,7 +55,10 @@ classdef FeaturedProblem < Problem
 %   snaps its local reference objective and nonlinear constraints; with false
 %   it snaps observations only. Its bounds and linear constraints are checked
 %   at the unsnapped point in that stage's coordinates. Reference values are
-%   therefore not universally the original untransformed callback values.
+%   therefore not universally the original untransformed callback values. A
+%   single quantized stage reads the callback of a query once, at the snapped
+%   point, which is also the recorded reference with ground_truth=true; with
+%   false the reference takes one more read, at the unsnapped point.
 %
 %   Reference reads for initialization, history, maxcv and final scoring do
 %   not consume the public fun/cub/ceq call budget or advance served-query
@@ -74,29 +77,31 @@ classdef FeaturedProblem < Problem
 %   - cub_hist, ceq_hist: reference nonlinear-constraint histories, with one
 %     column per recorded fresh evaluation (m-by-k; 0-by-k without nonlinear
 %     constraints). Row and empty callback results are stored as one column.
-%     The optional record_hist=false argument suppresses storage, not the
-%     public call counter or evaluation.
+%     The optional record_hist=false argument suppresses storage and the
+%     reference (truth) evaluation, not the solver-visible evaluation or the
+%     2*max_eval call limit.
 %   - maxcv_hist: reference maximum violations at recorded objective points,
 %     not a separate sequence of constraint calls; unavailable evaluations are
 %     recorded as NaN.
 %   - fun_init, maxcv_init: reference values at the featured initial point.
-%   - reference: the original problem's feasible reference FACT (see Problem)
+%   - reference: the original problem's raw fun/maxcv reference FACT (see Problem)
 %     if the feature retains it, otherwise [] (unknown). This is author or
 %     provider metadata and is unrelated to the "reference values" above,
 %     which are the scoring truth of this trial. The record is retained
 %     unchanged or dropped; nothing is transported or derived, and the rule is
-%     the same for every kind. Retaining stages: those that change only
+%     the same for every kind at zero violation. Retaining stages: those that change only
 %     observations (noisy, truncated, random_nan, nonquantifiable_constraints,
 %     unrelaxable_constraints, and quantized with ground_truth=false),
-%     perturbed_x0, permuted and linearly_transformed. custom retains it only
-%     if its options are a subset of mod_x0 and mod_affine; any other custom
-%     option (mod_fun, mod_cub, mod_ceq, mod_bounds, mod_linear_ub,
-%     mod_linear_eq) may change values, constraints or bounds and makes it
-%     unknown. quantized with ground_truth=true (the default) makes it
+%     perturbed_x0, permuted and linearly_transformed. Every custom stage
+%     uses the default target; this release has no reference-conversion
+%     callback. quantized with ground_truth=true (the default) makes it
 %     unknown, because the truth is then the mesh problem. A composition
-%     retains the record only if every stage does. The record is never the
-%     cohort minimum of a benchmark, and the recorded merits of a constrained
-%     trial may fall below it; they are never clamped.
+%     retains the record only if every stage does. Nonzero maxcv survives
+%     built-in affine maps because scoring retains original-coordinate
+%     residuals. Optional x_ref stays in original coordinates without
+%     transport or oracle calls. Standard profiles convert a retained record with the
+%     current merit_fun for each run; unknown keeps the V1 cohort minimum.
+%     Actual recorded merits are never clamped to this target.
 %
 %   n_eval_fun is the length of fun_hist. On every execution strategy,
 %   n_eval_cub and n_eval_ceq count recorded constraint queries, i.e. history
@@ -133,9 +138,10 @@ classdef FeaturedProblem < Problem
 %   callbacks of the original problem with respect to the variables the solver
 %   works in. A feature that changes the variables by x = A * y + b (permuted,
 %   linearly_transformed, custom with mod_affine) applies the chain rule at the
-%   point x: grad is A' * grad(x), hess is A' * hess(x) * A, jcub and jceq are
-%   J(x) * A, and every element of hcub and hceq is A' * H(x) * A. Every other
-%   single feature leaves them as they are. They are never derivatives of the
+%   point x: grad is the column A' * grad(x)(:) (Problem accepts a row or a
+%   column gradient), hess is A' * hess(x) * A, jcub and jceq are J(x) * A,
+%   and every element of hcub and hceq is A' * H(x) * A. Every other single
+%   feature leaves them as they are. They are never derivatives of the
 %   observed values: noise, truncation, NaN, a mesh or a custom mod_fun,
 %   mod_cub or mod_ceq do not enter them. They cost no evaluation and record no
 %   history, and a derivative the problem does not provide stays absent
@@ -170,6 +176,7 @@ classdef FeaturedProblem < Problem
         last_ceq
         kernel
         final_view
+        reference_history_failure = []
     end
 
     properties (Dependent)
@@ -201,9 +208,14 @@ classdef FeaturedProblem < Problem
             if ~isa(problem, 'Problem')
                 error("MATLAB:FeaturedProblem:NotProblemClass", "The first argument of `FeaturedProblem` must be an instance of the class Problem.");
             end
+            % A saved object or a later assignment can hold any name.
+            problem.checkName();
             if ~isa(feature, 'Feature')
                 error("MATLAB:FeaturedProblem:NotFeatureClass", "The second argument of `FeaturedProblem` must be an instance of the class Feature.");
             end
+            % A feature must not get to hide malformed data that a file or a later
+            % assignment left in the problem: a rotation poses only finite bounds.
+            problem.checkConstraintData();
 
             % Preprocess the maximum number of function evaluations.
             if ~(isintegerscalar(max_eval) && max_eval > 0)
@@ -264,10 +276,11 @@ classdef FeaturedProblem < Problem
             % callback is called for this. A composition takes the record that
             % survived every stage view.
             if isempty(view)
-                obj.reference_ = optiprofiler_internal.propagateProblemReference( ...
+                [obj.reference_,obj.reference_fallback_reason_] = optiprofiler_internal.propagateProblemReference( ...
                     problem.reference, kernel.name, kernel.options);
             else
                 obj.reference_ = view.reference;
+                obj.reference_fallback_reason_ = view.referenceFallbackReason();
             end
             if isempty(view)
                 if isempty(stages), obj.execution_strategy = 'identity';
@@ -402,7 +415,9 @@ classdef FeaturedProblem < Problem
             Returns
             -------
             f : double
-                Modified objective function value.
+                Modified objective function value. Once n_eval_fun has reached
+                max_eval, this is the value last returned by fun, whatever x
+                is, and nothing is evaluated or recorded.
             %}
 
             if obj.real_n_eval_fun >= 2 * obj.max_eval
@@ -423,7 +438,8 @@ classdef FeaturedProblem < Problem
                 obj.fun_hist = [obj.fun_hist,obj.final_view.referenceValue('fun',x)];
                 try
                     obj.maxcv_hist = [obj.maxcv_hist,obj.final_view.referenceMaxcv(x)];
-                catch
+                catch err
+                    obj.recordHistoryFailure(err);
                     obj.maxcv_hist = [obj.maxcv_hist,NaN];
                 end
                 return
@@ -438,18 +454,18 @@ classdef FeaturedProblem < Problem
             f = obj.kernel.modifier_fun(A * x + b, obj.seed, obj.problem, obj.n_eval_fun);
             obj.last_fun = f;
 
-            % Evaluate the objective function and store the results.
-            f_true = obj.problem.fun(A * x + b);
-
-            % If the feature is 'quantized' and the option ``ground_truth'' is set to true, we should
-            % set f_true to f.
+            % If the feature is 'quantized' and the option ``ground_truth'' is set to true, the
+            % truth is f. Otherwise, evaluate the objective function.
             if strcmp(obj.kernel.name, FeatureName.QUANTIZED.value) && obj.kernel.options.(FeatureOptionKey.GROUND_TRUTH.value)
                 f_true = f;
+            else
+                f_true = obj.problem.fun(A * x + b);
             end
             obj.fun_hist = [obj.fun_hist, f_true];
             try
                 obj.maxcv_hist = [obj.maxcv_hist, obj.maxcv(x)];
-            catch
+            catch err
+                obj.recordHistoryFailure(err);
                 obj.maxcv_hist = [obj.maxcv_hist, NaN];
             end
         end
@@ -462,11 +478,19 @@ classdef FeaturedProblem < Problem
             ----------
             x : double, size (n,)
                 Decision variables.
+            record_hist : logical, optional
+                Whether to evaluate and record the reference (truth) value
+                (default true). False skips that evaluation and the history
+                entry; the solver-visible value is still computed and the
+                call still counts toward the limit of 2*max_eval calls.
 
             Returns
             -------
             cub_ : double, size (m_nonlinear_ub,)
-                Modified nonlinear inequality constraints.    
+                Modified nonlinear inequality constraints. Once n_eval_cub
+                (recorded queries: a call with record_hist false is not one)
+                has reached max_eval, this is the value last returned by
+                cub, whatever x is, and nothing is evaluated or recorded.
             %}
 
             if obj.real_n_eval_cub >= 2 * obj.max_eval
@@ -484,9 +508,8 @@ classdef FeaturedProblem < Problem
             if ~isempty(obj.final_view)
                 cub_ = obj.final_view.cub(x);
                 obj.last_cub = cub_;
-                reference_value = obj.final_view.referenceValue('cub',x);
                 if nargin < 3 || record_hist
-                    obj.cub_hist = [obj.cub_hist,reference_value];
+                    obj.cub_hist = [obj.cub_hist,obj.final_view.referenceValue('cub',x)];
                 end
                 return
             end
@@ -498,18 +521,16 @@ classdef FeaturedProblem < Problem
             cub_ = obj.kernel.modifier_cub(A * x + b, obj.seed, obj.problem, obj.n_eval_cub);
             obj.last_cub = cub_;
             
-            % Evaluate the nonlinear inequality constraints and store the results.
-            cub_true = obj.problem.cub(A * x + b);
-
-            % If the feature is 'quantized' and the option ``ground_truth'' is set to true, we should
-            % use the modified constraint violation.
-            if strcmp(obj.kernel.name, FeatureName.QUANTIZED.value) && obj.kernel.options.(FeatureOptionKey.GROUND_TRUTH.value)
-                cub_true = cub_;
-            end
-
             % Record the history of the nonlinear inequality constraints only when `record_hist` is true.
             % One column per recorded query: row and empty results become one column.
             if nargin < 3 || record_hist
+                % If the feature is 'quantized' and the option ``ground_truth'' is set to true, the
+                % truth is cub_. Otherwise, evaluate the nonlinear inequality constraints.
+                if strcmp(obj.kernel.name, FeatureName.QUANTIZED.value) && obj.kernel.options.(FeatureOptionKey.GROUND_TRUTH.value)
+                    cub_true = cub_;
+                else
+                    cub_true = obj.problem.cub(A * x + b);
+                end
                 obj.cub_hist = [obj.cub_hist, cub_true(:)];
             end
         end
@@ -522,11 +543,19 @@ classdef FeaturedProblem < Problem
             ----------
             x : double, size (n,)
                 Decision variables.
+            record_hist : logical, optional
+                Whether to evaluate and record the reference (truth) value
+                (default true). False skips that evaluation and the history
+                entry; the solver-visible value is still computed and the
+                call still counts toward the limit of 2*max_eval calls.
 
             Returns
             -------
             ceq_ : double, size (m_nonlinear_eq,)
-                Modified nonlinear equality constraints.
+                Modified nonlinear equality constraints. Once n_eval_ceq
+                (recorded queries: a call with record_hist false is not one)
+                has reached max_eval, this is the value last returned by
+                ceq, whatever x is, and nothing is evaluated or recorded.
             %}
 
             if obj.real_n_eval_ceq >= 2 * obj.max_eval
@@ -544,9 +573,8 @@ classdef FeaturedProblem < Problem
             if ~isempty(obj.final_view)
                 ceq_ = obj.final_view.ceq(x);
                 obj.last_ceq = ceq_;
-                reference_value = obj.final_view.referenceValue('ceq',x);
                 if nargin < 3 || record_hist
-                    obj.ceq_hist = [obj.ceq_hist,reference_value];
+                    obj.ceq_hist = [obj.ceq_hist,obj.final_view.referenceValue('ceq',x)];
                 end
                 return
             end
@@ -558,23 +586,25 @@ classdef FeaturedProblem < Problem
             ceq_ = obj.kernel.modifier_ceq(A * x + b, obj.seed, obj.problem, obj.n_eval_ceq);
             obj.last_ceq = ceq_;
 
-            % Evaluate the nonlinear equality constraints and store the results.
-            ceq_true = obj.problem.ceq(A * x + b);
-
-            % If the Feature is ``quantized'' and the option ``ground_truth'' is set to true, we should
-            % use the modified constraint violation.
-            if strcmp(obj.kernel.name, FeatureName.QUANTIZED.value) && obj.kernel.options.(FeatureOptionKey.GROUND_TRUTH.value)
-                ceq_true = ceq_;
-            end
-
             % Record the history of the nonlinear equality constraints only when `record_hist` is true.
             % One column per recorded query: row and empty results become one column.
             if nargin < 3 || record_hist
+                % If the Feature is ``quantized'' and the option ``ground_truth'' is set to true, the
+                % truth is ceq_. Otherwise, evaluate the nonlinear equality constraints.
+                if strcmp(obj.kernel.name, FeatureName.QUANTIZED.value) && obj.kernel.options.(FeatureOptionKey.GROUND_TRUTH.value)
+                    ceq_true = ceq_;
+                else
+                    ceq_true = obj.problem.ceq(A * x + b);
+                end
                 obj.ceq_hist = [obj.ceq_hist, ceq_true(:)];
             end
         end
 
         function varargout = maxcv(obj, x, detailed)
+            if ~isvector(x) || numel(x) ~= obj.n
+                error('MATLAB:FeaturedProblem:maxcvInvalidPoint', 'The point must be a vector with %d entries.', obj.n);
+            end
+            x = x(:);
             if nargin < 3, detailed = false; end
             if ~isempty(obj.final_view)
                 [varargout{1:nargout}] = obj.final_view.referenceMaxcv(x,detailed);
@@ -686,7 +716,8 @@ classdef FeaturedProblem < Problem
             [A, point] = obj.originalPoint(x);
             if isempty(A), value = grad@Problem(obj, x); return; end
             value = obj.problem.grad(point);
-            if ~isempty(value), value = A' * value; end
+            % Problem accepts a row or a column gradient.
+            if ~isempty(value), value = A' * value(:); end
         end
         function value = hess(obj, x)
             if ~isempty(obj.final_view), value = obj.final_view.hess(x); return; end
@@ -731,6 +762,16 @@ classdef FeaturedProblem < Problem
     end
 
     methods (Access = private)
+        function recordHistoryFailure(obj, err)
+            % Keep the first cause even when solver execution disables warnings.
+            if isempty(obj.reference_history_failure)
+                obj.reference_history_failure = struct('identifier', err.identifier, ...
+                    'message', shortenMessageForLog(err.message));
+                warning('OptiProfiler:FeaturedProblem:ReferenceHistoryUnavailable', ...
+                    'Reference constraint history unavailable: %s: %s', ...
+                    err.identifier, obj.reference_history_failure.message);
+            end
+        end
         function [A, point] = originalPoint(obj, x)
             % The matrix A and the point A * x + b of the original problem, if
             % the feature changes the variables and x is a point of this
@@ -751,18 +792,18 @@ classdef FeaturedProblem < Problem
     methods (Access = protected)
         function value = constraintDimension(obj,channel)
             if isempty(obj.final_view)
-                value = constraintDimension@Problem(obj,channel);
+                % Same callbacks and probe point as the original problem:
+                % reuse its measured dimension instead of probing again.
+                if strcmp(channel,'cub')
+                    value = obj.problem.m_nonlinear_ub;
+                else
+                    value = obj.problem.m_nonlinear_eq;
+                end
             elseif strcmp(channel,'cub')
                 value = obj.final_view.m_nonlinear_ub;
             else
                 value = obj.final_view.m_nonlinear_eq;
             end
-        end
-        function x = constraintProbePoint(obj)
-            % Inherited cub_/ceq_ are base callbacks, while obj.x0 is in solver
-            % coordinates. Probe dimensions at the original problem's point,
-            % or an affine map can falsely make a valid callback unavailable.
-            x = obj.problem.x0;
         end
     end
 
@@ -802,6 +843,9 @@ classdef FeaturedProblem < Problem
     end
 
     methods (Hidden)
+        function failure = historyFailure(obj)
+            failure = obj.reference_history_failure;
+        end
         function x = toOriginalCoordinates(obj,x)
             if isempty(obj.final_view)
                 [A,b] = obj.kernel.modifier_affine(obj.seed,obj.problem);

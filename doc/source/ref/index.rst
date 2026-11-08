@@ -19,6 +19,7 @@ Main function for most users
     :toctree: generated/
 
     benchmark
+    load_benchmark_options
 
 Main classes
 ------------
@@ -27,6 +28,7 @@ Main classes
     :toctree: generated/
 
     Problem
+    ProblemReference
     Feature
     FeaturedProblem
 
@@ -84,8 +86,6 @@ Readers for archives and configuration files written by OptiProfiler 1.x
 
     loads_trusted
     load_trusted
-    load_options
-    replay_arguments
     import_legacy_feature
     LegacyFeatureImport
     LegacyEnumValue

@@ -22,17 +22,18 @@ function library = resolveProblemLibrary(name)
             "Use registerProblemLibrary to add external or custom libraries.", name);
     end
     registration = definitions(matching);
-    if isempty(registration.root)
-        error("MATLAB:resolveProblemLibrary:notInstalled", ...
-            "Problem library '%s' is known but not installed. " + ...
-            "Run setup or registerProblemLibrary first.", name);
-    end
-
+    % Check the declared platforms first: setup cannot install a library
+    % on a platform it does not support, so 'run setup' would mislead.
     current_platform = matlabPlatformName();
     if ~ismember(current_platform, registration.platforms)
         error("MATLAB:resolveProblemLibrary:unsupportedPlatform", ...
             "Problem library '%s' does not support MATLAB on %s.", ...
             name, current_platform);
+    end
+    if isempty(registration.root)
+        error("MATLAB:resolveProblemLibrary:notInstalled", ...
+            "Problem library '%s' is known but not installed. " + ...
+            "Run setup or registerProblemLibrary first.", name);
     end
     library = materializeProblemLibrary(registration);
 end

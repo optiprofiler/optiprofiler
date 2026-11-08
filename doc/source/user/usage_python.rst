@@ -37,7 +37,7 @@ There will be a new folder named ``out`` in the current working directory, which
 
    Figure 1: Screenshot of the subfolder containing detailed results of the benchmarking run.
 
-Additionally, a PDF file named ``summary.pdf`` is generated, summarizing all the performance profiles and data profiles.
+Additionally, a PDF file named ``summary_<stamp>.pdf`` is generated in the experiment directory, summarizing all the performance profiles and data profiles.
 
 .. figure:: images/py_summary_pdf.jpg
    :width: 90%
@@ -49,9 +49,13 @@ Additionally, a PDF file named ``summary.pdf`` is generated, summarizing all the
 The subfolder ``test_log`` contains diagnostic files for the experiment. In
 particular, ``test_log/report.txt`` records selected problem names, timing
 information, and special cases detected while building the profiles: problems
-where ``merit_init = phi(x_0) = inf`` (all solvers are declared to pass that
-problem/run), solver runs that terminated abnormally, and solver outputs that
-were replaced by the initial point as an output-based penalty. The file
+where ``merit_init = phi(x_0) = inf`` (valid evaluations pass by convention,
+but undefined objective, constraint or merit values do not), solver runs that
+terminated abnormally, and solver outputs that
+were replaced by the initial point as an output-based penalty. A solver that
+raised an error or returned nothing has no output, so such a run never passes
+the output-based test, whatever the target; its history-based results stand, and
+a solver that returns the initial point itself is not such a run. The file
 ``test_log/log.txt`` contains the messages printed during the run.
 
 If history plots are enabled, each problem library has a subfolder under
@@ -178,40 +182,27 @@ The rules are:
   only; with ``ground_truth=True`` the inherited reference objective and
   nonlinear constraints are read at the snapped point as well, while bounds and
   linear constraints are always checked at the unsnapped point.
-- A problem may carry an optional *feasible reference fact*
-  (``Problem.reference``, a :class:`~optiprofiler.ProblemReference`): one
-  finite scalar ``merit`` with its ``kind`` (``lower_bound``, ``optimum``,
-  ``best_known`` or ``target``, each a claim over the feasible points of the
-  problem), its ``source`` and the ``mapping`` token ``'feasible_objective/1'``
-  of a closed registry. It is author/provider metadata and must not be
-  confused with the scoring reference of the previous rule.
-  ``FeaturedProblem.reference`` is that record, unchanged, if the feature
-  retains it, and ``None`` (unknown) otherwise; the record holds no point, so
-  nothing is transported or derived, and the rule is the same for every kind.
-  Stages that change only observations (``noisy``, ``truncated``,
-  ``random_nan``, ``nonquantifiable_constraints``,
-  ``unrelaxable_constraints``, and ``quantized`` with ``ground_truth=False``),
-  ``perturbed_x0``, ``permuted`` and ``linearly_transformed`` retain it.
-  ``custom`` retains it only if its options are a subset of ``mod_x0`` and
-  ``mod_affine``; ``mod_fun``, ``mod_cub``, ``mod_ceq``, ``mod_bounds``,
-  ``mod_linear_ub`` and ``mod_linear_eq`` may change values, constraints or
-  bounds and make it unknown, whatever the callbacks do. ``quantized`` with
-  ``ground_truth=True``, the default, makes it unknown, because the truth is
-  then the mesh problem. A composition retains the record only if every stage
-  does.
-- The reference fact is not a run-history minimum and not the profile
-  baseline: that baseline is the least merit observed over the selected solver
-  histories, changes with the solver cohort and is never stored in a problem;
-  nothing derives a reference from solver output, and no profile formula reads
-  the reference. It is not a floor for run merits either. On a constrained
-  problem the merit of a run may be *below* the reference, because a merit
-  function tolerates or penalizes small violations, so an infeasible point can
-  have a lower merit than every feasible one; such values are legitimate and
-  are never clamped. The scalar is an objective value over feasible points:
-  before a consumer compares run merits with it under a custom ``merit_fun``,
-  that function must be known to satisfy
-  ``merit_fun(f, 0, maxcv_init) == f`` for every ``maxcv_init`` (the default
-  merit function does).
+- ``Problem.reference`` is an optional :class:`~optiprofiler.ProblemReference`
+  or record with ``fun``, ``maxcv``, ``kind`` and ``source``. The two kinds are
+  ``feasible`` (zero violation) and ``merit`` (possibly nonzero violation;
+  the user chooses the intended merit function). Optional ``x_ref`` is source
+  metadata in original problem coordinates, not a point in featured coordinates.
+  It is never eagerly transported or evaluated for metadata.
+  Observation-only built-ins, ``perturbed_x0``, ``permuted`` and
+  ``linearly_transformed`` retain reference values, including nonzero violation.
+  ``custom`` always falls back to the default target in this release.
+  ``quantized(ground_truth=True)`` also falls back, even with ``x_ref``;
+  ``ground_truth=False`` retains the reference. In a composition, an invalidated
+  reference cannot be restored by later stages. The first reason is retained
+  in the archive and report as ``reference_fallback_reasons``.
+- A retained reference supplies ``merit_fun(fun, maxcv, maxcv_init)`` for each
+  run. Missing references keep the V1 solver-history/initial/plain minimum.
+  No reference changes the recorded observations or clamps measured merits.
+  Save/load retains raw facts and recomputes targets with the current merit
+  function. Earlier kinds and known mapping tokens remain readable, but new
+  records need no mapping token. See :doc:`reference_targets`.
+- Use :doc:`plot_options` to customize native figure fonts, ticks, legends,
+  lines and layout without changing numerical results.
 - ``unrelaxable_constraints`` makes the objective infinite where the
   constraints of the problem it wraps are violated, as that problem observes
   them: after ``'noisy+unrelaxable_constraints'`` the gate reads noisy
@@ -392,30 +383,44 @@ archived problem options under ``archived_experiment``; when that file is missin
 feature identity, or in disagreement with the archive, the recipe fails
 closed (``replayable=False``, ``feature_specification=None``, ``n_runs=None``
 and a ``replay_reason``) instead of inventing defaults. The report's JSON
-callback descriptions are never used as a recipe. ``optiprofiler.legacy_compat``
-is the trusted boundary for files written by earlier versions:
-``load_options`` decodes historical enumeration members (including the former
-``n_runs`` feature option), ``replay_arguments`` maps the supported layouts to
-``feature`` and ``n_runs`` (a flat 1.x file records no feature identity and
-needs an explicit ``feature_name``; the ``n_runs`` key is present only when
-the file records a run count; a load-written file replays only through its
-recovered ``archived_experiment`` and raises ``LegacyConfigurationError``
-otherwise), and ``import_legacy_feature`` converts a
-1.x pickled ``Feature`` into a canonical ``Feature`` plus its retained run
-count, which is passed to ``benchmark`` separately. Only load pickle and H5
-files from trusted sources: unpickling can execute code, and these readers
-offer no safety for untrusted payloads. The callback descriptions in the
-archive and the report are one-way informational metadata (a class or function
-name), never a recipe for reconstructing an executable callable.
+callback descriptions are never used as a recipe. ``optiprofiler.load_benchmark_options`` reads trusted native files or already-loaded
+mappings and returns keyword arguments for a fresh benchmark. It handles current
+user/refined settings and supported earlier layouts, separating the retained
+run count from the Feature. Solvers and profile options are supplied by the
+caller; in particular, seed, merit and silent settings are not forwarded from
+the saved file. A flat 1.x file without feature identity requires an explicit
+``feature_name``. A load-written file replays only through its recovered
+``archived_experiment``; otherwise ``LegacyConfigurationError`` explains why.
+
+.. code-block:: python
+
+    from optiprofiler import benchmark, load_benchmark_options
+
+    options = load_benchmark_options("test_log/options_refined.pkl")
+    scores, _, _ = benchmark(solvers, **options, silent=True)
+
+``optiprofiler.legacy_compat`` retains the historical object decoder and
+``import_legacy_feature`` for separately saved 1.x Features. Only load pickle
+and H5 files from trusted sources: unpickling can execute code. Callback
+metadata in reports is informational, never a reconstruction recipe.
 
 New ``options_user.pkl`` files retain the original input values and add
-``schema='options_user-v2'``. Replay them with ``replay_arguments`` rather than
+``schema='options_user-v2'``. Replay them with ``load_benchmark_options`` rather than
 forwarding the entire dictionary to ``benchmark``. The marker distinguishes
 fresh input from historical effective settings: fresh ``mesh_type='RELATIVE'``
 means relative quantization, whereas older Python versions actually executed
 the absolute grid for that accepted spelling. Historical replay preserves the
 grid that ran. Prefer ``options_refined.pkl`` when the resolved defaults and
 run count must also be preserved.
+
+``options_refined.pkl`` records ``problem_route``. It does not store a Problem
+passed through ``problem``, so ``load_benchmark_options`` raises
+``LegacyConfigurationError`` for such a run instead of returning settings that
+would benchmark a problem library. Set the original Problem first, with
+``options['problem'] = problem``, and call ``load_benchmark_options`` again; the run's
+``options_user.pkl`` also records the Problem. A record older than this field
+has default library selectors whatever the experiment used, so its replay warns:
+a direct-Problem experiment would run on those selectors.
 
 MATLAB mapping. The MATLAB implementation follows the same contract:
 ``options.feature`` as a cell array of structs
@@ -453,6 +458,10 @@ OptiProfiler provides a practically useful option named ``load``. This option al
 
 This will directly draw the profiles for the **solver1** and **solver3** with the ``'noisy'`` feature and all the unconstrained problems with dimension between 7 and 9 selected from the previous run. The results will also be saved under the current directory with a new subfolder named ``noisy_<timestamp>`` with the new timestamp.
 
+A load runs no solver, so it cannot be combined with ``problem``, which runs the solvers on one problem; the combination is rejected before any solver runs or any experiment output is created.
+
+The saved experiment is searched for in the current working directory joined with ``benchmark_id`` (up to five levels of subdirectories). ``savepath`` does not change this search; it only sets where the new results are written. To reload an experiment saved under another ``savepath``, change to that directory first.
+
 .. _py_example4:
 
 Example 4: testing parametrized solvers
@@ -462,21 +471,19 @@ If you want to benchmark a solver with one variable parameter, you can define ca
 
 .. code-block:: python
 
+    from functools import partial
     from optiprofiler import benchmark
 
-    def make_solver(para):
-        def solver_wrapper(fun, x0):
-            return solver(fun, x0, para)
-        return solver_wrapper
-
-    solvers = [make_solver(i) for i in range(1, 4)]
+    solvers = [partial(solver, para=i) for i in range(1, 4)]
     solver_names = [f'solver{i}' for i in range(1, 4)]
-    scores = benchmark(solvers, solver_names=solver_names)
+    if __name__ == '__main__':
+        scores = benchmark(solvers, solver_names=solver_names)
 
 .. note::
 
-    We use named functions (``def``) instead of lambda expressions here so
-    that the benchmark can still run in parallel when ``n_jobs > 1``.
+    Define ``solver`` at module level. A partial of that function remains
+    picklable, unlike a factory returning a nested function, so the benchmark
+    can run in parallel when ``n_jobs > 1``.
     See :ref:`py_callable_picklability` for the full list of affected
     callables and the rationale.
 
@@ -686,7 +693,10 @@ Callable arguments must be picklable when running in parallel
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 When ``n_jobs > 1``, OptiProfiler dispatches problems to worker
-processes via :mod:`multiprocessing`. The following callable
+processes via :mod:`multiprocessing`. It uses fresh ``spawn`` workers and
+a matching logging queue, without changing the application's global start
+method. This avoids inheriting output locks from active logging threads.
+The following callable
 arguments are sent across process boundaries and must therefore be
 picklable:
 
@@ -698,11 +708,33 @@ picklable:
 
 **Lambda expressions and locally-defined nested functions are not
 picklable.** If any of the callables above is a lambda, OptiProfiler
-detects the failure when serializing the worker arguments and silently
-falls back to sequential mode (``n_jobs = 1``), which can be much
-slower.
+detects the failure when serializing the worker arguments, logs the reason
+(unless ``silent`` is true), and falls back to sequential mode (``n_jobs = 1``),
+which can be much slower.
 
 To enable parallel execution, define these callables as module-level
-functions using ``def``. For parametrized solvers, use a closure
-factory (see :ref:`py_example4`) or :func:`functools.partial` instead
-of a lambda.
+functions using ``def``. For parametrized solvers, use
+:func:`functools.partial` with a module-level function. A factory that returns
+a nested function still requires sequential execution.
+
+Put the benchmark call in an importable script and protect its entry point.
+This is required on every platform, Linux included, whenever ``n_jobs > 1``:
+OptiProfiler starts its workers with the ``spawn`` method, which imports the
+script again in each worker, so an unprotected call would run the benchmark
+again there. OptiProfiler detects such a call while a worker imports the
+script and raises a ``RuntimeError`` there, before the worker creates any
+output; the parallel benchmark then fails instead of saving duplicate
+experiments.
+
+.. code-block:: python
+
+    if __name__ == '__main__':
+        benchmark(solvers, n_jobs=2)
+
+Notebooks, interactive consoles, and standard-input scripts have no importable
+entry point. OptiProfiler uses sequential execution in these cases and logs the
+reason. Python also skips rebuilding package ``__main__.py`` entry points in
+spawned workers. Callables defined there require sequential execution; functions
+imported from other modules can still run in parallel.
+This decision is made before any solver runs. It does not retry completed work
+after a parallel failure.

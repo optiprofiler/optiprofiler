@@ -1,12 +1,14 @@
-function [fig_perf, fig_data, fig_log_ratio, curves, graphics_ok, presentation] = drawProfiles(work, problem_dimensions, solver_names, tolerance_latex, cell_axs_summary, is_summary, is_perf, is_data, is_log_ratio, profile_options, curves)
+function [fig_perf, fig_data, fig_log_ratio, curves, graphics_ok, presentation, graphics_cause] = drawProfiles(work, problem_dimensions, solver_names, tolerance_latex, cell_axs_summary, is_summary, is_perf, is_data, is_log_ratio, profile_options, curves)
 %DRAWPROFILES draws the performance, data, and log-ratio profiles.
+%   GRAPHICS_CAUSE is the identifier of the native drawing error that made
+%   GRAPHICS_OK false, and '' otherwise.
 
     solver_names = cellfun(@escapeLatexText, solver_names, 'UniformOutput', false);
     n_solvers = size(work, 2);
 
     % Numerical curves are also the scoring input. Compute them independently
     % of graphics so score_only and the no-graphics SVG fallback are identical.
-    fig_perf = []; fig_data = []; fig_log_ratio = []; graphics_ok = true;
+    fig_perf = []; fig_data = []; fig_log_ratio = []; graphics_ok = true; graphics_cause = '';
     [x_perf, y_perf, ratio_max_perf, x_data, y_data, ratio_max_data, curves] = getExtendedPerformancesDataProfileAxes(work, problem_dimensions, profile_options, curves);
     if n_solvers == 2
         if nargout > 5
@@ -96,25 +98,18 @@ function [fig_perf, fig_data, fig_log_ratio, curves, graphics_ok, presentation] 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
         if is_summary
-            if is_perf && is_data && is_log_ratio
-                drawPerfDetail(cell_axs_summary{1}, x_perf, y_perf, ratio_max_perf, solver_names, profile_options, tolerance_latex);
-                drawDataDetail(cell_axs_summary{2}, x_data, y_data, ratio_max_data, solver_names, profile_options, tolerance_latex);
-                drawLogRatioDetail(cell_axs_summary{3}, x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, solver_names, profile_options, tolerance_latex);
-            elseif is_perf && is_data
-                drawPerfDetail(cell_axs_summary{1}, x_perf, y_perf, ratio_max_perf, solver_names, profile_options, tolerance_latex);
-                drawDataDetail(cell_axs_summary{2}, x_data, y_data, ratio_max_data, solver_names, profile_options, tolerance_latex);
-            elseif is_perf && is_log_ratio
-                drawPerfDetail(cell_axs_summary{1}, x_perf, y_perf, ratio_max_perf, solver_names, profile_options, tolerance_latex);
-                drawLogRatioDetail(cell_axs_summary{2}, x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, solver_names, profile_options, tolerance_latex);
-            elseif is_data && is_log_ratio
-                drawDataDetail(cell_axs_summary{1}, x_data, y_data, ratio_max_data, solver_names, profile_options, tolerance_latex);
-                drawLogRatioDetail(cell_axs_summary{2}, x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, solver_names, profile_options, tolerance_latex);
-            elseif is_perf
-                drawPerfDetail(cell_axs_summary{1}, x_perf, y_perf, ratio_max_perf, solver_names, profile_options, tolerance_latex);
-            elseif is_data
-                drawDataDetail(cell_axs_summary{1}, x_data, y_data, ratio_max_data, solver_names, profile_options, tolerance_latex);
-            elseif is_log_ratio
-                drawLogRatioDetail(cell_axs_summary{1}, x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, solver_names, profile_options, tolerance_latex);
+            row = 0;
+            if is_perf
+                row = row + 1;
+                drawPerfDetail(cell_axs_summary{row}, x_perf, y_perf, ratio_max_perf, solver_names, profile_options, tolerance_latex);
+            end
+            if is_data
+                row = row + 1;
+                drawDataDetail(cell_axs_summary{row}, x_data, y_data, ratio_max_data, solver_names, profile_options, tolerance_latex);
+            end
+            if is_log_ratio
+                row = row + 1;
+                drawLogRatioDetail(cell_axs_summary{row}, x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, solver_names, profile_options, tolerance_latex);
             end
         end
     catch cause
@@ -122,6 +117,7 @@ function [fig_perf, fig_data, fig_log_ratio, curves, graphics_ok, presentation] 
         % retain their original failure semantics. The caller emits SVG from
         % the completed curves and does not retry or recompute solver data.
         graphics_ok = false;
+        graphics_cause = cause.identifier;
         for candidate = {fig_perf, fig_data, fig_log_ratio}
             if ~isempty(candidate{1}) && isgraphics(candidate{1}), close(candidate{1}); end
         end
@@ -177,7 +173,7 @@ function drawPerfDetail(ax_perf, x_perf, y_perf, ratio_max_perf, solver_names, p
     end
     % Set y-axis labels.
     if ~isempty(profile_options.(ProfileOptionKey.YLABEL_PERFORMANCE_PROFILE.value))
-        ylabel_str = sprintf(profile_options.(ProfileOptionKey.YLABEL_PERFORMANCE_PROFILE.value), tolerance_latex);
+        ylabel_str = formatProfileLabel(profile_options.(ProfileOptionKey.YLABEL_PERFORMANCE_PROFILE.value), tolerance_latex, ylabelInterpreter(profile_options));
         ylabel(ax_perf, ylabel_str, 'Interpreter', 'latex', 'FontSize', 11);
     end
     placeSolverLegend(ax_perf, size(x_perf, 2), 'southeast');
@@ -198,7 +194,7 @@ function drawDataDetail(ax_data, x_data, y_data, ratio_max_data, solver_names, p
     end
     % Set y-axis labels.
     if ~isempty(profile_options.(ProfileOptionKey.YLABEL_DATA_PROFILE.value))
-        ylabel_str = sprintf(profile_options.(ProfileOptionKey.YLABEL_DATA_PROFILE.value), tolerance_latex);
+        ylabel_str = formatProfileLabel(profile_options.(ProfileOptionKey.YLABEL_DATA_PROFILE.value), tolerance_latex, ylabelInterpreter(profile_options));
         ylabel(ax_data, ylabel_str, 'Interpreter', 'latex', 'FontSize', 11);
     end
     placeSolverLegend(ax_data, size(x_data, 2), 'southeast');
@@ -214,12 +210,31 @@ function drawLogRatioDetail(ax_log_ratio, x_log_ratio, y_log_ratio, ratio_max_lo
     end
     % Set y-axis labels.
     if ~isempty(profile_options.(ProfileOptionKey.YLABEL_LOG_RATIO_PROFILE.value))
-        ylabel_str = sprintf(profile_options.(ProfileOptionKey.YLABEL_LOG_RATIO_PROFILE.value), tolerance_latex);
+        ylabel_str = formatProfileLabel(profile_options.(ProfileOptionKey.YLABEL_LOG_RATIO_PROFILE.value), tolerance_latex, ylabelInterpreter(profile_options));
         y_label = ylabel(ax_log_ratio, ylabel_str, 'Interpreter', 'latex', 'FontSize', 11);
         set(y_label, 'Units', 'normalized');
         label_position = y_label.Position;
         label_position(1) = -0.05;
         y_label.Position = label_position;
+    end
+end
+
+function interpreter = ylabelInterpreter(profile_options)
+    % The interpreter of a y-axis label at export: the ylabel group of
+    % plot_options wins over the text group, which wins over the default.
+    interpreter = 'latex';
+    if ~isfield(profile_options, 'plot_options')
+        return
+    end
+    for group = {'text', 'ylabel'}
+        if isfield(profile_options.plot_options, group{1})
+            values = profile_options.plot_options.(group{1});
+            names = fieldnames(values);
+            index = find(strcmpi(names, 'Interpreter'), 1, 'last');
+            if ~isempty(index)
+                interpreter = values.(names{index});
+            end
+        end
     end
 end
 

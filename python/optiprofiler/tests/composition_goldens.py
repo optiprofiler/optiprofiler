@@ -245,8 +245,31 @@ def _assert_close(actual, expected, path):
         assert actual == expected, f'{path}: {actual!r} != {expected!r}'
 
 
+def _lost_reads_only(actual, expected, path):
+    """``actual`` is the call sequence ``expected`` without some of its reads, in the same order."""
+    remaining = iter(expected)
+    for call in actual:
+        assert any(np.allclose(call, other, rtol=1e-12, atol=0.0) for other in remaining), f'{path}: unexpected read {call}'
+
+
 def assert_matches(actual, expected):
-    _assert_close(actual, expected, 'scenarios')
+    """
+    Compare scenarios with the fixture, which stays the record of the base
+    commit. Single-stage ``quantized`` has since lost the oracle reads that the
+    base commit discarded, so only its call sequences may be shorter;
+    ``test_quantized_reads.py`` pins them read by read.
+    """
+    assert set(actual) == set(expected), 'scenarios: keys differ'
+    calls = ('construction_calls', 'query_calls')
+    for scenario in expected:
+        if '/quantized' not in scenario:
+            _assert_close(actual[scenario], expected[scenario], scenario)
+            continue
+        for field in calls:
+            for channel, sequence in expected[scenario][field].items():
+                _lost_reads_only(actual[scenario][field][channel], sequence, f'{scenario}/{field}/{channel}')
+        _assert_close({key: value for key, value in actual[scenario].items() if key not in calls},
+                      {key: value for key, value in expected[scenario].items() if key not in calls}, scenario)
 
 
 def main(argv=None):

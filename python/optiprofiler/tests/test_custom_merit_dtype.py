@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from optiprofiler.profile_utils import _default_merit, compute_merit_values
+from optiprofiler.scoring import _default_merit, compute_merit_values
 
 
 def test_first_integer_merit_does_not_truncate_later_fraction():

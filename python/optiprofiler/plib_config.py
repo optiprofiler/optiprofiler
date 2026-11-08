@@ -32,12 +32,6 @@ def _config_path_from_reference(reference):
     return config_path if config_path.is_file() else None
 
 
-def _get_plib_config_path(plib, custom_problem_libs_path=None):
-    """Locate a visible legacy ``config.txt`` file for compatibility."""
-    reference = resolve_problem_library(plib, custom_problem_libs_path)
-    return _config_path_from_reference(reference)
-
-
 def _parse_config_file(config_path):
     """Parse a legacy ``config.txt`` file into a key-value dictionary."""
     config = {}

@@ -7,7 +7,6 @@ function result = setupPathOwnership(action, context, owner, requested)
 % Windows uses its existing ACL behavior, without a POSIX permission claim.
     filename = ownership_file();
     records = read_records(filename);
-    result = false;
     if strcmp(action, 'add')
         context = char(context);
         owner = char(owner);
@@ -102,7 +101,7 @@ function result = setupPathOwnership(action, context, owner, requested)
     elseif strcmp(action, 'remove-context')
         matching = find(strcmp({records.context}, char(context)));
     elseif strcmp(action, 'remove-owner')
-        matching = find(strcmp({records.owner}, char(context)));
+        matching = find(names_directory({records.owner}, char(context)));
     else
         error('OptiProfiler:PathOwnership', 'Unknown path ownership operation.');
     end
@@ -110,11 +109,13 @@ function result = setupPathOwnership(action, context, owner, requested)
     for index = matching
         record = records(index);
         current = strsplit(path, pathsep);
-        remove = record.owned_paths(ismember(record.owned_paths, current));
+        owned = unique([record.owned_paths, ...
+            cellfun(@resolvedDirectory, record.owned_paths, 'UniformOutput', false)], 'stable');
+        remove = owned(ismember(owned, current));
         if ~isempty(remove)
             rmpath(remove{:});
         end
-        if record.pathdef_saved && ~try_save_path(record.pathdef_file, record.owned_paths)
+        if record.pathdef_saved && ~try_save_path(record.pathdef_file, owned)
             error('OptiProfiler:PathPersistence', ...
                 'Could not persist removal to %s; ownership retained for retry.', record.pathdef_file);
         end
@@ -125,6 +126,14 @@ function result = setupPathOwnership(action, context, owner, requested)
         records(index).pathdef_saved = false;
         write_records(filename, records);
     end
+end
+
+function same = names_directory(names, directory)
+    % A record keeps the name it was given, and setup used to record a
+    % problem_library_root that is a symbolic link as it stood. MATLAB holds the
+    % resolved name on its path, and a registration holds it too.
+    same = strcmp(names, directory) | ...
+        strcmp(cellfun(@resolvedDirectory, names, 'UniformOutput', false), resolvedDirectory(directory));
 end
 
 function filename = ownership_file()

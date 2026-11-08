@@ -216,6 +216,69 @@ classdef TestProblem < matlab.unittest.TestCase
             testCase.verifyError(@() p.hceq(ones(10, 1)), "MATLAB:Problem:hceqx_m_nonlinear_eq_n_NotConsistent")
             
         end
+
+        function dimensionsAreProbedOncePerX0(testCase)
+            % Reading m_nonlinear_ub/m_nonlinear_eq must not call the user
+            % constraints again until x0 changes.
+            setappdata(0, 'TestProblemConstraintCalls', 0);
+            cleanup = onCleanup(@() rmappdata(0, 'TestProblemConstraintCalls')); %#ok<NASGU>
+            p = Problem(struct('fun', @(x) sum(x.^2), 'x0', [1; 2], ...
+                'cub', @TestProblem.countedConstraint, 'ceq', @TestProblem.countedConstraint));
+            setappdata(0, 'TestProblemConstraintCalls', 0);
+            testCase.verifyEqual([p.m_nonlinear_ub, p.m_nonlinear_eq], [2, 2]);
+            testCase.verifyLessThanOrEqual(getappdata(0, 'TestProblemConstraintCalls'), 2);
+            setappdata(0, 'TestProblemConstraintCalls', 0);
+            testCase.verifyEqual([p.m_nonlinear_ub, p.m_nonlinear_eq, p.mnlcon, p.mcon], [2, 2, 4, 4]);
+            testCase.verifyEqual(getappdata(0, 'TestProblemConstraintCalls'), 0);
+            p.cub([0; 0]);
+            p.ceq([0; 0]);
+            testCase.verifyEqual(getappdata(0, 'TestProblemConstraintCalls'), 2);
+            p.x0 = [3; 4; 5];
+            setappdata(0, 'TestProblemConstraintCalls', 0);
+            testCase.verifyEqual(p.m_nonlinear_ub, 3);
+            testCase.verifyEqual(p.m_nonlinear_ub, 3);
+            testCase.verifyEqual(getappdata(0, 'TestProblemConstraintCalls'), 1);
+        end
+
+        function maxcvAcceptsRowVectors(testCase)
+            p = Problem(struct('fun', @(x) sum(x.^2), 'x0', [0; 0], 'xl', [-1; -1], 'xu', [1; 1], ...
+                'aub', [1, 1], 'bub', 1, 'cub', @(x) x(1) - 0.5));
+            testCase.verifyEqual(p.maxcv([2, 3]), p.maxcv([2; 3]));
+            testCase.verifyEqual(p.maxcv([2, 3]), 4);
+        end
+
+        function nameIsOnePieceOfText(testCase)
+            base = struct('fun', @(x) sum(x.^2), 'x0', [1; 2]);
+            for name = {["a", "b"], string(missing), 123, ['ab'; 'cd'], {'a'}, true}
+                options = base;
+                options.name = name{1};
+                testCase.verifyError(@() Problem(options), 'MATLAB:Problem:name_NotText');
+            end
+            options = base;
+            options.name = "text";
+            testCase.verifyEqual(Problem(options).name, 'text');
+            testCase.verifyFalse(ismember('checkName', methods('Problem')));
+            % A setter that raises would make `load` reset a saved name to the
+            % default, without a warning. The object keeps what the file holds,
+            % and a FeaturedProblem refuses it, also in a composition.
+            problem = Problem(base);
+            problem.name = 123;
+            file = [tempname, '.mat'];
+            testCase.addTeardown(@() delete(file));
+            save(file, 'problem');
+            loaded = load(file);
+            testCase.verifyEqual(loaded.problem.name, 123);
+            testCase.verifyError(@() FeaturedProblem(loaded.problem, Feature('plain'), 10, 0), 'MATLAB:Problem:name_NotText');
+            problem.name = {'a', 'b'};
+            testCase.verifyError(@() FeaturedProblem(problem, Feature({'noisy', 'perturbed_x0'}), 10, 0), 'MATLAB:Problem:name_NotText');
+        end
+    end
+
+    methods (Static)
+        function c = countedConstraint(x)
+            setappdata(0, 'TestProblemConstraintCalls', getappdata(0, 'TestProblemConstraintCalls') + 1);
+            c = x(:);
+        end
     end
 end
 

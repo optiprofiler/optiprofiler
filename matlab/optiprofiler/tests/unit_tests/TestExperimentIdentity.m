@@ -171,6 +171,105 @@ classdef TestExperimentIdentity < matlab.unittest.TestCase
             testCase.verifyEmpty(dir(fullfile('bench', '*', '.summary_merge')));
         end
 
+        function aggregateNeverReplacesAnUnrelatedSummary(testCase)
+            % A load with the default benchmark_id publishes the aggregate in
+            % the working directory, which may hold the user's own summary.pdf.
+            % A warning names that directory and is wrapped. At this length, as
+            % in a temporary directory of macOS, a line break falls in the
+            % phrase checked below, so the whitespace is normalised first.
+            long_directory = fullfile(pwd, repmat('x', 1, max(1, 95 - numel(pwd))));
+            mkdir(long_directory);
+            cd(long_directory);
+            TestLoadReplot.makeExperiment(pwd, '.', 2, 1);
+            user_bytes = uint8('USER-OWNED-SUMMARY-BYTES');
+            TestExperimentIdentity.writeBytes('summary.pdf', user_bytes);
+            options = struct('load', '20200101_000000', 'max_tol_order', 1, 'silent', true, ...
+                'draw_hist_plots', 'none', 'summarize_data_profiles', false, ...
+                'report_path', fullfile(pwd, 'refused.json'));
+            text = regexprep(evalc('benchmark(options);'), '\s+', ' ');
+            testCase.verifyEqual(TestExperimentIdentity.readBytes('summary.pdf'), user_bytes(:));
+            testCase.verifySubstring(text, 'left unchanged');
+            testCase.verifyNotEmpty(dir(fullfile('*', 'summary_*.pdf')));
+            report = fileread(options.report_path);
+            testCase.verifySubstring(report, '"code":"summary_pdf_not_owned"');
+            % Without that file, OptiProfiler writes, records and later
+            % replaces its own aggregate.
+            delete('summary.pdf');
+            options = rmfield(options, 'report_path');
+            benchmark(options);
+            first = TestExperimentIdentity.readBytes('summary.pdf');
+            testCase.verifyEqual(char(first(1:4)'), '%PDF');
+            testCase.verifyTrue(isfile('.summary.pdf.optiprofiler'));
+            benchmark(options);
+            testCase.verifyNotEqual(TestExperimentIdentity.readBytes('summary.pdf'), first);
+            % A user file put in its place is again left unchanged.
+            TestExperimentIdentity.writeBytes('summary.pdf', user_bytes);
+            benchmark(options);
+            testCase.verifyEqual(TestExperimentIdentity.readBytes('summary.pdf'), user_bytes(:));
+        end
+
+        function aggregateRecordIdentifiesTheContent(testCase)
+            % The record held the size and the time, which a same-size file
+            % of the same second matches and touch, cp -r or rsync lose.
+            TestLoadReplot.makeExperiment(pwd, '.', 2, 1);
+            options = struct('load', '20200101_000000', 'max_tol_order', 1, 'silent', true, ...
+                'draw_hist_plots', 'none', 'summarize_data_profiles', false);
+            record_file = '.summary.pdf.optiprofiler';
+            benchmark(options);
+            record = strsplit(strtrim(fileread(record_file)), newline);
+            testCase.verifyEqual(numel(record), 2);
+            testCase.verifyMatches(record{2}, '^sha256=[0-9a-f]{64}$');
+            % The same content under a new time stays OptiProfiler's file.
+            published = TestExperimentIdentity.readBytes('summary.pdf');
+            pause(1.1);
+            TestExperimentIdentity.writeBytes('summary.pdf', published);
+            text = regexprep(evalc('benchmark(options);'), '\s+', ' ');
+            testCase.verifyEmpty(strfind(text, 'no matching'));
+            testCase.verifyNotEqual(TestExperimentIdentity.readBytes('summary.pdf'), published);
+            % Other content of the same size in the same second does not.
+            published = TestExperimentIdentity.readBytes('summary.pdf');
+            info = dir('summary.pdf');
+            published(end) = bitxor(published(end), uint8(1));
+            TestExperimentIdentity.writeBytes('summary.pdf', published);
+            testCase.verifyEqual(dir('summary.pdf').bytes, info.bytes);
+            text = regexprep(evalc('benchmark(options);'), '\s+', ' ');
+            testCase.verifySubstring(text, 'has no matching OptiProfiler record and may be a user file');
+            testCase.verifySubstring(text, 'Move or delete it');
+            testCase.verifyEqual(TestExperimentIdentity.readBytes('summary.pdf'), published);
+            % A record of an earlier build is still read and is replaced.
+            delete('summary.pdf');
+            benchmark(options);
+            published = TestExperimentIdentity.readBytes('summary.pdf');
+            info = dir('summary.pdf');
+            fid = fopen(record_file, 'w');
+            fprintf(fid, 'OptiProfiler summary.pdf aggregate\nbytes=%d\ndatenum=%.17g\n', info.bytes, info.datenum);
+            fclose(fid);
+            benchmark(options);
+            testCase.verifyNotEqual(TestExperimentIdentity.readBytes('summary.pdf'), published);
+            testCase.verifySubstring(fileread(record_file), 'sha256=');
+        end
+
+        function aggregateFollowsStringPathOptions(testCase)
+            % A string savepath or benchmark_id reached the concatenation of
+            % the record path, so the record was never written and the second
+            % run reported OptiProfiler's own aggregate as a foreign file.
+            TestLoadReplot.makeExperiment(pwd, 'bench', 2, 1);
+            options = struct('load', '20200101_000000', 'benchmark_id', "bench", 'savepath', string(pwd), ...
+                'max_tol_order', 1, 'silent', true, 'draw_hist_plots', 'none', 'summarize_data_profiles', false);
+            aggregate = fullfile('bench', 'summary.pdf');
+            previous = uint8([]);
+            for run = 1:3
+                options.report_path = fullfile(pwd, sprintf('run%d.json', run));
+                benchmark(options);
+                report = jsondecode(fileread(options.report_path));
+                testCase.verifyEqual(report.status, 'completed');
+                current = TestExperimentIdentity.readBytes(aggregate);
+                testCase.verifyNotEqual(current, previous);
+                previous = current;
+            end
+            testCase.verifyTrue(isfile(fullfile('bench', '.summary.pdf.optiprofiler')));
+        end
+
         function failedAggregateMergePreservesPreviousPdf(testCase)
             TestLoadReplot.makeExperiment(pwd, 'bench', 2, 1);
             options = TestExperimentIdentity.options('summarize_performance_profiles', true);
@@ -206,6 +305,14 @@ classdef TestExperimentIdentity < matlab.unittest.TestCase
             else
                 exportgraphics(fig, file, 'ContentType', 'vector');
             end
+        end
+
+        function writeBytes(file, bytes)
+            fid = fopen(file, 'wb');
+            assert(fid >= 0, 'TestExperimentIdentity:UnwritableFixture', ...
+                'Test file cannot be written: %s', file);
+            cleanup = onCleanup(@() fclose(fid));
+            fwrite(fid, bytes, 'uint8');
         end
 
         function bytes = readBytes(file)

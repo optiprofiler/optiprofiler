@@ -6,18 +6,21 @@ import pytest
 from optiprofiler import Feature, FeaturedProblem, Problem
 
 
-@pytest.mark.parametrize('kind', ['cub', 'ceq', 'mixed', 'linear'])
+@pytest.mark.parametrize('kind', ['cub', 'ceq', 'mixed'])
 def test_nan_constraint_is_not_feasible(kind):
     """An undefined required constraint cannot be hidden by a finite one."""
     options = dict(xl=[-1.0], xu=[1.0])
-    if kind == 'linear':
-        options.update(aub=[[1.0]], bub=[np.nan])
-    else:
-        options[kind if kind != 'mixed' else 'cub'] = lambda x: np.array([np.nan, -2.0])
-        if kind == 'mixed':
-            options['ceq'] = lambda x: np.array([3.0])
+    options[kind if kind != 'mixed' else 'cub'] = lambda x: np.array([np.nan, -2.0])
+    if kind == 'mixed':
+        options['ceq'] = lambda x: np.array([3.0])
     problem = Problem(lambda x: 7.0, [0.0], **options)
     assert np.isnan(problem.maxcv(problem.x0))
+
+
+def test_nan_linear_right_hand_side_is_refused():
+    """Static data are refused at construction (test_constraint_metadata)."""
+    with pytest.raises(ValueError, match='`bub` for problem has the invalid entry nan'):
+        Problem(lambda x: 7.0, [0.0], xl=[-1.0], xu=[1.0], aub=[[1.0]], bub=[np.nan])
 
 
 @pytest.mark.parametrize('feature_name', ['plain', 'quantized'])

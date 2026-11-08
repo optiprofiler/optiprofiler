@@ -1,7 +1,6 @@
 function testOptiProfiler()
 %TESTOPTIPROFILER Do some tests to check if OptiProfiler is installed correctly.
 
-    success = true;
     warning('off', 'all');
 
     fprintf("\nRunning tests for OptiProfiler...\n\n");
@@ -14,7 +13,6 @@ function testOptiProfiler()
         assert(isnumeric(p.fun(p.x0)) && isreal(p.fun(p.x0)) && isscalar(p.fun(p.x0)));
         fprintf("OptiProfiler successfully loaded problem 'BEALE'.\n\n");
     catch
-        success = false;
         error("OptiProfiler FAILED a test: Unable to load problem 'BEALE'.");
     end
 
@@ -30,7 +28,6 @@ function testOptiProfiler()
         end
         fprintf("OptiProfiler successfully ran function 'benchmark'.\n\n");
     catch
-        success = false;
         try
             rmdir(path_out, 's');
         catch
@@ -38,10 +35,9 @@ function testOptiProfiler()
         error("OptiProfiler FAILED a test: Unable to call function 'benchmark'.");
     end
 
-    if success
-        fprintf("OptiProfiler passed all tests.\n\n");
-        fprintf("You may now try 'help optiprofiler' for information on the usage of the package.\n\n");
-    end
+    % Failed checks throw above, so reaching here means both checks passed.
+    fprintf("OptiProfiler passed all tests.\n\n");
+    fprintf("You may now try 'help optiprofiler' for information on the usage of the package.\n\n");
 
     warning('on', 'all');
 end

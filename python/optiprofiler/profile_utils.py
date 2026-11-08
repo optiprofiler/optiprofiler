@@ -12,8 +12,13 @@ from pypdf import PdfWriter
 
 from .problem_libraries import list_problem_libraries, resolve_problem_library
 from .experiment import validate_n_runs
+from . import scoring
+# Option pickles written by 1.x and by 2.0 builds before scoring.py reference
+# the default callbacks under this module.
+from .scoring import _default_merit, _default_score_fun, _default_score_weight_fun  # noqa: F401
 from .provenance import full_feature_stamp
-from .utils import FeatureName, ProfileOption, FeatureOption, ProblemOption, get_logger, print_log_message, shorten_log_message
+from .metadata import credential_free_urls
+from .utils import ProfileOption, ProblemOption, get_logger, print_log_message, shorten_log_message
 
 
 def _is_positive_infinity(value):
@@ -23,59 +28,6 @@ def _is_positive_infinity(value):
         and np.isinf(value)
         and value > 0
     )
-
-
-def _custom_problem_library_names(custom_libs_path):
-    """
-    Return custom problem library names available under ``custom_libs_path``.
-
-    ``custom_libs_path`` may be either a parent directory containing one or more
-    library subdirectories, or the directory of a single custom library. Each
-    library directory must contain ``<library_name>_tools.py``; OptiProfiler does
-    not infer the library name from other ``*_tools.py`` files.
-    """
-    custom_libs_path = Path(custom_libs_path)
-    if (custom_libs_path / f'{custom_libs_path.name}_tools.py').is_file():
-        return [custom_libs_path.name]
-
-    custom_libs_names = []
-    for p in custom_libs_path.iterdir():
-        if p.is_dir() and not p.name.startswith('.') and p.name != '__pycache__':
-            if (p / f'{p.name}_tools.py').is_file():
-                custom_libs_names.append(p.name)
-    return custom_libs_names
-
-
-def _custom_problem_library_dir(custom_libs_path, plib):
-    """
-    Return the explicit custom directory for ``plib`` if one is present.
-
-    ``custom_libs_path`` may point either to a parent directory containing a
-    ``plib`` subdirectory, or directly to the ``plib`` directory.  The function
-    deliberately does not inspect tools files; callers can use this to reject a
-    malformed custom directory before falling back to a built-in library with the
-    same name.
-    """
-    custom_libs_path = Path(custom_libs_path)
-    candidates = []
-    if custom_libs_path.name == plib and custom_libs_path.is_dir():
-        candidates.append(custom_libs_path)
-    parent_candidate = custom_libs_path / plib
-    if parent_candidate.is_dir():
-        candidates.append(parent_candidate)
-
-    resolved = []
-    for candidate in candidates:
-        candidate = candidate.resolve()
-        if candidate not in resolved:
-            resolved.append(candidate)
-    if len(resolved) > 1:
-        raise ValueError(
-            f'The option {ProblemOption.CUSTOM_PROBLEM_LIBS_PATH} is ambiguous for '
-            f'problem library "{plib}". It can point to either the parent directory '
-            f'containing "{plib}" or the "{plib}" directory itself, but not both.'
-        )
-    return resolved[0] if resolved else None
 
 
 def _get_conservative_default_n_jobs():
@@ -309,6 +261,9 @@ def check_validity_profile_options(solvers, profile_options):
     """
     Check the validity of the profile options.
     """
+    if ProfileOption.PLOT_OPTIONS in profile_options:
+        from .plot_options import normalize_plot_options
+        profile_options[ProfileOption.PLOT_OPTIONS] = normalize_plot_options(profile_options[ProfileOption.PLOT_OPTIONS])
     if ProfileOption.N_RUNS in profile_options:
         profile_options[ProfileOption.N_RUNS] = validate_n_runs(profile_options[ProfileOption.N_RUNS])
     if ProfileOption.N_JOBS in profile_options:
@@ -398,15 +353,15 @@ def check_validity_profile_options(solvers, profile_options):
         if isinstance(profile_options[ProfileOption.MAX_TOL_ORDER], np.integer):
             profile_options[ProfileOption.MAX_TOL_ORDER] = int(profile_options[ProfileOption.MAX_TOL_ORDER])
         if not isinstance(profile_options[ProfileOption.MAX_TOL_ORDER], int):
-            raise TypeError(f'Option {ProfileOption.MAX_TOL_ORDER} must be an integer.')
-        if profile_options[ProfileOption.MAX_TOL_ORDER] < 0 or profile_options[ProfileOption.MAX_TOL_ORDER] > 16:
-            raise ValueError(f'Option {ProfileOption.MAX_TOL_ORDER} must be a positive integer not larger than 16.')
+            raise TypeError(f'Option {ProfileOption.MAX_TOL_ORDER.value} must be an integer.')
+        if profile_options[ProfileOption.MAX_TOL_ORDER] <= 0 or profile_options[ProfileOption.MAX_TOL_ORDER] > 16:
+            raise ValueError(f'Option {ProfileOption.MAX_TOL_ORDER.value} must be a positive integer not larger than 16.')
 
     if ProfileOption.MAX_EVAL_FACTOR in profile_options:
-        if not isinstance(profile_options[ProfileOption.MAX_EVAL_FACTOR], (float, int)):
-            raise TypeError(f'Option {ProfileOption.MAX_EVAL_FACTOR} must be a float or an integer.')
-        if profile_options[ProfileOption.MAX_EVAL_FACTOR] <= 0:
-            raise ValueError(f'Option {ProfileOption.MAX_EVAL_FACTOR} must be positive.')
+        if isinstance(profile_options[ProfileOption.MAX_EVAL_FACTOR], bool) or not isinstance(profile_options[ProfileOption.MAX_EVAL_FACTOR], (float, int)):
+            raise TypeError(f'Option {ProfileOption.MAX_EVAL_FACTOR.value} must be a float or an integer.')
+        if not np.isfinite(profile_options[ProfileOption.MAX_EVAL_FACTOR]) or profile_options[ProfileOption.MAX_EVAL_FACTOR] <= 0:
+            raise ValueError(f'Option {ProfileOption.MAX_EVAL_FACTOR.value} must be finite and positive.')
 
     if ProfileOption.MERIT_FUN in profile_options:
         if not callable(profile_options[ProfileOption.MERIT_FUN]):
@@ -467,13 +422,10 @@ def check_validity_profile_options(solvers, profile_options):
             raise TypeError(f'Option {ProfileOption.SOLVER_VERBOSE} must be 0, 1, or 2.')
         if profile_options[ProfileOption.SOLVER_VERBOSE] < 0 or profile_options[ProfileOption.SOLVER_VERBOSE] > 2:
             raise ValueError(f'Option {ProfileOption.SOLVER_VERBOSE} must be 0, 1, or 2.')
-        if ProfileOption.SILENT in profile_options and profile_options[ProfileOption.SILENT]:
-            if profile_options[ProfileOption.SOLVER_VERBOSE] == 2:
-                print_log_message('WARNING', f'Option {ProfileOption.SOLVER_VERBOSE} is set to 1 because option {ProfileOption.SILENT} is True.')
-                profile_options[ProfileOption.SOLVER_VERBOSE] = 1
-            elif profile_options[ProfileOption.SOLVER_VERBOSE] == 1:
-                print_log_message('WARNING', f'Option {ProfileOption.SOLVER_VERBOSE} is set to 0 because option {ProfileOption.SILENT} is True.')
-                profile_options[ProfileOption.SOLVER_VERBOSE] = 0
+        if (ProfileOption.SILENT in profile_options and profile_options[ProfileOption.SILENT]
+                and profile_options[ProfileOption.SOLVER_VERBOSE] != 0):
+            print_log_message('WARNING', f'The option `{ProfileOption.SOLVER_VERBOSE}` will be set to 0 because {ProfileOption.SILENT} is True.')
+            profile_options[ProfileOption.SOLVER_VERBOSE] = 0
 
     if ProfileOption.SEMILOGX in profile_options:
         if not isinstance(profile_options[ProfileOption.SEMILOGX], bool):
@@ -638,12 +590,6 @@ def get_default_problem_options(problem_options):
     return problem_options
 
 
-def _default_score_weight_fun(x):
-    return 1
-
-def _default_score_fun(x):
-    return np.mean(x[:, :, 0, 0], axis=1)
-
 def get_default_profile_options(solvers, feature, profile_options):
     """
     Get the default profile options.
@@ -667,7 +613,7 @@ def get_default_profile_options(solvers, feature, profile_options):
     profile_options.setdefault(ProfileOption.SAVEPATH.value, str(Path('.').expanduser().resolve()))
     profile_options.setdefault(ProfileOption.MAX_TOL_ORDER.value, 10)
     profile_options.setdefault(ProfileOption.MAX_EVAL_FACTOR.value, 500)
-    profile_options.setdefault(ProfileOption.MERIT_FUN.value, _default_merit)
+    profile_options.setdefault(ProfileOption.MERIT_FUN.value, scoring._default_merit)
     profile_options.setdefault(ProfileOption.PROJECT_X0.value, False)
     profile_options.setdefault(ProfileOption.RUN_PLAIN.value, False)
     profile_options.setdefault(ProfileOption.SCORE_ONLY.value, False)
@@ -678,10 +624,12 @@ def get_default_profile_options(solvers, feature, profile_options):
     profile_options.setdefault(ProfileOption.SUMMARIZE_OUTPUT_BASED_PROFILES.value, True)
     profile_options.setdefault(ProfileOption.SILENT.value, False)
     profile_options.setdefault(ProfileOption.SOLVER_VERBOSE.value, 1)
+    if profile_options[ProfileOption.SILENT.value]:
+        profile_options[ProfileOption.SOLVER_VERBOSE.value] = 0
     profile_options.setdefault(ProfileOption.SEMILOGX.value, True)
     profile_options.setdefault(ProfileOption.NORMALIZED_SCORES.value, True)
-    profile_options.setdefault(ProfileOption.SCORE_WEIGHT_FUN.value, _default_score_weight_fun)
-    profile_options.setdefault(ProfileOption.SCORE_FUN.value, _default_score_fun)
+    profile_options.setdefault(ProfileOption.SCORE_WEIGHT_FUN.value, scoring._default_score_weight_fun)
+    profile_options.setdefault(ProfileOption.SCORE_FUN.value, scoring._default_score_fun)
     profile_options.setdefault(ProfileOption.LOAD.value, None)
     profile_options.setdefault(ProfileOption.LINE_COLORS.value, [
         '#1f77b4',
@@ -700,6 +648,7 @@ def get_default_profile_options(solvers, feature, profile_options):
     ])
     profile_options.setdefault(ProfileOption.LINE_WIDTHS.value, [1.5])
     profile_options.setdefault(ProfileOption.BAR_COLORS.value, profile_options[ProfileOption.LINE_COLORS])
+    profile_options.setdefault(ProfileOption.PLOT_OPTIONS.value, {})
     profile_options.setdefault(ProfileOption.XLABEL_PERFORMANCE_PROFILE.value, 'Performance ratio')
     profile_options.setdefault(ProfileOption.YLABEL_PERFORMANCE_PROFILE.value, 'Performance profiles ($\\mathrm{tol} = %s$)')
     profile_options.setdefault(ProfileOption.XLABEL_DATA_PROFILE.value, 'Number of simplex gradients')
@@ -719,7 +668,7 @@ def get_default_profile_options(solvers, feature, profile_options):
                 f'Since the option "score_only" is true, the requested "draw_hist_plots" mode '
                 f'"{user_draw_hist_plots}" is ignored and no history plots will be drawn.',
             )
-        else:
+        elif not profile_options[ProfileOption.SILENT.value]:
             print_log_message(
                 'INFO',
                 'Since the option "score_only" is true, we will not draw any history plots of the '
@@ -727,130 +676,15 @@ def get_default_profile_options(solvers, feature, profile_options):
             )
         profile_options[ProfileOption.DRAW_HIST_PLOTS.value] = 'none'
     elif user_draw_hist_plots is None and profile_options[ProfileOption.LOAD.value] is not None:
-        print_log_message(
-            'INFO',
-            'Since the option "load" is provided, we will draw history plots of the problems '
-            'after loading the results (the option "draw_hist_plots" is set to "sequential").',
-        )
+        if not profile_options[ProfileOption.SILENT.value]:
+            print_log_message(
+                'INFO',
+                'Since the option "load" is provided, we will draw history plots of the problems '
+                'after loading the results (the option "draw_hist_plots" is set to "sequential").',
+            )
         profile_options[ProfileOption.DRAW_HIST_PLOTS.value] = 'sequential'
 
     return profile_options
-
-
-def compute_merit_values(merit_fun, fun_values, maxcv_values, maxcv_init):
-    """
-    Compute the merit function values.
-
-    This is the Python counterpart of MATLAB's ``meritFunCompute.m`` and
-    supports the same family of input shapes. The shape of ``fun_values``
-    drives the broadcasting of ``maxcv_init``; the supported combinations
-    are:
-
-    +----------------+--------------------------------------+----------------------+
-    | use case       | ``fun_values`` shape                 | ``maxcv_init`` shape |
-    +================+======================================+======================+
-    | merit history  | ``(n_problems, n_solvers, n_runs,    | ``(n_problems,       |
-    |                | n_evals)``                           | n_runs)``            |
-    +----------------+--------------------------------------+----------------------+
-    | merit out      | ``(n_problems, n_solvers, n_runs)``  | ``(n_problems,       |
-    |                |                                      | n_runs)``            |
-    +----------------+--------------------------------------+----------------------+
-    | merit inits    | ``(n_problems, n_runs)``             | ``(n_problems,       |
-    |                |                                      | n_runs)``            |
-    +----------------+--------------------------------------+----------------------+
-    | single-problem | ``(n_solvers, n_runs, n_evals)``     | ``(n_runs,)``        |
-    | history        |                                      |                      |
-    +----------------+--------------------------------------+----------------------+
-    | single-problem | ``(n_solvers, n_runs)``              | ``(n_runs,)``        |
-    | out / inits    | or ``(n_runs,)``                     |                      |
-    +----------------+--------------------------------------+----------------------+
-    | legacy 1-D     | ``(n_problems, n_solvers, n_runs,    | ``(n_problems,)``    |
-    | inits (loaded  | n_evals)`` or coarser                |                      |
-    | from old .h5)  |                                      |                      |
-    +----------------+--------------------------------------+----------------------+
-    | scalar init    | any                                  | scalar               |
-    +----------------+--------------------------------------+----------------------+
-
-    Parameters
-    ----------
-    merit_fun : callable
-        The merit function. It must have the signature
-        ``merit_fun(fun_value, maxcv_value, maxcv_init)`` and accept
-        either scalar or numpy array inputs (``np.vectorize`` is used
-        internally to lift scalar implementations).
-    fun_values : array-like
-        The objective function values.
-    maxcv_values : array-like
-        The maximum constraint violation values; same shape as
-        ``fun_values``.
-    maxcv_init : float or array-like
-        The initial maximum constraint violation value(s); see the
-        table above for the supported shapes.
-
-    Returns
-    -------
-    merit_values : np.ndarray
-        The merit function values, with the same shape as ``fun_values``.
-    """
-    fun_values = np.asarray(fun_values)
-    maxcv_values = np.asarray(maxcv_values)
-    fun_shape = fun_values.shape
-
-    if np.isscalar(maxcv_init):
-        # Scalar broadcast: trivially equal at every entry.
-        maxcv_init_b = np.full(fun_shape, maxcv_init)
-    else:
-        maxcv_init = np.asarray(maxcv_init)
-        init_shape = maxcv_init.shape
-
-        if init_shape == fun_shape:
-            # Already the target shape (e.g. ``merit_inits`` recomputed
-            # from per-run ``fun_inits`` / ``maxcv_inits``).
-            maxcv_init_b = maxcv_init
-        else:
-            ndim_fun = len(fun_shape)
-            # Mirror MATLAB ``meritFunCompute.m`` (type='multiple' /
-            # 'single'). We pick the case by inspecting the shapes
-            # explicitly rather than relying on numpy's right-aligned
-            # broadcasting, which would silently mix up the
-            # ``n_problems`` / ``n_runs`` axes.
-            if ndim_fun == 4 and init_shape == (fun_shape[0], fun_shape[2]):
-                # (P, S, R, E) <- (P, R)
-                new_shape = (fun_shape[0], 1, fun_shape[2], 1)
-            elif ndim_fun == 3 and init_shape == (fun_shape[0], fun_shape[2]):
-                # (P, S, R) <- (P, R)
-                new_shape = (fun_shape[0], 1, fun_shape[2])
-            elif ndim_fun == 3 and init_shape == (fun_shape[1],):
-                # (S, R, E) <- (R,)  (single-problem history)
-                new_shape = (1, fun_shape[1], 1)
-            elif ndim_fun == 2 and init_shape == (fun_shape[1],):
-                # (S, R) <- (R,)  (single-problem out / inits)
-                new_shape = (1, fun_shape[1])
-            elif ndim_fun > 1 and init_shape == (fun_shape[0],):
-                # Backward compatibility for legacy 1-D ``maxcv_inits``
-                # loaded from old .h5 files: broadcast along the
-                # leading axis only.
-                new_shape = (fun_shape[0],) + (1,) * (ndim_fun - 1)
-            elif ndim_fun == 1 and init_shape == fun_shape:
-                new_shape = init_shape
-            else:
-                raise ValueError(
-                    f"compute_merit_values: cannot align maxcv_init of shape "
-                    f"{init_shape} with fun_values of shape {fun_shape}."
-                )
-            maxcv_init_b = np.broadcast_to(maxcv_init.reshape(new_shape), fun_shape)
-
-    # A callback may return an integer first and a fraction or infinity later.
-    # Do not let np.vectorize infer an integer/bool dtype from the first result.
-    vectorized_merit_fun = np.vectorize(merit_fun, otypes=[float])
-    merit_values = vectorized_merit_fun(fun_values, maxcv_values, maxcv_init_b)
-    # A custom merit callback must not turn an invalid raw evaluation into a
-    # finite reference value. Preserve the callback's policy for +/-Inf.
-    invalid = np.isnan(fun_values) | np.isnan(maxcv_values)
-    if np.any(invalid):
-        merit_values = np.where(invalid, np.inf, merit_values)
-
-    return merit_values
 
 
 def create_stamp(solver_names, problem_options, feature_stamp, time_stamp, path_out):
@@ -871,7 +705,7 @@ def create_stamp(solver_names, problem_options, feature_stamp, time_stamp, path_
 
 
     # Get the solver stamp: replace non-alphanumeric/underscore with '_'
-    solver_names_clean = [re.sub(r'[^a-zA-Z0-9_]', '_', name) for name in solver_names]
+    solver_names_clean = [re.sub(r'[^a-zA-Z0-9_]', '_', credential_free_urls(name)) for name in solver_names]
     solver_stamp = '_'.join(solver_names_clean)
 
     # Get the problem stamp
@@ -923,30 +757,6 @@ def _get_default_feature_stamp(feature, bounded=True):
     if len(feature.stages) <= 1:
         return feature_stamp
     return _bounded_feature_stamp(feature_stamp) if bounded else feature_stamp
-
-
-def _default_merit(fun_value, maxcv_value, maxcv_init):
-    """
-    The merit function varphi(x) is defined by the objective function f(x) and the maximum constraint violation v(x):
-        varphi(x) = f(x)                        if v(x) <= v1
-        varphi(x) = f(x) + 1e5 * (v(x) - v1)    if v1 < v(x) <= v2
-        varphi(x) = np.inf                      if v(x) > v2
-    where v1 = min(0.01, 1e-10 * max(1, v0)), v2 = max(0.1, 2 * v0), and v0 is the initial maximum constraint violation.
-
-    Special case 1: _default_merit(np.nan, maxcv_value, maxcv_init) = np.inf
-    Sepcial case 2: _default_merit(fun_value, np.nan, maxcv_init) = np.inf
-    """
-    if np.isnan(fun_value) or np.isnan(maxcv_value):
-        return np.inf
-    tolerance = 1e-10
-    v1 = min(0.01, tolerance * max(1, maxcv_init))
-    v2 = max(0.1, 2 * maxcv_init)
-    if maxcv_value <= v1:
-        return fun_value
-    if v1 < maxcv_value <= v2:
-        return fun_value + 1e5 * (maxcv_value - v1)
-    else:
-        return np.inf
 
 
 def merge_pdfs_with_pypdf(input_dir, output_file):
@@ -1145,159 +955,6 @@ def write_report(profile_options, results_plibs, path_report, path_readme_log):
             logger.warning(f'Error message: {shorten_log_message(exc)}')
 
 
-def _mask_invalid_merits(results_plib):
-    """Invalidate cached merits only where saved raw evaluations are NaN.
-
-    Mutate and return one library record, including its nested plain results.
-    Legacy helper records without raw values retain their existing merits.
-    """
-    if not results_plib:
-        return results_plib
-    for suffix in ('histories', 'outs', 'inits'):
-        merit_key = 'merit_' + suffix
-        if merit_key not in results_plib:
-            continue
-        merits = np.asarray(results_plib[merit_key])
-        if suffix == 'inits' and merits.ndim == 1:
-            for raw_key in ('fun_inits', 'maxcv_inits'):
-                raw = np.asarray(results_plib.get(raw_key, []))
-                if raw.ndim == 2:
-                    merits = np.broadcast_to(merits[:, None], raw.shape).copy()
-                    results_plib[merit_key] = merits
-                    break
-        invalid = np.zeros(merits.shape, dtype=bool)
-        for prefix in ('fun_', 'maxcv_'):
-            raw_key = prefix + suffix
-            if raw_key not in results_plib:
-                continue
-            raw_invalid = np.isnan(results_plib[raw_key])
-            if suffix == 'inits' and raw_invalid.ndim == 1 and merits.ndim == 2:
-                raw_invalid = raw_invalid[:, None]
-            invalid |= raw_invalid
-        if np.any(invalid):
-            results_plib[merit_key] = np.where(invalid, np.inf, merits)
-    plain = results_plib.get('results_plib_plain')
-    if plain:
-        _mask_invalid_merits(plain)
-    return results_plib
-
-
-def process_results(results_plibs, profile_options):
-    """
-    Processes results from results_plibs.
-    Returns:
-        merit_histories_merged, merit_outs_merged, merit_inits_merged, merit_mins_merged, n_evals_merged, problem_names_merged, problem_dims_merged
-    """
-    def unify_length(results_plibs, name):
-        # Unify the length of the specified field in results_plibs (merit_histories or merit_histories_plain)
-        max_length = max(r[name].shape[3] for r in results_plibs)
-        for r in results_plibs:
-            field = r[name]
-            shape = list(field.shape)
-            shape[3] = max_length
-            field_unified = np.full(shape, np.nan)
-            field_unified[:, :, :, :field.shape[3]] = field
-            if field.shape[3] < max_length:
-                field_unified[:, :, :, field.shape[3]:] = np.repeat(field[:, :, :, -1:], max_length - field.shape[3], axis=3)
-            r[name] = field_unified
-        return results_plibs
-
-    # Padding is local to this merge. Keep the caller's merit/raw shapes aligned
-    # for saving or processing the same results again; arrays need no deep copy.
-    results_plibs = [record.copy() for record in results_plibs]
-    for record in results_plibs:
-        if record.get('results_plib_plain'):
-            record['results_plib_plain'] = record['results_plib_plain'].copy()
-
-    merit_histories_merged = []
-    merit_outs_merged = []
-    merit_inits_merged = []
-    n_evals_merged = []
-    problem_names_merged = []
-    problem_dims_merged = []
-
-    # Old saved custom-merit arrays may predate raw-NaN validation.
-    for results_plib in results_plibs:
-        _mask_invalid_merits(results_plib)
-    results_plibs = unify_length(results_plibs, 'merit_histories')
-    for results_plib in results_plibs:
-        merit_histories_merged.append(results_plib['merit_histories'])
-        merit_outs_merged.append(results_plib['merit_outs'])
-        merit_inits_merged.append(results_plib['merit_inits'])
-        n_evals_merged.append(results_plib['n_evals'])
-        problem_dims_merged.append(results_plib['problem_dims'])
-        problem_names_merged.extend(results_plib['problem_names'])
-
-    merit_histories_merged = np.concatenate(merit_histories_merged, axis=0)
-    merit_outs_merged = np.concatenate(merit_outs_merged, axis=0)
-    merit_inits_merged = np.concatenate(merit_inits_merged, axis=0)
-    n_evals_merged = np.concatenate(n_evals_merged, axis=0)
-    problem_dims_merged = np.concatenate(problem_dims_merged, axis=0)
-
-    # Find the least merit value for each (problem, run). Mirrors MATLAB
-    # ``processResults.m``:
-    #
-    #     merit_mins_merged = min(min(history, [], 4, omitnan), [], 2,
-    #                              omitnan)
-    #
-    # i.e. collapse the evaluation axis (axis=3) and the solver axis
-    # (axis=1), keeping the (problem, run) layout. ``merit_inits_merged``
-    # is itself per-(problem, run) so the elementwise ``np.fmin`` is
-    # well-defined and enforces the ``merit_min <= merit_init`` invariant
-    # used by the Moré-Wild convergence test downstream.
-    #
-    # Backward compatibility: if ``merit_inits_merged`` was loaded from
-    # an older .h5 file as a 1-D ``(n_problems,)`` vector, broadcast it
-    # along the run axis before taking the elementwise min.
-    # A custom merit can return NaN even for valid raw evaluations. Retain a
-    # valid initial reference when every history merit is NaN, matching MATLAB
-    # omitnan. fmin.reduce also leaves an entirely undefined slice as NaN without
-    # an all-NaN warning. Raw-invalid initial points remain rejected by the
-    # independent convergence-validity mask; this is not a feasibility repair.
-    merit_mins_merged = np.fmin.reduce(merit_histories_merged, axis=(1, 3))
-    if merit_inits_merged.ndim == 1:
-        merit_inits_for_min = merit_inits_merged[:, None]
-    else:
-        merit_inits_for_min = merit_inits_merged
-    merit_mins_merged = np.fmin(merit_mins_merged, merit_inits_for_min)
-
-    # Match plain rows inside their original library container, before losing
-    # library/variant identity in the merged arrays. Saved H5 data already keeps
-    # this nesting, including when load filters solvers or problem rows.
-    if profile_options.get(ProfileOption.RUN_PLAIN, False):
-        first_problem = 0
-        for results_plib in results_plibs:
-            names = results_plib['problem_names']
-            offset = first_problem
-            first_problem += len(names)
-            plain = results_plib.get('results_plib_plain')
-            if not plain or not plain['problem_names']:
-                continue
-            plain_names = plain['problem_names']
-            if len(set(names)) != len(names) or len(set(plain_names)) != len(plain_names):
-                raise ValueError(
-                    'The run_plain reference is ambiguous: duplicate problem names '
-                    'within one problem library cannot be matched uniquely.'
-                )
-            # One reference per problem: reduce over all plain solvers, runs,
-            # and evaluations. fmin ignores invalid plain values, as MATLAB's
-            # min(..., omitnan) does, rather than erasing a valid featured value.
-            plain_mins = np.fmin.reduce(plain['merit_histories'], axis=(1, 2, 3))
-            plain_inits = plain['merit_inits']
-            # Preserve the first-run convention and legacy one-dimensional inits.
-            init_for_plain = plain_inits if plain_inits.ndim == 1 else plain_inits[:, 0]
-            plain_mins = np.fmin(plain_mins, init_for_plain)
-            plain_indices = {name: idx for idx, name in enumerate(plain_names)}
-            for i_problem, name in enumerate(names):
-                if name in plain_indices:
-                    row = offset + i_problem
-                    merit_mins_merged[row, :] = np.fmin(
-                        merit_mins_merged[row, :], plain_mins[plain_indices[name]],
-                    )
-
-    return (merit_histories_merged, merit_outs_merged, merit_inits_merged, merit_mins_merged, n_evals_merged, problem_names_merged, problem_dims_merged)
-
-
 def init_readme(path_readme):
     """
     Initialize the README file with a header.
@@ -1360,125 +1017,3 @@ def add_to_readme(path_readme, filename, description):
                 f.write(line)
     except Exception:
         pass
-
-
-def integrate(curve, profile_type, profile_options):
-    """
-    Compute the integral of the curve from different types of profiles.
-    
-    Parameters
-    ----------
-    curve : tuple, list, or numpy.ndarray
-        The curve to integrate. Can be:
-        - A tuple/list (x, y) where x and y are 1D arrays
-        - A 2D array with shape (2, n_points) where curve[0] is x and curve[1] is y
-    profile_type : str
-        Type of profile: 'perf', 'data', or 'log_ratio'.
-    profile_options : dict
-        Profile options containing SCORE_WEIGHT_FUN.
-    
-    Returns
-    -------
-    float
-        The integral value.
-    """
-    # Handle None or empty cases
-    if curve is None:
-        return 0.0
-    if isinstance(curve, (tuple, list)):
-        if len(curve) == 0:
-            return 0.0
-        # curve is (x, y) tuple/list
-        x = np.asarray(curve[0])
-        y = np.asarray(curve[1])
-        if x.size == 0 or y.size == 0:
-            return 0.0
-    elif isinstance(curve, np.ndarray):
-        if curve.size == 0:
-            return 0.0
-        # curve is 2D array with shape (2, n_points)
-        x = curve[0, :]
-        y = curve[1, :]
-    else:
-        return 0.0
-    
-    kernel = profile_options.get(ProfileOption.SCORE_WEIGHT_FUN, _default_score_weight_fun)
-    integral = 0.0
-    
-    if profile_type in ('perf', 'data'):
-        # The curve is a right-continuous step function.
-        # Use rectangle rule (left endpoint): sum(dx * y[:-1] * kernel(x[:-1]))
-        if len(x) < 2:
-            return 0.0
-        dx = np.diff(x)
-        y_left = y[:-1]
-        x_left = x[:-1]
-        with np.errstate(invalid='ignore', divide='ignore', over='ignore'):
-            contribution = dx * y_left * kernel(x_left)
-        integral = np.sum(contribution[np.isfinite(contribution)])
-    elif profile_type == 'log_ratio':
-        # We do not modify the integral of log_ratio even if a score_weight_fun is provided.
-        abs_y = np.abs(y)
-        integral = np.sum(abs_y[np.isfinite(abs_y)])
-    
-    return integral
-
-
-def compute_scores(curves, profile_options):
-    """
-    Compute the scores of the solvers for all the profiles.
-    
-    Parameters
-    ----------
-    curves : list
-        List of curve dictionaries, one per tolerance level.
-    profile_options : dict
-        Profile options.
-    
-    Returns
-    -------
-    profile_scores : numpy.ndarray
-        A 4D array containing scores for all profiles.
-        Shape: (n_solvers, n_tols, 2, 2 or 3)
-        - First dimension: solver index
-        - Second dimension: tolerance index
-        - Third dimension: 0 = history-based, 1 = output-based
-        - Fourth dimension: 0 = perf, 1 = data, 2 = log_ratio (only if n_solvers == 2)
-    """
-    if not curves:
-        return np.array([])
-    
-    n_tols = len(curves)
-    n_solvers = len(curves[0]['hist']['perf'])
-    
-    if n_solvers == 2:
-        profile_scores = np.ones((n_solvers, n_tols, 2, 3))
-    else:
-        profile_scores = np.ones((n_solvers, n_tols, 2, 2))
-    
-    for i_tol in range(n_tols):
-        for i_solver in range(n_solvers):
-            # Get curves for this solver and tolerance (use the last run, which is the mean)
-            curve_hist_perf = curves[i_tol]['hist']['perf'][i_solver][-1]
-            curve_hist_data = curves[i_tol]['hist']['data'][i_solver][-1]
-            curve_out_perf = curves[i_tol]['out']['perf'][i_solver][-1]
-            curve_out_data = curves[i_tol]['out']['data'][i_solver][-1]
-            
-            profile_scores[i_solver, i_tol, 0, 0] = integrate(curve_hist_perf, 'perf', profile_options)
-            profile_scores[i_solver, i_tol, 0, 1] = integrate(curve_hist_data, 'data', profile_options)
-            profile_scores[i_solver, i_tol, 1, 0] = integrate(curve_out_perf, 'perf', profile_options)
-            profile_scores[i_solver, i_tol, 1, 1] = integrate(curve_out_data, 'data', profile_options)
-            
-            if n_solvers == 2:
-                curve_hist_log_ratio = curves[i_tol]['hist']['log_ratio'][i_solver]
-                curve_out_log_ratio = curves[i_tol]['out']['log_ratio'][i_solver]
-                profile_scores[i_solver, i_tol, 0, 2] = integrate(curve_hist_log_ratio, 'log_ratio', profile_options)
-                profile_scores[i_solver, i_tol, 1, 2] = integrate(curve_out_log_ratio, 'log_ratio', profile_options)
-    
-    # Normalize the profile_scores by dividing by the maximum with the same tolerance and types
-    if profile_options.get(ProfileOption.NORMALIZED_SCORES, False):
-        max_scores = np.max(profile_scores, axis=0, keepdims=True)
-        max_scores[max_scores == 0] = 1
-        profile_scores = profile_scores / max_scores
-    
-    return profile_scores

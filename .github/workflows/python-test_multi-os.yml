@@ -41,6 +41,8 @@ jobs:
         shell: bash
 
       - name: Run all feature tests
+        # The script explicitly reports unavailable SciPy methods and checks
+        # objective-evaluation coverage for every solver it actually selects.
         run: |
           cd output
           python ../python/optiprofiler/action_tests/test_all_features.py "os_${{ runner.os }}_py${{ matrix.python-version }}"
@@ -50,6 +52,7 @@ jobs:
         shell: bash
 
       - name: Upload artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: out_${{ matrix.os }}_py${{ matrix.python-version }}

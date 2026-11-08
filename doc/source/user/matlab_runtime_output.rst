@@ -16,10 +16,72 @@ On macOS and Linux, OptiProfiler also supports saving without a JVM:
 * A failing native PDF exporter can also use SVG as its last fallback. If
   only PDF merging fails, existing individual plots remain available through
   an HTML index and the complete backend diagnostics are saved.
+* The combined ``summary.pdf`` of the latest runs in ``savepath/benchmark_id``
+  (the working directory for a ``load`` with the default ``benchmark_id``)
+  is written only if no file of that name exists there or if the existing
+  one is still the file OptiProfiler wrote. The hidden file
+  ``.summary.pdf.optiprofiler`` beside it records a SHA-256 of that file, or
+  its size and modification time where no hash is available (no JVM and
+  neither ``sha256sum`` nor ``shasum``). Any other ``summary.pdf`` is left
+  unchanged with a warning, and the report adds the ``rendering`` diagnostic
+  ``summary_pdf_not_owned``; the summary of each run remains in its own
+  experiment directory. Move or delete such a file to let OptiProfiler
+  maintain the combined summary again.
+* Release note for 2.0: a ``summary.pdf`` written by an earlier version has no
+  such record, so it is left unchanged until you move or delete it.
+* With ``report_path``, every SVG fallback makes the report's rendering
+  stage ``partial`` instead of ``completed`` and adds a ``rendering``
+  diagnostic: ``native_graphics_unavailable``, ``native_profile_render_failed``,
+  ``native_profile_export_failed``, ``native_summary_layout_failed``,
+  ``native_summary_export_failed`` or, for a history plot,
+  ``history_native_export_fallback``.
+* A ``plot_options`` value refused while a profile is exported has no
+  fallback. The run stops, the ``rendering`` stage is ``failed`` with the reason
+  ``profile_export_failed``, the report adds a diagnostic of that name, and
+  ``scoring`` stays ``unknown``, as in Python.
 
 The initial native-graphics probe is cached for the MATLAB process, avoiding
 a new probe figure for every plot. A transient failure of that initial probe
 therefore keeps subsequent plots on the SVG route until MATLAB is restarted.
+
+The SVG fallback handles native-export exceptions. MATLAB's web-based graphics
+can also wait without a time limit during an export, without raising an error:
+the export waits until the figure's page in MATLAB's embedded browser reports
+that it is ready, and a page whose own requests to MATLAB's local web server
+failed never does. This was observed on Linux with R2025a and R2026a, also in
+plain MATLAB code without OptiProfiler, when the computer's network
+configuration changed while the page loaded (for example, when containers
+start and stop). MATLAB keeps running timer callbacks during that wait.
+
+* On Linux with R2026a, OptiProfiler reloads the page of an
+  invisible figure once if it is still not ready 30 seconds into an export,
+  and lets the reloaded page settle. In the tested cases the waiting export
+  then completed normally, about half a minute later than usual, with the same
+  output. This reload uses undocumented MATLAB internals and is therefore
+  limited to this release and platform. R2025a recovery is not enabled because
+  validation found unresolved post-export heap errors in reload sessions.
+  Other releases retain the single-shot 300-second limit and SVG fallback,
+  without attempting a page reload.
+* Every native export also has a limit of 300 seconds (about a hundred times an
+  ordinary export). OptiProfiler then closes that figure, which ends the wait,
+  and uses the SVG fallback with a warning: for a history plot, only that plot;
+  for the profiles, all profiles and the summary of that run (profile PDFs
+  written before the timeout remain).
+* If MATLAB cannot create the timer for this limit, the native export is not
+  attempted, and the SVG fallback is used with a warning.
+
+Both rely on MATLAB processing events, as it did during the observed waits
+for page initialization. They cannot interrupt a native call that blocks
+MATLAB's event loop. Computed curves, scores and saved data are not affected.
+
+This repair concerns page initialization, not every native graphics failure.
+Under network changes, MATLAB can also lose its local TeX-font requests and
+then export literal LaTeX markup instead of typeset text; this was reproduced
+without OptiProfiler. MATLAB reports a TeX-font warning, but OptiProfiler turns
+MATLAB warnings off while drawing its plots, so that warning does not appear
+in its output. The reload acts only on a page that never becomes ready: it
+neither detects nor repairs a ready but degraded page. Inspect the figures.
+A native crash after a page becomes ready is also outside this repair's scope.
 
 On Linux with MATLAB R2026a, a separate safety check avoids a reproducible
 native-export hang in the embedded Chromium renderer. Its observed temporary
@@ -41,7 +103,8 @@ calling ``benchmark``. OptiProfiler does not change that environment variable
 or move experiment outputs itself. The path check is repeated on each graphics
 capability query, so correcting the temporary path does not permanently retain
 the unsafe-path fallback. The guard is specific to the tested Linux R2026a
-backend; it is not a general timeout for arbitrary native graphics failures.
+backend; the general safeguard against an export that never returns is the
+export bound described above.
 It also cannot help when an even longer temporary path prevents MATLAB itself
 from starting; shorten that path before launching MATLAB.
 When upgrading MATLAB, recheck the native exporter at the 61/62-byte boundary
@@ -90,7 +153,8 @@ outside disposable test fixtures. CI uploads these receipts even when a test
 fails; an empty upload is an error, not evidence of a successful test run.
 
 Completed experiment data is saved as a verified version-7.3 MAT file before
-sequential history rendering. A timestamp becomes loadable only after this
+final numerical JSON report publication and sequential history rendering.
+A timestamp becomes loadable only after this
 save succeeds. Requested saving failures are errors, including in silent
 mode; completed staging files are retained if final publication fails.
 This is final-result preservation, not a checkpoint/resume mechanism for an
@@ -98,7 +162,13 @@ unfinished solver run or a guarantee against abrupt machine/disk failure.
 
 Library-selection failures stop with their original diagnostic instead of
 being treated as an empty or unfiltered selection. OptiProfiler restores the
-caller's warning settings on success and exceptions, and borrows an existing
+caller's warning settings on success and exceptions. It also restores the
+caller's diary (its on/off state and ``DiaryFile``) after writing
+``test_log/log.txt``, the ``groot`` axes font defaults it sets while drawing
+(a default the caller had not set is removed again), and the order of the
+caller's path. It removes from the path the problem-library roots that it
+added and the folders added under a library root; other path entries, for
+example those added by a solver, are kept. It borrows an existing
 parallel pool without deleting or resizing it. A smaller existing pool may
 use fewer workers than ``n_jobs``; this changes throughput, not the requested
 problems or evaluation budgets.

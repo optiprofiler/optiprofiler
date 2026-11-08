@@ -13,6 +13,7 @@ jobs:
   run:
     name: Generate coverage report for Python ${{ matrix.python-version }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
 
     strategy:
       fail-fast: false
@@ -46,3 +47,46 @@ jobs:
         uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+
+  minimum_dependencies:
+    name: Declared dependency floors on Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.8', '3.12']
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Checkout bundled S2MPJ
+        run: git submodule update --init --depth 1 python/optiprofiler/problem_libs/s2mpj
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Build the wheel
+        run: |
+          python -m pip install --progress-bar=off build uv
+          python -m build --wheel --outdir wheel-dist
+
+      - name: Install the declared floors and exercise them
+        run: >-
+          python tools/check_minimum_dependencies.py
+          --wheel wheel-dist/*.whl
+          --python ${{ matrix.python-version }}
+          --output-dir "$RUNNER_TEMP/minimum-dependencies"
+
+      - name: Retain the receipts even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: minimum-dependencies-${{ matrix.python-version }}
+          path: |
+            ${{ runner.temp }}/minimum-dependencies/receipt.json
+            ${{ runner.temp }}/minimum-dependencies/*/smoke/

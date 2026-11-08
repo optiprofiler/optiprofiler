@@ -109,6 +109,19 @@ classdef TestFeatureReviewRegressions < matlab.unittest.TestCase
             testCase.verifyEqual(numel(unique(arrayfun(@(d) d.scope.index, document.diagnostics))), 128);
         end
 
+        function finishKeepsTheRecordedRenderingFailureCode(testCase)
+            % A rendering stage still running at finish takes the code of
+            % the failure recorded before, not a fixed history code.
+            target = fullfile(testCase.Work, 'rendering.json');
+            report = optiprofiler_internal.EvalReport(target, struct(), @reviewReplace);
+            report.recordRendering('failed', struct('scope', 'summary_pdf_merge'), 'summary_pdf_merge_failed');
+            report.recordRendering('completed', struct('scope', 'individual_profiles'));
+            report.setStage('rendering', 'running', 'summary_export');
+            report.finish();
+            document = jsondecode(fileread(target));
+            testCase.verifyEqual(document.stages.rendering, struct('status', 'partial', 'reason', 'summary_pdf_merge_failed'));
+        end
+
         function metadataMatricesKeepTheirShape(testCase)
             text = optiprofiler_internal.EvalReport.encodeMetadata(struct( ...
                 'finite', [1 2; 3 4], 'with_nan', [1 NaN; 3 4], 'vector', [1 Inf]));
@@ -117,7 +130,7 @@ classdef TestFeatureReviewRegressions < matlab.unittest.TestCase
         end
 
         function reportStagingFilesAreOwnerOnlyBeforeContentIsWritten(testCase)
-            if ~isunix, return; end
+            testCase.assumeTrue(isunix, 'Owner-only permissions are tested on Unix platforms.');
             setappdata(0, 'OP_REVIEW_STAGE_MODES', {});
             testCase.addTeardown(@() rmappdata(0, 'OP_REVIEW_STAGE_MODES'));
             target = fullfile(testCase.Work, 'staging.json');
@@ -145,12 +158,24 @@ classdef TestFeatureReviewRegressions < matlab.unittest.TestCase
             report = optiprofiler_internal.EvalReport(target, struct(), @reviewReplace); %#ok<NASGU>
             document = jsondecode(fileread(target));
             testCase.verifyEqual(document.status, 'running');
-            % Negative control: a pre-existing companion is refused and preserved.
+            testCase.verifyError(@() optiprofiler_internal.EvalReport(target, struct(), @reviewReplace), ...
+                'OptiProfiler:EvalReportExists');
+            try
+                optiprofiler_internal.EvalReport(target, struct(), @reviewReplace);
+            catch err
+                testCase.verifySubstring(err.message, target, 'The refusal must name the existing report.');
+            end
+            % Negative control: a preexisting companion is refused and preserved.
             other = fullfile(testCase.Work, 'kept.json');
             other_companion = fullfile(testCase.Work, 'kept.plot_data.json');
             fid = fopen(other_companion, 'w'); fwrite(fid, 'owner-sentinel', 'char'); fclose(fid);
             testCase.verifyError(@() optiprofiler_internal.EvalReport(other, struct(), @reviewReplace), ...
                 'OptiProfiler:EvalReportExists');
+            try
+                optiprofiler_internal.EvalReport(other, struct(), @reviewReplace);
+            catch err
+                testCase.verifySubstring(err.message, other_companion, 'The refusal must name the blocking target.');
+            end
             testCase.verifyEqual(fileread(other_companion), 'owner-sentinel');
             testCase.verifyFalse(isfile(other));
             % Negative control: a file another writer put in place of the main
@@ -172,13 +197,14 @@ classdef TestFeatureReviewRegressions < matlab.unittest.TestCase
             target = fullfile(testCase.Work, 'rewritten.json');
             report = optiprofiler_internal.EvalReport(target, struct(), @reviewReplace);
             fid = fopen(target, 'w'); fwrite(fid, 'external in-place rewrite', 'char'); fclose(fid);
-            testCase.verifyError(@() report.finish(), 'OptiProfiler:EvalReportOwnership');
+            % Each refusal names the file it refuses to touch.
+            verifyRefusalNamesPath(testCase, @() report.finish(), 'OptiProfiler:EvalReportOwnership', target);
             testCase.verifyEqual(fileread(target), 'external in-place rewrite');
             owner = fullfile(testCase.Work, 'companion.json');
             companion = fullfile(testCase.Work, 'companion.plot_data.json');
             report = optiprofiler_internal.EvalReport(owner, struct(), @reviewReplace);
             fid = fopen(companion, 'w'); fwrite(fid, 'external companion rewrite', 'char'); fclose(fid);
-            testCase.verifyError(@() report.finish(), 'OptiProfiler:EvalReportOwnership');
+            verifyRefusalNamesPath(testCase, @() report.finish(), 'OptiProfiler:EvalReportOwnership', companion);
             testCase.verifyEqual(fileread(companion), 'external companion rewrite');
             replaced = fullfile(testCase.Work, 'replaced.json');
             report = optiprofiler_internal.EvalReport(replaced, struct(), @reviewReplace);
@@ -187,7 +213,7 @@ classdef TestFeatureReviewRegressions < matlab.unittest.TestCase
                 fid = fopen(stage, 'w'); fwrite(fid, sprintf('external replacement %d', k), 'char'); fclose(fid);
                 [ok, message] = movefile(stage, replaced, 'f'); assert(ok, message);
             end
-            testCase.verifyError(@() report.finish(), 'OptiProfiler:EvalReportOwnership');
+            verifyRefusalNamesPath(testCase, @() report.finish(), 'OptiProfiler:EvalReportOwnership', replaced);
             testCase.verifyEqual(fileread(replaced), 'external replacement 2');
             % An untouched report still publishes afterwards.
             fresh = fullfile(testCase.Work, 'fresh.json');
@@ -285,6 +311,77 @@ classdef TestFeatureReviewRegressions < matlab.unittest.TestCase
             testCase.verifyEqual(benchmark({@reviewStay, @reviewZero}, legacy), scores);
         end
 
+        function stringProblemAndSolverNamesDrawDirectProblemHistories(testCase)
+            % A string Problem name made the history file name a 1-by-2 string
+            % array: the native export saw an extra input, the SVG fallback two
+            % file names, and no history plot was written. String solver
+            % names stopped the run while naming the experiment directory.
+            problem = Problem(struct('fun', @(x) sum(x.^2), 'x0', [1; 2], 'name', "string_quadratic"));
+            testCase.verifyClass(problem.name, 'char');
+            for names = {{'stay', 'zero'}, {"stay", "zero"}}
+                root = fullfile(testCase.Work, sprintf('histories%d', isstring(names{1}{1})));
+                options = struct('problem', problem, 'silent', true, 'n_jobs', 1, 'max_eval_factor', 4, ...
+                    'max_tol_order', 2, 'draw_hist_plots', 'parallel', 'savepath', root, ...
+                    'solver_names', {names{1}}, 'report_path', [root, '.json']);
+                text = evalc('benchmark({@reviewStay, @reviewZero}, options);');
+                testCase.verifyFalse(contains(text, 'History rendering failed'), text);
+                testCase.verifyFalse(contains(text, 'An error occurred while plotting'), text);
+                report = jsondecode(fileread(options.report_path));
+                testCase.verifyEqual(report.stages.rendering.status, 'completed');
+                testCase.verifyEqual(numel(dir(fullfile(root, '**', 'string_quadratic.*'))), 3);
+            end
+        end
+
+        function stringArrayNameListsSelectLibraryProblems(testCase)
+            % A string array is a list of names: it selects exactly what the
+            % equivalent cell array selects, in any orientation.
+            registerFixtureLibrary();
+            solvers = {@reviewStay, @reviewZero};
+            base = struct('mindim', 1, 'maxdim', 3, 'score_only', true, 'silent', true, ...
+                'n_jobs', 1, 'n_runs', 1, 'max_eval_factor', 3, 'max_tol_order', 1);
+            cells = base;
+            cells.plibs = {'composed_streams'};
+            cells.problem_names = {'zeros3', 'shift2'};
+            expected = benchmark(solvers, cells);
+            strings = base;
+            strings.plibs = "composed_streams";
+            for names = {["zeros3", "shift2"], ["zeros3"; "shift2"], {"zeros3", 'shift2'}}
+                strings.problem_names = names{1};
+                testCase.verifyEqual(benchmark(solvers, strings), expected);
+            end
+            % S2MPJ has neither name, so it adds no problem.
+            strings.plibs = ["composed_streams", "s2mpj"];
+            testCase.verifyEqual(benchmark(solvers, strings), expected);
+            cells = rmfield(cells, 'problem_names');
+            cells.excludelist = {'zeros3', 'missing'};
+            strings = rmfield(strings, 'problem_names');
+            strings.plibs = "composed_streams";
+            strings.excludelist = ["zeros3", "missing"];
+            testCase.verifyEqual(benchmark(solvers, strings), benchmark(solvers, cells));
+            % Shapes that are not a list of names fail during validation.
+            invalid = {['ab'; 'cd'], {["zeros3", "shift2"]}, string(missing), {'zeros3', 3}};
+            for k = 1:numel(invalid)
+                options = base;
+                options.plibs = {'composed_streams'};
+                options.problem_names = invalid{k};
+                testCase.verifyError(@() benchmark(solvers, options), ...
+                    'MATLAB:checkValidityProblemOptions:problem_namesNotCellOfcharstr');
+                options = rmfield(options, 'problem_names');
+                options.excludelist = invalid{k};
+                testCase.verifyError(@() benchmark(solvers, options), ...
+                    'MATLAB:checkValidityProblemOptions:excludelistNotCellOfcharstr');
+            end
+            options = base;
+            options.plibs = {["composed_streams", "s2mpj"]};
+            testCase.verifyError(@() benchmark(solvers, options), 'MATLAB:checkValidityProblemOptions:plibsNotValid');
+            options = rmfield(options, 'plibs');
+            options.solver_names = {["stay", "still"], "zero"};
+            testCase.verifyError(@() benchmark(solvers, options), 'MATLAB:checkValidityProfileOptions:solver_namesNotCellOfcharstr');
+            options = rmfield(options, 'solver_names');
+            options.line_styles = {["-", "--"]};
+            testCase.verifyError(@() benchmark(solvers, options), 'MATLAB:checkValidityProfileOptions:line_stylesNotValid');
+        end
+
         function legacyFeaturedProblemRestoresAndContinuesItsStream(testCase)
             fixture_root = fullfile(fileparts(mfilename('fullpath')), '..', 'fixtures', 'feature-v2');
             expected = load(fullfile(fixture_root, 'b0-featured-problem-continuation.mat'));
@@ -322,6 +419,19 @@ end
 function x = reviewZero(fun, x0)
     x = zeros(size(x0));
     fun(x);
+end
+
+function verifyRefusalNamesPath(testCase, call, identifier, path)
+    try
+        call();
+        testCase.verifyFail(sprintf('Expected %s.', identifier));
+    catch err
+        testCase.verifyEqual(err.identifier, identifier);
+        % The message names the canonical path, whose folder may resolve a
+        % link of the test folder (macOS /tmp); compare from the file name.
+        [~, name, extension] = fileparts(path);
+        testCase.verifySubstring(err.message, [filesep, name, extension, '''']);
+    end
 end
 
 function reviewReplace(source, target)

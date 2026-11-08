@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "description": "Revision of each problem-library subset bundled in this OptiProfiler distribution. It repeats the bundled-default entry of problem_libraries.lock; tools/check_problem_libraries_lock.py and tools/check_release.py check it against the lock and the gitlink.",
+  "libraries": [
+    {
+      "name": "s2mpj",
+      "repository": "optiprofiler/s2mpj_python",
+      "commit": "ecfc37f95d90a320448c7f96eecb8d8020b4fe43",
+      "gitlink": "python/optiprofiler/problem_libs/s2mpj"
+    }
+  ]
+}

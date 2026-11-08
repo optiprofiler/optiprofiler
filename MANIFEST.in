@@ -1,13 +1,23 @@
 # Include license and readme
 include LICENSE
 include README.rst
+# Third-party notices (the bundled S2MPJ licence text itself also travels with
+# the subset under python/optiprofiler/problem_libs/s2mpj in both artifacts).
+include THIRD_PARTY_NOTICES.md
+recursive-include licenses *.txt
+# The integration lock; both artifacts also carry the bundled S2MPJ revision
+# in python/optiprofiler/problem_libs/bundled_revisions.json.
+include problem_libraries.lock
 
 # Include the EvalReport JSON Schemas (runtime package resources)
 recursive-include python/optiprofiler/schemas *.schema.json
 
 # Include problem libraries data files
 recursive-include python/optiprofiler/problem_libs *.py *.txt *.csv *.md
+include python/optiprofiler/problem_libs/bundled_revisions.json
 include python/optiprofiler/problem_libs/s2mpj/src/list_of_python_problems
+# The adapter's own licence has no extension, so the glob above misses it.
+include python/optiprofiler/problem_libs/s2mpj/LICENSE
 
 # Exclude unnecessary files
 global-exclude .git*

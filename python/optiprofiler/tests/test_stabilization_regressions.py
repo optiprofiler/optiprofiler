@@ -14,6 +14,7 @@ import hashlib
 import json
 import os
 import pickle
+import re
 import shutil
 import sys
 
@@ -24,12 +25,12 @@ import pytest
 
 matplotlib.use('Agg')
 
-from optiprofiler import Feature, FeaturedProblem, Problem, benchmark
-from optiprofiler import eval_report as eval_report_module
+from optiprofiler import (Feature, FeaturedProblem, Problem, benchmark, eval_report as
+                          eval_report_module, load_benchmark_options)
 from optiprofiler.eval_report import EvalReport
 from optiprofiler.experiment import validate_n_runs
-from optiprofiler.legacy_compat import (LegacyConfigurationError, archived_replay_recipe, load_options,
-                                        replay_arguments)
+from optiprofiler.legacy_compat import LegacyConfigurationError
+from optiprofiler.benchmark_options import archived_replay_recipe, _read_options
 from optiprofiler.loader import load_results_from_h5
 from optiprofiler.tests.eval_report_contract import assert_valid, load_schema, validation_errors
 from optiprofiler.tests.test_legacy_compat import AC4_SINGLE
@@ -103,7 +104,7 @@ def _archive(directory):
 def _refined(directory):
     documents = []
     for path in sorted(directory.rglob('options_refined.pkl')):
-        documents.append((path, load_options(path)))
+        documents.append((path, _read_options(path)))
     return documents
 
 
@@ -213,6 +214,58 @@ def test_first_write_failure_rolls_back_only_owned_files(tmp_path, monkeypatch):
     with pytest.raises(FileExistsError):
         EvalReport(tmp_path / 'kept.json', {})
     assert companion.read_bytes() == b'owner-sentinel' and not (tmp_path / 'kept.json').exists()
+
+
+def test_ownership_refusals_name_the_affected_file(tmp_path):
+    for stem, changed in (('main', 'main.json'), ('detail', 'detail.plot_data.json')):
+        report = EvalReport(tmp_path / f'{stem}.json', {})
+        path = tmp_path / changed
+        path.write_text('external rewrite', encoding='utf-8')
+        with pytest.raises(FileExistsError, match='ownership changed: ' + re.escape(str(path))):
+            report._write()
+        assert path.read_text(encoding='utf-8') == 'external rewrite'
+
+
+def test_hashing_refusals_name_the_affected_file(tmp_path, monkeypatch):
+    import optiprofiler.eval_report as eval_report
+    folder = tmp_path / 'not-a-file'
+    folder.mkdir()
+    with pytest.raises(OSError, match=re.escape(str(folder))):
+        eval_report._digest(folder)
+
+    # A companion that changes while it is hashed surfaces to the caller.
+    report = EvalReport(tmp_path / 'hashed.json', {})
+    real_sha256 = eval_report.hashlib.sha256
+
+    class Growing:
+        def __init__(self):
+            self.inner = real_sha256()
+            self.grown = False
+
+        def update(self, chunk):
+            if not self.grown:
+                self.grown = True
+                with open(report.plot_path, 'ab') as stream:
+                    stream.write(b' ')
+            self.inner.update(chunk)
+
+        def hexdigest(self):
+            return self.inner.hexdigest()
+
+    monkeypatch.setattr(eval_report.hashlib, 'sha256', Growing)
+    report._detail_dirty = True
+    with pytest.raises(OSError, match="the file '" + re.escape(str(report.plot_path)) + "' changed while hashing"):
+        report._write()
+    monkeypatch.setattr(eval_report.hashlib, 'sha256', real_sha256)
+
+    if os.name != 'nt':
+        # The best-effort identity route (Windows) refuses a linked component.
+        monkeypatch.setattr(eval_report, '_hashing_capability', lambda: 'identity')
+        (tmp_path / 'real').mkdir()
+        (tmp_path / 'real' / 'artifact.pdf').write_bytes(b'%PDF')
+        (tmp_path / 'linked').symlink_to(tmp_path / 'real', target_is_directory=True)
+        with pytest.raises(OSError, match=re.escape(str(tmp_path / 'linked'))):
+            eval_report._digest(tmp_path / 'linked' / 'artifact.pdf', directory=tmp_path)
 
 
 def test_foreign_in_place_rewrite_and_inode_reuse_are_detected(tmp_path):
@@ -427,22 +480,22 @@ def test_problem_name_intersection_keeps_the_requested_order(tmp_path):
 
 def test_legacy_compat_edge_cases_fail_explicitly(tmp_path):
     with pytest.raises(LegacyConfigurationError, match='feature_specification'):
-        replay_arguments({'schema': 'options_refined-v2'})
+        load_benchmark_options({'schema': 'options_refined-v2'})
     for payload in (b'', b'\x80\x04garbage', pickle.dumps({'a': 1})[:5]):
         path = tmp_path / 'bad.pkl'
         path.write_bytes(payload)
         with pytest.raises(LegacyConfigurationError, match='not a readable'):
-            load_options(path)
+            _read_options(path)
     with pytest.raises(FileNotFoundError):
-        load_options(tmp_path / 'missing.pkl')
+        _read_options(tmp_path / 'missing.pkl')
     with pytest.raises(TypeError, match='legacy_compat'):
         pickle.loads(base64.b64decode(AC4_SINGLE))
-    without_count = replay_arguments({'schema': 'options_user-v2', 'feature_name': 'noisy', 'ptype': 'u'})
-    assert 'n_runs' not in without_count and without_count['problem_options'] == {'ptype': 'u'}
-    assert replay_arguments({'schema': 'options_user-v2', 'feature_name': 'noisy', 'n_runs': 4})['n_runs'] == 4
+    without_count = load_benchmark_options({'schema': 'options_user-v2', 'feature_name': 'noisy', 'ptype': 'u'})
+    assert 'n_runs' not in without_count and without_count['ptype'] == 'u'
+    assert load_benchmark_options({'schema': 'options_user-v2', 'feature_name': 'noisy', 'n_runs': 4})['n_runs'] == 4
     # A flat 1.x file written by a load invocation describes the load label.
     with pytest.raises(LegacyConfigurationError, match='load'):
-        replay_arguments({'load': '20250101_000000', 'feature_name': 'plain', 'n_runs': 1, 'ptype': 'u'})
+        load_benchmark_options({'load': '20250101_000000', 'feature_name': 'plain', 'n_runs': 1, 'ptype': 'u'})
 
 
 # ---------------------------------------------------------------- the recipe written by a load
@@ -497,10 +550,10 @@ def test_load_recipe_records_the_archived_experiment_and_replays_it(tmp_path, mo
     assert archived['seed'] == 7 and archived['run_plain'] is False and archived['plain_reference_n_runs'] is None
     assert archived['source_options_schema'] == 'options_refined-v2'
     assert archived['problem_options']['plibs'] == ['recipe']
-    replay = replay_arguments(refined)
+    replay = load_benchmark_options(refined)
     assert replay['n_runs'] == 2 and replay['feature'] == source['feature_specification']
     options = _options(tmp_path, 'recipe', benchmark_id='replay', seed=archived['seed'], run_plain=archived['run_plain'])
-    benchmark([stay, step], feature=replay['feature'], n_runs=replay['n_runs'], **options)
+    benchmark([stay, step], **{**options, **replay})
     _same_numbers(load_results_from_h5(str(_archive(tmp_path / 'src')[0]))[0],
                   load_results_from_h5(str(_archive(tmp_path / 'replay')[0]))[0])
 
@@ -518,9 +571,9 @@ def test_load_recipe_covers_compositions_and_the_plain_reference(tmp_path, monke
     archived = refined['archived_experiment']
     # Primary and plain-reference counts stay distinct facts.
     assert archived['n_runs'] == 3 and archived['run_plain'] is True and archived['plain_reference_n_runs'] == 1
-    replay = replay_arguments(refined)
+    replay = load_benchmark_options(refined)
     options = _options(tmp_path, 'composed', benchmark_id='replay', seed=archived['seed'], run_plain=True)
-    benchmark([stay, step], feature=replay['feature'], n_runs=replay['n_runs'], **options)
+    benchmark([stay, step], **{**options, **replay})
     original = load_results_from_h5(str(_archive(tmp_path / 'src')[0]))[0]
     again = load_results_from_h5(str(_archive(tmp_path / 'replay')[0]))[0]
     _same_numbers(original, again)
@@ -540,7 +593,7 @@ def test_load_recipe_fails_closed_when_the_source_cannot_be_recovered(tmp_path, 
     assert refined['feature_specification'] is None and refined['n_runs'] is None
     assert refined['archived_experiment']['replayable'] is False
     with pytest.raises(LegacyConfigurationError, match='load'):
-        replay_arguments(refined)
+        load_benchmark_options(refined)
     with pytest.raises(ValueError, match='cannot be None'):
         benchmark([stay, step], feature=refined['feature_specification'], n_runs=1,
                   **_options(tmp_path, 'closed', benchmark_id='never'))
@@ -586,7 +639,7 @@ def _native_for(feature, n_runs=2, stamp='same-explicit-label', **extra):
 
 
 def test_recovered_recipe_requires_matching_stage_options():
-    from optiprofiler.legacy_compat import _recipe_from_archived
+    from optiprofiler.benchmark_options import _recipe_from_archived
     actual = Feature('noisy', noise_level=0.1)
     # Same stage name, count and label, different option: not the archived experiment.
     stale = _recipe_from_archived(_native_for(Feature('noisy', noise_level=0.2)), [_archive_for(actual)])
@@ -632,7 +685,7 @@ def test_recovered_recipe_requires_matching_stage_options():
                            ({**_native_for(actual), 'problem_options': None}, 'source_recipe_malformed:problem_options')):
         assert _recipe_from_archived(broken, [_archive_for(actual)])['replay_reason'] == reason
     with pytest.raises(LegacyConfigurationError, match='malformed'):
-        replay_arguments({'operation': 'load', 'archived_experiment': {'replayable': True}})
+        load_benchmark_options({'operation': 'load', 'archived_experiment': {'replayable': True}})
 
 
 def test_load_recipe_fails_closed_when_source_options_disagree_with_the_archive(tmp_path, monkeypatch):
@@ -652,7 +705,7 @@ def test_load_recipe_fails_closed_when_source_options_disagree_with_the_archive(
     assert refined['archived_experiment']['detail'] == 'stage_option:noise_level'
     assert refined['feature_specification'] is None and refined['n_runs'] is None
     with pytest.raises(LegacyConfigurationError, match='load'):
-        replay_arguments(refined)
+        load_benchmark_options(refined)
     # A malformed nested recipe in a load-written source also fails closed.
     stamp = _time_stamp_of(source_path)
     source_path.write_bytes(pickle.dumps({'operation': 'load', 'load': stamp,

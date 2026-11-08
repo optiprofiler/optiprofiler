@@ -1,8 +1,11 @@
 function suffix = featureLabelChecksum(text)
-%FEATURELABELCHECKSUM CRC-32/ISO-HDLC of UTF-8, only for bounded display labels.
+%FEATURELABELCHECKSUM CRC-32/ISO-HDLC of UTF-8, for bounded labels and names.
 % This eight-hex checksum is not collision-free, cryptographic, or a seed mixer.
-% It does not identify an experiment: callers retain the full label and use the
-% existing unique directory allocator. Integer operations need no JVM or tools.
+% It does not identify an experiment. Feature labels retain the full label and
+% use the existing unique directory allocator. EvalReport.problemId and
+% EvalReport.credentialFreeName have no allocator, so if two names collide, at
+% a chance of 2^-32 per pair, they share a report entry or one history plot
+% overwrites the other. Integer operations need no JVM or tools.
     crc = uint32(hex2dec('FFFFFFFF'));
     polynomial = uint32(hex2dec('EDB88320'));
     bytes = unicode2native(text, 'UTF-8');

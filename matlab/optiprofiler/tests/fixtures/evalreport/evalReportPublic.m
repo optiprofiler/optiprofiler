@@ -346,17 +346,16 @@ function evalReportPublic(source_root, output_root, slice)
         log_artifacts = fresh.artifacts(endsWith({fresh.artifacts.path}, 'test_log/log.txt'));
         assert(numel(log_artifacts) == 1, 'The run log must be enumerated exactly once.');
         log_path = fullfile(output_root, fresh.artifact_root, log_artifacts.path);
-        if merge_failed
-            % Without a merge backend the run log carries the warnings, so it
-            % is not empty; the receipt must still describe the final file.
-            log_info = dir(log_path);
-            assert(log_artifacts.bytes > 0 && log_artifacts.bytes == log_info.bytes && strcmp(log_artifacts.sha256, hashFile(log_path)), ...
-                'The non-empty run log must be enumerated with its final size and digest.');
-        else
-            assert(log_artifacts.bytes == 0, 'Empty log artifact was omitted.');
-            assert(strcmp(log_artifacts.sha256, 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'), ...
-                'Empty file must have the standard SHA256 digest.');
-        end
+        % A successful merge may still log a loader-isolation retry. Verify
+        % the actual final log, not an environment-dependent empty-log guess.
+        log_info = dir(log_path);
+        assert(log_artifacts.bytes == log_info.bytes && strcmp(log_artifacts.sha256, hashFile(log_path)), ...
+            'The run log must be enumerated with its final size and digest.');
+        % Keep explicit zero-byte coverage independent of backend diagnostics.
+        empty = fresh.artifacts(endsWith({fresh.artifacts.path}, 'hash-empty.bin'));
+        assert(numel(empty) == 1 && empty.bytes == 0, 'Empty artifact was omitted.');
+        assert(strcmp(empty.sha256, 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'), ...
+            'Empty file must have the standard SHA256 digest.');
         blocks = fresh.artifacts(endsWith({fresh.artifacts.path}, 'hash-block.bin'));
         assert(numel(blocks) == 1 && blocks.bytes == 1048576);
         assert(strcmp(blocks.sha256, '30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58'), ...
@@ -424,6 +423,57 @@ function evalReportPublic(source_root, output_root, slice)
         completed = report.problems(strcmp({report.problems.name}, 'shared'));
         assert(all(~[completed.runs.abnormal_termination]), 'Parallel request fell back to controller execution.');
         fprintf('PASS parallel: parent-owned report, unchanged public numerical results\n');
+    elseif strcmp(slice, 'archive_before_report_failure')
+        % A failed benchmark must release its experiment log, not leave a
+        % process-global diary holding log.txt open on Windows. Close only
+        % this test's diary on assertion failure so teardown stays diagnostic.
+        diary off;
+        diary_guard = onCleanup(@() diary('off')); %#ok<NASGU>
+        fixture_root = fileparts(mfilename('fullpath'));
+        setenv('OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_REGISTRY', fullfile(output_root, 'registry.mat'));
+        registerProblemLibrary(struct('name', 'report_persistence', 'root', fixture_root, ...
+            'select_function', 'eval_fixture_select', 'load_function', 'eval_fixture_load'));
+        options = rmfield(options, 'problem'); options.plibs = {'report_persistence'};
+        options.problem_names = {'shared'}; options.score_only = false;
+        options.draw_hist_plots = 'none'; options.max_tol_order = 1;
+        options.savepath = output_root; options.benchmark_id = 'preserved-data';
+        options.report_path = fullfile(output_root, 'replaced-after-solving.json');
+        previous_target = getenv('EVAL_REPORT_PUBLIC_REPLACE_TARGET');
+        guard = onCleanup(@() setenv('EVAL_REPORT_PUBLIC_REPLACE_TARGET', previous_target)); %#ok<NASGU>
+        setenv('EVAL_REPORT_PUBLIC_REPLACE_TARGET', options.report_path);
+        options.merit_fun = @replaceAndReturn;
+        try
+            benchmark(solvers, options);
+            error('Expected final report ownership failure.');
+        catch cause
+            assert(strcmp(cause.identifier, 'OptiProfiler:EvalReportOwnership'));
+        end
+        assert(strcmp(get(0, 'Diary'), 'off'), ...
+            'OptiProfiler:DiaryLeak', 'Failed benchmark left its experiment diary open.');
+        assert(strcmp(readUtf8(options.report_path), 'external replacement'));
+        files = dir(fullfile(output_root, '**', 'data_for_loading.mat'));
+        assert(numel(files) == 1, 'Final report failure discarded completed numerical data.');
+        % Verify the user-facing recovery route, not just the presence of a MAT file.
+        previous_directory = pwd;
+        directory_guard = onCleanup(@() cd(previous_directory)); %#ok<NASGU>
+        cd(output_root);
+        benchmark(struct('load', 'latest', 'savepath', output_root, ...
+            'benchmark_id', 'preserved-data', 'score_only', true, ...
+            'draw_hist_plots', 'none', 'silent', true, 'max_tol_order', 1));
+        assert(strcmp(get(0, 'Diary'), 'off'), ...
+            'OptiProfiler:DiaryLeak', 'Score-only reload reopened the experiment diary.');
+        fprintf('PASS archive_before_report_failure: completed raw data remains publicly reloadable\n');
+    elseif strcmp(slice, 'complex_objective')
+        options.problem = Problem(struct('fun', @(x) sqrt(x(1)), 'x0', 1, 'name', 'real_domain'));
+        value = options.problem.fun(-1);
+        assert(isreal(value) && isnan(value), 'A complex objective must not be treated as a valid real value.');
+        options.report_path = fullfile(output_root, 'complex-objective.json');
+        benchmark({@negative, @zero}, options);
+        report = readReport(options.report_path);
+        detail = readDetail(fullfile(output_root, report.plot_data.path));
+        assert(report.problems.runs(1).objective.invalid_evaluations.nan == 1);
+        assert(strcmp(detail.histories(1).channels.objective.values.reason, 'nan'));
+        fprintf('PASS complex_objective: invalid real-domain evaluation is recorded without JSON failure\n');
     elseif strcmp(slice, 'ownership')
         options.report_path = fullfile(output_root, 'replaced-success.json');
         setenv('EVAL_REPORT_PUBLIC_REPLACE_TARGET', options.report_path);
@@ -536,6 +586,153 @@ function evalReportPublic(source_root, output_root, slice)
         [legacy_scores, ~, ~] = benchmark(solvers, legacy);
         assert(isequaln(legacy_scores, scores), 'Reporting changed the scores of a string-array run.');
         fprintf('PASS paths: relative user paths resolve on disk, no machine roots, string-array options run with a report\n');
+    elseif strcmp(slice, 'score_shape')
+        % A custom score_fun must return one real score per solver. Earlier
+        % a wrong length, a scalar or a matrix completed with scores misaligned
+        % with the solvers, a logical, cell or string result made the report
+        % schema-invalid, and a complex or sparse one left it running.
+        fixture_root = fileparts(mfilename('fullpath'));
+        setenv('OPTIPROFILER_MATLAB_PROBLEM_LIBRARY_REGISTRY', fullfile(output_root, 'registry.mat'));
+        registerProblemLibrary(struct('name', 'report_scores', 'root', fixture_root, ...
+            'select_function', 'eval_fixture_select', 'load_function', 'eval_fixture_load'));
+        options = rmfield(options, 'problem');
+        options.plibs = {'report_scores'};
+        options.problem_names = {'shared'};
+        options.n_runs = 1;
+        options.max_tol_order = 1;
+        expected = benchmark(solvers, options);
+        assert(isequal(size(expected), [2, 1]));
+        % The default score_fun, returning the same values in other shapes.
+        mean_scores = @(x) mean(x(:, :, 1, 1), 2);
+        accepted = {mean_scores, @(x) mean_scores(x)', @(x) reshape(mean_scores(x), 1, 1, []), @(x) int32(round(mean_scores(x))), ...
+            @(x) sparse(mean_scores(x))};
+        returned_sizes = {[2, 1], [1, 2], [2, 1], [2, 1], [2, 1]};
+        expected_values = {expected, expected, expected, round(expected), expected};
+        for k = 1:numel(accepted)
+            options.score_fun = accepted{k};
+            options.report_path = fullfile(output_root, sprintf('score_accepted_%d.json', k));
+            scores = benchmark(solvers, options);
+            assert(isequal(size(scores), returned_sizes{k}) && ~issparse(scores), 'Accepted score vector %d changed shape.', k);
+            assert(isequal(double(scores(:)), expected_values{k}), 'Accepted score vector %d changed values.', k);
+            report = readReport(options.report_path);
+            assert(strcmp(report.status, 'completed'));
+            assert(max(abs(report.scores.solver_scores(:) - double(scores(:)))) < 1e-12, 'Reported scores differ from the returned ones.');
+        end
+        rejected = {@(x) mean(x(:)), @(x) [mean_scores(x); 0], @(x) squeeze(mean(x(:, :, 1, :), 2)), @(x) [], ...
+            @(x) mean_scores(x) > 0.5, @(x) complex(mean_scores(x), 1), @(x) num2cell(mean_scores(x)), @(x) "scores", @(x) struct('a', 1)};
+        identifiers = [repmat({'MATLAB:benchmark:score_funOutputWrongSize'}, 1, 4), ...
+            repmat({'MATLAB:benchmark:score_funOutputNotReal'}, 1, 5)];
+        named = {'size 1x1', 'size 3x1', 'size 2x3', 'size 0x0', 'class logical', 'class complex double', 'class cell', 'class string', 'class struct'};
+        for k = 1:numel(rejected)
+            options.score_fun = rejected{k};
+            options.report_path = fullfile(output_root, sprintf('score_rejected_%d.json', k));
+            try
+                benchmark(solvers, options);
+                error('Expected score_fun result %d to be rejected.', k);
+            catch cause
+                assert(strcmp(cause.identifier, identifiers{k}), 'Unexpected error for result %d: %s %s', k, cause.identifier, cause.message);
+                assert(contains(cause.message, named{k}), 'The refusal must name the returned %s: %s', named{k}, cause.message);
+            end
+            report = readReport(options.report_path);
+            assert(strcmp(report.status, 'failed') && isempty(report.scores), 'A rejected score_fun result must not be reported.');
+            assert(strcmp(report.stages.scoring.status, 'failed') && strcmp(report.stages.numerical.status, 'completed'));
+        end
+        % The right number of values in the wrong shape.
+        square = options;
+        square.solver_names = {'a', 'b', 'c', 'd'};
+        square.score_fun = @(x) reshape(mean_scores(x), 2, 2);
+        square.report_path = fullfile(output_root, 'score_square.json');
+        try
+            benchmark([solvers, solvers], square);
+            error('Expected the square score_fun result to be rejected.');
+        catch cause
+            assert(strcmp(cause.identifier, 'MATLAB:benchmark:score_funOutputWrongSize') && contains(cause.message, 'size 2x2'), ...
+                'Unexpected error: %s %s', cause.identifier, cause.message);
+        end
+        report = readReport(square.report_path);
+        assert(strcmp(report.status, 'failed') && isempty(report.scores));
+        % A saved run stops the same way, without leaving a figure open, and
+        % its experiment stays loadable.
+        saved = options;
+        saved.score_only = false;
+        saved.draw_hist_plots = 'none';
+        saved.benchmark_id = 'score_saved';
+        saved.savepath = output_root;
+        saved.score_fun = rejected{2};
+        saved.report_path = fullfile(output_root, 'score_saved.json');
+        open_figures = numel(findall(groot, 'Type', 'figure'));
+        try
+            benchmark(solvers, saved);
+            error('Expected the saved run to reject the score_fun result.');
+        catch cause
+            assert(strcmp(cause.identifier, 'MATLAB:benchmark:score_funOutputWrongSize'), 'Unexpected error: %s %s', cause.identifier, cause.message);
+        end
+        assert(numel(findall(groot, 'Type', 'figure')) == open_figures, 'A rejected score_fun result left a figure open.');
+        report = readReport(saved.report_path);
+        assert(strcmp(report.status, 'failed') && isempty(report.scores));
+        previous = pwd; directory_guard = onCleanup(@() cd(previous)); %#ok<NASGU>
+        cd(output_root);
+        reloaded = benchmark(struct('load', 'latest', 'benchmark_id', 'score_saved', 'score_only', true, 'silent', true, 'max_tol_order', 1));
+        assert(max(abs(reloaded - expected)) < 1e-12, 'The saved experiment must stay loadable.');
+        % A load refuses the same result, and its scoring stage says so.
+        refused = struct('load', 'latest', 'benchmark_id', 'score_saved', 'score_only', true, 'silent', true, ...
+            'max_tol_order', 1, 'score_fun', rejected{2}, 'report_path', fullfile(output_root, 'score_load.json'));
+        try
+            benchmark(refused);
+            error('Expected the load to reject the score_fun result.');
+        catch cause
+            assert(strcmp(cause.identifier, 'MATLAB:benchmark:score_funOutputWrongSize'), 'Unexpected error: %s %s', cause.identifier, cause.message);
+        end
+        report = readReport(refused.report_path);
+        assert(strcmp(report.operation, 'load') && strcmp(report.status, 'failed') && isempty(report.scores));
+        assert(strcmp(report.stages.numerical.status, 'completed'));
+        assert(strcmp(report.stages.scoring.status, 'failed') && strcmp(report.stages.scoring.reason, 'interrupted_by_exception'), ...
+            'A rejected score on a load left scoring %s.', report.stages.scoring.status);
+        fprintf('PASS score_shape: one real score per solver, rows and columns kept, other results refused\n');
+    elseif strcmp(slice, 'stages')
+        % Before the first solver call, nothing numerical can have failed.
+        early = options;
+        early.report_path = fullfile(output_root, 'early.json');
+        early.plot_options = struct('figure', struct('Position', [0 0 -1 1]));
+        refused = struct('load', 'latest', 'problem', problem, 'report_path', fullfile(output_root, 'refused.json'));
+        calls = {@() benchmark(solvers, early), @() benchmark(refused)};
+        paths = {early.report_path, refused.report_path};
+        identifiers = {'OptiProfiler:PlotOptions:InvalidProperty', 'MATLAB:benchmark:ProblemWithLoad'};
+        for k = 1:numel(calls)
+            try
+                calls{k}();
+                error('Expected an early refusal.');
+            catch cause
+                assert(strcmp(cause.identifier, identifiers{k}), 'Unexpected error: %s %s', cause.identifier, cause.message);
+            end
+            report = readReport(paths{k});
+            assert(strcmp(report.status, 'failed'));
+            for stage = {'numerical', 'scoring', 'persistence', 'rendering'}
+                assert(strcmp(report.stages.(stage{1}).status, 'unknown'), 'Stage %s of an early refusal is %s.', stage{1}, report.stages.(stage{1}).status);
+            end
+        end
+        % A direct Problem has no reload archive, also when its scoring fails.
+        for score_only = [true, false]
+            failing = options;
+            failing.score_only = score_only;
+            failing.savepath = output_root;
+            failing.benchmark_id = sprintf('direct_merit_%d', score_only);
+            failing.draw_hist_plots = 'none';
+            failing.merit_fun = @fatalMerit;
+            failing.report_path = fullfile(output_root, sprintf('direct_merit_%d.json', score_only));
+            try
+                benchmark(solvers, failing);
+                error('Expected the merit failure.');
+            catch cause
+                assert(strcmp(cause.identifier, 'MATLAB:benchmark:merit_fun_error'), 'Unexpected error: %s %s', cause.identifier, cause.message);
+            end
+            report = readReport(failing.report_path);
+            assert(strcmp(report.status, 'failed') && strcmp(report.stages.numerical.status, 'completed'));
+            assert(strcmp(report.stages.scoring.status, 'failed'));
+            assert(strcmp(report.stages.persistence.status, 'not_applicable') && ...
+                strcmp(report.stages.persistence.reason, 'single_problem_has_no_reload_archive'));
+        end
+        fprintf('PASS stages: an early refusal fails no stage, a direct Problem has no archive to persist\n');
     else
         error('Unknown slice.');
     end
@@ -557,6 +754,8 @@ function x = stayWithHashBoundary(fun, x0)
     folders = folders([folders.isdir] & ~ismember({folders.name}, {'.', '..'}));
     assert(numel(folders) == 1, 'Expected the current benchmark output directory.');
     run_directory = fullfile(folders.folder, folders.name);
+    fid_empty = fopen(fullfile(run_directory, 'hash-empty.bin'), 'wb');
+    assert(fid_empty >= 0); fclose(fid_empty);
     target = fullfile(run_directory, 'hash-block.bin');
     fid = fopen(target, 'wb'); guard = onCleanup(@() fclose(fid));
     fwrite(fid, zeros(1048576, 1, 'uint8'), 'uint8');
@@ -650,6 +849,11 @@ end
 function x = mustNotRun(varargin)
     error('Audit:UnexpectedSolverCall', 'Load must not execute a solver.');
     x = []; %#ok<UNRCH>
+end
+
+function x = negative(fun, x0)
+    x = -ones(size(x0));
+    fun(x);
 end
 
 function value = replaceAndReturn(fun_value, varargin)

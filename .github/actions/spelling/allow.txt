@@ -14,6 +14,7 @@ Andsolver
 Andsolvers
 aplly
 APPLYMATLABPATCHES
+APPLYPLOTOPTIONS
 ARGAUSS
 argins
 ARGLALE
@@ -30,6 +31,7 @@ aub
 autofunction
 autouse
 axs
+backported
 backref
 bbopt
 BARDNE
@@ -160,6 +162,7 @@ excludelist
 exmaple
 exportgraphics
 EXTROSNBNE
+facecolor
 fclose
 FEATUREDPROBLEM
 featurename
@@ -180,6 +183,7 @@ fmincon
 fminsearch
 fminunc
 FOLDTR
+fontproperties
 fopen
 FORMATOPTIPROFILERMESSAGE
 fprintf
@@ -223,6 +227,7 @@ gswin
 GULFNE
 HAHN
 handlelength
+hashable
 HATFLDANE
 HATFLDBNE
 HATFLDCNE
@@ -326,6 +331,7 @@ keyframes
 KOEBHELBNE
 KOWOSBNE
 KSS
+labelcolor
 labelleft
 labelright
 labelsize
@@ -545,6 +551,7 @@ readouterr
 rehash
 rescanning
 regexprep
+refscore
 REGISTERPROBLEMLIBRARY
 repmat
 RESOLVEPROBLEMLIBRARY
@@ -662,6 +669,7 @@ uobyqa
 userpath
 usr
 vals
+VALIDATEPLOTOPTIONS
 VANDERM
 varargin
 varargout
@@ -679,12 +687,14 @@ vlen
 WATSONNE
 WAYSEA
 website
+whl
 whos
 workaround
 workarounds
 workflows
 WRITEREPORT
 XAxis
+xaxis
 xdata
 XDG
 xhist

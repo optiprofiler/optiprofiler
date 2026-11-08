@@ -306,7 +306,16 @@ end
 function image = captureCanvas(fig, png)
 % Whole-figure raster at a fixed size: print does not recrop to the content, so paired captures of one figure share
 % one canvas and one registration.
-    print(fig, png, '-dpng', '-r100');
+    if ismac && strcmp(version('-release'),'2023b')
+        % R2023b/macOS OpenGL print can scale translucent patch vertices
+        % differently from the axes on a high-DPI canvas. This corrupts the
+        % paired raster oracle even for the calibration rectangle. Painters
+        % fixes this test capture; geometry/coverage assertions stay intact,
+        % and the package's native PDF export path is not changed.
+        print(fig, png, '-dpng', '-r100', '-painters');
+    else
+        print(fig, png, '-dpng', '-r100');
+    end
     image = double(imread(png));
 end
 

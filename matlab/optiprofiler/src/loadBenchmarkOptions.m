@@ -14,13 +14,27 @@ function [options, receipt] = loadBenchmarkOptions(source, legacy_feature_name)
 % archived execution. A versioned options_refined-v2 record carries its own
 % effective feature identity (benchmark never writes one for a load), and its
 % obsolete load/solvers_to_load selectors are simply not forwarded.
+% options_refined does not store a directly supplied Problem; its problem_route
+% field ('direct_problem' or 'library_selection') says whether the experiment
+% used one. A direct-problem record raises OptiProfiler:DirectProblemNotSaved
+% instead of becoming a library replay, unless the original Problem is set as
+% the problem field of the struct passed here. A source with a problem field
+% (such as options_user of a direct-problem run) replays that Problem, without
+% library selectors. RECEIPT.problem_route records the route: 'direct_problem',
+% 'library_selection', or 'not_recorded' for a record older than the field.
+% Such a record has default library selectors whatever the experiment used. For
+% a file, the options_user.mat next to it settles the route. Otherwise a replay
+% warns with OptiProfiler:ProblemRouteNotRecorded, because a direct-problem
+% experiment would run on those selectors.
 % Native MAT loading is trusted input and can execute user code. Callback names
 % in JSON reports are descriptions, not recipes for reconstructing functions.
 % The inspection duplicate is checked for ordinary values/structure and callback
 % positions/types only; callback identity or semantics is not certified. Only
 % the canonical native Feature supplies callbacks to the returned replay.
     if nargin < 2, legacy_feature_name = []; end
+    source_file = '';
     if ischar(source) || (isstring(source) && isscalar(source))
+        source_file = char(source);
         try
             loaded = load(char(source), 'options_refined');
         catch cause
@@ -51,6 +65,34 @@ function [options, receipt] = loadBenchmarkOptions(source, legacy_feature_name)
     receipt = struct('schema', 'matlab-benchmark-options-import-v1', ...
         'source_schema', 'legacy-flat-options', 'original_request_origin', 'unknown', ...
         'scope', 'fresh_replay_not_original_execution_or_live_resume');
+    has_problem = isfield(source, 'problem');
+    if has_problem && ~(isa(source.problem, 'Problem') && isscalar(source.problem))
+        error('OptiProfiler:InvalidNativeProblem', 'The problem field of the options must be a scalar Problem.');
+    end
+    receipt.problem_route = 'not_recorded';
+    if isfield(source, 'problem_route')
+        if ~(ischar(source.problem_route) || (isstring(source.problem_route) && isscalar(source.problem_route))) ...
+                || ~ismember(char(source.problem_route), {'direct_problem', 'library_selection'})
+            error('OptiProfiler:InvalidNativeOptions', 'problem_route must be ''direct_problem'' or ''library_selection''.');
+        end
+        receipt.problem_route = char(source.problem_route);
+    elseif ~has_problem
+        receipt.problem_route = routeOfUserOptions(source_file);
+        if strcmp(receipt.problem_route, 'not_recorded')
+            warning('OptiProfiler:ProblemRouteNotRecorded', ...
+                ['These options do not record whether the experiment selected its problems from a library or used a ', ...
+                 'directly supplied Problem. If it used a Problem, this replay would benchmark the recorded library ', ...
+                 'selectors instead: set the original Problem as the problem field of the options.']);
+        end
+    end
+    if strcmp(receipt.problem_route, 'direct_problem') && ~has_problem
+        error('OptiProfiler:DirectProblemNotSaved', ...
+            ['These options come from a benchmark of a directly supplied Problem, which options_refined does not store. ', ...
+             'A replay without it would benchmark a problem library instead. Set the original Problem as the problem ', ...
+             'field of the loaded struct, for example S = load(file); S.options_refined.problem = p; ', ...
+             'options = loadBenchmarkOptions(S.options_refined).']);
+    end
+    if has_problem, receipt.problem_route = 'direct_problem'; end
     if isfield(source, 'schema')
         if ~(ischar(source.schema) || (isstring(source.schema) && isscalar(source.schema))) ...
                 || ~strcmp(source.schema, 'options_refined-v2')
@@ -92,35 +134,13 @@ function [options, receipt] = loadBenchmarkOptions(source, legacy_feature_name)
         end
         receipt.source_schema = 'options_refined-v2';
         if isfield(source, 'feature_provenance'), receipt.retained_feature_provenance = source.feature_provenance; end
-    elseif isfield(source, 'feature')
-        if isa(source.feature, 'optiprofiler_internal.LegacyFeatureEnvelope')
-            [feature, request] = optiprofiler_internal.importLegacyFeature(source.feature);
-            if ~isfield(source, 'n_runs') && request.n_runs_present, source.n_runs = request.n_runs; end
-            receipt.feature_import = request;
-        else
-            feature = Feature(source.feature);
-        end
     else
-        if isfield(source, 'feature_name')
-            name = source.feature_name;
-        elseif ~isempty(legacy_feature_name)
-            name = legacy_feature_name;
-        else
-            error('OptiProfiler:LegacyFeatureIdentityMissing', ...
-                'This old flat options file did not retain feature identity. Supply legacy_feature_name explicitly; stamps and folders are not evidence.');
-        end
-        definitions = optiprofiler_internal.featureDefinitions();
-        local_keys = {};
-        for i = 1:numel(definitions), local_keys = [local_keys, definitions(i).local_keys]; end %#ok<AGROW>
-        local_options = struct();
-        keys = intersect(fieldnames(source), unique(local_keys));
-        for i = 1:numel(keys), local_options.(keys{i}) = source.(keys{i}); end
-        saved = struct('name', name, 'options', local_options);
-        if isfield(source, 'n_runs'), saved.options.n_runs = source.n_runs; end
-        [feature, request] = optiprofiler_internal.importLegacyFeature(optiprofiler_internal.LegacyFeatureEnvelope(saved));
-        receipt.feature_import = request;
-        if ~isempty(legacy_feature_name) && ~isfield(source, 'feature_name')
-            receipt.current_legacy_feature_name_override = legacy_feature_name;
+        [feature, legacy_receipt] = optiprofiler_internal.importLegacyBenchmarkOptions(source, legacy_feature_name);
+        keys = fieldnames(legacy_receipt);
+        for i = 1:numel(keys), receipt.(keys{i}) = legacy_receipt.(keys{i}); end
+        if isfield(legacy_receipt, 'feature_import')
+            request = legacy_receipt.feature_import;
+            if ~isfield(source, 'n_runs') && request.n_runs_present, source.n_runs = request.n_runs; end
         end
     end
     % Never forward envelope facts or saved output targets to benchmark.
@@ -131,11 +151,37 @@ function [options, receipt] = loadBenchmarkOptions(source, legacy_feature_name)
         {'load'; 'solvers_to_load'; 'report_path'; 'savepath'; 'benchmark_id'; 'feature'; 'feature_name'});
     options = struct();
     keys = intersect(fieldnames(source), allowed);
+    if has_problem, keys = setdiff(keys, problem_keys); end
     for i = 1:numel(keys), options.(keys{i}) = source.(keys{i}); end
+    % A replay of a direct-problem experiment benchmarks the same Problem.
+    if has_problem, options.problem = source.problem; end
     options.feature = feature;
     if isfield(source, 'n_runs')
         options.n_runs = source.n_runs;
         receipt.retained_n_runs = source.n_runs;
+    end
+end
+
+function route = routeOfUserOptions(source_file)
+% options_user.mat beside a record holds what the caller passed to benchmark,
+% with a Problem if there was one, in every version that wrote such a record.
+    route = 'not_recorded';
+    % load also takes the path without its extension.
+    if isempty(source_file) || ~(isfile(source_file) || isfile([source_file, '.mat'])), return; end
+    sibling = fullfile(fileparts(source_file), 'options_user.mat');
+    if ~isfile(sibling), return; end
+    try
+        loaded = load(sibling, 'options_user');
+    catch
+        return
+    end
+    if ~isfield(loaded, 'options_user') || ~isstruct(loaded.options_user) || ~isscalar(loaded.options_user)
+        return
+    end
+    if ~isfield(loaded.options_user, 'problem')
+        route = 'library_selection';
+    elseif isa(loaded.options_user.problem, 'Problem')
+        route = 'direct_problem';
     end
 end
 

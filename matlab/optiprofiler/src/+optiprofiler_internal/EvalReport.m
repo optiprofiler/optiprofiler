@@ -60,14 +60,14 @@ classdef EvalReport < handle
             request_projection = optiprofiler_internal.EvalReport.configuration(request);
             if ~isfolder(parent), mkdir(parent); end
             if ~optiprofiler_internal.EvalReport.reserve(self.path)
-                error('OptiProfiler:EvalReportExists', 'The report target already exists or cannot be reserved.');
+                error('OptiProfiler:EvalReportExists', 'The report target ''%s'' already exists or cannot be reserved.', self.path);
             end
             self.ownedIdentity = optiprofiler_internal.EvalReport.fileIdentity(self.path);
             % Both paths are owned before any solver call. On a companion
             % collision, remove only our still-identical empty main shell.
             if ~optiprofiler_internal.EvalReport.reserve(self.plotPath)
                 self.rollbackReservations();
-                error('OptiProfiler:EvalReportExists', 'The plot-data target already exists or cannot be reserved.');
+                error('OptiProfiler:EvalReportExists', 'The plot-data target ''%s'' already exists or cannot be reserved.', self.plotPath);
             end
             self.plotIdentity = optiprofiler_internal.EvalReport.fileIdentity(self.plotPath);
             try
@@ -112,7 +112,7 @@ classdef EvalReport < handle
                 'metric_best', 'componentwise_minimum_ignoring_nan;first_tie_index;not_necessarily_a_jointly_attained_point', ...
                 'budget', 'problems[].budget applies to every run unless runs[].budget overrides it; budget_reached is a per-run comparison and reaching the cap does not identify the termination cause.', ...
                 'convergence', 'Never inferred from solver return values; there is no per-run convergence field. target_work in the companion observes the existing profile construction.', ...
-                'run_defaults', 'evaluations, budget_reached, abnormal_termination, output_fallback, execution, oracle_seed and elapsed_seconds are per-run facts. An absent *_reason key means the observation was available; an absent first_invalid_evaluation_index means no invalid evaluation was observed and invalid_evaluations is then the integer 0.', ...
+                'run_defaults', 'evaluations, budget_reached, abnormal_termination, output_fallback, execution, oracle_seed and elapsed_seconds are per-run facts. A run with output_fallback true returned no output: objective.output and constraint.output are the values at x0, and it has no output-based work, so its output entries in target_work have the value null and the output hits of convergence exclude it. An absent *_reason key means the observation was available; an absent first_invalid_evaluation_index means no invalid evaluation was observed and invalid_evaluations is then the integer 0.', ...
                 'configuration', 'configuration.request lists user-supplied options; configuration.effective lists the resolved options of this invocation. In a load operation they describe reanalysis/rendering, not the archived execution.', ...
                 'paths', struct('artifacts', 'relative_to_artifact_root', 'artifact_root', 'relative_to_main_report_parent', ...
                     'plot_data', 'relative_to_main_report_parent', 'source', 'relative_to_main_report_parent'), ...
@@ -124,7 +124,7 @@ classdef EvalReport < handle
                     'history_plots', 'display_copy_only;across_run_band_then_shift_then_cummin_then_block_aggregation;block_aggregation_applies_when_padded_length_exceeds_1002_and_keeps_about_1000_points;array_position_is_not_an_evaluation_index_use_evaluation_indices;resolve_renderer_variants_ref_before_interpreting_native_versus_portable_styling', ...
                     'profile_plots', 'full_step_vertices_and_across_run_bands;band_clamped_to_0_1;unreached_work_shown_at_failure_placeholder_not_counted_as_hit;log_ratio_zero_height_ties_retained_in_numeric_data_but_not_drawn;log_ratio_bar_sources_retain_problem_and_run_identity', ...
                     'error_bands', 'matlab_sample_std_ddof_1_for_more_than_one_run_and_0_for_a_single_run', ...
-                    'target_work', 'existing_profile_work_arrays;history_first_actual_hit;output_total_evaluations_at_passing_returned_output;nan_is_nonhit_not_solver_diagnosis', ...
+                    'target_work', 'existing_profile_work_arrays;history_first_actual_hit;output_total_evaluations_at_passing_returned_output;output_fallback_run_has_no_output_work;nan_is_nonhit_not_solver_diagnosis', ...
                     'privacy', 'controller_private;not_an_allowlisted_agent_prompt'), ...
                 'histories', {{}}, 'plots', {{}}, 'target_work', {{}}, 'diagnostics', {{}});
             % Shared variant descriptions avoid repeating the same display
@@ -148,14 +148,13 @@ classdef EvalReport < handle
                 self.document.coverage.original_selection_known = false;
             end
             self.document.configuration.request = request_projection;
-            self.setStage('numerical', 'running');
             self.write();
         end
 
         function rollbackReservations(self)
             % Delete a reserved target only while it is still ours: its current
             % identity equals the one recorded at reservation or at the last
-            % publish. Foreign files (a concurrent writer, a pre-existing
+            % publish. Foreign files (a concurrent writer, a preexisting
             % companion) are never touched.
             targets = {self.path, self.ownedIdentity; self.plotPath, self.plotIdentity};
             for k = 1:size(targets, 1)
@@ -246,6 +245,13 @@ classdef EvalReport < handle
             end
         end
 
+        function startNumerical(self)
+            % The solvers start. An error before this point is not a numerical
+            % failure, and a load runs no solver.
+            self.setStage('numerical', 'running');
+            self.write();
+        end
+
         function setStage(self, stage, status, reason)
             value = struct('status', status);
             if nargin > 3, value.reason = reason; end
@@ -254,6 +260,11 @@ classdef EvalReport < handle
 
         function addDiagnostic(self, code, stage, scope)
             if nargin < 4, scope = struct(); end
+            for key = {'problem', 'name'}
+                if isfield(scope, key{1})
+                    scope.(key{1}) = optiprofiler_internal.EvalReport.configuration(scope.(key{1}));
+                end
+            end
             entry = struct('code', code, 'stage', stage, 'scope', scope);
             try
                 key = jsonencode(optiprofiler_internal.EvalReport.safe(entry));
@@ -273,7 +284,7 @@ classdef EvalReport < handle
 
         function addProblem(self, result, library, role)
             if nargin < 4, role = 'primary'; end
-            id = jsonencode({library, result.problem_name, role});
+            id = optiprofiler_internal.EvalReport.problemId(library, result.problem_name, role);
             ordinal = self.problemIndex(id);
             if isempty(ordinal), ordinal = numel(self.document.problems) + 1; end
             unknown = optiprofiler_internal.EvalReport.null();
@@ -289,10 +300,52 @@ classdef EvalReport < handle
                 budget_record = struct('evaluations', budget, 'rule', 'ceil(max_eval_factor*dimension)');
             end
             entry = struct('id', id, ...
-                'library', library, 'name', result.problem_name, 'role', role, ...
+                'library', library, 'name', optiprofiler_internal.EvalReport.configuration(result.problem_name), 'role', role, ...
                 'dimension', result.problem_dim, 'type', result.problem_type, ...
                 'selection_status', 'selected', 'load_status', 'loaded', 'status', 'completed', ...
                 'budget', budget_record, 'runs', {{}}, 'plot_refs', {{}});
+            if isfield(result,'reference_fallback_reasons')
+                reasons = reshape(result.reference_fallback_reasons,1,[]);
+                for r = 1:numel(reasons)
+                    if isempty(reasons{r}), reasons{r} = unknown; end
+                end
+                entry.reference_fallback_reasons = reasons;
+            end
+            if isfield(result, 'reference_records')
+                % Observe raw facts without re-evaluating a possibly stateful
+                % merit function. Older archives leave this field absent.
+                records = reshape(result.reference_records, 1, []);
+                for r = 1:numel(records)
+                    if isempty(records{r}), records{r} = unknown;
+                    else
+                        point = [];
+                        if isfield(records{r},'x_ref')
+                            point = records{r}.x_ref;
+                            records{r} = rmfield(records{r},'x_ref');
+                        end
+                        source = [];
+                        if isfield(records{r}, 'source'), source = records{r}.source; end
+                        records{r} = optiprofiler_internal.EvalReport.configuration(records{r});
+                        % Scientific provenance (often a DOI link) is kept without
+                        % credentials, query or fragment; a clipped source is
+                        % marked. The native archive keeps the complete record.
+                        if isfield(records{r}, 'source')
+                            records{r}.source = optiprofiler_internal.EvalReport.provenanceText(source);
+                        end
+                        % A one-dimensional witness is still an array in the
+                        % shared JSON schema, not a MATLAB scalar encoding.
+                        if ~isempty(point)
+                            if numel(point)<=256
+                                records{r}.x_ref = num2cell(reshape(point,1,[]));
+                            else
+                                records{r}.x_ref = struct('dimension',numel(point), ...
+                                    'reason','reference_point_not_embedded');
+                            end
+                        end
+                    end
+                end
+                entry.reference_records = records;
+            end
             for solver = 1:size(result.n_eval, 1)
                 for run = 1:size(result.n_eval, 2)
                     count = result.n_eval(solver, run);
@@ -357,6 +410,15 @@ classdef EvalReport < handle
                         if isfield(observed_runtime, 'run_seed')
                             item.oracle_seed = observed_runtime.run_seed;
                         end
+                        if isfield(observed_runtime, 'reference_history_failure')
+                            failure = observed_runtime.reference_history_failure;
+                            % Keep the bounded cause's identifier, not callback
+                            % inputs or arbitrary exception text, in compact JSON.
+                            self.addDiagnostic('reference_history_unavailable', 'numerical', ...
+                                struct('library', library, 'problem', result.problem_name, ...
+                                'role', role, 'solver_index', solver, 'run_index', run, ...
+                                'exception_type', failure.identifier));
+                        end
                     end
                     entry.runs{end+1} = item;
                     channels = struct('objective', optiprofiler_internal.EvalReport.binned(values, count, true), ...
@@ -414,7 +476,7 @@ classdef EvalReport < handle
 
         function captureHistoryPresentation(self, panels, library, name, role)
             if isempty(panels), return; end
-            id = jsonencode({library,name,role}); ordinal = self.problemIndex(id);
+            id = optiprofiler_internal.EvalReport.problemId(library, name, role); ordinal = self.problemIndex(id);
             if isempty(ordinal), return; end
             if isfield(panels{1}, 'preparation_error')
                 self.plotDocument.diagnostics{end+1} = struct('code', 'render_input_presentation_unavailable', ...
@@ -426,10 +488,13 @@ classdef EvalReport < handle
         end
 
         function selection(self, library, names, role, provider)
+            if nargin > 4 && isstruct(provider) && isfield(provider, 'locked_revision') && isempty(provider.locked_revision)
+                provider.locked_revision = optiprofiler_internal.EvalReport.null();
+            end
             for k = 1:numel(names)
-                id = jsonencode({library, names{k}, role});
+                id = optiprofiler_internal.EvalReport.problemId(library, names{k}, role);
                 if isempty(self.problemIndex(id))
-                    entry = struct('id', id, 'library', library, 'name', names{k}, 'role', role, ...
+                    entry = struct('id', id, 'library', library, 'name', optiprofiler_internal.EvalReport.configuration(names{k}), 'role', role, ...
                         'dimension', optiprofiler_internal.EvalReport.null(), 'type', optiprofiler_internal.EvalReport.null(), ...
                         'selection_status', 'selected', 'load_status', 'pending', 'status', 'pending', ...
                         'budget', optiprofiler_internal.EvalReport.null(), 'runs', {{}}, 'plot_refs', {{}});
@@ -442,7 +507,7 @@ classdef EvalReport < handle
         end
 
         function loadFailed(self, library, name, role, exception_type)
-            index = self.problemIndex(jsonencode({library, name, role}));
+            index = self.problemIndex(optiprofiler_internal.EvalReport.problemId(library, name, role));
             self.document.problems{index}.load_status = 'failed';
             self.document.problems{index}.status = 'failed';
             scope = struct('library', library, 'problem', name, 'role', role);
@@ -508,6 +573,12 @@ classdef EvalReport < handle
                     for key = {'fun_inits', 'maxcv_inits', 'merit_inits'}
                         if isfield(value, key{1}), item.(key{1}) = value.(key{1})(p,:); end
                     end
+                    if isfield(value, 'reference_records')
+                        item.reference_records = value.reference_records(p, :);
+                    end
+                    if isfield(value,'reference_fallback_reasons')
+                        item.reference_fallback_reasons = value.reference_fallback_reasons(p,:);
+                    end
                     for key = {'solver_abnormal_termination', 'solver_output_fallback'}
                         if ~isfield(item, key{1}), item.(key{1}) = repmat(optiprofiler_internal.EvalReport.null(), ns, nr); end
                     end
@@ -532,7 +603,7 @@ classdef EvalReport < handle
                 'axis_values', struct('history_or_output', {{'history', 'output'}}, 'profile_type', {types(1:n_types)}, ...
                     'tolerance', {num2cell(10.^(-(1:numel(curves))))}), ...
                 'semantics', semantics, 'direction', 'higher_is_better_for_default_scoring; custom_callbacks_define_their_own_direction', ...
-                'comparability_note', 'Scores depend on the retained cohort, tolerances, options, and scoring callbacks.');
+                'comparability_note', 'Scores depend on references or the retained cohort, tolerances, options, and scoring callbacks.');
             self.setStage('scoring', 'completed');
         end
 
@@ -565,7 +636,7 @@ classdef EvalReport < handle
                 'invalid_initial_separation', optiprofiler_internal.EvalReport.null(), ...
                 'invalid_initial_reason', 'not_separately_supplied', 'problem_count', size(history, 1), ...
                 'history_work_semantics', 'first_actual_evaluation_meeting_existing_target', ...
-                'output_work_semantics', 'total_evaluations_at_passing_returned_output_not_first_hit', ...
+                'output_work_semantics', 'total_evaluations_at_passing_returned_output_not_first_hit;output_fallback_run_has_no_output_work', ...
                 'history', {{}}, 'output', {{}});
             arrays = {history, output}; names = {'history', 'output'};
             for k = 1:2
@@ -618,13 +689,17 @@ classdef EvalReport < handle
             % do (history_render_failed, summary_pdf_merge_failed,
             % history_merge_failed). The stage reason is the most recent
             % failure code, as in Python; a later 'completed' call must not
-            % replace it with the default code.
-            if nargin < 4, code = 'history_render_failed'; end
-            if strcmp(status, 'failed')
+            % replace it with the default code. 'partial' is an export that
+            % replaced native PDF/FIG output with the portable SVG fallback.
+            if nargin < 4
+                if strcmp(status, 'partial'), code = 'history_native_export_fallback'; else, code = 'history_render_failed'; end
+            end
+            if strcmp(status, 'failed') || strcmp(status, 'partial')
                 self.renderingFailure = true;
                 self.renderingFailureCode = code;
                 self.addDiagnostic(code, 'rendering', scope);
-            elseif strcmp(status, 'completed')
+            end
+            if strcmp(status, 'completed') || strcmp(status, 'partial')
                 self.renderingSuccess = true;
             end
             if self.renderingFailure
@@ -636,6 +711,13 @@ classdef EvalReport < handle
             end
         end
 
+        function recordExportFailure(self, cause)
+            % An export error ends the run, so the stage fails whatever was
+            % drawn before, as record_rendering_failure does in Python.
+            self.recordRendering('failed', struct('exception_type', cause.identifier), 'profile_export_failed');
+            self.setStage('rendering', 'failed', 'profile_export_failed');
+        end
+
         function finish(self, cause)
             % Reporting must never replace the original exception.
             try
@@ -644,7 +726,7 @@ classdef EvalReport < handle
                     if self.renderingFailure
                         state = 'failed';
                         if self.renderingSuccess, state = 'partial'; end
-                        self.setStage('rendering', state, 'history_render_failed');
+                        self.setStage('rendering', state, self.renderingFailureCode);
                     elseif self.renderingSuccess
                         self.setStage('rendering', 'completed');
                     elseif ~failed
@@ -653,6 +735,15 @@ classdef EvalReport < handle
                 end
                 if failed
                     self.document.status = 'failed';
+                    % The scores come after the profile export: an error
+                    % there fails rendering and leaves them unknown. A failed
+                    % history plot does not stop the run, so it says nothing
+                    % about the scores.
+                    if (strcmp(self.document.stages.rendering.status, 'running') || ...
+                            strcmp(self.renderingFailureCode, 'profile_export_failed')) && ...
+                            strcmp(self.document.stages.scoring.status, 'running')
+                        self.setStage('scoring', 'unknown', 'interrupted_before_scores');
+                    end
                     stages = fieldnames(self.document.stages);
                     for k = 1:numel(stages)
                         if strcmp(self.document.stages.(stages{k}).status, 'running')
@@ -683,13 +774,6 @@ classdef EvalReport < handle
                     end
                 end
                 self.harvest();
-                if ~failed && isstruct(self.document.scores) && isfield(self.document.scores, 'semantics') && ...
-                        startsWith(self.document.scores.semantics, 'single_problem') && ...
-                        ~ismember(self.document.stages.persistence.status, {'failed','partial'})
-                    % A direct problem never produces a reloadable archive,
-                    % whether or not score_only was requested (same as Python).
-                    self.setStage('persistence', 'not_applicable', 'single_problem_has_no_reload_archive');
-                end
                 if ~failed && strcmp(self.document.status, 'completed')
                     stages = fieldnames(self.document.stages);
                     for k = 1:numel(stages)
@@ -888,15 +972,15 @@ classdef EvalReport < handle
                 stage = char(file.getPath());
             else
                 [status, stage] = system(['/usr/bin/mktemp ', optiprofiler_internal.EvalReport.quote(fullfile(fileparts(self.path), '.op-eval-report.XXXXXXXX'))]);
-                if status ~= 0, error('OptiProfiler:EvalReportWrite', 'Could not reserve report stage.'); end
+                if status ~= 0, error('OptiProfiler:EvalReportWrite', 'Could not reserve a report stage in ''%s''.', fileparts(self.path)); end
                 stage = strtrim(stage);
             end
             fid = fopen(stage, 'w');
-            if fid < 0, error('OptiProfiler:EvalReportWrite', 'Could not write report stage.'); end
+            if fid < 0, error('OptiProfiler:EvalReportWrite', 'Could not write the report stage ''%s'' for ''%s''.', stage, target); end
             guard = onCleanup(@() fclose(fid));
             written = fwrite(fid, encoded, 'uint8');
             clear guard;
-            if written ~= numel(encoded), error('OptiProfiler:EvalReportWrite', 'Incomplete report write.'); end
+            if written ~= numel(encoded), error('OptiProfiler:EvalReportWrite', 'Incomplete write of the report stage ''%s'' for ''%s''.', stage, target); end
             if is_plot, self.checkPlotOwnership(); else, self.checkOwnership(); end
             try
                 self.replaceFile(stage, target);
@@ -935,23 +1019,55 @@ classdef EvalReport < handle
         function checkOwnership(self)
             if optiprofiler_internal.EvalReport.isLink(self.path) || ...
                     ~strcmp(self.ownedIdentity, optiprofiler_internal.EvalReport.fileIdentity(self.path))
-                error('OptiProfiler:EvalReportOwnership', 'The report target no longer belongs to this invocation.');
+                error('OptiProfiler:EvalReportOwnership', 'The report target ''%s'' no longer belongs to this invocation.', self.path);
             end
         end
 
         function checkPlotOwnership(self)
             if optiprofiler_internal.EvalReport.isLink(self.plotPath) || ...
                     ~strcmp(self.plotIdentity, optiprofiler_internal.EvalReport.fileIdentity(self.plotPath))
-                error('OptiProfiler:EvalReportOwnership', 'The plot-data target no longer belongs to this invocation.');
+                error('OptiProfiler:EvalReportOwnership', 'The plot-data target ''%s'' no longer belongs to this invocation.', self.plotPath);
             end
         end
     end
     methods (Static)
+        function id = problemId(library, name, role)
+        %PROBLEMID Identity of a problem in the report. As in Python, a name that
+        % the report does not show as it is goes in as a checksum, not the text:
+        % two such names must stay two problems.
+            if strcmp(optiprofiler_internal.EvalReport.configuration(name), name)
+                id = jsonencode({library, name, role});
+            else
+                id = ['crc32:', optiprofiler_internal.featureLabelChecksum(jsonencode({library, char(name), role}))];
+            end
+        end
+        function text = credentialFreeUrls(text)
+        %CREDENTIALFREEURLS TEXT with the user information, query and fragment of its URLs removed.
+            [urls, others] = regexp(text, optiprofiler_internal.EvalReport.urlPattern(), 'match', 'split');
+            kept = cellfun(@optiprofiler_internal.EvalReport.credentialFreeUrl, urls, 'UniformOutput', false);
+            pieces = [others; kept, {''}];
+            text = [pieces{:}];
+        end
+        function text = credentialFreeName(name)
+        %CREDENTIALFREENAME CREDENTIALFREEURLS(NAME), ending in a checksum of NAME if that changed it.
+        % Two names that differ only in what was removed stay two names, as the
+        % file names built from them must. The checksum is the CRC-32 of the
+        % UTF-8 text, as in Python's metadata.credential_free_name.
+            text = optiprofiler_internal.EvalReport.credentialFreeUrls(name);
+            if ~strcmp(text, name)
+                text = [text, ' ', optiprofiler_internal.featureLabelChecksum(name)];
+            end
+        end
         function text = encodeMetadata(value)
         %ENCODEMETADATA One safe JSON projection for report/archive metadata.
         % This does not serialize callback code or native execution state.
             value = optiprofiler_internal.EvalReport.configuration(value);
             text = jsonencode(optiprofiler_internal.EvalReport.safe(value));
+        end
+        function hash = sha256(path)
+        %SHA256 Hexadecimal SHA-256 of a regular file that is not a link. It
+        % raises where no hash is available: no JVM, sha256sum or shasum.
+            [~, hash] = optiprofiler_internal.EvalReport.digest(path);
         end
         function yes = isLink(path)
         %ISLINK True for a symbolic link and, on Windows, for a junction or any
@@ -1113,7 +1229,7 @@ classdef EvalReport < handle
                     if ismac, format = 'stat -f ''%d:%i|%z|%m'' '; end
                 end
                 [status,value] = system([format,optiprofiler_internal.EvalReport.quote(path)]);
-                if status ~= 0, error('OptiProfiler:EvalReportOwnership', 'File identity is unavailable.'); end
+                if status ~= 0, error('OptiProfiler:EvalReportOwnership', 'The identity of ''%s'' is unavailable.', path); end
                 value = strtrim(value);
             end
         end
@@ -1179,14 +1295,14 @@ classdef EvalReport < handle
             % compared after hashing; the opened handle's identity is not
             % compared, so this detects ordinary concurrent changes, not a
             % hostile redirection timed between the checks.
-            if optiprofiler_internal.EvalReport.isLink(path), error('OptiProfiler:EvalReportSymlink', 'Symlinks are not report artifacts.'); end
+            if optiprofiler_internal.EvalReport.isLink(path), error('OptiProfiler:EvalReportSymlink', 'Symlinks are not report artifacts: ''%s''.', path); end
             before = dir(path);
-            if numel(before) ~= 1 || before.isdir, error('OptiProfiler:EvalReportHash', 'Expected a regular file.'); end
+            if numel(before) ~= 1 || before.isdir, error('OptiProfiler:EvalReportHash', 'Expected a regular file: ''%s''.', path); end
             bytes = before.bytes;
             if usejava('jvm')
                 digest = java.security.MessageDigest.getInstance('SHA-256');
                 fid = fopen(path, 'rb');
-                if fid < 0, error('OptiProfiler:EvalReportHash', 'File is unavailable.'); end
+                if fid < 0, error('OptiProfiler:EvalReportHash', 'The file ''%s'' is unavailable.', path); end
                 guard = onCleanup(@() fclose(fid));
                 while ~feof(fid)
                     block = fread(fid, 1048576, '*uint8');
@@ -1206,19 +1322,19 @@ classdef EvalReport < handle
                     [status, ~] = system('command -v shasum >/dev/null 2>&1');
                     if status ~= 0
                         error('OptiProfiler:EvalReportHash', ...
-                            'EvalReport SHA256 without JVM requires sha256sum or shasum on PATH.');
+                            'EvalReport SHA256 of ''%s'' without JVM requires sha256sum or shasum on PATH.', path);
                     end
                     command = 'shasum -a 256 ';
                 end
                 % Hash stdin so a backslash/newline in a valid filename does
                 % not trigger the command's escaped-filename output prefix.
                 [status, hash] = system([command, '< ', optiprofiler_internal.EvalReport.quote(path)]);
-                if status ~= 0, error('OptiProfiler:EvalReportHash', 'SHA256 tool could not read the report artifact.'); end
+                if status ~= 0, error('OptiProfiler:EvalReportHash', 'SHA256 tool could not read the report artifact ''%s''.', path); end
                 hash = hash(1:64);
             end
             after = dir(path);
             if numel(after) ~= 1 || before.bytes ~= after.bytes || before.datenum ~= after.datenum
-                error('OptiProfiler:EvalReportHash', 'File changed while hashing.');
+                error('OptiProfiler:EvalReportHash', 'The file ''%s'' changed while hashing.', path);
             end
         end
 
@@ -1319,7 +1435,8 @@ classdef EvalReport < handle
                 feature_block = isfield(value, 'effective_name') && isfield(value, 'stages');
                 for k = 1:numel(names)
                     key = names{k};
-                    if ~isempty(regexpi(key, 'path|token|secret|password|credential|api_key')) || strcmp(key, 'problem')
+                    if ~isempty(regexpi(key, optiprofiler_internal.EvalReport.sensitiveKeyPattern(), 'once')) ...
+                            || contains(key, 'path', 'IgnoreCase', true) || strcmp(key, 'problem')
                         value = rmfield(value, key);
                     elseif feature_block && ismember(key, {'declared', 'stages'}) ...
                             && (iscell(value.(key)) || isstruct(value.(key))) && numel(value.(key)) > 256
@@ -1336,7 +1453,9 @@ classdef EvalReport < handle
                             && (ischar(value.(key)) || (isstring(value.(key)) && isscalar(value.(key))))
                         stamp = char(value.(key));
                         sensitive = startsWith(stamp, '/') || startsWith(stamp, '@(') ...
-                            || ~isempty(regexp(stamp, '^[A-Za-z]:[\\/]', 'once'));
+                            || ~isempty(regexp(stamp, '^[A-Za-z]:[\\/]', 'once')) ...
+                            || ~isempty(regexp(stamp, optiprofiler_internal.EvalReport.urlPattern(), 'once')) ...
+                            || ~isempty(regexp(stamp, optiprofiler_internal.EvalReport.embeddedPathPattern(), 'once'));
                         if numel(stamp) > 256 || sensitive
                             % Never label clipped text as the complete stamp.
                             % Full native authority is retained separately by
@@ -1368,14 +1487,103 @@ classdef EvalReport < handle
                 value = optiprofiler_internal.EvalReport.null();
             elseif ischar(value) || isstring(value)
                 value = char(value);
-                if startsWith(value, '/') || ~isempty(regexp(value, '^[A-Za-z]:[\\/]', 'once'))
+                url = optiprofiler_internal.EvalReport.urlPattern();
+                if ~isempty(regexp(value, ['^', url], 'once'))
+                    % As in Python: a URL can carry credentials or tokens.
+                    value = '[redacted_url]';
+                elseif startsWith(value, '/') || ~isempty(regexp(value, '^[A-Za-z]:[\\/]', 'once'))
                     value = '[absolute_path_omitted]';
                 elseif startsWith(value, '@(')
                     value = '[anonymous_callback_source_omitted]';
+                else
+                    value = regexprep(value, url, '[redacted_url]');
+                    value = regexprep(value, optiprofiler_internal.EvalReport.embeddedPathPattern(), '[redacted_absolute_path]');
                 end
-                value = value(1:min(numel(value),256));
+                value = optiprofiler_internal.EvalReport.bounded(value);
             elseif ~isnumeric(value) && ~islogical(value)
                 value = struct('kind', 'object', 'description', 'not_serialized');
+            end
+        end
+
+        function pattern = sensitiveKeyPattern()
+            % Option names whose values never enter a report, matched without
+            % regard to case: the literal SENSITIVE_KEY_PATTERN of Python's
+            % metadata.py. doc/source/user/eval_report.rst describes the list
+            % and tools/tests/test_report_redaction_contract.py keeps the three
+            % together.
+            pattern = ['password|passwd|passphrase|pwd(?:$|[_-])|secret|credential|', ...
+                'authorization|authentication|auth(?:$|[_-])|bearer|api[_-]?key|private[_-]?key|', ...
+                'cookie|token(?:$|[_-])'];
+        end
+
+        function pattern = urlPattern()
+            % A URL of any scheme, in any case: the literal URL_PATTERN of
+            % Python's metadata.py.
+            pattern = '[A-Za-z][A-Za-z0-9+.-]{1,63}://\S+';
+        end
+
+        function pattern = embeddedPathPattern()
+            % An absolute path inside a text: the rule of Python's metadata.py.
+            pattern = '(?<![\w])(?:/(?:Users|home|private|tmp|var|mnt|opt)/\S+|[A-Za-z]:[\\/][^\s]+)';
+        end
+
+        function text = bounded(text)
+            % A clipped text must never read as the complete value (same
+            % marker and limit as Python's metadata.TRUNCATION_MARKER).
+            marker = '...[truncated]';
+            if numel(text) > 256
+                text = [text(1:256 - numel(marker)), marker];
+            end
+        end
+
+        function text = provenanceText(value)
+            % Bounded provenance text, as Python's metadata.provenance_text: a
+            % URL keeps scheme, host, port and path; user information, query
+            % and fragment can carry credentials and are removed; absolute
+            % local paths are redacted; a clipped text carries the marker.
+            if ~(ischar(value) || (isstring(value) && isscalar(value) && ~ismissing(value)))
+                text = optiprofiler_internal.EvalReport.null();
+                return
+            end
+            text = char(value);
+            text(text < ' ') = ' ';
+            text = optiprofiler_internal.EvalReport.credentialFreeUrls(text);
+            if startsWith(text, '/') || ~isempty(regexp(text, '^[A-Za-z]:[\\/]', 'once'))
+                text = '[redacted_absolute_path]';
+                return
+            end
+            text = regexprep(text, optiprofiler_internal.EvalReport.embeddedPathPattern(), '[redacted_absolute_path]');
+            text = optiprofiler_internal.EvalReport.bounded(text);
+        end
+
+        function text = credentialFreeUrl(url)
+            % scheme://[userinfo@]host[:port][path][?query][#fragment]. A named
+            % token inside an optional group is absent from regexp's 'names'
+            % output, so the authority is split explicitly.
+            parts = regexp(url, '^([^:]+)://([^/?#]*)([^?#]*)(.*)$', 'tokens', 'once');
+            if isempty(parts)
+                text = '[redacted_url]';
+                return
+            end
+            authority = parts{2};
+            % The pattern runs on through a second URL glued to this one, whose
+            % user information this split does not see.
+            if contains([authority, parts{3}], '://')
+                text = '[redacted_url]';
+                return
+            end
+            at = find(authority == '@', 1, 'last');
+            if ~isempty(at)
+                authority = authority(at+1:end);
+            end
+            host_port = regexp(authority, '^([^:]+)(:\d+)?$', 'tokens', 'once');
+            if isempty(host_port)
+                text = '[redacted_url]';
+                return
+            end
+            text = [lower(parts{1}), '://', lower(host_port{1}), host_port{2}, parts{3}];
+            if ~isempty(at) || ~isempty(parts{4})
+                text = [text, ' [url parameters removed]'];
             end
         end
 

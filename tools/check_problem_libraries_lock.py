@@ -7,6 +7,7 @@ entry-point protocol rather than reading this file at runtime.
 """
 
 import argparse
+import ast
 from importlib import metadata
 import json
 from pathlib import Path
@@ -18,6 +19,8 @@ import sys
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_LOCK = REPOSITORY_ROOT / "problem_libraries.lock"
 CORE_PROTOCOL = REPOSITORY_ROOT / "python/optiprofiler/problem_libraries.py"
+BUNDLED_RECORD = REPOSITORY_ROOT / "python/optiprofiler/problem_libs/bundled_revisions.json"
+BUNDLED_RECORD_KEYS = ("name", "repository", "commit", "gitlink")
 
 SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 REPOSITORY_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
@@ -73,15 +76,41 @@ def _require_exact_keys(value, expected, context):
         raise LockError(f"{context} has invalid keys: {', '.join(details)}.")
 
 
-def _core_api_version():
+def _core_protocol_source():
     try:
-        source = CORE_PROTOCOL.read_text(encoding="utf-8")
+        return CORE_PROTOCOL.read_text(encoding="utf-8")
     except OSError as exc:
         raise LockError(f"Cannot read core problem-library protocol: {exc}") from exc
+
+
+def _core_api_version():
+    source = _core_protocol_source()
     match = re.search(r"^PROBLEM_LIBRARY_API_VERSION\s*=\s*(\d+)\s*$", source, re.MULTILINE)
     if match is None:
         raise LockError(f"Cannot find PROBLEM_LIBRARY_API_VERSION in {CORE_PROTOCOL}.")
     return int(match.group(1))
+
+
+def _core_bundled_libraries():
+    try:
+        tree = ast.parse(_core_protocol_source())
+        values = [
+            node.value
+            for node in tree.body
+            if isinstance(node, ast.Assign)
+            and any(
+                isinstance(target, ast.Name) and target.id == "_BUNDLED_PROBLEM_LIBRARIES"
+                for target in node.targets
+            )
+        ]
+        names = ast.literal_eval(values[0]) if len(values) == 1 else None
+    except (SyntaxError, ValueError):
+        names = None
+    if not isinstance(names, tuple) or not all(isinstance(name, str) for name in names):
+        raise LockError(
+            f"Cannot find _BUNDLED_PROBLEM_LIBRARIES in {CORE_PROTOCOL} as one literal tuple of names."
+        )
+    return set(names)
 
 
 def _index_gitlink(path):
@@ -213,7 +242,35 @@ def validate_lock(path=DEFAULT_LOCK):
     bundled = [entry for entry in libraries if entry["role"] == "bundled-default"]
     if len(bundled) != 1:
         raise LockError("Exactly one bundled-default library is required.")
+    undeclared = sorted({entry["name"] for entry in bundled} - _core_bundled_libraries())
+    if undeclared:
+        raise LockError(
+            f"Bundled-default libraries {undeclared} are missing from "
+            f"_BUNDLED_PROBLEM_LIBRARIES in {CORE_PROTOCOL}."
+        )
+    validate_bundled_record(data)
     return data
+
+
+def bundled_record_entries(data):
+    """Return the shipped revision record expected for a validated lock."""
+    return [
+        {key: entry[key] for key in BUNDLED_RECORD_KEYS}
+        for entry in data["libraries"]
+        if entry["role"] == "bundled-default"
+    ]
+
+
+def validate_bundled_record(data, path=BUNDLED_RECORD):
+    """Check the packaged revision record against the lock (and so the gitlink)."""
+    record = _load_json(Path(path))
+    if not isinstance(record, dict) or record.get("schema_version") != 1:
+        raise LockError(f"{path} must be an object with schema_version 1.")
+    if record.get("libraries") != bundled_record_entries(data):
+        raise LockError(
+            f"{path} does not match the bundled-default lock entry "
+            f"{bundled_record_entries(data)}; update it with the lock and gitlink."
+        )
 
 
 def external_matrix(data):

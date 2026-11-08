@@ -1,7 +1,12 @@
 """Tests for problem-library discovery and protocol validation."""
 
+import json
+import os
 import pickle
 from pathlib import Path
+import subprocess
+import sys
+import warnings
 
 import pytest
 
@@ -230,6 +235,183 @@ def test_duplicate_entry_points_are_rejected(monkeypatch):
         resolve_problem_library('externaltoy')
 
 
+class _SelectableEntryPoints:
+    def __init__(self, entry_points):
+        self.entry_points = entry_points
+
+    def select(self, group):
+        assert group == PROBLEM_LIBRARY_ENTRY_POINT_GROUP
+        return self.entry_points
+
+
+def _discover(monkeypatch, entry_points, selectable):
+    # Both shapes of ``metadata.entry_points()``, on any interpreter: a mapping
+    # before Python 3.10 and a selectable collection from then on.
+    found = _SelectableEntryPoints(tuple(entry_points)) if selectable else {
+        PROBLEM_LIBRARY_ENTRY_POINT_GROUP: tuple(entry_points),
+    }
+    monkeypatch.setattr(problem_libraries.metadata, 'entry_points', lambda: found)
+
+
+def _entry_point_without_distribution(name, value):
+    return problem_libraries.metadata.EntryPoint(name, value, PROBLEM_LIBRARY_ENTRY_POINT_GROUP)
+
+
+@pytest.mark.parametrize('selectable', [False, True])
+def test_identical_entry_points_are_one_provider(monkeypatch, selectable):
+    value = 'optiprofiler_externaltoy:get_problem_library'
+    other = _entry_point_without_distribution('existingtoy', 'optiprofiler_existingtoy:get_problem_library')
+    _discover(monkeypatch, [
+        _entry_point_without_distribution('externaltoy', value),
+        other,
+        _entry_point_without_distribution('externaltoy', value),
+    ], selectable)
+
+    listed = problem_libraries._problem_library_entry_points()
+
+    assert [(entry_point.name, entry_point.value) for entry_point in listed] == [
+        ('externaltoy', value),
+        ('existingtoy', other.value),
+    ]
+    assert resolve_problem_library('externaltoy') == ProblemLibraryRef('externaltoy', 'entry_point', value)
+    assert resolve_problem_library('existingtoy').locator == other.value
+
+
+@pytest.mark.parametrize('selectable', [False, True])
+def test_one_distribution_found_twice_is_one_provider(monkeypatch, selectable):
+    value = 'optiprofiler_externaltoy:get_problem_library'
+    _discover(monkeypatch, [
+        _FakeEntryPoint('externaltoy', value, lambda: _plugin(), 'package-a'),
+        _FakeEntryPoint('externaltoy', value, lambda: _plugin(), 'package-a'),
+    ], selectable)
+
+    reference = resolve_problem_library('externaltoy')
+
+    assert (reference.locator, reference.distribution) == (value, 'package-a')
+
+
+@pytest.mark.parametrize('selectable', [False, True])
+def test_different_values_for_one_name_stay_ambiguous(monkeypatch, selectable):
+    _discover(monkeypatch, [
+        _entry_point_without_distribution('externaltoy', 'package_a:get_plugin'),
+        _entry_point_without_distribution('externaltoy', 'package_b:get_plugin'),
+        _entry_point_without_distribution('externaltoy', 'package_a:get_plugin'),
+    ], selectable)
+
+    with pytest.raises(ValueError, match=(r"multiple installed distributions: "
+                                          r"\['package_a:get_plugin', 'package_b:get_plugin'\]")):
+        resolve_problem_library('externaltoy')
+
+
+@pytest.mark.parametrize('selectable', [False, True])
+def test_one_value_from_two_distributions_stays_ambiguous(monkeypatch, selectable):
+    value = 'optiprofiler_externaltoy:get_problem_library'
+    _discover(monkeypatch, [
+        _FakeEntryPoint('externaltoy', value, lambda: _plugin(), 'package-a'),
+        _FakeEntryPoint('externaltoy', value, lambda: _plugin(), 'package-b'),
+    ], selectable)
+
+    with pytest.raises(ValueError, match=r"multiple installed distributions: \['package-a', 'package-b'\]"):
+        resolve_problem_library('externaltoy')
+
+
+class _DistributionWithoutAName:
+    def __init__(self, error):
+        self.error = error
+
+    @property
+    def name(self):
+        raise self.error
+
+
+@pytest.mark.parametrize('error', [KeyError('Name'), FileNotFoundError('METADATA'), AttributeError('name'), TypeError('text')])
+def test_distribution_that_cannot_name_itself_stops_no_other_library(monkeypatch, error):
+    damaged = _FakeEntryPoint('damagedtoy', 'package_a:get_plugin', lambda: _plugin())
+    damaged.dist = _DistributionWithoutAName(error)
+    other = _FakeEntryPoint('externaltoy', 'package_b:get_plugin', lambda: _plugin(), 'package-b')
+    _discover(monkeypatch, [damaged, other], True)
+
+    assert {'damagedtoy', 'externaltoy', 's2mpj'} <= set(list_problem_libraries())
+    assert resolve_problem_library('externaltoy').distribution == 'package-b'
+    assert resolve_problem_library('s2mpj').source == 'builtin'
+    assert resolve_problem_library('damagedtoy') == ProblemLibraryRef('damagedtoy', 'entry_point', 'package_a:get_plugin')
+
+
+@pytest.mark.parametrize('headers', [None, 'Metadata-Version: 2.1\nVersion: 1.0\n'], ids=['no METADATA', 'no Name'])
+def test_damaged_metadata_of_a_provider_stops_no_other_library(tmp_path, monkeypatch, headers):
+    dist_info = tmp_path / 'damaged_provider-1.0.dist-info'
+    dist_info.mkdir()
+    (dist_info / 'entry_points.txt').write_text(
+        f'[{PROBLEM_LIBRARY_ENTRY_POINT_GROUP}]\ndamagedtoy = damaged_provider:factory\n',
+        encoding='utf-8',
+    )
+    if headers is not None:
+        (dist_info / 'METADATA').write_text(headers, encoding='utf-8')
+    monkeypatch.syspath_prepend(str(tmp_path))
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('error', DeprecationWarning)
+        assert 'damagedtoy' in list_problem_libraries()
+        assert resolve_problem_library('s2mpj').source == 'builtin'
+        assert resolve_problem_library('damagedtoy').distribution is None
+
+
+def test_provider_with_two_metadata_copies_runs_and_is_reported_once(tmp_path, monkeypatch):
+    # The installed ``.dist-info`` and the ``.egg-info`` that a build leaves in a
+    # checkout. Python 3.8 and 3.9 list both; later versions drop the second.
+    name = 'copied_provider'
+    module = f'optiprofiler_{name}'
+    distribution = module.replace('_', '-')
+    value = f'{module}:get_problem_library'
+    entry_points = f'[{PROBLEM_LIBRARY_ENTRY_POINT_GROUP}]\n{name} = {value}\n'
+    headers = f'Metadata-Version: 2.1\nName: {distribution}\nVersion: 1.0\n'
+    site_packages, checkout = tmp_path / 'site-packages', tmp_path / 'checkout'
+    copies = ((site_packages / f'{module}-1.0.dist-info', 'METADATA'), (checkout / f'{module}.egg-info', 'PKG-INFO'))
+    for directory, headers_file in copies:
+        directory.mkdir(parents=True)
+        (directory / headers_file).write_text(headers, encoding='utf-8')
+        (directory / 'entry_points.txt').write_text(entry_points, encoding='utf-8')
+    (site_packages / f'{module}.py').write_text(
+        '\n'.join([
+            'import numpy as np',
+            'from optiprofiler import Problem, ProblemLibraryPlugin',
+            '',
+            'def select(problem_options, library_options):',
+            "    return ['COPIED_PROVIDER']",
+            '',
+            'def load(problem_name, library_options):',
+            '    return Problem(lambda x: float(np.sum((x - 1.0) ** 2)), [0.0, 0.0], name=problem_name)',
+            '',
+            'def get_problem_library():',
+            f"    return ProblemLibraryPlugin(name='{name}', api_version=1, select=select, load=load)",
+        ]),
+        encoding='utf-8',
+    )
+    monkeypatch.syspath_prepend(str(site_packages))
+    monkeypatch.syspath_prepend(str(checkout))
+    report_path = tmp_path / 'report.json'
+
+    optiprofiler.benchmark([_one_step_solver, _one_step_solver], plibs=[name], n_jobs=1, n_runs=1, max_eval_factor=2,
+                           max_tol_order=1, score_only=True, silent=True, report_path=str(report_path))
+
+    (problem,) = json.loads(report_path.read_text(encoding='utf-8'))['problems']
+    # An entry point names its distribution from Python 3.10 on.
+    named = hasattr(problem_libraries.metadata.EntryPoint, 'dist')
+    assert problem['provider'] == {
+        'name': name,
+        'source': 'entry_point',
+        'locator': value,
+        'distribution': distribution if named else None,
+        'shadows': [],
+        'version': '1.0' if named else None,
+        'revision': None,
+    }
+    local = tmp_path / 'local'
+    local.mkdir()
+    _write_quadratic_library(local, name)
+    assert resolve_problem_library(name, local).shadows == (distribution if named else value,)
+
+
 def test_bundled_and_installed_name_collision_is_rejected(monkeypatch):
     entry_point = _FakeEntryPoint(
         's2mpj',
@@ -244,6 +426,42 @@ def test_bundled_and_installed_name_collision_is_rejected(monkeypatch):
 
     with pytest.raises(ValueError, match='both bundled and installed'):
         resolve_problem_library('s2mpj')
+
+
+def test_stale_tree_in_problem_libs_is_not_a_bundled_provider(tmp_path, monkeypatch):
+    # V1.3.4 tracked pycutest and solar submodules inside problem_libs; such a
+    # tree must neither shadow nor collide with the installed V2 plugin.
+    package_libs = tmp_path / 'problem_libs'
+    package_libs.mkdir()
+    for name in ('custom', 's2mpj', 'pycutest', 'solar'):
+        _write_legacy_library(package_libs, name)
+    monkeypatch.setattr(problem_libraries, '_problem_libs_dir', lambda: package_libs)
+    monkeypatch.setattr(problem_libraries, '_problem_library_entry_points', lambda: [])
+
+    assert list_problem_libraries() == ['custom', 's2mpj']
+    assert resolve_problem_library('custom').source == 'builtin'
+    with pytest.raises(ValueError, match='"pycutest" is not available'):
+        resolve_problem_library('pycutest')
+
+    entry_point = _FakeEntryPoint('pycutest', 'optiprofiler_pycutest:get_problem_library',
+                                  lambda: _plugin(name='pycutest'), 'optiprofiler-pycutest')
+    monkeypatch.setattr(problem_libraries, '_problem_library_entry_points', lambda: [entry_point])
+    reference = resolve_problem_library('pycutest')
+    assert (reference.source, reference.locator) == ('entry_point', entry_point.value)
+    other = tmp_path / 'local'
+    other.mkdir()
+    _write_legacy_library(other, 'pycutest')
+    assert resolve_problem_library('pycutest', other).shadows == ('optiprofiler-pycutest',)
+
+
+def test_package_records_the_bundled_s2mpj_revision():
+    # The wheel and sdist ship this record; tools/check_release.py ties it to
+    # the lock and the gitlink of the checkout that built them.
+    record = json.loads((Path(optiprofiler.__file__).parent / 'problem_libs' / 'bundled_revisions.json')
+                        .read_text(encoding='utf-8'))
+    (entry,) = record['libraries']
+    assert (entry['name'], entry['gitlink']) == ('s2mpj', 'python/optiprofiler/problem_libs/s2mpj')
+    assert len(entry['commit']) == 40
 
 
 def test_explicit_custom_path_overrides_other_providers(tmp_path, monkeypatch):
@@ -263,6 +481,204 @@ def test_explicit_custom_path_overrides_other_providers(tmp_path, monkeypatch):
 
     assert reference.source == 'custom'
     assert Path(reference.locator) == tools_file.resolve()
+    assert reference.shadows == ('bundled', 'test-distribution')
+
+
+def _recorded_s2mpj_commit():
+    record = json.loads((Path(optiprofiler.__file__).parent / 'problem_libs' / 'bundled_revisions.json')
+                        .read_text(encoding='utf-8'))
+    (entry,) = record['libraries']
+    return entry['commit']
+
+
+@pytest.mark.parametrize('content', [
+    b'{broken',
+    b'\xff\xfe',
+    b'[' * 200000,
+    b'[]',
+    b'{"libraries": 1}',
+    b'{"libraries": [1]}',
+    b'{"libraries": [{"name": "s2mpj"}]}',
+    b'{"libraries": [{"name": "s2mpj", "commit": 7}]}',
+    b'{"libraries": [{"name": "s2mpj", "commit": "not-a-commit"}]}',
+    b'{"libraries": [{"name": "other", "commit": "' + b'a' * 40 + b'"}]}',
+], ids=['not_json', 'not_utf8', 'deep_nesting', 'not_an_object', 'libraries_not_a_list', 'entry_not_an_object',
+        'no_commit', 'commit_not_text', 'commit_not_a_hash', 'no_entry_for_the_library'])
+def test_unreadable_bundled_record_gives_no_revision(tmp_path, monkeypatch, content):
+    (tmp_path / 'bundled_revisions.json').write_bytes(content)
+    monkeypatch.setattr(problem_libraries, '_problem_libs_dir', lambda: tmp_path)
+    reference = ProblemLibraryRef('s2mpj', 'builtin', 'x', distribution='optiprofiler')
+    assert problem_libraries.distribution_provenance(reference) == (optiprofiler.__version__, None)
+
+
+def test_missing_bundled_record_gives_no_revision(tmp_path, monkeypatch):
+    monkeypatch.setattr(problem_libraries, '_problem_libs_dir', lambda: tmp_path)
+    reference = ProblemLibraryRef('s2mpj', 'builtin', 'x', distribution='optiprofiler')
+    assert problem_libraries.distribution_provenance(reference) == (optiprofiler.__version__, None)
+
+
+def test_report_names_the_recorded_commit_of_a_bundled_library(tmp_path):
+    report_path = tmp_path / 'report.json'
+    optiprofiler.benchmark([_one_step_solver, _one_step_solver], plibs=['s2mpj'], problem_names=['ROSENBR'],
+                           mindim=2, maxdim=2, n_jobs=1, n_runs=1, max_eval_factor=1, max_tol_order=1,
+                           score_only=True, silent=True, run_plain=False, report_path=str(report_path))
+    (problem,) = json.loads(report_path.read_text(encoding='utf-8'))['problems']
+    assert (problem['provider']['source'], problem['provider']['revision']) == ('builtin', _recorded_s2mpj_commit())
+
+
+def test_distribution_provenance_reads_version_and_vcs_commit(monkeypatch):
+    commit = 'a' * 40
+
+    class _Distribution:
+        version = '1.2.3'
+
+        def read_text(self, name):
+            if name == 'direct_url.json':
+                return json.dumps({'url': 'https://example.invalid/toy.git',
+                                   'vcs_info': {'vcs': 'git', 'commit_id': commit}})
+            return None
+
+    def distribution(name):
+        if name == 'missing-dist':
+            raise problem_libraries.metadata.PackageNotFoundError(name)
+        return _Distribution()
+
+    monkeypatch.setattr(problem_libraries.metadata, 'distribution', distribution)
+    provenance = problem_libraries.distribution_provenance
+
+    assert provenance(ProblemLibraryRef('toy', 'entry_point', 'toy:get', distribution='toy-dist')) == ('1.2.3', commit)
+    # A bundled library names the commit the package records for it. The core's
+    # own VCS commit is not its revision, and `custom` is part of the core.
+    bundled = provenance(ProblemLibraryRef('s2mpj', 'builtin', 'x', distribution='optiprofiler'))
+    assert bundled == (optiprofiler.__version__, _recorded_s2mpj_commit())
+    assert provenance(ProblemLibraryRef('custom', 'builtin', 'x', distribution='optiprofiler')) == (
+        optiprofiler.__version__, None)
+    assert provenance(ProblemLibraryRef('local', 'custom', 'x')) == (None, None)
+    assert provenance(ProblemLibraryRef('toy', 'entry_point', 'toy:get', distribution='missing-dist')) == (None, None)
+
+
+def test_unique_custom_library_shadows_nothing(tmp_path):
+    _write_legacy_library(tmp_path)
+
+    assert resolve_problem_library('localtoy', tmp_path).shadows == ()
+    assert resolve_problem_library('s2mpj').shadows == ()
+
+
+BAD_DATA_RUN = '''import multiprocessing
+import os
+from pathlib import Path
+import sys
+import numpy as np
+from optiprofiler import benchmark
+
+def stay(fun, x0):
+    Path(os.environ['SOLVER_PROCESS_FILE']).write_text(multiprocessing.current_process().name)
+    fun(x0)
+    return x0
+
+if __name__ == '__main__':
+    scores = benchmark([stay, stay], plibs=['baddata'], custom_problem_libs_path=sys.argv[1], ptype='u', mindim=1,
+                       maxdim=10, n_jobs=int(sys.argv[2]), n_runs=1, max_eval_factor=1, max_tol_order=1,
+                       run_plain=False, score_only=True, silent=True, report_path=sys.argv[3])[0]
+    assert np.all(np.isfinite(scores)), scores
+'''
+
+
+def _write_bad_data_library(root, route):
+    directory = root / 'baddata'
+    directory.mkdir(parents=True)
+    pickled = '        problem = pickle.loads(pickle.dumps(problem))\n' if route == 'pickled_object' else ''
+    (directory / 'baddata_tools.py').write_text(
+        'import pickle\n'
+        'import numpy as np\n'
+        'from optiprofiler import Problem\n'
+        'def sphere(x):\n    return float(x @ x)\n'
+        'def baddata_select(options):\n    return ["fine", "wrong"]\n'
+        'def baddata_load(name):\n'
+        '    problem = Problem(sphere, [1.0, 2.0], name=name)\n'
+        '    if name == "wrong":\n'
+        '        problem._xl = np.array([np.inf, np.inf])\n'
+        + pickled +
+        '    return problem\n', encoding='utf-8')
+
+
+@pytest.mark.parametrize('n_jobs', [1, 2])
+@pytest.mark.parametrize('route', ['private_attribute', 'pickled_object'])
+def test_bad_data_left_in_a_problem_costs_only_that_problem(route, n_jobs, tmp_path):
+    _write_bad_data_library(tmp_path / 'libraries', route)
+    script = tmp_path / 'bad_data_run.py'
+    script.write_text(BAD_DATA_RUN, encoding='utf-8')
+    report_path = tmp_path / 'report.json'
+    process_file = tmp_path / 'solver_process.txt'
+    result = subprocess.run([sys.executable, str(script), str(tmp_path / 'libraries'), str(n_jobs), str(report_path)],
+                            cwd=tmp_path, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True,
+                            timeout=120, env=dict(os.environ, MPLBACKEND='Agg',
+                                                  SOLVER_PROCESS_FILE=str(process_file)))
+    report = json.loads(report_path.read_text(encoding='utf-8'))
+    assert result.returncode == 0, result.stdout
+    assert report['status'] == 'partial'
+    assert report['stages']['numerical'] == {'status': 'partial', 'reason': 'selected_problem_load_failures'}
+    assert (report['coverage']['loaded'], report['coverage']['load_failed']) == (1, 1)
+    (failure,) = [entry for entry in report['diagnostics'] if entry['code'] == 'problem_load_failed']
+    assert (failure['scope']['problem'], failure['scope']['exception_type']) == ('wrong', 'ValueError')
+    # A run falls back to the main process without a word under `silent`.
+    assert (process_file.read_text() != 'MainProcess') == (n_jobs > 1 and os.cpu_count() > 1)
+
+
+def test_anything_but_a_problem_still_stops_the_run(tmp_path):
+    directory = tmp_path / 'notproblem'
+    directory.mkdir()
+    (directory / 'notproblem_tools.py').write_text(
+        'def notproblem_select(options):\n    return ["fine", "wrong"]\n'
+        'def notproblem_load(name):\n    return {"name": name}\n', encoding='utf-8')
+    with pytest.raises(TypeError, match='not a valid Problem object'):
+        optiprofiler.benchmark([_one_step_solver, _one_step_solver], plibs=['notproblem'],
+                               custom_problem_libs_path=str(tmp_path), n_jobs=1, n_runs=1, max_eval_factor=1,
+                               max_tol_order=1, score_only=True, silent=True, run_plain=False)
+
+
+def _write_quadratic_library(root, name):
+    library_dir = root / name
+    library_dir.mkdir()
+    (library_dir / f'{name}_tools.py').write_text(
+        '\n'.join([
+            'import numpy as np',
+            'from optiprofiler import Problem',
+            f'def {name}_select(options):',
+            "    return ['LOCALQ']",
+            f'def {name}_load(problem_name):',
+            '    return Problem(lambda x: float(np.sum((x - 1.0) ** 2)), [0.0, 0.0], name=problem_name)',
+        ]),
+        encoding='utf-8',
+    )
+
+
+def _one_step_solver(fun, x0):
+    fun(x0)
+    return x0
+
+
+@pytest.mark.parametrize('name, warned', [('s2mpj', True), ('custom', False)])
+def test_benchmark_reports_a_local_library_that_replaces_a_provider(tmp_path, capsys, name, warned):
+    _write_quadratic_library(tmp_path, name)
+    report_path = tmp_path / 'report.json'
+
+    optiprofiler.benchmark([_one_step_solver, _one_step_solver], plibs=[name], custom_problem_libs_path=str(tmp_path),
+                           n_jobs=1, n_runs=1, max_eval_factor=2, max_tol_order=1, run_plain=True,
+                           score_only=True, silent=True, report_path=str(report_path))
+
+    report = json.loads(report_path.read_text(encoding='utf-8'))
+    codes = [entry['code'] for entry in report['diagnostics']]
+    assert {problem['provider']['source'] for problem in report['problems']} == {'custom'}
+    assert {tuple(problem['provider']['shadows']) for problem in report['problems']} == {('bundled',)}
+    assert {(problem['provider']['version'], problem['provider']['revision']) for problem in report['problems']} == {(None, None)}
+    # score_only logs through the benchmark's console handler, which wraps lines.
+    output = ' '.join(capsys.readouterr().out.split())
+    assert output.count('replaces the provider') == (1 if warned else 0)
+    if warned:
+        assert (f'[WARNING] The local problem library "{name}" from custom_problem_libs_path replaces the '
+                'provider(s) of the same name') in output
+    assert codes.count('problem_library_shadowed') == (1 if warned else 0)
 
 
 def test_load_legacy_custom_library_from_parent_and_direct_path(tmp_path):

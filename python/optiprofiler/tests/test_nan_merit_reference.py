@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from optiprofiler.profile_utils import compute_merit_values
+from optiprofiler.scoring import compute_merit_values
 
 
 @pytest.mark.parametrize('shape', [(3,), (1, 3), (1, 1, 3), (1, 1, 1, 3)])

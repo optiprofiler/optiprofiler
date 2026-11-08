@@ -3,14 +3,12 @@ import os
 import pickle
 import tempfile
 
-import h5py
 import numpy as np
 import pytest
 
 from optiprofiler.loader import (
     _backfill_problem_options_from_loaded,
     load_results_from_h5,
-    merit_fun_compute,
     recompute_merits,
     save_options,
     save_results_to_h5,
@@ -18,7 +16,6 @@ from optiprofiler.loader import (
     truncate_problems,
     truncate_solvers,
 )
-from optiprofiler.profile_utils import _default_merit, compute_merit_values
 from optiprofiler.utils import ProblemOption
 
 
@@ -72,7 +69,6 @@ class TestSearchInDir:
             assert len(files) == 3
             for fi in files:
                 assert fi['name'].endswith('.txt')
-                assert fi['isdir'] is False
 
     def test_respects_max_depth(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -226,18 +222,6 @@ class TestTruncateProblems:
         assert results['problem_names'] == original_names
 
 
-class TestMeritFunCompute:
-
-    def test_basic(self):
-        def my_merit(f, v, v0):
-            return f + v
-        fun_values = np.array([1.0, 2.0])
-        maxcv_values = np.array([0.1, 0.2])
-        maxcv_inits = np.array([0.0, 0.0])
-        result = merit_fun_compute(my_merit, fun_values, maxcv_values, maxcv_inits)
-        np.testing.assert_array_almost_equal(result, [1.1, 2.2])
-
-
 class TestRecomputeMerits:
 
     def test_basic(self):
@@ -368,7 +352,7 @@ class TestLoadResults:
 
     def test_load_latest(self):
         from optiprofiler.loader import load_results
-        from optiprofiler.utils import ProfileOption, ProblemOption
+        from optiprofiler.utils import ProfileOption
         with tempfile.TemporaryDirectory() as tmpdir:
             benchmark_dir, ts = self._create_experiment(tmpdir)
             profile_options = {
@@ -387,7 +371,7 @@ class TestLoadResults:
 
     def test_load_specific_timestamp(self):
         from optiprofiler.loader import load_results
-        from optiprofiler.utils import ProfileOption, ProblemOption
+        from optiprofiler.utils import ProfileOption
         with tempfile.TemporaryDirectory() as tmpdir:
             benchmark_dir, ts = self._create_experiment(tmpdir)
             profile_options = {
@@ -411,12 +395,11 @@ class TestLoadResults:
     def test_load_invalid_timestamp(self):
         from optiprofiler.loader import load_results
         from optiprofiler.utils import ProfileOption
-        with tempfile.TemporaryDirectory() as tmpdir:
-            profile_options = {
-                ProfileOption.LOAD.value: 'invalid_format',
-            }
-            with pytest.raises(ValueError):
-                load_results({}, profile_options)
+        profile_options = {
+            ProfileOption.LOAD.value: 'invalid_format',
+        }
+        with pytest.raises(ValueError):
+            load_results({}, profile_options)
 
     def test_load_not_found(self):
         from optiprofiler.loader import load_results
@@ -529,3 +512,84 @@ class TestBackfillProblemOptions:
     def test_empty_results_leave_options_untouched(self):
         options = _backfill_problem_options_from_loaded({}, [])
         assert options == {}
+
+
+def _visit_start(fun, x0):
+    fun(x0)
+    return x0
+
+
+def _visit_step(fun, x0):
+    fun(x0)
+    fun(x0 + 0.1)
+    return x0 + 0.1
+
+
+def test_load_searches_the_working_directory_not_savepath(tmp_path, monkeypatch):
+    from optiprofiler import benchmark
+    saved = tmp_path / 'saved'
+    saved.mkdir()
+    monkeypatch.chdir(saved)
+    options = dict(benchmark_id='bench', savepath=str(saved), max_tol_order=1, silent=True,
+                   draw_hist_plots='none')
+    expected = benchmark([_visit_start, _visit_step], plibs=['custom'], problem_names=['custom1'],
+                         n_jobs=1, max_eval_factor=2, **options)[0]
+    elsewhere = tmp_path / 'elsewhere'
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+    with pytest.raises(FileNotFoundError, match='`savepath` only sets where new results are written'):
+        benchmark(None, load='latest', score_only=True, **options)
+    assert not list(elsewhere.iterdir())
+    monkeypatch.chdir(saved)
+    np.testing.assert_array_equal(benchmark(None, load='latest', score_only=True, **options)[0], expected)
+
+
+def test_load_drops_a_library_left_without_selected_problems(tmp_path, monkeypatch):
+    import json
+    from optiprofiler import benchmark
+    monkeypatch.chdir(tmp_path)
+    for name, problems in (('liba', ['A1']), ('libb', ['B1', 'B2'])):
+        library = tmp_path / 'libs' / name
+        library.mkdir(parents=True)
+        (library / f'{name}_tools.py').write_text(
+            'from optiprofiler import Problem\n'
+            f'def {name}_select(options): return {problems!r}\n'
+            f'def {name}_load(name): return Problem(lambda x: float(x @ x), [1.0, 2.0], name=name)\n')
+    options = dict(benchmark_id='bench', savepath=str(tmp_path), max_tol_order=1, silent=True,
+                   draw_hist_plots='none')
+    benchmark([_visit_start, _visit_step], plibs=['liba', 'libb'], custom_problem_libs_path=str(tmp_path / 'libs'),
+              n_jobs=1, max_eval_factor=2, run_plain=True, **options)
+    load = dict(options, load='latest', score_only=True)
+    expected = benchmark(None, plibs=['libb'], problem_names=['B1'], **load)[0]
+    scores = benchmark(None, problem_names=['B1'], report_path=str(tmp_path / 'loaded.json'), **load)[0]
+    np.testing.assert_array_equal(scores, expected)
+    report = json.loads((tmp_path / 'loaded.json').read_text(encoding='utf-8'))
+    assert {(problem['library'], problem['name']) for problem in report['problems']} == {('libb', 'B1')}
+    # With no problem left in any library, the load stops as an empty selection does.
+    assert benchmark(None, problem_names=['NONE'], **load)[0].size == 0
+
+
+@pytest.mark.parametrize('silent', [True, False])
+def test_load_prints_progress_information_only_when_not_silent(tmp_path, monkeypatch, capsys, silent):
+    from optiprofiler import benchmark
+    monkeypatch.chdir(tmp_path)
+    saved = dict(benchmark_id='bench', savepath=str(tmp_path), max_tol_order=1)
+    benchmark([_visit_start, _visit_step], plibs=['custom'], problem_names=['custom1'], n_jobs=1,
+              max_eval_factor=2, silent=True, draw_hist_plots='none', **saved)
+    capsys.readouterr()
+    load = dict(saved, load='latest', silent=silent)
+    benchmark(None, score_only=True, **load)
+    benchmark(None, score_only=True, problem_names=['NONE'], **load)
+    benchmark(None, **load)
+    progress = capsys.readouterr().out
+    # A warning is printed whatever `silent` says, as in a benchmark run.
+    benchmark(None, score_only=True, draw_hist_plots='sequential', **load)
+    warning = ' '.join(capsys.readouterr().out.split())
+    assert '[WARNING] Since the option "score_only" is true, the requested "draw_hist_plots" mode' in warning
+    messages = ('Loaded experiment successfully.', 'No problem is selected to load',
+                'Since the option "score_only" is true, we will not draw',
+                'Since the option "load" is provided')
+    if silent:
+        assert '[INFO' not in progress, progress
+    else:
+        assert all(message in ' '.join(progress.split()) for message in messages), progress

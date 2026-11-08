@@ -34,9 +34,14 @@
 # Serialized compatibility fixtures are split over quoted Base64 chunks: a
 # whole line holding one quoted chunk (optionally closing a call). Quoted
 # identifiers inside longer expressions stay checked.
-^\s*[\'"][A-Za-z0-9+/]{40,}={0,2}[\'"]\)?,?\s*$
+^\s*[\'"](?:[A-Za-z0-9+/]{40,}={0,2}|[A-Za-z0-9+/]{16,}={1,2})[\'"]\)?,?\s*$
 # SHA-256 / git digests quoted inside source and fixtures
 (?<=[\'"])[0-9a-f]{40,64}(?=[\'"])
+# Short commit suffixes in recorded source identities.
+(?<=@)[0-9a-f]{7,40}\b
+# Only strip escaped newlines before generated source statements. A generic
+# escape rule also consumes the first letter of LaTeX commands and Windows paths.
+\\n(?=(?:addpath|class|def|end|exec|from|import|prefdir|raise|run)\b)
 
 # Python unary negative float calls are not compiler flags.
 -float(?=\()
@@ -57,7 +62,7 @@
 (?:(?<=[A-Z]{2})V|(?<=[a-z]{2}|[A-Z]{2})v)\d+(?:\b|(?=[a-zA-Z_]))
 
 # Compiler flags
-(?:^|[\t ,"'`=(])-[DPWXYLlf](?=[A-Z]{2,}|[A-Z][a-z]|[a-z]{2,})
+(?:^|[\t ,"'`=(])-(?:[DPWXYLl]|f(?!loat\())(?=[A-Z]{2,}|[A-Z][a-z]|[a-z]{2,})
 
 # Sphinx reference labels, e.g. `.. _matsolarload:`
 ^\.\. _[A-Za-z0-9_]+:

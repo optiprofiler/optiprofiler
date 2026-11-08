@@ -69,5 +69,20 @@ classdef TestFeatureSpecificationV2 < matlab.unittest.TestCase
             testCase.verifyError(@() multiple.options,'MATLAB:Feature:CompositeOptions');
             testCase.verifyError(@() multiple.modifier_fun([1;2],17,problem,0),'MATLAB:Feature:CompositeModifier');
         end
+        function displayDoesNotReadTheDeprecatedOptions(testCase)
+            state = warning; restore = onCleanup(@() warning(state));
+            warning('error','MATLAB:Feature:DeprecatedOptions');
+            for name = {'noisy','plain','noisy+truncated'}
+                feature = Feature(name{1});
+                text = evalc('disp(feature)');
+                testCase.verifySubstring(text,'stages',name{1});
+                testCase.verifyFalse(contains(text,'options'),name{1});
+                testCase.verifyFalse(contains(text,'rror'),name{1});
+            end
+            testCase.verifyFalse(ismember('options',properties(Feature('noisy'))));
+            warning('on','MATLAB:Feature:DeprecatedOptions');
+            single = Feature('noisy');
+            testCase.verifyWarning(@() single.options,'MATLAB:Feature:DeprecatedOptions');
+        end
     end
 end

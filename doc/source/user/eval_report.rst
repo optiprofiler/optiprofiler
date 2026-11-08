@@ -30,6 +30,16 @@ is ``evaluation/eval_report.plot_data.json``. Both targets must be new: a
 collision with either file is refused before solvers execute. This also
 prevents a load/replot operation from replacing its source report.
 
+For a saved problem-library experiment, completed numerical data is persisted
+to H5/MAT before the final numerical report is published. Python collects its
+numerical report updates in memory during this phase; the initially published
+request remains visible. A later report-write failure still raises an error,
+but the completed experiment can be recovered through ``load``. Objective
+callbacks must return real scalars: complex values are invalid evaluations,
+recorded as NaN rather than silently reduced to their real components.
+Complex points, bounds, constraint values and derivative arrays are rejected
+as invalid real-optimization inputs; their imaginary parts are not discarded.
+
 ``score_only=True`` still disables plots and raw experiment persistence. The
 two explicitly requested JSON files are the only additional outputs. Preparing
 plot coordinates does not create figures, require a rendering backend, or
@@ -139,7 +149,15 @@ main report ``optiprofiler.eval_report/2`` (Python and MATLAB) and ``/1``
    * - ``problems[]``
      - Identity (``[library, name, role]``), dimension, type, selection and load
        status, the shared evaluation ``budget`` of the problem, the provider
-       (when known) and the runs.
+       (when known) and the runs. The Python provider record adds the
+       distribution ``version`` (for a bundled library, the OptiProfiler
+       version that ships it) and the ``revision``: for a plugin installed
+       from a VCS URL, the commit that pip recorded; for a bundled library,
+       the commit in ``problem_libs/bundled_revisions.json`` (the reviewed
+       snapshot, not a check of the files). The MATLAB record adds the
+       registry ``role`` and ``locked_revision``, the commit named for the
+       library in ``matlab_problem_libraries.lock`` (the reviewed snapshot,
+       not a check of the installed checkout). ``null`` means unknown.
    * - ``problems[].runs[]``
      - Per-run facts only: evaluation count, ``budget_reached``, returned,
        initial and best objective/constraint/merit values, invalid-value
@@ -154,7 +172,12 @@ main report ``optiprofiler.eval_report/2`` (Python and MATLAB) and ``/1``
    * - ``artifacts`` / ``diagnostics``
      - Existing output files with relative paths and hashes, and bounded
        structured event codes. Files marked ``present`` are not automatically
-       certified scientifically correct or safe to publish.
+       certified scientifically correct or safe to publish. A profile export
+       that raises records the ``rendering`` diagnostic
+       ``profile_export_failed`` in both languages. MATLAB also records
+       ``summary_pdf_not_owned`` when it leaves a ``summary.pdf`` that it does
+       not own unchanged; see *MATLAB output robustness* in the MATLAB user
+       guide.
    * - ``report_files``
      - The best-effort file-permission policy applied to the two JSON files
        and whether this platform applied it.
@@ -184,6 +207,12 @@ repeating the same prose in every run, and it omits keys that would only carry
 * ``budget_reached``, ``evaluations``, ``abnormal_termination``,
   ``output_fallback``, ``execution``, ``oracle_seed`` and ``elapsed_seconds``
   stay per run. Reaching the cap still does not prove the termination cause.
+* A run with ``output_fallback`` true returned no output. Its
+  ``objective.output`` and ``constraint.output`` are the values at ``x0``, and
+  it has no output-based work: its entries of ``output`` in ``target_work``
+  have the value ``null`` and the output ``hits`` of ``convergence`` exclude
+  it. ``output_work_semantics`` and the ``target_work`` entry of the
+  companion's ``semantics`` say the same.
 * There is no per-run convergence field. Convergence is never inferred from a
   solver return value; ``target_work`` in the companion observes the existing
   scoring predicate.
@@ -233,7 +262,8 @@ unchanged and remains the only complete source for reanalysis.
   their problem/solver/run/tolerance identities. History-based work is the
   first evaluation meeting the existing target. Output-based work is the
   evaluation count associated with a passing returned output, not the first
-  history hit. Never infer either value from a compressed curve or from a
+  history hit. A run flagged ``output_fallback`` returned no output and has no
+  output-based work. Never infer either value from a compressed curve or from a
   history preview.
 
 Padded display aggregation
@@ -303,6 +333,42 @@ for every figure. Applications can index or selectively expose records from
 that companion. The core does not add an agent tool server or change Evolve's
 fitness policy. A smaller report improves context use but is not a guarantee
 against erroneous agent conclusions.
+
+Redacted metadata
+-----------------
+
+Reports describe an experiment without copying secrets or machine paths. The
+rules are the same in Python and MATLAB:
+
+- An option whose name contains ``password``, ``passwd``, ``passphrase``,
+  ``secret``, ``credential``, ``authorization``, ``authentication``,
+  ``bearer``, ``api_key`` (also ``apikey`` and ``api-key``), ``private_key``
+  (also ``privatekey`` and ``private-key``) or ``cookie``, or whose name has
+  ``pwd``, ``auth`` or ``token`` at its end or before ``_`` or ``-``
+  (``auth_token``, ``basicAuth``, but not ``max_tokens`` or ``author``), is not
+  copied, in any letter case and at any depth. Python keeps the key with the
+  reason ``redacted_sensitive_option``; MATLAB omits the key.
+- A URL of any scheme and letter case (``HTTPS://``, ``git+https://``,
+  ``ssh://``) is replaced by ``[redacted_url]`` in metadata text. A text that
+  starts with a URL is replaced as a whole.
+- An absolute path is replaced too, in a whole text and inside a longer one.
+  MATLAB also omits every option whose name contains ``path`` in any letter
+  case (``savepath``, ``report_path``). Python keeps ``savepath``, with an
+  absolute path in its value replaced, and does not record ``report_path``.
+- The ``source`` of a reference record is scientific provenance: its URLs keep
+  scheme, host, port and path; user information, query and fragment are removed
+  and marked ``[url parameters removed]``. A URL with a further ``://`` in its
+  host or path, such as a second URL glued to it, is replaced by
+  ``[redacted_url]`` as a whole. The file names of history plots follow the
+  same rule, because a report lists them; a name that the rule changes ends in
+  a CRC-32 of the original name, so that names that differ only in what was
+  removed keep two files. The checksum depends on the removed text, so a file
+  name, like the identity of such a problem in a report, can confirm a guessed
+  short password. Do not put credentials in problem names.
+
+This is a safeguard for ordinary metadata, not a security boundary: a secret in
+a value that is neither a URL nor under a sensitive option name is not
+recognized.
 
 Hash and permission fallbacks
 -----------------------------
@@ -386,9 +452,18 @@ Meaning and limitations
   metadata they never recorded; unknown is not equivalent to false.
 * Problem identity includes the library and problem name. The optional plain
   reference experiment must not inflate the primary experiment's coverage.
-* Profile scores retain their existing cohort-relative meaning. A matched
-  configuration hash is not a guarantee of absolute comparability between
-  candidates, nor does it introduce an Arena/reference-based score.
+* Profile scores retain their cohort-relative meaning. An effective problem
+  reference now defines its convergence target; omitted references use the
+  V1 empirical solver/plain minimum. ``problems[].reference_records`` keeps
+  one raw fact or null per stored run, without recomputing a merit in the
+  reporter. An absent field means the facts were not retained. An explicit
+  reference can include ``x_ref`` in original problem coordinates, never
+  featured coordinates. Points of up to 256 coordinates are embedded; larger
+  ones have an explicit omission descriptor, with the full point retained in
+  the numerical archive when one exists. ``reference_fallback_reasons``
+  records the first feature-triggered fallback for each stored run. A matched
+  configuration hash alone is not a guarantee of comparability, nor does
+  this report introduce an independent Arena scoring rule.
 * Binned histories and plot presentations are not inputs to scoring. Original
   nonfinite observations are not silently converted to zero. JSON represents
   them with an object such as

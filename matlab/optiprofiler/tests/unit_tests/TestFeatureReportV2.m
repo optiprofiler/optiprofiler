@@ -75,7 +75,7 @@ classdef TestFeatureReportV2 < matlab.unittest.TestCase
         function nativeProvenanceAndBoundedProjectionNeverRunCallbacks(testCase)
             fixture = fullfile(fileparts(mfilename('fullpath')), '..', 'fixtures', ...
                 'feature-v2', 'native-legacy-enum-feature.mat');
-            before = readBytes(fixture); loaded = load(fixture);
+            before = readBytes(fixture); loaded = load(fixture,'legacy_feature');
             [options, receipt] = loadBenchmarkOptions(struct('feature', loaded.legacy_feature, 'n_runs', 4));
             testCase.verifyEqual(options.n_runs, 4);
             testCase.verifyEqual(receipt.feature_import.n_runs, 3);

@@ -1,25 +1,15 @@
-import os
 import re
 import shutil
-import inspect
-import time
 import warnings
-from contextlib import redirect_stderr, redirect_stdout
-from datetime import datetime
-from inspect import signature
-from multiprocessing import Pool
-from pathlib import Path
 
 import matplotlib
 import numpy as np
-from cycler import cycler
 from matplotlib.figure import Figure
-from matplotlib.colors import is_color_like
 from matplotlib.lines import Line2D
-from matplotlib.backends import backend_pdf
-from matplotlib.ticker import MaxNLocator, FuncFormatter, FixedLocator, NullLocator
+from matplotlib.ticker import FixedLocator, NullLocator
 
 from .utils import ProfileOption
+from .plot_options import apply_plot_options
 
 
 _COMPACT_LEGEND_SOLVER_THRESHOLD = 10
@@ -57,6 +47,41 @@ def format_profile_text(text, profile_context):
     if profile_context.get('text.usetex', False):
         return latex_escape_text(text)
     return str(text)
+
+
+def format_tolerance_label(template, tolerance_latex, usetex):
+    """Substitute the tolerance placeholder ``%s`` of a y-axis label template.
+
+    ``%%`` and any other ``%`` give a literal percent sign. It is written as
+    ``\\%`` with LaTeX and inside a ``$...$`` segment, where TeX would start a
+    comment and Matplotlib mathtext cannot parse a bare ``%``. A backslash
+    escape such as ``\\%`` or ``\\$`` is copied as written.
+    """
+    pieces = []
+    in_math = False
+    i = 0
+    while i < len(template):
+        char = template[i]
+        if char == '\\' and i + 1 < len(template):
+            pieces.append(template[i:i + 2])
+            i += 2
+        elif char == '%' and template.startswith('%s', i):
+            pieces.append(tolerance_latex)
+            i += 2
+        elif char == '%':
+            pieces.append('\\%' if usetex or in_math else '%')
+            i += 2 if template.startswith('%%', i) else 1
+        else:
+            if char == '$':
+                in_math = not in_math
+            pieces.append(char)
+            i += 1
+    return ''.join(pieces)
+
+
+def _tolerance_label(profile_options, key, tolerance_latex):
+    usetex = set_profile_context(profile_options).get('text.usetex', False)
+    return format_tolerance_label(profile_options[key], tolerance_latex, usetex)
 
 
 def draw_profiles(work, problem_dimensions, solver_names, tolerance_latex, i_tol, ax_summary_perf, ax_summary_data, ax_summary_log_ratio, is_summary, is_perf, is_data, is_log_ratio, profile_options, curves, *, _plot_sink=None):
@@ -125,6 +150,9 @@ def draw_profiles(work, problem_dimensions, solver_names, tolerance_latex, i_tol
         if is_log_ratio and ax_summary_log_ratio is not None:
             _draw_log_ratio_detail(ax_summary_log_ratio[i_tol], x_log_ratio, y_log_ratio, ratio_max_log_ratio, n_solvers_fail, solver_names, profile_options, tolerance_latex)
 
+    for figure in (fig_perf, fig_data, fig_log_ratio):
+        if figure is not None:
+            apply_plot_options(figure, profile_options.get(ProfileOption.PLOT_OPTIONS, {}))
     return fig_perf, fig_data, fig_log_ratio, curves
 
 
@@ -148,9 +176,10 @@ def _draw_perf_detail(ax_perf, x_perf, y_perf, ratio_max_perf, solver_names, pro
         ax_perf.set_xlabel(profile_options[ProfileOption.XLABEL_PERFORMANCE_PROFILE], fontsize=_PROFILE_LABELSIZE)
     # Set y-axis labels.
     if profile_options[ProfileOption.YLABEL_PERFORMANCE_PROFILE]:
-        ylabel_str = profile_options[ProfileOption.YLABEL_PERFORMANCE_PROFILE] % tolerance_latex if '%s' in profile_options[ProfileOption.YLABEL_PERFORMANCE_PROFILE] else profile_options[ProfileOption.YLABEL_PERFORMANCE_PROFILE]
+        ylabel_str = _tolerance_label(profile_options, ProfileOption.YLABEL_PERFORMANCE_PROFILE, tolerance_latex)
         ax_perf.set_ylabel(ylabel_str, fontsize=_PROFILE_LABELSIZE, labelpad=10)
-    _place_solver_legend(ax_perf, x_perf.shape[1], default_loc='lower right', handles=handles)
+    _place_solver_legend(ax_perf, x_perf.shape[1], default_loc='lower right', handles=handles,
+                         legend_options=profile_options.get(ProfileOption.PLOT_OPTIONS, {}).get('legend', {}))
 
 
 
@@ -172,9 +201,10 @@ def _draw_data_detail(ax_data, x_data, y_data, ratio_max_data, solver_names, pro
         ax_data.set_xlabel(profile_options[ProfileOption.XLABEL_DATA_PROFILE], fontsize=_PROFILE_LABELSIZE)
     # Set y-axis labels.
     if profile_options[ProfileOption.YLABEL_DATA_PROFILE]:
-        ylabel_str = profile_options[ProfileOption.YLABEL_DATA_PROFILE] % tolerance_latex if '%s' in profile_options[ProfileOption.YLABEL_DATA_PROFILE] else profile_options[ProfileOption.YLABEL_DATA_PROFILE]
+        ylabel_str = _tolerance_label(profile_options, ProfileOption.YLABEL_DATA_PROFILE, tolerance_latex)
         ax_data.set_ylabel(ylabel_str, fontsize=_PROFILE_LABELSIZE, labelpad=10)
-    _place_solver_legend(ax_data, x_data.shape[1], default_loc='lower right', handles=handles)
+    _place_solver_legend(ax_data, x_data.shape[1], default_loc='lower right', handles=handles,
+                         legend_options=profile_options.get(ProfileOption.PLOT_OPTIONS, {}).get('legend', {}))
 
 
 
@@ -186,7 +216,7 @@ def _draw_log_ratio_detail(ax_log_ratio, x_log_ratio, y_log_ratio, ratio_max_log
         ax_log_ratio.set_xlabel(profile_options[ProfileOption.XLABEL_LOG_RATIO_PROFILE], fontsize=_PROFILE_LABELSIZE)
     # Set y-axis labels.
     if profile_options[ProfileOption.YLABEL_LOG_RATIO_PROFILE]:
-        ylabel_str = profile_options[ProfileOption.YLABEL_LOG_RATIO_PROFILE] % tolerance_latex if '%s' in profile_options[ProfileOption.YLABEL_LOG_RATIO_PROFILE] else profile_options[ProfileOption.YLABEL_LOG_RATIO_PROFILE]
+        ylabel_str = _tolerance_label(profile_options, ProfileOption.YLABEL_LOG_RATIO_PROFILE, tolerance_latex)
         ax_log_ratio.set_ylabel(ylabel_str, fontsize=_PROFILE_LABELSIZE, labelpad=14)
 
 
@@ -301,11 +331,13 @@ def _draw_log_ratio_profiles(ax, x, y, ratio_max, n_solvers_equal, solver_names,
     presentation = prepare_log_ratio_plot_data(x, y, ratio_max, n_solvers_equal)
 
     with matplotlib.rc_context(profile_context):
-        bar_colors = profile_options[ProfileOption.BAR_COLORS][:2]
+        # Cycle like the line properties (and MATLAB): one colour serves both bars.
+        bar_colors = profile_options[ProfileOption.BAR_COLORS]
         for group in presentation['bar_groups']:
             selection = slice(group['start_index'] - 1, group['end_index'])
             opacity = {'alpha': 0.5} if group['opacity'] == 0.5 else {}
-            ax.bar(x[selection], y[selection], color=bar_colors[group['solver_index'] - 1], **opacity)
+            color = bar_colors[(group['solver_index'] - 1) % len(bar_colors)]
+            ax.bar(x[selection], y[selection], color=color, **opacity)
 
         # Remove x-axis ticks (matching MATLAB's xticks([]))
         ax.set_xticks([])
@@ -465,20 +497,6 @@ def _get_log_ratio_profile_axes(work, curves):
     return x_log_ratio, y_log_ratio_sorted, ratio_max, n_solvers_fail, curves
 
 
-def _perf_formatter(x, _):
-    if x.is_integer():
-        return str(int(2 ** x))
-    else:
-        return f'$2^{{{f"{x:.8f}".rstrip("0").rstrip(".")}}}$'
-
-
-def _data_formatter(x, _):
-    if x.is_integer():
-        return str(int(2 ** x - 1))
-    else:
-        return f'$2^{{{f"{x:.8f}".rstrip("0").rstrip(".")}}}-1$'
-
-
 def _format_tick_value(value):
     if np.isclose(value, round(value)):
         return str(int(round(value)))
@@ -575,6 +593,7 @@ def set_profile_context(profile_options):
         'ytick.labelsize': 14,
         'text.usetex': True if shutil.which('latex') else False,
     }
+    profile_context.update(profile_options.get(ProfileOption.PLOT_OPTIONS, {}).get('rc', {}))
     return profile_context
 
 
@@ -834,7 +853,6 @@ def prepare_history_plot_data(y, is_cum, y_shift, n_eval, profile_options):
     """
     
     n_solvers = y.shape[0]
-    n_runs = y.shape[1]
     # Keep (solver, evaluation) even for one solver or one evaluation.
     y_mean = np.mean(y, axis=1)
 
@@ -1106,8 +1124,10 @@ def draw_fun_maxcv_merit_hist(ax, y, solver_names, is_cum, problem_n, y_shift, n
         ax.set_xlabel(profile_options[ProfileOption.XLABEL_DATA_PROFILE], fontsize=_HISTORY_LABELSIZE, labelpad=12)
     else:
         ax.set_xlabel('')
-    legend = _place_solver_legend(ax, n_solvers, default_loc='upper right', handles=handles)
-    if legend is not None:
+    legend_options = profile_options.get(ProfileOption.PLOT_OPTIONS, {}).get('legend', {})
+    legend = _place_solver_legend(ax, n_solvers, default_loc='upper right', handles=handles,
+                                  legend_options=legend_options)
+    if legend is not None and not any(key in legend_options for key in ('fontsize', 'prop')):
         for text in legend.get_texts():
             text.set_fontsize(_HISTORY_LEGEND_FONTSIZE)
 
@@ -1201,7 +1221,7 @@ def _choose_legend_location(ax, default_loc, handles=None):
     return min(targets, key=lambda loc: (scores[loc], loc != default_loc))
 
 
-def _place_solver_legend(ax, n_solvers, default_loc='lower right', handles=None):
+def _place_solver_legend(ax, n_solvers, default_loc='lower right', handles=None, legend_options=None):
     if handles is None:
         handles, _ = ax.get_legend_handles_labels()
     if not handles:
@@ -1212,19 +1232,14 @@ def _place_solver_legend(ax, n_solvers, default_loc='lower right', handles=None)
     # construct with neutral labels, then restore the exact visible names.
     legend_args = (handles, [str(index) for index in range(len(handles))])
     if n_solvers > _COMPACT_LEGEND_SOLVER_THRESHOLD:
-        legend = ax.legend(
-            *legend_args,
-            loc='center left',
-            bbox_to_anchor=(1.02, 0.5),
-            ncol=_legend_columns(n_solvers),
-            borderaxespad=0.0,
-            fontsize=_compact_legend_fontsize(n_solvers),
-            handlelength=2.0,
-            columnspacing=0.9,
-            labelspacing=0.35,
-        )
+        options = dict(loc='center left', bbox_to_anchor=(1.02, 0.5),
+                       ncol=_legend_columns(n_solvers), borderaxespad=0.0,
+                       fontsize=_compact_legend_fontsize(n_solvers), handlelength=2.0,
+                       columnspacing=0.9, labelspacing=0.35)
     else:
-        legend = ax.legend(*legend_args, loc=_choose_legend_location(ax, default_loc, handles))
+        options = dict(loc=_choose_legend_location(ax, default_loc, handles))
+    options.update(legend_options or {})
+    legend = ax.legend(*legend_args, **options)
     if legend is not None:
         for text, label in zip(legend.get_texts(), labels):
             text.set_text(label)

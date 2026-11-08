@@ -13,7 +13,8 @@ import pytest
 import optiprofiler.loader as loader
 import optiprofiler.profiles as profiles
 from optiprofiler import Feature, benchmark
-from optiprofiler.profile_utils import process_results, _write_history_display_note
+from optiprofiler.profile_utils import _write_history_display_note
+from optiprofiler.scoring import process_results
 from .test_plain_reference_identity import _block
 from .test_experiment_identity import saved_same_second_runs
 
@@ -79,7 +80,7 @@ def test_display_report_is_explicit_without_mutating_results():
 def test_new_quantized_truth_note_is_specific(tmp_path, truth):
     paths = [tmp_path / 'report.txt', tmp_path / 'README.txt']
     profiles._append_quantized_truth_note(
-        Feature('quantized', ground_truth=truth), False, [], *paths)
+        Feature('quantized', ground_truth=truth), False, *paths)
     for path in paths:
         text = path.read_text()
         assert f'ground_truth={str(truth).lower()}' in text
@@ -87,12 +88,11 @@ def test_new_quantized_truth_note_is_specific(tmp_path, truth):
         assert 'returned point is unchanged' in text
 
 
-@pytest.mark.parametrize('stamp', ['quantized_1_ground_truth', 'custom_label', None])
-def test_reload_does_not_claim_legacy_quantized_data_was_repaired(tmp_path, stamp):
+def test_reload_does_not_claim_legacy_quantized_data_was_repaired(tmp_path):
     paths = [tmp_path / 'report.txt', tmp_path / 'README.txt']
     # The caller's current feature options cannot certify old saved channels.
     profiles._append_quantized_truth_note(
-        Feature('plain'), True, [{'feature_stamp': stamp}], *paths)
+        Feature('plain'), True, *paths)
     for path in paths:
         text = path.read_text()
         assert 'older quantized archives may contain mixed truth channels' in text
@@ -205,16 +205,8 @@ def test_benchmark_save_failure_is_explicit_even_when_silent(saved_same_second_r
     assert len(list(root.glob('*/test_log/time_stamp_*.txt'))) == len(markers)
 
 
-def test_summary_uses_legacy_compatible_figure_keyword(saved_same_second_runs, monkeypatch):
+def test_load_writes_the_summary(saved_same_second_runs):
     root, _, _ = saved_same_second_runs
-    real_figure = profiles.Figure
-
-    def legacy_figure(*args, **kwargs):
-        if 'layout' in kwargs:
-            raise TypeError('Matplotlib 3.4 does not accept layout')
-        return real_figure(*args, **kwargs)
-
-    monkeypatch.setattr(profiles, 'Figure', legacy_figure)
     scores, _, _ = benchmark(None, load='latest', benchmark_id='saved',
                              draw_hist_plots='none', silent=True, max_tol_order=1,
                              summarize_performance_profiles=True,

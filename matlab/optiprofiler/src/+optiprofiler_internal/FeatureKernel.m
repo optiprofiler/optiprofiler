@@ -2,7 +2,9 @@ classdef FeatureKernel < handle
 %FEATUREKERNEL Internal per-runtime adapter for the established MATLAB kernels.
 % Input is an already-normalized atomic stage; no specification or experiment
 % validation/defaulting occurs here. The numerical methods are extracted from
-% ac4a67e Feature unchanged, including legacy read order and RNG mixing.
+% ac4a67e Feature unchanged, including legacy read order and RNG mixing, except
+% that quantized reads only the snapped point (it used the unsnapped read for
+% nothing but an emptiness check).
 %
 % PAYLOAD_MIXER selects how the per-query random stream is seeded from the
 % run/stage seed and the observed payload (values, point, served index):
@@ -512,6 +514,11 @@ classdef FeatureKernel < handle
                 Modified objective function value.
             %}
 
+            if strcmp(obj.name, FeatureName.QUANTIZED.value)
+                f = problem.fun(obj.snapped(x));
+                return;
+            end
+
             % Convert x into a cell array. We will later use it to generate
             % random streams so that randomness of each point is independent.
             xCell = num2cell(x);
@@ -568,13 +575,6 @@ classdef FeatureKernel < handle
                     elseif obj.options.(FeatureOptionKey.UNRELAXABLE_NONLINEAR_CONSTRAINTS.value) && maxcv_nonlinear > 0
                         f = Inf;
                     end
-                case FeatureName.QUANTIZED.value
-                    mesh_size = obj.options.(FeatureOptionKey.MESH_SIZE.value);
-                    if strcmp(obj.options.(FeatureOptionKey.MESH_TYPE.value), 'relative')
-                        mesh_size = mesh_size .* max(1, abs(x));
-                    end
-                    x = mesh_size .* round(x ./ mesh_size);  % round(x) rounds x to the closest integer.
-                    f = problem.fun(x);
                 otherwise
                     % Do nothing
             end
@@ -603,6 +603,11 @@ classdef FeatureKernel < handle
             cub_ : double, size (m_nonlinear_ub,)
                 Modified values of the nonlinear inequality constraints.
             %}
+
+            if strcmp(obj.name, FeatureName.QUANTIZED.value)
+                cub_ = problem.cub(obj.snapped(x));
+                return;
+            end
 
             % Convert x into a cell array. We will later use it to generate
             % random streams so that randomness of each point is independent.
@@ -651,14 +656,6 @@ classdef FeatureKernel < handle
                     cub_(cub_ <= 0) = 0;
                     % Preserve NaN: an undefined oracle is not a known violation.
                     cub_(cub_ > 0) = 1;
-                case FeatureName.QUANTIZED.value
-                    % Similar to the case in the modifier_fun method.
-                    mesh_size = obj.options.(FeatureOptionKey.MESH_SIZE.value);
-                    if strcmp(obj.options.(FeatureOptionKey.MESH_TYPE.value), 'relative')
-                        mesh_size = mesh_size .* max(1, abs(x));
-                    end
-                    x = mesh_size .* round(x ./ mesh_size);
-                    cub_ = problem.cub(x);
                 otherwise
                     % Do nothing
             end
@@ -687,6 +684,11 @@ classdef FeatureKernel < handle
             ceq_ : double, size (m_nonlinear_eq,)
                 Modified values of the nonlinear equality constraints.
             %}
+
+            if strcmp(obj.name, FeatureName.QUANTIZED.value)
+                ceq_ = problem.ceq(obj.snapped(x));
+                return;
+            end
 
             % Convert x into a cell array. We will later use it to generate
             % random streams so that randomness of each point is independent.
@@ -735,17 +737,18 @@ classdef FeatureKernel < handle
                     ceq_(abs(ceq_) <= 1e-6) = 0;
                     % Preserve NaN, matching Python and the raw truth channel.
                     ceq_(abs(ceq_) > 1e-6) = 1;
-                case FeatureName.QUANTIZED.value
-                    % Similar to the case in the modifier_fun method.
-                    mesh_size = obj.options.(FeatureOptionKey.MESH_SIZE.value);
-                    if strcmp(obj.options.(FeatureOptionKey.MESH_TYPE.value), 'relative')
-                        mesh_size = mesh_size .* max(1, abs(x));
-                    end
-                    x = mesh_size .* round(x ./ mesh_size);
-                    ceq_ = problem.ceq(x);
                 otherwise
                     % Do nothing
             end
+        end
+
+        function x = snapped(obj, x)
+            % The nearest point of the mesh of the quantized feature.
+            mesh_size = obj.options.(FeatureOptionKey.MESH_SIZE.value);
+            if strcmp(obj.options.(FeatureOptionKey.MESH_TYPE.value), 'relative')
+                mesh_size = mesh_size .* max(1, abs(x));
+            end
+            x = mesh_size .* round(x ./ mesh_size);  % round(x) rounds x to the closest integer.
         end
 
         function noise = computeNoise(obj, x, seed, n_eval, base_values, noise_size)

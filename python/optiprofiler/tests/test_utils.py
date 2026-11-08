@@ -1,10 +1,13 @@
 """Tests for the utils module."""
 import logging
 import multiprocessing as mp
+import pickle
 
 import numpy as np
 import pytest
 
+from optiprofiler.profiles import _close_logging_resources
+from optiprofiler.profile_utils import check_validity_problem_options, check_validity_profile_options
 from optiprofiler.utils import (
     FeatureName,
     FeatureOption,
@@ -172,6 +175,15 @@ class TestShowVersions:
 
 class TestLogging:
 
+    @pytest.fixture(autouse=True)
+    def root_logger_stays_as_it_was(self):
+        # A queue left on the root logger fills its pipe once nothing reads it,
+        # and the exit of the process then waits for that pipe.
+        root = logging.getLogger()
+        before = (list(root.handlers), root.level)
+        yield
+        assert (list(root.handlers), root.level) == before
+
     def test_get_logger(self):
         logger = get_logger('test_logger')
         assert isinstance(logger, logging.Logger)
@@ -185,14 +197,49 @@ class TestLogging:
 
     def test_setup_main_process_logging(self):
         log_queue, listener = setup_main_process_logging()
-        assert isinstance(log_queue, mp.queues.Queue)
-        listener.stop()
+        try:
+            assert isinstance(log_queue, mp.queues.Queue)
+        finally:
+            _close_logging_resources({'listener': listener, 'log_queue': log_queue})
 
     def test_setup_worker_logging_none(self):
         setup_worker_logging(None)
 
     def test_setup_worker_logging(self):
-        log_queue = mp.Queue(-1)
-        setup_worker_logging(log_queue, level=logging.DEBUG)
         root = logging.getLogger()
-        assert root.level == logging.DEBUG
+        handlers, level = list(root.handlers), root.level
+        log_queue = mp.Queue(-1)
+        try:
+            setup_worker_logging(log_queue, level=logging.DEBUG)
+            assert root.level == logging.DEBUG
+        finally:
+            root.handlers[:] = handlers
+            root.setLevel(level)
+            log_queue.close()
+            log_queue.join_thread()
+
+
+@pytest.mark.parametrize('enumeration', [FeatureName, FeatureOption, ProblemOption, ProfileOption])
+def test_enumeration_members_print_as_their_values(enumeration):
+    # format() gave the value before Python 3.11 and the member's name after it,
+    # while str() and % gave the name on every version.
+    for member in enumeration:
+        assert f'{member}' == str(member) == '%s' % member == '{}'.format(member) == member.value
+        assert f'{member:>40}' == member.value.rjust(40)
+        # Options are dictionary keys, compared as their text.
+        assert member == member.value and {member: 1}[member.value] == 1
+        assert pickle.loads(pickle.dumps(member)) is member
+
+
+def test_messages_name_the_options_on_every_python_version(capsys):
+    solvers = [lambda fun, x0: x0, lambda fun, x0: x0]
+    check_validity_profile_options(solvers, {'silent': True, 'solver_verbose': 2})
+    printed = ' '.join(capsys.readouterr().out.split())
+    assert 'The option `solver_verbose` will be set to 0 because silent is True.' in printed
+    assert 'ProfileOption.' not in printed
+    with pytest.raises(TypeError) as refused:
+        check_validity_profile_options(solvers, {'silent': 'yes'})
+    assert str(refused.value) == 'Option silent must be a boolean.'
+    with pytest.raises(TypeError) as refused:
+        check_validity_problem_options({'ptype': 1})
+    assert str(refused.value) == 'Option ptype must be a string.'
