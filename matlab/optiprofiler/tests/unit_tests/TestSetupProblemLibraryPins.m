@@ -84,11 +84,11 @@ classdef TestSetupProblemLibraryPins < matlab.unittest.TestCase
             % A function beside setup.m takes precedence over the built-in one.
             testCase.applyFixture(matlab.unittest.fixtures.SuppressedWarningsFixture('MATLAB:dispatcher:nameConflict'));
             write_text(fullfile(state.package, 'system.m'), sprintf([ ...
-                'function varargout = system(command)\n' ...
+                'function varargout = system(command, varargin)\n' ...
                 'if contains(command, ''s2mpj'') && contains(command, ''rev-parse'')\n' ...
                 '    error(''Fixture:Other'', ''a failure of another kind'');\n' ...
                 'end\n' ...
-                '[varargout{1:max(nargout, 1)}] = builtin(''system'', command);\n' ...
+                '[varargout{1:max(nargout, 1)}] = builtin(''system'', command, varargin{:});\n' ...
                 'end\n']));
             [output, failure] = run_failing_setup(state, struct());
             testCase.verifyEqual(failure.identifier, 'Fixture:Other');
@@ -118,6 +118,7 @@ classdef TestSetupProblemLibraryPins < matlab.unittest.TestCase
             output = run_setup(state, struct('install_matcutest', true, 'install_solar', true));
             verify_core_configured(testCase, state);
             verify_reported(testCase, output, 'MatCUTEst', 'Failed to clone');
+            testCase.verifySubstring(output, 'You can manually clone or download "matcutest"');
             testCase.verifyFalse(is_registered(state, 'matcutest'));
             testCase.verifyFalse(on_path(fullfile(state.libraries, 'matcutest')));
             testCase.verifyTrue(is_registered(state, 'solar'));
@@ -202,6 +203,34 @@ classdef TestSetupProblemLibraryPins < matlab.unittest.TestCase
             testCase.verifyTrue(is_registered(state, 'matcutest'));
             testCase.verifyTrue(on_path(fullfile(state.libraries, 'matcutest')));
             testCase.verifyTrue(on_path(fullfile(state.libraries, 'runtime', 'matcutest', 'mtools', 'src')));
+        end
+
+        function cloneFailingToLoadGitIsRetriedWithoutTheLibraryPath(testCase)
+            testCase.assumeTrue(~ismac && ~isempty(getenv('LD_LIBRARY_PATH')));
+            state = sandbox(testCase);
+            pin = make_remote(state, 'solar_matlab', solar_files());
+            lock_commits(state, struct('solar', pin));
+            commands = stub_first_git_clone(testCase, state, ...
+                'git-remote-https: symbol lookup error: /usr/lib/libexample.so.4: undefined symbol: example_symbol');
+            run_setup(state, struct('install_solar', true));
+            clones = cloned(commands);
+            testCase.verifyNumElements(clones, 2);
+            testCase.verifyTrue(startsWith(clones{1}, 'git clone'));
+            testCase.verifyTrue(startsWith(clones{2}, '/usr/bin/env -u LD_LIBRARY_PATH git clone'));
+            testCase.verifyEqual(head(state, 'solar'), pin);
+            testCase.verifyTrue(is_registered(state, 'solar'));
+        end
+
+        function cloneFailingForAnotherReasonIsNotRetried(testCase)
+            testCase.assumeFalse(ismac);
+            state = sandbox(testCase);
+            pin = make_remote(state, 'solar_matlab', solar_files());
+            lock_commits(state, struct('solar', pin));
+            commands = stub_first_git_clone(testCase, state, 'fatal: unable to access the repository: Could not resolve host');
+            output = run_setup(state, struct('install_solar', true));
+            testCase.verifyNumElements(cloned(commands), 1);
+            verify_reported(testCase, output, 'SOLAR MATLAB adapter', 'Failed to clone');
+            testCase.verifyFalse(is_registered(state, 'solar'));
         end
 
         function failedSolarCloneIsReportedWithManualInstructions(testCase)
@@ -507,6 +536,29 @@ function [output, failure] = run_failing_setup(state, options)
     failure = [];
     output = evalc('try, setup(defaults); catch failure, end');
     assert(~isempty(failure), 'setup did not raise.');
+end
+
+function commands = stub_first_git_clone(testCase, state, message)
+% A system beside setup.m logs every command and fails the first git clone with MESSAGE.
+    testCase.applyFixture(matlab.unittest.fixtures.SuppressedWarningsFixture('MATLAB:dispatcher:nameConflict'));
+    commands = fullfile(state.root, 'commands.txt');
+    write_text(fullfile(state.package, 'system.m'), strjoin({ ...
+        'function varargout = system(command, varargin)', ...
+        ['fid = fopen(''', commands, ''', ''a'');'], ...
+        'fprintf(fid, ''%s'', [command, newline]);', ...
+        'fclose(fid);', ...
+        'if startsWith(command, ''git clone'')', ...
+        ['    varargout = {128, ''', strrep(message, '''', ''''''), '''};'], ...
+        '    varargout = varargout(1:max(nargout, 1));', ...
+        '    return', ...
+        'end', ...
+        '[varargout{1:max(nargout, 1)}] = builtin(''system'', command, varargin{:});', ...
+        'end', ''}, newline));
+end
+
+function clones = cloned(commands)
+    lines = splitlines(strtrim(fileread(commands)));
+    clones = lines(contains(lines, ' clone '));
 end
 
 function files = solar_files()

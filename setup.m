@@ -119,8 +119,7 @@ function setup(varargin)
             clone_args = sprintf('clone "%s" "%s"', s2mpj_repo_url, s2mpj_dest_matlab);
             fprintf('Executing: git %s\n', clone_args);
             
-            [status, output] = run_git(clone_args);
-            fprintf('%s', output);
+            status = run_git(clone_args, '-echo');
             if status == 0
                 fprintf('S2MPJ cloned successfully.\n');
             else
@@ -614,8 +613,7 @@ function clone_optional_problem_library(repo_url, repo_dir, library_root, repo_n
     %CLONE_OPTIONAL_PROBLEM_LIBRARY clones one optional library under its root.
 
     ensure_directory(library_root, 'optional problem-library root');
-    [status, output] = run_git(sprintf('clone "%s" "%s"', repo_url, repo_dir));
-    fprintf('%s', output);
+    status = run_git(sprintf('clone "%s" "%s"', repo_url, repo_dir), '-echo');
     if status ~= 0
         error('setup:ProblemLibraryClone', 'Failed to clone the %s repository from %s.', repo_name, repo_url);
     end
@@ -625,20 +623,21 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-function [status, output] = run_git(arguments)
+function [status, output] = run_git(arguments, varargin)
     %RUN_GIT runs git, retrying once without MATLAB's library path.
     %   MATLAB passes its own LD_LIBRARY_PATH to system(). A bundled library
     %   that is older than the one the system git needs makes git fail to
     %   load (for example git-remote-https on Ubuntu 26.04, whose curl
     %   library needs a newer SSH library: "symbol lookup error"). Only such a
     %   loader failure is retried, so a network failure does not clone twice.
-    [status, output] = system(['git ', arguments]);
+    %   Extra arguments (for example '-echo') are passed on to system().
+    [status, output] = system(['git ', arguments], varargin{:});
     loader_failure = 'symbol lookup error|error while loading shared libraries|version [`''][^`'']+[`''] not found';
     if status == 0 || ~isunix || ismac || isempty(getenv('LD_LIBRARY_PATH')) || ...
             isempty(regexp(output, loader_failure, 'once'))
         return
     end
-    [status, retry_output] = system(['/usr/bin/env -u LD_LIBRARY_PATH git ', arguments]);
+    [status, retry_output] = system(['/usr/bin/env -u LD_LIBRARY_PATH git ', arguments], varargin{:});
     if status == 0
         output = retry_output;
     else
