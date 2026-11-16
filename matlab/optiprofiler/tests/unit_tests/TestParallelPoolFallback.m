@@ -44,9 +44,11 @@ classdef TestParallelPoolFallback < matlab.unittest.TestCase
             % No pool exists, and opening one fails, as without a licence seat for a worker.
             stubs = fullfile(testCase.WorkDir, 'stubs');
             mkdir(stubs);
-            TestParallelPoolFallback.writeFile(fullfile(stubs, 'gcp.m'), sprintf('function pool = gcp(varargin)\npool = [];\nend\n'));
-            TestParallelPoolFallback.writeFile(fullfile(stubs, 'parpool.m'), sprintf( ...
-                'function varargout = parpool(varargin)\nerror(''TestParallelPoolFallback:NoSeat'', ''no licence seat'');\nend\n'));
+            TestParallelPoolFallback.writeFile(fullfile(stubs, 'gcp.m'), strjoin({ ...
+                'function pool = gcp(varargin)', 'pool = [];', 'end', ''}, newline));
+            TestParallelPoolFallback.writeFile(fullfile(stubs, 'parpool.m'), strjoin({ ...
+                'function varargout = parpool(varargin)', ...
+                'error(''TestParallelPoolFallback:NoSeat'', ''no licence seat'');', 'end', ''}, newline));
             addpath(stubs);
             root = fullfile(testCase.WorkDir, 'library');
             mkdir(root);

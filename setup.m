@@ -629,9 +629,9 @@ function [status, output] = run_git(arguments)
     %RUN_GIT runs git, retrying once without MATLAB's library path.
     %   MATLAB passes its own LD_LIBRARY_PATH to system(). A bundled library
     %   that is older than the one the system git needs makes git fail to
-    %   load (for example git-remote-https on Ubuntu 26.04, whose libcurl
-    %   needs a newer SSH library: "symbol lookup error"). Only such a loader
-    %   failure is retried, so a network failure does not clone twice.
+    %   load (for example git-remote-https on Ubuntu 26.04, whose curl
+    %   library needs a newer SSH library: "symbol lookup error"). Only such a
+    %   loader failure is retried, so a network failure does not clone twice.
     [status, output] = system(['git ', arguments]);
     loader_failure = 'symbol lookup error|error while loading shared libraries|version [`''][^`'']+[`''] not found';
     if status == 0 || ~isunix || ismac || isempty(getenv('LD_LIBRARY_PATH')) || ...
