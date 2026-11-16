@@ -8,8 +8,8 @@ machine-readable evaluation report, and the optional raw reference fact
 on `Problem` and `FeaturedProblem`. The offline reference catalog and Arena
 scorer remain future work. Explicit references define profile convergence;
 without one, the V1 empirical target remains unchanged.
-These are development features, not a published 2.0.0 release. The paper
-maintenance line receives applicable fixes, not these new features.
+These features were published in 2.0.0. The paper maintenance line receives
+applicable fixes, not these new features.
 
 ## Separate Problem Libraries from the Engine
 
@@ -236,5 +236,5 @@ and raw reference targets are implemented here. Release preparation adds
 installed-artifact and version-identity CI gates; their final exact-SHA
 acceptance remains required. Still future work: validation of the current report contract by
 Evolve as an external integration gate, and the offline reference/scoring
-pilot. A future 2.0.0 release need not wait for every research item. Do not
-publish or change the version as a side effect of this roadmap.
+pilot. Releases need not wait for every research item. Do not publish or
+change the version as a side effect of this roadmap.

@@ -43,9 +43,7 @@ def get_problem_library():
 This API-v1 protocol is introduced by OptiProfiler 2.0.0. Plugin metadata
 should declare `optiprofiler>=2.0.0` (or a later minimum version if it uses a
 newer protocol feature), so an ordinary `pip` installation resolves a
-compatible core. Until 2.0.0 is published on a package index, plugin CI should
-test against a checkout of the core rather than presenting 2.0.0 as
-available there.
+compatible core.
 
 The required `select(problem_options, library_options)` callable returns an
 ordered sequence of problem-name strings matching the common selection options
