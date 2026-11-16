@@ -18,24 +18,29 @@ classdef TestParallelFailureContract < matlab.unittest.TestCase
             cd(fullfile(fileparts(mfilename('fullpath')), '..', '..', 'src', 'private'));
 
             setappdata(0, 'OptiProfilerPoolFails', false);
-            text = evalc('success = setupPool(2, true);');
+            text = evalc('[success, reason] = setupPool(2, true);');
             testCase.verifyTrue(success);
+            testCase.verifyEmpty(reason);
             testCase.verifyEmpty(text);
             setappdata(0, 'OptiProfilerPoolFails', true);
-            text = evalc('success = setupPool(2, true);');
+            text = evalc('[success, reason] = setupPool(2, true);');
             testCase.verifyFalse(success);
+            testCase.verifyEqual(reason, 'parallel_pool_start_failed');
             testCase.verifyEmpty(text);
             text = evalc('success = setupPool(2, false);');
             testCase.verifyFalse(success);
-            testCase.verifySubstring(text, 'Failed to open a parallel pool with 2 workers.');
+            testCase.verifySubstring(text, '[WARNING] Failed to open a parallel pool with 2 workers; the problems are solved sequentially.');
 
             % Without the toolbox.
             rmpath(root);
             toolbox = fileparts(which('parpool'));
             if ~isempty(toolbox), rmpath(toolbox); end
-            text = evalc('success = setupPool(2, true);');
+            text = evalc('[success, reason] = setupPool(2, true);');
             testCase.verifyFalse(success);
+            testCase.verifyEqual(reason, 'parallel_computing_toolbox_unavailable');
             testCase.verifyEmpty(text);
+            text = evalc('success = setupPool(2, false);');
+            testCase.verifySubstring(text, '[WARNING] Parallel Computing Toolbox is not available; the problems are solved sequentially.');
         end
         function ordinaryFailureAndTaskCancellationKeepBorrowedPool(testCase)
             testCase.assumeTrue(logical(license('test','Distrib_Computing_Toolbox')));

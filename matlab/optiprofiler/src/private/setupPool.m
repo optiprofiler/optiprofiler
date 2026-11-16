@@ -6,7 +6,7 @@ function [success, reason] = setupPool(n_jobs, silent)
     % Check whether the Parallel Computing Toolbox is available.
     if exist('parpool', 'file') ~= 2
         if ~silent
-            printOptiProfilerMessage('INFO', 'Parallel Computing Toolbox is not available. We will not use parallel computing.');
+            printOptiProfilerMessage('WARNING', 'Parallel Computing Toolbox is not available; the problems are solved sequentially.');
             fprintf("\n");
         end
         success = false;
