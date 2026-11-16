@@ -1016,7 +1016,8 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
     %%%%%%%%%%%%%%%%%%%%%%%%% Create the directory to store the results. %%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    if profile_options.(ProfileOptionKey.SCORE_ONLY.value)
+    if profile_options.(ProfileOptionKey.SCORE_ONLY.value) || ...
+            strcmpi(profile_options.(ProfileOptionKey.DRAW_HIST_PLOTS.value), 'none')
         path_hist_plots = '';
     else
         path_hist_plots = fullfile(path_stamp, 'history_plots');
@@ -1193,7 +1194,8 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
             % not score_only was requested (same as Python).
             eval_report.setStage('persistence', 'not_applicable', 'single_problem_has_no_reload_archive');
         end
-        if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
+        % fullfile('', '*') would name the files of the current folder.
+        if ~isempty(path_hist_plots)
             % We move the history plots to the feature directory.
             try
                 movefile(fullfile(path_hist_plots, '*'), path_stamp);

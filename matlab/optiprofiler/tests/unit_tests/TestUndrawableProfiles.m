@@ -108,6 +108,19 @@ classdef TestUndrawableProfiles < matlab.unittest.TestCase
                 testCase.verifyTrue(isfile(fullfile(summary.folder, name{1})), name{1});
                 testCase.verifySubstring(readme, name{1});
             end
+            % Without history plots there is no history_plots folder to list.
+            testCase.verifyFalse(isfolder(fullfile(summary.folder, 'history_plots')));
+            testCase.verifyEmpty(strfind(readme, 'history_plots'));
+        end
+        function singleProblemWithoutHistoryPlotsLeavesTheCurrentFolder(testCase)
+            sentinel = fullfile(testCase.WorkDir, 'sentinel.txt');
+            TestUndrawableProfiles.writeFile(sentinel, 'stays here');
+            problem = Problem(struct('fun', @(x) sum(x.^2), 'x0', [2; 3], 'name', 'QUAD'));
+            options = struct('problem', problem, 'score_only', false, 'draw_hist_plots', 'none', 'silent', true, ...
+                'solver_verbose', 0, 'n_runs', 1, 'max_tol_order', 1, 'savepath', fullfile(testCase.WorkDir, 'out'));
+            benchmark({@TestUndrawableProfiles.toThreeTenths, @TestUndrawableProfiles.toAQuarter}, options);
+            testCase.verifyTrue(isfile(sentinel));
+            testCase.verifyEmpty(dir(fullfile(options.savepath, '**', 'history_plots')));
         end
     end
 end
