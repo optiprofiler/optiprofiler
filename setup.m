@@ -116,10 +116,11 @@ function setup(varargin)
             fprintf('S2MPJ not found. Cloning the repository...\n');
             
             % Clone S2MPJ from the OptiProfiler GitHub organization to s2mpj_dest_matlab
-            clone_cmd = sprintf('git clone "%s" "%s"', s2mpj_repo_url, s2mpj_dest_matlab);
-            fprintf('Executing: %s\n', clone_cmd);
+            clone_args = sprintf('clone "%s" "%s"', s2mpj_repo_url, s2mpj_dest_matlab);
+            fprintf('Executing: git %s\n', clone_args);
             
-            status = system(clone_cmd);
+            [status, output] = run_git(clone_args);
+            fprintf('%s', output);
             if status == 0
                 fprintf('S2MPJ cloned successfully.\n');
             else
@@ -233,6 +234,12 @@ function setup(varargin)
                 catch failure
                     failed_libraries(end + 1, :) = {'MatCUTEst', failure.message, 'matcutest', matcutest_dir};
                     fprintf('WARNING: MatCUTEst is not set up.\n');
+                    if strcmp(failure.identifier, 'setup:ProblemLibraryClone')
+                        fprintf('You can manually clone or download "matcutest" from:\n');
+                        fprintf('  https://github.com/%s\n', char(matcutest_spec.repository));
+                        fprintf('Then place it at the following location and run setup again:\n');
+                        fprintf('  %s\n', matcutest_dir);
+                    end
                 end
             else
                 fprintf('Skipping MatCUTEst setup.\n');
@@ -561,14 +568,14 @@ function verified = checkout_git_repository_commit_if_clean(repo_dir, repo_url, 
         return
     end
 
-    git_cmd = sprintf('git -C "%s" ', repo_dir);
-    [status, head_output] = system([git_cmd, 'rev-parse HEAD']);
+    git_cmd = sprintf('-C "%s" ', repo_dir);
+    [status, head_output] = run_git([git_cmd, 'rev-parse HEAD']);
     if status == 0 && strcmp(strtrim(head_output), commit_hash)
         fprintf('%s repository is already at pinned commit %s.\n', repo_name, commit_hash);
         return
     end
 
-    [status, status_output] = system([git_cmd, 'status --porcelain']);
+    [status, status_output] = run_git([git_cmd, 'status --porcelain']);
     if status ~= 0
         fprintf('WARNING: Could not inspect %s repository status. Using it as-is.\n', repo_name);
         verified = false;
@@ -582,12 +589,12 @@ function verified = checkout_git_repository_commit_if_clean(repo_dir, repo_url, 
 
     % Fetching without a refspec brings only what the default branch reaches,
     % so ask for the commit itself. A checkout that already has it stays offline.
-    [status, output] = system([git_cmd, 'cat-file -e "', commit_hash, '^{commit}"']);
+    [status, output] = run_git([git_cmd, 'cat-file -e "', commit_hash, '^{commit}"']);
     if status ~= 0
-        [status, output] = system([git_cmd, 'fetch "', repo_url, '" ', commit_hash]);
+        [status, output] = run_git([git_cmd, 'fetch "', repo_url, '" ', commit_hash]);
     end
     if status == 0
-        [status, output] = system([git_cmd, 'checkout --detach ', commit_hash]);
+        [status, output] = run_git([git_cmd, 'checkout --detach ', commit_hash]);
     end
     if status ~= 0
         error('setup:PinnedCommitUnavailable', ...
@@ -607,9 +614,35 @@ function clone_optional_problem_library(repo_url, repo_dir, library_root, repo_n
     %CLONE_OPTIONAL_PROBLEM_LIBRARY clones one optional library under its root.
 
     ensure_directory(library_root, 'optional problem-library root');
-    status = system(sprintf('git clone "%s" "%s"', repo_url, repo_dir));
+    [status, output] = run_git(sprintf('clone "%s" "%s"', repo_url, repo_dir));
+    fprintf('%s', output);
     if status ~= 0
         error('setup:ProblemLibraryClone', 'Failed to clone the %s repository from %s.', repo_name, repo_url);
+    end
+end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+function [status, output] = run_git(arguments)
+    %RUN_GIT runs git, retrying once without MATLAB's library path.
+    %   MATLAB passes its own LD_LIBRARY_PATH to system(). A bundled library
+    %   that is older than the one the system git needs makes git fail to
+    %   load (for example git-remote-https on Ubuntu 26.04, whose libcurl
+    %   needs a newer SSH library: "symbol lookup error"). Only such a loader
+    %   failure is retried, so a network failure does not clone twice.
+    [status, output] = system(['git ', arguments]);
+    loader_failure = 'symbol lookup error|error while loading shared libraries|version [`''][^`'']+[`''] not found';
+    if status == 0 || ~isunix || ismac || isempty(getenv('LD_LIBRARY_PATH')) || ...
+            isempty(regexp(output, loader_failure, 'once'))
+        return
+    end
+    [status, retry_output] = system(['/usr/bin/env -u LD_LIBRARY_PATH git ', arguments]);
+    if status == 0
+        output = retry_output;
+    else
+        output = sprintf('%s\nRetry without LD_LIBRARY_PATH: %s', strtrim(output), retry_output);
     end
 end
 
