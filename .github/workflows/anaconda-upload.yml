@@ -38,6 +38,8 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          # Other locales let [0-9] match non-ASCII digits.
+          LC_ALL: C
         run: |
           if [[ ! "$RUN_ID" =~ ^[0-9]+$ || ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo '::error::The run ID must be a number and the tag must look like v2.0.1.'

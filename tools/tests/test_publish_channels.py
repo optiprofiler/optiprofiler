@@ -24,7 +24,7 @@ class PublishChannelTests(unittest.TestCase):
                     if re.match(r'\s*anaconda\b', line)]
         self.assertEqual(len(commands), 1)
         self.assertNotIn('TOKEN', commands[0])
-        self.assertNotRegex(commands[0], r'\s(-t|--token)\s')
+        self.assertNotRegex(commands[0], r'\s(-t|--token)')
 
     def test_pypi_does_not_skip_an_existing_file(self):
         self.assertEqual(re.findall(r'skip-existing:\s*(\S+)', WORKFLOW.read_text(encoding='utf-8')), ['false'])

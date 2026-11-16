@@ -7,9 +7,13 @@ set -x
 # the client from PyPI. 1.13 needs the removed pkg_resources, and 1.16 turns on
 # telemetry that reports the first arguments of each command to Anaconda; it
 # is disabled here in any case.
+# The constraints pin every dependency too: the anaconda command itself comes
+# from anaconda-cli-base, and a new release of any of them would otherwise show
+# only here, after PyPI already holds the release.
 python -m venv venv
 source venv/bin/activate
-python -m pip install --progress-bar=off 'anaconda-client==1.15.0'
+python -m pip install --progress-bar=off --only-binary=:all: \
+  -c "$(dirname "$0")/anaconda-constraints.txt" 'anaconda-client==1.15.0'
 export ANACONDA_TELEMETRY_ENABLED=false
 # The client reads the token from ANACONDA_API_TOKEN rather than from -t, which
 # xtrace printed (and telemetry would report); export it without xtrace.
