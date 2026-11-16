@@ -211,7 +211,7 @@ classdef TestSetupProblemLibraryPins < matlab.unittest.TestCase
             pin = make_remote(state, 'solar_matlab', solar_files());
             lock_commits(state, struct('solar', pin));
             commands = stub_first_git_clone(testCase, state, ...
-                'git-remote-https: symbol lookup error: /usr/lib/libexample.so.4: undefined symbol: example_symbol');
+                'git-remote-https: symbol lookup error: /usr/lib/example.so.4: undefined symbol: example_symbol');
             run_setup(state, struct('install_solar', true));
             clones = cloned(commands);
             testCase.verifyNumElements(clones, 2);
