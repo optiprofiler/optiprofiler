@@ -34,6 +34,25 @@ def test_supported_scipy_keeps_cobyqa(monkeypatch):
     assert not skipped
 
 
+@pytest.mark.parametrize('handles_equalities', [
+    pytest.param(True, marks=pytest.mark.skipif(not solvers.COBYLA_HANDLES_EQUALITIES,
+                                                reason='this SciPy COBYLA rejects equality constraints')),
+    False,
+])
+def test_cobyla_evaluates_an_equality_constrained_problem_on_every_scipy(monkeypatch, handles_equalities):
+    monkeypatch.setattr(solvers, 'COBYLA_HANDLES_EQUALITIES', handles_equalities)
+    evaluations = []
+
+    def objective(x):
+        evaluations.append(x)
+        return float(x @ x)
+
+    x = solvers.scipy_cobyla(objective, np.array([2.0, 0.0]), aeq=np.array([[1.0, 1.0]]), beq=np.array([1.0]),
+                             ceq=lambda x: np.array([x[0] - x[1]]))
+    assert evaluations
+    np.testing.assert_allclose(x, [0.5, 0.5], atol=1e-3)
+
+
 @pytest.mark.parametrize('case', ['unknown_method', 'no_evaluations'])
 def test_preflight_rejects_solver_before_benchmark_can_swallow_failure(case):
     def broken(fun, x0):

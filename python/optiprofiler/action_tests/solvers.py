@@ -10,6 +10,20 @@ from scipy.optimize import minimize, Bounds, LinearConstraint, NonlinearConstrai
 from optiprofiler import benchmark
 
 
+# COBYLA accepts equality constraints from SciPy 1.16 on; earlier releases,
+# the only ones for Python 3.10, raise before the first evaluation.
+COBYLA_HANDLES_EQUALITIES = tuple(int(part) for part in scipy_version.split('.')[:2]) >= (1, 16)
+
+
+def add_cobyla_equality(constraints, fun):
+    """Add fun(x) == 0, as two inequalities where COBYLA lacks equalities."""
+    if COBYLA_HANDLES_EQUALITIES:
+        constraints.append({'type': 'eq', 'fun': fun})
+    else:
+        constraints.append({'type': 'ineq', 'fun': fun})
+        constraints.append({'type': 'ineq', 'fun': lambda x: -np.atleast_1d(fun(x))})
+
+
 def scipy_cobyla(fun, x0, xl=None, xu=None, aub=None, bub=None, aeq=None, beq=None, cub=None, ceq=None):
     """Solver using scipy.optimize.minimize with COBYLA method."""
     # Build constraints list for COBYLA
@@ -33,7 +47,7 @@ def scipy_cobyla(fun, x0, xl=None, xu=None, aub=None, bub=None, aeq=None, beq=No
     # Linear equality constraints: aeq @ x == beq
     if aeq is not None and beq is not None and len(beq) > 0:
         for i in range(len(beq)):
-            constraints.append({'type': 'eq', 'fun': lambda x, i=i: aeq[i] @ x - beq[i]})
+            add_cobyla_equality(constraints, lambda x, i=i: aeq[i] @ x - beq[i])
     
     # Nonlinear inequality constraints: cub(x) <= 0
     if cub is not None:
@@ -44,7 +58,7 @@ def scipy_cobyla(fun, x0, xl=None, xu=None, aub=None, bub=None, aeq=None, beq=No
     
     # Nonlinear equality constraints: ceq(x) == 0
     if ceq is not None:
-        constraints.append({'type': 'eq', 'fun': ceq})
+        add_cobyla_equality(constraints, ceq)
     
     result = minimize(fun, x0, method='COBYLA', constraints=constraints if constraints else ())
     return result.x
