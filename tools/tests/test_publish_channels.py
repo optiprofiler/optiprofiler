@@ -18,6 +18,14 @@ class PublishChannelTests(unittest.TestCase):
             self.assertNotIn(option, commands[0])
         self.assertIn(' upload ', commands[0])
 
+    def test_anaconda_token_is_not_an_argument(self):
+        # A traced command line would show the token, and its first arguments go to telemetry.
+        commands = [line for line in UPLOAD.read_text(encoding='utf-8').splitlines()
+                    if re.match(r'\s*anaconda\b', line)]
+        self.assertEqual(len(commands), 1)
+        self.assertNotIn('TOKEN', commands[0])
+        self.assertNotRegex(commands[0], r'\s(-t|--token)\s')
+
     def test_pypi_does_not_skip_an_existing_file(self):
         self.assertEqual(re.findall(r'skip-existing:\s*(\S+)', WORKFLOW.read_text(encoding='utf-8')), ['false'])
 
