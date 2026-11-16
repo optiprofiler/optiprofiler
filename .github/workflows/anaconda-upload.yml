@@ -1,0 +1,108 @@
+# Upload the files of an earlier release run to Anaconda, for a release that
+# reached PyPI but not Anaconda, when "Re-run failed jobs" cannot help because
+# the workflow of the tag can no longer upload (see RELEASING.md). The files are
+# the built ones of that run, checked against the tag and PyPI, never rebuilt.
+
+name: Anaconda upload
+
+run-name: Upload ${{ inputs.tag }} of run ${{ inputs.run-id }} to Anaconda
+
+on:
+  workflow_dispatch:
+    inputs:
+      run-id:
+        description: ID of the build.yml run of the tag, whose PyPI upload succeeded
+        required: true
+        type: string
+      tag:
+        description: Release tag, for example v2.0.1
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  upload_anaconda:
+    name: Upload to Anaconda
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Scripts read the inputs from the environment and never interpolate them.
+    env:
+      RUN_ID: ${{ inputs.run-id }}
+      TAG: ${{ inputs.tag }}
+
+    steps:
+      - name: Check the inputs and the release run
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ ! "$RUN_ID" =~ ^[0-9]+$ || ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo '::error::The run ID must be a number and the tag must look like v2.0.1.'
+            exit 1
+          fi
+          commit=$(gh api "repos/$GITHUB_REPOSITORY/commits/refs/tags/$TAG" --jq .sha)
+          run=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" \
+            --jq '"\(.repository.full_name) \(.path) \(.event) \(.head_branch) \(.head_sha) \(.status)"')
+          expected="$GITHUB_REPOSITORY .github/workflows/build.yml push $TAG $commit completed"
+          if [[ "$run" != "$expected" ]]; then
+            echo "::error::Run $RUN_ID is \"$run\", not \"$expected\"."
+            exit 1
+          fi
+          pypi=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100" \
+            --jq '[.jobs[] | select(.name == "Upload to PyPI") | .conclusion] | join(" ")')
+          if [[ "$pypi" != success ]]; then
+            echo "::error::The PyPI upload of run $RUN_ID did not succeed: \"$pypi\"."
+            exit 1
+          fi
+          echo "Run $RUN_ID of build.yml built $TAG ($commit) and uploaded it to PyPI."
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Checkout the tag
+        uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          path: tag
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Download the distributions of the run
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist
+          run-id: ${{ inputs.run-id }}
+          github-token: ${{ github.token }}
+
+      # The checker of the tag compares the files with the source of the tag,
+      # as build.yml did before it uploaded them to PyPI.
+      - name: Check the distributions against the tag
+        run: python tag/tools/check_release.py --dist-dir dist --tag "$TAG"
+
+      - name: Check the distributions against PyPI
+        run: |
+          python - <<'PY'
+          import hashlib, json, os, pathlib, urllib.request
+          version = os.environ['TAG'][1:]
+          url = f'https://pypi.org/pypi/optiprofiler/{version}/json'
+          with urllib.request.urlopen(url, timeout=60) as response:
+              published = {f['filename']: f['digests']['sha256'] for f in json.load(response)['urls']}
+          files = sorted(pathlib.Path('dist').glob('*.whl')) + sorted(pathlib.Path('dist').glob('*.tar.gz'))
+          uploads = {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in files}
+          if uploads != published:
+              raise SystemExit(f'The files differ from those of PyPI for {version}: {uploads} != {published}')
+          for name, digest in uploads.items():
+              print(f'{name} has the SHA-256 that PyPI publishes: {digest}')
+          PY
+
+      - name: Upload the distributions to Anaconda
+        run: bash .github/actions/build/upload_anaconda.sh
+        env:
+          ANACONDA_TOKEN: ${{ secrets.ANACONDA_TOKEN }}

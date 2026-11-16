@@ -40,7 +40,11 @@ An artifact that already exists on PyPI or Anaconda is an error, not a skipped
 or replaced upload, so one version cannot name different files on the two
 channels. If only one channel succeeded, use "Re-run failed jobs" on the same
 workflow run, which uploads the same built files; never rebuild them for the
-other channel. If a channel holds only some of the files of a version, upload the
+other channel. A re-run uses the workflow of the tag; if that can no longer
+upload to Anaconda (2.0.1 still needed conda, which the runners had dropped), run
+the `anaconda-upload.yml` workflow with the ID of that run and the tag. It checks
+the run and its files against the tag and PyPI, then uploads those files to
+Anaconda. If a channel holds only some of the files of a version, upload the
 remaining ones from that run's artifact, and do not delete or replace a published
 file to repair a re-run. Tag creation and uploading still require an explicit
 release decision.
