@@ -637,6 +637,7 @@ function [status, output] = run_git(arguments, varargin)
             isempty(regexp(output, loader_failure, 'once'))
         return
     end
+    fprintf('git could not load with the libraries of MATLAB; retrying without LD_LIBRARY_PATH.\n');
     [status, retry_output] = system(['/usr/bin/env -u LD_LIBRARY_PATH git ', arguments], varargin{:});
     if status == 0
         output = retry_output;

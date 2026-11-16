@@ -212,7 +212,8 @@ classdef TestSetupProblemLibraryPins < matlab.unittest.TestCase
             lock_commits(state, struct('solar', pin));
             commands = stub_first_git_clone(testCase, state, ...
                 'git-remote-https: symbol lookup error: /usr/lib/example.so.4: undefined symbol: example_symbol');
-            run_setup(state, struct('install_solar', true));
+            output = run_setup(state, struct('install_solar', true));
+            testCase.verifySubstring(output, 'retrying without LD_LIBRARY_PATH');
             clones = cloned(commands);
             testCase.verifyNumElements(clones, 2);
             testCase.verifyTrue(startsWith(clones{1}, 'git clone'));
@@ -229,6 +230,7 @@ classdef TestSetupProblemLibraryPins < matlab.unittest.TestCase
             commands = stub_first_git_clone(testCase, state, 'fatal: unable to access the repository: Could not resolve host');
             output = run_setup(state, struct('install_solar', true));
             testCase.verifyNumElements(cloned(commands), 1);
+            testCase.verifyFalse(contains(output, 'retrying without LD_LIBRARY_PATH'));
             verify_reported(testCase, output, 'SOLAR MATLAB adapter', 'Failed to clone');
             testCase.verifyFalse(is_registered(state, 'solar'));
         end
