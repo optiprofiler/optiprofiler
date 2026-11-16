@@ -11,7 +11,7 @@ on:
 
 jobs:
   run:
-    name: Generate coverage report for Python ${{ matrix.python-version }} on ${{ matrix.os }}
+    name: Generate coverage report for Python ${{ matrix.python-version }} on ${{ (matrix.os == 'ubuntu-latest' && (matrix.python-version == '3.8' || matrix.python-version == '3.9')) && 'ubuntu-24.04' || matrix.os }}
     # Ubuntu 26.04 (ubuntu-latest since 2026-11) provides no Python 3.8 or 3.9.
     runs-on: ${{ (matrix.os == 'ubuntu-latest' && (matrix.python-version == '3.8' || matrix.python-version == '3.9')) && 'ubuntu-24.04' || matrix.os }}
     timeout-minutes: 60
