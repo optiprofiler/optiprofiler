@@ -131,10 +131,10 @@ def run_tasks(function, args, n_jobs, initializer, initargs):
     except BaseException:
         try:
             owned.update((executor._processes or {}).values())
-            for future in futures:
-                future.cancel()
-            # shutdown(wait=True) alone waits for running tasks after cancellation.
-            # Terminate our workers first; never enumerate caller-owned children.
+            # Terminating the workers breaks the pool, and the manager then fails
+            # every pending future. Cancelling them first would make CPython 3.8
+            # to 3.11 raise InvalidStateError in the manager thread, which then
+            # dies with a traceback. Never enumerate caller-owned children.
             for process in owned:
                 if process.is_alive():
                     process.terminate()

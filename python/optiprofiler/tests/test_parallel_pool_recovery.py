@@ -80,3 +80,41 @@ def test_failure_propagates_and_the_process_exits(tmp_path, arguments):
     assert completed.returncode == 0, completed.stderr[-4000:]
     assert 'RAISED deliberate task failure' in completed.stdout, completed.stderr[-4000:]
     assert elapsed < watchdog
+
+
+# More tasks than the call queue holds are still pending when one fails.
+MANY_TASKS_CHILD = textwrap.dedent('''
+    import faulthandler
+    import sys
+    import time
+
+    sys.path.insert(0, sys.argv[1])
+    from optiprofiler import _parallel
+
+
+    def task(kind):
+        if kind == 'fail':
+            raise ValueError('deliberate task failure')
+        time.sleep(1)
+
+
+    if __name__ == '__main__':
+        faulthandler.dump_traceback_later(float(sys.argv[2]), exit=True)
+        try:
+            _parallel.run_tasks(task, [('fail',)] + [('wait',)] * 20, 2, None, ())
+        except ValueError as err:
+            print('RAISED', err, flush=True)
+        faulthandler.cancel_dump_traceback_later()
+''')
+
+
+def test_a_failure_with_many_pending_tasks_leaves_no_manager_traceback(tmp_path):
+    script = tmp_path / 'child.py'
+    script.write_text(MANY_TASKS_CHILD, encoding='utf-8')
+    watchdog = 30
+    completed = subprocess.run([sys.executable, '-I', str(script), str(PYTHON_ROOT), str(watchdog)],
+                               capture_output=True, text=True, timeout=3 * watchdog)
+    assert completed.returncode == 0, completed.stderr[-4000:]
+    assert 'RAISED deliberate task failure' in completed.stdout, completed.stderr[-4000:]
+    assert 'Exception in thread' not in completed.stderr, completed.stderr[-4000:]
+    assert 'InvalidStateError' not in completed.stderr, completed.stderr[-4000:]
