@@ -27,7 +27,6 @@ jobs:
       - name: Check out requested revision with submodules
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'schedule' && 'matlab' || github.ref }}
           submodules: recursive
 
       - name: Set up MATLAB with optimization toolbox and parallel computing toolbox
