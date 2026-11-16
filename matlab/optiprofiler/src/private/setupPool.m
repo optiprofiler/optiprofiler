@@ -1,6 +1,8 @@
-function success = setupPool(n_jobs, silent)
+function [success, reason] = setupPool(n_jobs, silent)
 %SETUPPOOL set up the parallel pool by the number of jobs.
+%   REASON names why no pool can be used ('' when SUCCESS is true).
 
+    reason = '';
     % Check whether the Parallel Computing Toolbox is available.
     if exist('parpool', 'file') ~= 2
         if ~silent
@@ -8,6 +10,7 @@ function success = setupPool(n_jobs, silent)
             fprintf("\n");
         end
         success = false;
+        reason = 'parallel_computing_toolbox_unavailable';
         return;
     end
 
@@ -50,9 +53,10 @@ function success = setupPool(n_jobs, silent)
     catch ME
         if ~silent
             fprintf('\n');
-            printOptiProfilerMessage('INFO', sprintf('Failed to open a parallel pool with %d workers.', n_jobs));
-            printOptiProfilerMessage('INFO', sprintf('Error message: %s', shortenMessageForLog(ME.message)));
+            printOptiProfilerMessage('WARNING', sprintf('Failed to open a parallel pool with %d workers; the problems are solved sequentially.', n_jobs));
+            printOptiProfilerMessage('WARNING', sprintf('Error message: %s', shortenMessageForLog(ME.message)));
         end
         success = false;
+        reason = 'parallel_pool_start_failed';
     end
 end

@@ -95,7 +95,17 @@ function results = solveAllProblems(solvers, library, feature, problem_options, 
     end
 
     % Determine whether to use sequential mode or parallel mode.
-    seqential_mode = (profile_options.(ProfileOptionKey.N_JOBS.value) == 1) || ~setupPool(profile_options.(ProfileOptionKey.N_JOBS.value), profile_options.(ProfileOptionKey.SILENT.value));
+    n_jobs = profile_options.(ProfileOptionKey.N_JOBS.value);
+    seqential_mode = n_jobs == 1;
+    if ~seqential_mode
+        [pool_ready, pool_reason] = setupPool(n_jobs, profile_options.(ProfileOptionKey.SILENT.value));
+        seqential_mode = ~pool_ready;
+        % The report states the requested n_jobs; record that this library ran sequentially.
+        if seqential_mode && ~isempty(eval_report)
+            eval_report.addDiagnostic('parallel_pool_unavailable', 'numerical', ...
+                struct('library', plib, 'requested_workers', n_jobs, 'reason', pool_reason));
+        end
+    end
 
     % The following code uses either a for-loop or a parfor-loop depending on the situation.
     % Although the code blocks look similar, this distinction is necessary. When n_jobs == 1 or the

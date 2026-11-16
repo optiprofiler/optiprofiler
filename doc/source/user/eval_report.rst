@@ -177,7 +177,10 @@ main report ``optiprofiler.eval_report/2`` (Python and MATLAB) and ``/1``
        ``profile_export_failed`` in both languages. MATLAB also records
        ``summary_pdf_not_owned`` when it leaves a ``summary.pdf`` that it does
        not own unchanged; see *MATLAB output robustness* in the MATLAB user
-       guide.
+       guide. It records the ``numerical`` diagnostic
+       ``parallel_pool_unavailable`` when ``n_jobs`` asks for workers but no
+       parallel pool can be used, so the library's problems were solved
+       sequentially.
    * - ``report_files``
      - The best-effort file-permission policy applied to the two JSON files
        and whether this platform applied it.
