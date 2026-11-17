@@ -39,7 +39,7 @@ from .scoring import (compute_merit_values, process_results, compute_scores,
                       reference_target)
 from .experiment import ABSENT, PLAIN_REFERENCE, PRIMARY, resolve_plan
 from .feature_definitions import reject_flat_stage_options
-from .provenance import archived_feature_name, effective_specification, feature_pipeline_text
+from .provenance import archived_feature_name, archived_feature_names, effective_specification, feature_pipeline_text
 from .benchmark_options import REFINED_SCHEMA
 from .plotting import draw_hist, set_profile_context, format_float_scientific_latex, draw_profiles, summary_legend_extra_width, format_profile_text
 from .plot_options import apply_plot_options
@@ -595,7 +595,8 @@ def _benchmark(
         current working directory joined with ``benchmark_id`` (up to five
         levels of subdirectories), not in ``savepath``. The summary title,
         the README and the log name the feature of the loaded experiment,
-        unless ``feature_name`` gives another name.
+        unless ``feature_name`` gives another name; a warning is printed when
+        that name differs from the saved feature.
         Load only archives from trusted sources: saved Python options may
         contain pickle objects, whose deserialization can execute code.
     max_eval_factor : int, optional
@@ -1203,6 +1204,13 @@ def _benchmark(
     feature_label = feature.name
     if is_load and feature_input is None:
         feature_label = archived_feature_name(results_plibs[0]) or feature_label
+    elif is_load and feature_input == 'feature_name':
+        archived_names = archived_feature_names(results_plibs[0])
+        if archived_names and not archived_names & {feature.name, feature.declared_name}:
+            print_log_message('WARNING', f'The feature_name "{feature.declared_name}" given to load differs from the '
+                              f'feature of the loaded experiment, "{archived_feature_name(results_plibs[0])}". The '
+                              f'summary title, the README and the log name "{feature.name}"; the results are those '
+                              'of the loaded experiment.')
 
     # Resolve the primary experiment plan once the solver metadata is known:
     # explicit ``n_runs``, else five runs with a randomized solver (not on

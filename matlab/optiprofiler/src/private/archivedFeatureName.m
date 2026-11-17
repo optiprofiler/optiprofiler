@@ -1,4 +1,4 @@
-function name = archivedFeatureName(result)
+function [name, vouched] = archivedFeatureName(result)
 %ARCHIVEDFEATURENAME returns the name of the feature of an archived library record, for display.
 %   It is the effective name recorded in the `feature_pipeline` entry (any known version). An
 %   archive without that entry (OptiProfiler 1.x) only has its `feature_stamp`: a generated stamp is
@@ -6,8 +6,13 @@ function name = archivedFeatureName(result)
 %   composition are joined with a double underscore), so the name is read from it. A stamp of
 %   another form (it can be set by the user) is returned as it is, since it is the only name the
 %   archive has. The name is empty when the record has neither.
+%
+%   `vouched` lists the feature names that the record vouches for, to compare a given name with:
+%   the effective and declared names of the `feature_pipeline` entry, otherwise the name read from
+%   a generated stamp. It is empty when the record has neither, or only a stamp of another form.
 
     name = '';
+    vouched = {};
     if isfield(result, 'feature_pipeline')
         payload = optiprofiler_internal.readFeatureProvenance(result.feature_pipeline);
         if isstruct(payload) && isscalar(payload)
@@ -18,6 +23,10 @@ function name = archivedFeatureName(result)
             end
             if isfield(block, 'effective_name') && isScalarText(block.effective_name) && strlength(block.effective_name) > 0
                 name = char(block.effective_name);
+                vouched = {name};
+                if isfield(block, 'declared_name') && isScalarText(block.declared_name) && strlength(block.declared_name) > 0
+                    vouched = unique([vouched, {char(block.declared_name)}], 'stable');
+                end
                 return;
             end
         end
@@ -35,6 +44,7 @@ function name = archivedFeatureName(result)
         end
     end
     name = strjoin(names, '+');
+    vouched = {name};
 end
 
 function name = stampedName(stamp)

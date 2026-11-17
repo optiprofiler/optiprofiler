@@ -165,10 +165,38 @@ def archived_feature_name(result):
         name = block.get('effective_name')
         if isinstance(name, str) and name:
             return name
-    stamp = result.get('feature_stamp')
-    if isinstance(stamp, bytes):
-        stamp = stamp.decode('utf-8', errors='replace')
-    if not isinstance(stamp, str) or not stamp:
+    stamp = _archived_stamp(result)
+    if not stamp:
         return None
     names = [stamped_name(part) for part in stamp.split('__')]
     return '+'.join(names) if all(names) else stamp
+
+
+def archived_feature_names(result):
+    """
+    The feature names that an archived library record vouches for: the
+    effective and declared names of its ``feature_pipeline`` entry, otherwise
+    the name read from a generated ``feature_stamp``. Empty when the record
+    has neither, or only a stamp of another form, so that nothing can be
+    compared with it.
+    """
+    payload, _ = read_feature_pipeline(result.get('feature_pipeline'))
+    if isinstance(payload, dict):
+        block = payload['feature'] if isinstance(payload.get('feature'), dict) else payload
+        names = {block.get(key) for key in ('effective_name', 'declared_name')}
+        names = {name for name in names if isinstance(name, str) and name}
+        if names:
+            return names
+    stamp = _archived_stamp(result)
+    if stamp:
+        names = [stamped_name(part) for part in stamp.split('__')]
+        if all(names):
+            return {'+'.join(names)}
+    return set()
+
+
+def _archived_stamp(result):
+    stamp = result.get('feature_stamp')
+    if isinstance(stamp, bytes):
+        stamp = stamp.decode('utf-8', errors='replace')
+    return stamp if isinstance(stamp, str) else None
