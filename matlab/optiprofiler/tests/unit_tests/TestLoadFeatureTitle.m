@@ -2,6 +2,10 @@ classdef TestLoadFeatureTitle < matlab.unittest.TestCase
 %TESTLOADFEATURETITLE A load names the archived feature in the summary title, the README and the log.
 %   The saved experiments are synthesized (see TestLoadReplot.makeExperiment), so no solver runs.
 
+    properties (Constant)
+        Mismatch = 'given to load differs from the feature of the loaded experiment'
+    end
+
     properties (Access = private)
         CurrentDirectory
         WorkDir
@@ -55,9 +59,9 @@ classdef TestLoadFeatureTitle < matlab.unittest.TestCase
             save(file, 'results_plibs');
         end
 
-        function [names, scores, experiment] = namedFeatures(benchmark_id, varargin)
+        function [names, scores, experiment, printed] = namedFeatures(benchmark_id, varargin)
             % Load the latest experiment under benchmark_id into a new folder and return the feature
-            % that the summary title, the README and the log of the load name.
+            % that the summary title, the README and the log of the load name, and what it printed.
             options = struct('load', 'latest', 'benchmark_id', benchmark_id, 'max_tol_order', 1, ...
                 'draw_hist_plots', 'none', 'savepath', tempname(pwd));
             for i = 1:2:numel(varargin)
@@ -132,13 +136,37 @@ classdef TestLoadFeatureTitle < matlab.unittest.TestCase
             [~, scores] = TestLoadFeatureTitle.namedFeatures('bench');
             labels = {'noisy+truncated', 'plain'};
             for i = 1:numel(labels)
-                [named, labelled_scores, experiment] = TestLoadFeatureTitle.namedFeatures('bench', 'feature_name', labels{i});
+                [named, labelled_scores, experiment, printed] = TestLoadFeatureTitle.namedFeatures('bench', 'feature_name', labels{i});
                 testCase.verifyEqual(named, repmat(labels(i), 1, 3));
+                testCase.verifySubstring(regexprep(printed, '\s+', ' '), ...
+                    sprintf('The feature_name "%s" %s, "linearly_transformed".', labels{i}, TestLoadFeatureTitle.Mismatch));
                 % The label changes neither the results nor the source, nor the stamp of the new folder.
                 testCase.verifyEqual(labelled_scores, scores);
                 testCase.verifySubstring(experiment, '_u_2_3_linearly_transformed_rotated_');
             end
             testCase.verifyEqual(TestReferencePoints.bytes(fullfile(archive.folder, archive.name)), bytes);
+        end
+
+        function featureNameGivenOnLoadIsComparedWithTheArchive(testCase)
+            % {stamp, Feature of the pipeline or [] for an archive of OptiProfiler 1.x, label, warned}
+            cases = {'linearly_transformed_rotated', Feature('linearly_transformed'), 'linearly_transformed', false; ...
+                'my_label', Feature('plain+quantized'), 'plain+quantized', false; ...
+                'my_label', Feature('plain+quantized'), 'quantized', false; ...
+                'my_label', Feature('plain+quantized'), 'noisy', true; ...
+                'noisy_0.001_mixed_gaussian', [], 'noisy', false; ...
+                'noisy_0.001_mixed_gaussian', [], 'plain', true; ...
+                'my_noise', [], 'plain', false};
+            for i = 1:size(cases, 1)
+                benchmark_id = sprintf('compare%d', i);
+                if isempty(cases{i, 2})
+                    TestLoadFeatureTitle.archive(benchmark_id, cases{i, 1});
+                else
+                    TestLoadFeatureTitle.archive(benchmark_id, cases{i, 1}, cases{i, 2});
+                end
+                [~, ~, ~, printed] = TestLoadFeatureTitle.namedFeatures(benchmark_id, 'feature_name', cases{i, 3});
+                testCase.verifyEqual(contains(regexprep(printed, '\s+', ' '), TestLoadFeatureTitle.Mismatch), cases{i, 4}, ...
+                    sprintf('label %s on stamp %s', cases{i, 3}, cases{i, 1}));
+            end
         end
 
         function loadOutputKeepsTheArchivedName(testCase)
@@ -196,6 +224,22 @@ classdef TestLoadFeatureTitle < matlab.unittest.TestCase
             testCase.verifyEmpty(testCase.NameOf(struct()));
             testCase.verifyEmpty(testCase.NameOf(struct('feature_stamp', '')));
             testCase.verifyEmpty(testCase.NameOf(struct('feature_stamp', 3)));
+        end
+
+        function namesThatAnArchiveVouchesFor(testCase)
+            name_of = testCase.NameOf;
+            record = struct('feature_stamp', 'my_label', 'feature_pipeline', optiprofiler_internal.EvalReport.encodeMetadata( ...
+                optiprofiler_internal.featureProvenance(Feature('plain+quantized'), [], struct())));
+            [~, vouched] = name_of(record);
+            testCase.verifyEqual(sort(vouched), {'plain+quantized', 'quantized'});
+            [~, vouched] = name_of(struct('feature_stamp', 'linearly_transformed_rotated__noisy_0.01_mixed_gaussian'));
+            testCase.verifyEqual(vouched, {'linearly_transformed+noisy'});
+            nothing = {struct(), struct('feature_stamp', ''), struct('feature_stamp', 'my_label'), ...
+                struct('feature_stamp', 'my_label', 'feature_pipeline', '{not json')};
+            for i = 1:numel(nothing)
+                [~, vouched] = name_of(nothing{i});
+                testCase.verifyEmpty(vouched);
+            end
         end
 
     end

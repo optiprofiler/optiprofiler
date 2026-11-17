@@ -143,7 +143,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         searched for in the current working directory joined with
 %         benchmark_id (up to five levels of subdirectories), not in savepath.
 %         The summary title, the README and the log name the feature of the
-%         loaded experiment, unless feature_name gives another name.
+%         loaded experiment, unless feature_name gives another name; a warning
+%         is issued when that name differs from the saved feature.
 %       - max_eval_factor: the factor multiplied to each problem's dimension to
 %         get the maximum number of evaluations for each problem. Default is
 %         500.
@@ -902,11 +903,13 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
         end
         % `feature_name` is what the summary title, the README and the log name. A load
         % without `feature_name` names the archived feature, not the default of this call.
+        [archived_name, archived_names] = archivedFeatureName(results_plibs{1});
         if ~(exist('options_user', 'var') && isfield(options_user, 'feature_name'))
-            archived_name = archivedFeatureName(results_plibs{1});
             if ~isempty(archived_name)
                 feature_name = archived_name;
             end
+        elseif ~isempty(archived_names) && ~any(ismember({char(feature.name), char(feature.declared_name)}, archived_names))
+            warning("MATLAB:benchmark:feature_nameDiffersFromLoaded", 'The feature_name "%s" given to load differs from the feature of the loaded experiment, "%s". The summary title, the README and the log name "%s"; the results are those of the loaded experiment.', feature_name, archived_name, feature_name);
         end
     end
 

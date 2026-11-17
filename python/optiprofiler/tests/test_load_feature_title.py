@@ -102,18 +102,48 @@ def test_load_without_feature_name_names_the_archived_feature(tmp_path, monkeypa
     np.testing.assert_array_equal(same_scores, scores)
 
 
+MISMATCH = 'given to load differs from the feature of the loaded experiment'
+
+
 @pytest.mark.parametrize('label', ['noisy', 'plain', 'noisy+truncated'])
-def test_feature_name_given_to_a_load_stays_its_label(tmp_path, monkeypatch, library, label):
+def test_feature_name_given_to_a_load_stays_its_label(tmp_path, monkeypatch, capsys, library, label):
     saved = run(tmp_path, library, feature_name='linearly_transformed', rotated=True, condition_factor=0)
     archive = (saved / 'test_log' / 'data_for_loading.h5').read_bytes()
     monkeypatch.setattr('optiprofiler.profiles._solve_all_problems', no_solver)
     _, scores = load(tmp_path, monkeypatch, 'unnamed', silent=True)
+    capsys.readouterr()
     loaded, labelled_scores = load(tmp_path, monkeypatch, 'loaded', feature_name=label)
     assert named_features(loaded) == (label, label, label)
+    printed = ' '.join(capsys.readouterr().out.split())
+    assert f'The feature_name "{label}" {MISMATCH}, "linearly_transformed".' in printed
     # The label changes neither the results nor the source, nor the stamp of the new folder.
     np.testing.assert_array_equal(labelled_scores, scores)
     assert (saved / 'test_log' / 'data_for_loading.h5').read_bytes() == archive
     assert '_linearly_transformed_rotated_' in loaded.name
+
+
+@pytest.mark.parametrize('feature, label, pipeline, warned', [
+    (dict(feature_name='linearly_transformed', rotated=True), 'linearly_transformed', True, False),
+    (dict(feature_name='linearly_transformed+noisy'), 'linearly_transformed+noisy', True, False),
+    # The declared and the effective name both match.
+    (dict(feature_name='plain+quantized'), 'plain+quantized', True, False),
+    (dict(feature_name='plain+quantized'), 'quantized', True, False),
+    (dict(feature_name='plain+quantized'), 'noisy', True, True),
+    # An archive of OptiProfiler 1.x is compared through its stamp.
+    (dict(feature_name='noisy'), 'noisy', False, False),
+    (dict(feature_name='noisy'), 'plain', False, True),
+    # A stamp set by the user names no feature to compare with.
+    (dict(feature_name='noisy', feature_stamp='my_noise'), 'plain', False, False),
+])
+def test_feature_name_given_to_a_load_is_compared_with_the_archive(tmp_path, monkeypatch, capsys, library, feature,
+                                                                   label, pipeline, warned):
+    saved = run(tmp_path, library, **feature)
+    if not pipeline:
+        drop_feature_pipeline(saved)
+    capsys.readouterr()
+    loaded, _ = load(tmp_path, monkeypatch, 'loaded', feature_name=label, silent=True)
+    assert (MISMATCH in ' '.join(capsys.readouterr().out.split())) == warned
+    assert named_features(loaded)[0] == Feature(label).name
 
 
 @pytest.mark.parametrize('feature, name', [
@@ -195,3 +225,13 @@ def test_feature_pipeline_names_the_feature_before_the_stamp():
     assert provenance.archived_feature_name({}) is None
     assert provenance.archived_feature_name({'feature_stamp': ''}) is None
     assert provenance.archived_feature_name({'feature_stamp': b'noisy_0.001_mixed_gaussian'}) == 'noisy'
+
+
+def test_names_that_an_archive_vouches_for():
+    record = {'feature_stamp': 'my_label', 'feature_pipeline': provenance.feature_pipeline_text(Feature('plain+quantized'), None)}
+    assert provenance.archived_feature_names(record) == {'quantized', 'plain+quantized'}
+    assert provenance.archived_feature_names({'feature_stamp': 'linearly_transformed_rotated__noisy_0.01_mixed_gaussian'}) == \
+        {'linearly_transformed+noisy'}
+    assert provenance.archived_feature_names({'feature_stamp': b'noisy_0.001_mixed_gaussian'}) == {'noisy'}
+    for nothing in ({}, {'feature_stamp': ''}, {'feature_stamp': 'my_label'}, {'feature_stamp': 'my_label', 'feature_pipeline': '{not json'}):
+        assert provenance.archived_feature_names(nothing) == set()
