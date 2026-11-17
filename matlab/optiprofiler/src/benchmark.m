@@ -142,6 +142,8 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %         collision suffix such as '_001'. No default. The experiment is
 %         searched for in the current working directory joined with
 %         benchmark_id (up to five levels of subdirectories), not in savepath.
+%         The summary title, the README and the log name the feature of the
+%         loaded experiment, unless feature_name gives another name.
 %       - max_eval_factor: the factor multiplied to each problem's dimension to
 %         get the maximum number of evaluations for each problem. Default is
 %         500.
@@ -898,6 +900,14 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
             warning("MATLAB:benchmark:summarize_log_ratio_profilesOnlyWhenTwoSolvers", "The log-ratio profiles are available only when there are exactly two solvers. We will not generate the log-ratio profiles.");
             profile_options.(ProfileOptionKey.SUMMARIZE_LOG_RATIO_PROFILES.value) = false;
         end
+        % `feature_name` is what the summary title, the README and the log name. A load
+        % without `feature_name` names the archived feature, not the default of this call.
+        if ~(exist('options_user', 'var') && isfield(options_user, 'feature_name'))
+            archived_name = archivedFeatureName(results_plibs{1});
+            if ~isempty(archived_name)
+                feature_name = archived_name;
+            end
+        end
     end
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1605,7 +1615,7 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
             summary_height = multiplier * n_rows * default_height;
             fig_summary = figure('Units', 'pixels', 'Position', profileFigurePosition(summary_width, summary_height), 'visible', 'off');
             T_summary = tiledlayout(fig_summary, multiplier, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
-            T_feature = escapeLatexText(feature.name);
+            T_feature = escapeLatexText(feature_name);
             T_title = ['Profiles with ', latexQuoteText(T_feature), ' feature'];
             summary_fontsize = min(summary_width / 75 * 2, summary_width / profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * 3 / 75 * 2);
             title_obj = title(T_summary, T_title, 'Interpreter', 'latex', 'FontSize', summary_fontsize);
@@ -2283,7 +2293,7 @@ function [solver_scores, profile_scores, curves] = benchmarkImpl(eval_report, va
 
     if ~profile_options.(ProfileOptionKey.SILENT.value)
         fprintf('\n');
-        printOptiProfilerMessage('INFO', sprintf('Finished creating profiles with the "%s" feature.', feature.name));
+        printOptiProfilerMessage('INFO', sprintf('Finished creating profiles with the "%s" feature.', feature_name));
         if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
             fprintf('\n**********************************************************************\n');
             if isfile(fullfile(path_stamp, 'summary.html'))
