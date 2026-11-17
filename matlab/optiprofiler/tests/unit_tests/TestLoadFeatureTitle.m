@@ -69,7 +69,7 @@ classdef TestLoadFeatureTitle < matlab.unittest.TestCase
             titles = arrayfun(@(layout) char(layout.Title.String), layouts, 'UniformOutput', false);
             titles = titles(startsWith(titles, 'Profiles with '));
             assert(isscalar(titles), 'Expected one summary title.');
-            in_title = regexp(strrep(titles{1}, '\', ''), '^Profiles with ``(.*)'''' feature$', 'tokens', 'once');
+            in_title = regexp(strrep(titles{1}, '\', ''), '^Profiles with the ``(.*)" feature$', 'tokens', 'once');
 
             % The README is a table; a long file name wraps below the first column, beside the description.
             pdf = dir(fullfile(options.savepath, '**', 'summary_*.pdf'));
