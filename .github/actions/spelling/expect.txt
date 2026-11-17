@@ -27,6 +27,7 @@ finfo
 flatnonzero
 fontsize
 footbibliography
+fread
 getoption
 hessp
 horizontalalignment
@@ -75,6 +76,7 @@ SOURCEDIR
 SPHINXBUILD
 sphinxcontrib
 SPHINXOPTS
+strfind
 suptitle
 supylabel
 swapaxes
