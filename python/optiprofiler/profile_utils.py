@@ -930,6 +930,28 @@ def _get_default_feature_stamp(feature):
     return feature_stamp
 
 
+def _get_feature_name_from_stamp(feature_stamp):
+    """
+    Get the name of the feature that a saved feature stamp names, for display.
+    A default stamp (see `_get_default_feature_stamp`) is the feature name, followed by an underscore
+    and option values for the features that have options in their stamps. OptiProfiler 2 joins the
+    stamps of composed features with a double underscore; their names are joined with '+', as there.
+    A stamp of another form (it can be set by the user) is returned as it is, since it is the only
+    name that a saved experiment has.
+    """
+    with_options = (FeatureName.PERTURBED_X0, FeatureName.NOISY, FeatureName.TRUNCATED, FeatureName.LINEARLY_TRANSFORMED,
+                    FeatureName.RANDOM_NAN, FeatureName.UNRELAXABLE_CONSTRAINTS, FeatureName.QUANTIZED)
+    names = []
+    for stamp in feature_stamp.split('__'):
+        for name in FeatureName:
+            if stamp == name.value or (name in with_options and stamp.startswith(f'{name.value}_')):
+                names.append(name.value)
+                break
+        else:
+            return feature_stamp
+    return '+'.join(names)
+
+
 def _default_merit(fun_value, maxcv_value, maxcv_init):
     """
     The merit function varphi(x) is defined by the objective function f(x) and the maximum constraint violation v(x):

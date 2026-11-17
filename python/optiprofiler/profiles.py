@@ -32,7 +32,7 @@ from .opclasses import Feature, Problem, FeaturedProblem
 from .utils import DEFAULT_LOG_LINE_WIDTH, FeatureName, ProfileOption, FeatureOption, ProblemOption, get_logger, print_log_message, setup_main_process_logging, setup_worker_logging, shorten_log_message, format_log_prefix
 from .loader import load_results, save_results_to_h5, save_options
 from .profile_utils import check_validity_problem_options, check_validity_profile_options, check_post_load_profile_options, get_default_problem_options, get_default_profile_options, compute_merit_values, create_stamp, merge_pdfs_with_pypdf, write_report, process_results, init_readme, add_to_readme, compute_scores, _custom_problem_library_dir
-from .profile_utils import _mask_invalid_merits
+from .profile_utils import _mask_invalid_merits, _get_feature_name_from_stamp
 from .plotting import draw_hist, set_profile_context, format_float_scientific_latex, draw_profiles, summary_legend_extra_width, latex_escape_text, format_profile_text
 
 
@@ -420,7 +420,9 @@ def _benchmark(
         in the format of 'yyyyMMdd_HHmmss', optionally followed by a collision
         suffix such as '_001'. No default. Note that if solvers is None,
         this key must be provided to load data from a previous experiment
-        and generate profiles.
+        and generate profiles. The summary title and the log name the
+        feature of the loaded experiment, unless ``feature_name`` gives
+        another name.
         Load only archives from trusted sources: saved Python options may
         contain pickle objects, whose deserialization can execute code.
     max_eval_factor : int, optional
@@ -887,6 +889,12 @@ def _benchmark(
     # Build feature.
     feature = Feature(feature_name, **feature_options)
     feature_options = feature.options
+
+    # The feature that the summary title and the log name. A load without
+    # `feature_name` names the archived feature, not the default of this call.
+    feature_label = feature.name
+    if is_load and 'feature_name' not in options_user and isinstance(results_plibs[0].get('feature_stamp'), str):
+        feature_label = _get_feature_name_from_stamp(results_plibs[0]['feature_stamp']) or feature_label
     
     # Set default values for the unspecified options.
     problem_options = get_default_problem_options(problem_options)
@@ -1759,7 +1767,7 @@ def _benchmark(
             fig_summary_hist.supylabel('History-based profiles', fontsize='xx-large', horizontalalignment='right')
             if fig_summary_out is not None:
                 fig_summary_out.supylabel('Output-based profiles', fontsize='xx-large', horizontalalignment='right')
-            fig_summary.suptitle(_format_feature_title(feature.name, profile_context), fontsize='xx-large', verticalalignment='bottom')
+            fig_summary.suptitle(_format_feature_title(feature_label, profile_context), fontsize='xx-large', verticalalignment='bottom')
             path_summary = path_stamp / f'summary_{stamp}.pdf'
             fig_summary.savefig(path_summary, bbox_inches='tight')
 
@@ -1827,7 +1835,7 @@ def _benchmark(
     # Print summary of saved files.
     if not profile_options[ProfileOption.SILENT]:
         logger.info('')
-        logger.info(f'Finished creating profiles with the "{feature.name}" feature.')
+        logger.info(f'Finished creating profiles with the "{feature_label}" feature.')
         if is_saving:
             logger.info('')
             logger.info('=' * 70)
