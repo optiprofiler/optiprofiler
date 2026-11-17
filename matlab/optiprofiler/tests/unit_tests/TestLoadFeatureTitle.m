@@ -125,7 +125,7 @@ classdef TestLoadFeatureTitle < matlab.unittest.TestCase
             end
         end
 
-        function featureNameGivenToALoadStaysItsLabel(testCase)
+        function featureNameGivenOnLoadStaysItsLabel(testCase)
             TestLoadFeatureTitle.archive('bench', 'linearly_transformed_rotated', Feature('linearly_transformed'));
             archive = dir(fullfile(pwd, 'bench', '**', 'data_for_loading.mat'));
             bytes = TestReferencePoints.bytes(fullfile(archive.folder, archive.name));
@@ -141,7 +141,7 @@ classdef TestLoadFeatureTitle < matlab.unittest.TestCase
             testCase.verifyEqual(TestReferencePoints.bytes(fullfile(archive.folder, archive.name)), bytes);
         end
 
-        function outputOfALoadKeepsTheArchivedName(testCase)
+        function loadOutputKeepsTheArchivedName(testCase)
             % The output of a load is an archive of the same experiment.
             TestLoadFeatureTitle.archive('bench', 'my_label', Feature('linearly_transformed+noisy'));
             [~, scores] = TestLoadFeatureTitle.namedFeatures('bench', 'savepath', fullfile(pwd, 'first'));
@@ -150,7 +150,7 @@ classdef TestLoadFeatureTitle < matlab.unittest.TestCase
             testCase.verifyEqual(same_scores, scores);
         end
 
-        function nameOfAGeneratedStamp(testCase)
+        function nameOfGeneratedStamps(testCase)
             % Stamps generated for every feature by both languages, and compositions.
             cases = {'plain', 'plain'; 'permuted', 'permuted'; 'custom', 'custom'; ...
                 'nonquantifiable_constraints', 'nonquantifiable_constraints'; ...
