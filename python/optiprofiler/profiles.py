@@ -39,7 +39,7 @@ from .scoring import (compute_merit_values, process_results, compute_scores,
                       reference_target)
 from .experiment import ABSENT, PLAIN_REFERENCE, PRIMARY, resolve_plan
 from .feature_definitions import reject_flat_stage_options
-from .provenance import effective_specification, feature_pipeline_text
+from .provenance import archived_feature_name, effective_specification, feature_pipeline_text
 from .benchmark_options import REFINED_SCHEMA
 from .plotting import draw_hist, set_profile_context, format_float_scientific_latex, draw_profiles, summary_legend_extra_width, format_profile_text
 from .plot_options import apply_plot_options
@@ -593,7 +593,9 @@ def _benchmark(
         this key must be provided to load data from a previous experiment
         and generate profiles. The experiment is searched for in the
         current working directory joined with ``benchmark_id`` (up to five
-        levels of subdirectories), not in ``savepath``.
+        levels of subdirectories), not in ``savepath``. The summary title,
+        the README and the log name the feature of the loaded experiment,
+        unless ``feature_name`` gives another name.
         Load only archives from trusted sources: saved Python options may
         contain pickle objects, whose deserialization can execute code.
     max_eval_factor : int, optional
@@ -1195,6 +1197,12 @@ def _benchmark(
         # path). The count below is the final effective one, i.e. after the
         # 'solvers_to_load' selection has been applied by `load_results`.
         profile_options = check_post_load_profile_options(results_plibs[0]['fun_histories'].shape[1], profile_options)
+
+    # The feature that the summary title, the README and the log name. A load
+    # without `feature_name` names the archived feature, not this call's default.
+    feature_label = feature.name
+    if is_load and feature_input is None:
+        feature_label = archived_feature_name(results_plibs[0]) or feature_label
 
     # Resolve the primary experiment plan once the solver metadata is known:
     # explicit ``n_runs``, else five runs with a randomized solver (not on
@@ -1805,7 +1813,7 @@ def _benchmark(
                                      path_report, path_readme_log)
 
     solver_scores, profile_scores, curves = _build_profiles(
-        results_plibs, profile_options, profile_context, solver_names, feature,
+        results_plibs, profile_options, profile_context, solver_names, feature_label,
         report, logger, path_stamp, path_readme_log, stamp, curves,
     )
 
@@ -1841,7 +1849,7 @@ def _solver_score_vector(value, n_solvers):
 
 
 def _build_profiles(
-    results_plibs, profile_options, profile_context, solver_names, feature,
+    results_plibs, profile_options, profile_context, solver_names, feature_name,
     report, logger, path_stamp, path_readme_log, stamp, curves,
 ):
     """Score collected results and render their profile artifacts."""
@@ -2308,12 +2316,12 @@ def _build_profiles(
             fig_summary_hist.supylabel('History-based profiles', fontsize='xx-large', horizontalalignment='right').set_gid('optiprofiler-ylabel')
             if fig_summary_out is not None:
                 fig_summary_out.supylabel('Output-based profiles', fontsize='xx-large', horizontalalignment='right').set_gid('optiprofiler-ylabel')
-            fig_summary.suptitle(_format_feature_title(feature.name, profile_context), fontsize='xx-large', verticalalignment='bottom').set_gid('optiprofiler-title')
+            fig_summary.suptitle(_format_feature_title(feature_name, profile_context), fontsize='xx-large', verticalalignment='bottom').set_gid('optiprofiler-title')
             apply_plot_options(fig_summary, profile_options.get(ProfileOption.PLOT_OPTIONS, {}))
             path_summary = path_stamp / f'summary_{stamp}.pdf'
             _report_export(report, fig_summary.savefig, path_summary, bbox_inches='tight')
         try:
-            add_to_readme(path_readme_feature, path_summary.name, f"File, the summary PDF of all the profiles for the feature '{feature.name}'.")
+            add_to_readme(path_readme_feature, path_summary.name, f"File, the summary PDF of all the profiles for the feature '{feature_name}'.")
         except Exception:
             pass
 
@@ -2389,7 +2397,7 @@ def _build_profiles(
     # Print summary of saved files.
     if not profile_options[ProfileOption.SILENT]:
         logger.info('')
-        logger.info(f'Finished creating profiles with the "{feature.name}" feature.')
+        logger.info(f'Finished creating profiles with the "{feature_name}" feature.')
         if is_saving:
             logger.info('')
             logger.info('=' * 70)

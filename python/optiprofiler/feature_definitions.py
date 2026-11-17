@@ -434,6 +434,18 @@ def stamp(name, options):
     return definition.stamp(name, options)
 
 
+def stamped_name(text):
+    """
+    The stage kind that ``text`` is a generated stamp of, or ``None``. A stamp
+    is the name of its kind; kinds with stamped options append an underscore
+    and the option values (in 1.x and 2.x, in Python and MATLAB).
+    """
+    for name, definition in _STAGE_DEFINITIONS.items():
+        if text == name or (definition.stamp is not _stamp_name and text.startswith(name + '_')):
+            return name
+    return None
+
+
 def own_value(value):
     """
     Defensive copy of an option value at ingress: exact built-in containers

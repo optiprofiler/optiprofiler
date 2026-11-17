@@ -13,7 +13,7 @@ reader with their own schema; nothing is rewritten and unknown facts stay unknow
 
 import json
 
-from .feature_definitions import SEED_POLICY_COMPOSED, SEED_POLICY_SINGLE
+from .feature_definitions import SEED_POLICY_COMPOSED, SEED_POLICY_SINGLE, stamped_name
 from .metadata import safe_metadata
 
 FEATURE_PIPELINE_SCHEMA = 'feature_pipeline-v3'
@@ -143,3 +143,32 @@ def read_feature_pipeline(value):
         payload = value
     schema = payload.get('schema') if isinstance(payload, dict) else None
     return payload, schema
+
+
+def archived_feature_name(result):
+    """
+    The name of the feature of an archived library record, for display.
+
+    It is the effective name recorded in the ``feature_pipeline`` entry (any
+    known version). An archive without that entry (OptiProfiler 1.x) only has
+    its ``feature_stamp``: a generated stamp is the feature name followed by
+    option values (``linearly_transformed_rotated``; the stages of a
+    composition are joined with a double underscore), so the name is read from
+    it. A stamp of another form (it can be set by the user) is returned as it
+    is, since it is the only name the archive has. Returns ``None`` when the
+    record has neither.
+    """
+    payload, _ = read_feature_pipeline(result.get('feature_pipeline'))
+    if isinstance(payload, dict):
+        # The feature block of the current schema; the first schema was flat.
+        block = payload['feature'] if isinstance(payload.get('feature'), dict) else payload
+        name = block.get('effective_name')
+        if isinstance(name, str) and name:
+            return name
+    stamp = result.get('feature_stamp')
+    if isinstance(stamp, bytes):
+        stamp = stamp.decode('utf-8', errors='replace')
+    if not isinstance(stamp, str) or not stamp:
+        return None
+    names = [stamped_name(part) for part in stamp.split('__')]
+    return '+'.join(names) if all(names) else stamp
