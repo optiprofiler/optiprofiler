@@ -56,6 +56,7 @@ newaxis
 NLocator
 numpydoc
 objname
+openfig
 Opti
 Optim
 papersize
