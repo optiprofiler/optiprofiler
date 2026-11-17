@@ -118,7 +118,9 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 %       - load: loading the stored data from a completed experiment and draw
 %         profiles. It can be either 'latest' or a time stamp of an experiment
 %         in the format of 'yyyyMMdd_HHmmss', optionally followed by a
-%         collision suffix such as '_001'. No default.
+%         collision suffix such as '_001'. No default. The summary title, the
+%         README and the log name the feature of the loaded experiment, unless
+%         feature_name gives another name.
 %       - max_eval_factor: the factor multiplied to each problem's dimension to
 %         get the maximum number of evaluations for each problem. Default is
 %         500.
@@ -683,6 +685,16 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
     feature = Feature(feature_name, feature_options);
     feature_options = feature.options;
 
+    % `feature_label` is what the summary title, the README and the log name. A load without
+    % `feature_name` names the archived feature, not the default of this call.
+    feature_label = feature.name;
+    if is_load && ~(exist('options_user', 'var') && isfield(options_user, 'feature_name'))
+        archived_name = archivedFeatureName(results_plibs{1});
+        if ~isempty(archived_name)
+            feature_label = archived_name;
+        end
+    end
+
     % Set default values for the unspecified options.
     problem_options = getDefaultProblemOptions(problem_options);
     profile_options = getDefaultProfileOptions(solvers, feature, profile_options);
@@ -1243,7 +1255,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
             summary_height = multiplier * n_rows * default_height;
             fig_summary = figure('Units', 'pixels', 'Position', profileFigurePosition(summary_width, summary_height), 'visible', 'off');
             T_summary = tiledlayout(fig_summary, multiplier, 1, 'Padding', 'compact', 'TileSpacing', 'compact');
-            T_feature = escapeLatexText(feature.name);
+            T_feature = escapeLatexText(feature_label);
             T_title = ['Profiles with ', latexQuoteText(T_feature), ' feature'];
             summary_fontsize = min(summary_width / 75 * 2, summary_width / profile_options.(ProfileOptionKey.MAX_TOL_ORDER.value) * 3 / 75 * 2);
             title_obj = title(T_summary, T_title, 'Interpreter', 'latex', 'FontSize', summary_fontsize);
@@ -1816,7 +1828,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 
         try
             if isfile(fullfile(path_stamp, [summary_name, '.pdf']))
-                addToReadme(path_readme_feature, summary_name, sprintf('File, the summary PDF of all the profiles for the feature ''%s''.', feature_name));
+                addToReadme(path_readme_feature, summary_name, sprintf('File, the summary PDF of all the profiles for the feature ''%s''.', feature_label));
             end
         catch
         end
@@ -1880,7 +1892,7 @@ function [solver_scores, profile_scores, curves] = benchmark(varargin)
 
     if ~profile_options.(ProfileOptionKey.SILENT.value)
         fprintf('\n');
-        printOptiProfilerMessage('INFO', sprintf('Finished creating profiles with the "%s" feature.', feature.name));
+        printOptiProfilerMessage('INFO', sprintf('Finished creating profiles with the "%s" feature.', feature_label));
         if ~profile_options.(ProfileOptionKey.SCORE_ONLY.value)
             fprintf('\n**********************************************************************\n');
             if isfile(fullfile(path_stamp, 'summary.html'))
