@@ -105,7 +105,7 @@ classdef TestLoadFeatureTitle < matlab.unittest.TestCase
             end
         end
 
-        function featureNameGivenToALoadStaysItsLabel(testCase)
+        function featureNameGivenOnLoadStaysItsLabel(testCase)
             TestLoadFeatureTitle.archive('bench', 'linearly_transformed_rotated');
             archive = dir(fullfile(pwd, 'bench', '**', 'data_for_loading.mat'));
             bytes = readBytes(fullfile(archive.folder, archive.name));
@@ -121,7 +121,7 @@ classdef TestLoadFeatureTitle < matlab.unittest.TestCase
             testCase.verifyEqual(readBytes(fullfile(archive.folder, archive.name)), bytes);
         end
 
-        function outputOfALoadKeepsTheArchivedName(testCase)
+        function loadOutputKeepsTheArchivedName(testCase)
             % The output of a load is an archive of the same experiment.
             TestLoadFeatureTitle.archive('bench', 'linearly_transformed_rotated');
             [~, scores] = TestLoadFeatureTitle.namedFeatures('bench', 'savepath', fullfile(pwd, 'first'));
@@ -130,7 +130,7 @@ classdef TestLoadFeatureTitle < matlab.unittest.TestCase
             testCase.verifyEqual(same_scores, scores);
         end
 
-        function nameOfAGeneratedStamp(testCase)
+        function nameOfGeneratedStamps(testCase)
             % Stamps generated for every feature by both languages, and a composition of OptiProfiler 2.
             cases = {'plain', 'plain'; 'permuted', 'permuted'; 'custom', 'custom'; ...
                 'nonquantifiable_constraints', 'nonquantifiable_constraints'; ...
